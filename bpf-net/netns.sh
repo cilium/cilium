@@ -3,6 +3,8 @@
 ip netns del ns1 2> /dev/null
 ip netns del ns2 2> /dev/null
 
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
 ip netns add ns1
 ip netns add ns2
 
@@ -23,6 +25,9 @@ ip netns exec ns2 ip link add vxlan2 type vxlan external dev veth2 dstport 0
 ip netns exec ns1 ip link set dev vxlan1 up
 ip netns exec ns2 ip link set dev vxlan2 up
 
+ip netns exec ns1 ip addr add 10.0.2.1/32 dev vxlan1
+ip netns exec ns2 ip addr add 10.0.2.2/32 dev vxlan2
+
 ip netns exec ns1 ip link add dummy1 type dummy
 ip netns exec ns2 ip link add dummy2 type dummy
 
@@ -32,14 +37,19 @@ ip netns exec ns2 ip link set dev dummy2 up
 ip netns exec ns1 ip addr add 10.0.1.1/24 dev dummy1
 ip netns exec ns2 ip addr add 10.0.1.2/24 dev dummy2
 
-ip netns exec ns1 ip route add default via 10.0.1.1
-ip netns exec ns2 ip route add default via 10.0.1.2
+ip netns exec ns1 ip route add default via 10.0.0.1
+ip netns exec ns2 ip route add default via 10.0.0.2
 
 NS1_DU=`ip netns exec ns1 cat /sys/class/net/dummy1/ifindex`
+NS1_DP=`ip netns exec ns1 cat /sys/class/net/dummy1/address`
 NS1_VX=`ip netns exec ns1 cat /sys/class/net/vxlan1/ifindex`
 
 NS2_DU=`ip netns exec ns2 cat /sys/class/net/dummy2/ifindex`
+NS2_DP=`ip netns exec ns2 cat /sys/class/net/dummy2/address`
 NS2_VX=`ip netns exec ns2 cat /sys/class/net/vxlan2/ifindex`
+
+ip netns exec ns1 ip neigh add 10.0.1.2 dev dummy1 lladdr $NS2_DP
+ip netns exec ns2 ip neigh add 10.0.1.1 dev dummy2 lladdr $NS1_DP
 
 cat <<EOF > /tmp/bpf.c
 #include "bpf_api.h"
@@ -70,7 +80,7 @@ int cls_entry_vx1e(struct __sk_buff *skb)
 //		return TC_ACT_OK;
 
 	key.tunnel_id = 42;
-	key.remote_ipv4 = 0x0a000102; //10.0.1.2
+	key.remote_ipv4 = 0x0a000202; //10.0.2.2
 
 	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 //	trace_printk(fmt, sizeof(fmt), key.tunnel_id, key.remote_ipv4);
@@ -102,7 +112,7 @@ int cls_entry_vx2e(struct __sk_buff *skb)
 //		return TC_ACT_OK;
 
 	key.tunnel_id = 42;
-	key.remote_ipv4 = 0x0a000101; //10.0.1.1
+	key.remote_ipv4 = 0x0a000201; //10.0.2.1
 
 	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 //	trace_printk(fmt, sizeof(fmt), key.tunnel_id, key.remote_ipv4);
