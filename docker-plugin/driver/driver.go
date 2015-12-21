@@ -16,7 +16,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 
-	. "github.com/cilium-team/cilium-net/common"
+	. "github.com/noironetworks/cilium-net/common"
 )
 
 const (
