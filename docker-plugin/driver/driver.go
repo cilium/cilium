@@ -84,12 +84,12 @@ func (driver *driver) Listen(socket string) error {
 	router := mux.NewRouter()
 	router.NotFoundHandler = http.HandlerFunc(notFound)
 
-	router.Methods("POST").Path("/Plugin.Activate").HandlerFunc(driver.handshake)
-	router.Methods("POST").Path("/NetworkDriver.GetCapabilities").HandlerFunc(driver.capabilities)
-
 	handleMethod := func(method string, h http.HandlerFunc) {
 		router.Methods("POST").Path(fmt.Sprintf("/%s", method)).HandlerFunc(h)
 	}
+
+	handleMethod("Plugin.Activate", driver.handshake)
+	handleMethod("NetworkDriver.GetCapabilities", driver.capabilities)
 	handleMethod("NetworkDriver.CreateNetwork", driver.createNetwork)
 	handleMethod("NetworkDriver.DeleteNetwork", driver.deleteNetwork)
 	handleMethod("NetworkDriver.CreateEndpoint", driver.createEndpoint)
@@ -97,6 +97,7 @@ func (driver *driver) Listen(socket string) error {
 	handleMethod("NetworkDriver.EndpointOperInfo", driver.infoEndpoint)
 	handleMethod("NetworkDriver.Join", driver.joinEndpoint)
 	handleMethod("NetworkDriver.Leave", driver.leaveEndpoint)
+	handleMethod("IpamDriver.GetCapabilities", driver.ipamCapabilities)
 	handleMethod("IpamDriver.GetDefaultAddressSpaces", driver.getDefaultAddressSpaces)
 	handleMethod("IpamDriver.RequestPool", driver.requestPool)
 	handleMethod("IpamDriver.ReleasePool", driver.releasePool)
@@ -167,7 +168,7 @@ func (driver *driver) capabilities(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "encode error", http.StatusInternalServerError)
 		return
 	}
-	log.Debug("Capabilities exchange complete")
+	log.Debug("NetworkDriver capabilities exchange complete")
 }
 
 func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {

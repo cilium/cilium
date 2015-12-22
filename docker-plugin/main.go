@@ -2,8 +2,8 @@ package main
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/cilium-team/cilium-net/docker-plugin/driver"
 	"github.com/codegangsta/cli"
+	"github.com/noironetworks/cilium-net/docker-plugin/driver"
 	"os"
 )
 
