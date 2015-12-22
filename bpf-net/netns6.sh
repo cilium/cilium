@@ -3,6 +3,7 @@
 ip netns del ns1 2> /dev/null
 ip netns del ns2 2> /dev/null
 
+echo 1 > /proc/sys/net/core/bpf_jit_enable
 echo 1 > /proc/sys/net/ipv4/ip_forward
 echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
