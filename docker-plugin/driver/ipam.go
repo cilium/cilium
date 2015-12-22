@@ -11,6 +11,18 @@ import (
 	. "github.com/noironetworks/cilium-net/common"
 )
 
+func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
+	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{
+		SupportsAutoIPv6: true,
+	})
+	if err != nil {
+		log.Fatalf("capabilities encode: %s", err)
+		sendError(w, "encode error", http.StatusInternalServerError)
+		return
+	}
+	log.Debug("IPAM capabilities exchange complete")
+}
+
 func (driver *driver) getDefaultAddressSpaces(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("GetDefaultAddressSpaces Called")
 
