@@ -55,10 +55,9 @@ ip netns exec ns1 ip -6 neigh add 2607::1:0:2 dev dummy1 lladdr $NS2_DP
 ip netns exec ns2 ip -6 neigh add 2607::1:0:1 dev dummy2 lladdr $NS1_DP
 
 cat <<EOF > /tmp/bpf.c
-#include "bpf_api.h"
-
-#include <stdint.h>
+#include <iproute2/bpf_api.h>
 #include <sys/socket.h>
+#include <stdint.h>
 
 #define TX_XMIT	0
 #define TX_FRWD	1
@@ -128,7 +127,7 @@ int cls_entry_vx2e(struct __sk_buff *skb)
 BPF_LICENSE("GPL");
 EOF
 
-clang -O2 -emit-llvm -I./include/ -c /tmp/bpf.c -o - | llc -march=bpf -filetype=obj -o /tmp/bpf.o
+clang -O2 -emit-llvm -c /tmp/bpf.c -o - | llc -march=bpf -filetype=obj -o /tmp/bpf.o
 
 # Still need this prio bandaid as we don't have prequeue yet, can become a bottleneck due to locking
 ip netns exec ns1 tc qdisc add dev dummy1 root handle eeee: prio bands 3
