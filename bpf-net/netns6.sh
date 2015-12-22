@@ -4,8 +4,6 @@ ip netns del ns1 2> /dev/null
 ip netns del ns2 2> /dev/null
 
 echo 1 > /proc/sys/net/core/bpf_jit_enable
-echo 1 > /proc/sys/net/ipv4/ip_forward
-echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
 ip netns add ns1
 ip netns add ns2
@@ -58,6 +56,7 @@ ip netns exec ns2 ip -6 neigh add 2607::1:0:1 dev dummy2 lladdr $NS1_DP
 
 cat <<EOF > /tmp/bpf.c
 #include "bpf_api.h"
+
 #include <stdint.h>
 #include <sys/socket.h>
 
@@ -68,11 +67,10 @@ __section("vxlan1-ingress")
 int cls_entry_vx1i(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
-//	char fmt[] = "vx1i %u - %x\n";
 
 	skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-//	skb->tc_index = 1;
-//	trace_printk(fmt, sizeof(fmt), key.tunnel_id, key.remote_ipv4);
+	if (key.tunnel_id != 42)
+		return TC_ACT_SHOT;
 
 	return redirect($NS1_DU, TX_FRWD);
 }
@@ -82,10 +80,6 @@ int cls_entry_vx1e(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
 	uint8_t *addr = (uint8_t *)key.remote_ipv6;
-//	char fmt[] = "du1e %u - %x\n";
-
-//	if (skb->tc_index)
-//		return TC_ACT_OK;
 
 	key.tunnel_id = 42;
 	key.tunnel_af = AF_INET6; // -> 2607::2:0:2
@@ -95,7 +89,6 @@ int cls_entry_vx1e(struct __sk_buff *skb)
 	addr[15] = 2;
 
 	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
-//	trace_printk(fmt, sizeof(fmt), key.tunnel_id, key.remote_ipv4);
 
 	clone_redirect(skb, $NS1_VX, TX_XMIT);
 	return TC_ACT_STOLEN;
@@ -105,11 +98,10 @@ __section("vxlan2-ingress")
 int cls_entry_vx2i(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
-//	char fmt[] = "vx2i %u - %x\n";
 
 	skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-//	skb->tc_index = 1;
-//	trace_printk(fmt, sizeof(fmt), key.tunnel_id, key.remote_ipv4);
+	if (key.tunnel_id != 42)
+		return TC_ACT_SHOT;
 
 	return redirect($NS2_DU, TX_FRWD);
 }
@@ -119,10 +111,6 @@ int cls_entry_vx2e(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
 	uint8_t *addr = (uint8_t *)key.remote_ipv6;
-//	char fmt[] = "du2e %u - %x\n";
-
-//	if (skb->tc_index)
-//		return TC_ACT_OK;
 
 	key.tunnel_id = 42;
 	key.tunnel_af = AF_INET6; // -> 2607::2:0:1
@@ -132,7 +120,6 @@ int cls_entry_vx2e(struct __sk_buff *skb)
 	addr[15] = 1;
 
 	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
-//	trace_printk(fmt, sizeof(fmt), key.tunnel_id, key.remote_ipv4);
 
 	clone_redirect(skb, $NS2_VX, TX_XMIT);
 	return TC_ACT_STOLEN;
