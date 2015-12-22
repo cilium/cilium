@@ -13,6 +13,9 @@ ip link add veth1 type veth peer name veth2
 ip link set veth1 netns ns1
 ip link set veth2 netns ns2
 
+ip netns exec ns1 ip link set dev lo up
+ip netns exec ns2 ip link set dev lo up
+
 ip netns exec ns1 ip link set dev veth1 up
 ip netns exec ns2 ip link set dev veth2 up
 
