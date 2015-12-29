@@ -13,3 +13,16 @@ build-vmware: clean validate
 clean:
 	rm -Rf output-*
 	rm -Rf *.box
+
+uninstall:
+	vagrant destroy
+	vagrant box remove ubuntu64
+	rm /var/lib/libvirt/images/*
+	service libvirt-bin restart
+	rm Vagrantfile
+
+install:
+	vagrant box add ubuntu64 ubuntu-1404-libvirt.box
+	vagrant init ubuntu64
+	cp Vagrantfile.sample  Vagrantfile
+	vagrant up --provider=libvirt
