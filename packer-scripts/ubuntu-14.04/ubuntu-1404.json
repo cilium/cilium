@@ -1,7 +1,7 @@
 {
   "variables": {
-    "cpu_cores": "2",
-    "memory": "2048",
+    "cpu_cores": "8",
+    "memory": "8192",
     "disk_size": "5000",
     "headless": "true",
     "iso_url": "http://releases.ubuntu.com/14.04.3/ubuntu-14.04.3-server-amd64.iso",
@@ -18,7 +18,9 @@
   "format": "qcow2",
   "disk_interface": "virtio",
   "accelerator": "kvm",
-  "qemuargs": [["-machine", "type=pc,accel=kvm"],
+  "qemuargs": [["-m", "{{user `memory`}}M"],
+               ["-smp", "{{user `cpu_cores`}}"],
+               ["-machine", "type=pc,accel=kvm"],
                ["-device", "virtio-net-pci,netdev=user.0"]],
   "disk_size": "{{user `disk_size`}}",
   "iso_url": "{{user `iso_url`}}",
