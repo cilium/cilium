@@ -2,7 +2,7 @@
   "variables": {
     "cpu_cores": "8",
     "memory": "8192",
-    "disk_size": "5000",
+    "disk_size": "20000",
     "headless": "true",
     "iso_url": "http://releases.ubuntu.com/14.04.3/ubuntu-14.04.3-server-amd64.iso",
     "iso_checksum": "a3b345908a826e262f4ea1afeb357fd09ec0558cf34e6c9112cead4bb55ccdfb",
