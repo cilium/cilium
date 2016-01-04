@@ -1,7 +1,7 @@
 {
   "variables": {
-    "cpu_cores": "8",
-    "memory": "8192",
+    "cpu_cores": "1",
+    "memory": "2048",
     "disk_size": "10000",
     "headless": "true",
     "iso_url": "http://releases.ubuntu.com/14.04.3/ubuntu-14.04.3-server-amd64.iso",
@@ -106,6 +106,16 @@
       "compression_level": 9,
       "keep_input_artifact": true,
       "output": "ubuntu-1404-{{.BuildName}}.box"
+  },
+  {
+      "type": "atlas",
+      "artifact": "noironetworks/net-next",
+      "artifact_type": "vagrant.box",
+      "metadata": {
+          "provider": "virtualbox",
+	  "version": "0.0.1",
+	  "description": "Snapshot of net-next kernel"
+      }
   }
  ]
 }
