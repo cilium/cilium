@@ -31,10 +31,23 @@ rm /boot/*
 make modules_install
 make install
 
-# cleanup
-apt-get -y remove git build-essential bc
-apt-get -y autoremove
-apt-get clean
-
 # delete kernel sources
 rm -Rf $HOME/net-next
+
+# iproute2 installation
+apt-get -y install pkg-config bison flex
+cd $HOME
+git clone git://git.breakpoint.cc/dborkman/iproute2.git
+cd iproute2/
+git checkout ebpf-madhu
+./configure
+make -j `getconf _NPROCESSORS_ONLN`
+make install
+
+# delete iproute2 sources
+rm -Rf $HOME/iproute2
+
+# cleanup
+apt-get -y remove git build-essential bc pkg-config bison flex
+apt-get -y autoremove
+apt-get clean
