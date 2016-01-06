@@ -28,6 +28,6 @@ upload:
 	packer push -name noironetworks/cilium-net-next ubuntu-1404-atlas.json
 
 install:
-	vagrant box add cilium-net-next ubuntu-1404-libvirt.box
+	vagrant box add --force cilium-net-next ubuntu-1404-libvirt.box
 	cp Vagrantfile.sample  Vagrantfile
 	vagrant up --provider=libvirt
