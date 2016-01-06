@@ -10,6 +10,7 @@ for pkg in *.deb; do
 done
 
 usermod -aG docker vagrant
+echo 'DOCKER_OPTS="--storage-driver=overlay"' >> /etc/default/docker
 
 cd ..
 rm -rf $HOME/install
