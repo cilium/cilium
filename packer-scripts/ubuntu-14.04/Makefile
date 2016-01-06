@@ -25,7 +25,7 @@ uninstall:
 	rm Vagrantfile
 
 upload:
-	export ATLAS_TOKEN="rB6HJ5MGZhGvIg.atlasv1.arYmlnIXHVaKFJrcYlBO6q4gWrRqKgf3yt8eonuW92jlDy59kzou8ayR5ohKqmpy6cI"
+	export ATLAS_TOKEN="TaYfAGybFnRBcQ.atlasv1.VBoRms3WdhuyrzOiLSVXoJ23J65R4EIjBbcjCJyCeqm2V8pwWzLBr641agFzj5CpYXk"
 	packer push -name noironetworks/cilium-net-next ubuntu-1404-atlas.json
 
 install:

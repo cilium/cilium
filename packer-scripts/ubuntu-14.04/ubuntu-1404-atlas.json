@@ -58,6 +58,7 @@
     "iso_url": "{{user `iso_url`}}",
     "iso_checksum": "{{user `iso_checksum`}}",
     "iso_checksum_type": "{{user `iso_checksum_type`}}",
+    "skip_compaction": true,
     "ssh_username": "{{user `ssh_username`}}",
     "ssh_password": "{{user `ssh_password`}}",
     "ssh_wait_timeout": "60m",
@@ -101,7 +102,7 @@
   }
  ],
   "post-processors": [
-  {
+  [{
       "type": "vagrant",
       "compression_level": 9,
       "keep_input_artifact": true,
@@ -109,13 +110,25 @@
   },
   {
       "type": "atlas",
+      "only": ["libvirt"],
       "artifact": "noironetworks/net-next",
       "artifact_type": "vagrant.box",
       "metadata": {
-          "provider": "virtualbox",
+          "provider": "libvirt",
 	  "version": "0.0.1",
 	  "description": "Snapshot of net-next kernel"
       }
-  }
+  },
+  {
+      "type": "atlas",
+      "only": ["vmware"],
+      "artifact": "noironetworks/net-next",
+      "artifact_type": "vagrant.box",
+      "metadata": {
+          "provider": "vmware_desktop",
+	  "version": "0.0.1",
+	  "description": "Snapshot of net-next kernel"
+      }
+  }]
  ]
 }
