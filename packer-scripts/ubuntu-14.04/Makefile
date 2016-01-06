@@ -6,6 +6,7 @@ validate:
 
 build-libvirt: clean validate
 	packer build -only=libvirt ubuntu-1404.json
+	./optimize_libvirt_box.sh
 
 build-vmware: clean validate
 	packer build -only=vmware ubuntu-1404.json
