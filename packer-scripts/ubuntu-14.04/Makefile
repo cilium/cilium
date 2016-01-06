@@ -18,7 +18,7 @@ clean:
 
 uninstall:
 	vagrant destroy
-	vagrant box remove ubuntu64
+	vagrant box remove cilium-net-next
 	rm /var/lib/libvirt/images/*
 	service libvirt-bin restart
 	rm Vagrantfile
