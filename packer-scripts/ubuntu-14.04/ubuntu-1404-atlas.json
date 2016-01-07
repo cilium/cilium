@@ -62,6 +62,11 @@
     "script": "scripts/net-next.sh"
   },
   {
+    "execute_command": "echo 'vagrant' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+    "type": "shell",
+    "script": "scripts/go.sh"
+  },
+  {
     "execute_command": "echo 'vagrant' | {{ .Vars }} sudo -E -S bash '{{ .Path }}'",
     "type": "shell",
     "script": "scripts/cleanup.sh"
@@ -81,7 +86,7 @@
       "artifact_type": "vagrant.box",
       "metadata": {
           "provider": "libvirt",
-	  "version": "0.0.2",
+	  "version": "0.0.3",
 	  "description": "Snapshot of net-next kernel"
       }
   }]
