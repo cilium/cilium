@@ -4,7 +4,6 @@ apt-get update
 apt-get -y install git
 
 apt-get -y install vim
-apt-get -y install golang
 
 cd $HOME
 git clone git://git.breakpoint.cc/dborkman/net-next.git
