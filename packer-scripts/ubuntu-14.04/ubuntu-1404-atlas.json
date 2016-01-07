@@ -43,40 +43,6 @@
             "initrd=/install/initrd.gz -- <enter>"
         ],  
   "shutdown_command": "echo 'vagrant' | sudo -S shutdown -P now"
-  },
-  {
-    "name": "vmware",
-    "vm_name": "ubuntu-1404-vmware",
-    "type": "vmware-iso",
-    "vmx_data": {
-      "cpuid.coresPerSocket": "1",
-      "numvcpus": "{{user `cpu_cores`}}",
-      "memsize": "{{user `memory`}}"
-    },
-    "disk_size": "{{user `disk_size`}}",
-    "headless": "{{user `headless`}}",
-    "iso_url": "{{user `iso_url`}}",
-    "iso_checksum": "{{user `iso_checksum`}}",
-    "iso_checksum_type": "{{user `iso_checksum_type`}}",
-    "skip_compaction": true,
-    "ssh_username": "{{user `ssh_username`}}",
-    "ssh_password": "{{user `ssh_password`}}",
-    "ssh_wait_timeout": "60m",
-    "tools_upload_flavor": "linux",
-    "http_directory": "preseed",
-    "boot_command": [
-      "<esc><esc><enter><wait>",
-      "/install/vmlinuz noapic ",
-      "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed_vmware.cfg ",
-      "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
-      "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
-      "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
-      "hostname={{ .Name }} ",
-      "fb=false debconf/frontend=noninteractive ",
-      "initrd=/install/initrd.gz -- <enter>"
-    ],
-    "boot_wait": "15s",
-    "shutdown_command": "echo 'vagrant' | sudo -S shutdown -P now"
   }
  ],
   "provisioners": [
@@ -115,18 +81,7 @@
       "artifact_type": "vagrant.box",
       "metadata": {
           "provider": "libvirt",
-	  "version": "0.0.1",
-	  "description": "Snapshot of net-next kernel"
-      }
-  },
-  {
-      "type": "atlas",
-      "only": ["vmware"],
-      "artifact": "noironetworks/net-next",
-      "artifact_type": "vagrant.box",
-      "metadata": {
-          "provider": "vmware_desktop",
-	  "version": "0.0.1",
+	  "version": "0.0.2",
 	  "description": "Snapshot of net-next kernel"
       }
   }]
