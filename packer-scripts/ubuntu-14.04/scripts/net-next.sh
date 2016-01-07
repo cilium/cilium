@@ -53,6 +53,6 @@ make install
 rm -Rf $HOME/iproute2
 
 # cleanup
-apt-get -y remove git build-essential bc pkg-config bison flex
+apt-get -y remove build-essential bc pkg-config bison flex
 apt-get -y autoremove
 apt-get clean
