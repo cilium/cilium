@@ -30,6 +30,7 @@ rm /boot/*
 
 make modules_install
 make install
+make headers_install
 
 # delete kernel sources
 rm -Rf $HOME/net-next
