@@ -1,9 +1,9 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
 	. "github.com/noironetworks/cilium-net/common"
+	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/codegangsta/cli"
 	"github.com/noironetworks/cilium-net/docker-plugin/driver"
 	"os"
 )
