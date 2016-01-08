@@ -1,0 +1,88 @@
+From c24b290c8fe549cd5be941445f918e83c8efa966 Mon Sep 17 00:00:00 2001
+Message-Id: <c24b290c8fe549cd5be941445f918e83c8efa966.1438345088.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 31 Jul 2015 13:48:03 +0200
+Subject: [PATCH] Support for IFLA_VXLAN_GBP flag
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ link.go          |  1 +
+ link_linux.go    |  6 ++++++
+ link_test.go     |  3 +++
+ nl/link_linux.go | 10 +++++++++-
+ 4 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/link.go b/link.go
+index af51e3f..30167cd 100644
+--- a/link.go
++++ b/link.go
+@@ -157,6 +157,7 @@ type Vxlan struct {
+ 	L2miss       bool
+ 	L3miss       bool
+ 	NoAge        bool
++	GBP          bool
+ 	Age          int
+ 	Limit        int
+ 	Port         int
+diff --git a/link_linux.go b/link_linux.go
+index 2b800d1..cd95007 100644
+--- a/link_linux.go
++++ b/link_linux.go
+@@ -266,6 +266,10 @@ func addVxlanAttrs(vxlan *Vxlan, linkInfo *nl.RtAttr) {
+ 	nl.NewRtAttrChild(data, nl.IFLA_VXLAN_L2MISS, boolAttr(vxlan.L2miss))
+ 	nl.NewRtAttrChild(data, nl.IFLA_VXLAN_L3MISS, boolAttr(vxlan.L3miss))
+ 
++	if vxlan.GBP {
++		nl.NewRtAttrChild(data, nl.IFLA_VXLAN_GBP, boolAttr(vxlan.GBP))
++	}
++
+ 	if vxlan.NoAge {
+ 		nl.NewRtAttrChild(data, nl.IFLA_VXLAN_AGEING, nl.Uint32Attr(0))
+ 	} else if vxlan.Age > 0 {
+@@ -683,6 +687,8 @@ func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
+ 			vxlan.L2miss = int8(datum.Value[0]) != 0
+ 		case nl.IFLA_VXLAN_L3MISS:
+ 			vxlan.L3miss = int8(datum.Value[0]) != 0
++		case nl.IFLA_VXLAN_GBP:
++			vxlan.GBP = int8(datum.Value[0]) != 0
+ 		case nl.IFLA_VXLAN_AGEING:
+ 			vxlan.Age = int(native.Uint32(datum.Value[0:4]))
+ 			vxlan.NoAge = vxlan.Age == 0
+diff --git a/link_test.go b/link_test.go
+index 2edfcbe..9e44f0d 100644
+--- a/link_test.go
++++ b/link_test.go
+@@ -150,6 +150,9 @@ func compareVxlan(t *testing.T, expected, actual *Vxlan) {
+ 	if actual.L3miss != expected.L3miss {
+ 		t.Fatal("Vxlan.L3miss doesn't match")
+ 	}
++	if actual.GBP != expected.GBP {
++		t.Fatal("Vxlan.GBP doesn't match")
++	}
+ 	if expected.NoAge {
+ 		if !actual.NoAge {
+ 			t.Fatal("Vxlan.NoAge doesn't match")
+diff --git a/nl/link_linux.go b/nl/link_linux.go
+index 64ef5fd..1f9ab08 100644
+--- a/nl/link_linux.go
++++ b/nl/link_linux.go
+@@ -47,7 +47,15 @@ const (
+ 	IFLA_VXLAN_PORT
+ 	IFLA_VXLAN_GROUP6
+ 	IFLA_VXLAN_LOCAL6
+-	IFLA_VXLAN_MAX = IFLA_VXLAN_LOCAL6
++	IFLA_VXLAN_UDP_CSUM
++	IFLA_VXLAN_UDP_ZERO_CSUM6_TX
++	IFLA_VXLAN_UDP_ZERO_CSUM6_RX
++	IFLA_VXLAN_REMCSUM_TX
++	IFLA_VXLAN_REMCSUM_RX
++	IFLA_VXLAN_GBP
++	IFLA_VXLAN_REMCSUM_NOPARTIAL
++	IFLA_VXLAN_FLOWBASED
++	IFLA_VXLAN_MAX = IFLA_VXLAN_FLOWBASED
+ )
+ 
+ const (
+-- 
+2.4.3
+
