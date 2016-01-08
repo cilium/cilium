@@ -4,7 +4,7 @@ apt-get update
 apt-get -y install git vim clang
 
 cd $HOME
-git clone git://git.breakpoint.cc/dborkman/net-next.git
+git clone git://git.breakpoint.cc/dborkman/net-next.git -b ebpf-madhu
 cd net-next
 rm -Rf .git
 cp /boot/config-`uname -r` .config
