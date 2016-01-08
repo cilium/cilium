@@ -3,12 +3,10 @@ package main
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
+	. "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/docker-plugin/driver"
 	"os"
 )
-
-const pluginPath = "/run/docker/plugins/"
-const driverPath = pluginPath + "cilium.sock"
 
 func main() {
 	app := cli.NewApp()
@@ -39,16 +37,16 @@ func initEnv(ctx *cli.Context) error {
 
 	log.SetOutput(os.Stderr)
 
-	if err := os.MkdirAll(pluginPath, 0755); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(PluginPath, 0755); err != nil && !os.IsExist(err) {
 		log.Fatalf("Could not create net plugin path directory: %s", err)
 	}
 
-	if _, err := os.Stat(driverPath); err == nil {
-		log.Debugf("socket file %s already exists, unlinking the old file handle.", driverPath)
-		os.RemoveAll(driverPath)
+	if _, err := os.Stat(DriverSock); err == nil {
+		log.Debugf("socket file %s already exists, unlinking the old file handle.", DriverSock)
+		os.RemoveAll(DriverSock)
 	}
 
-	log.Debugf("The plugin absolute path and handle is %s", driverPath)
+	log.Debugf("The plugin absolute path and handle is %s", DriverSock)
 
 	return nil
 }
@@ -61,7 +59,7 @@ func Run(ctx *cli.Context) {
 
 	log.Info("Cilium networking Docker plugin ready")
 
-	if err := d.Listen(driverPath); err != nil {
+	if err := d.Listen(DriverSock); err != nil {
 		log.Fatal(err)
 	}
 }
