@@ -199,7 +199,7 @@ func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
 type CreateEndpointRequest struct {
 	NetworkID  string
 	EndpointID string
-	Interface  *api.EndpointInterface
+	Interface  api.EndpointInterface
 	Options    map[string]json.RawMessage
 }
 
@@ -212,7 +212,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Create endpoint request: %+v", &create)
 
 	endID := create.EndpointID
-	containerAddress := create.Interface.Address
+	containerAddress := create.Interface.AddressIPv6
+	if containerAddress == "" {
+		log.Warnf("No IPv6 address provided in CreateEndpoint request")
+	}
 
 	for key, val := range create.Options {
 		switch key {
@@ -241,7 +244,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mac, _ := net.ParseMAC(DefaultContainerMAC)
-	ip := net.ParseIP(containerAddress)
+	ip, _, _ := net.ParseCIDR(containerAddress)
 
 	driver.endpoints[endID] = &ciliumtype.Endpoint{
 		ID:            endID,
