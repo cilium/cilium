@@ -1,9 +1,7 @@
 #!/bin/bash
 
 apt-get update
-apt-get -y install git
-
-apt-get -y install vim
+apt-get -y install git vim clang
 
 cd $HOME
 git clone git://git.breakpoint.cc/dborkman/net-next.git
@@ -33,7 +31,7 @@ rm /boot/*
 
 make modules_install
 make install
-make headers_install
+make headers_install INSTALL_HDR_PATH=/usr/
 
 # delete kernel sources
 rm -Rf $HOME/net-next
