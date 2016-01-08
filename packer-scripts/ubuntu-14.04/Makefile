@@ -12,9 +12,7 @@ build-vmware: clean validate
 	packer build -only=vmware ubuntu-1404.json
 
 clean:
-	rm -Rf output-*
-	rm -Rf *.box
-	rm -Rf packer_cache
+	rm -Rf output-* *.box packer_cache tmp
 
 uninstall:
 	vagrant destroy
