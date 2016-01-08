@@ -2,9 +2,10 @@
 
 apt-get update
 apt-get -y install git vim clang
+apt-get -y install libssl-dev
 
 cd $HOME
-git clone git://git.breakpoint.cc/dborkman/net-next.git -b ebpf-madhu
+git clone -b ebpf-madhu git://git.breakpoint.cc/dborkman/net-next.git
 cd net-next
 rm -Rf .git
 cp /boot/config-`uname -r` .config
