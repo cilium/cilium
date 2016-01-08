@@ -1,7 +1,7 @@
 #!/bin/bash
 
 apt-get update
-apt-get -y install git vim clang
+apt-get -y install git vim
 apt-get -y install libssl-dev
 
 cd $HOME
