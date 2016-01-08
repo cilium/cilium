@@ -5,8 +5,8 @@ import (
 	"net"
 	"net/http"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/docker/libnetwork/ipams/remote/api"
+	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/docker/libnetwork/ipams/remote/api"
 
 	. "github.com/noironetworks/cilium-net/common"
 )
