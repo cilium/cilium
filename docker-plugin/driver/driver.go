@@ -16,6 +16,8 @@ import (
 	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 
 	. "github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/bpfbackend"
+	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 )
 
 const (
@@ -27,7 +29,6 @@ const (
 	ContainerInterfacePrefix = "cilium"
 	DummyV4AllocPool         = "0.0.0.0/0"  // Never exposed, makes libnetwork happy
 	DummyV4Gateway           = "1.1.1.1/32" // Never exposed, makes libnetwork happy
-	ContainerMAC             = "AA:BB:CC:DD:EE:FF"
 )
 
 type Driver interface {
@@ -38,6 +39,7 @@ type driver struct {
 	nodeAddress    net.IP
 	allocPool      *net.IPNet
 	allocatorRange *ipallocator.Range
+	endpoints      map[string]*ciliumtype.Endpoint
 	sync.Mutex
 }
 
@@ -72,6 +74,7 @@ func New(ctx *cli.Context) (Driver, error) {
 		nodeAddress:    nodeAddress,
 		allocPool:      subnet,
 		allocatorRange: ipallocator.NewCIDRRange(v4Alloc),
+		endpoints:      make(map[string]*ciliumtype.Endpoint),
 	}
 
 	log.Infof("New Cilium networking instance on node %s", nodeAddress.String())
@@ -232,13 +235,26 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO: Keep track of this network association for automatic policy generation
-	// create.NetworkID
+	if _, exists := driver.endpoints[endID]; exists {
+		sendError(w, "Endpoint already exists", http.StatusBadRequest)
+		return
+	}
+
+	mac, _ := net.ParseMAC(DefaultContainerMAC)
+	ip := net.ParseIP(containerAddress)
+
+	driver.endpoints[endID] = &ciliumtype.Endpoint{
+		ID:            endID,
+		LxcMAC:        mac,
+		LxcIP:         ip,
+		NodeIP:        driver.nodeAddress,
+		DockerNetwork: create.NetworkID,
+	}
 
 	log.Infof("New endpoint %s with IP %s", endID, containerAddress)
 
 	respIface := &api.EndpointInterface{
-		MacAddress: ContainerMAC,
+		MacAddress: DefaultContainerMAC,
 	}
 	resp := &api.CreateEndpointResponse{
 		Interface: respIface,
@@ -261,14 +277,15 @@ func deleteEndpointInterface(endpointID string) {
 }
 
 func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
-	var delete api.DeleteEndpointRequest
-	if err := json.NewDecoder(r.Body).Decode(&delete); err != nil {
+	var del api.DeleteEndpointRequest
+	if err := json.NewDecoder(r.Body).Decode(&del); err != nil {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Delete endpoint request: %+v", &delete)
+	log.Debugf("Delete endpoint request: %+v", &del)
 
-	deleteEndpointInterface(delete.EndpointID)
+	delete(driver.endpoints, del.EndpointID)
+	deleteEndpointInterface(del.EndpointID)
 	emptyResponse(w)
 }
 
@@ -290,6 +307,12 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Debugf("Join request: %+v", &j)
+
+	ep, exists := driver.endpoints[j.EndpointID]
+	if !exists {
+		sendError(w, "Endpoint does not exist", http.StatusBadRequest)
+		return
+	}
 
 	lxcIfname := endpoint2ifname(j.EndpointID)
 	tmpIfname := TemporaryInterfacePrefix + j.EndpointID[:5]
@@ -322,6 +345,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	gw := driver.nodeAddress.String()
 
+	ep.Ifname = lxcIfname
+	if err := bpfbackend.EndpointJoin(ep); err != nil {
+	}
+
 	routeGW := api.StaticRoute{
 		Destination: gw + "/128",
 		RouteType:   types.CONNECTED,
@@ -352,6 +379,14 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Debugf("Leave request: %+v", &l)
+
+	if ep, exists := driver.endpoints[l.EndpointID]; !exists {
+		log.Warnf("Endpoint %s is unknown", l.EndpointID)
+	} else {
+		if err := bpfbackend.EndpointLeave(ep); err != nil {
+			log.Warnf("Leaving the endpoint failed: %s", err)
+		}
+	}
 
 	deleteEndpointInterface(l.EndpointID)
 	emptyResponse(w)
