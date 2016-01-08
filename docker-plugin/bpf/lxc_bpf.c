@@ -13,8 +13,6 @@
 /* compiler workaround */
 #define _htonl __builtin_bswap32
 
-#define NODE_ID $NODE_ID
-
 union v6addr {
         struct {
                 __u32 p1;
