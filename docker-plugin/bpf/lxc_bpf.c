@@ -3,7 +3,6 @@
 #include <linux/if_ether.h>
 #include <sys/socket.h>
 #include <stdint.h>
-#include "bpf_helpers.h"
 
 #define TX_XMIT	0
 #define TX_FRWD	1
@@ -28,16 +27,11 @@ struct lxc_info {
 	int ifindex;
 };
 
-struct bpf_map_def SEC("maps") lxc_map = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(__u16),
-	.value_size = sizeof(struct lxc_info),
-	.max_entries = 1024,
-};
+__BPF_MAP(lxc_map, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), 0, 1024);
 
 static inline void set_dst_mac(struct __sk_buff *skb, char *mac)
 {
-        bpf_skb_store_bytes(skb, 0, mac, 6, 1);
+        skb_store_bytes(skb, 0, mac, 6, 1);
 }
 
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
@@ -47,7 +41,8 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	__u8 hoplimit;
 	union v6addr dst, dst_new;
         int *ifindex;
-        char fmt[] = "skb %p len %d dst %x %x %x %x\n";
+        char fmt[] = "skb %p len %d\n";
+        char fmt2[] = "%x %x\n";
 
 	/* FIXME: Validate source MAC and source IP */
 
@@ -58,13 +53,14 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
         dst.p3 = ntohl(load_word(skb, nh_off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 2));
         dst.p4 = ntohl(load_word(skb, nh_off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 3));
 
-	bpf_trace_printk(fmt, sizeof(fmt), skb, skb->len, dst.p1, dst.p2, dst.p3, dst.p4);
+	trace_printk(fmt, sizeof(fmt), skb, skb->len);
+	trace_printk(fmt2, sizeof(fmt2), dst.p3, dst.p4);
 
 	hoplimit = load_byte(skb, nh_off + offsetof(struct ipv6hdr, hop_limit));
 	if (hoplimit <= 1) {
 		/* FIXME: Handle */
 		char fmt[] = "Hoplimit reached 0\n";
-		bpf_trace_printk(fmt, sizeof(fmt));
+		trace_printk(fmt, sizeof(fmt));
 		return -1;
 	} else {
 		__u8 new_hl;
@@ -73,26 +69,26 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
                 skb_store_bytes(skb, nh_off + offsetof(struct ipv6hdr, hop_limit),
                                 &new_hl, sizeof(new_hl), 0);
 		char fmt[] = "Decremented hoplimit\n";
-		bpf_trace_printk(fmt, sizeof(fmt));
+		trace_printk(fmt, sizeof(fmt));
         }
 
 	lxc_id = dst.p4 & 0xFFFF;
 
-	dst_lxc = bpf_map_lookup_elem(&lxc_map, &lxc_id);
+	dst_lxc = map_lookup_elem(&lxc_map, &lxc_id);
 	if (dst_lxc) {
 		set_dst_mac(skb, (char *) dst_lxc->mac);
 		char fmt[] = "Found destination container locally\n";
-		bpf_trace_printk(fmt, sizeof(fmt));
-		bpf_clone_redirect(skb, dst_lxc->ifindex, 1);
+		trace_printk(fmt, sizeof(fmt));
+		redirect(dst_lxc->ifindex, 0);
 	}
 
 	return -1;
 }
 
-SEC("from-container")
+__section("from-container")
 int handle_ingress(struct __sk_buff *skb)
 {
-	int ret = 0, nh_off = BPF_LL_OFF + ETH_HLEN;
+	int ret = 0, nh_off = ETH_HLEN;
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
 		ret = do_redirect6(skb, nh_off);
