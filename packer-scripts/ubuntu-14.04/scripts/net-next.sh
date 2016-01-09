@@ -34,6 +34,9 @@ make modules_install
 make install
 make headers_install INSTALL_HDR_PATH=/usr/
 
+# Temporary hack for Ubuntu
+cp /usr/include/asm/unistd* /usr/include/x86_64-linux-gnu/asm/
+
 # delete kernel sources
 rm -Rf $HOME/net-next
 
