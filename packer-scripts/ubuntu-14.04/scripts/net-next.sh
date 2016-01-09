@@ -2,7 +2,7 @@
 
 apt-get update
 apt-get -y install git vim
-apt-get -y install libssl-dev
+apt-get -y install libssl-dev libelf-dev
 
 cd $HOME
 git clone -b ebpf-madhu git://git.breakpoint.cc/dborkman/net-next.git
