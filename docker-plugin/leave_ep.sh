@@ -5,4 +5,4 @@ IFNAME=$2
 MAC=$3
 IP=$4
 
-echo $1 $2 $3 $4
+tc qdisc delete dev $IFNAME ingress 2> /dev/null
