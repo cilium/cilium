@@ -76,9 +76,12 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 	dst_lxc = map_lookup_elem(&lxc_map, &lxc_id);
 	if (dst_lxc) {
-		set_dst_mac(skb, (char *) dst_lxc->mac);
+		__u64 tmp_mac = dst_lxc->mac;
+		set_dst_mac(skb, (char *) &tmp_mac);
+
 		char fmt[] = "Found destination container locally\n";
 		trace_printk(fmt, sizeof(fmt));
+
 		redirect(dst_lxc->ifindex, 0);
 	}
 
