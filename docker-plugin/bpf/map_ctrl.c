@@ -89,6 +89,13 @@ static void update_lxc(const char *file, __u16 key, struct lxc_info *value)
 int main(int argc, char **argv)
 {
 	const char *file;
+        struct rlimit limit = {
+                .rlim_cur = RLIM_INFINITY,
+                .rlim_max = RLIM_INFINITY,
+        };
+
+        /* Don't bother in case we fail! */
+        setrlimit(RLIMIT_MEMLOCK, &limit);
 
 	if (argc < 3)
 		goto out;
