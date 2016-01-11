@@ -12,6 +12,9 @@ build-vmware: clean validate
 	packer build -only=vmware ubuntu-1404.json
 
 clean:
+	rm -Rf output-* *.box tmp
+
+distclean:
 	rm -Rf output-* *.box packer_cache tmp
 
 uninstall:

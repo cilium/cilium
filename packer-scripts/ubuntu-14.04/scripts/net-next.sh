@@ -36,6 +36,9 @@ make headers_install INSTALL_HDR_PATH=/usr/
 
 # Temporary hack for Ubuntu
 cp /usr/include/asm/unistd* /usr/include/x86_64-linux-gnu/asm/
+echo 9p >> /etc/modules
+echo 9pnet_virtio >> /etc/modules
+echo 9pnet >> /etc/modules
 
 # delete kernel sources
 rm -Rf $HOME/net-next

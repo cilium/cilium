@@ -13,7 +13,8 @@ Vagrant.configure(2) do |config|
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
   config.vm.box = "cilium-net-next"
-  config.vm.synced_folder "../..", "/vagrant", disabled: false
+  # config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder './', '/vagrant', type: '9p', disabled: false, accessmode: "mapped"
 
   # This should be your private key path
   #config.ssh.private_key_path = "/root/.ssh/id_rsa"
