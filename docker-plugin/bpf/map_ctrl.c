@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/resource.h>
 #include "libbpf.h"
 #include "common.h"
 
