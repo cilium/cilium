@@ -1,7 +1,3 @@
-deps:
-	godep get
-	cd ${GOPATH}/src/k8s.io/kubernetes/; godep restore
-
 all:
 	go build -o cilium-docker
 
