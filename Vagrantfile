@@ -10,6 +10,8 @@ Vagrant.configure(2) do |config|
     cd /home/vagrant/go/src/github.com/docker
     git clone -b ipv6-citizen https://github.com/tgraf/libnetwork.git
     chown -R vagrant:vagrant /home/vagrant/go
+
+    mount bpf /sys/fs/bpf/ -t bpf
   SHELL
 
   config.vm.provider :libvirt do |libvirt|
