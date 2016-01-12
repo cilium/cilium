@@ -5,10 +5,10 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/noironetworks/cilium-net/common"
+
 	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/docker/libnetwork/ipams/remote/api"
-
-	. "github.com/noironetworks/cilium-net/common"
 )
 
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +101,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ip := BuildEndpointAddress(driver.nodeAddress, v4IP)
+		ip := common.BuildEndpointAddress(driver.nodeAddress, v4IP)
 		resp = &api.RequestAddressResponse{
 			Address: ip.String() + "/128",
 		}
