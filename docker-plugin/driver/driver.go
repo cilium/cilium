@@ -7,6 +7,10 @@ import (
 	"net/http"
 	"sync"
 
+	common "github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/bpfbackend"
+	ciliumtype "github.com/noironetworks/cilium-net/common/types"
+
 	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/codegangsta/cli"
 	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/docker/libnetwork/drivers/remote/api"
@@ -14,10 +18,6 @@ import (
 	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/gorilla/mux"
 	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/vishvananda/netlink"
 	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/k8s.io/kubernetes/pkg/registry/service/ipallocator"
-
-	. "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpfbackend"
-	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 )
 
 const (
@@ -47,14 +47,14 @@ func endpoint2ifname(endpointID string) string {
 	return HostInterfacePrefix + endpointID[:5]
 }
 
-func New(ctx *cli.Context) (Driver, error) {
+func NewDriver(ctx *cli.Context) (Driver, error) {
 
 	nodeAddress := net.ParseIP(ctx.String("node-addr"))
 	if nodeAddress == nil {
 		log.Fatalf("No node address given, please specifcy node address using -n")
 	}
 
-	if !ValidNodeAddress(nodeAddress) {
+	if !common.ValidNodeAddress(nodeAddress) {
 		log.Fatalf("Invalid node address: %s", nodeAddress)
 	}
 
@@ -129,12 +129,6 @@ func sendError(w http.ResponseWriter, msg string, code int) {
 	http.Error(w, msg, code)
 }
 
-func errorResponsef(w http.ResponseWriter, fmtString string, item ...interface{}) {
-	json.NewEncoder(w).Encode(map[string]string{
-		"Err": fmt.Sprintf(fmtString, item...),
-	})
-}
-
 func objectResponse(w http.ResponseWriter, obj interface{}) {
 	if err := json.NewEncoder(w).Encode(obj); err != nil {
 		sendError(w, "Could not JSON encode response", http.StatusInternalServerError)
@@ -195,7 +189,8 @@ func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	emptyResponse(w)
 }
 
-// Same as api.CreateEndpointRequest but with json.RawMessage type for Options map
+// CreateEndpointRequest is the as api.CreateEndpointRequest but with
+// json.RawMessage type for Options map
 type CreateEndpointRequest struct {
 	NetworkID  string
 	EndpointID string
@@ -243,7 +238,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mac, _ := net.ParseMAC(DefaultContainerMAC)
+	mac, _ := net.ParseMAC(common.DefaultContainerMAC)
 	ip, _, _ := net.ParseCIDR(containerAddress)
 
 	driver.endpoints[endID] = &ciliumtype.Endpoint{
@@ -257,7 +252,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Infof("New endpoint %s with IP %s", endID, containerAddress)
 
 	respIface := &api.EndpointInterface{
-		MacAddress: DefaultContainerMAC,
+		MacAddress: common.DefaultContainerMAC,
 	}
 	resp := &api.CreateEndpointResponse{
 		Interface: respIface,
