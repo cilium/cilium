@@ -1,0 +1,18 @@
+{
+	"ImportPath": "github.com/noironetworks/cilium-net/common",
+	"GoVersion": "go1.5",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.7-53-g446d1c1",
+			"Rev": "446d1c146faa8ed3f4218f056fcd165f6bcfda81"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "58da1121af381632b48b2843aeb16299f2e1dc50"
+		}
+	]
+}

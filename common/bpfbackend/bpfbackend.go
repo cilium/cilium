@@ -1,9 +1,11 @@
 package bpfbackend
 
 import (
-	log "github.com/Sirupsen/logrus"
-	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 	"os/exec"
+
+	ciliumtype "github.com/noironetworks/cilium-net/common/types"
+
+	log "github.com/noironetworks/cilium-net/common/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 )
 
 func EndpointJoin(ep *ciliumtype.Endpoint) error {
