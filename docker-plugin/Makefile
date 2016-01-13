@@ -1,4 +1,10 @@
-all:
+all: tests
+
+tests:
+	godep go fmt ./...
+	godep go test ./...
+
+cilium-docker:
 	godep go build -o cilium-docker
 
 run:
