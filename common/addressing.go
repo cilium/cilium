@@ -56,9 +56,10 @@ func MapEndpointToNode(epAddr net.IP) net.IP {
 	case net.IPv4len:
 		// Not supported yet
 	case net.IPv6len:
-		epAddr[14] = 0
-		epAddr[15] = 0
-		return epAddr
+		nodeAddr := dupIP(epAddr)
+		nodeAddr[14] = 0
+		nodeAddr[15] = 0
+		return nodeAddr
 	}
 
 	return nil
@@ -68,4 +69,10 @@ func BuildEndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
 
 	// beef:beef:beef:beef:1::1.0.0.2
 	return net.ParseIP(nodeAddr.String() + v4Addr.String())
+}
+
+func dupIP(ip net.IP) net.IP {
+	dup := make(net.IP, len(ip))
+	copy(dup, ip)
+	return dup
 }
