@@ -3,3 +3,6 @@ all:
 
 run:
 	./cilium-docker -d -n beef::1:0:0:0
+
+clean:
+	rm -f cilium-docker
