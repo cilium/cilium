@@ -4,8 +4,8 @@ KERNEL:= $(shell uname -s)
 MACHINE := $(shell uname -m)
 
 tests:
-	go fmt ./*.go
-	go test ./*.go
+	godep go fmt ./*.go
+	godep go test ./*.go
 
 cilium-net-client:tests
-	go build -o cilium-net-client-${KERNEL}-${MACHINE} ./*.go
+	godep go build -o cilium-net-client-${KERNEL}-${MACHINE} ./*.go
