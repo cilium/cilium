@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/op/go-logging"
+	"github.com/noironetworks/cilium-net/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 const (

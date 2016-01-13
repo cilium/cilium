@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/noironetworks/cilium-net/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
 )
 
 func NewRouter() *mux.Router {
