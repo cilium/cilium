@@ -12,7 +12,6 @@
 
    ```
    $ cd cilium-net/docker-plugin
-   $ make deps
    $ make
    ```
 
