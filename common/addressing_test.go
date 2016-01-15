@@ -11,6 +11,8 @@ import (
 var (
 	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x11}
 	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+
+	v4Addr = net.IP{0x11, 0x11, 0x11, 0x11}
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -41,4 +43,20 @@ func (s *CommonSuite) TestMapEndpointToNode(c *C) {
 
 	c.Assert(bytes.Compare(node, NodeAddr) != 0, Equals, false,
 		Commentf("MapEndpointToNode failed: %s != %s", node.String(), NodeAddr.String()))
+}
+
+func (s *CommonSuite) TestBuildEndpointAddress(c *C) {
+	c.Skip("skipping TestBuildEndpointAddress")
+	endAddr := BuildEndpointAddress(NodeAddr, v4Addr)
+
+	nodeBaseAddr := NodeAddr.Mask(NodeIPv6Mask)
+
+	c.Logf("endAddr %s", endAddr.String())
+	c.Logf("endAddr %s", nodeBaseAddr.String())
+	c.Assert(ValidEndpointAddress(endAddr), Equals, true,
+		Commentf("unexpected valid EP address %s", endAddr.String()))
+
+	c.Assert(ValidNodeAddress(endAddr), Equals, false,
+		Commentf("unexpected valid node address %s", endAddr.String()))
+
 }

@@ -11,6 +11,11 @@
 			"Rev": "446d1c146faa8ed3f4218f056fcd165f6bcfda81"
 		},
 		{
+			"ImportPath": "github.com/jfrazelle/go/canonical/json",
+			"Comment": "v1.5.1-1-1-gbaf439e",
+			"Rev": "baf439e6c161bd2106346fc8022b74ac2444e311"
+		},
+		{
 			"ImportPath": "golang.org/x/sys/unix",
 			"Rev": "58da1121af381632b48b2843aeb16299f2e1dc50"
 		},
