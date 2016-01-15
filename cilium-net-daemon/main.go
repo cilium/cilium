@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	common "github.com/noironetworks/cilium-net/cilium-net-daemon/Godeps/_workspace/src/github.com/noironetworks/cilium-net/common"
 	d "github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
+	common "github.com/noironetworks/cilium-net/common"
 
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 const (

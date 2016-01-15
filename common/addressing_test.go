@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/noironetworks/cilium-net/common/Godeps/_workspace/src/gopkg.in/check.v1"
+	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
 
 var (

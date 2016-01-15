@@ -5,7 +5,7 @@ import (
 
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
-	log "github.com/noironetworks/cilium-net/common/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 )
 
 func EndpointJoin(ep *ciliumtype.Endpoint) error {

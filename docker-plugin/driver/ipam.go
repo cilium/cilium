@@ -7,8 +7,8 @@ import (
 
 	"github.com/noironetworks/cilium-net/common"
 
-	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/docker/libnetwork/ipams/remote/api"
+	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/ipams/remote/api"
 )
 
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
