@@ -63,12 +63,13 @@ static void dump_lxc_table(const char *file)
 	while (bpf_get_next_key(fd, &key, &next_key) == 0) {
 		struct lxc_info value;
 
-		ret = bpf_lookup_elem(fd, &next_key, &value);
+		ret = bpf_lookup_elem(fd, &key, &value);
 		printf("bpf: fd:%d key:%u ret:(%d,%s)\n",
 			fd, key, ret, strerror(errno));
 
 		printf("%u: %s\n", key, format_lxc_info(&value));
 		assert(ret == 0);
+		key = next_key;
 	}
 }
 
@@ -132,7 +133,7 @@ int main(int argc, char **argv)
 
 		key = (__u16) strtoul(argv[3], NULL, 0);
 		info.ifindex = strtoul(argv[4], NULL, 0);
-		info.mac = strtoul(argv[4], NULL, 0);
+		info.mac = strtoul(argv[5], NULL, 0);
 
 		update_lxc(file, key, &info);
 	}
