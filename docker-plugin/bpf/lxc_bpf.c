@@ -27,7 +27,7 @@ struct lxc_info {
 	int ifindex;
 };
 
-__BPF_MAP(lxc_map, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), 0, 1024);
+__BPF_MAP(lxc_map, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 
 static inline void set_dst_mac(struct __sk_buff *skb, char *mac)
 {
