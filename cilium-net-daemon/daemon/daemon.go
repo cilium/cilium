@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/Godeps/_workspace/src/github.com/gorilla/mux"
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 var (

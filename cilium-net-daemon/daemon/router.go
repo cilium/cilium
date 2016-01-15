@@ -3,7 +3,7 @@ package cilium_net_daemon
 import (
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/Godeps/_workspace/src/github.com/gorilla/mux"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
 )
 
 func NewRouter() *mux.Router {

@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common/Godeps/_workspace/src/github.com/jfrazelle/go/canonical/json"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/jfrazelle/go/canonical/json"
 )
 
 type serverResponse struct {

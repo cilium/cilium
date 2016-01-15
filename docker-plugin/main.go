@@ -6,8 +6,8 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/docker-plugin/driver"
 
-	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/codegangsta/cli"
+	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
 )
 
 func main() {
