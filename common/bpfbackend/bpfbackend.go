@@ -10,7 +10,7 @@ import (
 
 func EndpointJoin(ep *ciliumtype.Endpoint) error {
 	args := []string{ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String()}
-	out, err := exec.Command("./join_ep.sh", args...).CombinedOutput()
+	out, err := exec.Command("../common/bpf/join_ep.sh", args...).CombinedOutput()
 	if err != nil {
 		log.Warnf("Command execution failed: %s", err)
 		log.Warnf("Command output:\n%s", out)
@@ -23,7 +23,7 @@ func EndpointJoin(ep *ciliumtype.Endpoint) error {
 
 func EndpointLeave(ep *ciliumtype.Endpoint) error {
 	args := []string{ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String()}
-	out, err := exec.Command("./leave_ep.sh", args...).CombinedOutput()
+	out, err := exec.Command("../common/bpf/leave_ep.sh", args...).CombinedOutput()
 	if err != nil {
 		log.Warnf("Command execution failed: %s", err)
 		log.Warnf("Command output:\n%s", out)
