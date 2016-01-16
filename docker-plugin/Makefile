@@ -1,4 +1,4 @@
-all: tests
+all: tests cilium-docker
 
 tests:
 	godep go fmt ./...
