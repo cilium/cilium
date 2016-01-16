@@ -11,13 +11,13 @@ import (
 	"github.com/noironetworks/cilium-net/common/bpfbackend"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
-	log "github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/Sirupsen/logrus"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/codegangsta/cli"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/docker/libnetwork/drivers/remote/api"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/docker/libnetwork/types"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/gorilla/mux"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/github.com/vishvananda/netlink"
-	"github.com/noironetworks/cilium-net/docker-plugin/Godeps/_workspace/src/k8s.io/kubernetes/pkg/registry/service/ipallocator"
+	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/drivers/remote/api"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/registry/service/ipallocator"
 )
 
 const (
