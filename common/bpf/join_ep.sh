@@ -10,7 +10,7 @@ IP=$4
 # FIXME FIXME FIXME
 NODE_ID=1
 
-cd bpf
+cd ../common/bpf
 
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
