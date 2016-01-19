@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <iproute2/bpf_api.h>
 #include <assert.h>
 #include <stdio.h>
@@ -14,7 +15,7 @@ static void usage(void)
 	fprintf(stderr, "       map_ctrl create <map file>\n");
 	fprintf(stderr, "       map_ctrl dump <map file>\n");
 	fprintf(stderr, "       map_ctrl lookup <map file> <key>\n");
-	fprintf(stderr, "       map_ctrl update <map file> <key> <ifindex> <mac>\n");
+	fprintf(stderr, "       map_ctrl update <map file> <key> <ifindex> <mac> <ipv6>\n");
 	fprintf(stderr, "       map_ctrl delete <map file> <key>\n");
 }
 
@@ -27,11 +28,16 @@ static int create_lxc_map(void)
 static const char *format_lxc_info(struct lxc_info *lxc)
 {
 	static char str[256] = {0};
+	char buf[INET6_ADDRSTRLEN];
 	__u8 *tmp = (__u8 *) &lxc->mac;
 
-	snprintf(str, sizeof(str), "ifindex=%u mac=%02x:%02x:%02x:%02x:%02x:%02x",
+	inet_ntop(AF_INET6, &lxc->ip, buf, sizeof(buf));
+
+	snprintf(str, sizeof(str),
+		"ifindex=%u mac=%02x:%02x:%02x:%02x:%02x:%02x ip=%s",
 		lxc->ifindex,
-		tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5]);
+		tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5],
+		buf);
 
 	return str;
 }
@@ -146,7 +152,7 @@ int main(int argc, char **argv)
 		struct lxc_info info;
 		__u8 *m = (__u8 *) &info.mac;
 
-		if (argc < 6)
+		if (argc < 7)
 			goto out;
 
 		key = (__u16) strtoul(argv[3], NULL, 0);
@@ -155,6 +161,11 @@ int main(int argc, char **argv)
 		if (sscanf(argv[5], "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
 			   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != 6)
 			goto out;
+
+		if (inet_pton(AF_INET6, argv[6], (struct in6_addr *) &info.ip) != 1) {
+			fprintf(stderr, "Invalid IPv6 address: %s\n", argv[6]);
+			goto out;
+		}
 
 		update_lxc(file, key, &info);
 	} else if (!strcasecmp(argv[1], "delete")) {

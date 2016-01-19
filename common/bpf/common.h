@@ -22,8 +22,9 @@ union v6addr {
 };
 
 struct lxc_info {
-	__u64		mac;
 	int		ifindex;
+	__u64		mac;
+	union v6addr	ip;
 };
 
 #endif

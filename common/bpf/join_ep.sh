@@ -15,7 +15,7 @@ IFINDEX=$(cat /sys/class/net/$IFNAME/ifindex)
 echo "Join EP id=$ID ifname=$IFNAME mac=$MAC ip=$IP ifindex=$IFINDEX"
 
 cd ../common/bpf
-./map_ctrl update "/sys/fs/bpf/tc/globals/cilium_lxc" $ID $IFINDEX $MAC
+./map_ctrl update "/sys/fs/bpf/tc/globals/cilium_lxc" $ID $IFINDEX $MAC $IP
 
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
