@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/docker-plugin/driver"
@@ -46,6 +47,17 @@ func initEnv(ctx *cli.Context) error {
 	if _, err := os.Stat(common.DriverSock); err == nil {
 		log.Debugf("socket file %s already exists, unlinking the old file handle.", common.DriverSock)
 		os.RemoveAll(common.DriverSock)
+	}
+
+	if _, err := os.Stat(common.BPFMap); err != nil {
+		args := []string{}
+		out, err := exec.Command("../common/bpf/init.sh", args...).CombinedOutput()
+		if err != nil {
+			log.Warnf("Command execution failed: %s", err)
+			log.Warnf("Command output:\n%s", out)
+			return err
+		}
+		log.Infof("Created BPF map %s:\n%s", common.BPFMap, out)
 	}
 
 	log.Debugf("The plugin absolute path and handle is %s", common.DriverSock)

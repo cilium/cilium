@@ -8,6 +8,7 @@ const (
 	CiliumPath          = "/var/run/cilium/"
 	CiliumSock          = CiliumPath + "cilium.sock"
 	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
+	BPFMap              = "/sys/fs/bpf/tc/globals/cilium_lxc"
 )
 
 var (
