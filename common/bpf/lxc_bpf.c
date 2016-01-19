@@ -3,27 +3,10 @@
 #include <linux/if_ether.h>
 #include <sys/socket.h>
 #include <stdint.h>
+#include "common.h"
 #include "lib/ipv6.h"
 
 #define ETH_HLEN 14
-
-/* compiler workaround */
-#define _htonl __builtin_bswap32
-
-union v6addr {
-        struct {
-                __u32 p1;
-                __u32 p2;
-                __u32 p3;
-                __u32 p4;
-        };
-        __u8 addr[16];
-};
-
-struct lxc_info {
-	__u64 mac;
-	int ifindex;
-};
 
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 
