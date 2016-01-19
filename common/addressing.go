@@ -5,13 +5,6 @@ import (
 	"net"
 )
 
-// Default addressing schema
-//
-// cluster:		    beef:beef:beef:beef::/64
-// loadbalancer:	beef:beef:beef:beef:<lb>::/80
-// node:		    beef:beef:beef:beef:<lb>:<node>:<node>:/112
-// lxc:			    beef:beef:beef:beef:<lb>:<node>:<node>:<lxc>/128
-
 func ValidEndpointAddress(addr net.IP) bool {
 	switch len(addr) {
 	case net.IPv4len:
@@ -55,7 +48,7 @@ func ValidNodeAddress(addr net.IP) bool {
 func MapEndpointToNode(epAddr net.IP) net.IP {
 	switch len(epAddr) {
 	case net.IPv4len:
-		// Not supported yet
+	// Not supported yet
 	case net.IPv6len:
 		nodeAddr := dupIP(epAddr)
 		nodeAddr[14] = 0
@@ -66,10 +59,14 @@ func MapEndpointToNode(epAddr net.IP) net.IP {
 	return nil
 }
 
-func BuildEndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
-
-	// beef:beef:beef:beef:1::1.0.0.2
-	return net.ParseIP(nodeAddr.String() + v4Addr.String())
+func Build4to6EndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
+	// beef:beef:beef:beef:1:0:[1.0.0.2]
+	if len(nodeAddr) == net.IPv6len && len(v4Addr) == net.IPv4len {
+		addr := dupIP(nodeAddr)
+		copy(addr[12:], v4Addr)
+		return addr
+	}
+	return nil
 }
 
 func EndpointID(epAddr net.IP) int {

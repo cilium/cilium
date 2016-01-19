@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
-	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-
-	v4Addr = net.IP{0x11, 0x11, 0x11, 0x12}
+	EpAddr     = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
+	Epv4Addr   = net.IP{0xc0, 0x0, 0x2, 0x78}
+	Ep6to4Addr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0xc0, 0x0, 0x2, 0x78}
+	NodeAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -46,19 +46,17 @@ func (s *CommonSuite) TestMapEndpointToNode(c *C) {
 }
 
 func (s *CommonSuite) TestBuildEndpointAddress(c *C) {
-	c.Skip("skipping TestBuildEndpointAddress")
-	endAddr := BuildEndpointAddress(NodeAddr, v4Addr)
+	endAddr := Build4to6EndpointAddress(NodeAddr, Epv4Addr)
 
-	nodeBaseAddr := NodeAddr.Mask(NodeIPv6Mask)
-
-	c.Logf("endAddr %s", endAddr.String())
-	c.Logf("endAddr %s", nodeBaseAddr.String())
 	c.Assert(ValidEndpointAddress(endAddr), Equals, true,
-		Commentf("unexpected valid EP address %s", endAddr.String()))
+		Commentf("unexpected invalid EP address %s", endAddr.String()))
 
 	c.Assert(ValidNodeAddress(endAddr), Equals, false,
 		Commentf("unexpected valid node address %s", endAddr.String()))
 
+	c.Assert(bytes.Compare(endAddr, Ep6to4Addr) != 0, Equals, false,
+		Commentf("Build4to6EndpointAddress failed: %s != %s",
+			endAddr.String(), Ep6to4Addr.String()))
 }
 
 func (s *CommonSuite) TestEndpointID(c *C) {
