@@ -1,4 +1,4 @@
-package cilium_net_daemon
+package server
 
 import (
 	"net/http"

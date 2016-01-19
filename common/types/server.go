@@ -1,6 +1,6 @@
-package cilium_net_daemon
+package types
 
-type jsonErr struct {
+type ServerError struct {
 	Code int    `json:"code"`
 	Text string `json:"text"`
 }

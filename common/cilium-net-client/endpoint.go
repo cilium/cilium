@@ -2,7 +2,6 @@ package cilium_net_client
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -20,11 +19,7 @@ func (cli *Client) EndpointCreate(ep types.Endpoint) error {
 	defer ensureReaderClosed(serverResp)
 
 	if serverResp.statusCode != http.StatusCreated {
-		bytes, err := ioutil.ReadAll(serverResp.body)
-		if err != nil {
-			fmt.Errorf("error retrieving server body response: %s", err)
-		}
-		return fmt.Errorf("'%+v': %s", ep, string(bytes))
+		return processErrorBody(serverResp.body, &ep)
 	}
 
 	return nil
