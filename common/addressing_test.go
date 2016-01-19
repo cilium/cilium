@@ -58,10 +58,3 @@ func (s *CommonSuite) TestBuildEndpointAddress(c *C) {
 		Commentf("Build4to6EndpointAddress failed: %s != %s",
 			endAddr.String(), Ep6to4Addr.String()))
 }
-
-func (s *CommonSuite) TestEndpointID(c *C) {
-	id := EndpointID(EpAddr)
-
-	c.Assert(id != 0x1112, Equals, false,
-		Commentf("EndpointID failed: %d != 1112", id))
-}
