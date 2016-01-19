@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/binary"
 	"net"
 )
 
@@ -67,10 +66,6 @@ func Build4to6EndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
 		return addr
 	}
 	return nil
-}
-
-func EndpointID(epAddr net.IP) int {
-	return int(binary.BigEndian.Uint16(epAddr[14:]))
 }
 
 func dupIP(ip net.IP) net.IP {

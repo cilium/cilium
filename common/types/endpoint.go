@@ -1,7 +1,9 @@
 package types
 
 import (
+	"encoding/binary"
 	"net"
+	"strconv"
 )
 
 type Endpoint struct {
@@ -12,4 +14,10 @@ type Endpoint struct {
 	NodeIP        net.IP           `json:node-IP`
 	SecCtx        string           `json:sec-Ctx`
 	DockerNetwork string           `json:docker-network`
+}
+
+func (e *Endpoint) SetID() {
+	if len(e.LxcIP) == net.IPv6len {
+		e.ID = strconv.Itoa(int(binary.BigEndian.Uint16(e.LxcIP[14:])))
+	}
 }

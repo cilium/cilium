@@ -21,10 +21,10 @@ type Client struct {
 }
 
 func NewDefaultClient() (*Client, error) {
-	return NewClient("unix://"+common.CiliumSock, nil, nil)
+	return NewClient("unix://"+common.CiliumSock, nil, nil, nil)
 }
 
-func NewClient(host string, transport *http.Transport, httpHeaders map[string]string) (*Client, error) {
+func NewClient(host string, httpCli *http.Client, transport *http.Transport, httpHeaders map[string]string) (*Client, error) {
 	var (
 		basePath       string
 		tlsConfig      *tls.Config
@@ -47,13 +47,19 @@ func NewClient(host string, transport *http.Transport, httpHeaders map[string]st
 		scheme = "https"
 	}
 
+	if httpCli != nil {
+		httpCli.Transport = transport
+	} else {
+		httpCli = &http.Client{Transport: transport}
+	}
+
 	return &Client{
 		proto:      proto,
 		addr:       addr,
 		basePath:   basePath,
 		scheme:     scheme,
 		tlsConfig:  tlsConfig,
-		httpClient: &http.Client{Transport: transport},
+		httpClient: httpCli,
 	}, nil
 }
 
