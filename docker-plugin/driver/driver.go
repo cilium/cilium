@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpfbackend"
+	bpfbackend "github.com/noironetworks/cilium-net/common/bpfbackend"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
@@ -344,7 +344,9 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	gw := driver.nodeAddress.String()
 
 	ep.Ifname = lxcIfname
+	ep.SetID()
 	if err := bpfbackend.EndpointJoin(ep); err != nil {
+		log.Warnf("Joining endpoint failed: %s", err)
 	}
 
 	routeGW := api.StaticRoute{
@@ -381,6 +383,7 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	if ep, exists := driver.endpoints[l.EndpointID]; !exists {
 		log.Warnf("Endpoint %s is unknown", l.EndpointID)
 	} else {
+		ep.SetID()
 		if err := bpfbackend.EndpointLeave(ep); err != nil {
 			log.Warnf("Leaving the endpoint failed: %s", err)
 		}
