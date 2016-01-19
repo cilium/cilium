@@ -27,9 +27,16 @@ function mac2array()
         echo "{ 0x${1//:/, 0x} }"
 }
 
+function addr2array()
+{
+	# FIXME
+	echo "{ .p1 = 0xdead, .p2 = 0xbeef, .p3 = 0xbaad, .p4 = 0xc0de }"
+}
+
 cat <<EOF > $DIR/lxc_config.h
 #define DEBUG
-#define LXC_MAC { . addr = $(mac2array $MAC) }
+#define LXC_MAC { .addr = $(mac2array $MAC) }
+#define LXC_IP $(addr2array $IP)
 #define NODE_ID $NODE_ID
 EOF
 
