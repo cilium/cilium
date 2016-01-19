@@ -14,6 +14,8 @@ static void usage(void)
 	fprintf(stderr, "       map_ctrl create <map file>\n");
 	fprintf(stderr, "       map_ctrl dump <map file>\n");
 	fprintf(stderr, "       map_ctrl lookup <map file> <key>\n");
+	fprintf(stderr, "       map_ctrl update <map file> <key> <ifindex> <mac>\n");
+	fprintf(stderr, "       map_ctrl delete <map file> <key>\n");
 }
 
 static int create_lxc_map(void)
@@ -25,7 +27,7 @@ static int create_lxc_map(void)
 static const char *format_lxc_info(struct lxc_info *lxc)
 {
 	static char str[256] = {0};
-	__u16 *tmp = (__u16 *) &lxc->mac;
+	__u8 *tmp = (__u8 *) &lxc->mac;
 
 	snprintf(str, sizeof(str), "ifindex=%u mac=%02x:%02x:%02x:%02x:%02x:%02x",
 		lxc->ifindex,
@@ -88,6 +90,21 @@ static void update_lxc(const char *file, __u16 key, struct lxc_info *value)
 	assert(ret == 0);
 }
 
+static void delete_lxc(const char *file, __u16 key)
+{
+	struct lxc_info value;
+	int fd, ret;
+
+	fd = bpf_obj_get(file);
+	printf("bpf: get fd:%d (%s)\n", fd, strerror(errno));
+	assert(fd > 0);
+
+	ret = bpf_delete_elem(fd, &key);
+	printf("bpf: fd:%d key:%u ret:(%d,%s)\n",
+		fd, key, ret, strerror(errno));
+	assert(ret == 0);
+}
+
 int main(int argc, char **argv)
 {
 	const char *file;
@@ -127,15 +144,27 @@ int main(int argc, char **argv)
 	} else if (!strcasecmp(argv[1], "update")) {
 		__u16 key;
 		struct lxc_info info;
+		__u8 *m = (__u8 *) &info.mac;
 
 		if (argc < 6)
 			goto out;
 
 		key = (__u16) strtoul(argv[3], NULL, 0);
 		info.ifindex = strtoul(argv[4], NULL, 0);
-		info.mac = strtoul(argv[5], NULL, 0);
+
+		if (sscanf(argv[5], "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+			   &m[0], &m[1], &m[2], &m[3], &m[4], &m[5]) != 6)
+			goto out;
 
 		update_lxc(file, key, &info);
+	} else if (!strcasecmp(argv[1], "delete")) {
+		__u16 key;
+
+		if (argc < 4)
+			goto out;
+
+		key = (__u16) strtoul(argv[3], NULL, 0);
+		delete_lxc(file ,key);
 	}
 
 	return 0;
