@@ -1,4 +1,4 @@
-package cilium_net_daemon
+package server
 
 import (
 	"fmt"
@@ -7,25 +7,26 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
 )
 
-func Ping(w http.ResponseWriter, r *http.Request) {
+func (router *Router) ping(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Pong\n")
+	str, _ := router.daemon.Ping()
+	fmt.Fprint(w, str)
 }
 
-func EndpointCreate(w http.ResponseWriter, r *http.Request) {
+func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	//compile eBPF program
 	log.Debug("vars[\"uuid\"]=", vars["uuid"])
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func EndpointDelete(w http.ResponseWriter, r *http.Request) {
+func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	log.Debug("vars[\"uuid\"]=", vars["uuid"])
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func EndpointGet(w http.ResponseWriter, r *http.Request) {
+func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	log.Debug("vars[\"uuid\"]=", vars["uuid"])
 	w.WriteHeader(http.StatusNotImplemented)

@@ -5,7 +5,8 @@ import (
 	"os"
 	"time"
 
-	d "github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
+	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
+	s "github.com/noironetworks/cilium-net/cilium-net-daemon/server"
 	common "github.com/noironetworks/cilium-net/common"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
@@ -66,10 +67,11 @@ func init() {
 }
 
 func main() {
-	daemon, err := d.NewDaemon(socketPath)
+	d := daemon.NewDaemon()
+	server, err := s.NewServer(socketPath, d)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
 	}
-	defer daemon.Stop()
-	daemon.Start()
+	defer server.Stop()
+	server.Start()
 }
