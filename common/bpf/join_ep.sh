@@ -22,9 +22,18 @@ export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PAT
 
 DIR=`mktemp -d -p ./`
 
-CLANG_FLAGS="-DNODE_ID=$NODE_ID -DDEBUG"
+function mac2array()
+{
+        echo "{ 0x${1//:/, 0x} }"
+}
 
-clang -O2 -emit-llvm -c lxc_bpf.c $CLANG_FLAGS -o - | llc -march=bpf -filetype=obj -o $DIR/bpf.o
+cat <<EOF > $DIR/lxc_config.h
+#define DEBUG
+#define LXC_MAC { . addr = $(mac2array $MAC) }
+#define NODE_ID $NODE_ID
+EOF
+
+clang -O2 -emit-llvm -c lxc_bpf.c -I$DIR -o - | llc -march=bpf -filetype=obj -o $DIR/bpf.o
 
 # Still need this prio bandaid as we don't have prequeue yet, can become a bottleneck due to locking
 #tc qdisc add dev $IFNAME root handle eeee: prio bands 3

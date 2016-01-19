@@ -12,6 +12,17 @@ union macaddr {
 	__u8 addr[6];
 };
 
+static inline int compare_eth_addr(union macaddr *a, union macaddr *b)
+{
+	int tmp;
+
+	tmp = a->p1 - b->p1;
+	if (!tmp)
+		tmp = a->p2 - b->p2;
+
+	return tmp;
+}
+
 static inline void load_eth_saddr(struct __sk_buff *skb, union macaddr *dst, int off)
 {
 	/* FIXME: use skb_load_bytes() instead */
