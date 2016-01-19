@@ -23,6 +23,20 @@ static inline int verify_src_mac(struct __sk_buff *skb)
 }
 #endif
 
+#ifndef DISABLE_SIP_VERIFICATION
+static inline int verify_src_ip(struct __sk_buff *skb, int off)
+{
+	union v6addr src, valid = LXC_IP;
+	load_ipv6_saddr(skb, off, &src);
+	return compare_ipv6_addr(&src, &valid);
+}
+#else
+static inline int verify_src_ip(struct __sk_buff *skb, int off)
+{
+	return 0;
+}
+#endif
+
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
 	struct lxc_info *dst_lxc;
@@ -32,7 +46,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
         char fmt[] = "skb %p len %d\n";
         char fmt2[] = "%x %x\n";
 
-	if (verify_src_mac(skb))
+	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off))
 		return -1;
 
 	/* FIXME: Validate destination node ID and perform encap */
