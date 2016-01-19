@@ -1,19 +1,11 @@
 #include <iproute2/bpf_api.h>
-#include <linux/ipv6.h>
-#include <linux/if_ether.h>
 #include <sys/socket.h>
 #include <stdint.h>
 #include "common.h"
 #include "lib/ipv6.h"
-
-#define ETH_HLEN 14
+#include "lib/eth.h"
 
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
-
-static inline void set_dst_mac(struct __sk_buff *skb, char *mac)
-{
-        skb_store_bytes(skb, 0, mac, 6, 1);
-}
 
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
@@ -42,7 +34,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
 		__u64 tmp_mac = dst_lxc->mac;
-		set_dst_mac(skb, (char *) &tmp_mac);
+		store_eth_daddr(skb, (char *) &tmp_mac, 0);
 
 		char fmt[] = "Found destination container locally\n";
 		trace_printk(fmt, sizeof(fmt));
