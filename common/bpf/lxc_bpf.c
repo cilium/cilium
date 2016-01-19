@@ -3,9 +3,7 @@
 #include <linux/if_ether.h>
 #include <sys/socket.h>
 #include <stdint.h>
-
-#define TX_XMIT	0
-#define TX_FRWD	1
+#include "lib/ipv6.h"
 
 #define ETH_HLEN 14
 
@@ -38,7 +36,6 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
 	struct lxc_info *dst_lxc;
 	__u16 lxc_id;
-	__u8 hoplimit;
 	union v6addr dst, dst_new;
         int *ifindex;
         char fmt[] = "skb %p len %d\n";
@@ -56,21 +53,9 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	trace_printk(fmt, sizeof(fmt), skb, skb->len);
 	trace_printk(fmt2, sizeof(fmt2), dst.p3, dst.p4);
 
-	hoplimit = load_byte(skb, nh_off + offsetof(struct ipv6hdr, hop_limit));
-	if (hoplimit <= 1) {
-		/* FIXME: Handle */
-		char fmt[] = "Hoplimit reached 0\n";
-		trace_printk(fmt, sizeof(fmt));
-		return -1;
-	} else {
-		__u8 new_hl;
-
-		new_hl = hoplimit - 1;
-                skb_store_bytes(skb, nh_off + offsetof(struct ipv6hdr, hop_limit),
-                                &new_hl, sizeof(new_hl), 0);
-		char fmt[] = "Decremented hoplimit\n";
-		trace_printk(fmt, sizeof(fmt));
-        }
+	if (decrement_ipv6_hoplimit(skb, nh_off)) {
+		/* FIXME: Handle hoplimit == 0 */
+	}
 
 	lxc_id = dst.p4 & 0xFFFF;
 
