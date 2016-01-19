@@ -119,7 +119,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		store_eth_saddr(skb, (char *) &router_mac, 0);
 		redirect(skb->ifindex, 0);
 	}
-	return 0;
+	return -1;
 }
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
