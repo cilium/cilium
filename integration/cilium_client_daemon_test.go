@@ -26,7 +26,7 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 
 	daemon, err := cnd.NewDaemon(socketPath)
 	if err != nil {
-		c.Fatalf("Failed while creating new test daemon: %+v", err)
+		c.Fatalf("Failed while creating new cilium-net test daemon: %+v", err)
 	}
 
 	cli, err := cnc.NewClient("unix://"+socketPath, nil, nil)
@@ -38,7 +38,7 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 
 	go func() {
 		if err := s.daemon.Start(); err != nil {
-			c.Fatalf("Error while starting cilium-net daemon %s", err)
+			c.Fatalf("Error while starting cilium-net test daemon: %s", err)
 			s.daemon.Stop()
 		}
 	}()
@@ -49,12 +49,12 @@ func (s *CiliumClientSuite) TearDownSuite(c *C) {
 	socketPath := filepath.Join(socketDir, "cilium.sock")
 	defer func() {
 		if err := os.RemoveAll(socketPath); err != nil {
-			c.Errorf("Failed while removing daemon socket: %s", err)
+			c.Errorf("Failed while removing cilium-net test daemon socket: %s", err)
 		}
 	}()
 
 	if err := s.daemon.Stop(); err != nil {
-		c.Fatalf("Error while starting cilium-net daemon %s", err)
+		c.Errorf("Error while stopping cilium-net test daemon %s", err)
 	}
 }
 

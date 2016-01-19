@@ -101,7 +101,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ip := common.BuildEndpointAddress(driver.nodeAddress, v4IP)
+		ip := common.Build4to6EndpointAddress(driver.nodeAddress, v4IP)
 		resp = &api.RequestAddressResponse{
 			Address: ip.String() + "/128",
 		}
