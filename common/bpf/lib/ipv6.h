@@ -1,5 +1,22 @@
 #include <linux/ipv6.h>
 
+static inline int compare_ipv6_addr(union v6addr *a, union v6addr *b)
+{
+	int tmp;
+
+	tmp = a->p1 - b->p1;
+	if (!tmp) {
+		tmp = a->p2 - b->p2;
+		if (!tmp) {
+			tmp = a->p3 - b->p3;
+			if (!tmp)
+				tmp = a->p4 - b->p4;
+		}
+	}
+
+	return tmp;
+}
+
 static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 {
 	__u8 hoplimit, new_hl;
@@ -22,6 +39,14 @@ static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 #endif
 
 	return 0;
+}
+
+static inline void load_ipv6_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
+{
+        dst->p1 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 0));
+        dst->p2 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 1));
+        dst->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 2));
+        dst->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 3));
 }
 
 static inline void load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
