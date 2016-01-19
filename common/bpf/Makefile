@@ -1,4 +1,4 @@
-CLANG_FLAGS := -DNODE_ID=1 -DDEBUG
+CLANG_FLAGS := -I.
 
 all: map_ctrl nop.o lxc_bpf.o
 
