@@ -32,7 +32,7 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 		c.Fatalf("Failed while creating new cilium-net test server: %+v", err)
 	}
 
-	cli, err := cnc.NewClient("unix://"+socketPath, nil, nil)
+	cli, err := cnc.NewClient("unix://"+socketPath, nil, nil, nil)
 	if err != nil {
 		c.Fatalf("Failed while creating new client: %+v", err)
 	}
