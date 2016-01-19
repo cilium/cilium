@@ -22,7 +22,9 @@ export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PAT
 
 DIR=`mktemp -d -p ./`
 
-clang -O2 -emit-llvm -c lxc_bpf.c -DNODE_ID=$NODE_ID -o - | llc -march=bpf -filetype=obj -o $DIR/bpf.o
+CLANG_FLAGS="-DNODE_ID=$NODE_ID -DDEBUG"
+
+clang -O2 -emit-llvm -c lxc_bpf.c $CLANG_FLAGS -o - | llc -march=bpf -filetype=obj -o $DIR/bpf.o
 
 # Still need this prio bandaid as we don't have prequeue yet, can become a bottleneck due to locking
 #tc qdisc add dev $IFNAME root handle eeee: prio bands 3
