@@ -2,11 +2,14 @@
 #include <sys/socket.h>
 #include <stdint.h>
 #include <string.h>
+#include <linux/icmpv6.h>
 #include "common.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include <lxc_config.h>
 
+static struct in6_addr node_ip = { .in6_u.u6_addr32 = { 0xde, 0xad, 0xbe, 0xef }};
+static __u8 node_mac_opt[8] = { 0, 0, 0x18, 0xe7, 0x28, 0x2e, 0x59, 0x44 };
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 
 #ifndef DISABLE_SMAC_VERIFICATION
@@ -62,14 +65,62 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	return -1;
 }
 
+static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
+{
+	char fmt[] = "ICMPv6 packet skb %p len %d type %d\n";
+	union v6addr sip;
+	__u8 type;
+	struct icmp6hdr icmp6hdr;
+	union macaddr smac;
+
+	type = load_byte(skb, ETH_HLEN + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
+
+	trace_printk(fmt, sizeof(fmt), skb, skb->len, type);
+
+	if (type == 135) {
+		/* skb->daddr = skb->saddr */
+		load_ipv6_saddr(skb, nh_off, &sip);
+		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, daddr), &sip, 16, 0);
+		/* skb->saddr = router address */
+		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, saddr), &node_ip, sizeof(node_ip), 0);
+
+		/* fill icmp6hdr */
+		icmp6hdr.icmp6_type = 136;
+		icmp6hdr.icmp6_code = 0;
+		icmp6hdr.icmp6_dataun.un_data32[0] = 0;
+		icmp6hdr.icmp6_router = 1;
+		icmp6hdr.icmp6_solicited = 1;
+		icmp6hdr.icmp6_override = 0;
+		/* FIXME compute icmp6 checksum */
+		// icmp6hdr.icmp6_cksum =
+		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
+		// ND_OPT_TARGET_LL_ADDR
+		node_mac_opt[0] = 2;
+		node_mac_opt[1] = 0;
+		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), node_mac_opt, sizeof(node_mac_opt), 0);
+
+		/* dmac = smac, smac = router mac */
+		load_eth_saddr(skb, &smac, 0);
+		store_eth_daddr(skb, (char *)smac.addr, 0);
+		store_eth_saddr(skb, (char *)&node_mac_opt[2], 0);
+		redirect(skb->ifindex, 0);
+	}
+	return 0;
+}
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
 {
 	int ret = 0, nh_off = ETH_HLEN;
+	__u8 nexthdr;
 
-	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
-		ret = do_redirect6(skb, nh_off);
-
+	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
+		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
+		if (nexthdr == IPPROTO_ICMPV6)
+			// ret = handle_icmp6(skb, nh_off)
+			;
+		else
+			ret = do_redirect6(skb, nh_off);
+	}
 	return ret;
 }
 BPF_LICENSE("GPL");

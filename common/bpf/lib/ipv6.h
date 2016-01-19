@@ -31,3 +31,11 @@ static inline void load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr 
         dst->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 2));
         dst->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 3));
 }
+
+static inline void load_ipv6_saddr(struct __sk_buff *skb, int off, union v6addr *src)
+{
+        src->p1 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 0));
+        src->p2 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 1));
+        src->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 2));
+        src->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 3));
+}
