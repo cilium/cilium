@@ -19,7 +19,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
 	struct lxc_info *dst_lxc;
 	__u16 lxc_id;
-	union v6addr dst, dst_new;
+	union v6addr dst;
         int *ifindex;
         char fmt[] = "skb %p len %d\n";
         char fmt2[] = "%x %x\n";
@@ -28,10 +28,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 	/* FIXME: Validate destination node ID and perform encap */
 
-        dst.p1 = ntohl(load_word(skb, nh_off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 0));
-        dst.p2 = ntohl(load_word(skb, nh_off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 1));
-        dst.p3 = ntohl(load_word(skb, nh_off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 2));
-        dst.p4 = ntohl(load_word(skb, nh_off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 3));
+	load_ipv6_daddr(skb, nh_off, &dst);
 
 	trace_printk(fmt, sizeof(fmt), skb, skb->len);
 	trace_printk(fmt2, sizeof(fmt2), dst.p3, dst.p4);

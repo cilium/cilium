@@ -23,3 +23,11 @@ static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 
 	return 0;
 }
+
+static inline void load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
+{
+        dst->p1 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 0));
+        dst->p2 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 1));
+        dst->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 2));
+        dst->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 3));
+}
