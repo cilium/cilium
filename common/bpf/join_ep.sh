@@ -9,6 +9,7 @@ IP=$4
 
 # FIXME FIXME FIXME
 NODE_ID=1
+ROUTER_MAC="ba:ad:ba:ad:ba:ad"
 
 IFINDEX=$(cat /sys/class/net/$IFNAME/ifindex)
 
@@ -36,6 +37,7 @@ function addr2array()
 cat <<EOF > $DIR/lxc_config.h
 #define DEBUG
 #define LXC_MAC { .addr = $(mac2array $MAC) }
+#define ROUTER_MAC { .addr = $(mac2array $ROUTER_MAC) }
 #define LXC_IP $(addr2array $IP)
 #define NODE_ID $NODE_ID
 EOF
