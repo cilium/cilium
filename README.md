@@ -8,16 +8,16 @@
    $ vagrant ssh
    ```
 
-2. Compile the docker plugin
+2. Compile the docker plugin and tools
 
    ```
-   $ cd cilium-net/docker-plugin
    $ make
    ```
 
 3. Run the plugin
 
    ```
+   $ cd docker-plugin
    $ sudo make run
    ```
 
