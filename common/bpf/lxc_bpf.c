@@ -27,7 +27,7 @@ struct lxc_info {
 	int ifindex;
 };
 
-__BPF_MAP(lxc_map, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
+__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 
 static inline void set_dst_mac(struct __sk_buff *skb, char *mac)
 {
@@ -74,7 +74,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 	lxc_id = dst.p4 & 0xFFFF;
 
-	dst_lxc = map_lookup_elem(&lxc_map, &lxc_id);
+	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
 		__u64 tmp_mac = dst_lxc->mac;
 		set_dst_mac(skb, (char *) &tmp_mac);
