@@ -11,6 +11,16 @@ enum {
 #define CILIUM_MAP_ID_MAX __CILIUM_MAP_ID_MAX
 };
 
+union v6addr {
+        struct {
+                __u32 p1;
+                __u32 p2;
+                __u32 p3;
+                __u32 p4;
+        };
+        __u8 addr[16];
+};
+
 struct lxc_info {
 	__u64		mac;
 	int		ifindex;
