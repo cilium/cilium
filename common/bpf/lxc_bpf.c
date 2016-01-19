@@ -8,7 +8,6 @@
 #include "lib/eth.h"
 #include <lxc_config.h>
 
-static struct in6_addr node_ip = { .in6_u.u6_addr32 = { 0xde, 0xad, 0xbe, 0xef }};
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 
 #ifndef DISABLE_SMAC_VERIFICATION
@@ -87,6 +86,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 	union macaddr smac;
 	union macaddr router_mac = ROUTER_MAC;
 	__u8 opts[2] = { 2, 0 };
+	struct in6_addr node_ip = { .in6_u.u6_addr32 = { 0xde, 0xad, 0xbe, 0xef }};
 
 	type = load_byte(skb, ETH_HLEN + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
 
