@@ -1,13 +1,12 @@
 package cilium_net_client
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
 	"github.com/noironetworks/cilium-net/common/types"
-
-	"github.com/docker/docker/vendor/src/github.com/jfrazelle/go/canonical/json"
 )
 
 var ErrConnectionFailed = errors.New("Cannot connect to the cilium-net-daemon. Is the cilium-net-daemon running on this host?")
