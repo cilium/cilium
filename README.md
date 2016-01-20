@@ -14,14 +14,21 @@
    $ make
    ```
 
-3. Run the plugin
+3. Run the daemon
 
    ```
-   $ cd docker-plugin
-   $ sudo make run
+   $ sudo make run-cilium-daemon
+   [...]
    ```
 
-4. Run a container
+4. Run the plugin
+
+   ```
+   $ sudo make run-docker-plugin
+   [...]
+   ```
+
+5. Run a container
 
    ```
    $ docker network create --driver cilium --ipam-driver cilium test-net
