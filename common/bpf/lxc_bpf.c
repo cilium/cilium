@@ -56,41 +56,56 @@ static inline int verify_dst_mac(struct __sk_buff *skb)
 	return ret;
 }
 
+static inline void debug_trace_packet(struct __sk_buff *skb)
+{
+#ifdef DEBUG
+	char fmt[] = "skb %p len %d\n";
+
+	trace_printk(fmt, sizeof(fmt), skb, skb->len);
+#endif
+}
+
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
-	struct lxc_info *dst_lxc;
 	__u16 lxc_id;
 	union v6addr dst;
-        int *ifindex;
-        char fmt[] = "skb %p len %d\n";
-        char fmt2[] = "%x %x\n";
+	int node_id, *ifindex;
+
+	debug_trace_packet(skb);
 
 	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
 	    verify_dst_mac(skb))
 		return -1;
 
-	/* FIXME: Validate destination node ID and perform encap */
-
 	load_ipv6_daddr(skb, nh_off, &dst);
-
-	trace_printk(fmt, sizeof(fmt), skb, skb->len);
-	trace_printk(fmt2, sizeof(fmt2), dst.p3, dst.p4);
-
-	if (decrement_ipv6_hoplimit(skb, nh_off)) {
-		/* FIXME: Handle hoplimit == 0 */
+	lxc_id = derive_lxc_id(&dst);
+	node_id = derive_node_id(&dst);
+#ifdef DEBUG
+	if (1) {
+		char fmt[] = "lxc-id: %x node-id: %x\n";
+		trace_printk(fmt, sizeof(fmt), lxc_id, node_id);
 	}
+#endif
 
-	lxc_id = dst.p4 & 0xFFFF;
+	if (node_id != NODE_ID) {
+		/* FIXME: Handle encapsulation case */
+	} else {
+		struct lxc_info *dst_lxc;
 
-	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
-	if (dst_lxc) {
-		__u64 tmp_mac = dst_lxc->mac;
-		store_eth_daddr(skb, (char *) &tmp_mac, 0);
+		dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
+		if (dst_lxc) {
+			__u64 tmp_mac = dst_lxc->mac;
+			store_eth_daddr(skb, (char *) &tmp_mac, 0);
 
-		char fmt[] = "Found destination container locally\n";
-		trace_printk(fmt, sizeof(fmt));
+			if (decrement_ipv6_hoplimit(skb, nh_off)) {
+				/* FIXME: Handle hoplimit == 0 */
+			}
 
-		redirect(dst_lxc->ifindex, 0);
+			char fmt[] = "Found destination container locally\n";
+			trace_printk(fmt, sizeof(fmt));
+
+			redirect(dst_lxc->ifindex, 0);
+		}
 	}
 
 	return -1;
