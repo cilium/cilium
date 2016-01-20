@@ -104,7 +104,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 			char fmt[] = "Found destination container locally\n";
 			trace_printk(fmt, sizeof(fmt));
 
-			redirect(dst_lxc->ifindex, 0);
+			return redirect(dst_lxc->ifindex, 0);
 		}
 	}
 
@@ -114,6 +114,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
 	char fmt[] = "ICMPv6 packet skb %p len %d type %d\n";
+	char fmt1[] = "Redirect skb to Ifindex %d\n";
 	union v6addr sip, router_ip;
 	__u8 type;
 	struct icmp6hdr icmp6hdr;
@@ -154,11 +155,12 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		load_eth_saddr(skb, &smac, 0);
 		store_eth_daddr(skb, (char *) smac.addr, 0);
 		store_eth_saddr(skb, (char *) &router_mac, 0);
-		redirect(skb->ifindex, 0);
+		trace_printk(fmt1, sizeof(fmt1), skb->ifindex);
+		return redirect(skb->ifindex, 0);
 
-		return -1;
 	}
-	return 0;
+
+	return -1;
 }
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
