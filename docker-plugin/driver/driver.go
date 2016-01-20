@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	common "github.com/noironetworks/cilium-net/common"
-	bpfbackend "github.com/noironetworks/cilium-net/common/bpfbackend"
+	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
@@ -41,6 +41,7 @@ type driver struct {
 	allocatorRange *ipallocator.Range
 	endpoints      map[string]*ciliumtype.Endpoint
 	sync.Mutex
+	client *cnc.Client
 }
 
 func endpoint2ifname(endpointID string) string {
@@ -70,11 +71,17 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 		log.Fatalf("Invalid CIDR %s", LocalAllocSubnet)
 	}
 
+	c, err := cnc.NewDefaultClient()
+	if err != nil {
+		log.Fatalf("Error while starting cilium-client: %s", err)
+	}
+
 	d := &driver{
 		nodeAddress:    nodeAddress,
 		allocPool:      subnet,
 		allocatorRange: ipallocator.NewCIDRRange(v4Alloc),
 		endpoints:      make(map[string]*ciliumtype.Endpoint),
+		client:         c,
 	}
 
 	log.Infof("New Cilium networking instance on node %s", nodeAddress.String())
@@ -221,7 +228,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Debugf("PortBinding: %+v", &portmap)
-			// TODO: handle port binding
+		// TODO: handle port binding
 		case "com.docker.network.endpoint.exposedports":
 			var tp []types.TransportPort
 			if err := json.Unmarshal(val, &tp); err != nil {
@@ -345,7 +352,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	ep.Ifname = lxcIfname
 	ep.SetID()
-	if err := bpfbackend.EndpointJoin(ep); err != nil {
+	if err := driver.client.EndpointJoin(*ep); err != nil {
 		log.Warnf("Joining endpoint failed: %s", err)
 	}
 
@@ -383,8 +390,7 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	if ep, exists := driver.endpoints[l.EndpointID]; !exists {
 		log.Warnf("Endpoint %s is unknown", l.EndpointID)
 	} else {
-		ep.SetID()
-		if err := bpfbackend.EndpointLeave(ep); err != nil {
+		if err := driver.client.EndpointLeave(ep.ID); err != nil {
 			log.Warnf("Leaving the endpoint failed: %s", err)
 		}
 	}
