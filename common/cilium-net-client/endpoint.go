@@ -25,10 +25,10 @@ func (cli Client) EndpointJoin(ep types.Endpoint) error {
 	return nil
 }
 
-func (cli Client) EndpointLeave(ep types.Endpoint) error {
+func (cli Client) EndpointLeave(epID string) error {
 	query := url.Values{}
 
-	serverResp, err := cli.delete("/endpoint/"+ep.ID, query, nil)
+	serverResp, err := cli.delete("/endpoint/"+epID, query, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -37,7 +37,7 @@ func (cli Client) EndpointLeave(ep types.Endpoint) error {
 
 	if serverResp.statusCode != http.StatusNoContent &&
 		serverResp.statusCode != http.StatusNotFound {
-		return processErrorBody(serverResp.body, ep)
+		return processErrorBody(serverResp.body, epID)
 	}
 
 	return nil
