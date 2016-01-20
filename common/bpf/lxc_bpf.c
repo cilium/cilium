@@ -80,13 +80,12 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
 	char fmt[] = "ICMPv6 packet skb %p len %d type %d\n";
-	union v6addr sip;
+	union v6addr sip, router_ip;
 	__u8 type;
 	struct icmp6hdr icmp6hdr;
 	union macaddr smac;
 	union macaddr router_mac = ROUTER_MAC;
 	__u8 opts[2] = { 2, 0 };
-	struct in6_addr node_ip = { .in6_u.u6_addr32 = { 0xde, 0xad, 0xbe, 0xef }};
 
 	type = load_byte(skb, ETH_HLEN + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
 
@@ -96,8 +95,12 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		/* skb->daddr = skb->saddr */
 		load_ipv6_saddr(skb, nh_off, &sip);
 		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, daddr), &sip, 16, 0);
-		/* skb->saddr = router address */
-		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, saddr), &node_ip, sizeof(node_ip), 0);
+		/* skb->saddr = router address, verifier rejects when initialized statically */
+		router_ip.p1 = htonl(0xab);
+		router_ip.p2 = htonl(0xcd);
+		router_ip.p3 = htonl(0xab);
+		router_ip.p4 = htonl(0xef);
+		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, saddr), &router_ip, 16, 0);
 
 		/* fill icmp6hdr */
 		icmp6hdr.icmp6_type = 136;
@@ -107,7 +110,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		icmp6hdr.icmp6_solicited = 1;
 		icmp6hdr.icmp6_override = 0;
 		/* FIXME compute icmp6 checksum */
-		// icmp6hdr.icmp6_cksum =
+		icmp6hdr.icmp6_cksum = 0;
 		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
 		// ND_OPT_TARGET_LL_ADDR
 		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts, sizeof(opts), 0);
@@ -118,8 +121,10 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		store_eth_daddr(skb, (char *) smac.addr, 0);
 		store_eth_saddr(skb, (char *) &router_mac, 0);
 		redirect(skb->ifindex, 0);
+
+		return -1;
 	}
-	return -1;
+	return 0;
 }
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
@@ -130,8 +135,7 @@ int handle_ingress(struct __sk_buff *skb)
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
 		if (nexthdr == IPPROTO_ICMPV6)
-			// ret = handle_icmp6(skb, nh_off)
-			;
+			ret = handle_icmp6(skb, nh_off);
 		else
 			ret = do_redirect6(skb, nh_off);
 	}
