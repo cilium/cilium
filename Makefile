@@ -11,6 +11,9 @@ tests:
 run-docker-plugin:
 	$(MAKE) -C docker-plugin run
 
+run-cilium-daemon:
+	$(MAKE) -C cilium-net-daemon run
+
 clean:
 	$(MAKE) -C docker-plugin clean
 	$(MAKE) -C common/bpf clean
