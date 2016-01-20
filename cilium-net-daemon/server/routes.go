@@ -24,8 +24,5 @@ func (r *Router) initRoutes() {
 		Route{
 			"EndpointDelete", "DELETE", "/endpoint/{uuid}", r.endpointDelete,
 		},
-		Route{
-			"EndpointGet", "GET", "/endpoint/{uuid}", r.endpointGet,
-		},
 	}
 }

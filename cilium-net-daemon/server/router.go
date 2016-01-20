@@ -1,9 +1,12 @@
 package server
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/noironetworks/cilium-net/common/backend"
+	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
 )
@@ -30,4 +33,19 @@ func NewRouter(d backend.CiliumBackend) Router {
 			Handler(handler)
 	}
 	return r
+}
+
+func processServerError(w http.ResponseWriter, r *http.Request, err error) {
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Header().Set("Content-Type", "application/json")
+	e := json.NewEncoder(w)
+	sErr := types.ServerError{
+		http.StatusInternalServerError,
+		fmt.Sprintf("an unexpected internal error has occurred: \"%s\"", err),
+	}
+	log.Errorf("Error processing request '%+v': \"%s\"", r, err)
+	if err := e.Encode(sErr); err != nil {
+		log.Errorf("Error encoding %T '%+v': \"%s\"", sErr, sErr, err)
+		fmt.Fprint(w, "Fatal error processing request '%+v'")
+	}
 }
