@@ -7,5 +7,8 @@ tests:
 	godep go fmt ./...
 	godep go test ./...
 
+run:
+	./cilium-net-daemon-${KERNEL}-${MACHINE}
+
 cilium-net-daemon: tests
 	godep go build -o cilium-net-daemon-${KERNEL}-${MACHINE} ./main.go
