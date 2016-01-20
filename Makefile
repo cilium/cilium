@@ -1,6 +1,7 @@
 all:
 	$(MAKE) -C docker-plugin
 	$(MAKE) -C common/bpf
+	$(MAKE) -C cilium-net-daemon
 
 tests:
 	$(MAKE) -C cilium-net-daemon tests
@@ -17,3 +18,4 @@ run-cilium-daemon:
 clean:
 	$(MAKE) -C docker-plugin clean
 	$(MAKE) -C common/bpf clean
+	$(MAKE) -C cilium-net-daemon clean
