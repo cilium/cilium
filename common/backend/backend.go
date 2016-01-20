@@ -6,7 +6,7 @@ import (
 
 type bpfBackend interface {
 	EndpointJoin(ep types.Endpoint) error
-	EndpointLeave(ep types.Endpoint) error
+	EndpointLeave(epID string) error
 }
 
 type control interface {

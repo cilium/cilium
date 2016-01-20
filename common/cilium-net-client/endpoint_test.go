@@ -1,14 +1,21 @@
 package cilium_net_client
 
 import (
+	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/docker/docker/vendor/src/github.com/jfrazelle/go/canonical/json"
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+)
+
+var (
+	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
+	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+	HardAddr = net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 )
 
 func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
@@ -90,7 +97,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 	}
 	ep.SetID()
 
-	err := cli.EndpointLeave(ep)
+	err := cli.EndpointLeave(ep.ID)
 
 	c.Assert(err, Equals, nil)
 }
@@ -99,7 +106,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
 		c.Assert(r.URL.Path, Equals, "/endpoint/4370") //0x1112
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
 		err := e.Encode(types.ServerError{-1, "daemon didn't complete your request"})
@@ -119,7 +126,8 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	}
 	ep.SetID()
 
-	err := cli.EndpointLeave(ep)
+	err := cli.EndpointLeave(ep.ID)
 
+	c.Log(err.Error())
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
