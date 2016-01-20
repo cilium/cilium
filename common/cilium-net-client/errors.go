@@ -7,7 +7,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/docker/docker/vendor/src/github.com/jfrazelle/go/canonical/json"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/jfrazelle/go/canonical/json"
 )
 
 var ErrConnectionFailed = errors.New("Cannot connect to the cilium-net-daemon. Is the cilium-net-daemon running on this host?")
