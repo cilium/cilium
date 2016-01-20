@@ -56,3 +56,13 @@ static inline void load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr 
         dst->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 2));
         dst->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 3));
 }
+
+static inline __u16 derive_lxc_id(union v6addr *addr)
+{
+	return addr->p4 & 0xFFFF;
+}
+
+static inline int derive_node_id(union v6addr *addr)
+{
+	return (addr->p3 & 0xFFFF) << 16 | (addr->p4 >> 16);
+}
