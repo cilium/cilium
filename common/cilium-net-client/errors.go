@@ -4,17 +4,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/noironetworks/cilium-net/common/types"
+
+	"github.com/docker/docker/vendor/src/github.com/jfrazelle/go/canonical/json"
 )
 
 var ErrConnectionFailed = errors.New("Cannot connect to the cilium-net-daemon. Is the cilium-net-daemon running on this host?")
 
-func processErrorBody(serverResp io.ReadCloser, ep *types.Endpoint) error {
-	bytes, err := ioutil.ReadAll(serverResp)
-	if err != nil {
+func processErrorBody(serverResp io.ReadCloser, i interface{}) error {
+	d := json.NewDecoder(serverResp)
+	var sErr types.ServerError
+	if err := d.Decode(&sErr); err != nil {
 		fmt.Errorf("error retrieving server body response: %s", err)
 	}
-	return fmt.Errorf("'%+v': %s", ep, string(bytes))
+	return fmt.Errorf("server error for endpoint: '%+v', (%d) %s", i, sErr.Code, sErr.Text)
 }
