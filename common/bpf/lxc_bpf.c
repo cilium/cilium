@@ -38,6 +38,24 @@ static inline int verify_src_ip(struct __sk_buff *skb, int off)
 }
 #endif
 
+static inline int verify_dst_mac(struct __sk_buff *skb)
+{
+	union macaddr dst, valid = ROUTER_MAC;
+	int ret;
+
+	load_eth_daddr(skb, &dst, 0);
+	ret = compare_eth_addr(&dst, &valid);
+
+#ifdef DEBUG
+	if (unlikely(ret)) {
+		char fmt[] = "skb %p: invalid dst MAC\n";
+		trace_printk(fmt, sizeof(fmt), skb);
+	}
+#endif
+
+	return ret;
+}
+
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
 	struct lxc_info *dst_lxc;
@@ -47,7 +65,8 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
         char fmt[] = "skb %p len %d\n";
         char fmt2[] = "%x %x\n";
 
-	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off))
+	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
+	    verify_dst_mac(skb))
 		return -1;
 
 	/* FIXME: Validate destination node ID and perform encap */
