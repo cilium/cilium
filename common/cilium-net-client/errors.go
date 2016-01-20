@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -19,5 +18,5 @@ func processErrorBody(serverResp io.ReadCloser, i interface{}) error {
 	if err := d.Decode(&sErr); err != nil {
 		fmt.Errorf("error retrieving server body response: %s", err)
 	}
-	return fmt.Errorf("server error for interface: (%+v) \"%+v\", (%d) %s", reflect.TypeOf(i), i, sErr.Code, sErr.Text)
+	return fmt.Errorf("server error for interface: (%T) \"%+v\", (%d) %s", i, i, sErr.Code, sErr.Text)
 }
