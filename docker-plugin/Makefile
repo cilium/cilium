@@ -1,10 +1,13 @@
-all: tests cilium-docker
+all: cilium-docker
 
 tests:
 	godep go fmt ./...
 	godep go test ./...
 
-cilium-docker:
+SOURCES := $(shell find . -name '*.go')
+
+cilium-docker: $(SOURCES)
+	$(MAKE) tests
 	godep go build -o cilium-docker
 
 run:

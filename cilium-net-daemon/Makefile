@@ -1,14 +1,17 @@
-all: tests cilium-net-daemon
-
-KERNEL:= $(shell uname -s)
-MACHINE := $(shell uname -m)
+all: cilium-net-daemon
 
 tests:
 	godep go fmt ./...
 	godep go test ./...
 
 run:
-	./cilium-net-daemon-${KERNEL}-${MACHINE}
+	./cilium-net-daemon
 
-cilium-net-daemon: tests
-	godep go build -o cilium-net-daemon-${KERNEL}-${MACHINE} ./main.go
+clean:
+	rm -f cilium-net-daemon
+
+SOURCES := $(shell find . -name '*.go')
+
+cilium-net-daemon: $(SOURCES)
+	$(MAKE) tests
+	godep go build -o cilium-net-daemon ./main.go
