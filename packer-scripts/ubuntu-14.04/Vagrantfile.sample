@@ -21,6 +21,17 @@ Vagrant.configure(2) do |config|
 
   config.ssh.insert_key = false
 
+  config.vm.provision "shell", inline: <<-SHELL
+    rm -rf /home/vagrant/go/src/github.com/docker/libnetwork
+    mkdir -p /home/vagrant/go/src/github.com/docker
+    cd /home/vagrant/go/src/github.com/docker
+    git clone -b ipv6-citizen https://github.com/tgraf/libnetwork.git
+    # go get github.com/noironetworks/cilium-net
+    chown -R vagrant:vagrant /home/vagrant/go
+
+    mount bpffs /sys/fs/bpf/ -t bpf
+  SHELL
+
   config.vm.provider :libvirt do |domain|
     domain.memory = 8192
     domain.cpus = 8
