@@ -120,7 +120,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 	struct icmp6hdr icmp6hdr;
 	union macaddr smac;
 	union macaddr router_mac = ROUTER_MAC;
-	__u8 opts[2] = { 2, 0 };
+	__u8 opts[2] = { 2, 1 };
 
 	type = load_byte(skb, ETH_HLEN + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
 
