@@ -28,6 +28,10 @@ func fmtDefineAddress(name string, addr []byte) string {
 	return fmt.Sprintf("#define %s { .addr = %s }\n", name, goArray2C(addr))
 }
 
+func fmtDefineArray(name string, array []byte) string {
+	return fmt.Sprintf("#define %s %s\n", name, goArray2C(array))
+}
+
 var r, _ = regexp.Compile("^[0-9]+$")
 
 func isValidID(id string) bool {
@@ -71,7 +75,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	f.WriteString(fmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(fmtDefineAddress("LXC_IP", ep.LxcIP))
 	f.WriteString(fmtDefineAddress("ROUTER_MAC", routerMac))
-	f.WriteString(fmtDefineAddress("ROUTER_IP", ep.NodeIP))
+	f.WriteString(fmtDefineArray("ROUTER_IP", ep.NodeIP))
 
 	f.Close()
 
