@@ -47,10 +47,20 @@ static inline int load_ipv6_saddr(struct __sk_buff *skb, int off, union v6addr *
 			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
+static inline int store_ipv6_saddr(struct __sk_buff *skb, __u8 *addr, int off)
+{
+	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
+}
+
 static inline int load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
 {
 	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->saddr));
+}
+
+static inline int store_ipv6_daddr(struct __sk_buff *skb, __u8 *addr, int off)
+{
+	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
 }
 
 static inline __u16 derive_lxc_id(const union v6addr *addr)

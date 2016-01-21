@@ -52,15 +52,17 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		" * MAC: %s\n"+
 		" * IP: %s\n"+
 		" * Router MAC: %s\n"+
+		" * Router IP: %s\n"+
 		" */\n\n",
 		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String(),
-		routerMac.String())
+		ep.NodeIP.String(), routerMac.String())
 
 	f.WriteString("#define DEBUG\n")
 	f.WriteString("#define NODE_ID 1\n")
 	f.WriteString(fmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(fmtDefineAddress("LXC_IP", ep.LxcIP))
 	f.WriteString(fmtDefineAddress("ROUTER_MAC", routerMac))
+	f.WriteString(fmtDefineAddress("ROUTER_IP", ep.NodeIP))
 
 	f.Close()
 

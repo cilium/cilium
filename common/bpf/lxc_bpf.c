@@ -106,7 +106,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
-	union v6addr sip = {}, router_ip;
+	union v6addr sip = {}, router_ip = ROUTER_IP;
 	__u8 type;
 	struct icmp6hdr icmp6hdr;
 	union macaddr smac = {};
@@ -120,13 +120,9 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 	if (type == 135) {
 		/* skb->daddr = skb->saddr */
 		load_ipv6_saddr(skb, nh_off, &sip);
-		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, daddr), &sip, 16, 0);
+		store_ipv6_daddr(skb, sip.addr, ETH_HLEN);
 		/* skb->saddr = router address, verifier rejects when initialized statically */
-		router_ip.p1 = htonl(0xab);
-		router_ip.p2 = htonl(0xcd);
-		router_ip.p3 = htonl(0xab);
-		router_ip.p4 = htonl(0xef);
-		skb_store_bytes(skb, ETH_HLEN + offsetof(struct ipv6hdr, saddr), &router_ip, 16, 0);
+		store_ipv6_saddr(skb, router_ip.addr, ETH_HLEN);
 
 		/* fill icmp6hdr */
 		icmp6hdr.icmp6_type = 136;
