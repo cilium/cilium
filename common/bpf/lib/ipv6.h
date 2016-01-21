@@ -1,4 +1,9 @@
+#ifndef __LIB_IPV6__
+#define __LIB_IPV6__
+
 #include <linux/ipv6.h>
+
+#include "dbg.h"
 
 static inline int compare_ipv6_addr(const union v6addr *a,
 				    const union v6addr *b)
@@ -24,21 +29,15 @@ static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 
 	hoplimit = load_byte(skb, off + offsetof(struct ipv6hdr, hop_limit));
 	if (hoplimit <= 1) {
-#ifdef DEBUG
-		char fmt[] = "Hoplimit reached 0\n";
-		trace_printk(fmt, sizeof(fmt));
-#endif
+		printk("Hoplimit reached 0\n");
 		return 1;
 	}
 
 	new_hl = hoplimit - 1;
 	skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
 			&new_hl, sizeof(new_hl), 0);
-#ifdef DEBUG
-	char fmt[] = "Decremented hoplimit\n";
-	trace_printk(fmt, sizeof(fmt));
-#endif
 
+	printk("Decremented hoplimit\n");
 	return 0;
 }
 
@@ -63,3 +62,5 @@ static inline int derive_node_id(const union v6addr *addr)
 {
 	return (addr->p3 & 0xFFFF) << 16 | (addr->p4 >> 16);
 }
+
+#endif /* __LIB_IPV6__ */

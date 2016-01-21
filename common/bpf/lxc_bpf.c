@@ -5,9 +5,13 @@
 
 #include <stdint.h>
 #include <string.h>
+
 #include "common.h"
+
 #include "lib/ipv6.h"
 #include "lib/eth.h"
+#include "lib/dbg.h"
+
 #include <lxc_config.h>
 
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
@@ -48,23 +52,15 @@ static inline int verify_dst_mac(struct __sk_buff *skb)
 	load_eth_daddr(skb, dst.addr, 0);
 	ret = compare_eth_addr(&dst, &valid);
 
-#ifdef DEBUG
-	if (unlikely(ret)) {
-		char fmt[] = "skb %p: invalid dst MAC\n";
-		trace_printk(fmt, sizeof(fmt), skb);
-	}
-#endif
+	if (unlikely(ret))
+		printk("skb %p: invalid dst MAC\n", skb);
 
 	return ret;
 }
 
 static inline void debug_trace_packet(struct __sk_buff *skb)
 {
-#ifdef DEBUG
-	char fmt[] = "skb %p len %d\n";
-
-	trace_printk(fmt, sizeof(fmt), skb, skb->len);
-#endif
+	printk("skb %p len %d\n", skb, skb->len);
 }
 
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
@@ -82,12 +78,8 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	load_ipv6_daddr(skb, nh_off, &dst);
 	lxc_id = derive_lxc_id(&dst);
 	node_id = derive_node_id(&dst);
-#ifdef DEBUG
-	if (1) {
-		char fmt[] = "lxc-id: %x node-id: %x\n";
-		trace_printk(fmt, sizeof(fmt), lxc_id, node_id);
-	}
-#endif
+
+	printk("lxc-id: %x node-id: %x\n", lxc_id, node_id);
 
 	if (node_id != NODE_ID) {
 		/* FIXME: Handle encapsulation case */
@@ -103,8 +95,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 				/* FIXME: Handle hoplimit == 0 */
 			}
 
-			char fmt[] = "Found destination container locally\n";
-			trace_printk(fmt, sizeof(fmt));
+			printk("Found destination container locally\n");
 
 			return redirect(dst_lxc->ifindex, 0);
 		}
@@ -115,8 +106,6 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
-	char fmt[] = "ICMPv6 packet skb %p len %d type %d\n";
-	char fmt1[] = "Redirect skb to Ifindex %d\n";
 	union v6addr sip = {}, router_ip;
 	__u8 type;
 	struct icmp6hdr icmp6hdr;
@@ -126,7 +115,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 
 	type = load_byte(skb, ETH_HLEN + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
 
-	trace_printk(fmt, sizeof(fmt), skb, skb->len, type);
+	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
 
 	if (type == 135) {
 		/* skb->daddr = skb->saddr */
@@ -157,7 +146,9 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		load_eth_saddr(skb, smac.addr, 0);
 		store_eth_daddr(skb, smac.addr, 0);
 		store_eth_saddr(skb, router_mac.addr, 0);
-		trace_printk(fmt1, sizeof(fmt1), skb->ifindex);
+
+		printk("Redirect skb to Ifindex %d\n", skb->ifindex);
+
 		return redirect(skb->ifindex, 0);
 
 	}
