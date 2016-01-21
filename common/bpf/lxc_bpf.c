@@ -118,12 +118,13 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 
 	if (type == 135) {
 		union v6addr sip = {}, router_ip = ROUTER_IP;
+		__u8 router_ip[] = ROUTER_IP;
 
 		/* skb->daddr = skb->saddr */
 		load_ipv6_saddr(skb, nh_off, &sip);
 		store_ipv6_daddr(skb, sip.addr, ETH_HLEN);
 		/* skb->saddr = router address, verifier rejects when initialized statically */
-		store_ipv6_saddr(skb, router_ip.addr, ETH_HLEN);
+		store_ipv6_saddr(skb, router_ip, ETH_HLEN);
 
 		/* fill icmp6hdr */
 		icmp6hdr.icmp6_type = 136;
