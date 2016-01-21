@@ -149,7 +149,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
 		// ND_OPT_TARGET_LL_ADDR
 		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts, sizeof(opts), 0);
-		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr) + 2, &router_mac, sizeof(router_mac), 0);
+		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr) + 2, &router_mac, 6, 0);
 
 		/* dmac = smac, smac = router mac */
 		load_eth_saddr(skb, &smac, 0);
