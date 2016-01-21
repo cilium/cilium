@@ -14,9 +14,9 @@ func goArray2C(array []byte) string {
 
 	for i, e := range array {
 		if i == 0 {
-			ret = ret + fmt.Sprintf("%x", e)
+			ret = ret + fmt.Sprintf("%#x", e)
 		} else {
-			ret = ret + fmt.Sprintf(", %x", e)
+			ret = ret + fmt.Sprintf(", %#x", e)
 		}
 	}
 
