@@ -1,3 +1,6 @@
+#ifndef __LIB_ETH__
+#define __LIB_ETH__
+
 #include <linux/if_ether.h>
 
 #ifndef ETH_HLEN
@@ -47,3 +50,5 @@ static inline int store_eth_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_store_bytes(skb, off, mac, ETH_ALEN, 1);
 }
+
+#endif /* __LIB_ETH__ */
