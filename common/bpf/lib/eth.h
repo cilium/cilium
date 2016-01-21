@@ -4,6 +4,10 @@
 #define ETH_HLEN 14
 #endif
 
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
+#endif
+
 union macaddr {
 	struct {
 		__u32 p1;
@@ -12,7 +16,8 @@ union macaddr {
 	__u8 addr[6];
 };
 
-static inline int compare_eth_addr(union macaddr *a, union macaddr *b)
+static inline int compare_eth_addr(const union macaddr *a,
+				   const union macaddr *b)
 {
 	int tmp;
 
@@ -23,26 +28,22 @@ static inline int compare_eth_addr(union macaddr *a, union macaddr *b)
 	return tmp;
 }
 
-static inline void load_eth_saddr(struct __sk_buff *skb, union macaddr *dst, int off)
+static inline int load_eth_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
-	/* FIXME: use skb_load_bytes() instead */
-	dst->p1 = ntohl(load_word(skb, off + 6));
-	dst->p2 = ntohs(load_half(skb, off + 6 + sizeof(dst->p1)));
+	return skb_load_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN);
 }
 
-static inline void store_eth_saddr(struct __sk_buff *skb, char *mac, int off)
+static inline int store_eth_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
-        skb_store_bytes(skb, off + 6, mac, 6, 1);
+	return skb_store_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN, 1);
 }
 
-static inline void load_eth_daddr(struct __sk_buff *skb, union macaddr *dst, int off)
+static inline int load_eth_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
-	/* FIXME: use skb_load_bytes() instead */
-	dst->p1 = ntohl(load_word(skb, off));
-	dst->p2 = ntohs(load_half(skb, off + sizeof(dst->p1)));
+	return skb_load_bytes(skb, off, mac, ETH_ALEN);
 }
 
-static inline void store_eth_daddr(struct __sk_buff *skb, char *mac, int off)
+static inline int store_eth_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
-        skb_store_bytes(skb, off, mac, 6, 1);
+	return skb_store_bytes(skb, off, mac, ETH_ALEN, 1);
 }
