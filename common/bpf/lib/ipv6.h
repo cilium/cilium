@@ -1,6 +1,7 @@
 #include <linux/ipv6.h>
 
-static inline int compare_ipv6_addr(union v6addr *a, union v6addr *b)
+static inline int compare_ipv6_addr(const union v6addr *a,
+				    const union v6addr *b)
 {
 	int tmp;
 
@@ -41,28 +42,24 @@ static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 	return 0;
 }
 
-static inline void load_ipv6_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int load_ipv6_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
 {
-        dst->p1 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 0));
-        dst->p2 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 1));
-        dst->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 2));
-        dst->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, saddr) + sizeof(__u32) * 3));
+	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
+			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
-static inline void load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
 {
-        dst->p1 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 0));
-        dst->p2 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 1));
-        dst->p3 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 2));
-        dst->p4 = ntohl(load_word(skb, off + offsetof(struct ipv6hdr, daddr) + sizeof(__u32) * 3));
+	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
+			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
-static inline __u16 derive_lxc_id(union v6addr *addr)
+static inline __u16 derive_lxc_id(const union v6addr *addr)
 {
 	return addr->p4 & 0xFFFF;
 }
 
-static inline int derive_node_id(union v6addr *addr)
+static inline int derive_node_id(const union v6addr *addr)
 {
 	return (addr->p3 & 0xFFFF) << 16 | (addr->p4 >> 16);
 }

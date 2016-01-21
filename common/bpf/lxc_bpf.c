@@ -1,8 +1,10 @@
 #include <iproute2/bpf_api.h>
+
+#include <linux/icmpv6.h>
 #include <sys/socket.h>
+
 #include <stdint.h>
 #include <string.h>
-#include <linux/icmpv6.h>
 #include "common.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
@@ -27,7 +29,7 @@ static inline int verify_src_mac(struct __sk_buff *skb)
 #ifndef DISABLE_SIP_VERIFICATION
 static inline int verify_src_ip(struct __sk_buff *skb, int off)
 {
-	union v6addr src, valid = LXC_IP;
+	union v6addr src = {}, valid = LXC_IP;
 	load_ipv6_saddr(skb, off, &src);
 	return compare_ipv6_addr(&src, &valid);
 }
@@ -68,7 +70,7 @@ static inline void debug_trace_packet(struct __sk_buff *skb)
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
 	__u16 lxc_id;
-	union v6addr dst;
+	union v6addr dst = {};
 	int node_id, *ifindex;
 
 	debug_trace_packet(skb);
@@ -115,7 +117,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
 	char fmt[] = "ICMPv6 packet skb %p len %d type %d\n";
 	char fmt1[] = "Redirect skb to Ifindex %d\n";
-	union v6addr sip, router_ip;
+	union v6addr sip = {}, router_ip;
 	__u8 type;
 	struct icmp6hdr icmp6hdr;
 	union macaddr smac = {};
