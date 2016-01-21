@@ -13,8 +13,8 @@ __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_inf
 #ifndef DISABLE_SMAC_VERIFICATION
 static inline int verify_src_mac(struct __sk_buff *skb)
 {
-	union macaddr src, valid = LXC_MAC;
-	load_eth_saddr(skb, &src, 0);
+	union macaddr src = {}, valid = LXC_MAC;
+	load_eth_saddr(skb, src.addr, 0);
 	return compare_eth_addr(&src, &valid);
 }
 #else
@@ -40,10 +40,10 @@ static inline int verify_src_ip(struct __sk_buff *skb, int off)
 
 static inline int verify_dst_mac(struct __sk_buff *skb)
 {
-	union macaddr dst, valid = ROUTER_MAC;
+	union macaddr dst = {}, valid = ROUTER_MAC;
 	int ret;
 
-	load_eth_daddr(skb, &dst, 0);
+	load_eth_daddr(skb, dst.addr, 0);
 	ret = compare_eth_addr(&dst, &valid);
 
 #ifdef DEBUG
@@ -95,7 +95,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 		dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 		if (dst_lxc) {
 			__u64 tmp_mac = dst_lxc->mac;
-			store_eth_daddr(skb, (char *) &tmp_mac, 0);
+			store_eth_daddr(skb, (__u8 *) &tmp_mac, 0);
 
 			if (decrement_ipv6_hoplimit(skb, nh_off)) {
 				/* FIXME: Handle hoplimit == 0 */
@@ -118,7 +118,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 	union v6addr sip, router_ip;
 	__u8 type;
 	struct icmp6hdr icmp6hdr;
-	union macaddr smac;
+	union macaddr smac = {};
 	union macaddr router_mac = ROUTER_MAC;
 	__u8 opts[2] = { 2, 1 };
 
@@ -152,9 +152,9 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr) + 2, &router_mac, 6, 0);
 
 		/* dmac = smac, smac = router mac */
-		load_eth_saddr(skb, &smac, 0);
-		store_eth_daddr(skb, (char *) smac.addr, 0);
-		store_eth_saddr(skb, (char *) &router_mac, 0);
+		load_eth_saddr(skb, smac.addr, 0);
+		store_eth_daddr(skb, smac.addr, 0);
+		store_eth_saddr(skb, router_mac.addr, 0);
 		trace_printk(fmt1, sizeof(fmt1), skb->ifindex);
 		return redirect(skb->ifindex, 0);
 
