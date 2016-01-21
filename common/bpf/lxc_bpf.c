@@ -117,7 +117,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
 
 	if (type == 135) {
-		union v6addr sip = {}, router_ip = ROUTER_IP;
+		union v6addr sip = {};
 		__u8 router_ip[] = ROUTER_IP;
 
 		/* skb->daddr = skb->saddr */
