@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
 
 	"github.com/noironetworks/cilium-net/common/types"
 )
@@ -27,8 +28,16 @@ func fmtDefineAddress(name string, addr []byte) string {
 	return fmt.Sprintf("#define %s { .addr = %s }\n", name, goArray2C(addr))
 }
 
-func (d Daemon) EndpointJoin(ep types.Endpoint) error {
+var r, _ = regexp.Compile("^[0-9]+$")
 
+func isValidID(id string) bool {
+	return r.MatchString(id)
+}
+
+func (d Daemon) EndpointJoin(ep types.Endpoint) error {
+	if !isValidID(ep.ID) {
+		return fmt.Errorf("invalid ID %s", ep.ID)
+	}
 	lxcDir := "./" + ep.ID
 
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
@@ -77,6 +86,10 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 }
 
 func (d Daemon) EndpointLeave(epID string) error {
+	// Preventing someone from deleting important directories
+	if !isValidID(epID) {
+		return fmt.Errorf("invalid ID %s", epID)
+	}
 	lxcDir := "./" + epID
 	os.RemoveAll(lxcDir)
 
