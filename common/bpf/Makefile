@@ -13,4 +13,3 @@ map_ctrl: map_ctrl.o libbpf.o
 clean:
 	rm -f map_ctrl
 	rm -fr *.o
-
