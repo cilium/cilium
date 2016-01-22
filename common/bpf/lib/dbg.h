@@ -1,6 +1,7 @@
 #ifndef __LIB_DBG__
 #define __LIB_DBG__
 
+#define DEBUG
 #ifdef DEBUG
 # define printk(fmt, ...)					\
 		({						\
