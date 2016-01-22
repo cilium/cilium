@@ -14,6 +14,10 @@
 
 #include <lxc_config.h>
 
+#ifndef BPF_F_PSEUDO_HDR
+# define BPF_F_PSEUDO_HDR                (1ULL << 4)
+#endif
+
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 
 #ifndef DISABLE_SMAC_VERIFICATION
@@ -107,24 +111,37 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
 	__u8 type;
-	struct icmp6hdr icmp6hdr;
+	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
 	union macaddr smac = {};
 	union macaddr router_mac = ROUTER_MAC;
-	__u8 opts[2] = { 2, 1 };
+	__u8 opts[8] = { 2, 1, 0, 0, 0, 0, 0, 0 };
+	__u8 opts_old[8] = {};
+	const int csum_off = nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum);
 
-	type = load_byte(skb, ETH_HLEN + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
+	type = load_byte(skb, nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
 
 	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
 
 	if (type == 135) {
-		union v6addr sip = {};
+		union v6addr sip = {}, dip = {};
 		__u8 router_ip[] = ROUTER_IP;
+		__be32 sum = 0;
 
 		/* skb->daddr = skb->saddr */
 		load_ipv6_saddr(skb, nh_off, &sip);
-		store_ipv6_daddr(skb, sip.addr, ETH_HLEN);
-		/* skb->saddr = router address, verifier rejects when initialized statically */
-		store_ipv6_saddr(skb, router_ip, ETH_HLEN);
+		load_ipv6_daddr(skb, nh_off, &dip);
+
+		store_ipv6_saddr(skb, router_ip, nh_off);
+		store_ipv6_daddr(skb, sip.addr, nh_off);
+
+		/* fixup checksums */
+		sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
+		l4_csum_replace(skb, nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum), 0, sum, BPF_F_PSEUDO_HDR);
+		sum = csum_diff(dip.addr, 16, sip.addr, 16, 0);
+		l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+
+		if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old, sizeof(icmp6hdr_old)) < 0)
+		return -1;
 
 		/* fill icmp6hdr */
 		icmp6hdr.icmp6_type = 136;
@@ -133,12 +150,31 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 		icmp6hdr.icmp6_router = 1;
 		icmp6hdr.icmp6_solicited = 1;
 		icmp6hdr.icmp6_override = 0;
-		/* FIXME compute icmp6 checksum */
-		icmp6hdr.icmp6_cksum = 0;
-		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
+		icmp6hdr.icmp6_cksum = icmp6hdr_old.icmp6_cksum;
+		skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
+
+		/* fixup checksums */
+		sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
+				&icmp6hdr, sizeof(icmp6hdr), 0);
+		l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+
+		if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts_old, sizeof(opts_old)) < 0)
+		return -1;
+
+		opts[2] = router_mac.addr[0];
+		opts[3] = router_mac.addr[1];
+		opts[4] = router_mac.addr[2];
+		opts[5] = router_mac.addr[3];
+		opts[6] = router_mac.addr[4];
+		opts[7] = router_mac.addr[5];
+
 		// ND_OPT_TARGET_LL_ADDR
-		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts, sizeof(opts), 0);
-		skb_store_bytes(skb, ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr) + 2, &router_mac, 6, 0);
+		skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts, sizeof(opts), 0);
+
+		/* fixup checksum */
+		sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts),
+				0);
+		l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
 		/* dmac = smac, smac = router mac */
 		load_eth_saddr(skb, smac.addr, 0);
