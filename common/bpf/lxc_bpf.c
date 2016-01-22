@@ -136,7 +136,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 
 		/* fixup checksums */
 		sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
-		l4_csum_replace(skb, nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum), 0, sum, BPF_F_PSEUDO_HDR);
+		l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 		sum = csum_diff(dip.addr, 16, sip.addr, 16, 0);
 		l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
