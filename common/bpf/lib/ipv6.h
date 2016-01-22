@@ -54,8 +54,8 @@ static inline int store_ipv6_saddr(struct __sk_buff *skb, __u8 *addr, int off)
 
 static inline int load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
-			      sizeof(((struct ipv6hdr *)NULL)->saddr));
+	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
+			      sizeof(((struct ipv6hdr *)NULL)->daddr));
 }
 
 static inline int store_ipv6_daddr(struct __sk_buff *skb, __u8 *addr, int off)
