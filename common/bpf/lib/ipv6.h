@@ -65,12 +65,12 @@ static inline int store_ipv6_daddr(struct __sk_buff *skb, __u8 *addr, int off)
 
 static inline __u16 derive_lxc_id(const union v6addr *addr)
 {
-	return addr->p4 & 0xFFFF;
+	return ntohl(addr->p4) & 0xFFFF;
 }
 
 static inline int derive_node_id(const union v6addr *addr)
 {
-	return (addr->p3 & 0xFFFF) << 16 | (addr->p4 >> 16);
+	return (ntohl(addr->p3) & 0xFFFF) << 16 | (ntohl(addr->p4) >> 16);
 }
 
 #endif /* __LIB_IPV6__ */
