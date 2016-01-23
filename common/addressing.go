@@ -62,7 +62,7 @@ func Build4to6EndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
 	// beef:beef:beef:beef:1:0:[1.0.0.2]
 	if len(nodeAddr) == net.IPv6len && len(v4Addr) == net.IPv4len {
 		addr := dupIP(nodeAddr)
-		copy(addr[12:], v4Addr)
+		copy(addr[14:], v4Addr[2:])
 		return addr
 	}
 	return nil
