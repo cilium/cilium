@@ -88,6 +88,7 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	printk("lxc-id: %x node-id: %x\n", lxc_id, node_id);
 
 	if (node_id != NODE_ID) {
+		printk("Destination on remote node\n");
 		/* FIXME: Handle encapsulation case */
 	} else {
 		struct lxc_info *dst_lxc;
