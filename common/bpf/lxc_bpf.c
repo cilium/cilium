@@ -77,8 +77,12 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 	debug_trace_packet(skb);
 
-	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
-	    verify_dst_mac(skb))
+#if 0
+	/* The MAC response to libnetwork is not yet functional, disable for now. */
+	if (verify_src_mac(skb))
+		return -1;
+#endif
+	if (verify_src_ip(skb, nh_off) || verify_dst_mac(skb))
 		return -1;
 
 	load_ipv6_daddr(skb, nh_off, &dst);
