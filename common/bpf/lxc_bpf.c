@@ -100,6 +100,8 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 		dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 		if (dst_lxc) {
 			__u64 tmp_mac = dst_lxc->mac;
+			union macaddr router_mac = ROUTER_MAC;
+			store_eth_saddr(skb, router_mac.addr, 0);
 			store_eth_daddr(skb, (__u8 *) &tmp_mac, 0);
 
 			if (decrement_ipv6_hoplimit(skb, nh_off)) {
