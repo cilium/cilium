@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"regexp"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
@@ -71,7 +72,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		ep.NodeIP.String(), routerMac.String())
 
 	f.WriteString("#define DEBUG\n")
-	f.WriteString("#define NODE_ID 1\n")
+	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(ep.NodeIP))
 	f.WriteString(fmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(fmtDefineAddress("LXC_IP", ep.LxcIP))
 	f.WriteString(fmtDefineAddress("ROUTER_MAC", routerMac))
