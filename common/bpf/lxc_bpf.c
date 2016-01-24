@@ -113,65 +113,27 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 	return -1;
 }
 
-static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
+static inline int handle_icmp6_common(struct __sk_buff *skb, int nh_off)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
 	union macaddr smac = {};
 	union macaddr router_mac = ROUTER_MAC;
-	__u8 opts[8] = { 2, 1, 0, 0, 0, 0, 0, 0 };
-	__u8 opts_old[8] = {};
 	const int csum_off = nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum);
 	union v6addr sip = {}, dip = {};
 	__u8 router_ip[] = ROUTER_IP;
 	__be32 sum = 0;
 
-	/* skb->daddr = skb->saddr */
 	load_ipv6_saddr(skb, nh_off, &sip);
 	load_ipv6_daddr(skb, nh_off, &dip);
 
+	/* skb->saddr = ROUTER_IP */
 	store_ipv6_saddr(skb, router_ip, nh_off);
+	/* skb->daddr = skb->saddr */
 	store_ipv6_daddr(skb, sip.addr, nh_off);
 
 	/* fixup checksums */
 	sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 	sum = csum_diff(dip.addr, 16, sip.addr, 16, 0);
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
-
-	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old, sizeof(icmp6hdr_old)) < 0)
-	return -1;
-
-	/* fill icmp6hdr */
-	icmp6hdr.icmp6_type = 136;
-	icmp6hdr.icmp6_code = 0;
-	icmp6hdr.icmp6_dataun.un_data32[0] = 0;
-	icmp6hdr.icmp6_router = 1;
-	icmp6hdr.icmp6_solicited = 1;
-	icmp6hdr.icmp6_override = 0;
-	icmp6hdr.icmp6_cksum = icmp6hdr_old.icmp6_cksum;
-	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
-
-	/* fixup checksums */
-	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
-		&icmp6hdr, sizeof(icmp6hdr), 0);
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
-
-	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts_old, sizeof(opts_old)) < 0)
-	return -1;
-
-	opts[2] = router_mac.addr[0];
-	opts[3] = router_mac.addr[1];
-	opts[4] = router_mac.addr[2];
-	opts[5] = router_mac.addr[3];
-	opts[6] = router_mac.addr[4];
-	opts[7] = router_mac.addr[5];
-
-	// ND_OPT_TARGET_LL_ADDR
-	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts, sizeof(opts), 0);
-
-	/* fixup checksum */
-	sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts),
-			0);
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
 	/* dmac = smac, smac = router mac */
@@ -184,18 +146,103 @@ static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
 	return redirect(skb->ifindex, 0);
 }
 
+static inline int handle_icmp6_echo_request(struct __sk_buff *skb, int nh_off)
+{
+	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
+	const int csum_off = nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum);
+	__be32 sum = 0;
+
+	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old, sizeof(icmp6hdr_old)) < 0)
+		return -1;
+
+	/* fill icmp6hdr */
+	icmp6hdr.icmp6_type = 129;
+	icmp6hdr.icmp6_code = 0;
+	icmp6hdr.icmp6_cksum = icmp6hdr_old.icmp6_cksum;
+	icmp6hdr.icmp6_dataun.un_data32[0] = 0;
+	icmp6hdr.icmp6_identifier = icmp6hdr_old.icmp6_identifier;
+	icmp6hdr.icmp6_sequence = icmp6hdr_old.icmp6_sequence;
+
+	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
+
+	/* fixup checksum */
+	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
+			&icmp6hdr, sizeof(icmp6hdr), 0);
+	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+
+	return handle_icmp6_common(skb, nh_off);
+}
+
+static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
+{
+	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
+	__u8 opts[8] = { 2, 1, 0, 0, 0, 0, 0, 0 };
+	__u8 opts_old[8] = {};
+	union macaddr router_mac = ROUTER_MAC;
+	const int csum_off = nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum);
+	__be32 sum = 0;
+
+	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old, sizeof(icmp6hdr_old)) < 0)
+		return -1;
+
+	/* fill icmp6hdr */
+	icmp6hdr.icmp6_type = 136;
+	icmp6hdr.icmp6_code = 0;
+	icmp6hdr.icmp6_cksum = icmp6hdr_old.icmp6_cksum;
+	icmp6hdr.icmp6_dataun.un_data32[0] = 0;
+	icmp6hdr.icmp6_router = 1;
+	icmp6hdr.icmp6_solicited = 1;
+	icmp6hdr.icmp6_override = 0;
+
+	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
+
+	/* fixup checksums */
+	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
+			&icmp6hdr, sizeof(icmp6hdr), 0);
+	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+
+	/* get old options */
+	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts_old, sizeof(opts_old)) < 0)
+	return -1;
+
+	opts[2] = router_mac.addr[0];
+	opts[3] = router_mac.addr[1];
+	opts[4] = router_mac.addr[2];
+	opts[5] = router_mac.addr[3];
+	opts[6] = router_mac.addr[4];
+	opts[7] = router_mac.addr[5];
+
+	/* store ND_OPT_TARGET_LL_ADDR option */
+	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr), opts, sizeof(opts), 0);
+
+	/* fixup checksum */
+	sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts),
+			0);
+	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+
+	return handle_icmp6_common(skb, nh_off);
+}
+
 static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 {
 	int ret = -1;
 	__u8 type = load_byte(skb, nh_off + sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type));
+	union v6addr dst = {};
+	union v6addr router_ip = { .addr = ROUTER_IP };
 
 	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
+
+	load_ipv6_daddr(skb, nh_off, &dst);
 
 	switch(type) {
 	case 135:
 		ret = handle_icmp6_solicitation(skb, nh_off);
 		break;
 	case 128:
+		if (!compare_ipv6_addr(&dst, &router_ip)) {
+			ret = handle_icmp6_echo_request(skb, nh_off);
+			break;
+		}
 	case 129:
 		ret = LXC_REDIRECT;
 		break;
