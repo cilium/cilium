@@ -245,12 +245,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mac, _ := net.ParseMAC(common.DefaultContainerMAC)
 	ip, _, _ := net.ParseCIDR(containerAddress)
 
 	driver.endpoints[endID] = &ciliumtype.Endpoint{
 		ID:            endID,
-		LxcMAC:        mac,
 		LxcIP:         ip,
 		NodeIP:        driver.nodeAddress,
 		DockerNetwork: create.NetworkID,
@@ -332,6 +330,14 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debugf("Created veth pair %s <-> %s", lxcIfname, veth.PeerName)
+
+	peer, err := netlink.LinkByName(tmpIfname)
+	if err != nil {
+		sendError(w, "Unable to lookup veth peer just created: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ep.LxcMAC = peer.Attrs().HardwareAddr
 
 	if err := netlink.LinkSetMTU(veth, 1450); err != nil {
 		sendError(w, "Unable to set MTU: "+err.Error(), http.StatusBadRequest)
