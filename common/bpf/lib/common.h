@@ -1,5 +1,5 @@
-#ifndef __COMMON_H_
-#define __COMMON_H_
+#ifndef __LIB_COMMON_H_
+#define __LIB_COMMON_H_
 
 #include <iproute2/bpf_api.h>
 #include <linux/ipv6.h>
@@ -26,5 +26,11 @@ struct lxc_info {
 	__u64		mac;
 	union v6addr	ip;
 };
+
+#ifndef BPF_F_PSEUDO_HDR
+# define BPF_F_PSEUDO_HDR                (1ULL << 4)
+#endif
+
+#define LXC_REDIRECT -2
 
 #endif
