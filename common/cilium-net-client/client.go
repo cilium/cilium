@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	common "github.com/noironetworks/cilium-net/common"
+
+	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 )
 
 type Client struct {
@@ -52,6 +54,8 @@ func NewClient(host string, httpCli *http.Client, transport *http.Transport, htt
 	} else {
 		httpCli = &http.Client{Transport: transport}
 	}
+
+	log.Infof("Client talking with host: %s", host)
 
 	return &Client{
 		proto:      proto,
