@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <sys/resource.h>
 #include "libbpf.h"
-#include "common.h"
+#include "lib/common.h"
 
 static void usage(void)
 {
