@@ -4,6 +4,7 @@
 #include <linux/icmpv6.h>
 #include "common.h"
 #include "eth.h"
+#include "lxc_config.h"
 
 #define ICMP6_TYPE_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type))
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))
@@ -17,28 +18,29 @@ static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 
 static inline int send_icmp6_reply(struct __sk_buff *skb, int nh_off)
 {
-	union macaddr smac = {}, dmac = {};
+	union macaddr smac = {}, dmac = ROUTER_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	union v6addr sip = {}, dip = {};
 	__be32 sum = 0;
+	__u8 router_ip[] = ROUTER_IP;
 
 	load_ipv6_saddr(skb, nh_off, &sip);
 	load_ipv6_daddr(skb, nh_off, &dip);
 
 	/* skb->saddr = skb->daddr  */
-	store_ipv6_saddr(skb, dip.addr, nh_off);
+	store_ipv6_saddr(skb, router_ip, nh_off);
 	/* skb->daddr = skb->saddr */
 	store_ipv6_daddr(skb, sip.addr, nh_off);
 
 	/* fixup checksums */
-	sum = csum_diff(sip.addr, 16, dip.addr, 16, 0);
+	sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 	sum = csum_diff(dip.addr, 16, sip.addr, 16, 0);
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
 	/* dmac = smac, smac = dmac */
 	load_eth_saddr(skb, smac.addr, 0);
-	load_eth_daddr(skb, dmac.addr, 0);
+	// load_eth_daddr(skb, dmac.addr, 0);
 	store_eth_daddr(skb, smac.addr, 0);
 	store_eth_saddr(skb, dmac.addr, 0);
 
