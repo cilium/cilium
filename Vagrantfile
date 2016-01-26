@@ -5,17 +5,25 @@ Vagrant.configure(2) do |config|
   config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/noironetworks/cilium-net", disabled: false
 
   config.vm.provision "shell", inline: <<-SHELL
-    rm -rf /home/vagrant/go/src/github.com/docker/libnetwork
-    mkdir -p /home/vagrant/go/src/github.com/docker
-    cd /home/vagrant/go/src/github.com/docker
-    git clone -b ipv6-citizen https://github.com/tgraf/libnetwork.git
     chown -R vagrant:vagrant /home/vagrant/go
-
     mount bpffs /sys/fs/bpf/ -t bpf
+
+    # Temporary workaround until new image is built
+    echo 'export GOROOT=/usr/local/go' >> /home/vagrant/.profile
+    echo 'export GOPATH=/home/vagrant/go' >> /home/vagrant/.profile
+    echo 'export PATH=/usr/local/go/bin:/home/vagrant/go/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >> /home/vagrant/.profile
+
+    su - vagrant -c /home/vagrant/go/src/github.com/noironetworks/cilium-net/common/build.sh
   SHELL
 
   config.vm.provider :libvirt do |libvirt|
     libvirt.memory = 4096
+  end
+
+  config.vm.define "node1", primary: true  do |node1|
+  end
+
+  config.vm.define "node2", autostart: false do |node2|
   end
 
 end
