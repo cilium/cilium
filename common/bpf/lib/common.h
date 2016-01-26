@@ -5,6 +5,8 @@
 #include <linux/ipv6.h>
 #include <stdint.h>
 
+#define __inline__ __attribute__((always_inline))
+
 enum {
 	CILIUM_MAP_LOCAL_LXC,
 	__CILIUM_MAP_ID_MAX,

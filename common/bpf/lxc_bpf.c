@@ -58,11 +58,6 @@ static inline int verify_dst_mac(struct __sk_buff *skb)
 	return ret;
 }
 
-static inline void debug_trace_packet(struct __sk_buff *skb)
-{
-	printk("skb %p len %d\n", skb, skb->len);
-}
-
 #ifdef ENCAP_IFINDEX
 static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
 {
@@ -78,51 +73,77 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
 }
 #endif
 
-static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
+static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
+				   union v6addr *dst)
 {
-	__u16 lxc_id;
+	struct lxc_info *dst_lxc;
+	__u16 lxc_id = derive_lxc_id(dst);
+
+	printk("L3 on local node, lxc-id: %x\n", lxc_id);
+
+	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
+	if (dst_lxc) {
+		__u64 tmp_mac = dst_lxc->mac;
+		union macaddr router_mac = ROUTER_MAC;
+		store_eth_saddr(skb, router_mac.addr, 0);
+		store_eth_daddr(skb, (__u8 *) &tmp_mac, 0);
+
+		if (decrement_ipv6_hoplimit(skb, nh_off)) {
+			/* FIXME: Handle hoplimit == 0 */
+		}
+
+		printk("Found destination container locally\n");
+
+		return redirect(dst_lxc->ifindex, 0);
+	} else {
+		printk("Unknown container %#x\n", lxc_id);
+	}
+
+	return -1;
+}
+
+static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
+{
 	union v6addr dst = {};
 	__u32 node_id;
-	int *ifindex;
 
-	debug_trace_packet(skb);
+	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
 
 	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
 	    verify_dst_mac(skb))
 		return -1;
 
 	load_ipv6_daddr(skb, nh_off, &dst);
-	lxc_id = derive_lxc_id(&dst);
 	node_id = derive_node_id(&dst);
 
-	printk("lxc-id: %x node-id: %x\n", lxc_id, node_id);
-
 	if (node_id != NODE_ID) {
-		printk("Destination on remote node\n");
+		printk("Destination on remote node %#x\n", node_id);
 #ifdef ENCAP_IFINDEX
 		return do_encapsulation(skb, node_id);
+#else
+		/* FIXME: Punt to Linux stack */
 #endif
 	} else {
-		struct lxc_info *dst_lxc;
-
-		dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
-		if (dst_lxc) {
-			__u64 tmp_mac = dst_lxc->mac;
-			union macaddr router_mac = ROUTER_MAC;
-			store_eth_saddr(skb, router_mac.addr, 0);
-			store_eth_daddr(skb, (__u8 *) &tmp_mac, 0);
-
-			if (decrement_ipv6_hoplimit(skb, nh_off)) {
-				/* FIXME: Handle hoplimit == 0 */
-			}
-
-			printk("Found destination container locally\n");
-
-			return redirect(dst_lxc->ifindex, 0);
-		}
+		return do_l3(skb, nh_off, &dst);
 	}
+}
 
-	return -1;
+static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off)
+{
+	union v6addr dst = {};
+	__u32 node_id;
+
+	printk("L3 from overlay: skb %p len %d\n", skb, skb->len);
+
+	load_ipv6_daddr(skb, nh_off, &dst);
+	node_id = derive_node_id(&dst);
+
+	if (node_id != NODE_ID) {
+		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
+		return -1;
+	} else {
+		return do_l3(skb, nh_off, &dst);
+	}
 }
 
 static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
@@ -184,8 +205,25 @@ int handle_ingress(struct __sk_buff *skb)
 		if (nexthdr == IPPROTO_ICMPV6)
 			ret = handle_icmp6(skb, nh_off);
 		if (ret == LXC_REDIRECT)
-			ret = do_redirect6(skb, nh_off);
+			ret = do_l3_from_lxc(skb, nh_off);
 	}
 	return ret;
 }
+
+__section("from-overlay")
+int from_overlay(struct __sk_buff *skb)
+{
+	int nh_off = ETH_HLEN;
+	struct bpf_tunnel_key key = {};
+
+	skb_get_tunnel_key(skb, &key, sizeof(key), 0);
+	if (key.tunnel_id != 42)
+		return TC_ACT_SHOT;
+
+	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
+		return do_l3_from_overlay(skb, nh_off);
+
+	return -1;
+}
+
 BPF_LICENSE("GPL");
