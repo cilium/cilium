@@ -11,7 +11,7 @@ cilium-docker: $(SOURCES)
 	godep go build -o cilium-docker
 
 run:
-	./cilium-docker -d -n beef::1:0:0
+	./run.sh
 
 clean:
 	rm -f cilium-docker
