@@ -9,6 +9,7 @@ echo 1 > /proc/sys/net/core/bpf_jit_enable
 
 ip link del cilium_vxlan 2> /dev/null || true
 ip link add cilium_vxlan type vxlan external
+ip link set cilium_vxlan up
 
 cd ../common/bpf
 mount bpffs /sys/fs/bpf/ -t bpf || true
