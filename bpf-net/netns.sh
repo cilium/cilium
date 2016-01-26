@@ -65,6 +65,8 @@ cat <<EOF > /tmp/bpf.c
 
 #include <sys/socket.h>
 
+#define BPF_F_INGRESS			(1ULL << 0)
+
 __section("vxlan1-ingress")
 int cls_entry_vx1i(struct __sk_buff *skb)
 {
@@ -73,7 +75,7 @@ int cls_entry_vx1i(struct __sk_buff *skb)
 	int ret;
 
 	ret = skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-	if (ret < 0 || key.tunnel_id != 42)
+	if (/*ret < 0 ||*/ key.tunnel_id != 42)
 		return TC_ACT_SHOT;
 
 	trace_printk(fmt, sizeof(fmt), key.tunnel_tos);
@@ -89,6 +91,7 @@ int cls_entry_vx1e(struct __sk_buff *skb)
 	key.tunnel_id = 42;
 	key.tunnel_tos = 32;
 	key.remote_ipv4 = 0x0a000202; /* 10.0.2.2 */
+	key.tunnel_af = AF_INET;
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 	if (unlikely(ret < 0))
@@ -105,7 +108,7 @@ int cls_entry_vx2i(struct __sk_buff *skb)
 	int ret;
 
 	ret = skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-	if (ret < 0 || key.tunnel_id != 42)
+	if (/*ret < 0 ||*/ key.tunnel_id != 42)
 		return TC_ACT_SHOT;
 
 	trace_printk(fmt, sizeof(fmt), key.tunnel_tos);
@@ -121,6 +124,7 @@ int cls_entry_vx2e(struct __sk_buff *skb)
 	key.tunnel_id = 42;
 	key.tunnel_tos = 52;
 	key.remote_ipv4 = 0x0a000201; /* 10.0.2.1 */
+	key.tunnel_af = AF_INET;
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 	if (unlikely(ret < 0))
