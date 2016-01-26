@@ -66,6 +66,8 @@ cat <<EOF > /tmp/bpf.c
 #include <stdint.h>
 #include <sys/socket.h>
 
+#define BPF_F_INGRESS			(1ULL << 0)
+
 __section("vxlan1-ingress")
 int cls_entry_vx1i(struct __sk_buff *skb)
 {
@@ -75,8 +77,8 @@ int cls_entry_vx1i(struct __sk_buff *skb)
 	int ret;
 
 	ret = skb_get_tunnel_key(skb, &key, sizeof(key),
-				 BPF_F_TUNINFO_IPV6);
-	if (ret < 0 || key.tunnel_id != 42 ||
+				 /*BPF_F_TUNINFO_IPV6*/ 0);
+	if (/*ret < 0 ||*/ key.tunnel_id != 42 ||
 	    addr[0] != 0x26 || addr[1] != 0x07 || addr[11] != 0 || addr[15] != 2)
 		return TC_ACT_SHOT;
 
@@ -97,9 +99,10 @@ int cls_entry_vx1e(struct __sk_buff *skb)
 	addr[1]  = 0x07;
 	addr[11] = 2;
 	addr[15] = 2;
+	key.tunnel_af = AF_INET6;
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key),
-				 BPF_F_TUNINFO_IPV6);
+				 /*BPF_F_TUNINFO_IPV6*/ 0);
 	if (unlikely(ret < 0))
 		return TC_ACT_SHOT;
 
@@ -115,8 +118,8 @@ int cls_entry_vx2i(struct __sk_buff *skb)
 	int ret;
 
 	ret = skb_get_tunnel_key(skb, &key, sizeof(key),
-				 BPF_F_TUNINFO_IPV6);
-	if (ret < 0 || key.tunnel_id != 42 ||
+				 /*BPF_F_TUNINFO_IPV6*/ 0);
+	if (/*ret < 0 ||*/ key.tunnel_id != 42 ||
 	    addr[0] != 0x26 || addr[1] != 0x07 || addr[11] != 0 || addr[15] != 1)
 		return TC_ACT_SHOT;
 
@@ -137,9 +140,10 @@ int cls_entry_vx2e(struct __sk_buff *skb)
 	addr[1]  = 0x07;
 	addr[11] = 2;
 	addr[15] = 1;
+	key.tunnel_af = AF_INET6;
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key),
-				 BPF_F_TUNINFO_IPV6);
+				 /*BPF_F_TUNINFO_IPV6*/ 0);
 	if (unlikely(ret < 0))
 		return TC_ACT_SHOT;
 
