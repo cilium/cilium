@@ -63,11 +63,27 @@ static inline void debug_trace_packet(struct __sk_buff *skb)
 	printk("skb %p len %d\n", skb, skb->len);
 }
 
+#ifdef ENCAP_IFINDEX
+static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
+{
+	struct bpf_tunnel_key key = {};
+
+	key.tunnel_id = 42;
+	key.remote_ipv4 = node_id;
+	key.tunnel_af = AF_INET;
+
+	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
+
+	return redirect(ENCAP_IFINDEX, 0);
+}
+#endif
+
 static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 {
 	__u16 lxc_id;
 	union v6addr dst = {};
-	int node_id, *ifindex;
+	__u32 node_id;
+	int *ifindex;
 
 	debug_trace_packet(skb);
 
@@ -83,7 +99,9 @@ static inline int do_redirect6(struct __sk_buff *skb, int nh_off)
 
 	if (node_id != NODE_ID) {
 		printk("Destination on remote node\n");
-		/* FIXME: Handle encapsulation case */
+#ifdef ENCAP_IFINDEX
+		return do_encapsulation(skb, node_id);
+#endif
 	} else {
 		struct lxc_info *dst_lxc;
 
