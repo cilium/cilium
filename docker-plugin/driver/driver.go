@@ -359,7 +359,8 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	ep.Ifname = lxcIfname
 	ep.SetID()
 	if err := driver.client.EndpointJoin(*ep); err != nil {
-		log.Warnf("Joining endpoint failed: %s", err)
+		log.Errorf("Joining endpoint failed: %s", err)
+		sendError(w, "Unable to bring up veth pair: "+err.Error(), http.StatusInternalServerError)
 	}
 
 	routeGW := api.StaticRoute{
