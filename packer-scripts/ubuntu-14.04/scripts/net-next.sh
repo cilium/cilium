@@ -3,6 +3,7 @@
 apt-get update
 apt-get -y install git vim
 apt-get -y install libssl-dev libelf-dev
+apt-get -y install pkg-config bison flex
 
 cd $HOME
 git clone -b ebpf-madhu git://git.breakpoint.cc/dborkman/net-next.git
@@ -47,7 +48,6 @@ echo 9pnet >> /etc/modules
 rm -Rf $HOME/net-next
 
 # iproute2 installation
-apt-get -y install pkg-config bison flex
 cd $HOME
 git clone git://git.breakpoint.cc/dborkman/iproute2.git
 cd iproute2/
