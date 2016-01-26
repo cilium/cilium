@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"regexp"
 
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 )
@@ -58,6 +60,12 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	}
 
+	encapIfindex := 0
+	encapDevice, err := netlink.LinkByName(common.EncapDevice)
+	if err == nil {
+		encapIfindex = encapDevice.Attrs().Index
+	}
+
 	routerMac, _ := net.ParseMAC("de:ad:be:ef:c0:de")
 
 	fmt.Fprintf(f, ""+
@@ -67,9 +75,11 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		" * IP: %s\n"+
 		" * Router MAC: %s\n"+
 		" * Router IP: %s\n"+
+		" * Encap Ifindex: %d\n"+
 		" */\n\n",
 		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String(),
-		ep.NodeIP.String(), routerMac.String())
+		routerMac.String(), ep.NodeIP.String(),
+		encapIfindex)
 
 	f.WriteString("#define DEBUG\n")
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(ep.NodeIP))
@@ -77,6 +87,10 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	f.WriteString(fmtDefineAddress("LXC_IP", ep.LxcIP))
 	f.WriteString(fmtDefineAddress("ROUTER_MAC", routerMac))
 	f.WriteString(fmtDefineArray("ROUTER_IP", ep.NodeIP))
+
+	if encapIfindex > 0 {
+		fmt.Fprintf(f, "#define ENCAP_IFINDEX %d\n", encapIfindex)
+	}
 
 	f.Close()
 

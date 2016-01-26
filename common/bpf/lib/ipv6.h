@@ -68,7 +68,7 @@ static inline __u16 derive_lxc_id(const union v6addr *addr)
 	return ntohl(addr->p4) & 0xFFFF;
 }
 
-static inline int derive_node_id(const union v6addr *addr)
+static inline __u32 derive_node_id(const union v6addr *addr)
 {
 	return (ntohl(addr->p3) & 0xFFFF) << 16 | (ntohl(addr->p4) >> 16);
 }
