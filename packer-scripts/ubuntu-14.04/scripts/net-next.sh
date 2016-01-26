@@ -34,6 +34,9 @@ make modules_install
 make install
 make headers_install INSTALL_HDR_PATH=/usr/
 
+make -C tools/perf
+make -C tools/perf install
+
 # Temporary hack for Ubuntu
 cp /usr/include/asm/unistd* /usr/include/x86_64-linux-gnu/asm/
 echo 9p >> /etc/modules
