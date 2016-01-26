@@ -13,13 +13,13 @@ tar -C /usr/local -xJf clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 rm clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 
 export GOROOT=/usr/local/go
-echo 'export GOROOT=/usr/local/go' >> $HOME/.bashrc
+echo 'export GOROOT=/usr/local/go' >> $HOME/.profile
 
-echo 'export GOPATH=$HOME/go' >> $HOME/.bashrc
+echo 'export GOPATH=$HOME/go' >> $HOME/.profile
 export GOPATH=$HOME/go
 
 export PATH=$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH
-echo 'export PATH=$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >> $HOME/.bashrc
+echo 'export PATH=$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >> $HOME/.profile
 
 rm -rf /home/vagrant/go
 mkdir -p /home/vagrant/go/src
