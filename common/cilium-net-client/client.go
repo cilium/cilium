@@ -6,12 +6,20 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	common "github.com/noironetworks/cilium-net/common"
 
-	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 )
+
+var log = l.New()
+
+func init() {
+	log.Out = os.Stderr
+	log.Level = l.DebugLevel
+}
 
 type Client struct {
 	proto      string
