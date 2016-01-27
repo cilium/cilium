@@ -22,6 +22,7 @@ func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		SecCtx:        "secctx",
@@ -65,6 +66,7 @@ func (s *CiliumNetClientSuite) TestEndpointCreateFail(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		SecCtx:        "secctx",
@@ -90,6 +92,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "eth0",
 		SecCtx:        "secctx",
@@ -119,6 +122,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "eth0",
 		SecCtx:        "secctx",

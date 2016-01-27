@@ -67,6 +67,19 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
 }
 #endif
 
+static inline void __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
+				     __u8 *smac, __u8 *dmac)
+{
+	if (smac)
+		store_eth_saddr(skb, smac, 0);
+
+	store_eth_daddr(skb, dmac, 0);
+
+	if (decrement_ipv6_hoplimit(skb, nh_off)) {
+		/* FIXME: Handle hoplimit == 0 */
+	}
+}
+
 static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 				   union v6addr *dst)
 {
@@ -79,18 +92,15 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 	if (dst_lxc) {
 		__u64 tmp_mac = dst_lxc->mac;
 		union macaddr router_mac = ROUTER_MAC;
-		store_eth_saddr(skb, router_mac.addr, 0);
-		store_eth_daddr(skb, (__u8 *) &tmp_mac, 0);
-
-		if (decrement_ipv6_hoplimit(skb, nh_off)) {
-			/* FIXME: Handle hoplimit == 0 */
-		}
 
 		printk("Found destination container locally\n");
 
+		__do_l3(skb, nh_off, (__u8 *) &router_mac.addr,
+			(__u8 *) &tmp_mac);
+
 		return redirect(dst_lxc->ifindex, 0);
 	} else {
-		printk("Unknown container %#x\n", lxc_id);
+		printk("Unknown container %x\n", lxc_id);
 	}
 
 	return TC_ACT_UNSPEC;

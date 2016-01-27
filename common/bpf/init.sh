@@ -33,8 +33,8 @@ elif [ "$MODE" = "direct" ]; then
 	if [ -z "$DEV" ]; then
 		echo "No device specified for direct mode, ignoring..."
 	else
-		ip addr del $ADDR/80 dev $DEV 2> /dev/null || true
-		ip addr add $ADDR/80 dev $DEV
+		ip addr del $ADDR/128 dev $DEV 2> /dev/null || true
+		ip addr add $ADDR/128 dev $DEV
 
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
