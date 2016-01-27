@@ -38,7 +38,7 @@ static inline int verify_src_ip(struct __sk_buff *skb, int off)
 
 static inline int verify_dst_mac(struct __sk_buff *skb)
 {
-	union macaddr dst = {}, valid = ROUTER_MAC;
+	union macaddr dst = {}, valid = NODE_MAC;
 	int ret;
 
 	load_eth_daddr(skb, dst.addr, 0);
@@ -91,7 +91,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
 		__u64 tmp_mac = dst_lxc->mac;
-		union macaddr router_mac = ROUTER_MAC;
+		union macaddr router_mac = NODE_MAC;
 
 		printk("Found destination container locally\n");
 
