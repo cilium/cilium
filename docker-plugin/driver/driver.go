@@ -360,7 +360,8 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	ep.SetID()
 	if err := driver.client.EndpointJoin(*ep); err != nil {
 		log.Errorf("Joining endpoint failed: %s", err)
-		sendError(w, "Unable to bring up veth pair: "+err.Error(), http.StatusInternalServerError)
+		// TODO: clean all of the stuff that we created so far
+		sendError(w, "Unable to create BPF map: "+err.Error(), http.StatusInternalServerError)
 	}
 
 	routeGW := api.StaticRoute{
