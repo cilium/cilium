@@ -57,7 +57,7 @@ static inline int send_icmp6_echo_response(struct __sk_buff *skb, int nh_off)
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
 	/* fill icmp6hdr */
 	icmp6hdr.icmp6_type = 129;
@@ -90,7 +90,7 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
 	/* fill icmp6hdr */
 	icmp6hdr.icmp6_type = 136;
@@ -110,7 +110,7 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 
 	/* get old options */
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_OPTS, opts_old, sizeof(opts_old)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
 	opts[2] = mac->addr[0];
 	opts[3] = mac->addr[1];
