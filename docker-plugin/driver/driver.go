@@ -23,7 +23,7 @@ import (
 const (
 	DefaultPoolV4            = "CilliumPoolv4"
 	DefaultPoolV6            = "CilliumPoolv6"
-	LocalAllocSubnet         = "1.0.0.0/8" // Never exposed, used to generate IPv6 addr
+	LocalAllocSubnet         = "1.0.0.0/16" // Never exposed, used to generate IPv6 addr
 	HostInterfacePrefix      = "lxc"
 	TemporaryInterfacePrefix = "tmp"
 	ContainerInterfacePrefix = "cilium"
