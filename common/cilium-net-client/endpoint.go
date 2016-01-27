@@ -28,6 +28,8 @@ func (cli Client) EndpointJoin(ep types.Endpoint) error {
 func (cli Client) EndpointLeave(epID string) error {
 	query := url.Values{}
 
+	log.Debug("DELETE /endpoint/" + epID)
+
 	serverResp, err := cli.delete("/endpoint/"+epID, query, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
