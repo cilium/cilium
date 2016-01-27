@@ -99,7 +99,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		printk("Unknown container %#x\n", lxc_id);
 	}
 
-	return -1;
+	return TC_ACT_UNSPEC;
 }
 
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
@@ -111,7 +111,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
 	    verify_dst_mac(skb))
-		return -1;
+		return TC_ACT_SHOT;
 
 	load_ipv6_daddr(skb, nh_off, &dst);
 	node_id = derive_node_id(&dst);
@@ -140,7 +140,7 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 
 	if (node_id != NODE_ID) {
 		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
-		return -1;
+		return TC_ACT_SHOT;
 	} else {
 		return do_l3(skb, nh_off, &dst);
 	}
@@ -152,7 +152,7 @@ static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
 
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
 	if (compare_ipv6_addr(&target, &router) == 0) {
 		union macaddr router_mac = ROUTER_MAC;
@@ -160,7 +160,7 @@ static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
 		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
 	} else {
 		/* Unknown target address, drop */
-		return -1;
+		return TC_ACT_SHOT;
 	}
 }
 
@@ -169,7 +169,7 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 	union v6addr dst = {};
 	union v6addr router_ip = { .addr = ROUTER_IP };
 	__u8 type = icmp6_load_type(skb, nh_off);
-	int ret = -1;
+	int ret = TC_ACT_UNSPEC;
 
 	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
 
@@ -202,12 +202,18 @@ int handle_ingress(struct __sk_buff *skb)
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
-		if (nexthdr == IPPROTO_ICMPV6)
+		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 			ret = handle_icmp6(skb, nh_off);
-		if (ret == LXC_REDIRECT)
-			ret = do_l3_from_lxc(skb, nh_off);
+
+			/* ICMPv6 intended to be passed through */
+			if (ret == LXC_REDIRECT)
+				return do_l3_from_lxc(skb, nh_off);
+		}
+
+		return do_l3_from_lxc(skb, nh_off);
 	}
-	return ret;
+
+	return TC_ACT_UNSPEC;
 }
 
 __section("from-overlay")
@@ -223,7 +229,7 @@ int from_overlay(struct __sk_buff *skb)
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
 		return do_l3_from_overlay(skb, nh_off);
 
-	return -1;
+	return TC_ACT_SHOT;
 }
 
 BPF_LICENSE("GPL");
