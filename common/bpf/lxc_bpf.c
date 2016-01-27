@@ -1,3 +1,6 @@
+#include <node_config.h>
+#include <lxc_config.h>
+
 #include <iproute2/bpf_api.h>
 
 #include <linux/icmpv6.h>
@@ -11,96 +14,7 @@
 #include "lib/icmp6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
-
-#include <lxc_config.h>
-
-__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
-
-#ifndef DISABLE_SMAC_VERIFICATION
-static inline int verify_src_mac(struct __sk_buff *skb)
-{
-	union macaddr src = {}, valid = LXC_MAC;
-	load_eth_saddr(skb, src.addr, 0);
-	return compare_eth_addr(&src, &valid);
-}
-#else
-static inline int verify_src_mac(struct __sk_buff *skb)
-{
-	return 0;
-}
-#endif
-
-#ifndef DISABLE_SIP_VERIFICATION
-static inline int verify_src_ip(struct __sk_buff *skb, int off)
-{
-	union v6addr src = {}, valid = LXC_IP;
-	load_ipv6_saddr(skb, off, &src);
-	return compare_ipv6_addr(&src, &valid);
-}
-#else
-static inline int verify_src_ip(struct __sk_buff *skb, int off)
-{
-	return 0;
-}
-#endif
-
-static inline int verify_dst_mac(struct __sk_buff *skb)
-{
-	union macaddr dst = {}, valid = ROUTER_MAC;
-	int ret;
-
-	load_eth_daddr(skb, dst.addr, 0);
-	ret = compare_eth_addr(&dst, &valid);
-
-	if (unlikely(ret))
-		printk("skb %p: invalid dst MAC\n", skb);
-
-	return ret;
-}
-
-#ifdef ENCAP_IFINDEX
-static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
-{
-	struct bpf_tunnel_key key = {};
-
-	key.tunnel_id = 42;
-	key.remote_ipv4 = node_id;
-	key.tunnel_af = AF_INET;
-
-	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
-
-	return redirect(ENCAP_IFINDEX, 0);
-}
-#endif
-
-static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
-				   union v6addr *dst)
-{
-	struct lxc_info *dst_lxc;
-	__u16 lxc_id = derive_lxc_id(dst);
-
-	printk("L3 on local node, lxc-id: %x\n", lxc_id);
-
-	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
-	if (dst_lxc) {
-		__u64 tmp_mac = dst_lxc->mac;
-		union macaddr router_mac = ROUTER_MAC;
-		store_eth_saddr(skb, router_mac.addr, 0);
-		store_eth_daddr(skb, (__u8 *) &tmp_mac, 0);
-
-		if (decrement_ipv6_hoplimit(skb, nh_off)) {
-			/* FIXME: Handle hoplimit == 0 */
-		}
-
-		printk("Found destination container locally\n");
-
-		return redirect(dst_lxc->ifindex, 0);
-	} else {
-		printk("Unknown container %#x\n", lxc_id);
-	}
-
-	return TC_ACT_UNSPEC;
-}
+#include "lib/lxc.h"
 
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
@@ -116,31 +30,14 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	load_ipv6_daddr(skb, nh_off, &dst);
 	node_id = derive_node_id(&dst);
 
+	printk("node_id %x local %x\n", node_id, NODE_ID);
+
 	if (node_id != NODE_ID) {
-		printk("Destination on remote node %#x\n", node_id);
 #ifdef ENCAP_IFINDEX
 		return do_encapsulation(skb, node_id);
 #else
-		/* FIXME: Punt to Linux stack */
+		return TC_ACT_OK;
 #endif
-	} else {
-		return do_l3(skb, nh_off, &dst);
-	}
-}
-
-static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off)
-{
-	union v6addr dst = {};
-	__u32 node_id;
-
-	printk("L3 from overlay: skb %p len %d\n", skb, skb->len);
-
-	load_ipv6_daddr(skb, nh_off, &dst);
-	node_id = derive_node_id(&dst);
-
-	if (node_id != NODE_ID) {
-		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
-		return TC_ACT_SHOT;
 	} else {
 		return do_l3(skb, nh_off, &dst);
 	}
@@ -202,34 +99,16 @@ int handle_ingress(struct __sk_buff *skb)
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
-		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
+		if (unlikely(nexthdr == IPPROTO_ICMPV6))
 			ret = handle_icmp6(skb, nh_off);
 
-			/* ICMPv6 intended to be passed through */
-			if (ret == LXC_REDIRECT)
-				return do_l3_from_lxc(skb, nh_off);
-		}
-
-		return do_l3_from_lxc(skb, nh_off);
+		if (likely(ret == LXC_REDIRECT))
+			return do_l3_from_lxc(skb, nh_off);
+		else
+			return ret;
 	}
 
 	return TC_ACT_UNSPEC;
-}
-
-__section("from-overlay")
-int from_overlay(struct __sk_buff *skb)
-{
-	int nh_off = ETH_HLEN;
-	struct bpf_tunnel_key key = {};
-
-	skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-	if (key.tunnel_id != 42)
-		return TC_ACT_SHOT;
-
-	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
-		return do_l3_from_overlay(skb, nh_off);
-
-	return TC_ACT_SHOT;
 }
 
 BPF_LICENSE("GPL");
