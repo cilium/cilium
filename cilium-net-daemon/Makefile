@@ -5,7 +5,7 @@ tests:
 	godep go test ./...
 
 run:
-	./cilium-net-daemon
+	./run.sh
 
 clean:
 	rm -f cilium-net-daemon
