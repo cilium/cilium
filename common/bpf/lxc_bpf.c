@@ -16,17 +16,6 @@
 #include "lib/dbg.h"
 #include "lib/lxc.h"
 
-/*
- * This is a special case where a veth pair has been created.
- * Each veth end has its own MAC address and we use the MAC
- * of the host facing side for each container as the router's
- * MAC address.
- */
-#ifdef NODE_MAC
-#undef ROUTER_MAC
-#define ROUTER_MAC NODE_MAC
-#endif
-
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
 	union v6addr dst = {};
@@ -47,7 +36,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #ifdef ENCAP_IFINDEX
 		return do_encapsulation(skb, node_id);
 #else
-		union macaddr router_mac = ROUTER_MAC;
+		union macaddr router_mac = NODE_MAC;
 
 		__do_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
 
@@ -68,7 +57,7 @@ static inline int handle_icmp6_solicitation(struct __sk_buff *skb, int nh_off)
 		return TC_ACT_SHOT;
 
 	if (compare_ipv6_addr(&target, &router) == 0) {
-		union macaddr router_mac = ROUTER_MAC;
+		union macaddr router_mac = NODE_MAC;
 
 		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
 	} else {

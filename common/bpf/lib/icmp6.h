@@ -18,7 +18,7 @@ static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 
 static inline int send_icmp6_reply(struct __sk_buff *skb, int nh_off)
 {
-	union macaddr smac = {}, dmac = ROUTER_MAC;
+	union macaddr smac = {}, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	union v6addr sip = {}, dip = {};
 	__be32 sum = 0;
