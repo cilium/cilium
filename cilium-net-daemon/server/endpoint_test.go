@@ -20,6 +20,7 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		SecCtx:        "secctx",
@@ -40,6 +41,7 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		SecCtx:        "secctx",
@@ -60,6 +62,7 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		SecCtx:        "secctx",
@@ -80,6 +83,7 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	ep := types.Endpoint{
 		LxcMAC:        HardAddr,
 		LxcIP:         EpAddr,
+		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		SecCtx:        "secctx",
