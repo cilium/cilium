@@ -37,7 +37,7 @@ var (
 )
 
 func setupLOG() {
-	level, err := logging.LogLevel(logLevel)
+	level, err := logging.logLevel(LogLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,6 +99,10 @@ func initBPF() {
 		" */\n\n",
 		nodeMac, NodeAddr.String())
 
+	if logLevel == "debug" {
+		f.WriteString("#define DEBUG\n")
+	}
+
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
 	f.WriteString(common.FmtDefineAddress("ROUTER_MAC", nodeMac))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
@@ -115,7 +119,7 @@ func initBPF() {
 }
 
 func init() {
-	flag.StringVar(&logLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
+	flag.StringVar(&LogLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
 	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
 	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
 	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
