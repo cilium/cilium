@@ -37,7 +37,7 @@ var (
 )
 
 func setupLOG() {
-	level, err := logging.logLevel(LogLevel)
+	level, err := logging.LogLevel(logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func initBPF() {
 }
 
 func init() {
-	flag.StringVar(&LogLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
+	flag.StringVar(&logLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
 	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
 	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
 	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
