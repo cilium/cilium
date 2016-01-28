@@ -7,6 +7,6 @@ V4=$(ip -4 a show scope global | \
 HEX=$(printf '%02X' ${V4//./ })
 
 V6="beef::${HEX:0:4}:${HEX:4}:0"
-echo "Running ./cilium-docker -d -n $V6"
+echo "Running ./cilium-docker -d -n $V6 $*"
 
-./cilium-docker -d -n $V6
+./cilium-docker -d -n $V6 $*
