@@ -24,8 +24,11 @@ static inline int is_node_subnet(const union v6addr *dst)
 		tmp = dst->p2 - node.p2;
 		if (!tmp) {
 			tmp = dst->p3 - node.p3;
-			if (!tmp)
-				tmp = (dst->p4 & 0xFFFF0000) - (node.p4 & 0xFFFF0000);
+			if (!tmp) {
+				__u32 a = ntohl(dst->p4);
+				__u32 b = ntohl(node.p4);
+				tmp = (a & 0xFFFF0000) - (b & 0xFFFF0000);
+			}
 		}
 	}
 
