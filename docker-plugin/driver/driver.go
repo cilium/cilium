@@ -337,6 +337,11 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := netlink.LinkSetMTU(peer, 1450); err != nil {
+		sendError(w, "Unable to set MTU: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	ep.LxcMAC = peer.Attrs().HardwareAddr
 
 	nodeVeth, err := netlink.LinkByName(lxcIfname)
@@ -345,11 +350,6 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ep.NodeMAC = nodeVeth.Attrs().HardwareAddr
-
-	if err := netlink.LinkSetMTU(veth, 1450); err != nil {
-		sendError(w, "Unable to set MTU: "+err.Error(), http.StatusBadRequest)
-		return
-	}
 
 	if err := netlink.LinkSetUp(veth); err != nil {
 		sendError(w, "Unable to bring up veth pair: "+err.Error(), http.StatusBadRequest)
