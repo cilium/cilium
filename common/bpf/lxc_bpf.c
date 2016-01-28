@@ -99,18 +99,18 @@ static inline int handle_icmp6(struct __sk_buff *skb, int nh_off)
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
 {
-	int ret = LXC_REDIRECT, nh_off = ETH_HLEN;
+	int ret, nh_off = ETH_HLEN;
 	__u8 nexthdr;
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
-		if (unlikely(nexthdr == IPPROTO_ICMPV6))
+		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 			ret = handle_icmp6(skb, nh_off);
+			if (ret != LXC_REDIRECT)
+				return ret;
+		}
 
-		if (likely(ret == LXC_REDIRECT))
-			return do_l3_from_lxc(skb, nh_off);
-		else
-			return ret;
+		return do_l3_from_lxc(skb, nh_off);
 	}
 
 	return TC_ACT_UNSPEC;
