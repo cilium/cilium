@@ -45,7 +45,6 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String(),
 		ep.NodeMAC.String())
 
-	f.WriteString("#define DEBUG\n")
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
 	f.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
