@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/noironetworks/cilium-net",
-	"GoVersion": "go1.5.2",
+	"GoVersion": "go1.5",
 	"Packages": [
 		"./..."
 	],
@@ -8,12 +8,47 @@
 		{
 			"ImportPath": "bitbucket.org/ww/goautoneg",
 			"Comment": "null-5",
-			"Rev": "75cd24fc2f2c2a2088577d12123ddee5f54e0675"
+			"Rev": "'75cd24fc2f2c2a2088577d12123ddee5f54e0675'"
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.6.2-10-g51fe59a",
 			"Rev": "51fe59aca108dc5680109e7b2051cbdcfa5a253c"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/pkg/invoke",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/pkg/ip",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/pkg/ipam",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/pkg/ns",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/pkg/skel",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/pkg/types",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/plugins/ipam/host-local",
+			"Comment": "v0.1.0-81-g237c064",
+			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
 		},
 		{
 			"ImportPath": "github.com/beorn7/perks/quantile",
@@ -23,6 +58,10 @@
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "1.2.0-161-gf445c89",
 			"Rev": "f445c894402839580d30de47551cedc152dad814"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-iptables/iptables",
+			"Rev": "90456be57fcb8185b264b77ce42a9539df42df25"
 		},
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
@@ -40,28 +79,28 @@
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/driverapi",
-			"Comment": "v0.5-119-g44abd7f",
-			"Rev": "44abd7f7b309f01ea95c767a4c08420253024631"
+			"Comment": "v0.5-180-g34fe798",
+			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/drivers/remote/api",
-			"Comment": "v0.5-119-g44abd7f",
-			"Rev": "44abd7f7b309f01ea95c767a4c08420253024631"
+			"Comment": "v0.5-180-g34fe798",
+			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipamapi",
-			"Comment": "v0.5-119-g44abd7f",
-			"Rev": "44abd7f7b309f01ea95c767a4c08420253024631"
+			"Comment": "v0.5-180-g34fe798",
+			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipams/remote/api",
-			"Comment": "v0.5-119-g44abd7f",
-			"Rev": "44abd7f7b309f01ea95c767a4c08420253024631"
+			"Comment": "v0.5-180-g34fe798",
+			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/types",
-			"Comment": "v0.5-119-g44abd7f",
-			"Rev": "44abd7f7b309f01ea95c767a4c08420253024631"
+			"Comment": "v0.5-180-g34fe798",
+			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
 		},
 		{
 			"ImportPath": "github.com/ghodss/yaml",
@@ -69,7 +108,7 @@
 		},
 		{
 			"ImportPath": "github.com/golang/glog",
-			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
@@ -155,7 +194,7 @@
 		},
 		{
 			"ImportPath": "github.com/vishvananda/netlink",
-			"Rev": "c24b290c8fe549cd5be941445f918e83c8efa966"
+			"Rev": "5a5eb317d73bc513ae0cfea7d9ac3c39f145e1db"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/ssh",
@@ -164,10 +203,6 @@
 		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "c2528b2dd8352441850638a8bb678c2ad056fd3e"
-		},
-		{
-			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "58da1121af381632b48b2843aeb16299f2e1dc50"
 		},
 		{
 			"ImportPath": "gopkg.in/check.v1",
