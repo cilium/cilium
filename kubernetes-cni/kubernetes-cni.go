@@ -183,9 +183,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	defer func() {
 		if err != nil {
+			os.Setenv("CNI_COMMAND", "DEL")
 			if err = ipam.ExecDel(n.IPAM.Type, args.StdinData); err != nil {
 				log.Warnf("failed to release allocated IP %q: %s", result, err)
 			}
+			os.Setenv("CNI_COMMAND", "ADD")
 		}
 	}()
 
