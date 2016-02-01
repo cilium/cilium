@@ -30,6 +30,7 @@ Vagrant.configure(2) do |config|
     chown -R vagrant:vagrant /home/vagrant/go
 
     mount bpffs /sys/fs/bpf/ -t bpf
+    /home/vagrant/bin/iptables_cleanup.sh || true
   SHELL
 
   config.vm.provider :libvirt do |domain|
