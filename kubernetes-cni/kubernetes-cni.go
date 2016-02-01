@@ -11,6 +11,7 @@ import (
 
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ip"
@@ -238,7 +239,7 @@ func cmdDel(args *skel.CmdArgs) error {
 
 		// As long the nodeIP is address 0...
 		for _, addr := range addrs {
-			if bytes.Compare(n.NodeIP, addr.IPNet.IP.Mask(addr.IPNet.Mask)) == 0 {
+			if bytes.Compare(n.NodeIP, addr.IP.Mask(common.NodeIPv6Mask)) == 0 {
 				containerIP = addr.IP
 				log.Debug("Container IP found ", containerIP)
 				break
