@@ -1,7 +1,7 @@
-diff --git hack/local-up-cluster.sh hack/local-up-cluster.sh
+diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
 index f1cba1f..4d569ba 100755
---- hack/local-up-cluster.sh
-+++ hack/local-up-cluster.sh
+--- a/hack/local-up-cluster.sh
++++ b/hack/local-up-cluster.sh
 @@ -284,6 +284,8 @@ function start_kubelet {
        fi
  

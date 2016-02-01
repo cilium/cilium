@@ -16,9 +16,10 @@ ln -s /home/vagrant/go/src/github.com/noironetworks/cilium-net/kubernetes-cni/10
 export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64:/usr/local/go/bin
 
 #apply patch
-patch -p0 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/kubernetes-cni/kubernetes.patch
+patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/kubernetes-cni/kubernetes.patch
 
 # Run the following command on this terminal
+# Make sure all cilium-kubernetes-cni and host-local are built
 hack/local-up-cluster.sh
 
 ##on a different terminal
