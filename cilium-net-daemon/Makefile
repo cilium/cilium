@@ -9,7 +9,7 @@ tests:
 	godep go test ./...
 
 run:
-	./run.sh
+	./cilium-net-daemon
 
 clean:
 	rm -f $(TARGET)
