@@ -16,6 +16,11 @@ Vagrant.configure(2) do |config|
     su - vagrant -c /home/vagrant/go/src/github.com/noironetworks/cilium-net/common/build.sh
 
     make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ install
+
+    cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-docker.conf /etc/init/
+    cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-net-daemon.conf /etc/init/
+    service cilium-docker start
+    service cilium-net-daemon start
   SHELL
 
   config.vm.provider :libvirt do |libvirt|
