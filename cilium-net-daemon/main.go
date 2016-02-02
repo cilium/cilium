@@ -138,6 +138,16 @@ func init() {
 
 	setupLOG()
 
+	if nodeAddrStr == "" {
+		var err error
+		nodeAddrStr, err = common.GenerateV6Prefix()
+		if err != nil {
+			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
+		}
+
+		log.Infof("Generated IPv6 prefix: %s\n", nodeAddrStr)
+	}
+
 	addr := net.ParseIP(nodeAddrStr)
 	if addr == nil {
 		log.Fatalf("Invalid node address \"%s\", please specifcy node address using -n", nodeAddrStr)

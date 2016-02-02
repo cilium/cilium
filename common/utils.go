@@ -2,6 +2,10 @@ package common
 
 import (
 	"fmt"
+	"net"
+	"syscall"
+
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
 func GoArray2C(array []byte) string {
@@ -24,4 +28,36 @@ func FmtDefineAddress(name string, addr []byte) string {
 
 func FmtDefineArray(name string, array []byte) string {
 	return fmt.Sprintf("#define %s %s\n", name, GoArray2C(array))
+}
+
+func firstGlobalV4Addr() (net.IP, error) {
+	addr, err := netlink.AddrList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range addr {
+		if a.Scope == syscall.RT_SCOPE_UNIVERSE {
+			return a.IP, nil
+		}
+	}
+
+	return nil, fmt.Errorf("No IPv4 address configured")
+}
+
+func fmtV6Prefix(prefix string, ip net.IP) string {
+	if len(ip) < 4 {
+		return "<nil>"
+	}
+
+	return fmt.Sprintf("%s:%x%x:%x%x:0", prefix, ip[0], ip[1], ip[2], ip[3])
+}
+
+func GenerateV6Prefix() (string, error) {
+	ip, err := firstGlobalV4Addr()
+	if err != nil {
+		return "", err
+	}
+
+	return fmtV6Prefix("beef:", ip), nil
 }
