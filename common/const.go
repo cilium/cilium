@@ -17,8 +17,8 @@ var (
 	//
 	// cluster:		    beef:beef:beef:beef::/64
 	// loadbalancer:	beef:beef:beef:beef:<lb>::/80
-	// node:		    beef:beef:beef:beef:<lb>:<node>::/112
-	// lxc:			    beef:beef:beef:beef:<lb>:<node>:<lxc>:<lxc>/128
+	// node:		    beef:beef:beef:beef:<lb>:<node>:<node>:/112
+	// lxc:			    beef:beef:beef:beef:<lb>:<node>:<node>:<lxc>/128
 	ClusterIPv6Mask      = net.CIDRMask(64, 128)
 	LoadBalancerIPv6Mask = net.CIDRMask(80, 128)
 	NodeIPv6Mask         = net.CIDRMask(112, 128)
