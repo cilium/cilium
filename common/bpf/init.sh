@@ -1,7 +1,8 @@
 #!/bin/bash
 
-ADDR=$1
-MODE=$2
+LIB=$1
+ADDR=$2
+MODE=$3
 
 set -e
 
@@ -13,8 +14,6 @@ echo 1 > /proc/sys/net/core/bpf_jit_enable
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
 
-cd ../common/bpf
-
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
 
@@ -23,10 +22,10 @@ if [ "$MODE" = "vxlan" ]; then
 	ip link add cilium_vxlan type vxlan external
 	ip link set cilium_vxlan up
 
-	clang -O2 -emit-llvm -c bpf_overlay.c -I$DIR -I. -o - | llc -march=bpf -filetype=obj -o $DIR/bpf_overlay.o
+	clang -O2 -emit-llvm -c $LIB/bpf_overlay.c -I$DIR -I. -o - | llc -march=bpf -filetype=obj -o bpf_overlay.o
 
 	tc qdisc add dev cilium_vxlan ingress
-	tc filter add dev cilium_vxlan parent ffff: bpf da obj $DIR/bpf_overlay.o sec from-overlay
+	tc filter add dev cilium_vxlan parent ffff: bpf da obj bpf_overlay.o sec from-overlay
 elif [ "$MODE" = "direct" ]; then
 	DEV=$3
 
@@ -38,11 +37,11 @@ elif [ "$MODE" = "direct" ]; then
 
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
-		clang -O2 -emit-llvm -c bpf_netdev.c -I$DIR -I. -o - | llc -march=bpf -filetype=obj -o $DIR/bpf_netdev.o
+		clang -O2 -emit-llvm -c $LIB/bpf_netdev.c -I$DIR -I. -o - | llc -march=bpf -filetype=obj -o bpf_netdev.o
 
 		tc qdisc del dev $DEV ingress 2> /dev/null || true
 		tc qdisc add dev $DEV ingress
-		tc filter add dev $DEV parent ffff: bpf da obj $DIR/bpf_netdev.o sec from-netdev
+		tc filter add dev $DEV parent ffff: bpf da obj bpf_netdev.o sec from-netdev
 	fi
 else
 	echo "Warning: unknown mode: \"$MODE\""
@@ -54,5 +53,5 @@ mount bpffs /sys/fs/bpf/ -t bpf || true
 mkdir -p $(dirname $MAP)
 
 if [ ! -f "$MAP" ]; then
-	./map_ctrl create $MAP
+	$LIB/map_ctrl create $MAP
 fi

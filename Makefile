@@ -1,14 +1,13 @@
+include Makefile.defs
+
+SUBDIRS = docker-plugin cilium-net-daemon kubernetes-cni common/bpf
+
 all:
-	$(MAKE) -C docker-plugin
-	$(MAKE) -C kubernetes-cni
-	$(MAKE) -C common/bpf
-	$(MAKE) -C cilium-net-daemon
+	for i in $(SUBDIRS); do $(MAKE) -C $$i; done
 
 tests:
-	$(MAKE) -C cilium-net-daemon tests
 	$(MAKE) -C common tests
-	$(MAKE) -C docker-plugin tests
-	$(MAKE) -C kubernetes-cni tests
+	for i in $(SUBDIRS); do $(MAKE) -C $$i tests; done
 	$(MAKE) -C integration tests
 
 run-docker-plugin:
@@ -18,7 +17,10 @@ run-cilium-daemon:
 	$(MAKE) -C cilium-net-daemon run
 
 clean:
-	$(MAKE) -C docker-plugin clean
-	$(MAKE) -C kubernetes-cni clean
-	$(MAKE) -C common/bpf clean
-	$(MAKE) -C cilium-net-daemon clean
+	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+
+install:
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(RUNDIR)/cilium/globals
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/lib
+	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done

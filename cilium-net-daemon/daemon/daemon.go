@@ -9,8 +9,11 @@ var (
 )
 
 type Daemon struct {
+	libDir string
 }
 
-func NewDaemon() *Daemon {
-	return &Daemon{}
+func NewDaemon(libdir string) *Daemon {
+	return &Daemon{
+		libDir: libdir,
+	}
 }

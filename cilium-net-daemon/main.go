@@ -27,6 +27,8 @@ var (
 	nodeAddrStr  string
 	NodeAddr     net.IP
 	device       string
+	libDir       string
+	runDir       string
 	log          = logging.MustGetLogger("cilium-net")
 	stdoutFormat = logging.MustStringFormatter(
 		`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
@@ -69,18 +71,16 @@ func initBPF() {
 	var args []string
 
 	if device != "undefined" {
-		args = []string{NodeAddr.String(), "direct", device}
+		args = []string{libDir, NodeAddr.String(), "direct", device}
 	} else {
-		args = []string{NodeAddr.String(), "vxlan"}
+		args = []string{libDir, NodeAddr.String(), "vxlan"}
 	}
 
-	out, err := exec.Command("../common/bpf/init.sh", args...).CombinedOutput()
-	if err != nil {
-		log.Warningf("Command execution failed: %s", err)
-		log.Warningf("Command output:\n%s", out)
+	if err := os.Chdir(runDir); err != nil {
+		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
+			runDir, err)
 		return
 	}
-	log.Infof("Created BPF map %s:\n%s", common.BPFMap, out)
 
 	f, err := os.Create("./globals/node_config.h")
 	if err != nil {
@@ -104,7 +104,7 @@ func initBPF() {
 	}
 
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
-	f.WriteString(common.FmtDefineAddress("ROUTER_MAC", nodeMac))
+	f.WriteString(common.FmtDefineAddress("NODE_MAC", nodeMac))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
 
 	if device == "undefined" {
@@ -116,6 +116,15 @@ func initBPF() {
 	}
 
 	f.Close()
+
+	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
+	if err != nil {
+		log.Warningf("Command execution failed: %s", err)
+		log.Warningf("Command output:\n%s", out)
+		return
+	}
+	log.Infof("Created BPF map %s:\n%s", common.BPFMap, out)
+
 }
 
 func init() {
@@ -123,6 +132,8 @@ func init() {
 	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
 	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
 	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
+	flag.StringVar(&libDir, "D", "/usr/lib/cilium", "Cilium library directory")
+	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
 	flag.Parse()
 
 	setupLOG()
@@ -149,7 +160,7 @@ func init() {
 }
 
 func main() {
-	d := daemon.NewDaemon()
+	d := daemon.NewDaemon(libDir)
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
