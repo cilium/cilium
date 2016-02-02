@@ -14,6 +14,8 @@ Vagrant.configure(2) do |config|
     echo 'export PATH=/usr/local/go/bin:/home/vagrant/go/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >> /home/vagrant/.profile
 
     su - vagrant -c /home/vagrant/go/src/github.com/noironetworks/cilium-net/common/build.sh
+
+    make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ install
   SHELL
 
   config.vm.provider :libvirt do |libvirt|
