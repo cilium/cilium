@@ -18,3 +18,8 @@ func (s *CommonSuite) TestFmtDefineAddress(c *C) {
 	c.Assert(FmtDefineAddress("foo", []byte{1, 2, 3}), Equals, "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n")
 	c.Assert(FmtDefineAddress("foo", []byte{}), Equals, "#define foo { .addr = {  } }\n")
 }
+
+func (s *CommonSuite) TestfmtV6Prefix(c *C) {
+	c.Assert(fmtV6Prefix("beef:", []byte{}), Equals, "<nil>")
+	c.Assert(fmtV6Prefix("beef:", []byte{1, 2, 3, 4}), Equals, "beef::12:34:0")
+}
