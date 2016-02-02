@@ -52,7 +52,14 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 
 	nodeAddress := net.ParseIP(ctx.String("node-addr"))
 	if nodeAddress == nil {
-		log.Fatalf("No node address given, please specifcy node address using -n")
+		nodeAddrStr, err := common.GenerateV6Prefix()
+		if err != nil {
+			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
+		}
+
+		log.Infof("Generated IPv6 prefix: %s\n", nodeAddrStr)
+
+		nodeAddress = net.ParseIP(nodeAddrStr)
 	}
 
 	if !common.ValidNodeAddress(nodeAddress) {

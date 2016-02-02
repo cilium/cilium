@@ -15,7 +15,7 @@ $(TARGET): $(SOURCES)
 	godep go build -o $(TARGET)
 
 run:
-	./run.sh
+	./cilium-docker -d
 
 clean:
 	rm -f $(TARGET)
