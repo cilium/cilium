@@ -17,3 +17,5 @@ HOST_SOURCES := $(shell find ../Godeps/_workspace/src/github.com/appc/cni/plugin
 
 host-local: $(HOST_SOURCES)
 	godep go build -o host-local ../Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local 
+
+install:
