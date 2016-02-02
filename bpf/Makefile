@@ -1,4 +1,4 @@
-include ../../Makefile.defs
+include ../Makefile.defs
 
 CLANG_FLAGS := -I.
 
