@@ -117,7 +117,7 @@
       "artifact_type": "vagrant.box",
       "metadata": {
           "provider": "libvirt",
-	  "version": "0.0.16",
+	  "version": "0.0.18",
 	  "description": "Snapshot of net-next kernel"
       }
   },
@@ -128,7 +128,7 @@
       "artifact_type": "vagrant.box",
       "metadata": {
           "provider": "virtualbox",
-	  "version": "0.0.16",
+	  "version": "0.0.18",
 	  "description": "Snapshot of net-next kernel"
       }
   }]
