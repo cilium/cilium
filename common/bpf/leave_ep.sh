@@ -1,8 +1,8 @@
 #!/bin/bash
 
-ID=$1
+LIB=$1
+ID=$2
 
 echo "Leave EP id=$ID"
 
-cd ../common/bpf
-./map_ctrl delete "/sys/fs/bpf/tc/globals/cilium_lxc" $ID
+$LIB/map_ctrl delete "/sys/fs/bpf/tc/globals/cilium_lxc" $ID

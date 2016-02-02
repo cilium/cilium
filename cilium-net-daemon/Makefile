@@ -1,4 +1,8 @@
-all: cilium-net-daemon
+include ../Makefile.defs
+
+TARGET=cilium-net-daemon
+
+all: $(TARGET)
 
 tests:
 	godep go fmt ./...
@@ -8,10 +12,13 @@ run:
 	./run.sh
 
 clean:
-	rm -f cilium-net-daemon
+	rm -f $(TARGET)
 
 SOURCES := $(shell find . -name '*.go')
 
-cilium-net-daemon: $(SOURCES)
+$(TARGET): $(SOURCES)
 	$(MAKE) tests
-	godep go build -o cilium-net-daemon ./main.go
+	godep go build -o $(TARGET) ./main.go
+
+install: all
+	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)

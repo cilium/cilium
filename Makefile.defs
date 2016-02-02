@@ -1,0 +1,6 @@
+PREFIX?=/usr
+BINDIR?=$(PREFIX)/bin
+LIBDIR?=$(PREFIX)/lib
+RUNDIR?=/var/run
+
+INSTALL = install

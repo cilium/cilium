@@ -1,5 +1,4 @@
 #include <node_config.h>
-#include <lxc_config.h>
 
 #include <iproute2/bpf_api.h>
 
@@ -12,7 +11,7 @@
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
-#include "lib/lxc.h"
+#include "lib/l3.h"
 
 static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off)
 {

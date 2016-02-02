@@ -40,18 +40,15 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		" * Container ID: %s\n"+
 		" * MAC: %s\n"+
 		" * IP: %s\n"+
-		" * Node MAC: %s\n"+
 		" */\n\n",
-		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String(),
-		ep.NodeMAC.String())
+		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String())
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
-	f.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 	f.Close()
 
-	args := []string{ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String()}
-	out, err := exec.Command("../common/bpf/join_ep.sh", args...).CombinedOutput()
+	args := []string{d.libDir, ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String()}
+	out, err := exec.Command(d.libDir+"/join_ep.sh", args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
@@ -70,8 +67,8 @@ func (d Daemon) EndpointLeave(epID string) error {
 	lxcDir := "./" + epID
 	os.RemoveAll(lxcDir)
 
-	args := []string{epID}
-	out, err := exec.Command("../common/bpf/leave_ep.sh", args...).CombinedOutput()
+	args := []string{d.libDir, epID}
+	out, err := exec.Command(d.libDir+"/leave_ep.sh", args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
