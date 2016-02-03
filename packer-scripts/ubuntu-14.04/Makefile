@@ -1,3 +1,5 @@
+image_version:="0.0.18"
+
 build-all: clean validate
 	packer build ubuntu-1404.json
 
@@ -20,16 +22,16 @@ distclean:
 
 uninstall:
 	vagrant destroy
-	vagrant box remove cilium-net-next
-	sudo rm /var/lib/libvirt/images/cilium-net-next_vagrant_box_image_0.img
+	vagrant box remove noironetworks/net-next
+	sudo virsh vol-delete --pool default "noironetworks-VAGRANTSLASH-net-next_vagrant_box_image_${image_version}.img"
 	-service libvirt-bin restart
 	-service libvirtd restart
 	rm Vagrantfile
 
 upload:
-	packer push -name noironetworks/cilium-net-next ubuntu-1404-atlas.json
+	packer push -name noironetworks/net-next ubuntu-1404-atlas.json
 
 install:
-	vagrant box add --force cilium-net-next ubuntu-1404-libvirt.box
+	vagrant box add --force net-next ubuntu-1404-libvirt.box
 	cp Vagrantfile.sample  Vagrantfile
 	vagrant up --provider=libvirt

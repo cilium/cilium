@@ -9,9 +9,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
-	"github.com/noironetworks/cilium-net/common"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ip"
