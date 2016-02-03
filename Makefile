@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = docker-plugin cilium-net-daemon kubernetes-cni common/bpf
+SUBDIRS = docker-plugin cilium-net-daemon kubernetes-cni bpf
 
 all:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i; done
