@@ -1,0 +1,15 @@
+#!/bin/bash
+# Runs scale test from 1 to NPARALLEL instances
+# binding starts at cpu CPU0
+# netperf_scale NPARALLEL <LOCAL | REMOTE> CPU0 HOST
+# ./super_netperf 10 local 2 -t TCP_SENDFILE -H beef::aa0:18:8ad6
+
+loops=$1
+type=$2
+cpu0=$3
+shift 3
+for ((i=1;i<=$loops;i++)); do
+    cmdline="./super_netperf $i $type $cpu0 $@"
+    echo $cmdline
+    eval $cmdline
+done
