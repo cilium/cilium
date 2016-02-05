@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	common "github.com/noironetworks/cilium-net/common"
+
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
 )
 
@@ -57,7 +59,7 @@ type portmap struct {
 }
 
 func (pm portmap) String() string {
-	return fmt.Sprintf("%d:%d", pm.from, pm.to)
+	return fmt.Sprintf("%d:%d", common.Swab16(pm.from), common.Swab16(pm.to))
 }
 
 type lxcInfo struct {
@@ -360,8 +362,8 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 			return
 		}
 		lxc.portmap[i] = portmap{
-			from: uint16(from),
-			to:   uint16(to),
+			from: common.Swab16(uint16(from)),
+			to:   common.Swab16(uint16(to)),
 		}
 	}
 

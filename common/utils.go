@@ -61,3 +61,7 @@ func GenerateV6Prefix() (string, error) {
 
 	return fmtV6Prefix("beef:", ip), nil
 }
+
+func Swab16(n uint16) uint16 {
+	return (n&0xFF00)>>8 | (n&0x00FF)<<8
+}
