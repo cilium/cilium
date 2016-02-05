@@ -3,6 +3,7 @@
 
 #include <iproute2/bpf_api.h>
 #include <linux/ipv6.h>
+#include <linux/in.h>
 #include <stdint.h>
 
 #define __inline__ __attribute__((always_inline))
@@ -23,10 +24,19 @@ union v6addr {
         __u8 addr[16];
 };
 
+#define PORTMAP_MAX 16
+
+struct portmap {
+	__u16 from;
+	__u16 to;
+};
+
 struct lxc_info {
 	int		ifindex;
+	/* 4 bytes hole */
 	__u64		mac;
 	union v6addr	ip;
+	struct portmap  portmap[PORTMAP_MAX];
 };
 
 #ifndef BPF_F_PSEUDO_HDR

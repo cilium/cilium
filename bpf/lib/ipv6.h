@@ -63,6 +63,12 @@ static inline int store_ipv6_daddr(struct __sk_buff *skb, __u8 *addr, int off)
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
 }
 
+static inline int ipv6_load_nexthdr(struct __sk_buff *skb, int off, __u8 *nexthdr)
+{
+	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, nexthdr), nexthdr,
+			      sizeof(__u8));
+}
+
 static inline __u16 derive_lxc_id(const union v6addr *addr)
 {
 	return ntohl(addr->p4) & 0xFFFF;

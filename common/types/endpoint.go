@@ -6,6 +6,12 @@ import (
 	"strconv"
 )
 
+type PortMap struct {
+	From  uint16 `json:from`
+	To    uint16 `json:to`
+	Proto uint8  `json:proto`
+}
+
 type Endpoint struct {
 	ID            string           `json:id`
 	LxcMAC        net.HardwareAddr `json:lxc-MAC`
@@ -15,6 +21,7 @@ type Endpoint struct {
 	NodeIP        net.IP           `json:node-IP`
 	SecCtx        string           `json:sec-Ctx`
 	DockerNetwork string           `json:docker-network`
+	PortMap       []PortMap        `json:port-mapping`
 }
 
 func (e *Endpoint) SetID() {

@@ -17,6 +17,30 @@
 #include "lib/l3.h"
 #include "lib/lxc.h"
 
+#ifndef DISABLE_PORT_MAP
+static inline void map_lxc_out(struct __sk_buff *skb, int off)
+{
+	int i;
+	__u8 nexthdr = 0;
+	struct portmap local_map[] = {
+#ifdef LXC_PORT_MAPPINGS
+		LXC_PORT_MAPPINGS
+#endif
+	};
+
+	if (ipv6_load_nexthdr(skb, off, &nexthdr) < 0)
+		return;
+
+	off += sizeof(struct ipv6hdr);
+
+#define NR_PORTMAPS (sizeof(local_map) / sizeof(local_map[0]))
+
+#pragma unroll
+	for (i = 0; i < NR_PORTMAPS; i++)
+		do_port_map_out(skb, off, nexthdr, &local_map[i]);
+}
+#endif /* DISABLE_PORT_MAP */
+
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
 	union v6addr dst = {};
@@ -30,6 +54,12 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	load_ipv6_daddr(skb, nh_off, &dst);
 	node_id = derive_node_id(&dst);
+
+#ifndef DISABLE_PORT_MAP
+	map_lxc_out(skb, nh_off);
+#else
+	printk("Port mapping disabled, skipping.\n");
+#endif /* DISABLE_PORT_MAP */
 
 	printk("node_id %x local %x\n", node_id, NODE_ID);
 

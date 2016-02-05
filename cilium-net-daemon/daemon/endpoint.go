@@ -45,9 +45,24 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
+
+	var mappings string
+
+	f.WriteString("#define LXC_PORT_MAPPINGS ")
+	for _, m := range ep.PortMap {
+		// Write mappings directly in network byte order so we don't have
+		// to convert it in the fast path
+		fmt.Fprintf(f, "{%#x,%#x},",
+			(m.From&0xff)<<8|m.From>>8,
+			(m.To&0xff)<<8|m.To>>8)
+
+		mappings = mappings + fmt.Sprintf("%d:%d ", m.From, m.To)
+	}
+	f.WriteString("\n")
+
 	f.Close()
 
-	args := []string{d.libDir, ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String()}
+	args := []string{d.libDir, ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String(), mappings}
 	out, err := exec.Command(d.libDir+"/join_ep.sh", args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
