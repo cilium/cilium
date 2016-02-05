@@ -52,10 +52,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	for _, m := range ep.PortMap {
 		// Write mappings directly in network byte order so we don't have
 		// to convert it in the fast path
-		fmt.Fprintf(f, "{%#x,%#x},",
-			(m.From&0xff)<<8|m.From>>8,
-			(m.To&0xff)<<8|m.To>>8)
-
+		fmt.Fprintf(f, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
 		mappings = mappings + fmt.Sprintf("%d:%d ", m.From, m.To)
 	}
 	f.WriteString("\n")

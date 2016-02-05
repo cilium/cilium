@@ -23,3 +23,8 @@ func (s *CommonSuite) TestfmtV6Prefix(c *C) {
 	c.Assert(fmtV6Prefix("beef:", []byte{}), Equals, "<nil>")
 	c.Assert(fmtV6Prefix("beef:", []byte{1, 2, 3, 4}), Equals, "beef::12:34:0")
 }
+
+func (s *CommonSuite) TestSwab16(c *C) {
+	c.Assert(Swab16(0xAABB) != 0xBBAA, Equals, false,
+		Commentf("Swab16 failed: Swab16(0xAABB) != 0xBBAA"))
+}
