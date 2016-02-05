@@ -354,7 +354,7 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 			os.Exit(errInvalidArgument)
 			return
 		}
-		to, err := strconv.ParseInt(portSplit[0], 10, 16)
+		to, err := strconv.ParseInt(portSplit[1], 10, 16)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s", err)
 			printArgsUsage(ctx)
