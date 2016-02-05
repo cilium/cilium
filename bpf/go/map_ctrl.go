@@ -33,12 +33,12 @@ type mac C.__u64
 
 func (m mac) String() string {
 	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",
-		uint64((m&0xFF0000000000)>>40),
-		uint64((m&0x00FF00000000)>>32),
-		uint64((m&0x0000FF000000)>>24),
-		uint64((m&0x000000FF0000)>>16),
-		uint64((m&0x00000000FF00)>>8),
 		uint64((m & 0x0000000000FF)),
+		uint64((m&0x00000000FF00)>>8),
+		uint64((m&0x000000FF0000)>>16),
+		uint64((m&0x0000FF000000)>>24),
+		uint64((m&0x00FF00000000)>>32),
+		uint64((m&0xFF0000000000)>>40),
 	)
 }
 
@@ -50,7 +50,7 @@ func ParseMAC(s string) (mac, error) {
 	if len(ha) != 6 {
 		return 0, fmt.Errorf("invalid MAC address %s", s)
 	}
-	return mac(mac(ha[0])<<40 | mac(ha[1])<<32 | mac(ha[2])<<24 | mac(ha[3])<<16 | mac(ha[4])<<8 | mac(ha[5])), nil
+	return mac(mac(ha[5])<<40 | mac(ha[4])<<32 | mac(ha[3])<<24 | mac(ha[2])<<16 | mac(ha[1])<<8 | mac(ha[0])), nil
 }
 
 type portmap struct {
