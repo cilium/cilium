@@ -31,6 +31,7 @@ static const char *format_lxc_info(struct lxc_info *lxc)
 	static char str[256] = {0};
 	char buf[INET6_ADDRSTRLEN];
 	__u8 *tmp = (__u8 *) &lxc->mac;
+	int i;
 
 	inet_ntop(AF_INET6, &lxc->ip, buf, sizeof(buf));
 
@@ -39,6 +40,16 @@ static const char *format_lxc_info(struct lxc_info *lxc)
 		lxc->ifindex,
 		tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5],
 		buf);
+
+	for (i = 0; i < PORTMAP_MAX; i++) {
+		char buf2[32];
+		if (!lxc->portmap[i].from && !lxc->portmap[i].to)
+			break;
+
+		snprintf(buf2, sizeof(buf2), " %u:%u",
+			ntohs(lxc->portmap[i].from), ntohs(lxc->portmap[i].to));
+		strncat(str, buf2, sizeof(str) - strlen(str) - 1);
+	}
 
 	return str;
 }
@@ -72,13 +83,16 @@ static void dump_lxc_table(const char *file)
 	while (bpf_get_next_key(fd, &key, &next_key) == 0) {
 		struct lxc_info value;
 
+		printf("bpf_get_next_key: fd:%d key:%u nextkey:%u errno:(%s)\n",
+			fd, key, next_key, strerror(errno));
+		key = next_key;
+
 		ret = bpf_lookup_elem(fd, &key, &value);
-		printf("bpf: fd:%d key:%u ret:(%d,%s)\n",
+		printf("bpf_lookup_elem: fd:%d key:%u ret:(%d,%s)\n",
 			fd, key, ret, strerror(errno));
 
 		printf("%u: %s\n", key, format_lxc_info(&value));
 		assert(ret == 0);
-		key = next_key;
 	}
 }
 
