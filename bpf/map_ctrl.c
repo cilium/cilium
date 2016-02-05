@@ -15,7 +15,8 @@ static void usage(void)
 	fprintf(stderr, "       map_ctrl create <map file>\n");
 	fprintf(stderr, "       map_ctrl dump <map file>\n");
 	fprintf(stderr, "       map_ctrl lookup <map file> <key>\n");
-	fprintf(stderr, "       map_ctrl update <map file> <key> <ifindex> <mac> <ipv6>\n");
+	fprintf(stderr, "       map_ctrl update <map file> <key> <ifindex> <mac> <ipv6> [<map>]\n");
+	fprintf(stderr, "                map := from:to [from:to]...\n");
 	fprintf(stderr, "       map_ctrl delete <map file> <key>\n");
 }
 
@@ -149,8 +150,9 @@ int main(int argc, char **argv)
 		dump_lxc_table(file);
 	} else if (!strcasecmp(argv[1], "update")) {
 		__u16 key;
-		struct lxc_info info;
+		struct lxc_info info = { };
 		__u8 *m = (__u8 *) &info.mac;
+		int i, n;
 
 		if (argc < 7)
 			goto out;
@@ -165,6 +167,25 @@ int main(int argc, char **argv)
 		if (inet_pton(AF_INET6, argv[6], (struct in6_addr *) &info.ip) != 1) {
 			fprintf(stderr, "Invalid IPv6 address: %s\n", argv[6]);
 			goto out;
+		}
+
+		for (i = 7, n = 0; i < argc; i++, n++) {
+			uint16_t from, to;
+			int n;
+
+			if (sscanf(argv[i], "%hu:%hu", &from, &to) != 2) {
+				fprintf(stderr, "Error while parsing portmap %s\n",
+					argv[i]);
+				goto out;
+			}
+
+			if (n < (PORTMAP_MAX - 1)) {
+				info.portmap[n].from = htons(from);
+				info.portmap[n].to = htons(to);
+			} else {
+				fprintf(stderr, "Warning: Only %u portmaps supported\n",
+					PORTMAP_MAX);
+			}
 		}
 
 		update_lxc(file, key, &info);

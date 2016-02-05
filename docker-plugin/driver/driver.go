@@ -226,6 +226,8 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Warnf("No IPv6 address provided in CreateEndpoint request")
 	}
 
+	maps := make([]ciliumtype.PortMap, 0, 32)
+
 	for key, val := range create.Options {
 		switch key {
 		case "com.docker.network.portmap":
@@ -235,7 +237,16 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			log.Debugf("PortBinding: %+v", &portmap)
-		// TODO: handle port binding
+
+			// FIXME: Host IP is ignored for now
+			for _, m := range portmap {
+				maps = append(maps, ciliumtype.PortMap{
+					From:  m.HostPort,
+					To:    m.Port,
+					Proto: uint8(m.Proto),
+				})
+			}
+
 		case "com.docker.network.endpoint.exposedports":
 			var tp []types.TransportPort
 			if err := json.Unmarshal(val, &tp); err != nil {
@@ -259,7 +270,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		LxcIP:         ip,
 		NodeIP:        driver.nodeAddress,
 		DockerNetwork: create.NetworkID,
+		PortMap:       maps,
 	}
+
+	log.Debugf("Created Endpoint: %+v", driver.endpoints[endID])
 
 	log.Infof("New endpoint %s with IP %s", endID, containerAddress)
 

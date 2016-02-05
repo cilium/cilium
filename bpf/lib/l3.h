@@ -5,8 +5,8 @@
 #include "ipv6.h"
 #include "eth.h"
 #include "dbg.h"
-
-__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
+#include "l4.h"
+#include "lxc_map.h"
 
 #ifdef ENCAP_IFINDEX
 static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
@@ -38,6 +38,28 @@ static inline void __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 	}
 }
 
+#ifndef DISABLE_PORT_MAP
+static inline void map_lxc_in(struct __sk_buff *skb, int off,
+			      struct lxc_info *lxc)
+{
+	__u8 nexthdr = 0;
+	int i;
+
+	if (ipv6_load_nexthdr(skb, off, &nexthdr) < 0)
+		return;
+
+	off += sizeof(struct ipv6hdr);
+
+#pragma unroll
+	for (i = 0; i < PORTMAP_MAX; i++) {
+		if (!lxc->portmap[i].to || !lxc->portmap[i].from)
+			break;
+
+		do_port_map_in(skb, off, nexthdr, &lxc->portmap[i]);
+	}
+}
+#endif /* DISABLE_PORT_MAP */
+
 static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 				   union v6addr *dst)
 {
@@ -55,6 +77,13 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 
 		__do_l3(skb, nh_off, (__u8 *) &router_mac.addr,
 			(__u8 *) &tmp_mac);
+
+#ifndef DISABLE_PORT_MAP
+		if (dst_lxc->portmap[0].to)
+			map_lxc_in(skb, nh_off, dst_lxc);
+#else
+		printk("Port mapping disabled, skipping.\n");
+#endif /* DISABLE_PORT_MAP */
 
 		return redirect(dst_lxc->ifindex, 0);
 	} else {
