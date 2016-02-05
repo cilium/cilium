@@ -14,6 +14,8 @@ enum {
 #define CILIUM_MAP_ID_MAX __CILIUM_MAP_ID_MAX
 };
 
+typedef __u64 mac_t;
+
 union v6addr {
         struct {
                 __u32 p1;
@@ -34,7 +36,7 @@ struct portmap {
 struct lxc_info {
 	int		ifindex;
 	/* 4 bytes hole */
-	__u64		mac;
+	mac_t		mac;
 	union v6addr	ip;
 	struct portmap  portmap[PORTMAP_MAX];
 };
