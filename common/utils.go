@@ -50,7 +50,7 @@ func fmtV6Prefix(prefix string, ip net.IP) string {
 		return "<nil>"
 	}
 
-	return fmt.Sprintf("%s:%x%x:%x%x:0", prefix, ip[0], ip[1], ip[2], ip[3])
+	return fmt.Sprintf("%s:%02x%02x:%02x%02x:0", prefix, ip[0], ip[1], ip[2], ip[3])
 }
 
 func GenerateV6Prefix() (string, error) {
