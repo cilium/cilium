@@ -226,7 +226,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Warnf("No IPv6 address provided in CreateEndpoint request")
 	}
 
-	maps := make([]ciliumtype.PortMap, 0, 32)
+	maps := make([]ciliumtype.EPPortMap, 0, 32)
 
 	for key, val := range create.Options {
 		switch key {
@@ -240,7 +240,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 			// FIXME: Host IP is ignored for now
 			for _, m := range portmap {
-				maps = append(maps, ciliumtype.PortMap{
+				maps = append(maps, ciliumtype.EPPortMap{
 					From:  m.HostPort,
 					To:    m.Port,
 					Proto: uint8(m.Proto),
