@@ -17,6 +17,7 @@ import (
 	"unsafe"
 
 	common "github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/bpf"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
 )
@@ -155,7 +156,6 @@ func main() {
 		Max: math.MaxUint64,
 	}
 
-	fmt.Println("Setting rlimit to infinity")
 	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
 		fmt.Printf("Failled setting rlimit %s\n", err)
@@ -174,24 +174,23 @@ func MainBPFCreateMap(ctx *cli.Context) {
 	}
 	file := ctx.Args().First()
 	fmt.Println("file", file)
-	r1, _, errno := BPFCreateMap(
+	fd, err := bpf.CreateMap(
 		C.BPF_MAP_TYPE_HASH,
 		uint32(unsafe.Sizeof(uint16(0))),
 		uint32(unsafe.Sizeof(lxcInfo{})),
 		maxKeys,
 	)
 
-	fmt.Printf("new map fd:%d (%s)\n", r1, errno)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
 		return
 	}
-	r1, _, errno = BPFObjPin(uint32(r1), file)
-	fmt.Printf("bpf: pin ret:(%d,%s)\n", r1, errno)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+
+	err = bpf.ObjPin(fd, file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
 		return
@@ -208,55 +207,57 @@ func MainBPFDumpMap(ctx *cli.Context) {
 
 	file := ctx.Args().Get(0)
 
-	fd, _, errno := BPFObjGet(file)
-	fmt.Printf("bpf: get fd: %d (%s)\n", fd, errno)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	fd, err := bpf.ObjGet(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
 		return
 	}
 
-	var r uintptr
 	var key, nextKey uint16
 	key = maxKeys
 	for {
 		var lxc lxcInfo
-		r, _, errno = BPFGetNextKey(
-			uint32(fd),
+		err := bpf.GetNextKey(
+			fd,
 			unsafe.Pointer(&key),
 			unsafe.Pointer(&nextKey),
 		)
-		if r != 0 || errno != 0 {
+
+		if err != nil {
 			break
 		}
-		r, _, errno = BPFLookupElem(
-			uint32(fd),
+
+		err = bpf.LookupElement(
+			fd,
 			unsafe.Pointer(&nextKey),
 			unsafe.Pointer(&lxc),
 		)
-		fmt.Printf("bpf: fd:%d key:%d ret:(%d,%s)\n", fd, nextKey, r, errno)
-		fmt.Printf("%d: %s\n", nextKey, lxc)
-		if errno != 0 {
-			fmt.Fprintf(os.Stderr, "%s\n", errno)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(errIOFailure)
 			return
+		} else {
+			fmt.Printf("%d: %s\n", nextKey, lxc)
 		}
+
 		key = nextKey
 	}
 }
 
-func lookupLxc(file string, key uint16) (*lxcInfo, syscall.Errno) {
+func lookupLxc(file string, key uint16) (*lxcInfo, error) {
 	lxc := new(lxcInfo)
-	fd, _, err := BPFObjGet(file)
-	fmt.Printf("bpf: get fd: %d (%s)\n", fd, err)
-	if err != 0 {
+
+	fd, err := bpf.ObjGet(file)
+	if err != nil {
 		return nil, err
 	}
-	var r uintptr
+
 	u16key := key
-	r, _, err = BPFLookupElem(uint32(fd), unsafe.Pointer(&u16key), unsafe.Pointer(lxc))
-	fmt.Printf("bpf: fd:%d key:%d ret:(%d,%s)\n", fd, key, r, err)
+	err = bpf.LookupElement(fd, unsafe.Pointer(&u16key), unsafe.Pointer(lxc))
+
 	return lxc, err
 }
 
@@ -277,11 +278,10 @@ func MainBPFLookupKey(ctx *cli.Context) {
 		os.Exit(errInvalidArgument)
 		return
 	}
-	fmt.Printf("searching value for key '%d'\n", key)
 
-	lxc, errno := lookupLxc(file, uint16(key))
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	lxc, err := lookupLxc(file, uint16(key))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)
 		return
 	}
@@ -367,21 +367,18 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 		}
 	}
 
-	fd, _, errno := BPFObjGet(file)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	fd, err := bpf.ObjGet(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
 		return
 	}
 
-	fmt.Printf("bpf: get fd:%d (%s)\n", fd, errno)
-
 	u16key := uint16(key)
-	r, _, errno := BPFUpdateElem(uint32(fd), unsafe.Pointer(&u16key), unsafe.Pointer(&lxc), 0)
-	fmt.Printf("bpf: fd:%d u->(%d:%s) ret:(%d,%s)\n", fd, key, lxc, r, errno)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	err = bpf.UpdateElement(fd, unsafe.Pointer(&u16key), unsafe.Pointer(&lxc), 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)
 		return
 	}
@@ -404,21 +401,18 @@ func MainBPFDeleteKey(ctx *cli.Context) {
 		return
 	}
 
-	fd, _, errno := BPFObjGet(file)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	obj, err := bpf.ObjGet(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
 		os.Exit(errIOFailure)
 		return
 	}
 
-	fmt.Printf("bpf: get fd:%d (%s)\n", fd, errno)
-
 	u16key := uint16(key)
-	r, _, errno := BPFDeleteElem(uint32(fd), unsafe.Pointer(&u16key))
-	fmt.Printf("bpf: fd:%d key:%d ret:(%d,%s)\n", fd, key, r, errno)
-	if errno != 0 {
-		fmt.Fprintf(os.Stderr, "%s\n", errno)
+	err = bpf.DeleteElement(obj, unsafe.Pointer(&u16key))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)
 		return
 	}
