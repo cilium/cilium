@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
 	s "github.com/noironetworks/cilium-net/cilium-net-daemon/server"
 	common "github.com/noironetworks/cilium-net/common"
@@ -29,6 +30,7 @@ var (
 	device       string
 	libDir       string
 	runDir       string
+	LxcMap       *lxcmap.LxcMap
 	log          = logging.MustGetLogger("cilium-net")
 	stdoutFormat = logging.MustStringFormatter(
 		`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
@@ -123,8 +125,12 @@ func initBPF() {
 		log.Warningf("Command output:\n%s", out)
 		return
 	}
-	log.Infof("Created BPF map %s:\n%s", common.BPFMap, out)
 
+	LxcMap, err = lxcmap.OpenMap(common.BPFMap)
+	if err != nil {
+		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
+		return
+	}
 }
 
 func init() {
