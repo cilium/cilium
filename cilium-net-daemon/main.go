@@ -30,7 +30,7 @@ var (
 	device       string
 	libDir       string
 	runDir       string
-	LxcMap       *lxcmap.LxcMap
+	lxcMap       *lxcmap.LxcMap
 	log          = logging.MustGetLogger("cilium-net")
 	stdoutFormat = logging.MustStringFormatter(
 		`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
@@ -126,7 +126,7 @@ func initBPF() {
 		return
 	}
 
-	LxcMap, err = lxcmap.OpenMap(common.BPFMap)
+	lxcMap, err = lxcmap.OpenMap(common.BPFMap)
 	if err != nil {
 		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 		return
@@ -176,7 +176,7 @@ func init() {
 }
 
 func main() {
-	d := daemon.NewDaemon(libDir)
+	d := daemon.NewDaemon(libDir, lxcMap)
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)

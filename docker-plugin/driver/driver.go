@@ -371,6 +371,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ep.NodeMAC = nodeVeth.Attrs().HardwareAddr
+	ep.IfIndex = nodeVeth.Attrs().Index
 
 	if err := netlink.LinkSetUp(veth); err != nil {
 		sendError(w, "Unable to bring up veth pair: "+err.Error(), http.StatusBadRequest)

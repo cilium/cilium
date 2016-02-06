@@ -99,7 +99,7 @@ func MainBPFCreateMap(ctx *cli.Context) {
 	}
 	file := ctx.Args().First()
 
-	_, err := lxcmap.CreateMap(file)
+	_, err := lxcmap.OpenMap(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)

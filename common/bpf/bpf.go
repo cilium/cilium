@@ -122,7 +122,7 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 		return fmt.Errorf("Unable to update element: %s", err)
 	}
 
-	return err
+	return nil
 }
 
 func LookupElement(fd int, key, value unsafe.Pointer) error {

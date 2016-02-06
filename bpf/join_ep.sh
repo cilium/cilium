@@ -3,25 +3,13 @@
 set -e
 
 LIB=$1
-shift
-ID=$1
-shift
-IFNAME=$1
-shift
-MAC=$1
-shift
-IP=$1
-shift
+ID=$2
+IFNAME=$3
 
-
-IFINDEX=$(cat /sys/class/net/$IFNAME/ifindex)
-
-echo "Join EP id=$ID ifname=$IFNAME mac=$MAC ip=$IP ifindex=$IFINDEX"
+echo "Join EP id=$ID ifname=$IFNAME"
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD"
-
-$LIB/map_ctrl update "/sys/fs/bpf/tc/globals/cilium_lxc" $ID $IFINDEX $MAC $IP $*
 
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
