@@ -19,6 +19,7 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ns"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/skel"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
+	hb "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
@@ -179,7 +180,36 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}()
 
-	result, err := ipam.ExecAdd(n.IPAM.Type, args.StdinData)
+	rangeEnd := common.DupIP(n.NodeIP)
+	rangeEnd[14], rangeEnd[15] = 0xff, 0xfe
+
+	nodeSubNet := net.IPNet{IP: n.NodeIP, Mask: common.ContainerIPv6Mask}
+
+	hbNet := hb.Net{
+		Name: "cilium-kubernetes-cni",
+		IPAM: &hb.IPAMConfig{
+			Type:       "host-local",
+			RangeStart: n.NodeIP,
+			RangeEnd:   rangeEnd,
+			Subnet:     types.IPNet(nodeSubNet),
+			Gateway:    n.NodeIP,
+			Routes: []types.Route{
+				types.Route{
+					Dst: nodeSubNet,
+				},
+				types.Route{
+					Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+					GW:  n.NodeIP,
+				},
+			},
+		},
+	}
+	stdinData, err := json.Marshal(hbNet)
+	if err != nil {
+		return err
+	}
+
+	result, err := ipam.ExecAdd(n.IPAM.Type, stdinData)
 	if err != nil {
 		return err
 	}

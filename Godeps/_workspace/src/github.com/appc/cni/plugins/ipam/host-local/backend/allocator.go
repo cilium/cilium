@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
 import (
 	"fmt"
@@ -20,17 +20,16 @@ import (
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ip"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
 )
 
 type IPAllocator struct {
 	start net.IP
 	end   net.IP
 	conf  *IPAMConfig
-	store backend.Store
+	store Store
 }
 
-func NewIPAllocator(conf *IPAMConfig, store backend.Store) (*IPAllocator, error) {
+func NewIPAllocator(conf *IPAMConfig, store Store) (*IPAllocator, error) {
 	var (
 		start net.IP
 		end   net.IP
