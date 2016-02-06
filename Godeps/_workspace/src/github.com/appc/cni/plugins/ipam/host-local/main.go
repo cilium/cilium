@@ -17,6 +17,7 @@ package main
 import (
 	"net"
 
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend/disk"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/skel"
@@ -28,7 +29,7 @@ func main() {
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
-	ipamConf, err := LoadIPAMConfig(args.StdinData, args.Args)
+	ipamConf, err := backend.LoadIPAMConfig(args.StdinData, args.Args)
 	if err != nil {
 		return err
 	}
@@ -39,14 +40,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	defer store.Close()
 
-	ipamArgs := IPAMArgs{}
+	ipamArgs := backend.IPAMArgs{}
 	err = types.LoadArgs(args.Args, &ipamArgs)
 	if err != nil {
 		return err
 	}
 	ipamConf.Args = &ipamArgs
 
-	allocator, err := NewIPAllocator(ipamConf, store)
+	allocator, err := backend.NewIPAllocator(ipamConf, store)
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 }
 
 func cmdDel(args *skel.CmdArgs) error {
-	ipamConf, err := LoadIPAMConfig(args.StdinData, args.Args)
+	ipamConf, err := backend.LoadIPAMConfig(args.StdinData, args.Args)
 	if err != nil {
 		return err
 	}
@@ -83,7 +84,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 	defer store.Close()
 
-	allocator, err := NewIPAllocator(ipamConf, store)
+	allocator, err := backend.NewIPAllocator(ipamConf, store)
 	if err != nil {
 		return err
 	}

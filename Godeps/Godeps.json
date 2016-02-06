@@ -17,38 +17,38 @@
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/invoke",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/ip",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/ipam",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/ns",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/skel",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/types",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/plugins/ipam/host-local",
-			"Comment": "v0.1.0-81-g237c064",
-			"Rev": "237c064051768b4fdd26ae4dd3b0a159fdf25ff5"
+			"Comment": "v0.1.0-81-gda76daf",
+			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
 		},
 		{
 			"ImportPath": "github.com/beorn7/perks/quantile",
