@@ -186,7 +186,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	nodeSubNet := net.IPNet{IP: n.NodeIP, Mask: common.ContainerIPv6Mask}
 
 	hbNet := hb.Net{
-		Name: "cilium-kubernetes-cni",
+		Name: "cilium-cni",
 		IPAM: &hb.IPAMConfig{
 			Type:       "host-local",
 			RangeStart: n.NodeIP,
