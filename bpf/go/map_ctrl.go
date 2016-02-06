@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/bpf"
 
@@ -25,83 +26,7 @@ import (
 const (
 	errInvalidArgument = -1
 	errIOFailure       = -2
-
-	maxKeys    = 0xffff
-	portmapMax = 16
 )
-
-type mac C.__u64
-
-func (m mac) String() string {
-	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",
-		uint64((m & 0x0000000000FF)),
-		uint64((m&0x00000000FF00)>>8),
-		uint64((m&0x000000FF0000)>>16),
-		uint64((m&0x0000FF000000)>>24),
-		uint64((m&0x00FF00000000)>>32),
-		uint64((m&0xFF0000000000)>>40),
-	)
-}
-
-func ParseMAC(s string) (mac, error) {
-	ha, err := net.ParseMAC(s)
-	if err != nil {
-		return 0, err
-	}
-	if len(ha) != 6 {
-		return 0, fmt.Errorf("invalid MAC address %s", s)
-	}
-	return mac(mac(ha[5])<<40 | mac(ha[4])<<32 | mac(ha[3])<<24 | mac(ha[2])<<16 | mac(ha[1])<<8 | mac(ha[0])), nil
-}
-
-type portmap struct {
-	from uint16
-	to   uint16
-}
-
-func (pm portmap) String() string {
-	return fmt.Sprintf("%d:%d", common.Swab16(pm.from), common.Swab16(pm.to))
-}
-
-type lxcInfo struct {
-	ifindex int
-	mac     mac
-	v6addr  v6addr
-	portmap [portmapMax]portmap
-}
-
-func (lxc lxcInfo) String() string {
-	var portmaps []string
-	for _, port := range lxc.portmap {
-		if pStr := port.String(); pStr != "0:0" {
-			portmaps = append(portmaps, pStr)
-		}
-	}
-	if len(portmaps) == 0 {
-		portmaps = append(portmaps, "(empty)")
-	}
-	return fmt.Sprintf("ifindex=%d mac=%s ip=%s portmaps=%s",
-		lxc.ifindex,
-		lxc.mac,
-		lxc.v6addr,
-		strings.Join(portmaps, " "),
-	)
-}
-
-type v6addr struct {
-	addr [16]byte
-}
-
-func (v6 v6addr) String() string {
-	return net.IP(v6.addr[:]).String()
-}
-
-type v6addrblock struct {
-	p1 uint32
-	p2 uint32
-	p3 uint32
-	p4 uint32
-}
 
 func printArgsUsage(ctx *cli.Context) {
 	fmt.Fprintf(os.Stderr, "Usage: %s %s %s\n", ctx.App.Name, ctx.Command.Name,
@@ -173,27 +98,12 @@ func MainBPFCreateMap(ctx *cli.Context) {
 		return
 	}
 	file := ctx.Args().First()
-	fmt.Println("file", file)
-	fd, err := bpf.CreateMap(
-		C.BPF_MAP_TYPE_HASH,
-		uint32(unsafe.Sizeof(uint16(0))),
-		uint32(unsafe.Sizeof(lxcInfo{})),
-		maxKeys,
-	)
 
+	_, err := lxcmap.CreateMap(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
-		return
-	}
-
-	err = bpf.ObjPin(fd, file)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		printArgsUsage(ctx)
-		os.Exit(errInvalidArgument)
-		return
 	}
 }
 
@@ -216,9 +126,9 @@ func MainBPFDumpMap(ctx *cli.Context) {
 	}
 
 	var key, nextKey uint16
-	key = maxKeys
+	key = lxcmap.MAX_KEYS
 	for {
-		var lxc lxcInfo
+		var lxc lxcmap.LxcInfo
 		err := bpf.GetNextKey(
 			fd,
 			unsafe.Pointer(&key),
@@ -247,8 +157,8 @@ func MainBPFDumpMap(ctx *cli.Context) {
 	}
 }
 
-func lookupLxc(file string, key uint16) (*lxcInfo, error) {
-	lxc := new(lxcInfo)
+func lookupLxc(file string, key uint16) (*lxcmap.LxcInfo, error) {
+	lxc := new(lxcmap.LxcInfo)
 
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
@@ -311,7 +221,7 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 		os.Exit(errInvalidArgument)
 		return
 	}
-	macAddr, err := ParseMAC(ctx.Args().Get(3))
+	macAddr, err := lxcmap.ParseMAC(ctx.Args().Get(3))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)
@@ -326,15 +236,15 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 		return
 	}
 
-	lxc := lxcInfo{
-		ifindex: int(ifidx),
-		mac:     macAddr,
+	lxc := lxcmap.LxcInfo{
+		Ifindex: int(ifidx),
+		Mac:     macAddr,
 	}
-	copy(lxc.v6addr.addr[:], iv6)
+	copy(lxc.V6addr.Addr[:], iv6)
 
 	remainingArgs := ctx.Args()[5:]
-	if len(remainingArgs) > portmapMax {
-		fmt.Fprintf(os.Stderr, "port mappings %d: maximum port mapping is %d\n", len(remainingArgs), portmapMax)
+	if len(remainingArgs) > lxcmap.PORTMAP_MAX {
+		fmt.Fprintf(os.Stderr, "port mappings %d: maximum port mapping is %d\n", len(remainingArgs), lxcmap.PORTMAP_MAX)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
 		return
@@ -361,9 +271,9 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 			os.Exit(errInvalidArgument)
 			return
 		}
-		lxc.portmap[i] = portmap{
-			from: common.Swab16(uint16(from)),
-			to:   common.Swab16(uint16(to)),
+		lxc.Portmap[i] = lxcmap.Portmap{
+			From: common.Swab16(uint16(from)),
+			To:   common.Swab16(uint16(to)),
 		}
 	}
 

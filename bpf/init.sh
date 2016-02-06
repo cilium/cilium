@@ -6,8 +6,6 @@ MODE=$3
 
 set -e
 
-MAP="/sys/fs/bpf/tc/globals/cilium_lxc"
-
 # Enable JIT
 echo 1 > /proc/sys/net/core/bpf_jit_enable
 
@@ -49,9 +47,3 @@ else
 fi
 
 mount bpffs /sys/fs/bpf/ -t bpf || true
-
-mkdir -p $(dirname $MAP)
-
-if [ ! -f "$MAP" ]; then
-	$LIB/map_ctrl create $MAP
-fi
