@@ -118,6 +118,7 @@ func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *cili
 
 	ep.LxcMAC = peer.Attrs().HardwareAddr
 	ep.NodeMAC = hostVeth.Attrs().HardwareAddr
+	ep.IfIndex = hostVeth.Attrs().Index
 	ep.Ifname = lxcIfname
 
 	if err := netlink.LinkSetNsFd(peer, int(netNsFile.Fd())); err != nil {

@@ -12,12 +12,14 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
 
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/bpf"
+	"github.com/noironetworks/cilium-net/common/types"
 )
 
 type LxcMap struct {
@@ -93,6 +95,37 @@ type LxcInfo struct {
 	Mac     Mac
 	V6addr  V6addr
 	Portmap [PORTMAP_MAX]Portmap
+}
+
+func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
+	key := ep.U16ID()
+
+	mac, err := ep.U64MAC()
+	if err != nil {
+		return err
+	}
+
+	lxc := LxcInfo{
+		Ifindex: ep.IfIndex,
+		Mac:     Mac(mac),
+	}
+
+	copy(lxc.V6addr.Addr[:], ep.LxcIP)
+
+	for i, portmap := range ep.PortMap {
+		lxc.Portmap[i] = Portmap{
+			From: common.Swab16(portmap.From),
+			To:   common.Swab16(portmap.To),
+		}
+	}
+
+	return bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
+}
+
+func (m *LxcMap) DeleteElement(id string) error {
+	n, _ := strconv.ParseUint(id, 10, 16)
+	key := uint16(n)
+	return bpf.DeleteElement(m.fd, unsafe.Pointer(&key))
 }
 
 func OpenMap(path string) (*LxcMap, error) {

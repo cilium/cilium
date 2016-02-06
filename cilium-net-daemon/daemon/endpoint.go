@@ -46,22 +46,26 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
 
-	var mappings string
-
 	f.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range ep.PortMap {
 		// Write mappings directly in network byte order so we don't have
 		// to convert it in the fast path
 		fmt.Fprintf(f, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
-		mappings = mappings + fmt.Sprintf("%d:%d ", m.From, m.To)
 	}
 	f.WriteString("\n")
 
 	f.Close()
 
-	args := []string{d.libDir, ep.ID, ep.Ifname, ep.LxcMAC.String(), ep.LxcIP.String(), mappings}
+	if err = d.lxcMap.WriteEndpoint(&ep); err != nil {
+		os.RemoveAll(lxcDir)
+		log.Warningf("Unable to update BPF map: %s", err)
+		return fmt.Errorf("Unable to update eBPF map: %s", err)
+	}
+
+	args := []string{d.libDir, ep.ID, ep.Ifname}
 	out, err := exec.Command(d.libDir+"/join_ep.sh", args...).CombinedOutput()
 	if err != nil {
+		os.RemoveAll(lxcDir)
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
@@ -78,6 +82,10 @@ func (d Daemon) EndpointLeave(epID string) error {
 	}
 	lxcDir := "./" + epID
 	os.RemoveAll(lxcDir)
+
+	if err := d.lxcMap.DeleteElement(epID); err != nil {
+		log.Warningf("Unable to remove endpoint from map: %s", err)
+	}
 
 	args := []string{d.libDir, epID}
 	out, err := exec.Command(d.libDir+"/leave_ep.sh", args...).CombinedOutput()
