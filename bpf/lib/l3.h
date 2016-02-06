@@ -73,8 +73,6 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		union macaddr router_mac = NODE_MAC;
 		mac_t tmp_mac = dst_lxc->mac;
 
-		printk("Found destination container locally\n");
-
 		__do_l3(skb, nh_off, (__u8 *) &router_mac.addr, &tmp_mac);
 
 #ifndef DISABLE_PORT_MAP
@@ -83,6 +81,8 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 #else
 		printk("Port mapping disabled, skipping.\n");
 #endif /* DISABLE_PORT_MAP */
+
+		printk("Redirecting to ifindex %u\n", dst_lxc->ifindex);
 
 		return redirect(dst_lxc->ifindex, 0);
 	} else {
