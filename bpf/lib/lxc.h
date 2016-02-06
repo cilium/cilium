@@ -10,8 +10,14 @@
 static inline int verify_src_mac(struct __sk_buff *skb)
 {
 	union macaddr src = {}, valid = LXC_MAC;
+	int ret;
+
 	load_eth_saddr(skb, src.addr, 0);
-	return compare_eth_addr(&src, &valid);
+	ret = compare_eth_addr(&src, &valid);
+	if (unlikely(ret))
+		printk("Invalid source MAC address, dropping...\n");
+
+	return ret;
 }
 #else
 static inline int verify_src_mac(struct __sk_buff *skb)
@@ -24,8 +30,14 @@ static inline int verify_src_mac(struct __sk_buff *skb)
 static inline int verify_src_ip(struct __sk_buff *skb, int off)
 {
 	union v6addr src = {}, valid = LXC_IP;
+	int ret;
+
 	load_ipv6_saddr(skb, off, &src);
-	return compare_ipv6_addr(&src, &valid);
+	ret = compare_ipv6_addr(&src, &valid);
+	if (unlikely(ret))
+		printk("Invalid source IP address, dropping...\n");
+
+	return ret;
 }
 #else
 static inline int verify_src_ip(struct __sk_buff *skb, int off)
@@ -41,9 +53,8 @@ static inline int verify_dst_mac(struct __sk_buff *skb)
 
 	load_eth_daddr(skb, dst.addr, 0);
 	ret = compare_eth_addr(&dst, &valid);
-
 	if (unlikely(ret))
-		printk("skb %p: invalid dst MAC\n", skb);
+		printk("Invalid destination MAC address, dropping...\n");
 
 	return ret;
 }
