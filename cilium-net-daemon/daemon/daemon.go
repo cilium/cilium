@@ -26,7 +26,8 @@ type Daemon struct {
 }
 
 func NewDaemon(libdir string, m *lxcmap.LxcMap, nodeAddr net.IP) *Daemon {
-	nodeSubNet := net.IPNet{IP: nodeAddr, Mask: common.NodeIPv6Mask}
+	nodeSubNet := net.IPNet{IP: nodeAddr, Mask: common.ContainerIPv6Mask}
+	nodeRoute := net.IPNet{IP: nodeAddr, Mask: common.ContainerIPv6Mask}
 
 	ipamConf := hb.IPAMConfig{
 		Type:    ipamType,
@@ -34,7 +35,7 @@ func NewDaemon(libdir string, m *lxcmap.LxcMap, nodeAddr net.IP) *Daemon {
 		Gateway: nodeAddr,
 		Routes: []types.Route{
 			types.Route{
-				Dst: nodeSubNet,
+				Dst: nodeRoute,
 			},
 			types.Route{
 				Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
