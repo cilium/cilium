@@ -9,6 +9,11 @@ type bpfBackend interface {
 	EndpointLeave(epID string) error
 }
 
+type ipamBackend interface {
+	AllocateIPs(containerID string) (*types.IPAMConfig, error)
+	ReleaseIPs(containerID string) error
+}
+
 type control interface {
 	Ping() (string, error)
 }
@@ -16,4 +21,5 @@ type control interface {
 type CiliumBackend interface {
 	bpfBackend
 	control
+	ipamBackend
 }

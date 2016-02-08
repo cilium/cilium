@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,10 @@ import (
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
 
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+)
+
+var (
+	EpAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -26,7 +31,7 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	socketDir := os.Getenv("SOCKET_DIR")
 	socketPath := filepath.Join(socketDir, "cilium.sock")
 
-	d := cnd.NewDaemon()
+	d := cnd.NewDaemon("", nil, EpAddr)
 	server, err := cns.NewServer(socketPath, d)
 	if err != nil {
 		c.Fatalf("Failed while creating new cilium-net test server: %+v", err)
