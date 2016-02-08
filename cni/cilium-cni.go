@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -9,17 +8,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
-	ciliumtype "github.com/noironetworks/cilium-net/common/types"
+	ciliumtypes "github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ip"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ipam"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ns"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/skel"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
-	hb "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
@@ -30,8 +26,7 @@ const (
 
 type NetConf struct {
 	types.NetConf
-	NodeIP net.IP `json:"NodeIP"`
-	MTU    int    `json:"mtu"`
+	MTU int `json:"mtu"`
 }
 
 func init() {
@@ -73,7 +68,7 @@ func removeIfFromNSIfExists(netns *os.File, ifName string) error {
 	})
 }
 
-func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *ciliumtype.Endpoint) (*netlink.Veth, error) {
+func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *ciliumtypes.Endpoint) (*netlink.Veth, error) {
 
 	lxcIfname := endpoint2ifname(containerID)
 	tmpIfname := TemporaryInterfacePrefix + containerID[:5]
@@ -145,6 +140,75 @@ func renameLink(curName, newName string) error {
 	return netlink.LinkSetName(link, newName)
 }
 
+func addIPConfigToLink(ipConfig *ciliumtypes.IPConfig, link netlink.Link, ifName string) error {
+	addr := &netlink.Addr{IPNet: &ipConfig.IP}
+	if err := netlink.AddrAdd(link, addr); err != nil {
+		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
+	}
+
+	for _, r := range ipConfig.Routes {
+		if err := netlink.RouteAdd(
+			&netlink.Route{
+				LinkIndex: link.Attrs().Index,
+				Scope:     netlink.SCOPE_UNIVERSE,
+				Dst:       &r.Destination,
+				Gw:        r.NextHop,
+			}); err != nil {
+			if !os.IsExist(err) {
+				return fmt.Errorf("failed to add route '%v via %v dev %v': %v",
+					r.Destination, r.NextHop, ifName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func ConfigureIface(ifName string, config *ciliumtypes.IPAMConfig) error {
+	link, err := netlink.LinkByName(ifName)
+	if err != nil {
+		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
+	}
+
+	if err := netlink.LinkSetUp(link); err != nil {
+		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
+	}
+
+	if config.IP4 != nil {
+		if err := addIPConfigToLink(config.IP4, link, ifName); err != nil {
+			return fmt.Errorf("error configuring IPv4: %s", err.Error())
+		}
+	}
+	if config.IP6 != nil {
+		if err := addIPConfigToLink(config.IP6, link, ifName); err != nil {
+			return fmt.Errorf("error configuring IPv6: %s", err.Error())
+		}
+	}
+
+	return nil
+}
+
+func createCNIReply(ipamConf *ciliumtypes.IPAMConfig) error {
+	routes := []types.Route{}
+	for _, r := range ipamConf.IP6.Routes {
+		newRoute := types.Route{
+			Dst: r.Destination,
+		}
+		if r.NextHop != nil {
+			newRoute.GW = r.NextHop
+		}
+		routes = append(routes, newRoute)
+	}
+	r := types.Result{
+		IP6: &types.IPConfig{
+			IP:      ipamConf.IP6.IP,
+			Gateway: ipamConf.IP6.Gateway,
+			Routes:  routes,
+		},
+	}
+	return r.Print()
+}
+
 func cmdAdd(args *skel.CmdArgs) error {
 	n, err := loadNetConf(args.StdinData)
 	if err != nil {
@@ -167,7 +231,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			args.IfName, args.Netns, err)
 	}
 
-	var ep ciliumtype.Endpoint
+	var ep ciliumtypes.Endpoint
 	veth, err := setupVeth(netNsFile, args.IfName, args.ContainerID, n.MTU, &ep)
 	if err != nil {
 		return err
@@ -180,68 +244,45 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}()
 
-	rangeEnd := common.DupIP(n.NodeIP)
-	rangeEnd[14], rangeEnd[15] = 0xff, 0xfe
-
-	nodeSubNet := net.IPNet{IP: n.NodeIP, Mask: common.ContainerIPv6Mask}
-
-	hbNet := hb.Net{
-		Name: "cilium-cni",
-		IPAM: &hb.IPAMConfig{
-			Type:       "host-local",
-			RangeStart: n.NodeIP,
-			RangeEnd:   rangeEnd,
-			Subnet:     types.IPNet(nodeSubNet),
-			Gateway:    n.NodeIP,
-			Routes: []types.Route{
-				types.Route{
-					Dst: nodeSubNet,
-				},
-				types.Route{
-					Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-					GW:  n.NodeIP,
-				},
-			},
-		},
-	}
-	stdinData, err := json.Marshal(hbNet)
-	if err != nil {
-		return err
-	}
-
-	result, err := ipam.ExecAdd(n.IPAM.Type, stdinData)
+	ipamConf, err := c.AllocateIPs(args.ContainerID)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			os.Setenv("CNI_COMMAND", "DEL")
-			if err = ipam.ExecDel(n.IPAM.Type, args.StdinData); err != nil {
-				log.Warnf("failed to release allocated IP %q: %s", result, err)
+			if err = c.ReleaseIPs(args.ContainerID); err != nil {
+				log.Warnf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 			}
-			os.Setenv("CNI_COMMAND", "ADD")
 		}
 	}()
 
-	err = ns.WithNetNSPath(args.Netns, false, func(_ *os.File) error {
-		return ipam.ConfigureIface(args.IfName, result)
-	})
-	if err != nil {
+	if err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
+		return ConfigureIface(args.IfName, ipamConf)
+	}); err != nil {
 		return err
 	}
 
-	if result.IP6 == nil {
-		err = fmt.Errorf("result.IP6 is nil and it shouldn't be")
-		return err
-	}
-	ep.LxcIP = result.IP6.IP.IP
-	ep.NodeIP = n.NodeIP
+	ep.LxcIP = ipamConf.IP6.IP.IP
+	ep.NodeIP = ipamConf.IP6.Gateway
 	ep.SetID()
-	if err := c.EndpointJoin(ep); err != nil {
+	if err = c.EndpointJoin(ep); err != nil {
 		return fmt.Errorf("unable to create eBPF map: %s", err)
 	}
 
-	return result.Print()
+	return createCNIReply(ipamConf)
+}
+
+func DelLinkByName(ifName string) error {
+	iface, err := netlink.LinkByName(ifName)
+	if err != nil {
+		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
+	}
+
+	if err = netlink.LinkDel(iface); err != nil {
+		return fmt.Errorf("failed to delete %q: %v", ifName, err)
+	}
+
+	return nil
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -256,7 +297,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	var containerIP net.IP
-	// We need to retrieve the IPv6 address somehow...
+	// FIXME: We need to retrieve the IPv6 address somehow...
 	ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {
 		l, err := netlink.LinkByName(args.IfName)
 		if err != nil {
@@ -268,11 +309,9 @@ func cmdDel(args *skel.CmdArgs) error {
 		}
 		log.Debugf("IPv6 addresses found %+v\n", addrs)
 
-		// As long the nodeIP is address 0...
 		for _, addr := range addrs {
-			if bytes.Compare(n.NodeIP, addr.IP.Mask(common.NodeIPv6Mask)) == 0 {
+			if uint8(addr.Scope) == uint8(netlink.SCOPE_UNIVERSE) {
 				containerIP = addr.IP
-				log.Debug("Container IP found ", containerIP)
 				break
 			}
 		}
@@ -284,7 +323,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 
-	var ep ciliumtype.Endpoint
+	var ep ciliumtypes.Endpoint
 	ep.LxcIP = containerIP
 	ep.SetID()
 	if err := c.EndpointLeave(ep.ID); err != nil {
@@ -292,6 +331,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	return ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {
-		return ip.DelLinkByName(args.IfName)
+		return DelLinkByName(args.IfName)
 	})
 }
