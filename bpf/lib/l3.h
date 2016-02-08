@@ -73,7 +73,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		union macaddr router_mac = NODE_MAC;
 		mac_t tmp_mac = dst_lxc->mac;
 
-		__do_l3(skb, nh_off, (__u8 *) &router_mac.addr, &tmp_mac);
+		__do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &tmp_mac);
 
 #ifndef DISABLE_PORT_MAP
 		if (dst_lxc->portmap[0].to)
