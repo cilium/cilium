@@ -36,6 +36,7 @@ func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	//FIXME: change uuid to a better designation
 	if val, ok := vars["uuid"]; !ok {
 		processServerError(w, r, errors.New("server received empty uuid"))
 		return
@@ -46,4 +47,38 @@ func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if containerID, ok := vars["containerID"]; !ok {
+		processServerError(w, r, errors.New("server received empty containerID"))
+		return
+	} else {
+		ipamConfig, err := router.daemon.AllocateIPs(containerID)
+		if err != nil {
+			processServerError(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		e := json.NewEncoder(w)
+		if err := e.Encode(ipamConfig); err != nil {
+			processServerError(w, r, err)
+			return
+		}
+	}
+}
+
+func (router *Router) releaseIPv6(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if containerID, ok := vars["containerID"]; !ok {
+		processServerError(w, r, errors.New("server received empty containerID"))
+		return
+	} else {
+		if err := router.daemon.ReleaseIPs(containerID); err != nil {
+			processServerError(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

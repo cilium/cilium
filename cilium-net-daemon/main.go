@@ -168,7 +168,7 @@ func init() {
 }
 
 func main() {
-	d := daemon.NewDaemon(libDir, lxcMap)
+	d := daemon.NewDaemon(libDir, lxcMap, NodeAddr)
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)

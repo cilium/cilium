@@ -1,9 +1,18 @@
 package daemon
 
 import (
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	"net"
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
+	"github.com/noironetworks/cilium-net/common"
+
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
+	hb "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+)
+
+const (
+	ipamType = "cilium-host-local"
 )
 
 var (
@@ -11,13 +20,32 @@ var (
 )
 
 type Daemon struct {
-	libDir string
-	lxcMap *lxcmap.LxcMap
+	libDir   string
+	lxcMap   *lxcmap.LxcMap
+	ipamConf hb.IPAMConfig
 }
 
-func NewDaemon(libdir string, m *lxcmap.LxcMap) *Daemon {
+func NewDaemon(libdir string, m *lxcmap.LxcMap, nodeAddr net.IP) *Daemon {
+	nodeSubNet := net.IPNet{IP: nodeAddr, Mask: common.NodeIPv6Mask}
+
+	ipamConf := hb.IPAMConfig{
+		Type:    ipamType,
+		Subnet:  types.IPNet(nodeSubNet),
+		Gateway: nodeAddr,
+		Routes: []types.Route{
+			types.Route{
+				Dst: nodeSubNet,
+			},
+			types.Route{
+				Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+				GW:  nodeAddr,
+			},
+		},
+	}
+
 	return &Daemon{
-		libDir: libdir,
-		lxcMap: m,
+		libDir:   libdir,
+		lxcMap:   m,
+		ipamConf: ipamConf,
 	}
 }
