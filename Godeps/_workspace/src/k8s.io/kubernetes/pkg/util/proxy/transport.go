@@ -31,7 +31,7 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/net"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/sets"
 )
 
@@ -123,7 +123,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.rewriteResponse(req, resp)
 }
 
-var _ = util.RoundTripperWrapper(&Transport{})
+var _ = net.RoundTripperWrapper(&Transport{})
 
 func (rt *Transport) WrappedRoundTripper() http.RoundTripper {
 	return rt.RoundTripper

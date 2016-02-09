@@ -116,7 +116,7 @@ func (uuid UUID) Variant() Variant {
 	panic("unreachable")
 }
 
-// Version returns the verison of uuid.  It returns false if uuid is not
+// Version returns the version of uuid.  It returns false if uuid is not
 // valid.
 func (uuid UUID) Version() (Version, bool) {
 	if len(uuid) != 16 {

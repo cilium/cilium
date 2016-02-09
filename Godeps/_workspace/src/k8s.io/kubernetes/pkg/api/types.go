@@ -261,7 +261,7 @@ type PersistentVolumeClaimVolumeSource struct {
 	ReadOnly bool `json:"readOnly,omitempty"`
 }
 
-// +genclient=true
+// +genclient=true,nonNamespaced=true
 
 type PersistentVolume struct {
 	unversioned.TypeMeta `json:",inline"`
@@ -560,8 +560,8 @@ type GitRepoVolumeSource struct {
 // as files using the keys in the Data field as the file names.
 // Secret volumes support ownership management and SELinux relabeling.
 type SecretVolumeSource struct {
-	// Name of the secret in the pod's namespace to use
-	SecretName string `json:"secretName"`
+	// Name of the secret in the pod's namespace to use.
+	SecretName string `json:"secretName,omitempty"`
 }
 
 // Represents an NFS mount that lasts the lifetime of a pod.
@@ -624,9 +624,8 @@ type RBDVolumeSource struct {
 type CinderVolumeSource struct {
 	// Unique id of the volume used to identify the cinder volume
 	VolumeID string `json:"volumeID"`
-	// Required: Filesystem type to mount.
+	// Filesystem type to mount.
 	// Must be a filesystem type supported by the host operating system.
-	// Only ext3 and ext4 are allowed
 	FSType string `json:"fsType,omitempty"`
 	// Optional: Defaults to false (read/write). ReadOnly here will force
 	// the ReadOnly setting in VolumeMounts.
@@ -638,6 +637,8 @@ type CinderVolumeSource struct {
 type CephFSVolumeSource struct {
 	// Required: Monitors is a collection of Ceph monitors
 	Monitors []string `json:"monitors"`
+	// Optional: Used as the mounted root, rather than the full Ceph tree, default is /
+	Path string `json:"path,omitempty"`
 	// Optional: User is the rados user name, default is admin
 	User string `json:"user,omitempty"`
 	// Optional: SecretFile is the path to key ring for User, default is /etc/ceph/user.secret
@@ -715,9 +716,14 @@ type EnvVar struct {
 }
 
 // EnvVarSource represents a source for the value of an EnvVar.
+// Only one of its fields may be set.
 type EnvVarSource struct {
-	// Required: Selects a field of the pod; only name and namespace are supported.
-	FieldRef *ObjectFieldSelector `json:"fieldRef"`
+	// Selects a field of the pod; only name and namespace are supported.
+	FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
+	// Selects a key of a ConfigMap.
+	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+	// Selects a key of a secret in the pod's namespace.
+	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 // ObjectFieldSelector selects an APIVersioned field of an object.
@@ -730,16 +736,43 @@ type ObjectFieldSelector struct {
 	FieldPath string `json:"fieldPath"`
 }
 
+// Selects a key from a ConfigMap.
+type ConfigMapKeySelector struct {
+	// The ConfigMap to select from.
+	LocalObjectReference `json:",inline"`
+	// The key to select.
+	Key string `json:"key"`
+}
+
+// SecretKeySelector selects a key of a Secret.
+type SecretKeySelector struct {
+	// The name of the secret in the pod's namespace to select from.
+	LocalObjectReference `json:",inline"`
+	// The key of the secret to select from.  Must be a valid secret key.
+	Key string `json:"key"`
+}
+
+// HTTPHeader describes a custom header to be used in HTTP probes
+type HTTPHeader struct {
+	// The header field name
+	Name string `json:"name"`
+	// The header field value
+	Value string `json:"value"`
+}
+
 // HTTPGetAction describes an action based on HTTP Get requests.
 type HTTPGetAction struct {
 	// Optional: Path to access on the HTTP server.
 	Path string `json:"path,omitempty"`
 	// Required: Name or number of the port to access on the container.
 	Port intstr.IntOrString `json:"port,omitempty"`
-	// Optional: Host name to connect to, defaults to the pod IP.
+	// Optional: Host name to connect to, defaults to the pod IP. You
+	// probably want to set "Host" in httpHeaders instead.
 	Host string `json:"host,omitempty"`
 	// Optional: Scheme to use for connecting to the host, defaults to HTTP.
 	Scheme URIScheme `json:"scheme,omitempty"`
+	// Optional: Custom headers to set in the request. HTTP allows repeated headers.
+	HTTPHeaders []HTTPHeader `json:"httpHeaders,omitempty"`
 }
 
 // URIScheme identifies the scheme used for connection to a host for Get actions
@@ -1020,6 +1053,93 @@ const (
 	// determined by kubelet) DNS settings.
 	DNSDefault DNSPolicy = "Default"
 )
+
+// A node selector represents the union of the results of one or more label queries
+// over a set of nodes; that is, it represents the OR of the selectors represented
+// by the node selector terms.
+type NodeSelector struct {
+	//Required. A list of node selector terms. The terms are ORed.
+	NodeSelectorTerms []NodeSelectorTerm `json:"nodeSelectorTerms"`
+}
+
+// A null or empty node selector term matches no objects.
+type NodeSelectorTerm struct {
+	//Required. A list of node selector requirements. The requirements are ANDed.
+	MatchExpressions []NodeSelectorRequirement `json:"matchExpressions"`
+}
+
+// A node selector requirement is a selector that contains values, a key, and an operator
+// that relates the key and values.
+type NodeSelectorRequirement struct {
+	// The label key that the selector applies to.
+	Key string `json:"key" patchStrategy:"merge" patchMergeKey:"key"`
+	// Represents a key's relationship to a set of values.
+	// Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+	Operator NodeSelectorOperator `json:"operator"`
+	// An array of string values. If the operator is In or NotIn,
+	// the values array must be non-empty. If the operator is Exists or DoesNotExist,
+	// the values array must be empty. If the operator is Gt or Lt, the values
+	// array must have a single element, which will be interpreted as an integer.
+	// This array is replaced during a strategic merge patch.
+	Values []string `json:"values,omitempty"`
+}
+
+// A node selector operator is the set of operators that can be used in
+// a node selector requirement.
+type NodeSelectorOperator string
+
+const (
+	NodeSelectorOpIn           NodeSelectorOperator = "In"
+	NodeSelectorOpNotIn        NodeSelectorOperator = "NotIn"
+	NodeSelectorOpExists       NodeSelectorOperator = "Exists"
+	NodeSelectorOpDoesNotExist NodeSelectorOperator = "DoesNotExist"
+	NodeSelectorOpGt           NodeSelectorOperator = "Gt"
+	NodeSelectorOpLt           NodeSelectorOperator = "Lt"
+)
+
+// Affinity is a group of affinity scheduling requirements.
+type Affinity struct {
+	// Describes node affinity scheduling requirements for the pod.
+	NodeAffinity *NodeAffinity `json:"nodeAffinity,omitempty"`
+}
+
+// Node affinity is a group of node affinity scheduling requirements.
+// If RequiredDuringSchedulingRequiredDuringExecution and
+// RequiredDuringSchedulingIgnoredDuringExecution are both set,
+// then both node selectors must be satisfied.
+type NodeAffinity struct {
+	// If the affinity requirements specified by this field are not met at
+	// scheduling time, the pod will not be scheduled onto the node.
+	// If the affinity requirements specified by this field cease to be met
+	// at some point during pod execution (e.g. due to an update), the system
+	// will try to eventually evict the pod from its node.
+	RequiredDuringSchedulingRequiredDuringExecution *NodeSelector `json:"requiredDuringSchedulingRequiredDuringExecution,omitempty"`
+	// If the affinity requirements specified by this field are not met at
+	// scheduling time, the pod will not be scheduled onto the node.
+	// If the affinity requirements specified by this field cease to be met
+	// at some point during pod execution (e.g. due to an update), the system
+	// may or may not try to eventually evict the pod from its node.
+	RequiredDuringSchedulingIgnoredDuringExecution *NodeSelector `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty"`
+	// The scheduler will prefer to schedule pods to nodes that satisfy
+	// the affinity expressions specified by this field, but it may choose
+	// a node that violates one or more of the expressions. The node that is
+	// most preferred is the one with the greatest sum of weights, i.e.
+	// for each node that meets all of the scheduling requirements (resource
+	// request, requiredDuringScheduling affinity expressions, etc.),
+	// compute a sum by iterating through the elements of this field and adding
+	// "weight" to the sum if the node matches the corresponding matchExpressions; the
+	// node(s) with the highest sum are the most preferred.
+	PreferredDuringSchedulingIgnoredDuringExecution []PreferredSchedulingTerm `json:"preferredDuringSchedulingIgnoredDuringExecution,omitempty"`
+}
+
+// An empty preferred scheduling term matches all objects with implicit weight 0
+// (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).
+type PreferredSchedulingTerm struct {
+	// Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+	Weight int `json:"weight"`
+	// A node selector term, associated with the corresponding weight.
+	Preference NodeSelectorTerm `json:"preference"`
+}
 
 // PodSpec is a description of a pod
 type PodSpec struct {
@@ -1544,6 +1664,16 @@ type NodeStatus struct {
 	DaemonEndpoints NodeDaemonEndpoints `json:"daemonEndpoints,omitempty"`
 	// Set of ids/uuids to uniquely identify the node.
 	NodeInfo NodeSystemInfo `json:"nodeInfo,omitempty"`
+	// List of container images on this node
+	Images []ContainerImage `json:"images",omitempty`
+}
+
+// Describe a container image
+type ContainerImage struct {
+	// Names by which this image is known.
+	RepoTags []string `json:"repoTags"`
+	// The size of the image in bytes.
+	Size int64 `json:"size,omitempty"`
 }
 
 type NodePhase string
@@ -1619,7 +1749,7 @@ const (
 // ResourceList is a set of (resource name, quantity) pairs.
 type ResourceList map[ResourceName]resource.Quantity
 
-// +genclient=true
+// +genclient=true,nonNamespaced=true
 
 // Node is a worker node in Kubernetes
 // The name of the node according to etcd is in ObjectMeta.Name.
@@ -1671,7 +1801,7 @@ const (
 	NamespaceTerminating NamespacePhase = "Terminating"
 )
 
-// +genclient=true
+// +genclient=true,nonNamespaced=true
 
 // A namespace provides a scope for Names.
 // Use of multiple namespaces is optional
@@ -2090,6 +2220,42 @@ const (
 
 	// DockerConfigJsonKey is the key of the required data for SecretTypeDockerConfigJson secrets
 	DockerConfigJsonKey = ".dockerconfigjson"
+
+	// SecretTypeBasicAuth contains data needed for basic authentication.
+	//
+	// Required at least one of fields:
+	// - Secret.Data["username"] - username used for authentication
+	// - Secret.Data["password"] - password or token needed for authentication
+	SecretTypeBasicAuth SecretType = "kubernetes.io/basic-auth"
+
+	// BasicAuthUsernameKey is the key of the username for SecretTypeBasicAuth secrets
+	BasicAuthUsernameKey = "username"
+	// BasicAuthPasswordKey is the key of the password or token for SecretTypeBasicAuth secrets
+	BasicAuthPasswordKey = "password"
+
+	// SecretTypeSSHAuth contains data needed for SSH authetication.
+	//
+	// Required field:
+	// - Secret.Data["ssh-privatekey"] - private SSH key needed for authentication
+	SecretTypeSSHAuth SecretType = "kubernetes.io/ssh-auth"
+
+	// SSHAuthPrivateKey is the key of the required SSH private key for SecretTypeSSHAuth secrets
+	SSHAuthPrivateKey = "ssh-privatekey"
+
+	// SecretTypeTLS contains information about a TLS client or server secret. It
+	// is primarily used with TLS termination of the Ingress resource, but may be
+	// used in other types.
+	//
+	// Required fields:
+	// - Secret.Data["tls.key"] - TLS private key.
+	//   Secret.Data["tls.crt"] - TLS certificate.
+	// TODO: Consider supporting different formats, specifying CA/destinationCA.
+	SecretTypeTLS SecretType = "kubernetes.io/tls"
+
+	// TLSCertKey is the key for tls certificates in a TLS secert.
+	TLSCertKey = "tls.crt"
+	// TLSPrivateKeyKey is the key for the private key field in a TLS secret.
+	TLSPrivateKeyKey = "tls.key"
 )
 
 type SecretList struct {
@@ -2097,6 +2263,27 @@ type SecretList struct {
 	unversioned.ListMeta `json:"metadata,omitempty"`
 
 	Items []Secret `json:"items"`
+}
+
+// +genclient=true
+
+// ConfigMap holds configuration data for components or applications to consume.
+type ConfigMap struct {
+	unversioned.TypeMeta `json:",inline"`
+	ObjectMeta           `json:"metadata,omitempty"`
+
+	// Data contains the configuration data.
+	// Each key must be a valid DNS_SUBDOMAIN with an optional leading dot.
+	Data map[string]string `json:"data,omitempty"`
+}
+
+// ConfigMapList is a resource containing a list of ConfigMap objects.
+type ConfigMapList struct {
+	unversioned.TypeMeta `json:",inline"`
+	unversioned.ListMeta `json:"metadata,omitempty"`
+
+	// Items is the list of ConfigMaps.
+	Items []ConfigMap `json:"items,omitempty"`
 }
 
 // These constants are for remote command execution and port forwarding and are
@@ -2164,7 +2351,7 @@ type ComponentCondition struct {
 	Error   string                 `json:"error,omitempty"`
 }
 
-// +genclient=true
+// +genclient=true,nonNamespaced=true
 
 // ComponentStatus (and ComponentStatusList) holds the cluster validation info.
 type ComponentStatus struct {

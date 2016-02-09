@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/golang/glog"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/runtime"
 	"golang.org/x/net/websocket"
 )
 
@@ -92,7 +92,7 @@ func IsWebSocketRequest(req *http.Request) bool {
 // ignoreReceives reads from a WebSocket until it is closed, then returns. If timeout is set, the
 // read and write deadlines are pushed every time a new message is received.
 func ignoreReceives(ws *websocket.Conn, timeout time.Duration) {
-	defer util.HandleCrash()
+	defer runtime.HandleCrash()
 	var data []byte
 	for {
 		resetTimeout(ws, timeout)
@@ -163,7 +163,7 @@ func (conn *Conn) SetIdleTimeout(duration time.Duration) {
 // Open the connection and create channels for reading and writing.
 func (conn *Conn) Open(w http.ResponseWriter, req *http.Request) ([]io.ReadWriteCloser, error) {
 	go func() {
-		defer util.HandleCrash()
+		defer runtime.HandleCrash()
 		defer conn.Close()
 		websocket.Server{Handshake: conn.handshake, Handler: conn.handle}.ServeHTTP(w, req)
 	}()

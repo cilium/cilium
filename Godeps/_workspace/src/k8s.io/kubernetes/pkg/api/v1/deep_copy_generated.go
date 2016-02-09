@@ -115,6 +115,7 @@ func deepCopy_v1_CephFSVolumeSource(in CephFSVolumeSource, out *CephFSVolumeSour
 	} else {
 		out.Monitors = nil
 	}
+	out.Path = in.Path
 	out.User = in.User
 	out.SecretFile = in.SecretFile
 	if in.SecretRef != nil {
@@ -175,6 +176,52 @@ func deepCopy_v1_ComponentStatusList(in ComponentStatusList, out *ComponentStatu
 		out.Items = make([]ComponentStatus, len(in.Items))
 		for i := range in.Items {
 			if err := deepCopy_v1_ComponentStatus(in.Items[i], &out.Items[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func deepCopy_v1_ConfigMap(in ConfigMap, out *ConfigMap, c *conversion.Cloner) error {
+	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_v1_ObjectMeta(in.ObjectMeta, &out.ObjectMeta, c); err != nil {
+		return err
+	}
+	if in.Data != nil {
+		out.Data = make(map[string]string)
+		for key, val := range in.Data {
+			out.Data[key] = val
+		}
+	} else {
+		out.Data = nil
+	}
+	return nil
+}
+
+func deepCopy_v1_ConfigMapKeySelector(in ConfigMapKeySelector, out *ConfigMapKeySelector, c *conversion.Cloner) error {
+	if err := deepCopy_v1_LocalObjectReference(in.LocalObjectReference, &out.LocalObjectReference, c); err != nil {
+		return err
+	}
+	out.Key = in.Key
+	return nil
+}
+
+func deepCopy_v1_ConfigMapList(in ConfigMapList, out *ConfigMapList, c *conversion.Cloner) error {
+	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_unversioned_ListMeta(in.ListMeta, &out.ListMeta, c); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]ConfigMap, len(in.Items))
+		for i := range in.Items {
+			if err := deepCopy_v1_ConfigMap(in.Items[i], &out.Items[i], c); err != nil {
 				return err
 			}
 		}
@@ -274,6 +321,19 @@ func deepCopy_v1_Container(in Container, out *Container, c *conversion.Cloner) e
 	out.Stdin = in.Stdin
 	out.StdinOnce = in.StdinOnce
 	out.TTY = in.TTY
+	return nil
+}
+
+func deepCopy_v1_ContainerImage(in ContainerImage, out *ContainerImage, c *conversion.Cloner) error {
+	if in.RepoTags != nil {
+		out.RepoTags = make([]string, len(in.RepoTags))
+		for i := range in.RepoTags {
+			out.RepoTags[i] = in.RepoTags[i]
+		}
+	} else {
+		out.RepoTags = nil
+	}
+	out.Size = in.Size
 	return nil
 }
 
@@ -520,6 +580,22 @@ func deepCopy_v1_EnvVarSource(in EnvVarSource, out *EnvVarSource, c *conversion.
 	} else {
 		out.FieldRef = nil
 	}
+	if in.ConfigMapKeyRef != nil {
+		out.ConfigMapKeyRef = new(ConfigMapKeySelector)
+		if err := deepCopy_v1_ConfigMapKeySelector(*in.ConfigMapKeyRef, out.ConfigMapKeyRef, c); err != nil {
+			return err
+		}
+	} else {
+		out.ConfigMapKeyRef = nil
+	}
+	if in.SecretKeyRef != nil {
+		out.SecretKeyRef = new(SecretKeySelector)
+		if err := deepCopy_v1_SecretKeySelector(*in.SecretKeyRef, out.SecretKeyRef, c); err != nil {
+			return err
+		}
+	} else {
+		out.SecretKeyRef = nil
+	}
 	return nil
 }
 
@@ -673,6 +749,22 @@ func deepCopy_v1_HTTPGetAction(in HTTPGetAction, out *HTTPGetAction, c *conversi
 	}
 	out.Host = in.Host
 	out.Scheme = in.Scheme
+	if in.HTTPHeaders != nil {
+		out.HTTPHeaders = make([]HTTPHeader, len(in.HTTPHeaders))
+		for i := range in.HTTPHeaders {
+			if err := deepCopy_v1_HTTPHeader(in.HTTPHeaders[i], &out.HTTPHeaders[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.HTTPHeaders = nil
+	}
+	return nil
+}
+
+func deepCopy_v1_HTTPHeader(in HTTPHeader, out *HTTPHeader, c *conversion.Cloner) error {
+	out.Name = in.Name
+	out.Value = in.Value
 	return nil
 }
 
@@ -1095,6 +1187,16 @@ func deepCopy_v1_NodeStatus(in NodeStatus, out *NodeStatus, c *conversion.Cloner
 	}
 	if err := deepCopy_v1_NodeSystemInfo(in.NodeInfo, &out.NodeInfo, c); err != nil {
 		return err
+	}
+	if in.Images != nil {
+		out.Images = make([]ContainerImage, len(in.Images))
+		for i := range in.Images {
+			if err := deepCopy_v1_ContainerImage(in.Images[i], &out.Images[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Images = nil
 	}
 	return nil
 }
@@ -2026,6 +2128,14 @@ func deepCopy_v1_Secret(in Secret, out *Secret, c *conversion.Cloner) error {
 	return nil
 }
 
+func deepCopy_v1_SecretKeySelector(in SecretKeySelector, out *SecretKeySelector, c *conversion.Cloner) error {
+	if err := deepCopy_v1_LocalObjectReference(in.LocalObjectReference, &out.LocalObjectReference, c); err != nil {
+		return err
+	}
+	out.Key = in.Key
+	return nil
+}
+
 func deepCopy_v1_SecretList(in SecretList, out *SecretList, c *conversion.Cloner) error {
 	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
 		return err
@@ -2416,6 +2526,13 @@ func deepCopy_runtime_RawExtension(in runtime.RawExtension, out *runtime.RawExte
 	} else {
 		out.RawJSON = nil
 	}
+	if newVal, err := c.DeepCopy(in.Object); err != nil {
+		return err
+	} else if newVal == nil {
+		out.Object = nil
+	} else {
+		out.Object = newVal.(runtime.Object)
+	}
 	return nil
 }
 
@@ -2440,7 +2557,11 @@ func init() {
 		deepCopy_v1_ComponentCondition,
 		deepCopy_v1_ComponentStatus,
 		deepCopy_v1_ComponentStatusList,
+		deepCopy_v1_ConfigMap,
+		deepCopy_v1_ConfigMapKeySelector,
+		deepCopy_v1_ConfigMapList,
 		deepCopy_v1_Container,
+		deepCopy_v1_ContainerImage,
 		deepCopy_v1_ContainerPort,
 		deepCopy_v1_ContainerState,
 		deepCopy_v1_ContainerStateRunning,
@@ -2471,6 +2592,7 @@ func init() {
 		deepCopy_v1_GitRepoVolumeSource,
 		deepCopy_v1_GlusterfsVolumeSource,
 		deepCopy_v1_HTTPGetAction,
+		deepCopy_v1_HTTPHeader,
 		deepCopy_v1_Handler,
 		deepCopy_v1_HostPathVolumeSource,
 		deepCopy_v1_ISCSIVolumeSource,
@@ -2538,6 +2660,7 @@ func init() {
 		deepCopy_v1_ResourceRequirements,
 		deepCopy_v1_SELinuxOptions,
 		deepCopy_v1_Secret,
+		deepCopy_v1_SecretKeySelector,
 		deepCopy_v1_SecretList,
 		deepCopy_v1_SecretVolumeSource,
 		deepCopy_v1_SecurityContext,

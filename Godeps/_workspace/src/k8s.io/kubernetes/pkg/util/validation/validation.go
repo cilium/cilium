@@ -17,6 +17,7 @@ limitations under the License.
 package validation
 
 import (
+	"math"
 	"net"
 	"regexp"
 	"strings"
@@ -105,6 +106,25 @@ func IsValidPortNum(port int) bool {
 	return 0 < port && port < 65536
 }
 
+// Now in libcontainer UID/GID limits is 0 ~ 1<<31 - 1
+// TODO: once we have a type for UID/GID we should make these that type.
+const (
+	minUserID  = 0
+	maxUserID  = math.MaxInt32
+	minGroupID = 0
+	maxGroupID = math.MaxInt32
+)
+
+// IsValidGroupId tests that the argument is a valid gids.
+func IsValidGroupId(gid int64) bool {
+	return minGroupID <= gid && gid <= maxGroupID
+}
+
+// IsValidUserId tests that the argument is a valid uids.
+func IsValidUserId(uid int64) bool {
+	return minUserID <= uid && uid <= maxUserID
+}
+
 const doubleHyphensFmt string = ".*(--).*"
 
 var doubleHyphensRegexp = regexp.MustCompile("^" + doubleHyphensFmt + "$")
@@ -146,4 +166,14 @@ var percentRegexp = regexp.MustCompile("^" + percentFmt + "$")
 
 func IsValidPercent(percent string) bool {
 	return percentRegexp.MatchString(percent)
+}
+
+const HTTPHeaderNameFmt string = "[-A-Za-z0-9]+"
+
+var httpHeaderNameRegexp = regexp.MustCompile("^" + HTTPHeaderNameFmt + "$")
+
+// IsHTTPHeaderName checks that a string conforms to the Go HTTP library's
+// definition of a valid header field name (a stricter subset than RFC7230).
+func IsHTTPHeaderName(value string) bool {
+	return httpHeaderNameRegexp.MatchString(value)
 }

@@ -74,7 +74,7 @@ func main() {
 
 After this command *go-logging* is ready to use. Its source will be in:
 
-    $GOROOT/src/pkg/github.com/op/go-logging
+    $GOPATH/src/pkg/github.com/op/go-logging
 
 You can use `go get -u` to update the package.
 

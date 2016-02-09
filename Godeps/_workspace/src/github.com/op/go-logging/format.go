@@ -39,6 +39,7 @@ const (
 	fmtVerbShortpkg
 	fmtVerbLongfunc
 	fmtVerbShortfunc
+	fmtVerbCallpath
 	fmtVerbLevelColor
 
 	// Keep last, there are no match for these below.
@@ -60,6 +61,7 @@ var fmtVerbs = []string{
 	"shortpkg",
 	"longfunc",
 	"shortfunc",
+	"callpath",
 	"color",
 }
 
@@ -70,6 +72,7 @@ var defaultVerbsLayout = []string{
 	"s",
 	"d",
 	"d",
+	"s",
 	"s",
 	"s",
 	"s",
@@ -159,6 +162,7 @@ type stringFormatter struct {
 //     %{message}   Message (string)
 //     %{longfile}  Full file name and line number: /a/b/c/d.go:23
 //     %{shortfile} Final file name element and line number: d.go:23
+//     %{callpath}  Callpath like main.a.b.c...c  "..." meaning recursive call
 //     %{color}     ANSI color based on log level
 //
 // For normal types, the output can be customized by using the 'verbs' defined
@@ -187,6 +191,7 @@ type stringFormatter struct {
 //     %{shortpkg}  Base package path, eg. go-logging
 //     %{longfunc}  Full function name, eg. littleEndian.PutUint32
 //     %{shortfunc} Base function name, eg. PutUint32
+//     %{callpath}  Call function path, eg. main.a.b.c
 func NewStringFormatter(format string) (Formatter, error) {
 	var fmter = &stringFormatter{}
 
@@ -237,8 +242,8 @@ func NewStringFormatter(format string) (Formatter, error) {
 		Id:     12345,
 		Time:   t,
 		Module: "logger",
+		Args:   []interface{}{"go"},
 		fmt:    "hello %s",
-		args:   []interface{}{"go"},
 	}
 	if err := fmter.Format(0, r, &bytes.Buffer{}); err != nil {
 		return nil, err
@@ -308,6 +313,8 @@ func (f *stringFormatter) Format(calldepth int, r *Record, output io.Writer) err
 						v = formatFuncName(part.verb, f.Name())
 					}
 				}
+			case fmtVerbCallpath:
+				v = formatCallpath(calldepth + 1)
 			default:
 				panic("unhandled format part")
 			}
@@ -341,6 +348,34 @@ func formatFuncName(v fmtVerb, f string) string {
 		return fun[i+1:]
 	}
 	panic("unexpected func formatter")
+}
+
+func formatCallpath(calldepth int) string {
+	v := ""
+	callers := make([]uintptr, 64)
+	n := runtime.Callers(calldepth+2, callers)
+	oldPc := callers[n-1]
+
+	recursiveCall := false
+	for i := n - 3; i >= 0; i-- {
+		pc := callers[i]
+		if oldPc == pc {
+			recursiveCall = true
+			continue
+		}
+		oldPc = pc
+		if recursiveCall {
+			recursiveCall = false
+			v += ".."
+		}
+		if i < n-3 {
+			v += "."
+		}
+		if f := runtime.FuncForPC(pc); f != nil {
+			v += formatFuncName(fmtVerbShortfunc, f.Name())
+		}
+	}
+	return v
 }
 
 // backendFormatter combines a backend with a specific formatter making it
