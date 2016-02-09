@@ -39,6 +39,15 @@ func (AWSElasticBlockStoreVolumeSource) SwaggerDoc() map[string]string {
 	return map_AWSElasticBlockStoreVolumeSource
 }
 
+var map_Affinity = map[string]string{
+	"":             "Affinity is a group of affinity scheduling requirements, including node affinity and inter pod affinity.",
+	"nodeAffinity": "Describes node affinity scheduling requirements for the pod.",
+}
+
+func (Affinity) SwaggerDoc() map[string]string {
+	return map_Affinity
+}
+
 var map_Binding = map[string]string{
 	"":         "Binding ties one object to another. For example, a pod is bound to a node by a scheduler.",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
@@ -62,6 +71,7 @@ func (Capabilities) SwaggerDoc() map[string]string {
 var map_CephFSVolumeSource = map[string]string{
 	"":           "Represents a Ceph Filesystem mount that lasts the lifetime of a pod Cephfs volumes do not support ownership management or SELinux relabeling.",
 	"monitors":   "Required: Monitors is a collection of Ceph monitors More info: http://releases.k8s.io/HEAD/examples/cephfs/README.md#how-to-use-it",
+	"path":       "Optional: Used as the mounted root, rather than the full Ceph tree, default is /",
 	"user":       "Optional: User is the rados user name, default is admin More info: http://releases.k8s.io/HEAD/examples/cephfs/README.md#how-to-use-it",
 	"secretFile": "Optional: SecretFile is the path to key ring for User, default is /etc/ceph/user.secret More info: http://releases.k8s.io/HEAD/examples/cephfs/README.md#how-to-use-it",
 	"secretRef":  "Optional: SecretRef is reference to the authentication secret for User, default is empty. More info: http://releases.k8s.io/HEAD/examples/cephfs/README.md#how-to-use-it",
@@ -115,6 +125,35 @@ func (ComponentStatusList) SwaggerDoc() map[string]string {
 	return map_ComponentStatusList
 }
 
+var map_ConfigMap = map[string]string{
+	"":         "ConfigMap holds configuration data for pods to consume.",
+	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
+	"data":     "Data contains the configuration data. Each key must be a valid DNS_SUBDOMAIN with an optional leading dot.",
+}
+
+func (ConfigMap) SwaggerDoc() map[string]string {
+	return map_ConfigMap
+}
+
+var map_ConfigMapKeySelector = map[string]string{
+	"":    "Selects a key from a ConfigMap.",
+	"key": "The key to select.",
+}
+
+func (ConfigMapKeySelector) SwaggerDoc() map[string]string {
+	return map_ConfigMapKeySelector
+}
+
+var map_ConfigMapList = map[string]string{
+	"":         "ConfigMapList is a resource containing a list of ConfigMap objects.",
+	"metadata": "More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
+	"items":    "Items is the list of ConfigMaps.",
+}
+
+func (ConfigMapList) SwaggerDoc() map[string]string {
+	return map_ConfigMapList
+}
+
 var map_Container = map[string]string{
 	"":                       "A single application container that you want to run within a pod.",
 	"name":                   "Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.",
@@ -139,6 +178,16 @@ var map_Container = map[string]string{
 
 func (Container) SwaggerDoc() map[string]string {
 	return map_Container
+}
+
+var map_ContainerImage = map[string]string{
+	"":         "Describe a container image",
+	"repoTags": "Names by which this image is known. e.g. [\"gcr.io/google_containers/hyperkube:v1.0.7\", \"dockerhub.io/google_containers/hyperkube:v1.0.7\"]",
+	"size":     "The size of the image in bytes.",
+}
+
+func (ContainerImage) SwaggerDoc() map[string]string {
+	return map_ContainerImage
 }
 
 var map_ContainerPort = map[string]string{
@@ -325,8 +374,10 @@ func (EnvVar) SwaggerDoc() map[string]string {
 }
 
 var map_EnvVarSource = map[string]string{
-	"":         "EnvVarSource represents a source for the value of an EnvVar.",
-	"fieldRef": "Selects a field of the pod. Only name and namespace are supported.",
+	"":                "EnvVarSource represents a source for the value of an EnvVar.",
+	"fieldRef":        "Selects a field of the pod; only name and namespace are supported.",
+	"configMapKeyRef": "Selects a key of a ConfigMap.",
+	"secretKeyRef":    "Selects a key of a secret in the pod's namespace",
 }
 
 func (EnvVarSource) SwaggerDoc() map[string]string {
@@ -458,15 +509,26 @@ func (GlusterfsVolumeSource) SwaggerDoc() map[string]string {
 }
 
 var map_HTTPGetAction = map[string]string{
-	"":       "HTTPGetAction describes an action based on HTTP Get requests.",
-	"path":   "Path to access on the HTTP server.",
-	"port":   "Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.",
-	"host":   "Host name to connect to, defaults to the pod IP.",
-	"scheme": "Scheme to use for connecting to the host. Defaults to HTTP.",
+	"":            "HTTPGetAction describes an action based on HTTP Get requests.",
+	"path":        "Path to access on the HTTP server.",
+	"port":        "Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.",
+	"host":        "Host name to connect to, defaults to the pod IP. You probably want to set \"Host\" in httpHeaders instead.",
+	"scheme":      "Scheme to use for connecting to the host. Defaults to HTTP.",
+	"httpHeaders": "Custom headers to set in the request. HTTP allows repeated headers.",
 }
 
 func (HTTPGetAction) SwaggerDoc() map[string]string {
 	return map_HTTPGetAction
+}
+
+var map_HTTPHeader = map[string]string{
+	"":      "HTTPHeader describes a custom header to be used in HTTP probes",
+	"name":  "The header field name",
+	"value": "The header field value",
+}
+
+func (HTTPHeader) SwaggerDoc() map[string]string {
+	return map_HTTPHeader
 }
 
 var map_Handler = map[string]string{
@@ -678,9 +740,20 @@ func (NodeAddress) SwaggerDoc() map[string]string {
 	return map_NodeAddress
 }
 
+var map_NodeAffinity = map[string]string{
+	"": "Node affinity is a group of node affinity scheduling requirements. If RequiredDuringSchedulingRequiredDuringExecution and RequiredDuringSchedulingIgnoredDuringExecution are both set, then both node selectors must be satisfied.",
+	"requiredDuringSchedulingRequiredDuringExecution": "If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system will try to eventually evict the pod from its node.",
+	"requiredDuringSchedulingIgnoredDuringExecution":  "If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.",
+	"preferredDuringSchedulingIgnoredDuringExecution": "The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.",
+}
+
+func (NodeAffinity) SwaggerDoc() map[string]string {
+	return map_NodeAffinity
+}
+
 var map_NodeCondition = map[string]string{
 	"":                   "NodeCondition contains condition infromation for a node.",
-	"type":               "Type of node condition, currently only Ready.",
+	"type":               "Type of node condition.",
 	"status":             "Status of the condition, one of True, False, Unknown.",
 	"lastHeartbeatTime":  "Last time we got an update on a given condition.",
 	"lastTransitionTime": "Last time the condition transit from one status to another.",
@@ -711,6 +784,35 @@ func (NodeList) SwaggerDoc() map[string]string {
 	return map_NodeList
 }
 
+var map_NodeSelector = map[string]string{
+	"":                  "A node selector represents the union of the results of one or more label queries over a set of nodes; that is, it represents the OR of the selectors represented by the node selector terms.",
+	"nodeSelectorTerms": "Required. A list of node selector terms. The terms are ORed.",
+}
+
+func (NodeSelector) SwaggerDoc() map[string]string {
+	return map_NodeSelector
+}
+
+var map_NodeSelectorRequirement = map[string]string{
+	"":         "A node selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+	"key":      "The label key that the selector applies to.",
+	"operator": "Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+	"values":   "An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.",
+}
+
+func (NodeSelectorRequirement) SwaggerDoc() map[string]string {
+	return map_NodeSelectorRequirement
+}
+
+var map_NodeSelectorTerm = map[string]string{
+	"":                 "A null or empty node selector term matches no objects.",
+	"matchExpressions": "Required. A list of node selector requirements. The requirements are ANDed.",
+}
+
+func (NodeSelectorTerm) SwaggerDoc() map[string]string {
+	return map_NodeSelectorTerm
+}
+
 var map_NodeSpec = map[string]string{
 	"":              "NodeSpec describes the attributes that a node is created with.",
 	"podCIDR":       "PodCIDR represents the pod IP range assigned to the node.",
@@ -732,6 +834,7 @@ var map_NodeStatus = map[string]string{
 	"addresses":       "List of addresses reachable to the node. Queried from cloud provider, if available. More info: http://releases.k8s.io/HEAD/docs/admin/node.md#node-addresses",
 	"daemonEndpoints": "Endpoints of daemons running on the Node.",
 	"nodeInfo":        "Set of ids/uuids to uniquely identify the node. More info: http://releases.k8s.io/HEAD/docs/admin/node.md#node-info",
+	"images":          "List of container images on this node",
 }
 
 func (NodeStatus) SwaggerDoc() map[string]string {
@@ -1095,6 +1198,16 @@ func (PodTemplateSpec) SwaggerDoc() map[string]string {
 	return map_PodTemplateSpec
 }
 
+var map_PreferredSchedulingTerm = map[string]string{
+	"":           "An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).",
+	"weight":     "Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.",
+	"preference": "A node selector term, associated with the corresponding weight.",
+}
+
+func (PreferredSchedulingTerm) SwaggerDoc() map[string]string {
+	return map_PreferredSchedulingTerm
+}
+
 var map_Probe = map[string]string{
 	"": "Probe describes a health check to be performed against a container to determine whether it is alive or ready to receive traffic.",
 	"initialDelaySeconds": "Number of seconds after the container has started before liveness probes are initiated. More info: http://releases.k8s.io/HEAD/docs/user-guide/pod-states.md#container-probes",
@@ -1250,6 +1363,15 @@ func (Secret) SwaggerDoc() map[string]string {
 	return map_Secret
 }
 
+var map_SecretKeySelector = map[string]string{
+	"":    "SecretKeySelector selects a key of a Secret.",
+	"key": "The key of the secret to select from.  Must be a valid secret key.",
+}
+
+func (SecretKeySelector) SwaggerDoc() map[string]string {
+	return map_SecretKeySelector
+}
+
 var map_SecretList = map[string]string{
 	"":         "SecretList is a list of Secret.",
 	"metadata": "Standard list metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds",
@@ -1262,7 +1384,7 @@ func (SecretList) SwaggerDoc() map[string]string {
 
 var map_SecretVolumeSource = map[string]string{
 	"":           "Adapts a Secret into a volume.\n\nThe contents of the target Secret's Data field will be presented in a volume as files using the keys in the Data field as the file names. Secret volumes support ownership management and SELinux relabeling.",
-	"secretName": "SecretName is the name of a secret in the pod's namespace. More info: http://releases.k8s.io/HEAD/docs/user-guide/volumes.md#secrets",
+	"secretName": "Name of the secret in the pod's namespace to use. More info: http://releases.k8s.io/HEAD/docs/user-guide/volumes.md#secrets",
 }
 
 func (SecretVolumeSource) SwaggerDoc() map[string]string {

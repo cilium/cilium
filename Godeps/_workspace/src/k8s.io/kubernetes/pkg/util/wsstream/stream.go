@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/runtime"
 	"golang.org/x/net/websocket"
 )
 
@@ -71,7 +71,7 @@ func (r *Reader) handshake(config *websocket.Config, req *http.Request) error {
 // method completes.
 func (r *Reader) Copy(w http.ResponseWriter, req *http.Request) error {
 	go func() {
-		defer util.HandleCrash()
+		defer runtime.HandleCrash()
 		websocket.Server{Handshake: r.handshake, Handler: r.handle}.ServeHTTP(w, req)
 	}()
 	return <-r.err

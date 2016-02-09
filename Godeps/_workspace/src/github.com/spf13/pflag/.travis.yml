@@ -14,5 +14,5 @@ install:
         - go install ./...
 
 script:
-        - verify/all.sh
+        - verify/all.sh -v
         - go test ./...

@@ -56,8 +56,8 @@ func FuzzerFor(t *testing.T, version unversioned.GroupVersion, src rand.Source) 
 				*j = nil
 			}
 		},
-		func(j *runtime.PluginBase, c fuzz.Continue) {
-			// Do nothing; this struct has only a Kind field and it must stay blank in memory.
+		func(q *resource.Quantity, c fuzz.Continue) {
+			*q = *resource.NewQuantity(c.Int63n(1000), resource.DecimalExponent)
 		},
 		func(j *runtime.TypeMeta, c fuzz.Continue) {
 			// We have to customize the randomization of TypeMetas because their
@@ -174,10 +174,8 @@ func FuzzerFor(t *testing.T, version unversioned.GroupVersion, src rand.Source) 
 			// TODO: uncomment when round trip starts from a versioned object
 			if true { //c.RandBool() {
 				*j = &runtime.Unknown{
-					// apiVersion has rules now.  Since it includes <group>/<version> and only `v1` can be bare,
-					// then this must choose a valid format to deserialize
-					TypeMeta: runtime.TypeMeta{Kind: "Something", APIVersion: "unknown.group/unknown"},
-					RawJSON:  []byte(`{"apiVersion":"unknown.group/unknown","kind":"Something","someKey":"someValue"}`),
+					// We do not set TypeMeta here because it is not carried through a round trip
+					RawJSON: []byte(`{"apiVersion":"unknown.group/unknown","kind":"Something","someKey":"someValue"}`),
 				}
 			} else {
 				types := []runtime.Object{&api.Pod{}, &api.ReplicationController{}}
@@ -203,7 +201,9 @@ func FuzzerFor(t *testing.T, version unversioned.GroupVersion, src rand.Source) 
 		},
 		func(q *api.ResourceRequirements, c fuzz.Continue) {
 			randomQuantity := func() resource.Quantity {
-				return *resource.NewQuantity(c.Int63n(1000), resource.DecimalExponent)
+				var q resource.Quantity
+				c.Fuzz(&q)
+				return q
 			}
 			q.Limits = make(api.ResourceList)
 			q.Requests = make(api.ResourceList)
@@ -218,10 +218,8 @@ func FuzzerFor(t *testing.T, version unversioned.GroupVersion, src rand.Source) 
 			q.Requests[api.ResourceStorage] = *storageLimit.Copy()
 		},
 		func(q *api.LimitRangeItem, c fuzz.Continue) {
-			randomQuantity := func() resource.Quantity {
-				return *resource.NewQuantity(c.Int63n(1000), resource.DecimalExponent)
-			}
-			cpuLimit := randomQuantity()
+			var cpuLimit resource.Quantity
+			c.Fuzz(&cpuLimit)
 
 			q.Type = api.LimitTypeContainer
 			q.Default = make(api.ResourceList)
@@ -398,6 +396,20 @@ func FuzzerFor(t *testing.T, version unversioned.GroupVersion, src rand.Source) 
 			minReplicas := int(c.Rand.Int31())
 			s.MinReplicas = &minReplicas
 			s.CPUUtilization = &extensions.CPUTargetUtilization{TargetPercentage: int(int32(c.RandUint64()))}
+		},
+		func(s *extensions.DaemonSetUpdateStrategy, c fuzz.Continue) {
+			c.FuzzNoCustom(s)
+			s.Type = extensions.RollingUpdateDaemonSetStrategyType
+			s.RollingUpdate = &extensions.RollingUpdateDaemonSet{
+				MaxUnavailable: intstr.FromInt(10),
+			}
+		},
+		func(psp *extensions.PodSecurityPolicySpec, c fuzz.Continue) {
+			c.FuzzNoCustom(psp) // fuzz self without calling this function again
+			userTypes := []extensions.RunAsUserStrategy{extensions.RunAsUserStrategyMustRunAsNonRoot, extensions.RunAsUserStrategyMustRunAs, extensions.RunAsUserStrategyRunAsAny}
+			psp.RunAsUser.Type = userTypes[c.Rand.Intn(len(userTypes))]
+			seLinuxTypes := []extensions.SELinuxContextStrategy{extensions.SELinuxStrategyRunAsAny, extensions.SELinuxStrategyMustRunAs}
+			psp.SELinuxContext.Type = seLinuxTypes[c.Rand.Intn(len(seLinuxTypes))]
 		},
 	)
 	return f

@@ -45,11 +45,11 @@ type Record struct {
 	Time   time.Time
 	Module string
 	Level  Level
+	Args   []interface{}
 
 	// message is kept as a pointer to have shallow copies update this once
 	// needed.
 	message   *string
-	args      []interface{}
 	fmt       string
 	formatter Formatter
 	formatted string
@@ -69,12 +69,12 @@ func (r *Record) Formatted(calldepth int) string {
 func (r *Record) Message() string {
 	if r.message == nil {
 		// Redact the arguments that implements the Redactor interface
-		for i, arg := range r.args {
+		for i, arg := range r.Args {
 			if redactor, ok := arg.(Redactor); ok == true {
-				r.args[i] = redactor.Redacted()
+				r.Args[i] = redactor.Redacted()
 			}
 		}
-		msg := fmt.Sprintf(r.fmt, r.args...)
+		msg := fmt.Sprintf(r.fmt, r.Args...)
 		r.message = &msg
 	}
 	return *r.message
@@ -144,7 +144,7 @@ func (l *Logger) log(lvl Level, format string, args ...interface{}) {
 		Module: l.Module,
 		Level:  lvl,
 		fmt:    format,
-		args:   args,
+		Args:   args,
 	}
 
 	// TODO use channels to fan out the records to all backends?
@@ -195,8 +195,9 @@ func (l *Logger) Critical(format string, args ...interface{}) {
 }
 
 // Error logs a message using ERROR as log level.
-func (l *Logger) Error(format string, args ...interface{}) {
-	l.log(ERROR, format, args...)
+func (l *Logger) Error(args ...interface{}) {
+	s := fmt.Sprint(args...)
+	l.log(ERROR, "%s", s)
 }
 
 // Errorf logs a message using ERROR as log level.

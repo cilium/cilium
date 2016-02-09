@@ -24,14 +24,13 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/golang/glog"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/latest"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/registered"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/sets"
-
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/meta"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/unversioned"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/v1"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/runtime"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/kubernetes/pkg/apimachinery"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 )
 
 const importPrefix = "k8s.io/kubernetes/pkg/api"
@@ -42,8 +41,7 @@ var accessor = meta.NewAccessor()
 var availableVersions = []unversioned.GroupVersion{v1.SchemeGroupVersion}
 
 func init() {
-	registered.RegisterVersions(availableVersions...)
-
+	registered.RegisterVersions(availableVersions)
 	externalVersions := []unversioned.GroupVersion{}
 	for _, v := range availableVersions {
 		if registered.IsAllowedVersion(v) {
@@ -54,6 +52,7 @@ func init() {
 		glog.V(4).Infof("No version is registered for group %v", api.GroupName)
 		return
 	}
+
 	if err := registered.EnableVersions(externalVersions...); err != nil {
 		glog.V(4).Infof("%v", err)
 		return
@@ -66,20 +65,21 @@ func init() {
 
 // TODO: enableVersions should be centralized rather than spread in each API
 // group.
+// We can combine registered.RegisterVersions, registered.EnableVersions and
+// registered.RegisterGroup once we have moved enableVersions there.
 func enableVersions(externalVersions []unversioned.GroupVersion) error {
 	addVersionsToScheme(externalVersions...)
 	preferredExternalVersion := externalVersions[0]
 
-	groupMeta := latest.GroupMeta{
+	groupMeta := apimachinery.GroupMeta{
 		GroupVersion:  preferredExternalVersion,
 		GroupVersions: externalVersions,
-		Codec:         runtime.CodecFor(api.Scheme, preferredExternalVersion),
 		RESTMapper:    newRESTMapper(externalVersions),
 		SelfLinker:    runtime.SelfLinker(accessor),
 		InterfacesFor: interfacesFor,
 	}
 
-	if err := latest.RegisterGroup(groupMeta); err != nil {
+	if err := registered.RegisterGroup(groupMeta); err != nil {
 		return err
 	}
 	api.RegisterRESTMapper(groupMeta.RESTMapper)
@@ -90,11 +90,6 @@ func enableVersions(externalVersions []unversioned.GroupVersion) error {
 var userResources = []string{"rc", "svc", "pods", "pvc"}
 
 func newRESTMapper(externalVersions []unversioned.GroupVersion) meta.RESTMapper {
-	worstToBestGroupVersions := []unversioned.GroupVersion{}
-	for i := len(externalVersions) - 1; i >= 0; i-- {
-		worstToBestGroupVersions = append(worstToBestGroupVersions, externalVersions[i])
-	}
-
 	// the list of kinds that are scoped at the root of the api hierarchy
 	// if a kind is not enumerated here, it is assumed to have a namespace scope
 	rootScoped := sets.NewString(
@@ -117,7 +112,7 @@ func newRESTMapper(externalVersions []unversioned.GroupVersion) meta.RESTMapper 
 		"ThirdPartyResourceData",
 		"ThirdPartyResourceList")
 
-	mapper := api.NewDefaultRESTMapper(worstToBestGroupVersions, interfacesFor, importPrefix, ignoredKinds, rootScoped)
+	mapper := api.NewDefaultRESTMapper(externalVersions, interfacesFor, importPrefix, ignoredKinds, rootScoped)
 	// setup aliases for groups of resources
 	mapper.AddResourceAlias("all", userResources...)
 
@@ -130,12 +125,11 @@ func interfacesFor(version unversioned.GroupVersion) (*meta.VersionInterfaces, e
 	switch version {
 	case v1.SchemeGroupVersion:
 		return &meta.VersionInterfaces{
-			Codec:            v1.Codec,
 			ObjectConvertor:  api.Scheme,
 			MetadataAccessor: accessor,
 		}, nil
 	default:
-		g, _ := latest.Group(api.GroupName)
+		g, _ := registered.Group(api.GroupName)
 		return nil, fmt.Errorf("unsupported storage version: %s (valid: %v)", version, g.GroupVersions)
 	}
 }
