@@ -14,7 +14,7 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+	//"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
 const (
@@ -108,14 +108,6 @@ func initBPF() {
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
 	f.WriteString(common.FmtDefineAddress("NODE_MAC", nodeMac))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
-
-	if device == "undefined" {
-		encapDevice, err := netlink.LinkByName(common.EncapDevice)
-		if err == nil {
-			encapIfindex := encapDevice.Attrs().Index
-			fmt.Fprintf(f, "#define ENCAP_IFINDEX %d\n", encapIfindex)
-		}
-	}
 
 	f.Close()
 
