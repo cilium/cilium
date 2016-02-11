@@ -19,8 +19,11 @@ if [ "$MODE" = "vxlan" ]; then
 	ip link del cilium_vxlan 2> /dev/null || true
 	ip link add cilium_vxlan type vxlan external
 	ip link set cilium_vxlan up
+	ifindex=$(cat /sys/class/net/cilium_vxlan/ifindex)
+	sed '/ENCAP_IFINDEX/d' /var/run/cilium/globals/node_config.h
+	echo "#define ENCAP_IFINDEX $ifindex" >> /var/run/cilium/globals/node_config.h
 
-	clang -O2 -emit-llvm -c $LIB/bpf_overlay.c -I$DIR -I. -o - | llc -march=bpf -filetype=obj -o bpf_overlay.o
+	clang -O2 -emit-llvm -c $LIB/bpf_overlay.c -I/var/run/cilium/globals -I$DIR -I. -o - | llc -march=bpf -filetype=obj -o bpf_overlay.o
 
 	tc qdisc add dev cilium_vxlan ingress
 	tc filter add dev cilium_vxlan parent ffff: bpf da obj bpf_overlay.o sec from-overlay
