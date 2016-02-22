@@ -26,17 +26,20 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
 }
 #endif
 
-static inline void __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
+static inline int __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 				     __u8 *smac, __u8 *dmac)
 {
+
+	if (decrement_ipv6_hoplimit(skb, nh_off)) {
+		return send_icmp6_time_exceeded(skb, nh_off);
+	}
+
 	if (smac)
 		store_eth_saddr(skb, smac, 0);
 
 	store_eth_daddr(skb, dmac, 0);
 
-	if (decrement_ipv6_hoplimit(skb, nh_off)) {
-		send_icmp6_time_exceeded(skb, nh_off);
-	}
+	return TC_ACT_OK;
 }
 
 #ifndef DISABLE_PORT_MAP
@@ -66,6 +69,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 {
 	struct lxc_info *dst_lxc;
 	__u16 lxc_id = derive_lxc_id(dst);
+	int ret = 0;
 
 	printk("L3 on local node, lxc-id: %x\n", lxc_id);
 
@@ -74,7 +78,9 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		union macaddr router_mac = NODE_MAC;
 		mac_t tmp_mac = dst_lxc->mac;
 
-		__do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &tmp_mac);
+		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &tmp_mac);
+		if (ret == TC_ACT_REDIRECT)
+			return ret;
 
 #ifndef DISABLE_PORT_MAP
 		if (dst_lxc->portmap[0].to)
