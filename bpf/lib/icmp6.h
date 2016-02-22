@@ -128,82 +128,84 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 	return send_icmp6_reply(skb, nh_off);
 }
 
+static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
+					struct ipv6hdr *ipv6hdr)
+{
+	__be32 sum = 0;
+
+	/* compute checksum with new payload length */
+	sum = csum_diff(NULL, 0, data, payload_len, 0);
+	printk("csum1 = %x\n", sum);
+	sum = ipv6_pseudohdr_checksum(ipv6hdr, payload_len, sum);
+	printk("csum2 = %x\n", sum);
+
+	return sum;
+}
+
 static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
 {
-        struct icmp6hdr icmp6hdr = {};
+        char data[80] = {};
+        struct icmp6hdr *icmp6hoplim;
+        struct ipv6hdr *ipv6hdr;
+	char *upper; /* icmp6 or tcp or udp */
         const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-        struct ipv6hdr ipv6hdr = {};
-        char data[60] = {};
         __be32 sum = 0;
-	__be16 payload_len = 0;
+	__u16 payload_len = 0;
 
-        /* read original v6 hdr into ipv6hdr */
-        if (skb_load_bytes(skb, nh_off, &ipv6hdr, sizeof(ipv6hdr)) < 0)
+	/* initialize pointers to offsets in data */
+	icmp6hoplim = (struct icmp6hdr *)data;
+	ipv6hdr = (struct ipv6hdr *)(data + 8);
+	upper = (data + 48);
+
+        /* fill icmp6hdr */
+        icmp6hoplim->icmp6_type = 3;
+        icmp6hoplim->icmp6_code = 0;
+        icmp6hoplim->icmp6_cksum = 0;
+        icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
+
+        /* read original v6 hdr into offset 8 */
+        if (skb_load_bytes(skb, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
                 return -1;
 
-        printk("IPv6 payload_len = %d, nexthdr %d\n",
-               ntohs(ipv6hdr.payload_len), ipv6hdr.nexthdr);
-
-        /* read original v6 payload into data */
-        switch (ipv6hdr.nexthdr) {
+        /* read original v6 payload into offset 48 */
+        switch (ipv6hdr->nexthdr) {
         case IPPROTO_ICMPV6:
         case IPPROTO_UDP:
                 if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr),
-                                   data, 8) < 0)
+                                   upper, 8) < 0)
                         return -1;
-                if (skb_store_bytes(skb, nh_off + 2*sizeof(struct ipv6hdr) + 8,
-                                    data, 8, 0) < 0)
-                        return -1;
-                if (skb_modify_tail(skb, sizeof(struct ipv6hdr) + 8 + 8 -
-                                    ntohs(ipv6hdr.payload_len)) < 0)
-                        return -1;
-                sum = csum_diff(NULL, 0, data, 8, 0);
+		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = htons(56);
+		/* copy data buffer after ipv6 header and trim the header */
+		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
+				    data, 56, 0) < 0)
+			return -1;
+		if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
+			return -1;
 
                 break;
         /* copy header without options */
         case IPPROTO_TCP:
                 if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr),
-                                   data, 20) < 0)
+                                   upper, 20) < 0)
                         return -1;
-                if (skb_store_bytes(skb, nh_off + 2*sizeof(struct ipv6hdr) + 20,
-                                    data, 20, 0) < 0)
-                        return -1;
-                if (skb_modify_tail(skb, sizeof(struct ipv6hdr) + 20 + 8 -
-                                    ntohs(ipv6hdr.payload_len)) < 0)
-                        return -1;
-                sum = csum_diff(NULL, 0, data, 20, 0);
+		sum = compute_icmp6_csum(data, 68, ipv6hdr);
 		payload_len = htons(68);
+		/* copy data buffer after ipv6 header and trim the header */
+		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
+				    data, 68, 0) < 0)
+			return -1;
+		if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
+			return -1;
 
                 break;
         default:
                 return -1;
         }
 
-        /* fill icmp6hdr */
-        icmp6hdr.icmp6_type = 3;
-        icmp6hdr.icmp6_code = 0;
-        icmp6hdr.icmp6_cksum = 0;
-        icmp6hdr.icmp6_dataun.un_data32[0] = 0;
+        printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
+               ntohs(ipv6hdr->payload_len), ipv6hdr->nexthdr, ntohs(payload_len));
 
-        if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
-                            &icmp6hdr, 8, 0) < 0)
-                return -1;
-        /* copy original ipv6 header */
-        if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr) + 8,
-                         &ipv6hdr, sizeof(ipv6hdr), 0) < 0)
-                return -1;
-	/* modify payload len */
-	if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
-		return -1;
-
-	printk("csum1 = %x\n", sum);
-        l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
-	sum = csum_diff(NULL, 0, &ipv6hdr, sizeof(ipv6hdr), 0);
-	printk("csum2 = %x\n", sum);
-        l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
-	sum = csum_diff(NULL, 0, &icmp6hdr, sizeof(icmp6hdr), 0);
-	printk("csum3 = %x\n", sum);
         l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
         return send_icmp6_reply(skb, nh_off);
