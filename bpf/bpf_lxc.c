@@ -71,7 +71,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		union macaddr router_mac = NODE_MAC;
 
 		ret = __do_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
-		if (ret == TC_ACT_REDIRECT)
+		if (ret == TC_ACT_REDIRECT || ret == -1)
 			return ret;
 
 		/* Pass down to stack */
