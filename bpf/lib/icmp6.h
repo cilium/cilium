@@ -176,7 +176,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
                         return -1;
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = htons(56);
-		/* copy data buffer after ipv6 header and trim the header */
+		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (skb_modify_tail(skb, 56 - ntohs(ipv6hdr->payload_len)) < 0)
 			return -1;
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
@@ -193,7 +193,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
                         return -1;
 		sum = compute_icmp6_csum(data, 68, ipv6hdr);
 		payload_len = htons(68);
-		/* copy data buffer after ipv6 header and trim the header */
+		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (skb_modify_tail(skb, 68 - ntohs(ipv6hdr->payload_len)) < 0)
 			return -1;
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
