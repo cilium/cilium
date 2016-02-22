@@ -7,6 +7,7 @@
 #include "dbg.h"
 #include "l4.h"
 #include "lxc_map.h"
+#include "icmp6.h"
 
 #ifdef ENCAP_IFINDEX
 static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
@@ -34,7 +35,7 @@ static inline void __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 	store_eth_daddr(skb, dmac, 0);
 
 	if (decrement_ipv6_hoplimit(skb, nh_off)) {
-		/* FIXME: Handle hoplimit == 0 */
+		send_icmp6_time_exceeded(skb, nh_off);
 	}
 }
 

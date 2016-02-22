@@ -69,6 +69,18 @@ static inline int ipv6_load_nexthdr(struct __sk_buff *skb, int off, __u8 *nexthd
 			      sizeof(__u8));
 }
 
+static inline int load_ipv6_paylen(struct __sk_buff *skb, int off, __be16 *len)
+{
+	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
+			      len, sizeof(*len));
+}
+
+static inline int store_ipv6_paylen(struct __sk_buff *skb, int off, __be16 *len)
+{
+	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
+			       len, sizeof(*len), 0);
+}
+
 static inline __u16 derive_lxc_id(const union v6addr *addr)
 {
 	return ntohl(addr->p4) & 0xFFFF;
