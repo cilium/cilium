@@ -14,6 +14,11 @@ type ipamBackend interface {
 	ReleaseIPs(containerID string) error
 }
 
+type labelBackend interface {
+	GetLabelsID(labels types.Labels) (int, error)
+	GetLabels(id int) (*types.Labels, error)
+}
+
 type control interface {
 	Ping() (string, error)
 }
@@ -22,4 +27,5 @@ type CiliumBackend interface {
 	bpfBackend
 	control
 	ipamBackend
+	labelBackend
 }

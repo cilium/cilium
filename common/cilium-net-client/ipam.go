@@ -1,13 +1,12 @@
 package cilium_net_client
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"encoding/json"
 
 	"github.com/noironetworks/cilium-net/common/types"
-
 )
 
 func (cli Client) AllocateIPs(containerID string) (*types.IPAMConfig, error) {

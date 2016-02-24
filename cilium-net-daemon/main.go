@@ -13,8 +13,8 @@ import (
 	s "github.com/noironetworks/cilium-net/cilium-net-daemon/server"
 	common "github.com/noironetworks/cilium-net/common"
 
+	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	//"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
 const (
@@ -30,6 +30,7 @@ var (
 	device       string
 	libDir       string
 	runDir       string
+	consulAddr   string
 	lxcMap       *lxcmap.LxcMap
 	log          = logging.MustGetLogger("cilium-net")
 	stdoutFormat = logging.MustStringFormatter(
@@ -130,6 +131,7 @@ func init() {
 	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
 	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
 	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
+	flag.StringVar(&consulAddr, "c", "127.0.0.1:8500", "Consul agent address")
 	flag.StringVar(&libDir, "D", "/usr/lib/cilium", "Cilium library directory")
 	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
 	flag.Parse()
@@ -168,7 +170,12 @@ func init() {
 }
 
 func main() {
-	d := daemon.NewDaemon(libDir, lxcMap, NodeAddr)
+	consulDefaultAPI := consulAPI.DefaultConfig()
+	consulDefaultAPI.Address = consulAddr
+	d, err := daemon.NewDaemon(libDir, lxcMap, NodeAddr, consulDefaultAPI)
+	if err != nil {
+		log.Fatalf("Error while creating daemon: %s", err)
+	}
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)

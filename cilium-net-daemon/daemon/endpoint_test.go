@@ -10,6 +10,7 @@ import (
 func Test(t *testing.T) { TestingT(t) }
 
 type DaemonSuite struct {
+	d *Daemon
 }
 
 var _ = Suite(&DaemonSuite{})
