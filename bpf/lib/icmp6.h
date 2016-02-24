@@ -151,6 +151,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
         __be32 sum = 0;
 	__u16 payload_len = 0;
+	__u8 icmp6_nexthdr = IPPROTO_ICMPV6;
 
 	/* initialize pointers to offsets in data */
 	icmp6hoplim = (struct icmp6hdr *)data;
@@ -206,6 +207,9 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         default:
                 return -1;
         }
+
+	if (ipv6_store_nexthdr(skb, &icmp6_nexthdr, nh_off) < 0)
+		return -1;
 
         printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
                ntohs(ipv6hdr->payload_len), ipv6hdr->nexthdr, ntohs(payload_len));
