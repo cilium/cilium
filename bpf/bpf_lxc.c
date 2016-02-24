@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 
 #include <stdint.h>
-#include <string.h>
+#include <stdio.h>
 
 #include "lib/common.h"
 #include "lib/ipv6.h"
