@@ -30,5 +30,11 @@ func (r *Router) initRoutes() {
 		Route{
 			"ReleaseIPv6", "DELETE", "/allocator/container/{containerID}", r.releaseIPv6,
 		},
+		Route{
+			"GetLabels", "GET", "/labels/{uuid}", r.getLabels,
+		},
+		Route{
+			"GetLabelsID", "POST", "/labels", r.getLabelsID,
+		},
 	}
 }

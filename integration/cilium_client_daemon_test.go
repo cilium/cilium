@@ -11,6 +11,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/backend"
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
 
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
 
@@ -31,7 +32,10 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	socketDir := os.Getenv("SOCKET_DIR")
 	socketPath := filepath.Join(socketDir, "cilium.sock")
 
-	d := cnd.NewDaemon("", nil, EpAddr)
+	d, err := cnd.NewDaemon("", nil, EpAddr, api.DefaultConfig())
+	if err != nil {
+		c.Fatalf("Failed while creating new cilium-net test server: %+v", err)
+	}
 	server, err := cns.NewServer(socketPath, d)
 	if err != nil {
 		c.Fatalf("Failed while creating new cilium-net test server: %+v", err)

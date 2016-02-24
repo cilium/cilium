@@ -10,6 +10,12 @@ const (
 	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
 	BPFMap              = "/sys/fs/bpf/tc/globals/cilium_lxc"
 	EncapDevice         = "cilium_vxlan"
+
+	OperationalPath   = "cilium-net/operational"
+	LastFreeIDKeyPath = OperationalPath + "/LastUUID"
+	LabelsKeyPath     = OperationalPath + "/SHA256SUMLabels/"
+	IDKeyPath         = OperationalPath + "/ID/"
+	MaxSetOfLabels    = 0xFFFF
 )
 
 var (

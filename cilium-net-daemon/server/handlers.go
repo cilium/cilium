@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -80,5 +81,56 @@ func (router *Router) releaseIPv6(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr, exists := vars["uuid"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty labels UUID"))
+		return
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
+	}
+	labels, err := router.daemon.GetLabels(id)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if labels == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	e := json.NewEncoder(w)
+	if err := e.Encode(labels); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
+func (router *Router) getLabelsID(w http.ResponseWriter, r *http.Request) {
+	d := json.NewDecoder(r.Body)
+	var labels types.Labels
+	if err := d.Decode(&labels); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	id, err := router.daemon.GetLabelsID(labels)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+	lr := types.LabelsResponse{
+		ID: id,
+	}
+	e := json.NewEncoder(w)
+	if err := e.Encode(lr); err != nil {
+		processServerError(w, r, err)
+		return
 	}
 }
