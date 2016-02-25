@@ -15,7 +15,7 @@ func processErrorBody(serverResp io.ReadCloser, i interface{}) error {
 	d := json.NewDecoder(serverResp)
 	var sErr types.ServerError
 	if err := d.Decode(&sErr); err != nil {
-		fmt.Errorf("error retrieving server body response: %s", err)
+		return fmt.Errorf("error retrieving server body response: %s", err)
 	}
 	return fmt.Errorf("server error for interface: (%T) \"%+v\", (%d) %s", i, i, sErr.Code, sErr.Text)
 }

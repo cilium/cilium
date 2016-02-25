@@ -46,6 +46,6 @@ func processServerError(w http.ResponseWriter, r *http.Request, err error) {
 	log.Errorf("Error processing request '%+v': \"%s\"", r, err)
 	if err := e.Encode(sErr); err != nil {
 		log.Errorf("Error encoding %T '%+v': \"%s\"", sErr, sErr, err)
-		fmt.Fprint(w, "Fatal error processing request '%+v'")
+		fmt.Fprintf(w, "Fatal error processing request '%+v': \"%s\"", r, err)
 	}
 }

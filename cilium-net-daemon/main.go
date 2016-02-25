@@ -50,12 +50,12 @@ func setupLOG() {
 	logTimename := time.Now().Format(logNameTimeFormat)
 	ciliumLogsDir := os.TempDir() + string(os.PathSeparator) + "cilium-logs"
 	if err := os.MkdirAll(ciliumLogsDir, 0755); err != nil {
-		log.Error("Error while creating directory: %v", err)
+		log.Errorf("Error while creating directory: %s", err)
 	}
 
 	fo, err := os.Create(ciliumLogsDir + string(os.PathSeparator) + "cilium-net-log-" + logTimename + ".log")
 	if err != nil {
-		log.Error("Error while creating log file: %v", err)
+		log.Errorf("Error while creating log file: %s", err)
 	}
 
 	fileBackend := logging.NewLogBackend(fo, "", 0)
@@ -88,7 +88,6 @@ func initBPF() {
 	f, err := os.Create("./globals/node_config.h")
 	if err != nil {
 		log.Warningf("Failed to create node configuration file: %s", err)
-		fmt.Errorf("Failed to create node configuration file: \"%s\"", err)
 		return
 
 	}

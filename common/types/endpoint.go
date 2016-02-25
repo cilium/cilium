@@ -8,22 +8,22 @@ import (
 )
 
 type EPPortMap struct {
-	From  uint16 `json:from`
-	To    uint16 `json:to`
-	Proto uint8  `json:proto`
+	From  uint16 `json:"from"`
+	To    uint16 `json:"to"`
+	Proto uint8  `json:"proto"`
 }
 
 type Endpoint struct {
-	ID            string           `json:id`
-	LxcMAC        net.HardwareAddr `json:lxc-MAC`
-	LxcIP         net.IP           `json:lxc-IP`
-	NodeMAC       net.HardwareAddr `json:node-MAC`
-	Ifname        string           `json:interface-Name`
-	IfIndex       int              `json:ifindex`
-	NodeIP        net.IP           `json:node-IP`
-	SecCtx        string           `json:sec-Ctx`
-	DockerNetwork string           `json:docker-network`
-	PortMap       []EPPortMap      `json:port-mapping`
+	ID            string           `json:"id"`
+	LxcMAC        net.HardwareAddr `json:"lxc-MAC"`
+	LxcIP         net.IP           `json:"lxc-IP"`
+	NodeMAC       net.HardwareAddr `json:"node-MAC"`
+	Ifname        string           `json:"interface-Name"`
+	IfIndex       int              `json:"ifindex"`
+	NodeIP        net.IP           `json:"node-IP"`
+	SecCtx        string           `json:"sec-Ctx"`
+	DockerNetwork string           `json:"docker-network"`
+	PortMap       []EPPortMap      `json:"port-mapping"`
 }
 
 func (e *Endpoint) U16ID() uint16 {
