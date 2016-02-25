@@ -12,7 +12,7 @@ apt-get -y install pkg-config bison flex
 
 cd $HOME
 rm -Rf net-next
-git clone -b ebpf-madhu git://git.breakpoint.cc/dborkman/net-next.git
+git clone -b bpf-wip git://git.breakpoint.cc/dborkman/net-next.git
 cd net-next
 rm -Rf .git
 cp /boot/config-`uname -r` .config
@@ -79,7 +79,7 @@ apt-get -y install pkg-config bison flex
 cd $HOME
 git clone git://git.breakpoint.cc/dborkman/iproute2.git
 cd iproute2/
-git checkout ebpf-madhu
+git checkout bpf-wip
 ./configure
 make -j `getconf _NPROCESSORS_ONLN`
 make install
