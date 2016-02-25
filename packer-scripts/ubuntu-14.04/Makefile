@@ -45,6 +45,6 @@ install_libvirt:
 	vagrant up --provider=libvirt
 
 install_vbox:
-	vagrant box add --force noironetworks/net-next ubuntu-1404-libvirt.box
+	vagrant box add --force noironetworks/net-next ubuntu-1404-virtualbox.box
 	cp Vagrantfile.sample  Vagrantfile
 	vagrant up --provider=virtualbox
