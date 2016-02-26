@@ -3,7 +3,7 @@
 set -ex
 
 TEST_NET="cilium"
-NETPERF_IMAGE="paultiplady/netperf"
+NETPERF_IMAGE="noironetworks/netperf"
 
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
