@@ -98,10 +98,11 @@ static inline __u32 derive_node_id(const union v6addr *addr)
 }
 
 static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
+                                             __u8 next_hdr,
 					     __u16 payload_len, __be32 sum)
 {
 	__u32 len = htonl((__u32)payload_len);
-	__u32 nexthdr = htonl((__u32)hdr->nexthdr);
+	__u32 nexthdr = htonl((__u32)next_hdr);
 	sum = csum_diff(NULL, 0, &hdr->saddr, sizeof(struct in6_addr), sum);
 	sum = csum_diff(NULL, 0, &hdr->daddr, sizeof(struct in6_addr), sum);
 	sum = csum_diff(NULL, 0, &len, sizeof(len), sum);
