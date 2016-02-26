@@ -8,6 +8,8 @@ tests:
 	godep go fmt ./...
 	godep go test ./...
 
+runtime-tests:
+
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)

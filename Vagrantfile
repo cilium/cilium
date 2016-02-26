@@ -21,6 +21,7 @@ SCRIPT
 
 $testsuite = <<SCRIPT
 make -C ~/go/src/github.com/noironetworks/cilium-net/ tests
+sudo make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
 SCRIPT
 
 Vagrant.configure(2) do |config|
