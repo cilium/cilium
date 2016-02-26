@@ -15,19 +15,20 @@ DIR="$PWD/globals"
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
 
-if [ "$MODE" = "vxlan" ]; then
-	ip link del cilium_vxlan 2> /dev/null || true
-	ip link add cilium_vxlan type vxlan external
-	ip link set cilium_vxlan up
+if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
+	ENCAP_DEV="cilium_${MODE}"
+	ip link del $ENCAP_DEV 2> /dev/null || true
+	ip link add $ENCAP_DEV type $MODE external
+	ip link set $ENCAP_DEV up
 
-	ifindex=$(cat /sys/class/net/cilium_vxlan/ifindex)
+	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
 	sed '/ENCAP_IFINDEX/d' /var/run/cilium/globals/node_config.h
-	echo "#define ENCAP_IFINDEX $ifindex" >> /var/run/cilium/globals/node_config.h
+	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> /var/run/cilium/globals/node_config.h
 
 	clang -O2 -target bpf -c $LIB/bpf_overlay.c -I/var/run/cilium/globals -I$DIR -I. -o bpf_overlay.o
 
-	tc qdisc add dev cilium_vxlan clsact
-	tc filter add dev cilium_vxlan ingress bpf da obj bpf_overlay.o sec from-overlay
+	tc qdisc add dev $ENCAP_DEV clsact
+	tc filter add dev $ENCAP_DEV ingress bpf da obj bpf_overlay.o sec from-overlay
 elif [ "$MODE" = "direct" ]; then
 	DEV=$3
 
