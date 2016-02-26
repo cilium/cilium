@@ -51,6 +51,19 @@ Cilium provides integration plugins for:
    $ docker network create --driver cilium --ipam-driver cilium test-net
    $ docker run -ti --rm --net test-net ubuntu bash
    ```
+## Testsuite
+
+The testsuite can be run on a vagrant box:
+
+   ```
+   $ vagrant provision --provision-with testsuite
+   ```
+
+or manually on the local machine:
+
+   ```
+   $ sudo make runtime-tests
+   ```
 
 ## Detailed Instructions
 
