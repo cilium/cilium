@@ -21,7 +21,6 @@ type Endpoint struct {
 	Ifname        string           `json:"interface-Name"`
 	IfIndex       int              `json:"ifindex"`
 	NodeIP        net.IP           `json:"node-IP"`
-	SecCtx        string           `json:"sec-Ctx"`
 	DockerNetwork string           `json:"docker-network"`
 	PortMap       []EPPortMap      `json:"port-mapping"`
 }
