@@ -9,6 +9,7 @@ tests:
 	godep go test ./...
 
 runtime-tests:
+	./tests.sh
 
 SOURCES := $(shell find . -name '*.go')
 
