@@ -4,6 +4,8 @@ tests:
 	godep go fmt ./.
 	godep go test ./.
 
+runtime-tests:
+
 clean:
 	rm -f cilium-cni host-local
 

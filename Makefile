@@ -24,3 +24,6 @@ install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(RUNDIR)/cilium/globals
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/lib
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
+
+runtime-tests:
+	for i in $(SUBDIRS); do $(MAKE) -C $$i runtime-tests; done
