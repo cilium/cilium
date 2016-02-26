@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 mkdir -p install
 cd install
 

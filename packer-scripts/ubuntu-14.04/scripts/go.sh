@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 cd $HOME
 
 wget --quiet https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz
