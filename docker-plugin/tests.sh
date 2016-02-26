@@ -19,7 +19,7 @@ docker run -dt --net=$TEST_NET --name server $NETPERF_IMAGE
 
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 
-docker run --rm -i --net=$TEST_NET --name client $NETPERF_IMAGE ping6 -c 5 $SERVER_IP || {
+docker run --rm -i --net=$TEST_NET --name client noironetworks/nettools ping6 -c 5 $SERVER_IP || {
 	echo "Error: Could not reach server container"
 	exit 1
 }
