@@ -68,11 +68,9 @@ not rely on encapsulation protocols.
 2. Run `cilium-net` in direct mode:
 
   ```
-  $ cd cilium-net-daemon
-  $ sudo ./run.sh -d eth0
+  $ sudo cilium-net-daemon -d eth0
   [...]
-  $ cd docker-plugin
-  $ sudo ./run.sh
+  $ sudo cilium-docker
   ```
 
   This will install a BPF program on eth0 which will pick packets destined for
