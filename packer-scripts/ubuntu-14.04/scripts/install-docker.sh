@@ -2,6 +2,8 @@
 
 set -e
 
+apt-get -y install libseccomp2
+
 mkdir -p install
 cd install
 
