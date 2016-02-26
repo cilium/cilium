@@ -29,6 +29,8 @@ clean:
 
 tests:
 
+runtime-tests:
+
 install:
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/ $(BPF)
 	$(INSTALL) -m 0755 -t $(DESTDIR)$(LIBDIR)/cilium/ $(MAP_CTRL)

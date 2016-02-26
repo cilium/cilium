@@ -23,7 +23,6 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()
@@ -44,7 +43,6 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()
@@ -65,7 +63,6 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()
@@ -86,7 +83,6 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()

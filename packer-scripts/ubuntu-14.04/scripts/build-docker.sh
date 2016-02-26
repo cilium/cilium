@@ -21,4 +21,4 @@ cd ../../../..
 # compile & install docker
 make deb
 
-rsync -rvP --delete bundles/latest/build-deb/ubuntu-trusty/ tgr@casper.infradead.org:public_html/cilium-docker-build
+rsync -rP --delete bundles/latest/build-deb/ubuntu-trusty/ tgr@casper.infradead.org:public_html/cilium-docker-build

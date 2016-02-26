@@ -25,7 +25,6 @@ func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()
@@ -69,7 +68,6 @@ func (s *CiliumNetClientSuite) TestEndpointCreateFail(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()
@@ -95,7 +93,6 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "eth0",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()
@@ -125,7 +122,6 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
 		Ifname:        "eth0",
-		SecCtx:        "secctx",
 		DockerNetwork: "dockernetwork",
 	}
 	ep.SetID()

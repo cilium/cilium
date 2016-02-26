@@ -8,6 +8,8 @@ tests:
 	godep go fmt ./...
 	godep go test ./...
 
+runtime-tests:
+
 run:
 	./cilium-net-daemon
 
