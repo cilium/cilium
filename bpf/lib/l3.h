@@ -16,7 +16,6 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
 
 	key.tunnel_id = 42;
 	key.remote_ipv4 = node_id;
-	key.tunnel_af = AF_INET;
 
 	printk("Performing encapsulation to node %x on ifindex %u\n", node_id, ENCAP_IFINDEX);
 

@@ -1,42 +1,68 @@
+# Cilium Networking
 
-## Installation instructions
+Cilium networking is an experimental project to provide IPv6 networking with
+native policy integration for containers based on eBPF programs running in
+the Linux kernel.
 
-1. Bring up vagrant environment
+## Requirements
 
-   This will bring up two VMs, node1 and node2, and compiles cilium-net
-   inside the VMs.
+Cilium is experimental and requires recent versions of the Linux kernel,
+iproute2 and clang+LLVM. Specifically:
+  * Linux kernel: https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
+  * iproute2: https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
+  * clang+LLVM: 3.7.1
 
-   ```
-   $ vagrant up --provider libvirt
-   $ vagrant ssh
-   ```
+To ease installation and setup, we are providing a prebuilt Vagrant box with
+all the requirements met. To use it, run:
 
-   If you have changed any source code or want to recompile the
-   daemon and plugins, you may reprovision the environment at
-   any time with:
-   ```
-   $ vagrant reload --provision
-   ```
+  ```
+  $ vagrant up
+  ```
 
-2. Run the daemon
+... in this directory which will bring up two vagrant boxes with Cilium
+installed and running. If you have made any local changes you can at any time
+run `vagrant reload` to synchronize your changes, rebuild and reinstall.
+
+## Integration
+
+Cilium provides integration plugins for:
+  * libnetwork
+  * CNI
+
+## Development environment
+
+1. Run the daemon
 
    ```
    $ sudo make run-cilium-daemon
    [...]
    ```
 
-3. Run the plugin
+2. Run the plugin
 
    ```
    $ sudo make run-docker-plugin
    [...]
    ```
 
-4. Run a container
+3. Run a container
 
    ```
    $ docker network create --driver cilium --ipam-driver cilium test-net
    $ docker run -ti --rm --net test-net ubuntu bash
+   ```
+## Testsuite
+
+The testsuite can be run on a vagrant box:
+
+   ```
+   $ vagrant provision --provision-with testsuite
+   ```
+
+or manually on the local machine:
+
+   ```
+   $ sudo make runtime-tests
    ```
 
 ## Detailed Instructions
@@ -55,11 +81,9 @@ not rely on encapsulation protocols.
 2. Run `cilium-net` in direct mode:
 
   ```
-  $ cd cilium-net-daemon
-  $ sudo ./run.sh -d eth0
+  $ sudo cilium-net-daemon -d eth0
   [...]
-  $ cd docker-plugin
-  $ sudo ./run.sh
+  $ sudo cilium-docker
   ```
 
   This will install a BPF program on eth0 which will pick packets destined for

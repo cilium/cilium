@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Set up dns
 cat <<EOF > /etc/resolv.conf
 nameserver 8.8.8.8

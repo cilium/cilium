@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 mkdir -p $HOME/bin
 
 cat > $HOME/bin/kcompile.sh << "EOF"
@@ -16,7 +18,7 @@ git clone -b bpf-wip git://git.breakpoint.cc/dborkman/net-next.git
 cd net-next
 rm -Rf .git
 cp /boot/config-`uname -r` .config
-yes '' | make oldconfig
+yes '' | make oldconfig > /dev/null
 ./scripts/config --disable CONFIG_DEBUG_INFO
 ./scripts/config --disable CONFIG_DEBUG_KERNEL
 ./scripts/config --enable CONFIG_BPF
@@ -75,6 +77,7 @@ apt-get update
 apt-get -y install git vim
 apt-get -y install libssl-dev libelf-dev
 apt-get -y install pkg-config bison flex
+apt-get -y install gcc-multilib
 
 cd $HOME
 git clone git://git.breakpoint.cc/dborkman/iproute2.git
