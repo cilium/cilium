@@ -31,6 +31,7 @@ yes '' | make oldconfig > /dev/null
 ./scripts/config --enable CONFIG_BPF_EVENTS
 ./scripts/config --module CONFIG_TEST_BPF
 ./scripts/config --disable CONFIG_LUSTRE_FS
+./scripts/config --enable CONFIG_IPV6_OPTIMISTIC_DAD
 
 # build latest kernel
 make -j `getconf _NPROCESSORS_ONLN` LOCALVERSION=-custom
