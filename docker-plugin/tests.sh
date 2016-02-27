@@ -35,14 +35,16 @@ docker run -dt --net=$TEST_NET --name server $NETPERF_IMAGE
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 
 reset_trace
-docker run --rm -i --net=$TEST_NET --name client noironetworks/nettools ping6 -c 5 $SERVER_IP || {
+docker run --rm -i --net=$TEST_NET --name client noironetworks/nettools sh -c "sleep 5s && ping6 -c 5 $SERVER_IP" || {
 	abort "Error: Could not ping server container"
 }
 
 reset_trace
-docker run --rm -i --net=$TEST_NET --name client noironetworks/nettools traceroute6 -m 5 -v $SERVER_IP || {
+docker run --rm -i --net=$TEST_NET --name client noironetworks/nettools sh -c "sleep 5s && traceroute6 -m 5 -v $SERVER_IP" || {
 	abort "Error: Could not traceroute to server"
 }
 
-#docker run -it --net=$TEST_NET --name netperf $NETPERF_IMAGE netperf -l 10 -i 10 -I 95,1 -c -j -H $SERVER_IP -t OMNI -- -D  -T tcp -O THROUGHPUT,THROUGHPUT_UNITS,STDDEV_LATENCY,LOCAL_CPU_UTIL
-
+reset_trace
+docker run --rm -i --net=$TEST_NET --name netperf $NETPERF_IMAGE sh -c "sleep 5s && netperf -c -C -H $SERVER_IP" || {
+	abort "Error: Could not netperf to server"
+}
