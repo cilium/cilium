@@ -169,6 +169,9 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         if (skb_load_bytes(skb, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
                 return -1;
 
+	if (ipv6_store_nexthdr(skb, &icmp6_nexthdr, nh_off) < 0)
+		return -1;
+
         /* read original v6 payload into offset 48 */
         switch (ipv6hdr->nexthdr) {
         case IPPROTO_ICMPV6:
@@ -208,9 +211,6 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         default:
                 return -1;
         }
-
-	if (ipv6_store_nexthdr(skb, &icmp6_nexthdr, nh_off) < 0)
-		return -1;
 
         printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
                ntohs(ipv6hdr->payload_len), ipv6hdr->nexthdr, ntohs(payload_len));
