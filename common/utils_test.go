@@ -28,3 +28,8 @@ func (s *CommonSuite) TestSwab16(c *C) {
 	c.Assert(Swab16(0xAABB) != 0xBBAA, Equals, false,
 		Commentf("Swab16 failed: Swab16(0xAABB) != 0xBBAA"))
 }
+
+func (s *CommonSuite) TestSwab32(c *C) {
+	c.Assert(Swab32(0xAABBCCDD) != 0xDDCCBBAA, Equals, false,
+		Commentf("Swab32 failed: Swab16(0xAABBCCDD) != 0xDDCCBBAA"))
+}

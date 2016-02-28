@@ -65,3 +65,8 @@ func GenerateV6Prefix() (string, error) {
 func Swab16(n uint16) uint16 {
 	return (n&0xFF00)>>8 | (n&0x00FF)<<8
 }
+
+func Swab32(n uint32) uint32 {
+	return ((n & 0x000000ff) << 24) | ((n & 0x0000ff00) << 8) |
+		((n & 0x00ff0000) >> 8) | ((n & 0xff000000) >> 24)
+}
