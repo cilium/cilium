@@ -11,17 +11,17 @@ $build = <<SCRIPT
 SCRIPT
 
 $install = <<SCRIPT
-make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ install
+sudo -E make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ install
 
-cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-docker.conf /etc/init/
-cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-net-daemon.conf /etc/init/
-service cilium-docker restart
-service cilium-net-daemon restart
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-docker.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-net-daemon.conf /etc/init/
+sudo service cilium-docker restart
+sudo service cilium-net-daemon restart
 SCRIPT
 
 $testsuite = <<SCRIPT
 make -C ~/go/src/github.com/noironetworks/cilium-net/ tests
-sudo make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
+sudo -E make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
 SCRIPT
 
 Vagrant.configure(2) do |config|
@@ -30,7 +30,7 @@ Vagrant.configure(2) do |config|
 
   config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
   config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
-  config.vm.provision "install", type: "shell", run: "always", inline: $install
+  config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
   config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
 
   config.vm.provider :libvirt do |libvirt|

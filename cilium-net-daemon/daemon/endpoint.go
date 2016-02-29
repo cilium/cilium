@@ -40,11 +40,13 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		" * Container ID: %s\n"+
 		" * MAC: %s\n"+
 		" * IP: %s\n"+
+		" * SecLabel: %#x\n"+
 		" */\n\n",
-		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String())
+		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel)
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
+	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", common.Swab32(ep.SecLabel))
 
 	f.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range ep.PortMap {

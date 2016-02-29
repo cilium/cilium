@@ -10,14 +10,17 @@
 #include "icmp6.h"
 
 #ifdef ENCAP_IFINDEX
-static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id)
+static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
+				   __u32 seclabel)
 {
 	struct bpf_tunnel_key key = {};
 
 	key.tunnel_id = 42;
 	key.remote_ipv4 = node_id;
+	key.tunnel_label = seclabel;
 
-	printk("Performing encapsulation to node %x on ifindex %u\n", node_id, ENCAP_IFINDEX);
+	printk("Performing encapsulation to node %x on ifindex %u seclabel 0x%x\n",
+		node_id, ENCAP_IFINDEX, seclabel);
 
 	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 

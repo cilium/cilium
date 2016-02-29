@@ -150,7 +150,7 @@ func MainBPFDumpMap(ctx *cli.Context) {
 			os.Exit(errIOFailure)
 			return
 		} else {
-			fmt.Printf("%d: %s\n", nextKey, lxc)
+			fmt.Printf("%#x: %s\n", nextKey, lxc)
 		}
 
 		key = nextKey

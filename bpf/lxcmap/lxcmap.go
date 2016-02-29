@@ -74,10 +74,11 @@ func (lxc LxcInfo) String() string {
 	if len(portmaps) == 0 {
 		portmaps = append(portmaps, "(empty)")
 	}
-	return fmt.Sprintf("ifindex=%d mac=%s ip=%s portmaps=%s",
+	return fmt.Sprintf("ifindex=%d mac=%s ip=%s seclabel=0x%x portmaps=%s",
 		lxc.Ifindex,
 		lxc.Mac,
 		lxc.V6addr,
+		common.Swab32(lxc.SecLabel),
 		strings.Join(portmaps, " "),
 	)
 }
@@ -91,10 +92,11 @@ func (v6 V6addr) String() string {
 }
 
 type LxcInfo struct {
-	Ifindex int
-	Mac     Mac
-	V6addr  V6addr
-	Portmap [PORTMAP_MAX]Portmap
+	Ifindex  int
+	SecLabel uint32
+	Mac      Mac
+	V6addr   V6addr
+	Portmap  [PORTMAP_MAX]Portmap
 }
 
 func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
@@ -107,7 +109,11 @@ func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
 
 	lxc := LxcInfo{
 		Ifindex: ep.IfIndex,
-		Mac:     Mac(mac),
+		// Store security label in network byte order so it can be
+		// written into the packet without an additional byte order
+		// convertion.
+		SecLabel: common.Swab32(ep.SecLabel),
+		Mac:      Mac(mac),
 	}
 
 	copy(lxc.V6addr.Addr[:], ep.LxcIP)
