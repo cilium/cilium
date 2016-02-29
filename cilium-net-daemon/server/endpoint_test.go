@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
-	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr = net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	EpAddr          = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
+	NodeAddr        = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+	HardAddr        = net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel uint32 = 0x200
 )
 
 func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
@@ -24,6 +25,7 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		DockerNetwork: "dockernetwork",
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -44,6 +46,7 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		DockerNetwork: "dockernetwork",
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -64,6 +67,7 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		DockerNetwork: "dockernetwork",
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -84,6 +88,7 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 		NodeIP:        NodeAddr,
 		Ifname:        "ifname",
 		DockerNetwork: "dockernetwork",
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
