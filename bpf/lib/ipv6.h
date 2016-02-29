@@ -87,6 +87,14 @@ static inline int store_ipv6_paylen(struct __sk_buff *skb, int off, __be16 *len)
 			       len, sizeof(*len), 0);
 }
 
+static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __u32 label)
+{
+	__u32 old;
+	skb_load_bytes(skb, off + 1, &old, 3);
+	old = (old & 0xfff00000) | ((label >> 8) & 0xffffff);
+	return skb_store_bytes(skb, off + 1, &old, 3, 0);
+}
+
 static inline __u16 derive_lxc_id(const union v6addr *addr)
 {
 	return ntohl(addr->p4) & 0xFFFF;
