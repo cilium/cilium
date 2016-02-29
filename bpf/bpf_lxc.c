@@ -66,7 +66,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
-		return do_encapsulation(skb, node_id);
+		return do_encapsulation(skb, node_id, LXC_SECLABEL);
 #else
 		union macaddr router_mac = NODE_MAC;
 
@@ -74,10 +74,13 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		if (ret == TC_ACT_REDIRECT || ret == -1)
 			return ret;
 
+		ipv6_store_flowlabel(skb, nh_off, LXC_SECLABEL);
+
 		/* Pass down to stack */
 		return TC_ACT_OK;
 #endif
 	} else {
+		ipv6_store_flowlabel(skb, nh_off, LXC_SECLABEL);
 		return do_l3(skb, nh_off, &dst);
 	}
 }
