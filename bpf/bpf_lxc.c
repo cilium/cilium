@@ -45,7 +45,6 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
 	union v6addr dst = {};
 	__u32 node_id;
-	int ret = 0;
 
 	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
 
