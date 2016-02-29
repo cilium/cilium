@@ -1,6 +1,6 @@
 include ../Makefile.defs
 
-CLANG_FLAGS := -I.
+CLANG_FLAGS := -I. -Wall -Werror
 
 BPF = bpf_lxc.c bpf_netdev.c bpf_overlay.c
 MAP_CTRL = map_ctrl
