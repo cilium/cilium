@@ -14,6 +14,9 @@ type TestDaemon struct {
 	OnPing          func() (string, error)
 	OnGetLabelsID   func(labels types.Labels) (int, error)
 	OnGetLabels     func(id int) (*types.Labels, error)
+	OnPolicyAdd     func(path string, node types.PolicyNode) error
+	OnPolicyDelete  func(path string) error
+	OnPolicyGet     func(path string) (*types.PolicyNode, error)
 }
 
 func NewTestDaemon() *TestDaemon {
@@ -67,4 +70,25 @@ func (d TestDaemon) GetLabels(id int) (*types.Labels, error) {
 		return d.OnGetLabels(id)
 	}
 	return nil, errors.New("GetLabels should not have been called")
+}
+
+func (d TestDaemon) PolicyAdd(path string, node types.PolicyNode) error {
+	if d.PolicyAdd != nil {
+		return d.PolicyAdd(path, node)
+	}
+	return errors.New("PolicyAdd should not have been called")
+}
+
+func (d TestDaemon) PolicyDelete(path string) error {
+	if d.PolicyDelete != nil {
+		return d.PolicyDelete(path)
+	}
+	return errors.New("PolicyDelete should not have been called")
+}
+
+func (d TestDaemon) PolicyGet(path string) (*types.PolicyNode, error) {
+	if d.PolicyGet != nil {
+		return d.PolicyGet(path)
+	}
+	return nil, errors.New("PolicyGet should not have been called")
 }
