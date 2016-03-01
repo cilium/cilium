@@ -19,6 +19,12 @@ type labelBackend interface {
 	GetLabels(id int) (*types.Labels, error)
 }
 
+type policyBackend interface {
+	PolicyAdd(path string, node types.PolicyNode) error
+	PolicyDelete(path string) error
+	PolicyGet(path string) (*types.PolicyNode, error)
+}
+
 type control interface {
 	Ping() (string, error)
 }
@@ -28,4 +34,5 @@ type CiliumBackend interface {
 	control
 	ipamBackend
 	labelBackend
+	policyBackend
 }

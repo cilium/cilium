@@ -36,5 +36,14 @@ func (r *Router) initRoutes() {
 		Route{
 			"GetLabelsID", "POST", "/labels", r.getLabelsID,
 		},
+		Route{
+			"PolicyAdd", "POST", "/policy/{path}", r.policyAdd,
+		},
+		Route{
+			"PolicyDelete", "DELETE", "/policy/{path}", r.policyDelete,
+		},
+		Route{
+			"PolicyGet", "GET", "/policy/{path}", r.policyGet,
+		},
 	}
 }
