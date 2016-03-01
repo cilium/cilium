@@ -15,6 +15,7 @@ type EPPortMap struct {
 
 type Endpoint struct {
 	ID            string           `json:"id"`
+	DockerID      string           `json:"docker-id"`
 	LxcMAC        net.HardwareAddr `json:"lxc-MAC"`
 	LxcIP         net.IP           `json:"lxc-IP"`
 	NodeMAC       net.HardwareAddr `json:"node-MAC"`
