@@ -56,15 +56,25 @@ set -x
 #
 #     TODO: Thomas: Ask John about conntrack in BPF
 
-LABELS=$(cat <<EOF
-[{
-	"Name": "io.cilium",
-	"Type": "cilium",
-},{
-	"Name": "io.kuberentes.pod.uid",
-	"Type": "kubernetes"
-}
-EOF
+#LABELS=$(cat <<EOF
+#[{
+#	"Name": "io.cilium",
+#	"Type": "cilium",
+#},{
+#	"Name": "io.kuberentes.pod.uid",
+#	"Type": "kubernetes"
+#}
+#EOF
+
+#		"k8s": {
+#			"Name": "k8s",
+#			"Rules": [{
+#				"Coverage": ["PodSelector", "PodSelector2"],
+#				"Allow": [{"type": "pod", "label": "tier=database"}, {"type": "namespace", ...}],
+#				"Ports": { "to": [{"tcp", 80},{"udp", 50}], "from": null },
+#				"Drop-Privileges": "Ports",
+#			}]
+#		}
 
 POLICY=$(cat <<EOF
 {
@@ -83,30 +93,14 @@ POLICY=$(cat <<EOF
 				"DB": {
 					"Rules": [{
 						"Allow": ["Web"]
-						"Allow": [{"com.coke.flavour", "blah"}, "Web", {"io.kubernetes.pod.uid", "3224234"}],
-					}]
-				},
-				"Ngnix": {
-					"Rules": [{
-						"Allow": ["World"]
 					}]
 				}
 			}
 		},
 		"Birds": {
-			"Name": "Birds",
 			"Children": {
 				"DB": { }
 			}
-		},
-		"k8s": {
-			"Name": "k8s",
-			"Rules": [{
-				"Coverage": ["PodSelector", "PodSelector2"],
-				"Allow": [{"type": "pod", "label": "tier=database"}, {"type": "namespace", ...}],
-				"Ports": { "to": [{"tcp", 80},{"udp", 50}], "from": null },
-				"Drop-Privileges": "Ports",
-			}]
 		}
 
 	}
@@ -115,17 +109,18 @@ EOF
 )
 
 curl $FLAGS -XPOST http://localhost:9000/policy/io.cilium -d "$POLICY"
-curl $FLAGS -XGET http://localhost:9000/policy/io.cilium.Lizards
+curl $FLAGS -XGET http://localhost:9000/policy/io.cilium
 
 
 POLICY=$(cat <<EOF
 {
         "Name": "DB",
 	"Rules": [{
-		"Allow": ["Web"]
+		"Allow": ["Web2"]
 	}]
 }
 EOF
 )
 
 curl $FLAGS -XPOST http://localhost:9000/policy/io.cilium.Lizards -d "$POLICY"
+curl $FLAGS -XGET http://localhost:9000/policy/io.cilium.Lizards
