@@ -42,7 +42,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		" * IP: %s\n"+
 		" * SecLabel: %#x\n"+
 		" */\n\n",
-		ep.ID, ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel)
+		ep.DockerID, ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel)
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
