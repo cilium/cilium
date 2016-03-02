@@ -17,6 +17,13 @@ type ipamBackend interface {
 type labelBackend interface {
 	GetLabelsID(labels types.Labels) (int, error)
 	GetLabels(id int) (*types.Labels, error)
+	GetMaxID() (int, error)
+}
+
+type policyBackend interface {
+	PolicyAdd(path string, node types.PolicyNode) error
+	PolicyDelete(path string) error
+	PolicyGet(path string) (*types.PolicyNode, error)
 }
 
 type control interface {
@@ -28,4 +35,5 @@ type CiliumBackend interface {
 	control
 	ipamBackend
 	labelBackend
+	policyBackend
 }

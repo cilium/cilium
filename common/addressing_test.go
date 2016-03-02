@@ -42,7 +42,7 @@ func (s *CommonSuite) TestNodeAddrEndpointAddress(c *C) {
 func (s *CommonSuite) TestMapEndpointToNode(c *C) {
 	node := MapEndpointToNode(EpAddr)
 
-	c.Assert(bytes.Compare(node, NodeAddr) != 0, Equals, false,
+	c.Assert(bytes.Compare(node, NodeAddr), Equals, 0,
 		Commentf("MapEndpointToNode failed: %s != %s", node.String(), NodeAddr.String()))
 }
 
@@ -55,7 +55,7 @@ func (s *CommonSuite) TestBuildEndpointAddress(c *C) {
 	c.Assert(ValidNodeAddress(endAddr), Equals, false,
 		Commentf("unexpected valid node address %s", endAddr.String()))
 
-	c.Assert(bytes.Compare(endAddr, Ep6to4Addr) != 0, Equals, false,
+	c.Assert(bytes.Compare(endAddr, Ep6to4Addr), Equals, 0,
 		Commentf("Build4to6EndpointAddress failed: %s != %s",
 			endAddr.String(), Ep6to4Addr.String()))
 }
@@ -63,6 +63,6 @@ func (s *CommonSuite) TestBuildEndpointAddress(c *C) {
 func (s *CommonSuite) TestNodeAddr2ID(c *C) {
 	id := NodeAddr2ID(NodeAddr)
 
-	c.Assert(id != NodeID, Equals, false,
+	c.Assert(id, Equals, NodeID,
 		Commentf("NodeAddr2ID failed: %s != %x != %x", NodeAddr.String(), id, NodeID))
 }

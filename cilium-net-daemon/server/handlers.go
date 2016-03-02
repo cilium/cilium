@@ -134,3 +134,82 @@ func (router *Router) getLabelsID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {
+	id, err := router.daemon.GetMaxID()
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	lr := types.LabelsResponse{
+		ID: id,
+	}
+	e := json.NewEncoder(w)
+	if err := e.Encode(lr); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
+func (router *Router) policyAdd(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	path, exists := vars["path"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty policy path"))
+		return
+	}
+
+	d := json.NewDecoder(r.Body)
+	var pn types.PolicyNode
+	if err := d.Decode(&pn); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.PolicyAdd(path, pn); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (router *Router) policyDelete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	path, exists := vars["path"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty policy path"))
+		return
+	}
+
+	if err := router.daemon.PolicyDelete(path); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (router *Router) policyGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	path, exists := vars["path"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty policy path"))
+		return
+	}
+
+	tree, err := router.daemon.PolicyGet(path)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+
+	if tree == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	e := json.NewEncoder(w)
+	if err := e.Encode(tree); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}

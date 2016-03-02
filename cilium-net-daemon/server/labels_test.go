@@ -2,7 +2,6 @@ package server
 
 import (
 	"errors"
-	"reflect"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common/types"
@@ -24,7 +23,7 @@ var (
 
 func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
 	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, error) {
-		c.Assert(reflect.DeepEqual(lblsReceived, lbls), Equals, true)
+		c.Assert(lblsReceived, DeepEquals, lbls)
 		return 123, nil
 	}
 
@@ -35,7 +34,7 @@ func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
 
 func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
 	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, error) {
-		c.Assert(reflect.DeepEqual(lblsReceived, lbls), Equals, true)
+		c.Assert(lblsReceived, DeepEquals, lbls)
 		return -1, errors.New("Reached maximum valid IDs")
 	}
 
@@ -51,7 +50,7 @@ func (s *DaemonSuite) TestGetLabelsOK(c *C) {
 
 	lblsReceived, err := s.c.GetLabels(123)
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(*lblsReceived, lbls), Equals, true)
+	c.Assert(*lblsReceived, DeepEquals, lbls)
 }
 
 func (s *DaemonSuite) TestGetLabelsFail(c *C) {
@@ -62,4 +61,23 @@ func (s *DaemonSuite) TestGetLabelsFail(c *C) {
 
 	_, err := s.c.GetLabels(123)
 	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true)
+}
+
+func (s *DaemonSuite) TestGetMaxOK(c *C) {
+	s.d.OnGetMaxID = func() (int, error) {
+		return 100, nil
+	}
+
+	maxID, err := s.c.GetMaxID()
+	c.Assert(err, Equals, nil)
+	c.Assert(maxID, Equals, 100)
+}
+
+func (s *DaemonSuite) TestGetMaxIDFail(c *C) {
+	s.d.OnGetMaxID = func() (int, error) {
+		return -1, errors.New("Unable to contact consul")
+	}
+
+	_, err := s.c.GetMaxID()
+	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true, Commentf("error %s", err))
 }

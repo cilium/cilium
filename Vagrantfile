@@ -4,6 +4,7 @@
 $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
 mount bpffs /sys/fs/bpf/ -t bpf
+sudo apt-get -y install socat curl
 SCRIPT
 
 $build = <<SCRIPT
@@ -15,8 +16,10 @@ sudo -E make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ instal
 
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-docker.conf /etc/init/
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-net-daemon.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-socket-proxy.conf /etc/init/
 sudo service cilium-docker restart
 sudo service cilium-net-daemon restart
+sudo service cilium-socket-proxy restart
 SCRIPT
 
 $testsuite = <<SCRIPT
