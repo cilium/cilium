@@ -16,6 +16,42 @@ func isValidID(id string) bool {
 	return r.MatchString(id)
 }
 
+func (d Daemon) insertEndpoint(dockerID string, ep *types.Endpoint) {
+	d.endpointsMU.Lock()
+	d.endpoints[dockerID] = ep
+	d.endpointsMU.Unlock()
+}
+
+// Sets the given secLabel on the endpoint with the given dockerID. Returns true if the
+// endpoint was found, false otherwise.
+func (d Daemon) setEndpointSecLabel(dockerID string, secLabel uint32) bool {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	if ep, ok := d.endpoints[dockerID]; ok {
+		ep.SecLabel = secLabel
+		return true
+	}
+	return false
+}
+
+// Returns a copy of the endpoint for the given dockerID, or nil if the endpoint was not
+// found.
+func (d Daemon) getEndpoint(dockerID string) *types.Endpoint {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	if ep, ok := d.endpoints[dockerID]; ok {
+		epCopy := *ep
+		return &epCopy
+	}
+	return nil
+}
+
+func (d Daemon) deleteEndpoint(dockerID string) {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	delete(d.endpoints, dockerID)
+}
+
 func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	if !isValidID(ep.ID) {
 		return fmt.Errorf("invalid ID %s", ep.ID)
@@ -72,6 +108,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
+	d.insertEndpoint(ep.DockerID, &ep)
 	log.Infof("Command successful:\n%s", out)
 
 	return nil
@@ -96,6 +133,7 @@ func (d Daemon) EndpointLeave(epID string) error {
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
+	// TODO: We need to retrieve docker container ID to perform map endpoint delete
 	log.Infof("Command successful:\n%s", out)
 
 	return nil

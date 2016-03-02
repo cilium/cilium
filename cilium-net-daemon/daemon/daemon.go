@@ -2,9 +2,11 @@ package daemon
 
 import (
 	"net"
+	"sync"
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/common"
+	ciliumTypes "github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
 	hb "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
@@ -21,10 +23,12 @@ var (
 )
 
 type Daemon struct {
-	libDir   string
-	lxcMap   *lxcmap.LxcMap
-	ipamConf hb.IPAMConfig
-	consul   *api.Client
+	libDir    string
+	lxcMap    *lxcmap.LxcMap
+	ipamConf  hb.IPAMConfig
+	consul    *api.Client
+	endpoints map[string]*ciliumTypes.Endpoint
+	endpointsMU sync.Mutex
 }
 
 func NewDaemon(libdir string, m *lxcmap.LxcMap, nodeAddr net.IP, consulConfig *api.Config) (*Daemon, error) {
@@ -64,5 +68,6 @@ func NewDaemon(libdir string, m *lxcmap.LxcMap, nodeAddr net.IP, consulConfig *a
 		lxcMap:   m,
 		ipamConf: ipamConf,
 		consul:   consul,
+		endpoints : make(map[string]*ciliumTypes.Endpoint),
 	}, nil
 }
