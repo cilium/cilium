@@ -5,7 +5,6 @@ build-all: clean validate
 
 validate:
 	packer validate ubuntu-1404.json
-	packer validate ubuntu-1404-atlas.json
 
 build-libvirt: clean validate
 	packer build -only=libvirt ubuntu-1404.json
