@@ -55,10 +55,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	_, err = kv.Put(p, nil)
 	c.Assert(err, Equals, nil)
 
-	kvPair, _, err := kv.Get(common.LastFreeIDKeyPath, nil)
-	c.Assert(err, Equals, nil)
-	var id int
-	err = json.Unmarshal(kvPair.Value, &id)
+	id, err := ds.d.GetMaxID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 0)
 
@@ -104,10 +101,7 @@ func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
 	_, err = kv.Put(p, nil)
 	c.Assert(err, Equals, nil)
 
-	kvPair, _, err := kv.Get(common.LastFreeIDKeyPath, nil)
-	c.Assert(err, Equals, nil)
-	var id int
-	err = json.Unmarshal(kvPair.Value, &id)
+	id, err := ds.d.GetMaxID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 
@@ -119,6 +113,20 @@ func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
 	c.Assert(strings.Contains(err.Error(), "maximum"), Equals, true)
 
 	id, err = ds.d.GetLabelsID(lbls)
+	c.Assert(err, Equals, nil)
+	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
+}
+
+func (ds *DaemonSuite) TestGetMaxID(c *C) {
+	c.Skip("To test, enable a consul environment")
+	kv := ds.d.consul.KV()
+	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
+	c.Assert(err, Equals, nil)
+	p := &KVPair{Key: common.LastFreeIDKeyPath, Value: byteJSON}
+	_, err = kv.Put(p, nil)
+	c.Assert(err, Equals, nil)
+
+	id, err := ds.d.GetMaxID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 }

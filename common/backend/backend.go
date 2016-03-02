@@ -17,6 +17,7 @@ type ipamBackend interface {
 type labelBackend interface {
 	GetLabelsID(labels types.Labels) (int, error)
 	GetLabels(id int) (*types.Labels, error)
+	GetMaxID() (int, error)
 }
 
 type policyBackend interface {
