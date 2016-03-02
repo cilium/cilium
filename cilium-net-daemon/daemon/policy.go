@@ -58,11 +58,8 @@ func canConsume(root *types.PolicyNode, ctx *types.SearchContext) (bool, error) 
 
 	// Need at least one partial match in destination labels to continue
 	for _, child := range root.Children {
-		fn := child.FullName()
-		for k, _ := range ctx.To {
-			if strings.HasPrefix(k, fn) {
-				return canConsume(child, ctx)
-			}
+		if child.Covers(ctx) {
+			return canConsume(child, ctx)
 		}
 	}
 
