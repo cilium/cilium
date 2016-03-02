@@ -42,7 +42,7 @@ func (d *ConsumableDecision) String() string {
 type LabelSelector struct {
 	Source string
 	Key    string
-	Value  string `json:"omitempty"`
+	Value  string `json:"value,omitempty"`
 }
 
 func (l *LabelSelector) String() string {
@@ -119,7 +119,7 @@ type PolicyRuleBase struct {
 }
 
 type AllowRule struct {
-	Inverted bool `json:"omitempty"`
+	Inverted bool `json:"inverted,omitempty"`
 	Label    LabelSelector
 }
 
