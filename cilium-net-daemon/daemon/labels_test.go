@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"encoding/json"
-	"flag"
 	"reflect"
 	"strings"
 
@@ -12,8 +11,6 @@ import (
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
-
-var consul = flag.Bool("consul", false, "Include Consul tests")
 
 var (
 	lbls = types.Labels{
@@ -37,16 +34,10 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	d, err := NewDaemon("", nil, nil, conf)
 	c.Assert(err, Equals, nil)
 	ds.d = d
-
-	if *consul {
-		d.consul.KV().DeleteTree(common.OperationalPath, nil)
-	}
+	d.consul.KV().DeleteTree(common.OperationalPath, nil)
 }
 
 func (ds *DaemonSuite) TestLabels(c *C) {
-	if !*consul {
-		c.Skip("To test, enable a consul environment")
-	}
 	//Set up last free ID with zero
 	kv := ds.d.consul.KV()
 	byteJSON, err := json.Marshal(0)
@@ -90,9 +81,6 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 }
 
 func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
-	if !*consul {
-		c.Skip("To test, enable a consul environment")
-	}
 	//Set up last free ID with common.MaxSetOfLabels - 1
 	kv := ds.d.consul.KV()
 	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
@@ -118,7 +106,6 @@ func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
 }
 
 func (ds *DaemonSuite) TestGetMaxID(c *C) {
-	c.Skip("To test, enable a consul environment")
 	kv := ds.d.consul.KV()
 	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
 	c.Assert(err, Equals, nil)
