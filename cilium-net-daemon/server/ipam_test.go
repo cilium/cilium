@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net"
-	"reflect"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -35,7 +34,7 @@ func (s *DaemonSuite) TestAllocateIPsOK(c *C) {
 
 	ipamConfigReceived, err := s.c.AllocateIPs("11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(ipamConfig, *ipamConfigReceived), Equals, true)
+	c.Assert(ipamConfig, DeepEquals, *ipamConfigReceived)
 }
 
 func (s *DaemonSuite) TestAllocateIPsFail(c *C) {

@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"encoding/json"
-	"reflect"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -73,11 +72,11 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	//Get labels from ID
 	gotLabels, err := ds.d.GetLabels(0)
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(*gotLabels, lbls), Equals, true)
+	c.Assert(*gotLabels, DeepEquals, lbls)
 
 	gotLabels, err = ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(*gotLabels, lbls2), Equals, true)
+	c.Assert(*gotLabels, DeepEquals, lbls2)
 }
 
 func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
