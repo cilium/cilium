@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Available privileges for policy nodes to define
@@ -39,10 +40,14 @@ func (d *ConsumableDecision) String() string {
 	return "unknown"
 }
 
+type Label struct {
+	Key   string `json:"key"`
+	Value string `json:"value,omitempty"`
+}
+
 type LabelSelector struct {
+	Label
 	Source string
-	Key    string
-	Value  string `json:"value,omitempty"`
 }
 
 func (l *LabelSelector) String() string {
@@ -109,8 +114,8 @@ func (l *LabelSelector) Expand(node *PolicyNode) string {
 }
 
 type SearchContext struct {
-	From map[string]string
-	To   map[string]string
+	From []LabelSelector
+	To   []LabelSelector
 }
 
 // Base type for all PolicyRule* types
@@ -199,6 +204,19 @@ type PolicyNode struct {
 	Children map[string]*PolicyNode `json:"Children,omitempty"`
 }
 
+func (p *PolicyNode) Covers(ctx *SearchContext) bool {
+	// FIXME: Cache somewhere
+	fn := p.FullName()
+
+	for _, label := range ctx.To {
+		if strings.Compare(label.Source, "cilium") == 0 && strings.HasPrefix(label.Key, fn) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Overall policy tree
 type PolicyTree struct {
 	Root PolicyNode
@@ -207,11 +225,9 @@ type PolicyTree struct {
 func (pn *PolicyNode) FullName() string {
 	if pn.Parent != nil {
 		s := fmt.Sprintf("%s.%s", pn.Parent.FullName(), pn.Name)
-		fmt.Printf("Building FullName: %s\n", s)
 		return s
 	}
 
-	fmt.Printf("Building FullName: io.cilium\n")
 	return "io.cilium"
 }
 
