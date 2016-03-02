@@ -14,11 +14,6 @@ var (
 	tree types.PolicyTree
 )
 
-type SearchContext struct {
-	from map[string]string
-	to   map[string]string
-}
-
 // Returns node and its parent or an error
 func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	var parent *types.PolicyNode
@@ -50,7 +45,7 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-func canConsume(root *types.PolicyNode, ctx *SearchContext) (bool, error) {
+func canConsume(root *types.PolicyNode, ctx *types.SearchContext) (bool, error) {
 
 	for _, rule := range root.Rules {
 		switch rule.(type) {
@@ -64,7 +59,7 @@ func canConsume(root *types.PolicyNode, ctx *SearchContext) (bool, error) {
 	// Need at least one partial match in destination labels to continue
 	for _, child := range root.Children {
 		fn := child.FullName()
-		for k, _ := range ctx.to {
+		for k, _ := range ctx.To {
 			if strings.HasPrefix(k, fn) {
 				return canConsume(child, ctx)
 			}
@@ -74,7 +69,7 @@ func canConsume(root *types.PolicyNode, ctx *SearchContext) (bool, error) {
 	return false, nil
 }
 
-func (d Daemon) PolicyCanConsume(ctx *SearchContext) (bool, error) {
+func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) (bool, error) {
 	return canConsume(&tree.Root, ctx)
 }
 
