@@ -42,7 +42,7 @@ func (d *ConsumableDecision) String() string {
 type LabelSelector struct {
 	Source string
 	Key    string
-	Value  string
+	Value  string `json:"omitempty"`
 }
 
 func (l *LabelSelector) String() string {
@@ -115,12 +115,40 @@ type SearchContext struct {
 
 // Base type for all PolicyRule* types
 type PolicyRuleBase struct {
-	Coverage []LabelSelector `json:"Coverage,omitempty"`
+	Coverage []string `json:"Coverage,omitempty"`
 }
 
 type AllowRule struct {
-	Inverted bool
+	Inverted bool `json:"omitempty"`
 	Label    LabelSelector
+}
+
+func (a *AllowRule) UnmarshalJSON(data []byte) error {
+	if a == nil {
+		return fmt.Errorf("Cannot unmarhshal to nil pointer")
+	}
+
+	if len(data) == 0 {
+		return fmt.Errorf("Invalid AllowRule: empty data")
+	}
+
+	var aux LabelSelector
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if err := decoder.Decode(&aux); err != nil {
+		return fmt.Errorf("Decode of AllowRule failed: %+v", err)
+	}
+
+	if aux.Key[0] == '!' {
+		a.Inverted = true
+		aux.Key = aux.Key[1:]
+	} else {
+		a.Inverted = false
+	}
+
+	a.Label = aux
+
+	return nil
 }
 
 // Allow the following consumers
@@ -144,7 +172,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 // labels in order to consume
 type PolicyRuleRequires struct {
 	PolicyRuleBase
-	Requires []string `json:"Requires"`
+	Requires []LabelSelector `json:"Requires"`
 }
 
 type Port struct {
