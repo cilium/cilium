@@ -10,8 +10,8 @@ type CommonSuite struct{}
 
 var _ = Suite(&CommonSuite{})
 
-func (s *CommonSuite) TestLabelSelector(c *C) {
-	var label LabelSelector
+func (s *CommonSuite) TestLabel(c *C) {
+	var label Label
 
 	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
 	invLabel := `{"source": "kubernetes", "value": "foo"}`
@@ -38,7 +38,7 @@ func (s *CommonSuite) TestLabelSelector(c *C) {
 	c.Assert(err, Not(Equals), nil)
 }
 
-func (s *CommonSuite) TestAllowRule(c *C) {
+func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	var rule AllowRule
 
 	longLabel := `{"source": "kubernetes", "key": "!io.kubernetes.pod.name", "value": "foo"}`
@@ -94,16 +94,52 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	foo.Parent = &root
 	bar.Parent = &root
 
-	lblRoot := LabelSelector{Label{"io.cilium", ""}, "cilium"}
-	lblFoo := LabelSelector{Label{"io.cilium.foo", ""}, "cilium"}
-
-	ctx := SearchContext{To: []LabelSelector{lblFoo}}
+	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	ctx := SearchContext{To: []Label{lblFoo}}
 	c.Assert(root.Covers(&ctx), Equals, true)
 	c.Assert(foo.Covers(&ctx), Equals, true)
 	c.Assert(bar.Covers(&ctx), Equals, false)
 
-	ctx = SearchContext{To: []LabelSelector{lblRoot}}
+	lblRoot := Label{KeyValue{"io.cilium", ""}, "cilium"}
+	ctx = SearchContext{To: []Label{lblRoot}}
 	c.Assert(root.Covers(&ctx), Equals, true)
 	c.Assert(foo.Covers(&ctx), Equals, false)
 	c.Assert(bar.Covers(&ctx), Equals, false)
+}
+
+func (s *CommonSuite) TestLabelCompare(c *C) {
+	a_1 := Label{KeyValue{"io.cilium", ""}, "cilium"}
+	a_2 := Label{KeyValue{"io.cilium", ""}, "cilium"}
+	b_1 := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	c_1 := Label{KeyValue{"io.cilium.bar", ""}, "kubernetes"}
+	d_1 := Label{KeyValue{"", ""}, ""}
+
+	c.Assert(a_1.Compare(&a_2), Equals, true)
+	c.Assert(a_2.Compare(&a_1), Equals, true)
+	c.Assert(a_1.Compare(&b_1), Equals, false)
+	c.Assert(a_1.Compare(&c_1), Equals, false)
+	c.Assert(a_1.Compare(&d_1), Equals, false)
+	c.Assert(b_1.Compare(&c_1), Equals, false)
+}
+
+func (s *CommonSuite) TestAllowRule(c *C) {
+	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	lblBaz := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	allow := AllowRule{Label: lblFoo}
+	allowInverted := AllowRule{Inverted: true, Label: lblFoo}
+
+	ctx := SearchContext{
+		From: []Label{lblFoo},
+		To:   []Label{lblBar},
+	}
+	ctx2 := SearchContext{
+		From: []Label{lblBaz},
+		To:   []Label{lblBar},
+	}
+
+	c.Assert(allow.Allows(&ctx), Equals, ACCEPT)
+	c.Assert(allowInverted.Allows(&ctx), Equals, DENY)
+	c.Assert(allow.Allows(&ctx2), Equals, UNDECIDED)
+	c.Assert(allowInverted.Allows(&ctx2), Equals, UNDECIDED)
 }
