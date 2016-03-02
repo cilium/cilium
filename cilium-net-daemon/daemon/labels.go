@@ -100,3 +100,16 @@ func (d Daemon) GetLabels(id int) (*types.Labels, error) {
 	}
 	return &labels, nil
 }
+
+func (d Daemon) GetMaxID() (int, error) {
+	var lastID int
+	k, _, err := d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
+	if err != nil {
+		return -1, err
+	}
+	if err := json.Unmarshal(k.Value, &lastID); err != nil {
+		return -1, err
+	}
+
+	return lastID, nil
+}

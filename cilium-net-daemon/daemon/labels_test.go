@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"encoding/json"
-	"reflect"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -29,8 +28,6 @@ var (
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
-	c.Skip("To test, enable a consul environment")
-	// Make client config
 	conf := DefaultConfig()
 
 	d, err := NewDaemon("", nil, nil, conf)
@@ -40,7 +37,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TestLabels(c *C) {
-	c.Skip("To test, enable a consul environment")
 	//Set up last free ID with zero
 	kv := ds.d.consul.KV()
 	byteJSON, err := json.Marshal(0)
@@ -49,10 +45,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	_, err = kv.Put(p, nil)
 	c.Assert(err, Equals, nil)
 
-	kvPair, _, err := kv.Get(common.LastFreeIDKeyPath, nil)
-	c.Assert(err, Equals, nil)
-	var id int
-	err = json.Unmarshal(kvPair.Value, &id)
+	id, err := ds.d.GetMaxID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 0)
 
@@ -79,15 +72,14 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	//Get labels from ID
 	gotLabels, err := ds.d.GetLabels(0)
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(*gotLabels, lbls), Equals, true)
+	c.Assert(*gotLabels, DeepEquals, lbls)
 
 	gotLabels, err = ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(*gotLabels, lbls2), Equals, true)
+	c.Assert(*gotLabels, DeepEquals, lbls2)
 }
 
 func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
-	c.Skip("To test, enable a consul environment")
 	//Set up last free ID with common.MaxSetOfLabels - 1
 	kv := ds.d.consul.KV()
 	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
@@ -96,10 +88,7 @@ func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
 	_, err = kv.Put(p, nil)
 	c.Assert(err, Equals, nil)
 
-	kvPair, _, err := kv.Get(common.LastFreeIDKeyPath, nil)
-	c.Assert(err, Equals, nil)
-	var id int
-	err = json.Unmarshal(kvPair.Value, &id)
+	id, err := ds.d.GetMaxID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 
@@ -111,6 +100,19 @@ func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
 	c.Assert(strings.Contains(err.Error(), "maximum"), Equals, true)
 
 	id, err = ds.d.GetLabelsID(lbls)
+	c.Assert(err, Equals, nil)
+	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
+}
+
+func (ds *DaemonSuite) TestGetMaxID(c *C) {
+	kv := ds.d.consul.KV()
+	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
+	c.Assert(err, Equals, nil)
+	p := &KVPair{Key: common.LastFreeIDKeyPath, Value: byteJSON}
+	_, err = kv.Put(p, nil)
+	c.Assert(err, Equals, nil)
+
+	id, err := ds.d.GetMaxID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 }

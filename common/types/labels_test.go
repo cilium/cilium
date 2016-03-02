@@ -1,8 +1,6 @@
 package types
 
 import (
-	"reflect"
-
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
 
@@ -32,5 +30,5 @@ func (s *LabelsSuite) TestSHA256Sum(c *C) {
 
 func (s *LabelsSuite) TestSortMap(c *C) {
 	sortedMap := lbls.sortMap()
-	c.Assert(reflect.DeepEqual(lblsArray, sortedMap), Equals, true, Commentf("\nwant = %+v,\n got = %+v", lblsArray, sortedMap))
+	c.Assert(lblsArray, DeepEquals, sortedMap, Commentf("\nwant = %+v,\n got = %+v", lblsArray, sortedMap))
 }

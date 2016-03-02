@@ -31,10 +31,22 @@ func (r *Router) initRoutes() {
 			"ReleaseIPv6", "DELETE", "/allocator/container/{containerID}", r.releaseIPv6,
 		},
 		Route{
-			"GetLabels", "GET", "/labels/{uuid}", r.getLabels,
+			"GetLabels", "GET", "/labels/by-uuid/{uuid}", r.getLabels,
 		},
 		Route{
 			"GetLabelsID", "POST", "/labels", r.getLabelsID,
+		},
+		Route{
+			"GetMaxID", "GET", "/labels/status/maxUUID", r.getMaxUUID,
+		},
+		Route{
+			"PolicyAdd", "POST", "/policy/{path}", r.policyAdd,
+		},
+		Route{
+			"PolicyDelete", "DELETE", "/policy/{path}", r.policyDelete,
+		},
+		Route{
+			"PolicyGet", "GET", "/policy/{path}", r.policyGet,
 		},
 	}
 }
