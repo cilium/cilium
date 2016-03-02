@@ -40,17 +40,17 @@ func (d *ConsumableDecision) String() string {
 	return "unknown"
 }
 
-type Label struct {
+type KeyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 }
 
-type LabelSelector struct {
-	Label
+type Label struct {
+	KeyValue
 	Source string
 }
 
-func (l *LabelSelector) String() string {
+func (l *Label) String() string {
 	if l.Value != "" {
 		return fmt.Sprintf("%s=%s", l.Key, l.Value)
 	} else {
@@ -58,7 +58,13 @@ func (l *LabelSelector) String() string {
 	}
 }
 
-func (l *LabelSelector) UnmarshalJSON(data []byte) error {
+func (l *Label) Compare(b *Label) bool {
+	return strings.Compare(l.Source, b.Source) == 0 &&
+		strings.Compare(l.Key, b.Key) == 0 &&
+		strings.Compare(l.Value, b.Value) == 0
+}
+
+func (l *Label) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	if l == nil {
@@ -66,7 +72,7 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 	}
 
 	if len(data) == 0 {
-		return fmt.Errorf("Invalid LabelSelector: empty data")
+		return fmt.Errorf("Invalid Label: empty data")
 	}
 
 	if bytes.Contains(data, []byte(`"source":`)) {
@@ -77,11 +83,11 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 		}
 
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of LabelSelector failed: %+v", err)
+			return fmt.Errorf("Decode of Label failed: %+v", err)
 		}
 
 		if aux.Key == "" {
-			return fmt.Errorf("Invalid LabelSelector: must provide a label key")
+			return fmt.Errorf("Invalid Label: must provide a label key")
 		}
 
 		l.Source = aux.Source
@@ -93,11 +99,11 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 		var aux string
 
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of LabelSelector as string failed: %+v", err)
+			return fmt.Errorf("Decode of Label as string failed: %+v", err)
 		}
 
 		if aux == "" {
-			return fmt.Errorf("Invalid LabelSelector: must provide a label key")
+			return fmt.Errorf("Invalid Label: must provide a label key")
 		}
 
 		l.Source = "cilium"
@@ -109,13 +115,13 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 }
 
 // FIXME: Write test cases
-func (l *LabelSelector) Expand(node *PolicyNode) string {
+func (l *Label) Expand(node *PolicyNode) string {
 	return fmt.Sprintf("%s.%s", node.FullName(), l)
 }
 
 type SearchContext struct {
-	From []LabelSelector
-	To   []LabelSelector
+	From []Label
+	To   []Label
 }
 
 // Base type for all PolicyRule* types
@@ -125,7 +131,7 @@ type PolicyRuleBase struct {
 
 type AllowRule struct {
 	Inverted bool `json:"inverted,omitempty"`
-	Label    LabelSelector
+	Label    Label
 }
 
 func (a *AllowRule) UnmarshalJSON(data []byte) error {
@@ -137,7 +143,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Invalid AllowRule: empty data")
 	}
 
-	var aux LabelSelector
+	var aux Label
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&aux); err != nil {
@@ -156,6 +162,20 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
+	for _, label := range ctx.From {
+		if label.Compare(&a.Label) {
+			if a.Inverted {
+				return DENY
+			} else {
+				return ACCEPT
+			}
+		}
+	}
+
+	return UNDECIDED
+}
+
 // Allow the following consumers
 type PolicyRuleConsumers struct {
 	PolicyRuleBase
@@ -163,21 +183,18 @@ type PolicyRuleConsumers struct {
 }
 
 func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
-	//decision := UNDECIDED
-	//for _, allowedLabel := range c.Allow {
-	//	if val, ok := ctx.from[allowedLabel]; ok {
-	//		decision = val.Decision
-	//	}
+	decision := UNDECIDED
+	//for _, allowRule := range c.Allow {
 	//}
 
-	return UNDECIDED
+	return decision
 }
 
 // Any further consumer requires the specified list of
 // labels in order to consume
 type PolicyRuleRequires struct {
 	PolicyRuleBase
-	Requires []LabelSelector `json:"Requires"`
+	Requires []Label `json:"Requires"`
 }
 
 type Port struct {
