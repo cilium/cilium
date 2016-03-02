@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -43,7 +42,7 @@ func (s *CiliumNetClientSuite) TestGetIPsOK(c *C) {
 
 	ipamConfigReceived, err := cli.AllocateIPs("11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
 	c.Assert(err, Equals, nil)
-	c.Assert(reflect.DeepEqual(*ipamConfigReceived, ipamConfig), Equals, true)
+	c.Assert(*ipamConfigReceived, DeepEquals, ipamConfig)
 }
 
 func (s *CiliumNetClientSuite) TestGetIPsFail(c *C) {

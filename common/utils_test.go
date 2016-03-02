@@ -25,11 +25,11 @@ func (s *CommonSuite) TestfmtV6Prefix(c *C) {
 }
 
 func (s *CommonSuite) TestSwab16(c *C) {
-	c.Assert(Swab16(0xAABB) != 0xBBAA, Equals, false,
+	c.Assert(Swab16(0xAABB), Equals, uint16(0xBBAA),
 		Commentf("Swab16 failed: Swab16(0xAABB) != 0xBBAA"))
 }
 
 func (s *CommonSuite) TestSwab32(c *C) {
-	c.Assert(Swab32(0xAABBCCDD) != 0xDDCCBBAA, Equals, false,
+	c.Assert(Swab32(0xAABBCCDD), Equals, uint32(0xDDCCBBAA),
 		Commentf("Swab32 failed: Swab16(0xAABBCCDD) != 0xDDCCBBAA"))
 }
