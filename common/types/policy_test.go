@@ -75,3 +75,35 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	err = json.Unmarshal([]byte(""), &rule)
 	c.Assert(err, Not(Equals), nil)
 }
+
+func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
+	foo := PolicyNode{
+		Name: "foo",
+	}
+	bar := PolicyNode{
+		Name: "bar",
+	}
+	root := PolicyNode{
+		Name: "io.cilium",
+		Children: map[string]*PolicyNode{
+			"foo": &foo,
+			"bar": &bar,
+		},
+	}
+
+	foo.Parent = &root
+	bar.Parent = &root
+
+	lblRoot := LabelSelector{Label{"io.cilium", ""}, "cilium"}
+	lblFoo := LabelSelector{Label{"io.cilium.foo", ""}, "cilium"}
+
+	ctx := SearchContext{To: []LabelSelector{lblFoo}}
+	c.Assert(root.Covers(&ctx), Equals, true)
+	c.Assert(foo.Covers(&ctx), Equals, true)
+	c.Assert(bar.Covers(&ctx), Equals, false)
+
+	ctx = SearchContext{To: []LabelSelector{lblRoot}}
+	c.Assert(root.Covers(&ctx), Equals, true)
+	c.Assert(foo.Covers(&ctx), Equals, false)
+	c.Assert(bar.Covers(&ctx), Equals, false)
+}
