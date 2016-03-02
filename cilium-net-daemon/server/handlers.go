@@ -135,6 +135,23 @@ func (router *Router) getLabelsID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {
+	id, err := router.daemon.GetMaxID()
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	lr := types.LabelsResponse{
+		ID: id,
+	}
+	e := json.NewEncoder(w)
+	if err := e.Encode(lr); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
 func (router *Router) policyAdd(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path, exists := vars["path"]

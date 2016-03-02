@@ -14,6 +14,7 @@ type TestDaemon struct {
 	OnPing          func() (string, error)
 	OnGetLabelsID   func(labels types.Labels) (int, error)
 	OnGetLabels     func(id int) (*types.Labels, error)
+	OnGetMaxID      func() (int, error)
 	OnPolicyAdd     func(path string, node types.PolicyNode) error
 	OnPolicyDelete  func(path string) error
 	OnPolicyGet     func(path string) (*types.PolicyNode, error)
@@ -70,6 +71,13 @@ func (d TestDaemon) GetLabels(id int) (*types.Labels, error) {
 		return d.OnGetLabels(id)
 	}
 	return nil, errors.New("GetLabels should not have been called")
+}
+
+func (d TestDaemon) GetMaxID() (int, error) {
+	if d.OnGetMaxID != nil {
+		return d.OnGetMaxID()
+	}
+	return -1, errors.New("GetMaxID should not have been called")
 }
 
 func (d TestDaemon) PolicyAdd(path string, node types.PolicyNode) error {

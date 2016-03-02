@@ -35,7 +35,7 @@ func (cli Client) GetLabelsID(labels types.Labels) (int, error) {
 func (cli Client) GetLabels(id int) (*types.Labels, error) {
 	query := url.Values{}
 
-	serverResp, err := cli.get("/labels/"+strconv.Itoa(id), query, nil)
+	serverResp, err := cli.get("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -58,4 +58,27 @@ func (cli Client) GetLabels(id int) (*types.Labels, error) {
 	}
 
 	return &labels, nil
+}
+
+func (cli Client) GetMaxID() (int, error) {
+	query := url.Values{}
+
+	serverResp, err := cli.get("/labels/status/maxUUID", query, nil)
+	if err != nil {
+		return -1, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusOK {
+		return -1, processErrorBody(serverResp.body, nil)
+	}
+
+	jd := json.NewDecoder(serverResp.body)
+	var lblResponse types.LabelsResponse
+	if err := jd.Decode(&lblResponse); err != nil {
+		return -1, err
+	}
+
+	return lblResponse.ID, nil
 }
