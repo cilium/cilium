@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/noironetworks/cilium-net/common"
 )
 
 // Available privileges for policy nodes to define
@@ -116,7 +118,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 
 // FIXME: Write test cases
 func (l *Label) Expand(node *PolicyNode) string {
-	return fmt.Sprintf("%s.%s", node.FullName(), l)
+	return fmt.Sprintf("%s.%s", node.Path, l)
 }
 
 type SearchContext struct {
@@ -216,17 +218,16 @@ type PolicyRuleDropPrivileges struct {
 // Node to define hierarchy of rules
 type PolicyNode struct {
 	Name     string
+	Path     string                 `json:"-"`
 	Parent   *PolicyNode            `json:"-"`
 	Rules    []interface{}          `json:"Rules,omitempty"`
 	Children map[string]*PolicyNode `json:"Children,omitempty"`
 }
 
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
-	// FIXME: Cache somewhere
-	fn := p.FullName()
-
 	for _, label := range ctx.To {
-		if strings.Compare(label.Source, "cilium") == 0 && strings.HasPrefix(label.Key, fn) {
+		if strings.Compare(label.Source, "cilium") == 0 &&
+			strings.HasPrefix(label.Key, p.Path) {
 			return true
 		}
 	}
@@ -239,13 +240,44 @@ type PolicyTree struct {
 	Root PolicyNode
 }
 
-func (pn *PolicyNode) FullName() string {
+func (pn *PolicyNode) BuildPath() (string, error) {
 	if pn.Parent != nil {
-		s := fmt.Sprintf("%s.%s", pn.Parent.FullName(), pn.Name)
-		return s
+		// Optimization: if parent has calculated path already (likely),
+		// we don't have to walk to the entire root again
+		if pn.Parent.Path != "" {
+			return fmt.Sprintf("%s.%s", pn.Parent.Path, pn.Name), nil
+		}
+
+		if s, err := pn.Parent.BuildPath(); err != nil {
+			return "", err
+		} else {
+			return fmt.Sprintf("%s.%s", s, pn.Name), nil
+		}
 	}
 
-	return "io.cilium"
+	if pn.Name != common.GlobalLabelPrefix {
+		return "", fmt.Errorf("Error in policy: node %s is lacking parent", pn.Name)
+
+	}
+
+	return common.GlobalLabelPrefix, nil
+}
+
+func (pn *PolicyNode) resolvePath() error {
+	var err error
+
+	pn.Path, err = pn.BuildPath()
+	if err != nil {
+		return err
+	}
+
+	for _, val := range pn.Children {
+		if err = val.resolvePath(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
@@ -268,6 +300,15 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	for k, _ := range policyNode.Children {
 		pn.Children[k].Name = k
 		pn.Children[k].Parent = pn
+	}
+
+	// We have now parsed all children in a recursive manner and are back
+	// to the root node. Walk the tree again to resolve the path of each
+	// node.
+	if pn.Name == common.GlobalLabelPrefix {
+		if err := pn.resolvePath(); err != nil {
+			return err
+		}
 	}
 
 	for _, rawMsg := range policyNode.Rules {

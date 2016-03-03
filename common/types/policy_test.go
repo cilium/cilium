@@ -3,6 +3,8 @@ package types
 import (
 	"encoding/json"
 
+	"github.com/noironetworks/cilium-net/common"
+
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
 
@@ -142,4 +144,29 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	c.Assert(allowInverted.Allows(&ctx), Equals, DENY)
 	c.Assert(allow.Allows(&ctx2), Equals, UNDECIDED)
 	c.Assert(allowInverted.Allows(&ctx2), Equals, UNDECIDED)
+}
+
+func (s *CommonSuite) TestBuildPath(c *C) {
+	rootNode := PolicyNode{Name: common.GlobalLabelPrefix}
+	p, err := rootNode.BuildPath()
+	c.Assert(p, Equals, common.GlobalLabelPrefix)
+	c.Assert(err, Equals, nil)
+
+	// missing parent assignment
+	fooNode := PolicyNode{Name: "foo"}
+	p, err = fooNode.BuildPath()
+	c.Assert(p, Equals, "")
+	c.Assert(err, Not(Equals), nil)
+
+	rootNode.Children = map[string]*PolicyNode{"foo": &fooNode}
+	fooNode.Parent = &rootNode
+	p, err = fooNode.BuildPath()
+	c.Assert(p, Equals, common.GlobalLabelPrefix+".foo")
+	c.Assert(err, Equals, nil)
+
+	err = rootNode.resolvePath()
+	c.Assert(err, Equals, nil)
+	c.Assert(rootNode.Path, Equals, common.GlobalLabelPrefix)
+	c.Assert(fooNode.Path, Equals, common.GlobalLabelPrefix+".foo")
+
 }
