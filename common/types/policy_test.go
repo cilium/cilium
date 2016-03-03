@@ -91,7 +91,7 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	foo.Parent = &root
 	bar.Parent = &root
 
-	err := root.resolvePath()
+	err := root.resolveTree()
 	c.Assert(err, Equals, nil)
 
 	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
@@ -264,9 +264,34 @@ func (s *CommonSuite) TestBuildPath(c *C) {
 	c.Assert(p, Equals, common.GlobalLabelPrefix+".foo")
 	c.Assert(err, Equals, nil)
 
-	err = rootNode.resolvePath()
+	err = rootNode.resolveTree()
 	c.Assert(err, Equals, nil)
 	c.Assert(rootNode.path, Equals, common.GlobalLabelPrefix)
 	c.Assert(fooNode.path, Equals, common.GlobalLabelPrefix+".foo")
 
+}
+
+func (s *CommonSuite) TestValidateCoverage(c *C) {
+	rootNode := PolicyNode{Name: common.GlobalLabelPrefix}
+	node := PolicyNode{
+		Name:   "foo",
+		Parent: &rootNode,
+	}
+
+	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	consumer := PolicyRuleConsumers{
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
+	}
+	c.Assert(consumer.Validate(&node), Not(Equals), nil)
+
+	consumer2 := PolicyRuleRequires{
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
+	}
+	c.Assert(consumer2.Validate(&node), Not(Equals), nil)
+
+	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	consumer = PolicyRuleConsumers{
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
+	}
+	c.Assert(consumer.Validate(&node), Equals, nil)
 }

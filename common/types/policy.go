@@ -132,6 +132,17 @@ type PolicyRuleBase struct {
 	Coverage []Label `json:"Coverage,omitempty"`
 }
 
+func (b *PolicyRuleBase) Validate(node *PolicyNode) error {
+	for _, label := range b.Coverage {
+		if !strings.HasPrefix(label.Key, node.Path()) {
+			return fmt.Errorf("Label %s does not share prefix of node %s",
+				label.Key, node.Path())
+		}
+	}
+
+	return nil
+}
+
 type AllowRule struct {
 	Inverted bool `json:"inverted,omitempty"`
 	Label    Label
@@ -286,7 +297,28 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 	return common.GlobalLabelPrefix, nil
 }
 
-func (pn *PolicyNode) resolvePath() error {
+func (pn *PolicyNode) ValidateRules() error {
+	for _, rule := range pn.Rules {
+		switch rule.(type) {
+		case PolicyRuleConsumers:
+			r := rule.(PolicyRuleConsumers)
+			if err := r.Validate(pn); err != nil {
+				return err
+			}
+			break
+		case PolicyRuleRequires:
+			r := rule.(PolicyRuleRequires)
+			if err := r.Validate(pn); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+func (pn *PolicyNode) resolveTree() error {
 	var err error
 
 	pn.path, err = pn.BuildPath()
@@ -294,8 +326,12 @@ func (pn *PolicyNode) resolvePath() error {
 		return err
 	}
 
+	if err := pn.ValidateRules(); err != nil {
+		return err
+	}
+
 	for _, val := range pn.Children {
-		if err = val.resolvePath(); err != nil {
+		if err = val.resolveTree(); err != nil {
 			return err
 		}
 	}
@@ -329,7 +365,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	// to the root node. Walk the tree again to resolve the path of each
 	// node.
 	if pn.Name == common.GlobalLabelPrefix {
-		if err := pn.resolvePath(); err != nil {
+		if err := pn.resolveTree(); err != nil {
 			return err
 		}
 	}
