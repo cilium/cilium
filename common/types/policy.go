@@ -52,14 +52,6 @@ type Label struct {
 	Source string
 }
 
-func (l *Label) String() string {
-	if l.Value != "" {
-		return fmt.Sprintf("%s=%s", l.Key, l.Value)
-	} else {
-		return l.Key
-	}
-}
-
 func (l *Label) Compare(b *Label) bool {
 	return l.Source == b.Source && l.Key == b.Key && l.Value == b.Value
 }
@@ -114,9 +106,8 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// FIXME: Write test cases
-func (l *Label) Expand(node *PolicyNode) string {
-	return fmt.Sprintf("%s.%s", node.Path(), l)
+func (l *Label) ExpandKey(node *PolicyNode) string {
+	return fmt.Sprintf("%s.%s", node.Path(), l.Key)
 }
 
 type SearchContext struct {
@@ -124,9 +115,21 @@ type SearchContext struct {
 	To   []Label
 }
 
+func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
+	for _, covLabel := range *coverage {
+		for _, toLabel := range s.To {
+			if covLabel.Compare(&toLabel) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // Base type for all PolicyRule* types
 type PolicyRuleBase struct {
-	Coverage []string `json:"Coverage,omitempty"`
+	Coverage []Label `json:"Coverage,omitempty"`
 }
 
 type AllowRule struct {
@@ -186,6 +189,10 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	// A decision is undecided until we encoutner a DENY or ACCEPT.
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := UNDECIDED
+
+	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(&c.Coverage) {
+		return UNDECIDED
+	}
 
 	for _, allowRule := range c.Allow {
 		switch allowRule.Allows(ctx) {
