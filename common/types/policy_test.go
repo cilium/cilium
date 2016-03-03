@@ -24,7 +24,6 @@ func (s *CommonSuite) TestLabel(c *C) {
 	c.Assert(label.Source, Equals, "kubernetes")
 	c.Assert(label.Key, Equals, "io.kubernetes.pod.name")
 	c.Assert(label.Value, Equals, "foo")
-	c.Assert(label.String(), Equals, "io.kubernetes.pod.name=foo")
 
 	err = json.Unmarshal([]byte(invLabel), &label)
 	c.Assert(err, Not(Equals), nil)
@@ -34,7 +33,6 @@ func (s *CommonSuite) TestLabel(c *C) {
 	c.Assert(label.Source, Equals, "cilium")
 	c.Assert(label.Key, Equals, "web")
 	c.Assert(label.Value, Equals, "")
-	c.Assert(label.String(), Equals, "web")
 
 	err = json.Unmarshal([]byte(""), &label)
 	c.Assert(err, Not(Equals), nil)
@@ -54,7 +52,6 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(rule.Label.Source, Equals, "kubernetes")
 	c.Assert(rule.Label.Key, Equals, "io.kubernetes.pod.name")
 	c.Assert(rule.Label.Value, Equals, "foo")
-	c.Assert(rule.Label.String(), Equals, "io.kubernetes.pod.name=foo")
 
 	err = json.Unmarshal([]byte(invLabel), &rule)
 	c.Assert(err, Not(Equals), nil)
@@ -64,7 +61,6 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(rule.Label.Source, Equals, "cilium")
 	c.Assert(rule.Label.Key, Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
-	c.Assert(rule.Label.String(), Equals, "web")
 
 	err = json.Unmarshal([]byte(invertedLabel), &rule)
 	c.Assert(err, Equals, nil)
@@ -72,7 +68,6 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(rule.Label.Source, Equals, "cilium")
 	c.Assert(rule.Label.Key, Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
-	c.Assert(rule.Label.String(), Equals, "web")
 
 	err = json.Unmarshal([]byte(""), &rule)
 	c.Assert(err, Not(Equals), nil)
@@ -149,6 +144,35 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	c.Assert(allowInverted.Allows(&ctx2), Equals, UNDECIDED)
 }
 
+func (s *CommonSuite) TestTargetCoveredBy(c *C) {
+	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	lblBaz := Label{KeyValue{"io.cilium.baz", ""}, "kubernetes"}
+	lblJoe := Label{KeyValue{"io.cilium.user", "joe"}, "kubernetes"}
+
+	list1 := []Label{lblFoo}
+	list2 := []Label{lblBar, lblBaz}
+	list3 := []Label{lblFoo, lblJoe}
+
+	// any -> io.cilium.bar
+	ctx := SearchContext{To: []Label{lblBar}}
+	c.Assert(ctx.TargetCoveredBy(&list1), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(&list2), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(&list3), Equals, false)
+
+	// any -> kubernetes:io.cilium.baz
+	ctx = SearchContext{To: []Label{lblBaz}}
+	c.Assert(ctx.TargetCoveredBy(&list1), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(&list2), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(&list3), Equals, false)
+
+	// any -> [kubernetes:io.cilium.user=joe, io.cilium.foo]
+	ctx = SearchContext{To: []Label{lblJoe, lblFoo}}
+	c.Assert(ctx.TargetCoveredBy(&list1), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(&list2), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(&list3), Equals, true)
+}
+
 func (s *CommonSuite) TestAllowConsumer(c *C) {
 	lblTeamA := Label{KeyValue{"io.cilium.teamA", ""}, "cilium"}
 	lblTeamB := Label{KeyValue{"io.cilium.teamB", ""}, "cilium"}
@@ -187,7 +211,8 @@ func (s *CommonSuite) TestAllowConsumer(c *C) {
 
 	// Allow: foo, !foo
 	consumers := PolicyRuleConsumers{
-		Allow: []AllowRule{allowFoo, dontAllowFoo},
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
+		Allow:          []AllowRule{allowFoo, dontAllowFoo},
 	}
 
 	// NOTE: We are testing on single consumer rule leve, there is
@@ -200,13 +225,25 @@ func (s *CommonSuite) TestAllowConsumer(c *C) {
 
 	// Allow: TeamA, !baz
 	consumers = PolicyRuleConsumers{
-		Allow: []AllowRule{allowTeamA, dontAllowBaz},
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
+		Allow:          []AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, ACCEPT)
 	c.Assert(consumers.Allows(&a_baz_to_bar), Equals, DENY)
 	c.Assert(consumers.Allows(&b_foo_to_bar), Equals, UNDECIDED)
 	c.Assert(consumers.Allows(&b_baz_to_bar), Equals, DENY)
+
+	// Allow: TeamA, !baz
+	consumers = PolicyRuleConsumers{
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
+		Allow:          []AllowRule{allowTeamA, dontAllowBaz},
+	}
+
+	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&a_baz_to_bar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&b_foo_to_bar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&b_baz_to_bar), Equals, UNDECIDED)
 }
 
 func (s *CommonSuite) TestBuildPath(c *C) {
