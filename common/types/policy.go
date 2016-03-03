@@ -183,9 +183,19 @@ type PolicyRuleConsumers struct {
 }
 
 func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
+	// A decision is undecided until we encoutner a DENY or ACCEPT.
+	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := UNDECIDED
-	//for _, allowRule := range c.Allow {
-	//}
+
+	for _, allowRule := range c.Allow {
+		switch allowRule.Allows(ctx) {
+		case DENY:
+			return DENY
+		case ACCEPT:
+			decision = ACCEPT
+			break
+		}
+	}
 
 	return decision
 }

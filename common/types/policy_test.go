@@ -130,7 +130,7 @@ func (s *CommonSuite) TestLabelCompare(c *C) {
 func (s *CommonSuite) TestAllowRule(c *C) {
 	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
 	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
-	lblBaz := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	lblBaz := Label{KeyValue{"io.cilium.baz", ""}, "cilium"}
 	allow := AllowRule{Label: lblFoo}
 	allowInverted := AllowRule{Inverted: true, Label: lblFoo}
 
@@ -147,6 +147,66 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	c.Assert(allowInverted.Allows(&ctx), Equals, DENY)
 	c.Assert(allow.Allows(&ctx2), Equals, UNDECIDED)
 	c.Assert(allowInverted.Allows(&ctx2), Equals, UNDECIDED)
+}
+
+func (s *CommonSuite) TestAllowConsumer(c *C) {
+	lblTeamA := Label{KeyValue{"io.cilium.teamA", ""}, "cilium"}
+	lblTeamB := Label{KeyValue{"io.cilium.teamB", ""}, "cilium"}
+	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	lblBaz := Label{KeyValue{"io.cilium.baz", ""}, "cilium"}
+
+	// [Foo,TeamA] -> Bar
+	a_foo_to_bar := SearchContext{
+		From: []Label{lblTeamA, lblFoo},
+		To:   []Label{lblBar},
+	}
+
+	// [Baz, TeamA] -> Bar
+	a_baz_to_bar := SearchContext{
+		From: []Label{lblTeamA, lblBaz},
+		To:   []Label{lblBar},
+	}
+
+	// [Foo,TeamB] -> Bar
+	b_foo_to_bar := SearchContext{
+		From: []Label{lblTeamB, lblFoo},
+		To:   []Label{lblBar},
+	}
+
+	// [Baz, TeamB] -> Bar
+	b_baz_to_bar := SearchContext{
+		From: []Label{lblTeamB, lblBaz},
+		To:   []Label{lblBar},
+	}
+
+	allowFoo := AllowRule{Label: lblFoo}
+	dontAllowFoo := AllowRule{Inverted: true, Label: lblFoo}
+	allowTeamA := AllowRule{Label: lblTeamA}
+	dontAllowBaz := AllowRule{Inverted: true, Label: lblBaz}
+
+	// Allow: foo, !foo
+	consumers := PolicyRuleConsumers{
+		Allow: []AllowRule{allowFoo, dontAllowFoo},
+	}
+
+	// NOTE: We are testing on single consumer rule leve, there is
+	// no default deny policy enforced. No match equals UNDECIDED
+
+	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, DENY)
+	c.Assert(consumers.Allows(&b_foo_to_bar), Equals, DENY)
+	c.Assert(consumers.Allows(&a_baz_to_bar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&b_baz_to_bar), Equals, UNDECIDED)
+
+	// Allow: TeamA, !baz
+	consumers = PolicyRuleConsumers{
+		Allow: []AllowRule{allowTeamA, dontAllowBaz},
+	}
+
+	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, ACCEPT)
+	c.Assert(consumers.Allows(&a_baz_to_bar), Equals, DENY)
+	c.Assert(consumers.Allows(&b_foo_to_bar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&b_baz_to_bar), Equals, DENY)
 }
 
 func (s *CommonSuite) TestBuildPath(c *C) {
