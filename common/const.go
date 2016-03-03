@@ -15,6 +15,8 @@ const (
 	LabelsKeyPath     = OperationalPath + "/SHA256SUMLabels/"
 	IDKeyPath         = OperationalPath + "/ID/"
 	MaxSetOfLabels    = 0xFFFF
+
+	GlobalLabelPrefix = "io.cilium"
 )
 
 var (

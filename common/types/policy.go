@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/noironetworks/cilium-net/common"
 )
 
 // Available privileges for policy nodes to define
@@ -40,25 +42,21 @@ func (d *ConsumableDecision) String() string {
 	return "unknown"
 }
 
-type Label struct {
+type KeyValue struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 }
 
-type LabelSelector struct {
-	Label
+type Label struct {
+	KeyValue
 	Source string
 }
 
-func (l *LabelSelector) String() string {
-	if l.Value != "" {
-		return fmt.Sprintf("%s=%s", l.Key, l.Value)
-	} else {
-		return l.Key
-	}
+func (l *Label) Compare(b *Label) bool {
+	return l.Source == b.Source && l.Key == b.Key && l.Value == b.Value
 }
 
-func (l *LabelSelector) UnmarshalJSON(data []byte) error {
+func (l *Label) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	if l == nil {
@@ -66,7 +64,7 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 	}
 
 	if len(data) == 0 {
-		return fmt.Errorf("Invalid LabelSelector: empty data")
+		return fmt.Errorf("Invalid Label: empty data")
 	}
 
 	if bytes.Contains(data, []byte(`"source":`)) {
@@ -77,11 +75,11 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 		}
 
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of LabelSelector failed: %+v", err)
+			return fmt.Errorf("Decode of Label failed: %+v", err)
 		}
 
 		if aux.Key == "" {
-			return fmt.Errorf("Invalid LabelSelector: must provide a label key")
+			return fmt.Errorf("Invalid Label: must provide a label key")
 		}
 
 		l.Source = aux.Source
@@ -93,11 +91,11 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 		var aux string
 
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of LabelSelector as string failed: %+v", err)
+			return fmt.Errorf("Decode of Label as string failed: %+v", err)
 		}
 
 		if aux == "" {
-			return fmt.Errorf("Invalid LabelSelector: must provide a label key")
+			return fmt.Errorf("Invalid Label: must provide a label key")
 		}
 
 		l.Source = "cilium"
@@ -108,24 +106,46 @@ func (l *LabelSelector) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// FIXME: Write test cases
-func (l *LabelSelector) Expand(node *PolicyNode) string {
-	return fmt.Sprintf("%s.%s", node.FullName(), l)
+func (l *Label) ExpandKey(node *PolicyNode) string {
+	return fmt.Sprintf("%s.%s", node.Path(), l.Key)
 }
 
 type SearchContext struct {
-	From []LabelSelector
-	To   []LabelSelector
+	From []Label
+	To   []Label
+}
+
+func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
+	for _, covLabel := range *coverage {
+		for _, toLabel := range s.To {
+			if covLabel.Compare(&toLabel) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // Base type for all PolicyRule* types
 type PolicyRuleBase struct {
-	Coverage []string `json:"Coverage,omitempty"`
+	Coverage []Label `json:"Coverage,omitempty"`
+}
+
+func (b *PolicyRuleBase) Validate(node *PolicyNode) error {
+	for _, label := range b.Coverage {
+		if !strings.HasPrefix(label.Key, node.Path()) {
+			return fmt.Errorf("Label %s does not share prefix of node %s",
+				label.Key, node.Path())
+		}
+	}
+
+	return nil
 }
 
 type AllowRule struct {
 	Inverted bool `json:"inverted,omitempty"`
-	Label    LabelSelector
+	Label    Label
 }
 
 func (a *AllowRule) UnmarshalJSON(data []byte) error {
@@ -137,7 +157,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Invalid AllowRule: empty data")
 	}
 
-	var aux LabelSelector
+	var aux Label
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&aux); err != nil {
@@ -156,6 +176,20 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
+	for _, label := range ctx.From {
+		if label.Compare(&a.Label) {
+			if a.Inverted {
+				return DENY
+			} else {
+				return ACCEPT
+			}
+		}
+	}
+
+	return UNDECIDED
+}
+
 // Allow the following consumers
 type PolicyRuleConsumers struct {
 	PolicyRuleBase
@@ -163,21 +197,32 @@ type PolicyRuleConsumers struct {
 }
 
 func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
-	//decision := UNDECIDED
-	//for _, allowedLabel := range c.Allow {
-	//	if val, ok := ctx.from[allowedLabel]; ok {
-	//		decision = val.Decision
-	//	}
-	//}
+	// A decision is undecided until we encoutner a DENY or ACCEPT.
+	// An ACCEPT can still be overwritten by a DENY inside the same rule.
+	decision := UNDECIDED
 
-	return UNDECIDED
+	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(&c.Coverage) {
+		return UNDECIDED
+	}
+
+	for _, allowRule := range c.Allow {
+		switch allowRule.Allows(ctx) {
+		case DENY:
+			return DENY
+		case ACCEPT:
+			decision = ACCEPT
+			break
+		}
+	}
+
+	return decision
 }
 
 // Any further consumer requires the specified list of
 // labels in order to consume
 type PolicyRuleRequires struct {
 	PolicyRuleBase
-	Requires []LabelSelector `json:"Requires"`
+	Requires []Label `json:"Requires"`
 }
 
 type Port struct {
@@ -199,17 +244,24 @@ type PolicyRuleDropPrivileges struct {
 // Node to define hierarchy of rules
 type PolicyNode struct {
 	Name     string
+	path     string                 `json:"-"`
 	Parent   *PolicyNode            `json:"-"`
 	Rules    []interface{}          `json:"Rules,omitempty"`
 	Children map[string]*PolicyNode `json:"Children,omitempty"`
 }
 
-func (p *PolicyNode) Covers(ctx *SearchContext) bool {
-	// FIXME: Cache somewhere
-	fn := p.FullName()
+func (p *PolicyNode) Path() string {
+	if p.path == "" {
+		p.path, _ = p.BuildPath()
+		// FIXME: handle error?
+	}
 
+	return p.path
+}
+
+func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 	for _, label := range ctx.To {
-		if strings.Compare(label.Source, "cilium") == 0 && strings.HasPrefix(label.Key, fn) {
+		if strings.HasPrefix(label.Key, p.Path()) {
 			return true
 		}
 	}
@@ -222,13 +274,69 @@ type PolicyTree struct {
 	Root PolicyNode
 }
 
-func (pn *PolicyNode) FullName() string {
+func (pn *PolicyNode) BuildPath() (string, error) {
 	if pn.Parent != nil {
-		s := fmt.Sprintf("%s.%s", pn.Parent.FullName(), pn.Name)
-		return s
+		// Optimization: if parent has calculated path already (likely),
+		// we don't have to walk to the entire root again
+		if pn.Parent.path != "" {
+			return fmt.Sprintf("%s.%s", pn.Parent.path, pn.Name), nil
+		}
+
+		if s, err := pn.Parent.BuildPath(); err != nil {
+			return "", err
+		} else {
+			return fmt.Sprintf("%s.%s", s, pn.Name), nil
+		}
 	}
 
-	return "io.cilium"
+	if pn.Name != common.GlobalLabelPrefix {
+		return "", fmt.Errorf("Error in policy: node %s is lacking parent", pn.Name)
+
+	}
+
+	return common.GlobalLabelPrefix, nil
+}
+
+func (pn *PolicyNode) ValidateRules() error {
+	for _, rule := range pn.Rules {
+		switch rule.(type) {
+		case PolicyRuleConsumers:
+			r := rule.(PolicyRuleConsumers)
+			if err := r.Validate(pn); err != nil {
+				return err
+			}
+			break
+		case PolicyRuleRequires:
+			r := rule.(PolicyRuleRequires)
+			if err := r.Validate(pn); err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	return nil
+}
+
+func (pn *PolicyNode) resolveTree() error {
+	var err error
+
+	pn.path, err = pn.BuildPath()
+	if err != nil {
+		return err
+	}
+
+	if err := pn.ValidateRules(); err != nil {
+		return err
+	}
+
+	for _, val := range pn.Children {
+		if err = val.resolveTree(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
@@ -251,6 +359,15 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	for k, _ := range policyNode.Children {
 		pn.Children[k].Name = k
 		pn.Children[k].Parent = pn
+	}
+
+	// We have now parsed all children in a recursive manner and are back
+	// to the root node. Walk the tree again to resolve the path of each
+	// node.
+	if pn.Name == common.GlobalLabelPrefix {
+		if err := pn.resolveTree(); err != nil {
+			return err
+		}
 	}
 
 	for _, rawMsg := range policyNode.Rules {
