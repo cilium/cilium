@@ -8,8 +8,8 @@
 #include "eth.h"
 #include "dbg.h"
 
-#define IPV6_SRC_PREFIX { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0 }
-#define IPV6_DST_PREFIX { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0 }
+#define IPV6_SRC_PREFIX 0xbeef0000
+#define IPV6_DST_PREFIX 0xdead0000
 
 static inline int get_csum_offset(__u8 protocol)
 {
@@ -37,18 +37,22 @@ static inline int get_csum_offset(__u8 protocol)
 
 static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 {
-	struct ipv6hdr v6 = { .version = 0x6, .saddr.in6_u.u6_addr8 = IPV6_SRC_PREFIX, .daddr.in6_u.u6_addr8 = IPV6_DST_PREFIX };
+	struct ipv6hdr v6 = {};
 	struct iphdr v4 = {};
 	int csum_off;
 	int pushoff;
 	__be32 csum = 0;
 	__be16 v4hdr_len;
 	__be16 protocol = htons(ETH_P_IPV6);
+	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	
 	if (skb_load_bytes(skb, nh_off, &v4, sizeof(v4)) < 0)
 		return -1;
 
 	/* build v6 header */
+	v6.version = 0x6;
+	v6.saddr.in6_u.u6_addr32[0] = IPV6_SRC_PREFIX;
+	v6.daddr.in6_u.u6_addr32[0] = IPV6_DST_PREFIX;
 	v6.saddr.in6_u.u6_addr32[3] = v4.saddr;
 	v6.daddr.in6_u.u6_addr32[3] = v4.daddr;
 	v6.nexthdr = v4.protocol;
@@ -82,7 +86,9 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 	csum = csum_diff(&v4.daddr, 4, NULL, 0, csum);
 	csum = csum_diff(NULL, 0, &v6.saddr, 16, csum);
 	csum = csum_diff(NULL, 0, &v6.daddr, 16, csum);
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, BPF_F_PSEUDO_HDR);
+	if (v4.protocol == IPPROTO_UDP)
+		csum_flags |= BPF_F_MARK_MANGLED_0;
+	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 	printk("v46 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
@@ -99,6 +105,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	__u8 mac[14] = {};
 	__be32 csum = 0;
 	__be16 protocol = htons(ETH_P_IP);
+	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 
 	if (skb_load_bytes(skb, 0, mac, sizeof(mac)) < 0)
 		return -1;
@@ -142,7 +149,9 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	csum = csum_diff(&v6.daddr, 16, NULL, 0, csum);
 	csum = csum_diff(NULL, 0, &v4.saddr, 4, csum);
 	csum = csum_diff(NULL, 0, &v4.daddr, 4, csum);
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, BPF_F_PSEUDO_HDR);
+	if (v4.protocol == IPPROTO_UDP)
+		csum_flags |= BPF_F_MARK_MANGLED_0;
+	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 	printk("v64 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
@@ -150,4 +159,19 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	return 0;
 }
 
+static inline int ip_nat_wrapper(struct __sk_buff *skb, int nh_off)
+{
+	__u64 proto = load_half(skb, 12);
+	int ret = -1;
+
+	if (proto == ETH_P_IP) {
+		ret = ipv4_to_ipv6(skb, nh_off);
+	}
+
+	if (proto == ETH_P_IPV6) {
+		ret = ipv6_to_ipv4(skb, nh_off);
+	}
+
+	return ret;
+}
 #endif /* __LIB_NAT46__ */
