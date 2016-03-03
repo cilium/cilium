@@ -86,7 +86,7 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 		Name: "bar",
 	}
 	root := PolicyNode{
-		Name: "io.cilium",
+		Name: common.GlobalLabelPrefix,
 		Children: map[string]*PolicyNode{
 			"foo": &foo,
 			"bar": &bar,
@@ -95,6 +95,9 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 
 	foo.Parent = &root
 	bar.Parent = &root
+
+	err := root.resolvePath()
+	c.Assert(err, Equals, nil)
 
 	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
 	ctx := SearchContext{To: []Label{lblFoo}}
@@ -166,7 +169,7 @@ func (s *CommonSuite) TestBuildPath(c *C) {
 
 	err = rootNode.resolvePath()
 	c.Assert(err, Equals, nil)
-	c.Assert(rootNode.Path, Equals, common.GlobalLabelPrefix)
-	c.Assert(fooNode.Path, Equals, common.GlobalLabelPrefix+".foo")
+	c.Assert(rootNode.path, Equals, common.GlobalLabelPrefix)
+	c.Assert(fooNode.path, Equals, common.GlobalLabelPrefix+".foo")
 
 }

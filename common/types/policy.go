@@ -61,9 +61,7 @@ func (l *Label) String() string {
 }
 
 func (l *Label) Compare(b *Label) bool {
-	return strings.Compare(l.Source, b.Source) == 0 &&
-		strings.Compare(l.Key, b.Key) == 0 &&
-		strings.Compare(l.Value, b.Value) == 0
+	return l.Source == b.Source && l.Key == b.Key && l.Value == b.Value
 }
 
 func (l *Label) UnmarshalJSON(data []byte) error {
@@ -118,7 +116,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 
 // FIXME: Write test cases
 func (l *Label) Expand(node *PolicyNode) string {
-	return fmt.Sprintf("%s.%s", node.Path, l)
+	return fmt.Sprintf("%s.%s", node.Path(), l)
 }
 
 type SearchContext struct {
@@ -218,16 +216,24 @@ type PolicyRuleDropPrivileges struct {
 // Node to define hierarchy of rules
 type PolicyNode struct {
 	Name     string
-	Path     string                 `json:"-"`
+	path     string                 `json:"-"`
 	Parent   *PolicyNode            `json:"-"`
 	Rules    []interface{}          `json:"Rules,omitempty"`
 	Children map[string]*PolicyNode `json:"Children,omitempty"`
 }
 
+func (p *PolicyNode) Path() string {
+	if p.path == "" {
+		p.path, _ = p.BuildPath()
+		// FIXME: handle error?
+	}
+
+	return p.path
+}
+
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 	for _, label := range ctx.To {
-		if strings.Compare(label.Source, "cilium") == 0 &&
-			strings.HasPrefix(label.Key, p.Path) {
+		if strings.HasPrefix(label.Key, p.Path()) {
 			return true
 		}
 	}
@@ -244,8 +250,8 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 	if pn.Parent != nil {
 		// Optimization: if parent has calculated path already (likely),
 		// we don't have to walk to the entire root again
-		if pn.Parent.Path != "" {
-			return fmt.Sprintf("%s.%s", pn.Parent.Path, pn.Name), nil
+		if pn.Parent.path != "" {
+			return fmt.Sprintf("%s.%s", pn.Parent.path, pn.Name), nil
 		}
 
 		if s, err := pn.Parent.BuildPath(); err != nil {
@@ -266,7 +272,7 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 func (pn *PolicyNode) resolvePath() error {
 	var err error
 
-	pn.Path, err = pn.BuildPath()
+	pn.path, err = pn.BuildPath()
 	if err != nil {
 		return err
 	}
