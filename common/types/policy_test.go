@@ -22,7 +22,7 @@ func (s *CommonSuite) TestLabel(c *C) {
 	err := json.Unmarshal([]byte(longLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, "kubernetes")
-	c.Assert(label.Key, Equals, "io.kubernetes.pod.name")
+	c.Assert(label.Key(), Equals, "io.kubernetes.pod.name")
 	c.Assert(label.Value, Equals, "foo")
 
 	err = json.Unmarshal([]byte(invLabel), &label)
@@ -31,7 +31,7 @@ func (s *CommonSuite) TestLabel(c *C) {
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, "cilium")
-	c.Assert(label.Key, Equals, "web")
+	c.Assert(label.Key(), Equals, "web")
 	c.Assert(label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(""), &label)
@@ -50,7 +50,7 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Inverted, Equals, true)
 	c.Assert(rule.Label.Source, Equals, "kubernetes")
-	c.Assert(rule.Label.Key, Equals, "io.kubernetes.pod.name")
+	c.Assert(rule.Label.Key(), Equals, "io.kubernetes.pod.name")
 	c.Assert(rule.Label.Value, Equals, "foo")
 
 	err = json.Unmarshal([]byte(invLabel), &rule)
@@ -59,14 +59,14 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	err = json.Unmarshal([]byte(shortLabel), &rule)
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Label.Source, Equals, "cilium")
-	c.Assert(rule.Label.Key, Equals, "web")
+	c.Assert(rule.Label.Key(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(invertedLabel), &rule)
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Inverted, Equals, true)
 	c.Assert(rule.Label.Source, Equals, "cilium")
-	c.Assert(rule.Label.Key, Equals, "web")
+	c.Assert(rule.Label.Key(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(""), &rule)
@@ -94,13 +94,13 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	err := root.resolveTree()
 	c.Assert(err, Equals, nil)
 
-	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
 	ctx := SearchContext{To: []Label{lblFoo}}
 	c.Assert(root.Covers(&ctx), Equals, true)
 	c.Assert(foo.Covers(&ctx), Equals, true)
 	c.Assert(bar.Covers(&ctx), Equals, false)
 
-	lblRoot := Label{KeyValue{"io.cilium", ""}, "cilium"}
+	lblRoot := NewLabel("io.cilium", "", "cilium")
 	ctx = SearchContext{To: []Label{lblRoot}}
 	c.Assert(root.Covers(&ctx), Equals, true)
 	c.Assert(foo.Covers(&ctx), Equals, false)
@@ -108,11 +108,11 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 }
 
 func (s *CommonSuite) TestLabelCompare(c *C) {
-	a_1 := Label{KeyValue{"io.cilium", ""}, "cilium"}
-	a_2 := Label{KeyValue{"io.cilium", ""}, "cilium"}
-	b_1 := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
-	c_1 := Label{KeyValue{"io.cilium.bar", ""}, "kubernetes"}
-	d_1 := Label{KeyValue{"", ""}, ""}
+	a_1 := NewLabel("io.cilium", "", "")
+	a_2 := NewLabel("io.cilium", "", "")
+	b_1 := NewLabel("io.cilium.bar", "", "cilium")
+	c_1 := NewLabel("io.cilium.bar", "", "kubernetes")
+	d_1 := NewLabel("", "", "")
 
 	c.Assert(a_1.Compare(&a_2), Equals, true)
 	c.Assert(a_2.Compare(&a_1), Equals, true)
@@ -123,9 +123,9 @@ func (s *CommonSuite) TestLabelCompare(c *C) {
 }
 
 func (s *CommonSuite) TestAllowRule(c *C) {
-	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
-	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
-	lblBaz := Label{KeyValue{"io.cilium.baz", ""}, "cilium"}
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblBar := NewLabel("io.cilium.bar", "", "cilium")
+	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
 	allow := AllowRule{Label: lblFoo}
 	allowInverted := AllowRule{Inverted: true, Label: lblFoo}
 
@@ -145,10 +145,10 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 }
 
 func (s *CommonSuite) TestTargetCoveredBy(c *C) {
-	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
-	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
-	lblBaz := Label{KeyValue{"io.cilium.baz", ""}, "kubernetes"}
-	lblJoe := Label{KeyValue{"io.cilium.user", "joe"}, "kubernetes"}
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblBar := NewLabel("io.cilium.bar", "", "cilium")
+	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
 
 	list1 := []Label{lblFoo}
 	list2 := []Label{lblBar, lblBaz}
@@ -174,11 +174,11 @@ func (s *CommonSuite) TestTargetCoveredBy(c *C) {
 }
 
 func (s *CommonSuite) TestAllowConsumer(c *C) {
-	lblTeamA := Label{KeyValue{"io.cilium.teamA", ""}, "cilium"}
-	lblTeamB := Label{KeyValue{"io.cilium.teamB", ""}, "cilium"}
-	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
-	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
-	lblBaz := Label{KeyValue{"io.cilium.baz", ""}, "cilium"}
+	lblTeamA := NewLabel("io.cilium.teamA", "", "cilium")
+	lblTeamB := NewLabel("io.cilium.teamB", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblBar := NewLabel("io.cilium.bar", "", "cilium")
+	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
 
 	// [Foo,TeamA] -> Bar
 	a_foo_to_bar := SearchContext{
@@ -278,20 +278,26 @@ func (s *CommonSuite) TestValidateCoverage(c *C) {
 		Parent: &rootNode,
 	}
 
-	lblBar := Label{KeyValue{"io.cilium.bar", ""}, "cilium"}
+	lblBar := NewLabel("io.cilium.bar", "", "cilium")
 	consumer := PolicyRuleConsumers{
 		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
 	}
-	c.Assert(consumer.Validate(&node), Not(Equals), nil)
+	c.Assert(consumer.Resolve(&node), Not(Equals), nil)
 
 	consumer2 := PolicyRuleRequires{
 		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
 	}
-	c.Assert(consumer2.Validate(&node), Not(Equals), nil)
+	c.Assert(consumer2.Resolve(&node), Not(Equals), nil)
 
-	lblFoo := Label{KeyValue{"io.cilium.foo", ""}, "cilium"}
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
 	consumer = PolicyRuleConsumers{
 		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
 	}
-	c.Assert(consumer.Validate(&node), Equals, nil)
+	c.Assert(consumer.Resolve(&node), Equals, nil)
+
+	lblFoo = NewLabel("foo", "", "cilium")
+	consumer = PolicyRuleConsumers{
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
+	}
+	c.Assert(consumer.Resolve(&node), Equals, nil)
 }
