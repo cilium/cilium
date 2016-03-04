@@ -264,6 +264,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	ep.LxcIP = ipamConf.IP6.IP.IP
 	ep.NodeIP = ipamConf.IP6.Gateway
+	ep.DockerID = args.ContainerID
 	ep.SetID()
 	if err = c.EndpointJoin(ep); err != nil {
 		return fmt.Errorf("unable to create eBPF map: %s", err)
