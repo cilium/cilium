@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"sort"
 
-	forkedjson "k8s.io/kubernetes/third_party/forked/json"
+	forkedjson "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/third_party/forked/json"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/davecgh/go-spew/spew"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/ghodss/yaml"

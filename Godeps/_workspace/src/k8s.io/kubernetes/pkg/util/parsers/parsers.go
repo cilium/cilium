@@ -17,7 +17,7 @@ limitations under the License.
 package parsers
 
 import (
-	"github.com/docker/docker/pkg/parsers"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/docker/pkg/parsers"
 )
 
 const (

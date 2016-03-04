@@ -23,17 +23,19 @@ const (
 )
 
 var (
-	socketPath   string
-	logLevel     string
-	nodeAddrStr  string
-	NodeAddr     net.IP
-	device       string
-	libDir       string
-	runDir       string
-	consulAddr   string
-	lxcMap       *lxcmap.LxcMap
-	log          = logging.MustGetLogger("cilium-net")
-	stdoutFormat = logging.MustStringFormatter(
+	dockerEndpoint     string
+	kubernetesEndpoint string
+	socketPath         string
+	logLevel           string
+	nodeAddrStr        string
+	NodeAddr           net.IP
+	device             string
+	libDir             string
+	runDir             string
+	consulAddr         string
+	lxcMap             *lxcmap.LxcMap
+	log                = logging.MustGetLogger("cilium-net")
+	stdoutFormat       = logging.MustStringFormatter(
 		`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
 	)
 	fileFormat = logging.MustStringFormatter(
@@ -126,6 +128,8 @@ func initBPF() {
 }
 
 func init() {
+	flag.StringVar(&dockerEndpoint, "e", "unix:///var/run/docker.sock", "Register a listener for docker events on the given endpoint")
+	flag.StringVar(&kubernetesEndpoint, "k", "http://127.0.0.1:8080", "Kubernetes endpoint to retrieve metadata information of new started containers")
 	flag.StringVar(&logLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
 	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
 	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
@@ -171,10 +175,24 @@ func init() {
 func main() {
 	consulDefaultAPI := consulAPI.DefaultConfig()
 	consulDefaultAPI.Address = consulAddr
-	d, err := daemon.NewDaemon(libDir, lxcMap, NodeAddr, consulDefaultAPI)
+	daemonConf := daemon.Config{
+		LibDir:         libDir,
+		LXCMap:         lxcMap,
+		NodeAddress:    NodeAddr,
+		ConsulConfig:   consulDefaultAPI,
+		DockerEndpoint: dockerEndpoint,
+		K8sEndpoint:    kubernetesEndpoint,
+		// TODO: Read from a file
+		ValidLabelPrefixes: []string{"io.cilium"},
+	}
+
+	d, err := daemon.NewDaemon(&daemonConf)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
 	}
+	// Register event listener in docker endpoint
+	d.ActivateEventListener()
+
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)

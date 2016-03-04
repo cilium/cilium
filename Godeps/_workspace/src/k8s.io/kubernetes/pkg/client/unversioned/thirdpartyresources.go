@@ -18,8 +18,8 @@ package unversioned
 
 import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-	"k8s.io/kubernetes/pkg/watch"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/apis/extensions"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/watch"
 )
 
 // ThirdPartyResourceNamespacer has methods to work with ThirdPartyResource resources in a namespace
