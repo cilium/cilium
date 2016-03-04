@@ -20,9 +20,16 @@ func (d Daemon) getNextValidUUID() (int, error) {
 			return -1, err
 		}
 
-		if err := json.Unmarshal(k.Value, &lastID); err != nil {
-			return -1, err
+		// TODO do a proper checker to validate common.LastFreeIDKeyPath, when we start
+		// from scratch the common.LastFreeIDKeyPath won't have any value stored.
+		if k != nil {
+			if err := json.Unmarshal(k.Value, &lastID); err != nil {
+				return -1, err
+			}
+		} else {
+			lastID = 1
 		}
+
 		log.Info("Acquiring next available UUID %d", lastID)
 		nextID := lastID + 1
 		if nextID > common.MaxSetOfLabels {
@@ -33,9 +40,16 @@ func (d Daemon) getNextValidUUID() (int, error) {
 			return -1, err
 		}
 
-		p := &api.KVPair{Key: common.LastFreeIDKeyPath, Value: lastIDByte, ModifyIndex: q.LastIndex}
-
-		valid, _, err = d.consul.KV().CAS(p, nil)
+		// TODO do a proper checker to validate common.LastFreeIDKeyPath, when we start
+		// from scratch the common.LastFreeIDKeyPath won't have any value stored.
+		if k != nil {
+			p := &api.KVPair{Key: common.LastFreeIDKeyPath, Value: lastIDByte, ModifyIndex: q.LastIndex}
+			valid, _, err = d.consul.KV().CAS(p, nil)
+		} else {
+			p := &api.KVPair{Key: common.LastFreeIDKeyPath, Value: lastIDByte}
+			_, err = d.consul.KV().Put(p, nil)
+			valid = true
+		}
 		if err != nil {
 			return -1, err
 		}
@@ -45,6 +59,8 @@ func (d Daemon) getNextValidUUID() (int, error) {
 }
 
 func (d Daemon) GetLabelsID(labels types.Labels) (int, error) {
+	// TODO fix race condition if the same sets of labels tries to retrieve an ID at
+	// the same time
 	sha256Sum, err := labels.SHA256Sum()
 	if err != nil {
 		return -1, err
@@ -106,6 +122,9 @@ func (d Daemon) GetMaxID() (int, error) {
 	k, _, err := d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 	if err != nil {
 		return -1, err
+	}
+	if k == nil {
+		return -1, errors.New("Last ID is unset")
 	}
 	if err := json.Unmarshal(k.Value, &lastID); err != nil {
 		return -1, err
