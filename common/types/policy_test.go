@@ -48,7 +48,7 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 
 	err := json.Unmarshal([]byte(longLabel), &rule)
 	c.Assert(err, Equals, nil)
-	c.Assert(rule.Inverted, Equals, true)
+	c.Assert(rule.Action, Equals, DENY)
 	c.Assert(rule.Label.Source, Equals, "kubernetes")
 	c.Assert(rule.Label.Key(), Equals, "io.kubernetes.pod.name")
 	c.Assert(rule.Label.Value, Equals, "foo")
@@ -58,13 +58,14 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 
 	err = json.Unmarshal([]byte(shortLabel), &rule)
 	c.Assert(err, Equals, nil)
+	c.Assert(rule.Action, Equals, ACCEPT)
 	c.Assert(rule.Label.Source, Equals, "cilium")
 	c.Assert(rule.Label.Key(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(invertedLabel), &rule)
 	c.Assert(err, Equals, nil)
-	c.Assert(rule.Inverted, Equals, true)
+	c.Assert(rule.Action, Equals, DENY)
 	c.Assert(rule.Label.Source, Equals, "cilium")
 	c.Assert(rule.Label.Key(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
@@ -74,22 +75,13 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 }
 
 func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
-	foo := PolicyNode{
-		Name: "foo",
-	}
-	bar := PolicyNode{
-		Name: "bar",
-	}
 	root := PolicyNode{
 		Name: common.GlobalLabelPrefix,
 		Children: map[string]*PolicyNode{
-			"foo": &foo,
-			"bar": &bar,
+			"foo": &PolicyNode{},
+			"bar": &PolicyNode{},
 		},
 	}
-
-	foo.Parent = &root
-	bar.Parent = &root
 
 	err := root.resolveTree()
 	c.Assert(err, Equals, nil)
@@ -97,14 +89,14 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
 	ctx := SearchContext{To: []Label{lblFoo}}
 	c.Assert(root.Covers(&ctx), Equals, true)
-	c.Assert(foo.Covers(&ctx), Equals, true)
-	c.Assert(bar.Covers(&ctx), Equals, false)
+	c.Assert(root.Children["foo"].Covers(&ctx), Equals, true)
+	c.Assert(root.Children["bar"].Covers(&ctx), Equals, false)
 
 	lblRoot := NewLabel("io.cilium", "", "cilium")
 	ctx = SearchContext{To: []Label{lblRoot}}
 	c.Assert(root.Covers(&ctx), Equals, true)
-	c.Assert(foo.Covers(&ctx), Equals, false)
-	c.Assert(bar.Covers(&ctx), Equals, false)
+	c.Assert(root.Children["foo"].Covers(&ctx), Equals, false)
+	c.Assert(root.Children["bar"].Covers(&ctx), Equals, false)
 }
 
 func (s *CommonSuite) TestLabelCompare(c *C) {
@@ -126,8 +118,8 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
 	lblBar := NewLabel("io.cilium.bar", "", "cilium")
 	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
-	allow := AllowRule{Label: lblFoo}
-	allowInverted := AllowRule{Inverted: true, Label: lblFoo}
+	allow := AllowRule{Action: ACCEPT, Label: lblFoo}
+	deny := AllowRule{Action: DENY, Label: lblFoo}
 
 	ctx := SearchContext{
 		From: []Label{lblFoo},
@@ -139,9 +131,9 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	}
 
 	c.Assert(allow.Allows(&ctx), Equals, ACCEPT)
-	c.Assert(allowInverted.Allows(&ctx), Equals, DENY)
+	c.Assert(deny.Allows(&ctx), Equals, DENY)
 	c.Assert(allow.Allows(&ctx2), Equals, UNDECIDED)
-	c.Assert(allowInverted.Allows(&ctx2), Equals, UNDECIDED)
+	c.Assert(deny.Allows(&ctx2), Equals, UNDECIDED)
 }
 
 func (s *CommonSuite) TestTargetCoveredBy(c *C) {
@@ -204,15 +196,16 @@ func (s *CommonSuite) TestAllowConsumer(c *C) {
 		To:   []Label{lblBar},
 	}
 
-	allowFoo := AllowRule{Label: lblFoo}
-	dontAllowFoo := AllowRule{Inverted: true, Label: lblFoo}
-	allowTeamA := AllowRule{Label: lblTeamA}
-	dontAllowBaz := AllowRule{Inverted: true, Label: lblBaz}
+	allowFoo := AllowRule{Action: ACCEPT, Label: lblFoo}
+	dontAllowFoo := AllowRule{Action: DENY, Label: lblFoo}
+	allowTeamA := AllowRule{Action: ACCEPT, Label: lblTeamA}
+	dontAllowBaz := AllowRule{Action: DENY, Label: lblBaz}
+	alwaysAllowFoo := AllowRule{Action: ALWAYS_ACCEPT, Label: lblFoo}
 
 	// Allow: foo, !foo
 	consumers := PolicyRuleConsumers{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
-		Allow:          []AllowRule{allowFoo, dontAllowFoo},
+		Coverage: []Label{lblBar},
+		Allow:    []AllowRule{allowFoo, dontAllowFoo},
 	}
 
 	// NOTE: We are testing on single consumer rule leve, there is
@@ -223,10 +216,21 @@ func (s *CommonSuite) TestAllowConsumer(c *C) {
 	c.Assert(consumers.Allows(&a_baz_to_bar), Equals, UNDECIDED)
 	c.Assert(consumers.Allows(&b_baz_to_bar), Equals, UNDECIDED)
 
+	// Always-Allow: foo, !foo
+	consumers = PolicyRuleConsumers{
+		Coverage: []Label{lblBar},
+		Allow:    []AllowRule{alwaysAllowFoo, dontAllowFoo},
+	}
+
+	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, ALWAYS_ACCEPT)
+	c.Assert(consumers.Allows(&b_foo_to_bar), Equals, ALWAYS_ACCEPT)
+	c.Assert(consumers.Allows(&a_baz_to_bar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&b_baz_to_bar), Equals, UNDECIDED)
+
 	// Allow: TeamA, !baz
 	consumers = PolicyRuleConsumers{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
-		Allow:          []AllowRule{allowTeamA, dontAllowBaz},
+		Coverage: []Label{lblBar},
+		Allow:    []AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, ACCEPT)
@@ -236,8 +240,8 @@ func (s *CommonSuite) TestAllowConsumer(c *C) {
 
 	// Allow: TeamA, !baz
 	consumers = PolicyRuleConsumers{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
-		Allow:          []AllowRule{allowTeamA, dontAllowBaz},
+		Coverage: []Label{lblFoo},
+		Allow:    []AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&a_foo_to_bar), Equals, UNDECIDED)
@@ -279,26 +283,18 @@ func (s *CommonSuite) TestValidateCoverage(c *C) {
 	}
 
 	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	consumer := PolicyRuleConsumers{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
-	}
+	consumer := PolicyRuleConsumers{Coverage: []Label{lblBar}}
 	c.Assert(consumer.Resolve(&node), Not(Equals), nil)
 
-	consumer2 := PolicyRuleRequires{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
-	}
+	consumer2 := PolicyRuleRequires{Coverage: []Label{lblBar}}
 	c.Assert(consumer2.Resolve(&node), Not(Equals), nil)
 
 	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	consumer = PolicyRuleConsumers{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
-	}
+	consumer = PolicyRuleConsumers{Coverage: []Label{lblFoo}}
 	c.Assert(consumer.Resolve(&node), Equals, nil)
 
 	lblFoo = NewLabel("foo", "", "cilium")
-	consumer = PolicyRuleConsumers{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblFoo}},
-	}
+	consumer = PolicyRuleConsumers{Coverage: []Label{lblFoo}}
 	c.Assert(consumer.Resolve(&node), Equals, nil)
 }
 
@@ -328,11 +324,102 @@ func (s *CommonSuite) TestRequires(c *C) {
 	// coverage: bar
 	// Require: foo
 	requires := PolicyRuleRequires{
-		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
-		Requires:       []Label{lblFoo},
+		Coverage: []Label{lblBar},
+		Requires: []Label{lblFoo},
 	}
 
 	c.Assert(requires.Allows(&a_foo_to_bar), Equals, UNDECIDED)
 	c.Assert(requires.Allows(&a_baz_to_bar), Equals, DENY)
 	c.Assert(requires.Allows(&a_bar_to_baz), Equals, UNDECIDED)
+}
+
+func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
+	lblProd := NewLabel("io.cilium.Prod", "", "cilium")
+	lblQA := NewLabel("io.cilium.QA", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblBar := NewLabel("io.cilium.bar", "", "cilium")
+	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
+	lblPete := NewLabel("io.cilium.user", "pete", "kubernetes")
+
+	// [Foo,QA] -> [Bar,QA]
+	qa_foo_to_qa_bar := SearchContext{
+		From: []Label{lblQA, lblFoo},
+		To:   []Label{lblBar, lblQA},
+	}
+
+	// [Foo, Prod] -> [Bar,Prod]
+	prod_foo_to_prod_bar := SearchContext{
+		From: []Label{lblProd, lblFoo},
+		To:   []Label{lblBar},
+	}
+
+	// [Foo,QA] -> [Bar,prod]
+	qa_foo_to_prod_bar := SearchContext{
+		From: []Label{lblQA, lblFoo},
+		To:   []Label{lblBar, lblProd},
+	}
+
+	// [Foo,QA, Joe] -> [Bar,prod]
+	qa_joe_foo_to_prod_bar := SearchContext{
+		From: []Label{lblQA, lblFoo, lblJoe},
+		To:   []Label{lblBar, lblProd},
+	}
+
+	// [Foo,QA, Pete] -> [Bar,Prod]
+	qa_pete_foo_to_prod_bar := SearchContext{
+		From: []Label{lblQA, lblFoo, lblPete},
+		To:   []Label{lblBar, lblProd},
+	}
+
+	// [Baz, QA] -> Bar
+	qa_baz_to_qa_bar := SearchContext{
+		From: []Label{lblQA, lblBaz},
+		To:   []Label{lblQA, lblBar},
+	}
+
+	rootNode := PolicyNode{
+		Name: common.GlobalLabelPrefix,
+		Rules: []interface{}{
+			PolicyRuleConsumers{
+				Coverage: []Label{lblBar},
+				Allow: []AllowRule{
+					AllowRule{ // always-allow:  user=joe
+						Action: ALWAYS_ACCEPT,
+						Label:  lblJoe,
+					},
+					AllowRule{ // allow:  user=pete
+						Action: ACCEPT,
+						Label:  lblPete,
+					},
+				},
+			},
+			PolicyRuleRequires{ // coverage qa, requires qa
+				Coverage: []Label{lblQA},
+				Requires: []Label{lblQA},
+			},
+			PolicyRuleRequires{ // coverage prod, requires: prod
+				Coverage: []Label{lblProd},
+				Requires: []Label{lblProd},
+			},
+			PolicyRuleConsumers{
+				Coverage: []Label{lblBar},
+				Allow: []AllowRule{
+					AllowRule{ // allow: foo
+						Action: ACCEPT,
+						Label:  lblFoo,
+					},
+				},
+			},
+		},
+	}
+
+	c.Assert(rootNode.resolveTree(), Equals, nil)
+
+	c.Assert(rootNode.Allows(&qa_foo_to_qa_bar), Equals, ACCEPT)
+	c.Assert(rootNode.Allows(&prod_foo_to_prod_bar), Equals, ACCEPT)
+	c.Assert(rootNode.Allows(&qa_foo_to_prod_bar), Equals, DENY)
+	c.Assert(rootNode.Allows(&qa_joe_foo_to_prod_bar), Equals, ALWAYS_ACCEPT)
+	c.Assert(rootNode.Allows(&qa_pete_foo_to_prod_bar), Equals, DENY)
+	c.Assert(rootNode.Allows(&qa_baz_to_qa_bar), Equals, UNDECIDED)
 }

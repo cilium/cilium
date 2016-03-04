@@ -22,6 +22,7 @@ type ConsumableDecision byte
 
 const (
 	ACCEPT ConsumableDecision = iota
+	ALWAYS_ACCEPT
 	DENY
 	UNDECIDED
 )
@@ -30,13 +31,12 @@ func (d *ConsumableDecision) String() string {
 	switch *d {
 	case ACCEPT:
 		return "accept"
-		break
+	case ALWAYS_ACCEPT:
+		return "always-accept"
 	case DENY:
 		return "deny"
-		break
 	case UNDECIDED:
 		return "undecided"
-		break
 	}
 
 	return "unknown"
@@ -149,14 +149,9 @@ func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
 	return false
 }
 
-// Base type for all PolicyRule* types
-type PolicyRuleBase struct {
-	Coverage []Label `json:"Coverage,omitempty"`
-}
-
 type AllowRule struct {
-	Inverted bool `json:"inverted,omitempty"`
-	Label    Label
+	Action ConsumableDecision `json:action,omitempty"`
+	Label  Label
 }
 
 func (a *AllowRule) UnmarshalJSON(data []byte) error {
@@ -176,10 +171,10 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	}
 
 	if aux.key[0] == '!' {
-		a.Inverted = true
+		a.Action = DENY
 		aux.key = aux.key[1:]
 	} else {
-		a.Inverted = false
+		a.Action = ACCEPT
 	}
 
 	a.Label = aux
@@ -190,11 +185,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	for _, label := range ctx.From {
 		if label.Compare(&a.Label) {
-			if a.Inverted {
-				return DENY
-			} else {
-				return ACCEPT
-			}
+			return a.Action
 		}
 	}
 
@@ -203,8 +194,8 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 
 // Allow the following consumers
 type PolicyRuleConsumers struct {
-	PolicyRuleBase
-	Allow []AllowRule `json:"Allow"`
+	Coverage []Label     `json:"Coverage,omitempty"`
+	Allow    []AllowRule `json:"Allow"`
 }
 
 func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
@@ -220,6 +211,8 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 		switch allowRule.Allows(ctx) {
 		case DENY:
 			return DENY
+		case ALWAYS_ACCEPT:
+			return ALWAYS_ACCEPT
 		case ACCEPT:
 			decision = ACCEPT
 			break
@@ -249,7 +242,7 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 // Any further consumer requires the specified list of
 // labels in order to consume
 type PolicyRuleRequires struct {
-	PolicyRuleBase
+	Coverage []Label `json:"Coverage,omitempty"`
 	Requires []Label `json:"Requires"`
 }
 
@@ -301,13 +294,13 @@ type Port struct {
 }
 
 type PolicyRulePorts struct {
-	PolicyRuleBase
-	Ports []Port `json:"Ports"`
+	Coverage []Label `json:"Coverage,omitempty"`
+	Ports    []Port  `json:"Ports"`
 }
 
 // Do not allow further rules of specified type
 type PolicyRuleDropPrivileges struct {
-	PolicyRuleBase
+	Coverage       []Label     `json:"Coverage,omitempty"`
 	DropPrivileges []Privilege `json:"Drop-privileges"`
 }
 
@@ -337,6 +330,34 @@ func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 	}
 
 	return false
+}
+
+func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
+	decision := UNDECIDED
+
+	for _, rule := range p.Rules {
+		switch rule.(type) {
+		case PolicyRuleConsumers:
+			pr_c := rule.(PolicyRuleConsumers)
+			decision = pr_c.Allows(ctx)
+			break
+		case PolicyRuleRequires:
+			pr_r := rule.(PolicyRuleRequires)
+			decision = pr_r.Allows(ctx)
+			break
+		}
+
+		switch decision {
+		case ALWAYS_ACCEPT:
+			return ALWAYS_ACCEPT
+		case DENY:
+			return DENY
+		case ACCEPT:
+			decision = ACCEPT
+		}
+	}
+
+	return decision
 }
 
 // Overall policy tree
@@ -399,7 +420,9 @@ func (pn *PolicyNode) resolveTree() error {
 		return err
 	}
 
-	for _, val := range pn.Children {
+	for k, val := range pn.Children {
+		pn.Children[k].Parent = pn
+		pn.Children[k].Name = k
 		if err = val.resolveTree(); err != nil {
 			return err
 		}
@@ -424,12 +447,6 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	pn.Name = policyNode.Name
 	pn.Children = policyNode.Children
 
-	// Fill out "Name" field of children which ommited it in the JSON
-	for k, _ := range policyNode.Children {
-		pn.Children[k].Name = k
-		pn.Children[k].Parent = pn
-	}
-
 	// We have now parsed all children in a recursive manner and are back
 	// to the root node. Walk the tree again to resolve the path of each
 	// node.
@@ -451,6 +468,21 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 
 			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
 				return err
+			}
+
+			pn.Rules = append(pn.Rules, pr_c)
+		} else if _, ok := om["Always-Allow"]; ok {
+			var pr_c PolicyRuleConsumers
+
+			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
+				return err
+			}
+
+			for _, r := range pr_c.Allow {
+				// DENY rules are always deny anyway
+				if r.Action == ACCEPT {
+					r.Action = ALWAYS_ACCEPT
+				}
 			}
 
 			pn.Rules = append(pn.Rules, pr_c)
