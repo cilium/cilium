@@ -301,3 +301,38 @@ func (s *CommonSuite) TestValidateCoverage(c *C) {
 	}
 	c.Assert(consumer.Resolve(&node), Equals, nil)
 }
+
+func (s *CommonSuite) TestRequires(c *C) {
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblBar := NewLabel("io.cilium.bar", "", "cilium")
+	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+
+	// Foo -> Bar
+	a_foo_to_bar := SearchContext{
+		From: []Label{lblFoo},
+		To:   []Label{lblBar},
+	}
+
+	// Baz -> Bar
+	a_baz_to_bar := SearchContext{
+		From: []Label{lblBaz},
+		To:   []Label{lblBar},
+	}
+
+	// Bar -> Baz
+	a_bar_to_baz := SearchContext{
+		From: []Label{lblBar},
+		To:   []Label{lblBaz},
+	}
+
+	// coverage: bar
+	// Require: foo
+	requires := PolicyRuleRequires{
+		PolicyRuleBase: PolicyRuleBase{Coverage: []Label{lblBar}},
+		Requires:       []Label{lblFoo},
+	}
+
+	c.Assert(requires.Allows(&a_foo_to_bar), Equals, UNDECIDED)
+	c.Assert(requires.Allows(&a_baz_to_bar), Equals, DENY)
+	c.Assert(requires.Allows(&a_bar_to_baz), Equals, UNDECIDED)
+}

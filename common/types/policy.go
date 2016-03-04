@@ -253,6 +253,31 @@ type PolicyRuleRequires struct {
 	Requires []Label `json:"Requires"`
 }
 
+// A require rule imposes additional label requirements but does not
+// imply access immediately. Hence if the label context is not sufficient
+// access can be denied but fullfillment of the requirement only leads to
+// the decision being UNDECIDED waiting on an explicit allow rule further
+// down the tree
+func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
+	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(&r.Coverage) {
+		for _, reqLabel := range r.Requires {
+			match := false
+
+			for _, label := range ctx.From {
+				if label.Compare(&reqLabel) {
+					match = true
+				}
+			}
+
+			if match == false {
+				return DENY
+			}
+		}
+	}
+
+	return UNDECIDED
+}
+
 func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	for _, l := range c.Coverage {
 		l.Resolve(node)
