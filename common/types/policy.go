@@ -43,17 +43,43 @@ func (d *ConsumableDecision) String() string {
 }
 
 type KeyValue struct {
-	Key   string `json:"key"`
+	key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 }
 
 type Label struct {
 	KeyValue
+	absKey string `json:-`
 	Source string
 }
 
+func NewLabel(key string, value string, source string) Label {
+	lbl := Label{
+		KeyValue: KeyValue{key, value},
+		Source:   source,
+	}
+
+	return lbl
+}
+
 func (l *Label) Compare(b *Label) bool {
-	return l.Source == b.Source && l.Key == b.Key && l.Value == b.Value
+	return l.Source == b.Source && l.Key() == b.Key() && l.Value == b.Value
+}
+
+func (l *Label) Resolve(node *PolicyNode) {
+	if l.Source == "cilium" && !strings.HasPrefix(l.key, common.GlobalLabelPrefix) {
+		l.absKey = node.Path() + "." + l.key
+	} else {
+		l.absKey = l.key
+	}
+}
+
+func (l *Label) Key() string {
+	if l.absKey != "" {
+		return l.absKey
+	}
+
+	return l.key
 }
 
 func (l *Label) UnmarshalJSON(data []byte) error {
@@ -83,7 +109,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		}
 
 		l.Source = aux.Source
-		l.Key = aux.Key
+		l.key = aux.Key
 		l.Value = aux.Value
 	} else {
 		// This is a short form in which only a string to be interpreted
@@ -99,15 +125,11 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		}
 
 		l.Source = "cilium"
-		l.Key = aux
+		l.key = aux
 		l.Value = ""
 	}
 
 	return nil
-}
-
-func (l *Label) ExpandKey(node *PolicyNode) string {
-	return fmt.Sprintf("%s.%s", node.Path(), l.Key)
 }
 
 type SearchContext struct {
@@ -132,17 +154,6 @@ type PolicyRuleBase struct {
 	Coverage []Label `json:"Coverage,omitempty"`
 }
 
-func (b *PolicyRuleBase) Validate(node *PolicyNode) error {
-	for _, label := range b.Coverage {
-		if !strings.HasPrefix(label.Key, node.Path()) {
-			return fmt.Errorf("Label %s does not share prefix of node %s",
-				label.Key, node.Path())
-		}
-	}
-
-	return nil
-}
-
 type AllowRule struct {
 	Inverted bool `json:"inverted,omitempty"`
 	Label    Label
@@ -164,9 +175,9 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Decode of AllowRule failed: %+v", err)
 	}
 
-	if aux.Key[0] == '!' {
+	if aux.key[0] == '!' {
 		a.Inverted = true
-		aux.Key = aux.Key[1:]
+		aux.key = aux.key[1:]
 	} else {
 		a.Inverted = false
 	}
@@ -218,11 +229,45 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	return decision
 }
 
+func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
+	for _, l := range c.Coverage {
+		l.Resolve(node)
+
+		if !strings.HasPrefix(l.Key(), node.Path()) {
+			return fmt.Errorf("Label %s does not share prefix of node %s",
+				l.Key(), node.Path())
+		}
+	}
+
+	for _, r := range c.Allow {
+		r.Label.Resolve(node)
+	}
+
+	return nil
+}
+
 // Any further consumer requires the specified list of
 // labels in order to consume
 type PolicyRuleRequires struct {
 	PolicyRuleBase
 	Requires []Label `json:"Requires"`
+}
+
+func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
+	for _, l := range c.Coverage {
+		l.Resolve(node)
+
+		if !strings.HasPrefix(l.Key(), node.Path()) {
+			return fmt.Errorf("Label %s does not share prefix of node %s",
+				l.Key(), node.Path())
+		}
+	}
+
+	for _, l := range c.Requires {
+		l.Resolve(node)
+	}
+
+	return nil
 }
 
 type Port struct {
@@ -261,7 +306,7 @@ func (p *PolicyNode) Path() string {
 
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 	for _, label := range ctx.To {
-		if strings.HasPrefix(label.Key, p.Path()) {
+		if strings.HasPrefix(label.Key(), p.Path()) {
 			return true
 		}
 	}
@@ -291,24 +336,23 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 
 	if pn.Name != common.GlobalLabelPrefix {
 		return "", fmt.Errorf("Error in policy: node %s is lacking parent", pn.Name)
-
 	}
 
 	return common.GlobalLabelPrefix, nil
 }
 
-func (pn *PolicyNode) ValidateRules() error {
+func (pn *PolicyNode) resolveRules() error {
 	for _, rule := range pn.Rules {
 		switch rule.(type) {
 		case PolicyRuleConsumers:
 			r := rule.(PolicyRuleConsumers)
-			if err := r.Validate(pn); err != nil {
+			if err := r.Resolve(pn); err != nil {
 				return err
 			}
 			break
 		case PolicyRuleRequires:
 			r := rule.(PolicyRuleRequires)
-			if err := r.Validate(pn); err != nil {
+			if err := r.Resolve(pn); err != nil {
 				return err
 			}
 			break
@@ -326,7 +370,7 @@ func (pn *PolicyNode) resolveTree() error {
 		return err
 	}
 
-	if err := pn.ValidateRules(); err != nil {
+	if err := pn.resolveRules(); err != nil {
 		return err
 	}
 
