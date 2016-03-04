@@ -22,8 +22,8 @@ import (
 	"os"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/apimachinery/registered"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/apimachinery/registered"
 )
 
 // LoadPodFromFile will read, decode, and return a Pod from a file.

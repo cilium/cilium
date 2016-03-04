@@ -27,10 +27,10 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/meta"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/unversioned"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/v1"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/apimachinery"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/apimachinery/registered"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/runtime"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/sets"
-	"k8s.io/kubernetes/pkg/apimachinery"
-	"k8s.io/kubernetes/pkg/apimachinery/registered"
 )
 
 const importPrefix = "k8s.io/kubernetes/pkg/api"
@@ -108,6 +108,8 @@ func newRESTMapper(externalVersions []unversioned.GroupVersion) meta.RESTMapper 
 		"PodExecOptions",
 		"PodAttachOptions",
 		"PodProxyOptions",
+		"NodeProxyOptions",
+		"ServiceProxyOptions",
 		"ThirdPartyResource",
 		"ThirdPartyResourceData",
 		"ThirdPartyResourceList")

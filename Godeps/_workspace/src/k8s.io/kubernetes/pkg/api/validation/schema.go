@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/emicklei/go-restful/swagger"
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/emicklei/go-restful/swagger"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/golang/glog"
 	apiutil "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api/util"
 	utilerrors "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/util/errors"
