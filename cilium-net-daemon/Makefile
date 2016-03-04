@@ -5,7 +5,7 @@ TARGET=cilium-net-daemon
 all: $(TARGET)
 
 tests:
-	docker run -d \
+	-docker run -d \
            --name "cilium-consul-container-test" \
            -p 8500:8500 \
            progrium/consul \
