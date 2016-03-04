@@ -4,10 +4,10 @@ set -e
 
 cd $HOME
 
-wget --quiet https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz
+wget --quiet https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz
 mkdir -p /usr/local
-tar -C /usr/local -xzf go1.5.2.linux-amd64.tar.gz
-rm go1.5.2.linux-amd64.tar.gz
+tar -C /usr/local -xzf go1.6.linux-amd64.tar.gz
+rm go1.6.linux-amd64.tar.gz
 
 wget --quiet http://llvm.org/releases/3.7.1/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 mkdir -p /usr/local
