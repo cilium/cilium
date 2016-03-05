@@ -8,8 +8,8 @@
 #include "eth.h"
 #include "dbg.h"
 
-#define IPV6_SRC_PREFIX 0xbeef0000
-#define IPV6_DST_PREFIX 0xdead0000
+#define V6PREFIX { .addr = { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#define SKB_V46_NAT	0x1
 
 static inline int get_csum_offset(__u8 protocol)
 {
@@ -39,6 +39,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4 = {};
+	union v6addr prefix = V6PREFIX;
 	int csum_off;
 	int pushoff;
 	__be32 csum = 0;
@@ -51,10 +52,16 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 
 	/* build v6 header */
 	v6.version = 0x6;
-	v6.saddr.in6_u.u6_addr32[0] = IPV6_SRC_PREFIX;
-	v6.daddr.in6_u.u6_addr32[0] = IPV6_DST_PREFIX;
+	v6.saddr.in6_u.u6_addr32[0] = prefix.p1;
+	v6.saddr.in6_u.u6_addr32[1] = prefix.p2;
+	v6.saddr.in6_u.u6_addr32[2] = prefix.p3;
 	v6.saddr.in6_u.u6_addr32[3] = v4.saddr;
+
+	v6.daddr.in6_u.u6_addr32[0] = prefix.p1;
+	v6.daddr.in6_u.u6_addr32[1] = prefix.p2;
+	v6.daddr.in6_u.u6_addr32[2] = prefix.p3;
 	v6.daddr.in6_u.u6_addr32[3] = v4.daddr;
+
 	v6.nexthdr = v4.protocol;
 	v6.hop_limit = v4.ttl;
 	v4hdr_len = (v4.ihl << 2);
@@ -159,19 +166,4 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	return 0;
 }
 
-static inline int ip_nat_wrapper(struct __sk_buff *skb, int nh_off)
-{
-	__u64 proto = load_half(skb, 12);
-	int ret = -1;
-
-	if (proto == ETH_P_IP) {
-		ret = ipv4_to_ipv6(skb, nh_off);
-	}
-
-	if (proto == ETH_P_IPV6) {
-		ret = ipv6_to_ipv4(skb, nh_off);
-	}
-
-	return ret;
-}
 #endif /* __LIB_NAT46__ */
