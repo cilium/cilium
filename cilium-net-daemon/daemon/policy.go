@@ -45,29 +45,55 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-func canConsume(root *types.PolicyNode, ctx *types.SearchContext) (bool, error) {
+func canConsume(root *types.PolicyNode, ctx *types.SearchContext) types.ConsumableDecision {
+	decision := types.UNDECIDED
 
-	for _, rule := range root.Rules {
-		switch rule.(type) {
-		case types.PolicyRuleConsumers:
-			pr_c := rule.(types.PolicyRuleConsumers)
-			log.Debugf("Policy Add Request: %+v", &pr_c)
-			break
-		}
-	}
-
-	// Need at least one partial match in destination labels to continue
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
-			return canConsume(child, ctx)
+			switch child.Allows(ctx) {
+			case types.DENY:
+				return types.DENY
+			case types.ALWAYS_ACCEPT:
+				return types.ALWAYS_ACCEPT
+			case types.ACCEPT:
+				decision = types.ACCEPT
+			}
 		}
 	}
 
-	return false, nil
+	for _, child := range root.Children {
+		if child.Covers(ctx) {
+			switch canConsume(child, ctx) {
+			case types.DENY:
+				return types.DENY
+			case types.ALWAYS_ACCEPT:
+				return types.ALWAYS_ACCEPT
+			case types.ACCEPT:
+				decision = types.ACCEPT
+			}
+		}
+	}
+
+	return decision
 }
 
-func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) (bool, error) {
-	return canConsume(&tree.Root, ctx)
+func PolicyCanConsume(root *types.PolicyNode, ctx *types.SearchContext) types.ConsumableDecision {
+	decision := root.Allows(ctx)
+	switch decision {
+	case types.ALWAYS_ACCEPT:
+		return types.ACCEPT
+	case types.DENY:
+		return types.DENY
+	}
+
+	decision = canConsume(root, ctx)
+	if decision == types.ALWAYS_ACCEPT {
+		decision = types.ACCEPT
+	} else if decision == types.UNDECIDED {
+		decision = types.DENY
+	}
+
+	return decision
 }
 
 func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
