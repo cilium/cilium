@@ -21,6 +21,48 @@ set -x
 #     4. Check valid prefixes based valid_labels.json
 #     5. endpoint.SecLabel = GetLabelsID("[...]") -> ???
 #
+#  Next TODO:
+# AM  0. Retrieve labels in func (d Daemon) EndpointJoin(ep types.Endpoint) error {
+# AM  1. Add mutex to policy tree
+# TG  2. Compute allowed consumers for all endpoints
+# TG  3. Convert []ConsumableDecision into BPF map
+# TG  4. Write bpf_policy program
+#          BPF MAP:
+#	   HT: allowedConsumers[] {
+#	      __u64 packets
+#	      __u64 bytes
+#   	}
+#
+#	lookup(__u16) {
+#   	}
+# AM  5. Notification in case of policy ID change
+#        -> pool of background threads
+#           -> updates all BPF maps
+#        -> consul agent watch, calling shell, calling curl -> Cilium Daemon
+#           REST API: NewID(id)
+#                     DeleteID(id)
+# AM  6. Retire security labels
+#
+#  Cases for consumer map regeneration:
+#    Join endpoint: (1st case to solve)
+#    - map not available yet (generate on the fly)
+#    Events:
+#    - policy update
+#    - list of policy IDs changes
+#      CASE: New ID:
+#          Algo:
+#            1. walk all local endpoints
+#            2. check policy for new ID as consumer
+#            3. Add map entry for new ID if policy result == ACCEPT
+#       1. Consumer: New ID cannot access until producers have upated map
+#       2. Producer: Nobody can consume until map is created
+#      CASE: Del ID:
+#          Algo:
+#            1. Walk all local endpoints
+#            2. remove map entry for deleted ID
+#       1. Consumer: All maps must be updated before ID can be reused (!IMPORTANT!)
+#       2. Producer: Doesn't matter
+#
 #  cilium-daemon:
 #      AddPolicy() <- policy.JSON
 #
@@ -72,7 +114,6 @@ set -x
 #				"Coverage": ["PodSelector", "PodSelector2"],
 #				"Allow": [{"type": "pod", "label": "tier=database"}, {"type": "namespace", ...}],
 #				"Ports": { "to": [{"tcp", 80},{"udp", 50}], "from": null },
-#				"Drop-Privileges": "Ports",
 #			}]
 #		}
 
@@ -92,7 +133,7 @@ POLICY=$(cat <<EOF
 				"Web": { },
 				"DB": {
 					"Rules": [{
-						"Allow": ["Web"]
+						"Allow": ["Web", {"action": "deny", "source": "kubernetes", "name": "foo"}]
 					}]
 				}
 			}

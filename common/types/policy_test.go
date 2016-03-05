@@ -15,7 +15,7 @@ var _ = Suite(&CommonSuite{})
 func (s *CommonSuite) TestLabel(c *C) {
 	var label Label
 
-	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
+	longLabel := `{"source": "kubernetes", "name": "io.kubernetes.pod.name", "value": "foo"}`
 	invLabel := `{"source": "kubernetes", "value": "foo"}`
 	shortLabel := `"web"`
 
@@ -41,7 +41,7 @@ func (s *CommonSuite) TestLabel(c *C) {
 func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	var rule AllowRule
 
-	longLabel := `{"source": "kubernetes", "key": "!io.kubernetes.pod.name", "value": "foo"}`
+	longLabel := `{"source": "kubernetes", "name": "!io.kubernetes.pod.name", "value": "foo"}`
 	invLabel := `{"source": "kubernetes", "value": "foo"}`
 	shortLabel := `"web"`
 	invertedLabel := `"!web"`
@@ -83,7 +83,7 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 		},
 	}
 
-	err := root.resolveTree()
+	err := root.ResolveTree()
 	c.Assert(err, Equals, nil)
 
 	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
@@ -268,7 +268,7 @@ func (s *CommonSuite) TestBuildPath(c *C) {
 	c.Assert(p, Equals, common.GlobalLabelPrefix+".foo")
 	c.Assert(err, Equals, nil)
 
-	err = rootNode.resolveTree()
+	err = rootNode.ResolveTree()
 	c.Assert(err, Equals, nil)
 	c.Assert(rootNode.path, Equals, common.GlobalLabelPrefix)
 	c.Assert(fooNode.path, Equals, common.GlobalLabelPrefix+".foo")
@@ -414,7 +414,7 @@ func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
 		},
 	}
 
-	c.Assert(rootNode.resolveTree(), Equals, nil)
+	c.Assert(rootNode.ResolveTree(), Equals, nil)
 
 	c.Assert(rootNode.Allows(&qa_foo_to_qa_bar), Equals, ACCEPT)
 	c.Assert(rootNode.Allows(&prod_foo_to_prod_bar), Equals, ACCEPT)
@@ -422,4 +422,16 @@ func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
 	c.Assert(rootNode.Allows(&qa_joe_foo_to_prod_bar), Equals, ALWAYS_ACCEPT)
 	c.Assert(rootNode.Allows(&qa_pete_foo_to_prod_bar), Equals, DENY)
 	c.Assert(rootNode.Allows(&qa_baz_to_qa_bar), Equals, UNDECIDED)
+}
+
+func (s *CommonSuite) TestResolveTree(c *C) {
+	rootNode := PolicyNode{
+		Name: common.GlobalLabelPrefix,
+		Children: map[string]*PolicyNode{
+			"foo": &PolicyNode{Rules: []interface{}{PolicyRuleConsumers{}}},
+		},
+	}
+
+	c.Assert(rootNode.ResolveTree(), Equals, nil)
+	c.Assert(rootNode.Children["foo"].Name, Equals, "foo")
 }

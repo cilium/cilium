@@ -21,10 +21,10 @@ const (
 type ConsumableDecision byte
 
 const (
-	ACCEPT ConsumableDecision = iota
+	UNDECIDED ConsumableDecision = iota
+	ACCEPT
 	ALWAYS_ACCEPT
 	DENY
-	UNDECIDED
 )
 
 func (d *ConsumableDecision) String() string {
@@ -42,21 +42,27 @@ func (d *ConsumableDecision) String() string {
 	return "unknown"
 }
 
-type KeyValue struct {
-	key   string `json:"key"`
-	Value string `json:"value,omitempty"`
+func (d *ConsumableDecision) UnmarshalJSON(b []byte) error {
+	// FIXME
+	return nil
+}
+
+func (d *ConsumableDecision) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
 }
 
 type Label struct {
-	KeyValue
-	absKey string `json:-`
+	Name   string
+	Value  string `json:"Value,omitempty"`
+	absKey string
 	Source string
 }
 
 func NewLabel(key string, value string, source string) Label {
 	lbl := Label{
-		KeyValue: KeyValue{key, value},
-		Source:   source,
+		Name:   key,
+		Value:  value,
+		Source: source,
 	}
 
 	return lbl
@@ -67,10 +73,10 @@ func (l *Label) Compare(b *Label) bool {
 }
 
 func (l *Label) Resolve(node *PolicyNode) {
-	if l.Source == "cilium" && !strings.HasPrefix(l.key, common.GlobalLabelPrefix) {
-		l.absKey = node.Path() + "." + l.key
+	if l.Source == "cilium" && !strings.HasPrefix(l.Name, common.GlobalLabelPrefix) {
+		l.absKey = node.Path() + "." + l.Name
 	} else {
-		l.absKey = l.key
+		l.absKey = l.Name
 	}
 }
 
@@ -79,7 +85,7 @@ func (l *Label) Key() string {
 		return l.absKey
 	}
 
-	return l.key
+	return l.Name
 }
 
 func (l *Label) UnmarshalJSON(data []byte) error {
@@ -96,7 +102,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	if bytes.Contains(data, []byte(`"source":`)) {
 		var aux struct {
 			Source string `json:"source"`
-			Key    string `json:"key" binding:"required"`
+			Name   string `json:"name" binding:"required"`
 			Value  string `json:"value"`
 		}
 
@@ -104,14 +110,16 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("Decode of Label failed: %+v", err)
 		}
 
-		if aux.Key == "" {
+		if aux.Name == "" {
 			return fmt.Errorf("Invalid Label: must provide a label key")
 		}
 
 		l.Source = aux.Source
-		l.key = aux.Key
+		l.Name = aux.Name
 		l.Value = aux.Value
 	} else {
+		// FIXME: [source:]key[=value]
+
 		// This is a short form in which only a string to be interpreted
 		// as a cilium label key is provided
 		var aux string
@@ -125,7 +133,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		}
 
 		l.Source = "cilium"
-		l.key = aux
+		l.Name = aux
 		l.Value = ""
 	}
 
@@ -150,7 +158,7 @@ func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
 }
 
 type AllowRule struct {
-	Action ConsumableDecision `json:action,omitempty"`
+	Action ConsumableDecision `json:"action,omitempty"`
 	Label  Label
 }
 
@@ -170,9 +178,9 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Decode of AllowRule failed: %+v", err)
 	}
 
-	if aux.key[0] == '!' {
+	if aux.Name[0] == '!' {
 		a.Action = DENY
-		aux.key = aux.key[1:]
+		aux.Name = aux.Name[1:]
 	} else {
 		a.Action = ACCEPT
 	}
@@ -306,8 +314,8 @@ type PolicyRuleDropPrivileges struct {
 
 // Node to define hierarchy of rules
 type PolicyNode struct {
-	Name     string
-	path     string                 `json:"-"`
+	path     string
+	Name     string                 `json:"-"`
 	Parent   *PolicyNode            `json:"-"`
 	Rules    []interface{}          `json:"Rules,omitempty"`
 	Children map[string]*PolicyNode `json:"Children,omitempty"`
@@ -408,7 +416,7 @@ func (pn *PolicyNode) resolveRules() error {
 	return nil
 }
 
-func (pn *PolicyNode) resolveTree() error {
+func (pn *PolicyNode) ResolveTree() error {
 	var err error
 
 	pn.path, err = pn.BuildPath()
@@ -422,8 +430,9 @@ func (pn *PolicyNode) resolveTree() error {
 
 	for k, val := range pn.Children {
 		pn.Children[k].Parent = pn
-		pn.Children[k].Name = k
-		if err = val.resolveTree(); err != nil {
+		val.Parent = pn
+		val.Name = k
+		if err = val.ResolveTree(); err != nil {
 			return err
 		}
 	}
@@ -451,7 +460,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	// to the root node. Walk the tree again to resolve the path of each
 	// node.
 	if pn.Name == common.GlobalLabelPrefix {
-		if err := pn.resolveTree(); err != nil {
+		if err := pn.ResolveTree(); err != nil {
 			return err
 		}
 	}
