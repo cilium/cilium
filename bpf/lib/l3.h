@@ -8,6 +8,7 @@
 #include "l4.h"
 #include "lxc_map.h"
 #include "icmp6.h"
+#include "nat46.h"
 
 #ifdef ENCAP_IFINDEX
 static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
@@ -92,6 +93,17 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 #endif /* DISABLE_PORT_MAP */
 
 		printk("Redirecting to ifindex %u\n", dst_lxc->ifindex);
+
+#ifdef ENABLE_NAT46
+		if (skb->tc_index == 0 &&
+		    skb->protocol == __constant_htons(ETH_P_IPV6)) {
+			ret = ipv6_to_ipv4(skb, nh_off);
+			if (ret == -1)
+				printk("v64 nat failed\n");
+
+		}
+		skb->tc_index = 0;
+#endif
 
 		return redirect(dst_lxc->ifindex, 0);
 	} else {
