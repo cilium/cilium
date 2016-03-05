@@ -133,7 +133,7 @@ POLICY=$(cat <<EOF
 				"Web": { },
 				"DB": {
 					"Rules": [{
-						"Allow": ["Web", {"action": "deny", "source": "kubernetes", "name": "foo"}]
+						"Allow": ["Web", {"action": "deny", "source": "kubernetes", "key": "foo"}]
 					}]
 				}
 			}
