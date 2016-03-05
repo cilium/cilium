@@ -45,55 +45,8 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-func canConsume(root *types.PolicyNode, ctx *types.SearchContext) types.ConsumableDecision {
-	decision := types.UNDECIDED
-
-	for _, child := range root.Children {
-		if child.Covers(ctx) {
-			switch child.Allows(ctx) {
-			case types.DENY:
-				return types.DENY
-			case types.ALWAYS_ACCEPT:
-				return types.ALWAYS_ACCEPT
-			case types.ACCEPT:
-				decision = types.ACCEPT
-			}
-		}
-	}
-
-	for _, child := range root.Children {
-		if child.Covers(ctx) {
-			switch canConsume(child, ctx) {
-			case types.DENY:
-				return types.DENY
-			case types.ALWAYS_ACCEPT:
-				return types.ALWAYS_ACCEPT
-			case types.ACCEPT:
-				decision = types.ACCEPT
-			}
-		}
-	}
-
-	return decision
-}
-
-func PolicyCanConsume(root *types.PolicyNode, ctx *types.SearchContext) types.ConsumableDecision {
-	decision := root.Allows(ctx)
-	switch decision {
-	case types.ALWAYS_ACCEPT:
-		return types.ACCEPT
-	case types.DENY:
-		return types.DENY
-	}
-
-	decision = canConsume(root, ctx)
-	if decision == types.ALWAYS_ACCEPT {
-		decision = types.ACCEPT
-	} else if decision == types.UNDECIDED {
-		decision = types.DENY
-	}
-
-	return decision
+func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
+	return tree.Allows(ctx)
 }
 
 func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
