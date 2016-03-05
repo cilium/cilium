@@ -368,11 +368,6 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 	return decision
 }
 
-// Overall policy tree
-type PolicyTree struct {
-	Root PolicyNode
-}
-
 func (pn *PolicyNode) BuildPath() (string, error) {
 	if pn.Parent != nil {
 		// Optimization: if parent has calculated path already (likely),
@@ -509,4 +504,60 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// Overall policy tree
+type PolicyTree struct {
+	Root PolicyNode
+}
+
+func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
+	decision := UNDECIDED
+
+	for _, child := range root.Children {
+		if child.Covers(ctx) {
+			switch child.Allows(ctx) {
+			case DENY:
+				return DENY
+			case ALWAYS_ACCEPT:
+				return ALWAYS_ACCEPT
+			case ACCEPT:
+				decision = ACCEPT
+			}
+		}
+	}
+
+	for _, child := range root.Children {
+		if child.Covers(ctx) {
+			switch canConsume(child, ctx) {
+			case DENY:
+				return DENY
+			case ALWAYS_ACCEPT:
+				return ALWAYS_ACCEPT
+			case ACCEPT:
+				decision = ACCEPT
+			}
+		}
+	}
+
+	return decision
+}
+
+func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
+	decision := t.Root.Allows(ctx)
+	switch decision {
+	case ALWAYS_ACCEPT:
+		return ACCEPT
+	case DENY:
+		return DENY
+	}
+
+	decision = canConsume(&t.Root, ctx)
+	if decision == ALWAYS_ACCEPT {
+		decision = ACCEPT
+	} else if decision == UNDECIDED {
+		decision = DENY
+	}
+
+	return decision
 }
