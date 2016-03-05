@@ -16,14 +16,14 @@ var _ = Suite(&CommonSuite{})
 func (s *CommonSuite) TestLabel(c *C) {
 	var label Label
 
-	longLabel := `{"source": "kubernetes", "name": "io.kubernetes.pod.name", "value": "foo"}`
+	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
 	invLabel := `{"source": "kubernetes", "value": "foo"}`
 	shortLabel := `"web"`
 
 	err := json.Unmarshal([]byte(longLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, "kubernetes")
-	c.Assert(label.Key(), Equals, "io.kubernetes.pod.name")
+	c.Assert(label.AbsoluteKey(), Equals, "io.kubernetes.pod.name")
 	c.Assert(label.Value, Equals, "foo")
 
 	err = json.Unmarshal([]byte(invLabel), &label)
@@ -32,7 +32,7 @@ func (s *CommonSuite) TestLabel(c *C) {
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, "cilium")
-	c.Assert(label.Key(), Equals, "web")
+	c.Assert(label.AbsoluteKey(), Equals, "web")
 	c.Assert(label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(""), &label)
@@ -42,7 +42,7 @@ func (s *CommonSuite) TestLabel(c *C) {
 func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	var rule AllowRule
 
-	longLabel := `{"source": "kubernetes", "name": "!io.kubernetes.pod.name", "value": "foo"}`
+	longLabel := `{"source": "kubernetes", "key": "!io.kubernetes.pod.name", "value": "foo"}`
 	invLabel := `{"source": "kubernetes", "value": "foo"}`
 	shortLabel := `"web"`
 	invertedLabel := `"!web"`
@@ -51,7 +51,7 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Action, Equals, DENY)
 	c.Assert(rule.Label.Source, Equals, "kubernetes")
-	c.Assert(rule.Label.Key(), Equals, "io.kubernetes.pod.name")
+	c.Assert(rule.Label.AbsoluteKey(), Equals, "io.kubernetes.pod.name")
 	c.Assert(rule.Label.Value, Equals, "foo")
 
 	err = json.Unmarshal([]byte(invLabel), &rule)
@@ -61,14 +61,14 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Action, Equals, ACCEPT)
 	c.Assert(rule.Label.Source, Equals, "cilium")
-	c.Assert(rule.Label.Key(), Equals, "web")
+	c.Assert(rule.Label.AbsoluteKey(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(invertedLabel), &rule)
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Action, Equals, DENY)
 	c.Assert(rule.Label.Source, Equals, "cilium")
-	c.Assert(rule.Label.Key(), Equals, "web")
+	c.Assert(rule.Label.AbsoluteKey(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(""), &rule)

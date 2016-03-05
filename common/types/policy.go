@@ -51,95 +51,6 @@ func (d *ConsumableDecision) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
 }
 
-type Label struct {
-	Name   string
-	Value  string `json:"Value,omitempty"`
-	absKey string
-	Source string
-}
-
-func NewLabel(key string, value string, source string) Label {
-	lbl := Label{
-		Name:   key,
-		Value:  value,
-		Source: source,
-	}
-
-	return lbl
-}
-
-func (l *Label) Compare(b *Label) bool {
-	return l.Source == b.Source && l.Key() == b.Key() && l.Value == b.Value
-}
-
-func (l *Label) Resolve(node *PolicyNode) {
-	if l.Source == "cilium" && !strings.HasPrefix(l.Name, common.GlobalLabelPrefix) {
-		l.absKey = node.Path() + "." + l.Name
-	} else {
-		l.absKey = l.Name
-	}
-}
-
-func (l *Label) Key() string {
-	if l.absKey != "" {
-		return l.absKey
-	}
-
-	return l.Name
-}
-
-func (l *Label) UnmarshalJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-
-	if l == nil {
-		return fmt.Errorf("Cannot unmarhshal to nil pointer")
-	}
-
-	if len(data) == 0 {
-		return fmt.Errorf("Invalid Label: empty data")
-	}
-
-	if bytes.Contains(data, []byte(`"source":`)) {
-		var aux struct {
-			Source string `json:"source"`
-			Name   string `json:"name" binding:"required"`
-			Value  string `json:"value"`
-		}
-
-		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of Label failed: %+v", err)
-		}
-
-		if aux.Name == "" {
-			return fmt.Errorf("Invalid Label: must provide a label key")
-		}
-
-		l.Source = aux.Source
-		l.Name = aux.Name
-		l.Value = aux.Value
-	} else {
-		// FIXME: [source:]key[=value]
-
-		// This is a short form in which only a string to be interpreted
-		// as a cilium label key is provided
-		var aux string
-
-		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of Label as string failed: %+v", err)
-		}
-
-		if aux == "" {
-			return fmt.Errorf("Invalid Label: must provide a label key")
-		}
-
-		l.Source = "cilium"
-		l.Name = aux
-		l.Value = ""
-	}
-
-	return nil
-}
-
 type SearchContext struct {
 	From []Label
 	To   []Label
@@ -178,9 +89,9 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Decode of AllowRule failed: %+v", err)
 	}
 
-	if aux.Name[0] == '!' {
+	if aux.Key[0] == '!' {
 		a.Action = DENY
-		aux.Name = aux.Name[1:]
+		aux.Key = aux.Key[1:]
 	} else {
 		a.Action = ACCEPT
 	}
@@ -234,9 +145,9 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 	for _, l := range c.Coverage {
 		l.Resolve(node)
 
-		if !strings.HasPrefix(l.Key(), node.Path()) {
+		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
 			return fmt.Errorf("Label %s does not share prefix of node %s",
-				l.Key(), node.Path())
+				l.AbsoluteKey(), node.Path())
 		}
 	}
 
@@ -283,9 +194,9 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	for _, l := range c.Coverage {
 		l.Resolve(node)
 
-		if !strings.HasPrefix(l.Key(), node.Path()) {
+		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
 			return fmt.Errorf("Label %s does not share prefix of node %s",
-				l.Key(), node.Path())
+				l.AbsoluteKey(), node.Path())
 		}
 	}
 
@@ -332,7 +243,7 @@ func (p *PolicyNode) Path() string {
 
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 	for _, label := range ctx.To {
-		if strings.HasPrefix(label.Key(), p.Path()) {
+		if strings.HasPrefix(label.AbsoluteKey(), p.Path()) {
 			return true
 		}
 	}
