@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 
+	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 )
@@ -57,6 +59,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		return fmt.Errorf("invalid ID %s", ep.ID)
 	}
 	lxcDir := "./" + ep.ID
+	policyMapPath := common.PolicyMapPath + ep.ID
 
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
 		log.Warningf("Failed to create container temporary directory: %s", err)
@@ -77,12 +80,15 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		" * MAC: %s\n"+
 		" * IP: %s\n"+
 		" * SecLabel: %#x\n"+
+		" * PolicyMap: %s\n"+
 		" */\n\n",
-		ep.DockerID, ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel)
+		ep.DockerID, ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
+		path.Base(policyMapPath))
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
 	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", common.Swab32(ep.SecLabel))
+	fmt.Fprintf(f, "#define LXC_POLICYMAP %s\n", path.Base(policyMapPath))
 
 	f.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range ep.PortMap {
@@ -93,6 +99,21 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	f.WriteString("\n")
 
 	f.Close()
+
+	policyMap, err := policymap.OpenMap(policyMapPath)
+	if err != nil {
+		os.RemoveAll(lxcDir)
+		log.Warningf("Could not create policy BPF map '%s': %s", policyMapPath, err)
+		return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
+	}
+
+	ep.PolicyMap = policyMap
+	if err := d.RegenerateConsumerMap(&ep); err != nil {
+		os.RemoveAll(policyMapPath)
+		os.RemoveAll(lxcDir)
+		log.Warningf("Unable to generate policy map for '%s': %s", policyMapPath, err)
+		return fmt.Errorf("Unable to generate policy map for '%s': %s", policyMapPath, err)
+	}
 
 	if err = d.lxcMap.WriteEndpoint(&ep); err != nil {
 		os.RemoveAll(lxcDir)
@@ -133,6 +154,10 @@ func (d Daemon) EndpointLeave(epID string) error {
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
+
+	// Clear policy map
+	os.RemoveAll(common.PolicyMapPath + epID)
+
 	// TODO: We need to retrieve docker container ID to perform map endpoint delete
 	log.Infof("Command successful:\n%s", out)
 

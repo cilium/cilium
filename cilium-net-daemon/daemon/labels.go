@@ -101,6 +101,8 @@ func (d Daemon) GetLabelsID(labels types.Labels) (int, error) {
 		return -1, err
 	}
 
+	d.TriggerPolicyUpdates([]int{id})
+
 	return id, nil
 }
 

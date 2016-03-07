@@ -42,6 +42,10 @@ struct lxc_info {
 	struct portmap  portmap[PORTMAP_MAX];
 };
 
+struct policy_entry {
+	__u32		action;
+};
+
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif

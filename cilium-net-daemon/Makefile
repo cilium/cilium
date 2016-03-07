@@ -6,13 +6,13 @@ all: $(TARGET)
 
 tests:
 	-docker run -d \
-           --name "cilium-consul-container-test" \
+           --name "cilium-consul-test-container" \
            -p 8500:8500 \
            progrium/consul \
            -server -bootstrap-expect 1
 	godep go fmt ./...
 	-godep go test ./...
-	docker rm -f "cilium-consul-container-test"
+	docker rm -f "cilium-consul-test-container"
 
 runtime-tests:
 
