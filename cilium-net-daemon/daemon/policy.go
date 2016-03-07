@@ -45,6 +45,63 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
+func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
+	maxID, err := d.GetMaxID()
+	if err != nil {
+		return err
+	}
+
+	labels, err := d.GetLabels(int(e.SecLabel))
+	if err != nil {
+		return err
+	}
+
+	ctx := types.SearchContext{To: make([]types.Label, len(*labels))}
+
+	idx := 0
+	for k, v := range *labels {
+		// FIXME labels layer to include source
+		ctx.To[idx] = types.Label{Key: k, Value: v, Source: "cilium"}
+		idx++
+	}
+
+	// Mark all entries unused by denying them
+	for _, val := range e.Consumers {
+		val.Decision = types.DENY
+	}
+
+	for idx < maxID {
+		srcLabels, err := d.GetLabels(idx)
+		if err != nil {
+			break
+		}
+
+		ctx.From = make([]types.Label, len(*srcLabels))
+
+		idx2 := 0
+		for k, v := range *srcLabels {
+			ctx.From[idx2] = types.Label{Key: k, Value: v, Source: "cilium"}
+			idx2++
+		}
+
+		decision := d.PolicyCanConsume(&ctx)
+		// Only accept rules get stored
+		if decision == types.ACCEPT {
+			e.AllowConsumer(idx)
+		}
+		idx++
+	}
+
+	// Garbage collect all unused entries
+	for k, val := range e.Consumers {
+		if val.Decision == types.DENY {
+			delete(e.Consumers, k)
+		}
+	}
+
+	return nil
+}
+
 func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
 	return tree.Allows(ctx)
 }

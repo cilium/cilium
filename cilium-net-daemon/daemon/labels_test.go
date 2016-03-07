@@ -69,6 +69,9 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 1)
 
+	// FIXME
+	//gotLabels, err := ds.d.GetLabels(0)
+
 	//Get labels from ID
 	gotLabels, err := ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)

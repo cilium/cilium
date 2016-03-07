@@ -13,18 +13,54 @@ type EPPortMap struct {
 	Proto uint8  `json:"proto"`
 }
 
+type Consumer struct {
+	Decision ConsumableDecision
+}
+
 type Endpoint struct {
-	ID            string           `json:"id"`
-	DockerID      string           `json:"docker-id"`
-	LxcMAC        net.HardwareAddr `json:"lxc-MAC"`
-	LxcIP         net.IP           `json:"lxc-IP"`
-	NodeMAC       net.HardwareAddr `json:"node-MAC"`
-	Ifname        string           `json:"interface-Name"`
-	IfIndex       int              `json:"ifindex"`
-	NodeIP        net.IP           `json:"node-IP"`
-	DockerNetwork string           `json:"docker-network"`
-	SecLabel      uint32           `json:"security-label"`
-	PortMap       []EPPortMap      `json:"port-mapping"`
+	ID            string              `json:"id"`
+	DockerID      string              `json:"docker-id"`
+	LxcMAC        net.HardwareAddr    `json:"lxc-MAC"`
+	LxcIP         net.IP              `json:"lxc-IP"`
+	NodeMAC       net.HardwareAddr    `json:"node-MAC"`
+	Ifname        string              `json:"interface-Name"`
+	IfIndex       int                 `json:"ifindex"`
+	NodeIP        net.IP              `json:"node-IP"`
+	DockerNetwork string              `json:"docker-network"`
+	SecLabel      uint32              `json:"security-label"`
+	PortMap       []EPPortMap         `json:"port-mapping"`
+	Consumers     map[string]Consumer `json:"consumers"`
+}
+
+func (e *Endpoint) Consumer(id int) *Consumer {
+	if val, ok := e.Consumers[strconv.Itoa(id)]; ok {
+		return &val
+	} else {
+		return nil
+	}
+}
+
+func (e *Endpoint) AllowConsumer(id int) {
+	if consumer := e.Consumer(id); consumer != nil {
+		consumer.Decision = ACCEPT
+	} else {
+		if e.Consumers == nil {
+			e.Consumers = make(map[string]Consumer)
+		}
+
+		n := strconv.Itoa(id)
+		e.Consumers[n] = Consumer{Decision: ACCEPT}
+	}
+}
+
+func (e *Endpoint) AllowsSecLabel(id int) bool {
+	if c := e.Consumer(id); c != nil {
+		if c.Decision == ACCEPT {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (e *Endpoint) U16ID() uint16 {
