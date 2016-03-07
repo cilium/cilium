@@ -46,6 +46,11 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 }
 
 func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
+	// Containers without a security label are not accessible
+	if e.SecLabel == 0 {
+		return nil
+	}
+
 	maxID, err := d.GetMaxID()
 	if err != nil {
 		return err
@@ -100,6 +105,16 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	}
 
 	return nil
+}
+
+func (d Daemon) TriggerPolicyUpdates(added []int) {
+	d.endpointsMU.Lock()
+
+	for _, ep := range d.endpoints {
+		d.RegenerateConsumerMap(ep)
+	}
+
+	d.endpointsMU.Unlock()
 }
 
 func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {

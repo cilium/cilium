@@ -2,7 +2,7 @@ include ../Makefile.defs
 
 CLANG_FLAGS := -I. -Wall -Werror
 
-BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o
+BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_policy.o
 SCRIPTS = init.sh join_ep.sh leave_ep.sh
 LIB := $(shell find ./lib -name '*.h')
 
@@ -20,6 +20,9 @@ bpf_netdev.o:
 
 bpf_overlay.o:
 	clang -O2 -target bpf -c bpf_overlay.c ${CLANG_FLAGS} -o $@
+
+bpf_policy.o:
+	clang -O2 -target bpf -c bpf_policy.c ${CLANG_FLAGS} -o $@
 
 clean:
 	rm -fr *.o

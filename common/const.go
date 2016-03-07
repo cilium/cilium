@@ -9,6 +9,7 @@ const (
 	CiliumSock          = CiliumPath + "cilium.sock"
 	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
 	BPFMap              = "/sys/fs/bpf/tc/globals/cilium_lxc"
+	PolicyMapPath       = "/sys/fs/bpf/tc/globals/cilium_policy_"
 
 	OperationalPath   = "cilium-net/operational"
 	LastFreeIDKeyPath = OperationalPath + "/LastUUID"

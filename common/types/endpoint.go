@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+
+	"github.com/noironetworks/cilium-net/bpf/policymap"
 )
 
 type EPPortMap struct {
@@ -18,18 +20,19 @@ type Consumer struct {
 }
 
 type Endpoint struct {
-	ID            string              `json:"id"`
-	DockerID      string              `json:"docker-id"`
-	LxcMAC        net.HardwareAddr    `json:"lxc-MAC"`
-	LxcIP         net.IP              `json:"lxc-IP"`
-	NodeMAC       net.HardwareAddr    `json:"node-MAC"`
-	Ifname        string              `json:"interface-Name"`
-	IfIndex       int                 `json:"ifindex"`
-	NodeIP        net.IP              `json:"node-IP"`
-	DockerNetwork string              `json:"docker-network"`
-	SecLabel      uint32              `json:"security-label"`
-	PortMap       []EPPortMap         `json:"port-mapping"`
-	Consumers     map[string]Consumer `json:"consumers"`
+	ID            string               `json:"id"`
+	DockerID      string               `json:"docker-id"`
+	LxcMAC        net.HardwareAddr     `json:"lxc-MAC"`
+	LxcIP         net.IP               `json:"lxc-IP"`
+	NodeMAC       net.HardwareAddr     `json:"node-MAC"`
+	Ifname        string               `json:"interface-Name"`
+	IfIndex       int                  `json:"ifindex"`
+	NodeIP        net.IP               `json:"node-IP"`
+	DockerNetwork string               `json:"docker-network"`
+	SecLabel      uint32               `json:"security-label"`
+	PortMap       []EPPortMap          `json:"port-mapping"`
+	PolicyMap     *policymap.PolicyMap `json:"-"`
+	Consumers     map[string]Consumer  `json:"consumers"`
 }
 
 func (e *Endpoint) Consumer(id int) *Consumer {
