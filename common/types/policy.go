@@ -43,7 +43,17 @@ func (d *ConsumableDecision) String() string {
 }
 
 func (d *ConsumableDecision) UnmarshalJSON(b []byte) error {
-	// FIXME
+	switch strings.ToLower(string(b)) {
+	case "accept":
+		*d = ACCEPT
+	case "always-accept":
+		*d = ALWAYS_ACCEPT
+	case "deny":
+		*d = DENY
+	case "undecided":
+		*d = UNDECIDED
+	}
+
 	return nil
 }
 
