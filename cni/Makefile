@@ -7,7 +7,7 @@ tests:
 runtime-tests:
 
 clean:
-	rm -f cilium-cni host-local
+	rm -f cilium-cni
 
 SOURCES := $(shell find . -name '*.go')
 
