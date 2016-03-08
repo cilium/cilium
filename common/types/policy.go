@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
+
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 // Available privileges for policy nodes to define
@@ -26,6 +28,16 @@ const (
 	ALWAYS_ACCEPT
 	DENY
 )
+
+var (
+	log = logging.MustGetLogger("cilium-net")
+)
+
+func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
+	if ctx.Trace {
+		log.Debugf(format, a...)
+	}
+}
 
 func (d *ConsumableDecision) String() string {
 	switch *d {
@@ -62,8 +74,9 @@ func (d *ConsumableDecision) MarshalJSON() ([]byte, error) {
 }
 
 type SearchContext struct {
-	From []Label
-	To   []Label
+	Trace bool
+	From  []Label
+	To    []Label
 }
 
 func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
@@ -114,10 +127,12 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	for _, label := range ctx.From {
 		if label.Compare(&a.Label) {
+			policyTrace(ctx, "Allow Rule %+v decision\n", a)
 			return a.Action
 		}
 	}
 
+	policyTrace(ctx, "Allow Rule %+v decision: UNDECIDED\n", a)
 	return UNDECIDED
 }
 
@@ -133,6 +148,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	decision := UNDECIDED
 
 	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(&c.Coverage) {
+		policyTrace(ctx, "Consumer rule %+v missed coverage\n", c)
 		return UNDECIDED
 	}
 
@@ -154,6 +170,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 	for _, l := range c.Coverage {
 		l.Resolve(node)
+		log.Debugf("Resolved label %+v\n", l)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
 			return fmt.Errorf("Label %s does not share prefix of node %s",
@@ -163,6 +180,7 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 
 	for _, r := range c.Allow {
 		r.Label.Resolve(node)
+		log.Debugf("Resolved label %+v\n", r.Label)
 	}
 
 	return nil
@@ -192,6 +210,7 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 			}
 
 			if match == false {
+				policyTrace(ctx, "Did not find required labels: %+v\n", r)
 				return DENY
 			}
 		}
@@ -203,6 +222,7 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	for _, l := range c.Coverage {
 		l.Resolve(node)
+		log.Debugf("Resolved label %+v\n", l)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
 			return fmt.Errorf("Label %s does not share prefix of node %s",
@@ -212,6 +232,7 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 
 	for _, l := range c.Requires {
 		l.Resolve(node)
+		log.Debugf("Resolved label %+v\n", l)
 	}
 
 	return nil
@@ -275,6 +296,8 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 			decision = pr_r.Allows(ctx)
 			break
 		}
+
+		policyTrace(ctx, "Rule %+v decision: %s\n", rule, decision.String())
 
 		switch decision {
 		case ALWAYS_ACCEPT:
@@ -376,9 +399,11 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	// to the root node. Walk the tree again to resolve the path of each
 	// node.
 	if pn.Name == common.GlobalLabelPrefix {
+		log.Debugf("Resolving tree: %+v\n", pn)
 		if err := pn.ResolveTree(); err != nil {
 			return err
 		}
+		log.Debugf("Resolved tree: %+v\n", pn)
 	}
 
 	for _, rawMsg := range policyNode.Rules {
@@ -437,6 +462,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
+			policyTrace(ctx, "Covered by %+v\n", child)
 			switch child.Allows(ctx) {
 			case DENY:
 				return DENY
@@ -445,11 +471,13 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
+			policyTrace(ctx, "... contuining with decision: %s\n", decision.String())
 		}
 	}
 
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
+			policyTrace(ctx, "Covered by child %+v\n", child)
 			switch canConsume(child, ctx) {
 			case DENY:
 				return DENY
@@ -458,6 +486,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
+			policyTrace(ctx, "... continuing with decision: %s\n", decision.String())
 		}
 	}
 
@@ -465,7 +494,9 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 }
 
 func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
+	policyTrace(ctx, "Deriving policy for context %+v\n", ctx)
 	decision := t.Root.Allows(ctx)
+	policyTrace(ctx, "Root rules: %s\n", decision.String())
 	switch decision {
 	case ALWAYS_ACCEPT:
 		return ACCEPT
@@ -474,11 +505,14 @@ func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
 	}
 
 	decision = canConsume(&t.Root, ctx)
+	policyTrace(ctx, "Root children decision: %s\n", decision.String())
 	if decision == ALWAYS_ACCEPT {
 		decision = ACCEPT
 	} else if decision == UNDECIDED {
 		decision = DENY
 	}
+
+	policyTrace(ctx, "Final tree decision: %s\n", decision.String())
 
 	return decision
 }
