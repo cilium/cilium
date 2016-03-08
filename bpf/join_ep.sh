@@ -14,8 +14,8 @@ DIR="$PWD/$ID"
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
 
-clang -O2 -target bpf -c $LIB/bpf_lxc.c -I/var/run/cilium/globals -I$DIR/$ID -I$DIR/globals -o $DIR/bpf_lxc.o
-clang -O2 -target bpf -c $LIB/bpf_policy.c -I/var/run/cilium/globals -I$DIR/$ID -I$DIR/globals -o $DIR/bpf_policy.o
+clang -O2 -target bpf -c $LIB/bpf_lxc.c -I/var/run/cilium/globals -I$DIR -o $DIR/bpf_lxc.o
+clang -O2 -target bpf -c $LIB/bpf_policy.c -I/var/run/cilium/globals -I$DIR -o $DIR/bpf_policy.o
 
 #tc qdisc add dev $IFNAME root handle eeee: prio bands 3
 tc qdisc add dev $IFNAME clsact
