@@ -7,7 +7,7 @@ all: $(TARGET)
 tests:
 	-docker run -d \
            --name "cilium-consul-test-container" \
-           -p 8500:8500 \
+           -p 8501:8500 \
            progrium/consul \
            -server -bootstrap-expect 1
 	godep go fmt ./...
