@@ -28,11 +28,13 @@ var (
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
+	consulConfig := consulAPI.DefaultConfig()
+	consulConfig.Address = "127.0.0.1:8501"
 	daemonConf := Config{
 		LibDir:             "",
 		LXCMap:             nil,
 		NodeAddress:        nil,
-		ConsulConfig:       consulAPI.DefaultConfig(),
+		ConsulConfig:       consulConfig,
 		DockerEndpoint:     "tcp://127.0.0.1",
 		K8sEndpoint:        "tcp://127.0.0.1",
 		ValidLabelPrefixes: nil,
