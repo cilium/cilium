@@ -117,12 +117,13 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 
 func (d Daemon) TriggerPolicyUpdates(added []int) {
 	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	log.Debugf("Triggering policy updates %+v", added)
 
 	for _, ep := range d.endpoints {
 		d.RegenerateConsumerMap(ep)
 	}
-
-	d.endpointsMU.Unlock()
 }
 
 func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
