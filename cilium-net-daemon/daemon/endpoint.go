@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
@@ -18,54 +19,62 @@ func isValidID(id string) bool {
 	return r.MatchString(id)
 }
 
-func (d Daemon) insertEndpoint(dockerID string, ep *types.Endpoint) {
+func (d Daemon) insertEndpoint(ep *types.Endpoint) {
 	d.endpointsMU.Lock()
-	d.endpoints[dockerID] = ep
+	d.endpoints[types.CiliumPreffix+ep.ID] = ep
+	if ep.DockerID != "" {
+		d.endpoints[types.DockerPreffix+ep.DockerID] = ep
+	}
 	d.endpointsMU.Unlock()
 }
 
-// Sets the given secLabel on the endpoint with the given dockerID. Returns true if the
-// endpoint was found, false otherwise.
-func (d Daemon) setEndpointSecLabel(dockerID string, secLabel uint32) bool {
+// Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
+// a copy endpoint if the endpoint was found, nil otherwise.
+func (d Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint32) *types.Endpoint {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	if ep, ok := d.endpoints[dockerID]; ok {
-		ep.SecLabel = secLabel
-		return true
+	if endpointID != "" {
+		if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
+			ep.SecLabel = secLabel
+			epCopy := *ep
+			return &epCopy
+		}
+	} else if dockerID != "" {
+		if ep, ok := d.endpoints[types.DockerPreffix+dockerID]; ok {
+			ep.SecLabel = secLabel
+			epCopy := *ep
+			return &epCopy
+		}
 	}
-	return false
+	return nil
 }
 
-// Returns a copy of the endpoint for the given dockerID, or nil if the endpoint was not
+// Returns a copy of the endpoint for the given endpointID, or nil if the endpoint was not
 // found.
-func (d Daemon) getEndpoint(dockerID string) *types.Endpoint {
+func (d Daemon) getEndpoint(endpointID string) *types.Endpoint {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	if ep, ok := d.endpoints[dockerID]; ok {
+	if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
 		epCopy := *ep
 		return &epCopy
 	}
 	return nil
 }
 
-func (d Daemon) deleteEndpoint(dockerID string) {
+func (d Daemon) deleteEndpoint(endpointID string) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	delete(d.endpoints, dockerID)
+	if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
+		delete(d.endpoints, types.DockerPreffix+ep.DockerID)
+		delete(d.endpoints, types.CiliumPreffix+endpointID)
+	}
 }
 
-func (d Daemon) EndpointJoin(ep types.Endpoint) error {
+func (d Daemon) createBPF(ep types.Endpoint) error {
 	if !isValidID(ep.ID) {
 		return fmt.Errorf("invalid ID %s", ep.ID)
 	}
-	lxcDir := "./" + ep.ID
-	policyMapPath := common.PolicyMapPath + ep.ID
-
-	if err := os.MkdirAll(lxcDir, 0777); err != nil {
-		log.Warningf("Failed to create container temporary directory: %s", err)
-		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
-	}
-
+	lxcDir := filepath.Join(".", ep.ID)
 	f, err := os.Create(lxcDir + "/lxc_config.h")
 	if err != nil {
 		os.RemoveAll(lxcDir)
@@ -74,15 +83,20 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	}
 
-	fmt.Fprintf(f, ""+
-		"/*\n"+
-		" * Container ID: %s\n"+
-		" * MAC: %s\n"+
+	fmt.Fprint(f, "/*\n")
+	if ep.DockerID == "" {
+		fmt.Fprintf(f, " * Docker Network ID: %s\n", ep.DockerNetwork)
+	} else {
+		fmt.Fprintf(f, " * Docker Container ID: %s\n", ep.DockerID)
+	}
+	policyMapPath := common.PolicyMapPath + ep.ID
+
+	fmt.Fprintf(f, " * MAC: %s\n"+
 		" * IP: %s\n"+
 		" * SecLabel: %#x\n"+
 		" * PolicyMap: %s\n"+
 		" */\n\n",
-		ep.DockerID, ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
+		ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
 		path.Base(policyMapPath))
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
@@ -129,8 +143,22 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
-	d.insertEndpoint(ep.DockerID, &ep)
 	log.Infof("Command successful:\n%s", out)
+	return nil
+}
+
+func (d Daemon) EndpointJoin(ep types.Endpoint) error {
+	if !isValidID(ep.ID) {
+		return fmt.Errorf("invalid ID %s", ep.ID)
+	}
+	lxcDir := filepath.Join(".", ep.ID)
+
+	if err := os.MkdirAll(lxcDir, 0777); err != nil {
+		log.Warningf("Failed to create container temporary directory: %s", err)
+		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
+	}
+
+	d.insertEndpoint(&ep)
 
 	return nil
 }
@@ -158,7 +186,8 @@ func (d Daemon) EndpointLeave(epID string) error {
 	// Clear policy map
 	os.RemoveAll(common.PolicyMapPath + epID)
 
-	// TODO: We need to retrieve docker container ID to perform map endpoint delete
+	d.deleteEndpoint(epID)
+
 	log.Infof("Command successful:\n%s", out)
 
 	return nil

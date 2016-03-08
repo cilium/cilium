@@ -9,6 +9,11 @@ import (
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 )
 
+const (
+	CiliumPreffix = "cilium://"
+	DockerPreffix = "docker://"
+)
+
 type EPPortMap struct {
 	From  uint16 `json:"from"`
 	To    uint16 `json:"to"`
@@ -85,7 +90,12 @@ func (e *Endpoint) U64MAC() (uint64, error) {
 }
 
 func (e *Endpoint) SetID() {
-	if len(e.LxcIP) == net.IPv6len {
-		e.ID = strconv.Itoa(int(binary.BigEndian.Uint16(e.LxcIP[14:])))
+	e.ID = CalculateID(e.LxcIP)
+}
+
+func CalculateID(ip net.IP) string {
+	if len(ip) == net.IPv6len {
+		return strconv.Itoa(int(binary.BigEndian.Uint16(ip[14:])))
 	}
+	return ""
 }

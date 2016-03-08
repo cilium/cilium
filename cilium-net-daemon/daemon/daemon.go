@@ -158,6 +158,23 @@ func (d Daemon) filterValidLabels(labels map[string]string) map[string]string {
 	return filteredLabels
 }
 
+func getDockerContainerLabels(cont dTypes.ContainerJSON) map[string]string {
+	if cont.Config != nil {
+		return cont.Config.Labels
+	}
+	return map[string]string{}
+}
+
+func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
+	for _, contNetwork := range cont.NetworkSettings.Networks {
+		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
+		if ipv6gw.Equal(gwIP) {
+			return ciliumTypes.CalculateID(net.ParseIP(contNetwork.GlobalIPv6Address))
+		}
+	}
+	return ""
+}
+
 func (d Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	ns := k8sDockerLbls.GetPodNamespace(dockerLbls)
 	if ns == "" {
@@ -177,17 +194,25 @@ func (d Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string,
 }
 
 func (d Daemon) processEvent(m dTypesEvents.Message) {
-	if m.Status != "start" { //m.Action != "start" || m.Type != "container" {
-		return
+	//m.Action != "start" || m.Type != "container"
+	switch m.Status {
+	case "start":
+		d.createContainer(m)
 	}
+}
+
+func (d Daemon) createContainer(m dTypesEvents.Message) {
 	dockerID := m.ID // m.Actor.ID
 	//allLabels := m.Actor.Attributes
+	log.Debugf("Processing container %s", dockerID)
+
 	cont, err := d.dockerClient.ContainerInspect(dockerID)
 	if err != nil {
 		log.Errorf("Error while inspecting container '%s': %s", dockerID, err)
+		return
 	}
-	allLabels := cont.Config.Labels
-	log.Debugf("Processing container %s", dockerID)
+
+	allLabels := getDockerContainerLabels(cont)
 
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sLabels, err := d.fetchK8sLabels(allLabels)
@@ -200,22 +225,35 @@ func (d Daemon) processEvent(m dTypesEvents.Message) {
 			}
 		}
 	}
+
 	labels := d.filterValidLabels(allLabels)
+
 	labelsID, err := d.GetLabelsID(labels)
 	if err != nil {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return
 	}
+
+	ciliumID := getCiliumEndpointID(cont, d.ipamConf.Gateway)
+
 	try := 1
 	maxTries := 5
-	for try < maxTries && !d.setEndpointSecLabel(dockerID, uint32(labelsID)) {
-		log.Warningf("Something went wrong, the endpoint for docker ID '%s' was not locally found. Retrying... %d", dockerID, try)
+	var ep *ciliumTypes.Endpoint
+	for try < maxTries {
+		if ep = d.setEndpointSecLabel(ciliumID, dockerID, uint32(labelsID)); ep != nil {
+			break
+		}
+		log.Warningf("Something went wrong, the endpoint for docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
-	if try < maxTries {
-		log.Infof("Added SecLabel %d to container %s", labelsID, dockerID)
-	} else {
+	if try >= maxTries {
 		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s'", labelsID, dockerID)
+		return
 	}
+	if err := d.createBPF(*ep); err != nil {
+		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", labelsID, dockerID, err)
+		return
+	}
+	log.Infof("Added SecLabel %d to container %s", labelsID, dockerID)
 }
