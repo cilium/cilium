@@ -80,6 +80,10 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		if err != nil {
 			break
 		}
+		if srcLabels == nil {
+			idx++
+			continue
+		}
 
 		ctx.From = make([]types.Label, len(*srcLabels))
 

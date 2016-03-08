@@ -112,6 +112,9 @@ func (d Daemon) GetLabels(id int) (*types.Labels, error) {
 	if err != nil {
 		return nil, err
 	}
+	if pair == nil {
+		return nil, nil
+	}
 	var labels types.Labels
 	if err := json.Unmarshal(pair.Value, &labels); err != nil {
 		return nil, err
