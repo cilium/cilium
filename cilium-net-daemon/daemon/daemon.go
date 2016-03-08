@@ -117,6 +117,48 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}, nil
 }
 
+func (d Daemon) ActivateConsulWatcher(seconds time.Duration) {
+	go func() {
+		var k *consulAPI.KVPair
+		var q *consulAPI.QueryMeta
+		var err error
+		for {
+			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
+			if err != nil {
+				log.Errorf("Unable to retreive last free Index: %s", err)
+			}
+			if k != nil {
+				break
+			}
+			log.Warning("Unable to retreive last free Index, please start some containers with labels.")
+			time.Sleep(seconds)
+		}
+
+		for {
+			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, &consulAPI.QueryOptions{WaitIndex: q.LastIndex})
+			if err != nil {
+				log.Errorf("Unable to retreive last free Index: %s", err)
+			}
+			if k == nil {
+				log.Warning("Unable to retreive last free Index, please start some containers with labels.")
+				time.Sleep(time.Duration(5 * time.Second))
+				continue
+			}
+			valueCopy := make([]byte, len(k.Value))
+			copy(valueCopy, k.Value)
+			go func(value []byte) {
+				var lastFreeID int
+				if err := json.Unmarshal(value, &lastFreeID); err != nil {
+					log.Errorf("Unable to unmarshall last free Index %s", err)
+				}
+				// We need to decrement 1 because the lastFreeID represents the
+				// Last free ID
+				d.TriggerPolicyUpdates([]int{lastFreeID - 1})
+			}(valueCopy)
+		}
+	}()
+}
+
 func (d Daemon) ActivateEventListener() error {
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(time.Now().Unix(), 10)}
 	r, err := d.dockerClient.Events(eo)

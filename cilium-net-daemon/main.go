@@ -192,6 +192,7 @@ func main() {
 	}
 	// Register event listener in docker endpoint
 	d.ActivateEventListener()
+	d.ActivateConsulWatcher(time.Duration(5 * time.Second))
 
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
