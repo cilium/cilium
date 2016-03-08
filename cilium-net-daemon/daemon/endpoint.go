@@ -99,6 +99,18 @@ func (d Daemon) createBPF(ep types.Endpoint) error {
 		ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
 		path.Base(policyMapPath))
 
+	labels, err := d.GetLabels(int(ep.SecLabel))
+	if err != nil {
+		return err
+	}
+
+	f.WriteString("/*\n")
+	f.WriteString(" * Labels:\n")
+	for k, v := range *labels {
+		fmt.Fprintf(f, " * - %s=%s\n", k, v)
+	}
+	f.WriteString(" */\n\n")
+
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
 	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", common.Swab32(ep.SecLabel))
