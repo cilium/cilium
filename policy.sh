@@ -133,7 +133,7 @@ POLICY=$(cat <<EOF
 				"Web": { },
 				"DB": {
 					"Rules": [{
-						"Allow": ["Web", {"action": "deny", "source": "kubernetes", "key": "foo"}]
+						"Allow": ["io.cilium.Lizards.Web"]
 					}]
 				}
 			}
@@ -153,15 +153,15 @@ curl $FLAGS -XPOST http://localhost:9000/policy/io.cilium -d "$POLICY"
 curl $FLAGS -XGET http://localhost:9000/policy/io.cilium
 
 
-POLICY=$(cat <<EOF
-{
-        "Name": "DB",
-	"Rules": [{
-		"Allow": ["Web2"]
-	}]
-}
-EOF
-)
-
-curl $FLAGS -XPOST http://localhost:9000/policy/io.cilium.Lizards -d "$POLICY"
-curl $FLAGS -XGET http://localhost:9000/policy/io.cilium.Lizards
+#POLICY=$(cat <<EOF
+#{
+#        "Name": "DB",
+#	"Rules": [{
+#		"Allow": ["Web2"]
+#	}]
+#}
+#EOF
+#)
+#
+#curl $FLAGS -XPOST http://localhost:9000/policy/io.cilium.Lizards -d "$POLICY"
+#curl $FLAGS -XGET http://localhost:9000/policy/io.cilium.Lizards
