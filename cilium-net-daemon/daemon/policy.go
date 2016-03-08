@@ -61,7 +61,7 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		return err
 	}
 
-	ctx := types.SearchContext{To: make([]types.Label, len(*labels))}
+	ctx := types.SearchContext{Trace: true, To: make([]types.Label, len(*labels))}
 
 	idx := 0
 	for k, v := range *labels {
@@ -93,6 +93,8 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 			idx2++
 		}
 
+		log.Debugf("Building policy for context: %+v\n", ctx)
+
 		decision := d.PolicyCanConsume(&ctx)
 		// Only accept rules get stored
 		if decision == types.ACCEPT {
@@ -107,6 +109,8 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 			delete(e.Consumers, k)
 		}
 	}
+
+	log.Debugf("New policy map for ep %d: %+v\n", e.SecLabel, e.Consumers)
 
 	return nil
 }
