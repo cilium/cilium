@@ -31,7 +31,7 @@ SCRIPT
 
 Vagrant.configure(2) do |config|
   config.vm.box = "noironetworks/net-next"
-  config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/noironetworks/cilium-net", disabled: false
+  config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/noironetworks/cilium-net", type: "rsync"
 
   config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
   config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
