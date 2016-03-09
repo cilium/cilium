@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
@@ -18,11 +19,11 @@ var (
 func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	var parent *types.PolicyNode
 
-	if strings.HasPrefix(path, "io.cilium") == false {
-		return nil, nil, fmt.Errorf("Invalid path %s: must start with io.cilium", path)
+	if strings.HasPrefix(path, common.GlobalLabelPrefix) == false {
+		return nil, nil, fmt.Errorf("Invalid path %s: must start with %s", path, common.GlobalLabelPrefix)
 	}
 
-	newPath := strings.Replace(path, "io.cilium", "", 1)
+	newPath := strings.Replace(path, common.GlobalLabelPrefix, "", 1)
 	if newPath == "" {
 		return &tree.Root, nil, nil
 	}
