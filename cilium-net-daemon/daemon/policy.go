@@ -46,7 +46,7 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
+func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	// Containers without a security label are not accessible
 	if e.SecLabel == 0 {
 		return nil
@@ -116,7 +116,7 @@ func (d Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	return nil
 }
 
-func (d Daemon) TriggerPolicyUpdates(added []int) {
+func (d *Daemon) TriggerPolicyUpdates(added []int) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 

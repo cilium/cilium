@@ -117,7 +117,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}, nil
 }
 
-func (d Daemon) ActivateConsulWatcher(seconds time.Duration) {
+func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 	go func() {
 		var k *consulAPI.KVPair
 		var q *consulAPI.QueryMeta
@@ -159,7 +159,7 @@ func (d Daemon) ActivateConsulWatcher(seconds time.Duration) {
 	}()
 }
 
-func (d Daemon) ActivateEventListener() error {
+func (d *Daemon) ActivateEventListener() error {
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(time.Now().Unix(), 10)}
 	r, err := d.dockerClient.Events(eo)
 	if err != nil {
@@ -170,7 +170,7 @@ func (d Daemon) ActivateEventListener() error {
 	return nil
 }
 
-func (d Daemon) listenForEvents(reader io.ReadCloser) {
+func (d *Daemon) listenForEvents(reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var e dTypesEvents.Message
@@ -185,7 +185,7 @@ func (d Daemon) listenForEvents(reader io.ReadCloser) {
 	}
 }
 
-func (d Daemon) filterValidLabels(labels map[string]string) map[string]string {
+func (d *Daemon) filterValidLabels(labels map[string]string) map[string]string {
 	d.validLabelPrefixesMU.Lock()
 	defer d.validLabelPrefixesMU.Unlock()
 	filteredLabels := map[string]string{}
@@ -217,7 +217,7 @@ func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
 	return ""
 }
 
-func (d Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
+func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	ns := k8sDockerLbls.GetPodNamespace(dockerLbls)
 	if ns == "" {
 		return nil, nil
@@ -235,7 +235,7 @@ func (d Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string,
 	return result.GetLabels(), nil
 }
 
-func (d Daemon) processEvent(m dTypesEvents.Message) {
+func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	//m.Action != "start" || m.Type != "container"
 	switch m.Status {
 	case "start":
@@ -243,7 +243,7 @@ func (d Daemon) processEvent(m dTypesEvents.Message) {
 	}
 }
 
-func (d Daemon) createContainer(m dTypesEvents.Message) {
+func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	dockerID := m.ID // m.Actor.ID
 	//allLabels := m.Actor.Attributes
 	log.Debugf("Processing container %s", dockerID)
