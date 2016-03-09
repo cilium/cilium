@@ -75,7 +75,7 @@ func (d *Daemon) createBPF(ep types.Endpoint) error {
 		return fmt.Errorf("invalid ID %s", ep.ID)
 	}
 	lxcDir := filepath.Join(".", ep.ID)
-	f, err := os.Create(lxcDir + "/lxc_config.h")
+	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
 	if err != nil {
 		os.RemoveAll(lxcDir)
 		log.Warningf("Failed to create container headerfile: %s", err)
@@ -148,7 +148,7 @@ func (d *Daemon) createBPF(ep types.Endpoint) error {
 	}
 
 	args := []string{d.libDir, ep.ID, ep.Ifname}
-	out, err := exec.Command(d.libDir+"/join_ep.sh", args...).CombinedOutput()
+	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		os.RemoveAll(lxcDir)
 		log.Warningf("Command execution failed: %s", err)
@@ -180,7 +180,7 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	if !isValidID(epID) {
 		return fmt.Errorf("invalid ID %s", epID)
 	}
-	lxcDir := "./" + epID
+	lxcDir := filepath.Join(".", epID)
 	os.RemoveAll(lxcDir)
 
 	if err := d.lxcMap.DeleteElement(epID); err != nil {
@@ -188,7 +188,7 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	}
 
 	args := []string{d.libDir, epID}
-	out, err := exec.Command(d.libDir+"/leave_ep.sh", args...).CombinedOutput()
+	out, err := exec.Command(filepath.Join(d.libDir, "leave_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
