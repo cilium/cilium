@@ -37,6 +37,8 @@ func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	if val, ok := vars["endpointID"]; !ok {
+		processServerError(w, r, errors.New("server received empty endpoint id"))
 		return
 	} else {
 		if err := router.daemon.EndpointLeave(val); err != nil {
