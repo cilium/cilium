@@ -19,10 +19,10 @@ func (r *Router) initRoutes() {
 			"Ping", "GET", "/ping", r.ping,
 		},
 		Route{
-			"EndpointCreate", "POST", "/endpoint/{uuid}", r.endpointCreate,
+			"EndpointCreate", "POST", "/endpoint/{endpointID}", r.endpointCreate,
 		},
 		Route{
-			"EndpointDelete", "DELETE", "/endpoint/{uuid}", r.endpointDelete,
+			"EndpointDelete", "DELETE", "/endpoint/{endpointID}", r.endpointDelete,
 		},
 		Route{
 			"AllocateIPv6", "PUT", "/allocator/container/{containerID}", r.allocateIPv6,
