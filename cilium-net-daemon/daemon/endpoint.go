@@ -70,10 +70,17 @@ func (d *Daemon) deleteEndpoint(endpointID string) {
 	}
 }
 
-func (d *Daemon) createBPF(ep types.Endpoint) error {
-	if !isValidID(ep.ID) {
-		return fmt.Errorf("invalid ID %s", ep.ID)
+func (d Daemon) createBPF(r_ep types.Endpoint) error {
+	if !isValidID(r_ep.ID) {
+		return fmt.Errorf("invalid ID %s", r_ep.ID)
 	}
+
+	ep, ok := d.endpoints[types.CiliumPreffix+r_ep.ID]
+	if !ok {
+		log.Warningf("Unable to find endpoint\n")
+		return fmt.Errorf("Unable to find endpoint\n")
+	}
+
 	lxcDir := filepath.Join(".", ep.ID)
 	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
 	if err != nil {
@@ -113,8 +120,9 @@ func (d *Daemon) createBPF(ep types.Endpoint) error {
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
-	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", common.Swab32(ep.SecLabel))
-	fmt.Fprintf(f, "#define LXC_POLICYMAP %s\n", path.Base(policyMapPath))
+	fmt.Fprintf(f, "#define LXC_SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel))
+	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", ep.SecLabel)
+	fmt.Fprintf(f, "#define LXC_POLICY_MAP %s\n", path.Base(policyMapPath))
 
 	f.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range ep.PortMap {
@@ -134,14 +142,14 @@ func (d *Daemon) createBPF(ep types.Endpoint) error {
 	}
 
 	ep.PolicyMap = policyMap
-	if err := d.RegenerateConsumerMap(&ep); err != nil {
+	if err := d.RegenerateConsumerMap(ep); err != nil {
 		os.RemoveAll(policyMapPath)
 		os.RemoveAll(lxcDir)
 		log.Warningf("Unable to generate policy map for '%s': %s", policyMapPath, err)
 		return fmt.Errorf("Unable to generate policy map for '%s': %s", policyMapPath, err)
 	}
 
-	if err = d.lxcMap.WriteEndpoint(&ep); err != nil {
+	if err = d.lxcMap.WriteEndpoint(ep); err != nil {
 		os.RemoveAll(lxcDir)
 		log.Warningf("Unable to update BPF map: %s", err)
 		return fmt.Errorf("Unable to update eBPF map: %s", err)

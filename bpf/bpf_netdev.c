@@ -49,7 +49,8 @@ int from_netdev(struct __sk_buff *skb)
 		if (is_node_subnet(&dst)) {
 			printk("Targeted for a local container\n");
 
-			return do_l3(skb, nh_off, &dst);
+			/* FIXME: Derive correct seclabel */
+			return do_l3(skb, nh_off, &dst, 0);
 		}
 	}
 

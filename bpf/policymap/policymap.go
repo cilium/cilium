@@ -22,7 +22,7 @@ type PolicyMap struct {
 }
 
 const (
-	MAX_KEYS = 0xffff
+	MAX_KEYS = 1024
 )
 
 func (e *PolicyEntry) String() string {
@@ -31,6 +31,7 @@ func (e *PolicyEntry) String() string {
 
 type PolicyEntry struct {
 	Action  uint32
+	Pad     uint32
 	Packets uint64
 	Bytes   uint64
 }

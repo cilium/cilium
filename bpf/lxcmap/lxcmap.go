@@ -27,7 +27,7 @@ type LxcMap struct {
 }
 
 const (
-	MAX_KEYS    = 0xffff
+	MAX_KEYS    = 1024
 	PORTMAP_MAX = 16
 )
 
@@ -92,7 +92,7 @@ func (v6 V6addr) String() string {
 }
 
 type LxcInfo struct {
-	Ifindex  int
+	Ifindex  uint32
 	SecLabel uint32
 	Mac      Mac
 	V6addr   V6addr
@@ -108,7 +108,7 @@ func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
 	}
 
 	lxc := LxcInfo{
-		Ifindex: ep.IfIndex,
+		Ifindex: uint32(ep.IfIndex),
 		// Store security label in network byte order so it can be
 		// written into the packet without an additional byte order
 		// convertion.

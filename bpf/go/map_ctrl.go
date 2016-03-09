@@ -237,7 +237,7 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 	}
 
 	lxc := lxcmap.LxcInfo{
-		Ifindex: int(ifidx),
+		Ifindex: uint32(ifidx),
 		Mac:     macAddr,
 	}
 	copy(lxc.V6addr.Addr[:], iv6)

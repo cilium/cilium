@@ -27,7 +27,8 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
 		return TC_ACT_SHOT;
 	} else {
-		return do_l3(skb, nh_off, &dst);
+		/* FIXME: derive correct seclabel */
+		return do_l3(skb, nh_off, &dst, 0);
 	}
 }
 
