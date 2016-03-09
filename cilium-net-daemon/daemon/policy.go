@@ -3,6 +3,7 @@ package daemon
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -12,7 +13,8 @@ import (
 // Global tree, eventually this will turn into a cache with the real tree
 // store in consul
 var (
-	tree types.PolicyTree
+	tree        types.PolicyTree
+	policyMutex sync.Mutex
 )
 
 // Returns node and its parent or an error
@@ -46,6 +48,7 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
+// Must be called with endpointsMU held
 func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	// Containers without a security label are not accessible
 	if e.SecLabel == 0 {
@@ -62,7 +65,7 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		return err
 	}
 
-	ctx := types.SearchContext{Trace: true, To: make([]types.Label, len(*labels))}
+	ctx := types.SearchContext{To: make([]types.Label, len(*labels))}
 
 	idx := 0
 	for k, v := range *labels {
@@ -75,6 +78,9 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	for _, val := range e.Consumers {
 		val.Decision = types.DENY
 	}
+
+	policyMutex.Lock()
+	defer policyMutex.Unlock()
 
 	for idx < maxID {
 		srcLabels, err := d.GetLabels(idx)
@@ -125,10 +131,10 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 }
 
 func (d *Daemon) TriggerPolicyUpdates(added []int) {
+	log.Debugf("Triggering policy updates %+v", added)
+
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-
-	log.Debugf("Triggering policy updates %+v", added)
 
 	for _, ep := range d.endpoints {
 		d.RegenerateConsumerMap(ep)
@@ -142,7 +148,9 @@ func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecis
 func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 	log.Debugf("Policy Add Request: %+v", &node)
 
+	policyMutex.Lock()
 	if parentNode, parent, err := findNode(path); err != nil {
+		policyMutex.Unlock()
 		return err
 	} else {
 		if parent == nil {
@@ -151,6 +159,9 @@ func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 			parentNode.Children[node.Name] = &node
 		}
 	}
+	policyMutex.Unlock()
+
+	d.TriggerPolicyUpdates([]int{})
 
 	return nil
 }
@@ -158,7 +169,9 @@ func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 func (d Daemon) PolicyDelete(path string) error {
 	log.Debugf("Policy Delete Request: %s", path)
 
+	policyMutex.Lock()
 	if node, parent, err := findNode(path); err != nil {
+		policyMutex.Unlock()
 		return err
 	} else {
 		if parent == nil {
@@ -167,6 +180,9 @@ func (d Daemon) PolicyDelete(path string) error {
 			delete(parent.Children, node.Name)
 		}
 	}
+	policyMutex.Unlock()
+
+	d.TriggerPolicyUpdates([]int{})
 
 	return nil
 }

@@ -51,25 +51,30 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	id, err := ds.d.GetMaxID()
 	c.Assert(strings.Contains(err.Error(), "unset"), Equals, true)
 
-	id, err = ds.d.GetLabelsID(lbls)
+	id, err, new := ds.d.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 1)
+	c.Assert(new, Equals, true)
 
-	id, err = ds.d.GetLabelsID(lbls)
+	id, err, new = ds.d.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 1)
+	c.Assert(new, Equals, false)
 
-	id, err = ds.d.GetLabelsID(lbls2)
+	id, err, new = ds.d.GetLabelsID(lbls2)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 2)
+	c.Assert(new, Equals, true)
 
-	id, err = ds.d.GetLabelsID(lbls2)
+	id, err, new = ds.d.GetLabelsID(lbls2)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 2)
+	c.Assert(new, Equals, false)
 
-	id, err = ds.d.GetLabelsID(lbls)
+	id, err, new = ds.d.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 1)
+	c.Assert(new, Equals, false)
 
 	// FIXME
 	//gotLabels, err := ds.d.GetLabels(0)
@@ -97,14 +102,14 @@ func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 
-	id, err = ds.d.GetLabelsID(lbls)
+	id, err, _ = ds.d.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 
-	_, err = ds.d.GetLabelsID(lbls2)
+	_, err, _ = ds.d.GetLabelsID(lbls2)
 	c.Assert(strings.Contains(err.Error(), "maximum"), Equals, true)
 
-	id, err = ds.d.GetLabelsID(lbls)
+	id, err, _ = ds.d.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 }

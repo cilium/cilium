@@ -75,6 +75,9 @@ func (d Daemon) createBPF(r_ep types.Endpoint) error {
 		return fmt.Errorf("invalid ID %s", r_ep.ID)
 	}
 
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
 	ep, ok := d.endpoints[types.CiliumPreffix+r_ep.ID]
 	if !ok {
 		log.Warningf("Unable to find endpoint\n")

@@ -270,7 +270,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	labels := d.filterValidLabels(allLabels)
 
-	labelsID, err := d.GetLabelsID(labels)
+	labelsID, err, new := d.GetLabelsID(labels)
 	if err != nil {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return
@@ -297,5 +297,11 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", labelsID, dockerID, err)
 		return
 	}
+
+	// Perform the policy map updates after programs have been created
+	if new {
+		d.TriggerPolicyUpdates([]int{labelsID})
+	}
+
 	log.Infof("Added SecLabel %d to container %s", labelsID, dockerID)
 }

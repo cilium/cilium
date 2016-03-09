@@ -12,7 +12,7 @@ type TestDaemon struct {
 	OnAllocateIPs   func(containerID string) (*types.IPAMConfig, error)
 	OnReleaseIPs    func(containerID string) error
 	OnPing          func() (string, error)
-	OnGetLabelsID   func(labels types.Labels) (int, error)
+	OnGetLabelsID   func(labels types.Labels) (int, error, bool)
 	OnGetLabels     func(id int) (*types.Labels, error)
 	OnGetMaxID      func() (int, error)
 	OnPolicyAdd     func(path string, node types.PolicyNode) error
@@ -59,11 +59,11 @@ func (d TestDaemon) ReleaseIPs(containerID string) error {
 	return errors.New("ReleaseIPs should not have been called")
 }
 
-func (d TestDaemon) GetLabelsID(labels types.Labels) (int, error) {
+func (d TestDaemon) GetLabelsID(labels types.Labels) (int, error, bool) {
 	if d.OnGetLabelsID != nil {
 		return d.OnGetLabelsID(labels)
 	}
-	return -1, errors.New("GetLabelsID should not have been called")
+	return -1, errors.New("GetLabelsID should not have been called"), false
 }
 
 func (d TestDaemon) GetLabels(id int) (*types.Labels, error) {
