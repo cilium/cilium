@@ -58,50 +58,50 @@ func (d Daemon) getNextValidUUID() (int, error) {
 	return lastID, nil
 }
 
-func (d Daemon) GetLabelsID(labels types.Labels) (int, error) {
+func (d Daemon) GetLabelsID(labels types.Labels) (int, error, bool) {
 	// TODO fix race condition if the same sets of labels tries to retrieve an ID at
 	// the same time
 	sha256Sum, err := labels.SHA256Sum()
 	if err != nil {
-		return -1, err
+		return -1, err, false
 	}
 
 	lblsByte, err := json.Marshal(labels)
 	if err != nil {
-		return -1, err
+		return -1, err, false
 	}
 
 	//check if exists
 	if kvPair, _, err := d.consul.KV().Get(common.LabelsKeyPath+sha256Sum, nil); err != nil {
-		return -1, err
+		return -1, err, false
 	} else {
 		if kvPair != nil {
 			var id int
 			if err := json.Unmarshal(kvPair.Value, &id); err != nil {
-				return -1, err
+				return -1, err, false
 			}
-			return id, nil
+			return id, nil, false
 		}
 	}
 
 	id, err := d.getNextValidUUID()
 	if err != nil {
-		return -1, err
+		return -1, err, false
 	}
 
 	// TODO: Create some cleanup if failure
 	strID := strconv.Itoa(id)
 	p := &api.KVPair{Key: common.LabelsKeyPath + sha256Sum, Value: []byte(strID)}
 	if _, err = d.consul.KV().Put(p, nil); err != nil {
-		return -1, err
+		return -1, err, false
 	}
 
 	p = &api.KVPair{Key: common.IDKeyPath + strID, Value: lblsByte}
 	if _, err = d.consul.KV().Put(p, nil); err != nil {
-		return -1, err
+		return -1, err, false
 	}
 
-	return id, nil
+	return id, nil, true
 }
 
 func (d Daemon) GetLabels(id int) (*types.Labels, error) {
