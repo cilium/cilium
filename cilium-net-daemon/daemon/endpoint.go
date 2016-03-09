@@ -19,18 +19,18 @@ func isValidID(id string) bool {
 	return r.MatchString(id)
 }
 
-func (d Daemon) insertEndpoint(ep *types.Endpoint) {
+func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
 	d.endpoints[types.CiliumPreffix+ep.ID] = ep
 	if ep.DockerID != "" {
 		d.endpoints[types.DockerPreffix+ep.DockerID] = ep
 	}
-	d.endpointsMU.Unlock()
 }
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
-func (d Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint32) *types.Endpoint {
+func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint32) *types.Endpoint {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	if endpointID != "" {
@@ -51,7 +51,7 @@ func (d Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint32
 
 // Returns a copy of the endpoint for the given endpointID, or nil if the endpoint was not
 // found.
-func (d Daemon) getEndpoint(endpointID string) *types.Endpoint {
+func (d *Daemon) getEndpoint(endpointID string) *types.Endpoint {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
@@ -61,7 +61,7 @@ func (d Daemon) getEndpoint(endpointID string) *types.Endpoint {
 	return nil
 }
 
-func (d Daemon) deleteEndpoint(endpointID string) {
+func (d *Daemon) deleteEndpoint(endpointID string) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
@@ -70,7 +70,7 @@ func (d Daemon) deleteEndpoint(endpointID string) {
 	}
 }
 
-func (d Daemon) createBPF(ep types.Endpoint) error {
+func (d *Daemon) createBPF(ep types.Endpoint) error {
 	if !isValidID(ep.ID) {
 		return fmt.Errorf("invalid ID %s", ep.ID)
 	}
@@ -159,7 +159,7 @@ func (d Daemon) createBPF(ep types.Endpoint) error {
 	return nil
 }
 
-func (d Daemon) EndpointJoin(ep types.Endpoint) error {
+func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	if !isValidID(ep.ID) {
 		return fmt.Errorf("invalid ID %s", ep.ID)
 	}
@@ -175,7 +175,7 @@ func (d Daemon) EndpointJoin(ep types.Endpoint) error {
 	return nil
 }
 
-func (d Daemon) EndpointLeave(epID string) error {
+func (d *Daemon) EndpointLeave(epID string) error {
 	// Preventing someone from deleting important directories
 	if !isValidID(epID) {
 		return fmt.Errorf("invalid ID %s", epID)
