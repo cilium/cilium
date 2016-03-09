@@ -68,7 +68,7 @@ static inline void map_lxc_in(struct __sk_buff *skb, int off,
 #endif /* DISABLE_PORT_MAP */
 
 static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
-				   union v6addr *dst)
+				   union v6addr *dst, __u32 seclabel)
 {
 	struct lxc_info *dst_lxc;
 	__u16 lxc_id = derive_lxc_id(dst);
@@ -105,7 +105,13 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		skb->tc_index = 0;
 #endif
 
-		return redirect(dst_lxc->ifindex, 0);
+		skb->cb[0] = seclabel;
+		skb->cb[1] = dst_lxc->ifindex;
+
+		printk("ID: %d\n", ntohl(dst_lxc->sec_label));
+		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
+		printk("Fall through\n");
+		return BPF_H_DEFAULT;
 	} else {
 		printk("Unknown container %x\n", lxc_id);
 	}

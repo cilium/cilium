@@ -3,6 +3,10 @@
 
 #include "common.h"
 
-__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
+#define CILIUM_MAP_LXC 0
+#define CILIUM_MAP_JMP 1
+
+__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, CILIUM_MAP_LXC, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
+BPF_PROG_ARRAY(cilium_jmp, CILIUM_MAP_JMP, PIN_GLOBAL_NS, 1024);
 
 #endif

@@ -449,7 +449,7 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 	// [Foo,QA] -> [Bar,QA]
 	qa_foo_to_qa_bar := SearchContext{
 		From: []Label{lblQA, lblFoo},
-		To:   []Label{lblBar, lblQA},
+		To:   []Label{lblQA, lblBar},
 	}
 
 	// [Foo, Prod] -> [Bar,Prod]

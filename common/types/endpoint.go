@@ -22,6 +22,7 @@ type EPPortMap struct {
 
 type Consumer struct {
 	Decision ConsumableDecision
+	Refcnt   int
 }
 
 type Endpoint struct {
@@ -51,13 +52,45 @@ func (e *Endpoint) Consumer(id int) *Consumer {
 func (e *Endpoint) AllowConsumer(id int) {
 	if consumer := e.Consumer(id); consumer != nil {
 		consumer.Decision = ACCEPT
+		consumer.Refcnt++
 	} else {
 		if e.Consumers == nil {
 			e.Consumers = make(map[string]Consumer)
 		}
 
 		n := strconv.Itoa(id)
-		e.Consumers[n] = Consumer{Decision: ACCEPT}
+		e.Consumers[n] = Consumer{Decision: ACCEPT, Refcnt: 1}
+	}
+
+	if e.PolicyMap != nil {
+		log.Debugf("Updating map element %v: allowing %d\n", e, id)
+		if err := e.PolicyMap.AllowConsumer(uint32(id)); err != nil {
+			log.Warningf("Update of policy map failed: %s\n", err)
+		}
+	} else {
+		log.Warningf("No policy map available, skipping update\n")
+	}
+}
+
+func (e *Endpoint) BanConsumer(id int) {
+	n := strconv.Itoa(id)
+
+	if c, ok := e.Consumers[n]; ok {
+		if c.Refcnt > 1 {
+			c.Refcnt--
+			return
+		}
+
+		delete(e.Consumers, n)
+	}
+
+	if e.PolicyMap != nil {
+		log.Debugf("Updating map element %v: denying %d\n", e, id)
+		if err := e.PolicyMap.DeleteConsumer(uint32(id)); err != nil {
+			log.Warningf("Update of policy map failed: %s\n", err)
+		}
+	} else {
+		log.Warningf("No policy map available, skipping udpate\n")
 	}
 }
 

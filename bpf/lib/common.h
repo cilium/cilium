@@ -34,9 +34,8 @@ struct portmap {
 };
 
 struct lxc_info {
-	int		ifindex;
+	__u32		ifindex;
 	__u32		sec_label;
-	__u32		pad;
 	mac_t		mac;
 	union v6addr	ip;
 	struct portmap  portmap[PORTMAP_MAX];
@@ -44,6 +43,9 @@ struct lxc_info {
 
 struct policy_entry {
 	__u32		action;
+	__u32		pad;
+	__u64		packets;
+	__u64		bytes;
 };
 
 #ifndef BPF_F_PSEUDO_HDR

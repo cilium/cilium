@@ -99,7 +99,14 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		decision := d.PolicyCanConsume(&ctx)
 		// Only accept rules get stored
 		if decision == types.ACCEPT {
+			log.Debugf("Allowing direction %d -> %d\n", idx, e.SecLabel)
 			e.AllowConsumer(idx)
+			for _, r := range d.endpoints {
+				if r.SecLabel == uint32(idx) {
+					log.Debugf("Allowing reverse direction %d -> %d\n", e.SecLabel, idx)
+					r.AllowConsumer(int(e.SecLabel))
+				}
+			}
 		}
 		idx++
 	}
@@ -107,6 +114,7 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	// Garbage collect all unused entries
 	for k, val := range e.Consumers {
 		if val.Decision == types.DENY {
+			e.BanConsumer(idx)
 			delete(e.Consumers, k)
 		}
 	}
