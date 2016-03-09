@@ -183,7 +183,7 @@ func main() {
 		DockerEndpoint: dockerEndpoint,
 		K8sEndpoint:    kubernetesEndpoint,
 		// TODO: Read from a file
-		ValidLabelPrefixes: []string{"io.cilium"},
+		ValidLabelPrefixes: []string{common.GlobalLabelPrefix},
 	}
 
 	d, err := daemon.NewDaemon(&daemonConf)
