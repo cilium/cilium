@@ -37,9 +37,8 @@ func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	//FIXME: change uuid to a better designation
-	if val, ok := vars["uuid"]; !ok {
-		processServerError(w, r, errors.New("server received empty uuid"))
+	if val, ok := vars["endpointID"]; !ok {
+		processServerError(w, r, errors.New("server received empty endpoint id"))
 		return
 	} else {
 		if err := router.daemon.EndpointLeave(val); err != nil {
