@@ -128,6 +128,9 @@ POLICY=$(cat <<EOF
 			},{
 				"Coverage": ["Prod"],
 				"Requires": ["Prod"]
+			},{
+				"Coverage": ["DB"],
+				"Always-Allow": {"Key": "User", "Value": "Joe"}
 			}],
 			"Children": {
 				"Web": { },

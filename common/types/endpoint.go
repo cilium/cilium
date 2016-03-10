@@ -38,12 +38,12 @@ type Endpoint struct {
 	SecLabel      uint32               `json:"security-label"`
 	PortMap       []EPPortMap          `json:"port-mapping"`
 	PolicyMap     *policymap.PolicyMap `json:"-"`
-	Consumers     map[string]Consumer  `json:"consumers"`
+	Consumers     map[string]*Consumer `json:"consumers"`
 }
 
 func (e *Endpoint) Consumer(id int) *Consumer {
 	if val, ok := e.Consumers[strconv.Itoa(id)]; ok {
-		return &val
+		return val
 	} else {
 		return nil
 	}
@@ -55,11 +55,11 @@ func (e *Endpoint) AllowConsumer(id int) {
 		consumer.Refcnt++
 	} else {
 		if e.Consumers == nil {
-			e.Consumers = make(map[string]Consumer)
+			e.Consumers = make(map[string]*Consumer)
 		}
 
 		n := strconv.Itoa(id)
-		e.Consumers[n] = Consumer{Decision: ACCEPT, Refcnt: 1}
+		e.Consumers[n] = &Consumer{Decision: ACCEPT, Refcnt: 1}
 	}
 
 	if e.PolicyMap != nil {
@@ -74,6 +74,8 @@ func (e *Endpoint) AllowConsumer(id int) {
 
 func (e *Endpoint) BanConsumer(id int) {
 	n := strconv.Itoa(id)
+
+	log.Debugf("Baning consumer %d\n", id)
 
 	if c, ok := e.Consumers[n]; ok {
 		if c.Refcnt > 1 {
