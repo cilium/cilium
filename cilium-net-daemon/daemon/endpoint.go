@@ -70,7 +70,7 @@ func (d *Daemon) deleteEndpoint(endpointID string) {
 	}
 }
 
-func (d Daemon) createBPF(r_ep types.Endpoint) error {
+func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 	if !isValidID(r_ep.ID) {
 		return fmt.Errorf("invalid ID %s", r_ep.ID)
 	}
