@@ -11,7 +11,7 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
 )
 
-func (d Daemon) getNextValidUUID() (int, error) {
+func (d *Daemon) getNextValidUUID() (int, error) {
 	var lastID int
 	valid := false
 	for !valid {
@@ -58,7 +58,7 @@ func (d Daemon) getNextValidUUID() (int, error) {
 	return lastID, nil
 }
 
-func (d Daemon) GetLabelsID(labels types.Labels) (int, bool, error) {
+func (d *Daemon) GetLabelsID(labels types.Labels) (int, bool, error) {
 	// TODO fix race condition if the same sets of labels tries to retrieve an ID at
 	// the same time
 	sha256Sum, err := labels.SHA256Sum()
@@ -104,7 +104,7 @@ func (d Daemon) GetLabelsID(labels types.Labels) (int, bool, error) {
 	return id, true, nil
 }
 
-func (d Daemon) GetLabels(id int) (*types.Labels, error) {
+func (d *Daemon) GetLabels(id int) (*types.Labels, error) {
 	strID := strconv.Itoa(id)
 	pair, _, err := d.consul.KV().Get(common.IDKeyPath+strID, nil)
 	if err != nil {
@@ -120,7 +120,7 @@ func (d Daemon) GetLabels(id int) (*types.Labels, error) {
 	return &labels, nil
 }
 
-func (d Daemon) GetMaxID() (int, error) {
+func (d *Daemon) GetMaxID() (int, error) {
 	var lastID int
 	k, _, err := d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 	if err != nil {

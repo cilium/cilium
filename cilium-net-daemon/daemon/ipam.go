@@ -11,7 +11,7 @@ import (
 	libnetworktypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
 )
 
-func (d Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
+func (d *Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	store, err := disk.New(d.ipamConf.Name)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (d Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	return nil, errors.New("We don't support IPv4, do we?")
 }
 
-func (d Daemon) ReleaseIPs(containerID string) error {
+func (d *Daemon) ReleaseIPs(containerID string) error {
 	store, err := disk.New(d.ipamConf.Name)
 	if err != nil {
 		return err
