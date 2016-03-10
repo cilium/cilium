@@ -118,7 +118,7 @@ func (router *Router) getLabelsID(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, err)
 		return
 	}
-	id, err, _ := router.daemon.GetLabelsID(labels)
+	id, _, err := router.daemon.GetLabelsID(labels)
 	if err != nil {
 		processServerError(w, r, err)
 		return

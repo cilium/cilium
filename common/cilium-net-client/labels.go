@@ -10,26 +10,27 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
-func (cli Client) GetLabelsID(labels types.Labels) (int, error, bool) {
+func (cli Client) GetLabelsID(labels types.Labels) (int, bool, error) {
 	query := url.Values{}
 	serverResp, err := cli.post("/labels", query, labels, nil)
 	if err != nil {
-		return -1, fmt.Errorf("error while connecting to daemon: %s", err), false
+		return -1, false, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
 	defer ensureReaderClosed(serverResp)
 
 	if serverResp.statusCode != http.StatusAccepted {
-		return -1, processErrorBody(serverResp.body, nil), false
+		return -1, false, processErrorBody(serverResp.body, nil)
 	}
 
 	jd := json.NewDecoder(serverResp.body)
 	var labelsResp types.LabelsResponse
 	if err := jd.Decode(&labelsResp); err != nil {
-		return -1, err, false
+		return -1, false, err
 	}
 
-	return labelsResp.ID, nil, false
+	//TODO add labelsResponse return value if new or not
+	return labelsResp.ID, false, nil
 }
 
 func (cli Client) GetLabels(id int) (*types.Labels, error) {

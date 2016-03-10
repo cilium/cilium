@@ -270,7 +270,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	labels := d.filterValidLabels(allLabels)
 
-	labelsID, err, new := d.GetLabelsID(labels)
+	labelsID, new, err := d.GetLabelsID(labels)
 	if err != nil {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return

@@ -42,7 +42,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsIDOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	id, err := cli.GetLabelsID(lbls)
+	id, _, err := cli.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 123)
 }
@@ -61,7 +61,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsIDFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	_, err := cli.GetLabelsID(lbls)
+	_, _, err := cli.GetLabelsID(lbls)
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }
 
