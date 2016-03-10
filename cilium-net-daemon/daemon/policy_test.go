@@ -125,23 +125,23 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(err, Equals, nil)
 
 	qa_bar_lbls := Labels{"io.cilium.bar": "", "io.cilium.QA": ""}
-	qa_bar_id, err, _ := ds.d.GetLabelsID(qa_bar_lbls)
+	qa_bar_id, _, err := ds.d.GetLabelsID(qa_bar_lbls)
 	c.Assert(err, Equals, nil)
 
 	prod_bar_lbls := Labels{"io.cilium.bar": "", "io.cilium.Prod": ""}
-	prod_bar_id, err, _ := ds.d.GetLabelsID(prod_bar_lbls)
+	prod_bar_id, _, err := ds.d.GetLabelsID(prod_bar_lbls)
 	c.Assert(err, Equals, nil)
 
 	qa_foo_lbls := Labels{"io.cilium.foo": "", "io.cilium.QA": ""}
-	qa_foo_id, err, _ := ds.d.GetLabelsID(qa_foo_lbls)
+	qa_foo_id, _, err := ds.d.GetLabelsID(qa_foo_lbls)
 	c.Assert(err, Equals, nil)
 
 	prod_foo_lbls := Labels{"io.cilium.foo": "", "io.cilium.Prod": ""}
-	prod_foo_id, err, _ := ds.d.GetLabelsID(prod_foo_lbls)
+	prod_foo_id, _, err := ds.d.GetLabelsID(prod_foo_lbls)
 	c.Assert(err, Equals, nil)
 
 	prod_foo_joe_lbls := Labels{"io.cilium.foo": "", "io.cilium.Prod": "", "io.cilium.user": "joe"}
-	prod_foo_joe_id, err, _ := ds.d.GetLabelsID(prod_foo_joe_lbls)
+	prod_foo_joe_id, _, err := ds.d.GetLabelsID(prod_foo_joe_lbls)
 	c.Assert(err, Equals, nil)
 
 	e := Endpoint{SecLabel: uint32(qa_bar_id)}

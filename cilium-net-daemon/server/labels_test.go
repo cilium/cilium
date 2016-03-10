@@ -22,23 +22,23 @@ var (
 )
 
 func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
-	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, error, bool) {
+	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
-		return 123, nil, true
+		return 123, true, nil
 	}
 
-	id, err, _ := s.c.GetLabelsID(lbls)
+	id, _, err := s.c.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, 123)
 }
 
 func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
-	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, error, bool) {
+	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
-		return -1, errors.New("Reached maximum valid IDs"), false
+		return -1, false, errors.New("Reached maximum valid IDs")
 	}
 
-	_, err, _ := s.c.GetLabelsID(lbls)
+	_, _, err := s.c.GetLabelsID(lbls)
 	c.Assert(strings.Contains(err.Error(), "Reached maximum valid IDs"), Equals, true)
 }
 
