@@ -1,0 +1,24 @@
+{
+   "kind":"Service",
+   "apiVersion":"v1",
+   "metadata":{
+      "name":"guestbook",
+      "labels":{
+         "app":"guestbook"
+      }
+   },
+   "spec":{
+      "ports": [
+         {
+           "port":3000,
+           "nodePort": 30000,
+           "targetPort":"http-server"
+         }
+      ],
+      "selector":{
+         "app":"guestbook",
+         "io.cilium.lizards.type": "web"
+      },
+      "type": "NodePort"
+   }
+}
