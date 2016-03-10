@@ -75,8 +75,8 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	}
 
 	// Mark all entries unused by denying them
-	for _, val := range e.Consumers {
-		val.Decision = types.DENY
+	for k, _ := range e.Consumers {
+		e.Consumers[k].Decision = types.DENY
 	}
 
 	policyMutex.Lock()
@@ -141,11 +141,11 @@ func (d *Daemon) TriggerPolicyUpdates(added []int) {
 	}
 }
 
-func (d Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
+func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
 	return tree.Allows(ctx)
 }
 
-func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
+func (d *Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 	log.Debugf("Policy Add Request: %+v", &node)
 
 	policyMutex.Lock()
@@ -166,7 +166,7 @@ func (d Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 	return nil
 }
 
-func (d Daemon) PolicyDelete(path string) error {
+func (d *Daemon) PolicyDelete(path string) error {
 	log.Debugf("Policy Delete Request: %s", path)
 
 	policyMutex.Lock()
@@ -187,7 +187,7 @@ func (d Daemon) PolicyDelete(path string) error {
 	return nil
 }
 
-func (d Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
+func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 	log.Debugf("Policy Get Request: %s", path)
 	node, _, err := findNode(path)
 	return node, err
