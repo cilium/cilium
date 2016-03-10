@@ -14,7 +14,6 @@ runtime-tests:
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	$(MAKE) tests
 	godep go build -o $(TARGET)
 
 run:
