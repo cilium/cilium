@@ -12,14 +12,15 @@
       "replicas":1,
       "selector":{
          "app":"redis",
-         "role":"master"
+         "role":"master",
+         "io.cilium.lizards.type": "db"
       },
       "template":{
          "metadata":{
             "labels":{
-               "io.cilium.lizard":"db",
                "app":"redis",
-               "role":"master"
+               "role":"master",
+               "io.cilium.lizards.type": "db"
             }
          },
          "spec":{
