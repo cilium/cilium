@@ -63,11 +63,30 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	printk("node_id %x local %x\n", node_id, NODE_ID);
 
+#ifdef HOST_IFINDEX
+	if (1) {
+		union v6addr host_ip = { . addr = HOST_IP };
+		int ret;
+
+		/* Packets to the host are punted to a dummy device */
+		if (compare_ipv6_addr(&dst, &host_ip) == 0) {
+			union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
+
+			ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+			if (ret == TC_ACT_REDIRECT || ret == -1)
+				return ret;
+
+			return redirect(HOST_IFINDEX, 0);
+		}
+	}
+#endif
+
 	if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
 		return do_encapsulation(skb, node_id, LXC_SECLABEL_NB);
 #else
 		union macaddr router_mac = NODE_MAC;
+		int ret;
 
 		ret = __do_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
 		if (ret == TC_ACT_REDIRECT || ret == -1)
