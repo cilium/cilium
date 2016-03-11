@@ -4,6 +4,7 @@ set -e
 
 cd $HOME
 
+apt-get -y install curl
 curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
 tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
 
@@ -15,4 +16,4 @@ sudo sudo chgrp vagrant /usr/local/go/pkg/
 
 git clone -b v1.2.0-beta.0 https://github.com/kubernetes/kubernetes.git
 cd kubernetes
-patch -p1 < ../go/src/github.com/noironetworks/cilium-net/cni/kubernetes.patch
+# patch -p1 < ../go/src/github.com/noironetworks/cilium-net/cni/kubernetes.patch
