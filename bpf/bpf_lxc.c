@@ -76,6 +76,8 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 			if (ret == TC_ACT_REDIRECT || ret == -1)
 				return ret;
 
+			printk("Redirecting to host ifindex %d\n", HOST_IFINDEX);
+
 			return redirect(HOST_IFINDEX, 0);
 		}
 	}
