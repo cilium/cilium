@@ -110,8 +110,8 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 
 		printk("ID: %d\n", ntohl(dst_lxc->sec_label));
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
-		printk("Fall through\n");
-		return BPF_H_DEFAULT;
+		printk("No policy program found, dropping\n");
+		return TC_ACT_SHOT;
 	} else {
 		printk("Unknown container %x\n", lxc_id);
 	}

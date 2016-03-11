@@ -111,6 +111,12 @@ func initBPF() {
 	f.WriteString(common.FmtDefineAddress("NODE_MAC", nodeMac))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
 
+	hostIP := make(net.IP, len(NodeAddr))
+	copy(hostIP, NodeAddr)
+	hostIP[14] = 0xff
+	hostIP[15] = 0xff
+	f.WriteString(common.FmtDefineArray("HOST_IP", hostIP))
+
 	f.Close()
 
 	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
