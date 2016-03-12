@@ -17,7 +17,7 @@ SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
 	$(MAKE) tests
-	godep go build -o $(TARGET)./cilium-cni.go
+	godep go build -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/cni/net.d
