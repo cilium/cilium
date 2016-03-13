@@ -129,8 +129,9 @@ func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 			}
 			if k != nil {
 				break
+			} else {
+				log.Info("Unable to retreive last free Index, please start some containers with labels.")
 			}
-			log.Warning("Unable to retreive last free Index, please start some containers with labels.")
 			time.Sleep(seconds)
 		}
 
@@ -220,7 +221,7 @@ func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
 func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	ns := k8sDockerLbls.GetPodNamespace(dockerLbls)
 	if ns == "" {
-		return nil, nil
+		ns = "default"
 	}
 	podName := k8sDockerLbls.GetPodName(dockerLbls)
 	if podName == "" {
