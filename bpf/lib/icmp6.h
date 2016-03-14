@@ -220,4 +220,52 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         return send_icmp6_reply(skb, nh_off);
 }
 
+static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
+{
+	union v6addr target = {}, router = { . addr = ROUTER_IP };
+
+	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
+			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
+		return TC_ACT_SHOT;
+
+	if (compare_ipv6_addr(&target, &router) == 0) {
+		union macaddr router_mac = NODE_MAC;
+
+		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
+	} else {
+		/* Unknown target address, drop */
+		return TC_ACT_SHOT;
+	}
+}
+
+static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
+{
+	union v6addr dst = {};
+	union v6addr router_ip = { .addr = ROUTER_IP };
+	__u8 type = icmp6_load_type(skb, nh_off);
+	int ret = TC_ACT_UNSPEC;
+
+	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
+
+	load_ipv6_daddr(skb, nh_off, &dst);
+
+	switch(type) {
+	case 135:
+		ret = icmp6_handle_ns(skb, nh_off);
+		break;
+	case 128:
+		if (!compare_ipv6_addr(&dst, &router_ip)) {
+			ret = send_icmp6_echo_response(skb, nh_off);
+			break;
+		}
+	case 129:
+		ret = LXC_REDIRECT;
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
 #endif
