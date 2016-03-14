@@ -87,6 +87,16 @@ static inline int store_ipv6_paylen(struct __sk_buff *skb, int off, __be16 *len)
 			       len, sizeof(*len), 0);
 }
 
+static inline int ipv6_load_flowlabel(struct __sk_buff *skb, int off, __u32 *label)
+{
+	int ret;
+
+	ret = skb_load_bytes(skb, off + 1, label, 3);
+	*label = *label & 0xfffff;
+
+	return ret;
+}
+
 static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __u32 label)
 {
 	__u32 old;
