@@ -42,6 +42,7 @@ int from_netdev(struct __sk_buff *skb)
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		union v6addr dst = {};
+		__u32 flowlabel;
 		__u8 nexthdr;
 
 		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
@@ -54,12 +55,13 @@ int from_netdev(struct __sk_buff *skb)
 		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
 
 		load_ipv6_daddr(skb, ETH_HLEN, &dst);
+		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
 
 		if (is_node_subnet(&dst)) {
-			printk("Targeted for a local container\n");
+			printk("Targeted for a local container, src label: %d\n",
+				ntohl(flowlabel));
 
-			/* FIXME: Derive correct seclabel */
-			return do_l3(skb, ETH_HLEN, &dst, 0);
+			return do_l3(skb, ETH_HLEN, &dst, ntohl(flowlabel));
 		}
 	}
 
