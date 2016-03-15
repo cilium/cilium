@@ -42,7 +42,7 @@ int from_netdev(struct __sk_buff *skb)
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		union v6addr dst = {};
-		__u32 flowlabel;
+		__u32 flowlabel = 0;
 		__u8 nexthdr;
 
 		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
