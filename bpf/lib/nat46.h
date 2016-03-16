@@ -3,13 +3,14 @@
 
 #include <linux/ip.h>
 #include <linux/icmp.h>
+#include <linux/icmpv6.h>
 #include "common.h"
 #include "ipv6.h"
 #include "eth.h"
 #include "dbg.h"
 
 #define V6PREFIX { .addr = { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#define SKB_V46_NAT	0x1
+//#define ENABLE_NAT46
 
 static inline int get_csum_offset(__u8 protocol)
 {
@@ -33,6 +34,172 @@ static inline int get_csum_offset(__u8 protocol)
 	}
 
 	return csum_off;
+}
+
+static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
+{
+	struct icmphdr icmp4 = {};
+	struct icmp6hdr icmp6 = {};
+	__be32 csum = 0;
+
+	if (skb_load_bytes(skb, nh_off, &icmp4, sizeof(icmp4)) < 0)
+		return -1;
+	else
+		icmp6.icmp6_cksum = icmp4.checksum;
+
+	switch(icmp4.type) {
+	case ICMP_ECHO:
+		icmp6.icmp6_type = ICMPV6_ECHO_REQUEST;
+		icmp6.icmp6_identifier = icmp4.un.echo.id;
+		icmp6.icmp6_sequence = icmp4.un.echo.sequence;
+		break;
+	case ICMP_ECHOREPLY:
+		icmp6.icmp6_type = ICMPV6_ECHO_REPLY;
+		icmp6.icmp6_identifier = icmp4.un.echo.id;
+		icmp6.icmp6_sequence = icmp4.un.echo.sequence;
+		break;
+	case ICMP_DEST_UNREACH:
+		icmp6.icmp6_type = ICMPV6_DEST_UNREACH;
+		switch(icmp4.code) {
+		case ICMP_NET_UNREACH:
+		case ICMP_HOST_UNREACH:
+			icmp6.icmp6_code = ICMPV6_NOROUTE;
+			break;
+		case ICMP_PROT_UNREACH:
+			icmp6.icmp6_type = ICMPV6_PARAMPROB;
+			icmp6.icmp6_code = ICMPV6_UNK_NEXTHDR;
+			icmp6.icmp6_pointer = 6;
+			break;
+		case ICMP_PORT_UNREACH:
+			icmp6.icmp6_code = ICMPV6_PORT_UNREACH;
+			break;
+		case ICMP_FRAG_NEEDED:
+			icmp6.icmp6_type = ICMPV6_PKT_TOOBIG;
+			icmp6.icmp6_code = 0;
+			/* FIXME */
+			if (icmp4.un.frag.mtu)
+				icmp6.icmp6_mtu = htonl(ntohs(icmp4.un.frag.mtu));
+			else
+				icmp6.icmp6_mtu = htonl(1500);
+			break;
+		case ICMP_SR_FAILED:
+			icmp6.icmp6_code = ICMPV6_NOROUTE;
+			break;
+		case ICMP_NET_UNKNOWN:
+		case ICMP_HOST_UNKNOWN:
+		case ICMP_HOST_ISOLATED:
+		case ICMP_NET_UNR_TOS:
+		case ICMP_HOST_UNR_TOS:
+			icmp6.icmp6_code = 0;
+			break;
+		case ICMP_NET_ANO:
+		case ICMP_HOST_ANO:
+		case ICMP_PKT_FILTERED:
+			icmp6.icmp6_code = ICMPV6_ADM_PROHIBITED;
+			break;
+		default:
+			return -1;
+		}
+		break;
+	case ICMP_TIME_EXCEEDED:
+		icmp6.icmp6_type = ICMPV6_TIME_EXCEED;
+		break;
+	case ICMP_PARAMETERPROB:
+		icmp6.icmp6_type = ICMPV6_PARAMPROB;
+		/* FIXME */
+		icmp6.icmp6_pointer = 6;
+		break;
+	default:
+		return -1;
+	}
+
+	skb_store_bytes(skb, nh_off, &icmp6, sizeof(icmp6), 0);
+
+	icmp4.checksum = 0;
+	icmp6.icmp6_cksum = 0;
+	csum = csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
+	printk("icmp46 csum_diff %x\n", csum);
+
+	return csum;
+}
+
+static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
+{
+	struct icmphdr icmp4 = {};
+	struct icmp6hdr icmp6 = {};
+	__be32 csum = 0;
+
+	if (skb_load_bytes(skb, nh_off, &icmp6, sizeof(icmp6)) < 0)
+		return -1;
+	else
+		icmp4.checksum = icmp6.icmp6_cksum;
+
+	switch(icmp6.icmp6_type) {
+	case ICMPV6_ECHO_REQUEST:
+		icmp4.type = ICMP_ECHO;
+		icmp4.un.echo.id = icmp6.icmp6_identifier;
+		icmp4.un.echo.sequence = icmp6.icmp6_sequence;
+		break;
+	case ICMPV6_ECHO_REPLY:
+		icmp4.type = ICMP_ECHOREPLY;
+		icmp4.un.echo.id = icmp6.icmp6_identifier;
+		icmp4.un.echo.sequence = icmp6.icmp6_sequence;
+		break;
+	case ICMPV6_DEST_UNREACH:
+		icmp4.type = ICMP_DEST_UNREACH;
+		switch(icmp6.icmp6_code) {
+		case ICMPV6_NOROUTE:
+		case ICMPV6_NOT_NEIGHBOUR:
+		case ICMPV6_ADDR_UNREACH:
+			icmp4.code = ICMP_HOST_UNREACH;
+			break;
+		case ICMPV6_ADM_PROHIBITED:
+			icmp4.code = ICMP_HOST_ANO;
+			break;
+		case ICMPV6_PORT_UNREACH:
+			icmp4.code = ICMP_PORT_UNREACH;
+			break;
+		default:
+			return -1;
+		}
+	case ICMPV6_PKT_TOOBIG:
+		icmp4.type = ICMP_DEST_UNREACH;
+		icmp4.code = ICMP_FRAG_NEEDED;
+		/* FIXME */
+		if (icmp6.icmp6_mtu)
+			icmp4.un.frag.mtu = htons(ntohl(icmp6.icmp6_mtu));
+		else
+			icmp4.un.frag.mtu = htons(1500);
+		break;
+	case ICMPV6_TIME_EXCEED:
+		icmp4.type = ICMP_TIME_EXCEEDED;
+		icmp4.code = icmp6.icmp6_code;
+		break;
+	case ICMPV6_PARAMPROB:
+		switch(icmp6.icmp6_code) {
+		case ICMPV6_HDR_FIELD:
+			icmp4.type = ICMP_PARAMETERPROB;
+			icmp4.code = 0;
+			break;
+		case ICMPV6_UNK_NEXTHDR:
+			icmp4.type = ICMP_DEST_UNREACH;
+			icmp4.code = ICMP_PROT_UNREACH;
+			break;
+		default:
+			return -1;
+		}
+	default:
+		return -1;
+	}
+
+	skb_store_bytes(skb, nh_off, &icmp4, sizeof(icmp4), 0);
+
+	icmp4.checksum = 0;
+	icmp6.icmp6_cksum = 0;
+	csum = csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
+	printk("icmp64 csum_diff %x\n", csum);
+
+	return csum;
 }
 
 static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
@@ -62,7 +229,10 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 	v6.daddr.in6_u.u6_addr32[2] = prefix.p3;
 	v6.daddr.in6_u.u6_addr32[3] = v4.daddr;
 
-	v6.nexthdr = v4.protocol;
+	if (v4.protocol == IPPROTO_ICMP)
+		v6.nexthdr = IPPROTO_ICMPV6;
+	else
+		v6.nexthdr = v4.protocol;
 	v6.hop_limit = v4.ttl;
 	v4hdr_len = (v4.ihl << 2);
 	v6.payload_len = htons(ntohs(v4.tot_len) - v4hdr_len);
@@ -78,23 +248,30 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 	skb_store_bytes(skb, nh_off, &v6, sizeof(v6), 0);
 	skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0);
 
+	if (v4.protocol == IPPROTO_ICMP) {
+		csum = icmp4_to_icmp6(skb, nh_off + sizeof(v6));
+		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
+					       ntohs(v6.payload_len), csum);
+	} else {
+		csum = csum_diff(&v4.saddr, 4, NULL, 0, csum);
+		csum = csum_diff(&v4.daddr, 4, NULL, 0, csum);
+		csum = csum_diff(NULL, 0, &v6.saddr, 16, csum);
+		csum = csum_diff(NULL, 0, &v6.daddr, 16, csum);
+		if (v4.protocol == IPPROTO_UDP)
+			csum_flags |= BPF_F_MARK_MANGLED_0;
+	}
+
 	/* 
 	 * get checksum from inner header tcp / udp / icmp
 	 * undo ipv4 pseudohdr checksum and
 	 * add  ipv6 pseudohdr checksum
 	 */
-	csum_off = get_csum_offset(v4.protocol);
+	csum_off = get_csum_offset(v6.nexthdr);
 	if (csum_off < 0)
 		return -1;
 	else
 		csum_off += sizeof(struct ipv6hdr);
 
-	csum = csum_diff(&v4.saddr, 4, NULL, 0, csum);
-	csum = csum_diff(&v4.daddr, 4, NULL, 0, csum);
-	csum = csum_diff(NULL, 0, &v6.saddr, 16, csum);
-	csum = csum_diff(NULL, 0, &v6.daddr, 16, csum);
-	if (v4.protocol == IPPROTO_UDP)
-		csum_flags |= BPF_F_MARK_MANGLED_0;
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 	printk("v46 NAT: nh_off %d, pushoff %d, csum_off %d\n",
@@ -124,7 +301,10 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	v4.version = 0x4;
 	v4.saddr = v6.saddr.in6_u.u6_addr32[3];
 	v4.daddr = v6.daddr.in6_u.u6_addr32[3];
-	v4.protocol = v6.nexthdr;
+	if (v6.nexthdr == IPPROTO_ICMPV6)
+		v4.protocol = IPPROTO_ICMP;
+	else
+		v4.protocol = v6.nexthdr;
 	v4.ttl = v6.hop_limit;
 	v4.tot_len = htons(ntohs(v6.payload_len) + sizeof(v4));
 	csum_off = offsetof(struct iphdr, check);
@@ -140,6 +320,21 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0);
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
 
+	if (v6.nexthdr == IPPROTO_ICMPV6) {
+		__be32 csum1 = 0;
+		csum = icmp6_to_icmp4(skb, nh_off + sizeof(v4));
+		csum1 = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
+						ntohs(v6.payload_len), 0);
+		csum = csum - csum1;
+	} else {
+		csum = 0;
+		csum = csum_diff(&v6.saddr, 16, NULL, 0, csum);
+		csum = csum_diff(&v6.daddr, 16, NULL, 0, csum);
+		csum = csum_diff(NULL, 0, &v4.saddr, 4, csum);
+		csum = csum_diff(NULL, 0, &v4.daddr, 4, csum);
+		if (v4.protocol == IPPROTO_UDP)
+			csum_flags |= BPF_F_MARK_MANGLED_0;
+	}
 	/* 
 	 * get checksum from inner header tcp / udp / icmp
 	 * undo ipv6 pseudohdr checksum and
@@ -151,13 +346,6 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
 	else
 		csum_off += sizeof(struct iphdr);
 
-	csum = 0;
-	csum = csum_diff(&v6.saddr, 16, NULL, 0, csum);
-	csum = csum_diff(&v6.daddr, 16, NULL, 0, csum);
-	csum = csum_diff(NULL, 0, &v4.saddr, 4, csum);
-	csum = csum_diff(NULL, 0, &v4.daddr, 4, csum);
-	if (v4.protocol == IPPROTO_UDP)
-		csum_flags |= BPF_F_MARK_MANGLED_0;
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 	printk("v64 NAT: nh_off %d, pushoff %d, csum_off %d\n",
