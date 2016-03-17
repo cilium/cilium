@@ -38,20 +38,19 @@ static inline int is_node_subnet(const union v6addr *dst)
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
-	int ret;
-
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		union v6addr dst = {};
 		__u32 flowlabel = 0;
+#ifdef HANDLE_NS
 		__u8 nexthdr;
 
 		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_handle(skb, ETH_HLEN);
+			int ret = icmp6_handle(skb, ETH_HLEN);
 			if (ret != LXC_REDIRECT)
 				return ret;
 		}
-
+#endif
 		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
 
 		load_ipv6_daddr(skb, ETH_HLEN, &dst);
