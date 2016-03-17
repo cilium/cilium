@@ -41,7 +41,7 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
-clang -O2 -DRESOLVE_NS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
+clang -O2 -DHANDLE_NS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
 
 tc qdisc del dev cilium_net clsact 2> /dev/null || true
 tc qdisc add dev cilium_net clsact
