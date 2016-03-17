@@ -41,11 +41,11 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
-clang -O2 -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev.o
+clang -O2 -DRESOLVE_NS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
 
 tc qdisc del dev cilium_net clsact 2> /dev/null || true
 tc qdisc add dev cilium_net clsact
-tc filter add dev cilium_net ingress bpf da obj bpf_netdev.o sec from-netdev
+tc filter add dev cilium_net ingress bpf da obj bpf_netdev_ns.o sec from-netdev
 
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ENCAP_DEV="cilium_${MODE}"
@@ -71,6 +71,8 @@ elif [ "$MODE" = "direct" ]; then
 
 		tc qdisc del dev $DEV clsact 2> /dev/null || true
 		tc qdisc add dev $DEV clsact
+
+		clang -O2 -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev.o
 
 		tc filter add dev $DEV ingress bpf da obj bpf_netdev.o sec from-netdev
 	fi
