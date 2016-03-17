@@ -37,6 +37,7 @@ struct lxc_info {
 	__u32		ifindex;
 	__u32		sec_label;
 	mac_t		mac;
+	mac_t		node_mac;
 	union v6addr	ip;
 	struct portmap  portmap[PORTMAP_MAX];
 };

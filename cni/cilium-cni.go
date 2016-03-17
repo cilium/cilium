@@ -112,8 +112,8 @@ func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *cili
 		return nil, fmt.Errorf("unable to bring up veth pair: %s", err)
 	}
 
-	ep.LxcMAC = peer.Attrs().HardwareAddr
-	ep.NodeMAC = hostVeth.Attrs().HardwareAddr
+	ep.LxcMAC = ciliumtypes.MAC(peer.Attrs().HardwareAddr)
+	ep.NodeMAC = ciliumtypes.MAC(hostVeth.Attrs().HardwareAddr)
 	ep.IfIndex = hostVeth.Attrs().Index
 	ep.Ifname = lxcIfname
 

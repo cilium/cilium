@@ -363,14 +363,14 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ep.LxcMAC = peer.Attrs().HardwareAddr
+	ep.LxcMAC = ciliumtype.MAC(peer.Attrs().HardwareAddr)
 
 	nodeVeth, err := netlink.LinkByName(lxcIfname)
 	if err != nil {
 		sendError(w, "Unable to lookup veth pair just created: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	ep.NodeMAC = nodeVeth.Attrs().HardwareAddr
+	ep.NodeMAC = ciliumtype.MAC(nodeVeth.Attrs().HardwareAddr)
 	ep.IfIndex = nodeVeth.Attrs().Index
 
 	if err := netlink.LinkSetUp(veth); err != nil {
