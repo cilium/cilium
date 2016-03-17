@@ -1,3 +1,5 @@
+#define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
+
 #include <node_config.h>
 
 #include <iproute2/bpf_api.h>

@@ -78,10 +78,10 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
-		union macaddr router_mac = NODE_MAC;
-		mac_t tmp_mac = dst_lxc->mac;
+		mac_t lxc_mac = dst_lxc->mac;
+		mac_t router_mac = dst_lxc->node_mac;
 
-		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &tmp_mac);
+		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
 		if (ret == TC_ACT_REDIRECT || ret == -1)
 			return ret;
 

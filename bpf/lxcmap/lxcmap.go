@@ -74,9 +74,10 @@ func (lxc LxcInfo) String() string {
 	if len(portmaps) == 0 {
 		portmaps = append(portmaps, "(empty)")
 	}
-	return fmt.Sprintf("ifindex=%d mac=%s ip=%s seclabel=0x%x portmaps=%s",
+	return fmt.Sprintf("ifindex=%d mac=%s nodemac=%s ip=%s seclabel=0x%x portmaps=%s",
 		lxc.Ifindex,
-		lxc.Mac,
+		lxc.MAC,
+		lxc.NodeMAC,
 		lxc.V6addr,
 		common.Swab32(lxc.SecLabel),
 		strings.Join(portmaps, " "),
@@ -94,7 +95,8 @@ func (v6 V6addr) String() string {
 type LxcInfo struct {
 	Ifindex  uint32
 	SecLabel uint32
-	Mac      Mac
+	MAC      Mac
+	NodeMAC  Mac
 	V6addr   V6addr
 	Portmap  [PORTMAP_MAX]Portmap
 }
@@ -102,7 +104,12 @@ type LxcInfo struct {
 func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
 	key := ep.U16ID()
 
-	mac, err := ep.U64MAC()
+	mac, err := ep.LxcMAC.Uint64()
+	if err != nil {
+		return err
+	}
+
+	nodeMac, err := ep.NodeMAC.Uint64()
 	if err != nil {
 		return err
 	}
@@ -113,7 +120,8 @@ func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
 		// written into the packet without an additional byte order
 		// convertion.
 		SecLabel: common.Swab32(ep.SecLabel),
-		Mac:      Mac(mac),
+		MAC:      Mac(mac),
+		NodeMAC:  Mac(nodeMac),
 	}
 
 	copy(lxc.V6addr.Addr[:], ep.LxcIP)

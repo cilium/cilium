@@ -105,9 +105,10 @@ func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 		" * IP: %s\n"+
 		" * SecLabel: %#x\n"+
 		" * PolicyMap: %s\n"+
+		" * NodeMAC: %s\n"+
 		" */\n\n",
 		ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
-		path.Base(policyMapPath))
+		path.Base(policyMapPath), ep.NodeMAC.String())
 
 	labels, err := d.GetLabels(int(ep.SecLabel))
 	if err != nil {
@@ -126,6 +127,7 @@ func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 	fmt.Fprintf(f, "#define LXC_SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel))
 	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", ep.SecLabel)
 	fmt.Fprintf(f, "#define LXC_POLICY_MAP %s\n", path.Base(policyMapPath))
+	f.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 
 	f.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range ep.PortMap {
