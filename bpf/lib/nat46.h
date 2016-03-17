@@ -9,8 +9,7 @@
 #include "eth.h"
 #include "dbg.h"
 
-#define V6PREFIX { .addr = { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-//#define ENABLE_NAT46
+#define ENABLE_NAT46
 
 static inline int get_csum_offset(__u8 protocol)
 {
@@ -202,11 +201,29 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 	return csum;
 }
 
-static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
+static inline int ipv6_prefix_match(struct in6_addr *addr,
+				    union v6addr *v6prefix)
+{
+	if (addr->in6_u.u6_addr32[0] == v6prefix->p1 &&
+	    addr->in6_u.u6_addr32[1] == v6prefix->p2 &&
+	    addr->in6_u.u6_addr32[2] == v6prefix->p3)
+		return 1;
+	else
+		return 0;
+}
+
+/*
+ * ipv4 to ipv6 stateless nat
+ * (s4,d4) -> (s6,d6)
+ * s6 = v6prefix_src<s4>
+ * d6 = v6prefix_dst<d4>
+ */
+static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
+			       union v6addr *v6prefix_src,
+			       union v6addr *v6predix_dst)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4 = {};
-	union v6addr prefix = V6PREFIX;
 	int csum_off;
 	int pushoff;
 	__be32 csum = 0;
@@ -219,14 +236,14 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 
 	/* build v6 header */
 	v6.version = 0x6;
-	v6.saddr.in6_u.u6_addr32[0] = prefix.p1;
-	v6.saddr.in6_u.u6_addr32[1] = prefix.p2;
-	v6.saddr.in6_u.u6_addr32[2] = prefix.p3;
+	v6.saddr.in6_u.u6_addr32[0] = v6prefix_src->p1;
+	v6.saddr.in6_u.u6_addr32[1] = v6prefix_src->p2;
+	v6.saddr.in6_u.u6_addr32[2] = v6prefix_src->p3;
 	v6.saddr.in6_u.u6_addr32[3] = v4.saddr;
 
-	v6.daddr.in6_u.u6_addr32[0] = prefix.p1;
-	v6.daddr.in6_u.u6_addr32[1] = prefix.p2;
-	v6.daddr.in6_u.u6_addr32[2] = prefix.p3;
+	v6.daddr.in6_u.u6_addr32[0] = v6predix_dst->p1;
+	v6.daddr.in6_u.u6_addr32[1] = v6predix_dst->p2;
+	v6.daddr.in6_u.u6_addr32[2] = v6predix_dst->p3;
 	v6.daddr.in6_u.u6_addr32[3] = v4.daddr;
 
 	if (v4.protocol == IPPROTO_ICMP)
@@ -280,21 +297,36 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off)
 	return 0;
 }
 
-static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off)
+/*
+ * ipv6 to ipv4 stateless nat
+ * (s6,d6) -> (s4,d4)
+ * s4 = s6[96 .. 127]
+ * d4 = d6[96 .. 127]
+ */
+static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
+			       union v6addr *v6prefix_src,
+			       union v6addr *v6prefix_dst)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4 = {};
 	int pushoff = -20;
 	int csum_off;
-	__u8 mac[14] = {};
 	__be32 csum = 0;
 	__be16 protocol = htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 
-	if (skb_load_bytes(skb, 0, mac, sizeof(mac)) < 0)
-		return -1;
 	if (skb_load_bytes(skb, nh_off, &v6, sizeof(v6)) < 0)
 		return -1;
+
+	if (!ipv6_prefix_match(&v6.saddr, v6prefix_src)) {
+		printk("v64 nat src prefix mismatch\n");
+		return 0;
+	}
+
+	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
+		printk("v64 nat dst prefix mismatch\n");
+		return 0;
+	}
 
 	/* build v4 header */
 	v4.ihl = 0x5;

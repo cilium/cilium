@@ -16,6 +16,7 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/lxc.h"
+#include "lib/nat46.h"
 
 #ifndef DISABLE_PORT_MAP
 static inline void map_lxc_out(struct __sk_buff *skb, int off)
@@ -114,7 +115,9 @@ int handle_ingress(struct __sk_buff *skb)
 #ifdef ENABLE_NAT46
 	/* First try to do v46 nat */
 	if (skb->protocol == __constant_htons(ETH_P_IP)) {
-		ret = ipv4_to_ipv6(skb, nh_off);
+		union v6addr sp = NAT46_SRC_PREFIX;
+		union v6addr dp = NAT46_DST_PREFIX;
+		ret = ipv4_to_ipv6(skb, nh_off, &sp, &dp);
 		if (ret == -1) {
 			printk("ipv4_to_ipv6 failed\n");
 			return ret;
@@ -144,6 +147,19 @@ __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff 
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
 	int ifindex = skb->cb[1];
+
+#ifdef ENABLE_NAT46
+	if (skb->tc_index == 0 &&
+	    skb->protocol == __constant_htons(ETH_P_IPV6)) {
+		int ret;
+		union v6addr sp = NAT46_SRC_PREFIX;
+		union v6addr dp = NAT46_DST_PREFIX;
+		ret = ipv6_to_ipv4(skb, 14, &sp, &dp);
+		if (ret == -1)
+			printk("v64 nat failed\n");
+	}
+	skb->tc_index = 0;
+#endif
 
 	printk("Handle policy %d %d\n", src_label, ifindex);
 
