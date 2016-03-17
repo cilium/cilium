@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 	"strconv"
 
@@ -28,9 +27,9 @@ type Consumer struct {
 type Endpoint struct {
 	ID            string               `json:"id"`
 	DockerID      string               `json:"docker-id"`
-	LxcMAC        net.HardwareAddr     `json:"lxc-MAC"`
+	LxcMAC        MAC                  `json:"lxc-MAC"`
 	LxcIP         net.IP               `json:"lxc-IP"`
-	NodeMAC       net.HardwareAddr     `json:"node-MAC"`
+	NodeMAC       MAC                  `json:"node-MAC"`
 	Ifname        string               `json:"interface-Name"`
 	IfIndex       int                  `json:"ifindex"`
 	NodeIP        net.IP               `json:"node-IP"`
@@ -109,19 +108,6 @@ func (e *Endpoint) AllowsSecLabel(id int) bool {
 func (e *Endpoint) U16ID() uint16 {
 	n, _ := strconv.ParseUint(e.ID, 10, 16)
 	return uint16(n)
-}
-
-func (e *Endpoint) U64MAC() (uint64, error) {
-	if len(e.LxcMAC) != 6 {
-		return 0, fmt.Errorf("Invalid MAC address %s", string(e.LxcMAC))
-	}
-
-	return uint64(uint64(e.LxcMAC[5])<<40 |
-		uint64(e.LxcMAC[4])<<32 |
-		uint64(e.LxcMAC[3])<<24 |
-		uint64(e.LxcMAC[2])<<16 |
-		uint64(e.LxcMAC[1])<<8 |
-		uint64(e.LxcMAC[0])), nil
 }
 
 func (e *Endpoint) SetID() {
