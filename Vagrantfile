@@ -29,6 +29,65 @@ make -C ~/go/src/github.com/noironetworks/cilium-net/ tests
 sudo -E make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
 SCRIPT
 
+$docker_libnetwork = <<SCRIPT
+apt-get -y install libseccomp2
+mkdir -p install
+cd install
+wget --quiet -r -np -nd http://www.infradead.org/~tgr/cilium-docker-build/
+dpkg -r docker-engine
+for pkg in *.deb; do
+	dpkg -i $pkg
+done
+usermod -aG docker vagrant
+echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
+cd ..
+rm -rf $HOME/install
+sudo service docker restart
+SCRIPT
+
+$docker_stable = <<SCRIPT
+apt-get -y install libseccomp2
+mkdir -p install
+cd install
+wget https://apt.dockerproject.org/repo/pool/main/d/docker-engine/docker-engine_1.9.1-0~trusty_amd64.deb
+dpkg -r docker-engine
+for pkg in *.deb; do
+	dpkg -i $pkg
+done
+usermod -aG docker vagrant
+echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
+cd ..
+rm -rf $HOME/install
+sudo service docker restart
+SCRIPT
+
+$install_k8s = <<SCRIPT
+sudo apt-get -y install curl
+curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
+tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
+
+export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64
+echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
+
+sudo sudo chmod -R 775  /usr/local/go/pkg/
+sudo sudo chgrp vagrant /usr/local/go/pkg/
+
+git clone -b v1.2.0 https://github.com/kubernetes/kubernetes.git
+cd kubernetes
+patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/cni/kubernetes.patch
+patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/k8s-ipv6.patch
+
+sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
+
+wget https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
+tar -xvzf util-linux-2.24.1.tar.gz
+cd util-linux-2.24.1
+./autogen.sh
+./configure --without-python --disable-all-programs --enable-nsenter
+make nsenter
+sudo cp nsenter /usr/bin
+SCRIPT
+
 Vagrant.configure(2) do |config|
     config.vm.box = "noironetworks/net-next"
 
@@ -47,7 +106,7 @@ Vagrant.configure(2) do |config|
         vb.cpus = 8
 
         config.vm.synced_folder ".", "/vagrant", disabled: true
-        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', nfs: true
+        #config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', nfs: true
         # Don't forget to enable this ports on your host before starting the VM
         # in order to have nfs working
         # iptables -I INPUT -p udp -s 192.168.33.0/24 --dport 111 -j ACCEPT
@@ -58,11 +117,27 @@ Vagrant.configure(2) do |config|
     config.vm.define "node1", primary: true do |node1|
         node1.vm.network "private_network", ip: "192.168.33.11"
         node1.vm.hostname = "node1"
+        config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
     end
 
     config.vm.define "node2", autostart: false do |node2|
         node2.vm.network "private_network", ip: "192.168.33.12"
         node2.vm.hostname = "node2"
+        config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
+    end
+
+    config.vm.define "k8s1", autostart: false do |k8s1|
+        k8s1.vm.network "private_network", ip: "192.168.33.13"
+        k8s1.vm.hostname = "k8s1"
+	config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
+        config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
+    end
+
+    config.vm.define "k8s2", autostart: false do |k8s2|
+        k8s2.vm.network "private_network", ip: "192.168.33.14"
+        k8s2.vm.hostname = "k8s2"
+	config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
+        config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
 end

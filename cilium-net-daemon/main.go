@@ -94,21 +94,17 @@ func initBPF() {
 
 	}
 
-	nodeMac, _ := net.ParseMAC("de:ad:be:ef:c0:de")
-
 	fmt.Fprintf(f, ""+
 		"/*\n"+
-		" * Node MAC: %s\n"+
 		" * Node IP: %s\n"+
 		" */\n\n",
-		nodeMac, NodeAddr.String())
+		NodeAddr.String())
 
 	if logLevel == "debug" {
 		f.WriteString("#define DEBUG\n")
 	}
 
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
-	f.WriteString(common.FmtDefineAddress("NODE_MAC", nodeMac))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
 
 	SrcPrefix := net.ParseIP("dead::")

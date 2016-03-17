@@ -5,3 +5,4 @@
 #define LXC_SECLABEL 0xfffff
 #define LXC_SECLABEL_NB 0xfffff
 #define LXC_POLICYMAP cilium_policy_foo
+#define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
