@@ -111,6 +111,11 @@ func initBPF() {
 	f.WriteString(common.FmtDefineAddress("NODE_MAC", nodeMac))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
 
+	SrcPrefix := net.ParseIP("dead::")
+	DstPrefix := net.ParseIP("dead::")
+	f.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
+	f.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
+
 	hostIP := make(net.IP, len(NodeAddr))
 	copy(hostIP, NodeAddr)
 	hostIP[14] = 0xff
