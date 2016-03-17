@@ -58,3 +58,8 @@ reset_trace
 docker run --rm -i --net=$TEST_NET --name netperf $NETPERF_IMAGE sh -c "sleep 5s && super_netperf 10 -c -C -t TCP_SENDFILE -H $SERVER_IP" || {
 	abort "Error: Could not netperf to server"
 }
+
+reset_trace
+ping6 -c 5 "$SERVER_IP" || {
+	abort "Error: Could not ping server container from host"
+}
