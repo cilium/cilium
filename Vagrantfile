@@ -95,9 +95,6 @@ Vagrant.configure(2) do |config|
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
     config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
-    config.vm.provision "install-docker", type: "shell", privileged: true, run: "never", inline: $docker_stable
-    config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "never", inline: $docker_libnetwork
-    config.vm.provision "install-k8s", type: "shell", privileged: false, run: "never", inline: $install_k8s
 
     config.vm.provider :libvirt do |libvirt|
         libvirt.memory = 4096
@@ -120,11 +117,27 @@ Vagrant.configure(2) do |config|
     config.vm.define "node1", primary: true do |node1|
         node1.vm.network "private_network", ip: "192.168.33.11"
         node1.vm.hostname = "node1"
+        config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
     end
 
     config.vm.define "node2", autostart: false do |node2|
         node2.vm.network "private_network", ip: "192.168.33.12"
         node2.vm.hostname = "node2"
+        config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
+    end
+
+    config.vm.define "k8s1", autostart: false do |k8s1|
+        k8s1.vm.network "private_network", ip: "192.168.33.13"
+        k8s1.vm.hostname = "k8s1"
+	config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
+        config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
+    end
+
+    config.vm.define "k8s2", autostart: false do |k8s2|
+        k8s2.vm.network "private_network", ip: "192.168.33.14"
+        k8s2.vm.hostname = "k8s2"
+	config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
+        config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
 end
