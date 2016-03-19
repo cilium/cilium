@@ -59,8 +59,8 @@ sudo chgrp vagrant /usr/local/go/pkg/
 git clone -b v1.2.0 https://github.com/kubernetes/kubernetes.git
 sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
-patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/cni/kubernetes.patch
 patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/cni/k8s-ipv6.patch
+patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/ip-validation.patch
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 
