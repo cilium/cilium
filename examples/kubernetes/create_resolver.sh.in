@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+kubectl="/home/vagrant/kubernetes/cluster/kubectl.sh"
+tmp_file="/home/vagrant/resolv.conf"
+
+podIP=$(${kubectl} describe pods --namespace=kube-system kube-dns-v11 | grep IP | sed -E 's/IP:[[:blank:]]+//g' )
+
+echo "DNS IP found: ${podIP}"
+
+sudo bash <<EOF
+echo -e "search default.svc.${DNS_DOMAIN} svc.${DNS_DOMAIN} ${DNS_DOMAIN}\n\
+nameserver ${podIP}\n\
+options ndots:5" > "${tmp_file}"
+EOF
