@@ -69,16 +69,18 @@ tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
 export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64
 echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
 
-sudo sudo chmod -R 775  /usr/local/go/pkg/
-sudo sudo chgrp vagrant /usr/local/go/pkg/
+sudo chmod -R 775  /usr/local/go/pkg/
+sudo chgrp vagrant /usr/local/go/pkg/
 
 git clone -b v1.2.0 https://github.com/kubernetes/kubernetes.git
+sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
 patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/cni/kubernetes.patch
 patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/k8s-ipv6.patch
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 
+cd $HOME
 wget https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
 tar -xvzf util-linux-2.24.1.tar.gz
 cd util-linux-2.24.1
@@ -129,14 +131,14 @@ Vagrant.configure(2) do |config|
     config.vm.define "k8s1", autostart: false do |k8s1|
         k8s1.vm.network "private_network", ip: "192.168.33.13"
         k8s1.vm.hostname = "k8s1"
-	config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
+        config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
         config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
     config.vm.define "k8s2", autostart: false do |k8s2|
         k8s2.vm.network "private_network", ip: "192.168.33.14"
         k8s2.vm.hostname = "k8s2"
-	config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
+        config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
         config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
