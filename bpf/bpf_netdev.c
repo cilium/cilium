@@ -41,13 +41,13 @@ static inline int is_node_subnet(const union v6addr *dst)
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
-	int ret;
-
 #ifdef ENABLE_NAT46
 	/* First try to do v46 nat */
 	if (skb->protocol == __constant_htons(ETH_P_IP)) {
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = NAT46_DST_PREFIX;
+		int ret;
+
 		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
 		if (ret == -1) {
 			printk("ipv4_to_ipv6 failed\n");
