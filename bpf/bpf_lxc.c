@@ -112,20 +112,6 @@ int handle_ingress(struct __sk_buff *skb)
 	int ret, nh_off = ETH_HLEN;
 	__u8 nexthdr;
 
-#ifdef ENABLE_NAT46
-	/* First try to do v46 nat */
-	if (skb->protocol == __constant_htons(ETH_P_IP)) {
-		union v6addr sp = NAT46_SRC_PREFIX;
-		union v6addr dp = NAT46_DST_PREFIX;
-		ret = ipv4_to_ipv6(skb, nh_off, &sp, &dp);
-		if (ret == -1) {
-			printk("ipv4_to_ipv6 failed\n");
-			return ret;
-		}
-		skb->tc_index = 1;
-	}
-#endif
-
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
 		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
