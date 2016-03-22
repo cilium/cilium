@@ -61,6 +61,7 @@ sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
 patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/k8s-ipv6.patch
 patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/ip-validation.patch
+patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/super.patch
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 
@@ -78,7 +79,6 @@ Vagrant.configure(2) do |config|
     config.vm.box = "noironetworks/net-next"
 
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
-    config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
     config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
