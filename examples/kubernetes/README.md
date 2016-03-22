@@ -133,7 +133,7 @@ DNS IP found: beef::a00:20f:17
 Next run `2-guestbook.sh` and you should be something similar to this:
 
 ```bash
-$ ./2-guestbook.sh
+VM $ ./2-guestbook.sh
 replicationcontroller "redis-master" created
 service "redis-master" created
 replicationcontroller "redis-slave" created
