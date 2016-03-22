@@ -270,10 +270,8 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
 					       ntohs(v6.payload_len), csum);
 	} else {
-		csum = csum_diff(&v4.saddr, 4, NULL, 0, csum);
-		csum = csum_diff(&v4.daddr, 4, NULL, 0, csum);
-		csum = csum_diff(NULL, 0, &v6.saddr, 16, csum);
-		csum = csum_diff(NULL, 0, &v6.daddr, 16, csum);
+		csum = csum_diff(&v4.saddr, 4, &v6.saddr, 16, csum);
+		csum = csum_diff(&v4.daddr, 4, &v6.daddr, 16, csum);
 		if (v4.protocol == IPPROTO_UDP)
 			csum_flags |= BPF_F_MARK_MANGLED_0;
 	}
@@ -360,10 +358,8 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 		csum = csum - csum1;
 	} else {
 		csum = 0;
-		csum = csum_diff(&v6.saddr, 16, NULL, 0, csum);
-		csum = csum_diff(&v6.daddr, 16, NULL, 0, csum);
-		csum = csum_diff(NULL, 0, &v4.saddr, 4, csum);
-		csum = csum_diff(NULL, 0, &v4.daddr, 4, csum);
+		csum = csum_diff(&v6.saddr, 16, &v4.saddr, 4, csum);
+		csum = csum_diff(&v6.daddr, 16, &v4.daddr, 4, csum);
 		if (v4.protocol == IPPROTO_UDP)
 			csum_flags |= BPF_F_MARK_MANGLED_0;
 	}
