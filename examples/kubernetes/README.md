@@ -13,7 +13,7 @@ talk with their producers by only using the service name instead of static IPs.
 
 ### IPv6 connectivity betweeh host and Cilium Vagrant VM - VirtualBox provider
 
-1. Search for the interface that connects to your VMs, it should be something like
+1 - Search for the interface that connects to your VMs, it should be something like
 `vboxnet#` and have the IP network `192.168.33.0/24`.
 
 ```bash
@@ -24,21 +24,20 @@ HOST $ ip address show dev vboxnet0
        valid_lft forever preferred_lft forever
 ```
 
-2. Set the IPv6 disable to 0 for that vboxnet interface
+2 - Set the IPv6 disable to 0 for that vboxnet interface
 
 ```bash
 HOST $ sudo sysctl net.ipv6.conf.vboxnet0.disable_ipv6=0
 ```
 
-3. Set an IPv6 address in your host
+3 - Set an IPv6 address in your host
 
 ```bash
 HOST $ sudo ip -6 address add beef::dead:fffd/112 dev vboxnet0
 ```
 
-4. Set an IPv6 address in your VM that connects to your host, it should have the
+4 - Set an IPv6 address in your VM that connects to your host, it should have the
 IP network `192.168.33.0/24`:
-
 ```bash
 VM $ ip address show dev eth1
 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
@@ -49,7 +48,7 @@ VM $
 VM $ sudo ip -6 address add beef::dead:fffe/112 dev eth1
 ```
 
-5. You should be able to ping the host from the VM
+5 - You should be able to ping the host from the VM
 
 ```bash
 VM $ ping6 beef::dead:fffd
@@ -58,7 +57,7 @@ PING beef::dead:fffd(beef::dead:fffd) 56 data bytes
 ...
 ```
 
-6. Add the IPv6 route in the host so the host can reach the containers:
+6 - Add the IPv6 route in the host so the host can reach the containers:
 
 ```bash
 HOST $ sudo ip -6 route add beef::a00:20f:0/112 via beef::dead:fffe
