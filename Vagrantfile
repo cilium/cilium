@@ -45,22 +45,6 @@ rm -rf $HOME/install
 sudo service docker restart
 SCRIPT
 
-$docker_stable = <<SCRIPT
-apt-get -y install libseccomp2
-mkdir -p install
-cd install
-wget https://apt.dockerproject.org/repo/pool/main/d/docker-engine/docker-engine_1.9.1-0~trusty_amd64.deb
-dpkg -r docker-engine
-for pkg in *.deb; do
-	dpkg -i $pkg
-done
-usermod -aG docker vagrant
-echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
-cd ..
-rm -rf $HOME/install
-sudo service docker restart
-SCRIPT
-
 $install_k8s = <<SCRIPT
 sudo apt-get -y install curl
 curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
@@ -94,6 +78,7 @@ Vagrant.configure(2) do |config|
     config.vm.box = "noironetworks/net-next"
 
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
+    config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
     config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
@@ -119,26 +104,22 @@ Vagrant.configure(2) do |config|
     config.vm.define "node1", primary: true do |node1|
         node1.vm.network "private_network", ip: "192.168.33.11"
         node1.vm.hostname = "node1"
-        config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
     end
 
     config.vm.define "node2", autostart: false do |node2|
         node2.vm.network "private_network", ip: "192.168.33.12"
         node2.vm.hostname = "node2"
-        config.vm.provision "install-docker-libnetwork", type: "shell", privileged: true, run: "no", inline: $docker_libnetwork
     end
 
     config.vm.define "k8s1", autostart: false do |k8s1|
         k8s1.vm.network "private_network", ip: "192.168.33.13"
         k8s1.vm.hostname = "k8s1"
-        config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
         config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
     config.vm.define "k8s2", autostart: false do |k8s2|
         k8s2.vm.network "private_network", ip: "192.168.33.14"
         k8s2.vm.hostname = "k8s2"
-        config.vm.provision "install-docker", type: "shell", privileged: true, run: "no", inline: $docker_stable
         config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
