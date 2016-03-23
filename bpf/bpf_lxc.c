@@ -66,7 +66,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 #ifdef HOST_IFINDEX
 	if (1) {
-		union v6addr host_ip = { . addr = HOST_IP };
+		union v6addr host_ip = HOST_IP;
 		int ret;
 
 		/* Packets to the host are punted to a dummy device */

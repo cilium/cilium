@@ -11,6 +11,7 @@
 
 #include "lib/common.h"
 #include "lib/ipv6.h"
+#include "lib/ipv4.h"
 #include "lib/icmp6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
@@ -46,7 +47,14 @@ int from_netdev(struct __sk_buff *skb)
 	if (skb->protocol == __constant_htons(ETH_P_IP)) {
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = NAT46_DST_PREFIX;
+		__u32 dst = 0;
 		int ret;
+
+		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0)
+			return TC_ACT_SHOT;
+
+		if ((dst & IPV4_MASK) != IPV4_RANGE)
+			return TC_ACT_OK;
 
 		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
 		if (ret == -1) {
