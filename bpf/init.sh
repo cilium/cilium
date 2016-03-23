@@ -23,8 +23,10 @@ export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PAT
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
-ip link del $HOST_DEV1 2> /dev/null || true
-ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
+ip link show $HOST_DEV1 || {
+	ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
+}
+
 ip link set $HOST_DEV1 up
 ip link set $HOST_DEV2 up
 
@@ -32,7 +34,9 @@ HOST_IP=$(echo $ADDR | sed 's/:0$/:ffff/')
 ip addr del $HOST_IP/128 dev $HOST_DEV1 2> /dev/null || true
 ip addr add $HOST_IP/128 dev $HOST_DEV1
 
+ip route del $ADDR/128 dev $HOST_DEV1 2> /dev/null || true
 ip route add $ADDR/128 dev $HOST_DEV1
+ip route del $ADDR/112 via $ADDR 2> /dev/null || true
 ip route add $ADDR/112 via $ADDR
 
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
@@ -49,8 +53,9 @@ tc filter add dev cilium_net ingress bpf da obj bpf_netdev_ns.o sec from-netdev
 
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ENCAP_DEV="cilium_${MODE}"
-	ip link del $ENCAP_DEV 2> /dev/null || true
-	ip link add $ENCAP_DEV type $MODE external
+	ip link show $ENCAP_DEV || {
+		ip link add $ENCAP_DEV type $MODE external
+	}
 	ip link set $ENCAP_DEV up
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
