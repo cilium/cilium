@@ -124,6 +124,8 @@ func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 
 	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
+	fmt.Fprintf(f, "#define LXC_ID %#x\n", ep.U16ID())
+	fmt.Fprintf(f, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
 	fmt.Fprintf(f, "#define LXC_SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel))
 	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", ep.SecLabel)
 	fmt.Fprintf(f, "#define LXC_POLICY_MAP %s\n", path.Base(policyMapPath))

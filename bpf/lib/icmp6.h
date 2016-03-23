@@ -135,10 +135,10 @@ static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 
 	/* compute checksum with new payload length */
 	sum = csum_diff(NULL, 0, data, payload_len, 0);
-	printk("csum1 = %x\n", sum);
+	//printk("csum1 = %x\n", sum);
 	sum = ipv6_pseudohdr_checksum(ipv6hdr, IPPROTO_ICMPV6, payload_len,
 				      sum);
-	printk("csum2 = %x\n", sum);
+	//printk("csum2 = %x\n", sum);
 
 	return sum;
 }
@@ -212,8 +212,8 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
                 return -1;
         }
 
-        printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
-               ntohs(ipv6hdr->payload_len), ipv6hdr->nexthdr, ntohs(payload_len));
+        //printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
+        //       ntohs(ipv6hdr->payload_len), ipv6hdr->nexthdr, ntohs(payload_len));
 
         l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
