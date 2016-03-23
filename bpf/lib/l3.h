@@ -73,7 +73,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 	__u16 lxc_id = derive_lxc_id(dst);
 	int ret = 0;
 
-	printk("L3 on local node, lxc-id: %x\n", lxc_id);
+	printk("Local L3 - lxc-id: %x\n", lxc_id);
 
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
@@ -88,20 +88,20 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		if (dst_lxc->portmap[0].to)
 			map_lxc_in(skb, nh_off, dst_lxc);
 #else
-		printk("Port mapping disabled, skipping.\n");
+		//printk("Port mapping disabled, skipping.\n");
 #endif /* DISABLE_PORT_MAP */
 
-		printk("Redirecting to ifindex %u\n", dst_lxc->ifindex);
+		printk("L3 to ifindex %u ID: %d\n",
+			dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
 
 		skb->cb[0] = seclabel;
 		skb->cb[1] = dst_lxc->ifindex;
 
-		printk("ID: %d\n", ntohl(dst_lxc->sec_label));
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
 		printk("No policy program found, dropping\n");
 		return TC_ACT_SHOT;
 	} else {
-		printk("Unknown container %x\n", lxc_id);
+		printk("No match\n");
 	}
 
 	return TC_ACT_UNSPEC;

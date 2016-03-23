@@ -37,7 +37,7 @@ static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 	skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
 			&new_hl, sizeof(new_hl), 0);
 
-	printk("Decremented hoplimit to: %d\n", new_hl);
+	//printk("Decremented hoplimit to: %d\n", new_hl);
 	return 0;
 }
 

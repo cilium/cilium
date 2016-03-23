@@ -59,7 +59,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #ifndef DISABLE_PORT_MAP
 	map_lxc_out(skb, nh_off);
 #else
-	printk("Port mapping disabled, skipping.\n");
+	//printk("Port mapping disabled, skipping.\n");
 #endif /* DISABLE_PORT_MAP */
 
 	printk("node_id %x local %x\n", node_id, NODE_ID);
@@ -77,9 +77,27 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 			if (ret == TC_ACT_REDIRECT || ret == -1)
 				return ret;
 
-			printk("Redirecting to host ifindex %d\n", HOST_IFINDEX);
+			//printk("Redirecting to host ifindex %d\n", HOST_IFINDEX);
 
 			return redirect(HOST_IFINDEX, 0);
+		}
+	}
+#endif
+
+#ifdef ENABLE_NAT46
+	if (1) {
+		/* FIXME: Derive from prefix constant */
+		__u32 p = 0;
+		p = dst.p1 & 0xffff;
+		if (p == 0xadde) {
+			int ret;
+			union v6addr sp = HOST_IP;
+			union v6addr dp = NAT46_DST_PREFIX;
+			ret = ipv6_to_ipv4(skb, 14, &sp, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
+			if (ret == -1)
+				return TC_ACT_SHOT;
+
+			return TC_ACT_OK;
 		}
 	}
 #endif
@@ -134,20 +152,7 @@ __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff 
 	__u32 src_label = skb->cb[0];
 	int ifindex = skb->cb[1];
 
-#ifdef ENABLE_NAT46
-	if (skb->tc_index == 0 &&
-	    skb->protocol == __constant_htons(ETH_P_IPV6)) {
-		int ret;
-		union v6addr sp = NAT46_SRC_PREFIX;
-		union v6addr dp = NAT46_DST_PREFIX;
-		ret = ipv6_to_ipv4(skb, 14, &sp, &dp);
-		if (ret == -1)
-			printk("v64 nat failed\n");
-	}
-	skb->tc_index = 0;
-#endif
-
-	printk("Handle policy %d %d\n", src_label, ifindex);
+	//printk("Handle policy %d %d\n", src_label, ifindex);
 
 	policy = map_lookup_elem(&LXC_POLICY_MAP, &src_label);
 	if (!policy) {

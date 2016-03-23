@@ -117,7 +117,7 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
 	csum = csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
-	printk("icmp46 csum_diff %x\n", csum);
+	//printk("icmp46 csum_diff %x\n", csum);
 
 	return csum;
 }
@@ -196,7 +196,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
 	csum = csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
-	printk("icmp64 csum_diff %x\n", csum);
+	//printk("icmp64 csum_diff %x\n", csum);
 
 	return csum;
 }
@@ -244,7 +244,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	v6.daddr.in6_u.u6_addr32[0] = v6predix_dst->p1;
 	v6.daddr.in6_u.u6_addr32[1] = v6predix_dst->p2;
 	v6.daddr.in6_u.u6_addr32[2] = v6predix_dst->p3;
-	v6.daddr.in6_u.u6_addr32[3] = v4.daddr;
+	v6.daddr.in6_u.u6_addr32[3] = htonl((ntohl(v6predix_dst->p4) & 0xFFFF0000) | (ntohl(v4.daddr) & 0xFFFF));
 
 	if (v4.protocol == IPPROTO_ICMP)
 		v6.nexthdr = IPPROTO_ICMPV6;
@@ -258,7 +258,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 
 	if (pushoff != 0 && skb_modify(skb, nh_off, pushoff, htons(ETH_P_IPV6),
 				       BPF_F_HDR_OUTER_NET) < 0) {
-		printk("v46 NAT: skb_modify failed\n");
+		//printk("v46 NAT: skb_modify failed\n");
 		return -1;
 	}
 
@@ -303,7 +303,8 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
  */
 static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 			       union v6addr *v6prefix_src,
-			       union v6addr *v6prefix_dst)
+			       union v6addr *v6prefix_dst,
+			       __u32 saddr)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4 = {};
@@ -317,19 +318,19 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 		return -1;
 
 	if (!ipv6_prefix_match(&v6.saddr, v6prefix_src)) {
-		printk("v64 nat src prefix mismatch\n");
+		//printk("v64 nat src prefix mismatch\n");
 		return 0;
 	}
 
 	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
-		printk("v64 nat dst prefix mismatch\n");
+		//printk("v64 nat dst prefix mismatch\n");
 		return 0;
 	}
 
 	/* build v4 header */
 	v4.ihl = 0x5;
 	v4.version = 0x4;
-	v4.saddr = v6.saddr.in6_u.u6_addr32[3];
+	v4.saddr = saddr;
 	v4.daddr = v6.daddr.in6_u.u6_addr32[3];
 	if (v6.nexthdr == IPPROTO_ICMPV6)
 		v4.protocol = IPPROTO_ICMP;
@@ -342,7 +343,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 
 	if (skb_modify(skb, nh_off, pushoff, htons(ETH_P_IP),
 		       BPF_F_HDR_OUTER_NET) < 0) {
-		printk("v46 NAT: skb_modify failed\n");
+		//printk("v46 NAT: skb_modify failed\n");
 		return -1;
 	}
 

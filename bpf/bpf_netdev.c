@@ -46,7 +46,7 @@ int from_netdev(struct __sk_buff *skb)
 	/* First try to do v46 nat */
 	if (skb->protocol == __constant_htons(ETH_P_IP)) {
 		union v6addr sp = NAT46_SRC_PREFIX;
-		union v6addr dp = NAT46_DST_PREFIX;
+		union v6addr dp = HOST_IP;
 		__u32 dst = 0;
 		int ret;
 
