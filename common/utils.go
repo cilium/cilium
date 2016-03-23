@@ -50,7 +50,7 @@ func fmtV6Prefix(prefix string, ip net.IP) string {
 		return "<nil>"
 	}
 
-	return fmt.Sprintf("%s:%02x%02x:%02x%02x:0", prefix, ip[0], ip[1], ip[2], ip[3])
+	return fmt.Sprintf("%s%02x%02x:%02x%02x:0", prefix, ip[0], ip[1], ip[2], ip[3])
 }
 
 func GenerateV6Prefix() (string, error) {
@@ -59,7 +59,20 @@ func GenerateV6Prefix() (string, error) {
 		return "", err
 	}
 
-	return fmtV6Prefix("beef:", ip), nil
+	return fmtV6Prefix(DefaultIPv6Prefix, ip), nil
+}
+
+func fmtV4Range(ip *net.IP) (string, error) {
+	return fmt.Sprintf(DefaultIPv4Range, ip.To4()[3]), nil
+}
+
+func GenerateV4Range() (string, error) {
+	ip, err := firstGlobalV4Addr()
+	if err != nil {
+		return "", err
+	}
+
+	return fmtV4Range(&ip)
 }
 
 func Swab16(n uint16) uint16 {

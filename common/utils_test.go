@@ -1,6 +1,8 @@
 package common
 
 import (
+	"net"
+
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
 
@@ -20,8 +22,8 @@ func (s *CommonSuite) TestFmtDefineAddress(c *C) {
 }
 
 func (s *CommonSuite) TestfmtV6Prefix(c *C) {
-	c.Assert(fmtV6Prefix("beef:", []byte{}), Equals, "<nil>")
-	c.Assert(fmtV6Prefix("beef:", []byte{1, 2, 3, 4}), Equals, "beef::0102:0304:0")
+	c.Assert(fmtV6Prefix("beef::", []byte{}), Equals, "<nil>")
+	c.Assert(fmtV6Prefix("beef::", []byte{1, 2, 3, 4}), Equals, "beef::0102:0304:0")
 }
 
 func (s *CommonSuite) TestSwab16(c *C) {
@@ -32,4 +34,12 @@ func (s *CommonSuite) TestSwab16(c *C) {
 func (s *CommonSuite) TestSwab32(c *C) {
 	c.Assert(Swab32(0xAABBCCDD), Equals, uint32(0xDDCCBBAA),
 		Commentf("Swab32 failed: Swab16(0xAABBCCDD) != 0xDDCCBBAA"))
+}
+
+func (s *CommonSuite) TestfmtV4Range(c *C) {
+	ip := net.ParseIP("1.2.3.4")
+
+	r, err := fmtV4Range(&ip)
+	c.Assert(r, Equals, "10.4.0.0/16")
+	c.Assert(err, Equals, nil)
 }

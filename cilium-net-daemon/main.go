@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"net"
@@ -29,6 +30,9 @@ var (
 	logLevel           string
 	nodeAddrStr        string
 	NodeAddr           net.IP
+	ipv4Prefix         string
+	v4range            string
+	ipv4Range          *net.IPNet
 	device             string
 	libDir             string
 	runDir             string
@@ -107,8 +111,8 @@ func initBPF() {
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
 
-	SrcPrefix := net.ParseIP("dead::")
-	DstPrefix := net.ParseIP("dead::")
+	SrcPrefix := net.ParseIP(ipv4Prefix)
+	DstPrefix := net.ParseIP(ipv4Prefix)
 	f.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
 	f.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
 
@@ -116,7 +120,10 @@ func initBPF() {
 	copy(hostIP, NodeAddr)
 	hostIP[14] = 0xff
 	hostIP[15] = 0xff
-	f.WriteString(common.FmtDefineArray("HOST_IP", hostIP))
+	f.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
+
+	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
+	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
 	f.Close()
 
@@ -144,6 +151,8 @@ func init() {
 	flag.StringVar(&consulAddr, "c", "127.0.0.1:8500", "Consul agent address")
 	flag.StringVar(&libDir, "D", "/usr/lib/cilium", "Cilium library directory")
 	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
+	flag.StringVar(&ipv4Prefix, "ipv4-mapping", common.DefaultIPv4Prefix, "IPv6 prefix to map IPv4 addresses to")
+	flag.StringVar(&v4range, "ipv4-range", "", "IPv6 prefix to map IPv4 addresses to")
 	flag.Parse()
 
 	setupLOG()
@@ -153,6 +162,7 @@ func init() {
 		nodeAddrStr, err = common.GenerateV6Prefix()
 		if err != nil {
 			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
+			return
 		}
 
 		log.Infof("Generated IPv6 prefix: %s\n", nodeAddrStr)
@@ -173,6 +183,34 @@ func init() {
 	NodeAddr, _, err = net.ParseCIDR(addr.String() + "/64")
 	if err != nil {
 		log.Fatalf("Invalid CIDR %s", addr.String())
+		return
+	}
+
+	if v4range == "" {
+		v4range, err = common.GenerateV4Range()
+		if err != nil {
+			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
+			return
+		}
+
+		log.Infof("Generated IPv4 range: %s\n", v4range)
+	}
+
+	_, r, err := net.ParseCIDR(v4range)
+	ipv4Range = r
+	if err != nil {
+		log.Fatalf("Invalid IPv4 range %s: %s\n", v4range, err)
+		return
+	}
+
+	ones, _ := ipv4Range.Mask.Size()
+	if ones != common.DefaultIPv4Mask {
+		log.Fatalf("IPv4 range %s must be of length %d\n", v4range, common.DefaultIPv4Mask)
+		return
+	}
+
+	if a := net.ParseIP(ipv4Prefix); a == nil || len(a) != net.IPv6len {
+		log.Fatalf("Invalid IPv4 prefix %s", ipv4Prefix)
 		return
 	}
 

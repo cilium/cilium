@@ -17,6 +17,11 @@ const (
 	IDKeyPath         = OperationalPath + "/ID/"
 	MaxSetOfLabels    = 0xFFFF
 
+	DefaultIPv6Prefix = "beef::"
+	DefaultIPv4Prefix = "dead::"
+	DefaultIPv4Range  = "10.%d.0.0/16"
+	DefaultIPv4Mask   = 16
+
 	GlobalLabelPrefix = "io.cilium"
 )
 
