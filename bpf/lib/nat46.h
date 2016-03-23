@@ -298,11 +298,10 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 /*
  * ipv6 to ipv4 stateless nat
  * (s6,d6) -> (s4,d4)
- * s4 = s6[96 .. 127]
+ * s4 = <ipv4-range>.<lxc-id>
  * d4 = d6[96 .. 127]
  */
 static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
-			       union v6addr *v6prefix_src,
 			       union v6addr *v6prefix_dst,
 			       __u32 saddr)
 {
@@ -316,11 +315,6 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 
 	if (skb_load_bytes(skb, nh_off, &v6, sizeof(v6)) < 0)
 		return -1;
-
-	if (!ipv6_prefix_match(&v6.saddr, v6prefix_src)) {
-		//printk("v64 nat src prefix mismatch\n");
-		return 0;
-	}
 
 	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
 		//printk("v64 nat dst prefix mismatch\n");
