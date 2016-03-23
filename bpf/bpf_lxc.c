@@ -91,9 +91,8 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		p = dst.p1 & 0xffff;
 		if (p == 0xadde) {
 			int ret;
-			union v6addr sp = HOST_IP;
 			union v6addr dp = NAT46_DST_PREFIX;
-			ret = ipv6_to_ipv4(skb, 14, &sp, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
+			ret = ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
 			if (ret == -1)
 				return TC_ACT_SHOT;
 
