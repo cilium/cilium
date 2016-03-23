@@ -2,6 +2,7 @@
 
 set -e
 
+apt-get update
 apt-get -y install libseccomp2 libsystemd-journal0
 
 mkdir -p install
