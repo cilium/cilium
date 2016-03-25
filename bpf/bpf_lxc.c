@@ -46,6 +46,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
 	union v6addr dst = {};
 	__u32 node_id;
+	int to_host = 0, do_nat46 = 0;
 
 	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
 
@@ -67,20 +68,10 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #ifdef HOST_IFINDEX
 	if (1) {
 		union v6addr host_ip = HOST_IP;
-		int ret;
 
 		/* Packets to the host are punted to a dummy device */
-		if (compare_ipv6_addr(&dst, &host_ip) == 0) {
-			union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
-
-			ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
-			if (ret == TC_ACT_REDIRECT || ret == -1)
-				return ret;
-
-			//printk("Redirecting to host ifindex %d\n", HOST_IFINDEX);
-
-			return redirect(HOST_IFINDEX, 0);
-		}
+		if (compare_ipv6_addr(&dst, &host_ip) == 0)
+			to_host = 1;
 	}
 #endif
 
@@ -90,16 +81,30 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		__u32 p = 0;
 		p = dst.p1 & 0xffff;
 		if (p == 0xadde) {
-			int ret;
-			union v6addr dp = NAT46_DST_PREFIX;
-			ret = ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
-			if (ret == -1)
-				return TC_ACT_SHOT;
-
-			return TC_ACT_OK;
+			to_host = 1;
+			do_nat46 = 1;
 		}
 	}
 #endif
+
+	if (to_host) {
+		union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
+		int ret;
+
+		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		if (ret == -1)
+			return ret;
+
+		if (do_nat46) {
+			union v6addr dp = NAT46_DST_PREFIX;
+
+			ret = ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
+			if (ret == -1)
+				return TC_ACT_SHOT;
+		}
+
+		return redirect(HOST_IFINDEX, 0);
+	}
 
 	if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
