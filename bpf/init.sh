@@ -45,6 +45,12 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
+RESPONDER_IDX=$(cat /sys/class/net/eth0/ifindex)
+RESPONDER_MAC=$(ip link show eth0 | grep ether | awk '{print $2}')
+RESPONDER_MAC=$(mac2array $RESPONDER_MAC)
+echo "#define ARP_RESPONDER_MAC { .addr = ${RESPONDER_MAC}}" >> /var/run/cilium/globals/node_config.h
+echo "#define ARP_RESPONDER_IP NODE_ID" >> /var/run/cilium/globals/node_config.h
+
 clang -O2 -DHANDLE_NS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
 
 tc qdisc del dev cilium_net clsact 2> /dev/null || true
