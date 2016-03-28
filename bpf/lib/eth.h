@@ -31,6 +31,19 @@ static inline int compare_eth_addr(const union macaddr *a,
 	return tmp;
 }
 
+static inline int is_eth_bcast(const union macaddr *a)
+{
+	union macaddr bcast;
+
+	bcast.p1 = 0xffffffff;
+	bcast.p2 = 0xffff;
+
+	if (!compare_eth_addr(a, &bcast))
+		return 1;
+	else
+		return 0;
+}
+
 static inline int load_eth_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_load_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN);

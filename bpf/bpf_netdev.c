@@ -17,6 +17,7 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/nat46.h"
+#include "lib/arp.h"
 
 static inline int is_node_subnet(const union v6addr *dst)
 {
@@ -39,9 +40,43 @@ static inline int is_node_subnet(const union v6addr *dst)
 	return !tmp;
 }
 
+/*
+ * respond to arp request for target ARP_RESPONDER_IP with ARP_RESPONDER_MAC
+ */
+__section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __sk_buff *skb)
+{
+	union macaddr smac = {};
+	__be32 sip = 0;
+	__be16 arpop = __constant_htons(ARPOP_REPLY);
+	__be32 responder_ip = __constant_htonl(ARP_RESPONDER_IP);
+	union macaddr responder_mac = ARP_RESPONDER_MAC;
+
+	load_eth_saddr(skb, smac.addr, 0);
+	if (skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
+		return -1;
+
+	skb_store_bytes(skb, 20, &arpop, sizeof(arpop), 0);
+	skb_store_bytes(skb, 32, &smac, sizeof(smac), 0);
+	skb_store_bytes(skb, 38, &sip, sizeof(sip), 0);
+
+	skb_store_bytes(skb, 22, &responder_mac, 6, 0);
+	skb_store_bytes(skb, 28, &responder_ip, 4, 0);
+
+	store_eth_saddr(skb, responder_mac.addr, 0);
+	store_eth_daddr(skb, smac.addr, 0);
+
+	return redirect(skb->ifindex, 0);
+}
+
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
+	union macaddr responder_mac = ARP_RESPONDER_MAC;
+	if (arp_check(skb, __constant_htonl(ARP_RESPONDER_IP), &responder_mac) == 1) {
+		tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
+		return TC_ACT_SHOT;
+	}
+
 #ifdef ENABLE_NAT46
 	/* First try to do v46 nat */
 	if (skb->protocol == __constant_htons(ETH_P_IP)) {
