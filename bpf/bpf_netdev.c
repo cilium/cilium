@@ -64,6 +64,7 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 
 	store_eth_saddr(skb, responder_mac.addr, 0);
 	store_eth_daddr(skb, smac.addr, 0);
+	printk("arp_respond on ifindex %d\n", skb->ifindex);
 
 	return redirect(skb->ifindex, 0);
 }
@@ -71,11 +72,13 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
+#ifdef ENABLE_ARP_RESPONDER
 	union macaddr responder_mac = ARP_RESPONDER_MAC;
 	if (arp_check(skb, __constant_htonl(ARP_RESPONDER_IP), &responder_mac) == 1) {
 		tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
 		return TC_ACT_SHOT;
 	}
+#endif
 
 #ifdef ENABLE_NAT46
 	/* First try to do v46 nat */
