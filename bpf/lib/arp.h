@@ -6,6 +6,7 @@
 #include "eth.h"
 #include "dbg.h"
 
+#define ENABLE_ARP_RESPONDER
 #define CILIUM_MAP_PROTO_ARP 0
 
 /*
