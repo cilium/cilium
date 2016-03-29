@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"os"
 
 	"github.com/noironetworks/cilium-net/common"
 
@@ -532,14 +531,6 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 	c.Assert(root.Allows(&qa_pete_foo_to_prod_bar), Equals, DENY)
 	c.Assert(root.Allows(&qa_baz_to_qa_bar), Equals, DENY)
 
-	os.Remove("/tmp/foo")
-	f, err := os.Create("/tmp/foo")
+	_, err := json.MarshalIndent(rootNode, "", "    ")
 	c.Assert(err, Equals, nil)
-	defer f.Close()
-
-	b, err := json.MarshalIndent(rootNode, "", "    ")
-	c.Assert(err, Equals, nil)
-	_, err = f.Write(b)
-	c.Assert(err, Equals, nil)
-	f.Sync()
 }
