@@ -128,6 +128,20 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabels) error {
 	return nil
 }
 
+func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error) {
+	log.Debugf("Creating lock for %s", path)
+	opts := &consulAPI.LockOptions{
+		Key: common.GetLockPath(path),
+	}
+	lockKey, err := d.consul.LockOpts(opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	log.Debugf("Locking for %s", path)
+	c, err := lockKey.Lock(nil)
+	return lockKey, c, err
+}
+
 func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
 	isNew := false
 
@@ -139,16 +153,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, erro
 	lblPath := common.LabelsKeyPath + sha256Sum
 
 	// Lock that sha256Sum
-	log.Debugf("Creating lock for %s", sha256Sum)
-	opts := &consulAPI.LockOptions{
-		Key: common.GetLockPath(lblPath),
-	}
-	lockKey, err := d.consul.LockOpts(opts)
-	if err != nil {
-		return nil, false, err
-	}
-	log.Debugf("Locking for %s", sha256Sum)
-	locker, err := lockKey.Lock(nil)
+	lockKey, locker, err := d.lockPath(lblPath)
 	if err != nil {
 		return nil, false, err
 	}
@@ -184,10 +189,8 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, erro
 		if err := d.gasNewID(&secCtxLbls); err != nil {
 			return nil, false, err
 		}
-	} else {
-		if err := d.updateIDRef(&secCtxLbls); err != nil {
-			return nil, false, err
-		}
+	} else if err := d.updateIDRef(&secCtxLbls); err != nil {
+		return nil, false, err
 	}
 	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount)
 
@@ -218,7 +221,70 @@ func (d *Daemon) GetLabels(id int) (*types.SecCtxLabels, error) {
 	if err := json.Unmarshal(pair.Value, &secCtxLabels); err != nil {
 		return nil, err
 	}
+	if secCtxLabels.RefCount == 0 {
+		return nil, nil
+	}
 	return &secCtxLabels, nil
+}
+
+func (d *Daemon) DeleteLabels(id int) error {
+	secCtxLabels, err := d.GetLabels(id)
+	if err != nil {
+		return err
+	}
+	if secCtxLabels == nil {
+		return nil
+	}
+
+	sha256Sum, err := secCtxLabels.Labels.SHA256Sum()
+	if err != nil {
+		return err
+	}
+	lblPath := common.LabelsKeyPath + sha256Sum
+	// Lock that sha256Sum
+	lockKey, locker, err := d.lockPath(lblPath)
+	if err != nil {
+		return err
+	}
+	if locker == nil {
+		return fmt.Errorf("locker is nil\n")
+	}
+	defer lockKey.Unlock()
+
+	// After lock complete, get label's path
+	pair, _, err := d.consul.KV().Get(lblPath, nil)
+	if err != nil {
+		return err
+	}
+
+	var dbSecCtxLbls types.SecCtxLabels
+	if pair == nil {
+		return nil
+	} else {
+		if err := json.Unmarshal(pair.Value, &dbSecCtxLbls); err != nil {
+			return err
+		}
+		if dbSecCtxLbls.RefCount > 0 {
+			dbSecCtxLbls.RefCount--
+		}
+	}
+	if err := d.updateIDRef(&dbSecCtxLbls); err != nil {
+		return err
+	}
+	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount)
+
+	secCtxLblsByte, err := json.Marshal(dbSecCtxLbls)
+	if err != nil {
+		return err
+	}
+
+	pair.Value = secCtxLblsByte
+	_, err = d.consul.KV().Put(pair, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *Daemon) GetMaxID() (int, error) {

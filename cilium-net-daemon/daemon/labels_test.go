@@ -115,12 +115,70 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.RefCount = 3
 	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
 
+	err = ds.d.DeleteLabels(1)
+	c.Assert(err, Equals, nil)
+	gotSecCtxLbl, err = ds.d.GetLabels(1)
+	c.Assert(err, Equals, nil)
+	wantSecCtxLbls.ID = 1
+	wantSecCtxLbls.Labels = lbls
+	wantSecCtxLbls.RefCount = 2
+	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
+
 	gotSecCtxLbl, err = ds.d.GetLabels(2)
 	c.Assert(err, Equals, nil)
 	wantSecCtxLbls.ID = 2
 	wantSecCtxLbls.Labels = lbls2
 	wantSecCtxLbls.RefCount = 2
 	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
+
+	err = ds.d.DeleteLabels(1)
+	c.Assert(err, Equals, nil)
+	gotSecCtxLbl, err = ds.d.GetLabels(1)
+	wantSecCtxLbls.ID = 1
+	wantSecCtxLbls.Labels = lbls
+	wantSecCtxLbls.RefCount = 1
+	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
+
+	err = ds.d.DeleteLabels(1)
+	c.Assert(err, Equals, nil)
+	gotSecCtxLbl, err = ds.d.GetLabels(1)
+	c.Assert(err, Equals, nil)
+	var emptySecCtxLblPtr *types.SecCtxLabels
+	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
+
+	ds.d.setMaxID(1)
+	c.Assert(err, Equals, nil)
+
+	err = ds.d.DeleteLabels(1)
+	c.Assert(err, Equals, nil)
+	gotSecCtxLbl, err = ds.d.GetLabels(1)
+	c.Assert(err, Equals, nil)
+	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
+
+	secCtxLbl, new, err = ds.d.PutLabels(lbls2)
+	c.Assert(err, Equals, nil)
+	c.Assert(secCtxLbl.ID, Equals, 2)
+	c.Assert(secCtxLbl.RefCount, Equals, 3)
+	c.Assert(new, Equals, false)
+
+	err = ds.d.DeleteLabels(2)
+	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteLabels(2)
+	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteLabels(2)
+	c.Assert(err, Equals, nil)
+
+	secCtxLbl, new, err = ds.d.PutLabels(lbls2)
+	c.Assert(err, Equals, nil)
+	c.Assert(secCtxLbl.ID, Equals, 1)
+	c.Assert(secCtxLbl.RefCount, Equals, 1)
+	c.Assert(new, Equals, true)
+
+	secCtxLbl, new, err = ds.d.PutLabels(lbls)
+	c.Assert(err, Equals, nil)
+	c.Assert(secCtxLbl.ID, Equals, 2)
+	c.Assert(secCtxLbl.RefCount, Equals, 1)
+	c.Assert(new, Equals, true)
 }
 
 func (ds *DaemonSuite) TestGetMaxID(c *C) {

@@ -93,6 +93,7 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
+		return
 	}
 	labels, err := router.daemon.GetLabels(id)
 	if err != nil {
@@ -128,6 +129,25 @@ func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, err)
 		return
 	}
+}
+
+func (router *Router) deleteLabels(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr, exists := vars["uuid"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty labels UUID"))
+		return
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
+		return
+	}
+	if err := router.daemon.DeleteLabels(id); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {

@@ -115,6 +115,34 @@ func (s *CiliumNetClientSuite) TestGetLabelsFail(c *C) {
 	c.Assert(receivedLabels, Equals, wantLabels)
 }
 
+func (s *CiliumNetClientSuite) TestDeleteLabelsOK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.DeleteLabels(123)
+	c.Assert(err, Equals, nil)
+}
+
+func (s *CiliumNetClientSuite) TestDeleteLabelsFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.DeleteLabels(123)
+	c.Assert(err, Not(Equals), nil)
+}
+
 func (s *CiliumNetClientSuite) TestGetMaxIDOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")

@@ -3,7 +3,6 @@ package cilium_net_client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -51,18 +50,30 @@ func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
 		return nil, nil
 	}
 
-	b, err := ioutil.ReadAll(serverResp.body)
-
-	log.Debugf("body %+v %+v", string(b), err)
-
-	var labels types.SecCtxLabels
-	if err := json.Unmarshal(b, &labels); err != nil {
+	var secCtxLabels types.SecCtxLabels
+	if err := json.NewDecoder(serverResp.body).Decode(&secCtxLabels); err != nil {
 		return nil, err
 	}
 
-	return &labels, nil
+	return &secCtxLabels, nil
 }
 
+func (cli Client) DeleteLabels(id int) error {
+	query := url.Values{}
+
+	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusNoContent {
+		return processErrorBody(serverResp.body, nil)
+	}
+
+	return nil
+}
 func (cli Client) GetMaxID() (int, error) {
 	query := url.Values{}
 
