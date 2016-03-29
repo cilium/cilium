@@ -79,12 +79,6 @@ func setupLOG() {
 func initBPF() {
 	var args []string
 
-	if device != "undefined" {
-		args = []string{libDir, NodeAddr.String(), "direct", device}
-	} else {
-		args = []string{libDir, NodeAddr.String(), "vxlan"}
-	}
-
 	if err := os.Chdir(runDir); err != nil {
 		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
 			runDir, err)
@@ -125,7 +119,19 @@ func initBPF() {
 	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
+	ipv4_gw := make(net.IP, len(ipv4Range.IP))
+	copy(ipv4_gw, ipv4Range.IP)
+	ipv4_gw[2] = 0xff
+	ipv4_gw[3] = 0xff
+	fmt.Fprintf(f, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4_gw))
+
 	f.Close()
+
+	if device != "undefined" {
+		args = []string{libDir, NodeAddr.String(), ipv4Range.IP.String(), "direct", device}
+	} else {
+		args = []string{libDir, NodeAddr.String(), ipv4Range.IP.String(), "vxlan"}
+	}
 
 	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
 	if err != nil {
