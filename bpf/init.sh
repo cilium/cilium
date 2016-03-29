@@ -2,9 +2,11 @@
 
 LIB=$1
 ADDR=$2
-MODE=$3
+V4RANGE=$3
+MODE=$4
 
 set -e
+set -x
 
 # Enable JIT
 echo 1 > /proc/sys/net/core/bpf_jit_enable
@@ -39,17 +41,17 @@ ip route add $ADDR/128 dev $HOST_DEV1
 ip route del $ADDR/112 via $ADDR 2> /dev/null || true
 ip route add $ADDR/112 via $ADDR
 
+V4ADDR=$(echo $V4RANGE | sed 's/0.0/255.255/')
+ip route del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
+ip route add $V4ADDR/32 dev $HOST_DEV1
+ip route del $V4RANGE/16 via $V4ADDR 2> /dev/null || true
+ip route add $V4RANGE/16 via $V4ADDR
+
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
 HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
 HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
-
-RESPONDER_IDX=$(cat /sys/class/net/eth0/ifindex)
-RESPONDER_MAC=$(ip link show eth0 | grep ether | awk '{print $2}')
-RESPONDER_MAC=$(mac2array $RESPONDER_MAC)
-echo "#define ARP_RESPONDER_MAC { .addr = ${RESPONDER_MAC}}" >> /var/run/cilium/globals/node_config.h
-echo "#define ARP_RESPONDER_IP NODE_ID" >> /var/run/cilium/globals/node_config.h
 
 clang -O2 -DHANDLE_NS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
 
@@ -73,7 +75,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	tc qdisc add dev $ENCAP_DEV clsact
 	tc filter add dev $ENCAP_DEV ingress bpf da obj bpf_overlay.o sec from-overlay
 elif [ "$MODE" = "direct" ]; then
-	DEV=$4
+	DEV=$5
 
 	if [ -z "$DEV" ]; then
 		echo "No device specified for direct mode, ignoring..."

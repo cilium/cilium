@@ -41,15 +41,15 @@ static inline int is_node_subnet(const union v6addr *dst)
 }
 
 /*
- * respond to arp request for target ARP_RESPONDER_IP with ARP_RESPONDER_MAC
+ * respond to arp request for target IPV4_GW with HOST_IFINDEX_MAC
  */
 __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __sk_buff *skb)
 {
 	union macaddr smac = {};
 	__be32 sip = 0;
 	__be16 arpop = __constant_htons(ARPOP_REPLY);
-	__be32 responder_ip = __constant_htonl(ARP_RESPONDER_IP);
-	union macaddr responder_mac = ARP_RESPONDER_MAC;
+	__be32 responder_ip = IPV4_GW;
+	union macaddr responder_mac = HOST_IFINDEX_MAC;
 
 	load_eth_saddr(skb, smac.addr, 0);
 	if (skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
@@ -73,8 +73,8 @@ __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
 #ifdef ENABLE_ARP_RESPONDER
-	union macaddr responder_mac = ARP_RESPONDER_MAC;
-	if (arp_check(skb, __constant_htonl(ARP_RESPONDER_IP), &responder_mac) == 1) {
+	union macaddr responder_mac = HOST_IFINDEX_MAC;
+	if (arp_check(skb, IPV4_GW, &responder_mac) == 1) {
 		tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
 		return TC_ACT_SHOT;
 	}
