@@ -230,6 +230,7 @@ func main() {
 		LibDir:         libDir,
 		LXCMap:         lxcMap,
 		NodeAddress:    NodeAddr,
+		IPv4Range:      ipv4Range,
 		ConsulConfig:   consulDefaultAPI,
 		DockerEndpoint: dockerEndpoint,
 		K8sEndpoint:    kubernetesEndpoint,

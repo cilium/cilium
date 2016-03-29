@@ -120,3 +120,14 @@ func CalculateID(ip net.IP) string {
 	}
 	return ""
 }
+
+func (e *Endpoint) IPv4Address(v4Range *net.IPNet) *net.IP {
+	ip := make(net.IP, len(v4Range.IP))
+	copy(ip, v4Range.IP)
+
+	id := e.U16ID()
+	ip[2] = byte(id >> 8)
+	ip[3] = byte(id & 0xff)
+
+	return &ip
+}
