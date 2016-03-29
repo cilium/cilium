@@ -82,6 +82,26 @@ func (s *DaemonSuite) TestGetLabelsFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true)
 }
 
+func (s *DaemonSuite) TestDeleteLabelsOK(c *C) {
+	s.d.OnDeleteLabels = func(id int) error {
+		c.Assert(id, Equals, 123)
+		return nil
+	}
+
+	err := s.c.DeleteLabels(123)
+	c.Assert(err, Equals, nil)
+}
+
+func (s *DaemonSuite) TestDeleteLabelsFail(c *C) {
+	s.d.OnDeleteLabels = func(id int) error {
+		c.Assert(id, Equals, 123)
+		return errors.New("Unable to contact consul")
+	}
+
+	err := s.c.DeleteLabels(123)
+	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true)
+}
+
 func (s *DaemonSuite) TestGetMaxOK(c *C) {
 	s.d.OnGetMaxID = func() (int, error) {
 		return 100, nil

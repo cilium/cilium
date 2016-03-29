@@ -34,7 +34,10 @@ func (r *Router) initRoutes() {
 			"GetLabels", "GET", "/labels/by-uuid/{uuid}", r.getLabels,
 		},
 		Route{
-			"GetLabelsID", "POST", "/labels", r.putLabels,
+			"PutLabels", "POST", "/labels", r.putLabels,
+		},
+		Route{
+			"DeleteLabels", "DELETE", "/labels/by-uuid/{uuid}", r.deleteLabels,
 		},
 		Route{
 			"GetMaxID", "GET", "/labels/status/maxUUID", r.getMaxUUID,
