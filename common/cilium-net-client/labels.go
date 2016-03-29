@@ -3,6 +3,7 @@ package cilium_net_client
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,30 +11,28 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
-func (cli Client) GetLabelsID(labels types.Labels) (int, bool, error) {
+func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
 	query := url.Values{}
 	serverResp, err := cli.post("/labels", query, labels, nil)
 	if err != nil {
-		return -1, false, fmt.Errorf("error while connecting to daemon: %s", err)
+		return nil, false, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
 	defer ensureReaderClosed(serverResp)
 
 	if serverResp.statusCode != http.StatusAccepted {
-		return -1, false, processErrorBody(serverResp.body, nil)
+		return nil, false, processErrorBody(serverResp.body, nil)
 	}
 
-	jd := json.NewDecoder(serverResp.body)
-	var labelsResp types.LabelsResponse
-	if err := jd.Decode(&labelsResp); err != nil {
-		return -1, false, err
+	var labelsResp types.SecCtxLabels
+	if err := json.NewDecoder(serverResp.body).Decode(&labelsResp); err != nil {
+		return nil, false, err
 	}
 
-	//TODO add labelsResponse return value if new or not
-	return labelsResp.ID, false, nil
+	return &labelsResp, false, nil
 }
 
-func (cli Client) GetLabels(id int) (*types.Labels, error) {
+func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
 	query := url.Values{}
 
 	serverResp, err := cli.get("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
@@ -52,9 +51,12 @@ func (cli Client) GetLabels(id int) (*types.Labels, error) {
 		return nil, nil
 	}
 
-	jd := json.NewDecoder(serverResp.body)
-	var labels types.Labels
-	if err := jd.Decode(&labels); err != nil {
+	b, err := ioutil.ReadAll(serverResp.body)
+
+	log.Debugf("body %+v %+v", string(b), err)
+
+	var labels types.SecCtxLabels
+	if err := json.Unmarshal(b, &labels); err != nil {
 		return nil, err
 	}
 
@@ -75,11 +77,10 @@ func (cli Client) GetMaxID() (int, error) {
 		return -1, processErrorBody(serverResp.body, nil)
 	}
 
-	jd := json.NewDecoder(serverResp.body)
-	var lblResponse types.LabelsResponse
-	if err := jd.Decode(&lblResponse); err != nil {
+	var maxID int
+	if err := json.NewDecoder(serverResp.body).Decode(&maxID); err != nil {
 		return -1, err
 	}
 
-	return lblResponse.ID, nil
+	return maxID, nil
 }

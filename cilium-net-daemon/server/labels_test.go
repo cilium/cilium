@@ -10,51 +10,70 @@ import (
 )
 
 var (
-	lbls = types.Labels{
-		"foo":    "bar",
-		"foo2":   "=bar2",
-		"key":    "",
-		"foo==":  "==",
-		`foo\\=`: `\=`,
-		`//=/`:   "",
-		`%`:      `%ed`,
+	lbls = createLbls()
+
+	wantSecCtxLbls = types.SecCtxLabels{
+		ID:       123,
+		RefCount: 1,
+		Labels:   lbls,
 	}
 )
 
+func createLbls() types.Labels {
+	lbls := []types.Label{
+		types.NewLabel("foo", "bar", "cilium"),
+		types.NewLabel("foo2", "=bar2", "cilium"),
+		types.NewLabel("key", "", "cilium"),
+		types.NewLabel("foo==", "==", "cilium"),
+		types.NewLabel(`foo\\=`, `\=`, "cilium"),
+		types.NewLabel(`//=/`, "", "cilium"),
+		types.NewLabel(`%`, `%ed`, "cilium"),
+	}
+	return map[string]*types.Label{
+		"foo":    &lbls[0],
+		"foo2":   &lbls[1],
+		"key":    &lbls[2],
+		"foo==":  &lbls[3],
+		`foo\\=`: &lbls[4],
+		`//=/`:   &lbls[5],
+		`%`:      &lbls[6],
+	}
+}
+
 func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
-	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived types.Labels) (*types.SecCtxLabels, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
-		return 123, true, nil
+		return &wantSecCtxLbls, true, nil
 	}
 
-	id, _, err := s.c.GetLabelsID(lbls)
+	secCtxLabl, _, err := s.c.PutLabels(lbls)
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, 123)
+	c.Assert(*secCtxLabl, DeepEquals, wantSecCtxLbls)
 }
 
 func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
-	s.d.OnGetLabelsID = func(lblsReceived types.Labels) (int, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived types.Labels) (*types.SecCtxLabels, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
-		return -1, false, errors.New("Reached maximum valid IDs")
+		return nil, false, errors.New("Reached maximum valid IDs")
 	}
 
-	_, _, err := s.c.GetLabelsID(lbls)
+	_, _, err := s.c.PutLabels(lbls)
 	c.Assert(strings.Contains(err.Error(), "Reached maximum valid IDs"), Equals, true)
 }
 
 func (s *DaemonSuite) TestGetLabelsOK(c *C) {
-	s.d.OnGetLabels = func(id int) (*types.Labels, error) {
+	s.d.OnGetLabels = func(id int) (*types.SecCtxLabels, error) {
 		c.Assert(id, Equals, 123)
-		return &lbls, nil
+		return &wantSecCtxLbls, nil
 	}
 
 	lblsReceived, err := s.c.GetLabels(123)
 	c.Assert(err, Equals, nil)
-	c.Assert(*lblsReceived, DeepEquals, lbls)
+	c.Assert(*lblsReceived, DeepEquals, wantSecCtxLbls)
 }
 
 func (s *DaemonSuite) TestGetLabelsFail(c *C) {
-	s.d.OnGetLabels = func(id int) (*types.Labels, error) {
+	s.d.OnGetLabels = func(id int) (*types.SecCtxLabels, error) {
 		c.Assert(id, Equals, 123)
 		return nil, errors.New("Unable to contact consul")
 	}
