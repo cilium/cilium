@@ -111,24 +111,20 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) getLabelsID(w http.ResponseWriter, r *http.Request) {
+func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
 	var labels types.Labels
 	if err := d.Decode(&labels); err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	id, _, err := router.daemon.GetLabelsID(labels)
+	secCtxLabels, _, err := router.daemon.PutLabels(labels)
 	if err != nil {
 		processServerError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
-	lr := types.LabelsResponse{
-		ID: id,
-	}
-	e := json.NewEncoder(w)
-	if err := e.Encode(lr); err != nil {
+	if err := json.NewEncoder(w).Encode(secCtxLabels); err != nil {
 		processServerError(w, r, err)
 		return
 	}
@@ -141,11 +137,7 @@ func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	lr := types.LabelsResponse{
-		ID: id,
-	}
-	e := json.NewEncoder(w)
-	if err := e.Encode(lr); err != nil {
+	if err := json.NewEncoder(w).Encode(id); err != nil {
 		processServerError(w, r, err)
 		return
 	}

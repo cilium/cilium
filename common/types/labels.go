@@ -12,10 +12,18 @@ import (
 )
 
 type Label struct {
-	Key    string `json:"Key"`
-	Value  string `json:"Value,omitempty"`
+	Key    string `json:"key"`
+	Value  string `json:"value,omitempty"`
+	Source string `json:"source"`
 	absKey string
-	Source string `json:"Source"`
+}
+
+type Labels map[string]*Label
+
+type SecCtxLabels struct {
+	ID       int    `json:"id"`
+	RefCount int    `json:"ref-count"`
+	Labels   Labels `json:"labels"`
 }
 
 func NewLabel(key string, value string, source string) Label {
@@ -26,6 +34,18 @@ func NewLabel(key string, value string, source string) Label {
 	}
 
 	return lbl
+}
+
+func Map2Labels(m map[string]string, source string) Labels {
+	o := Labels{}
+	for k, v := range m {
+		o[k] = &Label{
+			Key:    k,
+			Value:  v,
+			Source: source,
+		}
+	}
+	return o
 }
 
 func (l *Label) Compare(b *Label) bool {
@@ -61,8 +81,8 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 
 	if bytes.Contains(data, []byte(`"source":`)) {
 		var aux struct {
-			Source string `json:"Source"`
-			Key    string `json:"Key"`
+			Source string `json:"source"`
+			Key    string `json:"key"`
 			Value  string `json:"value"`
 		}
 
@@ -100,17 +120,10 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Labels map[string]string
-
-type LabelsResponse struct {
-	ID int `json:"id"`
-}
-
 func (lbls Labels) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
-	enc := json.NewEncoder(sha)
 	sortedMap := lbls.sortMap()
-	if err := enc.Encode(sortedMap); err != nil {
+	if err := json.NewEncoder(sha).Encode(sortedMap); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
@@ -126,7 +139,7 @@ func (lbls Labels) sortMap() []string {
 	for _, k := range keys {
 		// We don't care if the values already have a '=' since this method is
 		// only used to calculate a SHA256Sum
-		str := fmt.Sprintf(`%s=%s`, k, lbls[k])
+		str := fmt.Sprintf(`%s=%s`, k, lbls[k].Value)
 		sortedMap = append(sortedMap, str)
 	}
 	return sortedMap

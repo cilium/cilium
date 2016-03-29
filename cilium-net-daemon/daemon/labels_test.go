@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -12,20 +11,46 @@ import (
 )
 
 var (
-	lbls = types.Labels{
-		"foo":    "bar",
-		"foo2":   "=bar2",
-		"key":    "",
-		"foo==":  "==",
-		`foo\\=`: `\=`,
-		`//=/`:   "",
-		`%`:      `%ed`,
-	}
-	lbls2 = types.Labels{
-		"foo":  "bar",
-		"foo2": "=bar2",
+	lbls           = createLbls()
+	lbls2          = createLbls2()
+	wantSecCtxLbls = types.SecCtxLabels{
+		ID:       123,
+		RefCount: 1,
+		Labels:   lbls,
 	}
 )
+
+func createLbls() types.Labels {
+	lbls := []types.Label{
+		types.NewLabel("foo", "bar", "cilium"),
+		types.NewLabel("foo2", "=bar2", "cilium"),
+		types.NewLabel("key", "", "cilium"),
+		types.NewLabel("foo==", "==", "cilium"),
+		types.NewLabel(`foo\\=`, `\=`, "cilium"),
+		types.NewLabel(`//=/`, "", "cilium"),
+		types.NewLabel(`%`, `%ed`, "cilium"),
+	}
+	return map[string]*types.Label{
+		"foo":    &lbls[0],
+		"foo2":   &lbls[1],
+		"key":    &lbls[2],
+		"foo==":  &lbls[3],
+		`foo\\=`: &lbls[4],
+		`//=/`:   &lbls[5],
+		`%`:      &lbls[6],
+	}
+}
+
+func createLbls2() types.Labels {
+	lbls := []types.Label{
+		types.NewLabel("foo", "bar", "cilium"),
+		types.NewLabel("foo2", "=bar2", "cilium"),
+	}
+	return map[string]*types.Label{
+		"foo":  &lbls[0],
+		"foo2": &lbls[1],
+	}
+}
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	consulConfig := consulAPI.DefaultConfig()
@@ -49,69 +74,53 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 func (ds *DaemonSuite) TestLabels(c *C) {
 	//Set up last free ID with zero
 	id, err := ds.d.GetMaxID()
-	c.Assert(strings.Contains(err.Error(), "unset"), Equals, true)
-
-	id, new, err := ds.d.GetLabelsID(lbls)
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, 1)
+	c.Assert(id, Equals, common.FirstFreeID)
+
+	secCtxLbl, new, err := ds.d.PutLabels(lbls)
+	c.Assert(err, Equals, nil)
+	c.Assert(secCtxLbl.ID, Equals, 1)
+	c.Assert(secCtxLbl.RefCount, Equals, 1)
 	c.Assert(new, Equals, true)
 
-	id, new, err = ds.d.GetLabelsID(lbls)
+	secCtxLbl, new, err = ds.d.PutLabels(lbls)
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, 1)
+	c.Assert(secCtxLbl.ID, Equals, 1)
+	c.Assert(secCtxLbl.RefCount, Equals, 2)
 	c.Assert(new, Equals, false)
 
-	id, new, err = ds.d.GetLabelsID(lbls2)
+	secCtxLbl, new, err = ds.d.PutLabels(lbls2)
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, 2)
+	c.Assert(secCtxLbl.ID, Equals, 2)
+	c.Assert(secCtxLbl.RefCount, Equals, 1)
 	c.Assert(new, Equals, true)
 
-	id, new, err = ds.d.GetLabelsID(lbls2)
+	secCtxLbl, new, err = ds.d.PutLabels(lbls2)
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, 2)
+	c.Assert(secCtxLbl.ID, Equals, 2)
+	c.Assert(secCtxLbl.RefCount, Equals, 2)
 	c.Assert(new, Equals, false)
 
-	id, new, err = ds.d.GetLabelsID(lbls)
+	secCtxLbl, new, err = ds.d.PutLabels(lbls)
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, 1)
+	c.Assert(secCtxLbl.ID, Equals, 1)
+	c.Assert(secCtxLbl.RefCount, Equals, 3)
 	c.Assert(new, Equals, false)
-
-	// FIXME
-	//gotLabels, err := ds.d.GetLabels(0)
 
 	//Get labels from ID
-	gotLabels, err := ds.d.GetLabels(1)
+	gotSecCtxLbl, err := ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)
-	c.Assert(*gotLabels, DeepEquals, lbls)
+	wantSecCtxLbls.ID = 1
+	wantSecCtxLbls.Labels = lbls
+	wantSecCtxLbls.RefCount = 3
+	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
 
-	gotLabels, err = ds.d.GetLabels(2)
+	gotSecCtxLbl, err = ds.d.GetLabels(2)
 	c.Assert(err, Equals, nil)
-	c.Assert(*gotLabels, DeepEquals, lbls2)
-}
-
-func (ds *DaemonSuite) TestMaxSetOfLabels(c *C) {
-	//Set up last free ID with common.MaxSetOfLabels - 1
-	kv := ds.d.consul.KV()
-	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
-	c.Assert(err, Equals, nil)
-	p := &consulAPI.KVPair{Key: common.LastFreeIDKeyPath, Value: byteJSON}
-	_, err = kv.Put(p, nil)
-	c.Assert(err, Equals, nil)
-
-	id, err := ds.d.GetMaxID()
-	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
-
-	id, _, err = ds.d.GetLabelsID(lbls)
-	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
-
-	_, _, err = ds.d.GetLabelsID(lbls2)
-	c.Assert(strings.Contains(err.Error(), "maximum"), Equals, true)
-
-	id, _, err = ds.d.GetLabelsID(lbls)
-	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
+	wantSecCtxLbls.ID = 2
+	wantSecCtxLbls.Labels = lbls2
+	wantSecCtxLbls.RefCount = 2
+	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
 }
 
 func (ds *DaemonSuite) TestGetMaxID(c *C) {

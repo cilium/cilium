@@ -60,17 +60,16 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		return err
 	}
 
-	labels, err := d.GetLabels(int(e.SecLabel))
+	secCtxLabels, err := d.GetLabels(int(e.SecLabel))
 	if err != nil {
 		return err
 	}
 
-	ctx := types.SearchContext{To: make([]types.Label, len(*labels))}
+	ctx := types.SearchContext{To: make([]types.Label, len(secCtxLabels.Labels))}
 
 	idx := 0
-	for k, v := range *labels {
-		// FIXME labels layer to include source
-		ctx.To[idx] = types.Label{Key: k, Value: v, Source: "cilium"}
+	for k, v := range secCtxLabels.Labels {
+		ctx.To[idx] = types.Label{Key: k, Value: v.Value, Source: v.Source}
 		idx++
 	}
 
@@ -83,20 +82,20 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	defer policyMutex.Unlock()
 
 	for idx < maxID {
-		srcLabels, err := d.GetLabels(idx)
+		srcSecCtxLabels, err := d.GetLabels(idx)
 		if err != nil {
 			break
 		}
-		if srcLabels == nil {
+		if srcSecCtxLabels == nil {
 			idx++
 			continue
 		}
 
-		ctx.From = make([]types.Label, len(*srcLabels))
+		ctx.From = make([]types.Label, len(srcSecCtxLabels.Labels))
 
 		idx2 := 0
-		for k, v := range *srcLabels {
-			ctx.From[idx2] = types.Label{Key: k, Value: v, Source: "cilium"}
+		for k, v := range srcSecCtxLabels.Labels {
+			ctx.From[idx2] = types.Label{Key: k, Value: v.Value, Source: v.Source}
 			idx2++
 		}
 

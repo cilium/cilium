@@ -110,14 +110,14 @@ func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 		ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
 		path.Base(policyMapPath), ep.NodeMAC.String())
 
-	labels, err := d.GetLabels(int(ep.SecLabel))
+	secCtxlabels, err := d.GetLabels(int(ep.SecLabel))
 	if err != nil {
 		return err
 	}
 
 	f.WriteString("/*\n")
 	f.WriteString(" * Labels:\n")
-	for k, v := range *labels {
+	for k, v := range secCtxlabels.Labels {
 		fmt.Fprintf(f, " * - %s=%s\n", k, v)
 	}
 	f.WriteString(" */\n\n")

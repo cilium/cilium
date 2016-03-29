@@ -271,7 +271,9 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	labels := d.filterValidLabels(allLabels)
 
-	labelsID, new, err := d.GetLabelsID(labels)
+	ciliumLabels := ciliumTypes.Map2Labels(labels, "cilium")
+
+	secCtxlabels, new, err := d.PutLabels(ciliumLabels)
 	if err != nil {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return
@@ -283,7 +285,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	maxTries := 5
 	var ep *ciliumTypes.Endpoint
 	for try < maxTries {
-		if ep = d.setEndpointSecLabel(ciliumID, dockerID, uint32(labelsID)); ep != nil {
+		if ep = d.setEndpointSecLabel(ciliumID, dockerID, uint32(secCtxlabels.ID)); ep != nil {
 			break
 		}
 		log.Warningf("Something went wrong, the endpoint for docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
@@ -291,18 +293,18 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		try++
 	}
 	if try >= maxTries {
-		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s'", labelsID, dockerID)
+		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s'", secCtxlabels.ID, dockerID)
 		return
 	}
 	if err := d.createBPF(*ep); err != nil {
-		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", labelsID, dockerID, err)
+		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", secCtxlabels.ID, dockerID, err)
 		return
 	}
 
 	// Perform the policy map updates after programs have been created
 	if new {
-		d.TriggerPolicyUpdates([]int{labelsID})
+		d.TriggerPolicyUpdates([]int{secCtxlabels.ID})
 	}
 
-	log.Infof("Added SecLabel %d to container %s", labelsID, dockerID)
+	log.Infof("Added SecLabel %d to container %s", secCtxlabels.ID, dockerID)
 }

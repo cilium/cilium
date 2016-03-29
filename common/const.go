@@ -16,6 +16,7 @@ const (
 	LabelsKeyPath     = OperationalPath + "/SHA256SUMLabels/"
 	IDKeyPath         = OperationalPath + "/ID/"
 	MaxSetOfLabels    = 0xFFFF
+	FirstFreeID       = 1
 
 	DefaultIPv6Prefix = "beef::"
 	DefaultIPv4Prefix = "dead::"

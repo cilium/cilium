@@ -12,8 +12,8 @@ type TestDaemon struct {
 	OnAllocateIPs   func(containerID string) (*types.IPAMConfig, error)
 	OnReleaseIPs    func(containerID string) error
 	OnPing          func() (string, error)
-	OnGetLabelsID   func(labels types.Labels) (int, bool, error)
-	OnGetLabels     func(id int) (*types.Labels, error)
+	OnPutLabels     func(labels types.Labels) (*types.SecCtxLabels, bool, error)
+	OnGetLabels     func(id int) (*types.SecCtxLabels, error)
 	OnGetMaxID      func() (int, error)
 	OnPolicyAdd     func(path string, node types.PolicyNode) error
 	OnPolicyDelete  func(path string) error
@@ -59,14 +59,14 @@ func (d TestDaemon) ReleaseIPs(containerID string) error {
 	return errors.New("ReleaseIPs should not have been called")
 }
 
-func (d TestDaemon) GetLabelsID(labels types.Labels) (int, bool, error) {
-	if d.OnGetLabelsID != nil {
-		return d.OnGetLabelsID(labels)
+func (d TestDaemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
+	if d.OnPutLabels != nil {
+		return d.OnPutLabels(labels)
 	}
-	return -1, false, errors.New("GetLabelsID should not have been called")
+	return nil, false, errors.New("GetLabelsID should not have been called")
 }
 
-func (d TestDaemon) GetLabels(id int) (*types.Labels, error) {
+func (d TestDaemon) GetLabels(id int) (*types.SecCtxLabels, error) {
 	if d.OnGetLabels != nil {
 		return d.OnGetLabels(id)
 	}

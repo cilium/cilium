@@ -22,9 +22,8 @@ func (cli Client) PolicyAdd(path string, node types.PolicyNode) error {
 		return processErrorBody(serverResp.body, nil)
 	}
 
-	jd := json.NewDecoder(serverResp.body)
-	var labelsResp types.LabelsResponse
-	if err := jd.Decode(&labelsResp); err != nil {
+	var labelsResp types.Labels
+	if err := json.NewDecoder(serverResp.body).Decode(&labelsResp); err != nil {
 		return err
 	}
 
