@@ -128,6 +128,7 @@ func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 			if err != nil {
 				log.Errorf("Unable to retreive last free Index: %s", err)
+				return
 			}
 			if k != nil {
 				break
@@ -280,6 +281,12 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return
 	}
+	defer func() {
+		if err != nil{
+			log.Infof("Deleting label ID %d because of failure.",secCtxlabels.ID)
+			d.DeleteLabels(secCtxlabels.ID)
+		}
+	}()
 
 	ciliumID := getCiliumEndpointID(cont, d.ipamConf.Gateway)
 
@@ -295,11 +302,13 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		try++
 	}
 	if try >= maxTries {
-		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s'", secCtxlabels.ID, dockerID)
+		err = fmt.Errorf("It was impossible to store the SecLabel %d for docker ID '%s'", secCtxlabels.ID, dockerID)
+		log.Error(err)
 		return
 	}
-	if err := d.createBPF(*ep); err != nil {
-		log.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", secCtxlabels.ID, dockerID, err)
+	if err = d.createBPF(*ep); err != nil {
+		err = fmt.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", secCtxlabels.ID, dockerID, err)
+		log.Error(err)
 		return
 	}
 
