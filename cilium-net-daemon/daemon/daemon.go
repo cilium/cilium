@@ -47,6 +47,7 @@ type Daemon struct {
 	validLabelPrefixesMU sync.Mutex
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
+	ipv4Range            *net.IPNet
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -114,6 +115,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		k8sClient:          k8sClient,
 		endpoints:          make(map[string]*ciliumTypes.Endpoint),
 		validLabelPrefixes: c.ValidLabelPrefixes,
+		ipv4Range:          c.IPv4Range,
 	}, nil
 }
 

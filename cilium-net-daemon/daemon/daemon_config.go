@@ -11,6 +11,7 @@ type Config struct {
 	LibDir             string
 	LXCMap             *lxcmap.LxcMap
 	NodeAddress        net.IP
+	IPv4Range          *net.IPNet
 	ConsulConfig       *consulAPI.Config
 	DockerEndpoint     string
 	K8sEndpoint        string

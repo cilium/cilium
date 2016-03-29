@@ -102,12 +102,14 @@ func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 	policyMapPath := common.PolicyMapPath + ep.ID
 
 	fmt.Fprintf(f, " * MAC: %s\n"+
-		" * IP: %s\n"+
+		" * IPv6 address: %s\n"+
+		" * IPv4 address: %s\n"+
 		" * SecLabel: %#x\n"+
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		ep.LxcMAC.String(), ep.LxcIP.String(), ep.SecLabel,
+		ep.LxcMAC.String(), ep.LxcIP.String(),
+		ep.IPv4Address(d.ipv4Range).String(), ep.SecLabel,
 		path.Base(policyMapPath), ep.NodeMAC.String())
 
 	secCtxlabels, err := d.GetLabels(int(ep.SecLabel))
