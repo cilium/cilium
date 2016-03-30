@@ -92,11 +92,17 @@ func initBPF() {
 
 	}
 
+	hostIP := make(net.IP, len(NodeAddr))
+	copy(hostIP, NodeAddr)
+	hostIP[14] = 0xff
+	hostIP[15] = 0xff
+
 	fmt.Fprintf(f, ""+
 		"/*\n"+
-		" * Node IP: %s\n"+
+		" * Node-IP: %s\n"+
+		" * Host-IP: %s\n"+
 		" */\n\n",
-		NodeAddr.String())
+		NodeAddr.String(), hostIP.String())
 
 	if logLevel == "debug" {
 		f.WriteString("#define DEBUG\n")
@@ -110,10 +116,6 @@ func initBPF() {
 	f.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
 	f.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
 
-	hostIP := make(net.IP, len(NodeAddr))
-	copy(hostIP, NodeAddr)
-	hostIP[14] = 0xff
-	hostIP[15] = 0xff
 	f.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
 
 	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
