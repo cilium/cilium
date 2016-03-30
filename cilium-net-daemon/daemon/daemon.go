@@ -121,14 +121,16 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 	go func() {
-		var k *consulAPI.KVPair
-		var q *consulAPI.QueryMeta
-		var err error
+		var (
+			k   *consulAPI.KVPair
+			q   *consulAPI.QueryMeta
+			qo  consulAPI.QueryOptions
+			err error
+		)
 		for {
 			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 			if err != nil {
 				log.Errorf("Unable to retreive last free Index: %s", err)
-				return
 			}
 			if k != nil {
 				break
@@ -139,26 +141,19 @@ func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 		}
 
 		for {
-			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, &consulAPI.QueryOptions{WaitIndex: q.LastIndex})
+			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, &qo)
 			if err != nil {
 				log.Errorf("Unable to retreive last free Index: %s", err)
 			}
-			if k == nil {
+			if k == nil || q == nil {
 				log.Warning("Unable to retreive last free Index, please start some containers with labels.")
 				time.Sleep(time.Duration(5 * time.Second))
 				continue
 			}
-			valueCopy := make([]byte, len(k.Value))
-			copy(valueCopy, k.Value)
-			go func(value []byte) {
-				var lastFreeID int
-				if err := json.Unmarshal(value, &lastFreeID); err != nil {
-					log.Errorf("Unable to unmarshall last free Index %s", err)
-				}
-				// We need to decrement 1 because the lastFreeID represents the
-				// Last free ID
-				d.TriggerPolicyUpdates([]int{lastFreeID - 1})
-			}(valueCopy)
+			qo.WaitIndex = q.LastIndex
+			go func() {
+				d.TriggerPolicyUpdates([]int{-1})
+			}()
 		}
 	}()
 }
@@ -282,8 +277,8 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		return
 	}
 	defer func() {
-		if err != nil{
-			log.Infof("Deleting label ID %d because of failure.",secCtxlabels.ID)
+		if err != nil {
+			log.Infof("Deleting label ID %d because of failure.", secCtxlabels.ID)
 			d.DeleteLabels(secCtxlabels.ID)
 		}
 	}()
