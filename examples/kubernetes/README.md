@@ -9,9 +9,8 @@ talk with their producers by only using the service name instead of static IPs.
  - Cilium Vagrant Image
  - IPv6 connectivity between host and Cilium Vagrant VM
  - Setup cilium-net-daemon in direct routing mode
- - Apply `super.patch` to kuberentes v1.2.0
 
-### IPv6 connectivity betweeh host and Cilium Vagrant VM - VirtualBox provider
+### IPv6 connectivity between host and Cilium Vagrant VM - VirtualBox provider
 
 1 - Search for the interface that connects to your VMs, it should be something like
 `vboxnet#` and have the IP network `192.168.33.0/24`.
@@ -75,31 +74,10 @@ exec cilium-net-daemon -l debug -d eth1
 
 Don't forget to restart the service: `sudo service cilium-net-daemon restart`
 
-### Apply super.patch in kubernetes
-
-This patch only contains some changes to the kubernetes/hack/ start up scripts.
-Go to the kuberentes directory and run:
-
-```bash
-VM $ cd ~/kubernetes
-VM $ patch -p1 < ~/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/super.patch
-```
-
 ## Edit the env-kube.sh
 
-Change the variables `ip` and `dns_domain` inside `env-kube.sh` where `ip`
-should be the same you gave to VM previously and `dns_domain` a valid DNS
-domain.
-
-```bash
-VM $ cat env-kube.sh
-#!/bin/env bash
-ip="beef::dead:fffe"
-dns_domain="cilium-test"
-...
-```
-
-Source that file to your console and run `~/kubernetes/hack/local-up-cluster.sh`:
+Source the `env-kube.sh` file to your console and run
+`~/kubernetes/hack/local-up-cluster.sh`:
 
 ```bash
 VM $ source ./env-kube.sh
@@ -117,6 +95,8 @@ Open a new terminal since kubernetes will be running on previous one on the
 foreground.
 
 Run `./1-dns.sh`, if everything went fine you should something similar:
+_it might take a while on the first run since kubernetes is starting and the images are
+being pulled._
 
 ```bash
 VM $ ./1-dns.sh
