@@ -64,6 +64,9 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	if err != nil {
 		return err
 	}
+	if secCtxLabels == nil {
+		return nil
+	}
 
 	ctx := types.SearchContext{To: make([]types.Label, len(secCtxLabels.Labels))}
 
