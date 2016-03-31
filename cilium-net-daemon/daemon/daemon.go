@@ -184,6 +184,17 @@ func (d *Daemon) listenForEvents(reader io.ReadCloser) {
 	}
 }
 
+func (d *Daemon) processEvent(m dTypesEvents.Message) {
+	if m.Type == "container" {
+		switch m.Status {
+		case "start":
+			d.createContainer(m)
+		case "die":
+			d.deleteContainer(m)
+		}
+	}
+}
+
 func (d *Daemon) filterValidLabels(labels map[string]string) map[string]string {
 	d.validLabelPrefixesMU.Lock()
 	defer d.validLabelPrefixesMU.Unlock()
@@ -197,13 +208,6 @@ func (d *Daemon) filterValidLabels(labels map[string]string) map[string]string {
 		}
 	}
 	return filteredLabels
-}
-
-func getDockerContainerLabels(cont dTypes.ContainerJSON) map[string]string {
-	if cont.Config != nil {
-		return cont.Config.Labels
-	}
-	return map[string]string{}
 }
 
 func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
@@ -234,31 +238,11 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	return result.GetLabels(), nil
 }
 
-func (d *Daemon) processEvent(m dTypesEvents.Message) {
-	//m.Action != "start" || m.Type != "container"
-	switch m.Status {
-	case "start":
-		d.createContainer(m)
-	}
-}
-
-func (d *Daemon) createContainer(m dTypesEvents.Message) {
-	dockerID := m.ID // m.Actor.ID
-	//allLabels := m.Actor.Attributes
-	log.Debugf("Processing container %s", dockerID)
-
-	cont, err := d.dockerClient.ContainerInspect(dockerID)
-	if err != nil {
-		log.Errorf("Error while inspecting container '%s': %s", dockerID, err)
-		return
-	}
-
-	allLabels := getDockerContainerLabels(cont)
-
+func (d *Daemon) getFilteredLabels(allLabels map[string]string) ciliumTypes.Labels {
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
-			log.Errorf("Error while getting kubernetes labels: %s", err)
+			log.Warningf("Error while getting kubernetes labels: %s", err)
 		} else if k8sLabels != nil {
 			// Copy to labels that we already have
 			for k, v := range k8sLabels {
@@ -269,7 +253,20 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	labels := d.filterValidLabels(allLabels)
 
-	ciliumLabels := ciliumTypes.Map2Labels(labels, "cilium")
+	return ciliumTypes.Map2Labels(labels, "cilium")
+}
+
+func (d *Daemon) createContainer(m dTypesEvents.Message) {
+	dockerID := m.Actor.ID
+	log.Debugf("Processing container %s", dockerID)
+	allLabels := m.Actor.Attributes
+	cont, err := d.dockerClient.ContainerInspect(dockerID)
+	if err != nil {
+		log.Errorf("Error while inspecting container '%s': %s", dockerID, err)
+		return
+	}
+
+	ciliumLabels := d.getFilteredLabels(allLabels)
 
 	secCtxlabels, new, err := d.PutLabels(ciliumLabels)
 	if err != nil {
@@ -313,4 +310,21 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	}
 
 	log.Infof("Added SecLabel %d to container %s", secCtxlabels.ID, dockerID)
+}
+
+func (d *Daemon) deleteContainer(m dTypesEvents.Message) {
+	dockerID := m.Actor.ID
+	log.Debugf("Processing container %s", dockerID)
+	allLabels := m.Actor.Attributes
+
+	ciliumLabels := d.getFilteredLabels(allLabels)
+
+	sha256sum, err := ciliumLabels.SHA256Sum()
+	if err != nil {
+		log.Errorf("Error while creating SHA256Sum for labels %+v: %s", ciliumLabels, err)
+	}
+
+	if err := d.DeleteLabelsBySHA256(sha256sum); err != nil {
+		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s", sha256sum, ciliumLabels, err)
+	}
 }
