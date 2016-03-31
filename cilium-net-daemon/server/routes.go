@@ -37,7 +37,10 @@ func (r *Router) initRoutes() {
 			"PutLabels", "POST", "/labels", r.putLabels,
 		},
 		Route{
-			"DeleteLabels", "DELETE", "/labels/by-uuid/{uuid}", r.deleteLabels,
+			"DeleteLabels", "DELETE", "/labels/by-sha256sum/{sha256sum}", r.deleteLabelsBySHA256,
+		},
+		Route{
+			"DeleteLabelsByUUID", "DELETE", "/labels/by-uuid/{uuid}", r.deleteLabelsByUUID,
 		},
 		Route{
 			"GetMaxID", "GET", "/labels/status/maxUUID", r.getMaxUUID,
