@@ -143,6 +143,7 @@ func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error)
 }
 
 func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
+	log.Debugf("Putting labels %+v", labels)
 	isNew := false
 
 	// Retrieve unique SHA256Sum for labels
@@ -227,7 +228,7 @@ func (d *Daemon) GetLabels(id int) (*types.SecCtxLabels, error) {
 	return &secCtxLabels, nil
 }
 
-func (d *Daemon) DeleteLabels(id int) error {
+func (d *Daemon) DeleteLabelsByUUID(id int) error {
 	secCtxLabels, err := d.GetLabels(id)
 	if err != nil {
 		return err
@@ -235,10 +236,17 @@ func (d *Daemon) DeleteLabels(id int) error {
 	if secCtxLabels == nil {
 		return nil
 	}
-
-	sha256Sum, err := secCtxLabels.Labels.SHA256Sum()
+	sha256sum, err := secCtxLabels.Labels.SHA256Sum()
 	if err != nil {
 		return err
+	}
+
+	return d.DeleteLabelsBySHA256(sha256sum)
+}
+
+func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
+	if sha256Sum == "" {
+		return nil
 	}
 	lblPath := common.LabelsKeyPath + sha256Sum
 	// Lock that sha256Sum

@@ -115,7 +115,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsFail(c *C) {
 	c.Assert(receivedLabels, Equals, wantLabels)
 }
 
-func (s *CiliumNetClientSuite) TestDeleteLabelsOK(c *C) {
+func (s *CiliumNetClientSuite) TestDeleteLabelsByUUIDOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
 		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123")
@@ -125,11 +125,11 @@ func (s *CiliumNetClientSuite) TestDeleteLabelsOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.DeleteLabels(123)
+	err := cli.DeleteLabelsByUUID(123)
 	c.Assert(err, Equals, nil)
 }
 
-func (s *CiliumNetClientSuite) TestDeleteLabelsFail(c *C) {
+func (s *CiliumNetClientSuite) TestDeleteLabelsByUUIDFail(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
 		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123")
@@ -139,7 +139,35 @@ func (s *CiliumNetClientSuite) TestDeleteLabelsFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.DeleteLabels(123)
+	err := cli.DeleteLabelsByUUID(123)
+	c.Assert(err, Not(Equals), nil)
+}
+
+func (s *CiliumNetClientSuite) TestDeleteLabelsBySHA256OK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.DeleteLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+	c.Assert(err, Equals, nil)
+}
+
+func (s *CiliumNetClientSuite) TestDeleteLabelsBySHA256Fail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.DeleteLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
 	c.Assert(err, Not(Equals), nil)
 }
 

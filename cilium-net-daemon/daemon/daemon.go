@@ -279,7 +279,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	defer func() {
 		if err != nil {
 			log.Infof("Deleting label ID %d because of failure.", secCtxlabels.ID)
-			d.DeleteLabels(secCtxlabels.ID)
+			d.DeleteLabelsByUUID(secCtxlabels.ID)
 		}
 	}()
 

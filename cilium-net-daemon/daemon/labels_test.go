@@ -115,7 +115,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.RefCount = 3
 	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
 
-	err = ds.d.DeleteLabels(1)
+	err = ds.d.DeleteLabelsByUUID(1)
 	c.Assert(err, Equals, nil)
 	gotSecCtxLbl, err = ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)
@@ -131,7 +131,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.RefCount = 2
 	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
 
-	err = ds.d.DeleteLabels(1)
+	err = ds.d.DeleteLabelsByUUID(1)
 	c.Assert(err, Equals, nil)
 	gotSecCtxLbl, err = ds.d.GetLabels(1)
 	wantSecCtxLbls.ID = 1
@@ -139,7 +139,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.RefCount = 1
 	c.Assert(*gotSecCtxLbl, DeepEquals, wantSecCtxLbls)
 
-	err = ds.d.DeleteLabels(1)
+	err = ds.d.DeleteLabelsByUUID(1)
 	c.Assert(err, Equals, nil)
 	gotSecCtxLbl, err = ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)
@@ -149,7 +149,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	ds.d.setMaxID(1)
 	c.Assert(err, Equals, nil)
 
-	err = ds.d.DeleteLabels(1)
+	err = ds.d.DeleteLabelsByUUID(1)
 	c.Assert(err, Equals, nil)
 	gotSecCtxLbl, err = ds.d.GetLabels(1)
 	c.Assert(err, Equals, nil)
@@ -161,11 +161,13 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	c.Assert(secCtxLbl.RefCount, Equals, 3)
 	c.Assert(new, Equals, false)
 
-	err = ds.d.DeleteLabels(2)
+	sha256sum, err := lbls2.SHA256Sum()
 	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabels(2)
+	err = ds.d.DeleteLabelsBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabels(2)
+	err = ds.d.DeleteLabelsByUUID(2)
+	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteLabelsByUUID(2)
 	c.Assert(err, Equals, nil)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2)

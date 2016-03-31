@@ -131,7 +131,7 @@ func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) deleteLabels(w http.ResponseWriter, r *http.Request) {
+func (router *Router) deleteLabelsByUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr, exists := vars["uuid"]
 	if !exists {
@@ -143,7 +143,21 @@ func (router *Router) deleteLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
 		return
 	}
-	if err := router.daemon.DeleteLabels(id); err != nil {
+	if err := router.daemon.DeleteLabelsByUUID(id); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (router *Router) deleteLabelsBySHA256(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sha256sum, exists := vars["sha256sum"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty sha256sum"))
+		return
+	}
+	if err := router.daemon.DeleteLabelsBySHA256(sha256sum); err != nil {
 		processServerError(w, r, err)
 		return
 	}

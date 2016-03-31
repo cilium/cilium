@@ -58,7 +58,7 @@ func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
 	return &secCtxLabels, nil
 }
 
-func (cli Client) DeleteLabels(id int) error {
+func (cli Client) DeleteLabelsByUUID(id int) error {
 	query := url.Values{}
 
 	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
@@ -74,6 +74,24 @@ func (cli Client) DeleteLabels(id int) error {
 
 	return nil
 }
+
+func (cli Client) DeleteLabelsBySHA256(sha256sum string) error {
+	query := url.Values{}
+
+	serverResp, err := cli.delete("/labels/by-sha256sum/"+sha256sum, query, nil)
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusNoContent {
+		return processErrorBody(serverResp.body, nil)
+	}
+
+	return nil
+}
+
 func (cli Client) GetMaxID() (int, error) {
 	query := url.Values{}
 
