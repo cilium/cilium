@@ -12,7 +12,6 @@ import (
 	ciliumtypes "github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ipam"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ns"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/skel"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
@@ -287,11 +286,6 @@ func DelLinkByName(ifName string) error {
 }
 
 func cmdDel(args *skel.CmdArgs) error {
-	n, err := loadNetConf(args.StdinData)
-	if err != nil {
-		return err
-	}
-
 	c, err := cnc.NewDefaultClient()
 	if err != nil {
 		return fmt.Errorf("error while starting cilium-client: %s", err)
@@ -319,9 +313,8 @@ func cmdDel(args *skel.CmdArgs) error {
 		return nil
 	})
 
-	err = ipam.ExecDel(n.IPAM.Type, args.StdinData)
-	if err != nil {
-		return err
+	if err := c.ReleaseIPs(args.ContainerID); err != nil {
+		log.Warnf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 	}
 
 	var ep ciliumtypes.Endpoint
