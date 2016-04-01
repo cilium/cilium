@@ -253,7 +253,7 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) ciliumTypes.Labe
 
 	labels := d.filterValidLabels(allLabels)
 
-	return ciliumTypes.Map2Labels(labels, "cilium")
+	return ciliumTypes.Map2Labels(labels, common.CiliumLabelSource)
 }
 
 func (d *Daemon) createContainer(m dTypesEvents.Message) {

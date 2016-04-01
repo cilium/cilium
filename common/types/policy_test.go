@@ -30,7 +30,7 @@ func (s *CommonSuite) TestLabel(c *C) {
 
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, "cilium")
+	c.Assert(label.Source, Equals, common.CiliumLabelSource)
 	c.Assert(label.AbsoluteKey(), Equals, "web")
 	c.Assert(label.Value, Equals, "")
 
@@ -59,14 +59,14 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	err = json.Unmarshal([]byte(shortLabel), &rule)
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Action, Equals, ACCEPT)
-	c.Assert(rule.Label.Source, Equals, "cilium")
+	c.Assert(rule.Label.Source, Equals, common.CiliumLabelSource)
 	c.Assert(rule.Label.AbsoluteKey(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
 	err = json.Unmarshal([]byte(invertedLabel), &rule)
 	c.Assert(err, Equals, nil)
 	c.Assert(rule.Action, Equals, DENY)
-	c.Assert(rule.Label.Source, Equals, "cilium")
+	c.Assert(rule.Label.Source, Equals, common.CiliumLabelSource)
 	c.Assert(rule.Label.AbsoluteKey(), Equals, "web")
 	c.Assert(rule.Label.Value, Equals, "")
 
@@ -86,13 +86,13 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	err := root.ResolveTree()
 	c.Assert(err, Equals, nil)
 
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	ctx := SearchContext{To: []Label{lblFoo}}
 	c.Assert(root.Covers(&ctx), Equals, true)
 	c.Assert(root.Children["foo"].Covers(&ctx), Equals, true)
 	c.Assert(root.Children["bar"].Covers(&ctx), Equals, false)
 
-	lblRoot := NewLabel("io.cilium", "", "cilium")
+	lblRoot := NewLabel("io.cilium", "", common.CiliumLabelSource)
 	ctx = SearchContext{To: []Label{lblRoot}}
 	c.Assert(root.Covers(&ctx), Equals, true)
 	c.Assert(root.Children["foo"].Covers(&ctx), Equals, false)
@@ -102,7 +102,7 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 func (s *CommonSuite) TestLabelCompare(c *C) {
 	a_1 := NewLabel("io.cilium", "", "")
 	a_2 := NewLabel("io.cilium", "", "")
-	b_1 := NewLabel("io.cilium.bar", "", "cilium")
+	b_1 := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	c_1 := NewLabel("io.cilium.bar", "", "kubernetes")
 	d_1 := NewLabel("", "", "")
 
@@ -115,9 +115,9 @@ func (s *CommonSuite) TestLabelCompare(c *C) {
 }
 
 func (s *CommonSuite) TestAllowRule(c *C) {
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 	allow := AllowRule{Action: ACCEPT, Label: lblFoo}
 	deny := AllowRule{Action: DENY, Label: lblFoo}
 
@@ -137,9 +137,9 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 }
 
 func (s *CommonSuite) TestTargetCoveredBy(c *C) {
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
 
 	list1 := []Label{lblFoo}
@@ -166,11 +166,11 @@ func (s *CommonSuite) TestTargetCoveredBy(c *C) {
 }
 
 func (s *CommonSuite) TestAllowConsumer(c *C) {
-	lblTeamA := NewLabel("io.cilium.teamA", "", "cilium")
-	lblTeamB := NewLabel("io.cilium.teamB", "", "cilium")
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblTeamA := NewLabel("io.cilium.teamA", "", common.CiliumLabelSource)
+	lblTeamB := NewLabel("io.cilium.teamB", "", common.CiliumLabelSource)
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 
 	// [Foo,TeamA] -> Bar
 	a_foo_to_bar := SearchContext{
@@ -282,26 +282,26 @@ func (s *CommonSuite) TestValidateCoverage(c *C) {
 		Parent: &rootNode,
 	}
 
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	consumer := PolicyRuleConsumers{Coverage: []Label{lblBar}}
 	c.Assert(consumer.Resolve(&node), Not(Equals), nil)
 
 	consumer2 := PolicyRuleRequires{Coverage: []Label{lblBar}}
 	c.Assert(consumer2.Resolve(&node), Not(Equals), nil)
 
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	consumer = PolicyRuleConsumers{Coverage: []Label{lblFoo}}
 	c.Assert(consumer.Resolve(&node), Equals, nil)
 
-	lblFoo = NewLabel("foo", "", "cilium")
+	lblFoo = NewLabel("foo", "", common.CiliumLabelSource)
 	consumer = PolicyRuleConsumers{Coverage: []Label{lblFoo}}
 	c.Assert(consumer.Resolve(&node), Equals, nil)
 }
 
 func (s *CommonSuite) TestRequires(c *C) {
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 
 	// Foo -> Bar
 	a_foo_to_bar := SearchContext{
@@ -334,11 +334,11 @@ func (s *CommonSuite) TestRequires(c *C) {
 }
 
 func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
-	lblProd := NewLabel("io.cilium.Prod", "", "cilium")
-	lblQA := NewLabel("io.cilium.QA", "", "cilium")
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblProd := NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
+	lblQA := NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
 	lblPete := NewLabel("io.cilium.user", "pete", "kubernetes")
 
@@ -437,11 +437,11 @@ func (s *CommonSuite) TestResolveTree(c *C) {
 }
 
 func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
-	lblProd := NewLabel("io.cilium.Prod", "", "cilium")
-	lblQA := NewLabel("io.cilium.QA", "", "cilium")
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblBaz := NewLabel("io.cilium.baz", "", "cilium")
+	lblProd := NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
+	lblQA := NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
 	lblPete := NewLabel("io.cilium.user", "pete", "kubernetes")
 
@@ -550,9 +550,9 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(aNode, DeepEquals, aOrig)
 
-	lblProd := NewLabel("io.cilium.Prod", "", "cilium")
-	lblQA := NewLabel("io.cilium.QA", "", "cilium")
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblProd := NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
+	lblQA := NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
 	lblPete := NewLabel("io.cilium.user", "pete", "kubernetes")
 
