@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
@@ -22,13 +23,13 @@ var (
 
 func createLabels() types.Labels {
 	lbls := []types.Label{
-		types.NewLabel("foo", "bar", "cilium"),
-		types.NewLabel("foo2", "=bar2", "cilium"),
-		types.NewLabel("key", "", "cilium"),
-		types.NewLabel("foo==", "==", "cilium"),
-		types.NewLabel(`foo\\=`, `\=`, "cilium"),
-		types.NewLabel(`//=/`, "", "cilium"),
-		types.NewLabel(`%`, `%ed`, "cilium"),
+		types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		types.NewLabel("key", "", common.CiliumLabelSource),
+		types.NewLabel("foo==", "==", common.CiliumLabelSource),
+		types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		types.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 	m := map[string]*types.Label{
 		"foo":    &lbls[0],

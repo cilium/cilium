@@ -72,12 +72,12 @@ func (ds *DaemonSuite) TestPolicyGet(c *C) {
 }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
-	lblProd := NewLabel("io.cilium.Prod", "", "cilium")
-	lblQA := NewLabel("io.cilium.QA", "", "cilium")
-	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
-	lblBar := NewLabel("io.cilium.bar", "", "cilium")
-	lblJoe := NewLabel("io.cilium.user", "joe", "cilium")
-	lblPete := NewLabel("io.cilium.user", "pete", "cilium")
+	lblProd := NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
+	lblQA := NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
+	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
+	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
+	lblJoe := NewLabel("io.cilium.user", "joe", common.CiliumLabelSource)
+	lblPete := NewLabel("io.cilium.user", "pete", common.CiliumLabelSource)
 
 	rootNode := PolicyNode{
 		Name: common.GlobalLabelPrefix,

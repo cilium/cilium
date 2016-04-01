@@ -22,13 +22,13 @@ var (
 
 func createLbls() types.Labels {
 	lbls := []types.Label{
-		types.NewLabel("foo", "bar", "cilium"),
-		types.NewLabel("foo2", "=bar2", "cilium"),
-		types.NewLabel("key", "", "cilium"),
-		types.NewLabel("foo==", "==", "cilium"),
-		types.NewLabel(`foo\\=`, `\=`, "cilium"),
-		types.NewLabel(`//=/`, "", "cilium"),
-		types.NewLabel(`%`, `%ed`, "cilium"),
+		types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		types.NewLabel("key", "", common.CiliumLabelSource),
+		types.NewLabel("foo==", "==", common.CiliumLabelSource),
+		types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		types.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 	return map[string]*types.Label{
 		"foo":    &lbls[0],
@@ -43,8 +43,8 @@ func createLbls() types.Labels {
 
 func createLbls2() types.Labels {
 	lbls := []types.Label{
-		types.NewLabel("foo", "bar", "cilium"),
-		types.NewLabel("foo2", "=bar2", "cilium"),
+		types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
 	}
 	return map[string]*types.Label{
 		"foo":  &lbls[0],
