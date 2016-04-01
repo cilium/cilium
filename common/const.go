@@ -24,6 +24,7 @@ const (
 	DefaultIPv4Mask   = 16
 
 	GlobalLabelPrefix = "io.cilium"
+	CiliumLabelSource = "cilium"
 )
 
 var (

@@ -53,7 +53,7 @@ func (l *Label) Compare(b *Label) bool {
 }
 
 func (l *Label) Resolve(node *PolicyNode) {
-	if l.Source == "cilium" && !strings.HasPrefix(l.Key, common.GlobalLabelPrefix) {
+	if l.Source == common.CiliumLabelSource && !strings.HasPrefix(l.Key, common.GlobalLabelPrefix) {
 		l.absKey = node.Path() + "." + l.Key
 	} else {
 		l.absKey = l.Key
@@ -66,6 +66,29 @@ func (l *Label) AbsoluteKey() string {
 	}
 
 	return l.Key
+}
+
+func decodeLabelShortform(source string, label *Label) {
+	sep := strings.SplitN(source, ":", 2)
+	if len(sep) != 2 {
+		label.Source = common.CiliumLabelSource
+	} else {
+		if sep[0] == "" {
+			label.Source = common.CiliumLabelSource
+		} else {
+			label.Source = sep[0]
+		}
+		source = sep[1]
+	}
+
+	sep = strings.SplitN(source, "=", 2)
+	if len(sep) == 1 {
+		label.Key = source
+		label.Value = ""
+	} else {
+		label.Key = sep[0]
+		label.Value = sep[1]
+	}
 }
 
 func (l *Label) UnmarshalJSON(data []byte) error {
@@ -98,8 +121,6 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		l.Key = aux.Key
 		l.Value = aux.Value
 	} else {
-		// FIXME: [source:]key[=value]
-
 		// This is a short form in which only a string to be interpreted
 		// as a cilium label key is provided
 		var aux string
@@ -109,12 +130,10 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		}
 
 		if aux == "" {
-			return fmt.Errorf("Invalid Label: must provide a label key")
+			return fmt.Errorf("Invalid Label: Failed to parse %s as a string", data)
 		}
 
-		l.Source = "cilium"
-		l.Key = aux
-		l.Value = ""
+		decodeLabelShortform(aux, l)
 	}
 
 	return nil

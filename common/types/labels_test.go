@@ -1,6 +1,8 @@
 package types
 
 import (
+	"github.com/noironetworks/cilium-net/common"
+
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )
 
@@ -15,13 +17,13 @@ var (
 
 func createLabels() Labels {
 	lbls := []Label{
-		NewLabel("foo", "bar", "cilium"),
-		NewLabel("foo2", "=bar2", "cilium"),
-		NewLabel("key", "", "cilium"),
-		NewLabel("foo==", "==", "cilium"),
-		NewLabel(`foo\\=`, `\=`, "cilium"),
-		NewLabel(`//=/`, "", "cilium"),
-		NewLabel(`%`, `%ed`, "cilium"),
+		NewLabel("foo", "bar", common.CiliumLabelSource),
+		NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		NewLabel("key", "", common.CiliumLabelSource),
+		NewLabel("foo==", "==", common.CiliumLabelSource),
+		NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		NewLabel(`//=/`, "", common.CiliumLabelSource),
+		NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 	return map[string]*Label{
 		"foo":    &lbls[0],
@@ -43,4 +45,28 @@ func (s *LabelsSuite) TestSHA256Sum(c *C) {
 func (s *LabelsSuite) TestSortMap(c *C) {
 	sortedMap := createLabels().sortMap()
 	c.Assert(sortedMap, DeepEquals, lblsArray)
+}
+
+type lblTest struct {
+	label  string
+	result Label
+}
+
+func (s *LabelsSuite) TestLabelShortForm(c *C) {
+	lbls := []lblTest{
+		{"1foo", NewLabel("1foo", "", common.CiliumLabelSource)},
+		{":2foo", NewLabel("2foo", "", common.CiliumLabelSource)},
+		{":3foo=", NewLabel("3foo", "", common.CiliumLabelSource)},
+		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
+		{"5blah::foo=", NewLabel(":foo", "", "5blah")},
+		{"6foo==", NewLabel("6foo", "=", common.CiliumLabelSource)},
+		{"7foo=bar", NewLabel("7foo", "bar", common.CiliumLabelSource)},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+	}
+
+	for _, v := range lbls {
+		res := Label{}
+		decodeLabelShortform(v.label, &res)
+		c.Assert(res, DeepEquals, v.result)
+	}
 }
