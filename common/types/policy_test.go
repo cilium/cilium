@@ -534,3 +534,75 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 	_, err := json.MarshalIndent(rootNode, "", "    ")
 	c.Assert(err, Equals, nil)
 }
+
+func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
+	// Name mismatch
+	aNode := PolicyNode{Name: "a"}
+	bNode := PolicyNode{Name: "b"}
+	err := aNode.Merge(&bNode)
+	c.Assert(err, Not(Equals), nil)
+
+	// Empty nodes
+	aOrig := PolicyNode{Name: "a"}
+	aNode = PolicyNode{Name: "a"}
+	bNode = PolicyNode{Name: "a"}
+	err = aNode.Merge(&bNode)
+	c.Assert(err, Equals, nil)
+	c.Assert(aNode, DeepEquals, aOrig)
+
+	lblProd := NewLabel("io.cilium.Prod", "", "cilium")
+	lblQA := NewLabel("io.cilium.QA", "", "cilium")
+	lblFoo := NewLabel("io.cilium.foo", "", "cilium")
+	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
+	lblPete := NewLabel("io.cilium.user", "pete", "kubernetes")
+
+	aNode = PolicyNode{
+		Name: common.GlobalLabelPrefix,
+		Rules: []interface{}{
+			PolicyRuleRequires{ // coverage qa, requires qa
+				Coverage: []Label{lblQA},
+				Requires: []Label{lblQA},
+			},
+		},
+		Children: map[string]*PolicyNode{
+			"bar": &PolicyNode{
+				Rules: []interface{}{
+					PolicyRuleConsumers{
+						Allow: []AllowRule{
+							AllowRule{Action: DENY, Label: lblJoe},
+							AllowRule{Action: DENY, Label: lblPete},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	bNode = PolicyNode{
+		Name: common.GlobalLabelPrefix,
+		Rules: []interface{}{
+			PolicyRuleRequires{ // coverage prod, requires: prod
+				Coverage: []Label{lblProd},
+				Requires: []Label{lblProd},
+			},
+		},
+		Children: map[string]*PolicyNode{
+			"foo": &PolicyNode{},
+			"bar": &PolicyNode{
+				Rules: []interface{}{
+					PolicyRuleConsumers{
+						Allow: []AllowRule{
+							AllowRule{ // allow: foo
+								Action: ACCEPT,
+								Label:  lblFoo,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = aNode.Merge(&bNode)
+	c.Assert(err, Equals, nil)
+}

@@ -452,6 +452,40 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (pn *PolicyNode) Merge(obj *PolicyNode) error {
+	if obj.Name != pn.Name {
+		return fmt.Errorf("Policy node merge failed: Node name mismatch %s != %s",
+			obj.Name, pn.Name)
+	}
+
+	if obj.path != pn.path {
+		return fmt.Errorf("Policy node merge failed: Node path mismatch %s != %s",
+			obj.path, pn.path)
+	}
+
+	pn.Rules = append(pn.Rules, obj.Rules...)
+
+	for k, _ := range obj.Children {
+		if err := pn.AddChild(k, obj.Children[k]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (pn *PolicyNode) AddChild(name string, child *PolicyNode) error {
+	if _, ok := pn.Children[name]; ok {
+		if err := pn.Children[name].Merge(child); err != nil {
+			return err
+		}
+	} else {
+		pn.Children[name] = child
+	}
+
+	return nil
+}
+
 // Overall policy tree
 type PolicyTree struct {
 	Root PolicyNode
