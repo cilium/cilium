@@ -1,0 +1,31 @@
+{
+        "Name": "io.cilium",
+        "Children": {
+		"Lizards": {
+			"Rules": [{
+				"Coverage": ["QA"],
+				"Requires": ["QA"]
+			},{
+				"Coverage": ["Prod"],
+				"Requires": ["Prod"]
+			},{
+				"Coverage": ["DB"],
+				"Always-Allow": {"Key": "User", "Value": "Joe"}
+			}],
+			"Children": {
+				"Web": { },
+				"DB": {
+					"Rules": [{
+						"Allow": ["io.cilium.Lizards.Web"]
+					}]
+				}
+			}
+		},
+		"Birds": {
+			"Children": {
+				"DB": { }
+			}
+		}
+
+	}
+}

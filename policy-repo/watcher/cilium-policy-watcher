@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$1" -o "$1" = "REPO" ]; then
+	echo "Usage: policy-watcher.sh REPOSITORY"
+	exit 1
+fi
+
+POLL_DELAY=1
+POLICY_REPO=$1
+CACHE_REPO=./policy-cache
+POLICY_TOOL=cilium-net-policy
+
+cd /var/run/cilium
+
+ret=0
+which ${POLICY_TOOL} > /dev/null 2>&1 || ret=$?
+if [ $ret -ne 0 ]; then
+	echo "No policy tool found, install cilium-net-policy"
+	exit 1
+fi
+
+while true; do
+	rm -fr $CACHE_REPO 2> /dev/null || true
+
+	git clone --recursive "$POLICY_REPO" $CACHE_REPO
+	cd $CACHE_REPO
+
+	# Wait for incremental updates
+	cp /usr/lib/cilium/githooks/post-merge .git/hooks/
+
+	# Initial import
+	cilium-net-policy import -p . || true
+
+	while true; do
+		sleep $POLL_DELAY
+		ret=0
+		git pull -q --recurse-submodules=yes || ret=$?
+		if [ $ret -ne 0 ]; then
+			break
+		fi
+
+		ret=0
+		git submodule update || ret=$?
+		if [ $ret -ne 0 ]; then
+			break
+		fi
+	done
+done

@@ -105,21 +105,37 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Invalid AllowRule: empty data")
 	}
 
-	var aux Label
+	var aux struct {
+		Action ConsumableDecision `json:"action"`
+		Label  Label
+	}
 
+	// We first attempt to parse a full AllowRule JSON object which
+	// was likely created by MarshalJSON of the client, in case that
+	// fails we attempt to parse the string as a pure Label which
+	// can be used as a shortform to specify allow rules.
 	decoder := json.NewDecoder(bytes.NewReader(data))
-	if err := decoder.Decode(&aux); err != nil {
-		return fmt.Errorf("Decode of AllowRule failed: %+v", err)
-	}
+	err := decoder.Decode(&aux)
+	if err != nil || !aux.Label.IsValid() {
+		var aux Label
 
-	if aux.Key[0] == '!' {
-		a.Action = DENY
-		aux.Key = aux.Key[1:]
+		decoder = json.NewDecoder(bytes.NewReader(data))
+		if err := decoder.Decode(&aux); err != nil {
+			return fmt.Errorf("Decode of AllowRule failed: %+v", err)
+		}
+
+		if aux.Key[0] == '!' {
+			a.Action = DENY
+			aux.Key = aux.Key[1:]
+		} else {
+			a.Action = ACCEPT
+		}
+
+		a.Label = aux
 	} else {
-		a.Action = ACCEPT
+		a.Action = aux.Action
+		a.Label = aux.Label
 	}
-
-	a.Label = aux
 
 	return nil
 }

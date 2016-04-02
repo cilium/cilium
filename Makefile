@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = docker-plugin cilium-net-daemon cni bpf
+SUBDIRS = docker-plugin cilium-net-daemon cni bpf policy-repo
 
 all:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i; done
@@ -23,6 +23,7 @@ install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(RUNDIR)/cilium/globals
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/lib
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/githooks
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 
 runtime-tests:
