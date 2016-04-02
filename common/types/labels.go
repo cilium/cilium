@@ -91,6 +91,10 @@ func decodeLabelShortform(source string, label *Label) {
 	}
 }
 
+func (l *Label) IsValid() bool {
+	return l.Key != ""
+}
+
 func (l *Label) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
@@ -114,7 +118,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		}
 
 		if aux.Key == "" {
-			return fmt.Errorf("Invalid Label: must provide a label key")
+			return fmt.Errorf("Invalid Label: '%s' does not contain label key", data)
 		}
 
 		l.Source = aux.Source
