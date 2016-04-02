@@ -18,13 +18,8 @@ func (cli Client) PolicyAdd(path string, node types.PolicyNode) error {
 
 	defer ensureReaderClosed(serverResp)
 
-	if serverResp.statusCode != http.StatusAccepted {
+	if serverResp.statusCode != http.StatusCreated {
 		return processErrorBody(serverResp.body, nil)
-	}
-
-	var labelsResp types.Labels
-	if err := json.NewDecoder(serverResp.body).Decode(&labelsResp); err != nil {
-		return err
 	}
 
 	return nil
