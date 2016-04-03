@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
+	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
@@ -66,18 +68,59 @@ func main() {
 	app.Run(os.Args)
 }
 
+func getContext(content []byte, offset int64) (int, string, int) {
+	if offset >= int64(len(content)) || offset < 0 {
+		return 0, fmt.Sprintf("[error: Offset %d is out of bounds 0..%d]", offset, len(content)), 0
+	}
+
+	lineN := strings.Count(string(content[:offset]), "\n") + 1
+
+	start := strings.LastIndexByte(string(content[:offset]), '\n')
+	if start == -1 {
+		start = 0
+	} else {
+		start++
+	}
+
+	end := strings.IndexByte(string(content[start:]), '\n')
+	l := ""
+	if end == -1 {
+		l = string(content[start:])
+	} else {
+		end = end + start
+		l = string(content[start:end])
+	}
+
+	return lineN, l, (int(offset) - start)
+}
+
+func handleUnmarshalError(f string, content []byte, err error) error {
+	switch e := err.(type) {
+	case *json.SyntaxError:
+		line, ctx, off := getContext(content, e.Offset)
+		return fmt.Errorf("Error: %s:%d: Syntax error at offset %d:\n%s\n%*c",
+			path.Base(f), line, off, ctx, off, '^')
+	case *json.UnmarshalTypeError:
+		line, ctx, off := getContext(content, e.Offset)
+		return fmt.Errorf("Error: %s:%d: Unable to assign value '%s' to type '%v':\n%s\n%*c",
+			path.Base(f), line, e.Value, e.Type, ctx, off, '^')
+	default:
+		return fmt.Errorf("Error: %s: Unknown error:%s", path.Base(f), err)
+	}
+}
+
 func loadPolicyFile(path string) (*types.PolicyNode, error) {
 	log.Debugf("Loading file %s", path)
 
-	file, err := ioutil.ReadFile(path)
+	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	var policyNode types.PolicyNode
-	err = json.Unmarshal(file, &policyNode)
+	err = json.Unmarshal(content, &policyNode)
 	if err != nil {
-		return nil, err
+		return nil, handleUnmarshalError(path, content, err)
 	}
 
 	return &policyNode, nil
@@ -162,7 +205,7 @@ func importPolicy(ctx *cli.Context) {
 func validatePolicy(ctx *cli.Context) {
 	path := getPath(ctx)
 	if _, err := loadPolicyDirectory(path); err != nil {
-		log.Fatalf("Validation of %s failed: %s\n", path, err)
+		fmt.Fprintf(os.Stderr, "Validation of %s failed\n%s\n", path, err)
 	} else {
 		fmt.Printf("All policy elements are valid.\n")
 	}
