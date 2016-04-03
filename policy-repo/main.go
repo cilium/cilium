@@ -147,7 +147,7 @@ func loadPolicyDirectory(path string) (*types.PolicyNode, error) {
 		} else {
 			if node != nil {
 				if err := node.Merge(p); err != nil {
-					return nil, err
+					return nil, fmt.Errorf("Error: %s: %s", f.Name(), err)
 				}
 			} else {
 				node = p
@@ -192,12 +192,12 @@ func getPath(ctx *cli.Context) string {
 func importPolicy(ctx *cli.Context) {
 	path := getPath(ctx)
 	if node, err := loadPolicyDirectory(path); err != nil {
-		log.Fatalf("Could not import policy directory %s: %s\n", path, err)
+		fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
 	} else {
 		log.Debugf("Constructed policy object for import %+v\n", node)
 
 		if err := Client.PolicyAdd(node.Name, *node); err != nil {
-			log.Fatalf("Could not import policy directory %s: %s\n", path, err)
+			fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
 		}
 	}
 }
@@ -216,15 +216,15 @@ func dumpPolicy(ctx *cli.Context) {
 
 	n, err := Client.PolicyGet(path)
 	if err != nil {
-		log.Fatalf("Could not retrieve policy for: %s: %s\n", path, err)
+		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
 		return
 	}
 
-	b, err := json.MarshalIndent(n, "", "  ")
-	if err != nil {
-		log.Fatalf("Could not marshal response: %s\n", err)
+	if b, err := json.MarshalIndent(n, "", "  "); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not marshal response: %s\n", err)
+	} else {
+		fmt.Printf("%s\n", b)
 	}
-	fmt.Printf("%s\n", b)
 }
 
 func initEnv(ctx *cli.Context) error {
@@ -238,7 +238,7 @@ func initEnv(ctx *cli.Context) error {
 
 	c, err := cnc.NewDefaultClient()
 	if err != nil {
-		log.Fatalf("Error while creating cilium-client: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
 		return fmt.Errorf("Error while creating cilium-client: %s\n", err)
 	}
 
