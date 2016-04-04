@@ -268,7 +268,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	ciliumLabels := d.getFilteredLabels(allLabels)
 
-	secCtxlabels, new, err := d.PutLabels(ciliumLabels)
+	secCtxlabels, isNew, err := d.PutLabels(ciliumLabels)
 	if err != nil {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return
@@ -299,13 +299,13 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		return
 	}
 	if err = d.createBPF(*ep); err != nil {
-		err = fmt.Errorf("It was impossible to store the SecLabel %d for docker ID '%s': %s", secCtxlabels.ID, dockerID, err)
+		err = fmt.Errorf("Unable to create & attach BPF programs for container %s", ep.ID)
 		log.Error(err)
 		return
 	}
 
 	// Perform the policy map updates after programs have been created
-	if new {
+	if isNew {
 		d.TriggerPolicyUpdates([]int{secCtxlabels.ID})
 	}
 
