@@ -167,10 +167,10 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
 
         /* read original v6 hdr into offset 8 */
         if (skb_load_bytes(skb, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
-                return -1;
+                return TC_ACT_SHOT;
 
 	if (ipv6_store_nexthdr(skb, &icmp6_nexthdr, nh_off) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
         /* read original v6 payload into offset 48 */
         switch (ipv6hdr->nexthdr) {
@@ -178,38 +178,38 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         case IPPROTO_UDP:
                 if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr),
                                    upper, 8) < 0)
-                        return -1;
+                        return TC_ACT_SHOT;
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = htons(56);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (skb_modify_tail(skb, 56 - ntohs(ipv6hdr->payload_len)) < 0)
-			return -1;
+			return TC_ACT_SHOT;
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 56, 0) < 0)
-			return -1;
+			return TC_ACT_SHOT;
 		if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
-			return -1;
+			return TC_ACT_SHOT;
 
                 break;
         /* copy header without options */
         case IPPROTO_TCP:
                 if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr),
                                    upper, 20) < 0)
-                        return -1;
+                        return TC_ACT_SHOT;
 		sum = compute_icmp6_csum(data, 68, ipv6hdr);
 		payload_len = htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (skb_modify_tail(skb, 68 - ntohs(ipv6hdr->payload_len)) < 0)
-			return -1;
+			return TC_ACT_SHOT;
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 68, 0) < 0)
-			return -1;
+			return TC_ACT_SHOT;
 		if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
-			return -1;
+			return TC_ACT_SHOT;
 
                 break;
         default:
-                return -1;
+                return TC_ACT_SHOT;
         }
 
         //printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",

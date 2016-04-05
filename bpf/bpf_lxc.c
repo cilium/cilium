@@ -92,14 +92,13 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		int ret;
 
 		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
-		if (ret == -1)
+		if (ret != TC_ACT_OK)
 			return ret;
 
 		if (do_nat46) {
 			union v6addr dp = NAT46_DST_PREFIX;
 
-			ret = ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
-			if (ret == -1)
+			if (ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16)) < 0)
 				return TC_ACT_SHOT;
 		}
 
@@ -114,7 +113,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		int ret;
 
 		ret = __do_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
-		if (ret == TC_ACT_REDIRECT || ret == -1)
+		if (ret != TC_ACT_OK)
 			return ret;
 
 		ipv6_store_flowlabel(skb, nh_off, LXC_SECLABEL_NB);
