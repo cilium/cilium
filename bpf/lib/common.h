@@ -53,6 +53,8 @@ struct policy_entry {
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
 
-#define LXC_REDIRECT -2
+/* Cilium error codes, must NOT overlap with TC return codes */
+#define REDIRECT_TO_LXC		-257
+#define IS_CILIUM_ERROR(x) (x <= REDIRECT_TO_LXC
 
 #endif
