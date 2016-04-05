@@ -134,21 +134,26 @@ int handle_ingress(struct __sk_buff *skb)
 	int ret, nh_off = ETH_HLEN;
 	__u8 nexthdr;
 
-	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
-		nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
-		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_handle(skb, nh_off);
-			if (ret != LXC_REDIRECT)
-				return ret;
-		}
+	/* Drop all non IPv6 traffic */
+	if (likely(skb->protocol != __constant_htons(ETH_P_IPV6)))
+		return TC_ACT_SHOT;
 
-		return do_l3_from_lxc(skb, nh_off);
+	/* Handle ICMPv6 messages to the logical router, all other ICMPv6
+	 * messages are passed on to the container (REDIRECT_TO_LXC)
+	 */
+	nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
+	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
+		ret = icmp6_handle(skb, nh_off);
+		if (ret != LXC_REDIRECT)
+			return ret;
 	}
 
-	return TC_ACT_UNSPEC;
+	/* Perform L3 action on the frame */
+	return do_l3_from_lxc(skb, nh_off);
 }
 
-__BPF_MAP(LXC_POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32), sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
+__BPF_MAP(LXC_POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
+	  sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
 
 __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
