@@ -243,7 +243,6 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 	union v6addr dst = {};
 	union v6addr router_ip = { .addr = ROUTER_IP };
 	__u8 type = icmp6_load_type(skb, nh_off);
-	int ret = TC_ACT_UNSPEC;
 
 	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
 
@@ -251,21 +250,15 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 
 	switch(type) {
 	case 135:
-		ret = icmp6_handle_ns(skb, nh_off);
-		break;
+		return icmp6_handle_ns(skb, nh_off);
 	case 128:
-		if (!compare_ipv6_addr(&dst, &router_ip)) {
-			ret = send_icmp6_echo_response(skb, nh_off);
-			break;
-		}
+		if (!compare_ipv6_addr(&dst, &router_ip))
+			return send_icmp6_echo_response(skb, nh_off);
 	case 129:
-		ret = LXC_REDIRECT;
-		break;
-	default:
-		break;
+		return REDIRECT_TO_LXC;
 	}
 
-	return ret;
+	return TC_ACT_UNSPEC;
 }
 
 #endif

@@ -144,7 +144,7 @@ int handle_ingress(struct __sk_buff *skb)
 	nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(skb, nh_off);
-		if (ret != LXC_REDIRECT)
+		if (ret != REDIRECT_TO_LXC)
 			return ret;
 	}
 
