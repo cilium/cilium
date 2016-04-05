@@ -24,10 +24,10 @@ static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr 
 	load_eth_daddr(skb, dmac.addr, 0);
 	/* Get ARP op code */
 	if (skb_load_bytes(skb, 20, &arpop, sizeof(arpop)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 	/* Get ARP Target IP */
 	if (skb_load_bytes(skb, 38, &tip, sizeof(tip)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
 	if ((arpop != __constant_htons(ARPOP_REQUEST)) || (tip != ar_tip) ||
 	    (!is_eth_bcast(&dmac) && compare_eth_addr(&dmac, responder_mac))) {

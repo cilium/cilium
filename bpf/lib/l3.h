@@ -81,7 +81,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 		mac_t router_mac = dst_lxc->node_mac;
 
 		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
-		if (ret == TC_ACT_REDIRECT || ret == -1)
+		if (ret != TC_ACT_OK)
 			return ret;
 
 #ifndef DISABLE_PORT_MAP

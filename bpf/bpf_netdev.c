@@ -53,7 +53,7 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 
 	load_eth_saddr(skb, smac.addr, 0);
 	if (skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
-		return -1;
+		return TC_ACT_SHOT;
 
 	skb_store_bytes(skb, 20, &arpop, sizeof(arpop), 0);
 	skb_store_bytes(skb, 32, &smac, sizeof(smac), 0);
@@ -86,7 +86,6 @@ int from_netdev(struct __sk_buff *skb)
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = HOST_IP;
 		__u32 dst = 0;
-		int ret;
 
 		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0)
 			return TC_ACT_SHOT;
@@ -94,10 +93,9 @@ int from_netdev(struct __sk_buff *skb)
 		if ((dst & IPV4_MASK) != IPV4_RANGE)
 			return TC_ACT_OK;
 
-		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
-		if (ret == -1) {
+		if (ipv4_to_ipv6(skb, 14, &sp, &dp) < 0) {
 			printk("ipv4_to_ipv6 failed\n");
-			return ret;
+			return TC_ACT_SHOT;
 		}
 		skb->tc_index = 1;
 	}
