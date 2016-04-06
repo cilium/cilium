@@ -1,0 +1,17 @@
+{
+        "Name": "io.cilium",
+        "Children": {
+		"Test": {
+			"Rules": [{
+				"Coverage": ["QA"],
+				"Requires": ["QA"]
+			},{
+				"Coverage": ["Prod"],
+				"Requires": ["Prod"]
+			},{
+				"Coverage": ["Server"],
+				"Allow": ["Client"]
+			}]
+		}
+	}
+}
