@@ -16,7 +16,7 @@ const (
 	LabelsKeyPath     = OperationalPath + "/SHA256SUMLabels/"
 	IDKeyPath         = OperationalPath + "/ID/"
 	MaxSetOfLabels    = 0xFFFF
-	FirstFreeID       = 1
+	FirstFreeID       = 256
 
 	DefaultIPv6Prefix = "beef::"
 	DefaultIPv4Prefix = "dead::"
@@ -25,6 +25,10 @@ const (
 
 	GlobalLabelPrefix = "io.cilium"
 	CiliumLabelSource = "cilium"
+
+	// These are reserved security context IDs reserved for
+	// special purposes
+	SecCtxFromHost = 1
 )
 
 var (
