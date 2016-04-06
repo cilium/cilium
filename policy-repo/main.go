@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	Client      *cnc.Client
-	ignoredDirs = []string{".git"}
+	Client             *cnc.Client
+	ignoredMasksSource = []string{".git"}
+	ignoredMasks       []*regexp.Regexp
 )
 
 func main() {
@@ -126,10 +127,29 @@ func loadPolicyFile(path string) (*types.PolicyNode, error) {
 	return &policyNode, nil
 }
 
-func loadPolicyDirectory(path string) (*types.PolicyNode, error) {
-	log.Debugf("Entering directory %s...", path)
+func init() {
+	ignoredMasks = make([]*regexp.Regexp, len(ignoredMasksSource))
 
-	files, err := ioutil.ReadDir(path)
+	for i, _ := range ignoredMasksSource {
+		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
+	}
+}
+
+func ignoredFile(name string) bool {
+	for i := range ignoredMasks {
+		if ignoredMasks[i].MatchString(name) {
+			log.Debugf("Ignoring file %s", name)
+			return true
+		}
+	}
+
+	return false
+}
+
+func loadPolicyDirectory(name string) (*types.PolicyNode, error) {
+	log.Debugf("Entering directory %s...", name)
+
+	files, err := ioutil.ReadDir(name)
 	if err != nil {
 		return nil, err
 	}
@@ -138,11 +158,11 @@ func loadPolicyDirectory(path string) (*types.PolicyNode, error) {
 
 	// process all files first
 	for _, f := range files {
-		if f.IsDir() {
+		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
 			continue
 		}
 
-		if p, err := loadPolicyFile(path + "/" + f.Name()); err != nil {
+		if p, err := loadPolicyFile(name + "/" + f.Name()); err != nil {
 			return nil, err
 		} else {
 			if node != nil {
@@ -158,10 +178,10 @@ func loadPolicyDirectory(path string) (*types.PolicyNode, error) {
 	// recursive search
 	for _, f := range files {
 		if f.IsDir() {
-			if common.StringInSlice(f.Name(), ignoredDirs) {
+			if ignoredFile(path.Base(f.Name())) {
 				continue
 			}
-			subpath := path + "/" + f.Name()
+			subpath := name + "/" + f.Name()
 			if p, err := loadPolicyDirectory(subpath); err != nil {
 				return nil, err
 			} else {
@@ -175,7 +195,7 @@ func loadPolicyDirectory(path string) (*types.PolicyNode, error) {
 		}
 	}
 
-	log.Debugf("Leaving directory %s...", path)
+	log.Debugf("Leaving directory %s...", name)
 
 	return node, nil
 }
@@ -195,6 +215,11 @@ func importPolicy(ctx *cli.Context) {
 		fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
 	} else {
 		log.Debugf("Constructed policy object for import %+v\n", node)
+
+		// Ignore request if no policies have been found
+		if node == nil {
+			return
+		}
 
 		if err := Client.PolicyAdd(node.Name, *node); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
