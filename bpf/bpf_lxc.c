@@ -156,11 +156,13 @@ __BPF_MAP(LXC_POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 
 __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
-	struct policy_entry *policy;
-	__u32 src_label = skb->cb[0];
 	int ifindex = skb->cb[1];
 
 	//printk("Handle policy %d %d\n", src_label, ifindex);
+
+#ifndef DISABLE_POCLIY_ENFORCEMENT
+	struct policy_entry *policy;
+	__u32 src_label = skb->cb[0];
 
 	policy = map_lookup_elem(&LXC_POLICY_MAP, &src_label);
 	if (!policy) {
@@ -168,6 +170,7 @@ __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff 
 		//return TC_ACT_SHOT;
 		return redirect(ifindex, 0);
 	}
+#endif
 
 	return redirect(ifindex, 0);
 }

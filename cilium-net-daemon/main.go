@@ -37,6 +37,7 @@ var (
 	libDir             string
 	runDir             string
 	consulAddr         string
+	disablePolicy      bool
 	lxcMap             *lxcmap.LxcMap
 	log                = logging.MustGetLogger("cilium-net")
 	stdoutFormat       = logging.MustStringFormatter(
@@ -108,6 +109,10 @@ func initBPF() {
 		f.WriteString("#define DEBUG\n")
 	}
 
+	if disablePolicy {
+		f.WriteString("#define DISABLE_POCLIY_ENFORCEMENT\n")
+	}
+
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
 	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
 
@@ -161,6 +166,7 @@ func init() {
 	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
 	flag.StringVar(&ipv4Prefix, "ipv4-mapping", common.DefaultIPv4Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flag.StringVar(&v4range, "ipv4-range", "", "IPv6 prefix to map IPv4 addresses to")
+	flag.BoolVar(&disablePolicy, "disable-policy", false, "Disable policy enforcement")
 	flag.Parse()
 
 	setupLOG()
