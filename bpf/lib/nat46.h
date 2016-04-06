@@ -343,7 +343,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 
 	skb_store_bytes(skb, nh_off, &v4, sizeof(v4), 0);
 	skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0);
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
+	l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
 
 	if (v6.nexthdr == IPPROTO_ICMPV6) {
 		__be32 csum1 = 0;
