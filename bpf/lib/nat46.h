@@ -256,8 +256,8 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 
 	pushoff = sizeof(struct ipv6hdr) - v4hdr_len;
 
-	if (pushoff != 0 && skb_modify(skb, nh_off, pushoff, htons(ETH_P_IPV6),
-				       BPF_F_HDR_OUTER_NET) < 0) {
+	if (skb_modify(skb, nh_off, pushoff, htons(ETH_P_IPV6),
+		       BPF_F_HDR_OUTER_NET) < 0) {
 		//printk("v46 NAT: skb_modify failed\n");
 		return TC_ACT_SHOT;
 	}
