@@ -67,3 +67,5 @@ reset_trace
 ping6 -c 5 "$SERVER_IP" || {
 	abort "Error: Could not ping server container from host"
 }
+
+sudo cilium-net-policy -d delete
