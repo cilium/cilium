@@ -59,10 +59,14 @@ func main() {
 			},
 		},
 		{
-			Name:    "dump",
-			Aliases: []string{"d"},
-			Usage:   "dump policy (sub)tree",
-			Action:  dumpPolicy,
+			Name:   "dump",
+			Usage:  "dump policy (sub)tree",
+			Action: dumpPolicy,
+		},
+		{
+			Name:   "delete",
+			Usage:  "delete policy (sub)tree",
+			Action: deletePolicy,
 		},
 	}
 	app.Before = initEnv
@@ -214,7 +218,7 @@ func importPolicy(ctx *cli.Context) {
 	if node, err := loadPolicyDirectory(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
 	} else {
-		log.Debugf("Constructed policy object for import %+v\n", node)
+		log.Debugf("Constructed policy object for import %+v", node)
 
 		// Ignore request if no policies have been found
 		if node == nil {
@@ -252,6 +256,14 @@ func dumpPolicy(ctx *cli.Context) {
 	}
 }
 
+func deletePolicy(ctx *cli.Context) {
+	path := "io.cilium"
+
+	if err := Client.PolicyDelete(path); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
+	}
+}
+
 func initEnv(ctx *cli.Context) error {
 	if ctx.Bool("debug") {
 		log.SetLevel(log.DebugLevel)
@@ -264,7 +276,7 @@ func initEnv(ctx *cli.Context) error {
 	c, err := cnc.NewDefaultClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return fmt.Errorf("Error while creating cilium-client: %s\n", err)
+		return fmt.Errorf("Error while creating cilium-client: %s", err)
 	}
 
 	Client = c
