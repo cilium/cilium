@@ -64,7 +64,7 @@ func MapEndpointToNode(epAddr net.IP) net.IP {
 	case net.IPv4len:
 	// Not supported yet
 	case net.IPv6len:
-		nodeAddr := dupIP(epAddr)
+		nodeAddr := DupIP(epAddr)
 		nodeAddr[14] = 0
 		nodeAddr[15] = 0
 		return nodeAddr
@@ -79,7 +79,7 @@ func MapEndpointToNode(epAddr net.IP) net.IP {
 func Build4to6EndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
 	// beef:beef:beef:beef:1:0:[1.0.0.2]
 	if len(nodeAddr) == net.IPv6len && len(v4Addr) == net.IPv4len {
-		addr := dupIP(nodeAddr)
+		addr := DupIP(nodeAddr)
 		copy(addr[14:], v4Addr[2:])
 		return addr
 	}
@@ -102,7 +102,8 @@ func EndpointAddr2ID(endpointAddr net.IP) uint16 {
 	return 0
 }
 
-func dupIP(ip net.IP) net.IP {
+// DupIP returns a deep copy of ip.
+func DupIP(ip net.IP) net.IP {
 	dup := make(net.IP, len(ip))
 	copy(dup, ip)
 	return dup
