@@ -9,7 +9,10 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
-var ErrConnectionFailed = errors.New("Cannot connect to the cilium-net-daemon. Is the cilium-net-daemon running on this host?")
+var (
+	// ErrConnectionFailed is used when the client couldn't reach the daemon.
+	ErrConnectionFailed = errors.New("Cannot connect to the cilium-net-daemon. Is the cilium-net-daemon running on this host?")
+)
 
 func processErrorBody(serverResp io.ReadCloser, i interface{}) error {
 	d := json.NewDecoder(serverResp)

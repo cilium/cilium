@@ -8,6 +8,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
+// EndpointJoin sends a endpoint POST request with ep to the daemon.
 func (cli Client) EndpointJoin(ep types.Endpoint) error {
 	query := url.Values{}
 
@@ -25,6 +26,7 @@ func (cli Client) EndpointJoin(ep types.Endpoint) error {
 	return nil
 }
 
+// EndpointLeave sends a DELETE request with epID to the daemon.
 func (cli Client) EndpointLeave(epID string) error {
 	query := url.Values{}
 

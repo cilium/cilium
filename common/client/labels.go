@@ -10,6 +10,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
+// PutLabels sends POST request with labels to the daemon. Returns
 func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
 	query := url.Values{}
 	serverResp, err := cli.post("/labels", query, labels, nil)
@@ -31,6 +32,8 @@ func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, err
 	return &labelsResp, false, nil
 }
 
+// GetLabels sends a GET request with id to the daemon. Returns the types.SecCtxLabels
+// with the given id. If it's not found, types.SecCtxLabels and error are booth nil.
 func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
 	query := url.Values{}
 
@@ -58,6 +61,7 @@ func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
 	return &secCtxLabels, nil
 }
 
+// DeleteLabelsByUUID sends a DELETE request with id to the daemon.
 func (cli Client) DeleteLabelsByUUID(id int) error {
 	query := url.Values{}
 
@@ -75,6 +79,7 @@ func (cli Client) DeleteLabelsByUUID(id int) error {
 	return nil
 }
 
+// DeleteLabelsBySHA256 sends a DELETE request with the sha256sum to the daemon.
 func (cli Client) DeleteLabelsBySHA256(sha256sum string) error {
 	query := url.Values{}
 
@@ -92,6 +97,7 @@ func (cli Client) DeleteLabelsBySHA256(sha256sum string) error {
 	return nil
 }
 
+// GetMaxID sends a GET request to the daemon. Returns the next, possible, free UUID.
 func (cli Client) GetMaxID() (int, error) {
 	query := url.Values{}
 
