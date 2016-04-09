@@ -32,6 +32,7 @@ type control interface {
 	Ping() (string, error)
 }
 
+// CiliumBackend is the interface for both client and daemon.
 type CiliumBackend interface {
 	bpfBackend
 	control

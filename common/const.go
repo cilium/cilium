@@ -3,32 +3,58 @@ package common
 import "net"
 
 const (
-	PluginPath          = "/run/docker/plugins/"
-	DriverSock          = PluginPath + "cilium.sock"
-	CiliumPath          = "/var/run/cilium/"
-	CiliumSock          = CiliumPath + "cilium.sock"
+	// Cilium constants
+
+	// PluginPath is the docker plugins directory where docker plugin is present.
+	PluginPath = "/run/docker/plugins/"
+	// DriverSock is the cilium socket for the communication between docker and cilium.
+	DriverSock = PluginPath + "cilium.sock"
+	// CiliumPath is the path where cilium operational files are running.
+	CiliumPath = "/var/run/cilium/"
+	// CiliumSock is the cilium socket for the communication between the daemon and cilium client.
+	CiliumSock = CiliumPath + "cilium.sock"
+	// DefaultContainerMAC represents a dummy MAC address for the containers.
 	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
-	BPFMap              = "/sys/fs/bpf/tc/globals/cilium_lxc"
-	PolicyMapPath       = "/sys/fs/bpf/tc/globals/cilium_policy_"
+	// BPFMap is the file that contains the BPF Map for the host.
+	BPFMap = "/sys/fs/bpf/tc/globals/cilium_lxc"
+	// PolicyMapPath is the base path for the cilium policy for each local container.
+	PolicyMapPath = "/sys/fs/bpf/tc/globals/cilium_policy_"
 
-	OperationalPath   = "cilium-net/operational"
+	// Consul dedicated constants
+
+	// OperationalPath is the base path to store the operational details in consul.
+	OperationalPath = "cilium-net/operational"
+	// LastFreeIDKeyPath is the path where the Last free UUID is stored in consul.
 	LastFreeIDKeyPath = OperationalPath + "/LastUUID"
-	LabelsKeyPath     = OperationalPath + "/SHA256SUMLabels/"
-	IDKeyPath         = OperationalPath + "/ID/"
-	MaxSetOfLabels    = 0xFFFF
-	FirstFreeID       = 256
-
-	DefaultIPv6Prefix = "beef::"
-	DefaultIPv4Prefix = "dead::"
-	DefaultIPv4Range  = "10.%d.0.0/16"
-	DefaultIPv4Mask   = 16
-
-	GlobalLabelPrefix = "io.cilium"
-	CiliumLabelSource = "cilium"
-
-	// These are reserved security context IDs reserved for
-	// special purposes
+	// LabelsKeyPath is the base path where labels are stored in consul.
+	LabelsKeyPath = OperationalPath + "/SHA256SUMLabels/"
+	// IDKeyPath is the base path where the IDs are stored in consul.
+	IDKeyPath = OperationalPath + "/ID/"
+	// MaxSetOfLabels is maximum number of set of labels that can be stored in consul.
+	MaxSetOfLabels = 0xFFFF
+	// FirstFreeID is the first ID for which the labels should be assigned.
+	FirstFreeID = 256
+	// SecCtxFromHost represents reserved security context IDs reserved for special
+	// purposes.
 	SecCtxFromHost = 1
+
+	// Networking dedicated constants
+
+	// DefaultIPv6Prefix is the default IPv6 address assigned to the cilium interface.
+	DefaultIPv6Prefix = "beef::"
+	// DefaultIPv4Prefix is the IPv6 prefix used to map IPv4 addresses.
+	DefaultIPv4Prefix = "dead::"
+	// DefaultIPv4Range is the CIDR used for 6to4 communications.
+	DefaultIPv4Range = `10.%d.0.0/16`
+	// DefaultIPv4Mask is the default mask for the CIDR used for 6to4 communications.
+	DefaultIPv4Mask = 16
+
+	// Miscellaneous dedicated constants
+
+	// GlobalLabelPrefix is the default root path for the policy.
+	GlobalLabelPrefix = "io.cilium"
+	// CiliumLabelSource is the default label source for the labels read from containers.
+	CiliumLabelSource = "cilium"
 )
 
 var (
@@ -38,8 +64,13 @@ var (
 	// loadbalancer:            beef:beef:beef:beef:<lb>::/80
 	// node:		    beef:beef:beef:beef:<lb>:<node>:<node>:/112
 	// lxc:			    beef:beef:beef:beef:<lb>:<node>:<node>:<lxc>/128
-	ClusterIPv6Mask      = net.CIDRMask(64, 128)
+
+	// ClusterIPv6Mask represents the CIDR Mask for the cilium cluster.
+	ClusterIPv6Mask = net.CIDRMask(64, 128)
+	// LoadBalancerIPv6Mask represents the CIDR Mask for the cilium load balancer.
 	LoadBalancerIPv6Mask = net.CIDRMask(80, 128)
-	NodeIPv6Mask         = net.CIDRMask(112, 128)
-	ContainerIPv6Mask    = net.CIDRMask(128, 128)
+	// NodeIPv6Mask represents the CIDR Mask for the cilium node.
+	NodeIPv6Mask = net.CIDRMask(112, 128)
+	// ContainerIPv6Mask represents the CIDR Mask for the cilium endpoint/container.
+	ContainerIPv6Mask = net.CIDRMask(128, 128)
 )
