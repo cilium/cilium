@@ -80,6 +80,9 @@ import (
 	"unsafe"
 )
 
+// CreateMap creates a Map of type mapType, with key size keySize, a value size of
+// valueSize and the maximum amount of entries of maxEntries.
+// mapType should be one of the bpf_map_type in "uapi/linux/bpf.h"
 func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_create_map(
@@ -103,8 +106,14 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) 
 	}
 }
 
+// UpdateElement updates the map in fd with the given value in the given key.
+// The flags can have the following values (if you include "uapi/linux/bpf.h"):
+// C.BPF_ANY to create new element or update existing;
+// C.BPF_NOEXIST to create new element if it didn't exist;
+// C.BPF_EXIST to update existing element.
 func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 	uba := C.union_bpf_attr{}
+	// TODO: fix me, this should be update
 	C.create_bpf_lookup_elem(
 		C.int(fd),
 		key,
@@ -125,6 +134,8 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 	return nil
 }
 
+// LookupElement looks up for the map value stored in fd with the given key. The value
+// is stored in the value unsafe.Pointer.
 func LookupElement(fd int, key, value unsafe.Pointer) error {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_lookup_elem(
@@ -147,6 +158,7 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	return nil
 }
 
+// DeleteElement deletes the map element with the given key.
 func DeleteElement(fd int, key unsafe.Pointer) error {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_delete_elem(
@@ -168,6 +180,7 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 	return nil
 }
 
+// GetNextKey stores, in nextKey, the next key after the key of the map in fd.
 func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_get_next_key(
@@ -190,6 +203,7 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	return nil
 }
 
+// ObjPin stores the map's fd in pathname.
 func ObjPin(fd int, pathname string) error {
 	pathStr := C.CString(pathname)
 	uba := C.union_bpf_attr{}
@@ -208,6 +222,7 @@ func ObjPin(fd int, pathname string) error {
 	return nil
 }
 
+// ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
 	pathStr := C.CString(pathname)
 	uba := C.union_bpf_attr{}

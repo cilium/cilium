@@ -8,6 +8,10 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
+// goArray2C transforms a byte slice into its hexadecimal string representation.
+// Example:
+// array := []byte{0x12, 0xFF, 0x0, 0x01}
+// fmt.Print(GoArray2C(array)) // "{ 0x12, 0xff, 0x0, 0x1 }"
 func GoArray2C(array []byte) string {
 	ret := "{ "
 
@@ -22,10 +26,16 @@ func GoArray2C(array []byte) string {
 	return ret + " }"
 }
 
+// FmtDefineAddress returns the a define string from the given name and addr.
+// Example:
+// fmt.Print(FmtDefineAddress("foo", []byte{1, 2, 3})) // "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n"
 func FmtDefineAddress(name string, addr []byte) string {
 	return fmt.Sprintf("#define %s { .addr = %s }\n", name, GoArray2C(addr))
 }
 
+// FmtDefineArray returns the a define string from the given name and array.
+// Example:
+// fmt.Print(FmtDefineArray("foo", []byte{1, 2, 3})) // "#define foo { 0x1, 0x2, 0x3 }\n"
 func FmtDefineArray(name string, array []byte) string {
 	return fmt.Sprintf("#define %s %s\n", name, GoArray2C(array))
 }
@@ -53,6 +63,8 @@ func fmtV6Prefix(prefix string, ip net.IP) string {
 	return fmt.Sprintf("%s%02x%02x:%02x%02x:0", prefix, ip[0], ip[1], ip[2], ip[3])
 }
 
+// GenerateV6Prefix generates an IPv6 address created based on the first global IPv4
+// address found in the host.
 func GenerateV6Prefix() (string, error) {
 	ip, err := firstGlobalV4Addr()
 	if err != nil {
@@ -66,6 +78,8 @@ func fmtV4Range(ip *net.IP) (string, error) {
 	return fmt.Sprintf(DefaultIPv4Range, ip.To4()[3]), nil
 }
 
+// GenerateV4Range generates an IPv4 range from the first global IPv4 address found in the
+// host.
 func GenerateV4Range() (string, error) {
 	ip, err := firstGlobalV4Addr()
 	if err != nil {
@@ -75,15 +89,18 @@ func GenerateV4Range() (string, error) {
 	return fmtV4Range(&ip)
 }
 
+// Swab16 swaps the endianness of n.
 func Swab16(n uint16) uint16 {
 	return (n&0xFF00)>>8 | (n&0x00FF)<<8
 }
 
+// Swab32 swaps the endianness of n.
 func Swab32(n uint32) uint32 {
 	return ((n & 0x000000ff) << 24) | ((n & 0x0000ff00) << 8) |
 		((n & 0x00ff0000) >> 8) | ((n & 0xff000000) >> 24)
 }
 
+// GetLockPath returns the lock path representation of the given path.
 func GetLockPath(path string) string {
 	return path + ".lock"
 }

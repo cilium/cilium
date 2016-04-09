@@ -11,21 +11,27 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 )
 
+// Label is the cilium's representation of a container label.
 type Label struct {
-	Key    string `json:"key"`
-	Value  string `json:"value,omitempty"`
+	Key   string `json:"key"`
+	Value string `json:"value,omitempty"`
+	// Source can be on of the values present in const.go (e.g.: CiliumLabelSource)
 	Source string `json:"source"`
 	absKey string
 }
 
+// Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
 
+// SecCtxLabels is the representation of the security context for a particular set of
+// labels.
 type SecCtxLabels struct {
-	ID       int    `json:"id"`
-	RefCount int    `json:"ref-count"`
-	Labels   Labels `json:"labels"`
+	ID       int    `json:"id"`        // SecCtxLabel's ID.
+	RefCount int    `json:"ref-count"` // Number of containers that have this SecCtxLabel.
+	Labels   Labels `json:"labels"`    // Set of labels that belong to this SecCtxLabel.
 }
 
+// NewLabel returns a new label from the given key, value and source.
 func NewLabel(key string, value string, source string) Label {
 	lbl := Label{
 		Key:    key,
@@ -36,6 +42,11 @@ func NewLabel(key string, value string, source string) Label {
 	return lbl
 }
 
+// Map2Labels transforms in the form: map[key(string)]value(string) into Labels.
+// Example:
+// l := Map2Labels(map[string]string{"foo": "bar"}, "cilium")
+// fmt.Printf("%+v\n", l)
+//   map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
 func Map2Labels(m map[string]string, source string) Labels {
 	o := Labels{}
 	for k, v := range m {
@@ -48,6 +59,7 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
+// Compare returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Compare(b *Label) bool {
 	return l.Source == b.Source && l.AbsoluteKey() == b.AbsoluteKey() && l.Value == b.Value
 }
@@ -60,6 +72,7 @@ func (l *Label) Resolve(node *PolicyNode) {
 	}
 }
 
+// AbsoluteKey if set returns the absolute key path, otherwise returns the label's Key.
 func (l *Label) AbsoluteKey() string {
 	if l.absKey != "" {
 		return l.absKey
@@ -91,10 +104,12 @@ func decodeLabelShortform(source string, label *Label) {
 	}
 }
 
+// IsValid returns true if Key != "".
 func (l *Label) IsValid() bool {
 	return l.Key != ""
 }
 
+// UnmarshalJSON TODO create better explanation about unmarshall with examples
 func (l *Label) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
@@ -143,6 +158,8 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// SHA256Sum calculates lbls' internal SHA256Sum. For a particular set of labels is
+// guarantee that it will always have the same SHA256Sum.
 func (lbls Labels) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
 	sortedMap := lbls.sortMap()

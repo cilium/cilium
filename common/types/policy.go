@@ -75,8 +75,9 @@ func (d *ConsumableDecision) MarshalJSON() ([]byte, error) {
 
 type SearchContext struct {
 	Trace bool
-	From  []Label
-	To    []Label
+	// TODO: Put this as []*Label?
+	From []Label
+	To   []Label
 }
 
 func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
