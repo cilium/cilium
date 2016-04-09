@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
+	cnc "github.com/noironetworks/cilium-net/common/client"
 
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 )

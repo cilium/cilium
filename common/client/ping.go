@@ -1,4 +1,4 @@
-package cilium_net_client
+package client
 
 import (
 	"fmt"

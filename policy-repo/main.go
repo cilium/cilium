@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	cnc "github.com/noironetworks/cilium-net/common/cilium-net-client"
+	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
