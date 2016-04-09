@@ -53,7 +53,7 @@ func (d *Daemon) initializeFreeID() error {
 	return nil
 }
 
-func (d *Daemon) updateIDRef(secCtxLabels *types.SecCtxLabels) error {
+func (d *Daemon) updateIDRef(secCtxLabels *types.SecCtxLabel) error {
 	var err error
 	lblKey := &consulAPI.KVPair{Key: common.IDKeyPath + strconv.Itoa(secCtxLabels.ID)}
 	lblKey.Value, err = json.Marshal(secCtxLabels)
@@ -65,7 +65,7 @@ func (d *Daemon) updateIDRef(secCtxLabels *types.SecCtxLabels) error {
 }
 
 // gasNewID gets and sets a New ID.
-func (d *Daemon) gasNewID(labels *types.SecCtxLabels) error {
+func (d *Daemon) gasNewID(labels *types.SecCtxLabel) error {
 	freeID, err := d.GetMaxID()
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabels) error {
 			if lblKey == nil {
 				return setID2Label(lockPair)
 			}
-			var consulLabels types.SecCtxLabels
+			var consulLabels types.SecCtxLabel
 			if err := json.Unmarshal(lblKey.Value, &consulLabels); err != nil {
 				d.consul.KV().Release(lockPair, nil)
 				return err
@@ -143,7 +143,7 @@ func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error)
 
 // PutLabels stores to given labels in consul and returns the SecCtxLabels created for
 // the given labels.
-func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
+func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
 	log.Debugf("Putting labels %+v", labels)
 	isNew := false
 
@@ -170,7 +170,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, erro
 		return nil, false, err
 	}
 
-	var secCtxLbls types.SecCtxLabels
+	var secCtxLbls types.SecCtxLabel
 	if pair == nil {
 		pair = &consulAPI.KVPair{Key: lblPath}
 		secCtxLbls.Labels = labels
@@ -211,7 +211,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, erro
 }
 
 // GetLabels returns the SecCtxLabels that belongs to id.
-func (d *Daemon) GetLabels(id int) (*types.SecCtxLabels, error) {
+func (d *Daemon) GetLabels(id int) (*types.SecCtxLabel, error) {
 	strID := strconv.Itoa(id)
 	pair, _, err := d.consul.KV().Get(common.IDKeyPath+strID, nil)
 	if err != nil {
@@ -220,7 +220,7 @@ func (d *Daemon) GetLabels(id int) (*types.SecCtxLabels, error) {
 	if pair == nil {
 		return nil, nil
 	}
-	var secCtxLabels types.SecCtxLabels
+	var secCtxLabels types.SecCtxLabel
 	if err := json.Unmarshal(pair.Value, &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 		return err
 	}
 
-	var dbSecCtxLbls types.SecCtxLabels
+	var dbSecCtxLbls types.SecCtxLabel
 	if pair == nil {
 		return nil
 	}

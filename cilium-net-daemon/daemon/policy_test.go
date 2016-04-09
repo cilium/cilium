@@ -83,21 +83,21 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		Name: common.GlobalLabelPrefix,
 		Rules: []interface{}{
 			PolicyRuleConsumers{
-				Coverage: []Label{lblBar},
+				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
 					// always-allow: user=joe
-					AllowRule{Action: ALWAYS_ACCEPT, Label: lblJoe},
+					AllowRule{Action: ALWAYS_ACCEPT, Label: *lblJoe},
 					// allow:  user=pete
-					AllowRule{Action: ACCEPT, Label: lblPete},
+					AllowRule{Action: ACCEPT, Label: *lblPete},
 				},
 			},
 			PolicyRuleRequires{ // coverage qa, requires qa
-				Coverage: []Label{lblQA},
-				Requires: []Label{lblQA},
+				Coverage: []Label{*lblQA},
+				Requires: []Label{*lblQA},
 			},
 			PolicyRuleRequires{ // coverage prod, requires: prod
-				Coverage: []Label{lblProd},
-				Requires: []Label{lblProd},
+				Coverage: []Label{*lblProd},
+				Requires: []Label{*lblProd},
 			},
 		},
 		Children: map[string]*PolicyNode{
@@ -108,10 +108,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 						Allow: []AllowRule{
 							AllowRule{ // allow: foo
 								Action: ACCEPT,
-								Label:  lblFoo,
+								Label:  *lblFoo,
 							},
-							AllowRule{Action: DENY, Label: lblJoe},
-							AllowRule{Action: DENY, Label: lblPete},
+							AllowRule{Action: DENY, Label: *lblJoe},
+							AllowRule{Action: DENY, Label: *lblPete},
 						},
 					},
 				},
@@ -124,27 +124,27 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	err := ds.d.PolicyAdd("io.cilium", rootNode)
 	c.Assert(err, Equals, nil)
 
-	qaBarLbls := Labels{lblBar.Key: &lblBar, lblQA.Key: &lblQA}
+	qaBarLbls := Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.PutLabels(qaBarLbls)
 	c.Assert(err, Equals, nil)
 
-	prodBarLbls := Labels{lblBar.Key: &lblBar, lblProd.Key: &lblProd}
+	prodBarLbls := Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
 	prodBarSecLblsCtx, _, err := ds.d.PutLabels(prodBarLbls)
 	c.Assert(err, Equals, nil)
 
-	qaFooLbls := Labels{lblFoo.Key: &lblFoo, lblQA.Key: &lblQA}
+	qaFooLbls := Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := ds.d.PutLabels(qaFooLbls)
 	c.Assert(err, Equals, nil)
 
-	prodFooLbls := Labels{lblFoo.Key: &lblFoo, lblProd.Key: &lblProd}
+	prodFooLbls := Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
 	prodFooSecLblsCtx, _, err := ds.d.PutLabels(prodFooLbls)
 	c.Assert(err, Equals, nil)
 
-	prodFooJoeLbls := Labels{lblFoo.Key: &lblFoo, lblProd.Key: &lblProd, lblJoe.Key: &lblJoe}
+	prodFooJoeLbls := Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
 	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
 
-	e := Endpoint{SecLabel: uint32(qaBarSecLblsCtx.ID)}
+	e := Endpoint{SecLabelID: uint32(qaBarSecLblsCtx.ID)}
 	err = ds.d.RegenerateConsumerMap(&e)
 	c.Assert(err, Equals, nil)
 	c.Assert(e.AllowsSecLabel(qaBarSecLblsCtx.ID), Equals, false)
@@ -153,7 +153,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.AllowsSecLabel(prodFooSecLblsCtx.ID), Equals, false)
 	c.Assert(e.AllowsSecLabel(prodFooJoeSecLblsCtx.ID), Equals, true)
 
-	e = Endpoint{SecLabel: uint32(prodBarSecLblsCtx.ID)}
+	e = Endpoint{SecLabelID: uint32(prodBarSecLblsCtx.ID)}
 	err = ds.d.RegenerateConsumerMap(&e)
 	c.Assert(err, Equals, nil)
 	c.Assert(e.AllowsSecLabel(0), Equals, false)

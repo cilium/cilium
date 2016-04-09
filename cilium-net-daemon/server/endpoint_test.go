@@ -20,13 +20,13 @@ var (
 
 func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "ifname",
+		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 		Consumers:     EmptyMap,
 	}
 	ep.SetID()
@@ -42,13 +42,13 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 
 func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "ifname",
+		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 		Consumers:     EmptyMap,
 	}
 	ep.SetID()
@@ -64,13 +64,13 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 
 func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "ifname",
+		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 		Consumers:     EmptyMap,
 	}
 	ep.SetID()
@@ -86,13 +86,13 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 
 func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "ifname",
+		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 		Consumers:     EmptyMap,
 	}
 	ep.SetID()

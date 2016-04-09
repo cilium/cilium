@@ -11,7 +11,7 @@ import (
 )
 
 // PutLabels sends POST request with labels to the daemon. Returns
-func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
+func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
 	query := url.Values{}
 	serverResp, err := cli.post("/labels", query, labels, nil)
 	if err != nil {
@@ -24,7 +24,8 @@ func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, err
 		return nil, false, processErrorBody(serverResp.body, nil)
 	}
 
-	var labelsResp types.SecCtxLabels
+	// TODO: check if the value is new or not. Possible by checking if labelsResp.RefCount == 1
+	var labelsResp types.SecCtxLabel
 	if err := json.NewDecoder(serverResp.body).Decode(&labelsResp); err != nil {
 		return nil, false, err
 	}
@@ -34,7 +35,7 @@ func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, err
 
 // GetLabels sends a GET request with id to the daemon. Returns the types.SecCtxLabels
 // with the given id. If it's not found, types.SecCtxLabels and error are booth nil.
-func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
+func (cli Client) GetLabels(id int) (*types.SecCtxLabel, error) {
 	query := url.Values{}
 
 	serverResp, err := cli.get("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
@@ -53,7 +54,7 @@ func (cli Client) GetLabels(id int) (*types.SecCtxLabels, error) {
 		return nil, nil
 	}
 
-	var secCtxLabels types.SecCtxLabels
+	var secCtxLabels types.SecCtxLabel
 	if err := json.NewDecoder(serverResp.body).Decode(&secCtxLabels); err != nil {
 		return nil, err
 	}

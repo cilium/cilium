@@ -35,13 +35,13 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint3
 	defer d.endpointsMU.Unlock()
 	if endpointID != "" {
 		if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
-			ep.SecLabel = secLabel
+			ep.SecLabelID = secLabel
 			epCopy := *ep
 			return &epCopy
 		}
 	} else if dockerID != "" {
 		if ep, ok := d.endpoints[types.DockerPreffix+dockerID]; ok {
-			ep.SecLabel = secLabel
+			ep.SecLabelID = secLabel
 			epCopy := *ep
 			return &epCopy
 		}
@@ -108,11 +108,11 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		ep.LxcMAC.String(), ep.LxcIP.String(),
-		ep.IPv4Address(d.ipv4Range).String(), ep.SecLabel,
+		ep.LXCMAC.String(), ep.LXCIP.String(),
+		ep.IPv4Address(d.ipv4Range).String(), ep.SecLabelID,
 		path.Base(policyMapPath), ep.NodeMAC.String())
 
-	secCtxlabels, err := d.GetLabels(int(ep.SecLabel))
+	secCtxlabels, err := d.GetLabels(int(ep.SecLabelID))
 	if err != nil {
 		return err
 	}
@@ -124,12 +124,12 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	}
 	f.WriteString(" */\n\n")
 
-	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LxcMAC))
-	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LxcIP))
+	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
+	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
 	fmt.Fprintf(f, "#define LXC_ID %#x\n", ep.U16ID())
 	fmt.Fprintf(f, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
-	fmt.Fprintf(f, "#define LXC_SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel))
-	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", ep.SecLabel)
+	fmt.Fprintf(f, "#define LXC_SECLABEL_NB %#x\n", common.Swab32(ep.SecLabelID))
+	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", ep.SecLabelID)
 	fmt.Fprintf(f, "#define LXC_POLICY_MAP %s\n", path.Base(policyMapPath))
 	f.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 
@@ -164,7 +164,7 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		return fmt.Errorf("Unable to update eBPF map: %s", err)
 	}
 
-	args := []string{d.libDir, ep.ID, ep.Ifname}
+	args := []string{d.libDir, ep.ID, ep.IfName}
 	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		os.RemoveAll(lxcDir)

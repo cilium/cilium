@@ -101,9 +101,8 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) 
 
 	if ret != 0 {
 		return int(ret), nil
-	} else {
-		return 0, fmt.Errorf("Unable to create map: %s", err)
 	}
+	return 0, fmt.Errorf("Unable to create map: %s", err)
 }
 
 // UpdateElement updates the map in fd with the given value in the given key.

@@ -21,13 +21,13 @@ var (
 
 func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "ifname",
+		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 	}
 	ep.SetID()
 
@@ -65,13 +65,13 @@ func (s *CiliumNetClientSuite) TestEndpointCreateFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "ifname",
+		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 	}
 	ep.SetID()
 
@@ -91,13 +91,13 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "eth0",
+		IfName:        "eth0",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 	}
 	ep.SetID()
 
@@ -121,13 +121,13 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep := types.Endpoint{
-		LxcMAC:        HardAddr,
-		LxcIP:         EpAddr,
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
 		NodeMAC:       HardAddr,
 		NodeIP:        NodeAddr,
-		Ifname:        "eth0",
+		IfName:        "eth0",
 		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		SecLabelID:    SecLabel,
 	}
 	ep.SetID()
 

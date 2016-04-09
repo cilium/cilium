@@ -13,35 +13,21 @@ import (
 )
 
 var (
-	lbls   = createLabels()
-	seclbl = types.SecCtxLabels{
+	lbls = types.Labels{
+		"foo":    types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    types.NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  types.NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   types.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	}
+	seclbl = types.SecCtxLabel{
 		ID:       123,
 		RefCount: 1,
 		Labels:   lbls,
 	}
 )
-
-func createLabels() types.Labels {
-	lbls := []types.Label{
-		types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		types.NewLabel("key", "", common.CiliumLabelSource),
-		types.NewLabel("foo==", "==", common.CiliumLabelSource),
-		types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		types.NewLabel(`//=/`, "", common.CiliumLabelSource),
-		types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
-	}
-	m := map[string]*types.Label{
-		"foo":    &lbls[0],
-		"foo2":   &lbls[1],
-		"key":    &lbls[2],
-		"foo==":  &lbls[3],
-		`foo\\=`: &lbls[4],
-		`//=/`:   &lbls[5],
-		`%`:      &lbls[6],
-	}
-	return m
-}
 
 func (s *CiliumNetClientSuite) TestPutLabelsOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +96,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	var wantLabels *types.SecCtxLabels
+	var wantLabels *types.SecCtxLabel
 	receivedLabels, err := cli.GetLabels(123)
 	c.Assert(err, Equals, nil)
 	c.Assert(receivedLabels, Equals, wantLabels)

@@ -11,46 +11,25 @@ import (
 )
 
 var (
-	lbls           = createLbls()
-	lbls2          = createLbls2()
-	wantSecCtxLbls = types.SecCtxLabels{
+	lbls = types.Labels{
+		"foo":    types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    types.NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  types.NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   types.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	}
+	lbls2 = types.Labels{
+		"foo":  types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2": types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+	}
+	wantSecCtxLbls = types.SecCtxLabel{
 		ID:       123,
 		RefCount: 1,
 		Labels:   lbls,
 	}
 )
-
-func createLbls() types.Labels {
-	lbls := []types.Label{
-		types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		types.NewLabel("key", "", common.CiliumLabelSource),
-		types.NewLabel("foo==", "==", common.CiliumLabelSource),
-		types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		types.NewLabel(`//=/`, "", common.CiliumLabelSource),
-		types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
-	}
-	return map[string]*types.Label{
-		"foo":    &lbls[0],
-		"foo2":   &lbls[1],
-		"key":    &lbls[2],
-		"foo==":  &lbls[3],
-		`foo\\=`: &lbls[4],
-		`//=/`:   &lbls[5],
-		`%`:      &lbls[6],
-	}
-}
-
-func createLbls2() types.Labels {
-	lbls := []types.Label{
-		types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-	}
-	return map[string]*types.Label{
-		"foo":  &lbls[0],
-		"foo2": &lbls[1],
-	}
-}
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	consulConfig := consulAPI.DefaultConfig()
@@ -143,7 +122,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	c.Assert(err, Equals, nil)
 	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeID)
 	c.Assert(err, Equals, nil)
-	var emptySecCtxLblPtr *types.SecCtxLabels
+	var emptySecCtxLblPtr *types.SecCtxLabel
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
 	ds.d.setMaxID(common.FirstFreeID)

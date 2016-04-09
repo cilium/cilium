@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/noironetworks/cilium-net/common"
 
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
@@ -13,43 +14,31 @@ var _ = Suite(&LabelsSuite{})
 
 var (
 	lblsArray = []string{`%=%ed`, `//=/=`, `foo=bar`, `foo2==bar2`, `foo=====`, `foo\\==\=`, `key=`}
+	lbls      = Labels{
+		"foo":    NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	}
 )
 
-func createLabels() Labels {
-	lbls := []Label{
-		NewLabel("foo", "bar", common.CiliumLabelSource),
-		NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		NewLabel("key", "", common.CiliumLabelSource),
-		NewLabel("foo==", "==", common.CiliumLabelSource),
-		NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		NewLabel(`//=/`, "", common.CiliumLabelSource),
-		NewLabel(`%`, `%ed`, common.CiliumLabelSource),
-	}
-	return map[string]*Label{
-		"foo":    &lbls[0],
-		"foo2":   &lbls[1],
-		"key":    &lbls[2],
-		"foo==":  &lbls[3],
-		`foo\\=`: &lbls[4],
-		`//=/`:   &lbls[5],
-		`%`:      &lbls[6],
-	}
-}
-
 func (s *LabelsSuite) TestSHA256Sum(c *C) {
-	str, err := createLabels().SHA256Sum()
+	str, err := lbls.SHA256Sum()
 	c.Assert(err, Equals, nil)
 	c.Assert(str, Equals, "f4b2082334cdcf08e58c5bb5a04bb291ecc6a4de7555baaf4d5ac110edd7d222")
 }
 
 func (s *LabelsSuite) TestSortMap(c *C) {
-	sortedMap := createLabels().sortMap()
+	sortedMap := lbls.sortMap()
 	c.Assert(sortedMap, DeepEquals, lblsArray)
 }
 
 type lblTest struct {
 	label  string
-	result Label
+	result *Label
 }
 
 func (s *LabelsSuite) TestLabelShortForm(c *C) {
@@ -66,7 +55,21 @@ func (s *LabelsSuite) TestLabelShortForm(c *C) {
 
 	for _, v := range lbls {
 		res := Label{}
-		decodeLabelShortform(v.label, &res)
-		c.Assert(res, DeepEquals, v.result)
+		decodeLabelShortForm(v.label, &res)
+		c.Assert(&res, DeepEquals, v.result)
 	}
+}
+
+func (s *LabelsSuite) TestMap2Labels(c *C) {
+	m := Map2Labels(map[string]string{
+		"foo":    "bar",
+		"foo2":   "=bar2",
+		"key":    "",
+		"foo==":  "==",
+		`foo\\=`: `\=`,
+		`//=/`:   "",
+		`%`:      `%ed`,
+	}, common.CiliumLabelSource)
+	fmt.Printf("%+v\n", m)
+	c.Assert(m, DeepEquals, lbls)
 }

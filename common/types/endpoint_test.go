@@ -20,8 +20,8 @@ type EndpointSuite struct{}
 var _ = Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpointID(c *C) {
-	e := Endpoint{LxcIP: EpAddr}
+	e := Endpoint{LXCIP: EpAddr}
 	e.SetID()
 	c.Assert(e.ID, Equals, "4370") //"0x1112"
-	c.Assert(bytes.Compare(e.LxcIP, EpAddr) == 0, Equals, true)
+	c.Assert(bytes.Compare(e.LXCIP, EpAddr) == 0, Equals, true)
 }

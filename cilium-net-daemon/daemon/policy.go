@@ -52,7 +52,7 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 // endpointsMU held.
 func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	// Containers without a security label are not accessible
-	if e.SecLabel == 0 {
+	if e.SecLabelID == 0 {
 		return nil
 	}
 
@@ -61,7 +61,7 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		return err
 	}
 
-	secCtxLabels, err := d.GetLabels(int(e.SecLabel))
+	secCtxLabels, err := d.GetLabels(int(e.SecLabelID))
 	if err != nil {
 		return err
 	}
@@ -108,12 +108,12 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		decision := d.PolicyCanConsume(&ctx)
 		// Only accept rules get stored
 		if decision == types.ACCEPT {
-			log.Debugf("Allowing direction %d -> %d\n", idx, e.SecLabel)
+			log.Debugf("Allowing direction %d -> %d\n", idx, e.SecLabelID)
 			e.AllowConsumer(idx)
 			for _, r := range d.endpoints {
-				if r.SecLabel == uint32(idx) {
-					log.Debugf("Allowing reverse direction %d -> %d\n", e.SecLabel, idx)
-					r.AllowConsumer(int(e.SecLabel))
+				if r.SecLabelID == uint32(idx) {
+					log.Debugf("Allowing reverse direction %d -> %d\n", e.SecLabelID, idx)
+					r.AllowConsumer(int(e.SecLabelID))
 				}
 			}
 		}
@@ -128,7 +128,7 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		}
 	}
 
-	log.Debugf("New policy map for ep %d: %+v\n", e.SecLabel, e.Consumers)
+	log.Debugf("New policy map for ep %d: %+v\n", e.SecLabelID, e.Consumers)
 
 	return nil
 }
