@@ -21,16 +21,25 @@ import (
 )
 
 const (
-	DefaultPoolV4            = "CilliumPoolv4"
-	DefaultPoolV6            = "CilliumPoolv6"
-	LocalAllocSubnet         = "1.0.0.0/16" // Never exposed, used to generate IPv6 addr
-	HostInterfacePrefix      = "lxc"
+	// DefaultPoolV4 is the IPv4 pool name for libnetwork.
+	DefaultPoolV4 = "CiliumPoolv4"
+	// DefaultPoolV6 is the IPv6 pool name for libnetwork.
+	DefaultPoolV6 = "CiliumPoolv6"
+	// LocalAllocSubnet is never exposed, used to generate IPv6 address. //TODO remove this
+	LocalAllocSubnet = "1.0.0.0/16"
+	// HostInterfacePrefix is the Host interface prefix.
+	HostInterfacePrefix = "lxc"
+	// TemporaryInterfacePrefix is the temporary interface prefix while setting up libNetwork interface.
 	TemporaryInterfacePrefix = "tmp"
+	// ContainerInterfacePrefix is the container's internal interface name prefix.
 	ContainerInterfacePrefix = "cilium"
-	DummyV4AllocPool         = "0.0.0.0/0"  // Never exposed, makes libnetwork happy
-	DummyV4Gateway           = "1.1.1.1/32" // Never exposed, makes libnetwork happy
+	// DummyV4AllocPool is never exposed, makes libnetwork happy.
+	DummyV4AllocPool = "0.0.0.0/0"
+	// DummyV4Gateway is never exposed, makes libnetwork happy.
+	DummyV4Gateway = "1.1.1.1/32"
 )
 
+// Driver interface that listens for docker requests.
 type Driver interface {
 	Listen(string) error
 }
@@ -48,6 +57,7 @@ func endpoint2ifname(endpointID string) string {
 	return HostInterfacePrefix + endpointID[:5]
 }
 
+// NewDriver creates and returns a new Driver for the given ctx.
 func NewDriver(ctx *cli.Context) (Driver, error) {
 
 	nodeAddress := net.ParseIP(ctx.String("node-addr"))
@@ -97,6 +107,8 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 	return d, nil
 }
 
+// Listen listens for docker requests on a particular set of endpoints on the given
+// socket path.
 func (driver *driver) Listen(socket string) error {
 	router := mux.NewRouter()
 	router.NotFoundHandler = http.HandlerFunc(notFound)
