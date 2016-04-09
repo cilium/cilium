@@ -53,7 +53,7 @@ type driver struct {
 	client *cnc.Client
 }
 
-func endpoint2ifname(endpointID string) string {
+func endpoint2IfName(endpointID string) string {
 	return HostInterfacePrefix + endpointID[:5]
 }
 
@@ -300,7 +300,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteEndpointInterface(endpointID string) {
-	ifname := endpoint2ifname(endpointID)
+	ifname := endpoint2IfName(endpointID)
 	link, err := netlink.LinkByName(ifname)
 	if err != nil {
 		log.Errorf("Could not find host-side container link %s: [ %s ]", ifname, err)
@@ -350,7 +350,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lxcIfname := endpoint2ifname(j.EndpointID)
+	lxcIfname := endpoint2IfName(j.EndpointID)
 	tmpIfname := TemporaryInterfacePrefix + j.EndpointID[:5]
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: lxcIfname},
