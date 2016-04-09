@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	HostInterfacePrefix      = "lxc"
-	TemporaryInterfacePrefix = "tmp"
+	hostInterfacePrefix      = "lxc"
+	temporaryInterfacePrefix = "tmp"
 )
 
-type NetConf struct {
+type netConf struct {
 	types.NetConf
 	MTU int `json:"mtu"`
 }
@@ -41,16 +41,16 @@ func main() {
 	skel.PluginMain(cmdAdd, cmdDel)
 }
 
-func loadNetConf(bytes []byte) (*NetConf, error) {
-	n := &NetConf{}
+func loadNetConf(bytes []byte) (*netConf, error) {
+	n := &netConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
 		return nil, fmt.Errorf("failed to load netconf: %s", err)
 	}
 	return n, nil
 }
 
-func endpoint2ifname(endpointID string) string {
-	return HostInterfacePrefix + endpointID[:5]
+func endpoint2IfName(endpointID string) string {
+	return hostInterfacePrefix + endpointID[:5]
 }
 
 func removeIfFromNSIfExists(netns *os.File, ifName string) error {
@@ -59,9 +59,8 @@ func removeIfFromNSIfExists(netns *os.File, ifName string) error {
 		if err != nil {
 			if strings.Contains(err.Error(), "Link not found") {
 				return nil
-			} else {
-				return err
 			}
+			return err
 		}
 		return netlink.LinkDel(l)
 	})
@@ -69,8 +68,8 @@ func removeIfFromNSIfExists(netns *os.File, ifName string) error {
 
 func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *ciliumtypes.Endpoint) (*netlink.Veth, error) {
 
-	lxcIfname := endpoint2ifname(containerID)
-	tmpIfname := TemporaryInterfacePrefix + containerID[:5]
+	lxcIfname := endpoint2IfName(containerID)
+	tmpIfname := temporaryInterfacePrefix + containerID[:5]
 
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: lxcIfname},
@@ -163,7 +162,7 @@ func addIPConfigToLink(ipConfig *ciliumtypes.IPConfig, link netlink.Link, ifName
 	return nil
 }
 
-func ConfigureIface(ifName string, config *ciliumtypes.IPAMConfig) error {
+func configureIface(ifName string, config *ciliumtypes.IPAMConfig) error {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -256,7 +255,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}()
 
 	if err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
-		return ConfigureIface(args.IfName, ipamConf)
+		return configureIface(args.IfName, ipamConf)
 	}); err != nil {
 		return err
 	}
@@ -272,7 +271,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	return createCNIReply(ipamConf)
 }
 
-func DelLinkByName(ifName string) error {
+func delLinkByName(ifName string) error {
 	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -325,6 +324,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	return ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {
-		return DelLinkByName(args.IfName)
+		return delLinkByName(args.IfName)
 	})
 }
