@@ -26,7 +26,7 @@ func main() {
 		},
 	}
 	app.Before = initEnv
-	app.Action = Run
+	app.Action = run
 	app.Run(os.Args)
 }
 
@@ -53,7 +53,7 @@ func initEnv(ctx *cli.Context) error {
 	return nil
 }
 
-func Run(ctx *cli.Context) {
+func run(ctx *cli.Context) {
 	d, err := driver.NewDriver(ctx)
 	if err != nil {
 		log.Fatalf("Unable to create cilium-net driver: %s", err)
