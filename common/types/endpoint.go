@@ -31,7 +31,7 @@ type Consumer struct {
 	Decision ConsumableDecision
 	// RefCnt contains the number of endpoints that share the same consumption's
 	// policy.
-	Refcnt int
+	RefCnt int
 }
 
 // Endpoint contains all the details for a particular LXC and the host interface to where
@@ -40,41 +40,40 @@ type Endpoint struct {
 	ID            string `json:"id"`              // Endpoint ID.
 	DockerID      string `json:"docker-id"`       // Docker ID.
 	DockerNetwork string `json:"docker-network"`  // Docker network ID.
-	Ifname        string `json:"interface-name"`  // Container's interface name.
-	LxcMAC        MAC    `json:"lxc-mac"`         // Container MAC address.
-	LxcIP         net.IP `json:"lxc-ip"`          // Container IPv6 address.
+	IfName        string `json:"interface-name"`  // Container's interface name.
+	LXCMAC        MAC    `json:"lxc-mac"`         // Container MAC address.
+	LXCIP         net.IP `json:"lxc-ip"`          // Container IPv6 address.
 	IfIndex       int    `json:"interface-index"` // Host's interface index.
 	NodeMAC       MAC    `json:"node-mac"`        // Node MAC address.
 	NodeIP        net.IP `json:"node-ip"`         // Node IPv6 address.
 	// TODO: change uint32 to uint16 since we only support 0xffff labels
-	SecLabel  uint32               `json:"security-label"` // Security Label set to this endpoint.
-	PortMap   []EPPortMap          `json:"port-mapping"`   // Port mapping used for this endpoint.
-	PolicyMap *policymap.PolicyMap `json:"-"`              // Policy Map in use for this endpoint.
+	SecLabelID uint32               `json:"security-label"` // Security Label ID set to this endpoint.
+	PortMap    []EPPortMap          `json:"port-mapping"`   // Port mapping used for this endpoint.
+	PolicyMap  *policymap.PolicyMap `json:"-"`              // Policy Map in use for this endpoint.
 	// TODO: ask tgraf why the key is a string and not an int
 	Consumers map[string]*Consumer `json:"consumers"` // List of consumers that can consume this endpoint.
 }
 
-func (e *Endpoint) Consumer(id int) *Consumer {
+func (e *Endpoint) consumer(id int) *Consumer {
 	if val, ok := e.Consumers[strconv.Itoa(id)]; ok {
 		return val
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // AllowConsumer allows the consumer that have the same SecLabelID as the given id to
 // consume the receiver's endpoint.
 func (e *Endpoint) AllowConsumer(id int) {
-	if consumer := e.Consumer(id); consumer != nil {
+	if consumer := e.consumer(id); consumer != nil {
 		consumer.Decision = ACCEPT
-		consumer.Refcnt++
+		consumer.RefCnt++
 	} else {
 		if e.Consumers == nil {
 			e.Consumers = make(map[string]*Consumer)
 		}
 
 		n := strconv.Itoa(id)
-		e.Consumers[n] = &Consumer{Decision: ACCEPT, Refcnt: 1}
+		e.Consumers[n] = &Consumer{Decision: ACCEPT, RefCnt: 1}
 	}
 
 	if e.PolicyMap != nil {
@@ -95,8 +94,8 @@ func (e *Endpoint) BanConsumer(id int) {
 	log.Debugf("Baning consumer %d\n", id)
 
 	if c, ok := e.Consumers[n]; ok {
-		if c.Refcnt > 1 {
-			c.Refcnt--
+		if c.RefCnt > 1 {
+			c.RefCnt--
 			return
 		}
 
@@ -117,7 +116,7 @@ func (e *Endpoint) BanConsumer(id int) {
 // consume the receiver's endpoint.
 // TODO: compare with AllowConsumer func
 func (e *Endpoint) AllowsSecLabel(id int) bool {
-	if c := e.Consumer(id); c != nil {
+	if c := e.consumer(id); c != nil {
 		if c.Decision == ACCEPT {
 			return true
 		}
@@ -134,7 +133,7 @@ func (e *Endpoint) U16ID() uint16 {
 
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
-	e.ID = CalculateID(e.LxcIP)
+	e.ID = CalculateID(e.LXCIP)
 }
 
 func CalculateID(ip net.IP) string {

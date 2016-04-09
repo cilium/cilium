@@ -116,7 +116,7 @@ func (lxc LXCInfo) String() string {
 func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 	key := ep.U16ID()
 
-	mac, err := ep.LxcMAC.Uint64()
+	mac, err := ep.LXCMAC.Uint64()
 	if err != nil {
 		return err
 	}
@@ -131,12 +131,12 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		// Store security label in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
-		SecLabelID: common.Swab32(ep.SecLabel),
+		SecLabelID: common.Swab32(ep.SecLabelID),
 		MAC:      MAC(mac),
 		NodeMAC:  MAC(nodeMAC),
 	}
 
-	copy(lxc.V6Addr[:], ep.LxcIP)
+	copy(lxc.V6Addr[:], ep.LXCIP)
 
 	for i, pM := range ep.PortMap {
 		lxc.PortMap[i] = PortMap{

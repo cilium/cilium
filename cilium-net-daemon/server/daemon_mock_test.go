@@ -12,8 +12,8 @@ type TestDaemon struct {
 	OnAllocateIPs          func(containerID string) (*types.IPAMConfig, error)
 	OnReleaseIPs           func(containerID string) error
 	OnPing                 func() (string, error)
-	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabels, bool, error)
-	OnGetLabels            func(id int) (*types.SecCtxLabels, error)
+	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
+	OnGetLabels            func(id int) (*types.SecCtxLabel, error)
 	OnDeleteLabelsByUUID   func(uuid int) error
 	OnDeleteLabelsBySHA256 func(sha256sum string) error
 	OnGetMaxID             func() (int, error)
@@ -61,14 +61,14 @@ func (d TestDaemon) ReleaseIPs(containerID string) error {
 	return errors.New("ReleaseIPs should not have been called")
 }
 
-func (d TestDaemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
+func (d TestDaemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
 	if d.OnPutLabels != nil {
 		return d.OnPutLabels(labels)
 	}
 	return nil, false, errors.New("GetLabelsID should not have been called")
 }
 
-func (d TestDaemon) GetLabels(id int) (*types.SecCtxLabels, error) {
+func (d TestDaemon) GetLabels(id int) (*types.SecCtxLabel, error) {
 	if d.OnGetLabels != nil {
 		return d.OnGetLabels(id)
 	}

@@ -83,7 +83,7 @@ type SearchContext struct {
 func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
 	for _, covLabel := range *coverage {
 		for _, toLabel := range s.To {
-			if covLabel.Compare(&toLabel) {
+			if covLabel.Equals(&toLabel) {
 				return true
 			}
 		}
@@ -143,7 +143,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	for _, label := range ctx.From {
-		if label.Compare(&a.Label) {
+		if label.Equals(&a.Label) {
 			policyTrace(ctx, "Allow Rule %+v decision\n", a)
 			return a.Action
 		}
@@ -221,7 +221,7 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 			match := false
 
 			for _, label := range ctx.From {
-				if label.Compare(&reqLabel) {
+				if label.Equals(&reqLabel) {
 					match = true
 				}
 			}

@@ -23,23 +23,21 @@ type Label struct {
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
 
-// SecCtxLabels is the representation of the security context for a particular set of
+// SecCtxLabel is the representation of the security context for a particular set of
 // labels.
-type SecCtxLabels struct {
+type SecCtxLabel struct {
 	ID       int    `json:"id"`        // SecCtxLabel's ID.
 	RefCount int    `json:"ref-count"` // Number of containers that have this SecCtxLabel.
 	Labels   Labels `json:"labels"`    // Set of labels that belong to this SecCtxLabel.
 }
 
 // NewLabel returns a new label from the given key, value and source.
-func NewLabel(key string, value string, source string) Label {
-	lbl := Label{
+func NewLabel(key string, value string, source string) *Label {
+	return &Label{
 		Key:    key,
 		Value:  value,
 		Source: source,
 	}
-
-	return lbl
 }
 
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels.
@@ -59,14 +57,18 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
-// Compare returns true if source, AbsoluteKey() and Value are equal and false otherwise.
-func (l *Label) Compare(b *Label) bool {
-	return l.Source == b.Source && l.AbsoluteKey() == b.AbsoluteKey() && l.Value == b.Value
+// Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
+func (l *Label) Equals(b *Label) bool {
+	return l.Source == b.Source &&
+		l.AbsoluteKey() == b.AbsoluteKey() &&
+		l.Value == b.Value
 }
 
-func (l *Label) Resolve(node *PolicyNode) {
-	if l.Source == common.CiliumLabelSource && !strings.HasPrefix(l.Key, common.GlobalLabelPrefix) {
-		l.absKey = node.Path() + "." + l.Key
+// Resolve resolves the absolute key path for this Label from policyNode.
+func (l *Label) Resolve(policyNode *PolicyNode) {
+	if l.Source == common.CiliumLabelSource &&
+		!strings.HasPrefix(l.Key, common.GlobalLabelPrefix) {
+		l.absKey = policyNode.Path() + "." + l.Key
 	} else {
 		l.absKey = l.Key
 	}
@@ -81,7 +83,7 @@ func (l *Label) AbsoluteKey() string {
 	return l.Key
 }
 
-func decodeLabelShortform(source string, label *Label) {
+func decodeLabelShortForm(source string, label *Label) {
 	sep := strings.SplitN(source, ":", 2)
 	if len(sep) != 2 {
 		label.Source = common.CiliumLabelSource
@@ -152,7 +154,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("Invalid Label: Failed to parse %s as a string", data)
 		}
 
-		decodeLabelShortform(aux, l)
+		decodeLabelShortForm(aux, l)
 	}
 
 	return nil

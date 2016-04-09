@@ -68,9 +68,8 @@ func (cli Client) PolicyGet(path string) (*types.PolicyNode, error) {
 		return nil, nil
 	}
 
-	jd := json.NewDecoder(serverResp.body)
 	var pn types.PolicyNode
-	if err := jd.Decode(&pn); err != nil {
+	if err := json.NewDecoder(serverResp.body).Decode(&pn); err != nil {
 		return nil, err
 	}
 

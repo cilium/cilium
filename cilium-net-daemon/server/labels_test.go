@@ -11,38 +11,25 @@ import (
 )
 
 var (
-	lbls = createLbls()
+	lbls = types.Labels{
+		"foo":    types.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    types.NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  types.NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   types.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	}
 
-	wantSecCtxLbls = types.SecCtxLabels{
+	wantSecCtxLbls = types.SecCtxLabel{
 		ID:       123,
 		RefCount: 1,
 		Labels:   lbls,
 	}
 )
 
-func createLbls() types.Labels {
-	lbls := []types.Label{
-		types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		types.NewLabel("key", "", common.CiliumLabelSource),
-		types.NewLabel("foo==", "==", common.CiliumLabelSource),
-		types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		types.NewLabel(`//=/`, "", common.CiliumLabelSource),
-		types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
-	}
-	return map[string]*types.Label{
-		"foo":    &lbls[0],
-		"foo2":   &lbls[1],
-		"key":    &lbls[2],
-		"foo==":  &lbls[3],
-		`foo\\=`: &lbls[4],
-		`//=/`:   &lbls[5],
-		`%`:      &lbls[6],
-	}
-}
-
 func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
-	s.d.OnPutLabels = func(lblsReceived types.Labels) (*types.SecCtxLabels, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived types.Labels) (*types.SecCtxLabel, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
 		return &wantSecCtxLbls, true, nil
 	}
@@ -53,7 +40,7 @@ func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
-	s.d.OnPutLabels = func(lblsReceived types.Labels) (*types.SecCtxLabels, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived types.Labels) (*types.SecCtxLabel, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
 		return nil, false, errors.New("Reached maximum valid IDs")
 	}
@@ -63,7 +50,7 @@ func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsOK(c *C) {
-	s.d.OnGetLabels = func(id int) (*types.SecCtxLabels, error) {
+	s.d.OnGetLabels = func(id int) (*types.SecCtxLabel, error) {
 		c.Assert(id, Equals, 123)
 		return &wantSecCtxLbls, nil
 	}
@@ -74,7 +61,7 @@ func (s *DaemonSuite) TestGetLabelsOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsFail(c *C) {
-	s.d.OnGetLabels = func(id int) (*types.SecCtxLabels, error) {
+	s.d.OnGetLabels = func(id int) (*types.SecCtxLabel, error) {
 		c.Assert(id, Equals, 123)
 		return nil, errors.New("Unable to contact consul")
 	}

@@ -279,7 +279,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	driver.endpoints[endID] = &ciliumtype.Endpoint{
 		DockerID:      "",
-		LxcIP:         ip,
+		LXCIP:         ip,
 		NodeIP:        driver.nodeAddress,
 		DockerNetwork: create.NetworkID,
 		PortMap:       maps,
@@ -375,7 +375,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ep.LxcMAC = ciliumtype.MAC(peer.Attrs().HardwareAddr)
+	ep.LXCMAC = ciliumtype.MAC(peer.Attrs().HardwareAddr)
 
 	nodeVeth, err := netlink.LinkByName(lxcIfname)
 	if err != nil {
@@ -397,7 +397,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	gw := driver.nodeAddress.String()
 
-	ep.Ifname = lxcIfname
+	ep.IfName = lxcIfname
 	ep.SetID()
 	if err := driver.client.EndpointJoin(*ep); err != nil {
 		log.Errorf("Joining endpoint failed: %s", err)

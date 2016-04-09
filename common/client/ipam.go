@@ -26,9 +26,8 @@ func (cli Client) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 		return nil, processErrorBody(serverResp.body, nil)
 	}
 
-	jd := json.NewDecoder(serverResp.body)
 	var newIPAMConfig types.IPAMConfig
-	if err := jd.Decode(&newIPAMConfig); err != nil {
+	if err := json.NewDecoder(serverResp.body).Decode(&newIPAMConfig); err != nil {
 		return nil, err
 	}
 

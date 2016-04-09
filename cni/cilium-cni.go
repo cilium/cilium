@@ -68,12 +68,12 @@ func removeIfFromNSIfExists(netns *os.File, ifName string) error {
 
 func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *ciliumtypes.Endpoint) (*netlink.Veth, error) {
 
-	lxcIfname := endpoint2IfName(containerID)
-	tmpIfname := temporaryInterfacePrefix + containerID[:5]
+	lxcIfName := endpoint2IfName(containerID)
+	tmpIfName := temporaryInterfacePrefix + containerID[:5]
 
 	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: lxcIfname},
-		PeerName:  tmpIfname,
+		LinkAttrs: netlink.LinkAttrs{Name: lxcIfName},
+		PeerName:  tmpIfName,
 	}
 
 	if err := netlink.LinkAdd(veth); err != nil {
@@ -88,41 +88,41 @@ func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *cili
 		}
 	}()
 
-	peer, err := netlink.LinkByName(tmpIfname)
+	peer, err := netlink.LinkByName(tmpIfName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup veth peer just created: %s", err)
 	}
 
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
-		return nil, fmt.Errorf("unable to set MTU to %q: %s", tmpIfname, err)
+		return nil, fmt.Errorf("unable to set MTU to %q: %s", tmpIfName, err)
 	}
 
-	hostVeth, err := netlink.LinkByName(lxcIfname)
+	hostVeth, err := netlink.LinkByName(lxcIfName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup veth just created: %s", err)
 	}
 
 	if err = netlink.LinkSetMTU(hostVeth, mtu); err != nil {
-		return nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfname, err)
+		return nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
 	}
 
 	if err = netlink.LinkSetUp(veth); err != nil {
 		return nil, fmt.Errorf("unable to bring up veth pair: %s", err)
 	}
 
-	ep.LxcMAC = ciliumtypes.MAC(peer.Attrs().HardwareAddr)
+	ep.LXCMAC = ciliumtypes.MAC(peer.Attrs().HardwareAddr)
 	ep.NodeMAC = ciliumtypes.MAC(hostVeth.Attrs().HardwareAddr)
 	ep.IfIndex = hostVeth.Attrs().Index
-	ep.Ifname = lxcIfname
+	ep.IfName = lxcIfName
 
 	if err := netlink.LinkSetNsFd(peer, int(netNsFile.Fd())); err != nil {
 		return nil, fmt.Errorf("unable to move veth pair %q to netns: %s", peer, err)
 	}
 
 	err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
-		err := renameLink(tmpIfname, ifName)
+		err := renameLink(tmpIfName, ifName)
 		if err != nil {
-			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfname, ifName, err)
+			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, ifName, err)
 		}
 		return nil
 	})
@@ -260,7 +260,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	ep.LxcIP = ipamConf.IP6.IP.IP
+	ep.LXCIP = ipamConf.IP6.IP.IP
 	ep.NodeIP = ipamConf.IP6.Gateway
 	ep.DockerID = args.ContainerID
 	ep.SetID()
@@ -317,7 +317,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	var ep ciliumtypes.Endpoint
-	ep.LxcIP = containerIP
+	ep.LXCIP = containerIP
 	ep.SetID()
 	if err := c.EndpointLeave(ep.ID); err != nil {
 		log.Warnf("leaving the endpoint failed: %s\n", err)

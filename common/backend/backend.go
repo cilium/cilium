@@ -15,8 +15,8 @@ type ipamBackend interface {
 }
 
 type labelBackend interface {
-	PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error)
-	GetLabels(uuid int) (*types.SecCtxLabels, error)
+	PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error)
+	GetLabels(uuid int) (*types.SecCtxLabel, error)
 	DeleteLabelsByUUID(uuid int) error
 	DeleteLabelsBySHA256(sha256sum string) error
 	GetMaxID() (int, error)
