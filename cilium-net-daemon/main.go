@@ -49,6 +49,7 @@ var (
 )
 
 func setupLOG() {
+	// TODO fix log location to where the logs are written
 	level, err := logging.LogLevel(logLevel)
 	if err != nil {
 		log.Fatal(err)
