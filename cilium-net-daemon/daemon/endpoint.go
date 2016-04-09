@@ -22,9 +22,9 @@ func isValidID(id string) bool {
 func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	d.endpoints[types.CiliumPreffix+ep.ID] = ep
+	d.endpoints[common.CiliumPrefix+ep.ID] = ep
 	if ep.DockerID != "" {
-		d.endpoints[types.DockerPreffix+ep.DockerID] = ep
+		d.endpoints[common.DockerPrefix+ep.DockerID] = ep
 	}
 }
 
@@ -34,13 +34,13 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint3
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	if endpointID != "" {
-		if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
+		if ep, ok := d.endpoints[common.CiliumPrefix+endpointID]; ok {
 			ep.SecLabelID = secLabel
 			epCopy := *ep
 			return &epCopy
 		}
 	} else if dockerID != "" {
-		if ep, ok := d.endpoints[types.DockerPreffix+dockerID]; ok {
+		if ep, ok := d.endpoints[common.DockerPrefix+dockerID]; ok {
 			ep.SecLabelID = secLabel
 			epCopy := *ep
 			return &epCopy
@@ -54,7 +54,7 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint3
 func (d *Daemon) getEndpoint(endpointID string) *types.Endpoint {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
+	if ep, ok := d.endpoints[common.CiliumPrefix+endpointID]; ok {
 		epCopy := *ep
 		return &epCopy
 	}
@@ -64,9 +64,9 @@ func (d *Daemon) getEndpoint(endpointID string) *types.Endpoint {
 func (d *Daemon) deleteEndpoint(endpointID string) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	if ep, ok := d.endpoints[types.CiliumPreffix+endpointID]; ok {
-		delete(d.endpoints, types.DockerPreffix+ep.DockerID)
-		delete(d.endpoints, types.CiliumPreffix+endpointID)
+	if ep, ok := d.endpoints[common.CiliumPrefix+endpointID]; ok {
+		delete(d.endpoints, common.DockerPrefix+ep.DockerID)
+		delete(d.endpoints, common.CiliumPrefix+endpointID)
 	}
 }
 
@@ -78,7 +78,7 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
-	ep, ok := d.endpoints[types.CiliumPreffix+rEP.ID]
+	ep, ok := d.endpoints[common.CiliumPrefix+rEP.ID]
 	if !ok {
 		log.Warningf("Unable to find endpoint\n")
 		return fmt.Errorf("Unable to find endpoint\n")
