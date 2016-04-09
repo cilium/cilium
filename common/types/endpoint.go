@@ -8,15 +8,6 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 )
 
-const (
-	// Endpoint prefixes
-
-	// CiliumPreffix is used to distinguish cilium IDs between different ID types.
-	CiliumPreffix = "cilium://"
-	// DockerPreffix is used to distinguish docker IDs between different ID types.
-	DockerPreffix = "docker://"
-)
-
 // EPPortMap is the port mapping representation for a particular endpoint.
 type EPPortMap struct {
 	From  uint16 `json:"from"`

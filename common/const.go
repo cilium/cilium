@@ -55,6 +55,13 @@ const (
 	GlobalLabelPrefix = "io.cilium"
 	// CiliumLabelSource is the default label source for the labels read from containers.
 	CiliumLabelSource = "cilium"
+
+	// Endpoint prefixes
+
+	// CiliumPrefix is used to distinguish cilium IDs between different ID types.
+	CiliumPrefix = "cilium://"
+	// DockerPrefix is used to distinguish docker IDs between different ID types.
+	DockerPrefix = "docker://"
 )
 
 var (
