@@ -44,35 +44,35 @@ func main() {
 			Aliases:   []string{"c"},
 			Usage:     "creates map on the given <map file>",
 			ArgsUsage: "<map file>",
-			Action:    MainBPFCreateMap,
+			Action:    mainBPFCreateMap,
 		},
 		{
 			Name:      "dump",
 			Aliases:   []string{"d"},
 			Usage:     "dumps map present on the given <map file>",
 			ArgsUsage: "<map file>",
-			Action:    MainBPFDumpMap,
+			Action:    mainBPFDumpMap,
 		},
 		{
 			Name:      "get",
 			Aliases:   []string{"g"},
 			Usage:     "gets key's value of the given <map file>",
 			ArgsUsage: "<map file> <key>",
-			Action:    MainBPFLookupKey,
+			Action:    mainBPFLookupKey,
 		},
 		{
 			Name:      "update",
 			Aliases:   []string{"u"},
 			Usage:     "updates key's value of the given <map file>",
 			ArgsUsage: "<map file> <key> <ifindex> <mac> <ipv6> [port_from:port_to [port_from:port_to]...]",
-			Action:    MainBPFUpdateKey,
+			Action:    mainBPFUpdateKey,
 		},
 		{
 			Name:      "delete",
 			Aliases:   []string{"D"},
 			Usage:     "deletes key's value of the given <map file>",
 			ArgsUsage: "<map file> <key>",
-			Action:    MainBPFDeleteKey,
+			Action:    mainBPFDeleteKey,
 		},
 	}
 
@@ -89,7 +89,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func MainBPFCreateMap(ctx *cli.Context) {
+func mainBPFCreateMap(ctx *cli.Context) {
 	if len(ctx.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s %s %s\n", ctx.App.Name, ctx.Command.Name,
@@ -107,7 +107,7 @@ func MainBPFCreateMap(ctx *cli.Context) {
 	}
 }
 
-func MainBPFDumpMap(ctx *cli.Context) {
+func mainBPFDumpMap(ctx *cli.Context) {
 	if len(ctx.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
 		printArgsUsage(ctx)
@@ -126,9 +126,9 @@ func MainBPFDumpMap(ctx *cli.Context) {
 	}
 
 	var key, nextKey uint16
-	key = lxcmap.MAX_KEYS
+	key = lxcmap.MaxKeys
 	for {
-		var lxc lxcmap.LxcInfo
+		var lxc lxcmap.LXCInfo
 		err := bpf.GetNextKey(
 			fd,
 			unsafe.Pointer(&key),
@@ -149,16 +149,15 @@ func MainBPFDumpMap(ctx *cli.Context) {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(errIOFailure)
 			return
-		} else {
-			fmt.Printf("%#x: %s\n", nextKey, lxc)
 		}
+		fmt.Printf("%#x: %s\n", nextKey, lxc)
 
 		key = nextKey
 	}
 }
 
-func lookupLxc(file string, key uint16) (*lxcmap.LxcInfo, error) {
-	lxc := new(lxcmap.LxcInfo)
+func lookupLXC(file string, key uint16) (*lxcmap.LXCInfo, error) {
+	lxc := new(lxcmap.LXCInfo)
 
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
@@ -171,7 +170,7 @@ func lookupLxc(file string, key uint16) (*lxcmap.LxcInfo, error) {
 	return lxc, err
 }
 
-func MainBPFLookupKey(ctx *cli.Context) {
+func mainBPFLookupKey(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
 		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
 		printArgsUsage(ctx)
@@ -189,7 +188,7 @@ func MainBPFLookupKey(ctx *cli.Context) {
 		return
 	}
 
-	lxc, err := lookupLxc(file, uint16(key))
+	lxc, err := lookupLXC(file, uint16(key))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)
@@ -198,7 +197,7 @@ func MainBPFLookupKey(ctx *cli.Context) {
 	fmt.Printf("%d: %s\n", key, lxc)
 }
 
-func MainBPFUpdateKey(ctx *cli.Context) {
+func mainBPFUpdateKey(ctx *cli.Context) {
 	if len(ctx.Args()) < 5 {
 		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
 		printArgsUsage(ctx)
@@ -236,15 +235,15 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 		return
 	}
 
-	lxc := lxcmap.LxcInfo{
-		Ifindex: uint32(ifidx),
+	lxc := lxcmap.LXCInfo{
+		IfIndex: uint32(ifidx),
 		MAC:     macAddr,
 	}
-	copy(lxc.V6addr.Addr[:], iv6)
+	copy(lxc.V6Addr[:], iv6)
 
 	remainingArgs := ctx.Args()[5:]
-	if len(remainingArgs) > lxcmap.PORTMAP_MAX {
-		fmt.Fprintf(os.Stderr, "port mappings %d: maximum port mapping is %d\n", len(remainingArgs), lxcmap.PORTMAP_MAX)
+	if len(remainingArgs) > lxcmap.PortMapMax {
+		fmt.Fprintf(os.Stderr, "port mappings %d: maximum port mapping is %d\n", len(remainingArgs), lxcmap.PortMapMax)
 		printArgsUsage(ctx)
 		os.Exit(errInvalidArgument)
 		return
@@ -271,7 +270,7 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 			os.Exit(errInvalidArgument)
 			return
 		}
-		lxc.Portmap[i] = lxcmap.Portmap{
+		lxc.PortMap[i] = lxcmap.PortMap{
 			From: common.Swab16(uint16(from)),
 			To:   common.Swab16(uint16(to)),
 		}
@@ -294,7 +293,7 @@ func MainBPFUpdateKey(ctx *cli.Context) {
 	}
 }
 
-func MainBPFDeleteKey(ctx *cli.Context) {
+func mainBPFDeleteKey(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
 		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
 		printArgsUsage(ctx)

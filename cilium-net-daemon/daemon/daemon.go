@@ -40,7 +40,7 @@ var (
 // monitoring when a LXC starts.
 type Daemon struct {
 	libDir               string
-	lxcMap               *lxcmap.LxcMap
+	lxcMap               *lxcmap.LXCMap
 	ipamConf             hb.IPAMConfig
 	consul               *consulAPI.Client
 	endpoints            map[string]*ciliumTypes.Endpoint

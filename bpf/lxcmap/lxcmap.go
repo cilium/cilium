@@ -23,7 +23,7 @@ import (
 )
 
 // LXCMap is an internal representation of an eBPF LXC Map.
-type LxcMap struct {
+type LXCMap struct {
 	fd int
 }
 
@@ -31,16 +31,16 @@ const (
 	// MaxKeys represents the maximum number of keys in the LXCMap.
 	// TODO: bump this number to 0xffff
 	// Or at least make it dependent on the number of containers per node)
-	MAX_KEYS = 1024
+	MaxKeys = 1024
 
 	// PortMapMax represents the maximum number of Ports Mapping per container.
-	PORTMAP_MAX = 16
+	PortMapMax = 16
 )
 
 // MAC is the __u64 representation of a MAC address.
-type Mac C.__u64
+type MAC C.__u64
 
-func (m Mac) String() string {
+func (m MAC) String() string {
 	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",
 		uint64((m & 0x0000000000FF)),
 		uint64((m&0x00000000FF00)>>8),
@@ -52,7 +52,7 @@ func (m Mac) String() string {
 }
 
 // ParseMAC parses s only as an IEEE 802 MAC-48.
-func ParseMAC(s string) (Mac, error) {
+func ParseMAC(s string) (MAC, error) {
 	ha, err := net.ParseMAC(s)
 	if err != nil {
 		return 0, err
@@ -60,62 +60,60 @@ func ParseMAC(s string) (Mac, error) {
 	if len(ha) != 6 {
 		return 0, fmt.Errorf("invalid MAC address %s", s)
 	}
-	return Mac(Mac(ha[5])<<40 | Mac(ha[4])<<32 | Mac(ha[3])<<24 | Mac(ha[2])<<16 | Mac(ha[1])<<8 | Mac(ha[0])), nil
+	return MAC(MAC(ha[5])<<40 | MAC(ha[4])<<32 | MAC(ha[3])<<24 |
+		MAC(ha[2])<<16 | MAC(ha[1])<<8 | MAC(ha[0])), nil
 }
 
 // PortMap represents a port mapping from the host to the LXC.
-type Portmap struct {
+type PortMap struct {
 	From uint16
 	To   uint16
 }
 
-func (pm Portmap) String() string {
+func (pm PortMap) String() string {
 	return fmt.Sprintf("%d:%d", common.Swab16(pm.From), common.Swab16(pm.To))
 }
 
-type V6addr struct {
-       Addr [16]byte
-}
+type v6Addr [16]byte
 
-
-func (v6 V6addr) String() string {
-	return net.IP(v6.Addr[:]).String()
+func (v6 v6Addr) String() string {
+	return net.IP(v6[:]).String()
 }
 
 // LXCInfo is an internal representation of an LXC most relevant details for eBPF
 // programs.
-type LxcInfo struct {
-	Ifindex  uint32
-	SecLabel uint32
-	MAC      Mac
-	NodeMAC  Mac
-	V6addr   V6addr
-	Portmap  [PORTMAP_MAX]Portmap
+type LXCInfo struct {
+	IfIndex  uint32
+	SecLabelID uint32
+	MAC      MAC
+	NodeMAC  MAC
+	V6Addr   v6Addr
+	PortMap  [PortMapMax]PortMap
 }
 
-func (lxc LxcInfo) String() string {
-	var portmaps []string
-	for _, port := range lxc.Portmap {
+func (lxc LXCInfo) String() string {
+	var portMaps []string
+	for _, port := range lxc.PortMap {
 		if pStr := port.String(); pStr != "0:0" {
-			portmaps = append(portmaps, pStr)
+			portMaps = append(portMaps, pStr)
 		}
 	}
-	if len(portmaps) == 0 {
-		portmaps = append(portmaps, "(empty)")
+	if len(portMaps) == 0 {
+		portMaps = append(portMaps, "(empty)")
 	}
-	return fmt.Sprintf("ifindex=%d mac=%s nodemac=%s ip=%s seclabel=0x%x portmaps=%s",
-		lxc.Ifindex,
+	return fmt.Sprintf("ifindex=%d mac=%s nodemac=%s ip=%s seclabel=0x%x portMaps=%s",
+		lxc.IfIndex,
 		lxc.MAC,
 		lxc.NodeMAC,
-		lxc.V6addr,
-		common.Swab32(lxc.SecLabel),
-		strings.Join(portmaps, " "),
+		lxc.V6Addr,
+		common.Swab32(lxc.SecLabelID),
+		strings.Join(portMaps, " "),
 	)
 }
 
 // WriteEndpoint transforms the ep's relevant data into an LXCInfo and stores it in
 // LXCMap.
-func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
+func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 	key := ep.U16ID()
 
 	mac, err := ep.LxcMAC.Uint64()
@@ -123,27 +121,27 @@ func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
 		return err
 	}
 
-	nodeMac, err := ep.NodeMAC.Uint64()
+	nodeMAC, err := ep.NodeMAC.Uint64()
 	if err != nil {
 		return err
 	}
 
-	lxc := LxcInfo{
-		Ifindex: uint32(ep.IfIndex),
+	lxc := LXCInfo{
+		IfIndex: uint32(ep.IfIndex),
 		// Store security label in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
-		SecLabel: common.Swab32(ep.SecLabel),
-		MAC:      Mac(mac),
-		NodeMAC:  Mac(nodeMac),
+		SecLabelID: common.Swab32(ep.SecLabel),
+		MAC:      MAC(mac),
+		NodeMAC:  MAC(nodeMAC),
 	}
 
-	copy(lxc.V6addr.Addr[:], ep.LxcIP)
+	copy(lxc.V6Addr[:], ep.LxcIP)
 
-	for i, portmap := range ep.PortMap {
-		lxc.Portmap[i] = Portmap{
-			From: common.Swab16(portmap.From),
-			To:   common.Swab16(portmap.To),
+	for i, pM := range ep.PortMap {
+		lxc.PortMap[i] = PortMap{
+			From: common.Swab16(pM.From),
+			To:   common.Swab16(pM.To),
 		}
 	}
 
@@ -151,14 +149,14 @@ func (m *LxcMap) WriteEndpoint(ep *types.Endpoint) error {
 }
 
 // DeleteElement deletes the element with the given id from the LXCMap.
-func (m *LxcMap) DeleteElement(id string) error {
+func (m *LXCMap) DeleteElement(id string) error {
 	n, _ := strconv.ParseUint(id, 10, 16)
 	key := uint16(n)
 	return bpf.DeleteElement(m.fd, unsafe.Pointer(&key))
 }
 
 // OpenMap opens the LXCMap in the given path.
-func OpenMap(path string) (*LxcMap, error) {
+func OpenMap(path string) (*LXCMap, error) {
 	var fd int
 
 	rl := syscall.Rlimit{
@@ -182,8 +180,8 @@ func OpenMap(path string) (*LxcMap, error) {
 		fd, err = bpf.CreateMap(
 			C.BPF_MAP_TYPE_HASH,
 			uint32(unsafe.Sizeof(uint16(0))),
-			uint32(unsafe.Sizeof(LxcInfo{})),
-			MAX_KEYS,
+			uint32(unsafe.Sizeof(LXCInfo{})),
+			MaxKeys,
 		)
 
 		if err != nil {
@@ -203,7 +201,7 @@ func OpenMap(path string) (*LxcMap, error) {
 		// FIXME: Read in existing container data
 	}
 
-	m := new(LxcMap)
+	m := new(LXCMap)
 	m.fd = fd
 
 	return m, nil

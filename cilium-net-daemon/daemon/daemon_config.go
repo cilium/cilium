@@ -10,7 +10,7 @@ import (
 // Config is the configuration used by Daemon.
 type Config struct {
 	LibDir             string            // Cilium library directory
-	LXCMap             *lxcmap.LxcMap    // LXCMap where all LXCs are stored
+	LXCMap             *lxcmap.LXCMap    // LXCMap where all LXCs are stored
 	NodeAddress        net.IP            // Node IPv6 Address
 	IPv4Range          *net.IPNet        // Containers IPv4 Address range
 	ConsulConfig       *consulAPI.Config // Consul configuration
