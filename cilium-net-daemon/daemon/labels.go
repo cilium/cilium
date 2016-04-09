@@ -64,7 +64,7 @@ func (d *Daemon) updateIDRef(secCtxLabels *types.SecCtxLabels) error {
 	return err
 }
 
-// SAGNewID gets and sets a New ID,
+// gasNewID gets and sets a New ID.
 func (d *Daemon) gasNewID(labels *types.SecCtxLabels) error {
 	freeID, err := d.GetMaxID()
 	if err != nil {
@@ -142,6 +142,8 @@ func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error)
 	return lockKey, c, err
 }
 
+// PutLabels stores to given labels in consul and returns the SecCtxLabels created for
+// the given labels.
 func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, error) {
 	log.Debugf("Putting labels %+v", labels)
 	isNew := false
@@ -209,6 +211,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabels, bool, erro
 	return &secCtxLbls, isNew, nil
 }
 
+// GetLabels returns the SecCtxLabels that belongs to id.
 func (d *Daemon) GetLabels(id int) (*types.SecCtxLabels, error) {
 	strID := strconv.Itoa(id)
 	pair, _, err := d.consul.KV().Get(common.IDKeyPath+strID, nil)
@@ -228,6 +231,7 @@ func (d *Daemon) GetLabels(id int) (*types.SecCtxLabels, error) {
 	return &secCtxLabels, nil
 }
 
+// DeleteLabelsByUUID deletes the SecCtxLabels belonging to id.
 func (d *Daemon) DeleteLabelsByUUID(id int) error {
 	secCtxLabels, err := d.GetLabels(id)
 	if err != nil {
@@ -244,6 +248,7 @@ func (d *Daemon) DeleteLabelsByUUID(id int) error {
 	return d.DeleteLabelsBySHA256(sha256sum)
 }
 
+// DeleteLabelsBySHA256 deletes the SecCtxLabels that belong to the labels' sha256Sum.
 func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 	if sha256Sum == "" {
 		return nil
@@ -295,6 +300,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 	return nil
 }
 
+// GetMaxID returns the maximum possible free UUID stored in consul.
 func (d *Daemon) GetMaxID() (int, error) {
 	k, _, err := d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 	if err != nil {

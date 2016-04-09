@@ -36,6 +36,8 @@ var (
 	log = logging.MustGetLogger("cilium-net")
 )
 
+// Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
+// monitoring when a LXC starts.
 type Daemon struct {
 	libDir               string
 	lxcMap               *lxcmap.LxcMap
@@ -69,6 +71,7 @@ func createK8sClient(endpoint string) (*k8sClient.Client, error) {
 	return k8sClient.New(&config)
 }
 
+// NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
 		return nil, fmt.Errorf("Configuration is nil")
@@ -119,6 +122,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}, nil
 }
 
+// ActivateConsulWatcher watches for consul changes in the common.LastFreeIDKeyPath key.
+// Triggers policy updates every time the value of that key is changed.
 func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 	go func() {
 		var (
@@ -158,6 +163,8 @@ func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 	}()
 }
 
+// ActivateEventListener watches for docker events. Performs the plumbing for the
+// containers started or dead.
 func (d *Daemon) ActivateEventListener() error {
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(time.Now().Unix(), 10)}
 	r, err := d.dockerClient.Events(eo)

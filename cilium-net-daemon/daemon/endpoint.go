@@ -176,6 +176,7 @@ func (d *Daemon) createBPF(r_ep types.Endpoint) error {
 	return nil
 }
 
+// EndpointJoin sets up the endpoint working directory.
 func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	if !isValidID(ep.ID) {
 		return fmt.Errorf("invalid ID %s", ep.ID)
@@ -192,6 +193,8 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	return nil
 }
 
+// EndpointLeave cleans the directory used by the endpoint epID and all relevant details
+// with the epID.
 func (d *Daemon) EndpointLeave(epID string) error {
 	// Preventing someone from deleting important directories
 	if !isValidID(epID) {

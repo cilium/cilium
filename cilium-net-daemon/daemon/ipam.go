@@ -11,6 +11,7 @@ import (
 	libnetworktypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
 )
 
+// AllocateIPs allocates and returns a free IPv6 address.
 func (d *Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	store, err := disk.New(d.ipamConf.Name)
 	if err != nil {
@@ -56,6 +57,7 @@ func (d *Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	return nil, errors.New("We don't support IPv4, do we?")
 }
 
+// ReleaseIPs Releases the IP being used by containerID.
 func (d *Daemon) ReleaseIPs(containerID string) error {
 	store, err := disk.New(d.ipamConf.Name)
 	if err != nil {

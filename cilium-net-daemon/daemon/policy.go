@@ -17,7 +17,7 @@ var (
 	policyMutex sync.Mutex
 )
 
-// Returns node and its parent or an error
+// findNode returns node and its parent or an error
 func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	var parent *types.PolicyNode
 
@@ -48,7 +48,8 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-// Must be called with endpointsMU held
+// RegenerateConsumerMap regenerates MAP of consumers for e. Must be called with
+// endpointsMU held.
 func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	// Containers without a security label are not accessible
 	if e.SecLabel == 0 {
@@ -132,6 +133,7 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	return nil
 }
 
+// TriggerPolicyUpdates triggers policy updates for all endpoints in the host.
 func (d *Daemon) TriggerPolicyUpdates(added []int) {
 	log.Debugf("Triggering policy updates %+v", added)
 
@@ -143,10 +145,12 @@ func (d *Daemon) TriggerPolicyUpdates(added []int) {
 	}
 }
 
+// PolicyCanConsume calculates if the ctx allows the consumer to be consumed.
 func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
 	return tree.Allows(ctx)
 }
 
+// PolicyAdd adds the policy with the given path to the node.
 func (d *Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 	log.Debugf("Policy Add Request: %+v", &node)
 
@@ -168,6 +172,7 @@ func (d *Daemon) PolicyAdd(path string, node types.PolicyNode) error {
 	return nil
 }
 
+// PolicyDelete deletes the policy set in path from the policy tree.
 func (d *Daemon) PolicyDelete(path string) error {
 	log.Debugf("Policy Delete Request: %s", path)
 
@@ -189,6 +194,7 @@ func (d *Daemon) PolicyDelete(path string) error {
 	return nil
 }
 
+// PolicyGet returns the policy of the given path.
 func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 	log.Debugf("Policy Get Request: %s", path)
 	node, _, err := findNode(path)

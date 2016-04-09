@@ -15,12 +15,15 @@ var (
 	log = logging.MustGetLogger("cilium-net")
 )
 
+// Server listens for HTTP requests and sends them to our router.
 type Server struct {
 	listener   net.Listener
 	router     Router
 	socketPath string
 }
 
+// NewServer returns a new Server that listens for requests in socketPath and sends them
+// to daemon.
 func NewServer(socketPath string, daemon *daemon.Daemon) (*Server, error) {
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, 0700); err != nil {
@@ -39,11 +42,13 @@ func NewServer(socketPath string, daemon *daemon.Daemon) (*Server, error) {
 	return &Server{listener, router, socketPath}, nil
 }
 
+// Start starts the server and blocks to server HTTP requests.
 func (d *Server) Start() error {
 	log.Infof("Listening on \"%s\"", d.socketPath)
 	return http.Serve(d.listener, d.router)
 }
 
+// Stop stops the HTTP listener.
 func (d *Server) Stop() error {
 	return d.listener.Close()
 }
