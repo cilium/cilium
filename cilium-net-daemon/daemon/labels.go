@@ -104,16 +104,15 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabels) error {
 			}
 			if lblKey == nil {
 				return setID2Label(lockPair)
-			} else {
-				var consulLabels types.SecCtxLabels
-				if err := json.Unmarshal(lblKey.Value, &consulLabels); err != nil {
-					d.consul.KV().Release(lockPair, nil)
-					return err
-				}
-				if consulLabels.RefCount == 0 {
-					log.Info("Recycling ID %d", freeID)
-					return setID2Label(lockPair)
-				}
+			}
+			var consulLabels types.SecCtxLabels
+			if err := json.Unmarshal(lblKey.Value, &consulLabels); err != nil {
+				d.consul.KV().Release(lockPair, nil)
+				return err
+			}
+			if consulLabels.RefCount == 0 {
+				log.Info("Recycling ID %d", freeID)
+				return setID2Label(lockPair)
 			}
 			d.consul.KV().Release(lockPair, nil)
 		}
@@ -273,13 +272,12 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 	var dbSecCtxLbls types.SecCtxLabels
 	if pair == nil {
 		return nil
-	} else {
-		if err := json.Unmarshal(pair.Value, &dbSecCtxLbls); err != nil {
-			return err
-		}
-		if dbSecCtxLbls.RefCount > 0 {
-			dbSecCtxLbls.RefCount--
-		}
+	}
+	if err := json.Unmarshal(pair.Value, &dbSecCtxLbls); err != nil {
+		return err
+	}
+	if dbSecCtxLbls.RefCount > 0 {
+		dbSecCtxLbls.RefCount--
 	}
 	if err := d.updateIDRef(&dbSecCtxLbls); err != nil {
 		return err

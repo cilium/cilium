@@ -70,15 +70,15 @@ func (d *Daemon) deleteEndpoint(endpointID string) {
 	}
 }
 
-func (d *Daemon) createBPF(r_ep types.Endpoint) error {
-	if !isValidID(r_ep.ID) {
-		return fmt.Errorf("invalid ID %s", r_ep.ID)
+func (d *Daemon) createBPF(rEP types.Endpoint) error {
+	if !isValidID(rEP.ID) {
+		return fmt.Errorf("invalid ID %s", rEP.ID)
 	}
 
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
-	ep, ok := d.endpoints[types.CiliumPreffix+r_ep.ID]
+	ep, ok := d.endpoints[types.CiliumPreffix+rEP.ID]
 	if !ok {
 		log.Warningf("Unable to find endpoint\n")
 		return fmt.Errorf("Unable to find endpoint\n")

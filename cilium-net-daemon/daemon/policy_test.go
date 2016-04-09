@@ -124,44 +124,44 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	err := ds.d.PolicyAdd("io.cilium", rootNode)
 	c.Assert(err, Equals, nil)
 
-	qa_bar_lbls := Labels{lblBar.Key: &lblBar, lblQA.Key: &lblQA}
-	qa_bar_sec_lbls_ctx, _, err := ds.d.PutLabels(qa_bar_lbls)
+	qaBarLbls := Labels{lblBar.Key: &lblBar, lblQA.Key: &lblQA}
+	qaBarSecLblsCtx, _, err := ds.d.PutLabels(qaBarLbls)
 	c.Assert(err, Equals, nil)
 
-	prod_bar_lbls := Labels{lblBar.Key: &lblBar, lblProd.Key: &lblProd}
-	prod_bar_sec_lbls_ctx, _, err := ds.d.PutLabels(prod_bar_lbls)
+	prodBarLbls := Labels{lblBar.Key: &lblBar, lblProd.Key: &lblProd}
+	prodBarSecLblsCtx, _, err := ds.d.PutLabels(prodBarLbls)
 	c.Assert(err, Equals, nil)
 
-	qa_foo_lbls := Labels{lblFoo.Key: &lblFoo, lblQA.Key: &lblQA}
-	qa_foo_sec_lbls_ctx, _, err := ds.d.PutLabels(qa_foo_lbls)
+	qaFooLbls := Labels{lblFoo.Key: &lblFoo, lblQA.Key: &lblQA}
+	qaFooSecLblsCtx, _, err := ds.d.PutLabels(qaFooLbls)
 	c.Assert(err, Equals, nil)
 
-	prod_foo_lbls := Labels{lblFoo.Key: &lblFoo, lblProd.Key: &lblProd}
-	prod_foo_sec_lbls_ctx, _, err := ds.d.PutLabels(prod_foo_lbls)
+	prodFooLbls := Labels{lblFoo.Key: &lblFoo, lblProd.Key: &lblProd}
+	prodFooSecLblsCtx, _, err := ds.d.PutLabels(prodFooLbls)
 	c.Assert(err, Equals, nil)
 
-	prod_foo_joe_lbls := Labels{lblFoo.Key: &lblFoo, lblProd.Key: &lblProd, lblJoe.Key: &lblJoe}
-	prod_foo_joe_sec_lbls_ctx, _, err := ds.d.PutLabels(prod_foo_joe_lbls)
+	prodFooJoeLbls := Labels{lblFoo.Key: &lblFoo, lblProd.Key: &lblProd, lblJoe.Key: &lblJoe}
+	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
 
-	e := Endpoint{SecLabel: uint32(qa_bar_sec_lbls_ctx.ID)}
+	e := Endpoint{SecLabel: uint32(qaBarSecLblsCtx.ID)}
 	err = ds.d.RegenerateConsumerMap(&e)
 	c.Assert(err, Equals, nil)
-	c.Assert(e.AllowsSecLabel(qa_bar_sec_lbls_ctx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prod_bar_sec_lbls_ctx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(qa_foo_sec_lbls_ctx.ID), Equals, true)
-	c.Assert(e.AllowsSecLabel(prod_foo_sec_lbls_ctx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prod_foo_joe_sec_lbls_ctx.ID), Equals, true)
+	c.Assert(e.AllowsSecLabel(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(e.AllowsSecLabel(prodBarSecLblsCtx.ID), Equals, false)
+	c.Assert(e.AllowsSecLabel(qaFooSecLblsCtx.ID), Equals, true)
+	c.Assert(e.AllowsSecLabel(prodFooSecLblsCtx.ID), Equals, false)
+	c.Assert(e.AllowsSecLabel(prodFooJoeSecLblsCtx.ID), Equals, true)
 
-	e = Endpoint{SecLabel: uint32(prod_bar_sec_lbls_ctx.ID)}
+	e = Endpoint{SecLabel: uint32(prodBarSecLblsCtx.ID)}
 	err = ds.d.RegenerateConsumerMap(&e)
 	c.Assert(err, Equals, nil)
 	c.Assert(e.AllowsSecLabel(0), Equals, false)
-	c.Assert(e.AllowsSecLabel(qa_bar_sec_lbls_ctx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prod_bar_sec_lbls_ctx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(qa_foo_sec_lbls_ctx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prod_foo_sec_lbls_ctx.ID), Equals, true)
-	c.Assert(e.AllowsSecLabel(prod_foo_joe_sec_lbls_ctx.ID), Equals, true)
+	c.Assert(e.AllowsSecLabel(qaBarSecLblsCtx.ID), Equals, false)
+	c.Assert(e.AllowsSecLabel(prodBarSecLblsCtx.ID), Equals, false)
+	c.Assert(e.AllowsSecLabel(qaFooSecLblsCtx.ID), Equals, false)
+	c.Assert(e.AllowsSecLabel(prodFooSecLblsCtx.ID), Equals, true)
+	c.Assert(e.AllowsSecLabel(prodFooJoeSecLblsCtx.ID), Equals, true)
 
 	err = ds.d.PolicyDelete("io.cilium")
 	c.Assert(err, Equals, nil)

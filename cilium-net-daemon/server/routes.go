@@ -4,54 +4,54 @@ import (
 	"net/http"
 )
 
-type Route struct {
+type route struct {
 	Name        string
 	Method      string
 	Pattern     string
 	HandlerFunc http.HandlerFunc
 }
 
-type Routes []Route
+type routes []route
 
 func (r *Router) initRoutes() {
-	r.routes = Routes{
-		Route{
+	r.routes = routes{
+		route{
 			"Ping", "GET", "/ping", r.ping,
 		},
-		Route{
+		route{
 			"EndpointCreate", "POST", "/endpoint/{endpointID}", r.endpointCreate,
 		},
-		Route{
+		route{
 			"EndpointDelete", "DELETE", "/endpoint/{endpointID}", r.endpointDelete,
 		},
-		Route{
+		route{
 			"AllocateIPv6", "PUT", "/allocator/container/{containerID}", r.allocateIPv6,
 		},
-		Route{
+		route{
 			"ReleaseIPv6", "DELETE", "/allocator/container/{containerID}", r.releaseIPv6,
 		},
-		Route{
+		route{
 			"GetLabels", "GET", "/labels/by-uuid/{uuid}", r.getLabels,
 		},
-		Route{
+		route{
 			"PutLabels", "POST", "/labels", r.putLabels,
 		},
-		Route{
+		route{
 			"DeleteLabels", "DELETE", "/labels/by-sha256sum/{sha256sum}", r.deleteLabelsBySHA256,
 		},
-		Route{
+		route{
 			"DeleteLabelsByUUID", "DELETE", "/labels/by-uuid/{uuid}", r.deleteLabelsByUUID,
 		},
-		Route{
+		route{
 			"GetMaxID", "GET", "/labels/status/maxUUID", r.getMaxUUID,
 		},
-		Route{
+		route{
 			"PolicyAdd", "POST", "/policy/{path}", r.policyAdd,
 		},
-		Route{
+		route{
 			"PolicyDelete", "DELETE", "/policy/{path}", r.policyDelete,
 		},
-		Route{
+		route{
 			"PolicyGet", "GET", "/policy/{path}", r.policyGet,
 		},
 	}

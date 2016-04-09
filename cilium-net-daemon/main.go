@@ -29,7 +29,7 @@ var (
 	socketPath         string
 	logLevel           string
 	nodeAddrStr        string
-	NodeAddr           net.IP
+	nodeAddr           net.IP
 	ipv4Prefix         string
 	v4range            string
 	ipv4Range          *net.IPNet
@@ -94,8 +94,8 @@ func initBPF() {
 
 	}
 
-	hostIP := make(net.IP, len(NodeAddr))
-	copy(hostIP, NodeAddr)
+	hostIP := make(net.IP, len(nodeAddr))
+	copy(hostIP, nodeAddr)
 	hostIP[14] = 0xff
 	hostIP[15] = 0xff
 
@@ -104,7 +104,7 @@ func initBPF() {
 		" * Node-IP: %s\n"+
 		" * Host-IP: %s\n"+
 		" */\n\n",
-		NodeAddr.String(), hostIP.String())
+		nodeAddr.String(), hostIP.String())
 
 	if logLevel == "debug" {
 		f.WriteString("#define DEBUG\n")
@@ -114,8 +114,8 @@ func initBPF() {
 		f.WriteString("#define DISABLE_POCLIY_ENFORCEMENT\n")
 	}
 
-	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(NodeAddr))
-	f.WriteString(common.FmtDefineArray("ROUTER_IP", NodeAddr))
+	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(nodeAddr))
+	f.WriteString(common.FmtDefineArray("ROUTER_IP", nodeAddr))
 
 	SrcPrefix := net.ParseIP(ipv4Prefix)
 	DstPrefix := net.ParseIP(ipv4Prefix)
@@ -127,18 +127,18 @@ func initBPF() {
 	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
-	ipv4_gw := make(net.IP, len(ipv4Range.IP))
-	copy(ipv4_gw, ipv4Range.IP)
-	ipv4_gw[2] = 0xff
-	ipv4_gw[3] = 0xff
-	fmt.Fprintf(f, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4_gw))
+	ipv4Gw := make(net.IP, len(ipv4Range.IP))
+	copy(ipv4Gw, ipv4Range.IP)
+	ipv4Gw[2] = 0xff
+	ipv4Gw[3] = 0xff
+	fmt.Fprintf(f, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
 
 	f.Close()
 
 	if device != "undefined" {
-		args = []string{libDir, NodeAddr.String(), ipv4Range.IP.String(), "direct", device}
+		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), "direct", device}
 	} else {
-		args = []string{libDir, NodeAddr.String(), ipv4Range.IP.String(), "vxlan"}
+		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), "vxlan"}
 	}
 
 	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
@@ -195,7 +195,7 @@ func init() {
 
 	var err error
 
-	NodeAddr, _, err = net.ParseCIDR(addr.String() + "/64")
+	nodeAddr, _, err = net.ParseCIDR(addr.String() + "/64")
 	if err != nil {
 		log.Fatalf("Invalid CIDR %s", addr.String())
 		return
@@ -211,15 +211,13 @@ func init() {
 		log.Infof("Generated IPv4 range: %s\n", v4range)
 	}
 
-	_, r, err := net.ParseCIDR(v4range)
-	ipv4Range = r
+	_, ipv4Range, err = net.ParseCIDR(v4range)
 	if err != nil {
 		log.Fatalf("Invalid IPv4 range %s: %s\n", v4range, err)
 		return
 	}
 
-	ones, _ := ipv4Range.Mask.Size()
-	if ones != common.DefaultIPv4Mask {
+	if ones, _ := ipv4Range.Mask.Size(); ones != common.DefaultIPv4Mask {
 		log.Fatalf("IPv4 range %s must be of length %d\n", v4range, common.DefaultIPv4Mask)
 		return
 	}
@@ -238,7 +236,7 @@ func main() {
 	daemonConf := daemon.Config{
 		LibDir:         libDir,
 		LXCMap:         lxcMap,
-		NodeAddress:    NodeAddr,
+		NodeAddress:    nodeAddr,
 		IPv4Range:      ipv4Range,
 		ConsulConfig:   consulDefaultAPI,
 		DockerEndpoint: dockerEndpoint,

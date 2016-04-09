@@ -15,13 +15,13 @@ import (
 type Router struct {
 	*mux.Router
 	daemon backend.CiliumBackend
-	routes Routes
+	routes routes
 }
 
 // NewRouter creates and returns a new router for the given backend.
-func NewRouter(d backend.CiliumBackend) Router {
-	mrouter := mux.NewRouter().StrictSlash(true)
-	r := Router{mrouter, d, Routes{}}
+func NewRouter(backend backend.CiliumBackend) Router {
+	mRouter := mux.NewRouter().StrictSlash(true)
+	r := Router{mRouter, backend, routes{}}
 	r.initRoutes()
 	for _, route := range r.routes {
 		var handler http.Handler

@@ -37,50 +37,50 @@ func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	if val, ok := vars["endpointID"]; !ok {
+	val, exists := vars["endpointID"]
+	if !exists {
 		processServerError(w, r, errors.New("server received empty endpoint id"))
 		return
-	} else {
-		if err := router.daemon.EndpointLeave(val); err != nil {
-			processServerError(w, r, err)
-			return
-		}
+	}
+	if err := router.daemon.EndpointLeave(val); err != nil {
+		processServerError(w, r, err)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	if containerID, ok := vars["containerID"]; !ok {
+	containerID, exists := vars["containerID"]
+	if !exists {
 		processServerError(w, r, errors.New("server received empty containerID"))
 		return
-	} else {
-		ipamConfig, err := router.daemon.AllocateIPs(containerID)
-		if err != nil {
-			processServerError(w, r, err)
-			return
-		}
-		w.WriteHeader(http.StatusCreated)
-		e := json.NewEncoder(w)
-		if err := e.Encode(ipamConfig); err != nil {
-			processServerError(w, r, err)
-			return
-		}
+	}
+	ipamConfig, err := router.daemon.AllocateIPs(containerID)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	e := json.NewEncoder(w)
+	if err := e.Encode(ipamConfig); err != nil {
+		processServerError(w, r, err)
+		return
 	}
 }
 
 func (router *Router) releaseIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	if containerID, ok := vars["containerID"]; !ok {
+	containerID, exists := vars["containerID"]
+	if !exists {
 		processServerError(w, r, errors.New("server received empty containerID"))
 		return
-	} else {
-		if err := router.daemon.ReleaseIPs(containerID); err != nil {
-			processServerError(w, r, err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
 	}
+	if err := router.daemon.ReleaseIPs(containerID); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {

@@ -55,9 +55,8 @@ type Daemon struct {
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
 	if config != nil {
 		return consulAPI.NewClient(config)
-	} else {
-		return consulAPI.NewClient(consulAPI.DefaultConfig())
 	}
+	return consulAPI.NewClient(consulAPI.DefaultConfig())
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
@@ -207,8 +206,8 @@ func (d *Daemon) filterValidLabels(labels map[string]string) map[string]string {
 	defer d.validLabelPrefixesMU.Unlock()
 	filteredLabels := map[string]string{}
 	for k, v := range labels {
-		for _, kPrefix := range d.validLabelPrefixes {
-			if strings.HasPrefix(k, kPrefix) {
+		for _, prefix := range d.validLabelPrefixes {
+			if strings.HasPrefix(k, prefix) {
 				filteredLabels[k] = v
 				break
 			}

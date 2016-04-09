@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
+	"github.com/noironetworks/cilium-net/common/backend"
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
@@ -24,7 +24,7 @@ type Server struct {
 
 // NewServer returns a new Server that listens for requests in socketPath and sends them
 // to daemon.
-func NewServer(socketPath string, daemon *daemon.Daemon) (*Server, error) {
+func NewServer(socketPath string, daemon backend.CiliumBackend) (*Server, error) {
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, 0700); err != nil {
 		log.Fatalf("Error while creating '%s' directory: %+v", socketDir, err)

@@ -78,7 +78,7 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 	}
 
 	// Mark all entries unused by denying them
-	for k, _ := range e.Consumers {
+	for k := range e.Consumers {
 		e.Consumers[k].Decision = types.DENY
 	}
 
@@ -150,20 +150,20 @@ func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDeci
 	return tree.Allows(ctx)
 }
 
-// PolicyAdd adds the policy with the given path to the node.
-func (d *Daemon) PolicyAdd(path string, node types.PolicyNode) error {
-	log.Debugf("Policy Add Request: %+v", &node)
+// PolicyAdd adds the policy with the given path to the policyNode.
+func (d *Daemon) PolicyAdd(path string, policyNode types.PolicyNode) error {
+	log.Debugf("Policy Add Request: %+v", &policyNode)
 
 	policyMutex.Lock()
-	if parentNode, parent, err := findNode(path); err != nil {
+	parentNode, parent, err := findNode(path)
+	if err != nil {
 		policyMutex.Unlock()
 		return err
+	}
+	if parent == nil {
+		tree.Root = policyNode
 	} else {
-		if parent == nil {
-			tree.Root = node
-		} else {
-			parentNode.Children[node.Name] = &node
-		}
+		parentNode.Children[policyNode.Name] = &policyNode
 	}
 	policyMutex.Unlock()
 
@@ -177,15 +177,15 @@ func (d *Daemon) PolicyDelete(path string) error {
 	log.Debugf("Policy Delete Request: %s", path)
 
 	policyMutex.Lock()
-	if node, parent, err := findNode(path); err != nil {
+	node, parent, err := findNode(path)
+	if err != nil {
 		policyMutex.Unlock()
 		return err
+	}
+	if parent == nil {
+		tree.Root = types.PolicyNode{}
 	} else {
-		if parent == nil {
-			tree.Root = types.PolicyNode{}
-		} else {
-			delete(parent.Children, node.Name)
-		}
+		delete(parent.Children, node.Name)
 	}
 	policyMutex.Unlock()
 
