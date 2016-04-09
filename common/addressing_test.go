@@ -14,6 +14,7 @@ var (
 	Ep6to4Addr        = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x2, 0x78}
 	NodeAddr          = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
 	NodeID     uint32 = 0xaaaa1111
+	EpID       uint16 = 0x1112
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -65,4 +66,11 @@ func (s *CommonSuite) TestNodeAddr2ID(c *C) {
 
 	c.Assert(id, Equals, NodeID,
 		Commentf("NodeAddr2ID failed: %s != %x != %x", NodeAddr.String(), id, NodeID))
+}
+
+func (s *CommonSuite) TestEndpointAddr2ID(c *C) {
+	id := EndpointAddr2ID(EpAddr)
+
+	c.Assert(id, Equals, EpID,
+		Commentf("EndpointAddr2ID failed: %s != %x != %x", EpAddr.String(), id, EpID))
 }

@@ -220,7 +220,9 @@ func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
 	for _, contNetwork := range cont.NetworkSettings.Networks {
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
 		if ipv6gw.Equal(gwIP) {
-			return ciliumTypes.CalculateID(net.ParseIP(contNetwork.GlobalIPv6Address))
+			ip := net.ParseIP(contNetwork.GlobalIPv6Address)
+			id := common.EndpointAddr2ID(ip)
+			return strconv.FormatUint(uint64(id), 10)
 		}
 	}
 	return ""

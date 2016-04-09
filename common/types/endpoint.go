@@ -1,11 +1,11 @@
 package types
 
 import (
-	"encoding/binary"
 	"net"
 	"strconv"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
+	"github.com/noironetworks/cilium-net/common"
 )
 
 const (
@@ -125,7 +125,7 @@ func (e *Endpoint) AllowsSecLabel(id int) bool {
 	return false
 }
 
-// U16ID returns the endpoint's ID has uint16
+// U16ID returns the endpoint's ID as uint16.
 func (e *Endpoint) U16ID() uint16 {
 	n, _ := strconv.ParseUint(e.ID, 10, 16)
 	return uint16(n)
@@ -133,14 +133,7 @@ func (e *Endpoint) U16ID() uint16 {
 
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
-	e.ID = CalculateID(e.LXCIP)
-}
-
-func CalculateID(ip net.IP) string {
-	if len(ip) == net.IPv6len {
-		return strconv.Itoa(int(binary.BigEndian.Uint16(ip[14:])))
-	}
-	return ""
+	e.ID = strconv.FormatUint(uint64(common.EndpointAddr2ID(e.LXCIP)), 10)
 }
 
 // IPv4Address returns the TODO: what does this do?
