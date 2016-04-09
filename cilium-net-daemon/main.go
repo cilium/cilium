@@ -38,7 +38,7 @@ var (
 	runDir             string
 	consulAddr         string
 	disablePolicy      bool
-	lxcMap             *lxcmap.LxcMap
+	lxcMap             *lxcmap.LXCMap
 	log                = logging.MustGetLogger("cilium-net")
 	stdoutFormat       = logging.MustStringFormatter(
 		`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
