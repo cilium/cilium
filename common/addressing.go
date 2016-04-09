@@ -88,7 +88,18 @@ func Build4to6EndpointAddress(nodeAddr net.IP, v4Addr net.IP) net.IP {
 
 // NodeAddr2ID returns an ID from the nodeAddr.
 func NodeAddr2ID(nodeAddr net.IP) uint32 {
-	return binary.BigEndian.Uint32(nodeAddr[10:14])
+	if len(nodeAddr) == net.IPv6len {
+		return binary.BigEndian.Uint32(nodeAddr[10:14])
+	}
+	return 0
+}
+
+// EndpointAddr2ID returns an endpoint ID from the endpointAddr.
+func EndpointAddr2ID(endpointAddr net.IP) uint16 {
+	if len(endpointAddr) == net.IPv6len {
+		return binary.BigEndian.Uint16(endpointAddr[14:])
+	}
+	return 0
 }
 
 func dupIP(ip net.IP) net.IP {
