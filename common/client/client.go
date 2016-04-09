@@ -21,6 +21,7 @@ func init() {
 	log.Level = l.DebugLevel
 }
 
+// Client has the internal details necessary to talk with the daemon.
 type Client struct {
 	proto      string
 	addr       string
@@ -30,10 +31,13 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// NewDefaultClient creates and returns a client that will talk with common.CiliumStock.
 func NewDefaultClient() (*Client, error) {
 	return NewClient("unix://"+common.CiliumSock, nil, nil, nil)
 }
 
+// NewClient creates and returns a client that will send requests to host, using the
+// http.Client httpCli with transport and httpHeaders.
 func NewClient(host string, httpCli *http.Client, transport *http.Transport, httpHeaders map[string]string) (*Client, error) {
 	var (
 		basePath       string

@@ -7,6 +7,8 @@ import (
 	"net/url"
 )
 
+// Ping sends a GET request to the daemon. Returns "Pong" if the communication between the
+// client and the server was successful.
 func (cli Client) Ping() (string, error) {
 	query := url.Values{}
 

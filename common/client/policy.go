@@ -9,6 +9,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
+// PolicyAdd sends a POST request with node to the "/policy/+path" endpoint to the daemon.
 func (cli Client) PolicyAdd(path string, node types.PolicyNode) error {
 	query := url.Values{}
 	serverResp, err := cli.post("/policy/"+path, query, node, nil)
@@ -25,6 +26,7 @@ func (cli Client) PolicyAdd(path string, node types.PolicyNode) error {
 	return nil
 }
 
+// PolicyDelete sends a DELETE request to the "/policy/+path" endpoint to the daemon.
 func (cli Client) PolicyDelete(path string) error {
 	query := url.Values{}
 
@@ -43,6 +45,10 @@ func (cli Client) PolicyDelete(path string) error {
 	return nil
 }
 
+// PolicyGet sends a GET request to the "/policy/+path" endpoint to the daemon. If the
+// daemon returns a http.StatusOK means the policy was found and is returned. If the
+// daemon returns a http.StatusNoContent the policy was not found and *types.PolicyNode is
+// nil.
 func (cli Client) PolicyGet(path string) (*types.PolicyNode, error) {
 	query := url.Values{}
 

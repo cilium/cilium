@@ -9,6 +9,9 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
+// AllocateIPs sends a PUT request with containerID to the daemon. Returns an IPAMConfig
+// if the daemon returns a http.StatusCreated, which means the allocation was successfully
+// created.
 func (cli Client) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	query := url.Values{}
 
@@ -32,6 +35,7 @@ func (cli Client) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	return &newIPAMConfig, nil
 }
 
+// ReleaseIPs sends a DELETE request with containerID to the daemon.
 func (cli Client) ReleaseIPs(containerID string) error {
 	query := url.Values{}
 
