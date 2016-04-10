@@ -112,11 +112,11 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) 
 // C.BPF_EXIST to update existing element.
 func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 	uba := C.union_bpf_attr{}
-	// TODO: fix me, this should be update
-	C.create_bpf_lookup_elem(
+	C.create_bpf_update_elem(
 		C.int(fd),
 		key,
 		value,
+		C.ulonglong(flags),
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := syscall.Syscall(
