@@ -73,13 +73,13 @@ func initBPF() {
 
 	f, err := os.Create("./globals/node_config.h")
 	if err != nil {
+		// TODO: warning doesn't stop the daemon
 		log.Warningf("Failed to create node configuration file: %s", err)
 		return
 
 	}
 
-	hostIP := make(net.IP, len(nodeAddr))
-	copy(hostIP, nodeAddr)
+	hostIP := common.DupIP(nodeAddr)
 	hostIP[14] = 0xff
 	hostIP[15] = 0xff
 
@@ -111,8 +111,7 @@ func initBPF() {
 	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
-	ipv4Gw := make(net.IP, len(ipv4Range.IP))
-	copy(ipv4Gw, ipv4Range.IP)
+	ipv4Gw := common.DupIP(ipv4Range.IP)
 	ipv4Gw[2] = 0xff
 	ipv4Gw[3] = 0xff
 	fmt.Fprintf(f, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
@@ -127,6 +126,7 @@ func initBPF() {
 
 	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
 	if err != nil {
+		// TODO: warning doesn't stop the daemon
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
 		return
@@ -134,6 +134,7 @@ func initBPF() {
 
 	lxcMap, err = lxcmap.OpenMap(common.BPFMap)
 	if err != nil {
+		// TODO: warning doesn't stop the daemon
 		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 		return
 	}
