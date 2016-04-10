@@ -55,6 +55,8 @@ const (
 	GlobalLabelPrefix = "io.cilium"
 	// CiliumLabelSource is the default label source for the labels read from containers.
 	CiliumLabelSource = "cilium"
+	// K8sLabelSource is the default label source for the labels read from kubernetes.
+	K8sLabelSource = "k8s"
 
 	// Endpoint prefixes
 
