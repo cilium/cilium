@@ -21,7 +21,7 @@ import (
 
 const (
 	// RFC3339Mili is the RFC3339 with miliseconds for the default timestamp format
-	// log files
+	// log files.
 	RFC3339Mili = "2006-01-02T15:04:05.999Z07:00"
 )
 
@@ -53,7 +53,7 @@ func setupLOG(logLevel, hostname string) {
 
 	fileFormat := logging.MustStringFormatter(
 		`%{time:` + RFC3339Mili + `} ` + hostname +
-			` %{shortfunc} > %{level:.4s} %{id:03x} %{message}`,
+			` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`,
 	)
 
 	level, err := logging.LogLevel(logLevel)
