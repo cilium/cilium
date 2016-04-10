@@ -16,17 +16,9 @@ func ValidEndpointAddress(addr net.IP) bool {
 		// Not supported yet
 		return false
 	case net.IPv6len:
-		// TODO: check if it's possible to have this verification from the const
-		// values that we have.
-		// node id may not be 0
-		if addr[10] == 0 && addr[11] == 0 && addr[12] == 0 && addr[13] == 0 {
-			return false
-		}
-
-		// endpoint id may not be 0
-		if addr[14] == 0 && addr[15] == 0 {
-			return false
-		}
+		// If addr with NodeIPv6Mask is equal to addr means that have zeros from
+		// 112 to 128.
+		return !addr.Mask(NodeIPv6Mask).Equal(addr)
 	}
 
 	return true
@@ -48,7 +40,7 @@ func ValidNodeAddress(addr net.IP) bool {
 			return false
 		}
 
-		// node address must contain 0 suffix
+		// lxc address must contain 0 suffix
 		if addr[14] != 0 || addr[15] != 0 {
 			return false
 		}
