@@ -160,7 +160,7 @@ __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff 
 
 	//printk("Handle policy %d %d\n", src_label, ifindex);
 
-#ifndef DISABLE_POCLIY_ENFORCEMENT
+#ifndef DISABLE_POLICY_ENFORCEMENT
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
 
