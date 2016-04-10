@@ -24,11 +24,7 @@ func NewRouter(backend backend.CiliumBackend) Router {
 	r := Router{mRouter, backend, routes{}}
 	r.initRoutes()
 	for _, route := range r.routes {
-		var handler http.Handler
-
-		handler = route.HandlerFunc
-		// TODO: Change logger to the our own logger
-		handler = Logger(handler, route.Name)
+		handler := Logger(route.HandlerFunc, route.Name)
 
 		r.Methods(route.Method).
 			Path(route.Pattern).
@@ -41,13 +37,12 @@ func NewRouter(backend backend.CiliumBackend) Router {
 func processServerError(w http.ResponseWriter, r *http.Request, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Header().Set("Content-Type", "application/json")
-	e := json.NewEncoder(w)
 	sErr := types.ServerError{
 		http.StatusInternalServerError,
 		fmt.Sprintf("an unexpected internal error has occurred: \"%s\"", err),
 	}
 	log.Errorf("Error processing request '%+v': \"%s\"", r, err)
-	if err := e.Encode(sErr); err != nil {
+	if err := json.NewEncoder(w).Encode(sErr); err != nil {
 		log.Errorf("Error encoding %T '%+v': \"%s\"", sErr, sErr, err)
 		fmt.Fprintf(w, "Fatal error processing request '%+v': \"%s\"", r, err)
 	}
