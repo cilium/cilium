@@ -8,10 +8,9 @@ import (
 
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend/disk"
-	libnetworktypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
 )
 
-// AllocateIPs allocates and returns a free IPv6 address.
+// AllocateIPs allocates and returns a free IPv6 address with its routes set up.
 func (d *Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	store, err := disk.New(d.ipamConf.Name)
 	if err != nil {
@@ -33,16 +32,8 @@ func (d *Daemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	case net.IPv6len:
 		ciliumRoutes := []types.Route{}
 		for _, r := range d.ipamConf.Routes {
-			ciliumRoute := types.Route{
-				Destination: r.Dst,
-				NextHop:     r.GW,
-			}
-			if ciliumRoute.NextHop == nil {
-				ciliumRoute.Type = libnetworktypes.CONNECTED
-			} else {
-				ciliumRoute.Type = libnetworktypes.NEXTHOP
-			}
-			ciliumRoutes = append(ciliumRoutes, ciliumRoute)
+			ciliumRoute := types.NewRoute(r.Dst, r.GW)
+			ciliumRoutes = append(ciliumRoutes, *ciliumRoute)
 		}
 
 		return &types.IPAMConfig{

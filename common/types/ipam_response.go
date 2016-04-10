@@ -2,6 +2,8 @@ package types
 
 import (
 	"net"
+
+	libnetworktypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
 )
 
 // IPAMConfig contains both IPv4 and IPv6 IPAM configuration.
@@ -22,11 +24,35 @@ type IPConfig struct {
 	Routes []Route
 }
 
-// Route is the routing representation of an IPConfig
+// Route is the routing representation of an IPConfig. It can be a L2 or L3 route
+// depending if NextHop is nil or not.
 type Route struct {
 	Destination net.IPNet
 	NextHop     net.IP
 	Type        int
 }
 
-// TODO: Add proper methods to check if a route is l3 or l2 and finish route docs
+// NewRoute returns a Route from dst and nextHop with the proper libnetwork type based on
+// NextHop being nil or not.
+func NewRoute(dst net.IPNet, nextHop net.IP) *Route {
+	ciliumRoute := &Route{
+		Destination: dst,
+		NextHop:     nextHop,
+	}
+	if nextHop == nil {
+		ciliumRoute.Type = libnetworktypes.CONNECTED
+	} else {
+		ciliumRoute.Type = libnetworktypes.NEXTHOP
+	}
+	return ciliumRoute
+}
+
+// IsL2 returns true if the route represents a L2 route and false otherwise.
+func (r *Route) IsL2() bool {
+	return r.NextHop == nil
+}
+
+// IsL3 returns true if the route represents a L3 route and false otherwise.
+func (r *Route) IsL3() bool {
+	return r.NextHop != nil
+}
