@@ -18,9 +18,8 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
-const (
-	logsDateFormat    = `-2006-01-02`
-	logNameTimeFormat = time.RFC3339
+const(
+	RFC3339Mili     = "2006-01-02T15:04:05.999Z07:00"
 )
 
 var (
@@ -37,43 +36,28 @@ var (
 	libDir             string
 	runDir             string
 	consulAddr         string
+	hostname           string
 	disablePolicy      bool
 	lxcMap             *lxcmap.LXCMap
 	log                = logging.MustGetLogger("cilium-net")
-	stdoutFormat       = logging.MustStringFormatter(
-		`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}`,
-	)
-	fileFormat = logging.MustStringFormatter(
-		`%{time:` + time.RFC3339Nano + `} ` + os.Getenv("HOSTNAME") + ` %{shortfunc} ▶ %{level:.4s} %{id:03x} %{message}`,
-	)
 )
 
-func setupLOG() {
-	// TODO fix log location to where the logs are written
+func setupLOG(logLevel, hostname string) {
+
+	fileFormat := logging.MustStringFormatter(
+		`%{time:` + RFC3339Mili + `} ` + hostname +
+		` %{shortfunc} > %{level:.4s} %{id:03x} %{message}`,
+	)
+
 	level, err := logging.LogLevel(logLevel)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	logTimename := time.Now().Format(logNameTimeFormat)
-	ciliumLogsDir := os.TempDir() + string(os.PathSeparator) + "cilium-logs"
-	if err := os.MkdirAll(ciliumLogsDir, 0755); err != nil {
-		log.Errorf("Error while creating directory: %s", err)
-	}
-
-	fo, err := os.Create(ciliumLogsDir + string(os.PathSeparator) + "cilium-net-log-" + logTimename + ".log")
-	if err != nil {
-		log.Errorf("Error while creating log file: %s", err)
-	}
-
-	fileBackend := logging.NewLogBackend(fo, "", 0)
-
-	fBF := logging.NewBackendFormatter(fileBackend, fileFormat)
-
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	oBF := logging.NewBackendFormatter(backend, fileFormat)
 
-	backendLeveled := logging.SetBackend(fBF, oBF)
+	backendLeveled := logging.SetBackend(oBF)
 	backendLeveled.SetLevel(level, "")
 	log.SetBackend(backendLeveled)
 }
@@ -167,10 +151,14 @@ func init() {
 	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
 	flag.StringVar(&ipv4Prefix, "ipv4-mapping", common.DefaultIPv4Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flag.StringVar(&v4range, "ipv4-range", "", "IPv6 prefix to map IPv4 addresses to")
+	flag.StringVar(&hostname, "hostname", "", "Overwrites hostname's value that will be used for log messages")
 	flag.BoolVar(&disablePolicy, "disable-policy", false, "Disable policy enforcement")
 	flag.Parse()
 
-	setupLOG()
+	if hostname == "" {
+		hostname, _ = os.Hostname()
+	}
+	setupLOG(logLevel, hostname)
 
 	if nodeAddrStr == "" {
 		var err error
@@ -194,7 +182,6 @@ func init() {
 	}
 
 	var err error
-
 	nodeAddr, _, err = net.ParseCIDR(addr.String() + "/64")
 	if err != nil {
 		log.Fatalf("Invalid CIDR %s", addr.String())
