@@ -57,6 +57,9 @@ const (
 	CiliumLabelSource = "cilium"
 	// K8sLabelSource is the default label source for the labels read from kubernetes.
 	K8sLabelSource = "k8s"
+	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
+	// represent the same number of IPv6 addresses supported on each node.
+	EndpointsPerHost = 0xFFFF
 
 	// Endpoint prefixes
 

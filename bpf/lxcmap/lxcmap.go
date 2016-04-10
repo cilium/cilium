@@ -29,9 +29,7 @@ type LXCMap struct {
 
 const (
 	// MaxKeys represents the maximum number of keys in the LXCMap.
-	// TODO: bump this number to 0xffff
-	// Or at least make it dependent on the number of containers per node)
-	MaxKeys = 1024
+	MaxKeys = common.EndpointsPerHost
 
 	// PortMapMax represents the maximum number of Ports Mapping per container.
 	PortMapMax = 16
