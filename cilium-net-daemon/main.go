@@ -102,7 +102,7 @@ func initBPF() {
 	}
 
 	if disablePolicy {
-		f.WriteString("#define DISABLE_POCLIY_ENFORCEMENT\n")
+		f.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
 	}
 
 	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(nodeAddr))
