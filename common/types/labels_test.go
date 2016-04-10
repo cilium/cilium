@@ -73,3 +73,19 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 	fmt.Printf("%+v\n", m)
 	c.Assert(m, DeepEquals, lbls)
 }
+
+func (s *LabelsSuite) TestMergeLabels(c *C) {
+	to := Labels{
+		"key1": NewLabel("key1", "value1", "source1"),
+		"key2": NewLabel("key1", "value3", "source4"),
+	}
+	from := Labels{
+		"key1": NewLabel("key1", "value3", "source4"),
+	}
+	want := Labels{
+		"key1": NewLabel("key1", "value3", "source4"),
+		"key2": NewLabel("key1", "value3", "source4"),
+	}
+	to.MergeLabels(from)
+	c.Assert(to, DeepEquals, want)
+}

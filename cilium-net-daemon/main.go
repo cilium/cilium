@@ -13,40 +13,47 @@ import (
 	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
 	s "github.com/noironetworks/cilium-net/cilium-net-daemon/server"
 	common "github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/types"
 
 	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
-const(
-	RFC3339Mili     = "2006-01-02T15:04:05.999Z07:00"
+const (
+	// RFC3339Mili is the RFC3339 with miliseconds for the default timestamp format
+	// log files
+	RFC3339Mili = "2006-01-02T15:04:05.999Z07:00"
 )
 
 var (
+	// Arguments variables keep in alphabetical order
+	consulAddr         string
+	device             string
+	disablePolicy      bool
 	dockerEndpoint     string
+	hostname           string
+	ipv4Prefix         string
 	kubernetesEndpoint string
-	socketPath         string
+	labelPrefixFile    string
+	libDir             string
 	logLevel           string
 	nodeAddrStr        string
-	nodeAddr           net.IP
-	ipv4Prefix         string
-	v4range            string
-	ipv4Range          *net.IPNet
-	device             string
-	libDir             string
 	runDir             string
-	consulAddr         string
-	hostname           string
-	disablePolicy      bool
-	lxcMap             *lxcmap.LXCMap
+	socketPath         string
+	v4range            string
+
+	ipv4Range          *net.IPNet
 	log                = logging.MustGetLogger("cilium-net")
+	lxcMap             *lxcmap.LXCMap
+	nodeAddr           net.IP
+	validLabelPrefixes *types.LabelPrefixCfg
 )
 
 func setupLOG(logLevel, hostname string) {
 
 	fileFormat := logging.MustStringFormatter(
 		`%{time:` + RFC3339Mili + `} ` + hostname +
-		` %{shortfunc} > %{level:.4s} %{id:03x} %{message}`,
+			` %{shortfunc} > %{level:.4s} %{id:03x} %{message}`,
 	)
 
 	level, err := logging.LogLevel(logLevel)
@@ -141,25 +148,38 @@ func initBPF() {
 }
 
 func init() {
-	flag.StringVar(&dockerEndpoint, "e", "unix:///var/run/docker.sock", "Register a listener for docker events on the given endpoint")
-	flag.StringVar(&kubernetesEndpoint, "k", "http://127.0.0.1:8080", "Kubernetes endpoint to retrieve metadata information of new started containers")
-	flag.StringVar(&logLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
-	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
-	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
-	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
+	// Keep in alphabetical order
 	flag.StringVar(&consulAddr, "c", "127.0.0.1:8500", "Consul agent address")
-	flag.StringVar(&libDir, "D", "/usr/lib/cilium", "Cilium library directory")
-	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
-	flag.StringVar(&ipv4Prefix, "ipv4-mapping", common.DefaultIPv4Prefix, "IPv6 prefix to map IPv4 addresses to")
-	flag.StringVar(&v4range, "ipv4-range", "", "IPv6 prefix to map IPv4 addresses to")
-	flag.StringVar(&hostname, "hostname", "", "Overwrites hostname's value that will be used for log messages")
+	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
 	flag.BoolVar(&disablePolicy, "disable-policy", false, "Disable policy enforcement")
+	flag.StringVar(&dockerEndpoint, "e", "unix:///var/run/docker.sock", "Register a listener for docker events on the given endpoint")
+	flag.StringVar(&hostname, "hostname", "", "Overwrites hostname's value that will be used for log messages")
+	flag.StringVar(&ipv4Prefix, "ipv4-mapping", common.DefaultIPv4Prefix, "IPv6 prefix to map IPv4 addresses to")
+	flag.StringVar(&kubernetesEndpoint, "k", "http://127.0.0.1:8080", "Kubernetes endpoint to retrieve metadata information of new started containers")
+	flag.StringVar(&labelPrefixFile, "p", "", "File with valid label prefixes")
+	flag.StringVar(&libDir, "D", "/usr/lib/cilium", "Cilium library directory")
+	flag.StringVar(&logLevel, "l", "info", "Set log level, valid options are (debug|info|warning|error|fatal|panic)")
+	flag.StringVar(&nodeAddrStr, "n", "", "IPv6 address of node, must be in correct format")
+	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
+	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
+	flag.StringVar(&v4range, "ipv4-range", "", "IPv6 prefix to map IPv4 addresses to")
 	flag.Parse()
 
 	if hostname == "" {
 		hostname, _ = os.Hostname()
 	}
 	setupLOG(logLevel, hostname)
+
+	if labelPrefixFile != "" {
+		var err error
+		validLabelPrefixes, err = types.ReadLabelPrefixCfgFrom(labelPrefixFile)
+		if err != nil {
+			log.Fatal("Unable to read label prefix file: %s\n", err)
+			return
+		}
+	} else {
+		validLabelPrefixes = types.DefaultLabelPrefixCfg()
+	}
 
 	if nodeAddrStr == "" {
 		var err error
@@ -222,15 +242,14 @@ func main() {
 	consulDefaultAPI := consulAPI.DefaultConfig()
 	consulDefaultAPI.Address = consulAddr
 	daemonConf := daemon.Config{
-		LibDir:         libDir,
-		LXCMap:         lxcMap,
-		NodeAddress:    nodeAddr,
-		IPv4Range:      ipv4Range,
-		ConsulConfig:   consulDefaultAPI,
-		DockerEndpoint: dockerEndpoint,
-		K8sEndpoint:    kubernetesEndpoint,
-		// TODO: Read from a file
-		ValidLabelPrefixes: []string{common.GlobalLabelPrefix},
+		LibDir:             libDir,
+		LXCMap:             lxcMap,
+		NodeAddress:        nodeAddr,
+		IPv4Range:          ipv4Range,
+		ConsulConfig:       consulDefaultAPI,
+		DockerEndpoint:     dockerEndpoint,
+		K8sEndpoint:        kubernetesEndpoint,
+		ValidLabelPrefixes: validLabelPrefixes,
 	}
 
 	d, err := daemon.NewDaemon(&daemonConf)

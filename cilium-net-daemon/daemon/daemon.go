@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -45,7 +44,7 @@ type Daemon struct {
 	consul               *consulAPI.Client
 	endpoints            map[string]*ciliumTypes.Endpoint
 	endpointsMU          sync.Mutex
-	validLabelPrefixes   []string
+	validLabelPrefixes   *ciliumTypes.LabelPrefixCfg
 	validLabelPrefixesMU sync.Mutex
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
@@ -201,21 +200,6 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	}
 }
 
-func (d *Daemon) filterValidLabels(labels map[string]string) map[string]string {
-	d.validLabelPrefixesMU.Lock()
-	defer d.validLabelPrefixesMU.Unlock()
-	filteredLabels := map[string]string{}
-	for k, v := range labels {
-		for _, prefix := range d.validLabelPrefixes {
-			if strings.HasPrefix(k, prefix) {
-				filteredLabels[k] = v
-				break
-			}
-		}
-	}
-	return filteredLabels
-}
-
 func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
 	for _, contNetwork := range cont.NetworkSettings.Networks {
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
@@ -247,21 +231,23 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 }
 
 func (d *Daemon) getFilteredLabels(allLabels map[string]string) ciliumTypes.Labels {
+	var ciliumLabels, k8sLabels ciliumTypes.Labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
-		k8sLabels, err := d.fetchK8sLabels(allLabels)
+		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
 			log.Warningf("Error while getting kubernetes labels: %s", err)
-		} else if k8sLabels != nil {
-			// Copy to labels that we already have
-			for k, v := range k8sLabels {
-				allLabels[k] = v
-			}
+		} else if k8sNormalLabels != nil {
+			k8sLabels = ciliumTypes.Map2Labels(k8sNormalLabels, common.K8sLabelSource)
 		}
 	}
 
-	labels := d.filterValidLabels(allLabels)
+	ciliumLabels = ciliumTypes.Map2Labels(allLabels, common.CiliumLabelSource)
 
-	return ciliumTypes.Map2Labels(labels, common.CiliumLabelSource)
+	ciliumLabels.MergeLabels(k8sLabels)
+
+	d.validLabelPrefixesMU.Lock()
+	defer d.validLabelPrefixesMU.Unlock()
+	return d.validLabelPrefixes.FilterLabels(ciliumLabels)
 }
 
 func (d *Daemon) createContainer(m dTypesEvents.Message) {

@@ -40,23 +40,6 @@ func NewLabel(key string, value string, source string) *Label {
 	}
 }
 
-// Map2Labels transforms in the form: map[key(string)]value(string) into Labels.
-// Example:
-// l := Map2Labels(map[string]string{"foo": "bar"}, "cilium")
-// fmt.Printf("%+v\n", l)
-//   map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
-func Map2Labels(m map[string]string, source string) Labels {
-	o := Labels{}
-	for k, v := range m {
-		o[k] = &Label{
-			Key:    k,
-			Value:  v,
-			Source: source,
-		}
-	}
-	return o
-}
-
 // Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
 	return l.Source == b.Source &&
@@ -158,6 +141,37 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// Map2Labels transforms in the form: map[key(string)]value(string) into Labels.
+// Example:
+// l := Map2Labels(map[string]string{"foo": "bar"}, "cilium")
+// fmt.Printf("%+v\n", l)
+//   map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
+func Map2Labels(m map[string]string, source string) Labels {
+	o := Labels{}
+	for k, v := range m {
+		o[k] = &Label{
+			Key:    k,
+			Value:  v,
+			Source: source,
+		}
+	}
+	return o
+}
+
+// MergeLabels merges labels from into to. It overwrites all labels with the same Key as
+// from writen into to.
+// Example:
+// to := Labels{Label{key1, value1, source1}, Label{key2, value3, source4}}
+// from := Labels{Label{key1, value3, source4}}
+// to.MergeLabels(from)
+// fmt.Printf("%+v\n", to)
+//   Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
+func (lbls Labels) MergeLabels(from Labels) {
+	for k, v := range from {
+		lbls[k] = v
+	}
 }
 
 // SHA256Sum calculates lbls' internal SHA256Sum. For a particular set of labels is
