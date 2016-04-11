@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	cnc "github.com/noironetworks/cilium-net/common/client"
+	"github.com/noironetworks/cilium-net/common/plugins"
 	ciliumtypes "github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
@@ -49,10 +50,6 @@ func loadNetConf(bytes []byte) (*netConf, error) {
 	return n, nil
 }
 
-func endpoint2IfName(endpointID string) string {
-	return hostInterfacePrefix + endpointID[:5]
-}
-
 func removeIfFromNSIfExists(netns *os.File, ifName string) error {
 	return ns.WithNetNS(netns, false, func(_ *os.File) error {
 		l, err := netlink.LinkByName(ifName)
@@ -64,69 +61,6 @@ func removeIfFromNSIfExists(netns *os.File, ifName string) error {
 		}
 		return netlink.LinkDel(l)
 	})
-}
-
-func setupVeth(netNsFile *os.File, ifName, containerID string, mtu int, ep *ciliumtypes.Endpoint) (*netlink.Veth, error) {
-
-	lxcIfName := endpoint2IfName(containerID)
-	tmpIfName := temporaryInterfacePrefix + containerID[:5]
-
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: lxcIfName},
-		PeerName:  tmpIfName,
-	}
-
-	if err := netlink.LinkAdd(veth); err != nil {
-		return nil, fmt.Errorf("unable to create veth pair: %s", err)
-	}
-	var err error
-	defer func() {
-		if err != nil {
-			if err = netlink.LinkDel(veth); err != nil {
-				log.Warnf("failed to clean up veth %q: %s", veth.Name, err)
-			}
-		}
-	}()
-
-	peer, err := netlink.LinkByName(tmpIfName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to lookup veth peer just created: %s", err)
-	}
-
-	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
-		return nil, fmt.Errorf("unable to set MTU to %q: %s", tmpIfName, err)
-	}
-
-	hostVeth, err := netlink.LinkByName(lxcIfName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to lookup veth just created: %s", err)
-	}
-
-	if err = netlink.LinkSetMTU(hostVeth, mtu); err != nil {
-		return nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
-	}
-
-	if err = netlink.LinkSetUp(veth); err != nil {
-		return nil, fmt.Errorf("unable to bring up veth pair: %s", err)
-	}
-
-	ep.LXCMAC = ciliumtypes.MAC(peer.Attrs().HardwareAddr)
-	ep.NodeMAC = ciliumtypes.MAC(hostVeth.Attrs().HardwareAddr)
-	ep.IfIndex = hostVeth.Attrs().Index
-	ep.IfName = lxcIfName
-
-	if err := netlink.LinkSetNsFd(peer, int(netNsFile.Fd())); err != nil {
-		return nil, fmt.Errorf("unable to move veth pair %q to netns: %s", peer, err)
-	}
-
-	err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
-		err := renameLink(tmpIfName, ifName)
-		if err != nil {
-			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, ifName, err)
-		}
-		return nil
-	})
-	return veth, err
 }
 
 func renameLink(curName, newName string) error {
@@ -230,7 +164,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	var ep ciliumtypes.Endpoint
-	veth, err := setupVeth(netNsFile, args.IfName, args.ContainerID, n.MTU, &ep)
+	veth, peer, tmpIfName, err := plugins.SetupVeth(args.ContainerID, n.MTU, &ep)
 	if err != nil {
 		return err
 	}
@@ -241,6 +175,18 @@ func cmdAdd(args *skel.CmdArgs) error {
 			}
 		}
 	}()
+
+	if err = netlink.LinkSetNsFd(*peer, int(netNsFile.Fd())); err != nil {
+		return fmt.Errorf("unable to move veth pair %q to netns: %s", peer, err)
+	}
+
+	err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
+		err := renameLink(tmpIfName, args.IfName)
+		if err != nil {
+			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, args.IfName, err)
+		}
+		return nil
+	})
 
 	ipamConf, err := c.AllocateIPs(args.ContainerID)
 	if err != nil {
@@ -269,19 +215,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	return createCNIReply(ipamConf)
-}
-
-func delLinkByName(ifName string) error {
-	iface, err := netlink.LinkByName(ifName)
-	if err != nil {
-		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
-	}
-
-	if err = netlink.LinkDel(iface); err != nil {
-		return fmt.Errorf("failed to delete %q: %v", ifName, err)
-	}
-
-	return nil
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -324,6 +257,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	return ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {
-		return delLinkByName(args.IfName)
+		return plugins.DelLinkByName(args.IfName)
 	})
 }

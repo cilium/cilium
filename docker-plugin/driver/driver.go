@@ -9,6 +9,7 @@ import (
 
 	common "github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/client"
+	"github.com/noironetworks/cilium-net/common/plugins"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
 	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
@@ -27,10 +28,6 @@ const (
 	DefaultPoolV6 = "CiliumPoolv6"
 	// LocalAllocSubnet is never exposed, used to generate IPv6 address. //TODO remove this
 	LocalAllocSubnet = "1.0.0.0/16"
-	// HostInterfacePrefix is the Host interface prefix.
-	HostInterfacePrefix = "lxc"
-	// TemporaryInterfacePrefix is the temporary interface prefix while setting up libNetwork interface.
-	TemporaryInterfacePrefix = "tmp"
 	// ContainerInterfacePrefix is the container's internal interface name prefix.
 	ContainerInterfacePrefix = "cilium"
 	// DummyV4AllocPool is never exposed, makes libnetwork happy.
@@ -51,10 +48,6 @@ type driver struct {
 	endpoints      map[string]*ciliumtype.Endpoint
 	sync.Mutex
 	client *cnc.Client
-}
-
-func endpoint2IfName(endpointID string) string {
-	return HostInterfacePrefix + endpointID[:5]
 }
 
 // NewDriver creates and returns a new Driver for the given ctx.
@@ -299,19 +292,6 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	objectResponse(w, resp)
 }
 
-func deleteEndpointInterface(endpointID string) {
-	ifname := endpoint2IfName(endpointID)
-	link, err := netlink.LinkByName(ifname)
-	if err != nil {
-		log.Errorf("Could not find host-side container link %s: [ %s ]", ifname, err)
-		return
-	}
-
-	// Just in case we did not receive a leave notification for this endpoint
-	// interface should have already been deleted by the leave handler
-	netlink.LinkDel(link)
-}
-
 func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	var del api.DeleteEndpointRequest
 	if err := json.NewDecoder(r.Body).Decode(&del); err != nil {
@@ -321,7 +301,10 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Delete endpoint request: %+v", &del)
 
 	delete(driver.endpoints, del.EndpointID)
-	deleteEndpointInterface(del.EndpointID)
+	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil{
+		log.Warnf("Error while deleting link: %s", err)
+	}
+
 	emptyResponse(w)
 }
 
@@ -337,7 +320,10 @@ func (driver *driver) infoEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
-	var j api.JoinRequest
+	var (
+		j   api.JoinRequest
+		err error
+	)
 	if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
@@ -350,61 +336,32 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lxcIfname := endpoint2IfName(j.EndpointID)
-	tmpIfname := TemporaryInterfacePrefix + j.EndpointID[:5]
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: lxcIfname},
-		PeerName:  tmpIfname,
-	}
-
-	if err := netlink.LinkAdd(veth); err != nil {
-		sendError(w, "Unable to create veth pair: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	log.Debugf("Created veth pair %s <-> %s", lxcIfname, veth.PeerName)
-
-	peer, err := netlink.LinkByName(tmpIfname)
+	veth, _, tmpIfName, err := plugins.SetupVeth(j.EndpointID, 1450, ep)
 	if err != nil {
-		sendError(w, "Unable to lookup veth peer just created: "+err.Error(), http.StatusBadRequest)
+		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	if err := netlink.LinkSetMTU(peer, 1450); err != nil {
-		sendError(w, "Unable to set MTU: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	ep.LXCMAC = ciliumtype.MAC(peer.Attrs().HardwareAddr)
-
-	nodeVeth, err := netlink.LinkByName(lxcIfname)
-	if err != nil {
-		sendError(w, "Unable to lookup veth pair just created: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	ep.NodeMAC = ciliumtype.MAC(nodeVeth.Attrs().HardwareAddr)
-	ep.IfIndex = nodeVeth.Attrs().Index
-
-	if err := netlink.LinkSetUp(veth); err != nil {
-		sendError(w, "Unable to bring up veth pair: "+err.Error(), http.StatusBadRequest)
-		return
-	}
+	defer func() {
+		if err != nil {
+			if err = netlink.LinkDel(veth); err != nil {
+				log.Warnf("failed to clean up veth %q: %s", veth.Name, err)
+			}
+		}
+	}()
 
 	ifname := &api.InterfaceName{
-		SrcName:   tmpIfname,
+		SrcName:   tmpIfName,
 		DstPrefix: ContainerInterfacePrefix,
 	}
 
-	gw := driver.nodeAddress.String()
-
-	ep.IfName = lxcIfname
 	ep.SetID()
-	if err := driver.client.EndpointJoin(*ep); err != nil {
+	if err = driver.client.EndpointJoin(*ep); err != nil {
 		log.Errorf("Joining endpoint failed: %s", err)
 		// TODO: clean all of the stuff that we created so far
 		sendError(w, "Unable to create BPF map: "+err.Error(), http.StatusInternalServerError)
 	}
 
+	gw := driver.nodeAddress.String()
 	routeGW := api.StaticRoute{
 		Destination: gw + "/128",
 		RouteType:   types.CONNECTED,
@@ -444,6 +401,8 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	deleteEndpointInterface(l.EndpointID)
+	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(l.EndpointID)); err != nil{
+		log.Warnf("Error while deleting link: %s", err)
+	}
 	emptyResponse(w)
 }
