@@ -256,6 +256,7 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 }
 
 type Port struct {
+	// FIXME: struct field has json tag but is not exported
 	proto  string `json:"Protocol"`
 	number int    `json:"Number"`
 }
