@@ -2,8 +2,10 @@ include Makefile.defs
 
 SUBDIRS = docker-plugin cilium-net-daemon cni bpf policy-repo
 
-all:
-	for i in $(SUBDIRS); do $(MAKE) -C $$i; done
+all: $(SUBDIRS)
+
+$(SUBDIRS): force
+	@ $(MAKE) -C $@ all
 
 tests:
 	$(MAKE) -C common tests
@@ -28,3 +30,6 @@ install:
 
 runtime-tests:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i runtime-tests; done
+
+.PHONY: force
+force :;
