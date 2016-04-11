@@ -7,8 +7,12 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/noironetworks/cilium-net/bpf/policymap"
+	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/bpf"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -67,6 +71,22 @@ func main() {
 			Name:   "delete",
 			Usage:  "delete policy (sub)tree",
 			Action: deletePolicy,
+		},
+		{
+			Name:   "get-id",
+			Usage:  "lookup security context id",
+			Action: getSecID,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "list, l",
+					Usage: "List all reserved IDs",
+				},
+			},
+		},
+		{
+			Name:   "dump-map",
+			Usage:  "dump BPF policy map",
+			Action: dumpMap,
 		},
 	}
 	app.Before = initEnv
@@ -225,7 +245,7 @@ func importPolicy(ctx *cli.Context) {
 			return
 		}
 
-		if err := Client.PolicyAdd(node.Name, *node); err != nil {
+		if err := Client.PolicyAdd(node.Name, node); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
 		}
 	}
@@ -261,6 +281,51 @@ func deletePolicy(ctx *cli.Context) {
 
 	if err := Client.PolicyDelete(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
+	}
+}
+
+func getSecID(ctx *cli.Context) {
+	if ctx.Bool("list") {
+		for k, v := range types.ReservedIDMap {
+			fmt.Printf("%-15s %3d\n", k, v)
+		}
+		return
+	}
+
+	lbl := ctx.Args().First()
+
+	if id := types.GetID(lbl); id != types.ID_UNKNOWN {
+		fmt.Printf("%d\n", id)
+	} else {
+		os.Exit(1)
+	}
+}
+
+func dumpMap(ctx *cli.Context) {
+	lbl := ctx.Args().First()
+
+	if lbl != "" {
+		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
+			lbl = "reserved_" + strconv.Itoa(int(id))
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Need ID or label\n")
+		os.Exit(1)
+	}
+
+	file := common.PolicyMapPath + lbl
+	fd, err := bpf.ObjGet(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	m := policymap.PolicyMap{Fd: fd}
+	if out, err := m.Dump(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	} else {
+		fmt.Println(out)
 	}
 }
 

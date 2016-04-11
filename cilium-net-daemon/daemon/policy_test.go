@@ -18,7 +18,7 @@ func (ds *DaemonSuite) TestFindNode(c *C) {
 		},
 	}
 
-	err := ds.d.PolicyAdd("io.cilium", pn)
+	err := ds.d.PolicyAdd("io.cilium", &pn)
 	c.Assert(err, Equals, nil)
 
 	n, p, err := findNode("io.cilium")
@@ -60,7 +60,7 @@ func (ds *DaemonSuite) TestPolicyGet(c *C) {
 		},
 	}
 
-	err := ds.d.PolicyAdd("io.cilium", pn)
+	err := ds.d.PolicyAdd("io.cilium", &pn)
 	c.Assert(err, Equals, nil)
 
 	n, err := ds.d.PolicyGet("io.cilium.foo")
@@ -121,7 +121,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	c.Assert(rootNode.ResolveTree(), Equals, nil)
 
-	err := ds.d.PolicyAdd("io.cilium", rootNode)
+	err := ds.d.PolicyAdd("io.cilium", &rootNode)
 	c.Assert(err, Equals, nil)
 
 	qaBarLbls := Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -144,24 +144,26 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
 
-	e := Endpoint{SecLabelID: uint32(qaBarSecLblsCtx.ID)}
-	err = ds.d.RegenerateConsumerMap(&e)
+	e := Endpoint{}
+	e.SetSecLabel(qa_bar_sec_lbls_ctx)
+	err = ds.d.RegenerateEndpoint(&e)
 	c.Assert(err, Equals, nil)
-	c.Assert(e.AllowsSecLabel(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prodBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(qaFooSecLblsCtx.ID), Equals, true)
-	c.Assert(e.AllowsSecLabel(prodFooSecLblsCtx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prodFooJoeSecLblsCtx.ID), Equals, true)
+	c.Assert(e.Allows(qa_bar_sec_lbls_ctx.ID), Equals, false)
+	c.Assert(e.Allows(prod_bar_sec_lbls_ctx.ID), Equals, false)
+	c.Assert(e.Allows(qa_foo_sec_lbls_ctx.ID), Equals, true)
+	c.Assert(e.Allows(prod_foo_sec_lbls_ctx.ID), Equals, false)
+	c.Assert(e.Allows(prod_foo_joe_sec_lbls_ctx.ID), Equals, true)
 
-	e = Endpoint{SecLabelID: uint32(prodBarSecLblsCtx.ID)}
-	err = ds.d.RegenerateConsumerMap(&e)
+	e = Endpoint{}
+	e.SetSecLabel(prod_bar_sec_lbls_ctx)
+	err = ds.d.RegenerateEndpoint(&e)
 	c.Assert(err, Equals, nil)
-	c.Assert(e.AllowsSecLabel(0), Equals, false)
-	c.Assert(e.AllowsSecLabel(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prodBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(qaFooSecLblsCtx.ID), Equals, false)
-	c.Assert(e.AllowsSecLabel(prodFooSecLblsCtx.ID), Equals, true)
-	c.Assert(e.AllowsSecLabel(prodFooJoeSecLblsCtx.ID), Equals, true)
+	c.Assert(e.Allows(0), Equals, false)
+	c.Assert(e.Allows(qa_bar_sec_lbls_ctx.ID), Equals, false)
+	c.Assert(e.Allows(prod_bar_sec_lbls_ctx.ID), Equals, false)
+	c.Assert(e.Allows(qa_foo_sec_lbls_ctx.ID), Equals, false)
+	c.Assert(e.Allows(prod_foo_sec_lbls_ctx.ID), Equals, true)
+	c.Assert(e.Allows(prod_foo_joe_sec_lbls_ctx.ID), Equals, true)
 
 	err = ds.d.PolicyDelete("io.cilium")
 	c.Assert(err, Equals, nil)

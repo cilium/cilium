@@ -103,7 +103,12 @@ int from_netdev(struct __sk_buff *skb)
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		union v6addr dst = {};
+#ifdef FIXED_SRC_SECCTX
+		__u32 flowlabel = FIXED_SRC_SECCTX;
+#else
 		__u32 flowlabel = 0;
+#endif
+
 #ifdef HANDLE_NS
 		__u8 nexthdr;
 
@@ -117,17 +122,43 @@ int from_netdev(struct __sk_buff *skb)
 		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
 
 		load_ipv6_daddr(skb, ETH_HLEN, &dst);
+#ifndef FIXED_SRC_SECCTX
 		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
+		flowlabel = ntohl(flowlabel);
+#endif
 
 		if (is_node_subnet(&dst)) {
 			printk("Targeted for a local container, src label: %d\n",
 				ntohl(flowlabel));
 
-			return do_l3(skb, ETH_HLEN, &dst, ntohl(flowlabel));
+			return do_l3(skb, ETH_HLEN, &dst, flowlabel);
 		}
 	}
 
 	return TC_ACT_OK;
+}
+
+__BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
+	  sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
+
+__section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
+{
+	int ifindex = skb->cb[1];
+
+#ifndef DISABLE_POCLIY_ENFORCEMENT
+	struct policy_entry *policy;
+	__u32 src_label = skb->cb[0];
+
+	printk("Handle for host %d %d\n", ntohl(src_label), ifindex);
+
+	policy = map_lookup_elem(&POLICY_MAP, &src_label);
+	if (!policy) {
+		printk("Denied by policy!\n");
+		return TC_ACT_SHOT;
+	}
+#endif
+
+	return redirect(ifindex, 0);
 }
 
 BPF_LICENSE("GPL");

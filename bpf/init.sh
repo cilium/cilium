@@ -5,6 +5,8 @@ ADDR=$2
 V4RANGE=$3
 MODE=$4
 
+HOST_ID="host"
+
 set -e
 set -x
 
@@ -41,7 +43,7 @@ ip route add $ADDR/128 dev $HOST_DEV1
 ip route del $ADDR/112 via $ADDR 2> /dev/null || true
 ip route add $ADDR/112 via $ADDR
 
-V4ADDR=$(echo $V4RANGE | sed 's/0.0/255.255/')
+V4ADDR=$(echo $V4RANGE | sed 's/.0.0$/.255.255/')
 ip route del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
 ip route add $V4ADDR/32 dev $HOST_DEV1
 ip route del $V4RANGE/16 via $V4ADDR 2> /dev/null || true
@@ -53,7 +55,9 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
-clang -O2 -DHANDLE_NS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
+ID=$(cilium-net-policy get-id $HOST_ID 2> /dev/null)
+OPTS="-DHANDLE_NS -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+clang -O2 $OPTS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
 
 tc qdisc del dev cilium_net clsact 2> /dev/null || true
 tc qdisc add dev cilium_net clsact
@@ -93,5 +97,3 @@ else
 	echo "Warning: unknown mode: \"$MODE\""
 	exit
 fi
-
-mount bpffs /sys/fs/bpf/ -t bpf || true

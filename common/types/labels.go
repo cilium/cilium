@@ -66,7 +66,18 @@ func (l *Label) AbsoluteKey() string {
 	return l.Key
 }
 
+func decodeReservedLabel(source string, label *Label) {
+	label.Source = common.ReservedLabelSource
+	label.Key = source[1:]
+	label.Value = ""
+}
+
 func decodeLabelShortForm(source string, label *Label) {
+	if source[0] == '$' {
+		decodeReservedLabel(source, label)
+		return
+	}
+
 	sep := strings.SplitN(source, ":", 2)
 	if len(sep) != 2 {
 		label.Source = common.CiliumLabelSource

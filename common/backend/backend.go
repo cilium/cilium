@@ -23,7 +23,7 @@ type labelBackend interface {
 }
 
 type policyBackend interface {
-	PolicyAdd(path string, node types.PolicyNode) error
+	PolicyAdd(path string, node *types.PolicyNode) error
 	PolicyDelete(path string) error
 	PolicyGet(path string) (*types.PolicyNode, error)
 }

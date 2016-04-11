@@ -31,6 +31,7 @@ var (
 	device             string
 	disablePolicy      bool
 	dockerEndpoint     string
+	enableTracing      bool
 	hostname           string
 	ipv4Prefix         string
 	kubernetesEndpoint string
@@ -114,6 +115,7 @@ func initBPF() {
 	f.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
 
 	f.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
+	fmt.Fprintf(f, "#define HOST_ID %d\n", types.GetID("host"))
 
 	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
@@ -153,6 +155,7 @@ func init() {
 	flag.StringVar(&device, "d", "undefined", "Device to snoop on")
 	flag.BoolVar(&disablePolicy, "disable-policy", false, "Disable policy enforcement")
 	flag.StringVar(&dockerEndpoint, "e", "unix:///var/run/docker.sock", "Register a listener for docker events on the given endpoint")
+	flag.BoolVar(&enableTracing, "enable-tracing", false, "Enable tracing while determing policy")
 	flag.StringVar(&hostname, "hostname", "", "Overwrites hostname's value that will be used for log messages")
 	flag.StringVar(&ipv4Prefix, "ipv4-mapping", common.DefaultIPv4Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flag.StringVar(&kubernetesEndpoint, "k", "http://127.0.0.1:8080", "Kubernetes endpoint to retrieve metadata information of new started containers")
@@ -235,6 +238,22 @@ func init() {
 		return
 	}
 
+	// Mount BPF Map directory if not already done
+	args := []string{"-q", common.BPFMapRoot}
+	_, err = exec.Command("mountpoint", args...).CombinedOutput()
+	if err != nil {
+		args = []string{"bpffs", common.BPFMapRoot, "-t", "bpf"}
+		out, err := exec.Command("mount", args...).CombinedOutput()
+		if err != nil {
+			log.Warningf("Command execution failed: %s\n%s", err, out)
+		}
+	}
+
+	if err := daemon.PolicyInit(); err != nil {
+		log.Fatalf("Unable to initialize policy: %s", err)
+		return
+	}
+
 	initBPF()
 }
 
@@ -249,13 +268,16 @@ func main() {
 		ConsulConfig:       consulDefaultAPI,
 		DockerEndpoint:     dockerEndpoint,
 		K8sEndpoint:        kubernetesEndpoint,
+		EnableTracing:      enableTracing,
 		ValidLabelPrefixes: validLabelPrefixes,
 	}
 
 	d, err := daemon.NewDaemon(&daemonConf)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
+		return
 	}
+
 	// Register event listener in docker endpoint
 	d.ActivateEventListener()
 	d.ActivateConsulWatcher(time.Duration(5 * time.Second))

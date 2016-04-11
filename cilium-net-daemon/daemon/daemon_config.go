@@ -19,4 +19,5 @@ type Config struct {
 	DockerEndpoint     string                // Docker endpoint
 	K8sEndpoint        string                // Kubernetes endpoint
 	ValidLabelPrefixes *types.LabelPrefixCfg // Label prefixes used to filter from all labels
+	EnableTracing      bool
 }

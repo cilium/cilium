@@ -5,6 +5,17 @@ $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
 mount bpffs /sys/fs/bpf/ -t bpf
 sudo apt-get -y install socat curl
+
+# HACK until packer script is fixed
+sudo cp /home/vagrant/go/bin/godep /usr/bin/
+
+export GOROOT=/usr/local/go
+export GOPATH=$HOME/go
+export PATH="$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH"
+
+echo "export GOROOT=$GOROOT" >> /etc/bash.bashrc
+echo "export GOPATH=$GOPATH" >> /etc/bash.bashrc
+echo 'export PATH=$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-13.04/bin:$PATH' >>  /etc/bash.bashrc
 SCRIPT
 
 $build = <<SCRIPT

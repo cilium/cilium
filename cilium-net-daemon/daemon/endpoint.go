@@ -30,22 +30,25 @@ func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
-func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, secLabel uint32) *types.Endpoint {
+func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, labels *types.SecCtxLabel) *types.Endpoint {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
+
+	id := ""
 	if endpointID != "" {
-		if ep, ok := d.endpoints[common.CiliumPrefix+endpointID]; ok {
-			ep.SecLabelID = secLabel
-			epCopy := *ep
-			return &epCopy
-		}
+		id = common.CiliumPrefix + endpointID
 	} else if dockerID != "" {
-		if ep, ok := d.endpoints[common.DockerPrefix+dockerID]; ok {
-			ep.SecLabelID = secLabel
-			epCopy := *ep
-			return &epCopy
-		}
+		id = common.DockerPrefix + dockerID
+	} else {
+		return nil
 	}
+
+	if ep, ok := d.endpoints[id]; ok {
+		ep.SetSecLabel(labels)
+		epCopy := *ep
+		return &epCopy
+	}
+
 	return nil
 }
 
@@ -128,9 +131,9 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
 	fmt.Fprintf(f, "#define LXC_ID %#x\n", ep.U16ID())
 	fmt.Fprintf(f, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
-	fmt.Fprintf(f, "#define LXC_SECLABEL_NB %#x\n", common.Swab32(ep.SecLabelID))
-	fmt.Fprintf(f, "#define LXC_SECLABEL %#x\n", ep.SecLabelID)
-	fmt.Fprintf(f, "#define LXC_POLICY_MAP %s\n", path.Base(policyMapPath))
+	fmt.Fprintf(f, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabelID))
+	fmt.Fprintf(f, "#define SECLABEL %#x\n", ep.SecLabelID)
+	fmt.Fprintf(f, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
 	f.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 
 	f.WriteString("#define LXC_PORT_MAPPINGS ")
@@ -151,22 +154,32 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	}
 
 	ep.PolicyMap = policyMap
-	if err := d.RegenerateConsumerMap(ep); err != nil {
-		os.RemoveAll(policyMapPath)
-		os.RemoveAll(lxcDir)
-		log.Warningf("Unable to generate policy map for '%s': %s", policyMapPath, err)
-		return fmt.Errorf("Unable to generate policy map for '%s': %s", policyMapPath, err)
-	}
 
 	if err = d.lxcMap.WriteEndpoint(ep); err != nil {
 		os.RemoveAll(lxcDir)
+		os.RemoveAll(policyMapPath)
 		log.Warningf("Unable to update BPF map: %s", err)
 		return fmt.Errorf("Unable to update eBPF map: %s", err)
+	}
+
+	// Only generate & populate policy map if a seclabel and consumer model is set up
+	if ep.Consumable != nil {
+		ep.Consumable.AddMap(policyMap)
+		if err := d.RegenerateEndpoint(ep); err != nil {
+			ep.Consumable.RemoveMap(policyMap)
+			os.RemoveAll(policyMapPath)
+			os.RemoveAll(lxcDir)
+			log.Warningf("Unable to generate policy map for '%s': %s", policyMapPath, err)
+			return fmt.Errorf("Unable to generate policy map for '%s': %s", policyMapPath, err)
+		}
 	}
 
 	args := []string{d.libDir, ep.ID, ep.IfName}
 	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
+		if ep.Consumable != nil {
+			ep.Consumable.RemoveMap(policyMap)
+		}
 		os.RemoveAll(lxcDir)
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
@@ -213,6 +226,12 @@ func (d *Daemon) EndpointLeave(epID string) error {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
+	}
+
+	if ep := d.getEndpoint(epID); ep != nil {
+		if ep.Consumable != nil {
+			ep.Consumable.RemoveMap(ep.PolicyMap)
+		}
 	}
 
 	// Clear policy map

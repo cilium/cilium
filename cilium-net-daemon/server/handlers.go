@@ -191,7 +191,7 @@ func (router *Router) policyAdd(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, err)
 		return
 	}
-	if err := router.daemon.PolicyAdd(path, pn); err != nil {
+	if err := router.daemon.PolicyAdd(path, &pn); err != nil {
 		processServerError(w, r, err)
 		return
 	}

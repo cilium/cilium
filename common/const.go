@@ -16,7 +16,8 @@ const (
 	// DefaultContainerMAC represents a dummy MAC address for the containers.
 	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
 	// BPFMap is the file that contains the BPF Map for the host.
-	BPFMap = "/sys/fs/bpf/tc/globals/cilium_lxc"
+	BPFMap     = "/sys/fs/bpf/tc/globals/cilium_lxc"
+	BPFMapRoot = "/sys/fs/bpf"
 	// PolicyMapPath is the base path for the cilium policy for each local container.
 	PolicyMapPath = "/sys/fs/bpf/tc/globals/cilium_policy_"
 
@@ -57,6 +58,8 @@ const (
 	CiliumLabelSource = "cilium"
 	// K8sLabelSource is the default label source for the labels read from kubernetes.
 	K8sLabelSource = "k8s"
+	// Label source for reserved types
+	ReservedLabelSource = "reserved"
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
 	// represent the same number of IPv6 addresses supported on each node.
 	EndpointsPerHost = 0xFFFF

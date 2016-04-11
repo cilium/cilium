@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 )
@@ -13,8 +14,10 @@ import (
 // Global tree, eventually this will turn into a cache with the real tree
 // store in consul
 var (
-	tree        types.PolicyTree
-	policyMutex sync.Mutex
+	tree                types.PolicyTree
+	policyMutex         sync.Mutex
+	cacheIteration      = 1
+	reservedConsumables = make([]*types.Consumable, 0)
 )
 
 // findNode returns node and its parent or an error
@@ -27,10 +30,10 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 
 	newPath := strings.Replace(path, common.GlobalLabelPrefix, "", 1)
 	if newPath == "" {
-		return &tree.Root, nil, nil
+		return tree.Root, nil, nil
 	}
 
-	current := &tree.Root
+	current := tree.Root
 	parent = nil
 
 	for _, nodeName := range strings.Split(newPath, ".") {
@@ -48,11 +51,58 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-// RegenerateConsumerMap regenerates MAP of consumers for e. Must be called with
-// endpointsMU held.
-func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
+func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID int) error {
+	ctx.From = nil
+
+	// Check if we have the source security context in our local
+	// consumable cache
+	srcConsumable := types.LookupConsumable(srcID)
+	if srcConsumable != nil {
+		ctx.From = srcConsumable.LabelList
+	}
+
+	// No cache entry or labels not available, do full lookup of labels
+	// via KV store
+	if ctx.From == nil {
+		lbls, err := d.GetLabels(srcID)
+		if err != nil {
+			return err
+		}
+
+		// ID is not associated with anything, skip...
+		if lbls == nil {
+			return nil
+		}
+
+		ctx.From = make([]types.Label, len(lbls.Labels))
+
+		idx := 0
+		for k, v := range lbls.Labels {
+			ctx.From[idx] = types.Label{Key: k, Value: v.Value, Source: v.Source}
+			idx++
+		}
+	}
+
+	decision := d.PolicyCanConsume(ctx)
+	// Only accept rules get stored
+	if decision == types.ACCEPT {
+		c.AllowConsumerAndReverse(srcID)
+	}
+
+	return nil
+}
+
+// Must be called with endpointsMU held
+func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 	// Containers without a security label are not accessible
-	if e.SecLabelID == 0 {
+	if c.ID == 0 {
+		log.Fatalf("Impossible: SecLabel == 0 when generating endpoint consumers")
+		return nil
+	}
+
+	// Skip if policy for this consumable is already valid
+	if c.Iteration == cacheIteration {
+		log.Debugf("Policy for %d is already calculated, reusing...", c.ID)
 		return nil
 	}
 
@@ -61,87 +111,84 @@ func (d *Daemon) RegenerateConsumerMap(e *types.Endpoint) error {
 		return err
 	}
 
-	secCtxLabels, err := d.GetLabels(int(e.SecLabelID))
-	if err != nil {
-		return err
-	}
-	if secCtxLabels == nil {
-		return nil
-	}
-
-	ctx := types.SearchContext{To: make([]types.Label, len(secCtxLabels.Labels))}
-
-	idx := 0
-	for k, v := range secCtxLabels.Labels {
-		ctx.To[idx] = types.Label{Key: k, Value: v.Value, Source: v.Source}
-		idx++
-	}
-
-	// Mark all entries unused by denying them
-	for k := range e.Consumers {
-		e.Consumers[k].Decision = types.DENY
+	ctx := types.SearchContext{
+		Trace: d.enableTracing,
+		To:    c.LabelList,
 	}
 
 	policyMutex.Lock()
 	defer policyMutex.Unlock()
 
-	for idx < maxID {
-		srcSecCtxLabels, err := d.GetLabels(idx)
-		if err != nil {
+	// Mark all entries unused by denying them
+	for k, _ := range c.Consumers {
+		c.Consumers[k].DeletionMark = true
+	}
+
+	// Check access from reserved consumables first
+	for _, id := range reservedConsumables {
+		if err := d.EvaluateConsumerSource(c, &ctx, id.ID); err != nil {
+			// This should never really happen
+			// FIXME: clear policy because it is inconsistent
 			break
 		}
-		if srcSecCtxLabels == nil {
-			idx++
-			continue
-		}
+	}
 
-		ctx.From = make([]types.Label, len(srcSecCtxLabels.Labels))
-
-		idx2 := 0
-		for k, v := range srcSecCtxLabels.Labels {
-			ctx.From[idx2] = types.Label{Key: k, Value: v.Value, Source: v.Source}
-			idx2++
-		}
-
-		log.Debugf("Building policy for context: %+v\n", ctx)
-
-		decision := d.PolicyCanConsume(&ctx)
-		// Only accept rules get stored
-		if decision == types.ACCEPT {
-			log.Debugf("Allowing direction %d -> %d\n", idx, e.SecLabelID)
-			e.AllowConsumer(idx)
-			for _, r := range d.endpoints {
-				if r.SecLabelID == uint32(idx) {
-					log.Debugf("Allowing reverse direction %d -> %d\n", e.SecLabelID, idx)
-					r.AllowConsumer(int(e.SecLabelID))
-				}
-			}
+	// Iterate over all possible assigned search contexts
+	idx := common.FirstFreeID
+	for idx < maxID {
+		if err := d.EvaluateConsumerSource(c, &ctx, idx); err != nil {
+			// FIXME: clear policy because it is inconsistent
+			break
 		}
 		idx++
 	}
 
 	// Garbage collect all unused entries
-	for k, val := range e.Consumers {
-		if val.Decision == types.DENY {
-			e.BanConsumer(idx)
-			delete(e.Consumers, k)
+	for _, val := range c.Consumers {
+		if val.DeletionMark {
+			val.DeletionMark = false
+			c.BanConsumer(val.ID)
 		}
 	}
 
-	log.Debugf("New policy map for ep %d: %+v\n", e.SecLabelID, e.Consumers)
+	// Result is valid until cache iteration advances
+	c.Iteration = cacheIteration
+
+	log.Debugf("New policy (iteration %d) for consumable %d: %+v\n", c.Iteration, c.ID, c.Consumers)
 
 	return nil
 }
 
-// TriggerPolicyUpdates triggers policy updates for all endpoints in the host.
-func (d *Daemon) TriggerPolicyUpdates(added []int) {
-	log.Debugf("Triggering policy updates %+v", added)
+func InvalidateCache() {
+	cacheIteration++
+	if cacheIteration == 0 {
+		cacheIteration = 1
+	}
+}
 
+func (d *Daemon) RegenerateEndpoint(e *types.Endpoint) error {
+	if e.Consumable != nil {
+		return d.RegenerateConsumable(e.Consumable)
+	} else {
+		return nil
+	}
+}
+
+func (d *Daemon) TriggerPolicyUpdates(added []int) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
+	if len(added) == 0 {
+		log.Debugf("Full policy recalculation triggered")
+		InvalidateCache()
+	} else {
+		log.Debugf("Partial policy recalculation triggered: %v", added)
+		// FIXME: Invalidate only cache that is affected
+		InvalidateCache()
+	}
+
 	for _, ep := range d.endpoints {
-		d.RegenerateConsumerMap(ep)
+		d.RegenerateEndpoint(ep)
 	}
 }
 
@@ -150,9 +197,12 @@ func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDeci
 	return tree.Allows(ctx)
 }
 
-// PolicyAdd adds the policy with the given path to the policyNode.
-func (d *Daemon) PolicyAdd(path string, policyNode types.PolicyNode) error {
-	log.Debugf("Policy Add Request: %+v", &policyNode)
+func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
+	if node.Name == "" {
+		node.Name = path
+	}
+
+	log.Debugf("Policy Add Request: %+v", node)
 
 	policyMutex.Lock()
 	parentNode, parent, err := findNode(path)
@@ -161,9 +211,13 @@ func (d *Daemon) PolicyAdd(path string, policyNode types.PolicyNode) error {
 		return err
 	}
 	if parent == nil {
-		tree.Root = policyNode
+		tree.Root = node
 	} else {
-		parentNode.Children[policyNode.Name] = &policyNode
+		if parent == nil {
+			tree.Root = node
+		} else {
+			parentNode.Children[node.Name] = node
+		}
 	}
 	policyMutex.Unlock()
 
@@ -183,9 +237,13 @@ func (d *Daemon) PolicyDelete(path string) error {
 		return err
 	}
 	if parent == nil {
-		tree.Root = types.PolicyNode{}
+		tree.Root = &types.PolicyNode{}
 	} else {
-		delete(parent.Children, node.Name)
+		if parent == nil {
+			tree.Root = &types.PolicyNode{}
+		} else {
+			delete(parent.Children, node.Name)
+		}
 	}
 	policyMutex.Unlock()
 
@@ -199,4 +257,31 @@ func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 	log.Debugf("Policy Get Request: %s", path)
 	node, _, err := findNode(path)
 	return node, err
+}
+
+func PolicyInit() error {
+	for k, v := range types.ReservedIDMap {
+		lbl := types.SecCtxLabel{
+			ID:       int(v),
+			RefCount: 1,
+			Labels:   map[string]*types.Label{},
+		}
+		policyMapPath := fmt.Sprintf("%sreserved_%d", common.PolicyMapPath, int(v))
+
+		lbl.Labels[k] = &types.Label{Key: k, Source: common.ReservedLabelSource}
+
+		policyMap, err := policymap.OpenMap(policyMapPath)
+		if err != nil {
+			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
+		}
+
+		if c := types.GetConsumable(int(v), &lbl); c == nil {
+			return fmt.Errorf("Unable to initialize consumable for %v", lbl)
+		} else {
+			reservedConsumables = append(reservedConsumables, c)
+			c.AddMap(policyMap)
+		}
+	}
+
+	return nil
 }
