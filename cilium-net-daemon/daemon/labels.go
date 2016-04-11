@@ -124,7 +124,6 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabel) error {
 			return fmt.Errorf("Reached maximum set of labels available.")
 		}
 	}
-	return nil
 }
 
 func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error) {
