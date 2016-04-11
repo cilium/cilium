@@ -174,7 +174,7 @@ func init() {
 		var err error
 		validLabelPrefixes, err = types.ReadLabelPrefixCfgFrom(labelPrefixFile)
 		if err != nil {
-			log.Fatal("Unable to read label prefix file: %s\n", err)
+			log.Fatalf("Unable to read label prefix file: %s\n", err)
 			return
 		}
 	} else {
