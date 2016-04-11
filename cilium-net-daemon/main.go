@@ -245,7 +245,7 @@ func init() {
 		args = []string{"bpffs", common.BPFMapRoot, "-t", "bpf"}
 		out, err := exec.Command("mount", args...).CombinedOutput()
 		if err != nil {
-			log.Warningf("Command execution failed: %s\n%s", err, out)
+			log.Fatalf("Command execution failed: %s\n%s", err, out)
 		}
 	}
 
