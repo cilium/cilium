@@ -286,7 +286,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	else
 		csum_off += sizeof(struct ipv6hdr);
 
-	l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
+	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 	printk("v46 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
@@ -367,7 +367,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	else
 		csum_off += sizeof(struct iphdr);
 
-	l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
+	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 	printk("v64 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
