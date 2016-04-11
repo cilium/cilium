@@ -14,11 +14,17 @@ const (
 	LPCfgFileVersion = 1
 )
 
+// Label is the cilium's representation of a container label.
+type LabelPrefix struct {
+	Prefix string `json:"prefix"`
+	Source string `json:"source"`
+}
+
 // LabelPrefixCfg is the label prefix configuration to filter labels of started
 // containers.
 type LabelPrefixCfg struct {
-	Version       int      `json:"version"`
-	LabelPrefixes []*Label `json:"labels"`
+	Version       int            `json:"version"`
+	LabelPrefixes []*LabelPrefix `json:"valid-prefixes"`
 }
 
 // DefaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
@@ -28,13 +34,13 @@ type LabelPrefixCfg struct {
 func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 	return &LabelPrefixCfg{
 		Version: LPCfgFileVersion,
-		LabelPrefixes: []*Label{
-			&Label{
-				Key:    common.GlobalLabelPrefix,
+		LabelPrefixes: []*LabelPrefix{
+			&LabelPrefix{
+				Prefix: common.GlobalLabelPrefix,
 				Source: common.CiliumLabelSource,
 			},
-			&Label{
-				Key:    common.GlobalLabelPrefix,
+			&LabelPrefix{
+				Prefix: common.GlobalLabelPrefix,
 				Source: common.K8sLabelSource,
 			},
 		},
@@ -57,6 +63,14 @@ func ReadLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
 	if lpc.Version != LPCfgFileVersion {
 		return nil, fmt.Errorf("unsupported version %d", lpc.Version)
 	}
+	for _, lp := range lpc.LabelPrefixes {
+		if lp.Prefix == "" {
+			return nil, fmt.Errorf("invalid label prefix file: prefix was empty")
+		}
+		if lp.Source == "" {
+			return nil, fmt.Errorf("invalid label prefix file: source was empty")
+		}
+	}
 	return &lpc, nil
 }
 
@@ -67,7 +81,7 @@ func (lpc *LabelPrefixCfg) FilterLabels(labels Labels) Labels {
 	for k, v := range labels {
 		for _, lpcValue := range lpc.LabelPrefixes {
 			if lpcValue.Source == v.Source &&
-				strings.HasPrefix(v.Key, lpcValue.Key) {
+				strings.HasPrefix(v.Key, lpcValue.Prefix) {
 				// Just want to make sure we don't have labels deleted in
 				// on side and disappearing in the other side...
 				cpy := Label(*v)
