@@ -10,4 +10,4 @@ cd "$P"
 godep go install ./... 2> /dev/null || true
 make clean
 make
-make tests
+sudo -E bash -l -c make tests

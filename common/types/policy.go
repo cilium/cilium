@@ -20,6 +20,37 @@ const (
 	DROP_PRIVILEGES
 )
 
+type ReservedID int
+
+const (
+	ID_UNKNOWN ReservedID = iota
+	ID_HOST
+	ID_WORLD
+)
+
+var ReservedIDMap = map[string]ReservedID{
+	"host":  ID_HOST,
+	"world": ID_WORLD,
+}
+
+func (id *ReservedID) String() string {
+	for k, v := range ReservedIDMap {
+		if v == *id {
+			return k
+		}
+	}
+
+	return ""
+}
+
+func GetID(name string) ReservedID {
+	if v, ok := ReservedIDMap[name]; ok {
+		return v
+	} else {
+		return ID_UNKNOWN
+	}
+}
+
 type ConsumableDecision byte
 
 const (
@@ -110,6 +141,9 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		Action ConsumableDecision `json:"action"`
 		Label  Label
 	}
+
+	// Default is allow
+	aux.Action = ACCEPT
 
 	// We first attempt to parse a full AllowRule JSON object which
 	// was likely created by MarshalJSON of the client, in case that
@@ -275,7 +309,7 @@ type PolicyRuleDropPrivileges struct {
 // Node to define hierarchy of rules
 type PolicyNode struct {
 	path     string
-	Name     string                 `json:"-"`
+	Name     string                 `json:"Name"`
 	Parent   *PolicyNode            `json:"-"`
 	Rules    []interface{}          `json:"Rules,omitempty"`
 	Children map[string]*PolicyNode `json:"Children,omitempty"`
@@ -506,7 +540,7 @@ func (pn *PolicyNode) AddChild(name string, child *PolicyNode) error {
 
 // Overall policy tree
 type PolicyTree struct {
-	Root PolicyNode
+	Root *PolicyNode
 }
 
 func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
@@ -514,7 +548,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
-			policyTrace(ctx, "Covered by %+v\n", child)
+			policyTrace(ctx, "Matching child node: %+v\n", child)
 			switch child.Allows(ctx) {
 			case DENY:
 				return DENY
@@ -523,7 +557,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
-			policyTrace(ctx, "... contuining with decision: %s\n", decision.String())
+			policyTrace(ctx, "... proceeding with decision: %s\n", decision.String())
 		}
 	}
 
@@ -538,7 +572,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
-			policyTrace(ctx, "... continuing with decision: %s\n", decision.String())
+			policyTrace(ctx, "... proceeding with decision: %s\n", decision.String())
 		}
 	}
 
@@ -547,6 +581,12 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 
 func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
 	policyTrace(ctx, "Deriving policy for context %+v\n", ctx)
+
+	// In absence of policy, deny
+	if t.Root == nil {
+		return DENY
+	}
+
 	decision := t.Root.Allows(ctx)
 	policyTrace(ctx, "Root rules: %s\n", decision.String())
 	switch decision {
@@ -556,7 +596,7 @@ func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
 		return DENY
 	}
 
-	decision = canConsume(&t.Root, ctx)
+	decision = canConsume(t.Root, ctx)
 	policyTrace(ctx, "Root children decision: %s\n", decision.String())
 	if decision == ALWAYS_ACCEPT {
 		decision = ACCEPT

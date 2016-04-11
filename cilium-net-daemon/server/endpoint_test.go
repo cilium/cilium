@@ -15,7 +15,6 @@ var (
 	NodeAddr        = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
 	HardAddr        = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 	SecLabel uint32 = 0x200
-	EmptyMap        = map[string]*types.Consumer{}
 )
 
 func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
@@ -27,7 +26,6 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
 		SecLabelID:    SecLabel,
-		Consumers:     EmptyMap,
 	}
 	ep.SetID()
 
@@ -49,7 +47,6 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
 		SecLabelID:    SecLabel,
-		Consumers:     EmptyMap,
 	}
 	ep.SetID()
 
@@ -71,7 +68,6 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
 		SecLabelID:    SecLabel,
-		Consumers:     EmptyMap,
 	}
 	ep.SetID()
 
@@ -93,7 +89,6 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
 		SecLabelID:    SecLabel,
-		Consumers:     EmptyMap,
 	}
 	ep.SetID()
 

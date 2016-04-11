@@ -49,6 +49,7 @@ type Daemon struct {
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
 	ipv4Range            *net.IPNet
+	enableTracing        bool
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -117,6 +118,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpoints:          make(map[string]*ciliumTypes.Endpoint),
 		validLabelPrefixes: c.ValidLabelPrefixes,
 		ipv4Range:          c.IPv4Range,
+		enableTracing:      c.EnableTracing,
 	}, nil
 }
 
@@ -280,7 +282,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	maxTries := 5
 	var ep *ciliumTypes.Endpoint
 	for try < maxTries {
-		if ep = d.setEndpointSecLabel(ciliumID, dockerID, uint32(secCtxlabels.ID)); ep != nil {
+		if ep = d.setEndpointSecLabel(ciliumID, dockerID, secCtxlabels); ep != nil {
 			break
 		}
 		log.Warningf("Something went wrong, the endpoint for docker ID '%s' was not locally found. Attempt... %d", dockerID, try)

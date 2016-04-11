@@ -10,8 +10,9 @@ import (
 )
 
 // PolicyAdd sends a POST request with node to the "/policy/+path" endpoint to the daemon.
-func (cli Client) PolicyAdd(path string, node types.PolicyNode) error {
+func (cli Client) PolicyAdd(path string, node *types.PolicyNode) error {
 	query := url.Values{}
+	fmt.Printf("before; %+v\n", node)
 	serverResp, err := cli.post("/policy/"+path, query, node, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)

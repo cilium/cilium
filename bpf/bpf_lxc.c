@@ -102,12 +102,17 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 				return TC_ACT_SHOT;
 		}
 
-		return redirect(HOST_IFINDEX, 0);
+		skb->cb[0] = SECLABEL;
+		skb->cb[1] = HOST_IFINDEX;
+
+		tail_call(skb, &cilium_jmp, HOST_ID);
+		printk("No policy program found, dropping packet to host\n");
+		return TC_ACT_SHOT;
 	}
 
 	if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
-		return do_encapsulation(skb, node_id, LXC_SECLABEL_NB);
+		return do_encapsulation(skb, node_id, SECLABEL_NB);
 #else
 		union macaddr router_mac = NODE_MAC;
 		int ret;
@@ -116,14 +121,14 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		ipv6_store_flowlabel(skb, nh_off, LXC_SECLABEL_NB);
+		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
 
 		/* Pass down to stack */
 		return TC_ACT_OK;
 #endif
 	} else {
-		ipv6_store_flowlabel(skb, nh_off, LXC_SECLABEL_NB);
-		return do_l3(skb, nh_off, &dst, LXC_SECLABEL);
+		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
+		return do_l3(skb, nh_off, &dst, SECLABEL);
 	}
 }
 
@@ -151,10 +156,10 @@ int handle_ingress(struct __sk_buff *skb)
 	return do_l3_from_lxc(skb, nh_off);
 }
 
-__BPF_MAP(LXC_POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
+__BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 	  sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
 
-__section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
 	int ifindex = skb->cb[1];
 
@@ -164,11 +169,10 @@ __section_tail(CILIUM_MAP_JMP, LXC_SECLABEL) int handle_policy(struct __sk_buff 
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
 
-	policy = map_lookup_elem(&LXC_POLICY_MAP, &src_label);
+	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (!policy) {
-		printk("Denied!\n");
-		//return TC_ACT_SHOT;
-		return redirect(ifindex, 0);
+		printk("Denied by policy!\n");
+		return TC_ACT_SHOT;
 	}
 #endif
 

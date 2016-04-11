@@ -1,7 +1,7 @@
 {
         "Name": "io.cilium",
         "Children": {
-		"Test": {
+		"test": {
 			"Rules": [{
 				"Coverage": ["QA"],
 				"Requires": ["QA"]
@@ -9,8 +9,8 @@
 				"Coverage": ["Prod"],
 				"Requires": ["Prod"]
 			},{
-				"Coverage": ["Server"],
-				"Allow": ["Client"]
+				"Coverage": ["io.cilium.test.server"],
+				"Allow": ["io.cilium.test.client", "$host"]
 			}]
 		}
 	}

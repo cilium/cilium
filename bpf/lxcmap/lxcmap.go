@@ -81,12 +81,12 @@ func (v6 v6Addr) String() string {
 // LXCInfo is an internal representation of an LXC most relevant details for eBPF
 // programs.
 type LXCInfo struct {
-	IfIndex  uint32
+	IfIndex    uint32
 	SecLabelID uint32
-	MAC      MAC
-	NodeMAC  MAC
-	V6Addr   v6Addr
-	PortMap  [PortMapMax]PortMap
+	MAC        MAC
+	NodeMAC    MAC
+	V6Addr     v6Addr
+	PortMap    [PortMapMax]PortMap
 }
 
 func (lxc LXCInfo) String() string {
@@ -130,8 +130,8 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		// written into the packet without an additional byte order
 		// conversion.
 		SecLabelID: common.Swab32(ep.SecLabelID),
-		MAC:      MAC(mac),
-		NodeMAC:  MAC(nodeMAC),
+		MAC:        MAC(mac),
+		NodeMAC:    MAC(nodeMAC),
 	}
 
 	copy(lxc.V6Addr[:], ep.LXCIP)
@@ -148,6 +148,10 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 
 // DeleteElement deletes the element with the given id from the LXCMap.
 func (m *LXCMap) DeleteElement(id string) error {
+	if m == nil {
+		return nil
+	}
+
 	n, _ := strconv.ParseUint(id, 10, 16)
 	key := uint16(n)
 	return bpf.DeleteElement(m.fd, unsafe.Pointer(&key))

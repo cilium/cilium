@@ -15,15 +15,17 @@ tar -C /usr/local -xJf clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 rm clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 
 export GOROOT=/usr/local/go
-echo 'export GOROOT=/usr/local/go' >> $HOME/.profile
+echo "export GOROOT=$GOROOT" >> /etc/bash.bashrc
 
-echo 'export GOPATH=$HOME/go' >> $HOME/.profile
 export GOPATH=$HOME/go
+echo "export GOPATH=$GOPATH" >> /etc/bash.bashrc
 
-export PATH=$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH
-echo 'export PATH=$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >> $HOME/.profile
+NEWPATH="$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin"
+export PATH="$NEWPATH:$PATH"
+echo "export PATH=$NEWPATH:\$PATH" >>  /etc/bash.bashrc
 
 rm -rf /home/vagrant/go
 mkdir -p /home/vagrant/go/src
 
 go get github.com/tools/godep
+cp /home/vagrant/go/bin/godep /usr/bin

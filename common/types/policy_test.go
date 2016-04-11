@@ -12,6 +12,20 @@ type CommonSuite struct{}
 
 var _ = Suite(&CommonSuite{})
 
+func (s *CommonSuite) TestReservedID(c *C) {
+	i1 := GetID("host")
+	c.Assert(i1, Equals, ID_HOST)
+	c.Assert(i1.String(), Equals, "host")
+
+	i2 := GetID("world")
+	c.Assert(i2, Equals, ID_WORLD)
+	c.Assert(i2.String(), Equals, "world")
+
+	c.Assert(GetID("unknown"), Equals, ID_UNKNOWN)
+	unknown := ReservedID(700)
+	c.Assert(unknown.String(), Equals, "")
+}
+
 func (s *CommonSuite) TestLabel(c *C) {
 	var label Label
 
@@ -523,13 +537,13 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 
 	c.Assert(rootNode.ResolveTree(), Equals, nil)
 
-	root := PolicyTree{rootNode}
-	c.Assert(root.Allows(&qaFooToQaBar), Equals, ACCEPT)
-	c.Assert(root.Allows(&prodFooToProdBar), Equals, ACCEPT)
-	c.Assert(root.Allows(&qaFooToProdBar), Equals, DENY)
-	c.Assert(root.Allows(&qaJoeFooToProdBar), Equals, ACCEPT)
-	c.Assert(root.Allows(&qaPeteFooToProdBar), Equals, DENY)
-	c.Assert(root.Allows(&qaBazToQaBar), Equals, DENY)
+	root := PolicyTree{&rootNode}
+	c.Assert(root.Allows(&qa_foo_to_qa_bar), Equals, ACCEPT)
+	c.Assert(root.Allows(&prod_foo_to_prod_bar), Equals, ACCEPT)
+	c.Assert(root.Allows(&qa_foo_to_prod_bar), Equals, DENY)
+	c.Assert(root.Allows(&qa_joe_foo_to_prod_bar), Equals, ACCEPT)
+	c.Assert(root.Allows(&qa_pete_foo_to_prod_bar), Equals, DENY)
+	c.Assert(root.Allows(&qa_baz_to_qa_bar), Equals, DENY)
 
 	_, err := json.MarshalIndent(rootNode, "", "    ")
 	c.Assert(err, Equals, nil)
