@@ -179,13 +179,13 @@ func (d *Daemon) listenForEvents(reader io.ReadCloser) {
 	for scanner.Scan() {
 		var e dTypesEvents.Message
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-			log.Error("Error while unmarshalling event: %+v", e)
+			log.Errorf("Error while unmarshalling event: %+v", e)
 		}
 		log.Debugf("Processing an event %+v", e)
 		go d.processEvent(e)
 	}
 	if err := scanner.Err(); err != nil {
-		log.Error("Error while reading events: %+v", err)
+		log.Errorf("Error while reading events: %+v", err)
 	}
 }
 
