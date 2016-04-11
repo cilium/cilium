@@ -153,6 +153,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
         __be32 sum = 0;
 	__u16 payload_len = 0;
 	__u8 icmp6_nexthdr = IPPROTO_ICMPV6;
+	int trimlen = 0;
 
 	/* initialize pointers to offsets in data */
 	icmp6hoplim = (struct icmp6hdr *)data;
@@ -181,9 +182,15 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
                         return TC_ACT_SHOT;
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = htons(56);
+		trimlen = 56 - ntohs(ipv6hdr->payload_len);
+		if (trimlen < 0) {
+			if (l4_hdr_change(skb, skb->len + trimlen, trimlen) < 0)
+				return TC_ACT_SHOT;
+		} else if (trimlen > 0) {
+			if (l4_hdr_change(skb, skb->len, trimlen) < 0)
+				return TC_ACT_SHOT;
+		}
 		/* trim or expand buffer and copy data buffer after ipv6 header */
-		if (skb_modify_tail(skb, 56 - ntohs(ipv6hdr->payload_len)) < 0)
-			return TC_ACT_SHOT;
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 56, 0) < 0)
 			return TC_ACT_SHOT;
@@ -199,8 +206,14 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
 		sum = compute_icmp6_csum(data, 68, ipv6hdr);
 		payload_len = htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
-		if (skb_modify_tail(skb, 68 - ntohs(ipv6hdr->payload_len)) < 0)
-			return TC_ACT_SHOT;
+		trimlen = 68 - ntohs(ipv6hdr->payload_len);
+		if (trimlen < 0) {
+			if (l4_hdr_change(skb, skb->len + trimlen, trimlen) < 0)
+				return TC_ACT_SHOT;
+		} else if (trimlen > 0) {
+			if (l4_hdr_change(skb, skb->len, trimlen) < 0)
+				return TC_ACT_SHOT;
+		}
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 68, 0) < 0)
 			return TC_ACT_SHOT;

@@ -256,8 +256,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 
 	pushoff = sizeof(struct ipv6hdr) - v4hdr_len;
 
-	if (skb_modify(skb, nh_off, pushoff, htons(ETH_P_IPV6),
-		       BPF_F_HDR_OUTER_NET) < 0) {
+	if (l3_hdr_change(skb, nh_off, pushoff, htons(ETH_P_IPV6)) < 0) {
 		//printk("v46 NAT: skb_modify failed\n");
 		return TC_ACT_SHOT;
 	}
@@ -287,7 +286,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	else
 		csum_off += sizeof(struct ipv6hdr);
 
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
+	l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
 
 	printk("v46 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
@@ -335,8 +334,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
 
-	if (skb_modify(skb, nh_off, pushoff, htons(ETH_P_IP),
-		       BPF_F_HDR_OUTER_NET) < 0) {
+	if (l3_hdr_change(skb, nh_off, pushoff, htons(ETH_P_IP)) < 0) {
 		//printk("v46 NAT: skb_modify failed\n");
 		return TC_ACT_SHOT;
 	}
@@ -369,7 +367,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	else
 		csum_off += sizeof(struct iphdr);
 
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
+	l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
 
 	printk("v64 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
