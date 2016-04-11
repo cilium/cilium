@@ -157,6 +157,8 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 		return TC_ACT_SHOT;
 	}
 #endif
+	policy->packets++;
+	policy->bytes += skb->len;
 
 	return redirect(ifindex, 0);
 }
