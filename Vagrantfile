@@ -19,6 +19,7 @@ sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-socket-proxy.conf /etc/init/
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-consul.conf /etc/init/
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-policy-watcher.conf /etc/init/
+sudo rm -rf /var/log/upstart/cilium-*
 sudo service cilium-net-daemon restart
 SCRIPT
 
