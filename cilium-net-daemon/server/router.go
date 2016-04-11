@@ -38,8 +38,8 @@ func processServerError(w http.ResponseWriter, r *http.Request, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Header().Set("Content-Type", "application/json")
 	sErr := types.ServerError{
-		http.StatusInternalServerError,
-		fmt.Sprintf("an unexpected internal error has occurred: \"%s\"", err),
+		Code: http.StatusInternalServerError,
+		Text: fmt.Sprintf("an unexpected internal error has occurred: \"%s\"", err),
 	}
 	log.Errorf("Error processing request '%+v': \"%s\"", r, err)
 	if err := json.NewEncoder(w).Encode(sErr); err != nil {
