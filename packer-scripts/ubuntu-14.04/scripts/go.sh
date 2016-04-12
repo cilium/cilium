@@ -17,7 +17,7 @@ rm clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04.tar.xz
 export GOROOT=/usr/local/go
 echo "export GOROOT=$GOROOT" >> /etc/bash.bashrc
 
-export GOPATH=$HOME/go
+export GOPATH=/home/vagrant/go
 echo "export GOPATH=$GOPATH" >> /etc/bash.bashrc
 
 NEWPATH="$GOROOT/bin:$GOPATH/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin"
