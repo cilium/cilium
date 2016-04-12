@@ -19,11 +19,6 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
-const (
-	hostInterfacePrefix      = "lxc"
-	temporaryInterfacePrefix = "tmp"
-)
-
 type netConf struct {
 	types.NetConf
 	MTU int `json:"mtu"`
