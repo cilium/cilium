@@ -23,14 +23,19 @@ const (
 type ReservedID int
 
 const (
+	ID_NAME_HOST  = "host"
+	ID_NAME_WORLD = "world"
+)
+
+const (
 	ID_UNKNOWN ReservedID = iota
 	ID_HOST
 	ID_WORLD
 )
 
 var ReservedIDMap = map[string]ReservedID{
-	"host":  ID_HOST,
-	"world": ID_WORLD,
+	ID_NAME_HOST:  ID_HOST,
+	ID_NAME_WORLD: ID_WORLD,
 }
 
 func (id *ReservedID) String() string {
