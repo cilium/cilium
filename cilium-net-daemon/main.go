@@ -116,6 +116,7 @@ func initBPF() {
 
 	f.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
 	fmt.Fprintf(f, "#define HOST_ID %d\n", types.GetID("host"))
+	fmt.Fprintf(f, "#define WORLD_ID %d\n", types.GetID("world"))
 
 	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
