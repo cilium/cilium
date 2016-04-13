@@ -112,6 +112,10 @@ func (lxc LXCInfo) String() string {
 // WriteEndpoint transforms the ep's relevant data into an LXCInfo and stores it in
 // LXCMap.
 func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
+	if m == nil {
+		return nil
+	}
+
 	key := ep.U16ID()
 
 	mac, err := ep.LXCMAC.Uint64()
