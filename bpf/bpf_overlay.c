@@ -15,7 +15,7 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 
-static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off)
+static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off, __u32 tunnel_id)
 {
 	union v6addr dst = {};
 	__u32 node_id;
@@ -29,23 +29,18 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
 		return TC_ACT_SHOT;
 	} else {
-		/* FIXME: derive correct seclabel */
-		return do_l3(skb, nh_off, &dst, 0);
+		return do_l3(skb, nh_off, &dst, ntohl(tunnel_id));
 	}
 }
 
 __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
-	int nh_off = ETH_HLEN;
 	struct bpf_tunnel_key key = {};
 
 	skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-	if (key.tunnel_id != 42)
-		return TC_ACT_SHOT;
-
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
-		return do_l3_from_overlay(skb, nh_off);
+		return do_l3_from_overlay(skb, ETH_HLEN, key.tunnel_id);
 
 	return TC_ACT_SHOT;
 }

@@ -171,7 +171,7 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (!policy) {
-		printk("Denied by policy!\n");
+		printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
 		return TC_ACT_SHOT;
 	}
 	policy->packets++;
