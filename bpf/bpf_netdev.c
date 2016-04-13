@@ -88,7 +88,7 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip)
 {
 #ifdef FIXED_SRC_SECCTX
-	__u32 flowlabel = FIXED_SRC_SECCTX
+	__u32 flowlabel = FIXED_SRC_SECCTX;
 #else
 	__u32 flowlabel = 0;
 	union v6addr src = {};
