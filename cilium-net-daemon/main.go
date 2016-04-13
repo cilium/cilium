@@ -42,6 +42,7 @@ var (
 	runDir             string
 	socketPath         string
 	v4range            string
+	tunnel             string
 
 	ipv4Range          *net.IPNet
 	log                = logging.MustGetLogger("cilium-net")
@@ -131,7 +132,7 @@ func initBPF() {
 	if device != "undefined" {
 		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), "direct", device}
 	} else {
-		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), "vxlan"}
+		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), tunnel}
 	}
 
 	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
@@ -167,6 +168,7 @@ func init() {
 	flag.StringVar(&runDir, "R", "/var/run/cilium", "Runtime data directory")
 	flag.StringVar(&socketPath, "s", common.CiliumSock, "Sets the socket path to listen for connections")
 	flag.StringVar(&v4range, "ipv4-range", "", "IPv6 prefix to map IPv4 addresses to")
+	flag.StringVar(&tunnel, "t", "vxlan", "tunnel mode vxlan or geneve, vxlan is the default")
 	flag.Parse()
 
 	if hostname == "" {

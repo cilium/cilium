@@ -63,6 +63,14 @@ tc qdisc del dev cilium_net clsact 2> /dev/null || true
 tc qdisc add dev cilium_net clsact
 tc filter add dev cilium_net ingress bpf da obj bpf_netdev_ns.o sec from-netdev
 
+sed '/ENCAP_GENEVE/d' /var/run/cilium/globals/node_config.h
+sed '/ENCAP_VXLAN/d' /var/run/cilium/globals/node_config.h
+if [ "$MODE" = "vxlan" ]; then
+	echo "#define ENCAP_VXLAN 1" >> /var/run/cilium/globals/node_config.h
+elif [ "$MODE" = "geneve" ]; then
+	echo "#define ENCAP_GENEVE 1" >> /var/run/cilium/globals/node_config.h
+fi
+
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ENCAP_DEV="cilium_${MODE}"
 	ip link show $ENCAP_DEV || {
