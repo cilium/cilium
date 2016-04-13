@@ -15,9 +15,8 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 {
 	struct bpf_tunnel_key key = {};
 
-	key.tunnel_id = 42;
+	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
-	key.tunnel_label = seclabel;
 
 	printk("Performing encapsulation to node %x on ifindex %u seclabel 0x%x\n",
 		node_id, ENCAP_IFINDEX, seclabel);
