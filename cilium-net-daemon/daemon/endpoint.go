@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/noironetworks/cilium-net/bpf/geneve"
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -17,6 +18,26 @@ var r, _ = regexp.Compile("^[0-9]+$")
 
 func isValidID(id string) bool {
 	return r.MatchString(id)
+}
+
+func writeGeneve(lxcDir string, ep *types.Endpoint, f *os.File) error {
+	fmt.Fprintf(f, "#define GENEVE_CLASS_EXPERIMENTAL 0xffff\n")
+	fmt.Fprintf(f, "#define GENEVE_TYPE_SECLABEL 0x1\n")
+
+	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabelID))
+	if err != nil {
+		log.Warningf("Could not write geneve options %s", err)
+		return err
+	}
+
+	_, rawData, err := geneve.ReadOpts(filepath.Join(lxcDir, "geneve_opts.cfg"))
+	if err != nil {
+		log.Warningf("Could not read geneve options %s", err)
+		return err
+	}
+	f.WriteString(common.FmtDefineArray("GENEVE_OPTS", rawData))
+
+	return nil
 }
 
 func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
@@ -143,6 +164,11 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		fmt.Fprintf(f, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
 	}
 	f.WriteString("\n")
+
+	err = writeGeneve(lxcDir, ep, f)
+	if err != nil {
+		return err
+	}
 
 	f.Close()
 
