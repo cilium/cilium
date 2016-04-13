@@ -19,21 +19,37 @@
 #include "lib/nat46.h"
 #include "lib/arp.h"
 
-static inline int is_node_subnet(const union v6addr *dst)
+static inline int is_node_subnet(const union v6addr *dst, const union v6addr *node_ip)
 {
-	union v6addr node = { . addr = ROUTER_IP };
 	int tmp;
 
-	tmp = dst->p1 - node.p1;
+	tmp = dst->p1 - node_ip->p1;
 	if (!tmp) {
-		tmp = dst->p2 - node.p2;
+		tmp = dst->p2 - node_ip->p2;
 		if (!tmp) {
-			tmp = dst->p3 - node.p3;
+			tmp = dst->p3 - node_ip->p3;
 			if (!tmp) {
 				__u32 a = ntohl(dst->p4);
-				__u32 b = ntohl(node.p4);
+				__u32 b = ntohl(node_ip->p4);
 				tmp = (a & 0xFFFF0000) - (b & 0xFFFF0000);
 			}
+		}
+	}
+
+	return !tmp;
+}
+
+static inline int matches_cluster_prefix(const union v6addr *addr, const union v6addr *prefix)
+{
+	int tmp;
+
+	tmp = addr->p1 - prefix->p1;
+	if (!tmp) {
+		tmp = addr->p2 - prefix->p2;
+		if (!tmp) {
+			__u32 a = ntohl(addr->p3);
+			__u32 b = ntohl(prefix->p3);
+			tmp = (a & 0xFFFF0000) - (b & 0xFFFF0000);
 		}
 	}
 
@@ -69,9 +85,32 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 	return redirect(skb->ifindex, 0);
 }
 
+static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip)
+{
+#ifdef FIXED_SRC_SECCTX
+	__u32 flowlabel = FIXED_SRC_SECCTX
+#else
+	__u32 flowlabel = 0;
+	union v6addr src = {};
+
+	load_ipv6_saddr(skb, ETH_HLEN, &src);
+	if (matches_cluster_prefix(&src, node_ip)) {
+		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
+		flowlabel = ntohl(flowlabel);
+	} else {
+		flowlabel = WORLD_ID;
+	}
+#endif
+
+	return flowlabel;
+}
+
+
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
+	union v6addr node_ip = { . addr = ROUTER_IP };
+
 #ifdef ENABLE_ARP_RESPONDER
 	union macaddr responder_mac = HOST_IFINDEX_MAC;
 	if (arp_check(skb, IPV4_GW, &responder_mac) == 1) {
@@ -103,11 +142,7 @@ int from_netdev(struct __sk_buff *skb)
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
 		union v6addr dst = {};
-#ifdef FIXED_SRC_SECCTX
-		__u32 flowlabel = FIXED_SRC_SECCTX;
-#else
-		__u32 flowlabel = 0;
-#endif
+		__u32 flowlabel;
 
 #ifdef HANDLE_NS
 		__u8 nexthdr;
@@ -122,12 +157,9 @@ int from_netdev(struct __sk_buff *skb)
 		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
 
 		load_ipv6_daddr(skb, ETH_HLEN, &dst);
-#ifndef FIXED_SRC_SECCTX
-		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
-		flowlabel = ntohl(flowlabel);
-#endif
+		flowlabel = derive_sec_ctx(skb, &node_ip);
 
-		if (is_node_subnet(&dst)) {
+		if (is_node_subnet(&dst, &node_ip)) {
 			printk("Targeted for a local container, src label: %d\n",
 				ntohl(flowlabel));
 
