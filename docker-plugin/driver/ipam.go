@@ -7,7 +7,6 @@ import (
 
 	"github.com/noironetworks/cilium-net/common"
 
-	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/ipams/remote/api"
 )
 
@@ -47,7 +46,7 @@ func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Request Pool request: %+v", &req)
 
 	if req.V6 == false {
-		log.Warnf("Docker requested us to use legacy IPv4, boooooring...")
+		log.Warningf("Docker requested us to use legacy IPv4, boooooring...")
 		poolID = DefaultPoolV4
 		pool = DummyV4AllocPool
 		gw = DummyV4Gateway

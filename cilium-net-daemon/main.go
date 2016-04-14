@@ -19,12 +19,6 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
-const (
-	// RFC3339Mili is the RFC3339 with miliseconds for the default timestamp format
-	// log files.
-	RFC3339Mili = "2006-01-02T15:04:05.999Z07:00"
-)
-
 var (
 	// Arguments variables keep in alphabetical order
 	consulAddr         string
@@ -45,31 +39,11 @@ var (
 	tunnel             string
 
 	ipv4Range          *net.IPNet
-	log                = logging.MustGetLogger("cilium-net")
+	log                = logging.MustGetLogger("cilium-net-daemon")
 	lxcMap             *lxcmap.LXCMap
 	nodeAddr           net.IP
 	validLabelPrefixes *types.LabelPrefixCfg
 )
-
-func setupLOG(logLevel, hostname string) {
-
-	fileFormat := logging.MustStringFormatter(
-		`%{time:` + RFC3339Mili + `} ` + hostname +
-			` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`,
-	)
-
-	level, err := logging.LogLevel(logLevel)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	oBF := logging.NewBackendFormatter(backend, fileFormat)
-
-	backendLeveled := logging.SetBackend(oBF)
-	backendLeveled.SetLevel(level, "")
-	log.SetBackend(backendLeveled)
-}
 
 func initBPF() {
 	var args []string
@@ -171,10 +145,7 @@ func init() {
 	flag.StringVar(&tunnel, "t", "vxlan", "tunnel mode vxlan or geneve, vxlan is the default")
 	flag.Parse()
 
-	if hostname == "" {
-		hostname, _ = os.Hostname()
-	}
-	setupLOG(logLevel, hostname)
+	common.SetupLOG(log, logLevel, hostname)
 
 	if labelPrefixFile != "" {
 		var err error
