@@ -44,7 +44,7 @@ docker run --rm -i --net=$TEST_NET --name client -l $CLIENT_LABEL noironetworks/
 }
 
 reset_trace
-docker run --rm -i --net=$TEST_NET --name client -l $CLIENT_LABEL noironetworks/nettools sh -c "sleep 5s && tracepath6 -m 4 $SERVER_IP" || {
+docker run --rm -i --net=$TEST_NET --name client -l $CLIENT_LABEL noironetworks/nettools sh -c "sleep 5s && tracepath6 $SERVER_IP" || {
 	abort "Error: Could not traceroute to server"
 }
 
