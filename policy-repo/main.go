@@ -242,6 +242,7 @@ func importPolicy(ctx *cli.Context) {
 	path := getPath(ctx)
 	if node, err := loadPolicyDirectory(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
+		os.Exit(1)
 	} else {
 		log.Debugf("Constructed policy object for import %+v", node)
 
@@ -252,6 +253,7 @@ func importPolicy(ctx *cli.Context) {
 
 		if err := Client.PolicyAdd(node.Name, node); err != nil {
 			fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
+			os.Exit(1)
 		}
 	}
 }
@@ -268,6 +270,7 @@ func validatePolicy(ctx *cli.Context) {
 	path := getPath(ctx)
 	if node, err := loadPolicyDirectory(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Validation of %s failed\n%s\n", path, err)
+		os.Exit(1)
 	} else {
 		fmt.Printf("All policy elements are valid.\n")
 
@@ -284,7 +287,7 @@ func dumpPolicy(ctx *cli.Context) {
 	n, err := Client.PolicyGet(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
-		return
+		os.Exit(1)
 	}
 
 	prettyPrint(n)
@@ -295,6 +298,7 @@ func deletePolicy(ctx *cli.Context) {
 
 	if err := Client.PolicyDelete(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
+		os.Exit(1)
 	}
 }
 
@@ -353,7 +357,7 @@ func initEnv(ctx *cli.Context) error {
 	c, err := cnc.NewDefaultClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return fmt.Errorf("Error while creating cilium-client: %s", err)
+		os.Exit(1)
 	}
 
 	Client = c
