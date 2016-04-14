@@ -13,3 +13,4 @@
 #define IPV4_RANGE 0xf50a
 #define IPV4_MASK 0xffff
 #define IPV4_GW 0xfffff50a
+#define ENCAP_GENEVE 1

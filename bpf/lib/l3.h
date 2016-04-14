@@ -11,9 +11,10 @@
 
 #ifdef ENCAP_IFINDEX
 static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
-				   __u32 seclabel)
+				   __u32 seclabel, uint8_t *buf, int sz)
 {
 	struct bpf_tunnel_key key = {};
+	int ret = 0;
 
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
@@ -21,7 +22,16 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 	printk("Performing encapsulation to node %x on ifindex %u seclabel 0x%x\n",
 		node_id, ENCAP_IFINDEX, seclabel);
 
-	skb_set_tunnel_key(skb, &key, sizeof(key), 0);
+	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
+	if (unlikely(ret < 0))
+		return TC_ACT_SHOT;
+
+#ifdef ENCAP_GENEVE
+	ret = skb_set_tunnel_opt(skb, buf, sz);
+	if (unlikely(ret < 0))
+		return TC_ACT_SHOT;
+	printk("set Geneve options of length %d\n", sz);
+#endif
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
