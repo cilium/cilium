@@ -9,8 +9,8 @@
 				"Coverage": ["Prod"],
 				"Requires": ["Prod"]
 			},{
-				"Coverage": ["io.cilium.test.server"],
-				"Allow": ["io.cilium.test.client", "$host"]
+				"Coverage": ["server"],
+				"Allow": ["client", "$host"]
 			}]
 		}
 	}
