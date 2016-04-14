@@ -116,10 +116,12 @@ type SearchContext struct {
 	To   []Label
 }
 
-func (s *SearchContext) TargetCoveredBy(coverage *[]Label) bool {
-	for _, covLabel := range *coverage {
-		for _, toLabel := range s.To {
-			if covLabel.Equals(&toLabel) {
+func (s *SearchContext) TargetCoveredBy(coverage []Label) bool {
+	for k, _ := range coverage {
+		covLabel := &coverage[k]
+		for k2, _ := range s.To {
+			toLabel := &s.To[k2]
+			if covLabel.Equals(toLabel) {
 				return true
 			}
 		}
@@ -181,7 +183,8 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 }
 
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
-	for _, label := range ctx.From {
+	for k, _ := range ctx.From {
+		label := &ctx.From[k]
 		if label.Equals(&a.Label) {
 			policyTrace(ctx, "Allow Rule %+v decision\n", a)
 			return a.Action
@@ -203,12 +206,13 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := UNDECIDED
 
-	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(&c.Coverage) {
+	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(c.Coverage) {
 		policyTrace(ctx, "Consumer rule %+v missed coverage\n", c)
 		return UNDECIDED
 	}
 
-	for _, allowRule := range c.Allow {
+	for k, _ := range c.Allow {
+		allowRule := &c.Allow[k]
 		switch allowRule.Allows(ctx) {
 		case DENY:
 			return DENY
@@ -224,7 +228,8 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 }
 
 func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
-	for _, l := range c.Coverage {
+	for k, _ := range c.Coverage {
+		l := &c.Coverage[k]
 		l.Resolve(node)
 		log.Debugf("Resolved label %+v\n", l)
 
@@ -234,7 +239,8 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 		}
 	}
 
-	for _, r := range c.Allow {
+	for k, _ := range c.Allow {
+		r := &c.Allow[k]
 		r.Label.Resolve(node)
 		log.Debugf("Resolved label %+v\n", r.Label)
 	}
@@ -255,12 +261,14 @@ type PolicyRuleRequires struct {
 // the decision being UNDECIDED waiting on an explicit allow rule further
 // down the tree
 func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
-	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(&r.Coverage) {
-		for _, reqLabel := range r.Requires {
+	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(r.Coverage) {
+		for k, _ := range r.Requires {
+			reqLabel := &r.Requires[k]
 			match := false
 
-			for _, label := range ctx.From {
-				if label.Equals(&reqLabel) {
+			for k2, _ := range ctx.From {
+				label := &ctx.From[k2]
+				if label.Equals(reqLabel) {
 					match = true
 				}
 			}
@@ -276,7 +284,8 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 }
 
 func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
-	for _, l := range c.Coverage {
+	for k, _ := range c.Coverage {
+		l := &c.Coverage[k]
 		l.Resolve(node)
 		log.Debugf("Resolved label %+v\n", l)
 
@@ -286,7 +295,8 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 		}
 	}
 
-	for _, l := range c.Requires {
+	for k, _ := range c.Requires {
+		l := &c.Requires[k]
 		l.Resolve(node)
 		log.Debugf("Resolved label %+v\n", l)
 	}
@@ -330,7 +340,8 @@ func (p *PolicyNode) Path() string {
 }
 
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
-	for _, label := range ctx.To {
+	for k, _ := range ctx.To {
+		label := &ctx.To[k]
 		if strings.HasPrefix(label.AbsoluteKey(), p.Path()) {
 			return true
 		}
@@ -541,6 +552,17 @@ func (pn *PolicyNode) AddChild(name string, child *PolicyNode) error {
 	}
 
 	return nil
+}
+
+func (pn *PolicyNode) DebugString(level int) string {
+	str := fmt.Sprintf("%+v\n", pn)
+
+	for _, child := range pn.Children {
+		f := fmt.Sprintf("%%%ds%%s", level*4)
+		str += fmt.Sprintf(f, " ", child.DebugString(level+1))
+	}
+
+	return str
 }
 
 // Overall policy tree
