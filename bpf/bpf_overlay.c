@@ -39,7 +39,7 @@ int from_overlay(struct __sk_buff *skb)
 	struct bpf_tunnel_key key = {};
 	int ret = 0;
 #ifdef ENCAP_GENEVE
-	uint8_t buf[252] = {};
+	uint8_t buf[64] = {};
 #endif
 
 	ret = skb_get_tunnel_key(skb, &key, sizeof(key), 0);
