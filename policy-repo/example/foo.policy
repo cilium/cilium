@@ -16,7 +16,7 @@
 				"Web": { },
 				"DB": {
 					"Rules": [{
-						"Allow": ["io.cilium.Lizards.Web"]
+						"Allow": ["Web"]
 					}]
 				}
 			}
