@@ -12,14 +12,16 @@ import (
 	"github.com/noironetworks/cilium-net/common/plugins"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
-	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/drivers/remote/api"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/registry/service/ipallocator"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
+
+var log = l.MustGetLogger("cilium-net-client")
 
 const (
 	// DefaultPoolV4 is the IPv4 pool name for libnetwork.
@@ -139,7 +141,7 @@ func (driver *driver) Listen(socket string) error {
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
-	log.Warnf("plugin Not found: [ %+v ]", r)
+	log.Warningf("plugin Not found: [ %+v ]", r)
 	http.NotFound(w, r)
 }
 
@@ -228,7 +230,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	endID := create.EndpointID
 	containerAddress := create.Interface.AddressIPv6
 	if containerAddress == "" {
-		log.Warnf("No IPv6 address provided in CreateEndpoint request")
+		log.Warningf("No IPv6 address provided in CreateEndpoint request")
 	}
 
 	maps := make([]ciliumtype.EPPortMap, 0, 32)
@@ -302,7 +304,7 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	delete(driver.endpoints, del.EndpointID)
 	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil{
-		log.Warnf("Error while deleting link: %s", err)
+		log.Warningf("Error while deleting link: %s", err)
 	}
 
 	emptyResponse(w)
@@ -344,7 +346,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.Warnf("failed to clean up veth %q: %s", veth.Name, err)
+				log.Warningf("failed to clean up veth %q: %s", veth.Name, err)
 			}
 		}
 	}()
@@ -394,15 +396,15 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Leave request: %+v", &l)
 
 	if ep, exists := driver.endpoints[l.EndpointID]; !exists {
-		log.Warnf("Endpoint %s is unknown", l.EndpointID)
+		log.Warningf("Endpoint %s is unknown", l.EndpointID)
 	} else {
 		if err := driver.client.EndpointLeave(ep.ID); err != nil {
-			log.Warnf("Leaving the endpoint failed: %s", err)
+			log.Warningf("Leaving the endpoint failed: %s", err)
 		}
 	}
 
 	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(l.EndpointID)); err != nil{
-		log.Warnf("Error while deleting link: %s", err)
+		log.Warningf("Error while deleting link: %s", err)
 	}
 	emptyResponse(w)
 }

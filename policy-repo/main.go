@@ -16,14 +16,15 @@ import (
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 var (
 	Client             *cnc.Client
 	ignoredMasksSource = []string{".git"}
 	ignoredMasks       []*regexp.Regexp
+	log                = l.MustGetLogger("cilium-net-policy-repo")
 )
 
 func main() {
@@ -331,12 +332,10 @@ func dumpMap(ctx *cli.Context) {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.Bool("debug") {
-		log.SetLevel(log.DebugLevel)
+		common.SetupLOG(log, "DEBUG", "")
 	} else {
-		log.SetLevel(log.InfoLevel)
+		common.SetupLOG(log, "INFO", "")
 	}
-
-	log.SetOutput(os.Stderr)
 
 	c, err := cnc.NewDefaultClient()
 	if err != nil {

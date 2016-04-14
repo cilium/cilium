@@ -3,8 +3,10 @@ package common
 import (
 	"fmt"
 	"net"
+	"os"
 	"syscall"
 
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
@@ -102,4 +104,27 @@ func Swab32(n uint32) uint32 {
 // GetLockPath returns the lock path representation of the given path.
 func GetLockPath(path string) string {
 	return path + ".lock"
+}
+
+// SetupLOG sets up logger with the correct parameters for the whole cilium architecture.
+func SetupLOG(logger *l.Logger, logLevel, hostname string) {
+	if hostname == "" {
+		hostname, _ = os.Hostname()
+	}
+	fileFormat := l.MustStringFormatter(
+		`%{time:` + RFC3339Milli + `} ` + hostname +
+			` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`,
+	)
+
+	level, err := l.LogLevel(logLevel)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	backend := l.NewLogBackend(os.Stderr, "", 0)
+	oBF := l.NewBackendFormatter(backend, fileFormat)
+
+	backendLeveled := l.SetBackend(oBF)
+	backendLeveled.SetLevel(level, "")
+	logger.SetBackend(backendLeveled)
 }

@@ -345,7 +345,8 @@
 		},
 		{
 			"ImportPath": "github.com/op/go-logging",
-			"Rev": "0882c9abce533ab4afbab5677fcef7434dd36d5a"
+			"Comment": "v1-7-g970db52",
+			"Rev": "970db520ece77730c7e4724c61121037378659d9"
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runc/libcontainer/cgroups",

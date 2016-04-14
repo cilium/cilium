@@ -6,9 +6,11 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/docker-plugin/driver"
 
-	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
 )
+
+var log = l.MustGetLogger("cilium-net-docker-plugin")
 
 func main() {
 	app := cli.NewApp()
@@ -32,12 +34,10 @@ func main() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.Bool("debug") {
-		log.SetLevel(log.DebugLevel)
+		common.SetupLOG(log, "DEBUG", "")
 	} else {
-		log.SetLevel(log.InfoLevel)
+		common.SetupLOG(log, "INFO", "")
 	}
-
-	log.SetOutput(os.Stderr)
 
 	if err := os.MkdirAll(common.PluginPath, 0755); err != nil && !os.IsExist(err) {
 		log.Fatalf("Could not create net plugin path directory: %s", err)

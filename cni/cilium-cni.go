@@ -8,29 +8,32 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/plugins"
 	ciliumtypes "github.com/noironetworks/cilium-net/common/types"
 
-	log "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ns"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/skel"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
-type netConf struct {
-	types.NetConf
-	MTU int `json:"mtu"`
-}
+var log = l.MustGetLogger("cilium-net-cni")
 
 func init() {
-	log.SetLevel(log.DebugLevel)
-	log.SetOutput(os.Stderr)
+	common.SetupLOG(log, "DEBUG", "")
+
 	// this ensures that main runs only on main thread (thread group leader).
 	// since namespace ops (unshare, setns) are done for a single thread, we
 	// must ensure that the goroutine does not jump from OS thread to thread
 	runtime.LockOSThread()
+}
+
+type netConf struct {
+	types.NetConf
+	MTU int `json:"mtu"`
 }
 
 func main() {
@@ -166,7 +169,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.Warnf("failed to clean up veth %q: %s", veth.Name, err)
+				log.Warningf("failed to clean up veth %q: %s", veth.Name, err)
 			}
 		}
 	}()
@@ -190,7 +193,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	defer func() {
 		if err != nil {
 			if err = c.ReleaseIPs(args.ContainerID); err != nil {
-				log.Warnf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
+				log.Warningf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 			}
 		}
 	}()
@@ -241,14 +244,14 @@ func cmdDel(args *skel.CmdArgs) error {
 	})
 
 	if err := c.ReleaseIPs(args.ContainerID); err != nil {
-		log.Warnf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
+		log.Warningf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 	}
 
 	var ep ciliumtypes.Endpoint
 	ep.LXCIP = containerIP
 	ep.SetID()
 	if err := c.EndpointLeave(ep.ID); err != nil {
-		log.Warnf("leaving the endpoint failed: %s\n", err)
+		log.Warningf("leaving the endpoint failed: %s\n", err)
 	}
 
 	return ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {

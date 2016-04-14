@@ -1,6 +1,8 @@
 package common
 
-import "net"
+import (
+	"net"
+)
 
 const (
 	// Cilium constants
@@ -20,6 +22,9 @@ const (
 	BPFMapRoot = "/sys/fs/bpf"
 	// PolicyMapPath is the base path for the cilium policy for each local container.
 	PolicyMapPath = "/sys/fs/bpf/tc/globals/cilium_policy_"
+	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
+	// log files.
+	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
 
 	// Consul dedicated constants
 

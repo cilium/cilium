@@ -6,19 +6,17 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	common "github.com/noironetworks/cilium-net/common"
 
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/Sirupsen/logrus"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
-var log = l.New()
+var log = l.MustGetLogger("cilium-net-client")
 
 func init() {
-	log.Out = os.Stderr
-	log.Level = l.DebugLevel
+	common.SetupLOG(log, "DEBUG", "")
 }
 
 // Client has the internal details necessary to talk with the daemon.
