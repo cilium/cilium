@@ -49,6 +49,10 @@ func main() {
 					Name:  "path, p",
 					Usage: "Path to directory containing the policy tree",
 				},
+				cli.BoolFlag{
+					Name:  "dump, d",
+					Usage: "Dump parsed policy tree after validation",
+				},
 			},
 		},
 		{
@@ -252,12 +256,25 @@ func importPolicy(ctx *cli.Context) {
 	}
 }
 
+func prettyPrint(node *types.PolicyNode) {
+	if b, err := json.MarshalIndent(node, "", "  "); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not marshal response: %s\n", err)
+	} else {
+		fmt.Printf("%s\n", b)
+	}
+}
+
 func validatePolicy(ctx *cli.Context) {
 	path := getPath(ctx)
-	if _, err := loadPolicyDirectory(path); err != nil {
+	if node, err := loadPolicyDirectory(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Validation of %s failed\n%s\n", path, err)
 	} else {
 		fmt.Printf("All policy elements are valid.\n")
+
+		if ctx.Bool("dump") {
+			fmt.Printf("%s\n", node.DebugString(1))
+			prettyPrint(node)
+		}
 	}
 }
 
@@ -270,11 +287,7 @@ func dumpPolicy(ctx *cli.Context) {
 		return
 	}
 
-	if b, err := json.MarshalIndent(n, "", "  "); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not marshal response: %s\n", err)
-	} else {
-		fmt.Printf("%s\n", b)
-	}
+	prettyPrint(n)
 }
 
 func deletePolicy(ctx *cli.Context) {
