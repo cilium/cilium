@@ -47,6 +47,11 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	union v6addr dst = {};
 	__u32 node_id;
 	int to_host = 0, do_nat46 = 0;
+#ifdef ENCAP_GENEVE
+	uint8_t buf[] = GENEVE_OPTS;
+#else
+	uint8_t buf[] = {};
+#endif
 
 	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
 
@@ -112,7 +117,8 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
-		return do_encapsulation(skb, node_id, SECLABEL_NB);
+		return do_encapsulation(skb, node_id, SECLABEL_NB,
+				        buf, sizeof(buf));
 #else
 		union macaddr router_mac = NODE_MAC;
 		int ret;

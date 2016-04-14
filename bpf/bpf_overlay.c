@@ -37,8 +37,20 @@ __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
+	int ret = 0;
+#ifdef ENCAP_GENEVE
+	uint8_t buf[252] = {};
+#endif
 
-	skb_get_tunnel_key(skb, &key, sizeof(key), 0);
+	ret = skb_get_tunnel_key(skb, &key, sizeof(key), 0);
+	if (unlikely(ret < 0))
+		return TC_ACT_SHOT;
+#ifdef ENCAP_GENEVE
+	ret = skb_get_tunnel_opt(skb, buf, sizeof(buf));
+	if (unlikely(ret < 0))
+		return TC_ACT_SHOT;
+#endif
+
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
 		return do_l3_from_overlay(skb, ETH_HLEN, key.tunnel_id);
 
