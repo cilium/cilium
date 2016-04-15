@@ -16,7 +16,8 @@ export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PAT
 
 clang -O2 -target bpf -c $LIB/bpf_lxc.c -I/var/run/cilium/globals -I$DIR -o $DIR/bpf_lxc.o
 
-#tc qdisc add dev $IFNAME root handle eeee: prio bands 3
-tc qdisc add dev $IFNAME clsact
+tc qdisc show $IFNAME || {
+	tc qdisc add dev $IFNAME clsact
+}
 
-tc filter add dev $IFNAME ingress bpf da obj $DIR/bpf_lxc.o sec from-container
+tc filter replace dev $IFNAME ingress bpf da obj $DIR/bpf_lxc.o sec from-container
