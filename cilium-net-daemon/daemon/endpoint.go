@@ -21,9 +21,10 @@ func isValidID(id string) bool {
 }
 
 func writeGeneve(lxcDir string, ep *types.Endpoint, f *os.File) error {
-	fmt.Fprintf(f, "#define GENEVE_CLASS_EXPERIMENTAL 0xffff\n")
-	fmt.Fprintf(f, "#define GENEVE_TYPE_SECLABEL 0x1\n")
 
+	// Write container options values for each available option in
+	// bpf/lib/geneve.h
+	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
 	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabelID))
 	if err != nil {
 		log.Warningf("Could not write geneve options %s", err)

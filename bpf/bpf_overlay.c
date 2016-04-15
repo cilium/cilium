@@ -14,6 +14,7 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
+#include "lib/geneve.h"
 
 static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off, __u32 tunnel_id)
 {
@@ -39,7 +40,8 @@ int from_overlay(struct __sk_buff *skb)
 	struct bpf_tunnel_key key = {};
 	int ret = 0;
 #ifdef ENCAP_GENEVE
-	uint8_t buf[64] = {};
+	uint8_t buf[MAX_GENEVE_OPT_LEN] = {};
+	struct geneveopt_val geneveopt_val = {};
 #endif
 
 	ret = skb_get_tunnel_key(skb, &key, sizeof(key), 0);
@@ -47,6 +49,9 @@ int from_overlay(struct __sk_buff *skb)
 		return TC_ACT_SHOT;
 #ifdef ENCAP_GENEVE
 	ret = skb_get_tunnel_opt(skb, buf, sizeof(buf));
+	if (unlikely(ret < 0))
+		return TC_ACT_SHOT;
+	ret = parse_geneve_options(&geneveopt_val, buf);
 	if (unlikely(ret < 0))
 		return TC_ACT_SHOT;
 #endif

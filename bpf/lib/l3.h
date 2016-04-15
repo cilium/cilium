@@ -8,6 +8,10 @@
 #include "l4.h"
 #include "lxc_map.h"
 #include "icmp6.h"
+#include "geneve.h"
+
+/* validating options on tx is optional */
+#define VALIDATE_GENEVE_TX
 
 #ifdef ENCAP_IFINDEX
 static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
@@ -15,6 +19,9 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 {
 	struct bpf_tunnel_key key = {};
 	int ret = 0;
+#if defined(ENCAP_GENEVE) && defined(VALIDATE_GENEVE_TX)
+	struct geneveopt_val geneveopt_val = {};
+#endif
 
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
@@ -30,6 +37,11 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 	ret = skb_set_tunnel_opt(skb, buf, sz);
 	if (unlikely(ret < 0))
 		return TC_ACT_SHOT;
+#ifdef VALIDATE_GENEVE_TX
+	ret = parse_geneve_options(&geneveopt_val, buf);
+	if (unlikely(ret < 0))
+		return TC_ACT_SHOT;
+#endif
 	printk("set Geneve options of length %d\n", sz);
 #endif
 
