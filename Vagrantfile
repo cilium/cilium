@@ -18,11 +18,11 @@ SCRIPT
 $install = <<SCRIPT
 sudo -E make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ install
 
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-docker.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-net-daemon.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-socket-proxy.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-consul.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/cilium-policy-watcher.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-docker.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-net-daemon.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-socket-proxy.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-consul.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-policy-watcher.conf /etc/init/
 sudo rm -rf /var/log/upstart/cilium-*
 sudo service cilium-net-daemon restart
 SCRIPT
@@ -95,8 +95,7 @@ Vagrant.configure(2) do |config|
         vb.memory = "4096"
         vb.cpus = 8
 
-        config.vm.synced_folder ".", "/vagrant", disabled: true
-        #config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', nfs: true
+        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', type: "rsync"
         # Don't forget to enable this ports on your host before starting the VM
         # in order to have nfs working
         # iptables -I INPUT -p udp -s 192.168.33.0/24 --dport 111 -j ACCEPT
