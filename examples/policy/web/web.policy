@@ -1,0 +1,15 @@
+{
+        "Name": "io.cilium",
+	"Children": {
+		"Web": {
+			"Rules": [{
+				"Allow": ["$world"]
+			}]
+		},
+		"DB": {
+			"Rules": [{
+				"Allow": ["..Web"]
+			}]
+		}
+	}
+}

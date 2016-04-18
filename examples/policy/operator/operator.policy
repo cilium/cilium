@@ -1,0 +1,34 @@
+{
+        "Name": "io.cilium",
+	"Rules": [{
+		"Allow" ["user=admin"],
+	},{
+		"Coverage": ["Dev"],
+		"Allow": ["!$world", "$host"],
+	},{
+		"Coverage": ["QA"],
+		"Allow": ["!$world"],
+	},{
+		"Coverage": ["Prod"],
+		"Allow": ["!$host"],
+	}],
+        "Children": {
+		"DevTeam": {
+			"Rules": [{
+				"Coverage": ["Web"],
+				"Allow": ["$world"],
+			},{
+				"Allow": ["!$world"],
+			}],
+			"Children": {
+				"Web": { },
+				"DB": {
+					"Rules": [{
+						"Allow": ["..Web"]
+					}]
+				}
+			}
+		}
+
+	}
+}
