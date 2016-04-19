@@ -66,6 +66,15 @@ func (l *Label) AbsoluteKey() string {
 	return l.Key
 }
 
+// String returns the string representation of Label in the for of Source#Key=Value or
+// Source#Key if Value is empty.
+func (l Label) String() string {
+	if len(l.Value) != 0 {
+		return fmt.Sprintf("%s#%s=%s", l.Source, l.Key, l.Value)
+	}
+	return fmt.Sprintf("%s#%s", l.Source, l.Key)
+}
+
 func decodeReservedLabel(source string, label *Label) {
 	label.Source = common.ReservedLabelSource
 	label.Key = source[1:]
