@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -45,4 +46,31 @@ func (cli Client) EndpointLeave(epID string) error {
 	}
 
 	return nil
+}
+
+// EndpointLeave sends a GET request with epID to the daemon.
+func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
+	query := url.Values{}
+	serverResp, err := cli.get("/endpoint/"+epID, query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusOK &&
+		serverResp.statusCode != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.body, epID)
+	}
+
+	if serverResp.statusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
+	var ep types.Endpoint
+	if err := json.NewDecoder(serverResp.body).Decode(&ep); err != nil {
+		return nil, err
+	}
+
+	return &ep, nil
 }

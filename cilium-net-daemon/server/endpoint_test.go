@@ -3,8 +3,10 @@ package server
 import (
 	"errors"
 	"net"
+	"strconv"
 	"strings"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
@@ -98,5 +100,48 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	}
 
 	err := s.c.EndpointLeave(ep.ID)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
+
+func (s *DaemonSuite) TestEndpointGetOK(c *C) {
+	epIDOutside := strconv.FormatUint(uint64(common.EndpointAddr2ID(EpAddr)), 10)
+	epWanted := types.Endpoint{
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
+		NodeMAC:       HardAddr,
+		NodeIP:        NodeAddr,
+		IfName:        "ifname",
+		DockerNetwork: "dockernetwork",
+		SecLabelID:    SecLabel,
+	}
+
+	s.d.OnEndpointGet = func(epID string) (*types.Endpoint, error) {
+		c.Assert(epIDOutside, Equals, epID)
+		return &types.Endpoint{
+			LXCMAC:        HardAddr,
+			LXCIP:         EpAddr,
+			NodeMAC:       HardAddr,
+			NodeIP:        NodeAddr,
+			IfName:        "ifname",
+			DockerNetwork: "dockernetwork",
+			SecLabelID:    SecLabel,
+		}, nil
+	}
+
+	ep, err := s.c.EndpointGet(epIDOutside)
+	c.Assert(err, IsNil)
+	c.Assert(*ep, DeepEquals, epWanted)
+}
+
+func (s *DaemonSuite) TestEndpointGetFail(c *C) {
+	epIDOutside := strconv.FormatUint(uint64(common.EndpointAddr2ID(EpAddr)), 10)
+
+	s.d.OnEndpointGet = func(epID string) (*types.Endpoint, error) {
+		c.Assert(epIDOutside, Equals, epID)
+		return nil, errors.New("invalid endpoint")
+	}
+
+	_, err := s.c.EndpointGet(epIDOutside)
+	c.Logf("err %s", err)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }

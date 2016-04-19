@@ -74,16 +74,16 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, labels *types.
 	return nil
 }
 
-// Returns a copy of the endpoint for the given endpointID, or nil if the endpoint was not
-// found.
-func (d *Daemon) getEndpoint(endpointID string) *types.Endpoint {
+// EndpointGet returns a copy of the endpoint for the given endpointID, or nil if the
+// endpoint was not found.
+func (d *Daemon) EndpointGet(endpointID string) (*types.Endpoint, error) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	if ep, ok := d.endpoints[common.CiliumPrefix+endpointID]; ok {
 		epCopy := *ep
-		return &epCopy
+		return &epCopy, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (d *Daemon) deleteEndpoint(endpointID string) {
@@ -144,8 +144,8 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 
 	f.WriteString("/*\n")
 	f.WriteString(" * Labels:\n")
-	for k, v := range secCtxlabels.Labels {
-		fmt.Fprintf(f, " * - %s=%s\n", k, v)
+	for _, v := range secCtxlabels.Labels {
+		fmt.Fprintf(f, " * - %s\n", v)
 	}
 	f.WriteString(" */\n\n")
 
@@ -255,10 +255,10 @@ func (d *Daemon) EndpointLeave(epID string) error {
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
 
-	if ep := d.getEndpoint(epID); ep != nil {
-		if ep.Consumable != nil {
-			ep.Consumable.RemoveMap(ep.PolicyMap)
-		}
+	if ep, err := d.EndpointGet(epID); err != nil {
+		log.Warningf("Unable to get endpoint %s from daemon.", epID)
+	} else if ep.Consumable != nil {
+		ep.Consumable.RemoveMap(ep.PolicyMap)
 	}
 
 	// Clear policy map

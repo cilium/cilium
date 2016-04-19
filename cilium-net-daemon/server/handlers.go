@@ -49,6 +49,29 @@ func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	epID, exists := vars["endpointID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty endpoint id"))
+		return
+	}
+	ep, err := router.daemon.EndpointGet(epID)
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("error while getting endpoint: %s", err))
+		return
+	}
+	if ep == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(ep); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
 func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	containerID, exists := vars["containerID"]
