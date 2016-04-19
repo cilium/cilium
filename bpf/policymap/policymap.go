@@ -7,6 +7,7 @@ package policymap
 import "C"
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"os"
@@ -23,6 +24,7 @@ type PolicyMap struct {
 }
 
 const (
+	// FIXME: Change to common.MaxKeys
 	MAX_KEYS = 1024
 )
 
@@ -35,6 +37,11 @@ type PolicyEntry struct {
 	Pad     uint32
 	Packets uint64
 	Bytes   uint64
+}
+
+type PolicyEntryDump struct {
+	PolicyEntry
+	ID uint32
 }
 
 func (m *PolicyMap) AllowConsumer(id uint32) error {
@@ -51,9 +58,22 @@ func (m *PolicyMap) String() string {
 }
 
 func (m *PolicyMap) Dump() (string, error) {
-	output := ""
+	var buffer bytes.Buffer
+	entries, err := m.DumpToSlice()
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range entries {
+		buffer.WriteString(fmt.Sprintf("%8d: %d %d %d\n",
+			entry.ID, entry.Action, entry.Packets, entry.Bytes))
+	}
+	return buffer.String(), nil
+}
+
+func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 	var key, nextKey uint32
 	key = MAX_KEYS
+	entries := []PolicyEntryDump{}
 	for {
 		var entry PolicyEntry
 		err := bpf.GetNextKey(
@@ -73,16 +93,16 @@ func (m *PolicyMap) Dump() (string, error) {
 		)
 
 		if err != nil {
-			return "", err
+			return nil, err
 		} else {
-			output = output + fmt.Sprintf("%8d: %d %d %d\n",
-				nextKey, entry.Action, entry.Packets, entry.Bytes)
+			eDump := PolicyEntryDump{ID: nextKey, PolicyEntry: entry}
+			entries = append(entries, eDump)
 		}
 
 		key = nextKey
 	}
 
-	return output, nil
+	return entries, nil
 }
 
 func OpenMap(path string) (*PolicyMap, error) {
