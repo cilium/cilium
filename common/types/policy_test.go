@@ -162,21 +162,21 @@ func (s *CommonSuite) TestTargetCoveredBy(c *C) {
 
 	// any -> io.cilium.bar
 	ctx := SearchContext{To: []Label{*lblBar}}
-	c.Assert(ctx.TargetCoveredBy(&list1), Equals, false)
-	c.Assert(ctx.TargetCoveredBy(&list2), Equals, true)
-	c.Assert(ctx.TargetCoveredBy(&list3), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list1), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list2), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list3), Equals, false)
 
 	// any -> kubernetes:io.cilium.baz
 	ctx = SearchContext{To: []Label{*lblBaz}}
-	c.Assert(ctx.TargetCoveredBy(&list1), Equals, false)
-	c.Assert(ctx.TargetCoveredBy(&list2), Equals, true)
-	c.Assert(ctx.TargetCoveredBy(&list3), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list1), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list2), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list3), Equals, false)
 
 	// any -> [kubernetes:io.cilium.user=joe, io.cilium.foo]
 	ctx = SearchContext{To: []Label{*lblJoe, *lblFoo}}
-	c.Assert(ctx.TargetCoveredBy(&list1), Equals, true)
-	c.Assert(ctx.TargetCoveredBy(&list2), Equals, false)
-	c.Assert(ctx.TargetCoveredBy(&list3), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list1), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list2), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list3), Equals, true)
 }
 
 func (s *CommonSuite) TestAllowConsumer(c *C) {
