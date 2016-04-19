@@ -1,6 +1,8 @@
 package types
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"net"
 )
@@ -26,4 +28,33 @@ func (m MAC) Uint64() (uint64, error) {
 
 	return uint64(uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
 		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0])), nil
+}
+
+func (m MAC) MarshalJSON() ([]byte, error) {
+	if len(m) != 6 {
+		return nil, fmt.Errorf("invalid MAC address length %s", string(m))
+	}
+	return []byte(fmt.Sprintf("\"%02x:%02x:%02x:%02x:%02x:%02x\"", m[0], m[1], m[2], m[3], m[4], m[5])), nil
+}
+
+func (m MAC) MarshalIndentJSON(prefix, indent string) ([]byte, error) {
+	return m.MarshalJSON()
+}
+
+func (m *MAC) UnmarshalJSON(data []byte) error {
+	if len(data) != 19 {
+		return fmt.Errorf("invalid MAC address length %s", string(data))
+	}
+	data = data[1 : len(data)-1]
+	macStr := bytes.Replace(data, []byte(`:`), []byte(``), -1)
+	if len(macStr) != 12 {
+		return fmt.Errorf("invalid MAC address format")
+	}
+	macByte := make([]byte, len(macStr))
+	hex.Decode(macByte, macStr)
+	if m == nil {
+		m = new(MAC)
+	}
+	*m = MAC{macByte[0], macByte[1], macByte[2], macByte[3], macByte[4], macByte[5]}
+	return nil
 }
