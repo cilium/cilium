@@ -7,6 +7,7 @@ import (
 )
 
 type TestDaemon struct {
+	OnEndpointGet          func(epID string) (*types.Endpoint, error)
 	OnEndpointJoin         func(ep types.Endpoint) error
 	OnEndpointLeave        func(ep string) error
 	OnAllocateIPs          func(containerID string) (*types.IPAMConfig, error)
@@ -24,6 +25,13 @@ type TestDaemon struct {
 
 func NewTestDaemon() *TestDaemon {
 	return &TestDaemon{}
+}
+
+func (d TestDaemon) EndpointGet(epID string) (*types.Endpoint, error) {
+	if d.EndpointGet != nil {
+		return d.OnEndpointGet(epID)
+	}
+	return nil, errors.New("EndpointGet should not have been called")
 }
 
 func (d TestDaemon) EndpointJoin(ep types.Endpoint) error {

@@ -25,6 +25,9 @@ func (r *Router) initRoutes() {
 			"EndpointDelete", "DELETE", "/endpoint/{endpointID}", r.endpointDelete,
 		},
 		route{
+			"EndpointGet", "GET", "/endpoint/{endpointID}", r.endpointGet,
+		},
+		route{
 			"AllocateIPv6", "PUT", "/allocator/container/{containerID}", r.allocateIPv6,
 		},
 		route{

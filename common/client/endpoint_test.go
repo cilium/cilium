@@ -136,3 +136,60 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	c.Log(err.Error())
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
+
+func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
+	epOut := types.Endpoint{
+		LXCMAC:        HardAddr,
+		LXCIP:         EpAddr,
+		NodeMAC:       HardAddr,
+		NodeIP:        NodeAddr,
+		IfName:        "eth0",
+		DockerNetwork: "dockernetwork",
+		SecLabelID:    SecLabel,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint/4370") //0x1112
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(epOut)
+		c.Assert(err, IsNil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep, err := cli.EndpointGet("4370")
+	c.Assert(err, IsNil)
+	c.Assert(*ep, DeepEquals, epOut)
+
+	// Not found
+	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint/4371") //0x1112
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server2.Close()
+	cli = NewTestClient(server2.URL, c)
+
+	ep2, err := cli.EndpointGet("4371")
+	c.Assert(err, IsNil)
+	c.Assert(ep2, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint/4370") //0x1112
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(types.ServerError{-1, "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep, err := cli.EndpointGet("4370")
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+	c.Assert(ep, IsNil)
+}

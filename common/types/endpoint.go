@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"net"
 	"strconv"
 
@@ -67,4 +68,13 @@ func (e *Endpoint) IPv4Address(v4Range *net.IPNet) *net.IP {
 	ip[3] = byte(id & 0xff)
 
 	return &ip
+}
+
+// String returns endpoint on a JSON format.
+func (e Endpoint) String() string {
+	b, err := json.MarshalIndent(e, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
 }
