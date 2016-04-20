@@ -50,6 +50,7 @@ type Daemon struct {
 	k8sClient            *k8sClient.Client
 	ipv4Range            *net.IPNet
 	enableTracing        bool
+	disablePolicy        bool
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -119,6 +120,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		validLabelPrefixes: c.ValidLabelPrefixes,
 		ipv4Range:          c.IPv4Range,
 		enableTracing:      c.EnableTracing,
+		disablePolicy:      c.DisablePolicy,
 	}, nil
 }
 

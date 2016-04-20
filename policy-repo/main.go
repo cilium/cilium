@@ -1,4 +1,4 @@
-package main
+package policy_repo
 
 import (
 	"encoding/json"
@@ -7,12 +7,9 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpf"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -25,77 +22,98 @@ var (
 	ignoredMasksSource = []string{".git"}
 	ignoredMasks       []*regexp.Regexp
 	log                = l.MustGetLogger("cilium-net-policy-repo")
+	CliCommand         cli.Command
 )
 
-func main() {
-	app := cli.NewApp()
-	app.Name = "cilium-policy"
-	app.Usage = "Cilium Networking Policy Tool"
-	app.Version = "0.1.0"
-	app.Flags = []cli.Flag{
-		cli.BoolFlag{
-			Name:  "debug, d",
-			Usage: "Enable debug messages",
+func init() {
+	ignoredMasks = make([]*regexp.Regexp, len(ignoredMasksSource))
+
+	for i, _ := range ignoredMasksSource {
+		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
+	}
+}
+
+func initEnv(ctx *cli.Context) error {
+	if ctx.GlobalBool("debug") {
+		common.SetupLOG(log, "DEBUG", "")
+	} else {
+		common.SetupLOG(log, "INFO", "")
+	}
+
+	c, err := cnc.NewDefaultClient()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
+		return fmt.Errorf("Error while creating cilium-client: %s", err)
+	}
+
+	Client = c
+
+	return nil
+}
+
+func verifyArgumentsValidate(ctx *cli.Context) error {
+	path := ctx.Args().First()
+	if path == "" {
+		return fmt.Errorf("Error: empty path")
+	}
+	return initEnv(ctx)
+}
+
+func init() {
+	CliCommand = cli.Command{
+		Name:  "policy",
+		Usage: "Manage policy operations",
+		Subcommands: []cli.Command{
+			{
+				Name:      "validate",
+				Aliases:   []string{"v"},
+				Usage:     "Validate a policy (sub)tree",
+				Action:    validatePolicy,
+				ArgsUsage: "<path>",
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "dump, d",
+						Usage: "Dump parsed policy tree after validation",
+					},
+				},
+				Before: verifyArgumentsValidate,
+			},
+			{
+				Name:      "import",
+				Aliases:   []string{"i"},
+				Usage:     "Import a policy (sub)tree",
+				Action:    importPolicy,
+				ArgsUsage: "<path>",
+				Before:    verifyArgumentsValidate,
+			},
+			{
+				Name:      "dump",
+				Usage:     "Dump policy (sub)tree",
+				Action:    dumpPolicy,
+				ArgsUsage: "<path>",
+				Before:    verifyArgumentsValidate,
+			},
+			{
+				Name:      "delete",
+				Usage:     "Delete policy (sub)tree",
+				Action:    deletePolicy,
+				ArgsUsage: "<path>",
+				Before:    verifyArgumentsValidate,
+			},
+			{
+				Name:   "get-id",
+				Usage:  "Lookup security context id",
+				Action: getSecID,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "list, l",
+						Usage: "List all reserved IDs",
+					},
+				},
+				Before: initEnv,
+			},
 		},
 	}
-	app.Commands = []cli.Command{
-		{
-			Name:    "validate",
-			Aliases: []string{"v"},
-			Usage:   "validate a policy (sub)tree",
-			Action:  validatePolicy,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "path, p",
-					Usage: "Path to directory containing the policy tree",
-				},
-				cli.BoolFlag{
-					Name:  "dump, d",
-					Usage: "Dump parsed policy tree after validation",
-				},
-			},
-		},
-		{
-			Name:    "import",
-			Aliases: []string{"i"},
-			Usage:   "import a policy (sub)tree",
-			Action:  importPolicy,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "path, p",
-					Usage: "Path to directory containing the policy tree",
-				},
-			},
-		},
-		{
-			Name:   "dump",
-			Usage:  "dump policy (sub)tree",
-			Action: dumpPolicy,
-		},
-		{
-			Name:   "delete",
-			Usage:  "delete policy (sub)tree",
-			Action: deletePolicy,
-		},
-		{
-			Name:   "get-id",
-			Usage:  "lookup security context id",
-			Action: getSecID,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "list, l",
-					Usage: "List all reserved IDs",
-				},
-			},
-		},
-		{
-			Name:   "dump-map",
-			Usage:  "dump BPF policy map",
-			Action: dumpMap,
-		},
-	}
-	app.Before = initEnv
-	app.Run(os.Args)
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {
@@ -154,14 +172,6 @@ func loadPolicyFile(path string) (*types.PolicyNode, error) {
 	}
 
 	return &policyNode, nil
-}
-
-func init() {
-	ignoredMasks = make([]*regexp.Regexp, len(ignoredMasksSource))
-
-	for i, _ := range ignoredMasksSource {
-		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
-	}
 }
 
 func ignoredFile(name string) bool {
@@ -229,17 +239,8 @@ func loadPolicyDirectory(name string) (*types.PolicyNode, error) {
 	return node, nil
 }
 
-func getPath(ctx *cli.Context) string {
-	path := ctx.String("path")
-	if path == "" {
-		path = "."
-	}
-
-	return path
-}
-
 func importPolicy(ctx *cli.Context) {
-	path := getPath(ctx)
+	path := ctx.Args().First()
 	if node, err := loadPolicyDirectory(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
 		os.Exit(1)
@@ -267,7 +268,7 @@ func prettyPrint(node *types.PolicyNode) {
 }
 
 func validatePolicy(ctx *cli.Context) {
-	path := getPath(ctx)
+	path := ctx.Args().First()
 	if node, err := loadPolicyDirectory(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Validation of %s failed\n%s\n", path, err)
 		os.Exit(1)
@@ -282,7 +283,7 @@ func validatePolicy(ctx *cli.Context) {
 }
 
 func dumpPolicy(ctx *cli.Context) {
-	path := "io.cilium"
+	path := ctx.Args().First()
 
 	n, err := Client.PolicyGet(path)
 	if err != nil {
@@ -294,7 +295,7 @@ func dumpPolicy(ctx *cli.Context) {
 }
 
 func deletePolicy(ctx *cli.Context) {
-	path := "io.cilium"
+	path := ctx.Args().First()
 
 	if err := Client.PolicyDelete(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
@@ -317,50 +318,4 @@ func getSecID(ctx *cli.Context) {
 	} else {
 		os.Exit(1)
 	}
-}
-
-func dumpMap(ctx *cli.Context) {
-	lbl := ctx.Args().First()
-
-	if lbl != "" {
-		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
-			lbl = "reserved_" + strconv.Itoa(int(id))
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Need ID or label\n")
-		os.Exit(1)
-	}
-
-	file := common.PolicyMapPath + lbl
-	fd, err := bpf.ObjGet(file)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	m := policymap.PolicyMap{Fd: fd}
-	if out, err := m.Dump(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	} else {
-		fmt.Println(out)
-	}
-}
-
-func initEnv(ctx *cli.Context) error {
-	if ctx.Bool("debug") {
-		common.SetupLOG(log, "DEBUG", "")
-	} else {
-		common.SetupLOG(log, "INFO", "")
-	}
-
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		os.Exit(1)
-	}
-
-	Client = c
-
-	return nil
 }

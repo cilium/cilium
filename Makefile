@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = docker-plugin cilium-net-daemon cni bpf policy-repo
+SUBDIRS = docker-plugin cilium cni bpf
 
 all: $(SUBDIRS)
 
@@ -9,7 +9,9 @@ $(SUBDIRS): force
 
 tests:
 	$(MAKE) -C common tests
+	$(MAKE) -C cilium-net-daemon tests
 	for i in $(SUBDIRS); do $(MAKE) -C $$i tests; done
+	$(MAKE) -C policy-repo tests
 	$(MAKE) -C integration tests
 
 run-docker-plugin:
