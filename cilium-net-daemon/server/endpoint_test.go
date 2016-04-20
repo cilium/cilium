@@ -145,3 +145,37 @@ func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 	c.Logf("err %s", err)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
+
+func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
+	optsWanted := types.EPOpts{"FOO": true}
+
+	s.d.OnEndpointUpdate = func(epID string, opts types.EPOpts) error {
+		c.Assert(epID, DeepEquals, "4307")
+		c.Assert(opts, DeepEquals, optsWanted)
+		return nil
+	}
+
+	err := s.c.EndpointUpdate("4307", optsWanted)
+	c.Assert(err, IsNil)
+
+	s.d.OnEndpointUpdate = func(epID string, opts types.EPOpts) error {
+		c.Assert(epID, DeepEquals, "4307")
+		c.Assert(opts, IsNil)
+		return nil
+	}
+	err = s.c.EndpointUpdate("4307", nil)
+	c.Assert(err, IsNil)
+}
+
+func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
+	optsWanted := types.EPOpts{"FOO": true}
+
+	s.d.OnEndpointUpdate = func(epID string, opts types.EPOpts) error {
+		c.Assert(epID, DeepEquals, "4307")
+		c.Assert(opts, DeepEquals, optsWanted)
+		return errors.New("invalid endpoint")
+	}
+
+	err := s.c.EndpointUpdate("4307", optsWanted)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}

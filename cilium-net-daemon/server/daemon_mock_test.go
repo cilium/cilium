@@ -10,6 +10,7 @@ type TestDaemon struct {
 	OnEndpointGet          func(epID string) (*types.Endpoint, error)
 	OnEndpointJoin         func(ep types.Endpoint) error
 	OnEndpointLeave        func(ep string) error
+	OnEndpointUpdate       func(ep string, opts types.EPOpts) error
 	OnAllocateIPs          func(containerID string) (*types.IPAMConfig, error)
 	OnReleaseIPs           func(containerID string) error
 	OnPing                 func() (string, error)
@@ -39,6 +40,13 @@ func (d TestDaemon) EndpointJoin(ep types.Endpoint) error {
 		return d.OnEndpointJoin(ep)
 	}
 	return errors.New("EndpointJoin should not have been called")
+}
+
+func (d TestDaemon) EndpointUpdate(ep string, opts types.EPOpts) error {
+	if d.OnEndpointUpdate != nil {
+		return d.OnEndpointUpdate(ep, opts)
+	}
+	return errors.New("EndpointUpdate should not have been called")
 }
 
 func (d TestDaemon) EndpointLeave(epID string) error {

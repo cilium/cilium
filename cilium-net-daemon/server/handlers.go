@@ -49,6 +49,25 @@ func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	val, exists := vars["endpointID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty endpoint id"))
+		return
+	}
+	var opts types.EPOpts
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.EndpointUpdate(val, opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	epID, exists := vars["endpointID"]

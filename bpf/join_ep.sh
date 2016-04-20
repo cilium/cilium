@@ -16,5 +16,5 @@ export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PAT
 
 clang -O2 -target bpf -c $LIB/bpf_lxc.c -I/var/run/cilium/globals -I$DIR -o $DIR/bpf_lxc.o
 
-tc qdisc replace dev $IFNAME clsact
+tc qdisc replace dev $IFNAME clsact || true
 tc filter replace dev $IFNAME ingress bpf da obj $DIR/bpf_lxc.o sec from-container

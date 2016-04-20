@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,7 +21,7 @@ func isValidID(id string) bool {
 	return r.MatchString(id)
 }
 
-func writeGeneve(lxcDir string, ep *types.Endpoint, f *os.File) error {
+func writeGeneve(lxcDir string, ep *types.Endpoint) ([]byte, error) {
 
 	// Write container options values for each available option in
 	// bpf/lib/geneve.h
@@ -28,17 +29,16 @@ func writeGeneve(lxcDir string, ep *types.Endpoint, f *os.File) error {
 	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabelID))
 	if err != nil {
 		log.Warningf("Could not write geneve options %s", err)
-		return err
+		return nil, err
 	}
 
 	_, rawData, err := geneve.ReadOpts(filepath.Join(lxcDir, "geneve_opts.cfg"))
 	if err != nil {
 		log.Warningf("Could not read geneve options %s", err)
-		return err
+		return nil, err
 	}
-	f.WriteString(common.FmtDefineArray("GENEVE_OPTS", rawData))
 
-	return nil
+	return rawData, nil
 }
 
 func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
@@ -95,6 +95,63 @@ func (d *Daemon) deleteEndpoint(endpointID string) {
 	}
 }
 
+func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte) error {
+	fw := bufio.NewWriter(f)
+
+	fmt.Fprint(fw, "/*\n")
+	if ep.DockerID == "" {
+		fmt.Fprintf(fw, " * Docker Network ID: %s\n", ep.DockerNetwork)
+	} else {
+		fmt.Fprintf(fw, " * Docker Container ID: %s\n", ep.DockerID)
+	}
+	policyMapPath := common.PolicyMapPath + ep.ID
+
+	fmt.Fprintf(fw, " * MAC: %s\n"+
+		" * IPv6 address: %s\n"+
+		" * IPv4 address: %s\n"+
+		" * SecLabel: %#x\n"+
+		" * PolicyMap: %s\n"+
+		" * NodeMAC: %s\n"+
+		" */\n\n",
+		ep.LXCMAC, ep.LXCIP, ep.IPv4Address(d.ipv4Range),
+		ep.SecLabelID, path.Base(policyMapPath), ep.NodeMAC)
+
+	secCtxLabels, err := d.GetLabels(int(ep.SecLabelID))
+	if err != nil {
+		return err
+	}
+
+	fw.WriteString("/*\n")
+	fw.WriteString(" * Labels:\n")
+	for _, v := range secCtxLabels.Labels {
+		fmt.Fprintf(fw, " * - %s\n", v)
+	}
+	fw.WriteString(" */\n\n")
+
+	fw.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
+	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
+	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.U16ID())
+	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
+	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabelID))
+	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabelID)
+	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
+	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DISABLE_POLICY_ENFORCEMENT"))
+	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("ENABLE_NAT46"))
+	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
+
+	fw.WriteString("#define LXC_PORT_MAPPINGS ")
+	for _, m := range ep.PortMap {
+		// Write mappings directly in network byte order so we don't have
+		// to convert it in the fast path
+		fmt.Fprintf(fw, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
+	}
+	fw.WriteString("\n")
+
+	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
+
+	return fw.Flush()
+}
+
 func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	if !isValidID(rEP.ID) {
 		return fmt.Errorf("invalid ID %s", rEP.ID)
@@ -110,6 +167,12 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	}
 
 	lxcDir := filepath.Join(".", ep.ID)
+
+	geneveOpts, err := writeGeneve(lxcDir, ep)
+	if err != nil {
+		return err
+	}
+
 	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
 	if err != nil {
 		os.RemoveAll(lxcDir)
@@ -117,62 +180,16 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
 
 	}
-
-	fmt.Fprint(f, "/*\n")
-	if ep.DockerID == "" {
-		fmt.Fprintf(f, " * Docker Network ID: %s\n", ep.DockerNetwork)
-	} else {
-		fmt.Fprintf(f, " * Docker Container ID: %s\n", ep.DockerID)
-	}
-	policyMapPath := common.PolicyMapPath + ep.ID
-
-	fmt.Fprintf(f, " * MAC: %s\n"+
-		" * IPv6 address: %s\n"+
-		" * IPv4 address: %s\n"+
-		" * SecLabel: %#x\n"+
-		" * PolicyMap: %s\n"+
-		" * NodeMAC: %s\n"+
-		" */\n\n",
-		ep.LXCMAC.String(), ep.LXCIP.String(),
-		ep.IPv4Address(d.ipv4Range).String(), ep.SecLabelID,
-		path.Base(policyMapPath), ep.NodeMAC.String())
-
-	secCtxlabels, err := d.GetLabels(int(ep.SecLabelID))
+	err = d.createBPFFile(f, ep, geneveOpts)
 	if err != nil {
-		return err
+		f.Close()
+		os.RemoveAll(lxcDir)
+		log.Warningf("Failed to create container headerfile: %s", err)
+		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
 	}
-
-	f.WriteString("/*\n")
-	f.WriteString(" * Labels:\n")
-	for _, v := range secCtxlabels.Labels {
-		fmt.Fprintf(f, " * - %s\n", v)
-	}
-	f.WriteString(" */\n\n")
-
-	f.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
-	f.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
-	fmt.Fprintf(f, "#define LXC_ID %#x\n", ep.U16ID())
-	fmt.Fprintf(f, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
-	fmt.Fprintf(f, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabelID))
-	fmt.Fprintf(f, "#define SECLABEL %#x\n", ep.SecLabelID)
-	fmt.Fprintf(f, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
-	f.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
-
-	f.WriteString("#define LXC_PORT_MAPPINGS ")
-	for _, m := range ep.PortMap {
-		// Write mappings directly in network byte order so we don't have
-		// to convert it in the fast path
-		fmt.Fprintf(f, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
-	}
-	f.WriteString("\n")
-
-	err = writeGeneve(lxcDir, ep, f)
-	if err != nil {
-		return err
-	}
-
 	f.Close()
 
+	policyMapPath := common.PolicyMapPath + ep.ID
 	policyMap, err := policymap.OpenMap(policyMapPath)
 	if err != nil {
 		os.RemoveAll(lxcDir)
@@ -228,6 +245,10 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
 	}
 
+	if ep.Opts == nil {
+		ep.Opts = types.EPOpts{}
+	}
+
 	d.insertEndpoint(&ep)
 
 	return nil
@@ -267,6 +288,67 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	d.deleteEndpoint(epID)
 
 	log.Infof("Command successful:\n%s", out)
+
+	return nil
+}
+
+// EndpointUpdate updates the given endpoint and recompiles the bpf map.
+func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	ep, ok := d.endpoints[common.CiliumPrefix+epID]
+	if !ok {
+		return fmt.Errorf("endpoint %s not found", epID)
+	}
+	for k, v := range opts {
+		ep.Opts[k] = v
+	}
+
+	lxcDir := filepath.Join(".", ep.ID+"_update")
+	if err := os.MkdirAll(lxcDir, 0777); err != nil {
+		log.Warningf("Update failed: failed to create container temporary directory: %s", err)
+		return fmt.Errorf("Update failed: failed to create temporary directory: \"%s\"", err)
+	}
+
+	geneveOpts, err := writeGeneve(lxcDir, ep)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
+	if err != nil {
+		//os.RemoveAll(lxcDir)
+		log.Warningf("Update failed: failed to create container headerfile: %s", err)
+		return fmt.Errorf("Update failed: failed to create temporary directory: \"%s\"", err)
+
+	}
+	err = d.createBPFFile(f, ep, geneveOpts)
+	if err != nil {
+		f.Close()
+		//os.RemoveAll(lxcDir)
+		log.Warningf("Update failed: failed to create container headerfile: %s", err)
+		return fmt.Errorf("Update failed: failed to create temporary directory: \"%s\"", err)
+	}
+	f.Close()
+
+	args := []string{d.libDir, (ep.ID + "_update"), ep.IfName}
+	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
+	if err != nil {
+		//os.RemoveAll(lxcDir)
+		log.Warningf("Update execution failed: %s", err)
+		log.Warningf("Command output:\n%s", out)
+		return fmt.Errorf("1error: \"%s\"\noutput: \"%s\"", err, out)
+	}
+	lxcDirOrg := filepath.Join(".", ep.ID)
+	os.RemoveAll(lxcDirOrg)
+	err = os.Rename(lxcDir, lxcDirOrg)
+	if err != nil {
+		log.Warningf("Update execution failed: %s", err)
+		log.Warningf("Command output:\n%s", out)
+		return fmt.Errorf("2error: \"%s\"\noutput: \"%s\"", err, out)
+	}
+
+	log.Infof("Update successful performed:\n%s", out)
 
 	return nil
 }
