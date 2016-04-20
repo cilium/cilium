@@ -25,6 +25,11 @@ const (
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
 	// log files.
 	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
+	// DisablePolicyEnforcement represent the C constant to disable policy
+	// enforcement.
+	DisablePolicyEnforcement = "DISABLE_POLICY_ENFORCEMENT"
+	// EnableNAT46 represent the C constant to enable nat46 mode.
+	EnableNAT46 = "ENABLE_NAT46"
 
 	// Consul dedicated constants
 
