@@ -69,7 +69,7 @@ Edit the file `/etc/init.d/cilium-net-daemon.conf` and make sure it has the
 
 ```bash
 VM $ sudo cat /etc/init/cilium-net-daemon.conf
-exec cilium-net-daemon -l debug -d eth1
+exec cilium -D daemon -d eth1
 ```
 
 Don't forget to restart the service: `sudo service cilium-net-daemon restart`

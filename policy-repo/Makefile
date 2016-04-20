@@ -4,7 +4,7 @@ SUBDIRS = watcher
 
 TARGET=cilium-net-policy
 
-all: $(TARGET)
+all:
 	$(MAKE) -C watcher
 
 tests:
@@ -15,12 +15,10 @@ runtime-tests:
 
 SOURCES := $(shell find . -name '*.go')
 
-$(TARGET): $(SOURCES)
-	godep go build -o $(TARGET)
+$(TARGET):
 
 clean:
 	rm -f $(TARGET)
 
-install: all
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+install:
 	$(MAKE) -C watcher install

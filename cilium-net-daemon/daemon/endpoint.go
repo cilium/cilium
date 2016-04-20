@@ -247,6 +247,15 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	if ep.Opts == nil {
 		ep.Opts = types.EPOpts{}
+		ep.Opts[common.DisablePolicyEnforcement] = d.disablePolicy
+		ep.Opts[common.EnableNAT46] = false
+	} else {
+		if _, exists := ep.Opts[common.DisablePolicyEnforcement]; !exists {
+			ep.Opts[common.DisablePolicyEnforcement] = d.disablePolicy
+		}
+		if _, exists := ep.Opts[common.EnableNAT46]; !exists {
+			ep.Opts[common.EnableNAT46] = false
+		}
 	}
 
 	d.insertEndpoint(&ep)
