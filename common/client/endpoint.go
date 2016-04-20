@@ -74,3 +74,21 @@ func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
 
 	return &ep, nil
 }
+
+// EndpointUpdate sends a POST request with epID and opts to the daemon.
+func (cli Client) EndpointUpdate(epID string, opts types.EPOpts) error {
+	query := url.Values{}
+	serverResp, err := cli.post("/endpoint/update/"+epID, query, opts, nil)
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusOK &&
+		serverResp.statusCode != http.StatusAccepted {
+		return processErrorBody(serverResp.body, epID)
+	}
+
+	return nil
+}

@@ -8,6 +8,7 @@ type bpfBackend interface {
 	EndpointJoin(ep types.Endpoint) error
 	EndpointLeave(epID string) error
 	EndpointGet(epID string) (*types.Endpoint, error)
+	EndpointUpdate(epID string, opts types.EPOpts) error
 }
 
 type ipamBackend interface {

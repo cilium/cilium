@@ -28,6 +28,9 @@ func (r *Router) initRoutes() {
 			"EndpointGet", "GET", "/endpoint/{endpointID}", r.endpointGet,
 		},
 		route{
+			"EndpointUpdate", "POST", "/endpoint/update/{endpointID}", r.endpointUpdate,
+		},
+		route{
 			"AllocateIPv6", "PUT", "/allocator/container/{containerID}", r.allocateIPv6,
 		},
 		route{

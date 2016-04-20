@@ -193,3 +193,57 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 	c.Assert(ep, IsNil)
 }
+
+func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
+	optsWanted := types.EPOpts{"FOO": true}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
+		var opts types.EPOpts
+		err := json.NewDecoder(r.Body).Decode(&opts)
+		c.Assert(err, IsNil)
+		c.Assert(opts, DeepEquals, optsWanted)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.EndpointUpdate("4370", optsWanted)
+	c.Assert(err, IsNil)
+
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
+		var opts types.EPOpts
+		err := json.NewDecoder(r.Body).Decode(&opts)
+		c.Assert(err, IsNil)
+		c.Assert(opts, IsNil)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	cli = NewTestClient(server.URL, c)
+	err = cli.EndpointUpdate("4370", nil)
+	c.Assert(err, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
+	optsWanted := types.EPOpts{"FOO": true}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(types.ServerError{-1, "the daemon has died"})
+		c.Assert(err, IsNil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.EndpointUpdate("4370", optsWanted)
+	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
+}
