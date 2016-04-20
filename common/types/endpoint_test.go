@@ -25,3 +25,15 @@ func (s *EndpointSuite) TestEndpointID(c *C) {
 	c.Assert(e.ID, Equals, "4370") //"0x1112"
 	c.Assert(bytes.Compare(e.LXCIP, EpAddr) == 0, Equals, true)
 }
+
+func (s *EndpointSuite) TestGetFmtOpt(c *C) {
+	e := Endpoint{
+		Opts: EPOpts{
+			"FOO": true,
+			"BAR": false,
+		},
+	}
+	c.Assert(e.GetFmtOpt("FOO"), Equals, "#define FOO")
+	c.Assert(e.GetFmtOpt("BAR"), Equals, "#undef BAR")
+	c.Assert(e.GetFmtOpt("BAZ"), Equals, "#undef BAZ")
+}

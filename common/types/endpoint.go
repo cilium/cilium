@@ -16,6 +16,9 @@ type EPPortMap struct {
 	Proto uint8  `json:"proto"`
 }
 
+// Opts is the endpoint bpf options representation.
+type EPOpts map[string]bool
+
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
@@ -33,6 +36,7 @@ type Endpoint struct {
 	PortMap    []EPPortMap          `json:"port-mapping"`   // Port mapping used for this endpoint.
 	Consumable *Consumable          `json:"consumable"`
 	PolicyMap  *policymap.PolicyMap `json:"-"`
+	Opts       EPOpts               `json:"options"` // Endpoint bpf options.
 }
 
 // U16ID returns the endpoint's ID as uint16.
@@ -77,4 +81,18 @@ func (e Endpoint) String() string {
 		return err.Error()
 	}
 	return string(b)
+}
+
+// GetFmtOpt returns #define name if option exists and is set to true in endpoint's Opts
+// map or #undef name if option does not exist or exists but is set to false in endpoint's
+// Opts map.
+func (e *Endpoint) GetFmtOpt(name string) string {
+	set, exists := e.Opts[name]
+	if !exists {
+		return "#undef " + name
+	}
+	if set {
+		return "#define " + name
+	}
+	return "#undef " + name
 }
