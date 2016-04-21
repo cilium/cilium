@@ -220,3 +220,12 @@ func (lbls Labels) sortMap() []string {
 	}
 	return sortedMap
 }
+
+/// ToSlice returns a slice of label with the values of the given Labels' map.
+func (lbls Labels) ToSlice() []Label {
+	labels := []Label{}
+	for _, v := range lbls {
+		labels = append(labels, *v)
+	}
+	return labels
+}

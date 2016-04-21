@@ -75,3 +75,24 @@ func (cli Client) PolicyGet(path string) (*types.PolicyNode, error) {
 
 	return &pn, nil
 }
+
+func (cli Client) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error) {
+	query := url.Values{}
+
+	serverResp, err := cli.post("/policy-consume-decision", query, ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusAccepted {
+		return nil, processErrorBody(serverResp.body, nil)
+	}
+
+	var scr types.SearchContextReply
+	if err := json.NewDecoder(serverResp.body).Decode(&scr); err != nil {
+		return nil, err
+	}
+	return &scr, nil
+}

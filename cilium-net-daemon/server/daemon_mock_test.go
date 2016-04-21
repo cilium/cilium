@@ -22,6 +22,7 @@ type TestDaemon struct {
 	OnPolicyAdd            func(path string, node *types.PolicyNode) error
 	OnPolicyDelete         func(path string) error
 	OnPolicyGet            func(path string) (*types.PolicyNode, error)
+	OnPolicyCanConsume     func(sc *types.SearchContext) (*types.SearchContextReply, error)
 }
 
 func NewTestDaemon() *TestDaemon {
@@ -113,22 +114,29 @@ func (d TestDaemon) GetMaxID() (int, error) {
 }
 
 func (d TestDaemon) PolicyAdd(path string, node *types.PolicyNode) error {
-	if d.PolicyAdd != nil {
-		return d.PolicyAdd(path, node)
+	if d.OnPolicyAdd != nil {
+		return d.OnPolicyAdd(path, node)
 	}
 	return errors.New("PolicyAdd should not have been called")
 }
 
 func (d TestDaemon) PolicyDelete(path string) error {
-	if d.PolicyDelete != nil {
-		return d.PolicyDelete(path)
+	if d.OnPolicyDelete != nil {
+		return d.OnPolicyDelete(path)
 	}
 	return errors.New("PolicyDelete should not have been called")
 }
 
 func (d TestDaemon) PolicyGet(path string) (*types.PolicyNode, error) {
-	if d.PolicyGet != nil {
-		return d.PolicyGet(path)
+	if d.OnPolicyGet != nil {
+		return d.OnPolicyGet(path)
 	}
 	return nil, errors.New("PolicyGet should not have been called")
+}
+
+func (d TestDaemon) PolicyCanConsume(sc *types.SearchContext) (*types.SearchContextReply, error) {
+	if d.OnPolicyCanConsume != nil {
+		return d.OnPolicyCanConsume(sc)
+	}
+	return nil, errors.New("PolicyCanConsume should not have been called")
 }
