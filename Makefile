@@ -1,6 +1,7 @@
 include Makefile.defs
 
 SUBDIRS = docker-plugin cilium cni bpf
+SUBDIRSLIB = common cilium-net-daemon policy-repo integration
 
 all: $(SUBDIRS)
 
@@ -8,20 +9,12 @@ $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
 tests:
-	$(MAKE) -C common tests
-	$(MAKE) -C cilium-net-daemon tests
 	for i in $(SUBDIRS); do $(MAKE) -C $$i tests; done
-	$(MAKE) -C policy-repo tests
-	$(MAKE) -C integration tests
-
-run-docker-plugin:
-	$(MAKE) -C docker-plugin run
-
-run-cilium-daemon:
-	$(MAKE) -C cilium-net-daemon run
+	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i tests; done
 
 clean:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
