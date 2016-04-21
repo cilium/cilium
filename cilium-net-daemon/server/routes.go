@@ -60,5 +60,8 @@ func (r *Router) initRoutes() {
 		route{
 			"PolicyGet", "GET", "/policy/{path}", r.policyGet,
 		},
+		route{
+			"PolicyCanConsume", "POST", "/policy-consume-decision", r.policyCanConsume,
+		},
 	}
 }

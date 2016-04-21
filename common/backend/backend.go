@@ -28,6 +28,7 @@ type policyBackend interface {
 	PolicyAdd(path string, node *types.PolicyNode) error
 	PolicyDelete(path string) error
 	PolicyGet(path string) (*types.PolicyNode, error)
+	PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error)
 }
 
 type control interface {

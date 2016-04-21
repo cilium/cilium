@@ -72,11 +72,14 @@ var (
 func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
 	if ctx.Trace {
 		log.Debugf(format, a...)
+		if ctx.Logging != nil {
+			ctx.Logging.Logger.Printf(format, a...)
+		}
 	}
 }
 
-func (d *ConsumableDecision) String() string {
-	switch *d {
+func (d ConsumableDecision) String() string {
+	switch d {
 	case ACCEPT:
 		return "accept"
 	case ALWAYS_ACCEPT:
@@ -91,29 +94,38 @@ func (d *ConsumableDecision) String() string {
 }
 
 func (d *ConsumableDecision) UnmarshalJSON(b []byte) error {
+	if d == nil {
+		d = new(ConsumableDecision)
+	}
 	switch strings.ToLower(string(b)) {
-	case "accept":
+	case `"accept"`:
 		*d = ACCEPT
-	case "always-accept":
+	case `"always-accept`:
 		*d = ALWAYS_ACCEPT
-	case "deny":
+	case `"deny`:
 		*d = DENY
-	case "undecided":
+	case `"undecided`:
 		*d = UNDECIDED
 	}
 
 	return nil
 }
 
-func (d *ConsumableDecision) MarshalJSON() ([]byte, error) {
+func (d ConsumableDecision) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
 }
 
 type SearchContext struct {
-	Trace bool
+	Trace   bool
+	Logging *logging.LogBackend
 	// TODO: Put this as []*Label?
 	From []Label
 	To   []Label
+}
+
+type SearchContextReply struct {
+	Logging  []byte
+	Decision ConsumableDecision
 }
 
 func (s *SearchContext) TargetCoveredBy(coverage []Label) bool {

@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -8,6 +9,8 @@ import (
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
+
+	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 // FIXME:
@@ -83,7 +86,7 @@ func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchCo
 		}
 	}
 
-	decision := d.PolicyCanConsume(ctx)
+	decision := d.policyCanConsume(ctx)
 	// Only accept rules get stored
 	if decision == types.ACCEPT {
 		c.AllowConsumerAndReverse(srcID)
@@ -192,9 +195,25 @@ func (d *Daemon) TriggerPolicyUpdates(added []int) {
 	}
 }
 
-// PolicyCanConsume calculates if the ctx allows the consumer to be consumed.
-func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
+// policyCanConsume calculates if the ctx allows the consumer to be consumed.
+func (d *Daemon) policyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
 	return tree.Allows(ctx)
+}
+
+// PolicyCanConsume calculates if the ctx allows the consumer to be consumed. This public
+// function returns a SearchContextReply with the consumable decision and the tracing log
+// if ctx.Trace was set.
+func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error) {
+	buffer := new(bytes.Buffer)
+	if ctx.Trace {
+		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+	}
+	scr := types.SearchContextReply{}
+	scr.Decision = tree.Allows(ctx)
+	if ctx.Trace {
+		scr.Logging = buffer.Bytes()
+	}
+	return &scr, nil
 }
 
 func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {

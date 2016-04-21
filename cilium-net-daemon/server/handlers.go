@@ -280,3 +280,21 @@ func (router *Router) policyGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (router *Router) policyCanConsume(w http.ResponseWriter, r *http.Request) {
+	var sc types.SearchContext
+	if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	scr, err := router.daemon.PolicyCanConsume(&sc)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+	if err := json.NewEncoder(w).Encode(scr); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}

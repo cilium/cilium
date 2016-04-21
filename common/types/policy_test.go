@@ -620,3 +620,22 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 	err = aNode.Merge(&bNode)
 	c.Assert(err, Equals, nil)
 }
+
+func (s *CommonSuite) TestSearchContextReplyJSON(c *C) {
+	scr := SearchContextReply{
+		Logging:  []byte(`foo`),
+		Decision: ConsumableDecision(0x1),
+	}
+	scrWanted := SearchContextReply{
+		Logging:  []byte(`foo`),
+		Decision: ConsumableDecision(0x1),
+	}
+	b, err := json.Marshal(scr)
+	c.Assert(err, IsNil)
+	c.Assert(b, DeepEquals, []byte(`{"Logging":"Zm9v","Decision":"accept"}`))
+
+	var scrGot SearchContextReply
+	err = json.Unmarshal(b, &scrGot)
+	c.Assert(err, IsNil)
+	c.Assert(scrGot, DeepEquals, scrWanted)
+}
