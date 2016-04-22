@@ -31,7 +31,6 @@ var (
 	kubernetesEndpoint string
 	labelPrefixFile    string
 	libDir             string
-	logLevel           string
 	nodeAddrStr        string
 	runDir             string
 	socketPath         string
@@ -176,7 +175,7 @@ func initBPF() {
 		" */\n\n",
 		nodeAddr.String(), hostIP.String())
 
-	if logLevel == "debug" {
+	if common.DebugEnabled {
 		f.WriteString("#define DEBUG\n")
 	}
 
