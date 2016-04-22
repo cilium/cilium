@@ -27,7 +27,7 @@ function abort {
 SERVER_LABEL="io.cilium.test.server"
 CLIENT_LABEL="io.cilium.test.client"
 
-sudo cilium-net-policy -d import -p ./tests/policy/
+sudo cilium -D policy import ./tests/policy
 
 docker network inspect $TEST_NET || {
 	docker network create --ipam-driver cilium --driver cilium $TEST_NET
@@ -68,4 +68,4 @@ ping6 -c 5 "$SERVER_IP" || {
 	abort "Error: Could not ping server container from host"
 }
 
-sudo cilium-net-policy -d delete
+sudo cilium -D policy delete io.cilium
