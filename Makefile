@@ -9,8 +9,8 @@ $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
 tests:
-	for i in $(SUBDIRS); do $(MAKE) -C $$i tests; done
-	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i tests; done
+	for i in $(SUBDIRS); do $(MAKE) -C $$i -B tests; done
+	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i -B tests; done
 
 clean:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done

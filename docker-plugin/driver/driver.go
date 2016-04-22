@@ -16,9 +16,9 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/drivers/remote/api"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
+	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/registry/service/ipallocator"
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
 var log = l.MustGetLogger("cilium-net-client")
@@ -303,7 +303,7 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Delete endpoint request: %+v", &del)
 
 	delete(driver.endpoints, del.EndpointID)
-	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil{
+	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil {
 		log.Warningf("Error while deleting link: %s", err)
 	}
 
@@ -403,7 +403,7 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(l.EndpointID)); err != nil{
+	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(l.EndpointID)); err != nil {
 		log.Warningf("Error while deleting link: %s", err)
 	}
 	emptyResponse(w)
