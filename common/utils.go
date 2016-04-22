@@ -10,6 +10,10 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
 )
 
+var (
+	DebugEnabled bool = false
+)
+
 // goArray2C transforms a byte slice into its hexadecimal string representation.
 // Example:
 // array := []byte{0x12, 0xFF, 0x0, 0x01}
@@ -108,6 +112,10 @@ func GetLockPath(path string) string {
 
 // SetupLOG sets up logger with the correct parameters for the whole cilium architecture.
 func SetupLOG(logger *l.Logger, logLevel, hostname string) {
+	if logLevel == "DEBUG" {
+		DebugEnabled = true
+	}
+
 	if hostname == "" {
 		hostname, _ = os.Hostname()
 	}
