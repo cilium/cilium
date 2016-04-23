@@ -70,6 +70,27 @@ func (s *DaemonSuite) TestGetLabelsFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true)
 }
 
+func (s *DaemonSuite) TestGetLabelsBySHA256OK(c *C) {
+	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*types.SecCtxLabel, error) {
+		c.Assert(sha256sum, Equals, "82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
+		return &wantSecCtxLbls, nil
+	}
+
+	lblsReceived, err := s.c.GetLabelsBySHA256("82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
+	c.Assert(err, Equals, nil)
+	c.Assert(*lblsReceived, DeepEquals, wantSecCtxLbls)
+}
+
+func (s *DaemonSuite) TestGetLabelsBySHA256Fail(c *C) {
+	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*types.SecCtxLabel, error) {
+		c.Assert(sha256sum, Equals, "82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
+		return nil, errors.New("Unable to contact consul")
+	}
+
+	_, err := s.c.GetLabelsBySHA256("82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
+	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true)
+}
+
 func (s *DaemonSuite) TestDeleteLabelsByUUIDOK(c *C) {
 	s.d.OnDeleteLabelsByUUID = func(id int) error {
 		c.Assert(id, Equals, 123)

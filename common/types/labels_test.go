@@ -77,15 +77,49 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 func (s *LabelsSuite) TestMergeLabels(c *C) {
 	to := Labels{
 		"key1": NewLabel("key1", "value1", "source1"),
-		"key2": NewLabel("key1", "value3", "source4"),
+		"key2": NewLabel("key2", "value3", "source4"),
 	}
 	from := Labels{
 		"key1": NewLabel("key1", "value3", "source4"),
 	}
 	want := Labels{
 		"key1": NewLabel("key1", "value3", "source4"),
-		"key2": NewLabel("key1", "value3", "source4"),
+		"key2": NewLabel("key2", "value3", "source4"),
 	}
 	to.MergeLabels(from)
 	c.Assert(to, DeepEquals, want)
+}
+
+func (s *LabelsSuite) TestSliceToMap(c *C) {
+	want := Labels{
+		"key1": NewLabel("key1", "value3", "source4"),
+		"key2": NewLabel("key2", "value5", "source7"),
+	}
+
+	lbls := LabelSlice2LabelsMap([]Label{
+		Label{"key1", "value3", "source4", ""},
+		Label{"key2", "value5", "source7", ""},
+	})
+	c.Assert(len(lbls), Equals, 2)
+	c.Assert(lbls, DeepEquals, want)
+}
+
+func (s *LabelsSuite) TestParseLabel(c *C) {
+	tests := []struct {
+		str    string
+		out    *Label
+		errOut Checker
+	}{
+		{"source1#key1=value1", NewLabel("key1", "value1", "source1"), IsNil},
+		{"key1=value1", nil, NotNil},
+		{"value1", nil, NotNil},
+		{"source1#key1", NewLabel("key1", "", "source1"), IsNil},
+		{"source1#key1==value1", NewLabel("key1", "=value1", "source1"), IsNil},
+		{"source##key1=value1", NewLabel("#key1", "value1", "source"), IsNil},
+	}
+	for _, test := range tests {
+		lbl, err := ParseLabel(test.str)
+		c.Assert(err, test.errOut)
+		c.Assert(lbl, DeepEquals, test.out)
+	}
 }

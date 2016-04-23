@@ -102,6 +102,40 @@ func (s *CiliumNetClientSuite) TestGetLabelsFail(c *C) {
 	c.Assert(receivedLabels, Equals, wantLabels)
 }
 
+func (s *CiliumNetClientSuite) TestGetLabelsBySHA256SOK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(seclbl)
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	secCtxLbls, err := cli.GetLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+	c.Assert(err, Equals, nil)
+	c.Assert(*secCtxLbls, DeepEquals, seclbl)
+}
+
+func (s *CiliumNetClientSuite) TestGetLabelsBySHA256Fail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	var wantLabels *types.SecCtxLabel
+	receivedLabels, err := cli.GetLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+	c.Assert(err, Equals, nil)
+	c.Assert(receivedLabels, Equals, wantLabels)
+}
+
 func (s *CiliumNetClientSuite) TestDeleteLabelsByUUIDOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")

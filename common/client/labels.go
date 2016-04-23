@@ -62,6 +62,36 @@ func (cli Client) GetLabels(id int) (*types.SecCtxLabel, error) {
 	return &secCtxLabels, nil
 }
 
+// GetLabelsBySHA256 sends a GET request with sha256sum to the daemon. Returns the
+// types.SecCtxLabels with the given id. If it's not found, types.SecCtxLabels and error
+// are booth nil.
+func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
+	query := url.Values{}
+
+	serverResp, err := cli.get("/labels/by-sha256sum/"+sha256sum, query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusNoContent &&
+		serverResp.statusCode != http.StatusOK {
+		return nil, processErrorBody(serverResp.body, nil)
+	}
+
+	if serverResp.statusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
+	var secCtxLabels types.SecCtxLabel
+	if err := json.NewDecoder(serverResp.body).Decode(&secCtxLabels); err != nil {
+		return nil, err
+	}
+
+	return &secCtxLabels, nil
+}
+
 // DeleteLabelsByUUID sends a DELETE request with id to the daemon.
 func (cli Client) DeleteLabelsByUUID(id int) error {
 	query := url.Values{}
