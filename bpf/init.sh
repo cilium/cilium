@@ -55,7 +55,7 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
-ID=$(cilium-net-policy get-id $HOST_ID 2> /dev/null)
+ID=$(cilium policy get-id $HOST_ID 2> /dev/null)
 OPTS="-DHANDLE_NS -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 clang -O2 $OPTS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
 
