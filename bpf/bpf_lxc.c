@@ -131,7 +131,6 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		return TC_ACT_OK;
 #endif
 	} else {
-		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
 		return do_l3(skb, nh_off, &dst, SECLABEL);
 	}
 }
