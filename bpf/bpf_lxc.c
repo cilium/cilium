@@ -169,8 +169,6 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 {
 	int ifindex = skb->cb[1];
 
-	//printk("Handle policy %d %d\n", src_label, ifindex);
-
 #ifndef DISABLE_POLICY_ENFORCEMENT
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
@@ -180,8 +178,8 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 		printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
 		return TC_ACT_SHOT;
 	}
-	policy->packets++;
-	policy->bytes += skb->len;
+	__sync_fetch_and_add(&policy->packets, 1);
+	__sync_fetch_and_add(&policy->bytes, skb->len);
 #endif
 
 	return redirect(ifindex, 0);

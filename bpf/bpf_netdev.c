@@ -188,8 +188,8 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 		printk("Denied by policy!\n");
 		return TC_ACT_SHOT;
 	}
-	policy->packets++;
-	policy->bytes += skb->len;
+	__sync_fetch_and_add(&policy->packets, 1);
+	__sync_fetch_and_add(&policy->bytes, skb->len);
 #endif
 	return redirect(ifindex, 0);
 }
