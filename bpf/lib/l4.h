@@ -13,8 +13,6 @@ static inline void do_tcp_port_map_in(struct __sk_buff *skb, int off,
 
 	tcp_load_dport(skb, off, &dport);
 
-	printk("Comparing %u == %u\n", ntohs(map->from), ntohs(dport));
-
 	if (map->from == dport)
 		tcp_store_dport(skb, off, map->to);
 }
@@ -53,8 +51,6 @@ static inline void do_tcp_port_map_out(struct __sk_buff *skb, int off,
 	__u16 sport = 0;
 
 	tcp_load_sport(skb, off, &sport);
-
-	printk("Comparing %u == %u\n", ntohs(map->to), ntohs(sport));
 
 	if (map->to == sport)
 		tcp_store_sport(skb, off, map->from);

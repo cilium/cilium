@@ -38,22 +38,21 @@ __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
-	int ret = 0;
-#ifdef ENCAP_GENEVE
-	uint8_t buf[MAX_GENEVE_OPT_LEN] = {};
-	struct geneveopt_val geneveopt_val = {};
-#endif
 
-	ret = skb_get_tunnel_key(skb, &key, sizeof(key), 0);
-	if (unlikely(ret < 0))
+	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
 		return TC_ACT_SHOT;
+
 #ifdef ENCAP_GENEVE
-	ret = skb_get_tunnel_opt(skb, buf, sizeof(buf));
-	if (unlikely(ret < 0))
-		return TC_ACT_SHOT;
-	ret = parse_geneve_options(&geneveopt_val, buf);
-	if (unlikely(ret < 0))
-		return TC_ACT_SHOT;
+	if (1) {
+		uint8_t buf[MAX_GENEVE_OPT_LEN] = {};
+		struct geneveopt_val geneveopt_val = {};
+
+		if (unlikely(skb_get_tunnel_opt(skb, buf, sizeof(buf)) < 0))
+			return TC_ACT_SHOT;
+
+		if (unlikely(parse_geneve_options(&geneveopt_val, buf) < 0))
+			return TC_ACT_SHOT;
+	}
 #endif
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
