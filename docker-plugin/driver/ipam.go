@@ -7,7 +7,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/common"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/ipams/remote/api"
+	"github.com/docker/libnetwork/ipams/remote/api"
 )
 
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {

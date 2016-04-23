@@ -6,8 +6,8 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+	consulAPI "github.com/hashicorp/consul/api"
+	. "gopkg.in/check.v1"
 )
 
 var (

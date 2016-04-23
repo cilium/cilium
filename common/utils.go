@@ -6,8 +6,8 @@ import (
 	"os"
 	"syscall"
 
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+	l "github.com/op/go-logging"
+	"github.com/vishvananda/netlink"
 )
 
 var (

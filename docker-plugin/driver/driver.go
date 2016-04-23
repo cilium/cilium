@@ -12,13 +12,13 @@ import (
 	"github.com/noironetworks/cilium-net/common/plugins"
 	ciliumtype "github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/drivers/remote/api"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/registry/service/ipallocator"
+	"github.com/codegangsta/cli"
+	"github.com/docker/libnetwork/drivers/remote/api"
+	"github.com/docker/libnetwork/types"
+	"github.com/gorilla/mux"
+	l "github.com/op/go-logging"
+	"github.com/vishvananda/netlink"
+	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 )
 
 var log = l.MustGetLogger("cilium-net-client")

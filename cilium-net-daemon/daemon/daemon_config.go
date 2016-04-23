@@ -6,7 +6,7 @@ import (
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
+	consulAPI "github.com/hashicorp/consul/api"
 )
 
 // Config is the configuration used by Daemon.

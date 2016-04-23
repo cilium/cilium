@@ -1,7 +1,7 @@
 package types
 
 import (
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
 const (

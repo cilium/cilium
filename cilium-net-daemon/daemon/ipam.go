@@ -6,8 +6,8 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend/disk"
+	"github.com/appc/cni/plugins/ipam/host-local/backend"
+	"github.com/appc/cni/plugins/ipam/host-local/backend/disk"
 )
 
 // AllocateIPs allocates and returns a free IPv6 address with its routes set up.

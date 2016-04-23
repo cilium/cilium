@@ -3,8 +3,8 @@ package daemon
 import (
 	"github.com/noironetworks/cilium-net/common"
 
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
 	. "github.com/noironetworks/cilium-net/common/types"
+	. "gopkg.in/check.v1"
 )
 
 func (ds *DaemonSuite) TestFindNode(c *C) {

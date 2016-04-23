@@ -8,8 +8,8 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 	policy "github.com/noironetworks/cilium-net/policy-repo"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/codegangsta/cli"
+	l "github.com/op/go-logging"
 )
 
 var (

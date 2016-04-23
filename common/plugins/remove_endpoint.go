@@ -3,7 +3,7 @@ package plugins
 import (
 	"fmt"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink"
 )
 
 // DelLinkByName deletes the interface with the name ifName.

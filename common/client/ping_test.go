@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.

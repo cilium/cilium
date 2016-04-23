@@ -3,7 +3,7 @@ package types
 import (
 	"net"
 
-	libnetworktypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
+	libnetworktypes "github.com/docker/libnetwork/types"
 )
 
 // IPAMConfig contains both IPv4 and IPv6 IPAM configuration.

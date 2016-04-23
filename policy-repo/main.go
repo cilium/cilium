@@ -15,8 +15,8 @@ import (
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/codegangsta/cli"
+	l "github.com/op/go-logging"
 )
 
 var (

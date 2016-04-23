@@ -9,7 +9,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 )
 
 func (router *Router) ping(w http.ResponseWriter, r *http.Request) {

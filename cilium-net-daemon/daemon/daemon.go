@@ -14,17 +14,17 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 	ciliumTypes "github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
-	hb "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/plugins/ipam/host-local/backend"
-	dClient "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/engine-api/client"
-	dTypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/engine-api/types"
-	dTypesEvents "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/engine-api/types/events"
-	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	k8sAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/api"
-	k8sClientConfig "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/client/restclient"
-	k8sClient "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/client/unversioned"
-	k8sDockerLbls "github.com/noironetworks/cilium-net/Godeps/_workspace/src/k8s.io/kubernetes/pkg/kubelet/dockertools"
+	"github.com/appc/cni/pkg/types"
+	hb "github.com/appc/cni/plugins/ipam/host-local/backend"
+	dClient "github.com/docker/engine-api/client"
+	dTypes "github.com/docker/engine-api/types"
+	dTypesEvents "github.com/docker/engine-api/types/events"
+	consulAPI "github.com/hashicorp/consul/api"
+	"github.com/op/go-logging"
+	k8sAPI "k8s.io/kubernetes/pkg/api"
+	k8sClientConfig "k8s.io/kubernetes/pkg/client/restclient"
+	k8sClient "k8s.io/kubernetes/pkg/client/unversioned"
+	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/dockertools"
 )
 
 const (

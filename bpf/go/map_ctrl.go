@@ -20,7 +20,7 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/bpf"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
+	"github.com/codegangsta/cli"
 )
 
 const (

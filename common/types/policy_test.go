@@ -5,7 +5,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/common"
 
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
 type CommonSuite struct{}

@@ -6,8 +6,8 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/docker-plugin/driver"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/codegangsta/cli"
+	l "github.com/op/go-logging"
 )
 
 var log = l.MustGetLogger("cilium-net-docker-plugin")
