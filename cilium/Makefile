@@ -16,7 +16,7 @@ run:
 clean:
 	rm -f $(TARGET)
 
-SOURCES := $(shell find . -name '*.go')
+SOURCES := $(shell find ../policy-repo ../cilium-net-daemon ../common . -name '*.go')
 
 $(TARGET): $(SOURCES)
 	godep go build -o $(TARGET) ./main.go
