@@ -1,14 +1,14 @@
 {
-        "Name": "io.cilium",
-	"Children": {
-		"Web": {
-			"Rules": [{
-				"Allow": ["$world"]
+        "name": "io.cilium",
+	"children": {
+		"web": {
+			"rules": [{
+				"allow": ["$world"]
 			}]
 		},
-		"DB": {
-			"Rules": [{
-				"Allow": ["..Web"]
+		"db": {
+			"rules": [{
+				"allow": ["..web"]
 			}]
 		}
 	}
