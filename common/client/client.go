@@ -10,7 +10,7 @@ import (
 
 	common "github.com/noironetworks/cilium-net/common"
 
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	l "github.com/op/go-logging"
 )
 
 var log = l.MustGetLogger("cilium-net-client")

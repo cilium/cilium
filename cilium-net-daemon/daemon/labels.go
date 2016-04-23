@@ -8,7 +8,7 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
+	consulAPI "github.com/hashicorp/consul/api"
 )
 
 func (d *Daemon) initializeFreeID() error {

@@ -11,8 +11,8 @@ import (
 	"github.com/noironetworks/cilium-net/common/backend"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 
-	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+	consulAPI "github.com/hashicorp/consul/api"
+	. "gopkg.in/check.v1"
 )
 
 var (

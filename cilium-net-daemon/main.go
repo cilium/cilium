@@ -15,9 +15,9 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/codegangsta/cli"
-	consulAPI "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/hashicorp/consul/api"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/codegangsta/cli"
+	consulAPI "github.com/hashicorp/consul/api"
+	"github.com/op/go-logging"
 )
 
 var (

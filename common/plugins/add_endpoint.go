@@ -5,8 +5,8 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+	"github.com/op/go-logging"
+	"github.com/vishvananda/netlink"
 )
 
 const (

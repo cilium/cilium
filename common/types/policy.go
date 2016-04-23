@@ -8,7 +8,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/common"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
+	"github.com/op/go-logging"
 )
 
 var (

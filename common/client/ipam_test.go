@@ -10,8 +10,8 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	libnetworktypes "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/docker/libnetwork/types"
-	. "github.com/noironetworks/cilium-net/Godeps/_workspace/src/gopkg.in/check.v1"
+	libnetworktypes "github.com/docker/libnetwork/types"
+	. "gopkg.in/check.v1"
 )
 
 func (s *CiliumNetClientSuite) TestGetIPsOK(c *C) {

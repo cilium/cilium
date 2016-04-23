@@ -8,7 +8,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/backend"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 )
 
 // Router represents the cilium router to send proper HTTP requests to the daemon.

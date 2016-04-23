@@ -13,11 +13,11 @@ import (
 	"github.com/noironetworks/cilium-net/common/plugins"
 	ciliumtypes "github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/ns"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/skel"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
-	l "github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
-	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/vishvananda/netlink"
+	"github.com/appc/cni/pkg/ns"
+	"github.com/appc/cni/pkg/skel"
+	"github.com/appc/cni/pkg/types"
+	l "github.com/op/go-logging"
+	"github.com/vishvananda/netlink"
 )
 
 var log = l.MustGetLogger("cilium-net-cni")
