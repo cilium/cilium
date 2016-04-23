@@ -23,10 +23,10 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 
 	printk("L3 from overlay: skb %p len %d\n", skb, skb->len);
 
-	load_ipv6_daddr(skb, nh_off, &dst);
-	node_id = derive_node_id(&dst);
+	ipv6_load_daddr(skb, nh_off, &dst);
+	node_id = ipv6_derive_node_id(&dst);
 
-	if (node_id != NODE_ID) {
+	if (unlikely(node_id != NODE_ID)) {
 		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
 		return TC_ACT_SHOT;
 	} else {

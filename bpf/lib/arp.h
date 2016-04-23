@@ -21,7 +21,7 @@ static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr 
 	if (likely(skb->protocol != __constant_htons(ETH_P_ARP)))
 		return 0;
 
-	load_eth_daddr(skb, dmac.addr, 0);
+	eth_load_daddr(skb, dmac.addr, 0);
 	/* Get ARP op code */
 	if (skb_load_bytes(skb, 20, &arpop, sizeof(arpop)) < 0)
 		return TC_ACT_SHOT;
@@ -30,7 +30,7 @@ static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr 
 		return TC_ACT_SHOT;
 
 	if ((arpop != __constant_htons(ARPOP_REQUEST)) || (tip != ar_tip) ||
-	    (!is_eth_bcast(&dmac) && compare_eth_addr(&dmac, responder_mac))) {
+	    (!eth_is_bcast(&dmac) && eth_addrcmp(&dmac, responder_mac))) {
 		printk("arp target mismatch for %x, (target %x op %d)\n",
 			ar_tip, tip, ntohs(arpop));
 		return 0;

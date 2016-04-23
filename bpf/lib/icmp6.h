@@ -15,7 +15,7 @@ static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 	return load_byte(skb, nh_off + ICMP6_TYPE_OFFSET);
 }
 
-static inline int send_icmp6_reply(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 {
 	union macaddr smac = {}, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
@@ -23,13 +23,13 @@ static inline int send_icmp6_reply(struct __sk_buff *skb, int nh_off)
 	__be32 sum = 0;
 	__u8 router_ip[] = ROUTER_IP;
 
-	load_ipv6_saddr(skb, nh_off, &sip);
-	load_ipv6_daddr(skb, nh_off, &dip);
+	ipv6_load_saddr(skb, nh_off, &sip);
+	ipv6_load_daddr(skb, nh_off, &dip);
 
 	/* skb->saddr = skb->daddr  */
-	store_ipv6_saddr(skb, router_ip, nh_off);
+	ipv6_store_saddr(skb, router_ip, nh_off);
 	/* skb->daddr = skb->saddr */
-	store_ipv6_daddr(skb, sip.addr, nh_off);
+	ipv6_store_daddr(skb, sip.addr, nh_off);
 
 	/* fixup checksums */
 	sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
@@ -38,17 +38,17 @@ static inline int send_icmp6_reply(struct __sk_buff *skb, int nh_off)
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
 	/* dmac = smac, smac = dmac */
-	load_eth_saddr(skb, smac.addr, 0);
-	// load_eth_daddr(skb, dmac.addr, 0);
-	store_eth_daddr(skb, smac.addr, 0);
-	store_eth_saddr(skb, dmac.addr, 0);
+	eth_load_saddr(skb, smac.addr, 0);
+	// eth_load_daddr(skb, dmac.addr, 0);
+	eth_store_daddr(skb, smac.addr, 0);
+	eth_store_saddr(skb, dmac.addr, 0);
 
 	printk("Redirect skb to Ifindex %d\n", skb->ifindex);
 
 	return redirect(skb->ifindex, 0);
 }
 
-static inline int send_icmp6_echo_response(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
 {
 	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
@@ -75,7 +75,7 @@ static inline int send_icmp6_echo_response(struct __sk_buff *skb, int nh_off)
 
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
-	return send_icmp6_reply(skb, nh_off);
+	return icmp6_send_reply(skb, nh_off);
 }
 
 static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
@@ -125,7 +125,7 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 	sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts), 0);
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
-	return send_icmp6_reply(skb, nh_off);
+	return icmp6_send_reply(skb, nh_off);
 }
 
 static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
@@ -143,7 +143,7 @@ static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 	return sum;
 }
 
-static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 {
         char data[80] = {};
         struct icmp6hdr *icmp6hoplim;
@@ -194,7 +194,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 56, 0) < 0)
 			return TC_ACT_SHOT;
-		if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
+		if (ipv6_store_paylen(skb, nh_off, &payload_len) < 0)
 			return TC_ACT_SHOT;
 
                 break;
@@ -217,7 +217,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 68, 0) < 0)
 			return TC_ACT_SHOT;
-		if (store_ipv6_paylen(skb, nh_off, &payload_len) < 0)
+		if (ipv6_store_paylen(skb, nh_off, &payload_len) < 0)
 			return TC_ACT_SHOT;
 
                 break;
@@ -230,7 +230,7 @@ static inline int send_icmp6_time_exceeded(struct __sk_buff *skb, int nh_off)
 
         l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
-        return send_icmp6_reply(skb, nh_off);
+        return icmp6_send_reply(skb, nh_off);
 }
 
 static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
@@ -241,7 +241,7 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
 		return TC_ACT_SHOT;
 
-	if (compare_ipv6_addr(&target, &router) == 0) {
+	if (ipv6_addrcmp(&target, &router) == 0) {
 		union macaddr router_mac = NODE_MAC;
 
 		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
@@ -259,14 +259,14 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 
 	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
 
-	load_ipv6_daddr(skb, nh_off, &dst);
+	ipv6_load_daddr(skb, nh_off, &dst);
 
 	switch(type) {
 	case 135:
 		return icmp6_handle_ns(skb, nh_off);
 	case 128:
-		if (!compare_ipv6_addr(&dst, &router_ip))
-			return send_icmp6_echo_response(skb, nh_off);
+		if (!ipv6_addrcmp(&dst, &router_ip))
+			return icmp6_send_echo_response(skb, nh_off);
 	case 129:
 		return REDIRECT_TO_LXC;
 	}

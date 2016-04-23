@@ -54,8 +54,8 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	    verify_dst_mac(skb))
 		return TC_ACT_SHOT;
 
-	load_ipv6_daddr(skb, nh_off, &dst);
-	node_id = derive_node_id(&dst);
+	ipv6_load_daddr(skb, nh_off, &dst);
+	node_id = ipv6_derive_node_id(&dst);
 
 #ifndef DISABLE_PORT_MAP
 	map_lxc_out(skb, nh_off);
@@ -68,7 +68,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		union v6addr host_ip = HOST_IP;
 
 		/* Packets to the host are punted to a dummy device */
-		if (compare_ipv6_addr(&dst, &host_ip) == 0)
+		if (ipv6_addrcmp(&dst, &host_ip) == 0)
 			to_host = 1;
 	}
 #endif
