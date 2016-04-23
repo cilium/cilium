@@ -11,14 +11,60 @@ import (
 	"github.com/noironetworks/cilium-net/Godeps/_workspace/src/github.com/op/go-logging"
 )
 
+var (
+	log = logging.MustGetLogger("cilium-net")
+)
+
 // Available privileges for policy nodes to define
 type Privilege byte
 
 const (
 	ALLOW Privilege = iota
+	ALWAYS_ALLOW
 	REQUIRES
 	DROP_PRIVILEGES
 )
+
+var (
+	privEnc = map[Privilege]string{
+		ALLOW:           "allow",
+		ALWAYS_ALLOW:    "always-allow",
+		REQUIRES:        "requires",
+		DROP_PRIVILEGES: "drop-privileges",
+	}
+	privDec = map[string]Privilege{
+		"allow":           ALLOW,
+		"always-allow":    ALWAYS_ALLOW,
+		"requires":        REQUIRES,
+		"drop-privileges": DROP_PRIVILEGES,
+	}
+)
+
+func (p Privilege) String() string {
+	if v, exists := privEnc[p]; exists {
+		return v
+	}
+	return ""
+}
+
+func (p *Privilege) UnmarshalJSON(b []byte) error {
+	if p == nil {
+		p = new(Privilege)
+	}
+	if len(b) <= len(`""`) {
+		return fmt.Errorf("invalid privilege '%s'", string(b))
+	}
+	if v, exists := privDec[string(b[1:len(b)-1])]; exists {
+		*p = Privilege(v)
+		return nil
+	}
+
+	return fmt.Errorf("unknown '%s' privilege", string(b))
+}
+
+func (d Privilege) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%s"`, d)), nil
+}
 
 type ReservedID int
 
@@ -33,27 +79,30 @@ const (
 	ID_WORLD
 )
 
-var ReservedIDMap = map[string]ReservedID{
-	ID_NAME_HOST:  ID_HOST,
-	ID_NAME_WORLD: ID_WORLD,
-}
+var (
+	ResDec = map[string]ReservedID{
+		ID_NAME_HOST:  ID_HOST,
+		ID_NAME_WORLD: ID_WORLD,
+	}
+	ResEnc = map[ReservedID]string{
+		ID_HOST:  ID_NAME_HOST,
+		ID_WORLD: ID_NAME_WORLD,
+	}
+)
 
-func (id *ReservedID) String() string {
-	for k, v := range ReservedIDMap {
-		if v == *id {
-			return k
-		}
+func (id ReservedID) String() string {
+	if v, exists := ResEnc[id]; exists {
+		return v
 	}
 
 	return ""
 }
 
 func GetID(name string) ReservedID {
-	if v, ok := ReservedIDMap[name]; ok {
+	if v, ok := ResDec[name]; ok {
 		return v
-	} else {
-		return ID_UNKNOWN
 	}
+	return ID_UNKNOWN
 }
 
 type ConsumableDecision byte
@@ -66,7 +115,18 @@ const (
 )
 
 var (
-	log = logging.MustGetLogger("cilium-net")
+	cdEnc = map[ConsumableDecision]string{
+		UNDECIDED:     "undecided",
+		ACCEPT:        "accept",
+		ALWAYS_ACCEPT: "always-accept",
+		DENY:          "deny",
+	}
+	cdDec = map[string]ConsumableDecision{
+		"undecided":     UNDECIDED,
+		"accept":        ACCEPT,
+		"always-accept": ALWAYS_ACCEPT,
+		"deny":          DENY,
+	}
 )
 
 func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
@@ -79,40 +139,29 @@ func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
 }
 
 func (d ConsumableDecision) String() string {
-	switch d {
-	case ACCEPT:
-		return "accept"
-	case ALWAYS_ACCEPT:
-		return "always-accept"
-	case DENY:
-		return "deny"
-	case UNDECIDED:
-		return "undecided"
+	if v, exists := cdEnc[d]; exists {
+		return v
 	}
-
-	return "unknown"
+	return ""
 }
 
 func (d *ConsumableDecision) UnmarshalJSON(b []byte) error {
 	if d == nil {
 		d = new(ConsumableDecision)
 	}
-	switch strings.ToLower(string(b)) {
-	case `"accept"`:
-		*d = ACCEPT
-	case `"always-accept`:
-		*d = ALWAYS_ACCEPT
-	case `"deny`:
-		*d = DENY
-	case `"undecided`:
-		*d = UNDECIDED
+	if len(b) <= len(`""`) {
+		return fmt.Errorf("invalid consumable decision '%s'", string(b))
+	}
+	if v, exists := cdDec[string(b[1:len(b)-1])]; exists {
+		*d = ConsumableDecision(v)
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("unknown '%s' consumable decision", string(b))
 }
 
 func (d ConsumableDecision) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
+	return []byte(fmt.Sprintf(`"%s"`, d)), nil
 }
 
 type SearchContext struct {
@@ -144,21 +193,21 @@ func (s *SearchContext) TargetCoveredBy(coverage []Label) bool {
 
 type AllowRule struct {
 	Action ConsumableDecision `json:"action,omitempty"`
-	Label  Label
+	Label  Label              `json:"label"`
 }
 
 func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	if a == nil {
-		return fmt.Errorf("Cannot unmarhshal to nil pointer")
+		a = new(AllowRule)
 	}
 
 	if len(data) == 0 {
-		return fmt.Errorf("Invalid AllowRule: empty data")
+		return fmt.Errorf("invalid AllowRule: empty data")
 	}
 
 	var aux struct {
-		Action ConsumableDecision `json:"action"`
-		Label  Label
+		Action ConsumableDecision `json:"action,omitempty"`
+		Label  Label              `json:"label"`
 	}
 
 	// Default is allow
@@ -175,7 +224,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 
 		decoder = json.NewDecoder(bytes.NewReader(data))
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of AllowRule failed: %+v", err)
+			return fmt.Errorf("decode of AllowRule failed: %s", err)
 		}
 
 		if aux.Key[0] == '!' {
@@ -203,14 +252,14 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 		}
 	}
 
-	policyTrace(ctx, "Allow Rule %+v decision: UNDECIDED\n", a)
+	policyTrace(ctx, "Allow Rule %+v decision: %s\n", a, UNDECIDED)
 	return UNDECIDED
 }
 
 // Allow the following consumers
 type PolicyRuleConsumers struct {
-	Coverage []Label     `json:"Coverage,omitempty"`
-	Allow    []AllowRule `json:"Allow"`
+	Coverage []Label     `json:"coverage,omitempty"`
+	Allow    []AllowRule `json:"allow"`
 }
 
 func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
@@ -246,7 +295,7 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 		log.Debugf("Resolved label %+v\n", l)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
-			return fmt.Errorf("Label %s does not share prefix of node %s",
+			return fmt.Errorf("label %s does not share prefix of node %s",
 				l.AbsoluteKey(), node.Path())
 		}
 	}
@@ -263,8 +312,8 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 // Any further consumer requires the specified list of
 // labels in order to consume
 type PolicyRuleRequires struct {
-	Coverage []Label `json:"Coverage,omitempty"`
-	Requires []Label `json:"Requires"`
+	Coverage []Label `json:"coverage,omitempty"`
+	Requires []Label `json:"requires"`
 }
 
 // A require rule imposes additional label requirements but does not
@@ -302,7 +351,7 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 		log.Debugf("Resolved label %+v\n", l)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
-			return fmt.Errorf("Label %s does not share prefix of node %s",
+			return fmt.Errorf("label %s does not share prefix of node %s",
 				l.AbsoluteKey(), node.Path())
 		}
 	}
@@ -317,29 +366,28 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 }
 
 type Port struct {
-	// FIXME: struct field has json tag but is not exported
-	proto  string `json:"Protocol"`
-	number int    `json:"Number"`
+	Proto  string `json:"protocol"`
+	Number int    `json:"number"`
 }
 
 type PolicyRulePorts struct {
-	Coverage []Label `json:"Coverage,omitempty"`
-	Ports    []Port  `json:"Ports"`
+	Coverage []Label `json:"coverage,omitempty"`
+	Ports    []Port  `json:"ports"`
 }
 
 // Do not allow further rules of specified type
 type PolicyRuleDropPrivileges struct {
-	Coverage       []Label     `json:"Coverage,omitempty"`
-	DropPrivileges []Privilege `json:"Drop-privileges"`
+	Coverage       []Label     `json:"coverage,omitempty"`
+	DropPrivileges []Privilege `json:"drop-privileges"`
 }
 
 // Node to define hierarchy of rules
 type PolicyNode struct {
 	path     string
-	Name     string                 `json:"Name"`
+	Name     string                 `json:"name"`
 	Parent   *PolicyNode            `json:"-"`
-	Rules    []interface{}          `json:"Rules,omitempty"`
-	Children map[string]*PolicyNode `json:"Children,omitempty"`
+	Rules    []interface{}          `json:"rules,omitempty"`
+	Children map[string]*PolicyNode `json:"children,omitempty"`
 }
 
 func (p *PolicyNode) Path() string {
@@ -377,7 +425,7 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 			break
 		}
 
-		policyTrace(ctx, "Rule %+v decision: %s\n", rule, decision.String())
+		policyTrace(ctx, "Rule %+v decision: %s\n", rule, decision)
 
 		switch decision {
 		case ALWAYS_ACCEPT:
@@ -408,7 +456,7 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 	}
 
 	if pn.Name != common.GlobalLabelPrefix {
-		return "", fmt.Errorf("Error in policy: node %s is lacking parent", pn.Name)
+		return "", fmt.Errorf("error in policy: node %s is lacking parent", pn.Name)
 	}
 
 	return common.GlobalLabelPrefix, nil
@@ -461,15 +509,14 @@ func (pn *PolicyNode) ResolveTree() error {
 
 func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 	var policyNode struct {
-		Name     string                 `json:"Name,omitempty"`
-		Rules    []*json.RawMessage     `json:"Rules,omitempty"`
-		Children map[string]*PolicyNode `json:"Children,omitempty"`
+		Name     string                 `json:"name,omitempty"`
+		Rules    []*json.RawMessage     `json:"rules,omitempty"`
+		Children map[string]*PolicyNode `json:"children,omitempty"`
 	}
-
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	if err := decoder.Decode(&policyNode); err != nil {
-		return fmt.Errorf("Decode of PolicyNode failed: %+v", err)
+		return fmt.Errorf("decode of PolicyNode failed: %s", err)
 	}
 
 	pn.Name = policyNode.Name
@@ -493,7 +540,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 			return err
 		}
 
-		if _, ok := om["Allow"]; ok {
+		if _, ok := om[privEnc[ALLOW]]; ok {
 			var pr_c PolicyRuleConsumers
 
 			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
@@ -501,7 +548,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 			}
 
 			pn.Rules = append(pn.Rules, pr_c)
-		} else if _, ok := om["Always-Allow"]; ok {
+		} else if _, ok := om[privEnc[ALWAYS_ALLOW]]; ok {
 			var pr_c PolicyRuleConsumers
 
 			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
@@ -516,7 +563,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 			}
 
 			pn.Rules = append(pn.Rules, pr_c)
-		} else if _, ok := om["Requires"]; ok {
+		} else if _, ok := om[privEnc[REQUIRES]]; ok {
 			var pr_r PolicyRuleRequires
 
 			if err := json.Unmarshal(*rawMsg, &pr_r); err != nil {
@@ -525,7 +572,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 
 			pn.Rules = append(pn.Rules, pr_r)
 		} else {
-			return fmt.Errorf("Unknown policy rule object: %+v", om)
+			return fmt.Errorf("unknown policy rule object: %+v", om)
 		}
 	}
 
@@ -534,12 +581,12 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 
 func (pn *PolicyNode) Merge(obj *PolicyNode) error {
 	if obj.Name != pn.Name {
-		return fmt.Errorf("Policy node merge failed: Node name mismatch %s != %s",
+		return fmt.Errorf("policy node merge failed: Node name mismatch %s != %s",
 			obj.Name, pn.Name)
 	}
 
 	if obj.path != pn.path {
-		return fmt.Errorf("Policy node merge failed: Node path mismatch %s != %s",
+		return fmt.Errorf("policy node merge failed: Node path mismatch %s != %s",
 			obj.path, pn.path)
 	}
 
@@ -596,7 +643,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
-			policyTrace(ctx, "... proceeding with decision: %s\n", decision.String())
+			policyTrace(ctx, "... proceeding with decision: %s\n", decision)
 		}
 	}
 
@@ -611,7 +658,7 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
-			policyTrace(ctx, "... proceeding with decision: %s\n", decision.String())
+			policyTrace(ctx, "... proceeding with decision: %s\n", decision)
 		}
 	}
 
@@ -627,7 +674,7 @@ func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
 	}
 
 	decision := t.Root.Allows(ctx)
-	policyTrace(ctx, "Root rules: %s\n", decision.String())
+	policyTrace(ctx, "Root rules: %s\n", decision)
 	switch decision {
 	case ALWAYS_ACCEPT:
 		return ACCEPT
@@ -636,14 +683,14 @@ func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
 	}
 
 	decision = canConsume(t.Root, ctx)
-	policyTrace(ctx, "Root children decision: %s\n", decision.String())
+	policyTrace(ctx, "Root children decision: %s\n", decision)
 	if decision == ALWAYS_ACCEPT {
 		decision = ACCEPT
 	} else if decision == UNDECIDED {
 		decision = DENY
 	}
 
-	policyTrace(ctx, "Final tree decision: %s\n", decision.String())
+	policyTrace(ctx, "Final tree decision: %s\n", decision)
 
 	return decision
 }

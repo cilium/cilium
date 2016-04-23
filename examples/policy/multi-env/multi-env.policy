@@ -1,29 +1,29 @@
 {
-        "Name": "io.cilium",
-	"Rules": [{
-		"Coverage": ["Dev"],
-		"Requires": ["Dev"]
+	"name": "io.cilium",
+	"rules": [{
+		"coverage": ["dev"],
+		"requires": ["dev"]
 	},{
-		"Coverage": ["QA"],
-		"Requires": ["QA"]
+		"coverage": ["qa"],
+		"requires": ["qa"]
 	},{
-		"Coverage": ["Prod"],
-		"Requires": ["Prod"]
+		"coverage": ["prod"],
+		"requires": ["prod"]
 	}],
-        "Children": {
-		"GrpBlue": {
-			"Children": {
-				"Web": { },
-				"DB": {
-					"Rules": [{
-						"Allow": ["..Web"]
+        "children": {
+		"grpblue": {
+			"children": {
+				"web": { },
+				"db": {
+					"rules": [{
+						"allow": ["..web"]
 					}]
 				}
 			}
 		},
-		"GrpRed": {
-			"Children": {
-				"DB": { }
+		"grpred": {
+			"children": {
+				"db": { }
 			}
 		}
 

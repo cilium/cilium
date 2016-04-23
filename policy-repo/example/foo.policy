@@ -1,29 +1,29 @@
 {
-        "Name": "io.cilium",
-        "Children": {
-		"Lizards": {
-			"Rules": [{
-				"Coverage": ["QA"],
-				"Requires": ["QA"]
+        "name": "io.cilium",
+        "children": {
+		"lizards": {
+			"rules": [{
+				"coverage": ["qa"],
+				"requires": ["qa"]
 			},{
-				"Coverage": ["Prod"],
-				"Requires": ["Prod"]
+				"coverage": ["prod"],
+				"requires": ["prod"]
 			},{
-				"Coverage": ["DB"],
-				"Always-Allow": {"Key": "User", "Value": "Joe"}
+				"coverage": ["db"],
+				"always-allow": {"key": "user", "value": "joe"}
 			}],
-			"Children": {
-				"Web": { },
-				"DB": {
-					"Rules": [{
-						"Allow": ["Web"]
+			"children": {
+				"web": { },
+				"db": {
+					"rules": [{
+						"allow": ["io.cilium.lizards.web"]
 					}]
 				}
 			}
 		},
-		"Birds": {
-			"Children": {
-				"DB": { }
+		"birds": {
+			"children": {
+				"db": { }
 			}
 		}
 

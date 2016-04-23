@@ -331,7 +331,7 @@ func deletePolicy(ctx *cli.Context) {
 
 func getSecID(ctx *cli.Context) {
 	if ctx.Bool("list") {
-		for k, v := range types.ReservedIDMap {
+		for k, v := range types.ResDec {
 			fmt.Printf("%-15s %3d\n", k, v)
 		}
 		return

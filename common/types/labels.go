@@ -119,26 +119,26 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
 	if l == nil {
-		return fmt.Errorf("Cannot unmarhshal to nil pointer")
+		return fmt.Errorf("cannot unmarhshal to nil pointer")
 	}
 
 	if len(data) == 0 {
-		return fmt.Errorf("Invalid Label: empty data")
+		return fmt.Errorf("invalid Label: empty data")
 	}
 
 	if bytes.Contains(data, []byte(`"source":`)) {
 		var aux struct {
 			Source string `json:"source"`
 			Key    string `json:"key"`
-			Value  string `json:"value"`
+			Value  string `json:"value,omitempty"`
 		}
 
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of Label failed: %+v", err)
+			return fmt.Errorf("decode of Label failed: %+v", err)
 		}
 
 		if aux.Key == "" {
-			return fmt.Errorf("Invalid Label: '%s' does not contain label key", data)
+			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
 		}
 
 		l.Source = aux.Source
@@ -150,11 +150,11 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		var aux string
 
 		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("Decode of Label as string failed: %+v", err)
+			return fmt.Errorf("decode of Label as string failed: %+v", err)
 		}
 
 		if aux == "" {
-			return fmt.Errorf("Invalid Label: Failed to parse %s as a string", data)
+			return fmt.Errorf("invalid Label: Failed to parse %s as a string", data)
 		}
 
 		decodeLabelShortForm(aux, l)

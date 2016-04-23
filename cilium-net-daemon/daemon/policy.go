@@ -279,7 +279,7 @@ func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 }
 
 func PolicyInit() error {
-	for k, v := range types.ReservedIDMap {
+	for k, v := range types.ResDec {
 		lbl := types.SecCtxLabel{
 			ID:       int(v),
 			RefCount: 1,

@@ -1,16 +1,16 @@
 {
-        "Name": "io.cilium",
-        "Children": {
+        "name": "io.cilium",
+        "children": {
 		"test": {
-			"Rules": [{
-				"Coverage": ["QA"],
-				"Requires": ["QA"]
+			"rules": [{
+				"coverage": ["qa"],
+				"requires": ["qa"]
 			},{
-				"Coverage": ["Prod"],
-				"Requires": ["Prod"]
+				"coverage": ["prod"],
+				"requires": ["prod"]
 			},{
-				"Coverage": ["server"],
-				"Allow": ["client", "$host"]
+				"coverage": ["server"],
+				"allow": ["client", "$host"]
 			}]
 		}
 	}
