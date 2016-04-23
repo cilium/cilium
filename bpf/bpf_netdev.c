@@ -113,7 +113,7 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef ENABLE_ARP_RESPONDER
 	union macaddr responder_mac = HOST_IFINDEX_MAC;
-	if (arp_check(skb, IPV4_GW, &responder_mac) == 1) {
+	if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
 		tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
 		return TC_ACT_SHOT;
 	}
@@ -159,7 +159,7 @@ int from_netdev(struct __sk_buff *skb)
 		load_ipv6_daddr(skb, ETH_HLEN, &dst);
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
-		if (is_node_subnet(&dst, &node_ip)) {
+		if (likely(is_node_subnet(&dst, &node_ip))) {
 			printk("Targeted for a local container, src label: %d\n",
 				ntohl(flowlabel));
 

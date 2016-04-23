@@ -47,11 +47,6 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	union v6addr dst = {};
 	__u32 node_id;
 	int to_host = 0, do_nat46 = 0;
-#ifdef ENCAP_GENEVE
-	uint8_t buf[] = GENEVE_OPTS;
-#else
-	uint8_t buf[] = {};
-#endif
 
 	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
 
@@ -64,8 +59,6 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 #ifndef DISABLE_PORT_MAP
 	map_lxc_out(skb, nh_off);
-#else
-	//printk("Port mapping disabled, skipping.\n");
 #endif /* DISABLE_PORT_MAP */
 
 	printk("node_id %x local %x\n", node_id, NODE_ID);
@@ -92,7 +85,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	}
 #endif
 
-	if (to_host) {
+	if (unlikely(to_host)) {
 		union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
@@ -117,9 +110,14 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
+#ifdef ENCAP_GENEVE
+		uint8_t buf[] = GENEVE_OPTS;
+#else
+		uint8_t buf[] = {};
+#endif
 		return do_encapsulation(skb, node_id, SECLABEL_NB,
 				        buf, sizeof(buf));
-#else
+#else /* ENCAP_IFINDEX */
 		union macaddr router_mac = NODE_MAC;
 		int ret;
 
@@ -145,7 +143,7 @@ int handle_ingress(struct __sk_buff *skb)
 	__u8 nexthdr;
 
 	/* Drop all non IPv6 traffic */
-	if (likely(skb->protocol != __constant_htons(ETH_P_IPV6)))
+	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6)))
 		return TC_ACT_SHOT;
 
 	/* Handle ICMPv6 messages to the logical router, all other ICMPv6
@@ -174,7 +172,8 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	__u32 src_label = skb->cb[0];
 
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
-	if (!policy) {
+	if (unlikely(!policy)) {
+		// FIXME: Notify drop in perf ring buffer
 		printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
 		return TC_ACT_SHOT;
 	}

@@ -19,14 +19,11 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 {
 	struct bpf_tunnel_key key = {};
 	int ret = 0;
-#if defined(ENCAP_GENEVE) && defined(VALIDATE_GENEVE_TX)
-	struct geneveopt_val geneveopt_val = {};
-#endif
 
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
 
-	printk("Performing encapsulation to node %x on ifindex %u seclabel 0x%x\n",
+	printk("Encap to node %x, ifindex=%u, seclabel=0x%x\n",
 		node_id, ENCAP_IFINDEX, seclabel);
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
@@ -38,24 +35,27 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 	if (unlikely(ret < 0))
 		return TC_ACT_SHOT;
 #ifdef VALIDATE_GENEVE_TX
-	ret = parse_geneve_options(&geneveopt_val, buf);
-	if (unlikely(ret < 0))
-		return TC_ACT_SHOT;
-#endif
+	if (1) {
+		struct geneveopt_val geneveopt_val = {};
+
+		ret = parse_geneve_options(&geneveopt_val, buf);
+		if (unlikely(ret < 0))
+			return TC_ACT_SHOT;
+	}
+#endif /* VALIDATE_GENEVE_TX */
 	printk("set Geneve options of length %d\n", sz);
-#endif
+#endif /* ENCAP_GENEVE */
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
-#endif
+#endif /* ENCAP_IFINDEX */
 
 static inline int __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 				     __u8 *smac, __u8 *dmac)
 {
 
-	if (decrement_ipv6_hoplimit(skb, nh_off)) {
+	if (decrement_ipv6_hoplimit(skb, nh_off))
 		return send_icmp6_time_exceeded(skb, nh_off);
-	}
 
 	if (smac)
 		store_eth_saddr(skb, smac, 0);
@@ -108,8 +108,6 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 #ifndef DISABLE_PORT_MAP
 		if (dst_lxc->portmap[0].to)
 			map_lxc_in(skb, nh_off, dst_lxc);
-#else
-		//printk("Port mapping disabled, skipping.\n");
 #endif /* DISABLE_PORT_MAP */
 
 		printk("L3 to ifindex %u ID: %d\n",
