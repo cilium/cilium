@@ -60,21 +60,43 @@ func verifyArgumentsValidate(ctx *cli.Context) error {
 	}
 	return initEnv(ctx)
 }
+
+func verifyAllowedSlice(slice []string) error {
+	for i, v := range slice {
+		if _, err := strconv.ParseUint(v, 10, 32); err != nil {
+			// can fail which means it needs to be a label
+			_, err := types.ParseLabel(v)
+			if err != nil {
+				return fmt.Errorf("value %q: must be only one unsigned "+
+					"number or label(s) in format of SOURCE#KEY[=VALUE]", v)
+			}
+		} else if i != 0 {
+			return fmt.Errorf("value %q: must be only one unsigned "+
+				"number or label(s) in format of SOURCE#KEY[=VALUE]", v)
+		}
+	}
+	return nil
+}
+
 func verifyArgumentsPolicy(ctx *cli.Context) error {
-	src := ctx.Args().Get(0)
-	dst := ctx.Args().Get(1)
-	if src == "" {
-		return fmt.Errorf("Error: empty source")
+	srcSlice := ctx.StringSlice("source")
+	if len(srcSlice) == 0 {
+		return fmt.Errorf("Empty source")
 	}
-	if dst == "" {
-		return fmt.Errorf("Error: empty destination")
+
+	dstSlice := ctx.StringSlice("destination")
+	if len(srcSlice) == 0 {
+		return fmt.Errorf("Empty destination")
 	}
-	if _, err := strconv.ParseUint(src, 10, 32); err != nil {
-		return fmt.Errorf("Invalid source value %q: must be a unsigned number", src)
+
+	if err := verifyAllowedSlice(srcSlice); err != nil {
+		return fmt.Errorf("Invalid source: %s", err)
 	}
-	if _, err := strconv.ParseUint(dst, 10, 32); err != nil {
-		return fmt.Errorf("Invalid destination value %q: must be a unsigned number", dst)
+
+	if err := verifyAllowedSlice(dstSlice); err != nil {
+		return fmt.Errorf("Invalid destination: %s", err)
 	}
+
 	return initEnv(ctx)
 }
 
@@ -132,11 +154,19 @@ func init() {
 				Before: initEnv,
 			},
 			{
-				Name:      "allowed",
-				Usage:     "Verifies if <source> is allowed to consume <destination>",
-				Action:    verifyPolicy,
-				ArgsUsage: "<source> <destination>",
-				Before:    verifyArgumentsPolicy,
+				Name: "allowed",
+				Usage: "Verifies if source ID or LABEL(s) is allowed to consume destination ID or LABEL(s). " +
+					"LABEL is represented as SOURCE#KEY[=VALUE]",
+				Action: verifyPolicy,
+				Flags: []cli.Flag{
+					cli.StringSliceFlag{
+						Name: "source, s",
+					},
+					cli.StringSliceFlag{
+						Name: "destination, d",
+					},
+				},
+				Before: verifyArgumentsPolicy,
 			},
 		},
 	}
@@ -346,43 +376,73 @@ func getSecID(ctx *cli.Context) {
 	}
 }
 
+func parseAllowedSlice(slice []string) ([]types.Label, error) {
+	inLabels := []types.Label{}
+	var (
+		id          uint64
+		err         error
+		secCtxLabel *types.SecCtxLabel
+	)
+	for _, v := range slice {
+		if id, err = strconv.ParseUint(v, 10, 32); err != nil {
+			// can fail which means it needs to be a label
+			lbl, err := types.ParseLabel(v)
+			if err != nil {
+				return nil, fmt.Errorf("value %q: must be a unsigned "+
+					"number or label in format of SOURCE#KEY[=VALUE]", v)
+			}
+			inLabels = append(inLabels, *lbl)
+		}
+	}
+
+	if len(inLabels) == 0 {
+		secCtxLabel, err = client.GetLabels(int(id))
+		if err != nil {
+			return nil, fmt.Errorf("error while retrieving security context labels "+
+				"for ID %d: %s", id, err)
+		}
+		if secCtxLabel == nil {
+			return nil, fmt.Errorf("ID %d not found", id)
+		}
+	} else {
+		lbls := types.LabelSlice2LabelsMap(inLabels)
+		srcSHA256Sum, err := lbls.SHA256Sum()
+		if err != nil {
+			return nil, err
+		}
+		secCtxLabel, err = client.GetLabelsBySHA256(srcSHA256Sum)
+		if err != nil {
+			return nil, fmt.Errorf("error while retrieving security context labels "+
+				"for labels %q: %s", strings.Join(slice, ", "), err)
+		}
+		if secCtxLabel == nil {
+			return nil, fmt.Errorf("ID not found for labels %q", strings.Join(slice, ", "))
+		}
+	}
+
+	return secCtxLabel.Labels.ToSlice(), nil
+}
+
 func verifyPolicy(ctx *cli.Context) {
-	srcStr, dstStr := ctx.Args().Get(0), ctx.Args().Get(1)
+	srcInSlice := ctx.StringSlice("source")
+	dstInSlice := ctx.StringSlice("destination")
 
-	src, err := strconv.ParseUint(srcStr, 10, 32)
+	srcSlice, err := parseAllowedSlice(srcInSlice)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while parsing source %q: %s\n", src, err)
-		return
-	}
-	dst, err := strconv.ParseUint(dstStr, 10, 32)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while parsing destination %q: %s\n", dst, err)
+		fmt.Fprintf(os.Stderr, "Invalid source: %s\n", err)
 		return
 	}
 
-	srcSecCtxLabel, err := client.GetLabels(int(src))
+	dstSlice, err := parseAllowedSlice(dstInSlice)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while retrieving security context labels for source %q: %s\n", src, err)
-		return
-	}
-	if srcSecCtxLabel == nil {
-		fmt.Printf("Source ID not found\n")
-		return
-	}
-	dstSecCtxLabel, err := client.GetLabels(int(dst))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while retrieving security context labels for destination %q: %s\n", dst, err)
-		return
-	}
-	if dstSecCtxLabel == nil {
-		fmt.Printf("Destination ID not found\n")
+		fmt.Fprintf(os.Stderr, "Invalid destination: %s\n", err)
 		return
 	}
 
 	searchCtx := types.SearchContext{
 		Trace: true,
-		From:  srcSecCtxLabel.Labels.ToSlice(),
-		To:    dstSecCtxLabel.Labels.ToSlice(),
+		From:  srcSlice,
+		To:    dstSlice,
 	}
 
 	scr, err := client.PolicyCanConsume(&searchCtx)
