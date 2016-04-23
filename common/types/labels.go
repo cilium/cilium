@@ -229,3 +229,28 @@ func (lbls Labels) ToSlice() []Label {
 	}
 	return labels
 }
+
+/// LabelSlice2LabelsMap returns a Labels' map with all labels from the given slice of
+// label.
+func LabelSlice2LabelsMap(lbls []Label) Labels {
+	labels := Labels{}
+	for _, v := range lbls {
+		labels[v.Key] = NewLabel(v.Key, v.Value, v.Source)
+	}
+	return labels
+}
+
+// ParseLabel returns the label representation of the given string. The str should be
+// in the form of Source#Key=Value or Source#Key if Value is empty.
+func ParseLabel(str string) (*Label, error) {
+	sourceSplit := strings.SplitN(str, "#", 2)
+	if len(sourceSplit) != 2 {
+		return nil, fmt.Errorf("invalid label")
+	}
+	keySplit := strings.SplitN(sourceSplit[1], "=", 2)
+	lbl := NewLabel(keySplit[0], "", sourceSplit[0])
+	if len(keySplit) > 1 {
+		lbl.Value = keySplit[1]
+	}
+	return lbl, nil
+}

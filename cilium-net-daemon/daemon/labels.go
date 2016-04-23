@@ -209,7 +209,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error
 	return &secCtxLbls, isNew, nil
 }
 
-// GetLabels returns the SecCtxLabels that belongs to id.
+// GetLabels returns the SecCtxLabels that belongs to the given id.
 func (d *Daemon) GetLabels(id int) (*types.SecCtxLabel, error) {
 	if id > 0 && id < common.FirstFreeID {
 		return &types.SecCtxLabel{
@@ -241,7 +241,26 @@ func (d *Daemon) GetLabels(id int) (*types.SecCtxLabel, error) {
 	return &secCtxLabels, nil
 }
 
-// DeleteLabelsByUUID deletes the SecCtxLabels belonging to id.
+// GetLabelsBySHA256 returns the SecCtxLabels that have the given SHA256SUM.
+func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
+	pair, _, err := d.consul.KV().Get(common.LabelsKeyPath+sha256sum, nil)
+	if err != nil {
+		return nil, err
+	}
+	if pair == nil {
+		return nil, nil
+	}
+	var secCtxLabels types.SecCtxLabel
+	if err := json.Unmarshal(pair.Value, &secCtxLabels); err != nil {
+		return nil, err
+	}
+	if secCtxLabels.RefCount == 0 {
+		return nil, nil
+	}
+	return &secCtxLabels, nil
+}
+
+// DeleteLabelsByUUID deletes the SecCtxLabels belonging to the given id.
 func (d *Daemon) DeleteLabelsByUUID(id int) error {
 	secCtxLabels, err := d.GetLabels(id)
 	if err != nil {

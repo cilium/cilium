@@ -142,6 +142,11 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 	sha256sum, err := lbls2.SHA256Sum()
 	c.Assert(err, Equals, nil)
+
+	gotSecCtxLbl, err = ds.d.GetLabelsBySHA256(sha256sum)
+	c.Assert(err, Equals, nil)
+	c.Assert(gotSecCtxLbl, DeepEquals, secCtxLbl)
+
 	err = ds.d.DeleteLabelsBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)
 	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID + 1)

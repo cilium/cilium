@@ -40,10 +40,13 @@ func (r *Router) initRoutes() {
 			"GetLabels", "GET", "/labels/by-uuid/{uuid}", r.getLabels,
 		},
 		route{
+			"GetLabelsBySHA256", "GET", "/labels/by-sha256sum/{sha256sum}", r.getLabelsBySHA256,
+		},
+		route{
 			"PutLabels", "POST", "/labels", r.putLabels,
 		},
 		route{
-			"DeleteLabels", "DELETE", "/labels/by-sha256sum/{sha256sum}", r.deleteLabelsBySHA256,
+			"DeleteLabelsBySHA256", "DELETE", "/labels/by-sha256sum/{sha256sum}", r.deleteLabelsBySHA256,
 		},
 		route{
 			"DeleteLabelsByUUID", "DELETE", "/labels/by-uuid/{uuid}", r.deleteLabelsByUUID,

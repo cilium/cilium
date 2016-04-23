@@ -154,6 +154,29 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *Router) getLabelsBySHA256(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sha256sum, exists := vars["sha256sum"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty SHA256SUM"))
+		return
+	}
+	labels, err := router.daemon.GetLabelsBySHA256(sha256sum)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if labels == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(labels); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
 func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
 	var labels types.Labels

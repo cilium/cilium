@@ -16,6 +16,7 @@ type TestDaemon struct {
 	OnPing                 func() (string, error)
 	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
 	OnGetLabels            func(id int) (*types.SecCtxLabel, error)
+	OnGetLabelsBySHA256    func(sha256sum string) (*types.SecCtxLabel, error)
 	OnDeleteLabelsByUUID   func(uuid int) error
 	OnDeleteLabelsBySHA256 func(sha256sum string) error
 	OnGetMaxID             func() (int, error)
@@ -90,6 +91,13 @@ func (d TestDaemon) GetLabels(id int) (*types.SecCtxLabel, error) {
 		return d.OnGetLabels(id)
 	}
 	return nil, errors.New("GetLabels should not have been called")
+}
+
+func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
+	if d.OnGetLabelsBySHA256 != nil {
+		return d.OnGetLabelsBySHA256(sha256sum)
+	}
+	return nil, errors.New("GetLabelsBySHA256 should not have been called")
 }
 
 func (d TestDaemon) DeleteLabelsByUUID(uuid int) error {
