@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
@@ -147,7 +148,7 @@ func init() {
 	}
 }
 
-func initBPF() {
+func initBPF() error {
 	var args []string
 
 	if err := os.Chdir(runDir); err != nil {
@@ -158,9 +159,8 @@ func initBPF() {
 	// TODO Change f to bufio.Writer
 	f, err := os.Create("./globals/node_config.h")
 	if err != nil {
-		// TODO: warning doesn't stop the daemon
 		log.Warningf("Failed to create node configuration file: %s", err)
-		return
+		return err
 
 	}
 
@@ -213,18 +213,18 @@ func initBPF() {
 
 	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
 	if err != nil {
-		// TODO: warning doesn't stop the daemon
-		log.Warningf("Command execution failed: %s", err)
+		log.Warningf("Command execution %s/init.sh %s failed: %s",
+			libDir, strings.Join(args, " "), err)
 		log.Warningf("Command output:\n%s", out)
-		return
+		return err
 	}
 
 	lxcMap, err = lxcmap.OpenMap(common.BPFMap)
 	if err != nil {
-		// TODO: warning doesn't stop the daemon
 		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
-		return
+		return err
 	}
+	return nil
 }
 
 func initEnv(ctx *cli.Context) error {
@@ -306,8 +306,7 @@ func initEnv(ctx *cli.Context) error {
 		log.Fatalf("Unable to initialize policy: %s", err)
 	}
 
-	initBPF()
-	return nil
+	return initBPF()
 }
 
 func run(cli *cli.Context) {
