@@ -221,9 +221,13 @@ func dumpMap(ctx *cli.Context) {
 			setIfGT(&maxIDSize, len(strconv.FormatUint(uint64(stat.ID), 10)))
 		} else {
 			secCtxLbl, err := c.GetLabels(int(stat.ID))
-			if err != nil || secCtxLbl == nil {
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
 					stat.ID, err)
+			}
+			if secCtxLbl == nil {
+				fmt.Fprintf(os.Stderr, "Label with ID %d was not found\n",
+					stat.ID)
 			}
 			labelsID[stat.ID] = secCtxLbl
 			if secCtxLbl != nil {
@@ -265,17 +269,17 @@ func dumpMap(ctx *cli.Context) {
 	for _, stat := range statsMap {
 		act := types.ConsumableDecision(stat.Action)
 		if printIDs {
-			fmt.Printf(dataString, stat.ID, act.String(), stat.Bytes, stat.Packets)
+			fmt.Printf(dataString, stat.ID, act, stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[stat.ID]; lbls != nil {
 			first := true
 			for _, lbl := range lbls.Labels {
 				if len(lbls.Labels) == 1 {
-					fmt.Printf(dataString, lbl.String(), act.String(), stat.Bytes, stat.Packets)
+					fmt.Printf(dataString, lbl, act, stat.Bytes, stat.Packets)
 				} else if first {
-					fmt.Printf(dataLabelString, lbl.String())
+					fmt.Printf(dataLabelString, lbl)
 					first = false
 				} else {
-					fmt.Printf(dataString, lbl.String(), act.String(), stat.Bytes, stat.Packets)
+					fmt.Printf(dataString, lbl, act, stat.Bytes, stat.Packets)
 				}
 			}
 		} else {
