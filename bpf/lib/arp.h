@@ -40,4 +40,27 @@ static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr 
 	return 1;
 }
 
+static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip,
+				       union macaddr *mac)
+{
+	__be16 arpop = __constant_htons(ARPOP_REPLY);
+	union macaddr smac = {};
+	__be32 sip = 0;
+
+	if (eth_load_saddr(skb, smac.addr, 0) < 0 ||
+	    skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
+		return TC_ACT_SHOT;
+
+	if (eth_store_saddr(skb, mac->addr, 0) < 0 ||
+	    eth_store_daddr(skb, smac.addr, 0) < 0 ||
+	    skb_store_bytes(skb, 20, &arpop, sizeof(arpop), 0) < 0 ||
+	    skb_store_bytes(skb, 22, mac, 6, 0) < 0 ||
+	    skb_store_bytes(skb, 28, &ip, 4, 0) < 0 ||
+	    skb_store_bytes(skb, 32, &smac, sizeof(smac), 0) < 0 ||
+	    skb_store_bytes(skb, 38, &sip, sizeof(sip), 0) < 0)
+		return TC_ACT_SHOT;
+
+	return 0;
+}
+
 #endif /* __LIB_ARP__ */

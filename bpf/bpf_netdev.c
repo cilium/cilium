@@ -61,25 +61,12 @@ static inline int matches_cluster_prefix(const union v6addr *addr, const union v
  */
 __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __sk_buff *skb)
 {
-	union macaddr smac = {};
-	__be32 sip = 0;
-	__be16 arpop = __constant_htons(ARPOP_REPLY);
-	__be32 responder_ip = IPV4_GW;
-	union macaddr responder_mac = HOST_IFINDEX_MAC;
+	union macaddr mac = HOST_IFINDEX_MAC;
+	__be32 ip = IPV4_GW;
 
-	eth_load_saddr(skb, smac.addr, 0);
-	if (skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
+	if (arp_prepare_response(skb, ip, &mac) != 0)
 		return TC_ACT_SHOT;
 
-	skb_store_bytes(skb, 20, &arpop, sizeof(arpop), 0);
-	skb_store_bytes(skb, 32, &smac, sizeof(smac), 0);
-	skb_store_bytes(skb, 38, &sip, sizeof(sip), 0);
-
-	skb_store_bytes(skb, 22, &responder_mac, 6, 0);
-	skb_store_bytes(skb, 28, &responder_ip, 4, 0);
-
-	eth_store_saddr(skb, responder_mac.addr, 0);
-	eth_store_daddr(skb, smac.addr, 0);
 	printk("arp_respond on ifindex %d\n", skb->ifindex);
 
 	return redirect(skb->ifindex, 0);
