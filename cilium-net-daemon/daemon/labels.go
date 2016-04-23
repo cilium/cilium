@@ -211,6 +211,18 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error
 
 // GetLabels returns the SecCtxLabels that belongs to id.
 func (d *Daemon) GetLabels(id int) (*types.SecCtxLabel, error) {
+	if id > 0 && id < common.FirstFreeID {
+		return &types.SecCtxLabel{
+			ID:       id,
+			RefCount: 1,
+			Labels: types.Labels{
+				common.ReservedLabelSource: types.NewLabel(
+					types.ReservedID(id).String(), "", common.ReservedLabelSource,
+				),
+			},
+		}, nil
+	}
+
 	strID := strconv.Itoa(id)
 	pair, _, err := d.consul.KV().Get(common.IDKeyPath+strID, nil)
 	if err != nil {
