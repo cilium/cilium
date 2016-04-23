@@ -54,13 +54,13 @@ static inline int __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 				     __u8 *smac, __u8 *dmac)
 {
 
-	if (decrement_ipv6_hoplimit(skb, nh_off))
-		return send_icmp6_time_exceeded(skb, nh_off);
+	if (ipv6_dec_hoplimit(skb, nh_off))
+		return icmp6_send_time_exceeded(skb, nh_off);
 
 	if (smac)
-		store_eth_saddr(skb, smac, 0);
+		eth_store_saddr(skb, smac, 0);
 
-	store_eth_daddr(skb, dmac, 0);
+	eth_store_daddr(skb, dmac, 0);
 
 	return TC_ACT_OK;
 }

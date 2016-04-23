@@ -67,7 +67,7 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 	__be32 responder_ip = IPV4_GW;
 	union macaddr responder_mac = HOST_IFINDEX_MAC;
 
-	load_eth_saddr(skb, smac.addr, 0);
+	eth_load_saddr(skb, smac.addr, 0);
 	if (skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
 		return TC_ACT_SHOT;
 
@@ -78,8 +78,8 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 	skb_store_bytes(skb, 22, &responder_mac, 6, 0);
 	skb_store_bytes(skb, 28, &responder_ip, 4, 0);
 
-	store_eth_saddr(skb, responder_mac.addr, 0);
-	store_eth_daddr(skb, smac.addr, 0);
+	eth_store_saddr(skb, responder_mac.addr, 0);
+	eth_store_daddr(skb, smac.addr, 0);
 	printk("arp_respond on ifindex %d\n", skb->ifindex);
 
 	return redirect(skb->ifindex, 0);
@@ -93,7 +93,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 	__u32 flowlabel = 0;
 	union v6addr src = {};
 
-	load_ipv6_saddr(skb, ETH_HLEN, &src);
+	ipv6_load_saddr(skb, ETH_HLEN, &src);
 	if (matches_cluster_prefix(&src, node_ip)) {
 		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
 		flowlabel = ntohl(flowlabel);
@@ -156,7 +156,7 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
 
-		load_ipv6_daddr(skb, ETH_HLEN, &dst);
+		ipv6_load_daddr(skb, ETH_HLEN, &dst);
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
 		if (likely(is_node_subnet(&dst, &node_ip))) {

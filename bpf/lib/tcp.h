@@ -16,9 +16,6 @@ static inline void tcp_modify_16(struct __sk_buff *skb, int off, __u16 port)
 	skb_load_bytes(skb, off, &old_port, sizeof(old_port));
         l4_csum_replace(skb, TCP_CSUM_OFF, old_port, port, sizeof(port));
 
-static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, uint32_t off,
-		    uint32_t from, uint32_t to, uint32_t flags);
-
         skb_store_bytes(skb, off, &port, sizeof(port), 1);
 }
 

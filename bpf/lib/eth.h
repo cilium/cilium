@@ -19,8 +19,7 @@ union macaddr {
 	__u8 addr[6];
 };
 
-static inline int compare_eth_addr(const union macaddr *a,
-				   const union macaddr *b)
+static inline int eth_addrcmp(const union macaddr *a, const union macaddr *b)
 {
 	int tmp;
 
@@ -31,35 +30,35 @@ static inline int compare_eth_addr(const union macaddr *a,
 	return tmp;
 }
 
-static inline int is_eth_bcast(const union macaddr *a)
+static inline int eth_is_bcast(const union macaddr *a)
 {
 	union macaddr bcast;
 
 	bcast.p1 = 0xffffffff;
 	bcast.p2 = 0xffff;
 
-	if (!compare_eth_addr(a, &bcast))
+	if (!eth_addrcmp(a, &bcast))
 		return 1;
 	else
 		return 0;
 }
 
-static inline int load_eth_saddr(struct __sk_buff *skb, __u8 *mac, int off)
+static inline int eth_load_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_load_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN);
 }
 
-static inline int store_eth_saddr(struct __sk_buff *skb, __u8 *mac, int off)
+static inline int eth_store_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_store_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN, 1);
 }
 
-static inline int load_eth_daddr(struct __sk_buff *skb, __u8 *mac, int off)
+static inline int eth_load_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_load_bytes(skb, off, mac, ETH_ALEN);
 }
 
-static inline int store_eth_daddr(struct __sk_buff *skb, __u8 *mac, int off)
+static inline int eth_store_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
 	return skb_store_bytes(skb, off, mac, ETH_ALEN, 1);
 }

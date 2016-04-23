@@ -5,8 +5,7 @@
 
 #include "dbg.h"
 
-static inline int compare_ipv6_addr(const union v6addr *a,
-				    const union v6addr *b)
+static inline int ipv6_addrcmp(const union v6addr *a, const union v6addr *b)
 {
 	int tmp;
 
@@ -23,7 +22,7 @@ static inline int compare_ipv6_addr(const union v6addr *a,
 	return tmp;
 }
 
-static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
+static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 {
 	__u8 hoplimit, new_hl;
 
@@ -41,24 +40,24 @@ static inline int decrement_ipv6_hoplimit(struct __sk_buff *skb, int off)
 	return 0;
 }
 
-static inline int load_ipv6_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int ipv6_load_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
 {
 	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
-static inline int store_ipv6_saddr(struct __sk_buff *skb, __u8 *addr, int off)
+static inline int ipv6_store_saddr(struct __sk_buff *skb, __u8 *addr, int off)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
 }
 
-static inline int load_ipv6_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int ipv6_load_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
 {
 	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->daddr));
 }
 
-static inline int store_ipv6_daddr(struct __sk_buff *skb, __u8 *addr, int off)
+static inline int ipv6_store_daddr(struct __sk_buff *skb, __u8 *addr, int off)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
 }
@@ -75,13 +74,13 @@ static inline int ipv6_store_nexthdr(struct __sk_buff *skb, __u8 *nexthdr, int o
 			      sizeof(__u8), 0);
 }
 
-static inline int load_ipv6_paylen(struct __sk_buff *skb, int off, __be16 *len)
+static inline int ipv6_load_paylen(struct __sk_buff *skb, int off, __be16 *len)
 {
 	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
 			      len, sizeof(*len));
 }
 
-static inline int store_ipv6_paylen(struct __sk_buff *skb, int off, __be16 *len)
+static inline int ipv6_store_paylen(struct __sk_buff *skb, int off, __be16 *len)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
 			       len, sizeof(*len), 0);
@@ -110,7 +109,7 @@ static inline __u16 derive_lxc_id(const union v6addr *addr)
 	return ntohl(addr->p4) & 0xFFFF;
 }
 
-static inline __u32 derive_node_id(const union v6addr *addr)
+static inline __u32 ipv6_derive_node_id(const union v6addr *addr)
 {
 	return (ntohl(addr->p3) & 0xFFFF) << 16 | (ntohl(addr->p4) >> 16);
 }
