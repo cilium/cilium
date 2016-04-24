@@ -5,8 +5,8 @@ TARGET=cilium
 all: $(TARGET)
 
 tests:
-	godep go fmt ./...
-	-godep go test ./...
+	go fmt ./...
+	-go test ./...
 
 runtime-tests:
 
@@ -19,7 +19,7 @@ clean:
 SOURCES := $(shell find ../policy-repo ../cilium-net-daemon ../common . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	godep go build -o $(TARGET) ./main.go
+	go build -o $(TARGET) ./main.go
 
 install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)

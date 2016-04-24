@@ -7,7 +7,7 @@ P="`pwd`/.."
 popd > /dev/null
 
 cd "$P"
-godep go install ./... 2> /dev/null || true
+go install ./... 2> /dev/null || true
 make clean
 make
 sudo -E bash -l -c make tests

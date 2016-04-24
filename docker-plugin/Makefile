@@ -5,8 +5,8 @@ TARGET=cilium-docker
 all: $(TARGET)
 
 tests:
-	godep go fmt ./...
-	godep go test ./...
+	go fmt ./...
+	go test ./...
 
 runtime-tests:
 	./tests/run.sh
@@ -14,7 +14,7 @@ runtime-tests:
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	godep go build -o $(TARGET)
+	go build -o $(TARGET)
 
 run:
 	./cilium-docker -d
