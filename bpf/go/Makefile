@@ -3,15 +3,15 @@ include ../../Makefile.defs
 all: map_ctrl
 
 tests:
-	godep go fmt ./...
-	godep go test ./...
+	go fmt ./...
+	go test ./...
 
 runtime-tests:
 
 SOURCES := $(shell find . -name '*.go')
 
 map_ctrl: $(SOURCES)
-	godep go build -o map_ctrl
+	go build -o map_ctrl
 
 clean:
 	rm -f map_ctrl

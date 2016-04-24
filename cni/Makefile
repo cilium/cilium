@@ -5,8 +5,8 @@ all: cilium-cni
 TARGET=cilium-cni
 
 tests:
-	godep go fmt ./.
-	godep go test ./.
+	go fmt ./.
+	go test ./.
 
 runtime-tests:
 
@@ -16,7 +16,7 @@ clean:
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	godep go build -o $(TARGET) ./cilium-cni.go
+	go build -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d "/usr/libexec/kubernetes/kubelet-plugins/net/exec"
