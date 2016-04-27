@@ -411,9 +411,9 @@ func dumpEndpoints(ctx *cli.Context) {
 	}
 
 	var (
-		maxIDSize                   = len("Label's ID")
-		maxEpIDSize                 = len("Endpoint ID")
-		labelsID                    = map[uint32]*types.SecCtxLabel{}
+		maxIDSize                                 = len("Label's ID")
+		maxEpIDSize                               = len("Endpoint ID")
+		labelsID                                  = map[uint32]*types.SecCtxLabel{}
 		dataIDString, dataString, dataLabelString string
 	)
 
