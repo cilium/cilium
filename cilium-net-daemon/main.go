@@ -27,7 +27,6 @@ var (
 	disablePolicy      bool
 	dockerEndpoint     string
 	enableTracing      bool
-	hostname           string
 	ipv4Prefix         string
 	kubernetesEndpoint string
 	labelPrefixFile    string
@@ -83,12 +82,6 @@ func init() {
 				Destination: &enableTracing,
 				Name:        "enable-tracing",
 				Usage:       "Enable tracing while determining policy",
-			},
-			cli.StringFlag{
-				Destination: &hostname,
-				Name:        "hostname",
-				Value:       "",
-				Usage:       "Overwrites hostname's value that will be used for log messages",
 			},
 			cli.StringFlag{
 				Destination: &ipv4Prefix,
@@ -229,9 +222,9 @@ func initBPF() error {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG", hostname)
+		common.SetupLOG(log, "DEBUG")
 	} else {
-		common.SetupLOG(log, "INFO", hostname)
+		common.SetupLOG(log, "INFO")
 	}
 
 	if labelPrefixFile != "" {

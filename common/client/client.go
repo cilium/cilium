@@ -16,7 +16,7 @@ import (
 var log = l.MustGetLogger("cilium-net-client")
 
 func init() {
-	common.SetupLOG(log, "DEBUG", "")
+	common.SetupLOG(log, "DEBUG")
 }
 
 // Client has the internal details necessary to talk with the daemon.

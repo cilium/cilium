@@ -23,7 +23,7 @@ import (
 var log = l.MustGetLogger("cilium-net-cni")
 
 func init() {
-	common.SetupLOG(log, "DEBUG", "")
+	common.SetupLOG(log, "DEBUG")
 
 	// this ensures that main runs only on main thread (thread group leader).
 	// since namespace ops (unshare, setns) are done for a single thread, we

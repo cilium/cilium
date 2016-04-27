@@ -37,9 +37,9 @@ func init() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG", "")
+		common.SetupLOG(log, "DEBUG")
 	} else {
-		common.SetupLOG(log, "INFO", "")
+		common.SetupLOG(log, "INFO")
 	}
 
 	c, err := cnc.NewDefaultClient()
