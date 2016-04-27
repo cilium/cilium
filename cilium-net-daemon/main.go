@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -149,19 +150,19 @@ func initBPF() error {
 			runDir, err)
 	}
 
-	// TODO Change f to bufio.Writer
 	f, err := os.Create("./globals/node_config.h")
 	if err != nil {
 		log.Warningf("Failed to create node configuration file: %s", err)
 		return err
 
 	}
+	fw := bufio.NewWriter(f)
 
 	hostIP := common.DupIP(nodeAddr)
 	hostIP[14] = 0xff
 	hostIP[15] = 0xff
 
-	fmt.Fprintf(f, ""+
+	fmt.Fprintf(fw, ""+
 		"/*\n"+
 		" * Node-IP: %s\n"+
 		" * Host-IP: %s\n"+
@@ -169,33 +170,34 @@ func initBPF() error {
 		nodeAddr.String(), hostIP.String())
 
 	if common.DebugEnabled {
-		f.WriteString("#define DEBUG\n")
+		fw.WriteString("#define DEBUG\n")
 	}
 
 	if disablePolicy {
-		f.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
+		fw.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
 	}
 
-	fmt.Fprintf(f, "#define NODE_ID %#x\n", common.NodeAddr2ID(nodeAddr))
-	f.WriteString(common.FmtDefineArray("ROUTER_IP", nodeAddr))
+	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(nodeAddr))
+	fw.WriteString(common.FmtDefineArray("ROUTER_IP", nodeAddr))
 
 	SrcPrefix := net.ParseIP(ipv4Prefix)
 	DstPrefix := net.ParseIP(ipv4Prefix)
-	f.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
-	f.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
+	fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
+	fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
 
-	f.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
-	fmt.Fprintf(f, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
-	fmt.Fprintf(f, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
+	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
+	fmt.Fprintf(fw, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
+	fmt.Fprintf(fw, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
 
-	fmt.Fprintf(f, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
-	fmt.Fprintf(f, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
+	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
+	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
 	ipv4Gw := common.DupIP(ipv4Range.IP)
 	ipv4Gw[2] = 0xff
 	ipv4Gw[3] = 0xff
-	fmt.Fprintf(f, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
+	fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
 
+	fw.Flush()
 	f.Close()
 
 	if device != "undefined" {
