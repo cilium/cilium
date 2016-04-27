@@ -42,12 +42,19 @@ func initEnv(ctx *cli.Context) error {
 		common.SetupLOG(log, "INFO")
 	}
 
-	c, err := cnc.NewDefaultClient()
+	var (
+		c   *cnc.Client
+		err error
+	)
+	if host := ctx.GlobalString("host"); host == "" {
+		c, err = cnc.NewDefaultClient()
+	} else {
+		c, err = cnc.NewClient(host, nil, nil, nil)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
 		return fmt.Errorf("Error while creating cilium-client: %s", err)
 	}
-
 	client = c
 
 	return nil

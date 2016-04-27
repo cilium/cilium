@@ -26,6 +26,10 @@ func main() {
 			Name:  "debug, D",
 			Usage: "Enable debug messages",
 		},
+		cli.StringFlag{
+			Name:  "host, H",
+			Usage: "Daemon host to connect to",
+		},
 	}
 	app.Commands = []cli.Command{
 		daemon.CliCommand,

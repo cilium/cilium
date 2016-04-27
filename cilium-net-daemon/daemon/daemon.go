@@ -61,7 +61,7 @@ func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
-	defaultHeaders := map[string]string{"User-Agent": "engine-api-cli-1.0"}
+	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
 }
 
