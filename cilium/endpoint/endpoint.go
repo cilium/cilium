@@ -414,7 +414,7 @@ func dumpEndpoints(ctx *cli.Context) {
 		maxIDSize                   = len("Label's ID")
 		maxEpIDSize                 = len("Endpoint ID")
 		labelsID                    = map[uint32]*types.SecCtxLabel{}
-		dataString, dataLabelString string
+		dataIDString, dataString, dataLabelString string
 	)
 
 	if !printIDs {
@@ -449,13 +449,11 @@ func dumpEndpoints(ctx *cli.Context) {
 	maxEpIDSize += columnWidth
 	maxIDSize += columnWidth
 
+	titleString := fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
+	dataIDString = fmt.Sprintf("%%-%ds%%%dd\n", maxEpIDSize, maxIDSize)
 	if printIDs {
-		titleString := fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
-		dataString = fmt.Sprintf("%%-%ds%%%dd\n", maxEpIDSize, maxIDSize)
-
 		fmt.Printf(titleString, "Endpoint ID", "Label's ID")
 	} else {
-		titleString := fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
 		dataString = fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
 
 		dataLabelString = fmt.Sprintf("%%%ds\n", maxEpIDSize+maxIDSize)
@@ -467,8 +465,8 @@ func dumpEndpoints(ctx *cli.Context) {
 
 	for _, ep := range eps {
 		if printIDs {
-			fmt.Printf(dataString, ep.ID, ep.SecLabelID)
-		} else if lbls := labelsID[ep.SecLabelID]; lbls != nil {
+			fmt.Printf(dataIDString, ep.ID, ep.SecLabelID)
+		} else if lbls := labelsID[ep.SecLabelID]; lbls != nil && len(lbls.Labels) != 0 {
 			first := true
 			for _, lbl := range lbls.Labels {
 				if len(lbls.Labels) == 1 {
@@ -481,7 +479,7 @@ func dumpEndpoints(ctx *cli.Context) {
 				}
 			}
 		} else {
-			fmt.Printf(dataString, ep.ID, ep.SecLabelID)
+			fmt.Printf(dataIDString, ep.ID, ep.SecLabelID)
 		}
 		fmt.Printf("%s\n", strings.Repeat("-", maxEpIDSize+maxIDSize))
 	}
