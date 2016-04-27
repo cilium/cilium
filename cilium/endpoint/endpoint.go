@@ -44,6 +44,14 @@ func init() {
 				},
 			},
 			{
+				Name:      "recompile",
+				Aliases:   []string{"r"},
+				Usage:     "Recompiles endpoint's bpf program",
+				Action:    recompileBPF,
+				ArgsUsage: "<endpoint>",
+				Before:    verifyArguments,
+			},
+			{
 				Name:    "list-all",
 				Aliases: []string{"a"},
 				Usage:   "Dumps a list of all daemon's endpoints",
@@ -478,4 +486,16 @@ func dumpEndpoints(ctx *cli.Context) {
 		fmt.Printf("%s\n", strings.Repeat("-", maxEpIDSize+maxIDSize))
 	}
 
+}
+
+func recompileBPF(ctx *cli.Context) {
+	epID := ctx.Args().First()
+
+	err := client.EndpointUpdate(epID, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
+		return
+	}
+
+	fmt.Printf("Endpoint %s's successfully recompiled\n", epID)
 }
