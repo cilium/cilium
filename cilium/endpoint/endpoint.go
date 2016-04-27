@@ -30,13 +30,6 @@ func init() {
 		Before:  initEnv,
 		Subcommands: []cli.Command{
 			{
-				Name:    "lxc-info",
-				Aliases: []string{"l"},
-				Usage:   "Dumps lxc-info of the given endpoint",
-				Action:  dumpLXCInfo,
-				Before:  verifyArguments,
-			},
-			{
 				Name:      "bpf-map",
 				Aliases:   []string{"b"},
 				Usage:     "Dumps bpf policy-map of the given endpoint",
@@ -49,6 +42,25 @@ func init() {
 						Usage: "Don't resolve label's ID",
 					},
 				},
+			},
+			{
+				Name:    "list-all",
+				Aliases: []string{"a"},
+				Usage:   "Dumps a list of all daemon's endpoints",
+				Action:  dumpEndpoints,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "id, i",
+						Usage: "Don't resolve label's ID",
+					},
+				},
+			},
+			{
+				Name:    "lxc-info",
+				Aliases: []string{"l"},
+				Usage:   "Dumps lxc-info of the given endpoint",
+				Action:  dumpLXCInfo,
+				Before:  verifyArguments,
 			},
 			{
 				Name:    "policy",
@@ -375,4 +387,95 @@ func getStatusNAT46(ctx *cli.Context) {
 		return
 	}
 	fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableNAT46, false)
+}
+
+func dumpEndpoints(ctx *cli.Context) {
+	printIDs := ctx.Bool("id")
+
+	eps, err := client.EndpointsGet()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while getting endpoints from daemon: %s\n", err)
+		return
+	}
+	if eps == nil {
+		fmt.Printf("List of endpoints empty.\n")
+		return
+	}
+
+	var (
+		maxIDSize                   = len("Label's ID")
+		maxEpIDSize                 = len("Endpoint ID")
+		labelsID                    = map[uint32]*types.SecCtxLabel{}
+		dataString, dataLabelString string
+	)
+
+	if !printIDs {
+		maxIDSize = len("Labels (Source#Key[=Value])")
+	}
+
+	for _, ep := range eps {
+		setIfGT(&maxEpIDSize, len(ep.ID))
+
+		if printIDs {
+			setIfGT(&maxIDSize, len(strconv.FormatUint(uint64(ep.SecLabelID), 10)))
+		} else {
+			secCtxLbl, err := client.GetLabels(int(ep.SecLabelID))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
+					ep.SecLabelID, err)
+			}
+			if secCtxLbl == nil {
+				fmt.Fprintf(os.Stderr, "Label with ID %d was not found\n",
+					ep.SecLabelID)
+			}
+			labelsID[ep.SecLabelID] = secCtxLbl
+			if secCtxLbl != nil {
+				for _, lbl := range secCtxLbl.Labels {
+					setIfGT(&maxIDSize, len(lbl.String()))
+				}
+			}
+		}
+
+	}
+	columnWidth := 3
+	maxEpIDSize += columnWidth
+	maxIDSize += columnWidth
+
+	if printIDs {
+		titleString := fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
+		dataString = fmt.Sprintf("%%-%ds%%%dd\n", maxEpIDSize, maxIDSize)
+
+		fmt.Printf(titleString, "Endpoint ID", "Label's ID")
+	} else {
+		titleString := fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
+		dataString = fmt.Sprintf("%%-%ds%%%ds\n", maxEpIDSize, maxIDSize)
+
+		dataLabelString = fmt.Sprintf("%%%ds\n", maxEpIDSize+maxIDSize)
+
+		fmt.Printf(titleString, "Endpoint ID", "Labels (Source#Key[=Value])")
+	}
+
+	fmt.Printf("%s\n", strings.Repeat("-", maxEpIDSize+maxIDSize))
+
+	for _, ep := range eps {
+		if printIDs {
+			fmt.Printf(dataString, ep.ID, ep.SecLabelID)
+		} else if lbls := labelsID[ep.SecLabelID]; lbls != nil {
+			first := true
+			for _, lbl := range lbls.Labels {
+				if len(lbls.Labels) == 1 {
+					fmt.Printf(dataString, ep.ID, lbl)
+				} else if first {
+					fmt.Printf(dataString, ep.ID, lbl)
+					first = false
+				} else {
+					fmt.Printf(dataLabelString, lbl)
+				}
+			}
+		} else {
+			fmt.Printf(dataString, ep.ID, ep.SecLabelID)
+		}
+		fmt.Printf("%s\n", strings.Repeat("-", maxEpIDSize+maxIDSize))
+	}
+
 }

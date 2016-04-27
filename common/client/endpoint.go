@@ -48,7 +48,7 @@ func (cli Client) EndpointLeave(epID string) error {
 	return nil
 }
 
-// EndpointLeave sends a GET request with epID to the daemon.
+// EndpointGet sends a GET request with epID to the daemon.
 func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
 	query := url.Values{}
 	serverResp, err := cli.get("/endpoint/"+epID, query, nil)
@@ -73,6 +73,33 @@ func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
 	}
 
 	return &ep, nil
+}
+
+// EndpointsGet sends a GET request to the daemon.
+func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
+	query := url.Values{}
+	serverResp, err := cli.get("/endpoints", query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	defer ensureReaderClosed(serverResp)
+
+	if serverResp.statusCode != http.StatusOK &&
+		serverResp.statusCode != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.body, nil)
+	}
+
+	if serverResp.statusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
+	var eps []types.Endpoint
+	if err := json.NewDecoder(serverResp.body).Decode(&eps); err != nil {
+		return nil, err
+	}
+
+	return eps, nil
 }
 
 // EndpointUpdate sends a POST request with epID and opts to the daemon.

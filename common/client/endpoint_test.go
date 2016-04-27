@@ -194,6 +194,74 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 	c.Assert(ep, IsNil)
 }
 
+func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
+	epsOut := []types.Endpoint{
+		types.Endpoint{
+			LXCMAC:        HardAddr,
+			LXCIP:         EpAddr,
+			NodeMAC:       HardAddr,
+			NodeIP:        NodeAddr,
+			IfName:        "eth0",
+			DockerNetwork: "dockernetwork",
+			SecLabelID:    SecLabel,
+		},
+		types.Endpoint{
+			LXCMAC:        HardAddr,
+			LXCIP:         EpAddr,
+			NodeMAC:       HardAddr,
+			NodeIP:        NodeAddr,
+			IfName:        "eth0",
+			DockerNetwork: "dockernetwork",
+			SecLabelID:    SecLabel,
+		},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoints")
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(epsOut)
+		c.Assert(err, IsNil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	eps, err := cli.EndpointsGet()
+	c.Assert(err, IsNil)
+	c.Assert(eps, DeepEquals, epsOut)
+
+	// Not found
+	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoints")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server2.Close()
+	cli = NewTestClient(server2.URL, c)
+
+	ep2, err := cli.EndpointsGet()
+	c.Assert(err, IsNil)
+	c.Assert(ep2, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointsGetFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoints")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(types.ServerError{-1, "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	eps, err := cli.EndpointsGet()
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+	c.Assert(eps, IsNil)
+}
+
 func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 	optsWanted := types.EPOpts{"FOO": true}
 

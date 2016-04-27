@@ -146,6 +146,46 @@ func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
 
+func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
+	epsWanted := []types.Endpoint{
+		types.Endpoint{
+			LXCMAC:        HardAddr,
+			LXCIP:         EpAddr,
+			NodeMAC:       HardAddr,
+			NodeIP:        NodeAddr,
+			IfName:        "ifname",
+			DockerNetwork: "dockernetwork",
+			SecLabelID:    SecLabel,
+		},
+		types.Endpoint{
+			LXCMAC:        HardAddr,
+			LXCIP:         EpAddr,
+			NodeMAC:       HardAddr,
+			NodeIP:        NodeAddr,
+			IfName:        "ifname1",
+			DockerNetwork: "dockernetwork1",
+			SecLabelID:    SecLabel,
+		},
+	}
+
+	s.d.OnEndpointsGet = func() ([]types.Endpoint, error) {
+		return epsWanted, nil
+	}
+
+	eps, err := s.c.EndpointsGet()
+	c.Assert(err, IsNil)
+	c.Assert(eps, DeepEquals, epsWanted)
+}
+
+func (s *DaemonSuite) TestEndpointsGetFail(c *C) {
+	s.d.OnEndpointsGet = func() ([]types.Endpoint, error) {
+		return nil, errors.New("invalid endpoint")
+	}
+
+	_, err := s.c.EndpointsGet()
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
+
 func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
 	optsWanted := types.EPOpts{"FOO": true}
 

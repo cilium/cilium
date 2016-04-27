@@ -91,6 +91,23 @@ func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *Router) endpointsGet(w http.ResponseWriter, r *http.Request) {
+	eps, err := router.daemon.EndpointsGet()
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("error while getting endpoints: %s", err))
+		return
+	}
+	if eps == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(eps); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
 func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	containerID, exists := vars["containerID"]
