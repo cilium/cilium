@@ -86,6 +86,21 @@ func (d *Daemon) EndpointGet(endpointID string) (*types.Endpoint, error) {
 	return nil, nil
 }
 
+// EndpointsGet returns a copy of all the endpoints or nil if there are no endpoints.
+func (d *Daemon) EndpointsGet() ([]types.Endpoint, error) {
+	eps := []types.Endpoint{}
+	d.endpointsMU.Lock()
+	for _, v := range d.endpoints {
+		epCopy := *v
+		eps = append(eps, epCopy)
+	}
+	d.endpointsMU.Unlock()
+	if len(eps) == 0 {
+		return nil, nil
+	}
+	return eps, nil
+}
+
 func (d *Daemon) deleteEndpoint(endpointID string) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()

@@ -28,6 +28,9 @@ func (r *Router) initRoutes() {
 			"EndpointGet", "GET", "/endpoint/{endpointID}", r.endpointGet,
 		},
 		route{
+			"EndpointsGet", "GET", "/endpoints", r.endpointsGet,
+		},
+		route{
 			"EndpointUpdate", "POST", "/endpoint/update/{endpointID}", r.endpointUpdate,
 		},
 		route{

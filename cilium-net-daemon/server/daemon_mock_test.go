@@ -8,6 +8,7 @@ import (
 
 type TestDaemon struct {
 	OnEndpointGet          func(epID string) (*types.Endpoint, error)
+	OnEndpointsGet         func() ([]types.Endpoint, error)
 	OnEndpointJoin         func(ep types.Endpoint) error
 	OnEndpointLeave        func(ep string) error
 	OnEndpointUpdate       func(ep string, opts types.EPOpts) error
@@ -31,10 +32,17 @@ func NewTestDaemon() *TestDaemon {
 }
 
 func (d TestDaemon) EndpointGet(epID string) (*types.Endpoint, error) {
-	if d.EndpointGet != nil {
+	if d.OnEndpointGet != nil {
 		return d.OnEndpointGet(epID)
 	}
 	return nil, errors.New("EndpointGet should not have been called")
+}
+
+func (d TestDaemon) EndpointsGet() ([]types.Endpoint, error) {
+	if d.OnEndpointsGet != nil {
+		return d.OnEndpointsGet()
+	}
+	return nil, errors.New("EndpointsGet should not have been called")
 }
 
 func (d TestDaemon) EndpointJoin(ep types.Endpoint) error {
