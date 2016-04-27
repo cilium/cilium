@@ -111,14 +111,12 @@ func GetLockPath(path string) string {
 }
 
 // SetupLOG sets up logger with the correct parameters for the whole cilium architecture.
-func SetupLOG(logger *l.Logger, logLevel, hostname string) {
+func SetupLOG(logger *l.Logger, logLevel string) {
 	if logLevel == "DEBUG" {
 		DebugEnabled = true
 	}
 
-	if hostname == "" {
-		hostname, _ = os.Hostname()
-	}
+	hostname, _ := os.Hostname()
 	fileFormat := l.MustStringFormatter(
 		`%{time:` + RFC3339Milli + `} ` + hostname +
 			` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`,
