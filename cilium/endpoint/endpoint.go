@@ -198,16 +198,6 @@ func dumpMap(ctx *cli.Context) {
 		return
 	}
 
-	var c *cnc.Client
-	if !printIDs {
-		c, err = cnc.NewDefaultClient()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Was impossible to connect to cilium-daemon: %s\n"+
-				"Proceding without resolving label's IDs", err)
-			printIDs = true
-		}
-	}
-
 	var (
 		maxIDSize                   = len("Label's ID")
 		maxActionSize               = len("Action")
@@ -228,7 +218,7 @@ func dumpMap(ctx *cli.Context) {
 		if printIDs {
 			setIfGT(&maxIDSize, len(strconv.FormatUint(uint64(stat.ID), 10)))
 		} else {
-			secCtxLbl, err := c.GetLabels(int(stat.ID))
+			secCtxLbl, err := client.GetLabels(int(stat.ID))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
 					stat.ID, err)
@@ -300,13 +290,7 @@ func dumpMap(ctx *cli.Context) {
 func enablePolicy(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return
-	}
-
-	err = c.EndpointUpdate(epID, types.EPOpts{common.DisablePolicyEnforcement: false})
+	err := client.EndpointUpdate(epID, types.EPOpts{common.DisablePolicyEnforcement: false})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
 		return
@@ -318,13 +302,7 @@ func enablePolicy(ctx *cli.Context) {
 func disablePolicy(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return
-	}
-
-	err = c.EndpointUpdate(epID, types.EPOpts{common.DisablePolicyEnforcement: true})
+	err := client.EndpointUpdate(epID, types.EPOpts{common.DisablePolicyEnforcement: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
 		return
@@ -336,13 +314,7 @@ func disablePolicy(ctx *cli.Context) {
 func getStatusPolicy(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return
-	}
-
-	ep, err := c.EndpointGet(epID)
+	ep, err := client.EndpointGet(epID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
 		return
@@ -364,13 +336,7 @@ func getStatusPolicy(ctx *cli.Context) {
 func enableNAT46(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return
-	}
-
-	err = c.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: false})
+	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: false})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
 		return
@@ -382,13 +348,7 @@ func enableNAT46(ctx *cli.Context) {
 func disableNAT46(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return
-	}
-
-	err = c.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: true})
+	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
 		return
@@ -400,13 +360,7 @@ func disableNAT46(ctx *cli.Context) {
 func getStatusNAT46(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return
-	}
-
-	ep, err := c.EndpointGet(epID)
+	ep, err := client.EndpointGet(epID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
 		return
