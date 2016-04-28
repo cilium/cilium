@@ -180,7 +180,11 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);
 #endif
 		printk("Denied by policy!\n");
+#ifdef IGNORE_DROP
+		return redirect(ifindex, 0);
+#else
 		return TC_ACT_SHOT;
+#endif
 	}
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, skb->len);
