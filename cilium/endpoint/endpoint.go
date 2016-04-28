@@ -547,7 +547,7 @@ func dumpEndpoints(ctx *cli.Context) {
 		return
 	}
 	if eps == nil {
-		fmt.Printf("List of endpoints empty.\n")
+		fmt.Printf("No endpoints\n")
 		return
 	}
 
