@@ -24,30 +24,30 @@ var (
 
 func init() {
 	CliCommand = cli.Command{
-		Name:    "endpoint",
-		Aliases: []string{"e"},
-		Usage:   "Manage endpoint operations",
-		Before:  initEnv,
+		Name:   "endpoint",
+		Usage:  "Manage endpoint operations",
+		Before: initEnv,
 		Subcommands: []cli.Command{
 			{
-				Name:      "detach",
-				Usage:     "Detaches BPF program from endpoint",
-				Action:    detachBPF,
-				ArgsUsage: "<endpoint>",
-				Before:    verifyArguments,
+				Name:         "detach",
+				Usage:        "Detaches BPF program from endpoint",
+				Action:       detachBPF,
+				BashComplete: listEndpointsBash,
+				ArgsUsage:    "<endpoint>",
+				Before:       verifyArguments,
 			},
 			{
-				Name:    "inspect",
-				Aliases: []string{"i"},
-				Usage:   "Dumps lxc-info of the given endpoint",
-				Action:  dumpLXCInfo,
-				Before:  verifyArguments,
+				Name:         "inspect",
+				Usage:        "Dumps lxc-info of the given endpoint",
+				Action:       dumpLXCInfo,
+				BashComplete: listEndpointsBash,
+				ArgsUsage:    "<endpoint>",
+				Before:       verifyArguments,
 			},
 			{
-				Name:    "list",
-				Aliases: []string{"l"},
-				Usage:   "Dumps a list of all daemon's endpoints",
-				Action:  dumpEndpoints,
+				Name:   "list",
+				Usage:  "Dumps a list of all daemon's endpoints",
+				Action: dumpEndpoints,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Name:  "id, i",
@@ -56,48 +56,46 @@ func init() {
 				},
 			},
 			{
-				Name:    "nat46",
-				Aliases: []string{"n"},
-				Usage:   "Manage nat46 status for the given endpoint",
+				Name:  "nat46",
+				Usage: "Manage nat46 status for the given endpoint",
 				Subcommands: []cli.Command{
 					{
-						Name:      "enable",
-						Aliases:   []string{"e"},
-						Usage:     "Enables NAT46 mode of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    enableNAT46,
+						Name:         "enable",
+						Usage:        "Enables NAT46 mode of the given endpoint",
+						Before:       verifyArguments,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Action:       enableNAT46,
 					},
 					{
-						Name:      "disable",
-						Aliases:   []string{"d"},
-						Usage:     "Disables NAT46 mode of of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    disableNAT46,
+						Name:         "disable",
+						Usage:        "Disables NAT46 mode of of the given endpoint",
+						Before:       verifyArguments,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Action:       disableNAT46,
 					},
 					{
-						Name:      "status",
-						Aliases:   []string{"s"},
-						Usage:     "Returns the current NAT46 status of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    getStatusNAT46,
+						Name:         "status",
+						Usage:        "Returns the current NAT46 status of the given endpoint",
+						Before:       verifyArguments,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Action:       getStatusNAT46,
 					},
 				},
 			},
 			{
-				Name:    "policy",
-				Aliases: []string{"p"},
-				Usage:   "Manage policy status for the given endpoint",
+				Name:  "policy",
+				Usage: "Manage policy status for the given endpoint",
 				Subcommands: []cli.Command{
 					{
-						Name:      "bpf-dump",
-						Aliases:   []string{"b"},
-						Usage:     "Dumps bpf policy-map of the given endpoint",
-						Action:    dumpMap,
-						ArgsUsage: "<endpoint>",
-						Before:    verifyArguments,
+						Name:         "bpf-dump",
+						Usage:        "Dumps bpf policy-map of the given endpoint",
+						Action:       dumpMap,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Before:       verifyArguments,
 						Flags: []cli.Flag{
 							cli.BoolFlag{
 								Name:  "id, i",
@@ -106,38 +104,38 @@ func init() {
 						},
 					},
 					{
-						Name:      "enable",
-						Aliases:   []string{"e"},
-						Usage:     "Enables policy enforcement of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    enablePolicy,
+						Name:         "enable",
+						Usage:        "Enables policy enforcement of the given endpoint",
+						Before:       verifyArguments,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Action:       enablePolicy,
 					},
 					{
-						Name:      "disable",
-						Aliases:   []string{"d"},
-						Usage:     "Disables policy enforcement of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    disablePolicy,
+						Name:         "disable",
+						Usage:        "Disables policy enforcement of the given endpoint",
+						Before:       verifyArguments,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Action:       disablePolicy,
 					},
 					{
-						Name:      "status",
-						Aliases:   []string{"s"},
-						Usage:     "Returns the current policy status of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    getStatusPolicy,
+						Name:         "status",
+						Usage:        "Returns the current policy status of the given endpoint",
+						Before:       verifyArguments,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Action:       getStatusPolicy,
 					},
 				},
 			},
 			{
-				Name:      "recompile",
-				Aliases:   []string{"r"},
-				Usage:     "Recompiles endpoint's bpf program",
-				Action:    recompileBPF,
-				ArgsUsage: "<endpoint>",
-				Before:    verifyArguments,
+				Name:         "recompile",
+				Usage:        "Recompiles endpoint's bpf program",
+				Action:       recompileBPF,
+				BashComplete: listEndpointsBash,
+				ArgsUsage:    "<endpoint>",
+				Before:       verifyArguments,
 			},
 		},
 	}
@@ -172,6 +170,9 @@ func verifyArguments(ctx *cli.Context) error {
 	ep := ctx.Args().First()
 	if ep == "" {
 		return fmt.Errorf("Error: empty endpoint")
+	}
+	if len(ctx.Args()) != 1 {
+		return fmt.Errorf("Error: only one endpoint is permited")
 	}
 	return nil
 }
@@ -515,4 +516,23 @@ func detachBPF(ctx *cli.Context) {
 	}
 
 	fmt.Printf("Endpoint %s's successfully detached\n", epID)
+}
+
+func listEndpointsBash(ctx *cli.Context) {
+	eps, _ := client.EndpointsGet()
+	if ctx.Args().Present() {
+		if len(ctx.Args()) < 1 {
+			firstArg := ctx.Args().First()
+			for _, ep := range eps {
+				if strings.HasPrefix(ep.ID, firstArg) {
+					fmt.Println(ep.ID)
+				}
+			}
+		}
+	} else {
+		for _, ep := range eps {
+			fmt.Println(ep.ID)
+		}
+	}
+
 }

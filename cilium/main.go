@@ -21,6 +21,7 @@ func main() {
 	app.Name = "cilium"
 	app.Usage = "Cilium"
 	app.Version = "0.1.0"
+	app.EnableBashCompletion = true
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "debug, D",
