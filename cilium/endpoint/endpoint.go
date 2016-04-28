@@ -90,7 +90,7 @@ func init() {
 				Usage: "Manage policy status for the given endpoint",
 				Subcommands: []cli.Command{
 					{
-						Name:         "bpf-dump",
+						Name:         "dump",
 						Usage:        "Dumps bpf policy-map of the given endpoint",
 						Action:       dumpMap,
 						BashComplete: listEndpointsBash,
@@ -102,6 +102,20 @@ func init() {
 								Usage: "Don't resolve label's ID",
 							},
 						},
+					},
+					{
+						Name:         "add",
+						Usage:        "Adds an entry to bpf policy-map of the given endpoint",
+						Action:       addPolicyKey,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint> <label_id>",
+					},
+					{
+						Name:         "remove",
+						Usage:        "Removes an entry from bpf policy-map of the given endpoint",
+						Action:       removePolicyKey,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint> <label_id>",
 					},
 					{
 						Name:         "enable",
@@ -313,6 +327,51 @@ func dumpMap(ctx *cli.Context) {
 		}
 		fmt.Printf("%s\n", strings.Repeat("-", maxIDSize+maxActionSize+maxBytesSize+maxPacketsSize))
 	}
+}
+
+func updatePolicyKey(ctx *cli.Context, add bool) {
+	if len(ctx.Args()) < 2 {
+		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
+		return
+	}
+
+	lbl := ctx.Args().Get(0)
+
+	if lbl != "" {
+		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
+			lbl = "reserved_" + strconv.Itoa(int(id))
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Need ID or label\n")
+		return
+	}
+
+	file := common.PolicyMapPath + lbl
+	policyMap, err := policymap.OpenMap(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not open policymap '%s' : %s", file, err)
+		return
+	}
+
+	peer_lbl, err := strconv.ParseUint(ctx.Args().Get(1), 10, 32)
+	if add == true {
+		err = policyMap.AllowConsumer(uint32(peer_lbl))
+	} else {
+		err = policyMap.DeleteConsumer(uint32(peer_lbl))
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "allow label %d failed for %s", peer_lbl, lbl)
+		return
+	}
+}
+
+func addPolicyKey(ctx *cli.Context) {
+	updatePolicyKey(ctx, true)
+}
+
+func removePolicyKey(ctx *cli.Context) {
+	updatePolicyKey(ctx, false)
 }
 
 func enablePolicy(ctx *cli.Context) {
