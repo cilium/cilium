@@ -285,6 +285,9 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	if !isValidID(epID) {
 		return fmt.Errorf("invalid ID %s", epID)
 	}
+	if _, ok := d.endpoints[common.CiliumPrefix+epID]; !ok {
+		return fmt.Errorf("endpoint %s not found", epID)
+	}
 	lxcDir := filepath.Join(".", epID)
 	os.RemoveAll(lxcDir)
 
