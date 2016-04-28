@@ -65,7 +65,7 @@ func NewClient(host string, httpCli *http.Client, transport *http.Transport, htt
 		httpCli = &http.Client{Transport: transport}
 	}
 
-	log.Infof("Client talking with host: %s", host)
+	log.Debugf("Client talking with host: %s", host)
 
 	return &Client{
 		proto:      proto,
