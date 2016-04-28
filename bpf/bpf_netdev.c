@@ -151,8 +151,7 @@ int from_netdev(struct __sk_buff *skb)
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
 		if (likely(is_node_subnet(&dst, &node_ip))) {
-			printk("Targeted for a local container, src label: %d\n",
-				ntohl(flowlabel));
+			printk("Targeted for a local container, src label: %d\n", flowlabel);
 
 			return do_l3(skb, ETH_HLEN, &dst, flowlabel);
 		}
@@ -172,7 +171,7 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
 
-	printk("Handle for host %d %d\n", ntohl(src_label), ifindex);
+	printk("Handle for host %d %d\n", src_label, ifindex);
 
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (!policy) {
