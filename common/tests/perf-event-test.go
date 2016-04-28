@@ -59,7 +59,7 @@ func run(ctx *cli.Context) {
 	}
 
 	for {
-		todo, err := events.Poll()
+		todo, err := events.Poll(-1)
 		if err != nil {
 			panic(err)
 		}

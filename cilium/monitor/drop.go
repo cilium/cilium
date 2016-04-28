@@ -20,16 +20,48 @@ type DropNotify struct {
 	// data
 }
 
-func (n *DropNotify) String(dissect bool, data []byte) string {
-	var s string
+var (
+	eth    layers.Ethernet
+	ip4    layers.IPv4
+	ip6    layers.IPv6
+	icmp4  layers.ICMPv4
+	icmp6  layers.ICMPv6
+	tcp    layers.TCP
+	udp    layers.UDP
+	parser = gopacket.NewDecodingLayerParser(
+		layers.LayerTypeEthernet,
+		&eth, &ip4, &ip6, &icmp4, &icmp6, &tcp, &udp)
+	decoded = []gopacket.LayerType{}
+)
+
+func (n *DropNotify) Dump(dissect bool, data []byte) {
+	fmt.Printf("Packet dropped %d->%d to container %d %d bytes (ifindex %d)\n",
+		n.SrcLabel, n.DstLabel, n.DstID, n.Len, n.Ifindex)
 
 	if dissect {
-		p := gopacket.NewPacket(data[24:], layers.LayerTypeEthernet, gopacket.NoCopy)
-		s = p.Dump()
+		//		s = gopacket.NewPacket(data[24:], layers.LayerTypeEthernet, gopacket.Lazy).Dump()
+		parser.DecodeLayers(data[24:], &decoded)
+
+		for _, typ := range decoded {
+			switch typ {
+			case layers.LayerTypeEthernet:
+				fmt.Println(gopacket.LayerString(&eth))
+			case layers.LayerTypeIPv4:
+				fmt.Println(gopacket.LayerString(&ip4))
+			case layers.LayerTypeIPv6:
+				fmt.Println(gopacket.LayerString(&ip6))
+			case layers.LayerTypeTCP:
+				fmt.Println(gopacket.LayerString(&tcp))
+			case layers.LayerTypeUDP:
+				fmt.Println(gopacket.LayerString(&udp))
+			}
+		}
+		if parser.Truncated {
+			fmt.Println("  Packet has been truncated")
+		}
+
 	} else {
-		s = hex.Dump(data[24:])
+		fmt.Println(hex.Dump(data[24:]))
 	}
 
-	return fmt.Sprintf("Packet dropped %d->%d to container %d %d bytes (ifindex %d)\n%s",
-		n.SrcLabel, n.DstLabel, n.DstID, n.Len, n.Ifindex, s)
 }

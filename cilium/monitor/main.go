@@ -22,7 +22,6 @@ import (
 var (
 	log        = l.MustGetLogger("cilium-monitor")
 	CliCommand cli.Command
-	quit       = false
 	dissect    = false
 	config     = bpf.PerfEventConfig{
 		MapPath:      "/sys/fs/bpf/tc/globals/cilium_events",
@@ -31,6 +30,8 @@ var (
 		SampleType:   C.PERF_SAMPLE_RAW,
 		WakeupEvents: 1,
 	}
+
+	events *bpf.PerCpuEvents
 )
 
 const (
@@ -43,7 +44,7 @@ func receiveEvent(msg *bpf.PerfEventSample) {
 	if data[0] == CILIUM_NOTIFY_DROP {
 		dn := DropNotify{}
 		binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn)
-		fmt.Println(dn.String(dissect, data))
+		dn.Dump(dissect, data)
 	} else {
 		fmt.Printf("Unknonwn event: %+v\n", msg)
 	}
@@ -55,8 +56,27 @@ func run(ctx *cli.Context) {
 		panic(err)
 	}
 
-	for !quit {
-		todo, err := events.Poll()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+		for _ = range signalChan {
+			fmt.Println("\nReceived an interrupt, stopping monitor...\n")
+
+			lost, unknown := events.Stats()
+			if lost != 0 || unknown != 0 {
+				log.Warningf("%d events lost, %d unknonwn notifications", lost, unknown)
+			}
+
+			if err := events.CloseAll(); err != nil {
+				panic(err)
+			}
+
+			os.Exit(0)
+		}
+	}()
+
+	for {
+		todo, err := events.Poll(5000)
 		if err != nil && err != syscall.EINTR {
 			panic(err)
 		}
@@ -65,15 +85,6 @@ func run(ctx *cli.Context) {
 				log.Warningf("Error received while reading from perf buffer: %s", err)
 			}
 		}
-	}
-
-	lost, unknown := events.Stats()
-	if lost != 0 || unknown != 0 {
-		log.Warningf("%d events lost, %d unknonwn notifications", lost, unknown)
-	}
-
-	if err := events.CloseAll(); err != nil {
-		panic(err)
 	}
 
 }
@@ -104,12 +115,4 @@ func init() {
 		},
 		Action: run,
 	}
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		<-c
-		quit = true
-	}()
-
 }
