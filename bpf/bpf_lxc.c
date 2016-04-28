@@ -18,6 +18,10 @@
 #include "lib/lxc.h"
 #include "lib/nat46.h"
 
+#ifdef DROP_NOTIFY
+#include "lib/drop.h"
+#endif
+
 #ifndef DISABLE_PORT_MAP
 static inline void map_lxc_out(struct __sk_buff *skb, int off)
 {
@@ -172,9 +176,15 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (unlikely(!policy)) {
-		// FIXME: Notify drop in perf ring buffer
+#ifdef DROP_NOTIFY
+		send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
+#endif
 		printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
+#ifdef IGNORE_DROP
+		return redirect(ifindex, 0);
+#else
 		return TC_ACT_SHOT;
+#endif
 	}
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, skb->len);

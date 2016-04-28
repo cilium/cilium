@@ -151,6 +151,36 @@ func init() {
 				ArgsUsage:    "<endpoint>",
 				Before:       verifyArguments,
 			},
+			{
+				Name:  "drop-notify",
+				Usage: "Manage drop notification status for the given endpoint",
+				Subcommands: []cli.Command{
+					{
+						Name:      "enable",
+						Aliases:   []string{"e"},
+						Usage:     "Enables Drop Notification mode of the given endpoint",
+						Before:    verifyArguments,
+						ArgsUsage: "<endpoint>",
+						Action:    enableDropNotify,
+					},
+					{
+						Name:      "disable",
+						Aliases:   []string{"d"},
+						Usage:     "Disables Drop Notification mode of of the given endpoint",
+						Before:    verifyArguments,
+						ArgsUsage: "<endpoint>",
+						Action:    disableDropNotify,
+					},
+					{
+						Name:      "status",
+						Aliases:   []string{"s"},
+						Usage:     "Returns the current Drop Notification status of the given endpoint",
+						Before:    verifyArguments,
+						ArgsUsage: "<endpoint>",
+						Action:    getStatusDropNotify,
+					},
+				},
+			},
 		},
 	}
 }
@@ -462,6 +492,50 @@ func getStatusNAT46(ctx *cli.Context) {
 		return
 	}
 	fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableNAT46, false)
+}
+
+func enableDropNotify(ctx *cli.Context) {
+	epID := ctx.Args().First()
+
+	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableDropNotify: false})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
+		return
+	}
+
+	fmt.Printf("Endpoint %s with drop notification mode enabled\n", epID)
+}
+
+func disableDropNotify(ctx *cli.Context) {
+	epID := ctx.Args().First()
+
+	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableDropNotify: true})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
+		return
+	}
+
+	fmt.Printf("Endpoint %s with drop notification mode disabled\n", epID)
+}
+
+func getStatusDropNotify(ctx *cli.Context) {
+	epID := ctx.Args().First()
+
+	ep, err := client.EndpointGet(epID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
+		return
+	}
+	if ep == nil {
+		fmt.Printf("Endpoint %s not found\n", epID)
+		return
+	}
+
+	if v, ok := ep.Opts[common.EnableDropNotify]; ok {
+		fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableDropNotify, v)
+		return
+	}
+	fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableDropNotify, false)
 }
 
 func dumpEndpoints(ctx *cli.Context) {
