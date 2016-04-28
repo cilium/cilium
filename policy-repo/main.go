@@ -33,6 +33,74 @@ func init() {
 	for i, _ := range ignoredMasksSource {
 		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
 	}
+
+	CliCommand = cli.Command{
+		Name:  "policy",
+		Usage: "Manage policy operations",
+		Subcommands: []cli.Command{
+			{
+				Name:      "validate",
+				Usage:     "Validate a policy (sub)tree",
+				Action:    validatePolicy,
+				ArgsUsage: "<path>",
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "dump, d",
+						Usage: "Dump parsed policy tree after validation",
+					},
+				},
+				Before: verifyArgumentsValidate,
+			},
+			{
+				Name:      "import",
+				Usage:     "Import a policy (sub)tree",
+				Action:    importPolicy,
+				ArgsUsage: "<path>",
+				Before:    verifyArgumentsValidate,
+			},
+			{
+				Name:      "dump",
+				Usage:     "Dump policy (sub)tree",
+				Action:    dumpPolicy,
+				ArgsUsage: "<path>",
+				Before:    verifyArgumentsValidate,
+			},
+			{
+				Name:      "delete",
+				Usage:     "Delete policy (sub)tree",
+				Action:    deletePolicy,
+				ArgsUsage: "<path>",
+				Before:    verifyArgumentsValidate,
+			},
+			{
+				Name:   "get-id",
+				Usage:  "Lookup security context id",
+				Action: getSecID,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "list, l",
+						Usage: "List all reserved IDs",
+					},
+				},
+				Before: initEnv,
+			},
+			{
+				Name: "allowed",
+				Usage: "Verifies if source ID or LABEL(s) is allowed to consume destination ID or LABEL(s). " +
+					"LABEL is represented as SOURCE#KEY[=VALUE]",
+				Action: verifyPolicy,
+				Flags: []cli.Flag{
+					cli.StringSliceFlag{
+						Name: "source, s",
+					},
+					cli.StringSliceFlag{
+						Name: "destination, d",
+					},
+				},
+				Before: verifyArgumentsPolicy,
+			},
+		},
+	}
 }
 
 func initEnv(ctx *cli.Context) error {
@@ -105,78 +173,6 @@ func verifyArgumentsPolicy(ctx *cli.Context) error {
 	}
 
 	return initEnv(ctx)
-}
-
-func init() {
-	CliCommand = cli.Command{
-		Name:  "policy",
-		Usage: "Manage policy operations",
-		Subcommands: []cli.Command{
-			{
-				Name:      "validate",
-				Aliases:   []string{"v"},
-				Usage:     "Validate a policy (sub)tree",
-				Action:    validatePolicy,
-				ArgsUsage: "<path>",
-				Flags: []cli.Flag{
-					cli.BoolFlag{
-						Name:  "dump, d",
-						Usage: "Dump parsed policy tree after validation",
-					},
-				},
-				Before: verifyArgumentsValidate,
-			},
-			{
-				Name:      "import",
-				Aliases:   []string{"i"},
-				Usage:     "Import a policy (sub)tree",
-				Action:    importPolicy,
-				ArgsUsage: "<path>",
-				Before:    verifyArgumentsValidate,
-			},
-			{
-				Name:      "dump",
-				Usage:     "Dump policy (sub)tree",
-				Action:    dumpPolicy,
-				ArgsUsage: "<path>",
-				Before:    verifyArgumentsValidate,
-			},
-			{
-				Name:      "delete",
-				Usage:     "Delete policy (sub)tree",
-				Action:    deletePolicy,
-				ArgsUsage: "<path>",
-				Before:    verifyArgumentsValidate,
-			},
-			{
-				Name:   "get-id",
-				Usage:  "Lookup security context id",
-				Action: getSecID,
-				Flags: []cli.Flag{
-					cli.BoolFlag{
-						Name:  "list, l",
-						Usage: "List all reserved IDs",
-					},
-				},
-				Before: initEnv,
-			},
-			{
-				Name: "allowed",
-				Usage: "Verifies if source ID or LABEL(s) is allowed to consume destination ID or LABEL(s). " +
-					"LABEL is represented as SOURCE#KEY[=VALUE]",
-				Action: verifyPolicy,
-				Flags: []cli.Flag{
-					cli.StringSliceFlag{
-						Name: "source, s",
-					},
-					cli.StringSliceFlag{
-						Name: "destination, d",
-					},
-				},
-				Before: verifyArgumentsPolicy,
-			},
-		},
-	}
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {

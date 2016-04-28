@@ -23,3 +23,5 @@ $(TARGET): $(SOURCES)
 
 install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	cp ../contrib/autocomplete/bash_autocomplete /etc/bash_completion.d/cilium
+	chmod 644 /etc/bash_completion.d/cilium
