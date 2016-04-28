@@ -30,6 +30,8 @@ const (
 	DisablePolicyEnforcement = "DISABLE_POLICY_ENFORCEMENT"
 	// EnableNAT46 represent the C constant to enable nat46 mode.
 	EnableNAT46 = "ENABLE_NAT46"
+	// Enable drop notifications
+	EnableDropNotify = "DROP_NOTIFY"
 
 	// Consul dedicated constants
 

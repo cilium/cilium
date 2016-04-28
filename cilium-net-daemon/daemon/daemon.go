@@ -226,7 +226,7 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 		return nil, nil
 	}
 	result := &k8sAPI.Pod{}
-	log.Debug("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
+	log.Debugf("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
 	if err := d.k8sClient.Get().Namespace(ns).Resource("pods").Name(podName).Do().Into(result); err != nil {
 		return nil, err
 	}
