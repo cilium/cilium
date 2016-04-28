@@ -4,6 +4,12 @@
 #include <linux/ipv6.h>
 
 #include "dbg.h"
+#define IPV6_FLOWINFO_MASK              htonl(0x0FFFFFFF)
+#define IPV6_FLOWLABEL_MASK             htonl(0x000FFFFF)
+#define IPV6_FLOWLABEL_STATELESS_FLAG   htonl(0x00080000)
+
+#define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
+#define IPV6_TCLASS_SHIFT       20
 
 static inline int ipv6_addrcmp(const union v6addr *a, const union v6addr *b)
 {
@@ -91,14 +97,18 @@ static inline int ipv6_load_flowlabel(struct __sk_buff *skb, int off, __be32 *la
 	int ret;
 
 	ret = skb_load_bytes(skb, off, label, 4);
-	*label = *label & htonl(0xfffff);
+	*label = *label & IPV6_FLOWLABEL_MASK;
 	return ret;
 }
 
 static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 label)
 {
-	label = htonl(0x60000000) | label;
-	return skb_store_bytes(skb, off, &label, 4, 0);
+	__u32 old;
+	// use traffic class from packet
+	skb_load_bytes(skb, off, &old, 4);
+	old &= IPV6_TCLASS_MASK;
+	old = htonl(0x60000000) | label | old;
+	return skb_store_bytes(skb, off, &old, 4, 0);
 }
 
 static inline __u16 derive_lxc_id(const union v6addr *addr)
