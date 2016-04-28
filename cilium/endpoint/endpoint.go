@@ -44,6 +44,13 @@ func init() {
 				},
 			},
 			{
+				Name:      "detach",
+				Usage:     "Detaches BPF program from endpoint",
+				Action:    detachBPF,
+				ArgsUsage: "<endpoint>",
+				Before:    verifyArguments,
+			},
+			{
 				Name:      "recompile",
 				Aliases:   []string{"r"},
 				Usage:     "Recompiles endpoint's bpf program",
@@ -491,9 +498,21 @@ func recompileBPF(ctx *cli.Context) {
 
 	err := client.EndpointUpdate(epID, nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
+		fmt.Fprintf(os.Stderr, "Error while recompiling endpoint %s on daemon: %s\n", epID, err)
 		return
 	}
 
 	fmt.Printf("Endpoint %s's successfully recompiled\n", epID)
+}
+
+func detachBPF(ctx *cli.Context){
+	epID := ctx.Args().First()
+
+	err := client.EndpointLeave(epID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while detaching endpoint %s on daemon: %s\n", epID, err)
+		return
+	}
+
+	fmt.Printf("Endpoint %s's successfully detached\n", epID)
 }
