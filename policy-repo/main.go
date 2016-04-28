@@ -205,8 +205,18 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 	switch e := err.(type) {
 	case *json.SyntaxError:
 		line, ctx, off := getContext(content, e.Offset)
-		return fmt.Errorf("Error: %s:%d: Syntax error at offset %d:\n%s\n%*c",
-			path.Base(f), line, off, ctx, off, '^')
+
+		preoff := off - 1
+		pre := make([]byte, preoff)
+		copy(pre, ctx[:preoff])
+		for i := 0; i < preoff && i < len(pre); i++ {
+			if pre[i] != '\t' {
+				pre[i] = ' '
+			}
+		}
+
+		return fmt.Errorf("Error: %s:%d: Syntax error at offset %d:\n%s\n%s^",
+			path.Base(f), line, off, ctx, pre)
 	case *json.UnmarshalTypeError:
 		line, ctx, off := getContext(content, e.Offset)
 		return fmt.Errorf("Error: %s:%d: Unable to assign value '%s' to type '%v':\n%s\n%*c",
