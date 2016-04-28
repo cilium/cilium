@@ -314,8 +314,8 @@ func (ep *EPoll) AddFD(fd int, events uint32) error {
 	return syscall.EpollCtl(ep.fd, syscall.EPOLL_CTL_ADD, fd, &ev)
 }
 
-func (ep *EPoll) Poll() (int, error) {
-	nfds, err := syscall.EpollWait(ep.fd, ep.events[0:], -1)
+func (ep *EPoll) Poll(timeout int) (int, error) {
+	nfds, err := syscall.EpollWait(ep.fd, ep.events[0:], timeout)
 	if err != nil {
 		return 0, err
 	}
@@ -425,8 +425,8 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 	return e, nil
 }
 
-func (e *PerCpuEvents) Poll() (int, error) {
-	return e.poll.Poll()
+func (e *PerCpuEvents) Poll(timeout int) (int, error) {
+	return e.poll.Poll(timeout)
 }
 
 func (e *PerCpuEvents) ReadAll(receive ReceiveFunc) error {
