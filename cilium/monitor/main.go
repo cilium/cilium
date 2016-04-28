@@ -92,7 +92,7 @@ func run(ctx *cli.Context) {
 func init() {
 	CliCommand = cli.Command{
 		Name:  "monitor",
-		Usage: "Monitor local",
+		Usage: "Monitor packet drop notifications",
 		Flags: []cli.Flag{
 			cli.IntFlag{
 				Name:        "num-cpus, c",

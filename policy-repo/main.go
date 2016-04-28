@@ -63,7 +63,7 @@ func init() {
 				Usage:     "Dump policy (sub)tree",
 				Action:    dumpPolicy,
 				ArgsUsage: "<path>",
-				Before:    verifyArgumentsValidate,
+				Before:    initEnv,
 			},
 			{
 				Name:      "delete",
@@ -319,7 +319,9 @@ func importPolicy(ctx *cli.Context) {
 }
 
 func prettyPrint(node *types.PolicyNode) {
-	if b, err := json.MarshalIndent(node, "", "  "); err != nil {
+	if node == nil {
+		fmt.Println("No policy loaded.")
+	} else if b, err := json.MarshalIndent(node, "", "  "); err != nil {
 		fmt.Fprintf(os.Stderr, "Could not marshal response: %s\n", err)
 	} else {
 		fmt.Printf("%s\n", b)
@@ -343,6 +345,10 @@ func validatePolicy(ctx *cli.Context) {
 
 func dumpPolicy(ctx *cli.Context) {
 	path := ctx.Args().First()
+
+	if path == "" {
+		path = common.GlobalLabelPrefix
+	}
 
 	n, err := client.PolicyGet(path)
 	if err != nil {
