@@ -19,6 +19,10 @@
 #include "lib/nat46.h"
 #include "lib/arp.h"
 
+#ifdef DROP_NOTIFY
+#include "lib/drop.h"
+#endif
+
 static inline int is_node_subnet(const union v6addr *dst, const union v6addr *node_ip)
 {
 	int tmp;
@@ -172,6 +176,9 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (!policy) {
+#ifdef DROP_NOTIFY
+		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);
+#endif
 		printk("Denied by policy!\n");
 		return TC_ACT_SHOT;
 	}

@@ -20,6 +20,7 @@ function mac2array()
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I."
 
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
@@ -56,8 +57,8 @@ echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
 ID=$(cilium policy get-id $HOST_ID 2> /dev/null)
-OPTS="-DHANDLE_NS -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
-clang -O2 $OPTS -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev_ns.o
+OPTS="$CLANG_OPTS -DHANDLE_NS -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+clang $OPTS -c $LIB/bpf_netdev.c -o bpf_netdev_ns.o
 
 tc qdisc del dev $HOST_DEV2 clsact 2> /dev/null || true
 tc qdisc add dev $HOST_DEV2 clsact
@@ -82,7 +83,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	sed '/ENCAP_IFINDEX/d' /var/run/cilium/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> /var/run/cilium/globals/node_config.h
 
-	clang -O2 -target bpf -c $LIB/bpf_overlay.c -I$DIR -I. -o bpf_overlay.o
+	clang $CLANG_OPTS -c $LIB/bpf_overlay.c -o bpf_overlay.o
 
 	tc qdisc del dev $ENCAP_DEV clsact 2> /dev/null || true
 	tc qdisc add dev $ENCAP_DEV clsact
@@ -98,7 +99,7 @@ elif [ "$MODE" = "direct" ]; then
 		tc qdisc del dev $DEV clsact 2> /dev/null || true
 		tc qdisc add dev $DEV clsact
 
-		clang -O2 -target bpf -c $LIB/bpf_netdev.c -I$DIR -I. -o bpf_netdev.o
+		clang $CLANG_OPTS -c $LIB/bpf_netdev.c -o bpf_netdev.o
 
 		tc filter add dev $DEV ingress bpf da obj bpf_netdev.o sec from-netdev
 	fi

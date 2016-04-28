@@ -1,0 +1,15 @@
+include ../../Makefile.defs
+
+all: perf-event-test bpf-event-test.o
+
+runtime-tests:
+	./test.sh bpf-event-test.o
+
+perf-event-test: perf-event-test.go
+	go build -o $@ $<
+
+bpf-event-test.o: bpf-event-test.c
+	clang -O2 -emit-llvm -D__NR_CPUS__=$(shell nproc) -c $< -o - | llc -march=bpf -filetype=obj -o $@
+
+clean:
+	rm -f bpf-event-test.o perf-event-test

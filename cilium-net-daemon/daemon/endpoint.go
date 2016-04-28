@@ -151,6 +151,7 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DISABLE_POLICY_ENFORCEMENT"))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("ENABLE_NAT46"))
+	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DROP_NOTIFY"))
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 
 	fw.WriteString("#define LXC_PORT_MAPPINGS ")
@@ -263,12 +264,16 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 		ep.Opts = types.EPOpts{}
 		ep.Opts[common.DisablePolicyEnforcement] = d.disablePolicy
 		ep.Opts[common.EnableNAT46] = false
+		ep.Opts[common.EnableDropNotify] = true
 	} else {
 		if _, exists := ep.Opts[common.DisablePolicyEnforcement]; !exists {
 			ep.Opts[common.DisablePolicyEnforcement] = d.disablePolicy
 		}
 		if _, exists := ep.Opts[common.EnableNAT46]; !exists {
 			ep.Opts[common.EnableNAT46] = false
+		}
+		if _, exists := ep.Opts[common.EnableDropNotify]; !exists {
+			ep.Opts[common.EnableDropNotify] = true
 		}
 	}
 

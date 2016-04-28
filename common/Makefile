@@ -1,20 +1,17 @@
 include ../Makefile.defs
 
-TARGET=common
-
-all: $(TARGET)
+all:
+	$(MAKE) -C tests
 
 tests:
 	go fmt ./...
 	go test ./...
 
 runtime-tests:
+	$(MAKE) -C tests runtime-tests
 
 run:
 
 clean:
-	rm -f $(TARGET)
-
-$(TARGET):
 
 install:
