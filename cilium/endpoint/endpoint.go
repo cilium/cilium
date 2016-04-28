@@ -30,20 +30,6 @@ func init() {
 		Before:  initEnv,
 		Subcommands: []cli.Command{
 			{
-				Name:      "bpf-map",
-				Aliases:   []string{"b"},
-				Usage:     "Dumps bpf policy-map of the given endpoint",
-				Action:    dumpMap,
-				ArgsUsage: "<endpoint>",
-				Before:    verifyArguments,
-				Flags: []cli.Flag{
-					cli.BoolFlag{
-						Name:  "id, i",
-						Usage: "Don't resolve label's ID",
-					},
-				},
-			},
-			{
 				Name:      "detach",
 				Usage:     "Detaches BPF program from endpoint",
 				Action:    detachBPF,
@@ -51,60 +37,21 @@ func init() {
 				Before:    verifyArguments,
 			},
 			{
-				Name:      "recompile",
-				Aliases:   []string{"r"},
-				Usage:     "Recompiles endpoint's bpf program",
-				Action:    recompileBPF,
-				ArgsUsage: "<endpoint>",
-				Before:    verifyArguments,
+				Name:    "inspect",
+				Aliases: []string{"i"},
+				Usage:   "Dumps lxc-info of the given endpoint",
+				Action:  dumpLXCInfo,
+				Before:  verifyArguments,
 			},
 			{
-				Name:    "list-all",
-				Aliases: []string{"a"},
+				Name:    "list",
+				Aliases: []string{"l"},
 				Usage:   "Dumps a list of all daemon's endpoints",
 				Action:  dumpEndpoints,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Name:  "id, i",
 						Usage: "Don't resolve label's ID",
-					},
-				},
-			},
-			{
-				Name:    "lxc-info",
-				Aliases: []string{"l"},
-				Usage:   "Dumps lxc-info of the given endpoint",
-				Action:  dumpLXCInfo,
-				Before:  verifyArguments,
-			},
-			{
-				Name:    "policy",
-				Aliases: []string{"p"},
-				Usage:   "Manage policy status for the given endpoint",
-				Subcommands: []cli.Command{
-					{
-						Name:      "enable",
-						Aliases:   []string{"e"},
-						Usage:     "Enables policy enforcement of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    enablePolicy,
-					},
-					{
-						Name:      "disable",
-						Aliases:   []string{"d"},
-						Usage:     "Disables policy enforcement of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    disablePolicy,
-					},
-					{
-						Name:      "status",
-						Aliases:   []string{"s"},
-						Usage:     "Returns the current policy status of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    getStatusPolicy,
 					},
 				},
 			},
@@ -138,6 +85,59 @@ func init() {
 						Action:    getStatusNAT46,
 					},
 				},
+			},
+			{
+				Name:    "policy",
+				Aliases: []string{"p"},
+				Usage:   "Manage policy status for the given endpoint",
+				Subcommands: []cli.Command{
+					{
+						Name:      "bpf-dump",
+						Aliases:   []string{"b"},
+						Usage:     "Dumps bpf policy-map of the given endpoint",
+						Action:    dumpMap,
+						ArgsUsage: "<endpoint>",
+						Before:    verifyArguments,
+						Flags: []cli.Flag{
+							cli.BoolFlag{
+								Name:  "id, i",
+								Usage: "Don't resolve label's ID",
+							},
+						},
+					},
+					{
+						Name:      "enable",
+						Aliases:   []string{"e"},
+						Usage:     "Enables policy enforcement of the given endpoint",
+						Before:    verifyArguments,
+						ArgsUsage: "<endpoint>",
+						Action:    enablePolicy,
+					},
+					{
+						Name:      "disable",
+						Aliases:   []string{"d"},
+						Usage:     "Disables policy enforcement of the given endpoint",
+						Before:    verifyArguments,
+						ArgsUsage: "<endpoint>",
+						Action:    disablePolicy,
+					},
+					{
+						Name:      "status",
+						Aliases:   []string{"s"},
+						Usage:     "Returns the current policy status of the given endpoint",
+						Before:    verifyArguments,
+						ArgsUsage: "<endpoint>",
+						Action:    getStatusPolicy,
+					},
+				},
+			},
+			{
+				Name:      "recompile",
+				Aliases:   []string{"r"},
+				Usage:     "Recompiles endpoint's bpf program",
+				Action:    recompileBPF,
+				ArgsUsage: "<endpoint>",
+				Before:    verifyArguments,
 			},
 		},
 	}
@@ -505,7 +505,7 @@ func recompileBPF(ctx *cli.Context) {
 	fmt.Printf("Endpoint %s's successfully recompiled\n", epID)
 }
 
-func detachBPF(ctx *cli.Context){
+func detachBPF(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
 	err := client.EndpointLeave(epID)
