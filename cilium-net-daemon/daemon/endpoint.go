@@ -53,9 +53,6 @@ func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
 func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, labels *types.SecCtxLabel) *types.Endpoint {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-
 	id := ""
 	if endpointID != "" {
 		id = common.CiliumPrefix + endpointID
@@ -65,6 +62,8 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, labels *types.
 		return nil
 	}
 
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
 	if ep, ok := d.endpoints[id]; ok {
 		ep.SetSecLabel(labels)
 		epCopy := *ep
@@ -169,7 +168,7 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 
 func (d *Daemon) createBPF(rEP types.Endpoint) error {
 	if !isValidID(rEP.ID) {
-		return fmt.Errorf("invalid ID %s", rEP.ID)
+		return fmt.Errorf("invalid ID: %s", rEP.ID)
 	}
 
 	d.endpointsMU.Lock()
@@ -242,7 +241,7 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		os.RemoveAll(lxcDir)
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
-		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
+		return fmt.Errorf("error: %q command output: %q", err, out)
 	}
 	log.Infof("Command successful:\n%s", out)
 	return nil
@@ -251,13 +250,13 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 // EndpointJoin sets up the endpoint working directory.
 func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	if !isValidID(ep.ID) {
-		return fmt.Errorf("invalid ID %s", ep.ID)
+		return fmt.Errorf("invalid ID: %s", ep.ID)
 	}
 	lxcDir := filepath.Join(".", ep.ID)
 
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
 		log.Warningf("Failed to create container temporary directory: %s", err)
-		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
+		return fmt.Errorf("failed to create temporary directory: %s", err)
 	}
 
 	if ep.Opts == nil {
@@ -283,7 +282,7 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 func (d *Daemon) EndpointLeave(epID string) error {
 	// Preventing someone from deleting important directories
 	if !isValidID(epID) {
-		return fmt.Errorf("invalid ID %s", epID)
+		return fmt.Errorf("invalid ID: %s", epID)
 	}
 	if _, ok := d.endpoints[common.CiliumPrefix+epID]; !ok {
 		return fmt.Errorf("endpoint %s not found", epID)
@@ -321,6 +320,10 @@ func (d *Daemon) EndpointLeave(epID string) error {
 
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
 func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
+	// Preventing someone from deleting important directories
+	if !isValidID(epID) {
+		return fmt.Errorf("invalid ID: %s", epID)
+	}
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	ep, ok := d.endpoints[common.CiliumPrefix+epID]
@@ -334,7 +337,7 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 	lxcDir := filepath.Join(".", ep.ID+"_update")
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
 		log.Warningf("Update failed: failed to create container temporary directory: %s", err)
-		return fmt.Errorf("Update failed: failed to create temporary directory: \"%s\"", err)
+		return fmt.Errorf("update failed: failed to create temporary directory: %s", err)
 	}
 
 	geneveOpts, err := writeGeneve(lxcDir, ep)
@@ -344,35 +347,35 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 
 	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
 	if err != nil {
-		//os.RemoveAll(lxcDir)
-		log.Warningf("Update failed: failed to create container headerfile: %s", err)
-		return fmt.Errorf("Update failed: failed to create temporary directory: \"%s\"", err)
+		os.RemoveAll(lxcDir)
+		log.Warningf("Update failed: failed to create lxc_config.h: %s", err)
+		return fmt.Errorf("update failed: failed to create lxc_config.h: %s", err)
 
 	}
 	err = d.createBPFFile(f, ep, geneveOpts)
 	if err != nil {
 		f.Close()
-		//os.RemoveAll(lxcDir)
-		log.Warningf("Update failed: failed to create container headerfile: %s", err)
-		return fmt.Errorf("Update failed: failed to create temporary directory: \"%s\"", err)
+		os.RemoveAll(lxcDir)
+		log.Warningf("update failed: failed to create container headerfile: %s", err)
+		return fmt.Errorf("update failed: failed to create temporary directory: %s", err)
 	}
 	f.Close()
 
 	args := []string{d.libDir, (ep.ID + "_update"), ep.IfName}
 	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
-		//os.RemoveAll(lxcDir)
+		os.RemoveAll(lxcDir)
 		log.Warningf("Update execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
-		return fmt.Errorf("1error: \"%s\"\noutput: \"%s\"", err, out)
+		return fmt.Errorf("error: %q command output: %q", err, out)
 	}
 	lxcDirOrg := filepath.Join(".", ep.ID)
 	os.RemoveAll(lxcDirOrg)
 	err = os.Rename(lxcDir, lxcDirOrg)
 	if err != nil {
+		os.RemoveAll(lxcDir)
 		log.Warningf("Update execution failed: %s", err)
-		log.Warningf("Command output:\n%s", out)
-		return fmt.Errorf("2error: \"%s\"\noutput: \"%s\"", err, out)
+		return fmt.Errorf("update execution failed: %s", err)
 	}
 
 	log.Infof("Update successful performed:\n%s", out)
