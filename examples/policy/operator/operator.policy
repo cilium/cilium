@@ -1,24 +1,24 @@
 {
 	"name": "io.cilium",
 	"rules": [{
-		"allow" ["user=admin"],
+		"allow": ["user=admin"]
 	},{
 		"coverage": ["dev"],
-		"allow": ["!$world", "$host"],
+		"allow": ["!$world", "$host"]
 	},{
 		"coverage": ["qa"],
-		"allow": ["!$world"],
+		"allow": ["!$world"]
 	},{
 		"coverage": ["prod"],
-		"allow": ["!$host"],
+		"allow": ["!$host"]
 	}],
         "children": {
 		"devteam": {
 			"rules": [{
 				"coverage": ["web"],
-				"allow": ["$world"],
+				"allow": ["$world"]
 			},{
-				"allow": ["!$world"],
+				"allow": ["!$world"]
 			}],
 			"children": {
 				"web": { },
