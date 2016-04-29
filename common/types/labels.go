@@ -47,6 +47,20 @@ func (l *Label) Equals(b *Label) bool {
 		l.Value == b.Value
 }
 
+func (l *Label) Covers(path string) bool {
+	key := l.AbsoluteKey()
+
+	// Step 1: Path of node must be a prefix of the label key
+	if strings.HasPrefix(key, path) {
+		// Step 2: Coverage is only met on either a full match or if the prefix covers an entire layer
+		if len(key) == len(path) || key[len(path)] == '.' {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Resolve resolves the absolute key path for this Label from policyNode.
 func (l *Label) Resolve(policyNode *PolicyNode) {
 	if l.Source == common.CiliumLabelSource &&
