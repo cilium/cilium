@@ -10,6 +10,9 @@ tests:
 
 runtime-tests:
 
+runtime-tests-k8s:
+	./tests/run.sh
+
 clean:
 	rm -f $(TARGET)
 

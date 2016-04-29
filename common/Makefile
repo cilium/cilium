@@ -8,7 +8,6 @@ tests:
 	go test ./...
 
 runtime-tests:
-	$(MAKE) -C tests runtime-tests
 
 run:
 

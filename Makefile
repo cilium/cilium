@@ -25,6 +25,7 @@ install:
 
 runtime-tests:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i runtime-tests; done
+	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i -B runtime-tests; done
 
 .PHONY: force
 force :;

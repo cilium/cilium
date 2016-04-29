@@ -15,7 +15,7 @@
         "clusterIP": "None",
         "selector":{
             "app":"guestbook",
-            "io.cilium.lizards.type": "web"
+            "io.cilium.lizards": "web"
         }
     }
 }

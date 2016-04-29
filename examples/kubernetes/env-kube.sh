@@ -2,12 +2,12 @@
 
 ip=$(ip -6 a show cilium_host scope global | grep inet6 | awk '{print $2}' | sed 's/\/.*//')
 if [ -z "$ip" ]; then
-	ip=$(grep Host-IP /var/run/cilium/globals/node_config.h | awk '{print $3}')
+    ip=$(grep Host-IP /var/run/cilium/globals/node_config.h | awk '{print $3}')
 fi
 
 if [ -z "$ip" ]; then
-	echo "Unable to derive IPv6 address, please edit env-kube.sh manually"
-	exit
+    echo "Unable to derive IPv6 address, please edit env-kube.sh manually"
+    return 1
 fi
 
 # Edit manually here and assign local Ipv6 address if needed
