@@ -401,8 +401,7 @@ func (p *PolicyNode) Path() string {
 
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 	for k, _ := range ctx.To {
-		label := &ctx.To[k]
-		if strings.HasPrefix(label.AbsoluteKey(), p.Path()) {
+		if ctx.To[k].Covers(p.Path()) {
 			return true
 		}
 	}

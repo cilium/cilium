@@ -106,6 +106,12 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	c.Assert(root.Children["foo"].Covers(&ctx), Equals, true)
 	c.Assert(root.Children["bar"].Covers(&ctx), Equals, false)
 
+	lblFoo = NewLabel("io.cilium.foo2", "", common.CiliumLabelSource)
+	ctx = SearchContext{To: []Label{*lblFoo}}
+	c.Assert(root.Covers(&ctx), Equals, true)
+	c.Assert(root.Children["foo"].Covers(&ctx), Equals, false)
+	c.Assert(root.Children["bar"].Covers(&ctx), Equals, false)
+
 	lblRoot := NewLabel("io.cilium", "", common.CiliumLabelSource)
 	ctx = SearchContext{To: []Label{*lblRoot}}
 	c.Assert(root.Covers(&ctx), Equals, true)
