@@ -8,8 +8,9 @@ tests:
 	-docker run -d \
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
-           progrium/consul \
-           -server -bootstrap-expect 1
+           -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
+           consul:v0.6.4 \
+           agent -client=0.0.0.0 -server -bootstrap-expect 1
 	go fmt ./...
 	-go test ./...
 	docker rm -f "cilium-consul-test-container"
