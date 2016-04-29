@@ -88,14 +88,16 @@ func (d *Daemon) EndpointGet(endpointID string) (*types.Endpoint, error) {
 // EndpointsGet returns a copy of all the endpoints or nil if there are no endpoints.
 func (d *Daemon) EndpointsGet() ([]types.Endpoint, error) {
 	eps := []types.Endpoint{}
-	d.endpointsMU.Lock()
+	epsSet := map[*types.Endpoint]bool{}
 	for _, v := range d.endpoints {
-		epCopy := *v
-		eps = append(eps, epCopy)
+		epsSet[v] = true
 	}
-	d.endpointsMU.Unlock()
-	if len(eps) == 0 {
+	if len(epsSet) == 0 {
 		return nil, nil
+	}
+	for k := range epsSet {
+		epCopy := *k
+		eps = append(eps, epCopy)
 	}
 	return eps, nil
 }
