@@ -169,7 +169,7 @@ func initBPF() error {
 		" */\n\n",
 		nodeAddr.String(), hostIP.String())
 
-	if common.DebugEnabled {
+	if log.IsEnabledFor(logging.DEBUG) {
 		fw.WriteString("#define DEBUG\n")
 	}
 
