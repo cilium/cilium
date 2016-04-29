@@ -137,8 +137,12 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	for _, v := range secCtxLabels.Labels {
-		fmt.Fprintf(fw, " * - %s\n", v)
+	if secCtxLabels == nil {
+		fmt.Fprintf(fw, " * - %s\n", "(no labels)")
+	} else {
+		for _, v := range secCtxLabels.Labels {
+			fmt.Fprintf(fw, " * - %s\n", v)
+		}
 	}
 	fw.WriteString(" */\n\n")
 
