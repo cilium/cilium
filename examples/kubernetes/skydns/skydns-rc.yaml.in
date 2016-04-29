@@ -15,6 +15,7 @@ spec:
   template:
     metadata:
       labels:
+        io.cilium.admin.k8s-system: ""
         k8s-app: kube-dns
         version: v11
         kubernetes.io/cluster-service: "true"
