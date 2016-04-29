@@ -126,29 +126,21 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid Label: empty data")
 	}
 
-	if bytes.Contains(data, []byte(`"source":`)) {
-		var aux struct {
-			Source string `json:"source"`
-			Key    string `json:"key"`
-			Value  string `json:"value,omitempty"`
-		}
+	var aux struct {
+		Source string `json:"source"`
+		Key    string `json:"key"`
+		Value  string `json:"value,omitempty"`
+	}
 
-		if err := decoder.Decode(&aux); err != nil {
-			return fmt.Errorf("decode of Label failed: %+v", err)
-		}
-
-		if aux.Key == "" {
-			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
-		}
-
-		l.Source = aux.Source
-		l.Key = aux.Key
-		l.Value = aux.Value
-	} else {
-		// This is a short form in which only a string to be interpreted
-		// as a cilium label key is provided
+	err := decoder.Decode(&aux)
+	if err != nil {
+		// If parsing of the full representation failed then try the short
+		// form in the format:
+		//
+		// [SOURCE:]KEY[=VALUE]
 		var aux string
 
+		decoder = json.NewDecoder(bytes.NewReader(data))
 		if err := decoder.Decode(&aux); err != nil {
 			return fmt.Errorf("decode of Label as string failed: %+v", err)
 		}
@@ -158,6 +150,14 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 		}
 
 		decodeLabelShortForm(aux, l)
+	} else {
+		if aux.Key == "" {
+			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
+		}
+
+		l.Source = aux.Source
+		l.Key = aux.Key
+		l.Value = aux.Value
 	}
 
 	return nil
