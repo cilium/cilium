@@ -104,12 +104,16 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 				return TC_ACT_SHOT;
 		}
 
+#ifdef DISABLE_POLICY_ENFORCEMENT
+		return redirect(HOST_IFINDEX, 0);
+#else
 		skb->cb[0] = SECLABEL;
 		skb->cb[1] = HOST_IFINDEX;
 
 		tail_call(skb, &cilium_jmp, HOST_ID);
 		printk("No policy program found, dropping packet to host\n");
 		return TC_ACT_SHOT;
+#endif
 	}
 
 	if (node_id != NODE_ID) {
