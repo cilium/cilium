@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	common "github.com/noironetworks/cilium-net/common"
@@ -269,27 +270,20 @@ func dumpMap(ctx *cli.Context) {
 		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
 		return
 	}
+	labelsID := map[uint32]*types.SecCtxLabel{}
 
-	var (
-		maxIDSize                   = len("Label's ID")
-		maxActionSize               = len("Action")
-		maxBytesSize                = len("Bytes")
-		maxPacketsSize              = len("Packets")
-		labelsID                    = map[uint32]*types.SecCtxLabel{}
-		dataString, dataLabelString string
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+
+	const (
+		labelsIDTitle  = "LABEL ID"
+		labelsDesTitle = "LABELS (Source#Key[=Value])"
+		actionTitle    = "ACTION"
+		bytesTitle     = "BYTES"
+		packetsTitle   = "PACKETS"
 	)
-	if !printIDs {
-		maxIDSize = len("Labels (Source#Key[=Value])")
-	}
-	for _, stat := range statsMap {
-		act := types.ConsumableDecision(stat.Action)
-		setIfGT(&maxActionSize, len(act.String()))
-		setIfGT(&maxBytesSize, len(strconv.FormatUint(stat.Bytes, 10)))
-		setIfGT(&maxPacketsSize, len(strconv.FormatUint(stat.Packets, 10)))
 
-		if printIDs {
-			setIfGT(&maxIDSize, len(strconv.FormatUint(uint64(stat.ID), 10)))
-		} else {
+	for _, stat := range statsMap {
+		if !printIDs {
 			secCtxLbl, err := client.GetLabels(int(stat.ID))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
@@ -300,62 +294,36 @@ func dumpMap(ctx *cli.Context) {
 					stat.ID)
 			}
 			labelsID[stat.ID] = secCtxLbl
-			if secCtxLbl != nil {
-				for _, lbl := range secCtxLbl.Labels {
-					setIfGT(&maxIDSize, len(lbl.String()))
-				}
-			}
 		}
 
 	}
-	columnWidth := 3
-	maxIDSize += columnWidth
-	maxActionSize += columnWidth
-	maxBytesSize += columnWidth
-	maxPacketsSize += columnWidth
 
 	if printIDs {
-		titleString := fmt.Sprintf("%%%ds%%%ds%%%ds%%%ds\n",
-			maxIDSize, maxActionSize, maxBytesSize, maxPacketsSize)
-
-		dataString = fmt.Sprintf("%%%dd%%%ds%%%dd%%%dd\n",
-			maxIDSize, maxActionSize, maxBytesSize, maxPacketsSize)
-
-		fmt.Printf(titleString, "Label's ID", "Action", "Bytes", "Packets")
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsIDTitle, actionTitle, bytesTitle, packetsTitle)
 	} else {
-		titleString := fmt.Sprintf("   %%-%ds%%%ds%%%ds%%%ds\n",
-			maxIDSize-columnWidth, maxActionSize, maxBytesSize, maxPacketsSize)
-
-		dataString = fmt.Sprintf("   %%-%ds%%%ds%%%dd%%%dd\n",
-			maxIDSize-columnWidth, maxActionSize, maxBytesSize, maxPacketsSize)
-
-		dataLabelString = fmt.Sprintf("   %%-%ds\n", maxIDSize-columnWidth)
-
-		fmt.Printf(titleString, "Labels (Source#Key[=Value])", "Action", "Bytes", "Packets")
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsDesTitle, actionTitle, bytesTitle, packetsTitle)
 	}
-
-	fmt.Printf("%s\n", strings.Repeat("-", maxIDSize+maxActionSize+maxBytesSize+maxPacketsSize))
-
 	for _, stat := range statsMap {
 		act := types.ConsumableDecision(stat.Action)
 		if printIDs {
-			fmt.Printf(dataString, stat.ID, act, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", stat.ID, act.String(), stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[stat.ID]; lbls != nil {
 			first := true
 			for _, lbl := range lbls.Labels {
-				if len(lbls.Labels) == 1 {
-					fmt.Printf(dataString, lbl, act, stat.Bytes, stat.Packets)
-				} else if first {
-					fmt.Printf(dataLabelString, lbl)
+				if first {
+					fmt.Fprintf(w, "%s\t%s\t%d\t%d\t\n", lbl, act.String(), stat.Bytes, stat.Packets)
 					first = false
 				} else {
-					fmt.Printf(dataString, lbl, act, stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "\t\t%s\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Printf(dataString, stat.ID, act.String(), stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", stat.ID, act.String(), stat.Bytes, stat.Packets)
 		}
-		fmt.Printf("%s\n", strings.Repeat("-", maxIDSize+maxActionSize+maxBytesSize+maxPacketsSize))
+	}
+	w.Flush()
+	if len(statsMap) == 0 {
+		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
 	}
 }
 
@@ -551,19 +519,19 @@ func dumpEndpoints(ctx *cli.Context) {
 		return
 	}
 
-	var (
-		maxIDSize                                 = len("Label's ID")
-		maxLabelIDSize                            = len("Labels (Source#Key[=Value])")
-		maxEpIDSize                               = len("Endpoint ID")
-		labelsID                                  = map[uint32]*types.SecCtxLabel{}
-		columnWidth                               = 3
-		dataIDString, dataString, dataLabelString string
+	types.OrderEndpointAsc(eps)
+
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+
+	const (
+		labelsIDTitle  = "LABEL ID"
+		labelsDesTitle = "LABELS (Source#Key[=Value])"
+		ipv6Title      = "IPv6"
+		endpointTitle  = "ENDPOINT ID"
 	)
+	labelsID := map[uint32]*types.SecCtxLabel{}
 
 	for _, ep := range eps {
-		setIfGT(&maxEpIDSize, len(ep.ID))
-		setIfGT(&maxIDSize, len(strconv.FormatUint(uint64(ep.SecLabelID), 10)))
-
 		if !printIDs {
 			secCtxLbl, err := client.GetLabels(int(ep.SecLabelID))
 			if err != nil {
@@ -575,59 +543,33 @@ func dumpEndpoints(ctx *cli.Context) {
 					ep.SecLabelID)
 			}
 			labelsID[ep.SecLabelID] = secCtxLbl
-			if secCtxLbl != nil {
-				for _, lbl := range secCtxLbl.Labels {
-					setIfGT(&maxLabelIDSize, len(lbl.String()))
-				}
-			}
 		}
-
-	}
-	//maxEpIDSize += columnWidth
-	maxIDSize += columnWidth
-	//maxLabelIDSize += columnWidth
-
-	totalWidth := maxEpIDSize + maxIDSize
-	if !printIDs {
-		totalWidth += maxLabelIDSize + columnWidth
 	}
 
-	dataIDString = fmt.Sprintf("%%%ds%%%dd\n", maxEpIDSize, maxIDSize)
 	if printIDs {
-		titleString := fmt.Sprintf("%%%ds%%%ds\n", maxEpIDSize, maxIDSize)
-		fmt.Printf(titleString, "Endpoint ID", "Label's ID")
+		fmt.Fprintf(w, "%s\t%s\t%s\t\n", endpointTitle, labelsIDTitle, ipv6Title)
 	} else {
-		titleString := fmt.Sprintf("%%%ds%%%ds%s%%-%ds\n", maxEpIDSize, maxIDSize, strings.Repeat(" ", columnWidth), maxLabelIDSize)
-		dataString = fmt.Sprintf("%%%ds%%%dd%s%%-%ds\n", maxEpIDSize, maxIDSize, strings.Repeat(" ", columnWidth), maxLabelIDSize)
-
-		dataLabelString = fmt.Sprintf("%s%%s\n", strings.Repeat(" ", columnWidth+maxEpIDSize+maxIDSize))
-
-		fmt.Printf(titleString, "Endpoint ID", "Label's ID", "Labels (Source#Key[=Value])")
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title)
 	}
-
-	fmt.Printf("%s\n", strings.Repeat("-", totalWidth))
 
 	for _, ep := range eps {
 		if printIDs {
-			fmt.Printf(dataIDString, ep.ID, ep.SecLabelID)
+			fmt.Fprintf(w, "%s\t%d\t%s\t\n", ep.ID, ep.SecLabelID, ep.LXCIP.String())
 		} else if lbls := labelsID[ep.SecLabelID]; lbls != nil && len(lbls.Labels) != 0 {
 			first := true
 			for _, lbl := range lbls.Labels {
-				if len(lbls.Labels) == 1 {
-					fmt.Printf(dataString, ep.ID, ep.SecLabelID, lbl)
-				} else if first {
-					fmt.Printf(dataString, ep.ID, ep.SecLabelID, lbl)
+				if first {
+					fmt.Fprintf(w, "%s\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabelID, lbl, ep.LXCIP.String())
 					first = false
 				} else {
-					fmt.Printf(dataLabelString, lbl)
+					fmt.Fprintf(w, "\t\t%s\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Printf(dataIDString, ep.ID, ep.SecLabelID)
+			fmt.Fprintf(w, "%s\t%s\t%s\t\n", ep.ID, ep.SecLabelID, ep.LXCIP.String())
 		}
-		fmt.Printf("%s\n", strings.Repeat("-", totalWidth))
 	}
-
+	w.Flush()
 }
 
 func recompileBPF(ctx *cli.Context) {
