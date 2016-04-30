@@ -13,33 +13,33 @@
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/ip",
-			"Comment": "v0.1.0-79-gda76daf",
-			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/ns",
-			"Comment": "v0.1.0-79-gda76daf",
-			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/skel",
-			"Comment": "v0.1.0-79-gda76daf",
-			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/pkg/types",
-			"Comment": "v0.1.0-79-gda76daf",
-			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/plugins/ipam/host-local/backend",
-			"Comment": "v0.1.0-79-gda76daf",
-			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
 		},
 		{
 			"ImportPath": "github.com/appc/cni/plugins/ipam/host-local/backend/disk",
-			"Comment": "v0.1.0-79-gda76daf",
-			"Rev": "da76dafc7364a57d271ad08be8166921dcb2fda3"
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
 		},
 		{
 			"ImportPath": "github.com/beorn7/perks/quantile",

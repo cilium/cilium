@@ -76,6 +76,9 @@ func (r *Result) Print() error {
 	return prettyPrint(r)
 }
 
+// String returns a formatted string in the form of "[IP4: $1,][ IP6: $2,] DNS: $3" where
+// $1 represents the receiver's IPv4, $2 represents the receiver's IPv6 and $3 the
+// receiver's DNS. If $1 or $2 are nil, they won't be present in the returned string.
 func (r *Result) String() string {
 	var str string
 	if r.IP4 != nil {
