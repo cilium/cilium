@@ -5,7 +5,7 @@ all:
 
 tests:
 	go fmt ./...
-	go test ./...
+	go test . ./backend ./bpf ./client ./plugins ./types
 
 runtime-tests:
 
