@@ -115,8 +115,11 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 	}
 
 	ctx := types.SearchContext{
-		Trace: d.enableTracing,
-		To:    c.LabelList,
+		To: c.LabelList,
+	}
+
+	if d.enableTracing {
+		ctx.Trace = types.TRACE_ENABLED
 	}
 
 	policyMutex.Lock()
@@ -205,12 +208,12 @@ func (d *Daemon) policyCanConsume(ctx *types.SearchContext) types.ConsumableDeci
 // if ctx.Trace was set.
 func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error) {
 	buffer := new(bytes.Buffer)
-	if ctx.Trace {
+	if ctx.Trace != types.TRACE_DISABLED {
 		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 	}
 	scr := types.SearchContextReply{}
 	scr.Decision = tree.Allows(ctx)
-	if ctx.Trace {
+	if ctx.Trace != types.TRACE_DISABLED {
 		scr.Logging = buffer.Bytes()
 	}
 	return &scr, nil
