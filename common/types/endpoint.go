@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"net"
+	"sort"
 	"strconv"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
@@ -95,4 +96,41 @@ func (e *Endpoint) GetFmtOpt(name string) string {
 		return "#define " + name
 	}
 	return "#undef " + name
+}
+
+type orderEndpoint func(e1, e2 *Endpoint) bool
+
+// OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
+func OrderEndpointAsc(eps []Endpoint) {
+	ascPriority := func(e1, e2 *Endpoint) bool {
+		e1Int, _ := strconv.ParseUint(e1.ID, 10, 64)
+		e2Int, _ := strconv.ParseUint(e2.ID, 10, 64)
+		return e1Int < e2Int
+	}
+	orderEndpoint(ascPriority).sort(eps)
+}
+
+func (by orderEndpoint) sort(eps []Endpoint) {
+	dS := &epSorter{
+		eps: eps,
+		by:  by,
+	}
+	sort.Sort(dS)
+}
+
+type epSorter struct {
+	eps []Endpoint
+	by  func(e1, e2 *Endpoint) bool
+}
+
+func (epS *epSorter) Len() int {
+	return len(epS.eps)
+}
+
+func (epS *epSorter) Swap(i, j int) {
+	epS.eps[i], epS.eps[j] = epS.eps[j], epS.eps[i]
+}
+
+func (epS *epSorter) Less(i, j int) bool {
+	return epS.by(&epS.eps[i], &epS.eps[j])
 }
