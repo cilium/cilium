@@ -295,6 +295,126 @@
 			"Rev": "fd52762d25a41827db7ef64c43756fd4b9f7e382"
 		},
 		{
+			"ImportPath": "github.com/google/gopacket",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/afpacket",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/bytediff",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/dumpcommand",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/arpscan",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/bidirectional",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/bytediff",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/httpassembly",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/pcapdump",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/pcaplay",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/pfdump",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/statsassembly",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/synscan",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/examples/util",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/ip4defrag",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/layers",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/macs",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/pcap",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/pcap/gopacket_benchmark",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/pcapgo",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/pfring",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/routing",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/tcpassembly",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/tcpassembly/tcpreader",
+			"Comment": "v1.1.11-106-gbdf4ee7",
+			"Rev": "bdf4ee7eb518c56e3ce97a09ba2e91aee1bfe2e4"
+		},
+		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
 		},
