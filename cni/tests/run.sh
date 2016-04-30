@@ -27,7 +27,7 @@ function cleanup {
     sudo killall -9 kube-proxy || true
     sudo killall -9 kube-apiserver || true
     docker rm -f `docker ps -aq --filter=name=k8s` 2> /dev/null || true
-    if [ -d "/etc/init/cilium-net-daemon.conf.bak" ]; then
+    if [ -e "/etc/init/cilium-net-daemon.conf.bak" ]; then
         sudo mv "/etc/init/cilium-net-daemon.conf.bak" "/etc/init/cilium-net-daemon.conf"
         sudo service cilium-net-daemon restart
         sleep 3s
