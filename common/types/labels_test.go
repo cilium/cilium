@@ -111,15 +111,15 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		errOut Checker
 	}{
 		{"source1:key1=value1", NewLabel("key1", "value1", "source1"), IsNil},
-		{"key1=value1", nil, NotNil},
-		{"value1", nil, NotNil},
+		{"key1=value1", NewLabel("key1", "value1", common.CiliumLabelSource), IsNil},
+		{"value1", NewLabel("value1", "", common.CiliumLabelSource), IsNil},
 		{"source1:key1", NewLabel("key1", "", "source1"), IsNil},
 		{"source1:key1==value1", NewLabel("key1", "=value1", "source1"), IsNil},
 		{"source::key1=value1", NewLabel(":key1", "value1", "source"), IsNil},
 	}
 	for _, test := range tests {
 		lbl, err := ParseLabel(test.str)
-		c.Assert(err, test.errOut)
+		c.Assert(err, test.errOut, Commentf("label: %s, received: %+v", test.str, lbl))
 		c.Assert(lbl, DeepEquals, test.out)
 	}
 }
