@@ -87,7 +87,7 @@ func init() {
 			{
 				Name: "allowed",
 				Usage: "Verifies if source ID or LABEL(s) is allowed to consume destination ID or LABEL(s). " +
-					"LABEL is represented as SOURCE#KEY[=VALUE]",
+					"LABEL is represented as SOURCE:KEY[=VALUE]",
 				Action: verifyPolicy,
 				Flags: []cli.Flag{
 					cli.StringSliceFlag{
@@ -143,11 +143,11 @@ func verifyAllowedSlice(slice []string) error {
 			_, err := types.ParseLabel(v)
 			if err != nil {
 				return fmt.Errorf("value %q: must be only one unsigned "+
-					"number or label(s) in format of SOURCE#KEY[=VALUE]", v)
+					"number or label(s) in format of SOURCE:KEY[=VALUE]", v)
 			}
 		} else if i != 0 {
 			return fmt.Errorf("value %q: must be only one unsigned "+
-				"number or label(s) in format of SOURCE#KEY[=VALUE]", v)
+				"number or label(s) in format of SOURCE:KEY[=VALUE]", v)
 		}
 	}
 	return nil
@@ -413,7 +413,7 @@ func parseAllowedSlice(slice []string) ([]types.Label, error) {
 			lbl, err := types.ParseLabel(v)
 			if err != nil {
 				return nil, fmt.Errorf("value %q: must be a unsigned "+
-					"number or label in format of SOURCE#KEY[=VALUE]", v)
+					"number or label in format of SOURCE:KEY[=VALUE]", v)
 			}
 			inLabels = append(inLabels, *lbl)
 		} else {
