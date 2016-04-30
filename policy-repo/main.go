@@ -465,7 +465,7 @@ func verifyPolicy(ctx *cli.Context) {
 	}
 
 	searchCtx := types.SearchContext{
-		Trace: true,
+		Trace: types.TRACE_ENABLED,
 		From:  srcSlice,
 		To:    dstSlice,
 	}

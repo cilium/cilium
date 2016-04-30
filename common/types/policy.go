@@ -129,8 +129,27 @@ var (
 	}
 )
 
+type Tracing int
+
+const (
+	TRACE_DISABLED Tracing = iota
+	TRACE_ENABLED
+	TRACE_VERBOSE
+)
+
 func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
-	if ctx.Trace {
+	switch ctx.Trace {
+	case TRACE_ENABLED, TRACE_VERBOSE:
+		log.Debugf(format, a...)
+		if ctx.Logging != nil {
+			ctx.Logging.Logger.Printf(format, a...)
+		}
+	}
+}
+
+func policyTraceVerbose(ctx *SearchContext, format string, a ...interface{}) {
+	switch ctx.Trace {
+	case TRACE_VERBOSE:
 		log.Debugf(format, a...)
 		if ctx.Logging != nil {
 			ctx.Logging.Logger.Printf(format, a...)
@@ -165,7 +184,7 @@ func (d ConsumableDecision) MarshalJSON() ([]byte, error) {
 }
 
 type SearchContext struct {
-	Trace   bool
+	Trace   Tracing
 	Logging *logging.LogBackend
 	// TODO: Put this as []*Label?
 	From []Label
@@ -247,12 +266,12 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	for k, _ := range ctx.From {
 		label := &ctx.From[k]
 		if label.Equals(&a.Label) {
-			policyTrace(ctx, "Allow Rule %+v decision\n", a)
+			policyTrace(ctx, "Label %v matched in rule %+v\n", label, a)
 			return a.Action
 		}
 	}
 
-	policyTrace(ctx, "Allow Rule %+v decision: %s\n", a, UNDECIDED)
+	policyTrace(ctx, "No match in allow rule %+v\n", a)
 	return UNDECIDED
 }
 
@@ -268,9 +287,11 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	decision := UNDECIDED
 
 	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(c.Coverage) {
-		policyTrace(ctx, "Consumer rule %+v missed coverage\n", c)
+		policyTrace(ctx, "Rule %v has no coverage\n", c)
 		return UNDECIDED
 	}
+
+	policyTrace(ctx, "Matching coverage for rule %+v ", c)
 
 	for k, _ := range c.Allow {
 		allowRule := &c.Allow[k]
@@ -323,6 +344,7 @@ type PolicyRuleRequires struct {
 // down the tree
 func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(r.Coverage) {
+		policyTrace(ctx, "Matching coverage for rule %+v ", r)
 		for k, _ := range r.Requires {
 			reqLabel := &r.Requires[k]
 			match := false
@@ -335,10 +357,12 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 			}
 
 			if match == false {
-				policyTrace(ctx, "Did not find required labels: %+v\n", r)
+				policyTrace(ctx, "... did not find required labels [%+v]: %v\n", r.Requires, DENY)
 				return DENY
 			}
 		}
+	} else {
+		policyTrace(ctx, "Rule %v has no coverage\n", r)
 	}
 
 	return UNDECIDED
@@ -412,6 +436,8 @@ func (p *PolicyNode) Covers(ctx *SearchContext) bool {
 func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 	decision := UNDECIDED
 
+	policyTraceVerbose(ctx, "Evaluating node %+v\n", p)
+
 	for _, rule := range p.Rules {
 		switch rule.(type) {
 		case PolicyRuleConsumers:
@@ -423,8 +449,6 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 			decision = pr_r.Allows(ctx)
 			break
 		}
-
-		policyTrace(ctx, "Rule %+v decision: %s\n", rule, decision)
 
 		switch decision {
 		case ALWAYS_ACCEPT:
@@ -630,10 +654,12 @@ type PolicyTree struct {
 
 func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 	decision := UNDECIDED
+	nmatch := 0
 
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
-			policyTrace(ctx, "Matching child node: %+v\n", child)
+			nmatch++
+			policyTrace(ctx, "Covered by child: %s\n", child.path)
 			switch child.Allows(ctx) {
 			case DENY:
 				return DENY
@@ -642,13 +668,17 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
-			policyTrace(ctx, "... proceeding with decision: %s\n", decision)
+			policyTrace(ctx, "... no conclusion after %s rules, current decision: %s\n", child.path, decision)
 		}
+	}
+
+	if nmatch == 0 {
+		policyTrace(ctx, "No matching children in %s\n", root.path)
+		return decision
 	}
 
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
-			policyTrace(ctx, "Covered by child %+v\n", child)
 			switch canConsume(child, ctx) {
 			case DENY:
 				return DENY
@@ -657,7 +687,6 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 			case ACCEPT:
 				decision = ACCEPT
 			}
-			policyTrace(ctx, "... proceeding with decision: %s\n", decision)
 		}
 	}
 
@@ -665,15 +694,16 @@ func canConsume(root *PolicyNode, ctx *SearchContext) ConsumableDecision {
 }
 
 func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
-	policyTrace(ctx, "Deriving policy for context %+v\n", ctx)
+	policyTrace(ctx, "Resolving policy for context %+v\n", ctx)
 
 	// In absence of policy, deny
 	if t.Root == nil {
+		policyTrace(ctx, "No policy loaded: deny\n")
 		return DENY
 	}
 
 	decision := t.Root.Allows(ctx)
-	policyTrace(ctx, "Root rules: %s\n", decision)
+	policyTrace(ctx, "Root rules decision: %s\n", decision)
 	switch decision {
 	case ALWAYS_ACCEPT:
 		return ACCEPT
