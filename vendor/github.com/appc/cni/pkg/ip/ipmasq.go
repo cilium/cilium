@@ -23,7 +23,7 @@ import (
 
 // SetupIPMasq installs iptables rules to masquerade traffic
 // coming from ipn and going outside of it
-func SetupIPMasq(ipn *net.IPNet, chain string) error {
+func SetupIPMasq(ipn *net.IPNet, chain string, comment string) error {
 	ipt, err := iptables.New()
 	if err != nil {
 		return fmt.Errorf("failed to locate iptables: %v", err)
@@ -36,25 +36,25 @@ func SetupIPMasq(ipn *net.IPNet, chain string) error {
 		}
 	}
 
-	if err = ipt.AppendUnique("nat", chain, "-d", ipn.String(), "-j", "ACCEPT"); err != nil {
+	if err = ipt.AppendUnique("nat", chain, "-d", ipn.String(), "-j", "ACCEPT", "-m", "comment", "--comment", comment); err != nil {
 		return err
 	}
 
-	if err = ipt.AppendUnique("nat", chain, "!", "-d", "224.0.0.0/4", "-j", "MASQUERADE"); err != nil {
+	if err = ipt.AppendUnique("nat", chain, "!", "-d", "224.0.0.0/4", "-j", "MASQUERADE", "-m", "comment", "--comment", comment); err != nil {
 		return err
 	}
 
-	return ipt.AppendUnique("nat", "POSTROUTING", "-s", ipn.String(), "-j", chain)
+	return ipt.AppendUnique("nat", "POSTROUTING", "-s", ipn.String(), "-j", chain, "-m", "comment", "--comment", comment)
 }
 
 // TeardownIPMasq undoes the effects of SetupIPMasq
-func TeardownIPMasq(ipn *net.IPNet, chain string) error {
+func TeardownIPMasq(ipn *net.IPNet, chain string, comment string) error {
 	ipt, err := iptables.New()
 	if err != nil {
 		return fmt.Errorf("failed to locate iptables: %v", err)
 	}
 
-	if err = ipt.Delete("nat", "POSTROUTING", "-s", ipn.String(), "-j", chain); err != nil {
+	if err = ipt.Delete("nat", "POSTROUTING", "-s", ipn.String(), "-j", chain, "-m", "comment", "--comment", comment); err != nil {
 		return err
 	}
 

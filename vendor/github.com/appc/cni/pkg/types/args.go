@@ -21,6 +21,39 @@ import (
 	"strings"
 )
 
+// UnmarshallableBool typedef for builtin bool
+// because builtin type's methods can't be declared
+type UnmarshallableBool bool
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+// Returns boolean true if the string is "1" or "[Tt]rue"
+// Returns boolean false if the string is "0" or "[Ff]alse"
+func (b *UnmarshallableBool) UnmarshalText(data []byte) error {
+	s := strings.ToLower(string(data))
+	switch s {
+	case "1", "true":
+		*b = true
+	case "0", "false":
+		*b = false
+	default:
+		return fmt.Errorf("Boolean unmarshal error: invalid input %s", s)
+	}
+	return nil
+}
+
+// CommonArgs contains the IgnoreUnknown argument
+// and must be embedded by all Arg structs
+type CommonArgs struct {
+	IgnoreUnknown UnmarshallableBool `json:"ignoreunknown,omitempty"`
+}
+
+// GetKeyField is a helper function to receive Values
+// Values that represent a pointer to a struct
+func GetKeyField(keyString string, v reflect.Value) reflect.Value {
+	return v.Elem().FieldByName(keyString)
+}
+
+// LoadArgs parses args from a string in the form "K=V;K2=V2;..."
 func LoadArgs(args string, container interface{}) error {
 	if args == "" {
 		return nil
@@ -29,6 +62,7 @@ func LoadArgs(args string, container interface{}) error {
 	containerValue := reflect.ValueOf(container)
 
 	pairs := strings.Split(args, ";")
+	unknownArgs := []string{}
 	for _, pair := range pairs {
 		kv := strings.Split(pair, "=")
 		if len(kv) != 2 {
@@ -36,15 +70,22 @@ func LoadArgs(args string, container interface{}) error {
 		}
 		keyString := kv[0]
 		valueString := kv[1]
-		keyField := containerValue.Elem().FieldByName(keyString)
+		keyField := GetKeyField(keyString, containerValue)
 		if !keyField.IsValid() {
+			unknownArgs = append(unknownArgs, pair)
 			continue
 		}
+
 		u := keyField.Addr().Interface().(encoding.TextUnmarshaler)
 		err := u.UnmarshalText([]byte(valueString))
 		if err != nil {
 			return fmt.Errorf("ARGS: error parsing value of pair %q: %v)", pair, err)
 		}
+	}
+
+	isIgnoreUnknown := GetKeyField("IgnoreUnknown", containerValue).Bool()
+	if len(unknownArgs) > 0 && !isIgnoreUnknown {
+		return fmt.Errorf("ARGS: unknown args %q", unknownArgs)
 	}
 	return nil
 }

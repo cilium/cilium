@@ -35,6 +35,7 @@ type IPAMConfig struct {
 }
 
 type IPAMArgs struct {
+	types.CommonArgs
 	IP net.IP `json:"ip,omitempty"`
 }
 
@@ -51,8 +52,8 @@ func LoadIPAMConfig(bytes []byte, args string) (*IPAMConfig, error) {
 	}
 
 	if args != "" {
-		ipamArgs := IPAMArgs{}
-		err := types.LoadArgs(args, &ipamArgs)
+		n.IPAM.Args = &IPAMArgs{}
+		err := types.LoadArgs(args, n.IPAM.Args)
 		if err != nil {
 			return nil, err
 		}
