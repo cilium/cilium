@@ -254,8 +254,16 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func loadPolicyDirectory(name string) (*types.PolicyNode, error) {
+func loadPolicy(name string) (*types.PolicyNode, error) {
 	log.Debugf("Entering directory %s...", name)
+
+	if fi, err := os.Stat(name); err != nil {
+		return nil, err
+	} else if fi.Mode().IsRegular() {
+		return loadPolicyFile(name)
+	} else if !fi.Mode().IsDir() {
+		return nil, fmt.Errorf("Error: %s is not a file or a directory", name)
+	}
 
 	files, err := ioutil.ReadDir(name)
 	if err != nil {
@@ -290,7 +298,7 @@ func loadPolicyDirectory(name string) (*types.PolicyNode, error) {
 				continue
 			}
 			subpath := name + "/" + f.Name()
-			if p, err := loadPolicyDirectory(subpath); err != nil {
+			if p, err := loadPolicy(subpath); err != nil {
 				return nil, err
 			} else {
 				if p.Name == "" {
@@ -310,8 +318,8 @@ func loadPolicyDirectory(name string) (*types.PolicyNode, error) {
 
 func importPolicy(ctx *cli.Context) {
 	path := ctx.Args().First()
-	if node, err := loadPolicyDirectory(path); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
+	if node, err := loadPolicy(path); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not import policy %s: %s\n", path, err)
 		os.Exit(1)
 	} else {
 		log.Debugf("Constructed policy object for import %+v", node)
@@ -340,7 +348,7 @@ func prettyPrint(node *types.PolicyNode) {
 
 func validatePolicy(ctx *cli.Context) {
 	path := ctx.Args().First()
-	if node, err := loadPolicyDirectory(path); err != nil {
+	if node, err := loadPolicy(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Validation of %s failed\n%s\n", path, err)
 		os.Exit(1)
 	} else {
