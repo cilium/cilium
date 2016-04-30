@@ -405,13 +405,10 @@ func getSecID(ctx *cli.Context) {
 
 func parseAllowedSlice(slice []string) ([]types.Label, error) {
 	inLabels := []types.Label{}
-	var (
-		id          uint64
-		err         error
-		secCtxLabel *types.SecCtxLabel
-	)
+	id := 0
+
 	for _, v := range slice {
-		if id, err = strconv.ParseUint(v, 10, 32); err != nil {
+		if n, err := strconv.ParseUint(v, 10, 32); err != nil {
 			// can fail which means it needs to be a label
 			lbl, err := types.ParseLabel(v)
 			if err != nil {
@@ -419,35 +416,36 @@ func parseAllowedSlice(slice []string) ([]types.Label, error) {
 					"number or label in format of SOURCE#KEY[=VALUE]", v)
 			}
 			inLabels = append(inLabels, *lbl)
+		} else {
+			if id != 0 {
+				return nil, fmt.Errorf("More than one security ID provided")
+			}
+
+			id = int(n)
 		}
 	}
 
-	if len(inLabels) == 0 {
-		secCtxLabel, err = client.GetLabels(int(id))
-		if err != nil {
-			return nil, fmt.Errorf("error while retrieving security context labels "+
-				"for ID %d: %s", id, err)
+	if id != 0 {
+		if len(inLabels) > 0 {
+			return nil, fmt.Errorf("You can only specify either ID or labels")
 		}
-		if secCtxLabel == nil {
+
+		ctx, err := client.GetLabels(id)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to retrieve labels for ID %d: %s", id, err)
+		}
+		if ctx == nil {
 			return nil, fmt.Errorf("ID %d not found", id)
 		}
-	} else {
-		lbls := types.LabelSlice2LabelsMap(inLabels)
-		srcSHA256Sum, err := lbls.SHA256Sum()
-		if err != nil {
-			return nil, err
-		}
-		secCtxLabel, err = client.GetLabelsBySHA256(srcSHA256Sum)
-		if err != nil {
-			return nil, fmt.Errorf("error while retrieving security context labels "+
-				"for labels %q: %s", strings.Join(slice, ", "), err)
-		}
-		if secCtxLabel == nil {
-			return nil, fmt.Errorf("ID not found for labels %q", strings.Join(slice, ", "))
-		}
-	}
 
-	return secCtxLabel.Labels.ToSlice(), nil
+		return ctx.Labels.ToSlice(), nil
+	} else {
+		if len(inLabels) == 0 {
+			return nil, fmt.Errorf("No label or security ID provided")
+		}
+
+		return inLabels, nil
+	}
 }
 
 func verifyPolicy(ctx *cli.Context) {
@@ -457,13 +455,13 @@ func verifyPolicy(ctx *cli.Context) {
 	srcSlice, err := parseAllowedSlice(srcInSlice)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid source: %s\n", err)
-		return
+		os.Exit(1)
 	}
 
 	dstSlice, err := parseAllowedSlice(dstInSlice)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid destination: %s\n", err)
-		return
+		os.Exit(1)
 	}
 
 	searchCtx := types.SearchContext{
@@ -476,7 +474,7 @@ func verifyPolicy(ctx *cli.Context) {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while retrieving policy consume result: %s\n", err)
-		return
+		os.Exit(1)
 	}
 	bytes.NewBuffer(scr.Logging).WriteTo(os.Stdout)
 }
