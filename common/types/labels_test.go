@@ -110,12 +110,12 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		out    *Label
 		errOut Checker
 	}{
-		{"source1#key1=value1", NewLabel("key1", "value1", "source1"), IsNil},
+		{"source1:key1=value1", NewLabel("key1", "value1", "source1"), IsNil},
 		{"key1=value1", nil, NotNil},
 		{"value1", nil, NotNil},
-		{"source1#key1", NewLabel("key1", "", "source1"), IsNil},
-		{"source1#key1==value1", NewLabel("key1", "=value1", "source1"), IsNil},
-		{"source##key1=value1", NewLabel("#key1", "value1", "source"), IsNil},
+		{"source1:key1", NewLabel("key1", "", "source1"), IsNil},
+		{"source1:key1==value1", NewLabel("key1", "=value1", "source1"), IsNil},
+		{"source::key1=value1", NewLabel(":key1", "value1", "source"), IsNil},
 	}
 	for _, test := range tests {
 		lbl, err := ParseLabel(test.str)

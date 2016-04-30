@@ -80,13 +80,13 @@ func (l *Label) AbsoluteKey() string {
 	return l.Key
 }
 
-// String returns the string representation of Label in the for of Source#Key=Value or
-// Source#Key if Value is empty.
+// String returns the string representation of Label in the for of Source:Key=Value or
+// Source:Key if Value is empty.
 func (l Label) String() string {
 	if len(l.Value) != 0 {
-		return fmt.Sprintf("%s#%s=%s", l.Source, l.Key, l.Value)
+		return fmt.Sprintf("%s:%s=%s", l.Source, l.Key, l.Value)
 	}
-	return fmt.Sprintf("%s#%s", l.Source, l.Key)
+	return fmt.Sprintf("%s:%s", l.Source, l.Key)
 }
 
 func decodeReservedLabel(source string, label *Label) {
@@ -255,12 +255,12 @@ func LabelSlice2LabelsMap(lbls []Label) Labels {
 }
 
 // ParseLabel returns the label representation of the given string. The str should be
-// in the form of Source#Key=Value or Source#Key if Value is empty.
+// in the form of Source:Key=Value or Source:Key if Value is empty.
 func ParseLabel(str string) (*Label, error) {
 	lbl := Label{}
 	var next string
 
-	sourceSplit := strings.SplitN(str, "#", 2)
+	sourceSplit := strings.SplitN(str, ":", 2)
 	if len(sourceSplit) != 2 {
 		lbl.Source = common.CiliumLabelSource
 		next = sourceSplit[0]
