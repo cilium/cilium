@@ -257,14 +257,22 @@ func LabelSlice2LabelsMap(lbls []Label) Labels {
 // ParseLabel returns the label representation of the given string. The str should be
 // in the form of Source#Key=Value or Source#Key if Value is empty.
 func ParseLabel(str string) (*Label, error) {
+	lbl := Label{}
+	var next string
+
 	sourceSplit := strings.SplitN(str, "#", 2)
 	if len(sourceSplit) != 2 {
-		return nil, fmt.Errorf("invalid label")
+		lbl.Source = common.CiliumLabelSource
+		next = sourceSplit[0]
+	} else {
+		lbl.Source = sourceSplit[0]
+		next = sourceSplit[1]
 	}
-	keySplit := strings.SplitN(sourceSplit[1], "=", 2)
-	lbl := NewLabel(keySplit[0], "", sourceSplit[0])
+
+	keySplit := strings.SplitN(next, "=", 2)
+	lbl.Key = keySplit[0]
 	if len(keySplit) > 1 {
 		lbl.Value = keySplit[1]
 	}
-	return lbl, nil
+	return &lbl, nil
 }
