@@ -310,6 +310,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 }
 
 func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
+	log.Debugf("Resolving consumer rule %+v\n", c)
 	for k, _ := range c.Coverage {
 		l := &c.Coverage[k]
 		l.Resolve(node)
@@ -369,6 +370,7 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 }
 
 func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
+	log.Debugf("Resolving requires rule %+v\n", c)
 	for k, _ := range c.Coverage {
 		l := &c.Coverage[k]
 		l.Resolve(node)
@@ -438,16 +440,16 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 
 	policyTraceVerbose(ctx, "Evaluating node %+v\n", p)
 
-	for _, rule := range p.Rules {
+	for k, _ := range p.Rules {
 		sub_decision := UNDECIDED
 
-		switch rule.(type) {
+		switch p.Rules[k].(type) {
 		case PolicyRuleConsumers:
-			pr_c := rule.(PolicyRuleConsumers)
+			pr_c := p.Rules[k].(PolicyRuleConsumers)
 			sub_decision = pr_c.Allows(ctx)
 			break
 		case PolicyRuleRequires:
-			pr_r := rule.(PolicyRuleRequires)
+			pr_r := p.Rules[k].(PolicyRuleRequires)
 			sub_decision = pr_r.Allows(ctx)
 			break
 		}
@@ -488,16 +490,19 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 }
 
 func (pn *PolicyNode) resolveRules() error {
-	for _, rule := range pn.Rules {
-		switch rule.(type) {
+	log.Debugf("Resolving rules of node %+v\n", pn)
+
+	for k, _ := range pn.Rules {
+		switch pn.Rules[k].(type) {
 		case PolicyRuleConsumers:
-			r := rule.(PolicyRuleConsumers)
+			log.Debugf("foo: %+v\n", pn.Rules[k].(PolicyRuleConsumers))
+			r := pn.Rules[k].(PolicyRuleConsumers)
 			if err := r.Resolve(pn); err != nil {
 				return err
 			}
 			break
 		case PolicyRuleRequires:
-			r := rule.(PolicyRuleRequires)
+			r := pn.Rules[k].(PolicyRuleRequires)
 			if err := r.Resolve(pn); err != nil {
 				return err
 			}
@@ -510,6 +515,8 @@ func (pn *PolicyNode) resolveRules() error {
 
 func (pn *PolicyNode) ResolveTree() error {
 	var err error
+
+	log.Debugf("Resolving policy node %+v\n", pn)
 
 	pn.path, err = pn.BuildPath()
 	if err != nil {
@@ -546,17 +553,6 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 
 	pn.Name = policyNode.Name
 	pn.Children = policyNode.Children
-
-	// We have now parsed all children in a recursive manner and are back
-	// to the root node. Walk the tree again to resolve the path of each
-	// node.
-	if pn.Name == common.GlobalLabelPrefix {
-		log.Debugf("Resolving tree: %+v\n", pn)
-		if err := pn.ResolveTree(); err != nil {
-			return err
-		}
-		log.Debugf("Resolved tree: %+v\n", pn)
-	}
 
 	for _, rawMsg := range policyNode.Rules {
 		var om map[string]*json.RawMessage
@@ -599,6 +595,17 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 		} else {
 			return fmt.Errorf("unknown policy rule object: %+v", om)
 		}
+	}
+
+	// We have now parsed all children in a recursive manner and are back
+	// to the root node. Walk the tree again to resolve the path and the
+	// labels of all nodes and rules.
+	if pn.Name == common.GlobalLabelPrefix {
+		log.Debugf("Resolving tree: %+v\n", pn)
+		if err := pn.ResolveTree(); err != nil {
+			return err
+		}
+		log.Debugf("Resolved tree: %+v\n", pn)
 	}
 
 	return nil
