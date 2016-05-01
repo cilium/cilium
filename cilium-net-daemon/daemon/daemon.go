@@ -144,7 +144,7 @@ func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 			if k != nil {
 				break
 			} else {
-				log.Info("Unable to retreive last free Index, please start some containers with labels.")
+				log.Debugf("Unable to retreive last free Index, please start some containers with labels.")
 			}
 			time.Sleep(seconds)
 		}
