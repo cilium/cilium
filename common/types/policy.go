@@ -439,18 +439,20 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 	policyTraceVerbose(ctx, "Evaluating node %+v\n", p)
 
 	for _, rule := range p.Rules {
+		sub_decision := UNDECIDED
+
 		switch rule.(type) {
 		case PolicyRuleConsumers:
 			pr_c := rule.(PolicyRuleConsumers)
-			decision = pr_c.Allows(ctx)
+			sub_decision = pr_c.Allows(ctx)
 			break
 		case PolicyRuleRequires:
 			pr_r := rule.(PolicyRuleRequires)
-			decision = pr_r.Allows(ctx)
+			sub_decision = pr_r.Allows(ctx)
 			break
 		}
 
-		switch decision {
+		switch sub_decision {
 		case ALWAYS_ACCEPT:
 			return ALWAYS_ACCEPT
 		case DENY:
