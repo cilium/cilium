@@ -78,6 +78,24 @@ make nsenter
 sudo cp nsenter /usr/bin
 SCRIPT
 
+$route_node1 = <<SCRIPT
+ip -6 addr add beef::11:11:11:11/64 dev eth2
+ip -6 route add beef::c0a8:e60c:0/112 via beef::12:12:12:12
+sleep 2s
+ip -6 route add default via beef::1 || true
+SCRIPT
+
+$route_node2 = <<SCRIPT
+ip -6 addr add beef::12:12:12:12/64 dev eth2
+ip -6 route add beef::c0a8:e60b:0/112 via beef::11:11:11:11
+sleep 2s
+ip -6 route add default via beef::1 || true
+SCRIPT
+
+$load_default_policy = <<SCRIPT
+sudo cilium policy import /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/policy/default/
+SCRIPT
+
 Vagrant.configure(2) do |config|
     config.vm.box = "noironetworks/net-next"
 
@@ -105,12 +123,26 @@ Vagrant.configure(2) do |config|
 
     config.vm.define "node1", primary: true do |node1|
         node1.vm.network "private_network", ip: "192.168.33.11"
+        node1.vm.network "private_network",
+	  ip: "192.168.230.11",
+	  :libvirt__network_name => "cilium-test",
+	  :libvirt__guest_ipv6 => true,
+	  :libvirt__dhcp_enabled => false
         node1.vm.hostname = "node1"
+        config.vm.provision "route-node1", type: "shell", privileged: true, run: "always", inline: $route_node1
+        config.vm.provision "load-policy", type: "shell", privileged: false, run: "always", inline: $load_default_policy
     end
 
     config.vm.define "node2", autostart: false do |node2|
         node2.vm.network "private_network", ip: "192.168.33.12"
+        node2.vm.network "private_network",
+	  ip: "192.168.230.12",
+	  :libvirt__network_name => "cilium-test",
+	  :libvirt__guest_ipv6 => true,
+	  :libvirt__dhcp_enabled => false
         node2.vm.hostname = "node2"
+        config.vm.provision "route-node2", type: "shell", privileged: true, run: "always", inline: $route_node2
+        config.vm.provision "load-policy", type: "shell", privileged: false, run: "always", inline: $load_default_policy
     end
 
     config.vm.define "k8s1", autostart: false do |k8s1|
