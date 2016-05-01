@@ -81,7 +81,6 @@ func (s *CiliumClientSuite) TearDownSuite(c *C) {
 }
 
 func (s *CiliumClientSuite) TestGetPing(c *C) {
-	str, err := s.cli.Ping()
+	_, err := s.cli.Ping()
 	c.Assert(err, Equals, nil, Commentf("Error while Pinging server: %s", err))
-	c.Assert(str, Equals, "Pong")
 }

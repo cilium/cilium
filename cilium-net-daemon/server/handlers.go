@@ -13,11 +13,13 @@ import (
 )
 
 func (router *Router) ping(w http.ResponseWriter, r *http.Request) {
-	if str, err := router.daemon.Ping(); err != nil {
+	if resp, err := router.daemon.Ping(); err != nil {
 		processServerError(w, r, err)
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, str)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			processServerError(w, r, err)
+		}
 	}
 }
 

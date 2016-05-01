@@ -49,6 +49,7 @@ type Daemon struct {
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
 	ipv4Range            *net.IPNet
+	nodeAddress          net.IP
 	enableTracing        bool
 	disablePolicy        bool
 }
@@ -119,6 +120,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpoints:          make(map[string]*ciliumTypes.Endpoint),
 		validLabelPrefixes: c.ValidLabelPrefixes,
 		ipv4Range:          c.IPv4Range,
+		nodeAddress:        c.NodeAddress,
 		enableTracing:      c.EnableTracing,
 		disablePolicy:      c.DisablePolicy,
 	}, nil
