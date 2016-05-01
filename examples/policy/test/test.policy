@@ -1,0 +1,15 @@
+{
+        "name": "io.cilium",
+	"rules": [{
+		"allow": ["$world"]
+	}],
+        "children": {
+		"client": { },
+		"server": {
+			"rules": [{
+				"allow": ["..client"]
+			}]
+		}
+
+	}
+}
