@@ -43,10 +43,10 @@ docker run --rm -i --net=$TEST_NET --name client -l $CLIENT_LABEL noironetworks/
 	abort "Error: Could not ping server container"
 }
 
-reset_trace
-docker run --rm -i --net=$TEST_NET --name client -l $CLIENT_LABEL noironetworks/nettools sh -c "sleep 5s && tracepath6 $SERVER_IP" || {
-	abort "Error: Could not traceroute to server"
-}
+#reset_trace
+#docker run --rm -i --net=$TEST_NET --name client -l $CLIENT_LABEL noironetworks/nettools sh -c "sleep 5s && tracepath6 $SERVER_IP" || {
+#	abort "Error: Could not traceroute to server"
+#}
 
 reset_trace
 docker run --rm -i --net=$TEST_NET --name netperf -l $CLIENT_LABEL $NETPERF_IMAGE sh -c "sleep 5s && netperf -c -C -H $SERVER_IP" || {
