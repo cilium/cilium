@@ -714,7 +714,7 @@ func (t *PolicyTree) Allows(ctx *SearchContext) ConsumableDecision {
 	sub_decision := canConsume(t.Root, ctx)
 	policyTrace(ctx, "Root children decision: %s\n", sub_decision)
 	switch sub_decision {
-	case ALWAYS_ACCEPT:
+	case ALWAYS_ACCEPT, ACCEPT:
 		decision = ACCEPT
 	case DENY:
 		decision = DENY
