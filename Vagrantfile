@@ -90,6 +90,9 @@ ip -6 addr add beef::12:12:12:12/64 dev eth2
 ip -6 route add beef::c0a8:e60b:0/112 via beef::11:11:11:11
 sleep 2s
 ip -6 route add default via beef::1 || true
+echo 'exec cilium -D daemon -d eth2 -c "192.168.230.11:8500"' > /etc/init/cilium-net-daemon.conf
+service cilium-net-daemon restart
+sleep 1s
 SCRIPT
 
 $load_default_policy = <<SCRIPT
