@@ -241,7 +241,7 @@ func initEnv(ctx *cli.Context) error {
 
 	if nodeAddrStr == "" {
 		var err error
-		nodeAddrStr, err = common.GenerateV6Prefix()
+		nodeAddrStr, err = common.GenerateV6Prefix(device)
 		if err != nil {
 			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
 		}
@@ -265,7 +265,7 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	if v4range == "" {
-		v4range, err = common.GenerateV4Range()
+		v4range, err = common.GenerateV4Range(device)
 		if err != nil {
 			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
 		}

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	common "github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/client"
@@ -56,19 +57,31 @@ type driver struct {
 func NewDriver(ctx *cli.Context) (Driver, error) {
 
 	nodeAddress := net.ParseIP(ctx.String("node-addr"))
-	if nodeAddress == nil {
-		nodeAddrStr, err := common.GenerateV6Prefix()
-		if err != nil {
-			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
-		}
-
-		log.Infof("Generated IPv6 prefix: %s\n", nodeAddrStr)
-
-		nodeAddress = net.ParseIP(nodeAddrStr)
-	}
-
 	if !common.ValidNodeAddress(nodeAddress) {
 		log.Fatalf("Invalid node address: %s", nodeAddress)
+	}
+
+	c, err := cnc.NewDefaultClient()
+	if err != nil {
+		log.Fatalf("Error while starting cilium-client: %s", err)
+	}
+
+	for tries := 10; tries > 0; tries-- {
+		if res, err := c.Ping(); err != nil {
+			if tries == 1 {
+				log.Fatalf("Unable to reach cilium daemon: %s", err)
+			} else {
+				log.Warningf("Waiting for cilium daemon to come up...")
+			}
+			time.Sleep(time.Second)
+		} else {
+			if nodeAddress == nil {
+				nodeAddress = net.ParseIP(res.NodeAddress)
+				log.Infof("Received node address from daemon: %s", nodeAddress)
+			}
+
+			break
+		}
 	}
 
 	_, subnet, err := net.ParseCIDR(nodeAddress.String() + "/64")
@@ -81,11 +94,6 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 	_, v4Alloc, err := net.ParseCIDR(LocalAllocSubnet)
 	if err != nil {
 		log.Fatalf("Invalid CIDR %s", LocalAllocSubnet)
-	}
-
-	c, err := cnc.NewDefaultClient()
-	if err != nil {
-		log.Fatalf("Error while starting cilium-client: %s", err)
 	}
 
 	d := &driver{

@@ -14,7 +14,7 @@ type TestDaemon struct {
 	OnEndpointUpdate       func(ep string, opts types.EPOpts) error
 	OnAllocateIPs          func(containerID string) (*types.IPAMConfig, error)
 	OnReleaseIPs           func(containerID string) error
-	OnPing                 func() (string, error)
+	OnPing                 func() (*types.PingResponse, error)
 	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
 	OnGetLabels            func(id int) (*types.SecCtxLabel, error)
 	OnGetLabelsBySHA256    func(sha256sum string) (*types.SecCtxLabel, error)
@@ -66,11 +66,11 @@ func (d TestDaemon) EndpointLeave(epID string) error {
 	return errors.New("EndpointLeave should not have been called")
 }
 
-func (d TestDaemon) Ping() (string, error) {
+func (d TestDaemon) Ping() (*types.PingResponse, error) {
 	if d.OnPing != nil {
 		return d.OnPing()
 	}
-	return "", errors.New("Ping should not have been called")
+	return nil, errors.New("Ping should not have been called")
 }
 
 func (d TestDaemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {

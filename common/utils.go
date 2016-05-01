@@ -41,8 +41,18 @@ func FmtDefineArray(name string, array []byte) string {
 	return fmt.Sprintf("#define %s %s\n", name, goArray2C(array))
 }
 
-func firstGlobalV4Addr() (net.IP, error) {
-	addr, err := netlink.AddrList(nil, netlink.FAMILY_V4)
+func firstGlobalV4Addr(intf string) (net.IP, error) {
+	var link netlink.Link
+	var err error
+
+	if intf != "" && intf != "undefined" {
+		link, err = netlink.LinkByName(intf)
+		if err != nil {
+			return firstGlobalV4Addr("")
+		}
+	}
+
+	addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +76,8 @@ func fmtV6Prefix(prefix string, ip net.IP) string {
 
 // GenerateV6Prefix generates an IPv6 address created based on the first global IPv4
 // address found in the host.
-func GenerateV6Prefix() (string, error) {
-	ip, err := firstGlobalV4Addr()
+func GenerateV6Prefix(intf string) (string, error) {
+	ip, err := firstGlobalV4Addr(intf)
 	if err != nil {
 		return "", err
 	}
@@ -81,8 +91,8 @@ func fmtV4Range(ip *net.IP) (string, error) {
 
 // GenerateV4Range generates an IPv4 range from the first global IPv4 address found in the
 // host.
-func GenerateV4Range() (string, error) {
-	ip, err := firstGlobalV4Addr()
+func GenerateV4Range(intf string) (string, error) {
+	ip, err := firstGlobalV4Addr(intf)
 	if err != nil {
 		return "", err
 	}

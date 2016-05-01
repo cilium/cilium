@@ -1,12 +1,15 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/noironetworks/cilium-net/common/types"
 
 	. "gopkg.in/check.v1"
 )
@@ -33,12 +36,14 @@ func NewTestClient(urlStr string, c *C) *Client {
 }
 
 func (s *CiliumNetClientSuite) TestPingOK(c *C) {
+	resOut := types.PingResponse{NodeAddress: "foo"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/ping")
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprint(w, `Pong`)
+		err := json.NewEncoder(w).Encode(resOut)
+		c.Assert(err, IsNil)
 	}))
 	defer server.Close()
 
@@ -46,11 +51,12 @@ func (s *CiliumNetClientSuite) TestPingOK(c *C) {
 
 	res, err := cli.Ping()
 
-	c.Assert(res, Equals, "Pong")
 	c.Assert(err, Equals, nil)
+	c.Assert(*res, DeepEquals, resOut)
 }
 
 func (s *CiliumNetClientSuite) TestPingFail(c *C) {
+	var nilResponse *types.PingResponse
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/ping")
@@ -63,6 +69,6 @@ func (s *CiliumNetClientSuite) TestPingFail(c *C) {
 
 	res, err := cli.Ping()
 
-	c.Assert(res, Equals, "")
+	c.Assert(res, Equals, nilResponse)
 	c.Assert(strings.HasSuffix(err.Error(), "Something went wrong"), Equals, true)
 }

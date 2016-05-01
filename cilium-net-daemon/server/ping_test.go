@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	cnc "github.com/noironetworks/cilium-net/common/client"
+	"github.com/noironetworks/cilium-net/common/types"
 
 	. "gopkg.in/check.v1"
 )
@@ -51,21 +52,22 @@ func (s *DaemonSuite) TearDownSuite(c *C) {
 }
 
 func (s *DaemonSuite) TestPingOK(c *C) {
-	s.d.OnPing = func() (string, error) {
-		return "Pong", nil
+	s.d.OnPing = func() (*types.PingResponse, error) {
+		return &types.PingResponse{NodeAddress: "foo"}, nil
 	}
 
-	res, err := s.c.Ping()
-	c.Assert(res, Equals, "Pong")
+	resp, err := s.c.Ping()
+	c.Assert(resp.NodeAddress, Equals, "foo")
 	c.Assert(err, Equals, nil)
 }
 
 func (s *DaemonSuite) TestPingFail(c *C) {
-	s.d.OnPing = func() (string, error) {
-		return "Pong", errors.New("I'll fail")
+	var nilResponse *types.PingResponse
+	s.d.OnPing = func() (*types.PingResponse, error) {
+		return nil, errors.New("I'll fail")
 	}
 
 	res, err := s.c.Ping()
-	c.Assert(res, Equals, "")
+	c.Assert(res, Equals, nilResponse)
 	c.Assert(strings.Contains(err.Error(), "I'll fail"), Equals, true)
 }

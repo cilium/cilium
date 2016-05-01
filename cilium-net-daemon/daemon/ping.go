@@ -1,6 +1,11 @@
 package daemon
 
-// Ping simply returns "Pong" when invoked.
-func (d *Daemon) Ping() (string, error) {
-	return "Pong", nil
+import (
+	"github.com/noironetworks/cilium-net/common/types"
+)
+
+func (d *Daemon) Ping() (*types.PingResponse, error) {
+	return &types.PingResponse{
+		NodeAddress: d.nodeAddress.String(),
+	}, nil
 }
