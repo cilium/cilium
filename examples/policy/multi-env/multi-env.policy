@@ -16,7 +16,7 @@
 				"web": { },
 				"db": {
 					"rules": [{
-						"allow": ["..web"]
+						"allow": ["../web"]
 					}]
 				}
 			}

@@ -65,10 +65,25 @@ func (l *Label) Covers(path string) bool {
 func (l *Label) Resolve(policyNode *PolicyNode) {
 	if l.Source == common.CiliumLabelSource &&
 		!strings.HasPrefix(l.Key, common.GlobalLabelPrefix) {
-		l.absKey = policyNode.Path() + "." + l.Key
+
+		k := l.Key
+		node := policyNode
+
+		for strings.HasPrefix(k, "../") {
+			k = k[3:]
+			node = node.Parent
+			if node == nil {
+				log.Warningf("Could not resolve label %+v, reached root\n", l)
+				return
+			}
+		}
+
+		l.absKey = node.Path() + "." + k
 	} else {
 		l.absKey = l.Key
 	}
+
+	log.Debugf("Resolved label %s to %s\n", l.String(), l.absKey)
 }
 
 // AbsoluteKey if set returns the absolute key path, otherwise returns the label's Key.
