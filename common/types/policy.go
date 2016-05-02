@@ -314,7 +314,6 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 	for k, _ := range c.Coverage {
 		l := &c.Coverage[k]
 		l.Resolve(node)
-		log.Debugf("Resolved label %+v\n", l)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
 			return fmt.Errorf("label %s does not share prefix of node %s",
@@ -325,7 +324,6 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 	for k, _ := range c.Allow {
 		r := &c.Allow[k]
 		r.Label.Resolve(node)
-		log.Debugf("Resolved label %+v\n", r.Label)
 	}
 
 	return nil
@@ -374,7 +372,6 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	for k, _ := range c.Coverage {
 		l := &c.Coverage[k]
 		l.Resolve(node)
-		log.Debugf("Resolved label %+v\n", l)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
 			return fmt.Errorf("label %s does not share prefix of node %s",
@@ -385,7 +382,6 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	for k, _ := range c.Requires {
 		l := &c.Requires[k]
 		l.Resolve(node)
-		log.Debugf("Resolved label %+v\n", l)
 	}
 
 	return nil
@@ -495,7 +491,6 @@ func (pn *PolicyNode) resolveRules() error {
 	for k, _ := range pn.Rules {
 		switch pn.Rules[k].(type) {
 		case PolicyRuleConsumers:
-			log.Debugf("foo: %+v\n", pn.Rules[k].(PolicyRuleConsumers))
 			r := pn.Rules[k].(PolicyRuleConsumers)
 			if err := r.Resolve(pn); err != nil {
 				return err

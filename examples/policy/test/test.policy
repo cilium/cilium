@@ -7,7 +7,7 @@
 		"client": { },
 		"server": {
 			"rules": [{
-				"allow": ["..client"]
+				"allow": ["../client"]
 			}]
 		}
 
