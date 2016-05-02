@@ -18,6 +18,11 @@
 #include "lib/l3.h"
 #include "lib/nat46.h"
 #include "lib/arp.h"
+#include "lib/conntrack.h"
+
+#ifndef SECLABEL
+#define SECLABEL WORLD_ID
+#endif
 
 #ifdef DROP_NOTIFY
 #include "lib/drop.h"
@@ -76,20 +81,17 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 	return redirect(skb->ifindex, 0);
 }
 
-static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip)
+static inline __u32 derive_sec_ctx(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
+				   const union v6addr *node_ip)
 {
 #ifdef FIXED_SRC_SECCTX
 	__u32 flowlabel = FIXED_SRC_SECCTX;
 #else
-	__u32 flowlabel = 0;
-	union v6addr src = {};
+	__u32 flowlabel = WORLD_ID;
 
-	ipv6_load_saddr(skb, ETH_HLEN, &src);
-	if (matches_cluster_prefix(&src, node_ip)) {
+	if (matches_cluster_prefix(&tuple->src, node_ip)) {
 		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
 		flowlabel = ntohl(flowlabel);
-	} else {
-		flowlabel = WORLD_ID;
 	}
 #endif
 
@@ -124,7 +126,7 @@ int from_netdev(struct __sk_buff *skb)
 			return TC_ACT_OK;
 
 		if (ipv4_to_ipv6(skb, 14, &sp, &dp) < 0) {
-			printk("ipv4_to_ipv6 failed\n");
+			//printk("ipv4_to_ipv6 failed\n");
 			return TC_ACT_SHOT;
 		}
 		skb->tc_index = 1;
@@ -132,28 +134,25 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
-		union v6addr dst = {};
-		__u32 flowlabel;
+		struct ipv6_ct_tuple tuple = {};
 
+		tuple.nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 #ifdef HANDLE_NS
-		__u8 nexthdr;
-
-		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
-		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
+		if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
 			int ret = icmp6_handle(skb, ETH_HLEN);
 			if (ret != REDIRECT_TO_LXC)
 				return ret;
 		}
 #endif
-		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
+		printk("IPv6 from netdev len=%d\n", skb->len);
 
-		ipv6_load_daddr(skb, ETH_HLEN, &dst);
-		flowlabel = derive_sec_ctx(skb, &node_ip);
+		ipv6_load_saddr(skb, ETH_HLEN, &tuple.src);
+		ipv6_load_daddr(skb, ETH_HLEN, &tuple.dst);
+		tuple.secctx = derive_sec_ctx(skb, &tuple, &node_ip);
 
-		if (likely(is_node_subnet(&dst, &node_ip))) {
-			printk("Targeted for a local container, src label: %d\n", flowlabel);
-
-			return do_l3(skb, ETH_HLEN, &dst, flowlabel);
+		if (is_node_subnet(&tuple.dst, &node_ip)) {
+			printk("Local container target, srcctx=%d\n", tuple.secctx);
+			return do_l3_ct(skb, ETH_HLEN, &tuple);
 		}
 	}
 
@@ -173,6 +172,11 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 
 	printk("Handle for host %d %d\n", src_label, ifindex);
 
+#ifndef DISABLE_CONNTRACK
+	if (skb->cb[CB_STATE] == CT_REPLY)
+		goto allow;
+#endif /* DISABLE_CONNTRACK */
+
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (!policy) {
 #ifdef DROP_NOTIFY
@@ -187,6 +191,13 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	}
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, skb->len);
+
+#ifndef DISABLE_CONNTRACK
+	/* Create connection tracking entry in reverse direction */
+	ct_create6(skb, ETH_HLEN, SECLABEL);
+allow:
+#endif /* DISABLE_CONNTRACK */
+
 #endif
 	return redirect(ifindex, 0);
 }
