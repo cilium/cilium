@@ -57,4 +57,9 @@ static inline int tcp_load_sport(struct __sk_buff *skb, int off, __u16 *port)
 	return skb_load_bytes(skb, off + TCP_SPORT_OFF, port, sizeof(__u16));
 }
 
+static inline int tcp_load_flags(struct __sk_buff *skb, int off, __u32 *flags)
+{
+	return skb_load_bytes(skb, off + 12, flags, sizeof(__u32));
+}
+
 #endif
