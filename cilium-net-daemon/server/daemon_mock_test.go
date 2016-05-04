@@ -16,11 +16,11 @@ type TestDaemon struct {
 	OnReleaseIPs           func(containerID string) error
 	OnPing                 func() (*types.PingResponse, error)
 	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
-	OnGetLabels            func(id int) (*types.SecCtxLabel, error)
+	OnGetLabels            func(id uint32) (*types.SecCtxLabel, error)
 	OnGetLabelsBySHA256    func(sha256sum string) (*types.SecCtxLabel, error)
-	OnDeleteLabelsByUUID   func(uuid int) error
+	OnDeleteLabelsByUUID   func(uuid uint32) error
 	OnDeleteLabelsBySHA256 func(sha256sum string) error
-	OnGetMaxID             func() (int, error)
+	OnGetMaxID             func() (uint32, error)
 	OnPolicyAdd            func(path string, node *types.PolicyNode) error
 	OnPolicyDelete         func(path string) error
 	OnPolicyGet            func(path string) (*types.PolicyNode, error)
@@ -94,7 +94,7 @@ func (d TestDaemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, er
 	return nil, false, errors.New("GetLabelsID should not have been called")
 }
 
-func (d TestDaemon) GetLabels(id int) (*types.SecCtxLabel, error) {
+func (d TestDaemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 	if d.OnGetLabels != nil {
 		return d.OnGetLabels(id)
 	}
@@ -108,7 +108,7 @@ func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, err
 	return nil, errors.New("GetLabelsBySHA256 should not have been called")
 }
 
-func (d TestDaemon) DeleteLabelsByUUID(uuid int) error {
+func (d TestDaemon) DeleteLabelsByUUID(uuid uint32) error {
 	if d.OnDeleteLabelsByUUID != nil {
 		return d.OnDeleteLabelsByUUID(uuid)
 	}
@@ -122,11 +122,11 @@ func (d TestDaemon) DeleteLabelsBySHA256(sha256sum string) error {
 	return errors.New("DeleteLabelsBySHA256 should not have been called")
 }
 
-func (d TestDaemon) GetMaxID() (int, error) {
+func (d TestDaemon) GetMaxID() (uint32, error) {
 	if d.OnGetMaxID != nil {
 		return d.OnGetMaxID()
 	}
-	return -1, errors.New("GetMaxID should not have been called")
+	return 0, errors.New("GetMaxID should not have been called")
 }
 
 func (d TestDaemon) PolicyAdd(path string, node *types.PolicyNode) error {

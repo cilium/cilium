@@ -151,12 +151,12 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, errors.New("server received empty labels UUID"))
 		return
 	}
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
 		return
 	}
-	labels, err := router.daemon.GetLabels(id)
+	labels, err := router.daemon.GetLabels(uint32(id))
 	if err != nil {
 		processServerError(w, r, err)
 		return
@@ -222,12 +222,12 @@ func (router *Router) deleteLabelsByUUID(w http.ResponseWriter, r *http.Request)
 		processServerError(w, r, errors.New("server received empty labels UUID"))
 		return
 	}
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
 		return
 	}
-	if err := router.daemon.DeleteLabelsByUUID(id); err != nil {
+	if err := router.daemon.DeleteLabelsByUUID(uint32(id)); err != nil {
 		processServerError(w, r, err)
 		return
 	}

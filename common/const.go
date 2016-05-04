@@ -44,9 +44,9 @@ const (
 	// IDKeyPath is the base path where the IDs are stored in consul.
 	IDKeyPath = OperationalPath + "/ID/"
 	// MaxSetOfLabels is maximum number of set of labels that can be stored in consul.
-	MaxSetOfLabels = 0xFFFF
+	MaxSetOfLabels = uint32(0xFFFF)
 	// FirstFreeID is the first ID for which the labels should be assigned.
-	FirstFreeID = 256
+	FirstFreeID = uint32(256)
 	// SecCtxFromHost represents reserved security context IDs reserved for special
 	// purposes.
 	SecCtxFromHost = 1

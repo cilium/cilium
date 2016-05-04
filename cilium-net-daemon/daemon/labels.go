@@ -55,7 +55,7 @@ func (d *Daemon) initializeFreeID() error {
 
 func (d *Daemon) updateIDRef(secCtxLabels *types.SecCtxLabel) error {
 	var err error
-	lblKey := &consulAPI.KVPair{Key: common.IDKeyPath + strconv.Itoa(secCtxLabels.ID)}
+	lblKey := &consulAPI.KVPair{Key: common.IDKeyPath + strconv.FormatUint(uint64(secCtxLabels.ID), 10)}
 	lblKey.Value, err = json.Marshal(secCtxLabels)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabel) error {
 	beginning := freeID
 	for {
 		log.Debugf("Trying to aquire a new free ID %d", freeID)
-		path := common.IDKeyPath + strconv.Itoa(freeID)
+		path := common.IDKeyPath + strconv.FormatUint(uint64(freeID), 10)
 
 		lockPair := &consulAPI.KVPair{Key: common.GetLockPath(path), Session: session}
 		acq, _, err := d.consul.KV().Acquire(lockPair, nil)
@@ -210,7 +210,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error
 }
 
 // GetLabels returns the SecCtxLabels that belongs to the given id.
-func (d *Daemon) GetLabels(id int) (*types.SecCtxLabel, error) {
+func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 	if id > 0 && id < common.FirstFreeID {
 		key := types.ReservedID(id).String()
 		if key == "" {
@@ -228,7 +228,7 @@ func (d *Daemon) GetLabels(id int) (*types.SecCtxLabel, error) {
 		}, nil
 	}
 
-	strID := strconv.Itoa(id)
+	strID := strconv.FormatUint(uint64(id), 10)
 	pair, _, err := d.consul.KV().Get(common.IDKeyPath+strID, nil)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error)
 }
 
 // DeleteLabelsByUUID deletes the SecCtxLabels belonging to the given id.
-func (d *Daemon) DeleteLabelsByUUID(id int) error {
+func (d *Daemon) DeleteLabelsByUUID(id uint32) error {
 	secCtxLabels, err := d.GetLabels(id)
 	if err != nil {
 		return err
@@ -334,34 +334,34 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 }
 
 // GetMaxID returns the maximum possible free UUID stored in consul.
-func (d *Daemon) GetMaxID() (int, error) {
+func (d *Daemon) GetMaxID() (uint32, error) {
 	k, _, err := d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	if k == nil {
 		// FreeID is empty? We should set it out!
 		log.Infof("Empty FreeID, setting it up with default value %d", common.FirstFreeID)
 		if err := d.initializeFreeID(); err != nil {
-			return -1, err
+			return 0, err
 		}
 		k, _, err = d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 		if k == nil {
 			// Something is really wrong
 			errMsg := "Unable to retrieve last free ID because the key is always empty\n"
 			log.Errorf(errMsg)
-			return -1, fmt.Errorf(errMsg)
+			return 0, fmt.Errorf(errMsg)
 		}
 	}
-	var freeID int
+	var freeID uint32
 	log.Debugf("Retrieving max free ID %v", k.Value)
 	if err := json.Unmarshal(k.Value, &freeID); err != nil {
-		return -1, err
+		return 0, err
 	}
 	return freeID, nil
 }
 
-func (d *Daemon) setMaxID(freeID int) error {
+func (d *Daemon) setMaxID(freeID uint32) error {
 	k, _, err := d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 	if err != nil {
 		return err

@@ -405,7 +405,7 @@ func getSecID(ctx *cli.Context) {
 
 func parseAllowedSlice(slice []string) ([]types.Label, error) {
 	inLabels := []types.Label{}
-	id := 0
+	id := uint32(0)
 
 	for _, v := range slice {
 		if n, err := strconv.ParseUint(v, 10, 32); err != nil {
@@ -421,7 +421,7 @@ func parseAllowedSlice(slice []string) ([]types.Label, error) {
 				return nil, fmt.Errorf("More than one security ID provided")
 			}
 
-			id = int(n)
+			id = uint32(n)
 		}
 	}
 

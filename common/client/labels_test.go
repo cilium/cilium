@@ -207,7 +207,7 @@ func (s *CiliumNetClientSuite) TestGetMaxIDOK(c *C) {
 
 	maxID, err := cli.GetMaxID()
 	c.Assert(err, Equals, nil)
-	c.Assert(maxID, Equals, 123)
+	c.Assert(maxID, Equals, uint32(123))
 }
 
 func (s *CiliumNetClientSuite) TestGetMaxIDFail(c *C) {

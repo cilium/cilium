@@ -54,7 +54,7 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID int) error {
+func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID uint32) error {
 	ctx.From = nil
 
 	// Check if we have the source security context in our local
@@ -180,7 +180,7 @@ func (d *Daemon) RegenerateEndpoint(e *types.Endpoint) error {
 	}
 }
 
-func (d *Daemon) TriggerPolicyUpdates(added []int) {
+func (d *Daemon) TriggerPolicyUpdates(added []uint32) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
@@ -188,7 +188,7 @@ func (d *Daemon) TriggerPolicyUpdates(added []int) {
 		log.Debugf("Full policy recalculation triggered")
 		InvalidateCache()
 	} else {
-		log.Debugf("Partial policy recalculation triggered: %v", added)
+		log.Debugf("Partial policy recalculation triggered: %d\n", added)
 		// FIXME: Invalidate only cache that is affected
 		InvalidateCache()
 	}
@@ -243,7 +243,7 @@ func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
 	}
 	policyMutex.Unlock()
 
-	d.TriggerPolicyUpdates([]int{})
+	d.TriggerPolicyUpdates([]uint32{})
 
 	return nil
 }
@@ -269,7 +269,7 @@ func (d *Daemon) PolicyDelete(path string) error {
 	}
 	policyMutex.Unlock()
 
-	d.TriggerPolicyUpdates([]int{})
+	d.TriggerPolicyUpdates([]uint32{})
 
 	return nil
 }
@@ -284,11 +284,11 @@ func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 func PolicyInit() error {
 	for k, v := range types.ResDec {
 		lbl := types.SecCtxLabel{
-			ID:       int(v),
+			ID:       uint32(v),
 			RefCount: 1,
 			Labels:   map[string]*types.Label{},
 		}
-		policyMapPath := fmt.Sprintf("%sreserved_%d", common.PolicyMapPath, int(v))
+		policyMapPath := fmt.Sprintf("%sreserved_%d", common.PolicyMapPath, uint32(v))
 
 		lbl.Labels[k] = &types.Label{Key: k, Source: common.ReservedLabelSource}
 
@@ -297,7 +297,7 @@ func PolicyInit() error {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
 
-		if c := types.GetConsumable(int(v), &lbl); c == nil {
+		if c := types.GetConsumable(uint32(v), &lbl); c == nil {
 			return fmt.Errorf("Unable to initialize consumable for %v", lbl)
 		} else {
 			reservedConsumables = append(reservedConsumables, c)

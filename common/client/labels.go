@@ -35,10 +35,10 @@ func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, erro
 
 // GetLabels sends a GET request with id to the daemon. Returns the types.SecCtxLabels
 // with the given id. If it's not found, types.SecCtxLabels and error are booth nil.
-func (cli Client) GetLabels(id int) (*types.SecCtxLabel, error) {
+func (cli Client) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 	query := url.Values{}
 
-	serverResp, err := cli.get("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
+	serverResp, err := cli.get("/labels/by-uuid/"+strconv.FormatUint(uint64(id), 10), query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -93,10 +93,10 @@ func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error
 }
 
 // DeleteLabelsByUUID sends a DELETE request with id to the daemon.
-func (cli Client) DeleteLabelsByUUID(id int) error {
+func (cli Client) DeleteLabelsByUUID(id uint32) error {
 	query := url.Values{}
 
-	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.Itoa(id), query, nil)
+	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.FormatUint(uint64(id), 10), query, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -129,23 +129,23 @@ func (cli Client) DeleteLabelsBySHA256(sha256sum string) error {
 }
 
 // GetMaxID sends a GET request to the daemon. Returns the next, possible, free UUID.
-func (cli Client) GetMaxID() (int, error) {
+func (cli Client) GetMaxID() (uint32, error) {
 	query := url.Values{}
 
 	serverResp, err := cli.get("/labels/status/maxUUID", query, nil)
 	if err != nil {
-		return -1, fmt.Errorf("error while connecting to daemon: %s", err)
+		return 0, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
 	defer ensureReaderClosed(serverResp)
 
 	if serverResp.statusCode != http.StatusOK {
-		return -1, processErrorBody(serverResp.body, nil)
+		return 0, processErrorBody(serverResp.body, nil)
 	}
 
-	var maxID int
+	var maxID uint32
 	if err := json.NewDecoder(serverResp.body).Decode(&maxID); err != nil {
-		return -1, err
+		return 0, err
 	}
 
 	return maxID, nil

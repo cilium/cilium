@@ -5,9 +5,9 @@ import (
 )
 
 const (
-	CONSUMER_ID1 = 10
-	CONSUMER_ID2 = 20
-	CONSUMER_ID3 = 30
+	CONSUMER_ID1 = uint32(10)
+	CONSUMER_ID2 = uint32(20)
+	CONSUMER_ID3 = uint32(30)
 )
 
 func (s *CommonSuite) TestNewConsumer(c *C) {

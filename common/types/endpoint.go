@@ -23,21 +23,20 @@ type EPOpts map[string]bool
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID            string `json:"id"`              // Endpoint ID.
-	DockerID      string `json:"docker-id"`       // Docker ID.
-	DockerNetwork string `json:"docker-network"`  // Docker network ID.
-	IfName        string `json:"interface-name"`  // Container's interface name.
-	LXCMAC        MAC    `json:"lxc-mac"`         // Container MAC address.
-	LXCIP         net.IP `json:"lxc-ip"`          // Container IPv6 address.
-	IfIndex       int    `json:"interface-index"` // Host's interface index.
-	NodeMAC       MAC    `json:"node-mac"`        // Node MAC address.
-	NodeIP        net.IP `json:"node-ip"`         // Node IPv6 address.
-	// TODO: change uint32 to uint16 since we only support 0xffff labels
-	SecLabelID uint32               `json:"security-label"` // Security Label ID set to this endpoint.
-	PortMap    []EPPortMap          `json:"port-mapping"`   // Port mapping used for this endpoint.
-	Consumable *Consumable          `json:"consumable"`
-	PolicyMap  *policymap.PolicyMap `json:"-"`
-	Opts       EPOpts               `json:"options"` // Endpoint bpf options.
+	ID            string               `json:"id"`              // Endpoint ID.
+	DockerID      string               `json:"docker-id"`       // Docker ID.
+	DockerNetwork string               `json:"docker-network"`  // Docker network ID.
+	IfName        string               `json:"interface-name"`  // Container's interface name.
+	LXCMAC        MAC                  `json:"lxc-mac"`         // Container MAC address.
+	LXCIP         net.IP               `json:"lxc-ip"`          // Container IPv6 address.
+	IfIndex       int                  `json:"interface-index"` // Host's interface index.
+	NodeMAC       MAC                  `json:"node-mac"`        // Node MAC address.
+	NodeIP        net.IP               `json:"node-ip"`         // Node IPv6 address.
+	SecLabel      *SecCtxLabel         `json:"security-label"`  // Security Label  set to this endpoint.
+	PortMap       []EPPortMap          `json:"port-mapping"`    // Port mapping used for this endpoint.
+	Consumable    *Consumable          `json:"consumable"`
+	PolicyMap     *policymap.PolicyMap `json:"-"`
+	Opts          EPOpts               `json:"options"` // Endpoint bpf options.
 }
 
 // U16ID returns the endpoint's ID as uint16.
@@ -52,11 +51,11 @@ func (e *Endpoint) SetID() {
 }
 
 func (e *Endpoint) SetSecLabel(labels *SecCtxLabel) {
-	e.SecLabelID = uint32(labels.ID)
+	e.SecLabel = labels
 	e.Consumable = GetConsumable(labels.ID, labels)
 }
 
-func (e *Endpoint) Allows(id int) bool {
+func (e *Endpoint) Allows(id uint32) bool {
 	if e.Consumable != nil {
 		return e.Consumable.Allows(id)
 	} else {

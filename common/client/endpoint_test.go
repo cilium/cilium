@@ -13,10 +13,16 @@ import (
 )
 
 var (
-	EpAddr          = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
-	NodeAddr        = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr        = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel uint32 = 0x100
+	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
+	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+	HardAddr = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel = &types.SecCtxLabel{
+		Labels: types.Labels{
+			"foo": types.NewLabel("foo", "", ""),
+		},
+		RefCount: 1,
+		ID:       0x100,
+	}
 )
 
 func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
@@ -27,7 +33,7 @@ func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -71,7 +77,7 @@ func (s *CiliumNetClientSuite) TestEndpointCreateFail(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -97,7 +103,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "eth0",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -127,7 +133,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "eth0",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -145,7 +151,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "eth0",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")
@@ -203,7 +209,7 @@ func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 			NodeIP:        NodeAddr,
 			IfName:        "eth0",
 			DockerNetwork: "dockernetwork",
-			SecLabelID:    SecLabel,
+			SecLabel:      SecLabel,
 		},
 		types.Endpoint{
 			LXCMAC:        HardAddr,
@@ -212,7 +218,7 @@ func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 			NodeIP:        NodeAddr,
 			IfName:        "eth0",
 			DockerNetwork: "dockernetwork",
-			SecLabelID:    SecLabel,
+			SecLabel:      SecLabel,
 		},
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

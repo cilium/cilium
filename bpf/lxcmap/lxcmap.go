@@ -133,7 +133,7 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		// Store security label in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
-		SecLabelID: common.Swab32(ep.SecLabelID),
+		SecLabelID: common.Swab32(ep.SecLabel.ID),
 		MAC:        MAC(mac),
 		NodeMAC:    MAC(nodeMAC),
 	}
