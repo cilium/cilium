@@ -1,9 +1,13 @@
 package common
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"syscall"
 
 	l "github.com/op/go-logging"
@@ -135,4 +139,28 @@ func SetupLOG(logger *l.Logger, logLevel string) {
 	backendLeveled := l.SetBackend(oBF)
 	backendLeveled.SetLevel(level, "")
 	logger.SetBackend(backendLeveled)
+}
+
+// GetGroupIDByName returns the group ID for the given grpName.
+func GetGroupIDByName(grpName string) (int, error) {
+	f, err := os.Open(GroupFilePath)
+	if err != nil {
+		return -1, err
+	}
+	defer f.Close()
+	br := bufio.NewReader(f)
+	for {
+		s, err := br.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return -1, err
+		}
+		p := strings.Split(s, ":")
+		if len(p) >= 3 && p[0] == grpName {
+			return strconv.Atoi(p[2])
+		}
+	}
+	return -1, fmt.Errorf("group %q not found", grpName)
 }

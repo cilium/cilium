@@ -25,3 +25,4 @@ clean:
 $(TARGET):
 
 install:
+	groupadd -f cilium

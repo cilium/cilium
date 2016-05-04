@@ -75,6 +75,10 @@ const (
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
 	// represent the same number of IPv6 addresses supported on each node.
 	EndpointsPerHost = 0xFFFF
+	// GroupFilePath is the unix group file path.
+	GroupFilePath = "/etc/group"
+	// CiliumGroupName is the cilium's unix group name.
+	CiliumGroupName = "cilium"
 
 	// Endpoint prefixes
 
