@@ -49,12 +49,6 @@ func init() {
 				Name:   "list",
 				Usage:  "Dumps a list of all daemon's endpoints",
 				Action: dumpEndpoints,
-				Flags: []cli.Flag{
-					cli.BoolFlag{
-						Name:  "id, i",
-						Usage: "Don't resolve label's ID",
-					},
-				},
 			},
 			{
 				Name:  "nat46",
@@ -250,7 +244,7 @@ func dumpMap(ctx *cli.Context) {
 
 	if lbl != "" {
 		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
-			lbl = "reserved_" + strconv.Itoa(int(id))
+			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "Need ID or label\n")
@@ -284,7 +278,7 @@ func dumpMap(ctx *cli.Context) {
 
 	for _, stat := range statsMap {
 		if !printIDs {
-			secCtxLbl, err := client.GetLabels(int(stat.ID))
+			secCtxLbl, err := client.GetLabels(stat.ID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
 					stat.ID, err)
@@ -337,7 +331,7 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 
 	if lbl != "" {
 		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
-			lbl = "reserved_" + strconv.Itoa(int(id))
+			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "Need ID or label\n")
@@ -507,8 +501,6 @@ func getStatusDropNotify(ctx *cli.Context) {
 }
 
 func dumpEndpoints(ctx *cli.Context) {
-	printIDs := ctx.Bool("id")
-
 	eps, err := client.EndpointsGet()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while getting endpoints from daemon: %s\n", err)
@@ -529,44 +521,26 @@ func dumpEndpoints(ctx *cli.Context) {
 		ipv6Title      = "IPv6"
 		endpointTitle  = "ENDPOINT ID"
 	)
-	labelsID := map[uint32]*types.SecCtxLabel{}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title)
 
 	for _, ep := range eps {
-		if !printIDs {
-			secCtxLbl, err := client.GetLabels(int(ep.SecLabelID))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
-					ep.SecLabelID, err)
-			}
-			if secCtxLbl == nil {
-				fmt.Fprintf(os.Stderr, "Label with ID %d was not found\n",
-					ep.SecLabelID)
-			}
-			labelsID[ep.SecLabelID] = secCtxLbl
-		}
-	}
-
-	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t\n", endpointTitle, labelsIDTitle, ipv6Title)
-	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title)
-	}
-
-	for _, ep := range eps {
-		if printIDs {
-			fmt.Fprintf(w, "%s\t%d\t%s\t\n", ep.ID, ep.SecLabelID, ep.LXCIP.String())
-		} else if lbls := labelsID[ep.SecLabelID]; lbls != nil && len(lbls.Labels) != 0 {
-			first := true
-			for _, lbl := range lbls.Labels {
-				if first {
-					fmt.Fprintf(w, "%s\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabelID, lbl, ep.LXCIP.String())
-					first = false
-				} else {
-					fmt.Fprintf(w, "\t\t%s\t\t\n", lbl)
+		if ep.SecLabel != nil {
+			if len(ep.SecLabel.Labels) != 0 {
+				first := true
+				for _, lbl := range ep.SecLabel.Labels {
+					if first {
+						fmt.Fprintf(w, "%s\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, lbl, ep.LXCIP.String())
+						first = false
+					} else {
+						fmt.Fprintf(w, "\t\t%s\t\t\n", lbl)
+					}
 				}
+			} else {
+				fmt.Fprintf(w, "%s\t%d\t%s\t\n", ep.ID, ep.SecLabel.ID, ep.LXCIP.String())
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t\n", ep.ID, ep.SecLabelID, ep.LXCIP.String())
+			fmt.Fprintf(w, "%s\t%s\t%s\t\n", ep.ID, "(empty sec label ID)", ep.LXCIP.String())
 		}
 	}
 	w.Flush()

@@ -161,7 +161,7 @@ func (d *Daemon) ActivateConsulWatcher(seconds time.Duration) {
 			}
 			qo.WaitIndex = q.LastIndex
 			go func() {
-				d.TriggerPolicyUpdates([]int{-1})
+				d.TriggerPolicyUpdates([]uint32{})
 			}()
 		}
 	}()
@@ -306,10 +306,10 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	// Perform the policy map updates after programs have been created
 	if isNew {
-		d.TriggerPolicyUpdates([]int{secCtxlabels.ID})
+		d.TriggerPolicyUpdates([]uint32{secCtxlabels.ID})
 	}
 
-	log.Infof("Added SecLabel %d to container %s", secCtxlabels.ID, dockerID)
+	log.Infof("Added SecLabelID %d to container %s", secCtxlabels.ID, dockerID)
 }
 
 func (d *Daemon) deleteContainer(m dTypesEvents.Message) {

@@ -26,7 +26,7 @@ func writeGeneve(lxcDir string, ep *types.Endpoint) ([]byte, error) {
 	// Write container options values for each available option in
 	// bpf/lib/geneve.h
 	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
-	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabelID))
+	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabel.ID))
 	if err != nil {
 		log.Warningf("Could not write geneve options %s", err)
 		return nil, err
@@ -125,24 +125,19 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	fmt.Fprintf(fw, " * MAC: %s\n"+
 		" * IPv6 address: %s\n"+
 		" * IPv4 address: %s\n"+
-		" * SecLabel: %#x\n"+
+		" * SecLabelID: %#x\n"+
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		ep.LXCMAC, ep.LXCIP, ep.IPv4Address(d.ipv4Range),
-		ep.SecLabelID, path.Base(policyMapPath), ep.NodeMAC)
-
-	secCtxLabels, err := d.GetLabels(int(ep.SecLabelID))
-	if err != nil {
-		return err
-	}
+		ep.SecLabel.ID, path.Base(policyMapPath), ep.NodeMAC)
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	if secCtxLabels == nil {
+	if len(ep.SecLabel.Labels) == 0 {
 		fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 	} else {
-		for _, v := range secCtxLabels.Labels {
+		for _, v := range ep.SecLabel.Labels {
 			fmt.Fprintf(fw, " * - %s\n", v)
 		}
 	}
@@ -152,8 +147,8 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.U16ID())
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
-	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabelID))
-	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabelID)
+	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel.ID))
+	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DISABLE_POLICY_ENFORCEMENT"))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("ENABLE_NAT46"))

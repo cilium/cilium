@@ -66,7 +66,7 @@ func (d Privilege) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, d)), nil
 }
 
-type ReservedID int
+type ReservedID uint32
 
 const (
 	ID_NAME_HOST  = "host"

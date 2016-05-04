@@ -50,8 +50,8 @@ func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsOK(c *C) {
-	s.d.OnGetLabels = func(id int) (*types.SecCtxLabel, error) {
-		c.Assert(id, Equals, 123)
+	s.d.OnGetLabels = func(id uint32) (*types.SecCtxLabel, error) {
+		c.Assert(id, Equals, uint32(123))
 		return &wantSecCtxLbls, nil
 	}
 
@@ -61,8 +61,8 @@ func (s *DaemonSuite) TestGetLabelsOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsFail(c *C) {
-	s.d.OnGetLabels = func(id int) (*types.SecCtxLabel, error) {
-		c.Assert(id, Equals, 123)
+	s.d.OnGetLabels = func(id uint32) (*types.SecCtxLabel, error) {
+		c.Assert(id, Equals, uint32(123))
 		return nil, errors.New("Unable to contact consul")
 	}
 
@@ -92,8 +92,8 @@ func (s *DaemonSuite) TestGetLabelsBySHA256Fail(c *C) {
 }
 
 func (s *DaemonSuite) TestDeleteLabelsByUUIDOK(c *C) {
-	s.d.OnDeleteLabelsByUUID = func(id int) error {
-		c.Assert(id, Equals, 123)
+	s.d.OnDeleteLabelsByUUID = func(id uint32) error {
+		c.Assert(id, Equals, uint32(123))
 		return nil
 	}
 
@@ -102,8 +102,8 @@ func (s *DaemonSuite) TestDeleteLabelsByUUIDOK(c *C) {
 }
 
 func (s *DaemonSuite) TestDeleteLabelsByUUIDFail(c *C) {
-	s.d.OnDeleteLabelsByUUID = func(id int) error {
-		c.Assert(id, Equals, 123)
+	s.d.OnDeleteLabelsByUUID = func(id uint32) error {
+		c.Assert(id, Equals, uint32(123))
 		return errors.New("Unable to contact consul")
 	}
 
@@ -132,18 +132,18 @@ func (s *DaemonSuite) TestDeleteLabelsBySHA256Fail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetMaxOK(c *C) {
-	s.d.OnGetMaxID = func() (int, error) {
+	s.d.OnGetMaxID = func() (uint32, error) {
 		return 100, nil
 	}
 
 	maxID, err := s.c.GetMaxID()
 	c.Assert(err, Equals, nil)
-	c.Assert(maxID, Equals, 100)
+	c.Assert(maxID, Equals, uint32(100))
 }
 
 func (s *DaemonSuite) TestGetMaxIDFail(c *C) {
-	s.d.OnGetMaxID = func() (int, error) {
-		return -1, errors.New("Unable to contact consul")
+	s.d.OnGetMaxID = func() (uint32, error) {
+		return 0, errors.New("Unable to contact consul")
 	}
 
 	_, err := s.c.GetMaxID()

@@ -213,7 +213,7 @@ func mainBPFUpdateKey(ctx *cli.Context) {
 		os.Exit(errInvalidArgument)
 		return
 	}
-	ifidx, err := strconv.ParseInt(ctx.Args().Get(2), 10, 32)
+	ifidx, err := strconv.ParseUint(ctx.Args().Get(2), 10, 32)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		printArgsUsage(ctx)

@@ -7,34 +7,34 @@ import (
 )
 
 type Consumer struct {
-	ID           int
+	ID           uint32
 	Reverse      *Consumer
 	DeletionMark bool
 	Decision     ConsumableDecision
 }
 
-func NewConsumer(id int) *Consumer {
+func NewConsumer(id uint32) *Consumer {
 	return &Consumer{ID: id, Decision: ACCEPT}
 }
 
 type Consumable struct {
-	ID           int                          `json:"id"`
+	ID           uint32                       `json:"id"`
 	Iteration    int                          `json:"-"`
 	Labels       *SecCtxLabel                 `json:"labels"`
 	LabelList    []Label                      `json:"-"`
 	Maps         map[int]*policymap.PolicyMap `json:"-"`
 	Consumers    map[string]*Consumer         `json:"consumers"`
-	ReverseRules map[int]*Consumer            `json:"-"`
+	ReverseRules map[uint32]*Consumer         `json:"-"`
 }
 
-func newConsumable(id int, labels *SecCtxLabel) *Consumable {
+func newConsumable(id uint32, labels *SecCtxLabel) *Consumable {
 	consumable := &Consumable{
 		ID:           id,
 		Iteration:    0,
 		Labels:       labels,
 		Maps:         map[int]*policymap.PolicyMap{},
 		Consumers:    map[string]*Consumer{},
-		ReverseRules: map[int]*Consumer{},
+		ReverseRules: map[uint32]*Consumer{},
 	}
 
 	if labels != nil {
@@ -53,9 +53,9 @@ func newConsumable(id int, labels *SecCtxLabel) *Consumable {
 	return consumable
 }
 
-var consumableCache = map[int]*Consumable{}
+var consumableCache = map[uint32]*Consumable{}
 
-func GetConsumable(id int, labels *SecCtxLabel) *Consumable {
+func GetConsumable(id uint32, labels *SecCtxLabel) *Consumable {
 	if v, ok := consumableCache[id]; ok {
 		return v
 	}
@@ -65,7 +65,7 @@ func GetConsumable(id int, labels *SecCtxLabel) *Consumable {
 	return consumableCache[id]
 }
 
-func LookupConsumable(id int) *Consumable {
+func LookupConsumable(id uint32) *Consumable {
 	v, _ := consumableCache[id]
 	return v
 }
@@ -82,13 +82,13 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	// Populate the new map with the already established consumers of
 	// this consumable
 	for _, c := range c.Consumers {
-		if err := m.AllowConsumer(uint32(c.ID)); err != nil {
+		if err := m.AllowConsumer(c.ID); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
 		}
 	}
 }
 
-func deleteReverseRule(consumable, consumer int) {
+func deleteReverseRule(consumable, consumer uint32) {
 	if reverse := LookupConsumable(consumable); reverse != nil {
 		delete(reverse.ReverseRules, consumer)
 		if reverse.wasLastRule(consumer) {
@@ -126,48 +126,48 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) Consumer(id int) *Consumer {
-	val, _ := c.Consumers[strconv.Itoa(id)]
+func (c *Consumable) Consumer(id uint32) *Consumer {
+	val, _ := c.Consumers[strconv.FormatUint(uint64(id), 10)]
 	return val
 }
 
-func (c *Consumable) isNewRule(id int) bool {
+func (c *Consumable) isNewRule(id uint32) bool {
 	r1 := c.ReverseRules[id] != nil
-	r2 := c.Consumers[strconv.Itoa(id)] != nil
+	r2 := c.Consumers[strconv.FormatUint(uint64(id), 10)] != nil
 
 	// golang has no XOR ... whaaa?
 	return (r1 || r2) && !(r1 && r2)
 }
 
-func (c *Consumable) addToMaps(id int) {
+func (c *Consumable) addToMaps(id uint32) {
 	for _, m := range c.Maps {
 		log.Debugf("Updating policy BPF map %s: allowing %d\n", m.String(), id)
-		if err := m.AllowConsumer(uint32(id)); err != nil {
+		if err := m.AllowConsumer(id); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
 		}
 	}
 }
 
-func (c *Consumable) wasLastRule(id int) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[strconv.Itoa(id)] == nil
+func (c *Consumable) wasLastRule(id uint32) bool {
+	return c.ReverseRules[id] == nil && c.Consumers[strconv.FormatUint(uint64(id), 10)] == nil
 }
 
-func (c *Consumable) removeFromMaps(id int) {
+func (c *Consumable) removeFromMaps(id uint32) {
 	for _, m := range c.Maps {
 		log.Debugf("Updating policy BPF map %s: denying %d\n", m.String(), id)
-		if err := m.DeleteConsumer(uint32(id)); err != nil {
+		if err := m.DeleteConsumer(id); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
 		}
 	}
 }
 
-func (c *Consumable) AllowConsumer(id int) *Consumer {
+func (c *Consumable) AllowConsumer(id uint32) *Consumer {
 	var consumer *Consumer
 
 	if consumer = c.Consumer(id); consumer == nil {
 		log.Debugf("New consumer %d for consumable %v", id, c)
 		consumer = NewConsumer(id)
-		c.Consumers[strconv.Itoa(id)] = consumer
+		c.Consumers[strconv.FormatUint(uint64(id), 10)] = consumer
 
 		if c.isNewRule(id) {
 			c.addToMaps(id)
@@ -179,7 +179,7 @@ func (c *Consumable) AllowConsumer(id int) *Consumer {
 	return consumer
 }
 
-func (c *Consumable) AllowConsumerAndReverse(id int) {
+func (c *Consumable) AllowConsumerAndReverse(id uint32) {
 	log.Debugf("Allowing direction %d -> %d\n", id, c.ID)
 	fwd := c.AllowConsumer(id)
 
@@ -197,8 +197,8 @@ func (c *Consumable) AllowConsumerAndReverse(id int) {
 	}
 }
 
-func (c *Consumable) BanConsumer(id int) {
-	n := strconv.Itoa(id)
+func (c *Consumable) BanConsumer(id uint32) {
+	n := strconv.FormatUint(uint64(id), 10)
 
 	if consumer, ok := c.Consumers[n]; ok {
 		log.Debugf("Removing consumer %v\n", consumer)
@@ -213,7 +213,7 @@ func (c *Consumable) BanConsumer(id int) {
 	}
 }
 
-func (c *Consumable) Allows(id int) bool {
+func (c *Consumable) Allows(id uint32) bool {
 	if consumer := c.Consumer(id); consumer != nil {
 		if consumer.Decision == ACCEPT {
 			return true

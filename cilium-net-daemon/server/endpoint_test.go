@@ -13,10 +13,16 @@ import (
 )
 
 var (
-	EpAddr          = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
-	NodeAddr        = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr        = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel uint32 = 0x200
+	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
+	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+	HardAddr = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel = &types.SecCtxLabel{
+		Labels: types.Labels{
+			"foo": types.NewLabel("foo", "", ""),
+		},
+		RefCount: 1,
+		ID:       0x100,
+	}
 )
 
 func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
@@ -27,7 +33,7 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -48,7 +54,7 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -69,7 +75,7 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -90,7 +96,7 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 	ep.SetID()
 
@@ -112,7 +118,7 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 		NodeIP:        NodeAddr,
 		IfName:        "ifname",
 		DockerNetwork: "dockernetwork",
-		SecLabelID:    SecLabel,
+		SecLabel:      SecLabel,
 	}
 
 	s.d.OnEndpointGet = func(epID string) (*types.Endpoint, error) {
@@ -124,7 +130,7 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 			NodeIP:        NodeAddr,
 			IfName:        "ifname",
 			DockerNetwork: "dockernetwork",
-			SecLabelID:    SecLabel,
+			SecLabel:      SecLabel,
 		}, nil
 	}
 
@@ -155,7 +161,7 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 			NodeIP:        NodeAddr,
 			IfName:        "ifname",
 			DockerNetwork: "dockernetwork",
-			SecLabelID:    SecLabel,
+			SecLabel:      SecLabel,
 		},
 		types.Endpoint{
 			LXCMAC:        HardAddr,
@@ -164,7 +170,7 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 			NodeIP:        NodeAddr,
 			IfName:        "ifname1",
 			DockerNetwork: "dockernetwork1",
-			SecLabelID:    SecLabel,
+			SecLabel:      SecLabel,
 		},
 	}
 
