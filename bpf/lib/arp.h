@@ -15,8 +15,8 @@
 static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr *responder_mac)
 {
 	union macaddr dmac = {};
-	__be32 tip = 0;
-	__be16 arpop = 0;
+	__be32 tip;
+	__be16 arpop;
 
 	if (likely(skb->protocol != __constant_htons(ETH_P_ARP)))
 		return 0;

@@ -82,7 +82,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 	__u32 flowlabel = FIXED_SRC_SECCTX;
 #else
 	__u32 flowlabel = 0;
-	union v6addr src = {};
+	union v6addr src;
 
 	ipv6_load_saddr(skb, ETH_HLEN, &src);
 	if (matches_cluster_prefix(&src, node_ip)) {
@@ -115,7 +115,7 @@ int from_netdev(struct __sk_buff *skb)
 	if (skb->protocol == __constant_htons(ETH_P_IP)) {
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = HOST_IP;
-		__u32 dst = 0;
+		__u32 dst;
 
 		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0)
 			return TC_ACT_SHOT;
@@ -132,7 +132,7 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
-		union v6addr dst = {};
+		union v6addr dst;
 		__u32 flowlabel;
 
 #ifdef HANDLE_NS

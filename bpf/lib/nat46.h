@@ -35,9 +35,8 @@ static inline int get_csum_offset(__u8 protocol)
 
 static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 {
-	struct icmphdr icmp4 = {};
+	struct icmphdr icmp4;
 	struct icmp6hdr icmp6 = {};
-	__be32 csum = 0;
 
 	if (skb_load_bytes(skb, nh_off, &icmp4, sizeof(icmp4)) < 0)
 		return TC_ACT_SHOT;
@@ -114,17 +113,13 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
-	csum = csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
-	//printk("icmp46 csum_diff %x\n", csum);
-
-	return csum;
+	return csum_diff(&icmp4, sizeof(icmp4), &icmp6, sizeof(icmp6), 0);
 }
 
 static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 {
 	struct icmphdr icmp4 = {};
-	struct icmp6hdr icmp6 = {};
-	__be32 csum = 0;
+	struct icmp6hdr icmp6;
 
 	if (skb_load_bytes(skb, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return TC_ACT_SHOT;
@@ -193,10 +188,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
-	csum = csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
-	//printk("icmp64 csum_diff %x\n", csum);
-
-	return csum;
+	return csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
 }
 
 static inline int ipv6_prefix_match(struct in6_addr *addr,
@@ -221,10 +213,10 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 			       union v6addr *v6predix_dst)
 {
 	struct ipv6hdr v6 = {};
-	struct iphdr v4 = {};
+	struct iphdr v4;
 	int csum_off;
 	int pushoff;
-	__be32 csum = 0;
+	__be32 csum;
 	__be16 v4hdr_len;
 	__be16 protocol = htons(ETH_P_IPV6);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
@@ -267,6 +259,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
 					       ntohs(v6.payload_len), csum);
 	} else {
+		csum = 0;
 		csum = csum_diff(&v4.saddr, 4, &v6.saddr, 16, csum);
 		csum = csum_diff(&v4.daddr, 4, &v6.daddr, 16, csum);
 		if (v4.protocol == IPPROTO_UDP)
@@ -302,7 +295,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 			       union v6addr *v6prefix_dst,
 			       __u32 saddr)
 {
-	struct ipv6hdr v6 = {};
+	struct ipv6hdr v6;
 	struct iphdr v4 = {};
 	int pushoff = -20;
 	int csum_off;
