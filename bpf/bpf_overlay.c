@@ -35,7 +35,14 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 
 		return TC_ACT_SHOT;
 	} else {
-		return local_delivery(skb, nh_off, &dst, ntohl(tunnel_id));
+		int ret;
+
+		switch ((ret = local_delivery(skb, nh_off, &dst, ntohl(tunnel_id)))) {
+		case SEND_TIME_EXCEEDED:
+			return icmp6_send_time_exceeded(skb, ETH_HLEN);
+		default:
+			return ret;
+		}
 	}
 }
 

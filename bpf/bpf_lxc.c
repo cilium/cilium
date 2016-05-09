@@ -167,7 +167,12 @@ int handle_ingress(struct __sk_buff *skb)
 	}
 
 	/* Perform L3 action on the frame */
-	return do_l3_from_lxc(skb, ETH_HLEN);
+	switch ((ret = do_l3_from_lxc(skb, ETH_HLEN))) {
+	case SEND_TIME_EXCEEDED:
+		return icmp6_send_time_exceeded(skb, ETH_HLEN);
+	default:
+		return ret;
+	}
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
