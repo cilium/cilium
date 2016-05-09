@@ -6,6 +6,7 @@ V4RANGE=$3
 MODE=$4
 
 HOST_ID="host"
+WORLD_ID="world"
 
 set -e
 set -x
@@ -99,7 +100,9 @@ elif [ "$MODE" = "direct" ]; then
 		tc qdisc del dev $DEV clsact 2> /dev/null || true
 		tc qdisc add dev $DEV clsact
 
-		clang $CLANG_OPTS -c $LIB/bpf_netdev.c -o bpf_netdev.o
+		ID=$(cilium policy get-id $WORLD_ID 2> /dev/null)
+		OPTS="$CLANG_OPTS -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+		clang $OPTS -c $LIB/bpf_netdev.c -o bpf_netdev.o
 
 		tc filter add dev $DEV ingress bpf da obj bpf_netdev.o sec from-netdev
 	fi
