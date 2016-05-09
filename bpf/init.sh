@@ -21,7 +21,7 @@ function mac2array()
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -DENABLE_NAT46"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -DENABLE_NAT46 -DENABLE_ARP_RESPONDER"
 
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
