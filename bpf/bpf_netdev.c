@@ -103,10 +103,12 @@ int from_netdev(struct __sk_buff *skb)
 	union v6addr node_ip = { . addr = ROUTER_IP };
 
 #ifdef ENABLE_ARP_RESPONDER
-	union macaddr responder_mac = HOST_IFINDEX_MAC;
-	if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
-		tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
-		return TC_ACT_SHOT;
+	if (unlikely(skb->protocol == __constant_htons(ETH_P_ARP))) {
+		union macaddr responder_mac = HOST_IFINDEX_MAC;
+		if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
+			tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
+			return TC_ACT_SHOT;
+		}
 	}
 #endif
 
