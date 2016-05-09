@@ -9,7 +9,6 @@
 #include "lxc_map.h"
 #include "icmp6.h"
 #include "geneve.h"
-#include "conntrack.h"
 
 /* validating options on tx is optional */
 #define VALIDATE_GENEVE_TX
@@ -95,7 +94,7 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 	__u16 lxc_id = derive_lxc_id(dst);
 	int ret = 0;
 
-	printk("L3 to lxc-id: %x\n", lxc_id);
+	printk("Local L3 - lxc-id: %x\n", lxc_id);
 
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
@@ -111,63 +110,13 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 			map_lxc_in(skb, nh_off, dst_lxc);
 #endif /* DISABLE_PORT_MAP */
 
-		printk("Target ifindex %u dstctx=%d\n",
+		printk("L3 to ifindex %u ID: %d\n",
 			dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
 
 		skb->cb[0] = seclabel;
 		skb->cb[1] = dst_lxc->ifindex;
 
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
-		printk("No policy program found, dropping\n");
-		return TC_ACT_SHOT;
-	} else {
-		printk("No match\n");
-	}
-
-	return TC_ACT_UNSPEC;
-}
-
-static inline int __inline__ do_l3_ct(struct __sk_buff *skb, int nh_off,
-				      struct ipv6_ct_tuple *tuple)
-{
-	struct lxc_info *dst_lxc;
-	__u16 lxc_id = derive_lxc_id(&tuple->dst);
-	int ret = 0;
-
-	printk("Local L3 - dst id: %x\n", lxc_id);
-
-	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
-	if (dst_lxc) {
-		mac_t lxc_mac = dst_lxc->mac;
-		mac_t router_mac = dst_lxc->node_mac;
-		__u32 secctx = ntohl(dst_lxc->sec_label);
-
-		/* FIXME: clean this up */
-		skb->cb[0] = tuple->secctx;
-		tuple->secctx = secctx;
-
-#ifndef DISABLE_CONNTRACK
-		skb->cb[CB_STATE] = ct_lookup6(skb, nh_off, tuple);
-		if (skb->cb[CB_STATE] == CT_INVALID)
-			return TC_ACT_SHOT;
-#endif /* !DISABLE_CONNTRACK */
-
-		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
-		if (ret != TC_ACT_OK)
-			return ret;
-
-#ifndef DISABLE_PORT_MAP
-		if (dst_lxc->portmap[0].to)
-			map_lxc_in(skb, nh_off, dst_lxc);
-#else
-		//printk("Port mapping disabled, skipping.\n");
-#endif /* DISABLE_PORT_MAP */
-
-		printk("L3 to ifindex %u ID: %d\n", dst_lxc->ifindex, secctx);
-
-		skb->cb[1] = dst_lxc->ifindex;
-
-		tail_call(skb, &cilium_jmp, secctx);
 		printk("No policy program found, dropping\n");
 		return TC_ACT_SHOT;
 	} else {

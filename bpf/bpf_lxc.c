@@ -17,7 +17,6 @@
 #include "lib/l3.h"
 #include "lib/lxc.h"
 #include "lib/nat46.h"
-#include "lib/conntrack.h"
 
 #ifdef DROP_NOTIFY
 #include "lib/drop.h"
@@ -47,22 +46,20 @@ static inline void map_lxc_out(struct __sk_buff *skb, int off)
 }
 #endif /* DISABLE_PORT_MAP */
 
-static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off,
-					    struct ipv6_ct_tuple *tuple)
+static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
+	union v6addr dst = {};
 	__u32 node_id;
 	int to_host = 0, do_nat46 = 0;
 
-	printk("L3 from lxc len=%d\n", skb->len);
+	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
 
-	if (ipv6_load_saddr(skb, nh_off, &tuple->src) < 0 ||
-	    ipv6_load_daddr(skb, nh_off, &tuple->dst) < 0)
+	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
+	    verify_dst_mac(skb))
 		return TC_ACT_SHOT;
 
-	if (verify_src_mac(skb) || verify_src_ip(tuple) || verify_dst_mac(skb))
-		return TC_ACT_SHOT;
-
-	node_id = ipv6_derive_node_id(&tuple->dst);
+	ipv6_load_daddr(skb, nh_off, &dst);
+	node_id = ipv6_derive_node_id(&dst);
 
 #ifndef DISABLE_PORT_MAP
 	map_lxc_out(skb, nh_off);
@@ -75,7 +72,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off,
 		union v6addr host_ip = HOST_IP;
 
 		/* Packets to the host are punted to a dummy device */
-		if (ipv6_addrcmp(&tuple->dst, &host_ip) == 0)
+		if (ipv6_addrcmp(&dst, &host_ip) == 0)
 			to_host = 1;
 	}
 #endif
@@ -84,7 +81,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off,
 	if (1) {
 		/* FIXME: Derive from prefix constant */
 		__u32 p = 0;
-		p = tuple->dst.p1 & 0xffff;
+		p = dst.p1 & 0xffff;
 		if (p == 0xadde) {
 			to_host = 1;
 			do_nat46 = 1;
@@ -92,23 +89,9 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off,
 	}
 #endif
 
-#ifndef DISABLE_CONNTRACK
-	/* Create connection tracking entry for all outgoing packets so replies
-	 * can be related. */
-	ct_create6(skb, nh_off, SECLABEL);
-#endif
-
 	if (unlikely(to_host)) {
 		union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
 		int ret;
-
-		tuple->secctx = HOST_ID;
-
-#ifndef DISABLE_CONNTRACK
-		skb->cb[CB_STATE] = ct_lookup6(skb, nh_off, tuple);
-		if (skb->cb[CB_STATE] == CT_INVALID)
-			return TC_ACT_SHOT;
-#endif /* DISABLE_CONNTRACK */
 
 		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
@@ -156,17 +139,15 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off,
 		return TC_ACT_OK;
 #endif
 	} else {
-		return do_l3_ct(skb, nh_off, tuple);
+		return do_l3(skb, nh_off, &dst, SECLABEL);
 	}
 }
 
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
 {
-	struct ipv6_ct_tuple tuple = {
-		.secctx = SECLABEL,
-	};
 	int ret, nh_off = ETH_HLEN;
+	__u8 nexthdr;
 
 	/* Drop all non IPv6 traffic */
 	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6)))
@@ -175,15 +156,15 @@ int handle_ingress(struct __sk_buff *skb)
 	/* Handle ICMPv6 messages to the logical router, all other ICMPv6
 	 * messages are passed on to the container (REDIRECT_TO_LXC)
 	 */
-	tuple.nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
-	if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
+	nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
+	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(skb, nh_off);
 		if (ret != REDIRECT_TO_LXC)
 			return ret;
 	}
 
 	/* Perform L3 action on the frame */
-	return do_l3_from_lxc(skb, nh_off, &tuple);
+	return do_l3_from_lxc(skb, nh_off);
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
@@ -196,11 +177,6 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 #ifndef DISABLE_POLICY_ENFORCEMENT
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
-
-#ifndef DISABLE_CONNTRACK
-	if (skb->cb[CB_STATE] == CT_REPLY)
-		goto allow;
-#endif /* DISABLE_CONNTRACK */
 
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (unlikely(!policy)) {
@@ -216,13 +192,6 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	}
 	__sync_fetch_and_add(&policy->packets, 1);
 	__sync_fetch_and_add(&policy->bytes, skb->len);
-
-#ifndef DISABLE_CONNTRACK
-	/* Create connection tracking entry in reverse direction */
-	ct_create6(skb, ETH_HLEN, SECLABEL);
-allow:
-#endif /* DISABLE_CONNTRACK */
-
 #endif
 
 	return redirect(ifindex, 0);
