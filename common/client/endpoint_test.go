@@ -27,13 +27,13 @@ var (
 
 func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -71,13 +71,13 @@ func (s *CiliumNetClientSuite) TestEndpointCreateFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -97,13 +97,13 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "eth0",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "eth0",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -127,13 +127,13 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "eth0",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "eth0",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -145,13 +145,13 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 
 func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
 	epOut := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "eth0",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "eth0",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")
@@ -203,22 +203,22 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 	epsOut := []types.Endpoint{
 		types.Endpoint{
-			LXCMAC:        HardAddr,
-			LXCIP:         EpAddr,
-			NodeMAC:       HardAddr,
-			NodeIP:        NodeAddr,
-			IfName:        "eth0",
-			DockerNetwork: "dockernetwork",
-			SecLabel:      SecLabel,
+			LXCMAC:          HardAddr,
+			LXCIP:           EpAddr,
+			NodeMAC:         HardAddr,
+			NodeIP:          NodeAddr,
+			IfName:          "eth0",
+			DockerNetworkID: "dockernetwork",
+			SecLabel:        SecLabel,
 		},
 		types.Endpoint{
-			LXCMAC:        HardAddr,
-			LXCIP:         EpAddr,
-			NodeMAC:       HardAddr,
-			NodeIP:        NodeAddr,
-			IfName:        "eth0",
-			DockerNetwork: "dockernetwork",
-			SecLabel:      SecLabel,
+			LXCMAC:          HardAddr,
+			LXCIP:           EpAddr,
+			NodeMAC:         HardAddr,
+			NodeIP:          NodeAddr,
+			IfName:          "eth0",
+			DockerNetworkID: "dockernetwork",
+			SecLabel:        SecLabel,
 		},
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

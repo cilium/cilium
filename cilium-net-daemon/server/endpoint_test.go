@@ -27,13 +27,13 @@ var (
 
 func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -48,13 +48,13 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 
 func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -69,13 +69,13 @@ func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
 
 func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -90,13 +90,13 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 
 func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	ep := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 	ep.SetID()
 
@@ -112,25 +112,25 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 	epIDOutside := strconv.FormatUint(uint64(common.EndpointAddr2ID(EpAddr)), 10)
 	epWanted := types.Endpoint{
-		LXCMAC:        HardAddr,
-		LXCIP:         EpAddr,
-		NodeMAC:       HardAddr,
-		NodeIP:        NodeAddr,
-		IfName:        "ifname",
-		DockerNetwork: "dockernetwork",
-		SecLabel:      SecLabel,
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
 	}
 
 	s.d.OnEndpointGet = func(epID string) (*types.Endpoint, error) {
 		c.Assert(epIDOutside, Equals, epID)
 		return &types.Endpoint{
-			LXCMAC:        HardAddr,
-			LXCIP:         EpAddr,
-			NodeMAC:       HardAddr,
-			NodeIP:        NodeAddr,
-			IfName:        "ifname",
-			DockerNetwork: "dockernetwork",
-			SecLabel:      SecLabel,
+			LXCMAC:          HardAddr,
+			LXCIP:           EpAddr,
+			NodeMAC:         HardAddr,
+			NodeIP:          NodeAddr,
+			IfName:          "ifname",
+			DockerNetworkID: "dockernetwork",
+			SecLabel:        SecLabel,
 		}, nil
 	}
 
@@ -155,22 +155,22 @@ func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 	epsWanted := []types.Endpoint{
 		types.Endpoint{
-			LXCMAC:        HardAddr,
-			LXCIP:         EpAddr,
-			NodeMAC:       HardAddr,
-			NodeIP:        NodeAddr,
-			IfName:        "ifname",
-			DockerNetwork: "dockernetwork",
-			SecLabel:      SecLabel,
+			LXCMAC:          HardAddr,
+			LXCIP:           EpAddr,
+			NodeMAC:         HardAddr,
+			NodeIP:          NodeAddr,
+			IfName:          "ifname",
+			DockerNetworkID: "dockernetwork",
+			SecLabel:        SecLabel,
 		},
 		types.Endpoint{
-			LXCMAC:        HardAddr,
-			LXCIP:         EpAddr,
-			NodeMAC:       HardAddr,
-			NodeIP:        NodeAddr,
-			IfName:        "ifname1",
-			DockerNetwork: "dockernetwork1",
-			SecLabel:      SecLabel,
+			LXCMAC:          HardAddr,
+			LXCIP:           EpAddr,
+			NodeMAC:         HardAddr,
+			NodeIP:          NodeAddr,
+			IfName:          "ifname1",
+			DockerNetworkID: "dockernetwork1",
+			SecLabel:        SecLabel,
 		},
 	}
 

@@ -33,6 +33,7 @@ var (
 	labelPrefixFile    string
 	libDir             string
 	nodeAddrStr        string
+	restoreState       bool
 	runDir             string
 	socketPath         string
 	v4range            string
@@ -113,6 +114,11 @@ func init() {
 				Name:        "n",
 				Value:       "",
 				Usage:       "IPv6 address of node, must be in correct format",
+			},
+			cli.BoolTFlag{
+				Destination: &restoreState,
+				Name:        "restore-state",
+				Usage:       "Restore state from previous daemon",
 			},
 			cli.StringFlag{
 				Destination: &runDir,
@@ -318,6 +324,7 @@ func run(cli *cli.Context) {
 		EnableTracing:      enableTracing,
 		ValidLabelPrefixes: validLabelPrefixes,
 		DisablePolicy:      disablePolicy,
+		RestoreState:       restoreState,
 	}
 
 	d, err := daemon.NewDaemon(&daemonConf)

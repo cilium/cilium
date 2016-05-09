@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -163,4 +164,37 @@ func GetGroupIDByName(grpName string) (int, error) {
 		}
 	}
 	return -1, fmt.Errorf("group %q not found", grpName)
+}
+
+// FindEPConfigCHeader returns the full path of the file that is the CHeaderFileName from
+// the slice of files
+func FindEPConfigCHeader(basePath string, epFiles []os.FileInfo) string {
+	for _, epFile := range epFiles {
+		if epFile.Name() == CHeaderFileName {
+			return filepath.Join(basePath, epFile.Name())
+		}
+	}
+	return ""
+}
+
+// GetCiliumVersionString returns the first line containing CiliumCHeaderPrefix.
+func GetCiliumVersionString(epCHeaderFilePath string) (string, error) {
+	f, err := os.Open(epCHeaderFilePath)
+	if err != nil {
+		return "", err
+	}
+	br := bufio.NewReader(f)
+	defer f.Close()
+	for {
+		s, err := br.ReadString('\n')
+		if err == io.EOF {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if strings.Contains(s, CiliumCHeaderPrefix) {
+			return s, nil
+		}
+	}
 }

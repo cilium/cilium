@@ -15,6 +15,7 @@ type TestDaemon struct {
 	OnAllocateIPs          func(containerID string) (*types.IPAMConfig, error)
 	OnReleaseIPs           func(containerID string) error
 	OnPing                 func() (*types.PingResponse, error)
+	OnSyncState            func(path string, clean bool) error
 	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
 	OnGetLabels            func(id uint32) (*types.SecCtxLabel, error)
 	OnGetLabelsBySHA256    func(sha256sum string) (*types.SecCtxLabel, error)
@@ -71,6 +72,13 @@ func (d TestDaemon) Ping() (*types.PingResponse, error) {
 		return d.OnPing()
 	}
 	return nil, errors.New("Ping should not have been called")
+}
+
+func (d TestDaemon) SyncState(path string, clean bool) error {
+	if d.OnSyncState != nil {
+		return d.OnSyncState(path, clean)
+	}
+	return errors.New("SyncState should not have been called")
 }
 
 func (d TestDaemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {

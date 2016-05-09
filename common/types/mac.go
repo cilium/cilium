@@ -31,6 +31,7 @@ func (m MAC) Uint64() (uint64, error) {
 }
 
 func (m MAC) MarshalJSON() ([]byte, error) {
+	// FIXME: mac can be empty
 	if len(m) != 6 {
 		return nil, fmt.Errorf("invalid MAC address length %s", string(m))
 	}

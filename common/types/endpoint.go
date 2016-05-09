@@ -1,10 +1,14 @@
 package types
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
@@ -23,20 +27,21 @@ type EPOpts map[string]bool
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID            string               `json:"id"`              // Endpoint ID.
-	DockerID      string               `json:"docker-id"`       // Docker ID.
-	DockerNetwork string               `json:"docker-network"`  // Docker network ID.
-	IfName        string               `json:"interface-name"`  // Container's interface name.
-	LXCMAC        MAC                  `json:"lxc-mac"`         // Container MAC address.
-	LXCIP         net.IP               `json:"lxc-ip"`          // Container IPv6 address.
-	IfIndex       int                  `json:"interface-index"` // Host's interface index.
-	NodeMAC       MAC                  `json:"node-mac"`        // Node MAC address.
-	NodeIP        net.IP               `json:"node-ip"`         // Node IPv6 address.
-	SecLabel      *SecCtxLabel         `json:"security-label"`  // Security Label  set to this endpoint.
-	PortMap       []EPPortMap          `json:"port-mapping"`    // Port mapping used for this endpoint.
-	Consumable    *Consumable          `json:"consumable"`
-	PolicyMap     *policymap.PolicyMap `json:"-"`
-	Opts          EPOpts               `json:"options"` // Endpoint bpf options.
+	ID               string               `json:"id"`                 // Endpoint ID.
+	DockerID         string               `json:"docker-id"`          // Docker ID.
+	DockerNetworkID  string               `json:"docker-network-id"`  // Docker network ID.
+	DockerEndpointID string               `json:"docker-endpoint-id"` // Docker endpoint ID.
+	IfName           string               `json:"interface-name"`     // Container's interface name.
+	LXCMAC           MAC                  `json:"lxc-mac"`            // Container MAC address.
+	LXCIP            net.IP               `json:"lxc-ip"`             // Container IPv6 address.
+	IfIndex          int                  `json:"interface-index"`    // Host's interface index.
+	NodeMAC          MAC                  `json:"node-mac"`           // Node MAC address.
+	NodeIP           net.IP               `json:"node-ip"`            // Node IPv6 address.
+	SecLabel         *SecCtxLabel         `json:"security-label"`     // Security Label  set to this endpoint.
+	PortMap          []EPPortMap          `json:"port-mapping"`       // Port mapping used for this endpoint.
+	Consumable       *Consumable          `json:"consumable"`
+	PolicyMap        *policymap.PolicyMap `json:"-"`
+	Opts             EPOpts               `json:"options"` // Endpoint bpf options.
 }
 
 // U16ID returns the endpoint's ID as uint16.
@@ -132,4 +137,51 @@ func (epS *epSorter) Swap(i, j int) {
 
 func (epS *epSorter) Less(i, j int) bool {
 	return epS.by(&epS.eps[i], &epS.eps[j])
+}
+
+// Base64 returns the endpoint in a base64 format.
+func (ep Endpoint) Base64() (string, error) {
+	jsonBytes, err := json.Marshal(ep)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(jsonBytes), nil
+}
+
+// ParseBase64ToEndpoint parses the endpoint stored in the given base64 string.
+func ParseBase64ToEndpoint(str string, ep *Endpoint) error {
+	jsonBytes, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(jsonBytes, ep)
+}
+
+// FilterEPDir returns a list of directories' names that possible belong to an endpoint.
+func FilterEPDir(dirFiles []os.FileInfo) []string {
+	eptsID := []string{}
+	for _, file := range dirFiles {
+		if file.IsDir() {
+			if _, err := strconv.ParseUint(file.Name(), 10, 16); err == nil {
+				eptsID = append(eptsID, file.Name())
+			}
+		}
+	}
+	return eptsID
+}
+
+// ParseEndpoint parses the given strEp which is in the form of:
+// common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
+func ParseEndpoint(strEp string) (*Endpoint, error) {
+	// TODO: Provide a better mechanism to update from old version once we bump
+	// TODO: cilium version.
+	strEpSlice := strings.Split(strEp, ":")
+	if len(strEpSlice) != 2 {
+		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", strEp)
+	}
+	var ep Endpoint
+	if err := ParseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
+		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
+	}
+	return &ep, nil
 }

@@ -26,7 +26,8 @@ type Labels map[string]*Label
 // SecCtxLabel is the representation of the security context for a particular set of
 // labels.
 type SecCtxLabel struct {
-	ID       uint32 `json:"id"`        // SecCtxLabel's ID.
+	ID uint32 `json:"id"` // SecCtxLabel's ID.
+	//TODO: a better approach needs to be done sense RefCount is not reliable
 	RefCount int    `json:"ref-count"` // Number of containers that have this SecCtxLabel.
 	Labels   Labels `json:"labels"`    // Set of labels that belong to this SecCtxLabel.
 }
