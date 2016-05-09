@@ -26,7 +26,7 @@
 static inline void map_lxc_out(struct __sk_buff *skb, int off)
 {
 	int i;
-	__u8 nexthdr = 0;
+	__u8 nexthdr;
 	struct portmap local_map[] = {
 #ifdef LXC_PORT_MAPPINGS
 		LXC_PORT_MAPPINGS
