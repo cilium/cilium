@@ -31,8 +31,10 @@ static inline void do_udp_port_map_in(struct __sk_buff *skb, int off,
 static inline void do_port_map_in(struct __sk_buff *skb, int off, __u8 proto,
 				  struct portmap *map)
 {
+#ifdef DEBUG_PORTMAP
 	printk("Port map in: proto %u from: %u to: %u\n",
 		proto, ntohs(map->from), ntohs(map->to));
+#endif
 
 	switch (proto) {
 	case IPPROTO_TCP:
@@ -70,8 +72,10 @@ static inline void do_udp_port_map_out(struct __sk_buff *skb, int off,
 static inline void do_port_map_out(struct __sk_buff *skb, int off, __u8 proto,
 				   struct portmap *map)
 {
+#ifdef DEBUG_PORTMAP
 	printk("Port map out: proto %u from: %u to: %u\n",
 		proto, ntohs(map->from), ntohs(map->to));
+#endif
 
 	switch (proto) {
 	case IPPROTO_TCP:

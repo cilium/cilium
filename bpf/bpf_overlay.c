@@ -21,13 +21,18 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 	union v6addr dst = {};
 	__u32 node_id;
 
-	printk("L3 from overlay: skb %p len %d\n", skb, skb->len);
+#ifdef DEBUG_FLOW
+	printk("From overlay: skb %p len %d\n", skb, skb->len);
+#endif
 
 	ipv6_load_daddr(skb, nh_off, &dst);
 	node_id = ipv6_derive_node_id(&dst);
 
 	if (unlikely(node_id != NODE_ID)) {
+#ifdef DEBUG_FLOW
 		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
+#endif
+
 		return TC_ACT_SHOT;
 	} else {
 		return do_l3(skb, nh_off, &dst, ntohl(tunnel_id));

@@ -34,7 +34,6 @@ static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 
 	hoplimit = load_byte(skb, off + offsetof(struct ipv6hdr, hop_limit));
 	if (hoplimit <= 1) {
-		printk("Hoplimit reached 0\n");
 		return 1;
 	}
 

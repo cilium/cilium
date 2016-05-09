@@ -44,6 +44,10 @@ static inline void map_lxc_out(struct __sk_buff *skb, int off)
 	for (i = 0; i < NR_PORTMAPS; i++)
 		do_port_map_out(skb, off, nexthdr, &local_map[i]);
 }
+#else
+static inline void map_lxc_out(struct __sk_buff *skb, int off)
+{
+}
 #endif /* DISABLE_PORT_MAP */
 
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
@@ -52,7 +56,9 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	__u32 node_id;
 	int to_host = 0, do_nat46 = 0;
 
-	printk("L3 from lxc: skb %p len %d\n", skb, skb->len);
+#ifdef DEBUG_FLOW
+	printk("From lxc: skb %p len %d\n", skb, skb->len);
+#endif
 
 	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
 	    verify_dst_mac(skb))
@@ -60,12 +66,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	ipv6_load_daddr(skb, nh_off, &dst);
 	node_id = ipv6_derive_node_id(&dst);
-
-#ifndef DISABLE_PORT_MAP
 	map_lxc_out(skb, nh_off);
-#endif /* DISABLE_PORT_MAP */
-
-	printk("node_id %x local %x\n", node_id, NODE_ID);
 
 #ifdef HOST_IFINDEX
 	if (1) {
@@ -111,7 +112,9 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		skb->cb[1] = HOST_IFINDEX;
 
 		tail_call(skb, &cilium_jmp, HOST_ID);
+#ifdef DEBUG_POLICY
 		printk("No policy program found, dropping packet to host\n");
+#endif
 		return TC_ACT_SHOT;
 #endif
 	}
@@ -183,15 +186,18 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 #ifdef DROP_NOTIFY
 		send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
 #endif
+
+#ifdef DEBUG_POLICY
 		printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
-#ifdef IGNORE_DROP
-		return redirect(ifindex, 0);
-#else
+#endif
+
+#ifndef IGNORE_DROP
 		return TC_ACT_SHOT;
 #endif
+	} else {
+		__sync_fetch_and_add(&policy->packets, 1);
+		__sync_fetch_and_add(&policy->bytes, skb->len);
 	}
-	__sync_fetch_and_add(&policy->packets, 1);
-	__sync_fetch_and_add(&policy->bytes, skb->len);
 #endif
 
 	return redirect(ifindex, 0);
