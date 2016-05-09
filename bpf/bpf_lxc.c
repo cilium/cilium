@@ -52,6 +52,7 @@ static inline void map_lxc_out(struct __sk_buff *skb, int off)
 
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
+	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
 	union v6addr dst = {};
 	__u32 node_id = 0;
@@ -88,7 +89,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	}
 
 	if (unlikely(to_host)) {
-		union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
+		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
 		ret = __do_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
@@ -132,7 +133,6 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #endif
 
 	if (1) {
-		union macaddr router_mac = NODE_MAC;
 		int ret;
 
 		ret = __do_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
