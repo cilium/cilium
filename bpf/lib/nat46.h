@@ -9,8 +9,6 @@
 #include "eth.h"
 #include "dbg.h"
 
-// #define ENABLE_NAT46
-
 static inline int get_csum_offset(__u8 protocol)
 {
 	int csum_off;

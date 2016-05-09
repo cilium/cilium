@@ -421,7 +421,7 @@ func getStatusPolicy(ctx *cli.Context) {
 func enableNAT46(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: false})
+	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: true})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
 		return
@@ -433,7 +433,7 @@ func enableNAT46(ctx *cli.Context) {
 func disableNAT46(ctx *cli.Context) {
 	epID := ctx.Args().First()
 
-	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: true})
+	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: false})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
 		return
