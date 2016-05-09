@@ -52,8 +52,9 @@ static inline void map_lxc_out(struct __sk_buff *skb, int off)
 
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
+	union v6addr host_ip = HOST_IP;
 	union v6addr dst = {};
-	__u32 node_id;
+	__u32 node_id = 0;
 	int to_host = 0, do_nat46 = 0;
 
 #ifdef DEBUG_FLOW
@@ -65,28 +66,26 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		return TC_ACT_SHOT;
 
 	ipv6_load_daddr(skb, nh_off, &dst);
-	node_id = ipv6_derive_node_id(&dst);
 	map_lxc_out(skb, nh_off);
 
-#ifdef HOST_IFINDEX
-	if (1) {
-		union v6addr host_ip = HOST_IP;
+	/* Check if destination is within our cluster prefix */
+	if (ipv6_match_subnet_96(&dst, &host_ip)) {
+		node_id = ipv6_derive_node_id(&dst);
 
-		/* Packets to the host are punted to a dummy device */
+#ifdef HOST_IFINDEX
+		/* FIXME: Only compare last bit */
 		if (ipv6_addrcmp(&dst, &host_ip) == 0)
 			to_host = 1;
-	}
 #endif
-
+	} else {
 #ifdef ENABLE_NAT46
-	if (1) {
 		/* FIXME: Derive from prefix constant */
 		if ((dst.p1 & 0xffff) == 0xadde) {
 			to_host = 1;
 			do_nat46 = 1;
 		}
-	}
 #endif
+	}
 
 	if (unlikely(to_host)) {
 		union macaddr router_mac = NODE_MAC, host_mac = HOST_IFINDEX_MAC;
@@ -117,16 +116,22 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #endif
 	}
 
-	if (node_id != NODE_ID) {
+	if (node_id == NODE_ID)
+		return local_delivery(skb, nh_off, &dst, SECLABEL);
+
 #ifdef ENCAP_IFINDEX
+	if (node_id) {
 #ifdef ENCAP_GENEVE
 		uint8_t buf[] = GENEVE_OPTS;
 #else
 		uint8_t buf[] = {};
 #endif
 		return do_encapsulation(skb, node_id, SECLABEL_NB,
-				        buf, sizeof(buf));
-#else /* ENCAP_IFINDEX */
+				buf, sizeof(buf));
+	}
+#endif
+
+	if (1) {
 		union macaddr router_mac = NODE_MAC;
 		int ret;
 
@@ -135,13 +140,10 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 			return ret;
 
 		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
-
-		/* Pass down to stack */
-		return TC_ACT_OK;
-#endif
-	} else {
-		return local_delivery(skb, nh_off, &dst, SECLABEL);
 	}
+
+	/* Pass down to stack */
+	return TC_ACT_OK;
 }
 
 __section("from-container")
