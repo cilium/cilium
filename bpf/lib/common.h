@@ -71,26 +71,9 @@ struct drop_notify {
 	char		data[DROP_SAMPLE_LEN];
 };
 
-struct ipv6_ct_tuple {
-	union v6addr src;
-	union v6addr dst;
-	__u32 secctx;
-	__u16 sport;
-	__u16 dport;
-	__u8 nexthdr;
-};
-
-struct ipv6_ct_entry {
-	__u64	last_activity;
-};
-
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
-
-enum {
-	CB_STATE = 2,
-};
 
 /* Cilium error codes, must NOT overlap with TC return codes */
 #define REDIRECT_TO_LXC		-257

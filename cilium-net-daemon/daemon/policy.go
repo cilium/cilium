@@ -89,8 +89,7 @@ func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchCo
 	decision := d.policyCanConsume(ctx)
 	// Only accept rules get stored
 	if decision == types.ACCEPT {
-		c.AllowConsumer(srcID)
-		//c.AllowConsumerAndReverse(srcID)
+		c.AllowConsumerAndReverse(srcID)
 	}
 
 	return nil
