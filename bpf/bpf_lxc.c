@@ -81,9 +81,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #ifdef ENABLE_NAT46
 	if (1) {
 		/* FIXME: Derive from prefix constant */
-		__u32 p = 0;
-		p = dst.p1 & 0xffff;
-		if (p == 0xadde) {
+		if ((dst.p1 & 0xffff) == 0xadde) {
 			to_host = 1;
 			do_nat46 = 1;
 		}
@@ -149,8 +147,8 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
 {
-	int ret, nh_off = ETH_HLEN;
 	__u8 nexthdr;
+	int ret;
 
 	/* Drop all non IPv6 traffic */
 	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6)))
@@ -159,15 +157,15 @@ int handle_ingress(struct __sk_buff *skb)
 	/* Handle ICMPv6 messages to the logical router, all other ICMPv6
 	 * messages are passed on to the container (REDIRECT_TO_LXC)
 	 */
-	nexthdr = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
+	nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		ret = icmp6_handle(skb, nh_off);
+		ret = icmp6_handle(skb, ETH_HLEN);
 		if (ret != REDIRECT_TO_LXC)
 			return ret;
 	}
 
 	/* Perform L3 action on the frame */
-	return do_l3_from_lxc(skb, nh_off);
+	return do_l3_from_lxc(skb, ETH_HLEN);
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
