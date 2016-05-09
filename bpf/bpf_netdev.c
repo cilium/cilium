@@ -71,7 +71,9 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 	if (arp_prepare_response(skb, ip, &mac) != 0)
 		return TC_ACT_SHOT;
 
+#ifdef DEBUG_ARP
 	printk("arp_respond on ifindex %d\n", skb->ifindex);
+#endif
 
 	return redirect(skb->ifindex, 0);
 }
@@ -122,7 +124,9 @@ int from_netdev(struct __sk_buff *skb)
 			return TC_ACT_OK;
 
 		if (ipv4_to_ipv6(skb, 14, &sp, &dp) < 0) {
+#ifdef DEBUG_NAT46
 			printk("ipv4_to_ipv6 failed\n");
+#endif
 			return TC_ACT_SHOT;
 		}
 		skb->tc_index = 1;
@@ -143,13 +147,16 @@ int from_netdev(struct __sk_buff *skb)
 				return ret;
 		}
 #endif
-		printk("IPv6 packet from netdev skb %p len %d\n", skb, skb->len);
+
+		printk("From netdev skb %p len %d\n", skb, skb->len);
 
 		ipv6_load_daddr(skb, ETH_HLEN, &dst);
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
 		if (likely(is_node_subnet(&dst, &node_ip))) {
+#ifdef DEBUG_FLOW
 			printk("Targeted for a local container, src label: %d\n", flowlabel);
+#endif
 
 			return do_l3(skb, ETH_HLEN, &dst, flowlabel);
 		}
@@ -169,22 +176,23 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	struct policy_entry *policy;
 	__u32 src_label = skb->cb[0];
 
-	printk("Handle for host %d %d\n", src_label, ifindex);
-
 	policy = map_lookup_elem(&POLICY_MAP, &src_label);
 	if (!policy) {
 #ifdef DROP_NOTIFY
 		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);
 #endif
+
+#ifdef DEBUG_POLICY
 		printk("Denied by policy!\n");
-#ifdef IGNORE_DROP
-		return redirect(ifindex, 0);
-#else
+#endif
+
+#ifndef IGNORE_DROP
 		return TC_ACT_SHOT;
 #endif
+	} else {
+		__sync_fetch_and_add(&policy->packets, 1);
+		__sync_fetch_and_add(&policy->bytes, skb->len);
 	}
-	__sync_fetch_and_add(&policy->packets, 1);
-	__sync_fetch_and_add(&policy->bytes, skb->len);
 #endif
 	return redirect(ifindex, 0);
 }

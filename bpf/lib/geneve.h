@@ -33,11 +33,15 @@ static inline int parse_geneve_options(struct geneveopt_val *val, uint8_t *buf)
 	if (opt->opt_class != GENEVE_CLASS_EXPERIMENTAL ||
 	    opt->type != GENEVE_TYPE_SECLABEL ||
 	    (opt->length  << 2) != sizeof(val->seclabel)) {
+#ifdef DEBUG_GENEVE
 		printk("geneve seclabel option mismatch\n");
+#endif
 		return -1;
 	}
 	val->seclabel = ntohl(*(__u32*)opt->opt_data);
+#ifdef DEBUG_GENEVE
 	printk("geneve seclabel %x\n", val->seclabel);
+#endif
 	return 0;
 }
 

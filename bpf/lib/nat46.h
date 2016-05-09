@@ -247,7 +247,9 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	pushoff = sizeof(struct ipv6hdr) - v4hdr_len;
 
 	if (l3_hdr_change(skb, nh_off, pushoff, htons(ETH_P_IPV6)) < 0) {
-		//printk("v46 NAT: skb_modify failed\n");
+#ifdef DEBUG_NAT46
+		printk("v46 NAT: skb_modify failed\n");
+#endif
 		return TC_ACT_SHOT;
 	}
 
@@ -279,8 +281,10 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
+#ifdef DEBUG_NAT46
 	printk("v46 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
+#endif
 
 	return 0;
 }
@@ -307,7 +311,9 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 		return TC_ACT_SHOT;
 
 	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
-		//printk("v64 nat dst prefix mismatch\n");
+#ifdef DEBUG_NAT46
+		printk("v64 nat dst prefix mismatch\n");
+#endif
 		return 0;
 	}
 
@@ -326,7 +332,9 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
 
 	if (l3_hdr_change(skb, nh_off, pushoff, htons(ETH_P_IP)) < 0) {
-		//printk("v46 NAT: skb_modify failed\n");
+#ifdef DEBUG_NAT46
+		printk("v46 NAT: skb_modify failed\n");
+#endif
 		return TC_ACT_SHOT;
 	}
 
@@ -360,8 +368,10 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
+#ifdef DEBUG_NAT46
 	printk("v64 NAT: nh_off %d, pushoff %d, csum_off %d\n",
 	       nh_off, pushoff, csum_off);
+#endif
 
 	return 0;
 }

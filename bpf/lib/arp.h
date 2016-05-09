@@ -31,12 +31,16 @@ static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr 
 
 	if ((arpop != __constant_htons(ARPOP_REQUEST)) || (tip != ar_tip) ||
 	    (!eth_is_bcast(&dmac) && eth_addrcmp(&dmac, responder_mac))) {
+#ifdef DEBUG_ARP
 		printk("arp target mismatch for %x, (target %x op %d)\n",
 			ar_tip, tip, ntohs(arpop));
+#endif
 		return 0;
 	}
 
+#ifdef DEBUG_ARP
 	printk("arp target match for %x ifindex %d\n", tip, skb->ifindex);
+#endif
 	return 1;
 }
 

@@ -23,8 +23,10 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
 
+#ifdef DEBUG_ENCAP
 	printk("Encap to node %x, ifindex=%u, seclabel=0x%x\n",
 		node_id, ENCAP_IFINDEX, seclabel);
+#endif
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 	if (unlikely(ret < 0))
@@ -43,7 +45,11 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 			return TC_ACT_SHOT;
 	}
 #endif /* VALIDATE_GENEVE_TX */
+
+#ifdef DEBUG_GENEVE
 	printk("set Geneve options of length %d\n", sz);
+#endif
+
 #endif /* ENCAP_GENEVE */
 
 	return redirect(ENCAP_IFINDEX, 0);
@@ -94,7 +100,9 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 	__u16 lxc_id = derive_lxc_id(dst);
 	int ret;
 
+#ifdef DEBUG_FLOW
 	printk("Local L3 - lxc-id: %x\n", lxc_id);
+#endif
 
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
@@ -110,17 +118,24 @@ static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
 			map_lxc_in(skb, nh_off, dst_lxc);
 #endif /* DISABLE_PORT_MAP */
 
+#ifdef DEBUG_FLOW
 		printk("L3 to ifindex %u ID: %d\n",
 			dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
+#endif
 
 		skb->cb[0] = seclabel;
 		skb->cb[1] = dst_lxc->ifindex;
 
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
+#ifdef DEBUG_POLICY
 		printk("No policy program found, dropping\n");
+#endif
+
 		return TC_ACT_SHOT;
 	} else {
+#ifdef DEBUG_FLOW
 		printk("No match\n");
+#endif
 	}
 
 	return TC_ACT_UNSPEC;
