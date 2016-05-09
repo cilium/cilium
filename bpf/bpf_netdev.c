@@ -101,20 +101,24 @@ __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
+	__u32 proto = skb->protocol;
 
 #ifdef ENABLE_ARP_RESPONDER
-	if (unlikely(skb->protocol == __constant_htons(ETH_P_ARP))) {
+	if (unlikely(proto == __constant_htons(ETH_P_ARP))) {
 		union macaddr responder_mac = HOST_IFINDEX_MAC;
 		if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
 			tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
 			return TC_ACT_SHOT;
 		}
+
+		/* Pass any unknown ARP requests to the Linux stack */
+		return TC_ACT_OK;
 	}
 #endif
 
 #ifdef ENABLE_NAT46
 	/* First try to do v46 nat */
-	if (skb->protocol == __constant_htons(ETH_P_IP)) {
+	if (proto == __constant_htons(ETH_P_IP)) {
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = HOST_IP;
 		__u32 dst;
@@ -131,11 +135,12 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 			return TC_ACT_SHOT;
 		}
+		proto = __constant_htons(ETH_P_IPV6);
 		skb->tc_index = 1;
 	}
 #endif
 
-	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6))) {
+	if (likely(proto == __constant_htons(ETH_P_IPV6))) {
 		union v6addr dst;
 		__u32 flowlabel;
 
@@ -150,7 +155,9 @@ int from_netdev(struct __sk_buff *skb)
 		}
 #endif
 
+#ifdef DEBUG_FLOW
 		printk("From netdev skb %p len %d\n", skb, skb->len);
+#endif
 
 		ipv6_load_daddr(skb, ETH_HLEN, &dst);
 		flowlabel = derive_sec_ctx(skb, &node_ip);
