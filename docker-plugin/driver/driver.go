@@ -281,11 +281,12 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	ip, _, _ := net.ParseCIDR(containerAddress)
 
 	driver.endpoints[endID] = &ciliumtype.Endpoint{
-		DockerID:      "",
-		LXCIP:         ip,
-		NodeIP:        driver.nodeAddress,
-		DockerNetwork: create.NetworkID,
-		PortMap:       maps,
+		DockerID:         "",
+		LXCIP:            ip,
+		NodeIP:           driver.nodeAddress,
+		DockerNetworkID:  create.NetworkID,
+		DockerEndpointID: endID,
+		PortMap:          maps,
 	}
 
 	log.Debugf("Created Endpoint: %+v", driver.endpoints[endID])

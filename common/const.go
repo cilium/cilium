@@ -7,6 +7,8 @@ import (
 const (
 	// Cilium constants
 
+	// Version number.
+	Version = "0.0.1"
 	// PluginPath is the docker plugins directory where docker plugin is present.
 	PluginPath = "/run/docker/plugins/"
 	// DriverSock is the cilium socket for the communication between docker and cilium.
@@ -86,6 +88,12 @@ const (
 	CiliumPrefix = "cilium://"
 	// DockerPrefix is used to distinguish docker IDs between different ID types.
 	DockerPrefix = "docker://"
+	// CHeaderFileName is the name of the C header file for BPF programs for a
+	// particular endpoint.
+	CHeaderFileName = "lxc_config.h"
+	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
+	// base64 form.
+	CiliumCHeaderPrefix = "CILIUM_BASE64_"
 )
 
 var (

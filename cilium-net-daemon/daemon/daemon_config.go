@@ -21,4 +21,5 @@ type Config struct {
 	ValidLabelPrefixes *types.LabelPrefixCfg // Label prefixes used to filter from all labels
 	EnableTracing      bool
 	DisablePolicy      bool
+	RestoreState       bool // RestoreState restores the state from previous running daemons.
 }

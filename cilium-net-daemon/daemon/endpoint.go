@@ -41,9 +41,15 @@ func writeGeneve(lxcDir string, ep *types.Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
+// InsertEndpoint inserts the ep in the endpoints map.
+func (d *Daemon) InsertEndpoint(ep *types.Endpoint) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
+	d.insertEndpoint(ep)
+}
+
+// insertEndpoint inserts the ep in the endpoints map. To be used with endpointsMU locked.
+func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 	d.endpoints[common.CiliumPrefix+ep.ID] = ep
 	if ep.DockerID != "" {
 		d.endpoints[common.DockerPrefix+ep.DockerID] = ep
@@ -115,8 +121,14 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	fw := bufio.NewWriter(f)
 
 	fmt.Fprint(fw, "/*\n")
+	if epStr64, err := ep.Base64(); err == nil {
+		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix, common.Version, epStr64)
+	} else {
+		log.Warningf("Unable to create a base64 for endpoint %+v: %s\n", ep, err)
+	}
 	if ep.DockerID == "" {
-		fmt.Fprintf(fw, " * Docker Network ID: %s\n", ep.DockerNetwork)
+		fmt.Fprintf(fw, " * Docker Network ID: %s\n", ep.DockerNetworkID)
+		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", ep.DockerEndpointID)
 	} else {
 		fmt.Fprintf(fw, " * Docker Container ID: %s\n", ep.DockerID)
 	}
@@ -189,7 +201,7 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		return err
 	}
 
-	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
+	f, err := os.Create(filepath.Join(lxcDir, common.CHeaderFileName))
 	if err != nil {
 		os.RemoveAll(lxcDir)
 		log.Warningf("Failed to create container headerfile: %s", err)
@@ -278,7 +290,7 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 		}
 	}
 
-	d.insertEndpoint(&ep)
+	d.InsertEndpoint(&ep)
 
 	return nil
 }

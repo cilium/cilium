@@ -110,7 +110,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
-	return &Daemon{
+	d := Daemon{
 		libDir:             c.LibDir,
 		lxcMap:             c.LXCMap,
 		ipamConf:           ipamConf,
@@ -123,7 +123,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		nodeAddress:        c.NodeAddress,
 		enableTracing:      c.EnableTracing,
 		disablePolicy:      c.DisablePolicy,
-	}, nil
+	}
+
+	if c.RestoreState {
+		if err := d.SyncState(common.CiliumPath, true); err != nil {
+			log.Warningf("Error while syncing state %s\n", err)
+		}
+	}
+
+	return &d, nil
 }
 
 // ActivateConsulWatcher watches for consul changes in the common.LastFreeIDKeyPath key.

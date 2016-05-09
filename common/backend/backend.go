@@ -35,6 +35,7 @@ type policyBackend interface {
 
 type control interface {
 	Ping() (*types.PingResponse, error)
+	SyncState(path string, clean bool) error
 }
 
 // CiliumBackend is the interface for both client and daemon.
