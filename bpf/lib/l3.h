@@ -93,8 +93,8 @@ static inline void map_lxc_in(struct __sk_buff *skb, int off,
 }
 #endif /* DISABLE_PORT_MAP */
 
-static inline int __inline__ do_l3(struct __sk_buff *skb, int nh_off,
-				   union v6addr *dst, __u32 seclabel)
+static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
+					    union v6addr *dst, __u32 seclabel)
 {
 	struct lxc_info *dst_lxc;
 	__u16 lxc_id = derive_lxc_id(dst);

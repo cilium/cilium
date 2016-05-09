@@ -140,7 +140,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		return TC_ACT_OK;
 #endif
 	} else {
-		return do_l3(skb, nh_off, &dst, SECLABEL);
+		return local_delivery(skb, nh_off, &dst, SECLABEL);
 	}
 }
 
