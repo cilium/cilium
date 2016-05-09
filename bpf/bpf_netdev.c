@@ -158,7 +158,7 @@ int from_netdev(struct __sk_buff *skb)
 			printk("Targeted for a local container, src label: %d\n", flowlabel);
 #endif
 
-			return do_l3(skb, ETH_HLEN, &dst, flowlabel);
+			return local_delivery(skb, ETH_HLEN, &dst, flowlabel);
 		}
 	}
 
