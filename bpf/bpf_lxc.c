@@ -50,13 +50,24 @@ static inline void map_lxc_out(struct __sk_buff *skb, int off)
 }
 #endif /* DISABLE_PORT_MAP */
 
+#ifdef ENCAP_IFINDEX
+static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
+{
+#ifdef ENCAP_GENEVE
+	uint8_t buf[] = GENEVE_OPTS;
+#else
+	uint8_t buf[] = {};
+#endif
+	return do_encapsulation(skb, node_id, SECLABEL_NB, buf, sizeof(buf));
+}
+#endif
+
 static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
 	union v6addr dst = {};
-	__u32 node_id = 0;
-	int to_host = 0, do_nat46 = 0;
+	int do_nat46 = 0;
 
 #ifdef DEBUG_FLOW
 	printk("From lxc: skb %p len %d\n", skb, skb->len);
@@ -71,24 +82,37 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	/* Check if destination is within our cluster prefix */
 	if (ipv6_match_subnet_96(&dst, &host_ip)) {
-		node_id = ipv6_derive_node_id(&dst);
+		__u32 node_id = ipv6_derive_node_id(&dst);
+
+		if (node_id != NODE_ID) {
+#ifdef ENCAP_IFINDEX
+			return lxc_encap(skb, node_id);
+#else
+			goto pass_to_stack;
+#endif
+		}
 
 #ifdef HOST_IFINDEX
-		/* FIXME: Only compare last bit */
-		if (ipv6_addrcmp(&dst, &host_ip) == 0)
-			to_host = 1;
+		if (dst.addr[14] == host_ip.addr[14] &&
+		    dst.addr[15] == host_ip.addr[15])
+			goto to_host;
 #endif
+
+		return local_delivery(skb, nh_off, &dst, SECLABEL);
 	} else {
 #ifdef ENABLE_NAT46
 		/* FIXME: Derive from prefix constant */
-		if ((dst.p1 & 0xffff) == 0xadde) {
-			to_host = 1;
+		if (unlikely((dst.p1 & 0xffff) == 0xadde)) {
 			do_nat46 = 1;
+			goto to_host;
 		}
 #endif
+
+		goto pass_to_stack;
 	}
 
-	if (unlikely(to_host)) {
+to_host:
+	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
@@ -117,26 +141,12 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #endif
 	}
 
-	if (node_id == NODE_ID)
-		return local_delivery(skb, nh_off, &dst, SECLABEL);
-
-#ifdef ENCAP_IFINDEX
-	if (node_id) {
-#ifdef ENCAP_GENEVE
-		uint8_t buf[] = GENEVE_OPTS;
-#else
-		uint8_t buf[] = {};
-#endif
-		return do_encapsulation(skb, node_id, SECLABEL_NB,
-				buf, sizeof(buf));
-	}
-#endif
-
+pass_to_stack:
 	if (1) {
 		int ret;
 
 		ret = __do_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
-		if (ret != TC_ACT_OK)
+		if (unlikely(ret != TC_ACT_OK))
 			return ret;
 
 		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
