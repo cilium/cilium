@@ -79,21 +79,19 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip)
 {
 #ifdef FIXED_SRC_SECCTX
-	__u32 flowlabel = FIXED_SRC_SECCTX;
+	return FIXED_SRC_SECCTX;
 #else
-	__u32 flowlabel = 0;
+	__u32 flowlabel = WORLD_ID;
 	union v6addr src;
 
 	ipv6_load_saddr(skb, ETH_HLEN, &src);
 	if (matches_cluster_prefix(&src, node_ip)) {
 		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
 		flowlabel = ntohl(flowlabel);
-	} else {
-		flowlabel = WORLD_ID;
 	}
-#endif
 
 	return flowlabel;
+#endif
 }
 
 

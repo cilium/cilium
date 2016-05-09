@@ -17,10 +17,10 @@ static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 
 static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 {
-	union macaddr smac = {}, dmac = NODE_MAC;
+	union macaddr smac, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-	union v6addr sip = {}, dip = {};
-	__be32 sum = 0;
+	union v6addr sip, dip;
+	__be32 sum;
 	__u8 router_ip[] = ROUTER_IP;
 
 	ipv6_load_saddr(skb, nh_off, &sip);
@@ -43,16 +43,14 @@ static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	eth_store_daddr(skb, smac.addr, 0);
 	eth_store_saddr(skb, dmac.addr, 0);
 
-	printk("Redirect skb to Ifindex %d\n", skb->ifindex);
-
 	return redirect(skb->ifindex, 0);
 }
 
 static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
+	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-	__be32 sum = 0;
+	__be32 sum;
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
@@ -81,11 +79,10 @@ static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
 static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 				       union macaddr *mac)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old = {};
-	__u8 opts[8] = { 2, 1, 0, 0, 0, 0, 0, 0 };
-	__u8 opts_old[8] = {};
+	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
+	__u8 opts[8], opts_old[8];
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-	__be32 sum = 0;
+	__be32 sum;
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
@@ -111,6 +108,8 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_OPTS, opts_old, sizeof(opts_old)) < 0)
 		return TC_ACT_SHOT;
 
+	opts[0] = 2;
+	opts[1] = 1;
 	opts[2] = mac->addr[0];
 	opts[3] = mac->addr[1];
 	opts[4] = mac->addr[2];
@@ -131,7 +130,7 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 					struct ipv6hdr *ipv6hdr)
 {
-	__be32 sum = 0;
+	__be32 sum;
 
 	/* compute checksum with new payload length */
 	sum = csum_diff(NULL, 0, data, payload_len, 0);
@@ -145,15 +144,16 @@ static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 
 static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 {
+	/* FIXME: Fix code below to not require this init */
         char data[80] = {};
         struct icmp6hdr *icmp6hoplim;
         struct ipv6hdr *ipv6hdr;
 	char *upper; /* icmp6 or tcp or udp */
         const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
         __be32 sum = 0;
-	__u16 payload_len = 0;
+	__u16 payload_len = 0; /* FIXME: Uninit of this causes verifier bug */
 	__u8 icmp6_nexthdr = IPPROTO_ICMPV6;
-	int trimlen = 0;
+	int trimlen;
 
 	/* initialize pointers to offsets in data */
 	icmp6hoplim = (struct icmp6hdr *)data;
@@ -235,7 +235,7 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 
 static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 {
-	union v6addr target = {}, router = { . addr = ROUTER_IP };
+	union v6addr target, router = { . addr = ROUTER_IP };
 
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
@@ -253,7 +253,7 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 
 static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 {
-	union v6addr dst = {};
+	union v6addr dst;
 	union v6addr router_ip = { .addr = ROUTER_IP };
 	__u8 type = icmp6_load_type(skb, nh_off);
 

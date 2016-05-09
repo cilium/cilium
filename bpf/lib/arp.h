@@ -45,7 +45,7 @@ static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip,
 {
 	__be16 arpop = __constant_htons(ARPOP_REPLY);
 	union macaddr smac = {};
-	__be32 sip = 0;
+	__be32 sip;
 
 	if (eth_load_saddr(skb, smac.addr, 0) < 0 ||
 	    skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
