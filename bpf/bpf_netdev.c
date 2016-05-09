@@ -154,11 +154,18 @@ int from_netdev(struct __sk_buff *skb)
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
 		if (likely(is_node_subnet(&dst, &node_ip))) {
+			int ret;
+
 #ifdef DEBUG_FLOW
 			printk("Targeted for a local container, src label: %d\n", flowlabel);
 #endif
 
-			return local_delivery(skb, ETH_HLEN, &dst, flowlabel);
+			switch ((ret = local_delivery(skb, ETH_HLEN, &dst, flowlabel))) {
+			case SEND_TIME_EXCEEDED:
+				return icmp6_send_time_exceeded(skb, ETH_HLEN);
+			default:
+				return ret;
+			}
 		}
 	}
 

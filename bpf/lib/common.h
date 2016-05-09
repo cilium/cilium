@@ -77,6 +77,7 @@ struct drop_notify {
 
 /* Cilium error codes, must NOT overlap with TC return codes */
 #define REDIRECT_TO_LXC		-257
+#define SEND_TIME_EXCEEDED	-258
 #define IS_CILIUM_ERROR(x) (x <= REDIRECT_TO_LXC
 
 #endif
