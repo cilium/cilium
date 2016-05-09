@@ -537,10 +537,10 @@ func dumpEndpoints(ctx *cli.Context) {
 					}
 				}
 			} else {
-				fmt.Fprintf(w, "%s\t%d\t%s\t\n", ep.ID, ep.SecLabel.ID, ep.LXCIP.String())
+				fmt.Fprintf(w, "%s\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, "(no labels)", ep.LXCIP.String())
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t\n", ep.ID, "(empty sec label ID)", ep.LXCIP.String())
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", ep.ID, "(empty sec label ID)", "", ep.LXCIP.String())
 		}
 	}
 	w.Flush()
