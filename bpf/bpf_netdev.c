@@ -69,10 +69,7 @@ __section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __
 	if (arp_prepare_response(skb, ip, &mac) != 0)
 		return TC_ACT_SHOT;
 
-#ifdef DEBUG_ARP
-	printk("arp_respond on ifindex %d\n", skb->ifindex);
-#endif
-
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 	return redirect(skb->ifindex, 0);
 }
 
@@ -100,6 +97,8 @@ int from_netdev(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
 	__u32 proto = skb->protocol;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
 #ifdef ENABLE_ARP_RESPONDER
 	if (unlikely(proto == __constant_htons(ETH_P_ARP))) {
@@ -153,19 +152,11 @@ int from_netdev(struct __sk_buff *skb)
 		}
 #endif
 
-#ifdef DEBUG_FLOW
-		printk("From netdev skb %p len %d\n", skb, skb->len);
-#endif
-
 		ipv6_load_daddr(skb, ETH_HLEN, &dst);
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
 		if (likely(is_node_subnet(&dst, &node_ip))) {
 			int ret;
-
-#ifdef DEBUG_FLOW
-			printk("Targeted for a local container, src label: %d\n", flowlabel);
-#endif
 
 			switch ((ret = local_delivery(skb, ETH_HLEN, &dst, flowlabel))) {
 			case SEND_TIME_EXCEEDED:
@@ -190,8 +181,10 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);
 		return TC_ACT_SHOT;
-	} else
+	} else {
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 		return redirect(ifindex, 0);
+	}
 }
 
 BPF_LICENSE("GPL");

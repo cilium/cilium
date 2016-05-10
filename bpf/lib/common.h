@@ -54,15 +54,17 @@ struct policy_entry {
 enum {
 	CILIUM_NOTIFY_UNSPEC,
 	CILIUM_NOTIFY_DROP,
+	CILIUM_NOTIFY_DBG_MSG,
+	CILIUM_NOTIFY_DBG_CAPTURE,
 };
 
-#define COMMON_HDR \
+#define NOTIFY_COMMON_HDR \
 	__u8		type; \
 	__u8		subtype; \
-	__u16		flags; \
+	__u16		flags;
 
 struct drop_notify {
-	COMMON_HDR
+	NOTIFY_COMMON_HDR
 	__u32		len;
 	__u32		src_label;
 	__u32		dst_label;

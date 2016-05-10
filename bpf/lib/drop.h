@@ -1,15 +1,8 @@
 #ifndef __LIB_DROP__
 #define __LIB_DROP__
 
+#include "events.h"
 #include "common.h"
-
-struct bpf_elf_map __section_maps cilium_events = {
-	.type           = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-	.size_key       = sizeof(__u32),
-	.size_value     = sizeof(__u32),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = __NR_CPUS__,
-};
 
 #ifdef DROP_NOTIFY
 static inline void send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,

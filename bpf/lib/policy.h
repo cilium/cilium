@@ -16,9 +16,7 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 		return TC_ACT_OK;
 	}
 
-#ifdef DEBUG_POLICY
-	printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
-#endif /* DEBUG_POLICY */
+	cilium_trace(DBG_POLICY_DENIED, src_label, SECLABEL);
 
 #ifndef IGNORE_DROP
 	return TC_ACT_SHOT;
@@ -32,8 +30,5 @@ static inline int policy_can_access(struct __sk_buff *skb, __u32 src_label)
 	return TC_ACT_OK;
 }
 #endif /* !DISABLE_POLICY_ENFORCEMENT */
-
-
-
 
 #endif

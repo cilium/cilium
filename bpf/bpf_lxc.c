@@ -67,9 +67,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	union v6addr dst = {};
 	int do_nat46 = 0;
 
-#ifdef DEBUG_FLOW
-	printk("From lxc: skb %p len %d\n", skb, skb->len);
-#endif
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
 
 	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
 	    verify_dst_mac(skb))
@@ -126,15 +124,14 @@ to_host:
 		}
 
 #ifdef DISABLE_POLICY_ENFORCEMENT
+		cilium_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 
 		tail_call(skb, &cilium_jmp, HOST_ID);
-#ifdef DEBUG_POLICY
-		printk("No policy program found, dropping packet to host\n");
-#endif
+		cilium_trace(DBG_NO_POLICY, HOST_ID, 0);
 		return TC_ACT_SHOT;
 #endif
 	}
@@ -194,8 +191,10 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
 		return TC_ACT_SHOT;
-	} else
+	} else {
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 		return redirect(ifindex, 0);
+	}
 }
 
 BPF_LICENSE("GPL");

@@ -21,9 +21,7 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 	union v6addr dst = {};
 	__u32 node_id;
 
-#ifdef DEBUG_FLOW
-	printk("From overlay: skb %p len %d\n", skb, skb->len);
-#endif
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_OVERLAY, skb->ingress_ifindex);
 
 	ipv6_load_daddr(skb, nh_off, &dst);
 	node_id = ipv6_derive_node_id(&dst);
