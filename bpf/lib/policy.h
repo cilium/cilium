@@ -16,7 +16,7 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 		return TC_ACT_OK;
 	}
 
-	cilium_trace(DBG_POLICY_DENIED, src_label, SECLABEL);
+	cilium_trace(skb, DBG_POLICY_DENIED, src_label, SECLABEL);
 
 #ifndef IGNORE_DROP
 	return TC_ACT_SHOT;

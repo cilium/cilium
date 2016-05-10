@@ -16,7 +16,7 @@ static inline void send_drop_notify_error(struct __sk_buff *skb, __u8 error)
 	};
 
 	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	event_output(&cilium_events, get_smp_processor_id(), &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 static inline void send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
@@ -34,7 +34,7 @@ static inline void send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 	};
 
 	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	event_output(&cilium_events, get_smp_processor_id(), &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 #else
 static inline void send_drop_notify_error(struct __sk_buff *skb, __u8 error)
