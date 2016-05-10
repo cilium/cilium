@@ -80,4 +80,9 @@ struct drop_notify {
 #define SEND_TIME_EXCEEDED	-258
 #define IS_CILIUM_ERROR(x) (x <= REDIRECT_TO_LXC
 
+enum {
+	CB_SRC_LABEL,
+	CB_IFINDEX,
+};
+
 #endif

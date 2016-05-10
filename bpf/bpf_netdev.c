@@ -184,8 +184,8 @@ __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 
 __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
-	__u32 src_label = skb->cb[0];
-	int ifindex = skb->cb[1];
+	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	int ifindex = skb->cb[CB_IFINDEX];
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);

@@ -123,8 +123,8 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 			dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
 #endif
 
-		skb->cb[0] = seclabel;
-		skb->cb[1] = dst_lxc->ifindex;
+		skb->cb[CB_SRC_LABEL] = seclabel;
+		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
 #ifdef DEBUG_POLICY
