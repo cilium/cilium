@@ -23,7 +23,7 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
 
-	cilium_trace(DBG_ENCAP, node_id, seclabel);
+	cilium_trace(skb, DBG_ENCAP, node_id, seclabel);
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 	if (unlikely(ret < 0))
@@ -92,7 +92,7 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 	__u16 lxc_id = derive_lxc_id(dst);
 	int ret;
 
-	cilium_trace(DBG_LOCAL_DELIVERY, lxc_id, seclabel);
+	cilium_trace(skb, DBG_LOCAL_DELIVERY, lxc_id, seclabel);
 
 	dst_lxc = map_lookup_elem(&cilium_lxc, &lxc_id);
 	if (dst_lxc) {
@@ -108,12 +108,12 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 			map_lxc_in(skb, nh_off, dst_lxc);
 #endif /* DISABLE_PORT_MAP */
 
-		cilium_trace(DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
+		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
 		skb->cb[CB_SRC_LABEL] = seclabel;
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
-		cilium_trace(DBG_NO_POLICY, ntohl(dst_lxc->sec_label), 0);
+		cilium_trace(skb, DBG_NO_POLICY, ntohl(dst_lxc->sec_label), 0);
 		return TC_ACT_SHOT;
 	}
 

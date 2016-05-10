@@ -46,7 +46,7 @@ struct debug_capture_msg {
 	char		data[DEBUG_SAMPLE_LEN];
 };
 
-static inline void cilium_trace(__u8 type, __u32 arg1, __u32 arg2)
+static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 	struct debug_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_MSG,
@@ -55,7 +55,7 @@ static inline void cilium_trace(__u8 type, __u32 arg1, __u32 arg2)
 		.arg2 = arg2,
 	};
 
-	event_output(&cilium_events, get_smp_processor_id(), &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
@@ -68,14 +68,14 @@ static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 
 	};
 
 	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	event_output(&cilium_events, get_smp_processor_id(), &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 #else
 # define printk(fmt, ...)					\
 		do { } while (0)
 
-static inline void cilium_trace(__u8 type, __u32 arg1, __u32 arg2)
+static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 }
 

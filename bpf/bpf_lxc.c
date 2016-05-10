@@ -132,7 +132,7 @@ to_host:
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 
 		tail_call(skb, &cilium_jmp, HOST_ID);
-		cilium_trace(DBG_NO_POLICY, HOST_ID, 0);
+		cilium_trace(skb, DBG_NO_POLICY, HOST_ID, 0);
 		return TC_ACT_SHOT;
 #endif
 	}
