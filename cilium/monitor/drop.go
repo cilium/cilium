@@ -16,9 +16,28 @@ type DropNotify struct {
 	// data
 }
 
+var errors = map[uint8]string{
+	0:   "Success",
+	2:   "Invalid packet",
+	130: "Invalid source mac",
+	131: "Invalid destination mac",
+	132: "Invalid source ip",
+	133: "Policy denied",
+}
+
 func (n *DropNotify) Dump(dissect bool, data []byte) {
-	fmt.Printf("Packet dropped %d->%d to container %d %d bytes (ifindex %d)\n",
-		n.SrcLabel, n.DstLabel, n.DstID, n.Len, n.Ifindex)
+	fmt.Printf("Packet dropped %d (%s) %d bytes ifindex=%d",
+		n.SubType, errors[n.SubType], n.Len, n.Ifindex)
+
+	if n.SrcLabel != 0 || n.DstLabel != 0 {
+		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)
+	}
+
+	if n.DstID != 0 {
+		fmt.Printf(" to lxc %d\n", n.DstID)
+	} else {
+		fmt.Printf("\n")
+	}
 
 	Dissect(dissect, data[24:])
 }

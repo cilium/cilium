@@ -67,11 +67,12 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	union v6addr dst = {};
 	int do_nat46 = 0;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
-
-	if (verify_src_mac(skb) || verify_src_ip(skb, nh_off) ||
-	    verify_dst_mac(skb))
-		return TC_ACT_SHOT;
+	if (unlikely(invalid_src_mac(skb)))
+		return DROP_INVALID_SMAC;
+	else if (unlikely(invalid_src_ip(skb, nh_off)))
+		return DROP_INVALID_SIP;
+	else if (unlikely(invalid_dst_mac(skb)))
+		return DROP_INVALID_DMAC;
 
 	ipv6_load_daddr(skb, nh_off, &dst);
 	map_lxc_out(skb, nh_off);
@@ -157,6 +158,8 @@ int handle_ingress(struct __sk_buff *skb)
 	__u8 nexthdr;
 	int ret;
 
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
+
 	/* Drop all non IPv6 traffic */
 	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6)))
 		return TC_ACT_SHOT;
@@ -168,14 +171,22 @@ int handle_ingress(struct __sk_buff *skb)
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(skb, ETH_HLEN);
 		if (ret != REDIRECT_TO_LXC)
-			return ret;
+			goto error;
 	}
 
 	/* Perform L3 action on the frame */
-	switch ((ret = do_l3_from_lxc(skb, ETH_HLEN))) {
-	case SEND_TIME_EXCEEDED:
+	ret = do_l3_from_lxc(skb, ETH_HLEN);
+error:
+	if (likely(ret == TC_ACT_OK))
+		return TC_ACT_OK;
+	else if (ret == SEND_TIME_EXCEEDED)
 		return icmp6_send_time_exceeded(skb, ETH_HLEN);
-	default:
+	else if (ret < 0 || ret == TC_ACT_SHOT) {
+		if (ret < 0)
+			ret = -ret;
+		send_drop_notify_error(skb, ret);
+		return TC_ACT_SHOT;
+	} else {
 		return ret;
 	}
 }

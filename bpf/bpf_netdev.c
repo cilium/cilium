@@ -97,6 +97,7 @@ int from_netdev(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
 	__u32 proto = skb->protocol;
+	int ret = TC_ACT_OK;
 
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
@@ -105,7 +106,8 @@ int from_netdev(struct __sk_buff *skb)
 		union macaddr responder_mac = HOST_IFINDEX_MAC;
 		if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
 			tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
-			return TC_ACT_SHOT;
+			ret = TC_ACT_SHOT;
+			goto error;
 		}
 
 		/* Pass any unknown ARP requests to the Linux stack */
@@ -120,8 +122,10 @@ int from_netdev(struct __sk_buff *skb)
 		union v6addr dp = HOST_IP;
 		__u32 dst;
 
-		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0)
-			return TC_ACT_SHOT;
+		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0) {
+			ret = TC_ACT_SHOT;
+			goto error;
+		}
 
 		if ((dst & IPV4_MASK) != IPV4_RANGE)
 			return TC_ACT_OK;
@@ -130,7 +134,8 @@ int from_netdev(struct __sk_buff *skb)
 #ifdef DEBUG_NAT46
 			printk("ipv4_to_ipv6 failed\n");
 #endif
-			return TC_ACT_SHOT;
+			ret = TC_ACT_SHOT;
+			goto error;
 		}
 		proto = __constant_htons(ETH_P_IPV6);
 		skb->tc_index = 1;
@@ -148,26 +153,30 @@ int from_netdev(struct __sk_buff *skb)
 		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 			int ret = icmp6_handle(skb, ETH_HLEN);
 			if (ret != REDIRECT_TO_LXC)
-				return ret;
+				goto error;
 		}
 #endif
 
 		ipv6_load_daddr(skb, ETH_HLEN, &dst);
 		flowlabel = derive_sec_ctx(skb, &node_ip);
 
-		if (likely(is_node_subnet(&dst, &node_ip))) {
-			int ret;
-
-			switch ((ret = local_delivery(skb, ETH_HLEN, &dst, flowlabel))) {
-			case SEND_TIME_EXCEEDED:
-				return icmp6_send_time_exceeded(skb, ETH_HLEN);
-			default:
-				return ret;
-			}
-		}
+		if (likely(is_node_subnet(&dst, &node_ip)))
+			ret = local_delivery(skb, ETH_HLEN, &dst, flowlabel);
 	}
 
-	return TC_ACT_OK;
+error:
+	if (likely(ret == TC_ACT_OK))
+		return TC_ACT_OK;
+	else if (ret == SEND_TIME_EXCEEDED)
+		return icmp6_send_time_exceeded(skb, ETH_HLEN);
+	else if (ret < 0 || ret == TC_ACT_SHOT) {
+		if (ret < 0)
+			ret = -ret;
+		send_drop_notify_error(skb, ret);
+		return TC_ACT_SHOT;
+	} else {
+		return ret;
+	}
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),

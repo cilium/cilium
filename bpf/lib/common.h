@@ -69,7 +69,7 @@ struct drop_notify {
 	__u32		src_label;
 	__u32		dst_label;
 	__u32		dst_id;
-	__u32		dst_ifindex;
+	__u32		ifindex;
 	char		data[DROP_SAMPLE_LEN];
 };
 
@@ -78,9 +78,12 @@ struct drop_notify {
 #endif
 
 /* Cilium error codes, must NOT overlap with TC return codes */
-#define REDIRECT_TO_LXC		-257
-#define SEND_TIME_EXCEEDED	-258
-#define IS_CILIUM_ERROR(x) (x <= REDIRECT_TO_LXC
+#define REDIRECT_TO_LXC		-128
+#define SEND_TIME_EXCEEDED	-129
+#define DROP_INVALID_SMAC	-130
+#define DROP_INVALID_DMAC	-131
+#define DROP_INVALID_SIP	-132
+#define DROP_POLICY		-133
 
 enum {
 	CB_SRC_LABEL,

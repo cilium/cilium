@@ -19,3 +19,4 @@
 #define ENCAP_GENEVE 1
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
+#define ENABLE_ARP_RESPONDER
