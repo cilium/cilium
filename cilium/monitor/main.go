@@ -34,17 +34,35 @@ var (
 	events *bpf.PerCpuEvents
 )
 
+// Must be synchronized with <bpf/lib/common.h>
 const (
 	CILIUM_NOTIFY_UNSPEC = iota
 	CILIUM_NOTIFY_DROP
+	CILIUM_DBG_MSG
+	CILIUM_DBG_CAPTURE
 )
 
 func receiveEvent(msg *bpf.PerfEventSample) {
 	data := msg.DataDirect()
 	if data[0] == CILIUM_NOTIFY_DROP {
 		dn := DropNotify{}
-		binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn)
+		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
+			log.Warningf("Error while parsing drop notification message: %s\n", err)
+		}
 		dn.Dump(dissect, data)
+	} else if data[0] == CILIUM_DBG_MSG {
+		dm := DebugMsg{}
+		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dm); err != nil {
+			log.Warningf("Error while parsing debug message: %s\n", err)
+		} else {
+			dm.Dump(data)
+		}
+	} else if data[0] == CILIUM_DBG_CAPTURE {
+		dc := DebugCapture{}
+		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dc); err != nil {
+			log.Warningf("Error while parsing debug capture message: %s\n", err)
+		}
+		dc.Dump(dissect, data)
 	} else {
 		fmt.Printf("Unknonwn event: %+v\n", msg)
 	}
