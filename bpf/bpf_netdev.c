@@ -18,10 +18,8 @@
 #include "lib/l3.h"
 #include "lib/nat46.h"
 #include "lib/arp.h"
-
-#ifdef DROP_NOTIFY
+#include "lib/policy.h"
 #include "lib/drop.h"
-#endif
 
 static inline int is_node_subnet(const union v6addr *dst, const union v6addr *node_ip)
 {
@@ -186,31 +184,14 @@ __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 
 __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
+	__u32 src_label = skb->cb[0];
 	int ifindex = skb->cb[1];
 
-#ifndef DISABLE_POCLIY_ENFORCEMENT
-	struct policy_entry *policy;
-	__u32 src_label = skb->cb[0];
-
-	policy = map_lookup_elem(&POLICY_MAP, &src_label);
-	if (!policy) {
-#ifdef DROP_NOTIFY
+	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);
-#endif
-
-#ifdef DEBUG_POLICY
-		printk("Denied by policy!\n");
-#endif
-
-#ifndef IGNORE_DROP
 		return TC_ACT_SHOT;
-#endif
-	} else {
-		__sync_fetch_and_add(&policy->packets, 1);
-		__sync_fetch_and_add(&policy->bytes, skb->len);
-	}
-#endif
-	return redirect(ifindex, 0);
+	} else
+		return redirect(ifindex, 0);
 }
 
 BPF_LICENSE("GPL");

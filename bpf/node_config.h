@@ -1,4 +1,7 @@
-/* Dummy configuration for test compilation */
+/*
+ * This is just a dummy header with dummy values to allow for test
+ * compilation without the full code generation engine backend.
+ */
 
 #define NODE_ID 0x10001
 #define ROUTER_IP { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0 }
@@ -14,3 +17,5 @@
 #define IPV4_MASK 0xffff
 #define IPV4_GW 0xfffff50a
 #define ENCAP_GENEVE 1
+#define SECLABEL 2
+#define SECLABEL_NB 0xfffff

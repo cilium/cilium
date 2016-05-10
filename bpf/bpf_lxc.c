@@ -17,10 +17,8 @@
 #include "lib/l3.h"
 #include "lib/lxc.h"
 #include "lib/nat46.h"
-
-#ifdef DROP_NOTIFY
+#include "lib/policy.h"
 #include "lib/drop.h"
-#endif
 
 #ifndef DISABLE_PORT_MAP
 static inline void map_lxc_out(struct __sk_buff *skb, int off)
@@ -190,32 +188,14 @@ __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 
 __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
+	__u32 src_label = skb->cb[0];
 	int ifindex = skb->cb[1];
 
-#ifndef DISABLE_POLICY_ENFORCEMENT
-	struct policy_entry *policy;
-	__u32 src_label = skb->cb[0];
-
-	policy = map_lookup_elem(&POLICY_MAP, &src_label);
-	if (unlikely(!policy)) {
-#ifdef DROP_NOTIFY
+	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
-#endif
-
-#ifdef DEBUG_POLICY
-		printk("Denied by policy! (%u->%u)\n", src_label, SECLABEL);
-#endif
-
-#ifndef IGNORE_DROP
 		return TC_ACT_SHOT;
-#endif
-	} else {
-		__sync_fetch_and_add(&policy->packets, 1);
-		__sync_fetch_and_add(&policy->bytes, skb->len);
-	}
-#endif
-
-	return redirect(ifindex, 0);
+	} else
+		return redirect(ifindex, 0);
 }
 
 BPF_LICENSE("GPL");

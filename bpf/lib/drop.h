@@ -11,6 +11,7 @@ struct bpf_elf_map __section_maps cilium_events = {
 	.max_elem       = __NR_CPUS__,
 };
 
+#ifdef DROP_NOTIFY
 static inline void send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 				    __u32 dst_id, __u32 ifindex)
 {
@@ -28,5 +29,11 @@ static inline void send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
 	event_output(&cilium_events, get_smp_processor_id(), &msg, sizeof(msg));
 }
+#else
+static inline void send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
+				    __u32 dst_id, __u32 ifindex)
+{
+}
+#endif
 
 #endif /* __LIB_DROP__ */
