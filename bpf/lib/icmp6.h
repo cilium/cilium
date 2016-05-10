@@ -257,8 +257,6 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 	union v6addr router_ip = { .addr = ROUTER_IP };
 	__u8 type = icmp6_load_type(skb, nh_off);
 
-	printk("ICMPv6 packet skb %p len %d type %d\n", skb, skb->len, type);
-
 	ipv6_load_daddr(skb, nh_off, &dst);
 
 	switch(type) {
