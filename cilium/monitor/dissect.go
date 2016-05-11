@@ -41,6 +41,10 @@ func Dissect(dissect bool, data []byte) {
 				fmt.Println(gopacket.LayerString(&tcp))
 			case layers.LayerTypeUDP:
 				fmt.Println(gopacket.LayerString(&udp))
+			case layers.LayerTypeICMPv4:
+				fmt.Println(gopacket.LayerString(&icmp4))
+			case layers.LayerTypeICMPv6:
+				fmt.Println(gopacket.LayerString(&icmp6))
 			default:
 				fmt.Println("Unknown layer")
 			}
