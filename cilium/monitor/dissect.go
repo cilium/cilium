@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/hex"
 	"fmt"
+	"sync"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -20,9 +21,11 @@ var (
 		layers.LayerTypeEthernet,
 		&eth, &ip4, &ip6, &icmp4, &icmp6, &tcp, &udp)
 	decoded = []gopacket.LayerType{}
+	lock    sync.Mutex
 )
 
 func Dissect(dissect bool, data []byte) {
+	lock.Lock()
 	if dissect {
 		parser.DecodeLayers(data, &decoded)
 
@@ -38,6 +41,8 @@ func Dissect(dissect bool, data []byte) {
 				fmt.Println(gopacket.LayerString(&tcp))
 			case layers.LayerTypeUDP:
 				fmt.Println(gopacket.LayerString(&udp))
+			default:
+				fmt.Println("Unknown layer")
 			}
 		}
 		if parser.Truncated {
@@ -47,5 +52,5 @@ func Dissect(dissect bool, data []byte) {
 	} else {
 		fmt.Println(hex.Dump(data))
 	}
-
+	lock.Unlock()
 }

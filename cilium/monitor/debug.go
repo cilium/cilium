@@ -45,6 +45,8 @@ func (n *DebugMsg) Dump(data []byte) {
 		fmt.Printf("No policy program found for id %d (FIXME: resolve), dropping...\n", n.Arg1)
 	case DBG_POLICY_DENIED:
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
+	default:
+		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
 }
 
@@ -68,6 +70,8 @@ func (n *DebugCapture) Dump(dissect bool, data []byte) {
 		fmt.Printf("Incoming packet from overlay ifindex %d\n", n.Arg1)
 	case DBG_CAPTURE_DELIVERY:
 		fmt.Printf("Delivery to ifindex %d\n", n.Arg1)
+	default:
+		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}
 	Dissect(dissect, data[8:])
 }
