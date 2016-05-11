@@ -16,7 +16,7 @@ int cls_entry(struct __sk_buff *skb)
 	msg.type = EVENT_TYPE_SAMPLE;
 
 	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	event_output(&perf_test_events, get_smp_processor_id(),
+	skb_event_output(skb, &perf_test_events, BPF_F_CURRENT_CPU,
 		     &msg, sizeof(msg));
 
 	return TC_ACT_OK;
