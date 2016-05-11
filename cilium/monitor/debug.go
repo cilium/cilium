@@ -60,7 +60,7 @@ type DebugCapture struct {
 }
 
 func (n *DebugCapture) Dump(dissect bool, data []byte) {
-	fmt.Printf("DEBUG: ")
+	fmt.Printf("DEBUG: %d bytes ", n.Len)
 	switch n.SubType {
 	case DBG_CAPTURE_FROM_LXC:
 		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)
