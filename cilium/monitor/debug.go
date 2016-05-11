@@ -73,5 +73,5 @@ func (n *DebugCapture) Dump(dissect bool, data []byte) {
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}
-	Dissect(dissect, data[8:])
+	Dissect(dissect, data[12:])
 }
