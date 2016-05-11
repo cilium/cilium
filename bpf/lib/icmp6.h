@@ -43,6 +43,7 @@ static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	eth_store_daddr(skb, smac.addr, 0);
 	eth_store_saddr(skb, dmac.addr, 0);
 
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 	return redirect(skb->ifindex, 0);
 }
 
