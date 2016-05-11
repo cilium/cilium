@@ -25,7 +25,7 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 #endif /* IGNORE_DROP */
 }
 #else
-static inline int policy_can_access(struct __sk_buff *skb, __u32 src_label)
+static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
 {
 	return TC_ACT_OK;
 }
