@@ -88,6 +88,7 @@ struct drop_notify {
 enum {
 	CB_SRC_LABEL,
 	CB_IFINDEX,
+	CB_POLICY,
 };
 
 #endif
