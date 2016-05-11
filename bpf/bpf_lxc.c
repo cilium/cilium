@@ -86,6 +86,10 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 #ifdef ENCAP_IFINDEX
 			return lxc_encap(skb, node_id);
 #else
+			/* Packets to other nodes are always allowed, the remote
+			 * node will enforce the policy.
+			 */
+			policy_mark_skip(skb);
 			goto pass_to_stack;
 #endif
 		}
@@ -106,6 +110,9 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		}
 #endif
 
+#ifdef ALLOW_TO_WORLD
+		policy_mark_skip(skb);
+#endif
 		goto pass_to_stack;
 	}
 
@@ -131,6 +138,10 @@ to_host:
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
+
+#ifdef ALLOW_TO_HOST
+		policy_mark_skip(skb);
+#endif
 
 		tail_call(skb, &cilium_jmp, HOST_ID);
 		cilium_trace(skb, DBG_NO_POLICY, HOST_ID, 0);
