@@ -19,6 +19,7 @@
 #include "lib/nat46.h"
 #include "lib/policy.h"
 #include "lib/drop.h"
+#include "lib/dbg.h"
 
 #ifndef DISABLE_PORT_MAP
 static inline void map_lxc_out(struct __sk_buff *skb, int off)
