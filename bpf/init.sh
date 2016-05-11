@@ -16,7 +16,24 @@ echo 1 > /proc/sys/net/core/bpf_jit_enable
 
 function mac2array()
 {
-	echo "{ 0x${1//:/, 0x} }"
+	echo "{0x${1//:/,0x}}"
+}
+
+function bpf_compile()
+{
+	DEV=$1
+	OPTS=$2
+	IN=$3
+	OUT=$4
+
+	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
+	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
+
+	clang $CLANG_OPTS $OPTS -DNODE_MAC=${NODE_MAC} -c $LIB/$IN -o $OUT
+
+	tc qdisc del dev $DEV clsact 2> /dev/null || true
+	tc qdisc add dev $DEV clsact
+	tc filter add dev $DEV ingress bpf da obj $OUT sec $5
 }
 
 # This directory was created by the daemon and contains the per container header file
@@ -58,12 +75,9 @@ echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
 
 ID=$(cilium policy get-id $HOST_ID 2> /dev/null)
-OPTS="$CLANG_OPTS -DHANDLE_NS -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
-clang $OPTS -c $LIB/bpf_netdev.c -o bpf_netdev_ns.o
+OPTS="-DHANDLE_NS -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 
-tc qdisc del dev $HOST_DEV2 clsact 2> /dev/null || true
-tc qdisc add dev $HOST_DEV2 clsact
-tc filter add dev $HOST_DEV2 ingress bpf da obj bpf_netdev_ns.o sec from-netdev
+bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_netdev_ns.o from-netdev
 
 sed '/ENCAP_GENEVE/d' /var/run/cilium/globals/node_config.h
 sed '/ENCAP_VXLAN/d' /var/run/cilium/globals/node_config.h
@@ -84,11 +98,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	sed '/ENCAP_IFINDEX/d' /var/run/cilium/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> /var/run/cilium/globals/node_config.h
 
-	clang $CLANG_OPTS -c $LIB/bpf_overlay.c -o bpf_overlay.o
-
-	tc qdisc del dev $ENCAP_DEV clsact 2> /dev/null || true
-	tc qdisc add dev $ENCAP_DEV clsact
-	tc filter add dev $ENCAP_DEV ingress bpf da obj bpf_overlay.o sec from-overlay
+	bpf_compile $ENCAP_DEV "" bpf_overlay.c bpf_overlay.o from-overlay
 elif [ "$MODE" = "direct" ]; then
 	DEV=$5
 
@@ -97,14 +107,9 @@ elif [ "$MODE" = "direct" ]; then
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
-		tc qdisc del dev $DEV clsact 2> /dev/null || true
-		tc qdisc add dev $DEV clsact
-
 		ID=$(cilium policy get-id $WORLD_ID 2> /dev/null)
-		OPTS="$CLANG_OPTS -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
-		clang $OPTS -c $LIB/bpf_netdev.c -o bpf_netdev.o
-
-		tc filter add dev $DEV ingress bpf da obj bpf_netdev.o sec from-netdev
+		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+		bpf_compile $DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
 	fi
 else
 	echo "Warning: unknown mode: \"$MODE\""
