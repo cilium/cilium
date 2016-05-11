@@ -126,7 +126,7 @@ to_host:
 		}
 
 #ifdef DISABLE_POLICY_ENFORCEMENT
-		cilium_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
