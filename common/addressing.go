@@ -100,3 +100,37 @@ func DupIP(ip net.IP) net.IP {
 	copy(dup, ip)
 	return dup
 }
+
+// NextNetwork returns the next network for the given IPNet.
+// Example:
+// NextNetwork(::dead/120) // ::df00, since the network of ::dead/120 is ::de00, the next
+// network is df00.
+// NextNetwork(ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128) // ::, we always overflow to
+// the next network.
+func NextNetwork(ip net.IPNet) net.IP {
+	trimmedIP := ip.IP.Mask(ip.Mask)
+	ones, _ := ip.Mask.Size()
+	// ffff:ffff:ffff:ffff:ffff:fead:ffff:ffff
+	//                          ^^ -> element 10
+	elem := (ones - 1) / 8
+	pos := uint16(0x01)
+	// ffff:ffff:ffff:ffff:ffff:fead:ffff:ffff
+	// ......: 1111 1110 1010 1101: .....
+	//         7654 3210 7654 3210
+	//           ^ -> position 5
+	pos <<= uint8((8 - (ones % 8)) % 8)
+	l := len(trimmedIP)
+	res := make(net.IP, l)
+	carry := uint16(0)
+	for i := l - 1; i >= 0; i-- {
+		tmpRes := uint16(0)
+		if elem == i {
+			tmpRes = uint16(trimmedIP[i]) + pos + carry
+		} else {
+			tmpRes = uint16(trimmedIP[i]) + carry
+		}
+		res[i] = byte(tmpRes)
+		carry = tmpRes >> 8
+	}
+	return res
+}

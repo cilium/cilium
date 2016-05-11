@@ -27,10 +27,6 @@ import (
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/dockertools"
 )
 
-const (
-	ipamType = "cilium-host-local"
-)
-
 var (
 	log = logging.MustGetLogger("cilium-net")
 )
@@ -40,7 +36,7 @@ var (
 type Daemon struct {
 	libDir               string
 	lxcMap               *lxcmap.LXCMap
-	ipamConf             hb.IPAMConfig
+	ipamConf             map[ciliumTypes.IPAMType]hb.IPAMConfig
 	consul               *consulAPI.Client
 	endpoints            map[string]*ciliumTypes.Endpoint
 	endpointsMU          sync.Mutex
@@ -77,20 +73,25 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
-	nodeSubNet := net.IPNet{IP: c.NodeAddress, Mask: common.ContainerIPv6Mask}
+	ones, bits := common.NodeIPv6Mask.Size()
+	maskPerIPAMType := ones
+	ipamSubnets := net.IPNet{IP: c.NodeAddress, Mask: net.CIDRMask(maskPerIPAMType, bits)}
+	cniIPAMSubnet := ipamSubnets
 	nodeRoute := net.IPNet{IP: c.NodeAddress, Mask: common.ContainerIPv6Mask}
 
-	ipamConf := hb.IPAMConfig{
-		Type:    ipamType,
-		Subnet:  types.IPNet(nodeSubNet),
-		Gateway: c.NodeAddress,
-		Routes: []types.Route{
-			types.Route{
-				Dst: nodeRoute,
-			},
-			types.Route{
-				Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-				GW:  c.NodeAddress,
+	ipamConf := map[ciliumTypes.IPAMType]hb.IPAMConfig{
+		ciliumTypes.CNIIPAMType: hb.IPAMConfig{
+			Name:    string(ciliumTypes.CNIIPAMType),
+			Subnet:  types.IPNet(cniIPAMSubnet),
+			Gateway: c.NodeAddress,
+			Routes: []types.Route{
+				types.Route{
+					Dst: nodeRoute,
+				},
+				types.Route{
+					Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+					GW:  c.NodeAddress,
+				},
 			},
 		},
 	}
@@ -288,7 +289,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		}
 	}()
 
-	ciliumID := getCiliumEndpointID(cont, d.ipamConf.Gateway)
+	ciliumID := getCiliumEndpointID(cont, d.nodeAddress)
 
 	try := 1
 	maxTries := 5

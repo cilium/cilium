@@ -12,8 +12,8 @@ type TestDaemon struct {
 	OnEndpointJoin         func(ep types.Endpoint) error
 	OnEndpointLeave        func(ep string) error
 	OnEndpointUpdate       func(ep string, opts types.EPOpts) error
-	OnAllocateIPs          func(containerID string) (*types.IPAMConfig, error)
-	OnReleaseIPs           func(containerID string) error
+	OnAllocateIP           func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMConfig, error)
+	OnReleaseIP            func(ipamType types.IPAMType, opts types.IPAMReq) error
 	OnPing                 func() (*types.PingResponse, error)
 	OnSyncState            func(path string, clean bool) error
 	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
@@ -81,18 +81,18 @@ func (d TestDaemon) SyncState(path string, clean bool) error {
 	return errors.New("SyncState should not have been called")
 }
 
-func (d TestDaemon) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
-	if d.OnAllocateIPs != nil {
-		return d.OnAllocateIPs(containerID)
+func (d TestDaemon) AllocateIP(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMConfig, error) {
+	if d.OnAllocateIP != nil {
+		return d.OnAllocateIP(ipamType, opts)
 	}
-	return nil, errors.New("AllocateIPs should not have been called")
+	return nil, errors.New("AllocateIP should not have been called")
 }
 
-func (d TestDaemon) ReleaseIPs(containerID string) error {
-	if d.OnReleaseIPs != nil {
-		return d.OnReleaseIPs(containerID)
+func (d TestDaemon) ReleaseIP(ipamType types.IPAMType, opts types.IPAMReq) error {
+	if d.OnReleaseIP != nil {
+		return d.OnReleaseIP(ipamType, opts)
 	}
-	return errors.New("ReleaseIPs should not have been called")
+	return errors.New("ReleaseIP should not have been called")
 }
 
 func (d TestDaemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
