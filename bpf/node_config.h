@@ -20,3 +20,4 @@
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
 #define ENABLE_ARP_RESPONDER
+#define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
