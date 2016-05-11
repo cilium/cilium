@@ -9,13 +9,13 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
-// AllocateIPs sends a PUT request with containerID to the daemon. Returns an IPAMConfig
-// if the daemon returns a http.StatusCreated, which means the allocation was successfully
-// created.
-func (cli Client) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
+// AllocateIP sends a POST request to allocate a new IP for the given options to the
+// daemon. Returns an IPAMConfig if the daemon returns a http.StatusCreated, which means
+// the allocation was successfully made.
+func (cli Client) AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfig, error) {
 	query := url.Values{}
 
-	serverResp, err := cli.put("/allocator/container/"+containerID, query, nil, nil)
+	serverResp, err := cli.post("/allocator/ipam-allocate/"+string(ipamType), query, options, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -34,11 +34,11 @@ func (cli Client) AllocateIPs(containerID string) (*types.IPAMConfig, error) {
 	return &newIPAMConfig, nil
 }
 
-// ReleaseIPs sends a DELETE request with containerID to the daemon.
-func (cli Client) ReleaseIPs(containerID string) error {
+// ReleaseIP sends a POST request to release the IP of the given options.
+func (cli Client) ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) error {
 	query := url.Values{}
 
-	serverResp, err := cli.delete("/allocator/container/"+containerID, query, nil)
+	serverResp, err := cli.post("/allocator/ipam-release/"+string(ipamType), query, options, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}

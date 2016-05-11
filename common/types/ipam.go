@@ -6,6 +6,16 @@ import (
 	libnetworktypes "github.com/docker/libnetwork/types"
 )
 
+type IPAMType string
+
+const (
+	CNIIPAMType IPAMType = "cni-host-local"
+)
+
+type IPAMReq struct {
+	ContainerID string
+}
+
 // IPAMConfig contains both IPv4 and IPv6 IPAM configuration.
 type IPAMConfig struct {
 	// IPv6 configuration.

@@ -34,10 +34,10 @@ func (r *Router) initRoutes() {
 			"EndpointUpdate", "POST", "/endpoint/update/{endpointID}", r.endpointUpdate,
 		},
 		route{
-			"AllocateIPv6", "PUT", "/allocator/container/{containerID}", r.allocateIPv6,
+			"AllocateIPv6", "POST", "/allocator/ipam-allocate/{ipam-type}", r.allocateIPv6,
 		},
 		route{
-			"ReleaseIPv6", "DELETE", "/allocator/container/{containerID}", r.releaseIPv6,
+			"ReleaseIPv6", "POST", "/allocator/ipam-release/{ipam-type}", r.releaseIPv6,
 		},
 		route{
 			"GetLabels", "GET", "/labels/by-uuid/{uuid}", r.getLabels,

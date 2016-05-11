@@ -112,19 +112,23 @@ func (router *Router) endpointsGet(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	containerID, exists := vars["containerID"]
+	ipamType, exists := vars["ipam-type"]
 	if !exists {
-		processServerError(w, r, errors.New("server received empty containerID"))
+		processServerError(w, r, errors.New("server received empty ipam-type"))
 		return
 	}
-	ipamConfig, err := router.daemon.AllocateIPs(containerID)
+	var opts types.IPAMReq
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	ipamConfig, err := router.daemon.AllocateIP(types.IPAMType(ipamType), opts)
 	if err != nil {
 		processServerError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	e := json.NewEncoder(w)
-	if err := e.Encode(ipamConfig); err != nil {
+	if err := json.NewEncoder(w).Encode(ipamConfig); err != nil {
 		processServerError(w, r, err)
 		return
 	}
@@ -132,12 +136,17 @@ func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) releaseIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	containerID, exists := vars["containerID"]
+	ipamType, exists := vars["ipam-type"]
 	if !exists {
-		processServerError(w, r, errors.New("server received empty containerID"))
+		processServerError(w, r, errors.New("server received empty ipam-type"))
 		return
 	}
-	if err := router.daemon.ReleaseIPs(containerID); err != nil {
+	var opts types.IPAMReq
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.ReleaseIP(types.IPAMType(ipamType), opts); err != nil {
 		processServerError(w, r, err)
 		return
 	}

@@ -13,8 +13,8 @@ type bpfBackend interface {
 }
 
 type ipamBackend interface {
-	AllocateIPs(containerID string) (*types.IPAMConfig, error)
-	ReleaseIPs(containerID string) error
+	AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfig, error)
+	ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) error
 }
 
 type labelBackend interface {

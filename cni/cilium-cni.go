@@ -186,13 +186,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return nil
 	})
 
-	ipamConf, err := c.AllocateIPs(args.ContainerID)
+	req := ciliumtypes.IPAMReq{ContainerID: args.ContainerID}
+	ipamConf, err := c.AllocateIP(ciliumtypes.CNIIPAMType, req)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			if err = c.ReleaseIPs(args.ContainerID); err != nil {
+			req := ciliumtypes.IPAMReq{ContainerID: args.ContainerID}
+			if err = c.ReleaseIP(ciliumtypes.CNIIPAMType, req); err != nil {
 				log.Warningf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 			}
 		}
@@ -243,7 +245,8 @@ func cmdDel(args *skel.CmdArgs) error {
 		return nil
 	})
 
-	if err := c.ReleaseIPs(args.ContainerID); err != nil {
+	req := ciliumtypes.IPAMReq{ContainerID: args.ContainerID}
+	if err = c.ReleaseIP(ciliumtypes.CNIIPAMType, req); err != nil {
 		log.Warningf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 	}
 

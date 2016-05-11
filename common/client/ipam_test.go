@@ -14,7 +14,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *CiliumNetClientSuite) TestGetIPsOK(c *C) {
+func (s *CiliumNetClientSuite) TestAllocateIPOK(c *C) {
 	ipamConfig := types.IPAMConfig{
 		IP6: &types.IPConfig{
 			Gateway: NodeAddr,
@@ -28,69 +28,86 @@ func (s *CiliumNetClientSuite) TestGetIPsOK(c *C) {
 			},
 		},
 	}
+	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.Assert(r.Method, Equals, "PUT")
-		c.Assert(r.URL.Path, Equals, "/allocator/container/11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-allocate/"+string(types.CNIIPAMType))
+		var options types.IPAMReq
+		err := json.NewDecoder(r.Body).Decode(&options)
+		c.Assert(err, IsNil)
+		c.Assert(options, Equals, cniReq)
 		w.WriteHeader(http.StatusCreated)
-		e := json.NewEncoder(w)
-		err := e.Encode(ipamConfig)
+		err = json.NewEncoder(w).Encode(ipamConfig)
 		c.Assert(err, Equals, nil)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	ipamConfigReceived, err := cli.AllocateIPs("11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+	ipamConfigReceived, err := cli.AllocateIP(types.CNIIPAMType, cniReq)
 	c.Assert(err, Equals, nil)
 	c.Assert(*ipamConfigReceived, DeepEquals, ipamConfig)
 }
 
-func (s *CiliumNetClientSuite) TestGetIPsFail(c *C) {
+func (s *CiliumNetClientSuite) TestAllocateIPFail(c *C) {
+	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.Assert(r.Method, Equals, "PUT")
-		c.Assert(r.URL.Path, Equals, "/allocator/container/11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-allocate/"+string(types.CNIIPAMType))
+		var options types.IPAMReq
+		err := json.NewDecoder(r.Body).Decode(&options)
+		c.Assert(err, IsNil)
+		c.Assert(options, Equals, cniReq)
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		e := json.NewEncoder(w)
-		err := e.Encode(types.ServerError{-1, "the daemon has died"})
+		err = json.NewEncoder(w).Encode(types.ServerError{-1, "the daemon has died"})
 		c.Assert(err, Equals, nil)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	_, err := cli.AllocateIPs("11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+	_, err := cli.AllocateIP(types.CNIIPAMType, cniReq)
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }
 
-func (s *CiliumNetClientSuite) TestReleaseIPsOK(c *C) {
+func (s *CiliumNetClientSuite) TestReleaseIPOK(c *C) {
+	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.Assert(r.Method, Equals, "DELETE")
-		c.Assert(r.URL.Path, Equals, "/allocator/container/11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-release/"+string(types.CNIIPAMType))
+		var options types.IPAMReq
+		err := json.NewDecoder(r.Body).Decode(&options)
+		c.Assert(err, IsNil)
+		c.Assert(options, DeepEquals, cniReq)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.ReleaseIPs("11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+	err := cli.ReleaseIP(types.CNIIPAMType, cniReq)
 	c.Assert(err, Equals, nil)
 }
 
-func (s *CiliumNetClientSuite) TestReleaseIPsFail(c *C) {
+func (s *CiliumNetClientSuite) TestReleaseIPFail(c *C) {
+	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.Assert(r.Method, Equals, "DELETE")
-		c.Assert(r.URL.Path, Equals, "/allocator/container/11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-release/"+string(types.CNIIPAMType))
+		var options types.IPAMReq
+		err := json.NewDecoder(r.Body).Decode(&options)
+		c.Assert(err, IsNil)
+		c.Assert(options, DeepEquals, cniReq)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "application/json")
-		e := json.NewEncoder(w)
-		err := e.Encode(types.ServerError{-1, "daemon didn't complete your request"})
+		err = json.NewEncoder(w).Encode(types.ServerError{-1, "daemon didn't complete your request"})
 		c.Assert(err, Equals, nil)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.ReleaseIPs("11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523")
+	err := cli.ReleaseIP(types.CNIIPAMType, cniReq)
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
