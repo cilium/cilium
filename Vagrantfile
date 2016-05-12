@@ -25,6 +25,8 @@ sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-policy-watcher.conf /etc/init/
 sudo rm -rf /var/log/upstart/cilium-*
 sudo service cilium-net-daemon restart
+
+sudo usermod -a -G cilium vagrant
 SCRIPT
 
 $testsuite = <<SCRIPT
@@ -117,6 +119,7 @@ Vagrant.configure(2) do |config|
         vb.cpus = 8
 
         config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', type: "rsync"
+        #config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', type: "nfs"
         # Don't forget to enable this ports on your host before starting the VM
         # in order to have nfs working
         # iptables -I INPUT -p udp -s 192.168.33.0/24 --dport 111 -j ACCEPT
