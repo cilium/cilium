@@ -31,7 +31,9 @@ func (m MAC) Uint64() (uint64, error) {
 }
 
 func (m MAC) MarshalJSON() ([]byte, error) {
-	// FIXME: mac can be empty
+	if len(m) == 0 {
+		return []byte(`""`), nil
+	}
 	if len(m) != 6 {
 		return nil, fmt.Errorf("invalid MAC address length %s", string(m))
 	}
@@ -43,6 +45,13 @@ func (m MAC) MarshalIndentJSON(prefix, indent string) ([]byte, error) {
 }
 
 func (m *MAC) UnmarshalJSON(data []byte) error {
+	if len(data) == len([]byte(`""`)) {
+		if m == nil {
+			m = new(MAC)
+		}
+		*m = MAC{}
+		return nil
+	}
 	if len(data) != 19 {
 		return fmt.Errorf("invalid MAC address length %s", string(data))
 	}
@@ -53,9 +62,6 @@ func (m *MAC) UnmarshalJSON(data []byte) error {
 	}
 	macByte := make([]byte, len(macStr))
 	hex.Decode(macByte, macStr)
-	if m == nil {
-		m = new(MAC)
-	}
 	*m = MAC{macByte[0], macByte[1], macByte[2], macByte[3], macByte[4], macByte[5]}
 	return nil
 }
