@@ -312,25 +312,29 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	}()
 
 	ciliumID := getCiliumEndpointID(cont, d.nodeAddress)
+	var dockerEPID string
+	if cont.NetworkSettings != nil {
+		dockerEPID = cont.NetworkSettings.EndpointID
+	}
 
 	try := 1
 	maxTries := 5
 	var ep *types.Endpoint
 	for try < maxTries {
-		if ep = d.setEndpointSecLabel(ciliumID, dockerID, secCtxlabels); ep != nil {
+		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
 			break
 		}
-		log.Warningf("Something went wrong, the endpoint for docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
+		log.Warningf("Something went wrong, the docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
 	if try >= maxTries {
-		err = fmt.Errorf("It was impossible to store the SecLabel %d for docker ID '%s'", secCtxlabels.ID, dockerID)
+		err = fmt.Errorf("It was impossible to store the SecLabel %d for docker endpoint ID '%s'", secCtxlabels.ID, dockerID)
 		log.Error(err)
 		return
 	}
 	if err = d.createBPF(*ep); err != nil {
-		err = fmt.Errorf("Unable to create & attach BPF programs for container %s", ep.ID)
+		err = fmt.Errorf("Unable to create & attach BPF programs for container %s", dockerID)
 		log.Error(err)
 		return
 	}

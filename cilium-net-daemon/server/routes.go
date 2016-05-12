@@ -25,13 +25,22 @@ func (r *Router) initRoutes() {
 			"EndpointDelete", "DELETE", "/endpoint/{endpointID}", r.endpointDelete,
 		},
 		route{
+			"EndpointGetByDockerEPID", "DELETE", "/endpoint-by-docker-ep-id/{dockerEPID}", r.endpointLeaveByDockerEPID,
+		},
+		route{
 			"EndpointGet", "GET", "/endpoint/{endpointID}", r.endpointGet,
+		},
+		route{
+			"EndpointGetByDockerEPID", "GET", "/endpoint-by-docker-ep-id/{dockerEPID}", r.endpointGetByDockerEPID,
 		},
 		route{
 			"EndpointsGet", "GET", "/endpoints", r.endpointsGet,
 		},
 		route{
 			"EndpointUpdate", "POST", "/endpoint/update/{endpointID}", r.endpointUpdate,
+		},
+		route{
+			"EndpointSave", "POST", "/endpoint/save/{endpointID}", r.endpointSave,
 		},
 		route{
 			"IPAMConfiguration", "POST", "/allocator/ipam-configuration/{ipam-type}", r.ipamConfig,

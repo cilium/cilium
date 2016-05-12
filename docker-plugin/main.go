@@ -18,10 +18,6 @@ func main() {
 	app.Usage = "Cilium Networking Docker Plugin"
 	app.Version = "0.1.0"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  "node-addr, n",
-			Usage: "Address of the compute node",
-		},
 		cli.BoolFlag{
 			Name:  "debug, d",
 			Usage: "Enable debug messages",

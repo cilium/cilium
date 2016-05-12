@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	common "github.com/noironetworks/cilium-net/common"
@@ -34,20 +33,13 @@ type Driver interface {
 }
 
 type driver struct {
+	client      *cnc.Client
 	nodeAddress net.IP
-	endpoints   map[string]*types.Endpoint
-	sync.Mutex
-	client *cnc.Client
 }
 
 // NewDriver creates and returns a new Driver for the given ctx.
 func NewDriver(ctx *cli.Context) (Driver, error) {
-
-	nodeAddress := net.ParseIP(ctx.String("node-addr"))
-	if !common.ValidNodeAddress(nodeAddress) {
-		log.Fatalf("Invalid node address: %s", nodeAddress)
-	}
-
+	var nodeAddress string
 	c, err := cnc.NewDefaultClient()
 	if err != nil {
 		log.Fatalf("Error while starting cilium-client: %s", err)
@@ -62,22 +54,18 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 			}
 			time.Sleep(time.Second)
 		} else {
-			if nodeAddress == nil {
-				nodeAddress = net.ParseIP(res.NodeAddress)
-				log.Infof("Received node address from daemon: %s", nodeAddress)
-			}
-
+			nodeAddress = res.NodeAddress
+			log.Infof("Received node address from daemon: %s", nodeAddress)
 			break
 		}
 	}
 
 	d := &driver{
-		nodeAddress: nodeAddress,
-		endpoints:   make(map[string]*types.Endpoint),
 		client:      c,
+		nodeAddress: net.ParseIP(nodeAddress),
 	}
 
-	log.Infof("New Cilium networking instance on node %s", nodeAddress.String())
+	log.Infof("New Cilium networking instance on node %s", nodeAddress)
 
 	return d, nil
 }
@@ -245,23 +233,33 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, exists := driver.endpoints[endID]; exists {
+	ep, err := driver.client.EndpointGetByDockerEPID(endID)
+	if err != nil {
+		sendError(w, fmt.Sprintf("Error retrieving endpoint %s", err), http.StatusBadRequest)
+		return
+	}
+	if ep != nil {
 		sendError(w, "Endpoint already exists", http.StatusBadRequest)
 		return
 	}
 
 	ip, _, _ := net.ParseCIDR(containerAddress)
 
-	driver.endpoints[endID] = &types.Endpoint{
-		DockerID:         "",
+	endpoint := types.Endpoint{
 		LXCIP:            ip,
 		NodeIP:           driver.nodeAddress,
 		DockerNetworkID:  create.NetworkID,
 		DockerEndpointID: endID,
 		PortMap:          maps,
 	}
+	endpoint.SetID()
 
-	log.Debugf("Created Endpoint: %+v", driver.endpoints[endID])
+	if err = driver.client.EndpointSave(endpoint); err != nil {
+		sendError(w, fmt.Sprintf("Error retrieving endpoint %s", err), http.StatusBadRequest)
+		return
+	}
+
+	log.Debugf("Created Endpoint: %+v", endpoint)
 
 	log.Infof("New endpoint %s with IP %s", endID, containerAddress)
 
@@ -283,7 +281,6 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("Delete endpoint request: %+v", &del)
 
-	delete(driver.endpoints, del.EndpointID)
 	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil {
 		log.Warningf("Error while deleting link: %s", err)
 	}
@@ -313,8 +310,12 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("Join request: %+v", &j)
 
-	ep, exists := driver.endpoints[j.EndpointID]
-	if !exists {
+	ep, err := driver.client.EndpointGetByDockerEPID(j.EndpointID)
+	if err != nil {
+		sendError(w, fmt.Sprintf("Error retrieving endpoint %s", err), http.StatusBadRequest)
+		return
+	}
+	if ep == nil {
 		sendError(w, "Endpoint does not exist", http.StatusBadRequest)
 		return
 	}
@@ -336,8 +337,6 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		SrcName:   tmpIfName,
 		DstPrefix: ContainerInterfacePrefix,
 	}
-
-	ep.SetID()
 	if err = driver.client.EndpointJoin(*ep); err != nil {
 		log.Errorf("Joining endpoint failed: %s", err)
 		sendError(w, "Unable to create BPF map: "+err.Error(), http.StatusInternalServerError)
@@ -381,12 +380,8 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("Leave request: %+v", &l)
 
-	if ep, exists := driver.endpoints[l.EndpointID]; !exists {
-		log.Warningf("Endpoint %s is unknown", l.EndpointID)
-	} else {
-		if err := driver.client.EndpointLeave(ep.ID); err != nil {
-			log.Warningf("Leaving the endpoint failed: %s", err)
-		}
+	if err := driver.client.EndpointLeaveByDockerEPID(l.EndpointID); err != nil {
+		log.Warningf("Leaving the endpoint failed: %s", err)
 	}
 
 	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(l.EndpointID)); err != nil {

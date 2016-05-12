@@ -25,7 +25,7 @@ var (
 	}
 )
 
-func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
+func (s *DaemonSuite) TestEndpointJoinOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
 		LXCIP:           EpAddr,
@@ -46,7 +46,7 @@ func (s *DaemonSuite) TestEndpointCreateOK(c *C) {
 	c.Assert(err, Equals, nil)
 }
 
-func (s *DaemonSuite) TestEndpointCreateFail(c *C) {
+func (s *DaemonSuite) TestEndpointJoinFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
 		LXCIP:           EpAddr,
@@ -109,6 +109,50 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
 
+func (s *DaemonSuite) EndpointLeaveByDockerEPIDOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:           HardAddr,
+		LXCIP:            EpAddr,
+		NodeMAC:          HardAddr,
+		NodeIP:           NodeAddr,
+		IfName:           "ifname",
+		DockerNetworkID:  "dockernetwork",
+		DockerEndpointID: "123abc",
+		SecLabel:         SecLabel,
+	}
+	ep.SetID()
+
+	s.d.OnEndpointLeaveByDockerEPID = func(dockerEPIDreceived string) error {
+		c.Assert(ep.DockerEndpointID, Equals, dockerEPIDreceived)
+		return nil
+	}
+
+	err := s.c.EndpointLeaveByDockerEPID(ep.DockerEndpointID)
+	c.Assert(err, Equals, nil)
+}
+
+func (s *DaemonSuite) EndpointLeaveByDockerEPIDFail(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:           HardAddr,
+		LXCIP:            EpAddr,
+		NodeMAC:          HardAddr,
+		NodeIP:           NodeAddr,
+		IfName:           "ifname",
+		DockerNetworkID:  "dockernetwork",
+		DockerEndpointID: "123abc",
+		SecLabel:         SecLabel,
+	}
+	ep.SetID()
+
+	s.d.OnEndpointLeaveByDockerEPID = func(dockerEPIDreceived string) error {
+		c.Assert(ep.DockerEndpointID, Equals, dockerEPIDreceived)
+		return errors.New("invalid endpoint")
+	}
+
+	err := s.c.EndpointLeaveByDockerEPID(ep.DockerEndpointID)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
+
 func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 	epIDOutside := strconv.FormatUint(uint64(common.EndpointAddr2ID(EpAddr)), 10)
 	epWanted := types.Endpoint{
@@ -148,6 +192,50 @@ func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 	}
 
 	_, err := s.c.EndpointGet(epIDOutside)
+	c.Logf("err %s", err)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
+
+func (s *DaemonSuite) TestEndpointGetByDockerEPIDOK(c *C) {
+	epWanted := types.Endpoint{
+		LXCMAC:           HardAddr,
+		LXCIP:            EpAddr,
+		NodeMAC:          HardAddr,
+		NodeIP:           NodeAddr,
+		IfName:           "ifname",
+		DockerNetworkID:  "dockernetwork",
+		DockerEndpointID: "123abc",
+		SecLabel:         SecLabel,
+	}
+
+	s.d.OnEndpointGetByDockerEPID = func(dockerEPID string) (*types.Endpoint, error) {
+		c.Assert(dockerEPID, Equals, "123abc")
+		return &types.Endpoint{
+			LXCMAC:           HardAddr,
+			LXCIP:            EpAddr,
+			NodeMAC:          HardAddr,
+			NodeIP:           NodeAddr,
+			IfName:           "ifname",
+			DockerNetworkID:  "dockernetwork",
+			DockerEndpointID: "123abc",
+			SecLabel:         SecLabel,
+		}, nil
+	}
+
+	ep, err := s.c.EndpointGetByDockerEPID(epWanted.DockerEndpointID)
+	c.Assert(err, IsNil)
+	c.Assert(*ep, DeepEquals, epWanted)
+}
+
+func (s *DaemonSuite) TestEndpointGetByDockerEPIDFail(c *C) {
+	dockerEPID := "123abc"
+
+	s.d.OnEndpointGetByDockerEPID = func(dockerEPID string) (*types.Endpoint, error) {
+		c.Assert(dockerEPID, Equals, dockerEPID)
+		return nil, errors.New("invalid endpoint")
+	}
+
+	_, err := s.c.EndpointGetByDockerEPID(dockerEPID)
 	c.Logf("err %s", err)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
@@ -223,5 +311,47 @@ func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
 	}
 
 	err := s.c.EndpointUpdate("4307", optsWanted)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
+
+func (s *DaemonSuite) TestEndpointSaveOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	s.d.OnEndpointSave = func(receivedEp types.Endpoint) error {
+		c.Assert(ep, DeepEquals, receivedEp)
+		return nil
+	}
+
+	err := s.c.EndpointSave(ep)
+	c.Assert(err, Equals, nil)
+}
+
+func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	s.d.OnEndpointSave = func(receivedEp types.Endpoint) error {
+		c.Assert(ep, DeepEquals, receivedEp)
+		return errors.New("invalid endpoint")
+	}
+
+	err := s.c.EndpointSave(ep)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
