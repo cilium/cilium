@@ -3,7 +3,6 @@ package driver
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 
 	"github.com/noironetworks/cilium-net/common/types"
@@ -105,11 +104,10 @@ func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Release Address request: %+v", &release)
+	log.Debugf("Release Address request: %+v", release)
 
-	ip := net.ParseIP(release.Address)
 	err := driver.client.ReleaseIP(types.LibnetworkIPAMType,
-		types.IPAMReq{IP: &ip})
+		types.IPAMReq{ReleaseAddressRequest: &release})
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return
