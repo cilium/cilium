@@ -12,7 +12,8 @@ type TestDaemon struct {
 	OnEndpointJoin         func(ep types.Endpoint) error
 	OnEndpointLeave        func(ep string) error
 	OnEndpointUpdate       func(ep string, opts types.EPOpts) error
-	OnAllocateIP           func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMConfig, error)
+	OnGetIPAMConf          func(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
+	OnAllocateIP           func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
 	OnReleaseIP            func(ipamType types.IPAMType, opts types.IPAMReq) error
 	OnPing                 func() (*types.PingResponse, error)
 	OnSyncState            func(path string, clean bool) error
@@ -81,7 +82,14 @@ func (d TestDaemon) SyncState(path string, clean bool) error {
 	return errors.New("SyncState should not have been called")
 }
 
-func (d TestDaemon) AllocateIP(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMConfig, error) {
+func (d TestDaemon) GetIPAMConf(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMConfigRep, error) {
+	if d.OnGetIPAMConf != nil {
+		return d.OnGetIPAMConf(ipamType, opts)
+	}
+	return nil, errors.New("GetIPAMConf should not have been called")
+}
+
+func (d TestDaemon) AllocateIP(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error) {
 	if d.OnAllocateIP != nil {
 		return d.OnAllocateIP(ipamType, opts)
 	}

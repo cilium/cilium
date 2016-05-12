@@ -11,32 +11,21 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/plugins"
-	ciliumtype "github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/libnetwork/drivers/remote/api"
-	"github.com/docker/libnetwork/types"
+	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
 	l "github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
-	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 )
 
 var log = l.MustGetLogger("cilium-net-client")
 
 const (
-	// DefaultPoolV4 is the IPv4 pool name for libnetwork.
-	DefaultPoolV4 = "CiliumPoolv4"
-	// DefaultPoolV6 is the IPv6 pool name for libnetwork.
-	DefaultPoolV6 = "CiliumPoolv6"
-	// LocalAllocSubnet is never exposed, used to generate IPv6 address. //TODO remove this
-	LocalAllocSubnet = "1.0.0.0/16"
 	// ContainerInterfacePrefix is the container's internal interface name prefix.
 	ContainerInterfacePrefix = "cilium"
-	// DummyV4AllocPool is never exposed, makes libnetwork happy.
-	DummyV4AllocPool = "0.0.0.0/0"
-	// DummyV4Gateway is never exposed, makes libnetwork happy.
-	DummyV4Gateway = "1.1.1.1/32"
 )
 
 // Driver interface that listens for docker requests.
@@ -45,10 +34,8 @@ type Driver interface {
 }
 
 type driver struct {
-	nodeAddress    net.IP
-	allocPool      *net.IPNet
-	allocatorRange *ipallocator.Range
-	endpoints      map[string]*ciliumtype.Endpoint
+	nodeAddress net.IP
+	endpoints   map[string]*types.Endpoint
 	sync.Mutex
 	client *cnc.Client
 }
@@ -84,28 +71,13 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 		}
 	}
 
-	_, subnet, err := net.ParseCIDR(nodeAddress.String() + "/64")
-	if err != nil {
-		log.Fatalf("Invalid CIDR %s", nodeAddress.String())
-	}
-
-	// Temporary hack. We use the IPv4 allocator from k8s to generate the
-	// last 4 bytes of the local endpoint address
-	_, v4Alloc, err := net.ParseCIDR(LocalAllocSubnet)
-	if err != nil {
-		log.Fatalf("Invalid CIDR %s", LocalAllocSubnet)
-	}
-
 	d := &driver{
-		nodeAddress:    nodeAddress,
-		allocPool:      subnet,
-		allocatorRange: ipallocator.NewCIDRRange(v4Alloc),
-		endpoints:      make(map[string]*ciliumtype.Endpoint),
-		client:         c,
+		nodeAddress: nodeAddress,
+		endpoints:   make(map[string]*types.Endpoint),
+		client:      c,
 	}
 
 	log.Infof("New Cilium networking instance on node %s", nodeAddress.String())
-	log.Infof("Address pool: %s", subnet.String())
 
 	return d, nil
 }
@@ -241,12 +213,12 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Warningf("No IPv6 address provided in CreateEndpoint request")
 	}
 
-	maps := make([]ciliumtype.EPPortMap, 0, 32)
+	maps := make([]types.EPPortMap, 0, 32)
 
 	for key, val := range create.Options {
 		switch key {
 		case "com.docker.network.portmap":
-			var portmap []types.PortBinding
+			var portmap []lnTypes.PortBinding
 			if err := json.Unmarshal(val, &portmap); err != nil {
 				sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 				return
@@ -255,7 +227,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 			// FIXME: Host IP is ignored for now
 			for _, m := range portmap {
-				maps = append(maps, ciliumtype.EPPortMap{
+				maps = append(maps, types.EPPortMap{
 					From:  m.HostPort,
 					To:    m.Port,
 					Proto: uint8(m.Proto),
@@ -263,7 +235,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "com.docker.network.endpoint.exposedports":
-			var tp []types.TransportPort
+			var tp []lnTypes.TransportPort
 			if err := json.Unmarshal(val, &tp); err != nil {
 				sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 				return
@@ -280,7 +252,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	ip, _, _ := net.ParseCIDR(containerAddress)
 
-	driver.endpoints[endID] = &ciliumtype.Endpoint{
+	driver.endpoints[endID] = &types.Endpoint{
 		DockerID:         "",
 		LXCIP:            ip,
 		NodeIP:           driver.nodeAddress,
@@ -368,27 +340,32 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	ep.SetID()
 	if err = driver.client.EndpointJoin(*ep); err != nil {
 		log.Errorf("Joining endpoint failed: %s", err)
-		// TODO: clean all of the stuff that we created so far
 		sendError(w, "Unable to create BPF map: "+err.Error(), http.StatusInternalServerError)
 	}
 
-	gw := driver.nodeAddress.String()
-	routeGW := api.StaticRoute{
-		Destination: gw + "/128",
-		RouteType:   types.CONNECTED,
-		NextHop:     "",
+	rep, err := driver.client.GetIPAMConf(types.LibnetworkIPAMType, types.IPAMReq{})
+	if err != nil {
+		sendError(w, fmt.Sprintf("Could not get cilium IPAM configuration: %s", err), http.StatusBadRequest)
 	}
 
-	routeDefault := api.StaticRoute{
-		Destination: "::/0",
-		RouteType:   types.NEXTHOP,
-		NextHop:     driver.nodeAddress.String(),
+	lnRoutes := []api.StaticRoute{}
+	for _, route := range rep.IPAMConfig.IP6.Routes {
+		nh := ""
+		if route.IsL3() {
+			nh = route.NextHop.String()
+		}
+		lnRoute := api.StaticRoute{
+			Destination: route.Destination.String(),
+			RouteType:   route.Type,
+			NextHop:     nh,
+		}
+		lnRoutes = append(lnRoutes, lnRoute)
 	}
 
 	res := &api.JoinResponse{
-		GatewayIPv6:           gw,
+		GatewayIPv6:           rep.IPAMConfig.IP6.Gateway.String(),
 		InterfaceName:         ifname,
-		StaticRoutes:          []api.StaticRoute{routeGW, routeDefault},
+		StaticRoutes:          lnRoutes,
 		DisableGatewayService: true,
 	}
 

@@ -11,11 +11,11 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/plugins"
-	ciliumtypes "github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/appc/cni/pkg/ns"
 	"github.com/appc/cni/pkg/skel"
-	"github.com/appc/cni/pkg/types"
+	cniTypes "github.com/appc/cni/pkg/types"
 	l "github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 )
@@ -32,7 +32,7 @@ func init() {
 }
 
 type netConf struct {
-	types.NetConf
+	cniTypes.NetConf
 	MTU int `json:"mtu"`
 }
 
@@ -70,7 +70,7 @@ func renameLink(curName, newName string) error {
 	return netlink.LinkSetName(link, newName)
 }
 
-func addIPConfigToLink(ipConfig *ciliumtypes.IPConfig, link netlink.Link, ifName string) error {
+func addIPConfigToLink(ipConfig *types.IPConfig, link netlink.Link, ifName string) error {
 	addr := &netlink.Addr{IPNet: &ipConfig.IP}
 	if err := netlink.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
@@ -94,7 +94,7 @@ func addIPConfigToLink(ipConfig *ciliumtypes.IPConfig, link netlink.Link, ifName
 	return nil
 }
 
-func configureIface(ifName string, config *ciliumtypes.IPAMConfig) error {
+func configureIface(ifName string, config *types.IPAMRep) error {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -118,10 +118,10 @@ func configureIface(ifName string, config *ciliumtypes.IPAMConfig) error {
 	return nil
 }
 
-func createCNIReply(ipamConf *ciliumtypes.IPAMConfig) error {
-	routes := []types.Route{}
+func createCNIReply(ipamConf *types.IPAMRep) error {
+	routes := []cniTypes.Route{}
 	for _, r := range ipamConf.IP6.Routes {
-		newRoute := types.Route{
+		newRoute := cniTypes.Route{
 			Dst: r.Destination,
 		}
 		if r.NextHop != nil {
@@ -129,8 +129,8 @@ func createCNIReply(ipamConf *ciliumtypes.IPAMConfig) error {
 		}
 		routes = append(routes, newRoute)
 	}
-	r := types.Result{
-		IP6: &types.IPConfig{
+	r := cniTypes.Result{
+		IP6: &cniTypes.IPConfig{
 			IP:      ipamConf.IP6.IP,
 			Gateway: ipamConf.IP6.Gateway,
 			Routes:  routes,
@@ -161,7 +161,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			args.IfName, args.Netns, err)
 	}
 
-	var ep ciliumtypes.Endpoint
+	var ep types.Endpoint
 	veth, peer, tmpIfName, err := plugins.SetupVeth(args.ContainerID, n.MTU, &ep)
 	if err != nil {
 		return err
@@ -186,15 +186,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return nil
 	})
 
-	req := ciliumtypes.IPAMReq{ContainerID: args.ContainerID}
-	ipamConf, err := c.AllocateIP(ciliumtypes.CNIIPAMType, req)
+	req := types.IPAMReq{}
+	ipamConf, err := c.AllocateIP(types.CNIIPAMType, req)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err != nil {
-			req := ciliumtypes.IPAMReq{ContainerID: args.ContainerID}
-			if err = c.ReleaseIP(ciliumtypes.CNIIPAMType, req); err != nil {
+		if err != nil && ipamConf != nil && ipamConf.IP6 != nil {
+			req := types.IPAMReq{IP: &ipamConf.IP6.IP.IP}
+			if err = c.ReleaseIP(types.CNIIPAMType, req); err != nil {
 				log.Warningf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 			}
 		}
@@ -245,12 +245,12 @@ func cmdDel(args *skel.CmdArgs) error {
 		return nil
 	})
 
-	req := ciliumtypes.IPAMReq{ContainerID: args.ContainerID}
-	if err = c.ReleaseIP(ciliumtypes.CNIIPAMType, req); err != nil {
+	req := types.IPAMReq{IP: &containerIP}
+	if err = c.ReleaseIP(types.CNIIPAMType, req); err != nil {
 		log.Warningf("failed to release allocated IP of container ID %q: %s", args.ContainerID, err)
 	}
 
-	var ep ciliumtypes.Endpoint
+	var ep types.Endpoint
 	ep.LXCIP = containerIP
 	ep.SetID()
 	if err := c.EndpointLeave(ep.ID); err != nil {

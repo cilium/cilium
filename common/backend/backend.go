@@ -13,7 +13,8 @@ type bpfBackend interface {
 }
 
 type ipamBackend interface {
-	AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfig, error)
+	GetIPAMConf(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
+	AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMRep, error)
 	ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) error
 }
 
