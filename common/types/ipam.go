@@ -41,6 +41,7 @@ type IPAMReq struct {
 	IP                    *net.IP                      `json:",omitempty"`
 	RequestPoolRequest    *lnAPI.RequestPoolRequest    `json:",omitempty"`
 	RequestAddressRequest *lnAPI.RequestAddressRequest `json:",omitempty"`
+	ReleaseAddressRequest *lnAPI.ReleaseAddressRequest `json:",omitempty"`
 }
 
 // IPAMConfigRep is used for IPAM configuration reply messages.
