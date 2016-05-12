@@ -86,8 +86,11 @@ const (
 
 	// CiliumPrefix is used to distinguish cilium IDs between different ID types.
 	CiliumPrefix = "cilium://"
-	// DockerPrefix is used to distinguish docker IDs between different ID types.
+	// DockerPrefix is used to distinguish docker ID between different ID types.
 	DockerPrefix = "docker://"
+	// DockerEPPrefix is used to distinguish docker endpoints ID between different ID
+	// types.
+	DockerEPPrefix = "dockerEPID://"
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "lxc_config.h"

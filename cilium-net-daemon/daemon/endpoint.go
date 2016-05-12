@@ -54,16 +54,21 @@ func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 	if ep.DockerID != "" {
 		d.endpoints[common.DockerPrefix+ep.DockerID] = ep
 	}
+	if ep.DockerEndpointID != "" {
+		d.endpoints[common.DockerEPPrefix+ep.DockerEndpointID] = ep
+	}
 }
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
-func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, labels *types.SecCtxLabel) *types.Endpoint {
+func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, labels *types.SecCtxLabel) *types.Endpoint {
 	id := ""
 	if endpointID != "" {
 		id = common.CiliumPrefix + endpointID
 	} else if dockerID != "" {
 		id = common.DockerPrefix + dockerID
+	} else if dockerEPID != "" {
+		id = common.DockerEPPrefix + dockerEPID
 	} else {
 		return nil
 	}
@@ -77,6 +82,18 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID string, labels *types.
 	}
 
 	return nil
+}
+
+// EndpointGetByDockerEPID returns a copy of the endpoint for the given dockerEPID, or nil
+// if the endpoint was not found.
+func (d *Daemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	if ep, ok := d.endpoints[common.DockerEPPrefix+dockerEPID]; ok {
+		epCopy := *ep
+		return &epCopy, nil
+	}
+	return nil, nil
 }
 
 // EndpointGet returns a copy of the endpoint for the given endpointID, or nil if the
@@ -113,6 +130,7 @@ func (d *Daemon) deleteEndpoint(endpointID string) {
 	defer d.endpointsMU.Unlock()
 	if ep, ok := d.endpoints[common.CiliumPrefix+endpointID]; ok {
 		delete(d.endpoints, common.DockerPrefix+ep.DockerID)
+		delete(d.endpoints, common.DockerEPPrefix+ep.DockerEndpointID)
 		delete(d.endpoints, common.CiliumPrefix+endpointID)
 	}
 }
@@ -336,6 +354,16 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	return nil
 }
 
+// EndpointLeaveByDockerEPID cleans the directory used by the endpoint dockerEPID and all
+// relevant details with the epID.
+func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
+	if ep, ok := d.endpoints[common.DockerEPPrefix+dockerEPID]; !ok {
+		return fmt.Errorf("endpoint %s not found", dockerEPID)
+	} else {
+		return d.EndpointLeave(ep.ID)
+	}
+}
+
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
 func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 	// Preventing someone from deleting important directories
@@ -398,5 +426,14 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 
 	log.Infof("Update successful performed:\n%s", out)
 
+	return nil
+}
+
+// EndpointSave saves the endpoint in the daemon internal endpoint map.
+func (d *Daemon) EndpointSave(ep types.Endpoint) error {
+	if !isValidID(ep.ID) {
+		return fmt.Errorf("invalid ID: %s", ep.ID)
+	}
+	d.InsertEndpoint(&ep)
 	return nil
 }

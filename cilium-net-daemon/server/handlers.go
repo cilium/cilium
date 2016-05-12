@@ -51,6 +51,20 @@ func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (router *Router) endpointLeaveByDockerEPID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	dockerEPID, exists := vars["dockerEPID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty docker endpoint id"))
+		return
+	}
+	if err := router.daemon.EndpointLeaveByDockerEPID(dockerEPID); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	val, exists := vars["endpointID"]
@@ -70,6 +84,19 @@ func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (router *Router) endpointSave(w http.ResponseWriter, r *http.Request) {
+	var ep types.Endpoint
+	if err := json.NewDecoder(r.Body).Decode(&ep); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.EndpointSave(ep); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
 func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	epID, exists := vars["endpointID"]
@@ -78,6 +105,29 @@ func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ep, err := router.daemon.EndpointGet(epID)
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("error while getting endpoint: %s", err))
+		return
+	}
+	if ep == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(ep); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
+func (router *Router) endpointGetByDockerEPID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	dockerEPID, exists := vars["dockerEPID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty docker endpoint id"))
+		return
+	}
+	ep, err := router.daemon.EndpointGetByDockerEPID(dockerEPID)
 	if err != nil {
 		processServerError(w, r, fmt.Errorf("error while getting endpoint: %s", err))
 		return

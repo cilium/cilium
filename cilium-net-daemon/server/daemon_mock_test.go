@@ -7,26 +7,29 @@ import (
 )
 
 type TestDaemon struct {
-	OnEndpointGet          func(epID string) (*types.Endpoint, error)
-	OnEndpointsGet         func() ([]types.Endpoint, error)
-	OnEndpointJoin         func(ep types.Endpoint) error
-	OnEndpointLeave        func(ep string) error
-	OnEndpointUpdate       func(ep string, opts types.EPOpts) error
-	OnGetIPAMConf          func(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
-	OnAllocateIP           func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
-	OnReleaseIP            func(ipamType types.IPAMType, opts types.IPAMReq) error
-	OnPing                 func() (*types.PingResponse, error)
-	OnSyncState            func(path string, clean bool) error
-	OnPutLabels            func(labels types.Labels) (*types.SecCtxLabel, bool, error)
-	OnGetLabels            func(id uint32) (*types.SecCtxLabel, error)
-	OnGetLabelsBySHA256    func(sha256sum string) (*types.SecCtxLabel, error)
-	OnDeleteLabelsByUUID   func(uuid uint32) error
-	OnDeleteLabelsBySHA256 func(sha256sum string) error
-	OnGetMaxID             func() (uint32, error)
-	OnPolicyAdd            func(path string, node *types.PolicyNode) error
-	OnPolicyDelete         func(path string) error
-	OnPolicyGet            func(path string) (*types.PolicyNode, error)
-	OnPolicyCanConsume     func(sc *types.SearchContext) (*types.SearchContextReply, error)
+	OnEndpointGet               func(epID string) (*types.Endpoint, error)
+	OnEndpointGetByDockerEPID   func(dockerEPID string) (*types.Endpoint, error)
+	OnEndpointsGet              func() ([]types.Endpoint, error)
+	OnEndpointJoin              func(ep types.Endpoint) error
+	OnEndpointLeave             func(ep string) error
+	OnEndpointLeaveByDockerEPID func(dockerEPID string) error
+	OnEndpointUpdate            func(ep string, opts types.EPOpts) error
+	OnEndpointSave              func(ep types.Endpoint) error
+	OnGetIPAMConf               func(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
+	OnAllocateIP                func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
+	OnReleaseIP                 func(ipamType types.IPAMType, opts types.IPAMReq) error
+	OnPing                      func() (*types.PingResponse, error)
+	OnSyncState                 func(path string, clean bool) error
+	OnPutLabels                 func(labels types.Labels) (*types.SecCtxLabel, bool, error)
+	OnGetLabels                 func(id uint32) (*types.SecCtxLabel, error)
+	OnGetLabelsBySHA256         func(sha256sum string) (*types.SecCtxLabel, error)
+	OnDeleteLabelsByUUID        func(uuid uint32) error
+	OnDeleteLabelsBySHA256      func(sha256sum string) error
+	OnGetMaxID                  func() (uint32, error)
+	OnPolicyAdd                 func(path string, node *types.PolicyNode) error
+	OnPolicyDelete              func(path string) error
+	OnPolicyGet                 func(path string) (*types.PolicyNode, error)
+	OnPolicyCanConsume          func(sc *types.SearchContext) (*types.SearchContextReply, error)
 }
 
 func NewTestDaemon() *TestDaemon {
@@ -38,6 +41,13 @@ func (d TestDaemon) EndpointGet(epID string) (*types.Endpoint, error) {
 		return d.OnEndpointGet(epID)
 	}
 	return nil, errors.New("EndpointGet should not have been called")
+}
+
+func (d TestDaemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
+	if d.OnEndpointGetByDockerEPID != nil {
+		return d.OnEndpointGetByDockerEPID(dockerEPID)
+	}
+	return nil, errors.New("EndpointGetByDockerEPID should not have been called")
 }
 
 func (d TestDaemon) EndpointsGet() ([]types.Endpoint, error) {
@@ -66,6 +76,20 @@ func (d TestDaemon) EndpointLeave(epID string) error {
 		return d.OnEndpointLeave(epID)
 	}
 	return errors.New("EndpointLeave should not have been called")
+}
+
+func (d TestDaemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
+	if d.OnEndpointLeaveByDockerEPID != nil {
+		return d.OnEndpointLeaveByDockerEPID(dockerEPID)
+	}
+	return errors.New("OnEndpointLeaveByDockerEPID should not have been called")
+}
+
+func (d TestDaemon) EndpointSave(ep types.Endpoint) error {
+	if d.OnEndpointSave != nil {
+		return d.OnEndpointSave(ep)
+	}
+	return errors.New("EndpointSave should not have been called")
 }
 
 func (d TestDaemon) Ping() (*types.PingResponse, error) {

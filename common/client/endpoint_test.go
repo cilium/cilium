@@ -25,7 +25,7 @@ var (
 	}
 )
 
-func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
+func (s *CiliumNetClientSuite) TestEndpointJoinOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
 		LXCIP:           EpAddr,
@@ -56,7 +56,7 @@ func (s *CiliumNetClientSuite) TestEndpointCreateOK(c *C) {
 	c.Assert(err, Equals, nil)
 }
 
-func (s *CiliumNetClientSuite) TestEndpointCreateFail(c *C) {
+func (s *CiliumNetClientSuite) TestEndpointJoinFail(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/4370") //0x1112
@@ -143,6 +143,65 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
 
+func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDOK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/endpoint-by-docker-ep-id/4370") //0x1112
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep := types.Endpoint{
+		LXCMAC:           HardAddr,
+		LXCIP:            EpAddr,
+		NodeMAC:          HardAddr,
+		NodeIP:           NodeAddr,
+		IfName:           "eth0",
+		DockerNetworkID:  "dockernetwork",
+		SecLabel:         SecLabel,
+		DockerEndpointID: "4370",
+	}
+	ep.SetID()
+
+	err := cli.EndpointLeaveByDockerEPID(ep.DockerEndpointID)
+
+	c.Assert(err, Equals, nil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/endpoint-by-docker-ep-id/4370") //0x1112
+		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Content-Type", "application/json")
+		e := json.NewEncoder(w)
+		err := e.Encode(types.ServerError{-1, "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep := types.Endpoint{
+		LXCMAC:           HardAddr,
+		LXCIP:            EpAddr,
+		NodeMAC:          HardAddr,
+		NodeIP:           NodeAddr,
+		IfName:           "eth0",
+		DockerNetworkID:  "dockernetwork",
+		SecLabel:         SecLabel,
+		DockerEndpointID: "4370",
+	}
+	ep.SetID()
+
+	err := cli.EndpointLeaveByDockerEPID(ep.DockerEndpointID)
+
+	c.Log(err.Error())
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+}
+
 func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
 	epOut := types.Endpoint{
 		LXCMAC:          HardAddr,
@@ -196,6 +255,63 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	ep, err := cli.EndpointGet("4370")
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+	c.Assert(ep, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointGetByDockerEPIDOK(c *C) {
+	epOut := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "eth0",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint-by-docker-ep-id/4370") //0x1112
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(epOut)
+		c.Assert(err, IsNil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep, err := cli.EndpointGetByDockerEPID("4370")
+	c.Assert(err, IsNil)
+	c.Assert(*ep, DeepEquals, epOut)
+
+	// Not found
+	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint-by-docker-ep-id/4371") //0x1112
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server2.Close()
+	cli = NewTestClient(server2.URL, c)
+
+	ep2, err := cli.EndpointGetByDockerEPID("4371")
+	c.Assert(err, IsNil)
+	c.Assert(ep2, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointGetByDockerEPIDFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint-by-docker-ep-id/4370") //0x1112
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(types.ServerError{-1, "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep, err := cli.EndpointGetByDockerEPID("4370")
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 	c.Assert(ep, IsNil)
 }
@@ -319,5 +435,66 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	err := cli.EndpointUpdate("4370", optsWanted)
+	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointSaveOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/save/4370") //0x1112
+		d := json.NewDecoder(r.Body)
+		var receivedEp types.Endpoint
+		err := d.Decode(&receivedEp)
+		c.Assert(err, Equals, nil)
+		c.Assert(receivedEp, DeepEquals, ep)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.EndpointSave(ep)
+
+	c.Assert(err, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointSaveFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/save/4370") //0x1112
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		e := json.NewEncoder(w)
+		err := e.Encode(types.ServerError{-1, "the daemon has died"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	err := cli.EndpointSave(ep)
+
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }

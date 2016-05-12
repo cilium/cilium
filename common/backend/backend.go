@@ -7,9 +7,12 @@ import (
 type bpfBackend interface {
 	EndpointJoin(ep types.Endpoint) error
 	EndpointLeave(epID string) error
+	EndpointLeaveByDockerEPID(dockerEPID string) error
 	EndpointGet(epID string) (*types.Endpoint, error)
+	EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error)
 	EndpointsGet() ([]types.Endpoint, error)
 	EndpointUpdate(epID string, opts types.EPOpts) error
+	EndpointSave(ep types.Endpoint) error
 }
 
 type ipamBackend interface {
