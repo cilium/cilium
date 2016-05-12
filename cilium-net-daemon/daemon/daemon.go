@@ -12,9 +12,9 @@ import (
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/common"
-	ciliumTypes "github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/appc/cni/pkg/types"
+	cniTypes "github.com/appc/cni/pkg/types"
 	hb "github.com/appc/cni/plugins/ipam/host-local/backend"
 	dClient "github.com/docker/engine-api/client"
 	dTypes "github.com/docker/engine-api/types"
@@ -25,6 +25,7 @@ import (
 	k8sClientConfig "k8s.io/kubernetes/pkg/client/restclient"
 	k8sClient "k8s.io/kubernetes/pkg/client/unversioned"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/dockertools"
+	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 )
 
 var (
@@ -36,11 +37,11 @@ var (
 type Daemon struct {
 	libDir               string
 	lxcMap               *lxcmap.LXCMap
-	ipamConf             map[ciliumTypes.IPAMType]hb.IPAMConfig
+	ipamConf             map[types.IPAMType]*types.IPAMConfig
 	consul               *consulAPI.Client
-	endpoints            map[string]*ciliumTypes.Endpoint
+	endpoints            map[string]*types.Endpoint
 	endpointsMU          sync.Mutex
-	validLabelPrefixes   *ciliumTypes.LabelPrefixCfg
+	validLabelPrefixes   *types.LabelPrefixCfg
 	validLabelPrefixesMU sync.Mutex
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
@@ -74,25 +75,46 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 	ones, bits := common.NodeIPv6Mask.Size()
-	maskPerIPAMType := ones
+	maskPerIPAMType := ones + 1
 	ipamSubnets := net.IPNet{IP: c.NodeAddress, Mask: net.CIDRMask(maskPerIPAMType, bits)}
 	cniIPAMSubnet := ipamSubnets
+	libnetworkIPAMSubnet := net.IPNet{IP: common.NextNetwork(ipamSubnets), Mask: net.CIDRMask(maskPerIPAMType, bits)}
 	nodeRoute := net.IPNet{IP: c.NodeAddress, Mask: common.ContainerIPv6Mask}
 
-	ipamConf := map[ciliumTypes.IPAMType]hb.IPAMConfig{
-		ciliumTypes.CNIIPAMType: hb.IPAMConfig{
-			Name:    string(ciliumTypes.CNIIPAMType),
-			Subnet:  types.IPNet(cniIPAMSubnet),
-			Gateway: c.NodeAddress,
-			Routes: []types.Route{
-				types.Route{
-					Dst: nodeRoute,
-				},
-				types.Route{
-					Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-					GW:  c.NodeAddress,
+	ipamConf := map[types.IPAMType]*types.IPAMConfig{
+		types.CNIIPAMType: &types.IPAMConfig{
+			IPAMConfig: hb.IPAMConfig{
+				Name:    string(types.CNIIPAMType),
+				Subnet:  cniTypes.IPNet(cniIPAMSubnet),
+				Gateway: c.NodeAddress,
+				Routes: []cniTypes.Route{
+					cniTypes.Route{
+						Dst: nodeRoute,
+					},
+					cniTypes.Route{
+						Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+						GW:  c.NodeAddress,
+					},
 				},
 			},
+			IPAllocator: ipallocator.NewCIDRRange(&cniIPAMSubnet),
+		},
+		types.LibnetworkIPAMType: &types.IPAMConfig{
+			IPAMConfig: hb.IPAMConfig{
+				Name:    string(types.LibnetworkIPAMType),
+				Subnet:  cniTypes.IPNet(libnetworkIPAMSubnet),
+				Gateway: c.NodeAddress,
+				Routes: []cniTypes.Route{
+					cniTypes.Route{
+						Dst: nodeRoute,
+					},
+					cniTypes.Route{
+						Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+						GW:  c.NodeAddress,
+					},
+				},
+			},
+			IPAllocator: ipallocator.NewCIDRRange(&libnetworkIPAMSubnet),
 		},
 	}
 
@@ -118,7 +140,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consul:             consul,
 		dockerClient:       dockerClient,
 		k8sClient:          k8sClient,
-		endpoints:          make(map[string]*ciliumTypes.Endpoint),
+		endpoints:          make(map[string]*types.Endpoint),
 		validLabelPrefixes: c.ValidLabelPrefixes,
 		ipv4Range:          c.IPv4Range,
 		nodeAddress:        c.NodeAddress,
@@ -245,18 +267,18 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	return result.GetLabels(), nil
 }
 
-func (d *Daemon) getFilteredLabels(allLabels map[string]string) ciliumTypes.Labels {
-	var ciliumLabels, k8sLabels ciliumTypes.Labels
+func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
+	var ciliumLabels, k8sLabels types.Labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
 			log.Warningf("Error while getting kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {
-			k8sLabels = ciliumTypes.Map2Labels(k8sNormalLabels, common.K8sLabelSource)
+			k8sLabels = types.Map2Labels(k8sNormalLabels, common.K8sLabelSource)
 		}
 	}
 
-	ciliumLabels = ciliumTypes.Map2Labels(allLabels, common.CiliumLabelSource)
+	ciliumLabels = types.Map2Labels(allLabels, common.CiliumLabelSource)
 
 	ciliumLabels.MergeLabels(k8sLabels)
 
@@ -293,7 +315,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	try := 1
 	maxTries := 5
-	var ep *ciliumTypes.Endpoint
+	var ep *types.Endpoint
 	for try < maxTries {
 		if ep = d.setEndpointSecLabel(ciliumID, dockerID, secCtxlabels); ep != nil {
 			break

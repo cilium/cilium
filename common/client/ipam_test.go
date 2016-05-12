@@ -15,7 +15,7 @@ import (
 )
 
 func (s *CiliumNetClientSuite) TestAllocateIPOK(c *C) {
-	ipamConfig := types.IPAMConfig{
+	ipamConfig := types.IPAMRep{
 		IP6: &types.IPConfig{
 			Gateway: NodeAddr,
 			IP:      net.IPNet{IP: EpAddr, Mask: common.NodeIPv6Mask},
@@ -109,5 +109,63 @@ func (s *CiliumNetClientSuite) TestReleaseIPFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	err := cli.ReleaseIP(types.CNIIPAMType, cniReq)
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+}
+
+func (s *CiliumNetClientSuite) TestGetIPAMConfOK(c *C) {
+	cniReq := types.IPAMReq{}
+	ciliumRoutes := []types.Route{
+		*types.NewRoute(net.IPNet{IP: NodeAddr, Mask: common.NodeIPv6Mask}, nil),
+		*types.NewRoute(net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)}, NodeAddr),
+	}
+
+	rep := types.IPAMConfigRep{
+		IPAMConfig: &types.IPAMRep{
+			IP6: &types.IPConfig{
+				Gateway: NodeAddr,
+				Routes:  ciliumRoutes,
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-configuration/"+string(types.LibnetworkIPAMType))
+		var options types.IPAMReq
+		err := json.NewDecoder(r.Body).Decode(&options)
+		c.Assert(err, IsNil)
+		c.Assert(options, DeepEquals, cniReq)
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(rep)
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ipamRep, err := cli.GetIPAMConf(types.LibnetworkIPAMType, cniReq)
+	c.Assert(err, Equals, nil)
+	c.Assert(*ipamRep, DeepEquals, rep)
+}
+
+func (s *CiliumNetClientSuite) TestGetIPAMConfFail(c *C) {
+	cniReq := types.IPAMReq{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-configuration/"+string(types.CNIIPAMType))
+		var options types.IPAMReq
+		err := json.NewDecoder(r.Body).Decode(&options)
+		c.Assert(err, IsNil)
+		c.Assert(options, DeepEquals, cniReq)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(types.ServerError{-1, "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	_, err := cli.GetIPAMConf(types.CNIIPAMType, cniReq)
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }

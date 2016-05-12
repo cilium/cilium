@@ -34,6 +34,9 @@ func (r *Router) initRoutes() {
 			"EndpointUpdate", "POST", "/endpoint/update/{endpointID}", r.endpointUpdate,
 		},
 		route{
+			"IPAMConfiguration", "POST", "/allocator/ipam-configuration/{ipam-type}", r.ipamConfig,
+		},
+		route{
 			"AllocateIPv6", "POST", "/allocator/ipam-allocate/{ipam-type}", r.allocateIPv6,
 		},
 		route{

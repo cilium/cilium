@@ -2,22 +2,55 @@ package types
 
 import (
 	"net"
+	"sync"
 
-	libnetworktypes "github.com/docker/libnetwork/types"
+	hb "github.com/appc/cni/plugins/ipam/host-local/backend"
+	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
+	lnTypes "github.com/docker/libnetwork/types"
+	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 )
 
 type IPAMType string
 
 const (
+	// CNIIPAMType
 	CNIIPAMType IPAMType = "cni-host-local"
+	// LibnetworkIPAMType
+	LibnetworkIPAMType IPAMType = "libnetwork"
+
+	// LibnetworkDefaultPoolV4 is the IPv4 pool name for libnetwork.
+	LibnetworkDefaultPoolV4 = "CiliumPoolv4"
+	// LibnetworkDefaultPoolV6 is the IPv6 pool name for libnetwork.
+	LibnetworkDefaultPoolV6 = "CiliumPoolv6"
+	// LibnetworkDummyV4AllocPool is never exposed, makes libnetwork happy.
+	LibnetworkDummyV4AllocPool = "0.0.0.0/0"
+	// LibnetworkDummyV4Gateway is never exposed, makes libnetwork happy.
+	LibnetworkDummyV4Gateway = "1.1.1.1/32"
 )
 
-type IPAMReq struct {
-	ContainerID string
+// IPAMConfig is the IPAM configuration used for a particular IPAM type.
+type IPAMConfig struct {
+	IPAMConfig    hb.IPAMConfig
+	IPAllocator   *ipallocator.Range
+	IPAllocatorMU sync.Mutex
 }
 
-// IPAMConfig contains both IPv4 and IPv6 IPAM configuration.
-type IPAMConfig struct {
+// IPAMReq is used for IPAM request operation.
+type IPAMReq struct {
+	ContainerID           string                       `json:",omitempty"`
+	IP                    *net.IP                      `json:",omitempty"`
+	RequestPoolRequest    *lnAPI.RequestPoolRequest    `json:",omitempty"`
+	RequestAddressRequest *lnAPI.RequestAddressRequest `json:",omitempty"`
+}
+
+// IPAMConfigRep is used for IPAM configuration reply messages.
+type IPAMConfigRep struct {
+	RequestPoolResponse *lnAPI.RequestPoolResponse `json:",omitempty"`
+	IPAMConfig          *IPAMRep                   `json:",omitempty"`
+}
+
+// IPAMRep contains both IPv4 and IPv6 IPAM configuration.
+type IPAMRep struct {
 	// IPv6 configuration.
 	IP6 *IPConfig
 	// IPv4 configuration.
@@ -50,9 +83,9 @@ func NewRoute(dst net.IPNet, nextHop net.IP) *Route {
 		NextHop:     nextHop,
 	}
 	if nextHop == nil {
-		ciliumRoute.Type = libnetworktypes.CONNECTED
+		ciliumRoute.Type = lnTypes.CONNECTED
 	} else {
-		ciliumRoute.Type = libnetworktypes.NEXTHOP
+		ciliumRoute.Type = lnTypes.NEXTHOP
 	}
 	return ciliumRoute
 }

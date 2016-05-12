@@ -110,6 +110,29 @@ func (router *Router) endpointsGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *Router) ipamConfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	ipamType, exists := vars["ipam-type"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty ipam-type"))
+		return
+	}
+	var opts types.IPAMReq
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	ipamConfig, err := router.daemon.GetIPAMConf(types.IPAMType(ipamType), opts)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(ipamConfig); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
 func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ipamType, exists := vars["ipam-type"]
@@ -125,6 +148,10 @@ func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	ipamConfig, err := router.daemon.AllocateIP(types.IPAMType(ipamType), opts)
 	if err != nil {
 		processServerError(w, r, err)
+		return
+	}
+	if ipamConfig == nil {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
