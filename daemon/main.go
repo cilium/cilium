@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -264,7 +265,7 @@ func initEnv(ctx *cli.Context) error {
 
 	addr := net.ParseIP(nodeAddrStr)
 	if addr == nil {
-		log.Fatalf("Invalid node address \"%s\", please specifcy node address using -n", nodeAddrStr)
+		log.Fatalf("Invalid node address %q, please specifcy node address using -n", nodeAddrStr)
 	}
 
 	if !common.ValidNodeAddress(addr) {
@@ -272,7 +273,8 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	var err error
-	config.NodeAddress, _, err = net.ParseCIDR(addr.String() + "/64")
+	ones, _ := common.NodeIPv6Mask.Size()
+	config.NodeAddress, _, err = net.ParseCIDR(addr.String() + "/" + strconv.Itoa(ones))
 	if err != nil {
 		log.Fatalf("Invalid CIDR %s", addr.String())
 	}

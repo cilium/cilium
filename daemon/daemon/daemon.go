@@ -98,7 +98,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
-	ones, bits := common.NodeIPv6Mask.Size()
+	ones, bits := common.StateIPv6Mask.Size()
 	maskPerIPAMType := ones + 1
 	ipamSubnets := net.IPNet{IP: c.NodeAddress, Mask: net.CIDRMask(maskPerIPAMType, bits)}
 	cniIPAMSubnet := ipamSubnets

@@ -75,8 +75,7 @@ func fmtV6Prefix(prefix string, ip net.IP) string {
 	if len(ip) < 4 {
 		return "<nil>"
 	}
-
-	return fmt.Sprintf("%s%02x%02x:%02x%02x:0", prefix, ip[0], ip[1], ip[2], ip[3])
+	return fmt.Sprintf("%s%02x%02x:%02x%02x:0:0", prefix, ip[0], ip[1], ip[2], ip[3])
 }
 
 // GenerateV6Prefix generates an IPv6 address created based on the first global IPv4
