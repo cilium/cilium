@@ -59,7 +59,7 @@ func allocateIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types.
 				IP: net.IPNet{IP: ipConf, Mask: common.ContainerIPv6Mask},
 			},
 		}
-		log.Debugf("Docker requested us to use legacy IPv6, %+v", resp.IP6.IP)
+		log.Debugf("Docker requested us to use IPv6, %+v", resp.IP6.IP)
 		return &resp, nil
 	}
 	return nil, nil
@@ -67,9 +67,10 @@ func allocateIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types.
 
 // releaseIPLibnetwork releases an IP for the libnetwork plugin.
 func releaseIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) error {
+	log.Debugf("%+v", ln)
 	ipamConf.IPAllocatorMU.Lock()
 	defer ipamConf.IPAllocatorMU.Unlock()
-	switch ln.RequestAddressRequest.PoolID {
+	switch ln.ReleaseAddressRequest.PoolID {
 	case types.LibnetworkDefaultPoolV4:
 		log.Warningf("Docker requested us to release legacy IPv4, boooooring...")
 	case types.LibnetworkDefaultPoolV6:
