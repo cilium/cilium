@@ -54,11 +54,33 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		d.cleanUpDockerDandlingEndpoints()
 	}
 
-	// TODO: do a clean up for kubernetes containers?
-
 	eps, err := d.EndpointsGet()
+	if err != nil {
+		log.Warningf("Error while getting endpoints: %s", err)
+	}
+
 	for _, ep := range eps {
-		d.EndpointUpdate(ep.ID, nil)
+		var err error
+		if ep.IsCNI() {
+			_, err = d.AllocateIP(types.CNIIPAMType, types.IPAMReq{
+				IP: &ep.LXCIP,
+			})
+		} else if ep.IsLibnetwork() {
+			_, err = d.AllocateIP(types.LibnetworkIPAMType, types.IPAMReq{
+				IP: &ep.LXCIP,
+			})
+		}
+		if err != nil {
+			log.Warningf("Failed while reallocating ep %s's IP address: %s", ep.ID, err)
+		} else {
+			log.Infof("EP %s's IP successfully reallocated", ep.ID)
+		}
+		err = d.EndpointUpdate(ep.ID, nil)
+		if err != nil {
+			log.Warningf("Failed while updating ep %s: %s", ep.ID, err)
+		} else {
+			log.Infof("EP %s completely restored", ep.ID)
+		}
 	}
 
 	return nil
@@ -143,9 +165,21 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 		return
 	}
 
-	cleanUp := func(epID string) {
-		log.Infof("Endpoint %q not found in docker, cleaning up...", epID)
-		d.EndpointLeave(epID)
+	cleanUp := func(ep types.Endpoint) {
+		log.Infof("Endpoint %q not found in docker, cleaning up...", ep.ID)
+		d.EndpointLeave(ep.ID)
+		if ep.LXCIP != nil {
+			if ep.IsCNI() {
+				d.ReleaseIP(types.CNIIPAMType, types.IPAMReq{
+					IP: &ep.LXCIP,
+				})
+			} else if ep.IsLibnetwork() {
+				d.ReleaseIP(types.LibnetworkIPAMType, types.IPAMReq{
+					IP: &ep.LXCIP,
+				})
+			}
+		}
+
 	}
 
 	for _, ep := range eps {
@@ -153,7 +187,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 		if ep.DockerNetworkID != "" {
 			nls, err := d.dockerClient.NetworkInspect(ep.DockerNetworkID)
 			if dockerAPI.IsErrNetworkNotFound(err) {
-				cleanUp(ep.ID)
+				cleanUp(ep)
 				continue
 			}
 			if err != nil {
@@ -167,24 +201,24 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 				}
 			}
 			if !found {
-				cleanUp(ep.ID)
+				cleanUp(ep)
 				continue
 			}
 		} else if ep.DockerID != "" {
 			cont, err := d.dockerClient.ContainerInspect(ep.DockerID)
 			if dockerAPI.IsErrContainerNotFound(err) {
-				cleanUp(ep.ID)
+				cleanUp(ep)
 				continue
 			}
 			if err != nil {
 				continue
 			}
 			if !cont.State.Running {
-				cleanUp(ep.ID)
+				cleanUp(ep)
 				continue
 			}
 		} else {
-			cleanUp(ep.ID)
+			cleanUp(ep)
 			continue
 		}
 	}

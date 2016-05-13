@@ -14,6 +14,12 @@ import (
 func allocateIPCNI(cniReq types.IPAMReq, ipamConf *types.IPAMConfig) (*types.IPAMRep, error) {
 	ipamConf.IPAllocatorMU.Lock()
 	defer ipamConf.IPAllocatorMU.Unlock()
+
+	if cniReq.IP != nil {
+		err := ipamConf.IPAllocator.Allocate(*cniReq.IP)
+		return nil, err
+	}
+
 	ipConf, err := ipamConf.IPAllocator.AllocateNext()
 	if err != nil {
 		return nil, err
@@ -46,6 +52,11 @@ func allocateIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types.
 	ipamConf.IPAllocatorMU.Lock()
 	defer ipamConf.IPAllocatorMU.Unlock()
 
+	if ln.IP != nil {
+		err := ipamConf.IPAllocator.Allocate(*ln.IP)
+		return nil, err
+	}
+
 	switch ln.RequestAddressRequest.PoolID {
 	case types.LibnetworkDefaultPoolV4:
 		log.Warningf("Docker requested us to use legacy IPv4, boooooring...")
@@ -70,6 +81,11 @@ func releaseIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) error {
 	log.Debugf("%+v", ln)
 	ipamConf.IPAllocatorMU.Lock()
 	defer ipamConf.IPAllocatorMU.Unlock()
+
+	if ln.IP != nil {
+		return ipamConf.IPAllocator.Release(*ln.IP)
+	}
+
 	switch ln.ReleaseAddressRequest.PoolID {
 	case types.LibnetworkDefaultPoolV4:
 		log.Warningf("Docker requested us to release legacy IPv4, boooooring...")

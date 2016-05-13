@@ -185,3 +185,13 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	}
 	return &ep, nil
 }
+
+// IsLibnetwork returns true if the endpoint was created by Libnetwork, false otherwise.
+func (e *Endpoint) IsLibnetwork() bool {
+	return e.DockerNetworkID != ""
+}
+
+// IsCNI returns true if the endpoint was created by CNI, false otherwise.
+func (e *Endpoint) IsCNI() bool {
+	return e.DockerNetworkID == ""
+}
