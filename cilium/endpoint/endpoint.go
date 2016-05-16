@@ -270,7 +270,7 @@ func dumpMap(ctx *cli.Context) {
 
 	const (
 		labelsIDTitle  = "LABEL ID"
-		labelsDesTitle = "LABELS (Source#Key[=Value])"
+		labelsDesTitle = "LABELS (source:key[=value])"
 		actionTitle    = "ACTION"
 		bytesTitle     = "BYTES"
 		packetsTitle   = "PACKETS"
@@ -517,7 +517,7 @@ func dumpEndpoints(ctx *cli.Context) {
 
 	const (
 		labelsIDTitle  = "LABEL ID"
-		labelsDesTitle = "LABELS (Source#Key[=Value])"
+		labelsDesTitle = "LABELS (source:key[=value])"
 		ipv6Title      = "IPv6"
 		endpointTitle  = "ENDPOINT ID"
 	)
