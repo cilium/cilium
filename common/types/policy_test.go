@@ -138,8 +138,10 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	lblFoo := NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
+	lblAll := NewLabel(ID_NAME_ALL, "", common.ReservedLabelSource)
 	allow := AllowRule{Action: ACCEPT, Label: *lblFoo}
 	deny := AllowRule{Action: DENY, Label: *lblFoo}
+	allowAll := AllowRule{Action: ACCEPT, Label: *lblAll}
 
 	ctx := SearchContext{
 		From: []Label{*lblFoo},
@@ -152,8 +154,10 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 
 	c.Assert(allow.Allows(&ctx), Equals, ACCEPT)
 	c.Assert(deny.Allows(&ctx), Equals, DENY)
+	c.Assert(allowAll.Allows(&ctx), Equals, ACCEPT)
 	c.Assert(allow.Allows(&ctx2), Equals, UNDECIDED)
 	c.Assert(deny.Allows(&ctx2), Equals, UNDECIDED)
+	c.Assert(allowAll.Allows(&ctx2), Equals, ACCEPT)
 }
 
 func (s *CommonSuite) TestTargetCoveredBy(c *C) {
@@ -161,28 +165,33 @@ func (s *CommonSuite) TestTargetCoveredBy(c *C) {
 	lblBar := NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	lblBaz := NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
 	lblJoe := NewLabel("io.cilium.user", "joe", "kubernetes")
+	lblAll := NewLabel(ID_NAME_ALL, "", common.ReservedLabelSource)
 
 	list1 := []Label{*lblFoo}
 	list2 := []Label{*lblBar, *lblBaz}
 	list3 := []Label{*lblFoo, *lblJoe}
+	list4 := []Label{*lblAll}
 
 	// any -> io.cilium.bar
 	ctx := SearchContext{To: []Label{*lblBar}}
 	c.Assert(ctx.TargetCoveredBy(list1), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list2), Equals, true)
 	c.Assert(ctx.TargetCoveredBy(list3), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list4), Equals, true)
 
 	// any -> kubernetes:io.cilium.baz
 	ctx = SearchContext{To: []Label{*lblBaz}}
 	c.Assert(ctx.TargetCoveredBy(list1), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list2), Equals, true)
 	c.Assert(ctx.TargetCoveredBy(list3), Equals, false)
+	c.Assert(ctx.TargetCoveredBy(list4), Equals, true)
 
 	// any -> [kubernetes:io.cilium.user=joe, io.cilium.foo]
 	ctx = SearchContext{To: []Label{*lblJoe, *lblFoo}}
 	c.Assert(ctx.TargetCoveredBy(list1), Equals, true)
 	c.Assert(ctx.TargetCoveredBy(list2), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list3), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list4), Equals, true)
 }
 
 func (s *CommonSuite) TestAllowConsumer(c *C) {

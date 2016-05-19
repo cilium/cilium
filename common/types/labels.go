@@ -48,6 +48,15 @@ func (l *Label) Equals(b *Label) bool {
 		l.Value == b.Value
 }
 
+func (l *Label) IsAllLabel() bool {
+	// ID_NAME_ALL is a special label which matches all labels
+	return l.Source == common.ReservedLabelSource && l.Key == ID_NAME_ALL
+}
+
+func (l *Label) Matches(target *Label) bool {
+	return l.IsAllLabel() || l.Equals(target)
+}
+
 func (l *Label) Covers(path string) bool {
 	key := l.AbsoluteKey()
 

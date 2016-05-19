@@ -4,6 +4,9 @@
 		"coverage": ["public"],
 		"allow": ["$world"]
 	},{
+		"coverage": ["all"],
+		"allow": ["$all"]
+	},{
 		"allow": ["$host"]
 	}],
         "children": {
