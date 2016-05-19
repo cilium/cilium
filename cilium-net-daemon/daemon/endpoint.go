@@ -159,7 +159,7 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		ep.LXCMAC, ep.LXCIP, ep.IPv4Address(d.ipv4Range),
+		ep.LXCMAC, ep.LXCIP, ep.IPv4Address(d.conf.IPv4Range),
 		ep.SecLabel.ID, path.Base(policyMapPath), ep.NodeMAC)
 
 	fw.WriteString("/*\n")
@@ -245,7 +245,7 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 
 	ep.PolicyMap = policyMap
 
-	if err = d.lxcMap.WriteEndpoint(ep); err != nil {
+	if err = d.conf.LXCMap.WriteEndpoint(ep); err != nil {
 		os.RemoveAll(lxcDir)
 		os.RemoveAll(policyMapPath)
 		log.Warningf("Unable to update BPF map: %s", err)
@@ -264,8 +264,8 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		}
 	}
 
-	args := []string{d.libDir, ep.ID, ep.IfName}
-	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
+	args := []string{d.conf.LibDir, ep.ID, ep.IfName}
+	out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		if ep.Consumable != nil {
 			ep.Consumable.RemoveMap(policyMap)
@@ -293,12 +293,12 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	if ep.Opts == nil {
 		ep.Opts = types.EPOpts{}
-		ep.Opts[common.DisablePolicyEnforcement] = d.disablePolicy
+		ep.Opts[common.DisablePolicyEnforcement] = d.conf.DisablePolicy
 		ep.Opts[common.EnableNAT46] = false
 		ep.Opts[common.EnableDropNotify] = true
 	} else {
 		if _, exists := ep.Opts[common.DisablePolicyEnforcement]; !exists {
-			ep.Opts[common.DisablePolicyEnforcement] = d.disablePolicy
+			ep.Opts[common.DisablePolicyEnforcement] = d.conf.DisablePolicy
 		}
 		if _, exists := ep.Opts[common.EnableNAT46]; !exists {
 			ep.Opts[common.EnableNAT46] = false
@@ -326,12 +326,12 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	lxcDir := filepath.Join(".", epID)
 	os.RemoveAll(lxcDir)
 
-	if err := d.lxcMap.DeleteElement(epID); err != nil {
+	if err := d.conf.LXCMap.DeleteElement(epID); err != nil {
 		log.Warningf("Unable to remove endpoint from map: %s", err)
 	}
 
-	args := []string{d.libDir, epID}
-	out, err := exec.Command(filepath.Join(d.libDir, "leave_ep.sh"), args...).CombinedOutput()
+	args := []string{d.conf.LibDir, epID}
+	out, err := exec.Command(filepath.Join(d.conf.LibDir, "leave_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
@@ -407,8 +407,8 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 	}
 	f.Close()
 
-	args := []string{d.libDir, (ep.ID + "_update"), ep.IfName}
-	out, err := exec.Command(filepath.Join(d.libDir, "join_ep.sh"), args...).CombinedOutput()
+	args := []string{d.conf.LibDir, (ep.ID + "_update"), ep.IfName}
+	out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		os.RemoveAll(lxcDir)
 		log.Warningf("Update execution failed: %s", err)

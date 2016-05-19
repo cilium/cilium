@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -35,20 +34,14 @@ var (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	libDir               string
-	lxcMap               *lxcmap.LXCMap
 	ipamConf             map[types.IPAMType]*types.IPAMConfig
 	consul               *consulAPI.Client
 	endpoints            map[string]*types.Endpoint
 	endpointsMU          sync.Mutex
-	validLabelPrefixes   *types.LabelPrefixCfg
 	validLabelPrefixesMU sync.Mutex
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
-	ipv4Range            *net.IPNet
-	nodeAddress          net.IP
-	enableTracing        bool
-	disablePolicy        bool
+	conf                 *Config
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -134,18 +127,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	d := Daemon{
-		libDir:             c.LibDir,
-		lxcMap:             c.LXCMap,
-		ipamConf:           ipamConf,
-		consul:             consul,
-		dockerClient:       dockerClient,
-		k8sClient:          k8sClient,
-		endpoints:          make(map[string]*types.Endpoint),
-		validLabelPrefixes: c.ValidLabelPrefixes,
-		ipv4Range:          c.IPv4Range,
-		nodeAddress:        c.NodeAddress,
-		enableTracing:      c.EnableTracing,
-		disablePolicy:      c.DisablePolicy,
+		conf:         c,
+		ipamConf:     ipamConf,
+		consul:       consul,
+		dockerClient: dockerClient,
+		k8sClient:    k8sClient,
+		endpoints:    make(map[string]*types.Endpoint),
 	}
 
 	if c.RestoreState {
@@ -284,7 +271,7 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
 
 	d.validLabelPrefixesMU.Lock()
 	defer d.validLabelPrefixesMU.Unlock()
-	return d.validLabelPrefixes.FilterLabels(ciliumLabels)
+	return d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
 }
 
 func (d *Daemon) createContainer(m dTypesEvents.Message) {
@@ -311,7 +298,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		}
 	}()
 
-	ciliumID := getCiliumEndpointID(cont, d.nodeAddress)
+	ciliumID := getCiliumEndpointID(cont, d.conf.NodeAddress)
 	var dockerEPID string
 	if cont.NetworkSettings != nil {
 		dockerEPID = cont.NetworkSettings.EndpointID
