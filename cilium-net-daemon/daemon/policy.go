@@ -118,7 +118,7 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 		To: c.LabelList,
 	}
 
-	if d.enableTracing {
+	if d.conf.EnableTracing {
 		ctx.Trace = types.TRACE_ENABLED
 	}
 

@@ -23,27 +23,18 @@ import (
 
 var (
 	// Arguments variables keep in alphabetical order
-	consulAddr         string
-	device             string
-	disablePolicy      bool
-	dockerEndpoint     string
-	enableTracing      bool
-	ipv4Prefix         string
-	kubernetesEndpoint string
-	labelPrefixFile    string
-	libDir             string
-	nodeAddrStr        string
-	restoreState       bool
-	runDir             string
-	socketPath         string
-	v4range            string
-	tunnel             string
+	config          daemon.Config
+	consulAddr      string
+	device          string
+	ipv4Prefix      string
+	labelPrefixFile string
+	nodeAddrStr     string
+	runDir          string
+	socketPath      string
+	v4range         string
+	tunnel          string
 
-	ipv4Range          *net.IPNet
-	log                = logging.MustGetLogger("cilium-net-daemon")
-	lxcMap             *lxcmap.LXCMap
-	nodeAddr           net.IP
-	validLabelPrefixes *types.LabelPrefixCfg
+	log = logging.MustGetLogger("cilium-net-daemon")
 
 	// CliCommand is the command that will be used in cilium-net main program.
 	CliCommand cli.Command
@@ -70,18 +61,18 @@ func init() {
 				Usage:       "Device to snoop on",
 			},
 			cli.BoolFlag{
-				Destination: &disablePolicy,
+				Destination: &config.DisablePolicy,
 				Name:        "disable-policy",
 				Usage:       "Disable policy enforcement",
 			},
 			cli.StringFlag{
-				Destination: &dockerEndpoint,
+				Destination: &config.DockerEndpoint,
 				Name:        "e",
 				Value:       "unix:///var/run/docker.sock",
 				Usage:       "Register a listener for docker events on the given endpoint",
 			},
 			cli.BoolFlag{
-				Destination: &enableTracing,
+				Destination: &config.EnableTracing,
 				Name:        "enable-tracing",
 				Usage:       "Enable tracing while determining policy",
 			},
@@ -92,7 +83,7 @@ func init() {
 				Usage:       "IPv6 prefix to map IPv4 addresses to",
 			},
 			cli.StringFlag{
-				Destination: &kubernetesEndpoint,
+				Destination: &config.K8sEndpoint,
 				Name:        "k",
 				Value:       "http://127.0.0.1:8080",
 				Usage:       "Kubernetes endpoint to retrieve metadata information of new started containers",
@@ -104,7 +95,7 @@ func init() {
 				Usage:       "File with valid label prefixes",
 			},
 			cli.StringFlag{
-				Destination: &libDir,
+				Destination: &config.LibDir,
 				Name:        "D",
 				Value:       "/usr/lib/cilium",
 				Usage:       "Cilium library directory",
@@ -116,7 +107,7 @@ func init() {
 				Usage:       "IPv6 address of node, must be in correct format",
 			},
 			cli.BoolTFlag{
-				Destination: &restoreState,
+				Destination: &config.RestoreState,
 				Name:        "restore-state",
 				Usage:       "Restore state from previous daemon",
 			},
@@ -164,7 +155,7 @@ func initBPF() error {
 	}
 	fw := bufio.NewWriter(f)
 
-	hostIP := common.DupIP(nodeAddr)
+	hostIP := common.DupIP(config.NodeAddress)
 	hostIP[14] = 0xff
 	hostIP[15] = 0xff
 
@@ -173,18 +164,18 @@ func initBPF() error {
 		" * Node-IP: %s\n"+
 		" * Host-IP: %s\n"+
 		" */\n\n",
-		nodeAddr.String(), hostIP.String())
+		config.NodeAddress.String(), hostIP.String())
 
 	if log.IsEnabledFor(logging.DEBUG) {
 		fw.WriteString("#define DEBUG\n")
 	}
 
-	if disablePolicy {
+	if config.DisablePolicy {
 		fw.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
 	}
 
-	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(nodeAddr))
-	fw.WriteString(common.FmtDefineArray("ROUTER_IP", nodeAddr))
+	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(config.NodeAddress))
+	fw.WriteString(common.FmtDefineArray("ROUTER_IP", config.NodeAddress))
 
 	SrcPrefix := net.ParseIP(ipv4Prefix)
 	DstPrefix := net.ParseIP(ipv4Prefix)
@@ -195,10 +186,10 @@ func initBPF() error {
 	fmt.Fprintf(fw, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
 
-	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
-	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
+	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(config.IPv4Range.IP))
+	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(config.IPv4Range.Mask))
 
-	ipv4Gw := common.DupIP(ipv4Range.IP)
+	ipv4Gw := common.DupIP(config.IPv4Range.IP)
 	ipv4Gw[2] = 0xff
 	ipv4Gw[3] = 0xff
 	fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
@@ -207,20 +198,20 @@ func initBPF() error {
 	f.Close()
 
 	if device != "undefined" {
-		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), "direct", device}
+		args = []string{config.LibDir, config.NodeAddress.String(), config.IPv4Range.IP.String(), "direct", device}
 	} else {
-		args = []string{libDir, nodeAddr.String(), ipv4Range.IP.String(), tunnel}
+		args = []string{config.LibDir, config.NodeAddress.String(), config.IPv4Range.IP.String(), tunnel}
 	}
 
-	out, err := exec.Command(libDir+"/init.sh", args...).CombinedOutput()
+	out, err := exec.Command(config.LibDir+"/init.sh", args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution %s/init.sh %s failed: %s",
-			libDir, strings.Join(args, " "), err)
+			config.LibDir, strings.Join(args, " "), err)
 		log.Warningf("Command output:\n%s", out)
 		return err
 	}
 
-	lxcMap, err = lxcmap.OpenMap(common.BPFMap)
+	config.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
 	if err != nil {
 		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 		return err
@@ -237,12 +228,12 @@ func initEnv(ctx *cli.Context) error {
 
 	if labelPrefixFile != "" {
 		var err error
-		validLabelPrefixes, err = types.ReadLabelPrefixCfgFrom(labelPrefixFile)
+		config.ValidLabelPrefixes, err = types.ReadLabelPrefixCfgFrom(labelPrefixFile)
 		if err != nil {
 			log.Fatalf("Unable to read label prefix file: %s\n", err)
 		}
 	} else {
-		validLabelPrefixes = types.DefaultLabelPrefixCfg()
+		config.ValidLabelPrefixes = types.DefaultLabelPrefixCfg()
 	}
 
 	if nodeAddrStr == "" {
@@ -265,7 +256,7 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	var err error
-	nodeAddr, _, err = net.ParseCIDR(addr.String() + "/64")
+	config.NodeAddress, _, err = net.ParseCIDR(addr.String() + "/64")
 	if err != nil {
 		log.Fatalf("Invalid CIDR %s", addr.String())
 	}
@@ -279,12 +270,12 @@ func initEnv(ctx *cli.Context) error {
 		log.Infof("Generated IPv4 range: %s\n", v4range)
 	}
 
-	_, ipv4Range, err = net.ParseCIDR(v4range)
+	_, config.IPv4Range, err = net.ParseCIDR(v4range)
 	if err != nil {
 		log.Fatalf("Invalid IPv4 range %s: %s\n", v4range, err)
 	}
 
-	if ones, _ := ipv4Range.Mask.Size(); ones != common.DefaultIPv4Mask {
+	if ones, _ := config.IPv4Range.Mask.Size(); ones != common.DefaultIPv4Mask {
 		log.Fatalf("IPv4 range %s must be of length %d\n", v4range, common.DefaultIPv4Mask)
 	}
 
@@ -313,21 +304,9 @@ func initEnv(ctx *cli.Context) error {
 func run(cli *cli.Context) {
 	consulDefaultAPI := consulAPI.DefaultConfig()
 	consulDefaultAPI.Address = consulAddr
-	daemonConf := daemon.Config{
-		LibDir:             libDir,
-		LXCMap:             lxcMap,
-		NodeAddress:        nodeAddr,
-		IPv4Range:          ipv4Range,
-		ConsulConfig:       consulDefaultAPI,
-		DockerEndpoint:     dockerEndpoint,
-		K8sEndpoint:        kubernetesEndpoint,
-		EnableTracing:      enableTracing,
-		ValidLabelPrefixes: validLabelPrefixes,
-		DisablePolicy:      disablePolicy,
-		RestoreState:       restoreState,
-	}
+	config.ConsulConfig = consulDefaultAPI
 
-	d, err := daemon.NewDaemon(&daemonConf)
+	d, err := daemon.NewDaemon(&config)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
 		return
