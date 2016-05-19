@@ -69,6 +69,7 @@ func (d Privilege) MarshalJSON() ([]byte, error) {
 type ReservedID uint32
 
 const (
+	ID_NAME_ALL   = "all"
 	ID_NAME_HOST  = "host"
 	ID_NAME_WORLD = "world"
 )
@@ -201,7 +202,7 @@ func (s *SearchContext) TargetCoveredBy(coverage []Label) bool {
 		covLabel := &coverage[k]
 		for k2, _ := range s.To {
 			toLabel := &s.To[k2]
-			if covLabel.Equals(toLabel) {
+			if covLabel.Matches(toLabel) {
 				return true
 			}
 		}
@@ -265,7 +266,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	for k, _ := range ctx.From {
 		label := &ctx.From[k]
-		if label.Equals(&a.Label) {
+		if a.Label.Matches(label) {
 			policyTrace(ctx, "Label %v matched in rule %+v\n", label, a)
 			return a.Action
 		}
