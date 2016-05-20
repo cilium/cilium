@@ -23,6 +23,11 @@ var (
 	reservedConsumables = make([]*types.Consumable, 0)
 )
 
+func init() {
+	pn := types.NewPolicyNode(common.GlobalLabelPrefix, nil)
+	tree = types.PolicyTree{Root: pn}
+}
+
 // findNode returns node and its parent or an error
 func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	var parent *types.PolicyNode

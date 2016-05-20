@@ -1,0 +1,28 @@
+{
+    "apiVersion": "experimental.kubernetes.io/v1",
+    "ingress": [
+        {
+            "from": [
+                {
+                    "pods": {
+                        "matchLabels": {
+                            "$host": ""
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "kind": "NetworkPolicy",
+    "metadata": {
+        "annotations": {
+            "io.cilium.name": "io.cilium.admin"
+        },
+        "name": "admin-policy"
+    },
+    "podSelector": {
+        "matchLabels": {
+            "k8s-system": ""
+        }
+    }
+}

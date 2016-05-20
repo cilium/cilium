@@ -1,0 +1,26 @@
+{
+    "apiVersion": "experimental.kubernetes.io/v1",
+    "ingress": [
+        {
+            "from": [
+                {
+                    "pods": {
+                        "matchLabels": {
+                            "k8s:io.cilium.admin.k8s-system": "",
+                            "k8s:io.cilium.lizards.web": ""
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "kind": "NetworkPolicy",
+    "metadata": {
+        "name": "lizards-policy"
+    },
+    "podSelector": {
+        "matchLabels": {
+            "io.cilium.lizards.db": ""
+        }
+    }
+}

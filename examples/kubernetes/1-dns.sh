@@ -20,21 +20,6 @@ envsubst \$RESOLV_FILE < ${dir}/guestbook/1-redis-master-controller.json.in > ${
 envsubst \$RESOLV_FILE < ${dir}/guestbook/3-redis-slave-controller.json.in > ${dir}/guestbook/3-redis-slave-controller.json
 envsubst \$RESOLV_FILE < ${dir}/guestbook/5-guestbook-controller.json.in > ${dir}/guestbook/5-guestbook-controller.json
 set +e
-i=1
-while [[ ${i} -le ${tries} ]] ; do
-    echo "Waiting for kubernetes to start. Attempt ${i}/${tries}..."
-    ${kubectl} get nodes
-    if [ $? == 0 ]; then
-        break
-    fi
-    sleep 2s
-    i=$(( $i + 1 ))
-done
-if [ ${i} -gt ${tries} ]; then
-    echo "Kubernetes didn't start please start again..."
-    exit
-fi
-
 ${kubectl} create -f ${dir}/skydns
 set -e
 
