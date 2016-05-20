@@ -198,55 +198,16 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	return fw.Flush()
 }
 
-func (d *Daemon) createBPF(rEP types.Endpoint) error {
-	if !isValidID(rEP.ID) {
-		return fmt.Errorf("invalid ID: %s", rEP.ID)
-	}
-
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-
-	ep, ok := d.endpoints[common.CiliumPrefix+rEP.ID]
-	if !ok {
-		log.Warningf("Unable to find endpoint\n")
-		return fmt.Errorf("Unable to find endpoint\n")
-	}
-
-	lxcDir := filepath.Join(".", ep.ID)
-
-	geneveOpts, err := writeGeneve(lxcDir, ep)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Create(filepath.Join(lxcDir, common.CHeaderFileName))
-	if err != nil {
-		os.RemoveAll(lxcDir)
-		log.Warningf("Failed to create container headerfile: %s", err)
-		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
-
-	}
-	err = d.createBPFFile(f, ep, geneveOpts)
-	if err != nil {
-		f.Close()
-		os.RemoveAll(lxcDir)
-		log.Warningf("Failed to create container headerfile: %s", err)
-		return fmt.Errorf("Failed to create temporary directory: \"%s\"", err)
-	}
-	f.Close()
-
-	policyMapPath := common.PolicyMapPath + ep.ID
+func (d *Daemon) createPolicyMap(ep *types.Endpoint, policyMapPath string) error {
 	policyMap, err := policymap.OpenMap(policyMapPath)
 	if err != nil {
-		os.RemoveAll(lxcDir)
 		log.Warningf("Could not create policy BPF map '%s': %s", policyMapPath, err)
-		return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
+		return fmt.Errorf("could not create policy BPF map '%s': %s", policyMapPath, err)
 	}
 
 	ep.PolicyMap = policyMap
 
 	if err = d.conf.LXCMap.WriteEndpoint(ep); err != nil {
-		os.RemoveAll(lxcDir)
 		os.RemoveAll(policyMapPath)
 		log.Warningf("Unable to update BPF map: %s", err)
 		return fmt.Errorf("Unable to update eBPF map: %s", err)
@@ -258,23 +219,81 @@ func (d *Daemon) createBPF(rEP types.Endpoint) error {
 		if err := d.RegenerateEndpoint(ep); err != nil {
 			ep.Consumable.RemoveMap(policyMap)
 			os.RemoveAll(policyMapPath)
-			os.RemoveAll(lxcDir)
 			log.Warningf("Unable to generate policy map for '%s': %s", policyMapPath, err)
 			return fmt.Errorf("Unable to generate policy map for '%s': %s", policyMapPath, err)
 		}
 	}
+	return nil
+}
 
-	args := []string{d.conf.LibDir, ep.ID, ep.IfName}
+func (d *Daemon) createBPFMAPs(epID string) error {
+	return d.updateBPFMaps(epID, nil, "")
+}
+
+// updateBPFMaps refreshes the BPF maps for the endpoint epID. The opts values are
+// replaced for the given epID. if endpointSuffix is set it can used as a suffix for the
+// endpoint directory and policy map names.
+func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix string) error {
+	// Preventing someone from deleting important directories
+	if !isValidID(epID) {
+		return fmt.Errorf("invalid ID: %s", epID)
+	}
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	ep, ok := d.endpoints[common.CiliumPrefix+epID]
+	if !ok {
+		return fmt.Errorf("endpoint %s not found", epID)
+	}
+	for k, v := range opts {
+		ep.Opts[k] = v
+	}
+
+	lxcDir := filepath.Join(".", ep.ID+endpointSuffix)
+	if err := os.MkdirAll(lxcDir, 0777); err != nil {
+		return fmt.Errorf("failed to create temporary directory: %s", err)
+	}
+
+	geneveOpts, err := writeGeneve(lxcDir, ep)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(filepath.Join(lxcDir, common.CHeaderFileName))
+	if err != nil {
+		os.RemoveAll(lxcDir)
+		return fmt.Errorf("failed to create lxc_config.h: %s", err)
+
+	}
+	err = d.createBPFFile(f, ep, geneveOpts)
+	if err != nil {
+		f.Close()
+		os.RemoveAll(lxcDir)
+		return fmt.Errorf("failed to create temporary directory: %s", err)
+	}
+	f.Close()
+
+	policyMapPath := common.PolicyMapPath + ep.ID + endpointSuffix
+	if err := d.createPolicyMap(ep, policyMapPath); err != nil {
+		os.RemoveAll(lxcDir)
+		return fmt.Errorf("failed to create container policymap file: %s", err)
+		return err
+	}
+
+	args := []string{d.conf.LibDir, (ep.ID + endpointSuffix), ep.IfName}
 	out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		if ep.Consumable != nil {
-			ep.Consumable.RemoveMap(policyMap)
+			if policyMap, err := policymap.OpenMap(policyMapPath); err == nil {
+				ep.Consumable.RemoveMap(policyMap)
+			}
 		}
+		os.RemoveAll(policyMapPath)
 		os.RemoveAll(lxcDir)
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
 		return fmt.Errorf("error: %q command output: %q", err, out)
 	}
+
 	log.Infof("Command successful:\n%s", out)
 	return nil
 }
@@ -366,65 +385,33 @@ func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
 func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
-	// Preventing someone from deleting important directories
-	if !isValidID(epID) {
-		return fmt.Errorf("invalid ID: %s", epID)
-	}
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-	ep, ok := d.endpoints[common.CiliumPrefix+epID]
-	if !ok {
-		return fmt.Errorf("endpoint %s not found", epID)
-	}
-	for k, v := range opts {
-		ep.Opts[k] = v
-	}
-
-	lxcDir := filepath.Join(".", ep.ID+"_update")
-	if err := os.MkdirAll(lxcDir, 0777); err != nil {
-		log.Warningf("Update failed: failed to create container temporary directory: %s", err)
-		return fmt.Errorf("update failed: failed to create temporary directory: %s", err)
-	}
-
-	geneveOpts, err := writeGeneve(lxcDir, ep)
-	if err != nil {
+	endpointSuffix := "_update"
+	if err := d.updateBPFMaps(epID, opts, endpointSuffix); err != nil {
 		return err
 	}
 
-	f, err := os.Create(filepath.Join(lxcDir, "lxc_config.h"))
-	if err != nil {
-		os.RemoveAll(lxcDir)
-		log.Warningf("Update failed: failed to create lxc_config.h: %s", err)
-		return fmt.Errorf("update failed: failed to create lxc_config.h: %s", err)
+	policyMapPath := common.PolicyMapPath + epID + endpointSuffix
+	lxcDir := filepath.Join(".", epID, endpointSuffix)
 
-	}
-	err = d.createBPFFile(f, ep, geneveOpts)
-	if err != nil {
-		f.Close()
-		os.RemoveAll(lxcDir)
-		log.Warningf("update failed: failed to create container headerfile: %s", err)
-		return fmt.Errorf("update failed: failed to create temporary directory: %s", err)
-	}
-	f.Close()
-
-	args := []string{d.conf.LibDir, (ep.ID + "_update"), ep.IfName}
-	out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
-	if err != nil {
-		os.RemoveAll(lxcDir)
-		log.Warningf("Update execution failed: %s", err)
-		log.Warningf("Command output:\n%s", out)
-		return fmt.Errorf("error: %q command output: %q", err, out)
-	}
-	lxcDirOrg := filepath.Join(".", ep.ID)
-	os.RemoveAll(lxcDirOrg)
-	err = os.Rename(lxcDir, lxcDirOrg)
-	if err != nil {
-		os.RemoveAll(lxcDir)
-		log.Warningf("Update execution failed: %s", err)
-		return fmt.Errorf("update execution failed: %s", err)
+	moveDir := func(oldDir, newDir string) error {
+		os.RemoveAll(newDir)
+		if err := os.Rename(oldDir, newDir); err != nil {
+			os.RemoveAll(policyMapPath)
+			os.RemoveAll(lxcDir)
+			return err
+		}
+		return nil
 	}
 
-	log.Infof("Update successful performed:\n%s", out)
+	lxcDirOrg := filepath.Join(".", epID)
+	if err := moveDir(lxcDir, lxcDirOrg); err != nil {
+		return err
+	}
+
+	policyMapPathOrig := common.PolicyMapPath + epID
+	if err := moveDir(policyMapPath, policyMapPathOrig); err != nil {
+		return err
+	}
 
 	return nil
 }
