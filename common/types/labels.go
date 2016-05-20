@@ -32,8 +32,22 @@ type SecCtxLabel struct {
 	Labels   Labels `json:"labels"`    // Set of labels that belong to this SecCtxLabel.
 }
 
-// NewLabel returns a new label from the given key, value and source.
+// NewLabel returns a new label from the given key, value and source. If source is empty,
+// the default value will be common.CiliumLabelSource. If key starts with '$', the source
+// will be overwritten with common.ReservedLabelSource. If key containers ':', the value
+// before ':' will be used as source if given source is empty, otherwise the value before
+// ':' will be deleted and unused.
 func NewLabel(key string, value string, source string) *Label {
+	var src string
+	src, key = parseSource(key)
+	if source == "" {
+		if src == "" {
+			source = common.CiliumLabelSource
+		} else {
+			source = src
+		}
+	}
+
 	return &Label{
 		Key:    key,
 		Value:  value,
@@ -114,40 +128,6 @@ func (l Label) String() string {
 	return fmt.Sprintf("%s:%s", l.Source, l.Key)
 }
 
-func decodeReservedLabel(source string, label *Label) {
-	label.Source = common.ReservedLabelSource
-	label.Key = source[1:]
-	label.Value = ""
-}
-
-func decodeLabelShortForm(source string, label *Label) {
-	if source[0] == '$' {
-		decodeReservedLabel(source, label)
-		return
-	}
-
-	sep := strings.SplitN(source, ":", 2)
-	if len(sep) != 2 {
-		label.Source = common.CiliumLabelSource
-	} else {
-		if sep[0] == "" {
-			label.Source = common.CiliumLabelSource
-		} else {
-			label.Source = sep[0]
-		}
-		source = sep[1]
-	}
-
-	sep = strings.SplitN(source, "=", 2)
-	if len(sep) == 1 {
-		label.Key = source
-		label.Value = ""
-	} else {
-		label.Key = sep[0]
-		label.Value = sep[1]
-	}
-}
-
 // IsValid returns true if Key != "".
 func (l *Label) IsValid() bool {
 	return l.Key != ""
@@ -188,7 +168,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("invalid Label: Failed to parse %s as a string", data)
 		}
 
-		decodeLabelShortForm(aux, l)
+		*l = *ParseLabel(aux)
 	} else {
 		if aux.Key == "" {
 			return fmt.Errorf("invalid Label: '%s' does not contain label key", data)
@@ -202,19 +182,17 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Map2Labels transforms in the form: map[key(string)]value(string) into Labels.
+// Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
+// source argument will overwrite the source written in the key of the given map.
 // Example:
-// l := Map2Labels(map[string]string{"foo": "bar"}, "cilium")
+// l := Map2Labels(map[string]string{"k8s:foo": "bar"}, "cilium")
 // fmt.Printf("%+v\n", l)
 //   map[string]Label{"foo":Label{Key:"foo", Value:"bar", Source:"cilium"}}
 func Map2Labels(m map[string]string, source string) Labels {
 	o := Labels{}
 	for k, v := range m {
-		o[k] = &Label{
-			Key:    k,
-			Value:  v,
-			Source: source,
-		}
+		l := NewLabel(k, v, source)
+		o[l.Key] = l
 	}
 	return o
 }
@@ -279,19 +257,41 @@ func LabelSlice2LabelsMap(lbls []Label) Labels {
 	return labels
 }
 
-// ParseLabel returns the label representation of the given string. The str should be
-// in the form of Source:Key=Value or Source:Key if Value is empty.
-func ParseLabel(str string) (*Label, error) {
-	lbl := Label{}
-	var next string
-
+// parseSource returns the parsed source of the given str. It also returns the next piece
+// of text that is after the source.
+// Example:
+//  src, next := parseSource("foo:bar==value")
+// Println(src) // foo
+// Println(next) // bar==value
+func parseSource(str string) (src, next string) {
+	if str == "" {
+		return "", ""
+	}
+	if str[0] == '$' {
+		str = strings.Replace(str, "$", common.ReservedLabelSource+":", 1)
+	}
 	sourceSplit := strings.SplitN(str, ":", 2)
 	if len(sourceSplit) != 2 {
-		lbl.Source = common.CiliumLabelSource
 		next = sourceSplit[0]
 	} else {
-		lbl.Source = sourceSplit[0]
+		if sourceSplit[0] != "" {
+			src = sourceSplit[0]
+		}
 		next = sourceSplit[1]
+	}
+	return
+}
+
+// ParseLabel returns the label representation of the given string. The str should be
+// in the form of Source:Key=Value or Source:Key if Value is empty. It also parses short
+// forms, for example: $host will be Label{Key: "host", Source: "reserved", Value: ""}.
+func ParseLabel(str string) *Label {
+	lbl := Label{}
+	src, next := parseSource(str)
+	if src != "" {
+		lbl.Source = src
+	} else {
+		lbl.Source = common.CiliumLabelSource
 	}
 
 	keySplit := strings.SplitN(next, "=", 2)
@@ -299,5 +299,5 @@ func ParseLabel(str string) (*Label, error) {
 	if len(keySplit) > 1 {
 		lbl.Value = keySplit[1]
 	}
-	return &lbl, nil
+	return &lbl
 }
