@@ -391,7 +391,7 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 	}
 
 	policyMapPath := common.PolicyMapPath + epID + endpointSuffix
-	lxcDir := filepath.Join(".", epID, endpointSuffix)
+	lxcDir := filepath.Join(".", (epID + endpointSuffix))
 
 	moveDir := func(oldDir, newDir string) error {
 		os.RemoveAll(newDir)

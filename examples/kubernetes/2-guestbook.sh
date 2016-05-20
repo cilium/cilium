@@ -10,8 +10,6 @@ else
     tries=$1
 fi
 
-kubectl="/home/vagrant/kubernetes/cluster/kubectl.sh -s ${API_HOST}:${API_PORT}"
-
 #Create Guestbook
 set +e
 ${kubectl} create -f ${dir}/guestbook

@@ -1,0 +1,7 @@
+metadata:
+  name: "network-policy.experimental.kubernetes.io"
+apiVersion: "extensions/v1beta1"
+kind: "ThirdPartyResource"
+description: "An experimental specification of network policy"
+versions:
+  - name: v1

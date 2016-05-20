@@ -321,6 +321,9 @@ func run(cli *cli.Context) {
 		log.Warningf("Error while enabling docker event watcher %s", err)
 	}
 	d.EnableConsulWatcher(30 * time.Second)
+	if err := d.EnableK8sWatcher(30 * time.Second); err != nil {
+		log.Warningf("Error while enabling k8s watcher %s", err)
+	}
 
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {

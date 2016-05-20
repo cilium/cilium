@@ -108,3 +108,36 @@ index 404f9d4..003de23 100755
          --api-servers="${API_HOST}:${API_PORT}" \
          --cpu-cfs-quota=${CPU_CFS_QUOTA} \
          ${dns_args} \
+diff --git a/pkg/registry/thirdpartyresourcedata/codec.go b/pkg/registry/thirdpartyresourcedata/codec.go
+index 377cdf8..886c753 100644
+--- a/pkg/registry/thirdpartyresourcedata/codec.go
++++ b/pkg/registry/thirdpartyresourcedata/codec.go
+@@ -34,6 +34,7 @@ import (
+ 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+ 	"k8s.io/kubernetes/pkg/runtime"
+ 	"k8s.io/kubernetes/pkg/util/sets"
++	"k8s.io/kubernetes/pkg/watch/versioned"
+ )
+ 
+ type thirdPartyObjectConverter struct {
+@@ -425,6 +426,20 @@ func (t *thirdPartyResourceDataEncoder) EncodeToStream(obj runtime.Object, strea
+ 		}
+ 		fmt.Fprintf(stream, template, t.kind+"List", strings.Join(dataStrings, ","))
+ 		return nil
++	case *versioned.InternalEvent:
++		event := &versioned.Event{}
++		err := versioned.Convert_versioned_InternalEvent_to_versioned_Event(obj, event, nil)
++		if err != nil {
++			return err
++		}
++
++		enc := json.NewEncoder(stream)
++		err = enc.Encode(event)
++		if err != nil {
++			return err
++		}
++
++		return nil
+ 	case *unversioned.Status, *unversioned.APIResourceList:
+ 		return t.delegate.EncodeToStream(obj, stream, overrides...)
+ 	default:

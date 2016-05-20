@@ -413,6 +413,15 @@ type PolicyNode struct {
 	Children map[string]*PolicyNode `json:"children,omitempty"`
 }
 
+func NewPolicyNode(name string, parent *PolicyNode) *PolicyNode {
+	return &PolicyNode{
+		Name:     name,
+		Parent:   parent,
+		Rules:    nil,
+		Children: map[string]*PolicyNode{},
+	}
+}
+
 func (p *PolicyNode) Path() string {
 	if p.path == "" {
 		p.path, _ = p.BuildPath()

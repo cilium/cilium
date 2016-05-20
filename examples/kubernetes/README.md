@@ -1,8 +1,11 @@
-# Kuberentes + Cilium
+# Kubernetes Network Policy + Cilium
 
 This tutorial will show you how you can have full IPv6 connectivity between
 docker containers orchestrated by kubernetes. All your services will be able to
 talk with their producers by only using the service name instead of static IPs.
+The containers started by kubernetes will have some labels where the policy for those labels
+will be pushed to the [v1beta1 kubernetes network policy API](https://github.com/kubernetes/kubernetes/blob/master/docs/proposals/network-policy.md)
+and enforced with Cilium.
 
 ## Requirements
 
@@ -88,6 +91,16 @@ VM $ ~/kubernetes/hack/local-up-cluster.sh
 Wait until kubernetes has started (you'll see a message similar to):
 ```
 To start using your cluster, open up another terminal/tab and run:
+```
+
+## Setting up the 3rd party extensions
+
+Kubernetes is already running with `--runtime-config=extensions/v1beta1=true,extensions/v1beta1/thirdpartyresources=true`
+so we'll first put some kubernetes network policies. Simply run `./0-policy.sh` that will
+take care of it.
+
+```bash
+VM $ ./0-policy.sh
 ```
 
 ## Setting up SkyDNS and Kube2Sky
