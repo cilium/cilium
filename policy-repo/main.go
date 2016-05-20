@@ -140,11 +140,7 @@ func verifyAllowedSlice(slice []string) error {
 	for i, v := range slice {
 		if _, err := strconv.ParseUint(v, 10, 32); err != nil {
 			// can fail which means it needs to be a label
-			_, err := types.ParseLabel(v)
-			if err != nil {
-				return fmt.Errorf("value %q: must be only one unsigned "+
-					"number or label(s) in format of SOURCE:KEY[=VALUE]", v)
-			}
+			types.ParseLabel(v)
 		} else if i != 0 {
 			return fmt.Errorf("value %q: must be only one unsigned "+
 				"number or label(s) in format of SOURCE:KEY[=VALUE]", v)
@@ -410,11 +406,7 @@ func parseAllowedSlice(slice []string) ([]types.Label, error) {
 	for _, v := range slice {
 		if n, err := strconv.ParseUint(v, 10, 32); err != nil {
 			// can fail which means it needs to be a label
-			lbl, err := types.ParseLabel(v)
-			if err != nil {
-				return nil, fmt.Errorf("value %q: must be a unsigned "+
-					"number or label in format of SOURCE:KEY[=VALUE]", v)
-			}
+			lbl := types.ParseLabel(v)
 			inLabels = append(inLabels, *lbl)
 		} else {
 			if id != 0 {

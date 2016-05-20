@@ -1,7 +1,9 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
+
 	"github.com/noironetworks/cilium-net/common"
 
 	. "gopkg.in/check.v1"
@@ -41,36 +43,18 @@ type lblTest struct {
 	result *Label
 }
 
-func (s *LabelsSuite) TestLabelShortForm(c *C) {
-	lbls := []lblTest{
-		{"1foo", NewLabel("1foo", "", common.CiliumLabelSource)},
-		{":2foo", NewLabel("2foo", "", common.CiliumLabelSource)},
-		{":3foo=", NewLabel("3foo", "", common.CiliumLabelSource)},
-		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
-		{"5blah::foo=", NewLabel(":foo", "", "5blah")},
-		{"6foo==", NewLabel("6foo", "=", common.CiliumLabelSource)},
-		{"7foo=bar", NewLabel("7foo", "bar", common.CiliumLabelSource)},
-		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
-	}
-
-	for _, v := range lbls {
-		res := Label{}
-		decodeLabelShortForm(v.label, &res)
-		c.Assert(&res, DeepEquals, v.result)
-	}
-}
-
 func (s *LabelsSuite) TestMap2Labels(c *C) {
 	m := Map2Labels(map[string]string{
-		"foo":    "bar",
-		"foo2":   "=bar2",
-		"key":    "",
-		"foo==":  "==",
-		`foo\\=`: `\=`,
-		`//=/`:   "",
-		`%`:      `%ed`,
+		"k8s:foo":  "bar",
+		"k8s:foo2": "=bar2",
+		"key":      "",
+		"foo==":    "==",
+		`foo\\=`:   `\=`,
+		`//=/`:     "",
+		`%`:        `%ed`,
 	}, common.CiliumLabelSource)
 	fmt.Printf("%+v\n", m)
+	fmt.Printf("%+v\n", lbls)
 	c.Assert(m, DeepEquals, lbls)
 }
 
@@ -106,20 +90,56 @@ func (s *LabelsSuite) TestSliceToMap(c *C) {
 
 func (s *LabelsSuite) TestParseLabel(c *C) {
 	tests := []struct {
-		str    string
-		out    *Label
-		errOut Checker
+		str string
+		out *Label
 	}{
-		{"source1:key1=value1", NewLabel("key1", "value1", "source1"), IsNil},
-		{"key1=value1", NewLabel("key1", "value1", common.CiliumLabelSource), IsNil},
-		{"value1", NewLabel("value1", "", common.CiliumLabelSource), IsNil},
-		{"source1:key1", NewLabel("key1", "", "source1"), IsNil},
-		{"source1:key1==value1", NewLabel("key1", "=value1", "source1"), IsNil},
-		{"source::key1=value1", NewLabel(":key1", "value1", "source"), IsNil},
+		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
+		{"key1=value1", NewLabel("key1", "value1", common.CiliumLabelSource)},
+		{"value1", NewLabel("value1", "", common.CiliumLabelSource)},
+		{"source1:key1", NewLabel("key1", "", "source1")},
+		{"source1:key1==value1", NewLabel("key1", "=value1", "source1")},
+		{"source::key1=value1", NewLabel("::key1", "value1", "source")},
+		{"$key1=value1", NewLabel("key1", "value1", common.ReservedLabelSource)},
+		{"1foo", NewLabel("1foo", "", common.CiliumLabelSource)},
+		{":2foo", NewLabel("2foo", "", common.CiliumLabelSource)},
+		{":3foo=", NewLabel("3foo", "", common.CiliumLabelSource)},
+		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
+		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
+		{"6foo==", NewLabel("6foo", "=", common.CiliumLabelSource)},
+		{"7foo=bar", NewLabel("7foo", "bar", common.CiliumLabelSource)},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
 	}
 	for _, test := range tests {
-		lbl, err := ParseLabel(test.str)
-		c.Assert(err, test.errOut, Commentf("label: %s, received: %+v", test.str, lbl))
+		lbl := ParseLabel(test.str)
 		c.Assert(lbl, DeepEquals, test.out)
 	}
+}
+
+func (s *LabelsSuite) TestLabel(c *C) {
+	var label Label
+
+	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
+	invLabel := `{"source": "kubernetes", "value": "foo"}`
+	shortLabel := `"web"`
+
+	err := json.Unmarshal([]byte(longLabel), &label)
+	c.Assert(err, Equals, nil)
+	c.Assert(label.Source, Equals, "kubernetes")
+	c.Assert(label.AbsoluteKey(), Equals, "io.kubernetes.pod.name")
+	c.Assert(label.Value, Equals, "foo")
+
+	label = Label{}
+	err = json.Unmarshal([]byte(invLabel), &label)
+	c.Assert(err, Not(Equals), nil)
+
+	label = Label{}
+	err = json.Unmarshal([]byte(shortLabel), &label)
+	c.Assert(err, Equals, nil)
+	c.Assert(label.Source, Equals, common.CiliumLabelSource)
+	c.Assert(label.AbsoluteKey(), Equals, "web")
+	c.Assert(label.Value, Equals, "")
+
+	label = Label{}
+	err = json.Unmarshal([]byte(""), &label)
+	c.Assert(err, Not(Equals), nil)
 }

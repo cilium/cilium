@@ -26,32 +26,6 @@ func (s *CommonSuite) TestReservedID(c *C) {
 	c.Assert(unknown.String(), Equals, "")
 }
 
-func (s *CommonSuite) TestLabel(c *C) {
-	var label Label
-
-	longLabel := `{"source": "kubernetes", "key": "io.kubernetes.pod.name", "value": "foo"}`
-	invLabel := `{"source": "kubernetes", "value": "foo"}`
-	shortLabel := `"web"`
-
-	err := json.Unmarshal([]byte(longLabel), &label)
-	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, "kubernetes")
-	c.Assert(label.AbsoluteKey(), Equals, "io.kubernetes.pod.name")
-	c.Assert(label.Value, Equals, "foo")
-
-	err = json.Unmarshal([]byte(invLabel), &label)
-	c.Assert(err, Not(Equals), nil)
-
-	err = json.Unmarshal([]byte(shortLabel), &label)
-	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, common.CiliumLabelSource)
-	c.Assert(label.AbsoluteKey(), Equals, "web")
-	c.Assert(label.Value, Equals, "")
-
-	err = json.Unmarshal([]byte(""), &label)
-	c.Assert(err, Not(Equals), nil)
-}
-
 func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	var rule AllowRule
 
