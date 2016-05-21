@@ -313,8 +313,10 @@ func run(cli *cli.Context) {
 	}
 
 	// Register event listener in docker endpoint
-	d.EnableDockerEventListener()
-	d.EnableConsulWatcher(time.Duration(5 * time.Second))
+	if err := d.EnableDockerEventListener(); err != nil {
+		log.Warningf("Error while enabling docker event watcher %s", err)
+	}
+	d.EnableConsulWatcher(30 * time.Second)
 
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
