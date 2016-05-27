@@ -25,10 +25,10 @@ spec:
         env:
           -
             name: "KUBERNETES_PORT"
-            value: "tcp://[${NODE_IP}]:6443"
+            value: "tcp://[${API_HOST_IP}]:6443"
           -
             name: "KUBERNETES_PORT_443_TCP"
-            value: "tcp://[${NODE_IP}]:6443"
+            value: "tcp://[${API_HOST_IP}]:6443"
           -
             name: "KUBERNETES_SERVICE_PORT_HTTPS"
             value: "6443"
@@ -37,10 +37,10 @@ spec:
             value: "6443"
           -
             name: "KUBERNETES_PORT_443_TCP_ADDR"
-            value: "${NODE_IP}"
+            value: "${API_HOST_IP}"
           -
             name: "KUBERNETES_SERVICE_HOST"
-            value: "${NODE_IP}"
+            value: "${API_HOST_IP}"
           -
             name: "KUBERNETES_SERVICE_PORT"
             value: "6443"
@@ -78,7 +78,7 @@ spec:
         args:
         # command = "/kube2sky"
         - --domain=cilium-test
-        - --etcd-server=http://[${NODE_IP}]:4001
+        - --etcd-server=http://${ETCD_HOST}:4001
       - name: skydns
         image: gcr.io/google_containers/skydns:2015-10-13-8c72f8c
         resources:
@@ -94,7 +94,7 @@ spec:
             memory: 50Mi
         args:
         # command = "/skydns"
-        - -machines=http://[${NODE_IP}]:4001
+        - -machines=http://${ETCD_HOST}:4001
         - -addr=[::]:53
         - -ns-rotate=false
         - -domain=cilium-test.

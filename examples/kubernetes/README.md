@@ -1,7 +1,7 @@
 # Kuberentes + Cilium
 
 This tutorial will show you how you can have full IPv6 connectivity between
-docker containers orchastreted by kubernetes. All your services will be able to
+docker containers orchestrated by kubernetes. All your services will be able to
 talk with their producers by only using the service name instead of static IPs.
 
 ## Requirements
@@ -9,6 +9,7 @@ talk with their producers by only using the service name instead of static IPs.
  - Cilium Vagrant Image
  - IPv6 connectivity between host and Cilium Vagrant VM
  - Setup cilium-net-daemon in direct routing mode
+ - Tested with `kubernetes-v1.3.0-alpha.4` patched with `kubernetes-v1.3.0-alpha.4.patch`
 
 ### IPv6 connectivity between host and Cilium Vagrant VM - VirtualBox provider
 

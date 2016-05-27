@@ -14,7 +14,9 @@ function start_k8s {
         exit 1
     fi
     echo "Starting kubernetes..."
-    "${K8S_PATH}/hack/local-up-cluster.sh" &
+    cd ${K8S_PATH}
+    "./hack/local-up-cluster.sh" &
+    sleep 5s
 }
 
 function cleanup {
@@ -22,6 +24,7 @@ function cleanup {
     sleep 3s
     sudo killall -9 etcd || true
     sudo killall -9 kubelet || true
+    sudo killall -9 hyperkube || true
     sudo killall -9 kube-scheduler || true
     sudo killall -9 kube-controller-manager || true
     sudo killall -9 kube-proxy || true
