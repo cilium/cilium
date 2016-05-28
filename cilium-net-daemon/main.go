@@ -85,7 +85,7 @@ func init() {
 			cli.StringFlag{
 				Destination: &config.K8sEndpoint,
 				Name:        "k",
-				Value:       "http://127.0.0.1:8080",
+				Value:       "http://[node-ipv6]:8080",
 				Usage:       "Kubernetes endpoint to retrieve metadata information of new started containers",
 			},
 			cli.StringFlag{
@@ -296,6 +296,10 @@ func initEnv(ctx *cli.Context) error {
 
 	if err := daemon.PolicyInit(); err != nil {
 		log.Fatalf("Unable to initialize policy: %s", err)
+	}
+
+	if config.K8sEndpoint == "http://[node-ipv6]:8080" {
+		config.K8sEndpoint = fmt.Sprintf("http://[%s:ffff]:8080", strings.TrimSuffix(addr.String(), ":0"))
 	}
 
 	return initBPF()
