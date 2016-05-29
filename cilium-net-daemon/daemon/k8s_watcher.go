@@ -45,6 +45,7 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 			err := json.NewDecoder(resp.Body).Decode(&npwe)
 			if err != nil {
 				log.Errorf("Error while receiving data %s", err)
+				resp.Body.Close()
 				resp = makeRequest()
 				curSeconds = time.Second
 				continue
