@@ -276,7 +276,6 @@ func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix st
 	if err := d.createPolicyMap(ep, policyMapPath); err != nil {
 		os.RemoveAll(lxcDir)
 		return fmt.Errorf("failed to create container policymap file: %s", err)
-		return err
 	}
 
 	args := []string{d.conf.LibDir, (ep.ID + endpointSuffix), ep.IfName}
