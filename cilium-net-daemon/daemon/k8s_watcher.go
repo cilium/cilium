@@ -8,6 +8,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 
 	"k8s.io/kubernetes/pkg/watch"
+	"github.com/noironetworks/cilium-net/common"
 )
 
 type networkPolicyWatchEvent struct {
@@ -53,12 +54,17 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 			log.Debugf("Received kubernetes network policy %+v\n", npwe)
 			switch npwe.Type {
 			case watch.Added, watch.Modified:
+				parentNodeName := npwe.Object.Annotations[common.K8sAnnotationParentName]
+				if parentNodeName == "" {
+					log.Errorf("%s not found in network policy annotations", common.K8sAnnotationParentName)
+					continue
+				}
 				pn, err := types.K8sNP2CP(npwe.Object)
 				if err != nil {
 					log.Errorf("Error while parsing kubernetes network policy %+v: %s", npwe.Object, err)
 					continue
 				}
-				if err := d.PolicyAdd(pn.Name, pn); err != nil {
+				if err := d.PolicyAdd(parentNodeName, pn); err != nil {
 					log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
 					continue
 				}

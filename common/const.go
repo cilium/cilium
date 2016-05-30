@@ -75,6 +75,9 @@ const (
 	// K8sAnnotationName is the annotation name used for the cilium policy name in the
 	// kubernetes network policy.
 	K8sAnnotationName = "io.cilium.name"
+	// K8sAnnotationParentName is the annotation name used for the cilium policy
+	// parent name in the kubernetes network policy.
+	K8sAnnotationParentName = "io.cilium.parent"
 	// Label source for reserved types
 	ReservedLabelSource = "reserved"
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
