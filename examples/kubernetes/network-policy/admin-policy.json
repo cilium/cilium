@@ -16,7 +16,8 @@
     "kind": "NetworkPolicy",
     "metadata": {
         "annotations": {
-            "io.cilium.name": "io.cilium.admin"
+            "io.cilium.name": "admin",
+            "io.cilium.parent": "io.cilium"
         },
         "name": "admin-policy"
     },

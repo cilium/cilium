@@ -16,6 +16,10 @@
     ],
     "kind": "NetworkPolicy",
     "metadata": {
+        "annotations": {
+            "io.cilium.name": "lizards",
+            "io.cilium.parent": "io.cilium"
+        },
         "name": "lizards-policy"
     },
     "podSelector": {
