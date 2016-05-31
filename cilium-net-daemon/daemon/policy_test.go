@@ -21,27 +21,27 @@ func (ds *DaemonSuite) TestFindNode(c *C) {
 	err := ds.d.PolicyAdd("io.cilium", &pn)
 	c.Assert(err, Equals, nil)
 
-	n, p, err := findNode("io.cilium")
+	n, p, err := ds.d.findNode("io.cilium")
 	c.Assert(err, Equals, nil)
 	c.Assert(n, Not(Equals), nil)
 	c.Assert(p, Equals, nullPtr)
 
-	n, p, err = findNode("io.cilium.foo")
+	n, p, err = ds.d.findNode("io.cilium.foo")
 	c.Assert(err, Equals, nil)
 	c.Assert(n, Not(Equals), nil)
 	c.Assert(p, Not(Equals), nil)
 
-	n, p, err = findNode("io.cilium.baz")
+	n, p, err = ds.d.findNode("io.cilium.baz")
 	c.Assert(err, Not(Equals), nil)
 	c.Assert(n, Equals, nullPtr)
 	c.Assert(p, Equals, nullPtr)
 
-	n, p, err = findNode("")
+	n, p, err = ds.d.findNode("")
 	c.Assert(err, Not(Equals), nil)
 	c.Assert(n, Equals, nullPtr)
 	c.Assert(p, Equals, nullPtr)
 
-	n, p, err = findNode("io.cilium..foo")
+	n, p, err = ds.d.findNode("io.cilium..foo")
 	c.Assert(err, Equals, nil)
 	c.Assert(n, Not(Equals), nullPtr)
 	c.Assert(p, Not(Equals), nullPtr)
@@ -146,7 +146,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	e := Endpoint{}
 	e.SetSecLabel(qaBarSecLblsCtx)
-	err = ds.d.RegenerateEndpoint(&e)
+	err = ds.d.regenerateEndpoint(&e)
 	c.Assert(err, Equals, nil)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
@@ -156,7 +156,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	e = Endpoint{}
 	e.SetSecLabel(prodBarSecLblsCtx)
-	err = ds.d.RegenerateEndpoint(&e)
+	err = ds.d.regenerateEndpoint(&e)
 	c.Assert(err, Equals, nil)
 	c.Assert(e.Allows(0), Equals, false)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)

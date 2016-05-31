@@ -161,7 +161,7 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 
 	// Perform the policy map updates after programs have been created
 	if isNew {
-		d.TriggerPolicyUpdates([]uint32{secCtxlabels.ID})
+		d.triggerPolicyUpdates([]uint32{secCtxlabels.ID})
 	}
 
 	log.Infof("Added SecLabelID %d to container %s", secCtxlabels.ID, dockerID)

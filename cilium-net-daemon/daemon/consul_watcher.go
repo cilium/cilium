@@ -48,7 +48,7 @@ func (d *Daemon) EnableConsulWatcher(maxSeconds time.Duration) {
 			curSeconds = time.Second
 			qo.WaitIndex = q.LastIndex
 			go func() {
-				d.TriggerPolicyUpdates([]uint32{})
+				d.triggerPolicyUpdates([]uint32{})
 			}()
 		}
 	}()
