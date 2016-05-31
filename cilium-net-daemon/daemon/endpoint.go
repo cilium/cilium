@@ -216,7 +216,7 @@ func (d *Daemon) createPolicyMap(ep *types.Endpoint, policyMapPath string) error
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if ep.Consumable != nil {
 		ep.Consumable.AddMap(policyMap)
-		if err := d.RegenerateEndpoint(ep); err != nil {
+		if err := d.regenerateEndpoint(ep); err != nil {
 			ep.Consumable.RemoveMap(policyMap)
 			os.RemoveAll(policyMapPath)
 			log.Warningf("Unable to generate policy map for '%s': %s", policyMapPath, err)

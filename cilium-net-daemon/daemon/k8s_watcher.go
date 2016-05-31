@@ -7,8 +7,8 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"k8s.io/kubernetes/pkg/watch"
 	"github.com/noironetworks/cilium-net/common"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 type networkPolicyWatchEvent struct {

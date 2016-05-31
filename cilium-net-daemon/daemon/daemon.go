@@ -33,6 +33,10 @@ type Daemon struct {
 	dockerClient         *dClient.Client
 	k8sClient            *k8sClient.Client
 	conf                 *Config
+	policyTree           types.PolicyTree
+	policyTreeMU         sync.Mutex
+	cacheIteration       int
+	reservedConsumables  []*types.Consumable
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -118,12 +122,17 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	d := Daemon{
-		conf:         c,
-		ipamConf:     ipamConf,
-		consul:       consul,
-		dockerClient: dockerClient,
-		k8sClient:    k8sClient,
-		endpoints:    make(map[string]*types.Endpoint),
+		conf:                c,
+		ipamConf:            ipamConf,
+		consul:              consul,
+		dockerClient:        dockerClient,
+		k8sClient:           k8sClient,
+		endpoints:           make(map[string]*types.Endpoint),
+		cacheIteration:      1,
+		reservedConsumables: make([]*types.Consumable, 0),
+		policyTree: types.PolicyTree{
+			Root: types.NewPolicyNode(common.GlobalLabelPrefix, nil),
+		},
 	}
 
 	if c.RestoreState {

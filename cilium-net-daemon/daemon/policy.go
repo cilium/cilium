@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
@@ -13,23 +12,8 @@ import (
 	"github.com/op/go-logging"
 )
 
-// FIXME:
-// Global tree, eventually this will turn into a cache with the real tree
-// store in consul
-var (
-	tree                types.PolicyTree
-	policyMutex         sync.Mutex
-	cacheIteration      = 1
-	reservedConsumables = make([]*types.Consumable, 0)
-)
-
-func init() {
-	pn := types.NewPolicyNode(common.GlobalLabelPrefix, nil)
-	tree = types.PolicyTree{Root: pn}
-}
-
 // findNode returns node and its parent or an error
-func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
+func (d *Daemon) findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	var parent *types.PolicyNode
 
 	if strings.HasPrefix(path, common.GlobalLabelPrefix) == false {
@@ -38,10 +22,10 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 
 	newPath := strings.Replace(path, common.GlobalLabelPrefix, "", 1)
 	if newPath == "" {
-		return tree.Root, nil, nil
+		return d.policyTree.Root, nil, nil
 	}
 
-	current := tree.Root
+	current := d.policyTree.Root
 	parent = nil
 
 	for _, nodeName := range strings.Split(newPath, ".") {
@@ -59,7 +43,7 @@ func findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	return current, parent, nil
 }
 
-func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID uint32) error {
+func (d *Daemon) evaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID uint32) error {
 	ctx.From = nil
 
 	// Check if we have the source security context in our local
@@ -101,7 +85,7 @@ func (d *Daemon) EvaluateConsumerSource(c *types.Consumable, ctx *types.SearchCo
 }
 
 // Must be called with endpointsMU held
-func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
+func (d *Daemon) regenerateConsumable(c *types.Consumable) error {
 	// Containers without a security label are not accessible
 	if c.ID == 0 {
 		log.Fatalf("Impossible: SecLabel == 0 when generating endpoint consumers")
@@ -109,7 +93,7 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 	}
 
 	// Skip if policy for this consumable is already valid
-	if c.Iteration == cacheIteration {
+	if c.Iteration == d.cacheIteration {
 		log.Debugf("Policy for %d is already calculated, reusing...", c.ID)
 		return nil
 	}
@@ -127,8 +111,8 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 		ctx.Trace = types.TRACE_ENABLED
 	}
 
-	policyMutex.Lock()
-	defer policyMutex.Unlock()
+	d.policyTreeMU.Lock()
+	defer d.policyTreeMU.Unlock()
 
 	// Mark all entries unused by denying them
 	for k, _ := range c.Consumers {
@@ -136,8 +120,8 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 	}
 
 	// Check access from reserved consumables first
-	for _, id := range reservedConsumables {
-		if err := d.EvaluateConsumerSource(c, &ctx, id.ID); err != nil {
+	for _, id := range d.reservedConsumables {
+		if err := d.evaluateConsumerSource(c, &ctx, id.ID); err != nil {
 			// This should never really happen
 			// FIXME: clear policy because it is inconsistent
 			break
@@ -147,7 +131,7 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 	// Iterate over all possible assigned search contexts
 	idx := common.FirstFreeID
 	for idx < maxID {
-		if err := d.EvaluateConsumerSource(c, &ctx, idx); err != nil {
+		if err := d.evaluateConsumerSource(c, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent
 			break
 		}
@@ -163,49 +147,49 @@ func (d *Daemon) RegenerateConsumable(c *types.Consumable) error {
 	}
 
 	// Result is valid until cache iteration advances
-	c.Iteration = cacheIteration
+	c.Iteration = d.cacheIteration
 
 	log.Debugf("New policy (iteration %d) for consumable %d: %+v\n", c.Iteration, c.ID, c.Consumers)
 
 	return nil
 }
 
-func InvalidateCache() {
-	cacheIteration++
-	if cacheIteration == 0 {
-		cacheIteration = 1
+func (d *Daemon) invalidateCache() {
+	d.cacheIteration++
+	if d.cacheIteration == 0 {
+		d.cacheIteration = 1
 	}
 }
 
-func (d *Daemon) RegenerateEndpoint(e *types.Endpoint) error {
+func (d *Daemon) regenerateEndpoint(e *types.Endpoint) error {
 	if e.Consumable != nil {
-		return d.RegenerateConsumable(e.Consumable)
+		return d.regenerateConsumable(e.Consumable)
 	} else {
 		return nil
 	}
 }
 
-func (d *Daemon) TriggerPolicyUpdates(added []uint32) {
+func (d *Daemon) triggerPolicyUpdates(added []uint32) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
 	if len(added) == 0 {
 		log.Debugf("Full policy recalculation triggered")
-		InvalidateCache()
+		d.invalidateCache()
 	} else {
 		log.Debugf("Partial policy recalculation triggered: %d\n", added)
 		// FIXME: Invalidate only cache that is affected
-		InvalidateCache()
+		d.invalidateCache()
 	}
 
 	for _, ep := range d.endpoints {
-		d.RegenerateEndpoint(ep)
+		d.regenerateEndpoint(ep)
 	}
 }
 
 // policyCanConsume calculates if the ctx allows the consumer to be consumed.
 func (d *Daemon) policyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
-	return tree.Allows(ctx)
+	return d.policyTree.Allows(ctx)
 }
 
 // PolicyCanConsume calculates if the ctx allows the consumer to be consumed. This public
@@ -217,7 +201,7 @@ func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContex
 		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 	}
 	scr := types.SearchContextReply{}
-	scr.Decision = tree.Allows(ctx)
+	scr.Decision = d.policyTree.Allows(ctx)
 	if ctx.Trace != types.TRACE_DISABLED {
 		scr.Logging = buffer.Bytes()
 	}
@@ -231,24 +215,24 @@ func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
 
 	log.Debugf("Policy Add Request: %+v", node)
 
-	policyMutex.Lock()
-	parentNode, parent, err := findNode(path)
+	d.policyTreeMU.Lock()
+	parentNode, parent, err := d.findNode(path)
 	if err != nil {
-		policyMutex.Unlock()
+		d.policyTreeMU.Unlock()
 		return err
 	}
 	if parent == nil {
-		tree.Root = node
+		d.policyTree.Root = node
 	} else {
 		if parent == nil {
-			tree.Root = node
+			d.policyTree.Root = node
 		} else {
 			parentNode.Children[node.Name] = node
 		}
 	}
-	policyMutex.Unlock()
+	d.policyTreeMU.Unlock()
 
-	d.TriggerPolicyUpdates([]uint32{})
+	d.triggerPolicyUpdates([]uint32{})
 
 	return nil
 }
@@ -257,24 +241,24 @@ func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
 func (d *Daemon) PolicyDelete(path string) error {
 	log.Debugf("Policy Delete Request: %s", path)
 
-	policyMutex.Lock()
-	node, parent, err := findNode(path)
+	d.policyTreeMU.Lock()
+	node, parent, err := d.findNode(path)
 	if err != nil {
-		policyMutex.Unlock()
+		d.policyTreeMU.Unlock()
 		return err
 	}
 	if parent == nil {
-		tree.Root = &types.PolicyNode{}
+		d.policyTree.Root = &types.PolicyNode{}
 	} else {
 		if parent == nil {
-			tree.Root = &types.PolicyNode{}
+			d.policyTree.Root = &types.PolicyNode{}
 		} else {
 			delete(parent.Children, node.Name)
 		}
 	}
-	policyMutex.Unlock()
+	d.policyTreeMU.Unlock()
 
-	d.TriggerPolicyUpdates([]uint32{})
+	d.triggerPolicyUpdates([]uint32{})
 
 	return nil
 }
@@ -282,11 +266,11 @@ func (d *Daemon) PolicyDelete(path string) error {
 // PolicyGet returns the policy of the given path.
 func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 	log.Debugf("Policy Get Request: %s", path)
-	node, _, err := findNode(path)
+	node, _, err := d.findNode(path)
 	return node, err
 }
 
-func PolicyInit() error {
+func (d *Daemon) PolicyInit() error {
 	for k, v := range types.ResDec {
 		lbl := types.SecCtxLabel{
 			ID:       uint32(v),
@@ -305,7 +289,7 @@ func PolicyInit() error {
 		if c := types.GetConsumable(uint32(v), &lbl); c == nil {
 			return fmt.Errorf("Unable to initialize consumable for %v", lbl)
 		} else {
-			reservedConsumables = append(reservedConsumables, c)
+			d.reservedConsumables = append(d.reservedConsumables, c)
 			c.AddMap(policyMap)
 		}
 	}

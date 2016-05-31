@@ -294,10 +294,6 @@ func initEnv(ctx *cli.Context) error {
 		}
 	}
 
-	if err := daemon.PolicyInit(); err != nil {
-		log.Fatalf("Unable to initialize policy: %s", err)
-	}
-
 	if config.K8sEndpoint == "http://[node-ipv6]:8080" {
 		config.K8sEndpoint = fmt.Sprintf("http://[%s:ffff]:8080", strings.TrimSuffix(addr.String(), ":0"))
 	}
@@ -314,6 +310,10 @@ func run(cli *cli.Context) {
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
 		return
+	}
+
+	if err := d.PolicyInit(); err != nil {
+		log.Fatalf("Unable to initialize policy: %s", err)
 	}
 
 	// Register event listener in docker endpoint
