@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+
 	"github.com/noironetworks/cilium-net/common"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -14,77 +15,75 @@ type NetworkPolicy struct {
 	api.ObjectMeta       `json:"metadata"`
 
 	// Specification of the desired behavior for this NetworkPolicy.
-	NetworkPolicySpec `json:",inline"`
+	Spec NetworkPolicySpec
 }
 
 type NetworkPolicySpec struct {
-	// Selects the pods to which this NetworkPolicy object applies.  The array of NetworkPolicyIngressRules below
-	// is applied to any pods selected by this field. Multiple NetworkPolicy objects can select the
-	// same set of pods.  In this case, the NetworkPolicyRules for each are combined additively.
+	// Selects the pods to which this NetworkPolicy object applies.  The array of ingress rules
+	// is applied to any pods selected by this field. Multiple network policies can select the
+	// same set of pods.  In this case, the ingress rules for each are combined additively.
 	// This field is NOT optional and follows standard unversioned.LabelSelector semantics.
-	// An empty PodSelector matches all pods in this namespace.
+	// An empty podSelector matches all pods in this namespace.
 	PodSelector unversioned.LabelSelector `json:"podSelector"`
 
 	// List of ingress rules to be applied to the selected pods.
-	// Traffic is allowed to a pod if Namespace.NetworkPolicy.Ingress.Isolation is undefined,
-	// OR if the traffic source is the pod's local kubelet (for health checks),
-	// OR if the traffic matches at least one NetworkPolicyIngressRule across all of the NetworkPolicy
+	// Traffic is allowed to a pod if namespace.networkPolicy.ingress.isolation is undefined and cluster policy allows it,
+	// OR if the traffic source is the pod's local node,
+	// OR if the traffic matches at least one ingress rule across all of the NetworkPolicy
 	// objects whose podSelector matches the pod.
-	// If this field is nil, this NetworkPolicy does not affect ingress to the selected pods.
-	// If this field is non-nil but contains no rules, this NetworkPolicy allows no traffic.
-	// If this field is non-nil and contains at least one rule, this NetworkPolicy allows any traffic
-	// which matches at least one of the NetworkPolicyIngressRules in this list.
+	// If this field is empty then this NetworkPolicy does not affect ingress isolation.
+	// If this field is present and contains at least one rule, this policy allows any traffic
+	// which matches at least one of the ingress rules in this list.
 	Ingress []NetworkPolicyIngressRule `json:"ingress,omitempty"`
 }
 
-// This NetworkPolicyIngressRule matches traffic if and only if the traffic matches both Ports AND From.
+// This NetworkPolicyIngressRule matches traffic if and only if the traffic matches both ports AND from.
 type NetworkPolicyIngressRule struct {
-	// List of ports which should be made accessible on the pods selected by PodSelector.
+	// List of ports which should be made accessible on the pods selected for this rule.
 	// Each item in this list is combined using a logical OR.
-	// If this field is nil, this NetworkPolicyIngressRule matches all ports (traffic not restricted by Port).
-	// If this field is non-nil but contains no items, this NetworkPolicyIngressRule matches no ports (no traffic matches).
-	// If this field is non-nil and contains at least one item, then this NetworkPolicyIngressRule allows traffic
-	// only if the traffic matches at least one NetworkPolicyPort in the Ports list.
-	Ports []NetworkPolicyPort `json:"ports,omitempty"`
+	// If this field is not provided, this rule matches all ports (traffic not restricted by port).
+	// If this field is empty, this rule matches no ports (no traffic matches).
+	// If this field is present and contains at least one item, then this rule allows traffic
+	// only if the traffic matches at least one port in the ports list.
+	Ports *[]NetworkPolicyPort `json:"ports,omitempty"`
 
-	// List of sources which should be able to access the pods selected by PodSelector.
+	// List of sources which should be able to access the pods selected for this rule.
 	// Items in this list are combined using a logical OR operation.
-	// If this field nil, this NetworkPolicyIngressRule matches all sources (traffic not restricted by source).
-	// If this field is non-nil but contains no items, this NetworkPolicyIngressRule matches no sources (no traffic matches).
-	// If this field is non-nil and contains at least on item, this NetworkPolicyIngressRule allows traffic only if the
-	// traffic matches at least one NetworkPolicyPeer in the From list.
-	From []NetworkPolicyPeer `json:"from,omitempty"`
+	// If this field is not provided, this rule matches all sources (traffic not restricted by source).
+	// If this field is empty, this rule matches no sources (no traffic matches).
+	// If this field is present and contains at least on item, this rule allows traffic only if the
+	// traffic matches at least one item in the from list.
+	From *[]NetworkPolicyPeer `json:"from,omitempty"`
 }
 
 type NetworkPolicyPort struct {
-	// The protocol (TCP or UDP) which traffic must match.
-	// If not defined, this field defaults to TCP.
-	Protocol api.Protocol `json:"protocol"`
+	// Optional.  The protocol (TCP or UDP) which traffic must match.
+	// If not specified, this field defaults to TCP.
+	Protocol *api.Protocol `json:"protocol,omitempty"`
 
 	// If specified, the port on the given protocol.  This can
-	// either be a numerical or named port.  If this field is nil,
-	// this NetworkPolicyPort matches all port names and numbers.
-	// If non-nil, only traffic on the specified protocol AND port
-	// will be matched by this NetworkPolicyPort.
+	// either be a numerical or named port.  If this field is not provided,
+	// this matches all port names and numbers.
+	// If present, only traffic on the specified protocol AND port
+	// will be matched.
 	Port *intstr.IntOrString `json:"port,omitempty"`
 }
 
 type NetworkPolicyPeer struct {
-	// If 'Namespaces' is defined, 'Pods' must not be.
-	// This is a label selector which selects Pods in this namespace.
-	// This NetworkPolicyPeer matches any pods selected by this selector.
-	// This field follows standard unversioned.LabelSelector semantics.
-	// If nil, this selector selects no pods.
-	// If non-nil but empty, this selector selects all pods in this namespace.
-	Pods *unversioned.LabelSelector `json:"pods,omitempty"`
+	// Exactly one of the following must be specified.
 
-	// If 'Pods' is defined, 'Namespaces' must not be.
-	// Selects Kubernetes Namespaces.  This NetworkPolicyPeer matches
-	// all pods in all namespaces selected by this label selector.
+	// This is a label selector which selects Pods in this namespace.
 	// This field follows standard unversioned.LabelSelector semantics.
-	// If nil, this selector selects no namespaces.
-	// If non-nil but empty, this selector selects all namespaces.
-	Namespaces *unversioned.LabelSelector `json:"namespaces,omitempty"`
+	// If not provided, this selector selects no pods.
+	// If present but empty, this selector selects all pods in this namespace.
+	PodSelector *unversioned.LabelSelector `json:"podSelector,omitempty"`
+
+	// Selects Namespaces using cluster scoped-labels.  This
+	// matches all pods in all namespaces selected by this label selector.
+	// This field follows standard unversioned.LabelSelector semantics.
+	// If omited, this selector selects no namespaces.
+	// If present but empty, this selector selects all namespaces.
+	NamespaceSelector *unversioned.LabelSelector `json:"namespaceSelector,omitempty"`
 }
 
 func K8sNP2CP(np NetworkPolicy) (*PolicyNode, error) {
@@ -94,20 +93,33 @@ func K8sNP2CP(np NetworkPolicy) (*PolicyNode, error) {
 	}
 
 	allowRules := []AllowRule{}
-	for _, iRule := range np.Ingress {
-		for _, pod := range iRule.From {
-			for k, v := range pod.Pods.MatchLabels {
-				l := NewLabel(k, v, "")
-				ar := AllowRule{
-					Action: ALWAYS_ACCEPT,
-					Label:  *l,
+	for _, iRule := range np.Spec.Ingress {
+		if iRule.From != nil {
+			for _, rule := range *iRule.From {
+				if rule.PodSelector != nil {
+					for k, v := range rule.PodSelector.MatchLabels {
+						l := NewLabel(k, v, "")
+						ar := AllowRule{
+							Action: ALWAYS_ACCEPT,
+							Label:  *l,
+						}
+						allowRules = append(allowRules, ar)
+					}
+				} else if rule.NamespaceSelector != nil {
+					for k, _ := range rule.NamespaceSelector.MatchLabels {
+						l := NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
+						ar := AllowRule{
+							Action: ALWAYS_ACCEPT,
+							Label:  *l,
+						}
+						allowRules = append(allowRules, ar)
+					}
 				}
-				allowRules = append(allowRules, ar)
 			}
 		}
 	}
 
-	coverageLbls := Map2Labels(np.PodSelector.MatchLabels, common.K8sLabelSource)
+	coverageLbls := Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
 	return &PolicyNode{
 		Name: policyName,
 		Rules: []interface{}{
