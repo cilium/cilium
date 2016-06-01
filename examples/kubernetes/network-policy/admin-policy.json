@@ -1,29 +1,38 @@
 {
-    "apiVersion": "experimental.kubernetes.io/v1",
-    "ingress": [
-        {
-            "from": [
-                {
-                    "pods": {
-                        "matchLabels": {
-                            "$host": ""
-                        }
-                    }
-                }
-            ]
-        }
-    ],
-    "kind": "NetworkPolicy",
-    "metadata": {
-        "annotations": {
-            "io.cilium.name": "admin",
-            "io.cilium.parent": "io.cilium"
-        },
-        "name": "admin-policy"
+  "apiVersion": "experimental.kubernetes.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "annotations": {
+      "io.cilium.name": "admin",
+      "io.cilium.parent": "io.cilium"
     },
+    "name": "admin-policy"
+  },
+  "spec": {
     "podSelector": {
-        "matchLabels": {
-            "k8s-system": ""
-        }
-    }
+      "matchLabels": {
+        "kube-system": ""
+      }
+    },
+    "ingress": [
+      {
+        "from": [
+          {
+            "podSelector": {
+              "matchLabels": {
+                "$host": ""
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kube-system": ""
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
 }

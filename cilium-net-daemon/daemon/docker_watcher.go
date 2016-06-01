@@ -83,8 +83,9 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	if err := d.k8sClient.Get().Namespace(ns).Resource("pods").Name(podName).Do().Into(result); err != nil {
 		return nil, err
 	}
-	//log.Debug("Retrieved %+v", result)
-	return result.GetLabels(), nil
+	k8sLabels := result.GetLabels()
+	k8sLabels[common.K8sPodNamespaceLabel] = ns
+	return k8sLabels, nil
 }
 
 func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {

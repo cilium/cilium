@@ -75,6 +75,9 @@ const (
 	// K8sAnnotationName is the annotation name used for the cilium policy name in the
 	// kubernetes network policy.
 	K8sAnnotationName = "io.cilium.name"
+	// K8sPodNamespaceLabel is the label used in kubernetes containers to specify
+	// which namespace they belong to.
+	K8sPodNamespaceLabel = "io.kubernetes.pod.namespace"
 	// K8sAnnotationParentName is the annotation name used for the cilium policy
 	// parent name in the kubernetes network policy.
 	K8sAnnotationParentName = "io.cilium.parent"

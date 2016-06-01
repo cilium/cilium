@@ -3,7 +3,9 @@ package types
 type IngressIsolationPolicy string
 
 const (
-	// Deny all ingress traffic to pods in this namespace.
+	// Deny all ingress traffic to pods in this namespace. Ingress means
+	// any incoming traffic to pods, whether that be from other pods within this namespace
+	// or any source outside of this namespace.
 	DefaultDeny IngressIsolationPolicy = "DefaultDeny"
 )
 
@@ -29,6 +31,6 @@ type NamespaceIngressPolicy struct {
 	// Currently this field only supports "DefaultDeny", but could
 	// be extended to support other policies in the future.  When set to DefaultDeny,
 	// pods in this namespace are denied ingress traffic by default.  When not defined,
-	// the cluster default ingress policy is applied (currently allow all).
+	// the cluster default ingress isolation policy is applied (currently allow all).
 	Isolation *IngressIsolationPolicy `json:"isolation,omitempty"`
 }

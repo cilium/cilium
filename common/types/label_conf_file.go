@@ -43,6 +43,10 @@ func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 				Prefix: common.GlobalLabelPrefix,
 				Source: common.K8sLabelSource,
 			},
+			&LabelPrefix{
+				Prefix: common.K8sPodNamespaceLabel,
+				Source: common.K8sLabelSource,
+			},
 		},
 	}
 }
