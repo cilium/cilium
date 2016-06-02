@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -645,6 +646,8 @@ func (pn *PolicyNode) AddChild(name string, child *PolicyNode) error {
 		}
 	} else {
 		pn.Children[name] = child
+		child.Parent = pn
+		child.Path()
 	}
 
 	return nil
@@ -745,4 +748,9 @@ end:
 	policyTrace(ctx, "Final tree decision: %s\n", decision)
 
 	return decision
+}
+
+func SplitPolicyNodePath(fullPath string) (string, string) {
+	var extension = filepath.Ext(fullPath)
+	return fullPath[0 : len(fullPath)-len(extension)], extension
 }

@@ -34,7 +34,7 @@ type SecCtxLabel struct {
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,
 // the default value will be common.CiliumLabelSource. If key starts with '$', the source
-// will be overwritten with common.ReservedLabelSource. If key containers ':', the value
+// will be overwritten with common.ReservedLabelSource. If key contains ':', the value
 // before ':' will be used as source if given source is empty, otherwise the value before
 // ':' will be deleted and unused.
 func NewLabel(key string, value string, source string) *Label {
@@ -87,9 +87,10 @@ func (l *Label) Covers(path string) bool {
 
 // Resolve resolves the absolute key path for this Label from policyNode.
 func (l *Label) Resolve(policyNode *PolicyNode) {
-	if l.Source == common.CiliumLabelSource &&
-		!strings.HasPrefix(l.Key, common.GlobalLabelPrefix) {
-
+	// FIXME: the HasPrefix should be using daemon.config.ValidLabelPrefixes
+	if l.Source != common.ReservedLabelSource &&
+		!strings.HasPrefix(l.Key, common.GlobalLabelPrefix) &&
+		!strings.HasPrefix(l.Key, common.K8sPodNamespaceLabel) {
 		k := l.Key
 		node := policyNode
 
