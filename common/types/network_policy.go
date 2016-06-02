@@ -86,10 +86,14 @@ type NetworkPolicyPeer struct {
 	NamespaceSelector *unversioned.LabelSelector `json:"namespaceSelector,omitempty"`
 }
 
-func K8sNP2CP(np NetworkPolicy) (*PolicyNode, error) {
+func K8sNP2CP(np NetworkPolicy) (string, *PolicyNode, error) {
+	parentNodeName := np.Annotations[common.K8sAnnotationParentName]
+	if parentNodeName == "" {
+		return "", nil, fmt.Errorf("%s not found in network policy annotations", common.K8sAnnotationParentName)
+	}
 	policyName := np.Annotations[common.K8sAnnotationName]
 	if policyName == "" {
-		return nil, fmt.Errorf("%s not found in network policy annotations", common.K8sAnnotationName)
+		return "", nil, fmt.Errorf("%s not found in network policy annotations", common.K8sAnnotationName)
 	}
 
 	allowRules := []AllowRule{}
@@ -99,6 +103,9 @@ func K8sNP2CP(np NetworkPolicy) (*PolicyNode, error) {
 				if rule.PodSelector != nil {
 					for k, v := range rule.PodSelector.MatchLabels {
 						l := NewLabel(k, v, "")
+						if l.Source == common.CiliumLabelSource {
+							l.Source = common.K8sLabelSource
+						}
 						ar := AllowRule{
 							Action: ALWAYS_ACCEPT,
 							Label:  *l,
@@ -120,13 +127,12 @@ func K8sNP2CP(np NetworkPolicy) (*PolicyNode, error) {
 	}
 
 	coverageLbls := Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
-	return &PolicyNode{
-		Name: policyName,
-		Rules: []interface{}{
-			PolicyRuleConsumers{
-				Coverage: coverageLbls.ToSlice(),
-				Allow:    allowRules,
-			},
+	pn := NewPolicyNode(policyName, nil)
+	pn.Rules = []interface{}{
+		PolicyRuleConsumers{
+			Coverage: coverageLbls.ToSlice(),
+			Allow:    allowRules,
 		},
-	}, nil
+	}
+	return parentNodeName, pn, nil
 }

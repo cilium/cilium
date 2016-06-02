@@ -23,6 +23,13 @@
                 "web": ""
               }
             }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "default": ""
+              }
+            }
           }
         ]
       }

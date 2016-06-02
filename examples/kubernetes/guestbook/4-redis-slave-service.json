@@ -17,7 +17,7 @@
         "selector":{
             "app":"redis",
             "role":"slave",
-            "io.cilium.lizards": "db"
+            "io.cilium.lizards.db": ""
         }
     }
 }

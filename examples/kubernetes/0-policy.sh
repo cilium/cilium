@@ -28,7 +28,7 @@ if [ ${i} -gt ${tries} ]; then
 fi
 
 ${kubectl} create -f ${dir}/network-policy/resource.yaml
-sleep 7s
+sleep 15s
 set -e
 
 curl -g -X POST -H "Content-Type: application/json" -d @${dir}/network-policy/admin-policy.json \

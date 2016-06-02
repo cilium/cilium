@@ -25,6 +25,14 @@
             }
           },
           {
+            "podSelector": {
+              "matchLabels": {
+                "io.cilium.lizards.web": "",
+                "io.kubernetes.pod.namespace": "default"
+              }
+            }
+          },
+          {
             "namespaceSelector": {
               "matchLabels": {
                 "kube-system": ""

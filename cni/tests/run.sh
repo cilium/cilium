@@ -30,11 +30,6 @@ function cleanup {
     sudo killall -9 kube-proxy || true
     sudo killall -9 kube-apiserver || true
     docker rm -f `docker ps -aq --filter=name=k8s` 2> /dev/null || true
-    if [ -e "/etc/init/cilium-net-daemon.conf.bak" ]; then
-        sudo mv "/etc/init/cilium-net-daemon.conf.bak" "/etc/init/cilium-net-daemon.conf"
-        sudo service cilium-net-daemon restart
-        sleep 3s
-    fi
 }
 
 function reset_trace {
@@ -51,17 +46,13 @@ function abort {
 }
 
 trap cleanup EXIT
-sudo cp "/etc/init/cilium-net-daemon.conf" "/etc/init/cilium-net-daemon.conf.bak"
-sudo su -c 'echo "exec cilium -D daemon -d eth1 --disable-policy" > /etc/init/cilium-net-daemon.conf'
-sudo service cilium-net-daemon restart
-sleep 3s
 
 reset_trace
 
 start_k8s
 
-sudo cilium -D policy import "${dir}/policy"
 
+"${dir}/../../examples/kubernetes/0-policy.sh" 300
 "${dir}/../../examples/kubernetes/1-dns.sh" 300
 "${dir}/../../examples/kubernetes/2-guestbook.sh" 300
 "${dir}/wait-for-docker.sh" k8s_guestbook 100
