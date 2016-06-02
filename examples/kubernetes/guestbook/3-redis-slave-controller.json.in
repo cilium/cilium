@@ -13,14 +13,14 @@
         "selector":{
             "app":"redis",
             "role":"slave",
-            "io.cilium.lizards": "db"
+            "io.cilium.lizards.db": ""
         },
         "template":{
             "metadata":{
                 "labels":{
                     "app":"redis",
                     "role":"slave",
-                    "io.cilium.lizards": "db"
+                    "io.cilium.lizards.db": ""
                 }
             },
             "spec":{

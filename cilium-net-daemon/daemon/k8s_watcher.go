@@ -7,7 +7,6 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/noironetworks/cilium-net/common"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -52,27 +51,30 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 				continue
 			}
 			log.Debugf("Received kubernetes network policy %+v\n", npwe)
-			switch npwe.Type {
-			case watch.Added, watch.Modified:
-				parentNodeName := npwe.Object.Annotations[common.K8sAnnotationParentName]
-				if parentNodeName == "" {
-					log.Errorf("%s not found in network policy annotations", common.K8sAnnotationParentName)
-					continue
-				}
-				pn, err := types.K8sNP2CP(npwe.Object)
-				if err != nil {
-					log.Errorf("Error while parsing kubernetes network policy %+v: %s", npwe.Object, err)
-					continue
-				}
-				if err := d.PolicyAdd(parentNodeName, pn); err != nil {
-					log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
-					continue
-				}
-				log.Info("Kubernetes network policy successfully add")
-			case watch.Deleted:
-				log.Warning("Deleting is not implemented yet")
-			}
+			go d.processNPE(npwe)
 		}
 	}()
 	return nil
+}
+
+func (d *Daemon) processNPE(npwe networkPolicyWatchEvent) {
+	nodePath, pn, err := types.K8sNP2CP(npwe.Object)
+	if err != nil {
+		log.Errorf("Error while parsing kubernetes network policy %+v: %s", npwe.Object, err)
+		return
+	}
+	switch npwe.Type {
+	case watch.Added, watch.Modified:
+		if err := d.PolicyAdd(nodePath, pn); err != nil {
+			log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
+			return
+		}
+		log.Info("Kubernetes network policy successfully add")
+	case watch.Deleted:
+		if err := d.PolicyDelete(nodePath); err != nil {
+			log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
+			return
+		}
+		log.Info("Kubernetes network policy successfully removed")
+	}
 }
