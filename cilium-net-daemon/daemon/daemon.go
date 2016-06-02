@@ -121,6 +121,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
+	rootNode := types.PolicyTree{
+		Root: types.NewPolicyNode(common.GlobalLabelPrefix, nil),
+	}
+
+	rootNode.Root.Path()
+
 	d := Daemon{
 		conf:                c,
 		ipamConf:            ipamConf,
@@ -130,9 +136,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpoints:           make(map[string]*types.Endpoint),
 		cacheIteration:      1,
 		reservedConsumables: make([]*types.Consumable, 0),
-		policyTree: types.PolicyTree{
-			Root: types.NewPolicyNode(common.GlobalLabelPrefix, nil),
-		},
+		policyTree:          rootNode,
 	}
 
 	if c.RestoreState {

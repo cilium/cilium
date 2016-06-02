@@ -16,7 +16,7 @@ import (
 func (d *Daemon) findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
 	var parent *types.PolicyNode
 
-	if strings.HasPrefix(path, common.GlobalLabelPrefix) == false {
+	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
 		return nil, nil, fmt.Errorf("Invalid path %s: must start with %s", path, common.GlobalLabelPrefix)
 	}
 
@@ -208,27 +208,75 @@ func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContex
 	return &scr, nil
 }
 
-func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
+func (d *Daemon) policyAdd(path string, node *types.PolicyNode) error {
+	var (
+		currNode, parentNode *types.PolicyNode
+		err                  error
+	)
+
 	if node.Name == "" {
-		node.Name = path
+		path, node.Name = types.SplitPolicyNodePath(path)
+	} else if strings.Contains(node.Name, ".") && node.Name != common.GlobalLabelPrefix {
+		path, node.Name = types.SplitPolicyNodePath(path + "." + node.Name)
 	}
 
-	log.Debugf("Policy Add Request: %+v", node)
+	currNode, parentNode, err = d.findNode(path)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Policy currNode %+v, parentNode %+v", currNode, parentNode)
+
+	// eg. path = io.cilium.lizards.foo.db and io.cilium.lizards doesn't exist
+	if (currNode == nil && parentNode == nil) ||
+		// eg. path = io.cilium.lizards.foo and io.cilium.lizards.foo doesn't exist
+		(currNode == nil && parentNode != nil) {
+
+		pn := types.NewPolicyNode("", nil)
+		if err := d.policyAdd(path, pn); err != nil {
+			return err
+		}
+		currNode, parentNode, err = d.findNode(path)
+		if err != nil {
+			return err
+		}
+		log.Debugf("Policy currNode %+v, parentNode %+v", currNode, parentNode)
+	}
+	// eg. path = io.cilium
+	if currNode != nil && parentNode == nil {
+		if currNode.Name == node.Name {
+			node.Path()
+			if err := currNode.Merge(node); err != nil {
+				return err
+			}
+		} else {
+			if err := currNode.AddChild(node.Name, node); err != nil {
+				return err
+			}
+		}
+	} else if currNode != nil && parentNode != nil {
+		// eg. path = io.cilium.lizards.db exists
+		if err := currNode.AddChild(node.Name, node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
+	log.Debugf("Policy Add Request: %s %+v", path, node)
+
+	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
+		return fmt.Errorf("the given path %q doesn't have the prefix %q", path, common.GlobalLabelPrefix)
+	}
 
 	d.policyTreeMU.Lock()
-	parentNode, parent, err := d.findNode(path)
-	if err != nil {
+	if err := d.policyAdd(path, node); err != nil {
 		d.policyTreeMU.Unlock()
 		return err
 	}
-	if parent == nil {
-		d.policyTree.Root = node
-	} else {
-		if parent == nil {
-			d.policyTree.Root = node
-		} else {
-			parentNode.Children[node.Name] = node
-		}
+	if err := node.ResolveTree(); err != nil {
+		d.policyTreeMU.Unlock()
+		return err
 	}
 	d.policyTreeMU.Unlock()
 
@@ -248,13 +296,11 @@ func (d *Daemon) PolicyDelete(path string) error {
 		return err
 	}
 	if parent == nil {
-		d.policyTree.Root = &types.PolicyNode{}
+		d.policyTree.Root = types.NewPolicyNode(common.GlobalLabelPrefix, nil)
+
+		d.policyTree.Root.Path()
 	} else {
-		if parent == nil {
-			d.policyTree.Root = &types.PolicyNode{}
-		} else {
-			delete(parent.Children, node.Name)
-		}
+		delete(parent.Children, node.Name)
 	}
 	d.policyTreeMU.Unlock()
 
