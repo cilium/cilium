@@ -9,6 +9,7 @@ sudo apt-get -y install socat curl
 echo "export GOROOT=/usr/local/go" >> /home/vagrant/.profile
 echo "export GOPATH=/home/vagrant/go" >> /home/vagrant/.profile
 echo 'export PATH=/usr/local/go/bin:/home/vagrant/go/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >>  /home/vagrant/.profile
+echo 'export PATH=/usr/local/go/bin:/home/vagrant/go/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >>  /root/.profile
 SCRIPT
 
 $build = <<SCRIPT
