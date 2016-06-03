@@ -231,13 +231,6 @@ func (d *Daemon) createPolicyMap(ep *types.Endpoint, policyMapPath string) error
 }
 
 func (d *Daemon) createBPFMAPs(epID string) error {
-	return d.updateBPFMaps(epID, nil, "", false)
-}
-
-// updateBPFMaps refreshes the BPF maps for the endpoint epID. The opts values are
-// replaced for the given epID. if endpointSuffix is set it can used as a suffix for the
-// endpoint directory and policy map names.
-func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix string, update bool) error {
 	// Preventing someone from deleting important directories
 	if !isValidID(epID) {
 		return fmt.Errorf("invalid ID: %s", epID)
@@ -249,6 +242,13 @@ func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix st
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
 
+	return d.updateBPFMaps(ep, nil, "", false)
+}
+
+// updateBPFMaps refreshes the BPF maps for the endpoint epID. The opts values are
+// replaced for the given epID. if endpointSuffix is set it can used as a suffix for the
+// endpoint directory and policy map names.
+func (d *Daemon) updateBPFMaps(ep *types.Endpoint, opts types.EPOpts, endpointSuffix string, update bool) error {
 	if !ep.ApplyOpts(opts) && update {
 		// No changes have been applied, skip update
 		return nil
@@ -388,15 +388,14 @@ func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 	}
 }
 
-// EndpointUpdate updates the given endpoint and recompiles the bpf map.
-func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
+func (d *Daemon) ApplyEndpointChanges(ep *types.Endpoint, opts types.EPOpts) error {
 	endpointSuffix := "_update"
-	if err := d.updateBPFMaps(epID, opts, endpointSuffix, true); err != nil {
+	if err := d.updateBPFMaps(ep, opts, endpointSuffix, true); err != nil {
 		return err
 	}
 
-	policyMapPath := common.PolicyMapPath + epID + endpointSuffix
-	lxcDir := filepath.Join(".", (epID + endpointSuffix))
+	policyMapPath := common.PolicyMapPath + ep.ID + endpointSuffix
+	lxcDir := filepath.Join(".", (ep.ID + endpointSuffix))
 
 	moveDir := func(oldDir, newDir string) error {
 		os.RemoveAll(newDir)
@@ -408,17 +407,33 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 		return nil
 	}
 
-	lxcDirOrg := filepath.Join(".", epID)
+	lxcDirOrg := filepath.Join(".", ep.ID)
 	if err := moveDir(lxcDir, lxcDirOrg); err != nil {
 		return err
 	}
 
-	policyMapPathOrig := common.PolicyMapPath + epID
+	policyMapPathOrig := common.PolicyMapPath + ep.ID
 	if err := moveDir(policyMapPath, policyMapPathOrig); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// EndpointUpdate updates the given endpoint and recompiles the bpf map.
+func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
+	// Preventing someone from deleting important directories
+	if !isValidID(epID) {
+		return fmt.Errorf("invalid ID: %s", epID)
+	}
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+	ep, ok := d.endpoints[common.CiliumPrefix+epID]
+	if !ok {
+		return fmt.Errorf("endpoint %s not found", epID)
+	}
+
+	return d.ApplyEndpointChanges(ep, opts)
 }
 
 // EndpointSave saves the endpoint in the daemon internal endpoint map.
