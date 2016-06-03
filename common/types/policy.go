@@ -317,7 +317,8 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 		l := &c.Coverage[k]
 		l.Resolve(node)
 
-		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
+		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
+			!(l.Source == common.ReservedLabelSource) {
 			return fmt.Errorf("label %s does not share prefix of node %s",
 				l.AbsoluteKey(), node.Path())
 		}

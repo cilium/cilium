@@ -7,6 +7,9 @@
 		"coverage": ["all"],
 		"allow": ["$all"]
 	},{
+		"coverage": ["$world"],
+		"allow": ["client"]
+	},{
 		"allow": ["$host"]
 	}],
         "children": {
