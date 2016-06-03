@@ -91,4 +91,33 @@ enum {
 	CB_POLICY,
 };
 
+/* Indicates an ingress CT entry */
+#define TUPLE_F_OUT		0
+#define TUPLE_F_IN		1
+
+enum {
+	POLICY_UNSPEC,
+	POLICY_SKIP,
+	POLICY_DROP,
+};
+
+struct ipv6_ct_tuple {
+	union v6addr	addr;
+	__u16		sport;
+	__u16		dport;
+	__u8		nexthdr;
+	__u8		flags;
+};
+
+struct ipv6_ct_entry {
+	__u64 rx_packets;
+	__u64 rx_bytes;
+	__u64 tx_packets;
+	__u64 tx_bytes;
+	__u16 lifetime;
+	__u16 rx_closing:1,
+	      tx_closing:1,
+	      reserve:14;
+};
+
 #endif

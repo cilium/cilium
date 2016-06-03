@@ -8,6 +8,7 @@
 #define TCP_DPORT_OFF (offsetof(struct tcphdr, dest))
 #define TCP_SPORT_OFF (offsetof(struct tcphdr, source))
 #define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
+#define TCP_FLAGS_OFF 12
 
 static inline void tcp_modify_16(struct __sk_buff *skb, int off, __u16 port)
 {

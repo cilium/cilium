@@ -190,7 +190,12 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 		return TC_ACT_SHOT;
 	} else {
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		return redirect(ifindex, 0);
+
+		/* ifindex 0 indicates passing down to the stack */
+		if (ifindex == 0)
+			return TC_ACT_OK;
+		else
+			return redirect(ifindex, 0);
 	}
 }
 

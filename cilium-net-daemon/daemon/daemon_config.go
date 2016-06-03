@@ -19,7 +19,11 @@ type Config struct {
 	DockerEndpoint     string                // Docker endpoint
 	K8sEndpoint        string                // Kubernetes endpoint
 	ValidLabelPrefixes *types.LabelPrefixCfg // Label prefixes used to filter from all labels
-	EnableTracing      bool
-	DisablePolicy      bool
-	RestoreState       bool // RestoreState restores the state from previous running daemons.
+
+	RestoreState bool // RestoreState restores the state from previous running daemons.
+
+	// These are default options which can be overwritten on a per container basis
+	EnableTracing    bool
+	DisablePolicy    bool
+	DisableConntrack bool
 }

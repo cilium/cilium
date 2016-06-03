@@ -21,6 +21,9 @@
 #include "lib/drop.h"
 #include "lib/dbg.h"
 
+__BPF_MAP(CT_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
+	  sizeof(struct ipv6_ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
+
 #ifndef DISABLE_PORT_MAP
 static inline void map_lxc_out(struct __sk_buff *skb, int off)
 {
@@ -77,6 +80,14 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 
 	ipv6_load_daddr(skb, nh_off, &dst);
 	map_lxc_out(skb, nh_off);
+
+	/* Pass all outgoing packets through conntrack. This will create an
+	 * entry to allow reverse packets and return set cb[CB_POLICY] to
+	 * POLICY_SKIP if the packet is a reply packet to an existing
+	 * incoming connection. */
+	skb->cb[CB_POLICY] = ct_create6_out(&CT_MAP, skb, ETH_HLEN, SECLABEL);
+	if (skb->cb[CB_POLICY] == POLICY_DROP)
+		return DROP_POLICY;
 
 	/* Check if destination is within our cluster prefix */
 	if (ipv6_match_subnet_96(&dst, &host_ip)) {
@@ -160,8 +171,18 @@ pass_to_stack:
 		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
 	}
 
-	/* Pass down to stack */
+#ifdef DISABLE_POLICY_ENFORCEMENT
+	/* No policy, pass directly down to stack */
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
+#else
+	skb->cb[CB_SRC_LABEL] = SECLABEL;
+	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
+
+	tail_call(skb, &cilium_jmp, WORLD_ID);
+	cilium_trace(skb, DBG_NO_POLICY, HOST_ID, 0);
+	return TC_ACT_SHOT;
+#endif
 }
 
 __section("from-container")
@@ -189,8 +210,8 @@ int handle_ingress(struct __sk_buff *skb)
 	/* Perform L3 action on the frame */
 	ret = do_l3_from_lxc(skb, ETH_HLEN);
 error:
-	if (likely(ret == TC_ACT_OK))
-		return TC_ACT_OK;
+	if (likely(ret == TC_ACT_OK || ret == TC_ACT_REDIRECT))
+		return ret;
 	else if (ret == SEND_TIME_EXCEEDED)
 		return icmp6_send_time_exceeded(skb, ETH_HLEN);
 	else if (ret < 0 || ret == TC_ACT_SHOT) {
@@ -215,6 +236,14 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 		send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
 		return TC_ACT_SHOT;
 	} else {
+		/* Create a connection tracking entry for any incoming traffic
+		 * so egress traffic can be related.
+		 */
+		if (ct_create6_in(&CT_MAP, skb, ETH_HLEN, src_label) == POLICY_DROP) {
+			send_drop_notify_error(skb, -(DROP_POLICY));
+			return TC_ACT_SHOT;
+		}
+
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 		return redirect(ifindex, 0);
 	}

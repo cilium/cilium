@@ -10,6 +10,9 @@ enum {
 	DBG_LXC_FOUND,
 	DBG_NO_POLICY,
 	DBG_POLICY_DENIED,
+	DBG_CT_LOOKUP,
+	DBG_CT_MATCH,
+	DBG_CT_CREATED,
 };
 
 /* Capture types */
