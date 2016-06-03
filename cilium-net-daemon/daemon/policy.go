@@ -209,7 +209,7 @@ func (d *Daemon) regenerateEndpoint(e *types.Endpoint) error {
 		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), "ALLOW_TO_HOST")
 		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), "ALLOW_TO_WORLD")
 
-		if err := d.ApplyEndpointChanges(e, opts); err != nil {
+		if err := d.applyEndpointChanges(e, opts); err != nil {
 			log.Warningf("Error while updating endpoint: %s\n", err)
 		}
 	}

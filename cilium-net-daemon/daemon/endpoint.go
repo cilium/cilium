@@ -388,7 +388,11 @@ func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 	}
 }
 
-func (d *Daemon) ApplyEndpointChanges(ep *types.Endpoint, opts types.EPOpts) error {
+func (d *Daemon) applyEndpointChanges(ep *types.Endpoint, opts types.EPOpts) error {
+	// Preventing someone from deleting important directories
+	if !isValidID(ep.ID) {
+		return fmt.Errorf("invalid ID: %s", ep.ID)
+	}
 	endpointSuffix := "_update"
 	if err := d.updateBPFMaps(ep, opts, endpointSuffix, true); err != nil {
 		return err
@@ -433,7 +437,7 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
 
-	return d.ApplyEndpointChanges(ep, opts)
+	return d.applyEndpointChanges(ep, opts)
 }
 
 // EndpointSave saves the endpoint in the daemon internal endpoint map.
