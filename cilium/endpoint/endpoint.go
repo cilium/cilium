@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/noironetworks/cilium-net/bpf/ctmap"
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/bpf"
@@ -135,6 +136,20 @@ func init() {
 						BashComplete: listEndpointsBash,
 						ArgsUsage:    "<endpoint>",
 						Action:       getStatusPolicy,
+					},
+				},
+			},
+			{
+				Name:  "ct",
+				Usage: "Manage Connection Tracker",
+				Subcommands: []cli.Command{
+					{
+						Name:         "dump",
+						Usage:        "Dumps connection tracking table for given endpoint",
+						Action:       dumpCt,
+						BashComplete: listEndpointsBash,
+						ArgsUsage:    "<endpoint>",
+						Before:       verifyArguments,
 					},
 				},
 			},
@@ -587,4 +602,24 @@ func listEndpointsBash(ctx *cli.Context) {
 		}
 	}
 
+}
+
+func dumpCt(ctx *cli.Context) {
+	lbl := ctx.Args().First()
+
+	file := common.BPFMapCT + lbl
+	fd, err := bpf.ObjGet(file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to open %s: %s\n", file, err)
+		os.Exit(1)
+	}
+
+	m := ctmap.CtMap{Fd: fd}
+	out, err := m.Dump()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(out)
 }

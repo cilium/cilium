@@ -61,6 +61,11 @@ func init() {
 				Usage:       "Device to snoop on",
 			},
 			cli.BoolFlag{
+				Destination: &config.DisableConntrack,
+				Name:        "disable-conntrack",
+				Usage:       "Disable connection tracking",
+			},
+			cli.BoolFlag{
 				Destination: &config.DisablePolicy,
 				Name:        "disable-policy",
 				Usage:       "Disable policy enforcement",
@@ -172,6 +177,10 @@ func initBPF() error {
 
 	if config.DisablePolicy {
 		fw.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
+	}
+
+	if config.DisableConntrack {
+		fw.WriteString("#define DISABLE_CONNTRACK\n")
 	}
 
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(config.NodeAddress))

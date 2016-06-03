@@ -20,6 +20,9 @@ const (
 	DBG_LXC_FOUND
 	DBG_NO_POLICY
 	DBG_POLICY_DENIED
+	DBG_CT_LOOKUP
+	DBG_CT_MATCH
+	DBG_CT_CREATED
 )
 
 type DebugMsg struct {
@@ -45,6 +48,12 @@ func (n *DebugMsg) Dump(data []byte) {
 		fmt.Printf("No policy program found for id %d (FIXME: resolve), dropping...\n", n.Arg1)
 	case DBG_POLICY_DENIED:
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
+	case DBG_CT_LOOKUP:
+		fmt.Printf("CT lookup sport=%d dport=%d\n", n.Arg1, n.Arg2)
+	case DBG_CT_MATCH:
+		fmt.Printf("CT entry found secctx=%d\n", n.Arg1)
+	case DBG_CT_CREATED:
+		fmt.Printf("CT created sport=%d dport=%d\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

@@ -20,10 +20,12 @@ const (
 	// DefaultContainerMAC represents a dummy MAC address for the containers.
 	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
 	// BPFMap is the file that contains the BPF Map for the host.
-	BPFMap     = "/sys/fs/bpf/tc/globals/cilium_lxc"
-	BPFMapRoot = "/sys/fs/bpf"
+	BPFMapRoot    = "/sys/fs/bpf"
+	BPFCiliumMaps = BPFMapRoot + "/tc/globals/"
+	BPFMap        = BPFCiliumMaps + "cilium_lxc"
 	// PolicyMapPath is the base path for the cilium policy for each local container.
-	PolicyMapPath = "/sys/fs/bpf/tc/globals/cilium_policy_"
+	PolicyMapPath = BPFCiliumMaps + "cilium_policy_"
+	BPFMapCT      = BPFCiliumMaps + "cilium_ct_"
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
 	// log files.
 	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"

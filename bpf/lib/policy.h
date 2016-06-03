@@ -2,11 +2,7 @@
 #define __LIB_POLICY_H_
 
 #include "drop.h"
-
-enum {
-	POLICY_UNSPEC,
-	POLICY_SKIP,
-};
+#include "conntrack.h"
 
 #ifndef DISABLE_POLICY_ENFORCEMENT
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)

@@ -180,6 +180,8 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel.ID))
 	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE 4096\n")
+	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(common.BPFMapCT+ep.ID))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DISABLE_POLICY_ENFORCEMENT"))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("ENABLE_NAT46"))
 	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DROP_NOTIFY"))
