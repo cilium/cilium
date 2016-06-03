@@ -170,12 +170,51 @@ func (d *Daemon) invalidateCache() {
 	}
 }
 
+func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID uint32, define string) {
+	var err error
+
+	ctx := types.SearchContext{
+		From: e.Consumable.LabelList,
+	}
+
+	if d.conf.EnableTracing {
+		ctx.Trace = types.TRACE_ENABLED
+	}
+
+	ctx.To, err = d.GetCachedLabelList(dstID)
+	if err != nil {
+		log.Warningf("Unable to get label list for ID %d, access for endpoint may be restricted\n", dstID)
+		return
+	}
+
+	d.policyTreeMU.Lock()
+	defer d.policyTreeMU.Unlock()
+
+	switch d.policyCanConsume(&ctx) {
+	case types.ACCEPT, types.ALWAYS_ACCEPT:
+		opts[define] = true
+	case types.DENY:
+		opts[define] = false
+	}
+}
+
 func (d *Daemon) regenerateEndpoint(e *types.Endpoint) error {
 	if e.Consumable != nil {
-		return d.regenerateConsumable(e.Consumable)
-	} else {
-		return nil
+		if err := d.regenerateConsumable(e.Consumable); err != nil {
+			return err
+		}
+
+		opts := make(types.EPOpts)
+
+		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), "ALLOW_TO_HOST")
+		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), "ALLOW_TO_WORLD")
+
+		if err := d.ApplyEndpointChanges(e, opts); err != nil {
+			log.Warningf("Error while updating endpoint: %s\n", err)
+		}
 	}
+
+	return nil
 }
 
 func (d *Daemon) triggerPolicyUpdates(added []uint32) {
