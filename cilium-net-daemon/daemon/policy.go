@@ -43,36 +43,41 @@ func (d *Daemon) findNode(path string) (*types.PolicyNode, *types.PolicyNode, er
 	return current, parent, nil
 }
 
-func (d *Daemon) evaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID uint32) error {
-	ctx.From = nil
-
+func (d *Daemon) GetCachedLabelList(ID uint32) ([]types.Label, error) {
 	// Check if we have the source security context in our local
 	// consumable cache
-	srcConsumable := types.LookupConsumable(srcID)
-	if srcConsumable != nil {
-		ctx.From = srcConsumable.LabelList
+	if c := types.LookupConsumable(ID); c != nil {
+		return c.LabelList, nil
 	}
 
 	// No cache entry or labels not available, do full lookup of labels
 	// via KV store
-	if ctx.From == nil {
-		lbls, err := d.GetLabels(srcID)
-		if err != nil {
-			return err
-		}
+	lbls, err := d.GetLabels(ID)
+	if err != nil {
+		return nil, err
+	}
 
-		// ID is not associated with anything, skip...
-		if lbls == nil {
-			return nil
-		}
+	// ID is not associated with anything, skip...
+	if lbls == nil {
+		return nil, nil
+	}
 
-		ctx.From = make([]types.Label, len(lbls.Labels))
+	l := make([]types.Label, len(lbls.Labels))
 
-		idx := 0
-		for k, v := range lbls.Labels {
-			ctx.From[idx] = types.Label{Key: k, Value: v.Value, Source: v.Source}
-			idx++
-		}
+	idx := 0
+	for k, v := range lbls.Labels {
+		l[idx] = types.Label{Key: k, Value: v.Value, Source: v.Source}
+		idx++
+	}
+
+	return l, nil
+}
+
+func (d *Daemon) evaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID uint32) error {
+	var err error
+	ctx.From, err = d.GetCachedLabelList(srcID)
+	if err != nil {
+		return err
 	}
 
 	decision := d.policyCanConsume(ctx)

@@ -102,6 +102,30 @@ func (e *Endpoint) GetFmtOpt(name string) string {
 	return "#undef " + name
 }
 
+func (e *Endpoint) ApplyOpts(opts EPOpts) bool {
+	changes := 0
+
+	for k, v := range opts {
+		val, ok := e.Opts[k]
+
+		if v {
+			/* Only enable if not enabled already */
+			if !ok || !val {
+				e.Opts[k] = true
+				changes++
+			}
+		} else {
+			/* Only disable if enabled already */
+			if ok && val {
+				delete(e.Opts, k)
+				changes++
+			}
+		}
+	}
+
+	return changes > 0
+}
+
 type orderEndpoint func(e1, e2 *Endpoint) bool
 
 // OrderEndpointAsc orders the slice of Endpoint in ascending ID order.

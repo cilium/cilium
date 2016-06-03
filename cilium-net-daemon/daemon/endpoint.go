@@ -182,9 +182,11 @@ func (d *Daemon) createBPFFile(f *os.File, ep *types.Endpoint, geneveOpts []byte
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 4096\n")
 	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(common.BPFMapCT+ep.ID))
-	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DISABLE_POLICY_ENFORCEMENT"))
-	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("ENABLE_NAT46"))
-	fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt("DROP_NOTIFY"))
+
+	for k, _ := range ep.Opts {
+		fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt(k))
+	}
+
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 
 	fw.WriteString("#define LXC_PORT_MAPPINGS ")
@@ -229,13 +231,13 @@ func (d *Daemon) createPolicyMap(ep *types.Endpoint, policyMapPath string) error
 }
 
 func (d *Daemon) createBPFMAPs(epID string) error {
-	return d.updateBPFMaps(epID, nil, "")
+	return d.updateBPFMaps(epID, nil, "", false)
 }
 
 // updateBPFMaps refreshes the BPF maps for the endpoint epID. The opts values are
 // replaced for the given epID. if endpointSuffix is set it can used as a suffix for the
 // endpoint directory and policy map names.
-func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix string) error {
+func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix string, update bool) error {
 	// Preventing someone from deleting important directories
 	if !isValidID(epID) {
 		return fmt.Errorf("invalid ID: %s", epID)
@@ -246,8 +248,10 @@ func (d *Daemon) updateBPFMaps(epID string, opts types.EPOpts, endpointSuffix st
 	if !ok {
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
-	for k, v := range opts {
-		ep.Opts[k] = v
+
+	if !ep.ApplyOpts(opts) && update {
+		// No changes have been applied, skip update
+		return nil
 	}
 
 	lxcDir := filepath.Join(".", ep.ID+endpointSuffix)
@@ -387,7 +391,7 @@ func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
 func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 	endpointSuffix := "_update"
-	if err := d.updateBPFMaps(epID, opts, endpointSuffix); err != nil {
+	if err := d.updateBPFMaps(epID, opts, endpointSuffix, true); err != nil {
 		return err
 	}
 
