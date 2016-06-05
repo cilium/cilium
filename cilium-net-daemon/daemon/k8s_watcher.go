@@ -16,30 +16,34 @@ type networkPolicyWatchEvent struct {
 }
 
 func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
-	curSeconds := time.Second
+	curSeconds := 2 * time.Second
 
 	u := d.k8sClient.Get().RequestURI("apis/experimental.kubernetes.io/v1").
 		Namespace("default").Resource("networkpolicys").Param("watch", "true").URL()
 	go func() {
+		reportError := true
 		makeRequest := func() *http.Response {
 			for {
 				resp, err := http.Get(u.String())
 				if err != nil {
-					log.Errorf("Error while getting URL %s: %s", u, err)
+					if reportError {
+						log.Warningf("Unable to intall k8s watcher for URL %s: %s", u, err)
+						reportError = false
+					}
 				} else if resp.StatusCode == http.StatusOK {
+					// Once connected, report new errors again
+					reportError = true
 					return resp
-				} else {
-					log.Debugf("Unable to kubernetes network policies, please insert some policies")
 				}
 				time.Sleep(curSeconds)
 				if curSeconds < maxSeconds {
-					curSeconds += time.Second
+					curSeconds = 2 * curSeconds
 				}
 			}
 		}
 		resp := makeRequest()
 		curSeconds = time.Second
-		log.Info("Listening for kubernetes network policys changes")
+		log.Info("Now listening for kubernetes network policys changes")
 		for {
 			npwe := networkPolicyWatchEvent{}
 			err := json.NewDecoder(resp.Body).Decode(&npwe)
