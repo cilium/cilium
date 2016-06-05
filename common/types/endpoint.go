@@ -219,3 +219,7 @@ func (e *Endpoint) IsLibnetwork() bool {
 func (e *Endpoint) IsCNI() bool {
 	return e.DockerNetworkID == ""
 }
+
+func (e *Endpoint) PolicyMapPath() string {
+	return common.PolicyMapPath + e.ID
+}

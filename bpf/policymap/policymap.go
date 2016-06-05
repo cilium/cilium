@@ -105,8 +105,10 @@ func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 	return entries, nil
 }
 
-func OpenMap(path string) (*PolicyMap, error) {
+func OpenMap(path string) (*PolicyMap, error, bool) {
 	var fd int
+
+	created := false
 
 	rl := syscall.Rlimit{
 		Cur: math.MaxUint64,
@@ -115,14 +117,14 @@ func OpenMap(path string) (*PolicyMap, error) {
 
 	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to increase rlimit: %s", err)
+		return nil, fmt.Errorf("Unable to increase rlimit: %s", err), created
 	}
 
 	if _, err = os.Stat(path); os.IsNotExist(err) {
 		mapDir := filepath.Dir(path)
 		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
 			if err = os.MkdirAll(mapDir, 0755); err != nil {
-				return nil, fmt.Errorf("Unable create map base directory: %s", err)
+				return nil, fmt.Errorf("Unable create map base directory: %s", err), created
 			}
 		}
 
@@ -133,22 +135,23 @@ func OpenMap(path string) (*PolicyMap, error) {
 			MAX_KEYS,
 		)
 
+		created = true
+
 		if err != nil {
-			return nil, err
+			return nil, err, created
 		}
 
-		err = bpf.ObjPin(fd, path)
-		if err != nil {
-			return nil, err
+		if err = bpf.ObjPin(fd, path); err != nil {
+			return nil, err, created
 		}
 	} else {
 		fd, err = bpf.ObjGet(path)
 		if err != nil {
-			return nil, err
+			return nil, err, created
 		}
 	}
 
 	m := &PolicyMap{path: path, Fd: fd}
 
-	return m, nil
+	return m, nil, created
 }
