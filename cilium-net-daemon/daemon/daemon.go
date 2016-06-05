@@ -141,7 +141,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	if c.RestoreState {
 		if err := d.SyncState(common.CiliumPath, true); err != nil {
-			log.Warningf("Error while syncing state %s\n", err)
+			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
 	}
 
