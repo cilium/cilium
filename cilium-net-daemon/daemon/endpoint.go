@@ -252,7 +252,7 @@ func (d *Daemon) createBPFMAPs(epID string) error {
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
 
-	return d.regenerateBPF(ep, "")
+	return d.regenerateBPF(ep, filepath.Join(".", ep.ID))
 }
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
@@ -260,12 +260,11 @@ func (d *Daemon) createBPFMAPs(epID string) error {
 //
 // If endpointSuffix is set, it will be appended to the container directory to
 // allow writing to a temporary directory and then atomically rename it.
-func (d *Daemon) regenerateBPF(ep *types.Endpoint, endpointSuffix string) error {
+func (d *Daemon) regenerateBPF(ep *types.Endpoint, lxcDir string) error {
 	var err error
 	createdPolicyMap := false
 
-	lxcDir := filepath.Join(".", ep.ID+endpointSuffix)
-	policyMapPath := common.PolicyMapPath + ep.ID + endpointSuffix
+	policyMapPath := ep.PolicyMapPath()
 
 	// Cleanup on failure
 	defer func() {
@@ -326,7 +325,7 @@ func (d *Daemon) regenerateBPF(ep *types.Endpoint, endpointSuffix string) error 
 		return fmt.Errorf("Unable to update eBPF map: %s", err)
 	}
 
-	args := []string{d.conf.LibDir, (ep.ID + endpointSuffix), ep.IfName}
+	args := []string{d.conf.LibDir, lxcDir, ep.IfName}
 	out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
@@ -428,27 +427,40 @@ func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 }
 
 func (d *Daemon) regenerateEndpoint(ep *types.Endpoint) error {
-	endpointSuffix := "_update"
+	// This is the temporary directory to store the generated headers,
+	// the original existing directory is not overwritten until all
+	// generation has succeeded.
+	origDir := filepath.Join(".", ep.ID)
+	tmpDir := origDir + "_update"
+	backupDir := origDir + "_backup"
 
-	if err := d.regenerateBPF(ep, endpointSuffix); err != nil {
+	if err := d.regenerateBPF(ep, tmpDir); err != nil {
 		return err
 	}
 
-	lxcDir := filepath.Join(".", (ep.ID + endpointSuffix))
+	// Attempt to move the original endpoint directory to a backup location
+	if err := os.Rename(origDir, backupDir); err != nil {
+		os.RemoveAll(tmpDir)
+		return fmt.Errorf("Unable to create backup of endpoint directory: %s", err)
+	}
 
-	moveDir := func(oldDir, newDir string) error {
-		os.RemoveAll(newDir)
-		if err := os.Rename(oldDir, newDir); err != nil {
-			os.RemoveAll(lxcDir)
-			return err
+	// Move new endpoint directory in place, upon failure, restore backup
+	if err := os.Rename(tmpDir, origDir); err != nil {
+		os.RemoveAll(tmpDir)
+
+		if err2 := os.Rename(backupDir, origDir); err2 != nil {
+			log.Warningf("Restoring the backup directory for %s for endpoint "+
+				"%s did not succeed, the endpoint is now in an inconsistent state",
+				backupDir, ep.String())
+			return err2
 		}
-		return nil
-	}
 
-	lxcDirOrg := filepath.Join(".", ep.ID)
-	if err := moveDir(lxcDir, lxcDirOrg); err != nil {
+		log.Warningf("Restored original endpoint directory, atomic replace failed: %s", err)
 		return err
 	}
+
+	os.RemoveAll(backupDir)
+	log.Infof("Successfully regenerated program for endpoint %s", ep.String())
 
 	return nil
 }
