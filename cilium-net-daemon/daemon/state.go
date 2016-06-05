@@ -16,7 +16,10 @@ import (
 // cilium's running directory. If clean is set, the endpoints that don't have its
 // container in running state are deleted.
 func (d *Daemon) SyncState(dir string, clean bool) error {
-	log.Info("Syncing state...")
+	restored := 0
+
+	log.Info("Recovering old running endpoints...")
+
 	d.endpointsMU.Lock()
 	if dir == "" {
 		dir = common.CiliumPath
@@ -31,24 +34,32 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	possibleEPs := readEPsFromDirNames(dir, eptsID)
 
 	if len(possibleEPs) == 0 {
-		log.Debug("Endpoints not found. Starting as clean state.")
+		log.Debug("No old endpoints found.")
 		d.endpointsMU.Unlock()
 		return nil
 	}
 
 	for _, ep := range possibleEPs {
 		if !isValidID(ep.ID) {
-			log.Warningf("Endpoint %q has an invalid ID, it won't be restored.")
+			log.Warningf("Endpoint %q has an invalid ID, not restoring")
 			continue
 		}
+
+		log.Debugf("Restoring endpoint %+v", ep)
+
 		if err := d.syncLabels(ep); err != nil {
-			log.Warningf("%s", err)
+			log.Warningf("Unable to restore endpoint %s: %s", ep.ID, err)
 		}
+
 		d.insertEndpoint(ep)
-		log.Infof("Successfully restored endpoint: %s\n", ep.ID)
+		restored++
+
+		log.Infof("Restored endpoint: %s\n", ep.ID)
 	}
 
 	d.endpointsMU.Unlock()
+
+	log.Infof("Restored %d endpoints", restored)
 
 	if clean {
 		d.cleanUpDockerDandlingEndpoints()
@@ -126,6 +137,7 @@ func (d *Daemon) syncLabels(ep *types.Endpoint) error {
 	if ep.SecLabel == nil {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
 	}
+
 	sha256sum, err := ep.SecLabel.Labels.SHA256Sum()
 	if err != nil {
 		return fmt.Errorf("Unable to get the sha256sum of labels: %+v\n", ep.SecLabel.Labels)
