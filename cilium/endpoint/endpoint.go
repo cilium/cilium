@@ -354,7 +354,7 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 	}
 
 	file := common.PolicyMapPath + lbl
-	policyMap, err := policymap.OpenMap(file)
+	policyMap, err, _ := policymap.OpenMap(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not open policymap '%s' : %s", file, err)
 		return

@@ -198,7 +198,7 @@ func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID u
 	}
 }
 
-func (d *Daemon) regenerateEndpoint(e *types.Endpoint) error {
+func (d *Daemon) regenerateEndpointPolicy(e *types.Endpoint, regenerateEndpoint bool) error {
 	if e.Consumable != nil {
 		if err := d.regenerateConsumable(e.Consumable); err != nil {
 			return err
@@ -209,8 +209,16 @@ func (d *Daemon) regenerateEndpoint(e *types.Endpoint) error {
 		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), "ALLOW_TO_HOST")
 		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), "ALLOW_TO_WORLD")
 
-		if err := d.applyEndpointChanges(e, opts); err != nil {
-			log.Warningf("Error while updating endpoint: %s\n", err)
+		if !e.ApplyOpts(opts) {
+			// No changes have been applied, skip update
+			return nil
+		}
+
+		if regenerateEndpoint {
+			err := d.regenerateEndpoint(e)
+			if err != nil {
+				log.Warningf("Error while updating endpoint: %s\n", err)
+			}
 		}
 	}
 
@@ -231,7 +239,7 @@ func (d *Daemon) triggerPolicyUpdates(added []uint32) {
 	}
 
 	for _, ep := range d.endpoints {
-		d.regenerateEndpoint(ep)
+		d.regenerateEndpointPolicy(ep, true)
 	}
 }
 
@@ -375,7 +383,7 @@ func (d *Daemon) PolicyInit() error {
 
 		lbl.Labels[k] = &types.Label{Key: k, Source: common.ReservedLabelSource}
 
-		policyMap, err := policymap.OpenMap(policyMapPath)
+		policyMap, err, _ := policymap.OpenMap(policyMapPath)
 		if err != nil {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
