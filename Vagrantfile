@@ -151,13 +151,23 @@ Vagrant.configure(2) do |config|
     end
 
     config.vm.define "k8s1", autostart: false do |k8s1|
-        k8s1.vm.network "private_network", ip: "192.168.33.13"
+        k8s1.vm.network "private_network", ip: "192.168.33.21"
+        k8s1.vm.network "private_network",
+	  ip: "192.168.230.21",
+	  :libvirt__network_name => "cilium-test",
+	  :libvirt__guest_ipv6 => true,
+	  :libvirt__dhcp_enabled => false
         k8s1.vm.hostname = "k8s1"
         config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
     config.vm.define "k8s2", autostart: false do |k8s2|
-        k8s2.vm.network "private_network", ip: "192.168.33.14"
+        k8s2.vm.network "private_network", ip: "192.168.33.22"
+        k8s2.vm.network "private_network",
+	  ip: "192.168.230.22",
+	  :libvirt__network_name => "cilium-test",
+	  :libvirt__guest_ipv6 => true,
+	  :libvirt__dhcp_enabled => false
         k8s2.vm.hostname = "k8s2"
         config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
