@@ -19,6 +19,7 @@ import (
 	"github.com/codegangsta/cli"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
+	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -207,6 +208,11 @@ func initBPF() error {
 	f.Close()
 
 	if device != "undefined" {
+		if _, err := netlink.LinkByName(device); err != nil {
+			log.Warningf("Link %s does not exist: %s", device, err)
+			return err
+		}
+
 		args = []string{config.LibDir, config.NodeAddress.String(), config.IPv4Range.IP.String(), "direct", device}
 	} else {
 		args = []string{config.LibDir, config.NodeAddress.String(), config.IPv4Range.IP.String(), tunnel}
