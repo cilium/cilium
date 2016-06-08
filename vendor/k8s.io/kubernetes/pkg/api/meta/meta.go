@@ -20,26 +20,65 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/kubernetes/pkg/api/meta/metatypes"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/types"
+
+	"github.com/golang/glog"
 )
+
+func ListAccessor(obj interface{}) (List, error) {
+	if listMetaAccessor, ok := obj.(ListMetaAccessor); ok {
+		if om := listMetaAccessor.GetListMeta(); om != nil {
+			return om, nil
+		}
+	}
+	// we may get passed an object that is directly portable to List
+	if list, ok := obj.(List); ok {
+		return list, nil
+	}
+	glog.V(4).Infof("Calling ListAccessor on non-internal object: %v", reflect.TypeOf(obj))
+	// legacy path for objects that do not implement List and ListMetaAccessor via
+	// reflection - very slow code path.
+	v, err := conversion.EnforcePtr(obj)
+	if err != nil {
+		return nil, err
+	}
+	t := v.Type()
+	if v.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("expected struct, but got %v: %v (%#v)", v.Kind(), t, v.Interface())
+	}
+	a := &genericAccessor{}
+	listMeta := v.FieldByName("ListMeta")
+	if listMeta.IsValid() {
+		// look for the ListMeta fields
+		if err := extractFromListMeta(listMeta, a); err != nil {
+			return nil, fmt.Errorf("unable to find list fields on %#v: %v", listMeta, err)
+		}
+	} else {
+		return nil, fmt.Errorf("unable to find listMeta on %#v", v)
+	}
+	return a, nil
+}
 
 // Accessor takes an arbitrary object pointer and returns meta.Interface.
 // obj must be a pointer to an API type. An error is returned if the minimum
 // required fields are missing. Fields that are not required return the default
 // value and are a no-op if set.
 func Accessor(obj interface{}) (Object, error) {
-	if oi, ok := obj.(ObjectMetaAccessor); ok {
-		if om := oi.GetObjectMeta(); om != nil {
+	if objectMetaAccessor, ok := obj.(ObjectMetaAccessor); ok {
+		if om := objectMetaAccessor.GetObjectMeta(); om != nil {
 			return om, nil
 		}
 	}
 	// we may get passed an object that is directly portable to Object
-	if oi, ok := obj.(Object); ok {
-		return oi, nil
+	if object, ok := obj.(Object); ok {
+		return object, nil
 	}
+
+	glog.V(4).Infof("Calling Accessor on non-internal object: %v", reflect.TypeOf(obj))
 	// legacy path for objects that do not implement Object and ObjectMetaAccessor via
 	// reflection - very slow code path.
 	v, err := conversion.EnforcePtr(obj)
@@ -119,33 +158,21 @@ type objectAccessor struct {
 }
 
 func (obj objectAccessor) GetKind() string {
-	if gvk := obj.GetObjectKind().GroupVersionKind(); gvk != nil {
-		return gvk.Kind
-	}
-	return ""
+	return obj.GetObjectKind().GroupVersionKind().Kind
 }
 
 func (obj objectAccessor) SetKind(kind string) {
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	if gvk == nil {
-		gvk = &unversioned.GroupVersionKind{}
-	}
 	gvk.Kind = kind
 	obj.GetObjectKind().SetGroupVersionKind(gvk)
 }
 
 func (obj objectAccessor) GetAPIVersion() string {
-	if gvk := obj.GetObjectKind().GroupVersionKind(); gvk != nil {
-		return gvk.GroupVersion().String()
-	}
-	return ""
+	return obj.GetObjectKind().GroupVersionKind().GroupVersion().String()
 }
 
 func (obj objectAccessor) SetAPIVersion(version string) {
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	if gvk == nil {
-		gvk = &unversioned.GroupVersionKind{}
-	}
 	gv, err := unversioned.ParseGroupVersion(version)
 	if err != nil {
 		gv = unversioned.GroupVersion{Version: version}
@@ -318,19 +345,71 @@ func (resourceAccessor) SetResourceVersion(obj runtime.Object, version string) e
 	return nil
 }
 
+// extractFromOwnerReference extracts v to o. v is the OwnerReferences field of an object.
+func extractFromOwnerReference(v reflect.Value, o *metatypes.OwnerReference) error {
+	if err := runtime.Field(v, "APIVersion", &o.APIVersion); err != nil {
+		return err
+	}
+	if err := runtime.Field(v, "Kind", &o.Kind); err != nil {
+		return err
+	}
+	if err := runtime.Field(v, "Name", &o.Name); err != nil {
+		return err
+	}
+	if err := runtime.Field(v, "UID", &o.UID); err != nil {
+		return err
+	}
+	var controllerPtr *bool
+	if err := runtime.Field(v, "Controller", &controllerPtr); err != nil {
+		return err
+	}
+	if controllerPtr != nil {
+		controller := *controllerPtr
+		o.Controller = &controller
+	}
+	return nil
+}
+
+// setOwnerReference sets v to o. v is the OwnerReferences field of an object.
+func setOwnerReference(v reflect.Value, o *metatypes.OwnerReference) error {
+	if err := runtime.SetField(o.APIVersion, v, "APIVersion"); err != nil {
+		return err
+	}
+	if err := runtime.SetField(o.Kind, v, "Kind"); err != nil {
+		return err
+	}
+	if err := runtime.SetField(o.Name, v, "Name"); err != nil {
+		return err
+	}
+	if err := runtime.SetField(o.UID, v, "UID"); err != nil {
+		return err
+	}
+	if o.Controller != nil {
+		controller := *(o.Controller)
+		if err := runtime.SetField(&controller, v, "Controller"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // genericAccessor contains pointers to strings that can modify an arbitrary
 // struct and implements the Accessor interface.
 type genericAccessor struct {
-	namespace       *string
-	name            *string
-	generateName    *string
-	uid             *types.UID
-	apiVersion      *string
-	kind            *string
-	resourceVersion *string
-	selfLink        *string
-	labels          *map[string]string
-	annotations     *map[string]string
+	namespace         *string
+	name              *string
+	generateName      *string
+	uid               *types.UID
+	apiVersion        *string
+	kind              *string
+	resourceVersion   *string
+	selfLink          *string
+	creationTimestamp *unversioned.Time
+	deletionTimestamp **unversioned.Time
+	labels            *map[string]string
+	annotations       *map[string]string
+	ownerReferences   reflect.Value
+	finalizers        *[]string
 }
 
 func (a genericAccessor) GetNamespace() string {
@@ -421,6 +500,22 @@ func (a genericAccessor) SetSelfLink(selfLink string) {
 	*a.selfLink = selfLink
 }
 
+func (a genericAccessor) GetCreationTimestamp() unversioned.Time {
+	return *a.creationTimestamp
+}
+
+func (a genericAccessor) SetCreationTimestamp(timestamp unversioned.Time) {
+	*a.creationTimestamp = timestamp
+}
+
+func (a genericAccessor) GetDeletionTimestamp() *unversioned.Time {
+	return *a.deletionTimestamp
+}
+
+func (a genericAccessor) SetDeletionTimestamp(timestamp *unversioned.Time) {
+	*a.deletionTimestamp = timestamp
+}
+
 func (a genericAccessor) GetLabels() map[string]string {
 	if a.labels == nil {
 		return nil
@@ -445,6 +540,52 @@ func (a genericAccessor) SetAnnotations(annotations map[string]string) {
 		a.annotations = &emptyAnnotations
 	}
 	*a.annotations = annotations
+}
+
+func (a genericAccessor) GetFinalizers() []string {
+	if a.finalizers == nil {
+		return nil
+	}
+	return *a.finalizers
+}
+
+func (a genericAccessor) SetFinalizers(finalizers []string) {
+	*a.finalizers = finalizers
+}
+
+func (a genericAccessor) GetOwnerReferences() []metatypes.OwnerReference {
+	var ret []metatypes.OwnerReference
+	s := a.ownerReferences
+	if s.Kind() != reflect.Ptr || s.Elem().Kind() != reflect.Slice {
+		glog.Errorf("expect %v to be a pointer to slice", s)
+		return ret
+	}
+	s = s.Elem()
+	// Set the capacity to one element greater to avoid copy if the caller later append an element.
+	ret = make([]metatypes.OwnerReference, s.Len(), s.Len()+1)
+	for i := 0; i < s.Len(); i++ {
+		if err := extractFromOwnerReference(s.Index(i), &ret[i]); err != nil {
+			glog.Errorf("extractFromOwnerReference failed: %v", err)
+			return ret
+		}
+	}
+	return ret
+}
+
+func (a genericAccessor) SetOwnerReferences(references []metatypes.OwnerReference) {
+	s := a.ownerReferences
+	if s.Kind() != reflect.Ptr || s.Elem().Kind() != reflect.Slice {
+		glog.Errorf("expect %v to be a pointer to slice", s)
+	}
+	s = s.Elem()
+	newReferences := reflect.MakeSlice(s.Type(), len(references), len(references))
+	for i := 0; i < len(references); i++ {
+		if err := setOwnerReference(newReferences.Index(i), &references[i]); err != nil {
+			glog.Errorf("setOwnerReference failed: %v", err)
+			return
+		}
+	}
+	s.Set(newReferences)
 }
 
 // extractFromTypeMeta extracts pointers to version and kind fields from an object
@@ -484,6 +625,17 @@ func extractFromObjectMeta(v reflect.Value, a *genericAccessor) error {
 	if err := runtime.FieldPtr(v, "Annotations", &a.annotations); err != nil {
 		return err
 	}
+	if err := runtime.FieldPtr(v, "Finalizers", &a.finalizers); err != nil {
+		return err
+	}
+	ownerReferences := v.FieldByName("OwnerReferences")
+	if !ownerReferences.IsValid() {
+		return fmt.Errorf("struct %#v lacks OwnerReferences type", v)
+	}
+	if ownerReferences.Kind() != reflect.Slice {
+		return fmt.Errorf("expect %v to be a slice", ownerReferences.Kind())
+	}
+	a.ownerReferences = ownerReferences.Addr()
 	return nil
 }
 

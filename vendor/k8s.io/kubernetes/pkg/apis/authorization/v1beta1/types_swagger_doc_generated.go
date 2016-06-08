@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -98,6 +98,7 @@ var map_SubjectAccessReviewSpec = map[string]string{
 	"nonResourceAttributes": "NonResourceAttributes describes information for a non-resource access request",
 	"user":                  "User is the user you're testing for. If you specify \"User\" but not \"Group\", then is it interpreted as \"What if User were not a member of any groups",
 	"group":                 "Groups is the groups you're testing for.",
+	"extra":                 "Extra corresponds to the user.Info.GetExtra() method from the authenticator.  Since that is input to the authorizer it needs a reflection here.",
 }
 
 func (SubjectAccessReviewSpec) SwaggerDoc() map[string]string {

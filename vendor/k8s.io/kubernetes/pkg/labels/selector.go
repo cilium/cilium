@@ -72,8 +72,8 @@ const (
 	NotEqualsOperator    Operator = "!="
 	NotInOperator        Operator = "notin"
 	ExistsOperator       Operator = "exists"
-	GreaterThanOperator  Operator = "Gt"
-	LessThanOperator     Operator = "Lt"
+	GreaterThanOperator  Operator = "gt"
+	LessThanOperator     Operator = "lt"
 )
 
 func NewSelector() Selector {
@@ -743,28 +743,37 @@ func (p *Parser) parseExactValue() (sets.String, error) {
 //  (5) A requirement with just !KEY requires that the KEY not exist.
 //
 func Parse(selector string) (Selector, error) {
-	p := &Parser{l: &Lexer{s: selector, pos: 0}}
-	items, error := p.parse()
-	if error == nil {
-		sort.Sort(ByKey(items)) // sort to grant determistic parsing
-		return internalSelector(items), error
+	parsedSelector, err := parse(selector)
+	if err == nil {
+		return parsedSelector, nil
 	}
-	return nil, error
+	return nil, err
 }
 
-var qualifiedNameErrorMsg string = fmt.Sprintf(`must be a qualified name (at most %d characters, matching regex %s), with an optional DNS subdomain prefix (at most %d characters, matching regex %s) and slash (/): e.g. "MyName" or "example.com/MyName"`, validation.QualifiedNameMaxLength, validation.QualifiedNameFmt, validation.DNS1123SubdomainMaxLength, validation.DNS1123SubdomainFmt)
-var labelValueErrorMsg string = fmt.Sprintf(`must have at most %d characters, matching regex %s: e.g. "MyValue" or ""`, validation.LabelValueMaxLength, validation.LabelValueFmt)
+// parse parses the string representation of the selector and returns the internalSelector struct.
+// The callers of this method can then decide how to return the internalSelector struct to their
+// callers. This function has two callers now, one returns a Selector interface and the other
+// returns a list of requirements.
+func parse(selector string) (internalSelector, error) {
+	p := &Parser{l: &Lexer{s: selector, pos: 0}}
+	items, err := p.parse()
+	if err != nil {
+		return nil, err
+	}
+	sort.Sort(ByKey(items)) // sort to grant determistic parsing
+	return internalSelector(items), err
+}
 
 func validateLabelKey(k string) error {
-	if !validation.IsQualifiedName(k) {
-		return fmt.Errorf("invalid label key: %s", qualifiedNameErrorMsg)
+	if errs := validation.IsQualifiedName(k); len(errs) != 0 {
+		return fmt.Errorf("invalid label key %q: %s", k, strings.Join(errs, "; "))
 	}
 	return nil
 }
 
 func validateLabelValue(v string) error {
-	if !validation.IsValidLabelValue(v) {
-		return fmt.Errorf("invalid label value: %s", labelValueErrorMsg)
+	if errs := validation.IsValidLabelValue(v); len(errs) != 0 {
+		return fmt.Errorf("invalid label value: %q: %s", v, strings.Join(errs, "; "))
 	}
 	return nil
 }
@@ -787,4 +796,13 @@ func SelectorFromSet(ls Set) Selector {
 	// sort to have deterministic string representation
 	sort.Sort(ByKey(requirements))
 	return internalSelector(requirements)
+}
+
+// ParseToRequirements takes a string representing a selector and returns a list of
+// requirements. This function is suitable for those callers that perform additional
+// processing on selector requirements.
+// See the documentation for Parse() function for more details.
+// TODO: Consider exporting the internalSelector type instead.
+func ParseToRequirements(selector string) ([]Requirement, error) {
+	return parse(selector)
 }

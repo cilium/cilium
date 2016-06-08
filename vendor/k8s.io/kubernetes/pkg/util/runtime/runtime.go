@@ -67,6 +67,11 @@ var ErrorHandlers = []func(error){logError}
 // is preferable to logging the error - the default behavior is to log but the
 // errors may be sent to a remote server for analysis.
 func HandleError(err error) {
+	// this is sometimes called with a nil error.  We probably shouldn't fail and should do nothing instead
+	if err == nil {
+		return
+	}
+
 	for _, fn := range ErrorHandlers {
 		fn(err)
 	}
@@ -75,4 +80,15 @@ func HandleError(err error) {
 // logError prints an error with the call stack of the location it was reported
 func logError(err error) {
 	glog.ErrorDepth(2, err)
+}
+
+// GetCaller returns the caller of the function that calls it.
+func GetCaller() string {
+	var pc [1]uintptr
+	runtime.Callers(3, pc[:])
+	f := runtime.FuncForPC(pc[0])
+	if f == nil {
+		return fmt.Sprintf("Unable to find caller")
+	}
+	return f.Name()
 }

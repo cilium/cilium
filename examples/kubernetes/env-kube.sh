@@ -25,5 +25,7 @@ export API_HOST_IP="${ip}"
 export API_HOST="[${API_HOST_IP}]"
 export API_PORT="8080"
 export KUBELET_HOST="${ip}"
+export KUBE_OS_DISTRIBUTION="debian"
+export RUNTIME_CONFIG="extensions/v1beta1,extensions/v1beta1/networkpolicies"
 export kubectl="/home/vagrant/kubernetes/cluster/kubectl.sh -s ${API_HOST}:${API_PORT}"
 #export LOG_LEVEL=5

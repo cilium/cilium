@@ -734,6 +734,7 @@ type typeInfo struct {
 }
 
 func (ti *typeInfo) indexForEncName(name string) int {
+	// NOTE: name may be a stringView, so don't pass it to another function.
 	//tisfi := ti.sfi
 	const binarySearchThreshold = 16
 	if sfilen := len(ti.sfi); sfilen < binarySearchThreshold {

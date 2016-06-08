@@ -7,19 +7,20 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/types"
 
+	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
 type networkPolicyWatchEvent struct {
-	Type   watch.EventType     `json:"type"`
-	Object types.NetworkPolicy `json:"object"`
+	Type   watch.EventType       `json:"type"`
+	Object v1beta1.NetworkPolicy `json:"object"`
 }
 
 func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 	curSeconds := 2 * time.Second
 
-	u := d.k8sClient.Get().RequestURI("apis/experimental.kubernetes.io/v1").
-		Namespace("default").Resource("networkpolicys").Param("watch", "true").URL()
+	u := d.k8sClient.Get().RequestURI("apis/extensions/v1beta1").
+		Namespace("default").Resource("networkpolicies").Param("watch", "true").URL()
 	go func() {
 		reportError := true
 		makeRequest := func() *http.Response {
@@ -43,7 +44,7 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 		}
 		resp := makeRequest()
 		curSeconds = time.Second
-		log.Info("Now listening for kubernetes network policys changes")
+		log.Info("Now listening for kubernetes network policies changes")
 		for {
 			npwe := networkPolicyWatchEvent{}
 			err := json.NewDecoder(resp.Body).Decode(&npwe)
