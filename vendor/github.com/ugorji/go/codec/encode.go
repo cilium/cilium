@@ -141,13 +141,16 @@ type simpleIoEncWriterWriter struct {
 	w  io.Writer
 	bw io.ByteWriter
 	sw ioEncStringWriter
+	bs [1]byte
 }
 
 func (o *simpleIoEncWriterWriter) WriteByte(c byte) (err error) {
 	if o.bw != nil {
 		return o.bw.WriteByte(c)
 	}
-	_, err = o.w.Write([]byte{c})
+	// _, err = o.w.Write([]byte{c})
+	o.bs[0] = c
+	_, err = o.w.Write(o.bs[:])
 	return
 }
 

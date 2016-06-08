@@ -17,13 +17,12 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/conversion"
 	"k8s.io/kubernetes/pkg/runtime"
-	"speter.net/go/exp/math/dec/inf"
 )
 
 const (
@@ -200,19 +199,8 @@ func addConversionFuncs(scheme *runtime.Scheme) {
 }
 
 func Convert_api_ReplicationControllerSpec_To_v1_ReplicationControllerSpec(in *api.ReplicationControllerSpec, out *ReplicationControllerSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*api.ReplicationControllerSpec))(in)
-	}
-	out.Replicas = new(int32)
-	*out.Replicas = int32(in.Replicas)
-	if in.Selector != nil {
-		out.Selector = make(map[string]string)
-		for key, val := range in.Selector {
-			out.Selector[key] = val
-		}
-	} else {
-		out.Selector = nil
-	}
+	out.Replicas = &in.Replicas
+	out.Selector = in.Selector
 	//if in.TemplateRef != nil {
 	//	out.TemplateRef = new(ObjectReference)
 	//	if err := Convert_api_ObjectReference_To_v1_ObjectReference(in.TemplateRef, out.TemplateRef, s); err != nil {
@@ -233,18 +221,9 @@ func Convert_api_ReplicationControllerSpec_To_v1_ReplicationControllerSpec(in *a
 }
 
 func Convert_v1_ReplicationControllerSpec_To_api_ReplicationControllerSpec(in *ReplicationControllerSpec, out *api.ReplicationControllerSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*ReplicationControllerSpec))(in)
-	}
-	out.Replicas = int(*in.Replicas)
-	if in.Selector != nil {
-		out.Selector = make(map[string]string)
-		for key, val := range in.Selector {
-			out.Selector[key] = val
-		}
-	} else {
-		out.Selector = nil
-	}
+	out.Replicas = *in.Replicas
+	out.Selector = in.Selector
+
 	//if in.TemplateRef != nil {
 	//	out.TemplateRef = new(api.ObjectReference)
 	//	if err := Convert_v1_ObjectReference_To_api_ObjectReference(in.TemplateRef, out.TemplateRef, s); err != nil {
@@ -264,12 +243,122 @@ func Convert_v1_ReplicationControllerSpec_To_api_ReplicationControllerSpec(in *R
 	return nil
 }
 
+func Convert_api_PodStatusResult_To_v1_PodStatusResult(in *api.PodStatusResult, out *PodStatusResult, s conversion.Scope) error {
+	if err := autoConvert_api_PodStatusResult_To_v1_PodStatusResult(in, out, s); err != nil {
+		return err
+	}
+
+	if old := out.Annotations; old != nil {
+		out.Annotations = make(map[string]string, len(old))
+		for k, v := range old {
+			out.Annotations[k] = v
+		}
+	}
+	if len(out.Status.InitContainerStatuses) > 0 {
+		if out.Annotations == nil {
+			out.Annotations = make(map[string]string)
+		}
+		value, err := json.Marshal(out.Status.InitContainerStatuses)
+		if err != nil {
+			return err
+		}
+		out.Annotations[PodInitContainerStatusesAnnotationKey] = string(value)
+	} else {
+		delete(out.Annotations, PodInitContainerStatusesAnnotationKey)
+	}
+	return nil
+}
+
+func Convert_v1_PodStatusResult_To_api_PodStatusResult(in *PodStatusResult, out *api.PodStatusResult, s conversion.Scope) error {
+	// TODO: when we move init container to beta, remove these conversions
+	if value, ok := in.Annotations[PodInitContainerStatusesAnnotationKey]; ok {
+		var values []ContainerStatus
+		if err := json.Unmarshal([]byte(value), &values); err != nil {
+			return err
+		}
+		// Conversion from external to internal version exists more to
+		// satisfy the needs of the decoder than it does to be a general
+		// purpose tool. And Decode always creates an intermediate object
+		// to decode to. Thus the caller of UnsafeConvertToVersion is
+		// taking responsibility to ensure mutation of in is not exposed
+		// back to the caller.
+		in.Status.InitContainerStatuses = values
+	}
+
+	if err := autoConvert_v1_PodStatusResult_To_api_PodStatusResult(in, out, s); err != nil {
+		return err
+	}
+	if len(out.Annotations) > 0 {
+		old := out.Annotations
+		out.Annotations = make(map[string]string, len(old))
+		for k, v := range old {
+			out.Annotations[k] = v
+		}
+		delete(out.Annotations, PodInitContainerStatusesAnnotationKey)
+	}
+	return nil
+}
+
+func Convert_api_PodTemplateSpec_To_v1_PodTemplateSpec(in *api.PodTemplateSpec, out *PodTemplateSpec, s conversion.Scope) error {
+	if err := autoConvert_api_PodTemplateSpec_To_v1_PodTemplateSpec(in, out, s); err != nil {
+		return err
+	}
+
+	// TODO: when we move init container to beta, remove these conversions
+	if old := out.Annotations; old != nil {
+		out.Annotations = make(map[string]string, len(old))
+		for k, v := range old {
+			out.Annotations[k] = v
+		}
+	}
+	if len(out.Spec.InitContainers) > 0 {
+		if out.Annotations == nil {
+			out.Annotations = make(map[string]string)
+		}
+		value, err := json.Marshal(out.Spec.InitContainers)
+		if err != nil {
+			return err
+		}
+		out.Annotations[PodInitContainersAnnotationKey] = string(value)
+	} else {
+		delete(out.Annotations, PodInitContainersAnnotationKey)
+	}
+	return nil
+}
+
+func Convert_v1_PodTemplateSpec_To_api_PodTemplateSpec(in *PodTemplateSpec, out *api.PodTemplateSpec, s conversion.Scope) error {
+	// TODO: when we move init container to beta, remove these conversions
+	if value, ok := in.Annotations[PodInitContainersAnnotationKey]; ok {
+		var values []Container
+		if err := json.Unmarshal([]byte(value), &values); err != nil {
+			return err
+		}
+		// Conversion from external to internal version exists more to
+		// satisfy the needs of the decoder than it does to be a general
+		// purpose tool. And Decode always creates an intermediate object
+		// to decode to. Thus the caller of UnsafeConvertToVersion is
+		// taking responsibility to ensure mutation of in is not exposed
+		// back to the caller.
+		in.Spec.InitContainers = values
+	}
+
+	if err := autoConvert_v1_PodTemplateSpec_To_api_PodTemplateSpec(in, out, s); err != nil {
+		return err
+	}
+	if len(out.Annotations) > 0 {
+		old := out.Annotations
+		out.Annotations = make(map[string]string, len(old))
+		for k, v := range old {
+			out.Annotations[k] = v
+		}
+		delete(out.Annotations, PodInitContainersAnnotationKey)
+	}
+	return nil
+}
+
 // The following two PodSpec conversions are done here to support ServiceAccount
 // as an alias for ServiceAccountName.
 func Convert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *PodSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*api.PodSpec))(in)
-	}
 	if in.Volumes != nil {
 		out.Volumes = make([]Volume, len(in.Volumes))
 		for i := range in.Volumes {
@@ -279,6 +368,16 @@ func Convert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *PodSpec, s conversi
 		}
 	} else {
 		out.Volumes = nil
+	}
+	if in.InitContainers != nil {
+		out.InitContainers = make([]Container, len(in.InitContainers))
+		for i := range in.InitContainers {
+			if err := Convert_api_Container_To_v1_Container(&in.InitContainers[i], &out.InitContainers[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.InitContainers = nil
 	}
 	if in.Containers != nil {
 		out.Containers = make([]Container, len(in.Containers))
@@ -290,28 +389,13 @@ func Convert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *PodSpec, s conversi
 	} else {
 		out.Containers = nil
 	}
+
 	out.RestartPolicy = RestartPolicy(in.RestartPolicy)
-	if in.TerminationGracePeriodSeconds != nil {
-		out.TerminationGracePeriodSeconds = new(int64)
-		*out.TerminationGracePeriodSeconds = *in.TerminationGracePeriodSeconds
-	} else {
-		out.TerminationGracePeriodSeconds = nil
-	}
-	if in.ActiveDeadlineSeconds != nil {
-		out.ActiveDeadlineSeconds = new(int64)
-		*out.ActiveDeadlineSeconds = *in.ActiveDeadlineSeconds
-	} else {
-		out.ActiveDeadlineSeconds = nil
-	}
+	out.TerminationGracePeriodSeconds = in.TerminationGracePeriodSeconds
+	out.ActiveDeadlineSeconds = in.ActiveDeadlineSeconds
 	out.DNSPolicy = DNSPolicy(in.DNSPolicy)
-	if in.NodeSelector != nil {
-		out.NodeSelector = make(map[string]string)
-		for key, val := range in.NodeSelector {
-			out.NodeSelector[key] = val
-		}
-	} else {
-		out.NodeSelector = nil
-	}
+	out.NodeSelector = in.NodeSelector
+
 	out.ServiceAccountName = in.ServiceAccountName
 	// DeprecatedServiceAccount is an alias for ServiceAccountName.
 	out.DeprecatedServiceAccount = in.ServiceAccountName
@@ -338,13 +422,13 @@ func Convert_api_PodSpec_To_v1_PodSpec(in *api.PodSpec, out *PodSpec, s conversi
 	} else {
 		out.ImagePullSecrets = nil
 	}
+	out.Hostname = in.Hostname
+	out.Subdomain = in.Subdomain
 	return nil
 }
 
 func Convert_v1_PodSpec_To_api_PodSpec(in *PodSpec, out *api.PodSpec, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*PodSpec))(in)
-	}
+	SetDefaults_PodSpec(in)
 	if in.Volumes != nil {
 		out.Volumes = make([]api.Volume, len(in.Volumes))
 		for i := range in.Volumes {
@@ -354,6 +438,16 @@ func Convert_v1_PodSpec_To_api_PodSpec(in *PodSpec, out *api.PodSpec, s conversi
 		}
 	} else {
 		out.Volumes = nil
+	}
+	if in.InitContainers != nil {
+		out.InitContainers = make([]api.Container, len(in.InitContainers))
+		for i := range in.InitContainers {
+			if err := Convert_v1_Container_To_api_Container(&in.InitContainers[i], &out.InitContainers[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.InitContainers = nil
 	}
 	if in.Containers != nil {
 		out.Containers = make([]api.Container, len(in.Containers))
@@ -366,27 +460,10 @@ func Convert_v1_PodSpec_To_api_PodSpec(in *PodSpec, out *api.PodSpec, s conversi
 		out.Containers = nil
 	}
 	out.RestartPolicy = api.RestartPolicy(in.RestartPolicy)
-	if in.TerminationGracePeriodSeconds != nil {
-		out.TerminationGracePeriodSeconds = new(int64)
-		*out.TerminationGracePeriodSeconds = *in.TerminationGracePeriodSeconds
-	} else {
-		out.TerminationGracePeriodSeconds = nil
-	}
-	if in.ActiveDeadlineSeconds != nil {
-		out.ActiveDeadlineSeconds = new(int64)
-		*out.ActiveDeadlineSeconds = *in.ActiveDeadlineSeconds
-	} else {
-		out.ActiveDeadlineSeconds = nil
-	}
+	out.TerminationGracePeriodSeconds = in.TerminationGracePeriodSeconds
+	out.ActiveDeadlineSeconds = in.ActiveDeadlineSeconds
 	out.DNSPolicy = api.DNSPolicy(in.DNSPolicy)
-	if in.NodeSelector != nil {
-		out.NodeSelector = make(map[string]string)
-		for key, val := range in.NodeSelector {
-			out.NodeSelector[key] = val
-		}
-	} else {
-		out.NodeSelector = nil
-	}
+	out.NodeSelector = in.NodeSelector
 	// We support DeprecatedServiceAccount as an alias for ServiceAccountName.
 	// If both are specified, ServiceAccountName (the new field) wins.
 	out.ServiceAccountName = in.ServiceAccountName
@@ -419,7 +496,8 @@ func Convert_v1_PodSpec_To_api_PodSpec(in *PodSpec, out *api.PodSpec, s conversi
 	} else {
 		out.ImagePullSecrets = nil
 	}
-
+	out.Hostname = in.Hostname
+	out.Subdomain = in.Subdomain
 	return nil
 }
 
@@ -427,6 +505,32 @@ func Convert_api_Pod_To_v1_Pod(in *api.Pod, out *Pod, s conversion.Scope) error 
 	if err := autoConvert_api_Pod_To_v1_Pod(in, out, s); err != nil {
 		return err
 	}
+
+	// TODO: when we move init container to beta, remove these conversions
+	if len(out.Spec.InitContainers) > 0 || len(out.Status.InitContainerStatuses) > 0 {
+		old := out.Annotations
+		out.Annotations = make(map[string]string, len(old))
+		for k, v := range old {
+			out.Annotations[k] = v
+		}
+		delete(out.Annotations, PodInitContainersAnnotationKey)
+		delete(out.Annotations, PodInitContainerStatusesAnnotationKey)
+	}
+	if len(out.Spec.InitContainers) > 0 {
+		value, err := json.Marshal(out.Spec.InitContainers)
+		if err != nil {
+			return err
+		}
+		out.Annotations[PodInitContainersAnnotationKey] = string(value)
+	}
+	if len(out.Status.InitContainerStatuses) > 0 {
+		value, err := json.Marshal(out.Status.InitContainerStatuses)
+		if err != nil {
+			return err
+		}
+		out.Annotations[PodInitContainerStatusesAnnotationKey] = string(value)
+	}
+
 	// We need to reset certain fields for mirror pods from pre-v1.1 kubelet
 	// (#15960).
 	// TODO: Remove this code after we drop support for v1.0 kubelets.
@@ -442,7 +546,47 @@ func Convert_api_Pod_To_v1_Pod(in *api.Pod, out *Pod, s conversion.Scope) error 
 }
 
 func Convert_v1_Pod_To_api_Pod(in *Pod, out *api.Pod, s conversion.Scope) error {
-	return autoConvert_v1_Pod_To_api_Pod(in, out, s)
+	// TODO: when we move init container to beta, remove these conversions
+	if value, ok := in.Annotations[PodInitContainersAnnotationKey]; ok {
+		var values []Container
+		if err := json.Unmarshal([]byte(value), &values); err != nil {
+			return err
+		}
+		// Conversion from external to internal version exists more to
+		// satisfy the needs of the decoder than it does to be a general
+		// purpose tool. And Decode always creates an intermediate object
+		// to decode to. Thus the caller of UnsafeConvertToVersion is
+		// taking responsibility to ensure mutation of in is not exposed
+		// back to the caller.
+		in.Spec.InitContainers = values
+	}
+	if value, ok := in.Annotations[PodInitContainerStatusesAnnotationKey]; ok {
+		var values []ContainerStatus
+		if err := json.Unmarshal([]byte(value), &values); err != nil {
+			return err
+		}
+		// Conversion from external to internal version exists more to
+		// satisfy the needs of the decoder than it does to be a general
+		// purpose tool. And Decode always creates an intermediate object
+		// to decode to. Thus the caller of UnsafeConvertToVersion is
+		// taking responsibility to ensure mutation of in is not exposed
+		// back to the caller.
+		in.Status.InitContainerStatuses = values
+	}
+
+	if err := autoConvert_v1_Pod_To_api_Pod(in, out, s); err != nil {
+		return err
+	}
+	if len(out.Annotations) > 0 {
+		old := out.Annotations
+		out.Annotations = make(map[string]string, len(old))
+		for k, v := range old {
+			out.Annotations[k] = v
+		}
+		delete(out.Annotations, PodInitContainersAnnotationKey)
+		delete(out.Annotations, PodInitContainerStatusesAnnotationKey)
+	}
+	return nil
 }
 
 func Convert_api_ServiceSpec_To_v1_ServiceSpec(in *api.ServiceSpec, out *ServiceSpec, s conversion.Scope) error {
@@ -450,9 +594,7 @@ func Convert_api_ServiceSpec_To_v1_ServiceSpec(in *api.ServiceSpec, out *Service
 		return err
 	}
 	// Publish both externalIPs and deprecatedPublicIPs fields in v1.
-	for _, ip := range in.ExternalIPs {
-		out.DeprecatedPublicIPs = append(out.DeprecatedPublicIPs, ip)
-	}
+	out.DeprecatedPublicIPs = in.ExternalIPs
 	return nil
 }
 
@@ -462,19 +604,12 @@ func Convert_v1_ServiceSpec_To_api_ServiceSpec(in *ServiceSpec, out *api.Service
 	}
 	// Prefer the legacy deprecatedPublicIPs field, if provided.
 	if len(in.DeprecatedPublicIPs) > 0 {
-		out.ExternalIPs = nil
-		for _, ip := range in.DeprecatedPublicIPs {
-			out.ExternalIPs = append(out.ExternalIPs, ip)
-		}
+		out.ExternalIPs = in.DeprecatedPublicIPs
 	}
 	return nil
 }
 
 func Convert_api_PodSecurityContext_To_v1_PodSecurityContext(in *api.PodSecurityContext, out *PodSecurityContext, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*api.PodSecurityContext))(in)
-	}
-
 	out.SupplementalGroups = in.SupplementalGroups
 	if in.SELinuxOptions != nil {
 		out.SELinuxOptions = new(SELinuxOptions)
@@ -484,32 +619,13 @@ func Convert_api_PodSecurityContext_To_v1_PodSecurityContext(in *api.PodSecurity
 	} else {
 		out.SELinuxOptions = nil
 	}
-	if in.RunAsUser != nil {
-		out.RunAsUser = new(int64)
-		*out.RunAsUser = *in.RunAsUser
-	} else {
-		out.RunAsUser = nil
-	}
-	if in.RunAsNonRoot != nil {
-		out.RunAsNonRoot = new(bool)
-		*out.RunAsNonRoot = *in.RunAsNonRoot
-	} else {
-		out.RunAsNonRoot = nil
-	}
-	if in.FSGroup != nil {
-		out.FSGroup = new(int64)
-		*out.FSGroup = *in.FSGroup
-	} else {
-		out.FSGroup = nil
-	}
+	out.RunAsUser = in.RunAsUser
+	out.RunAsNonRoot = in.RunAsNonRoot
+	out.FSGroup = in.FSGroup
 	return nil
 }
 
 func Convert_v1_PodSecurityContext_To_api_PodSecurityContext(in *PodSecurityContext, out *api.PodSecurityContext, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*PodSecurityContext))(in)
-	}
-
 	out.SupplementalGroups = in.SupplementalGroups
 	if in.SELinuxOptions != nil {
 		out.SELinuxOptions = new(api.SELinuxOptions)
@@ -519,47 +635,27 @@ func Convert_v1_PodSecurityContext_To_api_PodSecurityContext(in *PodSecurityCont
 	} else {
 		out.SELinuxOptions = nil
 	}
-	if in.RunAsUser != nil {
-		out.RunAsUser = new(int64)
-		*out.RunAsUser = *in.RunAsUser
-	} else {
-		out.RunAsUser = nil
-	}
-	if in.RunAsNonRoot != nil {
-		out.RunAsNonRoot = new(bool)
-		*out.RunAsNonRoot = *in.RunAsNonRoot
-	} else {
-		out.RunAsNonRoot = nil
-	}
-	if in.FSGroup != nil {
-		out.FSGroup = new(int64)
-		*out.FSGroup = *in.FSGroup
-	} else {
-		out.FSGroup = nil
-	}
+	out.RunAsUser = in.RunAsUser
+	out.RunAsNonRoot = in.RunAsNonRoot
+	out.FSGroup = in.FSGroup
 	return nil
 }
 
 func Convert_v1_ResourceList_To_api_ResourceList(in *ResourceList, out *api.ResourceList, s conversion.Scope) error {
-	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*ResourceList))(in)
-	}
 	if *in == nil {
 		return nil
 	}
 
-	converted := make(api.ResourceList)
+	if *out == nil {
+		*out = make(api.ResourceList, len(*in))
+	}
 	for key, val := range *in {
-		value := val.Copy()
-
 		// TODO(#18538): We round up resource values to milli scale to maintain API compatibility.
 		// In the future, we should instead reject values that need rounding.
-		const milliScale = 3
-		value.Amount.Round(value.Amount, milliScale, inf.RoundUp)
+		const milliScale = -3
+		val.RoundUp(milliScale)
 
-		converted[api.ResourceName(key)] = *value
+		(*out)[api.ResourceName(key)] = val
 	}
-
-	*out = converted
 	return nil
 }

@@ -39,11 +39,12 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/kubernetes/pkg/runtime/serializer/streaming"
+	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/util/net"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/watch"
-	watchjson "k8s.io/kubernetes/pkg/watch/json"
+	"k8s.io/kubernetes/pkg/watch/versioned"
 )
 
 var (
@@ -90,8 +91,9 @@ type Request struct {
 	client HTTPClient
 	verb   string
 
-	baseURL *url.URL
-	content ContentConfig
+	baseURL     *url.URL
+	content     ContentConfig
+	serializers Serializers
 
 	// generic components accessible via method setters
 	pathPrefix string
@@ -117,11 +119,11 @@ type Request struct {
 	resp *http.Response
 
 	backoffMgr BackoffManager
-	throttle   util.RateLimiter
+	throttle   flowcontrol.RateLimiter
 }
 
 // NewRequest creates a new request helper object for accessing runtime.Objects on a server.
-func NewRequest(client HTTPClient, verb string, baseURL *url.URL, versionedAPIPath string, content ContentConfig, backoff BackoffManager, throttle util.RateLimiter) *Request {
+func NewRequest(client HTTPClient, verb string, baseURL *url.URL, versionedAPIPath string, content ContentConfig, serializers Serializers, backoff BackoffManager, throttle flowcontrol.RateLimiter) *Request {
 	if backoff == nil {
 		glog.V(2).Infof("Not implementing request backoff strategy.")
 		backoff = &NoBackoff{}
@@ -132,13 +134,14 @@ func NewRequest(client HTTPClient, verb string, baseURL *url.URL, versionedAPIPa
 		pathPrefix = path.Join(pathPrefix, baseURL.Path)
 	}
 	r := &Request{
-		client:     client,
-		verb:       verb,
-		baseURL:    baseURL,
-		pathPrefix: path.Join(pathPrefix, versionedAPIPath),
-		content:    content,
-		backoffMgr: backoff,
-		throttle:   throttle,
+		client:      client,
+		verb:        verb,
+		baseURL:     baseURL,
+		pathPrefix:  path.Join(pathPrefix, versionedAPIPath),
+		content:     content,
+		serializers: serializers,
+		backoffMgr:  backoff,
+		throttle:    throttle,
 	}
 	if len(content.ContentType) > 0 {
 		r.SetHeader("Accept", content.ContentType+", */*")
@@ -176,8 +179,8 @@ func (r *Request) Resource(resource string) *Request {
 		r.err = fmt.Errorf("resource already set to %q, cannot change to %q", r.resource, resource)
 		return r
 	}
-	if ok, msg := validation.IsValidPathSegmentName(resource); !ok {
-		r.err = fmt.Errorf("invalid resource %q: %s", resource, msg)
+	if msgs := validation.IsValidPathSegmentName(resource); len(msgs) != 0 {
+		r.err = fmt.Errorf("invalid resource %q: %v", resource, msgs)
 		return r
 	}
 	r.resource = resource
@@ -196,8 +199,8 @@ func (r *Request) SubResource(subresources ...string) *Request {
 		return r
 	}
 	for _, s := range subresources {
-		if ok, msg := validation.IsValidPathSegmentName(s); !ok {
-			r.err = fmt.Errorf("invalid subresource %q: %s", s, msg)
+		if msgs := validation.IsValidPathSegmentName(s); len(msgs) != 0 {
+			r.err = fmt.Errorf("invalid subresource %q: %v", s, msgs)
 			return r
 		}
 	}
@@ -218,8 +221,8 @@ func (r *Request) Name(resourceName string) *Request {
 		r.err = fmt.Errorf("resource name already set to %q, cannot change to %q", r.resourceName, resourceName)
 		return r
 	}
-	if ok, msg := validation.IsValidPathSegmentName(resourceName); !ok {
-		r.err = fmt.Errorf("invalid resource name %q: %s", resourceName, msg)
+	if msgs := validation.IsValidPathSegmentName(resourceName); len(msgs) != 0 {
+		r.err = fmt.Errorf("invalid resource name %q: %v", resourceName, msgs)
 		return r
 	}
 	r.resourceName = resourceName
@@ -235,8 +238,8 @@ func (r *Request) Namespace(namespace string) *Request {
 		r.err = fmt.Errorf("namespace already set to %q, cannot change to %q", r.namespace, namespace)
 		return r
 	}
-	if ok, msg := validation.IsValidPathSegmentName(namespace); !ok {
-		r.err = fmt.Errorf("invalid namespace %q: %s", namespace, msg)
+	if msgs := validation.IsValidPathSegmentName(namespace); len(msgs) != 0 {
+		r.err = fmt.Errorf("invalid namespace %q: %v", namespace, msgs)
 		return r
 	}
 	r.namespaceSet = true
@@ -536,10 +539,10 @@ func (r *Request) Body(obj interface{}) *Request {
 			return r
 		}
 		glog.V(8).Infof("Request Body: %s", string(data))
-		r.body = bytes.NewBuffer(data)
+		r.body = bytes.NewReader(data)
 	case []byte:
 		glog.V(8).Infof("Request Body: %s", string(t))
-		r.body = bytes.NewBuffer(t)
+		r.body = bytes.NewReader(t)
 	case io.Reader:
 		r.body = t
 	case runtime.Object:
@@ -547,13 +550,13 @@ func (r *Request) Body(obj interface{}) *Request {
 		if reflect.ValueOf(t).IsNil() {
 			return r
 		}
-		data, err := runtime.Encode(r.content.Codec, t)
+		data, err := runtime.Encode(r.serializers.Encoder, t)
 		if err != nil {
 			r.err = err
 			return r
 		}
 		glog.V(8).Infof("Request Body: %s", string(data))
-		r.body = bytes.NewBuffer(data)
+		r.body = bytes.NewReader(data)
 		r.SetHeader("Content-Type", r.content.ContentType)
 	default:
 		r.err = fmt.Errorf("unknown type used for body: %+v", obj)
@@ -624,7 +627,7 @@ func (r *Request) tryThrottle() {
 		r.throttle.Accept()
 	}
 	if latency := time.Since(now); latency > longThrottleLatency {
-		glog.Warningf("Throttling request took %v, request: %s:%s", latency, r.verb, r.URL().String())
+		glog.V(4).Infof("Throttling request took %v, request: %s:%s", latency, r.verb, r.URL().String())
 	}
 }
 
@@ -636,11 +639,16 @@ func (r *Request) Watch() (watch.Interface, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
+	if r.serializers.Framer == nil {
+		return nil, fmt.Errorf("watching resources is not possible with this client (content-type: %s)", r.content.ContentType)
+	}
+
 	url := r.URL().String()
 	req, err := http.NewRequest(r.verb, url, r.body)
 	if err != nil {
 		return nil, err
 	}
+	req.Header = r.headers
 	client := r.client
 	if client == nil {
 		client = http.DefaultClient
@@ -670,7 +678,9 @@ func (r *Request) Watch() (watch.Interface, error) {
 		}
 		return nil, fmt.Errorf("for request '%+v', got status: %v", url, resp.StatusCode)
 	}
-	return watch.NewStreamWatcher(watchjson.NewDecoder(resp.Body, r.content.Codec)), nil
+	framer := r.serializers.Framer.NewFrameReader(resp.Body)
+	decoder := streaming.NewDecoder(framer, r.serializers.StreamingSerializer)
+	return watch.NewStreamWatcher(versioned.NewDecoder(decoder, r.serializers.Decoder)), nil
 }
 
 // updateURLMetrics is a convenience function for pushing metrics.
@@ -706,6 +716,7 @@ func (r *Request) Stream() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header = r.headers
 	client := r.client
 	if client == nil {
 		client = http.DefaultClient
@@ -738,7 +749,8 @@ func (r *Request) Stream() (io.ReadCloser, error) {
 			return nil, fmt.Errorf("%v while accessing %v", resp.Status, url)
 		}
 
-		if runtimeObject, err := runtime.Decode(r.content.Codec, bodyBytes); err == nil {
+		// TODO: Check ContentType.
+		if runtimeObject, err := runtime.Decode(r.serializers.Decoder, bodyBytes); err == nil {
 			statusError := errors.FromObject(runtimeObject)
 
 			if _, ok := statusError.(errors.APIStatus); ok {
@@ -811,6 +823,15 @@ func (r *Request) request(fn func(*http.Request, *http.Response)) error {
 
 			retries++
 			if seconds, wait := checkWait(resp); wait && retries < maxRetries {
+				if seeker, ok := r.body.(io.Seeker); ok && r.body != nil {
+					_, err := seeker.Seek(0, 0)
+					if err != nil {
+						glog.V(4).Infof("Could not retry request, can't Seek() back to beginning of body for %T", r.body)
+						fn(req, resp)
+						return true
+					}
+				}
+
 				glog.V(4).Infof("Got a Retry-After %s response for attempt %d to %v", seconds, retries, url)
 				r.backoffMgr.Sleep(time.Duration(seconds) * time.Second)
 				return false
@@ -876,7 +897,7 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 	// default groupVersion, otherwise a status response won't be correctly
 	// decoded.
 	status := &unversioned.Status{}
-	err := runtime.DecodeInto(r.content.Codec, body, status)
+	err := runtime.DecodeInto(r.serializers.Decoder, body, status)
 	if err == nil && len(status.Status) > 0 {
 		isStatusResponse = true
 	}
@@ -898,11 +919,30 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 		return Result{err: errors.FromObject(status)}
 	}
 
+	contentType := resp.Header.Get("Content-Type")
+	var decoder runtime.Decoder
+	if contentType == r.content.ContentType {
+		decoder = r.serializers.Decoder
+	} else {
+		mediaType, params, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			return Result{err: errors.NewInternalError(err)}
+		}
+		decoder, err = r.serializers.RenegotiatedDecoder(mediaType, params)
+		if err != nil {
+			return Result{
+				body:        body,
+				contentType: contentType,
+				statusCode:  resp.StatusCode,
+			}
+		}
+	}
+
 	return Result{
 		body:        body,
-		contentType: resp.Header.Get("Content-Type"),
+		contentType: contentType,
 		statusCode:  resp.StatusCode,
-		decoder:     r.content.Codec,
+		decoder:     decoder,
 	}
 }
 
@@ -1008,6 +1048,9 @@ func (r Result) Get() (runtime.Object, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
+	if r.decoder == nil {
+		return nil, fmt.Errorf("serializer for %s doesn't exist", r.contentType)
+	}
 	return runtime.Decode(r.decoder, r.body)
 }
 
@@ -1022,6 +1065,9 @@ func (r Result) StatusCode(statusCode *int) Result {
 func (r Result) Into(obj runtime.Object) error {
 	if r.err != nil {
 		return r.err
+	}
+	if r.decoder == nil {
+		return fmt.Errorf("serializer for %s doesn't exist", r.contentType)
 	}
 	return runtime.DecodeInto(r.decoder, r.body, obj)
 }

@@ -1,5 +1,5 @@
 {
-  "apiVersion": "experimental.kubernetes.io/v1",
+  "apiVersion": "extensions/v1beta1",
   "kind": "NetworkPolicy",
   "metadata": {
     "annotations": {

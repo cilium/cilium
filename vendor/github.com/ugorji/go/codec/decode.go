@@ -1546,7 +1546,6 @@ func (d *Decoder) decode(iv interface{}) {
 		d.decodeValueNotNil(v.Elem(), nil)
 
 	case *string:
-
 		*v = d.d.DecodeString()
 	case *bool:
 		*v = d.d.DecodeBool()
@@ -1796,12 +1795,13 @@ func (d *Decoder) getDecFn(rt reflect.Type, checkFastpath, checkCodecSelfer bool
 }
 
 func (d *Decoder) structFieldNotFound(index int, rvkencname string) {
+	// NOTE: rvkencname may be a stringView, so don't pass it to another function.
 	if d.h.ErrorIfNoField {
 		if index >= 0 {
 			d.errorf("no matching struct field found when decoding stream array at index %v", index)
 			return
 		} else if rvkencname != "" {
-			d.errorf("no matching struct field found when decoding stream map with key %s", rvkencname)
+			d.errorf("no matching struct field found when decoding stream map with key " + rvkencname)
 			return
 		}
 	}

@@ -15,7 +15,7 @@ import (
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
 	k8sAPI "k8s.io/kubernetes/pkg/api"
-	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/dockertools"
+	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 // EnableDockerEventListener watches for docker events. Performs the plumbing for the

@@ -27,12 +27,4 @@ if [ ${i} -gt ${tries} ]; then
     exit
 fi
 
-${kubectl} create -f ${dir}/network-policy/resource.yaml
-sleep 15s
-set -e
-
-curl -g -X POST -H "Content-Type: application/json" -d @${dir}/network-policy/admin-policy.json \
-    http://${API_HOST}:${API_PORT}/apis/experimental.kubernetes.io/v1/namespaces/default/networkpolicys
-
-curl -g -X POST -H "Content-Type: application/json" -d @${dir}/network-policy/lizards-policy.json \
-    http://${API_HOST}:${API_PORT}/apis/experimental.kubernetes.io/v1/namespaces/default/networkpolicys
+${kubectl} create -f ${dir}/network-policy

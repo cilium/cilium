@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -126,6 +125,7 @@ var (
 	genExpectArrayOrMapErr = errors.New("unexpected type. Expecting array/map/slice")
 	genBase64enc           = base64.NewEncoding("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789__")
 	genQNameRegex          = regexp.MustCompile(`[A-Za-z_.]+`)
+	genCheckVendor         bool
 )
 
 // genRunner holds some state used during a Gen run.
@@ -164,6 +164,16 @@ type genRunner struct {
 //
 // Library users: *DO NOT USE IT DIRECTLY. IT WILL CHANGE CONTINOUSLY WITHOUT NOTICE.*
 func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeInfos, typ ...reflect.Type) {
+	// trim out all types which already implement Selfer
+	typ2 := make([]reflect.Type, 0, len(typ))
+	for _, t := range typ {
+		if reflect.PtrTo(t).Implements(selferTyp) || t.Implements(selferTyp) {
+			continue
+		}
+		typ2 = append(typ2, t)
+	}
+	typ = typ2
+
 	if len(typ) == 0 {
 		return
 	}
@@ -268,6 +278,7 @@ func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeIn
 	x.line("type " + x.hn + " struct{}")
 	x.line("")
 
+	x.varsfxreset()
 	x.line("func init() {")
 	x.linef("if %sGenVersion != %v {", x.cpfx, GenVersion)
 	x.line("_, file, _, _ := runtime.Caller(0)")
@@ -311,6 +322,7 @@ func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeIn
 	for _, t := range x.ts {
 		rtid := reflect.ValueOf(t).Pointer()
 		// generate enc functions for all these slice/map types.
+		x.varsfxreset()
 		x.linef("func (x %s) enc%s(v %s%s, e *%sEncoder) {", x.hn, x.genMethodNameT(t), x.arr2str(t, "*"), x.genTypeName(t), x.cpfx)
 		x.genRequiredMethodVars(true)
 		switch t.Kind() {
@@ -325,6 +337,7 @@ func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeIn
 		x.line("")
 
 		// generate dec functions for all these slice/map types.
+		x.varsfxreset()
 		x.linef("func (x %s) dec%s(v *%s, d *%sDecoder) {", x.hn, x.genMethodNameT(t), x.genTypeName(t), x.cpfx)
 		x.genRequiredMethodVars(false)
 		switch t.Kind() {
@@ -408,6 +421,10 @@ func (x *genRunner) line(s string) {
 func (x *genRunner) varsfx() string {
 	x.c++
 	return strconv.FormatUint(x.c, 10)
+}
+
+func (x *genRunner) varsfxreset() {
+	x.c = 0
 }
 
 func (x *genRunner) out(s string) {
@@ -496,6 +513,7 @@ func (x *genRunner) selfer(encode bool) {
 	// always make decode use a pointer receiver,
 	// and structs always use a ptr receiver (encode|decode)
 	isptr := !encode || t.Kind() == reflect.Struct
+	x.varsfxreset()
 	fnSigPfx := "func (x "
 	if isptr {
 		fnSigPfx += "*"
@@ -1238,59 +1256,49 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 }
 
 func (x *genRunner) decTryAssignPrimitive(varname string, t reflect.Type) (tryAsPtr bool) {
-	// We have to use the actual type name when doing a direct assignment.
-	// We don't have the luxury of casting the pointer to the underlying type.
-	//
-	// Consequently, in the situation of a
-	//     type Message int32
-	//     var x Message
-	//     var i int32 = 32
-	//     x = i // this will bomb
-	//     x = Message(i) // this will work
-	//     *((*int32)(&x)) = i // this will work
-	//
-	// Consequently, we replace:
-	//      case reflect.Uint32: x.line(varname + " = uint32(r.DecodeUint(32))")
-	// with:
-	//      case reflect.Uint32: x.line(varname + " = " + genTypeNamePrim(t, x.tc) + "(r.DecodeUint(32))")
+	// This should only be used for exact primitives (ie un-named types).
+	// Named types may be implementations of Selfer, Unmarshaler, etc.
+	// They should be handled by dec(...)
 
-	xfn := func(t reflect.Type) string {
-		return x.genTypeNamePrim(t)
+	if t.Name() != "" {
+		tryAsPtr = true
+		return
 	}
+
 	switch t.Kind() {
 	case reflect.Int:
-		x.linef("%s = %s(r.DecodeInt(codecSelferBitsize%s))", varname, xfn(t), x.xs)
+		x.linef("%s = r.DecodeInt(codecSelferBitsize%s)", varname, x.xs)
 	case reflect.Int8:
-		x.linef("%s = %s(r.DecodeInt(8))", varname, xfn(t))
+		x.linef("%s = r.DecodeInt(8)", varname)
 	case reflect.Int16:
-		x.linef("%s = %s(r.DecodeInt(16))", varname, xfn(t))
+		x.linef("%s = r.DecodeInt(16)", varname)
 	case reflect.Int32:
-		x.linef("%s = %s(r.DecodeInt(32))", varname, xfn(t))
+		x.linef("%s = r.DecodeInt(32)", varname)
 	case reflect.Int64:
-		x.linef("%s = %s(r.DecodeInt(64))", varname, xfn(t))
+		x.linef("%s = r.DecodeInt(64)", varname)
 
 	case reflect.Uint:
-		x.linef("%s = %s(r.DecodeUint(codecSelferBitsize%s))", varname, xfn(t), x.xs)
+		x.linef("%s = r.DecodeUint(codecSelferBitsize%s)", varname, x.xs)
 	case reflect.Uint8:
-		x.linef("%s = %s(r.DecodeUint(8))", varname, xfn(t))
+		x.linef("%s = r.DecodeUint(8)", varname)
 	case reflect.Uint16:
-		x.linef("%s = %s(r.DecodeUint(16))", varname, xfn(t))
+		x.linef("%s = r.DecodeUint(16)", varname)
 	case reflect.Uint32:
-		x.linef("%s = %s(r.DecodeUint(32))", varname, xfn(t))
+		x.linef("%s = r.DecodeUint(32)", varname)
 	case reflect.Uint64:
-		x.linef("%s = %s(r.DecodeUint(64))", varname, xfn(t))
+		x.linef("%s = r.DecodeUint(64)", varname)
 	case reflect.Uintptr:
-		x.linef("%s = %s(r.DecodeUint(codecSelferBitsize%s))", varname, xfn(t), x.xs)
+		x.linef("%s = r.DecodeUint(codecSelferBitsize%s)", varname, x.xs)
 
 	case reflect.Float32:
-		x.linef("%s = %s(r.DecodeFloat(true))", varname, xfn(t))
+		x.linef("%s = r.DecodeFloat(true)", varname)
 	case reflect.Float64:
-		x.linef("%s = %s(r.DecodeFloat(false))", varname, xfn(t))
+		x.linef("%s = r.DecodeFloat(false)", varname)
 
 	case reflect.Bool:
-		x.linef("%s = %s(r.DecodeBool())", varname, xfn(t))
+		x.linef("%s = r.DecodeBool()", varname)
 	case reflect.String:
-		x.linef("%s = %s(r.DecodeString())", varname, xfn(t))
+		x.linef("%s = r.DecodeString()", varname)
 	default:
 		tryAsPtr = true
 	}
@@ -1618,8 +1626,6 @@ func (x *genV) MethodNamePfx(prefix string, prim bool) string {
 
 }
 
-var genCheckVendor = os.Getenv("GO15VENDOREXPERIMENT") == "1"
-
 // genImportPath returns import path of a non-predeclared named typed, or an empty string otherwise.
 //
 // This handles the misbehaviour that occurs when 1.5-style vendoring is enabled,
@@ -1670,7 +1676,7 @@ func genNonPtr(t reflect.Type) reflect.Type {
 
 func genTitleCaseName(s string) string {
 	switch s {
-	case "interface{}":
+	case "interface{}", "interface {}":
 		return "Intf"
 	default:
 		return strings.ToUpper(s[0:1]) + s[1:]
@@ -1773,7 +1779,7 @@ func (x genInternal) FastpathLen() (l int) {
 
 func genInternalZeroValue(s string) string {
 	switch s {
-	case "interface{}":
+	case "interface{}", "interface {}":
 		return "nil"
 	case "bool":
 		return "false"

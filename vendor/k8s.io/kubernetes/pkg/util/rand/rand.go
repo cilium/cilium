@@ -32,12 +32,28 @@ var rng = struct {
 	rand: rand.New(rand.NewSource(time.Now().UTC().UnixNano())),
 }
 
-// Intn generates an integer in range 0->max.
+// Intn generates an integer in range [0,max).
 // By design this should panic if input is invalid, <= 0.
 func Intn(max int) int {
 	rng.Lock()
 	defer rng.Unlock()
 	return rng.rand.Intn(max)
+}
+
+// IntnRange generates an integer in range [min,max).
+// By design this should panic if input is invalid, <= 0.
+func IntnRange(min, max int) int {
+	rng.Lock()
+	defer rng.Unlock()
+	return rng.rand.Intn(max-min) + min
+}
+
+// IntnRange generates an int64 integer in range [min,max).
+// By design this should panic if input is invalid, <= 0.
+func Int63nRange(min, max int64) int64 {
+	rng.Lock()
+	defer rng.Unlock()
+	return rng.rand.Int63n(max-min) + min
 }
 
 // Seed seeds the rng with the provided seed.
@@ -64,4 +80,20 @@ func String(length int) string {
 		b[i] = letters[Intn(numLetters)]
 	}
 	return string(b)
+}
+
+// A type that satisfies the rand.Shufflable interface can be shuffled
+// by Shuffle. Any sort.Interface will satisfy this interface.
+type Shufflable interface {
+	Len() int
+	Swap(i, j int)
+}
+
+func Shuffle(data Shufflable) {
+	rng.Lock()
+	defer rng.Unlock()
+	for i := 0; i < data.Len(); i++ {
+		j := rng.rand.Intn(i + 1)
+		data.Swap(i, j)
+	}
 }

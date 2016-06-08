@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -25,25 +26,65 @@ import (
 	"k8s.io/kubernetes/pkg/util/errors"
 )
 
-type objectTyperToTyper struct {
-	typer ObjectTyper
+// unsafeObjectConvertor implements ObjectConvertor using the unsafe conversion path.
+type unsafeObjectConvertor struct {
+	*Scheme
 }
 
-func (t objectTyperToTyper) ObjectKind(obj Object) (*unversioned.GroupVersionKind, bool, error) {
-	gvk, err := t.typer.ObjectKind(obj)
+var _ ObjectConvertor = unsafeObjectConvertor{}
+
+// ConvertToVersion converts in to the provided outVersion without copying the input first, which
+// is only safe if the output object is not mutated or reused.
+func (c unsafeObjectConvertor) ConvertToVersion(in Object, outVersion unversioned.GroupVersion) (Object, error) {
+	return c.Scheme.UnsafeConvertToVersion(in, outVersion)
+}
+
+// UnsafeObjectConvertor performs object conversion without copying the object structure,
+// for use when the converted object will not be reused or mutated. Primarily for use within
+// versioned codecs, which use the external object for serialization but do not return it.
+func UnsafeObjectConvertor(scheme *Scheme) ObjectConvertor {
+	return unsafeObjectConvertor{scheme}
+}
+
+// SetField puts the value of src, into fieldName, which must be a member of v.
+// The value of src must be assignable to the field.
+func SetField(src interface{}, v reflect.Value, fieldName string) error {
+	field := v.FieldByName(fieldName)
+	if !field.IsValid() {
+		return fmt.Errorf("couldn't find %v field in %#v", fieldName, v.Interface())
+	}
+	srcValue := reflect.ValueOf(src)
+	if srcValue.Type().AssignableTo(field.Type()) {
+		field.Set(srcValue)
+		return nil
+	}
+	if srcValue.Type().ConvertibleTo(field.Type()) {
+		field.Set(srcValue.Convert(field.Type()))
+		return nil
+	}
+	return fmt.Errorf("couldn't assign/convert %v to %v", srcValue.Type(), field.Type())
+}
+
+// Field puts the value of fieldName, which must be a member of v, into dest,
+// which must be a variable to which this field's value can be assigned.
+func Field(v reflect.Value, fieldName string, dest interface{}) error {
+	field := v.FieldByName(fieldName)
+	if !field.IsValid() {
+		return fmt.Errorf("couldn't find %v field in %#v", fieldName, v.Interface())
+	}
+	destValue, err := conversion.EnforcePtr(dest)
 	if err != nil {
-		return nil, false, err
+		return err
 	}
-	unversionedType, ok := t.typer.IsUnversioned(obj)
-	if !ok {
-		// ObjectTyper violates its contract
-		return nil, false, fmt.Errorf("typer returned a kind for %v, but then reported it was not in the scheme with IsUnversioned", reflect.TypeOf(obj))
+	if field.Type().AssignableTo(destValue.Type()) {
+		destValue.Set(field)
+		return nil
 	}
-	return &gvk, unversionedType, nil
-}
-
-func ObjectTyperToTyper(typer ObjectTyper) Typer {
-	return objectTyperToTyper{typer: typer}
+	if field.Type().ConvertibleTo(destValue.Type()) {
+		destValue.Set(field.Convert(destValue.Type()))
+		return nil
+	}
+	return fmt.Errorf("couldn't assign/convert %v to %v", field.Type(), destValue.Type())
 }
 
 // fieldPtr puts the address of fieldName, which must be a member of v,
@@ -80,14 +121,16 @@ func EncodeList(e Encoder, objects []Object, overrides ...unversioned.GroupVersi
 			errs = append(errs, err)
 			continue
 		}
-		objects[i] = &Unknown{RawJSON: data}
+		// TODO: Set ContentEncoding and ContentType.
+		objects[i] = &Unknown{Raw: data}
 	}
 	return errors.NewAggregate(errs)
 }
 
 func decodeListItem(obj *Unknown, decoders []Decoder) (Object, error) {
 	for _, decoder := range decoders {
-		obj, err := Decode(decoder, obj.RawJSON)
+		// TODO: Decode based on ContentType.
+		obj, err := Decode(decoder, obj.Raw)
 		if err != nil {
 			if IsNotRegisteredError(err) {
 				continue
@@ -99,7 +142,7 @@ func decodeListItem(obj *Unknown, decoders []Decoder) (Object, error) {
 	// could not decode, so leave the object as Unknown, but give the decoders the
 	// chance to set Unknown.TypeMeta if it is available.
 	for _, decoder := range decoders {
-		if err := DecodeInto(decoder, obj.RawJSON, obj); err == nil {
+		if err := DecodeInto(decoder, obj.Raw, obj); err == nil {
 			return obj, nil
 		}
 	}
@@ -130,19 +173,9 @@ type MultiObjectTyper []ObjectTyper
 
 var _ ObjectTyper = MultiObjectTyper{}
 
-func (m MultiObjectTyper) ObjectKind(obj Object) (gvk unversioned.GroupVersionKind, err error) {
+func (m MultiObjectTyper) ObjectKinds(obj Object) (gvks []unversioned.GroupVersionKind, unversionedType bool, err error) {
 	for _, t := range m {
-		gvk, err = t.ObjectKind(obj)
-		if err == nil {
-			return
-		}
-	}
-	return
-}
-
-func (m MultiObjectTyper) ObjectKinds(obj Object) (gvks []unversioned.GroupVersionKind, err error) {
-	for _, t := range m {
-		gvks, err = t.ObjectKinds(obj)
+		gvks, unversionedType, err = t.ObjectKinds(obj)
 		if err == nil {
 			return
 		}
@@ -159,11 +192,21 @@ func (m MultiObjectTyper) Recognizes(gvk unversioned.GroupVersionKind) bool {
 	return false
 }
 
-func (m MultiObjectTyper) IsUnversioned(obj Object) (bool, bool) {
-	for _, t := range m {
-		if unversioned, ok := t.IsUnversioned(obj); ok {
-			return unversioned, true
-		}
+// SetZeroValue would set the object of objPtr to zero value of its type.
+func SetZeroValue(objPtr Object) error {
+	v, err := conversion.EnforcePtr(objPtr)
+	if err != nil {
+		return err
 	}
-	return false, false
+	v.Set(reflect.Zero(v.Type()))
+	return nil
 }
+
+// DefaultFramer is valid for any stream that can read objects serially without
+// any separation in the stream.
+var DefaultFramer = defaultFramer{}
+
+type defaultFramer struct{}
+
+func (defaultFramer) NewFrameReader(r io.ReadCloser) io.ReadCloser { return r }
+func (defaultFramer) NewFrameWriter(w io.Writer) io.Writer         { return w }
