@@ -7,8 +7,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
 	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/backend"
 
 	"github.com/op/go-logging"
 )
@@ -18,15 +18,29 @@ var (
 )
 
 // Server listens for HTTP requests and sends them to our router.
-type Server struct {
+type Server interface {
+	Start() error
+	Stop() error
+}
+
+type serverCommon struct {
 	listener   net.Listener
-	router     Router
 	socketPath string
+}
+
+type serverUI struct {
+	serverCommon
+	router RouterUI
+}
+
+type serverBackend struct {
+	serverCommon
+	router RouterBackend
 }
 
 // NewServer returns a new Server that listens for requests in socketPath and sends them
 // to daemon.
-func NewServer(socketPath string, daemon backend.CiliumBackend) (*Server, error) {
+func NewServer(socketPath string, daemon *daemon.Daemon) (Server, error) {
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create '%s' directory: %s", socketDir, err)
@@ -54,16 +68,41 @@ func NewServer(socketPath string, daemon backend.CiliumBackend) (*Server, error)
 		}
 	}
 
-	return &Server{listener, router, socketPath}, nil
+	return serverBackend{serverCommon{listener, socketPath}, router}, nil
+}
+
+func NewUIServer(host string, daemon *daemon.Daemon) (Server, error) {
+	router := NewUIRouter(daemon)
+	netStr, listAddr, err := common.ParseHost(host)
+	if err != nil {
+		return nil, err
+	}
+	listener, err := net.ListenTCP(netStr, listAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create listener socket: %s", err)
+	}
+
+	return serverUI{serverCommon{listener, host}, router}, nil
 }
 
 // Start starts the server and blocks to server HTTP requests.
-func (d *Server) Start() error {
-	log.Infof("Listening on %q", d.socketPath)
+func (d serverBackend) Start() error {
+	log.Infof("Listening backend on %q", d.socketPath)
 	return http.Serve(d.listener, d.router)
 }
 
 // Stop stops the HTTP listener.
-func (d *Server) Stop() error {
+func (d serverBackend) Stop() error {
+	return d.listener.Close()
+}
+
+// Start starts the server and blocks to server HTTP requests.
+func (d serverUI) Start() error {
+	log.Infof("Listening UI on %q", d.socketPath)
+	return http.Serve(d.listener, d.router)
+}
+
+// Stop stops the HTTP listener.
+func (d serverUI) Stop() error {
 	return d.listener.Close()
 }

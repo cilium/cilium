@@ -195,6 +195,8 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error
 	}
 	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount)
 
+	d.uiTopo.AddOrUpdateNode(secCtxLbls.ID, secCtxLbls.Labels.ToSlice(), secCtxLbls.RefCount)
+
 	secCtxLblsByte, err := json.Marshal(secCtxLbls)
 	if err != nil {
 		return nil, false, err
@@ -317,6 +319,13 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 	if err := d.updateIDRef(&dbSecCtxLbls); err != nil {
 		return err
 	}
+
+	if dbSecCtxLbls.RefCount == 0 {
+		d.uiTopo.DeleteNode(dbSecCtxLbls.ID)
+	} else {
+		d.uiTopo.AddOrUpdateNode(dbSecCtxLbls.ID, dbSecCtxLbls.Labels.ToSlice(), dbSecCtxLbls.RefCount)
+	}
+
 	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount)
 
 	secCtxLblsByte, err := json.Marshal(dbSecCtxLbls)

@@ -166,6 +166,9 @@ func (d *Daemon) syncLabels(ep *types.Endpoint) error {
 			ep.ID, ep.SecLabel.ID, labels.ID)
 	}
 	ep.SetSecLabel(labels)
+
+	d.uiTopo.AddOrUpdateNode(labels.ID, labels.Labels.ToSlice(), labels.RefCount)
+
 	return nil
 }
 

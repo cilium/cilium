@@ -23,7 +23,7 @@ func Test(t *testing.T) { TestingT(t) }
 
 type CiliumClientSuite struct {
 	cli    backend.CiliumBackend
-	server *cns.Server
+	server cns.Server
 }
 
 var _ = Suite(&CiliumClientSuite{})

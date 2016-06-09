@@ -17,7 +17,7 @@ func Test(t *testing.T) { TestingT(t) }
 
 type DaemonSuite struct {
 	d *TestDaemon
-	s *Server
+	s *serverBackend
 	c *cnc.Client
 }
 
@@ -33,7 +33,7 @@ func (s *DaemonSuite) SetUpSuite(c *C) {
 		c.Fatalf("Error while trying to listen: %+v", err)
 	}
 
-	s.s = &Server{l, r, "127.0.0.1"}
+	s.s = &serverBackend{serverCommon{l, "127.0.0.1"}, r}
 	go func() {
 		if err := s.s.Start(); err != nil {
 			c.Fatalf("Error while starting cilium-net test server: %s", err)

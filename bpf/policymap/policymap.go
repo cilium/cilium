@@ -39,6 +39,11 @@ type PolicyEntry struct {
 	Bytes   uint64
 }
 
+func (pe *PolicyEntry) Add(oPe PolicyEntry) {
+	pe.Packets += oPe.Packets
+	pe.Bytes += oPe.Bytes
+}
+
 type PolicyEntryDump struct {
 	PolicyEntry
 	ID uint32
