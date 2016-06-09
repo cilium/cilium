@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/noironetworks/cilium-net",
 	"GoVersion": "go1.6",
-	"GodepVersion": "v62",
+	"GodepVersion": "v74",
 	"Packages": [
 		"./..."
 	],
@@ -160,27 +160,27 @@
 		{
 			"ImportPath": "github.com/docker/libnetwork/driverapi",
 			"Comment": "v0.5.6-23-g34fe798",
-			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
+			"Rev": "6fd1688fe008914ef2dfae550275dcc4d61f4bbb"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/drivers/remote/api",
 			"Comment": "v0.5.6-23-g34fe798",
-			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
+			"Rev": "6fd1688fe008914ef2dfae550275dcc4d61f4bbb"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipamapi",
 			"Comment": "v0.5.6-23-g34fe798",
-			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
+			"Rev": "6fd1688fe008914ef2dfae550275dcc4d61f4bbb"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipams/remote/api",
 			"Comment": "v0.5.6-23-g34fe798",
-			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
+			"Rev": "6fd1688fe008914ef2dfae550275dcc4d61f4bbb"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/types",
 			"Comment": "v0.5.6-23-g34fe798",
-			"Rev": "34fe798135e47af5703dd0d5f0f9a0e9c9e2f153"
+			"Rev": "6fd1688fe008914ef2dfae550275dcc4d61f4bbb"
 		},
 		{
 			"ImportPath": "github.com/emicklei/go-restful",
@@ -196,6 +196,11 @@
 			"ImportPath": "github.com/emicklei/go-restful/swagger",
 			"Comment": "v1.1.3-146-ge9659cd",
 			"Rev": "e9659cd7f08d0627d51c7a0193a6902890a9908b"
+		},
+		{
+			"ImportPath": "github.com/fatih/color",
+			"Comment": "v0.1-17-g533cd7f",
+			"Rev": "533cd7fd8a85905f67a1753afb4deddc85ea174f"
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
@@ -449,6 +454,15 @@
 			"ImportPath": "github.com/kr/pty",
 			"Comment": "release.r56-29-gf7ee69f",
 			"Rev": "f7ee69f31298ecbe5d2b349c711e2547a617d398"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-colorable",
+			"Comment": "v0.0.5",
+			"Rev": "9056b7a9f2d1f2d96498d6d146acd1f9d5ed3d59"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Rev": "56b76bdf51f7708750eac80fa38b952bb9f32639"
 		},
 		{
 			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/pbutil",

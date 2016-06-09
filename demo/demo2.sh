@@ -20,7 +20,7 @@ IPV4="$(grep IPv4 /var/run/cilium/$ID/lxc_config.h | awk '{print $4}')"
 ping -c 2 $IPV4
 
 read -p "$*"
-sudo cilium endpoint nat46 enable $ID
+sudo cilium endpoint config $ID nat46=enable
 
 read -p "$*"
 ping -c 10 $IPV4

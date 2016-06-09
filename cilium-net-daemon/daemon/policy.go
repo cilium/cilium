@@ -170,7 +170,7 @@ func (d *Daemon) invalidateCache() {
 	}
 }
 
-func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID uint32, define string) {
+func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID uint32, opt string) {
 	var err error
 
 	ctx := types.SearchContext{
@@ -192,9 +192,9 @@ func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID u
 
 	switch d.policyCanConsume(&ctx) {
 	case types.ACCEPT, types.ALWAYS_ACCEPT:
-		opts[define] = true
+		opts[opt] = true
 	case types.DENY:
-		opts[define] = false
+		opts[opt] = false
 	}
 }
 
@@ -206,8 +206,8 @@ func (d *Daemon) regenerateEndpointPolicy(e *types.Endpoint, regenerateEndpoint 
 
 		opts := make(types.EPOpts)
 
-		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), "ALLOW_TO_HOST")
-		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), "ALLOW_TO_WORLD")
+		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), types.OptionAllowToHost)
+		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), types.OptionAllowToWorld)
 
 		if !e.ApplyOpts(opts) {
 			// No changes have been applied, skip update
