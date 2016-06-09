@@ -32,6 +32,7 @@ var (
 	nodeAddrStr     string
 	runDir          string
 	socketPath      string
+	uiServerAddr    string
 	v4range         string
 	tunnel          string
 
@@ -128,6 +129,11 @@ func init() {
 				Name:        "s",
 				Value:       common.CiliumSock,
 				Usage:       "Sets the socket path to listen for connections",
+			},
+			cli.StringFlag{
+				Destination: &uiServerAddr,
+				Name:        "ui-addr",
+				Usage:       "IP address and port for UI server",
 			},
 			cli.StringFlag{
 				Destination: &v4range,
@@ -231,6 +237,13 @@ func initBPF() error {
 		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 		return err
 	}
+
+	os.MkdirAll(common.CiliumUIPath, 0755)
+	if err != nil {
+		log.Warningf("Could not create UI directory '%s': %s", common.CiliumUIPath, err)
+		return err
+	}
+
 	return nil
 }
 
@@ -313,6 +326,17 @@ func initEnv(ctx *cli.Context) error {
 		config.K8sEndpoint = fmt.Sprintf("http://[%s:ffff]:8080", strings.TrimSuffix(addr.String(), ":0"))
 	}
 
+	if uiServerAddr != "" {
+		if _, tcpAddr, err := common.ParseHost(uiServerAddr); err != nil {
+			log.Fatalf("Invalid UI server address and port address '%s': %s", uiServerAddr, err)
+		} else {
+			if !tcpAddr.IP.IsGlobalUnicast() {
+				log.Fatalf("The UI IP address %q should be a reachable IP", tcpAddr.IP.String())
+			}
+		}
+		config.UIServerAddr = uiServerAddr
+	}
+
 	return initBPF()
 }
 
@@ -338,6 +362,17 @@ func run(cli *cli.Context) {
 	d.EnableConsulWatcher(30 * time.Second)
 	if err := d.EnableK8sWatcher(10 * time.Second); err != nil {
 		log.Warningf("Error while enabling k8s watcher %s", err)
+	}
+
+	if config.UIServerAddr != "" {
+		uiServer, err := s.NewUIServer(config.UIServerAddr, d)
+		if err != nil {
+			log.Fatalf("Error while creating ui server: %s", err)
+		}
+		defer uiServer.Stop()
+		go uiServer.Start()
+	} else {
+		log.Info("UI is not enable")
 	}
 
 	server, err := s.NewServer(socketPath, d)

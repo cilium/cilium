@@ -268,6 +268,10 @@
 			"Rev": "26a6070f849969ba72b72256e9f14cf519751690"
 		},
 		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "5c91b59efa232fa9a87b705d54101832c498a172"
+		},
+		{
 			"ImportPath": "github.com/hashicorp/consul/api",
 			"Comment": "v0.6.3-144-g05bc914",
 			"Rev": "05bc9149a5204b213a61bc410b8cec21f10a23fe"
@@ -906,6 +910,69 @@
 			"ImportPath": "k8s.io/kubernetes/third_party/forked/reflect",
 			"Comment": "v1.3.0-alpha.5",
 			"Rev": "914163247d9a16b46921e83f7dbedb572859b3e4"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/vendor/github.com/coreos/go-iptables/iptables",
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/vendor/github.com/vishvananda/netlink",
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
+		},
+		{
+			"ImportPath": "github.com/appc/cni/vendor/github.com/vishvananda/netlink/nl",
+			"Comment": "v0.2.0-rc0-26-ga8fd437",
+			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-systemd/journal",
+			"Comment": "v9",
+			"Rev": "6dc8b843c670f2027cc26b164935635840a40526"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/tarsum",
+			"Comment": "v1.4.1-4831-g0f5c9d3",
+			"Rev": "0f5c9d301b9b1cca66b3ea0f9dec3b5317d3686d"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/consul/vendor/github.com/hashicorp/go-cleanhttp",
+			"Comment": "v0.6.3-144-g05bc914",
+			"Rev": "05bc9149a5204b213a61bc410b8cec21f10a23fe"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/consul/vendor/github.com/hashicorp/serf/coordinate",
+			"Comment": "v0.6.3-144-g05bc914",
+			"Rev": "05bc9149a5204b213a61bc410b8cec21f10a23fe"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/app_identity",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/modules",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/base",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/datastore",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/remote_api",
+			"Rev": "7f59a8c76b8594d06044bfe0bcbe475cb2020482"
 		}
 	]
 }

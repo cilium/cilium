@@ -13,7 +13,7 @@ type route struct {
 
 type routes []route
 
-func (r *Router) initRoutes() {
+func (r *RouterBackend) initRoutes() {
 	r.routes = routes{
 		route{
 			"Ping", "GET", "/ping", r.ping,
@@ -80,6 +80,17 @@ func (r *Router) initRoutes() {
 		},
 		route{
 			"PolicyCanConsume", "POST", "/policy-consume-decision", r.policyCanConsume,
+		},
+	}
+}
+
+func (r *RouterUI) initUIRoutes() {
+	r.routes = routes{
+		route{
+			"GetUI", "GET", "/", r.createUIHTMLIndex,
+		},
+		route{
+			"WebSocketUI", "GET", "/ws", r.webSocketUIStats,
 		},
 	}
 }

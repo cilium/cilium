@@ -19,6 +19,7 @@ type Config struct {
 	DockerEndpoint     string                // Docker endpoint
 	K8sEndpoint        string                // Kubernetes endpoint
 	ValidLabelPrefixes *types.LabelPrefixCfg // Label prefixes used to filter from all labels
+	UIServerAddr       string                // TCP address for UI server
 
 	RestoreState bool // RestoreState restores the state from previous running daemons.
 

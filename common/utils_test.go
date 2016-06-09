@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"net"
 
 	. "gopkg.in/check.v1"
@@ -47,4 +48,67 @@ func (s *CommonSuite) TestFmtV4Range(c *C) {
 	r, err := fmtV4Range(&ip)
 	c.Assert(r, Equals, "10.4.0.0/16")
 	c.Assert(err, Equals, nil)
+}
+
+func (s *CommonSuite) TestParseHost(c *C) {
+	var emptyPtr *net.TCPAddr
+	tests := []struct {
+		test string
+		net  string
+		want *net.TCPAddr
+		err  error
+	}{
+		{
+			"tcp://1.1.1.1:8081",
+			"tcp",
+			&net.TCPAddr{
+				net.ParseIP("1.1.1.1"),
+				8081,
+				"",
+			},
+			nil,
+		},
+		{
+			"tcp://0.0.0.0:8081",
+			"tcp",
+			&net.TCPAddr{
+				net.ParseIP("0.0.0.0"),
+				8081,
+				"",
+			},
+			nil,
+		},
+		{
+			"tcp://1.1.1.1:",
+			"",
+			emptyPtr,
+			errors.New("invalid endpoint"),
+		},
+		{
+			"tcp6://[::1]:8081",
+			"tcp6",
+			&net.TCPAddr{
+				net.ParseIP("::1"),
+				8081,
+				"",
+			},
+			nil,
+		},
+		{
+			"tcp6://[::1%eth0]:8081",
+			"tcp6",
+			&net.TCPAddr{
+				net.ParseIP("::1"),
+				8081,
+				"eth0",
+			},
+			nil,
+		},
+	}
+	for _, tt := range tests {
+		netProto, tcpAddr, err := ParseHost(tt.test)
+		c.Assert(err, DeepEquals, tt.err, Commentf("Test %s", tt.test))
+		c.Assert(tcpAddr, DeepEquals, tt.want)
+		c.Assert(netProto, Equals, tt.net)
+	}
 }

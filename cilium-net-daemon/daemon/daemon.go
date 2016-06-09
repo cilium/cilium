@@ -37,6 +37,9 @@ type Daemon struct {
 	policyTreeMU         sync.Mutex
 	cacheIteration       int
 	reservedConsumables  []*types.Consumable
+	uiTopo               types.UITopo
+	uiListeners          map[*Conn]bool
+	registerUIListener   chan *Conn
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -137,6 +140,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		cacheIteration:      1,
 		reservedConsumables: make([]*types.Consumable, 0),
 		policyTree:          rootNode,
+		uiTopo:              types.NewUITopo(),
+		uiListeners:         make(map[*Conn]bool),
+		registerUIListener:  make(chan *Conn, 1),
+	}
+
+	if c.UIServerAddr != "" {
+		d.ListenBuildUIEvents()
 	}
 
 	if c.RestoreState {

@@ -26,3 +26,4 @@ $(TARGET):
 
 install:
 	groupadd -f cilium
+	cp -r ui/. $(DESTDIR)$(RUNDIR)/cilium/static

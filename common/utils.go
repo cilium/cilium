@@ -198,3 +198,15 @@ func GetCiliumVersionString(epCHeaderFilePath string) (string, error) {
 		}
 	}
 }
+
+func ParseHost(host string) (string, *net.TCPAddr, error) {
+	protoHost := strings.SplitN(host, "://", 2)
+	if len(protoHost) != 2 {
+		return "", nil, fmt.Errorf("invalid endpoint")
+	}
+	tcpAddr, err := net.ResolveTCPAddr(protoHost[0], protoHost[1])
+	if err == nil && tcpAddr.Port == 0 {
+		return "", nil, fmt.Errorf("invalid endpoint")
+	}
+	return protoHost[0], tcpAddr, err
+}

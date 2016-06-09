@@ -14,7 +14,8 @@ const (
 	// DriverSock is the cilium socket for the communication between docker and cilium.
 	DriverSock = PluginPath + "cilium.sock"
 	// CiliumPath is the path where cilium operational files are running.
-	CiliumPath = "/var/run/cilium/"
+	CiliumPath   = "/var/run/cilium/"
+	CiliumUIPath = CiliumPath + "static/"
 	// CiliumSock is the cilium socket for the communication between the daemon and cilium client.
 	CiliumSock = CiliumPath + "cilium.sock"
 	// DefaultContainerMAC represents a dummy MAC address for the containers.

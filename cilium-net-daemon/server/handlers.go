@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func (router *Router) ping(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) ping(w http.ResponseWriter, r *http.Request) {
 	if resp, err := router.daemon.Ping(); err != nil {
 		processServerError(w, r, err)
 	} else {
@@ -23,7 +23,7 @@ func (router *Router) ping(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointCreate(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
 	var ep types.Endpoint
 	if err := d.Decode(&ep); err != nil {
@@ -37,7 +37,7 @@ func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	val, exists := vars["endpointID"]
 	if !exists {
@@ -51,7 +51,7 @@ func (router *Router) endpointDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (router *Router) endpointLeaveByDockerEPID(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointLeaveByDockerEPID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	dockerEPID, exists := vars["dockerEPID"]
 	if !exists {
@@ -65,7 +65,7 @@ func (router *Router) endpointLeaveByDockerEPID(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointUpdate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	val, exists := vars["endpointID"]
 	if !exists {
@@ -84,7 +84,7 @@ func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (router *Router) endpointSave(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointSave(w http.ResponseWriter, r *http.Request) {
 	var ep types.Endpoint
 	if err := json.NewDecoder(r.Body).Decode(&ep); err != nil {
 		processServerError(w, r, err)
@@ -97,7 +97,7 @@ func (router *Router) endpointSave(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	epID, exists := vars["endpointID"]
 	if !exists {
@@ -120,7 +120,7 @@ func (router *Router) endpointGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) endpointGetByDockerEPID(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointGetByDockerEPID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	dockerEPID, exists := vars["dockerEPID"]
 	if !exists {
@@ -143,7 +143,7 @@ func (router *Router) endpointGetByDockerEPID(w http.ResponseWriter, r *http.Req
 	}
 }
 
-func (router *Router) endpointsGet(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) endpointsGet(w http.ResponseWriter, r *http.Request) {
 	eps, err := router.daemon.EndpointsGet()
 	if err != nil {
 		processServerError(w, r, fmt.Errorf("error while getting endpoints: %s", err))
@@ -160,7 +160,7 @@ func (router *Router) endpointsGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) ipamConfig(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) ipamConfig(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ipamType, exists := vars["ipam-type"]
 	if !exists {
@@ -183,7 +183,7 @@ func (router *Router) ipamConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ipamType, exists := vars["ipam-type"]
 	if !exists {
@@ -211,7 +211,7 @@ func (router *Router) allocateIPv6(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) releaseIPv6(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) releaseIPv6(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ipamType, exists := vars["ipam-type"]
 	if !exists {
@@ -230,7 +230,7 @@ func (router *Router) releaseIPv6(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) getLabels(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr, exists := vars["uuid"]
 	if !exists {
@@ -259,7 +259,7 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) getLabelsBySHA256(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) getLabelsBySHA256(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sha256sum, exists := vars["sha256sum"]
 	if !exists {
@@ -282,7 +282,7 @@ func (router *Router) getLabelsBySHA256(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) putLabels(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
 	var labels types.Labels
 	if err := d.Decode(&labels); err != nil {
@@ -301,7 +301,7 @@ func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) deleteLabelsByUUID(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) deleteLabelsByUUID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr, exists := vars["uuid"]
 	if !exists {
@@ -320,7 +320,7 @@ func (router *Router) deleteLabelsByUUID(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (router *Router) deleteLabelsBySHA256(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) deleteLabelsBySHA256(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sha256sum, exists := vars["sha256sum"]
 	if !exists {
@@ -334,7 +334,7 @@ func (router *Router) deleteLabelsBySHA256(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) getMaxUUID(w http.ResponseWriter, r *http.Request) {
 	id, err := router.daemon.GetMaxID()
 	if err != nil {
 		processServerError(w, r, err)
@@ -347,7 +347,7 @@ func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) policyAdd(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) policyAdd(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path, exists := vars["path"]
 	if !exists {
@@ -368,7 +368,7 @@ func (router *Router) policyAdd(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (router *Router) policyDelete(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) policyDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path, exists := vars["path"]
 	if !exists {
@@ -383,7 +383,7 @@ func (router *Router) policyDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (router *Router) policyGet(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) policyGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	path, exists := vars["path"]
 	if !exists {
@@ -409,7 +409,7 @@ func (router *Router) policyGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (router *Router) policyCanConsume(w http.ResponseWriter, r *http.Request) {
+func (router *RouterBackend) policyCanConsume(w http.ResponseWriter, r *http.Request) {
 	var sc types.SearchContext
 	if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
 		processServerError(w, r, err)
