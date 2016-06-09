@@ -15,6 +15,7 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/codegangsta/cli"
+	"github.com/fatih/color"
 	l "github.com/op/go-logging"
 )
 
@@ -22,6 +23,8 @@ var (
 	CliCommand cli.Command
 	client     *cnc.Client
 	log        = l.MustGetLogger("cilium-tools-endpoint")
+	green      = color.New(color.FgGreen).SprintFunc()
+	red        = color.New(color.FgRed).SprintFunc()
 )
 
 func init() {
@@ -52,34 +55,12 @@ func init() {
 				Action: dumpEndpoints,
 			},
 			{
-				Name:  "nat46",
-				Usage: "Manage nat46 status for the given endpoint",
-				Subcommands: []cli.Command{
-					{
-						Name:         "enable",
-						Usage:        "Enables NAT46 mode of the given endpoint",
-						Before:       verifyArguments,
-						BashComplete: listEndpointsBash,
-						ArgsUsage:    "<endpoint>",
-						Action:       enableNAT46,
-					},
-					{
-						Name:         "disable",
-						Usage:        "Disables NAT46 mode of of the given endpoint",
-						Before:       verifyArguments,
-						BashComplete: listEndpointsBash,
-						ArgsUsage:    "<endpoint>",
-						Action:       disableNAT46,
-					},
-					{
-						Name:         "status",
-						Usage:        "Returns the current NAT46 status of the given endpoint",
-						Before:       verifyArguments,
-						BashComplete: listEndpointsBash,
-						ArgsUsage:    "<endpoint>",
-						Action:       getStatusNAT46,
-					},
-				},
+				Name:         "config",
+				Usage:        "Manage endpoint configuration",
+				Action:       configEndpoint,
+				BashComplete: listEndpointsBash,
+				ArgsUsage:    "<endpoint> [<option>=(enable|disable) ...]",
+				Before:       verifyConfigEndpoint,
 			},
 			{
 				Name:  "policy",
@@ -161,36 +142,6 @@ func init() {
 				ArgsUsage:    "<endpoint>",
 				Before:       verifyArguments,
 			},
-			{
-				Name:  "drop-notify",
-				Usage: "Manage drop notification status for the given endpoint",
-				Subcommands: []cli.Command{
-					{
-						Name:      "enable",
-						Aliases:   []string{"e"},
-						Usage:     "Enables Drop Notification mode of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    enableDropNotify,
-					},
-					{
-						Name:      "disable",
-						Aliases:   []string{"d"},
-						Usage:     "Disables Drop Notification mode of of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    disableDropNotify,
-					},
-					{
-						Name:      "status",
-						Aliases:   []string{"s"},
-						Usage:     "Returns the current Drop Notification status of the given endpoint",
-						Before:    verifyArguments,
-						ArgsUsage: "<endpoint>",
-						Action:    getStatusDropNotify,
-					},
-				},
-			},
 		},
 	}
 }
@@ -245,6 +196,108 @@ func dumpLXCInfo(ctx *cli.Context) {
 	}
 
 	fmt.Printf("Endpoint %s\n%s\n", ep.ID, ep)
+}
+
+func listEndpointOptions() {
+	for k, s := range types.EndpointOptionLibrary {
+		fmt.Printf("%-24s %s\n", k, s.Description)
+	}
+}
+
+func printEndpointConfig(ep *types.Endpoint) {
+	for k, _ := range ep.Opts {
+		text := green("Enabled")
+
+		if !ep.Opts[k] {
+			text = red("Disabled")
+		}
+
+		fmt.Printf("%-24s %s\n", k, text)
+	}
+}
+
+func parseEPOpt(arg string) (string, bool, error) {
+	enabled := true
+
+	if arg[0] == '!' {
+		enabled = false
+		arg = arg[1:]
+	}
+
+	optionSplit := strings.SplitN(arg, "=", 2)
+	arg = optionSplit[0]
+	if len(optionSplit) > 1 {
+		switch strings.ToLower(optionSplit[1]) {
+		case "true", "on", "enable", "enabled":
+			enabled = true
+		case "false", "off", "disable", "disabled":
+			enabled = false
+		default:
+			return "", false, fmt.Errorf("Invalid option value %s", optionSplit[1])
+		}
+	}
+
+	key, spec := types.LookupEndpointOption(arg)
+	if key == "" {
+		return "", false, fmt.Errorf("Unknown endpoint option %s", arg)
+	}
+
+	if spec.Immutable {
+		return "", false, fmt.Errorf("Specified option is immutable (read-only)")
+	}
+
+	return key, enabled, nil
+}
+
+func verifyConfigEndpoint(ctx *cli.Context) error {
+	if ctx.Args().First() == "" {
+		return fmt.Errorf("Error: Need endpoint ID")
+	}
+	return nil
+}
+
+func configEndpoint(ctx *cli.Context) {
+	epID := ctx.Args().First()
+
+	if epID == "list" {
+		listEndpointOptions()
+		return
+	}
+
+	ep, err := client.EndpointGet(epID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
+		os.Exit(1)
+	}
+
+	if ep == nil {
+		fmt.Printf("Endpoint %s not found\n", epID)
+		os.Exit(1)
+	}
+
+	opts := ctx.Args().Tail()
+	if len(opts) == 0 {
+		printEndpointConfig(ep)
+		return
+	}
+
+	epOpts := make(types.EPOpts, len(opts))
+
+	for k, _ := range opts {
+		name, value, err := parseEPOpt(opts[k])
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			os.Exit(1)
+		}
+
+		epOpts[name] = value
+	}
+
+	err = client.EndpointUpdate(ep.ID, epOpts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to update endpoint %s: %s\n", ep.ID, err)
+		os.Exit(1)
+	}
 }
 
 func setIfGT(dst *int, src int) {
@@ -425,94 +478,6 @@ func getStatusPolicy(ctx *cli.Context) {
 	}
 	fmt.Printf("Endpoint %s with %s set %t\n",
 		ep.ID, common.DisablePolicyEnforcement, false)
-}
-
-func enableNAT46(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: true})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %s with nat46 mode enabled\n", epID)
-}
-
-func disableNAT46(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableNAT46: false})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %s with nat46 mode disabled\n", epID)
-}
-
-func getStatusNAT46(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	ep, err := client.EndpointGet(epID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
-		return
-	}
-	if ep == nil {
-		fmt.Printf("Endpoint %s not found\n", epID)
-		return
-	}
-
-	if v, ok := ep.Opts[common.EnableNAT46]; ok {
-		fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableNAT46, v)
-		return
-	}
-	fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableNAT46, false)
-}
-
-func enableDropNotify(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableDropNotify: false})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %s with drop notification mode enabled\n", epID)
-}
-
-func disableDropNotify(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, types.EPOpts{common.EnableDropNotify: true})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %s with drop notification mode disabled\n", epID)
-}
-
-func getStatusDropNotify(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	ep, err := client.EndpointGet(epID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
-		return
-	}
-	if ep == nil {
-		fmt.Printf("Endpoint %s not found\n", epID)
-		return
-	}
-
-	if v, ok := ep.Opts[common.EnableDropNotify]; ok {
-		fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableDropNotify, v)
-		return
-	}
-	fmt.Printf("Endpoint %s with %s set %t\n", ep.ID, common.EnableDropNotify, false)
 }
 
 func dumpEndpoints(ctx *cli.Context) {

@@ -21,6 +21,82 @@ type EPPortMap struct {
 	Proto uint8  `json:"proto"`
 }
 
+type EndpointOption struct {
+	Define      string
+	Description string
+	Immutable   bool
+}
+
+const (
+	OptionNAT46            = "NAT46"
+	OptionDisablePolicy    = "DisablePolicy"
+	OptionDropNotify       = "DropNotification"
+	OptionDisableConntrack = "DisableConntrack"
+	OptionAllowToHost      = "AllowToHost"
+	OptionAllowToWorld     = "AllowToWorld"
+)
+
+var OptionSpecNAT46 = EndpointOption{
+	Define:      "ENABLE_NAT46",
+	Description: "Enable automatic NAT46 translation",
+}
+
+var OptionSpecDisablePolicy = EndpointOption{
+	Define:      "DISABLE_POLICY_ENFORCEMENT",
+	Description: "Disable policy enforcement",
+}
+
+var OptionSpecDropNotify = EndpointOption{
+	Define:      "DROP_NOTIFY",
+	Description: "Enable drop notifications",
+}
+
+var OptionSpecDisableConntrack = EndpointOption{
+	Define:      "DISABLE_CONNTRACK",
+	Description: "Disable stateful connection tracking",
+}
+
+var OptionSpecAllowToHost = EndpointOption{
+	Define:      "ALLOW_TO_HOST",
+	Immutable:   true,
+	Description: "Allow all traffic to local host",
+}
+
+var OptionSpecAllowToWorld = EndpointOption{
+	Define:      "ALLOW_TO_WORLD",
+	Immutable:   true,
+	Description: "Allow all traffic to outside world",
+}
+
+var EndpointOptionLibrary = map[string]*EndpointOption{
+	OptionNAT46:            &OptionSpecNAT46,
+	OptionDisablePolicy:    &OptionSpecDisablePolicy,
+	OptionDropNotify:       &OptionSpecDropNotify,
+	OptionDisableConntrack: &OptionSpecDisableConntrack,
+	OptionAllowToHost:      &OptionSpecAllowToHost,
+	OptionAllowToWorld:     &OptionSpecAllowToWorld,
+}
+
+func LookupEndpointOption(name string) (string, *EndpointOption) {
+	nameLower := strings.ToLower(name)
+
+	for k, _ := range EndpointOptionLibrary {
+		if strings.ToLower(k) == nameLower {
+			return k, EndpointOptionLibrary[k]
+		}
+	}
+
+	return "", nil
+}
+
+func EndpointOptionDefine(name string) string {
+	if _, ok := EndpointOptionLibrary[name]; ok {
+		return EndpointOptionLibrary[name].Define
+	}
+
+	return ""
+}
+
 // Opts is the endpoint bpf options representation.
 type EPOpts map[string]bool
 
@@ -92,13 +168,13 @@ func (e Endpoint) String() string {
 // map or #undef name if option does not exist or exists but is set to false in endpoint's
 // Opts map.
 func (e *Endpoint) GetFmtOpt(name string) string {
+	define := EndpointOptionDefine(name)
+
 	set, exists := e.Opts[name]
-	if !exists {
-		return "#undef " + name
+	if exists && set {
+		return "#define " + define
 	}
-	if set {
-		return "#define " + name
-	}
+
 	return "#undef " + name
 }
 

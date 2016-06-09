@@ -351,19 +351,16 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	if ep.Opts == nil {
 		ep.Opts = types.EPOpts{}
-		ep.Opts[common.DisablePolicyEnforcement] = d.conf.DisablePolicy
-		ep.Opts[common.EnableNAT46] = false
-		ep.Opts[common.EnableDropNotify] = true
-	} else {
-		if _, exists := ep.Opts[common.DisablePolicyEnforcement]; !exists {
-			ep.Opts[common.DisablePolicyEnforcement] = d.conf.DisablePolicy
-		}
-		if _, exists := ep.Opts[common.EnableNAT46]; !exists {
-			ep.Opts[common.EnableNAT46] = false
-		}
-		if _, exists := ep.Opts[common.EnableDropNotify]; !exists {
-			ep.Opts[common.EnableDropNotify] = true
-		}
+	}
+
+	if _, exists := ep.Opts[types.OptionDisablePolicy]; !exists {
+		ep.Opts[types.OptionDisablePolicy] = d.conf.DisablePolicy
+	}
+	if _, exists := ep.Opts[types.OptionNAT46]; !exists {
+		ep.Opts[types.OptionNAT46] = false
+	}
+	if _, exists := ep.Opts[types.OptionDropNotify]; !exists {
+		ep.Opts[types.OptionDropNotify] = true
 	}
 
 	d.InsertEndpoint(&ep)
