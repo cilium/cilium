@@ -2,4 +2,4 @@
 
 set -x
 
-sudo docker run --rm -ti --net cilium -l io.cilium.public noironetworks/nettools bash
+sudo docker run --rm -ti --net cilium -l io.cilium.client noironetworks/nettools bash
