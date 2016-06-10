@@ -49,6 +49,12 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 		if err := d.syncLabels(ep); err != nil {
 			log.Warningf("Unable to restore endpoint %s: %s", ep.ID, err)
+			continue
+		}
+
+		if err := d.regenerateEndpoint(ep); err != nil {
+			log.Warningf("Unable to restore endpoint %s: %s", ep.ID, err)
+			continue
 		}
 
 		d.insertEndpoint(ep)
