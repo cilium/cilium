@@ -166,7 +166,7 @@ static inline int __inline__ ct_create6(void *map, struct __sk_buff *skb,
 
 	/* Lookup entry in forward direction */
 	if ((ret = __ct_lookup6(map, skb, &tuple, action, in)) != POLICY_UNSPEC) {
-		if (ret == POLICY_SKIP)
+		if (ret == POLICY_SKIP && tuple.nexthdr != IPPROTO_ICMPV6)
 			ret = POLICY_UNSPEC;
 		return ret;
 	}
