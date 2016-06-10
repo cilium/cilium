@@ -8,11 +8,11 @@ sleep 2
 sudo cilium endpoint list
 
 read -p "$*"
-ADDR=$(sudo cilium endpoint list | grep beef| awk '{ print $4}')
+ADDR=$(sudo cilium endpoint list | grep io.cilium.server| awk '{ print $4}')
 ping6 -c 4 $ADDR
 
 read -p "$*"
-ID=$(sudo cilium endpoint list | grep beef| awk '{ print $1}')
+ID=$(sudo cilium endpoint list | grep io.cilium.server| awk '{ print $1}')
 cat /var/run/cilium/$ID/lxc_config.h
 
 read -p "$*"
