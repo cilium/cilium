@@ -376,7 +376,7 @@ func dumpMap(ctx *cli.Context) {
 					fmt.Fprintf(w, "%s\t%s\t%d\t%d\t\n", lbl, act.String(), stat.Bytes, stat.Packets)
 					first = false
 				} else {
-					fmt.Fprintf(w, "\t\t%s\t\t\t\n", lbl)
+					fmt.Fprintf(w, "%s\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
