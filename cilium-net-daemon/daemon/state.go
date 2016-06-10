@@ -109,17 +109,25 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*types.Endpoi
 	possibleEPs := []*types.Endpoint{}
 	for _, epID := range eptsDirNames {
 		epDir := filepath.Join(basePath, epID)
-		log.Debugf("Reading directory %s\n", epDir)
-		epFiles, err := ioutil.ReadDir(epDir)
-		if err != nil {
-			log.Warningf("Error while reading directory %q. Ignoring it...", epDir)
-			continue
+		readDir := func() string {
+			log.Debugf("Reading directory %s\n", epDir)
+			epFiles, err := ioutil.ReadDir(epDir)
+			if err != nil {
+				log.Warningf("Error while reading directory %q. Ignoring it...", epDir)
+				return ""
+			}
+			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
+			if cHeaderFile == "" {
+				log.Infof("File %q not found in %q. Ignoring endpoint %q.",
+					common.CHeaderFileName, epDir, epID)
+				return ""
+			}
+			return cHeaderFile
 		}
-		cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
+		// There's an odd issue where the first read dir doesn't work.
+		cHeaderFile := readDir()
 		if cHeaderFile == "" {
-			log.Infof("File %q not found in %q. Ignoring endpoint %q.",
-				common.CHeaderFileName, epDir, epID)
-			continue
+			cHeaderFile = readDir()
 		}
 		log.Debugf("Found endpoint C header file %q\n", cHeaderFile)
 		strEp, err := common.GetCiliumVersionString(cHeaderFile)
