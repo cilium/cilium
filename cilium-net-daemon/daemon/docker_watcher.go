@@ -108,6 +108,11 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
 	return d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
 }
 
+func isDockerAndInfracontainer(allLabels map[string]string) bool {
+	contName, exists := allLabels[k8sDockerLbls.KubernetesContainerNameLabel]
+	return !exists || contName == "POD"
+}
+
 func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	dockerID := m.Actor.ID
 	log.Debugf("Processing container %s", dockerID)
@@ -115,6 +120,11 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 	cont, err := d.dockerClient.ContainerInspect(dockerID)
 	if err != nil {
 		log.Errorf("Error while inspecting container '%s': %s", dockerID, err)
+		return
+	}
+
+	if !isDockerAndInfracontainer(allLabels) {
+		log.Infof("Ignoring container %s since its infracontainer is already present", dockerID)
 		return
 	}
 
@@ -172,6 +182,11 @@ func (d *Daemon) deleteContainer(m dTypesEvents.Message) {
 	dockerID := m.Actor.ID
 	log.Debugf("Processing container %s", dockerID)
 	allLabels := m.Actor.Attributes
+
+	if !isDockerAndInfracontainer(allLabels) {
+		log.Infof("Ignoring container %s since its infracontainer is the only one that will clean the sec label", dockerID)
+		return
+	}
 
 	ciliumLabels := d.getFilteredLabels(allLabels)
 
