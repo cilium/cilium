@@ -289,7 +289,7 @@ func (d *Daemon) regenerateBPF(ep *types.Endpoint, lxcDir string) error {
 	}()
 
 	if ep.PolicyMap == nil {
-		ep.PolicyMap, err, createdPolicyMap = policymap.OpenMap(policyMapPath)
+		ep.PolicyMap, createdPolicyMap, err = policymap.OpenMap(policyMapPath)
 		if err != nil {
 			return err
 		}

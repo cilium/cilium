@@ -383,7 +383,7 @@ func (d *Daemon) PolicyInit() error {
 
 		lbl.Labels[k] = &types.Label{Key: k, Source: common.ReservedLabelSource}
 
-		policyMap, err, _ := policymap.OpenMap(policyMapPath)
+		policyMap, _, err := policymap.OpenMap(policyMapPath)
 		if err != nil {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
