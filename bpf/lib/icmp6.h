@@ -263,14 +263,13 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 	switch(type) {
 	case 135:
 		return icmp6_handle_ns(skb, nh_off);
-	case 128:
+	case ICMPV6_ECHO_REQUEST:
 		if (!ipv6_addrcmp(&dst, &router_ip))
 			return icmp6_send_echo_response(skb, nh_off);
-	case 129:
-		return REDIRECT_TO_LXC;
+		break;
 	}
 
-	return TC_ACT_UNSPEC;
+	return REDIRECT_TO_LXC;
 }
 
 #endif
