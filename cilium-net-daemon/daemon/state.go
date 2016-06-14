@@ -96,6 +96,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		if err != nil {
 			log.Warningf("Failed while updating ep %s: %s", ep.ID, err)
 		} else {
+			if ep.SecLabel != nil {
+				d.uiTopo.AddOrUpdateNode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount)
+			}
 			log.Infof("EP %s completely restored", ep.ID)
 		}
 	}
@@ -180,8 +183,6 @@ func (d *Daemon) syncLabels(ep *types.Endpoint) error {
 			ep.ID, ep.SecLabel.ID, labels.ID)
 	}
 	ep.SetSecLabel(labels)
-
-	d.uiTopo.AddOrUpdateNode(labels.ID, labels.Labels.ToSlice(), labels.RefCount)
 
 	return nil
 }
