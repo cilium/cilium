@@ -136,7 +136,11 @@ func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error)
 		return nil, nil, err
 	}
 	c, err := lockKey.Lock(nil)
-	log.Debugf("Locked for %s", path)
+	defer func() {
+		if err == nil {
+			log.Debugf("Locked for %s", path)
+		}
+	}()
 	return lockKey, c, err
 }
 
