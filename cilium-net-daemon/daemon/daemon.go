@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -43,10 +44,37 @@ type Daemon struct {
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
+	var (
+		c   *consulAPI.Client
+		err error
+	)
 	if config != nil {
-		return consulAPI.NewClient(config)
+		c, err = consulAPI.NewClient(config)
+	} else {
+		c, err = consulAPI.NewClient(consulAPI.DefaultConfig())
 	}
-	return consulAPI.NewClient(consulAPI.DefaultConfig())
+	if err != nil {
+		return nil, err
+	}
+	maxRetries := 30
+	i := 0
+	for {
+		leader, err := c.Status().Leader()
+		if err != nil || leader == "" {
+			log.Info("Waiting for consul client to be ready...")
+			time.Sleep(2 * time.Second)
+			i++
+			if i > maxRetries {
+				e := fmt.Errorf("Unable to contact consul")
+				log.Error(e)
+				return nil, e
+			}
+		} else {
+			log.Info("Consul client ready")
+			break
+		}
+	}
+	return c, nil
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
