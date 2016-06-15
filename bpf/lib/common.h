@@ -84,16 +84,13 @@ struct drop_notify {
 #define DROP_INVALID_DMAC	-131
 #define DROP_INVALID_SIP	-132
 #define DROP_POLICY		-133
+#define DROP_INVALID		-134
 
 enum {
 	CB_SRC_LABEL,
 	CB_IFINDEX,
 	CB_POLICY,
 };
-
-/* Indicates an ingress CT entry */
-#define TUPLE_F_OUT		0
-#define TUPLE_F_IN		1
 
 enum {
 	POLICY_UNSPEC,
@@ -103,8 +100,9 @@ enum {
 
 struct ipv6_ct_tuple {
 	union v6addr	addr;
-	__u16		sport;
+	/* The order of dport+sport must not be changed */
 	__u16		dport;
+	__u16		sport;
 	__u8		nexthdr;
 	__u8		flags;
 };

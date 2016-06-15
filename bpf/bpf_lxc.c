@@ -64,12 +64,12 @@ static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
 }
 #endif
 
-static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
+static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
+					    struct ipv6_ct_tuple *tuple, int nh_off)
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	union v6addr dst = {};
-	int do_nat46 = 0;
+	int do_nat46 = 0, ret;
 
 	if (unlikely(invalid_src_mac(skb)))
 		return DROP_INVALID_SMAC;
@@ -78,20 +78,48 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 	else if (unlikely(invalid_dst_mac(skb)))
 		return DROP_INVALID_DMAC;
 
-	ipv6_load_daddr(skb, nh_off, &dst);
+	/* The tuple is created in reverse order initially to find a
+	 * potential reverse flow. This is required because the RELATED
+	 * or REPLY state takes precedence over ESTABLISHED due to
+	 * policy requirements.
+	 *
+	 * Depending on direction, either source or destination address
+	 * is assumed to be the address of the container. Therefore,
+	 * the source address for incoming respectively the destination
+	 * address for outgoing packets is stored in a single field in
+	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
+	 * address the field currently represents.
+	 */
+	if (ipv6_load_daddr(skb, nh_off, &tuple->addr) < 0)
+		return DROP_INVALID;
+
 	map_lxc_out(skb, nh_off);
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	skb->cb[CB_POLICY] = ct_create6_out(&CT_MAP, skb, ETH_HLEN, SECLABEL);
-	if (skb->cb[CB_POLICY] == POLICY_DROP)
+	ret = ct_lookup6(&CT_MAP, tuple, skb, ETH_HLEN, SECLABEL, 0);
+	switch (ret) {
+	case CT_NEW:
+		ct_create6(&CT_MAP, tuple, skb, 0);
+		break;
+
+	case CT_ESTABLISHED:
+		break;
+
+	case CT_RELATED:
+	case CT_REPLY:
+		skb->cb[CB_POLICY] = POLICY_SKIP;
+		break;
+
+	default:
 		return DROP_POLICY;
+	}
 
 	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_subnet_96(&dst, &host_ip)) {
-		__u32 node_id = ipv6_derive_node_id(&dst);
+	if (ipv6_match_subnet_96(&tuple->addr, &host_ip)) {
+		__u32 node_id = ipv6_derive_node_id(&tuple->addr);
 
 		if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
@@ -106,16 +134,16 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb, int nh_off)
 		}
 
 #ifdef HOST_IFINDEX
-		if (dst.addr[14] == host_ip.addr[14] &&
-		    dst.addr[15] == host_ip.addr[15])
+		if (tuple->addr.addr[14] == host_ip.addr[14] &&
+		    tuple->addr.addr[15] == host_ip.addr[15])
 			goto to_host;
 #endif
 
-		return local_delivery(skb, nh_off, &dst, SECLABEL);
+		return local_delivery(skb, nh_off, &tuple->addr, SECLABEL);
 	} else {
 #ifdef ENABLE_NAT46
 		/* FIXME: Derive from prefix constant */
-		if (unlikely((dst.p1 & 0xffff) == 0xadde)) {
+		if (unlikely((tuple->addr.p1 & 0xffff) == 0xadde)) {
 			do_nat46 = 1;
 			goto to_host;
 		}
@@ -188,7 +216,7 @@ pass_to_stack:
 __section("from-container")
 int handle_ingress(struct __sk_buff *skb)
 {
-	__u8 nexthdr;
+	struct ipv6_ct_tuple tuple = {};
 	int ret;
 
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
@@ -200,15 +228,15 @@ int handle_ingress(struct __sk_buff *skb)
 	/* Handle ICMPv6 messages to the logical router, all other ICMPv6
 	 * messages are passed on to the container (REDIRECT_TO_LXC)
 	 */
-	nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
-	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
+	tuple.nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
+	if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(skb, ETH_HLEN);
 		if (ret != REDIRECT_TO_LXC)
 			goto error;
 	}
 
 	/* Perform L3 action on the frame */
-	ret = do_l3_from_lxc(skb, ETH_HLEN);
+	ret = do_l3_from_lxc(skb, &tuple, ETH_HLEN);
 error:
 	if (likely(ret == TC_ACT_OK || ret == TC_ACT_REDIRECT))
 		return ret;
@@ -229,24 +257,38 @@ __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 
 __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
+	struct ipv6_ct_tuple tuple = {};
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
-	int ifindex = skb->cb[CB_IFINDEX];
+	int ret, ifindex = skb->cb[CB_IFINDEX];
+
+	skb->cb[CB_POLICY] = 0;
+	tuple.nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
+	if (ipv6_load_saddr(skb, ETH_HLEN, &tuple.addr) < 0) {
+		ret = DROP_INVALID;
+		goto drop;
+	}
+
+	ret = ct_lookup6(&CT_MAP, &tuple, skb, ETH_HLEN, SECLABEL, 1);
+	if (unlikely(ret == CT_INVALID)) {
+		ret = DROP_INVALID;
+		goto drop;
+	}
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
-		send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
-		return TC_ACT_SHOT;
-	} else {
-		/* Create a connection tracking entry for any incoming traffic
-		 * so egress traffic can be related.
-		 */
-		if (ct_create6_in(&CT_MAP, skb, ETH_HLEN, src_label) == POLICY_DROP) {
-			send_drop_notify_error(skb, -(DROP_POLICY));
+		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED) {
+			send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
 			return TC_ACT_SHOT;
 		}
-
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		return redirect(ifindex, 0);
+	} else if (ret == CT_NEW) {
+		ct_create6(&CT_MAP, &tuple, skb, 1);
 	}
+
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+	return redirect(ifindex, 0);
+
+drop:
+	send_drop_notify_error(skb, ret);
+	return TC_ACT_SHOT;
 }
 
 BPF_LICENSE("GPL");
