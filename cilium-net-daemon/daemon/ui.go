@@ -21,16 +21,15 @@ func (d *Daemon) GetUIIP() (*net.TCPAddr, error) {
 	return listAddr, err
 }
 
-// map[uint32]*map[uint32]*policymap.PolicyEntry where represents map[from][to]stats
-type receivedStats map[uint32]*map[uint32]*policymap.PolicyEntry
+// map[uint32]map[uint32]*policymap.PolicyEntry where represents map[to][from]stats
+type receivedStats map[uint32]map[uint32]*policymap.PolicyEntry
 
 func (rs receivedStats) getStats(from, to uint32) *policymap.PolicyEntry {
-	fromMapPtr := rs[from]
-	if fromMapPtr != nil {
-		fromMap := *fromMapPtr
-		pePtr := fromMap[to]
-		if pePtr != nil {
-			pe := policymap.PolicyEntry(*pePtr)
+	fromMap, exists := rs[to]
+	if exists {
+		pe, exists := fromMap[from]
+		if exists && pe != nil {
+			pe := policymap.PolicyEntry(*pe)
 			return &pe
 		}
 	}
@@ -40,31 +39,29 @@ func (rs receivedStats) getStats(from, to uint32) *policymap.PolicyEntry {
 func (d *Daemon) getReceivedStats() (receivedStats, error) {
 	stats := receivedStats{}
 	for _, ep := range d.endpoints {
-		if ep.SecLabel != nil &&
-			ep.PolicyMap != nil {
-
-			pm, err := ep.PolicyMap.DumpToSlice()
-			if err != nil {
-				continue
-			}
-
-			statPtr, exists := stats[ep.SecLabel.ID]
-			var stat map[uint32]*policymap.PolicyEntry
-			if exists {
-				stat = *statPtr
-			} else {
-				stat = map[uint32]*policymap.PolicyEntry{}
-			}
-
-			for _, p := range pm {
-				pe, exists := stat[p.ID]
-				if exists {
-					pe.Add(p.PolicyEntry)
-				} else {
-					stat[p.ID] = &p.PolicyEntry
+		if ep.SecLabel != nil {
+			if ep.PolicyMap != nil {
+				pm, err := ep.PolicyMap.DumpToSlice()
+				if err != nil {
+					continue
 				}
+
+				stat, exists := stats[ep.SecLabel.ID]
+				if !exists {
+					stats[ep.SecLabel.ID] = map[uint32]*policymap.PolicyEntry{}
+					stat = stats[ep.SecLabel.ID]
+				}
+
+				for _, p := range pm {
+					pe, exists := stat[p.ID]
+					if exists {
+						pe.Add(p.PolicyEntry)
+					} else {
+						stat[p.ID] = &p.PolicyEntry
+					}
+				}
+
 			}
-			stats[ep.SecLabel.ID] = &stat
 		}
 	}
 	return stats, nil
@@ -75,9 +72,11 @@ func (d *Daemon) ListenBuildUIEvents() {
 		select {
 		case c.uiChan <- message:
 		case <-time.After(time.Second * 90):
+			d.uiListenersMU.Lock()
 			if _, ok := d.uiListeners[c]; ok {
 				delete(d.uiListeners, c)
 			}
+			d.uiListenersMU.Unlock()
 		}
 	}
 
@@ -87,6 +86,7 @@ func (d *Daemon) ListenBuildUIEvents() {
 		for {
 			select {
 			case <-refreshTime.C:
+				stats, _ := d.getReceivedStats()
 				nodes := d.uiTopo.GetNodes()
 				for _, fromNode := range nodes {
 					sctx := &types.SearchContext{
@@ -94,14 +94,10 @@ func (d *Daemon) ListenBuildUIEvents() {
 					}
 
 					for _, toNode := range nodes {
-						if fromNode.ID == toNode.ID {
-							continue
-						}
+
 						sctx.To = toNode.Labels
 
 						cd := d.policyCanConsume(sctx)
-
-						stats, _ := d.getReceivedStats()
 
 						pe := stats.getStats(uint32(fromNode.ID), uint32(toNode.ID))
 
@@ -122,12 +118,26 @@ func (d *Daemon) ListenBuildUIEvents() {
 		for {
 			select {
 			case conn := <-d.registerUIListener:
+				d.uiListenersMU.Lock()
 				d.uiListeners[conn] = true
+				nodes := d.uiTopo.GetNodes()
+				for _, node := range nodes {
+					message := types.NewUIUpdateMsg().Add().Node(node).Build()
+					go sendToListener(conn, message)
+				}
+				edges := d.uiTopo.GetEdges()
+				for _, edge := range edges {
+					message := types.NewUIUpdateMsg().Add().Edge(edge).Build()
+					go sendToListener(conn, message)
+				}
+				d.uiListenersMU.Unlock()
 
 			case message := <-d.uiTopo.UIChan:
+				d.uiListenersMU.Lock()
 				for c := range d.uiListeners {
 					go sendToListener(c, message)
 				}
+				d.uiListenersMU.Unlock()
 			}
 		}
 	}()
