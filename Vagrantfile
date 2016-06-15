@@ -26,6 +26,7 @@ sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart
 sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-policy-watcher.conf /etc/init/
 sudo rm -rf /var/log/upstart/cilium-*
 sudo service cilium-net-daemon restart
+sleep 3s
 
 sudo usermod -a -G cilium vagrant
 SCRIPT
@@ -93,7 +94,7 @@ sleep 2s
 ip -6 route add default via beef::1 || true
 echo 'exec cilium -D daemon -d eth2 -c "192.168.230.11:8500"' > /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
-sleep 1s
+sleep 3s
 SCRIPT
 
 $load_default_policy = <<SCRIPT
