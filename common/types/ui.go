@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -59,9 +60,11 @@ func newuiNode(id, refCount int, lbls []Label) *UINode {
 func (n *UINode) Build() {
 	n.Label = ""
 	if n.Labels != nil {
+		lblsStr := []string{}
 		for _, l := range n.Labels {
-			n.Label += l.String() + "\n"
+			lblsStr = append(lblsStr, l.String())
 		}
+		n.Label = strings.Join(lblsStr, "\n")
 	}
 	n.Size = 10 + n.refCount
 	n.Image = getImagePath(n.refCount)
@@ -81,11 +84,11 @@ func (t *UITopo) AddOrUpdateNode(id32 uint32, lbls []Label, refCount int) {
 	if exists {
 		node.refCount = refCount
 		node.Labels = lbls
-		msg = newMsg().Mod().Node(*node).Build()
+		msg = NewUIUpdateMsg().Mod().Node(*node).Build()
 	} else {
 		node := newuiNode(id, refCount, lbls)
 		t.uiNodes[id] = node
-		msg = newMsg().Add().Node(*node).Build()
+		msg = NewUIUpdateMsg().Add().Node(*node).Build()
 	}
 	svgByte := createSVG(refCount)
 	if err := writeSVGFile(refCount, "./", svgByte); err != nil {
@@ -106,7 +109,7 @@ func (t *UITopo) DeleteNode(id32 uint32) {
 
 	if exists {
 		node.Build()
-		msg = newMsg().Del().Node(*node).Build()
+		msg = NewUIUpdateMsg().Del().Node(*node).Build()
 		t.UIChan <- msg
 	}
 }
@@ -130,6 +133,7 @@ type UIEdge struct {
 	Removed    bool      `json:"dashes"`
 	Color      string    `json:"color"`
 	Title      string    `json:"title"`
+	Length     int       `json:"length,omitempty"`
 	lastChange time.Time `json:"-"`
 	color      uiColor   `json:"-"`
 	bytes      uint64    `json:"-"`
@@ -146,7 +150,7 @@ func newuiEdge(from, to int) *UIEdge {
 }
 
 func getUIEdgeID(from, to int) string {
-	return fmt.Sprintf("%d->%d", from, to)
+	return fmt.Sprintf("%d-%d", from, to)
 }
 
 func (e *UIEdge) Build() {
@@ -158,6 +162,9 @@ func (e *UIEdge) Build() {
 	} else {
 		e.Value = 1
 		e.Title = fmt.Sprintf("Disconnected...")
+	}
+	if e.From == e.To {
+		e.Length = 500
 	}
 	e.Color = e.color.String()
 }
@@ -191,11 +198,11 @@ func (t *UITopo) AddOrUpdateEdge(from, to int, pe *policymap.PolicyEntry) {
 				updateUI = true
 			}
 		}
-		msg = newMsg().Mod().Edge(*edge).Build()
+		msg = NewUIUpdateMsg().Mod().Edge(*edge).Build()
 	} else {
 		edge := newuiEdge(from, to)
 		t.uiEdges[id] = edge
-		msg = newMsg().Add().Edge(*edge).Build()
+		msg = NewUIUpdateMsg().Add().Edge(*edge).Build()
 		updateUI = true
 	}
 	if updateUI {
@@ -215,7 +222,7 @@ func (t *UITopo) DeleteEdge(from, to int) {
 		edge.lastChange = time.Now()
 		edge.color = red
 		edge.Removed = true
-		msg := newMsg().Mod().Edge(*edge).Build()
+		msg := NewUIUpdateMsg().Mod().Edge(*edge).Build()
 		t.UIChan <- msg
 	}
 }
@@ -238,10 +245,10 @@ func (t *UITopo) RefreshEdges() {
 	for _, edge := range t.uiEdges {
 		if edge.Removed {
 			if edge.lastChange.Add(10 * time.Second).Before(time.Now()) {
-				delMsgs = append(delMsgs, newMsg().Del().Edge(*edge).Build())
+				delMsgs = append(delMsgs, NewUIUpdateMsg().Del().Edge(*edge).Build())
 			} else {
 				edge.color.Grayer()
-				modMsgs = append(modMsgs, newMsg().Mod().Edge(*edge).Build())
+				modMsgs = append(modMsgs, NewUIUpdateMsg().Mod().Edge(*edge).Build())
 			}
 		}
 	}
@@ -303,7 +310,7 @@ type UIUpdateMsg struct {
 	objType  string  `json:"-"`
 }
 
-func newMsg() UIUpdateMsg {
+func NewUIUpdateMsg() UIUpdateMsg {
 	return UIUpdateMsg{}
 }
 

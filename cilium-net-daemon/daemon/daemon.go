@@ -40,6 +40,7 @@ type Daemon struct {
 	reservedConsumables  []*types.Consumable
 	uiTopo               types.UITopo
 	uiListeners          map[*Conn]bool
+	uiListenersMU        sync.Mutex
 	registerUIListener   chan *Conn
 }
 

@@ -18,6 +18,7 @@ const (
 <html>
 	<head>
 		<script type="text/javascript" src="./static/vis.min.js"></script>
+		<script type="text/javascript" src="./static/vis.animatetraffic.js"></script>
 		<link href="./static/vis.min.css" rel="stylesheet" type="text/css" />
 
 		<style type="text/css">
@@ -34,8 +35,8 @@ const (
 		<script type="text/javascript">
 			var network;
 
-			nodesArray = {{.Nodes}};
-			edgesArray = {{.Edges}};
+			nodesArray = [];
+			edgesArray = [];
 
 			nodes = new vis.DataSet(nodesArray);
 			edges = new vis.DataSet(edgesArray);
@@ -75,9 +76,8 @@ const (
 					"smooth" : {
 						"forceDirection" : "none"
 					},
-    					"selfReferenceSize": 1,
 					"scaling": {
-      						"min": 0.5,
+						"min": 1,
     					}
 				},
 				"physics" : {
@@ -121,6 +121,10 @@ const (
 						break;
 					case "mod-edge":
 						edges.update(msg.edge);
+						network.animateTraffic({
+							edge: msg.edge.id,
+							trafficSize: msg.edge.value
+						});
 						break;
 					case "del-edge":
 						edges.remove({
@@ -165,12 +169,8 @@ func (router *RouterUI) createUIHTMLIndex(w http.ResponseWriter, r *http.Request
 	}
 
 	var ipStruct = struct {
-		Nodes   []types.UINode
-		Edges   []types.UIEdge
 		TCPAddr string
 	}{
-		router.daemon.GetUINodes(),
-		router.daemon.GetUIEdges(),
 		addr,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
