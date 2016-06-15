@@ -7,7 +7,20 @@
 
 #define CT_DEFAULT_LIFEIME 360
 
+enum {
+	CT_NEW,
+	CT_ESTABLISHED,
+	CT_REPLY,
+	CT_RELATED,
+	CT_INVALID,
+};
+
+
 #ifndef DISABLE_CONNTRACK
+
+#define TUPLE_F_OUT		0	/* Outgoing flow */
+#define TUPLE_F_IN		1	/* Incoming flow */
+#define TUPLE_F_RELATED		2	/* Flow represents related packets */
 
 enum {
 	ACTION_UNSPEC,
@@ -26,14 +39,8 @@ static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
 	cilium_trace(skb, DBG_CT_LOOKUP, tuple->sport, tuple->dport);
 
 	if ((entry = map_lookup_elem(map, tuple))) {
-		cilium_trace(skb, DBG_CT_MATCH, ntohl(tuple->addr.p3), ntohl(tuple->addr.p4));
+		cilium_trace(skb, DBG_CT_MATCH, tuple->flags, ntohl(tuple->addr.p4));
 		entry->lifetime = CT_DEFAULT_LIFEIME;
-
-		if (action == ACTION_CREATE) {
-			/* Connection already established in reverse direction. Stale entry
-			 * or malicious packet. */
-			return POLICY_DROP;
-		}
 
 		/* FIXME: This is slow, per-cpu counters? */
 		if (in) {
@@ -63,10 +70,10 @@ static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
 			break;
 		}
 
-		return POLICY_SKIP;
+		return CT_ESTABLISHED;
 	}
 
-	return POLICY_UNSPEC;
+	return CT_NEW;
 }
 
 struct tcp_flags {
@@ -100,36 +107,62 @@ static inline void __inline__ ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 }
 
 /* Offset must point to IPv6 */
-static inline int __inline__ ct_create6(void *map, struct __sk_buff *skb,
-					int off, __u32 secctx, int in)
+static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
+					struct __sk_buff *skb, int off, __u32 secctx, int in)
 {
-	struct ipv6_ct_tuple tuple = {};
 	int ret, action = ACTION_UNSPEC;
 
-	/* Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. */
-	if (in) {
-		if (ipv6_load_saddr(skb, off, &tuple.addr) < 0)
-			return POLICY_DROP;
-
-		tuple.flags = TUPLE_F_IN;
-	} else {
-		if (ipv6_load_daddr(skb, off, &tuple.addr) < 0)
-			return POLICY_DROP;
-
-		tuple.flags = TUPLE_F_OUT;
-	}
-
-	if (ipv6_load_nexthdr(skb, off, &tuple.nexthdr) < 0)
-		return POLICY_DROP;
+	/* The tuple is created in reverse order initially to find a
+	 * potential reverse flow. This is required because the RELATED
+	 * or REPLY state takes precedence over ESTABLISHED due to
+	 * policy requirements.
+	 *
+	 * Depending on direction, either source or destination address
+	 * is assumed to be the address of the container. Therefore,
+	 * the source address for incoming respectively the destination
+	 * address for outgoing packets is stored in a single field in
+	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
+	 * address the field currently represents.
+	 */
+	if (in)
+		tuple->flags = TUPLE_F_OUT;
+	else
+		tuple->flags = TUPLE_F_IN;
 
 	/* FIXME: handle extension headers */
 	off += sizeof(struct ipv6hdr);
 
-	switch (tuple.nexthdr) {
+	switch (tuple->nexthdr) {
 	case IPPROTO_ICMPV6:
-		tuple.sport = 0;
-		tuple.dport = 0;
+		if (1) {
+			__u8 type;
+
+			if (skb_load_bytes(skb, off, &type, 1) < 0)
+				return CT_INVALID;
+
+			tuple->sport = 0;
+			tuple->dport = 0;
+
+			switch (type) {
+			case ICMPV6_DEST_UNREACH:
+			case ICMPV6_PKT_TOOBIG:
+			case ICMPV6_TIME_EXCEED:
+			case ICMPV6_PARAMPROB:
+				tuple->flags |= TUPLE_F_RELATED;
+				break;
+
+			case ICMPV6_ECHO_REPLY:
+				tuple->dport = ICMPV6_ECHO_REQUEST;
+				break;
+
+			case ICMPV6_ECHO_REQUEST:
+				tuple->sport = type;
+				/* fall through */
+			default:
+				action = ACTION_CREATE;
+				break;
+			}
+		}
 		break;
 
 	case IPPROTO_TCP:
@@ -137,13 +170,13 @@ static inline int __inline__ ct_create6(void *map, struct __sk_buff *skb,
 			struct tcp_flags flags;
 
 			if (skb_load_bytes(skb, off + 12, &flags, 2) < 0)
-				return POLICY_DROP;
+				return CT_INVALID;
 
 			if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
 			else {
 				if (unlikely(!flags.ack))
-					return POLICY_DROP;
+					return CT_INVALID;
 
 				if (unlikely(flags.rst))
 					action = ACTION_DELETE;
@@ -155,85 +188,89 @@ static inline int __inline__ ct_create6(void *map, struct __sk_buff *skb,
 
 	case IPPROTO_UDP:
 		/* load sport + dport into tuple */
-		if (skb_load_bytes(skb, off, &tuple.sport, 4) < 0)
-			return POLICY_DROP;
+		if (skb_load_bytes(skb, off, &tuple->dport, 4) < 0)
+			return CT_INVALID;
+
+		action = ACTION_CREATE;
 		break;
 
 	default:
 		/* Can't handle extension headers yet */
-		return POLICY_DROP;
+		return CT_INVALID;
+	}
+
+	/* Lookup the reverse direction
+	 *
+	 * This will find an existing flow in the reverse direction.
+	 */
+	if ((ret = __ct_lookup6(map, skb, tuple, action, in)) != CT_NEW) {
+		if (likely(ret == CT_ESTABLISHED)) {
+			if (unlikely(tuple->flags & TUPLE_F_RELATED))
+				ret = CT_RELATED;
+			else
+				ret = CT_REPLY;
+		}
+		cilium_trace(skb, DBG_GENERIC, ret, 0);
+		return ret;
 	}
 
 	/* Lookup entry in forward direction */
-	if ((ret = __ct_lookup6(map, skb, &tuple, action, in)) != POLICY_UNSPEC) {
-		if (ret == POLICY_SKIP && tuple.nexthdr != IPPROTO_ICMPV6)
-			ret = POLICY_UNSPEC;
-		return ret;
-	}
+	ct_tuple_reverse(tuple);
+	ret = __ct_lookup6(map, skb, tuple, action, in);
 
-	/* Lookup entry in reverse direction */
-	ct_tuple_reverse(&tuple);
-	if ((ret = __ct_lookup6(map, skb, &tuple, action, in)) != POLICY_UNSPEC)
-		return ret;
+	/* No entries found, packet must be eligible for creating a CT entry */
+	if (ret == CT_NEW && action != ACTION_CREATE)
+		ret = CT_INVALID;
 
-	if (action != ACTION_CREATE && action != ACTION_UNSPEC)
-		return POLICY_DROP;
+	cilium_trace(skb, DBG_GENERIC, ret, 0);
 
-	/* Create entry in original direction.
-	 *
-	 * FIXME: Lookup reverse direction first so we don't have to reverse twice */
-	ct_tuple_reverse(&tuple);
-
-	if (1) {
-		struct ipv6_ct_entry entry = {
-			.lifetime = CT_DEFAULT_LIFEIME,
-		};
-
-		if (in) {
-			entry.rx_packets = 1;
-			entry.rx_bytes = skb->len;
-		} else {
-			entry.tx_packets = 1;
-			entry.tx_bytes = skb->len;
-		}
-
-		cilium_trace(skb, DBG_CT_CREATED, tuple.nexthdr, 0);
-		map_update_elem(map, &tuple, &entry, 0);
-
-		/* Create an ICMPv6 entry to relate errors */
-		if (tuple.nexthdr != IPPROTO_ICMPV6) {
-			/* FIXME: We could do a lookup and check if an L3 entry already exists */
-			tuple.nexthdr = IPPROTO_ICMPV6;
-			tuple.sport = 0;
-			tuple.dport = 0;
-
-			cilium_trace(skb, DBG_CT_CREATED, tuple.sport, tuple.dport);
-			map_update_elem(map, &tuple, &entry, 0);
-		}
-	}
-
-	return 0;
+	return ret;
 }
 
-static inline int __inline__ ct_create6_in(void *map, struct __sk_buff *skb, int off, __u32 secctx)
+/* Offset must point to IPv6 */
+static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
+					 struct __sk_buff *skb, int in)
 {
-	return ct_create6(map, skb, off, secctx, 1);
-}
+	/* Create entry in original direction */
+	struct ipv6_ct_entry entry = {
+		.lifetime = CT_DEFAULT_LIFEIME,
+	};
 
-static inline int __inline__ ct_create6_out(void *map, struct __sk_buff *skb, int off, __u32 secctx)
-{
-	return ct_create6(map, skb, off, secctx, 0);
+	if (in) {
+		entry.rx_packets = 1;
+		entry.rx_bytes = skb->len;
+	} else {
+		entry.tx_packets = 1;
+		entry.tx_bytes = skb->len;
+	}
+
+	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	map_update_elem(map, tuple, &entry, 0);
+
+	/* Create an ICMPv6 entry to relate errors */
+	if (tuple->nexthdr != IPPROTO_ICMPV6) {
+		/* FIXME: We could do a lookup and check if an L3 entry already exists */
+		tuple->nexthdr = IPPROTO_ICMPV6;
+		tuple->sport = 0;
+		tuple->dport = 0;
+		tuple->flags |= TUPLE_F_RELATED;
+
+		cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+		map_update_elem(map, tuple, &entry, 0);
+	}
+
+	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
 }
 
 #else /* !DISABLE_CONNTRACK */
-static inline int __inline__ ct_create6_in(void *map, struct __sk_buff *skb, int off, __u32 secctx)
+static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
+					struct __sk_buff *skb, int off, __u32 secctx, int in)
 {
 	return 0;
 }
 
-static inline int __inline__ ct_create6_out(void *map, struct __sk_buff *skb, int off, __u32 secctx)
+static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb, int in)
 {
-	return 0;
 }
 #endif
 

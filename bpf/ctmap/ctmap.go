@@ -25,6 +25,12 @@ type CtMap struct {
 }
 
 const (
+	TUPLE_F_OUT     = 0
+	TUPLE_F_IN      = 1
+	TUPLE_F_RELATED = 2
+)
+
+const (
 	// FIXME: Change to common.MaxKeys
 	MAX_KEYS = 1024
 )
@@ -65,13 +71,17 @@ func (m *CtMap) Dump() (string, error) {
 			continue
 		}
 
-		if entry.Key.flags == 1 {
+		if entry.Key.flags&TUPLE_F_IN != 0 {
 			buffer.WriteString(fmt.Sprintf(":%d => [%s]:%d ",
 				entry.Key.sport, entry.Key.addr.String(), entry.Key.dport))
 
 		} else {
 			buffer.WriteString(fmt.Sprintf(":%d <= [%s]:%d ",
 				entry.Key.dport, entry.Key.addr.String(), entry.Key.sport))
+		}
+
+		if entry.Key.flags&TUPLE_F_RELATED != 0 {
+			buffer.WriteString("related ")
 		}
 
 		buffer.WriteString(fmt.Sprintf("proto=%s expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d\n",

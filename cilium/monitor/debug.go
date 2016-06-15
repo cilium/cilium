@@ -51,9 +51,9 @@ func (n *DebugMsg) Dump(data []byte) {
 	case DBG_CT_LOOKUP:
 		fmt.Printf("CT lookup sport=%d dport=%d\n", n.Arg1, n.Arg2)
 	case DBG_CT_MATCH:
-		fmt.Printf("CT entry found secctx=%d\n", n.Arg1)
+		fmt.Printf("CT entry found flags=%#x IPv6=[...]:%x\n", n.Arg1, n.Arg2)
 	case DBG_CT_CREATED:
-		fmt.Printf("CT created sport=%d dport=%d\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT created proto=%d flags=%#x\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
