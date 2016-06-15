@@ -1,6 +1,7 @@
 package policy_repo
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -202,6 +203,10 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 	case *json.SyntaxError:
 		line, ctx, off := getContext(content, e.Offset)
 
+		if off <= 1 {
+			return fmt.Errorf("Error: No policy")
+		}
+
 		preoff := off - 1
 		pre := make([]byte, preoff)
 		copy(pre, ctx[:preoff])
@@ -223,9 +228,16 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 }
 
 func loadPolicyFile(path string) (*types.PolicyNode, error) {
+	var content []byte
+	var err error
 	log.Debugf("Loading file %s", path)
 
-	content, err := ioutil.ReadFile(path)
+	if path == "-" {
+		content, err = ioutil.ReadAll(bufio.NewReader(os.Stdin))
+	} else {
+		content, err = ioutil.ReadFile(path)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -252,6 +264,10 @@ func ignoredFile(name string) bool {
 
 func loadPolicy(name string) (*types.PolicyNode, error) {
 	log.Debugf("Entering directory %s...", name)
+
+	if name == "-" {
+		return loadPolicyFile(name)
+	}
 
 	if fi, err := os.Stat(name); err != nil {
 		return nil, err
