@@ -73,17 +73,21 @@ func (d *Daemon) GetCachedLabelList(ID uint32) ([]types.Label, error) {
 	return l, nil
 }
 
-func (d *Daemon) evaluateConsumerSource(c *types.Consumable, ctx *types.SearchContext, srcID uint32) error {
+func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchContext, srcID uint32) error {
 	var err error
+
+	c := e.Consumable
 	ctx.From, err = d.GetCachedLabelList(srcID)
 	if err != nil {
 		return err
 	}
 
+	log.Debugf("Evaluating policy for %+v", ctx)
+
 	decision := d.policyCanConsume(ctx)
 	// Only accept rules get stored
 	if decision == types.ACCEPT {
-		if d.conf.DisableConntrack {
+		if e.OptionSet(types.OptionDisableConntrack) {
 			c.AllowConsumerAndReverse(srcID)
 		} else {
 			c.AllowConsumer(srcID)
@@ -94,7 +98,9 @@ func (d *Daemon) evaluateConsumerSource(c *types.Consumable, ctx *types.SearchCo
 }
 
 // Must be called with endpointsMU held
-func (d *Daemon) regenerateConsumable(c *types.Consumable) error {
+func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
+	c := e.Consumable
+
 	// Containers without a security label are not accessible
 	if c.ID == 0 {
 		log.Fatalf("Impossible: SecLabel == 0 when generating endpoint consumers")
@@ -130,7 +136,7 @@ func (d *Daemon) regenerateConsumable(c *types.Consumable) error {
 
 	// Check access from reserved consumables first
 	for _, id := range d.reservedConsumables {
-		if err := d.evaluateConsumerSource(c, &ctx, id.ID); err != nil {
+		if err := d.evaluateConsumerSource(e, &ctx, id.ID); err != nil {
 			// This should never really happen
 			// FIXME: clear policy because it is inconsistent
 			break
@@ -140,7 +146,7 @@ func (d *Daemon) regenerateConsumable(c *types.Consumable) error {
 	// Iterate over all possible assigned search contexts
 	idx := common.FirstFreeID
 	for idx < maxID {
-		if err := d.evaluateConsumerSource(c, &ctx, idx); err != nil {
+		if err := d.evaluateConsumerSource(e, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent
 			break
 		}
@@ -200,7 +206,7 @@ func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID u
 
 func (d *Daemon) regenerateEndpointPolicy(e *types.Endpoint, regenerateEndpoint bool) error {
 	if e.Consumable != nil {
-		if err := d.regenerateConsumable(e.Consumable); err != nil {
+		if err := d.regenerateConsumable(e); err != nil {
 			return err
 		}
 
