@@ -355,6 +355,8 @@ func run(cli *cli.Context) {
 		log.Fatalf("Unable to initialize policy: %s", err)
 	}
 
+	d.EnableConntrackGC()
+
 	// Register event listener in docker endpoint
 	if err := d.EnableDockerEventListener(); err != nil {
 		log.Warningf("Error while enabling docker event watcher %s", err)

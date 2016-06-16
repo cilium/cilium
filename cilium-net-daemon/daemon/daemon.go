@@ -29,6 +29,8 @@ type Daemon struct {
 	ipamConf             map[types.IPAMType]*types.IPAMConfig
 	consul               *consulAPI.Client
 	endpoints            map[string]*types.Endpoint
+	endpointsDocker      map[string]*types.Endpoint
+	endpointsDockerEP    map[string]*types.Endpoint
 	endpointsMU          sync.Mutex
 	validLabelPrefixesMU sync.Mutex
 	dockerClient         *dClient.Client
@@ -166,6 +168,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		dockerClient:        dockerClient,
 		k8sClient:           k8sClient,
 		endpoints:           make(map[string]*types.Endpoint),
+		endpointsDocker:     make(map[string]*types.Endpoint),
+		endpointsDockerEP:   make(map[string]*types.Endpoint),
 		cacheIteration:      1,
 		reservedConsumables: make([]*types.Consumable, 0),
 		policyTree:          rootNode,

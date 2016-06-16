@@ -22,7 +22,7 @@ func isValidID(id string) bool {
 }
 
 func (d *Daemon) lookupCiliumEndpoint(id string) *types.Endpoint {
-	if ep, ok := d.endpoints[common.CiliumPrefix+id]; ok {
+	if ep, ok := d.endpoints[id]; ok {
 		return ep
 	} else {
 		return nil
@@ -30,7 +30,7 @@ func (d *Daemon) lookupCiliumEndpoint(id string) *types.Endpoint {
 }
 
 func (d *Daemon) lookupDockerEndpoint(id string) *types.Endpoint {
-	if ep, ok := d.endpoints[common.DockerEPPrefix+id]; ok {
+	if ep, ok := d.endpointsDockerEP[id]; ok {
 		return ep
 	} else {
 		return nil
@@ -70,34 +70,39 @@ func (d *Daemon) InsertEndpoint(ep *types.Endpoint) {
 
 // insertEndpoint inserts the ep in the endpoints map. To be used with endpointsMU locked.
 func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
-	d.endpoints[common.CiliumPrefix+ep.ID] = ep
+	d.endpoints[ep.ID] = ep
 
 	if ep.DockerID != "" {
-		d.endpoints[common.DockerPrefix+ep.DockerID] = ep
+		d.endpointsDocker[ep.DockerID] = ep
 	}
 
 	if ep.DockerEndpointID != "" {
-		d.endpoints[common.DockerEPPrefix+ep.DockerEndpointID] = ep
+		d.endpointsDockerEP[ep.DockerEndpointID] = ep
 	}
 }
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
 func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, labels *types.SecCtxLabel) *types.Endpoint {
-	id := ""
+	var (
+		ep *types.Endpoint
+		ok bool
+	)
+
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
 	if endpointID != "" {
-		id = common.CiliumPrefix + endpointID
+		ep, ok = d.endpoints[endpointID]
 	} else if dockerID != "" {
-		id = common.DockerPrefix + dockerID
+		ep, ok = d.endpointsDocker[dockerID]
 	} else if dockerEPID != "" {
-		id = common.DockerEPPrefix + dockerEPID
+		ep, ok = d.endpointsDockerEP[dockerEPID]
 	} else {
 		return nil
 	}
 
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-	if ep, ok := d.endpoints[id]; ok {
+	if ok {
 		ep.SetSecLabel(labels)
 		epCopy := *ep
 		return &epCopy
@@ -158,9 +163,9 @@ func (d *Daemon) deleteEndpoint(endpointID string) {
 	defer d.endpointsMU.Unlock()
 
 	if ep := d.lookupCiliumEndpoint(endpointID); ep != nil {
-		delete(d.endpoints, common.DockerPrefix+ep.DockerID)
-		delete(d.endpoints, common.DockerEPPrefix+ep.DockerEndpointID)
-		delete(d.endpoints, common.CiliumPrefix+endpointID)
+		delete(d.endpointsDocker, ep.DockerID)
+		delete(d.endpointsDockerEP, ep.DockerEndpointID)
+		delete(d.endpoints, endpointID)
 	}
 }
 
@@ -247,7 +252,7 @@ func (d *Daemon) createBPFMAPs(epID string) error {
 	}
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	ep, ok := d.endpoints[common.CiliumPrefix+epID]
+	ep, ok := d.endpoints[epID]
 	if !ok {
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
