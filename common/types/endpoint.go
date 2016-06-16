@@ -180,6 +180,13 @@ func (e *Endpoint) GetFmtOpt(name string) string {
 	return "#undef " + name
 }
 
+func (e *Endpoint) OptionChanged(key string, value bool) {
+	switch key {
+	case OptionDisableConntrack:
+		e.InvalidatePolicy()
+	}
+}
+
 func (e *Endpoint) ApplyOpts(opts EPOpts) bool {
 	changes := 0
 
@@ -191,12 +198,14 @@ func (e *Endpoint) ApplyOpts(opts EPOpts) bool {
 			if !ok || !val {
 				e.Opts[k] = true
 				changes++
+				e.OptionChanged(k, v)
 			}
 		} else {
 			/* Only disable if enabled already */
 			if ok && val {
 				delete(e.Opts, k)
 				changes++
+				e.OptionChanged(k, v)
 			}
 		}
 	}
@@ -300,4 +309,11 @@ func (e *Endpoint) IsCNI() bool {
 
 func (e *Endpoint) PolicyMapPath() string {
 	return common.PolicyMapPath + e.ID
+}
+
+func (e *Endpoint) InvalidatePolicy() {
+	if e.Consumable != nil {
+		// Resetting to 0 will trigger a regeneration on the next update
+		e.Consumable.Iteration = 0
+	}
 }
