@@ -2,6 +2,10 @@ package daemon
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
 
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -34,20 +38,34 @@ var (
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	consulConfig := consulAPI.DefaultConfig()
 	consulConfig.Address = "127.0.0.1:8501"
+	_, ipv4range, err := net.ParseCIDR("10.1.2.0/16")
+	c.Assert(err, IsNil)
+	tempLibDir, err := ioutil.TempDir("", "cilium-test")
+	c.Assert(err, IsNil)
 	daemonConf := Config{
-		LibDir:             "",
+		LibDir:             tempLibDir,
 		LXCMap:             nil,
 		NodeAddress:        nil,
 		ConsulConfig:       consulConfig,
 		DockerEndpoint:     "tcp://127.0.0.1",
 		K8sEndpoint:        "tcp://127.0.0.1",
 		ValidLabelPrefixes: nil,
+		IPv4Range:          ipv4range,
 	}
+
+	log.Debugf("DIRECTORY TEMP %s", tempLibDir)
+	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")
+	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "join_ep.sh"), d1, 0755)
+	c.Assert(err, IsNil)
 
 	d, err := NewDaemon(&daemonConf)
 	c.Assert(err, Equals, nil)
 	ds.d = d
 	d.consul.KV().DeleteTree(common.OperationalPath, nil)
+}
+
+func (ds *DaemonSuite) TearDownTest(c *C) {
+	os.RemoveAll(ds.d.conf.LibDir)
 }
 
 func (ds *DaemonSuite) TestLabels(c *C) {
