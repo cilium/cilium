@@ -36,46 +36,48 @@ const (
 	OptionAllowToWorld     = "AllowToWorld"
 )
 
-var OptionSpecNAT46 = EndpointOption{
-	Define:      "ENABLE_NAT46",
-	Description: "Enable automatic NAT46 translation",
-}
+var (
+	OptionSpecNAT46 = EndpointOption{
+		Define:      "ENABLE_NAT46",
+		Description: "Enable automatic NAT46 translation",
+	}
 
-var OptionSpecDisablePolicy = EndpointOption{
-	Define:      "DISABLE_POLICY_ENFORCEMENT",
-	Description: "Disable policy enforcement",
-}
+	OptionSpecDisablePolicy = EndpointOption{
+		Define:      "DISABLE_POLICY_ENFORCEMENT",
+		Description: "Disable policy enforcement",
+	}
 
-var OptionSpecDropNotify = EndpointOption{
-	Define:      "DROP_NOTIFY",
-	Description: "Enable drop notifications",
-}
+	OptionSpecDropNotify = EndpointOption{
+		Define:      "DROP_NOTIFY",
+		Description: "Enable drop notifications",
+	}
 
-var OptionSpecDisableConntrack = EndpointOption{
-	Define:      "DISABLE_CONNTRACK",
-	Description: "Disable stateful connection tracking",
-}
+	OptionSpecDisableConntrack = EndpointOption{
+		Define:      "DISABLE_CONNTRACK",
+		Description: "Disable stateful connection tracking",
+	}
 
-var OptionSpecAllowToHost = EndpointOption{
-	Define:      "ALLOW_TO_HOST",
-	Immutable:   true,
-	Description: "Allow all traffic to local host",
-}
+	OptionSpecAllowToHost = EndpointOption{
+		Define:      "ALLOW_TO_HOST",
+		Immutable:   true,
+		Description: "Allow all traffic to local host",
+	}
 
-var OptionSpecAllowToWorld = EndpointOption{
-	Define:      "ALLOW_TO_WORLD",
-	Immutable:   true,
-	Description: "Allow all traffic to outside world",
-}
+	OptionSpecAllowToWorld = EndpointOption{
+		Define:      "ALLOW_TO_WORLD",
+		Immutable:   true,
+		Description: "Allow all traffic to outside world",
+	}
 
-var EndpointOptionLibrary = map[string]*EndpointOption{
-	OptionNAT46:            &OptionSpecNAT46,
-	OptionDisablePolicy:    &OptionSpecDisablePolicy,
-	OptionDropNotify:       &OptionSpecDropNotify,
-	OptionDisableConntrack: &OptionSpecDisableConntrack,
-	OptionAllowToHost:      &OptionSpecAllowToHost,
-	OptionAllowToWorld:     &OptionSpecAllowToWorld,
-}
+	EndpointOptionLibrary = map[string]*EndpointOption{
+		OptionNAT46:            &OptionSpecNAT46,
+		OptionDisablePolicy:    &OptionSpecDisablePolicy,
+		OptionDropNotify:       &OptionSpecDropNotify,
+		OptionDisableConntrack: &OptionSpecDisableConntrack,
+		OptionAllowToHost:      &OptionSpecAllowToHost,
+		OptionAllowToWorld:     &OptionSpecAllowToWorld,
+	}
+)
 
 func LookupEndpointOption(name string) (string, *EndpointOption) {
 	nameLower := strings.ToLower(name)

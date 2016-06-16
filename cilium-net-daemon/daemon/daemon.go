@@ -174,7 +174,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		registerUIListener:  make(chan *Conn, 1),
 	}
 
-	if c.UIServerAddr != "" {
+	if d.conf.IsUIEnabled() {
 		d.ListenBuildUIEvents()
 	}
 
