@@ -360,6 +360,9 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 		ep.Opts = types.EPOpts{}
 	}
 
+	if _, exists := ep.Opts[types.OptionDisableConntrack]; !exists {
+		ep.Opts[types.OptionDisableConntrack] = d.conf.DisableConntrack
+	}
 	if _, exists := ep.Opts[types.OptionDisablePolicy]; !exists {
 		ep.Opts[types.OptionDisablePolicy] = d.conf.DisablePolicy
 	}
