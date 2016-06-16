@@ -97,7 +97,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			log.Warningf("Failed while updating ep %s: %s", ep.ID, err)
 		} else {
 			if ep.SecLabel != nil {
-				d.uiTopo.AddOrUpdateNode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount)
+				d.AddOrUpdateUINode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount)
 			}
 			log.Infof("EP %s completely restored", ep.ID)
 		}

@@ -150,10 +150,14 @@ func (d *Daemon) RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMs
 	return umsg, nil
 }
 
-func (d *Daemon) GetUINodes() []types.UINode {
-	return d.uiTopo.GetNodes()
+func (d *Daemon) AddOrUpdateUINode(id uint32, lbls []types.Label, refCount int) {
+	if d.conf.IsUIEnabled() {
+		d.uiTopo.AddOrUpdateNode(id, lbls, refCount)
+	}
 }
 
-func (d *Daemon) GetUIEdges() []types.UIEdge {
-	return d.uiTopo.GetEdges()
+func (d *Daemon) DeleteUINode(id uint32) {
+	if d.conf.IsUIEnabled() {
+		d.uiTopo.DeleteNode(id)
+	}
 }

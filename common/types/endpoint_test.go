@@ -29,11 +29,11 @@ func (s *EndpointSuite) TestEndpointID(c *C) {
 func (s *EndpointSuite) TestGetFmtOpt(c *C) {
 	e := Endpoint{
 		Opts: EPOpts{
-			"FOO": true,
-			"BAR": false,
+			OptionDisablePolicy: true,
+			"BAR":               false,
 		},
 	}
-	c.Assert(e.GetFmtOpt("FOO"), Equals, "#define FOO")
+	c.Assert(e.GetFmtOpt(OptionDisablePolicy), Equals, "#define "+OptionSpecDisablePolicy.Define)
 	c.Assert(e.GetFmtOpt("BAR"), Equals, "#undef BAR")
 	c.Assert(e.GetFmtOpt("BAZ"), Equals, "#undef BAZ")
 }

@@ -28,3 +28,7 @@ type Config struct {
 	DisablePolicy    bool
 	DisableConntrack bool
 }
+
+func (c *Config) IsUIEnabled() bool {
+	return c.UIServerAddr != ""
+}

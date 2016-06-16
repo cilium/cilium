@@ -364,7 +364,7 @@ func run(cli *cli.Context) {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
 
-	if config.UIServerAddr != "" {
+	if config.IsUIEnabled() {
 		uiServer, err := s.NewUIServer(config.UIServerAddr, d)
 		if err != nil {
 			log.Fatalf("Error while creating ui server: %s", err)
@@ -372,7 +372,7 @@ func run(cli *cli.Context) {
 		defer uiServer.Stop()
 		go uiServer.Start()
 	} else {
-		log.Info("UI is not enable")
+		log.Info("UI is disabled")
 	}
 
 	server, err := s.NewServer(socketPath, d)
