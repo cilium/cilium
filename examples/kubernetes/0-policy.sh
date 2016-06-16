@@ -28,3 +28,13 @@ if [ ${i} -gt ${tries} ]; then
 fi
 
 ${kubectl} create -f ${dir}/network-policy
+
+cat <<EOF | cilium -D policy import -
+{
+        "name": "io.cilium",
+        "rules": [{
+                "coverage": ["reserved:host"],
+                "allow": ["reserved:all"]
+        }]
+}
+EOF
