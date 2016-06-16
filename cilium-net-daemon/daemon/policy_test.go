@@ -1,9 +1,12 @@
 package daemon
 
 import (
-	"github.com/noironetworks/cilium-net/common"
+	"os"
+	"time"
 
+	"github.com/noironetworks/cilium-net/common"
 	. "github.com/noironetworks/cilium-net/common/types"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -144,7 +147,16 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
 
-	e := Endpoint{}
+	e := Endpoint{ID: "1", IfName: "dummy1"}
+	err = os.Mkdir("1", 755)
+	c.Assert(err, IsNil)
+	defer func() {
+		err = os.RemoveAll("1/geneve_opts.cfg")
+		err = os.RemoveAll("1/lxc_config.h")
+		time.Sleep(1 * time.Second)
+		err = os.RemoveAll("1")
+		err = os.RemoveAll("1_backup")
+	}()
 	e.SetSecLabel(qaBarSecLblsCtx)
 	err = ds.d.regenerateEndpoint(&e)
 	c.Assert(err, Equals, nil)
@@ -154,7 +166,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
-	e = Endpoint{}
+	e = Endpoint{ID: "1", IfName: "dummy"}
 	e.SetSecLabel(prodBarSecLblsCtx)
 	err = ds.d.regenerateEndpoint(&e)
 	c.Assert(err, Equals, nil)
