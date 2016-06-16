@@ -56,54 +56,90 @@ cat <<EOF | cilium -D policy import -
 }
 EOF
 
-function policy_test {
-	# ICMP echo request client => server should succeed
-	docker exec -i client ping6 -c 5 $SERVER_IP || {
-		abort "Error: Could not ping server container from client"
-	}
-
-	# ICMP echo request host => server should succeed
-	ping6 -c 5 $SERVER_IP || {
-		abort "Error: Could not ping server container from host"
-	}
-
-	# ICMP echo request server => client should not succeed
-	docker exec -i server ping6 -c 2 $CLIENT_IP && {
-		abort "Error: Unexpected success of ICMP echo request"
-	}
-
-	# TCP request to closed port should fail
-	docker exec -i client nc $SERVER_IP 777 && {
-		abort "Error: Unexpected success of TCP session to port 777"
-	}
-
-	# TCP client=>server should succeed
-	docker exec -i client netperf -l 3 -t TCP_RR -H $SERVER_IP || {
-		abort "Error: Unable to reach netperf TCP endpoint"
-	}
-
-	# FIXME: Need shorter timeout
-	# TCP server=>client should not succeed
-	#docker exec -i server netperf -l 3 -t TCP_RR -H $CLIENT_IP && {
-	#	abort "Error: Unexpected success of TCP netperf session"
-	#}
-
-	# UDP client=server should succeed
-	docker exec -i client netperf -l 3 -t UDP_RR -H $SERVER_IP || {
-		abort "Error: Unable to reach netperf TCP endpoint"
-	}
-
-	# FIXME: Need shorter timeout
-	# TCP server=>client should not succeed
-	#docker exec -i server netperf -l 3 -t UDP_RR -H $CLIENT_IP && {
-	#	abort "Error: Unexpected success of UDP netperf session"
-	#}
+# ICMP echo request client => server should succeed
+docker exec -i client ping6 -c 5 $SERVER_IP || {
+	abort "Error: Could not ping server container from client"
 }
 
-policy_test
+# ICMP echo request host => server should succeed
+ping6 -c 5 $SERVER_IP || {
+	abort "Error: Could not ping server container from host"
+}
+
+# ICMP echo request server => client should not succeed
+docker exec -i server ping6 -c 2 $CLIENT_IP && {
+	abort "Error: Unexpected success of ICMP echo request"
+}
+
+# TCP request to closed port should fail
+docker exec -i client nc $SERVER_IP 777 && {
+	abort "Error: Unexpected success of TCP session to port 777"
+}
+
+# TCP client=>server should succeed
+docker exec -i client netperf -l 3 -t TCP_RR -H $SERVER_IP || {
+	abort "Error: Unable to reach netperf TCP endpoint"
+}
+
+# FIXME: Need shorter timeout
+# TCP server=>client should not succeed
+#docker exec -i server netperf -l 3 -t TCP_RR -H $CLIENT_IP && {
+#	abort "Error: Unexpected success of TCP netperf session"
+#}
+
+# UDP client=server should succeed
+docker exec -i client netperf -l 3 -t UDP_RR -H $SERVER_IP || {
+	abort "Error: Unable to reach netperf TCP endpoint"
+}
+
+# FIXME: Need shorter timeout
+# TCP server=>client should not succeed
+#docker exec -i server netperf -l 3 -t UDP_RR -H $CLIENT_IP && {
+#	abort "Error: Unexpected success of UDP netperf session"
+#}
 
 cilium endpoint config $SERVER_ID DisableConntrack=true
 
-policy_test
+# ICMP echo request client => server should succeed
+docker exec -i client ping6 -c 5 $SERVER_IP || {
+	abort "Error: Could not ping server container from client"
+}
+
+# ICMP echo request host => server should succeed
+ping6 -c 5 $SERVER_IP || {
+	abort "Error: Could not ping server container from host"
+}
+
+# ICMP echo request server => client should succeed
+docker exec -i server ping6 -c 2 $CLIENT_IP || {
+	abort "Error: Could not ping client container from server"
+}
+
+# TCP request to closed port should fail
+docker exec -i client nc $SERVER_IP 777 && {
+	abort "Error: Unexpected success of TCP session to port 777"
+}
+
+# TCP client=>server should succeed
+docker exec -i client netperf -l 3 -t TCP_RR -H $SERVER_IP || {
+	abort "Error: Unable to reach netperf TCP endpoint"
+}
+
+# FIXME: Need shorter timeout
+# TCP server=>client should not succeed
+#docker exec -i server netperf -l 3 -t TCP_RR -H $CLIENT_IP && {
+#	abort "Error: Unexpected success of TCP netperf session"
+#}
+
+# UDP client=server should succeed
+docker exec -i client netperf -l 3 -t UDP_RR -H $SERVER_IP || {
+	abort "Error: Unable to reach netperf TCP endpoint"
+}
+
+# FIXME: Need shorter timeout
+# TCP server=>client should not succeed
+#docker exec -i server netperf -l 3 -t UDP_RR -H $CLIENT_IP && {
+#	abort "Error: Unexpected success of UDP netperf session"
+#}
 
 cilium -D policy delete io.cilium

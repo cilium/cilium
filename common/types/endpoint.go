@@ -166,15 +166,17 @@ func (e Endpoint) String() string {
 	return string(b)
 }
 
+func (e *Endpoint) OptionSet(key string) bool {
+	set, exists := e.Opts[key]
+	return exists && set
+}
+
 // GetFmtOpt returns #define name if option exists and is set to true in endpoint's Opts
 // map or #undef name if option does not exist or exists but is set to false in endpoint's
 // Opts map.
 func (e *Endpoint) GetFmtOpt(name string) string {
-	define := EndpointOptionDefine(name)
-
-	set, exists := e.Opts[name]
-	if exists && set {
-		return "#define " + define
+	if e.OptionSet(name) {
+		return "#define " + EndpointOptionDefine(name)
 	}
 
 	return "#undef " + name
@@ -314,6 +316,7 @@ func (e *Endpoint) PolicyMapPath() string {
 func (e *Endpoint) InvalidatePolicy() {
 	if e.Consumable != nil {
 		// Resetting to 0 will trigger a regeneration on the next update
+		log.Debugf("Invalidated policy for endpoint %s", e.ID)
 		e.Consumable.Iteration = 0
 	}
 }
