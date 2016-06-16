@@ -130,6 +130,47 @@ func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
 	return entries, nil
 }
 
+func (m *CtMap) GC(interval uint16) int {
+	var key, nextKey CtKey
+
+	deleted := 0
+
+	for {
+		var entry CtEntry
+		err := bpf.GetNextKey(
+			m.Fd,
+			unsafe.Pointer(&key),
+			unsafe.Pointer(&nextKey),
+		)
+
+		if err != nil {
+			break
+		}
+
+		err = bpf.LookupElement(
+			m.Fd,
+			unsafe.Pointer(&nextKey),
+			unsafe.Pointer(&entry),
+		)
+
+		if err != nil {
+			break
+		}
+
+		if entry.lifetime <= interval {
+			bpf.DeleteElement(m.Fd, unsafe.Pointer(&nextKey))
+			deleted++
+		} else {
+			entry.lifetime -= interval
+			bpf.UpdateElement(m.Fd, unsafe.Pointer(&nextKey), unsafe.Pointer(&entry), 0)
+		}
+
+		key = nextKey
+	}
+
+	return deleted
+}
+
 func OpenMap(path string) (*CtMap, error) {
 	var fd int
 
