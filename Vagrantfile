@@ -111,6 +111,7 @@ Vagrant.configure(2) do |config|
 
     config.vm.provider :libvirt do |libvirt|
         libvirt.memory = 4096
+        libvirt.cpus = 8
         config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/noironetworks/cilium-net", disabled: false
     end
 
