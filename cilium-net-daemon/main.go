@@ -178,10 +178,6 @@ func initBPF() error {
 		" */\n\n",
 		config.NodeAddress.String(), hostIP.String())
 
-	if log.IsEnabledFor(logging.DEBUG) {
-		fw.WriteString("#define DEBUG\n")
-	}
-
 	if config.DisablePolicy {
 		fw.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
 	}

@@ -32,6 +32,7 @@ const (
 	OptionDisablePolicy    = "DisablePolicy"
 	OptionDropNotify       = "DropNotification"
 	OptionDisableConntrack = "DisableConntrack"
+	OptionDebug            = "Debug"
 	OptionAllowToHost      = "AllowToHost"
 	OptionAllowToWorld     = "AllowToWorld"
 )
@@ -57,6 +58,11 @@ var (
 		Description: "Disable stateful connection tracking",
 	}
 
+	OptionSpecDebug = EndpointOption{
+		Define:      "DEBUG",
+		Description: "Enable debugging trace statements",
+	}
+
 	OptionSpecAllowToHost = EndpointOption{
 		Define:      "ALLOW_TO_HOST",
 		Immutable:   true,
@@ -74,6 +80,7 @@ var (
 		OptionDisablePolicy:    &OptionSpecDisablePolicy,
 		OptionDropNotify:       &OptionSpecDropNotify,
 		OptionDisableConntrack: &OptionSpecDisableConntrack,
+		OptionDebug:            &OptionSpecDebug,
 		OptionAllowToHost:      &OptionSpecAllowToHost,
 		OptionAllowToWorld:     &OptionSpecAllowToWorld,
 	}

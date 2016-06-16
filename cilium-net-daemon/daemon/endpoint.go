@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/op/go-logging"
+
 	"github.com/noironetworks/cilium-net/bpf/geneve"
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
@@ -360,6 +362,9 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	if _, exists := ep.Opts[types.OptionDisablePolicy]; !exists {
 		ep.Opts[types.OptionDisablePolicy] = d.conf.DisablePolicy
+	}
+	if _, exists := ep.Opts[types.OptionDebug]; !exists {
+		ep.Opts[types.OptionDebug] = log.IsEnabledFor(logging.DEBUG)
 	}
 	if _, exists := ep.Opts[types.OptionNAT46]; !exists {
 		ep.Opts[types.OptionNAT46] = false
