@@ -178,14 +178,6 @@ func initBPF() error {
 		" */\n\n",
 		config.NodeAddress.String(), hostIP.String())
 
-	if config.DisablePolicy {
-		fw.WriteString("#define DISABLE_POLICY_ENFORCEMENT\n")
-	}
-
-	if config.DisableConntrack {
-		fw.WriteString("#define DISABLE_CONNTRACK\n")
-	}
-
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(config.NodeAddress))
 	fw.WriteString(common.FmtDefineArray("ROUTER_IP", config.NodeAddress))
 
