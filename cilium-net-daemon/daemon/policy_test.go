@@ -128,23 +128,23 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(err, Equals, nil)
 
 	qaBarLbls := Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := ds.d.PutLabels(qaBarLbls)
+	qaBarSecLblsCtx, _, err := ds.d.PutLabels(qaBarLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
 	prodBarLbls := Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := ds.d.PutLabels(prodBarLbls)
+	prodBarSecLblsCtx, _, err := ds.d.PutLabels(prodBarLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
 	qaFooLbls := Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := ds.d.PutLabels(qaFooLbls)
+	qaFooSecLblsCtx, _, err := ds.d.PutLabels(qaFooLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
 	prodFooLbls := Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := ds.d.PutLabels(prodFooLbls)
+	prodFooSecLblsCtx, _, err := ds.d.PutLabels(prodFooLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
 	prodFooJoeLbls := Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls)
+	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
 	e := Endpoint{ID: "1", IfName: "dummy1"}

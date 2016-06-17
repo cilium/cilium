@@ -8,7 +8,6 @@ import (
 
 	cnd "github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
 	cns "github.com/noironetworks/cilium-net/cilium-net-daemon/server"
-	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/backend"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 

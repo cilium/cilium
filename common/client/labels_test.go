@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -23,16 +24,18 @@ var (
 		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 	seclbl = types.SecCtxLabel{
-		ID:       123,
-		RefCount: 1,
-		Labels:   lbls,
+		ID: 123,
+		Containers: map[string]time.Time{
+			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
+		},
+		Labels: lbls,
 	}
 )
 
 func (s *CiliumNetClientSuite) TestPutLabelsOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/labels")
+		c.Assert(r.URL.Path, Equals, "/labels/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		var receivedLabels types.Labels
 		err := json.NewDecoder(r.Body).Decode(&receivedLabels)
 		c.Assert(err, Equals, nil)
@@ -46,7 +49,7 @@ func (s *CiliumNetClientSuite) TestPutLabelsOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	secCtxLbls, _, err := cli.PutLabels(lbls)
+	secCtxLbls, _, err := cli.PutLabels(lbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 	c.Assert(*secCtxLbls, DeepEquals, seclbl)
 }
@@ -54,7 +57,7 @@ func (s *CiliumNetClientSuite) TestPutLabelsOK(c *C) {
 func (s *CiliumNetClientSuite) TestPutLabelsFail(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/labels")
+		c.Assert(r.URL.Path, Equals, "/labels/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(w).Encode(types.ServerError{-1, "the daemon has died"})
@@ -64,7 +67,7 @@ func (s *CiliumNetClientSuite) TestPutLabelsFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	_, _, err := cli.PutLabels(lbls)
+	_, _, err := cli.PutLabels(lbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }
 
@@ -139,56 +142,58 @@ func (s *CiliumNetClientSuite) TestGetLabelsBySHA256Fail(c *C) {
 func (s *CiliumNetClientSuite) TestDeleteLabelsByUUIDOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
-		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123")
+		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.DeleteLabelsByUUID(123)
+	err := cli.DeleteLabelsByUUID(123, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 }
 
 func (s *CiliumNetClientSuite) TestDeleteLabelsByUUIDFail(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
-		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123")
+		c.Assert(r.URL.Path, Equals, "/labels/by-uuid/123/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.DeleteLabelsByUUID(123)
+	err := cli.DeleteLabelsByUUID(123, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Not(Equals), nil)
 }
 
 func (s *CiliumNetClientSuite) TestDeleteLabelsBySHA256OK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
-		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504"+
+			"/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.DeleteLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+	err := cli.DeleteLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504", "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 }
 
 func (s *CiliumNetClientSuite) TestDeleteLabelsBySHA256Fail(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "DELETE")
-		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+		c.Assert(r.URL.Path, Equals, "/labels/by-sha256sum/a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504"+
+			"/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.DeleteLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
+	err := cli.DeleteLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504", "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Not(Equals), nil)
 }
 

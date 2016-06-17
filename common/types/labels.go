@@ -7,8 +7,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/noironetworks/cilium-net/common"
+)
+
+const (
+	secLabelTimeout = time.Duration(120 * time.Second)
 )
 
 // Label is the cilium's representation of a container label.
@@ -26,10 +31,37 @@ type Labels map[string]*Label
 // SecCtxLabel is the representation of the security context for a particular set of
 // labels.
 type SecCtxLabel struct {
-	ID uint32 `json:"id"` // SecCtxLabel's ID.
-	//TODO: a better approach needs to be done sense RefCount is not reliable
-	RefCount int    `json:"ref-count"` // Number of containers that have this SecCtxLabel.
-	Labels   Labels `json:"labels"`    // Set of labels that belong to this SecCtxLabel.
+	// SecCtxLabel's ID.
+	ID uint32 `json:"id"`
+	// Containers that have this SecCtxLabel where their value is the last time they were seen.
+	Labels Labels `json:"labels"`
+	// Set of labels that belong to this SecCtxLabel.
+	Containers map[string]time.Time `json:"containers"`
+}
+
+func NewSecCtxLabel() *SecCtxLabel {
+	return &SecCtxLabel{
+		Containers: make(map[string]time.Time),
+		Labels:     make(map[string]*Label),
+	}
+}
+
+func (s *SecCtxLabel) AddOrUpdateContainer(contID string) {
+	s.Containers[contID] = time.Now()
+}
+
+func (s *SecCtxLabel) DelContainer(contID string) {
+	delete(s.Containers, contID)
+}
+
+func (s *SecCtxLabel) RefCount() int {
+	refCount := 0
+	for _, t := range s.Containers {
+		if t.Add(secLabelTimeout).After(time.Now()) {
+			refCount++
+		}
+	}
+	return refCount
 }
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,

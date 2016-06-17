@@ -354,6 +354,8 @@ func run(cli *cli.Context) {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
 
+	go d.EnableDockerSync(false)
+
 	if config.IsUIEnabled() {
 		uiServer, err := s.NewUIServer(config.UIServerAddr, d)
 		if err != nil {

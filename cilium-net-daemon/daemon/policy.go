@@ -380,22 +380,25 @@ func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 
 func (d *Daemon) PolicyInit() error {
 	for k, v := range types.ResDec {
-		lbl := types.SecCtxLabel{
-			ID:       uint32(v),
-			RefCount: 1,
-			Labels:   map[string]*types.Label{},
-		}
-		policyMapPath := fmt.Sprintf("%sreserved_%d", common.PolicyMapPath, uint32(v))
 
-		lbl.Labels[k] = &types.Label{Key: k, Source: common.ReservedLabelSource}
+		key := types.ReservedID(uint32(v)).String()
+		lbl := types.NewLabel(
+			key, "", common.ReservedLabelSource,
+		)
+		secLbl := types.NewSecCtxLabel()
+		secLbl.ID = uint32(v)
+		secLbl.AddOrUpdateContainer(lbl.String())
+		secLbl.Labels[k] = lbl
+
+		policyMapPath := fmt.Sprintf("%sreserved_%d", common.PolicyMapPath, uint32(v))
 
 		policyMap, _, err := policymap.OpenMap(policyMapPath)
 		if err != nil {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
 
-		if c := types.GetConsumable(uint32(v), &lbl); c == nil {
-			return fmt.Errorf("Unable to initialize consumable for %v", lbl)
+		if c := types.GetConsumable(uint32(v), secLbl); c == nil {
+			return fmt.Errorf("Unable to initialize consumable for %v", secLbl)
 		} else {
 			d.reservedConsumables = append(d.reservedConsumables, c)
 			c.AddMap(policyMap)

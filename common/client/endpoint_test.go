@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -20,8 +21,10 @@ var (
 		Labels: types.Labels{
 			"foo": types.NewLabel("foo", "", ""),
 		},
-		RefCount: 1,
-		ID:       0x100,
+		Containers: map[string]time.Time{
+			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
+		},
+		ID: 0x100,
 	}
 )
 
