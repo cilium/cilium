@@ -71,6 +71,10 @@ func LookupConsumable(id uint32) *Consumable {
 }
 
 func (c *Consumable) AddMap(m *policymap.PolicyMap) {
+	if c.Maps == nil {
+		c.Maps = make(map[int]*policymap.PolicyMap)
+	}
+
 	// Check if map is already associated with this consumable
 	if _, ok := c.Maps[m.Fd]; ok {
 		return
