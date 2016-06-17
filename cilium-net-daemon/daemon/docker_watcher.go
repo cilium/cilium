@@ -227,6 +227,9 @@ func (d *Daemon) deleteContainer(dockerID string) {
 
 	d.containersMU.Lock()
 	if container, ok := d.containers[dockerID]; ok {
+		d.endpointsMU.Lock()
+		ep := d.lookupDockerID(dockerID)
+		d.endpointsMU.Unlock()
 
 		sha256sum, err := container.CiliumLabels.SHA256Sum()
 		if err != nil {
@@ -238,6 +241,10 @@ func (d *Daemon) deleteContainer(dockerID string) {
 		}
 
 		delete(d.containers, dockerID)
+
+		if ep != nil {
+			d.EndpointLeave(ep.ID)
+		}
 	}
 	d.containersMU.Unlock()
 }
