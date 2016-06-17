@@ -17,6 +17,7 @@ import (
 
 const (
 	addOp       = "add"
+	aniOp       = "animate"
 	modOp       = "mod"
 	delOp       = "del"
 	nodeObjType = "node"
@@ -125,27 +126,38 @@ func (t *UITopo) GetNodes() []UINode {
 	return nodes
 }
 
+type UIAnimateEdge struct {
+	Edge        string `json:"edge"`
+	TrafficSize uint64 `json:"trafficSize"`
+}
+
 type UIEdge struct {
-	ID         string    `json:"id"`
-	From       int       `json:"from"`
-	To         int       `json:"to"`
-	Value      int64     `json:"value"`
-	Removed    bool      `json:"dashes"`
-	Color      string    `json:"color"`
-	Title      string    `json:"title"`
-	Length     int       `json:"length,omitempty"`
-	lastChange time.Time `json:"-"`
-	color      uiColor   `json:"-"`
-	bytes      uint64    `json:"-"`
-	packets    uint64    `json:"-"`
+	ID            string    `json:"id"`
+	From          int       `json:"from"`
+	To            int       `json:"to"`
+	Value         int64     `json:"value"`
+	Removed       bool      `json:"dashes"`
+	Color         string    `json:"color"`
+	Title         string    `json:"title"`
+	Length        int       `json:"length,omitempty"`
+	color         uiColor   `json:"-"`
+	lastChange    time.Time `json:"-"`
+	lastUpdate    time.Time `json:"-"`
+	update        time.Time `json:"-"`
+	lastBytes     uint64    `json:"-"`
+	lastPackets   uint64    `json:"-"`
+	bytes         uint64    `json:"-"`
+	packets       uint64    `json:"-"`
+	UIAnimateEdge `json:"-"`
 }
 
 func newuiEdge(from, to int) *UIEdge {
 	return &UIEdge{
-		ID:    getUIEdgeID(from, to),
-		From:  from,
-		To:    to,
-		color: green,
+		ID:            getUIEdgeID(from, to),
+		UIAnimateEdge: UIAnimateEdge{Edge: getUIEdgeID(from, to)},
+		From:          from,
+		To:            to,
+		color:         green,
 	}
 }
 
@@ -156,11 +168,38 @@ func getUIEdgeID(from, to int) string {
 func (e *UIEdge) Build() {
 	if !e.Removed {
 		e.color = green
-		mbps := float64(float64(e.bytes*8) / float64(1000000))
-		e.Value = int64(2.0 + mbps)
-		e.Title = fmt.Sprintf("%.2f Mbps", mbps)
+
+		if nPackets := e.packets - e.lastPackets; nPackets > 50 {
+			e.TrafficSize = 50
+		} else {
+			e.TrafficSize = nPackets
+		}
+
+		nBytes := e.bytes - e.lastBytes
+		duration := e.update.Sub(e.lastUpdate)
+		bytesPerSec := float64(nBytes) / duration.Seconds()
+
+		if bytesPerSec >= 1024 {
+			mbytesPerSec := bytesPerSec / 1024
+			if mbytesPerSec >= 1024 {
+				gBytePerSec := mbytesPerSec / 1024
+				if gBytePerSec >= 1024 {
+					tBytePerSec := gBytePerSec / 1024
+					e.Title = fmt.Sprintf("%.2f TBps", tBytePerSec)
+				} else {
+					e.Title = fmt.Sprintf("%.2f GBps", gBytePerSec)
+				}
+			} else {
+				e.Title = fmt.Sprintf("%.2f MBps", mbytesPerSec)
+			}
+		} else {
+			e.Title = fmt.Sprintf("%.2f Bps", bytesPerSec)
+		}
+		e.Value = int64(2.0 + bytesPerSec)
+
 	} else {
 		e.Value = 1
+		e.TrafficSize = 0
 		e.Title = fmt.Sprintf("Disconnected...")
 	}
 	if e.From == e.To {
@@ -184,19 +223,18 @@ func (t *UITopo) AddOrUpdateEdge(from, to int, pe *policymap.PolicyEntry) {
 
 	if exists {
 		edge.lastChange = time.Now()
+		edge.lastUpdate = edge.update
+		edge.update = time.Now()
 		if edge.Removed {
 			edge.Removed = false
 			updateUI = true
 		}
 		if pe != nil {
-			if edge.bytes != pe.Bytes {
-				edge.bytes = pe.Bytes
-				updateUI = true
-			}
-			if edge.packets != pe.Packets {
-				edge.packets = pe.Packets
-				updateUI = true
-			}
+			updateUI = true
+			edge.lastBytes = edge.bytes
+			edge.bytes = pe.Bytes
+			edge.lastPackets = edge.packets
+			edge.packets = pe.Packets
 		}
 		msg = NewUIUpdateMsg().Mod().Edge(*edge).Build()
 	} else {
@@ -241,6 +279,7 @@ func (t *UITopo) GetEdges() []UIEdge {
 func (t *UITopo) RefreshEdges() {
 	delMsgs := []UIUpdateMsg{}
 	modMsgs := []UIUpdateMsg{}
+	aniMsgEdges := NewUIUpdateMsg().Ani()
 	t.uiTopoMU.Lock()
 	for _, edge := range t.uiEdges {
 		if edge.Removed {
@@ -250,6 +289,8 @@ func (t *UITopo) RefreshEdges() {
 				edge.color.Grayer()
 				modMsgs = append(modMsgs, NewUIUpdateMsg().Mod().Edge(*edge).Build())
 			}
+		} else {
+			aniMsgEdges = aniMsgEdges.AnimatedEdge(*edge)
 		}
 	}
 	for _, msg := range delMsgs {
@@ -259,6 +300,18 @@ func (t *UITopo) RefreshEdges() {
 	for _, msg := range modMsgs {
 		t.UIChan <- msg
 	}
+
+	nonZeroEdges := []UIAnimateEdge{}
+	for _, edge := range aniMsgEdges.UIEdges {
+		if edge.TrafficSize != 0 {
+			nonZeroEdges = append(nonZeroEdges, edge)
+		}
+	}
+	if len(nonZeroEdges) != 0 {
+		aniMsgEdges.UIEdges = nonZeroEdges
+		t.UIChan <- aniMsgEdges.Build()
+	}
+
 	t.uiTopoMU.Unlock()
 }
 
@@ -302,12 +355,13 @@ func writeSVGFile(refCount int, dir string, svg []byte) error {
 }
 
 type UIUpdateMsg struct {
-	RemoveID string  `json:"id,omitempty"`
-	UINode   *UINode `json:"node,omitempty"`
-	UIEdge   *UIEdge `json:"edge,omitempty"`
-	Type     string  `json:"type"`
-	op       string  `json:"-"`
-	objType  string  `json:"-"`
+	RemoveID string          `json:"id,omitempty"`
+	UINode   *UINode         `json:"node,omitempty"`
+	UIEdge   *UIEdge         `json:"edge,omitempty"`
+	UIEdges  []UIAnimateEdge `json:"edges,omitempty"`
+	Type     string          `json:"type"`
+	op       string          `json:"-"`
+	objType  string          `json:"-"`
 }
 
 func NewUIUpdateMsg() UIUpdateMsg {
@@ -316,6 +370,11 @@ func NewUIUpdateMsg() UIUpdateMsg {
 
 func (u UIUpdateMsg) Add() UIUpdateMsg {
 	u.op = addOp
+	return u
+}
+
+func (u UIUpdateMsg) Ani() UIUpdateMsg {
+	u.op = aniOp
 	return u
 }
 
@@ -339,6 +398,16 @@ func (u UIUpdateMsg) Node(node UINode) UIUpdateMsg {
 func (u UIUpdateMsg) Edge(edge UIEdge) UIUpdateMsg {
 	edge.Build()
 	u.UIEdge = &edge
+	u.objType = edgeObjType
+	return u
+}
+
+func (u UIUpdateMsg) AnimatedEdge(edge UIEdge) UIUpdateMsg {
+	edge.Build()
+	if u.UIEdges == nil {
+		u.UIEdges = []UIAnimateEdge{}
+	}
+	u.UIEdges = append(u.UIEdges, edge.UIAnimateEdge)
 	u.objType = edgeObjType
 	return u
 }

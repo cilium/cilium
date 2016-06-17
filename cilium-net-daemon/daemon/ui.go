@@ -57,10 +57,10 @@ func (d *Daemon) getReceivedStats() (receivedStats, error) {
 					if exists {
 						pe.Add(p.PolicyEntry)
 					} else {
-						stat[p.ID] = &p.PolicyEntry
+						pe := policymap.PolicyEntry(p.PolicyEntry)
+						stat[p.ID] = &pe
 					}
 				}
-
 			}
 		}
 	}

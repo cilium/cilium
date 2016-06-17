@@ -121,11 +121,9 @@ const (
 						break;
 					case "mod-edge":
 						edges.update(msg.edge);
-						network.animateTraffic({
-							edge: msg.edge.id,
-							trafficSize: msg.edge.value
-						});
 						break;
+					case "animate-edge":
+						network.animateTraffic(msg.edges);
 					case "del-edge":
 						edges.remove({
 							id : msg.id
