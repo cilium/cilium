@@ -39,6 +39,14 @@ func (d *Daemon) lookupDockerEndpoint(id string) *types.Endpoint {
 	}
 }
 
+func (d *Daemon) lookupDockerID(id string) *types.Endpoint {
+	if ep, ok := d.endpointsDocker[id]; ok {
+		return ep
+	} else {
+		return nil
+	}
+}
+
 func writeGeneve(lxcDir string, ep *types.Endpoint) ([]byte, error) {
 
 	// Write container options values for each available option in
@@ -161,8 +169,6 @@ func (d *Daemon) EndpointsGet() ([]types.Endpoint, error) {
 }
 
 func (d *Daemon) deleteEndpoint(endpointID string) {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
 
 	if ep := d.lookupCiliumEndpoint(endpointID); ep != nil {
 		delete(d.endpointsDocker, ep.DockerID)
@@ -389,7 +395,11 @@ func (d *Daemon) EndpointLeave(epID string) error {
 		return fmt.Errorf("invalid ID: %s", epID)
 	}
 
-	if ep := d.lookupCiliumEndpoint(epID); ep == nil {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	ep := d.lookupCiliumEndpoint(epID)
+	if ep == nil {
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
 
@@ -408,9 +418,7 @@ func (d *Daemon) EndpointLeave(epID string) error {
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
 
-	if ep, err := d.EndpointGet(epID); err != nil {
-		log.Warningf("Unable to get endpoint %s from daemon.", epID)
-	} else if ep.Consumable != nil {
+	if ep.Consumable != nil {
 		ep.Consumable.RemoveMap(ep.PolicyMap)
 	}
 
@@ -429,9 +437,12 @@ func (d *Daemon) EndpointLeave(epID string) error {
 func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 	// FIXME: Validate dockerEPID?
 
+	d.endpointsMU.Lock()
 	if ep := d.lookupDockerEndpoint(dockerEPID); ep != nil {
+		d.endpointsMU.Unlock()
 		return d.EndpointLeave(ep.ID)
 	} else {
+		d.endpointsMU.Unlock()
 		return fmt.Errorf("endpoint %s not found", dockerEPID)
 	}
 }
