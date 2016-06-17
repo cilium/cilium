@@ -11,9 +11,9 @@ import (
 )
 
 // PutLabels sends POST request with labels to the daemon. Returns
-func (cli Client) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
+func (cli Client) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
 	query := url.Values{}
-	serverResp, err := cli.post("/labels", query, labels, nil)
+	serverResp, err := cli.post("/labels/"+contID, query, labels, nil)
 	if err != nil {
 		return nil, false, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -93,10 +93,10 @@ func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error
 }
 
 // DeleteLabelsByUUID sends a DELETE request with id to the daemon.
-func (cli Client) DeleteLabelsByUUID(id uint32) error {
+func (cli Client) DeleteLabelsByUUID(id uint32, contID string) error {
 	query := url.Values{}
 
-	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.FormatUint(uint64(id), 10), query, nil)
+	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.FormatUint(uint64(id), 10)+"/"+contID, query, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -111,10 +111,10 @@ func (cli Client) DeleteLabelsByUUID(id uint32) error {
 }
 
 // DeleteLabelsBySHA256 sends a DELETE request with the sha256sum to the daemon.
-func (cli Client) DeleteLabelsBySHA256(sha256sum string) error {
+func (cli Client) DeleteLabelsBySHA256(sha256sum, contID string) error {
 	query := url.Values{}
 
-	serverResp, err := cli.delete("/labels/by-sha256sum/"+sha256sum, query, nil)
+	serverResp, err := cli.delete("/labels/by-sha256sum/"+sha256sum+"/"+contID, query, nil)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}

@@ -28,6 +28,8 @@ var (
 type Daemon struct {
 	ipamConf             map[types.IPAMType]*types.IPAMConfig
 	consul               *consulAPI.Client
+	containers           map[string]*types.Container
+	containersMU         sync.Mutex
 	endpoints            map[string]*types.Endpoint
 	endpointsDocker      map[string]*types.Endpoint
 	endpointsDockerEP    map[string]*types.Endpoint
@@ -167,6 +169,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consul:              consul,
 		dockerClient:        dockerClient,
 		k8sClient:           k8sClient,
+		containers:          make(map[string]*types.Container),
 		endpoints:           make(map[string]*types.Endpoint),
 		endpointsDocker:     make(map[string]*types.Endpoint),
 		endpointsDockerEP:   make(map[string]*types.Endpoint),

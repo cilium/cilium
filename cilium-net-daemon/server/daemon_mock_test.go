@@ -20,11 +20,11 @@ type TestDaemon struct {
 	OnReleaseIP                 func(ipamType types.IPAMType, opts types.IPAMReq) error
 	OnPing                      func() (*types.PingResponse, error)
 	OnSyncState                 func(path string, clean bool) error
-	OnPutLabels                 func(labels types.Labels) (*types.SecCtxLabel, bool, error)
+	OnPutLabels                 func(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error)
 	OnGetLabels                 func(id uint32) (*types.SecCtxLabel, error)
 	OnGetLabelsBySHA256         func(sha256sum string) (*types.SecCtxLabel, error)
-	OnDeleteLabelsByUUID        func(uuid uint32) error
-	OnDeleteLabelsBySHA256      func(sha256sum string) error
+	OnDeleteLabelsByUUID        func(uuid uint32, contID string) error
+	OnDeleteLabelsBySHA256      func(sha256sum, contID string) error
 	OnGetMaxID                  func() (uint32, error)
 	OnPolicyAdd                 func(path string, node *types.PolicyNode) error
 	OnPolicyDelete              func(path string) error
@@ -127,9 +127,9 @@ func (d TestDaemon) ReleaseIP(ipamType types.IPAMType, opts types.IPAMReq) error
 	return errors.New("ReleaseIP should not have been called")
 }
 
-func (d TestDaemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
+func (d TestDaemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
 	if d.OnPutLabels != nil {
-		return d.OnPutLabels(labels)
+		return d.OnPutLabels(labels, contID)
 	}
 	return nil, false, errors.New("GetLabelsID should not have been called")
 }
@@ -148,16 +148,16 @@ func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, err
 	return nil, errors.New("GetLabelsBySHA256 should not have been called")
 }
 
-func (d TestDaemon) DeleteLabelsByUUID(uuid uint32) error {
+func (d TestDaemon) DeleteLabelsByUUID(uuid uint32, contID string) error {
 	if d.OnDeleteLabelsByUUID != nil {
-		return d.OnDeleteLabelsByUUID(uuid)
+		return d.OnDeleteLabelsByUUID(uuid, contID)
 	}
 	return errors.New("DeleteLabelsByUUID should not have been called")
 }
 
-func (d TestDaemon) DeleteLabelsBySHA256(sha256sum string) error {
+func (d TestDaemon) DeleteLabelsBySHA256(sha256sum, contID string) error {
 	if d.OnDeleteLabelsBySHA256 != nil {
-		return d.OnDeleteLabelsBySHA256(sha256sum)
+		return d.OnDeleteLabelsBySHA256(sha256sum, contID)
 	}
 	return errors.New("DeleteLabelsBySHA256 should not have been called")
 }

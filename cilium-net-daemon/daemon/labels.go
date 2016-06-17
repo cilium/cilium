@@ -110,7 +110,7 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabel) error {
 				d.consul.KV().Release(lockPair, nil)
 				return err
 			}
-			if consulLabels.RefCount == 0 {
+			if consulLabels.RefCount() == 0 {
 				log.Info("Recycling ID %d", freeID)
 				return setID2Label(lockPair)
 			}
@@ -146,7 +146,7 @@ func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error)
 
 // PutLabels stores to given labels in consul and returns the SecCtxLabels created for
 // the given labels.
-func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error) {
+func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
 	log.Debugf("Putting labels %+v", labels)
 	isNew := false
 
@@ -173,33 +173,32 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error
 		return nil, false, err
 	}
 
-	var secCtxLbls types.SecCtxLabel
+	secCtxLbls := types.NewSecCtxLabel()
 	if pair == nil {
 		pair = &consulAPI.KVPair{Key: lblPath}
 		secCtxLbls.Labels = labels
-		secCtxLbls.RefCount = 1
 		isNew = true
 	} else {
 		if err := json.Unmarshal(pair.Value, &secCtxLbls); err != nil {
 			return nil, false, err
 		}
 		// If RefCount is 0 then we have to retrieve a new ID
-		if secCtxLbls.RefCount == 0 {
+		if secCtxLbls.RefCount() == 0 {
 			isNew = true
 		}
-		secCtxLbls.RefCount++
 	}
+	secCtxLbls.AddOrUpdateContainer(contID)
 
 	if isNew {
-		if err := d.gasNewID(&secCtxLbls); err != nil {
+		if err := d.gasNewID(secCtxLbls); err != nil {
 			return nil, false, err
 		}
-	} else if err := d.updateIDRef(&secCtxLbls); err != nil {
+	} else if err := d.updateIDRef(secCtxLbls); err != nil {
 		return nil, false, err
 	}
-	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount)
+	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount())
 
-	d.AddOrUpdateUINode(secCtxLbls.ID, secCtxLbls.Labels.ToSlice(), secCtxLbls.RefCount)
+	d.AddOrUpdateUINode(secCtxLbls.ID, secCtxLbls.Labels.ToSlice(), secCtxLbls.RefCount())
 
 	secCtxLblsByte, err := json.Marshal(secCtxLbls)
 	if err != nil {
@@ -212,7 +211,7 @@ func (d *Daemon) PutLabels(labels types.Labels) (*types.SecCtxLabel, bool, error
 		return nil, false, err
 	}
 
-	return &secCtxLbls, isNew, nil
+	return secCtxLbls, isNew, nil
 }
 
 // GetLabels returns the SecCtxLabels that belongs to the given id.
@@ -223,15 +222,17 @@ func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 			return nil, nil
 		}
 
-		return &types.SecCtxLabel{
-			ID:       id,
-			RefCount: 1,
-			Labels: types.Labels{
-				common.ReservedLabelSource: types.NewLabel(
-					key, "", common.ReservedLabelSource,
-				),
-			},
-		}, nil
+		lbl := types.NewLabel(
+			key, "", common.ReservedLabelSource,
+		)
+		secLbl := types.NewSecCtxLabel()
+		secLbl.AddOrUpdateContainer(lbl.String())
+		secLbl.ID = id
+		secLbl.Labels = types.Labels{
+			common.ReservedLabelSource: lbl,
+		}
+
+		return secLbl, nil
 	}
 
 	strID := strconv.FormatUint(uint64(id), 10)
@@ -246,7 +247,7 @@ func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 	if err := json.Unmarshal(pair.Value, &secCtxLabels); err != nil {
 		return nil, err
 	}
-	if secCtxLabels.RefCount == 0 {
+	if secCtxLabels.RefCount() == 0 {
 		return nil, nil
 	}
 	return &secCtxLabels, nil
@@ -265,14 +266,14 @@ func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error)
 	if err := json.Unmarshal(pair.Value, &secCtxLabels); err != nil {
 		return nil, err
 	}
-	if secCtxLabels.RefCount == 0 {
+	if secCtxLabels.RefCount() == 0 {
 		return nil, nil
 	}
 	return &secCtxLabels, nil
 }
 
 // DeleteLabelsByUUID deletes the SecCtxLabels belonging to the given id.
-func (d *Daemon) DeleteLabelsByUUID(id uint32) error {
+func (d *Daemon) DeleteLabelsByUUID(id uint32, contID string) error {
 	secCtxLabels, err := d.GetLabels(id)
 	if err != nil {
 		return err
@@ -285,11 +286,11 @@ func (d *Daemon) DeleteLabelsByUUID(id uint32) error {
 		return err
 	}
 
-	return d.DeleteLabelsBySHA256(sha256sum)
+	return d.DeleteLabelsBySHA256(sha256sum, contID)
 }
 
 // DeleteLabelsBySHA256 deletes the SecCtxLabels that belong to the labels' sha256Sum.
-func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
+func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 	if sha256Sum == "" {
 		return nil
 	}
@@ -317,20 +318,18 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string) error {
 	if err := json.Unmarshal(pair.Value, &dbSecCtxLbls); err != nil {
 		return err
 	}
-	if dbSecCtxLbls.RefCount > 0 {
-		dbSecCtxLbls.RefCount--
-	}
+	dbSecCtxLbls.DelContainer(contID)
 	if err := d.updateIDRef(&dbSecCtxLbls); err != nil {
 		return err
 	}
 
-	if dbSecCtxLbls.RefCount == 0 {
+	if dbSecCtxLbls.RefCount() == 0 {
 		d.DeleteUINode(dbSecCtxLbls.ID)
 	} else {
-		d.AddOrUpdateUINode(dbSecCtxLbls.ID, dbSecCtxLbls.Labels.ToSlice(), dbSecCtxLbls.RefCount)
+		d.AddOrUpdateUINode(dbSecCtxLbls.ID, dbSecCtxLbls.Labels.ToSlice(), dbSecCtxLbls.RefCount())
 	}
 
-	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount)
+	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
 
 	secCtxLblsByte, err := json.Marshal(dbSecCtxLbls)
 	if err != nil {

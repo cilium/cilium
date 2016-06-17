@@ -18,6 +18,10 @@ import (
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
+const (
+	syncRateDocker = time.Duration(30 * time.Second)
+)
+
 // EnableDockerEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
 func (d *Daemon) EnableDockerEventListener() error {
@@ -26,9 +30,29 @@ func (d *Daemon) EnableDockerEventListener() error {
 	if err != nil {
 		return err
 	}
+
+	d.EnableDockerSync(true)
+
 	log.Debugf("Listening for docker events")
 	go d.listenForEvents(r)
 	return nil
+}
+
+func (d *Daemon) EnableDockerSync(once bool) {
+	for {
+		cList, err := d.dockerClient.ContainerList(dTypes.ContainerListOptions{All: false})
+		if err != nil {
+			log.Error("Failed to retrieve the container list %s", err)
+		}
+		for _, cont := range cList {
+			go d.createContainer(cont.ID, cont.Labels)
+		}
+
+		if once {
+			return
+		}
+		time.Sleep(syncRateDocker)
+	}
 }
 
 func (d *Daemon) listenForEvents(reader io.ReadCloser) {
@@ -50,9 +74,9 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	if m.Type == "container" {
 		switch m.Status {
 		case "start":
-			d.createContainer(m)
+			d.createContainer(m.ID, m.Actor.Attributes)
 		case "die":
-			d.deleteContainer(m)
+			d.deleteContainer(m.ID)
 		}
 	}
 }
@@ -108,44 +132,58 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
 	return d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
 }
 
-func isDockerAndInfracontainer(allLabels map[string]string) bool {
-	contName, exists := allLabels[k8sDockerLbls.KubernetesContainerNameLabel]
-	return !exists || contName == "POD"
-}
-
-func (d *Daemon) createContainer(m dTypesEvents.Message) {
-	dockerID := m.Actor.ID
+func (d *Daemon) createContainer(dockerID string, allLabels map[string]string) {
 	log.Debugf("Processing container %s", dockerID)
-	allLabels := m.Actor.Attributes
-	cont, err := d.dockerClient.ContainerInspect(dockerID)
+	dockerCont, err := d.dockerClient.ContainerInspect(dockerID)
 	if err != nil {
 		log.Errorf("Error while inspecting container '%s': %s", dockerID, err)
 		return
 	}
 
-	if !isDockerAndInfracontainer(allLabels) {
-		log.Infof("Ignoring container %s since its infracontainer is already present", dockerID)
-		return
-	}
-
 	ciliumLabels := d.getFilteredLabels(allLabels)
 
-	secCtxlabels, isNew, err := d.PutLabels(ciliumLabels)
+	isNewContainer := false
+
+	d.containersMU.Lock()
+
+	if ciliumContainer, ok := d.containers[dockerID]; !ok {
+		d.containers[dockerID] = &types.Container{dockerCont, ciliumLabels}
+		isNewContainer = true
+	} else {
+		oldLabels, err := ciliumContainer.CiliumLabels.SHA256Sum()
+		if err != nil {
+			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.CiliumLabels, err)
+		}
+		newLabels, err := ciliumLabels.SHA256Sum()
+		if err != nil {
+			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumLabels, err)
+		}
+
+		// Someone has changed labels so we need to update this everywhere
+		if newLabels != oldLabels {
+			isNewContainer = true
+			err := d.DeleteLabelsBySHA256(oldLabels, dockerID)
+			log.Errorf("Error while deleting old labels (%+v) of container %s: %s", oldLabels, dockerID, err)
+		}
+
+		d.containers[dockerID] = &types.Container{dockerCont, ciliumLabels}
+	}
+
+	d.containersMU.Unlock()
+
+	container := types.Container{dockerCont, ciliumLabels}
+
+	log.Debugf("Putting labels %+v", ciliumLabels)
+	secCtxlabels, isNew, err := d.PutLabels(ciliumLabels, dockerID)
 	if err != nil {
 		log.Errorf("Error while getting labels ID: %s", err)
 		return
 	}
-	defer func() {
-		if err != nil {
-			log.Infof("Deleting label ID %d because of failure.", secCtxlabels.ID)
-			d.DeleteLabelsByUUID(secCtxlabels.ID)
-		}
-	}()
 
-	ciliumID := getCiliumEndpointID(cont, d.conf.NodeAddress)
+	ciliumID := getCiliumEndpointID(dockerCont, d.conf.NodeAddress)
 	var dockerEPID string
-	if cont.NetworkSettings != nil {
-		dockerEPID = cont.NetworkSettings.EndpointID
+	if dockerCont.NetworkSettings != nil {
+		dockerEPID = dockerCont.NetworkSettings.EndpointID
 	}
 
 	try := 1
@@ -155,47 +193,51 @@ func (d *Daemon) createContainer(m dTypesEvents.Message) {
 		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
 			break
 		}
-		log.Warningf("Something went wrong, the docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
+		if container.IsDockerAndInfracontainer() {
+			log.Warningf("Something went wrong, the docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
+		}
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
 	if try >= maxTries {
-		err = fmt.Errorf("It was impossible to store the SecLabel %d for docker endpoint ID '%s'", secCtxlabels.ID, dockerID)
-		log.Error(err)
+		if container.IsDockerAndInfracontainer() {
+			err = fmt.Errorf("It was impossible to store the SecLabel %d for docker endpoint ID '%s'", secCtxlabels.ID, dockerID)
+			log.Error(err)
+		}
 		return
 	}
-	if err = d.createBPFMAPs(ep.ID); err != nil {
-		err = fmt.Errorf("Unable to create & attach BPF programs for container %s: %s", dockerID, err)
-		log.Error(err)
-		return
+	if isNewContainer {
+		if err = d.createBPFMAPs(ep.ID); err != nil {
+			err = fmt.Errorf("Unable to create & attach BPF programs for container %s: %s", dockerID, err)
+			log.Error(err)
+			return
+		}
 	}
 
 	// Perform the policy map updates after programs have been created
-	if isNew {
+	if isNew || isNewContainer {
 		d.triggerPolicyUpdates([]uint32{secCtxlabels.ID})
 	}
 
 	log.Infof("Added SecLabelID %d to container %s", secCtxlabels.ID, dockerID)
 }
 
-func (d *Daemon) deleteContainer(m dTypesEvents.Message) {
-	dockerID := m.Actor.ID
+func (d *Daemon) deleteContainer(dockerID string) {
 	log.Debugf("Processing container %s", dockerID)
-	allLabels := m.Actor.Attributes
 
-	if !isDockerAndInfracontainer(allLabels) {
-		log.Infof("Ignoring container %s since its infracontainer is the only one that will clean the sec label", dockerID)
-		return
+	d.containersMU.Lock()
+	if container, ok := d.containers[dockerID]; ok {
+
+		sha256sum, err := container.CiliumLabels.SHA256Sum()
+		if err != nil {
+			log.Errorf("Error while creating SHA256Sum for labels %+v: %s", container.CiliumLabels, err)
+		}
+
+		if err := d.DeleteLabelsBySHA256(sha256sum, dockerID); err != nil {
+			log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s", sha256sum, container.CiliumLabels, err)
+		}
+
+		delete(d.containers, dockerID)
 	}
-
-	ciliumLabels := d.getFilteredLabels(allLabels)
-
-	sha256sum, err := ciliumLabels.SHA256Sum()
-	if err != nil {
-		log.Errorf("Error while creating SHA256Sum for labels %+v: %s", ciliumLabels, err)
-	}
-
-	if err := d.DeleteLabelsBySHA256(sha256sum); err != nil {
-		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s", sha256sum, ciliumLabels, err)
-	}
+	d.containersMU.Unlock()
 }

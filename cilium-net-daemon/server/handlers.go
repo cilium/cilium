@@ -289,7 +289,13 @@ func (router *RouterBackend) putLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, err)
 		return
 	}
-	secCtxLabels, _, err := router.daemon.PutLabels(labels)
+	vars := mux.Vars(r)
+	contID, exists := vars["contID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty container ID"))
+		return
+	}
+	secCtxLabels, _, err := router.daemon.PutLabels(labels, contID)
 	if err != nil {
 		processServerError(w, r, err)
 		return
@@ -313,7 +319,12 @@ func (router *RouterBackend) deleteLabelsByUUID(w http.ResponseWriter, r *http.R
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
 		return
 	}
-	if err := router.daemon.DeleteLabelsByUUID(uint32(id)); err != nil {
+	contID, exists := vars["contID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty container ID"))
+		return
+	}
+	if err := router.daemon.DeleteLabelsByUUID(uint32(id), contID); err != nil {
 		processServerError(w, r, err)
 		return
 	}
@@ -327,7 +338,12 @@ func (router *RouterBackend) deleteLabelsBySHA256(w http.ResponseWriter, r *http
 		processServerError(w, r, errors.New("server received empty sha256sum"))
 		return
 	}
-	if err := router.daemon.DeleteLabelsBySHA256(sha256sum); err != nil {
+	contID, exists := vars["contID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty container ID"))
+		return
+	}
+	if err := router.daemon.DeleteLabelsBySHA256(sha256sum, contID); err != nil {
 		processServerError(w, r, err)
 		return
 	}

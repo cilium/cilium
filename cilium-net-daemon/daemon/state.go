@@ -97,7 +97,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			log.Warningf("Failed while updating ep %s: %s", ep.ID, err)
 		} else {
 			if ep.SecLabel != nil {
-				d.AddOrUpdateUINode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount)
+				d.AddOrUpdateUINode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount())
 			}
 			log.Infof("EP %s completely restored", ep.ID)
 		}
@@ -165,8 +165,8 @@ func (d *Daemon) syncLabels(ep *types.Endpoint) error {
 		return fmt.Errorf("Unable to get labels of sha256sum:%s: %+v\n", sha256sum, err)
 	}
 
-	if labels == nil {
-		labels, _, err = d.PutLabels(ep.SecLabel.Labels)
+	if labels == nil && ep.DockerID != "" {
+		labels, _, err = d.PutLabels(ep.SecLabel.Labels, ep.DockerID)
 		if err != nil {
 			return fmt.Errorf("Unable to put labels %+v: %s\n", ep.SecLabel.Labels, err)
 		}
