@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -185,6 +186,7 @@ func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLab
 		// If RefCount is 0 then we have to retrieve a new ID
 		if secCtxLbls.RefCount() == 0 {
 			isNew = true
+			secCtxLbls.Containers = make(map[string]time.Time)
 		}
 	}
 	secCtxLbls.AddOrUpdateContainer(contID)
