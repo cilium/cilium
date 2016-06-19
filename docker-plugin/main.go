@@ -19,7 +19,7 @@ func main() {
 	app.Version = "0.1.0"
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
-			Name:  "debug, d",
+			Name:  "debug, D",
 			Usage: "Enable debug messages",
 		},
 	}
