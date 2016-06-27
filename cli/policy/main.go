@@ -24,7 +24,7 @@ var (
 	client             *cnc.Client
 	ignoredMasksSource = []string{".git"}
 	ignoredMasks       []*regexp.Regexp
-	log                = l.MustGetLogger("cilium-net-policy-repo")
+	log                = l.MustGetLogger("cilium-cli")
 	CliCommand         cli.Command
 )
 
