@@ -4,7 +4,7 @@ import (
 	"os"
 
 	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/docker-plugin/driver"
+	"github.com/noironetworks/cilium-net/plugins/docker/driver"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
