@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	endpoint "github.com/noironetworks/cilium-net/cilium/endpoint"
-	"github.com/noironetworks/cilium-net/cilium/monitor"
-	policy "github.com/noironetworks/cilium-net/cilium/policy"
+	endpoint "github.com/noironetworks/cilium-net/cli/endpoint"
+	"github.com/noironetworks/cilium-net/cli/monitor"
+	policy "github.com/noironetworks/cilium-net/cli/policy"
 	"github.com/noironetworks/cilium-net/common"
 	daemon "github.com/noironetworks/cilium-net/daemon"
 

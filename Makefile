@@ -1,7 +1,7 @@
 include Makefile.defs
 
 SUBDIRS = plugins cli bpf common
-SUBDIRSLIB = daemon policy-repo integration
+SUBDIRSLIB = daemon integration
 
 all: $(SUBDIRS)
 
