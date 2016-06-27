@@ -16,7 +16,7 @@ run:
 clean:
 	rm -f $(TARGET)
 
-SOURCES := $(shell find ../policy-repo ../cilium-net-daemon ../common . -name '*.go')
+SOURCES := $(shell find monitor/ policy/ endpoint/ ../cilium-net-daemon ../common . -name '*.go')
 
 $(TARGET): $(SOURCES)
 	go build -o $(TARGET) ./main.go
