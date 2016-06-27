@@ -1,7 +1,7 @@
 include Makefile.defs
 
-SUBDIRS = plugins cilium bpf common
-SUBDIRSLIB = cilium-net-daemon policy-repo integration
+SUBDIRS = plugins cli bpf common
+SUBDIRSLIB = daemon policy-repo integration
 
 all: $(SUBDIRS)
 

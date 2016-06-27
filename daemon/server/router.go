@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
 	"github.com/noironetworks/cilium-net/common/backend"
 	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/daemon/daemon"
 
 	"github.com/gorilla/mux"
 )

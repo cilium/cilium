@@ -7,8 +7,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
 	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/daemon/daemon"
 
 	"github.com/op/go-logging"
 )
