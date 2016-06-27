@@ -3,11 +3,11 @@ package main
 import (
 	"os"
 
-	daemon "github.com/noironetworks/cilium-net/cilium-net-daemon"
 	endpoint "github.com/noironetworks/cilium-net/cilium/endpoint"
 	"github.com/noironetworks/cilium-net/cilium/monitor"
 	policy "github.com/noironetworks/cilium-net/cilium/policy"
 	"github.com/noironetworks/cilium-net/common"
+	daemon "github.com/noironetworks/cilium-net/daemon"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"

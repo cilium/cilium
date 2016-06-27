@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
-	"github.com/noironetworks/cilium-net/cilium-net-daemon/daemon"
-	s "github.com/noironetworks/cilium-net/cilium-net-daemon/server"
 	common "github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/daemon/daemon"
+	s "github.com/noironetworks/cilium-net/daemon/server"
 
 	"github.com/codegangsta/cli"
 	consulAPI "github.com/hashicorp/consul/api"
