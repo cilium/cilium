@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	log = l.MustGetLogger("cilium-net-policy-repo")
+	log = l.MustGetLogger("cilium-cli")
 )
 
 func main() {

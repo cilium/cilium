@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	log        = l.MustGetLogger("cilium-monitor")
+	log        = l.MustGetLogger("cilium-cli")
 	CliCommand cli.Command
 	dissect    = false
 	config     = bpf.PerfEventConfig{
