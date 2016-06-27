@@ -6,11 +6,8 @@ BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o
 SCRIPTS = init.sh join_ep.sh leave_ep.sh
 LIB := $(shell find ./lib -name '*.h')
 
-all: nop.o $(BPF)
+all: $(BPF)
 	$(MAKE) -C go
-
-nop.o:
-	clang ${CLANG_FLAGS} -c nop.c -o $@
 
 bpf_lxc.o:
 	clang ${CLANG_FLAGS} -c bpf_lxc.c -o $@
