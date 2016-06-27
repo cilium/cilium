@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = docker-plugin cilium cni bpf common
+SUBDIRS = plugins cilium bpf common
 SUBDIRSLIB = cilium-net-daemon policy-repo integration
 
 all: $(SUBDIRS)
