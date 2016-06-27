@@ -186,7 +186,7 @@ func (e *Endpoint) GetFmtOpt(name string) string {
 		return "#define " + EndpointOptionDefine(name)
 	}
 
-	return "#undef " + name
+	return "#undef " + EndpointOptionDefine(name)
 }
 
 func (e *Endpoint) OptionChanged(key string, value bool) {
