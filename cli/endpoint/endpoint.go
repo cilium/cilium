@@ -94,30 +94,6 @@ func init() {
 						BashComplete: listEndpointsBash,
 						ArgsUsage:    "<endpoint> <label_id>",
 					},
-					{
-						Name:         "enable",
-						Usage:        "Enables policy enforcement of the given endpoint",
-						Before:       verifyArguments,
-						BashComplete: listEndpointsBash,
-						ArgsUsage:    "<endpoint>",
-						Action:       enablePolicy,
-					},
-					{
-						Name:         "disable",
-						Usage:        "Disables policy enforcement of the given endpoint",
-						Before:       verifyArguments,
-						BashComplete: listEndpointsBash,
-						ArgsUsage:    "<endpoint>",
-						Action:       disablePolicy,
-					},
-					{
-						Name:         "status",
-						Usage:        "Returns the current policy status of the given endpoint",
-						Before:       verifyArguments,
-						BashComplete: listEndpointsBash,
-						ArgsUsage:    "<endpoint>",
-						Action:       getStatusPolicy,
-					},
 				},
 			},
 			{
@@ -300,12 +276,6 @@ func configEndpoint(ctx *cli.Context) {
 	}
 }
 
-func setIfGT(dst *int, src int) {
-	if src > *dst {
-		*dst = src
-	}
-}
-
 func dumpMap(ctx *cli.Context) {
 	lbl := ctx.Args().First()
 	printIDs := ctx.Bool("id")
@@ -432,52 +402,6 @@ func addPolicyKey(ctx *cli.Context) {
 
 func removePolicyKey(ctx *cli.Context) {
 	updatePolicyKey(ctx, false)
-}
-
-func enablePolicy(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, types.EPOpts{common.DisablePolicyEnforcement: false})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %s with policy enforcement enabled\n", epID)
-}
-
-func disablePolicy(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, types.EPOpts{common.DisablePolicyEnforcement: true})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while updating endpoint %s on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %s with policy enforcement disabled\n", epID)
-}
-
-func getStatusPolicy(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	ep, err := client.EndpointGet(epID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
-		return
-	}
-	if ep == nil {
-		fmt.Printf("Endpoint %s not found\n", epID)
-		return
-	}
-
-	if v, ok := ep.Opts[common.DisablePolicyEnforcement]; ok {
-		fmt.Printf("Endpoint %s with %s set %t\n",
-			ep.ID, common.DisablePolicyEnforcement, v)
-		return
-	}
-	fmt.Printf("Endpoint %s with %s set %t\n",
-		ep.ID, common.DisablePolicyEnforcement, false)
 }
 
 func dumpEndpoints(ctx *cli.Context) {
