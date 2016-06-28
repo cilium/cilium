@@ -642,9 +642,9 @@ func (pn *PolicyNode) Merge(obj *PolicyNode) error {
 
 func (pn *PolicyNode) AddChild(name string, child *PolicyNode) error {
 	if _, ok := pn.Children[name]; ok {
-		if err := pn.Children[name].Merge(child); err != nil {
-			return err
-		}
+		child.Parent = pn
+		child.Path()
+		return pn.Children[name].Merge(child)
 	} else {
 		pn.Children[name] = child
 		child.Parent = pn
