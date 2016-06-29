@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "lib/common.h"
+#include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/icmp6.h"
 #include "lib/eth.h"
@@ -245,8 +246,7 @@ error:
 	else if (ret < 0 || ret == TC_ACT_SHOT) {
 		if (ret < 0)
 			ret = -ret;
-		send_drop_notify_error(skb, ret);
-		return TC_ACT_SHOT;
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 	} else {
 		return ret;
 	}
@@ -276,8 +276,8 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED) {
-			send_drop_notify(skb, src_label, SECLABEL, LXC_ID, ifindex);
-			return TC_ACT_SHOT;
+			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
+						ifindex, TC_ACT_SHOT);
 		}
 	} else if (ret == CT_NEW) {
 		ct_create6(&CT_MAP, &tuple, skb, 1);
@@ -287,8 +287,7 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	return redirect(ifindex, 0);
 
 drop:
-	send_drop_notify_error(skb, ret);
-	return TC_ACT_SHOT;
+	return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 }
 
 BPF_LICENSE("GPL");
