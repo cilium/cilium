@@ -15,6 +15,7 @@ enum {
 	DBG_CT_CREATED,
 	DBG_ICMP6_REQUEST,
 	DBG_ICMP6_NS,
+	DBG_ICMP6_TIME_EXCEEDED,
 };
 
 /* Capture types */

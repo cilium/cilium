@@ -242,8 +242,6 @@ int handle_ingress(struct __sk_buff *skb)
 error:
 	if (likely(ret == TC_ACT_OK || ret == TC_ACT_REDIRECT))
 		return ret;
-	else if (ret == SEND_TIME_EXCEEDED)
-		return icmp6_send_time_exceeded(skb, ETH_HLEN);
 	else if (ret < 0 || ret == TC_ACT_SHOT) {
 		if (ret < 0)
 			ret = -ret;

@@ -12,6 +12,7 @@
 #define CILIUM_CALL_ERROR_NOTIFY		2
 #define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
 #define CILIUM_CALL_HANDLE_ICMP6_NS		4
+#define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_SIZE			8
 
 typedef __u64 mac_t;
@@ -78,7 +79,6 @@ struct drop_notify {
 #endif
 
 /* Cilium error codes, must NOT overlap with TC return codes */
-#define SEND_TIME_EXCEEDED	-129
 #define DROP_INVALID_SMAC	-130
 #define DROP_INVALID_DMAC	-131
 #define DROP_INVALID_SIP	-132

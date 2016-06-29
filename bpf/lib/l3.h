@@ -52,7 +52,7 @@ static inline int __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 {
 
 	if (ipv6_dec_hoplimit(skb, nh_off))
-		return SEND_TIME_EXCEEDED;
+		return icmp6_send_time_exceeded(skb, nh_off);
 
 	if (smac)
 		eth_store_saddr(skb, smac, 0);
