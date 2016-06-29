@@ -25,6 +25,7 @@ const (
 	DBG_CT_CREATED
 	DBG_ICMP6_REQUEST
 	DBG_ICMP6_NS
+	DBG_ICMP6_TIME_EXCEEDED
 )
 
 type DebugMsg struct {
@@ -60,6 +61,8 @@ func (n *DebugMsg) Dump(data []byte) {
 		fmt.Printf("ICMPv6 echo request for router offset=%d\n", n.Arg1)
 	case DBG_ICMP6_NS:
 		fmt.Printf("ICMPv6 neighbour soliciation for address %x:%x\n", n.Arg1, n.Arg2)
+	case DBG_ICMP6_TIME_EXCEEDED:
+		fmt.Printf("Sending ICMPv6 time exceeded\n")
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

@@ -163,13 +163,14 @@ static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 	return sum;
 }
 
-static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int __send_icmp6_time_exceeded(struct __sk_buff *skb)
 {
 	/* FIXME: Fix code below to not require this init */
         char data[80] = {};
         struct icmp6hdr *icmp6hoplim;
         struct ipv6hdr *ipv6hdr;
 	char *upper; /* icmp6 or tcp or udp */
+	int nh_off = skb->cb[0];
         const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
         __be32 sum = 0;
 	__u16 payload_len = 0; /* FIXME: Uninit of this causes verifier bug */
@@ -186,6 +187,8 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
         icmp6hoplim->icmp6_code = 0;
         icmp6hoplim->icmp6_cksum = 0;
         icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
+
+	cilium_trace(skb, DBG_ICMP6_TIME_EXCEEDED, 0, 0);
 
         /* read original v6 hdr into offset 8 */
         if (skb_load_bytes(skb, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
@@ -252,6 +255,23 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
         l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
         return icmp6_send_reply(skb, nh_off);
+}
+
+/*
+ * icmp6_send_time_exceeded
+ * @skb:	socket buffer
+ * @nh_off:	offset to the IPv6 header
+ *
+ * Send a ICMPv6 time exceeded in response to an IPv6 frame.
+ *
+ * NOTE: This is terminal function and will cause the BPF program to exit
+ */
+static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
+{
+	skb->cb[0] = nh_off;
+	tail_call(skb, &cilium_calls, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED);
+
+	return TC_ACT_SHOT;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int __handle_icmp6_ns(struct __sk_buff *skb)
