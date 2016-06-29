@@ -24,6 +24,7 @@ const (
 	DBG_CT_MATCH
 	DBG_CT_CREATED
 	DBG_ICMP6_REQUEST
+	DBG_ICMP6_NS
 )
 
 type DebugMsg struct {
@@ -57,6 +58,8 @@ func (n *DebugMsg) Dump(data []byte) {
 		fmt.Printf("CT created proto=%d flags=%#x\n", n.Arg1, n.Arg2)
 	case DBG_ICMP6_REQUEST:
 		fmt.Printf("ICMPv6 echo request for router offset=%d\n", n.Arg1)
+	case DBG_ICMP6_NS:
+		fmt.Printf("ICMPv6 neighbour soliciation for address %x:%x\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

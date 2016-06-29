@@ -14,6 +14,7 @@ enum {
 	DBG_CT_MATCH,
 	DBG_CT_CREATED,
 	DBG_ICMP6_REQUEST,
+	DBG_ICMP6_NS,
 };
 
 /* Capture types */

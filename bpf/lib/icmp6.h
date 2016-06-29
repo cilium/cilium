@@ -254,13 +254,16 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
         return icmp6_send_reply(skb, nh_off);
 }
 
-static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int __handle_icmp6_ns(struct __sk_buff *skb)
 {
 	union v6addr target, router = { . addr = ROUTER_IP };
+	int nh_off = skb->cb[0];
 
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
 		return TC_ACT_SHOT;
+
+	cilium_trace(skb, DBG_ICMP6_NS, target.p3, target.p4);
 
 	if (ipv6_addrcmp(&target, &router) == 0) {
 		union macaddr router_mac = NODE_MAC;
@@ -270,6 +273,23 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 		/* Unknown target address, drop */
 		return TC_ACT_SHOT;
 	}
+}
+
+/*
+ * icmp6_handle_ns
+ * @skb:	socket buffer
+ * @nh_off:	offset to the IPv6 header
+ *
+ * Respond to ICMPv6 Neighbour Solicitation
+ *
+ * NOTE: This is terminal function and will cause the BPF program to exit
+ */
+static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
+{
+	skb->cb[0] = nh_off;
+	tail_call(skb, &cilium_calls, CILIUM_CALL_HANDLE_ICMP6_NS);
+
+	return TC_ACT_SHOT;
 }
 
 static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
