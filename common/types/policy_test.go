@@ -569,6 +569,8 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 		},
 		Children: map[string]*PolicyNode{
 			"bar": &PolicyNode{
+				Name: "bar",
+				path: common.GlobalLabelPrefix + ".bar",
 				Rules: []interface{}{
 					PolicyRuleConsumers{
 						Allow: []AllowRule{
@@ -590,8 +592,13 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 			},
 		},
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{},
+			"foo": &PolicyNode{
+				Name: "foo",
+				path: common.GlobalLabelPrefix + ".foo",
+			},
 			"bar": &PolicyNode{
+				Name: "bar",
+				path: common.GlobalLabelPrefix + ".bar",
 				Rules: []interface{}{
 					PolicyRuleConsumers{
 						Allow: []AllowRule{
@@ -605,6 +612,9 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 			},
 		},
 	}
+
+	aNode.Path()
+	bNode.Path()
 
 	err = aNode.Merge(&bNode)
 	c.Assert(err, Equals, nil)
