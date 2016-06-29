@@ -47,11 +47,14 @@ static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	return redirect(skb->ifindex, 0);
 }
 
-static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int __send_icmp6_echo_reply(struct __sk_buff *skb)
 {
 	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
-	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
+	int nh_off = skb->cb[0];
+	int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
+
+	cilium_trace(skb, DBG_ICMP6_REQUEST, nh_off, 0);
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
@@ -75,6 +78,23 @@ static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
 	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
 	return icmp6_send_reply(skb, nh_off);
+}
+
+/*
+ * icmp6_send_echo_response
+ * @skb:	socket buffer
+ * @nh_off:	offset to the IPv6 header
+ *
+ * Send an ICMPv6 echo response in return to an ICMPv6 echo reply.
+ *
+ * NOTE: This is terminal function and will cause the BPF program to exit
+ */
+static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
+{
+	skb->cb[0] = nh_off;
+	tail_call(skb, &cilium_calls, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY);
+
+	return TC_ACT_SHOT;
 }
 
 static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
