@@ -4,24 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
 // EndpointJoin sends a endpoint POST request with ep to the daemon.
 func (cli Client) EndpointJoin(ep types.Endpoint) error {
-	query := url.Values{}
 
-	serverResp, err := cli.post("/endpoint/"+ep.ID, query, ep, nil)
+	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/" + ep.ID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusCreated {
-		return processErrorBody(serverResp.body, ep)
+	if serverResp.StatusCode() != http.StatusCreated {
+		return processErrorBody(serverResp.Body(), ep)
 	}
 
 	return nil
@@ -29,20 +25,17 @@ func (cli Client) EndpointJoin(ep types.Endpoint) error {
 
 // EndpointLeave sends a DELETE request with epID to the daemon.
 func (cli Client) EndpointLeave(epID string) error {
-	query := url.Values{}
 
 	log.Debug("DELETE /endpoint/" + epID)
 
-	serverResp, err := cli.delete("/endpoint/"+epID, query, nil)
+	serverResp, err := cli.R().Delete("/endpoint/" + epID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusNoContent &&
-		serverResp.statusCode != http.StatusNotFound {
-		return processErrorBody(serverResp.body, epID)
+	if serverResp.StatusCode() != http.StatusNoContent &&
+		serverResp.StatusCode() != http.StatusNotFound {
+		return processErrorBody(serverResp.Body(), epID)
 	}
 
 	return nil
@@ -50,20 +43,17 @@ func (cli Client) EndpointLeave(epID string) error {
 
 // EndpointLeaveByDockerEPID sends a DELETE request with dockerEPID to the daemon.
 func (cli Client) EndpointLeaveByDockerEPID(dockerEPID string) error {
-	query := url.Values{}
 
 	log.Debug("DELETE /endpoint-by-docker-ep-id/" + dockerEPID)
 
-	serverResp, err := cli.delete("/endpoint-by-docker-ep-id/"+dockerEPID, query, nil)
+	serverResp, err := cli.R().Delete("/endpoint-by-docker-ep-id/" + dockerEPID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusNoContent &&
-		serverResp.statusCode != http.StatusNotFound {
-		return processErrorBody(serverResp.body, dockerEPID)
+	if serverResp.StatusCode() != http.StatusNoContent &&
+		serverResp.StatusCode() != http.StatusNotFound {
+		return processErrorBody(serverResp.Body(), dockerEPID)
 	}
 
 	return nil
@@ -71,25 +61,23 @@ func (cli Client) EndpointLeaveByDockerEPID(dockerEPID string) error {
 
 // EndpointGet sends a GET request with epID to the daemon.
 func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
-	query := url.Values{}
-	serverResp, err := cli.get("/endpoint/"+epID, query, nil)
+
+	serverResp, err := cli.R().Get("/endpoint/" + epID)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusOK &&
-		serverResp.statusCode != http.StatusNoContent {
-		return nil, processErrorBody(serverResp.body, epID)
+	if serverResp.StatusCode() != http.StatusOK &&
+		serverResp.StatusCode() != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.Body(), epID)
 	}
 
-	if serverResp.statusCode == http.StatusNoContent {
+	if serverResp.StatusCode() == http.StatusNoContent {
 		return nil, nil
 	}
 
 	var ep types.Endpoint
-	if err := json.NewDecoder(serverResp.body).Decode(&ep); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &ep); err != nil {
 		return nil, err
 	}
 
@@ -98,25 +86,23 @@ func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
 
 // EndpointGetByDockerEPID sends a GET request with dockerEPID to the daemon.
 func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
-	query := url.Values{}
-	serverResp, err := cli.get("/endpoint-by-docker-ep-id/"+dockerEPID, query, nil)
+
+	serverResp, err := cli.R().Get("/endpoint-by-docker-ep-id/" + dockerEPID)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusOK &&
-		serverResp.statusCode != http.StatusNoContent {
-		return nil, processErrorBody(serverResp.body, dockerEPID)
+	if serverResp.StatusCode() != http.StatusOK &&
+		serverResp.StatusCode() != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.Body(), dockerEPID)
 	}
 
-	if serverResp.statusCode == http.StatusNoContent {
+	if serverResp.StatusCode() == http.StatusNoContent {
 		return nil, nil
 	}
 
 	var ep types.Endpoint
-	if err := json.NewDecoder(serverResp.body).Decode(&ep); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &ep); err != nil {
 		return nil, err
 	}
 
@@ -125,25 +111,23 @@ func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, e
 
 // EndpointsGet sends a GET request to the daemon.
 func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
-	query := url.Values{}
-	serverResp, err := cli.get("/endpoints", query, nil)
+
+	serverResp, err := cli.R().Get("/endpoints")
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusOK &&
-		serverResp.statusCode != http.StatusNoContent {
-		return nil, processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusOK &&
+		serverResp.StatusCode() != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.Body(), nil)
 	}
 
-	if serverResp.statusCode == http.StatusNoContent {
+	if serverResp.StatusCode() == http.StatusNoContent {
 		return nil, nil
 	}
 
 	var eps []types.Endpoint
-	if err := json.NewDecoder(serverResp.body).Decode(&eps); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &eps); err != nil {
 		return nil, err
 	}
 
@@ -152,17 +136,15 @@ func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
 
 // EndpointUpdate sends a POST request with epID and opts to the daemon.
 func (cli Client) EndpointUpdate(epID string, opts types.EPOpts) error {
-	query := url.Values{}
-	serverResp, err := cli.post("/endpoint/update/"+epID, query, opts, nil)
+
+	serverResp, err := cli.R().SetBody(opts).Post("/endpoint/update/" + epID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusOK &&
-		serverResp.statusCode != http.StatusAccepted {
-		return processErrorBody(serverResp.body, epID)
+	if serverResp.StatusCode() != http.StatusOK &&
+		serverResp.StatusCode() != http.StatusAccepted {
+		return processErrorBody(serverResp.Body(), epID)
 	}
 
 	return nil
@@ -170,16 +152,14 @@ func (cli Client) EndpointUpdate(epID string, opts types.EPOpts) error {
 
 // EndpointSave sends a endpoint POST request with ep to the daemon.
 func (cli Client) EndpointSave(ep types.Endpoint) error {
-	query := url.Values{}
-	serverResp, err := cli.post("/endpoint/save/"+ep.ID, query, ep, nil)
+
+	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/save/" + ep.ID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusCreated {
-		return processErrorBody(serverResp.body, ep)
+	if serverResp.StatusCode() != http.StatusCreated {
+		return processErrorBody(serverResp.Body(), ep)
 	}
 
 	return nil
