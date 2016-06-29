@@ -151,7 +151,7 @@ int from_netdev(struct __sk_buff *skb)
 		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 			ret = icmp6_handle(skb, ETH_HLEN);
-			if (ret != REDIRECT_TO_LXC)
+			if (ret != 0)
 				goto error;
 		}
 #endif

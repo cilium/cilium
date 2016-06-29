@@ -309,7 +309,10 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 		break;
 	}
 
-	return REDIRECT_TO_LXC;
+	/* All branching above will have issued a tail call, all
+	 * remaining traffic is subject to forwarding to containers.
+	 */
+	return 0;
 }
 
 #endif
