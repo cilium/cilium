@@ -8,9 +8,10 @@
 
 #define __inline__ __attribute__((always_inline))
 
-#define CILIUM_CALL_DROP_NOTIFY		1
-#define CILIUM_CALL_ERROR_NOTIFY	2
-#define CILIUM_CALL_SIZE		8
+#define CILIUM_CALL_DROP_NOTIFY			1
+#define CILIUM_CALL_ERROR_NOTIFY		2
+#define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
+#define CILIUM_CALL_SIZE			8
 
 typedef __u64 mac_t;
 
