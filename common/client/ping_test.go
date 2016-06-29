@@ -2,7 +2,6 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,7 +27,7 @@ func NewTestClient(urlStr string, c *C) *Client {
 			return url.Parse(urlStr)
 		},
 	}
-	cli, err := NewClient(urlStr, nil, transport, nil)
+	cli, err := NewClient(urlStr, transport)
 	if err != nil {
 		c.Fatalf("Failed while creating new cilium-net test client: %+v", err)
 	}
@@ -61,7 +60,8 @@ func (s *CiliumNetClientSuite) TestPingFail(c *C) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/ping")
 		w.WriteHeader(http.StatusRequestTimeout)
-		fmt.Fprint(w, `Something went wrong`)
+		err := json.NewEncoder(w).Encode(types.ServerError{-1, "Something went wrong"})
+		c.Assert(err, IsNil)
 	}))
 	defer server.Close()
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/noironetworks/cilium-net/common/types"
@@ -12,21 +11,19 @@ import (
 
 // PutLabels sends POST request with labels to the daemon. Returns
 func (cli Client) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
-	query := url.Values{}
-	serverResp, err := cli.post("/labels/"+contID, query, labels, nil)
+
+	serverResp, err := cli.R().SetBody(labels).Post("/labels/" + contID)
 	if err != nil {
 		return nil, false, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusAccepted {
-		return nil, false, processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusAccepted {
+		return nil, false, processErrorBody(serverResp.Body(), nil)
 	}
 
 	// TODO: check if the value is new or not. Possible by checking if labelsResp.RefCount == 1
 	var labelsResp types.SecCtxLabel
-	if err := json.NewDecoder(serverResp.body).Decode(&labelsResp); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &labelsResp); err != nil {
 		return nil, false, err
 	}
 
@@ -36,26 +33,23 @@ func (cli Client) PutLabels(labels types.Labels, contID string) (*types.SecCtxLa
 // GetLabels sends a GET request with id to the daemon. Returns the types.SecCtxLabels
 // with the given id. If it's not found, types.SecCtxLabels and error are booth nil.
 func (cli Client) GetLabels(id uint32) (*types.SecCtxLabel, error) {
-	query := url.Values{}
 
-	serverResp, err := cli.get("/labels/by-uuid/"+strconv.FormatUint(uint64(id), 10), query, nil)
+	serverResp, err := cli.R().Get("/labels/by-uuid/" + strconv.FormatUint(uint64(id), 10))
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusNoContent &&
-		serverResp.statusCode != http.StatusOK {
-		return nil, processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusNoContent &&
+		serverResp.StatusCode() != http.StatusOK {
+		return nil, processErrorBody(serverResp.Body(), nil)
 	}
 
-	if serverResp.statusCode == http.StatusNoContent {
+	if serverResp.StatusCode() == http.StatusNoContent {
 		return nil, nil
 	}
 
 	var secCtxLabels types.SecCtxLabel
-	if err := json.NewDecoder(serverResp.body).Decode(&secCtxLabels); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &secCtxLabels); err != nil {
 		return nil, err
 	}
 
@@ -66,26 +60,23 @@ func (cli Client) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 // types.SecCtxLabels with the given id. If it's not found, types.SecCtxLabels and error
 // are booth nil.
 func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
-	query := url.Values{}
 
-	serverResp, err := cli.get("/labels/by-sha256sum/"+sha256sum, query, nil)
+	serverResp, err := cli.R().Get("/labels/by-sha256sum/" + sha256sum)
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusNoContent &&
-		serverResp.statusCode != http.StatusOK {
-		return nil, processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusNoContent &&
+		serverResp.StatusCode() != http.StatusOK {
+		return nil, processErrorBody(serverResp.Body(), nil)
 	}
 
-	if serverResp.statusCode == http.StatusNoContent {
+	if serverResp.StatusCode() == http.StatusNoContent {
 		return nil, nil
 	}
 
 	var secCtxLabels types.SecCtxLabel
-	if err := json.NewDecoder(serverResp.body).Decode(&secCtxLabels); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &secCtxLabels); err != nil {
 		return nil, err
 	}
 
@@ -94,17 +85,14 @@ func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error
 
 // DeleteLabelsByUUID sends a DELETE request with id to the daemon.
 func (cli Client) DeleteLabelsByUUID(id uint32, contID string) error {
-	query := url.Values{}
 
-	serverResp, err := cli.delete("/labels/by-uuid/"+strconv.FormatUint(uint64(id), 10)+"/"+contID, query, nil)
+	serverResp, err := cli.R().Delete("/labels/by-uuid/" + strconv.FormatUint(uint64(id), 10) + "/" + contID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusNoContent {
-		return processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusNoContent {
+		return processErrorBody(serverResp.Body(), nil)
 	}
 
 	return nil
@@ -112,17 +100,14 @@ func (cli Client) DeleteLabelsByUUID(id uint32, contID string) error {
 
 // DeleteLabelsBySHA256 sends a DELETE request with the sha256sum to the daemon.
 func (cli Client) DeleteLabelsBySHA256(sha256sum, contID string) error {
-	query := url.Values{}
 
-	serverResp, err := cli.delete("/labels/by-sha256sum/"+sha256sum+"/"+contID, query, nil)
+	serverResp, err := cli.R().Delete("/labels/by-sha256sum/" + sha256sum + "/" + contID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusNoContent {
-		return processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusNoContent {
+		return processErrorBody(serverResp.Body(), nil)
 	}
 
 	return nil
@@ -130,21 +115,18 @@ func (cli Client) DeleteLabelsBySHA256(sha256sum, contID string) error {
 
 // GetMaxID sends a GET request to the daemon. Returns the next, possible, free UUID.
 func (cli Client) GetMaxID() (uint32, error) {
-	query := url.Values{}
 
-	serverResp, err := cli.get("/labels/status/maxUUID", query, nil)
+	serverResp, err := cli.R().Get("/labels/status/maxUUID")
 	if err != nil {
 		return 0, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
 
-	defer ensureReaderClosed(serverResp)
-
-	if serverResp.statusCode != http.StatusOK {
-		return 0, processErrorBody(serverResp.body, nil)
+	if serverResp.StatusCode() != http.StatusOK {
+		return 0, processErrorBody(serverResp.Body(), nil)
 	}
 
 	var maxID uint32
-	if err := json.NewDecoder(serverResp.body).Decode(&maxID); err != nil {
+	if err := json.Unmarshal(serverResp.Body(), &maxID); err != nil {
 		return 0, err
 	}
 

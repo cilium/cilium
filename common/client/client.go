@@ -1,8 +1,6 @@
 package client
 
 import (
-	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,6 +9,7 @@ import (
 	common "github.com/noironetworks/cilium-net/common"
 
 	l "github.com/op/go-logging"
+	"gopkg.in/resty.v0"
 )
 
 var log = l.MustGetLogger("cilium-net-client")
@@ -21,43 +20,35 @@ func init() {
 
 // Client has the internal details necessary to talk with the daemon.
 type Client struct {
-	proto      string
-	addr       string
-	basePath   string
-	scheme     string
-	tlsConfig  *tls.Config
-	httpClient *http.Client
+	*resty.Client
 }
 
 // NewDefaultClient creates and returns a client that will talk with common.CiliumStock.
 func NewDefaultClient() (*Client, error) {
-	return NewClient("unix://"+common.CiliumSock, nil, nil, nil)
+	return NewClient("unix://"+common.CiliumSock, nil)
 }
 
 // NewClient creates and returns a client that will send requests to host, using the
 // http.Client httpCli with transport and httpHeaders.
-func NewClient(host string, httpCli *http.Client, transport *http.Transport, httpHeaders map[string]string) (*Client, error) {
+func NewClient(host string, transport *http.Transport) (*Client, error) {
+
 	var (
-		basePath       string
-		tlsConfig      *tls.Config
-		scheme         = "http"
+		httpCli        *http.Client
 		protoAddrParts = strings.SplitN(host, "://", 2)
 		proto, addr    = protoAddrParts[0], protoAddrParts[1]
 	)
 
-	if proto == "tcp" {
-		parsed, err := url.Parse("tcp://" + addr)
-		if err != nil {
+	switch proto {
+	case "tcp":
+		if _, err := url.Parse("tcp://" + addr); err != nil {
 			return nil, err
 		}
-		addr = parsed.Host
-		basePath = parsed.Path
+		addr = "http://" + addr
+	case "http":
+		addr = "http://" + addr
 	}
 
 	transport = configureTransport(transport, proto, addr)
-	if transport.TLSClientConfig != nil {
-		scheme = "https"
-	}
 
 	if httpCli != nil {
 		httpCli.Transport = transport
@@ -65,24 +56,15 @@ func NewClient(host string, httpCli *http.Client, transport *http.Transport, htt
 		httpCli = &http.Client{Transport: transport}
 	}
 
-	log.Debugf("Client talking with host: %s", host)
-
-	return &Client{
-		proto:      proto,
-		addr:       addr,
-		basePath:   basePath,
-		scheme:     scheme,
-		tlsConfig:  tlsConfig,
-		httpClient: httpCli,
-	}, nil
-}
-
-func (cli *Client) getAPIPath(p string, query url.Values) string {
-	apiPath := fmt.Sprintf("%s%s", cli.basePath, p)
-	if len(query) > 0 {
-		apiPath += "?" + query.Encode()
+	r := resty.New().SetTransport(transport).SetScheme("http")
+	if proto != "unix" {
+		r.SetHostURL(addr)
 	}
-	return apiPath
+
+	log.Debugf("Client talking with host: %s", host)
+	return &Client{
+		r,
+	}, nil
 }
 
 func configureTransport(tr *http.Transport, proto, addr string) *http.Transport {

@@ -41,7 +41,7 @@ func (s *DaemonSuite) SetUpSuite(c *C) {
 		}
 	}()
 
-	s.c, err = cnc.NewClient("http://"+s.s.listener.Addr().String(), nil, nil, nil)
+	s.c, err = cnc.NewClient("http://"+s.s.listener.Addr().String(), nil)
 	if err != nil {
 		c.Fatalf("Error while trying to listen: %+v", err)
 	}
