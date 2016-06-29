@@ -23,6 +23,11 @@ var errors = map[uint8]string{
 	131: "Invalid destination mac",
 	132: "Invalid source ip",
 	133: "Policy denied",
+	134: "Invalid packet",
+	135: "CT: Truncated or invalid header",
+	136: "CT: Missing TCP ACK flag",
+	137: "CT: Unknown L4 protocol",
+	138: "CT: Can't create entry from packet",
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte) {

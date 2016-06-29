@@ -101,6 +101,9 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
 	ret = ct_lookup6(&CT_MAP, tuple, skb, ETH_HLEN, SECLABEL, 0);
+	if (unlikely(ret < 0))
+		return ret;
+
 	switch (ret) {
 	case CT_NEW:
 		ct_create6(&CT_MAP, tuple, skb, 0);
@@ -268,8 +271,7 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	}
 
 	ret = ct_lookup6(&CT_MAP, &tuple, skb, ETH_HLEN, SECLABEL, 1);
-	if (unlikely(ret == CT_INVALID)) {
-		ret = DROP_INVALID;
+	if (unlikely(ret < 0)) {
 		goto drop;
 	}
 

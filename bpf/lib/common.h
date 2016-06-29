@@ -84,6 +84,10 @@ struct drop_notify {
 #define DROP_INVALID_SIP	-132
 #define DROP_POLICY		-133
 #define DROP_INVALID		-134
+#define DROP_CT_INVALID_HDR	-135
+#define DROP_CT_MISSING_ACK	-136
+#define DROP_CT_UNKNOWN_PROTO	-137
+#define DROP_CT_CANT_CREATE	-138
 
 enum {
 	CB_SRC_LABEL,

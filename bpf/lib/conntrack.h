@@ -138,7 +138,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			__u8 type;
 
 			if (skb_load_bytes(skb, off, &type, 1) < 0)
-				return CT_INVALID;
+				return DROP_CT_INVALID_HDR;
 
 			tuple->sport = 0;
 			tuple->dport = 0;
@@ -170,13 +170,13 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			struct tcp_flags flags;
 
 			if (skb_load_bytes(skb, off + 12, &flags, 2) < 0)
-				return CT_INVALID;
+				return DROP_CT_INVALID_HDR;
 
 			if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
 			else {
 				if (unlikely(!flags.ack))
-					return CT_INVALID;
+					return DROP_CT_MISSING_ACK;
 
 				if (unlikely(flags.rst))
 					action = ACTION_DELETE;
@@ -189,14 +189,14 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	case IPPROTO_UDP:
 		/* load sport + dport into tuple */
 		if (skb_load_bytes(skb, off, &tuple->dport, 4) < 0)
-			return CT_INVALID;
+			return DROP_CT_INVALID_HDR;
 
 		action = ACTION_CREATE;
 		break;
 
 	default:
 		/* Can't handle extension headers yet */
-		return CT_INVALID;
+		return DROP_CT_UNKNOWN_PROTO;
 	}
 
 	/* Lookup the reverse direction
@@ -220,7 +220,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
-		ret = CT_INVALID;
+		ret = DROP_CT_CANT_CREATE;
 
 	cilium_trace(skb, DBG_GENERIC, ret, 0);
 
