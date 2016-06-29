@@ -78,7 +78,6 @@ struct drop_notify {
 #endif
 
 /* Cilium error codes, must NOT overlap with TC return codes */
-#define REDIRECT_TO_LXC		-128
 #define SEND_TIME_EXCEEDED	-129
 #define DROP_INVALID_SMAC	-130
 #define DROP_INVALID_DMAC	-131

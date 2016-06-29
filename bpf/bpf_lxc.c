@@ -226,13 +226,14 @@ int handle_ingress(struct __sk_buff *skb)
 	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6)))
 		return TC_ACT_SHOT;
 
-	/* Handle ICMPv6 messages to the logical router, all other ICMPv6
-	 * messages are passed on to the container (REDIRECT_TO_LXC)
+	/* Handle special ICMPv6 messages. This includes echo requests to the
+	 * logical router address, neighbour advertisements to the router.
+	 * All remaining packets are subjected to forwarding into the container.
 	 */
 	tuple.nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 	if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(skb, ETH_HLEN);
-		if (ret != REDIRECT_TO_LXC)
+		if (ret != 0)
 			goto error;
 	}
 
