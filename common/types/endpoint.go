@@ -103,7 +103,7 @@ func EndpointOptionDefine(name string) string {
 		return EndpointOptionLibrary[name].Define
 	}
 
-	return ""
+	return name
 }
 
 // Opts is the endpoint bpf options representation.

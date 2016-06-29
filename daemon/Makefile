@@ -13,6 +13,7 @@ tests:
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 	go fmt ./...
 	-sudo -E env "PATH=${PATH}" go test -timeout 30s ./...
+	-rmdir ./daemon/1 ./daemon/1_backup
 	docker rm -f "cilium-consul-test-container"
 
 runtime-tests:
