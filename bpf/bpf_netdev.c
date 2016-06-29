@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "lib/common.h"
+#include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
@@ -170,8 +171,7 @@ error:
 	else if (ret < 0 || ret == TC_ACT_SHOT) {
 		if (ret < 0)
 			ret = -ret;
-		send_drop_notify_error(skb, ret);
-		return TC_ACT_SHOT;
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 	} else {
 		return ret;
 	}
@@ -186,8 +186,8 @@ __section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb
 	int ifindex = skb->cb[CB_IFINDEX];
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
-		send_drop_notify(skb, src_label, SECLABEL, 0, ifindex);
-		return TC_ACT_SHOT;
+		return send_drop_notify(skb, src_label, SECLABEL, 0,
+					ifindex, TC_ACT_SHOT);
 	} else {
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 

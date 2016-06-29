@@ -6,7 +6,6 @@
 #include "eth.h"
 #include "dbg.h"
 #include "l4.h"
-#include "lxc_map.h"
 #include "icmp6.h"
 #include "geneve.h"
 
