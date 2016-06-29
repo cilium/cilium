@@ -8,12 +8,6 @@
 
 #define __inline__ __attribute__((always_inline))
 
-enum {
-	CILIUM_MAP_LOCAL_LXC,
-	__CILIUM_MAP_ID_MAX,
-#define CILIUM_MAP_ID_MAX __CILIUM_MAP_ID_MAX
-};
-
 typedef __u64 mac_t;
 
 union v6addr {
