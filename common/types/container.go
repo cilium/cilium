@@ -7,7 +7,7 @@ import (
 
 type Container struct {
 	dTypes.ContainerJSON
-	CiliumLabels Labels
+	OpLabels OpLabels
 }
 
 func (c *Container) IsDockerAndInfracontainer() bool {

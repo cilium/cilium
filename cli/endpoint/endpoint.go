@@ -50,6 +50,28 @@ func init() {
 				Before:       verifyArguments,
 			},
 			{
+				Name:         "labels",
+				Usage:        "Manage labels endpoint configuration",
+				Action:       configLabels,
+				BashComplete: listEndpointsBash,
+				ArgsUsage:    "<endpoint>",
+				Flags: []cli.Flag{
+					cli.StringSliceFlag{
+						Name: "enable, e",
+					},
+					cli.StringSliceFlag{
+						Name: "disable, d",
+					},
+					cli.StringSliceFlag{
+						Name: "add, a",
+					},
+					cli.StringSliceFlag{
+						Name: "delete, D",
+					},
+				},
+				Before: verifyArguments,
+			},
+			{
 				Name:   "list",
 				Usage:  "Dumps a list of all daemon's endpoints",
 				Action: dumpEndpoints,
@@ -156,6 +178,74 @@ func verifyArguments(ctx *cli.Context) error {
 		return fmt.Errorf("Error: only one endpoint is permited")
 	}
 	return nil
+}
+
+func printEndpointLabels(lbls *types.OpLabels) {
+	for _, lbl := range lbls.EndpointLabels {
+		delete(lbls.CiliumLabels, lbl.Key)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
+
+	for _, v := range lbls.EndpointLabels {
+		text := green("Enabled")
+
+		fmt.Fprintf(w, "%s\t%s\n", v, text)
+	}
+	for _, v := range lbls.CiliumLabels {
+		text := red("Disabled")
+
+		fmt.Fprintf(w, "%s\t%s\n", v, text)
+	}
+	w.Flush()
+}
+
+func configLabels(ctx *cli.Context) {
+	epID := ctx.Args().First()
+	if epID == "" {
+		fmt.Printf("Empty endpoint\n")
+		return
+	}
+
+	addLabels := types.ParseStringLabels(ctx.StringSlice("add"))
+	enableLabels := types.ParseStringLabels(ctx.StringSlice("enable"))
+	disableLabels := types.ParseStringLabels(ctx.StringSlice("disable"))
+	deleteLabels := types.ParseStringLabels(ctx.StringSlice("delete"))
+
+	if len(addLabels) != 0 {
+		err := client.EndpointLabelsUpdate(epID, types.AddLabelsOp, addLabels)
+		if err != nil {
+			log.Errorf("Error while adding labels %s", err)
+		}
+	}
+	if len(enableLabels) != 0 {
+		err := client.EndpointLabelsUpdate(epID, types.EnableLabelsOp, enableLabels)
+		if err != nil {
+			log.Errorf("Error while enabling labels %s", err)
+		}
+	}
+	if len(disableLabels) != 0 {
+		err := client.EndpointLabelsUpdate(epID, types.DisableLabelsOp, disableLabels)
+		if err != nil {
+			log.Errorf("Error while disabling labels %s", err)
+		}
+	}
+	if len(deleteLabels) != 0 {
+		err := client.EndpointLabelsUpdate(epID, types.DelLabelsOp, deleteLabels)
+		if err != nil {
+			log.Errorf("Error while deleting labels %s", err)
+		}
+	}
+
+	if lbls, err := client.EndpointLabelsGet(epID); err != nil {
+		log.Errorf("Error while getting endpoint labels: %s", err)
+	} else {
+		if lbls != nil {
+			printEndpointLabels(lbls)
+		} else {
+			fmt.Printf("(Endpoint with empty labels)")
+		}
+	}
 }
 
 func dumpLXCInfo(ctx *cli.Context) {

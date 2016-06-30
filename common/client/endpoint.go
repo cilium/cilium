@@ -164,3 +164,41 @@ func (cli Client) EndpointSave(ep types.Endpoint) error {
 
 	return nil
 }
+
+func (cli Client) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
+
+	serverResp, err := cli.R().Get("/endpoint/labels/" + epID)
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusOK &&
+		serverResp.StatusCode() != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.Body(), epID)
+	}
+
+	if serverResp.StatusCode() == http.StatusNoContent {
+		return nil, nil
+	}
+
+	var opLbls types.OpLabels
+	if err := json.Unmarshal(serverResp.Body(), &opLbls); err != nil {
+		return nil, err
+	}
+
+	return &opLbls, nil
+}
+
+func (cli Client) EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error {
+
+	serverResp, err := cli.R().SetBody(labels).Post("/endpoint/labels/" + string(op) + "/" + epID)
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusAccepted {
+		return processErrorBody(serverResp.Body(), epID)
+	}
+
+	return nil
+}

@@ -516,3 +516,99 @@ func (d *Daemon) EndpointSave(ep types.Endpoint) error {
 	d.InsertEndpoint(&ep)
 	return nil
 }
+
+func (d *Daemon) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
+	d.containersMU.Lock()
+	defer d.containersMU.Unlock()
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	ep := d.lookupCiliumEndpoint(epID)
+	if ep == nil {
+		return nil, fmt.Errorf("endpoint %s not found", epID)
+	}
+
+	cont := d.containers[ep.DockerID]
+	if cont == nil {
+		return nil, fmt.Errorf("container %s not found in cache", ep.DockerID)
+	}
+
+	cpy := types.OpLabels(cont.OpLabels)
+	return &cpy, nil
+}
+
+func (d *Daemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error {
+	if !isValidID(epID) {
+		return fmt.Errorf("invalid ID: %s", epID)
+	}
+
+	ep, err := d.EndpointGet(epID)
+	if err != nil {
+		return err
+	}
+
+	labels = d.conf.ValidLabelPrefixes.FilterLabels(labels)
+
+	d.containersMU.Lock()
+	cont := d.containers[ep.DockerID]
+	if cont == nil {
+		d.containersMU.Unlock()
+		return fmt.Errorf("container not found on cache")
+	}
+
+	switch op {
+	case types.AddLabelsOp:
+		cont.OpLabels.AllLabels.MergeLabels(labels)
+		cont.OpLabels.CiliumLabels.MergeLabels(labels)
+
+	case types.DelLabelsOp:
+		update := false
+		for k, _ := range labels {
+			delete(cont.OpLabels.CiliumLabels, k)
+			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
+				delete(ep.SecLabel.Labels, k)
+				update = true
+			}
+		}
+		if update {
+			d.containersMU.Unlock()
+			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+		}
+
+	case types.EnableLabelsOp:
+		for k, v := range labels {
+			if cont.OpLabels.CiliumLabels[k] == nil {
+				d.containersMU.Unlock()
+				return fmt.Errorf("label %s not found, please add it first in order to enable it", v)
+			}
+		}
+		d.containersMU.Unlock()
+
+		if ep.SecLabel != nil {
+			ep.SecLabel.Labels.MergeLabels(labels)
+			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+		} else {
+			return d.refreshContainerLabels(ep.DockerID, labels, false)
+		}
+
+	case types.DisableLabelsOp:
+		update := false
+		for k, _ := range labels {
+			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
+				delete(ep.SecLabel.Labels, k)
+				update = true
+			}
+		}
+		if update {
+			d.containersMU.Unlock()
+			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+		}
+
+	default:
+		d.containersMU.Unlock()
+		return fmt.Errorf("unknown option %s", op)
+	}
+
+	d.containersMU.Unlock()
+	return nil
+}

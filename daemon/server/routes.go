@@ -43,6 +43,12 @@ func (r *RouterBackend) initRoutes() {
 			"EndpointSave", "POST", "/endpoint/save/{endpointID}", r.endpointSave,
 		},
 		route{
+			"EndpointLabelsGet", "GET", "/endpoint/labels/{endpointID}", r.endpointLabelsGet,
+		},
+		route{
+			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{labelOp}/{endpointID}", r.endpointLabelsUpdate,
+		},
+		route{
 			"IPAMConfiguration", "POST", "/allocator/ipam-configuration/{ipam-type}", r.ipamConfig,
 		},
 		route{
