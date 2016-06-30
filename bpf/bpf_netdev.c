@@ -179,7 +179,7 @@ error:
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
 	  sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
 
-__section_tail(CILIUM_MAP_JMP, SECLABEL) int handle_policy(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int ifindex = skb->cb[CB_IFINDEX];
