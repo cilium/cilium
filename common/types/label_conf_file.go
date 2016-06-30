@@ -37,6 +37,10 @@ func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 		LabelPrefixes: []*LabelPrefix{
 			&LabelPrefix{
 				Prefix: common.GlobalLabelPrefix,
+				Source: common.ReservedLabelSource,
+			},
+			&LabelPrefix{
+				Prefix: common.GlobalLabelPrefix,
 				Source: common.CiliumLabelSource,
 			},
 			&LabelPrefix{
