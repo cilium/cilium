@@ -13,6 +13,8 @@ type bpfBackend interface {
 	EndpointsGet() ([]types.Endpoint, error)
 	EndpointUpdate(epID string, opts types.EPOpts) error
 	EndpointSave(ep types.Endpoint) error
+	EndpointLabelsGet(epID string) (*types.OpLabels, error)
+	EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error
 }
 
 type ipamBackend interface {

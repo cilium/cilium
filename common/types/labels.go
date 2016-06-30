@@ -12,9 +12,33 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 )
 
+type LabelOP string
+
 const (
-	secLabelTimeout = time.Duration(120 * time.Second)
+	secLabelTimeout         = time.Duration(120 * time.Second)
+	AddLabelsOp     LabelOP = "AddLabelsOp"
+	DelLabelsOp     LabelOP = "DelLabelsOp"
+	EnableLabelsOp  LabelOP = "EnableLabelsOp"
+	DisableLabelsOp LabelOP = "DisableLabelsOp"
 )
+
+type OpLabels struct {
+	// All labels
+	AllLabels Labels
+	// Active labels that are enabled and disabled but not deleted
+	CiliumLabels Labels
+	// Labels that are enabled
+	EndpointLabels Labels
+}
+
+func (opl *OpLabels) GetDeletedLabels() Labels {
+	deletedLabels := opl.AllLabels.DeepCopy()
+	for k, _ := range opl.CiliumLabels {
+		delete(deletedLabels, k)
+	}
+
+	return deletedLabels
+}
 
 // Label is the cilium's representation of a container label.
 type Label struct {
@@ -230,6 +254,19 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
+func (lbls Labels) DeepCopy() Labels {
+	o := Labels{}
+	for k, v := range lbls {
+		o[k] = &Label{
+			v.Key,
+			v.Value,
+			v.Source,
+			v.absKey,
+		}
+	}
+	return o
+}
+
 // MergeLabels merges labels from into to. It overwrites all labels with the same Key as
 // from writen into to.
 // Example:
@@ -333,4 +370,14 @@ func ParseLabel(str string) *Label {
 		lbl.Value = keySplit[1]
 	}
 	return &lbl
+}
+
+func ParseStringLabels(strLbls []string) Labels {
+	lbls := Labels{}
+	for _, l := range strLbls {
+		lbl := ParseLabel(l)
+		lbls[lbl.Key] = lbl
+	}
+
+	return lbls
 }

@@ -501,3 +501,146 @@ func (s *CiliumNetClientSuite) TestEndpointSaveFail(c *C) {
 
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }
+
+func (s *CiliumNetClientSuite) TestEndpointLabelsGetOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+	epLbls := types.Labels{
+		"foo": types.NewLabel("foo", "bar", "cilium"),
+	}
+	ciliumLbls := types.Labels{
+		"bar": types.NewLabel("bar", "foo", "cilium"),
+	}
+	allLabels := types.OpLabels{
+		AllLabels:      ciliumLbls,
+		EndpointLabels: epLbls,
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
+		w.WriteHeader(http.StatusOK)
+		allLabels := types.OpLabels{
+			AllLabels:      ciliumLbls,
+			EndpointLabels: epLbls,
+		}
+		err := json.NewEncoder(w).Encode(allLabels)
+		c.Assert(err, IsNil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	lbls, err := cli.EndpointLabelsGet(ep.ID)
+
+	c.Assert(allLabels, DeepEquals, *lbls)
+	c.Assert(err, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointLabelsGetFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "GET")
+		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(types.ServerError{-1, "the daemon has died"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	lbls, err := cli.EndpointLabelsGet(ep.ID)
+	c.Assert(lbls, IsNil)
+	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+	lbls := types.Labels{
+		"foo": types.NewLabel("foo", "bar", "cilium"),
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/labels/AddLabelsOp/4370") //0x1112
+		var lblsReceived types.Labels
+		err := json.NewDecoder(r.Body).Decode(&lblsReceived)
+		c.Assert(err, IsNil)
+		c.Assert(lbls, DeepEquals, lblsReceived)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, lbls)
+
+	c.Assert(err, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateFail(c *C) {
+	lbls := types.Labels{
+		"foo": types.NewLabel("foo", "bar", "cilium"),
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/endpoint/labels/AddLabelsOp/4370") //0x1112
+		var lblsReceived types.Labels
+		err := json.NewDecoder(r.Body).Decode(&lblsReceived)
+		c.Assert(err, IsNil)
+		c.Assert(lbls, DeepEquals, lblsReceived)
+		w.WriteHeader(http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		e := json.NewEncoder(w)
+		err = e.Encode(types.ServerError{-1, "the daemon has died"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	err := cli.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, lbls)
+
+	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
+}

@@ -15,6 +15,8 @@ type TestDaemon struct {
 	OnEndpointLeaveByDockerEPID func(dockerEPID string) error
 	OnEndpointUpdate            func(ep string, opts types.EPOpts) error
 	OnEndpointSave              func(ep types.Endpoint) error
+	OnEndpointLabelsGet         func(epID string) (*types.OpLabels, error)
+	OnEndpointLabelsUpdate      func(epID string, op types.LabelOP, labels types.Labels) error
 	OnGetIPAMConf               func(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
 	OnAllocateIP                func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
 	OnReleaseIP                 func(ipamType types.IPAMType, opts types.IPAMReq) error
@@ -90,6 +92,20 @@ func (d TestDaemon) EndpointSave(ep types.Endpoint) error {
 		return d.OnEndpointSave(ep)
 	}
 	return errors.New("EndpointSave should not have been called")
+}
+
+func (d TestDaemon) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
+	if d.OnEndpointLabelsGet != nil {
+		return d.OnEndpointLabelsGet(epID)
+	}
+	return nil, errors.New("EndpointLabelsGet should not have been called")
+}
+
+func (d TestDaemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error {
+	if d.OnEndpointLabelsUpdate != nil {
+		return d.OnEndpointLabelsUpdate(epID, op, labels)
+	}
+	return errors.New("EndpointLabelsUpdate should not have been called")
 }
 
 func (d TestDaemon) Ping() (*types.PingResponse, error) {

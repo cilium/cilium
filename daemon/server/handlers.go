@@ -97,6 +97,48 @@ func (router *RouterBackend) endpointSave(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusCreated)
 }
 
+func (router *RouterBackend) endpointLabelsGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	epID, exists := vars["endpointID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty endpoint id"))
+		return
+	}
+
+	if lbls, err := router.daemon.EndpointLabelsGet(epID); err != nil {
+		processServerError(w, r, err)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(lbls); err != nil {
+			processServerError(w, r, err)
+		}
+	}
+}
+
+func (router *RouterBackend) endpointLabelsUpdate(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	epID, exists := vars["endpointID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty endpoint id"))
+		return
+	}
+	labelOp, exists := vars["labelOp"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty label operation id"))
+		return
+	}
+	var lbls types.Labels
+	if err := json.NewDecoder(r.Body).Decode(&lbls); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.EndpointLabelsUpdate(epID, types.LabelOP(labelOp), lbls); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (router *RouterBackend) endpointGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	epID, exists := vars["endpointID"]

@@ -358,3 +358,112 @@ func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
 	err := s.c.EndpointSave(ep)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
+
+func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	epLbls := types.Labels{
+		"foo": types.NewLabel("foo", "bar", "cilium"),
+	}
+	ciliumLbls := types.Labels{
+		"bar": types.NewLabel("bar", "foo", "cilium"),
+	}
+	wantedLbls := types.OpLabels{
+		AllLabels:      ciliumLbls,
+		EndpointLabels: epLbls,
+	}
+
+	s.d.OnEndpointLabelsGet = func(epID string) (*types.OpLabels, error) {
+		c.Assert(ep.ID, DeepEquals, epID)
+		return &wantedLbls, nil
+	}
+
+	lbls, err := s.c.EndpointLabelsGet(ep.ID)
+	c.Assert(err, IsNil)
+	c.Assert(wantedLbls, DeepEquals, *lbls)
+}
+
+func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	s.d.OnEndpointLabelsGet = func(epID string) (*types.OpLabels, error) {
+		c.Assert(ep.ID, DeepEquals, epID)
+		return nil, errors.New("invalid endpoint")
+	}
+
+	lbls, err := s.c.EndpointLabelsGet(ep.ID)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+	c.Assert(lbls, IsNil)
+}
+
+func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	wantedLabels := types.Labels{
+		"foo": types.NewLabel("foo", "bar", "cilium"),
+	}
+
+	s.d.OnEndpointLabelsUpdate = func(epID string, op types.LabelOP, lbls types.Labels) error {
+		c.Assert(ep.ID, DeepEquals, epID)
+		c.Assert(op, Equals, types.AddLabelsOp)
+		c.Assert(wantedLabels, DeepEquals, lbls)
+		return nil
+	}
+
+	err := s.c.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, wantedLabels)
+	c.Assert(err, IsNil)
+}
+
+func (s *DaemonSuite) TestEndpointLabelsAddFail(c *C) {
+	ep := types.Endpoint{
+		LXCMAC:          HardAddr,
+		LXCIP:           EpAddr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		SecLabel:        SecLabel,
+	}
+	ep.SetID()
+
+	wantedLabels := types.Labels{
+		"foo": types.NewLabel("foo", "bar", "cilium"),
+	}
+
+	s.d.OnEndpointLabelsUpdate = func(epID string, op types.LabelOP, lbls types.Labels) error {
+		c.Assert(ep.ID, DeepEquals, epID)
+		c.Assert(op, Equals, types.AddLabelsOp)
+		c.Assert(wantedLabels, DeepEquals, lbls)
+		return errors.New("invalid endpoint")
+	}
+
+	err := s.c.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, wantedLabels)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
