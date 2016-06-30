@@ -28,6 +28,7 @@ var errors = map[uint8]string{
 	136: "CT: Missing TCP ACK flag",
 	137: "CT: Unknown L4 protocol",
 	138: "CT: Can't create entry from packet",
+	139: "Unsupported L3 protocol",
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte) {

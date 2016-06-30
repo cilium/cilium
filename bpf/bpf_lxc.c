@@ -226,8 +226,10 @@ int handle_ingress(struct __sk_buff *skb)
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
 
 	/* Drop all non IPv6 traffic */
-	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6)))
-		return TC_ACT_SHOT;
+	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6))) {
+		ret = DROP_UNKNOWN_L3;
+		goto error;
+	}
 
 	/* Handle special ICMPv6 messages. This includes echo requests to the
 	 * logical router address, neighbour advertisements to the router.
