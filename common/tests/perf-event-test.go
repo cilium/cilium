@@ -48,7 +48,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func receiveEvent(msg *bpf.PerfEventSample) {
+func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	fmt.Printf("%+v\n", msg)
 }
 
