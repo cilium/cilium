@@ -41,6 +41,7 @@ var errors = map[uint8]string{
 	149: "Invalid Geneve option",
 	150: "Unknown L3 target address",
 	151: "Not a local target address",
+	152: "No matching local container found",
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte) {

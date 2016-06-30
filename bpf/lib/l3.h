@@ -115,7 +115,7 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 		return DROP_MISSED_TAIL_CALL;
 	}
 
-	return TC_ACT_UNSPEC;
+	return DROP_NO_LXC;
 }
 
 #endif

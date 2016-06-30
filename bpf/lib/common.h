@@ -107,6 +107,7 @@ struct drop_notify {
 #define DROP_INVALID_GENEVE	-149
 #define DROP_UNKNOWN_TARGET	-150
 #define DROP_NON_LOCAL		-151
+#define DROP_NO_LXC		-152
 
 enum {
 	CB_SRC_LABEL,
