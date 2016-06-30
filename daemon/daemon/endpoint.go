@@ -556,6 +556,9 @@ func (d *Daemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels type
 	if err != nil {
 		return err
 	}
+	if ep == nil {
+		return fmt.Errorf("Endpoint %s not found", epID)
+	}
 
 	labels = d.conf.ValidLabelPrefixes.FilterLabels(labels)
 
