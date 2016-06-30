@@ -46,11 +46,20 @@ func parseRequestURL(c *Client, r *Request) error {
 
 	// Adding Query Param
 	query := reqURL.Query()
-	for k := range c.QueryParam {
-		query.Set(k, c.QueryParam.Get(k))
+	for k, v := range c.QueryParam {
+		for _, iv := range v {
+			query.Add(k, iv)
+		}
 	}
-	for k := range r.QueryParam {
-		query.Set(k, r.QueryParam.Get(k))
+
+	for k, v := range r.QueryParam {
+		// remove query param from client level by key
+		// since overrides happens for that key in the request
+		query.Del(k)
+
+		for _, iv := range v {
+			query.Add(k, iv)
+		}
 	}
 
 	reqURL.RawQuery = query.Encode()
@@ -136,6 +145,11 @@ func createHTTPRequest(c *Client, r *Request) (err error) {
 	// Add cookies into http request
 	for _, cookie := range c.Cookies {
 		r.RawRequest.AddCookie(cookie)
+	}
+
+	if r.RawRequest.URL != nil && r.RawRequest.URL.Scheme == "" {
+		r.RawRequest.URL.Scheme = c.scheme
+		r.RawRequest.URL.Host = r.URL
 	}
 
 	return

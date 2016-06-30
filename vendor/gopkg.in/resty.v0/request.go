@@ -110,6 +110,25 @@ func (r *Request) SetQueryParams(params map[string]string) *Request {
 	return r
 }
 
+// SetMultiValueQueryParams method sets multiple paramaters with multi-value
+// at one go in the current request. It will be formed as query string for the request.
+// Example: `status=pending&status=approved&status=open` in the URL after `?` mark.
+// 		resty.R().
+//			SetMultiValueQueryParams(url.Values{
+//				"status": []string{"pending", "approved", "open"},
+//			})
+// Also you can override query params value, which was set at client instance level
+//
+func (r *Request) SetMultiValueQueryParams(params url.Values) *Request {
+	for p, v := range params {
+		for _, pv := range v {
+			r.QueryParam.Add(p, pv)
+		}
+	}
+
+	return r
+}
+
 // SetQueryString method provides ability to use string as an input to set URL query string for the request.
 //
 // Using String as an input

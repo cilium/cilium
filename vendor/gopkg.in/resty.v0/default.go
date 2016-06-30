@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"golang.org/x/net/publicsuffix"
@@ -35,6 +36,7 @@ func New() *Client {
 		Log:        getLogger(os.Stderr),
 		httpClient: &http.Client{Jar: cookieJar},
 		transport:  &http.Transport{},
+		mutex:      &sync.Mutex{},
 	}
 
 	// Default redirect policy
@@ -212,6 +214,12 @@ func SetOutputDirectory(dirPath string) *Client {
 // See `Client.SetTransport` for more information.
 func SetTransport(transport *http.Transport) *Client {
 	return DefaultClient.SetTransport(transport)
+}
+
+// SetScheme method sets custom scheme in the resty client.
+// See `Client.SetScheme` for more information.
+func SetScheme(scheme string) *Client {
+	return DefaultClient.SetScheme(scheme)
 }
 
 func init() {
