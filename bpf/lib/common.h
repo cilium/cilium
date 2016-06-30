@@ -90,6 +90,7 @@ struct drop_notify {
 #define DROP_CT_UNKNOWN_PROTO	-137
 #define DROP_CT_CANT_CREATE	-138
 #define DROP_UNKNOWN_L3		-139
+#define DROP_MISSED_TAIL_CALL	-140
 
 enum {
 	CB_SRC_LABEL,

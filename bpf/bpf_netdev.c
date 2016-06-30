@@ -110,7 +110,7 @@ int from_netdev(struct __sk_buff *skb)
 #ifdef ENABLE_ARP_RESPONDER
 	if (unlikely(proto == __constant_htons(ETH_P_ARP))) {
 		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP_RESPONDER);
-		ret = TC_ACT_SHOT;
+		ret = DROP_MISSED_TAIL_CALL;
 		goto error;
 	}
 #endif

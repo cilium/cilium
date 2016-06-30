@@ -187,8 +187,7 @@ to_host:
 #endif
 
 		tail_call(skb, &cilium_jmp, HOST_ID);
-		cilium_trace(skb, DBG_NO_POLICY, HOST_ID, 0);
-		return TC_ACT_SHOT;
+		return DROP_MISSED_TAIL_CALL;
 #endif
 	}
 
@@ -212,8 +211,7 @@ pass_to_stack:
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
 	tail_call(skb, &cilium_jmp, WORLD_ID);
-	cilium_trace(skb, DBG_NO_POLICY, HOST_ID, 0);
-	return TC_ACT_SHOT;
+	return DROP_MISSED_TAIL_CALL;
 #endif
 }
 

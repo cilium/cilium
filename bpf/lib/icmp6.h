@@ -94,7 +94,7 @@ static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
 	skb->cb[0] = nh_off;
 	tail_call(skb, &cilium_calls, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY);
 
-	return TC_ACT_SHOT;
+	return DROP_MISSED_TAIL_CALL;
 }
 
 static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
@@ -271,7 +271,7 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 	skb->cb[0] = nh_off;
 	tail_call(skb, &cilium_calls, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED);
 
-	return TC_ACT_SHOT;
+	return DROP_MISSED_TAIL_CALL;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int __handle_icmp6_ns(struct __sk_buff *skb)
@@ -309,7 +309,7 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 	skb->cb[0] = nh_off;
 	tail_call(skb, &cilium_calls, CILIUM_CALL_HANDLE_ICMP6_NS);
 
-	return TC_ACT_SHOT;
+	return DROP_MISSED_TAIL_CALL;
 }
 
 static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)

@@ -112,8 +112,7 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
 		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
-		cilium_trace(skb, DBG_NO_POLICY, ntohl(dst_lxc->sec_label), 0);
-		return TC_ACT_SHOT;
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	return TC_ACT_UNSPEC;
