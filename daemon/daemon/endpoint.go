@@ -99,6 +99,12 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, la
 		ok bool
 	)
 
+	setIfNotEmpty := func(receiver *string, provider string) {
+		if receiver != nil && *receiver == "" && provider != "" {
+			*receiver = provider
+		}
+	}
+
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
@@ -113,6 +119,10 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, la
 	}
 
 	if ok {
+		setIfNotEmpty(&ep.DockerID, dockerID)
+		setIfNotEmpty(&ep.DockerEndpointID, dockerEPID)
+		setIfNotEmpty(&ep.ID, endpointID)
+
 		ep.SetSecLabel(labels)
 		epCopy := *ep
 		return &epCopy
