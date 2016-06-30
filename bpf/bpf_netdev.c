@@ -67,9 +67,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP_RESPONDER) int arp_respond(stru
 	if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
 		union macaddr mac = HOST_IFINDEX_MAC;
 		__be32 ip = IPV4_GW;
+		int ret;
 
-		if (arp_prepare_response(skb, ip, &mac) != 0)
-			return TC_ACT_SHOT;
+		ret = arp_prepare_response(skb, ip, &mac);
+		if (unlikely(ret != 0))
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 		return redirect(skb->ifindex, 0);
@@ -123,20 +125,17 @@ int from_netdev(struct __sk_buff *skb)
 		__u32 dst;
 
 		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0) {
-			ret = TC_ACT_SHOT;
+			ret = DROP_INVALID;
 			goto error;
 		}
 
 		if ((dst & IPV4_MASK) != IPV4_RANGE)
 			return TC_ACT_OK;
 
-		if (ipv4_to_ipv6(skb, 14, &sp, &dp) < 0) {
-#ifdef DEBUG_NAT46
-			printk("ipv4_to_ipv6 failed\n");
-#endif
-			ret = TC_ACT_SHOT;
+		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
+		if (IS_ERR(ret))
 			goto error;
-		}
+
 		proto = __constant_htons(ETH_P_IPV6);
 		skb->tc_index = 1;
 	}
@@ -152,7 +151,7 @@ int from_netdev(struct __sk_buff *skb)
 		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 			ret = icmp6_handle(skb, ETH_HLEN);
-			if (ret != 0)
+			if (IS_ERR(ret))
 				goto error;
 		}
 #endif
@@ -164,16 +163,11 @@ int from_netdev(struct __sk_buff *skb)
 			ret = local_delivery(skb, ETH_HLEN, &dst, flowlabel);
 	}
 
+	if (IS_ERR(ret)) {
 error:
-	if (likely(ret == TC_ACT_OK))
-		return TC_ACT_OK;
-	else if (ret < 0 || ret == TC_ACT_SHOT) {
-		if (ret < 0)
-			ret = -ret;
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	} else {
+	} else
 		return ret;
-	}
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),

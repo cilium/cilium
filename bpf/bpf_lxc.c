@@ -101,7 +101,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
 	ret = ct_lookup6(&CT_MAP, tuple, skb, ETH_HLEN, SECLABEL, 0);
-	if (unlikely(ret < 0))
+	if (ret < 0)
 		return ret;
 
 	switch (ret) {
@@ -171,8 +171,9 @@ to_host:
 		if (do_nat46) {
 			union v6addr dp = NAT46_DST_PREFIX;
 
-			if (ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16)) < 0)
-				return TC_ACT_SHOT;
+			ret = ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
+			if (IS_ERR(ret))
+				return ret;
 		}
 
 #ifdef DISABLE_POLICY_ENFORCEMENT
@@ -186,7 +187,7 @@ to_host:
 		policy_mark_skip(skb);
 #endif
 
-		tail_call(skb, &cilium_jmp, HOST_ID);
+		tail_call(skb, &cilium_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
 #endif
 	}
@@ -210,7 +211,7 @@ pass_to_stack:
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
-	tail_call(skb, &cilium_jmp, WORLD_ID);
+	tail_call(skb, &cilium_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
@@ -236,22 +237,17 @@ int handle_ingress(struct __sk_buff *skb)
 	tuple.nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
 	if (unlikely(tuple.nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(skb, ETH_HLEN);
-		if (ret != 0)
+		if (IS_ERR(ret))
 			goto error;
 	}
 
 	/* Perform L3 action on the frame */
 	ret = do_l3_from_lxc(skb, &tuple, ETH_HLEN);
+	if (IS_ERR(ret)) {
 error:
-	if (likely(ret == TC_ACT_OK || ret == TC_ACT_REDIRECT))
-		return ret;
-	else if (ret < 0 || ret == TC_ACT_SHOT) {
-		if (ret < 0)
-			ret = -ret;
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	} else {
+	} else
 		return ret;
-	}
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
@@ -271,9 +267,8 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 	}
 
 	ret = ct_lookup6(&CT_MAP, &tuple, skb, ETH_HLEN, SECLABEL, 1);
-	if (unlikely(ret < 0)) {
+	if (ret < 0)
 		goto drop;
-	}
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED) {

@@ -18,10 +18,10 @@ static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr 
 	eth_load_daddr(skb, dmac.addr, 0);
 	/* Get ARP op code */
 	if (skb_load_bytes(skb, 20, &arpop, sizeof(arpop)) < 0)
-		return TC_ACT_SHOT;
+		return 0;
 	/* Get ARP Target IP */
 	if (skb_load_bytes(skb, 38, &tip, sizeof(tip)) < 0)
-		return TC_ACT_SHOT;
+		return 0;
 
 	if ((arpop != __constant_htons(ARPOP_REQUEST)) || (tip != ar_tip) ||
 	    (!eth_is_bcast(&dmac) && eth_addrcmp(&dmac, responder_mac))) {
@@ -47,7 +47,7 @@ static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip,
 
 	if (eth_load_saddr(skb, smac.addr, 0) < 0 ||
 	    skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	if (eth_store_saddr(skb, mac->addr, 0) < 0 ||
 	    eth_store_daddr(skb, smac.addr, 0) < 0 ||
@@ -56,7 +56,7 @@ static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip,
 	    skb_store_bytes(skb, 28, &ip, 4, 0) < 0 ||
 	    skb_store_bytes(skb, 32, &smac, sizeof(smac), 0) < 0 ||
 	    skb_store_bytes(skb, 38, &sip, sizeof(sip), 0) < 0)
-		return TC_ACT_SHOT;
+		return DROP_WRITE_ERROR;
 
 	return 0;
 }

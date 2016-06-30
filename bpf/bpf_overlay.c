@@ -14,6 +14,7 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/geneve.h"
+#include "lib/drop.h"
 
 static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_off, __u32 tunnel_id)
 {
@@ -25,46 +26,48 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, int nh_of
 	ipv6_load_daddr(skb, nh_off, &dst);
 	node_id = ipv6_derive_node_id(&dst);
 
-	if (unlikely(node_id != NODE_ID)) {
-#ifdef DEBUG_FLOW
-		printk("Warning: Encaped framed received for node %x, dropping\n", node_id);
-#endif
-
-		return TC_ACT_SHOT;
-	} else {
-		int ret;
-
-		switch ((ret = local_delivery(skb, nh_off, &dst, ntohl(tunnel_id)))) {
-		default:
-			return ret;
-		}
-	}
+	if (unlikely(node_id != NODE_ID))
+		return DROP_NON_LOCAL;
+	else
+		return local_delivery(skb, nh_off, &dst, ntohl(tunnel_id));
 }
 
 __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
 	struct bpf_tunnel_key key = {};
+	int ret = TC_ACT_OK;
 
-	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
-		return TC_ACT_SHOT;
+	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0)) {
+		ret = DROP_NO_TUNNEL_KEY;
+		goto error;
+	}
 
 #ifdef ENCAP_GENEVE
 	if (1) {
 		uint8_t buf[MAX_GENEVE_OPT_LEN] = {};
 		struct geneveopt_val geneveopt_val = {};
 
-		if (unlikely(skb_get_tunnel_opt(skb, buf, sizeof(buf)) < 0))
-			return TC_ACT_SHOT;
+		if (unlikely(skb_get_tunnel_opt(skb, buf, sizeof(buf)) < 0)) {
+			ret = DROP_NO_TUNNEL_OPT;
+			goto error;
+		}
 
-		if (unlikely(parse_geneve_options(&geneveopt_val, buf) < 0))
-			return TC_ACT_SHOT;
+		ret = parse_geneve_options(&geneveopt_val, buf);
+		if (IS_ERR(ret))
+			goto error;
 	}
 #endif
 
 	if (likely(skb->protocol == __constant_htons(ETH_P_IPV6)))
-		return do_l3_from_overlay(skb, ETH_HLEN, key.tunnel_id);
+		ret = do_l3_from_overlay(skb, ETH_HLEN, key.tunnel_id);
+	else
+		ret = DROP_UNKNOWN_L3;
 
-	return TC_ACT_SHOT;
+	if (IS_ERR(ret)) {
+error:
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	} else
+		return ret;
 }
 BPF_LICENSE("GPL");

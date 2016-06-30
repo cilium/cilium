@@ -6,6 +6,9 @@
 #include <linux/in.h>
 #include <stdint.h>
 
+/* Maximum number of supported local security labels */
+#define POLICY_MAP_SIZE	65536
+
 #define __inline__ __attribute__((always_inline))
 
 #define CILIUM_CALL_DROP_NOTIFY			1
@@ -79,6 +82,8 @@ struct drop_notify {
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
 
+#define IS_ERR(x) (unlikely((x < 0) || (x == TC_ACT_SHOT)))
+
 /* Cilium error codes, must NOT overlap with TC return codes */
 #define DROP_INVALID_SMAC	-130
 #define DROP_INVALID_DMAC	-131
@@ -91,6 +96,17 @@ struct drop_notify {
 #define DROP_CT_CANT_CREATE	-138
 #define DROP_UNKNOWN_L3		-139
 #define DROP_MISSED_TAIL_CALL	-140
+#define DROP_WRITE_ERROR	-141
+#define DROP_UNKNOWN_L4		-142
+#define DROP_UNKNOWN_ICMP_CODE	-143
+#define DROP_UNKNOWN_ICMP_TYPE	-144
+#define DROP_UNKNOWN_ICMP6_CODE	-145
+#define DROP_UNKNOWN_ICMP6_TYPE	-146
+#define DROP_NO_TUNNEL_KEY	-147
+#define DROP_NO_TUNNEL_OPT	-148
+#define DROP_INVALID_GENEVE	-149
+#define DROP_UNKNOWN_TARGET	-150
+#define DROP_NON_LOCAL		-151
 
 enum {
 	CB_SRC_LABEL,

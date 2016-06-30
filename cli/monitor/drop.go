@@ -29,6 +29,18 @@ var errors = map[uint8]string{
 	137: "CT: Unknown L4 protocol",
 	138: "CT: Can't create entry from packet",
 	139: "Unsupported L3 protocol",
+	140: "Missed tail call",
+	141: "Error writing to packet",
+	142: "Unknown L4 protocol",
+	143: "Unknown ICMPv4 code",
+	144: "Unknown ICMPv4 type",
+	145: "Unknown ICMPv6 code",
+	146: "Unknown ICMPv6 type",
+	147: "Error retrieving tunnel key",
+	148: "Error retrieving tunnel options",
+	149: "Invalid Geneve option",
+	150: "Unknown L3 target address",
+	151: "Not a local target address",
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte) {

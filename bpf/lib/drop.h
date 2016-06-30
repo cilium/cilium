@@ -22,11 +22,16 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_noti
 {
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
-		.subtype = *(__u32 volatile *)&skb->cb[1], /* Avoid 1 byte read */
 		.flags = 0,
 		.len = skb->len,
 		.ifindex = skb->ingress_ifindex,
 	};
+	int error = skb->cb[1];
+
+	if (error < 0)
+		error = -error;
+
+	msg.subtype = error;
 
 	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
 	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
@@ -46,14 +51,19 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_noti
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int send_drop_notify_error(struct __sk_buff *skb, __u8 error, int exitcode)
+static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
 {
-	skb->cb[0] = exitcode;
-	skb->cb[1] = error;
+	if (IS_ERR(error)) {
+		skb->cb[0] = exitcode;
+		skb->cb[1] = error;
 
-	tail_call(skb, &cilium_calls, CILIUM_CALL_ERROR_NOTIFY);
+		tail_call(skb, &cilium_calls, CILIUM_CALL_ERROR_NOTIFY);
 
-	return exitcode;
+		return exitcode;
+	}
+
+	/* No error condition, return original return code */
+	return error;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __sk_buff *skb)
@@ -104,7 +114,7 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 	return exitcode;
 }
 #else
-static inline int send_drop_notify_error(struct __sk_buff *skb, __u8 error, int exitcode)
+static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
 {
 	return exitcode;
 }

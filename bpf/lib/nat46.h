@@ -27,7 +27,7 @@ static inline int get_csum_offset(__u8 protocol)
 		csum_off = (offsetof(struct icmp6hdr, icmp6_cksum));
 		break;
 	default:
-		return TC_ACT_SHOT;
+		return DROP_UNKNOWN_L4;
 	}
 
 	return csum_off;
@@ -39,7 +39,7 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 	struct icmp6hdr icmp6 = {};
 
 	if (skb_load_bytes(skb, nh_off, &icmp4, sizeof(icmp4)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 	else
 		icmp6.icmp6_cksum = icmp4.checksum;
 
@@ -94,7 +94,7 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 			icmp6.icmp6_code = ICMPV6_ADM_PROHIBITED;
 			break;
 		default:
-			return TC_ACT_SHOT;
+			return DROP_UNKNOWN_ICMP_CODE;
 		}
 		break;
 	case ICMP_TIME_EXCEEDED:
@@ -106,7 +106,7 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 		icmp6.icmp6_pointer = 6;
 		break;
 	default:
-		return TC_ACT_SHOT;
+		return DROP_UNKNOWN_ICMP_TYPE;
 	}
 
 	skb_store_bytes(skb, nh_off, &icmp6, sizeof(icmp6), 0);
@@ -122,7 +122,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 	struct icmp6hdr icmp6;
 
 	if (skb_load_bytes(skb, nh_off, &icmp6, sizeof(icmp6)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 	else
 		icmp4.checksum = icmp6.icmp6_cksum;
 
@@ -152,7 +152,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 			icmp4.code = ICMP_PORT_UNREACH;
 			break;
 		default:
-			return TC_ACT_SHOT;
+			return DROP_UNKNOWN_ICMP6_CODE;
 		}
 	case ICMPV6_PKT_TOOBIG:
 		icmp4.type = ICMP_DEST_UNREACH;
@@ -178,10 +178,10 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 			icmp4.code = ICMP_PROT_UNREACH;
 			break;
 		default:
-			return TC_ACT_SHOT;
+			return DROP_UNKNOWN_ICMP6_CODE;
 		}
 	default:
-		return TC_ACT_SHOT;
+		return DROP_UNKNOWN_ICMP6_TYPE;
 	}
 
 	skb_store_bytes(skb, nh_off, &icmp4, sizeof(icmp4), 0);
@@ -222,7 +222,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	
 	if (skb_load_bytes(skb, nh_off, &v4, sizeof(v4)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	/* build v6 header */
 	v6.version = 0x6;
@@ -250,7 +250,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 #ifdef DEBUG_NAT46
 		printk("v46 NAT: skb_modify failed\n");
 #endif
-		return TC_ACT_SHOT;
+		return DROP_WRITE_ERROR;
 	}
 
 	skb_store_bytes(skb, nh_off, &v6, sizeof(v6), 0);
@@ -275,7 +275,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	 */
 	csum_off = get_csum_offset(v6.nexthdr);
 	if (csum_off < 0)
-		return TC_ACT_SHOT;
+		return csum_off;
 	else
 		csum_off += sizeof(struct ipv6hdr);
 
@@ -308,7 +308,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 
 	if (skb_load_bytes(skb, nh_off, &v6, sizeof(v6)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
 #ifdef DEBUG_NAT46
@@ -335,7 +335,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 #ifdef DEBUG_NAT46
 		printk("v46 NAT: skb_modify failed\n");
 #endif
-		return TC_ACT_SHOT;
+		return DROP_WRITE_ERROR;
 	}
 
 	skb_store_bytes(skb, nh_off, &v4, sizeof(v4), 0);
@@ -362,7 +362,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	 */
 	csum_off = get_csum_offset(v4.protocol);
 	if (csum_off < 0)
-		return TC_ACT_SHOT;
+		return csum_off;
 	else
 		csum_off += sizeof(struct iphdr);
 

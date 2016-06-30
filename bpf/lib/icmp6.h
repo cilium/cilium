@@ -4,6 +4,7 @@
 #include <linux/icmpv6.h>
 #include "common.h"
 #include "eth.h"
+#include "drop.h"
 
 #define ICMP6_TYPE_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type))
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))
@@ -47,10 +48,9 @@ static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	return redirect(skb->ifindex, 0);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int __send_icmp6_echo_reply(struct __sk_buff *skb)
+static inline int __icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
 {
 	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
-	int nh_off = skb->cb[0];
 	int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
 
@@ -58,7 +58,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int __send_i
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	/* fill icmp6hdr */
 	icmp6hdr.icmp6_type = 129;
@@ -80,16 +80,27 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int __send_i
 	return icmp6_send_reply(skb, nh_off);
 }
 
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icmp6_send_echo_reply(struct __sk_buff *skb)
+{
+	int ret, nh_off = skb->cb[0];
+
+	ret = __icmp6_send_echo_reply(skb, nh_off);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+
+	return ret;
+}
+
 /*
- * icmp6_send_echo_response
+ * icmp6_send_echo_reply
  * @skb:	socket buffer
  * @nh_off:	offset to the IPv6 header
  *
- * Send an ICMPv6 echo response in return to an ICMPv6 echo reply.
+ * Send an ICMPv6 echo reply in return to an ICMPv6 echo reply.
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_send_echo_response(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
 {
 	skb->cb[0] = nh_off;
 	tail_call(skb, &cilium_calls, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY);
@@ -107,7 +118,7 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	/* fill icmp6hdr */
 	icmp6hdr.icmp6_type = 136;
@@ -127,7 +138,7 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 
 	/* get old options */
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_OPTS, opts_old, sizeof(opts_old)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	opts[0] = 2;
 	opts[1] = 1;
@@ -163,14 +174,13 @@ static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 	return sum;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int __send_icmp6_time_exceeded(struct __sk_buff *skb)
+static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 {
 	/* FIXME: Fix code below to not require this init */
         char data[80] = {};
         struct icmp6hdr *icmp6hoplim;
         struct ipv6hdr *ipv6hdr;
 	char *upper; /* icmp6 or tcp or udp */
-	int nh_off = skb->cb[0];
         const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
         __be32 sum = 0;
 	__u16 payload_len = 0; /* FIXME: Uninit of this causes verifier bug */
@@ -192,10 +202,10 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int __sen
 
         /* read original v6 hdr into offset 8 */
         if (skb_load_bytes(skb, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
-                return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	if (ipv6_store_nexthdr(skb, &icmp6_nexthdr, nh_off) < 0)
-		return TC_ACT_SHOT;
+		return DROP_WRITE_ERROR;
 
         /* read original v6 payload into offset 48 */
         switch (ipv6hdr->nexthdr) {
@@ -203,50 +213,50 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int __sen
         case IPPROTO_UDP:
                 if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr),
                                    upper, 8) < 0)
-                        return TC_ACT_SHOT;
+			return DROP_INVALID;
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = htons(56);
 		trimlen = 56 - ntohs(ipv6hdr->payload_len);
 		if (trimlen < 0) {
 			if (l4_hdr_change(skb, skb->len + trimlen, trimlen) < 0)
-				return TC_ACT_SHOT;
+				return DROP_WRITE_ERROR;
 		} else if (trimlen > 0) {
 			if (l4_hdr_change(skb, skb->len, trimlen) < 0)
-				return TC_ACT_SHOT;
+				return DROP_WRITE_ERROR;
 		}
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 56, 0) < 0)
-			return TC_ACT_SHOT;
+			return DROP_WRITE_ERROR;
 		if (ipv6_store_paylen(skb, nh_off, &payload_len) < 0)
-			return TC_ACT_SHOT;
+			return DROP_WRITE_ERROR;
 
                 break;
         /* copy header without options */
         case IPPROTO_TCP:
                 if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr),
                                    upper, 20) < 0)
-                        return TC_ACT_SHOT;
+                        return DROP_INVALID;
 		sum = compute_icmp6_csum(data, 68, ipv6hdr);
 		payload_len = htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
 		trimlen = 68 - ntohs(ipv6hdr->payload_len);
 		if (trimlen < 0) {
 			if (l4_hdr_change(skb, skb->len + trimlen, trimlen) < 0)
-				return TC_ACT_SHOT;
+				return DROP_WRITE_ERROR;
 		} else if (trimlen > 0) {
 			if (l4_hdr_change(skb, skb->len, trimlen) < 0)
-				return TC_ACT_SHOT;
+				return DROP_WRITE_ERROR;
 		}
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),
 				    data, 68, 0) < 0)
-			return TC_ACT_SHOT;
+			return DROP_WRITE_ERROR;
 		if (ipv6_store_paylen(skb, nh_off, &payload_len) < 0)
-			return TC_ACT_SHOT;
+			return DROP_WRITE_ERROR;
 
                 break;
         default:
-                return TC_ACT_SHOT;
+                return DROP_UNKNOWN_L4;
         }
 
         //printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
@@ -255,6 +265,17 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int __sen
         l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
 
         return icmp6_send_reply(skb, nh_off);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_icmp6_send_time_exceeded(struct __sk_buff *skb)
+{
+	int ret, nh_off = skb->cb[0];
+
+	ret = __icmp6_send_time_exceeded(skb, nh_off);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+
+	return ret;
 }
 
 /*
@@ -274,14 +295,13 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 	return DROP_MISSED_TAIL_CALL;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int __handle_icmp6_ns(struct __sk_buff *skb)
+static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 {
 	union v6addr target, router = { . addr = ROUTER_IP };
-	int nh_off = skb->cb[0];
 
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	cilium_trace(skb, DBG_ICMP6_NS, target.p3, target.p4);
 
@@ -291,8 +311,19 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int __handle_icmp6
 		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
 	} else {
 		/* Unknown target address, drop */
-		return TC_ACT_SHOT;
+		return DROP_UNKNOWN_TARGET;
 	}
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_handle_ns(struct __sk_buff *skb)
+{
+	int ret, nh_off = skb->cb[0];
+
+	ret = __icmp6_handle_ns(skb, nh_off);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+
+	return ret;
 }
 
 /*
@@ -325,7 +356,7 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
 		return icmp6_handle_ns(skb, nh_off);
 	case ICMPV6_ECHO_REQUEST:
 		if (!ipv6_addrcmp(&dst, &router_ip))
-			return icmp6_send_echo_response(skb, nh_off);
+			return icmp6_send_echo_reply(skb, nh_off);
 		break;
 	}
 

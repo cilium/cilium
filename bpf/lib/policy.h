@@ -23,7 +23,7 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 	cilium_trace(skb, DBG_POLICY_DENIED, src_label, SECLABEL);
 
 #ifndef IGNORE_DROP
-	return TC_ACT_SHOT;
+	return DROP_POLICY;
 #endif
 
 allow:

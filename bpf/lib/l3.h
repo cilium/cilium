@@ -26,19 +26,19 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 	if (unlikely(ret < 0))
-		return TC_ACT_SHOT;
+		return DROP_WRITE_ERROR;
 
 #ifdef ENCAP_GENEVE
 	ret = skb_set_tunnel_opt(skb, buf, sz);
 	if (unlikely(ret < 0))
-		return TC_ACT_SHOT;
+		return DROP_WRITE_ERROR;
 #ifdef VALIDATE_GENEVE_TX
 	if (1) {
 		struct geneveopt_val geneveopt_val = {};
 
 		ret = parse_geneve_options(&geneveopt_val, buf);
-		if (unlikely(ret < 0))
-			return TC_ACT_SHOT;
+		if (IS_ERR(ret))
+			return ret;
 	}
 #endif /* VALIDATE_GENEVE_TX */
 #endif /* ENCAP_GENEVE */
@@ -111,7 +111,7 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 		skb->cb[CB_SRC_LABEL] = seclabel;
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
-		tail_call(skb, &cilium_jmp, ntohl(dst_lxc->sec_label));
+		tail_call(skb, &cilium_policy, ntohl(dst_lxc->sec_label));
 		return DROP_MISSED_TAIL_CALL;
 	}
 
