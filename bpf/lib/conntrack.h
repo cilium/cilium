@@ -12,9 +12,7 @@ enum {
 	CT_ESTABLISHED,
 	CT_REPLY,
 	CT_RELATED,
-	CT_INVALID,
 };
-
 
 #ifndef DISABLE_CONNTRACK
 
@@ -210,8 +208,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			else
 				ret = CT_REPLY;
 		}
-		cilium_trace(skb, DBG_GENERIC, ret, 0);
-		return ret;
+		goto out;
 	}
 
 	/* Lookup entry in forward direction */
@@ -222,8 +219,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	if (ret == CT_NEW && action != ACTION_CREATE)
 		ret = DROP_CT_CANT_CREATE;
 
-	cilium_trace(skb, DBG_GENERIC, ret, 0);
-
+out:
+	cilium_trace(skb, DBG_CT_VERDICT, ret, 0);
 	return ret;
 }
 
