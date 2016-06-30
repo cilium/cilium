@@ -6,8 +6,6 @@
 #include "eth.h"
 #include "dbg.h"
 
-#define CILIUM_MAP_PROTO_ARP 0
-
 /*
  * check if an arp request is for ar_tip
  */

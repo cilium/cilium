@@ -60,16 +60,23 @@ static inline int matches_cluster_prefix(const union v6addr *addr, const union v
 /*
  * respond to arp request for target IPV4_GW with HOST_IFINDEX_MAC
  */
-__section_tail(CILIUM_MAP_PROTO, CILIUM_MAP_PROTO_ARP) int arp_respond(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP_RESPONDER) int arp_respond(struct __sk_buff *skb)
 {
-	union macaddr mac = HOST_IFINDEX_MAC;
-	__be32 ip = IPV4_GW;
+	union macaddr responder_mac = HOST_IFINDEX_MAC;
 
-	if (arp_prepare_response(skb, ip, &mac) != 0)
-		return TC_ACT_SHOT;
+	if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
+		union macaddr mac = HOST_IFINDEX_MAC;
+		__be32 ip = IPV4_GW;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
-	return redirect(skb->ifindex, 0);
+		if (arp_prepare_response(skb, ip, &mac) != 0)
+			return TC_ACT_SHOT;
+
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
+		return redirect(skb->ifindex, 0);
+	}
+
+	/* Pass any unknown ARP requests to the Linux stack */
+	return TC_ACT_OK;
 }
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip)
@@ -102,15 +109,9 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef ENABLE_ARP_RESPONDER
 	if (unlikely(proto == __constant_htons(ETH_P_ARP))) {
-		union macaddr responder_mac = HOST_IFINDEX_MAC;
-		if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
-			tail_call(skb, &cilium_proto, CILIUM_MAP_PROTO_ARP);
-			ret = TC_ACT_SHOT;
-			goto error;
-		}
-
-		/* Pass any unknown ARP requests to the Linux stack */
-		return TC_ACT_OK;
+		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP_RESPONDER);
+		ret = TC_ACT_SHOT;
+		goto error;
 	}
 #endif
 
