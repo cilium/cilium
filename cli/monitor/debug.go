@@ -51,8 +51,8 @@ type DebugMsg struct {
 	Arg2    uint32
 }
 
-func (n *DebugMsg) Dump(data []byte) {
-	fmt.Printf("DEBUG: ")
+func (n *DebugMsg) Dump(data []byte, prefix string) {
+	fmt.Printf("%s DEBUG: ", prefix)
 	switch n.SubType {
 	case DBG_GENERIC:
 		fmt.Printf("No message, arg1=%d (%#x) arg2=%d (%#x)\n", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
@@ -92,8 +92,8 @@ type DebugCapture struct {
 	// data
 }
 
-func (n *DebugCapture) Dump(dissect bool, data []byte) {
-	fmt.Printf("DEBUG: %d bytes ", n.Len)
+func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
+	fmt.Printf("%s DEBUG: %d bytes ", prefix, n.Len)
 	switch n.SubType {
 	case DBG_CAPTURE_FROM_LXC:
 		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)

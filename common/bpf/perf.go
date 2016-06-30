@@ -170,7 +170,7 @@ func (e *PerfEventSample) DataCopy() []byte {
 	return C.GoBytes(unsafe.Pointer(&e.data), C.int(e.size))
 }
 
-type ReceiveFunc func(msg *PerfEventSample)
+type ReceiveFunc func(msg *PerfEventSample, cpu int)
 
 func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags int) (*PerfEvent, error) {
 	attr := C.struct_perf_event_attr{}
@@ -275,7 +275,7 @@ func (e *PerfEvent) Read(receive ReceiveFunc) error {
 		if msg.Type == C.PERF_RECORD_SAMPLE {
 			var sample *PerfEventSample
 			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&sample))
-			receive(sample)
+			receive(sample, e.cpu)
 		} else if msg.Type == C.PERF_RECORD_LOST {
 			var lost *PerfEventLost
 			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&lost))

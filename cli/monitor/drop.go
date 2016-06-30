@@ -44,9 +44,9 @@ var errors = map[uint8]string{
 	152: "No matching local container found",
 }
 
-func (n *DropNotify) Dump(dissect bool, data []byte) {
-	fmt.Printf("Packet dropped %d (%s) %d bytes ifindex=%d",
-		n.SubType, errors[n.SubType], n.Len, n.Ifindex)
+func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
+	fmt.Printf("%s Packet dropped %d (%s) %d bytes ifindex=%d",
+		prefix, n.SubType, errors[n.SubType], n.Len, n.Ifindex)
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)
