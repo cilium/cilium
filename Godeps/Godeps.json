@@ -475,8 +475,8 @@
 		},
 		{
 			"ImportPath": "gopkg.in/resty.v0",
-			"Comment": "v0.7-1-gbde0d17",
-			"Rev": "bde0d173270412b091bc93639bf35e8aa3b9ac50"
+			"Comment": "v0.7-7-g45ff948",
+			"Rev": "45ff948e678e895f1705309138e235baa0688075"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",

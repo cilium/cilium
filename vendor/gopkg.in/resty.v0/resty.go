@@ -6,4 +6,4 @@
 package resty
 
 // Version # of go-resty
-var Version = "0.7"
+var Version = "0.8"

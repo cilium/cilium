@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -61,9 +62,8 @@ var (
 	jsonContentType = "application/json; charset=utf-8"
 	formContentType = "application/x-www-form-urlencoded"
 
-	plainTextCheck = regexp.MustCompile("(?i:text/plain)")
-	jsonCheck      = regexp.MustCompile("(?i:[application|text]/json)")
-	xmlCheck       = regexp.MustCompile("(?i:[application|text]/xml)")
+	jsonCheck = regexp.MustCompile("(?i:[application|text]/json)")
+	xmlCheck  = regexp.MustCompile("(?i:[application|text]/xml)")
 
 	hdrUserAgentValue = "go-resty v%s - https://github.com/go-resty/resty"
 )
@@ -90,6 +90,7 @@ type Client struct {
 	outputDirectory  string
 	scheme           string
 	proxyURL         *url.URL
+	mutex            *sync.Mutex
 	beforeRequest    []func(*Client, *Request) error
 	afterResponse    []func(*Client, *Response) error
 }
@@ -605,6 +606,8 @@ func (c *Client) execute(req *Request) (*Response, error) {
 		}
 	}
 
+	c.mutex.Lock()
+
 	if req.proxyURL != nil {
 		c.transport.Proxy = http.ProxyURL(req.proxyURL)
 	} else if c.proxyURL != nil {
@@ -616,12 +619,9 @@ func (c *Client) execute(req *Request) (*Response, error) {
 	req.Time = time.Now()
 	c.httpClient.Transport = c.transport
 
-	if req.RawRequest.URL != nil && req.RawRequest.URL.Scheme == "" {
-		req.RawRequest.URL.Scheme = c.scheme
-		req.RawRequest.URL.Host = req.URL
-	}
-
 	resp, err := c.httpClient.Do(req.RawRequest)
+
+	c.mutex.Unlock()
 
 	response := &Response{
 		Request:     req,
