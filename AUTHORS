@@ -1,14 +1,14 @@
-The following people, in alphabetical order, have either authored or
-signed off on commits in the Cilium repository:
+The following people, in alphabetical order, have either authored or signed
+off on commits in the Cilium repository:
 
-André Martins         aanm90@gmail.com
-Daniel Borkmann       daniel@iogearbox.net
-Madhu Challa          challa@noironetworks.com
-Thomas Graf           tgraf@noironetworks.com
+André Martins         andre@cilium.io
+Daniel Borkmann       daniel@cilium.io
+Madhu Challa          madhu@cilium.io
+Thomas Graf           thomas@cilium.io
 
-The following additional people are mentioned in commit logs as having
-provided helpful bug reports, suggestions or have otherwise provided
-value to the project:
+The following additional people are mentioned in commit logs as having provided
+helpful bug reports, suggestions or have otherwise provided value to the
+project:
 
 Alexei Starovoitov    ast@plumgrid.com
 Brenden Blanco        bblanco@plumgrid.com

@@ -1,71 +1,81 @@
-# Cilium Networking
+# Cilium
 
-Cilium networking is an experimental project solving container connectivity
-with a radical new aporach: Small BPF programs are specifically generated
-on the fly for each container to implement connectivty between containers
-and other endpoints.
+Cilium provides fast and low latency in-kernel networking connectivity and
+security policy enforcement for containers based on eBPF.
 
-The Cilium model offers great benefits over traditional fixed or configurable
-networking elements:
-  * Much like unikernels, programs are only as big as absolutely required.
-    Functionality can be compiled in or out on the fly even while a
-    container is running.
-  * The programs are Just in Time (JIT) compiled into CPU instructions in the
-    Linux kernel for maximum performance (no virtual machine).
-  * Own or third party protocol parsers, custom forwarding logic, additional
-    statistical counters can be added and removed on the fly.
-  * The tracing/perf subsystem can be leveraged for completely programmable
-    visibility into the networking layers of each application container.
+Cilium is...
+ * **simple:**
+   Every container is assigned a unique address and connected to a single flat
+   virtual network providing connectivity between all containers and to external
+   endpoints. The security layer on top allows to specify security policies
+   based on container labels independently from the address model and location
+   of the container.
+ * **fast:**
+   The BPF JIT compiler integrated into the Linux kernel guarantees for
+   efficient execution of BPF programs. A separate BPF programs is generated for
+   each individual container on the fly which allows to automatically reduce the
+   code size to the minimal, similar to static linking.
+ * **forward-looking:**
+   A modern IPv6 based addressing model ensures scalability as clusters grow
+   beyond the available address space of IPv4. IPv4 connectivity is provided
+   for backwards compatibility. The transition is further assisted with the help
+   of NAT46 and DNS46 which provides IPv4 connectivity to IPv6-only
+   applications.
+ * **debuggable:**
+   A highly efficient monitoring subsystem is integrated and can be enabled on
+   demand at runtime. It provides visibility into the network activity of
+   containers under high network speeds without disruption or introduction of
+   latency.
+ * **hotfixable:**
+   Updates, in particular security fixes, can be applied without the need to
+   migrate or restart any of the served containers.
+ * **extendable:**
+   Advanced users can extend and customize any aspect of the BPF programs
+   without the recompilation of the kernel or restarting of containers. This
+   may include the addition of additional statistics not provided by the Linux
+   kernel, support for additional protocol parsers, modifications of the
+   connection tracker or policy layer, additional forwarding logic, etc.
 
 ## Networking Model
 
-The standard networking model provided by Cilium is kept as simple as
-possible and has been designed with the requirement that it is usable
-any prior knowledge of networking:
-  * Routing only. Like on the interwebs.
-  * No networks, no subnets, no VLANs, no broadcast domains.
-  * Any container can be connected to any other container through a labels
-    based policy system. Groups of containers can be isolated at will
-    based on labels. No need to put a container onto multiple networks.
-  * No need for any sort of centralized controller
-  * Host scope address allocation only. No need for containers to have an
-    address in a particular network. No need for nodes to negotiate
-    addresses. Addressing is decoupled from the desired isolation guarantees.
-  * Path to a native IPv6 cluster transition for maximum scale while providing
-    backwards compatibility to legacy IPv4 endpoints for as long as needed.
+The networking model provided by Cilium is kept as simple as possible and has
+been designed for users of containers to not require knowledge of networking.
+Each container receives a unique address which empowers the container to
+initiate connections to any other container or external endpoints as long as the
+policy allows it. Complexity caused by integration into physical or virtual
+networks is hidden from container users.
 
-For additional details, see the [doc/model.MD]
+Integration to other networks is available in various forms including native
+routing for physically trusted environments and encapsulation for environments
+where middle boxes can't be trusted, e.g. the internet or a public cloud. For
+additional information, see [networking model](doc/model.md).
 
-## Requirements
+## Prerequisites
 
-Cilium's experimental nature requires a recent version of the Linux kernel,
-iproute2 and clang+LLVM. Specifically:
+The experimental nature of Cilium currently requires a recent version of the
+Linux kernel iproute2 and clang+LLVM. Specifically:
   * Linux kernel: https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
   * iproute2: https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
   * clang+LLVM: 3.7.1
 
-The respective changes have been upstreamed and as distributions rebase, the
-minimal requirements will be met by any major distribution.
+All changes to the Linux kernel have been merged upstream and will become
+available in distribution kernels soon.
 
-To ease installation and trial, we are providing a prebuilt Vagrant box plus a
-Vagrantfile to build, deploy & run Cilium:
+To ease first trial steps, you may use the vagrant environment which provides
+all Prerequisites and automatically installs cilium:
+[vagrant instructions](doc/vagrant.md).
 
-```
-$ vagrant up
-```
+## Installation
 
-Alternatively you can use the vagrant box directly and install yourself:
+Cilium consists of an agent which must be installed on all servers which
+will run containers. See [installation instructions](doc/installation.md) for
+detailed instructions how to install Cilium.
 
-  ```
-  $ vagrant init noironetworks/net-next
-  $ vagrant up
-  ```
-## Integration
+## Integration with orchestration systems
 
 Cilium provides integration plugins for the following orchestration systems:
-  * CNI (Kubernetes/CoreOS)
-  * libnetwork (Docker)
-  * Mesos (Soon(TM))
+  * CNI (Kubernetes/Mesos) [Installation instructions](doc/k8s.md)
+  * libnetwork (Docker) [Installation instructions](doc/docker.md)
 
 ## Getting Started
 

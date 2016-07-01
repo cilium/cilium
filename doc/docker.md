@@ -1,7 +1,8 @@
 # Cilium Docker Plugin
 
-This plugin provides integration of Cilium with Docker. It handles both network
-connectivity requests and address allocation for networks of type "Cilium".
+The Cilium docker plugin provides integration of Cilium with Docker. The plugin
+will automatically handle network connectivity and/or address allocation (IPAM)
+requests for any network of type "cilium".
 
 ## Installation
 

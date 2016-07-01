@@ -2,10 +2,25 @@
 
 ## Installation
 
-Running `make install` will install the cilium binary in your `bindir` and
+Cilium consists of an agent which must be installed on all servers which
+will run containers.
+
+## Docker Image
+
+## Manual Installation
+
+Running `make install` will install cilium binaries in your `bindir` and
 all required additional runtime files in `libdir/cilium`.
 
-## Networking
+Templates for integration into service management systems such as systemd
+and upstart can be found in the `contrib` directory.
+
+
+```
+service cilium-net-daemon start
+```
+
+## Integration with existing networking
 
 The minimal requirements are networking with IPv6 connectivity on the node
 cilium is being run on. IPv6 forwarding must be enabled as well:
@@ -21,8 +36,8 @@ ip -6 route get `host -t aaaa www.google.com | awk '{print $5}'`
 ping6 www.google.com
 ```
 
-If the route is missing, your VM may not be receiving router advertisements.
-In this case, the default route can be added manually:
+If the default route is missing, your VM may not be receiving router
+advertisements. In this case, the default route can be added manually:
 
 ```
 ip -6 route add default via beef::1
@@ -38,7 +53,7 @@ PING www.google.com(zrh04s07-in-x04.1e100.net) 56 data bytes
 64 bytes from zrh04s07-in-x04.1e100.net: icmp_seq=3 ttl=56 time=8.83 ms
 ```
 
-Note that an approporiate policy must be loaded or policy enforcement will
+Note that an appropriate policy must be loaded or policy enforcement will
 drop the relevant packets. An example policy can be found in
 `examples/policy/test/` which will allow the above container with the label
 `io.cilium` to be reached from world scope. To load and test:

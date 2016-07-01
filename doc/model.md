@@ -2,6 +2,20 @@
 
 ## Addressing
 
+* Single flat L3 network. L2 limited to short path between container and BPF
+  program attached to it. No networks, no subnets, no VLANs, no broadcast
+  domains.
+* Currently supported integrations:
+  * Native IPv4 and IPv6 routing. Run your own route distribution.
+  * Overlay with encapsulation: VXLAN, Geneve, GRE.
+* One agent per node. All functionality is distributed on the edge.
+  No controller.
+* Host scope address allocation only. No need for containers to have an
+  address in a particular network. No need for nodes to negotiate
+  addresses. Addressing is decoupled from the desired isolation guarantees.
+* Path to a native IPv6 cluster transition for maximum scale while providing
+  backwards compatibility to legacy IPv4 endpoints for as long as needed.
+
 ### IPv6 vs IPv4
 
 Cilium is specifically designed with IPv6 in mind and with native IPv6 as
