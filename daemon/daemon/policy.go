@@ -87,7 +87,7 @@ func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchCont
 	decision := d.policyCanConsume(ctx)
 	// Only accept rules get stored
 	if decision == types.ACCEPT {
-		if e.OptionSet(types.OptionDisableConntrack) {
+		if e.Opts.IsEnabled(types.OptionDisableConntrack) {
 			c.AllowConsumerAndReverse(srcID)
 		} else {
 			c.AllowConsumer(srcID)
@@ -176,7 +176,7 @@ func (d *Daemon) invalidateCache() {
 	}
 }
 
-func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.EPOpts, dstID uint32, opt string) {
+func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.OptionMap, dstID uint32, opt string) {
 	var err error
 
 	ctx := types.SearchContext{
@@ -210,7 +210,7 @@ func (d *Daemon) regenerateEndpointPolicy(e *types.Endpoint, regenerateEndpoint 
 			return err
 		}
 
-		opts := make(types.EPOpts)
+		opts := make(types.OptionMap)
 
 		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), types.OptionAllowToHost)
 		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), types.OptionAllowToWorld)

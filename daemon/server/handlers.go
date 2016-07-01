@@ -23,6 +23,19 @@ func (router *RouterBackend) ping(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *RouterBackend) update(w http.ResponseWriter, r *http.Request) {
+	var opts types.OptionMap
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.Update(opts); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (router *RouterBackend) endpointCreate(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
 	var ep types.Endpoint
@@ -72,7 +85,7 @@ func (router *RouterBackend) endpointUpdate(w http.ResponseWriter, r *http.Reque
 		processServerError(w, r, errors.New("server received empty endpoint id"))
 		return
 	}
-	var opts types.EPOpts
+	var opts types.OptionMap
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		processServerError(w, r, err)
 		return

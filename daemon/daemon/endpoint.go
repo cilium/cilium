@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/op/go-logging"
-
 	"github.com/noironetworks/cilium-net/bpf/geneve"
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
@@ -248,9 +246,8 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 4096\n")
 	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(common.BPFMapCT+ep.ID))
 
-	for k, _ := range ep.Opts {
-		fmt.Fprintf(fw, "%s\n", ep.GetFmtOpt(k))
-	}
+	// Endpoint options
+	fw.WriteString(ep.Opts.GetFmtList())
 
 	fw.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range ep.PortMap {
@@ -373,27 +370,15 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	}
 
 	if ep.Opts == nil {
-		ep.Opts = types.EPOpts{}
+		ep.Opts = types.NewBoolOptions(&types.EndpointOptionLibrary)
 	}
 
-	if _, exists := ep.Opts[types.OptionDisableConntrack]; !exists {
-		ep.Opts[types.OptionDisableConntrack] = d.conf.DisableConntrack
-	}
-	if _, exists := ep.Opts[types.OptionDisablePolicy]; !exists {
-		ep.Opts[types.OptionDisablePolicy] = d.conf.DisablePolicy
-	}
-	if _, exists := ep.Opts[types.OptionDebug]; !exists {
-		ep.Opts[types.OptionDebug] = log.IsEnabledFor(logging.DEBUG)
-	}
-	if _, exists := ep.Opts[types.OptionNAT46]; !exists {
-		ep.Opts[types.OptionNAT46] = false
-	}
-	if _, exists := ep.Opts[types.OptionDropNotify]; !exists {
-		ep.Opts[types.OptionDropNotify] = true
-	}
-	if _, exists := ep.Opts[types.OptionLearnTraffic]; !exists {
-		ep.Opts[types.OptionLearnTraffic] = false
-	}
+	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDisableConntrack)
+	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDisablePolicy)
+	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDebug)
+	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDropNotify)
+	ep.Opts.InheritDefault(d.conf.Opts, types.OptionNAT46)
+	ep.Opts.SetIfUnset(types.OptionLearnTraffic, false)
 
 	d.InsertEndpoint(&ep)
 
@@ -500,7 +485,7 @@ func (d *Daemon) regenerateEndpoint(ep *types.Endpoint) error {
 }
 
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
-func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
+func (d *Daemon) EndpointUpdate(epID string, opts types.OptionMap) error {
 	// Preventing someone from deleting important directories
 	if !isValidID(epID) {
 		return fmt.Errorf("invalid ID: %s", epID)
@@ -510,6 +495,10 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 	defer d.endpointsMU.Unlock()
 
 	if ep := d.lookupCiliumEndpoint(epID); ep != nil {
+		if err := ep.Opts.Validate(opts); err != nil {
+			return err
+		}
+
 		if !ep.ApplyOpts(opts) {
 			// No changes have been applied, skip update
 			return nil

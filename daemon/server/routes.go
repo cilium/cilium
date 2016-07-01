@@ -19,6 +19,9 @@ func (r *RouterBackend) initRoutes() {
 			"Ping", "GET", "/ping", r.ping,
 		},
 		route{
+			"Update", "POST", "/update", r.update,
+		},
+		route{
 			"EndpointCreate", "POST", "/endpoint/{endpointID}", r.endpointCreate,
 		},
 		route{

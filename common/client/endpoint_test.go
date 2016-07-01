@@ -388,12 +388,12 @@ func (s *CiliumNetClientSuite) TestEndpointsGetFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
-	optsWanted := types.EPOpts{"FOO": true}
+	optsWanted := types.OptionMap{"FOO": true}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
-		var opts types.EPOpts
+		var opts types.OptionMap
 		err := json.NewDecoder(r.Body).Decode(&opts)
 		c.Assert(err, IsNil)
 		c.Assert(opts, DeepEquals, optsWanted)
@@ -409,7 +409,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
-		var opts types.EPOpts
+		var opts types.OptionMap
 		err := json.NewDecoder(r.Body).Decode(&opts)
 		c.Assert(err, IsNil)
 		c.Assert(opts, IsNil)
@@ -423,7 +423,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
-	optsWanted := types.EPOpts{"FOO": true}
+	optsWanted := types.OptionMap{"FOO": true}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")

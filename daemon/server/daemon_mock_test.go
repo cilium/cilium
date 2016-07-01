@@ -13,7 +13,7 @@ type TestDaemon struct {
 	OnEndpointJoin              func(ep types.Endpoint) error
 	OnEndpointLeave             func(ep string) error
 	OnEndpointLeaveByDockerEPID func(dockerEPID string) error
-	OnEndpointUpdate            func(ep string, opts types.EPOpts) error
+	OnEndpointUpdate            func(ep string, opts types.OptionMap) error
 	OnEndpointSave              func(ep types.Endpoint) error
 	OnEndpointLabelsGet         func(epID string) (*types.OpLabels, error)
 	OnEndpointLabelsUpdate      func(epID string, op types.LabelOP, labels types.Labels) error
@@ -21,6 +21,7 @@ type TestDaemon struct {
 	OnAllocateIP                func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
 	OnReleaseIP                 func(ipamType types.IPAMType, opts types.IPAMReq) error
 	OnPing                      func() (*types.PingResponse, error)
+	OnUpdate                    func(opts types.OptionMap) error
 	OnSyncState                 func(path string, clean bool) error
 	OnPutLabels                 func(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error)
 	OnGetLabels                 func(id uint32) (*types.SecCtxLabel, error)
@@ -66,7 +67,7 @@ func (d TestDaemon) EndpointJoin(ep types.Endpoint) error {
 	return errors.New("EndpointJoin should not have been called")
 }
 
-func (d TestDaemon) EndpointUpdate(ep string, opts types.EPOpts) error {
+func (d TestDaemon) EndpointUpdate(ep string, opts types.OptionMap) error {
 	if d.OnEndpointUpdate != nil {
 		return d.OnEndpointUpdate(ep, opts)
 	}
@@ -113,6 +114,13 @@ func (d TestDaemon) Ping() (*types.PingResponse, error) {
 		return d.OnPing()
 	}
 	return nil, errors.New("Ping should not have been called")
+}
+
+func (d TestDaemon) Update(opts types.OptionMap) error {
+	if d.OnUpdate != nil {
+		return d.OnUpdate(opts)
+	}
+	return nil, errors.New("Update should not have been called")
 }
 
 func (d TestDaemon) SyncState(path string, clean bool) error {

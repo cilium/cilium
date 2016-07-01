@@ -12,6 +12,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	common "github.com/noironetworks/cilium-net/common"
+	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 	"github.com/noironetworks/cilium-net/daemon/daemon"
 	s "github.com/noironetworks/cilium-net/daemon/server"
@@ -23,18 +24,22 @@ import (
 )
 
 var (
+	config = daemon.NewConfig()
+
 	// Arguments variables keep in alphabetical order
-	config          daemon.Config
-	consulAddr      string
-	device          string
-	ipv4Prefix      string
-	labelPrefixFile string
-	nodeAddrStr     string
-	runDir          string
-	socketPath      string
-	uiServerAddr    string
-	v4range         string
-	tunnel          string
+	consulAddr       string
+	device           string
+	disableConntrack bool
+	disablePolicy    bool
+	enableTracing    bool
+	ipv4Prefix       string
+	labelPrefixFile  string
+	nodeAddrStr      string
+	runDir           string
+	socketPath       string
+	uiServerAddr     string
+	v4range          string
+	tunnel           string
 
 	log = logging.MustGetLogger("cilium-net-daemon")
 
@@ -44,110 +49,184 @@ var (
 
 func init() {
 	CliCommand = cli.Command{
-		Name:   "daemon",
-		Usage:  "Enables daemon mode",
-		Before: initEnv,
-		Action: run,
+		Name: "daemon",
 		// Keep Destination alphabetical order
-		Flags: []cli.Flag{
-			cli.StringFlag{
-				Destination: &consulAddr,
-				Name:        "consul-agent, c",
-				Value:       "127.0.0.1:8500",
-				Usage:       "Consul agent address",
+		Subcommands: []cli.Command{
+			{
+				Name:   "run",
+				Usage:  "Run the daemon",
+				Before: initEnv,
+				Action: run,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Destination: &consulAddr,
+						Name:        "consul-agent, c",
+						Value:       "127.0.0.1:8500",
+						Usage:       "Consul agent address",
+					},
+					cli.StringFlag{
+						Destination: &device,
+						Name:        "snoop-device, d",
+						Value:       "undefined",
+						Usage:       "Device to snoop on",
+					},
+					cli.BoolFlag{
+						Destination: &disableConntrack,
+						Name:        "disable-conntrack",
+						Usage:       "Disable connection tracking",
+					},
+					cli.BoolFlag{
+						Destination: &disablePolicy,
+						Name:        "disable-policy",
+						Usage:       "Disable policy enforcement",
+					},
+					cli.StringFlag{
+						Destination: &config.DockerEndpoint,
+						Name:        "e",
+						Value:       "unix:///var/run/docker.sock",
+						Usage:       "Register a listener for docker events on the given endpoint",
+					},
+					cli.BoolFlag{
+						Destination: &enableTracing,
+						Name:        "enable-tracing",
+						Usage:       "Enable tracing while determining policy",
+					},
+					cli.StringFlag{
+						Destination: &ipv4Prefix,
+						Name:        "ipv4-mapping",
+						Value:       common.DefaultIPv4Prefix,
+						Usage:       "IPv6 prefix to map IPv4 addresses to",
+					},
+					cli.StringFlag{
+						Destination: &config.K8sEndpoint,
+						Name:        "k",
+						Value:       "http://[node-ipv6]:8080",
+						Usage:       "Kubernetes endpoint to retrieve metadata information of new started containers",
+					},
+					cli.StringFlag{
+						Destination: &labelPrefixFile,
+						Name:        "p",
+						Value:       "",
+						Usage:       "File with valid label prefixes",
+					},
+					cli.StringFlag{
+						Destination: &config.LibDir,
+						Name:        "D",
+						Value:       common.CiliumLibDir,
+						Usage:       "Cilium library directory",
+					},
+					cli.StringFlag{
+						Destination: &nodeAddrStr,
+						Name:        "n",
+						Value:       "",
+						Usage:       "IPv6 address of node, must be in correct format",
+					},
+					cli.BoolTFlag{
+						Destination: &config.RestoreState,
+						Name:        "restore-state",
+						Usage:       "Restore state from previous daemon",
+					},
+					cli.StringFlag{
+						Destination: &runDir,
+						Name:        "R",
+						Value:       "/var/run/cilium",
+						Usage:       "Runtime data directory",
+					},
+					cli.StringFlag{
+						Destination: &socketPath,
+						Name:        "s",
+						Value:       common.CiliumSock,
+						Usage:       "Sets the socket path to listen for connections",
+					},
+					cli.StringFlag{
+						Destination: &uiServerAddr,
+						Name:        "ui-addr",
+						Usage:       "IP address and port for UI server",
+					},
+					cli.StringFlag{
+						Destination: &v4range,
+						Name:        "ipv4-range",
+						Value:       "",
+						Usage:       "IPv6 prefix to map IPv4 addresses to",
+					},
+					cli.StringFlag{
+						Destination: &tunnel,
+						Name:        "t",
+						Value:       "vxlan",
+						Usage:       "Tunnel mode vxlan or geneve, vxlan is the default",
+					},
+				},
 			},
-			cli.StringFlag{
-				Destination: &device,
-				Name:        "snoop-device, d",
-				Value:       "undefined",
-				Usage:       "Device to snoop on",
-			},
-			cli.BoolFlag{
-				Destination: &config.DisableConntrack,
-				Name:        "disable-conntrack",
-				Usage:       "Disable connection tracking",
-			},
-			cli.BoolFlag{
-				Destination: &config.DisablePolicy,
-				Name:        "disable-policy",
-				Usage:       "Disable policy enforcement",
-			},
-			cli.StringFlag{
-				Destination: &config.DockerEndpoint,
-				Name:        "e",
-				Value:       "unix:///var/run/docker.sock",
-				Usage:       "Register a listener for docker events on the given endpoint",
-			},
-			cli.BoolFlag{
-				Destination: &config.EnableTracing,
-				Name:        "enable-tracing",
-				Usage:       "Enable tracing while determining policy",
-			},
-			cli.StringFlag{
-				Destination: &ipv4Prefix,
-				Name:        "ipv4-mapping",
-				Value:       common.DefaultIPv4Prefix,
-				Usage:       "IPv6 prefix to map IPv4 addresses to",
-			},
-			cli.StringFlag{
-				Destination: &config.K8sEndpoint,
-				Name:        "k",
-				Value:       "http://[node-ipv6]:8080",
-				Usage:       "Kubernetes endpoint to retrieve metadata information of new started containers",
-			},
-			cli.StringFlag{
-				Destination: &labelPrefixFile,
-				Name:        "p",
-				Value:       "",
-				Usage:       "File with valid label prefixes",
-			},
-			cli.StringFlag{
-				Destination: &config.LibDir,
-				Name:        "D",
-				Value:       common.CiliumLibDir,
-				Usage:       "Cilium library directory",
-			},
-			cli.StringFlag{
-				Destination: &nodeAddrStr,
-				Name:        "n",
-				Value:       "",
-				Usage:       "IPv6 address of node, must be in correct format",
-			},
-			cli.BoolTFlag{
-				Destination: &config.RestoreState,
-				Name:        "restore-state",
-				Usage:       "Restore state from previous daemon",
-			},
-			cli.StringFlag{
-				Destination: &runDir,
-				Name:        "R",
-				Value:       "/var/run/cilium",
-				Usage:       "Runtime data directory",
-			},
-			cli.StringFlag{
-				Destination: &socketPath,
-				Name:        "s",
-				Value:       common.CiliumSock,
-				Usage:       "Sets the socket path to listen for connections",
-			},
-			cli.StringFlag{
-				Destination: &uiServerAddr,
-				Name:        "ui-addr",
-				Usage:       "IP address and port for UI server",
-			},
-			cli.StringFlag{
-				Destination: &v4range,
-				Name:        "ipv4-range",
-				Value:       "",
-				Usage:       "IPv6 prefix to map IPv4 addresses to",
-			},
-			cli.StringFlag{
-				Destination: &tunnel,
-				Name:        "t",
-				Value:       "vxlan",
-				Usage:       "Tunnel mode vxlan or geneve, vxlan is the default",
+			{
+				Name:      "config",
+				Usage:     "Manage daemon configuration",
+				Action:    configDaemon,
+				ArgsUsage: "[<option>=(enable|disable) ...]",
 			},
 		},
+	}
+}
+
+func configDaemon(ctx *cli.Context) {
+	var (
+		client *cnc.Client
+		err    error
+	)
+
+	first := ctx.Args().First()
+
+	if first == "list" {
+		for k, s := range daemon.DaemonOptionLibrary {
+			fmt.Printf("%-24s %s\n", k, s.Description)
+		}
+		return
+	}
+
+	if host := ctx.GlobalString("host"); host == "" {
+		client, err = cnc.NewDefaultClient()
+	} else {
+		client, err = cnc.NewClient(host, nil)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
+		os.Exit(1)
+	}
+
+	res, err := client.Ping()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to reach daemon: %s\n", err)
+		os.Exit(1)
+	}
+
+	if res == nil {
+		fmt.Fprintf(os.Stderr, "Empty response from daemon\n")
+		os.Exit(1)
+	}
+
+	opts := ctx.Args()
+
+	if len(opts) == 0 {
+		res.Opts.Dump()
+		return
+	}
+
+	dOpts := make(types.OptionMap, len(opts))
+
+	for k, _ := range opts {
+		name, value, err := types.ParseOption(opts[k], &daemon.DaemonOptionLibrary)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			os.Exit(1)
+		}
+
+		dOpts[name] = value
+
+		err = client.Update(dOpts)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to update daemon: %s\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -238,9 +317,16 @@ func initBPF() error {
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
 		common.SetupLOG(log, "DEBUG")
+		config.Opts.Set(types.OptionDebug, true)
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+
+	config.Opts.Set(types.OptionDropNotify, true)
+	config.Opts.Set(types.OptionNAT46, false)
+	config.Opts.Set(daemon.OptionEnableTracing, enableTracing)
+	config.Opts.Set(types.OptionDisableConntrack, disableConntrack)
+	config.Opts.Set(types.OptionDisablePolicy, disablePolicy)
 
 	if labelPrefixFile != "" {
 		var err error
@@ -333,7 +419,7 @@ func run(cli *cli.Context) {
 	consulDefaultAPI.Address = consulAddr
 	config.ConsulConfig = consulDefaultAPI
 
-	d, err := daemon.NewDaemon(&config)
+	d, err := daemon.NewDaemon(config)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
 		return

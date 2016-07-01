@@ -122,7 +122,7 @@ In order to enable direct routing mode, run Cilium with the `-d` option
 and provided the interface name to listen on.
 
 ```
-$ sudo cilium daemon -d eth0
+$ sudo cilium daemon run -d eth0
 ```
 
 ### Overlay Mode

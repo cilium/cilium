@@ -284,9 +284,9 @@ func (s *DaemonSuite) TestEndpointsGetFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
-	optsWanted := types.EPOpts{"FOO": true}
+	optsWanted := types.OptionMap{"FOO": true}
 
-	s.d.OnEndpointUpdate = func(epID string, opts types.EPOpts) error {
+	s.d.OnEndpointUpdate = func(epID string, opts types.OptionMap) error {
 		c.Assert(epID, DeepEquals, "4307")
 		c.Assert(opts, DeepEquals, optsWanted)
 		return nil
@@ -295,7 +295,7 @@ func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
 	err := s.c.EndpointUpdate("4307", optsWanted)
 	c.Assert(err, IsNil)
 
-	s.d.OnEndpointUpdate = func(epID string, opts types.EPOpts) error {
+	s.d.OnEndpointUpdate = func(epID string, opts types.OptionMap) error {
 		c.Assert(epID, DeepEquals, "4307")
 		c.Assert(opts, IsNil)
 		return nil
@@ -305,9 +305,9 @@ func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
-	optsWanted := types.EPOpts{"FOO": true}
+	optsWanted := types.OptionMap{"FOO": true}
 
-	s.d.OnEndpointUpdate = func(epID string, opts types.EPOpts) error {
+	s.d.OnEndpointUpdate = func(epID string, opts types.OptionMap) error {
 		c.Assert(epID, DeepEquals, "4307")
 		c.Assert(opts, DeepEquals, optsWanted)
 		return errors.New("invalid endpoint")

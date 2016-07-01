@@ -135,7 +135,7 @@ func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
 }
 
 // EndpointUpdate sends a POST request with epID and opts to the daemon.
-func (cli Client) EndpointUpdate(epID string, opts types.EPOpts) error {
+func (cli Client) EndpointUpdate(epID string, opts types.OptionMap) error {
 
 	serverResp, err := cli.R().SetBody(opts).Post("/endpoint/update/" + epID)
 	if err != nil {

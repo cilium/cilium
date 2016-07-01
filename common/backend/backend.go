@@ -11,7 +11,7 @@ type bpfBackend interface {
 	EndpointGet(epID string) (*types.Endpoint, error)
 	EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error)
 	EndpointsGet() ([]types.Endpoint, error)
-	EndpointUpdate(epID string, opts types.EPOpts) error
+	EndpointUpdate(epID string, opts types.OptionMap) error
 	EndpointSave(ep types.Endpoint) error
 	EndpointLabelsGet(epID string) (*types.OpLabels, error)
 	EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error
@@ -41,6 +41,7 @@ type policyBackend interface {
 
 type control interface {
 	Ping() (*types.PingResponse, error)
+	Update(opts types.OptionMap) error
 	SyncState(path string, clean bool) error
 }
 

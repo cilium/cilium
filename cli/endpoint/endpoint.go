@@ -15,7 +15,6 @@ import (
 	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/codegangsta/cli"
-	"github.com/fatih/color"
 	l "github.com/op/go-logging"
 )
 
@@ -23,8 +22,6 @@ var (
 	CliCommand cli.Command
 	client     *cnc.Client
 	log        = l.MustGetLogger("cilium-tools-endpoint")
-	green      = color.New(color.FgGreen).SprintFunc()
-	red        = color.New(color.FgRed).SprintFunc()
 )
 
 func init() {
@@ -191,17 +188,17 @@ func printEndpointLabels(lbls *types.OpLabels) {
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
 	for _, v := range lbls.EndpointLabels {
-		text := green("Enabled")
+		text := common.Green("Enabled")
 
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 	for _, v := range lbls.ProbeLabels {
-		text := red("Disabled")
+		text := common.Red("Disabled")
 
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 	for _, v := range lbls.UserLabels {
-		text := red("Disabled")
+		text := common.Red("Disabled")
 
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
@@ -278,51 +275,6 @@ func listEndpointOptions() {
 	}
 }
 
-func printEndpointConfig(ep *types.Endpoint) {
-	for k, _ := range ep.Opts {
-		text := green("Enabled")
-
-		if !ep.Opts[k] {
-			text = red("Disabled")
-		}
-
-		fmt.Printf("%-24s %s\n", k, text)
-	}
-}
-
-func parseEPOpt(arg string) (string, bool, error) {
-	enabled := true
-
-	if arg[0] == '!' {
-		enabled = false
-		arg = arg[1:]
-	}
-
-	optionSplit := strings.SplitN(arg, "=", 2)
-	arg = optionSplit[0]
-	if len(optionSplit) > 1 {
-		switch strings.ToLower(optionSplit[1]) {
-		case "true", "on", "enable", "enabled":
-			enabled = true
-		case "false", "off", "disable", "disabled":
-			enabled = false
-		default:
-			return "", false, fmt.Errorf("Invalid option value %s", optionSplit[1])
-		}
-	}
-
-	key, spec := types.LookupEndpointOption(arg)
-	if key == "" {
-		return "", false, fmt.Errorf("Unknown endpoint option %s", arg)
-	}
-
-	if spec.Immutable {
-		return "", false, fmt.Errorf("Specified option is immutable (read-only)")
-	}
-
-	return key, enabled, nil
-}
-
 func verifyConfigEndpoint(ctx *cli.Context) error {
 	if ctx.Args().First() == "" {
 		return fmt.Errorf("Error: Need endpoint ID")
@@ -351,14 +303,14 @@ func configEndpoint(ctx *cli.Context) {
 
 	opts := ctx.Args().Tail()
 	if len(opts) == 0 {
-		printEndpointConfig(ep)
+		ep.Opts.Dump()
 		return
 	}
 
-	epOpts := make(types.EPOpts, len(opts))
+	epOpts := make(types.OptionMap, len(opts))
 
 	for k, _ := range opts {
-		name, value, err := parseEPOpt(opts[k])
+		name, value, err := types.ParseOption(opts[k], &types.EndpointOptionLibrary)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)

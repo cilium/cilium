@@ -7,5 +7,6 @@ import (
 func (d *Daemon) Ping() (*types.PingResponse, error) {
 	return &types.PingResponse{
 		NodeAddress: d.conf.NodeAddress.String(),
+		Opts:        d.conf.Opts,
 	}, nil
 }

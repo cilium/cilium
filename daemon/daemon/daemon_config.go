@@ -9,6 +9,25 @@ import (
 	consulAPI "github.com/hashicorp/consul/api"
 )
 
+const (
+	OptionEnableTracing = "EnableTracing"
+)
+
+var (
+	OptionSpecEnableTracing = types.Option{
+		Description: "Enable tracing when resolving policy (Debug)",
+	}
+
+	DaemonOptionLibrary = types.OptionLibrary{
+		types.OptionNAT46:            &types.OptionSpecNAT46,
+		types.OptionDropNotify:       &types.OptionSpecDropNotify,
+		types.OptionDebug:            &types.OptionSpecDebug,
+		types.OptionDisablePolicy:    &types.OptionSpecDisablePolicy,
+		types.OptionDisableConntrack: &types.OptionSpecDisableConntrack,
+		OptionEnableTracing:          &OptionSpecEnableTracing,
+	}
+)
+
 // Config is the configuration used by Daemon.
 type Config struct {
 	LibDir             string                // Cilium library directory
@@ -27,6 +46,15 @@ type Config struct {
 	EnableTracing    bool
 	DisablePolicy    bool
 	DisableConntrack bool
+
+	// Options changeable at runtime
+	Opts *types.BoolOptions
+}
+
+func NewConfig() *Config {
+	return &Config{
+		Opts: types.NewBoolOptions(&DaemonOptionLibrary),
+	}
 }
 
 func (c *Config) IsUIEnabled() bool {

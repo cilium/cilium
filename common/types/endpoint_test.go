@@ -28,7 +28,7 @@ func (s *EndpointSuite) TestEndpointID(c *C) {
 
 func (s *EndpointSuite) TestGetFmtOpt(c *C) {
 	e := Endpoint{
-		Opts: EPOpts{
+		Opts: OptionMap{
 			OptionDisablePolicy: true,
 			"BAR":               false,
 		},

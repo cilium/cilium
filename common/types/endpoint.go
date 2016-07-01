@@ -21,12 +21,6 @@ type EPPortMap struct {
 	Proto uint8  `json:"proto"`
 }
 
-type EndpointOption struct {
-	Define      string
-	Description string
-	Immutable   bool
-}
-
 const (
 	OptionNAT46            = "NAT46"
 	OptionDisablePolicy    = "DisablePolicy"
@@ -39,49 +33,49 @@ const (
 )
 
 var (
-	OptionSpecNAT46 = EndpointOption{
+	OptionSpecNAT46 = Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
 	}
 
-	OptionSpecDisablePolicy = EndpointOption{
+	OptionSpecDisablePolicy = Option{
 		Define:      "DISABLE_POLICY_ENFORCEMENT",
 		Description: "Disable policy enforcement",
 	}
 
-	OptionSpecDropNotify = EndpointOption{
+	OptionSpecDropNotify = Option{
 		Define:      "DROP_NOTIFY",
 		Description: "Enable drop notifications",
 	}
 
-	OptionSpecDisableConntrack = EndpointOption{
+	OptionSpecDisableConntrack = Option{
 		Define:      "DISABLE_CONNTRACK",
 		Description: "Disable stateful connection tracking",
 	}
 
-	OptionSpecDebug = EndpointOption{
+	OptionSpecDebug = Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 
-	OptionSpecAllowToHost = EndpointOption{
+	OptionSpecAllowToHost = Option{
 		Define:      "ALLOW_TO_HOST",
 		Immutable:   true,
 		Description: "Allow all traffic to local host",
 	}
 
-	OptionSpecAllowToWorld = EndpointOption{
+	OptionSpecAllowToWorld = Option{
 		Define:      "ALLOW_TO_WORLD",
 		Immutable:   true,
 		Description: "Allow all traffic to outside world",
 	}
 
-	OptionSpecLearnTraffic = EndpointOption{
+	OptionSpecLearnTraffic = Option{
 		Define:      "LEARN_TRAFFIC",
 		Description: "Learn and add labels to the list of allowed labels",
 	}
 
-	EndpointOptionLibrary = map[string]*EndpointOption{
+	EndpointOptionLibrary = OptionLibrary{
 		OptionNAT46:            &OptionSpecNAT46,
 		OptionDisablePolicy:    &OptionSpecDisablePolicy,
 		OptionDropNotify:       &OptionSpecDropNotify,
@@ -92,29 +86,6 @@ var (
 		OptionLearnTraffic:     &OptionSpecLearnTraffic,
 	}
 )
-
-func LookupEndpointOption(name string) (string, *EndpointOption) {
-	nameLower := strings.ToLower(name)
-
-	for k, _ := range EndpointOptionLibrary {
-		if strings.ToLower(k) == nameLower {
-			return k, EndpointOptionLibrary[k]
-		}
-	}
-
-	return "", nil
-}
-
-func EndpointOptionDefine(name string) string {
-	if _, ok := EndpointOptionLibrary[name]; ok {
-		return EndpointOptionLibrary[name].Define
-	}
-
-	return name
-}
-
-// Opts is the endpoint bpf options representation.
-type EPOpts map[string]bool
 
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
@@ -133,7 +104,7 @@ type Endpoint struct {
 	PortMap          []EPPortMap          `json:"port-mapping"`       // Port mapping used for this endpoint.
 	Consumable       *Consumable          `json:"consumable"`
 	PolicyMap        *policymap.PolicyMap `json:"-"`
-	Opts             EPOpts               `json:"options"` // Endpoint bpf options.
+	Opts             *BoolOptions         `json:"options"` // Endpoint bpf options.
 }
 
 // U16ID returns the endpoint's ID as uint16.
@@ -180,57 +151,20 @@ func (e Endpoint) String() string {
 	return string(b)
 }
 
-func (e *Endpoint) OptionSet(key string) bool {
-	set, exists := e.Opts[key]
-	return exists && set
-}
-
-// GetFmtOpt returns #define name if option exists and is set to true in endpoint's Opts
-// map or #undef name if option does not exist or exists but is set to false in endpoint's
-// Opts map.
-func (e *Endpoint) GetFmtOpt(name string) string {
-	if e.OptionSet(name) {
-		return "#define " + EndpointOptionDefine(name)
-	}
-
-	return "#undef " + EndpointOptionDefine(name)
-}
-
-func (e *Endpoint) OptionChanged(key string, value bool) {
+func OptionChanged(key string, value bool, data interface{}) {
+	e := data.(*Endpoint)
 	switch key {
 	case OptionDisableConntrack:
 		e.InvalidatePolicy()
 	}
 }
 
-func (e *Endpoint) ApplyOpts(opts EPOpts) bool {
-	changes := 0
-
+func (e *Endpoint) ApplyOpts(opts OptionMap) bool {
 	if val, ok := opts[OptionLearnTraffic]; ok && val {
 		opts[OptionDropNotify] = true
 	}
 
-	for k, v := range opts {
-		val, ok := e.Opts[k]
-
-		if v {
-			/* Only enable if not enabled already */
-			if !ok || !val {
-				e.Opts[k] = true
-				changes++
-				e.OptionChanged(k, v)
-			}
-		} else {
-			/* Only disable if enabled already */
-			if ok && val {
-				delete(e.Opts, k)
-				changes++
-				e.OptionChanged(k, v)
-			}
-		}
-	}
-
-	return changes > 0
+	return e.Opts.Apply(opts, OptionChanged, e) > 0
 }
 
 type orderEndpoint func(e1, e2 *Endpoint) bool

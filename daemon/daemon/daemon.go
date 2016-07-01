@@ -49,6 +49,7 @@ type Daemon struct {
 	uiListeners               map[*Conn]bool
 	uiListenersMU             sync.Mutex
 	registerUIListener        chan *Conn
+	configMutex               sync.Mutex
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -197,4 +198,20 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	return &d, nil
+}
+
+func changedOption(key string, value bool, data interface{}) {
+}
+
+func (d *Daemon) Update(opts types.OptionMap) error {
+	if err := d.conf.Opts.Validate(opts); err != nil {
+		return err
+	}
+
+	d.configMutex.Lock()
+	defer d.configMutex.Unlock()
+
+	d.conf.Opts.Apply(opts, changedOption, d)
+
+	return nil
 }

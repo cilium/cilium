@@ -31,11 +31,6 @@ const (
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
 	// log files.
 	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
-	// DisablePolicyEnforcement represent the C constant to disable policy
-	// enforcement.
-	DisablePolicyEnforcement = "DISABLE_POLICY_ENFORCEMENT"
-	// Enable drop notifications
-	EnableDropNotify = "DROP_NOTIFY"
 
 	// Consul dedicated constants
 
