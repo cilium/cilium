@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/codegangsta/cli"
@@ -107,7 +108,7 @@ func init() {
 			cli.IntFlag{
 				Name:        "num-cpus, c",
 				Usage:       "Number of CPUs",
-				Value:       1,
+				Value:       runtime.NumCPU(),
 				EnvVar:      "__NR_CPUS__",
 				Destination: &config.NumCpus,
 			},

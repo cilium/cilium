@@ -111,6 +111,7 @@ import "C"
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"syscall"
 	"unsafe"
 )
@@ -136,9 +137,8 @@ func DefaultPerfEventConfig() *PerfEventConfig {
 		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
 		SampleType:   C.PERF_SAMPLE_RAW,
 		WakeupEvents: 1,
-		//FIXME: get proper numCpus
-		NumCpus:  8,
-		NumPages: 8,
+		NumCpus:      runtime.NumCPU(),
+		NumPages:     8,
 	}
 }
 
