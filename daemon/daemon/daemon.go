@@ -1,11 +1,18 @@
 package daemon
 
 import (
+	"bufio"
+	"encoding/binary"
 	"fmt"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -14,6 +21,7 @@ import (
 	dClient "github.com/docker/engine-api/client"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
+	"github.com/vishvananda/netlink"
 	k8sClientConfig "k8s.io/kubernetes/pkg/client/restclient"
 	k8sClient "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
@@ -95,6 +103,109 @@ func createK8sClient(endpoint string) (*k8sClient.Client, error) {
 	config := k8sClientConfig.Config{Host: endpoint}
 	k8sClientConfig.SetKubernetesDefaults(&config)
 	return k8sClient.New(&config)
+}
+
+func (d *Daemon) writeNetdevHeader(dir string) error {
+	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
+	f, err := os.Create(headerPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+
+	}
+	defer f.Close()
+
+	fw := bufio.NewWriter(f)
+	fw.WriteString(d.conf.Opts.GetFmtList())
+
+	return fw.Flush()
+}
+
+func (d *Daemon) init() error {
+	var args []string
+
+	if err := os.Chdir(d.conf.RunDir); err != nil {
+		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
+			d.conf.RunDir, err)
+	}
+
+	f, err := os.Create("./globals/node_config.h")
+	if err != nil {
+		log.Warningf("Failed to create node configuration file: %s", err)
+		return err
+
+	}
+	fw := bufio.NewWriter(f)
+
+	hostIP := common.DupIP(d.conf.NodeAddress)
+	hostIP[14] = 0xff
+	hostIP[15] = 0xff
+
+	fmt.Fprintf(fw, ""+
+		"/*\n"+
+		" * Node-IP: %s\n"+
+		" * Host-IP: %s\n"+
+		" */\n\n",
+		d.conf.NodeAddress.String(), hostIP.String())
+
+	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(d.conf.NodeAddress))
+	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress))
+
+	SrcPrefix := net.ParseIP(d.conf.IPv4Prefix)
+	DstPrefix := net.ParseIP(d.conf.IPv4Prefix)
+	fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
+	fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
+
+	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
+	fmt.Fprintf(fw, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
+	fmt.Fprintf(fw, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
+
+	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(d.conf.IPv4Range.IP))
+	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(d.conf.IPv4Range.Mask))
+
+	ipv4Gw := common.DupIP(d.conf.IPv4Range.IP)
+	ipv4Gw[2] = 0xff
+	ipv4Gw[3] = 0xff
+	fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
+
+	fw.Flush()
+	f.Close()
+
+	if err := d.writeNetdevHeader("./"); err != nil {
+		log.Warningf("Unable to write netdev header: %s\n", err)
+	}
+
+	if d.conf.Device != "undefined" {
+		if _, err := netlink.LinkByName(d.conf.Device); err != nil {
+			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
+			return err
+		}
+
+		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), "direct", d.conf.Device}
+	} else {
+		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), d.conf.Tunnel}
+	}
+
+	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
+	if err != nil {
+		log.Warningf("Command execution %s/init.sh %s failed: %s",
+			d.conf.LibDir, strings.Join(args, " "), err)
+		log.Warningf("Command output:\n%s", out)
+		return err
+	}
+
+	d.conf.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
+	if err != nil {
+		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
+		return err
+	}
+
+	os.MkdirAll(common.CiliumUIPath, 0755)
+	if err != nil {
+		log.Warningf("Could not create UI directory '%s': %s", common.CiliumUIPath, err)
+		return err
+	}
+
+	return nil
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
@@ -187,6 +298,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		registerUIListener:        make(chan *Conn, 1),
 	}
 
+	if err := d.init(); err != nil {
+		log.Fatalf("Error while initializing daemon: %s\n", err)
+	}
+
 	if d.conf.IsUIEnabled() {
 		d.ListenBuildUIEvents()
 	}
@@ -211,7 +326,12 @@ func (d *Daemon) Update(opts types.OptionMap) error {
 	d.configMutex.Lock()
 	defer d.configMutex.Unlock()
 
-	d.conf.Opts.Apply(opts, changedOption, d)
+	changes := d.conf.Opts.Apply(opts, changedOption, d)
+	if changes > 0 {
+		if err := d.writeNetdevHeader("./"); err != nil {
+			log.Warningf("Unable to write netdev header: %s\n", err)
+		}
+	}
 
 	return nil
 }

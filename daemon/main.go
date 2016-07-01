@@ -1,8 +1,6 @@
 package daemon
 
 import (
-	"bufio"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
@@ -10,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	common "github.com/noironetworks/cilium-net/common"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -20,7 +17,6 @@ import (
 	"github.com/codegangsta/cli"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
-	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -28,18 +24,14 @@ var (
 
 	// Arguments variables keep in alphabetical order
 	consulAddr       string
-	device           string
 	disableConntrack bool
 	disablePolicy    bool
 	enableTracing    bool
-	ipv4Prefix       string
 	labelPrefixFile  string
 	nodeAddrStr      string
-	runDir           string
 	socketPath       string
 	uiServerAddr     string
 	v4range          string
-	tunnel           string
 
 	log = logging.MustGetLogger("cilium-net-daemon")
 
@@ -65,7 +57,7 @@ func init() {
 						Usage:       "Consul agent address",
 					},
 					cli.StringFlag{
-						Destination: &device,
+						Destination: &config.Device,
 						Name:        "snoop-device, d",
 						Value:       "undefined",
 						Usage:       "Device to snoop on",
@@ -92,7 +84,7 @@ func init() {
 						Usage:       "Enable tracing while determining policy",
 					},
 					cli.StringFlag{
-						Destination: &ipv4Prefix,
+						Destination: &config.IPv4Prefix,
 						Name:        "ipv4-mapping",
 						Value:       common.DefaultIPv4Prefix,
 						Usage:       "IPv6 prefix to map IPv4 addresses to",
@@ -127,7 +119,7 @@ func init() {
 						Usage:       "Restore state from previous daemon",
 					},
 					cli.StringFlag{
-						Destination: &runDir,
+						Destination: &config.RunDir,
 						Name:        "R",
 						Value:       "/var/run/cilium",
 						Usage:       "Runtime data directory",
@@ -150,7 +142,7 @@ func init() {
 						Usage:       "IPv6 prefix to map IPv4 addresses to",
 					},
 					cli.StringFlag{
-						Destination: &tunnel,
+						Destination: &config.Tunnel,
 						Name:        "t",
 						Value:       "vxlan",
 						Usage:       "Tunnel mode vxlan or geneve, vxlan is the default",
@@ -230,90 +222,6 @@ func configDaemon(ctx *cli.Context) {
 	}
 }
 
-func initBPF() error {
-	var args []string
-
-	if err := os.Chdir(runDir); err != nil {
-		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
-			runDir, err)
-	}
-
-	f, err := os.Create("./globals/node_config.h")
-	if err != nil {
-		log.Warningf("Failed to create node configuration file: %s", err)
-		return err
-
-	}
-	fw := bufio.NewWriter(f)
-
-	hostIP := common.DupIP(config.NodeAddress)
-	hostIP[14] = 0xff
-	hostIP[15] = 0xff
-
-	fmt.Fprintf(fw, ""+
-		"/*\n"+
-		" * Node-IP: %s\n"+
-		" * Host-IP: %s\n"+
-		" */\n\n",
-		config.NodeAddress.String(), hostIP.String())
-
-	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(config.NodeAddress))
-	fw.WriteString(common.FmtDefineArray("ROUTER_IP", config.NodeAddress))
-
-	SrcPrefix := net.ParseIP(ipv4Prefix)
-	DstPrefix := net.ParseIP(ipv4Prefix)
-	fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
-	fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
-
-	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
-	fmt.Fprintf(fw, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
-	fmt.Fprintf(fw, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
-
-	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(config.IPv4Range.IP))
-	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(config.IPv4Range.Mask))
-
-	ipv4Gw := common.DupIP(config.IPv4Range.IP)
-	ipv4Gw[2] = 0xff
-	ipv4Gw[3] = 0xff
-	fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
-
-	fw.Flush()
-	f.Close()
-
-	if device != "undefined" {
-		if _, err := netlink.LinkByName(device); err != nil {
-			log.Warningf("Link %s does not exist: %s", device, err)
-			return err
-		}
-
-		args = []string{config.LibDir, config.NodeAddress.String(), config.IPv4Range.IP.String(), "direct", device}
-	} else {
-		args = []string{config.LibDir, config.NodeAddress.String(), config.IPv4Range.IP.String(), tunnel}
-	}
-
-	out, err := exec.Command(config.LibDir+"/init.sh", args...).CombinedOutput()
-	if err != nil {
-		log.Warningf("Command execution %s/init.sh %s failed: %s",
-			config.LibDir, strings.Join(args, " "), err)
-		log.Warningf("Command output:\n%s", out)
-		return err
-	}
-
-	config.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
-	if err != nil {
-		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
-		return err
-	}
-
-	os.MkdirAll(common.CiliumUIPath, 0755)
-	if err != nil {
-		log.Warningf("Could not create UI directory '%s': %s", common.CiliumUIPath, err)
-		return err
-	}
-
-	return nil
-}
-
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
 		common.SetupLOG(log, "DEBUG")
@@ -340,7 +248,7 @@ func initEnv(ctx *cli.Context) error {
 
 	if nodeAddrStr == "" {
 		var err error
-		nodeAddrStr, err = common.GenerateV6Prefix(device)
+		nodeAddrStr, err = common.GenerateV6Prefix(config.Device)
 		if err != nil {
 			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
 		}
@@ -364,7 +272,7 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	if v4range == "" {
-		v4range, err = common.GenerateV4Range(device)
+		v4range, err = common.GenerateV4Range(config.Device)
 		if err != nil {
 			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
 		}
@@ -381,8 +289,8 @@ func initEnv(ctx *cli.Context) error {
 		log.Fatalf("IPv4 range %s must be of length %d\n", v4range, common.DefaultIPv4Mask)
 	}
 
-	if a := net.ParseIP(ipv4Prefix); a == nil || len(a) != net.IPv6len {
-		log.Fatalf("Invalid IPv4 prefix %s", ipv4Prefix)
+	if a := net.ParseIP(config.IPv4Prefix); a == nil || len(a) != net.IPv6len {
+		log.Fatalf("Invalid IPv4 prefix %s", config.IPv4Prefix)
 	}
 
 	// Mount BPF Map directory if not already done
@@ -411,7 +319,7 @@ func initEnv(ctx *cli.Context) error {
 		config.UIServerAddr = uiServerAddr
 	}
 
-	return initBPF()
+	return nil
 }
 
 func run(cli *cli.Context) {

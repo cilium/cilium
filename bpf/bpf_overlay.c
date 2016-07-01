@@ -1,4 +1,5 @@
 #include <node_config.h>
+#include <netdev_config.h>
 
 #include <iproute2/bpf_api.h>
 

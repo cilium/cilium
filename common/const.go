@@ -91,6 +91,8 @@ const (
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "lxc_config.h"
+	// Name of the header file used for bpf_netdev.c and bpf_overlay.c
+	NetdevHeaderFileName = "netdev_config.h"
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
