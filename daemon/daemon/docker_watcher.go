@@ -142,15 +142,15 @@ func (d *Daemon) createContainer(dockerID string, allLabels map[string]string) {
 	}
 }
 
-func (d *Daemon) refreshContainerLabels(dockerID string, labels types.Labels, root bool) error {
-	if isNewContainer, container, err := d.updateOperationalLabels(dockerID, labels, root); err != nil {
+func (d *Daemon) refreshContainerLabels(dockerID string, labels types.Labels, isProbe bool) error {
+	if isNewContainer, container, err := d.updateOperationalLabels(dockerID, labels, isProbe); err != nil {
 		return err
 	} else {
 		return d.updateContainer(container, isNewContainer)
 	}
 }
 
-func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels, root bool) (bool, *types.Container, error) {
+func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels, isProbe bool) (bool, *types.Container, error) {
 	dockerCont, err := d.dockerClient.ContainerInspect(dockerID)
 	if err != nil {
 		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
@@ -159,61 +159,63 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 	isNewContainer := false
 	d.containersMU.Lock()
 
-	var cont types.Container
+	var (
+		cont           types.Container
+		epLabelsSHA256 string
+	)
 
 	if ciliumContainer, ok := d.containers[dockerID]; !ok {
 		isNewContainer = true
 		opLabels := types.OpLabels{
 			AllLabels:      newLabels.DeepCopy(),
-			CiliumLabels:   newLabels.DeepCopy(),
+			UserLabels:     types.Labels{},
+			ProbeLabels:    newLabels.DeepCopy(),
 			EndpointLabels: newLabels.DeepCopy(),
 		}
 		cont = types.Container{dockerCont, opLabels}
 	} else {
-		if root {
-			// Clean all labels that are deleted and not present in root labels
-			deletedLabels := ciliumContainer.OpLabels.GetDeletedLabels()
-			for k, _ := range newLabels {
-				delete(deletedLabels, k)
-			}
-			for k, v := range deletedLabels {
-				log.Infof("Purging deleted endpoint label %s from container %s", v, ciliumContainer.ID)
-				delete(ciliumContainer.OpLabels.AllLabels, k)
-			}
-		}
-
-		allLabelsSHA256, err := ciliumContainer.OpLabels.AllLabels.SHA256Sum()
+		newLabelsSHA256, err := newLabels.SHA256Sum()
 		if err != nil {
-			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.AllLabels, err)
+			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", newLabels, err)
 		}
 
-		allLabelsCpy := ciliumContainer.OpLabels.AllLabels.DeepCopy()
-		allLabelsCpy.MergeLabels(newLabels)
+		if isProbe {
+			probeLabelsSHA256, err := ciliumContainer.OpLabels.ProbeLabels.SHA256Sum()
+			if err != nil {
+				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.ProbeLabels, err)
+			}
+			if probeLabelsSHA256 != newLabelsSHA256 {
+				isNewContainer = true
+				epLabelsSHA256, err = ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
+				if err != nil {
+					log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
+				}
+				// probe labels have changed
+				// we need to find out which labels were deleted and added
+				deletedLabels := ciliumContainer.OpLabels.ProbeLabels.DeepCopy()
+				for k, v := range newLabels {
+					if ciliumContainer.OpLabels.ProbeLabels[k] == nil {
+						tmpLbl1 := *v
+						tmpLbl2 := *v
+						ciliumContainer.OpLabels.AllLabels[k] = &tmpLbl1
+						ciliumContainer.OpLabels.EndpointLabels[k] = &tmpLbl2
+					} else {
+						delete(deletedLabels, k)
+					}
+				}
 
-		newLabelsSHA256, err := allLabelsCpy.SHA256Sum()
-		if err != nil {
-			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", allLabelsCpy, err)
-		}
-
-		// Someone has changed labels so we need to update this everywhere
-		if allLabelsSHA256 != newLabelsSHA256 {
-			isNewContainer = true
-			ciliumContainer.OpLabels.AllLabels.MergeLabels(newLabels)
-			ciliumContainer.OpLabels.CiliumLabels.MergeLabels(newLabels)
-			if err := d.DeleteLabelsBySHA256(allLabelsSHA256, dockerID); err != nil {
-				log.Errorf("Error while deleting old labels (%+v) of container %s: %s", allLabelsSHA256, dockerID, err)
+				for k, _ := range deletedLabels {
+					delete(ciliumContainer.OpLabels.AllLabels, k)
+					delete(ciliumContainer.OpLabels.EndpointLabels, k)
+				}
 			}
 		} else {
-			epLabelsSHA256, err := ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
+			// If it is not probe then all newLabels will be applied
+
+			epLabelsSHA256, err = ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
 			if err != nil {
 				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
 			}
-
-			newLabelsSHA256, err := newLabels.SHA256Sum()
-			if err != nil {
-				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", newLabels, err)
-			}
-
 			if epLabelsSHA256 != newLabelsSHA256 {
 				isNewContainer = true
 				ciliumContainer.OpLabels.EndpointLabels = newLabels
@@ -221,6 +223,12 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 		}
 
 		cont = types.Container{dockerCont, ciliumContainer.OpLabels}
+	}
+
+	if isNewContainer {
+		if err := d.DeleteLabelsBySHA256(epLabelsSHA256, dockerID); err != nil {
+			log.Errorf("Error while deleting old labels (%+v) of container %s: %s", epLabelsSHA256, dockerID, err)
+		}
 	}
 
 	d.containers[dockerID] = &cont

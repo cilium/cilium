@@ -572,12 +572,16 @@ func (d *Daemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels type
 	switch op {
 	case types.AddLabelsOp:
 		cont.OpLabels.AllLabels.MergeLabels(labels)
-		cont.OpLabels.CiliumLabels.MergeLabels(labels)
+		for k, v := range labels {
+			if cont.OpLabels.ProbeLabels[k] == nil {
+				cont.OpLabels.UserLabels[k] = v
+			}
+		}
 
 	case types.DelLabelsOp:
 		update := false
 		for k, _ := range labels {
-			delete(cont.OpLabels.CiliumLabels, k)
+			delete(cont.OpLabels.UserLabels, k)
 			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
 				delete(ep.SecLabel.Labels, k)
 				update = true
@@ -590,7 +594,7 @@ func (d *Daemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels type
 
 	case types.EnableLabelsOp:
 		for k, v := range labels {
-			if cont.OpLabels.CiliumLabels[k] == nil {
+			if cont.OpLabels.UserLabels[k] == nil && cont.OpLabels.ProbeLabels[k] == nil {
 				d.containersMU.Unlock()
 				return fmt.Errorf("label %s not found, please add it first in order to enable it", v)
 			}

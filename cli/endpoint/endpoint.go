@@ -181,8 +181,11 @@ func verifyArguments(ctx *cli.Context) error {
 }
 
 func printEndpointLabels(lbls *types.OpLabels) {
+	log.Debugf("All Labels %#v", *lbls)
+
 	for _, lbl := range lbls.EndpointLabels {
-		delete(lbls.CiliumLabels, lbl.Key)
+		delete(lbls.UserLabels, lbl.Key)
+		delete(lbls.ProbeLabels, lbl.Key)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
@@ -192,7 +195,12 @@ func printEndpointLabels(lbls *types.OpLabels) {
 
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
-	for _, v := range lbls.CiliumLabels {
+	for _, v := range lbls.ProbeLabels {
+		text := red("Disabled")
+
+		fmt.Fprintf(w, "%s\t%s\n", v, text)
+	}
+	for _, v := range lbls.UserLabels {
 		text := red("Disabled")
 
 		fmt.Fprintf(w, "%s\t%s\n", v, text)

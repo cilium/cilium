@@ -26,14 +26,16 @@ type OpLabels struct {
 	// All labels
 	AllLabels Labels
 	// Active labels that are enabled and disabled but not deleted
-	CiliumLabels Labels
+	UserLabels Labels
 	// Labels that are enabled
 	EndpointLabels Labels
+	// Labels from probes
+	ProbeLabels Labels
 }
 
 func (opl *OpLabels) GetDeletedLabels() Labels {
 	deletedLabels := opl.AllLabels.DeepCopy()
-	for k, _ := range opl.CiliumLabels {
+	for k, _ := range opl.UserLabels {
 		delete(deletedLabels, k)
 	}
 
@@ -276,7 +278,8 @@ func (lbls Labels) DeepCopy() Labels {
 // fmt.Printf("%+v\n", to)
 //   Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
 func (lbls Labels) MergeLabels(from Labels) {
-	for k, v := range from {
+	fromCpy := from.DeepCopy()
+	for k, v := range fromCpy {
 		lbls[k] = v
 	}
 }
