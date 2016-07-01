@@ -344,6 +344,7 @@ func run(cli *cli.Context) {
 	}
 
 	d.EnableConntrackGC()
+	d.EnableLearningTraffic()
 
 	// Register event listener in docker endpoint
 	if err := d.EnableDockerEventListener(); err != nil {

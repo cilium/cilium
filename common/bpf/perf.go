@@ -129,6 +129,19 @@ type PerfEventConfig struct {
 	WakeupEvents int
 }
 
+func DefaultPerfEventConfig() *PerfEventConfig {
+	return &PerfEventConfig{
+		MapPath:      "/sys/fs/bpf/tc/globals/cilium_events",
+		Type:         C.PERF_TYPE_SOFTWARE,
+		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
+		SampleType:   C.PERF_SAMPLE_RAW,
+		WakeupEvents: 1,
+		//FIXME: get proper numCpus
+		NumCpus:  8,
+		NumPages: 8,
+	}
+}
+
 type PerfEvent struct {
 	cpu      int
 	Fd       int

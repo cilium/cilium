@@ -35,6 +35,7 @@ const (
 	OptionDebug            = "Debug"
 	OptionAllowToHost      = "AllowToHost"
 	OptionAllowToWorld     = "AllowToWorld"
+	OptionLearnTraffic     = "LearnTraffic"
 )
 
 var (
@@ -75,6 +76,11 @@ var (
 		Description: "Allow all traffic to outside world",
 	}
 
+	OptionSpecLearnTraffic = EndpointOption{
+		Define:      "LEARN_TRAFFIC",
+		Description: "Learn and add labels to the list of allowed labels",
+	}
+
 	EndpointOptionLibrary = map[string]*EndpointOption{
 		OptionNAT46:            &OptionSpecNAT46,
 		OptionDisablePolicy:    &OptionSpecDisablePolicy,
@@ -83,6 +89,7 @@ var (
 		OptionDebug:            &OptionSpecDebug,
 		OptionAllowToHost:      &OptionSpecAllowToHost,
 		OptionAllowToWorld:     &OptionSpecAllowToWorld,
+		OptionLearnTraffic:     &OptionSpecLearnTraffic,
 	}
 )
 
@@ -198,6 +205,10 @@ func (e *Endpoint) OptionChanged(key string, value bool) {
 
 func (e *Endpoint) ApplyOpts(opts EPOpts) bool {
 	changes := 0
+
+	if val, ok := opts[OptionLearnTraffic]; ok && val {
+		opts[OptionDropNotify] = true
+	}
 
 	for k, v := range opts {
 		val, ok := e.Opts[k]

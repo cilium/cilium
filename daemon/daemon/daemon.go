@@ -26,26 +26,29 @@ var (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ipamConf             map[types.IPAMType]*types.IPAMConfig
-	consul               *consulAPI.Client
-	containers           map[string]*types.Container
-	containersMU         sync.Mutex
-	endpoints            map[string]*types.Endpoint
-	endpointsDocker      map[string]*types.Endpoint
-	endpointsDockerEP    map[string]*types.Endpoint
-	endpointsMU          sync.Mutex
-	validLabelPrefixesMU sync.Mutex
-	dockerClient         *dClient.Client
-	k8sClient            *k8sClient.Client
-	conf                 *Config
-	policyTree           types.PolicyTree
-	policyTreeMU         sync.Mutex
-	cacheIteration       int
-	reservedConsumables  []*types.Consumable
-	uiTopo               types.UITopo
-	uiListeners          map[*Conn]bool
-	uiListenersMU        sync.Mutex
-	registerUIListener   chan *Conn
+	ipamConf                  map[types.IPAMType]*types.IPAMConfig
+	consul                    *consulAPI.Client
+	containers                map[string]*types.Container
+	containersMU              sync.Mutex
+	endpoints                 map[string]*types.Endpoint
+	endpointsDocker           map[string]*types.Endpoint
+	endpointsDockerEP         map[string]*types.Endpoint
+	endpointsMU               sync.Mutex
+	endpointsLearning         map[string]types.LearningLabel
+	endpointsLearningMU       sync.Mutex
+	endpointsLearningRegister chan types.LearningLabel
+	validLabelPrefixesMU      sync.Mutex
+	dockerClient              *dClient.Client
+	k8sClient                 *k8sClient.Client
+	conf                      *Config
+	policyTree                types.PolicyTree
+	policyTreeMU              sync.Mutex
+	cacheIteration            int
+	reservedConsumables       []*types.Consumable
+	uiTopo                    types.UITopo
+	uiListeners               map[*Conn]bool
+	uiListenersMU             sync.Mutex
+	registerUIListener        chan *Conn
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -164,21 +167,23 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	rootNode.Root.Path()
 
 	d := Daemon{
-		conf:                c,
-		ipamConf:            ipamConf,
-		consul:              consul,
-		dockerClient:        dockerClient,
-		k8sClient:           k8sClient,
-		containers:          make(map[string]*types.Container),
-		endpoints:           make(map[string]*types.Endpoint),
-		endpointsDocker:     make(map[string]*types.Endpoint),
-		endpointsDockerEP:   make(map[string]*types.Endpoint),
-		cacheIteration:      1,
-		reservedConsumables: make([]*types.Consumable, 0),
-		policyTree:          rootNode,
-		uiTopo:              types.NewUITopo(),
-		uiListeners:         make(map[*Conn]bool),
-		registerUIListener:  make(chan *Conn, 1),
+		conf:                      c,
+		ipamConf:                  ipamConf,
+		consul:                    consul,
+		dockerClient:              dockerClient,
+		k8sClient:                 k8sClient,
+		containers:                make(map[string]*types.Container),
+		endpoints:                 make(map[string]*types.Endpoint),
+		endpointsDocker:           make(map[string]*types.Endpoint),
+		endpointsDockerEP:         make(map[string]*types.Endpoint),
+		endpointsLearning:         make(map[string]types.LearningLabel),
+		endpointsLearningRegister: make(chan types.LearningLabel, 1),
+		cacheIteration:            1,
+		reservedConsumables:       make([]*types.Consumable, 0),
+		policyTree:                rootNode,
+		uiTopo:                    types.NewUITopo(),
+		uiListeners:               make(map[*Conn]bool),
+		registerUIListener:        make(chan *Conn, 1),
 	}
 
 	if d.conf.IsUIEnabled() {

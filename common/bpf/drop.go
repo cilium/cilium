@@ -1,4 +1,4 @@
-package monitor
+package bpf
 
 import (
 	"fmt"
@@ -15,6 +15,14 @@ type DropNotify struct {
 	Ifindex  uint32
 	// data
 }
+
+// Must be synchronized with <bpf/lib/common.h>
+const (
+	CILIUM_NOTIFY_UNSPEC = iota
+	CILIUM_NOTIFY_DROP
+	CILIUM_DBG_MSG
+	CILIUM_DBG_CAPTURE
+)
 
 var errors = map[uint8]string{
 	0:   "Success",

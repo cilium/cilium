@@ -391,6 +391,9 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	if _, exists := ep.Opts[types.OptionDropNotify]; !exists {
 		ep.Opts[types.OptionDropNotify] = true
 	}
+	if _, exists := ep.Opts[types.OptionLearnTraffic]; !exists {
+		ep.Opts[types.OptionLearnTraffic] = false
+	}
 
 	d.InsertEndpoint(&ep)
 
@@ -510,6 +513,14 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.EPOpts) error {
 		if !ep.ApplyOpts(opts) {
 			// No changes have been applied, skip update
 			return nil
+		}
+
+		if val, ok := opts[types.OptionLearnTraffic]; ok {
+			if ll, err := types.NewLearningLabel(ep.ID, val); err != nil {
+				log.Errorf("impossible to convert endpoint ID %s to uint32: %s", ep.ID, err)
+			} else {
+				d.endpointsLearningRegister <- *ll
+			}
 		}
 
 		return d.regenerateEndpoint(ep)
