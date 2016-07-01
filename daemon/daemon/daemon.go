@@ -120,9 +120,37 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	return fw.Flush()
 }
 
-func (d *Daemon) init() error {
+func (d *Daemon) compileBase() error {
 	var args []string
 
+	if err := d.writeNetdevHeader("./"); err != nil {
+		log.Warningf("Unable to write netdev header: %s\n", err)
+		return err
+	}
+
+	if d.conf.Device != "undefined" {
+		if _, err := netlink.LinkByName(d.conf.Device); err != nil {
+			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
+			return err
+		}
+
+		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), "direct", d.conf.Device}
+	} else {
+		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), d.conf.Tunnel}
+	}
+
+	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
+	if err != nil {
+		log.Warningf("Command execution %s/init.sh %s failed: %s",
+			d.conf.LibDir, strings.Join(args, " "), err)
+		log.Warningf("Command output:\n%s", out)
+		return err
+	}
+
+	return nil
+}
+
+func (d *Daemon) init() error {
 	if err := os.Chdir(d.conf.RunDir); err != nil {
 		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
 			d.conf.RunDir, err)
@@ -170,26 +198,7 @@ func (d *Daemon) init() error {
 	fw.Flush()
 	f.Close()
 
-	if err := d.writeNetdevHeader("./"); err != nil {
-		log.Warningf("Unable to write netdev header: %s\n", err)
-	}
-
-	if d.conf.Device != "undefined" {
-		if _, err := netlink.LinkByName(d.conf.Device); err != nil {
-			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
-			return err
-		}
-
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), "direct", d.conf.Device}
-	} else {
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), d.conf.Tunnel}
-	}
-
-	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
-	if err != nil {
-		log.Warningf("Command execution %s/init.sh %s failed: %s",
-			d.conf.LibDir, strings.Join(args, " "), err)
-		log.Warningf("Command output:\n%s", out)
+	if err := d.compileBase(); err != nil {
 		return err
 	}
 
@@ -328,8 +337,8 @@ func (d *Daemon) Update(opts types.OptionMap) error {
 
 	changes := d.conf.Opts.Apply(opts, changedOption, d)
 	if changes > 0 {
-		if err := d.writeNetdevHeader("./"); err != nil {
-			log.Warningf("Unable to write netdev header: %s\n", err)
+		if err := d.compileBase(); err != nil {
+			log.Warningf("Unable to recompile base programs: %s\n", err)
 		}
 	}
 
