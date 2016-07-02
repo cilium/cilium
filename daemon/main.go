@@ -232,7 +232,7 @@ func initEnv(ctx *cli.Context) error {
 
 	config.Opts.Set(types.OptionDropNotify, true)
 	config.Opts.Set(types.OptionNAT46, false)
-	config.Opts.Set(daemon.OptionEnableTracing, enableTracing)
+	config.Opts.Set(daemon.OptionPolicyTracing, enableTracing)
 	config.Opts.Set(types.OptionConntrack, !disableConntrack)
 	config.Opts.Set(types.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(types.OptionPolicy, !disablePolicy)

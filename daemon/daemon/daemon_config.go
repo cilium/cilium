@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	OptionEnableTracing = "EnableTracing"
+	OptionPolicyTracing = "PolicyTracing"
 )
 
 var (
-	OptionSpecEnableTracing = types.Option{
+	OptionSpecPolicyTracing = types.Option{
 		Description: "Enable tracing when resolving policy (Debug)",
 	}
 
@@ -25,7 +25,7 @@ var (
 		types.OptionPolicy:              &types.OptionSpecPolicy,
 		types.OptionConntrack:           &types.OptionSpecConntrack,
 		types.OptionConntrackAccounting: &types.OptionSpecConntrackAccounting,
-		OptionEnableTracing:             &OptionSpecEnableTracing,
+		OptionPolicyTracing:             &OptionSpecPolicyTracing,
 	}
 )
 
@@ -46,9 +46,6 @@ type Config struct {
 	Tunnel             string                // Tunnel mode
 
 	RestoreState bool // RestoreState restores the state from previous running daemons.
-
-	// These are default options which can be overwritten on a per container basis
-	EnableTracing bool
 
 	// Options changeable at runtime
 	Opts *types.BoolOptions

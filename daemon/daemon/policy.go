@@ -122,7 +122,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		To: c.LabelList,
 	}
 
-	if d.conf.EnableTracing {
+	if d.conf.Opts.IsEnabled(OptionPolicyTracing) {
 		ctx.Trace = types.TRACE_ENABLED
 	}
 
@@ -183,7 +183,7 @@ func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.OptionMap, dstI
 		From: e.Consumable.LabelList,
 	}
 
-	if d.conf.EnableTracing {
+	if d.conf.Opts.IsEnabled(OptionPolicyTracing) {
 		ctx.Trace = types.TRACE_ENABLED
 	}
 
