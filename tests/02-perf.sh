@@ -126,10 +126,13 @@ function perf_pktgen() {
 	done
 }
 
-cilium endpoint config $SERVER_ID DropNotification=false
-cilium endpoint config $SERVER_ID Debug=false
-cilium endpoint config $CLIENT_ID DropNotification=false
-cilium endpoint config $CLIENT_ID Debug=false
+cilium daemon config DropNotification=false Debug=false
+cilium endpoint config $SERVER_ID DropNotification=false Debug=false
+cilium endpoint config $CLIENT_ID DropNotification=false Debug=false
+perf_test
+
+cilium endpoint config $SERVER_ID ConntrackAccounting=false
+cilium endpoint config $CLIENT_ID ConntrackAccounting=false
 perf_test
 
 cilium endpoint config $SERVER_ID DisableConntrack=true

@@ -19,12 +19,13 @@ var (
 	}
 
 	DaemonOptionLibrary = types.OptionLibrary{
-		types.OptionNAT46:            &types.OptionSpecNAT46,
-		types.OptionDropNotify:       &types.OptionSpecDropNotify,
-		types.OptionDebug:            &types.OptionSpecDebug,
-		types.OptionDisablePolicy:    &types.OptionSpecDisablePolicy,
-		types.OptionDisableConntrack: &types.OptionSpecDisableConntrack,
-		OptionEnableTracing:          &OptionSpecEnableTracing,
+		types.OptionNAT46:               &types.OptionSpecNAT46,
+		types.OptionDropNotify:          &types.OptionSpecDropNotify,
+		types.OptionDebug:               &types.OptionSpecDebug,
+		types.OptionDisablePolicy:       &types.OptionSpecDisablePolicy,
+		types.OptionDisableConntrack:    &types.OptionSpecDisableConntrack,
+		types.OptionConntrackAccounting: &types.OptionSpecConntrackAccounting,
+		OptionEnableTracing:             &OptionSpecEnableTracing,
 	}
 )
 

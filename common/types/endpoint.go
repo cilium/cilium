@@ -22,14 +22,15 @@ type EPPortMap struct {
 }
 
 const (
-	OptionNAT46            = "NAT46"
-	OptionDisablePolicy    = "DisablePolicy"
-	OptionDropNotify       = "DropNotification"
-	OptionDisableConntrack = "DisableConntrack"
-	OptionDebug            = "Debug"
-	OptionAllowToHost      = "AllowToHost"
-	OptionAllowToWorld     = "AllowToWorld"
-	OptionLearnTraffic     = "LearnTraffic"
+	OptionNAT46               = "NAT46"
+	OptionDisablePolicy       = "DisablePolicy"
+	OptionDropNotify          = "DropNotification"
+	OptionDisableConntrack    = "DisableConntrack"
+	OptionConntrackAccounting = "ConntrackAccounting"
+	OptionDebug               = "Debug"
+	OptionAllowToHost         = "AllowToHost"
+	OptionAllowToWorld        = "AllowToWorld"
+	OptionLearnTraffic        = "LearnTraffic"
 )
 
 var (
@@ -51,6 +52,11 @@ var (
 	OptionSpecDisableConntrack = Option{
 		Define:      "DISABLE_CONNTRACK",
 		Description: "Disable stateful connection tracking",
+	}
+
+	OptionSpecConntrackAccounting = Option{
+		Define:      "CONNTRACK_ACCOUNTING",
+		Description: "Enable per flow (conntrack) statistics",
 	}
 
 	OptionSpecDebug = Option{
@@ -76,14 +82,15 @@ var (
 	}
 
 	EndpointOptionLibrary = OptionLibrary{
-		OptionNAT46:            &OptionSpecNAT46,
-		OptionDisablePolicy:    &OptionSpecDisablePolicy,
-		OptionDropNotify:       &OptionSpecDropNotify,
-		OptionDisableConntrack: &OptionSpecDisableConntrack,
-		OptionDebug:            &OptionSpecDebug,
-		OptionAllowToHost:      &OptionSpecAllowToHost,
-		OptionAllowToWorld:     &OptionSpecAllowToWorld,
-		OptionLearnTraffic:     &OptionSpecLearnTraffic,
+		OptionNAT46:               &OptionSpecNAT46,
+		OptionDisablePolicy:       &OptionSpecDisablePolicy,
+		OptionDropNotify:          &OptionSpecDropNotify,
+		OptionDisableConntrack:    &OptionSpecDisableConntrack,
+		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
+		OptionDebug:               &OptionSpecDebug,
+		OptionAllowToHost:         &OptionSpecAllowToHost,
+		OptionAllowToWorld:        &OptionSpecAllowToWorld,
+		OptionLearnTraffic:        &OptionSpecLearnTraffic,
 	}
 )
 

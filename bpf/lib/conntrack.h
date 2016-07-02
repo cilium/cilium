@@ -40,6 +40,7 @@ static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
 		cilium_trace(skb, DBG_CT_MATCH, tuple->flags, ntohl(tuple->addr.p4));
 		entry->lifetime = CT_DEFAULT_LIFEIME;
 
+#ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (in) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
@@ -48,6 +49,7 @@ static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
 			__sync_fetch_and_add(&entry->tx_packets, 1);
 			__sync_fetch_and_add(&entry->tx_bytes, skb->len);
 		}
+#endif
 
 		switch (action) {
 		case ACTION_CLOSE:
