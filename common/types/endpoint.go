@@ -25,7 +25,7 @@ const (
 	OptionNAT46               = "NAT46"
 	OptionDisablePolicy       = "DisablePolicy"
 	OptionDropNotify          = "DropNotification"
-	OptionDisableConntrack    = "DisableConntrack"
+	OptionConntrack           = "Conntrack"
 	OptionConntrackAccounting = "ConntrackAccounting"
 	OptionDebug               = "Debug"
 	OptionAllowToHost         = "AllowToHost"
@@ -49,8 +49,8 @@ var (
 		Description: "Enable drop notifications",
 	}
 
-	OptionSpecDisableConntrack = Option{
-		Define:      "DISABLE_CONNTRACK",
+	OptionSpecConntrack = Option{
+		Define:      "CONNTRACK",
 		Description: "Disable stateful connection tracking",
 	}
 
@@ -85,7 +85,7 @@ var (
 		OptionNAT46:               &OptionSpecNAT46,
 		OptionDisablePolicy:       &OptionSpecDisablePolicy,
 		OptionDropNotify:          &OptionSpecDropNotify,
-		OptionDisableConntrack:    &OptionSpecDisableConntrack,
+		OptionConntrack:           &OptionSpecConntrack,
 		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
 		OptionDebug:               &OptionSpecDebug,
 		OptionAllowToHost:         &OptionSpecAllowToHost,
@@ -161,7 +161,7 @@ func (e Endpoint) String() string {
 func OptionChanged(key string, value bool, data interface{}) {
 	e := data.(*Endpoint)
 	switch key {
-	case OptionDisableConntrack:
+	case OptionConntrack:
 		e.InvalidatePolicy()
 	}
 }

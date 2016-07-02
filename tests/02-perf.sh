@@ -135,8 +135,8 @@ cilium endpoint config $SERVER_ID ConntrackAccounting=false
 cilium endpoint config $CLIENT_ID ConntrackAccounting=false
 perf_test
 
-cilium endpoint config $SERVER_ID DisableConntrack=true
-cilium endpoint config $CLIENT_ID DisableConntrack=true
+cilium endpoint config $SERVER_ID Conntrack=false
+cilium endpoint config $CLIENT_ID Conntrack=false
 perf_test
 
 cilium endpoint config $SERVER_ID DisablePolicy=true

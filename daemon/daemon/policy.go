@@ -87,7 +87,7 @@ func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchCont
 	decision := d.policyCanConsume(ctx)
 	// Only accept rules get stored
 	if decision == types.ACCEPT {
-		if e.Opts.IsEnabled(types.OptionDisableConntrack) {
+		if !e.Opts.IsEnabled(types.OptionConntrack) {
 			c.AllowConsumerAndReverse(srcID)
 		} else {
 			c.AllowConsumer(srcID)

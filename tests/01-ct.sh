@@ -98,7 +98,7 @@ docker exec -i client netperf -l 3 -t UDP_RR -H $SERVER_IP || {
 #	abort "Error: Unexpected success of UDP netperf session"
 #}
 
-cilium endpoint config $SERVER_ID DisableConntrack=true
+cilium endpoint config $SERVER_ID Conntrack=false
 
 # ICMP echo request client => server should succeed
 docker exec -i client ping6 -c 5 $SERVER_IP || {

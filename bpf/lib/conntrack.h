@@ -14,7 +14,7 @@ enum {
 	CT_RELATED,
 };
 
-#ifndef DISABLE_CONNTRACK
+#ifdef CONNTRACK
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */
 #define TUPLE_F_IN		1	/* Incoming flow */
@@ -261,7 +261,7 @@ static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
 }
 
-#else /* !DISABLE_CONNTRACK */
+#else /* !CONNTRACK */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, __u32 secctx, int in)
 {

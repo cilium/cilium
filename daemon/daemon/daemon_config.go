@@ -23,7 +23,7 @@ var (
 		types.OptionDropNotify:          &types.OptionSpecDropNotify,
 		types.OptionDebug:               &types.OptionSpecDebug,
 		types.OptionDisablePolicy:       &types.OptionSpecDisablePolicy,
-		types.OptionDisableConntrack:    &types.OptionSpecDisableConntrack,
+		types.OptionConntrack:           &types.OptionSpecConntrack,
 		types.OptionConntrackAccounting: &types.OptionSpecConntrackAccounting,
 		OptionEnableTracing:             &OptionSpecEnableTracing,
 	}
@@ -48,9 +48,8 @@ type Config struct {
 	RestoreState bool // RestoreState restores the state from previous running daemons.
 
 	// These are default options which can be overwritten on a per container basis
-	EnableTracing    bool
-	DisablePolicy    bool
-	DisableConntrack bool
+	EnableTracing bool
+	DisablePolicy bool
 
 	// Options changeable at runtime
 	Opts *types.BoolOptions
