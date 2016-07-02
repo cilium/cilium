@@ -4,7 +4,7 @@
 #include "drop.h"
 #include "conntrack.h"
 
-#ifndef DISABLE_POLICY_ENFORCEMENT
+#ifdef POLICY_ENFORCEMENT
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
 {
 	struct policy_entry *policy;
@@ -35,7 +35,7 @@ static inline void policy_mark_skip(struct __sk_buff *skb)
 	skb->cb[CB_POLICY] = POLICY_SKIP;
 }
 
-#else /* DISABLE_POLICY_ENFORCEMENT */
+#else /* POLICY_ENFORCEMENT */
 
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
 {
@@ -45,6 +45,6 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 static inline void policy_mark_skip(struct __sk_buff *skb)
 {
 }
-#endif /* !DISABLE_POLICY_ENFORCEMENT */
+#endif /* !POLICY_ENFORCEMENT */
 
 #endif

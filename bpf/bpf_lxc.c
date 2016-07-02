@@ -176,7 +176,7 @@ to_host:
 				return ret;
 		}
 
-#ifdef DISABLE_POLICY_ENFORCEMENT
+#ifndef POLICY_ENFORCEMENT
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
@@ -203,7 +203,7 @@ pass_to_stack:
 		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
 	}
 
-#ifdef DISABLE_POLICY_ENFORCEMENT
+#ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;

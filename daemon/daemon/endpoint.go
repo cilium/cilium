@@ -375,7 +375,7 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionConntrack)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionConntrackAccounting)
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDisablePolicy)
+	ep.Opts.InheritDefault(d.conf.Opts, types.OptionPolicy)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDebug)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDropNotify)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionNAT46)

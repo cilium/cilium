@@ -235,7 +235,7 @@ func initEnv(ctx *cli.Context) error {
 	config.Opts.Set(daemon.OptionEnableTracing, enableTracing)
 	config.Opts.Set(types.OptionConntrack, !disableConntrack)
 	config.Opts.Set(types.OptionConntrackAccounting, !disableConntrack)
-	config.Opts.Set(types.OptionDisablePolicy, disablePolicy)
+	config.Opts.Set(types.OptionPolicy, !disablePolicy)
 
 	if labelPrefixFile != "" {
 		var err error

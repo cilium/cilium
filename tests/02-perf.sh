@@ -139,8 +139,8 @@ cilium endpoint config $SERVER_ID Conntrack=false
 cilium endpoint config $CLIENT_ID Conntrack=false
 perf_test
 
-cilium endpoint config $SERVER_ID DisablePolicy=true
-cilium endpoint config $CLIENT_ID DisablePolicy=true
+cilium endpoint config $SERVER_ID Policy=false
+cilium endpoint config $CLIENT_ID Policy=false
 perf_test
 
 cilium -D policy delete io.cilium

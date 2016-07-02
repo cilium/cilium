@@ -17,14 +17,14 @@ var _ = Suite(&OptionSuite{})
 func (s *OptionSuite) TestGetFmtOpt(c *C) {
 	o := BoolOptions{
 		Opts: OptionMap{
-			OptionDisablePolicy: true,
-			"BAR":               false,
+			OptionPolicy: true,
+			"BAR":        false,
 		},
 		Library: &OptionLibrary{
-			OptionDisablePolicy: &OptionSpecDisablePolicy,
+			OptionPolicy: &OptionSpecPolicy,
 		},
 	}
-	c.Assert(o.GetFmtOpt(OptionDisablePolicy), Equals, "#define "+OptionSpecDisablePolicy.Define)
+	c.Assert(o.GetFmtOpt(OptionPolicy), Equals, "#define "+OptionSpecPolicy.Define)
 	c.Assert(o.GetFmtOpt("BAR"), Equals, "#undef BAR")
 	c.Assert(o.GetFmtOpt("BAZ"), Equals, "#undef BAZ")
 }

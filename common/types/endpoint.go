@@ -23,7 +23,7 @@ type EPPortMap struct {
 
 const (
 	OptionNAT46               = "NAT46"
-	OptionDisablePolicy       = "DisablePolicy"
+	OptionPolicy              = "Policy"
 	OptionDropNotify          = "DropNotification"
 	OptionConntrack           = "Conntrack"
 	OptionConntrackAccounting = "ConntrackAccounting"
@@ -39,9 +39,9 @@ var (
 		Description: "Enable automatic NAT46 translation",
 	}
 
-	OptionSpecDisablePolicy = Option{
-		Define:      "DISABLE_POLICY_ENFORCEMENT",
-		Description: "Disable policy enforcement",
+	OptionSpecPolicy = Option{
+		Define:      "POLICY_ENFORCEMENT",
+		Description: "Enable policy enforcement",
 	}
 
 	OptionSpecDropNotify = Option{
@@ -51,7 +51,7 @@ var (
 
 	OptionSpecConntrack = Option{
 		Define:      "CONNTRACK",
-		Description: "Disable stateful connection tracking",
+		Description: "Enable stateful connection tracking",
 	}
 
 	OptionSpecConntrackAccounting = Option{
@@ -83,7 +83,7 @@ var (
 
 	EndpointOptionLibrary = OptionLibrary{
 		OptionNAT46:               &OptionSpecNAT46,
-		OptionDisablePolicy:       &OptionSpecDisablePolicy,
+		OptionPolicy:              &OptionSpecPolicy,
 		OptionDropNotify:          &OptionSpecDropNotify,
 		OptionConntrack:           &OptionSpecConntrack,
 		OptionConntrackAccounting: &OptionSpecConntrackAccounting,

@@ -22,7 +22,7 @@ var (
 		types.OptionNAT46:               &types.OptionSpecNAT46,
 		types.OptionDropNotify:          &types.OptionSpecDropNotify,
 		types.OptionDebug:               &types.OptionSpecDebug,
-		types.OptionDisablePolicy:       &types.OptionSpecDisablePolicy,
+		types.OptionPolicy:              &types.OptionSpecPolicy,
 		types.OptionConntrack:           &types.OptionSpecConntrack,
 		types.OptionConntrackAccounting: &types.OptionSpecConntrackAccounting,
 		OptionEnableTracing:             &OptionSpecEnableTracing,
@@ -49,7 +49,6 @@ type Config struct {
 
 	// These are default options which can be overwritten on a per container basis
 	EnableTracing bool
-	DisablePolicy bool
 
 	// Options changeable at runtime
 	Opts *types.BoolOptions
