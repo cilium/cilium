@@ -63,10 +63,10 @@ echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
 sudo chmod -R 775  /usr/local/go/pkg/
 sudo chgrp vagrant /usr/local/go/pkg/
 
-git clone -b v1.3.0-alpha.5 https://github.com/kubernetes/kubernetes.git
+git clone -b v1.3.0 https://github.com/kubernetes/kubernetes.git
 sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
-patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/kubernetes-v1.3.0-alpha.5.patch
+patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/kubernetes-v1.3.0.patch
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 

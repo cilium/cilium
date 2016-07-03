@@ -3,28 +3,22 @@
 //
 // Grammar
 //
-// 	reference                       := repository [ ":" tag ] [ "@" digest ]
+// 	reference                       := name [ ":" tag ] [ "@" digest ]
+//	name                            := [hostname '/'] component ['/' component]*
+//	hostname                        := hostcomponent ['.' hostcomponent]* [':' port-number]
+//	hostcomponent                   := /([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])/
+//	port-number                     := /[0-9]+/
+//	component                       := alpha-numeric [separator alpha-numeric]*
+// 	alpha-numeric                   := /[a-z0-9]+/
+//	separator                       := /[_.]|__|[-]*/
 //
-//	// repository.go
-//	repository			:= hostname ['/' component]+
-//	hostname 			:= hostcomponent [':' port-number]
-//	component			:= subcomponent [separator subcomponent]*
-//	subcomponent			:= alpha-numeric ['-'* alpha-numeric]*
-//	hostcomponent                   := [hostpart '.']* hostpart
-// 	alpha-numeric			:= /[a-z0-9]+/
-//	separator			:= /([_.]|__)/
-//	port-number			:= /[0-9]+/
-//	hostpart                        := /([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])/
-//
-//	// tag.go
 //	tag                             := /[\w][\w.-]{0,127}/
 //
-//	// from the digest package
 //	digest                          := digest-algorithm ":" digest-hex
 //	digest-algorithm                := digest-algorithm-component [ digest-algorithm-separator digest-algorithm-component ]
 //	digest-algorithm-separator      := /[+.-_]/
 //	digest-algorithm-component      := /[A-Za-z][A-Za-z0-9]*/
-//	digest-hex                      := /[0-9a-fA-F]{32,}/ ; Atleast 128 bit digest value
+//	digest-hex                      := /[0-9a-fA-F]{32,}/ ; At least 128 bit digest value
 package reference
 
 import (
@@ -52,8 +46,7 @@ var (
 	// ErrNameEmpty is returned for empty, invalid repository names.
 	ErrNameEmpty = errors.New("repository name must have at least one component")
 
-	// ErrNameTooLong is returned when a repository name is longer than
-	// RepositoryNameTotalLengthMax
+	// ErrNameTooLong is returned when a repository name is longer than NameTotalLengthMax.
 	ErrNameTooLong = fmt.Errorf("repository name must not be more than %v characters", NameTotalLengthMax)
 )
 
@@ -204,6 +197,9 @@ func ParseNamed(s string) (Named, error) {
 // WithName returns a named object representing the given string. If the input
 // is invalid ErrReferenceInvalidFormat will be returned.
 func WithName(name string) (Named, error) {
+	if len(name) > NameTotalLengthMax {
+		return nil, ErrNameTooLong
+	}
 	if !anchoredNameRegexp.MatchString(name) {
 		return nil, ErrReferenceInvalidFormat
 	}
@@ -213,7 +209,7 @@ func WithName(name string) (Named, error) {
 // WithTag combines the name from "name" and the tag from "tag" to form a
 // reference incorporating both the name and the tag.
 func WithTag(name Named, tag string) (NamedTagged, error) {
-	if !anchoredNameRegexp.MatchString(tag) {
+	if !anchoredTagRegexp.MatchString(tag) {
 		return nil, ErrTagInvalidFormat
 	}
 	return taggedReference{
