@@ -3,7 +3,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 set -ex
 
-source "${dir}/../../examples/kubernetes/env-kube.sh"
+source "${dir}/../../../examples/kubernetes/env-kube.sh"
 
 TEST_NET="cilium"
 NETPERF_IMAGE="noironetworks/netperf"
@@ -52,9 +52,9 @@ reset_trace
 start_k8s
 
 
-"${dir}/../../examples/kubernetes/0-policy.sh" 300
-"${dir}/../../examples/kubernetes/1-dns.sh" 300
-"${dir}/../../examples/kubernetes/2-guestbook.sh" 300
+"${dir}/../../../examples/kubernetes/0-policy.sh" 300
+"${dir}/../../../examples/kubernetes/1-dns.sh" 300
+"${dir}/../../../examples/kubernetes/2-guestbook.sh" 300
 "${dir}/wait-for-docker.sh" k8s_guestbook 100
 "${dir}/wait-for-docker.sh" k8s_redis-slave 100
 "${dir}/wait-for-docker.sh" k8s_redis-master 100

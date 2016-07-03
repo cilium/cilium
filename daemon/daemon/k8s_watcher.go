@@ -29,7 +29,7 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 				resp, err := http.Get(url)
 				if err != nil {
 					if reportError {
-						log.Warningf("Unable to intall k8s watcher for URL %s: %s", url, err)
+						log.Warningf("Unable to install k8s watcher for URL %s: %s", url, err)
 						reportError = false
 					}
 				} else if resp.StatusCode == http.StatusOK {
