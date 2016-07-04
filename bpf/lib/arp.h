@@ -6,40 +6,38 @@
 #include "eth.h"
 #include "dbg.h"
 
+struct arp_eth {
+	unsigned char		ar_sha[ETH_ALEN];
+	unsigned char		ar_sip[4];
+	unsigned char		ar_tha[ETH_ALEN];
+	unsigned char		ar_tip[4];
+};
+
 /*
  * check if an arp request is for ar_tip
  */
-static inline int arp_check(struct __sk_buff *skb, __be32 ar_tip, union macaddr *responder_mac)
+static inline int arp_check(struct ethhdr *eth, struct arphdr *arp, void *data,
+			    void *data_end, __be32 ar_tip, union macaddr *responder_mac)
 {
-	union macaddr dmac;
-	__be32 tip;
-	__be16 arpop;
+	union macaddr *dmac = (union macaddr *) &eth->h_dest;
+	struct arp_eth *arp_eth = data + sizeof(*eth) + sizeof(*arp);
 
-	eth_load_daddr(skb, dmac.addr, 0);
-	/* Get ARP op code */
-	if (skb_load_bytes(skb, 20, &arpop, sizeof(arpop)) < 0)
-		return 0;
-	/* Get ARP Target IP */
-	if (skb_load_bytes(skb, 38, &tip, sizeof(tip)) < 0)
+	if (arp->ar_op != __constant_htons(ARPOP_REQUEST) ||
+	    arp->ar_hrd != __constant_htons(ARPHRD_ETHER) ||
+	    (!eth_is_bcast(dmac) && eth_addrcmp(dmac, responder_mac)))
 		return 0;
 
-	if ((arpop != __constant_htons(ARPOP_REQUEST)) || (tip != ar_tip) ||
-	    (!eth_is_bcast(&dmac) && eth_addrcmp(&dmac, responder_mac))) {
-#ifdef DEBUG_ARP
-		printk("arp target mismatch for %x, (target %x op %d)\n",
-			ar_tip, tip, ntohs(arpop));
-#endif
+	/* Check if packet contains ethernet specific arp header */
+	if (data + sizeof(*arp) + ETH_HLEN + 20 > data_end)
 		return 0;
-	}
 
-#ifdef DEBUG_ARP
-	printk("arp target match for %x ifindex %d\n", tip, skb->ifindex);
-#endif
+	if (*(__be32 *) &arp_eth->ar_tip != ar_tip)
+		return 0;
+
 	return 1;
 }
 
-static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip,
-				       union macaddr *mac)
+static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip, union macaddr *mac)
 {
 	__be16 arpop = __constant_htons(ARPOP_REPLY);
 	union macaddr smac = {};

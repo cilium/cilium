@@ -11,7 +11,15 @@
 #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
 #define IPV6_TCLASS_SHIFT       20
 
-static inline int ipv6_addrcmp(const union v6addr *a, const union v6addr *b)
+static inline void ipv6_addr_copy(union v6addr *dst, union v6addr *src)
+{
+	dst->p1 = src->p1;
+	dst->p2 = src->p2;
+	dst->p3 = src->p3;
+	dst->p4 = src->p4;
+}
+
+static inline int ipv6_addrcmp(union v6addr *a, union v6addr *b)
 {
 	int tmp;
 
@@ -28,7 +36,7 @@ static inline int ipv6_addrcmp(const union v6addr *a, const union v6addr *b)
 	return tmp;
 }
 
-static inline int ipv6_match_subnet_96(const union v6addr *addr, const union v6addr *prefix)
+static inline int ipv6_match_subnet_96(union v6addr *addr, union v6addr *prefix)
 {
 	int tmp;
 
@@ -127,12 +135,12 @@ static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 la
 	return skb_store_bytes(skb, off, &old, 4, 0);
 }
 
-static inline __u16 derive_lxc_id(const union v6addr *addr)
+static inline __u16 derive_lxc_id(union v6addr *addr)
 {
 	return ntohl(addr->p4) & 0xFFFF;
 }
 
-static inline __u32 ipv6_derive_node_id(const union v6addr *addr)
+static inline __u32 ipv6_derive_node_id(union v6addr *addr)
 {
 	return (ntohl(addr->p3) & 0xFFFF) << 16 | (ntohl(addr->p4) >> 16);
 }

@@ -46,14 +46,4 @@ static inline void udp_store_sport(struct __sk_buff *skb, int off, __u16 port)
 	udp_modify_16(skb, off + UDP_SPORT_OFF, port);
 }
 
-static inline int udp_load_dport(struct __sk_buff *skb, int off, __u16 *port)
-{
-	return skb_load_bytes(skb, off + UDP_DPORT_OFF, port, sizeof(__u16));
-}
-
-static inline int udp_load_sport(struct __sk_buff *skb, int off, __u16 *port)
-{
-	return skb_load_bytes(skb, off + UDP_SPORT_OFF, port, sizeof(__u16));
-}
-
 #endif

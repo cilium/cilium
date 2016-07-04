@@ -343,19 +343,16 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int icmp6_handle(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_handle(struct __sk_buff *skb, int nh_off, struct ipv6hdr *ip6)
 {
-	union v6addr dst;
 	union v6addr router_ip = { .addr = ROUTER_IP };
 	__u8 type = icmp6_load_type(skb, nh_off);
-
-	ipv6_load_daddr(skb, nh_off, &dst);
 
 	switch(type) {
 	case 135:
 		return icmp6_handle_ns(skb, nh_off);
 	case ICMPV6_ECHO_REQUEST:
-		if (!ipv6_addrcmp(&dst, &router_ip))
+		if (!ipv6_addrcmp((union v6addr *) &ip6->daddr, &router_ip))
 			return icmp6_send_echo_reply(skb, nh_off);
 		break;
 	}

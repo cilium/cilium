@@ -48,14 +48,4 @@ static inline void tcp_store_sport(struct __sk_buff *skb, int off, __u16 port)
 	tcp_modify_16(skb, off + TCP_SPORT_OFF, port);
 }
 
-static inline int tcp_load_dport(struct __sk_buff *skb, int off, __u16 *port)
-{
-	return skb_load_bytes(skb, off + TCP_DPORT_OFF, port, sizeof(__u16));
-}
-
-static inline int tcp_load_sport(struct __sk_buff *skb, int off, __u16 *port)
-{
-	return skb_load_bytes(skb, off + TCP_SPORT_OFF, port, sizeof(__u16));
-}
-
 #endif

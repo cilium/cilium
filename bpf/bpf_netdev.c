@@ -64,15 +64,25 @@ static inline int matches_cluster_prefix(const union v6addr *addr, const union v
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP_RESPONDER) int arp_respond(struct __sk_buff *skb)
 {
 	union macaddr responder_mac = HOST_IFINDEX_MAC;
+	void *data_end = (void *) (long) skb->data_end;
+	void *data = (void *) (long) skb->data;
+	struct arphdr *arp = data + ETH_HLEN;
+	struct ethhdr *eth = data;
+	int ret;
 
-	if (unlikely(arp_check(skb, IPV4_GW, &responder_mac) == 1)) {
+	if (data + sizeof(*arp) + ETH_HLEN > data_end) {
+		ret = DROP_INVALID;
+		goto error;
+	}
+
+	ret = arp_check(eth, arp, data, data_end, IPV4_GW, &responder_mac);
+	if (ret == 1) {
 		union macaddr mac = HOST_IFINDEX_MAC;
 		__be32 ip = IPV4_GW;
-		int ret;
 
 		ret = arp_prepare_response(skb, ip, &mac);
 		if (unlikely(ret != 0))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+			goto error;
 
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 		return redirect(skb->ifindex, 0);
@@ -80,18 +90,20 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP_RESPONDER) int arp_respond(stru
 
 	/* Pass any unknown ARP requests to the Linux stack */
 	return TC_ACT_OK;
+
+error:
+	return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 }
 
-static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip)
+static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
+				   struct ipv6hdr *ip6)
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
 #else
 	__u32 flowlabel = WORLD_ID;
-	union v6addr src;
 
-	ipv6_load_saddr(skb, ETH_HLEN, &src);
-	if (matches_cluster_prefix(&src, node_ip)) {
+	if (matches_cluster_prefix((union v6addr *) &ip6->saddr, node_ip)) {
 		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
 		flowlabel = ntohl(flowlabel);
 	}
@@ -106,6 +118,8 @@ int from_netdev(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
 	__u32 proto = skb->protocol;
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
 	int ret = TC_ACT_OK;
 
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
@@ -121,16 +135,16 @@ int from_netdev(struct __sk_buff *skb)
 #ifdef ENABLE_NAT46
 	/* First try to do v46 nat */
 	if (proto == __constant_htons(ETH_P_IP)) {
+		struct iphdr *ip = data + ETH_HLEN;
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = HOST_IP;
-		__u32 dst;
 
-		if (ipv4_load_daddr(skb, ETH_HLEN, &dst) < 0) {
+		if (data + sizeof(*ip) + ETH_HLEN > data_end) {
 			ret = DROP_INVALID;
 			goto error;
 		}
 
-		if ((dst & IPV4_MASK) != IPV4_RANGE)
+		if ((ip->daddr & IPV4_MASK) != IPV4_RANGE)
 			return TC_ACT_OK;
 
 		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
@@ -143,25 +157,27 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 
 	if (likely(proto == __constant_htons(ETH_P_IPV6))) {
-		union v6addr dst;
+		struct ipv6hdr *ip6 = data + ETH_HLEN;
+		union v6addr *dst = (union v6addr *) &ip6->daddr;
 		__u32 flowlabel;
 
-#ifdef HANDLE_NS
-		__u8 nexthdr;
+		if (data + ETH_HLEN + sizeof(*ip6) > data_end) {
+			ret = DROP_INVALID;
+			goto error;
+		}
 
-		nexthdr = load_byte(skb, ETH_HLEN + offsetof(struct ipv6hdr, nexthdr));
-		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_handle(skb, ETH_HLEN);
+#ifdef HANDLE_NS
+		if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+			ret = icmp6_handle(skb, ETH_HLEN, ip6);
 			if (IS_ERR(ret))
 				goto error;
 		}
 #endif
 
-		ipv6_load_daddr(skb, ETH_HLEN, &dst);
-		flowlabel = derive_sec_ctx(skb, &node_ip);
+		flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
-		if (likely(is_node_subnet(&dst, &node_ip)))
-			ret = local_delivery(skb, ETH_HLEN, &dst, flowlabel);
+		if (likely(is_node_subnet(dst, &node_ip)))
+			ret = local_delivery(skb, ETH_HLEN, ip6, dst, flowlabel);
 	}
 
 	if (IS_ERR(ret)) {

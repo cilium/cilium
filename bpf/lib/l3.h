@@ -63,28 +63,33 @@ static inline int __inline__ __do_l3(struct __sk_buff *skb, int nh_off,
 }
 
 #ifndef DISABLE_PORT_MAP
-static inline void map_lxc_in(struct __sk_buff *skb, int off,
-			      struct lxc_info *lxc)
+static inline int map_lxc_in(struct __sk_buff *skb, int off, struct lxc_info *lxc)
 {
-	__u8 nexthdr;
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	/* FIXME: extension headers */
+	struct tcphdr *tcp = data + ETH_HLEN + sizeof(*ip6);
 	int i;
 
-	if (ipv6_load_nexthdr(skb, off, &nexthdr) < 0)
-		return;
-
 	off += sizeof(struct ipv6hdr);
+
+	if (data + ETH_HLEN + sizeof(*ip6) + sizeof(*tcp) > data_end)
+		return DROP_INVALID;
 
 #pragma unroll
 	for (i = 0; i < PORTMAP_MAX; i++) {
 		if (!lxc->portmap[i].to || !lxc->portmap[i].from)
 			break;
 
-		do_port_map_in(skb, off, nexthdr, &lxc->portmap[i]);
+		do_port_map_in(skb, off, ip6, tcp, &lxc->portmap[i]);
 	}
+
+	return 0;
 }
 #endif /* DISABLE_PORT_MAP */
 
-static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
+static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off, struct ipv6hdr *ip6,
 					    union v6addr *dst, __u32 seclabel)
 {
 	struct lxc_info *dst_lxc;
@@ -103,8 +108,11 @@ static inline int __inline__ local_delivery(struct __sk_buff *skb, int nh_off,
 			return ret;
 
 #ifndef DISABLE_PORT_MAP
-		if (dst_lxc->portmap[0].to)
-			map_lxc_in(skb, nh_off, dst_lxc);
+		if (dst_lxc->portmap[0].to) {
+			ret = map_lxc_in(skb, nh_off, dst_lxc);
+			if (IS_ERR(ret))
+				return ret;
+		}
 #endif /* DISABLE_PORT_MAP */
 
 		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));

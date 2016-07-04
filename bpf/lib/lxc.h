@@ -7,59 +7,44 @@
 #include "dbg.h"
 
 #ifndef DISABLE_SMAC_VERIFICATION
-static inline int invalid_src_mac(struct __sk_buff *skb)
+static inline int valid_src_mac(struct ethhdr *eth)
 {
-	union macaddr src, valid = LXC_MAC;
-	int ret;
+	union macaddr valid = LXC_MAC;
 
-	ret = eth_load_saddr(skb, src.addr, 0);
-	if (likely(ret == 0))
-		return eth_addrcmp(&src, &valid);
-	else
-		return ret;
+	return !eth_addrcmp(&valid, (union macaddr *) &eth->h_source);
 }
 #else
-static inline int invalid_src_mac(struct __sk_buff *skb)
+static inline int valid_src_mac(struct ethhdr *eth)
 {
-	return 0;
+	return 1;
 }
 #endif
 
 #ifndef DISABLE_SIP_VERIFICATION
-static inline int invalid_src_ip(struct __sk_buff *skb, int off)
+static inline int valid_src_ip(struct ipv6hdr *ip6)
 {
-	union v6addr src, valid = LXC_IP;
-	int ret;
+	union v6addr valid = LXC_IP;
 
-	ret = ipv6_load_saddr(skb, off, &src);
-	if (likely(ret == 0))
-		return ipv6_addrcmp(&src, &valid);
-	else
-		return ret;
+	return !ipv6_addrcmp((union v6addr *) &ip6->saddr, &valid);
 }
 #else
-static inline int invalid_src_ip(struct __sk_buff *skb, int off)
+static inline int valid_src_ip(struct ipv6hdr *ip6)
 {
-	return 0;
+	return 1;
 }
 #endif
 
 #ifndef DISABLE_DMAC_VERIFICATION
-static inline int invalid_dst_mac(struct __sk_buff *skb)
+static inline int valid_dst_mac(struct ethhdr *eth)
 {
-	union macaddr dst, valid = NODE_MAC;
-	int ret;
+	union macaddr valid = NODE_MAC;
 
-	ret = eth_load_daddr(skb, dst.addr, 0);
-	if (likely(ret == 0))
-		return eth_addrcmp(&dst, &valid);
-	else
-		return ret;
+	return !eth_addrcmp(&valid, (union macaddr *) &eth->h_dest);
 }
 #else
-static inline int invalid_dst_mac(struct __sk_buff *skb)
+static inline int valid_dst_mac(struct ethhdr *eth)
 {
-	return 0;
+	return 1;
 }
 #endif
 
