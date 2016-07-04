@@ -109,6 +109,7 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		{"6foo==", NewLabel("6foo", "=", common.CiliumLabelSource)},
 		{"7foo=bar", NewLabel("7foo", "bar", common.CiliumLabelSource)},
 		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{common.ReservedLabelKey + "=host", NewLabel("host", "", common.ReservedLabelSource)},
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)

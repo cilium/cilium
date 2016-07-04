@@ -121,6 +121,10 @@ func NewLabel(key string, value string, source string) *Label {
 			source = src
 		}
 	}
+	if src == common.ReservedLabelSource && key == "" {
+		key = value
+		value = ""
+	}
 
 	return &Label{
 		Key:    key,
@@ -362,6 +366,10 @@ func parseSource(str string) (src, next string) {
 	sourceSplit := strings.SplitN(str, ":", 2)
 	if len(sourceSplit) != 2 {
 		next = sourceSplit[0]
+		if strings.HasPrefix(next, common.ReservedLabelKey) {
+			src = common.ReservedLabelSource
+			next = strings.TrimPrefix(next, common.ReservedLabelKey)
+		}
 	} else {
 		if sourceSplit[0] != "" {
 			src = sourceSplit[0]
@@ -386,7 +394,11 @@ func ParseLabel(str string) *Label {
 	keySplit := strings.SplitN(next, "=", 2)
 	lbl.Key = keySplit[0]
 	if len(keySplit) > 1 {
-		lbl.Value = keySplit[1]
+		if src == common.ReservedLabelSource && keySplit[0] == "" {
+			lbl.Key = keySplit[1]
+		} else {
+			lbl.Value = keySplit[1]
+		}
 	}
 	return &lbl
 }

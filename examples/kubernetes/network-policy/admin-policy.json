@@ -17,16 +17,13 @@
     "ingress": [
       {
         "from": [
-//         // This section is not valid anymore because of the $. The "reserved:host"
-//         // doesn't work either.
-//         // [A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]
-//          {
-//            "podSelector": {
-//              "matchLabels": {
-//                "$host": ""
-//              }
-//            }
-//          },
+          {
+            "podSelector": {
+              "matchLabels": {
+                "io.cilium.reserved": "host"
+              }
+            }
+          },
           {
             "podSelector": {
               "matchLabels": {

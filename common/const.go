@@ -80,6 +80,8 @@ const (
 	K8sAnnotationParentName = "io.cilium.parent"
 	// Label source for reserved types
 	ReservedLabelSource = "reserved"
+	// Label used to represent the reserved source
+	ReservedLabelKey = GlobalLabelPrefix + "." + ReservedLabelSource
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
 	// represent the same number of IPv6 addresses supported on each node.
 	EndpointsPerHost = 0xFFFF
