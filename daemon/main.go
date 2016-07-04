@@ -121,7 +121,7 @@ func init() {
 					cli.StringFlag{
 						Destination: &config.RunDir,
 						Name:        "R",
-						Value:       "/var/run/cilium",
+						Value:       common.CiliumPath,
 						Usage:       "Runtime data directory",
 					},
 					cli.StringFlag{
