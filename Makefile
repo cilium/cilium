@@ -8,7 +8,7 @@ all: $(SUBDIRS)
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
-tests:
+tests: force
 	for i in $(SUBDIRS); do $(MAKE) -C $$i -B tests; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i -B tests; done
 
