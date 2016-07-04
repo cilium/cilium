@@ -2,12 +2,8 @@ package server
 
 import (
 	"errors"
-	"net"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	. "gopkg.in/check.v1"
@@ -28,7 +24,7 @@ func (s *DaemonSuite) TestDaemonUpdateOK(c *C) {
 		c.Assert(opts, IsNil)
 		return nil
 	}
-	err := s.c.Update(nil)
+	err = s.c.Update(nil)
 	c.Assert(err, IsNil)
 }
 

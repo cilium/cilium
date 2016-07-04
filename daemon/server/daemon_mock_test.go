@@ -120,7 +120,7 @@ func (d TestDaemon) Update(opts types.OptionMap) error {
 	if d.OnUpdate != nil {
 		return d.OnUpdate(opts)
 	}
-	return nil, errors.New("Update should not have been called")
+	return errors.New("Update should not have been called")
 }
 
 func (d TestDaemon) SyncState(path string, clean bool) error {

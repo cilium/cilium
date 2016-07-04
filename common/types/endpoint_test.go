@@ -26,18 +26,6 @@ func (s *EndpointSuite) TestEndpointID(c *C) {
 	c.Assert(bytes.Compare(e.LXCIP, EpAddr) == 0, Equals, true)
 }
 
-func (s *EndpointSuite) TestGetFmtOpt(c *C) {
-	e := Endpoint{
-		Opts: OptionMap{
-			OptionPolicy: true,
-			"BAR":        false,
-		},
-	}
-	c.Assert(e.GetFmtOpt(OptionPolicy), Equals, "#define "+OptionSpecPolicy.Define)
-	c.Assert(e.GetFmtOpt("BAR"), Equals, "#undef BAR")
-	c.Assert(e.GetFmtOpt("BAZ"), Equals, "#undef BAZ")
-}
-
 func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 	eps := []Endpoint{
 		Endpoint{ID: "5"},
