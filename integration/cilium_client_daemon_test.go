@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/backend"
 	cnc "github.com/noironetworks/cilium-net/common/client"
+	"github.com/noironetworks/cilium-net/common/types"
 	cnd "github.com/noironetworks/cilium-net/daemon/daemon"
 	cns "github.com/noironetworks/cilium-net/daemon/server"
 
@@ -31,18 +33,35 @@ var _ = Suite(&CiliumClientSuite{})
 func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	socketDir := os.Getenv("SOCKET_DIR")
 	socketPath := filepath.Join(socketDir, "cilium.sock")
+	_, ipv4range, err := net.ParseCIDR("10.1.2.0/16")
+	c.Assert(err, IsNil)
+	tempLibDir, err := ioutil.TempDir("", "cilium-test")
+	c.Assert(err, IsNil)
+	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
+	c.Assert(err, IsNil)
+	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
+	c.Assert(err, IsNil)
 
-	daemonConf := cnd.Config{
-		LibDir:             "",
-		LXCMap:             nil,
-		NodeAddress:        EpAddr,
-		ConsulConfig:       consulAPI.DefaultConfig(),
-		DockerEndpoint:     "tcp://127.0.0.1",
-		K8sEndpoint:        "tcp://127.0.0.1",
-		ValidLabelPrefixes: nil,
-	}
+	daemonConf := cnd.NewConfig()
+	daemonConf.LibDir = tempLibDir
+	daemonConf.RunDir = tempRunDir
+	daemonConf.LXCMap = nil
+	daemonConf.NodeAddress = EpAddr
+	daemonConf.ConsulConfig = consulAPI.DefaultConfig()
+	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
+	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
+	daemonConf.ValidLabelPrefixes = nil
+	daemonConf.IPv4Range = ipv4range
+	daemonConf.Opts.Set(types.OptionDropNotify, true)
+	daemonConf.Device = "undefined"
 
-	d, err := cnd.NewDaemon(&daemonConf)
+	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")
+	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "join_ep.sh"), d1, 0755)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "init.sh"), d1, 0755)
+	c.Assert(err, IsNil)
+
+	d, err := cnd.NewDaemon(daemonConf)
 	if err != nil {
 		c.Fatalf("Failed while creating new cilium-net test server: %+v", err)
 	}

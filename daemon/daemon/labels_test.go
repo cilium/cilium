@@ -36,6 +36,7 @@ var (
 		},
 		Labels: lbls,
 	}
+	EpAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -45,22 +46,33 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	tempLibDir, err := ioutil.TempDir("", "cilium-test")
 	c.Assert(err, IsNil)
-	daemonConf := Config{
-		LibDir:             tempLibDir,
-		LXCMap:             nil,
-		NodeAddress:        nil,
-		ConsulConfig:       consulConfig,
-		DockerEndpoint:     "tcp://127.0.0.1",
-		K8sEndpoint:        "tcp://127.0.0.1",
-		ValidLabelPrefixes: nil,
-		IPv4Range:          ipv4range,
+	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
+	c.Assert(err, IsNil)
+	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
+	c.Assert(err, IsNil)
+
+	daemonConf := &Config{
+		Opts: types.NewBoolOptions(&DaemonOptionLibrary),
 	}
+	daemonConf.LibDir = tempLibDir
+	daemonConf.RunDir = tempRunDir
+	daemonConf.LXCMap = nil
+	daemonConf.NodeAddress = EpAddr
+	daemonConf.ConsulConfig = consulConfig
+	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
+	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
+	daemonConf.ValidLabelPrefixes = nil
+	daemonConf.IPv4Range = ipv4range
+	daemonConf.Opts.Set(types.OptionDropNotify, true)
+	daemonConf.Device = "undefined"
 
 	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")
 	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "join_ep.sh"), d1, 0755)
 	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "init.sh"), d1, 0755)
+	c.Assert(err, IsNil)
 
-	d, err := NewDaemon(&daemonConf)
+	d, err := NewDaemon(daemonConf)
 	c.Assert(err, Equals, nil)
 	ds.d = d
 	d.consul.KV().DeleteTree(common.OperationalPath, nil)
@@ -68,6 +80,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
 	os.RemoveAll(ds.d.conf.LibDir)
+	os.RemoveAll(ds.d.conf.RunDir)
 }
 
 func (ds *DaemonSuite) TestLabels(c *C) {

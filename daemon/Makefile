@@ -5,7 +5,7 @@ TARGET=cilium-net-daemon
 all: $(TARGET)
 
 tests:
-	-sudo -E docker run -d \
+	-docker run -d \
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
@@ -14,7 +14,7 @@ tests:
 	go fmt ./...
 	-sudo -E env "PATH=${PATH}" go test -timeout 30s ./...
 	-rmdir ./daemon/1 ./daemon/1_backup
-	sudo -E docker rm -f "cilium-consul-test-container"
+	docker rm -f "cilium-consul-test-container"
 
 runtime-tests:
 
