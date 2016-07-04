@@ -82,7 +82,7 @@ static inline int map_lxc_in(struct __sk_buff *skb, int off, struct lxc_info *lx
 		if (!lxc->portmap[i].to || !lxc->portmap[i].from)
 			break;
 
-		do_port_map_in(skb, off, ip6, tcp, &lxc->portmap[i]);
+		do_port_map_in(skb, off, &lxc->portmap[i]);
 	}
 
 	return 0;

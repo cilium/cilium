@@ -6,9 +6,17 @@
 #include "tcp.h"
 #include "udp.h"
 
-static inline void do_port_map_in(struct __sk_buff *skb, int off, struct ipv6hdr *ip6,
-				  struct tcphdr *tcp, struct portmap *map)
+static inline void do_port_map_in(struct __sk_buff *skb, int off, struct portmap *map)
 {
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	/* FIXME: extension headers */
+	struct tcphdr *tcp = data + ETH_HLEN + sizeof(*ip6);
+
+	if (data + ETH_HLEN + sizeof(struct ipv6hdr) + sizeof(*tcp) > data_end)
+		return;
+
 #ifdef DEBUG_PORTMAP
 	printk("Port map in: proto %u from: %u to: %u\n",
 		ip6->nexthdr, ntohs(map->from), ntohs(map->to));
