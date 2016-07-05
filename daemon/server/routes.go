@@ -144,6 +144,9 @@ func (r *Router) initBackendRoutes() {
 		route{
 			"SyncLBMap", "POST", "/lb/synclbmap", r.syncLBMap,
 		},
+		route{
+			"WeaveScopeReport", "GET", "/report", r.weaveScopeReport,
+		},
 	}
 }
 

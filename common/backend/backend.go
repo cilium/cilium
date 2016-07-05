@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/gorilla/websocket"
+	"github.com/weaveworks/scope/report"
 )
 
 type bpfBackend interface {
@@ -62,6 +63,10 @@ type policyBackend interface {
 	PolicyDelete(path string) error
 	PolicyGet(path string) (*policy.Node, error)
 	PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error)
+}
+
+type weaveScope interface {
+	WeaveScopeReport() (*report.Report, error)
 }
 
 type control interface {
@@ -107,4 +112,5 @@ type CiliumBackend interface {
 type CiliumDaemonBackend interface {
 	CiliumBackend
 	ui
+	weaveScope
 }

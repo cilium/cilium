@@ -512,6 +512,30 @@
 			"Rev": "8b4af36cd21a1f85a7484b49feb7c79363106d8e"
 		},
 		{
+			"ImportPath": "github.com/weaveworks/ps",
+			"Rev": "70d17b2d6f760345ef36a0748751eddf7290a92c"
+		},
+		{
+			"ImportPath": "github.com/weaveworks/scope/common/mtime",
+			"Comment": "v0.17.1-195-g39be421",
+			"Rev": "39be42114193a6daa69b2c5dc066fa23556892b1"
+		},
+		{
+			"ImportPath": "github.com/weaveworks/scope/common/xfer",
+			"Comment": "v0.17.1-195-g39be421",
+			"Rev": "39be42114193a6daa69b2c5dc066fa23556892b1"
+		},
+		{
+			"ImportPath": "github.com/weaveworks/scope/report",
+			"Comment": "v0.17.1-195-g39be421",
+			"Rev": "39be42114193a6daa69b2c5dc066fa23556892b1"
+		},
+		{
+			"ImportPath": "github.com/weaveworks/scope/test/reflect",
+			"Comment": "v0.17.1-195-g39be421",
+			"Rev": "39be42114193a6daa69b2c5dc066fa23556892b1"
+		},
+		{
 			"ImportPath": "golang.org/x/net/idna",
 			"Rev": "8b4af36cd21a1f85a7484b49feb7c79363106d8e"
 		},
