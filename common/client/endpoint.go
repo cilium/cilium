@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/noironetworks/cilium-net/common/types"
 )
@@ -11,7 +12,7 @@ import (
 // EndpointJoin sends a endpoint POST request with ep to the daemon.
 func (cli Client) EndpointJoin(ep types.Endpoint) error {
 
-	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/" + ep.ID)
+	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/" + strconv.Itoa(int(ep.ID)))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -24,11 +25,11 @@ func (cli Client) EndpointJoin(ep types.Endpoint) error {
 }
 
 // EndpointLeave sends a DELETE request with epID to the daemon.
-func (cli Client) EndpointLeave(epID string) error {
+func (cli Client) EndpointLeave(epID uint16) error {
 
-	log.Debug("DELETE /endpoint/" + epID)
+	log.Debugf("DELETE /endpoint/%d", epID)
 
-	serverResp, err := cli.R().Delete("/endpoint/" + epID)
+	serverResp, err := cli.R().Delete("/endpoint/" + strconv.Itoa(int(epID)))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -60,9 +61,9 @@ func (cli Client) EndpointLeaveByDockerEPID(dockerEPID string) error {
 }
 
 // EndpointGet sends a GET request with epID to the daemon.
-func (cli Client) EndpointGet(epID string) (*types.Endpoint, error) {
+func (cli Client) EndpointGet(epID uint16) (*types.Endpoint, error) {
 
-	serverResp, err := cli.R().Get("/endpoint/" + epID)
+	serverResp, err := cli.R().Get("/endpoint/" + strconv.Itoa(int(epID)))
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -135,9 +136,9 @@ func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
 }
 
 // EndpointUpdate sends a POST request with epID and opts to the daemon.
-func (cli Client) EndpointUpdate(epID string, opts types.OptionMap) error {
+func (cli Client) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 
-	serverResp, err := cli.R().SetBody(opts).Post("/endpoint/update/" + epID)
+	serverResp, err := cli.R().SetBody(opts).Post("/endpoint/update/" + strconv.Itoa(int(epID)))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -153,7 +154,7 @@ func (cli Client) EndpointUpdate(epID string, opts types.OptionMap) error {
 // EndpointSave sends a endpoint POST request with ep to the daemon.
 func (cli Client) EndpointSave(ep types.Endpoint) error {
 
-	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/save/" + ep.ID)
+	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/save/" + strconv.Itoa(int(ep.ID)))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -165,9 +166,9 @@ func (cli Client) EndpointSave(ep types.Endpoint) error {
 	return nil
 }
 
-func (cli Client) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
+func (cli Client) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 
-	serverResp, err := cli.R().Get("/endpoint/labels/" + epID)
+	serverResp, err := cli.R().Get("/endpoint/labels/" + strconv.Itoa(int(epID)))
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -189,9 +190,9 @@ func (cli Client) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
 	return &opLbls, nil
 }
 
-func (cli Client) EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error {
+func (cli Client) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
 
-	serverResp, err := cli.R().SetBody(labels).Post("/endpoint/labels/" + string(op) + "/" + epID)
+	serverResp, err := cli.R().SetBody(labels).Post(fmt.Sprintf("/endpoint/labels/%s/%d", op, epID))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}

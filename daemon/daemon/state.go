@@ -40,27 +40,22 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	}
 
 	for _, ep := range possibleEPs {
-		if !isValidID(ep.ID) {
-			log.Warningf("Endpoint %q has an invalid ID, not restoring")
-			continue
-		}
-
 		log.Debugf("Restoring endpoint %+v", ep)
 
 		if err := d.syncLabels(ep); err != nil {
-			log.Warningf("Unable to restore endpoint %s: %s", ep.ID, err)
+			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
 			continue
 		}
 
 		if err := d.regenerateEndpoint(ep); err != nil {
-			log.Warningf("Unable to restore endpoint %s: %s", ep.ID, err)
+			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
 			continue
 		}
 
 		d.insertEndpoint(ep)
 		restored++
 
-		log.Infof("Restored endpoint: %s\n", ep.ID)
+		log.Infof("Restored endpoint: %d\n", ep.ID)
 	}
 
 	d.endpointsMU.Unlock()

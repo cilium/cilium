@@ -81,16 +81,16 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	}
 }
 
-func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) string {
+func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) *uint16 {
 	for _, contNetwork := range cont.NetworkSettings.Networks {
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
 		if ipv6gw.Equal(gwIP) {
 			ip := net.ParseIP(contNetwork.GlobalIPv6Address)
 			id := common.EndpointAddr2ID(ip)
-			return strconv.FormatUint(uint64(id), 10)
+			return &id
 		}
 	}
-	return ""
+	return nil
 }
 
 func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {

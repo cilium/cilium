@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -117,7 +116,7 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		return nil
 	}
 
-	key := ep.U16ID()
+	key := ep.ID
 
 	mac, err := ep.LXCMAC.Uint64()
 	if err != nil {
@@ -152,14 +151,12 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 }
 
 // DeleteElement deletes the element with the given id from the LXCMap.
-func (m *LXCMap) DeleteElement(id string) error {
+func (m *LXCMap) DeleteElement(id uint16) error {
 	if m == nil {
 		return nil
 	}
 
-	n, _ := strconv.ParseUint(id, 10, 16)
-	key := uint16(n)
-	return bpf.DeleteElement(m.fd, unsafe.Pointer(&key))
+	return bpf.DeleteElement(m.fd, unsafe.Pointer(&id))
 }
 
 // OpenMap opens the LXCMap in the given path.

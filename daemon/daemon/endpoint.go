@@ -7,21 +7,15 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
 
 	"github.com/noironetworks/cilium-net/bpf/geneve"
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
+	"strconv"
 )
 
-var r, _ = regexp.Compile("^[0-9]+$")
-
-func isValidID(id string) bool {
-	return r.MatchString(id)
-}
-
-func (d *Daemon) lookupCiliumEndpoint(id string) *types.Endpoint {
+func (d *Daemon) lookupCiliumEndpoint(id uint16) *types.Endpoint {
 	if ep, ok := d.endpoints[id]; ok {
 		return ep
 	} else {
@@ -67,10 +61,6 @@ func writeGeneve(lxcDir string, ep *types.Endpoint) ([]byte, error) {
 
 // Public API to insert an endpoint without connecting it to a container
 func (d *Daemon) InsertEndpoint(ep *types.Endpoint) {
-	if !isValidID(ep.ID) {
-		return
-	}
-
 	d.endpointsMU.Lock()
 	d.insertEndpoint(ep)
 	d.endpointsMU.Unlock()
@@ -91,7 +81,7 @@ func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
-func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, labels *types.SecCtxLabel) *types.Endpoint {
+func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID string, labels *types.SecCtxLabel) *types.Endpoint {
 	var (
 		ep *types.Endpoint
 		ok bool
@@ -103,11 +93,17 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, la
 		}
 	}
 
+	setIfNotEmptyUint16 := func(receiver *uint16, provider *uint16) {
+		if receiver != nil && *receiver == 0 && provider != nil && *provider != 0 {
+			*receiver = *provider
+		}
+	}
+
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
-	if endpointID != "" {
-		ep, ok = d.endpoints[endpointID]
+	if endpointID != nil {
+		ep, ok = d.endpoints[*endpointID]
 	} else if dockerID != "" {
 		ep, ok = d.endpointsDocker[dockerID]
 	} else if dockerEPID != "" {
@@ -119,7 +115,7 @@ func (d *Daemon) setEndpointSecLabel(endpointID, dockerID, dockerEPID string, la
 	if ok {
 		setIfNotEmpty(&ep.DockerID, dockerID)
 		setIfNotEmpty(&ep.DockerEndpointID, dockerEPID)
-		setIfNotEmpty(&ep.ID, endpointID)
+		setIfNotEmptyUint16(&ep.ID, endpointID)
 
 		ep.SetSecLabel(labels)
 		epCopy := *ep
@@ -144,7 +140,7 @@ func (d *Daemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, er
 
 // EndpointGet returns a copy of the endpoint for the given endpointID, or nil if the
 // endpoint was not found.
-func (d *Daemon) EndpointGet(endpointID string) (*types.Endpoint, error) {
+func (d *Daemon) EndpointGet(endpointID uint16) (*types.Endpoint, error) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
@@ -176,7 +172,7 @@ func (d *Daemon) EndpointsGet() ([]types.Endpoint, error) {
 	return eps, nil
 }
 
-func (d *Daemon) deleteEndpoint(endpointID string) {
+func (d *Daemon) deleteEndpoint(endpointID uint16) {
 
 	if ep := d.lookupCiliumEndpoint(endpointID); ep != nil {
 		delete(d.endpointsDocker, ep.DockerID)
@@ -238,13 +234,13 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
-	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.U16ID())
-	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(ep.U16ID()))
+	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.ID)
+	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(ep.ID))
 	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel.ID))
 	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(ep.PolicyMapPath()))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 4096\n")
-	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(common.BPFMapCT+ep.ID))
+	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(fmt.Sprintf("%s%d", common.BPFMapCT, ep.ID)))
 
 	// Endpoint options
 	fw.WriteString(ep.Opts.GetFmtList())
@@ -260,19 +256,15 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	return fw.Flush()
 }
 
-func (d *Daemon) createBPFMAPs(epID string) error {
-	// Preventing someone from deleting important directories
-	if !isValidID(epID) {
-		return fmt.Errorf("invalid ID: %s", epID)
-	}
+func (d *Daemon) createBPFMAPs(epID uint16) error {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 	ep, ok := d.endpoints[epID]
 	if !ok {
-		return fmt.Errorf("endpoint %s not found", epID)
+		return fmt.Errorf("endpoint %d not found", epID)
 	}
 
-	return d.regenerateBPF(ep, filepath.Join(".", ep.ID))
+	return d.regenerateBPF(ep, filepath.Join(".", strconv.Itoa(int(ep.ID))))
 }
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
@@ -359,10 +351,7 @@ func (d *Daemon) regenerateBPF(ep *types.Endpoint, lxcDir string) error {
 
 // EndpointJoin sets up the endpoint working directory.
 func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
-	if !isValidID(ep.ID) {
-		return fmt.Errorf("invalid ID: %s", ep.ID)
-	}
-	lxcDir := filepath.Join(".", ep.ID)
+	lxcDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
 
 	if err := os.MkdirAll(lxcDir, 0777); err != nil {
 		log.Warningf("Failed to create container temporary directory: %s", err)
@@ -388,12 +377,7 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 
 // EndpointLeave cleans the directory used by the endpoint epID and all relevant details
 // with the epID.
-func (d *Daemon) EndpointLeave(epID string) error {
-	// Preventing someone from deleting important directories
-	if !isValidID(epID) {
-		return fmt.Errorf("invalid ID: %s", epID)
-	}
-
+func (d *Daemon) EndpointLeave(epID uint16) error {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
@@ -402,14 +386,14 @@ func (d *Daemon) EndpointLeave(epID string) error {
 		return fmt.Errorf("endpoint %s not found", epID)
 	}
 
-	lxcDir := filepath.Join(".", epID)
+	lxcDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
 	os.RemoveAll(lxcDir)
 
 	if err := d.conf.LXCMap.DeleteElement(epID); err != nil {
 		log.Warningf("Unable to remove endpoint from map: %s", err)
 	}
 
-	args := []string{d.conf.LibDir, epID}
+	args := []string{d.conf.LibDir, strconv.Itoa(int(epID))}
 	out, err := exec.Command(filepath.Join(d.conf.LibDir, "leave_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
@@ -422,7 +406,7 @@ func (d *Daemon) EndpointLeave(epID string) error {
 	}
 
 	// Clear policy map
-	os.RemoveAll(common.PolicyMapPath + epID)
+	os.RemoveAll(common.PolicyMapPath + strconv.Itoa(int(ep.ID)))
 
 	d.deleteEndpoint(epID)
 
@@ -450,7 +434,7 @@ func (d *Daemon) regenerateEndpoint(ep *types.Endpoint) error {
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until all
 	// generation has succeeded.
-	origDir := filepath.Join(".", ep.ID)
+	origDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
 	tmpDir := origDir + "_update"
 	backupDir := origDir + "_backup"
 
@@ -486,12 +470,7 @@ func (d *Daemon) regenerateEndpoint(ep *types.Endpoint) error {
 }
 
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
-func (d *Daemon) EndpointUpdate(epID string, opts types.OptionMap) error {
-	// Preventing someone from deleting important directories
-	if !isValidID(epID) {
-		return fmt.Errorf("invalid ID: %s", epID)
-	}
-
+func (d *Daemon) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
@@ -506,11 +485,8 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.OptionMap) error {
 		}
 
 		if val, ok := opts[types.OptionLearnTraffic]; ok {
-			if ll, err := types.NewLearningLabel(ep.ID, val); err != nil {
-				log.Errorf("impossible to convert endpoint ID %s to uint32: %s", ep.ID, err)
-			} else {
-				d.endpointsLearningRegister <- *ll
-			}
+			ll := types.NewLearningLabel(ep.ID, val)
+			d.endpointsLearningRegister <- *ll
 		}
 
 		return d.regenerateEndpoint(ep)
@@ -521,14 +497,11 @@ func (d *Daemon) EndpointUpdate(epID string, opts types.OptionMap) error {
 
 // EndpointSave saves the endpoint in the daemon internal endpoint map.
 func (d *Daemon) EndpointSave(ep types.Endpoint) error {
-	if !isValidID(ep.ID) {
-		return fmt.Errorf("invalid ID: %s", ep.ID)
-	}
 	d.InsertEndpoint(&ep)
 	return nil
 }
 
-func (d *Daemon) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
+func (d *Daemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 	d.containersMU.Lock()
 	defer d.containersMU.Unlock()
 	d.endpointsMU.Lock()
@@ -548,11 +521,7 @@ func (d *Daemon) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
 	return &cpy, nil
 }
 
-func (d *Daemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error {
-	if !isValidID(epID) {
-		return fmt.Errorf("invalid ID: %s", epID)
-	}
-
+func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
 	ep, err := d.EndpointGet(epID)
 	if err != nil {
 		return err

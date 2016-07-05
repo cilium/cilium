@@ -226,7 +226,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep, err := cli.EndpointGet("4370")
+	ep, err := cli.EndpointGet(4370)
 	c.Assert(err, IsNil)
 	c.Assert(*ep, DeepEquals, epOut)
 
@@ -239,7 +239,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
 	defer server2.Close()
 	cli = NewTestClient(server2.URL, c)
 
-	ep2, err := cli.EndpointGet("4371")
+	ep2, err := cli.EndpointGet(4371)
 	c.Assert(err, IsNil)
 	c.Assert(ep2, IsNil)
 }
@@ -257,7 +257,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep, err := cli.EndpointGet("4370")
+	ep, err := cli.EndpointGet(4370)
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 	c.Assert(ep, IsNil)
 }
@@ -403,7 +403,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.EndpointUpdate("4370", optsWanted)
+	err := cli.EndpointUpdate(4370, optsWanted)
 	c.Assert(err, IsNil)
 
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -418,7 +418,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 	defer server.Close()
 
 	cli = NewTestClient(server.URL, c)
-	err = cli.EndpointUpdate("4370", nil)
+	err = cli.EndpointUpdate(4370, nil)
 	c.Assert(err, IsNil)
 }
 
@@ -437,7 +437,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.EndpointUpdate("4370", optsWanted)
+	err := cli.EndpointUpdate(4370, optsWanted)
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,18 +43,15 @@ func (opl *OpLabels) GetDeletedLabels() Labels {
 }
 
 type LearningLabel struct {
-	EndpointID       string
-	EndpointIDUint32 uint32
-	Learn            bool
+	EndpointID uint16
+	Learn      bool
 }
 
-func NewLearningLabel(endpointID string, learn bool) (*LearningLabel, error) {
-	conv, err := strconv.ParseUint(endpointID, 10, 32)
+func NewLearningLabel(endpointID uint16, learn bool) *LearningLabel {
 	return &LearningLabel{
-		EndpointID:       endpointID,
-		EndpointIDUint32: uint32(conv),
-		Learn:            learn,
-	}, err
+		EndpointID: endpointID,
+		Learn:      learn,
+	}
 }
 
 // Label is the cilium's representation of a container label.

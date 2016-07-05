@@ -25,8 +25,8 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 		}
 		d.endpointsLearningMU.Lock()
 		for _, v := range d.endpointsLearning {
-			if dn.DstID == v.EndpointIDUint32 {
-				go func(epID string, lblID uint32) {
+			if dn.DstID == uint32(v.EndpointID) {
+				go func(epID uint16, lblID uint32) {
 					sec, err := d.GetLabels(lblID)
 					if err != nil {
 						log.Error("Error while getting label ID %d: %s", lblID, err)
