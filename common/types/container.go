@@ -8,6 +8,7 @@ import (
 type Container struct {
 	dTypes.ContainerJSON
 	OpLabels OpLabels
+	NRetries uint
 }
 
 func (c *Container) IsDockerOrInfracontainer() bool {
