@@ -29,7 +29,7 @@ func (s *CommonSuite) TestFmtDefineArray(c *C) {
 
 func (s *CommonSuite) TestFmtV6Prefix(c *C) {
 	c.Assert(fmtV6Prefix("beef::", []byte{}), Equals, "<nil>")
-	c.Assert(fmtV6Prefix("beef::", []byte{1, 2, 3, 4}), Equals, "beef::0102:0304:0")
+	c.Assert(fmtV6Prefix("beef::", []byte{1, 2, 3, 4}), Equals, "beef::0102:0304:0:0")
 }
 
 func (s *CommonSuite) TestSwab16(c *C) {
