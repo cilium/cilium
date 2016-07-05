@@ -9,7 +9,7 @@ perf-event-test: perf-event-test.go
 	go build -o $@ $<
 
 bpf-event-test.o: bpf-event-test.c
-	clang -O2 -emit-llvm -D__NR_CPUS__=$(shell nproc) -c $< -o - | llc -march=bpf -filetype=obj -o $@
+	clang -I../../bpf/include -O2 -emit-llvm -D__NR_CPUS__=$(shell nproc) -c $< -o - | llc -march=bpf -filetype=obj -o $@
 
 clean:
 	rm -f bpf-event-test.o perf-event-test

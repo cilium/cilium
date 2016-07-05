@@ -1,7 +1,7 @@
 #ifndef __LIB_COMMON_H_
 #define __LIB_COMMON_H_
 
-#include <iproute2/bpf_api.h>
+#include <bpf/api.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
 #include <stdint.h>

@@ -2,6 +2,7 @@
 #define __LIB_ICMP6__
 
 #include <linux/icmpv6.h>
+#include <linux/in.h>
 #include "common.h"
 #include "eth.h"
 #include "drop.h"

@@ -1,8 +1,13 @@
 package bpf
 
 /*
+#cgo CFLAGS: -I../../bpf/include
 #include <linux/unistd.h>
 #include <linux/bpf.h>
+
+#if !defined __NR_bpf && defined CI_BUILD
+#define __NR_bpf 1
+#endif
 
 static __u64 ptr_to_u64(const void *ptr)
 {
