@@ -10,7 +10,7 @@ type Container struct {
 	OpLabels OpLabels
 }
 
-func (c *Container) IsDockerAndInfracontainer() bool {
+func (c *Container) IsDockerOrInfracontainer() bool {
 	if c.Config != nil {
 		contName, exists := c.Config.Labels[k8sDockerLbls.KubernetesContainerNameLabel]
 		return !exists || contName == "POD"

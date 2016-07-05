@@ -261,14 +261,14 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
 			break
 		}
-		if container.IsDockerAndInfracontainer() {
+		if container.IsDockerOrInfracontainer() {
 			log.Warningf("Something went wrong, the docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
 		}
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
 	if try >= maxTries {
-		if container.IsDockerAndInfracontainer() {
+		if container.IsDockerOrInfracontainer() {
 			return fmt.Errorf("It was impossible to store the SecLabel %d for docker endpoint ID '%s'", secCtxlabels.ID, dockerID)
 		}
 		return nil
