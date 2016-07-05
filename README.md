@@ -1,6 +1,8 @@
 # Cilium
 
 [![Build Status](https://travis-ci.com/noironetworks/cilium-net.svg?token=m4sEpxc6NCMcs2UVyQTA&branch=master)](https://travis-ci.com/noironetworks/cilium-net)
+[![Apache licensed](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/noironetworks/cilium-net/blob/master/LICENSE)
+[![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/noironetworks/cilium-net/blob/master/bpf/COPYING)
 
 Cilium provides fast and low latency in-kernel networking connectivity and
 security policy enforcement for containers based on eBPF.
