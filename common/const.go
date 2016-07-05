@@ -104,16 +104,16 @@ var (
 	// Default addressing schema
 	//
 	// cluster:		    beef:beef:beef:beef::/64
-	// loadbalancer:            beef:beef:beef:beef:<lb>::/80
-	// node:		    beef:beef:beef:beef:<lb>:<node>:<node>:/112
-	// lxc:			    beef:beef:beef:beef:<lb>:<node>:<node>:<lxc>/128
+	// node:		    beef:beef:beef:beef:<node>:<node>:/96
+	// state:		    beef:beef:beef:beef:<node>:<node>:<state>:/112
+	// lxc:			    beef:beef:beef:beef:<node>:<node>:<state>:<lxc>/128
 
 	// ClusterIPv6Mask represents the CIDR Mask for the cilium cluster.
 	ClusterIPv6Mask = net.CIDRMask(64, 128)
-	// LoadBalancerIPv6Mask represents the CIDR Mask for the cilium load balancer.
-	LoadBalancerIPv6Mask = net.CIDRMask(80, 128)
 	// NodeIPv6Mask represents the CIDR Mask for the cilium node.
-	NodeIPv6Mask = net.CIDRMask(112, 128)
+	NodeIPv6Mask = net.CIDRMask(96, 128)
+	// StateIPv6Mask represents the CIDR Mask for the cilium node.
+	StateIPv6Mask = net.CIDRMask(112, 128)
 	// ContainerIPv6Mask represents the CIDR Mask for the cilium endpoint/container.
 	ContainerIPv6Mask = net.CIDRMask(128, 128)
 )
