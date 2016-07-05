@@ -1,7 +1,7 @@
 #ifndef __LIB_EVENTS_H_
 #define __LIB_EVENTS_H_
 
-#include <iproute2/bpf_api.h>
+#include <bpf/api.h>
 
 struct bpf_elf_map __section_maps cilium_events = {
 	.type		= BPF_MAP_TYPE_PERF_EVENT_ARRAY,

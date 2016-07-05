@@ -1,14 +1,12 @@
 #include <node_config.h>
 #include <lxc_config.h>
 
-#include <iproute2/bpf_api.h>
-
-#include <linux/icmpv6.h>
-#include <sys/socket.h>
+#include <bpf/api.h>
 
 #include <stdint.h>
 #include <stdio.h>
 
+#include <linux/icmpv6.h>
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"

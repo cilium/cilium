@@ -1,6 +1,6 @@
 include ../Makefile.defs
 
-CLANG_FLAGS := -D__NR_CPUS__=$(shell nproc) -O2 -target bpf -I. -Wall -Werror
+CLANG_FLAGS := -Iinclude -D__NR_CPUS__=$(shell nproc) -O2 -target bpf -I. -Wall -Werror
 
 BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o
 SCRIPTS = init.sh join_ep.sh leave_ep.sh
@@ -32,4 +32,6 @@ install:
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/ $(BPF:.o=.c)
 	$(INSTALL) -m 0755 -t $(DESTDIR)$(LIBDIR)/cilium/ $(SCRIPTS)
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/lib/ $(LIB)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/include/
+	cp -r include/* $(DESTDIR)$(LIBDIR)/cilium/include/
 	$(MAKE) -C go install

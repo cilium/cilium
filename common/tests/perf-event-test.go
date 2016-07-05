@@ -1,6 +1,7 @@
 package main
 
 /*
+#cgo CFLAGS: -I../../bpf/include
 #include <linux/perf_event.h>
 */
 import "C"

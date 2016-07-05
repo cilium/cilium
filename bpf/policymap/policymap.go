@@ -1,6 +1,7 @@
 package policymap
 
 /*
+#cgo CFLAGS: -I../include
 #include <linux/bpf.h>
 #include <sys/resource.h>
 */
