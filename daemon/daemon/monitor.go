@@ -29,7 +29,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 				go func(epID uint16, lblID uint32) {
 					sec, err := d.GetLabels(lblID)
 					if err != nil {
-						log.Error("Error while getting label ID %d: %s", lblID, err)
+						log.Errorf("Error while getting label ID %d: %s", lblID, err)
 						return
 					}
 					if sec == nil {

@@ -216,7 +216,7 @@ func printEndpointLabels(lbls *types.OpLabels) {
 func configLabels(ctx *cli.Context) {
 	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
 	}
 
@@ -264,7 +264,7 @@ func configLabels(ctx *cli.Context) {
 func dumpLXCInfo(ctx *cli.Context) {
 	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
 	}
 
@@ -301,7 +301,7 @@ func configEndpoint(ctx *cli.Context) {
 	}
 	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
 	}
 
@@ -499,17 +499,17 @@ func dumpEndpoints(ctx *cli.Context) {
 				first := true
 				for _, lbl := range ep.SecLabel.Labels {
 					if first {
-						fmt.Fprintf(w, "%s\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, lbl, ep.LXCIP.String())
+						fmt.Fprintf(w, "%d\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, lbl, ep.LXCIP.String())
 						first = false
 					} else {
 						fmt.Fprintf(w, "\t\t%s\t\t\n", lbl)
 					}
 				}
 			} else {
-				fmt.Fprintf(w, "%s\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, "(no labels)", ep.LXCIP.String())
+				fmt.Fprintf(w, "%d\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, "(no labels)", ep.LXCIP.String())
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", ep.ID, "(empty sec label ID)", "", ep.LXCIP.String())
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t\n", ep.ID, "(empty sec label ID)", "", ep.LXCIP.String())
 		}
 	}
 	w.Flush()
@@ -518,7 +518,7 @@ func dumpEndpoints(ctx *cli.Context) {
 func recompileBPF(ctx *cli.Context) {
 	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
 	}
 
@@ -534,7 +534,7 @@ func recompileBPF(ctx *cli.Context) {
 func detachBPF(ctx *cli.Context) {
 	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return
 	}
 

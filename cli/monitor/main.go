@@ -72,7 +72,7 @@ func run(ctx *cli.Context) {
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
 		for _ = range signalChan {
-			fmt.Println("\nReceived an interrupt, stopping monitor...\n")
+			fmt.Printf("\nReceived an interrupt, stopping monitor...\n\n")
 
 			lost, unknown := events.Stats()
 			if lost != 0 || unknown != 0 {

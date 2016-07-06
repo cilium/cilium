@@ -253,7 +253,7 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(ep.PolicyMapPath()))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 4096\n")
-	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(fmt.Sprintf("%s%d", common.BPFMapCT, ep.ID)))
+	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(common.BPFMapCT+strconv.Itoa(int(ep.ID))))
 
 	// Endpoint options
 	fw.WriteString(ep.Opts.GetFmtList())
@@ -396,7 +396,7 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 
 	ep := d.lookupCiliumEndpoint(epID)
 	if ep == nil {
-		return fmt.Errorf("endpoint %s not found", epID)
+		return fmt.Errorf("endpoint %d not found", epID)
 	}
 
 	lxcDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
@@ -504,7 +504,7 @@ func (d *Daemon) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 
 		return d.regenerateEndpoint(ep)
 	} else {
-		return fmt.Errorf("endpoint %s not found", epID)
+		return fmt.Errorf("endpoint %d not found", epID)
 	}
 }
 
@@ -522,7 +522,7 @@ func (d *Daemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 
 	ep := d.lookupCiliumEndpoint(epID)
 	if ep == nil {
-		return nil, fmt.Errorf("endpoint %s not found", epID)
+		return nil, fmt.Errorf("endpoint %d not found", epID)
 	}
 
 	cont := d.containers[ep.DockerID]
@@ -540,7 +540,7 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 		return err
 	}
 	if ep == nil {
-		return fmt.Errorf("Endpoint %s not found", epID)
+		return fmt.Errorf("Endpoint %d not found", epID)
 	}
 
 	labels = d.conf.ValidLabelPrefixes.FilterLabels(labels)
