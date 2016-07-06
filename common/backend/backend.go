@@ -6,15 +6,15 @@ import (
 
 type bpfBackend interface {
 	EndpointJoin(ep types.Endpoint) error
-	EndpointLeave(epID string) error
+	EndpointLeave(epID uint16) error
 	EndpointLeaveByDockerEPID(dockerEPID string) error
-	EndpointGet(epID string) (*types.Endpoint, error)
+	EndpointGet(epID uint16) (*types.Endpoint, error)
 	EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error)
 	EndpointsGet() ([]types.Endpoint, error)
-	EndpointUpdate(epID string, opts types.OptionMap) error
+	EndpointUpdate(epID uint16, opts types.OptionMap) error
 	EndpointSave(ep types.Endpoint) error
-	EndpointLabelsGet(epID string) (*types.OpLabels, error)
-	EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error
+	EndpointLabelsGet(epID uint16) (*types.OpLabels, error)
+	EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error
 }
 
 type ipamBackend interface {

@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -82,8 +81,8 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointLeave = func(epIDreceived string) error {
-		c.Assert(ep.ID, Equals, epIDreceived)
+	s.d.OnEndpointLeave = func(epID uint16) error {
+		c.Assert(ep.ID, Equals, epID)
 		return nil
 	}
 
@@ -103,8 +102,8 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointLeave = func(epIDreceived string) error {
-		c.Assert(ep.ID, Equals, epIDreceived)
+	s.d.OnEndpointLeave = func(epID uint16) error {
+		c.Assert(ep.ID, Equals, epID)
 		return errors.New("invalid endpoint")
 	}
 
@@ -157,7 +156,7 @@ func (s *DaemonSuite) EndpointLeaveByDockerEPIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointGetOK(c *C) {
-	epIDOutside := strconv.FormatUint(uint64(common.EndpointAddr2ID(EpAddr)), 10)
+	epIDOutside := common.EndpointAddr2ID(EpAddr)
 	epWanted := types.Endpoint{
 		LXCMAC:          HardAddr,
 		LXCIP:           EpAddr,
@@ -168,7 +167,7 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 		SecLabel:        SecLabel,
 	}
 
-	s.d.OnEndpointGet = func(epID string) (*types.Endpoint, error) {
+	s.d.OnEndpointGet = func(epID uint16) (*types.Endpoint, error) {
 		c.Assert(epIDOutside, Equals, epID)
 		return &types.Endpoint{
 			LXCMAC:          HardAddr,
@@ -187,9 +186,9 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointGetFail(c *C) {
-	epIDOutside := strconv.FormatUint(uint64(common.EndpointAddr2ID(EpAddr)), 10)
+	epIDOutside := common.EndpointAddr2ID(EpAddr)
 
-	s.d.OnEndpointGet = func(epID string) (*types.Endpoint, error) {
+	s.d.OnEndpointGet = func(epID uint16) (*types.Endpoint, error) {
 		c.Assert(epIDOutside, Equals, epID)
 		return nil, errors.New("invalid endpoint")
 	}
@@ -286,34 +285,34 @@ func (s *DaemonSuite) TestEndpointsGetFail(c *C) {
 func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
 	optsWanted := types.OptionMap{"FOO": true}
 
-	s.d.OnEndpointUpdate = func(epID string, opts types.OptionMap) error {
-		c.Assert(epID, DeepEquals, "4307")
+	s.d.OnEndpointUpdate = func(epID uint16, opts types.OptionMap) error {
+		c.Assert(epID, DeepEquals, uint16(4307))
 		c.Assert(opts, DeepEquals, optsWanted)
 		return nil
 	}
 
-	err := s.c.EndpointUpdate("4307", optsWanted)
+	err := s.c.EndpointUpdate(4307, optsWanted)
 	c.Assert(err, IsNil)
 
-	s.d.OnEndpointUpdate = func(epID string, opts types.OptionMap) error {
-		c.Assert(epID, DeepEquals, "4307")
+	s.d.OnEndpointUpdate = func(epID uint16, opts types.OptionMap) error {
+		c.Assert(epID, DeepEquals, uint16(4307))
 		c.Assert(opts, IsNil)
 		return nil
 	}
-	err = s.c.EndpointUpdate("4307", nil)
+	err = s.c.EndpointUpdate(4307, nil)
 	c.Assert(err, IsNil)
 }
 
 func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
 	optsWanted := types.OptionMap{"FOO": true}
 
-	s.d.OnEndpointUpdate = func(epID string, opts types.OptionMap) error {
-		c.Assert(epID, DeepEquals, "4307")
+	s.d.OnEndpointUpdate = func(epID uint16, opts types.OptionMap) error {
+		c.Assert(epID, DeepEquals, uint16(4307))
 		c.Assert(opts, DeepEquals, optsWanted)
 		return errors.New("invalid endpoint")
 	}
 
-	err := s.c.EndpointUpdate("4307", optsWanted)
+	err := s.c.EndpointUpdate(4307, optsWanted)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
 
@@ -382,7 +381,7 @@ func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
 		EndpointLabels: epLbls,
 	}
 
-	s.d.OnEndpointLabelsGet = func(epID string) (*types.OpLabels, error) {
+	s.d.OnEndpointLabelsGet = func(epID uint16) (*types.OpLabels, error) {
 		c.Assert(ep.ID, DeepEquals, epID)
 		return &wantedLbls, nil
 	}
@@ -404,7 +403,7 @@ func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointLabelsGet = func(epID string) (*types.OpLabels, error) {
+	s.d.OnEndpointLabelsGet = func(epID uint16) (*types.OpLabels, error) {
 		c.Assert(ep.ID, DeepEquals, epID)
 		return nil, errors.New("invalid endpoint")
 	}
@@ -430,7 +429,7 @@ func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
 		"foo": types.NewLabel("foo", "bar", "cilium"),
 	}
 
-	s.d.OnEndpointLabelsUpdate = func(epID string, op types.LabelOP, lbls types.Labels) error {
+	s.d.OnEndpointLabelsUpdate = func(epID uint16, op types.LabelOP, lbls types.Labels) error {
 		c.Assert(ep.ID, DeepEquals, epID)
 		c.Assert(op, Equals, types.AddLabelsOp)
 		c.Assert(wantedLabels, DeepEquals, lbls)
@@ -457,7 +456,7 @@ func (s *DaemonSuite) TestEndpointLabelsAddFail(c *C) {
 		"foo": types.NewLabel("foo", "bar", "cilium"),
 	}
 
-	s.d.OnEndpointLabelsUpdate = func(epID string, op types.LabelOP, lbls types.Labels) error {
+	s.d.OnEndpointLabelsUpdate = func(epID uint16, op types.LabelOP, lbls types.Labels) error {
 		c.Assert(ep.ID, DeepEquals, epID)
 		c.Assert(op, Equals, types.AddLabelsOp)
 		c.Assert(wantedLabels, DeepEquals, lbls)

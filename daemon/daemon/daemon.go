@@ -38,11 +38,11 @@ type Daemon struct {
 	consul                    *consulAPI.Client
 	containers                map[string]*types.Container
 	containersMU              sync.Mutex
-	endpoints                 map[string]*types.Endpoint
+	endpoints                 map[uint16]*types.Endpoint
 	endpointsDocker           map[string]*types.Endpoint
 	endpointsDockerEP         map[string]*types.Endpoint
 	endpointsMU               sync.Mutex
-	endpointsLearning         map[string]types.LearningLabel
+	endpointsLearning         map[uint16]types.LearningLabel
 	endpointsLearningMU       sync.Mutex
 	endpointsLearningRegister chan types.LearningLabel
 	validLabelPrefixesMU      sync.Mutex
@@ -294,10 +294,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		dockerClient:              dockerClient,
 		k8sClient:                 k8sClient,
 		containers:                make(map[string]*types.Container),
-		endpoints:                 make(map[string]*types.Endpoint),
+		endpoints:                 make(map[uint16]*types.Endpoint),
 		endpointsDocker:           make(map[string]*types.Endpoint),
 		endpointsDockerEP:         make(map[string]*types.Endpoint),
-		endpointsLearning:         make(map[string]types.LearningLabel),
+		endpointsLearning:         make(map[uint16]types.LearningLabel),
 		endpointsLearningRegister: make(chan types.LearningLabel, 1),
 		cacheIteration:            1,
 		reservedConsumables:       make([]*types.Consumable, 0),

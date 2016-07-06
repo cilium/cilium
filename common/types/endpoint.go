@@ -97,7 +97,7 @@ var (
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID               string               `json:"id"`                 // Endpoint ID.
+	ID               uint16               `json:"id"`                 // Endpoint ID.
 	DockerID         string               `json:"docker-id"`          // Docker ID.
 	DockerNetworkID  string               `json:"docker-network-id"`  // Docker network ID.
 	DockerEndpointID string               `json:"docker-endpoint-id"` // Docker endpoint ID.
@@ -114,15 +114,9 @@ type Endpoint struct {
 	Opts             *BoolOptions         `json:"options"` // Endpoint bpf options.
 }
 
-// U16ID returns the endpoint's ID as uint16.
-func (e *Endpoint) U16ID() uint16 {
-	n, _ := strconv.ParseUint(e.ID, 10, 16)
-	return uint16(n)
-}
-
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
-	e.ID = strconv.FormatUint(uint64(common.EndpointAddr2ID(e.LXCIP)), 10)
+	e.ID = common.EndpointAddr2ID(e.LXCIP)
 }
 
 func (e *Endpoint) SetSecLabel(labels *SecCtxLabel) {
@@ -142,7 +136,7 @@ func (e *Endpoint) Allows(id uint32) bool {
 func (e *Endpoint) IPv4Address(v4Range *net.IPNet) *net.IP {
 	ip := common.DupIP(v4Range.IP)
 
-	id := e.U16ID()
+	id := e.ID
 	ip[2] = byte(id >> 8)
 	ip[3] = byte(id & 0xff)
 
@@ -179,9 +173,7 @@ type orderEndpoint func(e1, e2 *Endpoint) bool
 // OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
 func OrderEndpointAsc(eps []Endpoint) {
 	ascPriority := func(e1, e2 *Endpoint) bool {
-		e1Int, _ := strconv.ParseUint(e1.ID, 10, 64)
-		e2Int, _ := strconv.ParseUint(e2.ID, 10, 64)
-		return e1Int < e2Int
+		return e1.ID < e2.ID
 	}
 	orderEndpoint(ascPriority).sort(eps)
 }
@@ -269,7 +261,7 @@ func (e *Endpoint) IsCNI() bool {
 }
 
 func (e *Endpoint) PolicyMapPath() string {
-	return common.PolicyMapPath + e.ID
+	return common.PolicyMapPath + strconv.Itoa(int(e.ID))
 }
 
 func (e *Endpoint) InvalidatePolicy() {

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/noironetworks/cilium-net/bpf/ctmap"
@@ -26,7 +27,7 @@ func (d *Daemon) EnableConntrackGC() {
 					continue
 				}
 
-				file := common.BPFMapCT + e.ID
+				file := common.BPFMapCT + strconv.Itoa(int(e.ID))
 				fd, err := bpf.ObjGet(file)
 				if err != nil {
 					log.Warningf("Unable to open CT map %s: %s\n", file, err)

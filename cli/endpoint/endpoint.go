@@ -177,6 +177,14 @@ func verifyArguments(ctx *cli.Context) error {
 	return nil
 }
 
+func getValidEPID(arg string) (uint16, error) {
+	if arg == "" {
+		return 0, fmt.Errorf("Empty endpoint")
+	}
+	epID, err := strconv.ParseUint(arg, 10, 16)
+	return uint16(epID), err
+}
+
 func printEndpointLabels(lbls *types.OpLabels) {
 	log.Debugf("All Labels %#v", *lbls)
 
@@ -206,9 +214,9 @@ func printEndpointLabels(lbls *types.OpLabels) {
 }
 
 func configLabels(ctx *cli.Context) {
-	epID := ctx.Args().First()
-	if epID == "" {
-		fmt.Printf("Empty endpoint\n")
+	epID, err := getValidEPID(ctx.Args().First())
+	if err != nil {
+		fmt.Errorf("%s\n", err)
 		return
 	}
 
@@ -254,7 +262,11 @@ func configLabels(ctx *cli.Context) {
 }
 
 func dumpLXCInfo(ctx *cli.Context) {
-	epID := ctx.Args().First()
+	epID, err := getValidEPID(ctx.Args().First())
+	if err != nil {
+		fmt.Errorf("%s\n", err)
+		return
+	}
 
 	ep, err := client.EndpointGet(epID)
 	if err != nil {
@@ -283,10 +295,13 @@ func verifyConfigEndpoint(ctx *cli.Context) error {
 }
 
 func configEndpoint(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	if epID == "list" {
+	if ctx.Args().First() == "list" {
 		listEndpointOptions()
+		return
+	}
+	epID, err := getValidEPID(ctx.Args().First())
+	if err != nil {
+		fmt.Errorf("%s\n", err)
 		return
 	}
 
@@ -501,11 +516,15 @@ func dumpEndpoints(ctx *cli.Context) {
 }
 
 func recompileBPF(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointUpdate(epID, nil)
+	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while recompiling endpoint %s on daemon: %s\n", epID, err)
+		fmt.Errorf("%s\n", err)
+		return
+	}
+
+	err = client.EndpointUpdate(epID, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while recompiling endpoint %d on daemon: %s\n", epID, err)
 		return
 	}
 
@@ -513,11 +532,15 @@ func recompileBPF(ctx *cli.Context) {
 }
 
 func detachBPF(ctx *cli.Context) {
-	epID := ctx.Args().First()
-
-	err := client.EndpointLeave(epID)
+	epID, err := getValidEPID(ctx.Args().First())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while detaching endpoint %s on daemon: %s\n", epID, err)
+		fmt.Errorf("%s\n", err)
+		return
+	}
+
+	err = client.EndpointLeave(epID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while detaching endpoint %d on daemon: %s\n", epID, err)
 		return
 	}
 
@@ -530,7 +553,7 @@ func listEndpointsBash(ctx *cli.Context) {
 		if len(ctx.Args()) < 1 {
 			firstArg := ctx.Args().First()
 			for _, ep := range eps {
-				if strings.HasPrefix(ep.ID, firstArg) {
+				if strings.HasPrefix(strconv.Itoa(int(ep.ID)), firstArg) {
 					fmt.Println(ep.ID)
 				}
 			}

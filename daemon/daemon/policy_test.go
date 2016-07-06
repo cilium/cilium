@@ -151,7 +151,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	prodFooJoeSecLblsCtx, _, err := ds.d.PutLabels(prodFooJoeLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
-	e := Endpoint{ID: "1", IfName: "dummy1", LXCMAC: HardAddr, NodeMAC: HardAddr}
+	e := Endpoint{ID: 1, IfName: "dummy1", LXCMAC: HardAddr, NodeMAC: HardAddr}
 	e.Opts = NewBoolOptions(&DaemonOptionLibrary)
 	e.Opts.SetIfUnset(OptionLearnTraffic, false)
 	err = os.Mkdir("1", 755)
@@ -172,7 +172,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
-	e = Endpoint{ID: "1", IfName: "dummy1", LXCMAC: HardAddr, NodeMAC: HardAddr}
+	e = Endpoint{ID: 1, IfName: "dummy1", LXCMAC: HardAddr, NodeMAC: HardAddr}
 	e.Opts = NewBoolOptions(&DaemonOptionLibrary)
 	e.Opts.SetIfUnset(OptionLearnTraffic, false)
 	e.SetSecLabel(prodBarSecLblsCtx)

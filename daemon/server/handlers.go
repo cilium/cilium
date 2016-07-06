@@ -12,6 +12,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func verifyEndpointID(vars map[string]string) (uint16, error) {
+	if val, exists := vars["endpointID"]; !exists {
+		return 0, errors.New("server received empty endpoint id")
+	} else {
+		i, err := strconv.ParseUint(val, 10, 16)
+		return uint16(i), err
+	}
+}
+
 func (router *RouterBackend) ping(w http.ResponseWriter, r *http.Request) {
 	if resp, err := router.daemon.Ping(); err != nil {
 		processServerError(w, r, err)
@@ -51,10 +60,9 @@ func (router *RouterBackend) endpointCreate(w http.ResponseWriter, r *http.Reque
 }
 
 func (router *RouterBackend) endpointDelete(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	val, exists := vars["endpointID"]
-	if !exists {
-		processServerError(w, r, errors.New("server received empty endpoint id"))
+	val, err := verifyEndpointID(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
 		return
 	}
 	if err := router.daemon.EndpointLeave(val); err != nil {
@@ -79,10 +87,9 @@ func (router *RouterBackend) endpointLeaveByDockerEPID(w http.ResponseWriter, r 
 }
 
 func (router *RouterBackend) endpointUpdate(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	val, exists := vars["endpointID"]
-	if !exists {
-		processServerError(w, r, errors.New("server received empty endpoint id"))
+	val, err := verifyEndpointID(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
 		return
 	}
 	var opts types.OptionMap
@@ -111,13 +118,11 @@ func (router *RouterBackend) endpointSave(w http.ResponseWriter, r *http.Request
 }
 
 func (router *RouterBackend) endpointLabelsGet(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	epID, exists := vars["endpointID"]
-	if !exists {
-		processServerError(w, r, errors.New("server received empty endpoint id"))
+	epID, err := verifyEndpointID(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
 		return
 	}
-
 	if lbls, err := router.daemon.EndpointLabelsGet(epID); err != nil {
 		processServerError(w, r, err)
 	} else {
@@ -130,9 +135,9 @@ func (router *RouterBackend) endpointLabelsGet(w http.ResponseWriter, r *http.Re
 
 func (router *RouterBackend) endpointLabelsUpdate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	epID, exists := vars["endpointID"]
-	if !exists {
-		processServerError(w, r, errors.New("server received empty endpoint id"))
+	epID, err := verifyEndpointID(vars)
+	if err != nil {
+		processServerError(w, r, err)
 		return
 	}
 	labelOp, exists := vars["labelOp"]
@@ -153,10 +158,9 @@ func (router *RouterBackend) endpointLabelsUpdate(w http.ResponseWriter, r *http
 }
 
 func (router *RouterBackend) endpointGet(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	epID, exists := vars["endpointID"]
-	if !exists {
-		processServerError(w, r, errors.New("server received empty endpoint id"))
+	epID, err := verifyEndpointID(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
 		return
 	}
 	ep, err := router.daemon.EndpointGet(epID)

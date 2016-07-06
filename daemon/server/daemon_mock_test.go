@@ -7,16 +7,16 @@ import (
 )
 
 type TestDaemon struct {
-	OnEndpointGet               func(epID string) (*types.Endpoint, error)
+	OnEndpointGet               func(epID uint16) (*types.Endpoint, error)
 	OnEndpointGetByDockerEPID   func(dockerEPID string) (*types.Endpoint, error)
 	OnEndpointsGet              func() ([]types.Endpoint, error)
 	OnEndpointJoin              func(ep types.Endpoint) error
-	OnEndpointLeave             func(ep string) error
+	OnEndpointLeave             func(epID uint16) error
 	OnEndpointLeaveByDockerEPID func(dockerEPID string) error
-	OnEndpointUpdate            func(ep string, opts types.OptionMap) error
+	OnEndpointUpdate            func(epID uint16, opts types.OptionMap) error
 	OnEndpointSave              func(ep types.Endpoint) error
-	OnEndpointLabelsGet         func(epID string) (*types.OpLabels, error)
-	OnEndpointLabelsUpdate      func(epID string, op types.LabelOP, labels types.Labels) error
+	OnEndpointLabelsGet         func(epID uint16) (*types.OpLabels, error)
+	OnEndpointLabelsUpdate      func(epID uint16, op types.LabelOP, labels types.Labels) error
 	OnGetIPAMConf               func(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
 	OnAllocateIP                func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
 	OnReleaseIP                 func(ipamType types.IPAMType, opts types.IPAMReq) error
@@ -39,7 +39,7 @@ func NewTestDaemon() *TestDaemon {
 	return &TestDaemon{}
 }
 
-func (d TestDaemon) EndpointGet(epID string) (*types.Endpoint, error) {
+func (d TestDaemon) EndpointGet(epID uint16) (*types.Endpoint, error) {
 	if d.OnEndpointGet != nil {
 		return d.OnEndpointGet(epID)
 	}
@@ -67,14 +67,14 @@ func (d TestDaemon) EndpointJoin(ep types.Endpoint) error {
 	return errors.New("EndpointJoin should not have been called")
 }
 
-func (d TestDaemon) EndpointUpdate(ep string, opts types.OptionMap) error {
+func (d TestDaemon) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 	if d.OnEndpointUpdate != nil {
-		return d.OnEndpointUpdate(ep, opts)
+		return d.OnEndpointUpdate(epID, opts)
 	}
 	return errors.New("EndpointUpdate should not have been called")
 }
 
-func (d TestDaemon) EndpointLeave(epID string) error {
+func (d TestDaemon) EndpointLeave(epID uint16) error {
 	if d.OnEndpointLeave != nil {
 		return d.OnEndpointLeave(epID)
 	}
@@ -95,14 +95,14 @@ func (d TestDaemon) EndpointSave(ep types.Endpoint) error {
 	return errors.New("EndpointSave should not have been called")
 }
 
-func (d TestDaemon) EndpointLabelsGet(epID string) (*types.OpLabels, error) {
+func (d TestDaemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 	if d.OnEndpointLabelsGet != nil {
 		return d.OnEndpointLabelsGet(epID)
 	}
 	return nil, errors.New("EndpointLabelsGet should not have been called")
 }
 
-func (d TestDaemon) EndpointLabelsUpdate(epID string, op types.LabelOP, labels types.Labels) error {
+func (d TestDaemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
 	if d.OnEndpointLabelsUpdate != nil {
 		return d.OnEndpointLabelsUpdate(epID, op, labels)
 	}
