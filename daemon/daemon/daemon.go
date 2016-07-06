@@ -198,14 +198,16 @@ func (d *Daemon) init() error {
 	fw.Flush()
 	f.Close()
 
-	if err := d.compileBase(); err != nil {
-		return err
-	}
+	if !d.conf.DryMode {
+		if err := d.compileBase(); err != nil {
+			return err
+		}
 
-	d.conf.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
-	if err != nil {
-		log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
-		return err
+		d.conf.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
+		if err != nil {
+			log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
+			return err
+		}
 	}
 
 	os.MkdirAll(common.CiliumUIPath, 0755)

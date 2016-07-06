@@ -45,6 +45,7 @@ type Config struct {
 	UIServerAddr       string                // TCP address for UI server
 	Tunnel             string                // Tunnel mode
 
+	DryMode      bool // Do not create BPF maps, devices, ..
 	RestoreState bool // RestoreState restores the state from previous running daemons.
 
 	// Options changeable at runtime

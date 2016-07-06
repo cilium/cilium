@@ -52,7 +52,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	daemonConf := &Config{
-		Opts: types.NewBoolOptions(&DaemonOptionLibrary),
+		DryMode: true,
+		Opts:    types.NewBoolOptions(&DaemonOptionLibrary),
 	}
 	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir

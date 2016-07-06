@@ -45,6 +45,7 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	daemonConf := cnd.NewConfig()
 	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir
+	daemonConf.DryMode = true
 	daemonConf.LXCMap = nil
 	daemonConf.NodeAddress = EpAddr
 	daemonConf.ConsulConfig = consulAPI.DefaultConfig()
