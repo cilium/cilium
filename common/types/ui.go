@@ -25,7 +25,7 @@ const (
 )
 
 type UITopo struct {
-	uiTopoMU sync.Mutex
+	uiTopoMU *sync.Mutex
 	uiNodes  map[int]*UINode
 	uiEdges  map[string]*UIEdge
 	UIChan   chan UIUpdateMsg
@@ -33,9 +33,10 @@ type UITopo struct {
 
 func NewUITopo() UITopo {
 	return UITopo{
-		uiNodes: map[int]*UINode{},
-		uiEdges: map[string]*UIEdge{},
-		UIChan:  make(chan UIUpdateMsg, 10),
+		uiTopoMU: &sync.Mutex{},
+		uiNodes:  map[int]*UINode{},
+		uiEdges:  map[string]*UIEdge{},
+		UIChan:   make(chan UIUpdateMsg, 10),
 	}
 }
 
@@ -46,7 +47,7 @@ type UINode struct {
 	Labels   []Label `json:"-"`
 	Image    string  `json:"image"`
 	Title    string  `json:"title"`
-	refCount int     `json:"-"`
+	refCount int
 }
 
 func newuiNode(id, refCount int, lbls []Label) *UINode {
@@ -132,22 +133,22 @@ type UIAnimateEdge struct {
 }
 
 type UIEdge struct {
-	ID            string    `json:"id"`
-	From          int       `json:"from"`
-	To            int       `json:"to"`
-	Value         int64     `json:"value"`
-	Removed       bool      `json:"dashes"`
-	Color         string    `json:"color"`
-	Title         string    `json:"title"`
-	Length        int       `json:"length,omitempty"`
-	color         uiColor   `json:"-"`
-	lastChange    time.Time `json:"-"`
-	lastUpdate    time.Time `json:"-"`
-	update        time.Time `json:"-"`
-	lastBytes     uint64    `json:"-"`
-	lastPackets   uint64    `json:"-"`
-	bytes         uint64    `json:"-"`
-	packets       uint64    `json:"-"`
+	ID            string `json:"id"`
+	From          int    `json:"from"`
+	To            int    `json:"to"`
+	Value         int64  `json:"value"`
+	Removed       bool   `json:"dashes"`
+	Color         string `json:"color"`
+	Title         string `json:"title"`
+	Length        int    `json:"length,omitempty"`
+	color         uiColor
+	lastChange    time.Time
+	lastUpdate    time.Time
+	update        time.Time
+	lastBytes     uint64
+	lastPackets   uint64
+	bytes         uint64
+	packets       uint64
 	UIAnimateEdge `json:"-"`
 }
 
@@ -360,8 +361,8 @@ type UIUpdateMsg struct {
 	UIEdge   *UIEdge         `json:"edge,omitempty"`
 	UIEdges  []UIAnimateEdge `json:"edges,omitempty"`
 	Type     string          `json:"type"`
-	op       string          `json:"-"`
-	objType  string          `json:"-"`
+	op       string
+	objType  string
 }
 
 func NewUIUpdateMsg() UIUpdateMsg {

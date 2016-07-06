@@ -60,7 +60,7 @@ func (s *CiliumNetClientSuite) TestPingFail(c *C) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/ping")
 		w.WriteHeader(http.StatusRequestTimeout)
-		err := json.NewEncoder(w).Encode(types.ServerError{-1, "Something went wrong"})
+		err := json.NewEncoder(w).Encode(types.ServerError{Code: -1, Text: "Something went wrong"})
 		c.Assert(err, IsNil)
 	}))
 	defer server.Close()

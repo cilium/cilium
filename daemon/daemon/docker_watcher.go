@@ -44,7 +44,7 @@ func (d *Daemon) EnableDockerSync(once bool) {
 	for {
 		cList, err := d.dockerClient.ContainerList(dTypes.ContainerListOptions{All: false})
 		if err != nil {
-			log.Error("Failed to retrieve the container list %s", err)
+			log.Errorf("Failed to retrieve the container list %s", err)
 		}
 		for _, cont := range cList {
 			go d.createContainer(cont.ID, cont.Labels)

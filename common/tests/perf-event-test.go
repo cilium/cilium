@@ -69,8 +69,8 @@ func run(ctx *cli.Context) {
 		}
 	}
 
-	if err := events.CloseAll(); err != nil {
-		panic(err)
-	}
+	//if err := events.CloseAll(); err != nil {
+	//	panic(err)
+	//}
 
 }
