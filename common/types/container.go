@@ -8,9 +8,10 @@ import (
 type Container struct {
 	dTypes.ContainerJSON
 	OpLabels OpLabels
+	NRetries uint
 }
 
-func (c *Container) IsDockerAndInfracontainer() bool {
+func (c *Container) IsDockerOrInfracontainer() bool {
 	if c.Config != nil {
 		contName, exists := c.Config.Labels[k8sDockerLbls.KubernetesContainerNameLabel]
 		return !exists || contName == "POD"

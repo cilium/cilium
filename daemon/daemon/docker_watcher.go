@@ -20,6 +20,8 @@ import (
 
 const (
 	syncRateDocker = time.Duration(30 * time.Second)
+
+	maxRetries = 3
 )
 
 // EnableDockerEventListener watches for docker events. Performs the plumbing for the
@@ -172,8 +174,19 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 			ProbeLabels:    newLabels.DeepCopy(),
 			EndpointLabels: newLabels.DeepCopy(),
 		}
-		cont = types.Container{dockerCont, opLabels}
+		cont = types.Container{dockerCont, opLabels, 0}
 	} else {
+		if ciliumContainer.NRetries > maxRetries {
+			d.containersMU.Unlock()
+			return isNewContainer, nil, nil
+		}
+		ep, err := d.EndpointGetByDockerID(ciliumContainer.ID)
+		if err == nil && ep == nil {
+			ciliumContainer.NRetries++
+		} else {
+			ciliumContainer.NRetries = 0
+		}
+
 		newLabelsSHA256, err := newLabels.SHA256Sum()
 		if err != nil {
 			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", newLabels, err)
@@ -222,7 +235,7 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 			}
 		}
 
-		cont = types.Container{dockerCont, ciliumContainer.OpLabels}
+		cont = types.Container{dockerCont, ciliumContainer.OpLabels, ciliumContainer.NRetries}
 	}
 
 	if isNewContainer {
@@ -240,6 +253,10 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 }
 
 func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool) error {
+	if container == nil {
+		return nil
+	}
+
 	dockerID := container.ID
 
 	log.Debugf("Putting labels %+v", container.OpLabels.EndpointLabels)
@@ -261,14 +278,14 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
 			break
 		}
-		if container.IsDockerAndInfracontainer() {
+		if container.IsDockerOrInfracontainer() {
 			log.Warningf("Something went wrong, the docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
 		}
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
 	if try >= maxTries {
-		if container.IsDockerAndInfracontainer() {
+		if container.IsDockerOrInfracontainer() {
 			return fmt.Errorf("It was impossible to store the SecLabel %d for docker endpoint ID '%s'", secCtxlabels.ID, dockerID)
 		}
 		return nil
@@ -294,9 +311,10 @@ func (d *Daemon) deleteContainer(dockerID string) {
 
 	d.containersMU.Lock()
 	if container, ok := d.containers[dockerID]; ok {
-		d.endpointsMU.Lock()
-		ep := d.lookupDockerID(dockerID)
-		d.endpointsMU.Unlock()
+		ep, err := d.EndpointGetByDockerID(dockerID)
+		if err != nil {
+			log.Warningf("Error while getting endpoint by docker ID: %s", err)
+		}
 
 		sha256sum, err := container.OpLabels.EndpointLabels.SHA256Sum()
 		if err != nil {

@@ -125,6 +125,19 @@ func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID st
 	return nil
 }
 
+// EndpointGetByDockerID returns a copy of the endpoint for the given dockerEPID, or nil
+// if the endpoint was not found.
+func (d *Daemon) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error) {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	if ep := d.lookupDockerID(dockerID); ep != nil {
+		epCopy := *ep
+		return &epCopy, nil
+	}
+	return nil, nil
+}
+
 // EndpointGetByDockerEPID returns a copy of the endpoint for the given dockerEPID, or nil
 // if the endpoint was not found.
 func (d *Daemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
