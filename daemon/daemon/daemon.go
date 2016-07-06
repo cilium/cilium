@@ -268,9 +268,14 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		},
 	}
 
-	consul, err := createConsulClient(c.ConsulConfig)
-	if err != nil {
-		return nil, err
+	var consul *consulAPI.Client
+
+	if c.ConsulConfig != nil {
+		c, err := createConsulClient(c.ConsulConfig)
+		if err != nil {
+			return nil, err
+		}
+		consul = c
 	}
 
 	dockerClient, err := createDockerClient(c.DockerEndpoint)

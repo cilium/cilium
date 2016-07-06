@@ -13,7 +13,6 @@ import (
 	cnd "github.com/noironetworks/cilium-net/daemon/daemon"
 	cns "github.com/noironetworks/cilium-net/daemon/server"
 
-	consulAPI "github.com/hashicorp/consul/api"
 	. "gopkg.in/check.v1"
 )
 
@@ -48,7 +47,6 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	daemonConf.DryMode = true
 	daemonConf.LXCMap = nil
 	daemonConf.NodeAddress = EpAddr
-	daemonConf.ConsulConfig = consulAPI.DefaultConfig()
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
