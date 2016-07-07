@@ -23,7 +23,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 			log.Warningf("Error while parsing drop notification message: %s\n", err)
 			return
 		}
-		d.endpointsLearningMU.Lock()
+		d.endpointsLearningMU.RLock()
 		for _, v := range d.endpointsLearning {
 			if dn.DstID == uint32(v.EndpointID) {
 				go func(epID uint16, lblID uint32) {
@@ -42,7 +42,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 				}(v.EndpointID, dn.SrcLabel)
 			}
 		}
-		d.endpointsLearningMU.Unlock()
+		d.endpointsLearningMU.RUnlock()
 	}
 }
 

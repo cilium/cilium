@@ -37,27 +37,24 @@ type Daemon struct {
 	ipamConf                  map[types.IPAMType]*types.IPAMConfig
 	consul                    *consulAPI.Client
 	containers                map[string]*types.Container
-	containersMU              sync.Mutex
+	containersMU              sync.RWMutex
 	endpoints                 map[uint16]*types.Endpoint
 	endpointsDocker           map[string]*types.Endpoint
 	endpointsDockerEP         map[string]*types.Endpoint
-	endpointsMU               sync.Mutex
+	endpointsMU               sync.RWMutex
 	endpointsLearning         map[uint16]types.LearningLabel
-	endpointsLearningMU       sync.Mutex
+	endpointsLearningMU       sync.RWMutex
 	endpointsLearningRegister chan types.LearningLabel
-	validLabelPrefixesMU      sync.Mutex
 	dockerClient              *dClient.Client
 	k8sClient                 *k8sClient.Client
 	conf                      *Config
 	policyTree                types.PolicyTree
-	policyTreeMU              sync.Mutex
+	policyTreeMU              sync.RWMutex
 	cacheIteration            int
 	reservedConsumables       []*types.Consumable
 	uiTopo                    types.UITopo
 	uiListeners               map[*Conn]bool
-	uiListenersMU             sync.Mutex
 	registerUIListener        chan *Conn
-	configMutex               sync.Mutex
 }
 
 func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
@@ -115,7 +112,9 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	defer f.Close()
 
 	fw := bufio.NewWriter(f)
+	d.conf.OptsMU.RLock()
 	fw.WriteString(d.conf.Opts.GetFmtList())
+	d.conf.OptsMU.RUnlock()
 
 	return fw.Flush()
 }
@@ -328,12 +327,12 @@ func changedOption(key string, value bool, data interface{}) {
 }
 
 func (d *Daemon) Update(opts types.OptionMap) error {
+	d.conf.OptsMU.Lock()
+	defer d.conf.OptsMU.Unlock()
+
 	if err := d.conf.Opts.Validate(opts); err != nil {
 		return err
 	}
-
-	d.configMutex.Lock()
-	defer d.configMutex.Unlock()
 
 	changes := d.conf.Opts.Apply(opts, changedOption, d)
 	if changes > 0 {

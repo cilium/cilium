@@ -38,6 +38,7 @@ func (rs receivedStats) getStats(from, to uint32) *policymap.PolicyEntry {
 
 func (d *Daemon) getReceivedStats() (receivedStats, error) {
 	stats := receivedStats{}
+	d.endpointsMU.RLock()
 	for _, ep := range d.endpoints {
 		if ep.SecLabel != nil {
 			if ep.PolicyMap != nil {
@@ -64,21 +65,11 @@ func (d *Daemon) getReceivedStats() (receivedStats, error) {
 			}
 		}
 	}
+	d.endpointsMU.RUnlock()
 	return stats, nil
 }
 
 func (d *Daemon) ListenBuildUIEvents() {
-	sendToListener := func(c *Conn, message types.UIUpdateMsg) {
-		select {
-		case c.uiChan <- message:
-		case <-time.After(time.Second * 90):
-			d.uiListenersMU.Lock()
-			if _, ok := d.uiListeners[c]; ok {
-				delete(d.uiListeners, c)
-			}
-			d.uiListenersMU.Unlock()
-		}
-	}
 
 	go func() {
 		refreshTime := time.NewTicker(2 * time.Second)
@@ -97,7 +88,11 @@ func (d *Daemon) ListenBuildUIEvents() {
 
 						sctx.To = toNode.Labels
 
-						cd := d.policyCanConsume(sctx)
+						cdReply, err := d.PolicyCanConsume(sctx)
+						if err != nil {
+							continue
+						}
+						cd := cdReply.Decision
 
 						pe := stats.getStats(uint32(fromNode.ID), uint32(toNode.ID))
 
@@ -113,38 +108,45 @@ func (d *Daemon) ListenBuildUIEvents() {
 			}
 		}
 	}()
-
 	go func() {
 		for {
 			select {
 			case conn := <-d.registerUIListener:
-				d.uiListenersMU.Lock()
 				d.uiListeners[conn] = true
 				nodes := d.uiTopo.GetNodes()
 				for _, node := range nodes {
 					message := types.NewUIUpdateMsg().Add().Node(node).Build()
-					go sendToListener(conn, message)
+					select {
+					case conn.uiChan <- message:
+					default:
+						delete(d.uiListeners, conn)
+					}
 				}
 				edges := d.uiTopo.GetEdges()
 				for _, edge := range edges {
 					message := types.NewUIUpdateMsg().Add().Edge(edge).Build()
-					go sendToListener(conn, message)
+					select {
+					case conn.uiChan <- message:
+					default:
+						delete(d.uiListeners, conn)
+					}
 				}
-				d.uiListenersMU.Unlock()
 
 			case message := <-d.uiTopo.UIChan:
-				d.uiListenersMU.Lock()
-				for c := range d.uiListeners {
-					go sendToListener(c, message)
+				for conn := range d.uiListeners {
+					select {
+					case conn.uiChan <- message:
+					default:
+						delete(d.uiListeners, conn)
+					}
 				}
-				d.uiListenersMU.Unlock()
 			}
 		}
 	}()
 }
 
 func (d *Daemon) RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error) {
-	umsg := make(chan types.UIUpdateMsg, 1)
+	umsg := make(chan types.UIUpdateMsg, 256)
 	c := &Conn{ws: conn, uiChan: umsg}
 	d.registerUIListener <- c
 	return umsg, nil

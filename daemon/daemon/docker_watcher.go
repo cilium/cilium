@@ -129,8 +129,8 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
 
 	ciliumLabels.MergeLabels(k8sLabels)
 
-	d.validLabelPrefixesMU.Lock()
-	defer d.validLabelPrefixesMU.Unlock()
+	d.conf.ValidLabelPrefixesMU.RLock()
+	defer d.conf.ValidLabelPrefixesMU.RUnlock()
 	return d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
 }
 

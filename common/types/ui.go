@@ -25,7 +25,7 @@ const (
 )
 
 type UITopo struct {
-	uiTopoMU *sync.Mutex
+	uiTopoMU *sync.RWMutex
 	uiNodes  map[int]*UINode
 	uiEdges  map[string]*UIEdge
 	UIChan   chan UIUpdateMsg
@@ -33,7 +33,7 @@ type UITopo struct {
 
 func NewUITopo() UITopo {
 	return UITopo{
-		uiTopoMU: &sync.Mutex{},
+		uiTopoMU: &sync.RWMutex{},
 		uiNodes:  map[int]*UINode{},
 		uiEdges:  map[string]*UIEdge{},
 		UIChan:   make(chan UIUpdateMsg, 10),
@@ -117,8 +117,8 @@ func (t *UITopo) DeleteNode(id32 uint32) {
 }
 
 func (t *UITopo) GetNodes() []UINode {
-	t.uiTopoMU.Lock()
-	defer t.uiTopoMU.Unlock()
+	t.uiTopoMU.RLock()
+	defer t.uiTopoMU.RUnlock()
 	nodes := []UINode{}
 	for _, node := range t.uiNodes {
 		node.Build()
@@ -267,8 +267,8 @@ func (t *UITopo) DeleteEdge(from, to int) {
 }
 
 func (t *UITopo) GetEdges() []UIEdge {
-	t.uiTopoMU.Lock()
-	defer t.uiTopoMU.Unlock()
+	t.uiTopoMU.RLock()
+	defer t.uiTopoMU.RUnlock()
 	edges := []UIEdge{}
 	for _, edge := range t.uiEdges {
 		edge.Build()

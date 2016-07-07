@@ -223,6 +223,7 @@ func configDaemon(ctx *cli.Context) {
 }
 
 func initEnv(ctx *cli.Context) error {
+	config.OptsMU.Lock()
 	if ctx.GlobalBool("debug") {
 		common.SetupLOG(log, "DEBUG")
 		config.Opts.Set(types.OptionDebug, true)
@@ -236,7 +237,9 @@ func initEnv(ctx *cli.Context) error {
 	config.Opts.Set(types.OptionConntrack, !disableConntrack)
 	config.Opts.Set(types.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(types.OptionPolicy, !disablePolicy)
+	config.OptsMU.Unlock()
 
+	config.ValidLabelPrefixesMU.Lock()
 	if labelPrefixFile != "" {
 		var err error
 		config.ValidLabelPrefixes, err = types.ReadLabelPrefixCfgFrom(labelPrefixFile)
@@ -246,6 +249,7 @@ func initEnv(ctx *cli.Context) error {
 	} else {
 		config.ValidLabelPrefixes = types.DefaultLabelPrefixCfg()
 	}
+	config.ValidLabelPrefixesMU.Unlock()
 
 	if nodeAddrStr == "" {
 		var err error

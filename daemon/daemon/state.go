@@ -83,18 +83,18 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			})
 		}
 		if err != nil {
-			log.Warningf("Failed while reallocating ep %s's IP address: %s", ep.ID, err)
+			log.Warningf("Failed while reallocating ep %d's IP address: %s", ep.ID, err)
 		} else {
-			log.Infof("EP %s's IP successfully reallocated", ep.ID)
+			log.Infof("EP %d's IP successfully reallocated", ep.ID)
 		}
 		err = d.EndpointUpdate(ep.ID, nil)
 		if err != nil {
-			log.Warningf("Failed while updating ep %s: %s", ep.ID, err)
+			log.Warningf("Failed while updating ep %d: %s", ep.ID, err)
 		} else {
 			if ep.SecLabel != nil {
 				d.AddOrUpdateUINode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount())
 			}
-			log.Infof("EP %s completely restored", ep.ID)
+			log.Infof("EP %d completely restored", ep.ID)
 		}
 	}
 
@@ -116,7 +116,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*types.Endpoi
 			}
 			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
 			if cHeaderFile == "" {
-				log.Infof("File %q not found in %q. Ignoring endpoint %q.",
+				log.Infof("File %q not found in %q. Ignoring endpoint %d.",
 					common.CHeaderFileName, epDir, epID)
 				return ""
 			}
@@ -177,7 +177,7 @@ func (d *Daemon) syncLabels(ep *types.Endpoint) error {
 	}
 
 	if labels.ID != ep.SecLabel.ID {
-		log.Infof("Security label ID for endpoint %s is different "+
+		log.Infof("Security label ID for endpoint %d is different "+
 			"that the one stored, updating from %d to %d\n",
 			ep.ID, ep.SecLabel.ID, labels.ID)
 	}
@@ -195,7 +195,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	}
 
 	cleanUp := func(ep types.Endpoint) {
-		log.Infof("Endpoint %q not found in docker, cleaning up...", ep.ID)
+		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
 		d.EndpointLeave(ep.ID)
 		if ep.LXCIP != nil {
 			if ep.IsCNI() {
@@ -212,7 +212,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	}
 
 	for _, ep := range eps {
-		log.Debugf("Checking if endpoint is running in docker %s", ep.ID)
+		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
 		if ep.DockerNetworkID != "" {
 			nls, err := d.dockerClient.NetworkInspect(ep.DockerNetworkID)
 			if dockerAPI.IsErrNetworkNotFound(err) {
