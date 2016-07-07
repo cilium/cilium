@@ -8,8 +8,6 @@ tests:
 	go fmt ./...
 	go test ./...
 
-runtime-tests:
-
 run:
 	./cilium
 

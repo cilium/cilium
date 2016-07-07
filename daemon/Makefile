@@ -17,8 +17,6 @@ tests:
 	-rmdir ./daemon/1 ./daemon/1_backup
 	docker rm -f "cilium-consul-test-container"
 
-runtime-tests:
-
 run:
 
 clean:

@@ -16,8 +16,5 @@ clean:
 install:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 
-runtime-tests:
-	for i in $(SUBDIRS); do $(MAKE) -C $$i runtime-tests; done
-
 .PHONY: force
 force :;

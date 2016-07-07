@@ -11,8 +11,6 @@ tests:
 	go fmt ./...
 	sudo -E env "PATH=${PATH}" go test ./...
 
-runtime-tests:
-
 run:
 
 clean:
