@@ -1,6 +1,6 @@
 include ../Makefile.defs
 
-SUBDIRS = docker cni
+SUBDIRS = cilium-docker cilium-cni
 
 all: $(SUBDIRS)
 
