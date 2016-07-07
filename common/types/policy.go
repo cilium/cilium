@@ -277,6 +277,11 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	return UNDECIDED
 }
 
+type PolicyRule interface {
+	Allows(ctx *SearchContext) ConsumableDecision
+	Resolve(node *PolicyNode) error
+}
+
 // Allow the following consumers
 type PolicyRuleConsumers struct {
 	Coverage []Label     `json:"coverage,omitempty"`
@@ -411,7 +416,7 @@ type PolicyNode struct {
 	path     string
 	Name     string                 `json:"name"`
 	Parent   *PolicyNode            `json:"-"`
-	Rules    []interface{}          `json:"rules,omitempty"`
+	Rules    []PolicyRule           `json:"rules,omitempty"`
 	Children map[string]*PolicyNode `json:"children,omitempty"`
 }
 
@@ -449,18 +454,7 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 	policyTraceVerbose(ctx, "Evaluating node %+v\n", p)
 
 	for k, _ := range p.Rules {
-		sub_decision := UNDECIDED
-
-		switch p.Rules[k].(type) {
-		case PolicyRuleConsumers:
-			pr_c := p.Rules[k].(PolicyRuleConsumers)
-			sub_decision = pr_c.Allows(ctx)
-			break
-		case PolicyRuleRequires:
-			pr_r := p.Rules[k].(PolicyRuleRequires)
-			sub_decision = pr_r.Allows(ctx)
-			break
-		}
+		sub_decision := p.Rules[k].Allows(ctx)
 
 		switch sub_decision {
 		case ALWAYS_ACCEPT:
@@ -501,19 +495,8 @@ func (pn *PolicyNode) resolveRules() error {
 	log.Debugf("Resolving rules of node %+v\n", pn)
 
 	for k, _ := range pn.Rules {
-		switch pn.Rules[k].(type) {
-		case PolicyRuleConsumers:
-			r := pn.Rules[k].(PolicyRuleConsumers)
-			if err := r.Resolve(pn); err != nil {
-				return err
-			}
-			break
-		case PolicyRuleRequires:
-			r := pn.Rules[k].(PolicyRuleRequires)
-			if err := r.Resolve(pn); err != nil {
-				return err
-			}
-			break
+		if err := pn.Rules[k].Resolve(pn); err != nil {
+			return err
 		}
 	}
 
@@ -575,7 +558,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			pn.Rules = append(pn.Rules, pr_c)
+			pn.Rules = append(pn.Rules, &pr_c)
 		} else if _, ok := om[privEnc[ALWAYS_ALLOW]]; ok {
 			var pr_c PolicyRuleConsumers
 
@@ -590,7 +573,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 				}
 			}
 
-			pn.Rules = append(pn.Rules, pr_c)
+			pn.Rules = append(pn.Rules, &pr_c)
 		} else if _, ok := om[privEnc[REQUIRES]]; ok {
 			var pr_r PolicyRuleRequires
 
@@ -598,7 +581,7 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			pn.Rules = append(pn.Rules, pr_r)
+			pn.Rules = append(pn.Rules, &pr_r)
 		} else {
 			return fmt.Errorf("unknown policy rule object: %+v", om)
 		}
