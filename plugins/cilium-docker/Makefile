@@ -9,7 +9,6 @@ tests:
 	go test ./...
 
 runtime-tests:
-	./tests/run.sh
 
 SOURCES := $(shell find . -name '*.go')
 
