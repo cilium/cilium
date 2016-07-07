@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source "./helpers.bash"
+
 set -ex
 
 TEST_NET="cilium"
@@ -10,11 +12,6 @@ function cleanup {
 }
 
 trap cleanup EXIT
-
-function abort {
-	echo "$*"
-	exit 1
-}
 
 SERVER_LABEL="io.cilium.test.server"
 CLIENT_LABEL="io.cilium.test.client"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+source "./helpers.bash"
+
 set -ex
 
 if [ -z $K8S ]; then
@@ -34,11 +36,6 @@ function cleanup {
     sudo killall -9 kube-proxy || true
     sudo killall -9 kube-apiserver || true
     docker rm -f `docker ps -aq --filter=name=k8s` 2> /dev/null || true
-}
-
-function abort {
-    echo "$*"
-    exit 1
 }
 
 trap cleanup EXIT
