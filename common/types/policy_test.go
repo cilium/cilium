@@ -383,8 +383,8 @@ func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
 
 	rootNode := PolicyNode{
 		Name: common.GlobalLabelPrefix,
-		Rules: []interface{}{
-			PolicyRuleConsumers{
+		Rules: []PolicyRule{
+			&PolicyRuleConsumers{
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
 					AllowRule{ // always-allow:  user=joe
@@ -397,15 +397,15 @@ func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
 					},
 				},
 			},
-			PolicyRuleRequires{ // coverage qa, requires qa
+			&PolicyRuleRequires{ // coverage qa, requires qa
 				Coverage: []Label{*lblQA},
 				Requires: []Label{*lblQA},
 			},
-			PolicyRuleRequires{ // coverage prod, requires: prod
+			&PolicyRuleRequires{ // coverage prod, requires: prod
 				Coverage: []Label{*lblProd},
 				Requires: []Label{*lblProd},
 			},
-			PolicyRuleConsumers{
+			&PolicyRuleConsumers{
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
 					AllowRule{ // allow: foo
@@ -431,7 +431,7 @@ func (s *CommonSuite) TestResolveTree(c *C) {
 	rootNode := PolicyNode{
 		Name: common.GlobalLabelPrefix,
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{Rules: []interface{}{PolicyRuleConsumers{}}},
+			"foo": &PolicyNode{Rules: []PolicyRule{&PolicyRuleConsumers{}}},
 		},
 	}
 
@@ -486,8 +486,8 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 
 	rootNode := PolicyNode{
 		Name: common.GlobalLabelPrefix,
-		Rules: []interface{}{
-			PolicyRuleConsumers{
+		Rules: []PolicyRule{
+			&PolicyRuleConsumers{
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
 					// always-allow: user=joe
@@ -496,11 +496,11 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 					AllowRule{Action: ACCEPT, Label: *lblPete},
 				},
 			},
-			PolicyRuleRequires{ // coverage qa, requires qa
+			&PolicyRuleRequires{ // coverage qa, requires qa
 				Coverage: []Label{*lblQA},
 				Requires: []Label{*lblQA},
 			},
-			PolicyRuleRequires{ // coverage prod, requires: prod
+			&PolicyRuleRequires{ // coverage prod, requires: prod
 				Coverage: []Label{*lblProd},
 				Requires: []Label{*lblProd},
 			},
@@ -508,8 +508,8 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 		Children: map[string]*PolicyNode{
 			"foo": &PolicyNode{},
 			"bar": &PolicyNode{
-				Rules: []interface{}{
-					PolicyRuleConsumers{
+				Rules: []PolicyRule{
+					&PolicyRuleConsumers{
 						Allow: []AllowRule{
 							AllowRule{ // allow: foo
 								Action: ACCEPT,
@@ -561,8 +561,8 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 
 	aNode = PolicyNode{
 		Name: common.GlobalLabelPrefix,
-		Rules: []interface{}{
-			PolicyRuleRequires{ // coverage qa, requires qa
+		Rules: []PolicyRule{
+			&PolicyRuleRequires{ // coverage qa, requires qa
 				Coverage: []Label{*lblQA},
 				Requires: []Label{*lblQA},
 			},
@@ -571,8 +571,8 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 			"bar": &PolicyNode{
 				Name: "bar",
 				path: common.GlobalLabelPrefix + ".bar",
-				Rules: []interface{}{
-					PolicyRuleConsumers{
+				Rules: []PolicyRule{
+					&PolicyRuleConsumers{
 						Allow: []AllowRule{
 							AllowRule{Action: DENY, Label: *lblJoe},
 							AllowRule{Action: DENY, Label: *lblPete},
@@ -585,8 +585,8 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 
 	bNode = PolicyNode{
 		Name: common.GlobalLabelPrefix,
-		Rules: []interface{}{
-			PolicyRuleRequires{ // coverage prod, requires: prod
+		Rules: []PolicyRule{
+			&PolicyRuleRequires{ // coverage prod, requires: prod
 				Coverage: []Label{*lblProd},
 				Requires: []Label{*lblProd},
 			},
@@ -599,8 +599,8 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 			"bar": &PolicyNode{
 				Name: "bar",
 				path: common.GlobalLabelPrefix + ".bar",
-				Rules: []interface{}{
-					PolicyRuleConsumers{
+				Rules: []PolicyRule{
+					&PolicyRuleConsumers{
 						Allow: []AllowRule{
 							AllowRule{ // allow: foo
 								Action: ACCEPT,
