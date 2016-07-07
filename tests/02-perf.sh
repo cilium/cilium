@@ -1,27 +1,25 @@
 #!/bin/bash
 
+source "./helpers.bash"
+
 set -ex
 
 TEST_NET="cilium"
 NETPERF_IMAGE="noironetworks/netperf"
 TEST_TIME=30
 
+# Only run these tests if BENCHMARK=1 has been set
+if [ -z $BENCHMARK ]; then
+	exit 0
+fi
+
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
+
+	cilium daemon config DropNotification=true Debug=true
 }
 
 trap cleanup EXIT
-
-function reset_trace {
-	if [ -d "/sys/kernel/debug/tracing/" ]; then
-		cp /dev/null /sys/kernel/debug/tracing/trace
-	fi
-}
-
-function abort {
-	echo "$*"
-	exit 1
-}
 
 SERVER_LABEL="io.cilium.server"
 CLIENT_LABEL="io.cilium.client"
@@ -30,7 +28,6 @@ docker network inspect $TEST_NET || {
 	docker network create --ipam-driver cilium --driver cilium $TEST_NET
 }
 
-reset_trace
 docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
 docker run -dt --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE
 

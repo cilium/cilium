@@ -25,9 +25,6 @@ clean:
 tests:
 	$(MAKE) -C go tests
 
-runtime-tests:
-	$(MAKE) -C go runtime-tests
-
 install:
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/ $(BPF:.o=.c)
 	$(INSTALL) -m 0755 -t $(DESTDIR)$(LIBDIR)/cilium/ $(SCRIPTS)

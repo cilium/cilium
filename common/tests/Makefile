@@ -2,9 +2,6 @@ include ../../Makefile.defs
 
 all: perf-event-test bpf-event-test.o
 
-runtime-tests:
-	./test.sh bpf-event-test.o
-
 perf-event-test: perf-event-test.go
 	go build -o $@ $<
 

@@ -7,8 +7,6 @@ tests:
 	go fmt ./...
 	go test . ./backend ./bpf ./client ./plugins ./types
 
-runtime-tests:
-
 run:
 
 clean:

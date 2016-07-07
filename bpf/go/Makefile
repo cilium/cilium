@@ -6,8 +6,6 @@ tests:
 	go fmt ./...
 	go test ./...
 
-runtime-tests:
-
 SOURCES := $(shell find . -name '*.go')
 
 map_ctrl: $(SOURCES)

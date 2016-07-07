@@ -8,9 +8,6 @@ tests:
 	go fmt ./...
 	go test ./...
 
-runtime-tests:
-	./tests/run.sh
-
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
