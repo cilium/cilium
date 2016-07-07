@@ -313,16 +313,20 @@ func (d *Daemon) regenerateBPF(ep *types.Endpoint, lxcDir string) error {
 		}
 	}()
 
-	if ep.PolicyMap == nil {
-		ep.PolicyMap, createdPolicyMap, err = policymap.OpenMap(policyMapPath)
-		if err != nil {
-			return err
+	if !d.conf.DryMode {
+		if ep.PolicyMap == nil {
+			ep.PolicyMap, createdPolicyMap, err = policymap.OpenMap(policyMapPath)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if ep.Consumable != nil {
-		ep.Consumable.AddMap(ep.PolicyMap)
+		if !d.conf.DryMode {
+			ep.Consumable.AddMap(ep.PolicyMap)
+		}
 
 		// The policy is only regenerated but the endpoint is not
 		// regenerated as we regenerate below anyway.
@@ -346,19 +350,22 @@ func (d *Daemon) regenerateBPF(ep *types.Endpoint, lxcDir string) error {
 		return fmt.Errorf("failed to create temporary directory: %s", err)
 	}
 
-	if err := d.conf.LXCMap.WriteEndpoint(ep); err != nil {
-		return fmt.Errorf("Unable to update eBPF map: %s", err)
+	if !d.conf.DryMode {
+		if err := d.conf.LXCMap.WriteEndpoint(ep); err != nil {
+			return fmt.Errorf("Unable to update eBPF map: %s", err)
+		}
+
+		args := []string{d.conf.LibDir, lxcDir, ep.IfName}
+		out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
+		if err != nil {
+			log.Warningf("Command execution failed: %s", err)
+			log.Warningf("Command output:\n%s", out)
+			return fmt.Errorf("error: %q command output: %q", err, out)
+		}
+
+		log.Infof("Command successful:\n%s", out)
 	}
 
-	args := []string{d.conf.LibDir, lxcDir, ep.IfName}
-	out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
-	if err != nil {
-		log.Warningf("Command execution failed: %s", err)
-		log.Warningf("Command output:\n%s", out)
-		return fmt.Errorf("error: %q command output: %q", err, out)
-	}
-
-	log.Infof("Command successful:\n%s", out)
 	return nil
 }
 
