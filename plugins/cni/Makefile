@@ -14,6 +14,7 @@ runtime-tests-k8s:
 	./tests/run.sh
 
 clean:
+	go clean
 	rm -f $(TARGET)
 
 SOURCES := $(shell find . -name '*.go')

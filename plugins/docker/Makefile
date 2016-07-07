@@ -20,6 +20,7 @@ run:
 	./cilium-docker -d
 
 clean:
+	go clean
 	rm -f $(TARGET)
 
 install: all
