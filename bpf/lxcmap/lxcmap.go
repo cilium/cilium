@@ -3,18 +3,13 @@ package lxcmap
 /*
 #cgo CFLAGS: -I../include
 #include <linux/bpf.h>
-#include <sys/resource.h>
 */
 import "C"
 
 import (
 	"fmt"
-	"math"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
-	"syscall"
 	"unsafe"
 
 	common "github.com/noironetworks/cilium-net/common"
@@ -161,50 +156,17 @@ func (m *LXCMap) DeleteElement(id uint16) error {
 
 // OpenMap opens the LXCMap in the given path.
 func OpenMap(path string) (*LXCMap, error) {
-	var fd int
 
-	rl := syscall.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
-	}
-
-	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
+	fd, _, err := bpf.OpenOrCreateMap(
+		path,
+		C.BPF_MAP_TYPE_HASH,
+		uint32(unsafe.Sizeof(uint16(0))),
+		uint32(unsafe.Sizeof(LXCInfo{})),
+		MaxKeys,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to increase rlimit: %s", err)
+		return nil, err
 	}
-
-	if _, err = os.Stat(path); os.IsNotExist(err) {
-		mapDir := filepath.Dir(path)
-		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
-			if err = os.MkdirAll(mapDir, 0755); err != nil {
-				return nil, fmt.Errorf("Unable create map base directory: %s", err)
-			}
-		}
-
-		fd, err = bpf.CreateMap(
-			C.BPF_MAP_TYPE_HASH,
-			uint32(unsafe.Sizeof(uint16(0))),
-			uint32(unsafe.Sizeof(LXCInfo{})),
-			MaxKeys,
-		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		err = bpf.ObjPin(fd, path)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fd, err = bpf.ObjGet(path)
-		if err != nil {
-			return nil, err
-		}
-
-		// FIXME: Read in existing container data
-	}
-
 	m := new(LXCMap)
 	m.fd = fd
 

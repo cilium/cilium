@@ -3,17 +3,12 @@ package policymap
 /*
 #cgo CFLAGS: -I../include
 #include <linux/bpf.h>
-#include <sys/resource.h>
 */
 import "C"
 
 import (
 	"bytes"
 	"fmt"
-	"math"
-	"os"
-	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"github.com/noironetworks/cilium-net/common/bpf"
@@ -25,7 +20,6 @@ type PolicyMap struct {
 }
 
 const (
-	// FIXME: Change to common.MaxKeys
 	MAX_KEYS = 1024
 )
 
@@ -112,52 +106,20 @@ func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 }
 
 func OpenMap(path string) (*PolicyMap, bool, error) {
-	var fd int
 
-	created := false
+	fd, isNewMap, err := bpf.OpenOrCreateMap(
+		path,
+		C.BPF_MAP_TYPE_HASH,
+		uint32(unsafe.Sizeof(uint32(0))),
+		uint32(unsafe.Sizeof(PolicyEntry{})),
+		MAX_KEYS,
+	)
 
-	rl := syscall.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
-	}
-
-	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
-		return nil, created, fmt.Errorf("Unable to increase rlimit: %s", err)
-	}
-
-	if _, err = os.Stat(path); os.IsNotExist(err) {
-		mapDir := filepath.Dir(path)
-		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
-			if err = os.MkdirAll(mapDir, 0755); err != nil {
-				return nil, created, fmt.Errorf("Unable create map base directory: %s", err)
-			}
-		}
-
-		fd, err = bpf.CreateMap(
-			C.BPF_MAP_TYPE_HASH,
-			uint32(unsafe.Sizeof(uint32(0))),
-			uint32(unsafe.Sizeof(PolicyEntry{})),
-			MAX_KEYS,
-		)
-
-		created = true
-
-		if err != nil {
-			return nil, created, err
-		}
-
-		if err = bpf.ObjPin(fd, path); err != nil {
-			return nil, created, err
-		}
-	} else {
-		fd, err = bpf.ObjGet(path)
-		if err != nil {
-			return nil, created, err
-		}
+		return nil, false, err
 	}
 
 	m := &PolicyMap{path: path, Fd: fd}
 
-	return m, created, nil
+	return m, isNewMap, nil
 }
