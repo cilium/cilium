@@ -6,6 +6,11 @@ TEST_NET="cilium"
 NETPERF_IMAGE="noironetworks/netperf"
 TEST_TIME=30
 
+# Only run these tests if BENCHMARK=1 has been set
+if [ -z $BENCHMARK ]; then
+	exit 0
+fi
+
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
 }
