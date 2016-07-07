@@ -4,6 +4,7 @@ package bpf
 #cgo CFLAGS: -I../../bpf/include
 #include <linux/unistd.h>
 #include <linux/bpf.h>
+#include <sys/resource.h>
 
 #if !defined __NR_bpf && defined CI_BUILD
 #define __NR_bpf 1
@@ -81,6 +82,9 @@ import "C"
 
 import (
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 )
@@ -244,4 +248,50 @@ func ObjGet(pathname string) (int, error) {
 	}
 
 	return int(fd), nil
+}
+
+func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries uint32) (int, bool, error) {
+	var fd int
+
+	isNewMap := false
+
+	rl := syscall.Rlimit{
+		Cur: math.MaxUint64,
+		Max: math.MaxUint64,
+	}
+
+	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
+	if err != nil {
+		return 0, isNewMap, fmt.Errorf("Unable to increase rlimit: %s", err)
+	}
+
+	if _, err = os.Stat(path); os.IsNotExist(err) {
+		mapDir := filepath.Dir(path)
+		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
+			if err = os.MkdirAll(mapDir, 0755); err != nil {
+				return 0, isNewMap, fmt.Errorf("Unable create map base directory: %s", err)
+			}
+		}
+
+		fd, err = CreateMap(
+			mapType,
+			keySize,
+			valueSize,
+			maxEntries,
+		)
+
+		isNewMap = true
+
+		if err != nil {
+			return 0, isNewMap, err
+		}
+
+		err = ObjPin(fd, path)
+		if err != nil {
+			return 0, isNewMap, err
+		}
+	}
+
+	fd, err = ObjGet(path)
+	return fd, isNewMap, err
 }

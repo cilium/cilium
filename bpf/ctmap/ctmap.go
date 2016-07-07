@@ -3,17 +3,12 @@ package ctmap
 /*
 #cgo CFLAGS: -I../include
 #include <linux/bpf.h>
-#include <sys/resource.h>
 */
 import "C"
 
 import (
 	"bytes"
 	"fmt"
-	"math"
-	"os"
-	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"github.com/noironetworks/cilium-net/common/bpf"
@@ -32,7 +27,6 @@ const (
 )
 
 const (
-	// FIXME: Change to common.MaxKeys
 	MAX_KEYS = 1024
 )
 
@@ -173,46 +167,16 @@ func (m *CtMap) GC(interval uint16) int {
 }
 
 func OpenMap(path string) (*CtMap, error) {
-	var fd int
+	fd, _, err := bpf.OpenOrCreateMap(
+		path,
+		C.BPF_MAP_TYPE_HASH,
+		uint32(unsafe.Sizeof(CtKey{})),
+		uint32(unsafe.Sizeof(CtEntry{})),
+		MAX_KEYS,
+	)
 
-	rl := syscall.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
-	}
-
-	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to increase rlimit: %s", err)
-	}
-
-	if _, err = os.Stat(path); os.IsNotExist(err) {
-		mapDir := filepath.Dir(path)
-		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
-			if err = os.MkdirAll(mapDir, 0755); err != nil {
-				return nil, fmt.Errorf("Unable create map base directory: %s", err)
-			}
-		}
-
-		fd, err = bpf.CreateMap(
-			C.BPF_MAP_TYPE_HASH,
-			uint32(unsafe.Sizeof(CtKey{})),
-			uint32(unsafe.Sizeof(CtEntry{})),
-			MAX_KEYS,
-		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		err = bpf.ObjPin(fd, path)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fd, err = bpf.ObjGet(path)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	m := &CtMap{path: path, Fd: fd}
