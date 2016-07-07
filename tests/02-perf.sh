@@ -13,6 +13,8 @@ fi
 
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
+
+	cilium daemon config DropNotification=true Debug=true
 }
 
 trap cleanup EXIT
