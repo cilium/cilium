@@ -51,7 +51,9 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
 	daemonConf.IPv4Range = ipv4range
+	daemonConf.OptsMU.Lock()
 	daemonConf.Opts.Set(types.OptionDropNotify, true)
+	daemonConf.OptsMU.Unlock()
 	daemonConf.Device = "undefined"
 
 	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")

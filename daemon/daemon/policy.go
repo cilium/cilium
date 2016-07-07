@@ -122,18 +122,18 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		To: c.LabelList,
 	}
 
+	d.conf.OptsMU.RLock()
 	if d.conf.Opts.IsEnabled(OptionPolicyTracing) {
 		ctx.Trace = types.TRACE_ENABLED
 	}
-
-	d.policyTreeMU.Lock()
-	defer d.policyTreeMU.Unlock()
+	d.conf.OptsMU.RUnlock()
 
 	// Mark all entries unused by denying them
 	for k, _ := range c.Consumers {
 		c.Consumers[k].DeletionMark = true
 	}
 
+	d.policyTreeMU.RLock()
 	// Check access from reserved consumables first
 	for _, id := range d.reservedConsumables {
 		if err := d.evaluateConsumerSource(e, &ctx, id.ID); err != nil {
@@ -152,6 +152,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		}
 		idx++
 	}
+	d.policyTreeMU.RUnlock()
 
 	// Garbage collect all unused entries
 	for _, val := range c.Consumers {
@@ -183,18 +184,17 @@ func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.OptionMap, dstI
 		From: e.Consumable.LabelList,
 	}
 
+	d.conf.OptsMU.RLock()
 	if d.conf.Opts.IsEnabled(OptionPolicyTracing) {
 		ctx.Trace = types.TRACE_ENABLED
 	}
+	d.conf.OptsMU.RUnlock()
 
 	ctx.To, err = d.GetCachedLabelList(dstID)
 	if err != nil {
 		log.Warningf("Unable to get label list for ID %d, access for endpoint may be restricted\n", dstID)
 		return
 	}
-
-	d.policyTreeMU.Lock()
-	defer d.policyTreeMU.Unlock()
 
 	switch d.policyCanConsume(&ctx) {
 	case types.ACCEPT, types.ALWAYS_ACCEPT:
@@ -263,7 +263,10 @@ func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContex
 		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 	}
 	scr := types.SearchContextReply{}
-	scr.Decision = d.policyTree.Allows(ctx)
+	d.policyTreeMU.RLock()
+	scr.Decision = d.policyCanConsume(ctx)
+	d.policyTreeMU.RUnlock()
+
 	if ctx.Trace != types.TRACE_DISABLED {
 		scr.Logging = buffer.Bytes()
 	}
@@ -374,7 +377,9 @@ func (d *Daemon) PolicyDelete(path string) error {
 // PolicyGet returns the policy of the given path.
 func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
 	log.Debugf("Policy Get Request: %s", path)
+	d.policyTreeMU.RLock()
 	node, _, err := d.findNode(path)
+	d.policyTreeMU.RUnlock()
 	return node, err
 }
 

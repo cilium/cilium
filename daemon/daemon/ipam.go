@@ -49,9 +49,14 @@ func releaseIPCNI(cniReq types.IPAMReq, ipamConf *types.IPAMConfig) error {
 
 // allocateIPLibnetwork allocates an IP for the libnetwork plugin.
 func allocateIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types.IPAMRep, error) {
+	log.Debugf("ipamConf.IPAllocatorMU locking...")
 	ipamConf.IPAllocatorMU.Lock()
-	defer ipamConf.IPAllocatorMU.Unlock()
-
+	log.Debugf("ipamConf.IPAllocatorMU Locked")
+	defer func() {
+		log.Debugf("Unlocking ipamConf.IPAllocatorMU")
+		ipamConf.IPAllocatorMU.Unlock()
+		log.Debugf("Unlocked ipamConf.IPAllocatorMU")
+	}()
 	if ln.IP != nil {
 		err := ipamConf.IPAllocator.Allocate(*ln.IP)
 		return nil, err

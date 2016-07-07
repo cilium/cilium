@@ -128,8 +128,8 @@ func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID st
 // EndpointGetByDockerID returns a copy of the endpoint for the given dockerEPID, or nil
 // if the endpoint was not found.
 func (d *Daemon) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error) {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
+	d.endpointsMU.RLock()
+	defer d.endpointsMU.RUnlock()
 
 	if ep := d.lookupDockerID(dockerID); ep != nil {
 		epCopy := *ep
@@ -141,8 +141,8 @@ func (d *Daemon) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error)
 // EndpointGetByDockerEPID returns a copy of the endpoint for the given dockerEPID, or nil
 // if the endpoint was not found.
 func (d *Daemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
+	d.endpointsMU.RLock()
+	defer d.endpointsMU.RUnlock()
 
 	if ep := d.lookupDockerEndpoint(dockerEPID); ep != nil {
 		epCopy := *ep
@@ -154,8 +154,8 @@ func (d *Daemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, er
 // EndpointGet returns a copy of the endpoint for the given endpointID, or nil if the
 // endpoint was not found.
 func (d *Daemon) EndpointGet(endpointID uint16) (*types.Endpoint, error) {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
+	d.endpointsMU.RLock()
+	defer d.endpointsMU.RUnlock()
 
 	if ep := d.lookupCiliumEndpoint(endpointID); ep != nil {
 		epCopy := *ep
@@ -167,8 +167,8 @@ func (d *Daemon) EndpointGet(endpointID uint16) (*types.Endpoint, error) {
 
 // EndpointsGet returns a copy of all the endpoints or nil if there are no endpoints.
 func (d *Daemon) EndpointsGet() ([]types.Endpoint, error) {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
+	d.endpointsMU.RLock()
+	defer d.endpointsMU.RUnlock()
 
 	eps := []types.Endpoint{}
 	epsSet := map[*types.Endpoint]bool{}
@@ -382,6 +382,7 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 		ep.Opts = types.NewBoolOptions(&types.EndpointOptionLibrary)
 	}
 
+	d.conf.OptsMU.Lock()
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionConntrack)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionConntrackAccounting)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionPolicy)
@@ -389,6 +390,7 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDropNotify)
 	ep.Opts.InheritDefault(d.conf.Opts, types.OptionNAT46)
 	ep.Opts.SetIfUnset(types.OptionLearnTraffic, false)
+	d.conf.OptsMU.Unlock()
 
 	d.InsertEndpoint(&ep)
 
@@ -522,10 +524,10 @@ func (d *Daemon) EndpointSave(ep types.Endpoint) error {
 }
 
 func (d *Daemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
-	d.containersMU.Lock()
-	defer d.containersMU.Unlock()
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
+	d.containersMU.RLock()
+	defer d.containersMU.RUnlock()
+	d.endpointsMU.RLock()
+	defer d.endpointsMU.RUnlock()
 
 	ep := d.lookupCiliumEndpoint(epID)
 	if ep == nil {
@@ -550,7 +552,9 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 		return fmt.Errorf("Endpoint %d not found", epID)
 	}
 
+	d.conf.ValidLabelPrefixesMU.RLock()
 	labels = d.conf.ValidLabelPrefixes.FilterLabels(labels)
+	d.conf.ValidLabelPrefixesMU.RUnlock()
 
 	d.containersMU.Lock()
 	cont := d.containers[ep.DockerID]
