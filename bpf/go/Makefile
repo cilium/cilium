@@ -14,6 +14,7 @@ map_ctrl: $(SOURCES)
 	go build -o map_ctrl
 
 clean:
+	go clean
 	rm -f map_ctrl
 
 install:

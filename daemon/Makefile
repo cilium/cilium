@@ -22,6 +22,7 @@ runtime-tests:
 run:
 
 clean:
+	go clean
 	rm -f $(TARGET)
 
 $(TARGET):
