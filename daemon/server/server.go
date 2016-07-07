@@ -57,11 +57,12 @@ func NewServer(socketPath string, daemon *daemon.Daemon) (Server, error) {
 	}
 	if os.Getuid() == 0 {
 		gid, err := common.GetGroupIDByName(common.CiliumGroupName)
-		if err != nil {
-			return nil, fmt.Errorf("failed while searching %s's group ID: %s", common.CiliumGroupName, err)
-		}
-		if err := os.Chown(socketPath, 0, gid); err != nil {
-			return nil, fmt.Errorf("failed while setting up %s's group ID in %q: %s", common.CiliumGroupName, socketPath, err)
+		if err == nil {
+			if err := os.Chown(socketPath, 0, gid); err != nil {
+				return nil, fmt.Errorf("failed while setting up %s's group ID in %q: %s", common.CiliumGroupName, socketPath, err)
+			}
+		} else {
+			log.Warningf("Group %s not found: %s", common.CiliumGroupName, err)
 		}
 		if err := os.Chmod(socketPath, 0660); err != nil {
 			return nil, fmt.Errorf("failed while setting up %s's file permissions in %q: %s", common.CiliumGroupName, socketPath, err)
