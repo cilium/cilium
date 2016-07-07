@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = plugins cli bpf common
+SUBDIRS = plugins cilium bpf common
 SUBDIRSLIB = daemon integration
 
 all: $(SUBDIRS)
