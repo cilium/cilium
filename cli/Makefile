@@ -14,6 +14,7 @@ run:
 	./cilium
 
 clean:
+	go clean
 	rm -f $(TARGET)
 
 SOURCES := $(shell find monitor/ policy/ endpoint/ ../daemon ../common . -name '*.go')
