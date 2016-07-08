@@ -1,15 +1,11 @@
 package types
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"image/color"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
@@ -91,10 +87,6 @@ func (t *UITopo) AddOrUpdateNode(id32 uint32, lbls []Label, refCount int) {
 		node := newuiNode(id, refCount, lbls)
 		t.uiNodes[id] = node
 		msg = NewUIUpdateMsg().Add().Node(*node).Build()
-	}
-	svgByte := createSVG(refCount)
-	if err := writeSVGFile(refCount, "./", svgByte); err != nil {
-		log.Errorf("%s", err)
 	}
 	t.UIChan <- msg
 }
@@ -333,28 +325,6 @@ func (u *uiColor) Grayer() {
 	u.B = (u.B + grey.B) / 2
 }
 
-func writeSVGFile(refCount int, dir string, svg []byte) error {
-	fileName := getImagePath(refCount)
-	if _, err := os.Stat(fileName); !os.IsNotExist(err) {
-		return nil
-	}
-	f, err := os.Create(fileName)
-	if err != nil {
-		d, _ := os.Getwd()
-		return fmt.Errorf("%s failed to open file %s for writing: %s", d, fileName, err)
-
-	}
-	defer f.Close()
-
-	fw := bufio.NewWriter(f)
-
-	_, err = fw.Write(svg)
-	if err != nil {
-		return err
-	}
-	return fw.Flush()
-}
-
 type UIUpdateMsg struct {
 	RemoveID string          `json:"id,omitempty"`
 	UINode   *UINode         `json:"node,omitempty"`
@@ -430,65 +400,5 @@ func (u UIUpdateMsg) Build() UIUpdateMsg {
 }
 
 func getImagePath(id int) string {
-	return fmt.Sprintf("./static/%d.svg", id)
-}
-
-var (
-	svgModel = `<svg height="{{.Height}}" width="{{.Width}}" xmlns="http://www.w3.org/2000/svg">
-<text y="{{.Y}}" text-anchor="middle" x="{{.X}}" font-size="{{.FontSize}}" alignment-baseline="central">{{.ID}}</text>
-</svg>
-`
-
-	svgTempl = template.Must(template.New("").Parse(svgModel))
-)
-
-func createSVG(nEP int) []byte {
-	type svgProp struct {
-		ID       int
-		Height   int
-		Width    int
-		Y        int
-		X        int
-		FontSize int
-	}
-	createSVGConf := func(h, fontSize int) svgProp {
-		return svgProp{
-			Height:   h,
-			Width:    h,
-			Y:        h / 2,
-			X:        h / 2,
-			FontSize: fontSize,
-		}
-	}
-
-	var svgConf svgProp
-
-	switch len(strconv.Itoa(nEP)) {
-	case 1:
-		svgConf = createSVGConf(10, 10)
-	case 2:
-		svgConf = createSVGConf(20, 12)
-	case 3:
-		svgConf = createSVGConf(20, 10)
-	case 4:
-		svgConf = createSVGConf(20, 7)
-	case 5:
-		svgConf = createSVGConf(20, 6)
-	case 6:
-		svgConf = createSVGConf(20, 5)
-	case 7:
-		svgConf = createSVGConf(30, 6)
-	case 8:
-		svgConf = createSVGConf(40, 7)
-	case 9:
-		svgConf = createSVGConf(40, 6)
-	default:
-		svgConf = createSVGConf(40, 5)
-	}
-
-	svgConf.ID = nEP
-	buf := new(bytes.Buffer)
-	svgTempl.Execute(buf, svgConf)
-
-	return buf.Bytes()
+	return fmt.Sprintf("%d", id)
 }

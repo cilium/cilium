@@ -56,7 +56,7 @@ const (
 						"strokeWidth" : 2,
 						"strokeColor" : "rgba(255,255,255,1)"
 					},
-					"shape" : "circularImage"
+					"shape" : "dot"
 				},
 				"edges" : {
 					"color" : {
@@ -93,6 +93,18 @@ const (
 			}
 
 			startNetwork();
+
+			network.on("afterDrawing", function (ctx) {
+				var ids = nodes.getIds();
+				for (i = 0; i < ids.length; i++) {
+					nodeId = ids[i];
+					var nodePosition = network.getPositions([nodeId]);
+					ctx.fillStyle = "black";
+					ctx.textAlign = "center";
+					ctx.textBaseline = "middle";
+					ctx.fillText(nodes.get(nodeId).image, nodePosition[nodeId].x, nodePosition[nodeId].y);
+				}
+			});
 
 			(function() {
 				var networkDiv = document.getElementById("cilium-topology");
