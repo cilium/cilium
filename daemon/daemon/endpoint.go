@@ -378,19 +378,9 @@ func (d *Daemon) EndpointJoin(ep types.Endpoint) error {
 		return fmt.Errorf("failed to create temporary directory: %s", err)
 	}
 
-	if ep.Opts == nil {
-		ep.Opts = types.NewBoolOptions(&types.EndpointOptionLibrary)
-	}
-
-	d.conf.OptsMU.Lock()
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionConntrack)
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionConntrackAccounting)
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionPolicy)
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDebug)
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionDropNotify)
-	ep.Opts.InheritDefault(d.conf.Opts, types.OptionNAT46)
-	ep.Opts.SetIfUnset(types.OptionLearnTraffic, false)
-	d.conf.OptsMU.Unlock()
+	d.conf.OptsMU.RLock()
+	ep.SetDefaultOpts(d.conf.Opts)
+	d.conf.OptsMU.RUnlock()
 
 	d.InsertEndpoint(&ep)
 

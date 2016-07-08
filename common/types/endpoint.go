@@ -168,6 +168,29 @@ func (e *Endpoint) ApplyOpts(opts OptionMap) bool {
 	return e.Opts.Apply(opts, OptionChanged, e) > 0
 }
 
+func (ep *Endpoint) SetDefaultOpts(opts *BoolOptions) {
+	restore := false
+	if ep.Opts == nil {
+		restore = true
+		ep.Opts = NewBoolOptions(&EndpointOptionLibrary)
+	}
+	if ep.Opts.Library == nil {
+		ep.Opts.Library = &EndpointOptionLibrary
+	}
+
+	if restore {
+		if opts != nil {
+			ep.Opts.InheritDefault(opts, OptionConntrack)
+			ep.Opts.InheritDefault(opts, OptionConntrackAccounting)
+			ep.Opts.InheritDefault(opts, OptionPolicy)
+			ep.Opts.InheritDefault(opts, OptionDebug)
+			ep.Opts.InheritDefault(opts, OptionDropNotify)
+			ep.Opts.InheritDefault(opts, OptionNAT46)
+		}
+		ep.Opts.SetIfUnset(OptionLearnTraffic, false)
+	}
+}
+
 type orderEndpoint func(e1, e2 *Endpoint) bool
 
 // OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
