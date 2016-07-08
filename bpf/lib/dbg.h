@@ -57,6 +57,7 @@ static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __
 	struct debug_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_MSG,
 		.subtype = type,
+		.source = EVENT_SOURCE,
 		.arg1 = arg1,
 		.arg2 = arg2,
 	};
@@ -69,6 +70,7 @@ static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 
 	struct debug_capture_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_CAPTURE,
 		.subtype = type,
+		.source = EVENT_SOURCE,
 		.len = skb->len,
 		.arg1 = arg1,
 	};

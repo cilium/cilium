@@ -1,6 +1,8 @@
 #include <node_config.h>
 #include <lxc_config.h>
 
+#define EVENT_SOURCE LXC_ID
+
 #include <bpf/api.h>
 
 #include <stdint.h>

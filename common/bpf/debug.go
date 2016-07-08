@@ -46,13 +46,13 @@ var ctState = map[uint32]string{
 type DebugMsg struct {
 	Type    uint8
 	SubType uint8
-	Flags   uint16
+	Source  uint16
 	Arg1    uint32
 	Arg2    uint32
 }
 
 func (n *DebugMsg) Dump(data []byte, prefix string) {
-	fmt.Printf("%s DEBUG: ", prefix)
+	fmt.Printf("%s FROM %d DEBUG: ", prefix, n.Source)
 	switch n.SubType {
 	case DBG_GENERIC:
 		fmt.Printf("No message, arg1=%d (%#x) arg2=%d (%#x)\n", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
@@ -86,14 +86,14 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 type DebugCapture struct {
 	Type    uint8
 	SubType uint8
-	Flags   uint16
+	Source  uint16
 	Len     uint32
 	Arg1    uint32
 	// data
 }
 
 func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s DEBUG: %d bytes ", prefix, n.Len)
+	fmt.Printf("%s FROM %d DEBUG: %d bytes ", prefix, n.Source, n.Len)
 	switch n.SubType {
 	case DBG_CAPTURE_FROM_LXC:
 		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)

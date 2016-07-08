@@ -6,6 +6,11 @@
 #include <linux/in.h>
 #include <stdint.h>
 
+#ifndef EVENT_SOURCE
+#define EVENT_SOURCE 0
+#endif
+
+
 /* Maximum number of supported local security labels */
 #define POLICY_MAP_SIZE	65536
 
@@ -66,7 +71,7 @@ enum {
 #define NOTIFY_COMMON_HDR \
 	__u8		type; \
 	__u8		subtype; \
-	__u16		flags;
+	__u16		source;
 
 struct drop_notify {
 	NOTIFY_COMMON_HDR
