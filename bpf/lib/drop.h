@@ -22,7 +22,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_noti
 {
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
-		.flags = 0,
+		.source = EVENT_SOURCE,
 		.len = skb->len,
 		.ifindex = skb->ingress_ifindex,
 	};
@@ -71,7 +71,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
 		.subtype = -(DROP_POLICY),
-		.flags = 0,
+		.source = EVENT_SOURCE,
 		.len = skb->len,
 		.src_label = skb->cb[1],
 		.dst_label = skb->cb[2],
