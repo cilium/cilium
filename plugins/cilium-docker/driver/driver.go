@@ -45,14 +45,14 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 		log.Fatalf("Error while starting cilium-client: %s", err)
 	}
 
-	for tries := 10; tries > 0; tries-- {
+	for tries := 0; tries < 10; tries++ {
 		if res, err := c.Ping(); err != nil {
-			if tries == 1 {
+			if tries == 9 {
 				log.Fatalf("Unable to reach cilium daemon: %s", err)
 			} else {
 				log.Warningf("Waiting for cilium daemon to come up...")
 			}
-			time.Sleep(time.Second)
+			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
 			nodeAddress = res.NodeAddress
 			log.Infof("Received node address from daemon: %s", nodeAddress)
