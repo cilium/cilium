@@ -56,7 +56,7 @@ func NewClient(host string, transport *http.Transport) (*Client, error) {
 		httpCli = &http.Client{Transport: transport}
 	}
 
-	r := resty.New().SetTransport(transport).SetScheme("http")
+	r := resty.New().SetTransport(transport).SetScheme("http").SetCloseConnection(true)
 	if proto != "unix" {
 		r.SetHostURL(addr)
 	}

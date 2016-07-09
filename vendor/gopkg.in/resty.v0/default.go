@@ -222,6 +222,12 @@ func SetScheme(scheme string) *Client {
 	return DefaultClient.SetScheme(scheme)
 }
 
+// SetCloseConnection method sets close connection value in the resty client.
+// See `Client.SetCloseConnection` for more information.
+func SetCloseConnection(close bool) *Client {
+	return DefaultClient.SetCloseConnection(close)
+}
+
 func init() {
 	DefaultClient = New()
 }

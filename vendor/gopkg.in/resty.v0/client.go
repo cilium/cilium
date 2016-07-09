@@ -91,6 +91,7 @@ type Client struct {
 	scheme           string
 	proxyURL         *url.URL
 	mutex            *sync.Mutex
+	closeConnection  bool
 	beforeRequest    []func(*Client, *Request) error
 	afterResponse    []func(*Client, *Response) error
 }
@@ -592,6 +593,13 @@ func (c *Client) SetScheme(scheme string) *Client {
 		c.scheme = scheme
 	}
 
+	return c
+}
+
+// SetCloseConnection method sets variable Close in http request struct with the given
+// value. More info: https://golang.org/src/net/http/request.go
+func (c *Client) SetCloseConnection(close bool) *Client {
+	c.closeConnection = close
 	return c
 }
 
