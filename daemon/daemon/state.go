@@ -47,6 +47,10 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			continue
 		}
 
+		d.conf.OptsMU.RLock()
+		ep.SetDefaultOpts(d.conf.Opts)
+		d.conf.OptsMU.RUnlock()
+
 		if err := d.regenerateEndpoint(ep); err != nil {
 			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
 			continue
