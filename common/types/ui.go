@@ -105,6 +105,7 @@ func (t *UITopo) DeleteNode(id32 uint32) {
 		node.Build()
 		msg = NewUIUpdateMsg().Del().Node(*node).Build()
 		t.UIChan <- msg
+		delete(t.uiNodes, id)
 	}
 }
 
