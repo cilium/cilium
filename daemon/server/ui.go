@@ -51,11 +51,6 @@ const (
 			var options = {
 				//"configure": {},
 				"nodes" : {
-					"font" : {
-						"size" : 12,
-						"strokeWidth" : 2,
-						"strokeColor" : "rgba(255,255,255,1)"
-					},
 					"shape" : "dot"
 				},
 				"edges" : {
@@ -97,12 +92,18 @@ const (
 			network.on("afterDrawing", function (ctx) {
 				var ids = nodes.getIds();
 				for (i = 0; i < ids.length; i++) {
-					nodeId = ids[i];
-					var nodePosition = network.getPositions([nodeId]);
+					nodeID = ids[i];
+					var nodePosition = network.getPositions([nodeID]);
+					size = (nodes.get(nodeID).size / 2);
+					if (size < 12) {
+						ctx.font = "12px";
+					} else {
+						ctx.font = size + "px";
+					}
 					ctx.fillStyle = "black";
 					ctx.textAlign = "center";
 					ctx.textBaseline = "middle";
-					ctx.fillText(nodes.get(nodeId).image, nodePosition[nodeId].x, nodePosition[nodeId].y);
+					ctx.fillText(nodes.get(nodeID).size-10, nodePosition[nodeID].x, nodePosition[nodeID].y);
 				}
 			});
 
