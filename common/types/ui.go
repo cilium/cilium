@@ -41,7 +41,6 @@ type UINode struct {
 	Size     int     `json:"size"`
 	Label    string  `json:"label"`
 	Labels   []Label `json:"-"`
-	Image    string  `json:"image"`
 	Title    string  `json:"title"`
 	refCount int
 }
@@ -51,7 +50,6 @@ func newuiNode(id, refCount int, lbls []Label) *UINode {
 		ID:       id,
 		refCount: refCount,
 		Labels:   lbls,
-		Image:    getImagePath(refCount),
 	}
 }
 
@@ -65,7 +63,6 @@ func (n *UINode) Build() {
 		n.Label = strings.Join(lblsStr, "\n")
 	}
 	n.Size = 10 + n.refCount
-	n.Image = getImagePath(n.refCount)
 	n.Title = fmt.Sprintf("SecLabel ID %d", n.ID)
 }
 
@@ -398,8 +395,4 @@ func (u UIUpdateMsg) Build() UIUpdateMsg {
 
 	u.Type = fmt.Sprintf("%s-%s", u.op, u.objType)
 	return u
-}
-
-func getImagePath(id int) string {
-	return fmt.Sprintf("%d", id)
 }
