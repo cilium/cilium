@@ -15,4 +15,9 @@ before_install: ./.travis/prepare.sh
 
 before_script: export PATH=/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH
 
-script: ./.travis/build.sh
+script:
+  - ./.travis/build.sh
+  - ./.travis/codecov.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash) -t 685527b0-a685-4832-90c2-6a660407d808

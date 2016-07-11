@@ -1,0 +1,14 @@
+codecov:
+        branch: master
+        bot: null
+        token: 685527b0-a685-4832-90c2-6a660407d808
+
+coverage:
+        precision: 2
+        round: down
+        range: "70...100"
+
+comment:
+        layout: "header, diff, changes, sunburst, uncovered"
+        branches: null
+        behavior: default
