@@ -25,6 +25,12 @@ install:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
+docker-image:
+	@./contrib/docker/cp-dirs.sh
+	$(MAKE) -C ./contrib/docker clean
+	docker build -t "noironetworks:cilium-ubuntu-15-10" ./contrib/docker/
+	ls -d ./contrib/docker/* | grep -v cp-dirs.sh | xargs rm -r
+
 runtime-tests:
 	$(MAKE) -C tests runtime-tests
 
