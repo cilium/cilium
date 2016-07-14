@@ -112,9 +112,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	defer f.Close()
 
 	fw := bufio.NewWriter(f)
-	d.conf.OptsMU.RLock()
 	fw.WriteString(d.conf.Opts.GetFmtList())
-	d.conf.OptsMU.RUnlock()
 
 	return fw.Flush()
 }
@@ -198,9 +196,12 @@ func (d *Daemon) init() error {
 	f.Close()
 
 	if !d.conf.DryMode {
+		d.conf.OptsMU.RLock()
 		if err := d.compileBase(); err != nil {
+			d.conf.OptsMU.RUnlock()
 			return err
 		}
+		d.conf.OptsMU.RUnlock()
 
 		d.conf.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
 		if err != nil {
