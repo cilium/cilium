@@ -177,6 +177,11 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 		cont = types.Container{dockerCont, opLabels, 0}
 	} else {
 		if ciliumContainer.NRetries > maxRetries {
+			epSHA256Sum, err := ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
+			if err != nil {
+				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
+			}
+			d.DeleteLabelsBySHA256(epSHA256Sum, ciliumContainer.ID)
 			d.containersMU.Unlock()
 			return isNewContainer, nil, nil
 		}
