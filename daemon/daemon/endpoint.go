@@ -118,6 +118,8 @@ func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID st
 		setIfNotEmptyUint16(&ep.ID, endpointID)
 
 		ep.SetSecLabel(labels)
+		// Update all IDs in respective MAPs
+		d.insertEndpoint(ep)
 		epCopy := *ep
 		return &epCopy
 	}
