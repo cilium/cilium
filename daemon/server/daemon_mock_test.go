@@ -2,9 +2,12 @@ package server
 
 import (
 	"errors"
+	"net"
 
 	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
+
+	"github.com/gorilla/websocket"
 )
 
 type TestDaemon struct {
@@ -34,6 +37,8 @@ type TestDaemon struct {
 	OnPolicyDelete              func(path string) error
 	OnPolicyGet                 func(path string) (*types.PolicyNode, error)
 	OnPolicyCanConsume          func(sc *types.SearchContext) (*types.SearchContextReply, error)
+	OnGetUIIP                   func() (*net.TCPAddr, error)
+	OnRegisterUIListener        func(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
 }
 
 func NewTestDaemon() *TestDaemon {
@@ -220,4 +225,18 @@ func (d TestDaemon) PolicyCanConsume(sc *types.SearchContext) (*types.SearchCont
 		return d.OnPolicyCanConsume(sc)
 	}
 	return nil, errors.New("PolicyCanConsume should not have been called")
+}
+
+func (d TestDaemon) GetUIIP() (*net.TCPAddr, error) {
+	if d.OnGetUIIP != nil {
+		return d.OnGetUIIP()
+	}
+	return nil, errors.New("GetUIIP should not have been called")
+}
+
+func (d TestDaemon) RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error) {
+	if d.OnRegisterUIListener != nil {
+		return d.OnRegisterUIListener(conn)
+	}
+	return nil, errors.New("RegisterUIListener should not have been called")
 }

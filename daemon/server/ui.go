@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/gorilla/websocket"
@@ -14,141 +16,8 @@ import (
 
 const (
 	// FIXME fix [{{.IP}}] that we should derive it from server IP received packet
-	indexHTML = `<!DOCTYPE html>
-<html>
-	<head>
-		<script type="text/javascript" src="./static/vis.min.js"></script>
-		<script type="text/javascript" src="./static/vis.animatetraffic.js"></script>
-		<link href="./static/vis.min.css" rel="stylesheet" type="text/css" />
+	indexHTML = common.CiliumUIPath + "index.html"
 
-		<style type="text/css">
-			#cilium-topology {
-				border: 1px solid lightgray;
-			        padding: 0px; margin: 0px; height: 100%; text-align: center;
-			}
-			html, body { padding: 0px; margin: 0px; height: 100%; text-align: center; }
-		</style>
-	</head>
-	<body>
-		<div id="cilium-topology"></div>
-
-		<script type="text/javascript">
-			var network;
-
-			nodesArray = [];
-			edgesArray = [];
-
-			nodes = new vis.DataSet(nodesArray);
-			edges = new vis.DataSet(edgesArray);
-
-			var container = document.getElementById('cilium-topology');
-
-			var data = {
-				nodes : nodes,
-				edges : edges
-			};
-
-			var options = {
-				//"configure": {},
-				"nodes" : {
-					"shape" : "dot"
-				},
-				"edges" : {
-					"color" : {
-						"highlight" : "rgba(117,196,255,1)",
-						"inherit" : false,
-						"opacity" : 0.65
-					},
-					"arrows" : {
-						"to" : {
-							"enabled" : true
-						}
-					},
-					"shadow" : {
-						"enabled" : true
-					},
-					"arrowStrikethrough" : false,
-					"smooth" : {
-						"forceDirection" : "none"
-					},
-					"scaling": {
-						"min": 1,
-    					}
-				},
-				"physics" : {
-					"minVelocity" : 0.75,
-					"stabilization" : {
-						"enabled" : true,
-						"iterations" : 10
-					}
-				}
-			};
-			function startNetwork() {
-				network = new vis.Network(container, data, options);
-			}
-
-			startNetwork();
-
-			network.on("afterDrawing", function (ctx) {
-				var ids = nodes.getIds();
-				for (i = 0; i < ids.length; i++) {
-					nodeID = ids[i];
-					var nodePosition = network.getPositions([nodeID]);
-					size = (nodes.get(nodeID).size / 2);
-					if (size < 12) {
-						ctx.font = "12px";
-					} else {
-						ctx.font = size + "px";
-					}
-					ctx.fillStyle = "black";
-					ctx.textAlign = "center";
-					ctx.textBaseline = "middle";
-					ctx.fillText(nodes.get(nodeID).size-10, nodePosition[nodeID].x, nodePosition[nodeID].y);
-				}
-			});
-
-			(function() {
-				var networkDiv = document.getElementById("cilium-topology");
-				var conn = new WebSocket("ws://{{.TCPAddr}}/ws");
-				conn.onclose = function(evt) {
-					networkDiv.textContent = 'Connection closed';
-				};
-				conn.onmessage = function(evt) {
-					var msg = JSON.parse(evt.data);
-					console.log('msg', msg);
-					console.log('node', msg.node);
-					switch(msg.type) {
-					case "add-node":
-						nodes.add(msg.node);
-						break;
-					case "mod-node":
-						nodes.update(msg.node);
-						break;
-					case "del-node":
-						nodes.remove({
-							id : msg.id
-						});
-						break;
-					case "add-edge":
-						edges.add(msg.edge);
-						break;
-					case "mod-edge":
-						edges.update(msg.edge);
-						break;
-					case "animate-edge":
-						network.animateTraffic(msg.edges);
-					case "del-edge":
-						edges.remove({
-							id : msg.id
-						});
-						break;
-					}
-				};
-			})();
-		</script>
-	</body>
-</html>
-`
 	writeWait = 10 * time.Second
 
 	pongWait = 60 * time.Second
@@ -157,8 +26,8 @@ const (
 )
 
 var (
-	indexTempl = template.Must(template.New("").Parse(indexHTML))
-	upgrader   = websocket.Upgrader{
+	indexTempl *template.Template
+	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
@@ -167,7 +36,15 @@ var (
 	}
 )
 
-func (router *RouterUI) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) {
+func init() {
+	var err error
+	indexTempl, err = template.New("index.html").ParseFiles(indexHTML)
+	if err != nil {
+		log.Errorf("Error parsing index.html file: %s", err)
+	}
+}
+
+func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) {
 	tcpAddr, err := router.daemon.GetUIIP()
 	if err != nil {
 		processServerError(w, r, err)
@@ -179,13 +56,42 @@ func (router *RouterUI) createUIHTMLIndex(w http.ResponseWriter, r *http.Request
 		addr = "[" + tcpAddr.IP.String() + "]:" + strconv.Itoa(tcpAddr.Port)
 	}
 
+	optsMap1 := types.OptionMap{}
+	optsMap2 := types.OptionMap{}
+	daemonConfig, err := router.daemon.Ping()
+	if err == nil && daemonConfig.Opts != nil {
+		var keys []string
+		for k := range daemonConfig.Opts.Opts {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for i, k := range keys {
+			if i % 2 == 0 {
+				optsMap1[k] = daemonConfig.Opts.Opts[k]
+			} else {
+				optsMap2[k] = daemonConfig.Opts.Opts[k]
+			}
+		}
+	}
+
 	var ipStruct = struct {
 		TCPAddr string
+		Opts1   types.OptionMap
+		Opts2   types.OptionMap
 	}{
 		addr,
+		optsMap1,
+		optsMap2,
 	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	indexTempl.Execute(w, &ipStruct)
+	if indexTempl == nil {
+		log.Error("Unable read index.html template due to former error")
+	} else {
+		if err = indexTempl.Execute(w, &ipStruct); err != nil {
+			log.Errorf("Error processing UI template: %s", err)
+		}
+	}
 }
 
 func writer(ws *websocket.Conn, uiMsgChan chan types.UIUpdateMsg) {
@@ -214,7 +120,10 @@ func reader(ws *websocket.Conn) {
 	defer ws.Close()
 	ws.SetReadLimit(512)
 	ws.SetReadDeadline(time.Now().Add(pongWait))
-	ws.SetPongHandler(func(string) error { ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	ws.SetPongHandler(func(string) error {
+		ws.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 	for {
 		_, _, err := ws.ReadMessage()
 		if err != nil {
@@ -223,7 +132,7 @@ func reader(ws *websocket.Conn) {
 	}
 }
 
-func (router *RouterUI) webSocketUIStats(w http.ResponseWriter, r *http.Request) {
+func (router *Router) webSocketUIStats(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		if _, ok := err.(websocket.HandshakeError); !ok {
