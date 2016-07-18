@@ -215,7 +215,6 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	struct ipv6hdr v6 = {};
 	struct iphdr v4;
 	int csum_off;
-	int pushoff;
 	__be32 csum;
 	__be16 v4hdr_len;
 	__be16 protocol = htons(ETH_P_IPV6);
@@ -244,9 +243,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	v4hdr_len = (v4.ihl << 2);
 	v6.payload_len = htons(ntohs(v4.tot_len) - v4hdr_len);
 
-	pushoff = sizeof(struct ipv6hdr) - v4hdr_len;
-
-	if (l3_hdr_change(skb, nh_off, pushoff, htons(ETH_P_IPV6)) < 0) {
+	if (skb_change_proto(skb, htons(ETH_P_IPV6), 0) < 0) {
 #ifdef DEBUG_NAT46
 		printk("v46 NAT: skb_modify failed\n");
 #endif
@@ -282,10 +279,8 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 #ifdef DEBUG_NAT46
-	printk("v46 NAT: nh_off %d, pushoff %d, csum_off %d\n",
-	       nh_off, pushoff, csum_off);
+	printk("v46 NAT: nh_off %d, csum_off %d\n", nh_off, csum_off);
 #endif
-
 	return 0;
 }
 
@@ -301,7 +296,6 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 {
 	struct ipv6hdr v6;
 	struct iphdr v4 = {};
-	int pushoff = -20;
 	int csum_off;
 	__be32 csum = 0;
 	__be16 protocol = htons(ETH_P_IP);
@@ -331,7 +325,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
 
-	if (l3_hdr_change(skb, nh_off, pushoff, htons(ETH_P_IP)) < 0) {
+	if (skb_change_proto(skb, htons(ETH_P_IP), 0) < 0) {
 #ifdef DEBUG_NAT46
 		printk("v46 NAT: skb_modify failed\n");
 #endif
@@ -369,8 +363,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
 
 #ifdef DEBUG_NAT46
-	printk("v64 NAT: nh_off %d, pushoff %d, csum_off %d\n",
-	       nh_off, pushoff, csum_off);
+	printk("v64 NAT: nh_off %d, csum_off %d\n", nh_off, csum_off);
 #endif
 
 	return 0;

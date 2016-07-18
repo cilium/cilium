@@ -16,14 +16,17 @@
 
 #include "events.h"
 #include "common.h"
+#include "utils.h"
 
 #ifdef DROP_NOTIFY
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_notify(struct __sk_buff *skb)
 {
+	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
 		.source = EVENT_SOURCE,
-		.len = skb->len,
+		.len_orig = skb_len,
+		.len_cap = cap_len,
 		.ifindex = skb->ingress_ifindex,
 	};
 	int error = skb->cb[1];
@@ -33,8 +36,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_noti
 
 	msg.subtype = error;
 
-	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events,
+			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
 
 	return skb->cb[0];
 }
@@ -68,19 +72,22 @@ static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int e
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __sk_buff *skb)
 {
+	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
 		.subtype = -(DROP_POLICY),
 		.source = EVENT_SOURCE,
-		.len = skb->len,
+		.len_orig = skb_len,
+		.len_cap = cap_len,
 		.src_label = skb->cb[1],
 		.dst_label = skb->cb[2],
 		.dst_id = skb->cb[3],
 		.ifindex = skb->cb[4],
 	};
 
-	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events,
+			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
 
 	return skb->cb[0];
 }

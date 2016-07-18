@@ -29,6 +29,7 @@ enum {
 
 #ifdef DEBUG
 #include "events.h"
+#include "utils.h"
 
 # define printk(fmt, ...)					\
 		({						\
@@ -44,12 +45,11 @@ struct debug_msg {
 	__u32		pad;
 };
 
-#define DEBUG_SAMPLE_LEN 64
 struct debug_capture_msg {
 	NOTIFY_COMMON_HDR
-	__u32		len;
+	__u32		len_orig;
+	__u32		len_cap;
 	__u32		arg1;
-	char		data[DEBUG_SAMPLE_LEN];
 };
 
 static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
@@ -67,16 +67,19 @@ static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __
 
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
+	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
 	struct debug_capture_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_CAPTURE,
 		.subtype = type,
 		.source = EVENT_SOURCE,
-		.len = skb->len,
+		.len_orig = skb_len,
+		.len_cap = cap_len,
 		.arg1 = arg1,
 	};
 
-	skb_load_bytes(skb, 0, &msg.data, sizeof(msg.data));
-	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+	skb_event_output(skb, &cilium_events,
+			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+			 &msg, sizeof(msg));
 }
 
 #else
