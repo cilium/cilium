@@ -163,7 +163,7 @@ type PerfEventHeader struct {
 // Matching 'struct perf_event_sample in kernel sources
 type PerfEventSample struct {
 	PerfEventHeader
-	size uint32
+	Size uint32
 	data byte // Size bytes of data
 }
 
@@ -176,12 +176,12 @@ type PerfEventLost struct {
 
 func (e *PerfEventSample) DataDirect() []byte {
 	// http://stackoverflow.com/questions/27532523/how-to-convert-1024c-char-to-1024byte
-	size := e.size - 4
+	size := e.Size - 4
 	return (*[1 << 30]byte)(unsafe.Pointer(&e.data))[:int(size):int(size)]
 }
 
 func (e *PerfEventSample) DataCopy() []byte {
-	return C.GoBytes(unsafe.Pointer(&e.data), C.int(e.size))
+	return C.GoBytes(unsafe.Pointer(&e.data), C.int(e.Size))
 }
 
 type ReceiveFunc func(msg *PerfEventSample, cpu int)
