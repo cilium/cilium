@@ -6,17 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
-	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel = &types.SecCtxLabel{
+	IPv6Addr, _ = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
+	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
+	NodeAddr    = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+	HardAddr    = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel    = &types.SecCtxLabel{
 		Labels: types.Labels{
 			"foo": types.NewLabel("foo", "", ""),
 		},
@@ -30,7 +31,8 @@ var (
 func (s *DaemonSuite) TestEndpointJoinOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -51,7 +53,8 @@ func (s *DaemonSuite) TestEndpointJoinOK(c *C) {
 func (s *DaemonSuite) TestEndpointJoinFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -72,7 +75,8 @@ func (s *DaemonSuite) TestEndpointJoinFail(c *C) {
 func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -93,7 +97,8 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -114,7 +119,8 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 func (s *DaemonSuite) EndpointLeaveByDockerEPIDOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:           HardAddr,
-		LXCIP:            EpAddr,
+		IPv6:             IPv6Addr,
+		IPv4:             IPv4Addr,
 		NodeMAC:          HardAddr,
 		NodeIP:           NodeAddr,
 		IfName:           "ifname",
@@ -136,7 +142,8 @@ func (s *DaemonSuite) EndpointLeaveByDockerEPIDOK(c *C) {
 func (s *DaemonSuite) EndpointLeaveByDockerEPIDFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:           HardAddr,
-		LXCIP:            EpAddr,
+		IPv6:             IPv6Addr,
+		IPv4:             IPv4Addr,
 		NodeMAC:          HardAddr,
 		NodeIP:           NodeAddr,
 		IfName:           "ifname",
@@ -156,10 +163,11 @@ func (s *DaemonSuite) EndpointLeaveByDockerEPIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointGetOK(c *C) {
-	epIDOutside := common.EndpointAddr2ID(EpAddr)
+	epIDOutside := IPv6Addr.EndpointID()
 	epWanted := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -171,7 +179,8 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 		c.Assert(epIDOutside, Equals, epID)
 		return &types.Endpoint{
 			LXCMAC:          HardAddr,
-			LXCIP:           EpAddr,
+			IPv6:            IPv6Addr,
+			IPv4:            IPv4Addr,
 			NodeMAC:         HardAddr,
 			NodeIP:          NodeAddr,
 			IfName:          "ifname",
@@ -186,7 +195,7 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointGetFail(c *C) {
-	epIDOutside := common.EndpointAddr2ID(EpAddr)
+	epIDOutside := IPv6Addr.EndpointID()
 
 	s.d.OnEndpointGet = func(epID uint16) (*types.Endpoint, error) {
 		c.Assert(epIDOutside, Equals, epID)
@@ -201,7 +210,8 @@ func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 func (s *DaemonSuite) TestEndpointGetByDockerEPIDOK(c *C) {
 	epWanted := types.Endpoint{
 		LXCMAC:           HardAddr,
-		LXCIP:            EpAddr,
+		IPv6:             IPv6Addr,
+		IPv4:             IPv4Addr,
 		NodeMAC:          HardAddr,
 		NodeIP:           NodeAddr,
 		IfName:           "ifname",
@@ -214,7 +224,8 @@ func (s *DaemonSuite) TestEndpointGetByDockerEPIDOK(c *C) {
 		c.Assert(dockerEPID, Equals, "123abc")
 		return &types.Endpoint{
 			LXCMAC:           HardAddr,
-			LXCIP:            EpAddr,
+			IPv6:             IPv6Addr,
+			IPv4:             IPv4Addr,
 			NodeMAC:          HardAddr,
 			NodeIP:           NodeAddr,
 			IfName:           "ifname",
@@ -246,7 +257,8 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 	epsWanted := []types.Endpoint{
 		types.Endpoint{
 			LXCMAC:          HardAddr,
-			LXCIP:           EpAddr,
+			IPv6:            IPv6Addr,
+			IPv4:            IPv4Addr,
 			NodeMAC:         HardAddr,
 			NodeIP:          NodeAddr,
 			IfName:          "ifname",
@@ -255,7 +267,8 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 		},
 		types.Endpoint{
 			LXCMAC:          HardAddr,
-			LXCIP:           EpAddr,
+			IPv6:            IPv6Addr,
+			IPv4:            IPv4Addr,
 			NodeMAC:         HardAddr,
 			NodeIP:          NodeAddr,
 			IfName:          "ifname1",
@@ -319,7 +332,8 @@ func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
 func (s *DaemonSuite) TestEndpointSaveOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -340,7 +354,8 @@ func (s *DaemonSuite) TestEndpointSaveOK(c *C) {
 func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -361,7 +376,8 @@ func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
 func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -394,7 +410,8 @@ func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
 func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -416,7 +433,8 @@ func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
 func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -443,7 +461,8 @@ func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
 func (s *DaemonSuite) TestEndpointLabelsAddFail(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",

@@ -18,6 +18,7 @@ import (
 type CtMap struct {
 	path string
 	Fd   int
+	Type CtType
 }
 
 const (
@@ -26,16 +27,87 @@ const (
 	TUPLE_F_RELATED = 2
 )
 
+type CtType int
+
 const (
-	MAX_KEYS = 1024
+	CtTypeIPv6 CtType = iota
+	CtTypeIPv4
 )
 
-type CtKey struct {
+type CtKey interface {
+	Dump(buffer *bytes.Buffer) bool
+}
+
+type CtKey6 struct {
 	addr    types.IPv6
 	sport   uint16
 	dport   uint16
 	nexthdr types.U8proto
 	flags   uint8
+}
+
+func (key CtKey6) Dump(buffer *bytes.Buffer) bool {
+	if key.nexthdr == 0 {
+		return false
+	}
+
+	if key.flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
+			key.nexthdr.String(),
+			key.addr.IP().String(),
+			key.sport, key.dport),
+		)
+
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
+			key.nexthdr.String(),
+			key.addr.IP().String(),
+			key.dport,
+			key.sport),
+		)
+	}
+
+	if key.flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	return true
+}
+
+type CtKey4 struct {
+	addr    types.IPv4
+	sport   uint16
+	dport   uint16
+	nexthdr types.U8proto
+	flags   uint8
+}
+
+func (key CtKey4) Dump(buffer *bytes.Buffer) bool {
+	if key.nexthdr == 0 {
+		return false
+	}
+
+	if key.flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
+			key.nexthdr.String(),
+			key.addr.IP().String(),
+			key.sport, key.dport),
+		)
+
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
+			key.nexthdr.String(),
+			key.addr.IP().String(),
+			key.dport,
+			key.sport),
+		)
+	}
+
+	if key.flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	return true
 }
 
 type CtEntry struct {
@@ -62,124 +134,118 @@ func (m *CtMap) Dump() (string, error) {
 		return "", err
 	}
 	for _, entry := range entries {
-		if entry.Key.nexthdr == 0 {
+		if !entry.Key.Dump(&buffer) {
 			continue
 		}
 
-		if entry.Key.flags&TUPLE_F_IN != 0 {
-			buffer.WriteString(fmt.Sprintf(":%d => [%s]:%d ",
-				entry.Key.sport, entry.Key.addr.String(), entry.Key.dport))
-
-		} else {
-			buffer.WriteString(fmt.Sprintf(":%d <= [%s]:%d ",
-				entry.Key.dport, entry.Key.addr.String(), entry.Key.sport))
-		}
-
-		if entry.Key.flags&TUPLE_F_RELATED != 0 {
-			buffer.WriteString("related ")
-		}
-
-		buffer.WriteString(fmt.Sprintf("proto=%s expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d\n",
-			entry.Key.nexthdr.String(),
-			entry.Value.lifetime,
-			entry.Value.rx_packets,
-			entry.Value.rx_bytes,
-			entry.Value.tx_packets,
-			entry.Value.tx_bytes))
+		value := entry.Value
+		buffer.WriteString(
+			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d\n",
+				value.lifetime,
+				value.rx_packets,
+				value.rx_bytes,
+				value.tx_packets,
+				value.tx_bytes),
+		)
 
 	}
 	return buffer.String(), nil
 }
 
 func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
-	var key, nextKey CtKey
+	var entry CtEntry
 	entries := []CtEntryDump{}
-	for {
-		var entry CtEntry
-		err := bpf.GetNextKey(
-			m.Fd,
-			unsafe.Pointer(&key),
-			unsafe.Pointer(&nextKey),
-		)
 
-		if err != nil {
-			break
-		}
+	switch m.Type {
+	case CtTypeIPv6:
+		var key, nextKey CtKey6
+		for {
+			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			if err != nil {
+				break
+			}
 
-		err = bpf.LookupElement(
-			m.Fd,
-			unsafe.Pointer(&nextKey),
-			unsafe.Pointer(&entry),
-		)
+			err = bpf.LookupElement(
+				m.Fd,
+				unsafe.Pointer(&nextKey),
+				unsafe.Pointer(&entry),
+			)
+			if err != nil {
+				return nil, err
+			}
 
-		if err != nil {
-			return nil, err
-		} else {
 			eDump := CtEntryDump{Key: nextKey, Value: entry}
 			entries = append(entries, eDump)
+
+			key = nextKey
 		}
 
-		key = nextKey
+	case CtTypeIPv4:
+		var key, nextKey CtKey4
+		for {
+			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			if err != nil {
+				break
+			}
+
+			err = bpf.LookupElement(
+				m.Fd,
+				unsafe.Pointer(&nextKey),
+				unsafe.Pointer(&entry),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			entries = append(entries, eDump)
+
+			key = nextKey
+		}
 	}
 
 	return entries, nil
 }
 
-func (m *CtMap) GC(interval uint16) int {
-	var key, nextKey CtKey
+func (m *CtMap) doGc(interval uint16, key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int) bool {
+	var entry CtEntry
 
+	err := bpf.GetNextKey(m.Fd, key, nextKey)
+	if err != nil {
+		return false
+	}
+
+	err = bpf.LookupElement(m.Fd, nextKey, unsafe.Pointer(&entry))
+	if err != nil {
+		return false
+	}
+
+	if entry.lifetime <= interval {
+		bpf.DeleteElement(m.Fd, nextKey)
+		(*deleted)++
+	} else {
+		entry.lifetime -= interval
+		bpf.UpdateElement(m.Fd, nextKey, unsafe.Pointer(&entry), 0)
+	}
+
+	return true
+}
+
+func (m *CtMap) GC(interval uint16) int {
 	deleted := 0
 
-	for {
-		var entry CtEntry
-		err := bpf.GetNextKey(
-			m.Fd,
-			unsafe.Pointer(&key),
-			unsafe.Pointer(&nextKey),
-		)
-
-		if err != nil {
-			break
+	switch m.Type {
+	case CtTypeIPv6:
+		var key, nextKey CtKey6
+		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+			key = nextKey
 		}
-
-		err = bpf.LookupElement(
-			m.Fd,
-			unsafe.Pointer(&nextKey),
-			unsafe.Pointer(&entry),
-		)
-
-		if err != nil {
-			break
+	case CtTypeIPv4:
+		var key, nextKey CtKey4
+		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+			key = nextKey
 		}
-
-		if entry.lifetime <= interval {
-			bpf.DeleteElement(m.Fd, unsafe.Pointer(&nextKey))
-			deleted++
-		} else {
-			entry.lifetime -= interval
-			bpf.UpdateElement(m.Fd, unsafe.Pointer(&nextKey), unsafe.Pointer(&entry), 0)
-		}
-
-		key = nextKey
 	}
 
 	return deleted
-}
-
-func OpenMap(path string) (*CtMap, error) {
-	fd, _, err := bpf.OpenOrCreateMap(
-		path,
-		C.BPF_MAP_TYPE_HASH,
-		uint32(unsafe.Sizeof(CtKey{})),
-		uint32(unsafe.Sizeof(CtEntry{})),
-		MAX_KEYS,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	m := &CtMap{path: path, Fd: fd}
-
-	return m, nil
 }

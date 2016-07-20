@@ -21,7 +21,8 @@
 #define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
 #define CILIUM_CALL_HANDLE_ICMP6_NS		4
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
-#define CILIUM_CALL_ARP_RESPONDER		6
+#define CILIUM_CALL_ARP				6
+#define CILIUM_CALL_IPV4			7
 #define CILIUM_CALL_SIZE			8
 
 typedef __u64 mac_t;
@@ -133,7 +134,16 @@ struct ipv6_ct_tuple {
 	__u8		flags;
 };
 
-struct ipv6_ct_entry {
+struct ipv4_ct_tuple {
+	__be32		addr;
+	/* The order of dport+sport must not be changed */
+	__u16		dport;
+	__u16		sport;
+	__u8		nexthdr;
+	__u8		flags;
+};
+
+struct ct_entry {
 	__u64 rx_packets;
 	__u64 rx_bytes;
 	__u64 tx_packets;

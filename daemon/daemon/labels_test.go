@@ -3,12 +3,12 @@ package daemon
 import (
 	"encoding/json"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	consulAPI "github.com/hashicorp/consul/api"
@@ -36,19 +36,19 @@ var (
 		},
 		Labels: lbls,
 	}
-	EpAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	consulConfig := consulAPI.DefaultConfig()
 	consulConfig.Address = "127.0.0.1:8501"
-	_, ipv4range, err := net.ParseCIDR("10.1.2.0/16")
-	c.Assert(err, IsNil)
 	tempLibDir, err := ioutil.TempDir("", "cilium-test")
 	c.Assert(err, IsNil)
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
 	c.Assert(err, IsNil)
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
+	c.Assert(err, IsNil)
+
+	nodeAddress, err := addressing.NewNodeAddress("beef:beef:beef:beef:aaaa:aaaa:1111:0", "10.1.0.1", "")
 	c.Assert(err, IsNil)
 
 	daemonConf := &Config{
@@ -58,12 +58,11 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir
 	daemonConf.LXCMap = nil
-	daemonConf.NodeAddress = EpAddr
+	daemonConf.NodeAddress = nodeAddress
 	daemonConf.ConsulConfig = consulConfig
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
-	daemonConf.IPv4Range = ipv4range
 	daemonConf.OptsMU.Lock()
 	daemonConf.Opts.Set(types.OptionDropNotify, true)
 	daemonConf.OptsMU.Unlock()

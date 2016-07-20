@@ -12,6 +12,7 @@ import (
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
 )
 
 // EPPortMap is the port mapping representation for a particular endpoint.
@@ -97,26 +98,27 @@ var (
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID               uint16               `json:"id"`                 // Endpoint ID.
-	DockerID         string               `json:"docker-id"`          // Docker ID.
-	DockerNetworkID  string               `json:"docker-network-id"`  // Docker network ID.
-	DockerEndpointID string               `json:"docker-endpoint-id"` // Docker endpoint ID.
-	IfName           string               `json:"interface-name"`     // Container's interface name.
-	LXCMAC           MAC                  `json:"lxc-mac"`            // Container MAC address.
-	LXCIP            net.IP               `json:"lxc-ip"`             // Container IPv6 address.
-	IfIndex          int                  `json:"interface-index"`    // Host's interface index.
-	NodeMAC          MAC                  `json:"node-mac"`           // Node MAC address.
-	NodeIP           net.IP               `json:"node-ip"`            // Node IPv6 address.
-	SecLabel         *SecCtxLabel         `json:"security-label"`     // Security Label  set to this endpoint.
-	PortMap          []EPPortMap          `json:"port-mapping"`       // Port mapping used for this endpoint.
-	Consumable       *Consumable          `json:"consumable"`
-	PolicyMap        *policymap.PolicyMap `json:"-"`
-	Opts             *BoolOptions         `json:"options"` // Endpoint bpf options.
+	ID               uint16                `json:"id"`                 // Endpoint ID.
+	DockerID         string                `json:"docker-id"`          // Docker ID.
+	DockerNetworkID  string                `json:"docker-network-id"`  // Docker network ID.
+	DockerEndpointID string                `json:"docker-endpoint-id"` // Docker endpoint ID.
+	IfName           string                `json:"interface-name"`     // Container's interface name.
+	LXCMAC           MAC                   `json:"lxc-mac"`            // Container MAC address.
+	IPv6             addressing.CiliumIPv6 `json:"ipv6"`               // Container IPv6 address.
+	IPv4             addressing.CiliumIPv4 `json:"ipv4"`               // Container IPv4 address.
+	IfIndex          int                   `json:"interface-index"`    // Host's interface index.
+	NodeMAC          MAC                   `json:"node-mac"`           // Node MAC address.
+	NodeIP           net.IP                `json:"node-ip"`            // Node IPv6 address.
+	SecLabel         *SecCtxLabel          `json:"security-label"`     // Security Label  set to this endpoint.
+	PortMap          []EPPortMap           `json:"port-mapping"`       // Port mapping used for this endpoint.
+	Consumable       *Consumable           `json:"consumable"`
+	PolicyMap        *policymap.PolicyMap  `json:"-"`
+	Opts             *BoolOptions          `json:"options"` // Endpoint bpf options.
 }
 
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
-	e.ID = common.EndpointAddr2ID(e.LXCIP)
+	e.ID = e.IPv6.EndpointID()
 }
 
 func (e *Endpoint) SetSecLabel(labels *SecCtxLabel) {
@@ -130,17 +132,6 @@ func (e *Endpoint) Allows(id uint32) bool {
 	} else {
 		return false
 	}
-}
-
-// IPv4Address returns the TODO: what does this do?
-func (e *Endpoint) IPv4Address(v4Range *net.IPNet) *net.IP {
-	ip := common.DupIP(v4Range.IP)
-
-	id := e.ID
-	ip[2] = byte(id >> 8)
-	ip[3] = byte(id & 0xff)
-
-	return &ip
 }
 
 // String returns endpoint on a JSON format.

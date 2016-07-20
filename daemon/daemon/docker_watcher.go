@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	dTypes "github.com/docker/engine-api/types"
@@ -83,13 +84,15 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	}
 }
 
-func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP net.IP) *uint16 {
+func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP *addressing.NodeAddress) *uint16 {
 	for _, contNetwork := range cont.NetworkSettings.Networks {
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
-		if ipv6gw.Equal(gwIP) {
-			ip := net.ParseIP(contNetwork.GlobalIPv6Address)
-			id := common.EndpointAddr2ID(ip)
-			return &id
+		if ipv6gw.Equal(gwIP.IPv6Address.IP()) {
+			ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
+			if err == nil {
+				id := ip.EndpointID()
+				return &id
+			}
 		}
 	}
 	return nil

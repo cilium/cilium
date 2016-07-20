@@ -469,6 +469,10 @@ func removePolicyKey(ctx *cli.Context) {
 	updatePolicyKey(ctx, false)
 }
 
+func dumpFirstEndpoint(w *tabwriter.Writer, ep *types.Endpoint, seclabel string, label string) {
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", ep.ID, seclabel, label, ep.IPv6.String(), ep.IPv4.String())
+}
+
 func dumpEndpoints(ctx *cli.Context) {
 	eps, err := client.EndpointsGet()
 	if err != nil {
@@ -488,29 +492,34 @@ func dumpEndpoints(ctx *cli.Context) {
 		labelsIDTitle  = "LABEL ID"
 		labelsDesTitle = "LABELS (source:key[=value])"
 		ipv6Title      = "IPv6"
+		ipv4Title      = "IPv4"
 		endpointTitle  = "ENDPOINT ID"
 	)
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n",
+		endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title)
 
 	for _, ep := range eps {
-		if ep.SecLabel != nil {
-			if len(ep.SecLabel.Labels) != 0 {
+		if ep.SecLabel == nil {
+			dumpFirstEndpoint(w, &ep, "<no label id>", "")
+		} else {
+			seclabel := fmt.Sprintf("%d", ep.SecLabel.ID)
+
+			if len(ep.SecLabel.Labels) == 0 {
+				dumpFirstEndpoint(w, &ep, seclabel, "no labels")
+			} else {
 				first := true
 				for _, lbl := range ep.SecLabel.Labels {
 					if first {
-						fmt.Fprintf(w, "%d\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, lbl, ep.LXCIP.String())
+						dumpFirstEndpoint(w, &ep, seclabel, lbl.String())
 						first = false
 					} else {
-						fmt.Fprintf(w, "\t\t%s\t\t\n", lbl)
+						fmt.Fprintf(w, "\t\t%s\t\t\t\n", lbl)
 					}
 				}
-			} else {
-				fmt.Fprintf(w, "%d\t%d\t%s\t%s\t\n", ep.ID, ep.SecLabel.ID, "(no labels)", ep.LXCIP.String())
 			}
-		} else {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t\n", ep.ID, "(empty sec label ID)", "", ep.LXCIP.String())
 		}
+
 	}
 	w.Flush()
 }
@@ -566,22 +575,26 @@ func listEndpointsBash(ctx *cli.Context) {
 
 }
 
-func dumpCt(ctx *cli.Context) {
-	lbl := ctx.Args().First()
-
-	file := common.BPFMapCT + lbl
+func dumpCtProto(file string, ctType ctmap.CtType) {
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to open %s: %s\n", file, err)
 		os.Exit(1)
 	}
 
-	m := ctmap.CtMap{Fd: fd}
+	m := ctmap.CtMap{Fd: fd, Type: ctType}
 	out, err := m.Dump()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error while dumping BPF Map: %s\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println(out)
+}
+
+func dumpCt(ctx *cli.Context) {
+	lbl := ctx.Args().First()
+
+	dumpCtProto(common.BPFMapCT6+lbl, ctmap.CtTypeIPv6)
+	dumpCtProto(common.BPFMapCT4+lbl, ctmap.CtTypeIPv4)
 }

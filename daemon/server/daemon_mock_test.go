@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
@@ -17,9 +18,9 @@ type TestDaemon struct {
 	OnEndpointSave              func(ep types.Endpoint) error
 	OnEndpointLabelsGet         func(epID uint16) (*types.OpLabels, error)
 	OnEndpointLabelsUpdate      func(epID uint16, op types.LabelOP, labels types.Labels) error
-	OnGetIPAMConf               func(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
-	OnAllocateIP                func(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error)
-	OnReleaseIP                 func(ipamType types.IPAMType, opts types.IPAMReq) error
+	OnGetIPAMConf               func(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error)
+	OnAllocateIP                func(ipamType ipam.IPAMType, opts ipam.IPAMReq) (*ipam.IPAMRep, error)
+	OnReleaseIP                 func(ipamType ipam.IPAMType, opts ipam.IPAMReq) error
 	OnPing                      func() (*types.PingResponse, error)
 	OnUpdate                    func(opts types.OptionMap) error
 	OnSyncState                 func(path string, clean bool) error
@@ -130,21 +131,21 @@ func (d TestDaemon) SyncState(path string, clean bool) error {
 	return errors.New("SyncState should not have been called")
 }
 
-func (d TestDaemon) GetIPAMConf(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMConfigRep, error) {
+func (d TestDaemon) GetIPAMConf(ipamType ipam.IPAMType, opts ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
 	if d.OnGetIPAMConf != nil {
 		return d.OnGetIPAMConf(ipamType, opts)
 	}
 	return nil, errors.New("GetIPAMConf should not have been called")
 }
 
-func (d TestDaemon) AllocateIP(ipamType types.IPAMType, opts types.IPAMReq) (*types.IPAMRep, error) {
+func (d TestDaemon) AllocateIP(ipamType ipam.IPAMType, opts ipam.IPAMReq) (*ipam.IPAMRep, error) {
 	if d.OnAllocateIP != nil {
 		return d.OnAllocateIP(ipamType, opts)
 	}
 	return nil, errors.New("AllocateIP should not have been called")
 }
 
-func (d TestDaemon) ReleaseIP(ipamType types.IPAMType, opts types.IPAMReq) error {
+func (d TestDaemon) ReleaseIP(ipamType ipam.IPAMType, opts ipam.IPAMReq) error {
 	if d.OnReleaseIP != nil {
 		return d.OnReleaseIP(ipamType, opts)
 	}

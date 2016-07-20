@@ -28,7 +28,7 @@ static inline int __inline__ do_l3_from_overlay(struct __sk_buff *skb, struct ip
 	if (unlikely(node_id != NODE_ID))
 		return DROP_NON_LOCAL;
 	else
-		return local_delivery(skb, nh_off, ip6, dst, ntohl(tunnel_id));
+		return ipv6_local_delivery(skb, nh_off, dst, ntohl(tunnel_id), ip6);
 }
 
 __section("from-overlay")

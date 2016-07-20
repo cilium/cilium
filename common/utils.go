@@ -9,10 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	l "github.com/op/go-logging"
-	"github.com/vishvananda/netlink"
 )
 
 // goArray2C transforms a byte slice into its hexadecimal string representation.
@@ -44,65 +42,6 @@ func FmtDefineAddress(name string, addr []byte) string {
 // fmt.Print(FmtDefineArray("foo", []byte{1, 2, 3})) // "#define foo { 0x1, 0x2, 0x3 }\n"
 func FmtDefineArray(name string, array []byte) string {
 	return fmt.Sprintf("#define %s %s\n", name, goArray2C(array))
-}
-
-func firstGlobalV4Addr(intf string) (net.IP, error) {
-	var link netlink.Link
-	var err error
-
-	if intf != "" && intf != "undefined" {
-		link, err = netlink.LinkByName(intf)
-		if err != nil {
-			return firstGlobalV4Addr("")
-		}
-	}
-
-	addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, a := range addr {
-		if a.Scope == syscall.RT_SCOPE_UNIVERSE {
-			return a.IP, nil
-		}
-	}
-
-	return nil, fmt.Errorf("No IPv4 address configured")
-}
-
-func fmtV6Prefix(prefix string, ip net.IP) string {
-	if len(ip) < 4 {
-		return "<nil>"
-	}
-
-	return fmt.Sprintf("%s%02x%02x:%02x%02x:0", prefix, ip[0], ip[1], ip[2], ip[3])
-}
-
-// GenerateV6Prefix generates an IPv6 address created based on the first global IPv4
-// address found in the host.
-func GenerateV6Prefix(intf string) (string, error) {
-	ip, err := firstGlobalV4Addr(intf)
-	if err != nil {
-		return "", err
-	}
-
-	return fmtV6Prefix(DefaultIPv6Prefix, ip), nil
-}
-
-func fmtV4Range(ip *net.IP) (string, error) {
-	return fmt.Sprintf(DefaultIPv4Range, ip.To4()[3]), nil
-}
-
-// GenerateV4Range generates an IPv4 range from the first global IPv4 address found in the
-// host.
-func GenerateV4Range(intf string) (string, error) {
-	ip, err := firstGlobalV4Addr(intf)
-	if err != nil {
-		return "", err
-	}
-
-	return fmtV4Range(&ip)
 }
 
 // Swab16 swaps the endianness of n.

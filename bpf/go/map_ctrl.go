@@ -126,7 +126,7 @@ func mainBPFDumpMap(ctx *cli.Context) {
 		return
 	}
 
-	var key, nextKey uint16
+	var key, nextKey uint32
 	key = lxcmap.MaxKeys
 	for {
 		var lxc lxcmap.LXCInfo
@@ -157,7 +157,7 @@ func mainBPFDumpMap(ctx *cli.Context) {
 	}
 }
 
-func lookupLXC(file string, key uint16) (*lxcmap.LXCInfo, error) {
+func lookupLXC(file string, key uint32) (*lxcmap.LXCInfo, error) {
 	lxc := new(lxcmap.LXCInfo)
 
 	fd, err := bpf.ObjGet(file)
@@ -165,8 +165,8 @@ func lookupLXC(file string, key uint16) (*lxcmap.LXCInfo, error) {
 		return nil, err
 	}
 
-	u16key := key
-	err = bpf.LookupElement(fd, unsafe.Pointer(&u16key), unsafe.Pointer(lxc))
+	u32key := key
+	err = bpf.LookupElement(fd, unsafe.Pointer(&u32key), unsafe.Pointer(lxc))
 
 	return lxc, err
 }
@@ -189,7 +189,7 @@ func mainBPFLookupKey(ctx *cli.Context) {
 		return
 	}
 
-	lxc, err := lookupLXC(file, uint16(key))
+	lxc, err := lookupLXC(file, uint32(key))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)
@@ -285,8 +285,8 @@ func mainBPFUpdateKey(ctx *cli.Context) {
 		return
 	}
 
-	u16key := uint16(key)
-	err = bpf.UpdateElement(fd, unsafe.Pointer(&u16key), unsafe.Pointer(&lxc), 0)
+	u32key := uint32(key)
+	err = bpf.UpdateElement(fd, unsafe.Pointer(&u32key), unsafe.Pointer(&lxc), 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)
@@ -319,8 +319,8 @@ func mainBPFDeleteKey(ctx *cli.Context) {
 		return
 	}
 
-	u16key := uint16(key)
-	err = bpf.DeleteElement(obj, unsafe.Pointer(&u16key))
+	u32key := uint32(key)
+	err = bpf.DeleteElement(obj, unsafe.Pointer(&u32key))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(errIOFailure)

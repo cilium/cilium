@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	"github.com/gorilla/mux"
@@ -226,12 +227,12 @@ func (router *RouterBackend) ipamConfig(w http.ResponseWriter, r *http.Request) 
 		processServerError(w, r, errors.New("server received empty ipam-type"))
 		return
 	}
-	var opts types.IPAMReq
+	var opts ipam.IPAMReq
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	ipamConfig, err := router.daemon.GetIPAMConf(types.IPAMType(ipamType), opts)
+	ipamConfig, err := router.daemon.GetIPAMConf(ipam.IPAMType(ipamType), opts)
 	if err != nil {
 		processServerError(w, r, err)
 		return
@@ -249,12 +250,12 @@ func (router *RouterBackend) allocateIPv6(w http.ResponseWriter, r *http.Request
 		processServerError(w, r, errors.New("server received empty ipam-type"))
 		return
 	}
-	var opts types.IPAMReq
+	var opts ipam.IPAMReq
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	ipamConfig, err := router.daemon.AllocateIP(types.IPAMType(ipamType), opts)
+	ipamConfig, err := router.daemon.AllocateIP(ipam.IPAMType(ipamType), opts)
 	if err != nil {
 		processServerError(w, r, err)
 		return
@@ -277,12 +278,12 @@ func (router *RouterBackend) releaseIPv6(w http.ResponseWriter, r *http.Request)
 		processServerError(w, r, errors.New("server received empty ipam-type"))
 		return
 	}
-	var opts types.IPAMReq
+	var opts ipam.IPAMReq
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	if err := router.daemon.ReleaseIP(types.IPAMType(ipamType), opts); err != nil {
+	if err := router.daemon.ReleaseIP(ipam.IPAMType(ipamType), opts); err != nil {
 		processServerError(w, r, err)
 		return
 	}

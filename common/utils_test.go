@@ -27,11 +27,6 @@ func (s *CommonSuite) TestFmtDefineArray(c *C) {
 	c.Assert(FmtDefineArray("foo", []byte{}), Equals, "#define foo {  }\n")
 }
 
-func (s *CommonSuite) TestFmtV6Prefix(c *C) {
-	c.Assert(fmtV6Prefix("beef::", []byte{}), Equals, "<nil>")
-	c.Assert(fmtV6Prefix("beef::", []byte{1, 2, 3, 4}), Equals, "beef::0102:0304:0")
-}
-
 func (s *CommonSuite) TestSwab16(c *C) {
 	c.Assert(Swab16(0xAABB), Equals, uint16(0xBBAA),
 		Commentf("Swab16 failed: Swab16(0xAABB) != 0xBBAA"))
@@ -40,14 +35,6 @@ func (s *CommonSuite) TestSwab16(c *C) {
 func (s *CommonSuite) TestSwab32(c *C) {
 	c.Assert(Swab32(0xAABBCCDD), Equals, uint32(0xDDCCBBAA),
 		Commentf("Swab32 failed: Swab16(0xAABBCCDD) != 0xDDCCBBAA"))
-}
-
-func (s *CommonSuite) TestFmtV4Range(c *C) {
-	ip := net.ParseIP("1.2.3.4")
-
-	r, err := fmtV4Range(&ip)
-	c.Assert(r, Equals, "10.4.0.0/16")
-	c.Assert(err, Equals, nil)
 }
 
 func (s *CommonSuite) TestParseHost(c *C) {

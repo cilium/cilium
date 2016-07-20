@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "ipv6.h"
+#include "ipv4.h"
 #include "eth.h"
 #include "dbg.h"
 
@@ -27,8 +28,18 @@ static inline int valid_src_ip(struct ipv6hdr *ip6)
 
 	return !ipv6_addrcmp((union v6addr *) &ip6->saddr, &valid);
 }
+
+static inline int valid_src_ipv4(struct iphdr *ip4)
+{
+	return ip4->saddr != LXC_IPV4;
+}
 #else
 static inline int valid_src_ip(struct ipv6hdr *ip6)
+{
+	return 1;
+}
+
+static inline int valid_src_ipv4(struct iphdr *ip4)
 {
 	return 1;
 }

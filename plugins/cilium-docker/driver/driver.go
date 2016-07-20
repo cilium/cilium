@@ -8,7 +8,9 @@ import (
 	"time"
 
 	common "github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
 	cnc "github.com/noironetworks/cilium-net/common/client"
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/plugins"
 	"github.com/noironetworks/cilium-net/common/types"
 
@@ -196,8 +198,9 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Create endpoint request: %+v", &create)
 
 	endID := create.EndpointID
-	containerAddress := create.Interface.AddressIPv6
-	if containerAddress == "" {
+	ipv6Address := create.Interface.AddressIPv6
+	ipv4Address := create.Interface.Address
+	if ipv6Address == "" {
 		log.Warningf("No IPv6 address provided in CreateEndpoint request")
 	}
 
@@ -243,10 +246,21 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip, _, _ := net.ParseCIDR(containerAddress)
+	ip6, _, err := net.ParseCIDR(ipv6Address)
+	if err != nil {
+		sendError(w, fmt.Sprintf("Invalid IPv6 address: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	ip4, _, err := net.ParseCIDR(ipv4Address)
+	if err != nil {
+		sendError(w, fmt.Sprintf("Invalid IPv4 address: %s", err), http.StatusBadRequest)
+		return
+	}
 
 	endpoint := types.Endpoint{
-		LXCIP:            ip,
+		IPv6:             addressing.DeriveCiliumIPv6(ip6),
+		IPv4:             addressing.DeriveCiliumIPv4(ip4),
 		NodeIP:           driver.nodeAddress,
 		DockerNetworkID:  create.NetworkID,
 		DockerEndpointID: endID,
@@ -261,7 +275,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Created Endpoint: %+v", endpoint)
 
-	log.Infof("New endpoint %s with IP %s", endID, containerAddress)
+	log.Infof("New endpoint %s with IPv6: %s, IPv4: %s", endID, ipv6Address, ipv4Address)
 
 	respIface := &api.EndpointInterface{
 		MacAddress: common.DefaultContainerMAC,
@@ -342,7 +356,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to create BPF map: "+err.Error(), http.StatusInternalServerError)
 	}
 
-	rep, err := driver.client.GetIPAMConf(types.LibnetworkIPAMType, types.IPAMReq{})
+	rep, err := driver.client.GetIPAMConf(ipam.LibnetworkIPAMType, ipam.IPAMReq{})
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not get cilium IPAM configuration: %s", err), http.StatusBadRequest)
 	}
