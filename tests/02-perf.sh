@@ -32,13 +32,16 @@ docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
 docker run -dt --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
+CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
 CLIENT_ID=$(cilium endpoint list | grep $CLIENT_LABEL | awk '{ print $1}')
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
+SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
 SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
 HOST_IP=$(echo $SERVER_IP | sed -e 's/:[0-9a-f]\{4\}$/:ffff/')
 SERVER_DEV=$(cilium endpoint inspect $SERVER_ID | grep interface-name | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 NODE_MAC=$(cilium endpoint inspect $SERVER_ID | grep node-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 LXC_MAC=$(cilium endpoint inspect $SERVER_ID | grep lxc-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
+
 
 # FIXME IPv6 DAD period
 sleep 5
@@ -63,7 +66,15 @@ function perf_test() {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
+	docker exec -i client netperf -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP4 || {
+		abort "Error: Unable to reach netperf TCP endpoint"
+	}
+
 	docker exec -i client netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP || {
+		abort "Error: Unable to reach netperf TCP endpoint"
+	}
+
+	docker exec -i client netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
@@ -75,7 +86,15 @@ function perf_test() {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
+	docker exec -i client super_netperf 8 -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
+		abort "Error: Unable to reach netperf TCP endpoint"
+	}
+
 	docker exec -i client netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP || {
+		abort "Error: Unable to reach netperf TCP endpoint"
+	}
+
+	docker exec -i client netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP4 || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 }
