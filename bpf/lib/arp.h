@@ -5,6 +5,7 @@
 #include <linux/if_ether.h>
 #include "eth.h"
 #include "dbg.h"
+#include "drop.h"
 
 struct arp_eth {
 	unsigned char		ar_sha[ETH_ALEN];
@@ -57,6 +58,36 @@ static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip, union m
 		return DROP_WRITE_ERROR;
 
 	return 0;
+}
+
+static inline int arp_respond(struct __sk_buff *skb, union macaddr *mac, __be32 ip)
+{
+	void *data_end = (void *) (long) skb->data_end;
+	void *data = (void *) (long) skb->data;
+	struct arphdr *arp = data + ETH_HLEN;
+	struct ethhdr *eth = data;
+	int ret;
+
+	if (data + sizeof(*arp) + ETH_HLEN > data_end) {
+		ret = DROP_INVALID;
+		goto error;
+	}
+
+	ret = arp_check(eth, arp, data, data_end, ip, mac);
+	if (ret == 1) {
+		ret = arp_prepare_response(skb, ip, mac);
+		if (unlikely(ret != 0))
+			goto error;
+
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
+		return redirect(skb->ifindex, 0);
+	}
+
+	/* Pass any unknown ARP requests to the Linux stack */
+	return TC_ACT_OK;
+
+error:
+	return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 }
 
 #endif /* __LIB_ARP__ */

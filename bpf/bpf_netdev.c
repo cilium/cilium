@@ -57,40 +57,12 @@ static inline int matches_cluster_prefix(const union v6addr *addr, const union v
 }
 
 /*
- * respond to arp request for target IPV4_GW with HOST_IFINDEX_MAC
+ * respond to arp request for target IPV4_GATEWAY with HOST_IFINDEX_MAC
  */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP_RESPONDER) int arp_respond(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __sk_buff *skb)
 {
-	union macaddr responder_mac = HOST_IFINDEX_MAC;
-	void *data_end = (void *) (long) skb->data_end;
-	void *data = (void *) (long) skb->data;
-	struct arphdr *arp = data + ETH_HLEN;
-	struct ethhdr *eth = data;
-	int ret;
-
-	if (data + sizeof(*arp) + ETH_HLEN > data_end) {
-		ret = DROP_INVALID;
-		goto error;
-	}
-
-	ret = arp_check(eth, arp, data, data_end, IPV4_GW, &responder_mac);
-	if (ret == 1) {
-		union macaddr mac = HOST_IFINDEX_MAC;
-		__be32 ip = IPV4_GW;
-
-		ret = arp_prepare_response(skb, ip, &mac);
-		if (unlikely(ret != 0))
-			goto error;
-
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
-		return redirect(skb->ifindex, 0);
-	}
-
-	/* Pass any unknown ARP requests to the Linux stack */
-	return TC_ACT_OK;
-
-error:
-	return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	union macaddr mac = HOST_IFINDEX_MAC;
+	return arp_respond(skb, &mac, IPV4_GATEWAY);
 }
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
@@ -124,7 +96,7 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef ENABLE_ARP_RESPONDER
 	if (unlikely(proto == __constant_htons(ETH_P_ARP))) {
-		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP_RESPONDER);
+		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		goto error;
 	}

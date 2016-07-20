@@ -11,6 +11,7 @@
 #include <linux/icmpv6.h>
 #include "lib/common.h"
 #include "lib/maps.h"
+#include "lib/arp.h"
 #include "lib/ipv6.h"
 #include "lib/icmp6.h"
 #include "lib/eth.h"
@@ -61,9 +62,9 @@ static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
 }
 #endif
 
-static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
-					    struct ipv6_ct_tuple *tuple, int nh_off,
-					    struct ethhdr *eth, struct ipv6hdr *ip6)
+static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
+				   struct ipv6_ct_tuple *tuple, int nh_off,
+				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
@@ -213,8 +214,7 @@ pass_to_stack:
 #endif
 }
 
-__section("from-container")
-int handle_ingress(struct __sk_buff *skb)
+static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data = (void *) (long) skb->data;
@@ -223,18 +223,8 @@ int handle_ingress(struct __sk_buff *skb)
 	struct ethhdr *eth = data;
 	int ret;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
-
-	/* Drop all non IPv6 traffic */
-	if (unlikely(skb->protocol != __constant_htons(ETH_P_IPV6))) {
-		ret = DROP_UNKNOWN_L3;
-		goto error;
-	}
-
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end) {
-		ret = DROP_INVALID;
-		goto error;
-	}
+	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+		return DROP_INVALID;
 
 	/* Handle special ICMPv6 messages. This includes echo requests to the
 	 * logical router address, neighbour advertisements to the router.
@@ -242,22 +232,81 @@ int handle_ingress(struct __sk_buff *skb)
 	 */
 	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
 		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end) {
-			ret = DROP_INVALID;
-			goto error;
+			return DROP_INVALID;
 		}
 
 		ret = icmp6_handle(skb, ETH_HLEN, ip6);
 		if (IS_ERR(ret))
-			goto error;
+			return ret;
 	}
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	ret = do_l3_from_lxc(skb, &tuple, ETH_HLEN, eth, ip6);
-	if (IS_ERR(ret)) {
-error:
+	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, eth, ip6);
+}
+
+static inline int handle_ipv4(struct __sk_buff *skb)
+{
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct iphdr *ip4 = data + ETH_HLEN;
+
+	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		return DROP_INVALID;
+
+	return DROP_UNKNOWN_L3;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+{
+	int ret = handle_ipv4(skb);
+
+	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	} else
+
+	return ret;
+}
+
+/*
+ * ARP responder for ARP requests from container
+ * Respond to IPV4_GATEWAY with NODE_MAC
+ */
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __sk_buff *skb)
+{
+	union macaddr mac = NODE_MAC;
+	return arp_respond(skb, &mac, IPV4_GATEWAY);
+}
+
+__section("from-container")
+int handle_ingress(struct __sk_buff *skb)
+{
+	int ret;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
+
+	switch (skb->protocol) {
+	case __constant_htons(ETH_P_IPV6):
+		/* This is considered the fast path, no tail call */
+		ret = handle_ipv6(skb);
+		break;
+
+	case __constant_htons(ETH_P_IP):
+		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+
+	case __constant_htons(ETH_P_ARP):
+		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+
+	default:
+		ret = DROP_UNKNOWN_L3;
+	}
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	else
 		return ret;
 }
 

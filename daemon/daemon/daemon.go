@@ -177,17 +177,15 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
 	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
 
+	ipv4GW := d.conf.NodeAddress.IPv4Address.IP()
+	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
+
 	if ipv4Range := d.conf.NAT46Prefix; ipv4Range != nil {
 		fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", ipv4Range.IP))
 		fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", ipv4Range.IP))
 
 		fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
-
-		ipv4Gw := common.DupIP(ipv4Range.IP)
-		ipv4Gw[2] = 0xff
-		ipv4Gw[3] = 0xff
-		fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
 	}
 
 	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
