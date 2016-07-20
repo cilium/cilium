@@ -134,7 +134,16 @@ struct ipv6_ct_tuple {
 	__u8		flags;
 };
 
-struct ipv6_ct_entry {
+struct ipv4_ct_tuple {
+	__be32		addr;
+	/* The order of dport+sport must not be changed */
+	__u16		dport;
+	__u16		sport;
+	__u8		nexthdr;
+	__u8		flags;
+};
+
+struct ct_entry {
 	__u64 rx_packets;
 	__u64 rx_bytes;
 	__u64 tx_packets;

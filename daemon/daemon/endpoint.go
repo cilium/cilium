@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
@@ -247,6 +248,7 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
 	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.IPv6))
+	fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", binary.BigEndian.Uint32(ep.IPv4))
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.ID)
@@ -255,7 +257,8 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(ep.PolicyMapPath()))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 4096\n")
-	fmt.Fprintf(fw, "#define CT_MAP %s\n", path.Base(common.BPFMapCT+strconv.Itoa(int(ep.ID))))
+	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", path.Base(common.BPFMapCT6+strconv.Itoa(int(ep.ID))))
+	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", path.Base(common.BPFMapCT4+strconv.Itoa(int(ep.ID))))
 
 	// Endpoint options
 	fw.WriteString(ep.Opts.GetFmtList())
@@ -403,7 +406,7 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 	lxcDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
 	os.RemoveAll(lxcDir)
 
-	if err := d.conf.LXCMap.DeleteElement(epID); err != nil {
+	if err := d.conf.LXCMap.DeleteElement(ep); err != nil {
 		log.Warningf("Unable to remove endpoint from map: %s", err)
 	}
 

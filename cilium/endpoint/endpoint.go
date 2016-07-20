@@ -575,22 +575,26 @@ func listEndpointsBash(ctx *cli.Context) {
 
 }
 
-func dumpCt(ctx *cli.Context) {
-	lbl := ctx.Args().First()
-
-	file := common.BPFMapCT + lbl
+func dumpCtProto(file string, ctType ctmap.CtType) {
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to open %s: %s\n", file, err)
 		os.Exit(1)
 	}
 
-	m := ctmap.CtMap{Fd: fd}
+	m := ctmap.CtMap{Fd: fd, Type: ctType}
 	out, err := m.Dump()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error while dumping BPF Map: %s\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println(out)
+}
+
+func dumpCt(ctx *cli.Context) {
+	lbl := ctx.Args().First()
+
+	dumpCtProto(common.BPFMapCT6+lbl, ctmap.CtTypeIPv6)
+	dumpCtProto(common.BPFMapCT4+lbl, ctmap.CtTypeIPv4)
 }

@@ -48,6 +48,15 @@ func NewNodeAddress(v6Address string, ipv4Range string, device string) (*NodeAdd
 	}, nil
 }
 
+func (a *NodeAddress) IPv4ClusterRange() *net.IPNet {
+	mask := net.CIDRMask(DefaultIPv4ClusterPrefixLen, 32)
+
+	return &net.IPNet{
+		IP:   a.IPv4Address.IP().Mask(mask),
+		Mask: mask,
+	}
+}
+
 func (a *NodeAddress) IPv4AllocRange() *net.IPNet {
 	mask := net.CIDRMask(DefaultIPv4PrefixLen, 32)
 

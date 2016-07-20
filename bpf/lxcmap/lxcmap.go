@@ -111,7 +111,7 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		return nil
 	}
 
-	key := ep.ID
+	key := uint32(ep.ID)
 
 	mac, err := ep.LXCMAC.Uint64()
 	if err != nil {
@@ -142,16 +142,34 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		}
 	}
 
-	return bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
+	err = bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
+	if err != nil {
+		return err
+	}
+
+	key2 := uint32(ep.IPv4.EndpointID()) | (1 << 16)
+	// FIXME: Remove key again? Needs to be solved by caller
+	return bpf.UpdateElement(m.fd, unsafe.Pointer(&key2), unsafe.Pointer(&lxc), 0)
 }
 
 // DeleteElement deletes the element with the given id from the LXCMap.
-func (m *LXCMap) DeleteElement(id uint16) error {
+func (m *LXCMap) DeleteElement(ep *types.Endpoint) error {
 	if m == nil {
 		return nil
 	}
 
-	return bpf.DeleteElement(m.fd, unsafe.Pointer(&id))
+	// FIXME: errors are currently ignored
+	id6 := uint32(ep.ID)
+	err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id6))
+
+	if id4 := uint32(ep.IPv4.EndpointID()); id4 != 0 {
+		id4 = id4 | (1 << 16)
+		if err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id4)); err != nil {
+			return err
+		}
+	}
+
+	return err
 }
 
 // OpenMap opens the LXCMap in the given path.
@@ -160,7 +178,7 @@ func OpenMap(path string) (*LXCMap, error) {
 	fd, _, err := bpf.OpenOrCreateMap(
 		path,
 		C.BPF_MAP_TYPE_HASH,
-		uint32(unsafe.Sizeof(uint16(0))),
+		uint32(unsafe.Sizeof(uint32(0))),
 		uint32(unsafe.Sizeof(LXCInfo{})),
 		MaxKeys,
 	)

@@ -14,6 +14,8 @@ const (
 	DefaultIPv4Prefix = "10.%d.0.1"
 	// Prefix length to allocate container IPv4 addresses from
 	DefaultIPv4PrefixLen = 16
+	// Default IPv4 prefix length of entire cluster
+	DefaultIPv4ClusterPrefixLen = 8
 	// Default IPv6 prefix to represent NATed IPv4 addresses
 	DefaultNAT46Prefix = "aa46::/48"
 )

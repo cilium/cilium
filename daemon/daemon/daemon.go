@@ -177,15 +177,20 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
 	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
 
-	ipv4GW := d.conf.NodeAddress.IPv4Address.IP()
+	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
 
-	if ipv4Range := d.conf.NAT46Prefix; ipv4Range != nil {
-		fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", ipv4Range.IP))
-		fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", ipv4Range.IP))
+	ipv4Range := d.conf.NodeAddress.IPv4AllocRange()
+	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
+	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
-		fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
-		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
+	ipv4ClusterRange := d.conf.NodeAddress.IPv4ClusterRange()
+	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4ClusterRange.IP))
+	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", binary.LittleEndian.Uint32(ipv4ClusterRange.Mask))
+
+	if nat46Range := d.conf.NAT46Prefix; nat46Range != nil {
+		fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", nat46Range.IP))
+		fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", nat46Range.IP))
 	}
 
 	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))

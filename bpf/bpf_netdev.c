@@ -147,7 +147,7 @@ int from_netdev(struct __sk_buff *skb)
 		flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
 		if (likely(is_node_subnet(dst, &node_ip)))
-			ret = local_delivery(skb, ETH_HLEN, ip6, dst, flowlabel);
+			ret = ipv6_local_delivery(skb, ETH_HLEN, dst, flowlabel, ip6);
 	}
 
 	if (IS_ERR(ret)) {
