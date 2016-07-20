@@ -14,6 +14,8 @@ import (
 
 	"github.com/noironetworks/cilium-net/bpf/lxcmap"
 	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	cniTypes "github.com/appc/cni/pkg/types"
@@ -34,7 +36,7 @@ var (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ipamConf                  map[types.IPAMType]*types.IPAMConfig
+	ipamConf                  *ipam.IPAMConfig
 	consul                    *consulAPI.Client
 	containers                map[string]*types.Container
 	containersMU              sync.RWMutex
@@ -131,9 +133,9 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), "direct", d.conf.Device}
+		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), "direct", d.conf.Device}
 	} else {
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.IPv4Range.IP.String(), d.conf.Tunnel}
+		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
 	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
@@ -161,7 +163,7 @@ func (d *Daemon) init() error {
 	}
 	fw := bufio.NewWriter(f)
 
-	hostIP := common.DupIP(d.conf.NodeAddress)
+	hostIP := common.DupIP(d.conf.NodeAddress.IPv6Address.IP())
 	hostIP[14] = 0xff
 	hostIP[15] = 0xff
 
@@ -172,25 +174,25 @@ func (d *Daemon) init() error {
 		" */\n\n",
 		d.conf.NodeAddress.String(), hostIP.String())
 
-	fmt.Fprintf(fw, "#define NODE_ID %#x\n", common.NodeAddr2ID(d.conf.NodeAddress))
-	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress))
+	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
+	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
 
-	SrcPrefix := net.ParseIP(d.conf.IPv4Prefix)
-	DstPrefix := net.ParseIP(d.conf.IPv4Prefix)
-	fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", SrcPrefix))
-	fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", DstPrefix))
+	if ipv4Range := d.conf.NAT46Prefix; ipv4Range != nil {
+		fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", ipv4Range.IP))
+		fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", ipv4Range.IP))
+
+		fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
+		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
+
+		ipv4Gw := common.DupIP(ipv4Range.IP)
+		ipv4Gw[2] = 0xff
+		ipv4Gw[3] = 0xff
+		fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
+	}
 
 	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
 	fmt.Fprintf(fw, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
-
-	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(d.conf.IPv4Range.IP))
-	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(d.conf.IPv4Range.Mask))
-
-	ipv4Gw := common.DupIP(d.conf.IPv4Range.IP)
-	ipv4Gw[2] = 0xff
-	ipv4Gw[3] = 0xff
-	fmt.Fprintf(fw, "#define IPV4_GW %#x\n", binary.LittleEndian.Uint32(ipv4Gw))
 
 	fw.Flush()
 	f.Close()
@@ -224,48 +226,45 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
-	ones, bits := common.NodeIPv6Mask.Size()
-	maskPerIPAMType := ones + 1
-	ipamSubnets := net.IPNet{IP: c.NodeAddress, Mask: net.CIDRMask(maskPerIPAMType, bits)}
-	cniIPAMSubnet := ipamSubnets
-	libnetworkIPAMSubnet := net.IPNet{IP: common.NextNetwork(ipamSubnets), Mask: net.CIDRMask(maskPerIPAMType, bits)}
-	nodeRoute := net.IPNet{IP: c.NodeAddress, Mask: common.ContainerIPv6Mask}
 
-	ipamConf := map[types.IPAMType]*types.IPAMConfig{
-		types.CNIIPAMType: &types.IPAMConfig{
-			IPAMConfig: hb.IPAMConfig{
-				Name:    string(types.CNIIPAMType),
-				Subnet:  cniTypes.IPNet(cniIPAMSubnet),
-				Gateway: c.NodeAddress,
-				Routes: []cniTypes.Route{
-					cniTypes.Route{
-						Dst: nodeRoute,
-					},
-					cniTypes.Route{
-						Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-						GW:  c.NodeAddress,
-					},
+	ones, bits := addressing.NodeIPv6Mask.Size()
+	maskPerIPAMType := ones + 1
+	ipamSubnets := net.IPNet{IP: c.NodeAddress.IPv6Address.IP(), Mask: net.CIDRMask(maskPerIPAMType, bits)}
+
+	ipamConf := &ipam.IPAMConfig{
+		IPAMConfig: hb.IPAMConfig{
+			Name:    string(ipam.CNIIPAMType),
+			Subnet:  cniTypes.IPNet(ipamSubnets),
+			Gateway: c.NodeAddress.IPv6Address.IP(),
+			Routes: []cniTypes.Route{
+				// IPv6
+				cniTypes.Route{
+					Dst: c.NodeAddress.IPv6Route,
+				},
+				cniTypes.Route{
+					Dst: addressing.IPv6DefaultRoute,
+					GW:  c.NodeAddress.IPv6Address.IP(),
+				},
+				// IPv4
+				cniTypes.Route{
+					Dst: c.NodeAddress.IPv4Route,
+				},
+				cniTypes.Route{
+					Dst: addressing.IPv4DefaultRoute,
+					GW:  c.NodeAddress.IPv4Address.IP(),
 				},
 			},
-			IPAllocator: ipallocator.NewCIDRRange(&cniIPAMSubnet),
 		},
-		types.LibnetworkIPAMType: &types.IPAMConfig{
-			IPAMConfig: hb.IPAMConfig{
-				Name:    string(types.LibnetworkIPAMType),
-				Subnet:  cniTypes.IPNet(libnetworkIPAMSubnet),
-				Gateway: c.NodeAddress,
-				Routes: []cniTypes.Route{
-					cniTypes.Route{
-						Dst: nodeRoute,
-					},
-					cniTypes.Route{
-						Dst: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
-						GW:  c.NodeAddress,
-					},
-				},
-			},
-			IPAllocator: ipallocator.NewCIDRRange(&libnetworkIPAMSubnet),
-		},
+		IPv6Allocator: ipallocator.NewCIDRRange(c.NodeAddress.IPv6AllocRange()),
+		IPv4Allocator: ipallocator.NewCIDRRange(c.NodeAddress.IPv4AllocRange()),
+	}
+
+	// Reserve the IPv4 router IP in the IPv4 allocation range to ensure
+	// that we do not hand out the router IP to a container.
+	err := ipamConf.IPv4Allocator.Allocate(c.NodeAddress.IPv4Address.IP())
+	if err != nil {
+		return nil, fmt.Errorf("Unable to reserve IPv4 router address %s: %s",
+			c.NodeAddress.IPv4Address.String(), err)
 	}
 
 	var consul *consulAPI.Client

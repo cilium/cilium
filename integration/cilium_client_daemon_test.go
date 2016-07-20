@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/noironetworks/cilium-net/common/addressing"
 	"github.com/noironetworks/cilium-net/common/backend"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
@@ -32,8 +33,6 @@ var _ = Suite(&CiliumClientSuite{})
 func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	socketDir := os.Getenv("SOCKET_DIR")
 	socketPath := filepath.Join(socketDir, "cilium.sock")
-	_, ipv4range, err := net.ParseCIDR("10.1.2.0/16")
-	c.Assert(err, IsNil)
 	tempLibDir, err := ioutil.TempDir("", "cilium-test")
 	c.Assert(err, IsNil)
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
@@ -41,16 +40,18 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
 	c.Assert(err, IsNil)
 
+	nodeAddress, err := addressing.NewNodeAddress("beef:beef:beef:beef:aaaa:aaaa:1111:0", "10.1.0.1", "")
+	c.Assert(err, IsNil)
+
 	daemonConf := cnd.NewConfig()
 	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir
 	daemonConf.DryMode = true
 	daemonConf.LXCMap = nil
-	daemonConf.NodeAddress = EpAddr
+	daemonConf.NodeAddress = nodeAddress
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
-	daemonConf.IPv4Range = ipv4range
 	daemonConf.OptsMU.Lock()
 	daemonConf.Opts.Set(types.OptionDropNotify, true)
 	daemonConf.OptsMU.Unlock()

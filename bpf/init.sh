@@ -2,7 +2,7 @@
 
 LIB=$1
 ADDR=$2
-V4RANGE=$3
+V4ADDR=$3
 MODE=$4
 
 HOST_ID="host"
@@ -62,7 +62,7 @@ ip route add $ADDR/128 dev $HOST_DEV1
 ip route del $ADDR/112 via $ADDR 2> /dev/null || true
 ip route add $ADDR/112 via $ADDR
 
-V4ADDR=$(echo $V4RANGE | sed 's/.0.0$/.255.255/')
+V4RANGE=$(echo $V4ADDR | sed 's/.[0-9].[0-9]$/.0.0/')
 ip route del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
 ip route add $V4ADDR/32 dev $HOST_DEV1
 ip route del $V4RANGE/16 via $V4ADDR 2> /dev/null || true

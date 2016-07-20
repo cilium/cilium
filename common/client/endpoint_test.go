@@ -8,16 +8,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/noironetworks/cilium-net/common/addressing"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	EpAddr   = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
-	NodeAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel = &types.SecCtxLabel{
+	IPv6Addr, _ = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
+	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
+	NodeAddr    = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
+	HardAddr    = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel    = &types.SecCtxLabel{
 		Labels: types.Labels{
 			"foo": types.NewLabel("foo", "", ""),
 		},
@@ -31,7 +33,8 @@ var (
 func (s *CiliumNetClientSuite) TestEndpointJoinOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -75,7 +78,8 @@ func (s *CiliumNetClientSuite) TestEndpointJoinFail(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -101,7 +105,8 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "eth0",
@@ -131,7 +136,8 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "eth0",
@@ -158,7 +164,8 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDOK(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:           HardAddr,
-		LXCIP:            EpAddr,
+		IPv6:             IPv6Addr,
+		IPv4:             IPv4Addr,
 		NodeMAC:          HardAddr,
 		NodeIP:           NodeAddr,
 		IfName:           "eth0",
@@ -189,7 +196,8 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDFail(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:           HardAddr,
-		LXCIP:            EpAddr,
+		IPv6:             IPv6Addr,
+		IPv4:             IPv4Addr,
 		NodeMAC:          HardAddr,
 		NodeIP:           NodeAddr,
 		IfName:           "eth0",
@@ -208,7 +216,8 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDFail(c *C) {
 func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
 	epOut := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "eth0",
@@ -265,7 +274,8 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 func (s *CiliumNetClientSuite) TestEndpointGetByDockerEPIDOK(c *C) {
 	epOut := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "eth0",
@@ -323,7 +333,8 @@ func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 	epsOut := []types.Endpoint{
 		types.Endpoint{
 			LXCMAC:          HardAddr,
-			LXCIP:           EpAddr,
+			IPv6:            IPv6Addr,
+			IPv4:            IPv4Addr,
 			NodeMAC:         HardAddr,
 			NodeIP:          NodeAddr,
 			IfName:          "eth0",
@@ -332,7 +343,8 @@ func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 		},
 		types.Endpoint{
 			LXCMAC:          HardAddr,
-			LXCIP:           EpAddr,
+			IPv6:            IPv6Addr,
+			IPv4:            IPv4Addr,
 			NodeMAC:         HardAddr,
 			NodeIP:          NodeAddr,
 			IfName:          "eth0",
@@ -444,7 +456,8 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
 func (s *CiliumNetClientSuite) TestEndpointSaveOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -488,7 +501,8 @@ func (s *CiliumNetClientSuite) TestEndpointSaveFail(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -505,7 +519,8 @@ func (s *CiliumNetClientSuite) TestEndpointSaveFail(c *C) {
 func (s *CiliumNetClientSuite) TestEndpointLabelsGetOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -560,7 +575,8 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsGetFail(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -577,7 +593,8 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsGetFail(c *C) {
 func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateOK(c *C) {
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",
@@ -631,7 +648,8 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateFail(c *C) {
 
 	ep := types.Endpoint{
 		LXCMAC:          HardAddr,
-		LXCIP:           EpAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
 		NodeMAC:         HardAddr,
 		NodeIP:          NodeAddr,
 		IfName:          "ifname",

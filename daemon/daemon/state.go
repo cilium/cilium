@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	dockerAPI "github.com/docker/engine-api/client"
@@ -78,13 +79,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	for _, ep := range eps {
 		var err error
 		if ep.IsCNI() {
-			_, err = d.AllocateIP(types.CNIIPAMType, types.IPAMReq{
-				IP: &ep.LXCIP,
-			})
+			_, err = d.AllocateIP(ipam.CNIIPAMType, ep.IPv6.IPAMReq())
 		} else if ep.IsLibnetwork() {
-			_, err = d.AllocateIP(types.LibnetworkIPAMType, types.IPAMReq{
-				IP: &ep.LXCIP,
-			})
+			_, err = d.AllocateIP(ipam.LibnetworkIPAMType, ep.IPv6.IPAMReq())
 		}
 		if err != nil {
 			log.Warningf("Failed while reallocating ep %d's IP address: %s", ep.ID, err)
@@ -201,15 +198,12 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	cleanUp := func(ep types.Endpoint) {
 		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
 		d.EndpointLeave(ep.ID)
-		if ep.LXCIP != nil {
+		// FIXME: IPV4
+		if ep.IPv6 != nil {
 			if ep.IsCNI() {
-				d.ReleaseIP(types.CNIIPAMType, types.IPAMReq{
-					IP: &ep.LXCIP,
-				})
+				d.ReleaseIP(ipam.CNIIPAMType, ep.IPv6.IPAMReq())
 			} else if ep.IsLibnetwork() {
-				d.ReleaseIP(types.LibnetworkIPAMType, types.IPAMReq{
-					IP: &ep.LXCIP,
-				})
+				d.ReleaseIP(ipam.LibnetworkIPAMType, ep.IPv6.IPAMReq())
 			}
 		}
 

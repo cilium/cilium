@@ -4,144 +4,175 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common/addressing"
+	"github.com/noironetworks/cilium-net/common/ipam"
 
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 )
 
 // allocateIPCNI allocates an IP for the CNI plugin.
-func allocateIPCNI(cniReq types.IPAMReq, ipamConf *types.IPAMConfig) (*types.IPAMRep, error) {
-	ipamConf.IPAllocatorMU.Lock()
-	defer ipamConf.IPAllocatorMU.Unlock()
+func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMRep, error) {
+	ipamConf.AllocatorMutex.Lock()
+	defer ipamConf.AllocatorMutex.Unlock()
 
 	if cniReq.IP != nil {
-		err := ipamConf.IPAllocator.Allocate(*cniReq.IP)
+		err := ipamConf.IPv6Allocator.Allocate(*cniReq.IP)
 		return nil, err
 	}
 
-	ipConf, err := ipamConf.IPAllocator.AllocateNext()
+	ipConf, err := ipamConf.IPv6Allocator.AllocateNext()
 	if err != nil {
 		return nil, err
 	}
 
-	ciliumRoutes := []types.Route{}
-	for _, r := range ipamConf.IPAMConfig.Routes {
-		ciliumRoute := types.NewRoute(r.Dst, r.GW)
-		ciliumRoutes = append(ciliumRoutes, *ciliumRoute)
+	ip4Conf, err := ipamConf.IPv4Allocator.AllocateNext()
+	if err != nil {
+		return nil, err
 	}
 
-	return &types.IPAMRep{
-		IP6: &types.IPConfig{
-			Gateway: ipamConf.IPAMConfig.Gateway,
-			IP:      net.IPNet{IP: ipConf, Mask: common.ContainerIPv6Mask},
-			Routes:  ciliumRoutes,
+	v6Routes := []ipam.Route{}
+	v4Routes := []ipam.Route{}
+	for _, r := range ipamConf.IPAMConfig.Routes {
+		rt := ipam.NewRoute(r.Dst, r.GW)
+		if r.GW.To4() == nil {
+			v6Routes = append(v6Routes, *rt)
+		} else {
+			v4Routes = append(v4Routes, *rt)
+		}
+	}
+
+	return &ipam.IPAMRep{
+		IP6: &ipam.IPConfig{
+			Gateway: d.conf.NodeAddress.IPv6Address.IP(),
+			IP:      net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv6Mask},
+			Routes:  v6Routes,
+		},
+		IP4: &ipam.IPConfig{
+			Gateway: d.conf.NodeAddress.IPv4Address.IP(),
+			IP:      net.IPNet{IP: ip4Conf, Mask: addressing.ContainerIPv4Mask},
+			Routes:  v4Routes,
 		},
 	}, nil
 }
 
 // releaseIPCNI releases an IP for the CNI plugin.
-func releaseIPCNI(cniReq types.IPAMReq, ipamConf *types.IPAMConfig) error {
-	ipamConf.IPAllocatorMU.Lock()
-	defer ipamConf.IPAllocatorMU.Unlock()
-	return ipamConf.IPAllocator.Release(*cniReq.IP)
+func releaseIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
+	ipamConf.AllocatorMutex.Lock()
+	defer ipamConf.AllocatorMutex.Unlock()
+
+	return ipamConf.IPv6Allocator.Release(*cniReq.IP)
 }
 
 // allocateIPLibnetwork allocates an IP for the libnetwork plugin.
-func allocateIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types.IPAMRep, error) {
-	log.Debugf("ipamConf.IPAllocatorMU locking...")
-	ipamConf.IPAllocatorMU.Lock()
-	log.Debugf("ipamConf.IPAllocatorMU Locked")
+func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMRep, error) {
+	log.Debugf("ipamConf.AllocatorMutex locking...")
+	ipamConf.AllocatorMutex.Lock()
+	log.Debugf("ipamConf.AllocatorMutex Locked")
+
 	defer func() {
-		log.Debugf("Unlocking ipamConf.IPAllocatorMU")
-		ipamConf.IPAllocatorMU.Unlock()
-		log.Debugf("Unlocked ipamConf.IPAllocatorMU")
+		log.Debugf("Unlocking ipamConf.AllocatorMutex")
+		ipamConf.AllocatorMutex.Unlock()
+		log.Debugf("Unlocked ipamConf.AllocatorMutex")
 	}()
 	if ln.IP != nil {
-		err := ipamConf.IPAllocator.Allocate(*ln.IP)
+		err := ipamConf.IPv6Allocator.Allocate(*ln.IP)
 		return nil, err
 	}
 
 	switch ln.RequestAddressRequest.PoolID {
-	case types.LibnetworkDefaultPoolV4:
-		log.Warningf("Docker requested us to use legacy IPv4, boooooring...")
-	case types.LibnetworkDefaultPoolV6:
-		ipConf, err := ipamConf.IPAllocator.AllocateNext()
+	case ipam.LibnetworkDefaultPoolV4:
+		ipConf, err := ipamConf.IPv4Allocator.AllocateNext()
 		if err != nil {
 			return nil, err
 		}
-		resp := types.IPAMRep{
-			IP6: &types.IPConfig{
-				IP: net.IPNet{IP: ipConf, Mask: common.ContainerIPv6Mask},
+		resp := ipam.IPAMRep{
+			IP4: &ipam.IPConfig{
+				IP: net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv4Mask},
+			},
+		}
+		log.Debugf("Docker requested us to use IPv4, %+v", resp.IP4.IP)
+		return &resp, nil
+	case ipam.LibnetworkDefaultPoolV6:
+		ipConf, err := ipamConf.IPv6Allocator.AllocateNext()
+		if err != nil {
+			return nil, err
+		}
+		resp := ipam.IPAMRep{
+			IP6: &ipam.IPConfig{
+				IP: net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv6Mask},
 			},
 		}
 		log.Debugf("Docker requested us to use IPv6, %+v", resp.IP6.IP)
 		return &resp, nil
 	}
+
+	log.Warning("Address request for unknown address pool: %s", ln.RequestAddressRequest.PoolID)
+
 	return nil, nil
 }
 
 // releaseIPLibnetwork releases an IP for the libnetwork plugin.
-func releaseIPLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) error {
+func releaseIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
 	log.Debugf("%+v", ln)
-	ipamConf.IPAllocatorMU.Lock()
-	defer ipamConf.IPAllocatorMU.Unlock()
+
+	ipamConf.AllocatorMutex.Lock()
+	defer ipamConf.AllocatorMutex.Unlock()
 
 	if ln.IP != nil {
-		return ipamConf.IPAllocator.Release(*ln.IP)
+		return ipamConf.IPv6Allocator.Release(*ln.IP)
 	}
 
 	switch ln.ReleaseAddressRequest.PoolID {
-	case types.LibnetworkDefaultPoolV4:
-		log.Warningf("Docker requested us to release legacy IPv4, boooooring...")
-	case types.LibnetworkDefaultPoolV6:
+	case ipam.LibnetworkDefaultPoolV4:
 		ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
-		return ipamConf.IPAllocator.Release(ip)
+		return ipamConf.IPv4Allocator.Release(ip)
+	case ipam.LibnetworkDefaultPoolV6:
+		ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
+		return ipamConf.IPv6Allocator.Release(ip)
 	}
 	return nil
 }
 
 // AllocateIP allocates and returns a free IPv6 address with plugin configurations
 // specific set up.
-func (d *Daemon) AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMRep, error) {
+func (d *Daemon) AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMRep, error) {
 	switch ipamType {
-	case types.CNIIPAMType:
-		return allocateIPCNI(options, d.ipamConf[types.CNIIPAMType])
-	case types.LibnetworkIPAMType:
-		return allocateIPLibnetwork(options, d.ipamConf[types.LibnetworkIPAMType])
+	case ipam.CNIIPAMType:
+		return d.allocateIPCNI(options, d.ipamConf)
+	case ipam.LibnetworkIPAMType:
+		return allocateIPLibnetwork(options, d.ipamConf)
 	}
 	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
 }
 
 // ReleaseIP releases an IP address in use by the specific IPAM type.
-func (d *Daemon) ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) error {
+func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
 	switch ipamType {
-	case types.CNIIPAMType:
-		return releaseIPCNI(options, d.ipamConf[types.CNIIPAMType])
-	case types.LibnetworkIPAMType:
-		return releaseIPLibnetwork(options, d.ipamConf[types.LibnetworkIPAMType])
+	case ipam.CNIIPAMType:
+		return releaseIPCNI(options, d.ipamConf)
+	case ipam.LibnetworkIPAMType:
+		return releaseIPLibnetwork(options, d.ipamConf)
 	}
 	return fmt.Errorf("unknown IPAM Type %s", ipamType)
 }
 
 // getIPAMConfLibnetwork returns the Libnetwork specific IPAM configuration.
-func getIPAMConfLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types.IPAMConfigRep, error) {
+func getIPAMConfLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMConfigRep, error) {
 	if ln.RequestPoolRequest != nil {
 		var poolID, pool, gw string
 
 		if ln.RequestPoolRequest.V6 == false {
-			log.Warningf("Docker requested us to use legacy IPv4, boooooring...")
-			poolID = types.LibnetworkDefaultPoolV4
-			pool = types.LibnetworkDummyV4AllocPool
-			gw = types.LibnetworkDummyV4Gateway
+			poolID = ipam.LibnetworkDefaultPoolV4
+			pool = ipam.LibnetworkDummyV4AllocPool
+			gw = ipam.LibnetworkDummyV4Gateway
 		} else {
 			subnetGo := net.IPNet(ipamConf.IPAMConfig.Subnet)
-			poolID = types.LibnetworkDefaultPoolV6
+			poolID = ipam.LibnetworkDefaultPoolV6
 			pool = subnetGo.String()
 			gw = ipamConf.IPAMConfig.Gateway.String() + "/128"
 		}
 
-		return &types.IPAMConfigRep{
+		return &ipam.IPAMConfigRep{
 			RequestPoolResponse: &lnAPI.RequestPoolResponse{
 				PoolID: poolID,
 				Pool:   pool,
@@ -152,15 +183,15 @@ func getIPAMConfLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types
 		}, nil
 	}
 
-	ciliumRoutes := []types.Route{}
+	ciliumRoutes := []ipam.Route{}
 	for _, r := range ipamConf.IPAMConfig.Routes {
-		ciliumRoute := types.NewRoute(r.Dst, r.GW)
+		ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
 		ciliumRoutes = append(ciliumRoutes, *ciliumRoute)
 	}
 
-	return &types.IPAMConfigRep{
-		IPAMConfig: &types.IPAMRep{
-			IP6: &types.IPConfig{
+	return &ipam.IPAMConfigRep{
+		IPAMConfig: &ipam.IPAMRep{
+			IP6: &ipam.IPConfig{
 				Gateway: ipamConf.IPAMConfig.Gateway,
 				Routes:  ciliumRoutes,
 			},
@@ -169,10 +200,10 @@ func getIPAMConfLibnetwork(ln types.IPAMReq, ipamConf *types.IPAMConfig) (*types
 }
 
 // GetIPAMConf returns the IPAM configuration details of the given IPAM type.
-func (d *Daemon) GetIPAMConf(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error) {
+func (d *Daemon) GetIPAMConf(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
 	switch ipamType {
-	case types.LibnetworkIPAMType:
-		return getIPAMConfLibnetwork(options, d.ipamConf[types.LibnetworkIPAMType])
+	case ipam.LibnetworkIPAMType:
+		return getIPAMConfLibnetwork(options, d.ipamConf)
 	}
 	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
 }

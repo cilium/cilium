@@ -2,14 +2,16 @@ package types
 
 import (
 	"bytes"
-	"net"
 	"testing"
+
+	"github.com/noironetworks/cilium-net/common/addressing"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	EpAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
+	IPv6Addr, _ = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
+	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -20,10 +22,11 @@ type EndpointSuite struct{}
 var _ = Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpointID(c *C) {
-	e := Endpoint{LXCIP: EpAddr}
+	e := Endpoint{IPv6: IPv6Addr, IPv4: IPv4Addr}
 	e.SetID()
 	c.Assert(e.ID, Equals, uint16(4370)) //"0x1112"
-	c.Assert(bytes.Compare(e.LXCIP, EpAddr) == 0, Equals, true)
+	c.Assert(bytes.Compare(e.IPv6, IPv6Addr) == 0, Equals, true)
+	c.Assert(bytes.Compare(e.IPv4, IPv4Addr) == 0, Equals, true)
 }
 
 func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {

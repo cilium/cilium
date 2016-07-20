@@ -231,7 +231,7 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 		" * PolicyMap: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
-		ep.LXCMAC, ep.LXCIP, ep.IPv4Address(d.conf.IPv4Range),
+		ep.LXCMAC, ep.IPv6.String(), ep.IPv4.String(),
 		ep.SecLabel.ID, path.Base(ep.PolicyMapPath()), ep.NodeMAC)
 
 	fw.WriteString("/*\n")
@@ -246,7 +246,7 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	fw.WriteString(" */\n\n")
 
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
-	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.LXCIP))
+	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.IPv6))
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.ID)

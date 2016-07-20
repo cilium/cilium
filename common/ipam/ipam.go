@@ -1,4 +1,4 @@
-package types
+package ipam
 
 import (
 	"net"
@@ -30,9 +30,10 @@ const (
 
 // IPAMConfig is the IPAM configuration used for a particular IPAM type.
 type IPAMConfig struct {
-	IPAMConfig    hb.IPAMConfig
-	IPAllocator   *ipallocator.Range
-	IPAllocatorMU sync.Mutex
+	IPAMConfig     hb.IPAMConfig
+	IPv6Allocator  *ipallocator.Range
+	IPv4Allocator  *ipallocator.Range
+	AllocatorMutex sync.Mutex
 }
 
 // IPAMReq is used for IPAM request operation.

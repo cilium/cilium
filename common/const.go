@@ -1,9 +1,5 @@
 package common
 
-import (
-	"net"
-)
-
 const (
 	// Cilium constants
 
@@ -50,17 +46,6 @@ const (
 	// purposes.
 	SecCtxFromHost = 1
 
-	// Networking dedicated constants
-
-	// DefaultIPv6Prefix is the default IPv6 address assigned to the cilium interface.
-	DefaultIPv6Prefix = "beef::"
-	// DefaultIPv4Prefix is the IPv6 prefix used to map IPv4 addresses.
-	DefaultIPv4Prefix = "dead::"
-	// DefaultIPv4Range is the CIDR used for 6to4 communications.
-	DefaultIPv4Range = `10.%d.0.0/16`
-	// DefaultIPv4Mask is the default mask for the CIDR used for 6to4 communications.
-	DefaultIPv4Mask = 16
-
 	// Miscellaneous dedicated constants
 
 	// GlobalLabelPrefix is the default root path for the policy.
@@ -98,22 +83,4 @@ const (
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
-)
-
-var (
-	// Default addressing schema
-	//
-	// cluster:		    beef:beef:beef:beef::/64
-	// loadbalancer:            beef:beef:beef:beef:<lb>::/80
-	// node:		    beef:beef:beef:beef:<lb>:<node>:<node>:/112
-	// lxc:			    beef:beef:beef:beef:<lb>:<node>:<node>:<lxc>/128
-
-	// ClusterIPv6Mask represents the CIDR Mask for the cilium cluster.
-	ClusterIPv6Mask = net.CIDRMask(64, 128)
-	// LoadBalancerIPv6Mask represents the CIDR Mask for the cilium load balancer.
-	LoadBalancerIPv6Mask = net.CIDRMask(80, 128)
-	// NodeIPv6Mask represents the CIDR Mask for the cilium node.
-	NodeIPv6Mask = net.CIDRMask(112, 128)
-	// ContainerIPv6Mask represents the CIDR Mask for the cilium endpoint/container.
-	ContainerIPv6Mask = net.CIDRMask(128, 128)
 )

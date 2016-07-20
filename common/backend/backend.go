@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 )
 
@@ -18,9 +19,9 @@ type bpfBackend interface {
 }
 
 type ipamBackend interface {
-	GetIPAMConf(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error)
-	AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMRep, error)
-	ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) error
+	GetIPAMConf(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error)
+	AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMRep, error)
+	ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error
 }
 
 type labelBackend interface {

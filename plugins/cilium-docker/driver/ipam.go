@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common/ipam"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
 )
@@ -44,7 +44,7 @@ func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Request Pool request: %+v", &req)
 
-	pr, err := driver.client.GetIPAMConf(types.LibnetworkIPAMType, types.IPAMReq{RequestPoolRequest: &req})
+	pr, err := driver.client.GetIPAMConf(ipam.LibnetworkIPAMType, ipam.IPAMReq{RequestPoolRequest: &req})
 
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not get cilium IPAM configuration: %s", err), http.StatusBadRequest)
@@ -77,8 +77,8 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Request Address request: %+v", &request)
 
-	ipConfig, err := driver.client.AllocateIP(types.LibnetworkIPAMType,
-		types.IPAMReq{RequestAddressRequest: &request},
+	ipConfig, err := driver.client.AllocateIP(ipam.LibnetworkIPAMType,
+		ipam.IPAMReq{RequestAddressRequest: &request},
 	)
 
 	if err != nil {
@@ -86,10 +86,20 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var addr string
+	if ipConfig.IP6 != nil {
+		addr = ipConfig.IP6.IP.IP.String() + "/128"
+	} else if ipConfig.IP4 != nil {
+		addr = ipConfig.IP4.IP.IP.String() + "/32"
+	} else {
+		sendError(w, "No address provided by IPAM backend", http.StatusBadRequest)
+		return
+	}
+
 	var resp *api.RequestAddressResponse
 	if ipConfig != nil {
 		resp = &api.RequestAddressResponse{
-			Address: ipConfig.IP6.IP.IP.String() + "/128",
+			Address: addr,
 		}
 	}
 
@@ -106,8 +116,8 @@ func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Release Address request: %+v", release)
 
-	err := driver.client.ReleaseIP(types.LibnetworkIPAMType,
-		types.IPAMReq{ReleaseAddressRequest: &release})
+	err := driver.client.ReleaseIP(ipam.LibnetworkIPAMType,
+		ipam.IPAMReq{ReleaseAddressRequest: &release})
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return

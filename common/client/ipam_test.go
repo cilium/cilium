@@ -7,7 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
+	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 
 	libnetworktypes "github.com/docker/libnetwork/types"
@@ -15,24 +16,24 @@ import (
 )
 
 func (s *CiliumNetClientSuite) TestAllocateIPOK(c *C) {
-	ipamConfig := types.IPAMRep{
-		IP6: &types.IPConfig{
+	ipamConfig := ipam.IPAMRep{
+		IP6: &ipam.IPConfig{
 			Gateway: NodeAddr,
-			IP:      net.IPNet{IP: EpAddr, Mask: common.NodeIPv6Mask},
-			Routes: []types.Route{
-				types.Route{
-					Destination: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
+			IP:      net.IPNet{IP: IPv6Addr.IP(), Mask: addressing.NodeIPv6Mask},
+			Routes: []ipam.Route{
+				ipam.Route{
+					Destination: addressing.IPv6DefaultRoute,
 					NextHop:     nil,
 					Type:        libnetworktypes.CONNECTED,
 				},
 			},
 		},
 	}
-	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
+	cniReq := ipam.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/allocator/ipam-allocate/"+string(types.CNIIPAMType))
-		var options types.IPAMReq
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-allocate/"+string(ipam.CNIIPAMType))
+		var options ipam.IPAMReq
 		err := json.NewDecoder(r.Body).Decode(&options)
 		c.Assert(err, IsNil)
 		c.Assert(options, Equals, cniReq)
@@ -44,17 +45,17 @@ func (s *CiliumNetClientSuite) TestAllocateIPOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ipamConfigReceived, err := cli.AllocateIP(types.CNIIPAMType, cniReq)
+	ipamConfigReceived, err := cli.AllocateIP(ipam.CNIIPAMType, cniReq)
 	c.Assert(err, Equals, nil)
 	c.Assert(*ipamConfigReceived, DeepEquals, ipamConfig)
 }
 
 func (s *CiliumNetClientSuite) TestAllocateIPFail(c *C) {
-	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
+	cniReq := ipam.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/allocator/ipam-allocate/"+string(types.CNIIPAMType))
-		var options types.IPAMReq
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-allocate/"+string(ipam.CNIIPAMType))
+		var options ipam.IPAMReq
 		err := json.NewDecoder(r.Body).Decode(&options)
 		c.Assert(err, IsNil)
 		c.Assert(options, Equals, cniReq)
@@ -67,16 +68,16 @@ func (s *CiliumNetClientSuite) TestAllocateIPFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	_, err := cli.AllocateIP(types.CNIIPAMType, cniReq)
+	_, err := cli.AllocateIP(ipam.CNIIPAMType, cniReq)
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }
 
 func (s *CiliumNetClientSuite) TestReleaseIPOK(c *C) {
-	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
+	cniReq := ipam.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/allocator/ipam-release/"+string(types.CNIIPAMType))
-		var options types.IPAMReq
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-release/"+string(ipam.CNIIPAMType))
+		var options ipam.IPAMReq
 		err := json.NewDecoder(r.Body).Decode(&options)
 		c.Assert(err, IsNil)
 		c.Assert(options, DeepEquals, cniReq)
@@ -86,16 +87,16 @@ func (s *CiliumNetClientSuite) TestReleaseIPOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.ReleaseIP(types.CNIIPAMType, cniReq)
+	err := cli.ReleaseIP(ipam.CNIIPAMType, cniReq)
 	c.Assert(err, Equals, nil)
 }
 
 func (s *CiliumNetClientSuite) TestReleaseIPFail(c *C) {
-	cniReq := types.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
+	cniReq := ipam.IPAMReq{ContainerID: "11b3354cca51cf41ef05f338ec6c1016d03f9496ff701b6060b649248ae07523"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/allocator/ipam-release/"+string(types.CNIIPAMType))
-		var options types.IPAMReq
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-release/"+string(ipam.CNIIPAMType))
+		var options ipam.IPAMReq
 		err := json.NewDecoder(r.Body).Decode(&options)
 		c.Assert(err, IsNil)
 		c.Assert(options, DeepEquals, cniReq)
@@ -108,20 +109,20 @@ func (s *CiliumNetClientSuite) TestReleaseIPFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.ReleaseIP(types.CNIIPAMType, cniReq)
+	err := cli.ReleaseIP(ipam.CNIIPAMType, cniReq)
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
 
 func (s *CiliumNetClientSuite) TestGetIPAMConfOK(c *C) {
-	cniReq := types.IPAMReq{}
-	ciliumRoutes := []types.Route{
-		*types.NewRoute(net.IPNet{IP: NodeAddr, Mask: common.NodeIPv6Mask}, nil),
-		*types.NewRoute(net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)}, NodeAddr),
+	cniReq := ipam.IPAMReq{}
+	ciliumRoutes := []ipam.Route{
+		*ipam.NewRoute(net.IPNet{IP: NodeAddr, Mask: addressing.NodeIPv6Mask}, nil),
+		*ipam.NewRoute(addressing.IPv6DefaultRoute, NodeAddr),
 	}
 
-	rep := types.IPAMConfigRep{
-		IPAMConfig: &types.IPAMRep{
-			IP6: &types.IPConfig{
+	rep := ipam.IPAMConfigRep{
+		IPAMConfig: &ipam.IPAMRep{
+			IP6: &ipam.IPConfig{
 				Gateway: NodeAddr,
 				Routes:  ciliumRoutes,
 			},
@@ -130,8 +131,8 @@ func (s *CiliumNetClientSuite) TestGetIPAMConfOK(c *C) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/allocator/ipam-configuration/"+string(types.LibnetworkIPAMType))
-		var options types.IPAMReq
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-configuration/"+string(ipam.LibnetworkIPAMType))
+		var options ipam.IPAMReq
 		err := json.NewDecoder(r.Body).Decode(&options)
 		c.Assert(err, IsNil)
 		c.Assert(options, DeepEquals, cniReq)
@@ -143,17 +144,17 @@ func (s *CiliumNetClientSuite) TestGetIPAMConfOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ipamRep, err := cli.GetIPAMConf(types.LibnetworkIPAMType, cniReq)
+	ipamRep, err := cli.GetIPAMConf(ipam.LibnetworkIPAMType, cniReq)
 	c.Assert(err, Equals, nil)
 	c.Assert(*ipamRep, DeepEquals, rep)
 }
 
 func (s *CiliumNetClientSuite) TestGetIPAMConfFail(c *C) {
-	cniReq := types.IPAMReq{}
+	cniReq := ipam.IPAMReq{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/allocator/ipam-configuration/"+string(types.CNIIPAMType))
-		var options types.IPAMReq
+		c.Assert(r.URL.Path, Equals, "/allocator/ipam-configuration/"+string(ipam.CNIIPAMType))
+		var options ipam.IPAMReq
 		err := json.NewDecoder(r.Body).Decode(&options)
 		c.Assert(err, IsNil)
 		c.Assert(options, DeepEquals, cniReq)
@@ -166,6 +167,6 @@ func (s *CiliumNetClientSuite) TestGetIPAMConfFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	_, err := cli.GetIPAMConf(types.CNIIPAMType, cniReq)
+	_, err := cli.GetIPAMConf(ipam.CNIIPAMType, cniReq)
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }

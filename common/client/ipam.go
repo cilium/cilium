@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/noironetworks/cilium-net/common/ipam"
 )
 
 // AllocateIP sends a POST request to allocate a new IP for the given options to the
 // daemon. Returns an IPAMConfig if the daemon returns a http.StatusCreated, which means
 // the allocation was successfully made.
-func (cli Client) AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMRep, error) {
+func (cli Client) AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMRep, error) {
 
 	serverResp, err := cli.R().SetBody(options).Post("/allocator/ipam-allocate/" + string(ipamType))
 	if err != nil {
@@ -27,7 +27,7 @@ func (cli Client) AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*t
 		return nil, nil
 	}
 
-	var newIPAMConfig types.IPAMRep
+	var newIPAMConfig ipam.IPAMRep
 	if err := json.Unmarshal(serverResp.Body(), &newIPAMConfig); err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (cli Client) AllocateIP(ipamType types.IPAMType, options types.IPAMReq) (*t
 }
 
 // ReleaseIP sends a POST request to release the IP of the given options.
-func (cli Client) ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) error {
+func (cli Client) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
 
 	serverResp, err := cli.R().SetBody(options).Post("/allocator/ipam-release/" + string(ipamType))
 	if err != nil {
@@ -52,7 +52,7 @@ func (cli Client) ReleaseIP(ipamType types.IPAMType, options types.IPAMReq) erro
 
 // GetIPAMConf sends a POST request to retrieve the IPAM configuration for the given
 // ipamType.
-func (cli Client) GetIPAMConf(ipamType types.IPAMType, options types.IPAMReq) (*types.IPAMConfigRep, error) {
+func (cli Client) GetIPAMConf(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
 
 	serverResp, err := cli.R().SetBody(options).Post("/allocator/ipam-configuration/" + string(ipamType))
 	if err != nil {
@@ -63,7 +63,7 @@ func (cli Client) GetIPAMConf(ipamType types.IPAMType, options types.IPAMReq) (*
 		return nil, processErrorBody(serverResp.Body(), nil)
 	}
 
-	var newIPAMRep types.IPAMConfigRep
+	var newIPAMRep ipam.IPAMConfigRep
 	if err := json.Unmarshal(serverResp.Body(), &newIPAMRep); err != nil {
 		return nil, err
 	}

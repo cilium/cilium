@@ -133,7 +133,7 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		NodeMAC:    MAC(nodeMAC),
 	}
 
-	copy(lxc.V6Addr[:], ep.LXCIP)
+	copy(lxc.V6Addr[:], ep.IPv6)
 
 	for i, pM := range ep.PortMap {
 		lxc.PortMap[i] = PortMap{

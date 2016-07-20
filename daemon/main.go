@@ -9,6 +9,7 @@ import (
 	"time"
 
 	common "github.com/noironetworks/cilium-net/common"
+	"github.com/noironetworks/cilium-net/common/addressing"
 	cnc "github.com/noironetworks/cilium-net/common/client"
 	"github.com/noironetworks/cilium-net/common/types"
 	"github.com/noironetworks/cilium-net/daemon/daemon"
@@ -28,10 +29,11 @@ var (
 	disablePolicy    bool
 	enableTracing    bool
 	labelPrefixFile  string
-	nodeAddrStr      string
 	socketPath       string
 	uiServerAddr     string
-	v4range          string
+	v4Prefix         string
+	v6Address        string
+	nat46prefix      string
 
 	log = logging.MustGetLogger("cilium-net-daemon")
 
@@ -84,9 +86,9 @@ func init() {
 						Usage:       "Enable tracing while determining policy",
 					},
 					cli.StringFlag{
-						Destination: &config.IPv4Prefix,
-						Name:        "ipv4-mapping",
-						Value:       common.DefaultIPv4Prefix,
+						Destination: &nat46prefix,
+						Name:        "nat46-range",
+						Value:       addressing.DefaultNAT46Prefix,
 						Usage:       "IPv6 prefix to map IPv4 addresses to",
 					},
 					cli.StringFlag{
@@ -108,8 +110,8 @@ func init() {
 						Usage:       "Cilium library directory",
 					},
 					cli.StringFlag{
-						Destination: &nodeAddrStr,
-						Name:        "n",
+						Destination: &v6Address,
+						Name:        "n, node-address",
 						Value:       "",
 						Usage:       "IPv6 address of node, must be in correct format",
 					},
@@ -136,10 +138,10 @@ func init() {
 						Usage:       "IP address and port for UI server",
 					},
 					cli.StringFlag{
-						Destination: &v4range,
+						Destination: &v4Prefix,
 						Name:        "ipv4-range",
 						Value:       "",
-						Usage:       "IPv6 prefix to map IPv4 addresses to",
+						Usage:       "IPv4 prefix",
 					},
 					cli.StringFlag{
 						Destination: &config.Tunnel,
@@ -251,52 +253,19 @@ func initEnv(ctx *cli.Context) error {
 	}
 	config.ValidLabelPrefixesMU.Unlock()
 
-	if nodeAddrStr == "" {
-		var err error
-		nodeAddrStr, err = common.GenerateV6Prefix(config.Device)
-		if err != nil {
-			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
-		}
-
-		log.Infof("Generated IPv6 prefix: %s\n", nodeAddrStr)
-	}
-
-	addr := net.ParseIP(nodeAddrStr)
-	if addr == nil {
-		log.Fatalf("Invalid node address \"%s\", please specifcy node address using -n", nodeAddrStr)
-	}
-
-	if !common.ValidNodeAddress(addr) {
-		log.Fatalf("Invalid node address: %s", nodeAddrStr)
-	}
-
-	var err error
-	config.NodeAddress, _, err = net.ParseCIDR(addr.String() + "/64")
+	_, r, err := net.ParseCIDR(nat46prefix)
 	if err != nil {
-		log.Fatalf("Invalid CIDR %s", addr.String())
+		log.Fatalf("Invalid NAT46 prefix %s: %s", nat46prefix, err)
 	}
 
-	if v4range == "" {
-		v4range, err = common.GenerateV4Range(config.Device)
-		if err != nil {
-			log.Fatalf("Unable to generate IPv6 prefix: %s\n", err)
-		}
+	config.NAT46Prefix = r
 
-		log.Infof("Generated IPv4 range: %s\n", v4range)
-	}
-
-	_, config.IPv4Range, err = net.ParseCIDR(v4range)
+	nodeAddress, err := addressing.NewNodeAddress(v6Address, v4Prefix, config.Device)
 	if err != nil {
-		log.Fatalf("Invalid IPv4 range %s: %s\n", v4range, err)
+		log.Fatalf("Unable to parse node address: %s", err)
 	}
 
-	if ones, _ := config.IPv4Range.Mask.Size(); ones != common.DefaultIPv4Mask {
-		log.Fatalf("IPv4 range %s must be of length %d\n", v4range, common.DefaultIPv4Mask)
-	}
-
-	if a := net.ParseIP(config.IPv4Prefix); a == nil || len(a) != net.IPv6len {
-		log.Fatalf("Invalid IPv4 prefix %s", config.IPv4Prefix)
-	}
+	config.NodeAddress = nodeAddress
 
 	// Mount BPF Map directory if not already done
 	args := []string{"-q", common.BPFMapRoot}
@@ -310,7 +279,7 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	if config.K8sEndpoint == "http://[node-ipv6]:8080" {
-		config.K8sEndpoint = fmt.Sprintf("http://[%s:ffff]:8080", strings.TrimSuffix(addr.String(), ":0"))
+		config.K8sEndpoint = fmt.Sprintf("http://[%s:ffff]:8080", strings.TrimSuffix(nodeAddress.IPv6Address.String(), ":0"))
 	}
 
 	if uiServerAddr != "" {
