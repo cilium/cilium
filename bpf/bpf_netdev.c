@@ -82,78 +82,137 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
-
-__section("from-netdev")
-int from_netdev(struct __sk_buff *skb)
+static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
-	__u32 proto = skb->protocol;
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
-	int ret = TC_ACT_OK;
+	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	__u32 flowlabel;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
+	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
+		return DROP_INVALID;
 
-#ifdef ENABLE_ARP_RESPONDER
-	if (unlikely(proto == __constant_htons(ETH_P_ARP))) {
-		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
-		ret = DROP_MISSED_TAIL_CALL;
-		goto error;
+#ifdef HANDLE_NS
+	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+		int ret = icmp6_handle(skb, ETH_HLEN, ip6);
+		if (IS_ERR(ret))
+			return ret;
 	}
 #endif
 
+	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
+
+	if (likely(is_node_subnet(dst, &node_ip)))
+		return ipv6_local_delivery(skb, ETH_HLEN, dst, flowlabel, ip6);
+
+	return TC_ACT_OK;
+}
+
+static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
+{
+#ifdef FIXED_SRC_SECCTX
+	return FIXED_SRC_SECCTX;
+#else
+	__u32 secctx = WORLD_ID;
+
+	if ((ip4->saddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+		/* FIXME: Derive */
+	}
+	return secctx;
+#endif
+}
+
+static inline int handle_ipv4(struct __sk_buff *skb)
+{
+	struct ipv4_ct_tuple tuple = {};
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct iphdr *ip4 = data + ETH_HLEN;
+	__u32 secctx;
+	int ret, l4_off;
+
+	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		return DROP_INVALID;
+
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	secctx = derive_ipv4_sec_ctx(skb, ip4);
+
+	/* Check if destination is within our cluster prefix */
+	if ((ip4->daddr & IPV4_MASK) == IPV4_RANGE) {
+		tuple.nexthdr = ip4->protocol;
+		ret = ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4);
+		if (ret != DROP_NO_LXC)
+			return ret;
+	}
+
 #ifdef ENABLE_NAT46
-	/* First try to do v46 nat */
-	if (proto == __constant_htons(ETH_P_IP)) {
-		struct iphdr *ip = data + ETH_HLEN;
+	if (1) {
 		union v6addr sp = NAT46_SRC_PREFIX;
 		union v6addr dp = HOST_IP;
 
-		if (data + sizeof(*ip) + ETH_HLEN > data_end) {
-			ret = DROP_INVALID;
-			goto error;
-		}
+		if (data + sizeof(*ip) + ETH_HLEN > data_end)
+			return DROP_INVALID;
 
 		if ((ip->daddr & IPV4_MASK) != IPV4_RANGE)
 			return TC_ACT_OK;
 
 		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
 		if (IS_ERR(ret))
-			goto error;
+			return ret;
 
 		proto = __constant_htons(ETH_P_IPV6);
 		skb->tc_index = 1;
 	}
 #endif
 
-	if (likely(proto == __constant_htons(ETH_P_IPV6))) {
-		struct ipv6hdr *ip6 = data + ETH_HLEN;
-		union v6addr *dst = (union v6addr *) &ip6->daddr;
-		__u32 flowlabel;
+	return TC_ACT_OK;
+}
 
-		if (data + ETH_HLEN + sizeof(*ip6) > data_end) {
-			ret = DROP_INVALID;
-			goto error;
-		}
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
+{
+	int ret = handle_ipv4(skb);
 
-#ifdef HANDLE_NS
-		if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_handle(skb, ETH_HLEN, ip6);
-			if (IS_ERR(ret))
-				goto error;
-		}
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+
+	return ret;
+}
+
+__section("from-netdev")
+int from_netdev(struct __sk_buff *skb)
+{
+	int ret;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
+
+	switch (skb->protocol) {
+	case __constant_htons(ETH_P_IPV6):
+		/* This is considered the fast path, no tail call */
+		ret = handle_ipv6(skb);
+		break;
+
+	case __constant_htons(ETH_P_IP):
+		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
+
+#ifdef ENABLE_ARP_RESPONDER
+	case __constant_htons(ETH_P_ARP):
+		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
+		ret = DROP_MISSED_TAIL_CALL;
+		break;
 #endif
 
-		flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
-
-		if (likely(is_node_subnet(dst, &node_ip)))
-			ret = ipv6_local_delivery(skb, ETH_HLEN, dst, flowlabel, ip6);
+	default:
+		/* Pass unknown traffic to the stack */
+		ret = TC_ACT_OK;
 	}
 
-	if (IS_ERR(ret)) {
-error:
+	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	} else
+	else
 		return ret;
 }
 
