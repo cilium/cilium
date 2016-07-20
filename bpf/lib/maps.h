@@ -6,6 +6,8 @@
 #define CILIUM_MAP_LXC		0
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
+#define CILIUM_MAP_LB1		3
+#define CILIUM_MAP_LB2		4
 
 __BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, CILIUM_MAP_LXC, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
 

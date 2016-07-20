@@ -6,6 +6,7 @@
 #include "dbg.h"
 
 #define CT_DEFAULT_LIFEIME 360
+#define CONNTRACK
 
 enum {
 	CT_NEW,
@@ -30,7 +31,7 @@ enum {
 
 static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
 					  struct ipv6_ct_tuple *tuple,
-					  int action, int in)
+					  int action, int in, __u16 *state)
 {
 	struct ipv6_ct_entry *entry;
 
@@ -39,6 +40,8 @@ static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_trace(skb, DBG_CT_MATCH, tuple->flags, ntohl(tuple->addr.p4));
 		entry->lifetime = CT_DEFAULT_LIFEIME;
+		if (state)
+			*state = entry->state;
 
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
@@ -203,7 +206,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 *
 	 * This will find an existing flow in the reverse direction.
 	 */
-	if ((ret = __ct_lookup6(map, skb, tuple, action, in)) != CT_NEW) {
+	if ((ret = __ct_lookup6(map, skb, tuple, action, in, NULL)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -215,7 +218,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ct_tuple_reverse(tuple);
-	ret = __ct_lookup6(map, skb, tuple, action, in);
+	ret = __ct_lookup6(map, skb, tuple, action, in, NULL);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
@@ -228,12 +231,15 @@ out:
 
 /* Offset must point to IPv6 */
 static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					 struct __sk_buff *skb, int in)
+					 struct __sk_buff *skb, int in, __u16 state)
 {
 	/* Create entry in original direction */
 	struct ipv6_ct_entry entry = {
 		.lifetime = CT_DEFAULT_LIFEIME,
 	};
+
+	if (state)
+		entry.state = state;
 
 	if (in) {
 		entry.rx_packets = 1;
@@ -262,13 +268,24 @@ static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 }
 
 #else /* !CONNTRACK */
+static inline void __inline__ ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
+{
+}
+
+static inline int __inline__ __ct_lookup6(void *map, struct __sk_buff *skb,
+                                          struct ipv6_ct_tuple *tuple,
+                                          int action, int in, __u16 *state)
+{
+	return 0;
+}
+
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, __u32 secctx, int in)
 {
 	return 0;
 }
 
-static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb, int in)
+static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb, int in, __u16 state)
 {
 }
 #endif
