@@ -19,6 +19,7 @@
 #include "lib/lxc.h"
 #include "lib/nat46.h"
 #include "lib/policy.h"
+#include "lib/lb.h"
 #include "lib/drop.h"
 #include "lib/dbg.h"
 
@@ -69,6 +70,8 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 	union v6addr host_ip = HOST_IP;
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	int do_nat46 = 0, ret;
+	__u16 state = 0;
+	struct ipv6_ct_tuple tuple_copy = *tuple;
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -103,7 +106,7 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 
 	switch (ret) {
 	case CT_NEW:
-		ct_create6(&CT_MAP, tuple, skb, 0);
+		ct_create6(&CT_MAP, tuple, skb, 0, 0);
 		break;
 
 	case CT_ESTABLISHED:
@@ -116,6 +119,16 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 
 	default:
 		return DROP_POLICY;
+	}
+
+	if (ret != CT_NEW) {
+		ct_tuple_reverse(&tuple_copy);
+		ret = __ct_lookup6(&CT_MAP, skb, &tuple_copy, ret, 0, &state);
+		if (state) {
+			ret = lb_dsr_dnat(skb, state);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	/* Check if destination is within our cluster prefix */
@@ -272,6 +285,7 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	__u16 state = 0;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return TC_ACT_SHOT;
@@ -279,6 +293,13 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 	skb->cb[CB_POLICY] = 0;
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.addr, (union v6addr *) &ip6->saddr);
+
+	/*
+	 * derive state and zero it before doing conntrack lookup
+	 */
+	state = ipv6_derive_state((union v6addr *)&ip6->daddr);
+	if (state)
+		ipv6_set_state((union v6addr *)&ip6->daddr, 0);
 
 	ret = ct_lookup6(&CT_MAP, &tuple, skb, ETH_HLEN, SECLABEL, 1);
 	if (ret < 0)
@@ -290,7 +311,7 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 						ifindex, TC_ACT_SHOT);
 		}
 	} else if (ret == CT_NEW) {
-		ct_create6(&CT_MAP, &tuple, skb, 1);
+		ct_create6(&CT_MAP, &tuple, skb, 1, state);
 	}
 
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
