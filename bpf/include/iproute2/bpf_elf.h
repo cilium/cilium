@@ -32,6 +32,7 @@ struct bpf_elf_map {
 	__u32 size_key;
 	__u32 size_value;
 	__u32 max_elem;
+	__u32 flags;
 	__u32 id;
 	__u32 pinning;
 };

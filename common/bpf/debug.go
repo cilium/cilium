@@ -88,6 +88,7 @@ type DebugCapture struct {
 	SubType uint8
 	Source  uint16
 	Len     uint32
+	OrigLen uint32
 	Arg1    uint32
 	// data
 }
@@ -106,5 +107,5 @@ func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}
-	Dissect(dissect, data[12:])
+	Dissect(dissect, data[16:])
 }

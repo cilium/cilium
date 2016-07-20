@@ -208,6 +208,9 @@ static uint32_t BPF_FUNC(get_smp_processor_id);
 /* Packet misc meta data */
 static uint32_t BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
 static uint32_t BPF_FUNC(get_route_realm, struct __sk_buff *skb);
+static uint32_t BPF_FUNC(get_hash_recalc, struct __sk_buff *skb);
+
+static int BPF_FUNC(skb_in_cgroup, void *map, uint32_t index);
 
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, uint32_t flags);
@@ -227,18 +230,15 @@ static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, uint32_t off,
 static int BPF_FUNC(csum_diff, void *from, uint32_t from_size, void *to,
 		    uint32_t to_size, uint32_t seed);
 
+static int BPF_FUNC(skb_change_type, struct __sk_buff *skb, uint32_t type);
+static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, uint32_t proto,
+		    uint32_t flags);
+static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, uint32_t nlen);
+
 /* Packet vlan encap/decap */
 static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, uint16_t proto,
 		    uint16_t vlan_tci);
 static int BPF_FUNC(skb_vlan_pop, struct __sk_buff *skb);
-
-/* Packet generic modification handlers. */
-static int BPF_FUNC(l2_hdr_change, struct __sk_buff *skb, uint32_t offset,
-		    uint32_t len);
-static int BPF_FUNC(l3_hdr_change, struct __sk_buff *skb, uint32_t offset,
-		    uint32_t len, uint32_t proto);
-static int BPF_FUNC(l4_hdr_change, struct __sk_buff *skb, uint32_t offset,
-		    uint32_t len);
 
 /* Packet tunnel encap/decap */
 static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
@@ -253,7 +253,7 @@ static int BPF_FUNC(skb_set_tunnel_opt, struct __sk_buff *skb,
 		    const void *from, uint32_t size);
 
 /* Events for user space */
-static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint32_t index,
+static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint64_t index,
 		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
 
 /** LLVM built-ins, mem*() routines work for constant size */

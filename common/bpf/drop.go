@@ -8,7 +8,8 @@ type DropNotify struct {
 	Type     uint8
 	SubType  uint8
 	Source   uint16
-	Len      uint32
+	OrigLen  uint32
+	CapLen   uint32
 	SrcLabel uint32
 	DstLabel uint32
 	DstID    uint32
@@ -54,7 +55,7 @@ var errors = map[uint8]string{
 
 func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s FROM %d Packet dropped %d (%s) %d bytes ifindex=%d",
-		prefix, n.Source, n.SubType, errors[n.SubType], n.Len, n.Ifindex)
+		prefix, n.Source, n.SubType, errors[n.SubType], n.OrigLen, n.Ifindex)
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)
@@ -66,5 +67,5 @@ func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
 		fmt.Printf("\n")
 	}
 
-	Dissect(dissect, data[24:])
+	Dissect(dissect, data[28:])
 }

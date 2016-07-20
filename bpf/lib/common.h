@@ -59,8 +59,6 @@ struct policy_entry {
 	__u64		bytes;
 };
 
-#define DROP_SAMPLE_LEN 64
-
 enum {
 	CILIUM_NOTIFY_UNSPEC,
 	CILIUM_NOTIFY_DROP,
@@ -75,12 +73,12 @@ enum {
 
 struct drop_notify {
 	NOTIFY_COMMON_HDR
-	__u32		len;
+	__u32		len_orig;
+	__u32		len_cap;
 	__u32		src_label;
 	__u32		dst_label;
 	__u32		dst_id;
 	__u32		ifindex;
-	char		data[DROP_SAMPLE_LEN];
 };
 
 #ifndef BPF_F_PSEUDO_HDR
