@@ -69,3 +69,48 @@ pre {
 .key {
 	color: red;
 }
+
+/* draggable targets */
+[data-draggable="target"] {
+	list-style-type: none;
+	height: 7.5em;
+	overflow-y: auto;
+	padding: 0.5em;
+	border: 2px solid #888;
+	border-radius: 0.2em;
+	color: #555;
+}
+
+/* drop target state */
+[data-draggable="target"][aria-dropeffect="move"] {
+	border-color: #68b;
+	background: #fff;
+}
+
+/* drop target focus and dragover state */
+[data-draggable="target"][aria-dropeffect="move"]:focus, [data-draggable="target"][aria-dropeffect="move"].dragover {
+	outline: none;
+	box-shadow: 0 0 0 1px #fff, 0 0 0 3px #68b;
+}
+
+/* draggable items */
+[data-draggable="item"] {
+	display: block;
+	list-style-type: none;
+	margin: 0 0 2px 0;
+	padding: 0.2em 0.4em;
+	border-radius: 0.2em;
+	line-height: 1.3;
+}
+
+/* items focus state */
+[data-draggable="item"]:focus {
+	outline: none;
+	box-shadow: 0 0 0 2px #68b, inset 0 0 0 1px #ddd;
+}
+
+/* items grabbed state */
+[data-draggable="item"][aria-grabbed="true"] {
+	background: #8ad;
+	color: #fff;
+}
