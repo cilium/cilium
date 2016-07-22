@@ -1,8 +1,12 @@
 package backend
 
 import (
+	"net"
+
 	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
+
+	"github.com/gorilla/websocket"
 )
 
 type bpfBackend interface {
@@ -46,6 +50,11 @@ type control interface {
 	SyncState(path string, clean bool) error
 }
 
+type ui interface {
+	GetUIIP() (*net.TCPAddr, error)
+	RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
+}
+
 // CiliumBackend is the interface for both client and daemon.
 type CiliumBackend interface {
 	bpfBackend
@@ -53,4 +62,10 @@ type CiliumBackend interface {
 	ipamBackend
 	labelBackend
 	policyBackend
+}
+
+// CiliumDaemonBackend is the interface for daemon only.
+type CiliumDaemonBackend interface {
+	CiliumBackend
+	ui
 }

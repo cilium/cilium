@@ -7,32 +7,22 @@ import (
 
 	"github.com/noironetworks/cilium-net/common/backend"
 	"github.com/noironetworks/cilium-net/common/types"
-	"github.com/noironetworks/cilium-net/daemon/daemon"
 
 	"github.com/gorilla/mux"
 )
 
 // Router represents the cilium router to send proper HTTP requests to the daemon.
-type routerCommon struct {
+type Router struct {
 	*mux.Router
 	routes routes
-}
-
-type RouterUI struct {
-	routerCommon
-	daemon *daemon.Daemon
-}
-
-type RouterBackend struct {
-	routerCommon
-	daemon backend.CiliumBackend
+	daemon backend.CiliumDaemonBackend
 }
 
 // NewRouter creates and returns a new router for the given backend.
-func NewRouter(backend backend.CiliumBackend) RouterBackend {
+func NewRouter(daemon backend.CiliumDaemonBackend) Router {
 	mRouter := mux.NewRouter().StrictSlash(true)
-	r := RouterBackend{routerCommon{mRouter, routes{}}, backend}
-	r.initRoutes()
+	r := Router{mRouter, routes{}, daemon}
+	r.initBackendRoutes()
 	for _, route := range r.routes {
 		handler := Logger(route.HandlerFunc, route.Name)
 
@@ -45,9 +35,9 @@ func NewRouter(backend backend.CiliumBackend) RouterBackend {
 }
 
 // NewUIRouter creates and returns a new router only for the UI.
-func NewUIRouter(daemon *daemon.Daemon) RouterUI {
+func NewUIRouter(daemon backend.CiliumDaemonBackend) Router {
 	mRouter := mux.NewRouter().StrictSlash(true)
-	r := RouterUI{routerCommon{mRouter, routes{}}, daemon}
+	r := Router{mRouter, routes{}, daemon}
 	r.initUIRoutes()
 	for _, route := range r.routes {
 		handler := Logger(route.HandlerFunc, route.Name)

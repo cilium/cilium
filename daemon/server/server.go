@@ -23,19 +23,10 @@ type Server interface {
 	Stop() error
 }
 
-type serverCommon struct {
+type server struct {
 	listener   net.Listener
 	socketPath string
-}
-
-type serverUI struct {
-	serverCommon
-	router RouterUI
-}
-
-type serverBackend struct {
-	serverCommon
-	router RouterBackend
+	router     Router
 }
 
 // NewServer returns a new Server that listens for requests in socketPath and sends them
@@ -69,7 +60,7 @@ func NewServer(socketPath string, daemon *daemon.Daemon) (Server, error) {
 		}
 	}
 
-	return serverBackend{serverCommon{listener, socketPath}, router}, nil
+	return server{listener, socketPath, router}, nil
 }
 
 func NewUIServer(host string, daemon *daemon.Daemon) (Server, error) {
@@ -83,27 +74,16 @@ func NewUIServer(host string, daemon *daemon.Daemon) (Server, error) {
 		return nil, fmt.Errorf("failed to create listener socket: %s", err)
 	}
 
-	return serverUI{serverCommon{listener, host}, router}, nil
+	return server{listener, host, router}, nil
 }
 
 // Start starts the server and blocks to server HTTP requests.
-func (d serverBackend) Start() error {
-	log.Infof("Listening backend on %q", d.socketPath)
+func (d server) Start() error {
+	log.Infof("Listening on %q", d.socketPath)
 	return http.Serve(d.listener, d.router)
 }
 
 // Stop stops the HTTP listener.
-func (d serverBackend) Stop() error {
-	return d.listener.Close()
-}
-
-// Start starts the server and blocks to server HTTP requests.
-func (d serverUI) Start() error {
-	log.Infof("Listening UI on %q", d.socketPath)
-	return http.Serve(d.listener, d.router)
-}
-
-// Stop stops the HTTP listener.
-func (d serverUI) Stop() error {
+func (d server) Stop() error {
 	return d.listener.Close()
 }
