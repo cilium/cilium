@@ -68,10 +68,11 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	union v6addr *dst;
 	int do_nat46 = 0, ret;
 	__u16 state = 0;
 	struct ipv6_ct_tuple tuple_copy = *tuple;
+	void *data, *data_end;
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -131,6 +132,14 @@ static inline int __inline__ do_l3_from_lxc(struct __sk_buff *skb,
 		}
 	}
 
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip6 = data + ETH_HLEN;
+
+	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+		return DROP_INVALID;
+
+	dst = (union v6addr *) &ip6->daddr;
 	/* Check if destination is within our cluster prefix */
 	if (ipv6_match_subnet_96(dst, &host_ip)) {
 		__u32 node_id = ipv6_derive_node_id(dst);
@@ -286,6 +295,7 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	__u16 state = 0;
+	union v6addr dip;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return TC_ACT_SHOT;
@@ -297,9 +307,12 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 	/*
 	 * derive state and zero it before doing conntrack lookup
 	 */
-	state = ipv6_derive_state((union v6addr *)&ip6->daddr);
-	if (state)
-		ipv6_set_state((union v6addr *)&ip6->daddr, 0);
+	ipv6_load_daddr(skb, ETH_HLEN, &dip);
+	state = ipv6_derive_state(&dip);
+	if (state) {
+		ipv6_set_state(&dip, 0);
+		ipv6_store_daddr(skb, dip.addr, ETH_HLEN);
+	}
 
 	ret = ct_lookup6(&CT_MAP, &tuple, skb, ETH_HLEN, SECLABEL, 1);
 	if (ret < 0)
