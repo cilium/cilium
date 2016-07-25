@@ -116,5 +116,11 @@ func (r *Router) initUIRoutes() {
 		route{
 			"PolicyGet", "GET", "/policy/{path}", r.policyGet,
 		},
+		route{
+			"EndpointLabelsGet", "GET", "/endpoint/labels/{endpointID}", r.endpointLabelsGet,
+		},
+		route{
+			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{labelOp}/{endpointID}", r.endpointLabelsUpdate,
+		},
 	}
 }

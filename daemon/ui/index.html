@@ -6,6 +6,7 @@
 		<script type="text/javascript" src="./static/js/bootstrap-3.3.6.min.js"></script>
 		<script type="text/javascript" src="./static/js/vis.min.js"></script>
 		<script type="text/javascript" src="./static/js/vis.animatetraffic.js"></script>
+		<script type="text/javascript" src="./static/js/cilium.js"></script>
 
 		<link href="./static/css/vis.min.css" rel="stylesheet" type="text/css" />
 		<link href="./static/css/bootstrap-3.3.6.min.css" rel="stylesheet" type="text/css" />
@@ -168,7 +169,7 @@
 						}
 					}
 				};
-				xmlHttp.open("GET", "http://{{.TCPAddr}}/policy/io.cilium", true);
+				xmlHttp.open("GET", "policy/io.cilium", true);
 				xmlHttp.send();
 			}
 
@@ -225,20 +226,194 @@
 			}
 
 			function updateEPOption(endpointID, option, value) {
-				updateOption("http://{{.TCPAddr}}/endpoint/update/" + endpointID, option, value);
+				updateOption("endpoint/update/" + endpointID, option, value);
 			}
 
 			function updateDaemonOption(option, value) {
-				updateOption("http://{{.TCPAddr}}/update", option, value);
+				updateOption("update", option, value);
 			}
 
 
 			$("#checks :checkbox").change(function(e) {
 				updateDaemonOption(e.target.id, $(this).is(":checked"));
 			});
+
+			function sendLabelChanges(lbls, operation, endpointID, calb) {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.onreadystatechange = function() {
+					if (xmlHttp.readyState == 4 && xmlHttp.status == 202) {
+						calb();
+					}
+				};
+				xmlHttp.open("POST", "endpoint/labels/" + operation + "/" + endpointID, true);
+				xmlHttp.setRequestHeader("Content-type", "application/json");
+				xmlHttp.send(JSON.stringify(lbls));
+			}
+
+			function refreshApplyChangesButton(endpointID) {
+				var isChanged = false;
+				var allLabels = $('#all-labels-' + endpointID);
+				var children = allLabels.children();
+				for (var i = 0; i < children.length; i++) {
+					if (children[i].hasAttribute("isnewall") && children[i].getAttribute("isnewall")) {
+						isChanged = true;
+						break;
+					}
+				}
+				if (!isChanged) {
+					var enLabels = $('#enabled-labels-' + endpointID);
+					var children = enLabels.children();
+					for (var i = 0; i < children.length; i++) {
+						if (children[i].hasAttribute("isnewenabled") && children[i].getAttribute("isnewenabled")) {
+							isChanged = true;
+							break;
+						}
+					}
+				}
+				var divButton = document.getElementById("apply-labels-button-" + endpointID);
+				if (isChanged) {
+					divButton.innerHTML = '<button id="label-button-' + endpointID + '" onclick="applyLabelChanges(' + endpointID + ')" class="btn btn-default">Apply Changes</button>';
+				} else {
+					divButton.innerHTML = "";
+				}
+			}
+
+			function applyLabelChanges(endpointID) {
+				openModal();
+				var enLabels = $('#enabled-labels-' + endpointID);
+				var children = enLabels.children();
+				var enabledLabels = {};
+				for (var i = 0; i < children.length; i++) {
+					if (children[i].hasAttribute("isnewenabled") && children[i].getAttribute("isnewenabled")) {
+						children[i].removeAttribute("isnewenabled");
+						var ciliumLbl = createCiliumLabel(children[i].innerHTML);
+						enabledLabels[ciliumLbl.Key] = ciliumLbl;
+					}
+				}
+				var allLabels = $('#all-labels-' + endpointID);
+				var children = allLabels.children();
+				var disabledLabels = {};
+				for (var i = 0; i < children.length; i++) {
+					if (children[i].hasAttribute("isnewall") && children[i].getAttribute("isnewall")) {
+						children[i].removeAttribute("isnewall");
+						var ciliumLbl = createCiliumLabel(children[i].innerHTML);
+						disabledLabels[ciliumLbl.Key] = ciliumLbl;
+					}
+				}
+
+				function sendEnabledLabels() {
+					sendLabelChanges(enabledLabels, "EnableLabelsOp", endpointID, function() {
+						closeModal();
+						refreshApplyChangesButton(endpointID);
+					});
+				}
+
+				if (Object.keys(disabledLabels).length != 0) {
+					sendLabelChanges(disabledLabels, "DisableLabelsOp", endpointID, function() {
+						sendEnabledLabels();
+					});
+				} else {
+					sendEnabledLabels();
+				}
+
+			}
 		</script>
 
 		<script type="text/javascript">
+			function allowDrop(ev) {
+				ev.preventDefault();
+			}
+
+			function drag(ev) {
+				ev.dataTransfer.setData("text", ev.target.id);
+			}
+
+			function drop(ev) {
+				ev.preventDefault();
+				var data = ev.dataTransfer.getData("text");
+				var element = document.getElementById(data);
+				var endpointID = element.id.match(/^[0-9]+/);
+				var isChanged = false;
+
+				if (element.id.endsWith("all")) {
+					// All Labels -> Enabled Labels
+					var cpy = element.cloneNode(true);
+					cpy.id = cpy.id.replace(/all$/, "enabled");
+					if (document.getElementById(cpy.id) == null) {
+						if (ev.target.id.startsWith("enabled-labels-" + endpointID)) {
+							ev.target.appendChild(cpy);
+							isChanged = true;
+						} else if ($(ev.target).parent()[0].id.startsWith("enabled-labels-" + endpointID)) {
+							$(ev.target).parent()[0].appendChild(cpy);
+							isChanged = true;
+						}
+						if (isChanged) {
+							if (element.hasAttribute("isnewall") && element.getAttribute("isnewall")) {
+								cpy.removeAttribute("isnewall");
+								cpy.removeAttribute("isnewenabled");
+								element.removeAttribute("isnewall");
+								element.removeAttribute("isnewenabled");
+							} else {
+								cpy.setAttribute("isnewenabled", true);
+							}
+						}
+					}
+				} else if (element.id.endsWith("enabled") && (ev.target.id.startsWith("all-labels-" + endpointID) || $(ev.target).parent()[0].id.startsWith("all-labels-" + endpointID))) {
+					// Enabled Labels -> All Labels
+					var id = element.id.replace(/enabled$/, "all");
+					var sideAllLabel = document.getElementById(id);
+					if (element.hasAttribute("isnewenabled") && element.getAttribute("isnewenabled")) {
+						sideAllLabel.removeAttribute("isnewenabled");
+						sideAllLabel.removeAttribute("isnewall");
+					} else {
+						sideAllLabel.setAttribute("isnewall", true);
+					}
+					element.parentNode.removeChild(element);
+				}
+
+				// Refresh Apply Changes button
+				refreshApplyChangesButton(endpointID);
+			}
+
+			function createCheckBoxOption(key, value) {
+				out = "";
+				out += '<div class="checkbox" align="left">';
+				out += '<label>';
+				out += '<input id="' + key + '" type="checkbox"';
+				if (value) {
+					out += "checked";
+				}
+				out += '>' + key + '</label></div>';
+				return out;
+			}
+
+			function fillEndpointLabels(endpointID) {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.onreadystatechange = function() {
+					if (xmlHttp.readyState == 4) {
+						if (xmlHttp.status == 200) {
+							var arr = JSON.parse(xmlHttp.responseText);
+							var allLabels = document.getElementById('all-labels-' + endpointID);
+							var out = "";
+							for (var key in arr["AllLabels"]) {
+								var lbl = getFmtLabel(arr["AllLabels"][key]);
+								out += '<li id="' + endpointID + '-' + lbl + '-all" draggable="true" ondragstart="drag(event)" data-draggable="item">' + lbl + '</li>';
+							}
+							allLabels.innerHTML = out;
+							var enabledLabels = document.getElementById('enabled-labels-' + endpointID);
+							out = "";
+							for (var key in arr["EndpointLabels"]) {
+								var lbl = getFmtLabel(arr["EndpointLabels"][key]);
+								out += '<li id="' + endpointID + '-' + lbl + '-enabled" draggable="true" ondragstart="drag(event)" data-draggable="item">' + lbl + '</li>';
+							}
+							enabledLabels.innerHTML = out;
+						}
+					}
+				};
+				xmlHttp.open("GET", "endpoint/labels/" + endpointID, false);
+				xmlHttp.send();
+			}
+
 			function refreshTable(nodeID) {
 				var xmlHttp = new XMLHttpRequest();
 				openModal();
@@ -267,13 +442,7 @@
 										for (var key in arr[i]["options"]["map"]) {
 											j++;
 											if (j % 2 != 0) {
-												out += '<div class="checkbox" align="left">';
-												out += '<label>';
-												out += '<input id="' + key + '" type="checkbox"';
-												if (arr[i]["options"]["map"][key]) {
-													out += "checked";
-												}
-												out += '>' + key + '</label></div>';
+												out += createCheckBoxOption(key, arr[i]["options"]["map"][key]);
 											}
 										}
 										out += '</div><div class="col-md-6">';
@@ -281,16 +450,23 @@
 										for (var key in arr[i]["options"]["map"]) {
 											j++;
 											if (j % 2 == 0) {
-												out += '<div class="checkbox" align="left">';
-												out += '<label>';
-												out += '<input id="' + key + '" type="checkbox"';
-												if (arr[i]["options"]["map"][key]) {
-													out += "checked";
-												}
-												out += '>' + key + '</label></div>';
+												out += createCheckBoxOption(key, arr[i]["options"]["map"][key]);
 											}
 										}
-										out += '</div></div></div></div></td>';
+										out += '</div></div></div>';
+										out += '<div class="row">';
+										out += '<div class="col-md-6">';
+										out += '<label for="all-labels-' + arr[i]["id"] + '"> All labels </label></br>';
+										out += '<ol style="background: #d9edf7" id="all-labels-' + arr[i]["id"] + '" ondrop="drop(event)" ondragover="allowDrop(event)" data-draggable="target">';
+										out += '</ol></div>';
+										out += '<div class="col-md-6">';
+										out += '<label for="enabled-labels-' + arr[i]["id"] + '"> Enabled labels </label></br>';
+										out += '<ol style="background: #d6e9c6" id="enabled-labels-' + arr[i]["id"] + '" ondrop="drop(event)" ondragover="allowDrop(event)" data-draggable="target">';
+										out += '</ol></div>';
+
+										out += '<div class="row" id="apply-labels-button-' + arr[i]["id"] + '">';
+
+										out += '</div></div></div></td>';
 
 									}
 								}
@@ -300,6 +476,10 @@
 								out = "(no cilium endpoints in that node)";
 							}
 							endpointList.innerHTML = out;
+
+							for ( i = 0; i < arr.length; i++) {
+								fillEndpointLabels(arr[i]["id"]);
+							}
 
 							// Add event listeners
 							for ( i = 0; i < arr.length; i++) {
@@ -311,14 +491,12 @@
 									});
 								}
 							}
-
-							//setGrapNDrop();
 						} else if (xmlHttp.status == 204) {
 							endpointList.innerHTML = "(no cilium endpoints in that node)";
 						}
 					}
 				};
-				xmlHttp.open("GET", "http://{{.TCPAddr}}/endpoints", true);
+				xmlHttp.open("GET", "endpoints", true);
 				xmlHttp.send();
 			}
 		</script>
