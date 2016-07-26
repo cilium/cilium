@@ -110,7 +110,18 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	bpf_compile $ENCAP_DEV "" bpf_overlay.c bpf_overlay.o from-overlay
-elif [ "$MODE" = "direct" ]; then
+	echo "$ENCAP_DEV" > $RUNDIR/encap.state
+else
+	FILE=$RUNDIR/encap.state
+	if [ -f $FILE ]; then
+		DEV=$(cat $FILE)
+		echo "Removed BPF program from device $DEV"
+		tc qdisc del dev $DEV clsact 2> /dev/null || true
+		rm $FILE
+	fi
+fi
+
+if [ "$MODE" = "direct" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for direct mode, ignoring..."
 	else
@@ -119,8 +130,15 @@ elif [ "$MODE" = "direct" ]; then
 		ID=$(cilium policy get-id $WORLD_ID 2> /dev/null)
 		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 		bpf_compile $NATIVE_DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
+
+		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
 else
-	echo "Warning: unknown mode: \"$MODE\""
-	exit
+	FILE=$RUNDIR/device.state
+	if [ -f $FILE ]; then
+		DEV=$(cat $FILE)
+		echo "Removed BPF program from device $DEV"
+		tc qdisc del dev $DEV clsact 2> /dev/null || true
+		rm $FILE
+	fi
 fi
