@@ -22,6 +22,7 @@ const (
 	DBG_CT_LOOKUP
 	DBG_CT_MATCH
 	DBG_CT_CREATED
+	DBG_ICMP6_HANDLE
 	DBG_ICMP6_REQUEST
 	DBG_ICMP6_NS
 	DBG_ICMP6_TIME_EXCEEDED
@@ -72,6 +73,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("CT created proto=%d flags=%#x\n", n.Arg1, n.Arg2)
 	case DBG_CT_VERDICT:
 		fmt.Printf("CT verdict: %s\n", ctState[n.Arg1])
+	case DBG_ICMP6_HANDLE:
+		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
 	case DBG_ICMP6_REQUEST:
 		fmt.Printf("ICMPv6 echo request for router offset=%d\n", n.Arg1)
 	case DBG_ICMP6_NS:

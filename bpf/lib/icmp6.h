@@ -339,6 +339,8 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off, struct ipv6hdr
 	union v6addr router_ip = { .addr = ROUTER_IP };
 	__u8 type = icmp6_load_type(skb, nh_off);
 
+	cilium_trace(skb, DBG_ICMP6_HANDLE, type, 0);
+
 	switch(type) {
 	case 135:
 		return icmp6_handle_ns(skb, nh_off);
