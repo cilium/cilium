@@ -81,18 +81,26 @@ sudo cp nsenter /usr/bin
 SCRIPT
 
 $route_node1 = <<SCRIPT
-ip -6 addr add beef::11:11:11:11/64 dev eth2
-ip -6 route add beef::c0a8:e60c:0/112 via beef::12:12:12:12
+# Use of IPv6 'documentation block' to provide example
+ip r a 10.2.0.1/32 dev eth1
+ip -6 a a 2001:DB8:aaaa::1/48 dev eth1
+ip -6 r a f00d::c0a8:210c:0/112 via 2001:DB8:aaaa::2
+echo '2001:DB8:aaaa::1 node1' >> /etc/hosts
+echo '2001:DB8:aaaa::2 node2' >> /etc/hosts
 sleep 2s
-ip -6 route add default via beef::1 || true
+echo 'exec cilium -D daemon run -n f00d::c0a8:210b:0 --ipv4-range 10.1.0.1 -t vxlan' > /etc/init/cilium-net-daemon.conf
+service cilium-net-daemon restart
+sleep 3s
 SCRIPT
 
 $route_node2 = <<SCRIPT
-ip -6 addr add beef::12:12:12:12/64 dev eth2
-ip -6 route add beef::c0a8:e60b:0/112 via beef::11:11:11:11
+ip r a 10.1.0.1/32 dev eth1
+ip -6 a a 2001:DB8:aaaa::2/48 dev eth1
+ip -6 r a f00d::c0a8:210b:0/112 via 2001:DB8:aaaa::1
+echo '2001:DB8:aaaa::1 node1' >> /etc/hosts
+echo '2001:DB8:aaaa::2 node2' >> /etc/hosts
 sleep 2s
-ip -6 route add default via beef::1 || true
-echo 'exec cilium -D daemon -d eth2 -c "192.168.230.11:8500"' > /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n f00d::c0a8:210c:0 --ipv4-range 10.2.0.1 -t vxlan -c "192.168.33.11:8500"' > /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 3s
 SCRIPT
@@ -129,9 +137,9 @@ Vagrant.configure(2) do |config|
     end
 
     config.vm.define "node1", primary: true do |node1|
-        node1.vm.network "private_network", ip: "192.168.33.11"
         node1.vm.network "private_network",
-	  ip: "192.168.230.11",
+	  ip: "192.168.33.11",
+	  virtualbox__intnet: "cilium-test",
 	  :libvirt__network_name => "cilium-test",
 	  :libvirt__guest_ipv6 => true,
 	  :libvirt__dhcp_enabled => false
@@ -141,9 +149,9 @@ Vagrant.configure(2) do |config|
     end
 
     config.vm.define "node2", autostart: false do |node2|
-        node2.vm.network "private_network", ip: "192.168.33.12"
         node2.vm.network "private_network",
-	  ip: "192.168.230.12",
+	  ip: "192.168.33.12",
+	  virtualbox__intnet: "cilium-test",
 	  :libvirt__network_name => "cilium-test",
 	  :libvirt__guest_ipv6 => true,
 	  :libvirt__dhcp_enabled => false
