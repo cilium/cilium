@@ -50,7 +50,8 @@ static inline int eth_load_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 
 static inline int eth_store_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
-	return skb_store_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN, 1);
+	return skb_store_bytes(skb, off + ETH_ALEN, mac, ETH_ALEN,
+			       BPF_F_RECOMPUTE_CSUM);
 }
 
 static inline int eth_load_daddr(struct __sk_buff *skb, __u8 *mac, int off)
@@ -60,7 +61,8 @@ static inline int eth_load_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 
 static inline int eth_store_daddr(struct __sk_buff *skb, __u8 *mac, int off)
 {
-	return skb_store_bytes(skb, off, mac, ETH_ALEN, 1);
+	return skb_store_bytes(skb, off, mac, ETH_ALEN,
+			       BPF_F_RECOMPUTE_CSUM);
 }
 
 #endif /* __LIB_ETH__ */

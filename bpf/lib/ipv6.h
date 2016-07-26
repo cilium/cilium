@@ -64,7 +64,7 @@ static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 
 	new_hl = hoplimit - 1;
 	skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
-			&new_hl, sizeof(new_hl), 0);
+			&new_hl, sizeof(new_hl), BPF_F_RECOMPUTE_CSUM);
 
 	//printk("Decremented hoplimit to: %d\n", new_hl);
 	return 0;
@@ -76,6 +76,7 @@ static inline int ipv6_load_saddr(struct __sk_buff *skb, int off, union v6addr *
 			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
+/* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
 static inline int ipv6_store_saddr(struct __sk_buff *skb, __u8 *addr, int off)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
@@ -87,6 +88,7 @@ static inline int ipv6_load_daddr(struct __sk_buff *skb, int off, union v6addr *
 			      sizeof(((struct ipv6hdr *)NULL)->daddr));
 }
 
+/* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
 static inline int ipv6_store_daddr(struct __sk_buff *skb, __u8 *addr, int off)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
@@ -98,6 +100,7 @@ static inline int ipv6_load_nexthdr(struct __sk_buff *skb, int off, __u8 *nexthd
 			      sizeof(__u8));
 }
 
+/* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
 static inline int ipv6_store_nexthdr(struct __sk_buff *skb, __u8 *nexthdr, int off)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, nexthdr), nexthdr,
@@ -110,6 +113,7 @@ static inline int ipv6_load_paylen(struct __sk_buff *skb, int off, __be16 *len)
 			      len, sizeof(*len));
 }
 
+/* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
 static inline int ipv6_store_paylen(struct __sk_buff *skb, int off, __be16 *len)
 {
 	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, payload_len),
@@ -132,7 +136,7 @@ static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 la
 	skb_load_bytes(skb, off, &old, 4);
 	old &= IPV6_TCLASS_MASK;
 	old = htonl(0x60000000) | label | old;
-	return skb_store_bytes(skb, off, &old, 4, 0);
+	return skb_store_bytes(skb, off, &old, 4, BPF_F_RECOMPUTE_CSUM);
 }
 
 static inline __u16 derive_lxc_id(union v6addr *addr)
