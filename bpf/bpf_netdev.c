@@ -1,6 +1,12 @@
 #include <node_config.h>
 #include <netdev_config.h>
 
+/* These are configuartion options which have a default value in their
+ * respective header files and must thus be defined beforehand:
+ *
+ * Pass unknown ICMPv6 NS to stack */
+#define ACTION_UNKNOWN_ICMP6_NS TC_ACT_OK
+
 #include <bpf/api.h>
 
 #include <stdint.h>

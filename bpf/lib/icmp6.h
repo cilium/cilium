@@ -12,6 +12,12 @@
 #define ICMP6_ND_TARGET_OFFSET (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr))
 #define ICMP6_ND_OPTS (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr))
 
+/* If not specific action is specified, drop unknown neighbour solication
+ * messages */
+#ifndef ACTION_UNKNOWN_ICMP6_NS
+#define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
+#endif
+
 static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 {
 	return load_byte(skb, nh_off + ICMP6_TYPE_OFFSET);
@@ -302,7 +308,7 @@ static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
 	} else {
 		/* Unknown target address, drop */
-		return DROP_UNKNOWN_TARGET;
+		return ACTION_UNKNOWN_ICMP6_NS;
 	}
 }
 
