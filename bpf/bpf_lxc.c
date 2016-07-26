@@ -59,7 +59,7 @@ static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
 #else
 	uint8_t buf[] = {};
 #endif
-	return do_encapsulation(skb, node_id, SECLABEL_NB, buf, sizeof(buf));
+	return do_encapsulation(skb, node_id, SECLABEL, buf, sizeof(buf));
 }
 #endif
 
