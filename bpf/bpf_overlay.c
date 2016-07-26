@@ -30,6 +30,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
 		return DROP_NO_TUNNEL_KEY;
 
+	cilium_trace(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
+
 #ifdef ENCAP_GENEVE
 	if (1) {
 		uint8_t buf[MAX_GENEVE_OPT_LEN] = {};

@@ -17,6 +17,7 @@ enum {
 	DBG_ICMP6_NS,
 	DBG_ICMP6_TIME_EXCEEDED,
 	DBG_CT_VERDICT,
+	DBG_DECAP,
 };
 
 /* Capture types */
