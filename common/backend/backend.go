@@ -52,6 +52,7 @@ type control interface {
 
 type ui interface {
 	GetUIIP() (*net.TCPAddr, error)
+	GetUIPath() (string, error)
 	RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
 }
 

@@ -27,5 +27,6 @@ $(TARGET):
 
 install:
 	groupadd -f cilium
-	cp -r ui/. $(DESTDIR)$(RUNDIR)/cilium/static
-	chown root.cilium -R $(DESTDIR)$(RUNDIR)/cilium/static
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/ui
+	cp -r ui/. $(DESTDIR)$(LIBDIR)/cilium/ui
+	chown root.cilium -R $(DESTDIR)$(LIBDIR)/cilium/ui
