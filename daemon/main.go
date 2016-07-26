@@ -106,7 +106,7 @@ func init() {
 					cli.StringFlag{
 						Destination: &config.LibDir,
 						Name:        "D",
-						Value:       common.CiliumLibDir,
+						Value:       common.DefaultLibDir,
 						Usage:       "Cilium library directory",
 					},
 					cli.StringFlag{

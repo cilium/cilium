@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"net"
+	"path/filepath"
 	"time"
 
 	"github.com/noironetworks/cilium-net/bpf/policymap"
@@ -19,6 +20,10 @@ type Conn struct {
 func (d *Daemon) GetUIIP() (*net.TCPAddr, error) {
 	_, listAddr, err := common.ParseHost(d.conf.UIServerAddr)
 	return listAddr, err
+}
+
+func (d *Daemon) GetUIPath() (string, error) {
+	return filepath.Join(d.conf.LibDir, "ui"), nil
 }
 
 // map[uint32]map[uint32]*policymap.PolicyEntry where represents map[to][from]stats

@@ -38,6 +38,7 @@ type TestDaemon struct {
 	OnPolicyGet                 func(path string) (*types.PolicyNode, error)
 	OnPolicyCanConsume          func(sc *types.SearchContext) (*types.SearchContextReply, error)
 	OnGetUIIP                   func() (*net.TCPAddr, error)
+	OnGetUIPath                 func() (string, error)
 	OnRegisterUIListener        func(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
 }
 
@@ -232,6 +233,13 @@ func (d TestDaemon) GetUIIP() (*net.TCPAddr, error) {
 		return d.OnGetUIIP()
 	}
 	return nil, errors.New("GetUIIP should not have been called")
+}
+
+func (d TestDaemon) GetUIPath() (string, error) {
+	if d.OnGetUIPath != nil {
+		return d.OnGetUIPath()
+	}
+	return "", errors.New("GetUIPath should not have been called")
 }
 
 func (d TestDaemon) RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error) {

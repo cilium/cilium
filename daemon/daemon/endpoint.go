@@ -360,7 +360,7 @@ func (d *Daemon) regenerateBPF(ep *types.Endpoint, lxcDir string) error {
 			return fmt.Errorf("Unable to update eBPF map: %s", err)
 		}
 
-		args := []string{d.conf.LibDir, lxcDir, ep.IfName}
+		args := []string{d.conf.LibDir, d.conf.RunDir, lxcDir, ep.IfName}
 		out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
 		if err != nil {
 			log.Warningf("Command execution failed: %s", err)

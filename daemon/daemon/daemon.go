@@ -133,9 +133,9 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), "direct", d.conf.Device}
+		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), "direct", d.conf.Device}
 	} else {
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
+		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
 	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
@@ -150,6 +150,11 @@ func (d *Daemon) compileBase() error {
 }
 
 func (d *Daemon) init() error {
+	globalsDir := filepath.Join(d.conf.RunDir, "globals")
+	if err := os.MkdirAll(globalsDir, 0755); err != nil {
+		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
+	}
+
 	if err := os.Chdir(d.conf.RunDir); err != nil {
 		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
 			d.conf.RunDir, err)
@@ -213,12 +218,6 @@ func (d *Daemon) init() error {
 			log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 			return err
 		}
-	}
-
-	os.MkdirAll(common.CiliumUIPath, 0755)
-	if err != nil {
-		log.Warningf("Could not create UI directory '%s': %s", common.CiliumUIPath, err)
-		return err
 	}
 
 	return nil

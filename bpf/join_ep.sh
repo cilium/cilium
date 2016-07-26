@@ -3,14 +3,15 @@
 set -e
 
 LIB=$1
-ID=$2
-IFNAME=$3
+RUNDIR=$2
+ID=$3
+IFNAME=$4
 
 echo "Join EP id=$ID ifname=$IFNAME"
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/$ID"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I/var/run/cilium/globals -I$DIR -I$LIB/include"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$RUNDIR/globals -I$DIR -I$LIB/include"
 
 # Temporary fix until clang is properly installed and available in default PATH
 export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"

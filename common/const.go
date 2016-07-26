@@ -5,14 +5,10 @@ const (
 
 	// Version number.
 	Version = "0.0.1"
-	// PluginPath is the docker plugins directory where docker plugin is present.
-	PluginPath = "/run/docker/plugins/"
-	// DriverSock is the cilium socket for the communication between docker and cilium.
-	DriverSock = PluginPath + "cilium.sock"
 	// CiliumPath is the path where cilium operational files are running.
-	CiliumPath   = "/var/run/cilium/"
-	CiliumUIPath = CiliumPath + "static/"
-	CiliumLibDir = "/usr/lib/cilium"
+	CiliumPath    = "/var/run/cilium/"
+	DefaultLibDir = "/usr/lib/cilium/"
+	CiliumUIPath  = DefaultLibDir + "ui/"
 	// CiliumSock is the cilium socket for the communication between the daemon and cilium client.
 	CiliumSock = CiliumPath + "cilium.sock"
 	// DefaultContainerMAC represents a dummy MAC address for the containers.

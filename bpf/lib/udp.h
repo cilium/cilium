@@ -15,7 +15,7 @@ static inline void udp_modify_16(struct __sk_buff *skb, int off, __u16 port)
 
 	skb_load_bytes(skb, off, &old_port, sizeof(old_port));
         l4_csum_replace(skb, UDP_CSUM_OFF, old_port, port, sizeof(port));
-        skb_store_bytes(skb, off, &port, sizeof(port), 1);
+        skb_store_bytes(skb, off, &port, sizeof(port), 0);
 }
 
 /**

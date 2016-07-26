@@ -48,7 +48,8 @@ func NewUIRouter(daemon backend.CiliumDaemonBackend) Router {
 			Handler(handler)
 	}
 
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+	uiDir, _ := daemon.GetUIPath()
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(uiDir))))
 	return r
 }
 

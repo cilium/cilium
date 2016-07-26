@@ -59,7 +59,7 @@ static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
 #else
 	uint8_t buf[] = {};
 #endif
-	return do_encapsulation(skb, node_id, SECLABEL_NB, buf, sizeof(buf));
+	return do_encapsulation(skb, node_id, SECLABEL, buf, sizeof(buf));
 }
 #endif
 
@@ -317,7 +317,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (node_id != IPV4_RANGE) {
 #ifdef ENCAP_IFINDEX
 			/* 10.X.0.0 => 10.X.0.1 */
-			node_id |= 1;
+			node_id = ntohl(node_id) | 1;
 			return lxc_encap(skb, node_id);
 #else
 			/* Packets to other nodes are always allowed, the remote
