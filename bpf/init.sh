@@ -1,9 +1,13 @@
 #!/bin/bash
 
 LIB=$1
-ADDR=$2
-V4ADDR=$3
-MODE=$4
+RUNDIR=$2
+ADDR=$3
+V4ADDR=$4
+MODE=$5
+
+# Only set if MODE = "direct"
+NATIVE_DEV=$6
 
 HOST_ID="host"
 WORLD_ID="world"
@@ -56,11 +60,11 @@ ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
 
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
-echo "#define HOST_IFINDEX $HOST_IDX" >> /var/run/cilium/globals/node_config.h
+echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
 
 HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
 HOST_MAC=$(mac2array $HOST_MAC)
-echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> /var/run/cilium/globals/node_config.h
+echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 
 ID=$(cilium policy get-id $HOST_ID 2> /dev/null)
 OPTS="-DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
@@ -86,12 +90,12 @@ ip route add $V4RANGE/16 via $V4ADDR
 # Address needs to added after /32 route and /16 prefix route for some unknown reason
 ip addr add $V4ADDR/32 dev $HOST_DEV1
 
-sed '/ENCAP_GENEVE/d' /var/run/cilium/globals/node_config.h
-sed '/ENCAP_VXLAN/d' /var/run/cilium/globals/node_config.h
+sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
+sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
 if [ "$MODE" = "vxlan" ]; then
-	echo "#define ENCAP_VXLAN 1" >> /var/run/cilium/globals/node_config.h
+	echo "#define ENCAP_VXLAN 1" >> $RUNDIR/globals/node_config.h
 elif [ "$MODE" = "geneve" ]; then
-	echo "#define ENCAP_GENEVE 1" >> /var/run/cilium/globals/node_config.h
+	echo "#define ENCAP_GENEVE 1" >> $RUNDIR/globals/node_config.h
 fi
 
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
@@ -102,21 +106,19 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ip link set $ENCAP_DEV up
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
-	sed '/ENCAP_IFINDEX/d' /var/run/cilium/globals/node_config.h
-	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> /var/run/cilium/globals/node_config.h
+	sed '/ENCAP_IFINDEX/d' $RUNDIR/globals/node_config.h
+	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	bpf_compile $ENCAP_DEV "" bpf_overlay.c bpf_overlay.o from-overlay
 elif [ "$MODE" = "direct" ]; then
-	DEV=$5
-
-	if [ -z "$DEV" ]; then
+	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for direct mode, ignoring..."
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
 		ID=$(cilium policy get-id $WORLD_ID 2> /dev/null)
 		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
-		bpf_compile $DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
+		bpf_compile $NATIVE_DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
 	fi
 else
 	echo "Warning: unknown mode: \"$MODE\""

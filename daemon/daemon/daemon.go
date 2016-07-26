@@ -133,9 +133,9 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), "direct", d.conf.Device}
+		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), "direct", d.conf.Device}
 	} else {
-		args = []string{d.conf.LibDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
+		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
 	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
