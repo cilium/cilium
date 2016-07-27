@@ -19,6 +19,7 @@ enum {
 	DBG_CT_VERDICT,
 	DBG_DECAP,
 	DBG_PORT_MAP,
+	DBG_ERROR_RET,
 };
 
 /* Capture types */

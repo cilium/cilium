@@ -29,6 +29,7 @@ const (
 	DBG_CT_VERDICT
 	DBG_DECAP
 	DBG_PORT_MAP
+	DBG_ERROR_RET
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -87,6 +88,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Tunnel decap: id=%d flowlabel=%x\n", n.Arg1, n.Arg2)
 	case DBG_PORT_MAP:
 		fmt.Printf("Mapping port from=%d to=%d\n", n.Arg1, n.Arg2)
+	case DBG_ERROR_RET:
+		fmt.Printf("BPF function %d returned error %d\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

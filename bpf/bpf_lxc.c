@@ -122,7 +122,9 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 
 	switch (ret) {
 	case CT_NEW:
-		ct_create6(&CT_MAP6, tuple, skb, 0);
+		ret = ct_create6(&CT_MAP6, tuple, skb, 0);
+		if (IS_ERR(ret))
+			return ret;
 		break;
 
 	case CT_ESTABLISHED:
@@ -313,7 +315,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 	switch (ret) {
 	case CT_NEW:
-		ct_create4(&CT_MAP4, &tuple, skb, 0);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 0);
+		if (IS_ERR(ret))
+			return ret;
 		break;
 
 	case CT_ESTABLISHED:
@@ -488,8 +492,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
 			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 						ifindex, TC_ACT_SHOT);
-	} else if (ret == CT_NEW)
-		ct_create6(&CT_MAP6, &tuple, skb, 1);
+	} else if (ret == CT_NEW) {
+		ret = ct_create6(&CT_MAP6, &tuple, skb, 1);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	}
 
 	return 0;
 }
@@ -517,8 +524,11 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
 			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 						ifindex, TC_ACT_SHOT);
-	} else if (ret == CT_NEW)
-		ct_create4(&CT_MAP4, &tuple, skb, 1);
+	} else if (ret == CT_NEW) {
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 1);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	}
 
 	return 0;
 }

@@ -114,6 +114,7 @@ struct drop_notify {
 #define DROP_NO_LXC		-152
 #define DROP_CSUM_L3		-153
 #define DROP_CSUM_L4		-154
+#define DROP_CT_CREATE_FAILED	-155
 
 enum {
 	CB_SRC_LABEL,
