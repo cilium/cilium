@@ -120,23 +120,21 @@ static inline int ipv6_store_paylen(struct __sk_buff *skb, int off, __be16 *len)
 			       len, sizeof(*len), 0);
 }
 
-static inline int ipv6_load_flowlabel(struct __sk_buff *skb, int off, __be32 *label)
-{
-	int ret;
-
-	ret = skb_load_bytes(skb, off, label, 4);
-	*label = *label & IPV6_FLOWLABEL_MASK;
-	return ret;
-}
-
 static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 label)
 {
 	__u32 old;
-	// use traffic class from packet
-	skb_load_bytes(skb, off, &old, 4);
+
+	/* use traffic class from packet */
+	if (skb_load_bytes(skb, off, &old, 4) < 0)
+		return DROP_INVALID;
+
 	old &= IPV6_TCLASS_MASK;
 	old = htonl(0x60000000) | label | old;
-	return skb_store_bytes(skb, off, &old, 4, BPF_F_RECOMPUTE_CSUM);
+
+	if (skb_store_bytes(skb, off, &old, 4, BPF_F_RECOMPUTE_CSUM) < 0)
+		return DROP_WRITE_ERROR;
+
+	return 0;
 }
 
 static inline __u16 derive_lxc_id(union v6addr *addr)

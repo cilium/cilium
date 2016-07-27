@@ -218,7 +218,8 @@ pass_to_stack:
 		if (unlikely(ret != TC_ACT_OK))
 			return ret;
 
-		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
+		if (ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB) < 0)
+			return DROP_WRITE_ERROR;
 	}
 
 #ifndef POLICY_ENFORCEMENT
