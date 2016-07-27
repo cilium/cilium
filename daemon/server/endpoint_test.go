@@ -443,18 +443,19 @@ func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
 	}
 	ep.SetID()
 
-	wantedLabels := types.Labels{
-		"foo": types.NewLabel("foo", "bar", "cilium"),
+	wantedLabels := types.LabelOp{
+		types.AddLabelsOp: types.Labels{
+			"foo": types.NewLabel("foo", "bar", "cilium"),
+		},
 	}
 
-	s.d.OnEndpointLabelsUpdate = func(epID uint16, op types.LabelOP, lbls types.Labels) error {
+	s.d.OnEndpointLabelsUpdate = func(epID uint16, lbls types.LabelOp) error {
 		c.Assert(ep.ID, DeepEquals, epID)
-		c.Assert(op, Equals, types.AddLabelsOp)
 		c.Assert(wantedLabels, DeepEquals, lbls)
 		return nil
 	}
 
-	err := s.c.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, wantedLabels)
+	err := s.c.EndpointLabelsUpdate(ep.ID, wantedLabels)
 	c.Assert(err, IsNil)
 }
 
@@ -471,17 +472,18 @@ func (s *DaemonSuite) TestEndpointLabelsAddFail(c *C) {
 	}
 	ep.SetID()
 
-	wantedLabels := types.Labels{
-		"foo": types.NewLabel("foo", "bar", "cilium"),
+	wantedLabels := types.LabelOp{
+		types.AddLabelsOp: types.Labels{
+			"foo": types.NewLabel("foo", "bar", "cilium"),
+		},
 	}
 
-	s.d.OnEndpointLabelsUpdate = func(epID uint16, op types.LabelOP, lbls types.Labels) error {
+	s.d.OnEndpointLabelsUpdate = func(epID uint16, labelOp types.LabelOp) error {
 		c.Assert(ep.ID, DeepEquals, epID)
-		c.Assert(op, Equals, types.AddLabelsOp)
-		c.Assert(wantedLabels, DeepEquals, lbls)
+		c.Assert(labelOp, DeepEquals, wantedLabels)
 		return errors.New("invalid endpoint")
 	}
 
-	err := s.c.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, wantedLabels)
+	err := s.c.EndpointLabelsUpdate(ep.ID, wantedLabels)
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }

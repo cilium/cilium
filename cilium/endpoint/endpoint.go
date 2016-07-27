@@ -225,29 +225,23 @@ func configLabels(ctx *cli.Context) {
 	disableLabels := types.ParseStringLabels(ctx.StringSlice("disable"))
 	deleteLabels := types.ParseStringLabels(ctx.StringSlice("delete"))
 
+	lo := types.LabelOp{}
+
 	if len(addLabels) != 0 {
-		err := client.EndpointLabelsUpdate(epID, types.AddLabelsOp, addLabels)
-		if err != nil {
-			log.Errorf("Error while adding labels %s", err)
-		}
+		lo[types.AddLabelsOp] = addLabels
 	}
 	if len(enableLabels) != 0 {
-		err := client.EndpointLabelsUpdate(epID, types.EnableLabelsOp, enableLabels)
-		if err != nil {
-			log.Errorf("Error while enabling labels %s", err)
-		}
+		lo[types.EnableLabelsOp] = enableLabels
 	}
 	if len(disableLabels) != 0 {
-		err := client.EndpointLabelsUpdate(epID, types.DisableLabelsOp, disableLabels)
-		if err != nil {
-			log.Errorf("Error while disabling labels %s", err)
-		}
+		lo[types.DisableLabelsOp] = disableLabels
 	}
 	if len(deleteLabels) != 0 {
-		err := client.EndpointLabelsUpdate(epID, types.DelLabelsOp, deleteLabels)
-		if err != nil {
-			log.Errorf("Error while deleting labels %s", err)
-		}
+		lo[types.DelLabelsOp] = deleteLabels
+	}
+
+	if err := client.EndpointLabelsUpdate(epID, lo); err != nil {
+		log.Errorf("Error while deleting labels %s", err)
 	}
 
 	if lbls, err := client.EndpointLabelsGet(epID); err != nil {
@@ -537,7 +531,7 @@ func recompileBPF(ctx *cli.Context) {
 		return
 	}
 
-	fmt.Printf("Endpoint %s's successfully recompiled\n", epID)
+	fmt.Printf("Endpoint %d's successfully recompiled\n", epID)
 }
 
 func detachBPF(ctx *cli.Context) {
@@ -553,7 +547,7 @@ func detachBPF(ctx *cli.Context) {
 		return
 	}
 
-	fmt.Printf("Endpoint %s's successfully detached\n", epID)
+	fmt.Printf("Endpoint %d's successfully detached\n", epID)
 }
 
 func listEndpointsBash(ctx *cli.Context) {

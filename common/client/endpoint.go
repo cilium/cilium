@@ -190,9 +190,8 @@ func (cli Client) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 	return &opLbls, nil
 }
 
-func (cli Client) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
-
-	serverResp, err := cli.R().SetBody(labels).Post(fmt.Sprintf("/endpoint/labels/%s/%d", op, epID))
+func (cli Client) EndpointLabelsUpdate(epID uint16, labelOp types.LabelOp) error {
+	serverResp, err := cli.R().SetBody(labelOp).Post(fmt.Sprintf("/endpoint/labels/%d", epID))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}

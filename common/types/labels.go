@@ -12,15 +12,17 @@ import (
 	"github.com/noironetworks/cilium-net/common"
 )
 
-type LabelOP string
+type LabelOpType string
 
 const (
-	secLabelTimeout         = time.Duration(120 * time.Second)
-	AddLabelsOp     LabelOP = "AddLabelsOp"
-	DelLabelsOp     LabelOP = "DelLabelsOp"
-	EnableLabelsOp  LabelOP = "EnableLabelsOp"
-	DisableLabelsOp LabelOP = "DisableLabelsOp"
+	secLabelTimeout             = time.Duration(120 * time.Second)
+	AddLabelsOp     LabelOpType = "AddLabelsOp"
+	DelLabelsOp     LabelOpType = "DelLabelsOp"
+	EnableLabelsOp  LabelOpType = "EnableLabelsOp"
+	DisableLabelsOp LabelOpType = "DisableLabelsOp"
 )
+
+type LabelOp map[LabelOpType]Labels
 
 type OpLabels struct {
 	// All labels

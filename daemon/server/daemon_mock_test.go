@@ -20,7 +20,7 @@ type TestDaemon struct {
 	OnEndpointUpdate            func(epID uint16, opts types.OptionMap) error
 	OnEndpointSave              func(ep types.Endpoint) error
 	OnEndpointLabelsGet         func(epID uint16) (*types.OpLabels, error)
-	OnEndpointLabelsUpdate      func(epID uint16, op types.LabelOP, labels types.Labels) error
+	OnEndpointLabelsUpdate      func(epID uint16, labelOp types.LabelOp) error
 	OnGetIPAMConf               func(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error)
 	OnAllocateIP                func(ipamType ipam.IPAMType, opts ipam.IPAMReq) (*ipam.IPAMRep, error)
 	OnReleaseIP                 func(ipamType ipam.IPAMType, opts ipam.IPAMReq) error
@@ -109,9 +109,9 @@ func (d TestDaemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 	return nil, errors.New("EndpointLabelsGet should not have been called")
 }
 
-func (d TestDaemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
+func (d TestDaemon) EndpointLabelsUpdate(epID uint16, labelOp types.LabelOp) error {
 	if d.OnEndpointLabelsUpdate != nil {
-		return d.OnEndpointLabelsUpdate(epID, op, labels)
+		return d.OnEndpointLabelsUpdate(epID, labelOp)
 	}
 	return errors.New("EndpointLabelsUpdate should not have been called")
 }

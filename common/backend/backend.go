@@ -19,7 +19,7 @@ type bpfBackend interface {
 	EndpointUpdate(epID uint16, opts types.OptionMap) error
 	EndpointSave(ep types.Endpoint) error
 	EndpointLabelsGet(epID uint16) (*types.OpLabels, error)
-	EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error
+	EndpointLabelsUpdate(epID uint16, labelOp types.LabelOp) error
 }
 
 type ipamBackend interface {
