@@ -63,10 +63,10 @@ static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 	}
 
 	new_hl = hoplimit - 1;
-	skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
-			&new_hl, sizeof(new_hl), BPF_F_RECOMPUTE_CSUM);
+	if (skb_store_bytes(skb, off + offsetof(struct ipv6hdr, hop_limit),
+			    &new_hl, sizeof(new_hl), BPF_F_RECOMPUTE_CSUM) < 0)
+		return DROP_WRITE_ERROR;
 
-	//printk("Decremented hoplimit to: %d\n", new_hl);
 	return 0;
 }
 

@@ -51,8 +51,16 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int nh_off,
 				     __u8 *smac, __u8 *dmac)
 {
-	if (ipv6_dec_hoplimit(skb, nh_off))
+	int ret;
+
+	ret = ipv6_dec_hoplimit(skb, nh_off);
+	if (IS_ERR(ret))
+		return ret;
+
+	if (ret > 0) {
+		/* Hoplimit was reached */
 		return icmp6_send_time_exceeded(skb, nh_off);
+	}
 
 	if (smac)
 		eth_store_saddr(skb, smac, 0);
