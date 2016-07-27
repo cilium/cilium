@@ -50,9 +50,25 @@ func (l OptionLibrary) Validate(name string) error {
 
 type OptionMap map[string]bool
 
+func (om OptionMap) DeepCopy() OptionMap {
+	cpy := make(OptionMap, len(om))
+	for k, v := range om {
+		cpy[k] = v
+	}
+	return cpy
+}
+
 type BoolOptions struct {
 	Opts    OptionMap      `json:"map"`
 	Library *OptionLibrary `json:"-"`
+}
+
+func (bo *BoolOptions) DeepCopy() *BoolOptions {
+	cpy := &BoolOptions{
+		Opts:    bo.Opts.DeepCopy(),
+		Library: bo.Library,
+	}
+	return cpy
 }
 
 func NewBoolOptions(lib *OptionLibrary) *BoolOptions {

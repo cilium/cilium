@@ -2,8 +2,11 @@ package types
 
 import (
 	"bytes"
+	"net"
 	"testing"
+	"time"
 
+	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common/addressing"
 
 	. "gopkg.in/check.v1"
@@ -46,4 +49,77 @@ func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 	}
 	OrderEndpointAsc(eps)
 	c.Assert(eps, DeepEquals, epsWant)
+}
+
+func (s *EndpointSuite) TestDeepCopy(c *C) {
+	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
+	c.Assert(err, IsNil)
+	ipv6, err := addressing.NewCiliumIPv6("::1")
+	c.Assert(err, IsNil)
+	epWant := &Endpoint{
+		ID:               12,
+		DockerID:         "123",
+		DockerNetworkID:  "1234",
+		DockerEndpointID: "12345",
+		IfName:           "lxcifname",
+		LXCMAC:           MAC{1, 2, 3, 4, 5, 6},
+		IPv6:             ipv6,
+		IPv4:             ipv4,
+		IfIndex:          4,
+		NodeMAC:          MAC{1, 2, 3, 4, 5, 6},
+		NodeIP:           net.ParseIP("192.168.0.1"),
+		PortMap:          make([]EPPortMap, 2),
+		Opts:             NewBoolOptions(&EndpointOptionLibrary),
+	}
+	cpy := epWant.DeepCopy()
+	c.Assert(*cpy, DeepEquals, *epWant)
+	epWant.SecLabel = &SecCtxLabel{
+		ID: 1,
+		Labels: Labels{
+			"io.cilium.kubernetes": NewLabel("io.cilium.kubernetes", "", "cilium"),
+		},
+		Containers: map[string]time.Time{
+			"1234": time.Now(),
+		},
+	}
+	epWant.Consumable = &Consumable{
+		ID:        123,
+		Iteration: 3,
+		Labels:    nil,
+		LabelList: []Label{
+			*NewLabel("io.cilium.kubernetes", "", "cilium"),
+		},
+		Maps: map[int]*policymap.PolicyMap{
+			0: &policymap.PolicyMap{},
+		},
+		Consumers: map[string]*Consumer{
+			"foo": NewConsumer(12),
+		},
+		ReverseRules: map[uint32]*Consumer{
+			12: NewConsumer(12),
+		},
+	}
+	epWant.PolicyMap = &policymap.PolicyMap{}
+	cpy = epWant.DeepCopy()
+	c.Assert(*cpy.SecLabel, DeepEquals, *epWant.SecLabel)
+	c.Assert(*cpy.Consumable, DeepEquals, *epWant.Consumable)
+	c.Assert(*cpy.PolicyMap, DeepEquals, *epWant.PolicyMap)
+
+	epWant.Consumable.Labels = &SecCtxLabel{
+		ID: 1,
+		Labels: Labels{
+			"io.cilium.kubernetes": NewLabel("io.cilium.kubernetes", "", "cilium"),
+		},
+		Containers: map[string]time.Time{
+			"1234": time.Now(),
+		},
+	}
+
+	epWant.PolicyMap = &policymap.PolicyMap{}
+	cpy = epWant.DeepCopy()
+
+	c.Assert(*cpy.Consumable.Labels, DeepEquals, *epWant.Consumable.Labels)
+
+	cpy.Consumable.Labels.Containers["1234"] = time.Now()
+	c.Assert(*cpy.Consumable.Labels, Not(DeepEquals), *epWant.Consumable.Labels)
 }

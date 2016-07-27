@@ -8,12 +8,12 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/noironetworks/cilium-net/bpf/geneve"
 	"github.com/noironetworks/cilium-net/bpf/policymap"
 	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/types"
-	"strconv"
 )
 
 func (d *Daemon) lookupCiliumEndpoint(id uint16) *types.Endpoint {
@@ -121,8 +121,7 @@ func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID st
 		ep.SetSecLabel(labels)
 		// Update all IDs in respective MAPs
 		d.insertEndpoint(ep)
-		epCopy := *ep
-		return &epCopy
+		return ep.DeepCopy()
 	}
 
 	return nil
@@ -135,8 +134,7 @@ func (d *Daemon) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error)
 	defer d.endpointsMU.RUnlock()
 
 	if ep := d.lookupDockerID(dockerID); ep != nil {
-		epCopy := *ep
-		return &epCopy, nil
+		return ep.DeepCopy(), nil
 	}
 	return nil, nil
 }
@@ -148,8 +146,7 @@ func (d *Daemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, er
 	defer d.endpointsMU.RUnlock()
 
 	if ep := d.lookupDockerEndpoint(dockerEPID); ep != nil {
-		epCopy := *ep
-		return &epCopy, nil
+		return ep.DeepCopy(), nil
 	}
 	return nil, nil
 }
@@ -161,8 +158,7 @@ func (d *Daemon) EndpointGet(endpointID uint16) (*types.Endpoint, error) {
 	defer d.endpointsMU.RUnlock()
 
 	if ep := d.lookupCiliumEndpoint(endpointID); ep != nil {
-		epCopy := *ep
-		return &epCopy, nil
+		return ep.DeepCopy(), nil
 	}
 
 	return nil, nil
@@ -182,8 +178,8 @@ func (d *Daemon) EndpointsGet() ([]types.Endpoint, error) {
 		return nil, nil
 	}
 	for k := range epsSet {
-		epCopy := *k
-		eps = append(eps, epCopy)
+		epCopy := k.DeepCopy()
+		eps = append(eps, *epCopy)
 	}
 	return eps, nil
 }
@@ -534,8 +530,7 @@ func (d *Daemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 		return nil, fmt.Errorf("container %s not found in cache", ep.DockerID)
 	}
 
-	cpy := types.OpLabels(cont.OpLabels)
-	return &cpy, nil
+	return cont.OpLabels.DeepCopy(), nil
 }
 
 func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
@@ -577,8 +572,13 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 			}
 		}
 		if update {
-			d.containersMU.Unlock()
-			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		}
 
 	case types.EnableLabelsOp:
@@ -588,13 +588,24 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 				return fmt.Errorf("label %s not found, please add it first in order to enable it", v)
 			}
 		}
-		d.containersMU.Unlock()
 
 		if ep.SecLabel != nil {
 			ep.SecLabel.Labels.MergeLabels(labels)
-			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		} else {
-			return d.refreshContainerLabels(ep.DockerID, labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		}
 
 	case types.DisableLabelsOp:
@@ -606,8 +617,13 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 			}
 		}
 		if update {
-			d.containersMU.Unlock()
-			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		}
 
 	default:
