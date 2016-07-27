@@ -211,16 +211,12 @@ to_host:
 	}
 
 pass_to_stack:
-	if (1) {
-		int ret;
+	ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
+	if (unlikely(ret != TC_ACT_OK))
+		return ret;
 
-		ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
-		if (unlikely(ret != TC_ACT_OK))
-			return ret;
-
-		if (ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB) < 0)
-			return DROP_WRITE_ERROR;
-	}
+	if (ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB) < 0)
+		return DROP_WRITE_ERROR;
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
@@ -391,15 +387,14 @@ to_host:
 	}
 
 pass_to_stack:
-	if (1) {
-		int ret;
+	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
+	if (unlikely(ret != TC_ACT_OK))
+		return ret;
 
-		ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
-		if (unlikely(ret != TC_ACT_OK))
-			return ret;
-
-		ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB);
-	}
+	/* FIXME: We can't store the security context anywhere here so all
+	 * packets to other nodes will look like they come from an outside
+	 * network.
+	 */
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
