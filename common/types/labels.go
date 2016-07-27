@@ -33,6 +33,15 @@ type OpLabels struct {
 	ProbeLabels Labels
 }
 
+func (o *OpLabels) DeepCopy() *OpLabels {
+	return &OpLabels{
+		AllLabels:      o.AllLabels.DeepCopy(),
+		UserLabels:     o.UserLabels.DeepCopy(),
+		EndpointLabels: o.EndpointLabels.DeepCopy(),
+		ProbeLabels:    o.ProbeLabels.DeepCopy(),
+	}
+}
+
 func (opl *OpLabels) GetDeletedLabels() Labels {
 	deletedLabels := opl.AllLabels.DeepCopy()
 	for k, _ := range opl.UserLabels {
@@ -75,6 +84,18 @@ type SecCtxLabel struct {
 	Labels Labels `json:"labels"`
 	// Set of labels that belong to this SecCtxLabel.
 	Containers map[string]time.Time `json:"containers"`
+}
+
+func (s *SecCtxLabel) DeepCopy() *SecCtxLabel {
+	cpy := &SecCtxLabel{
+		ID:         s.ID,
+		Labels:     s.Labels.DeepCopy(),
+		Containers: make(map[string]time.Time, len(s.Containers)),
+	}
+	for k, v := range s.Containers {
+		cpy.Containers[k] = v
+	}
+	return cpy
 }
 
 func NewSecCtxLabel() *SecCtxLabel {

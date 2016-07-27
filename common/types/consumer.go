@@ -13,6 +13,17 @@ type Consumer struct {
 	Decision     ConsumableDecision
 }
 
+func (c *Consumer) DeepCopy() *Consumer {
+	cpy := &Consumer{ID: c.ID,
+		DeletionMark: c.DeletionMark,
+		Decision:     c.Decision,
+	}
+	if c.Reverse != nil {
+		cpy.Reverse = c.Reverse.DeepCopy()
+	}
+	return cpy
+}
+
 func NewConsumer(id uint32) *Consumer {
 	return &Consumer{ID: id, Decision: ACCEPT}
 }
@@ -25,6 +36,31 @@ type Consumable struct {
 	Maps         map[int]*policymap.PolicyMap `json:"-"`
 	Consumers    map[string]*Consumer         `json:"consumers"`
 	ReverseRules map[uint32]*Consumer         `json:"-"`
+}
+
+func (c *Consumable) DeepCopy() *Consumable {
+	cpy := &Consumable{
+		ID:           c.ID,
+		Iteration:    c.Iteration,
+		LabelList:    make([]Label, len(c.LabelList)),
+		Maps:         make(map[int]*policymap.PolicyMap, len(c.Maps)),
+		Consumers:    make(map[string]*Consumer, len(c.Consumers)),
+		ReverseRules: make(map[uint32]*Consumer, len(c.ReverseRules)),
+	}
+	copy(cpy.LabelList, c.LabelList)
+	if c.Labels != nil {
+		cpy.Labels = c.Labels.DeepCopy()
+	}
+	for k, v := range c.Maps {
+		cpy.Maps[k] = v.DeepCopy()
+	}
+	for k, v := range c.Consumers {
+		cpy.Consumers[k] = v.DeepCopy()
+	}
+	for k, v := range c.ReverseRules {
+		cpy.ReverseRules[k] = v.DeepCopy()
+	}
+	return cpy
 }
 
 func newConsumable(id uint32, labels *SecCtxLabel) *Consumable {

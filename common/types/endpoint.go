@@ -116,6 +116,42 @@ type Endpoint struct {
 	Opts             *BoolOptions          `json:"options"` // Endpoint bpf options.
 }
 
+func (e *Endpoint) DeepCopy() *Endpoint {
+	cpy := &Endpoint{
+		ID:               e.ID,
+		DockerID:         e.DockerID,
+		DockerNetworkID:  e.DockerNetworkID,
+		DockerEndpointID: e.DockerEndpointID,
+		IfName:           e.IfName,
+		LXCMAC:           make(MAC, len(e.LXCMAC)),
+		IPv6:             make(addressing.CiliumIPv6, len(e.IPv6)),
+		IPv4:             make(addressing.CiliumIPv4, len(e.IPv4)),
+		IfIndex:          e.IfIndex,
+		NodeMAC:          make(MAC, len(e.NodeMAC)),
+		NodeIP:           make(net.IP, len(e.NodeIP)),
+		PortMap:          make([]EPPortMap, len(e.PortMap)),
+	}
+	copy(cpy.LXCMAC, e.LXCMAC)
+	copy(cpy.IPv6, e.IPv6)
+	copy(cpy.IPv4, e.IPv4)
+	copy(cpy.NodeMAC, e.NodeMAC)
+	copy(cpy.NodeIP, e.NodeIP)
+	copy(cpy.PortMap, e.PortMap)
+	if e.SecLabel != nil {
+		cpy.SecLabel = e.SecLabel.DeepCopy()
+	}
+	if e.Consumable != nil {
+		cpy.Consumable = e.Consumable.DeepCopy()
+	}
+	if e.PolicyMap != nil {
+		cpy.PolicyMap = e.PolicyMap.DeepCopy()
+	}
+	if e.Opts != nil {
+		cpy.Opts = e.Opts.DeepCopy()
+	}
+	return cpy
+}
+
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
 	e.ID = e.IPv6.EndpointID()
