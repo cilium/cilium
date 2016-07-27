@@ -109,7 +109,8 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 		return DROP_UNKNOWN_ICMP_TYPE;
 	}
 
-	skb_store_bytes(skb, nh_off, &icmp6, sizeof(icmp6), 0);
+	if (skb_store_bytes(skb, nh_off, &icmp6, sizeof(icmp6), 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
@@ -184,7 +185,8 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 		return DROP_UNKNOWN_ICMP6_TYPE;
 	}
 
-	skb_store_bytes(skb, nh_off, &icmp4, sizeof(icmp4), 0);
+	if (skb_store_bytes(skb, nh_off, &icmp4, sizeof(icmp4), 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	icmp4.checksum = 0;
 	icmp6.icmp6_cksum = 0;
@@ -250,8 +252,9 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 		return DROP_WRITE_ERROR;
 	}
 
-	skb_store_bytes(skb, nh_off, &v6, sizeof(v6), 0);
-	skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0);
+	if (skb_store_bytes(skb, nh_off, &v6, sizeof(v6), 0) < 0 ||
+	    skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	if (v4.protocol == IPPROTO_ICMP) {
 		csum = icmp4_to_icmp6(skb, nh_off + sizeof(v6));
@@ -276,7 +279,8 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	else
 		csum_off += sizeof(struct ipv6hdr);
 
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
+	if (l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags) < 0)
+		return DROP_CSUM_L4;
 
 #ifdef DEBUG_NAT46
 	printk("v46 NAT: nh_off %d, csum_off %d\n", nh_off, csum_off);
@@ -332,9 +336,12 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 		return DROP_WRITE_ERROR;
 	}
 
-	skb_store_bytes(skb, nh_off, &v4, sizeof(v4), 0);
-	skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0);
-	l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0);
+	if (skb_store_bytes(skb, nh_off, &v4, sizeof(v4), 0) < 0 ||
+	    skb_store_bytes(skb, nh_off - 2, &protocol, 2, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (l3_csum_replace(skb, nh_off + csum_off, 0, csum, 0) < 0)
+		return DROP_CSUM_L3;
 
 	if (v6.nexthdr == IPPROTO_ICMPV6) {
 		__be32 csum1 = 0;
@@ -360,7 +367,8 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	else
 		csum_off += sizeof(struct iphdr);
 
-	l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags);
+	if (l4_csum_replace(skb, nh_off + csum_off, 0, csum, csum_flags) < 0)
+		return DROP_CSUM_L4;
 
 #ifdef DEBUG_NAT46
 	printk("v64 NAT: nh_off %d, csum_off %d\n", nh_off, csum_off);

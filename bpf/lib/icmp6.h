@@ -31,22 +31,30 @@ static inline int __inline__ icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	__be32 sum;
 	__u8 router_ip[] = ROUTER_IP;
 
-	ipv6_load_saddr(skb, nh_off, &sip);
-	ipv6_load_daddr(skb, nh_off, &dip);
+	if (ipv6_load_saddr(skb, nh_off, &sip) < 0 ||
+	    ipv6_load_daddr(skb, nh_off, &dip) < 0)
+		return DROP_INVALID;
 
 	/* skb->saddr = skb->daddr  */
-	ipv6_store_saddr(skb, router_ip, nh_off);
+	if (ipv6_store_saddr(skb, router_ip, nh_off) < 0)
+		return DROP_WRITE_ERROR;
 	/* skb->daddr = skb->saddr */
-	ipv6_store_daddr(skb, sip.addr, nh_off);
+	if (ipv6_store_daddr(skb, sip.addr, nh_off) < 0)
+		return DROP_WRITE_ERROR;
 
 	/* fixup checksums */
 	sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
+
 	sum = csum_diff(dip.addr, 16, sip.addr, 16, 0);
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
 
 	/* dmac = smac, smac = dmac */
-	eth_load_saddr(skb, smac.addr, 0);
+	if (eth_load_saddr(skb, smac.addr, 0) < 0)
+		return DROP_INVALID;
+
 	// eth_load_daddr(skb, dmac.addr, 0);
 	if (eth_store_daddr(skb, smac.addr, 0) < 0 ||
 	    eth_store_saddr(skb, dmac.addr, 0) < 0)
@@ -76,14 +84,16 @@ static inline int __icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
 	icmp6hdr.icmp6_identifier = icmp6hdr_old.icmp6_identifier;
 	icmp6hdr.icmp6_sequence = icmp6hdr_old.icmp6_sequence;
 
-	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr,
-			sizeof(icmp6hdr), 0);
+	if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr,
+			    sizeof(icmp6hdr), 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	/* fixup checksum */
 	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
 			&icmp6hdr, sizeof(icmp6hdr), 0);
 
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
 
 	return icmp6_send_reply(skb, nh_off);
 }
@@ -137,12 +147,14 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 	icmp6hdr.icmp6_solicited = 1;
 	icmp6hdr.icmp6_override = 0;
 
-	skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0);
+	if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	/* fixup checksums */
 	sum = csum_diff(&icmp6hdr_old, sizeof(icmp6hdr_old),
 			&icmp6hdr, sizeof(icmp6hdr), 0);
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
 
 	/* get old options */
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_OPTS, opts_old, sizeof(opts_old)) < 0)
@@ -158,11 +170,13 @@ static inline int send_icmp6_ndisc_adv(struct __sk_buff *skb, int nh_off,
 	opts[7] = mac->addr[5];
 
 	/* store ND_OPT_TARGET_LL_ADDR option */
-	skb_store_bytes(skb, nh_off + ICMP6_ND_OPTS, opts, sizeof(opts), 0);
+	if (skb_store_bytes(skb, nh_off + ICMP6_ND_OPTS, opts, sizeof(opts), 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	/* fixup checksum */
 	sum = csum_diff(opts_old, sizeof(opts_old), opts, sizeof(opts), 0);
-	l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
 
 	return icmp6_send_reply(skb, nh_off);
 }
@@ -257,10 +271,8 @@ static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
                 return DROP_UNKNOWN_L4;
         }
 
-        //printk("IPv6 payload_len = %d, nexthdr %d, new payload_len %d\n",
-        //       ntohs(ipv6hdr->payload_len), ipv6hdr->nexthdr, ntohs(payload_len));
-
-        l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+        if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
 
         return icmp6_send_reply(skb, nh_off);
 }
