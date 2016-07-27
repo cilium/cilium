@@ -83,7 +83,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	int do_nat46 = 0, ret;
 
 	if (unlikely(!valid_src_mac(eth)))
@@ -142,11 +141,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	}
 
 	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_subnet_96(dst, &host_ip)) {
+	if (ipv6_match_subnet_96(&tuple->addr, &host_ip)) {
 		void *data = (void *) (long) skb->data;
 		void *data_end = (void *) (long) skb->data_end;
 		struct ipv6hdr *ip6 = data + ETH_HLEN;
-		__u32 node_id = ipv6_derive_node_id(dst);
+		__u32 node_id = ipv6_derive_node_id(&tuple->addr);
 
 		if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
@@ -161,19 +160,19 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		}
 
 #ifdef HOST_IFINDEX
-		if (dst->addr[14] == host_ip.addr[14] &&
-		    dst->addr[15] == host_ip.addr[15])
+		if (tuple->addr.addr[14] == host_ip.addr[14] &&
+		    tuple->addr.addr[15] == host_ip.addr[15])
 			goto to_host;
 #endif
 
 		if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 			return DROP_INVALID;
 
-		return ipv6_local_delivery(skb, nh_off, dst, SECLABEL, ip6);
+		return ipv6_local_delivery(skb, nh_off, SECLABEL, ip6);
 	} else {
 #ifdef ENABLE_NAT46
 		/* FIXME: Derive from prefix constant */
-		if (unlikely((dst->p1 & 0xffff) == 0xadde)) {
+		if (unlikely((tuple->addr.p1 & 0xffff) == 0xadde)) {
 			do_nat46 = 1;
 			goto to_host;
 		}

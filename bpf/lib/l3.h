@@ -122,9 +122,9 @@ static inline int __inline__ map_lxc_in(struct __sk_buff *skb, int l4_off,
 #endif /* DISABLE_PORT_MAP */
 
 static inline int ipv6_local_delivery(struct __sk_buff *skb, int nh_off,
-				      union v6addr *dst, __u32 seclabel,
-				      struct ipv6hdr *ip6)
+				      __u32 seclabel, struct ipv6hdr *ip6)
 {
+	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	__u32 lxc_id = derive_lxc_id(dst);
 	struct lxc_info *dst_lxc;
 	int ret;

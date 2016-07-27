@@ -110,7 +110,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
 	if (likely(is_node_subnet(dst, &node_ip)))
-		return ipv6_local_delivery(skb, ETH_HLEN, dst, flowlabel, ip6);
+		return ipv6_local_delivery(skb, ETH_HLEN, flowlabel, ip6);
 
 	return TC_ACT_OK;
 }
