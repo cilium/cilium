@@ -28,6 +28,7 @@ const (
 	DBG_ICMP6_TIME_EXCEEDED
 	DBG_CT_VERDICT
 	DBG_DECAP
+	DBG_PORT_MAP
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -84,6 +85,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Sending ICMPv6 time exceeded\n")
 	case DBG_DECAP:
 		fmt.Printf("Tunnel decap: id=%d flowlabel=%x\n", n.Arg1, n.Arg2)
+	case DBG_PORT_MAP:
+		fmt.Printf("Mapping port from=%d to=%d\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

@@ -82,14 +82,29 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 static inline int __inline__ map_lxc_in(struct __sk_buff *skb, int l4_off,
 					struct lxc_info *lxc, __u8 nexthdr)
 {
-	int i;
+	int csum_off = l4_checksum_offset(nexthdr);
+	uint16_t dport;
+	int i, ret;
+
+	if (!lxc->portmap[0].to)
+		return 0;
+
+	/* Ignore unknown L4 protocols */
+	if (unlikely(!csum_off))
+		return 0;
+
+	/* Port offsets for TCP and UDP are the same */
+	if (skb_load_bytes(skb, l4_off + TCP_DPORT_OFF, &dport, sizeof(dport)) < 0)
+		return DROP_INVALID;
 
 #pragma unroll
 	for (i = 0; i < PORTMAP_MAX; i++) {
 		if (!lxc->portmap[i].to || !lxc->portmap[i].from)
 			break;
 
-		do_port_map_in(skb, l4_off, &lxc->portmap[i], nexthdr);
+		ret = l4_port_map_in(skb, l4_off, csum_off, &lxc->portmap[i], dport);
+		if (IS_ERR(ret))
+			return ret;
 	}
 
 	return 0;
@@ -118,11 +133,9 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int nh_off,
 			return ret;
 
 #ifndef DISABLE_PORT_MAP
-		if (dst_lxc->portmap[0].to) {
-			ret = map_lxc_in(skb, nh_off + sizeof(*ip6), dst_lxc, nexthdr);
-			if (IS_ERR(ret))
-				return ret;
-		}
+		ret = map_lxc_in(skb, nh_off + sizeof(*ip6), dst_lxc, nexthdr);
+		if (IS_ERR(ret))
+			return ret;
 #endif /* DISABLE_PORT_MAP */
 
 		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
@@ -156,11 +169,9 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 			return ret;
 
 #ifndef DISABLE_PORT_MAP
-		if (dst_lxc->portmap[0].to) {
-			ret = map_lxc_in(skb, l4_off, dst_lxc, nexthdr);
-			if (IS_ERR(ret))
-				return ret;
-		}
+		ret = map_lxc_in(skb, l4_off, dst_lxc, nexthdr);
+		if (IS_ERR(ret))
+			return ret;
 #endif /* DISABLE_PORT_MAP */
 
 		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));

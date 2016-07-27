@@ -29,25 +29,39 @@ __BPF_MAP(CT_MAP6, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
 __BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
 	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
 
-#ifndef DISABLE_PORT_MAP
-static inline void map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
+#if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
+static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 {
-	int i;
+	int csum_off = l4_checksum_offset(nexthdr);
+	uint16_t sport;
+	int i, ret;
 	struct portmap local_map[] = {
-#ifdef LXC_PORT_MAPPINGS
 		LXC_PORT_MAPPINGS
-#endif
 	};
+
+	/* Ignore unknown L4 protocols */
+	if (unlikely(!csum_off))
+		return 0;
+
+	/* Port offsets for TCP and UDP are the same */
+	if (skb_load_bytes(skb, l4_off + TCP_SPORT_OFF, &sport, sizeof(sport)) < 0)
+		return DROP_INVALID;
 
 #define NR_PORTMAPS (sizeof(local_map) / sizeof(local_map[0]))
 
 #pragma unroll
-	for (i = 0; i < NR_PORTMAPS; i++)
-		do_port_map_out(skb, l4_off, &local_map[i], nexthdr);
+	for (i = 0; i < NR_PORTMAPS; i++) {
+		ret = l4_port_map_out(skb, l4_off, csum_off, &local_map[i], sport);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	return 0;
 }
 #else
-static inline void map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
+static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 {
+	return 0;
 }
 #endif /* DISABLE_PORT_MAP */
 
@@ -94,7 +108,9 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
 
 	/* FIXME: Handle extensions header size */
-	map_lxc_out(skb, nh_off + sizeof(*ip6), ip6->nexthdr);
+	ret = map_lxc_out(skb, nh_off + sizeof(*ip6), ip6->nexthdr);
+	if (IS_ERR(ret))
+		return ret;
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -283,7 +299,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 */
 	tuple.addr = ip4->daddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-	map_lxc_out(skb, l4_off, ip4->protocol);
+	ret = map_lxc_out(skb, l4_off, ip4->protocol);
+	if (IS_ERR(ret))
+		return ret;
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
