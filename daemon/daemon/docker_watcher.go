@@ -142,17 +142,24 @@ func (d *Daemon) createContainer(dockerID string, allLabels map[string]string) {
 
 	ciliumLabels := d.getFilteredLabels(allLabels)
 
-	if err := d.refreshContainerLabels(dockerID, ciliumLabels, true); err != nil {
+	d.containersMU.Lock()
+	if isNewContainer, container, err := d.updateProbeLabels(dockerID, ciliumLabels); err != nil {
+		d.containersMU.Unlock()
 		log.Errorf("%s", err)
+	} else {
+		d.containersMU.Unlock()
+		if err := d.updateContainer(container, isNewContainer); err != nil {
+			log.Errorf("%s", err)
+		}
 	}
 }
 
-func (d *Daemon) refreshContainerLabels(dockerID string, labels types.Labels, isProbe bool) error {
-	if isNewContainer, container, err := d.updateOperationalLabels(dockerID, labels, isProbe); err != nil {
-		return err
-	} else {
-		return d.updateContainer(container, isNewContainer)
-	}
+func (d *Daemon) updateProbeLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
+	return d.updateOperationalLabels(dockerID, labels, true)
+}
+
+func (d *Daemon) updateUserLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
+	return d.updateOperationalLabels(dockerID, labels, false)
 }
 
 func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels, isProbe bool) (bool, *types.Container, error) {
@@ -162,8 +169,6 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 	}
 
 	isNewContainer := false
-	d.containersMU.Lock()
-
 	var (
 		cont           types.Container
 		epLabelsSHA256 string
@@ -185,7 +190,6 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
 			}
 			d.DeleteLabelsBySHA256(epSHA256Sum, ciliumContainer.ID)
-			d.containersMU.Unlock()
 			return isNewContainer, nil, nil
 		}
 		ep, err := d.EndpointGetByDockerID(ciliumContainer.ID)
@@ -232,7 +236,6 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 			}
 		} else {
 			// If it is not probe then all newLabels will be applied
-
 			epLabelsSHA256, err = ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
 			if err != nil {
 				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
@@ -242,7 +245,6 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 				ciliumContainer.OpLabels.EndpointLabels = newLabels
 			}
 		}
-
 		cont = types.Container{dockerCont, ciliumContainer.OpLabels, ciliumContainer.NRetries}
 	}
 
@@ -254,8 +256,6 @@ func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels
 
 	d.containers[dockerID] = &cont
 	contCpy := cont
-
-	d.containersMU.Unlock()
 
 	return isNewContainer, &contCpy, nil
 }

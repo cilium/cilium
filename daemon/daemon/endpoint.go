@@ -572,8 +572,13 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 			}
 		}
 		if update {
-			d.containersMU.Unlock()
-			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		}
 
 	case types.EnableLabelsOp:
@@ -583,13 +588,24 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 				return fmt.Errorf("label %s not found, please add it first in order to enable it", v)
 			}
 		}
-		d.containersMU.Unlock()
 
 		if ep.SecLabel != nil {
 			ep.SecLabel.Labels.MergeLabels(labels)
-			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		} else {
-			return d.refreshContainerLabels(ep.DockerID, labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		}
 
 	case types.DisableLabelsOp:
@@ -601,8 +617,13 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 			}
 		}
 		if update {
-			d.containersMU.Unlock()
-			return d.refreshContainerLabels(ep.DockerID, ep.SecLabel.Labels, false)
+			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
+				d.containersMU.Unlock()
+				return err
+			} else {
+				d.containersMU.Unlock()
+				return d.updateContainer(container, isNewContainer)
+			}
 		}
 
 	default:

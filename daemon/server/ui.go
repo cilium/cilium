@@ -27,7 +27,7 @@ const (
 
 var (
 	indexTempl *template.Template
-	upgrader = websocket.Upgrader{
+	upgrader   = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
@@ -66,7 +66,7 @@ func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) 
 		}
 		sort.Strings(keys)
 		for i, k := range keys {
-			if i % 2 == 0 {
+			if i%2 == 0 {
 				optsMap1[k] = daemonConfig.Opts.Opts[k]
 			} else {
 				optsMap2[k] = daemonConfig.Opts.Opts[k]
