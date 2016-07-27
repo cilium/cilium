@@ -112,6 +112,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	if (IS_ERR(ret))
 		return ret;
 
+	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
+
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
@@ -141,6 +143,9 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 
 	/* Check if destination is within our cluster prefix */
 	if (ipv6_match_subnet_96(dst, &host_ip)) {
+		void *data = (void *) (long) skb->data;
+		void *data_end = (void *) (long) skb->data_end;
+		struct ipv6hdr *ip6 = data + ETH_HLEN;
 		__u32 node_id = ipv6_derive_node_id(dst);
 
 		if (node_id != NODE_ID) {
@@ -160,6 +165,9 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		    dst->addr[15] == host_ip.addr[15])
 			goto to_host;
 #endif
+
+		if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+			return DROP_INVALID;
 
 		return ipv6_local_delivery(skb, nh_off, dst, SECLABEL, ip6);
 	} else {
@@ -302,6 +310,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if (IS_ERR(ret))
 		return ret;
 
+	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
+
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
@@ -352,6 +362,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (tuple.addr == IPV4_GATEWAY)
 			goto to_host;
 #endif
+		/* After L4 write in port mapping: revalidate for direct packet access */
+		data = (void *) (long) skb->data;
+		data_end = (void *) (long) skb->data_end;
+		ip4 = data + ETH_HLEN;
+		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+			return DROP_INVALID;
 
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4);
 	} else {
