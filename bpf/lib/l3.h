@@ -62,10 +62,11 @@ static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int nh_off,
 		return icmp6_send_time_exceeded(skb, nh_off);
 	}
 
-	if (smac)
-		eth_store_saddr(skb, smac, 0);
+	if (smac && eth_store_saddr(skb, smac, 0) < 0)
+		return DROP_WRITE_ERROR;
 
-	eth_store_daddr(skb, dmac, 0);
+	if (eth_store_daddr(skb, dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	return TC_ACT_OK;
 }
@@ -78,10 +79,11 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 		return DROP_INVALID;
 	}
 
-	if (smac)
-		eth_store_saddr(skb, smac, 0);
+	if (smac && eth_store_saddr(skb, smac, 0) < 0)
+		return DROP_WRITE_ERROR;
 
-	eth_store_daddr(skb, dmac, 0);
+	if (eth_store_daddr(skb, dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	return TC_ACT_OK;
 }

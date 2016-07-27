@@ -23,7 +23,7 @@ static inline __u8 icmp6_load_type(struct __sk_buff *skb, int nh_off)
 	return load_byte(skb, nh_off + ICMP6_TYPE_OFFSET);
 }
 
-static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
+static inline int __inline__ icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 {
 	union macaddr smac, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
@@ -48,8 +48,9 @@ static inline int icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	/* dmac = smac, smac = dmac */
 	eth_load_saddr(skb, smac.addr, 0);
 	// eth_load_daddr(skb, dmac.addr, 0);
-	eth_store_daddr(skb, smac.addr, 0);
-	eth_store_saddr(skb, dmac.addr, 0);
+	if (eth_store_daddr(skb, smac.addr, 0) < 0 ||
+	    eth_store_saddr(skb, dmac.addr, 0) < 0)
+		return DROP_WRITE_ERROR;
 
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 	return redirect(skb->ifindex, 0);
