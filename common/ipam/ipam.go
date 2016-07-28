@@ -4,7 +4,7 @@ import (
 	"net"
 	"sync"
 
-	hb "github.com/appc/cni/plugins/ipam/host-local/backend"
+	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"k8s.io/kubernetes/pkg/registry/service/ipallocator"

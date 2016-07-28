@@ -7,31 +7,6 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "github.com/appc/cni/pkg/ip",
-			"Comment": "v0.2.0-rc0-26-ga8fd437",
-			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
-		},
-		{
-			"ImportPath": "github.com/appc/cni/pkg/ns",
-			"Comment": "v0.2.0-rc0-26-ga8fd437",
-			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
-		},
-		{
-			"ImportPath": "github.com/appc/cni/pkg/skel",
-			"Comment": "v0.2.0-rc0-26-ga8fd437",
-			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
-		},
-		{
-			"ImportPath": "github.com/appc/cni/pkg/types",
-			"Comment": "v0.2.0-rc0-26-ga8fd437",
-			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
-		},
-		{
-			"ImportPath": "github.com/appc/cni/plugins/ipam/host-local/backend",
-			"Comment": "v0.2.0-rc0-26-ga8fd437",
-			"Rev": "a8fd43712492a22e0b4d9deb5c889d7c78478be7"
-		},
-		{
 			"ImportPath": "github.com/beorn7/perks/quantile",
 			"Rev": "b965b613227fddccbfffe13eae360ed3fa822f8d"
 		},
@@ -44,6 +19,31 @@
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "v1.11.1-24-gd5f087d",
 			"Rev": "d5f087da9da695cf28797fba388430f5fce93139"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/ip",
+			"Comment": "v0.3.0-4-gaa9d05f",
+			"Rev": "aa9d05f6c151b7262c81581720240d7e9f647c7e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/ns",
+			"Comment": "v0.3.0-4-gaa9d05f",
+			"Rev": "aa9d05f6c151b7262c81581720240d7e9f647c7e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/skel",
+			"Comment": "v0.3.0-4-gaa9d05f",
+			"Rev": "aa9d05f6c151b7262c81581720240d7e9f647c7e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/types",
+			"Comment": "v0.3.0-4-gaa9d05f",
+			"Rev": "aa9d05f6c151b7262c81581720240d7e9f647c7e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/plugins/ipam/host-local/backend",
+			"Comment": "v0.3.0-4-gaa9d05f",
+			"Rev": "aa9d05f6c151b7262c81581720240d7e9f647c7e"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-iptables/iptables",
@@ -420,6 +420,38 @@
 		{
 			"ImportPath": "golang.org/x/sys/unix",
 			"Rev": "50c6bc5e4292a1d4e65c6e9be5f53be28bcbe28e"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/app_identity",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/base",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/datastore",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/log",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/modules",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
+		},
+		{
+			"ImportPath": "google.golang.org/appengine/internal/remote_api",
+			"Rev": "e234e71924d4aa52444bc76f2f831f13fa1eca60"
 		},
 		{
 			"ImportPath": "google.golang.org/cloud/compute/metadata",
