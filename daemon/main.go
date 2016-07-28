@@ -24,16 +24,18 @@ var (
 	config = daemon.NewConfig()
 
 	// Arguments variables keep in alphabetical order
-	consulAddr       string
-	disableConntrack bool
-	disablePolicy    bool
-	enableTracing    bool
-	labelPrefixFile  string
-	socketPath       string
-	uiServerAddr     string
-	v4Prefix         string
-	v6Address        string
-	nat46prefix      string
+	consulAddr         string
+	disableConntrack   bool
+	disablePolicy      bool
+	enableTracing      bool
+	labelPrefixFile    string
+	logstashAddr       string
+	logstashProbeTimer int
+	socketPath         string
+	uiServerAddr       string
+	v4Prefix           string
+	v6Address          string
+	nat46prefix        string
 
 	log = logging.MustGetLogger("cilium-net-daemon")
 
@@ -108,6 +110,18 @@ func init() {
 						Name:        "D",
 						Value:       common.DefaultLibDir,
 						Usage:       "Cilium library directory",
+					},
+					cli.StringFlag{
+						Destination: &logstashAddr,
+						Name:        "logstash-agent, l",
+						Value:       "127.0.0.1:8080",
+						Usage:       "Logstash agent address",
+					},
+					cli.IntFlag{
+						Destination: &logstashProbeTimer,
+						Name:        "logstash-probe-timer",
+						Value:       10,
+						Usage:       "Logstash probe timer (seconds)",
 					},
 					cli.StringFlag{
 						Destination: &v6Address,
@@ -312,13 +326,18 @@ func run(cli *cli.Context) {
 	}
 
 	d.EnableConntrackGC()
+
+	go d.EnableLogstash(logstashAddr, logstashProbeTimer)
+
 	d.EnableLearningTraffic()
 
 	// Register event listener in docker endpoint
 	if err := d.EnableDockerEventListener(); err != nil {
 		log.Warningf("Error while enabling docker event watcher %s", err)
 	}
+
 	d.EnableConsulWatcher(30 * time.Second)
+
 	if err := d.EnableK8sWatcher(10 * time.Second); err != nil {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
