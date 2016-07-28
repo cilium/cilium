@@ -77,14 +77,13 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
 #else
-	__u32 flowlabel = WORLD_ID;
-
 	if (matches_cluster_prefix((union v6addr *) &ip6->saddr, node_ip)) {
-		ipv6_load_flowlabel(skb, ETH_HLEN, &flowlabel);
-		flowlabel = ntohl(flowlabel);
+		/* Read initial 4 bytes of header and then extract flowlabel */
+		__u32 *tmp = (__u32 *) ip6;
+		return ntohl(*tmp & IPV6_FLOWLABEL_MASK);
 	}
 
-	return flowlabel;
+	return WORLD_ID;
 #endif
 }
 
@@ -111,7 +110,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
 	if (likely(is_node_subnet(dst, &node_ip)))
-		return ipv6_local_delivery(skb, ETH_HLEN, dst, flowlabel, ip6);
+		return ipv6_local_delivery(skb, ETH_HLEN, flowlabel, ip6);
 
 	return TC_ACT_OK;
 }

@@ -29,25 +29,39 @@ __BPF_MAP(CT_MAP6, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
 __BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
 	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
 
-#ifndef DISABLE_PORT_MAP
-static inline void map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
+#if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
+static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 {
-	int i;
+	int csum_off = l4_checksum_offset(nexthdr);
+	uint16_t sport;
+	int i, ret;
 	struct portmap local_map[] = {
-#ifdef LXC_PORT_MAPPINGS
 		LXC_PORT_MAPPINGS
-#endif
 	};
+
+	/* Ignore unknown L4 protocols */
+	if (unlikely(!csum_off))
+		return 0;
+
+	/* Port offsets for TCP and UDP are the same */
+	if (skb_load_bytes(skb, l4_off + TCP_SPORT_OFF, &sport, sizeof(sport)) < 0)
+		return DROP_INVALID;
 
 #define NR_PORTMAPS (sizeof(local_map) / sizeof(local_map[0]))
 
 #pragma unroll
-	for (i = 0; i < NR_PORTMAPS; i++)
-		do_port_map_out(skb, l4_off, &local_map[i], nexthdr);
+	for (i = 0; i < NR_PORTMAPS; i++) {
+		ret = l4_port_map_out(skb, l4_off, csum_off, &local_map[i], sport);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	return 0;
 }
 #else
-static inline void map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
+static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 {
+	return 0;
 }
 #endif /* DISABLE_PORT_MAP */
 
@@ -69,7 +83,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	int do_nat46 = 0, ret;
 
 	if (unlikely(!valid_src_mac(eth)))
@@ -94,7 +107,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
 
 	/* FIXME: Handle extensions header size */
-	map_lxc_out(skb, nh_off + sizeof(*ip6), ip6->nexthdr);
+	ret = map_lxc_out(skb, nh_off + sizeof(*ip6), ip6->nexthdr);
+	if (IS_ERR(ret))
+		return ret;
+
+	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -106,7 +123,9 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 
 	switch (ret) {
 	case CT_NEW:
-		ct_create6(&CT_MAP6, tuple, skb, 0);
+		ret = ct_create6(&CT_MAP6, tuple, skb, 0);
+		if (IS_ERR(ret))
+			return ret;
 		break;
 
 	case CT_ESTABLISHED:
@@ -122,8 +141,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	}
 
 	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_subnet_96(dst, &host_ip)) {
-		__u32 node_id = ipv6_derive_node_id(dst);
+	if (ipv6_match_subnet_96(&tuple->addr, &host_ip)) {
+		void *data = (void *) (long) skb->data;
+		void *data_end = (void *) (long) skb->data_end;
+		struct ipv6hdr *ip6 = data + ETH_HLEN;
+		__u32 node_id = ipv6_derive_node_id(&tuple->addr);
 
 		if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
@@ -138,16 +160,19 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		}
 
 #ifdef HOST_IFINDEX
-		if (dst->addr[14] == host_ip.addr[14] &&
-		    dst->addr[15] == host_ip.addr[15])
+		if (tuple->addr.addr[14] == host_ip.addr[14] &&
+		    tuple->addr.addr[15] == host_ip.addr[15])
 			goto to_host;
 #endif
 
-		return ipv6_local_delivery(skb, nh_off, dst, SECLABEL, ip6);
+		if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+			return DROP_INVALID;
+
+		return ipv6_local_delivery(skb, nh_off, SECLABEL, ip6);
 	} else {
 #ifdef ENABLE_NAT46
 		/* FIXME: Derive from prefix constant */
-		if (unlikely((dst->p1 & 0xffff) == 0xadde)) {
+		if (unlikely((tuple->addr.p1 & 0xffff) == 0xadde)) {
 			do_nat46 = 1;
 			goto to_host;
 		}
@@ -193,15 +218,12 @@ to_host:
 	}
 
 pass_to_stack:
-	if (1) {
-		int ret;
+	ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
+	if (unlikely(ret != TC_ACT_OK))
+		return ret;
 
-		ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
-		if (unlikely(ret != TC_ACT_OK))
-			return ret;
-
-		ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB);
-	}
+	if (ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB) < 0)
+		return DROP_WRITE_ERROR;
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
@@ -283,7 +305,11 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 */
 	tuple.addr = ip4->daddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-	map_lxc_out(skb, l4_off, ip4->protocol);
+	ret = map_lxc_out(skb, l4_off, ip4->protocol);
+	if (IS_ERR(ret))
+		return ret;
+
+	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
@@ -295,7 +321,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 	switch (ret) {
 	case CT_NEW:
-		ct_create4(&CT_MAP4, &tuple, skb, 0);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 0);
+		if (IS_ERR(ret))
+			return ret;
 		break;
 
 	case CT_ESTABLISHED:
@@ -333,6 +361,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (tuple.addr == IPV4_GATEWAY)
 			goto to_host;
 #endif
+		/* After L4 write in port mapping: revalidate for direct packet access */
+		data = (void *) (long) skb->data;
+		data_end = (void *) (long) skb->data_end;
+		ip4 = data + ETH_HLEN;
+		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+			return DROP_INVALID;
 
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4);
 	} else {
@@ -368,15 +402,14 @@ to_host:
 	}
 
 pass_to_stack:
-	if (1) {
-		int ret;
+	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
+	if (unlikely(ret != TC_ACT_OK))
+		return ret;
 
-		ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
-		if (unlikely(ret != TC_ACT_OK))
-			return ret;
-
-		ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB);
-	}
+	/* FIXME: We can't store the security context anywhere here so all
+	 * packets to other nodes will look like they come from an outside
+	 * network.
+	 */
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
@@ -470,8 +503,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
 			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 						ifindex, TC_ACT_SHOT);
-	} else if (ret == CT_NEW)
-		ct_create6(&CT_MAP6, &tuple, skb, 1);
+	} else if (ret == CT_NEW) {
+		ret = ct_create6(&CT_MAP6, &tuple, skb, 1);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	}
 
 	return 0;
 }
@@ -499,8 +535,11 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
 			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 						ifindex, TC_ACT_SHOT);
-	} else if (ret == CT_NEW)
-		ct_create4(&CT_MAP4, &tuple, skb, 1);
+	} else if (ret == CT_NEW) {
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 1);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	}
 
 	return 0;
 }

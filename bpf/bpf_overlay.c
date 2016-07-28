@@ -52,7 +52,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (unlikely(node_id != NODE_ID))
 		return DROP_NON_LOCAL;
 	else
-		return ipv6_local_delivery(skb, ETH_HLEN, dst, key.tunnel_id, ip6);
+		return ipv6_local_delivery(skb, ETH_HLEN, key.tunnel_id, ip6);
 }
 
 static inline int handle_ipv4(struct __sk_buff *skb)

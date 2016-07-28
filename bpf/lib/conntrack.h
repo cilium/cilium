@@ -32,6 +32,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int in)
 {
 	struct ct_entry *entry;
+	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_trace(skb, DBG_CT_MATCH, 0, 0);
@@ -61,7 +62,8 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			/* fall through */
 
 		case ACTION_DELETE:
-			map_delete_elem(map, tuple);
+			if ((ret = map_delete_elem(map, tuple)) < 0)
+				cilium_trace(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, ret);
 			break;
 		}
 
@@ -352,8 +354,8 @@ out:
 }
 
 /* Offset must point to IPv6 */
-static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					 struct __sk_buff *skb, int in)
+static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
+					struct __sk_buff *skb, int in)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = {
@@ -369,7 +371,8 @@ static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	}
 
 	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
-	map_update_elem(map, tuple, &entry, 0);
+	if (map_update_elem(map, tuple, &entry, 0) < 0)
+		return DROP_CT_CREATE_FAILED;
 
 	/* Create an ICMPv6 entry to relate errors */
 	if (tuple->nexthdr != IPPROTO_ICMPV6) {
@@ -380,14 +383,21 @@ static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		tuple->flags |= TUPLE_F_RELATED;
 
 		cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
-		map_update_elem(map, tuple, &entry, 0);
+		if (map_update_elem(map, tuple, &entry, 0) < 0) {
+			/* Previous map update succeeded, we could delete it
+			 * but we might as well just let it time out.
+			 */
+			return DROP_CT_CREATE_FAILED;
+		}
 	}
 
 	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
+
+	return 0;
 }
 
-static inline void __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					 struct __sk_buff *skb, int in)
+static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
+					struct __sk_buff *skb, int in)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = {
@@ -403,7 +413,8 @@ static inline void __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	}
 
 	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
-	map_update_elem(map, tuple, &entry, 0);
+	if (map_update_elem(map, tuple, &entry, 0) < 0)
+		return DROP_CT_CREATE_FAILED;
 
 	/* Create an ICMPv6 entry to relate errors */
 	if (tuple->nexthdr != IPPROTO_ICMP) {
@@ -414,10 +425,13 @@ static inline void __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		tuple->flags |= TUPLE_F_RELATED;
 
 		cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
-		map_update_elem(map, tuple, &entry, 0);
+		if (map_update_elem(map, tuple, &entry, 0) < 0)
+			return DROP_CT_CREATE_FAILED;
 	}
 
 	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
+
+	return 0;
 }
 
 #else /* !CONNTRACK */
@@ -433,12 +447,14 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	return 0;
 }
 
-static inline void __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb, int in)
+static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb, int in)
 {
+	return 0;
 }
 
-static inline void __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple, struct __sk_buff *skb, int in)
+static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple, struct __sk_buff *skb, int in)
 {
+	return 0;
 }
 #endif
 

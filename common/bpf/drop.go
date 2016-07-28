@@ -51,6 +51,9 @@ var errors = map[uint8]string{
 	150: "Unknown L3 target address",
 	151: "Not a local target address",
 	152: "No matching local container found",
+	153: "Error while correcting L3 checksum",
+	154: "Error while correcting L4 checksum",
+	155: "CT: Map insertion failed",
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
