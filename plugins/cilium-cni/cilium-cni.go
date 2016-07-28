@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -74,19 +75,27 @@ func renameLink(curName, newName string) error {
 }
 
 func addIPConfigToLink(ipConfig *ipam.IPConfig, link netlink.Link, ifName string) error {
+	log.Debugf("Configuring link %+v/%s with %+v", link, ifName, ipConfig)
+
 	addr := &netlink.Addr{IPNet: &ipConfig.IP}
 	if err := netlink.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
 
+	// Sort provided routes to make sure we apply any more specific
+	// routes first which may be used as nexthops in wider routes
+	sort.Sort(ipam.ByMask(ipConfig.Routes))
+
 	for _, r := range ipConfig.Routes {
-		if err := netlink.RouteAdd(
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Scope:     netlink.SCOPE_UNIVERSE,
-				Dst:       &r.Destination,
-				Gw:        r.NextHop,
-			}); err != nil {
+		log.Debugf("Adding route %+v", r)
+		rt := &netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Scope:     netlink.SCOPE_UNIVERSE,
+			Dst:       &r.Destination,
+			Gw:        r.NextHop,
+		}
+
+		if err := netlink.RouteAdd(rt); err != nil {
 			if !os.IsExist(err) {
 				return fmt.Errorf("failed to add route '%s via %v dev %v': %v",
 					r.Destination.String(), r.NextHop, ifName, err)
