@@ -95,6 +95,10 @@ func addIPConfigToLink(ipConfig *ipam.IPConfig, link netlink.Link, ifName string
 			Gw:        r.NextHop,
 		}
 
+		if r.IsL2() {
+			rt.Scope = netlink.SCOPE_LINK
+		}
+
 		if err := netlink.RouteAdd(rt); err != nil {
 			if !os.IsExist(err) {
 				return fmt.Errorf("failed to add route '%s via %v dev %v': %v",
