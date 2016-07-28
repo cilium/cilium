@@ -238,14 +238,14 @@
 				updateDaemonOption(e.target.id, $(this).is(":checked"));
 			});
 
-			function sendLabelChanges(lbls, operation, endpointID, calb) {
+			function sendLabelChanges(lbls, endpointID, calb) {
 				var xmlHttp = new XMLHttpRequest();
 				xmlHttp.onreadystatechange = function() {
 					if (xmlHttp.readyState == 4 && xmlHttp.status == 202) {
 						calb();
 					}
 				};
-				xmlHttp.open("POST", "endpoint/labels/" + operation + "/" + endpointID, true);
+				xmlHttp.open("POST", "endpoint/labels/" + endpointID, true);
 				xmlHttp.setRequestHeader("Content-type", "application/json");
 				xmlHttp.send(JSON.stringify(lbls));
 			}
@@ -301,20 +301,15 @@
 					}
 				}
 
-				function sendEnabledLabels() {
-					sendLabelChanges(enabledLabels, "EnableLabelsOp", endpointID, function() {
-						closeModal();
-						refreshApplyChangesButton(endpointID);
-					});
-				}
+				var opLabels = {
+					"DisableLabelsOp" : disabledLabels,
+					"EnableLabelsOp" : enabledLabels
+				};
 
-				if (Object.keys(disabledLabels).length != 0) {
-					sendLabelChanges(disabledLabels, "DisableLabelsOp", endpointID, function() {
-						sendEnabledLabels();
-					});
-				} else {
-					sendEnabledLabels();
-				}
+				sendLabelChanges(opLabels, endpointID, function() {
+					closeModal();
+					refreshApplyChangesButton(endpointID);
+				});
 
 			}
 		</script>

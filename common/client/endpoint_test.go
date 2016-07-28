@@ -602,44 +602,47 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateOK(c *C) {
 		SecLabel:        SecLabel,
 	}
 	ep.SetID()
-	lbls := types.Labels{
-		"foo": types.NewLabel("foo", "bar", "cilium"),
+	lbls := types.LabelOp{
+		types.AddLabelsOp: types.Labels{
+			"foo": types.NewLabel("foo", "bar", "cilium"),
+		},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/endpoint/labels/AddLabelsOp/4370") //0x1112
-		var lblsReceived types.Labels
-		err := json.NewDecoder(r.Body).Decode(&lblsReceived)
+		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
+		var opLabels types.LabelOp
+		err := json.NewDecoder(r.Body).Decode(&opLabels)
 		c.Assert(err, IsNil)
-		c.Assert(lbls, DeepEquals, lblsReceived)
+		c.Assert(opLabels, DeepEquals, lbls)
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	defer server.Close()
 
 	cli := NewTestClient(server.URL, c)
 
-	err := cli.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, lbls)
+	err := cli.EndpointLabelsUpdate(ep.ID, lbls)
 
 	c.Assert(err, IsNil)
 }
 
 func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateFail(c *C) {
-	lbls := types.Labels{
-		"foo": types.NewLabel("foo", "bar", "cilium"),
+	lbls := types.LabelOp{
+		types.AddLabelsOp: types.Labels{
+			"foo": types.NewLabel("foo", "bar", "cilium"),
+		},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
-		c.Assert(r.URL.Path, Equals, "/endpoint/labels/AddLabelsOp/4370") //0x1112
-		var lblsReceived types.Labels
-		err := json.NewDecoder(r.Body).Decode(&lblsReceived)
+		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
+		var labelOp types.LabelOp
+		err := json.NewDecoder(r.Body).Decode(&labelOp)
 		c.Assert(err, IsNil)
-		c.Assert(lbls, DeepEquals, lblsReceived)
+		c.Assert(lbls, DeepEquals, labelOp)
 		w.WriteHeader(http.StatusNotFound)
 		w.Header().Set("Content-Type", "application/json")
-		e := json.NewEncoder(w)
-		err = e.Encode(types.ServerError{Code: -1, Text: "the daemon has died"})
+		err = json.NewEncoder(w).Encode(types.ServerError{Code: -1, Text: "the daemon has died"})
 		c.Assert(err, Equals, nil)
 	}))
 	defer server.Close()
@@ -658,7 +661,7 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateFail(c *C) {
 	}
 	ep.SetID()
 
-	err := cli.EndpointLabelsUpdate(ep.ID, types.AddLabelsOp, lbls)
+	err := cli.EndpointLabelsUpdate(ep.ID, lbls)
 
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }

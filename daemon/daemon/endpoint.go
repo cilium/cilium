@@ -533,7 +533,7 @@ func (d *Daemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 	return cont.OpLabels.DeepCopy(), nil
 }
 
-func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels types.Labels) error {
+func (d *Daemon) EndpointLabelsUpdate(epID uint16, labelOps types.LabelOp) error {
 	ep, err := d.EndpointGet(epID)
 	if err != nil {
 		return err
@@ -543,7 +543,9 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 	}
 
 	d.conf.ValidLabelPrefixesMU.RLock()
-	labels = d.conf.ValidLabelPrefixes.FilterLabels(labels)
+	for k, v := range labelOps {
+		labelOps[k] = d.conf.ValidLabelPrefixes.FilterLabels(v)
+	}
 	d.conf.ValidLabelPrefixesMU.RUnlock()
 
 	d.containersMU.Lock()
@@ -553,17 +555,18 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 		return fmt.Errorf("container not found on cache")
 	}
 
-	switch op {
-	case types.AddLabelsOp:
+	update := false
+
+	if labels, ok := labelOps[types.AddLabelsOp]; ok {
 		cont.OpLabels.AllLabels.MergeLabels(labels)
 		for k, v := range labels {
 			if cont.OpLabels.ProbeLabels[k] == nil {
 				cont.OpLabels.UserLabels[k] = v
 			}
 		}
+	}
 
-	case types.DelLabelsOp:
-		update := false
+	if labels, ok := labelOps[types.DelLabelsOp]; ok {
 		for k, _ := range labels {
 			delete(cont.OpLabels.UserLabels, k)
 			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
@@ -571,52 +574,34 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 				update = true
 			}
 		}
-		if update {
-			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
-				d.containersMU.Unlock()
-				return err
-			} else {
-				d.containersMU.Unlock()
-				return d.updateContainer(container, isNewContainer)
-			}
-		}
+	}
 
-	case types.EnableLabelsOp:
+	if labels, ok := labelOps[types.EnableLabelsOp]; ok {
 		for k, v := range labels {
 			if cont.OpLabels.UserLabels[k] == nil && cont.OpLabels.ProbeLabels[k] == nil {
 				d.containersMU.Unlock()
 				return fmt.Errorf("label %s not found, please add it first in order to enable it", v)
 			}
 		}
-
-		if ep.SecLabel != nil {
-			ep.SecLabel.Labels.MergeLabels(labels)
-			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
-				d.containersMU.Unlock()
-				return err
-			} else {
-				d.containersMU.Unlock()
-				return d.updateContainer(container, isNewContainer)
-			}
+		update = true
+		if ep.SecLabel == nil {
+			ep.SecLabel.Labels = labels
 		} else {
-			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, labels); err != nil {
-				d.containersMU.Unlock()
-				return err
-			} else {
-				d.containersMU.Unlock()
-				return d.updateContainer(container, isNewContainer)
-			}
+			ep.SecLabel.Labels.MergeLabels(labels)
 		}
+	}
 
-	case types.DisableLabelsOp:
-		update := false
+	if labels, ok := labelOps[types.DisableLabelsOp]; ok {
 		for k, _ := range labels {
 			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
 				delete(ep.SecLabel.Labels, k)
 				update = true
 			}
 		}
-		if update {
+	}
+
+	if update {
+		if ep.SecLabel != nil {
 			if isNewContainer, container, err := d.updateUserLabels(ep.DockerID, ep.SecLabel.Labels); err != nil {
 				d.containersMU.Unlock()
 				return err
@@ -625,10 +610,6 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, op types.LabelOP, labels type
 				return d.updateContainer(container, isNewContainer)
 			}
 		}
-
-	default:
-		d.containersMU.Unlock()
-		return fmt.Errorf("unknown option %s", op)
 	}
 
 	d.containersMU.Unlock()

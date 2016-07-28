@@ -141,17 +141,12 @@ func (router *Router) endpointLabelsUpdate(w http.ResponseWriter, r *http.Reques
 		processServerError(w, r, err)
 		return
 	}
-	labelOp, exists := vars["labelOp"]
-	if !exists {
-		processServerError(w, r, errors.New("server received empty label operation id"))
-		return
-	}
-	var lbls types.Labels
-	if err := json.NewDecoder(r.Body).Decode(&lbls); err != nil {
+	var labelOp types.LabelOp
+	if err := json.NewDecoder(r.Body).Decode(&labelOp); err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	if err := router.daemon.EndpointLabelsUpdate(epID, types.LabelOP(labelOp), lbls); err != nil {
+	if err := router.daemon.EndpointLabelsUpdate(epID, labelOp); err != nil {
 		processServerError(w, r, err)
 		return
 	}

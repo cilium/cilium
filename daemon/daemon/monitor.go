@@ -36,7 +36,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 						log.Warningf("Endpoint %d is receiving traffic from an unknown label ID %d", epID, lblID)
 						return
 					}
-					if err := d.EndpointLabelsUpdate(epID, types.AddLabelsOp, sec.Labels); err != nil {
+					if err := d.EndpointLabelsUpdate(epID, types.LabelOp{types.AddLabelsOp: sec.Labels}); err != nil {
 						log.Warningf("Error while add learned labels into the daemon %s", err)
 					}
 				}(v.EndpointID, dn.SrcLabel)

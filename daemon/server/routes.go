@@ -49,7 +49,7 @@ func (r *Router) initBackendRoutes() {
 			"EndpointLabelsGet", "GET", "/endpoint/labels/{endpointID}", r.endpointLabelsGet,
 		},
 		route{
-			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{labelOp}/{endpointID}", r.endpointLabelsUpdate,
+			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{endpointID}", r.endpointLabelsUpdate,
 		},
 		route{
 			"IPAMConfiguration", "POST", "/allocator/ipam-configuration/{ipam-type}", r.ipamConfig,
@@ -120,7 +120,7 @@ func (r *Router) initUIRoutes() {
 			"EndpointLabelsGet", "GET", "/endpoint/labels/{endpointID}", r.endpointLabelsGet,
 		},
 		route{
-			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{labelOp}/{endpointID}", r.endpointLabelsUpdate,
+			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{endpointID}", r.endpointLabelsUpdate,
 		},
 	}
 }
