@@ -34,7 +34,7 @@ func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (
 	v4Routes := []ipam.Route{}
 	for _, r := range ipamConf.IPAMConfig.Routes {
 		rt := ipam.NewRoute(r.Dst, r.GW)
-		if r.GW.To4() == nil {
+		if r.Dst.IP.To4() == nil {
 			v6Routes = append(v6Routes, *rt)
 		} else {
 			v4Routes = append(v4Routes, *rt)
@@ -65,15 +65,9 @@ func releaseIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
 
 // allocateIPLibnetwork allocates an IP for the libnetwork plugin.
 func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMRep, error) {
-	log.Debugf("ipamConf.AllocatorMutex locking...")
 	ipamConf.AllocatorMutex.Lock()
-	log.Debugf("ipamConf.AllocatorMutex Locked")
+	defer ipamConf.AllocatorMutex.Unlock()
 
-	defer func() {
-		log.Debugf("Unlocking ipamConf.AllocatorMutex")
-		ipamConf.AllocatorMutex.Unlock()
-		log.Debugf("Unlocked ipamConf.AllocatorMutex")
-	}()
 	if ln.IP != nil {
 		err := ipamConf.IPv6Allocator.Allocate(*ln.IP)
 		return nil, err

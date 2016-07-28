@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -15,9 +16,9 @@ import (
 	"github.com/noironetworks/cilium-net/common/plugins"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	"github.com/appc/cni/pkg/ns"
-	"github.com/appc/cni/pkg/skel"
-	cniTypes "github.com/appc/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/skel"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 	l "github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 )
@@ -50,9 +51,10 @@ func loadNetConf(bytes []byte) (*netConf, error) {
 	return n, nil
 }
 
-func removeIfFromNSIfExists(netns *os.File, ifName string) error {
-	return ns.WithNetNS(netns, false, func(_ *os.File) error {
+func removeIfFromNSIfExists(netNs ns.NetNS, ifName string) error {
+	return netNs.Do(func(_ ns.NetNS) error {
 		l, err := netlink.LinkByName(ifName)
+		log.Debugf("Error %s", err)
 		if err != nil {
 			if strings.Contains(err.Error(), "Link not found") {
 				return nil
@@ -73,22 +75,34 @@ func renameLink(curName, newName string) error {
 }
 
 func addIPConfigToLink(ipConfig *ipam.IPConfig, link netlink.Link, ifName string) error {
+	log.Debugf("Configuring link %+v/%s with %+v", link, ifName, ipConfig)
+
 	addr := &netlink.Addr{IPNet: &ipConfig.IP}
 	if err := netlink.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
 
+	// Sort provided routes to make sure we apply any more specific
+	// routes first which may be used as nexthops in wider routes
+	sort.Sort(ipam.ByMask(ipConfig.Routes))
+
 	for _, r := range ipConfig.Routes {
-		if err := netlink.RouteAdd(
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Scope:     netlink.SCOPE_UNIVERSE,
-				Dst:       &r.Destination,
-				Gw:        r.NextHop,
-			}); err != nil {
+		log.Debugf("Adding route %+v", r)
+		rt := &netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Scope:     netlink.SCOPE_UNIVERSE,
+			Dst:       &r.Destination,
+			Gw:        r.NextHop,
+		}
+
+		if r.IsL2() {
+			rt.Scope = netlink.SCOPE_LINK
+		}
+
+		if err := netlink.RouteAdd(rt); err != nil {
 			if !os.IsExist(err) {
-				return fmt.Errorf("failed to add route '%v via %v dev %v': %v",
-					r.Destination, r.NextHop, ifName, err)
+				return fmt.Errorf("failed to add route '%s via %v dev %v': %v",
+					r.Destination.String(), r.NextHop, ifName, err)
 			}
 		}
 	}
@@ -162,18 +176,20 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
+	log.Debugf("Args %s", args)
+
 	c, err := cnc.NewDefaultClient()
 	if err != nil {
 		return fmt.Errorf("error while starting cilium-client: %s", err)
 	}
 
-	netNsFile, err := os.Open(args.Netns)
+	netNs, err := ns.GetNS(args.Netns)
 	if err != nil {
 		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
 	}
-	defer netNsFile.Close()
+	defer netNs.Close()
 
-	if err := removeIfFromNSIfExists(netNsFile, args.IfName); err != nil {
+	if err := removeIfFromNSIfExists(netNs, args.IfName); err != nil {
 		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
 			args.IfName, args.Netns, err)
 	}
@@ -191,11 +207,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}()
 
-	if err = netlink.LinkSetNsFd(*peer, int(netNsFile.Fd())); err != nil {
+	if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
 		return fmt.Errorf("unable to move veth pair %q to netns: %s", peer, err)
 	}
 
-	err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
+	err = netNs.Do(func(_ ns.NetNS) error {
 		err := renameLink(tmpIfName, args.IfName)
 		if err != nil {
 			return fmt.Errorf("failed to rename %q to %q: %s", tmpIfName, args.IfName, err)
@@ -217,7 +233,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 	}()
 
-	if err = ns.WithNetNS(netNsFile, false, func(_ *os.File) error {
+	if err = netNs.Do(func(_ ns.NetNS) error {
 		return configureIface(args.IfName, ipamConf)
 	}); err != nil {
 		return err
@@ -243,7 +259,7 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	var containerIP net.IP
 	// FIXME: We need to retrieve the IPv6 address somehow...
-	ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {
+	ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
 		l, err := netlink.LinkByName(args.IfName)
 		if err != nil {
 			return err
@@ -275,7 +291,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.Warningf("leaving the endpoint failed: %s\n", err)
 	}
 
-	return ns.WithNetNSPath(args.Netns, false, func(hostNS *os.File) error {
+	return ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
 		return plugins.DelLinkByName(args.IfName)
 	})
 }

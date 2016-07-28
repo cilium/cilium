@@ -22,7 +22,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/appc/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types"
 )
 
 // CmdArgs captures all the arguments passed in to the plugin
@@ -36,28 +36,72 @@ type CmdArgs struct {
 	StdinData   []byte
 }
 
+type reqForCmdEntry map[string]bool
+
 // PluginMain is the "main" for a plugin. It accepts
 // two callback functions for add and del commands.
 func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error) {
 	var cmd, contID, netns, ifName, args, path string
 
 	vars := []struct {
-		name string
-		val  *string
-		req  bool
+		name      string
+		val       *string
+		reqForCmd reqForCmdEntry
 	}{
-		{"CNI_COMMAND", &cmd, true},
-		{"CNI_CONTAINERID", &contID, false},
-		{"CNI_NETNS", &netns, true},
-		{"CNI_IFNAME", &ifName, true},
-		{"CNI_ARGS", &args, false},
-		{"CNI_PATH", &path, true},
+		{
+			"CNI_COMMAND",
+			&cmd,
+			reqForCmdEntry{
+				"ADD": true,
+				"DEL": true,
+			},
+		},
+		{
+			"CNI_CONTAINERID",
+			&contID,
+			reqForCmdEntry{
+				"ADD": false,
+				"DEL": false,
+			},
+		},
+		{
+			"CNI_NETNS",
+			&netns,
+			reqForCmdEntry{
+				"ADD": true,
+				"DEL": false,
+			},
+		},
+		{
+			"CNI_IFNAME",
+			&ifName,
+			reqForCmdEntry{
+				"ADD": true,
+				"DEL": true,
+			},
+		},
+		{
+			"CNI_ARGS",
+			&args,
+			reqForCmdEntry{
+				"ADD": false,
+				"DEL": false,
+			},
+		},
+		{
+			"CNI_PATH",
+			&path,
+			reqForCmdEntry{
+				"ADD": true,
+				"DEL": true,
+			},
+		},
 	}
 
 	argsMissing := false
 	for _, v := range vars {
 		*v.val = os.Getenv(v.name)
-		if v.req && *v.val == "" {
+		if v.reqForCmd[cmd] && *v.val == "" {
 			log.Printf("%v env variable missing", v.name)
 			argsMissing = true
 		}

@@ -4,7 +4,7 @@ import (
 	"net"
 	"sync"
 
-	hb "github.com/appc/cni/plugins/ipam/host-local/backend"
+	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
@@ -75,6 +75,23 @@ type Route struct {
 	Destination net.IPNet
 	NextHop     net.IP
 	Type        int
+}
+
+// Sort an array of routes by mask, narrow first
+type ByMask []Route
+
+func (a ByMask) Len() int {
+	return len(a)
+}
+
+func (a ByMask) Less(i, j int) bool {
+	len_a, _ := a[i].Destination.Mask.Size()
+	len_b, _ := a[j].Destination.Mask.Size()
+	return len_a > len_b
+}
+
+func (a ByMask) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
 }
 
 // NewRoute returns a Route from dst and nextHop with the proper libnetwork type based on

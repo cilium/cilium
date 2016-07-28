@@ -18,8 +18,8 @@ import (
 	"github.com/noironetworks/cilium-net/common/ipam"
 	"github.com/noironetworks/cilium-net/common/types"
 
-	cniTypes "github.com/appc/cni/pkg/types"
-	hb "github.com/appc/cni/plugins/ipam/host-local/backend"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
 	dClient "github.com/docker/engine-api/client"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"

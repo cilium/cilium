@@ -20,7 +20,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/appc/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
 )
 
@@ -81,7 +81,7 @@ func RandomVethName() (string, error) {
 // SetupVeth sets up a virtual ethernet link.
 // Should be in container netns, and will switch back to hostNS to set the host
 // veth end up.
-func SetupVeth(contVethName string, mtu int, hostNS *os.File) (hostVeth, contVeth netlink.Link, err error) {
+func SetupVeth(contVethName string, mtu int, hostNS ns.NetNS) (hostVeth, contVeth netlink.Link, err error) {
 	var hostVethName string
 	hostVethName, contVeth, err = makeVeth(contVethName, mtu)
 	if err != nil {
@@ -104,10 +104,10 @@ func SetupVeth(contVethName string, mtu int, hostNS *os.File) (hostVeth, contVet
 		return
 	}
 
-	err = ns.WithNetNS(hostNS, false, func(_ *os.File) error {
+	err = hostNS.Do(func(_ ns.NetNS) error {
 		hostVeth, err := netlink.LinkByName(hostVethName)
 		if err != nil {
-			return fmt.Errorf("failed to lookup %q in %q: %v", hostVethName, hostNS.Name(), err)
+			return fmt.Errorf("failed to lookup %q in %q: %v", hostVethName, hostNS.Path(), err)
 		}
 
 		if err = netlink.LinkSetUp(hostVeth); err != nil {

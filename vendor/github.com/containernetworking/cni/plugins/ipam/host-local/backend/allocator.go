@@ -16,10 +16,11 @@ package backend
 
 import (
 	"fmt"
+	"log"
 	"net"
 
-	"github.com/appc/cni/pkg/ip"
-	"github.com/appc/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/ip"
+	"github.com/containernetworking/cni/pkg/types"
 )
 
 type IPAllocator struct {
@@ -56,7 +57,6 @@ func NewIPAllocator(conf *IPAMConfig, store Store) (*IPAllocator, error) {
 		// RangeEnd is inclusive
 		end = ip.NextIP(conf.RangeEnd)
 	}
-
 	return &IPAllocator{start, end, conf, store}, nil
 }
 
@@ -111,7 +111,8 @@ func (a *IPAllocator) Get(id string) (*types.IPConfig, error) {
 		return nil, fmt.Errorf("requested IP address %q is not available in network: %s", requestedIP, a.conf.Name)
 	}
 
-	for cur := a.start; !cur.Equal(a.end); cur = ip.NextIP(cur) {
+	startIP, endIP := a.getSearchRange()
+	for cur := startIP; !cur.Equal(endIP); cur = a.nextIP(cur) {
 		// don't allocate gateway IP
 		if gw != nil && cur.Equal(gw) {
 			continue
@@ -161,4 +162,40 @@ func networkRange(ipnet *net.IPNet) (net.IP, net.IP, error) {
 		end = append(end, ip[i]|^ipnet.Mask[i])
 	}
 	return ipnet.IP, end, nil
+}
+
+// nextIP returns the next ip of curIP within ipallocator's subnet
+func (a *IPAllocator) nextIP(curIP net.IP) net.IP {
+	if curIP.Equal(a.end) {
+		return a.start
+	}
+	return ip.NextIP(curIP)
+}
+
+// getSearchRange returns the start and end ip based on the last reserved ip
+func (a *IPAllocator) getSearchRange() (net.IP, net.IP) {
+	var startIP net.IP
+	var endIP net.IP
+	startFromLastReservedIP := false
+	lastReservedIP, err := a.store.LastReservedIP()
+	if err != nil {
+		log.Printf("Error retriving last reserved ip: %v", err)
+	} else if lastReservedIP != nil {
+		subnet := net.IPNet{
+			IP:   a.conf.Subnet.IP,
+			Mask: a.conf.Subnet.Mask,
+		}
+		err := validateRangeIP(lastReservedIP, &subnet)
+		if err == nil {
+			startFromLastReservedIP = true
+		}
+	}
+	if startFromLastReservedIP {
+		startIP = a.nextIP(lastReservedIP)
+		endIP = lastReservedIP
+	} else {
+		startIP = a.start
+		endIP = a.end
+	}
+	return startIP, endIP
 }

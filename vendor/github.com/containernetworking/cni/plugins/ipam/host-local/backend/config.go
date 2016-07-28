@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/appc/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types"
 )
 
 // IPAMConfig represents the IP related network configuration.
@@ -60,7 +60,7 @@ func LoadIPAMConfig(bytes []byte, args string) (*IPAMConfig, error) {
 	}
 
 	if n.IPAM == nil {
-		return nil, fmt.Errorf("%q missing 'ipam' key")
+		return nil, fmt.Errorf("IPAM config missing 'ipam' key")
 	}
 
 	// Copy net name into IPAM so not to drag Net struct around
