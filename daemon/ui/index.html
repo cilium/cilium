@@ -578,7 +578,8 @@
 
 			(function() {
 				var networkDiv = document.getElementById("cilium-topology");
-				var conn = new WebSocket("ws://{{.TCPAddr}}/ws");
+				var host = location.host;
+				var conn = new WebSocket("ws://" + host + "/ws");
 				conn.onclose = function(evt) {
 					networkDiv.textContent = 'Connection closed';
 				};

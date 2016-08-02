@@ -5,7 +5,6 @@ import (
 	"html/template"
 	"net/http"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/noironetworks/cilium-net/common"
@@ -15,7 +14,6 @@ import (
 )
 
 const (
-	// FIXME fix [{{.IP}}] that we should derive it from server IP received packet
 	indexHTML = common.CiliumUIPath + "index.html"
 
 	writeWait = 10 * time.Second
@@ -45,17 +43,6 @@ func init() {
 }
 
 func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) {
-	tcpAddr, err := router.daemon.GetUIIP()
-	if err != nil {
-		processServerError(w, r, err)
-	}
-	var addr string
-	if tcpAddr.IP.To4() != nil {
-		addr = tcpAddr.IP.String() + ":" + strconv.Itoa(tcpAddr.Port)
-	} else {
-		addr = "[" + tcpAddr.IP.String() + "]:" + strconv.Itoa(tcpAddr.Port)
-	}
-
 	optsMap1 := types.OptionMap{}
 	optsMap2 := types.OptionMap{}
 	daemonConfig, err := router.daemon.Ping()
@@ -75,11 +62,9 @@ func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var ipStruct = struct {
-		TCPAddr string
-		Opts1   types.OptionMap
-		Opts2   types.OptionMap
+		Opts1 types.OptionMap
+		Opts2 types.OptionMap
 	}{
-		addr,
 		optsMap1,
 		optsMap2,
 	}
