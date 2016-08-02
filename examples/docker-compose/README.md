@@ -10,18 +10,7 @@ docker containers using the cilium docker image.
 
 ### Download docker-compose.yml
 
-Download the `docker-compose.yml` [here](docker-compose.yml) and
-edit the IP address with one that is not a loopback IP address.
-
-```yml
-version: '2'
-services:
-  cilium:
-    image: noironetworks:cilium-ubuntu-15-10
-    command: cilium -D daemon run -d eth1 --ui-addr tcp://192.168.33.21:8086
-    volumes:
-...
-```
+Download the `docker-compose.yml` [here](docker-compose.yml).
 
 ### Run docker-compose
 
