@@ -152,6 +152,11 @@ func init() {
 						Value:       "tcp://0.0.0.0:8080",
 						Usage:       "IP address and port for UI server",
 					},
+					cli.BoolFlag{
+						Destination: &config.UIEnabled,
+						Name:        "ui",
+						Usage:       "Enables cilium web UI",
+					},
 					cli.StringFlag{
 						Destination: &v4Prefix,
 						Name:        "ipv4-range",
