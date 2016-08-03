@@ -71,7 +71,7 @@ static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __
 
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
-	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
+	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
 	struct debug_capture_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_CAPTURE,
 		.subtype = type,

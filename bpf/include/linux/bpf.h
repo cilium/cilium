@@ -94,6 +94,7 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_SCHED_CLS,
 	BPF_PROG_TYPE_SCHED_ACT,
 	BPF_PROG_TYPE_TRACEPOINT,
+	BPF_PROG_TYPE_XDP,
 };
 
 #define BPF_PSEUDO_MAP_FD	1
@@ -364,6 +365,16 @@ enum bpf_func_id {
 	 */
 	BPF_FUNC_get_current_task,
 
+	/**
+	 * bpf_probe_write_user(void *dst, void *src, int len)
+	 * safely attempt to write to a location
+	 * @dst: destination address in userspace
+	 * @src: source address on stack
+	 * @len: number of bytes to copy
+	 * Return: 0 on success or negative error
+	 */
+	BPF_FUNC_probe_write_user,
+
 	BPF_FUNC_skb_change_tail,
 
 	__BPF_FUNC_MAX_ID,
@@ -439,6 +450,26 @@ struct bpf_tunnel_key {
 	__u8 tunnel_ttl;
 	__u16 tunnel_ext;
 	__u32 tunnel_label;
+};
+
+/* User return codes for XDP prog type.
+ * A valid XDP program must return one of these defined values. All other
+ * return codes are reserved for future use. Unknown return codes will result
+ * in packet drop.
+ */
+enum xdp_action {
+	XDP_ABORTED = 0,
+	XDP_DROP,
+	XDP_PASS,
+	XDP_TX,
+};
+
+/* user accessible metadata for XDP packet hook
+ * new fields must be added to the end of this structure
+ */
+struct xdp_md {
+	__u32 data;
+	__u32 data_end;
 };
 
 #endif /* __LINUX_BPF_H__ */

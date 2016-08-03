@@ -68,6 +68,21 @@ clean_container cni-client
 DIR=$(mktemp -d)
 cd $DIR
 
+cat <<EOF | cilium -D policy import -
+{
+        "name": "io.cilium",
+        "children": {
+		"client": { },
+		"server": {
+			"rules": [{
+				"allow": ["reserved:host", "../client"]
+			}]
+		}
+
+	}
+}
+EOF
+
 mkdir net.d
 cat > net.d/10-cilium-cni.conf <<EOF
 {
