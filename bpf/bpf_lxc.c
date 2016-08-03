@@ -449,6 +449,8 @@ int handle_ingress(struct __sk_buff *skb)
 {
 	int ret;
 
+	add_packet_tracer(skb);
+
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
 
 	switch (skb->protocol) {

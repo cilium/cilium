@@ -71,7 +71,8 @@ enum {
 #define NOTIFY_COMMON_HDR \
 	__u8		type; \
 	__u8		subtype; \
-	__u16		source;
+	__u16		source; \
+	__u32		hash;
 
 struct drop_notify {
 	NOTIFY_COMMON_HDR

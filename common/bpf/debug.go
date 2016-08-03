@@ -51,12 +51,13 @@ type DebugMsg struct {
 	Type    uint8
 	SubType uint8
 	Source  uint16
+	Hash    uint32
 	Arg1    uint32
 	Arg2    uint32
 }
 
 func (n *DebugMsg) Dump(data []byte, prefix string) {
-	fmt.Printf("%s FROM %d DEBUG: ", prefix, n.Source)
+	fmt.Printf("%s MARK %#x FROM %d DEBUG: ", prefix, n.Hash, n.Source)
 	switch n.SubType {
 	case DBG_GENERIC:
 		fmt.Printf("No message, arg1=%d (%#x) arg2=%d (%#x)\n", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
@@ -96,13 +97,14 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 }
 
 const (
-	DebugCaptureLen = 16
+	DebugCaptureLen = 20
 )
 
 type DebugCapture struct {
 	Type    uint8
 	SubType uint8
 	Source  uint16
+	Hash    uint32
 	Len     uint32
 	OrigLen uint32
 	Arg1    uint32
@@ -110,7 +112,7 @@ type DebugCapture struct {
 }
 
 func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s FROM %d DEBUG: %d bytes ", prefix, n.Source, n.Len)
+	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes ", prefix, n.Hash, n.Source, n.Len)
 	switch n.SubType {
 	case DBG_CAPTURE_FROM_LXC:
 		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)
