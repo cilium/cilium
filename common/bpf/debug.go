@@ -95,6 +95,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	}
 }
 
+const (
+	DebugCaptureLen = 16
+)
+
 type DebugCapture struct {
 	Type    uint8
 	SubType uint8
@@ -119,5 +123,8 @@ func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}
-	Dissect(dissect, data[16:])
+
+	if n.Len > 0 && len(data) > DebugCaptureLen {
+		Dissect(dissect, data[DebugCaptureLen:])
+	}
 }
