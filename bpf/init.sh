@@ -44,9 +44,6 @@ function bpf_compile()
 DIR="$PWD/globals"
 CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -DENABLE_ARP_RESPONDER -DHANDLE_NS"
 
-# Temporary fix until clang is properly installed and available in default PATH
-export PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin/:$PATH"
-
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
