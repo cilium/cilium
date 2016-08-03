@@ -21,7 +21,7 @@
 #ifdef DROP_NOTIFY
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_notify(struct __sk_buff *skb)
 {
-	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
+	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
 		.source = EVENT_SOURCE,
