@@ -82,7 +82,7 @@ detailed instructions how to install Cilium.
 ## Integration with orchestration systems
 
 Cilium provides integration plugins for the following orchestration systems:
-  * CNI (Kubernetes/Mesos) [Installation instructions](doc/k8s.md)
+  * CNI (Kubernetes/Mesos) [Installation instructions](examples/kubernetes/README.md)
   * libnetwork (Docker) [Installation instructions](doc/docker.md)
 
 ## Getting Started
