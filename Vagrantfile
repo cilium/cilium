@@ -30,22 +30,6 @@ make -C ~/go/src/github.com/noironetworks/cilium-net/ tests
 sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
 SCRIPT
 
-$docker_libnetwork = <<SCRIPT
-apt-get -y install libseccomp2
-mkdir -p install
-cd install
-wget --quiet -r -np -nd http://www.infradead.org/~tgr/cilium-docker-build/
-dpkg -r docker-engine
-for pkg in *.deb; do
-	dpkg -i $pkg
-done
-usermod -aG docker vagrant
-echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
-cd ..
-rm -rf $HOME/install
-sudo service docker restart
-SCRIPT
-
 $install_k8s = <<SCRIPT
 sudo apt-get -y install curl
 curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
