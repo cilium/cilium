@@ -50,10 +50,10 @@ table.
 ### Prefix List
 
 ```
-Cilium universe (cluster prefix):	beef::/64
-Container prefix of a node:		beef::NODE_ID:NODE_ID:CONTAINER_ID/112
-Node IPv6 address:			beef::NODE_ID:NODE_ID:0/128
-					beef::NODE_ID:NODE_ID:ffff/128
+Cilium universe (cluster prefix): 2001:DB8:f00d:cafe::/64
+Container prefix of a node:       2001:DB8:f00d:cafe:NODE_ID:NODE_ID:STATE:/112
+Node IPv6 address:                2001:DB8:f00d:cafe:NODE_ID:NODE_ID::/128
+                                  2001:DB8:f00d:cafe:NODE_ID:NODE_ID:0:ffff/128
 ```
 
 ### NAT46
