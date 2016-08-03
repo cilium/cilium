@@ -2,6 +2,8 @@
 
 set -o errexit
 
+llc --version
+
 export CFLAGS="-Werror"
 export CGO_CFLAGS="-DCI_BUILD"
 

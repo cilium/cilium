@@ -4,12 +4,10 @@
 $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
 mount bpffs /sys/fs/bpf/ -t bpf
-sudo apt-get -y install socat curl
+sudo apt-get -y install socat curl jq
 
 echo "export GOROOT=/usr/local/go" >> /home/vagrant/.profile
 echo "export GOPATH=/home/vagrant/go" >> /home/vagrant/.profile
-echo 'export PATH=/usr/local/go/bin:/home/vagrant/go/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >>  /home/vagrant/.profile
-echo 'export PATH=/usr/local/go/bin:/home/vagrant/go/bin:/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-14.04/bin:$PATH' >>  /root/.profile
 SCRIPT
 
 $build = <<SCRIPT
@@ -33,7 +31,7 @@ SCRIPT
 
 $testsuite = <<SCRIPT
 make -C ~/go/src/github.com/noironetworks/cilium-net/ tests
-sudo -E make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
+sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
 SCRIPT
 
 $docker_libnetwork = <<SCRIPT
@@ -88,7 +86,8 @@ ip -6 r a f00d::c0a8:210c:0/112 via 2001:DB8:aaaa::2
 echo '2001:DB8:aaaa::1 node1' >> /etc/hosts
 echo '2001:DB8:aaaa::2 node2' >> /etc/hosts
 sleep 2s
-echo 'exec cilium -D daemon run -n f00d::c0a8:210b:0 --ipv4-range 10.1.0.1 -t vxlan' > /etc/init/cilium-net-daemon.conf
+sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n f00d::c0a8:210b:0 --ipv4-range 10.1.0.1 -t vxlan' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 3s
 SCRIPT
@@ -100,7 +99,8 @@ ip -6 r a f00d::c0a8:210b:0/112 via 2001:DB8:aaaa::1
 echo '2001:DB8:aaaa::1 node1' >> /etc/hosts
 echo '2001:DB8:aaaa::2 node2' >> /etc/hosts
 sleep 2s
-echo 'exec cilium -D daemon run -n f00d::c0a8:210c:0 --ipv4-range 10.2.0.1 -t vxlan -c "192.168.33.11:8500"' > /etc/init/cilium-net-daemon.conf
+sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n f00d::c0a8:210c:0 --ipv4-range 10.2.0.1 -t vxlan -c "192.168.33.11:8500"' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 3s
 SCRIPT
