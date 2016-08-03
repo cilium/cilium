@@ -116,7 +116,7 @@ func init() {
 			cli.IntFlag{
 				Name:        "num-pages, n",
 				Usage:       "Number of pages for ring buffer",
-				Value:       8,
+				Value:       64,
 				Destination: &config.NumPages,
 			},
 			cli.BoolFlag{
