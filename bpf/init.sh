@@ -9,6 +9,8 @@ MODE=$5
 # Only set if MODE = "direct"
 NATIVE_DEV=$6
 
+MOUNTPOINT="/sys/fs/bpf"
+
 HOST_ID="host"
 WORLD_ID="world"
 
@@ -17,6 +19,10 @@ set -x
 
 # Enable JIT
 echo 1 > /proc/sys/net/core/bpf_jit_enable
+
+if [ $(mount | grep $MOUNTPOINT > /dev/null) ]; then
+	mount bpffs $MOUNTPOINT -t bpf
+fi
 
 function mac2array()
 {

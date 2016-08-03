@@ -3,7 +3,6 @@
 
 $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
-mount bpffs /sys/fs/bpf/ -t bpf
 sudo apt-get -y install socat curl jq
 
 echo "export GOROOT=/usr/local/go" >> /home/vagrant/.profile
