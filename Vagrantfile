@@ -4,9 +4,6 @@
 $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
 sudo apt-get -y install socat curl jq
-
-echo "export GOROOT=/usr/local/go" >> /home/vagrant/.profile
-echo "export GOPATH=/home/vagrant/go" >> /home/vagrant/.profile
 SCRIPT
 
 $build = <<SCRIPT
