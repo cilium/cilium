@@ -53,6 +53,8 @@ CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -DE
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
+$LIB/run_probes.sh $LIB $RUNDIR
+
 ip link show $HOST_DEV1 || {
 	ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
 }

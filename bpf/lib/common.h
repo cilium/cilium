@@ -1,6 +1,7 @@
 #ifndef __LIB_COMMON_H_
 #define __LIB_COMMON_H_
 
+#include <bpf_features.h>
 #include <bpf/api.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
