@@ -185,6 +185,7 @@ func (e *PerfEventSample) DataCopy() []byte {
 }
 
 type ReceiveFunc func(msg *PerfEventSample, cpu int)
+type LostFunc func(msg *PerfEventLost, cpu int)
 
 func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags int) (*PerfEvent, error) {
 	attr := C.struct_perf_event_attr{}
@@ -265,7 +266,7 @@ func (e *PerfEvent) Disable() error {
 	return nil
 }
 
-func (e *PerfEvent) Read(receive ReceiveFunc) error {
+func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
 	buf := make([]byte, 256)
 	state := C.struct_read_state{}
 
@@ -294,13 +295,16 @@ func (e *PerfEvent) Read(receive ReceiveFunc) error {
 			var lost *PerfEventLost
 			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&lost))
 			e.lost += lost.Lost
+			if lostFn != nil {
+				lostFn(lost, e.cpu)
+			}
 		} else {
 			e.unknown++
 		}
 	}
 
 	// Move ring buffer tail pointer
-	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]))
+	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(&state))
 
 	return nil
 }
@@ -443,11 +447,11 @@ func (e *PerCpuEvents) Poll(timeout int) (int, error) {
 	return e.poll.Poll(timeout)
 }
 
-func (e *PerCpuEvents) ReadAll(receive ReceiveFunc) error {
+func (e *PerCpuEvents) ReadAll(receive ReceiveFunc, lost LostFunc) error {
 	for i := 0; i < e.poll.nfds; i++ {
 		fd := int(e.poll.events[i].Fd)
 		if event, ok := e.event[fd]; ok {
-			if err := event.Read(receive); err != nil {
+			if err := event.Read(receive, lost); err != nil {
 				return err
 			}
 		}

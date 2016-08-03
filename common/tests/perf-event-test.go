@@ -53,6 +53,10 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	fmt.Printf("%+v\n", msg)
 }
 
+func lostEvent(lost *bpf.PerfEventLost, cpu int) {
+	fmt.Printf("Lost %d\n", lost.Lost)
+}
+
 func run(ctx *cli.Context) {
 	events, err := bpf.NewPerCpuEvents(&config)
 	if err != nil {
@@ -65,7 +69,7 @@ func run(ctx *cli.Context) {
 			panic(err)
 		}
 		if todo > 0 {
-			events.ReadAll(receiveEvent)
+			events.ReadAll(receiveEvent, lostEvent)
 		}
 	}
 

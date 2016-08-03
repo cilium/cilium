@@ -34,6 +34,10 @@ var (
 	}
 )
 
+func lostEvent(lost *bpf.PerfEventLost, cpu int) {
+	fmt.Printf("Lost %d events\n", lost.Lost)
+}
+
 func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
 
@@ -93,7 +97,7 @@ func run(ctx *cli.Context) {
 			panic(err)
 		}
 		if todo > 0 {
-			if err := events.ReadAll(receiveEvent); err != nil {
+			if err := events.ReadAll(receiveEvent, lostEvent); err != nil {
 				log.Warningf("Error received while reading from perf buffer: %s", err)
 			}
 		}
