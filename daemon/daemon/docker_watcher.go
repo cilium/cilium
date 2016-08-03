@@ -138,7 +138,7 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
 }
 
 func (d *Daemon) createContainer(dockerID string, allLabels map[string]string) {
-	log.Debugf("Processing container %s", dockerID)
+	log.Debugf("Processing create event for docker container %s with labels %+v", dockerID, allLabels)
 
 	ciliumLabels := d.getFilteredLabels(allLabels)
 
@@ -267,7 +267,6 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 
 	dockerID := container.ID
 
-	log.Debugf("Putting labels %+v", container.OpLabels.EndpointLabels)
 	secCtxlabels, isNewLabel, err := d.PutLabels(container.OpLabels.EndpointLabels, dockerID)
 	if err != nil {
 		return fmt.Errorf("Error while getting labels ID: %s", err)
@@ -287,14 +286,14 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 			break
 		}
 		if container.IsDockerOrInfracontainer() {
-			log.Warningf("Something went wrong, the docker ID '%s' was not locally found. Attempt... %d", dockerID, try)
+			log.Debugf("Unknonwn container %s. Waiting for event... Attempt %d", dockerID, try)
 		}
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
 	if try >= maxTries {
 		if container.IsDockerOrInfracontainer() {
-			return fmt.Errorf("It was impossible to store the SecLabel %d for docker endpoint ID '%s'", secCtxlabels.ID, dockerID)
+			return fmt.Errorf("Unable to store security context %d for container %s", secCtxlabels.ID, dockerID)
 		}
 		return nil
 	}
@@ -309,13 +308,13 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 		d.triggerPolicyUpdates([]uint32{secCtxlabels.ID})
 	}
 
-	log.Infof("Added SecLabelID %d to container %s", secCtxlabels.ID, dockerID)
+	log.Infof("Assigned security context %d to container %s", secCtxlabels.ID, dockerID)
 
 	return nil
 }
 
 func (d *Daemon) deleteContainer(dockerID string) {
-	log.Debugf("Processing container %s", dockerID)
+	log.Debugf("Processing deletion event for docker container %s", dockerID)
 
 	d.containersMU.Lock()
 	if container, ok := d.containers[dockerID]; ok {
