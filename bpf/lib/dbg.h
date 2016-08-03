@@ -31,6 +31,15 @@ enum {
 	DBG_CAPTURE_DELIVERY,
 };
 
+static inline uint32_t __inline__ get_packet_marker(struct __sk_buff *skb)
+{
+	uint32_t marker = skb->mark;
+	if (!marker)
+		marker = skb->hash;
+
+	return marker;
+}
+
 #ifdef DEBUG
 #include "events.h"
 #include "utils.h"
@@ -58,10 +67,12 @@ struct debug_capture_msg {
 
 static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
+	uint32_t hash = get_packet_marker(skb);
 	struct debug_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_MSG,
 		.subtype = type,
 		.source = EVENT_SOURCE,
+		.hash = hash,
 		.arg1 = arg1,
 		.arg2 = arg2,
 	};
@@ -72,10 +83,12 @@ static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
 	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
+	uint32_t hash = get_packet_marker(skb);
 	struct debug_capture_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_CAPTURE,
 		.subtype = type,
 		.source = EVENT_SOURCE,
+		.hash = hash,
 		.len_orig = skb_len,
 		.len_cap = cap_len,
 		.arg1 = arg1,
@@ -84,6 +97,12 @@ static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 
 	skb_event_output(skb, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
+}
+
+static inline void __inline__ add_packet_tracer(struct __sk_buff *skb)
+{
+	uint32_t rnd = get_prandom_u32();
+	skb->mark = rnd;
 }
 
 #else
@@ -95,6 +114,10 @@ static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __
 }
 
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
+{
+}
+
+static inline void __inline__ add_packet_tracer(struct __sk_buff *skb)
 {
 }
 #endif

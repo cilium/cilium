@@ -46,6 +46,9 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	}
 }
 
+func (d *Daemon) lostEvent(msg *bpf.PerfEventLost, cpu int) {
+}
+
 func (d *Daemon) EnableLearningTraffic() {
 	startChan := make(chan bool, 1)
 	stopChan1 := make(chan bool, 1)
@@ -98,7 +101,7 @@ func (d *Daemon) EnableLearningTraffic() {
 							}
 						}
 						if todo > 0 {
-							if err := events.ReadAll(d.receiveEvent); err != nil {
+							if err := events.ReadAll(d.receiveEvent, d.lostEvent); err != nil {
 								log.Warningf("Error received while reading from perf buffer: %s", err)
 							}
 						}
