@@ -45,6 +45,7 @@ type Config struct {
 	ValidLabelPrefixes   *types.LabelPrefixCfg   // Label prefixes used to filter from all labels
 	ValidLabelPrefixesMU sync.RWMutex
 	UIServerAddr         string // TCP address for UI server
+	UIEnabled            bool
 	Tunnel               string // Tunnel mode
 
 	DryMode      bool // Do not create BPF maps, devices, ..
@@ -62,5 +63,5 @@ func NewConfig() *Config {
 }
 
 func (c *Config) IsUIEnabled() bool {
-	return c.UIServerAddr != ""
+	return c.UIEnabled
 }

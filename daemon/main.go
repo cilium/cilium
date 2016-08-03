@@ -149,7 +149,13 @@ func init() {
 					cli.StringFlag{
 						Destination: &uiServerAddr,
 						Name:        "ui-addr",
+						Value:       "tcp://0.0.0.0:8080",
 						Usage:       "IP address and port for UI server",
+					},
+					cli.BoolFlag{
+						Destination: &config.UIEnabled,
+						Name:        "ui",
+						Usage:       "Enables cilium web UI",
 					},
 					cli.StringFlag{
 						Destination: &v4Prefix,
@@ -297,12 +303,8 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	if uiServerAddr != "" {
-		if _, tcpAddr, err := common.ParseHost(uiServerAddr); err != nil {
+		if _, _, err := common.ParseHost(uiServerAddr); err != nil {
 			log.Fatalf("Invalid UI server address and port address '%s': %s", uiServerAddr, err)
-		} else {
-			if !tcpAddr.IP.IsGlobalUnicast() {
-				log.Fatalf("The UI IP address %q should be a reachable IP", tcpAddr.IP.String())
-			}
 		}
 		config.UIServerAddr = uiServerAddr
 	}
