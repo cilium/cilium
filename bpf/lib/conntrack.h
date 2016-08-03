@@ -375,20 +375,18 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		return DROP_CT_CREATE_FAILED;
 
 	/* Create an ICMPv6 entry to relate errors */
-	if (tuple->nexthdr != IPPROTO_ICMPV6) {
-		/* FIXME: We could do a lookup and check if an L3 entry already exists */
-		tuple->nexthdr = IPPROTO_ICMPV6;
-		tuple->sport = 0;
-		tuple->dport = 0;
-		tuple->flags |= TUPLE_F_RELATED;
+	/* FIXME: We could do a lookup and check if an L3 entry already exists */
+	tuple->nexthdr = IPPROTO_ICMPV6;
+	tuple->sport = 0;
+	tuple->dport = 0;
+	tuple->flags |= TUPLE_F_RELATED;
 
-		cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
-		if (map_update_elem(map, tuple, &entry, 0) < 0) {
-			/* Previous map update succeeded, we could delete it
-			 * but we might as well just let it time out.
-			 */
-			return DROP_CT_CREATE_FAILED;
-		}
+	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	if (map_update_elem(map, tuple, &entry, 0) < 0) {
+		/* Previous map update succeeded, we could delete it
+		 * but we might as well just let it time out.
+		 */
+		return DROP_CT_CREATE_FAILED;
 	}
 
 	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
@@ -417,17 +415,15 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		return DROP_CT_CREATE_FAILED;
 
 	/* Create an ICMPv6 entry to relate errors */
-	if (tuple->nexthdr != IPPROTO_ICMP) {
-		/* FIXME: We could do a lookup and check if an L3 entry already exists */
-		tuple->nexthdr = IPPROTO_ICMP;
-		tuple->sport = 0;
-		tuple->dport = 0;
-		tuple->flags |= TUPLE_F_RELATED;
+	/* FIXME: We could do a lookup and check if an L3 entry already exists */
+	tuple->nexthdr = IPPROTO_ICMP;
+	tuple->sport = 0;
+	tuple->dport = 0;
+	tuple->flags |= TUPLE_F_RELATED;
 
-		cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
-		if (map_update_elem(map, tuple, &entry, 0) < 0)
-			return DROP_CT_CREATE_FAILED;
-	}
+	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	if (map_update_elem(map, tuple, &entry, 0) < 0)
+		return DROP_CT_CREATE_FAILED;
 
 	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
 
