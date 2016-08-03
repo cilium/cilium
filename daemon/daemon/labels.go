@@ -148,7 +148,8 @@ func (d *Daemon) lockPath(path string) (*consulAPI.Lock, <-chan struct{}, error)
 // PutLabels stores to given labels in consul and returns the SecCtxLabels created for
 // the given labels.
 func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
-	log.Debugf("Putting labels %+v", labels)
+	log.Debugf("Resolving labels %+v of %s", labels, contID)
+
 	isNew := false
 
 	// Retrieve unique SHA256Sum for labels
