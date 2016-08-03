@@ -16,7 +16,7 @@ trap cleanup EXIT
 SERVER_LABEL="io.cilium.server"
 CLIENT_LABEL="io.cilium.client"
 
-docker network inspect $TEST_NET || {
+docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipam-driver cilium --driver cilium $TEST_NET
 }
 
