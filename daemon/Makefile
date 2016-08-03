@@ -5,7 +5,7 @@ TARGET=cilium-net-daemon
 all: $(TARGET)
 
 tests:
-	-docker rm -f "cilium-consul-test-container"
+	docker rm -f "cilium-consul-test-container" 2> /dev/null || true
 	-docker run -d \
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
@@ -14,7 +14,7 @@ tests:
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 	go fmt ./...
 	sudo -E env "PATH=${PATH}" go test -timeout 30s ./...
-	-rmdir ./daemon/1 ./daemon/1_backup
+	rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	docker rm -f "cilium-consul-test-container"
 
 run:
