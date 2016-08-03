@@ -60,7 +60,7 @@ The experimental nature of Cilium currently requires a recent version of the
 Linux kernel iproute2 and clang+LLVM. Specifically:
   * Linux kernel: https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
   * iproute2: https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
-  * clang+LLVM: 3.7.1
+  * clang+LLVM: >= 3.7.1
 
 All changes to the Linux kernel have been merged upstream and will become
 available in distribution kernels soon.

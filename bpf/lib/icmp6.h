@@ -196,6 +196,7 @@ static inline __be32 compute_icmp6_csum(char data[80], __u16 payload_len,
 	return sum;
 }
 
+#ifdef HAVE_SKB_CHANGE_TAIL
 static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 {
 	/* FIXME: Fix code below to not require this init */
@@ -276,9 +277,11 @@ static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 
         return icmp6_send_reply(skb, nh_off);
 }
+#endif
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_icmp6_send_time_exceeded(struct __sk_buff *skb)
 {
+#ifdef HAVE_SKB_CHANGE_TAIL
 	int ret, nh_off = skb->cb[0];
 
 	ret = __icmp6_send_time_exceeded(skb, nh_off);
@@ -286,6 +289,9 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 /*

@@ -50,8 +50,8 @@ function test_nodes {
 
 	echo "Setting up nodes with options: $OPTS"
 
-	node_run node1 "echo \"exec cilium -D daemon run -n f00d::c0a8:210b:0 --ipv4-range 10.1.0.1 $OPTS\" > tmp; sudo cp tmp /etc/init/cilium-net-daemon.conf; sudo service cilium-net-daemon restart"
-	node_run node2 "echo \"exec cilium -D daemon run -n f00d::c0a8:210c:0 --ipv4-range 10.2.0.1 $OPTS -c 192.168.33.11:8500\" > tmp; sudo cp tmp /etc/init/cilium-net-daemon.conf; sudo service cilium-net-daemon restart"
+	node_run node1 "cp /etc/init/cilium-net-daemon.conf tmp; sed -i '/exec/d' tmp; echo \"exec cilium -D daemon run -n f00d::c0a8:210b:0 --ipv4-range 10.1.0.1 $OPTS\" >> tmp; sudo cp tmp /etc/init/cilium-net-daemon.conf; sudo service cilium-net-daemon restart"
+	node_run node2 "cp /etc/init/cilium-net-daemon.conf tmp; sed -i '/exec/d' tmp; echo \"exec cilium -D daemon run -n f00d::c0a8:210c:0 --ipv4-range 10.2.0.1 $OPTS -c 192.168.33.11:8500\" >> tmp; sudo cp tmp /etc/init/cilium-net-daemon.conf; sudo service cilium-net-daemon restart"
 
 	echo "Waiting for daemon to start up..."
 	sleep 5s

@@ -4,6 +4,10 @@ import (
 	"fmt"
 )
 
+const (
+	DropNotifyLen = 28
+)
+
 type DropNotify struct {
 	Type     uint8
 	SubType  uint8
@@ -70,5 +74,7 @@ func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
 		fmt.Printf("\n")
 	}
 
-	Dissect(dissect, data[28:])
+	if n.CapLen > 0 && len(data) > DropNotifyLen {
+		Dissect(dissect, data[DropNotifyLen:])
+	}
 }

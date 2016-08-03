@@ -19,8 +19,8 @@ build-vbox: clean validate
 clean:
 	rm -Rf output-* *.box tmp
 
-distclean:
-	rm -Rf output-* *.box packer_cache tmp
+distclean: clean
+	rm -Rf packer_cache
 
 uninstall_libvirt:
 	vagrant destroy

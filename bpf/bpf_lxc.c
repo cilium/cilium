@@ -489,7 +489,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	skb->cb[CB_POLICY] = 0;
 	tuple.nexthdr = ip6->nexthdr;
@@ -501,12 +501,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
-			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-						ifindex, TC_ACT_SHOT);
+			return DROP_POLICY;
 	} else if (ret == CT_NEW) {
 		ret = ct_create6(&CT_MAP6, &tuple, skb, 1);
 		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+			return ret;
 	}
 
 	return 0;
@@ -521,7 +520,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
-		return TC_ACT_SHOT;
+		return DROP_INVALID;
 
 	skb->cb[CB_POLICY] = 0;
 	tuple.nexthdr = ip4->protocol;
@@ -533,12 +532,11 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
 		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
-			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-						ifindex, TC_ACT_SHOT);
+			return DROP_POLICY;
 	} else if (ret == CT_NEW) {
 		ret = ct_create4(&CT_MAP4, &tuple, skb, 1);
 		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+			return ret;
 	}
 
 	return 0;
@@ -563,8 +561,13 @@ __section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *
 		break;
 	}
 
-	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_POLICY)
+			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
+						ifindex, TC_ACT_SHOT);
+		else
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	}
 
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 	return redirect(ifindex, 0);
