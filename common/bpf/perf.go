@@ -50,7 +50,7 @@ int perf_event_read_init(int page_count, int page_size, void *_header, void *_st
 	volatile struct perf_event_mmap_page *header = _header;
 	struct read_state *state = _state;
 	uint64_t data_tail = header->data_tail;
-	uint64_t data_head = header->data_head;
+	uint64_t data_head = *((volatile uint64_t *) &header->data_head);
 
 	__sync_synchronize();
 	if (data_head == data_tail)
