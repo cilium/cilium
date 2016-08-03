@@ -42,7 +42,7 @@ struct event_sample {
 
 struct read_state {
 	size_t raw_size;
-	void *base, *begin, *end;
+	void *base, *begin, *end, *head;
 };
 
 int perf_event_read_init(int page_count, int page_size, void *_header, void *_state)
@@ -56,6 +56,7 @@ int perf_event_read_init(int page_count, int page_size, void *_header, void *_st
 	if (data_head == data_tail)
 		return 0;
 
+	state->head = data_head;
 	state->raw_size = page_count * page_size;
 	state->base  = ((uint8_t *)header) + page_size;
 	state->begin = state->base + data_tail % state->raw_size;
@@ -92,12 +93,13 @@ int perf_event_read(void *_state, void *buf, void *_msg)
 	return 1;
 }
 
-void perf_event_read_finish(void *_header)
+void perf_event_read_finish(void *_header, void *_state)
 {
 	volatile struct perf_event_mmap_page *header = _header;
+	struct read_state *state = _state;
 
 	__sync_synchronize();
-	header->data_tail = header->data_head;
+	header->data_tail = state->head;
 }
 
 void cast(void *ptr, void *_dst)
