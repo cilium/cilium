@@ -40,6 +40,10 @@ Cilium is...
    kernel, support for additional protocol parsers, modifications of the
    connection tracker or policy layer, additional forwarding logic, etc.
 
+<p align="center">
+   <img src="doc/cilium-world.png" width="500">
+</p>
+
 ## Networking Model
 
 The networking model provided by Cilium is kept as simple as possible and has
@@ -60,7 +64,7 @@ The experimental nature of Cilium currently requires a recent version of the
 Linux kernel iproute2 and clang+LLVM. Specifically:
   * Linux kernel: https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
   * iproute2: https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
-  * clang+LLVM: >= 3.7.1
+  * clang+LLVM >=3.7.1: http://llvm.org/releases
 
 All changes to the Linux kernel have been merged upstream and will become
 available in distribution kernels soon.
@@ -90,15 +94,10 @@ running.
 You may also run CNI and libnetwork owned containers at the same time.
 They will both be treated equally and can reach each other.
 
-### CNI - Kubernetes
+### Docker compose
 
-A CNI plugin is provided to integrate Cilium with Kubernetes or any other
-platform which relies on CNI. The `make install` command in the `cni`
-directory will deploy the plugin.
-
-```
-$ vagrant up k8s1
-```
+The easiest way to try out cilium is with our docker-compose example provided
+[here](examples/docker-compose/README.md).
 
 ### Docker
 
@@ -122,6 +121,13 @@ by specifying the `--net` argument:
 ```
 $ docker run -ti --rm --net cilium ubuntu bash
 ```
+
+### CNI - Kubernetes
+
+A CNI plugin is provided to integrate Cilium with Kubernetes or any other
+platform which relies on CNI. The `make install` command will deploy the plugin.
+[This tutorial](examples/kubernetes/README.md) explains you on how to use cilium with
+kubernetes.
 
 ### Native Routing Mode
 
@@ -149,16 +155,14 @@ to send IPv6 container traffic across a IPv4 only network.
 
 Overlay mode is the default if `-d INTERFACE` is not provided.
 
-## Testsuite
+## Contribution
 
-The testsuite can be run on a vagrant box:
+If you want to contribute to the project see the [contributing guide](doc/contributing.md).
 
-   ```
-   $ vagrant provision --provision-with testsuite
-   ```
+## Contact
 
-or manually on the local machine:
+If you have any questions feel free to contact us on [Slack](https://cilium.slack.com)!
 
-   ```
-   $ sudo make runtime-tests
-   ```
+## License
+
+Cilium is licensed under the Apache License, Version 2.0. See LICENSE for the full license text.
