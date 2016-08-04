@@ -1,4 +1,4 @@
-FROM ubuntu:15.10
+FROM ubuntu:16.04
 
 MAINTAINER "Andre Martins <andre@cilium.io>"
 
@@ -7,20 +7,20 @@ ADD . /tmp/cilium-net-build/src/github.com/noironetworks/cilium-net
 RUN apt-get update && \
 apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git libc6-dev.i386 && \
 #
-# clang-3.7-begin
+# clang-3.8.1-begin
 apt-get install -y --no-install-recommends curl xz-utils && \
 cd /tmp && \
-curl -Ssl -o clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10.tar.xz \
-http://llvm.org/releases/3.7.1/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10.tar.xz && \
+curl -Ssl -o clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz \
+http://llvm.org/releases/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
 mkdir -p /usr/local && \
-tar -C /usr/local -xJf ./clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10.tar.xz && \
-rm clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10.tar.xz && \
-#rm -fr /usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10/lib
-#rm -fr /usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10/include
-#rm -fr /usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10/share
-#cd /usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10/bin && \
-#ls | grep -Ev "clang|clang-3.7" | xargs rm && \
-# clang-3.7-end
+tar -C /usr/local -xJf ./clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
+rm clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
+#rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/lib
+#rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/include
+#rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/share
+#cd /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/bin && \
+#ls | grep -Ev "clang|clang-3.8" | xargs rm && \
+# clang-3.8.1-end
 #
 # iproute2-begin
 cd /tmp && \
@@ -50,6 +50,6 @@ apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils && \
 apt-get clean && \
 rm -fr /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/local/go
 
-ENV PATH="/usr/local/clang+llvm-3.7.1-x86_64-linux-gnu-ubuntu-15.10/bin:$PATH"
+ENV PATH="/usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/bin:$PATH"
 
 CMD ["/usr/bin/cilium"]

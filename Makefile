@@ -26,7 +26,7 @@ install:
 docker-image:
 	@./contrib/docker/cp-dirs.sh
 	$(MAKE) -C ./contrib/docker clean
-	docker build -t "noironetworks:cilium-ubuntu-15-10" ./contrib/docker/
+	docker build -t "noironetworks:cilium-ubuntu-16-04" ./contrib/docker/
 	ls -d ./contrib/docker/* | grep -v cp-dirs.sh | xargs rm -r
 
 runtime-tests:

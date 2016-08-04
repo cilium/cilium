@@ -1,7 +1,7 @@
 version: '2'
 services:
   cilium:
-    image: noironetworks:cilium-ubuntu-15-10
+    image: noironetworks:cilium-ubuntu-16-04
     command: cilium -D daemon run -d eth1 --ui
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -15,7 +15,7 @@ services:
       - consul
 
   cilium_docker:
-    image: noironetworks:cilium-ubuntu-15-10
+    image: noironetworks:cilium-ubuntu-16-04
     command: cilium-docker -D
     volumes:
       - /var/run/cilium:/var/run/cilium
