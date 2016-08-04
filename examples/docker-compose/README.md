@@ -32,7 +32,7 @@ $ docker run -d --name bar --net cilium --label io.cilium.service.bar noironetwo
 $ docker run -d --name client --net cilium --label io.cilium.service.client noironetworks/nettools sleep 30000
 ```
 
-### Open your browser on the same address as written before
+### Open your browser on the IP address where you are running cilium on port 8080
 
 ![Cilium dashboard](cilium-docker-1.png)
 
