@@ -55,6 +55,11 @@ func CtState(state uint32) string {
 	return ctState[state]
 }
 
+func CtInfo(arg1 uint32, arg2 uint32) string {
+	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
+		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
+}
+
 type DebugMsg struct {
 	Type    uint8
 	SubType uint8
@@ -78,11 +83,11 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_POLICY_DENIED:
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
 	case DBG_CT_LOOKUP:
-		fmt.Printf("CT lookup sport=%d dport=%d\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT lookup: %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_MATCH:
 		fmt.Printf("CT entry found flags=%#x IPv6=[...]:%x\n", n.Arg1, n.Arg2)
 	case DBG_CT_CREATED:
-		fmt.Printf("CT created proto=%d flags=%#x\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT created %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_VERDICT:
 		fmt.Printf("CT verdict: %s\n", CtState(n.Arg1))
 	case DBG_ICMP6_HANDLE:
