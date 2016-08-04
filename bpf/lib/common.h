@@ -11,9 +11,8 @@
 #define EVENT_SOURCE 0
 #endif
 
-
-/* Maximum number of supported local security labels */
-#define POLICY_MAP_SIZE	65536
+#define POLICY_MAP_SIZE	MAX 65536
+#define RESERVED_POLICY_SIZE 128
 
 #define __inline__ __attribute__((always_inline))
 
@@ -47,7 +46,8 @@ struct portmap {
 
 struct lxc_info {
 	__u32		ifindex;
-	__u32		sec_label;
+	__u16		sec_label;
+	__u16           lxc_id;
 	mac_t		mac;
 	mac_t		node_mac;
 	union v6addr	ip;

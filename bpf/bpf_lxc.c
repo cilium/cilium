@@ -24,6 +24,8 @@
 #include "lib/drop.h"
 #include "lib/dbg.h"
 
+#define POLICY_ID ((LXC_ID << 16) | SECLABEL)
+
 __BPF_MAP(CT_MAP6, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
 	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
 __BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
@@ -214,7 +216,7 @@ to_host:
 		policy_mark_skip(skb);
 #endif
 
-		tail_call(skb, &cilium_policy, HOST_ID);
+		tail_call(skb, &cilium_reserved_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
 #endif
 	}
@@ -237,7 +239,7 @@ pass_to_stack:
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
-	tail_call(skb, &cilium_policy, WORLD_ID);
+	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
@@ -401,7 +403,7 @@ to_host:
 		policy_mark_skip(skb);
 #endif
 
-		tail_call(skb, &cilium_policy, HOST_ID);
+		tail_call(skb, &cilium_reserved_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
 #endif
 	}
@@ -426,7 +428,7 @@ pass_to_stack:
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
-	tail_call(skb, &cilium_policy, WORLD_ID);
+	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
@@ -551,7 +553,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	return 0;
 }
 
-__section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
