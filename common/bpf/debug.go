@@ -47,6 +47,14 @@ var ctState = map[uint32]string{
 	CT_RELATED:     "Related",
 }
 
+func CtState(state uint32) string {
+	if state < 0 {
+		return DropReason(uint8(state))
+	}
+
+	return ctState[state]
+}
+
 type DebugMsg struct {
 	Type    uint8
 	SubType uint8
@@ -76,7 +84,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_CT_CREATED:
 		fmt.Printf("CT created proto=%d flags=%#x\n", n.Arg1, n.Arg2)
 	case DBG_CT_VERDICT:
-		fmt.Printf("CT verdict: %s\n", ctState[n.Arg1])
+		fmt.Printf("CT verdict: %s\n", CtState(n.Arg1))
 	case DBG_ICMP6_HANDLE:
 		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
 	case DBG_ICMP6_REQUEST:
