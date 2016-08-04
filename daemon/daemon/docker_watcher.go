@@ -48,7 +48,7 @@ func (d *Daemon) EnableDockerSync(once bool) {
 			log.Errorf("Failed to retrieve the container list %s", err)
 		}
 		for _, cont := range cList {
-			go d.createContainer(cont.ID, cont.Labels)
+			go d.createContainer(cont.ID)
 		}
 
 		if once {
@@ -77,7 +77,7 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	if m.Type == "container" {
 		switch m.Status {
 		case "start":
-			d.createContainer(m.ID, m.Actor.Attributes)
+			d.createContainer(m.ID)
 		case "die":
 			d.deleteContainer(m.ID)
 		}
@@ -137,13 +137,11 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
 	return d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
 }
 
-func (d *Daemon) createContainer(dockerID string, allLabels map[string]string) {
-	log.Debugf("Processing create event for docker container %s with labels %+v", dockerID, allLabels)
-
-	ciliumLabels := d.getFilteredLabels(allLabels)
+func (d *Daemon) createContainer(dockerID string) {
+	log.Debugf("Processing create event for docker container %s", dockerID)
 
 	d.containersMU.Lock()
-	if isNewContainer, container, err := d.updateProbeLabels(dockerID, ciliumLabels); err != nil {
+	if isNewContainer, container, err := d.updateProbeLabels(dockerID); err != nil {
 		d.containersMU.Unlock()
 		log.Errorf("%s", err)
 	} else {
@@ -154,20 +152,31 @@ func (d *Daemon) createContainer(dockerID string, allLabels map[string]string) {
 	}
 }
 
-func (d *Daemon) updateProbeLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
-	return d.updateOperationalLabels(dockerID, labels, true)
-}
-
-func (d *Daemon) updateUserLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
-	return d.updateOperationalLabels(dockerID, labels, false)
-}
-
-func (d *Daemon) updateOperationalLabels(dockerID string, newLabels types.Labels, isProbe bool) (bool, *types.Container, error) {
+func (d *Daemon) updateProbeLabels(dockerID string) (bool, *types.Container, error) {
 	dockerCont, err := d.dockerClient.ContainerInspect(dockerID)
 	if err != nil {
 		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
 	}
 
+	ciliumLabels := types.Labels{}
+	if dockerCont.Config != nil {
+		log.Debugf("Read docker labels %+v", dockerCont.Config.Labels)
+		ciliumLabels = d.getFilteredLabels(dockerCont.Config.Labels)
+	}
+	log.Debugf("Using filtered labels %+v", ciliumLabels)
+
+	return d.updateOperationalLabels(dockerID, dockerCont, ciliumLabels, true)
+}
+
+func (d *Daemon) updateUserLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
+	dockerCont, err := d.dockerClient.ContainerInspect(dockerID)
+	if err != nil {
+		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
+	}
+	return d.updateOperationalLabels(dockerID, dockerCont, labels, false)
+}
+
+func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.ContainerJSON, newLabels types.Labels, isProbe bool) (bool, *types.Container, error) {
 	isNewContainer := false
 	var (
 		cont           types.Container
