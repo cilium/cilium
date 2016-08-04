@@ -30,6 +30,8 @@ const (
 	DBG_DECAP
 	DBG_PORT_MAP
 	DBG_ERROR_RET
+	DBG_TO_HOST
+	DBG_TO_STACK
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -104,6 +106,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Mapping port from=%d to=%d\n", n.Arg1, n.Arg2)
 	case DBG_ERROR_RET:
 		fmt.Printf("BPF function %d returned error %d\n", n.Arg1, n.Arg2)
+	case DBG_TO_HOST:
+		fmt.Printf("Going to host, policy-skip=%d\n", n.Arg1)
+	case DBG_TO_STACK:
+		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

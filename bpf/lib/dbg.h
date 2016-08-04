@@ -20,6 +20,8 @@ enum {
 	DBG_DECAP,
 	DBG_PORT_MAP,
 	DBG_ERROR_RET,
+	DBG_TO_HOST,
+	DBG_TO_STACK,
 };
 
 /* Capture types */

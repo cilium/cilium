@@ -189,6 +189,8 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
+		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+
 		ret = ipv6_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -218,6 +220,8 @@ to_host:
 	}
 
 pass_to_stack:
+	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
+
 	ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
@@ -380,6 +384,8 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
+		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+
 		ret = ipv4_l3(skb, l4_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -401,6 +407,8 @@ to_host:
 	}
 
 pass_to_stack:
+	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
+
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
