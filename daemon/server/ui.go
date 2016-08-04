@@ -24,8 +24,7 @@ const (
 )
 
 var (
-	indexTempl *template.Template
-	upgrader   = websocket.Upgrader{
+	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
@@ -33,14 +32,6 @@ var (
 		},
 	}
 )
-
-func init() {
-	var err error
-	indexTempl, err = template.New("index.html").ParseFiles(indexHTML)
-	if err != nil {
-		log.Errorf("Error parsing index.html file: %s", err)
-	}
-}
 
 func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) {
 	optsMap1 := types.OptionMap{}
@@ -70,12 +61,13 @@ func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if indexTempl == nil {
-		log.Error("Unable read index.html template due to former error")
-	} else {
-		if err = indexTempl.Execute(w, &ipStruct); err != nil {
-			log.Errorf("Error processing UI template: %s", err)
-		}
+	indexTempl, err := template.New("index.html").ParseFiles(indexHTML)
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("Error parsing index.html file: %s", err))
+		return
+	}
+	if err = indexTempl.Execute(w, &ipStruct); err != nil {
+		processServerError(w, r, fmt.Errorf("Error processing UI template: %s", err))
 	}
 }
 
@@ -129,6 +121,7 @@ func (router *Router) webSocketUIStats(w http.ResponseWriter, r *http.Request) {
 	uiChan, err := router.daemon.RegisterUIListener(ws)
 	if err != nil {
 		processServerError(w, r, fmt.Errorf("error from daemon while retrieving UI channel: %s", err))
+		return
 	}
 
 	go writer(ws, uiChan)
