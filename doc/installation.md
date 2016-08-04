@@ -7,13 +7,16 @@ will run containers.
 
 ## Docker Image
 
+We provide a docker-compose example [here](../examples/docker-compose/README.md). You can
+use that example to have cilium installed on each node that you want to run cilium.
+
 ## Manual Installation
 
 Running `make install` will install cilium binaries in your `bindir` and
 all required additional runtime files in `libdir/cilium`.
 
 Templates for integration into service management systems such as systemd
-and upstart can be found in the `contrib` directory.
+and upstart can be found in the [`contrib`](../contrib) directory.
 
 
 ```
@@ -55,12 +58,13 @@ PING www.google.com(zrh04s07-in-x04.1e100.net) 56 data bytes
 
 Note that an appropriate policy must be loaded or policy enforcement will
 drop the relevant packets. An example policy can be found in
-`examples/policy/test/` which will allow the above container with the label
-`io.cilium` to be reached from world scope. To load and test:
+[`examples/policy/test/`](../examples/policy/test) which will allow the above container
+with the label `io.cilium` to be reached from world scope. To load and test:
 
 ```
-$ sudo cilium policy import examples/policy/test/test.policy
-$ sudo cilium policy allowed -s reserved:world -d io.cilium
+$ cilium policy import examples/policy/test/test.policy
+$ cilium policy allowed -s reserved:world -d io.cilium
+```
 
 ## Announce the IPv6 container prefix on each host
 

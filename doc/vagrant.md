@@ -15,4 +15,5 @@ manually install Cilium:
   $ cd go/src/github.com/noironetworks/cilium-net/
   $ make
   $ sudo make install
+  $ sudo service cilium-net-daemon restart
   ```

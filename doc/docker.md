@@ -15,7 +15,7 @@ in any location. For connectivity to the Cilium daemon, the UNIX domain socket
 of the daemon must be reachable via the local filesystem.
 
 Various templates for integration with service management tools such as
-upstart or systemd can be found in the `contrib/` directory.
+upstart or systemd can be found in the [`contrib/`](../contrib) directory.
 
 ## Usage
 
@@ -36,6 +36,6 @@ container labels.
 
 ## Address Management (IPAM)
 
-The `cilium-docker` plugin will allocate a unique IPv6 address out of the
-address prefix assigned to the container host. See XXX for additional
-information on the addressing model of Cilium.
+The `cilium-docker` plugin will allocate an unique IPv6 address out of the
+address prefix assigned to the container host. See [here](model.md#prefix-list) for
+additional information on the addressing model of Cilium.
