@@ -28,6 +28,7 @@ var (
 	disableConntrack   bool
 	disablePolicy      bool
 	enableTracing      bool
+	enableLogstash     bool
 	labelPrefixFile    string
 	logstashAddr       string
 	logstashProbeTimer int
@@ -111,9 +112,14 @@ func init() {
 						Value:       common.DefaultLibDir,
 						Usage:       "Cilium library directory",
 					},
+					cli.BoolFlag{
+						Destination: &enableLogstash,
+						Name:        "logstash",
+						Usage:       "Enables logstash agent",
+					},
 					cli.StringFlag{
 						Destination: &logstashAddr,
-						Name:        "logstash-agent, l",
+						Name:        "logstash-agent",
 						Value:       "127.0.0.1:8080",
 						Usage:       "Logstash agent address",
 					},
@@ -329,7 +335,9 @@ func run(cli *cli.Context) {
 
 	d.EnableConntrackGC()
 
-	go d.EnableLogstash(logstashAddr, logstashProbeTimer)
+	if enableLogstash {
+		go d.EnableLogstash(logstashAddr, logstashProbeTimer)
+	}
 
 	d.EnableLearningTraffic()
 
