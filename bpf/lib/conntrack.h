@@ -389,8 +389,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		return DROP_CT_CREATE_FAILED;
 	}
 
-	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
-
 	return 0;
 }
 
@@ -424,8 +422,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
-
-	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
 
 	return 0;
 }
