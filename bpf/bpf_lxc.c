@@ -356,7 +356,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 #endif
 		}
 
-		cilium_trace(skb, DBG_GENERIC, tuple.addr, IPV4_GATEWAY);
 #ifdef HOST_IFINDEX
 		if (tuple.addr == IPV4_GATEWAY)
 			goto to_host;
