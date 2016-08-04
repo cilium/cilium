@@ -85,7 +85,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_CT_LOOKUP:
 		fmt.Printf("CT lookup: %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_MATCH:
-		fmt.Printf("CT entry found flags=%#x IPv6=[...]:%x\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT entry found lifetime=%d\n", n.Arg1)
 	case DBG_CT_CREATED:
 		fmt.Printf("CT created %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_VERDICT:

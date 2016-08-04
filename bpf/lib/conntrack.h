@@ -35,7 +35,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
-		cilium_trace(skb, DBG_CT_MATCH, 0, 0);
+		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime, 0);
 		entry->lifetime = CT_DEFAULT_LIFEIME;
 
 #ifdef CONNTRACK_ACCOUNTING
