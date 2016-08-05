@@ -15,11 +15,12 @@ http://llvm.org/releases/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.ta
 mkdir -p /usr/local && \
 tar -C /usr/local -xJf ./clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
 rm clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
-#rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/lib
-#rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/include
-#rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/share
-#cd /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/bin && \
-#ls | grep -Ev "clang|clang-3.8" | xargs rm && \
+rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/include/llvm-c && \
+rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/include/clang-c && \
+rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/include/c++ && \
+rm -fr /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/share && \
+ls -d /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/lib/* | grep -vE clang$ | xargs rm -r && \
+ls -d /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/bin/* | grep -vE "clang$|clang-3.8$|llc$" | xargs rm -r && \
 # clang-3.8.1-end
 #
 # iproute2-begin
