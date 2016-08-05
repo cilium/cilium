@@ -25,11 +25,6 @@ func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (
 		return nil, err
 	}
 
-	ip4Conf, err := ipamConf.IPv4Allocator.AllocateNext()
-	if err != nil {
-		return nil, err
-	}
-
 	v6Routes := []ipam.Route{}
 	v4Routes := []ipam.Route{}
 	for _, r := range ipamConf.IPAMConfig.Routes {
@@ -41,18 +36,28 @@ func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (
 		}
 	}
 
-	return &ipam.IPAMRep{
+	ipamRep := &ipam.IPAMRep{
 		IP6: &ipam.IPConfig{
 			Gateway: d.conf.NodeAddress.IPv6Address.IP(),
 			IP:      net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv6Mask},
 			Routes:  v6Routes,
 		},
-		IP4: &ipam.IPConfig{
-			Gateway: d.conf.NodeAddress.IPv4Address.IP(),
-			IP:      net.IPNet{IP: ip4Conf, Mask: addressing.ContainerIPv4Mask},
-			Routes:  v4Routes,
-		},
-	}, nil
+	}
+
+	if ipamConf.IPv4Allocator != nil {
+		ip4Conf, err := ipamConf.IPv4Allocator.AllocateNext()
+		if err != nil {
+			return nil, err
+		}
+		if ipamConf.IPv4Allocator != nil {
+			ipamRep.IP4 = &ipam.IPConfig{
+				Gateway: d.conf.NodeAddress.IPv4Address.IP(),
+				IP:      net.IPNet{IP: ip4Conf, Mask: addressing.ContainerIPv4Mask},
+				Routes:  v4Routes,
+			}
+		}
+	}
+	return ipamRep, nil
 }
 
 // releaseIPCNI releases an IP for the CNI plugin.
@@ -75,17 +80,20 @@ func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPA
 
 	switch ln.RequestAddressRequest.PoolID {
 	case ipam.LibnetworkDefaultPoolV4:
-		ipConf, err := ipamConf.IPv4Allocator.AllocateNext()
-		if err != nil {
-			return nil, err
+		if ipamConf.IPv4Allocator != nil {
+			ipConf, err := ipamConf.IPv4Allocator.AllocateNext()
+			if err != nil {
+				return nil, err
+			}
+			resp := ipam.IPAMRep{
+				IP4: &ipam.IPConfig{
+					IP: net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv4Mask},
+				},
+			}
+			log.Debugf("Docker requested us to use IPv4, %+v", resp.IP4.IP)
+			return &resp, nil
 		}
-		resp := ipam.IPAMRep{
-			IP4: &ipam.IPConfig{
-				IP: net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv4Mask},
-			},
-		}
-		log.Debugf("Docker requested us to use IPv4, %+v", resp.IP4.IP)
-		return &resp, nil
+		return &ipam.IPAMRep{}, nil
 	case ipam.LibnetworkDefaultPoolV6:
 		ipConf, err := ipamConf.IPv6Allocator.AllocateNext()
 		if err != nil {

@@ -150,9 +150,13 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 		return err
 	}
 
-	key2 := uint32(ep.IPv4.EndpointID()) | (1 << 16)
-	// FIXME: Remove key again? Needs to be solved by caller
-	return bpf.UpdateElement(m.fd, unsafe.Pointer(&key2), unsafe.Pointer(&lxc), 0)
+	if ep.IPv4 != nil {
+		key := uint32(ep.IPv4.EndpointID()) | (1 << 16)
+		// FIXME: Remove key again? Needs to be solved by caller
+		return bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
+	}
+
+	return nil
 }
 
 // DeleteElement deletes the element with the given id from the LXCMap.
@@ -165,10 +169,12 @@ func (m *LXCMap) DeleteElement(ep *types.Endpoint) error {
 	id6 := uint32(ep.ID)
 	err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id6))
 
-	if id4 := uint32(ep.IPv4.EndpointID()); id4 != 0 {
-		id4 = id4 | (1 << 16)
-		if err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id4)); err != nil {
-			return err
+	if ep.IPv4 != nil {
+		if id4 := uint32(ep.IPv4.EndpointID()); id4 != 0 {
+			id4 = id4 | (1 << 16)
+			if err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id4)); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -31,7 +31,12 @@ static inline int valid_src_ip(struct ipv6hdr *ip6)
 
 static inline int valid_src_ipv4(struct iphdr *ip4)
 {
+#ifdef LXC_IPV4
 	return ip4->saddr != LXC_IPV4;
+#else
+	/* Can't send IPv4 if no IPv4 address is configured */
+	return 0;
+#endif
 }
 #else
 static inline int valid_src_ip(struct ipv6hdr *ip6)

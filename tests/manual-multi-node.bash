@@ -63,5 +63,5 @@ function test_nodes {
 }
 
 init
-test_nodes "-t vxlan"
+test_nodes "-t vxlan --ipv4"
 test_nodes "-d eth1"

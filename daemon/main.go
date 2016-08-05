@@ -163,6 +163,11 @@ func init() {
 						Name:        "ui",
 						Usage:       "Enables cilium web UI",
 					},
+					cli.BoolFlag{
+						Destination: &config.IPv4Enabled,
+						Name:        "ipv4",
+						Usage:       "Enables IPv4 mode where containers receive an IPv4 address ",
+					},
 					cli.StringFlag{
 						Destination: &v4Prefix,
 						Name:        "ipv4-range",

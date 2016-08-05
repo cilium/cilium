@@ -182,6 +182,10 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
 	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
 
+	if d.conf.IPv4Enabled {
+		fw.WriteString("#define ENABLE_IPV4\n")
+	}
+
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
 
@@ -247,26 +251,30 @@ func NewDaemon(c *Config) (*Daemon, error) {
 					Dst: addressing.IPv6DefaultRoute,
 					GW:  c.NodeAddress.IPv6Address.IP(),
 				},
-				// IPv4
-				cniTypes.Route{
-					Dst: c.NodeAddress.IPv4Route,
-				},
-				cniTypes.Route{
-					Dst: addressing.IPv4DefaultRoute,
-					GW:  c.NodeAddress.IPv4Address.IP(),
-				},
 			},
 		},
 		IPv6Allocator: ipallocator.NewCIDRRange(c.NodeAddress.IPv6AllocRange()),
-		IPv4Allocator: ipallocator.NewCIDRRange(c.NodeAddress.IPv4AllocRange()),
 	}
 
-	// Reserve the IPv4 router IP in the IPv4 allocation range to ensure
-	// that we do not hand out the router IP to a container.
-	err := ipamConf.IPv4Allocator.Allocate(c.NodeAddress.IPv4Address.IP())
-	if err != nil {
-		return nil, fmt.Errorf("Unable to reserve IPv4 router address %s: %s",
-			c.NodeAddress.IPv4Address.String(), err)
+	if c.IPv4Enabled {
+		ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(c.NodeAddress.IPv4AllocRange())
+		ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
+			// IPv4
+			cniTypes.Route{
+				Dst: c.NodeAddress.IPv4Route,
+			},
+			cniTypes.Route{
+				Dst: addressing.IPv4DefaultRoute,
+				GW:  c.NodeAddress.IPv4Address.IP(),
+			})
+		// Reserve the IPv4 router IP in the IPv4 allocation range to ensure
+		// that we do not hand out the router IP to a container.
+		err := ipamConf.IPv4Allocator.Allocate(c.NodeAddress.IPv4Address.IP())
+		if err != nil {
+			return nil, fmt.Errorf("Unable to reserve IPv4 router address %s: %s",
+				c.NodeAddress.IPv4Address.String(), err)
+		}
+
 	}
 
 	var consul *consulAPI.Client

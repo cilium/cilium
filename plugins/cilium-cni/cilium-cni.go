@@ -146,27 +146,32 @@ func createCNIReply(ipamConf *ipam.IPAMRep) error {
 		}
 		v6Routes = append(v6Routes, newRoute)
 	}
-	for _, r := range ipamConf.IP4.Routes {
-		newRoute := cniTypes.Route{
-			Dst: r.Destination,
-		}
-		if r.NextHop != nil {
-			newRoute.GW = r.NextHop
-		}
-		v4Routes = append(v4Routes, newRoute)
-	}
+
 	r := cniTypes.Result{
 		IP6: &cniTypes.IPConfig{
 			IP:      ipamConf.IP6.IP,
 			Gateway: ipamConf.IP6.Gateway,
 			Routes:  v6Routes,
 		},
-		IP4: &cniTypes.IPConfig{
+	}
+
+	if ipamConf.IP4 != nil {
+		for _, r := range ipamConf.IP4.Routes {
+			newRoute := cniTypes.Route{
+				Dst: r.Destination,
+			}
+			if r.NextHop != nil {
+				newRoute.GW = r.NextHop
+			}
+			v4Routes = append(v4Routes, newRoute)
+		}
+		r.IP4 = &cniTypes.IPConfig{
 			IP:      ipamConf.IP4.IP,
 			Gateway: ipamConf.IP4.Gateway,
 			Routes:  v4Routes,
-		},
+		}
 	}
+
 	return r.Print()
 }
 
@@ -240,7 +245,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	ep.IPv6 = addressing.DeriveCiliumIPv6(ipamConf.IP6.IP.IP)
-	ep.IPv4 = addressing.DeriveCiliumIPv4(ipamConf.IP4.IP.IP)
+	if ipamConf.IP4 != nil {
+		ep.IPv4 = addressing.DeriveCiliumIPv4(ipamConf.IP4.IP.IP)
+	}
 	ep.NodeIP = ipamConf.IP6.Gateway
 	ep.DockerID = args.ContainerID
 	ep.SetID()

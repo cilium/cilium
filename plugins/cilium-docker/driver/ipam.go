@@ -91,13 +91,10 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		addr = ipConfig.IP6.IP.IP.String() + "/128"
 	} else if ipConfig.IP4 != nil {
 		addr = ipConfig.IP4.IP.IP.String() + "/32"
-	} else {
-		sendError(w, "No address provided by IPAM backend", http.StatusBadRequest)
-		return
 	}
 
 	var resp *api.RequestAddressResponse
-	if ipConfig != nil {
+	if ipConfig.IP6 != nil || ipConfig.IP4 != nil {
 		resp = &api.RequestAddressResponse{
 			Address: addr,
 		}
