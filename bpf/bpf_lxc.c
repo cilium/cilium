@@ -24,6 +24,8 @@
 #include "lib/drop.h"
 #include "lib/dbg.h"
 
+#define POLICY_ID ((LXC_ID << 16) | SECLABEL)
+
 __BPF_MAP(CT_MAP6, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
 	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
 __BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
@@ -189,6 +191,8 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
+		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+
 		ret = ipv6_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -212,12 +216,14 @@ to_host:
 		policy_mark_skip(skb);
 #endif
 
-		tail_call(skb, &cilium_policy, HOST_ID);
+		tail_call(skb, &cilium_reserved_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
 #endif
 	}
 
 pass_to_stack:
+	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
+
 	ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
@@ -233,7 +239,7 @@ pass_to_stack:
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
-	tail_call(skb, &cilium_policy, WORLD_ID);
+	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
@@ -356,7 +362,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 #endif
 		}
 
-		cilium_trace(skb, DBG_GENERIC, tuple.addr, IPV4_GATEWAY);
 #ifdef HOST_IFINDEX
 		if (tuple.addr == IPV4_GATEWAY)
 			goto to_host;
@@ -381,6 +386,8 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
+		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+
 		ret = ipv4_l3(skb, l4_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -396,12 +403,14 @@ to_host:
 		policy_mark_skip(skb);
 #endif
 
-		tail_call(skb, &cilium_policy, HOST_ID);
+		tail_call(skb, &cilium_reserved_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
 #endif
 	}
 
 pass_to_stack:
+	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
+
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
@@ -419,7 +428,7 @@ pass_to_stack:
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
-	tail_call(skb, &cilium_policy, WORLD_ID);
+	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
@@ -544,7 +553,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	return 0;
 }
 
-__section_tail(CILIUM_MAP_POLICY, SECLABEL) int handle_policy(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];

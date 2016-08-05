@@ -61,9 +61,13 @@ var errors = map[uint8]string{
 	155: "CT: Map insertion failed",
 }
 
+func DropReason(reason uint8) string {
+	return errors[reason]
+}
+
 func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d Packet dropped %d (%s) %d bytes ifindex=%d",
-		prefix, n.Hash, n.Source, n.SubType, errors[n.SubType], n.OrigLen, n.Ifindex)
+		prefix, n.Hash, n.Source, n.SubType, DropReason(n.SubType), n.OrigLen, n.Ifindex)
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)

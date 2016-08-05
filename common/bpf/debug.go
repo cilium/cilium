@@ -30,6 +30,8 @@ const (
 	DBG_DECAP
 	DBG_PORT_MAP
 	DBG_ERROR_RET
+	DBG_TO_HOST
+	DBG_TO_STACK
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -45,6 +47,19 @@ var ctState = map[uint32]string{
 	CT_ESTABLISHED: "Established",
 	CT_REPLY:       "Reply",
 	CT_RELATED:     "Related",
+}
+
+func CtState(state uint32) string {
+	if state < 0 {
+		return DropReason(uint8(state))
+	}
+
+	return ctState[state]
+}
+
+func CtInfo(arg1 uint32, arg2 uint32) string {
+	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
+		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
 }
 
 type DebugMsg struct {
@@ -70,13 +85,13 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_POLICY_DENIED:
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
 	case DBG_CT_LOOKUP:
-		fmt.Printf("CT lookup sport=%d dport=%d\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT lookup: %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_MATCH:
-		fmt.Printf("CT entry found flags=%#x IPv6=[...]:%x\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT entry found lifetime=%d\n", n.Arg1)
 	case DBG_CT_CREATED:
-		fmt.Printf("CT created proto=%d flags=%#x\n", n.Arg1, n.Arg2)
+		fmt.Printf("CT created %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_VERDICT:
-		fmt.Printf("CT verdict: %s\n", ctState[n.Arg1])
+		fmt.Printf("CT verdict: %s\n", CtState(n.Arg1))
 	case DBG_ICMP6_HANDLE:
 		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
 	case DBG_ICMP6_REQUEST:
@@ -91,6 +106,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Mapping port from=%d to=%d\n", n.Arg1, n.Arg2)
 	case DBG_ERROR_RET:
 		fmt.Printf("BPF function %d returned error %d\n", n.Arg1, n.Arg2)
+	case DBG_TO_HOST:
+		fmt.Printf("Going to host, policy-skip=%d\n", n.Arg1)
+	case DBG_TO_STACK:
+		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

@@ -35,7 +35,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
-		cilium_trace(skb, DBG_CT_MATCH, 0, 0);
+		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime, 0);
 		entry->lifetime = CT_DEFAULT_LIFEIME;
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -167,13 +167,12 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
 			else {
-				if (unlikely(!flags.ack))
-					return DROP_CT_MISSING_ACK;
-
 				if (unlikely(flags.rst))
 					action = ACTION_DELETE;
 				else if (unlikely(flags.fin))
 					action = ACTION_CLOSE;
+
+				/* FIXME: Drop packets here with missing ACK flag? */
 			}
 		}
 		/* fall through */
@@ -195,7 +194,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 *
 	 * This will find an existing flow in the reverse direction.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP, tuple->sport, tuple->dport);
+	cilium_trace(skb, DBG_CT_LOOKUP, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	if ((ret = __ct_lookup(map, skb, tuple, action, in)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -208,7 +208,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv6_ct_tuple_reverse(tuple);
-	cilium_trace(skb, DBG_CT_LOOKUP, tuple->sport, tuple->dport);
+	cilium_trace(skb, DBG_CT_LOOKUP, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, in);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
@@ -300,13 +301,12 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 			if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
 			else {
-				if (unlikely(!flags.ack))
-					return DROP_CT_MISSING_ACK;
-
 				if (unlikely(flags.rst))
 					action = ACTION_DELETE;
 				else if (unlikely(flags.fin))
 					action = ACTION_CLOSE;
+
+				/* FIXME: Drop packets here with missing ACK flag? */
 			}
 		}
 		/* fall through */
@@ -328,7 +328,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 *
 	 * This will find an existing flow in the reverse direction.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP, tuple->sport, tuple->dport);
+	cilium_trace(skb, DBG_CT_LOOKUP, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	if ((ret = __ct_lookup(map, skb, tuple, action, in)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -341,7 +342,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv4_ct_tuple_reverse(tuple);
-	cilium_trace(skb, DBG_CT_LOOKUP, tuple->sport, tuple->dport);
+	cilium_trace(skb, DBG_CT_LOOKUP, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, in);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
@@ -370,7 +372,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		entry.tx_bytes = skb->len;
 	}
 
-	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	cilium_trace(skb, DBG_CT_CREATED, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
@@ -381,15 +384,14 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	tuple->dport = 0;
 	tuple->flags |= TUPLE_F_RELATED;
 
-	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	cilium_trace(skb, DBG_CT_CREATED, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	if (map_update_elem(map, tuple, &entry, 0) < 0) {
 		/* Previous map update succeeded, we could delete it
 		 * but we might as well just let it time out.
 		 */
 		return DROP_CT_CREATE_FAILED;
 	}
-
-	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
 
 	return 0;
 }
@@ -410,7 +412,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.tx_bytes = skb->len;
 	}
 
-	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	cilium_trace(skb, DBG_CT_CREATED, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
@@ -421,11 +424,10 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	tuple->dport = 0;
 	tuple->flags |= TUPLE_F_RELATED;
 
-	cilium_trace(skb, DBG_CT_CREATED, tuple->nexthdr, tuple->flags);
+	cilium_trace(skb, DBG_CT_CREATED, (tuple->sport << 16) | tuple->dport,
+		     (tuple->nexthdr << 8) | tuple->flags);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
-
-	cilium_trace(skb, DBG_GENERIC, CT_NEW, 0);
 
 	return 0;
 }

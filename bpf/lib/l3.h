@@ -152,7 +152,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int nh_off,
 		skb->cb[CB_SRC_LABEL] = seclabel;
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
-		tail_call(skb, &cilium_policy, ntohl(dst_lxc->sec_label));
+		tail_call(skb, &cilium_policy, lxc_id);
 		return DROP_MISSED_TAIL_CALL;
 	}
 
@@ -188,7 +188,7 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 		skb->cb[CB_SRC_LABEL] = seclabel;
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
-		tail_call(skb, &cilium_policy, ntohl(dst_lxc->sec_label));
+		tail_call(skb, &cilium_policy, dst_lxc->lxc_id);
 		return DROP_MISSED_TAIL_CALL;
 	}
 
