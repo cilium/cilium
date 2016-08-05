@@ -167,13 +167,12 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
 			else {
-				if (unlikely(!flags.ack))
-					return DROP_CT_MISSING_ACK;
-
 				if (unlikely(flags.rst))
 					action = ACTION_DELETE;
 				else if (unlikely(flags.fin))
 					action = ACTION_CLOSE;
+
+				/* FIXME: Drop packets here with missing ACK flag? */
 			}
 		}
 		/* fall through */
@@ -302,13 +301,12 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 			if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
 			else {
-				if (unlikely(!flags.ack))
-					return DROP_CT_MISSING_ACK;
-
 				if (unlikely(flags.rst))
 					action = ACTION_DELETE;
 				else if (unlikely(flags.fin))
 					action = ACTION_CLOSE;
+
+				/* FIXME: Drop packets here with missing ACK flag? */
 			}
 		}
 		/* fall through */
