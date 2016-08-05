@@ -11,7 +11,7 @@
 #define EVENT_SOURCE 0
 #endif
 
-#define POLICY_MAP_SIZE	MAX 65536
+#define POLICY_MAP_SIZE	65536
 #define RESERVED_POLICY_SIZE 128
 
 #define __inline__ __attribute__((always_inline))
