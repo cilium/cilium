@@ -62,12 +62,12 @@ $route_node1 = <<SCRIPT
 # Use of IPv6 'documentation block' to provide example
 ip r a 10.2.0.1/32 dev eth1
 ip -6 a a 2001:DB8:aaaa::1/48 dev eth1
-ip -6 r a f00d::c0a8:210c:0/112 via 2001:DB8:aaaa::2
+ip -6 r a f00d::c0a8:210c:0:0/96 via 2001:DB8:aaaa::2
 echo '2001:DB8:aaaa::1 node1' >> /etc/hosts
 echo '2001:DB8:aaaa::2 node2' >> /etc/hosts
 sleep 2s
 sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run -n f00d::c0a8:210b:0 --ipv4 --ipv4-range 10.1.0.1 -t vxlan' >> /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n f00d::c0a8:210b:0:0 --ipv4 --ipv4-range 10.1.0.1 -t vxlan' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 3s
 SCRIPT
@@ -75,12 +75,12 @@ SCRIPT
 $route_node2 = <<SCRIPT
 ip r a 10.1.0.1/32 dev eth1
 ip -6 a a 2001:DB8:aaaa::2/48 dev eth1
-ip -6 r a f00d::c0a8:210b:0/112 via 2001:DB8:aaaa::1
+ip -6 r a f00d::c0a8:210b:0:0/96 via 2001:DB8:aaaa::1
 echo '2001:DB8:aaaa::1 node1' >> /etc/hosts
 echo '2001:DB8:aaaa::2 node2' >> /etc/hosts
 sleep 2s
 sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run -n f00d::c0a8:210c:0 --ipv4 --ipv4-range 10.2.0.1 -t vxlan -c "192.168.33.11:8500"' >> /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n f00d::c0a8:210c:0:0 --ipv4 --ipv4-range 10.2.0.1 -t vxlan -c "192.168.33.11:8500"' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 3s
 SCRIPT

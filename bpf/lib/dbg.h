@@ -22,6 +22,8 @@ enum {
 	DBG_ERROR_RET,
 	DBG_TO_HOST,
 	DBG_TO_STACK,
+	DBG_PKT_HASH,
+	DBG_LB_SERVICES_LOOKUP_FAIL,
 };
 
 /* Capture types */
@@ -31,6 +33,7 @@ enum {
 	DBG_CAPTURE_FROM_NETDEV,
 	DBG_CAPTURE_FROM_OVERLAY,
 	DBG_CAPTURE_DELIVERY,
+	DBG_CAPTURE_FROM_LB,
 };
 
 static inline uint32_t __inline__ get_packet_marker(struct __sk_buff *skb)

@@ -11,6 +11,7 @@ import (
 
 type CiliumIP interface {
 	NodeID() uint32
+	State() uint16
 	EndpointID() uint16
 	IPNet(ones int) *net.IPNet
 	String() string
@@ -42,7 +43,11 @@ func DeriveCiliumIPv6(src net.IP) CiliumIPv6 {
 
 // Returns the node ID portion of the address or 0
 func (ip CiliumIPv6) NodeID() uint32 {
-	return binary.BigEndian.Uint32(ip[10:14])
+	return binary.BigEndian.Uint32(ip[8:12])
+}
+
+func (ip CiliumIPv6) State() uint16 {
+	return binary.BigEndian.Uint16(ip[12:14])
 }
 
 // Returns the container ID portion of the address or 0
@@ -52,17 +57,19 @@ func (ip CiliumIPv6) EndpointID() uint16 {
 
 // Returns true if IP is a valid IP for a container
 // To be valid must obey to the following rules:
-// - Node ID, bits from 112 to 120, must be different than 0
-// - Endpoint ID, bits from 120 to 128, must be different than 0
+// - Node ID, bits from 64 to 96, must be different than 0
+// - State, bits from 96 to 112, must be 0
+// - Endpoint ID, bits from 112 to 128, must be different than 0
 func (ip CiliumIPv6) ValidContainerIP() bool {
-	return ip.NodeID() != 0 && ip.EndpointID() != 0
+	return ip.NodeID() != 0 && ip.State() == 0 && ip.EndpointID() != 0
 }
 
 // Returns true if IP is a valid IP of a node
-// - Node ID, bits from 112 to 120, must be different than 0
-// - Endpoint ID, bits from 120 to 128, must be 0
+// - Node ID, bits from 64 to 96, must be different than 0
+// - State, bits from 96 to 112, must be 0
+// - Endpoint ID, bits from 112 to 128, must be 0
 func (ip *CiliumIPv6) ValidNodeIP() bool {
-	return ip.NodeID() != 0 && ip.EndpointID() == 0
+	return ip.NodeID() != 0 && ip.State() == 0 && ip.EndpointID() == 0
 }
 
 // NodeIP() return the node's IP based on an endpoint IP

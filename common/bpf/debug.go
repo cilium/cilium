@@ -10,6 +10,7 @@ const (
 	DBG_CAPTURE_FROM_NETDEV
 	DBG_CAPTURE_FROM_OVERLAY
 	DBG_CAPTURE_DELIVERY
+	DBG_CAPTURE_FROM_LB
 )
 
 const (
@@ -32,6 +33,8 @@ const (
 	DBG_ERROR_RET
 	DBG_TO_HOST
 	DBG_TO_STACK
+	DBG_PKT_HASH
+	DBG_LB_SERVICES_LOOKUP_FAIL
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -110,6 +113,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Going to host, policy-skip=%d\n", n.Arg1)
 	case DBG_TO_STACK:
 		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
+	case DBG_PKT_HASH:
+		fmt.Printf("Packet hash=%d (%#x)\n", n.Arg1, n.Arg1)
+	case DBG_LB_SERVICES_LOOKUP_FAIL:
+		fmt.Printf("lb_services lookup failed, vip.p4=%x key.dport=%d\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
@@ -141,6 +148,8 @@ func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
 		fmt.Printf("Incoming packet from overlay ifindex %d\n", n.Arg1)
 	case DBG_CAPTURE_DELIVERY:
 		fmt.Printf("Delivery to ifindex %d\n", n.Arg1)
+	case DBG_CAPTURE_FROM_LB:
+		fmt.Printf("Incoming packet to load balancer on ifindex %d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}

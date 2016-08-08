@@ -211,9 +211,37 @@ static inline __u16 derive_lxc_id(union v6addr *addr)
 	return ntohl(addr->p4) & 0xFFFF;
 }
 
+/* FIXME: rewrite this to avoid byte order conversion */
+static inline void ipv6_set_lxc_id(union v6addr *addr, __u16 lxc_id)
+{
+	__u32 p4 = ntohl(addr->p4);
+	p4 &= ~0xFFFF;
+	p4 |= lxc_id;
+	addr->p4 = htonl(p4);
+}
+
+static inline __u16 ipv6_derive_state(const union v6addr *addr)
+{
+	return (ntohl(addr->p4) >> 16);
+}
+
+/* FIXME: rewrite this to avoid byte order conversion */
+static inline void ipv6_set_state(union v6addr *addr, __u16 state)
+{
+	__u32 p4 = ntohl(addr->p4);
+	p4 &= 0xFFFF;
+	p4 |= (state << 16);
+	addr->p4 = htonl(p4);
+}
+
 static inline __u32 ipv6_derive_node_id(union v6addr *addr)
 {
-	return (ntohl(addr->p3) & 0xFFFF) << 16 | (ntohl(addr->p4) >> 16);
+	return ntohl(addr->p3);
+}
+
+static inline void ipv6_set_node_id(union v6addr *addr, __u32 node_id)
+{
+	addr->p3 = htonl(node_id);
 }
 
 static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,

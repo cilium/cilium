@@ -233,7 +233,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	ones, bits := addressing.NodeIPv6Mask.Size()
+	ones, bits := addressing.StateIPv6Mask.Size()
 	maskPerIPAMType := ones + 1
 	ipamSubnets := net.IPNet{IP: c.NodeAddress.IPv6Address.IP(), Mask: net.CIDRMask(maskPerIPAMType, bits)}
 

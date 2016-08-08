@@ -159,6 +159,29 @@ struct ct_entry {
 	__u16 rx_closing:1,
 	      tx_closing:1,
 	      reserve:14;
+	__u16 state;
+};
+
+struct lb_key {
+        union v6addr vip;
+        __u16 dport;
+};
+
+#define MAX_LXC                 8
+#define CILIUM_LB_MAP_SIZE	32
+
+struct lb_lxc_pair {
+        __u16 lxc_id;
+        __u16 port;
+        __u32 node_id;
+};
+
+struct lb_value {
+        union v6addr vip;
+        __u16 dport;
+        __u16 state;
+        int lxc_count; /* round robin across lxc */
+        struct lb_lxc_pair lxc[MAX_LXC];
 };
 
 #endif
