@@ -210,8 +210,8 @@ static inline int ipv6_prefix_match(struct in6_addr *addr,
  * s6 = v6prefix_src<s4>
  * d6 = v6prefix_dst<d4>
  */
-static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
-			       union v6addr *v6prefix_src,
+static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
+			       int nh_off, union v6addr *v6prefix_src,
 			       union v6addr *v6predix_dst)
 {
 	struct ipv6hdr v6 = {};
@@ -224,6 +224,9 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, int nh_off,
 	
 	if (skb_load_bytes(skb, nh_off, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;
+
+	if (ipv4_hdrlen(ip4) != sizeof(v4))
+		return DROP_INVALID_EXTHDR;
 
 	/* build v6 header */
 	v6.version = 0x6;
@@ -307,6 +310,10 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 
 	if (skb_load_bytes(skb, nh_off, &v6, sizeof(v6)) < 0)
 		return DROP_INVALID;
+
+	/* Drop frames which carry extensions headers */
+	if (ipv6_hdrlen(skb, nh_off, &v6.nexthdr) != sizeof(v6))
+		return DROP_INVALID_EXTHDR;
 
 	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
 #ifdef DEBUG_NAT46

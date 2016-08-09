@@ -168,7 +168,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if ((ip->daddr & IPV4_MASK) != IPV4_RANGE)
 			return TC_ACT_OK;
 
-		ret = ipv4_to_ipv6(skb, 14, &sp, &dp);
+		ret = ipv4_to_ipv6(skb, ip4, 14, &sp, &dp);
 		if (IS_ERR(ret))
 			return ret;
 
