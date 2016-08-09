@@ -94,13 +94,18 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	int l4_off, l3_off = ETH_HLEN;
+	__u8 nexthdr;
 	__u32 flowlabel;
 
-	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
+	if (data + l3_off + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
 
+	nexthdr = ip6->nexthdr;
+	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
+
 #ifdef HANDLE_NS
-	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 		int ret = icmp6_handle(skb, ETH_HLEN, ip6);
 		if (IS_ERR(ret))
 			return ret;
@@ -110,7 +115,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
 	if (likely(is_node_subnet(dst, &node_ip)))
-		return ipv6_local_delivery(skb, ETH_HLEN, flowlabel, ip6);
+		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr);
 
 	return TC_ACT_OK;
 }

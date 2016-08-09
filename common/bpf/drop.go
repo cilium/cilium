@@ -59,6 +59,8 @@ var errors = map[uint8]string{
 	153: "Error while correcting L3 checksum",
 	154: "Error while correcting L4 checksum",
 	155: "CT: Map insertion failed",
+	156: "Invalid IPv6 extension header",
+	157: "IPv6 fragmentation not supported",
 }
 
 func DropReason(reason uint8) string {
