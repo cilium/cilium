@@ -22,9 +22,10 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	struct bpf_tunnel_key key = {};
+	int l4_off, l3_off = ETH_HLEN;
 	__u32 node_id;
 
-	if (data + sizeof(*ip6) + ETH_HLEN > data_end)
+	if (data + sizeof(*ip6) + l3_off > data_end)
 		return DROP_INVALID;
 
 	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
@@ -51,8 +52,11 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	if (unlikely(node_id != NODE_ID))
 		return DROP_NON_LOCAL;
-	else
-		return ipv6_local_delivery(skb, ETH_HLEN, key.tunnel_id, ip6);
+	else {
+		__u8 nexthdr = ip6->nexthdr;
+		l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
+		return ipv6_local_delivery(skb, l3_off, l4_off, key.tunnel_id, ip6, nexthdr);
+	}
 }
 
 static inline int handle_ipv4(struct __sk_buff *skb)

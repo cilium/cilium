@@ -100,7 +100,7 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int off, __u32 secctx, int in)
+					struct __sk_buff *skb, int l4_off, __u32 secctx, int in)
 {
 	int ret, action = ACTION_UNSPEC;
 
@@ -121,15 +121,12 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	else
 		tuple->flags = TUPLE_F_IN;
 
-	/* FIXME: handle extension headers */
-	off += sizeof(struct ipv6hdr);
-
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMPV6:
 		if (1) {
 			__u8 type;
 
-			if (skb_load_bytes(skb, off, &type, 1) < 0)
+			if (skb_load_bytes(skb, l4_off, &type, 1) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			tuple->sport = 0;
@@ -161,7 +158,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		if (1) {
 			struct tcp_flags flags;
 
-			if (skb_load_bytes(skb, off + 12, &flags, 2) < 0)
+			if (skb_load_bytes(skb, l4_off + 12, &flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			if (unlikely(flags.syn && !flags.ack))
@@ -179,7 +176,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	case IPPROTO_UDP:
 		/* load sport + dport into tuple */
-		if (skb_load_bytes(skb, off, &tuple->dport, 4) < 0)
+		if (skb_load_bytes(skb, l4_off, &tuple->dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		action = ACTION_CREATE;

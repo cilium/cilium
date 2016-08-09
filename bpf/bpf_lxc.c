@@ -80,12 +80,12 @@ static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
 #endif
 
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
-				   struct ipv6_ct_tuple *tuple, int nh_off,
+				   struct ipv6_ct_tuple *tuple, int l3_off,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	int do_nat46 = 0, ret;
+	int do_nat46 = 0, ret, l4_off;
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -108,8 +108,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 */
 	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
 
-	/* FIXME: Handle extensions header size */
-	ret = map_lxc_out(skb, nh_off + sizeof(*ip6), ip6->nexthdr);
+	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
+	ret = map_lxc_out(skb, l4_off, tuple->nexthdr);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -119,7 +119,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, ETH_HLEN, SECLABEL, 0);
+	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -170,7 +170,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 			return DROP_INVALID;
 
-		return ipv6_local_delivery(skb, nh_off, SECLABEL, ip6);
+		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr);
 	} else {
 #ifdef ENABLE_NAT46
 		/* FIXME: Derive from prefix constant */
@@ -193,7 +193,7 @@ to_host:
 
 		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
-		ret = ipv6_l3(skb, nh_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
 
@@ -224,11 +224,11 @@ to_host:
 pass_to_stack:
 	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
 
-	ret = ipv6_l3(skb, nh_off, NULL, (__u8 *) &router_mac.addr);
+	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
 
-	if (ipv6_store_flowlabel(skb, nh_off, SECLABEL_NB) < 0)
+	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
 #ifndef POLICY_ENFORCEMENT
@@ -311,7 +311,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 */
 	tuple.addr = ip4->daddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-	ret = map_lxc_out(skb, l4_off, ip4->protocol);
+	ret = map_lxc_out(skb, l4_off, tuple.nexthdr);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -497,7 +497,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	int ret;
+	int ret, l4_off;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -506,7 +506,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.addr, (union v6addr *) &ip6->saddr);
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, ETH_HLEN, SECLABEL, 1);
+	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, 1);
 	if (ret < 0)
 		return ret;
 

@@ -48,18 +48,18 @@ static inline int do_encapsulation(struct __sk_buff *skb, __u32 node_id,
 }
 #endif /* ENCAP_IFINDEX */
 
-static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int nh_off,
+static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
 				     __u8 *smac, __u8 *dmac)
 {
 	int ret;
 
-	ret = ipv6_dec_hoplimit(skb, nh_off);
+	ret = ipv6_dec_hoplimit(skb, l3_off);
 	if (IS_ERR(ret))
 		return ret;
 
 	if (ret > 0) {
 		/* Hoplimit was reached */
-		return icmp6_send_time_exceeded(skb, nh_off);
+		return icmp6_send_time_exceeded(skb, l3_off);
 	}
 
 	if (smac && eth_store_saddr(skb, smac, 0) < 0)
@@ -121,8 +121,8 @@ static inline int __inline__ map_lxc_in(struct __sk_buff *skb, int l4_off,
 }
 #endif /* DISABLE_PORT_MAP */
 
-static inline int ipv6_local_delivery(struct __sk_buff *skb, int nh_off,
-				      __u32 seclabel, struct ipv6hdr *ip6)
+static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
+				      __u32 seclabel, struct ipv6hdr *ip6, __u8 nexthdr)
 {
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	__u32 lxc_id = derive_lxc_id(dst);
@@ -135,15 +135,14 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int nh_off,
 	if (dst_lxc) {
 		mac_t lxc_mac = dst_lxc->mac;
 		mac_t router_mac = dst_lxc->node_mac;
-		__u8 nexthdr = ip6->nexthdr;
 
 		/* This will invalidate the size check */
-		ret = ipv6_l3(skb, nh_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
+		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
 		if (ret != TC_ACT_OK)
 			return ret;
 
 #ifndef DISABLE_PORT_MAP
-		ret = map_lxc_in(skb, nh_off + sizeof(*ip6), dst_lxc, nexthdr);
+		ret = map_lxc_in(skb, l4_off, dst_lxc, nexthdr);
 		if (IS_ERR(ret))
 			return ret;
 #endif /* DISABLE_PORT_MAP */
