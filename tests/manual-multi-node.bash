@@ -7,6 +7,14 @@ function node_run {
 	NODE=$1
 	shift
 
+	echo "Running on ${NODE}: $*"
+	vagrant ssh $NODE -- -t "$*"
+}
+
+function node_run_quiet {
+	NODE=$1
+	shift
+
 	vagrant ssh $NODE -- -t "$*"
 }
 
@@ -27,18 +35,18 @@ function init {
 }
 
 function test_run {
-	SERVER=$(node_run cilium-master 'docker run -d --net cilium -l io.cilium.server --name server noironetworks/netperf')
-	CLIENT=$(node_run cilium-node-2 'docker run -d --net cilium -l io.cilium.client --name client noironetworks/netperf')
+	SERVER=$(node_run_quiet cilium-master 'docker run -d --net cilium -l io.cilium.server --name server noironetworks/netperf')
+	CLIENT=$(node_run_quiet cilium-node-2 'docker run -d --net cilium -l io.cilium.client --name client noironetworks/netperf')
 	sleep 5s
 
-	SERVER_IP=$(node_run cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server" | tr -d '\r')
+	SERVER_IP=$(node_run_quiet cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server" | tr -d '\r')
 	echo "Server IPv6: $SERVER_IP"
 
 	node_run cilium-node-2 "docker exec -i client ping6 -c 5 $SERVER_IP"
 	node_run cilium-node-2 "docker exec -i client netperf -t TCP_STREAM -H $SERVER_IP"
 
 	if [ ! -z "$IPV4" ]; then
-		SERVER_IP4=$(node_run cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server" | tr -d '\r')
+		SERVER_IP4=$(node_run_quiet cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server" | tr -d '\r')
 		echo "Server IPv4: $SERVER_IP4"
 		node_run cilium-node-2 "docker exec -i client ping -c 5 $SERVER_IP4"
 		node_run cilium-node-2 "docker exec -i client netperf -t TCP_STREAM -H $SERVER_IP4"
@@ -50,7 +58,9 @@ function test_run {
 function test_nodes {
 	OPTS=$*
 
+	echo "------------------------------------------------------------------------"
 	echo "Setting up nodes with options: $OPTS"
+	echo "------------------------------------------------------------------------"
 
 	node_run cilium-master "sudo cp /etc/init/cilium-net-daemon.conf tmp; sudo sed -i '/exec/d' tmp; echo \"exec cilium -D daemon run -n f00d::c0a8:210b:0:0 --ipv4-range 10.1.0.1 $OPTS\" | sudo tee -a tmp; sudo cp tmp /etc/init/cilium-net-daemon.conf; sudo service cilium-net-daemon restart"
 	node_run cilium-node-2 "sudo cp /etc/init/cilium-net-daemon.conf tmp; sudo sed -i '/exec/d' tmp; echo \"exec cilium -D daemon run -n f00d::c0a8:210c:0:0 --ipv4-range 10.2.0.1 $OPTS -c 192.168.33.11:8500\" | sudo tee -a tmp; sudo cp tmp /etc/init/cilium-net-daemon.conf; sudo service cilium-net-daemon restart"
