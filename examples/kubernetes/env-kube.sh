@@ -28,4 +28,4 @@ export KUBELET_HOST="${ip}"
 export KUBE_OS_DISTRIBUTION="debian"
 export RUNTIME_CONFIG="extensions/v1beta1,extensions/v1beta1/networkpolicies"
 export kubectl="/home/vagrant/kubernetes/cluster/kubectl.sh -s ${API_HOST}:${API_PORT}"
-export LOG_LEVEL=5
+#export LOG_LEVEL=5

@@ -3,8 +3,6 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 . ${dir}/env-kube.sh
 
-. ${dir}/utils.sh
-
 set -e
 
 if [ -z $1 ]; then
@@ -29,8 +27,7 @@ set -e
 i=1
 while [[ -z "$podIP" && ${i} -le ${tries} ]] ; do
     echo "Getting DNS IP. Attempt ${i}/${tries}..."
-    dockerID=$(${kubectl} describe pods --namespace=kube-system kube-dns-v11 | grep 'Container ID' | grep -oE '[0-9a-f]{64}' | head -1)
-    podIP=$(getIPv6 $dockerID)
+    podIP=$(${kubectl} describe pods --namespace=kube-system kube-dns-v11 | grep IP | sed -E 's/IP:[[:blank:]]+//g' )
     sleep 2s
     i=$(( $i + 1 ))
 done
