@@ -59,6 +59,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	}
 }
 
+#ifdef ENABLE_IPV4
+
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data_end = (void *) (long) skb->data_end;
@@ -91,6 +93,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	return ret;
 }
 
+#endif
+
 __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
@@ -107,8 +111,12 @@ int from_overlay(struct __sk_buff *skb)
 		break;
 
 	case __constant_htons(ETH_P_IP):
+#ifdef ENABLE_IPV4
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
 		ret = DROP_MISSED_TAIL_CALL;
+#else
+		ret = DROP_UNKNOWN_L3;
+#endif
 		break;
 
 	default:

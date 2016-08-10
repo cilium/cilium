@@ -41,6 +41,7 @@ type Config struct {
 	Device               string                  // Receive device
 	ConsulConfig         *consulAPI.Config       // Consul configuration
 	DockerEndpoint       string                  // Docker endpoint
+	IPv4Enabled          bool                    // Gives IPv4 addresses to containers
 	K8sEndpoint          string                  // Kubernetes endpoint
 	ValidLabelPrefixes   *types.LabelPrefixCfg   // Label prefixes used to filter from all labels
 	ValidLabelPrefixesMU sync.RWMutex

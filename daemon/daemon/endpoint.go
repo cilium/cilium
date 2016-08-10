@@ -244,7 +244,9 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
 	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.IPv6))
-	fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", binary.BigEndian.Uint32(ep.IPv4))
+	if ep.IPv4 != nil {
+		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", binary.BigEndian.Uint32(ep.IPv4))
+	}
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
 	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.ID)

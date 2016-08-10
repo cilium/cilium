@@ -125,7 +125,6 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 		IfName:           e.IfName,
 		LXCMAC:           make(MAC, len(e.LXCMAC)),
 		IPv6:             make(addressing.CiliumIPv6, len(e.IPv6)),
-		IPv4:             make(addressing.CiliumIPv4, len(e.IPv4)),
 		IfIndex:          e.IfIndex,
 		NodeMAC:          make(MAC, len(e.NodeMAC)),
 		NodeIP:           make(net.IP, len(e.NodeIP)),
@@ -133,10 +132,14 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	}
 	copy(cpy.LXCMAC, e.LXCMAC)
 	copy(cpy.IPv6, e.IPv6)
-	copy(cpy.IPv4, e.IPv4)
 	copy(cpy.NodeMAC, e.NodeMAC)
 	copy(cpy.NodeIP, e.NodeIP)
 	copy(cpy.PortMap, e.PortMap)
+
+	if e.IPv4 != nil {
+		cpy.IPv4 = make(addressing.CiliumIPv4, len(e.IPv4))
+		copy(cpy.IPv4, e.IPv4)
+	}
 	if e.SecLabel != nil {
 		cpy.SecLabel = e.SecLabel.DeepCopy()
 	}

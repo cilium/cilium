@@ -3,6 +3,8 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 . ${dir}/env-kube.sh
 
+. ${dir}/utils.sh
+
 set -e
 
 if [ -z $1 ]; then

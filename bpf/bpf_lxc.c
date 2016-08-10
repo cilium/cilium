@@ -275,6 +275,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, eth, ip6);
 }
 
+#ifdef LXC_IPV4
+
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -442,6 +444,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 
 	return ret;
 }
+
+#endif
 
 /*
  * ARP responder for ARP requests from container
