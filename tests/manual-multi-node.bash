@@ -37,10 +37,12 @@ function test_run {
 	node_run cilium-node-2 "docker exec -i client ping6 -c 5 $SERVER_IP"
 	node_run cilium-node-2 "docker exec -i client netperf -t TCP_STREAM -H $SERVER_IP"
 
-	SERVER_IP4=$(node_run cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server" | tr -d '\r')
-	echo "Server IPv4: $SERVER_IP4"
-	node_run cilium-node-2 "docker exec -i client ping -c 5 $SERVER_IP4"
-	node_run cilium-node-2 "docker exec -i client netperf -t TCP_STREAM -H $SERVER_IP4"
+	if [ ! -z "$IPV4" ]; then
+		SERVER_IP4=$(node_run cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server" | tr -d '\r')
+		echo "Server IPv4: $SERVER_IP4"
+		node_run cilium-node-2 "docker exec -i client ping -c 5 $SERVER_IP4"
+		node_run cilium-node-2 "docker exec -i client netperf -t TCP_STREAM -H $SERVER_IP4"
+	fi
 
 	cleanup
 }
@@ -63,5 +65,5 @@ function test_nodes {
 }
 
 init
-test_nodes "-t vxlan --ipv4"
+IPV4=1 test_nodes "-t vxlan --ipv4"
 test_nodes "-d eth1"
