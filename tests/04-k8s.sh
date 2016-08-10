@@ -3,7 +3,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "./helpers.bash"
 
-set -ex
+set -e
 
 if [ -z $K8S ]; then
 	exit 0
@@ -36,12 +36,16 @@ function cleanup {
     sudo killall -9 kube-proxy || true
     sudo killall -9 kube-apiserver || true
     docker rm -f `docker ps -aq --filter=name=k8s` 2> /dev/null || true
+    monitor_stop
 }
 
 trap cleanup EXIT
 
 start_k8s
 
+monitor_start
+
+set -x
 
 "${dir}/../examples/kubernetes/0-policy.sh" 300
 "${dir}/../examples/kubernetes/1-dns.sh" 300
@@ -50,6 +54,7 @@ start_k8s
 "${dir}/wait-for-docker.bash" k8s_redis-slave 100
 "${dir}/wait-for-docker.bash" k8s_redis-master 100
 
+monitor_clear
 docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && ping6 -c 5 redis-master' || {
     abort "Unable to ping redis-slave"
 }

@@ -2,19 +2,22 @@
 
 source "./helpers.bash"
 
-set -ex
+set -e
 
 TEST_NET="cilium"
 NETPERF_IMAGE="noironetworks/netperf"
 
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
+	monitor_stop
 }
 
 trap cleanup EXIT
 
 SERVER_LABEL="io.cilium.server"
 CLIENT_LABEL="io.cilium.client"
+
+monitor_start
 
 docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipam-driver cilium --driver cilium $TEST_NET
@@ -32,6 +35,7 @@ SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
 
 # FIXME IPv6 DAD period
 sleep 5
+set -x
 
 cat <<EOF | cilium -D policy import -
 {
@@ -50,21 +54,25 @@ EOF
 
 function connectivity_test() {
 	# ICMPv6 echo request client => server should succeed
+	monitor_clear
 	docker exec -i client ping6 -c 5 $SERVER_IP || {
 		abort "Error: Could not ping server container from client"
 	}
 
 	# ICMPv4 echo request client => server should succeed
+	monitor_clear
 	docker exec -i client ping -c 5 $SERVER_IP4 || {
 		abort "Error: Could not ping server container from client"
 	}
 
 	# ICMPv6 echo request host => server should succeed
+	monitor_clear
 	ping6 -c 5 $SERVER_IP || {
 		abort "Error: Could not ping server container from host"
 	}
 
 	# ICMPv4 echo request host => server should succeed
+	monitor_clear
 	ping -c 5 $SERVER_IP4 || {
 		abort "Error: Could not ping server container from host"
 	}
@@ -73,32 +81,38 @@ function connectivity_test() {
 	
 	if [ $BIDIRECTIONAL = 1 ]; then
 		# ICMPv6 echo request server => client should not succeed
+		monitor_clear
 		docker exec -i server ping6 -c 2 $CLIENT_IP && {
 			abort "Error: Unexpected success of ICMPv6 echo request"
 		}
 
 		# ICMPv4 echo request server => client should not succeed
+		monitor_clear
 		docker exec -i server ping -c 2 $CLIENT_IP4 && {
 			abort "Error: Unexpected success of ICMPv4 echo request"
 		}
 	fi
 
 	# TCP request to closed port should fail
+	monitor_clear
 	docker exec -i client nc $SERVER_IP 777 && {
 		abort "Error: Unexpected success of TCP IPv6 session to port 777"
 	}
 
 	# TCP request to closed port should fail
+	monitor_clear
 	docker exec -i client nc $SERVER_IP4 777 && {
 		abort "Error: Unexpected success of TCP IPv4 session to port 777"
 	}
 
 	# TCP client=>server should succeed
+	monitor_clear
 	docker exec -i client netperf -l 3 -t TCP_RR -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP IPv6 endpoint"
 	}
 
 	# TCP client=>server should succeed
+	monitor_clear
 	docker exec -i client netperf -l 3 -t TCP_RR -H $SERVER_IP4 || {
 		abort "Error: Unable to reach netperf TCP IPv4 endpoint"
 	}
@@ -110,11 +124,13 @@ function connectivity_test() {
 	#}
 
 	# UDP client=server should succeed
+	monitor_clear
 	docker exec -i client netperf -l 3 -t UDP_RR -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP IPv6 endpoint"
 	}
 
 	# UDP client=server should succeed
+	monitor_clear
 	docker exec -i client netperf -l 3 -t UDP_RR -H $SERVER_IP4 || {
 		abort "Error: Unable to reach netperf TCP IPv4 endpoint"
 	}

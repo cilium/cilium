@@ -2,7 +2,7 @@
 
 source "./helpers.bash"
 
-set -ex
+set -e
 
 TEST_NET="cilium"
 NETPERF_IMAGE="noironetworks/netperf"
@@ -45,6 +45,7 @@ LXC_MAC=$(cilium endpoint inspect $SERVER_ID | grep lxc-mac | awk '{print $2}' |
 
 # FIXME IPv6 DAD period
 sleep 5
+set -x
 
 cat <<EOF | cilium -D policy import -
 {
