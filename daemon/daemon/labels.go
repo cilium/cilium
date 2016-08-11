@@ -18,6 +18,7 @@ package daemon
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"strconv"
 	"time"
 
@@ -71,7 +72,7 @@ func (d *Daemon) initializeFreeID() error {
 
 func (d *Daemon) updateIDRef(secCtxLabels *types.SecCtxLabel) error {
 	var err error
-	lblKey := &consulAPI.KVPair{Key: common.IDKeyPath + strconv.FormatUint(uint64(secCtxLabels.ID), 10)}
+	lblKey := &consulAPI.KVPair{Key: path.Join(common.IDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))}
 	lblKey.Value, err = json.Marshal(secCtxLabels)
 	if err != nil {
 		return err
@@ -104,16 +105,16 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabel) error {
 	beginning := freeID
 	for {
 		log.Debugf("Trying to aquire a new free ID %d", freeID)
-		path := common.IDKeyPath + strconv.FormatUint(uint64(freeID), 10)
+		lockPath := path.Join(common.IDKeyPath, strconv.FormatUint(uint64(freeID), 10))
 
-		lockPair := &consulAPI.KVPair{Key: common.GetLockPath(path), Session: session}
+		lockPair := &consulAPI.KVPair{Key: common.GetLockPath(lockPath), Session: session}
 		acq, _, err := d.consul.KV().Acquire(lockPair, nil)
 		if err != nil {
 			return err
 		}
 
 		if acq {
-			lblKey, _, err := d.consul.KV().Get(path, nil)
+			lblKey, _, err := d.consul.KV().Get(lockPath, nil)
 			if err != nil {
 				d.consul.KV().Release(lockPair, nil)
 				return err
@@ -172,7 +173,7 @@ func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLab
 	if err != nil {
 		return nil, false, err
 	}
-	lblPath := common.LabelsKeyPath + sha256Sum
+	lblPath := path.Join(common.LabelsKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
 	lockKey, locker, err := d.lockPath(lblPath)
@@ -254,7 +255,7 @@ func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 	}
 
 	strID := strconv.FormatUint(uint64(id), 10)
-	pair, _, err := d.consul.KV().Get(common.IDKeyPath+strID, nil)
+	pair, _, err := d.consul.KV().Get(path.Join(common.IDKeyPath, strID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +274,7 @@ func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 
 // GetLabelsBySHA256 returns the SecCtxLabels that have the given SHA256SUM.
 func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
-	pair, _, err := d.consul.KV().Get(common.LabelsKeyPath+sha256sum, nil)
+	pair, _, err := d.consul.KV().Get(path.Join(common.LabelsKeyPath, sha256sum), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +313,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 	if sha256Sum == "" {
 		return nil
 	}
-	lblPath := common.LabelsKeyPath + sha256Sum
+	lblPath := path.Join(common.LabelsKeyPath, sha256Sum)
 	// Lock that sha256Sum
 	lockKey, locker, err := d.lockPath(lblPath)
 	if err != nil {

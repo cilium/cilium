@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	indexHTML = common.CiliumUIPath + "index.html"
+	indexHTML = common.CiliumUIPath + "/index.html"
 
 	writeWait = 10 * time.Second
 

@@ -153,10 +153,11 @@ func (d *Daemon) compileBase() error {
 		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
-	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
+	out, err := exec.Command(filepath.Join(d.conf.LibDir, "init.sh"), args...).CombinedOutput()
 	if err != nil {
-		log.Warningf("Command execution %s/init.sh %s failed: %s",
-			d.conf.LibDir, strings.Join(args, " "), err)
+		log.Warningf("Command execution %s %s failed: %s",
+			filepath.Join(d.conf.LibDir, "init.sh"),
+			strings.Join(args, " "), err)
 		log.Warningf("Command output:\n%s", out)
 		return err
 	}
