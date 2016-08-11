@@ -117,5 +117,10 @@ create_master
 create_nodes
 
 cd "${dir}/../.."
-
 vagrant up
+
+if [ -n "${RELOAD}" ]; then
+    vagrant reload
+else
+    vagrant up
+fi
