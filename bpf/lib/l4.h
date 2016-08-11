@@ -9,6 +9,8 @@
 #define TCP_DPORT_OFF (offsetof(struct tcphdr, dest))
 #define TCP_SPORT_OFF (offsetof(struct tcphdr, source))
 #define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
+#define UDP_DPORT_OFF (offsetof(struct udphdr, dest))
+#define UDP_SPORT_OFF (offsetof(struct udphdr, source))
 #define UDP_CSUM_OFF (offsetof(struct udphdr, check))
 
 
@@ -112,6 +114,11 @@ static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off, int csum_of
 
 	/* Port offsets for UDP and TCP are the same */
 	return l4_modify_port(skb, l4_off + TCP_SPORT_OFF, csum_off, map->from, sport);
+}
+
+static inline int l4_load_port(struct __sk_buff *skb, int off, __u16 *port)
+{
+        return skb_load_bytes(skb, off, port, sizeof(__u16));
 }
 
 #endif

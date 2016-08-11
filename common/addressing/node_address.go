@@ -126,7 +126,7 @@ func initIPv6Address(address string, device string) (CiliumIPv6, error) {
 			return nil, err
 		}
 
-		address = fmt.Sprintf("%s%02x%02x:%02x%02x:0",
+		address = fmt.Sprintf("%s%02x%02x:%02x%02x:0:0",
 			addressIP.String(), ip[0], ip[1], ip[2], ip[3])
 
 		return NewCiliumIPv6(address)

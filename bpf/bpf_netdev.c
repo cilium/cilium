@@ -32,14 +32,8 @@ static inline int is_node_subnet(const union v6addr *dst, const union v6addr *no
 	tmp = dst->p1 - node_ip->p1;
 	if (!tmp) {
 		tmp = dst->p2 - node_ip->p2;
-		if (!tmp) {
+		if (!tmp)
 			tmp = dst->p3 - node_ip->p3;
-			if (!tmp) {
-				__u32 a = ntohl(dst->p4);
-				__u32 b = ntohl(node_ip->p4);
-				tmp = (a & 0xFFFF0000) - (b & 0xFFFF0000);
-			}
-		}
 	}
 
 	return !tmp;
@@ -50,14 +44,8 @@ static inline int matches_cluster_prefix(const union v6addr *addr, const union v
 	int tmp;
 
 	tmp = addr->p1 - prefix->p1;
-	if (!tmp) {
+	if (!tmp)
 		tmp = addr->p2 - prefix->p2;
-		if (!tmp) {
-			__u32 a = ntohl(addr->p3);
-			__u32 b = ntohl(prefix->p3);
-			tmp = (a & 0xFFFF0000) - (b & 0xFFFF0000);
-		}
-	}
 
 	return !tmp;
 }

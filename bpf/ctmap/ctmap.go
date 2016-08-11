@@ -116,6 +116,8 @@ type CtEntry struct {
 	tx_packets uint64
 	tx_bytes   uint64
 	lifetime   uint16
+	flags      uint16
+	state      uint16
 }
 
 type CtEntryDump struct {
@@ -140,12 +142,14 @@ func (m *CtMap) Dump() (string, error) {
 
 		value := entry.Value
 		buffer.WriteString(
-			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d\n",
+			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x state=%d\n",
 				value.lifetime,
 				value.rx_packets,
 				value.rx_bytes,
 				value.tx_packets,
-				value.tx_bytes),
+				value.tx_bytes,
+				value.flags,
+				value.state),
 		)
 
 	}
