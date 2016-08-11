@@ -5,7 +5,7 @@ source "./helpers.bash"
 server_id=""
 client_id=""
 
-set -ex
+set -e
 
 function run_cni_container {
 	LABELS=""
@@ -57,7 +57,7 @@ function clean_container {
 function cleanup {
 	kill_cni_container $server_id cni-server
 	kill_cni_container $client_id cni-client
-
+	monitor_stop
 	rm -rf $DIR
 }
 
@@ -67,6 +67,8 @@ clean_container cni-server
 clean_container cni-client
 DIR=$(mktemp -d)
 cd $DIR
+
+monitor_start
 
 cat <<EOF | cilium -D policy import -
 {
@@ -108,5 +110,7 @@ server_ip4=$(extract_ip4 $server_id)
 echo "Waiting for containers to come up"
 sleep 3s
 
+monitor_clear
 docker exec -i cni-client ping6 -c 5 $server_ip
+monitor_clear
 docker exec -i cni-client ping -c 5 $server_ip4
