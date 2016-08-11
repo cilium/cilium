@@ -216,6 +216,11 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	ipv6Address := create.Interface.AddressIPv6
 	ipv4Address := create.Interface.Address
 
+	if ipv4Address == "" && ipv6Address == "" {
+		sendError(w, "No valid IP address provided", http.StatusBadRequest)
+		return
+	}
+
 	if ipv4Address == "" {
 		log.Warningf("No IPv4 address provided in CreateEndpoint request")
 	}
@@ -265,18 +270,20 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip6, _, err := net.ParseCIDR(ipv6Address)
-	if err != nil {
-		sendError(w, fmt.Sprintf("Invalid IPv6 address: %s", err), http.StatusBadRequest)
-		return
-	}
-
 	endpoint := types.Endpoint{
-		IPv6:             addressing.DeriveCiliumIPv6(ip6),
 		NodeIP:           driver.nodeAddress,
 		DockerNetworkID:  create.NetworkID,
 		DockerEndpointID: endID,
 		PortMap:          maps,
+	}
+
+	if ipv6Address != "" {
+		ip6, _, err := net.ParseCIDR(ipv6Address)
+		if err != nil {
+			sendError(w, fmt.Sprintf("Invalid IPv6 address: %s", err), http.StatusBadRequest)
+			return
+		}
+		endpoint.IPv6 = addressing.DeriveCiliumIPv6(ip6)
 	}
 
 	if ipv4Address != "" {
