@@ -97,6 +97,15 @@ func (ip CiliumIPv6) NodeIP() net.IP {
 	return nodeAddr
 }
 
+// Returns the host address from the node ID
+func (ip CiliumIPv6) HostIP() net.IP {
+	nodeAddr := make(net.IP, len(ip))
+	copy(nodeAddr, ip)
+	nodeAddr[14] = 0xff
+	nodeAddr[15] = 0xff
+	return nodeAddr
+}
+
 func (ip CiliumIPv6) IPNet(ones int) *net.IPNet {
 	return &net.IPNet{
 		IP:   ip.IP(),

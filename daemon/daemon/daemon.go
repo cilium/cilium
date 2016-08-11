@@ -184,9 +184,7 @@ func (d *Daemon) init() error {
 	}
 	fw := bufio.NewWriter(f)
 
-	hostIP := common.DupIP(d.conf.NodeAddress.IPv6Address.IP())
-	hostIP[14] = 0xff
-	hostIP[15] = 0xff
+	hostIP := d.conf.NodeAddress.IPv6Address.HostIP()
 
 	fmt.Fprintf(fw, ""+
 		"/*\n"+
@@ -249,9 +247,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	ones, bits := addressing.StateIPv6Mask.Size()
-	maskPerIPAMType := ones + 1
-	ipamSubnets := net.IPNet{IP: c.NodeAddress.IPv6Address.IP(), Mask: net.CIDRMask(maskPerIPAMType, bits)}
+	ipamSubnets := net.IPNet{
+		IP:   c.NodeAddress.IPv6Address.IP(),
+		Mask: addressing.StateIPv6Mask,
+	}
 
 	ipamConf := &ipam.IPAMConfig{
 		IPAMConfig: hb.IPAMConfig{
