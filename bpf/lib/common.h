@@ -148,7 +148,7 @@ struct ipv4_ct_tuple {
 	__u16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-};
+} __attribute__((packed));
 
 struct ct_entry {
 	__u64 rx_packets;
