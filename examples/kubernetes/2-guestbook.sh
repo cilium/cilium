@@ -30,4 +30,8 @@ if [ ${i} -ge ${tries} ]; then
 fi
 
 echo "Guestbook IP found! Open in your host the address"
-echo "http://[${podIP}]:3000"
+if [ -z "${IPV4}" ]; then
+    echo "http://[${podIP}]:3000"
+else
+    echo "http://${podIP}:3000"
+fi

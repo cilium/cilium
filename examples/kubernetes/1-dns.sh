@@ -15,7 +15,7 @@ kubectl="/home/vagrant/kubernetes/cluster/kubectl.sh -s ${API_HOST}:${API_PORT}"
 export RESOLV_FILE="/home/vagrant/resolv.conf"
 
 #Create SkyDNS
-envsubst \$API_HOST_IP,\$ETCD_HOST < ${dir}/skydns/skydns-rc.yaml.in > ${dir}/skydns/skydns-rc.yaml
+envsubst \$API_HOST,\$API_HOST_IP,\$ETCD_HOST < ${dir}/skydns/skydns-rc.yaml.in > ${dir}/skydns/skydns-rc.yaml
 envsubst \$RESOLV_FILE < ${dir}/guestbook/1-redis-master-controller.json.in > ${dir}/guestbook/1-redis-master-controller.json
 envsubst \$RESOLV_FILE < ${dir}/guestbook/3-redis-slave-controller.json.in > ${dir}/guestbook/3-redis-slave-controller.json
 envsubst \$RESOLV_FILE < ${dir}/guestbook/5-guestbook-controller.json.in > ${dir}/guestbook/5-guestbook-controller.json
