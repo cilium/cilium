@@ -416,7 +416,7 @@ to_host:
 
 		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
-		ret = ipv4_l3(skb, l4_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
+		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
 
