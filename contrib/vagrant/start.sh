@@ -67,7 +67,7 @@ function write_footer() {
     ipv6_addr="${2}"
     filename="${3}"
 
-    if [ -z "${K8S}" ]; then
+    if [ -n "${IPV4}" ]; then
         ipv4_options="--ipv4 --ipv4-range 10.${index}.0.1 "
     fi
 
@@ -117,7 +117,6 @@ create_master
 create_nodes
 
 cd "${dir}/../.."
-vagrant up
 
 if [ -n "${RELOAD}" ]; then
     vagrant reload
