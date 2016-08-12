@@ -188,17 +188,23 @@ func (d *Daemon) init() error {
 
 	fmt.Fprintf(fw, ""+
 		"/*\n"+
-		" * Node-IP: %s\n"+
-		" * Host-IP: %s\n"+
-		" */\n\n",
-		d.conf.NodeAddress.String(), hostIP.String())
+		" * Node-IPv6: %s\n"+
+		" * Host-IPv6: %s\n",
+		d.conf.NodeAddress.IPv6Address.IP().String(),
+		hostIP.String())
+
+	if d.conf.IPv4Enabled {
+		fmt.Fprintf(fw, ""+
+			" * Host-IPv4: %s\n"+
+			" */\n\n"+
+			"#define ENABLE_IPV4\n",
+			d.conf.NodeAddress.IPv4Address.IP().String())
+	} else {
+		fw.WriteString(" */\n\n")
+	}
 
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
 	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
-
-	if d.conf.IPv4Enabled {
-		fw.WriteString("#define ENABLE_IPV4\n")
-	}
 
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
