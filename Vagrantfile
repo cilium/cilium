@@ -68,9 +68,13 @@ SCRIPT
 
 $node_ip_base = ENV['NODE_IP_BASE'] || ""
 $master_ip = $node_ip_base + "#{ENV['FIRST_IP_SUFFIX']}"
-$num_node = (ENV['NUM_NODES'] || 2).to_i
+$num_node = (ENV['NUM_NODES'] || 0).to_i
 $node_ips = $num_node.times.collect { |n| $node_ip_base + "#{n+(ENV['FIRST_IP_SUFFIX']).to_i+1}" }
 $node_nfs_base_ip = ENV['NODE_NFS_IP_BASE']
+
+if ENV['K8S'] then
+    $k8stag="-k8s"
+end
 
 Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
@@ -109,7 +113,7 @@ Vagrant.configure(2) do |config|
         end
     end
 
-    master_vm_name = "cilium#{ENV['K8STAG']}-master"
+    master_vm_name = "cilium#{$k8stag}-master"
 
     config.vm.define master_vm_name, primary: true do |cm|
         cm.vm.network "private_network", ip: "#{$master_ip}",
@@ -133,8 +137,8 @@ Vagrant.configure(2) do |config|
 
     $num_node.times do |n|
         # n starts with 0
-        node_vm_name =  "cilium#{ENV['K8STAG']}-node-#{n+2}"
-        node_hostname =  "cilium#{ENV['K8STAG']}-node-#{n+2}"
+        node_vm_name =  "cilium#{$k8stag}-node-#{n+2}"
+        node_hostname =  "cilium#{$k8stag}-node-#{n+2}"
         config.vm.define node_vm_name do |node|
             node_ip = $node_ips[n]
             if ENV['CILIUM_TEMP'] then

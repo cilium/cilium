@@ -153,10 +153,11 @@ func (d *Daemon) compileBase() error {
 		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
-	out, err := exec.Command(d.conf.LibDir+"/init.sh", args...).CombinedOutput()
+	out, err := exec.Command(filepath.Join(d.conf.LibDir, "init.sh"), args...).CombinedOutput()
 	if err != nil {
-		log.Warningf("Command execution %s/init.sh %s failed: %s",
-			d.conf.LibDir, strings.Join(args, " "), err)
+		log.Warningf("Command execution %s %s failed: %s",
+			filepath.Join(d.conf.LibDir, "init.sh"),
+			strings.Join(args, " "), err)
 		log.Warningf("Command output:\n%s", out)
 		return err
 	}
@@ -183,23 +184,27 @@ func (d *Daemon) init() error {
 	}
 	fw := bufio.NewWriter(f)
 
-	hostIP := common.DupIP(d.conf.NodeAddress.IPv6Address.IP())
-	hostIP[14] = 0xff
-	hostIP[15] = 0xff
+	hostIP := d.conf.NodeAddress.IPv6Address.HostIP()
 
 	fmt.Fprintf(fw, ""+
 		"/*\n"+
-		" * Node-IP: %s\n"+
-		" * Host-IP: %s\n"+
-		" */\n\n",
-		d.conf.NodeAddress.String(), hostIP.String())
+		" * Node-IPv6: %s\n"+
+		" * Host-IPv6: %s\n",
+		d.conf.NodeAddress.IPv6Address.IP().String(),
+		hostIP.String())
+
+	if d.conf.IPv4Enabled {
+		fmt.Fprintf(fw, ""+
+			" * Host-IPv4: %s\n"+
+			" */\n\n"+
+			"#define ENABLE_IPV4\n",
+			d.conf.NodeAddress.IPv4Address.IP().String())
+	} else {
+		fw.WriteString(" */\n\n")
+	}
 
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
 	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
-
-	if d.conf.IPv4Enabled {
-		fw.WriteString("#define ENABLE_IPV4\n")
-	}
 
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
@@ -248,9 +253,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	ones, bits := addressing.StateIPv6Mask.Size()
-	maskPerIPAMType := ones + 1
-	ipamSubnets := net.IPNet{IP: c.NodeAddress.IPv6Address.IP(), Mask: net.CIDRMask(maskPerIPAMType, bits)}
+	ipamSubnets := net.IPNet{
+		IP:   c.NodeAddress.IPv6Address.IP(),
+		Mask: addressing.StateIPv6Mask,
+	}
 
 	ipamConf := &ipam.IPAMConfig{
 		IPAMConfig: hb.IPAMConfig{

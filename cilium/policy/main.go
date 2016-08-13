@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -305,7 +306,7 @@ func loadPolicy(name string) (*types.PolicyNode, error) {
 			continue
 		}
 
-		if p, err := loadPolicyFile(name + "/" + f.Name()); err != nil {
+		if p, err := loadPolicyFile(filepath.Join(name, f.Name())); err != nil {
 			return nil, err
 		} else {
 			if node != nil {
@@ -324,7 +325,7 @@ func loadPolicy(name string) (*types.PolicyNode, error) {
 			if ignoredFile(path.Base(f.Name())) {
 				continue
 			}
-			subpath := name + "/" + f.Name()
+			subpath := filepath.Join(name, f.Name())
 			if p, err := loadPolicy(subpath); err != nil {
 				return nil, err
 			} else {

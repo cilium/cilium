@@ -25,10 +25,10 @@ spec:
         env:
           -
             name: "KUBERNETES_PORT"
-            value: "tcp://[${API_HOST_IP}]:6443"
+            value: "tcp://${API_HOST}:6443"
           -
             name: "KUBERNETES_PORT_443_TCP"
-            value: "tcp://[${API_HOST_IP}]:6443"
+            value: "tcp://${API_HOST}:6443"
           -
             name: "KUBERNETES_SERVICE_PORT_HTTPS"
             value: "6443"

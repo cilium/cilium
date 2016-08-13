@@ -55,8 +55,14 @@ set -x
 "${dir}/wait-for-docker.bash" k8s_redis-master 100
 
 monitor_clear
-docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && ping6 -c 5 redis-master' || {
-    abort "Unable to ping redis-slave"
-}
+if [ -n "${IPV4}" ]; then
+    docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && ping -c 5 redis-master' || {
+        abort "Unable to ping redis-master"
+    }
+else
+    docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && ping6 -c 5 redis-master' || {
+        abort "Unable to ping6 redis-master"
+    }
+fi
 
 sudo cilium -D policy delete io.cilium

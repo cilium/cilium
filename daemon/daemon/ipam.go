@@ -164,6 +164,10 @@ func (d *Daemon) AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam
 
 // ReleaseIP releases an IP address in use by the specific IPAM type.
 func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
+	if options.IP != nil && d.isReservedAddress(*options.IP) {
+		fmt.Errorf("refusing to release reserved IP address: %s", options.IP)
+	}
+
 	switch ipamType {
 	case ipam.CNIIPAMType:
 		return releaseIPCNI(options, d.ipamConf)
@@ -223,4 +227,8 @@ func (d *Daemon) GetIPAMConf(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipa
 		return getIPAMConfLibnetwork(options, d.ipamConf)
 	}
 	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
+}
+
+func (d *Daemon) isReservedAddress(ip net.IP) bool {
+	return d.conf.IPv4Enabled && d.conf.NodeAddress.IPv4Address.IP().Equal(ip)
 }
