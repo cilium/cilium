@@ -50,6 +50,7 @@ const (
 	DBG_TO_STACK
 	DBG_PKT_HASH
 	DBG_LB_SERVICES_LOOKUP_FAIL
+	DBG_LB_STATE_LOOKUP_FAIL
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -132,6 +133,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Packet hash=%d (%#x)\n", n.Arg1, n.Arg1)
 	case DBG_LB_SERVICES_LOOKUP_FAIL:
 		fmt.Printf("lb_services lookup failed, vip.p4=%x key.dport=%d\n", n.Arg1, n.Arg2)
+	case DBG_LB_STATE_LOOKUP_FAIL:
+		fmt.Printf("lb_state lookup failed, state=%d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

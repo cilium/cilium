@@ -122,7 +122,6 @@ int from_netdev(struct __sk_buff *skb)
 		val = map_lookup_elem(&cilium_lb_services, &key);
 		if (val != NULL && val->lxc_count) {
 			union macaddr lb_mac = NODE_MAC;
-			union macaddr lxc_mac = LXC_MAC;
 			int i, which = hash % val->lxc_count;
 
 #pragma unroll
@@ -164,10 +163,11 @@ int from_netdev(struct __sk_buff *skb)
 			}
 
 			eth_store_saddr(skb, lb_mac.addr, 0);
-			eth_store_daddr(skb, lxc_mac.addr, 0);
 
-			cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, LB_SERVER_IFINDEX);
-			ret = redirect(LB_SERVER_IFINDEX, 0);
+			/* Send the packet to the stack */
+			cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+			skb->cb[CB_IFINDEX] = 0;
+			return TC_ACT_OK;
 		} else {
 			cilium_trace(skb, DBG_LB_SERVICES_LOOKUP_FAIL, key.vip.p4, key.dport);
 		}

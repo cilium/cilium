@@ -136,6 +136,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 func (d *Daemon) compileBase() error {
 	var args []string
+	var mode string
 
 	if err := d.writeNetdevHeader("./"); err != nil {
 		log.Warningf("Unable to write netdev header: %s\n", err)
@@ -148,7 +149,13 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), "direct", d.conf.Device}
+		if d.conf.LBMode {
+			mode = "lb"
+		} else {
+			mode = "direct"
+		}
+
+		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
 	} else {
 		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
