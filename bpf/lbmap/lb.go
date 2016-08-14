@@ -13,15 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package main
+package lb
 
 /*
+#cgo CFLAGS: -I../include
 #include <linux/bpf.h>
 #include <sys/resource.h>
 */
 import "C"
 
 import (
+	"bufio"
 	"fmt"
 	"math"
 	"net"
@@ -31,10 +33,16 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/noironetworks/cilium-net/common"
 	"github.com/noironetworks/cilium-net/common/bpf"
 	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/op/go-logging"
 
 	"github.com/codegangsta/cli"
+)
+
+var (
+	log = logging.MustGetLogger("cilium-net")
 )
 
 const (
@@ -92,60 +100,99 @@ func printArgsUsageAndExit(ctx *cli.Context) {
 	return
 }
 
-func main() {
-	app := cli.NewApp()
-	app.Name = "lb"
-	app.Usage = "eBPF Control MAP"
-	app.Version = "0.0.1"
-	app.Commands = []cli.Command{
-		{
-			Name:      "create",
-			Aliases:   []string{"c"},
-			Usage:     "creates map on the given <map file>",
-			ArgsUsage: "<map file> <lbtype>",
-			Action:    lbCreateMap,
-		},
-		{
-			Name:      "dump",
-			Aliases:   []string{"d"},
-			Usage:     "dumps map present on the given <map file>",
-			ArgsUsage: "<map file>",
-			Action:    lbDumpMap,
-		},
-		{
-			Name:      "get",
-			Aliases:   []string{"g"},
-			Usage:     "gets key's value of the given <map file>",
-			ArgsUsage: "<map file> <maptype 1> <ipv6 addr> <dport> | <map file> <maptype 2> <state>",
-			Action:    lbLookupKey,
-		},
-		{
-			Name:      "update",
-			Aliases:   []string{"u"},
-			Usage:     "updates key's value of the given <map file>",
-			ArgsUsage: "<map file> <maptype> <ipv6 addr> <dport> <state> <count> [<lxc-id> <lxc-port> <node-id> ...]",
-			Action:    lbUpdateKey,
-		},
-		{
-			Name:      "delete",
-			Aliases:   []string{"D"},
-			Usage:     "deletes key's value of the given <map file>",
-			ArgsUsage: "<map file> <maptype 1> <ipv6 addr> <dport> | <map file> <maptype 2> <state>",
-			Action:    lbDeleteKey,
+var (
+	// CliCommand is the command that will be used in cilium-net main program.
+	CliCommand cli.Command
+)
+
+func init() {
+	CliCommand = cli.Command{
+		Name:  "lb",
+		Usage: "configure load balancer",
+		Subcommands: []cli.Command{
+			{
+				Name:      "init",
+				Aliases:   []string{"i"},
+				Usage:     "initialize load balancer",
+				ArgsUsage: "<lb-ip> <server-prefix>",
+				Action:    lbInitialize,
+			},
+			{
+				Name:      "create",
+				Aliases:   []string{"c"},
+				Usage:     "creates map on the given <map file>",
+				ArgsUsage: "<map file> <lbtype>",
+				Action:    lbCreateMap,
+			},
+			{
+				Name:      "dump",
+				Aliases:   []string{"d"},
+				Usage:     "dumps map present on the given <map file>",
+				ArgsUsage: "<map file>",
+				Action:    lbDumpMap,
+			},
+			{
+				Name:      "get",
+				Aliases:   []string{"g"},
+				Usage:     "gets key's value of the given <map file>",
+				ArgsUsage: "<map file> <maptype 1> <ipv6 addr> <dport> | <map file> <maptype 2> <state>",
+				Action:    lbLookupKey,
+			},
+			{
+				Name:      "update",
+				Aliases:   []string{"u"},
+				Usage:     "updates key's value of the given <map file>",
+				ArgsUsage: "<map file> <maptype> <ipv6 addr> <dport> <state> <count> [<lxc-id> <lxc-port> <node-id> ...]",
+				Action:    lbUpdateKey,
+			},
+			{
+				Name:    "delete",
+				Aliases: []string{"D"},
+				Action:  lbDeleteKey,
+			},
 		},
 	}
+}
 
-	rl := syscall.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
+func lbInitialize(ctx *cli.Context) {
+	if len(ctx.Args()) != 2 {
+		printArgsUsageAndExit(ctx)
+		return
 	}
 
-	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
+	globalsDir := filepath.Join(common.CiliumPath, "globals")
+	if err := os.MkdirAll(globalsDir, 0755); err != nil {
+		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
+	}
+
+	if err := os.Chdir(common.CiliumPath); err != nil {
+		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
+			common.CiliumPath, err)
+	}
+
+	f, err := os.Create("./globals/lb_config.h")
 	if err != nil {
-		fmt.Printf("Failled setting rlimit %s\n", err)
+		log.Fatalf("Could not create lb_config.h: %s\n", err)
 	}
 
-	app.Run(os.Args)
+	fw := bufio.NewWriter(f)
+
+	ip := ctx.Args().First()
+	if ip6 := net.ParseIP(ip); ip6 != nil && ip6.To16() != nil {
+		fw.WriteString(common.FmtDefineArray("ROUTER_IP", ip6.To16()))
+	} else {
+		log.Fatalf("Invalid ipv6 address %s\n", ip)
+	}
+
+	sprefix := ctx.Args().Get(1)
+	if ip6 := net.ParseIP(sprefix); ip6 != nil && ip6.To16() != nil {
+		fw.WriteString(common.FmtDefineArray("SERVER_PREFIX", ip6.To16()))
+	} else {
+		log.Fatalf("Invalid ipv6 address %s\n", sprefix)
+	}
+
+	fw.Flush()
+	f.Close()
 }
 
 func lbOpenMap(path string, lbtype uint) (*LBMap, error) {

@@ -41,6 +41,7 @@ enum {
 	DBG_TO_STACK,
 	DBG_PKT_HASH,
 	DBG_LB_SERVICES_LOOKUP_FAIL,
+	DBG_LB_STATE_LOOKUP_FAIL,
 };
 
 /* Capture types */

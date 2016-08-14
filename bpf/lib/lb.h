@@ -64,6 +64,8 @@ static inline int lb_dsr_dnat(struct __sk_buff *skb, __u16 state, struct ipv6_ct
 		sum = csum_diff(sip.addr, 16, tmp.addr, 16, 0);
 		if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
+	} else {
+		cilium_trace(skb, DBG_LB_STATE_LOOKUP_FAIL, state, 0);
 	}
 
 	return 0;

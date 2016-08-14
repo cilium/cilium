@@ -179,6 +179,11 @@ func init() {
 						Usage:       "Enables cilium web UI",
 					},
 					cli.BoolFlag{
+						Destination: &config.LBMode,
+						Name:        "lb",
+						Usage:       "Enables load balancer mode where load balancer bpf program is attached to the interface ",
+					},
+					cli.BoolFlag{
 						Destination: &config.IPv4Enabled,
 						Name:        "ipv4",
 						Usage:       "Enables IPv4 mode where containers receive an IPv4 address ",

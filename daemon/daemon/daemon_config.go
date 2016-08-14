@@ -62,6 +62,7 @@ type Config struct {
 	ValidLabelPrefixesMU sync.RWMutex
 	UIServerAddr         string // TCP address for UI server
 	UIEnabled            bool
+	LBMode               bool   // Set to true on load balancer node
 	Tunnel               string // Tunnel mode
 
 	DryMode      bool // Do not create BPF maps, devices, ..

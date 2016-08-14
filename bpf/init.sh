@@ -20,7 +20,7 @@ ADDR=$3
 V4ADDR=$4
 MODE=$5
 
-# Only set if MODE = "direct"
+# Only set if MODE = "direct" or "lb"
 NATIVE_DEV=$6
 
 MOUNTPOINT="/sys/fs/bpf"
@@ -149,6 +149,16 @@ if [ "$MODE" = "direct" ]; then
 		ID=$(cilium policy get-id $WORLD_ID 2> /dev/null)
 		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 		bpf_compile $NATIVE_DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
+
+		echo "$NATIVE_DEV" > $RUNDIR/device.state
+	fi
+elif [ "$MODE" = "lb" ]; then
+	if [ -z "$NATIVE_DEV" ]; then
+		echo "No device specified for direct mode, ignoring..."
+	else
+		sysctl -w net.ipv6.conf.all.forwarding=1
+
+		bpf_compile $NATIVE_DEV "" bpf_lb.c bpf_lb.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi

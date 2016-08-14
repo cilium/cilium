@@ -18,6 +18,7 @@ package main
 import (
 	"os"
 
+	lb "github.com/noironetworks/cilium-net/bpf/lbmap"
 	endpoint "github.com/noironetworks/cilium-net/cilium/endpoint"
 	"github.com/noironetworks/cilium-net/cilium/monitor"
 	policy "github.com/noironetworks/cilium-net/cilium/policy"
@@ -53,6 +54,7 @@ func main() {
 		policy.CliCommand,
 		endpoint.CliCommand,
 		monitor.CliCommand,
+		lb.CliCommand,
 	}
 	app.Before = initEnv
 	app.Run(os.Args)
