@@ -128,7 +128,7 @@ func init() {
 				Name:      "dump",
 				Aliases:   []string{"d"},
 				Usage:     "dumps map present on the given <map file>",
-				ArgsUsage: "<map file>",
+				ArgsUsage: "<map file> <lbtype>",
 				Action:    lbDumpMap,
 			},
 			{
@@ -274,20 +274,7 @@ func lbCreateMap(ctx *cli.Context) {
 	}
 }
 
-func lbDumpMap(ctx *cli.Context) {
-	if len(ctx.Args()) != 1 {
-		printArgsUsageAndExit(ctx)
-		return
-	}
-
-	file := ctx.Args().Get(0)
-
-	fd, err := bpf.ObjGet(file)
-	if err != nil {
-		printErrorAndExit(ctx, "Failed to open file", errInvalidArgument)
-		return
-	}
-
+func lbDumpMapServices(fd int) {
 	var key, nextKey LBKey
 	for {
 		var lbval LBValue
@@ -312,10 +299,75 @@ func lbDumpMap(ctx *cli.Context) {
 			os.Exit(errIOFailure)
 			return
 		}
-		fmt.Printf("%#x: %d %d\n", nextKey, lbval.lxcCount, lbval.state)
+		fmt.Printf("key:%#x, state:%d, count:%d\n", nextKey, lbval.state, lbval.lxcCount)
+		for i := 0; i < int(lbval.lxcCount); i++ {
+			fmt.Printf("%+v\n", lbval.lxc[i])
+		}
 
 		key = nextKey
 	}
+}
+
+func lbDumpMapState(fd int) {
+	var key, nextKey uint16
+	for {
+		var lbval LBValue
+		err := bpf.GetNextKey(
+			fd,
+			unsafe.Pointer(&key),
+			unsafe.Pointer(&nextKey),
+		)
+
+		if err != nil {
+			break
+		}
+
+		err = bpf.LookupElement(
+			fd,
+			unsafe.Pointer(&nextKey),
+			unsafe.Pointer(&lbval),
+		)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(errIOFailure)
+			return
+		}
+		fmt.Printf("key:%d, vip:%#x, dport:%#x, count:%d\n", nextKey, lbval.vip, lbval.dport, lbval.lxcCount)
+		for i := 0; i < int(lbval.lxcCount); i++ {
+			fmt.Printf("%+v\n", lbval.lxc[i])
+		}
+
+		key = nextKey
+	}
+}
+
+func lbDumpMap(ctx *cli.Context) {
+	if len(ctx.Args()) != 2 {
+		printArgsUsageAndExit(ctx)
+		return
+	}
+
+	file := ctx.Args().Get(0)
+
+	fd, err := bpf.ObjGet(file)
+	if err != nil {
+		printErrorAndExit(ctx, "Failed to open file", errInvalidArgument)
+		return
+	}
+
+	lbtype, err := strconv.ParseUint(ctx.Args().Get(1), 10, 8)
+	if err != nil {
+		printArgsUsageAndExit(ctx)
+		return
+	}
+
+	if lbtype == lbServices {
+		lbDumpMapServices(fd)
+	} else if lbtype == lbState {
+		lbDumpMapState(fd)
+	}
+
 }
 
 func lookupLb1(file string, key *LBKey) (*LBValue, error) {
@@ -458,7 +510,7 @@ func lbUpdateKey(ctx *cli.Context) {
 
 	arg := 6
 	for i := 0; i < int(count); i++ {
-		tmp, err = strconv.ParseUint(ctx.Args().Get(arg), 10, 16)
+		tmp, err = strconv.ParseUint(ctx.Args().Get(arg), 0, 16)
 		if err != nil {
 			printArgsUsageAndExit(ctx)
 			return
@@ -472,7 +524,7 @@ func lbUpdateKey(ctx *cli.Context) {
 		}
 		lbval.lxc[i].Port = uint16(tmp)
 
-		tmp1, err := strconv.ParseUint(ctx.Args().Get(arg+2), 10, 32)
+		tmp1, err := strconv.ParseUint(ctx.Args().Get(arg+2), 0, 32)
 		if err != nil {
 			printArgsUsageAndExit(ctx)
 			return
