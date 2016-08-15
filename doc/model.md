@@ -1,60 +1,46 @@
 # Networking Model
 
+The networking model implemented by Cilium is kept as simple as possible and
+has been designed for users of containers to not require knowledge of
+networking itself.
+
+Each container receives a unique IPv6 and/or IPv4 address which empowers the
+container to initiate connections to any other container or external endpoints
+as long as the policy allows it. Complexity caused by integration into
+physical or virtual networks is hidden from users.
+
 ## Addressing
 
-* Single flat L3 network. L2 limited to short path between container and BPF
-  program attached to it. No networks, no subnets, no VLANs, no broadcast
-  domains.
-* Currently supported integrations:
-  * Native IPv4 and IPv6 routing. Run your own route distribution.
-  * Overlay with encapsulation: VXLAN, Geneve, GRE.
-* One agent per node. All functionality is distributed on the edge.
-  No controller.
-* Host scope address allocation only. No need for containers to have an
-  address in a particular network. No need for nodes to negotiate
-  addresses. Addressing is decoupled from the desired isolation guarantees.
-* Path to a native IPv6 cluster transition for maximum scale while providing
-  backwards compatibility to legacy IPv4 endpoints for as long as needed.
+### Node address
 
-### IPv6 vs IPv4
+Each node running a cilium agent must be assigned a `/64` IPv6 prefix
+allocated from a cluster wide `/48` prefix. Two node addresses are 
+utomatically generated based on the assigned prefix by setting the
+last 32 bits of the address to `0:0` respectively `0:ffff`.
+
+```
+Host address in Linux world: cluster:node:0:ffff
+Host address in Cilium world: cluster:node:0:0
+```
+
+Optionally, an IPv4 prefix can be specified using the `--ipv4-range` option.
+If unspecified, Cilium will generate an IPv4 range based on the template
+`10.X.0.0/16` where X will be replaced with the last byte of the first global
+IPv4 address configured on the node. The corresponding node address is
+`10.X.0.1`.
+
+### Container Addresses
+
+Each container is allocated an IPv6 and an optional IPv4 address (if IPv4 has
+been enabled) out of the node address prefix specified.
+
+## IPv6 vs IPv4
 
 Cilium is specifically designed with IPv6 in mind and with native IPv6 as
 the long term model to address containers in a scalable fashion. For this
 purpose, IPv6 is being treated as the primary citizen and although IPv4
 connectivity is entirely supported, its existence is to provide legacy
 support.
-
-### Address Allocation
-
-The addressing schema is modeled with the goal to make each cluster node as
-independent as possible. The address allocator is thus given a `/112` prefix
-out of which it can allocate without any further coordination in the cluster.
-This is typically referred to as a host scope allocator.
-
-Each cluster node is identified by a node id (32 bit) which is also embedded
-into the container address of each container running on that node. This is
-done under the assumption that a container is not migrated by moving it but
-by creating a new container instance of the application on another node and
-then retiring the old container instance on the original node. This keeps
-the amount of state to redistribute to an absolute minimum. Once assigned a
-prefix, a node can create and attach containers on its own without any
-further orchestration. It also allows to derive the location (node id) of the
-container solely based on the destination address of a container.
-
-If IPv4 is to be preferred way for nodes to communicate, the node id can be
-derived directly from the IPv4 address of the node, allowing to derive the
-IPv4 address via the node IP without any further lookups. In an IPv6 network,
-the node id is translated to the IPv6 of the node via a distributed lookup
-table.
-
-### Prefix List
-
-```
-Cilium universe (cluster prefix): 2001:DB8:f00d:cafe::/64
-Container prefix of a node:       2001:DB8:f00d:cafe:NODE_ID:NODE_ID:STATE:/112
-Node IPv6 address:                2001:DB8:f00d:cafe:NODE_ID:NODE_ID::/128
-                                  2001:DB8:f00d:cafe:NODE_ID:NODE_ID:0:ffff/128
-```
 
 ### NAT46
 
@@ -122,4 +108,4 @@ routes. This again allows to scale unicast traffic to millions of containers.
 
 ## Direct server return
 
-FIXME
+TBD
