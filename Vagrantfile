@@ -68,7 +68,7 @@ SCRIPT
 
 $node_ip_base = ENV['NODE_IP_BASE'] || ""
 $master_ip = $node_ip_base + "#{ENV['FIRST_IP_SUFFIX']}"
-$num_node = (ENV['NUM_NODES'] || 0).to_i
+$num_node = (ENV['NUM_NODES'] || 1).to_i
 $node_ips = $num_node.times.collect { |n| $node_ip_base + "#{n+(ENV['FIRST_IP_SUFFIX']).to_i+1}" }
 $node_nfs_base_ip = ENV['NODE_NFS_IP_BASE']
 

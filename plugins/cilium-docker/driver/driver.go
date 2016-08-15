@@ -216,16 +216,13 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	ipv6Address := create.Interface.AddressIPv6
 	ipv4Address := create.Interface.Address
 
-	if ipv4Address == "" && ipv6Address == "" {
-		sendError(w, "No valid IP address provided", http.StatusBadRequest)
-		return
-	}
-
 	if ipv4Address == "" {
 		log.Warningf("No IPv4 address provided in CreateEndpoint request")
 	}
+
 	if ipv6Address == "" {
-		log.Warningf("No IPv6 address provided in CreateEndpoint request")
+		sendError(w, "No IPv6 address provided (required)", http.StatusBadRequest)
+		return
 	}
 
 	maps := make([]types.EPPortMap, 0, 32)
