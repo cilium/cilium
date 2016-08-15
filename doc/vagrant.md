@@ -1,11 +1,21 @@
+# Vagrant
+
+## Fast Path
+
 To bring up a [vagrant](https://www.vagrantup.com/) VM with Cilium
-installed and running:
+plus all dependencies installed and running:
 
 ```
-$ vagrant up
+$ contrib/vagrant/start.sh [num_nodes]
 ```
 
-Alternatively you can use the vagrant box `noironetworks/net-next` directly and
+This will bring up a master node plus an optional list of additional slave
+nodes. The master node will run a consult agent with the slaves configured to
+point to the consul of the master.
+
+## Manual installation
+
+Alternatively you can import the vagrant box `noironetworks/net-next` directly and
 manually install Cilium:
 
   ```
@@ -17,3 +27,14 @@ manually install Cilium:
   $ sudo make install
   $ sudo service cilium-net-daemon restart
   ```
+
+## (Re)building the box
+
+To manually build the vagrant boxes using packer:
+
+```
+$ cd contrib/packer-scripts/ubuntu-14.04/
+$ make build-vbox
+$ make build-libvirt
+$ make build-...
+```
