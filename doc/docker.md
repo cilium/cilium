@@ -1,41 +1,44 @@
 # Cilium Docker Plugin
 
 The Cilium docker plugin provides integration of Cilium with Docker. The plugin
-will automatically handle network connectivity and/or address allocation (IPAM)
-requests for any network of type "cilium".
+will provide both, address allocation (IPAM) and connectivity (plumbing).
 
 ## Installation
 
-NOTE: This plugin currently depends on the following change to allow for IPv6
-only containers which has not been merged yet:
-https://github.com/docker/libnetwork/pull/826
+The plugin requires a running Cilium daemon to manage BPF programs, see
+[installation](installation.md) for detailed instructions on how to install
+the daemon itself.
 
 The plugin consists of a single binary `cilium-docker` which can be installed
-in any location. For connectivity to the Cilium daemon, the UNIX domain socket
-of the daemon must be reachable via the local filesystem.
+in any location. The `make install` target will install it in `bindir`.
+For connectivity to the Cilium daemon, the UNIX domain socket of the daemon
+(`/var/run/cilium/cilium.sock`) must be accessible for the plugin.
 
 Various templates for integration with service management tools such as
 upstart or systemd can be found in the [`contrib/`](../contrib) directory.
 
+NOTE: Docker libnetwork is currently not capable of running IPv6 only
+containers via the libnetwork abstraction. A [pull request] is pending to
+resolve this. In the meantime, you have to start Cilium with IPv4 enabled:
+`cilium daemon run --ipv4`.
+
 ## Usage
 
-Attaching a container to Cilium is done by attaching the container to a network
-of type "cilium". Such a network can be created as follows:
+As isolation and segmentation is enforced based on container labels. It is
+not required to create multiple networks. You may do so but it will not
+impact any segmentation rules. It is suggested to create a single Docker
+network. Please note that IPv6 must be enabled on the network as the IPv6
+address is also the unique identifier for each container:
 
 ```
-$ docker network create --driver cilium --ipam-driver cilium cilium
+$ docker network create --opt 'enableIPv6=true' --driver cilium --ipam-driver cilium cilium
 $ docker run --net cilium hello-world
 ```
-
-The security and isolation model of Cilium is solely based on container labels.
-It is therefore not required to create multiple networks for the purpose of
-creating isolation boundaries. It is possible to create multiple Cilium
-networks although doing so will not have any effect, Cilium will treat all
-attached containers as a single namespace and enforce security based on
-container labels.
 
 ## Address Management (IPAM)
 
 The `cilium-docker` plugin will allocate an unique IPv6 address out of the
 address prefix assigned to the container host. See [here](model.md#prefix-list) for
 additional information on the addressing model of Cilium.
+
+[pull request]:https://github.com/docker/libnetwork/pull/826
