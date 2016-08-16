@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/op/go-logging"
 )

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/noironetworks/cilium-net/common/ipam"
+	"github.com/cilium/cilium/common/ipam"
 )
 
 type CiliumIP interface {

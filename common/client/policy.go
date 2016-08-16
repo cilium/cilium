@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 )
 
 // PolicyAdd sends a POST request with node to the "/policy/+path" endpoint to the daemon.

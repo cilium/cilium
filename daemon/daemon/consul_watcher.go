@@ -18,7 +18,7 @@ package daemon
 import (
 	"time"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 
 	consulAPI "github.com/hashicorp/consul/api"
 )

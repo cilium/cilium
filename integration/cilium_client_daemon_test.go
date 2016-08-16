@@ -22,12 +22,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/backend"
-	cnc "github.com/noironetworks/cilium-net/common/client"
-	"github.com/noironetworks/cilium-net/common/types"
-	cnd "github.com/noironetworks/cilium-net/daemon/daemon"
-	cns "github.com/noironetworks/cilium-net/daemon/server"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/backend"
+	cnc "github.com/cilium/cilium/common/client"
+	"github.com/cilium/cilium/common/types"
+	cnd "github.com/cilium/cilium/daemon/daemon"
+	cns "github.com/cilium/cilium/daemon/server"
 
 	. "gopkg.in/check.v1"
 )

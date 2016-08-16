@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 )
 
 func processErrorBody(serverResp []byte, i interface{}) error {

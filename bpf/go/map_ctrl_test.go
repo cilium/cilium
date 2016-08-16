@@ -18,7 +18,7 @@ package main
 import (
 	"testing"
 
-	"github.com/noironetworks/cilium-net/bpf/lxcmap"
+	"github.com/cilium/cilium/bpf/lxcmap"
 
 	. "gopkg.in/check.v1"
 )

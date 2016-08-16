@@ -22,7 +22,7 @@ manually install Cilium:
   $ vagrant init noironetworks/net-next
   $ vagrant up
   $ vagrant ssh [...]
-  $ cd go/src/github.com/noironetworks/cilium-net/
+  $ cd go/src/github.com/cilium/cilium/
   $ make
   $ sudo make install
   $ sudo service cilium-net-daemon restart

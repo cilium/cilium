@@ -18,12 +18,12 @@ package main
 import (
 	"os"
 
-	lb "github.com/noironetworks/cilium-net/bpf/lbmap"
-	endpoint "github.com/noironetworks/cilium-net/cilium/endpoint"
-	"github.com/noironetworks/cilium-net/cilium/monitor"
-	policy "github.com/noironetworks/cilium-net/cilium/policy"
-	"github.com/noironetworks/cilium-net/common"
-	daemon "github.com/noironetworks/cilium-net/daemon"
+	lb "github.com/cilium/cilium/bpf/lbmap"
+	endpoint "github.com/cilium/cilium/cilium/endpoint"
+	"github.com/cilium/cilium/cilium/monitor"
+	policy "github.com/cilium/cilium/cilium/policy"
+	"github.com/cilium/cilium/common"
+	daemon "github.com/cilium/cilium/daemon"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"

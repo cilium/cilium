@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"strings"
 
-	common "github.com/noironetworks/cilium-net/common"
+	common "github.com/cilium/cilium/common"
 
 	l "github.com/op/go-logging"
 	"gopkg.in/resty.v0"

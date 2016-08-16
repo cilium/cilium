@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
-	"github.com/noironetworks/cilium-net/common/addressing"
+	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/common/addressing"
 
 	. "gopkg.in/check.v1"
 )

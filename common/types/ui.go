@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
+	"github.com/cilium/cilium/bpf/policymap"
 )
 
 const (

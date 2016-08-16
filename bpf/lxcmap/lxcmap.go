@@ -27,9 +27,9 @@ import (
 	"strings"
 	"unsafe"
 
-	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpf"
-	"github.com/noironetworks/cilium-net/common/types"
+	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/common/types"
 )
 
 // LXCMap is an internal representation of an eBPF LXC Map.
