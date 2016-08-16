@@ -67,17 +67,21 @@ function perf_test() {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
-	docker exec -i client netperf -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP4 || {
-		abort "Error: Unable to reach netperf TCP endpoint"
-	}
+	if [ $SERVER_IP4 ]; then
+		docker exec -i client netperf -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP4 || {
+			abort "Error: Unable to reach netperf TCP endpoint"
+		}
+	fi
 
 	docker exec -i client netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
-	docker exec -i client netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
-		abort "Error: Unable to reach netperf TCP endpoint"
-	}
+	if [ $SERVER_IP4 ]; then
+		docker exec -i client netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
+			abort "Error: Unable to reach netperf TCP endpoint"
+		}
+	fi
 
 	docker exec -i client netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP -- -m 256 || {
 		abort "Error: Unable to reach netperf TCP endpoint"
@@ -87,17 +91,21 @@ function perf_test() {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
-	docker exec -i client super_netperf 8 -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
-		abort "Error: Unable to reach netperf TCP endpoint"
-	}
+	if [ $SERVER_IP4 ]; then
+		docker exec -i client super_netperf 8 -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
+			abort "Error: Unable to reach netperf TCP endpoint"
+		}
+	fi
 
 	docker exec -i client netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
-	docker exec -i client netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP4 || {
-		abort "Error: Unable to reach netperf TCP endpoint"
-	}
+	if [ $SERVER_IP4 ]; then
+		docker exec -i client netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP4 || {
+			abort "Error: Unable to reach netperf TCP endpoint"
+		}
+	fi
 }
 
 function perf_pktgen() {
