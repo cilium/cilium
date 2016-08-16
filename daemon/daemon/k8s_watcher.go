@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	"k8s.io/kubernetes/pkg/watch"

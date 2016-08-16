@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/addressing"
+	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 )
 
 // EPPortMap is the port mapping representation for a particular endpoint.

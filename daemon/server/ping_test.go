@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	cnc "github.com/noironetworks/cilium-net/common/client"
-	"github.com/noironetworks/cilium-net/common/types"
+	cnc "github.com/cilium/cilium/common/client"
+	"github.com/cilium/cilium/common/types"
 
 	. "gopkg.in/check.v1"
 )

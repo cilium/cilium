@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 )
 
 // Update sends a SET request to the daemon to update its configuration

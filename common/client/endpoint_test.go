@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/types"
 
 	. "gopkg.in/check.v1"
 )

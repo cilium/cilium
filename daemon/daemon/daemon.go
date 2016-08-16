@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/noironetworks/cilium-net/bpf/lxcmap"
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/ipam"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/bpf/lxcmap"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/ipam"
+	"github.com/cilium/cilium/common/types"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"

@@ -26,8 +26,8 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common/bpf"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/common/types"
 )
 
 func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {

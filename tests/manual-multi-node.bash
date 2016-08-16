@@ -68,8 +68,8 @@ function test_nodes {
 	echo "Waiting for daemon to start up..."
 	sleep 5s
 
-	node_run cilium-master 'cilium policy import ~/go/src/github.com/noironetworks/cilium-net/examples/policy/default/'
-	node_run cilium-node-2 'cilium policy import ~/go/src/github.com/noironetworks/cilium-net/examples/policy/default/'
+	node_run cilium-master 'cilium policy import ~/go/src/github.com/cilium/cilium/examples/policy/default/'
+	node_run cilium-node-2 'cilium policy import ~/go/src/github.com/cilium/cilium/examples/policy/default/'
 
 	test_run
 }

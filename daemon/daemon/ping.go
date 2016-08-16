@@ -16,7 +16,7 @@
 package daemon
 
 import (
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 )
 
 func (d *Daemon) Ping() (*types.PingResponse, error) {

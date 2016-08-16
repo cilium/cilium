@@ -18,7 +18,7 @@ package plugins
 import (
 	"fmt"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"

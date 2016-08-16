@@ -23,12 +23,12 @@ import (
 	"strings"
 	"time"
 
-	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/addressing"
-	cnc "github.com/noironetworks/cilium-net/common/client"
-	"github.com/noironetworks/cilium-net/common/types"
-	"github.com/noironetworks/cilium-net/daemon/daemon"
-	s "github.com/noironetworks/cilium-net/daemon/server"
+	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
+	cnc "github.com/cilium/cilium/common/client"
+	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/daemon/daemon"
+	s "github.com/cilium/cilium/daemon/server"
 
 	"github.com/codegangsta/cli"
 	consulAPI "github.com/hashicorp/consul/api"

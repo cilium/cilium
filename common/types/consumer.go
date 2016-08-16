@@ -18,7 +18,7 @@ package types
 import (
 	"strconv"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
+	"github.com/cilium/cilium/bpf/policymap"
 )
 
 type Consumer struct {

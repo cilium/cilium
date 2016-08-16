@@ -16,4 +16,4 @@ sudo chgrp vagrant /usr/local/go/pkg/
 
 git clone -b v1.3.0 https://github.com/kubernetes/kubernetes.git
 cd kubernetes
-#patch -p1 < ../go/src/github.com/noironetworks/cilium-net/examples/kubernetes/kubernetes-v1.3.0.patch
+#patch -p1 < ../go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.3.0.patch

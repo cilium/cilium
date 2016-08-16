@@ -19,9 +19,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/noironetworks/cilium-net/bpf/lxcmap"
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/bpf/lxcmap"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/types"
 
 	consulAPI "github.com/hashicorp/consul/api"
 )

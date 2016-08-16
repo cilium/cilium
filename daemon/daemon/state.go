@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/ipam"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/ipam"
+	"github.com/cilium/cilium/common/types"
 
 	dockerAPI "github.com/docker/engine-api/client"
 )

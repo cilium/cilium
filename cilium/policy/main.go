@@ -28,9 +28,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
-	cnc "github.com/noironetworks/cilium-net/common/client"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common"
+	cnc "github.com/cilium/cilium/common/client"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"

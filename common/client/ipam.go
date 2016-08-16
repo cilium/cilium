@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/ipam"
+	"github.com/cilium/cilium/common/ipam"
 )
 
 // AllocateIP sends a POST request to allocate a new IP for the given options to the

@@ -22,9 +22,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/ipam"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/ipam"
+	"github.com/cilium/cilium/common/types"
 
 	libnetworktypes "github.com/docker/libnetwork/types"
 	. "gopkg.in/check.v1"

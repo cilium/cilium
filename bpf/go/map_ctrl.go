@@ -32,9 +32,9 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/noironetworks/cilium-net/bpf/lxcmap"
-	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpf"
+	"github.com/cilium/cilium/bpf/lxcmap"
+	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/bpf"
 
 	"github.com/codegangsta/cli"
 )
