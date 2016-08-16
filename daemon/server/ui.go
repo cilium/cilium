@@ -22,8 +22,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/gorilla/websocket"
 )

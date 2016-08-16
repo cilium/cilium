@@ -22,8 +22,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/daemon/daemon"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/daemon/daemon"
 
 	"github.com/op/go-logging"
 )

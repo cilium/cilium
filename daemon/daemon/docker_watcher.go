@@ -24,9 +24,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/types"
 
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"

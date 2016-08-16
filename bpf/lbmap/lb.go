@@ -33,9 +33,9 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpf"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/common/types"
 	"github.com/op/go-logging"
 
 	"github.com/codegangsta/cli"

@@ -27,7 +27,7 @@ import (
 
 	"github.com/codegangsta/cli"
 
-	"github.com/noironetworks/cilium-net/common/bpf"
+	"github.com/cilium/cilium/common/bpf"
 )
 
 var (

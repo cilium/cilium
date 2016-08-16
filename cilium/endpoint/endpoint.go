@@ -22,12 +22,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/noironetworks/cilium-net/bpf/ctmap"
-	"github.com/noironetworks/cilium-net/bpf/policymap"
-	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/bpf"
-	cnc "github.com/noironetworks/cilium-net/common/client"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/bpf/ctmap"
+	"github.com/cilium/cilium/bpf/policymap"
+	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/bpf"
+	cnc "github.com/cilium/cilium/common/client"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"

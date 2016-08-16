@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 
 	"github.com/op/go-logging"
 )

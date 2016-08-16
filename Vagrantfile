@@ -14,25 +14,25 @@ sudo apt-get -y install socat curl jq
 SCRIPT
 
 $build = <<SCRIPT
-~/go/src/github.com/noironetworks/cilium-net/common/build.sh
+~/go/src/github.com/cilium/cilium/common/build.sh
 SCRIPT
 
 $install = <<SCRIPT
-sudo -E make -C /home/vagrant/go/src/github.com/noironetworks/cilium-net/ install
+sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-docker.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-net-daemon.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-socket-proxy.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-consul.conf /etc/init/
-sudo cp /home/vagrant/go/src/github.com/noironetworks/cilium-net/contrib/upstart/cilium-policy-watcher.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-docker.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-net-daemon.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-socket-proxy.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-consul.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-policy-watcher.conf /etc/init/
 sudo rm -rf /var/log/upstart/cilium-*
 
 sudo usermod -a -G cilium vagrant
 SCRIPT
 
 $testsuite = <<SCRIPT
-make -C ~/go/src/github.com/noironetworks/cilium-net/ tests
-sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/noironetworks/cilium-net/ runtime-tests
+make -C ~/go/src/github.com/cilium/cilium/ tests
+sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
 SCRIPT
 
 $install_k8s = <<SCRIPT
@@ -48,7 +48,7 @@ sudo chgrp vagrant /usr/local/go/pkg/
 
 sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
-patch -p1 < /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/kubernetes/kubernetes-v1.3.0.patch
+patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.3.0.patch
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 
@@ -63,7 +63,7 @@ sudo cp nsenter /usr/bin
 SCRIPT
 
 $load_default_policy = <<SCRIPT
-sudo cilium policy import /home/vagrant/go/src/github.com/noironetworks/cilium-net/examples/policy/default/
+sudo cilium policy import /home/vagrant/go/src/github.com/cilium/cilium/examples/policy/default/
 SCRIPT
 
 $node_ip_base = ENV['NODE_IP_BASE'] || ""
@@ -93,7 +93,7 @@ Vagrant.configure(2) do |config|
         config.vm.box = "noironetworks/net-next"
         libvirt.memory = 4096
         libvirt.cpus = 8
-        config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/noironetworks/cilium-net", disabled: false
+        config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
     end
 
     config.vm.provider "virtualbox" do |vb|
@@ -102,14 +102,14 @@ Vagrant.configure(2) do |config|
         vb.cpus = 8
 
         if ENV["NFS"] then
-            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', type: "nfs"
+            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
             # Don't forget to enable this ports on your host before starting the VM
             # in order to have nfs working
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 111 -j ACCEPT
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
         else
-            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/noironetworks/cilium-net', type: "rsync"
+            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync"
         end
     end
 

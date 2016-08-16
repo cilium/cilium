@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/noironetworks/cilium-net/common/bpf"
+	"github.com/cilium/cilium/common/bpf"
 )
 
 type PolicyMap struct {

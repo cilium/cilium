@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 
 	. "gopkg.in/check.v1"
 )

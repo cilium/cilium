@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 )
 
 type Option struct {

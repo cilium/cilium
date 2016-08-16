@@ -18,8 +18,8 @@ package main
 import (
 	"os"
 
-	common "github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/plugins/cilium-docker/driver"
+	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"

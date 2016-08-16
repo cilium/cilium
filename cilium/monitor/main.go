@@ -33,7 +33,7 @@ import (
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
 
-	"github.com/noironetworks/cilium-net/common/bpf"
+	"github.com/cilium/cilium/common/bpf"
 )
 
 var (
