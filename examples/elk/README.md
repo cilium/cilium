@@ -31,7 +31,7 @@ previous step.
 version: '2'
 services:
   cilium:
-    image: noironetworks:cilium-ubuntu-15-10
+    image: cilium:cilium-ubuntu-16-04
     command: cilium -D daemon run -l 192.168.33.21:9302
 ...
 ```
