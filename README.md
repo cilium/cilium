@@ -6,8 +6,8 @@
 
 Cilium provides fast in-kernel networking and security policy enforcement for
 containers based on eBPF programs generated on the fly. It is an experimental
-project aiming at enabling emerging technologies such as BPF and XDP for
-containers.
+project aiming at enabling emerging kernel technologies such as BPF and XDP
+for containers.
 
 <p align="center">
    <img src="doc/images/cilium-arch.png" />
@@ -30,6 +30,26 @@ containers.
  * For Developers: [Setting up a vagrant environment](doc/vagrant.md)
  * Manual installation: [Detailed installation instructions](doc/installation.md)
 
+## What is eBPF and XDP?
+
+Berkley Packet Filter (BPF) is a bytecode interpreter orignially introduced
+to filter network packets, e.g. tcpdump and socket filters. It has since been
+extended to with additional data structures such as hashtable and arrays as
+well as additional actions to support packet mangling, forwarding,
+encapsulation, etc. An in-kernel verifier ensures that BPF programs are safe
+to run and a JIT compiler converts the bytecode to CPU architecture specifc
+instructions for native execution efficiency. BPF programs can be run at
+various hooking points in the kernel such as for incoming packets, outgoing
+packets, system call level, kprobes, etc.
+
+<p align="center">
+   <img src="doc/images/bpf-overview.png" width="508" />
+</p>
+
+XDP is a further step in evolution and enables to run a specific flavour of
+BPF programs from the network driver with direct access to the packet's DMA
+buffer.
+
 ## What are the benefits of Cilium's use of BPF?
 
  * **simple:**
@@ -50,7 +70,7 @@ containers.
    forwarding logic, etc.
  * **fast:**
    The BPF JIT compiler integrated into the Linux kernel guarantees for
-   efficient execution of BPF programs. A separate BPF programs is generated for
+   efficient execution of BPF programs. A separate BPF program is generated for
    each individual container on the fly which allows to automatically reduce the
    code size to the minimal, similar to static linking.
  * **hotfixable:**
