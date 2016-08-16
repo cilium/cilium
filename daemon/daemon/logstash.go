@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/noironetworks/cilium-net/bpf/policymap"
+	"github.com/cilium/cilium/bpf/policymap"
 )
 
 type LogstashStat struct {

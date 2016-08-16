@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 )
 
 // Ping sends a GET request to the daemon. Returns "Pong" if the communication between the

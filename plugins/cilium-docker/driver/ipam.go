@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/ipam"
+	"github.com/cilium/cilium/common/ipam"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
 )

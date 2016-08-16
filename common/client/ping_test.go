@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/types"
 
 	. "gopkg.in/check.v1"
 )

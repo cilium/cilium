@@ -1,8 +1,8 @@
 # Cilium - BPF & XDP for containers
 
-[![Build Status](https://travis-ci.com/noironetworks/cilium-net.svg?token=m4sEpxc6NCMcs2UVyQTA&branch=master)](https://travis-ci.com/noironetworks/cilium-net)
-[![Apache licensed](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/noironetworks/cilium-net/blob/master/LICENSE)
-[![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/noironetworks/cilium-net/blob/master/bpf/COPYING)
+[![Build Status](https://travis-ci.org/cilium/cilium.svg?branch=master)](https://travis-ci.org/cilium/cilium)
+[![Apache licensed](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/cilium/cilium/blob/master/LICENSE)
+[![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/cilium/cilium/blob/master/bpf/COPYING)
 
 Cilium provides fast in-kernel networking and security policy enforcement for
 containers based on eBPF programs generated on the fly. It is an experimental

@@ -26,8 +26,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/noironetworks/cilium-net/common/bpf"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/common/types"
 )
 
 type CtMap struct {

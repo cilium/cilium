@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 )
 
 type LabelOpType string

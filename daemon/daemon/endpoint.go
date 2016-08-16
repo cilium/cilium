@@ -25,10 +25,10 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/noironetworks/cilium-net/bpf/geneve"
-	"github.com/noironetworks/cilium-net/bpf/policymap"
-	"github.com/noironetworks/cilium-net/common"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/bpf/geneve"
+	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
 )
 
 func (d *Daemon) lookupCiliumEndpoint(id uint16) *types.Endpoint {

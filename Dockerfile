@@ -2,7 +2,7 @@ FROM ubuntu:16.04
 
 MAINTAINER "Andre Martins <andre@cilium.io>"
 
-ADD . /tmp/cilium-net-build/src/github.com/noironetworks/cilium-net
+ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
 RUN apt-get update && \
 apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git libc6-dev.i386 && \
@@ -38,7 +38,7 @@ cd /tmp && \
 curl -Sslk -o go1.6.2.linux-amd64.tar.gz \
 https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz && \
 tar -C /usr/local -xzf go1.6.2.linux-amd64.tar.gz && \
-cd /tmp/cilium-net-build/src/github.com/noironetworks/cilium-net && \
+cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
 export GOPATH=/tmp/cilium-net-build && \
 export PATH="$GOROOT/bin:$PATH" && \

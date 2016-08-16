@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 )
 
 const (

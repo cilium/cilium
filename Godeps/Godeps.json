@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/noironetworks/cilium-net",
+	"ImportPath": "github.com/cilium/cilium",
 	"GoVersion": "go1.6",
 	"GodepVersion": "v74",
 	"Packages": [

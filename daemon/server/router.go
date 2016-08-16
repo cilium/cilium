@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/noironetworks/cilium-net/common/backend"
-	"github.com/noironetworks/cilium-net/common/types"
+	"github.com/cilium/cilium/common/backend"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/gorilla/mux"
 )

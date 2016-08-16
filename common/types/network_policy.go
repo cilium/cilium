@@ -18,7 +18,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/noironetworks/cilium-net/common"
+	"github.com/cilium/cilium/common"
 
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )

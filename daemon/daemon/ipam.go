@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/noironetworks/cilium-net/common/addressing"
-	"github.com/noironetworks/cilium-net/common/ipam"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/ipam"
 
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 )

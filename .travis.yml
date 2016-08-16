@@ -3,8 +3,8 @@ language: go
 dist: trusty
 sudo: required
 
-go:
-  - tip
+#go:
+# - tip
 
 addons:
   apt:

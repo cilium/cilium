@@ -76,7 +76,7 @@ sleep 2s
 sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
 echo 'exec cilium -D daemon run -n ${ipv6_addr} ${ipv4_options}-t vxlan -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
-sleep 3s
+sleep 6s
 EOF
 }
 
