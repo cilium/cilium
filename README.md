@@ -30,6 +30,13 @@ for containers.
  * For Developers: [Setting up a vagrant environment](doc/vagrant.md)
  * Manual installation: [Detailed installation instructions](doc/installation.md)
 
+## Demo Tutorials
+
+The following are video tutorials showcasing how to use Cilium:
+
+ * [Networks & simple policies](https://asciinema.org/a/83096)
+ * [Debugging a connectivity issue](https://asciinema.org/a/83039)
+
 ## What is eBPF and XDP?
 
 Berkley Packet Filter (BPF) is a bytecode interpreter orignially introduced

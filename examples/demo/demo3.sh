@@ -1,28 +1,43 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -x
+. $(dirname ${BASH_SOURCE})/../../contrib/shell/util.sh
 
-sudo docker run -d --name demo3 --net cilium -l io.cilium.server noironetworks/netperf
+NETWORK="cilium"
+CLIENT_LABEL="io.cilium.client"
+SERVER_LABEL="io.cilium.server"
 
-read -p "$*"
-ID=$(sudo cilium endpoint list | grep io.cilium.server| awk '{ print $1}')
-ADDR=$(sudo cilium endpoint list | grep io.cilium.server| awk '{ print $4}')
-ping6 -c 4 $ADDR
+function cleanup {
+	tmux kill-session -t my-session >/dev/null 2>&1
+	docker rm -f client server 2> /dev/null || true
+}
 
-read -p "$*"
-sudo cilium policy allowed -s unknown_label -d io.cilium.server
+trap cleanup EXIT
 
-read -p "$*"
-sudo docker run --rm -ti --net cilium noironetworks/nettools ping6 -c 4 $ADDR
+docker network rm $NETWORK > /dev/null 2>&1
+docker network create --driver cilium --ipam-driver cilium $NETWORK > /dev/null
+cilium policy delete io.cilium
 
-read -p "$*"
-sudo cilium policy allowed -s io.cilium.client -d io.cilium.server
+desc "How to debug a connectivity issue?"
+desc "Start client and server containers"
+run "docker run -d --net cilium --name server -l $SERVER_LABEL noironetworks/netperf"
+run "docker run -d --net cilium --name client -l $CLIENT_LABEL noironetworks/netperf"
+sleep 2
 
-read -p "$*"
-sudo docker run --rm -ti --net cilium -l io.cilium.client noironetworks/nettools ping6 -c 4 $ADDR
+SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
+CLIENT_ID=$(cilium endpoint list | grep $CLIENT_LABEL | awk '{ print $1}')
+cilium endpoint config $CLIENT_ID debug=false
+cilium endpoint config $SERVER_ID debug=false
 
-read -p "$*"
-sudo docker run --rm -ti --net cilium -l io.cilium.client noironetworks/netperf super_netperf 4 -H $ADDR -l 30
+run "cilium endpoint list"
 
-read -p "$*"
-sudo docker rm -f demo3
+SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
+desc "Situation: Ping doesn't work, now what?"
+run "docker exec -ti client ping6 -c 2 $SERVER_IP"
+
+tmux new -d -s my-session \
+    "$(dirname ${BASH_SOURCE})/demo3_top.sh" \; \
+    split-window -v -d "$(dirname $BASH_SOURCE)/demo3_bottom.sh" \; \
+    attach \;
+
+desc "Clean up"
+run "docker rm -f server client"

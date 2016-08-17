@@ -10,7 +10,7 @@ end
 
 $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
-sudo apt-get -y install socat curl jq
+sudo apt-get -y install socat curl jq realpath pv tmux
 SCRIPT
 
 $build = <<SCRIPT
