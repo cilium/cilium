@@ -1,0 +1,12 @@
+{
+        "name": "io.cilium",
+        "children": {
+		"client": { },
+		"server": {
+			"rules": [{
+				"allow": ["reserved:host", "../client"]
+			}]
+		}
+
+	}
+}
