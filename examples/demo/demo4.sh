@@ -13,45 +13,43 @@ function cleanup {
 trap cleanup EXIT
 
 docker network rm $NETWORK > /dev/null 2>&1
-
-desc "Create network \"cilium\""
-run "docker network create --driver cilium --ipam-driver cilium $NETWORK"
-
+docker network create --driver cilium --ipam-driver cilium $NETWORK > /dev/null
 cilium policy delete io.cilium
 
-desc "Import policy"
+desc "Import policy a policy"
+desc "Allow all containers with label io.cilium.team1 to talk to each other."
 run "cat $(relative demo4-policy.json)"
 run "cilium policy import $(relative demo4-policy.json)"
 
-desc "Start container for team1"
+desc "Start container with label team1"
 run "docker run -d --net cilium --name demo4-team1 -l $TEAM1_LABEL noironetworks/netperf"
 
-desc "Start container for team2"
+desc "Start container with label team2"
 run "docker run -d --net cilium --name demo4-team2 -l $TEAM2_LABEL noironetworks/netperf"
 sleep 2
 
 TEAM2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' demo4-team2)
-desc "Situation: Ping doesn't work..."
+desc "Ping between team1 and team2 doesn't work because of policy:"
 run "docker exec -ti demo4-team1 ping6 -c 2 $TEAM2_IP"
-desc "Because Team 1 can only speak with Team 1!"
 
 TEAM2_LABEL_ID=$(cilium endpoint list | grep $TEAM2_LABEL | awk '{ print $1}')
-desc "Current Team 2 labels"
+desc "Examine labels of team2 container:"
 run "cilium endpoint labels $TEAM2_LABEL_ID"
 
-desc "Let's enable LearnTraffic functionality to learn labels from incoming traffic"
+desc "Enable LearnTraffic functionality for team2 container"
 run "cilium endpoint config $TEAM2_LABEL_ID LearnTraffic=true"
 
-desc "Ping still doesn't work but we are listening for incoming packets on Team 2"
+desc "Ping still doesn't work but we are now learning based on incoming packets"
 run "docker exec -ti demo4-team1 ping6 -c 2 $TEAM2_IP"
 
-desc "Examine Team 2 labels again"
-run "cilium endpoint labels $TEAM2_LABEL_ID"
-
-desc "We can disable the LearnTraffic functionality"
+desc "Disable the LearnTraffic functionality again"
 run "cilium endpoint config $TEAM2_LABEL_ID LearnTraffic=false"
 
-desc "And enable the new learned Team 1 label"
+desc "Examine labels of team 2 continer again"
+desc "It was automatically learned that in order to consume team1, the label team1 is required"
+run "cilium endpoint labels $TEAM2_LABEL_ID"
+
+desc "Enable the newly learned label to allow traffic to flow"
 run "cilium endpoint labels $TEAM2_LABEL_ID -e $TEAM1_LABEL"
 
 desc "Ping works from Team 1 to Team 2"

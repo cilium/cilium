@@ -24,6 +24,7 @@ run "cilium endpoint config $SERVER_ID Debug=true"
 desc "Ping again to see debugging events"
 run "docker exec -ti client ping6 -c 4 $SERVER_IP"
 
+clear
 desc "Packets get dropped due to policy denial. Trace the policy decision"
 run "cilium policy allowed -s $CLIENT_LABEL -d $SERVER_LABEL"
 
@@ -31,6 +32,7 @@ desc "No policy has been loaded, import it."
 run "cat $(relative policy.json)"
 run "cilium policy import $(relative policy.json)"
 
+clear
 desc "Trace policy again"
 run "cilium policy allowed -s $CLIENT_LABEL -d $SERVER_LABEL"
 
