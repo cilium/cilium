@@ -1,0 +1,10 @@
+{
+  "name": "io.cilium",
+  "children": {
+    "team1": {
+      "rules": [{
+        "allow": ["io.cilium.team1"]
+      }]
+    }
+  }
+}
