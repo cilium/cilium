@@ -1,22 +1,48 @@
 # Vagrant
 
-## Fast Path
+## Using the provided Vagrantfile
 
-To bring up a [vagrant](https://www.vagrantup.com/) VM with Cilium
-plus all dependencies installed and running:
+To bring up a [vagrant](https://www.vagrantup.com/) VM with Cilium plus
+dependencies installed, run:
 
 ```
 $ contrib/vagrant/start.sh [num_nodes]
 ```
 
-This will bring up a master node plus an optional list of additional slave
+This will bring up a master node plus the configured  number of additional slave
 nodes. The master node will run a consult agent with the slaves configured to
-point to the consul of the master.
+point to it.
+
+### Options
+
+The following environment variables can be set to customize the VMs brought up
+by vagrant:
+ * RELOAD=1: Issue a `vagrant reload` instead of `vagrant up`
+ * NFS=1: Use NFS for vagrant shared directories instead of rsync
+ * K8S=1: Build & install kubernetes on the nodes
+ * IPV4=1: Run Cilium with IPv4 enabled
+ * VAGRANT_DEFAULT_PROVIDER={virtualbox | libvirt | ...}
+
+Example:
+
+ ```
+ $ IPV4=1 K8S=1 contrib/vagrant/start.sh 3
+ ```
+
+If you have any issue with the provided vagrant box `noironetworks/net-next`
+if your need a different box format, you may build the box yourself using
+packer:
+
+```
+$ cd contrib/packer-scripts/ubuntu-14.04/
+$ make build-vbox [See Makefile for other targets]
+$ vagrant box add --name noironetworks/net-next [...]
+```
 
 ## Manual installation
 
-Alternatively you can import the vagrant box `noironetworks/net-next` directly and
-manually install Cilium:
+Alternatively you can import the vagrant box `noironetworks/net-next` directly
+and manually install Cilium:
 
   ```
   $ vagrant init noironetworks/net-next
@@ -25,6 +51,8 @@ manually install Cilium:
   $ cd go/src/github.com/cilium/cilium/
   $ make
   $ sudo make install
+  $ sudo cp contrib/upstart/* /etc/init/
+  $ sudo usermod -a -G cilium vagrant
   $ sudo service cilium-net-daemon restart
   ```
 

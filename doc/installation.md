@@ -1,14 +1,19 @@
 # Generic Installation instructions
 
-## Installation
+Cilium consists of an agent plus additional optional integration plugins which
+must be installed on all servers which will run containers.
 
-Cilium consists of an agent which must be installed on all servers which
-will run containers.
+## Simple Installation
 
-## Docker Image
+Most initial users may prefer to use the pre built Docker images in combination
+with compose files or Kubernetes specs. Instructions on how to use these can be
+found here:
+  * [Tutorial with Docker compose](../examples/docker-compose/README.md)
 
-We provide a docker-compose example [here](../examples/docker-compose/README.md). You can
-use that example to have cilium installed on each node that you want to run cilium.
+## Networking Requirements
+
+Cilium can operate in multiple modes to meet different integration requirements
+with existing networks.
 
 ## Manual Installation
 
