@@ -1,6 +1,8 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+Vagrant.require_version ">= 1.7.4"
+
 if ARGV.first == "up" && ENV['CILIUM_SCRIPT'] != 'true'
     raise Vagrant::Errors::VagrantError.new, <<END
 Calling 'vagrant up' directly is not supported.  Instead, please run the following:
@@ -46,6 +48,7 @@ echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
 sudo chmod -R 775  /usr/local/go/pkg/
 sudo chgrp vagrant /usr/local/go/pkg/
 
+git clone -b v1.3.0 https://github.com/kubernetes/kubernetes.git
 sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
 patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.3.0.patch
