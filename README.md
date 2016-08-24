@@ -128,6 +128,7 @@ on how to contribute.
 
 ## Presentations/Podcasts
 
+ * ContainerCon NA 2016: [Fast IPv6 container networking with BPF & XDP](http://www.slideshare.net/ThomasGraf5/cilium-fast-ipv6-container-networking-with-bpf-and-xdp)
  * OVS Orbit hosted by Ben Pfaff: [Episode 4](https://ovsorbit.benpfaff.org/#e4) [MP3](https://ovsorbit.benpfaff.org/episode-4.mp3)
 
 ## Contact
