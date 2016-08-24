@@ -32,13 +32,14 @@ export API_HOST_IP="${ip}"
 
 if [ -n "${IPV4}" ]; then
     export API_HOST="${API_HOST_IP}"
+    export ETCD_HOST="${ip}"
 else
     export API_HOST="[${API_HOST_IP}]"
+    export ETCD_HOST="[${ip}]"
 fi
 
 export DNS_SERVER_IP="${ip}"
 export KUBELET_HOST="${ip}"
-export ETCD_HOST="${ip}"
 export DNS_DOMAIN="${dns_domain}"
 export ENABLE_DNS=true
 export NET_PLUGIN=cni
