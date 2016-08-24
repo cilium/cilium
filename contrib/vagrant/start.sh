@@ -18,10 +18,6 @@ if [ -z "${VAGRANT_DEFAULT_PROVIDER}" ]; then
     export 'VAGRANT_DEFAULT_PROVIDER'="virtualbox"
 fi
 
-if [ -n "${1}" ]; then
-    export 'NUM_NODES'="${1}"
-fi
-
 export 'CILIUM_SCRIPT'=true
 export 'CILIUM_TEMP'="${dir}"
 
