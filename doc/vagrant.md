@@ -6,7 +6,7 @@ To bring up a [vagrant](https://www.vagrantup.com/) VM with Cilium plus
 dependencies installed, run:
 
 ```
-$ contrib/vagrant/start.sh [num_nodes]
+$ contrib/vagrant/start.sh
 ```
 
 This will bring up a master node plus the configured  number of additional slave
@@ -17,6 +17,7 @@ point to it.
 
 The following environment variables can be set to customize the VMs brought up
 by vagrant:
+ * NUM_NODES=n: Number of child nodes you want to start
  * RELOAD=1: Issue a `vagrant reload` instead of `vagrant up`
  * NFS=1: Use NFS for vagrant shared directories instead of rsync
  * K8S=1: Build & install kubernetes on the nodes
@@ -26,7 +27,7 @@ by vagrant:
 Example:
 
  ```
- $ IPV4=1 K8S=1 contrib/vagrant/start.sh 3
+ $ IPV4=1 K8S=1 NUM_NODES=3 contrib/vagrant/start.sh
  ```
 
 If you have any issue with the provided vagrant box `noironetworks/net-next`

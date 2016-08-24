@@ -3,6 +3,8 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 set -e
 
+export NUM_NODES=1
+
 function node_run {
 	NODE=$1
 	shift
@@ -26,7 +28,7 @@ function cleanup {
 trap cleanup EXIT
 
 function init {
-    "${dir}/../contrib/vagrant/start.sh" 1
+    "${dir}/../contrib/vagrant/start.sh"
 
 	cleanup
 
