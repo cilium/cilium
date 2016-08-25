@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/cilium/cilium.svg?branch=master)](https://travis-ci.org/cilium/cilium)
 [![Apache licensed](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/cilium/cilium/blob/master/LICENSE)
 [![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/cilium/cilium/blob/master/bpf/COPYING)
+[![Join the Cilium slack channel](https://cilium.herokuapp.com/badge.svg)](https://cilium.herokuapp.com/)
 
 Cilium provides fast in-kernel networking and security policy enforcement for
 containers based on eBPF programs generated on the fly. It is an experimental
@@ -133,7 +134,7 @@ on how to contribute.
 
 ## Contact
 
-If you have any questions feel free to contact us on [Slack](https://cilium.slack.com)!
+If you have any questions feel free to contact us on [Slack](https://cilium.herokuapp.com/)
 
 ## License
 
