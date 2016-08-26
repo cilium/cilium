@@ -43,6 +43,37 @@
             "initrd=/install/initrd.gz -- <enter>"
         ],  
   "shutdown_command": "echo 'vagrant' | sudo -S shutdown -P now"
+  },
+  {
+  "name": "virtualbox",
+  "vm_name": "ubuntu-1404-virtualbox",
+  "type": "virtualbox-iso",
+  "guest_os_type": "Ubuntu_64",
+  "vboxmanage": [
+    ["modifyvm", "{{.Name}}", "--memory", "{{user `memory`}}"],
+    ["modifyvm", "{{.Name}}", "--cpus", "{{user `cpu_cores`}}"]
+  ],
+  "disk_size": "{{user `disk_size`}}",
+  "iso_url": "{{user `iso_url`}}",
+  "headless": "{{user `headless`}}",
+  "iso_checksum": "{{user `iso_checksum`}}",
+  "iso_checksum_type": "{{user `iso_checksum_type`}}",
+  "ssh_username": "{{user `ssh_username`}}",
+  "ssh_password": "{{user `ssh_password`}}",
+  "ssh_wait_timeout": "60m",
+  "http_directory" : "preseed",
+  "boot_command" : [
+            "<esc><esc><enter><wait>",
+            "/install/vmlinuz noapic ",
+            "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed_vbox.cfg ",
+            "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+            "hostname=ubuntu ",
+            "fb=false debconf/frontend=noninteractive ",
+            "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+            "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+            "initrd=/install/initrd.gz -- <enter>"
+        ],
+  "shutdown_command": "echo 'vagrant' | sudo -S shutdown -P now"
   }
  ],
   "provisioners": [
@@ -86,7 +117,18 @@
       "artifact_type": "vagrant.box",
       "metadata": {
           "provider": "libvirt",
-	  "version": "0.1.0",
+	  "version": "0.1.1",
+	  "description": "Snapshot of net-next kernel"
+      }
+  },
+  {
+      "type": "atlas",
+      "only": ["virtualbox"],
+      "artifact": "noironetworks/net-next",
+      "artifact_type": "vagrant.box",
+      "metadata": {
+          "provider": "virtualbox",
+	  "version": "0.1.1",
 	  "description": "Snapshot of net-next kernel"
       }
   }]
