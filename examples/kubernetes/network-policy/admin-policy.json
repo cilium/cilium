@@ -2,11 +2,7 @@
   "apiVersion": "extensions/v1beta1",
   "kind": "NetworkPolicy",
   "metadata": {
-    "annotations": {
-      "io.cilium.name": "admin",
-      "io.cilium.parent": "io.cilium"
-    },
-    "name": "admin-policy"
+    "name": "admin"
   },
   "spec": {
     "podSelector": {

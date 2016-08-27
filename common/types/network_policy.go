@@ -16,21 +16,22 @@
 package types
 
 import (
-	"fmt"
-
 	"github.com/cilium/cilium/common"
 
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 )
 
 func K8sNP2CP(np v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
-	parentNodeName := np.Annotations[common.K8sAnnotationParentName]
-	if parentNodeName == "" {
-		return "", nil, fmt.Errorf("%s not found in network policy annotations", common.K8sAnnotationParentName)
+	var parentNodeName, policyName string
+	if np.Annotations[common.K8sAnnotationParentName] == "" {
+		parentNodeName = common.GlobalLabelPrefix
+	} else {
+		parentNodeName = np.Annotations[common.K8sAnnotationParentName]
 	}
-	policyName := np.Annotations[common.K8sAnnotationName]
-	if policyName == "" {
-		return "", nil, fmt.Errorf("%s not found in network policy annotations", common.K8sAnnotationName)
+	if np.Annotations[common.K8sAnnotationName] == "" {
+		policyName = np.Name
+	} else {
+		policyName = np.Annotations[common.K8sAnnotationName]
 	}
 
 	allowRules := []AllowRule{}
