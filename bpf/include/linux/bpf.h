@@ -339,7 +339,7 @@ enum bpf_func_id {
 	BPF_FUNC_skb_change_type,
 
 	/**
-	 * bpf_skb_in_cgroup(skb, map, index) - Check cgroup2 membership of skb
+	 * bpf_skb_under_cgroup(skb, map, index) - Check cgroup2 membership of skb
 	 * @skb: pointer to skb
 	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
 	 * @index: index of the cgroup in the bpf_map
@@ -348,7 +348,7 @@ enum bpf_func_id {
 	 *   == 1 skb succeeded the cgroup2 descendant test
 	 *    < 0 error
 	 */
-	BPF_FUNC_skb_in_cgroup,
+	BPF_FUNC_skb_under_cgroup,
 
 	/**
 	 * bpf_get_hash_recalc(skb)
@@ -375,6 +375,26 @@ enum bpf_func_id {
 	 */
 	BPF_FUNC_probe_write_user,
 
+	/**
+	 * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
+	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
+	 * @index: index of the cgroup in the bpf_map
+	 * Return:
+	 *   == 0 current failed the cgroup2 descendant test
+	 *   == 1 current succeeded the cgroup2 descendant test
+	 *    < 0 error
+	 */
+	BPF_FUNC_current_task_under_cgroup,
+
+	/**
+	 * bpf_skb_change_tail(skb, len, flags)
+	 * The helper will resize the skb to the given new size,
+	 * to be used f.e. with control messages.
+	 * @skb: pointer to skb
+	 * @len: new skb length
+	 * @flags: reserved
+	 * Return: 0 on success or negative error
+	 */
 	BPF_FUNC_skb_change_tail,
 
 	__BPF_FUNC_MAX_ID,
