@@ -20,6 +20,7 @@ import (
 )
 
 var (
-	Green = color.New(color.FgGreen).SprintFunc()
-	Red   = color.New(color.FgRed).SprintFunc()
+	Green  = color.New(color.FgGreen).SprintFunc()
+	Yellow = color.New(color.FgYellow).SprintFunc()
+	Red    = color.New(color.FgRed).SprintFunc()
 )

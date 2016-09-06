@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	common "github.com/cilium/cilium/common"
@@ -208,7 +209,42 @@ func init() {
 				Action:    configDaemon,
 				ArgsUsage: "[<option>=(enable|disable) ...]",
 			},
+			{
+				Name:   "status",
+				Usage:  "Returns the daemon current status",
+				Action: statusDaemon,
+			},
 		},
+	}
+}
+
+func statusDaemon(ctx *cli.Context) {
+	var (
+		client *cnc.Client
+		err    error
+	)
+	if host := ctx.GlobalString("host"); host == "" {
+		client, err = cnc.NewDefaultClient()
+	} else {
+		client, err = cnc.NewClient(host, nil)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
+		os.Exit(1)
+	}
+
+	if sr, err := client.GlobalStatus(); err != nil {
+		fmt.Fprintf(os.Stderr, "Status: ERROR - Unable to reach out daemon: %s\n", err)
+		os.Exit(1)
+	} else {
+		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
+
+		fmt.Fprintf(w, "Consul:\t%s\n", sr.Consul)
+		fmt.Fprintf(w, "Docker:\t%s\n", sr.Docker)
+		fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes)
+		fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium)
+		os.Exit(int(sr.Cilium.Code))
 	}
 }
 
