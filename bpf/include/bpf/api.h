@@ -210,7 +210,7 @@ static uint32_t BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
 static uint32_t BPF_FUNC(get_route_realm, struct __sk_buff *skb);
 static uint32_t BPF_FUNC(get_hash_recalc, struct __sk_buff *skb);
 
-static int BPF_FUNC(skb_in_cgroup, void *map, uint32_t index);
+static int BPF_FUNC(skb_under_cgroup, void *map, uint32_t index);
 
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, uint32_t flags);
@@ -233,7 +233,8 @@ static int BPF_FUNC(csum_diff, void *from, uint32_t from_size, void *to,
 static int BPF_FUNC(skb_change_type, struct __sk_buff *skb, uint32_t type);
 static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, uint32_t proto,
 		    uint32_t flags);
-static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, uint32_t nlen);
+static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, uint32_t nlen,
+		    uint32_t flags);
 
 /* Packet vlan encap/decap */
 static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, uint16_t proto,
