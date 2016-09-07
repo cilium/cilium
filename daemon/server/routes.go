@@ -34,6 +34,9 @@ func (r *Router) initBackendRoutes() {
 			"Ping", "GET", "/ping", r.ping,
 		},
 		route{
+			"GlobalStatus", "GET", "/healthz", r.globalStatus,
+		},
+		route{
 			"Update", "POST", "/update", r.update,
 		},
 		route{

@@ -40,6 +40,7 @@ type TestDaemon struct {
 	OnAllocateIP                func(ipamType ipam.IPAMType, opts ipam.IPAMReq) (*ipam.IPAMRep, error)
 	OnReleaseIP                 func(ipamType ipam.IPAMType, opts ipam.IPAMReq) error
 	OnPing                      func() (*types.PingResponse, error)
+	OnGlobalStatus              func() (*types.StatusResponse, error)
 	OnUpdate                    func(opts types.OptionMap) error
 	OnSyncState                 func(path string, clean bool) error
 	OnPutLabels                 func(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error)
@@ -136,6 +137,13 @@ func (d TestDaemon) Ping() (*types.PingResponse, error) {
 		return d.OnPing()
 	}
 	return nil, errors.New("Ping should not have been called")
+}
+
+func (d TestDaemon) GlobalStatus() (*types.StatusResponse, error) {
+	if d.OnGlobalStatus != nil {
+		return d.OnGlobalStatus()
+	}
+	return nil, errors.New("GlobalStatus should not have been called")
 }
 
 func (d TestDaemon) Update(opts types.OptionMap) error {

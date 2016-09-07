@@ -48,6 +48,17 @@ func (router *Router) ping(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *Router) globalStatus(w http.ResponseWriter, r *http.Request) {
+	if resp, err := router.daemon.GlobalStatus(); err != nil {
+		processServerError(w, r, err)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			processServerError(w, r, err)
+		}
+	}
+}
+
 func (router *Router) update(w http.ResponseWriter, r *http.Request) {
 	var opts types.OptionMap
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {

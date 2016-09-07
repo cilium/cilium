@@ -16,6 +16,7 @@
 package client
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -50,8 +51,14 @@ func NewClient(host string, transport *http.Transport) (*Client, error) {
 	var (
 		httpCli        *http.Client
 		protoAddrParts = strings.SplitN(host, "://", 2)
-		proto, addr    = protoAddrParts[0], protoAddrParts[1]
+		proto, addr    string
 	)
+
+	if len(protoAddrParts) != 2 {
+		return nil, fmt.Errorf("invalid host format '%s'", host)
+	} else {
+		proto, addr = protoAddrParts[0], protoAddrParts[1]
+	}
 
 	switch proto {
 	case "tcp":
