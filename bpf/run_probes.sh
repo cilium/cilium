@@ -54,6 +54,6 @@ function probe_run()
 echo "#ifndef BPF_FEATURES_H_" > $FEATURE_FILE
 echo "#define BPF_FEATURES_H_" >> $FEATURE_FILE
 
-probe_run "skb_change_tail" "HAVE_SKB_CHANGE_TAIL"
+probe_run "skb_change_tail.c" "HAVE_SKB_CHANGE_TAIL"
 
 echo "#endif" >> $FEATURE_FILE

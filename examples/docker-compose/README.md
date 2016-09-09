@@ -5,12 +5,29 @@ docker containers using the cilium docker image.
 
 ## Requirements
 
+The easiest way is to use the [vagrant box](../../doc/vagrant.md) and just
+install docker-compose >=1.7.1 in it.
+
+If you want to install the dependencies manually, you need:
  - docker-compose (>=1.7.1)
- - Linux-kernel (>=4.8.0)
+ - Linux kernel and iproute2 from this tree:
+    - https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
+    - https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
 
 ### Download docker-compose.yml
 
 Download the `docker-compose.yml` [here](docker-compose.yml).
+
+### Vagrant users: Stop existing cilium and consul instance
+
+If you are running the vagrant box. The Vagrantfile will have automatically
+started both a consul container and the cilium-net service managed by upstart.
+You need to stop both:
+
+```
+$ docker rm -f cilium-consul
+$ sudo service cilium-net-daemon stop
+```
 
 ### Run docker-compose
 

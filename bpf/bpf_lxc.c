@@ -527,7 +527,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	int ret, l4_off, csum_off;
+	int ret, l4_off, csum_off, verdict;
 	__u16 state = 0, state_zero=0;
 	union v6addr dip;
 	__be32 sum;
@@ -564,10 +564,13 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ret < 0)
 		return ret;
 
-	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
-		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
+	/* Policy lookup is done on every packet to account for packets that
+	 * passed through the allowed consumer. */
+	verdict = policy_can_access(&POLICY_MAP, skb, src_label);
+	if (unlikely(ret == CT_NEW)) {
+		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
-	} else if (ret == CT_NEW) {
+
 		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, state);
 		if (IS_ERR(ret))
 			return ret;
@@ -582,7 +585,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
-	int ret;
+	int ret, verdict;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -595,10 +598,13 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ret < 0)
 		return ret;
 
-	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
-		if (ret != CT_ESTABLISHED && ret != CT_REPLY && ret != CT_RELATED)
+	/* Policy lookup is done on every packet to account for packets that
+	 * passed through the allowed consumer. */
+	verdict = policy_can_access(&POLICY_MAP, skb, src_label);
+	if (unlikely(ret == CT_NEW)) {
+		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
-	} else if (ret == CT_NEW) {
+
 		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, 0);
 		if (IS_ERR(ret))
 			return ret;

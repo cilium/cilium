@@ -137,16 +137,17 @@ struct drop_notify {
 #define DROP_INVALID_EXTHDR	-156
 #define DROP_FRAG_NOSUPPORT	-157
 
+/* skb->cb[] usage: */
 enum {
 	CB_SRC_LABEL,
 	CB_IFINDEX,
 	CB_POLICY,
 };
 
+/* Flag values for CB_POLICY */
 enum {
 	POLICY_UNSPEC,
 	POLICY_SKIP,
-	POLICY_DROP,
 };
 
 struct ipv6_ct_tuple {

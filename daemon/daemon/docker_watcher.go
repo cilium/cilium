@@ -305,19 +305,19 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 	try := 1
 	maxTries := 5
 	var ep *types.Endpoint
-	for try < maxTries {
+	for try <= maxTries {
 		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
 			break
 		}
 		if container.IsDockerOrInfracontainer() {
-			log.Debugf("Unknonwn container %s. Waiting for event... Attempt %d", dockerID, try)
+			log.Debugf("Waiting for orchestration system to request networking for container %s... [%d/%d]", dockerID, try, maxTries)
 		}
 		time.Sleep(time.Duration(try) * time.Second)
 		try++
 	}
 	if try >= maxTries {
 		if container.IsDockerOrInfracontainer() {
-			return fmt.Errorf("Unable to store security context %d for container %s", secCtxlabels.ID, dockerID)
+			return fmt.Errorf("No manage request in time, container %s is likely managed by other networking plugin.", dockerID)
 		}
 		return nil
 	}
