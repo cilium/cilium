@@ -14,8 +14,12 @@ Download the `docker-compose.yml` [here](docker-compose.yml).
 
 ### Run docker-compose
 
+The only configuration required is to specify the interface which should be
+used to connect to outside networks. Cilium will listen on this interface
+for packets addressed to containers.
+
 ```
-$ docker-compose up
+$ IFACE=eth1 docker-compose up
 ```
 
 ### Create a cilium network in docker
