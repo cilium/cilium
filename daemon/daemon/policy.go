@@ -97,6 +97,11 @@ func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchCont
 		return err
 	}
 
+	// Skip currently unused IDs
+	if ctx.From == nil || len(ctx.From) == 0 {
+		return nil
+	}
+
 	log.Debugf("Evaluating policy for %+v", ctx)
 
 	decision := d.policyCanConsume(ctx)
