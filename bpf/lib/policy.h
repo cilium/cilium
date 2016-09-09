@@ -47,6 +47,13 @@ allow:
 	return TC_ACT_OK;
 }
 
+/**
+ * Mark skb to skip policy enforcement
+ * @arg skb	packet
+ *
+ * Will cause the packet to ignore the policy enforcement layer and
+ * be considered accepted despite of the policy outcome.
+ */
 static inline void policy_mark_skip(struct __sk_buff *skb)
 {
 	skb->cb[CB_POLICY] = POLICY_SKIP;
