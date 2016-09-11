@@ -165,7 +165,7 @@ func (d *Daemon) AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam
 // ReleaseIP releases an IP address in use by the specific IPAM type.
 func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
 	if options.IP != nil && d.isReservedAddress(*options.IP) {
-		fmt.Errorf("refusing to release reserved IP address: %s", options.IP)
+		return fmt.Errorf("refusing to release reserved IP address: %s", options.IP)
 	}
 
 	switch ipamType {
