@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = plugins cilium bpf common
+SUBDIRS = plugins cilium bpf
 SUBDIRSLIB = daemon integration
 GOFILES = $(shell go list ./... | grep -v /vendor/)
 
