@@ -1,5 +1,9 @@
 #include "event.h"
 
+#ifndef __NR_CPUS__
+#define __NR_CPUS__ 1
+#endif
+
 struct bpf_elf_map __section_maps perf_test_events = {
 	.type           = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 	.size_key       = sizeof(int),

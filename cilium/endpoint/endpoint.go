@@ -279,15 +279,15 @@ func dumpLXCInfo(ctx *cli.Context) {
 
 	ep, err := client.EndpointGet(epID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
+		fmt.Fprintf(os.Stderr, "Error while getting endpoint %d from daemon: %s\n", epID, err)
 		return
 	}
 	if ep == nil {
-		fmt.Printf("Endpoint %s not found\n", epID)
+		fmt.Printf("Endpoint %d not found\n", epID)
 		return
 	}
 
-	fmt.Printf("Endpoint %s\n%s\n", ep.ID, ep)
+	fmt.Printf("Endpoint %d\n%s\n", ep.ID, ep)
 }
 
 func listEndpointOptions() {
@@ -316,12 +316,12 @@ func configEndpoint(ctx *cli.Context) {
 
 	ep, err := client.EndpointGet(epID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %s from daemon: %s\n", epID, err)
+		fmt.Fprintf(os.Stderr, "Error while getting endpoint %d from daemon: %s\n", epID, err)
 		os.Exit(1)
 	}
 
 	if ep == nil {
-		fmt.Printf("Endpoint %s not found\n", epID)
+		fmt.Printf("Endpoint %d not found\n", epID)
 		os.Exit(1)
 	}
 
@@ -345,7 +345,7 @@ func configEndpoint(ctx *cli.Context) {
 
 	err = client.EndpointUpdate(ep.ID, epOpts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to update endpoint %s: %s\n", ep.ID, err)
+		fmt.Fprintf(os.Stderr, "Unable to update endpoint %d: %s\n", ep.ID, err)
 		os.Exit(1)
 	}
 }

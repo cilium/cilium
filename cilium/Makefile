@@ -4,10 +4,6 @@ TARGET=cilium
 
 all: $(TARGET)
 
-tests:
-	go fmt ./...
-	go test ./...
-
 run:
 	./cilium
 

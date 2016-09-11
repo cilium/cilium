@@ -27,7 +27,7 @@ import (
 func (s *DaemonSuite) TestGlobalStatusOK(c *C) {
 	sr := &types.StatusResponse{Cilium: types.NewStatusOK("Foo")}
 	s.d.OnGlobalStatus = func() (*types.StatusResponse, error) {
-		return &sr, nil
+		return sr, nil
 	}
 
 	resp, err := s.c.GlobalStatus()

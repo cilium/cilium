@@ -200,13 +200,16 @@ func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.Cont
 
 	if ciliumContainer, ok := d.containers[dockerID]; !ok {
 		isNewContainer = true
-		opLabels := types.OpLabels{
-			AllLabels:      newLabels.DeepCopy(),
-			UserLabels:     types.Labels{},
-			ProbeLabels:    newLabels.DeepCopy(),
-			EndpointLabels: newLabels.DeepCopy(),
+		cont = types.Container{
+			ContainerJSON: dockerCont,
+			OpLabels: types.OpLabels{
+				AllLabels:      newLabels.DeepCopy(),
+				UserLabels:     types.Labels{},
+				ProbeLabels:    newLabels.DeepCopy(),
+				EndpointLabels: newLabels.DeepCopy(),
+			},
+			NRetries: 0,
 		}
-		cont = types.Container{dockerCont, opLabels, 0}
 	} else {
 		if ciliumContainer.NRetries > maxRetries {
 			epSHA256Sum, err := ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
@@ -269,7 +272,11 @@ func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.Cont
 				ciliumContainer.OpLabels.EndpointLabels = newLabels
 			}
 		}
-		cont = types.Container{dockerCont, ciliumContainer.OpLabels, ciliumContainer.NRetries}
+		cont = types.Container{
+			ContainerJSON: dockerCont,
+			OpLabels:      ciliumContainer.OpLabels,
+			NRetries:      ciliumContainer.NRetries,
+		}
 	}
 
 	if isNewContainer {
