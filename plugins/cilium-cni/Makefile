@@ -4,9 +4,6 @@ all: cilium-cni
 
 TARGET=cilium-cni
 
-tests:
-	go test ./.
-
 clean:
 	go clean
 	rm -f $(TARGET)

@@ -4,9 +4,6 @@ TARGET=cilium-docker
 
 all: $(TARGET)
 
-tests:
-	go test ./...
-
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)

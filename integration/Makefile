@@ -7,9 +7,6 @@ TARGET=integration
 
 all: $(TARGET)
 
-tests:
-	sudo -E env "PATH=${PATH}" go test ./...
-
 run:
 
 clean:

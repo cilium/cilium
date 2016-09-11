@@ -2,9 +2,6 @@ include ../../Makefile.defs
 
 all: map_ctrl
 
-tests:
-	go test ./...
-
 SOURCES := $(shell find . -name '*.go')
 
 map_ctrl: $(SOURCES)

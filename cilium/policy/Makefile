@@ -7,9 +7,6 @@ TARGET=cilium-net-policy
 all:
 	$(MAKE) -C watcher
 
-tests:
-	go test ./...
-
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET):
