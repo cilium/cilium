@@ -8,7 +8,6 @@ TARGET=integration
 all: $(TARGET)
 
 tests:
-	go fmt ./...
 	sudo -E env "PATH=${PATH}" go test ./...
 
 run:

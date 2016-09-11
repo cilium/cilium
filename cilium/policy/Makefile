@@ -8,7 +8,6 @@ all:
 	$(MAKE) -C watcher
 
 tests:
-	go fmt ./...
 	go test ./...
 
 SOURCES := $(shell find . -name '*.go')

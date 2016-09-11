@@ -5,7 +5,6 @@ all: cilium-cni
 TARGET=cilium-cni
 
 tests:
-	go fmt ./.
 	go test ./.
 
 clean:

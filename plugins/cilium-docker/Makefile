@@ -5,7 +5,6 @@ TARGET=cilium-docker
 all: $(TARGET)
 
 tests:
-	go fmt ./...
 	go test ./...
 
 SOURCES := $(shell find . -name '*.go')
