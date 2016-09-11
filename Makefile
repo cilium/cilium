@@ -11,6 +11,7 @@ $(SUBDIRS): force
 
 tests: force
 	tests/00-fmt.sh
+	go vet $(GOFILES)
 	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
 	-docker run -d \
            --name "cilium-consul-test-container" \
