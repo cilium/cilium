@@ -41,9 +41,9 @@ tar -C /usr/local -xzf go1.6.2.linux-amd64.tar.gz && \
 cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
 export GOPATH=/tmp/cilium-net-build && \
-export PATH="$GOROOT/bin:$PATH" && \
-make cilium && \
-make install cilium && \
+export PATH="$GOROOT/bin:/usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04/bin:$PATH" && \
+make && \
+make install && \
 rm -fr /usr/lib/cilium/map_ctrl && \
 # cilium-end
 #
