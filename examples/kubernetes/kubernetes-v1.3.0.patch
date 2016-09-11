@@ -12,7 +12,7 @@ index 6be0ceb..41b7a72 100755
        return 0
      fi
 diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
-index 21c8ce0..b386256 100755
+index 21c8ce0..d2a3fde 100755
 --- a/hack/local-up-cluster.sh
 +++ b/hack/local-up-cluster.sh
 @@ -106,6 +106,7 @@ set +e
@@ -32,7 +32,7 @@ index 21c8ce0..b386256 100755
      if [ ! $? -eq 0 ]; then
          echo "API SERVER port is free, proceeding..."
      else
-@@ -276,9 +277,10 @@ function start_apiserver {
+@@ -276,11 +277,12 @@ function start_apiserver {
        --service-account-key-file="${SERVICE_ACCOUNT_KEY}" \
        --service-account-lookup="${SERVICE_ACCOUNT_LOOKUP}" \
        --admission-control="${ADMISSION_CONTROL}" \
@@ -43,8 +43,11 @@ index 21c8ce0..b386256 100755
 -      --advertise-address="${API_HOST}" \
 +      --advertise-address="${API_HOST_IP}" \
        --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}" \
-       --service-cluster-ip-range="10.0.0.0/24" \
+-      --service-cluster-ip-range="10.0.0.0/24" \
++      --service-cluster-ip-range="f00d:1::/112" \
        --cloud-provider="${CLOUD_PROVIDER}" \
+       --cors-allowed-origins="${API_CORS_ALLOWED_ORIGINS}" >"${APISERVER_LOG}" 2>&1 &
+     APISERVER_PID=$!
 @@ -327,7 +329,7 @@ function start_kubelet {
           fi
        fi
@@ -54,3 +57,20 @@ index 21c8ce0..b386256 100755
           dns_args="--cluster-dns=${DNS_SERVER_IP} --cluster-domain=${DNS_DOMAIN}"
        else
           # To start a private DNS server set ENABLE_CLUSTER_DNS and
+@@ -391,11 +393,11 @@ function start_kubelet {
+ 
+ function start_kubeproxy {
+     PROXY_LOG=/tmp/kube-proxy.log
+-    sudo -E "${GO_OUT}/hyperkube" proxy \
+-      --v=${LOG_LEVEL} \
+-      --hostname-override="${HOSTNAME_OVERRIDE}" \
+-      --master="http://${API_HOST}:${API_PORT}" >"${PROXY_LOG}" 2>&1 &
+-    PROXY_PID=$!
++    #sudo -E "${GO_OUT}/hyperkube" proxy \
++    #  --v=${LOG_LEVEL} \
++    #  --hostname-override="${HOSTNAME_OVERRIDE}" \
++    #  --master="http://${API_HOST}:${API_PORT}" >"${PROXY_LOG}" 2>&1 &
++    #PROXY_PID=$!
+ 
+     SCHEDULER_LOG=/tmp/kube-scheduler.log
+     sudo -E "${GO_OUT}/hyperkube" scheduler \

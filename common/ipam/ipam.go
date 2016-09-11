@@ -48,7 +48,7 @@ type IPAMConfig struct {
 	IPAMConfig     hb.IPAMConfig
 	IPv6Allocator  *ipallocator.Range
 	IPv4Allocator  *ipallocator.Range
-	AllocatorMutex sync.Mutex
+	AllocatorMutex sync.RWMutex
 }
 
 // IPAMReq is used for IPAM request operation.

@@ -13,7 +13,6 @@
             "port":6379,
             "targetPort":"redis-server"
         }],
-        "clusterIP": "None",
         "selector":{
             "app":"redis",
             "role":"master",

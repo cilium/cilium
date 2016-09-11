@@ -17,12 +17,15 @@ package daemon
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/cilium/cilium/common/types"
 
+	k8sAPI "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+	k8sProxyConfig "k8s.io/kubernetes/pkg/proxy/config"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -90,6 +93,23 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 			}
 		}
 	}()
+
+	go func() {
+		time.Sleep(30 * time.Second)
+		serviceConfig := k8sProxyConfig.NewServiceConfig()
+		serviceConfig.RegisterHandler(d)
+
+		endpointsConfig := k8sProxyConfig.NewEndpointsConfig()
+		endpointsConfig.RegisterHandler(d)
+
+		k8sProxyConfig.NewSourceAPI(
+			d.k8sClient,
+			15*time.Minute,
+			serviceConfig.Channel("api"),
+			endpointsConfig.Channel("api"),
+		)
+	}()
+
 	return nil
 }
 
@@ -117,5 +137,173 @@ func (d *Daemon) processNPE(npwe networkPolicyWatchEvent) {
 			return
 		}
 		log.Infof("Kubernetes network policy successfully removed %+v", npwe.Object)
+	}
+}
+
+func (d *Daemon) OnServiceUpdate(allServices []k8sAPI.Service) {
+	log.Debugf("All Services %+v", allServices)
+	d.loadBalancer.ServicesMU.Lock()
+	defer d.loadBalancer.ServicesMU.Unlock()
+
+	newServices := map[types.ServiceNamespace]bool{}
+	for _, svc := range allServices {
+		if svc.Spec.Type != k8sAPI.ServiceTypeClusterIP {
+			log.Infof("Ignoring service %s/%s since its type is %s", svc.Namespace, svc.Name, svc.Spec.Type)
+			continue
+		}
+
+		svcns := types.ServiceNamespace{
+			Service:   svc.Name,
+			Namespace: svc.Namespace,
+		}
+		newServices[svcns] = true
+
+		si, ok := d.loadBalancer.Services[svcns]
+		clusterIP := net.ParseIP(svc.Spec.ClusterIP)
+		if !ok {
+			si = types.NewServiceInfo(clusterIP)
+			d.loadBalancer.Services[svcns] = si
+		} else {
+			si.IP = clusterIP
+		}
+
+		for _, port := range svc.Spec.Ports {
+			p, err := types.NewLBSvcPort(types.L4Type(port.Protocol), uint16(port.Port))
+			if err != nil {
+				log.Errorf("Unable to add service port %v: %s", port, err)
+			}
+			if _, ok := si.Ports[types.LBPortName(port.Name)]; !ok {
+				si.Ports[types.LBPortName(port.Name)] = p
+			}
+		}
+		log.Debugf("Got service %+v", si)
+	}
+
+	// Cleaning old services
+	for svc := range d.loadBalancer.Services {
+		if !newServices[svc] {
+			delete(d.loadBalancer.Services, svc)
+		}
+	}
+
+	d.syncLB()
+}
+
+func (d *Daemon) OnEndpointsUpdate(endpoints []k8sAPI.Endpoints) {
+	log.Debugf("All Endpoints %+v", endpoints)
+	d.loadBalancer.ServicesMU.Lock()
+	defer d.loadBalancer.ServicesMU.Unlock()
+
+	newEndpoints := map[types.ServiceNamespace]bool{}
+	for _, ep := range endpoints {
+		svcns := types.ServiceNamespace{
+			Service:   ep.Name,
+			Namespace: ep.Namespace,
+		}
+		newEndpoints[svcns] = true
+
+		svcEp, ok := d.loadBalancer.Endpoints[svcns]
+		if !ok {
+			svcEp = types.NewServiceEndpoint()
+			d.loadBalancer.Endpoints[svcns] = svcEp
+		}
+
+		newIPs := map[string]bool{}
+		newLBPorts := map[types.LBPortName]bool{}
+		for _, sub := range ep.Subsets {
+			for _, addr := range sub.Addresses {
+				svcEp.IPs[addr.IP] = true
+				newIPs[addr.IP] = true
+			}
+			for _, port := range sub.Ports {
+				lbPort, err := types.NewLBPort(types.L4Type(port.Protocol), uint16(port.Port))
+				if err != nil {
+					log.Errorf("Error while creating a new LB Port: %s", err)
+					continue
+				}
+				svcEp.Ports[types.LBPortName(port.Name)] = lbPort
+				newLBPorts[types.LBPortName(port.Name)] = true
+			}
+		}
+
+		// Cleaning old IPs
+		for ip := range svcEp.IPs {
+			if !newIPs[ip] {
+				delete(svcEp.IPs, ip)
+			}
+		}
+
+		// Cleaning old service ports
+		for portName := range svcEp.Ports {
+			if !newLBPorts[portName] {
+				delete(svcEp.Ports, portName)
+			}
+		}
+
+	}
+
+	// Cleaning old endpoints
+	for ep := range d.loadBalancer.Endpoints {
+		if !newEndpoints[ep] {
+			delete(d.loadBalancer.Endpoints, ep)
+		}
+	}
+
+	d.syncLB()
+}
+
+func (d *Daemon) syncLB() {
+	for svc, svcInfo := range d.loadBalancer.Services {
+		se, ok := d.loadBalancer.Endpoints[svc]
+		if !ok {
+			continue
+		}
+
+		for svcPortName, svcPort := range svcInfo.Ports {
+			epPort, ok := se.Ports[svcPortName]
+			if !ok {
+				continue
+			}
+			if svcPort.ServiceID == 0 {
+				svcl4 := types.ServiceL4{
+					IP:   svcInfo.IP,
+					Port: svcPort.Port,
+				}
+				svcl4ID, err := d.PutServiceL4(svcl4)
+				if err != nil {
+					log.Errorf("Error while getting a new service ID: %s. Ignoring service %v...", err, svcl4)
+					continue
+				}
+				svcPort.ServiceID = svcl4ID.ServiceID
+			}
+			isServerPresent := false
+
+			serverIndex := 0
+
+			if len(se.IPs) != 0 {
+				log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
+					svcInfo.IP, svcPort.Port, serverIndex, len(svcInfo.Ports), svcPort.ServiceID,
+					"::", 0)
+			}
+			for epIP := range se.IPs {
+				serverIndex++
+				log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
+					svcInfo.IP, svcPort.Port, serverIndex, len(svcInfo.Ports), svcPort.ServiceID,
+					epIP, epPort.Port)
+
+				if !isServerPresent {
+					d.ipamConf.AllocatorMutex.RLock()
+					if d.ipamConf.IPv6Allocator.Has(net.ParseIP(epIP)) ||
+						d.ipamConf.IPv4Allocator.Has(net.ParseIP(epIP)) {
+						isServerPresent = true
+					}
+					d.ipamConf.AllocatorMutex.RUnlock()
+				}
+			}
+			if isServerPresent {
+				log.Debugf("# cilium lb update-state %d %s %d",
+					svcPort.ServiceID, svcInfo.IP, svcPort.Port)
+			}
+		}
 	}
 }
