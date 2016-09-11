@@ -225,7 +225,7 @@ func (s *CiliumNetClientSuite) TestGetMaxIDOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	maxID, err := cli.GetMaxID()
+	maxID, err := cli.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
 	c.Assert(maxID, Equals, uint32(123))
 }
@@ -243,6 +243,6 @@ func (s *CiliumNetClientSuite) TestGetMaxIDFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	_, err := cli.GetMaxID()
+	_, err := cli.GetMaxLabelID()
 	c.Assert(strings.Contains(err.Error(), "the daemon has died"), Equals, true)
 }

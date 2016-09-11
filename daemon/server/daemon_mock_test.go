@@ -48,7 +48,7 @@ type TestDaemon struct {
 	OnGetLabelsBySHA256         func(sha256sum string) (*types.SecCtxLabel, error)
 	OnDeleteLabelsByUUID        func(uuid uint32, contID string) error
 	OnDeleteLabelsBySHA256      func(sha256sum, contID string) error
-	OnGetMaxID                  func() (uint32, error)
+	OnGetMaxLabelID             func() (uint32, error)
 	OnPolicyAdd                 func(path string, node *types.PolicyNode) error
 	OnPolicyDelete              func(path string) error
 	OnPolicyGet                 func(path string) (*types.PolicyNode, error)
@@ -216,11 +216,11 @@ func (d TestDaemon) DeleteLabelsBySHA256(sha256sum, contID string) error {
 	return errors.New("DeleteLabelsBySHA256 should not have been called")
 }
 
-func (d TestDaemon) GetMaxID() (uint32, error) {
-	if d.OnGetMaxID != nil {
-		return d.OnGetMaxID()
+func (d TestDaemon) GetMaxLabelID() (uint32, error) {
+	if d.OnGetMaxLabelID != nil {
+		return d.OnGetMaxLabelID()
 	}
-	return 0, errors.New("GetMaxID should not have been called")
+	return 0, errors.New("GetMaxLabelID should not have been called")
 }
 
 func (d TestDaemon) PolicyAdd(path string, node *types.PolicyNode) error {

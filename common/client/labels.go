@@ -128,8 +128,8 @@ func (cli Client) DeleteLabelsBySHA256(sha256sum, contID string) error {
 	return nil
 }
 
-// GetMaxID sends a GET request to the daemon. Returns the next, possible, free UUID.
-func (cli Client) GetMaxID() (uint32, error) {
+// GetMaxLabelID sends a GET request to the daemon. Returns the next, possible, free UUID.
+func (cli Client) GetMaxLabelID() (uint32, error) {
 
 	serverResp, err := cli.R().Get("/labels/status/maxUUID")
 	if err != nil {

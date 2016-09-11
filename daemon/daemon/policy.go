@@ -128,7 +128,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		return nil
 	}
 
-	maxID, err := d.GetMaxID()
+	maxID, err := d.GetMaxLabelID()
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 	}
 
 	// Iterate over all possible assigned search contexts
-	idx := common.FirstFreeID
+	idx := common.FirstFreeLabelID
 	for idx < maxID {
 		if err := d.evaluateConsumerSource(e, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent

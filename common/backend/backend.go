@@ -49,7 +49,7 @@ type labelBackend interface {
 	GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error)
 	DeleteLabelsByUUID(uuid uint32, contĨD string) error
 	DeleteLabelsBySHA256(sha256sum, contID string) error
-	GetMaxID() (uint32, error)
+	GetMaxLabelID() (uint32, error)
 }
 
 type policyBackend interface {

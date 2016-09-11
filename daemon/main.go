@@ -407,7 +407,7 @@ func run(cli *cli.Context) {
 		log.Warningf("Error while enabling docker event watcher %s", err)
 	}
 
-	d.EnableConsulWatcher(30 * time.Second)
+	d.EnableKVStoreWatcher(30 * time.Second)
 
 	if err := d.EnableK8sWatcher(10 * time.Second); err != nil {
 		log.Warningf("Error while enabling k8s watcher %s", err)

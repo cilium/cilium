@@ -157,21 +157,21 @@ func (s *DaemonSuite) TestDeleteLabelsBySHA256Fail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true)
 }
 
-func (s *DaemonSuite) TestGetMaxOK(c *C) {
-	s.d.OnGetMaxID = func() (uint32, error) {
+func (s *DaemonSuite) TestGetMaxLabelIDOK(c *C) {
+	s.d.OnGetMaxLabelID = func() (uint32, error) {
 		return 100, nil
 	}
 
-	maxID, err := s.c.GetMaxID()
+	maxID, err := s.c.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
 	c.Assert(maxID, Equals, uint32(100))
 }
 
-func (s *DaemonSuite) TestGetMaxIDFail(c *C) {
-	s.d.OnGetMaxID = func() (uint32, error) {
+func (s *DaemonSuite) TestGetMaxLabelIDFail(c *C) {
+	s.d.OnGetMaxLabelID = func() (uint32, error) {
 		return 0, errors.New("Unable to contact consul")
 	}
 
-	_, err := s.c.GetMaxID()
+	_, err := s.c.GetMaxLabelID()
 	c.Assert(strings.Contains(err.Error(), "Unable to contact consul"), Equals, true, Commentf("error %s", err))
 }

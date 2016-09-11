@@ -432,7 +432,7 @@ func (router *Router) deleteLabelsBySHA256(w http.ResponseWriter, r *http.Reques
 }
 
 func (router *Router) getMaxUUID(w http.ResponseWriter, r *http.Request) {
-	id, err := router.daemon.GetMaxID()
+	id, err := router.daemon.GetMaxLabelID()
 	if err != nil {
 		processServerError(w, r, err)
 		return
