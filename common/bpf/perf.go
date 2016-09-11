@@ -71,7 +71,7 @@ int perf_event_read_init(int page_count, int page_size, void *_header, void *_st
 	if (data_head == data_tail)
 		return 0;
 
-	state->head = data_head;
+	state->head = (void *) data_head;
 	state->raw_size = page_count * page_size;
 	state->base  = ((uint8_t *)header) + page_size;
 	state->begin = state->base + data_tail % state->raw_size;
@@ -114,7 +114,7 @@ void perf_event_read_finish(void *_header, void *_state)
 	struct read_state *state = _state;
 
 	__sync_synchronize();
-	header->data_tail = state->head;
+	header->data_tail = (uint64_t) state->head;
 }
 
 void cast(void *ptr, void *_dst)
