@@ -104,7 +104,7 @@ func (d *Daemon) gasNewID(labels *types.SecCtxLabel) error {
 
 	beginning := freeID
 	for {
-		log.Debugf("Trying to aquire a new free ID %d", freeID)
+		log.Debugf("Trying to acquire a new free ID %d", freeID)
 		lockPath := path.Join(common.IDKeyPath, strconv.FormatUint(uint64(freeID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: common.GetLockPath(lockPath), Session: session}
