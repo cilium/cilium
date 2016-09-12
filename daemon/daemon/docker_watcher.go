@@ -256,7 +256,7 @@ func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.Cont
 					}
 				}
 
-				for k, _ := range deletedLabels {
+				for k := range deletedLabels {
 					delete(ciliumContainer.OpLabels.AllLabels, k)
 					delete(ciliumContainer.OpLabels.EndpointLabels, k)
 				}

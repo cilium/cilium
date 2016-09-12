@@ -272,10 +272,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			Gateway: c.NodeAddress.IPv6Address.IP(),
 			Routes: []cniTypes.Route{
 				// IPv6
-				cniTypes.Route{
+				{
 					Dst: c.NodeAddress.IPv6Route,
 				},
-				cniTypes.Route{
+				{
 					Dst: addressing.IPv6DefaultRoute,
 					GW:  c.NodeAddress.IPv6Address.IP(),
 				},

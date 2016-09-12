@@ -50,19 +50,19 @@ func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 	return &LabelPrefixCfg{
 		Version: LPCfgFileVersion,
 		LabelPrefixes: []*LabelPrefix{
-			&LabelPrefix{
+			{
 				Prefix: common.GlobalLabelPrefix,
 				Source: common.ReservedLabelSource,
 			},
-			&LabelPrefix{
+			{
 				Prefix: common.GlobalLabelPrefix,
 				Source: common.CiliumLabelSource,
 			},
-			&LabelPrefix{
+			{
 				Prefix: common.GlobalLabelPrefix,
 				Source: common.K8sLabelSource,
 			},
-			&LabelPrefix{
+			{
 				Prefix: common.K8sPodNamespaceLabel,
 				Source: common.K8sLabelSource,
 			},

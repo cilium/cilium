@@ -346,7 +346,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetByDockerEPIDFail(c *C) {
 
 func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 	epsOut := []types.Endpoint{
-		types.Endpoint{
+		{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
 			IPv4:            IPv4Addr,
@@ -356,7 +356,7 @@ func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
 			DockerNetworkID: "dockernetwork",
 			SecLabel:        SecLabel,
 		},
-		types.Endpoint{
+		{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
 			IPv4:            IPv4Addr,

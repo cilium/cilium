@@ -49,18 +49,18 @@ func (s *EndpointSuite) TestEndpointID(c *C) {
 
 func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 	eps := []Endpoint{
-		Endpoint{ID: 5},
-		Endpoint{ID: 1000},
-		Endpoint{ID: 1},
-		Endpoint{ID: 3},
-		Endpoint{ID: 2},
+		{ID: 5},
+		{ID: 1000},
+		{ID: 1},
+		{ID: 3},
+		{ID: 2},
 	}
 	epsWant := []Endpoint{
-		Endpoint{ID: 1},
-		Endpoint{ID: 2},
-		Endpoint{ID: 3},
-		Endpoint{ID: 5},
-		Endpoint{ID: 1000},
+		{ID: 1},
+		{ID: 2},
+		{ID: 3},
+		{ID: 5},
+		{ID: 1000},
 	}
 	OrderEndpointAsc(eps)
 	c.Assert(eps, DeepEquals, epsWant)
@@ -105,7 +105,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 			*NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
 		Maps: map[int]*policymap.PolicyMap{
-			0: &policymap.PolicyMap{},
+			0: {},
 		},
 		Consumers: map[string]*Consumer{
 			"foo": NewConsumer(12),

@@ -270,7 +270,7 @@ func (s *DaemonSuite) TestEndpointGetByDockerEPIDFail(c *C) {
 
 func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 	epsWanted := []types.Endpoint{
-		types.Endpoint{
+		{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
 			IPv4:            IPv4Addr,
@@ -280,7 +280,7 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 			DockerNetworkID: "dockernetwork",
 			SecLabel:        SecLabel,
 		},
-		types.Endpoint{
+		{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
 			IPv4:            IPv4Addr,

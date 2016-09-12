@@ -61,7 +61,7 @@ func (o *OpLabels) DeepCopy() *OpLabels {
 
 func (opl *OpLabels) GetDeletedLabels() Labels {
 	deletedLabels := opl.AllLabels.DeepCopy()
-	for k, _ := range opl.UserLabels {
+	for k := range opl.UserLabels {
 		delete(deletedLabels, k)
 	}
 

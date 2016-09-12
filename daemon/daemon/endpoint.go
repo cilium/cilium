@@ -584,7 +584,7 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, labelOps types.LabelOp) error
 	}
 
 	if labels, ok := labelOps[types.DelLabelsOp]; ok {
-		for k, _ := range labels {
+		for k := range labels {
 			delete(cont.OpLabels.UserLabels, k)
 			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
 				delete(ep.SecLabel.Labels, k)
@@ -609,7 +609,7 @@ func (d *Daemon) EndpointLabelsUpdate(epID uint16, labelOps types.LabelOp) error
 	}
 
 	if labels, ok := labelOps[types.DisableLabelsOp]; ok {
-		for k, _ := range labels {
+		for k := range labels {
 			if ep.SecLabel != nil && ep.SecLabel.Labels[k] != nil {
 				delete(ep.SecLabel.Labels, k)
 				update = true

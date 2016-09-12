@@ -38,8 +38,8 @@ func (ds *DaemonSuite) TestFindNode(c *C) {
 	pn := PolicyNode{
 		Name: "io.cilium",
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{},
-			"bar": &PolicyNode{},
+			"foo": {},
+			"bar": {},
 		},
 	}
 
@@ -79,7 +79,7 @@ func (ds *DaemonSuite) TestPolicyGet(c *C) {
 	pn := PolicyNode{
 		Name: "io.cilium",
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{
+			"foo": {
 				Name: "magic",
 			},
 		},
@@ -111,9 +111,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
 					// always-allow: user=joe
-					AllowRule{Action: ALWAYS_ACCEPT, Label: *lblJoe},
+					{Action: ALWAYS_ACCEPT, Label: *lblJoe},
 					// allow:  user=pete
-					AllowRule{Action: ACCEPT, Label: *lblPete},
+					{Action: ACCEPT, Label: *lblPete},
 				},
 			},
 			&PolicyRuleRequires{ // coverage qa, requires qa
@@ -126,17 +126,17 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{},
-			"bar": &PolicyNode{
+			"foo": {},
+			"bar": {
 				Rules: []PolicyRule{
 					&PolicyRuleConsumers{
 						Allow: []AllowRule{
-							AllowRule{ // allow: foo
+							{ // allow: foo
 								Action: ACCEPT,
 								Label:  *lblFoo,
 							},
-							AllowRule{Action: DENY, Label: *lblJoe},
-							AllowRule{Action: DENY, Label: *lblPete},
+							{Action: DENY, Label: *lblJoe},
+							{Action: DENY, Label: *lblPete},
 						},
 					},
 				},

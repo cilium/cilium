@@ -81,8 +81,8 @@ func (s *CommonSuite) TestPolicyNodeCovers(c *C) {
 	root := PolicyNode{
 		Name: common.GlobalLabelPrefix,
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{},
-			"bar": &PolicyNode{},
+			"foo": {},
+			"bar": {},
 		},
 	}
 
@@ -402,11 +402,11 @@ func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
 			&PolicyRuleConsumers{
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
-					AllowRule{ // always-allow:  user=joe
+					{ // always-allow:  user=joe
 						Action: ALWAYS_ACCEPT,
 						Label:  *lblJoe,
 					},
-					AllowRule{ // allow:  user=pete
+					{ // allow:  user=pete
 						Action: ACCEPT,
 						Label:  *lblPete,
 					},
@@ -423,7 +423,7 @@ func (s *CommonSuite) TestPolicyNodeAllows(c *C) {
 			&PolicyRuleConsumers{
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
-					AllowRule{ // allow: foo
+					{ // allow: foo
 						Action: ACCEPT,
 						Label:  *lblFoo,
 					},
@@ -446,7 +446,7 @@ func (s *CommonSuite) TestResolveTree(c *C) {
 	rootNode := PolicyNode{
 		Name: common.GlobalLabelPrefix,
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{Rules: []PolicyRule{&PolicyRuleConsumers{}}},
+			"foo": {Rules: []PolicyRule{&PolicyRuleConsumers{}}},
 		},
 	}
 
@@ -506,9 +506,9 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 				Coverage: []Label{*lblBar},
 				Allow: []AllowRule{
 					// always-allow: user=joe
-					AllowRule{Action: ALWAYS_ACCEPT, Label: *lblJoe},
+					{Action: ALWAYS_ACCEPT, Label: *lblJoe},
 					// allow:  user=pete
-					AllowRule{Action: ACCEPT, Label: *lblPete},
+					{Action: ACCEPT, Label: *lblPete},
 				},
 			},
 			&PolicyRuleRequires{ // coverage qa, requires qa
@@ -521,17 +521,17 @@ func (s *CommonSuite) TestPolicyTreeAllows(c *C) {
 			},
 		},
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{},
-			"bar": &PolicyNode{
+			"foo": {},
+			"bar": {
 				Rules: []PolicyRule{
 					&PolicyRuleConsumers{
 						Allow: []AllowRule{
-							AllowRule{ // allow: foo
+							{ // allow: foo
 								Action: ACCEPT,
 								Label:  *lblFoo,
 							},
-							AllowRule{Action: DENY, Label: *lblJoe},
-							AllowRule{Action: DENY, Label: *lblPete},
+							{Action: DENY, Label: *lblJoe},
+							{Action: DENY, Label: *lblPete},
 						},
 					},
 				},
@@ -583,14 +583,14 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 			},
 		},
 		Children: map[string]*PolicyNode{
-			"bar": &PolicyNode{
+			"bar": {
 				Name: "bar",
 				path: common.GlobalLabelPrefix + ".bar",
 				Rules: []PolicyRule{
 					&PolicyRuleConsumers{
 						Allow: []AllowRule{
-							AllowRule{Action: DENY, Label: *lblJoe},
-							AllowRule{Action: DENY, Label: *lblPete},
+							{Action: DENY, Label: *lblJoe},
+							{Action: DENY, Label: *lblPete},
 						},
 					},
 				},
@@ -607,17 +607,17 @@ func (s *CommonSuite) TestPolicyNodeMerge(c *C) {
 			},
 		},
 		Children: map[string]*PolicyNode{
-			"foo": &PolicyNode{
+			"foo": {
 				Name: "foo",
 				path: common.GlobalLabelPrefix + ".foo",
 			},
-			"bar": &PolicyNode{
+			"bar": {
 				Name: "bar",
 				path: common.GlobalLabelPrefix + ".bar",
 				Rules: []PolicyRule{
 					&PolicyRuleConsumers{
 						Allow: []AllowRule{
-							AllowRule{ // allow: foo
+							{ // allow: foo
 								Action: ACCEPT,
 								Label:  *lblFoo,
 							},

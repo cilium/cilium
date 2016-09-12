@@ -214,9 +214,9 @@ type SearchContextReply struct {
 }
 
 func (s *SearchContext) TargetCoveredBy(coverage []Label) bool {
-	for k, _ := range coverage {
+	for k := range coverage {
 		covLabel := &coverage[k]
-		for k2, _ := range s.To {
+		for k2 := range s.To {
 			toLabel := &s.To[k2]
 			if covLabel.Matches(toLabel) {
 				return true
@@ -280,7 +280,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 }
 
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
-	for k, _ := range ctx.From {
+	for k := range ctx.From {
 		label := &ctx.From[k]
 		if a.Label.Matches(label) {
 			policyTrace(ctx, "Label %v matched in rule %+v\n", label, a)
@@ -315,7 +315,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 
 	policyTrace(ctx, "Matching coverage for rule %+v ", c)
 
-	for k, _ := range c.Allow {
+	for k := range c.Allow {
 		allowRule := &c.Allow[k]
 		switch allowRule.Allows(ctx) {
 		case DENY:
@@ -333,7 +333,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 
 func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 	log.Debugf("Resolving consumer rule %+v\n", c)
-	for k, _ := range c.Coverage {
+	for k := range c.Coverage {
 		l := &c.Coverage[k]
 		l.Resolve(node)
 
@@ -344,7 +344,7 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 		}
 	}
 
-	for k, _ := range c.Allow {
+	for k := range c.Allow {
 		r := &c.Allow[k]
 		r.Label.Resolve(node)
 	}
@@ -367,11 +367,11 @@ type PolicyRuleRequires struct {
 func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(r.Coverage) {
 		policyTrace(ctx, "Matching coverage for rule %+v ", r)
-		for k, _ := range r.Requires {
+		for k := range r.Requires {
 			reqLabel := &r.Requires[k]
 			match := false
 
-			for k2, _ := range ctx.From {
+			for k2 := range ctx.From {
 				label := &ctx.From[k2]
 				if label.Equals(reqLabel) {
 					match = true
@@ -392,7 +392,7 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 
 func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	log.Debugf("Resolving requires rule %+v\n", c)
-	for k, _ := range c.Coverage {
+	for k := range c.Coverage {
 		l := &c.Coverage[k]
 		l.Resolve(node)
 
@@ -402,7 +402,7 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 		}
 	}
 
-	for k, _ := range c.Requires {
+	for k := range c.Requires {
 		l := &c.Requires[k]
 		l.Resolve(node)
 	}
@@ -454,7 +454,7 @@ func (p *PolicyNode) Path() string {
 }
 
 func (p *PolicyNode) Covers(ctx *SearchContext) bool {
-	for k, _ := range ctx.To {
+	for k := range ctx.To {
 		if ctx.To[k].Covers(p.Path()) {
 			return true
 		}
@@ -468,7 +468,7 @@ func (p *PolicyNode) Allows(ctx *SearchContext) ConsumableDecision {
 
 	policyTraceVerbose(ctx, "Evaluating node %+v\n", p)
 
-	for k, _ := range p.Rules {
+	for k := range p.Rules {
 		sub_decision := p.Rules[k].Allows(ctx)
 
 		switch sub_decision {
@@ -509,7 +509,7 @@ func (pn *PolicyNode) BuildPath() (string, error) {
 func (pn *PolicyNode) resolveRules() error {
 	log.Debugf("Resolving rules of node %+v\n", pn)
 
-	for k, _ := range pn.Rules {
+	for k := range pn.Rules {
 		if err := pn.Rules[k].Resolve(pn); err != nil {
 			return err
 		}
@@ -629,7 +629,7 @@ func (pn *PolicyNode) Merge(obj *PolicyNode) error {
 
 	pn.Rules = append(pn.Rules, obj.Rules...)
 
-	for k, _ := range obj.Children {
+	for k := range obj.Children {
 		if err := pn.AddChild(k, obj.Children[k]); err != nil {
 			return err
 		}
