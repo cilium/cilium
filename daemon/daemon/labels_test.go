@@ -119,13 +119,13 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-1")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID +1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-2")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID +1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 2)
 	c.Assert(new, Equals, false)
 
@@ -189,7 +189,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID +1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 3)
 	c.Assert(new, Equals, false)
 
@@ -202,9 +202,9 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 	err = ds.d.DeleteLabelsBySHA256(sha256sum, "containerLabel2-1")
 	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID +1, "containerLabel2-2")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID+1, "containerLabel2-2")
 	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID +1, "containerLabel2-3")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID+1, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-3")
@@ -215,7 +215,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID +1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 }
