@@ -144,7 +144,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 	d.conf.OptsMU.RUnlock()
 
 	// Mark all entries unused by denying them
-	for k, _ := range c.Consumers {
+	for k := range c.Consumers {
 		c.Consumers[k].DeletionMark = true
 	}
 

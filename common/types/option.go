@@ -33,7 +33,7 @@ type OptionLibrary map[string]*Option
 func (l OptionLibrary) Lookup(name string) (string, *Option) {
 	nameLower := strings.ToLower(name)
 
-	for k, _ := range l {
+	for k := range l {
 		if strings.ToLower(k) == nameLower {
 			return k, l[k]
 		}
@@ -167,7 +167,7 @@ func (o *BoolOptions) GetFmtOpt(name string) string {
 func (o *BoolOptions) GetFmtList() string {
 	txt := ""
 
-	for k, _ := range o.Opts {
+	for k := range o.Opts {
 		def := o.GetFmtOpt(k)
 		if def != "" {
 			txt += def + "\n"
@@ -182,7 +182,7 @@ func (o *BoolOptions) Dump() {
 		return
 	}
 
-	for k, _ := range o.Opts {
+	for k := range o.Opts {
 		text := common.Green("Enabled")
 
 		if !o.Opts[k] {
@@ -194,7 +194,7 @@ func (o *BoolOptions) Dump() {
 }
 
 func (o *BoolOptions) Validate(n OptionMap) error {
-	for k, _ := range n {
+	for k := range n {
 		if err := o.Library.Validate(k); err != nil {
 			return err
 		}

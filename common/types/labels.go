@@ -61,7 +61,7 @@ func (o *OpLabels) DeepCopy() *OpLabels {
 
 func (opl *OpLabels) GetDeletedLabels() Labels {
 	deletedLabels := opl.AllLabels.DeepCopy()
-	for k, _ := range opl.UserLabels {
+	for k := range opl.UserLabels {
 		delete(deletedLabels, k)
 	}
 
@@ -324,7 +324,7 @@ func (lbls Labels) DeepCopy() Labels {
 }
 
 // MergeLabels merges labels from into to. It overwrites all labels with the same Key as
-// from writen into to.
+// from written into to.
 // Example:
 // to := Labels{Label{key1, value1, source1}, Label{key2, value3, source4}}
 // from := Labels{Label{key1, value3, source4}}

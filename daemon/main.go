@@ -294,7 +294,7 @@ func configDaemon(ctx *cli.Context) {
 
 	dOpts := make(types.OptionMap, len(opts))
 
-	for k, _ := range opts {
+	for k := range opts {
 		name, value, err := types.ParseOption(opts[k], &daemon.DaemonOptionLibrary)
 		if err != nil {
 			fmt.Printf("%s\n", err)

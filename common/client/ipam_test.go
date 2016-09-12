@@ -36,7 +36,7 @@ func (s *CiliumNetClientSuite) TestAllocateIPOK(c *C) {
 			Gateway: NodeAddr,
 			IP:      net.IPNet{IP: IPv6Addr.IP(), Mask: addressing.NodeIPv6Mask},
 			Routes: []ipam.Route{
-				ipam.Route{
+				{
 					Destination: addressing.IPv6DefaultRoute,
 					NextHop:     nil,
 					Type:        libnetworktypes.CONNECTED,

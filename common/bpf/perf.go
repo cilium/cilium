@@ -450,7 +450,7 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 	}
 
 	for _, event := range e.event {
-		// FIXME: Not sure what to do here, the map has alreayd been updated and we can't
+		// FIXME: Not sure what to do here, the map has already been updated and we can't
 		// fully restore it.
 		if err := e.eventMap.Update(event); err != nil {
 			return nil, err

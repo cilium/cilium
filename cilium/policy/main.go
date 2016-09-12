@@ -47,7 +47,7 @@ var (
 func init() {
 	ignoredMasks = make([]*regexp.Regexp, len(ignoredMasksSource))
 
-	for i, _ := range ignoredMasksSource {
+	for i := range ignoredMasksSource {
 		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
 	}
 

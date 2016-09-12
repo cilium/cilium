@@ -56,7 +56,7 @@ func (d *Daemon) EnableConntrackGC() {
 
 			d.endpointsMU.Lock()
 
-			for k, _ := range d.endpoints {
+			for k := range d.endpoints {
 				e := d.endpoints[k]
 				if e.Consumable == nil {
 					continue

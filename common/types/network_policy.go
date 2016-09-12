@@ -51,7 +51,7 @@ func K8sNP2CP(np v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
 						allowRules = append(allowRules, ar)
 					}
 				} else if rule.NamespaceSelector != nil {
-					for k, _ := range rule.NamespaceSelector.MatchLabels {
+					for k := range rule.NamespaceSelector.MatchLabels {
 						l := NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
 						ar := AllowRule{
 							Action: ALWAYS_ACCEPT,

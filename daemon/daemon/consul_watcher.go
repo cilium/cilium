@@ -37,12 +37,12 @@ func (d *Daemon) EnableConsulWatcher(maxSeconds time.Duration) {
 		for {
 			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, nil)
 			if err != nil {
-				log.Errorf("Unable to retreive last free Index: %s", err)
+				log.Errorf("Unable to retrieve last free Index: %s", err)
 			}
 			if k != nil {
 				break
 			} else {
-				log.Debugf("Unable to retreive last free Index, please start some containers with labels.")
+				log.Debugf("Unable to retrieve last free Index, please start some containers with labels.")
 			}
 			time.Sleep(maxSeconds)
 		}
@@ -50,10 +50,10 @@ func (d *Daemon) EnableConsulWatcher(maxSeconds time.Duration) {
 		for {
 			k, q, err = d.consul.KV().Get(common.LastFreeIDKeyPath, &qo)
 			if err != nil {
-				log.Errorf("Unable to retreive last free Index: %s", err)
+				log.Errorf("Unable to retrieve last free Index: %s", err)
 			}
 			if k == nil || q == nil {
-				log.Warning("Unable to retreive last free Index, please start some containers with labels.")
+				log.Warning("Unable to retrieve last free Index, please start some containers with labels.")
 				time.Sleep(curSeconds)
 				if curSeconds < maxSeconds {
 					curSeconds += time.Second

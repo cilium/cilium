@@ -97,8 +97,8 @@ func (s *LabelsSuite) TestSliceToMap(c *C) {
 	}
 
 	lbls := LabelSlice2LabelsMap([]Label{
-		Label{"key1", "value3", "source4", ""},
-		Label{"key2", "value5", "source7", ""},
+		{"key1", "value3", "source4", ""},
+		{"key2", "value5", "source7", ""},
 	})
 	c.Assert(len(lbls), Equals, 2)
 	c.Assert(lbls, DeepEquals, want)

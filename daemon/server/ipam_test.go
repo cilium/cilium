@@ -33,7 +33,7 @@ func (s *DaemonSuite) TestAllocateIPOK(c *C) {
 			Gateway: NodeAddr,
 			IP:      net.IPNet{IP: IPv6Addr.IP(), Mask: addressing.NodeIPv6Mask},
 			Routes: []ipam.Route{
-				ipam.Route{
+				{
 					Destination: net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)},
 					NextHop:     nil,
 					Type:        lnTypes.CONNECTED,
