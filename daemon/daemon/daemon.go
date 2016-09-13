@@ -62,6 +62,7 @@ type Daemon struct {
 	endpointsLearningMU       sync.RWMutex
 	endpointsLearningRegister chan types.LearningLabel
 	dockerClient              *dClient.Client
+	loadBalancer              *types.LoadBalancer
 	k8sClient                 *k8sClient.Client
 	conf                      *Config
 	policyTree                types.PolicyTree
@@ -296,6 +297,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	rootNode.Root.Path()
 
+	lb := &types.LoadBalancer{
+		Services:  map[types.ServiceNamespace]*types.ServiceInfo{},
+		Endpoints: map[types.ServiceNamespace]*types.ServiceEndpoint{},
+	}
+
 	d := Daemon{
 		conf:                      c,
 		ipamConf:                  ipamConf,
@@ -308,6 +314,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpointsDockerEP:         make(map[string]*types.Endpoint),
 		endpointsLearning:         make(map[uint16]types.LearningLabel),
 		endpointsLearningRegister: make(chan types.LearningLabel, 1),
+		loadBalancer:              lb,
 		cacheIteration:            1,
 		reservedConsumables:       make([]*types.Consumable, 0),
 		policyTree:                rootNode,

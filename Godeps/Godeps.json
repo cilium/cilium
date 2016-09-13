@@ -710,6 +710,11 @@
 			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
 		},
 		{
+			"ImportPath": "k8s.io/kubernetes/pkg/client/cache",
+			"Comment": "v1.3.0",
+			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
+		},
+		{
 			"ImportPath": "k8s.io/kubernetes/pkg/client/metrics",
 			"Comment": "v1.3.0",
 			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
@@ -780,6 +785,11 @@
 			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
 		},
 		{
+			"ImportPath": "k8s.io/kubernetes/pkg/proxy/config",
+			"Comment": "v1.3.0",
+			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
+		},
+		{
 			"ImportPath": "k8s.io/kubernetes/pkg/registry/service/allocator",
 			"Comment": "v1.3.0",
 			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
@@ -831,6 +841,11 @@
 		},
 		{
 			"ImportPath": "k8s.io/kubernetes/pkg/util",
+			"Comment": "v1.3.0",
+			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
+		},
+		{
+			"ImportPath": "k8s.io/kubernetes/pkg/util/config",
 			"Comment": "v1.3.0",
 			"Rev": "283137936a498aed572ee22af6774b6fb6e9fd94"
 		},

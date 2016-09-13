@@ -55,6 +55,16 @@ const (
 	MaxSetOfLabels = uint32(0xFFFF)
 	// FirstFreeLabelID is the first ID for which the labels should be assigned.
 	FirstFreeLabelID = uint32(256)
+	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in consul.
+	LastFreeServiceIDKeyPath = OperationalPath + "/Services/LastUUID"
+	// ServiceKeyPath is the base path where services are stored in consul.
+	ServicesKeyPath = OperationalPath + "/Services/SHA256SUMServices"
+	// ServiceIDKeyPath is the base path where the IDs are stored in consul.
+	ServiceIDKeyPath = OperationalPath + "/Services/IDs"
+	// MaxSetOfServiceID is maximum number of set of service IDs that can be stored in consul.
+	MaxSetOfServiceID = uint32(0xFFFF)
+	// FirstFreeServiceID is the first ID for which the services should be assigned.
+	FirstFreeServiceID = uint32(1)
 
 	// Miscellaneous dedicated constants
 

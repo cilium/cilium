@@ -35,7 +35,10 @@ type KVClient interface {
 	InitializeFreeID(path string, firstID uint32) error
 	GetMaxID(key string, firstID uint32) (uint32, error)
 	SetMaxID(key string, firstID, maxID uint32) error
+
 	GASNewSecLabelID(baseKeyPath string, baseID uint32, secCtxLabels *types.SecCtxLabel) error
+	GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.ServiceL4ID) error
+
 	DeleteTree(path string) error
 
 	GetWatcher(key string, timeSleep time.Duration) <-chan []uint32

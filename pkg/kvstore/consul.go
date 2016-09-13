@@ -276,6 +276,68 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLa
 	}
 }
 
+func (c *ConsulClient) setMaxServiceL4ID(maxID uint32) error {
+	return c.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
+}
+
+func (c *ConsulClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.ServiceL4ID) error {
+
+	setID2ServiceL4 := func(lockPair *consulAPI.KVPair) error {
+		defer c.KV().Release(lockPair, nil)
+		sl4.ServiceID = types.ServiceID(baseID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ServiceID), 10))
+		if err := c.SetValue(keyPath, sl4); err != nil {
+			return err
+		}
+		return c.setMaxServiceL4ID(baseID + 1)
+	}
+
+	session, _, err := c.Session().CreateNoChecks(nil, nil)
+	if err != nil {
+		return err
+	}
+
+	beginning := baseID
+	for {
+		log.Debugf("Trying to aquire a new free ID %d", baseID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(baseID), 10))
+
+		lockPair := &consulAPI.KVPair{Key: GetLockPath(keyPath), Session: session}
+		acq, _, err := c.KV().Acquire(lockPair, nil)
+		if err != nil {
+			return err
+		}
+
+		if acq {
+			svcKey, _, err := c.KV().Get(keyPath, nil)
+			if err != nil {
+				c.KV().Release(lockPair, nil)
+				return err
+			}
+			if svcKey == nil {
+				return setID2ServiceL4(lockPair)
+			}
+			var consulServiceL4ID types.ServiceL4ID
+			if err := json.Unmarshal(svcKey.Value, &consulServiceL4ID); err != nil {
+				c.KV().Release(lockPair, nil)
+				return err
+			}
+			if consulServiceL4ID.ServiceID == 0 {
+				log.Infof("Recycling Service ID %d", baseID)
+				return setID2ServiceL4(lockPair)
+			}
+			c.KV().Release(lockPair, nil)
+		}
+		baseID++
+		if baseID > common.MaxSetOfServiceID {
+			baseID = common.FirstFreeServiceID
+		}
+		if beginning == baseID {
+			return fmt.Errorf("reached maximum set of serviceIDs available.")
+		}
+	}
+}
+
 // GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
 // every time the key path is changed.
 func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []uint32 {

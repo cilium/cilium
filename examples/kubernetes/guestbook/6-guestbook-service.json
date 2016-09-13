@@ -12,7 +12,6 @@
             "port":3000,
             "targetPort":"http-server"
         }],
-        "clusterIP": "None",
         "selector":{
             "app":"guestbook",
             "io.cilium.lizards.web": ""
