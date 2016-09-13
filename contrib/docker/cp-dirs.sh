@@ -11,6 +11,7 @@ cp -vR ${root_dir}/contrib/upstart ${dir}/contrib
 cp -vR ${root_dir}/contrib/autocomplete ${dir}/contrib
 cp -vR ${root_dir}/daemon ${dir}
 cp -vR ${root_dir}/integration ${dir}
+cp -vR ${root_dir}/pkg ${dir}
 cp -vR ${root_dir}/plugins ${dir}
 cp -vR ${root_dir}/vendor ${dir}
 cp -v ${root_dir}/Makefile ${dir}

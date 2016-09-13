@@ -24,7 +24,7 @@ import (
 func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
 	sr := types.StatusResponse{}
 
-	if info, err := d.consul.Status().Leader(); err != nil {
+	if info, err := d.kvClient.Status(); err != nil {
 		sr.Consul = types.Status{Code: types.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
 		sr.Consul = types.NewStatusOK(info)

@@ -70,11 +70,6 @@ func Swab32(n uint32) uint32 {
 		((n & 0x00ff0000) >> 8) | ((n & 0xff000000) >> 24)
 }
 
-// GetLockPath returns the lock path representation of the given path.
-func GetLockPath(path string) string {
-	return path + ".lock"
-}
-
 // SetupLOG sets up logger with the correct parameters for the whole cilium architecture.
 func SetupLOG(logger *l.Logger, logLevel string) {
 	hostname, _ := os.Hostname()

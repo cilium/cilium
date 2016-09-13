@@ -25,18 +25,17 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/bpf/lxcmap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/kvstore"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
 	dClient "github.com/docker/engine-api/client"
-	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 	k8sClientConfig "k8s.io/kubernetes/pkg/client/restclient"
@@ -52,7 +51,7 @@ var (
 // monitoring when a LXC starts.
 type Daemon struct {
 	ipamConf                  *ipam.IPAMConfig
-	consul                    *consulAPI.Client
+	kvClient                  kvstore.KVClient
 	containers                map[string]*types.Container
 	containersMU              sync.RWMutex
 	endpoints                 map[uint16]*types.Endpoint
@@ -72,40 +71,6 @@ type Daemon struct {
 	uiTopo                    types.UITopo
 	uiListeners               map[*Conn]bool
 	registerUIListener        chan *Conn
-}
-
-func createConsulClient(config *consulAPI.Config) (*consulAPI.Client, error) {
-	var (
-		c   *consulAPI.Client
-		err error
-	)
-	if config != nil {
-		c, err = consulAPI.NewClient(config)
-	} else {
-		c, err = consulAPI.NewClient(consulAPI.DefaultConfig())
-	}
-	if err != nil {
-		return nil, err
-	}
-	maxRetries := 30
-	i := 0
-	for {
-		leader, err := c.Status().Leader()
-		if err != nil || leader == "" {
-			log.Info("Waiting for consul client to be ready...")
-			time.Sleep(2 * time.Second)
-			i++
-			if i > maxRetries {
-				e := fmt.Errorf("Unable to contact consul")
-				log.Error(e)
-				return nil, e
-			}
-		} else {
-			log.Info("Consul client ready")
-			break
-		}
-	}
-	return c, nil
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
@@ -305,14 +270,14 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	}
 
-	var consul *consulAPI.Client
+	var kvClient kvstore.KVClient
 
 	if c.ConsulConfig != nil {
-		c, err := createConsulClient(c.ConsulConfig)
+		c, err := kvstore.NewConsulClient(c.ConsulConfig)
 		if err != nil {
 			return nil, err
 		}
-		consul = c
+		kvClient = c
 	}
 
 	dockerClient, err := createDockerClient(c.DockerEndpoint)
@@ -334,7 +299,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d := Daemon{
 		conf:                      c,
 		ipamConf:                  ipamConf,
-		consul:                    consul,
+		kvClient:                  kvClient,
 		dockerClient:              dockerClient,
 		k8sClient:                 k8sClient,
 		containers:                make(map[string]*types.Container),

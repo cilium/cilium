@@ -44,19 +44,17 @@ const (
 
 	// OperationalPath is the base path to store the operational details in consul.
 	OperationalPath = "cilium-net/operational"
-	// LastFreeIDKeyPath is the path where the Last free UUID is stored in consul.
-	LastFreeIDKeyPath = OperationalPath + "/LastUUID"
+
+	// LastFreeLabelIDKeyPath is the path where the Last free UUID is stored in consul.
+	LastFreeLabelIDKeyPath = OperationalPath + "/Labels/LastUUID"
 	// LabelsKeyPath is the base path where labels are stored in consul.
-	LabelsKeyPath = OperationalPath + "/SHA256SUMLabels"
-	// IDKeyPath is the base path where the IDs are stored in consul.
-	IDKeyPath = OperationalPath + "/ID"
+	LabelsKeyPath = OperationalPath + "/Labels/SHA256SUMLabels"
+	// LabelIDKeyPath is the base path where the IDs are stored in consul.
+	LabelIDKeyPath = OperationalPath + "/Labels/IDs"
 	// MaxSetOfLabels is maximum number of set of labels that can be stored in consul.
 	MaxSetOfLabels = uint32(0xFFFF)
-	// FirstFreeID is the first ID for which the labels should be assigned.
-	FirstFreeID = uint32(256)
-	// SecCtxFromHost represents reserved security context IDs reserved for special
-	// purposes.
-	SecCtxFromHost = 1
+	// FirstFreeLabelID is the first ID for which the labels should be assigned.
+	FirstFreeLabelID = uint32(256)
 
 	// Miscellaneous dedicated constants
 

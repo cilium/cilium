@@ -16,7 +16,6 @@
 package daemon
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -92,7 +91,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, Equals, nil)
 	ds.d = d
-	d.consul.KV().DeleteTree(common.OperationalPath, nil)
+	d.kvClient.DeleteTree(common.OperationalPath)
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -102,95 +101,95 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 func (ds *DaemonSuite) TestLabels(c *C) {
 	//Set up last free ID with zero
-	id, err := ds.d.GetMaxID()
+	id, err := ds.d.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, common.FirstFreeID)
+	c.Assert(id, Equals, common.FirstFreeLabelID)
 
 	secCtxLbl, new, err := ds.d.PutLabels(lbls, "containerLabel1-1")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel1-2")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID)
 	c.Assert(secCtxLbl.RefCount(), Equals, 2)
 	c.Assert(new, Equals, false)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-1")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID+1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-2")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID+1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 2)
 	c.Assert(new, Equals, false)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel1-3")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID)
 	c.Assert(secCtxLbl.RefCount(), Equals, 3)
 	c.Assert(new, Equals, false)
 
 	//Get labels from ID
-	gotSecCtxLbl, err := ds.d.GetLabels(common.FirstFreeID)
+	gotSecCtxLbl, err := ds.d.GetLabels(common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
-	wantSecCtxLbls.ID = common.FirstFreeID
+	wantSecCtxLbls.ID = common.FirstFreeLabelID
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 3)
 
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID, "containerLabel1-1")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID, "containerLabel1-1")
 	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeID)
+	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
-	wantSecCtxLbls.ID = common.FirstFreeID
+	wantSecCtxLbls.ID = common.FirstFreeLabelID
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 2)
 
-	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeID + 1)
+	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeLabelID + 1)
 	c.Assert(err, Equals, nil)
-	wantSecCtxLbls.ID = common.FirstFreeID + 1
+	wantSecCtxLbls.ID = common.FirstFreeLabelID + 1
 	wantSecCtxLbls.Labels = lbls2
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 2)
 
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID, "containerLabel1-2")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID, "containerLabel1-2")
 	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeID)
-	wantSecCtxLbls.ID = common.FirstFreeID
+	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeLabelID)
+	wantSecCtxLbls.ID = common.FirstFreeLabelID
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 1)
 
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID, "containerLabel1-3")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID, "containerLabel1-3")
 	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeID)
+	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
 	var emptySecCtxLblPtr *types.SecCtxLabel
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
-	ds.d.setMaxID(common.FirstFreeID)
+	ds.d.kvClient.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
 
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID, "containerLabel1-non-existent")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID, "containerLabel1-non-existent")
 	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeID)
+	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID+1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 3)
 	c.Assert(new, Equals, false)
 
@@ -203,33 +202,30 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 	err = ds.d.DeleteLabelsBySHA256(sha256sum, "containerLabel2-1")
 	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID+1, "containerLabel2-2")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID+1, "containerLabel2-2")
 	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabelsByUUID(common.FirstFreeID+1, "containerLabel2-3")
+	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID+1, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
 	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel2-3")
 	c.Assert(err, Equals, nil)
-	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeID+1)
+	c.Assert(secCtxLbl.ID, Equals, common.FirstFreeLabelID+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 }
 
 func (ds *DaemonSuite) TestGetMaxID(c *C) {
-	kv := ds.d.consul.KV()
-	byteJSON, err := json.Marshal((common.MaxSetOfLabels - 1))
-	c.Assert(err, Equals, nil)
-	p := &consulAPI.KVPair{Key: common.LastFreeIDKeyPath, Value: byteJSON}
-	_, err = kv.Put(p, nil)
+	lastID := uint32(common.MaxSetOfLabels - 1)
+	err := ds.d.kvClient.SetValue(common.LastFreeLabelIDKeyPath, lastID)
 	c.Assert(err, Equals, nil)
 
-	id, err := ds.d.GetMaxID()
+	id, err := ds.d.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
 }
