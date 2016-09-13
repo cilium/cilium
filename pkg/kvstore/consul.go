@@ -163,6 +163,9 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 			return 0, err
 		}
 		k, _, err = c.KV().Get(key, nil)
+		if err != nil {
+			return 0, err
+		}
 		if k == nil {
 			// Something is really wrong
 			errMsg := "Unable to retrieve last free ID because the key is always empty\n"
@@ -237,7 +240,7 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLa
 
 	beginning := baseID
 	for {
-		log.Debugf("Trying to aquire a new free ID %d", baseID)
+		log.Debugf("Trying to acquire a new free ID %d", baseID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(baseID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: GetLockPath(keyPath), Session: session}
@@ -353,12 +356,12 @@ func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []
 		for {
 			k, q, err = c.KV().Get(key, nil)
 			if err != nil {
-				log.Errorf("Unable to retreive last free Index: %s", err)
+				log.Errorf("Unable to retrieve last free Index: %s", err)
 			}
 			if k != nil {
 				break
 			} else {
-				log.Debugf("Unable to retreive last free Index, please start some containers with labels.")
+				log.Debugf("Unable to retrieve last free Index, please start some containers with labels.")
 			}
 			time.Sleep(timeSleep)
 		}
@@ -366,10 +369,10 @@ func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []
 		for {
 			k, q, err = c.KV().Get(key, &qo)
 			if err != nil {
-				log.Errorf("Unable to retreive last free Index: %s", err)
+				log.Errorf("Unable to retrieve last free Index: %s", err)
 			}
 			if k == nil || q == nil {
-				log.Warning("Unable to retreive last free Index, please start some containers with labels.")
+				log.Warning("Unable to retrieve last free Index, please start some containers with labels.")
 				time.Sleep(curSeconds)
 				if curSeconds < timeSleep {
 					curSeconds += time.Second
