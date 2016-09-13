@@ -59,6 +59,11 @@ static inline void policy_mark_skip(struct __sk_buff *skb)
 	skb->cb[CB_POLICY] = POLICY_SKIP;
 }
 
+static inline void policy_clear_mark(struct __sk_buff *skb)
+{
+	skb->cb[CB_POLICY] = 0;
+}
+
 #else /* POLICY_ENFORCEMENT */
 
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
@@ -67,6 +72,10 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 }
 
 static inline void policy_mark_skip(struct __sk_buff *skb)
+{
+}
+
+static inline void policy_clear_mark(struct __sk_buff *skb)
 {
 }
 #endif /* !POLICY_ENFORCEMENT */

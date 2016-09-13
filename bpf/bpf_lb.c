@@ -15,6 +15,23 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+
+/**
+ * Description: Standalone loadbalancer that can be attached to any
+ *              net_device. Will perform a map lookup on the destination
+ *              IP and optional destination port for every IPv4 and
+ *              IPv6 packet recevied. If a matching entry is found, the
+ *              destination address will be written to one of the
+ *              configures slaves. Optionally the destination port can be
+ *              mapped to a slave specific port as well. The packet is
+ *              then passed back to the stack.
+ *
+ * Configuration:
+ *  - LB_DISABLE_IPV4 - Ignore IPv4 packets
+ *  - LB_DISABLE_IPV6 - Ignore IPv6 packets
+ *  - LB_REDIRECT     - Redirect to an ifindex
+ */
+
 #include <lb_config.h>
 #include <netdev_config.h>
 
@@ -26,158 +43,157 @@
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
-#include "lib/icmp6.h"
+#include "lib/ipv4.h"
 #include "lib/l4.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/drop.h"
+#include "lib/lb.h"
 
-__BPF_MAP(cilium_lb_services, BPF_MAP_TYPE_HASH, 0, sizeof(struct lb_key), sizeof(struct lb_value), PIN_GLOBAL_NS, CILIUM_LB_MAP_SIZE);
-
-static inline __u32 lb_hash(struct ipv6hdr *ip6, __u16 sport, __u16 dport)
+#ifndef LB_DISABLE_IPV6
+static inline int handle_ipv6(struct __sk_buff *skb)
 {
-	return ip6->saddr.s6_addr32[0] ^ ip6->saddr.s6_addr32[1] ^
-	       ip6->saddr.s6_addr32[2] ^ ip6->saddr.s6_addr32[3] ^
-	       ip6->daddr.s6_addr32[0] ^ ip6->daddr.s6_addr32[1] ^
-	       ip6->daddr.s6_addr32[2] ^ ip6->daddr.s6_addr32[3] ^
-	       (__u32)sport ^ (__u32)dport;
+	int l3_off, l4_off, csum_off = 0, ret, csum_flags = 0;
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct lb6_key key = {};
+	struct lb6_service *svc;
+	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	union v6addr new_dst;
+	__u8 nexthdr;
+	__u16 slave;
+
+	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
+		return DROP_INVALID;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+
+	nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&key.address, dst);
+	l3_off = ETH_HLEN;
+	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+
+	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &csum_flags, &key.dport);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4) {
+			/* Pass unknown L4 to stack */
+			return TC_ACT_OK;
+		} else
+			return ret;
+	}
+
+	svc = lb6_lookup_service(skb, &key);
+	if (svc == NULL) {
+		/* Pass packets to the stack which should not be loadbalanced */
+		return TC_ACT_OK;
+	}
+
+	slave = lb_select_slave(skb, svc->count);
+	if (!(svc = lb6_lookup_slave(skb, &key, slave)))
+		return DROP_NO_SERVICE;
+
+	ipv6_addr_copy(&new_dst, &svc->target);
+	ret = lb6_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, csum_off, csum_flags, &key, svc);
+	if (IS_ERR(ret))
+		return ret;
+
+	return TC_ACT_REDIRECT;
 }
+#endif
+
+#ifndef LB_DISABLE_IPV4
+static inline int handle_ipv4(struct __sk_buff *skb)
+{
+	int l3_off, l4_off, csum_off = 0, ret, csum_flags = 0;
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct lb4_key key = {};
+	struct lb4_service *svc;
+	struct iphdr *ip = data + ETH_HLEN;
+	__be32 new_dst;
+	__u8 nexthdr;
+	__u16 slave;
+
+	if (data + ETH_HLEN + sizeof(*ip) > data_end)
+		return DROP_INVALID;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+
+	nexthdr = ip->protocol;
+	key.address = ip->daddr;
+	l3_off = ETH_HLEN;
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip);
+
+	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &csum_flags, &key.dport);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4) {
+			/* Pass unknown L4 to stack */
+			return TC_ACT_OK;
+		} else
+			return ret;
+	}
+
+	svc = lb4_lookup_service(skb, &key);
+	if (svc == NULL) {
+		/* Pass packets to the stack which should not be loadbalanced */
+		return TC_ACT_OK;
+	}
+
+	slave = lb_select_slave(skb, svc->count);
+	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
+		return DROP_NO_SERVICE;
+
+	new_dst = svc->target;
+	ret = lb4_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, csum_off, csum_flags, &key, svc);
+	if (IS_ERR(ret))
+		return ret;
+
+	return TC_ACT_REDIRECT;
+}
+#endif
 
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
-	__u8 server_prefix[] = SERVER_PREFIX;
-	__u8 router_ip[] = ROUTER_IP;
-	__u8 nexthdr;
-	__u32 proto = skb->protocol, hash;
-	__be32 sum;
-	__u16 sport;
-	int l4_off, csum_off, ret = TC_ACT_OK;
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct lb_key key = {};
-	struct lb_value *val;
-	union v6addr lb_ip;
+	int ret;
 
-	if (likely(proto == __constant_htons(ETH_P_IPV6))) {
-		struct ipv6hdr *ip6 = data + ETH_HLEN;
-		union v6addr *dst = (union v6addr *) &ip6->daddr;
-
-		ipv6_addr_copy(&lb_ip, (union v6addr *)router_ip);
-
-		if (data + ETH_HLEN + sizeof(*ip6) > data_end) {
-			ret = DROP_INVALID;
-			goto error;
-		}
-
-		ipv6_addr_copy(&key.vip, dst);
-
-		if (ipv6_addrcmp(&key.vip, &lb_ip))
-			return TC_ACT_OK;
-
-		cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
-		nexthdr = ip6->nexthdr;
-		l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
-
-#ifdef HANDLE_NS
-		if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_handle(skb, ETH_HLEN, ip6);
-			if (IS_ERR(ret))
-				goto error;
-
-		}
+	switch (skb->protocol) {
+#ifndef LB_DISABLE_IPV6
+	case __constant_htons(ETH_P_IPV6):
+		ret = handle_ipv6(skb);
+		break;
 #endif
 
-		csum_off = l4_checksum_offset(nexthdr);
-		if (unlikely(!csum_off))
-			goto error;
+#ifndef LB_DISABLE_IPV4
+	case __constant_htons(ETH_P_IP):
+		ret = handle_ipv4(skb);
+		break;
+#endif
 
-		switch (nexthdr) {
-		case IPPROTO_TCP:
-		case IPPROTO_UDP:
-			/* Port offsets for UDP and TCP are the same */
-			ret = l4_load_port(skb, l4_off + TCP_DPORT_OFF, &key.dport);
-			if (IS_ERR(ret))
-				goto error;
-
-			ret = l4_load_port(skb, l4_off + TCP_SPORT_OFF, &sport);
-			if (IS_ERR(ret))
-				goto error;
-			break;
-		/* FIXME: ICMPv6 */
-		default:
-			ret = DROP_UNKNOWN_L4;
-			goto error;
-		}
-
-		hash = lb_hash(ip6, sport, key.dport);
-		cilium_trace(skb, DBG_PKT_HASH, hash, 0);
-
-		key.dport = ntohs(key.dport);
-		//cilium_trace(skb, DBG_GENERIC, key.vip.p1, 0);
-		//cilium_trace(skb, DBG_GENERIC, key.vip.p2, 0);
-		//cilium_trace(skb, DBG_GENERIC, key.vip.p3, 0);
-		//cilium_trace(skb, DBG_GENERIC, key.vip.p4, 0);
-		//cilium_trace(skb, DBG_GENERIC, key.dport, 0);
-		val = map_lookup_elem(&cilium_lb_services, &key);
-		if (val != NULL && val->lxc_count) {
-			union macaddr lb_mac = NODE_MAC;
-			int i, which = hash % val->lxc_count;
-
-#pragma unroll
-			for (i = 0; i < MAX_LXC; i++) {
-				if (i != which)
-					continue;
-
-				ipv6_addr_copy(&lb_ip,
-					       (union v6addr *) &server_prefix);
-				ipv6_set_node_id(&lb_ip, val->lxc[i].node_id);
-				ipv6_set_state(&lb_ip, val->state);
-				ipv6_set_lxc_id(&lb_ip, val->lxc[i].lxc_id);
-				if (key.dport != val->lxc[i].port) {
-					__u16 tmp = htons(val->lxc[i].port);
-					//cilium_trace(skb, DBG_GENERIC, val->lxc[i].port, 0);
-					switch (nexthdr) {
-					case IPPROTO_TCP:
-					case IPPROTO_UDP:
-					/* Port offsets for UDP and TCP are the same */
-						ret = l4_modify_port(skb, l4_off + TCP_DPORT_OFF,
-								     csum_off, tmp,
-								     htons(key.dport));
-						if (IS_ERR(ret))
-							goto error;
-						break;
-					/* FIXME: Handle ICMPv6 */
-					/* default handled outside the loop */
-					}
-				}
-			}
-
-			ipv6_store_daddr(skb, lb_ip.addr, ETH_HLEN);
-
-			/* fixup csums */
-			sum = csum_diff(key.vip.addr, 16, lb_ip.addr, 16, 0);
-			if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0) {
-				ret = DROP_CSUM_L4;
-				goto error;
-			}
-
-			eth_store_saddr(skb, lb_mac.addr, 0);
-
-			/* Send the packet to the stack */
-			cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
-			skb->cb[CB_IFINDEX] = 0;
-			return TC_ACT_OK;
-		} else {
-			cilium_trace(skb, DBG_LB_SERVICES_LOOKUP_FAIL, key.vip.p4, key.dport);
-		}
+	default:
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
 	}
 
-	if (IS_ERR(ret)) {
-error:
+	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	} else
-		return ret;
+
+#ifdef LB_REDIRECT
+	if (ret == TC_ACT_REDIRECT) {
+		int ifindex = LB_REDIRECT;
+#ifdef LB_DSTMAC
+		union macaddr mac = LB_DSTMAC;
+
+		if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
+			ret = DROP_WRITE_ERROR;
+#endif
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+		return redirect(ifindex, 0);
+	}
+#endif
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+	return TC_ACT_OK;
 }
 
 BPF_LICENSE("GPL");
