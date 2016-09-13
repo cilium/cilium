@@ -76,10 +76,15 @@ var errors = map[uint8]string{
 	155: "CT: Map insertion failed",
 	156: "Invalid IPv6 extension header",
 	157: "IPv6 fragmentation not supported",
+	158: "Service backend not found",
 }
 
 func DropReason(reason uint8) string {
-	return errors[reason]
+	if int(reason) < len(errors) {
+		return errors[reason]
+	} else {
+		return fmt.Sprintf("%d", reason)
+	}
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {

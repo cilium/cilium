@@ -17,6 +17,8 @@ package bpf
 
 import (
 	"fmt"
+
+	"github.com/cilium/cilium/common"
 )
 
 const (
@@ -38,6 +40,7 @@ const (
 	DBG_CT_LOOKUP
 	DBG_CT_MATCH
 	DBG_CT_CREATED
+	DBG_CT_CREATED2
 	DBG_ICMP6_HANDLE
 	DBG_ICMP6_REQUEST
 	DBG_ICMP6_NS
@@ -49,31 +52,42 @@ const (
 	DBG_TO_HOST
 	DBG_TO_STACK
 	DBG_PKT_HASH
-	DBG_LB_SERVICES_LOOKUP_FAIL
-	DBG_LB_STATE_LOOKUP_FAIL
+	DBG_LB6_LOOKUP_MASTER
+	DBG_LB6_LOOKUP_MASTER_FAIL
+	DBG_LB6_LOOKUP_SLAVE
+	DBG_LB6_LOOKUP_SLAVE_SUCCESS
+	DBG_LB6_REVERSE_NAT_LOOKUP
+	DBG_LB6_REVERSE_NAT
+	DBG_LB4_LOOKUP_MASTER
+	DBG_LB4_LOOKUP_MASTER_FAIL
+	DBG_LB4_LOOKUP_SLAVE
+	DBG_LB4_LOOKUP_SLAVE_SUCCESS
+	DBG_LB4_REVERSE_NAT_LOOKUP
+	DBG_LB4_REVERSE_NAT
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
 const (
-	CT_NEW uint32 = iota
+	CT_NEW int = iota
 	CT_ESTABLISHED
 	CT_REPLY
 	CT_RELATED
 )
 
-var ctState = map[uint32]string{
+var ctState = map[int]string{
 	CT_NEW:         "New",
 	CT_ESTABLISHED: "Established",
 	CT_REPLY:       "Reply",
 	CT_RELATED:     "Related",
 }
 
-func CtState(state uint32) string {
-	if state < 0 {
-		return DropReason(uint8(state))
+func CtState(state int32) string {
+	txt, ok := ctState[int(state)]
+	if ok {
+		return txt
 	}
 
-	return ctState[state]
+	return DropReason(uint8(state))
 }
 
 func CtInfo(arg1 uint32, arg2 uint32) string {
@@ -106,11 +120,13 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_CT_LOOKUP:
 		fmt.Printf("CT lookup: %s\n", CtInfo(n.Arg1, n.Arg2))
 	case DBG_CT_MATCH:
-		fmt.Printf("CT entry found lifetime=%d\n", n.Arg1)
+		fmt.Printf("CT entry found lifetime=%d, revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_CT_CREATED:
-		fmt.Printf("CT created %s\n", CtInfo(n.Arg1, n.Arg2))
+		fmt.Printf("CT created 1/2: %s\n", CtInfo(n.Arg1, n.Arg2))
+	case DBG_CT_CREATED2:
+		fmt.Printf("CT created 2/2: %x revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_CT_VERDICT:
-		fmt.Printf("CT verdict: %s\n", CtState(n.Arg1))
+		fmt.Printf("CT verdict: %s\n", CtState(int32(n.Arg1)))
 	case DBG_ICMP6_HANDLE:
 		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
 	case DBG_ICMP6_REQUEST:
@@ -130,11 +146,27 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_TO_STACK:
 		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
 	case DBG_PKT_HASH:
-		fmt.Printf("Packet hash=%d (%#x)\n", n.Arg1, n.Arg1)
-	case DBG_LB_SERVICES_LOOKUP_FAIL:
-		fmt.Printf("lb_services lookup failed, vip.p4=%x key.dport=%d\n", n.Arg1, n.Arg2)
-	case DBG_LB_STATE_LOOKUP_FAIL:
-		fmt.Printf("lb_state lookup failed, state=%d\n", n.Arg1)
+		fmt.Printf("Packet hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
+	case DBG_LB6_LOOKUP_MASTER:
+		fmt.Printf("Master service lookup, addr.p4=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB6_LOOKUP_MASTER_FAIL:
+		fmt.Printf("Master service lookup failed, addr.p2=%x addr.p3=%x\n", n.Arg1, n.Arg2)
+	case DBG_LB6_LOOKUP_SLAVE, DBG_LB4_LOOKUP_SLAVE:
+		fmt.Printf("Slave service lookup: slave=%d, dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB6_LOOKUP_SLAVE_SUCCESS:
+		fmt.Printf("Slave service lookup result: target.p4=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB6_REVERSE_NAT_LOOKUP, DBG_LB4_REVERSE_NAT_LOOKUP:
+		fmt.Printf("Reverse NAT lookup, index=%d\n", common.Swab16(uint16(n.Arg1)))
+	case DBG_LB6_REVERSE_NAT:
+		fmt.Printf("Performing reverse NAT, address.p4=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB4_LOOKUP_MASTER:
+		fmt.Printf("Master service lookup, addr=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB4_LOOKUP_MASTER_FAIL:
+		fmt.Printf("Master service lookup failed\n")
+	case DBG_LB4_LOOKUP_SLAVE_SUCCESS:
+		fmt.Printf("Slave service lookup result: target%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB4_REVERSE_NAT:
+		fmt.Printf("Performing reverse NAT, address=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

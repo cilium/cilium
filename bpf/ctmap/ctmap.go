@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
 )
@@ -132,7 +133,7 @@ type CtEntry struct {
 	tx_bytes   uint64
 	lifetime   uint16
 	flags      uint16
-	state      uint16
+	revnat     uint16
 }
 
 type CtEntryDump struct {
@@ -157,14 +158,14 @@ func (m *CtMap) Dump() (string, error) {
 
 		value := entry.Value
 		buffer.WriteString(
-			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x state=%d\n",
+			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d\n",
 				value.lifetime,
 				value.rx_packets,
 				value.rx_bytes,
 				value.tx_packets,
 				value.tx_bytes,
 				value.flags,
-				value.state),
+				common.Swab16(value.revnat)),
 		)
 
 	}

@@ -6,6 +6,10 @@ export 'NODE_IP_BASE'="192.168.33."
 export 'FIRST_IP_SUFFIX'="11"
 ipv6_base_addr="F00D::C0A8:210B"
 
+# FIXME: Always enable IPv4 for now until it can be enabled at runtime
+# Required for several runtime tests
+IPV4=1
+
 if [ -n "${NFS}" ]; then
     export 'NODE_NFS_IP_BASE'="192.168.34."
 fi

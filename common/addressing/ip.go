@@ -65,6 +65,10 @@ func (ip CiliumIPv6) State() uint16 {
 	return binary.BigEndian.Uint16(ip[12:14])
 }
 
+func (ip CiliumIPv6) SetState(state uint16) {
+	binary.BigEndian.PutUint16(ip[12:14], state)
+}
+
 // Returns the container ID portion of the address or 0
 func (ip CiliumIPv6) EndpointID() uint16 {
 	return binary.BigEndian.Uint16(ip[14:])

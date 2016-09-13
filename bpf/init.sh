@@ -128,7 +128,9 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	sed '/ENCAP_IFINDEX/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
-	bpf_compile $ENCAP_DEV "" bpf_overlay.c bpf_overlay.o from-overlay
+	ID=$(cilium policy get-id $WORLD_ID 2> /dev/null)
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	bpf_compile $ENCAP_DEV "$OPTS" bpf_overlay.c bpf_overlay.o from-overlay
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
 	FILE=$RUNDIR/encap.state

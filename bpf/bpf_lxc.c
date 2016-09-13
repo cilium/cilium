@@ -103,8 +103,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	int do_nat46 = 0, ret, l4_off;
-	__u16 state = 0;
+	int do_nat46 = 0, ret, l4_off, skip_service = 0;
+	int csum_off = 0, csum_flags = 0;
+	struct lb6_service *svc;
+	struct lb6_key key = {};
+	__u16 rev_nat_index = 0;
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -128,17 +131,26 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
+
+	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off, &csum_flags);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			skip_service = 1;
+		else
+			return ret;
+	}
+
+	/* Port reverse mapping can never happen when we balanced to a service */
 	ret = map_lxc_out(skb, l4_off, tuple->nexthdr);
 	if (IS_ERR(ret))
 		return ret;
-
-	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
+	/* WARNING: eth and ip6 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, 0, &state);
+	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, 0, &rev_nat_index);
 	if (ret < 0)
 		return ret;
 
@@ -161,11 +173,19 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		return DROP_POLICY;
 	}
 
-	if (state) {
-		ret = lb_dsr_dnat(skb, state, tuple);
-		cilium_trace(skb, DBG_GENERIC, state, ret);
+	if (!skip_service && (svc = lb6_lookup_service(skb, &key)) != NULL) {
+		ret = lb6_local(skb, l3_off, l4_off, csum_off,
+				csum_flags, &key, tuple, svc);
 		if (IS_ERR(ret))
 			return ret;
+	} else if (rev_nat_index) {
+		ret = lb6_dsr_snat(skb, l4_off, csum_off, csum_flags, rev_nat_index, tuple);
+		if (IS_ERR(ret))
+			return ret;
+
+		/* A reverse translate packet is always allowed except for delivery
+		 * on the local node in which case this marking is cleared again. */
+		policy_mark_skip(skb);
 	}
 
 	/* Check if destination is within our cluster prefix */
@@ -195,6 +215,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 
 		if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 			return DROP_INVALID;
+
+		policy_clear_mark(skb);
 
 		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr);
 	} else {
@@ -312,6 +334,10 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct ethhdr *eth = data;
 	int ret, l3_off = ETH_HLEN, l4_off;
+	int skip_service = 0, csum_off = 0, csum_flags = 0;
+	struct lb4_service *svc;
+	struct lb4_key key = {};
+	__u16 rev_nat_index = 0;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -339,6 +365,14 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 */
 	tuple.addr = ip4->daddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
+
+	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off, &csum_flags);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			skip_service = 1;
+		else
+			return ret;
+	}
 	ret = map_lxc_out(skb, l4_off, tuple.nexthdr);
 	if (IS_ERR(ret))
 		return ret;
@@ -349,7 +383,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 0);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 0, &rev_nat_index);
 	if (ret < 0)
 		return ret;
 
@@ -371,6 +405,28 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	default:
 		return DROP_POLICY;
 	}
+
+	if (!skip_service && (svc = lb4_lookup_service(skb, &key)) != NULL) {
+		ret = lb4_local(skb, l3_off, l4_off, csum_off,
+				csum_flags, &key, &tuple, svc);
+		if (IS_ERR(ret))
+			return ret;
+	} else if (rev_nat_index) {
+		ret = lb4_dsr_snat(skb, l3_off, l4_off, csum_off, csum_flags, rev_nat_index, &tuple);
+		if (IS_ERR(ret))
+			return ret;
+
+		/* A reverse translate packet is always allowed except for delivery
+		 * on the local node in which case this marking is cleared again. */
+		policy_mark_skip(skb);
+	}
+
+	/* After L4 write in port mapping: revalidate for direct packet access */
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip4 = data + ETH_HLEN;
+	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		return DROP_INVALID;
 
 	/* Check if destination is within our cluster prefix */
 	if ((tuple.addr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
@@ -394,12 +450,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (tuple.addr == IPV4_GATEWAY)
 			goto to_host;
 #endif
-		/* After L4 write in port mapping: revalidate for direct packet access */
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip4 = data + ETH_HLEN;
-		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
-			return DROP_INVALID;
+		policy_clear_mark(skb);
 
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4);
 	} else {
@@ -527,10 +578,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	int ret, l4_off, csum_off, verdict;
-	__u16 state = 0, state_zero=0;
-	union v6addr dip;
-	__be32 sum;
+	int ret, l4_off, verdict;
+	__u32 rev_nat_index;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -538,28 +587,29 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	skb->cb[CB_POLICY] = 0;
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.addr, (union v6addr *) &ip6->saddr);
+	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 
-	/*
-	 * derive state and zero it.
-	 */
-	ipv6_load_daddr(skb, ETH_HLEN, &dip);
-	state = ipv6_derive_state(&dip);
-	if (state) {
-		ipv6_set_state(&dip, 0);
+	/* derive reverse NAT index and zero it. */
+	rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
+	if (rev_nat_index) {
+		int csum_off, csum_flags = 0;
+		union v6addr dip;
+
+		ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
+		dip.p4 &= ~0xFFFF;
 		ret = ipv6_store_daddr(skb, dip.addr, ETH_HLEN);
 		if (IS_ERR(ret))
 			return DROP_WRITE_ERROR;
 
-		/* fixup csum */
-		sum = csum_diff(&state, sizeof(state), &state_zero, sizeof(state_zero), 0);
-		csum_off = l4_checksum_offset(tuple.nexthdr);
-		if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-			return DROP_CSUM_L4;
-
-		cilium_trace(skb, DBG_GENERIC, state, 0);
+		csum_off = l4_csum_offset_and_flags(tuple.nexthdr, &csum_flags);
+		if (csum_off) {
+			__u32 zero_nat = 0;
+			__be32 sum = csum_diff(&rev_nat_index, 4, &zero_nat, 4, 0);
+			if (l4_csum_replace(skb, l4_off + csum_off, 0, sum, BPF_F_PSEUDO_HDR | csum_flags) < 0)
+				return DROP_CSUM_L4;
+		}
 	}
 
-	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, 1, NULL);
 	if (ret < 0)
 		return ret;
@@ -571,7 +621,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
 
-		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, state);
+		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, rev_nat_index);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -585,7 +635,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
-	int ret, verdict;
+	int ret, verdict, l4_off;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -594,7 +644,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	tuple.nexthdr = ip4->protocol;
 	tuple.addr = ip4->saddr;
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, ETH_HLEN + ipv4_hdrlen(ip4), SECLABEL, 1);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 1, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -602,10 +653,12 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	 * passed through the allowed consumer. */
 	verdict = policy_can_access(&POLICY_MAP, skb, src_label);
 	if (unlikely(ret == CT_NEW)) {
+		volatile int rev_nat;
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
 
-		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, 0);
+		rev_nat = skb->cb[CB_REVERSE_NAT];
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, rev_nat & 0xFFFF);
 		if (IS_ERR(ret))
 			return ret;
 	}

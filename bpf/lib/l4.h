@@ -20,6 +20,8 @@
 
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/icmp.h>
+#include <linux/icmpv6.h>
 #include "common.h"
 #include "dbg.h"
 
@@ -46,6 +48,26 @@ static inline int l4_checksum_offset(__u8 nexthdr)
 	}
 
 	/* Ignore unknown L4 protocols */
+	return 0;
+}
+
+static inline int l4_csum_offset_and_flags(__u8 nexthdr, int *csum_flags)
+{
+	switch (nexthdr) {
+	case IPPROTO_TCP:
+		return TCP_CSUM_OFF;
+
+	case IPPROTO_UDP:
+		*csum_flags |= BPF_F_MARK_MANGLED_0;
+		return UDP_CSUM_OFF;
+
+	case IPPROTO_ICMPV6:
+		return offsetof(struct icmp6hdr, icmp6_cksum);
+
+	case IPPROTO_ICMP:
+		break;
+	}
+
 	return 0;
 }
 

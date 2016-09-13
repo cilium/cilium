@@ -136,12 +136,17 @@ struct drop_notify {
 #define DROP_CT_CREATE_FAILED	-155
 #define DROP_INVALID_EXTHDR	-156
 #define DROP_FRAG_NOSUPPORT	-157
+#define DROP_NO_SERVICE		-158
 
 /* skb->cb[] usage: */
 enum {
 	CB_SRC_LABEL,
 	CB_IFINDEX,
 	CB_POLICY,
+
+	/* Used to carry reverse NAT index for load balanced IPv4 packets.
+	 * Index is set in lb4_local(). */
+	CB_REVERSE_NAT,
 };
 
 /* Flag values for CB_POLICY */
@@ -177,29 +182,42 @@ struct ct_entry {
 	__u16 rx_closing:1,
 	      tx_closing:1,
 	      reserve:14;
-	__u16 state;
+	__u16 rev_nat_index;
 };
 
-struct lb_key {
-        union v6addr vip;
-        __u16 dport;
-};
+struct lb6_key {
+        union v6addr address;
+        __u16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 slave;		/* Backend iterator, 0 indicates the master service */
+} __attribute__((packed));
 
-#define MAX_LXC                 8
-#define CILIUM_LB_MAP_SIZE	32
+struct lb6_service {
+	union v6addr target;
+	__u16 port;
+	__u16 count;
+} __attribute__((packed));
 
-struct lb_lxc_pair {
-        __u16 lxc_id;
-        __u16 port;
-        __u32 node_id;
-};
+struct lb6_reverse_nat {
+	union v6addr address;
+	__u16 port;
+} __attribute__((packed));
 
-struct lb_value {
-        union v6addr vip;
-        __u16 dport;
-        __u16 state;
-        int lxc_count; /* round robin across lxc */
-        struct lb_lxc_pair lxc[MAX_LXC];
-};
+struct lb4_key {
+	__be32 address;
+        __u16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 slave;		/* Backend iterator, 0 indicates the master service */
+} __attribute__((packed));
+
+struct lb4_service {
+	__be32 target;
+	__u16 port;
+	__u16 count;
+	__u16 rev_nat_index;
+} __attribute__((packed));
+
+struct lb4_reverse_nat {
+	__be32 address;
+	__u16 port;
+} __attribute__((packed));
 
 #endif

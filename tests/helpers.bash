@@ -10,10 +10,12 @@ function monitor_clear {
 	set +x
 	sleep 1s
 	cp /dev/null $DUMP_FILE
+	nstat > /dev/null
 	set -x
 }
 
 function monitor_dump {
+	nstat
 	cat $DUMP_FILE
 }
 

@@ -31,6 +31,7 @@
 #include "lib/l3.h"
 #include "lib/geneve.h"
 #include "lib/drop.h"
+#include "lib/policy.h"
 
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
@@ -146,4 +147,27 @@ int from_overlay(struct __sk_buff *skb)
 	else
 		return ret;
 }
+
+__BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
+	  sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
+
+__section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_buff *skb)
+{
+	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	int ifindex = skb->cb[CB_IFINDEX];
+
+	if (policy_can_access(&POLICY_MAP, skb, src_label) != TC_ACT_OK) {
+		return send_drop_notify(skb, src_label, SECLABEL, 0,
+					ifindex, TC_ACT_SHOT);
+	} else {
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+
+		/* ifindex 0 indicates passing down to the stack */
+		if (ifindex == 0)
+			return TC_ACT_OK;
+		else
+			return redirect(ifindex, 0);
+	}
+}
+
 BPF_LICENSE("GPL");
