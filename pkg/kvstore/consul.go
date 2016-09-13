@@ -163,6 +163,9 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 			return 0, err
 		}
 		k, _, err = c.KV().Get(key, nil)
+		if err != nil {
+			return 0, err
+		}
 		if k == nil {
 			// Something is really wrong
 			errMsg := "Unable to retrieve last free ID because the key is always empty\n"
