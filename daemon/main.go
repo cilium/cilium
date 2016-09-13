@@ -113,8 +113,7 @@ func init() {
 					cli.StringFlag{
 						Destination: &config.K8sEndpoint,
 						Name:        "k",
-						Value:       "http://[node-ipv6]:8080",
-						Usage:       "Kubernetes endpoint to retrieve metadata information of new started containers",
+						Usage:       "Kubernetes master address server",
 					},
 					cli.StringFlag{
 						Destination: &labelPrefixFile,
@@ -365,8 +364,8 @@ func initEnv(ctx *cli.Context) error {
 		}
 	}
 
-	if config.K8sEndpoint == "http://[node-ipv6]:8080" {
-		config.K8sEndpoint = fmt.Sprintf("http://[%s:ffff]:8080", strings.TrimSuffix(nodeAddress.IPv6Address.String(), ":0"))
+	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {
+		config.K8sEndpoint = "http://" + config.K8sEndpoint
 	}
 
 	if uiServerAddr != "" {
