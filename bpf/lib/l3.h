@@ -164,7 +164,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 			return ret;
 #endif /* DISABLE_PORT_MAP */
 
-		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
+		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, dst_lxc->sec_label);
 		skb->cb[CB_SRC_LABEL] = seclabel;
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
@@ -200,7 +200,7 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 			return ret;
 #endif /* DISABLE_PORT_MAP */
 
-		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, ntohl(dst_lxc->sec_label));
+		cilium_trace(skb, DBG_LXC_FOUND, dst_lxc->ifindex, dst_lxc->sec_label);
 		skb->cb[CB_SRC_LABEL] = seclabel;
 		skb->cb[CB_IFINDEX] = dst_lxc->ifindex;
 
