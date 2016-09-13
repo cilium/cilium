@@ -26,6 +26,10 @@ import "C"
 
 import (
 	"unsafe"
+
+	"bufio"
+	"fmt"
+	"os"
 )
 
 type MapType int
@@ -43,33 +47,127 @@ const (
 	MapTypeCgroupArray
 )
 
+func (t MapType) String() string {
+	switch t {
+	case MapTypeHash:
+		return "Hash"
+	case MapTypeArray:
+		return "Array"
+	case MapTypeProgArray:
+		return "Program array"
+	case MapTypePerfEventArray:
+		return "Event array"
+	case MapTypePerCPUHash:
+		return "Per-CPU hash"
+	case MapTypePerCPUArray:
+		return "Per-CPU array"
+	case MapTypeStackTrace:
+		return "Stack trace"
+	case MapTypeCgroupArray:
+		return "Cgroup array"
+	}
+
+	return "Unknown"
+}
+
 type MapObj interface {
 	GetPtr() unsafe.Pointer
 }
 
+type MapInfo struct {
+	MapType    MapType
+	KeySize    uint32
+	ValueSize  uint32
+	MaxEntries uint32
+	Flags      uint32
+}
+
 type Map struct {
-	fd         int
-	path       string
-	mapType    MapType
-	keySize    uint32
-	valueSize  uint32
-	maxEntries uint32
-	isOpen     bool
+	MapInfo
+	fd     int
+	path   string
+	isOpen bool
 }
 
 func NewMap(path string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
 	return &Map{
-		path:       path,
-		mapType:    mapType,
-		keySize:    uint32(keySize),
-		valueSize:  uint32(valueSize),
-		maxEntries: uint32(maxEntries),
-		isOpen:     false,
+		MapInfo: MapInfo{
+			MapType:    mapType,
+			KeySize:    uint32(keySize),
+			ValueSize:  uint32(valueSize),
+			MaxEntries: uint32(maxEntries),
+		},
+		path:   path,
+		isOpen: false,
 	}
 }
 
+func GetMapInfo(pid int, fd int) (*MapInfo, error) {
+	fdinfoFile := fmt.Sprintf("/proc/%d/fdinfo/%d", pid, fd)
+
+	file, err := os.Open(fdinfoFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	info := &MapInfo{}
+
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		var value int
+
+		line := scanner.Text()
+		if n, err := fmt.Sscanf(line, "map_type:\t%d", &value); n == 1 && err == nil {
+			info.MapType = MapType(value)
+		} else if n, err := fmt.Sscanf(line, "key_size:\t%d", &value); n == 1 && err == nil {
+			info.KeySize = uint32(value)
+		} else if n, err := fmt.Sscanf(line, "value_size:\t%d", &value); n == 1 && err == nil {
+			info.ValueSize = uint32(value)
+		} else if n, err := fmt.Sscanf(line, "max_entries:\t%d", &value); n == 1 && err == nil {
+			info.MaxEntries = uint32(value)
+		} else if n, err := fmt.Sscanf(line, "map_flas:\t%i", &value); n == 1 && err == nil {
+			info.Flags = uint32(value)
+		}
+	}
+
+	if scanner.Err() != nil {
+		return nil, scanner.Err()
+	}
+
+	return info, nil
+}
+
+func OpenMap(path string) (*Map, error) {
+	fd, err := ObjGet(path)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := GetMapInfo(os.Getpid(), fd)
+	if err != nil {
+		return nil, err
+	}
+
+	if info.MapType == 0 {
+		return nil, fmt.Errorf("Unable to determine map type")
+	}
+
+	if info.KeySize == 0 {
+		return nil, fmt.Errorf("Unable to determine map key size")
+	}
+
+	return &Map{
+		MapInfo: *info,
+		fd:      fd,
+		path:    path,
+		isOpen:  true,
+	}, nil
+}
+
 func (m *Map) OpenOrCreate() (bool, error) {
-	fd, isNew, err := OpenOrCreateMap(m.path, int(m.mapType), m.keySize, m.valueSize, m.maxEntries)
+	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries)
 	if err != nil {
 		return false, err
 	}
@@ -95,9 +193,9 @@ func (m *Map) Open() error {
 type DumpFunc func(key []byte, value []byte)
 
 func (m *Map) Dump(cb DumpFunc) error {
-	key := make([]byte, m.keySize)
-	nextKey := make([]byte, m.keySize)
-	value := make([]byte, m.valueSize)
+	key := make([]byte, m.KeySize)
+	nextKey := make([]byte, m.KeySize)
+	value := make([]byte, m.ValueSize)
 
 	if !m.isOpen {
 		if err := m.Open(); err != nil {
