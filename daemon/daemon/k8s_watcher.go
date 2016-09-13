@@ -35,6 +35,10 @@ type networkPolicyWatchEvent struct {
 }
 
 func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
+	if !d.conf.IsK8sEnabled() {
+		return nil
+	}
+
 	curSeconds := 2 * time.Second
 	uNPs := d.k8sClient.Get().RequestURI("apis/extensions/v1beta1").
 		Resource("networkpolicies").URL().String()

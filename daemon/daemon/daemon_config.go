@@ -82,3 +82,7 @@ func NewConfig() *Config {
 func (c *Config) IsUIEnabled() bool {
 	return c.UIEnabled
 }
+
+func (c *Config) IsK8sEnabled() bool {
+	return len(c.K8sEndpoint) != 0
+}

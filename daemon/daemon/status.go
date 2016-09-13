@@ -36,20 +36,23 @@ func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
 		sr.Docker = types.NewStatusOK("")
 	}
 
-	if v, err := d.k8sClient.ServerVersion(); err != nil {
-		sr.Kubernetes = types.Status{Code: types.Warning, Msg: err.Error()}
+	if d.conf.IsK8sEnabled() {
+		if v, err := d.k8sClient.ServerVersion(); err != nil {
+			sr.Kubernetes = types.Status{Code: types.OK, Msg: err.Error()}
+		} else {
+			sr.Kubernetes = types.NewStatusOK(v.String())
+		}
 	} else {
-		sr.Kubernetes = types.NewStatusOK(v.String())
+		sr.Kubernetes = types.Status{Code: types.Disabled}
 	}
 
 	if sr.Consul.Code != types.OK {
 		sr.Cilium = types.Status{Code: sr.Consul.Code, Msg: "Consul service is not ready!"}
 	} else if sr.Docker.Code != types.OK {
 		sr.Cilium = types.Status{Code: sr.Docker.Code, Msg: "Docker service is not ready!"}
-	} /* TODO add a flag to the main daemon so we known if kubernetes is supposed to be running or not
-	else if sr.Kubernetes != types.OK {
-		sr.Cilium = types.Status{Code: types.Warning, Msg: "Consul service is not ready!"}
-	}*/
+	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.Code != types.OK {
+		sr.Cilium = types.Status{Code: sr.Kubernetes.Code, Msg: "Kubernetes service is not ready!"}
+	}
 
 	// TODO Create a logstash status in its runnable function
 	//Logstash   Status `json:"logstash"`

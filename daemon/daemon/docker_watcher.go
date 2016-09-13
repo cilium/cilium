@@ -114,6 +114,9 @@ func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP *addressing.NodeAddress
 }
 
 func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
+	if !d.conf.IsK8sEnabled() {
+		return nil, nil
+	}
 	ns := k8sDockerLbls.GetPodNamespace(dockerLbls)
 	if ns == "" {
 		ns = "default"

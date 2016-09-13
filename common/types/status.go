@@ -24,9 +24,10 @@ import (
 type StatusCode int
 
 const (
-	OK      StatusCode = 0
-	Warning StatusCode = -1
-	Failure StatusCode = -2
+	OK       StatusCode = 0
+	Warning  StatusCode = -1
+	Failure  StatusCode = -2
+	Disabled StatusCode = -3
 )
 
 func NewStatusOK(info string) Status {
@@ -53,6 +54,9 @@ func (s Status) String() string {
 		return fmt.Sprintf("%s - %s", text, s.Msg)
 	case Failure:
 		text = common.Red("Failure")
+		return fmt.Sprintf("%s - %s", text, s.Msg)
+	case Disabled:
+		text = common.Yellow("Disabled")
 		return fmt.Sprintf("%s - %s", text, s.Msg)
 	}
 	return "Unknown code"

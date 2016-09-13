@@ -286,11 +286,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
-	k8sClient, err := createK8sClient(c.K8sEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
 	rootNode := types.PolicyTree{
 		Root: types.NewPolicyNode(common.GlobalLabelPrefix, nil),
 	}
@@ -307,7 +302,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		ipamConf:                  ipamConf,
 		kvClient:                  kvClient,
 		dockerClient:              dockerClient,
-		k8sClient:                 k8sClient,
 		containers:                make(map[string]*types.Container),
 		endpoints:                 make(map[uint16]*types.Endpoint),
 		endpointsDocker:           make(map[string]*types.Endpoint),
@@ -321,6 +315,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		uiTopo:                    types.NewUITopo(),
 		uiListeners:               make(map[*Conn]bool),
 		registerUIListener:        make(chan *Conn, 1),
+	}
+
+	if c.IsK8sEnabled() {
+		d.k8sClient, err = createK8sClient(c.K8sEndpoint)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := d.init(); err != nil {
