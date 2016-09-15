@@ -22,6 +22,10 @@ if [ -z "${VAGRANT_DEFAULT_PROVIDER}" ]; then
     export 'VAGRANT_DEFAULT_PROVIDER'="virtualbox"
 fi
 
+if [ -z "${TUNNEL_MODE_STRING}" ]; then
+    export 'TUNNEL_MODE_STRING'="-t vxlan"
+fi
+
 export 'CILIUM_SCRIPT'=true
 export 'CILIUM_TEMP'="${dir}"
 
@@ -53,12 +57,23 @@ EOF
         fi
         hexIPv4=$(printf "%02X" "${i}")
         hexIPv6=$(printf "%04X" "${index}")
-        cat <<EOF >> "${filename}"
+
+# Even numbered nodes are clients and odd numbered servers. Clients connect to servers via load balancer IP and servers directly connect to client nodes.
+	if [ "$LB" = 1 ] && [ $((node_index%2)) -eq 0 ]; then
+		cat <<EOF >> "${filename}"
+ip r a 10.${index}.0.1/32 dev eth1
+ip -6 r a ${ipv6_base_addr: : -2}${hexIPv4}:0:0/96 via 2001:DB8:AAAA::1
+echo "2001:DB8:AAAA::${hexIPv6} cilium${K8STAG}-node-${index}" >> /etc/hosts
+
+EOF
+	else
+		cat <<EOF >> "${filename}"
 ip r a 10.${index}.0.1/32 dev eth1
 ip -6 r a ${ipv6_base_addr: : -2}${hexIPv4}:0:0/96 via 2001:DB8:AAAA::${hexIPv6}
 echo "2001:DB8:AAAA::${hexIPv6} cilium${K8STAG}-node-${index}" >> /etc/hosts
 
 EOF
+	fi
     done
 }
 
@@ -71,13 +86,28 @@ function write_footer() {
         ipv4_options="--ipv4 --ipv4-range 10.${index}.0.1 "
     fi
 
-    cat <<EOF >> "$filename"
+    if [ "$LB" = 1 ] && [ "$index" = 1 ]; then
+	    cat <<EOF >> "$filename"
 sleep 2s
 sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run -n ${ipv6_addr} ${ipv4_options}-t vxlan -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+echo 'script' >> /etc/init/cilium-net-daemon.conf
+echo 'cilium lb init 2001:db8:aaaa::1 f00d::' >> /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+echo 'end script' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 6s
+
 EOF
+    else
+	    cat <<EOF >> "$filename"
+sleep 2s
+sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run -n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+service cilium-net-daemon restart
+sleep 6s
+
+EOF
+    fi
 }
 
 function create_master(){
