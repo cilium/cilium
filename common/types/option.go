@@ -17,6 +17,7 @@ package types
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/common"
@@ -182,7 +183,13 @@ func (o *BoolOptions) Dump() {
 		return
 	}
 
+	opts := []string{}
 	for k := range o.Opts {
+		opts = append(opts, k)
+	}
+	sort.Strings(opts)
+
+	for _, k := range opts {
 		text := common.Green("Enabled")
 
 		if !o.Opts[k] {
