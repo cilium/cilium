@@ -36,13 +36,11 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
-	"github.com/op/go-logging"
 
 	"github.com/codegangsta/cli"
 )
 
 var (
-	log  = logging.MustGetLogger("cilium-net")
 	ipv4 bool
 )
 
@@ -248,17 +246,20 @@ func lbInitialize(ctx *cli.Context) {
 
 	globalsDir := filepath.Join(common.CiliumPath, "globals")
 	if err := os.MkdirAll(globalsDir, 0755); err != nil {
-		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
+		fmt.Fprintf(os.Stderr, "Could not create runtime directory %s: %s", globalsDir, err)
+		os.Exit(1)
 	}
 
 	if err := os.Chdir(common.CiliumPath); err != nil {
-		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
+		fmt.Fprintf(os.Stderr, "Could not change to runtime directory %s: \"%s\"",
 			common.CiliumPath, err)
+		os.Exit(1)
 	}
 
 	f, err := os.Create("./globals/lb_config.h")
 	if err != nil {
-		log.Fatalf("Could not create lb_config.h: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Could not create lb_config.h: %s\n", err)
+		os.Exit(1)
 	}
 
 	fw := bufio.NewWriter(f)
