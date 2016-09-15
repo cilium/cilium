@@ -47,7 +47,7 @@ var (
 )
 
 const (
-	mapSize = 1024
+	maxEntries = 65536
 )
 
 type LB6Key struct {
@@ -128,13 +128,13 @@ func servicesMap() *bpf.Map {
 			bpf.MapTypeHash,
 			int(unsafe.Sizeof(LB4Key{})),
 			int(unsafe.Sizeof(LB4Service{})),
-			mapSize)
+			maxEntries)
 	} else {
 		return bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb6_services",
 			bpf.MapTypeHash,
 			int(unsafe.Sizeof(LB6Key{})),
 			int(unsafe.Sizeof(LB6Service{})),
-			mapSize)
+			maxEntries)
 	}
 }
 
@@ -144,13 +144,13 @@ func revNATMap() *bpf.Map {
 			bpf.MapTypeHash,
 			int(unsafe.Sizeof(uint16(0))),
 			int(unsafe.Sizeof(LB4ReverseNAT{})),
-			mapSize)
+			maxEntries)
 	} else {
 		return bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb6_reverse_nat",
 			bpf.MapTypeHash,
 			int(unsafe.Sizeof(uint16(0))),
 			int(unsafe.Sizeof(LB6ReverseNAT{})),
-			mapSize)
+			maxEntries)
 	}
 }
 

@@ -19,23 +19,23 @@
 #define __LB_H_
 
 /* FIXME: Make configurable */
-#define CILIUM_LB_MAP_SIZE	1024
+#define CILIUM_LB_MAP_MAX_ENTRIES	65536
 
 __BPF_MAP(cilium_lb6_reverse_nat, BPF_MAP_TYPE_HASH, 0,
 	  sizeof(__u16), sizeof(struct lb6_reverse_nat),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_SIZE);
+	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
 
 __BPF_MAP(cilium_lb6_services, BPF_MAP_TYPE_HASH, 0,
 	  sizeof(struct lb6_key), sizeof(struct lb6_service),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_SIZE);
+	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
 
 __BPF_MAP(cilium_lb4_reverse_nat, BPF_MAP_TYPE_HASH, 0,
 	  sizeof(__u16), sizeof(struct lb4_reverse_nat),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_SIZE);
+	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
 
 __BPF_MAP(cilium_lb4_services, BPF_MAP_TYPE_HASH, 0,
 	  sizeof(struct lb4_key), sizeof(struct lb4_service),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_SIZE);
+	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
 
 static inline int lb_select_slave(struct __sk_buff *skb, __u16 count)
 {
