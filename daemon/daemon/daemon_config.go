@@ -36,15 +36,15 @@ var (
 	}
 
 	DaemonOptionLibrary = types.OptionLibrary{
-		types.OptionNAT46:               &types.OptionSpecNAT46,
-		types.OptionDropNotify:          &types.OptionSpecDropNotify,
-		types.OptionDebug:               &types.OptionSpecDebug,
-		types.OptionPolicy:              &types.OptionSpecPolicy,
-		types.OptionConntrack:           &types.OptionSpecConntrack,
-		types.OptionConntrackAccounting: &types.OptionSpecConntrackAccounting,
-		OptionPolicyTracing:             &OptionSpecPolicyTracing,
+		OptionPolicyTracing: &OptionSpecPolicyTracing,
 	}
 )
+
+func init() {
+	for k, v := range types.EndpointMutableOptionLibrary {
+		DaemonOptionLibrary[k] = v
+	}
+}
 
 // Config is the configuration used by Daemon.
 type Config struct {
@@ -67,6 +67,7 @@ type Config struct {
 
 	DryMode      bool // Do not create BPF maps, devices, ..
 	RestoreState bool // RestoreState restores the state from previous running daemons.
+	KeepConfig   bool // Keep configuration of existing endpoints when starting up.
 
 	// Options changeable at runtime
 	Opts   *types.BoolOptions

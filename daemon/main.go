@@ -115,6 +115,11 @@ func init() {
 						Name:        "k",
 						Usage:       "Kubernetes master address server",
 					},
+					cli.BoolTFlag{
+						Destination: &config.KeepConfig,
+						Name:        "keep-config",
+						Usage:       "When restoring state, keeps containers' configuration in place",
+					},
 					cli.StringFlag{
 						Destination: &labelPrefixFile,
 						Name:        "p",
@@ -152,8 +157,8 @@ func init() {
 					},
 					cli.BoolTFlag{
 						Destination: &config.RestoreState,
-						Name:        "restore-state",
-						Usage:       "Restore state from previous daemon",
+						Name:        "restore",
+						Usage:       "Restores state, if possible, from previous daemon",
 					},
 					cli.StringFlag{
 						Destination: &config.RunDir,

@@ -38,48 +38,18 @@ type EPPortMap struct {
 }
 
 const (
-	OptionNAT46               = "NAT46"
-	OptionPolicy              = "Policy"
-	OptionDropNotify          = "DropNotification"
-	OptionConntrack           = "Conntrack"
-	OptionConntrackAccounting = "ConntrackAccounting"
-	OptionDebug               = "Debug"
 	OptionAllowToHost         = "AllowToHost"
 	OptionAllowToWorld        = "AllowToWorld"
+	OptionConntrackAccounting = "ConntrackAccounting"
+	OptionConntrack           = "Conntrack"
+	OptionDebug               = "Debug"
+	OptionDropNotify          = "DropNotification"
 	OptionLearnTraffic        = "LearnTraffic"
+	OptionNAT46               = "NAT46"
+	OptionPolicy              = "Policy"
 )
 
 var (
-	OptionSpecNAT46 = Option{
-		Define:      "ENABLE_NAT46",
-		Description: "Enable automatic NAT46 translation",
-	}
-
-	OptionSpecPolicy = Option{
-		Define:      "POLICY_ENFORCEMENT",
-		Description: "Enable policy enforcement",
-	}
-
-	OptionSpecDropNotify = Option{
-		Define:      "DROP_NOTIFY",
-		Description: "Enable drop notifications",
-	}
-
-	OptionSpecConntrack = Option{
-		Define:      "CONNTRACK",
-		Description: "Enable stateful connection tracking",
-	}
-
-	OptionSpecConntrackAccounting = Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-	}
-
-	OptionSpecDebug = Option{
-		Define:      "DEBUG",
-		Description: "Enable debugging trace statements",
-	}
-
 	OptionSpecAllowToHost = Option{
 		Define:      "ALLOW_TO_HOST",
 		Immutable:   true,
@@ -92,23 +62,62 @@ var (
 		Description: "Allow all traffic to outside world",
 	}
 
+	OptionSpecConntrackAccounting = Option{
+		Define:      "CONNTRACK_ACCOUNTING",
+		Description: "Enable per flow (conntrack) statistics",
+	}
+
+	OptionSpecConntrack = Option{
+		Define:      "CONNTRACK",
+		Description: "Enable stateful connection tracking",
+	}
+
+	OptionSpecDebug = Option{
+		Define:      "DEBUG",
+		Description: "Enable debugging trace statements",
+	}
+
+	OptionSpecDropNotify = Option{
+		Define:      "DROP_NOTIFY",
+		Description: "Enable drop notifications",
+	}
+
 	OptionSpecLearnTraffic = Option{
 		Define:      "LEARN_TRAFFIC",
 		Description: "Learn and add labels to the list of allowed labels",
 	}
 
-	EndpointOptionLibrary = OptionLibrary{
+	OptionSpecNAT46 = Option{
+		Define:      "ENABLE_NAT46",
+		Description: "Enable automatic NAT46 translation",
+	}
+
+	OptionSpecPolicy = Option{
+		Define:      "POLICY_ENFORCEMENT",
+		Description: "Enable policy enforcement",
+	}
+
+	EndpointMutableOptionLibrary = OptionLibrary{
+		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
+		OptionConntrack:           &OptionSpecConntrack,
+		OptionDebug:               &OptionSpecDebug,
+		OptionDropNotify:          &OptionSpecDropNotify,
+		OptionLearnTraffic:        &OptionSpecLearnTraffic,
 		OptionNAT46:               &OptionSpecNAT46,
 		OptionPolicy:              &OptionSpecPolicy,
-		OptionDropNotify:          &OptionSpecDropNotify,
-		OptionConntrack:           &OptionSpecConntrack,
-		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
-		OptionDebug:               &OptionSpecDebug,
-		OptionAllowToHost:         &OptionSpecAllowToHost,
-		OptionAllowToWorld:        &OptionSpecAllowToWorld,
-		OptionLearnTraffic:        &OptionSpecLearnTraffic,
+	}
+
+	EndpointOptionLibrary = OptionLibrary{
+		OptionAllowToHost:  &OptionSpecAllowToHost,
+		OptionAllowToWorld: &OptionSpecAllowToWorld,
 	}
 )
+
+func init() {
+	for k, v := range EndpointMutableOptionLibrary {
+		EndpointOptionLibrary[k] = v
+	}
+}
 
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
@@ -206,6 +215,7 @@ func OptionChanged(key string, value bool, data interface{}) {
 }
 
 func (e *Endpoint) ApplyOpts(opts OptionMap) bool {
+	// We want to be notified if the packets are dropped with the learn traffic
 	if val, ok := opts[OptionLearnTraffic]; ok && val {
 		opts[OptionDropNotify] = true
 	}
@@ -214,24 +224,18 @@ func (e *Endpoint) ApplyOpts(opts OptionMap) bool {
 }
 
 func (ep *Endpoint) SetDefaultOpts(opts *BoolOptions) {
-	restore := false
 	if ep.Opts == nil {
-		restore = true
 		ep.Opts = NewBoolOptions(&EndpointOptionLibrary)
 	}
 	if ep.Opts.Library == nil {
 		ep.Opts.Library = &EndpointOptionLibrary
 	}
 
-	if restore {
-		if opts != nil {
-			ep.Opts.InheritDefault(opts, OptionConntrack)
-			ep.Opts.InheritDefault(opts, OptionConntrackAccounting)
-			ep.Opts.InheritDefault(opts, OptionPolicy)
-			ep.Opts.InheritDefault(opts, OptionDebug)
-			ep.Opts.InheritDefault(opts, OptionDropNotify)
-			ep.Opts.InheritDefault(opts, OptionNAT46)
+	if opts != nil {
+		for k := range EndpointMutableOptionLibrary {
+			ep.Opts.Set(k, opts.IsEnabled(k))
 		}
+		// Lets keep this here to prevent users to hurt themselves.
 		ep.Opts.SetIfUnset(OptionLearnTraffic, false)
 	}
 }

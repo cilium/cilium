@@ -114,7 +114,7 @@ func (o *BoolOptions) SetIfUnset(key string, value bool) {
 }
 
 func (o *BoolOptions) InheritDefault(parent *BoolOptions, key string) {
-	o.SetIfUnset(key, parent.IsEnabled(key))
+	o.Set(key, parent.IsEnabled(key))
 }
 
 func ParseOption(arg string, lib *OptionLibrary) (string, bool, error) {
@@ -228,7 +228,7 @@ func (o *BoolOptions) Apply(n OptionMap, changed ChangedFunc, data interface{}) 
 		} else {
 			/* Only disable if enabled already */
 			if ok && val {
-				delete(o.Opts, k)
+				o.Opts[k] = false
 				changes++
 				changed(k, v, data)
 			}
