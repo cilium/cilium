@@ -32,7 +32,6 @@
  *  - LB_REDIRECT     - Redirect to an ifindex
  */
 
-#include <lb_config.h>
 #include <netdev_config.h>
 
 #include <bpf/api.h>

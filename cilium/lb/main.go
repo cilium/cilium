@@ -16,15 +16,12 @@
 package lb
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/cilium/cilium/bpf/lbmap"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/bpf"
 
@@ -66,12 +63,6 @@ func init() {
 			},
 		},
 		Subcommands: []cli.Command{
-			{
-				Name:      "init",
-				Usage:     "initialize load balancer",
-				ArgsUsage: "",
-				Action:    cliInitialize,
-			},
 			{
 				Name:   "create-services-map",
 				Usage:  "creates the services map",
@@ -128,35 +119,6 @@ func init() {
 			},
 		},
 	}
-}
-
-func cliInitialize(ctx *cli.Context) {
-	if len(ctx.Args()) != 2 {
-		printUsageAndExit(ctx)
-	}
-
-	globalsDir := filepath.Join(common.CiliumPath, "globals")
-	if err := os.MkdirAll(globalsDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not create runtime directory %s: %s", globalsDir, err)
-		os.Exit(1)
-	}
-
-	if err := os.Chdir(common.CiliumPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not change to runtime directory %s: \"%s\"",
-			common.CiliumPath, err)
-		os.Exit(1)
-	}
-
-	f, err := os.Create("./globals/lb_config.h")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not create lb_config.h: %s\n", err)
-		os.Exit(1)
-	}
-
-	fw := bufio.NewWriter(f)
-
-	fw.Flush()
-	f.Close()
 }
 
 func cliCreateServices(ctx *cli.Context) {
