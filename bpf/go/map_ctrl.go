@@ -76,11 +76,12 @@ func dumpMap(ctx *cli.Context) {
 		os.Exit(1)
 	}
 
-	dumpit := func(key []byte, value []byte) {
+	dumpit := func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 		fmt.Printf("Key:%sValue:\n%s", hex.Dump(key), hex.Dump(value))
+		return nil, nil, nil
 	}
 
-	err = m.Dump(dumpit)
+	err = m.Dump(dumpit, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
