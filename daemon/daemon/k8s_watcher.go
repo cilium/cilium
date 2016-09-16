@@ -99,7 +99,6 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 	}()
 
 	go func() {
-		time.Sleep(30 * time.Second)
 		serviceConfig := k8sProxyConfig.NewServiceConfig()
 		serviceConfig.RegisterHandler(d)
 
@@ -296,12 +295,15 @@ func (d *Daemon) syncLB() {
 					epIP, epPort.Port)
 
 				if !isServerPresent {
+					d.conf.OptsMU.RLock()
 					d.ipamConf.AllocatorMutex.RLock()
 					if d.ipamConf.IPv6Allocator.Has(net.ParseIP(epIP)) ||
-						d.ipamConf.IPv4Allocator.Has(net.ParseIP(epIP)) {
+						(d.conf.IPv4Enabled &&
+							d.ipamConf.IPv4Allocator.Has(net.ParseIP(epIP))) {
 						isServerPresent = true
 					}
 					d.ipamConf.AllocatorMutex.RUnlock()
+					d.conf.OptsMU.RUnlock()
 				}
 			}
 			if isServerPresent {
