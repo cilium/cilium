@@ -42,7 +42,7 @@ func (d *Daemon) gasNewServiceL4ID(svcl4 *types.ServiceL4ID) error {
 // PutServiceL4 stores the given service in the kvstore and returns the ServiceL4ID
 // created for the given servicel4.
 func (d *Daemon) PutServiceL4(svcl4 types.ServiceL4) (*types.ServiceL4ID, error) {
-	log.Debugf("Resolving service %+v of %s", svcl4)
+	log.Debugf("Resolving service %+v", svcl4)
 
 	// Retrieve unique SHA256Sum for service
 	sha256Sum, err := svcl4.SHA256Sum()

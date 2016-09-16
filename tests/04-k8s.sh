@@ -37,6 +37,7 @@ function cleanup {
     sudo killall -9 kube-apiserver || true
     docker rm -f `docker ps -aq --filter=name=k8s` 2> /dev/null || true
     monitor_stop
+    sudo cilium -D policy delete io.cilium
 }
 
 trap cleanup EXIT
@@ -48,21 +49,25 @@ monitor_start
 set -x
 
 "${dir}/../examples/kubernetes/0-policy.sh" 300
-"${dir}/../examples/kubernetes/1-dns.sh" 300
-"${dir}/../examples/kubernetes/2-guestbook.sh" 300
+"${dir}/../examples/kubernetes/1-guestbook.sh" 300
 "${dir}/wait-for-docker.bash" k8s_guestbook 100
 "${dir}/wait-for-docker.bash" k8s_redis-slave 100
 "${dir}/wait-for-docker.bash" k8s_redis-master 100
 
 monitor_clear
+
 if [ -n "${IPV4}" ]; then
-    docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && ping -c 5 redis-master' || {
-        abort "Unable to ping redis-master"
+    docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && nc redis-master 6379 <<EOF
+PING
+EOF' || {
+        abort "Unable to nc redis-master 6379"
     }
 else
-    docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && ping6 -c 5 redis-master' || {
-        abort "Unable to ping6 redis-master"
+    docker exec -ti `docker ps -aq --filter=name=k8s_guestbook` sh -c 'sleep 60 && nc redis-master 6379 <<EOF
+PING
+EOF' || {
+        abort "Unable to nc redis-master 6379"
     }
 fi
 
-sudo cilium -D policy delete io.cilium
+echo "SUCCESS!"

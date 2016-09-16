@@ -6,7 +6,7 @@
       "io.cilium.name": "lizards",
       "io.cilium.parent": "io.cilium"
     },
-    "name": "lizards-policy"
+    "name": "lizards-policy-db"
   },
   "spec": {
     "podSelector": {

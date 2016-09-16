@@ -49,10 +49,22 @@ echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
 sudo chmod -R 775  /usr/local/go/pkg/
 sudo chgrp vagrant /usr/local/go/pkg/
 
-git clone -b v1.3.0 https://github.com/kubernetes/kubernetes.git
+git clone -b v1.3.7 https://github.com/kubernetes/kubernetes.git
 sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
-patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.3.0.patch
+patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.3.7.patch
+
+# Install loopback cni plugin
+sudo mkdir -p /opt/cni/bin
+cd /opt/cni/bin
+sudo wget https://github.com/containernetworking/cni/releases/download/v0.3.0/cni-v0.3.0.tgz
+sudo tar zxvf cni-v0.3.0.tgz
+find . ! -name 'loopback' -type f -exec sudo rm -f {} +
+sudo tee /etc/cni/net.d/99-loopback.conf <<EOF
+{
+    "type": "loopback"
+}
+EOF
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 

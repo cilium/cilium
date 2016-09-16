@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/types"
 
 	k8sAPI "k8s.io/kubernetes/pkg/api"
@@ -99,6 +100,16 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 	}()
 
 	go func() {
+		if d.conf.LBMode {
+			// FIXME: move this to the daemon init()
+			lbmap.Service6Map.OpenOrCreate()
+			lbmap.RevNat6Map.OpenOrCreate()
+			if d.conf.IPv4Enabled {
+				lbmap.Service4Map.OpenOrCreate()
+				lbmap.RevNat4Map.OpenOrCreate()
+			}
+		}
+
 		serviceConfig := k8sProxyConfig.NewServiceConfig()
 		serviceConfig.RegisterHandler(d)
 
@@ -256,13 +267,32 @@ func (d *Daemon) OnEndpointsUpdate(endpoints []k8sAPI.Endpoints) {
 }
 
 func (d *Daemon) syncLB() {
+	if !d.conf.LBMode {
+		return
+	}
 	for svc, svcInfo := range d.loadBalancer.Services {
 		se, ok := d.loadBalancer.Endpoints[svc]
 		if !ok {
 			continue
 		}
 
+		// We are not discriminating the different L4 protocols on the same L4
+		// port so we create the number of unique sets of service IP + service
+		// port.
+		uniqSvcs := map[uint16]uint16{}
+		for _, svcPort := range svcInfo.Ports {
+			nPorts, ok := uniqSvcs[svcPort.Port]
+			if !ok {
+				uniqSvcs[svcPort.Port] = 1
+			} else {
+				uniqSvcs[svcPort.Port] = nPorts + 1
+			}
+		}
+
 		for svcPortName, svcPort := range svcInfo.Ports {
+			if uniqSvcs[svcPort.Port] == 0 {
+				continue
+			}
 			epPort, ok := se.Ports[svcPortName]
 			if !ok {
 				continue
@@ -279,27 +309,52 @@ func (d *Daemon) syncLB() {
 				}
 				svcPort.ServiceID = svcl4ID.ServiceID
 			}
+			nSvcs := uniqSvcs[svcPort.Port]
+			uniqSvcs[svcPort.Port] = nSvcs - 1
+
 			isServerPresent := false
 
-			serverIndex := 0
+			serverIndex := uint16(0)
 
 			if len(se.IPs) != 0 {
-				log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
-					svcInfo.IP, svcPort.Port, serverIndex, len(svcInfo.Ports), svcPort.ServiceID,
-					"::", 0)
+				svc6k := lbmap.NewService6Key(svcInfo.IP, svcPort.Port, serverIndex)
+				svc6v := lbmap.NewService6Value(nSvcs, svcInfo.IP, svcPort.Port, uint16(svcPort.ServiceID))
+				if err := lbmap.Service6Map.Update(svc6k, svc6v); err != nil {
+					log.Errorf("Error updating service %+v, %s", svc6k, err)
+				} else {
+					log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
+						svcInfo.IP, svcPort.Port, serverIndex, nSvcs, svcPort.ServiceID,
+						"::", 0)
+				}
+
 			}
+			svc6k := lbmap.NewService6Key(svcInfo.IP, svcPort.Port, serverIndex)
 			for epIP := range se.IPs {
 				serverIndex++
-				log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
-					svcInfo.IP, svcPort.Port, serverIndex, len(svcInfo.Ports), svcPort.ServiceID,
-					epIP, epPort.Port)
+				svc6k.Slave = serverIndex
+				epIPParsed := net.ParseIP(epIP)
+
+				// FIXME: IPv6 only for now
+				if epIPParsed.To4() != nil {
+					continue
+				}
+
+				svc6v := lbmap.NewService6Value(nSvcs, epIPParsed, epPort.Port, uint16(svcPort.ServiceID))
+				if err := lbmap.Service6Map.Update(svc6k, svc6v); err != nil {
+					log.Errorf("Error updating service %+v, %s", svc6k, err)
+				} else {
+					log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
+						svcInfo.IP, svcPort.Port, serverIndex, nSvcs, svcPort.ServiceID,
+						epIP, epPort.Port)
+				}
 
 				if !isServerPresent {
 					d.conf.OptsMU.RLock()
 					d.ipamConf.AllocatorMutex.RLock()
-					if d.ipamConf.IPv6Allocator.Has(net.ParseIP(epIP)) ||
+					if d.conf.NodeAddress.IPv6Address.HostIP().Equal(epIPParsed) ||
+						d.ipamConf.IPv6Allocator.Has(epIPParsed) ||
 						(d.conf.IPv4Enabled &&
-							d.ipamConf.IPv4Allocator.Has(net.ParseIP(epIP))) {
+							d.ipamConf.IPv4Allocator.Has(epIPParsed)) {
 						isServerPresent = true
 					}
 					d.ipamConf.AllocatorMutex.RUnlock()
@@ -307,8 +362,14 @@ func (d *Daemon) syncLB() {
 				}
 			}
 			if isServerPresent {
-				log.Debugf("# cilium lb update-state %d %s %d",
-					svcPort.ServiceID, svcInfo.IP, svcPort.Port)
+				revNATk := lbmap.NewRevNat6Key(uint16(svcPort.ServiceID))
+				revNATv := lbmap.NewRevNat6Value(svcInfo.IP, svcPort.Port)
+				if err := lbmap.RevNat6Map.Update(revNATk, revNATv); err != nil {
+					log.Errorf("Error updating reverser NAT %+v, %s", revNATk, err)
+				} else {
+					log.Debugf("# cilium lb update-rev-nat %d %s %d",
+						svcPort.ServiceID, svcInfo.IP, svcPort.Port)
+				}
 			}
 		}
 	}

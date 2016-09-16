@@ -38,13 +38,19 @@ else
     export ETCD_HOST="[${ip}]"
 fi
 
-export DNS_SERVER_IP="${ip}"
+export KUBE_ENABLE_CLUSTER_DNS=true
+export SERVICE_CLUSTER_IP_RANGE="f00d:1::/112"
+export KUBE_DNS_SERVER_IP="f00d:1::fffe"
+export KUBE_DNS_NAME="${dns_domain}"
 export KUBELET_HOST="${ip}"
-export DNS_DOMAIN="${dns_domain}"
-export ENABLE_DNS=true
-export NET_PLUGIN=cni
+export NET_PLUGIN="cni"
+export NET_PLUGIN_DIR="/etc/cni/net.d"
 export API_PORT="8080"
 export KUBE_OS_DISTRIBUTION="debian"
 export RUNTIME_CONFIG="extensions/v1beta1,extensions/v1beta1/networkpolicies"
 export kubectl="/home/vagrant/kubernetes/cluster/kubectl.sh -s ${API_HOST}:${API_PORT}"
+
+# Debugging variables
 export LOG_LEVEL=5
+# etcd log directory
+export ARTIFACTS_DIR="/tmp"

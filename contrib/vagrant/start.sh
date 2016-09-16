@@ -84,8 +84,12 @@ function write_footer() {
     ipv6_addr="${2}"
     filename="${3}"
 
-    if [ -n "${IPV4}" ]; then
+    if [ -n "${IPV4}" ] && [ "${IPV4}" -ne "0" ]; then
         ipv4_options="--ipv4 --ipv4-range 10.${index}.0.1 "
+    fi
+
+    if [ -n "${K8S}" ]; then
+        k8s_options="--lb -k http://[f00d::c0a8:210b:0:ffff]:8080 "
     fi
 
     if [ "$LB" = 1 ] && [ "$index" = 1 ]; then
@@ -94,7 +98,7 @@ sleep 2s
 sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
 echo 'script' >> /etc/init/cilium-net-daemon.conf
 echo 'cilium lb init 2001:db8:aaaa::1 f00d::' >> /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run -n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run ${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
 echo 'end script' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 6s
@@ -104,7 +108,7 @@ EOF
 	    cat <<EOF >> "$filename"
 sleep 2s
 sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run -n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+echo 'exec cilium -D daemon run ${k8s_options}-n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
 service cilium-net-daemon restart
 sleep 6s
 
