@@ -178,19 +178,21 @@ func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
 }
 
 // getIPAMConfLibnetwork returns the Libnetwork specific IPAM configuration.
-func getIPAMConfLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMConfigRep, error) {
+func (d *Daemon) getIPAMConfLibnetwork(ln ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
 	if ln.RequestPoolRequest != nil {
 		var poolID, pool, gw string
 
 		if ln.RequestPoolRequest.V6 == false {
-			poolID = ipam.LibnetworkDefaultPoolV4
-			pool = ipam.LibnetworkDummyV4AllocPool
-			gw = ipam.LibnetworkDummyV4Gateway
+			if d.conf.IPv4Enabled {
+				poolID = ipam.LibnetworkDefaultPoolV4
+				pool = d.conf.NodeAddress.IPv4AllocRange().String()
+				gw = d.conf.NodeAddress.IPv4Address.IP().String() + "/32"
+			}
 		} else {
-			subnetGo := net.IPNet(ipamConf.IPAMConfig.Subnet)
+			subnetGo := net.IPNet(d.ipamConf.IPAMConfig.Subnet)
 			poolID = ipam.LibnetworkDefaultPoolV6
 			pool = subnetGo.String()
-			gw = ipamConf.IPAMConfig.Gateway.String() + "/128"
+			gw = d.ipamConf.IPAMConfig.Gateway.String() + "/128"
 		}
 
 		return &ipam.IPAMConfigRep{
@@ -205,7 +207,7 @@ func getIPAMConfLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IP
 	}
 
 	ciliumRoutes := []ipam.Route{}
-	for _, r := range ipamConf.IPAMConfig.Routes {
+	for _, r := range d.ipamConf.IPAMConfig.Routes {
 		ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
 		ciliumRoutes = append(ciliumRoutes, *ciliumRoute)
 	}
@@ -213,7 +215,7 @@ func getIPAMConfLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IP
 	return &ipam.IPAMConfigRep{
 		IPAMConfig: &ipam.IPAMRep{
 			IP6: &ipam.IPConfig{
-				Gateway: ipamConf.IPAMConfig.Gateway,
+				Gateway: d.ipamConf.IPAMConfig.Gateway,
 				Routes:  ciliumRoutes,
 			},
 		},
@@ -224,7 +226,7 @@ func getIPAMConfLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IP
 func (d *Daemon) GetIPAMConf(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
 	switch ipamType {
 	case ipam.LibnetworkIPAMType:
-		return getIPAMConfLibnetwork(options, d.ipamConf)
+		return d.getIPAMConfLibnetwork(options)
 	}
 	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
 }
