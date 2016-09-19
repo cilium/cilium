@@ -18,8 +18,8 @@ package main
 import (
 	"os"
 
-	lb "github.com/cilium/cilium/bpf/lbmap"
 	endpoint "github.com/cilium/cilium/cilium/endpoint"
+	"github.com/cilium/cilium/cilium/lb"
 	"github.com/cilium/cilium/cilium/monitor"
 	policy "github.com/cilium/cilium/cilium/policy"
 	"github.com/cilium/cilium/common"

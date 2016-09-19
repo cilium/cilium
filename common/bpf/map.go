@@ -70,8 +70,17 @@ func (t MapType) String() string {
 	return "Unknown"
 }
 
-type MapObj interface {
-	GetPtr() unsafe.Pointer
+type MapKey interface {
+	// Returns pointer to start of key
+	GetKeyPtr() unsafe.Pointer
+
+	// Allocates a new value matching the key type
+	NewValue() MapValue
+}
+
+type MapValue interface {
+	// Returns pointer to start of value
+	GetValuePtr() unsafe.Pointer
 }
 
 type MapInfo struct {
@@ -190,9 +199,10 @@ func (m *Map) Open() error {
 	return nil
 }
 
-type DumpFunc func(key []byte, value []byte)
+type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
+type DumpCallback func(key MapKey, value MapValue)
 
-func (m *Map) Dump(cb DumpFunc) error {
+func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 	value := make([]byte, m.ValueSize)
@@ -224,39 +234,54 @@ func (m *Map) Dump(cb DumpFunc) error {
 			return err
 		}
 
-		cb(nextKey, value)
+		k, v, err := parser(nextKey, value)
+		if err != nil {
+			return err
+		}
+
+		if cb != nil {
+			cb(k, v)
+		}
+
 		copy(key, nextKey)
 	}
 
 	return nil
 }
 
-func (m *Map) Lookup(key MapObj, value unsafe.Pointer) error {
+func (m *Map) Lookup(key MapKey) (MapValue, error) {
+	value := key.NewValue()
+
 	if !m.isOpen {
 		if err := m.Open(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return LookupElement(m.fd, key.GetPtr(), value)
+	err := LookupElement(m.fd, key.GetKeyPtr(), value.GetValuePtr())
+	if err != nil {
+		return nil, err
+	}
+
+	return value, nil
 }
 
-func (m *Map) Update(key MapObj, value unsafe.Pointer) error {
+func (m *Map) Update(key MapKey, value MapValue) error {
 	if !m.isOpen {
 		if err := m.Open(); err != nil {
 			return err
 		}
 	}
 
-	return UpdateElement(m.fd, key.GetPtr(), value, 0)
+	return UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
 }
 
-func (m *Map) Delete(key MapObj) error {
+func (m *Map) Delete(key MapKey) error {
 	if !m.isOpen {
 		if err := m.Open(); err != nil {
 			return err
 		}
 	}
 
-	return DeleteElement(m.fd, key.GetPtr())
+	return DeleteElement(m.fd, key.GetKeyPtr())
 }
