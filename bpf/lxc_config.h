@@ -36,3 +36,5 @@
 #define CT_MAP6 cilium_ct6_111
 #define CT_MAP4 cilium_ct4_111
 #define CT_MAP_SIZE 4096
+#define LB_L3
+#define LB_L4

@@ -22,7 +22,6 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/bpf/lbmap"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/bpf"
 
 	"github.com/codegangsta/cli"
@@ -254,25 +253,13 @@ func parseServiceValue(ctx *cli.Context, ipv6 bool, firstArg int) lbmap.ServiceV
 	}
 
 	if ipv6 {
-		iv6, err := addressing.NewCiliumIPv6(address)
-		if err != nil {
+		if target.To4() != nil {
 			fmt.Fprintf(os.Stderr, "Expecting an IPv6 address, got: %s\n", address)
 			os.Exit(1)
 		}
 
-		revNat := parseUint16(ctx, firstArg+1)
-
-		if revNat != 0 {
-			if iv6.State() != 0 {
-				fmt.Fprintf(os.Stderr, "Error: Address has non-zero state bits.\n")
-				os.Exit(1)
-			}
-
-			iv6.SetState(revNat)
-		}
-
-		return lbmap.NewService6Value(parseUint16(ctx, firstArg), iv6.IP(),
-			parseUint16(ctx, firstArg+3))
+		return lbmap.NewService6Value(parseUint16(ctx, firstArg), target,
+			parseUint16(ctx, firstArg+3), parseUint16(ctx, firstArg+1))
 	} else {
 		if target.To4() == nil {
 			fmt.Fprintf(os.Stderr, "Expecting an IPv4 address, got: %s\n", address)

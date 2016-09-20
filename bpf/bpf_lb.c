@@ -30,6 +30,7 @@
  *  - LB_DISABLE_IPV4 - Ignore IPv4 packets
  *  - LB_DISABLE_IPV6 - Ignore IPv6 packets
  *  - LB_REDIRECT     - Redirect to an ifindex
+ *  - LB_L4           - Enable L4 matching and mapping
  */
 
 #include <netdev_config.h>
@@ -73,8 +74,10 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	ipv6_addr_copy(&key.address, dst);
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+	csum_l4_offset_and_flags(nexthdr, &csum_off);
 
-	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &key.dport);
+#ifdef LB_L4
+	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4) {
 			/* Pass unknown L4 to stack */
@@ -82,6 +85,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		} else
 			return ret;
 	}
+#endif
 
 	svc = lb6_lookup_service(skb, &key);
 	if (svc == NULL) {
@@ -94,6 +98,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return DROP_NO_SERVICE;
 
 	ipv6_addr_copy(&new_dst, &svc->target);
+	if (svc->rev_nat_index)
+		new_dst.p4 |= svc->rev_nat_index;
+
 	ret = lb6_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
@@ -125,8 +132,10 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	key.address = ip->daddr;
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip);
+	csum_l4_offset_and_flags(nexthdr, &csum_off);
 
-	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &key.dport);
+#ifdef LB_L4
+	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4) {
 			/* Pass unknown L4 to stack */
@@ -134,6 +143,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		} else
 			return ret;
 	}
+#endif
 
 	svc = lb4_lookup_service(skb, &key);
 	if (svc == NULL) {

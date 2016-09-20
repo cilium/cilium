@@ -19,6 +19,16 @@ function mac2array()
 	echo "{0x${1//:/,0x}}"
 }
 
+function host_ip6()
+{
+	ip -6 addr show cilium_host scope global | grep inet6 | awk '{print $2}' | sed -e 's/\/.*//'
+}
+
+function host_ip4()
+{
+	ip -4 addr show cilium_host scope global | grep inet | awk '{print $2}' | sed -e 's/\/.*//'
+}
+
 trap cleanup EXIT
 
 # Remove containers from a previously incomplete run
@@ -48,7 +58,7 @@ RUN=/var/run/cilium
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
 NH_MAC="{.addr=$(mac2array $NH_MAC)}"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG"
 touch netdev_config.h
 clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
 
@@ -68,6 +78,9 @@ docker run -dt --net=$TEST_NET --name client -l io.cilium.client noironetworks/n
 
 # FIXME IPv6 DAD period
 sleep 5
+
+CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
+CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')
 
 SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
 SERVER1_ID=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $1}')
@@ -95,6 +108,7 @@ cat <<EOF | cilium -D policy import -
 	}
 }
 EOF
+
 SVC_IP6="f00d::1:1"
 LB_PORT=0
 REVNAT=222
@@ -113,6 +127,19 @@ sudo cilium lb --ipv4 update-service $SVC_IP4 $LB_PORT 2 2 $REVNAT $SERVER2_IP4 
 sudo cilium lb --ipv4 create-rev-nat-map
 sudo cilium lb --ipv4 update-rev-nat $REVNAT $SVC_IP4 $LB_PORT
 
+LB_HOST_IP6="f00d::1:2"
+LB_PORT=0
+REVNAT=223
+sudo cilium lb update-service $LB_HOST_IP6 $LB_PORT 0 1 $REVNAT :: $LB_PORT
+sudo cilium lb update-service $LB_HOST_IP6 $LB_PORT 1 1 $REVNAT $(host_ip6) $LB_PORT
+sudo cilium lb update-rev-nat $REVNAT $LB_HOST_IP6 $LB_PORT
+
+LB_HOST_IP4="3.3.3.3"
+sudo cilium lb --ipv4 update-service $LB_HOST_IP4 $LB_PORT 0 1 $REVNAT 0.0.0.0 $LB_PORT
+sudo cilium lb --ipv4 update-service $LB_HOST_IP4 $LB_PORT 1 1 $REVNAT $(host_ip4) $LB_PORT
+sudo cilium lb --ipv4 update-rev-nat $REVNAT $LB_HOST_IP4 $LB_PORT
+
+## Test 1: local host => bpf_lb => local container
 monitor_clear
 ping6 $SVC_IP6 -c 4 || {
 	abort "Error: Unable to ping"
@@ -123,6 +150,7 @@ ping $SVC_IP4 -c 4 || {
 	abort "Error: Unable to ping"
 }
 
+## Test 2: local container => bpf_lxc (LB) => local container
 monitor_clear
 docker exec -i client ping6 -c 4 $SVC_IP6 || {
 	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
@@ -133,8 +161,22 @@ docker exec -i client ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
 }
 
+cilium endpoint config $CLIENT_ID Policy=false
+
+## Test 3: local container => bpf_lxc (LB) => local host
+monitor_clear
+docker exec -i client ping6 -c 4 $LB_HOST_IP6 || {
+	abort "Error: Unable to reach local IPv6 node via loadbalancer"
+}
+
+monitor_clear
+docker exec -i client ping -c 4 $LB_HOST_IP4 || {
+	abort "Error: Unable to reach local IPv4 node via loadbalancer"
+}
+
 monitor_stop
 
+## Test 4: Run wrk & ab from conainer => bpf_lxc (LB) => local container
 cilium daemon config Debug=false DropNotification=false
 cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
 cilium endpoint config $SERVER2_ID Debug=false DropNotification=false

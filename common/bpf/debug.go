@@ -164,7 +164,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_LB4_LOOKUP_MASTER_FAIL:
 		fmt.Printf("Master service lookup failed\n")
 	case DBG_LB4_LOOKUP_SLAVE_SUCCESS:
-		fmt.Printf("Slave service lookup result: target%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+		fmt.Printf("Slave service lookup result: target=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_LB4_REVERSE_NAT:
 		fmt.Printf("Performing reverse NAT, address=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	default:

@@ -143,10 +143,6 @@ enum {
 	CB_SRC_LABEL,
 	CB_IFINDEX,
 	CB_POLICY,
-
-	/* Used to carry reverse NAT index for load balanced IPv4 packets.
-	 * Index is set in lb4_local(). */
-	CB_REVERSE_NAT,
 };
 
 /* Flag values for CB_POLICY */
@@ -195,6 +191,7 @@ struct lb6_service {
 	union v6addr target;
 	__u16 port;
 	__u16 count;
+	__u16 rev_nat_index;
 } __attribute__((packed));
 
 struct lb6_reverse_nat {
