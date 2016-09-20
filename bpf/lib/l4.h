@@ -20,62 +20,22 @@
 
 #include <linux/tcp.h>
 #include <linux/udp.h>
-#include <linux/icmp.h>
-#include <linux/icmpv6.h>
 #include "common.h"
 #include "dbg.h"
+#include "csum.h"
 
 #define TCP_DPORT_OFF (offsetof(struct tcphdr, dest))
 #define TCP_SPORT_OFF (offsetof(struct tcphdr, source))
-#define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
 #define UDP_DPORT_OFF (offsetof(struct udphdr, dest))
 #define UDP_SPORT_OFF (offsetof(struct udphdr, source))
-#define UDP_CSUM_OFF (offsetof(struct udphdr, check))
 
-
-/**
- * Return offset of L4 checksum field
- * @arg nexthdr:    Nexthdr value (IPPROTO_UDP or IPPROTO_TCP)
- */
-static inline int l4_checksum_offset(__u8 nexthdr)
-{
-	switch (nexthdr) {
-	case IPPROTO_TCP:
-		return TCP_CSUM_OFF;
-
-	case IPPROTO_UDP:
-		return UDP_CSUM_OFF;
-	}
-
-	/* Ignore unknown L4 protocols */
-	return 0;
-}
-
-static inline int l4_csum_offset_and_flags(__u8 nexthdr, int *csum_flags)
-{
-	switch (nexthdr) {
-	case IPPROTO_TCP:
-		return TCP_CSUM_OFF;
-
-	case IPPROTO_UDP:
-		*csum_flags |= BPF_F_MARK_MANGLED_0;
-		return UDP_CSUM_OFF;
-
-	case IPPROTO_ICMPV6:
-		return offsetof(struct icmp6hdr, icmp6_cksum);
-
-	case IPPROTO_ICMP:
-		break;
-	}
-
-	return 0;
-}
 
 /**
  * Modify L4 port and correct checksum
  * @arg skb:      packet
- * @arg off:      offset to L4 source or destination port
- * @arg csum_off: offset to 16bit checksum field in L4 header
+ * @arg l4_off:   offset to L4 header
+ * @arg off:      offset from L4 header to source or destination port
+ * @arg csum_off: offset from L4 header to 16bit checksum field in L4 header
  * @arg port:     new port value
  * @arg old_port: old port value (for checksum correction)
  *
@@ -87,13 +47,13 @@ static inline int l4_csum_offset_and_flags(__u8 nexthdr, int *csum_flags)
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_modify_port(struct __sk_buff *skb, int off, int csum_off,
-				 __u16 port, __u16 old_port)
+static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
+				 struct csum_offset *csum_off, __u16 port, __u16 old_port)
 {
-        if (l4_csum_replace(skb, csum_off, old_port, port, sizeof(port)) < 0)
+	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port) | BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
-        if (skb_store_bytes(skb, off, &port, sizeof(port), 0) < 0)
+        if (skb_store_bytes(skb, l4_off + off, &port, sizeof(port), 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	return 0;
@@ -115,7 +75,8 @@ static inline int l4_modify_port(struct __sk_buff *skb, int off, int csum_off,
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off, int csum_off,
+static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
+				 struct csum_offset *csum_off,
 				 struct portmap *map, __u16 dport)
 {
 	cilium_trace(skb, DBG_PORT_MAP, ntohs(map->from), ntohs(map->to));
@@ -124,7 +85,7 @@ static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off, int csum_off
 		return 0;
 
 	/* Port offsets for UDP and TCP are the same */
-	return l4_modify_port(skb, l4_off + TCP_DPORT_OFF, csum_off, map->to, dport);
+	return l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, map->to, dport);
 }
 
 /**
@@ -143,7 +104,8 @@ static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off, int csum_off
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off, int csum_off,
+static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
+				  struct csum_offset *csum_off,
 				  struct portmap *map, __u16 sport)
 {
 	cilium_trace(skb, DBG_PORT_MAP, ntohs(map->to), ntohs(map->from));
@@ -152,7 +114,7 @@ static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off, int csum_of
 		return 0;
 
 	/* Port offsets for UDP and TCP are the same */
-	return l4_modify_port(skb, l4_off + TCP_SPORT_OFF, csum_off, map->from, sport);
+	return l4_modify_port(skb, l4_off, TCP_SPORT_OFF, csum_off, map->from, sport);
 }
 
 static inline int l4_load_port(struct __sk_buff *skb, int off, __u16 *port)

@@ -273,6 +273,10 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", path.Base(common.BPFMapCT6+strconv.Itoa(int(ep.ID))))
 	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", path.Base(common.BPFMapCT4+strconv.Itoa(int(ep.ID))))
 
+	// Always enable L4 and L3 load balancer for now
+	fw.WriteString("#define LB_L3\n")
+	fw.WriteString("#define LB_L4\n")
+
 	// Endpoint options
 	fw.WriteString(ep.Opts.GetFmtList())
 

@@ -71,12 +71,14 @@ type Service6Value struct {
 	Address types.IPv6
 	Port    uint16
 	Count   uint16
+	RevNat  uint16
 }
 
-func NewService6Value(count uint16, target net.IP, port uint16) *Service6Value {
+func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16) *Service6Value {
 	svc := Service6Value{
-		Count: count,
-		Port:  common.Swab16(port),
+		Count:  count,
+		Port:   common.Swab16(port),
+		RevNat: common.Swab16(revNat),
 	}
 
 	copy(svc.Address[:], target.To16())

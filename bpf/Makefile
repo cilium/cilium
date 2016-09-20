@@ -18,8 +18,15 @@ bpf_netdev.o:
 bpf_overlay.o:
 	clang ${CLANG_FLAGS} -c bpf_overlay.c -o $@
 
+LB_OPTIONS = \
+	 \
+	-DLB_L3 \
+	-DLB_L4 \
+	-DLB_L3 -DLB_L4
+
 bpf_lb.o:
-	clang ${CLANG_FLAGS} -c bpf_lb.c -o $@
+	$(foreach OPTS,$(LB_OPTIONS), \
+		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o $@;)
 
 clean:
 	rm -fr *.o
