@@ -139,9 +139,12 @@ static inline int lb6_dsr_snat(struct __sk_buff *skb, int l4_off,
 	}
 
 	cilium_trace(skb, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
-	ret = reverse_map_l4_port(skb, tuple->nexthdr, nat->port, l4_off, csum_off);
-	if (IS_ERR(ret))
-		return ret;
+
+	if (nat->port) {
+		ret = reverse_map_l4_port(skb, tuple->nexthdr, nat->port, l4_off, csum_off);
+		if (IS_ERR(ret))
+			return ret;
+	}
 
 	if (ipv6_load_saddr(skb, ETH_HLEN, &sip) < 0)
 		return DROP_INVALID;
@@ -287,9 +290,12 @@ static inline int lb4_dsr_snat(struct __sk_buff *skb, int l3_off, int l4_off,
 	}
 
 	cilium_trace(skb, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
-	ret = reverse_map_l4_port(skb, tuple->nexthdr, nat->port, l4_off, csum_off);
-	if (IS_ERR(ret))
-		return ret;
+
+	if (nat->port) {
+		ret = reverse_map_l4_port(skb, tuple->nexthdr, nat->port, l4_off, csum_off);
+		if (IS_ERR(ret))
+			return ret;
+	}
 
         ret = skb_load_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 	if (IS_ERR(ret))
