@@ -80,8 +80,8 @@ var errors = map[uint8]string{
 }
 
 func DropReason(reason uint8) string {
-	if int(reason) < len(errors) {
-		return errors[reason]
+	if err, ok := errors[reason]; ok {
+		return err
 	} else {
 		return fmt.Sprintf("%d", reason)
 	}
