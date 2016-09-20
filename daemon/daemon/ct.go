@@ -16,6 +16,7 @@
 package daemon
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -35,6 +36,7 @@ func runGC(e *types.Endpoint, prefix string, ctType ctmap.CtType) {
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		log.Warningf("Unable to open CT map %s: %s\n", file, err)
+		e.LogStatus(types.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
 

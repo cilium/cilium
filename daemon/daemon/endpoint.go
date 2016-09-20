@@ -63,13 +63,13 @@ func writeGeneve(lxcDir string, ep *types.Endpoint) ([]byte, error) {
 	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabel.ID))
 	if err != nil {
 		log.Warningf("Could not write geneve options %s", err)
-		return nil, err
+		return nil, fmt.Errorf("Could not write geneve options %s", err)
 	}
 
 	_, rawData, err := geneve.ReadOpts(filepath.Join(lxcDir, "geneve_opts.cfg"))
 	if err != nil {
 		log.Warningf("Could not read geneve options %s", err)
-		return nil, err
+		return nil, fmt.Errorf("Could not read geneve options %s", err)
 	}
 
 	return rawData, nil
@@ -84,6 +84,10 @@ func (d *Daemon) InsertEndpoint(ep *types.Endpoint) {
 
 // insertEndpoint inserts the ep in the endpoints map. To be used with endpointsMU locked.
 func (d *Daemon) insertEndpoint(ep *types.Endpoint) {
+	if ep.Status == nil {
+		ep.Status = &types.EndpointStatus{}
+	}
+
 	d.endpoints[ep.ID] = ep
 
 	if ep.DockerID != "" {
@@ -226,6 +230,7 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *types.Endpoint, geneveOpts []
 			common.Version, epStr64)
 	} else {
 		log.Warningf("Unable to create a base64 for endpoint %+v: %s\n", ep, err)
+		ep.LogStatus(types.Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
 	if ep.DockerID == "" {
@@ -299,7 +304,13 @@ func (d *Daemon) createBPFMAPs(epID uint16) error {
 		return fmt.Errorf("endpoint %d not found", epID)
 	}
 
-	return d.regenerateBPF(ep, filepath.Join(".", strconv.Itoa(int(ep.ID))))
+	err := d.regenerateBPF(ep, filepath.Join(".", strconv.Itoa(int(ep.ID))))
+	if err != nil {
+		ep.LogStatus(types.Failure, err.Error())
+	} else {
+		ep.LogStatusOK("Regenerated BPF code")
+	}
+	return err
 }
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
@@ -432,6 +443,7 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)
+		ep.LogStatus(types.Failure, fmt.Sprintf("error: \"%s\" command output: \"%s\"", err, out))
 		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
 	}
 
@@ -493,8 +505,7 @@ func (d *Daemon) regenerateEndpoint(ep *types.Endpoint) error {
 			return err2
 		}
 
-		log.Warningf("Restored original endpoint directory, atomic replace failed: %s", err)
-		return err
+		return fmt.Errorf("Restored original endpoint directory, atomic replace failed: %s", err)
 	}
 
 	os.RemoveAll(backupDir)
@@ -523,7 +534,13 @@ func (d *Daemon) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 			d.endpointsLearningRegister <- *ll
 		}
 
-		return d.regenerateEndpoint(ep)
+		err := d.regenerateEndpoint(ep)
+		if err != nil {
+			ep.LogStatus(types.Failure, err.Error())
+		} else {
+			ep.LogStatusOK("Successfully regenerated endpoint")
+		}
+		return err
 	} else {
 		return fmt.Errorf("endpoint %d not found", epID)
 	}
