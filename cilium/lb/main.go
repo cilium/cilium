@@ -167,7 +167,7 @@ func dumpService6(key bpf.MapKey, value bpf.MapValue) {
 	if svcKey.Slave == 0 {
 		fmt.Printf("%d\n", svcVal.Count)
 	} else {
-		fmt.Printf("%v %d\n", svcVal.Address, svcVal.Port)
+		fmt.Printf("%v %d %d\n", svcVal.Address, svcVal.RevNat, svcVal.Port)
 	}
 }
 
