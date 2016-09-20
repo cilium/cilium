@@ -18,6 +18,8 @@
 #ifndef __LB_H_
 #define __LB_H_
 
+#include "csum.h"
+
 /* FIXME: Make configurable */
 #define CILIUM_LB_MAP_MAX_ENTRIES	65536
 
@@ -50,7 +52,7 @@ static inline int lb_select_slave(struct __sk_buff *skb, __u16 count)
 }
 
 static inline int extract_l4_port(struct __sk_buff *skb, __u8 nexthdr, int l4_off,
-				  int *csum_off, int *csum_flags, __u16 *port)
+				  struct csum_offset *csum_off, __u16 *port)
 {
 	int ret;
 
@@ -72,13 +74,14 @@ static inline int extract_l4_port(struct __sk_buff *skb, __u8 nexthdr, int l4_of
 		return DROP_UNKNOWN_L4;
 	}
 
-	*csum_off = l4_csum_offset_and_flags(nexthdr, csum_flags);
+	csum_l4_offset_and_flags(nexthdr, csum_off);
 
 	return 0;
 }
 
 static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nexthdr,
-						 __u16 port, int l4_off, int csum_off)
+						 __u16 port, int l4_off,
+						 struct csum_offset *csum_off)
 {
 	switch (nexthdr) {
 	case IPPROTO_TCP:
@@ -93,8 +96,8 @@ static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nex
 				return ret;
 
 			if (port != old_port) {
-				ret = l4_modify_port(skb, l4_off + TCP_SPORT_OFF,
-						     l4_off + csum_off, port, old_port);
+				ret = l4_modify_port(skb, l4_off, TCP_SPORT_OFF,
+						     csum_off, port, old_port);
 				if (IS_ERR(ret))
 					return ret;
 			}
@@ -120,8 +123,9 @@ static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nex
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
-static inline int lb6_dsr_snat(struct __sk_buff *skb, int l4_off, int csum_off,
-			       int csum_flags, __u16 index, struct ipv6_ct_tuple *tuple)
+static inline int lb6_dsr_snat(struct __sk_buff *skb, int l4_off,
+			       struct csum_offset *csum_off, __u16 index,
+			       struct ipv6_ct_tuple *tuple)
 {
 	union v6addr tmp, sip;
 	struct lb6_reverse_nat *nat;
@@ -148,7 +152,7 @@ static inline int lb6_dsr_snat(struct __sk_buff *skb, int l4_off, int csum_off,
 		return DROP_WRITE_ERROR;
 
 	sum = csum_diff(sip.addr, 16, tmp.addr, 16, 0);
-	if (l4_csum_replace(skb, l4_off + csum_off, 0, sum, csum_flags | BPF_F_PSEUDO_HDR) < 0)
+	if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -159,8 +163,7 @@ static inline int lb6_dsr_snat(struct __sk_buff *skb, int l4_off, int csum_off,
  * @arg tuple		tuple
  * @arg l4_off		Offset to L4 header
  * @arg key		Pointer to store LB key in
- * @arg csum_off	Pointer to store L4 checksum field offset  in
- * @arg csum_flags	Pointer to store L4 checksum flags
+ * @arg csum_off	Pointer to store L4 checksum field offset and flags
  *
  * Expects the skb to be validated for direct packet access up to L4. Fills
  * lb6_key based on L4 nexthdr.
@@ -171,10 +174,11 @@ static inline int lb6_dsr_snat(struct __sk_buff *skb, int l4_off, int csum_off,
  *   - Negative error code
  */
 static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
-					     int l4_off, struct lb6_key *key, int *csum_off, int *csum_flags)
+					     int l4_off, struct lb6_key *key,
+					     struct csum_offset *csum_off)
 {
 	ipv6_addr_copy(&key->address, &tuple->addr);
-	return extract_l4_port(skb, tuple->nexthdr, l4_off, csum_off, csum_flags, &key->dport);
+	return extract_l4_port(skb, tuple->nexthdr, l4_off, csum_off, &key->dport);
 }
 
 static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
@@ -216,7 +220,7 @@ static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 }
 
 static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_dst, __u8 nexthdr,
-				       int l3_off, int l4_off, int csum_off, int csum_flags,
+				       int l3_off, int l4_off, struct csum_offset *csum_off,
 				       struct lb6_key *key, struct lb6_service *svc)
 {
 	int ret;
@@ -225,7 +229,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 
 	if (csum_off) {
 		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
-		if (l4_csum_replace(skb, l4_off + csum_off, 0, sum, BPF_F_PSEUDO_HDR | csum_flags) < 0)
+		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
 
@@ -233,9 +237,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__u16 tmp = svc->port;
 		/* Port offsets for UDP and TCP are the same */
-		ret = l4_modify_port(skb, l4_off + TCP_DPORT_OFF,
-				     l4_off + csum_off, tmp,
-				     key->dport);
+		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -244,7 +246,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 }
 
 static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4_off,
-				       int csum_off, int csum_flags, struct lb6_key *key,
+				       struct csum_offset *csum_off, struct lb6_key *key,
 				       struct ipv6_ct_tuple *tuple, struct lb6_service *svc)
 {
 	__u16 slave;
@@ -256,7 +258,7 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
 	ipv6_addr_copy(&tuple->addr, &svc->target);
 
 	return lb6_xlate(skb, &tuple->addr, tuple->nexthdr, l3_off, l4_off,
-			 csum_off, csum_flags, key, svc);
+			 csum_off, key, svc);
 }
 
 
@@ -269,8 +271,9 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
-static inline int lb4_dsr_snat(struct __sk_buff *skb, int l3_off, int l4_off, int csum_off,
-			       int csum_flags, __u16 index, struct ipv4_ct_tuple *tuple)
+static inline int lb4_dsr_snat(struct __sk_buff *skb, int l3_off, int l4_off,
+			       struct csum_offset *csum_off, __u16 index,
+			       struct ipv4_ct_tuple *tuple)
 {
 	__be32 old_sip, new_sip;
 	struct lb4_reverse_nat *nat;
@@ -301,8 +304,8 @@ static inline int lb4_dsr_snat(struct __sk_buff *skb, int l3_off, int l4_off, in
 	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off &&
-	    l4_csum_replace(skb, l4_off + csum_off, 0, sum, csum_flags | BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off->offset &&
+	    csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -314,7 +317,6 @@ static inline int lb4_dsr_snat(struct __sk_buff *skb, int l3_off, int l4_off, in
  * @arg l4_off		Offset to L4 header
  * @arg key		Pointer to store LB key in
  * @arg csum_off	Pointer to store L4 checksum field offset  in
- * @arg csum_flags	Pointer to store L4 checksum flags
  *
  * Returns:
  *   - TC_ACT_OK on successful extraction
@@ -322,10 +324,11 @@ static inline int lb4_dsr_snat(struct __sk_buff *skb, int l3_off, int l4_off, in
  *   - Negative error code
  */
 static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-					     int l4_off, struct lb4_key *key, int *csum_off, int *csum_flags)
+					     int l4_off, struct lb4_key *key,
+					     struct csum_offset *csum_off)
 {
 	key->address = tuple->addr;
-	return extract_l4_port(skb, tuple->nexthdr, l4_off, csum_off, csum_flags, &key->dport);
+	return extract_l4_port(skb, tuple->nexthdr, l4_off, csum_off, &key->dport);
 }
 
 static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
@@ -367,7 +370,7 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 }
 
 static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, __u8 nexthdr,
-				       int l3_off, int l4_off, int csum_off, int csum_flags,
+				       int l3_off, int l4_off, struct csum_offset *csum_off,
 				       struct lb4_key *key, struct lb4_service *svc)
 {
 	int ret;
@@ -381,8 +384,8 @@ static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, 
 	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off) {
-		if (l4_csum_replace(skb, l4_off + csum_off, 0, sum, BPF_F_PSEUDO_HDR | csum_flags) < 0)
+	if (csum_off->offset) {
+		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
 
@@ -390,9 +393,7 @@ static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, 
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__u16 tmp = svc->port;
 		/* Port offsets for UDP and TCP are the same */
-		ret = l4_modify_port(skb, l4_off + TCP_DPORT_OFF,
-				     l4_off + csum_off, tmp,
-				     key->dport);
+		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -401,7 +402,7 @@ static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, 
 }
 
 static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4_off,
-				       int csum_off, int csum_flags, struct lb4_key *key,
+				       struct csum_offset *csum_off, struct lb4_key *key,
 				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc)
 {
 	__u16 slave;
@@ -414,7 +415,7 @@ static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4
 	skb->cb[CB_REVERSE_NAT] = svc->rev_nat_index;
 
 	return lb4_xlate(skb, &tuple->addr, tuple->nexthdr, l3_off, l4_off,
-			 csum_off, csum_flags, key, svc);
+			 csum_off, key, svc);
 }
 
 #endif /* __LB_H_ */

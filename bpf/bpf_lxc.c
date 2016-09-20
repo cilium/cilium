@@ -41,6 +41,7 @@
 #include "lib/lb.h"
 #include "lib/drop.h"
 #include "lib/dbg.h"
+#include "lib/csum.h"
 
 #define POLICY_ID ((LXC_ID << 16) | SECLABEL)
 
@@ -52,7 +53,7 @@ __BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
 #if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
 static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 {
-	int csum_off = l4_checksum_offset(nexthdr);
+	struct csum_offset off = {};
 	uint16_t sport;
 	int i, ret;
 	struct portmap local_map[] = {
@@ -60,18 +61,20 @@ static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 	};
 
 	/* Ignore unknown L4 protocols */
-	if (unlikely(!csum_off))
+	if (nexthdr != IPPROTO_TCP && nexthdr != IPPROTO_UDP)
 		return 0;
 
 	/* Port offsets for TCP and UDP are the same */
 	if (skb_load_bytes(skb, l4_off + TCP_SPORT_OFF, &sport, sizeof(sport)) < 0)
 		return DROP_INVALID;
 
+	csum_l4_offset_and_flags(nexthdr, &off);
+
 #define NR_PORTMAPS (sizeof(local_map) / sizeof(local_map[0]))
 
 #pragma unroll
 	for (i = 0; i < NR_PORTMAPS; i++) {
-		ret = l4_port_map_out(skb, l4_off, csum_off, &local_map[i], sport);
+		ret = l4_port_map_out(skb, l4_off, &off, &local_map[i], sport);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -104,7 +107,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
 	int do_nat46 = 0, ret, l4_off, skip_service = 0;
-	int csum_off = 0, csum_flags = 0;
+	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 rev_nat_index = 0;
@@ -132,7 +135,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 
-	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off, &csum_flags);
+	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4)
 			skip_service = 1;
@@ -174,12 +177,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	}
 
 	if (!skip_service && (svc = lb6_lookup_service(skb, &key)) != NULL) {
-		ret = lb6_local(skb, l3_off, l4_off, csum_off,
-				csum_flags, &key, tuple, svc);
+		ret = lb6_local(skb, l3_off, l4_off, &csum_off, &key, tuple, svc);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (rev_nat_index) {
-		ret = lb6_dsr_snat(skb, l4_off, csum_off, csum_flags, rev_nat_index, tuple);
+		ret = lb6_dsr_snat(skb, l4_off, &csum_off, rev_nat_index, tuple);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -334,7 +336,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct ethhdr *eth = data;
 	int ret, l3_off = ETH_HLEN, l4_off;
-	int skip_service = 0, csum_off = 0, csum_flags = 0;
+	int skip_service = 0;
+	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	__u16 rev_nat_index = 0;
@@ -366,7 +369,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	tuple.addr = ip4->daddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off, &csum_flags);
+	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4)
 			skip_service = 1;
@@ -407,12 +410,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 
 	if (!skip_service && (svc = lb4_lookup_service(skb, &key)) != NULL) {
-		ret = lb4_local(skb, l3_off, l4_off, csum_off,
-				csum_flags, &key, &tuple, svc);
+		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
+				&key, &tuple, svc);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (rev_nat_index) {
-		ret = lb4_dsr_snat(skb, l3_off, l4_off, csum_off, csum_flags, rev_nat_index, &tuple);
+		ret = lb4_dsr_snat(skb, l3_off, l4_off, &csum_off, rev_nat_index, &tuple);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -592,7 +595,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	/* derive reverse NAT index and zero it. */
 	rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
 	if (rev_nat_index) {
-		int csum_off, csum_flags = 0;
+		struct csum_offset off = {};
 		union v6addr dip;
 
 		ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
@@ -601,11 +604,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (IS_ERR(ret))
 			return DROP_WRITE_ERROR;
 
-		csum_off = l4_csum_offset_and_flags(tuple.nexthdr, &csum_flags);
-		if (csum_off) {
+		csum_l4_offset_and_flags(tuple.nexthdr, &off);
+		if (off.offset) {
 			__u32 zero_nat = 0;
 			__be32 sum = csum_diff(&rev_nat_index, 4, &zero_nat, 4, 0);
-			if (l4_csum_replace(skb, l4_off + csum_off, 0, sum, BPF_F_PSEUDO_HDR | csum_flags) < 0)
+			if (csum_l4_replace(skb, l4_off, &off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 				return DROP_CSUM_L4;
 		}
 	}

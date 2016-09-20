@@ -18,6 +18,9 @@
 #ifndef __LIB_CONNTRACK_H_
 #define __LIB_CONNTRACK_H_
 
+#include <linux/icmpv6.h>
+#include <linux/icmp.h>
+
 #include "common.h"
 #include "ipv6.h"
 #include "dbg.h"

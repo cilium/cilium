@@ -52,13 +52,14 @@
 #ifndef LB_DISABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
-	int l3_off, l4_off, csum_off = 0, ret, csum_flags = 0;
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct lb6_key key = {};
 	struct lb6_service *svc;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	struct csum_offset csum_off = {};
+	int l3_off, l4_off, ret;
 	union v6addr new_dst;
 	__u8 nexthdr;
 	__u16 slave;
@@ -73,7 +74,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
 
-	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &csum_flags, &key.dport);
+	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &key.dport);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4) {
 			/* Pass unknown L4 to stack */
@@ -93,7 +94,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return DROP_NO_SERVICE;
 
 	ipv6_addr_copy(&new_dst, &svc->target);
-	ret = lb6_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, csum_off, csum_flags, &key, svc);
+	ret = lb6_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -104,12 +105,13 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #ifndef LB_DISABLE_IPV4
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
-	int l3_off, l4_off, csum_off = 0, ret, csum_flags = 0;
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct lb4_key key = {};
 	struct lb4_service *svc;
 	struct iphdr *ip = data + ETH_HLEN;
+	struct csum_offset csum_off = {};
+	int l3_off, l4_off, ret;
 	__be32 new_dst;
 	__u8 nexthdr;
 	__u16 slave;
@@ -124,7 +126,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip);
 
-	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &csum_flags, &key.dport);
+	ret = extract_l4_port(skb, nexthdr, l4_off, &csum_off, &key.dport);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4) {
 			/* Pass unknown L4 to stack */
@@ -144,7 +146,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return DROP_NO_SERVICE;
 
 	new_dst = svc->target;
-	ret = lb4_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, csum_off, csum_flags, &key, svc);
+	ret = lb4_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
 

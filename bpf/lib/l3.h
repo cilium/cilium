@@ -26,6 +26,7 @@
 #include "l4.h"
 #include "icmp6.h"
 #include "geneve.h"
+#include "csum.h"
 
 /* validating options on tx is optional */
 #define VALIDATE_GENEVE_TX
@@ -109,7 +110,7 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 static inline int __inline__ map_lxc_in(struct __sk_buff *skb, int l4_off,
 					struct lxc_info *lxc, __u8 nexthdr)
 {
-	int csum_off = l4_checksum_offset(nexthdr);
+	struct csum_offset off;
 	uint16_t dport;
 	int i, ret;
 
@@ -117,19 +118,21 @@ static inline int __inline__ map_lxc_in(struct __sk_buff *skb, int l4_off,
 		return 0;
 
 	/* Ignore unknown L4 protocols */
-	if (unlikely(!csum_off))
+	if (nexthdr != IPPROTO_TCP && nexthdr != IPPROTO_UDP)
 		return 0;
 
 	/* Port offsets for TCP and UDP are the same */
 	if (skb_load_bytes(skb, l4_off + TCP_DPORT_OFF, &dport, sizeof(dport)) < 0)
 		return DROP_INVALID;
 
+	csum_l4_offset_and_flags(nexthdr, &off);
+
 #pragma unroll
 	for (i = 0; i < PORTMAP_MAX; i++) {
 		if (!lxc->portmap[i].to || !lxc->portmap[i].from)
 			break;
 
-		ret = l4_port_map_in(skb, l4_off, csum_off, &lxc->portmap[i], dport);
+		ret = l4_port_map_in(skb, l4_off, &off, &lxc->portmap[i], dport);
 		if (IS_ERR(ret))
 			return ret;
 	}
