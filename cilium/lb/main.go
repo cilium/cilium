@@ -345,8 +345,6 @@ func cliUpdateRevNat(ctx *cli.Context) {
 	key := parseRevNatKey(ctx)
 	val := parseRevNat(ctx, key.IsIPv6(), 1)
 
-	fmt.Printf("%v %v\n", key, val)
-
 	if err := lbmap.UpdateRevNat(key, val); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
