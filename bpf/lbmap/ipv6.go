@@ -107,6 +107,7 @@ func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 	}
 
 	svcVal.Port = common.Swab16(svcVal.Port)
+	svcVal.RevNat = common.Swab16(svcVal.RevNat)
 
 	return &svcKey, &svcVal, nil
 }

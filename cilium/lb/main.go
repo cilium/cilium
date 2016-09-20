@@ -167,7 +167,7 @@ func dumpService6(key bpf.MapKey, value bpf.MapValue) {
 	if svcKey.Slave == 0 {
 		fmt.Printf("%d\n", svcVal.Count)
 	} else {
-		fmt.Printf("%v %d\n", svcVal.Address, svcVal.Port)
+		fmt.Printf("%v %d %d\n", svcVal.Address, svcVal.RevNat, svcVal.Port)
 	}
 }
 
@@ -344,8 +344,6 @@ func cliUpdateRevNat(ctx *cli.Context) {
 
 	key := parseRevNatKey(ctx)
 	val := parseRevNat(ctx, key.IsIPv6(), 1)
-
-	fmt.Printf("%v %v\n", key, val)
 
 	if err := lbmap.UpdateRevNat(key, val); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
