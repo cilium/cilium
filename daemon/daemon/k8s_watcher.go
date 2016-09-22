@@ -100,16 +100,6 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 	}()
 
 	go func() {
-		if d.conf.LBMode {
-			// FIXME: move this to the daemon init()
-			lbmap.Service6Map.OpenOrCreate()
-			lbmap.RevNat6Map.OpenOrCreate()
-			if d.conf.IPv4Enabled {
-				lbmap.Service4Map.OpenOrCreate()
-				lbmap.RevNat4Map.OpenOrCreate()
-			}
-		}
-
 		serviceConfig := k8sProxyConfig.NewServiceConfig()
 		serviceConfig.RegisterHandler(d)
 

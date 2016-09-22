@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/bpf/lxcmap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
@@ -214,6 +215,36 @@ func (d *Daemon) init() error {
 		if err != nil {
 			log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 			return err
+		}
+	}
+
+	// Clean all lb entries
+	if d.conf.LBMode {
+		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if err := lbmap.Service6Map.DeleteAll(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+			return err
+		}
+		if d.conf.IPv4Enabled {
+			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if err := lbmap.Service4Map.DeleteAll(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
+				return err
+			}
 		}
 	}
 
