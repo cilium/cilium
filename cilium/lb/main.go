@@ -115,14 +115,26 @@ func init() {
 				Action:    cliUpdateRevNat,
 			},
 			{
-				Name:      "delete-service",
-				Action:    cliDeleteService,
-				ArgsUsage: "<address> <port> <slave-index>",
+				Name:   "delete-service",
+				Action: cliDeleteService,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "all",
+						Usage: "Delete all entries",
+					},
+				},
+				ArgsUsage: "--all | <address> <port> <slave-index>",
 			},
 			{
-				Name:      "delete-rev-nat",
-				Action:    cliDeleteRevNat,
-				ArgsUsage: "<reverse NAT key>",
+				Name:   "delete-rev-nat",
+				Action: cliDeleteRevNat,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "all",
+						Usage: "Delete all entries",
+					},
+				},
+				ArgsUsage: "--all | <reverse NAT key>",
 			},
 		},
 	}
@@ -370,9 +382,19 @@ func cliUpdateRevNat(ctx *cli.Context) {
 }
 
 func cliDeleteService(ctx *cli.Context) {
-	key := parseServiceKey(ctx, 0)
+	var err error
 
-	if err := lbmap.DeleteService(key); err != nil {
+	if ctx.Bool("all") {
+		if ipv4 {
+			err = lbmap.Service4Map.DeleteAll()
+		} else {
+			err = lbmap.Service6Map.DeleteAll()
+		}
+	} else {
+		err = lbmap.DeleteService(parseServiceKey(ctx, 0))
+	}
+
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
@@ -391,8 +413,19 @@ func parseRevNatKey(ctx *cli.Context) lbmap.RevNatKey {
 }
 
 func cliDeleteRevNat(ctx *cli.Context) {
-	key := parseRevNatKey(ctx)
-	if err := lbmap.DeleteRevNat(key); err != nil {
+	var err error
+
+	if ctx.Bool("all") {
+		if ipv4 {
+			err = lbmap.RevNat4Map.DeleteAll()
+		} else {
+			err = lbmap.RevNat6Map.DeleteAll()
+		}
+	} else {
+		err = lbmap.DeleteRevNat(parseRevNatKey(ctx))
+	}
+
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
