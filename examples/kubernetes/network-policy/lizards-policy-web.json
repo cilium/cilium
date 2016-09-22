@@ -2,12 +2,16 @@
   "apiVersion": "extensions/v1beta1",
   "kind": "NetworkPolicy",
   "metadata": {
-    "name": "admin"
+    "annotations": {
+      "io.cilium.name": "lizards",
+      "io.cilium.parent": "io.cilium"
+    },
+    "name": "lizards-policy-web"
   },
   "spec": {
     "podSelector": {
       "matchLabels": {
-        "kube-system": ""
+        "web": ""
       }
     },
     "ingress": [
@@ -17,20 +21,6 @@
             "podSelector": {
               "matchLabels": {
                 "io.cilium.reserved": "host"
-              }
-            }
-          },
-          {
-            "podSelector": {
-              "matchLabels": {
-                "io.kubernetes.pod.namespace": "default"
-              }
-            }
-          },
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kube-system": ""
               }
             }
           }
