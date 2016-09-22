@@ -285,3 +285,38 @@ func (m *Map) Delete(key MapKey) error {
 
 	return DeleteElement(m.fd, key.GetKeyPtr())
 }
+
+// Delete all entries of a map by traversing the map and deleting individual
+// entries. Note that if entries are added while the taversal is in progress,
+// such entries may survive the deletion process.
+func (m *Map) DeleteAll() error {
+	key := make([]byte, m.KeySize)
+	nextKey := make([]byte, m.KeySize)
+
+	if !m.isOpen {
+		if err := m.Open(); err != nil {
+			return err
+		}
+	}
+
+	for {
+		err := GetNextKey(
+			m.fd,
+			unsafe.Pointer(&key[0]),
+			unsafe.Pointer(&nextKey[0]),
+		)
+
+		if err != nil {
+			break
+		}
+
+		err = DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
+		if err != nil {
+			return err
+		}
+
+		copy(key, nextKey)
+	}
+
+	return nil
+}
