@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	ipv4 bool
+	ipv4   bool
+	addRev bool
 
 	// CliCommand is the command that will be used in cilium-net main program.
 	CliCommand cli.Command
@@ -98,7 +99,14 @@ func init() {
 				Name:      "update-service",
 				Usage:     "updates key's value of the given <map file>",
 				ArgsUsage: "<address> <port> <slave> <count> <reverse nat key> <slave address> <port>",
-				Action:    cliUpdateService,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Destination: &addRev,
+						Name:        "rev",
+						Usage:       "Also add/update corresponding reverse NAT entry",
+					},
+				},
+				Action: cliUpdateService,
 			},
 			{
 				Name:      "update-rev-nat",
@@ -107,14 +115,26 @@ func init() {
 				Action:    cliUpdateRevNat,
 			},
 			{
-				Name:      "delete-service",
-				Action:    cliDeleteService,
-				ArgsUsage: "<address> <port> <slave-index>",
+				Name:   "delete-service",
+				Action: cliDeleteService,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "all",
+						Usage: "Delete all entries",
+					},
+				},
+				ArgsUsage: "--all | <address> <port> <slave-index>",
 			},
 			{
-				Name:      "delete-rev-nat",
-				Action:    cliDeleteRevNat,
-				ArgsUsage: "<reverse NAT key>",
+				Name:   "delete-rev-nat",
+				Action: cliDeleteRevNat,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "all",
+						Usage: "Delete all entries",
+					},
+				},
+				ArgsUsage: "--all | <reverse NAT key>",
 			},
 		},
 	}
@@ -335,6 +355,16 @@ func cliUpdateService(ctx *cli.Context) {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+
+	if addRev {
+		revKey := svc.RevNatKey()
+		revVal := key.RevNatValue()
+
+		if err := lbmap.UpdateRevNat(revKey, revVal); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
 func cliUpdateRevNat(ctx *cli.Context) {
@@ -352,9 +382,19 @@ func cliUpdateRevNat(ctx *cli.Context) {
 }
 
 func cliDeleteService(ctx *cli.Context) {
-	key := parseServiceKey(ctx, 0)
+	var err error
 
-	if err := lbmap.DeleteService(key); err != nil {
+	if ctx.Bool("all") {
+		if ipv4 {
+			err = lbmap.Service4Map.DeleteAll()
+		} else {
+			err = lbmap.Service6Map.DeleteAll()
+		}
+	} else {
+		err = lbmap.DeleteService(parseServiceKey(ctx, 0))
+	}
+
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
@@ -373,8 +413,19 @@ func parseRevNatKey(ctx *cli.Context) lbmap.RevNatKey {
 }
 
 func cliDeleteRevNat(ctx *cli.Context) {
-	key := parseRevNatKey(ctx)
-	if err := lbmap.DeleteRevNat(key); err != nil {
+	var err error
+
+	if ctx.Bool("all") {
+		if ipv4 {
+			err = lbmap.RevNat4Map.DeleteAll()
+		} else {
+			err = lbmap.RevNat6Map.DeleteAll()
+		}
+	} else {
+		err = lbmap.DeleteRevNat(parseRevNatKey(ctx))
+	}
+
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}

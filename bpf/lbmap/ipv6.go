@@ -66,6 +66,13 @@ func (k Service6Key) GetKeyPtr() unsafe.Pointer {
 	return unsafe.Pointer(&k)
 }
 
+func (k *Service6Key) RevNatValue() RevNatValue {
+	return &RevNat6Value{
+		Address: k.Address,
+		Port:    k.Port,
+	}
+}
+
 // Must match 'struct lb6_service' in "bpf/lib/common.h"
 type Service6Value struct {
 	Address types.IPv6
@@ -88,6 +95,10 @@ func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16) *
 
 func (s Service6Value) GetValuePtr() unsafe.Pointer {
 	return unsafe.Pointer(&s)
+}
+
+func (v *Service6Value) RevNatKey() RevNatKey {
+	return RevNat6Key(v.RevNat)
 }
 
 func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {

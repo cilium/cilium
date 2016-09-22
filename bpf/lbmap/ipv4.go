@@ -70,6 +70,13 @@ func NewService4Key(ip net.IP, port uint16, slave uint16) *Service4Key {
 	return &key
 }
 
+func (k *Service4Key) RevNatValue() RevNatValue {
+	return &RevNat4Value{
+		Address: k.Address,
+		Port:    k.Port,
+	}
+}
+
 // Must match 'struct lb4_service' in "bpf/lib/common.h"
 type Service4Value struct {
 	Address types.IPv4
@@ -92,6 +99,10 @@ func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16) *
 
 func (s Service4Value) GetValuePtr() unsafe.Pointer {
 	return unsafe.Pointer(&s)
+}
+
+func (v *Service4Value) RevNatKey() RevNatKey {
+	return RevNat4Key(v.RevNAT)
 }
 
 func Service4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
