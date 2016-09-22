@@ -33,11 +33,17 @@ type ServiceKey interface {
 
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
+
+	// Returns a RevNatValue matching a ServiceKey
+	RevNatValue() RevNatValue
 }
 
 // Interface describing protocol independent value for services map
 type ServiceValue interface {
 	bpf.MapValue
+
+	// Returns a RevNatKey matching a ServiceValue
+	RevNatKey() RevNatKey
 }
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
@@ -48,7 +54,7 @@ func DeleteService(key ServiceKey) error {
 	return key.Map().Delete(key)
 }
 
-func LookupService(key ServiceKey) (ServiceValue, error) {
+func LookupService(key ServiceKey) (bpf.MapValue, error) {
 	return key.Map().Lookup(key)
 }
 

@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	ipv4 bool
+	ipv4   bool
+	addRev bool
 
 	// CliCommand is the command that will be used in cilium-net main program.
 	CliCommand cli.Command
@@ -98,7 +99,14 @@ func init() {
 				Name:      "update-service",
 				Usage:     "updates key's value of the given <map file>",
 				ArgsUsage: "<address> <port> <slave> <count> <reverse nat key> <slave address> <port>",
-				Action:    cliUpdateService,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Destination: &addRev,
+						Name:        "rev",
+						Usage:       "Also add/update corresponding reverse NAT entry",
+					},
+				},
+				Action: cliUpdateService,
 			},
 			{
 				Name:      "update-rev-nat",
@@ -334,6 +342,16 @@ func cliUpdateService(ctx *cli.Context) {
 	if err := lbmap.UpdateService(key, svc); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
+	}
+
+	if addRev {
+		revKey := svc.RevNatKey()
+		revVal := key.RevNatValue()
+
+		if err := lbmap.UpdateRevNat(revKey, revVal); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
