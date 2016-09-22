@@ -24,6 +24,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
@@ -47,6 +49,8 @@ const (
 	OptionLearnTraffic        = "LearnTraffic"
 	OptionNAT46               = "NAT46"
 	OptionPolicy              = "Policy"
+
+	maxLogs = 256
 )
 
 var (
@@ -138,6 +142,62 @@ type Endpoint struct {
 	Consumable       *Consumable           `json:"consumable"`
 	PolicyMap        *policymap.PolicyMap  `json:"-"`
 	Opts             *BoolOptions          `json:"options"` // Endpoint bpf options.
+	Status           *EndpointStatus       `json:"status,omitempty"`
+}
+
+type statusLog struct {
+	Status    Status    `json:"status"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type EndpointStatus struct {
+	Log     [maxLogs]*statusLog `json:"log,omitempty"`
+	Index   int                 `json:"index"`
+	indexMU sync.RWMutex
+}
+
+func (e *EndpointStatus) String() string {
+	e.indexMU.RLock()
+	defer e.indexMU.RUnlock()
+	lastLog := e.Log[uint8(e.Index-1)]
+	if lastLog != nil {
+		return fmt.Sprintf("%s", lastLog.Status.Code)
+	}
+	return OK.String()
+}
+
+func (e *EndpointStatus) DumpLog() string {
+	e.indexMU.RLock()
+	defer e.indexMU.RUnlock()
+	logs := []string{}
+	for i := e.Index - 1; ; i-- {
+		if i < 0 {
+			i = maxLogs - 1
+		}
+		if e.Log[i] != nil {
+			logs = append(logs, fmt.Sprintf("%s - %s",
+				e.Log[i].Timestamp.Format(time.RFC3339), e.Log[i].Status))
+		}
+		if i == e.Index {
+			break
+		}
+	}
+	if len(logs) == 0 {
+		return OK.String()
+	}
+	return strings.Join(logs, "\n")
+}
+
+func (es *EndpointStatus) DeepCopy() *EndpointStatus {
+	cpy := &EndpointStatus{}
+	es.indexMU.RLock()
+	defer es.indexMU.RUnlock()
+	cpy.Index = es.Index
+	cpy.Log = [maxLogs]*statusLog{}
+	for k, v := range es.Log {
+		cpy.Log[k] = v
+	}
+	return cpy
 }
 
 func (e *Endpoint) DeepCopy() *Endpoint {
@@ -176,6 +236,8 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	if e.Opts != nil {
 		cpy.Opts = e.Opts.DeepCopy()
 	}
+	cpy.Status = e.Status.DeepCopy()
+
 	return cpy
 }
 
@@ -341,5 +403,34 @@ func (e *Endpoint) InvalidatePolicy() {
 		// Resetting to 0 will trigger a regeneration on the next update
 		log.Debugf("Invalidated policy for endpoint %s", e.ID)
 		e.Consumable.Iteration = 0
+	}
+}
+
+func (e *Endpoint) LogStatus(code StatusCode, msg string) {
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
+	e.Status.Log[e.Status.Index] = &statusLog{
+		Status: Status{
+			Code: code,
+			Msg:  msg,
+		},
+		Timestamp: time.Now(),
+	}
+	e.Status.Index++
+	if e.Status.Index >= maxLogs {
+		e.Status.Index = 0
+	}
+}
+
+func (e *Endpoint) LogStatusOK(msg string) {
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
+	e.Status.Log[e.Status.Index] = &statusLog{
+		Status:    NewStatusOK(msg),
+		Timestamp: time.Now(),
+	}
+	e.Status.Index++
+	if e.Status.Index >= maxLogs {
+		e.Status.Index = 0
 	}
 }

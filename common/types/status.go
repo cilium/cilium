@@ -31,11 +31,7 @@ const (
 )
 
 func NewStatusOK(info string) Status {
-	if info == "" {
-		return Status{Code: OK, Msg: "OK"}
-	} else {
-		return Status{Code: OK, Msg: info}
-	}
+	return Status{Code: OK, Msg: info}
 }
 
 type Status struct {
@@ -43,23 +39,28 @@ type Status struct {
 	Msg  string     `json:"msg"`
 }
 
-func (s Status) String() string {
+func (sc StatusCode) String() string {
 	var text string
-	switch s.Code {
+	switch sc {
 	case OK:
 		text = common.Green("OK")
-		return fmt.Sprintf("%s", text)
 	case Warning:
 		text = common.Yellow("Warning")
-		return fmt.Sprintf("%s - %s", text, s.Msg)
 	case Failure:
 		text = common.Red("Failure")
-		return fmt.Sprintf("%s - %s", text, s.Msg)
 	case Disabled:
 		text = common.Yellow("Disabled")
-		return fmt.Sprintf("%s - %s", text, s.Msg)
+	default:
+		text = "Unknown code"
 	}
-	return "Unknown code"
+	return fmt.Sprintf("%s", text)
+}
+
+func (s Status) String() string {
+	if s.Msg == "" {
+		return fmt.Sprintf("%s", s.Code)
+	}
+	return fmt.Sprintf("%s - %s", s.Code, s.Msg)
 }
 
 type StatusResponse struct {

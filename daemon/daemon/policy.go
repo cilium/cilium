@@ -245,6 +245,7 @@ func (d *Daemon) regenerateEndpointPolicy(e *types.Endpoint, regenerateEndpoint 
 			if err != nil {
 				log.Warningf("Error while updating endpoint: %s\n", err)
 			}
+			return err
 		}
 	}
 
@@ -265,7 +266,12 @@ func (d *Daemon) triggerPolicyUpdates(added []uint32) {
 	}
 
 	for _, ep := range d.endpoints {
-		d.regenerateEndpointPolicy(ep, true)
+		err := d.regenerateEndpointPolicy(ep, true)
+		if err != nil {
+			ep.LogStatus(types.Failure, err.Error())
+		} else {
+			ep.LogStatusOK("Policy regenerated")
+		}
 	}
 }
 

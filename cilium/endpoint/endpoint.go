@@ -287,7 +287,11 @@ func dumpLXCInfo(ctx *cli.Context) {
 		return
 	}
 
+	es := ep.Status.DeepCopy()
+	// We will omit the endpoints status so we don't duplicate them
+	ep.Status = nil
 	fmt.Printf("Endpoint %d\n%s\n", ep.ID, ep)
+	fmt.Printf("Endpoint status: \n%s\n", es.DumpLog())
 }
 
 func listEndpointOptions() {
@@ -479,7 +483,7 @@ func removePolicyKey(ctx *cli.Context) {
 }
 
 func dumpFirstEndpoint(w *tabwriter.Writer, ep *types.Endpoint, seclabel string, label string) {
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", ep.ID, seclabel, label, ep.IPv6.String(), ep.IPv4.String())
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID, seclabel, label, ep.IPv6.String(), ep.IPv4.String(), ep.Status.String())
 }
 
 func dumpEndpoints(ctx *cli.Context) {
@@ -503,10 +507,11 @@ func dumpEndpoints(ctx *cli.Context) {
 		ipv6Title      = "IPv6"
 		ipv4Title      = "IPv4"
 		endpointTitle  = "ENDPOINT ID"
+		statusTitle    = "STATUS"
 	)
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n",
-		endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
 
 	for _, ep := range eps {
 		if ep.SecLabel == nil {
@@ -523,7 +528,7 @@ func dumpEndpoints(ctx *cli.Context) {
 						dumpFirstEndpoint(w, &ep, seclabel, lbl.String())
 						first = false
 					} else {
-						fmt.Fprintf(w, "\t\t%s\t\t\t\n", lbl)
+						fmt.Fprintf(w, "\t\t%s\t\t\t\t\n", lbl)
 					}
 				}
 			}
