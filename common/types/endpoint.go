@@ -156,10 +156,27 @@ type EndpointStatus struct {
 	indexMU sync.RWMutex
 }
 
+func (e *EndpointStatus) lastIndex() int {
+	lastIndex := e.Index - 1
+	if lastIndex < 0 {
+		return maxLogs - 1
+	}
+	return lastIndex
+}
+
+func (e *EndpointStatus) getAndIncIdx() int {
+	idx := e.Index
+	e.Index++
+	if e.Index >= maxLogs {
+		e.Index = 0
+	}
+	return idx
+}
+
 func (e *EndpointStatus) String() string {
 	e.indexMU.RLock()
 	defer e.indexMU.RUnlock()
-	lastLog := e.Log[uint8(e.Index-1)]
+	lastLog := e.Log[e.lastIndex()]
 	if lastLog != nil {
 		return fmt.Sprintf("%s", lastLog.Status.Code)
 	}
@@ -170,7 +187,7 @@ func (e *EndpointStatus) DumpLog() string {
 	e.indexMU.RLock()
 	defer e.indexMU.RUnlock()
 	logs := []string{}
-	for i := e.Index - 1; ; i-- {
+	for i := e.lastIndex(); ; i-- {
 		if i < 0 {
 			i = maxLogs - 1
 		}
@@ -409,28 +426,20 @@ func (e *Endpoint) InvalidatePolicy() {
 func (e *Endpoint) LogStatus(code StatusCode, msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
-	e.Status.Log[e.Status.Index] = &statusLog{
+	e.Status.Log[e.Status.getAndIncIdx()] = &statusLog{
 		Status: Status{
 			Code: code,
 			Msg:  msg,
 		},
 		Timestamp: time.Now(),
 	}
-	e.Status.Index++
-	if e.Status.Index >= maxLogs {
-		e.Status.Index = 0
-	}
 }
 
 func (e *Endpoint) LogStatusOK(msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
-	e.Status.Log[e.Status.Index] = &statusLog{
+	e.Status.Log[e.Status.getAndIncIdx()] = &statusLog{
 		Status:    NewStatusOK(msg),
 		Timestamp: time.Now(),
-	}
-	e.Status.Index++
-	if e.Status.Index >= maxLogs {
-		e.Status.Index = 0
 	}
 }
