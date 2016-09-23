@@ -50,6 +50,32 @@ type ServiceInfo struct {
 	Ports map[LBPortName]*LBSvcPort
 }
 
+func (si *ServiceInfo) Equals(other *ServiceInfo) bool {
+	if !si.IP.Equal(other.IP) || len(si.Ports) != len(other.Ports) {
+		log.Debugf("IP different or length of ports different")
+		return false
+	}
+	for portName, svcPort := range si.Ports {
+		if otherPort, ok := other.Ports[portName]; !ok {
+			log.Debugf("other doesn't have portname %+v", portName)
+			return false
+		} else {
+			if svcPort != nil && otherPort != nil {
+				// We ignore the service ID
+				if !svcPort.LBPort.Equals(otherPort.LBPort) {
+					log.Debugf("One of the ports is different that the other port %+v, %+v", *svcPort, *otherPort)
+					return false
+				}
+			} else if !(svcPort == nil && otherPort == nil) {
+				log.Debugf("One is nil and the other is not nil %+v, %+v", svcPort, otherPort)
+				return false
+			}
+		}
+	}
+	log.Debugf("Both equals")
+	return true
+}
+
 func NewServiceInfo(ip net.IP) *ServiceInfo {
 	return &ServiceInfo{
 		IP:    ip,
@@ -63,6 +89,38 @@ type ServiceEndpoint struct {
 	Ports map[LBPortName]*LBPort
 }
 
+func (se *ServiceEndpoint) Equals(other *ServiceEndpoint) bool {
+	if se != nil && other != nil {
+		if len(se.IPs) != len(other.IPs) {
+			return false
+		}
+		if len(se.Ports) != len(other.Ports) {
+			return false
+		}
+		for k, v := range se.IPs {
+			if otherValue, ok := other.IPs[k]; !ok {
+				return false
+			} else {
+				if v != otherValue {
+					return false
+				}
+			}
+		}
+		for k, v := range se.Ports {
+			if otherValue, ok := other.Ports[k]; !ok {
+				return false
+			} else {
+				if !v.Equals(otherValue) {
+					return false
+				}
+			}
+		}
+	} else if !(se == nil && other == nil) {
+		return false
+	}
+	return true
+}
+
 func NewServiceEndpoint() *ServiceEndpoint {
 	return &ServiceEndpoint{
 		IPs:   map[string]bool{},
@@ -73,6 +131,16 @@ func NewServiceEndpoint() *ServiceEndpoint {
 type LBPort struct {
 	Protocol L4Type
 	Port     uint16
+}
+
+func (lbp *LBPort) Equals(other *LBPort) bool {
+	if lbp != nil && other != nil {
+		return lbp.Protocol == other.Protocol &&
+			lbp.Port == other.Port
+	} else if !(lbp == nil && other == nil) {
+		return false
+	}
+	return true
 }
 
 func NewLBPort(protocol L4Type, number uint16) (*LBPort, error) {
