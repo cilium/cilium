@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -338,7 +339,49 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	walker := func(path string, _ os.FileInfo, _ error) error {
+		return d.staleMapWalker(path)
+	}
+	if err := filepath.Walk(common.BPFCiliumMaps, walker); err != nil {
+		log.Warningf("Error while scanning for stale maps: %s", err)
+	}
+
 	return &d, nil
+}
+
+func (d *Daemon) checkStaleMap(path string, filename string, id string) {
+	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
+		if _, ok := d.endpoints[uint16(tmp)]; !ok {
+			if err := os.RemoveAll(path); err != nil {
+				log.Warningf("Error while deleting stale map file %s: %s", path, err)
+			} else {
+				log.Infof("Removed stale bpf map %s", path)
+			}
+		}
+	}
+}
+
+func (d *Daemon) staleMapWalker(path string) error {
+	filename := filepath.Base(path)
+
+	mapPrefix := []string{
+		common.PolicyMapName,
+		common.Ct6MapName,
+		common.Ct4MapName,
+	}
+
+	for _, m := range mapPrefix {
+		if strings.HasPrefix(filename, m) {
+			if id := strings.TrimPrefix(filename, m); id != filename {
+				d.checkStaleMap(path, filename, id)
+			}
+		}
+	}
+
+	return nil
 }
 
 func changedOption(key string, value bool, data interface{}) {
