@@ -394,8 +394,19 @@ func (e *Endpoint) IsCNI() bool {
 	return e.DockerNetworkID == ""
 }
 
+// Return path to policy map of endpoint
 func (e *Endpoint) PolicyMapPath() string {
 	return common.PolicyMapPath + strconv.Itoa(int(e.ID))
+}
+
+// Return path to IPv6 connection tracking map of endpoint
+func (e *Endpoint) Ct6MapPath() string {
+	return common.BPFMapCT6 + strconv.Itoa(int(e.ID))
+}
+
+// Return path to IPv4 connection tracking map of endpoint
+func (e *Endpoint) Ct4MapPath() string {
+	return common.BPFMapCT4 + strconv.Itoa(int(e.ID))
 }
 
 func (e *Endpoint) InvalidatePolicy() {

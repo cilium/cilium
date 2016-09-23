@@ -32,10 +32,14 @@ const (
 	BPFMapRoot    = "/sys/fs/bpf"
 	BPFCiliumMaps = BPFMapRoot + "/tc/globals"
 	BPFMap        = BPFCiliumMaps + "/cilium_lxc"
-	// PolicyMapPath is the base path for the cilium policy for each local container.
-	PolicyMapPath = BPFCiliumMaps + "/cilium_policy_"
-	BPFMapCT6     = BPFCiliumMaps + "/cilium_ct6_"
-	BPFMapCT4     = BPFCiliumMaps + "/cilium_ct4_"
+	// Basename prefix of endpoint specific policy map
+	PolicyMapName = "cilium_policy_"
+	// Path prefix to endpoint specific policy map
+	PolicyMapPath = BPFCiliumMaps + "/" + PolicyMapName
+	Ct6MapName    = "cilium_ct6_"
+	BPFMapCT6     = BPFCiliumMaps + "/" + Ct6MapName
+	Ct4MapName    = "cilium_ct4_"
+	BPFMapCT4     = BPFCiliumMaps + "/" + Ct4MapName
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
 	// log files.
 	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
