@@ -394,6 +394,7 @@ func (e *Endpoint) IsCNI() bool {
 	return e.DockerNetworkID == ""
 }
 
+// Return path to policy map of endpoint
 func (e *Endpoint) PolicyMapPath() string {
 	return common.PolicyMapPath + strconv.Itoa(int(e.ID))
 }

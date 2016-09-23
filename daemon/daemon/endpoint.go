@@ -451,8 +451,10 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 		ep.Consumable.RemoveMap(ep.PolicyMap)
 	}
 
-	// Clear policy map
-	os.RemoveAll(common.PolicyMapPath + strconv.Itoa(int(ep.ID)))
+	// Remove policy BPF map
+	if err := os.RemoveAll(ep.PolicyMapPath()); err != nil {
+		log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPath(), err)
+	}
 
 	d.deleteEndpoint(epID)
 
