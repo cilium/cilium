@@ -183,14 +183,15 @@ func (d *Daemon) OnServiceUpdate(allServices []k8sAPI.Service) {
 		log.Debugf("Got service %+v", si)
 	}
 
-	// Cleaning old services
+	// Old services
+	oldSvcs := []types.ServiceNamespace{}
 	for svc := range d.loadBalancer.Services {
 		if !newServices[svc] {
-			delete(d.loadBalancer.Services, svc)
+			oldSvcs = append(oldSvcs, svc)
 		}
 	}
 
-	d.syncLB()
+	d.syncLB(oldSvcs)
 }
 
 func (d *Daemon) OnEndpointsUpdate(endpoints []k8sAPI.Endpoints) {
@@ -246,104 +247,236 @@ func (d *Daemon) OnEndpointsUpdate(endpoints []k8sAPI.Endpoints) {
 
 	}
 
-	// Cleaning old endpoints
+	// Old endpoints
+	oldEndpoints := []types.ServiceNamespace{}
 	for ep := range d.loadBalancer.Endpoints {
 		if !newEndpoints[ep] {
-			delete(d.loadBalancer.Endpoints, ep)
+			oldEndpoints = append(oldEndpoints, ep)
 		}
 	}
 
-	d.syncLB()
+	d.syncLB(oldEndpoints)
 }
 
-func (d *Daemon) syncLB() {
+func (d *Daemon) syncLB(oldsn []types.ServiceNamespace) {
 	if !d.conf.LBMode {
 		return
 	}
+
+	// Clean old services
+	for _, oldSvc := range oldsn {
+		svc, ok := d.loadBalancer.Services[oldSvc]
+		if !ok {
+			delete(d.loadBalancer.Endpoints, oldSvc)
+			continue
+		}
+
+		se, ok := d.loadBalancer.Endpoints[oldSvc]
+		if !ok {
+			delete(d.loadBalancer.Services, oldSvc)
+			continue
+		}
+		d.delLBServices(oldSvc, svc, se)
+	}
+
 	for svc, svcInfo := range d.loadBalancer.Services {
 		se, ok := d.loadBalancer.Endpoints[svc]
 		if !ok {
 			continue
 		}
 
-		isSvcIPv4 := svcInfo.IP.To4() != nil
-		if isSvcIPv4 && !d.conf.IPv4Enabled {
-			log.Warningf("Received an IPv4 kubernetes service but IPv4 is"+
-				"disabled in the cilium daemon. Ignoring service %+v", svc)
+		d.addLBServices(svc, svcInfo, se)
+	}
+}
+
+func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.ServiceNamespace, se *types.ServiceEndpoint) bool {
+	if isSvcIPv4 && !ipv4Enabled {
+		log.Warningf("Received an IPv4 kubernetes service but IPv4 is"+
+			"disabled in the cilium daemon. Ignoring service %+v", svc)
+		return false
+	}
+
+	if isSvcIPv4 {
+		isEPsIPv6 := false
+		for epIP := range se.IPs {
+			//is IPv6?
+			if net.ParseIP(epIP).To4() == nil {
+				isEPsIPv6 = true
+				break
+			}
+		}
+		if isEPsIPv6 {
+			log.Errorf("Not all endpoints IPs are IPv4. Ignoring IPv4 service %+v", svc)
+			return false
+		}
+	} else {
+		isEPsIPv4 := false
+		for epIP := range se.IPs {
+			//is IPv4?
+			if net.ParseIP(epIP).To4() != nil {
+				isEPsIPv4 = true
+				break
+			}
+		}
+		if isEPsIPv4 {
+			log.Errorf("Not all endpoints IPs are IPv6. Ignoring IPv6 service %+v", svc)
+			return false
+		}
+	}
+	return true
+}
+
+func getUniqueSvcs(svcPorts map[types.LBPortName]*types.LBSvcPort) map[uint16]uint16 {
+	// We are not discriminating the different L4 protocols on the same L4
+	// port so we create the number of unique sets of service IP + service
+	// port.
+	uniqSvcs := map[uint16]uint16{}
+	for _, svcPort := range svcPorts {
+		nPorts, ok := uniqSvcs[svcPort.Port]
+		if !ok {
+			uniqSvcs[svcPort.Port] = 1
+		} else {
+			uniqSvcs[svcPort.Port] = nPorts + 1
+		}
+	}
+	return uniqSvcs
+}
+
+func (d *Daemon) delLBServices(svc types.ServiceNamespace, svcInfo *types.ServiceInfo, se *types.ServiceEndpoint) {
+	isSvcIPv4 := svcInfo.IP.To4() != nil
+	if !areIPsConsistent(d.conf.IPv4Enabled, isSvcIPv4, svc, se) {
+		return
+	}
+
+	uniqSvcs := getUniqueSvcs(svcInfo.Ports)
+
+	for _, svcPort := range svcInfo.Ports {
+		if uniqSvcs[svcPort.Port] == 0 {
 			continue
 		}
 
+		nSvcs := uniqSvcs[svcPort.Port]
+		uniqSvcs[svcPort.Port] = nSvcs - 1
+
+		if svcPort.ServiceID != 0 {
+			if err := d.DeleteServiceL4IDByUUID(uint32(svcPort.ServiceID)); err != nil {
+				log.Warningf("Error while cleaning service ID: %s", err)
+			}
+		}
+
 		if isSvcIPv4 {
-			isEPsIPv6 := false
-			for epIP := range se.IPs {
-				//is IPv6?
-				if net.ParseIP(epIP).To4() == nil {
-					isEPsIPv6 = true
-					break
-				}
-			}
-			if isEPsIPv6 {
-				log.Errorf("Not all endpoints IPs are IPv4. Ignoring IPv4 service %+v", svc)
-				continue
-			}
+			d.deleteSvc4(se.IPs, svcInfo, svcPort)
 		} else {
-			isEPsIPv4 := false
-			for epIP := range se.IPs {
-				//is IPv4?
-				if net.ParseIP(epIP).To4() != nil {
-					isEPsIPv4 = true
-					break
-				}
-			}
-			if isEPsIPv4 {
-				log.Errorf("Not all endpoints IPs are IPv6. Ignoring IPv6 service %+v", svc)
-				continue
-			}
+			d.deleteSvc6(se.IPs, svcInfo, svcPort)
+		}
+	}
+}
+
+func (d *Daemon) deleteSvc4(epIPs map[string]bool, svcInfo *types.ServiceInfo, svcPort *types.LBSvcPort) {
+
+	serverIndex := uint16(0)
+	if len(epIPs) != 0 {
+		svc4k := lbmap.NewService4Key(svcInfo.IP, svcPort.Port, serverIndex)
+		if err := lbmap.Service4Map.Delete(svc4k); err != nil {
+			log.Warningf("Error deleting service %+v, %s", svc4k, err)
+		} else {
+			log.Debugf("# cilium lb -4 delete-service %s %d %d",
+				svcInfo.IP, svcPort.Port, serverIndex)
 		}
 
-		// We are not discriminating the different L4 protocols on the same L4
-		// port so we create the number of unique sets of service IP + service
-		// port.
-		uniqSvcs := map[uint16]uint16{}
-		for _, svcPort := range svcInfo.Ports {
-			nPorts, ok := uniqSvcs[svcPort.Port]
-			if !ok {
-				uniqSvcs[svcPort.Port] = 1
-			} else {
-				uniqSvcs[svcPort.Port] = nPorts + 1
-			}
+	}
+	svc4k := lbmap.NewService4Key(svcInfo.IP, svcPort.Port, serverIndex)
+	for range epIPs {
+		serverIndex++
+		svc4k.Slave = serverIndex
+
+		if err := lbmap.Service4Map.Delete(svc4k); err != nil {
+			log.Warningf("Error deleting service %+v, %s", svc4k, err)
+		} else {
+			log.Debugf("# cilium lb -4 delete-service %s %d %d",
+				svcInfo.IP, svcPort.Port, serverIndex)
+		}
+	}
+
+	revNATk := lbmap.NewRevNat4Key(uint16(svcPort.ServiceID))
+	if err := lbmap.RevNat4Map.Delete(revNATk); err != nil {
+		log.Warningf("Error updating reverser NAT %+v, %s", revNATk, err)
+	} else {
+		log.Debugf("# cilium lb -4 delete-rev-nat %d", svcPort.ServiceID)
+	}
+}
+
+func (d *Daemon) deleteSvc6(epIPs map[string]bool, svcInfo *types.ServiceInfo, svcPort *types.LBSvcPort) {
+
+	serverIndex := uint16(0)
+	if len(epIPs) != 0 {
+		svc6k := lbmap.NewService6Key(svcInfo.IP, svcPort.Port, serverIndex)
+		if err := lbmap.Service6Map.Delete(svc6k); err != nil {
+			log.Warningf("Error deleting service %+v, %s", svc6k, err)
+		} else {
+			log.Debugf("# cilium lb delete-service %s %d %d",
+				svcInfo.IP, svcPort.Port, serverIndex)
 		}
 
-		for svcPortName, svcPort := range svcInfo.Ports {
-			if uniqSvcs[svcPort.Port] == 0 {
+	}
+	svc6k := lbmap.NewService6Key(svcInfo.IP, svcPort.Port, serverIndex)
+	for range epIPs {
+		serverIndex++
+		svc6k.Slave = serverIndex
+
+		if err := lbmap.Service6Map.Delete(svc6k); err != nil {
+			log.Warningf("Error deleting service %+v, %s", svc6k, err)
+		} else {
+			log.Debugf("# cilium lb delete-service %s %d %d",
+				svcInfo.IP, svcPort.Port, serverIndex)
+		}
+	}
+
+	revNATk := lbmap.NewRevNat6Key(uint16(svcPort.ServiceID))
+	if err := lbmap.RevNat6Map.Delete(revNATk); err != nil {
+		log.Warningf("Error updating reverser NAT %+v, %s", revNATk, err)
+	} else {
+		log.Debugf("# cilium lb delete-rev-nat %d", svcPort.ServiceID)
+	}
+}
+
+func (d *Daemon) addLBServices(svc types.ServiceNamespace, svcInfo *types.ServiceInfo, se *types.ServiceEndpoint) {
+	isSvcIPv4 := svcInfo.IP.To4() != nil
+	if !areIPsConsistent(d.conf.IPv4Enabled, isSvcIPv4, svc, se) {
+		return
+	}
+
+	uniqSvcs := getUniqueSvcs(svcInfo.Ports)
+
+	for svcPortName, svcPort := range svcInfo.Ports {
+		if uniqSvcs[svcPort.Port] == 0 {
+			continue
+		}
+		epPort, ok := se.Ports[svcPortName]
+		if !ok {
+			continue
+		}
+
+		nSvcs := uniqSvcs[svcPort.Port]
+		uniqSvcs[svcPort.Port] = nSvcs - 1
+
+		if svcPort.ServiceID == 0 {
+			svcl4 := types.ServiceL4{
+				IP:   svcInfo.IP,
+				Port: svcPort.Port,
+			}
+			svcl4ID, err := d.PutServiceL4(svcl4)
+			if err != nil {
+				log.Errorf("Error while getting a new service ID: %s. Ignoring service %v...", err, svcl4)
 				continue
 			}
-			epPort, ok := se.Ports[svcPortName]
-			if !ok {
-				continue
-			}
+			svcPort.ServiceID = svcl4ID.ServiceID
+		}
 
-			nSvcs := uniqSvcs[svcPort.Port]
-			uniqSvcs[svcPort.Port] = nSvcs - 1
-
-			if svcPort.ServiceID == 0 {
-				svcl4 := types.ServiceL4{
-					IP:   svcInfo.IP,
-					Port: svcPort.Port,
-				}
-				svcl4ID, err := d.PutServiceL4(svcl4)
-				if err != nil {
-					log.Errorf("Error while getting a new service ID: %s. Ignoring service %v...", err, svcl4)
-					continue
-				}
-				svcPort.ServiceID = svcl4ID.ServiceID
-			}
-
-			if isSvcIPv4 {
-				d.insertSvc4(se.IPs, svcInfo, svcPort, epPort, nSvcs)
-			} else {
-				d.insertSvc6(se.IPs, svcInfo, svcPort, epPort, nSvcs)
-			}
+		if isSvcIPv4 {
+			d.insertSvc4(se.IPs, svcInfo, svcPort, epPort, nSvcs)
+		} else {
+			d.insertSvc6(se.IPs, svcInfo, svcPort, epPort, nSvcs)
 		}
 	}
 }
