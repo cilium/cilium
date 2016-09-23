@@ -456,6 +456,16 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 		log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPath(), err)
 	}
 
+	// Remove IPv6 connection tracking map
+	if err := os.RemoveAll(ep.Ct6MapPath()); err != nil {
+		log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPath(), err)
+	}
+
+	// Remove IPv4 connection tracking map
+	if err := os.RemoveAll(ep.Ct4MapPath()); err != nil {
+		log.Warningf("Unable to remove IPv4 CT map file (%s): %s", ep.Ct4MapPath(), err)
+	}
+
 	d.deleteEndpoint(epID)
 
 	log.Infof("Command successful:\n%s", out)
