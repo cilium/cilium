@@ -151,8 +151,8 @@ type statusLog struct {
 }
 
 type EndpointStatus struct {
-	Log     [maxLogs]*statusLog `json:"log,omitempty"`
-	Index   int                 `json:"index"`
+	Log     []*statusLog `json:"log,omitempty"`
+	Index   int          `json:"index"`
 	indexMU sync.RWMutex
 }
 
@@ -173,6 +173,15 @@ func (e *EndpointStatus) getAndIncIdx() int {
 	return idx
 }
 
+func (e *EndpointStatus) addStatusLog(s *statusLog) {
+	idx := e.getAndIncIdx()
+	if len(e.Log) < maxLogs {
+		e.Log = append(e.Log, s)
+	} else {
+		e.Log[idx] = s
+	}
+}
+
 func (e *EndpointStatus) String() string {
 	e.indexMU.RLock()
 	defer e.indexMU.RUnlock()
@@ -191,7 +200,7 @@ func (e *EndpointStatus) DumpLog() string {
 		if i < 0 {
 			i = maxLogs - 1
 		}
-		if e.Log[i] != nil {
+		if i < len(e.Log) && e.Log[i] != nil {
 			logs = append(logs, fmt.Sprintf("%s - %s",
 				e.Log[i].Timestamp.Format(time.RFC3339), e.Log[i].Status))
 		}
@@ -210,9 +219,9 @@ func (es *EndpointStatus) DeepCopy() *EndpointStatus {
 	es.indexMU.RLock()
 	defer es.indexMU.RUnlock()
 	cpy.Index = es.Index
-	cpy.Log = [maxLogs]*statusLog{}
-	for k, v := range es.Log {
-		cpy.Log[k] = v
+	cpy.Log = []*statusLog{}
+	for _, v := range es.Log {
+		cpy.Log = append(cpy.Log, v)
 	}
 	return cpy
 }
@@ -253,7 +262,9 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	if e.Opts != nil {
 		cpy.Opts = e.Opts.DeepCopy()
 	}
-	cpy.Status = e.Status.DeepCopy()
+	if e.Status != nil {
+		cpy.Status = e.Status.DeepCopy()
+	}
 
 	return cpy
 }
@@ -437,20 +448,22 @@ func (e *Endpoint) InvalidatePolicy() {
 func (e *Endpoint) LogStatus(code StatusCode, msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
-	e.Status.Log[e.Status.getAndIncIdx()] = &statusLog{
+	sts := &statusLog{
 		Status: Status{
 			Code: code,
 			Msg:  msg,
 		},
 		Timestamp: time.Now(),
 	}
+	e.Status.addStatusLog(sts)
 }
 
 func (e *Endpoint) LogStatusOK(msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
-	e.Status.Log[e.Status.getAndIncIdx()] = &statusLog{
+	sts := &statusLog{
 		Status:    NewStatusOK(msg),
 		Timestamp: time.Now(),
 	}
+	e.Status.addStatusLog(sts)
 }
