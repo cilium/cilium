@@ -37,6 +37,10 @@ const (
 	LibnetworkDefaultPoolV4 = "CiliumPoolv4"
 	// LibnetworkDefaultPoolV6 is the IPv6 pool name for libnetwork.
 	LibnetworkDefaultPoolV6 = "CiliumPoolv6"
+	// LibnetworkDummyV4AllocPool is never exposed, makes libnetwork happy.
+	LibnetworkDummyV4AllocPool = "0.0.0.0/0"
+	// LibnetworkDummyV4Gateway is never exposed, makes libnetwork happy.
+	LibnetworkDummyV4Gateway = "1.1.1.1/32"
 )
 
 // IPAMConfig is the IPAM configuration used for a particular IPAM type.
