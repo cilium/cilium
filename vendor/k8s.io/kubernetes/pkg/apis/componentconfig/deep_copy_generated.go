@@ -174,6 +174,7 @@ func DeepCopy_componentconfig_KubeProxyConfiguration(in KubeProxyConfiguration, 
 		return err
 	}
 	out.ConntrackMax = in.ConntrackMax
+	out.ConntrackMaxPerCore = in.ConntrackMaxPerCore
 	if err := unversioned.DeepCopy_unversioned_Duration(in.ConntrackTCPEstablishedTimeout, &out.ConntrackTCPEstablishedTimeout, c); err != nil {
 		return err
 	}
@@ -323,6 +324,9 @@ func DeepCopy_componentconfig_KubeletConfiguration(in KubeletConfiguration, out 
 	out.EvictionMaxPodGracePeriod = in.EvictionMaxPodGracePeriod
 	out.PodsPerCore = in.PodsPerCore
 	out.EnableControllerAttachDetach = in.EnableControllerAttachDetach
+	out.MakeIPTablesUtilChains = in.MakeIPTablesUtilChains
+	out.IPTablesMasqueradeBit = in.IPTablesMasqueradeBit
+	out.IPTablesDropBit = in.IPTablesDropBit
 	return nil
 }
 
