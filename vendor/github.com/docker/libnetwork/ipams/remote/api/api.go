@@ -22,15 +22,15 @@ func (r *Response) GetError() string {
 // GetCapabilityResponse is the response of GetCapability request
 type GetCapabilityResponse struct {
 	Response
-	RequiresMACAddress bool
-	SupportsAutoIPv6   bool
+	RequiresMACAddress    bool
+	RequiresRequestReplay bool
 }
 
-// ToCapability converts the capability response into the internal ipam driver capaility structure
+// ToCapability converts the capability response into the internal ipam driver capability structure
 func (capRes GetCapabilityResponse) ToCapability() *ipamapi.Capability {
 	return &ipamapi.Capability{
-		RequiresMACAddress: capRes.RequiresMACAddress,
-		SupportsAutoIPv6:   capRes.SupportsAutoIPv6,
+		RequiresMACAddress:    capRes.RequiresMACAddress,
+		RequiresRequestReplay: capRes.RequiresRequestReplay,
 	}
 }
 

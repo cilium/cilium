@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/common/types"
 
+	"github.com/appc/cni/pkg/version"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -55,7 +56,7 @@ type netConf struct {
 }
 
 func main() {
-	skel.PluginMain(cmdAdd, cmdDel)
+	skel.PluginMain(cmdAdd, cmdDel, version.PluginSupports("0.1.0", "0.2.0"))
 }
 
 func loadNetConf(bytes []byte) (*netConf, error) {

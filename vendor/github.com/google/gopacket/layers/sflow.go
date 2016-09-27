@@ -96,6 +96,17 @@ func (sdc SFlowDataSource) decode() (SFlowSourceFormat, SFlowSourceValue) {
 	return SFlowSourceFormat(leftField), SFlowSourceValue(rightField)
 }
 
+type SFlowDataSourceExpanded struct {
+	SourceIDClass SFlowSourceFormat
+	SourceIDIndex SFlowSourceValue
+}
+
+func (sdce SFlowDataSourceExpanded) decode() (SFlowSourceFormat, SFlowSourceValue) {
+	leftField := sdce.SourceIDClass >> 30
+	rightField := uint32(0x3FFFFFFF) & uint32(sdce.SourceIDIndex)
+	return SFlowSourceFormat(leftField), SFlowSourceValue(rightField)
+}
+
 type SFlowSourceFormat uint32
 
 type SFlowSourceValue uint32
@@ -303,23 +314,30 @@ func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 		_, sampleType := sdf.decode()
 		switch sampleType {
 		case SFlowTypeFlowSample:
-			if flowSample, err := decodeFlowSample(&data); err == nil {
+			if flowSample, err := decodeFlowSample(&data, false); err == nil {
 				s.FlowSamples = append(s.FlowSamples, flowSample)
 			} else {
 				return err
 			}
 		case SFlowTypeCounterSample:
-			if counterSample, err := decodeCounterSample(&data); err == nil {
+			if counterSample, err := decodeCounterSample(&data, false); err == nil {
 				s.CounterSamples = append(s.CounterSamples, counterSample)
 			} else {
 				return err
 			}
 		case SFlowTypeExpandedFlowSample:
-			// TODO
-			return fmt.Errorf("Unsupported SFlow sample type TypeExpandedFlowSample")
+			if flowSample, err := decodeFlowSample(&data, true); err == nil {
+				s.FlowSamples = append(s.FlowSamples, flowSample)
+			} else {
+				return err
+			}
 		case SFlowTypeExpandedCounterSample:
-			// TODO
-			return fmt.Errorf("Unsupported SFlow sample type TypeExpandedCounterSample")
+			if counterSample, err := decodeCounterSample(&data, true); err == nil {
+				s.CounterSamples = append(s.CounterSamples, counterSample)
+			} else {
+				return err
+			}
+
 		default:
 			return fmt.Errorf("Unsupported SFlow sample type %d", sampleType)
 		}
@@ -330,24 +348,26 @@ func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 // SFlowFlowSample represents a sampled packet and contains
 // one or more records describing the packet
 type SFlowFlowSample struct {
-	EnterpriseID    SFlowEnterpriseID
-	Format          SFlowSampleType
-	SampleLength    uint32
-	SequenceNumber  uint32
-	SourceIDClass   SFlowSourceFormat
-	SourceIDIndex   SFlowSourceValue
-	SamplingRate    uint32
-	SamplePool      uint32
-	Dropped         uint32
-	InputInterface  uint32
-	OutputInterface uint32
-	RecordCount     uint32
-	Records         []SFlowRecord
+	EnterpriseID          SFlowEnterpriseID
+	Format                SFlowSampleType
+	SampleLength          uint32
+	SequenceNumber        uint32
+	SourceIDClass         SFlowSourceFormat
+	SourceIDIndex         SFlowSourceValue
+	SamplingRate          uint32
+	SamplePool            uint32
+	Dropped               uint32
+	InputInterfaceFormat  uint32
+	InputInterface        uint32
+	OutputInterfaceFormat uint32
+	OutputInterface       uint32
+	RecordCount           uint32
+	Records               []SFlowRecord
 }
 
 // Flow samples have the following structure. Note
 // the bit fields to encode the Enterprise ID and the
-// Flow record format:
+// Flow record format: type 1
 
 //  0                      15                      31
 //  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -368,6 +388,41 @@ type SFlowFlowSample struct {
 //  |                 int input ifIndex             |
 //  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 //  |                int output ifIndex             |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |               int number of records           |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  /                   flow records                /
+//  /                                               /
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+// Flow samples have the following structure.
+// Flow record format: type 3
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  sample length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |          int sample sequence number           |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |               int src id type                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |             int src id index value            |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |               int sampling rate               |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                int sample pool                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    int drops                  |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |           int input interface format          |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |           int input interface value           |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |           int output interface format         |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |           int output interface value          |
 //  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 //  |               int number of records           |
 //  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -396,7 +451,7 @@ func skipRecord(data *[]byte) {
 	*data = (*data)[(recordLength+((4-recordLength)%4))+8:]
 }
 
-func decodeFlowSample(data *[]byte) (SFlowFlowSample, error) {
+func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 	s := SFlowFlowSample{}
 	var sdf SFlowDataFormat
 	*data, sdf = (*data)[4:], SFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
@@ -405,13 +460,26 @@ func decodeFlowSample(data *[]byte) (SFlowFlowSample, error) {
 	s.EnterpriseID, s.Format = sdf.decode()
 	*data, s.SampleLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, s.SequenceNumber = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, sdc = (*data)[4:], SFlowDataSource(binary.BigEndian.Uint32((*data)[:4]))
-	s.SourceIDClass, s.SourceIDIndex = sdc.decode()
+	if expanded {
+		*data, s.SourceIDClass = (*data)[4:], SFlowSourceFormat(binary.BigEndian.Uint32((*data)[:4]))
+		*data, s.SourceIDIndex = (*data)[4:], SFlowSourceValue(binary.BigEndian.Uint32((*data)[:4]))
+	} else {
+		*data, sdc = (*data)[4:], SFlowDataSource(binary.BigEndian.Uint32((*data)[:4]))
+		s.SourceIDClass, s.SourceIDIndex = sdc.decode()
+	}
 	*data, s.SamplingRate = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, s.SamplePool = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, s.Dropped = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, s.InputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, s.OutputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	if expanded {
+		*data, s.InputInterfaceFormat = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		*data, s.InputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		*data, s.OutputInterfaceFormat = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		*data, s.OutputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	} else {
+		*data, s.InputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+		*data, s.OutputInterface = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	}
 	*data, s.RecordCount = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 
 	for i := uint32(0); i < s.RecordCount; i++ {
@@ -585,17 +653,23 @@ func (cr SFlowCounterRecordType) String() string {
 	}
 }
 
-func decodeCounterSample(data *[]byte) (SFlowCounterSample, error) {
+func decodeCounterSample(data *[]byte, expanded bool) (SFlowCounterSample, error) {
 	s := SFlowCounterSample{}
 	var sdc SFlowDataSource
+	var sdce SFlowDataSourceExpanded
 	var sdf SFlowDataFormat
 
 	*data, sdf = (*data)[4:], SFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	s.EnterpriseID, s.Format = sdf.decode()
 	*data, s.SampleLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, s.SequenceNumber = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, sdc = (*data)[4:], SFlowDataSource(binary.BigEndian.Uint32((*data)[:4]))
-	s.SourceIDClass, s.SourceIDIndex = sdc.decode()
+	if expanded {
+		*data, sdce = (*data)[8:], SFlowDataSourceExpanded{SFlowSourceFormat(binary.BigEndian.Uint32((*data)[:4])), SFlowSourceValue(binary.BigEndian.Uint32((*data)[4:8]))}
+		s.SourceIDClass, s.SourceIDIndex = sdce.decode()
+	} else {
+		*data, sdc = (*data)[4:], SFlowDataSource(binary.BigEndian.Uint32((*data)[:4]))
+		s.SourceIDClass, s.SourceIDIndex = sdc.decode()
+	}
 	*data, s.RecordCount = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 
 	for i := uint32(0); i < s.RecordCount; i++ {
@@ -624,8 +698,11 @@ func decodeCounterSample(data *[]byte) (SFlowCounterSample, error) {
 			skipRecord(data)
 			return s, fmt.Errorf("skipping TypeVLANCounters")
 		case SFlowTypeProcessorCounters:
-			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeProcessorCounters")
+			if record, err := decodeProcessorCounters(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
 		default:
 			return s, fmt.Errorf("Invalid counter record type: %d", counterRecordType)
 		}
@@ -889,13 +966,11 @@ type SFlowExtendedRouterFlowRecord struct {
 func decodeExtendedRouterFlowRecord(data *[]byte) (SFlowExtendedRouterFlowRecord, error) {
 	er := SFlowExtendedRouterFlowRecord{}
 	var fdf SFlowFlowDataFormat
-	var erat SFlowIPType
 
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	er.EnterpriseID, er.Format = fdf.decode()
 	*data, er.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, erat = (*data)[4:], SFlowIPType(binary.BigEndian.Uint32((*data)[:4]))
-	*data, er.NextHop = (*data)[erat.Length():], (*data)[:erat.Length()]
+	*data, er.NextHop = (*data)[4:], (*data)[:4]
 	*data, er.NextHopSourceMask = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, er.NextHopDestinationMask = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	return er, nil
@@ -1624,4 +1699,55 @@ func decodeEthernetCounters(data *[]byte) (SFlowEthernetCounters, error) {
 	*data, ec.InternalMacReceiveErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, ec.SymbolErrors = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	return ec, nil
+}
+
+// **************************************************
+//  Processor Counter Record
+// **************************************************
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  counter length               |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    FiveSecCpu                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    OneMinCpu                  |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    GiveMinCpu                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                   TotalMemory                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    FreeMemory                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+type SFlowProcessorCounters struct {
+	SFlowBaseCounterRecord
+	FiveSecCpu  uint32 // 5 second average CPU utilization
+	OneMinCpu   uint32 // 1 minute average CPU utilization
+	FiveMinCpu  uint32 // 5 minute average CPU utilization
+	TotalMemory uint64 // total memory (in bytes)
+	FreeMemory  uint64 // free memory (in bytes)
+}
+
+func decodeProcessorCounters(data *[]byte) (SFlowProcessorCounters, error) {
+	pc := SFlowProcessorCounters{}
+	var cdf SFlowCounterDataFormat
+	var high32, low32 uint32
+
+	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	pc.EnterpriseID, pc.Format = cdf.decode()
+	*data, pc.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	*data, pc.FiveSecCpu = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, pc.OneMinCpu = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, pc.FiveMinCpu = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, high32 = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, low32 = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	pc.TotalMemory = (uint64(high32) << 32) + uint64(low32)
+	*data, high32 = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, low32 = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	pc.FreeMemory = (uint64(high32)) + uint64(low32)
+
+	return pc, nil
 }

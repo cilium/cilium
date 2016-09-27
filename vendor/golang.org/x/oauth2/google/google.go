@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/jwt"
-	"google.golang.org/cloud/compute/metadata"
 )
 
 // Endpoint is Google's OAuth 2.0 endpoint.
@@ -86,18 +86,25 @@ func ConfigFromJSON(jsonKey []byte, scope ...string) (*oauth2.Config, error) {
 // https://console.developers.google.com to download a JSON key file.
 func JWTConfigFromJSON(jsonKey []byte, scope ...string) (*jwt.Config, error) {
 	var key struct {
-		Email      string `json:"client_email"`
-		PrivateKey string `json:"private_key"`
+		Email        string `json:"client_email"`
+		PrivateKey   string `json:"private_key"`
+		PrivateKeyID string `json:"private_key_id"`
+		TokenURL     string `json:"token_uri"`
 	}
 	if err := json.Unmarshal(jsonKey, &key); err != nil {
 		return nil, err
 	}
-	return &jwt.Config{
-		Email:      key.Email,
-		PrivateKey: []byte(key.PrivateKey),
-		Scopes:     scope,
-		TokenURL:   JWTTokenURL,
-	}, nil
+	config := &jwt.Config{
+		Email:        key.Email,
+		PrivateKey:   []byte(key.PrivateKey),
+		PrivateKeyID: key.PrivateKeyID,
+		Scopes:       scope,
+		TokenURL:     key.TokenURL,
+	}
+	if config.TokenURL == "" {
+		config.TokenURL = JWTTokenURL
+	}
+	return config, nil
 }
 
 // ComputeTokenSource returns a token source that fetches access tokens

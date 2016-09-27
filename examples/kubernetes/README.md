@@ -12,7 +12,7 @@ and enforced with Cilium.
  - Cilium Vagrant Image
  - IPv6 connectivity between host and Cilium Vagrant VM
  - Setup cilium-net-daemon in direct routing mode
- - Tested with `kubernetes-v1.3.7` patched with `kubernetes-v1.3.7.patch`
+ - Tested with `kubernetes-v1.4.0` patched with `kubernetes-v1.4.0.patch`
 
 ### IPv6 connectivity between host and Cilium Vagrant VM - VirtualBox provider
 
@@ -114,7 +114,6 @@ take care of it.
 
 ```bash
 VM $ ./0-policy.sh
-```
 ```
 
 ## Setting up guestbook example

@@ -24,13 +24,22 @@ import (
 )
 
 type IPAllocator struct {
+	// start is inclusive and may be allocated
 	start net.IP
+	// end is inclusive and may be allocated
 	end   net.IP
 	conf  *IPAMConfig
 	store Store
 }
 
 func NewIPAllocator(conf *IPAMConfig, store Store) (*IPAllocator, error) {
+	// Can't create an allocator for a network with no addresses, eg
+	// a /32 or /31
+	ones, masklen := conf.Subnet.Mask.Size()
+	if ones > masklen-2 {
+		return nil, fmt.Errorf("Network %v too small to allocate from", conf.Subnet)
+	}
+
 	var (
 		start net.IP
 		end   net.IP
@@ -45,24 +54,75 @@ func NewIPAllocator(conf *IPAMConfig, store Store) (*IPAllocator, error) {
 	start = ip.NextIP(start)
 
 	if conf.RangeStart != nil {
-		if err := validateRangeIP(conf.RangeStart, (*net.IPNet)(&conf.Subnet)); err != nil {
+		if err := validateRangeIP(conf.RangeStart, (*net.IPNet)(&conf.Subnet), nil, nil); err != nil {
 			return nil, err
 		}
 		start = conf.RangeStart
 	}
 	if conf.RangeEnd != nil {
-		if err := validateRangeIP(conf.RangeEnd, (*net.IPNet)(&conf.Subnet)); err != nil {
+		if err := validateRangeIP(conf.RangeEnd, (*net.IPNet)(&conf.Subnet), start, nil); err != nil {
 			return nil, err
 		}
-		// RangeEnd is inclusive
-		end = ip.NextIP(conf.RangeEnd)
+		end = conf.RangeEnd
 	}
 	return &IPAllocator{start, end, conf, store}, nil
 }
 
-func validateRangeIP(ip net.IP, ipnet *net.IPNet) error {
+func canonicalizeIP(ip net.IP) (net.IP, error) {
+	if ip.To4() != nil {
+		return ip.To4(), nil
+	} else if ip.To16() != nil {
+		return ip.To16(), nil
+	}
+	return nil, fmt.Errorf("IP %s not v4 nor v6", ip)
+}
+
+// Ensures @ip is within @ipnet, and (if given) inclusive of @start and @end
+func validateRangeIP(ip net.IP, ipnet *net.IPNet, start net.IP, end net.IP) error {
+	var err error
+
+	// Make sure we can compare IPv4 addresses directly
+	ip, err = canonicalizeIP(ip)
+	if err != nil {
+		return err
+	}
+
 	if !ipnet.Contains(ip) {
 		return fmt.Errorf("%s not in network: %s", ip, ipnet)
+	}
+
+	if start != nil {
+		start, err = canonicalizeIP(start)
+		if err != nil {
+			return err
+		}
+		if len(ip) != len(start) {
+			return fmt.Errorf("%s %d not same size IP address as start %s %d", ip, len(ip), start, len(start))
+		}
+		for i := 0; i < len(ip); i++ {
+			if ip[i] > start[i] {
+				break
+			} else if ip[i] < start[i] {
+				return fmt.Errorf("%s outside of network %s with start %s", ip, ipnet, start)
+			}
+		}
+	}
+
+	if end != nil {
+		end, err = canonicalizeIP(end)
+		if err != nil {
+			return err
+		}
+		if len(ip) != len(end) {
+			return fmt.Errorf("%s %d not same size IP address as end %s %d", ip, len(ip), end, len(end))
+		}
+		for i := 0; i < len(ip); i++ {
+			if ip[i] < end[i] {
+				break
+			} else if ip[i] > end[i] {
+				return fmt.Errorf("%s outside of network %s with end %s", ip, ipnet, end)
+			}
+		}
 	}
 	return nil
 }
@@ -91,7 +151,7 @@ func (a *IPAllocator) Get(id string) (*types.IPConfig, error) {
 			IP:   a.conf.Subnet.IP,
 			Mask: a.conf.Subnet.Mask,
 		}
-		err := validateRangeIP(requestedIP, &subnet)
+		err := validateRangeIP(requestedIP, &subnet, a.start, a.end)
 		if err != nil {
 			return nil, err
 		}
@@ -141,16 +201,15 @@ func (a *IPAllocator) Release(id string) error {
 	return a.store.ReleaseByID(id)
 }
 
+// Return the start and end IP addresses of a given subnet, excluding
+// the broadcast address (eg, 192.168.1.255)
 func networkRange(ipnet *net.IPNet) (net.IP, net.IP, error) {
 	if ipnet.IP == nil {
 		return nil, nil, fmt.Errorf("missing field %q in IPAM configuration", "subnet")
 	}
-	ip := ipnet.IP.To4()
-	if ip == nil {
-		ip = ipnet.IP.To16()
-		if ip == nil {
-			return nil, nil, fmt.Errorf("IP not v4 nor v6")
-		}
+	ip, err := canonicalizeIP(ipnet.IP)
+	if err != nil {
+		return nil, nil, fmt.Errorf("IP not v4 nor v6")
 	}
 
 	if len(ip) != len(ipnet.Mask) {
@@ -161,6 +220,12 @@ func networkRange(ipnet *net.IPNet) (net.IP, net.IP, error) {
 	for i := 0; i < len(ip); i++ {
 		end = append(end, ip[i]|^ipnet.Mask[i])
 	}
+
+	// Exclude the broadcast address for IPv4
+	if ip.To4() != nil {
+		end[3]--
+	}
+
 	return ipnet.IP, end, nil
 }
 
@@ -185,7 +250,7 @@ func (a *IPAllocator) getSearchRange() (net.IP, net.IP) {
 			IP:   a.conf.Subnet.IP,
 			Mask: a.conf.Subnet.Mask,
 		}
-		err := validateRangeIP(lastReservedIP, &subnet)
+		err := validateRangeIP(lastReservedIP, &subnet, a.start, a.end)
 		if err == nil {
 			startFromLastReservedIP = true
 		}

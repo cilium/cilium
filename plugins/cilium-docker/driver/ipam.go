@@ -26,9 +26,7 @@ import (
 )
 
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
-	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{
-		SupportsAutoIPv6: true,
-	})
+	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{})
 	if err != nil {
 		log.Fatalf("capabilities encode: %s", err)
 		sendError(w, "encode error", http.StatusInternalServerError)

@@ -1,4 +1,4 @@
-// Copyright 2014 CNI authors
+// Copyright 2014-2016 CNI authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@ package skel
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/version"
 )
 
 // CmdArgs captures all the arguments passed in to the plugin
@@ -36,11 +38,16 @@ type CmdArgs struct {
 	StdinData   []byte
 }
 
+type dispatcher struct {
+	Getenv func(string) string
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
 type reqForCmdEntry map[string]bool
 
-// PluginMain is the "main" for a plugin. It accepts
-// two callback functions for add and del commands.
-func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error) {
+func (t *dispatcher) getCmdArgsFromEnv() (string, *CmdArgs, error) {
 	var cmd, contID, netns, ifName, args, path string
 
 	vars := []struct {
@@ -100,20 +107,22 @@ func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error) {
 
 	argsMissing := false
 	for _, v := range vars {
-		*v.val = os.Getenv(v.name)
-		if v.reqForCmd[cmd] && *v.val == "" {
-			log.Printf("%v env variable missing", v.name)
-			argsMissing = true
+		*v.val = t.Getenv(v.name)
+		if *v.val == "" {
+			if v.reqForCmd[cmd] || v.name == "CNI_COMMAND" {
+				fmt.Fprintf(t.Stderr, "%v env variable missing\n", v.name)
+				argsMissing = true
+			}
 		}
 	}
 
 	if argsMissing {
-		dieMsg("required env variables missing")
+		return "", nil, fmt.Errorf("required env variables missing")
 	}
 
-	stdinData, err := ioutil.ReadAll(os.Stdin)
+	stdinData, err := ioutil.ReadAll(t.Stdin)
 	if err != nil {
-		dieMsg("error reading from stdin: %v", err)
+		return "", nil, fmt.Errorf("error reading from stdin: %v", err)
 	}
 
 	cmdArgs := &CmdArgs{
@@ -124,6 +133,21 @@ func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error) {
 		Path:        path,
 		StdinData:   stdinData,
 	}
+	return cmd, cmdArgs, nil
+}
+
+func createTypedError(f string, args ...interface{}) *types.Error {
+	return &types.Error{
+		Code: 100,
+		Msg:  fmt.Sprintf(f, args...),
+	}
+}
+
+func (t *dispatcher) pluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionInfo version.PluginInfo) *types.Error {
+	cmd, cmdArgs, err := t.getCmdArgsFromEnv()
+	if err != nil {
+		return createTypedError(err.Error())
+	}
 
 	switch cmd {
 	case "ADD":
@@ -132,25 +156,37 @@ func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error) {
 	case "DEL":
 		err = cmdDel(cmdArgs)
 
+	case "VERSION":
+		err = versionInfo.Encode(t.Stdout)
+
 	default:
-		dieMsg("unknown CNI_COMMAND: %v", cmd)
+		return createTypedError("unknown CNI_COMMAND: %v", cmd)
 	}
 
 	if err != nil {
 		if e, ok := err.(*types.Error); ok {
 			// don't wrap Error in Error
-			dieErr(e)
+			return e
 		}
-		dieMsg(err.Error())
+		return createTypedError(err.Error())
 	}
+	return nil
 }
 
-func dieMsg(f string, args ...interface{}) {
-	e := &types.Error{
-		Code: 100,
-		Msg:  fmt.Sprintf(f, args...),
+// PluginMain is the "main" for a plugin. It accepts
+// two callback functions for add and del commands.
+func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionInfo version.PluginInfo) {
+	caller := dispatcher{
+		Getenv: os.Getenv,
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
 	}
-	dieErr(e)
+
+	err := caller.pluginMain(cmdAdd, cmdDel, versionInfo)
+	if err != nil {
+		dieErr(err)
+	}
 }
 
 func dieErr(e *types.Error) {

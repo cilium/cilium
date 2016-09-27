@@ -2,7 +2,7 @@
 
 Simple HTTP and REST client for Go inspired by Ruby rest-client. [Features](#features) section describes in detail about resty capabilities.
 
-***v0.7 released and tagged on May 01, 2016.***
+***v0.8 [released](https://github.com/go-resty/resty/releases/latest) and tagged on Jul 08, 2016.***
 
 *Since Go v1.6 HTTP/2 & HTTP/1.1 protocol is used transparently. `Resty` works fine with HTTP/2 and HTTP/1.1.*
 
@@ -521,6 +521,27 @@ resty.SetContentLength(true)
 
 // Registering global Error object structure for JSON/XML request
 resty.SetError(&Error{})    // or resty.SetError(Error{})
+```
+
+#### Unix Socket
+
+```go
+unixSocket := "unix:///var/run/my_socket.sock"
+
+// Create a Go's http.Transport so we can set it in resty.
+transport := http.Transport{
+	Dial: func(_, _ string) (net.Conn, error) {
+		return net.Dial("unix", unixSocket)
+	},
+}
+
+// Set the previous transport that we created, set the scheme of the communication to the
+// socket and set the unixSocket as the HostURL.
+r := resty.New().SetTransport(transport).SetScheme("http").SetHostURL(unixSocket)
+
+// No need to write the host's URL on the request, just the path.
+r.R().Get("/index.html")
+
 ```
 
 ## Versioning

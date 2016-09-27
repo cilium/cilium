@@ -6,27 +6,17 @@
 
 package main
 
-// This program generates table.go and table_test.go.
-// Invoke as:
+// This program generates table.go and table_test.go based on the authoritative
+// public suffix list at https://publicsuffix.org/list/effective_tld_names.dat
 //
-//	go run gen.go -version "xxx"       >table.go
-//	go run gen.go -version "xxx" -test >table_test.go
-//
-// The first of those two will take around 20 minutes to complete, as the final
-// table is optimized for size. When testing the code generation workflow, pass
-// -crush=false to skip this optimization step, although the results of such a
-// run should not be committed, as the generated table can be around 50% larger
-// and, more importantly, require a larger number of scarce node table bits.
-// You may need to increase nodesBitsTextOffset or other constants to generate
-// a table with -crush=false.
-//
-// Pass -v to print verbose progress information.
-//
-// The version is derived from information found at
+// The version is derived from
+// https://api.github.com/repos/publicsuffix/list/commits?path=public_suffix_list.dat
+// and a human-readable form is at
 // https://github.com/publicsuffix/list/commits/master/public_suffix_list.dat
 //
 // To fetch a particular git revision, such as 5c70ccd250, pass
 // -url "https://raw.githubusercontent.com/publicsuffix/list/5c70ccd250/public_suffix_list.dat"
+// and -version "an explicit version string".
 
 import (
 	"bufio"
@@ -35,6 +25,7 @@ import (
 	"fmt"
 	"go/format"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
@@ -99,25 +90,30 @@ func nodeTypeStr(n int) string {
 	panic("unreachable")
 }
 
+const (
+	defaultURL   = "https://publicsuffix.org/list/effective_tld_names.dat"
+	gitCommitURL = "https://api.github.com/repos/publicsuffix/list/commits?path=public_suffix_list.dat"
+)
+
 var (
 	labelEncoding = map[string]uint32{}
 	labelsList    = []string{}
 	labelsMap     = map[string]bool{}
 	rules         = []string{}
 
-	// validSuffix is used to check that the entries in the public suffix list
-	// are in canonical form (after Punycode encoding). Specifically, capital
-	// letters are not allowed.
-	validSuffix = regexp.MustCompile(`^[a-z0-9_\!\*\-\.]+$`)
+	// validSuffixRE is used to check that the entries in the public suffix
+	// list are in canonical form (after Punycode encoding). Specifically,
+	// capital letters are not allowed.
+	validSuffixRE = regexp.MustCompile(`^[a-z0-9_\!\*\-\.]+$`)
 
-	crush  = flag.Bool("crush", true, "make the generated node text as small as possible")
-	subset = flag.Bool("subset", false, "generate only a subset of the full table, for debugging")
-	url    = flag.String("url",
-		"https://publicsuffix.org/list/effective_tld_names.dat",
-		"URL of the publicsuffix.org list. If empty, stdin is read instead")
-	v       = flag.Bool("v", false, "verbose output (to stderr)")
-	version = flag.String("version", "", "the effective_tld_names.dat version")
-	test    = flag.Bool("test", false, "generate table_test.go")
+	shaRE  = regexp.MustCompile(`"sha":"([^"]+)"`)
+	dateRE = regexp.MustCompile(`"committer":{[^{]+"date":"([^"]+)"`)
+
+	comments = flag.Bool("comments", false, "generate table.go comments, for debugging")
+	subset   = flag.Bool("subset", false, "generate only a subset of the full table, for debugging")
+	url      = flag.String("url", defaultURL, "URL of the publicsuffix.org list. If empty, stdin is read instead")
+	v        = flag.Bool("v", false, "verbose output (to stderr)")
+	version  = flag.String("version", "", "the effective_tld_names.dat version")
 )
 
 func main() {
@@ -136,7 +132,14 @@ func main1() error {
 		return fmt.Errorf("not enough bits to encode the children table")
 	}
 	if *version == "" {
-		return fmt.Errorf("-version was not specified")
+		if *url != defaultURL {
+			return fmt.Errorf("-version was not specified, and the -url is not the default one")
+		}
+		sha, date, err := gitCommit()
+		if err != nil {
+			return err
+		}
+		*version = fmt.Sprintf("publicsuffix.org's public_suffix_list.dat, git revision %s (%s)", sha, date)
 	}
 	var r io.Reader = os.Stdin
 	if *url != "" {
@@ -153,7 +156,6 @@ func main1() error {
 
 	var root node
 	icann := false
-	buf := new(bytes.Buffer)
 	br := bufio.NewReader(r)
 	for {
 		s, err := br.ReadString('\n')
@@ -179,7 +181,7 @@ func main1() error {
 		if err != nil {
 			return err
 		}
-		if !validSuffix.MatchString(s) {
+		if !validSuffixRE.MatchString(s) {
 			return fmt.Errorf("bad publicsuffix.org list data: %q", s)
 		}
 
@@ -237,20 +239,50 @@ func main1() error {
 	}
 	sort.Strings(labelsList)
 
-	p := printReal
-	if *test {
-		p = printTest
-	}
-	if err := p(buf, &root); err != nil {
+	if err := generate(printReal, &root, "table.go"); err != nil {
 		return err
 	}
+	if err := generate(printTest, &root, "table_test.go"); err != nil {
+		return err
+	}
+	return nil
+}
 
+func generate(p func(io.Writer, *node) error, root *node, filename string) error {
+	buf := new(bytes.Buffer)
+	if err := p(buf, root); err != nil {
+		return err
+	}
 	b, err := format.Source(buf.Bytes())
 	if err != nil {
 		return err
 	}
-	_, err = os.Stdout.Write(b)
-	return err
+	return ioutil.WriteFile(filename, b, 0644)
+}
+
+func gitCommit() (sha, date string, retErr error) {
+	res, err := http.Get(gitCommitURL)
+	if err != nil {
+		return "", "", err
+	}
+	if res.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("bad GET status for %s: %d", gitCommitURL, res.Status)
+	}
+	defer res.Body.Close()
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", "", err
+	}
+	if m := shaRE.FindSubmatch(b); m != nil {
+		sha = string(m[1])
+	}
+	if m := dateRE.FindSubmatch(b); m != nil {
+		date = string(m[1])
+	}
+	if sha == "" || date == "" {
+		retErr = fmt.Errorf("could not find commit SHA and date in %s", gitCommitURL)
+	}
+	return sha, date, retErr
 }
 
 func printTest(w io.Writer, n *node) error {
@@ -301,7 +333,7 @@ const numTLD = %d
 		childrenBitsWildcard, childrenBitsNodeType, childrenBitsHi, childrenBitsLo,
 		nodeTypeNormal, nodeTypeException, nodeTypeParentOnly, len(n.children))
 
-	text := makeText()
+	text := combineText(labelsList)
 	if text == "" {
 		return fmt.Errorf("internal error: makeText returned no text")
 	}
@@ -329,7 +361,9 @@ const numTLD = %d
 		text = text[n:]
 	}
 
-	n.walk(w, assignIndexes)
+	if err := n.walk(w, assignIndexes); err != nil {
+		return err
+	}
 
 	fmt.Fprintf(w, `
 
@@ -337,8 +371,9 @@ const numTLD = %d
 // encodes the node's children, wildcard bit and node type (as an index into
 // the children array), ICANN bit and text.
 //
-// In the //-comment after each node's data, the nodes indexes of the children
-// are formatted as (n0x1234-n0x1256), with * denoting the wildcard bit. The
+// If the table was generated with the -comments flag, there is a //-comment
+// after each node's data. In it is the nodes-array indexes of the children,
+// formatted as (n0x1234-n0x1256), with * denoting the wildcard bit. The
 // nodeType is printed as + for normal, ! for exception, and o for parent-only
 // nodes that have children but don't match a domain label in their own right.
 // An I denotes an ICANN domain.
@@ -381,8 +416,12 @@ var children=[...]uint32{
 		}
 		nodeType := int(c>>(childrenBitsLo+childrenBitsHi)) & (1<<childrenBitsNodeType - 1)
 		wildcard := c>>(childrenBitsLo+childrenBitsHi+childrenBitsNodeType) != 0
-		fmt.Fprintf(w, "0x%08x, // c0x%04x (%s)%s %s\n",
-			c, i, s, wildcardStr(wildcard), nodeTypeStr(nodeType))
+		if *comments {
+			fmt.Fprintf(w, "0x%08x, // c0x%04x (%s)%s %s\n",
+				c, i, s, wildcardStr(wildcard), nodeTypeStr(nodeType))
+		} else {
+			fmt.Fprintf(w, "0x%x,\n", c)
+		}
 	}
 	fmt.Fprintf(w, "}\n\n")
 	fmt.Fprintf(w, "// max children %d (capacity %d)\n", maxChildren, 1<<nodesBitsChildren-1)
@@ -515,10 +554,14 @@ func printNode(w io.Writer, n *node) error {
 			encoding |= 1 << (nodesBitsTextLength + nodesBitsTextOffset)
 		}
 		encoding |= uint32(c.childrenIndex) << (nodesBitsTextLength + nodesBitsTextOffset + nodesBitsICANN)
-		fmt.Fprintf(w, "0x%08x, // n0x%04x c0x%04x (%s)%s %s %s %s\n",
-			encoding, c.nodesIndex, c.childrenIndex, s, wildcardStr(c.wildcard),
-			nodeTypeStr(c.nodeType), icannStr(c.icann), c.label,
-		)
+		if *comments {
+			fmt.Fprintf(w, "0x%08x, // n0x%04x c0x%04x (%s)%s %s %s %s\n",
+				encoding, c.nodesIndex, c.childrenIndex, s, wildcardStr(c.wildcard),
+				nodeTypeStr(c.nodeType), icannStr(c.icann), c.label,
+			)
+		} else {
+			fmt.Fprintf(w, "0x%x,\n", encoding)
+		}
 	}
 	return nil
 }
@@ -544,34 +587,42 @@ func wildcardStr(wildcard bool) string {
 	return " "
 }
 
-// makeText combines all the strings in labelsList to form one giant string.
-// If the crush flag is true, then overlapping strings will be merged: "arpa"
-// and "parliament" could yield "arparliament".
-func makeText() string {
-	if !*crush {
-		return strings.Join(labelsList, "")
-	}
-
+// combineText combines all the strings in labelsList to form one giant string.
+// Overlapping strings will be merged: "arpa" and "parliament" could yield
+// "arparliament".
+func combineText(labelsList []string) string {
 	beforeLength := 0
 	for _, s := range labelsList {
 		beforeLength += len(s)
 	}
 
-	// Make a copy of labelsList.
-	ss := append(make([]string, 0, len(labelsList)), labelsList...)
+	text := crush(removeSubstrings(labelsList))
+	if *v {
+		fmt.Fprintf(os.Stderr, "crushed %d bytes to become %d bytes\n", beforeLength, len(text))
+	}
+	return text
+}
 
-	// Remove strings that are substrings of other strings.
-	for changed := true; changed; {
-		changed = false
-		for i, s := range ss {
-			if s == "" {
-				continue
-			}
-			for j, t := range ss {
-				if i != j && t != "" && strings.Contains(s, t) {
-					changed = true
-					ss[j] = ""
-				}
+type byLength []string
+
+func (s byLength) Len() int           { return len(s) }
+func (s byLength) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s byLength) Less(i, j int) bool { return len(s[i]) < len(s[j]) }
+
+// removeSubstrings returns a copy of its input with any strings removed
+// that are substrings of other provided strings.
+func removeSubstrings(input []string) []string {
+	// Make a copy of input.
+	ss := append(make([]string, 0, len(input)), input...)
+	sort.Sort(byLength(ss))
+
+	for i, shortString := range ss {
+		// For each string, only consider strings higher than it in sort order, i.e.
+		// of equal length or greater.
+		for _, longString := range ss[i+1:] {
+			if strings.Contains(longString, shortString) {
+				ss[i] = ""
+				break
 			}
 		}
 	}
@@ -581,46 +632,82 @@ func makeText() string {
 	for len(ss) > 0 && ss[0] == "" {
 		ss = ss[1:]
 	}
+	return ss
+}
 
-	// Join strings where one suffix matches another prefix.
-	for {
-		// Find best i, j, k such that ss[i][len-k:] == ss[j][:k],
-		// maximizing overlap length k.
-		besti := -1
-		bestj := -1
-		bestk := 0
+// crush combines a list of strings, taking advantage of overlaps. It returns a
+// single string that contains each input string as a substring.
+func crush(ss []string) string {
+	maxLabelLen := 0
+	for _, s := range ss {
+		if maxLabelLen < len(s) {
+			maxLabelLen = len(s)
+		}
+	}
+
+	for prefixLen := maxLabelLen; prefixLen > 0; prefixLen-- {
+		prefixes := makePrefixMap(ss, prefixLen)
 		for i, s := range ss {
-			if s == "" {
+			if len(s) <= prefixLen {
 				continue
 			}
-			for j, t := range ss {
-				if i == j {
-					continue
-				}
-				for k := bestk + 1; k <= len(s) && k <= len(t); k++ {
-					if s[len(s)-k:] == t[:k] {
-						besti = i
-						bestj = j
-						bestk = k
-					}
-				}
-			}
+			mergeLabel(ss, i, prefixLen, prefixes)
 		}
-		if bestk > 0 {
-			if *v {
-				fmt.Fprintf(os.Stderr, "%d-length overlap at (%4d,%4d) out of (%4d,%4d): %q and %q\n",
-					bestk, besti, bestj, len(ss), len(ss), ss[besti], ss[bestj])
-			}
-			ss[besti] += ss[bestj][bestk:]
-			ss[bestj] = ""
-			continue
-		}
-		break
 	}
 
-	text := strings.Join(ss, "")
-	if *v {
-		fmt.Fprintf(os.Stderr, "crushed %d bytes to become %d bytes\n", beforeLength, len(text))
+	return strings.Join(ss, "")
+}
+
+// mergeLabel merges the label at ss[i] with the first available matching label
+// in prefixMap, where the last "prefixLen" characters in ss[i] match the first
+// "prefixLen" characters in the matching label.
+// It will merge ss[i] repeatedly until no more matches are available.
+// All matching labels merged into ss[i] are replaced by "".
+func mergeLabel(ss []string, i, prefixLen int, prefixes prefixMap) {
+	s := ss[i]
+	suffix := s[len(s)-prefixLen:]
+	for _, j := range prefixes[suffix] {
+		// Empty strings mean "already used." Also avoid merging with self.
+		if ss[j] == "" || i == j {
+			continue
+		}
+		if *v {
+			fmt.Fprintf(os.Stderr, "%d-length overlap at (%4d,%4d): %q and %q share %q\n",
+				prefixLen, i, j, ss[i], ss[j], suffix)
+		}
+		ss[i] += ss[j][prefixLen:]
+		ss[j] = ""
+		// ss[i] has a new suffix, so merge again if possible.
+		// Note: we only have to merge again at the same prefix length. Shorter
+		// prefix lengths will be handled in the next iteration of crush's for loop.
+		// Can there be matches for longer prefix lengths, introduced by the merge?
+		// I believe that any such matches would by necessity have been eliminated
+		// during substring removal or merged at a higher prefix length. For
+		// instance, in crush("abc", "cde", "bcdef"), combining "abc" and "cde"
+		// would yield "abcde", which could be merged with "bcdef." However, in
+		// practice "cde" would already have been elimintated by removeSubstrings.
+		mergeLabel(ss, i, prefixLen, prefixes)
+		return
 	}
-	return text
+}
+
+// prefixMap maps from a prefix to a list of strings containing that prefix. The
+// list of strings is represented as indexes into a slice of strings stored
+// elsewhere.
+type prefixMap map[string][]int
+
+// makePrefixMap constructs a prefixMap from a slice of strings.
+func makePrefixMap(ss []string, prefixLen int) prefixMap {
+	prefixes := make(prefixMap)
+	for i, s := range ss {
+		// We use < rather than <= because if a label matches on a prefix equal to
+		// its full length, that's actually a substring match handled by
+		// removeSubstrings.
+		if prefixLen < len(s) {
+			prefix := s[:prefixLen]
+			prefixes[prefix] = append(prefixes[prefix], i)
+		}
+	}
+
+	return prefixes
 }

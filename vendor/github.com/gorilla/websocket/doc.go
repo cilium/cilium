@@ -46,7 +46,8 @@
 // method to get an io.WriteCloser, write the message to the writer and close
 // the writer when done. To receive a message, call the connection NextReader
 // method to get an io.Reader and read until io.EOF is returned. This snippet
-// shows how to echo messages using the NextWriter and NextReader methods:
+// snippet shows how to echo messages using the NextWriter and NextReader
+// methods:
 //
 //  for {
 //      messageType, r, err := conn.NextReader()
@@ -85,19 +86,31 @@
 // and pong. Call the connection WriteControl, WriteMessage or NextWriter
 // methods to send a control message to the peer.
 //
-// Connections handle received ping and pong messages by invoking callback
-// functions set with SetPingHandler and SetPongHandler methods. The default
-// ping handler sends a pong to the client. The callback functions can be
-// invoked from the NextReader, ReadMessage or the message Read method.
+// Connections handle received ping and pong messages by invoking a callback
+// function set with SetPingHandler and SetPongHandler methods. These callback
+// functions can be invoked from the ReadMessage method, the NextReader method
+// or from a call to the data message reader returned from NextReader.
 //
-// Connections handle received close messages by sending a close message to the
-// peer and returning a *CloseError from the the NextReader, ReadMessage or the
-// message Read method.
+// Connections handle received close messages by returning an error from the
+// ReadMessage method, the NextReader method or from a call to the data message
+// reader returned from NextReader.
+//
+// Concurrency
+//
+// Connections do not support concurrent calls to the write methods
+// (NextWriter, SetWriteDeadline, WriteMessage) or concurrent calls to the read
+// methods methods (NextReader, SetReadDeadline, ReadMessage).  Connections do
+// support a concurrent reader and writer.
+//
+// The Close and WriteControl methods can be called concurrently with all other
+// methods.
+//
+// Read is Required
 //
 // The application must read the connection to process ping and close messages
 // sent from the peer. If the application is not otherwise interested in
-// messages from the peer, then the application should start a goroutine to
-// read and discard messages from the peer. A simple example is:
+// messages from the peer, then the application should start a goroutine to read
+// and discard messages from the peer. A simple example is:
 //
 //  func readLoop(c *websocket.Conn) {
 //      for {
@@ -107,19 +120,6 @@
 //          }
 //      }
 //  }
-//
-// Concurrency
-//
-// Connections support one concurrent reader and one concurrent writer.
-//
-// Applications are responsible for ensuring that no more than one goroutine
-// calls the write methods (NextWriter, SetWriteDeadline, WriteMessage,
-// WriteJSON) concurrently and that no more than one goroutine calls the read
-// methods (NextReader, SetReadDeadline, ReadMessage, ReadJSON, SetPongHandler,
-// SetPingHandler) concurrently.
-//
-// The Close and WriteControl methods can be called concurrently with all other
-// methods.
 //
 // Origin Considerations
 //
@@ -138,9 +138,9 @@
 // An application can allow connections from any origin by specifying a
 // function that always returns true:
 //
-//  var upgrader = websocket.Upgrader{
+//    var upgrader = websocket.Upgrader{
 //      CheckOrigin: func(r *http.Request) bool { return true },
-//  }
+//   }
 //
 // The deprecated Upgrade function does not enforce an origin policy. It's the
 // application's responsibility to check the Origin header before calling

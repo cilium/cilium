@@ -82,6 +82,7 @@ const (
 	IPProtocolIPv6Destination IPProtocol = 60
 	IPProtocolIPIP            IPProtocol = 94
 	IPProtocolEtherIP         IPProtocol = 97
+	IPProtocolVRRP            IPProtocol = 112
 	IPProtocolSCTP            IPProtocol = 132
 	IPProtocolUDPLite         IPProtocol = 136
 	IPProtocolMPLSInIP        IPProtocol = 137
@@ -461,6 +462,7 @@ func init() {
 	IPProtocolMetadata[IPProtocolMPLSInIP] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeMPLS), Name: "MPLS", LayerType: LayerTypeMPLS}
 	IPProtocolMetadata[IPProtocolNoNextHeader] = EnumMetadata{DecodeWith: gopacket.DecodePayload, Name: "NoNextHeader", LayerType: gopacket.LayerTypePayload}
 	IPProtocolMetadata[IPProtocolIGMP] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeIGMP), Name: "IGMP", LayerType: LayerTypeIGMP}
+	IPProtocolMetadata[IPProtocolVRRP] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeVRRP), Name: "VRRP", LayerType: LayerTypeVRRP}
 
 	SCTPChunkTypeMetadata[SCTPChunkTypeData] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeSCTPData), Name: "Data"}
 	SCTPChunkTypeMetadata[SCTPChunkTypeInit] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeSCTPInit), Name: "Init"}

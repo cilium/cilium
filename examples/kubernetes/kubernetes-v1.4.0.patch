@@ -1,0 +1,111 @@
+diff --git a/cluster/addons/dns/skydns-rc.yaml.in b/cluster/addons/dns/skydns-rc.yaml.in
+index 51a174f..c5f9715 100644
+--- a/cluster/addons/dns/skydns-rc.yaml.in
++++ b/cluster/addons/dns/skydns-rc.yaml.in
+@@ -25,6 +25,7 @@ metadata:
+     k8s-app: kube-dns
+     version: v19
+     kubernetes.io/cluster-service: "true"
++    io.cilium.admin.kube-system: ""
+ spec:
+   replicas: {{ pillar['dns_replicas'] }}
+   selector:
+@@ -36,6 +37,7 @@ spec:
+         k8s-app: kube-dns
+         version: v19
+         kubernetes.io/cluster-service: "true"
++        io.cilium.admin.kube-system: ""
+       annotations:
+         scheduler.alpha.kubernetes.io/critical-pod: ''
+         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
+diff --git a/cluster/addons/dns/skydns-rc.yaml.sed b/cluster/addons/dns/skydns-rc.yaml.sed
+index 6b5ef62..c19ab98 100644
+--- a/cluster/addons/dns/skydns-rc.yaml.sed
++++ b/cluster/addons/dns/skydns-rc.yaml.sed
+@@ -25,6 +25,7 @@ metadata:
+     k8s-app: kube-dns
+     version: v19
+     kubernetes.io/cluster-service: "true"
++    io.cilium.admin.kube-system: ""
+ spec:
+   replicas: $DNS_REPLICAS
+   selector:
+@@ -36,6 +37,7 @@ spec:
+         k8s-app: kube-dns
+         version: v19
+         kubernetes.io/cluster-service: "true"
++        io.cilium.admin.kube-system: ""
+       annotations:
+         scheduler.alpha.kubernetes.io/critical-pod: ''
+         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
+diff --git a/cluster/addons/dns/skydns-svc.yaml.in b/cluster/addons/dns/skydns-svc.yaml.in
+index 9853f90..61d9ad5 100644
+--- a/cluster/addons/dns/skydns-svc.yaml.in
++++ b/cluster/addons/dns/skydns-svc.yaml.in
+@@ -25,6 +25,7 @@ metadata:
+     k8s-app: kube-dns
+     kubernetes.io/cluster-service: "true"
+     kubernetes.io/name: "KubeDNS"
++    io.cilium.admin.kube-system: ""
+ spec:
+   selector:
+     k8s-app: kube-dns
+diff --git a/cluster/addons/dns/skydns-svc.yaml.sed b/cluster/addons/dns/skydns-svc.yaml.sed
+index 447366b..f4a6cee 100644
+--- a/cluster/addons/dns/skydns-svc.yaml.sed
++++ b/cluster/addons/dns/skydns-svc.yaml.sed
+@@ -25,6 +25,7 @@ metadata:
+     k8s-app: kube-dns
+     kubernetes.io/cluster-service: "true"
+     kubernetes.io/name: "KubeDNS"
++    io.cilium.admin.kube-system: ""
+ spec:
+   selector:
+     k8s-app: kube-dns
+diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
+index 2ef17fc..c2a8907 100755
+--- a/hack/local-up-cluster.sh
++++ b/hack/local-up-cluster.sh
+@@ -27,6 +27,7 @@ RUNTIME_CONFIG=${RUNTIME_CONFIG:-""}
+ NET_PLUGIN=${NET_PLUGIN:-""}
+ NET_PLUGIN_DIR=${NET_PLUGIN_DIR:-""}
+ KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
++SERVICE_CLUSTER_IP_RANGE=${SERVICE_CLUSTER_IP_RANGE:-"10.0.0.0/24"}
+ # We disable cluster DNS by default because this script uses docker0 (or whatever
+ # container bridge docker is currently using) and we don't know the IP of the
+ # DNS pod to pass in as --cluster-dns. To set this up by hand, set this flag
+@@ -286,7 +287,7 @@ function start_apiserver {
+     # is set to 127.0.0.1
+     advertise_address=""
+     if [[ "${API_HOST}" != "127.0.0.1" ]]; then
+-        advertise_address="--advertise_address=${API_HOST}"
++        advertise_address="--advertise_address=${API_HOST_IP}"
+     fi
+ 
+     APISERVER_LOG=/tmp/kube-apiserver.log
+@@ -301,7 +302,7 @@ function start_apiserver {
+       --insecure-bind-address="${API_HOST_IP}" \
+       --insecure-port="${API_PORT}" \
+       --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}" \
+-      --service-cluster-ip-range="10.0.0.0/24" \
++      --service-cluster-ip-range="${SERVICE_CLUSTER_IP_RANGE}" \
+       --cloud-provider="${CLOUD_PROVIDER}" \
+       --cloud-config="${CLOUD_CONFIG}" \
+       --cors-allowed-origins="${API_CORS_ALLOWED_ORIGINS}" >"${APISERVER_LOG}" 2>&1 &
+@@ -432,11 +433,11 @@ function start_kubelet {
+ 
+ function start_kubeproxy {
+     PROXY_LOG=/tmp/kube-proxy.log
+-    sudo -E "${GO_OUT}/hyperkube" proxy \
+-      --v=${LOG_LEVEL} \
+-      --hostname-override="${HOSTNAME_OVERRIDE}" \
+-      --master="http://${API_HOST}:${API_PORT}" >"${PROXY_LOG}" 2>&1 &
+-    PROXY_PID=$!
++    #sudo -E "${GO_OUT}/hyperkube" proxy \
++    #  --v=${LOG_LEVEL} \
++    #  --hostname-override="${HOSTNAME_OVERRIDE}" \
++    #  --master="http://${API_HOST}:${API_PORT}" >"${PROXY_LOG}" 2>&1 &
++    #PROXY_PID=$!
+ 
+     SCHEDULER_LOG=/tmp/kube-scheduler.log
+     sudo -E "${GO_OUT}/hyperkube" scheduler \
