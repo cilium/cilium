@@ -18,7 +18,7 @@ package main
 import (
 	"os"
 
-	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	"github.com/codegangsta/cli"
