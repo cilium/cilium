@@ -287,11 +287,8 @@ func dumpLXCInfo(ctx *cli.Context) {
 		return
 	}
 
-	es := ep.Status.DeepCopy()
-	// We will omit the endpoints status so we don't duplicate them
-	ep.Status = nil
 	fmt.Printf("Endpoint %d\n%s\n", ep.ID, ep)
-	fmt.Printf("Endpoint status: \n%s\n", es.DumpLog())
+	fmt.Printf("Endpoint status: \n%s\n", ep.Status.DumpLog())
 }
 
 func listEndpointOptions() {
