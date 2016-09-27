@@ -183,10 +183,13 @@ func (d *Daemon) getIPAMConfLibnetwork(ln ipam.IPAMReq) (*ipam.IPAMConfigRep, er
 		var poolID, pool, gw string
 
 		if ln.RequestPoolRequest.V6 == false {
+			poolID = ipam.LibnetworkDefaultPoolV4
 			if d.conf.IPv4Enabled {
-				poolID = ipam.LibnetworkDefaultPoolV4
 				pool = d.conf.NodeAddress.IPv4AllocRange().String()
 				gw = d.conf.NodeAddress.IPv4Address.IP().String() + "/32"
+			} else {
+				pool = ipam.LibnetworkDummyV4AllocPool
+				gw = ipam.LibnetworkDummyV4Gateway
 			}
 		} else {
 			subnetGo := net.IPNet(d.ipamConf.IPAMConfig.Subnet)
