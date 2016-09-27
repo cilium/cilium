@@ -51,14 +51,14 @@ cat <<EOF | cilium -D policy import -
 {
         "name": "io.cilium",
         "children": {
-		"client": { },
-		"server": {
-			"rules": [{
-				"allow": ["reserved:host", "../client"]
-			}]
-		}
+            "client": { },
+            "server": {
+                "rules": [{
+                    "allow": ["reserved:host", "../client"]
+                }]
+            }
 
-	}
+	    }
 }
 EOF
 

@@ -10,7 +10,7 @@ $ contrib/vagrant/start.sh
 ```
 
 This will bring up a master node plus the configured  number of additional slave
-nodes. The master node will run a consult agent with the slaves configured to
+nodes. The master node will run a consul agent with the slaves configured to
 point to it.
 
 ### Options
