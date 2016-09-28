@@ -17,6 +17,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -74,7 +75,9 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 			err := json.NewDecoder(resp.Body).Decode(&npList)
 			if err != nil {
 				log.Errorf("Error while receiving data %s", err)
+				ioutil.ReadAll(resp.Body)
 				resp.Body.Close()
+				time.Sleep(curSeconds)
 				continue
 			}
 			log.Debugf("Received kubernetes network policies %+v\n", npList)
@@ -90,6 +93,7 @@ func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
 				err := json.NewDecoder(resp.Body).Decode(&npwe)
 				if err != nil {
 					log.Errorf("Error while receiving data %s", err)
+					ioutil.ReadAll(resp.Body)
 					resp.Body.Close()
 					time.Sleep(curSeconds)
 					break
