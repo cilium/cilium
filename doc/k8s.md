@@ -27,7 +27,7 @@ updates some bpf maps entries on each node. More info [here](https://github.com/
 ## What do I need to change in kubernetes?
 
 If you are using the kubernetes `hack/local-up-cluster.sh` script you only need to
-apply the cilium kubernetes [patch](../examples/kubernetes/kubernetes-v1.3.7.patch) and
+apply the cilium kubernetes [patch](../examples/kubernetes/kubernetes-v1.4.0.patch) and
 use the same environment variables that we use [here](../examples/kubernetes/env-kube.sh)
 
 Otherwise you need to disable the local kube-proxy and start the kubernetes apiserver

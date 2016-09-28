@@ -10,9 +10,10 @@ package layers
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/google/gopacket"
 	"net"
 	"strings"
+
+	"github.com/google/gopacket"
 )
 
 type IPv4Flag uint8
@@ -139,7 +140,7 @@ func (ip *IPv4) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeO
 
 			// sanity checking to protect us from buffer overrun
 			if len(opt.OptionData) > int(opt.OptionLength-2) {
-				fmt.Errorf("option length is smaller than length of option data")
+				return fmt.Errorf("option length is smaller than length of option data")
 			}
 			copy(bytes[curLocation+2:curLocation+int(opt.OptionLength)], opt.OptionData)
 			curLocation += int(opt.OptionLength)
@@ -186,6 +187,14 @@ func (ip *IPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	ip.DstIP = data[16:20]
 	// Set up an initial guess for contents/payload... we'll reset these soon.
 	ip.BaseLayer = BaseLayer{Contents: data}
+
+	// This code is added for the following enviroment:
+	// * Windows 10 with TSO option activated. ( tested on Hyper-V, RealTek ethernet driver )
+	if ip.Length == 0 {
+		// If using TSO(TCP Segmentation Offload), length is zero.
+		// The actual packet length is the length of data.
+		ip.Length = uint16(len(data))
+	}
 
 	if ip.Length < 20 {
 		return fmt.Errorf("Invalid (too small) IP length (%d < 20)", ip.Length)

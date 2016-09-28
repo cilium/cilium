@@ -39,7 +39,7 @@ func NewFakeClock() FakeClock {
 	return NewFakeClockAt(time.Date(1984, time.April, 4, 0, 0, 0, 0, time.UTC))
 }
 
-// NewFakeClock returns a FakeClock initialised at the given time.Time.
+// NewFakeClockAt returns a FakeClock initialised at the given time.Time.
 func NewFakeClockAt(t time.Time) FakeClock {
 	return &fakeClock{
 		time: t,

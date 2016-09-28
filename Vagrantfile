@@ -49,10 +49,12 @@ echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
 sudo chmod -R 775  /usr/local/go/pkg/
 sudo chgrp vagrant /usr/local/go/pkg/
 
-git clone -b v1.3.7 https://github.com/kubernetes/kubernetes.git
+git clone -b v1.4.0 https://github.com/kubernetes/kubernetes.git
 sudo chown -R vagrant.vagrant kubernetes
 cd kubernetes
-patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.3.7.patch
+patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.4.0.patch
+
+go get -u github.com/jteeuwen/go-bindata/go-bindata
 
 # Install loopback cni plugin
 sudo mkdir -p /opt/cni/bin
@@ -107,14 +109,14 @@ Vagrant.configure(2) do |config|
 
     config.vm.provider :libvirt do |libvirt|
         config.vm.box = "noironetworks/net-next"
-        libvirt.memory = 4096
+        libvirt.memory = 5120
         libvirt.cpus = 8
         config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
     end
 
     config.vm.provider "virtualbox" do |vb|
         config.vm.box = "noironetworks/net-next"
-        vb.memory = "4096"
+        vb.memory = "5120"
         vb.cpus = 8
 
         if ENV["NFS"] then

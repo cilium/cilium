@@ -41,6 +41,16 @@ func (b *UnmarshallableBool) UnmarshalText(data []byte) error {
 	return nil
 }
 
+// UnmarshallableString typedef for builtin string
+type UnmarshallableString string
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+// Returns the string
+func (s *UnmarshallableString) UnmarshalText(data []byte) error {
+	*s = UnmarshallableString(data)
+	return nil
+}
+
 // CommonArgs contains the IgnoreUnknown argument
 // and must be embedded by all Arg structs
 type CommonArgs struct {

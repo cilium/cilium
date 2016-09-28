@@ -58,6 +58,17 @@ func (l *Loopback) NextLayerType() gopacket.LayerType {
 	return l.Family.LayerType()
 }
 
+// SerializeTo writes the serialized form of this layer into the
+// SerializationBuffer, implementing gopacket.SerializableLayer.
+func (l *Loopback) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	bytes, err := b.PrependBytes(4)
+	if err != nil {
+		return err
+	}
+	binary.LittleEndian.PutUint32(bytes, uint32(l.Family))
+	return nil
+}
+
 func decodeLoopback(data []byte, p gopacket.PacketBuilder) error {
 	l := Loopback{}
 	if err := l.DecodeFromBytes(data, gopacket.NilDecodeFeedback); err != nil {

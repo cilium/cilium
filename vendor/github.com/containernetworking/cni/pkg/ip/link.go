@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/containernetworking/cni/pkg/utils/hwaddr"
 	"github.com/vishvananda/netlink"
 )
 
@@ -40,6 +41,13 @@ func makeVethPair(name, peer string, mtu int) (netlink.Link, error) {
 	return veth, nil
 }
 
+func peerExists(name string) bool {
+	if _, err := netlink.LinkByName(name); err != nil {
+		return false
+	}
+	return true
+}
+
 func makeVeth(name string, mtu int) (peerName string, veth netlink.Link, err error) {
 	for i := 0; i < 10; i++ {
 		peerName, err = RandomVethName()
@@ -53,7 +61,11 @@ func makeVeth(name string, mtu int) (peerName string, veth netlink.Link, err err
 			return
 
 		case os.IsExist(err):
-			continue
+			if peerExists(peerName) {
+				continue
+			}
+			err = fmt.Errorf("container veth name provided (%v) already exists", name)
+			return
 
 		default:
 			err = fmt.Errorf("failed to make veth pair: %v", err)
@@ -105,7 +117,7 @@ func SetupVeth(contVethName string, mtu int, hostNS ns.NetNS) (hostVeth, contVet
 	}
 
 	err = hostNS.Do(func(_ ns.NetNS) error {
-		hostVeth, err := netlink.LinkByName(hostVethName)
+		hostVeth, err = netlink.LinkByName(hostVethName)
 		if err != nil {
 			return fmt.Errorf("failed to lookup %q in %q: %v", hostVethName, hostNS.Path(), err)
 		}
@@ -150,4 +162,31 @@ func DelLinkByNameAddr(ifName string, family int) (*net.IPNet, error) {
 	}
 
 	return addrs[0].IPNet, nil
+}
+
+func SetHWAddrByIP(ifName string, ip4 net.IP, ip6 net.IP) error {
+	iface, err := netlink.LinkByName(ifName)
+	if err != nil {
+		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
+	}
+
+	switch {
+	case ip4 == nil && ip6 == nil:
+		return fmt.Errorf("neither ip4 or ip6 specified")
+
+	case ip4 != nil:
+		{
+			hwAddr, err := hwaddr.GenerateHardwareAddr4(ip4, hwaddr.PrivateMACPrefix)
+			if err != nil {
+				return fmt.Errorf("failed to generate hardware addr: %v", err)
+			}
+			if err = netlink.LinkSetHardwareAddr(iface, hwAddr); err != nil {
+				return fmt.Errorf("failed to add hardware addr to %q: %v", ifName, err)
+			}
+		}
+	case ip6 != nil:
+		// TODO: IPv6
+	}
+
+	return nil
 }
