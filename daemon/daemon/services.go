@@ -65,14 +65,17 @@ func (d *Daemon) PutServiceL4(svcl4 types.ServiceL4) (*types.ServiceL4ID, error)
 	}
 
 	sl4KV := types.ServiceL4ID{}
-	if rmsg == nil {
+	if rmsg != nil {
+		if err := json.Unmarshal(rmsg, &sl4KV); err != nil {
+			return nil, err
+		}
+	}
+	if sl4KV.ServiceID == 0 {
 		sl4KV.ServiceL4 = svcl4
 		if err := d.gasNewServiceL4ID(&sl4KV); err != nil {
 			return nil, err
 		}
 		err = d.kvClient.SetValue(svcPath, sl4KV)
-	} else {
-		err = json.Unmarshal(rmsg, &sl4KV)
 	}
 
 	return &sl4KV, err
