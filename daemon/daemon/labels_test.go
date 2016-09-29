@@ -178,7 +178,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	var emptySecCtxLblPtr *types.SecCtxLabel
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
-	ds.d.kvClient.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, common.FirstFreeLabelID)
+	err = ds.d.kvClient.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
 
 	err = ds.d.DeleteLabelsByUUID(common.FirstFreeLabelID, "containerLabel1-non-existent")
