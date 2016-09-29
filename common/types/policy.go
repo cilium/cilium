@@ -17,6 +17,7 @@ package types
 
 import (
 	"bytes"
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -295,6 +296,7 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 type PolicyRule interface {
 	Allows(ctx *SearchContext) ConsumableDecision
 	Resolve(node *PolicyNode) error
+	SHA256Sum() (string, error)
 }
 
 // Allow the following consumers
@@ -350,6 +352,14 @@ func (c *PolicyRuleConsumers) Resolve(node *PolicyNode) error {
 	}
 
 	return nil
+}
+
+func (c *PolicyRuleConsumers) SHA256Sum() (string, error) {
+	sha := sha512.New512_256()
+	if err := json.NewEncoder(sha).Encode(c); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
 // Any further consumer requires the specified list of
@@ -408,6 +418,14 @@ func (c *PolicyRuleRequires) Resolve(node *PolicyNode) error {
 	}
 
 	return nil
+}
+
+func (c *PolicyRuleRequires) SHA256Sum() (string, error) {
+	sha := sha512.New512_256()
+	if err := json.NewEncoder(sha).Encode(c); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
 type Port struct {
@@ -518,6 +536,16 @@ func (pn *PolicyNode) resolveRules() error {
 	return nil
 }
 
+func (p *PolicyNode) HasPolicyRule(pr PolicyRule) bool {
+	pr256Sum, _ := pr.SHA256Sum()
+	for _, r := range p.Rules {
+		if r256Sum, _ := r.SHA256Sum(); r256Sum == pr256Sum {
+			return true
+		}
+	}
+	return false
+}
+
 func (pn *PolicyNode) ResolveTree() error {
 	var err error
 
@@ -573,7 +601,11 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			pn.Rules = append(pn.Rules, &pr_c)
+			if pn.HasPolicyRule(&pr_c) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_c)
+			} else {
+				pn.Rules = append(pn.Rules, &pr_c)
+			}
 		} else if _, ok := om[privEnc[ALWAYS_ALLOW]]; ok {
 			var pr_c PolicyRuleConsumers
 
@@ -588,7 +620,11 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 				}
 			}
 
-			pn.Rules = append(pn.Rules, &pr_c)
+			if pn.HasPolicyRule(&pr_c) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_c)
+			} else {
+				pn.Rules = append(pn.Rules, &pr_c)
+			}
 		} else if _, ok := om[privEnc[REQUIRES]]; ok {
 			var pr_r PolicyRuleRequires
 
@@ -596,7 +632,11 @@ func (pn *PolicyNode) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			pn.Rules = append(pn.Rules, &pr_r)
+			if pn.HasPolicyRule(&pr_r) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_r)
+			} else {
+				pn.Rules = append(pn.Rules, &pr_r)
+			}
 		} else {
 			return fmt.Errorf("unknown policy rule object: %+v", om)
 		}
@@ -627,7 +667,13 @@ func (pn *PolicyNode) Merge(obj *PolicyNode) error {
 			obj.path, pn.path)
 	}
 
-	pn.Rules = append(pn.Rules, obj.Rules...)
+	for _, objRule := range obj.Rules {
+		if pn.HasPolicyRule(objRule) {
+			log.Infof("Ignoring rule %+v since it's already present in the list of rules", objRule)
+		} else {
+			pn.Rules = append(pn.Rules, objRule)
+		}
+	}
 
 	for k := range obj.Children {
 		if err := pn.AddChild(k, obj.Children[k]); err != nil {
