@@ -15,7 +15,7 @@ for pkg in *.deb; do
 done
 
 usermod -aG docker vagrant
-echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false --ipv6"' >> /etc/default/docker
+echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
 
 cd ..
 rm -rf $HOME/install

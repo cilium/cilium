@@ -42,7 +42,7 @@ $ IFACE=eth1 docker-compose up
 ### Create a cilium network in docker
 
 ```
-$ docker network create --ipam-driver cilium --driver cilium cilium
+$ docker network create --ipv6 --ipam-driver cilium --driver cilium cilium
 ```
 
 ### Start and run containers
