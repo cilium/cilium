@@ -185,9 +185,11 @@ func (e *EndpointStatus) addStatusLog(s *statusLog) {
 func (e *EndpointStatus) String() string {
 	e.indexMU.RLock()
 	defer e.indexMU.RUnlock()
-	lastLog := e.Log[e.lastIndex()]
-	if lastLog != nil {
-		return fmt.Sprintf("%s", lastLog.Status.Code)
+	if len(e.Log) > 0 {
+		lastLog := e.Log[e.lastIndex()]
+		if lastLog != nil {
+			return fmt.Sprintf("%s", lastLog.Status.Code)
+		}
 	}
 	return OK.String()
 }
