@@ -129,7 +129,7 @@ func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPA
 }
 
 // releaseIPLibnetwork releases an IP for the libnetwork plugin.
-func releaseIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
+func (d *Daemon) releaseIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
 	log.Debugf("%+v", ln)
 
 	ipamConf.AllocatorMutex.Lock()
@@ -141,8 +141,12 @@ func releaseIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
 
 	switch ln.ReleaseAddressRequest.PoolID {
 	case ipam.LibnetworkDefaultPoolV4:
-		ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
-		return ipamConf.IPv4Allocator.Release(ip)
+		if d.conf.IPv4Enabled {
+			ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
+			return ipamConf.IPv4Allocator.Release(ip)
+		} else {
+			return nil
+		}
 	case ipam.LibnetworkDefaultPoolV6:
 		ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
 		return ipamConf.IPv6Allocator.Release(ip)
@@ -172,7 +176,7 @@ func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
 	case ipam.CNIIPAMType:
 		return releaseIPCNI(options, d.ipamConf)
 	case ipam.LibnetworkIPAMType:
-		return releaseIPLibnetwork(options, d.ipamConf)
+		return d.releaseIPLibnetwork(options, d.ipamConf)
 	}
 	return fmt.Errorf("unknown IPAM Type %s", ipamType)
 }
