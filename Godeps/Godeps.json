@@ -191,33 +191,33 @@
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/discoverapi",
-			"Comment": "v0.5.6-580-g3f23918",
-			"Rev": "3f2391830ec40517194ce20ea42ea83e23acd69d"
+			"Comment": "v0.5.6-616-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/driverapi",
-			"Comment": "v0.5.6-580-g3f23918",
-			"Rev": "3f2391830ec40517194ce20ea42ea83e23acd69d"
+			"Comment": "v0.5.6-616-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/drivers/remote/api",
-			"Comment": "v0.5.6-580-g3f23918",
-			"Rev": "3f2391830ec40517194ce20ea42ea83e23acd69d"
+			"Comment": "v0.5.6-616-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipamapi",
-			"Comment": "v0.5.6-580-g3f23918",
-			"Rev": "3f2391830ec40517194ce20ea42ea83e23acd69d"
+			"Comment": "v0.5.6-616-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/ipams/remote/api",
-			"Comment": "v0.5.6-580-g3f23918",
-			"Rev": "3f2391830ec40517194ce20ea42ea83e23acd69d"
+			"Comment": "v0.5.6-616-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 		},
 		{
 			"ImportPath": "github.com/docker/libnetwork/types",
-			"Comment": "v0.5.6-580-g3f23918",
-			"Rev": "3f2391830ec40517194ce20ea42ea83e23acd69d"
+			"Comment": "v0.5.6-616-g82fb373",
+			"Rev": "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
 		},
 		{
 			"ImportPath": "github.com/emicklei/go-restful",
