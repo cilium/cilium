@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	common "github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/ipam"
@@ -304,7 +303,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.Infof("New endpoint %s with IPv6: %s, IPv4: %s", endID, ipv6Address, ipv4Address)
 
 	respIface := &api.EndpointInterface{
-		MacAddress: common.DefaultContainerMAC,
+		// Fixme: the lxcmac is an empty string at this point and we only know the
+		// mac address at the end of joinEndpoint
+		// There's no problem in the setup but docker inspect will show an empty mac address
+		MacAddress: endpoint.LXCMAC.String(),
 	}
 	resp := &api.CreateEndpointResponse{
 		Interface: respIface,
