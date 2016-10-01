@@ -35,7 +35,7 @@ var (
 		maxEntries)
 	RevNat6Map = bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
-		int(unsafe.Sizeof(RevNat6Key(0))),
+		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),
 		maxEntries)
 )
@@ -49,7 +49,7 @@ type Service6Key struct {
 
 func NewService6Key(ip net.IP, port uint16, slave uint16) *Service6Key {
 	key := Service6Key{
-		Port:  common.Swab16(port),
+		Port:  port,
 		Slave: slave,
 	}
 
@@ -58,12 +58,23 @@ func NewService6Key(ip net.IP, port uint16, slave uint16) *Service6Key {
 	return &key
 }
 
-func (k Service6Key) IsIPv6() bool           { return true }
-func (k Service6Key) Map() *bpf.Map          { return Service6Map }
-func (k Service6Key) NewValue() bpf.MapValue { return &Service6Value{} }
+func (k Service6Key) IsIPv6() bool               { return true }
+func (k Service6Key) Map() *bpf.Map              { return Service6Map }
+func (k Service6Key) NewValue() bpf.MapValue     { return &Service6Value{} }
+func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *Service6Key) GetPort() uint16           { return k.Port }
+func (k *Service6Key) SetPort(port uint16)       { k.Port = port }
+func (k *Service6Key) SetBackend(backend int)    { k.Slave = uint16(backend) }
+func (k *Service6Key) GetBackend() int           { return int(k.Slave) }
 
-func (k Service6Key) GetKeyPtr() unsafe.Pointer {
-	return unsafe.Pointer(&k)
+func (k *Service6Key) Convert() ServiceKey {
+	n := *k
+	n.Port = common.Swab16(n.Port)
+	return &n
+}
+
+func (k *Service6Key) String() string {
+	return fmt.Sprintf("%s:%d", k.Address, k.Port)
 }
 
 func (k *Service6Key) RevNatValue() RevNatValue {
@@ -84,8 +95,8 @@ type Service6Value struct {
 func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16) *Service6Value {
 	svc := Service6Value{
 		Count:  count,
-		Port:   common.Swab16(port),
-		RevNat: common.Swab16(revNat),
+		Port:   port,
+		RevNat: revNat,
 	}
 
 	copy(svc.Address[:], target.To16())
@@ -93,12 +104,31 @@ func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16) *
 	return &svc
 }
 
-func (s Service6Value) GetValuePtr() unsafe.Pointer {
-	return unsafe.Pointer(&s)
+func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
+func (s *Service6Value) SetPort(port uint16)         { s.Port = port }
+func (s *Service6Value) SetCount(count int)          { s.Count = uint16(count) }
+func (s *Service6Value) GetCount() int               { return int(s.Count) }
+func (s *Service6Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
+func (s *Service6Value) RevNatKey() RevNatKey        { return &RevNat6Key{s.RevNat} }
+
+func (s *Service6Value) SetAddress(ip net.IP) error {
+	if ip.To4() != nil {
+		return fmt.Errorf("Not an IPv6 address")
+	}
+
+	copy(s.Address[:], ip.To16())
+	return nil
 }
 
-func (v *Service6Value) RevNatKey() RevNatKey {
-	return RevNat6Key(v.RevNat)
+func (v *Service6Value) Convert() ServiceValue {
+	n := *v
+	n.RevNat = common.Swab16(n.RevNat)
+	n.Port = common.Swab16(n.Port)
+	return &n
+}
+
+func (v *Service6Value) String() string {
+	return fmt.Sprintf("%s:%d (%d)", v.Address, v.Port, v.RevNat)
 }
 
 func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
@@ -111,29 +141,31 @@ func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	svcKey.Port = common.Swab16(svcKey.Port)
-
 	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
 	}
 
-	svcVal.Port = common.Swab16(svcVal.Port)
-	svcVal.RevNat = common.Swab16(svcVal.RevNat)
-
-	return &svcKey, &svcVal, nil
+	return svcKey.Convert(), svcVal.Convert(), nil
 }
 
-type RevNat6Key uint16
-
-func NewRevNat6Key(value uint16) RevNat6Key {
-	return RevNat6Key(common.Swab16(value))
+type RevNat6Key struct {
+	Key uint16
 }
 
-func (k RevNat6Key) IsIPv6() bool           { return true }
-func (k RevNat6Key) Map() *bpf.Map          { return RevNat6Map }
-func (k RevNat6Key) NewValue() bpf.MapValue { return &RevNat6Value{} }
-func (k RevNat6Key) GetKeyPtr() unsafe.Pointer {
-	return unsafe.Pointer(&k)
+func NewRevNat6Key(value uint16) *RevNat6Key {
+	return &RevNat6Key{value}
+}
+
+func (k *RevNat6Key) IsIPv6() bool              { return true }
+func (k *RevNat6Key) Map() *bpf.Map             { return RevNat6Map }
+func (k *RevNat6Key) NewValue() bpf.MapValue    { return &RevNat6Value{} }
+func (k *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *RevNat6Key) String() string            { return fmt.Sprintf("%d", k.Key) }
+
+func (k *RevNat6Key) Convert() RevNatKey {
+	n := *k
+	n.Key = common.Swab16(n.Key)
+	return &n
 }
 
 type RevNat6Value struct {
@@ -143,7 +175,7 @@ type RevNat6Value struct {
 
 func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
 	revNat := RevNat6Value{
-		Port: common.Swab16(port),
+		Port: port,
 	}
 
 	copy(revNat.Address[:], ip.To16())
@@ -151,8 +183,13 @@ func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
 	return &revNat
 }
 
-func (k RevNat6Value) GetValuePtr() unsafe.Pointer {
-	return unsafe.Pointer(&k)
+func (k *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
+
+func (v *RevNat6Value) Convert() RevNatValue {
+	n := *v
+	n.Port = common.Swab16(n.Port)
+	return &n
 }
 
 func RevNat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
@@ -171,7 +208,5 @@ func RevNat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, erro
 		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
 	}
 
-	revNat.Port = common.Swab16(revNat.Port)
-
-	return &revKey, &revNat, nil
+	return revKey.Convert(), revNat.Convert(), nil
 }

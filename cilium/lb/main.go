@@ -16,12 +16,15 @@
 package lb
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/bpf/lbmap"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/bpf"
 
 	"github.com/codegangsta/cli"
@@ -64,16 +67,6 @@ func init() {
 		},
 		Subcommands: []cli.Command{
 			{
-				Name:   "create-services-map",
-				Usage:  "creates the services map",
-				Action: cliCreateServices,
-			},
-			{
-				Name:   "create-rev-nat-map",
-				Usage:  "creates the reverse NAT map",
-				Action: cliCreateRevNat,
-			},
-			{
 				Name:   "dump-service",
 				Usage:  "dumps map present on the given <map file>",
 				Action: cliDumpServices,
@@ -86,7 +79,7 @@ func init() {
 			{
 				Name:      "get-service",
 				Usage:     "Lookup LB service",
-				ArgsUsage: "<ipv6 addr> <dport> <slave index>",
+				ArgsUsage: "<address>:<port>",
 				Action:    cliLookupService,
 			},
 			{
@@ -96,23 +89,43 @@ func init() {
 				Action:    cliLookupRevNat,
 			},
 			{
-				Name:      "update-service",
-				Usage:     "updates key's value of the given <map file>",
-				ArgsUsage: "<address> <port> <slave> <count> <reverse nat key> <slave address> <port>",
+				Name:  "update-service",
+				Usage: "Update service entry",
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Destination: &addRev,
 						Name:        "rev",
 						Usage:       "Also add/update corresponding reverse NAT entry",
 					},
+					cli.StringFlag{
+						Name:  "frontend",
+						Usage: "Address of frontend (required)",
+					},
+					cli.StringSliceFlag{
+						Name:  "backend",
+						Usage: "Backend address and port",
+					},
+					cli.IntFlag{
+						Name:  "id",
+						Usage: "Identifier to be used for reverse mapping",
+					},
 				},
 				Action: cliUpdateService,
 			},
 			{
-				Name:      "update-rev-nat",
-				Usage:     "update LB reverse NAT table",
-				ArgsUsage: "<reverse NAT key> <address> <port>",
-				Action:    cliUpdateRevNat,
+				Name:  "update-rev-nat",
+				Usage: "update LB reverse NAT table",
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "address",
+						Usage: "Address and port to translate back to",
+					},
+					cli.IntFlag{
+						Name:  "id",
+						Usage: "Identifier to be used for reverse mapping",
+					},
+				},
+				Action: cliUpdateRevNat,
 			},
 			{
 				Name:   "delete-service",
@@ -123,7 +136,7 @@ func init() {
 						Usage: "Delete all entries",
 					},
 				},
-				ArgsUsage: "--all | <address> <port> <slave-index>",
+				ArgsUsage: "--all | <address>:<port>",
 			},
 			{
 				Name:   "delete-rev-nat",
@@ -140,204 +153,114 @@ func init() {
 	}
 }
 
-func cliCreateServices(ctx *cli.Context) {
-	var err error
-	if ipv4 {
-		_, err = lbmap.Service4Map.OpenOrCreate()
-	} else {
-		_, err = lbmap.Service6Map.OpenOrCreate()
-	}
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create map: %s\n", err)
-		os.Exit(1)
-	}
+type ServiceDump struct {
+	Keys     []int
+	Backends map[int]lbmap.ServiceValue
 }
 
-func cliCreateRevNat(ctx *cli.Context) {
-	var err error
-	if ipv4 {
-		_, err = lbmap.RevNat4Map.OpenOrCreate()
-	} else {
-		_, err = lbmap.RevNat6Map.OpenOrCreate()
+var dumpTable map[string]*ServiceDump
+
+func addToDumpTable(keyStr string, key lbmap.ServiceKey, value lbmap.ServiceValue) {
+	var sd *ServiceDump
+
+	sd, _ = dumpTable[keyStr]
+	if sd == nil {
+		sd = &ServiceDump{Backends: map[int]lbmap.ServiceValue{}}
+		dumpTable[keyStr] = sd
 	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create map: %s\n", err)
-		os.Exit(1)
+
+	if backend := key.GetBackend(); backend != 0 {
+		sd.Backends[backend] = value
+		sd.Keys = append(sd.Keys, backend)
 	}
 }
 
 func dumpService4(key bpf.MapKey, value bpf.MapValue) {
 	svcKey := key.(*lbmap.Service4Key)
 	svcVal := value.(*lbmap.Service4Value)
-
-	fmt.Printf("%v:%d %d => ", svcKey.Address, svcKey.Port, svcKey.Slave)
-	if svcKey.Slave == 0 {
-		fmt.Printf("%d\n", svcVal.Count)
-	} else {
-		fmt.Printf("%v %d %d\n", svcVal.Address, svcVal.Port, svcVal.RevNAT)
-	}
+	addToDumpTable(svcKey.String(), svcKey, svcVal)
 }
 
 func dumpService6(key bpf.MapKey, value bpf.MapValue) {
 	svcKey := key.(*lbmap.Service6Key)
 	svcVal := value.(*lbmap.Service6Value)
-
-	fmt.Printf("%v:%d %d => ", svcKey.Address, svcKey.Port, svcKey.Slave)
-	if svcKey.Slave == 0 {
-		fmt.Printf("%d\n", svcVal.Count)
-	} else {
-		fmt.Printf("%v %d %d\n", svcVal.Address, svcVal.RevNat, svcVal.Port)
-	}
+	addToDumpTable(svcKey.String(), svcKey, svcVal)
 }
 
 func cliDumpServices(ctx *cli.Context) {
-	var err error
+	dumpTable = map[string]*ServiceDump{}
 
-	if ipv4 {
-		err = lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService4)
-	} else {
-		err = lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService6)
-	}
-
-	if err != nil {
+	if err := lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService4); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
 		os.Exit(1)
+	}
+
+	if err := lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService6); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
+		os.Exit(1)
+	}
+
+	for k1 := range dumpTable {
+		fmt.Printf("%s =>\n", k1)
+		sort.Ints(dumpTable[k1].Keys)
+		for _, k2 := range dumpTable[k1].Keys {
+			fmt.Printf("\t\t%d => %s\n", k2, dumpTable[k1].Backends[k2])
+		}
 	}
 }
 
 func dumpRevNat4(key bpf.MapKey, value bpf.MapValue) {
+	k := key.(*lbmap.RevNat4Key)
 	v := value.(*lbmap.RevNat4Value)
-	fmt.Printf("%d => %v:%d\n", *key.(*lbmap.RevNat4Key), v.Address, v.Port)
+	fmt.Printf("  %d => %s\n", k.Key, v)
 }
 
 func dumpRevNat6(key bpf.MapKey, value bpf.MapValue) {
+	k := key.(*lbmap.RevNat6Key)
 	v := value.(*lbmap.RevNat6Value)
-	fmt.Printf("%d => %v:%d\n", *key.(*lbmap.RevNat6Key), v.Address, v.Port)
+	fmt.Printf("  %d => %s\n", k.Key, v)
 }
 
 func cliDumpRevNat(ctx *cli.Context) {
-	var err error
-
-	if ipv4 {
-		err = lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, dumpRevNat4)
-	} else {
-		err = lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, dumpRevNat6)
-	}
-
-	if err != nil {
+	fmt.Printf("IPv6:\n")
+	if err := lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, dumpRevNat6); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
-		os.Exit(1)
+	}
+
+	fmt.Printf("IPv4:\n")
+	if err := lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, dumpRevNat4); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
 	}
 }
 
-func parseServiceKey(ctx *cli.Context, firstArg int) lbmap.ServiceKey {
-	if len(ctx.Args()) < (firstArg + 2) {
-		printUsageAndExit(ctx)
-	}
-
-	address := ctx.Args().Get(firstArg)
-	ip := net.ParseIP(address)
-	if ip == nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse address: %s\n", address)
+func parseServiceKey(address string) lbmap.ServiceKey {
+	frontend, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse frontend address: %s\n", err)
 		os.Exit(1)
 	}
 
-	if ipv4 {
-		if ip.To4() == nil {
-			fmt.Fprintf(os.Stderr, "Expecting an IPv4 address, got: %s\n", address)
-			os.Exit(1)
-		}
-
-		return lbmap.NewService4Key(ip, parseUint16(ctx, firstArg+1), parseUint16(ctx, firstArg+2))
+	if frontend.IP.To4() != nil {
+		return lbmap.NewService4Key(frontend.IP, uint16(frontend.Port), 0)
 	} else {
-		if ip.To4() != nil {
-			fmt.Fprintf(os.Stderr, "Expecting an IPv6 address, got: %s\n", address)
-			os.Exit(1)
-		}
-
-		return lbmap.NewService6Key(ip, parseUint16(ctx, firstArg+1), parseUint16(ctx, firstArg+2))
-	}
-}
-
-func parseServiceValue(ctx *cli.Context, ipv6 bool, firstArg int) lbmap.ServiceValue {
-	if len(ctx.Args()) < (firstArg + 3) {
-		printUsageAndExit(ctx)
-	}
-
-	address := ctx.Args().Get(firstArg + 2)
-	target := net.ParseIP(address)
-	if target == nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse address: %s\n", address)
-		os.Exit(1)
-	}
-
-	if ipv6 {
-		if target.To4() != nil {
-			fmt.Fprintf(os.Stderr, "Expecting an IPv6 address, got: %s\n", address)
-			os.Exit(1)
-		}
-
-		return lbmap.NewService6Value(parseUint16(ctx, firstArg), target,
-			parseUint16(ctx, firstArg+3), parseUint16(ctx, firstArg+1))
-	} else {
-		if target.To4() == nil {
-			fmt.Fprintf(os.Stderr, "Expecting an IPv4 address, got: %s\n", address)
-			os.Exit(1)
-		}
-
-		return lbmap.NewService4Value(parseUint16(ctx, firstArg), target,
-			parseUint16(ctx, firstArg+3), parseUint16(ctx, firstArg+1))
-	}
-}
-
-func parseRevNat(ctx *cli.Context, ipv6 bool, firstArg int) lbmap.RevNatValue {
-	if len(ctx.Args()) < (firstArg + 2) {
-		printUsageAndExit(ctx)
-	}
-
-	address := ctx.Args().Get(firstArg)
-	ip := net.ParseIP(address)
-	if ip == nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse address: %s\n", address)
-		os.Exit(1)
-	}
-
-	if ipv6 {
-		if ip.To4() != nil {
-			fmt.Fprintf(os.Stderr, "Expecting an IPv6 address, got: %s\n", address)
-			os.Exit(1)
-		}
-
-		return lbmap.NewRevNat6Value(ip, parseUint16(ctx, 2))
-	} else {
-		if ip.To4() == nil {
-			fmt.Fprintf(os.Stderr, "Expecting an IPv4 address, got: %s\n", address)
-			os.Exit(1)
-		}
-
-		return lbmap.NewRevNat4Value(ip, parseUint16(ctx, 2))
+		return lbmap.NewService6Key(frontend.IP, uint16(frontend.Port), 0)
 	}
 }
 
 func cliLookupService(ctx *cli.Context) {
-	key := parseServiceKey(ctx, 0)
+	key := parseServiceKey(ctx.Args().Get(0))
 
-	err, svc := lbmap.LookupService(key)
+	svc, err := lbmap.LookupService(key)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("%v = %v\n", key, svc)
+	fmt.Printf("%s = %s\n", key, svc)
 }
 
 func cliLookupRevNat(ctx *cli.Context) {
-	if len(ctx.Args()) < 1 {
-		printUsageAndExit(ctx)
-	}
-
-	key := parseRevNatKey(ctx)
+	key := parseRevNatKey(ctx.Args().Get(0))
 	val, err := lbmap.LookupRevNat(key)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -348,32 +271,120 @@ func cliLookupRevNat(ctx *cli.Context) {
 }
 
 func cliUpdateService(ctx *cli.Context) {
-	key := parseServiceKey(ctx, 0)
-	svc := parseServiceValue(ctx, key.IsIPv6(), 3)
+	key := parseServiceKey(ctx.String("frontend"))
+	svc := key.NewValue().(lbmap.ServiceValue)
+	backends := []*net.TCPAddr{}
 
+	proto := "tcp4"
+	if key.IsIPv6() {
+		proto = "tcp6"
+	}
+
+	revNat := ctx.Int("id")
+
+	backendList := ctx.StringSlice("backend")
+	if len(backendList) == 0 {
+		fmt.Printf("Reading backend list from stdin...\n")
+
+		scanner := bufio.NewScanner(os.Stdin)
+
+		for scanner.Scan() {
+			backendList = append(backendList, scanner.Text())
+		}
+	}
+
+	for k := range backendList {
+		tcpAddr, err := net.ResolveTCPAddr(proto, backendList[k])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+
+		if tcpAddr.IP.To4() != nil && key.IsIPv6() {
+			fmt.Fprintf(os.Stderr, "Address mismatch between frontend and backend %s\n",
+				backendList[k])
+			os.Exit(1)
+		}
+
+		if key.GetPort() == 0 && tcpAddr.Port != 0 {
+			fmt.Fprintf(os.Stderr, "L4 backend found (%v) with L3 frontend\n", tcpAddr)
+			os.Exit(1)
+		}
+
+		backends = append(backends, tcpAddr)
+	}
+
+	idx := int(common.FirstFreeServiceID)
+	for k := range backends {
+		key.SetBackend(idx)
+		if err := svc.SetAddress(backends[k].IP); err != nil {
+			// FIXME: Undo the damage that is already done
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+
+		svc.SetPort(uint16(backends[k].Port))
+		svc.SetRevNat(revNat)
+
+		fmt.Printf("Adding %+v %+v\n", key, svc)
+
+		if err := lbmap.UpdateService(key, svc); err != nil {
+			// FIXME: Undo the damage that is already done
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+
+		if addRev {
+			revKey := svc.RevNatKey()
+			revVal := key.RevNatValue()
+
+			fmt.Printf("Adding %+v %+v\n", revKey, revVal)
+			if err := lbmap.UpdateRevNat(revKey, revVal); err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("Added reverse NAT entry\n")
+		}
+
+		idx++
+	}
+
+	// Create master service last to avoid hitting backends all of
+	// them have been inserted into the map
+	key.SetBackend(0)
+	svc.SetCount(len(backends))
+	svc.SetPort(uint16(0))
+	svc.SetRevNat(0)
+
+	fmt.Printf("Adding %+v %+v\n", key, svc)
 	if err := lbmap.UpdateService(key, svc); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 
-	if addRev {
-		revKey := svc.RevNatKey()
-		revVal := key.RevNatValue()
-
-		if err := lbmap.UpdateRevNat(revKey, revVal); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-	}
+	fmt.Printf("Added %d backends\n", idx-1)
 }
 
 func cliUpdateRevNat(ctx *cli.Context) {
-	if len(ctx.Args()) < 3 {
-		printUsageAndExit(ctx)
+	var key lbmap.RevNatKey
+	var val lbmap.RevNatValue
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", ctx.String("address"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
 	}
 
-	key := parseRevNatKey(ctx)
-	val := parseRevNat(ctx, key.IsIPv6(), 1)
+	k := uint16(ctx.Int("id"))
+
+	if tcpAddr.IP.To4() != nil {
+		key = lbmap.NewRevNat4Key(k)
+		val = lbmap.NewRevNat4Value(tcpAddr.IP, uint16(tcpAddr.Port))
+	} else {
+		key = lbmap.NewRevNat6Key(k)
+		val = lbmap.NewRevNat6Value(tcpAddr.IP, uint16(tcpAddr.Port))
+	}
 
 	if err := lbmap.UpdateRevNat(key, val); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -385,13 +396,36 @@ func cliDeleteService(ctx *cli.Context) {
 	var err error
 
 	if ctx.Bool("all") {
-		if ipv4 {
-			err = lbmap.Service4Map.DeleteAll()
-		} else {
-			err = lbmap.Service6Map.DeleteAll()
+		if err := lbmap.Service6Map.DeleteAll(); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+
+		if err := lbmap.Service4Map.DeleteAll(); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
 		}
 	} else {
-		err = lbmap.DeleteService(parseServiceKey(ctx, 0))
+		key := parseServiceKey(ctx.Args().Get(0))
+		val, err := lbmap.LookupService(key)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
+		}
+
+		svc := val.(lbmap.ServiceValue)
+		fmt.Printf("Deleting %d backends...\n", svc.GetCount())
+		for i := 1; i <= svc.GetCount(); i++ {
+			key.SetBackend(i)
+			if err := lbmap.DeleteService(key); err != nil {
+				fmt.Fprintf(os.Stderr, "%s", err)
+				os.Exit(1)
+			}
+		}
+
+		key.SetBackend(0)
+		fmt.Printf("Deleting master entry %v\n", key)
+		err = lbmap.DeleteService(key)
 	}
 
 	if err != nil {
@@ -400,33 +434,35 @@ func cliDeleteService(ctx *cli.Context) {
 	}
 }
 
-func parseRevNatKey(ctx *cli.Context) lbmap.RevNatKey {
-	if len(ctx.Args()) < 1 {
-		printUsageAndExit(ctx)
+func parseRevNatKey(key string) lbmap.RevNatKey {
+	k, err := strconv.ParseUint(key, 0, 16)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err)
+		os.Exit(1)
 	}
 
 	if ipv4 {
-		return lbmap.NewRevNat4Key(parseUint16(ctx, 0))
+		return lbmap.NewRevNat4Key(uint16(k))
 	} else {
-		return lbmap.NewRevNat6Key(parseUint16(ctx, 0))
+		return lbmap.NewRevNat6Key(uint16(k))
 	}
 }
 
 func cliDeleteRevNat(ctx *cli.Context) {
-	var err error
-
 	if ctx.Bool("all") {
-		if ipv4 {
-			err = lbmap.RevNat4Map.DeleteAll()
-		} else {
-			err = lbmap.RevNat6Map.DeleteAll()
+		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+			fmt.Fprintf(os.Stderr, "%s", err)
+			os.Exit(1)
+		}
+
+		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
+			fmt.Fprintf(os.Stderr, "%s", err)
+			os.Exit(1)
 		}
 	} else {
-		err = lbmap.DeleteRevNat(parseRevNatKey(ctx))
-	}
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
-		os.Exit(1)
+		if err := lbmap.DeleteRevNat(parseRevNatKey(ctx.Args().Get(0))); err != nil {
+			fmt.Fprintf(os.Stderr, "%s", err)
+			os.Exit(1)
+		}
 	}
 }

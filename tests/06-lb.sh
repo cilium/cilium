@@ -109,31 +109,76 @@ cat <<EOF | cilium -D policy import -
 }
 EOF
 
+# Clear eventual old entries, this may fail if the maps have not been created
+sudo cilium lb delete-service --all || true
+sudo cilium lb delete-rev-nat --all || true
+
+# Create IPv4 L3 service without reverse entry
+sudo cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:0 || {
+	abort "Unable to add IPv4 service entry"
+}
+
+sudo cilium lb dump-service
+
+# Check if reverse NAT entry was created anyway, should fail
+sudo cilium lb get-rev-nat 1 2> /dev/null && {
+	abort "Unexpected reverse NAT entry"
+}
+
+# Attempt deletion without providing a key, should fail
+sudo cilium lb delete-service 2> /dev/null && {
+	abort "Unexpected success in deleting service without a key"
+}
+
+# Delete IPv4 L3 entry
+sudo cilium lb delete-service 4.4.4.4:0 || {
+	abort "Unable to delete IPv4 service entry"
+}
+
+# Mixing L3/L4 in frontend and backend is not allowed
+sudo cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:80 2> /dev/null && {
+	abort "Unexpected success in creating mixed L3/L4 service"
+}
+
+# Add L4 IPv4 entry
+sudo cilium lb update-service --frontend 4.4.4.4:40 --rev --id 1 --backend 5.5.5.5:80 || {
+	abort "Unable to add IPv4 service entry"
+}
+
+sudo cilium lb dump-service
+
+# Check if requested reverse NAT entry exists
+sudo cilium lb get-rev-nat 1 || {
+	abort "Unable to find reverse NAT entry that should have been created"
+}
+
+# Try an L3 lookup for the created L4 entry, should fail
+sudo cilium lb delete-service 4.4.4.4:0 2> /dev/null && {
+	abort "Unexpected success in looking up with L3 key of L4 entry"
+}
+
+# Delete L4 entry
+sudo cilium lb delete-service 4.4.4.4:80 || {
+	abort "Unable to delete IPv4 service entry"
+}
+
 SVC_IP6="f00d::1:1"
-LB_PORT=0
-REVNAT=222
-sudo cilium lb create-services-map
-sudo cilium lb create-rev-nat-map
-sudo cilium lb update-service --rev $SVC_IP6 $LB_PORT 0 2 $REVNAT :: $LB_PORT
-sudo cilium lb update-service $SVC_IP6 $LB_PORT 1 2 $REVNAT $SERVER1_IP $LB_PORT
-sudo cilium lb update-service $SVC_IP6 $LB_PORT 2 2 $REVNAT $SERVER2_IP $LB_PORT
+sudo cilium lb update-service --rev --frontend "[$SVC_IP6]:0" --id 222 \
+                        --backend "[$SERVER1_IP]:0" \
+                        --backend "[$SERVER2_IP]:0"
 
 SVC_IP4="2.2.2.2"
-sudo cilium lb --ipv4 create-services-map
-sudo cilium lb --ipv4 create-rev-nat-map
-sudo cilium lb --ipv4 update-service --rev $SVC_IP4 $LB_PORT 0 2 $REVNAT 0.0.0.0 $LB_PORT
-sudo cilium lb --ipv4 update-service $SVC_IP4 $LB_PORT 1 2 $REVNAT $SERVER1_IP4 $LB_PORT
-sudo cilium lb --ipv4 update-service $SVC_IP4 $LB_PORT 2 2 $REVNAT $SERVER2_IP4 $LB_PORT
+sudo cilium lb update-service --rev --frontend "[$SVC_IP4]:$LB_PORT"  --id 222 \
+			--backend "$SERVER1_IP4:$LB_PORT" \
+			--backend "$SERVER2_IP4:$LB_PORT"
 
 LB_HOST_IP6="f00d::1:2"
-LB_PORT=0
-REVNAT=223
-sudo cilium lb update-service --rev $LB_HOST_IP6 $LB_PORT 0 1 $REVNAT :: $LB_PORT
-sudo cilium lb update-service $LB_HOST_IP6 $LB_PORT 1 1 $REVNAT $(host_ip6) $LB_PORT
+sudo cilium lb update-service --rev --frontend "[$LB_HOST_IP6]:0" --id 223 \
+			--backend "[$(host_ip6)]:0"
 
 LB_HOST_IP4="3.3.3.3"
-sudo cilium lb --ipv4 update-service --rev $LB_HOST_IP4 $LB_PORT 0 1 $REVNAT 0.0.0.0 $LB_PORT
-sudo cilium lb --ipv4 update-service $LB_HOST_IP4 $LB_PORT 1 1 $REVNAT $(host_ip4) $LB_PORT
+sudo cilium lb update-service --rev --frontend "$LB_HOST_IP4:0" --id 223 \
+			--backend "$(host_ip4):0"
 
 ## Test 1: local host => bpf_lb => local container
 monitor_clear
