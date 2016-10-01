@@ -20,7 +20,7 @@ function cleanup {
 trap cleanup EXIT
 
 docker network rm $NETWORK > /dev/null 2>&1
-docker network create --ipv6 --driver cilium --ipam-driver cilium $NETWORK > /dev/null
+docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK > /dev/null
 cilium policy delete io.cilium
 #Clean old kubernetes certificates
 sudo rm -fr /run/kubernetes

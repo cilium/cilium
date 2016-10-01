@@ -67,7 +67,7 @@ sudo tc qdisc add dev lbtest2 clsact
 sudo tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 
 docker network inspect $TEST_NET 2> /dev/null || {
-	docker network create --ipv6 --ipam-driver cilium --driver cilium $TEST_NET
+	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
 monitor_start
