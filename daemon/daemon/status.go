@@ -19,6 +19,8 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/common/types"
+
+	ctx "golang.org/x/net/context"
 )
 
 func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
@@ -30,7 +32,7 @@ func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
 		sr.Consul = types.NewStatusOK(info)
 	}
 
-	if _, err := d.dockerClient.Info(); err != nil {
+	if _, err := d.dockerClient.Info(ctx.Background()); err != nil {
 		sr.Docker = types.Status{Code: types.Failure, Msg: err.Error()}
 	} else {
 		sr.Docker = types.NewStatusOK("")

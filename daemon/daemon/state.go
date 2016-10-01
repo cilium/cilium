@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 
 	dockerAPI "github.com/docker/engine-api/client"
+	ctx "golang.org/x/net/context"
 )
 
 // SyncState syncs cilium state against the containers running in the host. dir is the
@@ -231,7 +232,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	for _, ep := range eps {
 		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
 		if ep.DockerNetworkID != "" {
-			nls, err := d.dockerClient.NetworkInspect(ep.DockerNetworkID)
+			nls, err := d.dockerClient.NetworkInspect(ctx.Background(), ep.DockerNetworkID)
 			if dockerAPI.IsErrNetworkNotFound(err) {
 				cleanUp(ep)
 				continue
@@ -251,7 +252,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 				continue
 			}
 		} else if ep.DockerID != "" {
-			cont, err := d.dockerClient.ContainerInspect(ep.DockerID)
+			cont, err := d.dockerClient.ContainerInspect(ctx.Background(), ep.DockerID)
 			if dockerAPI.IsErrContainerNotFound(err) {
 				cleanUp(ep)
 				continue
