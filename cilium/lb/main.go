@@ -191,13 +191,11 @@ func cliDumpServices(ctx *cli.Context) {
 	dumpTable = map[string]*ServiceDump{}
 
 	if err := lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService4); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Warning: Unable to dump map: %s\n", err)
 	}
 
 	if err := lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService6); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Warning: Unable to dump map: %s\n", err)
 	}
 
 	for k1 := range dumpTable {
@@ -397,13 +395,11 @@ func cliDeleteService(ctx *cli.Context) {
 
 	if ctx.Bool("all") {
 		if err := lbmap.Service6Map.DeleteAll(); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
 
 		if err := lbmap.Service4Map.DeleteAll(); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
 	} else {
 		key := parseServiceKey(ctx.Args().Get(0))
