@@ -148,7 +148,7 @@ sudo cilium lb update-service --frontend 4.4.4.4:40 --rev --id 1 --backend 5.5.5
 sudo cilium lb dump-service
 
 # Check if requested reverse NAT entry exists
-sudo cilium lb get-rev-nat 1 || {
+sudo cilium lb --ipv4 get-rev-nat 1 || {
 	abort "Unable to find reverse NAT entry that should have been created"
 }
 
@@ -158,7 +158,7 @@ sudo cilium lb delete-service 4.4.4.4:0 2> /dev/null && {
 }
 
 # Delete L4 entry
-sudo cilium lb delete-service 4.4.4.4:80 || {
+sudo cilium lb delete-service 4.4.4.4:40 || {
 	abort "Unable to delete IPv4 service entry"
 }
 
