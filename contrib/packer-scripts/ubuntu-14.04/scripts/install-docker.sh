@@ -3,19 +3,20 @@
 set -e
 
 apt-get update
-apt-get -y install libseccomp2 libsystemd-journal0
+apt-get install -y apt-transport-https ca-certificates
 
-mkdir -p install
-cd install
+apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
 
-wget --quiet -r -np -nd http://www.infradead.org/~tgr/cilium-docker-build/
+echo 'deb https://apt.dockerproject.org/repo ubuntu-trusty main' > /etc/apt/sources.list.d/docker.list
 
-for pkg in *.deb; do
-	dpkg -i $pkg
-done
+apt-get update
+apt-get purge -y lxc-docker
+apt-cache policy docker-engine
+apt-get install -y docker-engine
+service docker start
 
 usermod -aG docker vagrant
-echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false --ipv6"' >> /etc/default/docker
+echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
 
 cd ..
 rm -rf $HOME/install

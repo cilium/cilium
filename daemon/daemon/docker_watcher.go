@@ -30,6 +30,7 @@ import (
 
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
+	ctx "golang.org/x/net/context"
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
@@ -44,7 +45,7 @@ const (
 // containers started or dead.
 func (d *Daemon) EnableDockerEventListener() error {
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(time.Now().Unix(), 10)}
-	r, err := d.dockerClient.Events(eo)
+	r, err := d.dockerClient.Events(ctx.Background(), eo)
 	if err != nil {
 		return err
 	}
@@ -58,7 +59,7 @@ func (d *Daemon) EnableDockerEventListener() error {
 
 func (d *Daemon) EnableDockerSync(once bool) {
 	for {
-		cList, err := d.dockerClient.ContainerList(dTypes.ContainerListOptions{All: false})
+		cList, err := d.dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
 		if err != nil {
 			log.Errorf("Failed to retrieve the container list %s", err)
 		}
@@ -171,7 +172,7 @@ func (d *Daemon) createContainer(dockerID string) {
 }
 
 func (d *Daemon) updateProbeLabels(dockerID string) (bool, *types.Container, error) {
-	dockerCont, err := d.dockerClient.ContainerInspect(dockerID)
+	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
 	if err != nil {
 		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
 	}
@@ -187,7 +188,7 @@ func (d *Daemon) updateProbeLabels(dockerID string) (bool, *types.Container, err
 }
 
 func (d *Daemon) updateUserLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
-	dockerCont, err := d.dockerClient.ContainerInspect(dockerID)
+	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
 	if err != nil {
 		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
 	}

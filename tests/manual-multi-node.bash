@@ -32,8 +32,8 @@ function init {
 
 	cleanup
 
-	node_run cilium-master 'docker network create --driver cilium --ipam-driver cilium cilium 2> /dev/null' || true
-	node_run cilium-node-2 'docker network create --driver cilium --ipam-driver cilium cilium 2> /dev/null' || true
+	node_run cilium-master 'docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium cilium 2> /dev/null' || true
+	node_run cilium-node-2 'docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium cilium 2> /dev/null' || true
 }
 
 function test_run {

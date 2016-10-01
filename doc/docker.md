@@ -31,7 +31,7 @@ network. Please note that IPv6 must be enabled on the network as the IPv6
 address is also the unique identifier for each container:
 
 ```
-$ docker network create --opt 'enableIPv6=true' --driver cilium --ipam-driver cilium cilium
+$ docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium cilium
 $ docker run --net cilium hello-world
 ```
 

@@ -20,7 +20,7 @@ CLIENT_LABEL="io.cilium.client"
 monitor_start
 
 docker network inspect $TEST_NET 2> /dev/null || {
-	docker network create --ipam-driver cilium --driver cilium $TEST_NET
+	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
 docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
@@ -82,7 +82,7 @@ function connectivity_test() {
 	fi
 
 	# FIXME: IPv4 host connectivity not working yet
-	
+
 	if [ $BIDIRECTIONAL = 1 ]; then
 		# ICMPv6 echo request server => client should not succeed
 		monitor_clear

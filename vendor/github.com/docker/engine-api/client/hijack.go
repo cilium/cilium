@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/docker/engine-api/types"
+	"github.com/docker/go-connections/sockets"
+	"golang.org/x/net/context"
 )
 
 // tlsClientCon holds tls information and a dialed connection.
@@ -29,7 +31,7 @@ func (c *tlsClientCon) CloseWrite() error {
 }
 
 // postHijacked sends a POST request and hijacks the connection.
-func (cli *Client) postHijacked(path string, query url.Values, body interface{}, headers map[string][]string) (types.HijackedResponse, error) {
+func (cli *Client) postHijacked(ctx context.Context, path string, query url.Values, body interface{}, headers map[string][]string) (types.HijackedResponse, error) {
 	bodyEncoded, err := encodeData(body)
 	if err != nil {
 		return types.HijackedResponse{}, err
@@ -44,7 +46,7 @@ func (cli *Client) postHijacked(path string, query url.Values, body interface{},
 	req.Header.Set("Connection", "Upgrade")
 	req.Header.Set("Upgrade", "tcp")
 
-	conn, err := dial(cli.proto, cli.addr, cli.tlsConfig)
+	conn, err := dial(cli.proto, cli.addr, cli.transport.TLSConfig())
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return types.HijackedResponse{}, fmt.Errorf("Cannot connect to the Docker daemon. Is 'docker daemon' running on this host?")
@@ -66,11 +68,11 @@ func (cli *Client) postHijacked(path string, query url.Values, body interface{},
 	defer clientconn.Close()
 
 	// Server hijacks the connection, error 'connection closed' expected
-	clientconn.Do(req)
+	_, err = clientconn.Do(req)
 
 	rwc, br := clientconn.Hijack()
 
-	return types.HijackedResponse{Conn: rwc, Reader: br}, nil
+	return types.HijackedResponse{Conn: rwc, Reader: br}, err
 }
 
 func tlsDial(network, addr string, config *tls.Config) (net.Conn, error) {
@@ -104,7 +106,12 @@ func tlsDialWithDialer(dialer *net.Dialer, network, addr string, config *tls.Con
 		})
 	}
 
-	rawConn, err := dialer.Dial(network, addr)
+	proxyDialer, err := sockets.DialerFromEnvironment(dialer)
+	if err != nil {
+		return nil, err
+	}
+
+	rawConn, err := proxyDialer.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +163,12 @@ func tlsDialWithDialer(dialer *net.Dialer, network, addr string, config *tls.Con
 }
 
 func dial(proto, addr string, tlsConfig *tls.Config) (net.Conn, error) {
-	if tlsConfig != nil && proto != "unix" {
+	if tlsConfig != nil && proto != "unix" && proto != "npipe" {
 		// Notice this isn't Go standard's tls.Dial function
 		return tlsDial(proto, addr, tlsConfig)
+	}
+	if proto == "npipe" {
+		return sockets.DialPipe(addr, 32*time.Second)
 	}
 	return net.Dial(proto, addr)
 }

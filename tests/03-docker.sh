@@ -20,7 +20,7 @@ CLIENT_LABEL="io.cilium.test.client"
 sudo cilium -D policy import ./policy
 
 docker network inspect $TEST_NET || {
-	docker network create --ipam-driver cilium --driver cilium $TEST_NET
+	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
 monitor_start

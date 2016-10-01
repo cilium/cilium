@@ -18,7 +18,7 @@ desc ""
 desc "Create network \"cilium\""
 desc "This step is only required once, all containers can be attached to the same network,"
 desc "thus creating a single flat network. Isolation can then be defined based on labels."
-run "docker network create --driver cilium --ipam-driver cilium $NETWORK"
+run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK"
 
 desc "Start a container"
 run "docker run -d --net cilium --name demo1 -l $CLIENT_LABEL noironetworks/netperf"
