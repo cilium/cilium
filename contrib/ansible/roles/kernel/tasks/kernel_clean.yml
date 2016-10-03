@@ -1,0 +1,5 @@
+---
+
+- name: Delete kernel sources
+  shell: \rm -Rf {{ kernel_home }}/net-next
+  ignore_errors: yes

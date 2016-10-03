@@ -1,0 +1,7 @@
+---
+
+- name: Fetch bpf-wip iproute2 package
+  git: repo=git://git.breakpoint.cc/dborkman/iproute2.git
+       dest={{ iproute2_home }}/iproute2
+       version=bpf-wip
+  register: iproute2_fetch

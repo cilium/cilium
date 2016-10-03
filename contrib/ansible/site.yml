@@ -1,0 +1,21 @@
+---
+# ansible-playbook -u vagrant --skip-tags=common:delete site.yml
+# ansible-playbook -u vagrant --tags=common:delete site.yml
+#
+# To set HOME to anything other than /home/vagrant
+# ansible-playbook --extra-vars '{"CILIUM_HOME":"/tmp"}'  <cmdline>
+
+- hosts: all
+  gather_facts: yes
+  become: yes
+  vars:
+    cilium_home: "{{ CILIUM_HOME|default('/home/vagrant') }}"
+
+  roles:
+    - { role: common, tags: common }
+    - { role: kernel, tags: kernel, kernel_home: "{{ cilium_home }}" }
+    - { role: iproute2, tags: iproute2, iproute2_home: "{{ cilium_home }}" }
+    - { role: docker, tags: docker }
+    - { role: clang, tags: clang }
+    - { role: reboot, tags: reboot }
+    - { role: cleanup, tags: cleanup }

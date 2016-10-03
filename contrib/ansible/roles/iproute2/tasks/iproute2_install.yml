@@ -1,0 +1,4 @@
+---
+
+- name: install iproute2
+  shell: make install chdir={{ iproute2_home }}/iproute2

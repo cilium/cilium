@@ -1,0 +1,5 @@
+---
+
+- name: cleanup iproute2 sources
+  shell: \rm -Rf {{ iproute2_home }}/iproute2
+  ignore_errors: yes

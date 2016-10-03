@@ -1,0 +1,10 @@
+---
+
+- shell: getconf _NPROCESSORS_ONLN
+  register: getconf_ncpu_output
+
+- name: Build iproute2
+  command: "{{ item }} chdir={{ iproute2_home }}/iproute2"
+  with_items:
+    - ./configure
+    - make -j {{getconf_ncpu_output.stdout}}
