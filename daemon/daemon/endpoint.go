@@ -536,7 +536,7 @@ func (d *Daemon) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 			return err
 		}
 
-		if !ep.ApplyOpts(opts) {
+		if opts != nil && !ep.ApplyOpts(opts) {
 			// No changes have been applied, skip update
 			return nil
 		}
