@@ -13,10 +13,11 @@ apt-get update
 apt-get purge -y lxc-docker
 apt-cache policy docker-engine
 apt-get install -y docker-engine
-service docker start
 
 usermod -aG docker vagrant
 echo 'DOCKER_OPTS="--storage-driver=overlay --iptables=false"' >> /etc/default/docker
+
+service docker restart
 
 cd ..
 rm -rf $HOME/install
