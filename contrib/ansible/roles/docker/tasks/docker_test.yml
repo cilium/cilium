@@ -1,0 +1,8 @@
+---
+
+- name: Test docker
+  shell: docker run hello-world
+  register: hello
+
+- name: Print docker output
+  debug: var=hello.stdout_lines

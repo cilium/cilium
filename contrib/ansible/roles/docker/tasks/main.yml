@@ -1,0 +1,10 @@
+---
+
+- include: docker_remove.yml
+  tags: ["docker", "docker:remove"]
+
+- include: docker_install.yml
+  tags: ["docker", "docker:install"]
+
+- include: docker_test.yml
+  tags: ["docker", "docker:test"]

@@ -1,0 +1,7 @@
+---
+
+- name: Fetch bpf-wip kernel package
+  git: repo=git://git.breakpoint.cc/dborkman/net-next.git
+       dest={{ kernel_home }}/net-next
+       version=bpf-wip
+  register: kernel_fetch

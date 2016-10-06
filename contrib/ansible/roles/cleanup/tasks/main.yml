@@ -1,0 +1,25 @@
+---
+
+- name: Clean iptables
+  command: "{{ item }}"
+  with_items:
+    - iptables -t nat -P PREROUTING ACCEPT
+    - iptables -t nat -P POSTROUTING ACCEPT
+    - iptables -t nat -P OUTPUT ACCEPT
+    - iptables -t nat -F
+    - iptables -t nat -X
+    - iptables -t mangle -P PREROUTING ACCEPT
+    - iptables -t mangle -P INPUT ACCEPT
+    - iptables -t mangle -P FORWARD ACCEPT
+    - iptables -t mangle -P OUTPUT ACCEPT
+    - iptables -t mangle -P POSTROUTING ACCEPT
+    - iptables -t mangle -F
+    - iptables -t mangle -X
+    - iptables -t filter -P INPUT ACCEPT
+    - iptables -t filter -P FORWARD ACCEPT
+    - iptables -t filter -P OUTPUT ACCEPT
+    - iptables -t filter -F
+    - iptables -t filter -X
+    - ufw disable
+    - rmmod ipt_REJECT nf_reject_ipv4 iptable_mangle ipt_MASQUERADE iptable_nat nf_nat_ipv4 iptable_filter ip6table_filter ip6_tables ip_tables xt_CHECKSUM xt_tcpudp xt_conntrack xt_addrtype ebtable_nat ebtables x_tables nf_nat_masquerade_ipv4 nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat nf_conntrack
+  ignore_errors: yes
