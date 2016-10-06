@@ -25,8 +25,14 @@ import (
 	"github.com/docker/libnetwork/ipams/remote/api"
 )
 
+type compatGetCapabilityResponse struct {
+	SupportsAutoIPv6 bool
+}
+
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
-	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{})
+	err := json.NewEncoder(w).Encode(&compatGetCapabilityResponse{
+		SupportsAutoIPv6: true,
+	})
 	if err != nil {
 		log.Fatalf("capabilities encode: %s", err)
 		sendError(w, "encode error", http.StatusInternalServerError)
