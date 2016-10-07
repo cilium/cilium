@@ -16,5 +16,9 @@ cp -vR ${root_dir}/plugins ${dir}
 cp -vR ${root_dir}/vendor ${dir}
 cp -v ${root_dir}/Makefile ${dir}
 cp -v ${root_dir}/Makefile.defs ${dir}
+cp -vR ${root_dir}/LICENSE ${dir}
+cp -vR ${root_dir}/AUTHORS ${dir}
+cp -vR ${root_dir}/VERSION ${dir}
+
 
 cp -v ${root_dir}/Dockerfile ${dir}
