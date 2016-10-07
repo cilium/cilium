@@ -74,7 +74,7 @@ func (k *Service6Key) Convert() ServiceKey {
 }
 
 func (k *Service6Key) String() string {
-	return fmt.Sprintf("%s:%d", k.Address, k.Port)
+	return fmt.Sprintf("[%s]:%d", k.Address, k.Port)
 }
 
 func (k *Service6Key) RevNatValue() RevNatValue {
@@ -128,7 +128,7 @@ func (v *Service6Value) Convert() ServiceValue {
 }
 
 func (v *Service6Value) String() string {
-	return fmt.Sprintf("%s:%d (%d)", v.Address, v.Port, v.RevNat)
+	return fmt.Sprintf("[%s]:%d (%d)", v.Address, v.Port, v.RevNat)
 }
 
 func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
