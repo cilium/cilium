@@ -7,7 +7,7 @@ all: $(TARGET)
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	go build -o $(TARGET)
+	go build -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)
 
 run:
 	./cilium-docker -d

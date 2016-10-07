@@ -5,3 +5,5 @@ RUNDIR?=/var/run
 CONFDIR?=/etc
 
 INSTALL = install
+
+VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

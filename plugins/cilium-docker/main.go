@@ -38,7 +38,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "cilium-net"
 	app.Usage = "Cilium Networking Docker Plugin"
-	app.Version = "0.1.0"
+	app.Version = common.Version
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "debug, D",
