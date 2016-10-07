@@ -503,7 +503,7 @@ func (d *Daemon) insertSvc4(epIPs map[string]bool, svcInfo *types.ServiceInfo,
 
 	svc4k := lbmap.NewService4Key(svcInfo.IP, svcPort.Port, serverIndex)
 	svc4v := lbmap.NewService4Value(nSvcs, svcInfo.IP, svcPort.Port, uint16(svcPort.ServiceID))
-	if err := lbmap.Service4Map.Update(svc4k, svc4v); err != nil {
+	if err := lbmap.UpdateService(svc4k, svc4v); err != nil {
 		log.Errorf("Error updating service %+v, %s", svc4k, err)
 	} else {
 		log.Debugf("# cilium lb -4 update-service %s %d %d %d %d %s %d",
@@ -517,7 +517,7 @@ func (d *Daemon) insertSvc4(epIPs map[string]bool, svcInfo *types.ServiceInfo,
 		epIPParsed := net.ParseIP(epIP)
 
 		svc4v := lbmap.NewService4Value(nSvcs, epIPParsed, epPort.Port, uint16(svcPort.ServiceID))
-		if err := lbmap.Service4Map.Update(svc4k, svc4v); err != nil {
+		if err := lbmap.UpdateService(svc4k, svc4v); err != nil {
 			log.Errorf("Error updating service %+v, %s", svc4k, err)
 		} else {
 			log.Debugf("# cilium lb -4 update-service %s %d %d %d %d %s %d",
@@ -537,7 +537,7 @@ func (d *Daemon) insertSvc4(epIPs map[string]bool, svcInfo *types.ServiceInfo,
 	if isServerPresent {
 		revNATk := lbmap.NewRevNat4Key(uint16(svcPort.ServiceID))
 		revNATv := lbmap.NewRevNat4Value(svcInfo.IP, svcPort.Port)
-		if err := lbmap.RevNat4Map.Update(revNATk, revNATv); err != nil {
+		if err := lbmap.UpdateRevNat(revNATk, revNATv); err != nil {
 			log.Errorf("Error updating reverser NAT %+v, %s", revNATk, err)
 		} else {
 			log.Debugf("# cilium lb -4 update-rev-nat %d %s %d",
@@ -555,7 +555,7 @@ func (d *Daemon) insertSvc6(epIPs map[string]bool, svcInfo *types.ServiceInfo,
 
 	svc6k := lbmap.NewService6Key(svcInfo.IP, svcPort.Port, serverIndex)
 	svc6v := lbmap.NewService6Value(nSvcs, svcInfo.IP, svcPort.Port, uint16(svcPort.ServiceID))
-	if err := lbmap.Service6Map.Update(svc6k, svc6v); err != nil {
+	if err := lbmap.UpdateService(svc6k, svc6v); err != nil {
 		log.Errorf("Error updating service %+v, %s", svc6k, err)
 	} else {
 		log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
@@ -569,7 +569,7 @@ func (d *Daemon) insertSvc6(epIPs map[string]bool, svcInfo *types.ServiceInfo,
 		epIPParsed := net.ParseIP(epIP)
 
 		svc6v := lbmap.NewService6Value(nSvcs, epIPParsed, epPort.Port, uint16(svcPort.ServiceID))
-		if err := lbmap.Service6Map.Update(svc6k, svc6v); err != nil {
+		if err := lbmap.UpdateService(svc6k, svc6v); err != nil {
 			log.Errorf("Error updating service %+v, %s", svc6k, err)
 		} else {
 			log.Debugf("# cilium lb update-service %s %d %d %d %d %s %d",
@@ -589,7 +589,7 @@ func (d *Daemon) insertSvc6(epIPs map[string]bool, svcInfo *types.ServiceInfo,
 	if isServerPresent {
 		revNATk := lbmap.NewRevNat6Key(uint16(svcPort.ServiceID))
 		revNATv := lbmap.NewRevNat6Value(svcInfo.IP, svcPort.Port)
-		if err := lbmap.RevNat6Map.Update(revNATk, revNATv); err != nil {
+		if err := lbmap.UpdateRevNat(revNATk, revNATv); err != nil {
 			log.Errorf("Error updating reverser NAT %+v, %s", revNATk, err)
 		} else {
 			log.Debugf("# cilium lb update-rev-nat %d %s %d",
