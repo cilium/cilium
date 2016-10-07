@@ -15,11 +15,14 @@
 //
 package common
 
+var (
+	// Version number needs to be var since we override the value when building
+	Version = "dev"
+)
+
 const (
 	// Cilium constants
 
-	// Version number.
-	Version = "0.0.1"
 	// CiliumPath is the path where cilium operational files are running.
 	CiliumPath    = "/var/run/cilium"
 	DefaultLibDir = "/usr/lib/cilium"

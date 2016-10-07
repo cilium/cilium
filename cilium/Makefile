@@ -14,7 +14,7 @@ clean:
 SOURCES := $(shell find monitor/ policy/ endpoint/ ../daemon ../common . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	go build -o $(TARGET) ./main.go
+	go build -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET) ./main.go
 
 install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)

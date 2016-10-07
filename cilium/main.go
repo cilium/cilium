@@ -37,7 +37,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "cilium"
 	app.Usage = "Cilium"
-	app.Version = "0.1.0"
+	app.Version = common.Version
 	app.EnableBashCompletion = true
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
