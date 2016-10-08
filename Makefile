@@ -35,10 +35,7 @@ install:
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
 docker-image:
-	@./contrib/docker/cp-dirs.sh
-	$(MAKE) -C ./contrib/docker clean
-	docker build -t "cilium:cilium-ubuntu-16-04" ./contrib/docker/
-	ls -d ./contrib/docker/* | grep -v cp-dirs.sh | xargs rm -r
+	$(MAKE) -C ./contrib/packaging/docker
 
 runtime-tests:
 	$(MAKE) -C tests runtime-tests
