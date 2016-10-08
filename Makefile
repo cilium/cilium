@@ -37,6 +37,9 @@ install:
 docker-image:
 	$(MAKE) -C ./contrib/packaging/docker
 
+build-deb:
+	$(MAKE) -C ./contrib/packaging/deb
+
 runtime-tests:
 	$(MAKE) -C tests runtime-tests
 

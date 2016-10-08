@@ -6,6 +6,8 @@ BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o
 SCRIPTS = init.sh join_ep.sh leave_ep.sh run_probes.sh
 LIB := $(shell find ./lib -name '*.h')
 
+ifeq ("$(PKG_BUILD)","")
+
 all: $(BPF)
 	$(MAKE) -C go
 
@@ -28,11 +30,18 @@ bpf_lb.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
 		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o $@;)
 
-clean:
-	rm -fr *.o
-	$(MAKE) -C go clean
+install: install-common
+	$(MAKE) -C go install
 
-install:
+else
+
+all:
+
+install: install-common
+
+endif
+
+install-common:
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/ $(BPF:.o=.c)
 	$(INSTALL) -m 0755 -t $(DESTDIR)$(LIBDIR)/cilium/ $(SCRIPTS)
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/lib/ $(LIB)
@@ -42,4 +51,7 @@ install:
 			$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/$$dir $$f; \
 		done; \
 	done
-	$(MAKE) -C go install
+
+clean:
+	rm -fr *.o
+	$(MAKE) -C go clean
