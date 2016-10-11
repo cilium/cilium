@@ -1,0 +1,13 @@
+[Unit]
+Description=cilium-net-daemon
+Documentation=https://github.com/cilium/cilium
+Requires=docker.service cilium-consul.service cilium-docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sysconfig/cilium
+ExecStart=/usr/bin/cilium daemon run $CILIUM_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
