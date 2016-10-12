@@ -26,6 +26,8 @@ tests: force
 clean:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
+	-$(MAKE) -C ./contrib/packaging/deb clean
+	-$(MAKE) -C ./contrib/packaging/rpm clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
