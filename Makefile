@@ -40,6 +40,9 @@ docker-image:
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
 
+build-rpm:
+	$(MAKE) -C ./contrib/packaging/rpm
+
 runtime-tests:
 	$(MAKE) -C tests runtime-tests
 
