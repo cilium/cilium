@@ -58,6 +58,7 @@ type Config struct {
 	DockerEndpoint       string                  // Docker endpoint
 	IPv4Enabled          bool                    // Gives IPv4 addresses to containers
 	K8sEndpoint          string                  // Kubernetes endpoint
+	K8sCfgPath           string                  // Kubeconfig path
 	ValidLabelPrefixes   *types.LabelPrefixCfg   // Label prefixes used to filter from all labels
 	ValidLabelPrefixesMU sync.RWMutex
 	UIServerAddr         string // TCP address for UI server
@@ -85,5 +86,5 @@ func (c *Config) IsUIEnabled() bool {
 }
 
 func (c *Config) IsK8sEnabled() bool {
-	return len(c.K8sEndpoint) != 0
+	return c.K8sEndpoint != "" || c.K8sCfgPath != ""
 }

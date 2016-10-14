@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -150,6 +151,9 @@ type ClientConn struct {
 	readerDone chan struct{} // closed on error
 	readerErr  error         // set before readerDone is closed
 
+	idleTimeout time.Duration // or 0 for never
+	idleTimer   *time.Timer
+
 	mu              sync.Mutex // guards following
 	cond            *sync.Cond // hold mu; broadcast on flow/closed changes
 	flow            flow       // our conn-level flow control quota (cs.flow is per stream)
@@ -160,6 +164,7 @@ type ClientConn struct {
 	goAwayDebug     string                   // goAway frame's debug data, retained as a string
 	streams         map[uint32]*clientStream // client-initiated
 	nextStreamID    uint32
+	pings           map[[8]byte]chan struct{} // in flight ping data to notification channel
 	bw              *bufio.Writer
 	br              *bufio.Reader
 	fr              *Framer
@@ -431,6 +436,11 @@ func (t *Transport) newClientConn(c net.Conn, singleUse bool) (*ClientConn, erro
 		streams:              make(map[uint32]*clientStream),
 		singleUse:            singleUse,
 		wantSettingsAck:      true,
+		pings:                make(map[[8]byte]chan struct{}),
+	}
+	if d := t.idleConnTimeout(); d != 0 {
+		cc.idleTimeout = d
+		cc.idleTimer = time.AfterFunc(d, cc.onIdleTimeout)
 	}
 	if VerboseLogs {
 		t.vlogf("http2: Transport creating client conn %p to %v", cc, c.RemoteAddr())
@@ -506,6 +516,16 @@ func (cc *ClientConn) canTakeNewRequestLocked() bool {
 	return cc.goAway == nil && !cc.closed &&
 		int64(len(cc.streams)+1) < int64(cc.maxConcurrentStreams) &&
 		cc.nextStreamID < math.MaxInt32
+}
+
+// onIdleTimeout is called from a time.AfterFunc goroutine.  It will
+// only be called when we're idle, but because we're coming from a new
+// goroutine, there could be a new request coming in at the same time,
+// so this simply calls the synchronized closeIfIdle to shut down this
+// connection. The timer could just call closeIfIdle, but this is more
+// clear.
+func (cc *ClientConn) onIdleTimeout() {
+	cc.closeIfIdle()
 }
 
 func (cc *ClientConn) closeIfIdle() {
@@ -604,13 +624,13 @@ func (cc *ClientConn) responseHeaderTimeout() time.Duration {
 // Certain headers are special-cased as okay but not transmitted later.
 func checkConnHeaders(req *http.Request) error {
 	if v := req.Header.Get("Upgrade"); v != "" {
-		return errors.New("http2: invalid Upgrade request header")
+		return fmt.Errorf("http2: invalid Upgrade request header: %q", req.Header["Upgrade"])
 	}
-	if v := req.Header.Get("Transfer-Encoding"); (v != "" && v != "chunked") || len(req.Header["Transfer-Encoding"]) > 1 {
-		return errors.New("http2: invalid Transfer-Encoding request header")
+	if vv := req.Header["Transfer-Encoding"]; len(vv) > 0 && (len(vv) > 1 || vv[0] != "" && vv[0] != "chunked") {
+		return fmt.Errorf("http2: invalid Transfer-Encoding request header: %q", vv)
 	}
-	if v := req.Header.Get("Connection"); (v != "" && v != "close" && v != "keep-alive") || len(req.Header["Connection"]) > 1 {
-		return errors.New("http2: invalid Connection request header")
+	if vv := req.Header["Connection"]; len(vv) > 0 && (len(vv) > 1 || vv[0] != "" && vv[0] != "close" && vv[0] != "keep-alive") {
+		return fmt.Errorf("http2: invalid Connection request header: %q", vv)
 	}
 	return nil
 }
@@ -622,6 +642,11 @@ func bodyAndLength(req *http.Request) (body io.Reader, contentLen int64) {
 	}
 	if req.ContentLength != 0 {
 		return req.Body, req.ContentLength
+	}
+	// Don't try to sniff the size if they're doing an expect
+	// request (Issue 16002):
+	if req.Header.Get("Expect") == "100-continue" {
+		return req.Body, -1
 	}
 
 	// We have a body but a zero content length. Test to see if
@@ -648,6 +673,9 @@ func bodyAndLength(req *http.Request) (body io.Reader, contentLen int64) {
 func (cc *ClientConn) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := checkConnHeaders(req); err != nil {
 		return nil, err
+	}
+	if cc.idleTimer != nil {
+		cc.idleTimer.Stop()
 	}
 
 	trailers, err := commaSeparatedTrailers(req)
@@ -1046,7 +1074,7 @@ func (cc *ClientConn) encodeHeaders(req *http.Request, addGzipHeader bool, trail
 	cc.writeHeader(":method", req.Method)
 	if req.Method != "CONNECT" {
 		cc.writeHeader(":path", path)
-		cc.writeHeader(":scheme", "https")
+		cc.writeHeader(":scheme", req.URL.Scheme)
 	}
 	if trailers != "" {
 		cc.writeHeader("trailer", trailers)
@@ -1173,6 +1201,9 @@ func (cc *ClientConn) streamByID(id uint32, andRemove bool) *clientStream {
 	if andRemove && cs != nil && !cc.closed {
 		cc.lastActive = time.Now()
 		delete(cc.streams, id)
+		if len(cc.streams) == 0 && cc.idleTimer != nil {
+			cc.idleTimer.Reset(cc.idleTimeout)
+		}
 		close(cs.done)
 		cc.cond.Broadcast() // wake up checkResetOrDone via clientStream.awaitFlowControl
 	}
@@ -1228,6 +1259,10 @@ func (rl *clientConnReadLoop) cleanup() {
 	defer cc.tconn.Close()
 	defer cc.t.connPool().MarkDead(cc)
 	defer close(cc.readerDone)
+
+	if cc.idleTimer != nil {
+		cc.idleTimer.Stop()
+	}
 
 	// Close any response bodies if the server closes prematurely.
 	// TODO: also do this if we've written the headers but not
@@ -1815,10 +1850,56 @@ func (rl *clientConnReadLoop) processResetStream(f *RSTStreamFrame) error {
 	return nil
 }
 
+// Ping sends a PING frame to the server and waits for the ack.
+// Public implementation is in go17.go and not_go17.go
+func (cc *ClientConn) ping(ctx contextContext) error {
+	c := make(chan struct{})
+	// Generate a random payload
+	var p [8]byte
+	for {
+		if _, err := rand.Read(p[:]); err != nil {
+			return err
+		}
+		cc.mu.Lock()
+		// check for dup before insert
+		if _, found := cc.pings[p]; !found {
+			cc.pings[p] = c
+			cc.mu.Unlock()
+			break
+		}
+		cc.mu.Unlock()
+	}
+	cc.wmu.Lock()
+	if err := cc.fr.WritePing(false, p); err != nil {
+		cc.wmu.Unlock()
+		return err
+	}
+	if err := cc.bw.Flush(); err != nil {
+		cc.wmu.Unlock()
+		return err
+	}
+	cc.wmu.Unlock()
+	select {
+	case <-c:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-cc.readerDone:
+		// connection closed
+		return cc.readerErr
+	}
+}
+
 func (rl *clientConnReadLoop) processPing(f *PingFrame) error {
 	if f.IsAck() {
-		// 6.7 PING: " An endpoint MUST NOT respond to PING frames
-		// containing this flag."
+		cc := rl.cc
+		cc.mu.Lock()
+		defer cc.mu.Unlock()
+		// If ack, notify listener if any
+		if c, ok := cc.pings[f.Data]; ok {
+			close(c)
+			delete(cc.pings, f.Data)
+		}
 		return nil
 	}
 	cc := rl.cc

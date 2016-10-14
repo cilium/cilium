@@ -16,300 +16,257 @@
 package daemon
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"time"
 
 	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/types"
 
-	k8sAPI "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
-	k8sProxyConfig "k8s.io/kubernetes/pkg/proxy/config"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/1.5/pkg/fields"
+	"k8s.io/client-go/1.5/pkg/util/wait"
+	"k8s.io/client-go/1.5/tools/cache"
 )
 
-type networkPolicyWatchEvent struct {
-	Type   watch.EventType       `json:"type"`
-	Object v1beta1.NetworkPolicy `json:"object"`
-}
-
-func (d *Daemon) EnableK8sWatcher(maxSeconds time.Duration) error {
+func (d *Daemon) EnableK8sWatcher(resyncPeriod time.Duration) error {
 	if !d.conf.IsK8sEnabled() {
 		return nil
 	}
 
-	curSeconds := 2 * time.Second
-	uNPs := d.k8sClient.Get().RequestURI("apis/extensions/v1beta1").
-		Resource("networkpolicies").URL().String()
-	uWatcher := d.k8sClient.Get().RequestURI("apis/extensions/v1beta1").
-		Namespace("default").Resource("networkpolicies").Param("watch", "true").URL().String()
-	go func() {
-		reportError := true
-		makeRequest := func(url string) *http.Response {
-			for {
-				resp, err := http.Get(url)
-				if err != nil {
-					if reportError {
-						log.Warningf("Unable to install k8s watcher for URL %s: %s", url, err)
-						reportError = false
-					}
-				} else if resp.StatusCode == http.StatusOK {
-					// Once connected, report new errors again
-					reportError = true
-					return resp
-				}
-				time.Sleep(curSeconds)
-				if curSeconds < maxSeconds {
-					curSeconds = 2 * curSeconds
-				}
-			}
-		}
-		for {
-			resp := makeRequest(uNPs)
-			curSeconds = time.Second
-			log.Info("Receiving all policies stored in kubernetes")
-			npList := v1beta1.NetworkPolicyList{}
-			err := json.NewDecoder(resp.Body).Decode(&npList)
-			if err != nil {
-				log.Errorf("Error while receiving data %s", err)
-				ioutil.ReadAll(resp.Body)
-				resp.Body.Close()
-				time.Sleep(curSeconds)
-				continue
-			}
-			log.Debugf("Received kubernetes network policies %+v\n", npList)
-			for _, np := range npList.Items {
-				go d.processNPE(networkPolicyWatchEvent{watch.Added, np})
-			}
-			resp.Body.Close()
+	_, policyController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.Extensions().GetRESTClient(),
+			"networkpolicies", v1.NamespaceAll, fields.Everything()),
+		&v1beta1.NetworkPolicy{},
+		resyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.policyAddFn,
+			UpdateFunc: d.policyModFn,
+			DeleteFunc: d.policyDelFn,
+		},
+	)
+	go policyController.Run(wait.NeverStop)
 
-			resp = makeRequest(uWatcher)
-			log.Info("Listening for kubernetes network policies events")
-			for {
-				npwe := networkPolicyWatchEvent{}
-				err := json.NewDecoder(resp.Body).Decode(&npwe)
-				if err != nil {
-					log.Errorf("Error while receiving data %s", err)
-					ioutil.ReadAll(resp.Body)
-					resp.Body.Close()
-					time.Sleep(curSeconds)
-					break
-				}
-				log.Debugf("Received kubernetes network policy %+v\n", npwe)
-				go d.processNPE(npwe)
-			}
-		}
-	}()
+	_, svcController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.Core().GetRESTClient(),
+			"services", v1.NamespaceAll, fields.Everything()),
+		&v1.Service{},
+		resyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.serviceAddFn,
+			UpdateFunc: d.serviceModFn,
+			DeleteFunc: d.serviceDelFn,
+		},
+	)
+	go svcController.Run(wait.NeverStop)
 
-	go func() {
-		serviceConfig := k8sProxyConfig.NewServiceConfig()
-		serviceConfig.RegisterHandler(d)
-
-		endpointsConfig := k8sProxyConfig.NewEndpointsConfig()
-		endpointsConfig.RegisterHandler(d)
-
-		k8sProxyConfig.NewSourceAPI(
-			d.k8sClient,
-			15*time.Minute,
-			serviceConfig.Channel("api"),
-			endpointsConfig.Channel("api"),
-		)
-	}()
+	_, endpointController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.Core().GetRESTClient(),
+			"endpoints", v1.NamespaceAll, fields.Everything()),
+		&v1.Endpoints{},
+		resyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.endpointAddFn,
+			UpdateFunc: d.endpointModFn,
+			DeleteFunc: d.endpointDelFn,
+		},
+	)
+	go endpointController.Run(wait.NeverStop)
 
 	return nil
 }
 
-func (d *Daemon) processNPE(npwe networkPolicyWatchEvent) {
-	switch npwe.Type {
-	case watch.Added, watch.Modified:
-		nodePath, pn, err := types.K8sNP2CP(npwe.Object)
-		if err != nil {
-			log.Errorf("Error while parsing kubernetes network policy %+v: %s", npwe.Object, err)
-			return
-		}
-		if err := d.PolicyAdd(nodePath, pn); err != nil {
-			log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
-			return
-		}
-		log.Infof("Kubernetes network policy successfully add %+v", npwe.Object)
-	case watch.Deleted:
-		nodePath, pn, err := types.K8sNP2CP(npwe.Object)
-		if err != nil {
-			log.Errorf("Error while parsing kubernetes network policy %+v: %s", npwe.Object, err)
-			return
-		}
-		if err := d.PolicyDelete(nodePath); err != nil {
-			log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
-			return
-		}
-		log.Infof("Kubernetes network policy successfully removed %+v", npwe.Object)
+func (d *Daemon) policyAddFn(obj interface{}) {
+	log.Debugf("New policy %+v", obj)
+	nodePath, pn, err := types.K8sNP2CP(obj.(*v1beta1.NetworkPolicy))
+	if err != nil {
+		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
+		return
 	}
+	if err := d.PolicyAdd(nodePath, pn); err != nil {
+		log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
+		return
+	}
+	log.Infof("Kubernetes network policy successfully add %+v", obj)
 }
 
-func (d *Daemon) OnServiceUpdate(allServices []k8sAPI.Service) {
-	log.Debugf("All Services %+v", allServices)
+func (d *Daemon) policyModFn(oldObj interface{}, newObj interface{}) {
+	log.Debugf("Modified policy %+v->%+v", oldObj, newObj)
+	d.policyAddFn(newObj)
+}
+
+func (d *Daemon) policyDelFn(obj interface{}) {
+	nodePath, pn, err := types.K8sNP2CP(obj.(*v1beta1.NetworkPolicy))
+	if err != nil {
+		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
+		return
+	}
+	if err := d.PolicyDelete(nodePath); err != nil {
+		log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
+		return
+	}
+	log.Infof("Kubernetes network policy successfully removed %+v", obj)
+}
+
+func (d *Daemon) serviceAddFn(obj interface{}) {
+	svc := obj.(*v1.Service)
+	log.Debugf("Service %+v", svc)
+
 	d.loadBalancer.ServicesMU.Lock()
 	defer d.loadBalancer.ServicesMU.Unlock()
 
-	allNewServices := map[types.ServiceNamespace]bool{}
-	newServices := map[types.ServiceNamespace]bool{}
-	modServices := map[types.ServiceNamespace]bool{}
-	for _, svc := range allServices {
-		if svc.Spec.Type != k8sAPI.ServiceTypeClusterIP {
-			log.Infof("Ignoring service %s/%s since its type is %s", svc.Namespace, svc.Name, svc.Spec.Type)
-			continue
+	if svc.Spec.Type != v1.ServiceTypeClusterIP {
+		log.Infof("Ignoring service %s/%s since its type is %s", svc.Namespace, svc.Name, svc.Spec.Type)
+		return
+	}
+
+	svcns := types.ServiceNamespace{
+		Service:   svc.Name,
+		Namespace: svc.Namespace,
+	}
+
+	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
+	newSI := types.NewServiceInfo(clusterIP)
+
+	for _, port := range svc.Spec.Ports {
+		p, err := types.NewLBSvcPort(types.L4Type(port.Protocol), uint16(port.Port))
+		if err != nil {
+			log.Errorf("Unable to add service port %v: %s", port, err)
 		}
-
-		svcns := types.ServiceNamespace{
-			Service:   svc.Name,
-			Namespace: svc.Namespace,
+		if _, ok := newSI.Ports[types.LBPortName(port.Name)]; !ok {
+			newSI.Ports[types.LBPortName(port.Name)] = p
 		}
-		allNewServices[svcns] = true
+	}
 
-		clusterIP := net.ParseIP(svc.Spec.ClusterIP)
-		newSI := types.NewServiceInfo(clusterIP)
+	log.Debugf("Got new service %+v", newSI)
+	d.loadBalancer.Services[svcns] = newSI
 
-		for _, port := range svc.Spec.Ports {
-			p, err := types.NewLBSvcPort(types.L4Type(port.Protocol), uint16(port.Port))
+	d.syncLB(&svcns, nil, nil)
+}
+
+func (d *Daemon) serviceModFn(oldObj interface{}, newObj interface{}) {
+	oldSvc := oldObj.(*v1.Service)
+	newSvc := newObj.(*v1.Service)
+	log.Debugf("Old Service %+v", oldSvc)
+	log.Debugf("New Service %+v", newSvc)
+
+	d.serviceAddFn(newObj)
+}
+
+func (d *Daemon) serviceDelFn(obj interface{}) {
+	svc := obj.(*v1.Service)
+	log.Debugf("Service %+v", svc)
+
+	svcns := &types.ServiceNamespace{
+		Service:   svc.Name,
+		Namespace: svc.Namespace,
+	}
+
+	d.syncLB(nil, nil, svcns)
+}
+
+func (d *Daemon) endpointAddFn(obj interface{}) {
+	ep := obj.(*v1.Endpoints)
+	log.Debugf("Endpoint %+v", ep)
+
+	d.loadBalancer.ServicesMU.Lock()
+	defer d.loadBalancer.ServicesMU.Unlock()
+
+	svcns := types.ServiceNamespace{
+		Service:   ep.Name,
+		Namespace: ep.Namespace,
+	}
+
+	newSvcEP := types.NewServiceEndpoint()
+
+	for _, sub := range ep.Subsets {
+		for _, addr := range sub.Addresses {
+			newSvcEP.IPs[addr.IP] = true
+		}
+		for _, port := range sub.Ports {
+			lbPort, err := types.NewLBPort(types.L4Type(port.Protocol), uint16(port.Port))
 			if err != nil {
-				log.Errorf("Unable to add service port %v: %s", port, err)
-			}
-			if _, ok := newSI.Ports[types.LBPortName(port.Name)]; !ok {
-				newSI.Ports[types.LBPortName(port.Name)] = p
-			}
-		}
-
-		if si, ok := d.loadBalancer.Services[svcns]; !ok {
-			log.Debugf("Got new service %+v", newSI)
-			newServices[svcns] = true
-			d.loadBalancer.Services[svcns] = newSI
-			// Note this equals doesn't check for different service ID
-		} else if !newSI.Equals(si) {
-			log.Debugf("Got mod service %+v, %+v", newSI, si)
-			modServices[svcns] = true
-			d.loadBalancer.Services[svcns] = newSI
-		} else {
-			log.Debugf("Service equals %+v, %+v", newSI, si)
-		}
-	}
-
-	// Old services
-	delServices := map[types.ServiceNamespace]bool{}
-	for svc := range d.loadBalancer.Services {
-		if !allNewServices[svc] {
-			delServices[svc] = true
-		}
-	}
-
-	d.syncLB(newServices, modServices, delServices)
-}
-
-func (d *Daemon) OnEndpointsUpdate(endpoints []k8sAPI.Endpoints) {
-	log.Debugf("All Endpoints %+v", endpoints)
-	d.loadBalancer.ServicesMU.Lock()
-	defer d.loadBalancer.ServicesMU.Unlock()
-
-	newAllSVCEPs := map[types.ServiceNamespace]bool{}
-	newSVCEPs := map[types.ServiceNamespace]bool{}
-	modSVCEPs := map[types.ServiceNamespace]bool{}
-	for _, ep := range endpoints {
-		svcns := types.ServiceNamespace{
-			Service:   ep.Name,
-			Namespace: ep.Namespace,
-		}
-
-		newSvcEP := types.NewServiceEndpoint()
-
-		for _, sub := range ep.Subsets {
-			for _, addr := range sub.Addresses {
-				newSvcEP.IPs[addr.IP] = true
-			}
-			for _, port := range sub.Ports {
-				lbPort, err := types.NewLBPort(types.L4Type(port.Protocol), uint16(port.Port))
-				if err != nil {
-					log.Errorf("Error while creating a new LB Port: %s", err)
-					continue
-				}
-				newSvcEP.Ports[types.LBPortName(port.Name)] = lbPort
-			}
-		}
-
-		if svcEP, ok := d.loadBalancer.Endpoints[svcns]; !ok {
-			if len(newSvcEP.IPs) == 0 {
+				log.Errorf("Error while creating a new LB Port: %s", err)
 				continue
 			}
-			newAllSVCEPs[svcns] = true
-			log.Debugf("Got new endpoint %+v", newSvcEP)
-			newSVCEPs[svcns] = true
-			d.loadBalancer.Endpoints[svcns] = newSvcEP
-		} else {
-			newAllSVCEPs[svcns] = true
-			if !newSvcEP.Equals(svcEP) {
-				log.Debugf("Got mod endpoint %+v", newSvcEP, svcEP)
-				newSVCEPs[svcns] = true
-				d.loadBalancer.Endpoints[svcns] = newSvcEP
-			} else {
-				log.Debugf("Endpoints equals %+v, %+v", newSvcEP, svcEP)
-			}
+			newSvcEP.Ports[types.LBPortName(port.Name)] = lbPort
 		}
 	}
+	d.loadBalancer.Endpoints[svcns] = newSvcEP
 
-	// Old endpoints
-	delSVCEPs := map[types.ServiceNamespace]bool{}
-	for ep := range d.loadBalancer.Endpoints {
-		if !newAllSVCEPs[ep] {
-			delSVCEPs[ep] = true
-		}
-	}
-
-	d.syncLB(newSVCEPs, modSVCEPs, delSVCEPs)
+	d.syncLB(&svcns, nil, nil)
 }
 
-func (d *Daemon) syncLB(newsn, modsn, delsn map[types.ServiceNamespace]bool) {
+func (d *Daemon) endpointModFn(oldObj interface{}, newObj interface{}) {
+	oldEp := oldObj.(*v1.Endpoints)
+	newEp := newObj.(*v1.Endpoints)
+	log.Debugf("Old Endpoint %+v", oldEp)
+	log.Debugf("New Endpoint %+v", newEp)
+
+	d.endpointAddFn(newObj)
+}
+
+func (d *Daemon) endpointDelFn(obj interface{}) {
+	ep := obj.(*v1.Endpoints)
+	log.Debugf("Endpoint %+v", ep)
+
+	svcns := &types.ServiceNamespace{
+		Service:   ep.Name,
+		Namespace: ep.Namespace,
+	}
+
+	d.syncLB(nil, nil, svcns)
+}
+
+func (d *Daemon) syncLB(newSN, modSN, delSN *types.ServiceNamespace) {
 	if !d.conf.LBMode {
 		return
 	}
 
-	log.Debugf("newsn %+v, modsn %+v, delsn %+v", newsn, modsn, delsn)
+	log.Debugf("newns %+v, modns %+v, delns %+v", newSN, modSN, delSN)
 
-	// Clean old services
-	for svcNS := range delsn {
-		svc, ok := d.loadBalancer.Services[svcNS]
+	deleteSN := func(delSN types.ServiceNamespace) {
+		svc, ok := d.loadBalancer.Services[delSN]
 		if !ok {
-			delete(d.loadBalancer.Endpoints, svcNS)
-			continue
+			delete(d.loadBalancer.Endpoints, delSN)
+			return
 		}
-
-		se, ok := d.loadBalancer.Endpoints[svcNS]
+		se, ok := d.loadBalancer.Endpoints[delSN]
 		if !ok {
-			delete(d.loadBalancer.Services, svcNS)
-			continue
+			delete(d.loadBalancer.Services, delSN)
+			return
 		}
-		d.delLBServices(svcNS, svc, se)
+		d.delLBServices(delSN, svc, se)
 
-		delete(d.loadBalancer.Services, svcNS)
-		delete(d.loadBalancer.Endpoints, svcNS)
+		delete(d.loadBalancer.Services, delSN)
+		delete(d.loadBalancer.Endpoints, delSN)
 	}
 
-	for svcNS := range modsn {
-		newsn[svcNS] = true
+	addSN := func(addSN types.ServiceNamespace) {
+		svcInfo, ok := d.loadBalancer.Services[addSN]
+		if !ok {
+			return
+		}
+
+		se, ok := d.loadBalancer.Endpoints[addSN]
+		if !ok {
+			return
+		}
+
+		d.addLBServices(addSN, svcInfo, se)
 	}
 
-	for svcNS := range newsn {
-		svcInfo, ok := d.loadBalancer.Services[svcNS]
-		if !ok {
-			continue
-		}
-
-		se, ok := d.loadBalancer.Endpoints[svcNS]
-		if !ok {
-			continue
-		}
-
-		d.addLBServices(svcNS, svcInfo, se)
+	if delSN != nil {
+		// Clean old services
+		deleteSN(*delSN)
+	}
+	if modSN != nil {
+		// Re-add modified services
+		addSN(*modSN)
+	}
+	if newSN != nil {
+		// Add new services
+		addSN(*newSN)
 	}
 }
 
