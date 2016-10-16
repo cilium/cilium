@@ -1475,6 +1475,19 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 		handler = new400Handler(err)
 	}
 
+	// The net/http package sets the read deadline from the
+	// http.Server.ReadTimeout during the TLS handshake, but then
+	// passes the connection off to us with the deadline already
+	// set. Disarm it here after the request headers are read, similar
+	// to how the http1 server works.
+	// Unlike http1, though, we never re-arm it yet, though.
+	// TODO(bradfitz): figure out golang.org/issue/14204
+	// (IdleTimeout) and how this relates. Maybe the default
+	// IdleTimeout is ReadTimeout.
+	if sc.hs.ReadTimeout != 0 {
+		sc.conn.SetReadDeadline(time.Time{})
+	}
+
 	go sc.runHandler(rw, req, handler)
 	return nil
 }

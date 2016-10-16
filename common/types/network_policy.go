@@ -18,10 +18,10 @@ package types
 import (
 	"github.com/cilium/cilium/common"
 
-	"k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
 )
 
-func K8sNP2CP(np v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
+func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
 	var parentNodeName, policyName string
 	if np.Annotations[common.K8sAnnotationParentName] == "" {
 		parentNodeName = common.GlobalLabelPrefix

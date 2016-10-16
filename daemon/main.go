@@ -112,8 +112,13 @@ func init() {
 					},
 					cli.StringFlag{
 						Destination: &config.K8sEndpoint,
-						Name:        "k",
-						Usage:       "Kubernetes master address server",
+						Name:        "k8s-api-server, k",
+						Usage:       "Kubernetes api address server",
+					},
+					cli.StringFlag{
+						Destination: &config.K8sCfgPath,
+						Name:        "k8s-kubeconfig-path",
+						Usage:       "Absolute path to the kubeconfig file",
 					},
 					cli.BoolTFlag{
 						Destination: &config.KeepConfig,
@@ -413,7 +418,7 @@ func run(cli *cli.Context) {
 
 	d.EnableKVStoreWatcher(30 * time.Second)
 
-	if err := d.EnableK8sWatcher(10 * time.Second); err != nil {
+	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
 

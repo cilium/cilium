@@ -40,8 +40,9 @@ import (
 	dClient "github.com/docker/engine-api/client"
 	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
-	k8sClientConfig "k8s.io/kubernetes/pkg/client/restclient"
-	k8sClient "k8s.io/kubernetes/pkg/client/unversioned"
+	k8s "k8s.io/client-go/1.5/kubernetes"
+	k8sRest "k8s.io/client-go/1.5/rest"
+	k8sClientCmd "k8s.io/client-go/1.5/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
 )
 
@@ -65,7 +66,7 @@ type Daemon struct {
 	endpointsLearningRegister chan types.LearningLabel
 	dockerClient              *dClient.Client
 	loadBalancer              *types.LoadBalancer
-	k8sClient                 *k8sClient.Client
+	k8sClient                 *k8s.Clientset
 	conf                      *Config
 	policyTree                types.PolicyTree
 	policyTreeMU              sync.RWMutex
@@ -81,10 +82,21 @@ func createDockerClient(endpoint string) (*dClient.Client, error) {
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
 }
 
-func createK8sClient(endpoint string) (*k8sClient.Client, error) {
-	config := k8sClientConfig.Config{Host: endpoint}
-	k8sClientConfig.SetKubernetesDefaults(&config)
-	return k8sClient.New(&config)
+func createK8sClient(endpoint, kubeCfgPath string) (*k8s.Clientset, error) {
+	var (
+		config *k8sRest.Config
+		err    error
+	)
+	if kubeCfgPath != "" {
+		config, err = k8sClientCmd.BuildConfigFromFlags("", kubeCfgPath)
+	} else {
+		config = &k8sRest.Config{Host: endpoint}
+		err = k8sRest.SetKubernetesDefaults(config)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return k8s.NewForConfig(config)
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
@@ -350,7 +362,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if c.IsK8sEnabled() {
-		d.k8sClient, err = createK8sClient(c.K8sEndpoint)
+		d.k8sClient, err = createK8sClient(c.K8sEndpoint, c.K8sCfgPath)
 		if err != nil {
 			return nil, err
 		}

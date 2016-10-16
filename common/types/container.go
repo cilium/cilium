@@ -17,7 +17,7 @@ package types
 
 import (
 	dTypes "github.com/docker/engine-api/types"
-	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
+	k8sDockerLbls "k8s.io/client-go/1.5/pkg/kubelet/types"
 )
 
 type Container struct {
