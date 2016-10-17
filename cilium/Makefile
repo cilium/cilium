@@ -18,6 +18,6 @@ $(TARGET): $(SOURCES)
 
 install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	cp ../contrib/autocomplete/bash_autocomplete /etc/bash_completion.d/cilium
-	chmod 644 /etc/bash_completion.d/cilium
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d
+	$(INSTALL) -m 0644 -T ../contrib/autocomplete/bash_autocomplete $(DESTDIR)$(CONFDIR)/bash_completion.d/cilium
 	cp $(TARGET) ${GOPATH}/bin

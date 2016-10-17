@@ -26,6 +26,8 @@ tests: force
 clean:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
+	-$(MAKE) -C ./contrib/packaging/deb clean
+	-$(MAKE) -C ./contrib/packaging/rpm clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
@@ -35,10 +37,13 @@ install:
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
 docker-image:
-	@./contrib/docker/cp-dirs.sh
-	$(MAKE) -C ./contrib/docker clean
-	docker build -t "cilium:cilium-ubuntu-16-04" ./contrib/docker/
-	ls -d ./contrib/docker/* | grep -v cp-dirs.sh | xargs rm -r
+	$(MAKE) -C ./contrib/packaging/docker
+
+build-deb:
+	$(MAKE) -C ./contrib/packaging/deb
+
+build-rpm:
+	$(MAKE) -C ./contrib/packaging/rpm
 
 runtime-tests:
 	$(MAKE) -C tests runtime-tests

@@ -1,0 +1,13 @@
+[Unit]
+Description=cilium-docker plugin
+Documentation=https://github.com/cilium/cilium
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/killall -9 cilium-docker
+ExecStart=/usr/bin/cilium-docker
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

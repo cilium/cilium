@@ -14,6 +14,9 @@ $(TARGET):
 
 install:
 	groupadd -f cilium
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/ui
-	cp -r ui/. $(DESTDIR)$(LIBDIR)/cilium/ui
-	chown root.cilium -R $(DESTDIR)$(LIBDIR)/cilium/ui
+	for dir in `find ui -type d`; do \
+		$(INSTALL) -m 0755 -o root -g cilium -d $(DESTDIR)$(LIBDIR)/cilium/$$dir; \
+		for f in `find $$dir -maxdepth 1 -type f`; do \
+			$(INSTALL) -m 0644 -o root -g cilium -t $(DESTDIR)$(LIBDIR)/cilium/$$dir $$f; \
+		done; \
+	done
