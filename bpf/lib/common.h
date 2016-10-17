@@ -177,7 +177,8 @@ struct ct_entry {
 	__u16 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      reserve:14;
+              nat46:1,
+	      reserve:13;
 	__u16 rev_nat_index;
 };
 

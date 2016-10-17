@@ -106,11 +106,14 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	int do_nat46 = 0, ret, l4_off;
+	int ret, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 rev_nat_index = 0, nat_index = 0;
+#ifdef ENABLE_NAT46
+	int do_nat46 = 0;
+#endif
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -200,6 +203,13 @@ skip_service_lookup:
 			 * on the local node in which case this marking is cleared again. */
 			policy_mark_skip(skb);
 		}
+
+#ifdef ENABLE_NAT46
+		if (skb->tc_index) {
+			do_nat46 = 1;
+			goto to_host;
+		}
+#endif
 		break;
 
 	default:
@@ -238,14 +248,6 @@ skip_service_lookup:
 
 		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr);
 	} else {
-#ifdef ENABLE_NAT46
-		/* FIXME: Derive from prefix constant */
-		if (unlikely((tuple->addr.p1 & 0xffff) == 0xadde)) {
-			do_nat46 = 1;
-			goto to_host;
-		}
-#endif
-
 #ifdef ALLOW_TO_WORLD
 		policy_mark_skip(skb);
 #endif
@@ -262,7 +264,7 @@ to_host:
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
-
+#ifdef ENABLE_NAT46
 		if (do_nat46) {
 			union v6addr dp = NAT46_DST_PREFIX;
 
@@ -270,6 +272,7 @@ to_host:
 			if (IS_ERR(ret))
 				return ret;
 		}
+#endif
 
 #ifndef POLICY_ENFORCEMENT
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);

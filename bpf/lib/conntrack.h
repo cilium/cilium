@@ -59,6 +59,8 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		entry->lifetime = CT_DEFAULT_LIFEIME;
 		if (rev_nat_index)
 			*rev_nat_index = entry->rev_nat_index;;
+		if (entry->nat46)
+			skb->tc_index = 1;
 
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
@@ -393,6 +395,9 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
+
+	if (skb->tc_index)
+		entry.nat46 = 1;
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);

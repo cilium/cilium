@@ -92,7 +92,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
-static inline int handle_ipv6(struct __sk_buff *skb)
+static __inline__ int handle_ipv6(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
 	void *data = (void *) (long) skb->data;
@@ -149,9 +149,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-#ifdef ENABLE_IPV4
 	/* Check if destination is within our cluster prefix */
 	if ((ip4->daddr & IPV4_MASK) == IPV4_RANGE) {
+#ifdef ENABLE_IPV4
 		struct ipv4_ct_tuple tuple = {};
 		__u32 secctx;
 		int ret, l4_off;
@@ -162,29 +162,31 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		ret = ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4);
 		if (ret != DROP_NO_LXC)
 			return ret;
-	}
 #endif
-
 #ifdef ENABLE_NAT46
-	if (1) {
-		union v6addr sp = NAT46_SRC_PREFIX;
-		union v6addr dp = HOST_IP;
-		int ret;
+		if (1) {
+			union v6addr sp = NAT46_SRC_PREFIX;
+			union v6addr dp = HOST_IP;
 
-		if (data + sizeof(*ip) + ETH_HLEN > data_end)
-			return DROP_INVALID;
+			data = (void *) (long) skb->data;
+			data_end = (void *) (long) skb->data_end;
+			ip4 = data + ETH_HLEN;
 
-		if ((ip->daddr & IPV4_MASK) != IPV4_RANGE)
-			return TC_ACT_OK;
+			if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+				return DROP_INVALID;
 
-		ret = ipv4_to_ipv6(skb, ip4, 14, &sp, &dp);
-		if (IS_ERR(ret))
-			return ret;
+			ret = ipv4_to_ipv6(skb, ip4, 14, &sp, &dp);
+			if (IS_ERR(ret))
+				return ret;
 
-		proto = __constant_htons(ETH_P_IPV6);
-		skb->tc_index = 1;
-	}
+			skb->tc_index = 1;
+
+			ret = handle_ipv6(skb);
+			if (ret != DROP_NO_LXC)
+				return ret;
+		}
 #endif
+	}
 
 	return TC_ACT_OK;
 }

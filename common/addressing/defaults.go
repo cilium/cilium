@@ -32,7 +32,7 @@ const (
 	// Default IPv4 prefix length of entire cluster
 	DefaultIPv4ClusterPrefixLen = 8
 	// Default IPv6 prefix to represent NATed IPv4 addresses
-	DefaultNAT46Prefix = "aa46::/48"
+	DefaultNAT46Prefix = "f00d::/48"
 )
 
 var (
