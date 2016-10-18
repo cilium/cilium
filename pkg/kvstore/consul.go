@@ -54,7 +54,7 @@ func NewConsulClient(config *consulAPI.Config) (KVClient, error) {
 			time.Sleep(2 * time.Second)
 			i++
 			if i > maxRetries {
-				e := fmt.Errorf("Unable to contact consul")
+				e := fmt.Errorf("Unable to contact consul: %s", err)
 				log.Error(e)
 				return nil, e
 			}
@@ -205,11 +205,6 @@ func (c *ConsulClient) SetMaxID(key string, firstID, maxID uint32) error {
 	}
 	_, err = c.KV().Put(k, nil)
 	return err
-}
-
-// GetLockPath returns the lock path representation of the given path.
-func GetLockPath(path string) string {
-	return path + ".lock"
 }
 
 func (c *ConsulClient) updateSecLabelIDRef(secCtxLabels types.SecCtxLabel) error {

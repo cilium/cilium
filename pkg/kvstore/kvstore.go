@@ -49,3 +49,8 @@ type KVClient interface {
 type KVLocker interface {
 	Unlock() error
 }
+
+// GetLockPath returns the lock path representation of the given path.
+func GetLockPath(path string) string {
+	return path + ".lock"
+}

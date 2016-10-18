@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
 
+	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
 )
 
@@ -55,6 +56,8 @@ type Config struct {
 	NAT46Prefix          *net.IPNet              // NAT46 IPv6 Prefix
 	Device               string                  // Receive device
 	ConsulConfig         *consulAPI.Config       // Consul configuration
+	EtcdConfig           *etcdAPI.Config         // Etcd Configuration
+	EtcdCfgPath          string                  // Etcd Configuration path
 	DockerEndpoint       string                  // Docker endpoint
 	IPv4Enabled          bool                    // Gives IPv4 addresses to containers
 	K8sEndpoint          string                  // Kubernetes endpoint

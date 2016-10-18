@@ -27,9 +27,9 @@ func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
 	sr := types.StatusResponse{}
 
 	if info, err := d.kvClient.Status(); err != nil {
-		sr.Consul = types.Status{Code: types.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
+		sr.KVStore = types.Status{Code: types.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
-		sr.Consul = types.NewStatusOK(info)
+		sr.KVStore = types.NewStatusOK(info)
 	}
 
 	if _, err := d.dockerClient.Info(ctx.Background()); err != nil {
@@ -48,8 +48,8 @@ func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
 		sr.Kubernetes = types.Status{Code: types.Disabled}
 	}
 
-	if sr.Consul.Code != types.OK {
-		sr.Cilium = types.Status{Code: sr.Consul.Code, Msg: "Consul service is not ready!"}
+	if sr.KVStore.Code != types.OK {
+		sr.Cilium = types.Status{Code: sr.KVStore.Code, Msg: "KVStore service is not ready!"}
 	} else if sr.Docker.Code != types.OK {
 		sr.Cilium = types.Status{Code: sr.Docker.Code, Msg: "Docker service is not ready!"}
 	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.Code != types.OK {

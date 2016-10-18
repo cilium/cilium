@@ -326,6 +326,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			return nil, err
 		}
 		kvClient = c
+	} else {
+		c, err := kvstore.NewEtcdClient(c.EtcdConfig, c.EtcdCfgPath)
+		if err != nil {
+			return nil, err
+		}
+		kvClient = c
 	}
 
 	dockerClient, err := createDockerClient(c.DockerEndpoint)

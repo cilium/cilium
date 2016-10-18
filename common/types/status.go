@@ -64,7 +64,7 @@ func (s Status) String() string {
 }
 
 type StatusResponse struct {
-	Consul     Status `json:"consul"`
+	KVStore    Status `json:"kvstore"`
 	Docker     Status `json:"docker"`
 	Kubernetes Status `json:"kubernetes"`
 	Logstash   Status `json:"logstash"`
