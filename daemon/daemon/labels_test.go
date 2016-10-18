@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
 
-	consulAPI "github.com/hashicorp/consul/api"
 	. "gopkg.in/check.v1"
 )
 
@@ -53,8 +52,6 @@ var (
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
-	consulConfig := consulAPI.DefaultConfig()
-	consulConfig.Address = "127.0.0.1:8501"
 	tempLibDir, err := ioutil.TempDir("", "cilium-test")
 	c.Assert(err, IsNil)
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
@@ -73,7 +70,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.RunDir = tempRunDir
 	daemonConf.LXCMap = nil
 	daemonConf.NodeAddress = nodeAddress
-	daemonConf.ConsulConfig = consulConfig
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
@@ -81,6 +77,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.Opts.Set(types.OptionDropNotify, true)
 	daemonConf.OptsMU.Unlock()
 	daemonConf.Device = "undefined"
+
+	err = daemonConf.SetKVBackend()
+	c.Assert(err, IsNil)
 
 	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")
 	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "join_ep.sh"), d1, 0755)
