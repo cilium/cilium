@@ -29,6 +29,7 @@ sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-net
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-socket-proxy.conf /etc/init/
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-consul.conf /etc/init/
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-policy-watcher.conf /etc/init/
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-etcd.conf /etc/init/
 sudo rm -rf /var/log/upstart/cilium-*
 
 sudo usermod -a -G cilium vagrant
