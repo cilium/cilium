@@ -229,10 +229,8 @@ func (d *Daemon) init() error {
 			log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 			return err
 		}
-	}
 
-	// Clean all lb entries
-	if d.conf.LBMode {
+		// Clean all lb entries
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
 			return err
 		}

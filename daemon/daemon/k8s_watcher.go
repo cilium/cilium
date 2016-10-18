@@ -219,10 +219,6 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 }
 
 func (d *Daemon) syncLB(newSN, modSN, delSN *types.ServiceNamespace) {
-	if !d.conf.LBMode {
-		return
-	}
-
 	log.Debugf("newns %+v, modns %+v, delns %+v", newSN, modSN, delSN)
 
 	deleteSN := func(delSN types.ServiceNamespace) {
