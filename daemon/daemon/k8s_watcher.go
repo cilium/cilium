@@ -77,8 +77,11 @@ func (d *Daemon) EnableK8sWatcher(resyncPeriod time.Duration) error {
 }
 
 func (d *Daemon) policyAddFn(obj interface{}) {
-	log.Debugf("New policy %+v", obj)
-	nodePath, pn, err := types.K8sNP2CP(obj.(*v1beta1.NetworkPolicy))
+	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	if !ok {
+		return
+	}
+	nodePath, pn, err := types.K8sNP2CP(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
@@ -96,7 +99,11 @@ func (d *Daemon) policyModFn(oldObj interface{}, newObj interface{}) {
 }
 
 func (d *Daemon) policyDelFn(obj interface{}) {
-	nodePath, pn, err := types.K8sNP2CP(obj.(*v1beta1.NetworkPolicy))
+	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	if !ok {
+		return
+	}
+	nodePath, pn, err := types.K8sNP2CP(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
@@ -109,7 +116,10 @@ func (d *Daemon) policyDelFn(obj interface{}) {
 }
 
 func (d *Daemon) serviceAddFn(obj interface{}) {
-	svc := obj.(*v1.Service)
+	svc, ok := obj.(*v1.Service)
+	if !ok {
+		return
+	}
 	log.Debugf("Service %+v", svc)
 
 	d.loadBalancer.ServicesMU.Lock()
@@ -144,17 +154,21 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 	d.syncLB(&svcns, nil, nil)
 }
 
-func (d *Daemon) serviceModFn(oldObj interface{}, newObj interface{}) {
-	oldSvc := oldObj.(*v1.Service)
-	newSvc := newObj.(*v1.Service)
-	log.Debugf("Old Service %+v", oldSvc)
-	log.Debugf("New Service %+v", newSvc)
+func (d *Daemon) serviceModFn(_ interface{}, newObj interface{}) {
+	newSvc, ok := newObj.(*v1.Service)
+	if !ok {
+		return
+	}
+	log.Debugf("Service %+v", newSvc)
 
 	d.serviceAddFn(newObj)
 }
 
 func (d *Daemon) serviceDelFn(obj interface{}) {
-	svc := obj.(*v1.Service)
+	svc, ok := obj.(*v1.Service)
+	if !ok {
+		return
+	}
 	log.Debugf("Service %+v", svc)
 
 	svcns := &types.ServiceNamespace{
@@ -166,7 +180,10 @@ func (d *Daemon) serviceDelFn(obj interface{}) {
 }
 
 func (d *Daemon) endpointAddFn(obj interface{}) {
-	ep := obj.(*v1.Endpoints)
+	ep, ok := obj.(*v1.Endpoints)
+	if !ok {
+		return
+	}
 	log.Debugf("Endpoint %+v", ep)
 
 	d.loadBalancer.ServicesMU.Lock()
@@ -197,17 +214,21 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 	d.syncLB(&svcns, nil, nil)
 }
 
-func (d *Daemon) endpointModFn(oldObj interface{}, newObj interface{}) {
-	oldEp := oldObj.(*v1.Endpoints)
-	newEp := newObj.(*v1.Endpoints)
-	log.Debugf("Old Endpoint %+v", oldEp)
-	log.Debugf("New Endpoint %+v", newEp)
+func (d *Daemon) endpointModFn(_ interface{}, newObj interface{}) {
+	newEp, ok := newObj.(*v1.Endpoints)
+	if !ok {
+		return
+	}
+	log.Debugf("Endpoint %+v", newEp)
 
 	d.endpointAddFn(newObj)
 }
 
 func (d *Daemon) endpointDelFn(obj interface{}) {
-	ep := obj.(*v1.Endpoints)
+	ep, ok := obj.(*v1.Endpoints)
+	if !ok {
+		return
+	}
 	log.Debugf("Endpoint %+v", ep)
 
 	svcns := &types.ServiceNamespace{
