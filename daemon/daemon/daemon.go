@@ -229,34 +229,37 @@ func (d *Daemon) init() error {
 			log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
 			return err
 		}
-	}
 
-	// Clean all lb entries
-	if d.conf.LBMode {
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if err := lbmap.Service6Map.DeleteAll(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
 			return err
 		}
-		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-			return err
+		// Clean all lb entries
+		if !d.conf.RestoreState {
+			if err := lbmap.Service6Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+				return err
+			}
 		}
 		if d.conf.IPv4Enabled {
 			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 				return err
 			}
-			if err := lbmap.Service4Map.DeleteAll(); err != nil {
-				return err
-			}
 			if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
 				return err
 			}
-			if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
-				return err
+			// Clean all lb entries
+			if !d.conf.RestoreState {
+				if err := lbmap.Service4Map.DeleteAll(); err != nil {
+					return err
+				}
+				if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
+					return err
+				}
 			}
 		}
 	}
