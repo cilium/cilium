@@ -18,4 +18,3 @@ clean:
 
 install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	cp $(TARGET) ${GOPATH}/bin

@@ -20,4 +20,3 @@ install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d
 	$(INSTALL) -m 0644 -T ../contrib/autocomplete/bash_autocomplete $(DESTDIR)$(CONFDIR)/bash_completion.d/cilium
-	cp $(TARGET) ${GOPATH}/bin
