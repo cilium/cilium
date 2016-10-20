@@ -4,22 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/coreos/pkg/capnslog"
 	"github.com/coreos/pkg/timeutil"
 	"github.com/jonboulle/clockwork"
 
 	phttp "github.com/coreos/go-oidc/http"
 	"github.com/coreos/go-oidc/oauth2"
-)
-
-var (
-	log = capnslog.NewPackageLogger("github.com/coreos/go-oidc", "http")
 )
 
 const (
@@ -547,8 +543,6 @@ func (s *ProviderConfigSyncer) sync() (time.Duration, error) {
 		s.initialSyncDone = true
 	}
 
-	log.Debugf("Updating provider config: config=%#v", cfg)
-
 	return nextSyncAfter(cfg.ExpiresAt, s.clock), nil
 }
 
@@ -571,10 +565,9 @@ func (n *pcsStepNext) step(fn pcsStepFunc) (next pcsStepper) {
 	ttl, err := fn()
 	if err == nil {
 		next = &pcsStepNext{aft: ttl}
-		log.Debugf("Synced provider config, next attempt in %v", next.after())
 	} else {
 		next = &pcsStepRetry{aft: time.Second}
-		log.Errorf("Provider config sync failed, retrying in %v: %v", next.after(), err)
+		log.Printf("go-oidc: provider config sync falied, retyring in %v: %v", next.after(), err)
 	}
 	return
 }
@@ -591,10 +584,9 @@ func (r *pcsStepRetry) step(fn pcsStepFunc) (next pcsStepper) {
 	ttl, err := fn()
 	if err == nil {
 		next = &pcsStepNext{aft: ttl}
-		log.Infof("Provider config sync no longer failing")
 	} else {
 		next = &pcsStepRetry{aft: timeutil.ExpBackoff(r.aft, time.Minute)}
-		log.Errorf("Provider config sync still failing, retrying in %v: %v", next.after(), err)
+		log.Printf("go-oidc: provider config sync falied, retyring in %v: %v", next.after(), err)
 	}
 	return
 }

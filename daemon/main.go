@@ -32,6 +32,7 @@ import (
 	s "github.com/cilium/cilium/daemon/server"
 
 	"github.com/codegangsta/cli"
+	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
 )
@@ -45,6 +46,7 @@ var (
 	disablePolicy      bool
 	enableTracing      bool
 	enableLogstash     bool
+	etcdAddr           cli.StringSlice
 	labelPrefixFile    string
 	logstashAddr       string
 	logstashProbeTimer int
@@ -73,9 +75,8 @@ func init() {
 				Flags: []cli.Flag{
 					cli.StringFlag{
 						Destination: &consulAddr,
-						Name:        "consul-agent, c",
-						Value:       "127.0.0.1:8500",
-						Usage:       "Consul agent address",
+						Name:        "consul-server, c",
+						Usage:       "Consul agent address [127.0.0.1:8500]",
 					},
 					cli.StringFlag{
 						Destination: &config.Device,
@@ -98,6 +99,16 @@ func init() {
 						Name:        "e",
 						Value:       "unix:///var/run/docker.sock",
 						Usage:       "Register a listener for docker events on the given endpoint",
+					},
+					cli.StringSliceFlag{
+						Value: &etcdAddr,
+						Name:  "etcd-servers",
+						Usage: "Etcd agent address [http://127.0.0.1:2379]",
+					},
+					cli.StringFlag{
+						Destination: &config.EtcdCfgPath,
+						Name:        "etcd-config-path",
+						Usage:       "Absolute path to the etcd configuration file",
 					},
 					cli.BoolFlag{
 						Destination: &enableTracing,
@@ -237,7 +248,6 @@ func statusDaemon(ctx *cli.Context) {
 	} else {
 		client, err = cnc.NewClient(host, nil)
 	}
-
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
 		os.Exit(1)
@@ -248,11 +258,11 @@ func statusDaemon(ctx *cli.Context) {
 		os.Exit(1)
 	} else {
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-
-		fmt.Fprintf(w, "Consul:\t%s\n", sr.Consul)
+		fmt.Fprintf(w, "KVStore:\t%s\n", sr.KVStore)
 		fmt.Fprintf(w, "Docker:\t%s\n", sr.Docker)
 		fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes)
 		fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium)
+		w.Flush()
 		os.Exit(int(sr.Cilium.Code))
 	}
 }
@@ -389,9 +399,21 @@ func initEnv(ctx *cli.Context) error {
 }
 
 func run(cli *cli.Context) {
-	consulDefaultAPI := consulAPI.DefaultConfig()
-	consulDefaultAPI.Address = consulAddr
-	config.ConsulConfig = consulDefaultAPI
+	if consulAddr != "" {
+		consulDefaultAPI := consulAPI.DefaultConfig()
+		consulSplitAddr := strings.Split(consulAddr, "://")
+		if len(consulSplitAddr) == 2 {
+			consulAddr = consulSplitAddr[1]
+		} else if len(consulSplitAddr) == 1 {
+			consulAddr = consulSplitAddr[0]
+		}
+		consulDefaultAPI.Address = consulAddr
+		config.ConsulConfig = consulDefaultAPI
+	}
+	if len(etcdAddr.Value()) != 0 && config.EtcdCfgPath == "" {
+		config.EtcdConfig = &etcdAPI.Config{}
+		config.EtcdConfig.Endpoints = etcdAddr.Value()
+	}
 
 	d, err := daemon.NewDaemon(config)
 	if err != nil {

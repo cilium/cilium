@@ -17,7 +17,6 @@ package integration
 
 import (
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,10 +29,6 @@ import (
 	cns "github.com/cilium/cilium/daemon/server"
 
 	. "gopkg.in/check.v1"
-)
-
-var (
-	EpAddr = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0x11, 0x12}
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -71,6 +66,9 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	daemonConf.Opts.Set(types.OptionDropNotify, true)
 	daemonConf.OptsMU.Unlock()
 	daemonConf.Device = "undefined"
+
+	err = daemonConf.SetKVBackend()
+	c.Assert(err, IsNil)
 
 	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")
 	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "join_ep.sh"), d1, 0755)
