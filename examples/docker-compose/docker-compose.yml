@@ -2,7 +2,7 @@ version: '2'
 services:
   cilium:
     image: cilium/cilium:cilium-ubuntu-16-04
-    command: cilium -D daemon run -d ${IFACE} --ui
+    command: cilium -D daemon run --ipv4 -d ${IFACE} --ui
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium

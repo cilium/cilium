@@ -16,7 +16,7 @@ If you want to install the dependencies manually, you need:
 
 ### Download docker-compose.yml
 
-Download the `docker-compose.yml` [here](docker-compose.yml).
+Download the `docker-compose.yml` [here](https://raw.githubusercontent.com/cilium/cilium/master/examples/docker-compose/docker-compose.yml).
 
 ### Vagrant users: Stop existing cilium and consul instance
 
@@ -53,7 +53,7 @@ $ docker run -d --name bar --net cilium --label io.cilium.service.bar noironetwo
 $ docker run -d --name client --net cilium --label io.cilium.service.client noironetworks/nettools sleep 30000
 ```
 
-### Open your browser on the IP address where you are running cilium on port 8080
+### Open your browser on the IP address of the interface where you're running cilium on port 8080
 
 ![Cilium dashboard](cilium-docker-1.png)
 
@@ -78,7 +78,7 @@ container `wine`.
 ### Insert a valid policy into the daemon
 
 Go to the browser again and open the policy tab. Choose the policy file provided
-[here](docker.policy) and upload it.
+[here](https://raw.githubusercontent.com/cilium/cilium/master/examples/docker-compose/docker.policy) and upload it.
 
 ![Cilium dashboard](cilium-docker-3.png)
 
