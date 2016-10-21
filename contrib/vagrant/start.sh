@@ -89,7 +89,11 @@ function write_footer() {
     fi
 
     if [ -n "${K8S}" ]; then
-        k8s_options="--lb -k http://[f00d::c0a8:210b:0:ffff]:8080 "
+        if [ -n "${IPV4}" ] && [ "${IPV4}" -ne "0" ]; then
+            k8s_options="-k http://10.1.0.1:8080 "
+        else
+            k8s_options="-k http://[f00d::c0a8:210b:0:ffff]:8080 "
+        fi
     fi
 
     if [ "$LB" = 1 ] && [ "$index" = 1 ]; then
