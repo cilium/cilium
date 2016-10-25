@@ -30,6 +30,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"syscall"
 )
 
 type MapType int
@@ -93,9 +94,8 @@ type MapInfo struct {
 
 type Map struct {
 	MapInfo
-	fd     int
-	path   string
-	isOpen bool
+	fd   int
+	path string
 }
 
 func NewMap(path string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
@@ -106,8 +106,7 @@ func NewMap(path string, mapType MapType, keySize int, valueSize int, maxEntries
 			ValueSize:  uint32(valueSize),
 			MaxEntries: uint32(maxEntries),
 		},
-		path:   path,
-		isOpen: false,
+		path: path,
 	}
 }
 
@@ -171,30 +170,44 @@ func OpenMap(path string) (*Map, error) {
 		MapInfo: *info,
 		fd:      fd,
 		path:    path,
-		isOpen:  true,
 	}, nil
 }
 
 func (m *Map) OpenOrCreate() (bool, error) {
+	if m.fd != 0 {
+		return false, nil
+	}
+
 	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries)
 	if err != nil {
 		return false, err
 	}
 
 	m.fd = fd
-	m.isOpen = true
 
 	return isNew, nil
 }
 
 func (m *Map) Open() error {
+	if m.fd != 0 {
+		return nil
+	}
+
 	fd, err := ObjGet(m.path)
 	if err != nil {
 		return err
 	}
 
 	m.fd = fd
-	m.isOpen = true
+
+	return nil
+}
+
+func (m *Map) Close() error {
+	if m.fd != 0 {
+		syscall.Close(m.fd)
+		m.fd = 0
+	}
 
 	return nil
 }
@@ -207,7 +220,7 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 	nextKey := make([]byte, m.KeySize)
 	value := make([]byte, m.ValueSize)
 
-	if !m.isOpen {
+	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
 		}
@@ -252,7 +265,7 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	value := key.NewValue()
 
-	if !m.isOpen {
+	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return nil, err
 		}
@@ -267,7 +280,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 }
 
 func (m *Map) Update(key MapKey, value MapValue) error {
-	if !m.isOpen {
+	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
 		}
@@ -277,7 +290,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 }
 
 func (m *Map) Delete(key MapKey) error {
-	if !m.isOpen {
+	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
 		}
@@ -293,7 +306,7 @@ func (m *Map) DeleteAll() error {
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 
-	if !m.isOpen {
+	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
 		}
