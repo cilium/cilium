@@ -118,8 +118,8 @@ Vagrant.configure(2) do |config|
 
     config.vm.provider "virtualbox" do |vb|
         config.vm.box = "noironetworks/net-next"
-        vb.memory = "5120"
-        vb.cpus = 8
+        vb.memory = "3072"
+        vb.cpus = 2
 
         if ENV["NFS"] then
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
