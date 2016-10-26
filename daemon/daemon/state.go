@@ -97,17 +97,12 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	}
 
 	for _, ep := range eps {
-		var err error
-		if ep.IsCNI() {
-			_, err = d.AllocateIP(ipam.CNIIPAMType, ep.IPv6.IPAMReq())
-		} else if ep.IsLibnetwork() {
-			_, err = d.AllocateIP(ipam.LibnetworkIPAMType, ep.IPv6.IPAMReq())
+		if err := d.allocateIPs(&ep); err != nil {
+			log.Errorf("Failed while reallocating ep %d's IP addresses: %s. Endpoint won't be restored", ep.ID, err)
+			d.EndpointLeave(ep.ID)
+			continue
 		}
-		if err != nil {
-			log.Warningf("Failed while reallocating ep %d's IP address: %s", ep.ID, err)
-		} else {
-			log.Infof("EP %d's IP successfully reallocated", ep.ID)
-		}
+		log.Infof("EP %d's IP addresses successfully reallocated", ep.ID)
 		err = d.EndpointUpdate(ep.ID, nil)
 		if err != nil {
 			log.Warningf("Failed while updating ep %d: %s", ep.ID, err)
@@ -119,6 +114,51 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		}
 	}
 
+	return nil
+}
+
+func (d *Daemon) allocateIPs(ep *types.Endpoint) error {
+	allocateIP := func(ep *types.Endpoint, ipamReq ipam.IPAMReq) (resp *ipam.IPAMRep, err error) {
+		if ep.IsCNI() {
+			resp, err = d.AllocateIP(ipam.CNIIPAMType, ipamReq)
+		} else if ep.IsLibnetwork() {
+			resp, err = d.AllocateIP(ipam.LibnetworkIPAMType, ipamReq)
+		}
+		return
+	}
+	releaseIP := func(ep *types.Endpoint, ipamReq ipam.IPAMReq) (err error) {
+		if ep.IsCNI() {
+			err = d.ReleaseIP(ipam.CNIIPAMType, ipamReq)
+		} else if ep.IsLibnetwork() {
+			err = d.ReleaseIP(ipam.LibnetworkIPAMType, ipamReq)
+		}
+		return
+	}
+
+	_, err := allocateIP(ep, ep.IPv6.IPAMReq())
+	if err != nil {
+		// TODO if allocation failed reallocate a new IP address and setup veth
+		// pair accordingly
+		return fmt.Errorf("unable to reallocate IPv6 address: %s", err)
+	} else {
+		log.Infof("EP %d's IPv6 successfully reallocated", ep.ID)
+	}
+	defer func(ep *types.Endpoint) {
+		if err != nil {
+			releaseIP(ep, ep.IPv6.IPAMReq())
+		}
+	}(ep)
+
+	if d.conf.IPv4Enabled {
+		if ep.IPv4 != nil {
+			_, err := allocateIP(ep, ep.IPv4.IPAMReq())
+			if err != nil {
+				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)
+			} else {
+				log.Infof("EP %d's IPv4 successfully reallocated", ep.ID)
+			}
+		}
+	}
 	return nil
 }
 
@@ -137,7 +177,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*types.Endpoi
 			}
 			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
 			if cHeaderFile == "" {
-				log.Infof("File %q not found in %q. Ignoring endpoint %d.",
+				log.Infof("File %q not found in %q. Ignoring endpoint %s.",
 					common.CHeaderFileName, epDir, epID)
 				return ""
 			}
