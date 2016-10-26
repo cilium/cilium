@@ -402,6 +402,20 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 		lnRoutes = append(lnRoutes, lnRoute)
 	}
+	if rep.IPAMConfig.IP4 != nil {
+		for _, route := range rep.IPAMConfig.IP4.Routes {
+			nh := ""
+			if route.IsL3() {
+				nh = route.NextHop.String()
+			}
+			lnRoute := api.StaticRoute{
+				Destination: route.Destination.String(),
+				RouteType:   route.Type,
+				NextHop:     nh,
+			}
+			lnRoutes = append(lnRoutes, lnRoute)
+		}
+	}
 
 	res := &api.JoinResponse{
 		GatewayIPv6:           rep.IPAMConfig.IP6.Gateway.String(),
@@ -410,6 +424,15 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		DisableGatewayService: true,
 	}
 
+	// FIXME? Having the following code results on a runtime error: docker: Error
+	// response from daemon: oci runtime error: process_linux.go:334: running prestart
+	// hook 0 caused "exit status 1: time=\"2016-10-26T06:33:17-07:00\" level=fatal
+	// msg=\"failed to set gateway while updating gateway: file exists\" \n"
+	//
+	// If empty, it works as expected without docker runtime errors
+	// if rep.IPAMConfig.IP4 != nil {
+	//	res.Gateway = rep.IPAMConfig.IP4.Gateway.String()
+	// }
 	log.Debugf("Join response: %+v", res)
 	objectResponse(w, res)
 }
