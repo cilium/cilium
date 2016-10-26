@@ -26,23 +26,30 @@ import (
 )
 
 // allocateIPCNI allocates an IP for the CNI plugin.
-func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMRep, error) {
-	ipamConf.AllocatorMutex.Lock()
-	defer ipamConf.AllocatorMutex.Unlock()
+func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq) (*ipam.IPAMRep, error) {
+	d.ipamConf.AllocatorMutex.Lock()
+	defer d.ipamConf.AllocatorMutex.Unlock()
 
 	if cniReq.IP != nil {
-		err := ipamConf.IPv6Allocator.Allocate(*cniReq.IP)
+		var err error
+		if cniReq.IP.To4() != nil {
+			if d.conf.IPv4Enabled {
+				err = d.ipamConf.IPv4Allocator.Allocate(*cniReq.IP)
+			}
+		} else {
+			err = d.ipamConf.IPv6Allocator.Allocate(*cniReq.IP)
+		}
 		return nil, err
 	}
 
-	ipConf, err := ipamConf.IPv6Allocator.AllocateNext()
+	ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
 	if err != nil {
 		return nil, err
 	}
 
 	v6Routes := []ipam.Route{}
 	v4Routes := []ipam.Route{}
-	for _, r := range ipamConf.IPAMConfig.Routes {
+	for _, r := range d.ipamConf.IPAMConfig.Routes {
 		rt := ipam.NewRoute(r.Dst, r.GW)
 		if r.Dst.IP.To4() == nil {
 			v6Routes = append(v6Routes, *rt)
@@ -59,12 +66,12 @@ func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (
 		},
 	}
 
-	if ipamConf.IPv4Allocator != nil {
-		ip4Conf, err := ipamConf.IPv4Allocator.AllocateNext()
+	if d.ipamConf.IPv4Allocator != nil {
+		ip4Conf, err := d.ipamConf.IPv4Allocator.AllocateNext()
 		if err != nil {
 			return nil, err
 		}
-		if ipamConf.IPv4Allocator != nil {
+		if d.ipamConf.IPv4Allocator != nil {
 			ipamRep.IP4 = &ipam.IPConfig{
 				Gateway: d.conf.NodeAddress.IPv4Address.IP(),
 				IP:      net.IPNet{IP: ip4Conf, Mask: addressing.ContainerIPv4Mask},
@@ -76,27 +83,42 @@ func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (
 }
 
 // releaseIPCNI releases an IP for the CNI plugin.
-func releaseIPCNI(cniReq ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
-	ipamConf.AllocatorMutex.Lock()
-	defer ipamConf.AllocatorMutex.Unlock()
-
-	return ipamConf.IPv6Allocator.Release(*cniReq.IP)
+func (d *Daemon) releaseIPCNI(cniReq ipam.IPAMReq) error {
+	d.ipamConf.AllocatorMutex.Lock()
+	defer d.ipamConf.AllocatorMutex.Unlock()
+	if cniReq.IP != nil {
+		if cniReq.IP.To4() != nil {
+			if d.conf.IPv4Enabled {
+				return d.ipamConf.IPv4Allocator.Release(*cniReq.IP)
+			}
+		} else {
+			return d.ipamConf.IPv6Allocator.Release(*cniReq.IP)
+		}
+	}
+	return nil
 }
 
 // allocateIPLibnetwork allocates an IP for the libnetwork plugin.
-func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPAMRep, error) {
-	ipamConf.AllocatorMutex.Lock()
-	defer ipamConf.AllocatorMutex.Unlock()
+func (d *Daemon) allocateIPLibnetwork(ln ipam.IPAMReq) (*ipam.IPAMRep, error) {
+	d.ipamConf.AllocatorMutex.Lock()
+	defer d.ipamConf.AllocatorMutex.Unlock()
 
 	if ln.IP != nil {
-		err := ipamConf.IPv6Allocator.Allocate(*ln.IP)
+		var err error
+		if ln.IP.To4() != nil {
+			if d.conf.IPv4Enabled {
+				err = d.ipamConf.IPv4Allocator.Allocate(*ln.IP)
+			}
+		} else {
+			err = d.ipamConf.IPv6Allocator.Allocate(*ln.IP)
+		}
 		return nil, err
 	}
 
 	switch ln.RequestAddressRequest.PoolID {
 	case ipam.LibnetworkDefaultPoolV4:
-		if ipamConf.IPv4Allocator != nil {
-			ipConf, err := ipamConf.IPv4Allocator.AllocateNext()
+		if d.ipamConf.IPv4Allocator != nil {
+			ipConf, err := d.ipamConf.IPv4Allocator.AllocateNext()
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +132,7 @@ func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPA
 		}
 		return &ipam.IPAMRep{}, nil
 	case ipam.LibnetworkDefaultPoolV6:
-		ipConf, err := ipamConf.IPv6Allocator.AllocateNext()
+		ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
 		if err != nil {
 			return nil, err
 		}
@@ -129,27 +151,33 @@ func allocateIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) (*ipam.IPA
 }
 
 // releaseIPLibnetwork releases an IP for the libnetwork plugin.
-func (d *Daemon) releaseIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig) error {
+func (d *Daemon) releaseIPLibnetwork(ln ipam.IPAMReq) error {
 	log.Debugf("%+v", ln)
 
-	ipamConf.AllocatorMutex.Lock()
-	defer ipamConf.AllocatorMutex.Unlock()
+	d.ipamConf.AllocatorMutex.Lock()
+	defer d.ipamConf.AllocatorMutex.Unlock()
 
 	if ln.IP != nil {
-		return ipamConf.IPv6Allocator.Release(*ln.IP)
+		if ln.IP.To4() != nil {
+			if d.conf.IPv4Enabled {
+				return d.ipamConf.IPv4Allocator.Release(*ln.IP)
+			}
+		} else {
+			return d.ipamConf.IPv6Allocator.Release(*ln.IP)
+		}
 	}
 
 	switch ln.ReleaseAddressRequest.PoolID {
 	case ipam.LibnetworkDefaultPoolV4:
 		if d.conf.IPv4Enabled {
 			ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
-			return ipamConf.IPv4Allocator.Release(ip)
+			return d.ipamConf.IPv4Allocator.Release(ip)
 		} else {
 			return nil
 		}
 	case ipam.LibnetworkDefaultPoolV6:
 		ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
-		return ipamConf.IPv6Allocator.Release(ip)
+		return d.ipamConf.IPv6Allocator.Release(ip)
 	}
 	return nil
 }
@@ -159,9 +187,9 @@ func (d *Daemon) releaseIPLibnetwork(ln ipam.IPAMReq, ipamConf *ipam.IPAMConfig)
 func (d *Daemon) AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMRep, error) {
 	switch ipamType {
 	case ipam.CNIIPAMType:
-		return d.allocateIPCNI(options, d.ipamConf)
+		return d.allocateIPCNI(options)
 	case ipam.LibnetworkIPAMType:
-		return allocateIPLibnetwork(options, d.ipamConf)
+		return d.allocateIPLibnetwork(options)
 	}
 	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
 }
@@ -174,9 +202,9 @@ func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
 
 	switch ipamType {
 	case ipam.CNIIPAMType:
-		return releaseIPCNI(options, d.ipamConf)
+		return d.releaseIPCNI(options)
 	case ipam.LibnetworkIPAMType:
-		return d.releaseIPLibnetwork(options, d.ipamConf)
+		return d.releaseIPLibnetwork(options)
 	}
 	return fmt.Errorf("unknown IPAM Type %s", ipamType)
 }
@@ -208,20 +236,39 @@ func (d *Daemon) getIPAMConfLibnetwork(ln ipam.IPAMReq) (*ipam.IPAMConfigRep, er
 		}, nil
 	}
 
-	ciliumRoutes := []ipam.Route{}
+	ciliumV6Routes := []ipam.Route{}
 	for _, r := range d.ipamConf.IPAMConfig.Routes {
-		ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
-		ciliumRoutes = append(ciliumRoutes, *ciliumRoute)
+		if r.Dst.IP.To4() == nil {
+			ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
+			ciliumV6Routes = append(ciliumV6Routes, *ciliumRoute)
+		}
 	}
 
-	return &ipam.IPAMConfigRep{
+	rep := &ipam.IPAMConfigRep{
 		IPAMConfig: &ipam.IPAMRep{
 			IP6: &ipam.IPConfig{
 				Gateway: d.ipamConf.IPAMConfig.Gateway,
-				Routes:  ciliumRoutes,
+				Routes:  ciliumV6Routes,
 			},
 		},
-	}, nil
+	}
+
+	if d.conf.IPv4Enabled {
+		ciliumV4Routes := []ipam.Route{}
+		for _, r := range d.ipamConf.IPAMConfig.Routes {
+			if r.Dst.IP.To4() != nil {
+				ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
+				ciliumV4Routes = append(ciliumV4Routes, *ciliumRoute)
+			}
+		}
+
+		rep.IPAMConfig.IP4 = &ipam.IPConfig{
+			Gateway: d.conf.NodeAddress.IPv4Address.IP(),
+			Routes:  ciliumV4Routes,
+		}
+	}
+
+	return rep, nil
 }
 
 // GetIPAMConf returns the IPAM configuration details of the given IPAM type.
