@@ -111,15 +111,15 @@ Vagrant.configure(2) do |config|
 
     config.vm.provider :libvirt do |libvirt|
         config.vm.box = "noironetworks/net-next"
-        libvirt.memory = 5120
-        libvirt.cpus = 8
+        libvirt.memory = ENV['VM_MEMORY']
+        libvirt.cpus = ENV['VM_CPUS']
         config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
     end
 
     config.vm.provider "virtualbox" do |vb|
         config.vm.box = "noironetworks/net-next"
-        vb.memory = "3072"
-        vb.cpus = 2
+        vb.memory = ENV['VM_MEMORY']
+        vb.cpus = ENV['VM_CPUS']
 
         if ENV["NFS"] then
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
