@@ -55,6 +55,9 @@ func (r *Router) initBackendRoutes() {
 			"EndpointGetByDockerEPID", "GET", "/endpoint-by-docker-ep-id/{dockerEPID}", r.endpointGetByDockerEPID,
 		},
 		route{
+			"EndpointGetByDockerID", "GET", "/endpoint-by-docker-id/{dockerID}", r.endpointGetByDockerID,
+		},
+		route{
 			"EndpointsGet", "GET", "/endpoints", r.endpointsGet,
 		},
 		route{

@@ -30,6 +30,7 @@ type bpfBackend interface {
 	EndpointLeaveByDockerEPID(dockerEPID string) error
 	EndpointGet(epID uint16) (*types.Endpoint, error)
 	EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error)
+	EndpointGetByDockerID(dockerID string) (*types.Endpoint, error)
 	EndpointsGet() ([]types.Endpoint, error)
 	EndpointUpdate(epID uint16, opts types.OptionMap) error
 	EndpointSave(ep types.Endpoint) error
