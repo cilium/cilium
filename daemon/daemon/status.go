@@ -59,5 +59,7 @@ func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
 	// TODO Create a logstash status in its runnable function
 	//Logstash   Status `json:"logstash"`
 
+	sr.IPAMStatus = d.DumpIPAM()
+
 	return &sr, nil
 }
