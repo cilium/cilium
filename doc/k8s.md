@@ -34,6 +34,12 @@ Otherwise you need to disable the local kube-proxy and start the kubernetes apis
 with the `--service-cluster-ip-range="f00d:1::/112"`. You can choose your own IPv6
 prefix, but keep the mask to `/112` or bigger (>=112).
 
+**Important note**: The `service-cluster-ip-range` can't be used with IPv6 addresses at
+the same time cilium daemon is running with `--ipv4` flag. If cilium is running with
+`--ipv4` flag set, the `service-cluster-ip-range` must be an IPv4 range. This should be
+fixed once kubernetes supports multiple IP addresses on the same POD,
+[kubernetes#27398](https://github.com/kubernetes/kubernetes/issues/27398).
+
 Also, since kubernetes `v1.3.5` the user needs to install the `loopback` cni plugin from
 the [containernetworking repo](https://github.com/containernetworking/cni/releases/tag/v0.3.0).
 If you are using the vagrant box with the Vagrantfile that we provide in our repo you
