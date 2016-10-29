@@ -24,13 +24,13 @@ import (
 	"github.com/cilium/cilium/common/types"
 )
 
-func (d *Daemon) updateServiceL4IDRef(serviceID uint16, svcl4ID types.ServiceL4ID) error {
+func (d *Daemon) updateServiceL4IDRef(serviceID uint16, svcl4ID types.L3n4AddrID) error {
 	key := path.Join(common.ServiceIDKeyPath, strconv.FormatUint(uint64(serviceID), 10))
 	return d.kvClient.SetValue(key, svcl4ID)
 }
 
 // gasNewServiceL4ID gets and sets a New ServiceL4 ID.
-func (d *Daemon) gasNewServiceL4ID(svcl4 *types.ServiceL4ID) error {
+func (d *Daemon) gasNewServiceL4ID(svcl4 *types.L3n4AddrID) error {
 	baseID, err := d.GetMaxServiceID()
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (d *Daemon) gasNewServiceL4ID(svcl4 *types.ServiceL4ID) error {
 
 // PutServiceL4 stores the given service in the kvstore and returns the ServiceL4ID
 // created for the given servicel4.
-func (d *Daemon) PutServiceL4(svcl4 types.ServiceL4) (*types.ServiceL4ID, error) {
+func (d *Daemon) PutServiceL4(svcl4 types.L3n4Addr) (*types.L3n4AddrID, error) {
 	log.Debugf("Resolving service %+v", svcl4)
 
 	// Retrieve unique SHA256Sum for service
@@ -64,14 +64,14 @@ func (d *Daemon) PutServiceL4(svcl4 types.ServiceL4) (*types.ServiceL4ID, error)
 		return nil, err
 	}
 
-	sl4KV := types.ServiceL4ID{}
+	sl4KV := types.L3n4AddrID{}
 	if rmsg != nil {
 		if err := json.Unmarshal(rmsg, &sl4KV); err != nil {
 			return nil, err
 		}
 	}
-	if sl4KV.ServiceID == 0 {
-		sl4KV.ServiceL4 = svcl4
+	if sl4KV.ID == 0 {
+		sl4KV.L3n4Addr = svcl4
 		if err := d.gasNewServiceL4ID(&sl4KV); err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func (d *Daemon) PutServiceL4(svcl4 types.ServiceL4) (*types.ServiceL4ID, error)
 	return &sl4KV, err
 }
 
-func (d *Daemon) getServiceL4ID(keyPath string) (*types.ServiceL4ID, error) {
+func (d *Daemon) getServiceL4ID(keyPath string) (*types.L3n4AddrID, error) {
 	rmsg, err := d.kvClient.GetValue(keyPath)
 	if err != nil {
 		return nil, err
@@ -90,21 +90,21 @@ func (d *Daemon) getServiceL4ID(keyPath string) (*types.ServiceL4ID, error) {
 		return nil, nil
 	}
 
-	var svcl4ID types.ServiceL4ID
-	if err := json.Unmarshal(rmsg, &svcl4ID); err != nil || svcl4ID.ServiceID == 0 {
+	var svcl4ID types.L3n4AddrID
+	if err := json.Unmarshal(rmsg, &svcl4ID); err != nil || svcl4ID.ID == 0 {
 		return nil, err
 	}
 	return &svcl4ID, nil
 }
 
 // GetServiceL4ID returns the ServiceL4ID that belongs to the given id.
-func (d *Daemon) GetServiceL4ID(id uint32) (*types.ServiceL4ID, error) {
+func (d *Daemon) GetServiceL4ID(id uint32) (*types.L3n4AddrID, error) {
 	strID := strconv.FormatUint(uint64(id), 10)
 	return d.getServiceL4ID(path.Join(common.ServiceIDKeyPath, strID))
 }
 
 // GetServiceL4IDBySHA256 returns the ServiceL4ID that have the given SHA256SUM.
-func (d *Daemon) GetServiceL4IDBySHA256(sha256sum string) (*types.ServiceL4ID, error) {
+func (d *Daemon) GetServiceL4IDBySHA256(sha256sum string) (*types.L3n4AddrID, error) {
 	return d.getServiceL4ID(path.Join(common.ServicesKeyPath, sha256sum))
 }
 
@@ -148,12 +148,12 @@ func (d *Daemon) DeleteServiceL4IDBySHA256(sha256Sum string) error {
 		return nil
 	}
 
-	var svcL4ID types.ServiceL4ID
+	var svcL4ID types.L3n4AddrID
 	if err := json.Unmarshal(rmsg, &svcL4ID); err != nil {
 		return err
 	}
-	oldSvcID := svcL4ID.ServiceID
-	svcL4ID.ServiceID = 0
+	oldSvcID := svcL4ID.ID
+	svcL4ID.ID = 0
 
 	// update the value in the kvstore
 	if err := d.updateServiceL4IDRef(uint16(oldSvcID), svcL4ID); err != nil {

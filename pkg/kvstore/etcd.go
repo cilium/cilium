@@ -298,10 +298,10 @@ func (e *EtcdClient) setMaxServiceL4ID(maxID uint32) error {
 
 // GASNewServiceL4ID gets the next available ServiceID and sets it in sl4. After assigning
 // the ServiceID to sl4 it sets the ServiceID + 1 in common.LastFreeServiceIDKeyPath path.
-func (e *EtcdClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.ServiceL4ID) error {
+func (e *EtcdClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.L3n4AddrID) error {
 	setID2ServiceL4 := func(id uint32) error {
-		sl4.ServiceID = types.ServiceID(id)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ServiceID), 10))
+		sl4.ID = types.ServiceID(id)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ID), 10))
 		if err := e.SetValue(keyPath, sl4); err != nil {
 			return err
 		}
@@ -325,11 +325,11 @@ func (e *EtcdClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *type
 		if value == nil {
 			return setID2ServiceL4(*incID)
 		}
-		var consulServiceL4ID types.ServiceL4ID
+		var consulServiceL4ID types.L3n4AddrID
 		if err := json.Unmarshal(value, &consulServiceL4ID); err != nil {
 			return err
 		}
-		if consulServiceL4ID.ServiceID == 0 {
+		if consulServiceL4ID.ID == 0 {
 			log.Infof("Recycling Service ID %d", *incID)
 			return setID2ServiceL4(*incID)
 		}

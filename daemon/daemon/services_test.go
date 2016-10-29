@@ -25,22 +25,22 @@ import (
 )
 
 var (
-	svc1 = types.ServiceL4{
-		IP:   net.IPv6loopback,
-		Port: 0,
+	svc1 = types.L3n4Addr{
+		IP:     net.IPv6loopback,
+		L4Addr: types.L4Addr{Port: 0},
 	}
-	svc2 = types.ServiceL4{
-		IP:   net.IPv6loopback,
-		Port: 1,
+	svc2 = types.L3n4Addr{
+		IP:     net.IPv6loopback,
+		L4Addr: types.L4Addr{Port: 1},
 	}
-	wantSvcL4ID = &types.ServiceL4ID{
-		ServiceID: 123,
-		ServiceL4: svc2,
+	wantSvcL4ID = &types.L3n4AddrID{
+		ID:       123,
+		L3n4Addr: svc2,
 	}
 )
 
 func (ds *DaemonSuite) TestServices(c *C) {
-	var nilSvcL4ID *types.ServiceL4ID
+	var nilSvcL4ID *types.L3n4AddrID
 	// Set up last free ID with zero
 	id, err := ds.d.GetMaxServiceID()
 	c.Assert(err, Equals, nil)
@@ -50,20 +50,20 @@ func (ds *DaemonSuite) TestServices(c *C) {
 
 	svcL4ID, err := ds.d.PutServiceL4(svc1)
 	c.Assert(err, Equals, nil)
-	c.Assert(svcL4ID.ServiceID, Equals, ffsIDu16)
+	c.Assert(svcL4ID.ID, Equals, ffsIDu16)
 
 	svcL4ID, err = ds.d.PutServiceL4(svc1)
 	c.Assert(err, Equals, nil)
-	c.Assert(svcL4ID.ServiceID, Equals, ffsIDu16)
+	c.Assert(svcL4ID.ID, Equals, ffsIDu16)
 
 	svcL4ID, err = ds.d.PutServiceL4(svc2)
 	c.Assert(err, Equals, nil)
-	c.Assert(svcL4ID.ServiceID, Equals, ffsIDu16+1)
+	c.Assert(svcL4ID.ID, Equals, ffsIDu16+1)
 
 	gotSvcL4ID, err := ds.d.GetServiceL4ID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
-	wantSvcL4ID.ServiceID = ffsIDu16
-	wantSvcL4ID.ServiceL4 = svc1
+	wantSvcL4ID.ID = ffsIDu16
+	wantSvcL4ID.L3n4Addr = svc1
 	c.Assert(gotSvcL4ID, DeepEquals, wantSvcL4ID)
 
 	err = ds.d.DeleteServiceL4IDByUUID(common.FirstFreeServiceID)
@@ -74,8 +74,8 @@ func (ds *DaemonSuite) TestServices(c *C) {
 
 	gotSvcL4ID, err = ds.d.GetServiceL4ID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
-	wantSvcL4ID.ServiceID = types.ServiceID(common.FirstFreeServiceID + 1)
-	wantSvcL4ID.ServiceL4 = svc2
+	wantSvcL4ID.ID = types.ServiceID(common.FirstFreeServiceID + 1)
+	wantSvcL4ID.L3n4Addr = svc2
 	c.Assert(gotSvcL4ID, DeepEquals, wantSvcL4ID)
 
 	err = ds.d.DeleteServiceL4IDByUUID(common.FirstFreeServiceID)
@@ -92,7 +92,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 
 	gotSvcL4ID, err = ds.d.PutServiceL4(svc2)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotSvcL4ID.ServiceID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotSvcL4ID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
 	sha256sum, err := svc2.SHA256Sum()
 	c.Assert(err, Equals, nil)
@@ -110,11 +110,11 @@ func (ds *DaemonSuite) TestServices(c *C) {
 
 	gotSvcL4ID, err = ds.d.PutServiceL4(svc2)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotSvcL4ID.ServiceID, Equals, ffsIDu16)
+	c.Assert(gotSvcL4ID.ID, Equals, ffsIDu16)
 
 	gotSvcL4ID, err = ds.d.PutServiceL4(svc1)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotSvcL4ID.ServiceID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+	c.Assert(gotSvcL4ID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 }
 
 func (ds *DaemonSuite) TestGetMaxServiceID(c *C) {

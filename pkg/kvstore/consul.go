@@ -278,12 +278,12 @@ func (c *ConsulClient) setMaxServiceL4ID(maxID uint32) error {
 	return c.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
 }
 
-func (c *ConsulClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.ServiceL4ID) error {
+func (c *ConsulClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.L3n4AddrID) error {
 
 	setID2ServiceL4 := func(lockPair *consulAPI.KVPair) error {
 		defer c.KV().Release(lockPair, nil)
-		sl4.ServiceID = types.ServiceID(baseID)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ServiceID), 10))
+		sl4.ID = types.ServiceID(baseID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ID), 10))
 		if err := c.SetValue(keyPath, sl4); err != nil {
 			return err
 		}
@@ -315,12 +315,12 @@ func (c *ConsulClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *ty
 			if svcKey == nil {
 				return setID2ServiceL4(lockPair)
 			}
-			var consulServiceL4ID types.ServiceL4ID
+			var consulServiceL4ID types.L3n4AddrID
 			if err := json.Unmarshal(svcKey.Value, &consulServiceL4ID); err != nil {
 				c.KV().Release(lockPair, nil)
 				return err
 			}
-			if consulServiceL4ID.ServiceID == 0 {
+			if consulServiceL4ID.ID == 0 {
 				log.Infof("Recycling Service ID %d", baseID)
 				return setID2ServiceL4(lockPair)
 			}

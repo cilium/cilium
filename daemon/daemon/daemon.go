@@ -348,8 +348,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	rootNode.Root.Path()
 
 	lb := &types.LoadBalancer{
-		Services:  map[types.ServiceNamespace]*types.ServiceInfo{},
-		Endpoints: map[types.ServiceNamespace]*types.ServiceEndpoint{},
+		K8sServices:  map[types.K8sServiceNamespace]*types.K8sServiceInfo{},
+		K8sEndpoints: map[types.K8sServiceNamespace]*types.K8sServiceEndpoint{},
 	}
 
 	d := Daemon{
