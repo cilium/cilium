@@ -292,20 +292,21 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabe
 	}
 }
 
-func (e *EtcdClient) setMaxServiceL4ID(maxID uint32) error {
+func (e *EtcdClient) setMaxL3n4AddrID(maxID uint32) error {
 	return e.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
 }
 
-// GASNewServiceL4ID gets the next available ServiceID and sets it in sl4. After assigning
-// the ServiceID to sl4 it sets the ServiceID + 1 in common.LastFreeServiceIDKeyPath path.
-func (e *EtcdClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.L3n4AddrID) error {
-	setID2ServiceL4 := func(id uint32) error {
-		sl4.ID = types.ServiceID(id)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ID), 10))
-		if err := e.SetValue(keyPath, sl4); err != nil {
+// GASNewL3n4AddrID gets the next available ServiceID and sets it in lAddrID. After
+// assigning the ServiceID to lAddrID it sets the ServiceID + 1 in
+// common.LastFreeServiceIDKeyPath path.
+func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
+	setIDtoL3n4Addr := func(id uint32) error {
+		lAddrID.ID = types.ServiceID(id)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
+		if err := e.SetValue(keyPath, lAddrID); err != nil {
 			return err
 		}
-		return e.setMaxServiceL4ID(id + 1)
+		return e.setMaxL3n4AddrID(id + 1)
 	}
 
 	acquireFreeID := func(firstID uint32, incID *uint32) error {
@@ -323,15 +324,15 @@ func (e *EtcdClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *type
 			return err
 		}
 		if value == nil {
-			return setID2ServiceL4(*incID)
+			return setIDtoL3n4Addr(*incID)
 		}
-		var consulServiceL4ID types.L3n4AddrID
-		if err := json.Unmarshal(value, &consulServiceL4ID); err != nil {
+		var consulL3n4AddrID types.L3n4AddrID
+		if err := json.Unmarshal(value, &consulL3n4AddrID); err != nil {
 			return err
 		}
-		if consulServiceL4ID.ID == 0 {
+		if consulL3n4AddrID.ID == 0 {
 			log.Infof("Recycling Service ID %d", *incID)
-			return setID2ServiceL4(*incID)
+			return setIDtoL3n4Addr(*incID)
 		}
 
 		*incID++

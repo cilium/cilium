@@ -37,7 +37,7 @@ type KVClient interface {
 	SetMaxID(key string, firstID, maxID uint32) error
 
 	GASNewSecLabelID(baseKeyPath string, baseID uint32, secCtxLabels *types.SecCtxLabel) error
-	GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.L3n4AddrID) error
+	GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error
 
 	DeleteTree(path string) error
 

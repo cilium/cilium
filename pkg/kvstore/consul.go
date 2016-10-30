@@ -274,20 +274,20 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLa
 	}
 }
 
-func (c *ConsulClient) setMaxServiceL4ID(maxID uint32) error {
+func (c *ConsulClient) setMaxL3n4AddrID(maxID uint32) error {
 	return c.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
 }
 
-func (c *ConsulClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *types.L3n4AddrID) error {
+func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
 
-	setID2ServiceL4 := func(lockPair *consulAPI.KVPair) error {
+	setIDtoL3n4Addr := func(lockPair *consulAPI.KVPair) error {
 		defer c.KV().Release(lockPair, nil)
-		sl4.ID = types.ServiceID(baseID)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(sl4.ID), 10))
-		if err := c.SetValue(keyPath, sl4); err != nil {
+		lAddrID.ID = types.ServiceID(baseID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
+		if err := c.SetValue(keyPath, lAddrID); err != nil {
 			return err
 		}
-		return c.setMaxServiceL4ID(baseID + 1)
+		return c.setMaxL3n4AddrID(baseID + 1)
 	}
 
 	session, _, err := c.Session().CreateNoChecks(nil, nil)
@@ -313,16 +313,16 @@ func (c *ConsulClient) GASNewServiceL4ID(basePath string, baseID uint32, sl4 *ty
 				return err
 			}
 			if svcKey == nil {
-				return setID2ServiceL4(lockPair)
+				return setIDtoL3n4Addr(lockPair)
 			}
-			var consulServiceL4ID types.L3n4AddrID
-			if err := json.Unmarshal(svcKey.Value, &consulServiceL4ID); err != nil {
+			var consulL3n4AddrID types.L3n4AddrID
+			if err := json.Unmarshal(svcKey.Value, &consulL3n4AddrID); err != nil {
 				c.KV().Release(lockPair, nil)
 				return err
 			}
-			if consulServiceL4ID.ID == 0 {
+			if consulL3n4AddrID.ID == 0 {
 				log.Infof("Recycling Service ID %d", baseID)
-				return setID2ServiceL4(lockPair)
+				return setIDtoL3n4Addr(lockPair)
 			}
 			c.KV().Release(lockPair, nil)
 		}
