@@ -1,0 +1,38 @@
+{
+    "kind":"ReplicationController",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"redis-slave",
+        "labels":{
+            "app":"redis",
+            "role":"slave"
+        }
+    },
+    "spec":{
+        "replicas":1,
+        "selector":{
+            "app":"redis",
+            "role":"slave",
+            "io.cilium.lizards.db": ""
+        },
+        "template":{
+            "metadata":{
+                "labels":{
+                    "app":"redis",
+                    "role":"slave",
+                    "io.cilium.lizards.db": ""
+                }
+            },
+            "spec":{
+                "containers":[{
+                    "name":"redis-slave",
+                    "image":"gcr.io/google_samples/gb-redisslave:v1",
+                    "ports":[{
+                        "name":"redis-server",
+                        "containerPort":6379
+                    }]
+                }]
+            }
+        }
+    }
+}
