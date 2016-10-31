@@ -33,14 +33,16 @@ export API_HOST_IP="${ip}"
 if [ -n "${IPV4}" ]; then
     export API_HOST="${API_HOST_IP}"
     export ETCD_HOST="${ip}"
+    export SERVICE_CLUSTER_IP_RANGE="10.255.0.0/16"
+    export KUBE_DNS_SERVER_IP="10.255.255.254"
 else
     export API_HOST="[${API_HOST_IP}]"
     export ETCD_HOST="[${ip}]"
+    export SERVICE_CLUSTER_IP_RANGE="f00d:1::/112"
+    export KUBE_DNS_SERVER_IP="f00d:1::fffe"
 fi
 
 export KUBE_ENABLE_CLUSTER_DNS=true
-export SERVICE_CLUSTER_IP_RANGE="f00d:1::/112"
-export KUBE_DNS_SERVER_IP="f00d:1::fffe"
 export KUBE_DNS_NAME="${dns_domain}"
 export KUBELET_HOST="${ip}"
 export NET_PLUGIN="cni"
