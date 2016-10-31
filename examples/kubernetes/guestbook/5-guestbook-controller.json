@@ -1,0 +1,35 @@
+{
+    "kind":"ReplicationController",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"guestbook",
+        "labels":{
+            "app":"guestbook"
+        }
+    },
+    "spec":{
+        "replicas":1,
+        "selector":{
+            "app":"guestbook",
+            "io.cilium.lizards.web": ""
+        },
+        "template":{
+            "metadata":{
+                "labels":{
+                    "app":"guestbook",
+                    "io.cilium.lizards.web": ""
+                }
+            },
+            "spec":{
+                "containers":[{
+                    "name":"guestbook",
+                    "image":"kubernetes/guestbook:v2",
+                    "ports":[{
+                        "name":"http-server",
+                        "containerPort":3000
+                    }]
+                }]
+            }
+        }
+    }
+}
