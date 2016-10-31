@@ -1,4 +1,5 @@
-# Cilium - BPF & XDP for containers
+![Cilium Logo](https://cdn.rawgit.com/cilium/cilium/master/doc/images/cilium.svg)
+# BPF & XDP for containers
 
 [![Build Status](https://travis-ci.org/cilium/cilium.svg?branch=master)](https://travis-ci.org/cilium/cilium)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cilium/cilium)](https://goreportcard.com/report/github.com/cilium/cilium)
