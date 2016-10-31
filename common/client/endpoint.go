@@ -125,6 +125,31 @@ func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, e
 	return &ep, nil
 }
 
+// EndpointGetByDockerID sends a GET request with dockerID to the daemon.
+func (cli Client) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error) {
+
+	serverResp, err := cli.R().Get("/endpoint-by-docker-id/" + dockerID)
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusOK &&
+		serverResp.StatusCode() != http.StatusNoContent {
+		return nil, processErrorBody(serverResp.Body(), dockerID)
+	}
+
+	if serverResp.StatusCode() == http.StatusNoContent {
+		return nil, nil
+	}
+
+	var ep types.Endpoint
+	if err := json.Unmarshal(serverResp.Body(), &ep); err != nil {
+		return nil, err
+	}
+
+	return &ep, nil
+}
+
 // EndpointsGet sends a GET request to the daemon.
 func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
 

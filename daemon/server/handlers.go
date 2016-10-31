@@ -224,6 +224,29 @@ func (router *Router) endpointGetByDockerEPID(w http.ResponseWriter, r *http.Req
 	}
 }
 
+func (router *Router) endpointGetByDockerID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	dockerID, exists := vars["dockerID"]
+	if !exists {
+		processServerError(w, r, errors.New("server received empty docker ID"))
+		return
+	}
+	ep, err := router.daemon.EndpointGetByDockerID(dockerID)
+	if err != nil {
+		processServerError(w, r, fmt.Errorf("error while getting endpoint: %s", err))
+		return
+	}
+	if ep == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(ep); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
 func (router *Router) endpointsGet(w http.ResponseWriter, r *http.Request) {
 	eps, err := router.daemon.EndpointsGet()
 	if err != nil {

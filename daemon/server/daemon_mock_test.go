@@ -28,6 +28,7 @@ import (
 type TestDaemon struct {
 	OnEndpointGet               func(epID uint16) (*types.Endpoint, error)
 	OnEndpointGetByDockerEPID   func(dockerEPID string) (*types.Endpoint, error)
+	OnEndpointGetByDockerID     func(dockerID string) (*types.Endpoint, error)
 	OnEndpointsGet              func() ([]types.Endpoint, error)
 	OnEndpointJoin              func(ep types.Endpoint) error
 	OnEndpointLeave             func(epID uint16) error
@@ -74,6 +75,13 @@ func (d TestDaemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint,
 		return d.OnEndpointGetByDockerEPID(dockerEPID)
 	}
 	return nil, errors.New("EndpointGetByDockerEPID should not have been called")
+}
+
+func (d TestDaemon) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error) {
+	if d.OnEndpointGetByDockerID != nil {
+		return d.OnEndpointGetByDockerID(dockerID)
+	}
+	return nil, errors.New("EndpointGetByDockerID should not have been called")
 }
 
 func (d TestDaemon) EndpointsGet() ([]types.Endpoint, error) {

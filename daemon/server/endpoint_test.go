@@ -268,6 +268,52 @@ func (s *DaemonSuite) TestEndpointGetByDockerEPIDFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
 }
 
+func (s *DaemonSuite) TestEndpointGetByDockerIDOK(c *C) {
+	epWanted := types.Endpoint{
+		LXCMAC:          HardAddr,
+		IPv6:            IPv6Addr,
+		IPv4:            IPv4Addr,
+		NodeMAC:         HardAddr,
+		NodeIP:          NodeAddr,
+		IfName:          "ifname",
+		DockerNetworkID: "dockernetwork",
+		DockerID:        "123abc",
+		SecLabel:        SecLabel,
+	}
+
+	s.d.OnEndpointGetByDockerID = func(dockerID string) (*types.Endpoint, error) {
+		c.Assert(dockerID, Equals, "123abc")
+		return &types.Endpoint{
+			LXCMAC:          HardAddr,
+			IPv6:            IPv6Addr,
+			IPv4:            IPv4Addr,
+			NodeMAC:         HardAddr,
+			NodeIP:          NodeAddr,
+			IfName:          "ifname",
+			DockerNetworkID: "dockernetwork",
+			DockerID:        "123abc",
+			SecLabel:        SecLabel,
+		}, nil
+	}
+
+	ep, err := s.c.EndpointGetByDockerID(epWanted.DockerID)
+	c.Assert(err, IsNil)
+	c.Assert(*ep, DeepEquals, epWanted)
+}
+
+func (s *DaemonSuite) TestEndpointGetByDockerIDFail(c *C) {
+	dockerID := "123abc"
+
+	s.d.OnEndpointGetByDockerID = func(dockerID string) (*types.Endpoint, error) {
+		c.Assert(dockerID, Equals, dockerID)
+		return nil, errors.New("invalid endpoint")
+	}
+
+	_, err := s.c.EndpointGetByDockerID(dockerID)
+	c.Logf("err %s", err)
+	c.Assert(strings.Contains(err.Error(), "invalid endpoint"), Equals, true)
+}
+
 func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 	epsWanted := []types.Endpoint{
 		{
