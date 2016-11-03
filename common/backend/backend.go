@@ -73,6 +73,19 @@ type ui interface {
 	RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
 }
 
+type lbBackend interface {
+	SVCAdd(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
+	SVCDelete(feL3n4 types.L3n4Addr) error
+	SVCDeleteBySHA256Sum(feL3n4SHA256Sum string) error
+	SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error)
+	SVCGetBySHA256Sum(feL3n4SHA256Sum string) (*types.LBSVC, error)
+	SVCDump() ([]types.LBSVC, error)
+	RevNATAdd(id types.ServiceID, revNAT types.L3n4Addr) error
+	RevNATDelete(id types.ServiceID) error
+	RevNATGet(id types.ServiceID) (*types.L3n4Addr, error)
+	RevNATDump() ([]types.L3n4AddrID, error)
+}
+
 // CiliumBackend is the interface for both client and daemon.
 type CiliumBackend interface {
 	bpfBackend
@@ -80,6 +93,7 @@ type CiliumBackend interface {
 	ipamBackend
 	labelBackend
 	policyBackend
+	lbBackend
 }
 
 // CiliumDaemonBackend is the interface for daemon only.

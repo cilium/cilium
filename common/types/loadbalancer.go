@@ -39,14 +39,32 @@ type FEPortName string
 // ServiceID is the service's ID.
 type ServiceID uint16
 
+// LBSVC is essentially used for the REST API.
+type LBSVC struct {
+	FE  L3n4AddrID
+	BES []L3n4Addr
+}
+
 // LoadBalancer is the internal representation of the loadbalancer in the local cilium
 // daemon.
 type LoadBalancer struct {
-	BPFMapMU sync.RWMutex
+	BPFMapMU  sync.RWMutex
+	SVCMap    map[string]LBSVC
+	RevNATMap map[ServiceID]L3n4Addr
 
 	K8sMU        sync.Mutex
 	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
+}
+
+// NewLoadBalancer returns a LoadBalancer with all maps initialized.
+func NewLoadBalancer() *LoadBalancer {
+	return &LoadBalancer{
+		SVCMap:       map[string]LBSVC{},
+		RevNATMap:    map[ServiceID]L3n4Addr{},
+		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
+		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
+	}
 }
 
 // K8sServiceNamespace is an abstraction for the k8s service + namespace types.
@@ -105,6 +123,14 @@ func NewL4Addr(protocol L4Type, number uint16) (*L4Addr, error) {
 	return &L4Addr{Protocol: protocol, Port: number}, nil
 }
 
+// DeepCopy returns a DeepCopy of the given L4Addr.
+func (l *L4Addr) DeepCopy() *L4Addr {
+	return &L4Addr{
+		Port:     l.Port,
+		Protocol: l.Protocol,
+	}
+}
+
 // FEPort represents a frontend port with its ID and the L4Addr's inheritance.
 type FEPort struct {
 	*L4Addr
@@ -132,6 +158,30 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, erro
 	return &L3n4Addr{IP: ip, L4Addr: *lbport}, nil
 }
 
+// DeepCopy returns a DeepCopy of the given L3n4Addr.
+func (l *L3n4Addr) DeepCopy() *L3n4Addr {
+	copyIP := make(net.IP, len(l.IP))
+	copy(copyIP, l.IP)
+	return &L3n4Addr{
+		IP:     copyIP,
+		L4Addr: *l.L4Addr.DeepCopy(),
+	}
+}
+
+// SHA256Sum calculates L3n4Addr's internal SHA256Sum.
+func (l3n4Addr L3n4Addr) SHA256Sum() (string, error) {
+	sha := sha512.New512_256()
+	if err := json.NewEncoder(sha).Encode(l3n4Addr); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+}
+
+// IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
+func (l *L3n4Addr) IsIPv6() bool {
+	return l.IP.To4() == nil
+}
+
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
 // KVStore.
 type L3n4AddrID struct {
@@ -139,11 +189,25 @@ type L3n4AddrID struct {
 	ID ServiceID
 }
 
-// SHA256Sum calculates L3n4Addr's internal SHA256Sum.
-func (port L3n4Addr) SHA256Sum() (string, error) {
-	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(port); err != nil {
-		return "", err
+// NewL3n4AddrID creates a new L3n4AddrID.
+func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ServiceID) (*L3n4AddrID, error) {
+	l3n4Addr, err := NewL3n4Addr(protocol, ip, portNumber)
+	if err != nil {
+		return nil, err
 	}
-	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}, nil
+}
+
+// DeepCopy returns a DeepCopy of the given L3n4AddrID.
+func (l *L3n4AddrID) DeepCopy() *L3n4AddrID {
+	return &L3n4AddrID{
+		L3n4Addr: *l.L3n4Addr.DeepCopy(),
+		ID:       l.ID,
+	}
+
+}
+
+// IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
+func (l *L3n4AddrID) IsIPv6() bool {
+	return l.L3n4Addr.IsIPv6()
 }

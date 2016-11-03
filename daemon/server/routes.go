@@ -111,6 +111,30 @@ func (r *Router) initBackendRoutes() {
 		route{
 			"PolicyCanConsume", "POST", "/policy-consume-decision", r.policyCanConsume,
 		},
+		route{
+			"ServiceAdd", "POST", "/lb/service", r.serviceAdd,
+		},
+		route{
+			"ServiceDel", "DELETE", "/lb/service/{feSHA256Sum}", r.serviceDel,
+		},
+		route{
+			"ServiceGet", "GET", "/lb/service/{feSHA256Sum}", r.serviceGet,
+		},
+		route{
+			"ServiceDump", "GET", "/lb/services", r.serviceDump,
+		},
+		route{
+			"RevNATAdd", "POST", "/lb/revnat", r.revNATAdd,
+		},
+		route{
+			"RevNATDel", "DELETE", "/lb/revnat/{revNATID}", r.revNATDel,
+		},
+		route{
+			"RevNATGet", "GET", "/lb/revnat/{revNATID}", r.revNATGet,
+		},
+		route{
+			"RevNATDump", "GET", "/lb/revnats", r.revNATDump,
+		},
 	}
 }
 

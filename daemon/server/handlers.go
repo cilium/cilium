@@ -570,3 +570,151 @@ func (router *Router) policyCanConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func verifyFESHA256Sum(vars map[string]string) (string, error) {
+	if val, exists := vars["feSHA256Sum"]; !exists {
+		return "", errors.New("server received empty feSHA256Sum")
+	} else {
+		return val, nil
+	}
+}
+
+func (router *Router) serviceAdd(w http.ResponseWriter, r *http.Request) {
+	addRevNAT := r.URL.Query().Get("rev-nat") == "true"
+	var sv types.LBSVC
+	if err := json.NewDecoder(r.Body).Decode(&sv); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.SVCAdd(sv.FE, sv.BES, addRevNAT); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (router *Router) serviceDel(w http.ResponseWriter, r *http.Request) {
+	feSHA256Sum, err := verifyFESHA256Sum(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.SVCDeleteBySHA256Sum(feSHA256Sum); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (router *Router) serviceGet(w http.ResponseWriter, r *http.Request) {
+	feSHA256Sum, err := verifyFESHA256Sum(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	lbSVC, err := router.daemon.SVCGetBySHA256Sum(feSHA256Sum)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if lbSVC == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(lbSVC); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
+func (router *Router) serviceDump(w http.ResponseWriter, r *http.Request) {
+	dump, err := router.daemon.SVCDump()
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if dump == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(dump); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
+func verifyRevNATID(vars map[string]string) (types.ServiceID, error) {
+	if val, exists := vars["revNATID"]; !exists {
+		return 0, errors.New("server received rev NAT ID")
+	} else {
+		i, err := strconv.ParseUint(val, 10, 16)
+		return types.ServiceID(i), err
+	}
+}
+
+func (router *Router) revNATAdd(w http.ResponseWriter, r *http.Request) {
+	var revNAT types.L3n4AddrID
+	if err := json.NewDecoder(r.Body).Decode(&revNAT); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.RevNATAdd(revNAT.ID, revNAT.L3n4Addr); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (router *Router) revNATDel(w http.ResponseWriter, r *http.Request) {
+	revNATID, err := verifyRevNATID(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if err := router.daemon.RevNATDelete(revNATID); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (router *Router) revNATGet(w http.ResponseWriter, r *http.Request) {
+	revNATID, err := verifyRevNATID(mux.Vars(r))
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	revNAT, err := router.daemon.RevNATGet(revNATID)
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if revNAT == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(revNAT); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
+func (router *Router) revNATDump(w http.ResponseWriter, r *http.Request) {
+	dump, err := router.daemon.RevNATDump()
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if dump == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(dump); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}

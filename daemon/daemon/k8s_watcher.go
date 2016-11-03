@@ -19,7 +19,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/types"
 
 	"k8s.io/client-go/1.5/pkg/api/v1"
@@ -309,25 +308,20 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			}
 		}
 
-		var svcKey lbmap.ServiceKey
-		if isSvcIPv4 {
-			svcKey = lbmap.NewService4Key(svcInfo.FEIP, svcPort.Port, 0)
-		} else {
-			svcKey = lbmap.NewService6Key(svcInfo.FEIP, svcPort.Port, 0)
+		fe, err := types.NewL3n4Addr(svcPort.Protocol, svcInfo.FEIP, svcPort.Port)
+		if err != nil {
+			log.Errorf("Error while creating a New L3n4AddrID: %s. Ignoring service %v...", err, svcInfo)
+			continue
 		}
 
-		if err := d.SVCDelete(svcKey); err != nil {
-			log.Warningf("Error deleting service %+v, %s", svcKey, err)
+		if err := d.SVCDelete(*fe); err != nil {
+			log.Warningf("Error deleting service %+v, %s", fe, err)
 		} else {
 			log.Debugf("# cilium lb delete-service %s %d 0", svcInfo.FEIP, svcPort.Port)
 		}
 
-		zeroValue := svcKey.NewValue().(lbmap.ServiceValue)
-		zeroValue.SetRevNat(int(svcPort.ID))
-		revNATKey := zeroValue.RevNatKey()
-
-		if err := d.RevNATDelete(revNATKey); err != nil {
-			log.Warningf("Error deleting reverse NAT %+v, %s", revNATKey, err)
+		if err := d.RevNATDelete(svcPort.ID); err != nil {
+			log.Warningf("Error deleting reverse NAT %+v, %s", svcPort.ID, err)
 		} else {
 			log.Debugf("# cilium lb delete-rev-nat %d", svcPort.ID)
 		}
@@ -390,14 +384,12 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			}
 		}
 
-		var svcKey lbmap.ServiceKey
-		if isSvcIPv4 {
-			svcKey = lbmap.NewService4Key(svcInfo.FEIP, fePort.Port, 0)
-		} else {
-			svcKey = lbmap.NewService6Key(svcInfo.FEIP, fePort.Port, 0)
+		fe, err := types.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
+		if err != nil {
+			log.Errorf("Error while creating a New L3n4AddrID: %s. Ignoring service %v...", err, svcInfo)
+			continue
 		}
-
-		if err := d.SVCAdd(fePort.ID, svcKey, besValues, isServerPresent); err != nil {
+		if err := d.SVCAdd(*fe, besValues, isServerPresent); err != nil {
 			log.Errorf("Error while inserting service in LB map: %s", err)
 		}
 	}
