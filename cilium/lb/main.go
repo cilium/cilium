@@ -24,14 +24,20 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/bpf/lbmap"
-	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/common"
+	cnc "github.com/cilium/cilium/common/client"
+	"github.com/cilium/cilium/common/types"
 
 	"github.com/codegangsta/cli"
+	l "github.com/op/go-logging"
 )
 
 var (
 	ipv4   bool
 	addRev bool
+
+	client *cnc.Client
+	log    = l.MustGetLogger("cilium-cli")
 
 	// CliCommand is the command that will be used in cilium-net main program.
 	CliCommand cli.Command
@@ -53,23 +59,27 @@ func init() {
 				Name:   "dump-service",
 				Usage:  "dumps map present on the given <map file>",
 				Action: cliDumpServices,
+				Before: initEnv,
 			},
 			{
 				Name:   "dump-rev-nat",
 				Usage:  "dumps map present on the given <map file>",
 				Action: cliDumpRevNat,
+				Before: initEnv,
 			},
 			{
 				Name:      "get-service",
 				Usage:     "Lookup LB service",
 				ArgsUsage: "<address>:<port>",
 				Action:    cliLookupService,
+				Before:    initEnv,
 			},
 			{
 				Name:      "get-rev-nat",
 				Usage:     "gets key's value of the given <map file>",
 				ArgsUsage: "<reverse NAT key>",
 				Action:    cliLookupRevNat,
+				Before:    initEnv,
 			},
 			{
 				Name:  "update-service",
@@ -94,6 +104,7 @@ func init() {
 					},
 				},
 				Action: cliUpdateService,
+				Before: initEnv,
 			},
 			{
 				Name:  "update-rev-nat",
@@ -109,6 +120,7 @@ func init() {
 					},
 				},
 				Action: cliUpdateRevNat,
+				Before: initEnv,
 			},
 			{
 				Name:   "delete-service",
@@ -120,6 +132,7 @@ func init() {
 					},
 				},
 				ArgsUsage: "--all | <address>:<port>",
+				Before:    initEnv,
 			},
 			{
 				Name:   "delete-rev-nat",
@@ -131,142 +144,170 @@ func init() {
 					},
 				},
 				ArgsUsage: "--all | <reverse NAT key>",
+				Before:    initEnv,
 			},
 		},
 	}
 }
 
-type ServiceDump struct {
-	Keys     []int
-	Backends map[int]lbmap.ServiceValue
-}
-
-var dumpTable map[string]*ServiceDump
-
-func addToDumpTable(keyStr string, key lbmap.ServiceKey, value lbmap.ServiceValue) {
-	var sd *ServiceDump
-
-	sd, _ = dumpTable[keyStr]
-	if sd == nil {
-		sd = &ServiceDump{Backends: map[int]lbmap.ServiceValue{}}
-		dumpTable[keyStr] = sd
+func initEnv(ctx *cli.Context) error {
+	if ctx.GlobalBool("debug") {
+		common.SetupLOG(log, "DEBUG")
+	} else {
+		common.SetupLOG(log, "INFO")
 	}
 
-	if backend := key.GetBackend(); backend != 0 {
-		sd.Backends[backend] = value
-		sd.Keys = append(sd.Keys, backend)
+	var (
+		c   *cnc.Client
+		err error
+	)
+	if host := ctx.GlobalString("host"); host == "" {
+		c, err = cnc.NewDefaultClient()
+	} else {
+		c, err = cnc.NewClient(host, nil)
 	}
-}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
+		return fmt.Errorf("Error while creating cilium-client: %s", err)
+	}
+	client = c
 
-func dumpService4(key bpf.MapKey, value bpf.MapValue) {
-	svcKey := key.(*lbmap.Service4Key)
-	svcVal := value.(*lbmap.Service4Value)
-	addToDumpTable(svcKey.String(), svcKey, svcVal)
-}
-
-func dumpService6(key bpf.MapKey, value bpf.MapValue) {
-	svcKey := key.(*lbmap.Service6Key)
-	svcVal := value.(*lbmap.Service6Value)
-	addToDumpTable(svcKey.String(), svcKey, svcVal)
+	return nil
 }
 
 func cliDumpServices(ctx *cli.Context) {
-	dumpTable = map[string]*ServiceDump{}
-
-	if err := lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService4); err != nil {
+	dump, err := client.SVCDump()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Unable to dump map: %s\n", err)
 	}
 
-	if err := lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService6); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Unable to dump map: %s\n", err)
+	svcs := map[string][]string{}
+	for _, v := range dump {
+		besWithID := []string{}
+		for i, be := range v.BES {
+			str := fmt.Sprintf("%d => %s (%d)", i+1, be.String(), v.FE.ID)
+			besWithID = append(besWithID, str)
+		}
+		svcs[v.FE.L3n4Addr.String()] = besWithID
 	}
 
-	var keys []string
-	for k := range dumpTable {
-		keys = append(keys, k)
+	var svcsKeys []string
+	for k := range svcs {
+		svcsKeys = append(svcsKeys, k)
 	}
-	sort.Strings(keys)
-	for _, k1 := range keys {
-		fmt.Printf("%s =>\n", k1)
-		sort.Ints(dumpTable[k1].Keys)
-		for _, k2 := range dumpTable[k1].Keys {
-			fmt.Printf("\t\t%d => %s\n", k2, dumpTable[k1].Backends[k2])
+	sort.Strings(svcsKeys)
+
+	for _, svcKey := range svcsKeys {
+		fmt.Printf("%s =>\n", svcKey)
+		for _, be := range svcs[svcKey] {
+			fmt.Printf("\t\t%s\n", be)
 		}
 	}
 }
 
-func dumpRevNat4(key bpf.MapKey, value bpf.MapValue) {
-	k := key.(*lbmap.RevNat4Key)
-	v := value.(*lbmap.RevNat4Value)
-	fmt.Printf("  %d => %s\n", k.Key, v)
-}
-
-func dumpRevNat6(key bpf.MapKey, value bpf.MapValue) {
-	k := key.(*lbmap.RevNat6Key)
-	v := value.(*lbmap.RevNat6Value)
-	fmt.Printf("  %d => %s\n", k.Key, v)
-}
-
 func cliDumpRevNat(ctx *cli.Context) {
+	dump, err := client.RevNATDump()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Unable to dump map: %s\n", err)
+	}
+
+	revNatFormat := map[int]string{}
+	revNatFormatKeysV4 := []int{}
+	revNatFormatKeysV6 := []int{}
+	for _, revNat := range dump {
+		revNatFormat[int(revNat.ID)] = revNat.String()
+		if revNat.IsIPv6() {
+			revNatFormatKeysV6 = append(revNatFormatKeysV6, int(revNat.ID))
+		} else {
+			revNatFormatKeysV4 = append(revNatFormatKeysV4, int(revNat.ID))
+		}
+	}
+	sort.Ints(revNatFormatKeysV6)
+	sort.Ints(revNatFormatKeysV4)
+
 	fmt.Printf("IPv6:\n")
-	if err := lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, dumpRevNat6); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
+	for _, revNATID := range revNatFormatKeysV6 {
+		fmt.Printf("%d => %s\n", revNATID, revNatFormat[revNATID])
 	}
 
 	fmt.Printf("IPv4:\n")
-	if err := lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, dumpRevNat4); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to dump map: %s\n", err)
+	for _, revNATID := range revNatFormatKeysV4 {
+		fmt.Printf("%d => %s\n", revNATID, revNatFormat[revNATID])
 	}
 }
 
-func parseServiceKey(address string) lbmap.ServiceKey {
+func parseServiceKey(address string) *types.L3n4Addr {
 	frontend, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse frontend address: %s\n", err)
 		os.Exit(1)
 	}
 
-	if frontend.IP.To4() != nil {
-		return lbmap.NewService4Key(frontend.IP, uint16(frontend.Port), 0)
-	} else {
-		return lbmap.NewService6Key(frontend.IP, uint16(frontend.Port), 0)
+	l3n4Addr, err := types.NewL3n4Addr(types.TCP, frontend.IP, uint16(frontend.Port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse frontend address: %s\n", err)
+		os.Exit(1)
 	}
+	return l3n4Addr
 }
 
 func cliLookupService(ctx *cli.Context) {
 	key := parseServiceKey(ctx.Args().Get(0))
 
-	svc, err := lbmap.LookupService(key)
+	lbSVC, err := client.SVCGet(*key)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to receive service from daemon: %s\n", err)
+		os.Exit(1)
+	}
+	if lbSVC == nil {
+		fmt.Fprintf(os.Stderr, "Entry not found \n")
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s = %s\n", key, svc)
+	besSlice := []string{}
+	for _, revNat := range lbSVC.BES {
+		besSlice = append(besSlice, revNat.String())
+	}
+	sort.Strings(besSlice)
+
+	fmt.Printf("%s\n", key.String())
+	for _, svcBackend := range besSlice {
+		fmt.Printf("\t\t=> %s\n", svcBackend)
+	}
+}
+
+func parseRevNatKey(key string) types.ServiceID {
+	k, err := strconv.ParseUint(key, 0, 16)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err)
+		os.Exit(1)
+	}
+	return types.ServiceID(k)
 }
 
 func cliLookupRevNat(ctx *cli.Context) {
 	key := parseRevNatKey(ctx.Args().Get(0))
-	val, err := lbmap.LookupRevNat(key)
+
+	val, err := client.RevNATGet(key)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+	if val == nil {
+		fmt.Fprintf(os.Stderr, "Entry not found \n")
+		os.Exit(1)
+	}
 
-	fmt.Printf("%v = %v\n", key, val)
+	fmt.Printf("%d = %v\n", key, val)
 }
 
 func cliUpdateService(ctx *cli.Context) {
-	key := parseServiceKey(ctx.String("frontend"))
-	svc := key.NewValue().(lbmap.ServiceValue)
-	backends := []*net.TCPAddr{}
-
-	proto := "tcp4"
-	if key.IsIPv6() {
-		proto = "tcp6"
+	feL3n4Addr := parseServiceKey(ctx.String("frontend"))
+	backends := []types.L3n4Addr{}
+	fe := types.L3n4AddrID{
+		ID:       types.ServiceID(ctx.Int("id")),
+		L3n4Addr: *feL3n4Addr,
 	}
-
-	revNat := ctx.Int("id")
 
 	backendList := ctx.StringSlice("backend")
 	if len(backendList) == 0 {
@@ -279,100 +320,57 @@ func cliUpdateService(ctx *cli.Context) {
 		}
 	}
 
-	for k := range backendList {
-		tcpAddr, err := net.ResolveTCPAddr(proto, backendList[k])
+	for _, backend := range backendList {
+		beAddr, err := net.ResolveTCPAddr("tcp", backend)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
 
-		if tcpAddr.IP.To4() != nil && key.IsIPv6() {
+		be, err := types.NewL3n4Addr(types.TCP, beAddr.IP, uint16(beAddr.Port))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to create a new L3n4Addr for backend %s: %s\n", backend, err)
+			os.Exit(1)
+		}
+
+		if !be.IsIPv6() && fe.IsIPv6() {
 			fmt.Fprintf(os.Stderr, "Address mismatch between frontend and backend %s\n",
-				backendList[k])
+				backend)
 			os.Exit(1)
 		}
 
-		if key.GetPort() == 0 && tcpAddr.Port != 0 {
-			fmt.Fprintf(os.Stderr, "L4 backend found (%v) with L3 frontend\n", tcpAddr)
+		if fe.Port == 0 && beAddr.Port != 0 {
+			fmt.Fprintf(os.Stderr, "L4 backend found (%v) with L3 frontend\n", beAddr)
 			os.Exit(1)
 		}
 
-		backends = append(backends, tcpAddr)
+		backends = append(backends, *be)
 	}
 
-	idx := 1
-	for k := range backends {
-		key.SetBackend(idx)
-		if err := svc.SetAddress(backends[k].IP); err != nil {
-			// FIXME: Undo the damage that is already done
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		svc.SetPort(uint16(backends[k].Port))
-		svc.SetRevNat(revNat)
-
-		fmt.Printf("Adding %+v %+v\n", key, svc)
-
-		if err := lbmap.UpdateService(key, svc); err != nil {
-			// FIXME: Undo the damage that is already done
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		idx++
-	}
-
-	if addRev {
-		revKey := svc.RevNatKey()
-		revVal := key.RevNatValue()
-
-		fmt.Printf("Adding %+v %+v\n", revKey, revVal)
-		if err := lbmap.UpdateRevNat(revKey, revVal); err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Added reverse NAT entry\n")
-	}
-
-	// Create master service last to avoid hitting backends all of
-	// them have been inserted into the map
-	key.SetBackend(0)
-	svc.SetCount(len(backends))
-	svc.SetPort(uint16(0))
-	svc.SetRevNat(0)
-
-	fmt.Printf("Adding %+v %+v\n", key, svc)
-	if err := lbmap.UpdateService(key, svc); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+	if err := client.SVCAdd(fe, backends, addRev); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to add the service: %s", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Added %d backends\n", idx-1)
+	fmt.Printf("Added %d backends\n", len(backends))
 }
 
 func cliUpdateRevNat(ctx *cli.Context) {
-	var key lbmap.RevNatKey
-	var val lbmap.RevNatValue
-
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ctx.String("address"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 
-	k := uint16(ctx.Int("id"))
-
-	if tcpAddr.IP.To4() != nil {
-		key = lbmap.NewRevNat4Key(k)
-		val = lbmap.NewRevNat4Value(tcpAddr.IP, uint16(tcpAddr.Port))
-	} else {
-		key = lbmap.NewRevNat6Key(k)
-		val = lbmap.NewRevNat6Value(tcpAddr.IP, uint16(tcpAddr.Port))
+	val, err := types.NewL3n4Addr(types.TCP, tcpAddr.IP, uint16(tcpAddr.Port))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create a new L3n4Addr: %s\n", err)
+		os.Exit(1)
 	}
 
-	if err := lbmap.UpdateRevNat(key, val); err != nil {
+	id := types.ServiceID(ctx.Int("id"))
+
+	if err := client.RevNATAdd(id, *val); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
@@ -382,6 +380,7 @@ func cliDeleteService(ctx *cli.Context) {
 	var err error
 
 	if ctx.Bool("all") {
+		//TODO add all flag to daemon
 		if err := lbmap.Service6Map.DeleteAll(); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
@@ -390,50 +389,21 @@ func cliDeleteService(ctx *cli.Context) {
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
 	} else {
-		key := parseServiceKey(ctx.Args().Get(0))
-		val, err := lbmap.LookupService(key)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-
-		svc := val.(lbmap.ServiceValue)
-		fmt.Printf("Deleting %d backends...\n", svc.GetCount())
-		for i := 1; i <= svc.GetCount(); i++ {
-			key.SetBackend(i)
-			if err := lbmap.DeleteService(key); err != nil {
-				fmt.Fprintf(os.Stderr, "%s", err)
-				os.Exit(1)
-			}
-		}
-
-		key.SetBackend(0)
-		fmt.Printf("Deleting master entry %v\n", key)
-		err = lbmap.DeleteService(key)
+		fe := parseServiceKey(ctx.Args().Get(0))
+		err = client.SVCDelete(*fe)
 	}
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
-}
 
-func parseRevNatKey(key string) lbmap.RevNatKey {
-	k, err := strconv.ParseUint(key, 0, 16)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
-		os.Exit(1)
-	}
-
-	if ipv4 {
-		return lbmap.NewRevNat4Key(uint16(k))
-	} else {
-		return lbmap.NewRevNat6Key(uint16(k))
-	}
+	fmt.Printf("Successfully deleted\n")
 }
 
 func cliDeleteRevNat(ctx *cli.Context) {
 	if ctx.Bool("all") {
+		//TODO add all flag to daemon
 		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
 			fmt.Fprintf(os.Stderr, "%s", err)
 			os.Exit(1)
@@ -444,9 +414,12 @@ func cliDeleteRevNat(ctx *cli.Context) {
 			os.Exit(1)
 		}
 	} else {
-		if err := lbmap.DeleteRevNat(parseRevNatKey(ctx.Args().Get(0))); err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
+		id := types.ServiceID(ctx.Int("id"))
+
+		if err := client.RevNATDelete(id); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
 	}
+	fmt.Printf("Successfully deleted\n")
 }

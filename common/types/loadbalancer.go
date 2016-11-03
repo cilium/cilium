@@ -158,6 +158,16 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, erro
 	return &L3n4Addr{IP: ip, L4Addr: *lbport}, nil
 }
 
+// String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and "[IPv6]:Port" format
+// for IPv6.
+func (l *L3n4Addr) String() string {
+	if l.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d", l.IP.String(), l.Port)
+	} else {
+		return fmt.Sprintf("%s:%d", l.IP.String(), l.Port)
+	}
+}
+
 // DeepCopy returns a DeepCopy of the given L3n4Addr.
 func (l *L3n4Addr) DeepCopy() *L3n4Addr {
 	copyIP := make(net.IP, len(l.IP))
