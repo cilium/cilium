@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -57,18 +58,24 @@ func (d *Daemon) EnableDockerEventListener() error {
 }
 
 func (d *Daemon) EnableDockerSync(once bool) {
+	var wg sync.WaitGroup
 	for {
 		cList, err := d.dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
 		if err != nil {
 			log.Errorf("Failed to retrieve the container list %s", err)
 		}
 		for _, cont := range cList {
-			go d.createContainer(cont.ID)
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				d.createContainer(cont.ID)
+				wg.Done()
+			}(&wg)
 		}
 
 		if once {
 			return
 		}
+		wg.Wait()
 		time.Sleep(syncRateDocker)
 	}
 }
