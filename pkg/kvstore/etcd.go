@@ -245,30 +245,30 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabe
 		return e.setMaxLabelID(id + 1)
 	}
 
-	acquireFreeID := func(firstID uint32, incID *uint32) error {
+	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		log.Debugf("Trying to acquire a new free ID %d", *incID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		locker, err := e.LockPath(GetLockPath(keyPath))
 		if err != nil {
-			return err
+			return false, err
 		}
 		defer locker.Unlock()
 
 		value, err := e.GetValue(keyPath)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if value == nil {
-			return setID2Label(*incID)
+			return false, setID2Label(*incID)
 		}
 		var consulLabels types.SecCtxLabel
 		if err := json.Unmarshal(value, &consulLabels); err != nil {
-			return err
+			return false, err
 		}
 		if consulLabels.RefCount() == 0 {
 			log.Infof("Recycling ID %d", *incID)
-			return setID2Label(*incID)
+			return false, setID2Label(*incID)
 		}
 
 		*incID++
@@ -276,17 +276,17 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabe
 			*incID = common.FirstFreeLabelID
 		}
 		if firstID == *incID {
-			return fmt.Errorf("reached maximum set of labels available.")
+			return false, fmt.Errorf("reached maximum set of labels available.")
 		}
-		return nil
+		return true, nil
 	}
 
-	var err error
 	beginning := baseID
 	for {
-		if err = acquireFreeID(beginning, &baseID); err != nil {
+		retry, err := acquireFreeID(beginning, &baseID)
+		if err != nil {
 			return err
-		} else if beginning == baseID {
+		} else if !retry {
 			return nil
 		}
 	}
