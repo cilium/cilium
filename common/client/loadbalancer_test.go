@@ -157,6 +157,40 @@ func (s *CiliumNetClientSuite) TestSVCDeleteFail(c *C) {
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
 
+func (s *CiliumNetClientSuite) TestSVCDeleteAllOK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/lb/services")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.SVCDeleteAll()
+
+	c.Assert(err, Equals, nil)
+}
+
+func (s *CiliumNetClientSuite) TestSVCDeleteAllFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/lb/services")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		e := json.NewEncoder(w)
+		err := e.Encode(types.ServerError{Code: -1, Text: "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.SVCDeleteAll()
+
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+}
+
 func (s *CiliumNetClientSuite) TestSVCGetOK(c *C) {
 	fe, err := types.NewL3n4AddrID(types.TCP, randomAddr1, 1984, 2016)
 	c.Assert(err, IsNil)
@@ -355,6 +389,38 @@ func (s *CiliumNetClientSuite) TestRevNATDeleteFail(c *C) {
 	cli := NewTestClient(server.URL, c)
 
 	err := cli.RevNATDelete(id)
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+}
+
+func (s *CiliumNetClientSuite) TestRevNATDeleteAllOK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/lb/revnats")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.RevNATDeleteAll()
+	c.Assert(err, Equals, nil)
+}
+
+func (s *CiliumNetClientSuite) TestRevNATDeleteAllFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "DELETE")
+		c.Assert(r.URL.Path, Equals, "/lb/revnats")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		e := json.NewEncoder(w)
+		err := e.Encode(types.ServerError{Code: -1, Text: "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.RevNATDeleteAll()
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
 

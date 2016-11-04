@@ -606,6 +606,14 @@ func (router *Router) serviceDel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (router *Router) serviceDelAll(w http.ResponseWriter, r *http.Request) {
+	if err := router.daemon.SVCDeleteAll(); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (router *Router) serviceGet(w http.ResponseWriter, r *http.Request) {
 	feSHA256Sum, err := verifyFESHA256Sum(mux.Vars(r))
 	if err != nil {
@@ -674,6 +682,14 @@ func (router *Router) revNATDel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := router.daemon.RevNATDelete(revNATID); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (router *Router) revNATDelAll(w http.ResponseWriter, r *http.Request) {
+	if err := router.daemon.RevNATDeleteAll(); err != nil {
 		processServerError(w, r, err)
 		return
 	}

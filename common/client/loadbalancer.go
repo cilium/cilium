@@ -70,6 +70,20 @@ func (cli Client) SVCDeleteBySHA256Sum(feSHA256Sum string) error {
 	return nil
 }
 
+// SVCDeleteAll sends a DELETE request to the daemon to delete all services in the daemon.
+func (cli Client) SVCDeleteAll() error {
+	serverResp, err := cli.R().Delete("/lb/services")
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusNoContent {
+		return processErrorBody(serverResp.Body(), nil)
+	}
+
+	return nil
+}
+
 // SVCGet calculates the SHA256Sum from the given frontend and sends a GET request with
 // the calculated SHA256Sum to the daemon.
 func (cli Client) SVCGet(fe types.L3n4Addr) (*types.LBSVC, error) {
@@ -151,6 +165,20 @@ func (cli Client) RevNATAdd(id types.ServiceID, revNATValue types.L3n4Addr) erro
 // RevNATDelete sends a DELETE request with the id to the daemon.
 func (cli Client) RevNATDelete(id types.ServiceID) error {
 	serverResp, err := cli.R().Delete("/lb/revnat/" + strconv.FormatUint(uint64(id), 10))
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusNoContent {
+		return processErrorBody(serverResp.Body(), nil)
+	}
+
+	return nil
+}
+
+// RevNATDeleteAll sends a DELETE request to delete all RevNAT on the daemon.
+func (cli Client) RevNATDeleteAll() error {
+	serverResp, err := cli.R().Delete("/lb/revnats")
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}

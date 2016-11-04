@@ -168,6 +168,26 @@ func (d *Daemon) SVCDeleteBySHA256Sum(feL3n4SHA256Sum string) error {
 	return err
 }
 
+// SVCDeleteAll deletes all IPv4 addresses, if IPv4 is enabled on daemon, and all IPv6
+// services stored on the daemon and on the bpf maps.
+func (d *Daemon) SVCDeleteAll() error {
+	d.loadBalancer.BPFMapMU.Lock()
+	defer d.loadBalancer.BPFMapMU.Unlock()
+
+	if d.conf.IPv4Enabled {
+		if err := lbmap.Service4Map.DeleteAll(); err != nil {
+			return err
+		}
+	}
+	if err := lbmap.Service6Map.DeleteAll(); err != nil {
+		return err
+	}
+	// TODO should we delete even if err is != nil?
+
+	d.loadBalancer.SVCMap = map[string]types.LBSVC{}
+	return nil
+}
+
 // SVCGet returns a DeepCopied frontend with its backends.
 func (d *Daemon) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
 	feL3n4Uniq, err := feL3n4.SHA256Sum()
@@ -269,6 +289,26 @@ func (d *Daemon) RevNATDelete(id types.ServiceID) error {
 		delete(d.loadBalancer.RevNATMap, id)
 	}
 	return err
+}
+
+// RevNATDeleteAll deletes all RevNAT4, if IPv4 is enabled on daemon, and all RevNAT6
+// stored on the daemon and on the bpf maps.
+func (d *Daemon) RevNATDeleteAll() error {
+	d.loadBalancer.BPFMapMU.Lock()
+	defer d.loadBalancer.BPFMapMU.Unlock()
+
+	if d.conf.IPv4Enabled {
+		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
+			return err
+		}
+	}
+	if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
+		return err
+	}
+	// TODO should we delete even if err is != nil?
+
+	d.loadBalancer.RevNATMap = map[types.ServiceID]types.L3n4Addr{}
+	return nil
 }
 
 // RevNATGet returns a DeepCopy of the revNAT found with the given ID or nil if not found.

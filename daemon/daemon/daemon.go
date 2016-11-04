@@ -236,15 +236,6 @@ func (d *Daemon) init() error {
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
 			return err
 		}
-		// Clean all lb entries
-		if !d.conf.RestoreState {
-			if err := lbmap.Service6Map.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
 		if d.conf.IPv4Enabled {
 			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 				return err
@@ -252,14 +243,11 @@ func (d *Daemon) init() error {
 			if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
 				return err
 			}
-			// Clean all lb entries
-			if !d.conf.RestoreState {
-				if err := lbmap.Service4Map.DeleteAll(); err != nil {
-					return err
-				}
-				if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
-					return err
-				}
+		}
+		// Clean all lb entries
+		if !d.conf.RestoreState {
+			if err := d.SVCDeleteAll(); err != nil {
+				return err
 			}
 		}
 	}

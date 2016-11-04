@@ -57,11 +57,13 @@ type TestDaemon struct {
 	OnSVCAdd                    func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
 	OnSVCDelete                 func(feL3n4 types.L3n4Addr) error
 	OnSVCDeleteBySHA256Sum      func(feL3n4SHA256Sum string) error
+	OnSVCDeleteAll              func() error
 	OnSVCGet                    func(feL3n4 types.L3n4Addr) (*types.LBSVC, error)
 	OnSVCGetBySHA256Sum         func(feL3n4SHA256Sum string) (*types.LBSVC, error)
 	OnSVCDump                   func() ([]types.LBSVC, error)
 	OnRevNATAdd                 func(id types.ServiceID, revNAT types.L3n4Addr) error
 	OnRevNATDelete              func(id types.ServiceID) error
+	OnRevNATDeleteAll           func() error
 	OnRevNATGet                 func(id types.ServiceID) (*types.L3n4Addr, error)
 	OnRevNATDump                func() ([]types.L3n4AddrID, error)
 	OnGetUIIP                   func() (*net.TCPAddr, error)
@@ -290,6 +292,13 @@ func (d TestDaemon) SVCDeleteBySHA256Sum(feL3n4SHA256Sum string) error {
 	return errors.New("SVCDeleteBySHA256Sum should not have been called")
 }
 
+func (d TestDaemon) SVCDeleteAll() error {
+	if d.OnSVCDeleteAll != nil {
+		return d.OnSVCDeleteAll()
+	}
+	return errors.New("SVCDeleteAll should not have been called")
+}
+
 func (d TestDaemon) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
 	if d.OnSVCGet != nil {
 		return d.OnSVCGet(feL3n4)
@@ -323,6 +332,13 @@ func (d TestDaemon) RevNATDelete(id types.ServiceID) error {
 		return d.OnRevNATDelete(id)
 	}
 	return errors.New("RevNATDelete should not have been called")
+}
+
+func (d TestDaemon) RevNATDeleteAll() error {
+	if d.OnRevNATDeleteAll != nil {
+		return d.OnRevNATDeleteAll()
+	}
+	return errors.New("RevNATDeleteAll should not have been called")
 }
 
 func (d TestDaemon) RevNATGet(id types.ServiceID) (*types.L3n4Addr, error) {

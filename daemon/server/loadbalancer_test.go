@@ -138,6 +138,24 @@ func (s *DaemonSuite) TestSVCDeleteBySHA256SumFail(c *C) {
 	c.Assert(err, ErrorMatches, ".*Unable to read lbmap.*")
 }
 
+func (s *DaemonSuite) TestSVCDeleteAllOK(c *C) {
+	s.d.OnSVCDeleteAll = func() error {
+		return nil
+	}
+
+	err := s.c.SVCDeleteAll()
+	c.Assert(err, IsNil)
+}
+
+func (s *DaemonSuite) TestSVCDeleteAllFail(c *C) {
+	s.d.OnSVCDeleteAll = func() error {
+		return errors.New("Unable to read lbmap")
+	}
+
+	err := s.c.SVCDeleteAll()
+	c.Assert(err, ErrorMatches, ".*Unable to read lbmap.*")
+}
+
 func (s *DaemonSuite) TestSVCGetOK(c *C) {
 	feWant, err := types.NewL3n4AddrID(types.TCP, randomAddr1, 1984, 2016)
 	c.Assert(err, IsNil)
@@ -291,6 +309,24 @@ func (s *DaemonSuite) TestRevNATDeleteFail(c *C) {
 	}
 
 	err := s.c.RevNATDelete(idWant)
+	c.Assert(err, ErrorMatches, ".*ID 0 is reserved.*")
+}
+
+func (s *DaemonSuite) TestRevNATDeleteAllOK(c *C) {
+	s.d.OnRevNATDeleteAll = func() error {
+		return nil
+	}
+
+	err := s.c.RevNATDeleteAll()
+	c.Assert(err, IsNil)
+}
+
+func (s *DaemonSuite) TestRevNATDeleteAllFail(c *C) {
+	s.d.OnRevNATDeleteAll = func() error {
+		return errors.New("ID 0 is reserved")
+	}
+
+	err := s.c.RevNATDeleteAll()
 	c.Assert(err, ErrorMatches, ".*ID 0 is reserved.*")
 }
 

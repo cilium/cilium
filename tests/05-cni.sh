@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source "./helpers.bash"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 server_id=""
 client_id=""
@@ -99,6 +100,7 @@ git clone 'https://github.com/containernetworking/cni'
 cd cni
 ./build
 export CNI_PATH=`pwd`/bin
+cp "${dir}/../plugins/cilium-cni/cilium-cni" "${CNI_PATH}"
 cd scripts
 
 server_id=$(run_cni_container -d -l io.cilium.server --name cni-server noironetworks/netperf)

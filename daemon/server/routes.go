@@ -118,6 +118,9 @@ func (r *Router) initBackendRoutes() {
 			"ServiceDel", "DELETE", "/lb/service/{feSHA256Sum}", r.serviceDel,
 		},
 		route{
+			"ServiceDelAll", "DELETE", "/lb/services", r.serviceDelAll,
+		},
+		route{
 			"ServiceGet", "GET", "/lb/service/{feSHA256Sum}", r.serviceGet,
 		},
 		route{
@@ -128,6 +131,9 @@ func (r *Router) initBackendRoutes() {
 		},
 		route{
 			"RevNATDel", "DELETE", "/lb/revnat/{revNATID}", r.revNATDel,
+		},
+		route{
+			"RevNATDelAll", "DELETE", "/lb/revnats", r.revNATDelAll,
 		},
 		route{
 			"RevNATGet", "GET", "/lb/revnat/{revNATID}", r.revNATGet,
