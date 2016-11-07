@@ -25,3 +25,6 @@ _testmain.go
 
 *.swp
 .vagrant
+coverage.out
+coverage-all.out
+coverage-all.html

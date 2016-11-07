@@ -26,9 +26,16 @@ tests-etcd:
         -listen-client-urls http://0.0.0.0:4001 \
         -initial-cluster-token etcd-cluster-1 \
         -initial-cluster-state new
+	echo "mode: count" > coverage-all.out
+	echo "mode: count" > coverage.out
+	$(foreach pkg,$(GOFILES),\
 	go test \
-	    -ldflags "-X "github.com/cilium/cilium/daemon/daemon".kvBackend=etcd" \
-	    -timeout 30s $(GOFILES)
+            -ldflags "-X "github.com/cilium/cilium/daemon/daemon".kvBackend=etcd" \
+            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg);\
+            tail -n +2 coverage.out >> coverage-all.out;)
+	go tool cover -html=coverage-all.out -o=coverage-all.html
+	rm coverage-all.out
+	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	docker rm -f "cilium-etcd-test-container"
 
@@ -40,9 +47,16 @@ tests-consul:
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
            consul:v0.6.4 \
            agent -client=0.0.0.0 -server -bootstrap-expect 1
+	echo "mode: count" > coverage-all.out
+	echo "mode: count" > coverage.out
+	$(foreach pkg,$(GOFILES),\
 	go test \
-	    -ldflags "-X "github.com/cilium/cilium/daemon/daemon".kvBackend=consul" \
-	    -timeout 30s $(GOFILES)
+            -ldflags "-X "github.com/cilium/cilium/daemon/daemon".kvBackend=consul" \
+            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg);\
+            tail -n +2 coverage.out >> coverage-all.out;)
+	go tool cover -html=coverage-all.out -o=coverage-all.html
+	rm coverage-all.out
+	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	docker rm -f "cilium-consul-test-container"
 
