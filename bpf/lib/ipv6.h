@@ -270,4 +270,11 @@ static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
 	return sum;
 }
 
+/*
+ * Ipv4 mapped address - 0:0:0:0:0:FFFF::/96
+ */
+static inline int ipv6_addr_is_mapped(union v6addr *addr)
+{
+	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
+}
 #endif /* __LIB_IPV6__ */
