@@ -106,7 +106,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = HOST_IP;
-	int do_nat46 = 0, ret, l4_off;
+	int ret, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
@@ -238,12 +238,11 @@ skip_service_lookup:
 
 		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr);
 	} else {
-#ifdef ENABLE_NAT46
-		/* FIXME: Derive from prefix constant */
-		if (unlikely((tuple->addr.p1 & 0xffff) == 0xadde)) {
-			do_nat46 = 1;
-			goto to_host;
-		}
+#ifdef LXC_NAT46
+		if (unlikely(ipv6_addr_is_mapped(&tuple->addr))) {
+			tail_call(skb, &cilium_calls, CILIUM_CALL_NAT64);
+			return DROP_MISSED_TAIL_CALL;
+                }
 #endif
 
 #ifdef ALLOW_TO_WORLD
@@ -262,14 +261,6 @@ to_host:
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
-
-		if (do_nat46) {
-			union v6addr dp = NAT46_DST_PREFIX;
-
-			ret = ipv6_to_ipv4(skb, 14, &dp, IPV4_RANGE | (LXC_ID_NB <<16));
-			if (IS_ERR(ret))
-				return ret;
-		}
 
 #ifndef POLICY_ENFORCEMENT
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
@@ -688,6 +679,13 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ret < 0)
 		return ret;
 
+#ifdef LXC_NAT46
+	if (skb->cb[CB_NAT46_STATE] == NAT46) {
+		tail_call(skb, &cilium_calls, CILIUM_CALL_NAT46);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif
+
 	if (unlikely(src_rev_nat)) {
 		int ret2;
 
@@ -745,4 +743,38 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	return redirect(ifindex, 0);
 }
 
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
+{
+	int ret = ipv6_to_ipv4(skb, 14, htonl(LXC_IPV4));
+	if (IS_ERR(ret))
+		return ret;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
+
+	skb->cb[CB_NAT46_STATE] = NAT64;
+
+	tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+	return DROP_MISSED_TAIL_CALL;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
+{
+	union v6addr dp = LXC_IP;
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+	struct iphdr *ip4 = data + ETH_HLEN;
+	int ret;
+
+	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		return DROP_INVALID;
+
+	ret = ipv4_to_ipv6(skb, ip4, 14, &dp);
+	if (IS_ERR(ret))
+		return ret;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
+
+	tail_call(skb, &cilium_policy, LXC_ID);
+	return DROP_MISSED_TAIL_CALL;
+}
 BPF_LICENSE("GPL");

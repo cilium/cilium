@@ -60,6 +60,12 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		if (rev_nat_index)
 			*rev_nat_index = entry->rev_nat_index;;
 
+#ifdef LXC_NAT46
+		/* This packet needs nat46 translation */
+		if (entry->nat46 && !skb->cb[CB_NAT46_STATE])
+			skb->cb[CB_NAT46_STATE] = NAT46;
+#endif
+
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
 		if (in) {
@@ -231,6 +237,10 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, in, NULL);
+
+#ifdef LXC_NAT46
+	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
+#endif
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
@@ -435,6 +445,11 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
+
+#ifdef LXC_NAT46
+	if (skb->cb[CB_NAT46_STATE] == NAT64)
+		entry.nat46 = !in;
+#endif
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);

@@ -26,6 +26,17 @@
 #include "eth.h"
 #include "dbg.h"
 
+#if defined ENABLE_NAT46
+#if defined ENABLE_IPV4 && defined CONNTRACK
+#define LXC_NAT46
+#else
+#warning "ENABLE_NAT46 requires ENABLE_IPv4 and CONNTRACK"
+#undef LXC_NAT46
+#endif
+#else
+#undef LXC_NAT46
+#endif
+
 static inline int get_csum_offset(__u8 protocol)
 {
 	int csum_off;
@@ -224,12 +235,11 @@ static inline int ipv6_prefix_match(struct in6_addr *addr,
 /*
  * ipv4 to ipv6 stateless nat
  * (s4,d4) -> (s6,d6)
- * s6 = v6prefix_src<s4>
- * d6 = v6prefix_dst<d4>
+ * s6 = nat46_prefix<s4>
+ * d6 = nat46_prefix<d4> or v6_dst if non null
  */
 static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
-			       int nh_off, union v6addr *v6prefix_src,
-			       union v6addr *v6predix_dst)
+			       int nh_off, union v6addr *v6_dst)
 {
 	struct ipv6hdr v6 = {};
 	struct iphdr v4;
@@ -238,6 +248,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 	__be16 v4hdr_len;
 	__be16 protocol = htons(ETH_P_IPV6);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
+	union v6addr nat46_prefix = NAT46_PREFIX;
 	
 	if (skb_load_bytes(skb, nh_off, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;
@@ -247,15 +258,22 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 
 	/* build v6 header */
 	v6.version = 0x6;
-	v6.saddr.in6_u.u6_addr32[0] = v6prefix_src->p1;
-	v6.saddr.in6_u.u6_addr32[1] = v6prefix_src->p2;
-	v6.saddr.in6_u.u6_addr32[2] = v6prefix_src->p3;
+	v6.saddr.in6_u.u6_addr32[0] = nat46_prefix.p1;
+	v6.saddr.in6_u.u6_addr32[1] = nat46_prefix.p2;
+	v6.saddr.in6_u.u6_addr32[2] = nat46_prefix.p3;
 	v6.saddr.in6_u.u6_addr32[3] = v4.saddr;
 
-	v6.daddr.in6_u.u6_addr32[0] = v6predix_dst->p1;
-	v6.daddr.in6_u.u6_addr32[1] = v6predix_dst->p2;
-	v6.daddr.in6_u.u6_addr32[2] = v6predix_dst->p3;
-	v6.daddr.in6_u.u6_addr32[3] = htonl((ntohl(v6predix_dst->p4) & 0xFFFF0000) | (ntohl(v4.daddr) & 0xFFFF));
+	if (v6_dst) {
+		v6.daddr.in6_u.u6_addr32[0] = v6_dst->p1;
+		v6.daddr.in6_u.u6_addr32[1] = v6_dst->p2;
+		v6.daddr.in6_u.u6_addr32[2] = v6_dst->p3;
+		v6.daddr.in6_u.u6_addr32[3] = v6_dst->p4;
+	} else {
+		v6.daddr.in6_u.u6_addr32[0] = nat46_prefix.p1;
+		v6.daddr.in6_u.u6_addr32[1] = nat46_prefix.p2;
+		v6.daddr.in6_u.u6_addr32[2] = nat46_prefix.p3;
+		v6.daddr.in6_u.u6_addr32[3] = htonl((ntohl(nat46_prefix.p4) & 0xFFFF0000) | (ntohl(v4.daddr) & 0xFFFF));
+	}
 
 	if (v4.protocol == IPPROTO_ICMP)
 		v6.nexthdr = IPPROTO_ICMPV6;
@@ -314,9 +332,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
  * s4 = <ipv4-range>.<lxc-id>
  * d4 = d6[96 .. 127]
  */
-static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
-			       union v6addr *v6prefix_dst,
-			       __u32 saddr)
+static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 {
 	struct ipv6hdr v6;
 	struct iphdr v4 = {};
@@ -331,13 +347,6 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 	/* Drop frames which carry extensions headers */
 	if (ipv6_hdrlen(skb, nh_off, &v6.nexthdr) != sizeof(v6))
 		return DROP_INVALID_EXTHDR;
-
-	if (!ipv6_prefix_match(&v6.daddr, v6prefix_dst)) {
-#ifdef DEBUG_NAT46
-		printk("v64 nat dst prefix mismatch\n");
-#endif
-		return 0;
-	}
 
 	/* build v4 header */
 	v4.ihl = 0x5;
@@ -400,5 +409,4 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off,
 
 	return 0;
 }
-
 #endif /* __LIB_NAT46__ */

@@ -28,6 +28,8 @@ const (
 	DBG_CAPTURE_FROM_OVERLAY
 	DBG_CAPTURE_DELIVERY
 	DBG_CAPTURE_FROM_LB
+	DBG_CAPTURE_AFTER_V46
+	DBG_CAPTURE_AFTER_V64
 )
 
 const (
@@ -200,6 +202,10 @@ func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
 		fmt.Printf("Delivery to ifindex %d\n", n.Arg1)
 	case DBG_CAPTURE_FROM_LB:
 		fmt.Printf("Incoming packet to load balancer on ifindex %d\n", n.Arg1)
+	case DBG_CAPTURE_AFTER_V46:
+		fmt.Printf("Packet after nat46 ifindex %d\n", n.Arg1)
+	case DBG_CAPTURE_AFTER_V64:
+		fmt.Printf("Packet after nat64 ifindex %d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}

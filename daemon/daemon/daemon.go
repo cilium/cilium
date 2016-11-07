@@ -205,8 +205,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", binary.LittleEndian.Uint32(ipv4ClusterRange.Mask))
 
 	if nat46Range := d.conf.NAT46Prefix; nat46Range != nil {
-		fw.WriteString(common.FmtDefineAddress("NAT46_SRC_PREFIX", nat46Range.IP))
-		fw.WriteString(common.FmtDefineAddress("NAT46_DST_PREFIX", nat46Range.IP))
+		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
 	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))

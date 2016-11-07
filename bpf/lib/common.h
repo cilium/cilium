@@ -40,7 +40,9 @@
 #define CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED	5
 #define CILIUM_CALL_ARP				6
 #define CILIUM_CALL_IPV4			7
-#define CILIUM_CALL_SIZE			8
+#define CILIUM_CALL_NAT64			8
+#define CILIUM_CALL_NAT46			9
+#define CILIUM_CALL_SIZE			10
 
 typedef __u64 mac_t;
 
@@ -143,6 +145,14 @@ enum {
 	CB_SRC_LABEL,
 	CB_IFINDEX,
 	CB_POLICY,
+	CB_NAT46_STATE,
+};
+
+/* State values for NAT46 */
+enum {
+	NAT46_CLEAR,
+	NAT64,
+	NAT46,
 };
 
 /* Flag values for CB_POLICY */
@@ -177,7 +187,8 @@ struct ct_entry {
 	__u16 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      reserve:14;
+	      nat46:1,
+	      reserve:13;
 	__u16 rev_nat_index;
 };
 

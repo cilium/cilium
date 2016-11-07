@@ -37,7 +37,6 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
-#include "lib/nat46.h"
 #include "lib/policy.h"
 #include "lib/drop.h"
 
@@ -130,27 +129,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 #endif
 
-#ifdef ENABLE_NAT46
-	if (1) {
-		union v6addr sp = NAT46_SRC_PREFIX;
-		union v6addr dp = HOST_IP;
-		int ret;
-
-		if (data + sizeof(*ip) + ETH_HLEN > data_end)
-			return DROP_INVALID;
-
-		if ((ip->daddr & IPV4_MASK) != IPV4_RANGE)
-			return TC_ACT_OK;
-
-		ret = ipv4_to_ipv6(skb, ip4, 14, &sp, &dp);
-		if (IS_ERR(ret))
-			return ret;
-
-		proto = __constant_htons(ETH_P_IPV6);
-		skb->tc_index = 1;
-	}
-#endif
-
 	return TC_ACT_OK;
 }
 
@@ -179,7 +157,7 @@ int from_netdev(struct __sk_buff *skb)
 		ret = handle_ipv6(skb);
 		break;
 
-#if defined ENABLE_IPV4 || defined ENABLE_NAT46
+#ifdef ENABLE_IPV4
 	case __constant_htons(ETH_P_IP):
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
 		ret = DROP_MISSED_TAIL_CALL;
