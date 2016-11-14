@@ -32,7 +32,6 @@ import (
 )
 
 var (
-	ipv4   bool
 	addRev bool
 
 	client *cnc.Client
@@ -45,37 +44,30 @@ var (
 func init() {
 	CliCommand = cli.Command{
 		Name:  "lb",
-		Usage: "configure load balancer",
-		Flags: []cli.Flag{
-			cli.BoolFlag{
-				Destination: &ipv4,
-				Name:        "ipv4, 4",
-				Usage:       "Apply setting to IPv4 LB",
-			},
-		},
+		Usage: "Configure daemon's load balancer",
 		Subcommands: []cli.Command{
 			{
 				Name:   "dump-service",
-				Usage:  "dumps map present on the given <map file>",
+				Usage:  "Dumps the Service map present on the daemon",
 				Action: cliDumpServices,
 				Before: initEnv,
 			},
 			{
 				Name:   "dump-rev-nat",
-				Usage:  "dumps map present on the given <map file>",
+				Usage:  "Dumps the RevNAT map present on the daemon",
 				Action: cliDumpRevNat,
 				Before: initEnv,
 			},
 			{
 				Name:      "get-service",
-				Usage:     "Lookup LB service",
-				ArgsUsage: "<address>:<port>",
+				Usage:     "Lookup LB Service from the daemon",
+				ArgsUsage: "(<IPv4Address>:<port> | [<IPv6Address>]:<port>)",
 				Action:    cliLookupService,
 				Before:    initEnv,
 			},
 			{
 				Name:      "get-rev-nat",
-				Usage:     "gets key's value of the given <map file>",
+				Usage:     "Lookup Reverse NAT's value from the daemon",
 				ArgsUsage: "<reverse NAT key>",
 				Action:    cliLookupRevNat,
 				Before:    initEnv,
@@ -107,7 +99,7 @@ func init() {
 			},
 			{
 				Name:  "update-rev-nat",
-				Usage: "update LB reverse NAT table",
+				Usage: "Update LB Reverse NAT table",
 				Flags: []cli.Flag{
 					cli.StringFlag{
 						Name:  "address",
@@ -123,6 +115,7 @@ func init() {
 			},
 			{
 				Name:   "delete-service",
+				Usage:  "Deletes the service and respective backends",
 				Action: cliDeleteService,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
@@ -130,11 +123,12 @@ func init() {
 						Usage: "Delete all entries",
 					},
 				},
-				ArgsUsage: "--all | <address>:<port>",
+				ArgsUsage: "--all | (<IPv4Address>:<port> | [<IPv6Address>]:<port>)",
 				Before:    initEnv,
 			},
 			{
 				Name:   "delete-rev-nat",
+				Usage:  "Deletes the Reverse NAT from the daemon",
 				Action: cliDeleteRevNat,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
