@@ -19,8 +19,27 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/bpf/lbmap"
+	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
 )
+
+// addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
+// RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
+func (d *Daemon) addSVC2BPFMap(feCilium types.L3n4AddrID, feBPF lbmap.ServiceKey,
+	besBPF []lbmap.ServiceValue, addRevNAT bool) error {
+
+	err := lbmap.AddSVC2BPFMap(feBPF, besBPF, addRevNAT, int(feCilium.ID))
+	if err != nil {
+		if addRevNAT {
+			delete(d.loadBalancer.RevNATMap, feCilium.ID)
+		}
+		return err
+	}
+	if addRevNAT {
+		d.loadBalancer.RevNATMap[feCilium.ID] = *feCilium.L3n4Addr.DeepCopy()
+	}
+	return nil
+}
 
 // SVCAdd adds a service from the given feL3n4Addr (frontend) and beL3n4Addr (backends).
 // If addRevNAT is set, the RevNAT entry is also created for this particular service.
@@ -30,10 +49,6 @@ import (
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
 func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) error {
-	if feL3n4Addr.ID == 0 {
-		return fmt.Errorf("invalid ID (%d)", feL3n4Addr.ID)
-	}
-
 	// We will move the slice to the loadbalancer map which have a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
 	beL3n4AddrCpy := []types.L3n4Addr{}
@@ -41,25 +56,14 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr
 		beL3n4AddrCpy = append(beL3n4AddrCpy, v)
 	}
 
-	var fe lbmap.ServiceKey
-	if !feL3n4Addr.IsIPv6() {
-		fe = lbmap.NewService4Key(feL3n4Addr.IP, feL3n4Addr.Port, 0)
-	} else {
-		fe = lbmap.NewService6Key(feL3n4Addr.IP, feL3n4Addr.Port, 0)
+	svc := types.LBSVC{
+		FE:  feL3n4Addr,
+		BES: beL3n4AddrCpy,
 	}
 
-	// Create a list of ServiceValues so we know everything is safe to put in the lb
-	// map
-	besValues := []lbmap.ServiceValue{}
-	for _, be := range beL3n4AddrCpy {
-		beValue := fe.NewValue().(lbmap.ServiceValue)
-		if err := beValue.SetAddress(be.IP); err != nil {
-			return err
-		}
-		beValue.SetPort(uint16(be.Port))
-		beValue.SetRevNat(int(feL3n4Addr.ID))
-
-		besValues = append(besValues, beValue)
+	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+	if err != nil {
+		return err
 	}
 
 	feL3n4Uniq, err := feL3n4Addr.L3n4Addr.SHA256Sum()
@@ -70,46 +74,12 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	// Put all the backend services first
-	nSvcs := 1
-	for _, be := range besValues {
-		fe.SetBackend(nSvcs)
-		if err := lbmap.UpdateService(fe, be); err != nil {
-			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
-		}
-		nSvcs++
-	}
-
-	if addRevNAT {
-		zeroValue := fe.NewValue().(lbmap.ServiceValue)
-		zeroValue.SetRevNat(int(feL3n4Addr.ID))
-		revNATKey := zeroValue.RevNatKey()
-		revNATValue := fe.RevNatValue()
-		if err := lbmap.UpdateRevNat(revNATKey, revNATValue); err != nil {
-			return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
-		}
-		defer func() {
-			if err != nil {
-				lbmap.DeleteRevNat(revNATKey)
-				delete(d.loadBalancer.RevNATMap, feL3n4Addr.ID)
-			}
-		}()
-		d.loadBalancer.RevNATMap[feL3n4Addr.ID] = *feL3n4Addr.L3n4Addr.DeepCopy()
-	}
-
-	fe.SetBackend(0)
-	zeroValue := fe.NewValue().(lbmap.ServiceValue)
-	zeroValue.SetCount(nSvcs - 1)
-
-	err = lbmap.UpdateService(fe, zeroValue)
+	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, addRevNAT)
 	if err != nil {
-		return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, zeroValue, err)
+		return err
 	}
 
-	d.loadBalancer.SVCMap[feL3n4Uniq] = types.LBSVC{
-		FE:  feL3n4Addr,
-		BES: beL3n4AddrCpy,
-	}
+	d.loadBalancer.SVCMap[feL3n4Uniq] = svc
 
 	return nil
 }
@@ -239,20 +209,7 @@ func (d *Daemon) SVCDump() ([]types.LBSVC, error) {
 
 // RevNATAdd deep copies the given revNAT address to the cilium lbmap with the given id.
 func (d *Daemon) RevNATAdd(id types.ServiceID, revNAT types.L3n4Addr) error {
-	if id == 0 {
-		return fmt.Errorf("invalid ID (%d)", id)
-	}
-	var (
-		revNATK lbmap.RevNatKey
-		revNATV lbmap.RevNatValue
-	)
-	if !revNAT.IsIPv6() {
-		revNATK = lbmap.NewRevNat4Key(uint16(id))
-		revNATV = lbmap.NewRevNat4Value(revNAT.IP, revNAT.Port)
-	} else {
-		revNATK = lbmap.NewRevNat6Key(uint16(id))
-		revNATV = lbmap.NewRevNat6Value(revNAT.IP, revNAT.Port)
-	}
+	revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(id, revNAT)
 
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
@@ -338,4 +295,163 @@ func (d *Daemon) RevNATDump() ([]types.L3n4AddrID, error) {
 	}
 
 	return dump, nil
+}
+
+// SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
+// the daemon's LB map. If the bpf lbmap entry have a different service ID than the
+// KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
+// retrieved from the KVStore.
+func (d *Daemon) SyncLBMap() error {
+	d.loadBalancer.BPFMapMU.Lock()
+	defer d.loadBalancer.BPFMapMU.Unlock()
+
+	newSVCMap := types.SVCMap{}
+	newRevNATMap := types.RevNATMap{}
+	failedSyncSVC := []types.LBSVC{}
+	failedSyncRevNAT := map[types.ServiceID]types.L3n4Addr{}
+
+	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		svcKey := key.(lbmap.ServiceKey)
+		//It's the frontend service so we don't add this one
+		if svcKey.GetBackend() == 0 {
+			return
+		}
+		svcValue := value.(lbmap.ServiceValue)
+		fe, be, err := lbmap.ServiceKeynValue2FEnBE(svcKey, svcValue)
+		if err != nil {
+			log.Errorf("%s", err)
+			return
+		}
+		if err := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend()); err != nil {
+			log.Errorf("%s", err)
+			return
+		}
+	}
+
+	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		revNatK := key.(lbmap.RevNatKey)
+		revNatV := value.(lbmap.RevNatValue)
+		fe, err := lbmap.RevNatValue2L3n4AddrID(revNatK, revNatV)
+		if err != nil {
+			log.Errorf("%s", err)
+			return
+		}
+		newRevNATMap[fe.ID] = fe.L3n4Addr
+	}
+
+	addSVC2BPFMap := func(oldID types.ServiceID, svc types.LBSVC) error {
+		// check if the reverser nat is present on the bpf map and update the
+		// reverse nat key and delete the old one.
+		revNAT, ok := newRevNATMap[oldID]
+		if ok {
+			revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(svc.FE.ID, revNAT)
+			err := lbmap.UpdateRevNat(revNATK, revNATV)
+			if err != nil {
+				return fmt.Errorf("Unable to add revNAT: %s: %s."+
+					" This entry will be removed from the bpf's LB map.", revNAT.String(), err)
+			}
+
+			// Remove the old entry from the bpf map.
+			revNATK, _ = lbmap.L3n4Addr2RevNatKeynValue(oldID, revNAT)
+			if err := lbmap.DeleteRevNat(revNATK); err != nil {
+				log.Warningf("Unable to remove old rev NAT entry with ID %d: %s", oldID, err)
+			}
+
+			delete(newRevNATMap, oldID)
+			newRevNATMap[svc.FE.ID] = revNAT
+		}
+
+		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+		if err != nil {
+			return fmt.Errorf("Unable to create a BPF key and values for service FE: %s and backends: %+v. Error: %s."+
+				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
+		}
+
+		err = d.addSVC2BPFMap(svc.FE, fe, besValues, false)
+		if err != nil {
+			return fmt.Errorf("Unable to add service FE: %s: %s."+
+				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)
+		}
+		return nil
+	}
+
+	if d.conf.IPv4Enabled {
+		lbmap.Service4Map.Dump(lbmap.Service4DumpParser, parseSVCEntries)
+		lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, parseRevNATEntries)
+	}
+
+	lbmap.Service6Map.Dump(lbmap.Service6DumpParser, parseSVCEntries)
+	lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, parseRevNATEntries)
+
+	// Let's check if the services read from the lbmap have the same ID set in the
+	// KVStore.
+	for k, svc := range newSVCMap {
+		kvL3n4AddrID, err := d.PutL3n4Addr(svc.FE.L3n4Addr)
+		if err != nil {
+			log.Errorf("Unable to retrieve service ID of: %s from KVStore: %s."+
+				" This entry will be removed from the bpf's LB map.", svc.FE.L3n4Addr.String(), err)
+			failedSyncSVC = append(failedSyncSVC, svc)
+			delete(newSVCMap, k)
+			continue
+		}
+
+		if svc.FE.ID != kvL3n4AddrID.ID {
+			log.Infof("Service ID was out of sync, got new ID %d -> %d", svc.FE.ID, kvL3n4AddrID.ID)
+			oldID := svc.FE.ID
+			svc.FE.ID = kvL3n4AddrID.ID
+			if err := addSVC2BPFMap(oldID, svc); err != nil {
+				log.Errorf("%s", err)
+
+				failedSyncSVC = append(failedSyncSVC, svc)
+				delete(newSVCMap, k)
+
+				revNAT, ok := newRevNATMap[svc.FE.ID]
+				if ok {
+					// Revert the old revNAT
+					newRevNATMap[oldID] = revNAT
+					failedSyncRevNAT[svc.FE.ID] = revNAT
+					delete(newRevNATMap, svc.FE.ID)
+				}
+				continue
+			}
+			newSVCMap[k] = svc
+		}
+	}
+
+	// Clean services and rev nats that failed while restoring
+	for _, svc := range failedSyncSVC {
+		log.Debugf("Removing service: %s", svc.FE)
+		feL3n4 := svc.FE
+		var svcKey lbmap.ServiceKey
+		if !feL3n4.IsIPv6() {
+			svcKey = lbmap.NewService4Key(feL3n4.IP, feL3n4.Port, 0)
+		} else {
+			svcKey = lbmap.NewService6Key(feL3n4.IP, feL3n4.Port, 0)
+		}
+
+		svcKey.SetBackend(0)
+
+		if err := lbmap.DeleteService(svcKey); err != nil {
+			log.Warningf("Unable to clean service %s from BPF map: %s", svc.FE, err)
+		}
+	}
+
+	for id, revNAT := range failedSyncRevNAT {
+		log.Debugf("Removing revNAT: %s", revNAT)
+		var revNATK lbmap.RevNatKey
+		if !revNAT.IsIPv6() {
+			revNATK = lbmap.NewRevNat4Key(uint16(id))
+		} else {
+			revNATK = lbmap.NewRevNat6Key(uint16(id))
+		}
+
+		if err := lbmap.DeleteRevNat(revNATK); err != nil {
+			log.Warningf("Unable to clean rev NAT %s from BPF map: %s", revNAT, err)
+		}
+	}
+
+	d.loadBalancer.SVCMap = newSVCMap
+	d.loadBalancer.RevNATMap = newRevNATMap
+
+	return nil
 }

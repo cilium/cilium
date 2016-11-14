@@ -45,12 +45,19 @@ type LBSVC struct {
 	BES []L3n4Addr
 }
 
+// SVCMap is a map of the daemon's services. The key is the sha256sum of the LBSVC's FE
+// and the value the LBSVC.
+type SVCMap map[string]LBSVC
+
+// RevNATMap is a map of the daemon's RevNATs.
+type RevNATMap map[ServiceID]L3n4Addr
+
 // LoadBalancer is the internal representation of the loadbalancer in the local cilium
 // daemon.
 type LoadBalancer struct {
 	BPFMapMU  sync.RWMutex
-	SVCMap    map[string]LBSVC
-	RevNATMap map[ServiceID]L3n4Addr
+	SVCMap    SVCMap
+	RevNATMap RevNATMap
 
 	K8sMU        sync.Mutex
 	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
@@ -60,8 +67,8 @@ type LoadBalancer struct {
 // NewLoadBalancer returns a LoadBalancer with all maps initialized.
 func NewLoadBalancer() *LoadBalancer {
 	return &LoadBalancer{
-		SVCMap:       map[string]LBSVC{},
-		RevNATMap:    map[ServiceID]L3n4Addr{},
+		SVCMap:       SVCMap{},
+		RevNATMap:    RevNATMap{},
 		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
 		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
 	}
@@ -220,4 +227,54 @@ func (l *L3n4AddrID) DeepCopy() *L3n4AddrID {
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
 func (l *L3n4AddrID) IsIPv6() bool {
 	return l.L3n4Addr.IsIPv6()
+}
+
+// AddFEnBE adds the given 'fe' and 'be' to the SVCMap. If 'fe' exists and beIndex is 0,
+// the new 'be' will be appended to the list of existing backends. If beIndex is bigger
+// than the size of existing backends slice, it will be created a new array with size of
+// beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
+// remaining be elements will be kept on the same index and, in case the new array is
+// larger than the number of backends, some elements will be empty.
+func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
+	if beIndex < 0 {
+		return fmt.Errorf("invalid beIndex (%d)", beIndex)
+	}
+	feL3n4Uniq, err := fe.SHA256Sum()
+	if err != nil {
+		return fmt.Errorf("unable to get the SHA256Sum for FE Service: %s: %s", fe, err)
+	}
+
+	var lbsvc LBSVC
+	lbsvc, ok := svcs[feL3n4Uniq]
+	if !ok {
+		var bes []L3n4Addr
+		if beIndex == 0 {
+			bes = make([]L3n4Addr, 1)
+			bes[0] = *be
+		} else {
+			bes = make([]L3n4Addr, beIndex)
+			bes[beIndex-1] = *be
+		}
+		lbsvc = LBSVC{
+			FE:  *fe,
+			BES: bes,
+		}
+	} else {
+		var bes []L3n4Addr
+		if len(lbsvc.BES) < beIndex {
+			bes = make([]L3n4Addr, beIndex)
+			for i, lbsvcBE := range lbsvc.BES {
+				bes[i] = lbsvcBE
+			}
+			lbsvc.BES = bes
+		}
+		if beIndex == 0 {
+			lbsvc.BES = append(lbsvc.BES, *be)
+		} else {
+			lbsvc.BES[beIndex-1] = *be
+		}
+	}
+
+	svcs[feL3n4Uniq] = lbsvc
+	return nil
 }

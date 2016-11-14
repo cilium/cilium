@@ -376,6 +376,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if err := d.SyncState(common.CiliumPath, true); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
+		if err := d.SyncLBMap(); err != nil {
+			log.Warningf("Error while recovering endpoints: %s\n", err)
+		}
 	}
 
 	d.endpointsMU.Lock()
