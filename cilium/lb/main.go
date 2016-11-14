@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common"
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/types"
@@ -380,12 +379,7 @@ func cliDeleteService(ctx *cli.Context) {
 	var err error
 
 	if ctx.Bool("all") {
-		//TODO add all flag to daemon
-		if err := lbmap.Service6Map.DeleteAll(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
-		}
-
-		if err := lbmap.Service4Map.DeleteAll(); err != nil {
+		if err := client.SVCDeleteAll(); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
 	} else {
@@ -403,13 +397,7 @@ func cliDeleteService(ctx *cli.Context) {
 
 func cliDeleteRevNat(ctx *cli.Context) {
 	if ctx.Bool("all") {
-		//TODO add all flag to daemon
-		if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
-			os.Exit(1)
-		}
-
-		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
+		if err := client.RevNATDeleteAll(); err != nil {
 			fmt.Fprintf(os.Stderr, "%s", err)
 			os.Exit(1)
 		}

@@ -110,8 +110,8 @@ cat <<EOF | cilium -D policy import -
 EOF
 
 # Clear eventual old entries, this may fail if the maps have not been created
-sudo cilium lb delete-service --all || true
-sudo cilium lb delete-rev-nat --all || true
+cilium lb delete-service --all || true
+cilium lb delete-rev-nat --all || true
 
 # Create IPv4 L3 service without reverse entry
 cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:0 || {
