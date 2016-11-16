@@ -19,6 +19,7 @@ SCRIPT
 
 $build = <<SCRIPT
 ~/go/src/github.com/cilium/cilium/common/build.sh
+rm -fr ~/go/bin/cilium*
 SCRIPT
 
 $install = <<SCRIPT
