@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/backend"
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/types"
 
@@ -32,9 +33,10 @@ import (
 )
 
 var (
-	addRev bool
+	addRev   bool
+	noDaemon bool
 
-	client *cnc.Client
+	client backend.LBBackend
 	log    = l.MustGetLogger("cilium-cli")
 
 	// CliCommand is the command that will be used in cilium-net main program.
@@ -45,6 +47,13 @@ func init() {
 	CliCommand = cli.Command{
 		Name:  "lb",
 		Usage: "Configure daemon's load balancer",
+		Flags: []cli.Flag{
+			cli.BoolFlag{
+				Name:        "no-daemon",
+				Usage:       "Don't connect to daemon and modify the bpf maps directly. WARNING: Might cause data corruption if daemon is running at the same time",
+				Destination: &noDaemon,
+			},
+		},
 		Subcommands: []cli.Command{
 			{
 				Name:   "dump-service",
@@ -150,20 +159,24 @@ func initEnv(ctx *cli.Context) error {
 		common.SetupLOG(log, "INFO")
 	}
 
-	var (
-		c   *cnc.Client
-		err error
-	)
-	if host := ctx.GlobalString("host"); host == "" {
-		c, err = cnc.NewDefaultClient()
+	if noDaemon {
+		client = NewLBClient()
 	} else {
-		c, err = cnc.NewClient(host, nil)
+		var (
+			c   *cnc.Client
+			err error
+		)
+		if host := ctx.GlobalString("host"); host == "" {
+			c, err = cnc.NewDefaultClient()
+		} else {
+			c, err = cnc.NewClient(host, nil)
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
+			return fmt.Errorf("Error while creating cilium-client: %s", err)
+		}
+		client = c
 	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return fmt.Errorf("Error while creating cilium-client: %s", err)
-	}
-	client = c
 
 	return nil
 }

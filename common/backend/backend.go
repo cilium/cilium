@@ -73,7 +73,7 @@ type ui interface {
 	RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
 }
 
-type lbBackend interface {
+type LBBackend interface {
 	SVCAdd(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
 	SVCDelete(feL3n4 types.L3n4Addr) error
 	SVCDeleteBySHA256Sum(feL3n4SHA256Sum string) error
@@ -95,7 +95,7 @@ type CiliumBackend interface {
 	ipamBackend
 	labelBackend
 	policyBackend
-	lbBackend
+	LBBackend
 }
 
 // CiliumDaemonBackend is the interface for daemon only.

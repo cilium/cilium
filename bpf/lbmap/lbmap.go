@@ -337,3 +337,23 @@ func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*type
 
 	return &types.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
 }
+
+// ServiceValue2L3n4Addr converts the svcValue to a L3n4Addr. The svcKey is necessary to
+// determine which IP version svcValue is.
+func ServiceValue2L3n4Addr(svcKey ServiceKey, svcValue ServiceValue) (*types.L3n4Addr, error) {
+	var (
+		feIP   net.IP
+		fePort uint16
+	)
+	if svcKey.IsIPv6() {
+		svc6Value := svcValue.(*Service6Value)
+		feIP = svc6Value.Address.IP()
+		fePort = svc6Value.Port
+	} else {
+		svc4Value := svcValue.(*Service4Value)
+		feIP = svc4Value.Address.IP()
+		fePort = svc4Value.Port
+	}
+
+	return types.NewL3n4Addr(types.TCP, feIP, fePort)
+}
