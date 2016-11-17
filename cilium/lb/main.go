@@ -231,14 +231,18 @@ func cliDumpRevNat(ctx *cli.Context) {
 	sort.Ints(revNatFormatKeysV6)
 	sort.Ints(revNatFormatKeysV4)
 
-	fmt.Printf("IPv6:\n")
-	for _, revNATID := range revNatFormatKeysV6 {
-		fmt.Printf("%d => %s\n", revNATID, revNatFormat[revNATID])
+	if len(revNatFormatKeysV6) != 0 {
+		fmt.Printf("IPv6:\n")
+		for _, revNATID := range revNatFormatKeysV6 {
+			fmt.Printf("%d => %s\n", revNATID, revNatFormat[revNATID])
+		}
 	}
 
-	fmt.Printf("IPv4:\n")
-	for _, revNATID := range revNatFormatKeysV4 {
-		fmt.Printf("%d => %s\n", revNATID, revNatFormat[revNATID])
+	if len(revNatFormatKeysV4) != 0 {
+		fmt.Printf("IPv4:\n")
+		for _, revNATID := range revNatFormatKeysV4 {
+			fmt.Printf("%d => %s\n", revNATID, revNatFormat[revNATID])
+		}
 	}
 }
 
@@ -258,6 +262,10 @@ func parseServiceKey(address string) *types.L3n4Addr {
 }
 
 func cliLookupService(ctx *cli.Context) {
+	if len(ctx.Args()) == 0 {
+		cli.ShowCommandHelp(ctx, "get-service")
+		os.Exit(1)
+	}
 	key := parseServiceKey(ctx.Args().Get(0))
 
 	lbSVC, err := client.SVCGet(*key)
@@ -274,11 +282,10 @@ func cliLookupService(ctx *cli.Context) {
 	for _, revNat := range lbSVC.BES {
 		besSlice = append(besSlice, revNat.String())
 	}
-	sort.Strings(besSlice)
 
-	fmt.Printf("%s\n", key.String())
-	for _, svcBackend := range besSlice {
-		fmt.Printf("\t\t=> %s\n", svcBackend)
+	fmt.Printf("%s =>\n", key.String())
+	for i, svcBackend := range besSlice {
+		fmt.Printf("\t\t%d => %s (%d)\n", i+1, svcBackend, lbSVC.FE.ID)
 	}
 }
 
@@ -292,6 +299,10 @@ func parseRevNatKey(key string) types.ServiceID {
 }
 
 func cliLookupRevNat(ctx *cli.Context) {
+	if len(ctx.Args()) == 0 {
+		cli.ShowCommandHelp(ctx, "get-rev-nat")
+		os.Exit(1)
+	}
 	key := parseRevNatKey(ctx.Args().Get(0))
 
 	val, err := client.RevNATGet(key)
@@ -304,7 +315,7 @@ func cliLookupRevNat(ctx *cli.Context) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%d = %v\n", key, val)
+	fmt.Printf("%d => %v\n", key, val)
 }
 
 func cliUpdateService(ctx *cli.Context) {
@@ -354,7 +365,7 @@ func cliUpdateService(ctx *cli.Context) {
 	}
 
 	if err := client.SVCAdd(fe, backends, addRev); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to add the service: %s", err)
+		fmt.Fprintf(os.Stderr, "Unable to add the service: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -390,6 +401,10 @@ func cliDeleteService(ctx *cli.Context) {
 			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
 	} else {
+		if len(ctx.Args()) == 0 {
+			cli.ShowCommandHelp(ctx, "delete-service")
+			os.Exit(1)
+		}
 		fe := parseServiceKey(ctx.Args().Get(0))
 		err = client.SVCDelete(*fe)
 	}
@@ -409,9 +424,18 @@ func cliDeleteRevNat(ctx *cli.Context) {
 			os.Exit(1)
 		}
 	} else {
-		id := types.ServiceID(ctx.Int("id"))
+		if len(ctx.Args()) == 0 {
+			cli.ShowCommandHelp(ctx, "delete-rev-nat")
+			os.Exit(1)
+		}
 
-		if err := client.RevNATDelete(id); err != nil {
+		id, err := strconv.ParseUint(ctx.Args().Get(0), 10, 16)
+		if err != nil {
+			cli.ShowCommandHelp(ctx, "delete-rev-nat")
+			os.Exit(1)
+		}
+
+		if err := client.RevNATDelete(types.ServiceID(id)); err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
