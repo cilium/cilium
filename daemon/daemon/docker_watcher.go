@@ -66,10 +66,10 @@ func (d *Daemon) EnableDockerSync(once bool) {
 		}
 		for _, cont := range cList {
 			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				d.createContainer(cont.ID)
+			go func(wg *sync.WaitGroup, id string) {
+				d.createContainer(id)
 				wg.Done()
-			}(&wg)
+			}(&wg, cont.ID)
 		}
 
 		if once {
