@@ -76,7 +76,7 @@ func (cli *LBClient) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
 		besLen = int(svc.(*lbmap.Service4Value).Count)
 	}
 	bes := []types.L3n4Addr{}
-	svcID := 0
+	svcID := types.ServiceID(0)
 	for i := 1; i <= besLen; i++ {
 		key.SetBackend(i)
 		svc, err := lbmap.LookupService(key)
@@ -88,10 +88,13 @@ func (cli *LBClient) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
 			return nil, err
 		}
 		bes = append(bes, *sv)
+		if i == 1 {
+			svcID = types.ServiceID(svc.RevNatKey().GetKey())
+		}
 	}
 	return &types.LBSVC{
 		FE: types.L3n4AddrID{
-			ID:       types.ServiceID(svcID),
+			ID:       svcID,
 			L3n4Addr: feL3n4,
 		},
 		BES: bes,

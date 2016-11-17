@@ -161,6 +161,7 @@ func (k *RevNat6Key) Map() *bpf.Map             { return RevNat6Map }
 func (k *RevNat6Key) NewValue() bpf.MapValue    { return &RevNat6Value{} }
 func (k *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *RevNat6Key) String() string            { return fmt.Sprintf("%d", k.Key) }
+func (k *RevNat6Key) GetKey() uint16            { return k.Key }
 
 func (k *RevNat6Key) Convert() RevNatKey {
 	n := *k

@@ -87,6 +87,9 @@ type ServiceValue interface {
 }
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
+	if key.GetBackend() != 0 && value.RevNatKey().GetKey() == 0 {
+		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
+	}
 	if _, err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
@@ -126,6 +129,9 @@ type RevNatKey interface {
 
 	// Convert between host byte order and map byte order
 	Convert() RevNatKey
+
+	// Returns the key value
+	GetKey() uint16
 }
 
 type RevNatValue interface {
@@ -136,6 +142,9 @@ type RevNatValue interface {
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
+	if key.GetKey() == 0 {
+		return fmt.Errorf("invalid RevNat ID (0)")
+	}
 	if _, err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
