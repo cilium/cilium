@@ -86,6 +86,7 @@ type LBBackend interface {
 	RevNATDeleteAll() error
 	RevNATGet(id types.ServiceID) (*types.L3n4Addr, error)
 	RevNATDump() ([]types.L3n4AddrID, error)
+	SyncLBMap() error
 }
 
 // CiliumBackend is the interface for both client and daemon.

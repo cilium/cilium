@@ -148,6 +148,12 @@ func init() {
 				ArgsUsage: "--all | <reverse NAT key>",
 				Before:    initEnv,
 			},
+			{
+				Name:   "sync-lb-maps",
+				Usage:  "Syncs bpf LB maps with the running daemon",
+				Action: cliSyncLBMaps,
+				Before: initEnv,
+			},
 		},
 	}
 }
@@ -441,4 +447,12 @@ func cliDeleteRevNat(ctx *cli.Context) {
 		}
 	}
 	fmt.Printf("Successfully deleted\n")
+}
+
+func cliSyncLBMaps(_ *cli.Context) {
+	if err := client.SyncLBMap(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Maps successfully synced\n")
 }

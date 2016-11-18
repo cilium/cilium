@@ -215,3 +215,7 @@ func (cli *LBClient) RevNATDump() ([]types.L3n4AddrID, error) {
 	}
 	return dump, nil
 }
+
+func (cli *LBClient) SyncLBMap() error {
+	return NonAvailable
+}

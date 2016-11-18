@@ -238,3 +238,17 @@ func (cli Client) RevNATDump() ([]types.L3n4AddrID, error) {
 
 	return dump, nil
 }
+
+// SyncLBMap sends a POST request to the daemon to sync all LB maps.
+func (cli Client) SyncLBMap() error {
+	serverResp, err := cli.R().Post("/lb/synclbmap")
+	if err != nil {
+		return fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusOK {
+		return processErrorBody(serverResp.Body(), nil)
+	}
+
+	return nil
+}

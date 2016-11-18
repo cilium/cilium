@@ -522,3 +522,35 @@ func (s *CiliumNetClientSuite) TestRevNATDumpFail(c *C) {
 	var nilRevNATDump []types.L3n4AddrID
 	c.Assert(lbSVCReceived, DeepEquals, nilRevNATDump)
 }
+
+func (s *CiliumNetClientSuite) TestSyncLBMapOK(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/lb/synclbmap")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.SyncLBMap()
+	c.Assert(err, IsNil)
+}
+
+func (s *CiliumNetClientSuite) TestSyncLBMapFail(c *C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Assert(r.Method, Equals, "POST")
+		c.Assert(r.URL.Path, Equals, "/lb/synclbmap")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(types.ServerError{Code: -1, Text: "daemon didn't complete your request"})
+		c.Assert(err, Equals, nil)
+	}))
+	defer server.Close()
+
+	cli := NewTestClient(server.URL, c)
+
+	err := cli.SyncLBMap()
+
+	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
+}

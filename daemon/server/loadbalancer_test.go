@@ -386,3 +386,21 @@ func (s *DaemonSuite) TestRevNATDumpFail(c *C) {
 	c.Assert(err, ErrorMatches, ".*Unable to read lbmap.*")
 	c.Assert(lbSVCReceived, IsNil)
 }
+
+func (s *DaemonSuite) TestSyncLBMapOK(c *C) {
+	s.d.OnSyncLBMap = func() error {
+		return nil
+	}
+
+	err := s.c.SyncLBMap()
+	c.Assert(err, IsNil)
+}
+
+func (s *DaemonSuite) TestSyncLBMapFail(c *C) {
+	s.d.OnSyncLBMap = func() error {
+		return errors.New("Unable to read lbmap")
+	}
+
+	err := s.c.SyncLBMap()
+	c.Assert(err, ErrorMatches, ".*Unable to read lbmap.*")
+}

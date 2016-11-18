@@ -141,6 +141,9 @@ func (r *Router) initBackendRoutes() {
 		route{
 			"RevNATDump", "GET", "/lb/revnats", r.revNATDump,
 		},
+		route{
+			"SyncLBMap", "POST", "/lb/synclbmap", r.syncLBMap,
+		},
 	}
 }
 

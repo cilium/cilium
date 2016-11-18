@@ -66,6 +66,7 @@ type TestDaemon struct {
 	OnRevNATDeleteAll           func() error
 	OnRevNATGet                 func(id types.ServiceID) (*types.L3n4Addr, error)
 	OnRevNATDump                func() ([]types.L3n4AddrID, error)
+	OnSyncLBMap                 func() error
 	OnGetUIIP                   func() (*net.TCPAddr, error)
 	OnGetUIPath                 func() (string, error)
 	OnRegisterUIListener        func(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
@@ -353,6 +354,13 @@ func (d TestDaemon) RevNATDump() ([]types.L3n4AddrID, error) {
 		return d.OnRevNATDump()
 	}
 	return nil, errors.New("RevNATDump should not have been called")
+}
+
+func (d TestDaemon) SyncLBMap() error {
+	if d.OnSyncLBMap != nil {
+		return d.OnSyncLBMap()
+	}
+	return errors.New("SyncLBMap should not have been called")
 }
 
 func (d TestDaemon) GetUIIP() (*net.TCPAddr, error) {

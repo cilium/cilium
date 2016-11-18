@@ -734,3 +734,12 @@ func (router *Router) revNATDump(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (router *Router) syncLBMap(w http.ResponseWriter, r *http.Request) {
+	err := router.daemon.SyncLBMap()
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
