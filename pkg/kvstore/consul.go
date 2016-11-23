@@ -386,7 +386,8 @@ func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []
 }
 
 func (c *ConsulClient) Status() (string, error) {
-	return c.Client.Status().Leader()
+	leader, err := c.Client.Status().Leader()
+	return "Consul: " + leader, err
 }
 
 func (c *ConsulClient) DeleteTree(path string) error {

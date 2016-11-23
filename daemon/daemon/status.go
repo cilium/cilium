@@ -21,11 +21,31 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 
 	ctx "golang.org/x/net/context"
+	k8sTypes "k8s.io/client-go/1.5/pkg/api/v1"
 )
+
+func (d *Daemon) getK8sStatus() endpoint.Status {
+	var k8sStatus endpoint.Status
+	if d.conf.IsK8sEnabled() {
+		if v, err := d.k8sClient.ComponentStatuses().Get("controller-manager"); err != nil {
+			k8sStatus = endpoint.Status{Code: endpoint.Failure, Msg: err.Error()}
+		} else if len(v.Conditions) == 0 {
+			k8sStatus = endpoint.Status{Code: endpoint.Warning, Msg: "Unable to retrieve controller-manager's kubernetes status"}
+		} else {
+			if v.Conditions[0].Status == k8sTypes.ConditionTrue {
+				k8sStatus = endpoint.NewStatusOK(string(v.Conditions[0].Type))
+			} else {
+				k8sStatus = endpoint.Status{Code: endpoint.Failure, Msg: v.Conditions[0].Message}
+			}
+		}
+	} else {
+		k8sStatus = endpoint.Status{Code: endpoint.Disabled}
+	}
+	return k8sStatus
+}
 
 func (d *Daemon) GlobalStatus() (*endpoint.StatusResponse, error) {
 	sr := endpoint.StatusResponse{}
-
 	if info, err := d.kvClient.Status(); err != nil {
 		sr.KVStore = endpoint.Status{Code: endpoint.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
@@ -38,15 +58,7 @@ func (d *Daemon) GlobalStatus() (*endpoint.StatusResponse, error) {
 		sr.Docker = endpoint.NewStatusOK("")
 	}
 
-	if d.conf.IsK8sEnabled() {
-		if v, err := d.k8sClient.ServerVersion(); err != nil {
-			sr.Kubernetes = endpoint.Status{Code: endpoint.OK, Msg: err.Error()}
-		} else {
-			sr.Kubernetes = endpoint.NewStatusOK(v.String())
-		}
-	} else {
-		sr.Kubernetes = endpoint.Status{Code: endpoint.Disabled}
-	}
+	sr.Kubernetes = d.getK8sStatus()
 
 	if sr.KVStore.Code != endpoint.OK {
 		sr.Cilium = endpoint.Status{Code: sr.KVStore.Code, Msg: "KVStore service is not ready!"}
