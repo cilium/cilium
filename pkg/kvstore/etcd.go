@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -388,11 +389,16 @@ func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []po
 }
 
 func (e *EtcdClient) Status() (string, error) {
-	c, cancel := ctx.WithTimeout(ctx.Background(), 2*time.Second)
-	defer cancel()
-	_, err := e.cli.MemberList(c)
-	if err == nil {
-		return "Etcd connected", nil
+	eps := e.cli.Endpoints()
+	var err1 error
+	for i, ep := range eps {
+		if sr, err := e.cli.Status(ctx.Background(), ep); err != nil {
+			err1 = err
+		} else if sr.Header.MemberId == sr.Leader {
+			eps[i] = fmt.Sprintf("%s - (Leader) %s", ep, sr.Version)
+		} else {
+			eps[i] = fmt.Sprintf("%s - %s", ep, sr.Version)
+		}
 	}
-	return "", fmt.Errorf("Etcd client not connected")
+	return "Etcd: " + strings.Join(eps, "; "), err1
 }
