@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=$PATH:/opt/cni/bin
+
 source "./helpers.bash"
 
 server_id=""
@@ -23,7 +25,7 @@ function run_cni_container {
 	pid=$(docker inspect -f '{{ .State.Pid }}' $contid)
 	netnspath=/proc/$pid/ns/net
 
-	sudo -E ./exec-plugins.sh add $contid $netnspath
+	sudo -E PATH=$PATH:/opt/cni/bin ./exec-plugins.sh add $contid $netnspath
 
 	docker run --net=container:$contid $ARGS > /dev/null
 
@@ -35,7 +37,7 @@ function kill_cni_container {
 		pid=$(docker inspect -f '{{ .State.Pid }}' $1)
 		netnspath=/proc/$pid/ns/net
 
-		sudo -E ./exec-plugins.sh del $1 $netnspath
+		sudo -E PATH=$PATH:/opt/cni/bin ./exec-plugins.sh del $1 $netnspath
 		docker rm -f $1 >/dev/null
 	fi
 
