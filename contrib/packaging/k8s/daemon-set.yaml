@@ -1,0 +1,80 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: cilium-net-controller
+spec:
+  template:
+    metadata:
+      labels:
+        name: cilium-net-controller
+    spec:
+      # nodeSelector:
+      #   with-network-plugin: cilium
+      containers:
+      - image: cilium/cilium:cilium-ubuntu-16-04
+        imagePullPolicy: Always
+        name: cilium-net-daemon
+        command: [ "/home/with-cni.sh", "-D", "daemon", "run" ]
+        args:
+          - "--ipv4"
+          - "-t"
+          - "vxlan"
+          - "--etcd-config-path"
+          - "/var/lib/cilium/etcd-config.yml"
+          - "--k8s-kubeconfig-path"
+          - "/var/lib/kubelet/kubeconfig"
+        env:
+          # If you want to specify the interface uncomment the following 2 lines
+          #- name: "IFACE"
+          #  value: "ens4"
+          - name: "K8S_NODE_NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        volumeMounts:
+          - name: cilium-run
+            mountPath: /var/run/cilium
+          - name: cni-path
+            mountPath: /tmp/cni/bin
+          - name: bpf-maps
+            mountPath: /sys/fs/bpf
+          - name: docker-socket
+            mountPath: /var/run/docker.sock
+            readOnly: true
+          - name: etcd-config
+            mountPath: /var/lib/cilium/etcd-config.yml
+            readOnly: true
+          - name: kubeconfig-path
+            mountPath: /var/lib/kubelet/kubeconfig
+            readOnly: true
+          - name: kubeconfig-cert
+            mountPath: /var/lib/kubernetes/ca.pem
+            readOnly: true
+        securityContext:
+          capabilities:
+            add:
+              - "NET_ADMIN"
+          privileged: true
+      hostNetwork: true
+      volumes:
+        - name: cilium-run
+          hostPath:
+              path: /var/run/cilium
+        - name: cni-path
+          hostPath:
+              path: /opt/cni/bin
+        - name: bpf-maps
+          hostPath:
+              path: /sys/fs/bpf
+        - name: docker-socket
+          hostPath:
+              path: /var/run/docker.sock
+        - name: etcd-config
+          hostPath:
+              path: /var/lib/cilium/etcd-config.yml
+        - name: kubeconfig-path
+          hostPath:
+              path: /var/lib/kubelet/kubeconfig
+        - name: kubeconfig-cert
+          hostPath:
+              path: /var/lib/kubernetes/ca.pem
