@@ -137,6 +137,10 @@ on how to contribute.
  * Software Gone Wild by Ivan Pepelnjak, Oct 2016: [Blog](http://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-with.html), [MP3](http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3)
  * OVS Orbit by Ben Pfaff, May 2016: [Blog](https://ovsorbit.benpfaff.org/#e4), [MP3](https://ovsorbit.benpfaff.org/episode-4.mp3)
 
+## Blog posts
+
+ * Cilium, BPF and XDP, Google Open Source Blog, Nov 2016: [Blog](https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html)
+
 ## Contact
 
 If you have any questions feel free to contact us on [Slack](https://cilium.herokuapp.com/)
