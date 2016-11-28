@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
 
 	dTypes "github.com/docker/engine-api/types"
@@ -378,6 +379,23 @@ func (d *Daemon) deleteContainer(dockerID string) {
 
 		if ep != nil {
 			d.EndpointLeave(ep.ID)
+			var ipamType ipam.IPAMType
+			if ep.IsCNI() {
+				ipamType = ipam.CNIIPAMType
+			} else {
+				ipamType = ipam.LibnetworkIPAMType
+			}
+
+			if d.conf.IPv4Enabled {
+				ipv4 := ep.IPv4.IP()
+				if err := d.ReleaseIP(ipamType, ipam.IPAMReq{IP: &ipv4}); err != nil {
+					log.Warningf("error while releasing IPv4 %s: %s", ep.IPv4.IP(), err)
+				}
+			}
+			ipv6 := ep.IPv6.IP()
+			if err := d.ReleaseIP(ipamType, ipam.IPAMReq{IP: &ipv6}); err != nil {
+				log.Warningf("error while releasing IPv6 %s: %s", ep.IPv6.IP(), err)
+			}
 		}
 	}
 	d.containersMU.Unlock()

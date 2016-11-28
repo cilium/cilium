@@ -263,8 +263,23 @@ func statusDaemon(ctx *cli.Context) {
 		fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes)
 		fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium)
 		w.Flush()
+
+		if sr.IPAMStatus != nil {
+			fmt.Printf("V4 addresses reserved:\n")
+			for _, ipv4 := range sr.IPAMStatus["4"] {
+				fmt.Printf(" %s\n", ipv4)
+
+			}
+			fmt.Printf("V6 addresses reserved:\n")
+			for _, ipv6 := range sr.IPAMStatus["6"] {
+				fmt.Printf(" %s\n", ipv6)
+			}
+			w.Flush()
+		}
+
 		os.Exit(int(sr.Cilium.Code))
 	}
+
 }
 
 func configDaemon(ctx *cli.Context) {
