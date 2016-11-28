@@ -96,11 +96,11 @@ buffer.
 
 ## Prerequisites
 
-Cilium requires a recent version of the Linux kernel iproute2 and clang+LLVM.
-All required changes have been merged upstream but are not included in an
-official release yet.
-  * https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
-  * https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
+Cilium requires a recent version of the Linux kernel, iproute2 and clang+LLVM.
+All required changes have been merged upstream but may have not been included
+in an official release yet.
+  * https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+  * https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/log/?h=net-next
   * clang+LLVM >=3.7.1: http://llvm.org/releases
 
 Alternatively, the vagrant box `noironetworks/net-next` is built regularly
