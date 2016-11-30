@@ -41,38 +41,13 @@
 #include "lib/policy.h"
 #include "lib/drop.h"
 
-static inline int is_node_subnet(const union v6addr *dst, const union v6addr *node_ip)
-{
-	int tmp;
-
-	tmp = dst->p1 - node_ip->p1;
-	if (!tmp) {
-		tmp = dst->p2 - node_ip->p2;
-		if (!tmp)
-			tmp = dst->p3 - node_ip->p3;
-	}
-
-	return !tmp;
-}
-
-static inline int matches_cluster_prefix(const union v6addr *addr, const union v6addr *prefix)
-{
-	int tmp;
-
-	tmp = addr->p1 - prefix->p1;
-	if (!tmp)
-		tmp = addr->p2 - prefix->p2;
-
-	return !tmp;
-}
-
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
 				   struct ipv6hdr *ip6)
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
 #else
-	if (matches_cluster_prefix((union v6addr *) &ip6->saddr, node_ip)) {
+	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
 		__u32 *tmp = (__u32 *) ip6;
 		return ntohl(*tmp & IPV6_FLOWLABEL_MASK);
@@ -109,7 +84,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
-	if (likely(is_node_subnet(dst, &node_ip)))
+	if (likely(ipv6_match_prefix_96(dst, &node_ip)))
 		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr);
 
 	return TC_ACT_OK;
@@ -215,7 +190,7 @@ int from_netdev(struct __sk_buff *skb)
 
 	default:
 		/* Pass unknown traffic to the stack */
-		ret = TC_ACT_OK;
+		return TC_ACT_OK;
 	}
 
 	if (IS_ERR(ret))

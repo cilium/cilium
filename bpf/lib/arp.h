@@ -26,44 +26,31 @@
 
 struct arp_eth {
 	unsigned char		ar_sha[ETH_ALEN];
-	unsigned char		ar_sip[4];
+	__be32                  ar_sip;
 	unsigned char		ar_tha[ETH_ALEN];
-	unsigned char		ar_tip[4];
-};
+	__be32                  ar_tip;
+} __attribute__((packed));
 
-/*
- * check if an arp request is for ar_tip
- */
-static inline int arp_check(struct ethhdr *eth, struct arphdr *arp, void *data,
-			    void *data_end, __be32 ar_tip, union macaddr *responder_mac)
+/* Check if packet is ARP request for IP */
+static inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
+			    struct arp_eth *arp_eth, __be32 ip,
+			    union macaddr *mac)
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
-	struct arp_eth *arp_eth = data + sizeof(*eth) + sizeof(*arp);
 
-	if (arp->ar_op != __constant_htons(ARPOP_REQUEST) ||
-	    arp->ar_hrd != __constant_htons(ARPHRD_ETHER) ||
-	    (!eth_is_bcast(dmac) && eth_addrcmp(dmac, responder_mac)))
-		return 0;
-
-	/* Check if packet contains ethernet specific arp header */
-	if (data + sizeof(*arp) + ETH_HLEN + 20 > data_end)
-		return 0;
-
-	if (*(__be32 *) &arp_eth->ar_tip != ar_tip)
-		return 0;
-
-	return 1;
+	return arp->ar_op == __constant_htons(ARPOP_REQUEST) &&
+	       arp->ar_hrd == __constant_htons(ARPHRD_ETHER) &&
+	       (eth_is_bcast(dmac) || !eth_addrcmp(dmac, mac)) &&
+	       arp_eth->ar_tip == ip;
 }
 
-static inline int arp_prepare_response(struct __sk_buff *skb, __be32 ip, union macaddr *mac)
+static inline int arp_prepare_response(struct __sk_buff *skb, struct ethhdr *eth,
+				       struct arp_eth *arp_eth, __be32 ip,
+				       union macaddr *mac)
 {
+	union macaddr smac = *(union macaddr *) &eth->h_source;
+	__be32 sip = arp_eth->ar_sip;
 	__be16 arpop = __constant_htons(ARPOP_REPLY);
-	union macaddr smac = {};
-	__be32 sip;
-
-	if (eth_load_saddr(skb, smac.addr, 0) < 0 ||
-	    skb_load_bytes(skb, 28, &sip, sizeof(sip)) < 0)
-		return DROP_INVALID;
 
 	if (eth_store_saddr(skb, mac->addr, 0) < 0 ||
 	    eth_store_daddr(skb, smac.addr, 0) < 0 ||
@@ -83,16 +70,16 @@ static inline int arp_respond(struct __sk_buff *skb, union macaddr *mac, __be32 
 	void *data = (void *) (long) skb->data;
 	struct arphdr *arp = data + ETH_HLEN;
 	struct ethhdr *eth = data;
+	struct arp_eth *arp_eth;
 	int ret;
 
-	if (data + sizeof(*arp) + ETH_HLEN > data_end) {
-		ret = DROP_INVALID;
-		goto error;
-	}
+	if (data + ETH_HLEN + sizeof(*arp) + sizeof(*arp_eth) > data_end)
+		return TC_ACT_OK;
 
-	ret = arp_check(eth, arp, data, data_end, ip, mac);
-	if (ret == 1) {
-		ret = arp_prepare_response(skb, ip, mac);
+	arp_eth = data + ETH_HLEN + sizeof(*arp);
+
+	if (arp_check(eth, arp, arp_eth, ip, mac)) {
+		ret = arp_prepare_response(skb, eth, arp_eth, ip, mac);
 		if (unlikely(ret != 0))
 			goto error;
 

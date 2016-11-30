@@ -139,6 +139,32 @@ static inline int ipv6_match_subnet_96(union v6addr *addr, union v6addr *prefix)
 	return !tmp;
 }
 
+static inline int ipv6_match_prefix_96(const union v6addr *addr, const union v6addr *prefix)
+{
+	int tmp;
+
+	tmp = addr->p1 - prefix->p1;
+	if (!tmp) {
+		tmp = addr->p2 - prefix->p2;
+		if (!tmp)
+			tmp = addr->p3 - prefix->p3;
+	}
+
+	return !tmp;
+}
+
+static inline int ipv6_match_prefix_64(const union v6addr *addr, const union v6addr *prefix)
+{
+	int tmp;
+
+	tmp = addr->p1 - prefix->p1;
+	if (!tmp)
+		tmp = addr->p2 - prefix->p2;
+
+	return !tmp;
+}
+
+
 static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 {
 	__u8 hoplimit, new_hl;
@@ -260,4 +286,5 @@ static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
 
 	return sum;
 }
+
 #endif /* __LIB_IPV6__ */
