@@ -38,7 +38,6 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/nat46.h"
-#include "lib/arp.h"
 #include "lib/policy.h"
 #include "lib/drop.h"
 
@@ -65,15 +64,6 @@ static inline int matches_cluster_prefix(const union v6addr *addr, const union v
 		tmp = addr->p2 - prefix->p2;
 
 	return !tmp;
-}
-
-/*
- * respond to arp request for target IPV4_GATEWAY with HOST_IFINDEX_MAC
- */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __sk_buff *skb)
-{
-	union macaddr mac = HOST_IFINDEX_MAC;
-	return arp_respond(skb, &mac, IPV4_GATEWAY);
 }
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
@@ -219,13 +209,6 @@ int from_netdev(struct __sk_buff *skb)
 #if defined ENABLE_IPV4 || defined ENABLE_NAT46
 	case __constant_htons(ETH_P_IP):
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
-		ret = DROP_MISSED_TAIL_CALL;
-		break;
-#endif
-
-#ifdef ENABLE_ARP_RESPONDER
-	case __constant_htons(ETH_P_ARP):
-		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif
