@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -333,6 +334,68 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 		}
 		if beginning == baseID {
 			return fmt.Errorf("reached maximum set of serviceIDs available.")
+		}
+	}
+}
+
+func (c *ConsulClient) setMaxIPv4Prefix(maxID uint32) error {
+	return c.SetMaxID(common.LastFreeIPv4PrefixKeyPath, common.FirstFreeIPv4Prefix, maxID)
+}
+
+func (c *ConsulClient) GASNewIPv4Prefix(basePath string, baseIPv4Prefix uint32, nodeIPv4Prefix *addressing.NodeIPv4Prefix) error {
+
+	setID2NodeIPv4Prefix := func(lockPair *consulAPI.KVPair, id uint32) error {
+		defer c.KV().Release(lockPair, nil)
+		nodeIPv4Prefix.SetID(uint8(id))
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(nodeIPv4Prefix.ID), 10))
+		if err := c.SetValue(keyPath, nodeIPv4Prefix); err != nil {
+			return err
+		}
+		return c.setMaxIPv4Prefix(id + 1)
+	}
+
+	session, _, err := c.Session().CreateNoChecks(nil, nil)
+	if err != nil {
+		return err
+	}
+
+	beginning := baseIPv4Prefix
+	for {
+		log.Debugf("Trying to acquire a new free ID %d", baseIPv4Prefix)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(baseIPv4Prefix), 10))
+
+		lockPair := &consulAPI.KVPair{Key: GetLockPath(keyPath), Session: session}
+		acq, _, err := c.KV().Acquire(lockPair, nil)
+		if err != nil {
+			return err
+		}
+
+		if acq {
+			nodeIPv4PrefixConsul, _, err := c.KV().Get(keyPath, nil)
+			if err != nil {
+				c.KV().Release(lockPair, nil)
+				return err
+			}
+			if nodeIPv4PrefixConsul == nil {
+				return setID2NodeIPv4Prefix(lockPair, baseIPv4Prefix)
+			}
+			var nodeIPv4Prefix addressing.NodeIPv4Prefix
+			if err := json.Unmarshal(nodeIPv4PrefixConsul.Value, &nodeIPv4Prefix); err != nil {
+				c.KV().Release(lockPair, nil)
+				return err
+			}
+			if !nodeIPv4Prefix.IsValid() {
+				log.Infof("Recycling ID %d", baseIPv4Prefix)
+				return setID2NodeIPv4Prefix(lockPair, baseIPv4Prefix)
+			}
+			c.KV().Release(lockPair, nil)
+		}
+		baseIPv4Prefix++
+		if baseIPv4Prefix > common.MaxSetOfIPv4Prefix {
+			baseIPv4Prefix = common.FirstFreeIPv4Prefix
+		}
+		if beginning == baseIPv4Prefix {
+			return fmt.Errorf("reached maximum set of IPv4 prefixes available.")
 		}
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -39,6 +40,7 @@ type KVClient interface {
 
 	GASNewSecLabelID(baseKeyPath string, baseID uint32, secCtxLabels *policy.Identity) error
 	GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error
+	GASNewIPv4Prefix(basePath string, baseIPv4Prefix uint32, nodeIPv4Prefix *addressing.NodeIPv4Prefix) error
 
 	DeleteTree(path string) error
 

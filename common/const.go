@@ -55,6 +55,17 @@ const (
 	// FirstFreeServiceID is the first ID for which the services should be assigned.
 	FirstFreeServiceID = uint32(1)
 
+	// LastFreeIPv4PrefixKeyPath is the path where the Last free IPv4 prefix is stored in KVStore.
+	LastFreeIPv4PrefixKeyPath = OperationalPath + "/NodeIPv4Prefixes/LastIPv4Prefix"
+	// NodeAddrKeyPath is the base path where the Node Addresses are stored in the KVStore.
+	NodeAddrKeyPath = OperationalPath + "/NodeIPv4Prefixes/NodeAddrs"
+	// IPv4PrefixKeyPath is the base path where IPv4 prefix is stored in the KVStore.
+	IPv4PrefixKeyPath = OperationalPath + "/NodeIPv4Prefixes/IPv4Prefixes"
+	// MaxSetOfIPv4Prefix is maximum number of set of service IDs that can be stored in consul.
+	MaxSetOfIPv4Prefix = uint32(0xFF)
+	// FirstFreeServiceID is the first ID for which the services should be assigned.
+	FirstFreeIPv4Prefix = uint32(0)
+
 	// Miscellaneous dedicated constants
 
 	// GlobalLabelPrefix is the default root path for the policy.

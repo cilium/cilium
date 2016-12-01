@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -348,10 +349,75 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 
 	var err error
 	beginning := baseID
+	// TODO fix !retry bug
 	for {
 		if err = acquireFreeID(beginning, &baseID); err != nil {
 			return err
 		} else if beginning == baseID {
+			return nil
+		}
+	}
+}
+
+func (e *EtcdClient) setMaxIPv4Prefix(maxID uint32) error {
+	return e.SetMaxID(common.LastFreeIPv4PrefixKeyPath, common.FirstFreeIPv4Prefix, maxID)
+}
+
+// GASNewIPv4Prefix gets the next available IPv4Prefix and sets it in nodeIPv4Prefix.
+// After assigning the IPv4Prefix to nodeIPv4Prefix it sets the baseIPv4Prefix + 1 in
+// common.LastFreeIPv4PrefixKeyPath path.
+func (e *EtcdClient) GASNewIPv4Prefix(basePath string, baseIPv4Prefix uint32, nodeIPv4Prefix *addressing.NodeIPv4Prefix) error {
+	setID2NodeIPv4Prefix := func(id uint32) error {
+		nodeIPv4Prefix.SetID(uint8(id))
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(nodeIPv4Prefix.ID), 10))
+		if err := e.SetValue(keyPath, nodeIPv4Prefix); err != nil {
+			return err
+		}
+		return e.setMaxIPv4Prefix(id + 1)
+	}
+
+	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
+		log.Debugf("Trying to acquire a new free ID %d", *incID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
+
+		locker, err := e.LockPath(GetLockPath(keyPath))
+		if err != nil {
+			return false, err
+		}
+		defer locker.Unlock()
+
+		value, err := e.GetValue(keyPath)
+		if err != nil {
+			return false, err
+		}
+		if value == nil {
+			return false, setID2NodeIPv4Prefix(*incID)
+		}
+		var etcdNodeIPv4PPrefix addressing.NodeIPv4Prefix
+		if err := json.Unmarshal(value, &etcdNodeIPv4PPrefix); err != nil {
+			return false, err
+		}
+		if !etcdNodeIPv4PPrefix.IsValid() {
+			log.Infof("Recycling ID %d", *incID)
+			return false, setID2NodeIPv4Prefix(*incID)
+		}
+
+		*incID++
+		if *incID > common.MaxSetOfIPv4Prefix {
+			*incID = common.FirstFreeIPv4Prefix
+		}
+		if firstID == *incID {
+			return false, fmt.Errorf("reached maximum set of IPv4 prefixes available.")
+		}
+		return true, nil
+	}
+
+	beginning := baseIPv4Prefix
+	for {
+		retry, err := acquireFreeID(beginning, &baseIPv4Prefix)
+		if err != nil {
+			return err
+		} else if !retry {
 			return nil
 		}
 	}
