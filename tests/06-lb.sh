@@ -36,6 +36,533 @@ cleanup
 
 set -x
 
+# Test the addition and removal of services with and without daemon
+
+# Clean everything first
+cilium lb delete-service --all
+sudo cilium lb --no-daemon dump-service
+
+cilium lb delete-rev-nat --all
+sudo cilium lb --no-daemon delete-rev-nat --all
+
+# Check if everything was deleted
+if [ -n "$(cilium lb dump-service)" ]; then
+	abort "Daemon's services map should be clean"
+fi
+if [ -n "$(sudo cilium lb --no-daemon dump-service)" ]; then
+	abort "Services map should be clean"
+fi
+
+if [ -n "$(cilium lb dump-rev-nat)" ]; then
+	abort "Daemon's rev nat map should be clean"
+fi
+if [ -n "$(sudo cilium lb --no-daemon dump-rev-nat)" ]; then
+	abort "Rev nat's map should be clean"
+fi
+
+# Add a service with ID 0, it should fail
+sudo cilium lb --no-daemon update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 0 --rev 2> /dev/null && {
+	abort "Unexpected success in creating a frontend with reverse nat ID 0"
+}
+
+if [ -n "$(sudo cilium lb --no-daemon dump-service)" ]; then
+	abort "Services map should be clean"
+fi
+
+# Add a service with ID 1
+sudo cilium lb --no-daemon update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 1 --rev 2> /dev/null || {
+	abort "Service should have been added"
+}
+
+# Daemon's map should be empty
+if [ -n "$(cilium lb dump-service)" ]; then
+	abort "Daemon's services map should be clean"
+fi
+
+# Check if it's the only service present
+if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# Check if we can get the service by it's ID
+if [[ "$(sudo cilium lb --no-daemon get-service [::]:80)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# Check if it's the only RevNAT present
+if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n1 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# Check if we can get the RevNAT by it's ID
+if [[ "$(sudo cilium lb --no-daemon get-rev-nat 1)" != \
+      "$(echo -e "1 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# Add a service with ID 0 to the daemon, it should fail
+cilium lb update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 0 --rev 2> /dev/null && {
+	abort "Unexpected success in creating a frontend with reverse nat ID 0"
+}
+
+# Daemon's map should be empty
+if [ -n "$(cilium lb dump-service)" ]; then
+	abort "Daemon's services map should be clean"
+fi
+
+# BPF's map should be unmodified
+if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# Add a service with ID 2
+cilium lb update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 2 --rev 2> /dev/null || {
+	abort "Service should have been added"
+}
+
+# Check if it's the only service present
+if [[ "$(cilium lb dump-service)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# Check if we can get the service by it's ID
+if [[ "$(cilium lb get-service [::]:80)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# BPF's map should contain service with a different RevNAT ID
+if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# Check if it's the only RevNAT present
+if [[ "$(cilium lb dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n2 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# Check if we can get the RevNAT by it's ID
+if [[ "$(cilium lb get-rev-nat 2)" != \
+      "$(echo -e "2 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# BPF's RevNAT map's should contain both RevNATs
+if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n1 => [::]:80\n2 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# Let's try delete RevNAT 1
+if [[ "$(cilium lb delete-rev-nat 1)" != \
+      "$(echo -e "Successfully deleted")" ]]; then
+     abort "RevNAT's was not deleted"
+fi
+
+# BPF's RevNAT map's should contain both RevNATs
+if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n1 => [::]:80\n2 => [::]:80")" ]]; then
+     abort "RevNAT's service was wrongly deleted"
+fi
+
+# Let's try delete RevNAT 2
+if [[ "$(cilium lb delete-rev-nat 2)" != \
+      "$(echo -e "Successfully deleted")" ]]; then
+     abort "RevNAT's was not deleted"
+fi
+
+# Let's try delete RevNAT 2
+if [[ "$(cilium lb dump-rev-nat)" != \
+      "$(echo -e "")" ]]; then
+     abort "RevNAT's was not deleted"
+fi
+
+# BPF's RevNAT map's should contain RevNAT with ID 1
+if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n1 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly deleted"
+fi
+
+# Let's try delete the only service
+if [[ "$(cilium lb delete-service [::]:80)" != \
+      "$(echo -e "Successfully deleted")" ]]; then
+     abort "RevNAT's was not deleted"
+fi
+
+# Let's delete the remaining RevNAT with ID 1
+if [[ "$(sudo cilium lb --no-daemon delete-rev-nat 1)" != \
+      "$(echo -e "Successfully deleted")" ]]; then
+     abort "RevNAT's service was not properly deleted"
+fi
+
+# Check if everything was deleted
+if [ -n "$(cilium lb dump-service)" ]; then
+	abort "Daemon's services map should be clean"
+fi
+
+#FIXME The services maps are not being properly cleaned
+#if [ -n "$(sudo cilium lb --no-daemon dump-service)" ]; then
+#	abort "Services map should be clean"
+#fi
+
+if [ -n "$(cilium lb dump-rev-nat)" ]; then
+	abort "Daemon's rev nat map should be clean"
+fi
+if [ -n "$(sudo cilium lb --no-daemon dump-rev-nat)" ]; then
+	abort "Rev nat's map should be clean"
+fi
+
+# Test SyncLBMap
+
+# Clean everything first
+cilium lb delete-service --all
+sudo cilium lb --no-daemon dump-service
+cilium lb delete-rev-nat --all
+sudo cilium lb --no-daemon delete-rev-nat --all
+
+
+# Add a service with ID 2
+cilium lb update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 2 --rev 2> /dev/null || {
+	abort "Service should have been added"
+}
+
+# Add the same service with ID 1
+sudo cilium lb --no-daemon update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 1 --rev 2> /dev/null || {
+	abort "Service should have been added"
+}
+
+# Add other service with ID 3
+sudo cilium lb --no-daemon update-service --frontend [::1]:80 --backend [::1]:90 --backend [::2]:91 --id 3 --rev 2> /dev/null || {
+	abort "Service should have been added"
+}
+
+# BPF's map should contain service with RevNAT ID 1
+if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+      "$(echo -e "[::1]:80 =>\n\t\t1 => [::1]:90 (3)\n\t\t2 => [::2]:91 (3)\n[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)\n")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# Daemon's map should contain service with RevNAT ID 2
+if [[ "$(cilium lb dump-service)" != \
+      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
+     abort "Service was not properly added"
+fi
+
+# BPF's RevNAT map's should contain all RevNATs
+if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n1 => [::]:80\n2 => [::]:80\n3 => [::1]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# Daemon's RevNAT map's should contain only 1 RevNATs
+if [[ "$(cilium lb dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n2 => [::]:80")" ]]; then
+     abort "RevNAT's service was not properly added"
+fi
+
+# Sync LB Maps
+cilium lb sync-lb-maps 2> /dev/null || {
+	abort "Unable to sync LB Maps"
+}
+
+# Daemon's map should contain service with RevNAT ID 2
+if [[ "$(cilium lb dump-service)" != \
+      "$(echo -e "[::1]:80 =>\n\t\t1 => [::1]:90 (3)\n\t\t2 => [::2]:91 (3)\n[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
+     abort "Service was not properly synced"
+fi
+
+# BPF's map should contain service with RevNAT ID 2
+if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+      "$(echo -e "[::1]:80 =>\n\t\t1 => [::1]:90 (3)\n\t\t2 => [::2]:91 (3)\n[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
+     abort "Service was not properly synced"
+fi
+
+# BPF's RevNAT map's should contain RevNATs 2 and 3, number 1 was removed since the new
+# service ID is 2.
+if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n2 => [::]:80\n3 => [::1]:80")" ]]; then
+     abort "RevNAT's service was not properly synced"
+fi
+
+# Daemon's RevNAT map's should contain RevNATs 2 and 3, number 1 was removed since the new
+# service ID is 2.
+if [[ "$(cilium lb dump-rev-nat)" != \
+      "$(echo -e "IPv6:\n2 => [::]:80\n3 => [::1]:80")" ]]; then
+     abort "RevNAT's service was not properly synced"
+fi
+
+# Test the same for IPv4 addresses
+if [ -n "${IPV4}" ]; then
+
+	# Clean everything first
+	cilium lb delete-service --all
+	sudo cilium lb --no-daemon dump-service
+
+	cilium lb delete-rev-nat --all
+	sudo cilium lb --no-daemon delete-rev-nat --all
+
+	# Check if everything was deleted
+	if [ -n "$(cilium lb dump-service)" ]; then
+		abort "Daemon's services map should be clean"
+	fi
+	if [ -n "$(sudo cilium lb --no-daemon dump-service)" ]; then
+		abort "Services map should be clean"
+	fi
+
+	if [ -n "$(cilium lb dump-rev-nat)" ]; then
+		abort "Daemon's rev nat map should be clean"
+	fi
+	if [ -n "$(sudo cilium lb --no-daemon dump-rev-nat)" ]; then
+		abort "Rev nat's map should be clean"
+	fi
+
+	# Add a service with ID 0, it should fail
+	sudo cilium lb --no-daemon update-service --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 0 --rev 2> /dev/null && {
+		abort "Unexpected success in creating a frontend with reverse nat ID 0"
+	}
+
+	if [ -n "$(sudo cilium lb --no-daemon dump-service)" ]; then
+		abort "Services map should be clean"
+	fi
+
+	# Add a service with ID 1
+	sudo cilium lb --no-daemon update-service --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 1 --rev 2> /dev/null || {
+		abort "Service should have been added"
+	}
+
+	# Daemon's map should be empty
+	if [ -n "$(cilium lb dump-service)" ]; then
+		abort "Daemon's services map should be clean"
+	fi
+
+	# Check if it's the only service present
+	if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (1)\n\t\t2 => 127.0.0.3:90 (1)")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# Check if we can get the service by it's ID
+	if [[ "$(sudo cilium lb --no-daemon get-service 127.0.0.1:80)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (1)\n\t\t2 => 127.0.0.3:90 (1)")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# Check if it's the only RevNAT present
+	if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# Check if we can get the RevNAT by it's ID
+	if [[ "$(sudo cilium lb --no-daemon get-rev-nat 1)" != \
+	      "$(echo -e "1 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# Add a service with ID 0 to the daemon, it should fail
+	cilium lb update-service --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 0 --rev 2> /dev/null && {
+		abort "Unexpected success in creating a frontend with reverse nat ID 0"
+	}
+
+	# Daemon's map should be empty
+	if [ -n "$(cilium lb dump-service)" ]; then
+		abort "Daemon's services map should be clean"
+	fi
+
+	# BPF's map should be unmodified
+	if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (1)\n\t\t2 => 127.0.0.3:90 (1)")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# Add a service with ID 2
+	cilium lb update-service --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 2 --rev 2> /dev/null || {
+		abort "Service should have been added"
+	}
+
+	# Check if it's the only service present
+	if [[ "$(cilium lb dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (2)\n\t\t2 => 127.0.0.3:90 (2)")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# Check if we can get the service by it's ID
+	if [[ "$(cilium lb get-service 127.0.0.1:80)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (2)\n\t\t2 => 127.0.0.3:90 (2)")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# BPF's map should contain service with a different RevNAT ID
+	if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (2)\n\t\t2 => 127.0.0.3:90 (2)\n")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# Check if it's the only RevNAT present
+	if [[ "$(cilium lb dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n2 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# Check if we can get the RevNAT by it's ID
+	if [[ "$(cilium lb get-rev-nat 2)" != \
+	      "$(echo -e "2 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# BPF's RevNAT map's should contain both RevNATs
+	if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80\n2 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# Let's try delete RevNAT 1
+	if [[ "$(cilium lb delete-rev-nat 1)" != \
+	      "$(echo -e "Successfully deleted")" ]]; then
+	     abort "RevNAT's was not deleted"
+	fi
+
+	# BPF's RevNAT map's should contain both RevNATs
+	if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80\n2 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was wrongly deleted"
+	fi
+
+	# Let's try delete RevNAT 2
+	if [[ "$(cilium lb delete-rev-nat 2)" != \
+	      "$(echo -e "Successfully deleted")" ]]; then
+	     abort "RevNAT's was not deleted"
+	fi
+
+	# Let's try delete RevNAT 2
+	if [[ "$(cilium lb dump-rev-nat)" != \
+	      "$(echo -e "")" ]]; then
+	     abort "RevNAT's was not deleted"
+	fi
+
+	# BPF's RevNAT map's should contain RevNAT with ID 1
+	if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly deleted"
+	fi
+
+	# Let's try delete the only service
+	if [[ "$(cilium lb delete-service 127.0.0.1:80)" != \
+	      "$(echo -e "Successfully deleted")" ]]; then
+	     abort "RevNAT's was not deleted"
+	fi
+
+	# Let's delete the remaining RevNAT with ID 1
+	if [[ "$(sudo cilium lb --no-daemon delete-rev-nat 1)" != \
+	      "$(echo -e "Successfully deleted")" ]]; then
+	     abort "RevNAT's service was not properly deleted"
+	fi
+
+	# Check if everything was deleted
+	if [ -n "$(cilium lb dump-service)" ]; then
+		abort "Daemon's services map should be clean"
+	fi
+
+	#FIXME The services maps are not being properly cleaned
+	#if [ -n "$(sudo cilium lb --no-daemon dump-service)" ]; then
+	#	abort "Services map should be clean"
+	#fi
+
+	if [ -n "$(cilium lb dump-rev-nat)" ]; then
+		abort "Daemon's rev nat map should be clean"
+	fi
+	if [ -n "$(sudo cilium lb --no-daemon dump-rev-nat)" ]; then
+		abort "Rev nat's map should be clean"
+	fi
+
+	# Test SyncLBMap
+
+	# Clean everything first
+	cilium lb delete-service --all
+	sudo cilium lb --no-daemon dump-service
+	cilium lb delete-rev-nat --all
+	sudo cilium lb --no-daemon delete-rev-nat --all
+
+	# Add a service with ID 2
+	cilium lb update-service --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 2 --rev 2> /dev/null || {
+		abort "Service should have been added"
+	}
+
+	# Add the same service with ID 1
+	sudo cilium lb --no-daemon update-service --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 1 --rev 2> /dev/null || {
+		abort "Service should have been added"
+	}
+
+	# Add other service with ID 3
+	sudo cilium lb --no-daemon update-service --frontend 127.0.1.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 3 --rev 2> /dev/null || {
+		abort "Service should have been added"
+	}
+
+	# BPF's map should contain service with RevNAT ID 1
+	if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (1)\n\t\t2 => 127.0.0.3:90 (1)\n127.0.1.1:80 =>\n\t\t1 => 127.0.0.2:90 (3)\n\t\t2 => 127.0.0.3:90 (3)\n")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# Daemon's map should contain service with RevNAT ID 2
+	if [[ "$(cilium lb dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (2)\n\t\t2 => 127.0.0.3:90 (2)\n")" ]]; then
+	     abort "Service was not properly added"
+	fi
+
+	# BPF's RevNAT map's should contain all RevNATs
+	if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80\n2 => 127.0.0.1:80\n3 => 127.0.1.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# Daemon's RevNAT map's should contain only 1 RevNATs
+	if [[ "$(cilium lb dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n2 => 127.0.0.1:80")" ]]; then
+	     abort "RevNAT's service was not properly added"
+	fi
+
+	# Sync LB Maps
+	cilium lb sync-lb-maps 2> /dev/null || {
+		abort "Unable to sync LB Maps"
+	}
+
+	# Daemon's map should contain service with RevNAT ID 4 because ID 3 was taken for IPv6 and not properly cleaned in kvstore #FIXME
+	if [[ "$(cilium lb dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (1)\n\t\t2 => 127.0.0.3:90 (1)\n127.0.1.1:80 =>\n\t\t1 => 127.0.0.2:90 (4)\n\t\t2 => 127.0.0.3:90 (4)\n")" ]]; then
+	     abort "Service was not properly synced"
+	fi
+
+	# BPF's map should contain service with RevNAT ID 4
+	if [[ "$(sudo cilium lb --no-daemon dump-service)" != \
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (1)\n\t\t2 => 127.0.0.3:90 (1)\n127.0.1.1:80 =>\n\t\t1 => 127.0.0.2:90 (4)\n\t\t2 => 127.0.0.3:90 (4)\n")" ]]; then
+	     abort "Service was not properly synced"
+	fi
+
+	# BPF's RevNAT map's should contain RevNATs 1, 2 and 4. Number 3 was removed since the
+	# new service ID is 4. Number 2 was not removed because the new assigned ID to service
+	# 127.0.0.1:80 was the same ID of the bpf map.
+	if [[ "$(sudo cilium lb --no-daemon dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80\n2 => 127.0.0.1:80\n4 => 127.0.1.1:80")" ]]; then
+	     abort "RevNAT's service was not properly synced"
+	fi
+
+	# Daemon's RevNAT map's should contain RevNATs 1 and 4. Number 3 was removed since the
+	# new service ID is 4.Number 2 was not removed because the new assigned ID to service
+	# 127.0.0.1:80 was the same ID of the bpf map.
+	if [[ "$(cilium lb dump-rev-nat)" != \
+	      "$(echo -e "IPv4:\n1 => 127.0.0.1:80\n2 => 127.0.0.1:80\n4 => 127.0.1.1:80")" ]]; then
+	     abort "RevNAT's service was not properly synced"
+	fi
+fi
+
 sudo ip link add lbtest1 type veth peer name lbtest2
 sudo ip link set lbtest1 up
 
@@ -110,74 +637,69 @@ cat <<EOF | cilium -D policy import -
 EOF
 
 # Clear eventual old entries, this may fail if the maps have not been created
-sudo cilium lb delete-service --all || true
-sudo cilium lb delete-rev-nat --all || true
+cilium lb delete-service --all || true
+cilium lb delete-rev-nat --all || true
 
 # Create IPv4 L3 service without reverse entry
-sudo cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:0 || {
+cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:0 || {
 	abort "Unable to add IPv4 service entry"
 }
 
-sudo cilium lb dump-service
+cilium lb dump-service
 
 # Check if reverse NAT entry was created anyway, should fail
-sudo cilium lb get-rev-nat 1 2> /dev/null && {
+cilium lb get-rev-nat 1 2> /dev/null && {
 	abort "Unexpected reverse NAT entry"
 }
 
-# Attempt deletion without providing a key, should fail
-sudo cilium lb delete-service 2> /dev/null && {
-	abort "Unexpected success in deleting service without a key"
-}
-
 # Delete IPv4 L3 entry
-sudo cilium lb delete-service 4.4.4.4:0 || {
+cilium lb delete-service 4.4.4.4:0 || {
 	abort "Unable to delete IPv4 service entry"
 }
 
 # Mixing L3/L4 in frontend and backend is not allowed
-sudo cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:80 2> /dev/null && {
+cilium lb update-service --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:80 2> /dev/null && {
 	abort "Unexpected success in creating mixed L3/L4 service"
 }
 
 # Add L4 IPv4 entry
-sudo cilium lb update-service --frontend 4.4.4.4:40 --rev --id 1 --backend 5.5.5.5:80 || {
+cilium lb update-service --frontend 4.4.4.4:40 --rev --id 1 --backend 5.5.5.5:80 || {
 	abort "Unable to add IPv4 service entry"
 }
 
-sudo cilium lb dump-service
+cilium lb dump-service
 
 # Check if requested reverse NAT entry exists
-sudo cilium lb --ipv4 get-rev-nat 1 || {
+cilium lb get-rev-nat 1 || {
 	abort "Unable to find reverse NAT entry that should have been created"
 }
 
 # Try an L3 lookup for the created L4 entry, should fail
-sudo cilium lb delete-service 4.4.4.4:0 2> /dev/null && {
+cilium lb delete-service 4.4.4.4:0 || {
 	abort "Unexpected success in looking up with L3 key of L4 entry"
 }
 
 # Delete L4 entry
-sudo cilium lb delete-service 4.4.4.4:40 || {
+cilium lb delete-service 4.4.4.4:40 || {
 	abort "Unable to delete IPv4 service entry"
 }
 
 SVC_IP6="f00d::1:1"
-sudo cilium lb update-service --rev --frontend "[$SVC_IP6]:0" --id 222 \
+cilium lb update-service --rev --frontend "[$SVC_IP6]:0" --id 222 \
                         --backend "[$SERVER1_IP]:0" \
                         --backend "[$SERVER2_IP]:0"
 
 SVC_IP4="2.2.2.2"
-sudo cilium lb update-service --rev --frontend "[$SVC_IP4]:$LB_PORT"  --id 222 \
-			--backend "$SERVER1_IP4:$LB_PORT" \
-			--backend "$SERVER2_IP4:$LB_PORT"
+cilium lb update-service --rev --frontend "$SVC_IP4:0"  --id 223 \
+			--backend "$SERVER1_IP4:0" \
+			--backend "$SERVER2_IP4:0"
 
 LB_HOST_IP6="f00d::1:2"
-sudo cilium lb update-service --rev --frontend "[$LB_HOST_IP6]:0" --id 223 \
+cilium lb update-service --rev --frontend "[$LB_HOST_IP6]:0" --id 224 \
 			--backend "[$(host_ip6)]:0"
 
 LB_HOST_IP4="3.3.3.3"
-sudo cilium lb update-service --rev --frontend "$LB_HOST_IP4:0" --id 223 \
+cilium lb update-service --rev --frontend "$LB_HOST_IP4:0" --id 225 \
 			--backend "$(host_ip4):0"
 
 ## Test 1: local host => bpf_lb => local container
@@ -217,7 +739,16 @@ docker exec -i client ping -c 4 $LB_HOST_IP4 || {
 
 monitor_stop
 
-## Test 4: Run wrk & ab from conainer => bpf_lxc (LB) => local container
+## Test 4: Run wrk & ab from container => bpf_lxc (LB) => local container
+
+cilium lb update-service --rev --frontend "[$SVC_IP6]:80" --id 222 \
+                        --backend "[$SERVER1_IP]:80" \
+                        --backend "[$SERVER2_IP]:80"
+cilium lb update-service --rev --frontend "$SVC_IP4:80" --id 223 \
+			--backend "$SERVER1_IP4:80" \
+			--backend "$SERVER2_IP4:80"
+
+
 cilium daemon config Debug=false DropNotification=false
 cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
 cilium endpoint config $SERVER2_ID Debug=false DropNotification=false

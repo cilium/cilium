@@ -163,7 +163,6 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 
 	err := cli.EndpointLeave(ep.ID)
 
-	c.Log(err.Error())
 	c.Assert(strings.Contains(err.Error(), "daemon didn't complete your request"), Equals, true)
 }
 

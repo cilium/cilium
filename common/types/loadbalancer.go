@@ -24,159 +24,257 @@ import (
 )
 
 const (
+	// TCP type.
 	TCP = L4Type("TCP")
+	// UDP type.
 	UDP = L4Type("UDP")
 )
 
+// L4Type name.
 type L4Type string
 
-type LBPortName string
+// FEPortName is the name of the frontend's port.
+type FEPortName string
 
+// ServiceID is the service's ID.
 type ServiceID uint16
 
-type LoadBalancer struct {
-	ServicesMU sync.RWMutex
-	Services   map[ServiceNamespace]*ServiceInfo
-	Endpoints  map[ServiceNamespace]*ServiceEndpoint
+// LBSVC is essentially used for the REST API.
+type LBSVC struct {
+	FE  L3n4AddrID
+	BES []L3n4Addr
 }
 
-type ServiceNamespace struct {
+// SVCMap is a map of the daemon's services. The key is the sha256sum of the LBSVC's FE
+// and the value the LBSVC.
+type SVCMap map[string]LBSVC
+
+// RevNATMap is a map of the daemon's RevNATs.
+type RevNATMap map[ServiceID]L3n4Addr
+
+// LoadBalancer is the internal representation of the loadbalancer in the local cilium
+// daemon.
+type LoadBalancer struct {
+	BPFMapMU  sync.RWMutex
+	SVCMap    SVCMap
+	RevNATMap RevNATMap
+
+	K8sMU        sync.Mutex
+	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
+	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
+}
+
+// NewLoadBalancer returns a LoadBalancer with all maps initialized.
+func NewLoadBalancer() *LoadBalancer {
+	return &LoadBalancer{
+		SVCMap:       SVCMap{},
+		RevNATMap:    RevNATMap{},
+		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
+		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
+	}
+}
+
+// K8sServiceNamespace is an abstraction for the k8s service + namespace types.
+type K8sServiceNamespace struct {
 	Service   string
 	Namespace string
 }
 
-type ServiceInfo struct {
-	IP    net.IP
-	Ports map[LBPortName]*LBSvcPort
+// K8sServiceInfo is an abstraction for a k8s service that is composed by the frontend IP
+// address (FEIP) and the map of the frontend ports (Ports).
+type K8sServiceInfo struct {
+	FEIP  net.IP
+	Ports map[FEPortName]*FEPort
 }
 
-func (si *ServiceInfo) Equals(other *ServiceInfo) bool {
-	if !si.IP.Equal(other.IP) || len(si.Ports) != len(other.Ports) {
-		log.Debugf("IP different or length of ports different")
-		return false
-	}
-	for portName, svcPort := range si.Ports {
-		if otherPort, ok := other.Ports[portName]; !ok {
-			log.Debugf("other doesn't have portname %+v", portName)
-			return false
-		} else {
-			if svcPort != nil && otherPort != nil {
-				// We ignore the service ID
-				if !svcPort.LBPort.Equals(otherPort.LBPort) {
-					log.Debugf("One of the ports is different that the other port %+v, %+v", *svcPort, *otherPort)
-					return false
-				}
-			} else if !(svcPort == nil && otherPort == nil) {
-				log.Debugf("One is nil and the other is not nil %+v, %+v", svcPort, otherPort)
-				return false
-			}
-		}
-	}
-	log.Debugf("Both equals")
-	return true
-}
-
-func NewServiceInfo(ip net.IP) *ServiceInfo {
-	return &ServiceInfo{
-		IP:    ip,
-		Ports: map[LBPortName]*LBSvcPort{},
+// NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
+func NewK8sServiceInfo(ip net.IP) *K8sServiceInfo {
+	return &K8sServiceInfo{
+		FEIP:  ip,
+		Ports: map[FEPortName]*FEPort{},
 	}
 }
 
-type ServiceEndpoint struct {
+// K8sServiceEndpoint is an abstraction for the k8s endpoint object. Each service is
+// composed by a map of backend IPs (BEIPs) and a map of Ports (Ports). Each k8s endpoint
+// present in BEIPs share the same list of Ports open.
+type K8sServiceEndpoint struct {
 	// TODO: Replace bool for time.Time so we know last time the service endpoint was seen?
-	IPs   map[string]bool
-	Ports map[LBPortName]*LBPort
+	BEIPs map[string]bool
+	Ports map[FEPortName]*L4Addr
 }
 
-func (se *ServiceEndpoint) Equals(other *ServiceEndpoint) bool {
-	if se != nil && other != nil {
-		if len(se.IPs) != len(other.IPs) {
-			return false
-		}
-		if len(se.Ports) != len(other.Ports) {
-			return false
-		}
-		for k, v := range se.IPs {
-			if otherValue, ok := other.IPs[k]; !ok {
-				return false
-			} else {
-				if v != otherValue {
-					return false
-				}
-			}
-		}
-		for k, v := range se.Ports {
-			if otherValue, ok := other.Ports[k]; !ok {
-				return false
-			} else {
-				if !v.Equals(otherValue) {
-					return false
-				}
-			}
-		}
-	} else if !(se == nil && other == nil) {
-		return false
-	}
-	return true
-}
-
-func NewServiceEndpoint() *ServiceEndpoint {
-	return &ServiceEndpoint{
-		IPs:   map[string]bool{},
-		Ports: map[LBPortName]*LBPort{},
+// NewK8sServiceEndpoint creates a new K8sServiceEndpoint with the backend BEIPs map and
+// Ports map initialized.
+func NewK8sServiceEndpoint() *K8sServiceEndpoint {
+	return &K8sServiceEndpoint{
+		BEIPs: map[string]bool{},
+		Ports: map[FEPortName]*L4Addr{},
 	}
 }
 
-type LBPort struct {
+// L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
+// the Port number.
+type L4Addr struct {
 	Protocol L4Type
 	Port     uint16
 }
 
-func (lbp *LBPort) Equals(other *LBPort) bool {
-	if lbp != nil && other != nil {
-		return lbp.Protocol == other.Protocol &&
-			lbp.Port == other.Port
-	} else if !(lbp == nil && other == nil) {
-		return false
-	}
-	return true
-}
-
-func NewLBPort(protocol L4Type, number uint16) (*LBPort, error) {
+// NewL4Addr creates a new L4Addr. Returns an error if protocol is not recognized.
+func NewL4Addr(protocol L4Type, number uint16) (*L4Addr, error) {
 	switch protocol {
 	case TCP, UDP:
 	default:
 		return nil, fmt.Errorf("unknown protocol type %s", protocol)
 	}
-	return &LBPort{Protocol: protocol, Port: number}, nil
+	return &L4Addr{Protocol: protocol, Port: number}, nil
 }
 
-type LBSvcPort struct {
-	*LBPort
-	ServiceID ServiceID
+// DeepCopy returns a DeepCopy of the given L4Addr.
+func (l *L4Addr) DeepCopy() *L4Addr {
+	return &L4Addr{
+		Port:     l.Port,
+		Protocol: l.Protocol,
+	}
 }
 
-func NewLBSvcPort(protocol L4Type, number uint16) (*LBSvcPort, error) {
-	lbport, err := NewLBPort(protocol, number)
-	return &LBSvcPort{LBPort: lbport}, err
+// FEPort represents a frontend port with its ID and the L4Addr's inheritance.
+type FEPort struct {
+	*L4Addr
+	ID ServiceID
 }
 
-type ServiceL4 struct {
-	IP   net.IP
-	Port uint16
+// NewFEPort creates a new FEPort with the ID set to 0.
+func NewFEPort(protocol L4Type, portNumber uint16) (*FEPort, error) {
+	lbport, err := NewL4Addr(protocol, portNumber)
+	return &FEPort{L4Addr: lbport}, err
 }
 
-type ServiceL4ID struct {
-	ServiceL4
-	ServiceID
+// L3n4Addr is used to store, as an unique L3+L4 address in the KVStore.
+type L3n4Addr struct {
+	IP net.IP
+	L4Addr
 }
 
-// SHA256Sum calculates ServiceL4's internal SHA256Sum.
-func (sl4 ServiceL4) SHA256Sum() (string, error) {
+// NewL3n4Addr creates a new L3n4Addr.
+func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, error) {
+	lbport, err := NewL4Addr(protocol, portNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &L3n4Addr{IP: ip, L4Addr: *lbport}, nil
+}
+
+// String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and "[IPv6]:Port" format
+// for IPv6.
+func (l *L3n4Addr) String() string {
+	if l.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d", l.IP.String(), l.Port)
+	} else {
+		return fmt.Sprintf("%s:%d", l.IP.String(), l.Port)
+	}
+}
+
+// DeepCopy returns a DeepCopy of the given L3n4Addr.
+func (l *L3n4Addr) DeepCopy() *L3n4Addr {
+	copyIP := make(net.IP, len(l.IP))
+	copy(copyIP, l.IP)
+	return &L3n4Addr{
+		IP:     copyIP,
+		L4Addr: *l.L4Addr.DeepCopy(),
+	}
+}
+
+// SHA256Sum calculates L3n4Addr's internal SHA256Sum.
+func (l3n4Addr L3n4Addr) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(sl4); err != nil {
+	if err := json.NewEncoder(sha).Encode(l3n4Addr); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+}
+
+// IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
+func (l *L3n4Addr) IsIPv6() bool {
+	return l.IP.To4() == nil
+}
+
+// L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
+// KVStore.
+type L3n4AddrID struct {
+	L3n4Addr
+	ID ServiceID
+}
+
+// NewL3n4AddrID creates a new L3n4AddrID.
+func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ServiceID) (*L3n4AddrID, error) {
+	l3n4Addr, err := NewL3n4Addr(protocol, ip, portNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}, nil
+}
+
+// DeepCopy returns a DeepCopy of the given L3n4AddrID.
+func (l *L3n4AddrID) DeepCopy() *L3n4AddrID {
+	return &L3n4AddrID{
+		L3n4Addr: *l.L3n4Addr.DeepCopy(),
+		ID:       l.ID,
+	}
+
+}
+
+// IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
+func (l *L3n4AddrID) IsIPv6() bool {
+	return l.L3n4Addr.IsIPv6()
+}
+
+// AddFEnBE adds the given 'fe' and 'be' to the SVCMap. If 'fe' exists and beIndex is 0,
+// the new 'be' will be appended to the list of existing backends. If beIndex is bigger
+// than the size of existing backends slice, it will be created a new array with size of
+// beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
+// remaining be elements will be kept on the same index and, in case the new array is
+// larger than the number of backends, some elements will be empty.
+func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
+	if beIndex < 0 {
+		return fmt.Errorf("invalid beIndex (%d)", beIndex)
+	}
+	feL3n4Uniq, err := fe.SHA256Sum()
+	if err != nil {
+		return fmt.Errorf("unable to get the SHA256Sum for FE Service: %s: %s", fe, err)
+	}
+
+	var lbsvc LBSVC
+	lbsvc, ok := svcs[feL3n4Uniq]
+	if !ok {
+		var bes []L3n4Addr
+		if beIndex == 0 {
+			bes = make([]L3n4Addr, 1)
+			bes[0] = *be
+		} else {
+			bes = make([]L3n4Addr, beIndex)
+			bes[beIndex-1] = *be
+		}
+		lbsvc = LBSVC{
+			FE:  *fe,
+			BES: bes,
+		}
+	} else {
+		var bes []L3n4Addr
+		if len(lbsvc.BES) < beIndex {
+			bes = make([]L3n4Addr, beIndex)
+			for i, lbsvcBE := range lbsvc.BES {
+				bes[i] = lbsvcBE
+			}
+			lbsvc.BES = bes
+		}
+		if beIndex == 0 {
+			lbsvc.BES = append(lbsvc.BES, *be)
+		} else {
+			lbsvc.BES[beIndex-1] = *be
+		}
+	}
+
+	svcs[feL3n4Uniq] = lbsvc
+	return nil
 }

@@ -236,15 +236,6 @@ func (d *Daemon) init() error {
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
 			return err
 		}
-		// Clean all lb entries
-		if !d.conf.RestoreState {
-			if err := lbmap.Service6Map.DeleteAll(); err != nil {
-				return err
-			}
-			if err := lbmap.RevNat6Map.DeleteAll(); err != nil {
-				return err
-			}
-		}
 		if d.conf.IPv4Enabled {
 			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 				return err
@@ -252,14 +243,11 @@ func (d *Daemon) init() error {
 			if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
 				return err
 			}
-			// Clean all lb entries
-			if !d.conf.RestoreState {
-				if err := lbmap.Service4Map.DeleteAll(); err != nil {
-					return err
-				}
-				if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
-					return err
-				}
+		}
+		// Clean all lb entries
+		if !d.conf.RestoreState {
+			if err := d.SVCDeleteAll(); err != nil {
+				return err
 			}
 		}
 	}
@@ -347,10 +335,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	rootNode.Root.Path()
 
-	lb := &types.LoadBalancer{
-		Services:  map[types.ServiceNamespace]*types.ServiceInfo{},
-		Endpoints: map[types.ServiceNamespace]*types.ServiceEndpoint{},
-	}
+	lb := types.NewLoadBalancer()
 
 	d := Daemon{
 		conf:                      c,
@@ -389,6 +374,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	if c.RestoreState {
 		if err := d.SyncState(common.CiliumPath, true); err != nil {
+			log.Warningf("Error while recovering endpoints: %s\n", err)
+		}
+		if err := d.SyncLBMap(); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
 	}

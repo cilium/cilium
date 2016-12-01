@@ -54,6 +54,19 @@ type TestDaemon struct {
 	OnPolicyDelete              func(path string) error
 	OnPolicyGet                 func(path string) (*types.PolicyNode, error)
 	OnPolicyCanConsume          func(sc *types.SearchContext) (*types.SearchContextReply, error)
+	OnSVCAdd                    func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
+	OnSVCDelete                 func(feL3n4 types.L3n4Addr) error
+	OnSVCDeleteBySHA256Sum      func(feL3n4SHA256Sum string) error
+	OnSVCDeleteAll              func() error
+	OnSVCGet                    func(feL3n4 types.L3n4Addr) (*types.LBSVC, error)
+	OnSVCGetBySHA256Sum         func(feL3n4SHA256Sum string) (*types.LBSVC, error)
+	OnSVCDump                   func() ([]types.LBSVC, error)
+	OnRevNATAdd                 func(id types.ServiceID, revNAT types.L3n4Addr) error
+	OnRevNATDelete              func(id types.ServiceID) error
+	OnRevNATDeleteAll           func() error
+	OnRevNATGet                 func(id types.ServiceID) (*types.L3n4Addr, error)
+	OnRevNATDump                func() ([]types.L3n4AddrID, error)
+	OnSyncLBMap                 func() error
 	OnGetUIIP                   func() (*net.TCPAddr, error)
 	OnGetUIPath                 func() (string, error)
 	OnRegisterUIListener        func(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
@@ -257,6 +270,97 @@ func (d TestDaemon) PolicyCanConsume(sc *types.SearchContext) (*types.SearchCont
 		return d.OnPolicyCanConsume(sc)
 	}
 	return nil, errors.New("PolicyCanConsume should not have been called")
+}
+
+func (d TestDaemon) SVCAdd(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error {
+	if d.OnSVCAdd != nil {
+		return d.OnSVCAdd(fe, be, addRevNAT)
+	}
+	return errors.New("SVCAdd should not have been called")
+}
+
+func (d TestDaemon) SVCDelete(feL3n4 types.L3n4Addr) error {
+	if d.OnSVCDelete != nil {
+		return d.OnSVCDelete(feL3n4)
+	}
+	return errors.New("SVCDelete should not have been called")
+}
+
+func (d TestDaemon) SVCDeleteBySHA256Sum(feL3n4SHA256Sum string) error {
+	if d.OnSVCDeleteBySHA256Sum != nil {
+		return d.OnSVCDeleteBySHA256Sum(feL3n4SHA256Sum)
+	}
+	return errors.New("SVCDeleteBySHA256Sum should not have been called")
+}
+
+func (d TestDaemon) SVCDeleteAll() error {
+	if d.OnSVCDeleteAll != nil {
+		return d.OnSVCDeleteAll()
+	}
+	return errors.New("SVCDeleteAll should not have been called")
+}
+
+func (d TestDaemon) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
+	if d.OnSVCGet != nil {
+		return d.OnSVCGet(feL3n4)
+	}
+	return nil, errors.New("SVCGet should not have been called")
+}
+
+func (d TestDaemon) SVCGetBySHA256Sum(feL3n4SHA256Sum string) (*types.LBSVC, error) {
+	if d.OnSVCGetBySHA256Sum != nil {
+		return d.OnSVCGetBySHA256Sum(feL3n4SHA256Sum)
+	}
+	return nil, errors.New("SVCGetBySHA256Sum should not have been called")
+}
+
+func (d TestDaemon) SVCDump() ([]types.LBSVC, error) {
+	if d.OnSVCDump != nil {
+		return d.OnSVCDump()
+	}
+	return nil, errors.New("SVCDump should not have been called")
+}
+
+func (d TestDaemon) RevNATAdd(id types.ServiceID, revNAT types.L3n4Addr) error {
+	if d.OnRevNATAdd != nil {
+		return d.OnRevNATAdd(id, revNAT)
+	}
+	return errors.New("RevNATAdd should not have been called")
+}
+
+func (d TestDaemon) RevNATDelete(id types.ServiceID) error {
+	if d.OnRevNATDelete != nil {
+		return d.OnRevNATDelete(id)
+	}
+	return errors.New("RevNATDelete should not have been called")
+}
+
+func (d TestDaemon) RevNATDeleteAll() error {
+	if d.OnRevNATDeleteAll != nil {
+		return d.OnRevNATDeleteAll()
+	}
+	return errors.New("RevNATDeleteAll should not have been called")
+}
+
+func (d TestDaemon) RevNATGet(id types.ServiceID) (*types.L3n4Addr, error) {
+	if d.OnRevNATGet != nil {
+		return d.OnRevNATGet(id)
+	}
+	return nil, errors.New("RevNATGet should not have been called")
+}
+
+func (d TestDaemon) RevNATDump() ([]types.L3n4AddrID, error) {
+	if d.OnRevNATDump != nil {
+		return d.OnRevNATDump()
+	}
+	return nil, errors.New("RevNATDump should not have been called")
+}
+
+func (d TestDaemon) SyncLBMap() error {
+	if d.OnSyncLBMap != nil {
+		return d.OnSyncLBMap()
+	}
+	return errors.New("SyncLBMap should not have been called")
 }
 
 func (d TestDaemon) GetUIIP() (*net.TCPAddr, error) {
