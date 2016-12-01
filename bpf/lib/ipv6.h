@@ -122,23 +122,6 @@ static inline int ipv6_addrcmp(union v6addr *a, union v6addr *b)
 	return tmp;
 }
 
-static inline int ipv6_match_subnet_96(union v6addr *addr, union v6addr *prefix)
-{
-	int tmp;
-
-	tmp = addr->p1 - prefix->p1;
-	if (!tmp) {
-		tmp = addr->p2 - prefix->p2;
-		if (!tmp) {
-			__u32 a = ntohl(addr->p3);
-			__u32 b = ntohl(prefix->p3);
-			tmp = (a & 0xFFFF0000) - (b & 0xFFFF0000);
-		}
-	}
-
-	return !tmp;
-}
-
 static inline int ipv6_match_prefix_96(const union v6addr *addr, const union v6addr *prefix)
 {
 	int tmp;

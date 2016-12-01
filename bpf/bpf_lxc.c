@@ -207,7 +207,7 @@ skip_service_lookup:
 	}
 
 	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_subnet_96(&tuple->addr, &host_ip)) {
+	if (ipv6_match_prefix_64(&tuple->addr, &host_ip)) {
 		void *data = (void *) (long) skb->data;
 		void *data_end = (void *) (long) skb->data_end;
 		struct ipv6hdr *ip6 = data + ETH_HLEN;
