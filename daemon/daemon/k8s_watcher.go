@@ -350,7 +350,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring service...", err)
 				continue
 			}
-			feAddrID, err := d.PutL3n4Addr(*feAddr)
+			feAddrID, err := d.PutL3n4Addr(*feAddr, 0)
 			if err != nil {
 				log.Errorf("Error while getting a new service ID: %s. Ignoring service %v...", err, feAddr)
 				continue
@@ -389,7 +389,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			log.Errorf("Error while creating a New L3n4AddrID: %s. Ignoring service %v...", err, svcInfo)
 			continue
 		}
-		if err := d.SVCAdd(*fe, besValues, isServerPresent); err != nil {
+		if err := d.svcAdd(*fe, besValues, isServerPresent); err != nil {
 			log.Errorf("Error while inserting service in LB map: %s", err)
 		}
 	}
