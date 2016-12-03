@@ -29,19 +29,24 @@ func (d *Daemon) updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4Ad
 	return d.kvClient.SetValue(key, l3n4AddrID)
 }
 
-// gasNewL3n4AddrID gets and sets a new L3n4Addr ID.
-func (d *Daemon) gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID) error {
-	baseID, err := d.GetMaxServiceID()
-	if err != nil {
-		return err
+// gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
+// KVStore tries to assign that ID first.
+func (d *Daemon) gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
+	if baseID == 0 {
+		var err error
+		baseID, err = d.GetMaxServiceID()
+		if err != nil {
+			return err
+		}
 	}
 
 	return d.kvClient.GASNewL3n4AddrID(common.ServiceIDKeyPath, baseID, l3n4AddrID)
 }
 
 // PutL3n4Addr stores the given service in the kvstore and returns the L3n4AddrID
-// created for the given l3n4Addr.
-func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr) (*types.L3n4AddrID, error) {
+// created for the given l3n4Addr. If baseID is different than 0, it tries to acquire that
+// ID to the l3n4Addr.
+func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
 	log.Debugf("Resolving service %+v", l3n4Addr)
 
 	// Retrieve unique SHA256Sum for service
@@ -72,7 +77,7 @@ func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr) (*types.L3n4AddrID, error)
 	}
 	if sl4KV.ID == 0 {
 		sl4KV.L3n4Addr = l3n4Addr
-		if err := d.gasNewL3n4AddrID(&sl4KV); err != nil {
+		if err := d.gasNewL3n4AddrID(&sl4KV, baseID); err != nil {
 			return nil, err
 		}
 		err = d.kvClient.SetValue(svcPath, sl4KV)

@@ -48,15 +48,15 @@ func (ds *DaemonSuite) TestServices(c *C) {
 
 	ffsIDu16 := types.ServiceID(uint16(common.FirstFreeServiceID))
 
-	l3n4AddrID, err := ds.d.PutL3n4Addr(l3n4Addr1)
+	l3n4AddrID, err := ds.d.PutL3n4Addr(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
 
-	l3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr1)
+	l3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
 
-	l3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2)
+	l3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
 
@@ -90,7 +90,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID, Equals, nilL3n4AddrID)
 
-	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2)
+	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
@@ -108,13 +108,24 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	err = ds.d.DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
 
-	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2)
+	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, ffsIDu16)
 
-	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr1)
+	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+
+	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr1, 99)
+	c.Assert(err, Equals, nil)
+	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
+
+	err = ds.d.DeleteL3n4AddrIDByUUID(uint32(common.FirstFreeServiceID + 1))
+	c.Assert(err, Equals, nil)
+
+	gotL3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr1, 99)
+	c.Assert(err, Equals, nil)
+	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(99))
 }
 
 func (ds *DaemonSuite) TestGetMaxServiceID(c *C) {

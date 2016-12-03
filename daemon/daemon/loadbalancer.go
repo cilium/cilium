@@ -41,14 +41,52 @@ func (d *Daemon) addSVC2BPFMap(feCilium types.L3n4AddrID, feBPF lbmap.ServiceKey
 	return nil
 }
 
-// SVCAdd adds a service from the given feL3n4Addr (frontend) and beL3n4Addr (backends).
+// SVCAdd is the public method to add services. We assume the ID provided is not in
+// synced with the KVStore. If that's the case the service won't be used and an error is
+// returned to the caller.
+func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) error {
+	if feL3n4Addr.ID == 0 {
+		return fmt.Errorf("invalid service ID 0")
+	}
+	// Check if the service is already registered with this ID.
+	feAddr, err := d.GetL3n4AddrID(uint32(feL3n4Addr.ID))
+	if err != nil {
+		return fmt.Errorf("unable to get the service with ID %d: %s", feL3n4Addr.ID, err)
+	}
+	if feAddr == nil {
+		feAddr, err = d.PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
+		if err != nil {
+			return fmt.Errorf("unable to put the service %s: %s", feL3n4Addr.L3n4Addr.String(), err)
+		}
+		// This won't be atomic so we need to check if the baseID, feL3n4Addr.ID was given to the service
+		if feAddr.ID != feL3n4Addr.ID {
+			return fmt.Errorf("the service provided %s is already registered with ID %d, please select that ID instead of %d", feL3n4Addr.L3n4Addr.String(), feAddr.ID, feL3n4Addr.ID)
+		}
+	}
+
+	feAddr256Sum, err := feAddr.L3n4Addr.SHA256Sum()
+	if err != nil {
+		return fmt.Errorf("unable to calculate SHA256Sum of %s: %s", feAddr.String(), err)
+	}
+	feL3n4Addr256Sum, err := feL3n4Addr.L3n4Addr.SHA256Sum()
+	if err != nil {
+		return fmt.Errorf("unable to calculate SHA256Sum of %s: %s", feL3n4Addr.String(), err)
+	}
+
+	if feAddr256Sum != feL3n4Addr256Sum {
+		return fmt.Errorf("service ID %d is already registered to service %s, please choose a different ID", feL3n4Addr.ID, feAddr.String())
+	}
+	return d.svcAdd(feL3n4Addr, beL3n4Addr, addRevNAT)
+}
+
+// svcAdd adds a service from the given feL3n4Addr (frontend) and beL3n4Addr (backends).
 // If addRevNAT is set, the RevNAT entry is also created for this particular service.
 // If any of the backend addresses set in bes have a different L3 address type than the
 // one set in fe, it returns an error without modifying the bpf LB map. If any backend
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
-func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) error {
+func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) error {
 	// We will move the slice to the loadbalancer map which have a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
 	beL3n4AddrCpy := []types.L3n4Addr{}
@@ -386,7 +424,7 @@ func (d *Daemon) SyncLBMap() error {
 	// Let's check if the services read from the lbmap have the same ID set in the
 	// KVStore.
 	for k, svc := range newSVCMap {
-		kvL3n4AddrID, err := d.PutL3n4Addr(svc.FE.L3n4Addr)
+		kvL3n4AddrID, err := d.PutL3n4Addr(svc.FE.L3n4Addr, 0)
 		if err != nil {
 			log.Errorf("Unable to retrieve service ID of: %s from KVStore: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.L3n4Addr.String(), err)
