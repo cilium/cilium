@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/pkg/bpf"
 
 	"github.com/codegangsta/cli"
 )

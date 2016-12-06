@@ -22,16 +22,16 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
-func (d *Daemon) updateSecLabelIDRef(secCtxLabels types.SecCtxLabel) error {
+func (d *Daemon) updateSecLabelIDRef(secCtxLabels labels.SecCtxLabel) error {
 	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
 	return d.kvClient.SetValue(key, secCtxLabels)
 }
 
 // gasNewSecLabelID gets and sets a New SecLabel ID.
-func (d *Daemon) gasNewSecLabelID(secCtxLabel *types.SecCtxLabel) error {
+func (d *Daemon) gasNewSecLabelID(secCtxLabel *labels.SecCtxLabel) error {
 	baseID, err := d.GetMaxLabelID()
 	if err != nil {
 		return err
@@ -42,13 +42,13 @@ func (d *Daemon) gasNewSecLabelID(secCtxLabel *types.SecCtxLabel) error {
 
 // PutLabels stores to given labels in consul and returns the SecCtxLabels created for
 // the given labels.
-func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
-	log.Debugf("Resolving labels %+v of %s", labels, contID)
+func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
+	log.Debugf("Resolving labels %+v of %s", lbls, contID)
 
 	isNew := false
 
 	// Retrieve unique SHA256Sum for labels
-	sha256Sum, err := labels.SHA256Sum()
+	sha256Sum, err := lbls.SHA256Sum()
 	if err != nil {
 		return nil, false, err
 	}
@@ -67,9 +67,9 @@ func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLab
 		return nil, false, err
 	}
 
-	secCtxLbls := types.NewSecCtxLabel()
+	secCtxLbls := labels.NewSecCtxLabel()
 	if rmsg == nil {
-		secCtxLbls.Labels = labels
+		secCtxLbls.Labels = lbls
 		isNew = true
 	} else {
 		if err := json.Unmarshal(rmsg, &secCtxLbls); err != nil {
@@ -102,20 +102,20 @@ func (d *Daemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLab
 }
 
 // GetLabels returns the SecCtxLabels that belongs to the given id.
-func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
+func (d *Daemon) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
 	if id > 0 && id < common.FirstFreeLabelID {
-		key := types.ReservedID(id).String()
+		key := labels.ReservedID(id).String()
 		if key == "" {
 			return nil, nil
 		}
 
-		lbl := types.NewLabel(
+		lbl := labels.NewLabel(
 			key, "", common.ReservedLabelSource,
 		)
-		secLbl := types.NewSecCtxLabel()
+		secLbl := labels.NewSecCtxLabel()
 		secLbl.AddOrUpdateContainer(lbl.String())
 		secLbl.ID = id
-		secLbl.Labels = types.Labels{
+		secLbl.Labels = labels.Labels{
 			common.ReservedLabelSource: lbl,
 		}
 
@@ -131,7 +131,7 @@ func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 		return nil, nil
 	}
 
-	var secCtxLabels types.SecCtxLabel
+	var secCtxLabels labels.SecCtxLabel
 	if err := json.Unmarshal(rmsg, &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (d *Daemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 }
 
 // GetLabelsBySHA256 returns the SecCtxLabels that have the given SHA256SUM.
-func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
+func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error) {
 	path := path.Join(common.LabelsKeyPath, sha256sum)
 	rmsg, err := d.kvClient.GetValue(path)
 	if err != nil {
@@ -151,7 +151,7 @@ func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error)
 	if rmsg == nil {
 		return nil, nil
 	}
-	var secCtxLabels types.SecCtxLabel
+	var secCtxLabels labels.SecCtxLabel
 	if err := json.Unmarshal(rmsg, &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 		return nil
 	}
 
-	var dbSecCtxLbls types.SecCtxLabel
+	var dbSecCtxLbls labels.SecCtxLabel
 	if err := json.Unmarshal(rmsg, &dbSecCtxLbls); err != nil {
 		return err
 	}

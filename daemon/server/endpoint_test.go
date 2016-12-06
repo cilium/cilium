@@ -22,7 +22,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
@@ -31,10 +34,10 @@ var (
 	IPv6Addr, _ = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
 	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
 	NodeAddr    = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr    = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel    = &types.SecCtxLabel{
-		Labels: types.Labels{
-			"foo": types.NewLabel("foo", "", ""),
+	HardAddr    = mac.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel    = &labels.SecCtxLabel{
+		Labels: labels.Labels{
+			"foo": labels.NewLabel("foo", "", ""),
 		},
 		Containers: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
@@ -44,7 +47,7 @@ var (
 )
 
 func (s *DaemonSuite) TestEndpointJoinOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -56,7 +59,7 @@ func (s *DaemonSuite) TestEndpointJoinOK(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointJoin = func(receivedEp types.Endpoint) error {
+	s.d.OnEndpointJoin = func(receivedEp endpoint.Endpoint) error {
 		c.Assert(ep, DeepEquals, receivedEp)
 		return nil
 	}
@@ -66,7 +69,7 @@ func (s *DaemonSuite) TestEndpointJoinOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointJoinFail(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -78,7 +81,7 @@ func (s *DaemonSuite) TestEndpointJoinFail(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointJoin = func(receivedEp types.Endpoint) error {
+	s.d.OnEndpointJoin = func(receivedEp endpoint.Endpoint) error {
 		c.Assert(ep, DeepEquals, receivedEp)
 		return errors.New("invalid endpoint")
 	}
@@ -88,7 +91,7 @@ func (s *DaemonSuite) TestEndpointJoinFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -110,7 +113,7 @@ func (s *DaemonSuite) TestEndpointLeaveOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -132,7 +135,7 @@ func (s *DaemonSuite) TestEndpointLeaveFail(c *C) {
 }
 
 func (s *DaemonSuite) EndpointLeaveByDockerEPIDOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:           HardAddr,
 		IPv6:             IPv6Addr,
 		IPv4:             IPv4Addr,
@@ -155,7 +158,7 @@ func (s *DaemonSuite) EndpointLeaveByDockerEPIDOK(c *C) {
 }
 
 func (s *DaemonSuite) EndpointLeaveByDockerEPIDFail(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:           HardAddr,
 		IPv6:             IPv6Addr,
 		IPv4:             IPv4Addr,
@@ -179,7 +182,7 @@ func (s *DaemonSuite) EndpointLeaveByDockerEPIDFail(c *C) {
 
 func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 	epIDOutside := IPv6Addr.EndpointID()
-	epWanted := types.Endpoint{
+	epWanted := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -190,9 +193,9 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 		SecLabel:        SecLabel,
 	}
 
-	s.d.OnEndpointGet = func(epID uint16) (*types.Endpoint, error) {
+	s.d.OnEndpointGet = func(epID uint16) (*endpoint.Endpoint, error) {
 		c.Assert(epIDOutside, Equals, epID)
-		return &types.Endpoint{
+		return &endpoint.Endpoint{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
 			IPv4:            IPv4Addr,
@@ -212,7 +215,7 @@ func (s *DaemonSuite) TestEndpointGetOK(c *C) {
 func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 	epIDOutside := IPv6Addr.EndpointID()
 
-	s.d.OnEndpointGet = func(epID uint16) (*types.Endpoint, error) {
+	s.d.OnEndpointGet = func(epID uint16) (*endpoint.Endpoint, error) {
 		c.Assert(epIDOutside, Equals, epID)
 		return nil, errors.New("invalid endpoint")
 	}
@@ -223,7 +226,7 @@ func (s *DaemonSuite) TestEndpointGetFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointGetByDockerEPIDOK(c *C) {
-	epWanted := types.Endpoint{
+	epWanted := endpoint.Endpoint{
 		LXCMAC:           HardAddr,
 		IPv6:             IPv6Addr,
 		IPv4:             IPv4Addr,
@@ -235,9 +238,9 @@ func (s *DaemonSuite) TestEndpointGetByDockerEPIDOK(c *C) {
 		SecLabel:         SecLabel,
 	}
 
-	s.d.OnEndpointGetByDockerEPID = func(dockerEPID string) (*types.Endpoint, error) {
+	s.d.OnEndpointGetByDockerEPID = func(dockerEPID string) (*endpoint.Endpoint, error) {
 		c.Assert(dockerEPID, Equals, "123abc")
-		return &types.Endpoint{
+		return &endpoint.Endpoint{
 			LXCMAC:           HardAddr,
 			IPv6:             IPv6Addr,
 			IPv4:             IPv4Addr,
@@ -258,7 +261,7 @@ func (s *DaemonSuite) TestEndpointGetByDockerEPIDOK(c *C) {
 func (s *DaemonSuite) TestEndpointGetByDockerEPIDFail(c *C) {
 	dockerEPID := "123abc"
 
-	s.d.OnEndpointGetByDockerEPID = func(dockerEPID string) (*types.Endpoint, error) {
+	s.d.OnEndpointGetByDockerEPID = func(dockerEPID string) (*endpoint.Endpoint, error) {
 		c.Assert(dockerEPID, Equals, dockerEPID)
 		return nil, errors.New("invalid endpoint")
 	}
@@ -269,7 +272,7 @@ func (s *DaemonSuite) TestEndpointGetByDockerEPIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointGetByDockerIDOK(c *C) {
-	epWanted := types.Endpoint{
+	epWanted := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -281,9 +284,9 @@ func (s *DaemonSuite) TestEndpointGetByDockerIDOK(c *C) {
 		SecLabel:        SecLabel,
 	}
 
-	s.d.OnEndpointGetByDockerID = func(dockerID string) (*types.Endpoint, error) {
+	s.d.OnEndpointGetByDockerID = func(dockerID string) (*endpoint.Endpoint, error) {
 		c.Assert(dockerID, Equals, "123abc")
-		return &types.Endpoint{
+		return &endpoint.Endpoint{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
 			IPv4:            IPv4Addr,
@@ -304,7 +307,7 @@ func (s *DaemonSuite) TestEndpointGetByDockerIDOK(c *C) {
 func (s *DaemonSuite) TestEndpointGetByDockerIDFail(c *C) {
 	dockerID := "123abc"
 
-	s.d.OnEndpointGetByDockerID = func(dockerID string) (*types.Endpoint, error) {
+	s.d.OnEndpointGetByDockerID = func(dockerID string) (*endpoint.Endpoint, error) {
 		c.Assert(dockerID, Equals, dockerID)
 		return nil, errors.New("invalid endpoint")
 	}
@@ -315,7 +318,7 @@ func (s *DaemonSuite) TestEndpointGetByDockerIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
-	epsWanted := []types.Endpoint{
+	epsWanted := []endpoint.Endpoint{
 		{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
@@ -338,7 +341,7 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 		},
 	}
 
-	s.d.OnEndpointsGet = func() ([]types.Endpoint, error) {
+	s.d.OnEndpointsGet = func() ([]endpoint.Endpoint, error) {
 		return epsWanted, nil
 	}
 
@@ -348,7 +351,7 @@ func (s *DaemonSuite) TestEndpointsGetOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointsGetFail(c *C) {
-	s.d.OnEndpointsGet = func() ([]types.Endpoint, error) {
+	s.d.OnEndpointsGet = func() ([]endpoint.Endpoint, error) {
 		return nil, errors.New("invalid endpoint")
 	}
 
@@ -357,9 +360,9 @@ func (s *DaemonSuite) TestEndpointsGetFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
-	optsWanted := types.OptionMap{"FOO": true}
+	optsWanted := option.OptionMap{"FOO": true}
 
-	s.d.OnEndpointUpdate = func(epID uint16, opts types.OptionMap) error {
+	s.d.OnEndpointUpdate = func(epID uint16, opts option.OptionMap) error {
 		c.Assert(epID, DeepEquals, uint16(4307))
 		c.Assert(opts, DeepEquals, optsWanted)
 		return nil
@@ -368,7 +371,7 @@ func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
 	err := s.c.EndpointUpdate(4307, optsWanted)
 	c.Assert(err, IsNil)
 
-	s.d.OnEndpointUpdate = func(epID uint16, opts types.OptionMap) error {
+	s.d.OnEndpointUpdate = func(epID uint16, opts option.OptionMap) error {
 		c.Assert(epID, DeepEquals, uint16(4307))
 		c.Assert(opts, IsNil)
 		return nil
@@ -378,9 +381,9 @@ func (s *DaemonSuite) TestEndpointUpdateOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
-	optsWanted := types.OptionMap{"FOO": true}
+	optsWanted := option.OptionMap{"FOO": true}
 
-	s.d.OnEndpointUpdate = func(epID uint16, opts types.OptionMap) error {
+	s.d.OnEndpointUpdate = func(epID uint16, opts option.OptionMap) error {
 		c.Assert(epID, DeepEquals, uint16(4307))
 		c.Assert(opts, DeepEquals, optsWanted)
 		return errors.New("invalid endpoint")
@@ -391,7 +394,7 @@ func (s *DaemonSuite) TestEndpointUpdateFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointSaveOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -403,7 +406,7 @@ func (s *DaemonSuite) TestEndpointSaveOK(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointSave = func(receivedEp types.Endpoint) error {
+	s.d.OnEndpointSave = func(receivedEp endpoint.Endpoint) error {
 		c.Assert(ep, DeepEquals, receivedEp)
 		return nil
 	}
@@ -413,7 +416,7 @@ func (s *DaemonSuite) TestEndpointSaveOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -425,7 +428,7 @@ func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointSave = func(receivedEp types.Endpoint) error {
+	s.d.OnEndpointSave = func(receivedEp endpoint.Endpoint) error {
 		c.Assert(ep, DeepEquals, receivedEp)
 		return errors.New("invalid endpoint")
 	}
@@ -435,7 +438,7 @@ func (s *DaemonSuite) TestEndpointSaveFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -447,18 +450,18 @@ func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
 	}
 	ep.SetID()
 
-	epLbls := types.Labels{
-		"foo": types.NewLabel("foo", "bar", "cilium"),
+	epLbls := labels.Labels{
+		"foo": labels.NewLabel("foo", "bar", "cilium"),
 	}
-	ciliumLbls := types.Labels{
-		"bar": types.NewLabel("bar", "foo", "cilium"),
+	ciliumLbls := labels.Labels{
+		"bar": labels.NewLabel("bar", "foo", "cilium"),
 	}
-	wantedLbls := types.OpLabels{
+	wantedLbls := labels.OpLabels{
 		AllLabels:      ciliumLbls,
 		EndpointLabels: epLbls,
 	}
 
-	s.d.OnEndpointLabelsGet = func(epID uint16) (*types.OpLabels, error) {
+	s.d.OnEndpointLabelsGet = func(epID uint16) (*labels.OpLabels, error) {
 		c.Assert(ep.ID, DeepEquals, epID)
 		return &wantedLbls, nil
 	}
@@ -469,7 +472,7 @@ func (s *DaemonSuite) TestEndpointLabelsGetOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -481,7 +484,7 @@ func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
 	}
 	ep.SetID()
 
-	s.d.OnEndpointLabelsGet = func(epID uint16) (*types.OpLabels, error) {
+	s.d.OnEndpointLabelsGet = func(epID uint16) (*labels.OpLabels, error) {
 		c.Assert(ep.ID, DeepEquals, epID)
 		return nil, errors.New("invalid endpoint")
 	}
@@ -492,7 +495,7 @@ func (s *DaemonSuite) TestEndpointLabelsGetFail(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -504,13 +507,13 @@ func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
 	}
 	ep.SetID()
 
-	wantedLabels := types.LabelOp{
-		types.AddLabelsOp: types.Labels{
-			"foo": types.NewLabel("foo", "bar", "cilium"),
+	wantedLabels := labels.LabelOp{
+		labels.AddLabelsOp: labels.Labels{
+			"foo": labels.NewLabel("foo", "bar", "cilium"),
 		},
 	}
 
-	s.d.OnEndpointLabelsUpdate = func(epID uint16, lbls types.LabelOp) error {
+	s.d.OnEndpointLabelsUpdate = func(epID uint16, lbls labels.LabelOp) error {
 		c.Assert(ep.ID, DeepEquals, epID)
 		c.Assert(wantedLabels, DeepEquals, lbls)
 		return nil
@@ -521,7 +524,7 @@ func (s *DaemonSuite) TestEndpointLabelsAddOK(c *C) {
 }
 
 func (s *DaemonSuite) TestEndpointLabelsAddFail(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -533,13 +536,13 @@ func (s *DaemonSuite) TestEndpointLabelsAddFail(c *C) {
 	}
 	ep.SetID()
 
-	wantedLabels := types.LabelOp{
-		types.AddLabelsOp: types.Labels{
-			"foo": types.NewLabel("foo", "bar", "cilium"),
+	wantedLabels := labels.LabelOp{
+		labels.AddLabelsOp: labels.Labels{
+			"foo": labels.NewLabel("foo", "bar", "cilium"),
 		},
 	}
 
-	s.d.OnEndpointLabelsUpdate = func(epID uint16, labelOp types.LabelOp) error {
+	s.d.OnEndpointLabelsUpdate = func(epID uint16, labelOp labels.LabelOp) error {
 		c.Assert(ep.ID, DeepEquals, epID)
 		c.Assert(labelOp, DeepEquals, wantedLabels)
 		return errors.New("invalid endpoint")

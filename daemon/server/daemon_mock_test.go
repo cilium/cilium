@@ -21,39 +21,43 @@ import (
 
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/gorilla/websocket"
 )
 
 type TestDaemon struct {
-	OnEndpointGet               func(epID uint16) (*types.Endpoint, error)
-	OnEndpointGetByDockerEPID   func(dockerEPID string) (*types.Endpoint, error)
-	OnEndpointGetByDockerID     func(dockerID string) (*types.Endpoint, error)
-	OnEndpointsGet              func() ([]types.Endpoint, error)
-	OnEndpointJoin              func(ep types.Endpoint) error
+	OnEndpointGet               func(epID uint16) (*endpoint.Endpoint, error)
+	OnEndpointGetByDockerEPID   func(dockerEPID string) (*endpoint.Endpoint, error)
+	OnEndpointGetByDockerID     func(dockerID string) (*endpoint.Endpoint, error)
+	OnEndpointsGet              func() ([]endpoint.Endpoint, error)
+	OnEndpointJoin              func(ep endpoint.Endpoint) error
 	OnEndpointLeave             func(epID uint16) error
 	OnEndpointLeaveByDockerEPID func(dockerEPID string) error
-	OnEndpointUpdate            func(epID uint16, opts types.OptionMap) error
-	OnEndpointSave              func(ep types.Endpoint) error
-	OnEndpointLabelsGet         func(epID uint16) (*types.OpLabels, error)
-	OnEndpointLabelsUpdate      func(epID uint16, labelOp types.LabelOp) error
+	OnEndpointUpdate            func(epID uint16, opts option.OptionMap) error
+	OnEndpointSave              func(ep endpoint.Endpoint) error
+	OnEndpointLabelsGet         func(epID uint16) (*labels.OpLabels, error)
+	OnEndpointLabelsUpdate      func(epID uint16, labelOp labels.LabelOp) error
 	OnGetIPAMConf               func(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error)
 	OnAllocateIP                func(ipamType ipam.IPAMType, opts ipam.IPAMReq) (*ipam.IPAMRep, error)
 	OnReleaseIP                 func(ipamType ipam.IPAMType, opts ipam.IPAMReq) error
 	OnPing                      func() (*types.PingResponse, error)
-	OnGlobalStatus              func() (*types.StatusResponse, error)
-	OnUpdate                    func(opts types.OptionMap) error
+	OnGlobalStatus              func() (*endpoint.StatusResponse, error)
+	OnUpdate                    func(opts option.OptionMap) error
 	OnSyncState                 func(path string, clean bool) error
-	OnPutLabels                 func(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error)
-	OnGetLabels                 func(id uint32) (*types.SecCtxLabel, error)
-	OnGetLabelsBySHA256         func(sha256sum string) (*types.SecCtxLabel, error)
+	OnPutLabels                 func(labels labels.Labels, contID string) (*labels.SecCtxLabel, bool, error)
+	OnGetLabels                 func(id uint32) (*labels.SecCtxLabel, error)
+	OnGetLabelsBySHA256         func(sha256sum string) (*labels.SecCtxLabel, error)
 	OnDeleteLabelsByUUID        func(uuid uint32, contID string) error
 	OnDeleteLabelsBySHA256      func(sha256sum, contID string) error
 	OnGetMaxLabelID             func() (uint32, error)
-	OnPolicyAdd                 func(path string, node *types.PolicyNode) error
+	OnPolicyAdd                 func(path string, node *policy.Node) error
 	OnPolicyDelete              func(path string) error
-	OnPolicyGet                 func(path string) (*types.PolicyNode, error)
-	OnPolicyCanConsume          func(sc *types.SearchContext) (*types.SearchContextReply, error)
+	OnPolicyGet                 func(path string) (*policy.Node, error)
+	OnPolicyCanConsume          func(sc *policy.SearchContext) (*policy.SearchContextReply, error)
 	OnSVCAdd                    func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
 	OnSVCDelete                 func(feL3n4 types.L3n4Addr) error
 	OnSVCDeleteBySHA256Sum      func(feL3n4SHA256Sum string) error
@@ -76,42 +80,42 @@ func NewTestDaemon() *TestDaemon {
 	return &TestDaemon{}
 }
 
-func (d TestDaemon) EndpointGet(epID uint16) (*types.Endpoint, error) {
+func (d TestDaemon) EndpointGet(epID uint16) (*endpoint.Endpoint, error) {
 	if d.OnEndpointGet != nil {
 		return d.OnEndpointGet(epID)
 	}
 	return nil, errors.New("EndpointGet should not have been called")
 }
 
-func (d TestDaemon) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
+func (d TestDaemon) EndpointGetByDockerEPID(dockerEPID string) (*endpoint.Endpoint, error) {
 	if d.OnEndpointGetByDockerEPID != nil {
 		return d.OnEndpointGetByDockerEPID(dockerEPID)
 	}
 	return nil, errors.New("EndpointGetByDockerEPID should not have been called")
 }
 
-func (d TestDaemon) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error) {
+func (d TestDaemon) EndpointGetByDockerID(dockerID string) (*endpoint.Endpoint, error) {
 	if d.OnEndpointGetByDockerID != nil {
 		return d.OnEndpointGetByDockerID(dockerID)
 	}
 	return nil, errors.New("EndpointGetByDockerID should not have been called")
 }
 
-func (d TestDaemon) EndpointsGet() ([]types.Endpoint, error) {
+func (d TestDaemon) EndpointsGet() ([]endpoint.Endpoint, error) {
 	if d.OnEndpointsGet != nil {
 		return d.OnEndpointsGet()
 	}
 	return nil, errors.New("EndpointsGet should not have been called")
 }
 
-func (d TestDaemon) EndpointJoin(ep types.Endpoint) error {
+func (d TestDaemon) EndpointJoin(ep endpoint.Endpoint) error {
 	if d.OnEndpointJoin != nil {
 		return d.OnEndpointJoin(ep)
 	}
 	return errors.New("EndpointJoin should not have been called")
 }
 
-func (d TestDaemon) EndpointUpdate(epID uint16, opts types.OptionMap) error {
+func (d TestDaemon) EndpointUpdate(epID uint16, opts option.OptionMap) error {
 	if d.OnEndpointUpdate != nil {
 		return d.OnEndpointUpdate(epID, opts)
 	}
@@ -132,21 +136,21 @@ func (d TestDaemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 	return errors.New("OnEndpointLeaveByDockerEPID should not have been called")
 }
 
-func (d TestDaemon) EndpointSave(ep types.Endpoint) error {
+func (d TestDaemon) EndpointSave(ep endpoint.Endpoint) error {
 	if d.OnEndpointSave != nil {
 		return d.OnEndpointSave(ep)
 	}
 	return errors.New("EndpointSave should not have been called")
 }
 
-func (d TestDaemon) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
+func (d TestDaemon) EndpointLabelsGet(epID uint16) (*labels.OpLabels, error) {
 	if d.OnEndpointLabelsGet != nil {
 		return d.OnEndpointLabelsGet(epID)
 	}
 	return nil, errors.New("EndpointLabelsGet should not have been called")
 }
 
-func (d TestDaemon) EndpointLabelsUpdate(epID uint16, labelOp types.LabelOp) error {
+func (d TestDaemon) EndpointLabelsUpdate(epID uint16, labelOp labels.LabelOp) error {
 	if d.OnEndpointLabelsUpdate != nil {
 		return d.OnEndpointLabelsUpdate(epID, labelOp)
 	}
@@ -160,14 +164,14 @@ func (d TestDaemon) Ping() (*types.PingResponse, error) {
 	return nil, errors.New("Ping should not have been called")
 }
 
-func (d TestDaemon) GlobalStatus() (*types.StatusResponse, error) {
+func (d TestDaemon) GlobalStatus() (*endpoint.StatusResponse, error) {
 	if d.OnGlobalStatus != nil {
 		return d.OnGlobalStatus()
 	}
 	return nil, errors.New("GlobalStatus should not have been called")
 }
 
-func (d TestDaemon) Update(opts types.OptionMap) error {
+func (d TestDaemon) Update(opts option.OptionMap) error {
 	if d.OnUpdate != nil {
 		return d.OnUpdate(opts)
 	}
@@ -202,21 +206,21 @@ func (d TestDaemon) ReleaseIP(ipamType ipam.IPAMType, opts ipam.IPAMReq) error {
 	return errors.New("ReleaseIP should not have been called")
 }
 
-func (d TestDaemon) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
+func (d TestDaemon) PutLabels(labels labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
 	if d.OnPutLabels != nil {
 		return d.OnPutLabels(labels, contID)
 	}
 	return nil, false, errors.New("GetLabelsID should not have been called")
 }
 
-func (d TestDaemon) GetLabels(id uint32) (*types.SecCtxLabel, error) {
+func (d TestDaemon) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
 	if d.OnGetLabels != nil {
 		return d.OnGetLabels(id)
 	}
 	return nil, errors.New("GetLabels should not have been called")
 }
 
-func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
+func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error) {
 	if d.OnGetLabelsBySHA256 != nil {
 		return d.OnGetLabelsBySHA256(sha256sum)
 	}
@@ -244,7 +248,7 @@ func (d TestDaemon) GetMaxLabelID() (uint32, error) {
 	return 0, errors.New("GetMaxLabelID should not have been called")
 }
 
-func (d TestDaemon) PolicyAdd(path string, node *types.PolicyNode) error {
+func (d TestDaemon) PolicyAdd(path string, node *policy.Node) error {
 	if d.OnPolicyAdd != nil {
 		return d.OnPolicyAdd(path, node)
 	}
@@ -258,14 +262,14 @@ func (d TestDaemon) PolicyDelete(path string) error {
 	return errors.New("PolicyDelete should not have been called")
 }
 
-func (d TestDaemon) PolicyGet(path string) (*types.PolicyNode, error) {
+func (d TestDaemon) PolicyGet(path string) (*policy.Node, error) {
 	if d.OnPolicyGet != nil {
 		return d.OnPolicyGet(path)
 	}
 	return nil, errors.New("PolicyGet should not have been called")
 }
 
-func (d TestDaemon) PolicyCanConsume(sc *types.SearchContext) (*types.SearchContextReply, error) {
+func (d TestDaemon) PolicyCanConsume(sc *policy.SearchContext) (*policy.SearchContextReply, error) {
 	if d.OnPolicyCanConsume != nil {
 		return d.OnPolicyCanConsume(sc)
 	}

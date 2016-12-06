@@ -16,13 +16,15 @@
 package types
 
 import (
+	"github.com/cilium/cilium/pkg/labels"
+
 	dTypes "github.com/docker/engine-api/types"
 	k8sDockerLbls "k8s.io/client-go/1.5/pkg/kubelet/types"
 )
 
 type Container struct {
 	dTypes.ContainerJSON
-	OpLabels OpLabels
+	OpLabels labels.OpLabels
 	NRetries uint
 }
 

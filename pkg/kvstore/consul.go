@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
 
 	consulAPI "github.com/hashicorp/consul/api"
 )
@@ -207,7 +208,7 @@ func (c *ConsulClient) SetMaxID(key string, firstID, maxID uint32) error {
 	return err
 }
 
-func (c *ConsulClient) updateSecLabelIDRef(secCtxLabels types.SecCtxLabel) error {
+func (c *ConsulClient) updateSecLabelIDRef(secCtxLabels labels.SecCtxLabel) error {
 	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
 	return c.SetValue(key, secCtxLabels)
 }
@@ -216,7 +217,7 @@ func (c *ConsulClient) setMaxLabelID(maxID uint32) error {
 	return c.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, maxID)
 }
 
-func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabels *types.SecCtxLabel) error {
+func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabels *labels.SecCtxLabel) error {
 
 	setID2Label := func(lockPair *consulAPI.KVPair) error {
 		defer c.KV().Release(lockPair, nil)
@@ -253,7 +254,7 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLa
 			if lblKey == nil {
 				return setID2Label(lockPair)
 			}
-			var consulLabels types.SecCtxLabel
+			var consulLabels labels.SecCtxLabel
 			if err := json.Unmarshal(lblKey.Value, &consulLabels); err != nil {
 				c.KV().Release(lockPair, nil)
 				return err

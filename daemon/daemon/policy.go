@@ -22,14 +22,17 @@ import (
 
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/op/go-logging"
 )
 
 // findNode returns node and its parent or an error
-func (d *Daemon) findNode(path string) (*types.PolicyNode, *types.PolicyNode, error) {
-	var parent *types.PolicyNode
+func (d *Daemon) findNode(path string) (*policy.Node, *policy.Node, error) {
+	var parent *policy.Node
 
 	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
 		return nil, nil, fmt.Errorf("Invalid path %s: must start with %s", path, common.GlobalLabelPrefix)
@@ -37,10 +40,10 @@ func (d *Daemon) findNode(path string) (*types.PolicyNode, *types.PolicyNode, er
 
 	newPath := strings.Replace(path, common.GlobalLabelPrefix, "", 1)
 	if newPath == "" {
-		return d.policyTree.Root, nil, nil
+		return d.policy.Root, nil, nil
 	}
 
-	current := d.policyTree.Root
+	current := d.policy.Root
 	parent = nil
 
 	for _, nodeName := range strings.Split(newPath, ".") {
@@ -58,10 +61,10 @@ func (d *Daemon) findNode(path string) (*types.PolicyNode, *types.PolicyNode, er
 	return current, parent, nil
 }
 
-func (d *Daemon) GetCachedLabelList(ID uint32) ([]types.Label, error) {
+func (d *Daemon) GetCachedLabelList(ID uint32) ([]labels.Label, error) {
 	// Check if we have the source security context in our local
 	// consumable cache
-	if c := types.LookupConsumable(ID); c != nil {
+	if c := policy.LookupConsumable(ID); c != nil {
 		return c.LabelList, nil
 	}
 
@@ -77,18 +80,18 @@ func (d *Daemon) GetCachedLabelList(ID uint32) ([]types.Label, error) {
 		return nil, nil
 	}
 
-	l := make([]types.Label, len(lbls.Labels))
+	l := make([]labels.Label, len(lbls.Labels))
 
 	idx := 0
 	for k, v := range lbls.Labels {
-		l[idx] = types.Label{Key: k, Value: v.Value, Source: v.Source}
+		l[idx] = labels.Label{Key: k, Value: v.Value, Source: v.Source}
 		idx++
 	}
 
 	return l, nil
 }
 
-func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchContext, srcID uint32) error {
+func (d *Daemon) evaluateConsumerSource(e *endpoint.Endpoint, ctx *policy.SearchContext, srcID uint32) error {
 	var err error
 
 	c := e.Consumable
@@ -106,8 +109,8 @@ func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchCont
 
 	decision := d.policyCanConsume(ctx)
 	// Only accept rules get stored
-	if decision == types.ACCEPT {
-		if !e.Opts.IsEnabled(types.OptionConntrack) {
+	if decision == policy.ACCEPT {
+		if !e.Opts.IsEnabled(endpoint.OptionConntrack) {
 			c.AllowConsumerAndReverse(srcID)
 		} else {
 			c.AllowConsumer(srcID)
@@ -118,7 +121,7 @@ func (d *Daemon) evaluateConsumerSource(e *types.Endpoint, ctx *types.SearchCont
 }
 
 // Must be called with endpointsMU held
-func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
+func (d *Daemon) regenerateConsumable(e *endpoint.Endpoint) error {
 	c := e.Consumable
 
 	// Containers without a security label are not accessible
@@ -138,13 +141,13 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		return err
 	}
 
-	ctx := types.SearchContext{
+	ctx := policy.SearchContext{
 		To: c.LabelList,
 	}
 
 	d.conf.OptsMU.RLock()
 	if d.conf.Opts.IsEnabled(OptionPolicyTracing) {
-		ctx.Trace = types.TRACE_ENABLED
+		ctx.Trace = policy.TRACE_ENABLED
 	}
 	d.conf.OptsMU.RUnlock()
 
@@ -153,7 +156,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		c.Consumers[k].DeletionMark = true
 	}
 
-	d.policyTreeMU.RLock()
+	d.policyMU.RLock()
 	// Check access from reserved consumables first
 	for _, id := range d.reservedConsumables {
 		if err := d.evaluateConsumerSource(e, &ctx, id.ID); err != nil {
@@ -172,7 +175,7 @@ func (d *Daemon) regenerateConsumable(e *types.Endpoint) error {
 		}
 		idx++
 	}
-	d.policyTreeMU.RUnlock()
+	d.policyMU.RUnlock()
 
 	// Garbage collect all unused entries
 	for _, val := range c.Consumers {
@@ -197,16 +200,16 @@ func (d *Daemon) invalidateCache() {
 	}
 }
 
-func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.OptionMap, dstID uint32, opt string) {
+func (d *Daemon) checkEgressAccess(e *endpoint.Endpoint, opts option.OptionMap, dstID uint32, opt string) {
 	var err error
 
-	ctx := types.SearchContext{
+	ctx := policy.SearchContext{
 		From: e.Consumable.LabelList,
 	}
 
 	d.conf.OptsMU.RLock()
 	if d.conf.Opts.IsEnabled(OptionPolicyTracing) {
-		ctx.Trace = types.TRACE_ENABLED
+		ctx.Trace = policy.TRACE_ENABLED
 	}
 	d.conf.OptsMU.RUnlock()
 
@@ -217,23 +220,23 @@ func (d *Daemon) checkEgressAccess(e *types.Endpoint, opts types.OptionMap, dstI
 	}
 
 	switch d.policyCanConsume(&ctx) {
-	case types.ACCEPT, types.ALWAYS_ACCEPT:
+	case policy.ACCEPT, policy.ALWAYS_ACCEPT:
 		opts[opt] = true
-	case types.DENY:
+	case policy.DENY:
 		opts[opt] = false
 	}
 }
 
-func (d *Daemon) regenerateEndpointPolicy(e *types.Endpoint, regenerateEndpoint bool) error {
+func (d *Daemon) regenerateEndpointPolicy(e *endpoint.Endpoint, regenerateEndpoint bool) error {
 	if e.Consumable != nil {
 		if err := d.regenerateConsumable(e); err != nil {
 			return err
 		}
 
-		opts := make(types.OptionMap)
+		opts := make(option.OptionMap)
 
-		d.checkEgressAccess(e, opts, uint32(types.ID_HOST), types.OptionAllowToHost)
-		d.checkEgressAccess(e, opts, uint32(types.ID_WORLD), types.OptionAllowToWorld)
+		d.checkEgressAccess(e, opts, uint32(labels.ID_HOST), endpoint.OptionAllowToHost)
+		d.checkEgressAccess(e, opts, uint32(labels.ID_WORLD), endpoint.OptionAllowToWorld)
 
 		if !e.ApplyOpts(opts) {
 			// No changes have been applied, skip update
@@ -268,7 +271,7 @@ func (d *Daemon) triggerPolicyUpdates(added []uint32) {
 	for _, ep := range d.endpoints {
 		err := d.regenerateEndpointPolicy(ep, true)
 		if err != nil {
-			ep.LogStatus(types.Failure, err.Error())
+			ep.LogStatus(endpoint.Failure, err.Error())
 		} else {
 			ep.LogStatusOK("Policy regenerated")
 		}
@@ -276,39 +279,39 @@ func (d *Daemon) triggerPolicyUpdates(added []uint32) {
 }
 
 // policyCanConsume calculates if the ctx allows the consumer to be consumed.
-func (d *Daemon) policyCanConsume(ctx *types.SearchContext) types.ConsumableDecision {
-	return d.policyTree.Allows(ctx)
+func (d *Daemon) policyCanConsume(ctx *policy.SearchContext) policy.ConsumableDecision {
+	return d.policy.Allows(ctx)
 }
 
 // PolicyCanConsume calculates if the ctx allows the consumer to be consumed. This public
 // function returns a SearchContextReply with the consumable decision and the tracing log
 // if ctx.Trace was set.
-func (d *Daemon) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error) {
+func (d *Daemon) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error) {
 	buffer := new(bytes.Buffer)
-	if ctx.Trace != types.TRACE_DISABLED {
+	if ctx.Trace != policy.TRACE_DISABLED {
 		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 	}
-	scr := types.SearchContextReply{}
-	d.policyTreeMU.RLock()
+	scr := policy.SearchContextReply{}
+	d.policyMU.RLock()
 	scr.Decision = d.policyCanConsume(ctx)
-	d.policyTreeMU.RUnlock()
+	d.policyMU.RUnlock()
 
-	if ctx.Trace != types.TRACE_DISABLED {
+	if ctx.Trace != policy.TRACE_DISABLED {
 		scr.Logging = buffer.Bytes()
 	}
 	return &scr, nil
 }
 
-func (d *Daemon) policyAdd(path string, node *types.PolicyNode) error {
+func (d *Daemon) policyAdd(path string, node *policy.Node) error {
 	var (
-		currNode, parentNode *types.PolicyNode
+		currNode, parentNode *policy.Node
 		err                  error
 	)
 
 	if node.Name == "" {
-		path, node.Name = types.SplitPolicyNodePath(path)
+		path, node.Name = policy.SplitNodePath(path)
 	} else if strings.Contains(node.Name, ".") && node.Name != common.GlobalLabelPrefix {
-		path, node.Name = types.SplitPolicyNodePath(path + "." + node.Name)
+		path, node.Name = policy.SplitNodePath(path + "." + node.Name)
 	}
 
 	currNode, parentNode, err = d.findNode(path)
@@ -322,7 +325,7 @@ func (d *Daemon) policyAdd(path string, node *types.PolicyNode) error {
 		// eg. path = io.cilium.lizards.foo and io.cilium.lizards.foo doesn't exist
 		(currNode == nil && parentNode != nil) {
 
-		pn := types.NewPolicyNode("", nil)
+		pn := policy.NewNode("", nil)
 		if err := d.policyAdd(path, pn); err != nil {
 			return err
 		}
@@ -353,23 +356,23 @@ func (d *Daemon) policyAdd(path string, node *types.PolicyNode) error {
 	return nil
 }
 
-func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
+func (d *Daemon) PolicyAdd(path string, node *policy.Node) error {
 	log.Debugf("Policy Add Request: %s %+v", path, node)
 
 	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
 		return fmt.Errorf("the given path %q doesn't have the prefix %q", path, common.GlobalLabelPrefix)
 	}
 
-	d.policyTreeMU.Lock()
+	d.policyMU.Lock()
 	if err := d.policyAdd(path, node); err != nil {
-		d.policyTreeMU.Unlock()
+		d.policyMU.Unlock()
 		return err
 	}
 	if err := node.ResolveTree(); err != nil {
-		d.policyTreeMU.Unlock()
+		d.policyMU.Unlock()
 		return err
 	}
-	d.policyTreeMU.Unlock()
+	d.policyMU.Unlock()
 
 	d.triggerPolicyUpdates([]uint32{})
 
@@ -380,20 +383,20 @@ func (d *Daemon) PolicyAdd(path string, node *types.PolicyNode) error {
 func (d *Daemon) PolicyDelete(path string) error {
 	log.Debugf("Policy Delete Request: %s", path)
 
-	d.policyTreeMU.Lock()
+	d.policyMU.Lock()
 	node, parent, err := d.findNode(path)
 	if err != nil {
-		d.policyTreeMU.Unlock()
+		d.policyMU.Unlock()
 		return err
 	}
 	if parent == nil {
-		d.policyTree.Root = types.NewPolicyNode(common.GlobalLabelPrefix, nil)
+		d.policy.Root = policy.NewNode(common.GlobalLabelPrefix, nil)
 
-		d.policyTree.Root.Path()
+		d.policy.Root.Path()
 	} else {
 		delete(parent.Children, node.Name)
 	}
-	d.policyTreeMU.Unlock()
+	d.policyMU.Unlock()
 
 	d.triggerPolicyUpdates([]uint32{})
 
@@ -401,22 +404,22 @@ func (d *Daemon) PolicyDelete(path string) error {
 }
 
 // PolicyGet returns the policy of the given path.
-func (d *Daemon) PolicyGet(path string) (*types.PolicyNode, error) {
+func (d *Daemon) PolicyGet(path string) (*policy.Node, error) {
 	log.Debugf("Policy Get Request: %s", path)
-	d.policyTreeMU.RLock()
+	d.policyMU.RLock()
 	node, _, err := d.findNode(path)
-	d.policyTreeMU.RUnlock()
+	d.policyMU.RUnlock()
 	return node, err
 }
 
 func (d *Daemon) PolicyInit() error {
-	for k, v := range types.ResDec {
+	for k, v := range labels.ResDec {
 
-		key := types.ReservedID(uint32(v)).String()
-		lbl := types.NewLabel(
+		key := labels.ReservedID(uint32(v)).String()
+		lbl := labels.NewLabel(
 			key, "", common.ReservedLabelSource,
 		)
-		secLbl := types.NewSecCtxLabel()
+		secLbl := labels.NewSecCtxLabel()
 		secLbl.ID = uint32(v)
 		secLbl.AddOrUpdateContainer(lbl.String())
 		secLbl.Labels[k] = lbl
@@ -428,7 +431,7 @@ func (d *Daemon) PolicyInit() error {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
 
-		if c := types.GetConsumable(uint32(v), secLbl); c == nil {
+		if c := policy.GetConsumable(uint32(v), secLbl); c == nil {
 			return fmt.Errorf("Unable to initialize consumable for %v", secLbl)
 		} else {
 			d.reservedConsumables = append(d.reservedConsumables, c)

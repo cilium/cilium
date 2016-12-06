@@ -25,9 +25,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codegangsta/cli"
+	"github.com/cilium/cilium/pkg/bpf"
 
-	"github.com/cilium/cilium/common/bpf"
+	"github.com/codegangsta/cli"
 )
 
 var (

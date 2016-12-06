@@ -13,12 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package policy
 
 import (
 	"strconv"
 
 	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 type Consumer struct {
@@ -46,8 +47,8 @@ func NewConsumer(id uint32) *Consumer {
 type Consumable struct {
 	ID           uint32                       `json:"id"`
 	Iteration    int                          `json:"-"`
-	Labels       *SecCtxLabel                 `json:"labels"`
-	LabelList    []Label                      `json:"-"`
+	Labels       *labels.SecCtxLabel          `json:"labels"`
+	LabelList    []labels.Label               `json:"-"`
 	Maps         map[int]*policymap.PolicyMap `json:"-"`
 	Consumers    map[string]*Consumer         `json:"consumers"`
 	ReverseRules map[uint32]*Consumer         `json:"-"`
@@ -57,7 +58,7 @@ func (c *Consumable) DeepCopy() *Consumable {
 	cpy := &Consumable{
 		ID:           c.ID,
 		Iteration:    c.Iteration,
-		LabelList:    make([]Label, len(c.LabelList)),
+		LabelList:    make([]labels.Label, len(c.LabelList)),
 		Maps:         make(map[int]*policymap.PolicyMap, len(c.Maps)),
 		Consumers:    make(map[string]*Consumer, len(c.Consumers)),
 		ReverseRules: make(map[uint32]*Consumer, len(c.ReverseRules)),
@@ -78,21 +79,21 @@ func (c *Consumable) DeepCopy() *Consumable {
 	return cpy
 }
 
-func newConsumable(id uint32, labels *SecCtxLabel) *Consumable {
+func newConsumable(id uint32, lbls *labels.SecCtxLabel) *Consumable {
 	consumable := &Consumable{
 		ID:           id,
 		Iteration:    0,
-		Labels:       labels,
+		Labels:       lbls,
 		Maps:         map[int]*policymap.PolicyMap{},
 		Consumers:    map[string]*Consumer{},
 		ReverseRules: map[uint32]*Consumer{},
 	}
 
-	if labels != nil {
-		consumable.LabelList = make([]Label, len(labels.Labels))
+	if lbls != nil {
+		consumable.LabelList = make([]labels.Label, len(lbls.Labels))
 		idx := 0
-		for k, v := range labels.Labels {
-			consumable.LabelList[idx] = Label{
+		for k, v := range lbls.Labels {
+			consumable.LabelList[idx] = labels.Label{
 				Key:    k,
 				Value:  v.Value,
 				Source: v.Source,
@@ -106,12 +107,12 @@ func newConsumable(id uint32, labels *SecCtxLabel) *Consumable {
 
 var consumableCache = map[uint32]*Consumable{}
 
-func GetConsumable(id uint32, labels *SecCtxLabel) *Consumable {
+func GetConsumable(id uint32, lbls *labels.SecCtxLabel) *Consumable {
 	if v, ok := consumableCache[id]; ok {
 		return v
 	}
 
-	consumableCache[id] = newConsumable(id, labels)
+	consumableCache[id] = newConsumable(id, lbls)
 
 	return consumableCache[id]
 }

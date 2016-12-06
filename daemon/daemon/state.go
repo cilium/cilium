@@ -23,7 +23,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/ipam"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	dockerAPI "github.com/docker/engine-api/client"
 	ctx "golang.org/x/net/context"
@@ -46,7 +46,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		d.endpointsMU.Unlock()
 		return err
 	}
-	eptsID := types.FilterEPDir(dirFiles)
+	eptsID := endpoint.FilterEPDir(dirFiles)
 
 	possibleEPs := readEPsFromDirNames(dir, eptsID)
 
@@ -117,8 +117,8 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	return nil
 }
 
-func (d *Daemon) allocateIPs(ep *types.Endpoint) error {
-	allocateIP := func(ep *types.Endpoint, ipamReq ipam.IPAMReq) (resp *ipam.IPAMRep, err error) {
+func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
+	allocateIP := func(ep *endpoint.Endpoint, ipamReq ipam.IPAMReq) (resp *ipam.IPAMRep, err error) {
 		if ep.IsCNI() {
 			resp, err = d.AllocateIP(ipam.CNIIPAMType, ipamReq)
 		} else if ep.IsLibnetwork() {
@@ -126,7 +126,7 @@ func (d *Daemon) allocateIPs(ep *types.Endpoint) error {
 		}
 		return
 	}
-	releaseIP := func(ep *types.Endpoint, ipamReq ipam.IPAMReq) (err error) {
+	releaseIP := func(ep *endpoint.Endpoint, ipamReq ipam.IPAMReq) (err error) {
 		if ep.IsCNI() {
 			err = d.ReleaseIP(ipam.CNIIPAMType, ipamReq)
 		} else if ep.IsLibnetwork() {
@@ -143,7 +143,7 @@ func (d *Daemon) allocateIPs(ep *types.Endpoint) error {
 	} else {
 		log.Infof("EP %d's IPv6 successfully reallocated", ep.ID)
 	}
-	defer func(ep *types.Endpoint) {
+	defer func(ep *endpoint.Endpoint) {
 		if err != nil {
 			releaseIP(ep, ep.IPv6.IPAMReq())
 		}
@@ -164,8 +164,8 @@ func (d *Daemon) allocateIPs(ep *types.Endpoint) error {
 
 // readEPsFromDirNames returns a list of endpoints from a list of directory names that
 // possible contain an endpoint.
-func readEPsFromDirNames(basePath string, eptsDirNames []string) []*types.Endpoint {
-	possibleEPs := []*types.Endpoint{}
+func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.Endpoint {
+	possibleEPs := []*endpoint.Endpoint{}
 	for _, epID := range eptsDirNames {
 		epDir := filepath.Join(basePath, epID)
 		readDir := func() string {
@@ -194,7 +194,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*types.Endpoi
 			log.Warningf("Unable to read the C header file %q: %s\n", cHeaderFile, err)
 			continue
 		}
-		ep, err := types.ParseEndpoint(strEp)
+		ep, err := endpoint.ParseEndpoint(strEp)
 		if err != nil {
 			log.Warningf("Unable to read the C header file %q: %s\n", cHeaderFile, err)
 			continue
@@ -206,7 +206,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*types.Endpoi
 
 // syncLabels syncs the labels from the labels' database for the given endpoint. To be
 // used with endpointsMU locked.
-func (d *Daemon) syncLabels(ep *types.Endpoint) error {
+func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	if ep.SecLabel == nil {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
 	}
@@ -255,7 +255,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 		return
 	}
 
-	cleanUp := func(ep types.Endpoint) {
+	cleanUp := func(ep endpoint.Endpoint) {
 		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
 		d.EndpointLeave(ep.ID)
 		// FIXME: IPV4

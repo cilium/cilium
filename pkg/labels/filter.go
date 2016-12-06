@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package labels
 
 import (
 	"encoding/json"
@@ -99,9 +99,9 @@ func ReadLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
 
 // FilterLabels returns Labels from the given labels that have the same source and the
 // same prefix as one of lpc valid prefixes.
-func (lpc *LabelPrefixCfg) FilterLabels(labels Labels) Labels {
+func (lpc *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 	filteredLabels := Labels{}
-	for k, v := range labels {
+	for k, v := range lbls {
 		for _, lpcValue := range lpc.LabelPrefixes {
 			if lpcValue.Source == v.Source &&
 				strings.HasPrefix(v.Key, lpcValue.Prefix) {

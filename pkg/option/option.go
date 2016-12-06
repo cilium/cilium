@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package option
 
 import (
 	"fmt"
@@ -21,6 +21,12 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common"
+
+	"github.com/op/go-logging"
+)
+
+var (
+	log = logging.MustGetLogger("cilium-option")
 )
 
 type Option struct {

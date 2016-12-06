@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
 
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
@@ -144,18 +146,18 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	return k8sLabels, nil
 }
 
-func (d *Daemon) getFilteredLabels(allLabels map[string]string) types.Labels {
-	var ciliumLabels, k8sLabels types.Labels
+func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
+	var ciliumLabels, k8sLabels labels.Labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
 			log.Warningf("Error while getting kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {
-			k8sLabels = types.Map2Labels(k8sNormalLabels, common.K8sLabelSource)
+			k8sLabels = labels.Map2Labels(k8sNormalLabels, common.K8sLabelSource)
 		}
 	}
 
-	ciliumLabels = types.Map2Labels(allLabels, common.CiliumLabelSource)
+	ciliumLabels = labels.Map2Labels(allLabels, common.CiliumLabelSource)
 
 	ciliumLabels.MergeLabels(k8sLabels)
 
@@ -185,7 +187,7 @@ func (d *Daemon) updateProbeLabels(dockerID string) (bool, *types.Container, err
 		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
 	}
 
-	ciliumLabels := types.Labels{}
+	ciliumLabels := labels.Labels{}
 	if dockerCont.Config != nil {
 		log.Debugf("Read docker labels %+v", dockerCont.Config.Labels)
 		ciliumLabels = d.getFilteredLabels(dockerCont.Config.Labels)
@@ -195,7 +197,7 @@ func (d *Daemon) updateProbeLabels(dockerID string) (bool, *types.Container, err
 	return d.updateOperationalLabels(dockerID, dockerCont, ciliumLabels, true)
 }
 
-func (d *Daemon) updateUserLabels(dockerID string, labels types.Labels) (bool, *types.Container, error) {
+func (d *Daemon) updateUserLabels(dockerID string, labels labels.Labels) (bool, *types.Container, error) {
 	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
 	if err != nil {
 		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
@@ -203,7 +205,7 @@ func (d *Daemon) updateUserLabels(dockerID string, labels types.Labels) (bool, *
 	return d.updateOperationalLabels(dockerID, dockerCont, labels, false)
 }
 
-func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.ContainerJSON, newLabels types.Labels, isProbe bool) (bool, *types.Container, error) {
+func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.ContainerJSON, newLabels labels.Labels, isProbe bool) (bool, *types.Container, error) {
 	isNewContainer := false
 	var (
 		cont           types.Container
@@ -214,9 +216,9 @@ func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.Cont
 		isNewContainer = true
 		cont = types.Container{
 			ContainerJSON: dockerCont,
-			OpLabels: types.OpLabels{
+			OpLabels: labels.OpLabels{
 				AllLabels:      newLabels.DeepCopy(),
-				UserLabels:     types.Labels{},
+				UserLabels:     labels.Labels{},
 				ProbeLabels:    newLabels.DeepCopy(),
 				EndpointLabels: newLabels.DeepCopy(),
 			},
@@ -323,7 +325,7 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 
 	try := 1
 	maxTries := 5
-	var ep *types.Endpoint
+	var ep *endpoint.Endpoint
 	for try <= maxTries {
 		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
 			break

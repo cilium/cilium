@@ -26,8 +26,8 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/cilium/cilium/common/bpf"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
@@ -51,7 +51,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 						log.Warningf("Endpoint %d is receiving traffic from an unknown label ID %d", epID, lblID)
 						return
 					}
-					if err := d.EndpointLabelsUpdate(epID, types.LabelOp{types.AddLabelsOp: sec.Labels}); err != nil {
+					if err := d.EndpointLabelsUpdate(epID, labels.LabelOp{labels.AddLabelsOp: sec.Labels}); err != nil {
 						log.Warningf("Error while add learned labels into the daemon %s", err)
 					}
 				}(v.EndpointID, dn.SrcLabel)

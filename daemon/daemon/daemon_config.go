@@ -22,7 +22,9 @@ import (
 
 	"github.com/cilium/cilium/bpf/lxcmap"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
@@ -33,18 +35,18 @@ const (
 )
 
 var (
-	OptionSpecPolicyTracing = types.Option{
+	OptionSpecPolicyTracing = option.Option{
 		Description: "Enable tracing when resolving policy (Debug)",
 	}
 
-	DaemonOptionLibrary = types.OptionLibrary{
+	DaemonOptionLibrary = option.OptionLibrary{
 		OptionPolicyTracing: &OptionSpecPolicyTracing,
 	}
 	kvBackend = ""
 )
 
 func init() {
-	for k, v := range types.EndpointMutableOptionLibrary {
+	for k, v := range endpoint.EndpointMutableOptionLibrary {
 		DaemonOptionLibrary[k] = v
 	}
 }
@@ -64,7 +66,7 @@ type Config struct {
 	IPv4Enabled          bool                    // Gives IPv4 addresses to containers
 	K8sEndpoint          string                  // Kubernetes endpoint
 	K8sCfgPath           string                  // Kubeconfig path
-	ValidLabelPrefixes   *types.LabelPrefixCfg   // Label prefixes used to filter from all labels
+	ValidLabelPrefixes   *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
 	ValidLabelPrefixesMU sync.RWMutex
 	UIServerAddr         string // TCP address for UI server
 	UIEnabled            bool
@@ -76,13 +78,13 @@ type Config struct {
 	KeepConfig   bool // Keep configuration of existing endpoints when starting up.
 
 	// Options changeable at runtime
-	Opts   *types.BoolOptions
+	Opts   *option.BoolOptions
 	OptsMU sync.RWMutex
 }
 
 func NewConfig() *Config {
 	return &Config{
-		Opts: types.NewBoolOptions(&DaemonOptionLibrary),
+		Opts: option.NewBoolOptions(&DaemonOptionLibrary),
 	}
 }
 

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package endpoint
 
 import (
 	"bytes"
@@ -23,6 +23,10 @@ import (
 
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
@@ -77,41 +81,41 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		DockerNetworkID:  "1234",
 		DockerEndpointID: "12345",
 		IfName:           "lxcifname",
-		LXCMAC:           MAC{1, 2, 3, 4, 5, 6},
+		LXCMAC:           mac.MAC{1, 2, 3, 4, 5, 6},
 		IPv6:             ipv6,
 		IPv4:             ipv4,
 		IfIndex:          4,
-		NodeMAC:          MAC{1, 2, 3, 4, 5, 6},
+		NodeMAC:          mac.MAC{1, 2, 3, 4, 5, 6},
 		NodeIP:           net.ParseIP("192.168.0.1"),
-		PortMap:          make([]EPPortMap, 2),
-		Opts:             NewBoolOptions(&EndpointOptionLibrary),
+		PortMap:          make([]PortMap, 2),
+		Opts:             option.NewBoolOptions(&EndpointOptionLibrary),
 	}
 	cpy := epWant.DeepCopy()
 	c.Assert(*cpy, DeepEquals, *epWant)
-	epWant.SecLabel = &SecCtxLabel{
+	epWant.SecLabel = &labels.SecCtxLabel{
 		ID: 1,
-		Labels: Labels{
-			"io.cilium.kubernetes": NewLabel("io.cilium.kubernetes", "", "cilium"),
+		Labels: labels.Labels{
+			"io.cilium.kubernetes": labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
 		Containers: map[string]time.Time{
 			"1234": time.Now(),
 		},
 	}
-	epWant.Consumable = &Consumable{
+	epWant.Consumable = &policy.Consumable{
 		ID:        123,
 		Iteration: 3,
 		Labels:    nil,
-		LabelList: []Label{
-			*NewLabel("io.cilium.kubernetes", "", "cilium"),
+		LabelList: []labels.Label{
+			*labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
 		Maps: map[int]*policymap.PolicyMap{
 			0: {},
 		},
-		Consumers: map[string]*Consumer{
-			"foo": NewConsumer(12),
+		Consumers: map[string]*policy.Consumer{
+			"foo": policy.NewConsumer(12),
 		},
-		ReverseRules: map[uint32]*Consumer{
-			12: NewConsumer(12),
+		ReverseRules: map[uint32]*policy.Consumer{
+			12: policy.NewConsumer(12),
 		},
 	}
 	epWant.PolicyMap = &policymap.PolicyMap{}
@@ -120,10 +124,10 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	c.Assert(*cpy.Consumable, DeepEquals, *epWant.Consumable)
 	c.Assert(*cpy.PolicyMap, DeepEquals, *epWant.PolicyMap)
 
-	epWant.Consumable.Labels = &SecCtxLabel{
+	epWant.Consumable.Labels = &labels.SecCtxLabel{
 		ID: 1,
-		Labels: Labels{
-			"io.cilium.kubernetes": NewLabel("io.cilium.kubernetes", "", "cilium"),
+		Labels: labels.Labels{
+			"io.cilium.kubernetes": labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
 		Containers: map[string]time.Time{
 			"1234": time.Now(),

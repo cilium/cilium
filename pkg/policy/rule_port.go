@@ -13,26 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package client
+package policy
 
 import (
-	"fmt"
-	"net/http"
-
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
-// Update sends a SET request to the daemon to update its configuration
-func (cli Client) Update(opts option.OptionMap) error {
-	serverResp, err := cli.R().SetBody(opts).Post("/update")
-	if err != nil {
-		return fmt.Errorf("error while connecting to daemon: %s", err)
-	}
+type Port struct {
+	Proto  string `json:"protocol"`
+	Number int    `json:"number"`
+}
 
-	if serverResp.StatusCode() != http.StatusOK &&
-		serverResp.StatusCode() != http.StatusAccepted {
-		return processErrorBody(serverResp.Body(), nil)
-	}
-
-	return nil
+type PolicyRulePorts struct {
+	Coverage []labels.Label `json:"coverage,omitempty"`
+	Ports    []Port         `json:"ports"`
 }

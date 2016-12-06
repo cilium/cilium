@@ -20,22 +20,26 @@ import (
 
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/gorilla/websocket"
 )
 
 type bpfBackend interface {
-	EndpointJoin(ep types.Endpoint) error
+	EndpointJoin(ep endpoint.Endpoint) error
 	EndpointLeave(epID uint16) error
 	EndpointLeaveByDockerEPID(dockerEPID string) error
-	EndpointGet(epID uint16) (*types.Endpoint, error)
-	EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error)
-	EndpointGetByDockerID(dockerID string) (*types.Endpoint, error)
-	EndpointsGet() ([]types.Endpoint, error)
-	EndpointUpdate(epID uint16, opts types.OptionMap) error
-	EndpointSave(ep types.Endpoint) error
-	EndpointLabelsGet(epID uint16) (*types.OpLabels, error)
-	EndpointLabelsUpdate(epID uint16, labelOp types.LabelOp) error
+	EndpointGet(epID uint16) (*endpoint.Endpoint, error)
+	EndpointGetByDockerEPID(dockerEPID string) (*endpoint.Endpoint, error)
+	EndpointGetByDockerID(dockerID string) (*endpoint.Endpoint, error)
+	EndpointsGet() ([]endpoint.Endpoint, error)
+	EndpointUpdate(epID uint16, opts option.OptionMap) error
+	EndpointSave(ep endpoint.Endpoint) error
+	EndpointLabelsGet(epID uint16) (*labels.OpLabels, error)
+	EndpointLabelsUpdate(epID uint16, labelOp labels.LabelOp) error
 }
 
 type ipamBackend interface {
@@ -45,26 +49,26 @@ type ipamBackend interface {
 }
 
 type labelBackend interface {
-	PutLabels(labels types.Labels, contĨD string) (*types.SecCtxLabel, bool, error)
-	GetLabels(uuid uint32) (*types.SecCtxLabel, error)
-	GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error)
+	PutLabels(labels labels.Labels, contĨD string) (*labels.SecCtxLabel, bool, error)
+	GetLabels(uuid uint32) (*labels.SecCtxLabel, error)
+	GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error)
 	DeleteLabelsByUUID(uuid uint32, contĨD string) error
 	DeleteLabelsBySHA256(sha256sum, contID string) error
 	GetMaxLabelID() (uint32, error)
 }
 
 type policyBackend interface {
-	PolicyAdd(path string, node *types.PolicyNode) error
+	PolicyAdd(path string, node *policy.Node) error
 	PolicyDelete(path string) error
-	PolicyGet(path string) (*types.PolicyNode, error)
-	PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error)
+	PolicyGet(path string) (*policy.Node, error)
+	PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error)
 }
 
 type control interface {
 	Ping() (*types.PingResponse, error)
-	Update(opts types.OptionMap) error
+	Update(opts option.OptionMap) error
 	SyncState(path string, clean bool) error
-	GlobalStatus() (*types.StatusResponse, error)
+	GlobalStatus() (*endpoint.StatusResponse, error)
 }
 
 type ui interface {

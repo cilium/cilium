@@ -28,7 +28,7 @@ import (
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/plugins"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/appc/cni/pkg/version"
 	"github.com/containernetworking/cni/pkg/ns"
@@ -213,7 +213,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			args.IfName, args.Netns, err)
 	}
 
-	var ep types.Endpoint
+	var ep endpoint.Endpoint
 	veth, peer, tmpIfName, err := plugins.SetupVeth(args.ContainerID, n.MTU, &ep)
 	if err != nil {
 		return err

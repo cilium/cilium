@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 	k8sAPI "k8s.io/kubernetes/pkg/api"
@@ -291,7 +291,7 @@ func (d *Daemon) isReservedAddress(ip net.IP) bool {
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() map[string][]string {
 	d.conf.OptsMU.RLock()
-	isDebugActive := d.conf.Opts.IsEnabled(types.OptionDebug)
+	isDebugActive := d.conf.Opts.IsEnabled(endpoint.OptionDebug)
 	d.conf.OptsMU.RUnlock()
 	if !isDebugActive {
 		return nil

@@ -22,12 +22,13 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *CiliumNetClientSuite) TestStatusOK(c *C) {
-	resOut := types.StatusResponse{Cilium: types.NewStatusOK("Foo")}
+	resOut := endpoint.StatusResponse{Cilium: endpoint.NewStatusOK("Foo")}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/healthz")
@@ -46,7 +47,7 @@ func (s *CiliumNetClientSuite) TestStatusOK(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestStatusFail(c *C) {
-	var nilResponse *types.StatusResponse
+	var nilResponse *endpoint.StatusResponse
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/healthz")

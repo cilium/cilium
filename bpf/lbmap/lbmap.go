@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 const (

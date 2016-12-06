@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
 
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -223,7 +224,7 @@ func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 	return e.SetValue(key, maxID)
 }
 
-func (e *EtcdClient) updateSecLabelIDRef(secCtxLabels types.SecCtxLabel) error {
+func (e *EtcdClient) updateSecLabelIDRef(secCtxLabels labels.SecCtxLabel) error {
 	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
 	return e.SetValue(key, secCtxLabels)
 }
@@ -235,7 +236,7 @@ func (e *EtcdClient) setMaxLabelID(maxID uint32) error {
 // GASNewSecLabelID gets the next available LabelID and sets it in secCtxLabels. After
 // assigning the LabelID to secCtxLabels it sets the LabelID + 1 in
 // common.LastFreeLabelIDKeyPath path.
-func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabels *types.SecCtxLabel) error {
+func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabels *labels.SecCtxLabel) error {
 	setID2Label := func(id uint32) error {
 		secCtxLabels.ID = id
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
@@ -262,7 +263,7 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabe
 		if value == nil {
 			return false, setID2Label(*incID)
 		}
-		var consulLabels types.SecCtxLabel
+		var consulLabels labels.SecCtxLabel
 		if err := json.Unmarshal(value, &consulLabels); err != nil {
 			return false, err
 		}

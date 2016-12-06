@@ -23,26 +23,28 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	lbls = types.Labels{
-		"foo":    types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		"foo2":   types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		"key":    types.NewLabel("key", "", common.CiliumLabelSource),
-		"foo==":  types.NewLabel("foo==", "==", common.CiliumLabelSource),
-		`foo\\=`: types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		`//=/`:   types.NewLabel(`//=/`, "", common.CiliumLabelSource),
-		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	lbls = labels.Labels{
+		"foo":    labels.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   labels.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    labels.NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  labels.NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: labels.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   labels.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      labels.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
-	lbls2 = types.Labels{
-		"foo":  types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		"foo2": types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+	lbls2 = labels.Labels{
+		"foo":  labels.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2": labels.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
 	}
-	wantSecCtxLbls = types.SecCtxLabel{
+	wantSecCtxLbls = labels.SecCtxLabel{
 		ID: 123,
 		Containers: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
@@ -64,7 +66,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	daemonConf := &Config{
 		DryMode: true,
-		Opts:    types.NewBoolOptions(&DaemonOptionLibrary),
+		Opts:    option.NewBoolOptions(&DaemonOptionLibrary),
 	}
 	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir
@@ -74,7 +76,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
 	daemonConf.OptsMU.Lock()
-	daemonConf.Opts.Set(types.OptionDropNotify, true)
+	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
 	daemonConf.OptsMU.Unlock()
 	daemonConf.Device = "undefined"
 
@@ -174,7 +176,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	c.Assert(err, Equals, nil)
 	gotSecCtxLbl, err = ds.d.GetLabels(common.FirstFreeLabelID)
 	c.Assert(err, Equals, nil)
-	var emptySecCtxLblPtr *types.SecCtxLabel
+	var emptySecCtxLblPtr *labels.SecCtxLabel
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
 	err = ds.d.kvClient.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, common.FirstFreeLabelID)

@@ -23,20 +23,20 @@ import (
 
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/bpf"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/endpoint"
 )
 
 const (
 	GcInterval int = 10
 )
 
-func runGC(e *types.Endpoint, prefix string, ctType ctmap.CtType) {
+func runGC(e *endpoint.Endpoint, prefix string, ctType ctmap.CtType) {
 	file := prefix + strconv.Itoa(int(e.ID))
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		log.Warningf("Unable to open CT map %s: %s\n", file, err)
-		e.LogStatus(types.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		e.LogStatus(endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
 

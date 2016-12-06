@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/gorilla/websocket"
 )
@@ -49,8 +50,8 @@ var (
 )
 
 func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) {
-	optsMap1 := types.OptionMap{}
-	optsMap2 := types.OptionMap{}
+	optsMap1 := option.OptionMap{}
+	optsMap2 := option.OptionMap{}
 	daemonConfig, err := router.daemon.Ping()
 	if err == nil && daemonConfig.Opts != nil {
 		var keys []string
@@ -68,8 +69,8 @@ func (router *Router) createUIHTMLIndex(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var ipStruct = struct {
-		Opts1 types.OptionMap
-		Opts2 types.OptionMap
+		Opts1 option.OptionMap
+		Opts2 option.OptionMap
 	}{
 		optsMap1,
 		optsMap2,

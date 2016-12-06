@@ -19,15 +19,15 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *DaemonSuite) TestDaemonUpdateOK(c *C) {
-	optsWanted := types.OptionMap{"FOO": true}
+	optsWanted := option.OptionMap{"FOO": true}
 
-	s.d.OnUpdate = func(opts types.OptionMap) error {
+	s.d.OnUpdate = func(opts option.OptionMap) error {
 		c.Assert(opts, DeepEquals, optsWanted)
 		return nil
 	}
@@ -35,7 +35,7 @@ func (s *DaemonSuite) TestDaemonUpdateOK(c *C) {
 	err := s.c.Update(optsWanted)
 	c.Assert(err, IsNil)
 
-	s.d.OnUpdate = func(opts types.OptionMap) error {
+	s.d.OnUpdate = func(opts option.OptionMap) error {
 		c.Assert(opts, IsNil)
 		return nil
 	}
@@ -44,9 +44,9 @@ func (s *DaemonSuite) TestDaemonUpdateOK(c *C) {
 }
 
 func (s *DaemonSuite) TestUpdateFail(c *C) {
-	optsWanted := types.OptionMap{"FOO": true}
+	optsWanted := option.OptionMap{"FOO": true}
 
-	s.d.OnUpdate = func(opts types.OptionMap) error {
+	s.d.OnUpdate = func(opts option.OptionMap) error {
 		c.Assert(opts, DeepEquals, optsWanted)
 		return errors.New("invalid option")
 	}

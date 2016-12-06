@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/bpf/lbmap"
-	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 // addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the

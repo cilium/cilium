@@ -24,6 +24,10 @@ import (
 
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/gorilla/mux"
 )
@@ -60,7 +64,7 @@ func (router *Router) globalStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) update(w http.ResponseWriter, r *http.Request) {
-	var opts types.OptionMap
+	var opts option.OptionMap
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		processServerError(w, r, err)
 		return
@@ -74,7 +78,7 @@ func (router *Router) update(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) endpointCreate(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
-	var ep types.Endpoint
+	var ep endpoint.Endpoint
 	if err := d.Decode(&ep); err != nil {
 		processServerError(w, r, err)
 		return
@@ -119,7 +123,7 @@ func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, err)
 		return
 	}
-	var opts types.OptionMap
+	var opts option.OptionMap
 	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
 		processServerError(w, r, err)
 		return
@@ -132,7 +136,7 @@ func (router *Router) endpointUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) endpointSave(w http.ResponseWriter, r *http.Request) {
-	var ep types.Endpoint
+	var ep endpoint.Endpoint
 	if err := json.NewDecoder(r.Body).Decode(&ep); err != nil {
 		processServerError(w, r, err)
 		return
@@ -167,7 +171,7 @@ func (router *Router) endpointLabelsUpdate(w http.ResponseWriter, r *http.Reques
 		processServerError(w, r, err)
 		return
 	}
-	var labelOp types.LabelOp
+	var labelOp labels.LabelOp
 	if err := json.NewDecoder(r.Body).Decode(&labelOp); err != nil {
 		processServerError(w, r, err)
 		return
@@ -346,18 +350,18 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
 		return
 	}
-	labels, err := router.daemon.GetLabels(uint32(id))
+	lbls, err := router.daemon.GetLabels(uint32(id))
 	if err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	if labels == nil {
+	if lbls == nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 	e := json.NewEncoder(w)
-	if err := e.Encode(labels); err != nil {
+	if err := e.Encode(lbls); err != nil {
 		processServerError(w, r, err)
 		return
 	}
@@ -370,17 +374,17 @@ func (router *Router) getLabelsBySHA256(w http.ResponseWriter, r *http.Request) 
 		processServerError(w, r, errors.New("server received empty SHA256SUM"))
 		return
 	}
-	labels, err := router.daemon.GetLabelsBySHA256(sha256sum)
+	lbls, err := router.daemon.GetLabelsBySHA256(sha256sum)
 	if err != nil {
 		processServerError(w, r, err)
 		return
 	}
-	if labels == nil {
+	if lbls == nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(labels); err != nil {
+	if err := json.NewEncoder(w).Encode(lbls); err != nil {
 		processServerError(w, r, err)
 		return
 	}
@@ -388,8 +392,8 @@ func (router *Router) getLabelsBySHA256(w http.ResponseWriter, r *http.Request) 
 
 func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
-	var labels types.Labels
-	if err := d.Decode(&labels); err != nil {
+	var lbls labels.Labels
+	if err := d.Decode(&lbls); err != nil {
 		processServerError(w, r, err)
 		return
 	}
@@ -399,7 +403,7 @@ func (router *Router) putLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, errors.New("server received empty container ID"))
 		return
 	}
-	secCtxLabels, _, err := router.daemon.PutLabels(labels, contID)
+	secCtxLabels, _, err := router.daemon.PutLabels(lbls, contID)
 	if err != nil {
 		processServerError(w, r, err)
 		return
@@ -476,7 +480,7 @@ func (router *Router) policyAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := json.NewDecoder(r.Body)
-	var pn types.PolicyNode
+	var pn policy.Node
 	if err := d.Decode(&pn); err != nil {
 		processServerError(w, r, err)
 		return
@@ -500,7 +504,7 @@ func (router *Router) policyAddForm(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, err)
 		return
 	}
-	var pn types.PolicyNode
+	var pn policy.Node
 	if err := json.NewDecoder(file).Decode(&pn); err != nil {
 		processServerError(w, r, err)
 		return
@@ -554,7 +558,7 @@ func (router *Router) policyGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) policyCanConsume(w http.ResponseWriter, r *http.Request) {
-	var sc types.SearchContext
+	var sc policy.SearchContext
 	if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
 		processServerError(w, r, err)
 		return

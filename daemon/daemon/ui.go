@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/gorilla/websocket"
 )
@@ -100,7 +102,7 @@ func (d *Daemon) ListenBuildUIEvents() {
 				stats, _ := d.getReceivedStats()
 				nodes := d.uiTopo.GetNodes()
 				for _, fromNode := range nodes {
-					sctx := &types.SearchContext{
+					sctx := &policy.SearchContext{
 						From: fromNode.Labels,
 					}
 
@@ -117,7 +119,7 @@ func (d *Daemon) ListenBuildUIEvents() {
 						pe := stats.getStats(uint32(fromNode.ID), uint32(toNode.ID))
 
 						switch cd {
-						case types.ALWAYS_ACCEPT, types.ACCEPT:
+						case policy.ALWAYS_ACCEPT, policy.ACCEPT:
 							d.uiTopo.AddOrUpdateEdge(fromNode.ID, toNode.ID, pe)
 						default:
 							d.uiTopo.DeleteEdge(fromNode.ID, toNode.ID)
@@ -172,7 +174,7 @@ func (d *Daemon) RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMs
 	return umsg, nil
 }
 
-func (d *Daemon) AddOrUpdateUINode(id uint32, lbls []types.Label, refCount int) {
+func (d *Daemon) AddOrUpdateUINode(id uint32, lbls []labels.Label, refCount int) {
 	if d.conf.IsUIEnabled() {
 		d.uiTopo.AddOrUpdateNode(id, lbls, refCount)
 	}

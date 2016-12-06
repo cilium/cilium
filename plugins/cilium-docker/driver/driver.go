@@ -26,7 +26,7 @@ import (
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/plugins"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/libnetwork/drivers/remote/api"
@@ -224,7 +224,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maps := make([]types.EPPortMap, 0, 32)
+	maps := make([]endpoint.PortMap, 0, 32)
 
 	for key, val := range create.Options {
 		switch key {
@@ -238,7 +238,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 			// FIXME: Host IP is ignored for now
 			for _, m := range portmap {
-				maps = append(maps, types.EPPortMap{
+				maps = append(maps, endpoint.PortMap{
 					From:  m.HostPort,
 					To:    m.Port,
 					Proto: uint8(m.Proto),
@@ -266,7 +266,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	endpoint := types.Endpoint{
+	endpoint := endpoint.Endpoint{
 		NodeIP:           driver.nodeAddress,
 		DockerNetworkID:  create.NetworkID,
 		DockerEndpointID: endID,

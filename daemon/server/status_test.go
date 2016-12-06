@@ -19,14 +19,14 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *DaemonSuite) TestGlobalStatusOK(c *C) {
-	sr := &types.StatusResponse{Cilium: types.NewStatusOK("Foo")}
-	s.d.OnGlobalStatus = func() (*types.StatusResponse, error) {
+	sr := &endpoint.StatusResponse{Cilium: endpoint.NewStatusOK("Foo")}
+	s.d.OnGlobalStatus = func() (*endpoint.StatusResponse, error) {
 		return sr, nil
 	}
 
@@ -36,8 +36,8 @@ func (s *DaemonSuite) TestGlobalStatusOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGlobalStatusFail(c *C) {
-	var nilResponse *types.StatusResponse
-	s.d.OnGlobalStatus = func() (*types.StatusResponse, error) {
+	var nilResponse *endpoint.StatusResponse
+	s.d.OnGlobalStatus = func() (*endpoint.StatusResponse, error) {
 		return nil, errors.New("I'll fail")
 	}
 

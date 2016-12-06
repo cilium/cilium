@@ -21,13 +21,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // PutLabels sends POST request with labels to the daemon. Returns
-func (cli Client) PutLabels(labels types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
+func (cli Client) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
 
-	serverResp, err := cli.R().SetBody(labels).Post("/labels/" + contID)
+	serverResp, err := cli.R().SetBody(lbls).Post("/labels/" + contID)
 	if err != nil {
 		return nil, false, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -37,7 +37,7 @@ func (cli Client) PutLabels(labels types.Labels, contID string) (*types.SecCtxLa
 	}
 
 	// TODO: check if the value is new or not. Possible by checking if labelsResp.RefCount == 1
-	var labelsResp types.SecCtxLabel
+	var labelsResp labels.SecCtxLabel
 	if err := json.Unmarshal(serverResp.Body(), &labelsResp); err != nil {
 		return nil, false, err
 	}
@@ -45,9 +45,9 @@ func (cli Client) PutLabels(labels types.Labels, contID string) (*types.SecCtxLa
 	return &labelsResp, false, nil
 }
 
-// GetLabels sends a GET request with id to the daemon. Returns the types.SecCtxLabels
-// with the given id. If it's not found, types.SecCtxLabels and error are booth nil.
-func (cli Client) GetLabels(id uint32) (*types.SecCtxLabel, error) {
+// GetLabels sends a GET request with id to the daemon. Returns the labels.SecCtxLabels
+// with the given id. If it's not found, labels.SecCtxLabels and error are booth nil.
+func (cli Client) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
 
 	serverResp, err := cli.R().Get("/labels/by-uuid/" + strconv.FormatUint(uint64(id), 10))
 	if err != nil {
@@ -63,7 +63,7 @@ func (cli Client) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 		return nil, nil
 	}
 
-	var secCtxLabels types.SecCtxLabel
+	var secCtxLabels labels.SecCtxLabel
 	if err := json.Unmarshal(serverResp.Body(), &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -72,9 +72,9 @@ func (cli Client) GetLabels(id uint32) (*types.SecCtxLabel, error) {
 }
 
 // GetLabelsBySHA256 sends a GET request with sha256sum to the daemon. Returns the
-// types.SecCtxLabels with the given id. If it's not found, types.SecCtxLabels and error
+// labels.SecCtxLabels with the given id. If it's not found, labels.SecCtxLabels and error
 // are booth nil.
-func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error) {
+func (cli Client) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error) {
 
 	serverResp, err := cli.R().Get("/labels/by-sha256sum/" + sha256sum)
 	if err != nil {
@@ -90,7 +90,7 @@ func (cli Client) GetLabelsBySHA256(sha256sum string) (*types.SecCtxLabel, error
 		return nil, nil
 	}
 
-	var secCtxLabels types.SecCtxLabel
+	var secCtxLabels labels.SecCtxLabel
 	if err := json.Unmarshal(serverResp.Body(), &secCtxLabels); err != nil {
 		return nil, err
 	}

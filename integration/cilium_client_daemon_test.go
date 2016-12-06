@@ -24,9 +24,9 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/backend"
 	cnc "github.com/cilium/cilium/common/client"
-	"github.com/cilium/cilium/common/types"
 	cnd "github.com/cilium/cilium/daemon/daemon"
 	cns "github.com/cilium/cilium/daemon/server"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	. "gopkg.in/check.v1"
 )
@@ -63,7 +63,7 @@ func (s *CiliumClientSuite) SetUpSuite(c *C) {
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
 	daemonConf.OptsMU.Lock()
-	daemonConf.Opts.Set(types.OptionDropNotify, true)
+	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
 	daemonConf.OptsMU.Unlock()
 	daemonConf.Device = "undefined"
 
