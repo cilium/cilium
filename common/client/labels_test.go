@@ -24,21 +24,22 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	lbls = types.Labels{
-		"foo":    types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		"foo2":   types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		"key":    types.NewLabel("key", "", common.CiliumLabelSource),
-		"foo==":  types.NewLabel("foo==", "==", common.CiliumLabelSource),
-		`foo\\=`: types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		`//=/`:   types.NewLabel(`//=/`, "", common.CiliumLabelSource),
-		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	lbls = labels.Labels{
+		"foo":    labels.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   labels.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    labels.NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  labels.NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: labels.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   labels.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      labels.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
-	seclbl = types.SecCtxLabel{
+	seclbl = labels.SecCtxLabel{
 		ID: 123,
 		Containers: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
@@ -51,7 +52,7 @@ func (s *CiliumNetClientSuite) TestPutLabelsOK(c *C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/labels/cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
-		var receivedLabels types.Labels
+		var receivedLabels labels.Labels
 		err := json.NewDecoder(r.Body).Decode(&receivedLabels)
 		c.Assert(err, Equals, nil)
 		c.Assert(receivedLabels, DeepEquals, lbls)
@@ -114,7 +115,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	var wantLabels *types.SecCtxLabel
+	var wantLabels *labels.SecCtxLabel
 	receivedLabels, err := cli.GetLabels(123)
 	c.Assert(err, Equals, nil)
 	c.Assert(receivedLabels, Equals, wantLabels)
@@ -148,7 +149,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsBySHA256Fail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	var wantLabels *types.SecCtxLabel
+	var wantLabels *labels.SecCtxLabel
 	receivedLabels, err := cli.GetLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
 	c.Assert(err, Equals, nil)
 	c.Assert(receivedLabels, Equals, wantLabels)

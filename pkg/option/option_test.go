@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package option
 
 import (
 	. "gopkg.in/check.v1"
@@ -24,16 +24,21 @@ type OptionSuite struct{}
 var _ = Suite(&OptionSuite{})
 
 func (s *OptionSuite) TestGetFmtOpt(c *C) {
+	OptionTest := Option{
+		Define:      "TEST_DEFINE",
+		Description: "This is a test",
+	}
+
 	o := BoolOptions{
 		Opts: OptionMap{
-			OptionPolicy: true,
-			"BAR":        false,
+			"test": true,
+			"BAR":  false,
 		},
 		Library: &OptionLibrary{
-			OptionPolicy: &OptionSpecPolicy,
+			"test": &OptionTest,
 		},
 	}
-	c.Assert(o.GetFmtOpt(OptionPolicy), Equals, "#define "+OptionSpecPolicy.Define)
+	c.Assert(o.GetFmtOpt("test"), Equals, "#define TEST_DEFINE")
 	c.Assert(o.GetFmtOpt("BAR"), Equals, "#undef BAR")
 	c.Assert(o.GetFmtOpt("BAZ"), Equals, "#undef BAZ")
 }

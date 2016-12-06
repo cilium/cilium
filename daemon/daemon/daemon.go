@@ -33,7 +33,11 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
@@ -57,21 +61,21 @@ type Daemon struct {
 	kvClient                  kvstore.KVClient
 	containers                map[string]*types.Container
 	containersMU              sync.RWMutex
-	endpoints                 map[uint16]*types.Endpoint
-	endpointsDocker           map[string]*types.Endpoint
-	endpointsDockerEP         map[string]*types.Endpoint
+	endpoints                 map[uint16]*endpoint.Endpoint
+	endpointsDocker           map[string]*endpoint.Endpoint
+	endpointsDockerEP         map[string]*endpoint.Endpoint
 	endpointsMU               sync.RWMutex
-	endpointsLearning         map[uint16]types.LearningLabel
+	endpointsLearning         map[uint16]labels.LearningLabel
 	endpointsLearningMU       sync.RWMutex
-	endpointsLearningRegister chan types.LearningLabel
+	endpointsLearningRegister chan labels.LearningLabel
 	dockerClient              *dClient.Client
 	loadBalancer              *types.LoadBalancer
 	k8sClient                 *k8s.Clientset
 	conf                      *Config
-	policyTree                types.PolicyTree
-	policyTreeMU              sync.RWMutex
+	policy                    policy.Tree
+	policyMU                  sync.RWMutex
 	cacheIteration            int
-	reservedConsumables       []*types.Consumable
+	reservedConsumables       []*policy.Consumable
 	uiTopo                    types.UITopo
 	uiListeners               map[*Conn]bool
 	registerUIListener        chan *Conn
@@ -209,8 +213,8 @@ func (d *Daemon) init() error {
 	}
 
 	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
-	fmt.Fprintf(fw, "#define HOST_ID %d\n", types.GetID(types.ID_NAME_HOST))
-	fmt.Fprintf(fw, "#define WORLD_ID %d\n", types.GetID(types.ID_NAME_WORLD))
+	fmt.Fprintf(fw, "#define HOST_ID %d\n", labels.GetID(labels.ID_NAME_HOST))
+	fmt.Fprintf(fw, "#define WORLD_ID %d\n", labels.GetID(labels.ID_NAME_WORLD))
 
 	fw.Flush()
 	f.Close()
@@ -328,8 +332,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
-	rootNode := types.PolicyTree{
-		Root: types.NewPolicyNode(common.GlobalLabelPrefix, nil),
+	rootNode := policy.Tree{
+		Root: policy.NewNode(common.GlobalLabelPrefix, nil),
 	}
 
 	rootNode.Root.Path()
@@ -342,15 +346,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		kvClient:                  kvClient,
 		dockerClient:              dockerClient,
 		containers:                make(map[string]*types.Container),
-		endpoints:                 make(map[uint16]*types.Endpoint),
-		endpointsDocker:           make(map[string]*types.Endpoint),
-		endpointsDockerEP:         make(map[string]*types.Endpoint),
-		endpointsLearning:         make(map[uint16]types.LearningLabel),
-		endpointsLearningRegister: make(chan types.LearningLabel, 1),
+		endpoints:                 make(map[uint16]*endpoint.Endpoint),
+		endpointsDocker:           make(map[string]*endpoint.Endpoint),
+		endpointsDockerEP:         make(map[string]*endpoint.Endpoint),
+		endpointsLearning:         make(map[uint16]labels.LearningLabel),
+		endpointsLearningRegister: make(chan labels.LearningLabel, 1),
 		loadBalancer:              lb,
 		cacheIteration:            1,
-		reservedConsumables:       make([]*types.Consumable, 0),
-		policyTree:                rootNode,
+		reservedConsumables:       make([]*policy.Consumable, 0),
+		policy:                    rootNode,
 		uiTopo:                    types.NewUITopo(),
 		uiListeners:               make(map[*Conn]bool),
 		registerUIListener:        make(chan *Conn, 1),
@@ -428,7 +432,7 @@ func (d *Daemon) staleMapWalker(path string) error {
 func changedOption(key string, value bool, data interface{}) {
 }
 
-func (d *Daemon) Update(opts types.OptionMap) error {
+func (d *Daemon) Update(opts option.OptionMap) error {
 	d.conf.OptsMU.Lock()
 	defer d.conf.OptsMU.Unlock()
 

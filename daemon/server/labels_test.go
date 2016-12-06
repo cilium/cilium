@@ -21,23 +21,23 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
 )
 
 var (
-	lbls = types.Labels{
-		"foo":    types.NewLabel("foo", "bar", common.CiliumLabelSource),
-		"foo2":   types.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		"key":    types.NewLabel("key", "", common.CiliumLabelSource),
-		"foo==":  types.NewLabel("foo==", "==", common.CiliumLabelSource),
-		`foo\\=`: types.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		`//=/`:   types.NewLabel(`//=/`, "", common.CiliumLabelSource),
-		`%`:      types.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+	lbls = labels.Labels{
+		"foo":    labels.NewLabel("foo", "bar", common.CiliumLabelSource),
+		"foo2":   labels.NewLabel("foo2", "=bar2", common.CiliumLabelSource),
+		"key":    labels.NewLabel("key", "", common.CiliumLabelSource),
+		"foo==":  labels.NewLabel("foo==", "==", common.CiliumLabelSource),
+		`foo\\=`: labels.NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
+		`//=/`:   labels.NewLabel(`//=/`, "", common.CiliumLabelSource),
+		`%`:      labels.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 
-	wantSecCtxLbls = types.SecCtxLabel{
+	wantSecCtxLbls = labels.SecCtxLabel{
 		ID: 123,
 		Containers: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
@@ -47,7 +47,7 @@ var (
 )
 
 func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
-	s.d.OnPutLabels = func(lblsReceived types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
 		c.Assert(contID, Equals, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		return &wantSecCtxLbls, true, nil
@@ -59,7 +59,7 @@ func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
-	s.d.OnPutLabels = func(lblsReceived types.Labels, contID string) (*types.SecCtxLabel, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
 		c.Assert(contID, Equals, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		return nil, false, errors.New("Reached maximum valid IDs")
@@ -70,7 +70,7 @@ func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsOK(c *C) {
-	s.d.OnGetLabels = func(id uint32) (*types.SecCtxLabel, error) {
+	s.d.OnGetLabels = func(id uint32) (*labels.SecCtxLabel, error) {
 		c.Assert(id, Equals, uint32(123))
 		return &wantSecCtxLbls, nil
 	}
@@ -81,7 +81,7 @@ func (s *DaemonSuite) TestGetLabelsOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsFail(c *C) {
-	s.d.OnGetLabels = func(id uint32) (*types.SecCtxLabel, error) {
+	s.d.OnGetLabels = func(id uint32) (*labels.SecCtxLabel, error) {
 		c.Assert(id, Equals, uint32(123))
 		return nil, errors.New("Unable to contact consul")
 	}
@@ -91,7 +91,7 @@ func (s *DaemonSuite) TestGetLabelsFail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsBySHA256OK(c *C) {
-	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*types.SecCtxLabel, error) {
+	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*labels.SecCtxLabel, error) {
 		c.Assert(sha256sum, Equals, "82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
 		return &wantSecCtxLbls, nil
 	}
@@ -102,7 +102,7 @@ func (s *DaemonSuite) TestGetLabelsBySHA256OK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsBySHA256Fail(c *C) {
-	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*types.SecCtxLabel, error) {
+	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*labels.SecCtxLabel, error) {
 		c.Assert(sha256sum, Equals, "82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
 		return nil, errors.New("Unable to contact consul")
 	}

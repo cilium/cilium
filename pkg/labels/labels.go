@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package labels
 
 import (
 	"bytes"
@@ -25,6 +25,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+
+	"github.com/op/go-logging"
+)
+
+var (
+	log = logging.MustGetLogger("cilium-labels")
 )
 
 type LabelOpType string
@@ -197,8 +203,14 @@ func (l *Label) Covers(path string) bool {
 	return false
 }
 
+// Interface to implement in order to attach a label to it
+type LabelAttachment interface {
+	GetLabelParent() LabelAttachment
+	Path() string
+}
+
 // Resolve resolves the absolute key path for this Label from policyNode.
-func (l *Label) Resolve(policyNode *PolicyNode) {
+func (l *Label) Resolve(policyNode LabelAttachment) {
 	// FIXME: the HasPrefix should be using daemon.config.ValidLabelPrefixes
 	if l.Source != common.ReservedLabelSource &&
 		!strings.HasPrefix(l.Key, common.GlobalLabelPrefix) &&
@@ -208,7 +220,7 @@ func (l *Label) Resolve(policyNode *PolicyNode) {
 
 		for strings.HasPrefix(k, "../") {
 			k = k[3:]
-			node = node.Parent
+			node = node.GetLabelParent()
 			if node == nil {
 				log.Warningf("Could not resolve label %+v, reached root\n", l)
 				return

@@ -13,26 +13,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package client
+package labels
 
-import (
-	"fmt"
-	"net/http"
+type ReservedID uint32
 
-	"github.com/cilium/cilium/pkg/option"
+const (
+	ID_NAME_ALL   = "all"
+	ID_NAME_HOST  = "host"
+	ID_NAME_WORLD = "world"
 )
 
-// Update sends a SET request to the daemon to update its configuration
-func (cli Client) Update(opts option.OptionMap) error {
-	serverResp, err := cli.R().SetBody(opts).Post("/update")
-	if err != nil {
-		return fmt.Errorf("error while connecting to daemon: %s", err)
+const (
+	ID_UNKNOWN ReservedID = iota
+	ID_HOST
+	ID_WORLD
+)
+
+var (
+	ResDec = map[string]ReservedID{
+		ID_NAME_HOST:  ID_HOST,
+		ID_NAME_WORLD: ID_WORLD,
+	}
+	ResEnc = map[ReservedID]string{
+		ID_HOST:  ID_NAME_HOST,
+		ID_WORLD: ID_NAME_WORLD,
+	}
+)
+
+func (id ReservedID) String() string {
+	if v, exists := ResEnc[id]; exists {
+		return v
 	}
 
-	if serverResp.StatusCode() != http.StatusOK &&
-		serverResp.StatusCode() != http.StatusAccepted {
-		return processErrorBody(serverResp.Body(), nil)
-	}
+	return ""
+}
 
-	return nil
+func GetID(name string) ReservedID {
+	if v, ok := ResDec[name]; ok {
+		return v
+	}
+	return ID_UNKNOWN
 }

@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 )
 
 // GlobalStatus sends a GET request to the daemon. Returns the status details of the
 // different components running in the daemon.
-func (cli Client) GlobalStatus() (*types.StatusResponse, error) {
+func (cli Client) GlobalStatus() (*endpoint.StatusResponse, error) {
 	serverResp, err := cli.R().Get("/healthz")
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
@@ -35,7 +35,7 @@ func (cli Client) GlobalStatus() (*types.StatusResponse, error) {
 		return nil, processErrorBody(serverResp.Body(), nil)
 	}
 
-	var resp types.StatusResponse
+	var resp endpoint.StatusResponse
 	if err := json.Unmarshal(serverResp.Body(), &resp); err != nil {
 		return nil, err
 	}

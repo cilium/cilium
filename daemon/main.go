@@ -27,9 +27,11 @@ import (
 	common "github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	cnc "github.com/cilium/cilium/common/client"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/daemon"
 	s "github.com/cilium/cilium/daemon/server"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/codegangsta/cli"
 	etcdAPI "github.com/coreos/etcd/clientv3"
@@ -326,10 +328,10 @@ func configDaemon(ctx *cli.Context) {
 		return
 	}
 
-	dOpts := make(types.OptionMap, len(opts))
+	dOpts := make(option.OptionMap, len(opts))
 
 	for k := range opts {
-		name, value, err := types.ParseOption(opts[k], &daemon.DaemonOptionLibrary)
+		name, value, err := option.ParseOption(opts[k], &daemon.DaemonOptionLibrary)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)
@@ -349,28 +351,28 @@ func initEnv(ctx *cli.Context) error {
 	config.OptsMU.Lock()
 	if ctx.GlobalBool("debug") {
 		common.SetupLOG(log, "DEBUG")
-		config.Opts.Set(types.OptionDebug, true)
+		config.Opts.Set(endpoint.OptionDebug, true)
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
 
-	config.Opts.Set(types.OptionDropNotify, true)
-	config.Opts.Set(types.OptionNAT46, true)
+	config.Opts.Set(endpoint.OptionDropNotify, true)
+	config.Opts.Set(endpoint.OptionNAT46, true)
 	config.Opts.Set(daemon.OptionPolicyTracing, enableTracing)
-	config.Opts.Set(types.OptionConntrack, !disableConntrack)
-	config.Opts.Set(types.OptionConntrackAccounting, !disableConntrack)
-	config.Opts.Set(types.OptionPolicy, !disablePolicy)
+	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
+	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
+	config.Opts.Set(endpoint.OptionPolicy, !disablePolicy)
 	config.OptsMU.Unlock()
 
 	config.ValidLabelPrefixesMU.Lock()
 	if labelPrefixFile != "" {
 		var err error
-		config.ValidLabelPrefixes, err = types.ReadLabelPrefixCfgFrom(labelPrefixFile)
+		config.ValidLabelPrefixes, err = labels.ReadLabelPrefixCfgFrom(labelPrefixFile)
 		if err != nil {
 			log.Fatalf("Unable to read label prefix file: %s\n", err)
 		}
 	} else {
-		config.ValidLabelPrefixes = types.DefaultLabelPrefixCfg()
+		config.ValidLabelPrefixes = labels.DefaultLabelPrefixCfg()
 	}
 	config.ValidLabelPrefixesMU.Unlock()
 

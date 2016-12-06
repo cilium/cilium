@@ -27,8 +27,8 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 type CtMap struct {

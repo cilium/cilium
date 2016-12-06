@@ -24,10 +24,13 @@ import (
 
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/policymap"
-	common "github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/bpf"
+	"github.com/cilium/cilium/common"
 	cnc "github.com/cilium/cilium/common/client"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
@@ -200,7 +203,7 @@ func getValidEPID(arg string) (uint16, error) {
 	return uint16(epID), err
 }
 
-func printEndpointLabels(lbls *types.OpLabels) {
+func printEndpointLabels(lbls *labels.OpLabels) {
 	log.Debugf("All Labels %#v", *lbls)
 
 	for _, lbl := range lbls.EndpointLabels {
@@ -235,24 +238,24 @@ func configLabels(ctx *cli.Context) {
 		return
 	}
 
-	addLabels := types.ParseStringLabels(ctx.StringSlice("add"))
-	enableLabels := types.ParseStringLabels(ctx.StringSlice("enable"))
-	disableLabels := types.ParseStringLabels(ctx.StringSlice("disable"))
-	deleteLabels := types.ParseStringLabels(ctx.StringSlice("delete"))
+	addLabels := labels.ParseStringLabels(ctx.StringSlice("add"))
+	enableLabels := labels.ParseStringLabels(ctx.StringSlice("enable"))
+	disableLabels := labels.ParseStringLabels(ctx.StringSlice("disable"))
+	deleteLabels := labels.ParseStringLabels(ctx.StringSlice("delete"))
 
-	lo := types.LabelOp{}
+	lo := labels.LabelOp{}
 
 	if len(addLabels) != 0 {
-		lo[types.AddLabelsOp] = addLabels
+		lo[labels.AddLabelsOp] = addLabels
 	}
 	if len(enableLabels) != 0 {
-		lo[types.EnableLabelsOp] = enableLabels
+		lo[labels.EnableLabelsOp] = enableLabels
 	}
 	if len(disableLabels) != 0 {
-		lo[types.DisableLabelsOp] = disableLabels
+		lo[labels.DisableLabelsOp] = disableLabels
 	}
 	if len(deleteLabels) != 0 {
-		lo[types.DelLabelsOp] = deleteLabels
+		lo[labels.DelLabelsOp] = deleteLabels
 	}
 
 	if err := client.EndpointLabelsUpdate(epID, lo); err != nil {
@@ -292,7 +295,7 @@ func dumpLXCInfo(ctx *cli.Context) {
 }
 
 func listEndpointOptions() {
-	for k, s := range types.EndpointOptionLibrary {
+	for k, s := range endpoint.EndpointOptionLibrary {
 		fmt.Printf("%-24s %s\n", k, s.Description)
 	}
 }
@@ -332,10 +335,10 @@ func configEndpoint(ctx *cli.Context) {
 		return
 	}
 
-	epOpts := make(types.OptionMap, len(opts))
+	epOpts := make(option.OptionMap, len(opts))
 
 	for k := range opts {
-		name, value, err := types.ParseOption(opts[k], &types.EndpointOptionLibrary)
+		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointOptionLibrary)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)
@@ -356,7 +359,7 @@ func dumpMap(ctx *cli.Context) {
 	printIDs := ctx.Bool("id")
 
 	if lbl != "" {
-		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
+		if id := labels.GetID(lbl); id != labels.ID_UNKNOWN {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
@@ -377,7 +380,7 @@ func dumpMap(ctx *cli.Context) {
 		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
 		return
 	}
-	labelsID := map[uint32]*types.SecCtxLabel{}
+	labelsID := map[uint32]*labels.SecCtxLabel{}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
@@ -411,7 +414,7 @@ func dumpMap(ctx *cli.Context) {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsDesTitle, actionTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
-		act := types.ConsumableDecision(stat.Action)
+		act := policy.ConsumableDecision(stat.Action)
 		if printIDs {
 			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", stat.ID, act.String(), stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[stat.ID]; lbls != nil {
@@ -443,7 +446,7 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 	lbl := ctx.Args().Get(0)
 
 	if lbl != "" {
-		if id := types.GetID(lbl); id != types.ID_UNKNOWN {
+		if id := labels.GetID(lbl); id != labels.ID_UNKNOWN {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
@@ -479,7 +482,7 @@ func removePolicyKey(ctx *cli.Context) {
 	updatePolicyKey(ctx, false)
 }
 
-func dumpFirstEndpoint(w *tabwriter.Writer, ep *types.Endpoint, seclabel string, label string) {
+func dumpFirstEndpoint(w *tabwriter.Writer, ep *endpoint.Endpoint, seclabel string, label string) {
 	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID, seclabel, label, ep.IPv6.String(), ep.IPv4.String(), ep.Status.String())
 }
 
@@ -494,7 +497,7 @@ func dumpEndpoints(ctx *cli.Context) {
 		return
 	}
 
-	types.OrderEndpointAsc(eps)
+	endpoint.OrderEndpointAsc(eps)
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 

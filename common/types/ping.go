@@ -15,7 +15,11 @@
 //
 package types
 
+import (
+	"github.com/cilium/cilium/pkg/option"
+)
+
 type PingResponse struct {
-	NodeAddress string       `json:"node-address"`
-	Opts        *BoolOptions `json:"options"`
+	NodeAddress string              `json:"node-address"`
+	Opts        *option.BoolOptions `json:"options"`
 }

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 const (
@@ -52,15 +53,15 @@ func NewUITopo() UITopo {
 }
 
 type UINode struct {
-	ID       int     `json:"id"`
-	Size     int     `json:"size"`
-	Label    string  `json:"label"`
-	Labels   []Label `json:"-"`
-	Title    string  `json:"title"`
+	ID       int            `json:"id"`
+	Size     int            `json:"size"`
+	Label    string         `json:"label"`
+	Labels   []labels.Label `json:"-"`
+	Title    string         `json:"title"`
 	refCount int
 }
 
-func newuiNode(id, refCount int, lbls []Label) *UINode {
+func newuiNode(id, refCount int, lbls []labels.Label) *UINode {
 	return &UINode{
 		ID:       id,
 		refCount: refCount,
@@ -81,7 +82,7 @@ func (n *UINode) Build() {
 	n.Title = fmt.Sprintf("SecLabel ID %d", n.ID)
 }
 
-func (t *UITopo) AddOrUpdateNode(id32 uint32, lbls []Label, refCount int) {
+func (t *UITopo) AddOrUpdateNode(id32 uint32, lbls []labels.Label, refCount int) {
 	id := int(id32)
 
 	t.uiTopoMU.Lock()

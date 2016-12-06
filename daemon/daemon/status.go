@@ -18,42 +18,42 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	ctx "golang.org/x/net/context"
 )
 
-func (d *Daemon) GlobalStatus() (*types.StatusResponse, error) {
-	sr := types.StatusResponse{}
+func (d *Daemon) GlobalStatus() (*endpoint.StatusResponse, error) {
+	sr := endpoint.StatusResponse{}
 
 	if info, err := d.kvClient.Status(); err != nil {
-		sr.KVStore = types.Status{Code: types.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
+		sr.KVStore = endpoint.Status{Code: endpoint.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
-		sr.KVStore = types.NewStatusOK(info)
+		sr.KVStore = endpoint.NewStatusOK(info)
 	}
 
 	if _, err := d.dockerClient.Info(ctx.Background()); err != nil {
-		sr.Docker = types.Status{Code: types.Failure, Msg: err.Error()}
+		sr.Docker = endpoint.Status{Code: endpoint.Failure, Msg: err.Error()}
 	} else {
-		sr.Docker = types.NewStatusOK("")
+		sr.Docker = endpoint.NewStatusOK("")
 	}
 
 	if d.conf.IsK8sEnabled() {
 		if v, err := d.k8sClient.ServerVersion(); err != nil {
-			sr.Kubernetes = types.Status{Code: types.OK, Msg: err.Error()}
+			sr.Kubernetes = endpoint.Status{Code: endpoint.OK, Msg: err.Error()}
 		} else {
-			sr.Kubernetes = types.NewStatusOK(v.String())
+			sr.Kubernetes = endpoint.NewStatusOK(v.String())
 		}
 	} else {
-		sr.Kubernetes = types.Status{Code: types.Disabled}
+		sr.Kubernetes = endpoint.Status{Code: endpoint.Disabled}
 	}
 
-	if sr.KVStore.Code != types.OK {
-		sr.Cilium = types.Status{Code: sr.KVStore.Code, Msg: "KVStore service is not ready!"}
-	} else if sr.Docker.Code != types.OK {
-		sr.Cilium = types.Status{Code: sr.Docker.Code, Msg: "Docker service is not ready!"}
-	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.Code != types.OK {
-		sr.Cilium = types.Status{Code: sr.Kubernetes.Code, Msg: "Kubernetes service is not ready!"}
+	if sr.KVStore.Code != endpoint.OK {
+		sr.Cilium = endpoint.Status{Code: sr.KVStore.Code, Msg: "KVStore service is not ready!"}
+	} else if sr.Docker.Code != endpoint.OK {
+		sr.Cilium = endpoint.Status{Code: sr.Docker.Code, Msg: "Docker service is not ready!"}
+	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.Code != endpoint.OK {
+		sr.Cilium = endpoint.Status{Code: sr.Kubernetes.Code, Msg: "Kubernetes service is not ready!"}
 	}
 
 	// TODO Create a logstash status in its runnable function

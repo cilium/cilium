@@ -19,8 +19,8 @@ import (
 	"errors"
 
 	"github.com/cilium/cilium/bpf/lbmap"
-	"github.com/cilium/cilium/common/bpf"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
 )
 
 var (

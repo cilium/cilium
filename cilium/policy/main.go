@@ -30,7 +30,8 @@ import (
 
 	"github.com/cilium/cilium/common"
 	cnc "github.com/cilium/cilium/common/client"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
@@ -157,7 +158,7 @@ func verifyAllowedSlice(slice []string) error {
 	for i, v := range slice {
 		if _, err := strconv.ParseUint(v, 10, 32); err != nil {
 			// can fail which means it needs to be a label
-			types.ParseLabel(v)
+			labels.ParseLabel(v)
 		} else if i != 0 {
 			return fmt.Errorf("value %q: must be only one unsigned "+
 				"number or label(s) in format of SOURCE:KEY[=VALUE]", v)
@@ -243,7 +244,7 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 	}
 }
 
-func loadPolicyFile(path string) (*types.PolicyNode, error) {
+func loadPolicyFile(path string) (*policy.Node, error) {
 	var content []byte
 	var err error
 	log.Debugf("Loading file %s", path)
@@ -258,7 +259,7 @@ func loadPolicyFile(path string) (*types.PolicyNode, error) {
 		return nil, err
 	}
 
-	var policyNode types.PolicyNode
+	var policyNode policy.Node
 	err = json.Unmarshal(content, &policyNode)
 	if err != nil {
 		return nil, handleUnmarshalError(path, content, err)
@@ -278,7 +279,7 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func loadPolicy(name string) (*types.PolicyNode, error) {
+func loadPolicy(name string) (*policy.Node, error) {
 	log.Debugf("Entering directory %s...", name)
 
 	if name == "-" {
@@ -298,7 +299,7 @@ func loadPolicy(name string) (*types.PolicyNode, error) {
 		return nil, err
 	}
 
-	var node *types.PolicyNode
+	var node *policy.Node
 
 	// process all files first
 	for _, f := range files {
@@ -364,7 +365,7 @@ func importPolicy(ctx *cli.Context) {
 	}
 }
 
-func prettyPrint(node *types.PolicyNode) {
+func prettyPrint(node *policy.Node) {
 	if node == nil {
 		fmt.Println("No policy loaded.")
 	} else if b, err := json.MarshalIndent(node, "", "  "); err != nil {
@@ -416,7 +417,7 @@ func deletePolicy(ctx *cli.Context) {
 
 func getSecID(ctx *cli.Context) {
 	if ctx.Bool("list") {
-		for k, v := range types.ResDec {
+		for k, v := range labels.ResDec {
 			fmt.Printf("%-15s %3d\n", k, v)
 		}
 		return
@@ -424,21 +425,21 @@ func getSecID(ctx *cli.Context) {
 
 	lbl := ctx.Args().First()
 
-	if id := types.GetID(lbl); id != types.ID_UNKNOWN {
+	if id := labels.GetID(lbl); id != labels.ID_UNKNOWN {
 		fmt.Printf("%d\n", id)
 	} else {
 		os.Exit(1)
 	}
 }
 
-func parseAllowedSlice(slice []string) ([]types.Label, error) {
-	inLabels := []types.Label{}
+func parseAllowedSlice(slice []string) ([]labels.Label, error) {
+	inLabels := []labels.Label{}
 	id := uint32(0)
 
 	for _, v := range slice {
 		if n, err := strconv.ParseUint(v, 10, 32); err != nil {
 			// can fail which means it needs to be a label
-			lbl := types.ParseLabel(v)
+			lbl := labels.ParseLabel(v)
 			inLabels = append(inLabels, *lbl)
 		} else {
 			if id != 0 {
@@ -488,8 +489,8 @@ func verifyPolicy(ctx *cli.Context) {
 		os.Exit(1)
 	}
 
-	searchCtx := types.SearchContext{
-		Trace: types.TRACE_ENABLED,
+	searchCtx := policy.SearchContext{
+		Trace: policy.TRACE_ENABLED,
 		From:  srcSlice,
 		To:    dstSlice,
 	}

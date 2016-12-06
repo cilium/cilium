@@ -21,11 +21,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // EndpointJoin sends a endpoint POST request with ep to the daemon.
-func (cli Client) EndpointJoin(ep types.Endpoint) error {
+func (cli Client) EndpointJoin(ep endpoint.Endpoint) error {
 
 	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/" + strconv.Itoa(int(ep.ID)))
 	if err != nil {
@@ -76,7 +78,7 @@ func (cli Client) EndpointLeaveByDockerEPID(dockerEPID string) error {
 }
 
 // EndpointGet sends a GET request with epID to the daemon.
-func (cli Client) EndpointGet(epID uint16) (*types.Endpoint, error) {
+func (cli Client) EndpointGet(epID uint16) (*endpoint.Endpoint, error) {
 
 	serverResp, err := cli.R().Get("/endpoint/" + strconv.Itoa(int(epID)))
 	if err != nil {
@@ -92,7 +94,7 @@ func (cli Client) EndpointGet(epID uint16) (*types.Endpoint, error) {
 		return nil, nil
 	}
 
-	var ep types.Endpoint
+	var ep endpoint.Endpoint
 	if err := json.Unmarshal(serverResp.Body(), &ep); err != nil {
 		return nil, err
 	}
@@ -101,7 +103,7 @@ func (cli Client) EndpointGet(epID uint16) (*types.Endpoint, error) {
 }
 
 // EndpointGetByDockerEPID sends a GET request with dockerEPID to the daemon.
-func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, error) {
+func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*endpoint.Endpoint, error) {
 
 	serverResp, err := cli.R().Get("/endpoint-by-docker-ep-id/" + dockerEPID)
 	if err != nil {
@@ -117,7 +119,7 @@ func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, e
 		return nil, nil
 	}
 
-	var ep types.Endpoint
+	var ep endpoint.Endpoint
 	if err := json.Unmarshal(serverResp.Body(), &ep); err != nil {
 		return nil, err
 	}
@@ -126,7 +128,7 @@ func (cli Client) EndpointGetByDockerEPID(dockerEPID string) (*types.Endpoint, e
 }
 
 // EndpointGetByDockerID sends a GET request with dockerID to the daemon.
-func (cli Client) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error) {
+func (cli Client) EndpointGetByDockerID(dockerID string) (*endpoint.Endpoint, error) {
 
 	serverResp, err := cli.R().Get("/endpoint-by-docker-id/" + dockerID)
 	if err != nil {
@@ -142,7 +144,7 @@ func (cli Client) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error
 		return nil, nil
 	}
 
-	var ep types.Endpoint
+	var ep endpoint.Endpoint
 	if err := json.Unmarshal(serverResp.Body(), &ep); err != nil {
 		return nil, err
 	}
@@ -151,7 +153,7 @@ func (cli Client) EndpointGetByDockerID(dockerID string) (*types.Endpoint, error
 }
 
 // EndpointsGet sends a GET request to the daemon.
-func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
+func (cli Client) EndpointsGet() ([]endpoint.Endpoint, error) {
 
 	serverResp, err := cli.R().Get("/endpoints")
 	if err != nil {
@@ -167,7 +169,7 @@ func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
 		return nil, nil
 	}
 
-	var eps []types.Endpoint
+	var eps []endpoint.Endpoint
 	if err := json.Unmarshal(serverResp.Body(), &eps); err != nil {
 		return nil, err
 	}
@@ -176,7 +178,7 @@ func (cli Client) EndpointsGet() ([]types.Endpoint, error) {
 }
 
 // EndpointUpdate sends a POST request with epID and opts to the daemon.
-func (cli Client) EndpointUpdate(epID uint16, opts types.OptionMap) error {
+func (cli Client) EndpointUpdate(epID uint16, opts option.OptionMap) error {
 
 	serverResp, err := cli.R().SetBody(opts).Post("/endpoint/update/" + strconv.Itoa(int(epID)))
 	if err != nil {
@@ -192,7 +194,7 @@ func (cli Client) EndpointUpdate(epID uint16, opts types.OptionMap) error {
 }
 
 // EndpointSave sends a endpoint POST request with ep to the daemon.
-func (cli Client) EndpointSave(ep types.Endpoint) error {
+func (cli Client) EndpointSave(ep endpoint.Endpoint) error {
 
 	serverResp, err := cli.R().SetBody(ep).Post("/endpoint/save/" + strconv.Itoa(int(ep.ID)))
 	if err != nil {
@@ -206,7 +208,7 @@ func (cli Client) EndpointSave(ep types.Endpoint) error {
 	return nil
 }
 
-func (cli Client) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
+func (cli Client) EndpointLabelsGet(epID uint16) (*labels.OpLabels, error) {
 
 	serverResp, err := cli.R().Get("/endpoint/labels/" + strconv.Itoa(int(epID)))
 	if err != nil {
@@ -222,7 +224,7 @@ func (cli Client) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 		return nil, nil
 	}
 
-	var opLbls types.OpLabels
+	var opLbls labels.OpLabels
 	if err := json.Unmarshal(serverResp.Body(), &opLbls); err != nil {
 		return nil, err
 	}
@@ -230,7 +232,7 @@ func (cli Client) EndpointLabelsGet(epID uint16) (*types.OpLabels, error) {
 	return &opLbls, nil
 }
 
-func (cli Client) EndpointLabelsUpdate(epID uint16, labelOp types.LabelOp) error {
+func (cli Client) EndpointLabelsUpdate(epID uint16, labelOp labels.LabelOp) error {
 	serverResp, err := cli.R().SetBody(labelOp).Post(fmt.Sprintf("/endpoint/labels/%d", epID))
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)

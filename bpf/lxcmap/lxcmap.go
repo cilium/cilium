@@ -27,9 +27,9 @@ import (
 	"strings"
 	"unsafe"
 
-	common "github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/bpf"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/endpoint"
 )
 
 // LXCMap is an internal representation of an eBPF LXC Map.
@@ -123,7 +123,7 @@ func (lxc LXCInfo) String() string {
 
 // WriteEndpoint transforms the ep's relevant data into an LXCInfo and stores it in
 // LXCMap.
-func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
+func (m *LXCMap) WriteEndpoint(ep *endpoint.Endpoint) error {
 	if m == nil {
 		return nil
 	}
@@ -175,7 +175,7 @@ func (m *LXCMap) WriteEndpoint(ep *types.Endpoint) error {
 }
 
 // DeleteElement deletes the element with the given id from the LXCMap.
-func (m *LXCMap) DeleteElement(ep *types.Endpoint) error {
+func (m *LXCMap) DeleteElement(ep *endpoint.Endpoint) error {
 	if m == nil {
 		return nil
 	}

@@ -17,11 +17,13 @@ package types
 
 import (
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
 )
 
-func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
+func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *policy.Node, error) {
 	var parentNodeName, policyName string
 	if np.Annotations[common.K8sAnnotationParentName] == "" {
 		parentNodeName = common.GlobalLabelPrefix
@@ -34,27 +36,27 @@ func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
 		policyName = np.Annotations[common.K8sAnnotationName]
 	}
 
-	allowRules := []AllowRule{}
+	allowRules := []policy.AllowRule{}
 	for _, iRule := range np.Spec.Ingress {
 		if iRule.From != nil {
 			for _, rule := range iRule.From {
 				if rule.PodSelector != nil {
 					for k, v := range rule.PodSelector.MatchLabels {
-						l := NewLabel(k, v, "")
+						l := labels.NewLabel(k, v, "")
 						if l.Source == common.CiliumLabelSource {
 							l.Source = common.K8sLabelSource
 						}
-						ar := AllowRule{
-							Action: ALWAYS_ACCEPT,
+						ar := policy.AllowRule{
+							Action: policy.ALWAYS_ACCEPT,
 							Label:  *l,
 						}
 						allowRules = append(allowRules, ar)
 					}
 				} else if rule.NamespaceSelector != nil {
 					for k := range rule.NamespaceSelector.MatchLabels {
-						l := NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
-						ar := AllowRule{
-							Action: ALWAYS_ACCEPT,
+						l := labels.NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
+						ar := policy.AllowRule{
+							Action: policy.ALWAYS_ACCEPT,
 							Label:  *l,
 						}
 						allowRules = append(allowRules, ar)
@@ -64,10 +66,10 @@ func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *PolicyNode, error) {
 		}
 	}
 
-	coverageLbls := Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
-	pn := NewPolicyNode(policyName, nil)
-	pn.Rules = []PolicyRule{
-		&PolicyRuleConsumers{
+	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
+	pn := policy.NewNode(policyName, nil)
+	pn.Rules = []policy.PolicyRule{
+		&policy.PolicyRuleConsumers{
 			Coverage: coverageLbls.ToSlice(),
 			Allow:    allowRules,
 		},

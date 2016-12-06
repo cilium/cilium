@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 // PolicyAdd sends a POST request with node to the "/policy/+path" endpoint to the daemon.
-func (cli Client) PolicyAdd(path string, node *types.PolicyNode) error {
+func (cli Client) PolicyAdd(path string, node *policy.Node) error {
 
 	serverResp, err := cli.R().SetBody(node).Post("/policy/" + path)
 	if err != nil {
@@ -56,9 +56,9 @@ func (cli Client) PolicyDelete(path string) error {
 
 // PolicyGet sends a GET request to the "/policy/+path" endpoint to the daemon. If the
 // daemon returns a http.StatusOK means the policy was found and is returned. If the
-// daemon returns a http.StatusNoContent the policy was not found and *types.PolicyNode is
+// daemon returns a http.StatusNoContent the policy was not found and *policy.Node is
 // nil.
-func (cli Client) PolicyGet(path string) (*types.PolicyNode, error) {
+func (cli Client) PolicyGet(path string) (*policy.Node, error) {
 
 	serverResp, err := cli.R().Get("/policy/" + path)
 	if err != nil {
@@ -74,7 +74,7 @@ func (cli Client) PolicyGet(path string) (*types.PolicyNode, error) {
 		return nil, nil
 	}
 
-	var pn types.PolicyNode
+	var pn policy.Node
 	if err := json.Unmarshal(serverResp.Body(), &pn); err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (cli Client) PolicyGet(path string) (*types.PolicyNode, error) {
 	return &pn, nil
 }
 
-func (cli Client) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchContextReply, error) {
+func (cli Client) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error) {
 
 	serverResp, err := cli.R().SetBody(ctx).Post("/policy-consume-decision")
 	if err != nil {
@@ -93,7 +93,7 @@ func (cli Client) PolicyCanConsume(ctx *types.SearchContext) (*types.SearchConte
 		return nil, processErrorBody(serverResp.Body(), nil)
 	}
 
-	var scr types.SearchContextReply
+	var scr policy.SearchContextReply
 	if err := json.Unmarshal(serverResp.Body(), &scr); err != nil {
 		return nil, err
 	}

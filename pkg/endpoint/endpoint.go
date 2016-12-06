@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package endpoint
 
 import (
 	"encoding/base64"
@@ -30,10 +30,20 @@ import (
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
+
+	"github.com/op/go-logging"
 )
 
-// EPPortMap is the port mapping representation for a particular endpoint.
-type EPPortMap struct {
+var (
+	log = logging.MustGetLogger("cilium-endpoint")
+)
+
+// PortMap is the port mapping representation for a particular endpoint.
+type PortMap struct {
 	From  uint16 `json:"from"`
 	To    uint16 `json:"to"`
 	Proto uint8  `json:"proto"`
@@ -54,54 +64,54 @@ const (
 )
 
 var (
-	OptionSpecAllowToHost = Option{
+	OptionSpecAllowToHost = option.Option{
 		Define:      "ALLOW_TO_HOST",
 		Immutable:   true,
 		Description: "Allow all traffic to local host",
 	}
 
-	OptionSpecAllowToWorld = Option{
+	OptionSpecAllowToWorld = option.Option{
 		Define:      "ALLOW_TO_WORLD",
 		Immutable:   true,
 		Description: "Allow all traffic to outside world",
 	}
 
-	OptionSpecConntrackAccounting = Option{
+	OptionSpecConntrackAccounting = option.Option{
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
 	}
 
-	OptionSpecConntrack = Option{
+	OptionSpecConntrack = option.Option{
 		Define:      "CONNTRACK",
 		Description: "Enable stateful connection tracking",
 	}
 
-	OptionSpecDebug = Option{
+	OptionSpecDebug = option.Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 
-	OptionSpecDropNotify = Option{
+	OptionSpecDropNotify = option.Option{
 		Define:      "DROP_NOTIFY",
 		Description: "Enable drop notifications",
 	}
 
-	OptionSpecLearnTraffic = Option{
+	OptionSpecLearnTraffic = option.Option{
 		Define:      "LEARN_TRAFFIC",
 		Description: "Learn and add labels to the list of allowed labels",
 	}
 
-	OptionSpecNAT46 = Option{
+	OptionSpecNAT46 = option.Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
 	}
 
-	OptionSpecPolicy = Option{
+	OptionSpecPolicy = option.Option{
 		Define:      "POLICY_ENFORCEMENT",
 		Description: "Enable policy enforcement",
 	}
 
-	EndpointMutableOptionLibrary = OptionLibrary{
+	EndpointMutableOptionLibrary = option.OptionLibrary{
 		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
 		OptionConntrack:           &OptionSpecConntrack,
 		OptionDebug:               &OptionSpecDebug,
@@ -111,7 +121,7 @@ var (
 		OptionPolicy:              &OptionSpecPolicy,
 	}
 
-	EndpointOptionLibrary = OptionLibrary{
+	EndpointOptionLibrary = option.OptionLibrary{
 		OptionAllowToHost:  &OptionSpecAllowToHost,
 		OptionAllowToWorld: &OptionSpecAllowToWorld,
 	}
@@ -131,17 +141,17 @@ type Endpoint struct {
 	DockerNetworkID  string                `json:"docker-network-id"`  // Docker network ID.
 	DockerEndpointID string                `json:"docker-endpoint-id"` // Docker endpoint ID.
 	IfName           string                `json:"interface-name"`     // Container's interface name.
-	LXCMAC           MAC                   `json:"lxc-mac"`            // Container MAC address.
+	LXCMAC           mac.MAC               `json:"lxc-mac"`            // Container MAC address.
 	IPv6             addressing.CiliumIPv6 `json:"ipv6"`               // Container IPv6 address.
 	IPv4             addressing.CiliumIPv4 `json:"ipv4"`               // Container IPv4 address.
 	IfIndex          int                   `json:"interface-index"`    // Host's interface index.
-	NodeMAC          MAC                   `json:"node-mac"`           // Node MAC address.
+	NodeMAC          mac.MAC               `json:"node-mac"`           // Node MAC address.
 	NodeIP           net.IP                `json:"node-ip"`            // Node IPv6 address.
-	SecLabel         *SecCtxLabel          `json:"security-label"`     // Security Label  set to this endpoint.
-	PortMap          []EPPortMap           `json:"port-mapping"`       // Port mapping used for this endpoint.
-	Consumable       *Consumable           `json:"consumable"`
+	SecLabel         *labels.SecCtxLabel   `json:"security-label"`     // Security Label  set to this endpoint.
+	PortMap          []PortMap             `json:"port-mapping"`       // Port mapping used for this endpoint.
+	Consumable       *policy.Consumable    `json:"consumable"`
 	PolicyMap        *policymap.PolicyMap  `json:"-"`
-	Opts             *BoolOptions          `json:"options"` // Endpoint bpf options.
+	Opts             *option.BoolOptions   `json:"options"` // Endpoint bpf options.
 	Status           *EndpointStatus       `json:"status,omitempty"`
 }
 
@@ -235,12 +245,12 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 		DockerNetworkID:  e.DockerNetworkID,
 		DockerEndpointID: e.DockerEndpointID,
 		IfName:           e.IfName,
-		LXCMAC:           make(MAC, len(e.LXCMAC)),
+		LXCMAC:           make(mac.MAC, len(e.LXCMAC)),
 		IPv6:             make(addressing.CiliumIPv6, len(e.IPv6)),
 		IfIndex:          e.IfIndex,
-		NodeMAC:          make(MAC, len(e.NodeMAC)),
+		NodeMAC:          make(mac.MAC, len(e.NodeMAC)),
 		NodeIP:           make(net.IP, len(e.NodeIP)),
-		PortMap:          make([]EPPortMap, len(e.PortMap)),
+		PortMap:          make([]PortMap, len(e.PortMap)),
 	}
 	copy(cpy.LXCMAC, e.LXCMAC)
 	copy(cpy.IPv6, e.IPv6)
@@ -276,9 +286,9 @@ func (e *Endpoint) SetID() {
 	e.ID = e.IPv6.EndpointID()
 }
 
-func (e *Endpoint) SetSecLabel(labels *SecCtxLabel) {
+func (e *Endpoint) SetSecLabel(labels *labels.SecCtxLabel) {
 	e.SecLabel = labels
-	e.Consumable = GetConsumable(labels.ID, labels)
+	e.Consumable = policy.GetConsumable(labels.ID, labels)
 }
 
 func (e *Endpoint) Allows(id uint32) bool {
@@ -306,7 +316,7 @@ func OptionChanged(key string, value bool, data interface{}) {
 	}
 }
 
-func (e *Endpoint) ApplyOpts(opts OptionMap) bool {
+func (e *Endpoint) ApplyOpts(opts option.OptionMap) bool {
 	// We want to be notified if the packets are dropped with the learn traffic
 	if val, ok := opts[OptionLearnTraffic]; ok && val {
 		opts[OptionDropNotify] = true
@@ -315,9 +325,9 @@ func (e *Endpoint) ApplyOpts(opts OptionMap) bool {
 	return e.Opts.Apply(opts, OptionChanged, e) > 0
 }
 
-func (ep *Endpoint) SetDefaultOpts(opts *BoolOptions) {
+func (ep *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 	if ep.Opts == nil {
-		ep.Opts = NewBoolOptions(&EndpointOptionLibrary)
+		ep.Opts = option.NewBoolOptions(&EndpointOptionLibrary)
 	}
 	if ep.Opts.Library == nil {
 		ep.Opts.Library = &EndpointOptionLibrary

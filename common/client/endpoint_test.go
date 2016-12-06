@@ -25,6 +25,10 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
@@ -33,10 +37,10 @@ var (
 	IPv6Addr, _ = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
 	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
 	NodeAddr    = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
-	HardAddr    = types.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel    = &types.SecCtxLabel{
-		Labels: types.Labels{
-			"foo": types.NewLabel("foo", "", ""),
+	HardAddr    = mac.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	SecLabel    = &labels.SecCtxLabel{
+		Labels: labels.Labels{
+			"foo": labels.NewLabel("foo", "", ""),
 		},
 		Containers: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
@@ -46,7 +50,7 @@ var (
 )
 
 func (s *CiliumNetClientSuite) TestEndpointJoinOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -62,7 +66,7 @@ func (s *CiliumNetClientSuite) TestEndpointJoinOK(c *C) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/4370") //0x1112
 		d := json.NewDecoder(r.Body)
-		var receivedEp types.Endpoint
+		var receivedEp endpoint.Endpoint
 		err := d.Decode(&receivedEp)
 		c.Assert(err, Equals, nil)
 		c.Assert(receivedEp, DeepEquals, ep)
@@ -91,7 +95,7 @@ func (s *CiliumNetClientSuite) TestEndpointJoinFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -118,7 +122,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -149,7 +153,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -176,7 +180,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDOK(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:           HardAddr,
 		IPv6:             IPv6Addr,
 		IPv4:             IPv4Addr,
@@ -208,7 +212,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:           HardAddr,
 		IPv6:             IPv6Addr,
 		IPv4:             IPv4Addr,
@@ -228,7 +232,7 @@ func (s *CiliumNetClientSuite) TestEndpointLeaveByDockerEPIDFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointGetOK(c *C) {
-	epOut := types.Endpoint{
+	epOut := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -286,7 +290,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointGetByDockerEPIDOK(c *C) {
-	epOut := types.Endpoint{
+	epOut := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -344,7 +348,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetByDockerEPIDFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointGetByDockerIDOK(c *C) {
-	epOut := types.Endpoint{
+	epOut := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -402,7 +406,7 @@ func (s *CiliumNetClientSuite) TestEndpointGetByDockerIDFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointsGetOK(c *C) {
-	epsOut := []types.Endpoint{
+	epsOut := []endpoint.Endpoint{
 		{
 			LXCMAC:          HardAddr,
 			IPv6:            IPv6Addr,
@@ -472,12 +476,12 @@ func (s *CiliumNetClientSuite) TestEndpointsGetFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
-	optsWanted := types.OptionMap{"FOO": true}
+	optsWanted := option.OptionMap{"FOO": true}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
-		var opts types.OptionMap
+		var opts option.OptionMap
 		err := json.NewDecoder(r.Body).Decode(&opts)
 		c.Assert(err, IsNil)
 		c.Assert(opts, DeepEquals, optsWanted)
@@ -493,7 +497,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/update/4370") //0x1112
-		var opts types.OptionMap
+		var opts option.OptionMap
 		err := json.NewDecoder(r.Body).Decode(&opts)
 		c.Assert(err, IsNil)
 		c.Assert(opts, IsNil)
@@ -507,7 +511,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateOK(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
-	optsWanted := types.OptionMap{"FOO": true}
+	optsWanted := option.OptionMap{"FOO": true}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
@@ -526,7 +530,7 @@ func (s *CiliumNetClientSuite) TestEndpointUpdateFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointSaveOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -542,7 +546,7 @@ func (s *CiliumNetClientSuite) TestEndpointSaveOK(c *C) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/save/4370") //0x1112
 		d := json.NewDecoder(r.Body)
-		var receivedEp types.Endpoint
+		var receivedEp endpoint.Endpoint
 		err := d.Decode(&receivedEp)
 		c.Assert(err, Equals, nil)
 		c.Assert(receivedEp, DeepEquals, ep)
@@ -571,7 +575,7 @@ func (s *CiliumNetClientSuite) TestEndpointSaveFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -589,7 +593,7 @@ func (s *CiliumNetClientSuite) TestEndpointSaveFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointLabelsGetOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -600,13 +604,13 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsGetOK(c *C) {
 		SecLabel:        SecLabel,
 	}
 	ep.SetID()
-	epLbls := types.Labels{
-		"foo": types.NewLabel("foo", "bar", "cilium"),
+	epLbls := labels.Labels{
+		"foo": labels.NewLabel("foo", "bar", "cilium"),
 	}
-	ciliumLbls := types.Labels{
-		"bar": types.NewLabel("bar", "foo", "cilium"),
+	ciliumLbls := labels.Labels{
+		"bar": labels.NewLabel("bar", "foo", "cilium"),
 	}
-	allLabels := types.OpLabels{
+	allLabels := labels.OpLabels{
 		AllLabels:      ciliumLbls,
 		EndpointLabels: epLbls,
 	}
@@ -615,7 +619,7 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsGetOK(c *C) {
 		c.Assert(r.Method, Equals, "GET")
 		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
 		w.WriteHeader(http.StatusOK)
-		allLabels := types.OpLabels{
+		allLabels := labels.OpLabels{
 			AllLabels:      ciliumLbls,
 			EndpointLabels: epLbls,
 		}
@@ -645,7 +649,7 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsGetFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -663,7 +667,7 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsGetFail(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateOK(c *C) {
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
@@ -674,16 +678,16 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateOK(c *C) {
 		SecLabel:        SecLabel,
 	}
 	ep.SetID()
-	lbls := types.LabelOp{
-		types.AddLabelsOp: types.Labels{
-			"foo": types.NewLabel("foo", "bar", "cilium"),
+	lbls := labels.LabelOp{
+		labels.AddLabelsOp: labels.Labels{
+			"foo": labels.NewLabel("foo", "bar", "cilium"),
 		},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
-		var opLabels types.LabelOp
+		var opLabels labels.LabelOp
 		err := json.NewDecoder(r.Body).Decode(&opLabels)
 		c.Assert(err, IsNil)
 		c.Assert(opLabels, DeepEquals, lbls)
@@ -699,16 +703,16 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateOK(c *C) {
 }
 
 func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateFail(c *C) {
-	lbls := types.LabelOp{
-		types.AddLabelsOp: types.Labels{
-			"foo": types.NewLabel("foo", "bar", "cilium"),
+	lbls := labels.LabelOp{
+		labels.AddLabelsOp: labels.Labels{
+			"foo": labels.NewLabel("foo", "bar", "cilium"),
 		},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.Assert(r.Method, Equals, "POST")
 		c.Assert(r.URL.Path, Equals, "/endpoint/labels/4370") //0x1112
-		var labelOp types.LabelOp
+		var labelOp labels.LabelOp
 		err := json.NewDecoder(r.Body).Decode(&labelOp)
 		c.Assert(err, IsNil)
 		c.Assert(lbls, DeepEquals, labelOp)
@@ -721,7 +725,7 @@ func (s *CiliumNetClientSuite) TestEndpointLabelsUpdateFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	ep := types.Endpoint{
+	ep := endpoint.Endpoint{
 		LXCMAC:          HardAddr,
 		IPv6:            IPv6Addr,
 		IPv4:            IPv4Addr,
