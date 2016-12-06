@@ -17,6 +17,7 @@ package plugins
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/mac"
@@ -68,6 +69,16 @@ func SetupVeth(id string, mtu int, ep *endpoint.Endpoint) (*netlink.Veth, *netli
 	}()
 
 	log.Debugf("Created veth pair %s <-> %s", lxcIfName, veth.PeerName)
+
+	// Disable reverse path filter on the host side veth peer to allow
+	// container addresses to be used as source address when the linux
+	// stack performs routing.
+	args := []string{"-w", "net.ipv4.conf." + lxcIfName + ".rp_filter=0"}
+	_, err = exec.Command("sysctl", args...).CombinedOutput()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("unable to disable rp_filter on %s: %s",
+			lxcIfName, err)
+	}
 
 	peer, err := netlink.LinkByName(tmpIfName)
 	if err != nil {
