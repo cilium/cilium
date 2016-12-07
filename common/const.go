@@ -29,8 +29,6 @@ const (
 	CiliumUIPath  = DefaultLibDir + "/ui"
 	// CiliumSock is the cilium socket for the communication between the daemon and cilium client.
 	CiliumSock = CiliumPath + "/cilium.sock"
-	// DefaultContainerMAC represents a dummy MAC address for the containers.
-	DefaultContainerMAC = "AA:BB:CC:DD:EE:FF"
 	// BPFMap is the file that contains the BPF Map for the host.
 	BPFMapRoot    = "/sys/fs/bpf"
 	BPFCiliumMaps = BPFMapRoot + "/tc/globals"
