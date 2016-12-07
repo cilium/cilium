@@ -116,7 +116,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DBG_ENCAP:
 		fmt.Printf("Encapsulating to node %d (%#x) from seclabel %d\n", n.Arg1, n.Arg1, n.Arg2)
 	case DBG_LXC_FOUND:
-		fmt.Printf("Local container found ifindex %d seclabel %d\n", n.Arg1, n.Arg2)
+		fmt.Printf("Local container found ifindex %d seclabel %d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_POLICY_DENIED:
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
 	case DBG_CT_LOOKUP:
