@@ -45,7 +45,7 @@ var (
 		Type:         C.PERF_TYPE_SOFTWARE,
 		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
 		SampleType:   C.PERF_SAMPLE_RAW,
-		WakeupEvents: 1,
+		WakeupEvents: 0,
 	}
 )
 
