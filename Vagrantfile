@@ -112,15 +112,15 @@ Vagrant.configure(2) do |config|
 
     config.vm.provider :libvirt do |libvirt|
         config.vm.box = "noironetworks/net-next"
-        libvirt.memory = ENV['VM_MEMORY']
-        libvirt.cpus = ENV['VM_CPUS']
+        libvirt.memory = ENV['VM_MEMORY'].to_i
+        libvirt.cpus = ENV['VM_CPUS'].to_i
         config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
     end
 
     config.vm.provider "virtualbox" do |vb|
         config.vm.box = "noironetworks/net-next"
-        vb.memory = ENV['VM_MEMORY']
-        vb.cpus = ENV['VM_CPUS']
+        vb.memory = ENV['VM_MEMORY'].to_i
+        vb.cpus = ENV['VM_CPUS'].to_i
 
         if ENV["NFS"] then
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
@@ -139,8 +139,7 @@ Vagrant.configure(2) do |config|
     config.vm.define master_vm_name, primary: true do |cm|
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test",
-            :libvirt__network_name => "cilium-test",
-            :libvirt__guest_ipv6 => true,
+            :libvirt__guest_ipv6 => "yes",
             :libvirt__dhcp_enabled => false
         if ENV["NFS"] then
             if ENV['FIRST_IP_SUFFIX'] then
@@ -168,8 +167,7 @@ Vagrant.configure(2) do |config|
             end
             node.vm.network "private_network", ip: "#{node_ip}",
                 virtualbox__intnet: "cilium-test",
-                :libvirt__network_name => "cilium-test",
-                :libvirt__guest_ipv6 => true,
+                :libvirt__guest_ipv6 => 'yes',
                 :libvirt__dhcp_enabled => false
             if ENV["NFS"] then
                 if ENV['FIRST_IP_SUFFIX'] then
