@@ -60,6 +60,7 @@ const (
 	MaxSetOfLabels = uint32(0xFFFF)
 	// FirstFreeLabelID is the first ID for which the labels should be assigned.
 	FirstFreeLabelID = uint32(256)
+
 	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in consul.
 	LastFreeServiceIDKeyPath = OperationalPath + "/Services/LastUUID"
 	// ServiceKeyPath is the base path where services are stored in consul.
@@ -88,6 +89,8 @@ const (
 	// K8sAnnotationParentName is the annotation name used for the cilium policy
 	// parent name in the kubernetes network policy.
 	K8sAnnotationParentName = "io.cilium.parent"
+	// K8s environment variable label
+	K8sEnvNodeNameSpec = "K8S_NODE_NAME"
 	// Label source for reserved types
 	ReservedLabelSource = "reserved"
 	// Label used to represent the reserved source

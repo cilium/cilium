@@ -156,6 +156,37 @@ func (d *Daemon) compileBase() error {
 	return nil
 }
 
+// useK8sNodeCIDR sets the ipv4-range value from the cluster-node-cidr defined in the,
+// kube-apiserver.
+func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
+	if !d.conf.IPv4Enabled {
+		return nil
+	}
+	k8sNode, err := d.k8sClient.Nodes().Get(nodeName)
+	if err != nil {
+		return err
+	}
+	if k8sNode.Spec.PodCIDR == "" {
+		return fmt.Errorf("Empty PodCIDR defined in kubernetes spec for node %s", nodeName)
+	}
+	ip, _, err := net.ParseCIDR(k8sNode.Spec.PodCIDR)
+	if err != nil {
+		return err
+	}
+	ciliumIPv4, err := addressing.NewCiliumIPv4(ip.String())
+	if err != nil {
+		return err
+	}
+	ipv6NodeAddress := d.conf.NodeAddress.IPv6Address.NodeIP().String()
+	nodeAddr, err := addressing.NewNodeAddress(ipv6NodeAddress, ciliumIPv4.NodeIP().String(), "")
+	if err != nil {
+		return err
+	}
+	log.Infof("Retrieved %s for node %s. Using it for ipv4-range", k8sNode.Spec.PodCIDR, nodeName)
+	d.conf.NodeAddress = nodeAddr
+	return nil
+}
+
 func (d *Daemon) init() error {
 	globalsDir := filepath.Join(d.conf.RunDir, "globals")
 	if err := os.MkdirAll(globalsDir, 0755); err != nil {
@@ -258,11 +289,7 @@ func (d *Daemon) init() error {
 	return nil
 }
 
-// NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(c *Config) (*Daemon, error) {
-	if c == nil {
-		return nil, fmt.Errorf("Configuration is nil")
-	}
+func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 
 	ipamSubnets := net.IPNet{
 		IP:   c.NodeAddress.IPv6Address.IP(),
@@ -309,6 +336,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	}
 
+	return ipamConf, nil
+}
+
+// NewDaemon creates and returns a new Daemon with the parameters set in c.
+func NewDaemon(c *Config) (*Daemon, error) {
+	if c == nil {
+		return nil, fmt.Errorf("Configuration is nil")
+	}
+
 	var kvClient kvstore.KVClient
 
 	if c.ConsulConfig != nil {
@@ -342,7 +378,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	d := Daemon{
 		conf:                      c,
-		ipamConf:                  ipamConf,
 		kvClient:                  kvClient,
 		dockerClient:              dockerClient,
 		containers:                make(map[string]*types.Container),
@@ -367,8 +402,21 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
-	if err := d.init(); err != nil {
-		log.Fatalf("Error while initializing daemon: %s\n", err)
+	if nodeName := os.Getenv(common.K8sEnvNodeNameSpec); nodeName != "" {
+		// Try to retrieve node's cidr from k8s's configuration
+		if err := d.useK8sNodeCIDR(nodeName); err != nil {
+			return nil, err
+		}
+	}
+
+	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
+	if d.ipamConf, err = d.conf.createIPAMConf(); err != nil {
+		return nil, err
+	}
+
+	if err = d.init(); err != nil {
+		log.Errorf("Error while initializing daemon: %s\n", err)
+		return nil, err
 	}
 
 	if d.conf.IsUIEnabled() {
