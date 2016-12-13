@@ -1,4 +1,15 @@
 #!/bin/bash
+#
+# Test Topology:
+#  2.2.2.2/32 via 3.3.3.3 src $(ip of cilium_host)
+#  f00d::1:1/128 via fbfb::10:10
+#        |
+#        v
+#  veth lbtest1    <-----> veth lbtest2
+#  fbfb::10:10/128           |
+#  3.3.3.3/32                +-> ingress bpf_lb (LB_REDIRECT=cilium_host)
+#                                           |
+#                                           +---> cilium_host
 
 source "./helpers.bash"
 
@@ -8,8 +19,7 @@ TEST_NET="cilium"
 NETPERF_IMAGE="noironetworks/netperf"
 
 function cleanup {
-	docker rm -f server1 server2 client 2> /dev/null || true
-	monitor_stop
+	docker rm -f server1 server2 client wrk ab 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
 	sudo ip link del lbtest1 2> /dev/null || true
 }
@@ -35,6 +45,8 @@ trap cleanup EXIT
 cleanup
 
 set -x
+
+#cilium daemon config Debug=true DropNotification=true
 
 # Test the addition and removal of services with and without daemon
 
@@ -597,8 +609,6 @@ docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
-monitor_start
-
 docker run -dt --net=$TEST_NET --name server1 -l io.cilium.server -l server1 httpd
 docker run -dt --net=$TEST_NET --name server2 -l io.cilium.server -l server2 httpd
 docker run -dt --net=$TEST_NET --name client -l io.cilium.client noironetworks/nettools
@@ -703,23 +713,19 @@ cilium lb update-service --rev --frontend "$LB_HOST_IP4:0" --id 225 \
 			--backend "$(host_ip4):0"
 
 ## Test 1: local host => bpf_lb => local container
-monitor_clear
 ping6 $SVC_IP6 -c 4 || {
 	abort "Error: Unable to ping"
 }
 
-monitor_clear
 ping $SVC_IP4 -c 4 || {
 	abort "Error: Unable to ping"
 }
 
 ## Test 2: local container => bpf_lxc (LB) => local container
-monitor_clear
 docker exec -i client ping6 -c 4 $SVC_IP6 || {
 	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
 }
 
-monitor_clear
 docker exec -i client ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
 }
@@ -727,17 +733,13 @@ docker exec -i client ping -c 4 $SVC_IP4 || {
 cilium endpoint config $CLIENT_ID Policy=false
 
 ## Test 3: local container => bpf_lxc (LB) => local host
-monitor_clear
 docker exec -i client ping6 -c 4 $LB_HOST_IP6 || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
 }
 
-monitor_clear
 docker exec -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
-
-monitor_stop
 
 ## Test 4: Run wrk & ab from container => bpf_lxc (LB) => local container
 
@@ -749,17 +751,32 @@ cilium lb update-service --rev --frontend "$SVC_IP4:80" --id 2233 \
 			--backend "$SERVER2_IP4:80"
 
 
-cilium daemon config Debug=false DropNotification=false
-cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
-cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
+#cilium daemon config Debug=false DropNotification=false
+#cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
+#cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
 
-docker run --rm -t --net=$TEST_NET --name wrk -l io.cilium.client skandyla/wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/"
-docker run --rm -t --net=$TEST_NET --name wrk -l io.cilium.client skandyla/wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/"
+docker run -dt --net=$TEST_NET --name wrk -l io.cilium.client --entrypoint sleep skandyla/wrk 100000s
+docker run -dt --net=$TEST_NET --name ab -l io.cilium.client jordi/ab sleep 100000s
 
-docker run --rm -t --net=$TEST_NET --name ab -l io.cilium.client jordi/ab ab -t 30 -c 20 -v 1 "http://[$SVC_IP6]/"
-docker run --rm -t --net=$TEST_NET --name ab -l io.cilium.client jordi/ab ab -t 30 -c 20 -v 1 "http://$SVC_IP4/"
+sleep 2
 
-cilium daemon config Debug=true DropNotification=true
+docker exec -i wrk wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
+	abort "Error: Unable to reach local IPv6 node via loadbalancer"
+}
+
+docker exec -i wrk wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/" || {
+	abort "Error: Unable to reach local IPv4 node via loadbalancer"
+}
+
+docker exec -i ab ab -t 30 -c 20 -v 1 "http://[$SVC_IP6]/" || {
+	abort "Error: Unable to reach local IPv6 node via loadbalancer"
+}
+
+docker exec -i ab ab -t 30 -c 20 -v 1 "http://$SVC_IP4/" || {
+	abort "Error: Unable to reach local IPv4 node via loadbalancer"
+}
+
+#cilium daemon config Debug=true DropNotification=true
 
 cleanup
 cilium -D policy delete io.cilium
