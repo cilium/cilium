@@ -13,6 +13,7 @@ end
 
 $bootstrap = <<SCRIPT
 chown -R vagrant:vagrant /home/vagrant/go
+sudo apt-get -y update || true
 sudo apt-get -y install socat curl jq realpath pv tmux
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 SCRIPT
