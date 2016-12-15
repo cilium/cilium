@@ -11,7 +11,7 @@ apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git li
 apt-get install -y --no-install-recommends curl xz-utils && \
 cd /tmp && \
 curl -Ssl -o clang+llvm.tar.xz \
-http://llvm.org/releases/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
+http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
 mkdir -p /usr/local && \
 tar -C /usr/local -xJf ./clang+llvm.tar.xz && \
 mv /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04 /usr/local/clang+llvm && \
