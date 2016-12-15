@@ -9,7 +9,6 @@ LIB := $(shell find ./lib -name '*.h')
 ifeq ("$(PKG_BUILD)","")
 
 all: $(BPF)
-	$(MAKE) -C go
 
 bpf_lxc.o:
 	clang ${CLANG_FLAGS} -c bpf_lxc.c -o $@
@@ -30,18 +29,13 @@ bpf_lb.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
 		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o $@;)
 
-install: install-common
-	$(MAKE) -C go install
-
 else
 
 all:
 
-install: install-common
-
 endif
 
-install-common:
+install:
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/ $(BPF:.o=.c)
 	$(INSTALL) -m 0755 -t $(DESTDIR)$(LIBDIR)/cilium/ $(SCRIPTS)
 	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/lib/ $(LIB)
@@ -54,4 +48,3 @@ install-common:
 
 clean:
 	rm -fr *.o
-	$(MAKE) -C go clean
