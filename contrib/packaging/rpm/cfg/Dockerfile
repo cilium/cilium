@@ -4,10 +4,10 @@ MAINTAINER "Andre Martins <andre@cilium.io>"
 
 RUN dnf install -y gettext curl gcc fedora-packager fedora-review && \
 cd /tmp && \
-curl -Sslk -o go1.7.1.linux-amd64.tar.gz \
-https://storage.googleapis.com/golang/go1.7.1.linux-amd64.tar.gz && \
-tar -C /usr/local -xzf go1.7.1.linux-amd64.tar.gz && \
-rm -f go1.7.1.linux-amd64.tar.gz
+curl -Sslk -o go1.7.4.linux-amd64.tar.gz \
+https://storage.googleapis.com/golang/go1.7.4.linux-amd64.tar.gz && \
+tar -C /usr/local -xzf go1.7.4.linux-amd64.tar.gz && \
+rm -f go1.7.4.linux-amd64.tar.gz
 
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
