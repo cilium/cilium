@@ -2,7 +2,7 @@
 
 CLANG_DIR="clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-14.04"
 CLANG_FILE="${CLANG_DIR}.tar.xz"
-CLANG_URL="http://llvm.org/releases/3.8.1/$CLANG_FILE"
+CLANG_URL="http://releases.llvm.org/3.8.1/$CLANG_FILE"
 
 wget --quiet $CLANG_URL
 sudo rm -rf /usr/local/clang
