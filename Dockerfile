@@ -51,7 +51,7 @@ make PKG_BUILD=1 install && \
 apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils && \
 apt-get clean && \
 rm -fr /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/local/go && \
-echo -e '#!/usr/bin/env bash\ncp /opt/cni/bin/cilium-cni /tmp/cni/bin && /usr/bin/cilium $@' > /home/with-cni.sh && \
+echo '#!/usr/bin/env bash\ncp /opt/cni/bin/cilium-cni /tmp/cni/bin && /usr/bin/cilium $@' > /home/with-cni.sh && \
 chmod +x /home/with-cni.sh
 
 ENV PATH="/usr/local/clang+llvm/bin:$PATH"
