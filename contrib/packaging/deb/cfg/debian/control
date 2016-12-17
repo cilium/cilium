@@ -11,7 +11,7 @@ Architecture: amd64
 Section: net
 Priority: optional
 Depends: docker-engine (>=1.12), clang-3.8, libc6-dev-i386, iproute2 (>=4.6.0),
- linux-image-4.8.1-040801-generic
+ linux-image-4.8.0-30-generic
 Description: BPF & XDP for containers
  Cilium provides fast in-kernel networking and security policy enforcement
  for containers based on eBPF programs generated on the fly. It is an
