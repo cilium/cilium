@@ -95,7 +95,7 @@ func run(ctx *cli.Context) {
 
 			lost, unknown := events.Stats()
 			if lost != 0 || unknown != 0 {
-				log.Warningf("%d events lost, %d unknonwn notifications", lost, unknown)
+				log.Warningf("%d events lost, %d unknown notifications", lost, unknown)
 			}
 
 			if err := events.CloseAll(); err != nil {
