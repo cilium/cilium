@@ -34,6 +34,9 @@ set -x
 # Enable JIT
 echo 1 > /proc/sys/net/core/bpf_jit_enable
 
+# Disable rp_filter
+echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
+
 if [ $(mount | grep $MOUNTPOINT > /dev/null) ]; then
 	mount bpffs $MOUNTPOINT -t bpf
 fi
