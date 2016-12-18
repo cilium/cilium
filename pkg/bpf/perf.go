@@ -20,7 +20,6 @@ package bpf
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <linux/unistd.h>
 #include <linux/bpf.h>
 #include <linux/perf_event.h>
@@ -40,6 +39,16 @@ void create_perf_event_attr(int type, int config, int sample_type,
 
 }
 
+static void dump_data(uint8_t *data, size_t size, int cpu)
+{
+	int i;
+
+	printf("event on cpu%d: ", cpu);
+	for (i = 0; i < size; i++)
+		printf("%02x ", data[i]);
+	printf("\n");
+}
+
 struct event_sample {
 	struct perf_event_header header;
 	uint32_t size;
@@ -47,62 +56,71 @@ struct event_sample {
 };
 
 struct read_state {
-	void *buf;
-	int buf_len;
+	size_t raw_size;
+	void *base, *begin, *end, *head;
 };
 
-int perf_event_read(int page_count, int page_size, void *_state,
-		    void *_header, void *_sample_ptr, void *_lost_ptr)
+int perf_event_read_init(int page_count, int page_size, void *_header, void *_state)
 {
 	volatile struct perf_event_mmap_page *header = _header;
-	uint64_t data_head = *((volatile uint64_t *) &header->data_head);
-	uint64_t data_tail = header->data_tail;
-	uint64_t raw_size = (uint64_t)page_count * page_size;
-	void *base  = ((uint8_t *)header) + page_size;
 	struct read_state *state = _state;
-	struct event_sample *e;
-	void *begin, *end;
-	void **sample_ptr = (void **) _sample_ptr;
-	void **lost_ptr = (void **) _lost_ptr;
+	uint64_t data_tail = header->data_tail;
+	uint64_t data_head = *((volatile uint64_t *) &header->data_head);
 
-	// No data to read on this ring
 	__sync_synchronize();
 	if (data_head == data_tail)
 		return 0;
 
-	begin = base + data_tail % raw_size;
-	e = begin;
-	end = base + (data_tail + e->header.size) % raw_size;
+	state->head = (void *) data_head;
+	state->raw_size = page_count * page_size;
+	state->base  = ((uint8_t *)header) + page_size;
+	state->begin = state->base + data_tail % state->raw_size;
+	state->end   = state->base + data_head % state->raw_size;
 
-	if (state->buf_len < e->header.size || !state->buf) {
-		state->buf = realloc(state->buf, e->header.size);
-		state->buf_len = e->header.size;
-	}
+	return state->begin != state->end;
+}
 
-	if (end < begin) {
-		uint64_t len = base + raw_size - begin;
+int perf_event_read(void *_state, void *buf, void *_msg)
+{
+	void **msg = (void **) _msg;
+	struct read_state *state = _state;
+	struct event_sample *e = state->begin;
 
-		memcpy(state->buf, begin, len);
-		memcpy((char *) state->buf + len, base, e->header.size - len);
+	if (state->begin == state->end)
+		return 0;
 
-		e = state->buf;
+	if (state->begin + e->header.size > state->base + state->raw_size) {
+		uint64_t len = state->base + state->raw_size - state->begin;
+
+		memcpy(buf, state->begin, len);
+		memcpy((char *) buf + len, state->base, e->header.size - len);
+
+		e = buf;
+		state->begin = state->base + e->header.size - len;
+	} else if (state->begin + e->header.size == state->base + state->raw_size) {
+		state->begin = state->base;
 	} else {
-		memcpy(state->buf, begin, e->header.size);
+		state->begin += e->header.size;
 	}
 
-	switch (e->header.type) {
-	case PERF_RECORD_SAMPLE:
-		*sample_ptr = state->buf;
-		break;
-	case PERF_RECORD_LOST:
-		*lost_ptr = state->buf;
-		break;
-	}
+	*msg = e;
+
+	return 1;
+}
+
+void perf_event_read_finish(void *_header, void *_state)
+{
+	volatile struct perf_event_mmap_page *header = _header;
+	struct read_state *state = _state;
 
 	__sync_synchronize();
-	header->data_tail += e->header.size;
+	header->data_tail = (uint64_t) state->head;
+}
 
-	return e->header.type;
+void cast(void *ptr, void *_dst)
+{
+	void **dst = (void **) _dst;
+	*dst = ptr;
 }
 
 */
@@ -136,7 +154,7 @@ func DefaultPerfEventConfig() *PerfEventConfig {
 		Type:         C.PERF_TYPE_SOFTWARE,
 		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
 		SampleType:   C.PERF_SAMPLE_RAW,
-		WakeupEvents: 0,
+		WakeupEvents: 1,
 		NumCpus:      runtime.NumCPU(),
 		NumPages:     8,
 	}
@@ -266,30 +284,46 @@ func (e *PerfEvent) Disable() error {
 }
 
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
+	buf := make([]byte, 256)
 	state := C.struct_read_state{}
 
+	// Prepare for reading and check if events are available
+	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
+		unsafe.Pointer(&e.data[0]), unsafe.Pointer(&state))
+
+	// Poll false positive
+	if available == 0 {
+		return nil
+	}
+
 	for {
-		var sample *PerfEventSample
-		var lost *PerfEventLost
+		var msg *PerfEventHeader
 
-		ok := C.perf_event_read(C.int(e.npages), C.int(e.pagesize),
-			unsafe.Pointer(&state), unsafe.Pointer(&e.data[0]),
-			unsafe.Pointer(&sample), unsafe.Pointer(&lost))
+		if ok := C.perf_event_read(unsafe.Pointer(&state),
+			unsafe.Pointer(&buf[0]), unsafe.Pointer(&msg)); ok == 0 {
+			break
+		}
 
-		switch ok {
-		case 0:
-			return nil
-		case C.PERF_RECORD_SAMPLE:
+		if msg.Type == C.PERF_RECORD_SAMPLE {
+			var sample *PerfEventSample
+			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&sample))
 			receive(sample, e.cpu)
-		case C.PERF_RECORD_LOST:
+		} else if msg.Type == C.PERF_RECORD_LOST {
+			var lost *PerfEventLost
+			C.cast(unsafe.Pointer(msg), unsafe.Pointer(&lost))
 			e.lost += lost.Lost
 			if lostFn != nil {
 				lostFn(lost, e.cpu)
 			}
-		default:
+		} else {
 			e.unknown++
 		}
 	}
+
+	// Move ring buffer tail pointer
+	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(&state))
+
+	return nil
 }
 
 func (e *PerfEvent) Close() {
