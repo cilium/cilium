@@ -152,6 +152,8 @@ func (d *Daemon) compileBase() error {
 		log.Warningf("Command output:\n%s", out)
 		return err
 	}
+	log.Warningf("Enabled bpf_jit_enable")
+	log.Warningf("Disabled rp_filter on all interfaces!")
 
 	return nil
 }
