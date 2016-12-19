@@ -50,7 +50,7 @@
 static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
 				 struct csum_offset *csum_off, __u16 port, __u16 old_port)
 {
-	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port) | BPF_F_PSEUDO_HDR) < 0)
+	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
 		return DROP_CSUM_L4;
 
         if (skb_store_bytes(skb, l4_off + off, &port, sizeof(port), 0) < 0)
