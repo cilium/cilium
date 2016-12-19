@@ -1,0 +1,31 @@
+{
+  "apiVersion": "extensions/v1beta1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "annotations": {
+      "io.cilium.name": "k8s",
+      "io.cilium.parent": "io.cilium"
+    },
+    "name": "dashboard"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "k8s-app": "kubernetes-dashboard"
+      }
+    },
+    "ingress": [
+      {
+        "from": [
+          {
+            "podSelector": {
+              "matchLabels": {
+                "io.cilium.reserved": "host"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
