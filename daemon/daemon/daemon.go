@@ -79,6 +79,8 @@ type Daemon struct {
 	uiTopo                    types.UITopo
 	uiListeners               map[*Conn]bool
 	registerUIListener        chan *Conn
+	ignoredContainers         map[string]int
+	ignoredMutex              sync.RWMutex
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
@@ -395,6 +397,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		uiTopo:                    types.NewUITopo(),
 		uiListeners:               make(map[*Conn]bool),
 		registerUIListener:        make(chan *Conn, 1),
+		ignoredContainers:         make(map[string]int),
 	}
 
 	if c.IsK8sEnabled() {
@@ -498,4 +501,24 @@ func (d *Daemon) Update(opts option.OptionMap) error {
 	}
 
 	return nil
+}
+
+func (d *Daemon) IgnoredContainer(id string) bool {
+	d.ignoredMutex.RLock()
+	_, ok := d.ignoredContainers[id]
+	d.ignoredMutex.RUnlock()
+
+	return ok
+}
+
+func (d *Daemon) StartIgnoringContainer(id string) {
+	d.ignoredMutex.Lock()
+	d.ignoredContainers[id]++
+	d.ignoredMutex.Unlock()
+}
+
+func (d *Daemon) StopIgnoringContainer(id string) {
+	d.ignoredMutex.Lock()
+	delete(d.ignoredContainers, id)
+	d.ignoredMutex.Unlock()
 }
