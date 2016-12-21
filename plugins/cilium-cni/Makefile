@@ -11,7 +11,7 @@ clean:
 SOURCES := $(shell find . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	go build -o $(TARGET) ./cilium-cni.go
+	go build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)/etc/cni/net.d
