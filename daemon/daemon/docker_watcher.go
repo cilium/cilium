@@ -68,6 +68,10 @@ func (d *Daemon) EnableDockerSync(once bool) {
 			log.Errorf("Failed to retrieve the container list %s", err)
 		}
 		for _, cont := range cList {
+			if d.IgnoredContainer(cont.ID) {
+				continue
+			}
+
 			wg.Add(1)
 			go func(wg *sync.WaitGroup, id string) {
 				d.createContainer(id)
@@ -102,6 +106,8 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	if m.Type == "container" {
 		switch m.Status {
 		case "start":
+			// A real event overwrites any memory of ignored containers
+			d.StopIgnoringContainer(m.ID)
 			d.createContainer(m.ID)
 		case "die":
 			d.deleteContainer(m.ID)
@@ -338,7 +344,8 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 	}
 	if try >= maxTries {
 		if container.IsDockerOrInfracontainer() {
-			return fmt.Errorf("No manage request in time, container %s is likely managed by other networking plugin.", dockerID)
+			d.StartIgnoringContainer(dockerID)
+			return fmt.Errorf("No manage request received for %s. Likely managed by other plugin", dockerID)
 		}
 		return nil
 	}
