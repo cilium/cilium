@@ -359,7 +359,6 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			fePort.ID = feAddrID.ID
 		}
 
-		isServerPresent := false
 		besValues := []types.L3n4Addr{}
 
 		if k8sBEPort != nil {
@@ -369,18 +368,6 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 					L4Addr: *k8sBEPort,
 				}
 				besValues = append(besValues, bePort)
-
-				if !isServerPresent {
-					d.ipamConf.AllocatorMutex.RLock()
-					if isSvcIPv4 && d.conf.IPv4Enabled {
-						isServerPresent = d.conf.NodeAddress.IPv4Address.IP().Equal(bePort.IP) ||
-							d.ipamConf.IPv4Allocator.Has(bePort.IP)
-					} else {
-						isServerPresent = d.conf.NodeAddress.IPv6Address.HostIP().Equal(bePort.IP) ||
-							d.ipamConf.IPv6Allocator.Has(bePort.IP)
-					}
-					d.ipamConf.AllocatorMutex.RUnlock()
-				}
 			}
 		}
 
@@ -389,7 +376,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			log.Errorf("Error while creating a New L3n4AddrID: %s. Ignoring service %v...", err, svcInfo)
 			continue
 		}
-		if err := d.svcAdd(*fe, besValues, isServerPresent); err != nil {
+		if err := d.svcAdd(*fe, besValues, true); err != nil {
 			log.Errorf("Error while inserting service in LB map: %s", err)
 		}
 	}
