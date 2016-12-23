@@ -163,7 +163,8 @@ elif [ "$MODE" = "lb" ]; then
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
-		bpf_compile $NATIVE_DEV "" bpf_lb.c bpf_lb.o from-netdev
+		OPTS="-DLB_L3 -DLB_L4"
+		bpf_compile $NATIVE_DEV "$OPTS" bpf_lb.c bpf_lb.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
