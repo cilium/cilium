@@ -14,7 +14,7 @@ apt-get -y install pkg-config bison flex
 
 cd $HOME
 rm -Rf net-next
-git clone -b bpf-wip git://git.breakpoint.cc/dborkman/net-next.git
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
 cd net-next
 rm -Rf .git
 cp /boot/config-`uname -r` .config
@@ -81,9 +81,8 @@ apt-get -y install pkg-config bison flex
 apt-get -y install gcc-multilib
 
 cd $HOME
-git clone git://git.breakpoint.cc/dborkman/iproute2.git
+git clone -b net-next git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 cd iproute2/
-git checkout bpf-wip
 ./configure
 make -j `getconf _NPROCESSORS_ONLN`
 make install
