@@ -97,11 +97,17 @@ buffer.
 ## Prerequisites
 
 Cilium requires a recent version of the Linux kernel, iproute2 and clang+LLVM.
-All required changes have been merged upstream but may have not been included
-in an official release yet.
-  * https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
-  * https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/log/?h=net-next
-  * clang+LLVM >=3.7.1: http://llvm.org/releases
+All required changes have been merged upstream and are available in official
+releases:
+ * Linux >= 4.8.0: http://www.kernel.org/
+ * iproute2 >= 4.8.0: https://www.kernel.org/pub/linux/utils/net/iproute2/
+ * clang+LLVM >=3.7.1: http://llvm.org/releases
+
+Cilium can make use of additional functionality available in >= 4.9 kernels. It
+will probe for the availability upon startup and enable it automatically.
+Development snapshots of the Linux kernel and iproute2 tree can be found here:
+ * https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+ * https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git
 
 Alternatively, the vagrant box `noironetworks/net-next` is built regularly
 and provides the above branches compiled and pre-installed. See the

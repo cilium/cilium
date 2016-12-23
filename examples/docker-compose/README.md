@@ -10,9 +10,9 @@ install docker-compose >=1.7.1 in it.
 
 If you want to install the dependencies manually, you need:
  - docker-compose (>=1.7.1)
- - Linux kernel and iproute2 from this tree:
-    - https://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=bpf-wip
-    - https://git.breakpoint.cc/cgit/dborkman/net-next.git/log/?h=bpf-wip
+ - Linux kernel and iproute2 version >= 4.8.0 or from this tree:
+    - https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+    - https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/log/?h=net-next
 
 ### Download docker-compose.yml
 

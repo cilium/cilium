@@ -26,9 +26,8 @@ ls -d /usr/local/clang+llvm/bin/* | grep -vE "clang$|clang-3.8$|llc$" | xargs rm
 #
 # iproute2-begin
 cd /tmp && \
-git clone git://git.breakpoint.cc/dborkman/iproute2.git && \
+git clone -b v4.9.0 git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git && \
 cd /tmp/iproute2 && \
-git checkout bpf-wip && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 make install && \
