@@ -116,7 +116,8 @@ func NewK8sServiceEndpoint() *K8sServiceEndpoint {
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
 // the Port number.
 type L4Addr struct {
-	Protocol L4Type
+	// TODO: Remove json's omission once we care about protocols.
+	Protocol L4Type `json:"-"`
 	Port     uint16
 }
 
