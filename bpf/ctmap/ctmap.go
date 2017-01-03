@@ -38,6 +38,9 @@ type CtMap struct {
 }
 
 const (
+	MapName6 = "cilium_ct6_"
+	MapName4 = "cilium_ct4_"
+
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2

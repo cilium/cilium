@@ -129,19 +129,21 @@ import "C"
 import (
 	"fmt"
 	"os"
+	"path"
 	"runtime"
 	"syscall"
 	"unsafe"
 )
 
 const (
+	EventsMapName   = "cilium_events"
 	MAX_POLL_EVENTS = 32
 )
 
 type PerfEventConfig struct {
 	NumCpus      int
 	NumPages     int
-	MapPath      string
+	MapName      string
 	Type         int
 	Config       int
 	SampleType   int
@@ -150,7 +152,7 @@ type PerfEventConfig struct {
 
 func DefaultPerfEventConfig() *PerfEventConfig {
 	return &PerfEventConfig{
-		MapPath:      "/sys/fs/bpf/tc/globals/cilium_events",
+		MapName:      EventsMapName,
 		Type:         C.PERF_TYPE_SOFTWARE,
 		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
 		SampleType:   C.PERF_SAMPLE_RAW,
@@ -423,7 +425,12 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		return nil, err
 	}
 
-	e.eventMap, err = openMap(config.MapPath)
+	mapPath := config.MapName
+	if !path.IsAbs(mapPath) {
+		mapPath = MapPath(mapPath)
+	}
+
+	e.eventMap, err = openMap(mapPath)
 	if err != nil {
 		return nil, err
 	}

@@ -32,7 +32,7 @@ import (
 
 var (
 	config = bpf.PerfEventConfig{
-		MapPath:      "/sys/fs/bpf/tc/globals/perf_test_events",
+		MapPath:      bpf.MapPath("perf_test_events"),
 		Type:         C.PERF_TYPE_SOFTWARE,
 		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
 		SampleType:   C.PERF_SAMPLE_RAW,

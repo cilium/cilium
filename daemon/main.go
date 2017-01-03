@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -29,6 +28,7 @@ import (
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/daemon/daemon"
 	s "github.com/cilium/cilium/daemon/server"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -57,6 +57,7 @@ var (
 	v4Prefix           string
 	v6Address          string
 	nat46prefix        string
+	bpfRoot            string
 
 	log = logging.MustGetLogger("cilium-net-daemon")
 
@@ -223,6 +224,12 @@ func init() {
 						Value:       "vxlan",
 						Usage:       "Tunnel mode vxlan or geneve, vxlan is the default",
 					},
+					cli.StringFlag{
+						Destination: &bpfRoot,
+						Name:        "bpf-root",
+						EnvVar:      "BPF_ROOT",
+						Usage:       "Path to mounted BPF filesystem",
+					},
 				},
 			},
 			{
@@ -348,6 +355,17 @@ func configDaemon(ctx *cli.Context) {
 }
 
 func initEnv(ctx *cli.Context) error {
+	// The standard operation is to mount the BPF filesystem to the
+	// standard location (/sys/fs/bpf). The user may chose to specify
+	// the path to an already mounted filesystem instead. This is
+	// useful if the daemon is being round inside a namespace and the
+	// BPF filesystem is mapped into the slave namespace.
+	if bpfRoot != "" {
+		bpf.SetMapRoot(bpfRoot)
+	} else if err := bpf.MountFS(); err != nil {
+		log.Fatalf("Unable to mount BPF filesystem: %s\n", err)
+	}
+
 	config.OptsMU.Lock()
 	if ctx.GlobalBool("debug") {
 		common.SetupLOG(log, "DEBUG")
@@ -389,17 +407,6 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	config.NodeAddress = nodeAddress
-
-	// Mount BPF Map directory if not already done
-	args := []string{"-q", common.BPFMapRoot}
-	_, err = exec.Command("mountpoint", args...).CombinedOutput()
-	if err != nil {
-		args = []string{"bpffs", common.BPFMapRoot, "-t", "bpf"}
-		out, err := exec.Command("mount", args...).CombinedOutput()
-		if err != nil {
-			log.Fatalf("Command execution failed: %s\n%s", err, out)
-		}
-	}
 
 	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {
 		config.K8sEndpoint = "http://" + config.K8sEndpoint

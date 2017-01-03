@@ -38,6 +38,8 @@ type LXCMap struct {
 }
 
 const (
+	MapName = "cilium_lxc"
+
 	// MaxKeys represents the maximum number of keys in the LXCMap.
 	MaxKeys = common.EndpointsPerHost
 
@@ -196,8 +198,9 @@ func (m *LXCMap) DeleteElement(ep *endpoint.Endpoint) error {
 	return err
 }
 
-// OpenMap opens the LXCMap in the given path.
-func OpenMap(path string) (*LXCMap, error) {
+// Open the endpoint map
+func OpenMap() (*LXCMap, error) {
+	path := bpf.MapPath(MapName)
 
 	fd, _, err := bpf.OpenOrCreateMap(
 		path,

@@ -27,9 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/policymap"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -434,19 +435,32 @@ func (e *Endpoint) IsCNI() bool {
 	return e.DockerNetworkID == ""
 }
 
+// Return path to policy map for endpoint ID
+func PolicyMapPath(id int) string {
+	return bpf.MapPath(policymap.MapName + strconv.Itoa(id))
+}
+
 // Return path to policy map of endpoint
 func (e *Endpoint) PolicyMapPath() string {
-	return common.PolicyMapPath + strconv.Itoa(int(e.ID))
+	return PolicyMapPath(int(e.ID))
+}
+
+func Ct6MapPath(id int) string {
+	return bpf.MapPath(ctmap.MapName6 + strconv.Itoa(id))
 }
 
 // Return path to IPv6 connection tracking map of endpoint
 func (e *Endpoint) Ct6MapPath() string {
-	return common.BPFMapCT6 + strconv.Itoa(int(e.ID))
+	return Ct6MapPath(int(e.ID))
+}
+
+func Ct4MapPath(id int) string {
+	return bpf.MapPath(ctmap.MapName4 + strconv.Itoa(id))
 }
 
 // Return path to IPv4 connection tracking map of endpoint
 func (e *Endpoint) Ct4MapPath() string {
-	return common.BPFMapCT4 + strconv.Itoa(int(e.ID))
+	return Ct4MapPath(int(e.ID))
 }
 
 func (e *Endpoint) InvalidatePolicy() {

@@ -28,12 +28,12 @@ import (
 )
 
 var (
-	Service4Map = bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb4_services",
+	Service4Map = bpf.NewMap("cilium_lb4_services",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service4Key{})),
 		int(unsafe.Sizeof(Service4Value{})),
 		maxEntries)
-	RevNat4Map = bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb4_reverse_nat",
+	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat4Key{})),
 		int(unsafe.Sizeof(RevNat4Value{})),
