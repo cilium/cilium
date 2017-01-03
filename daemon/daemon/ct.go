@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/bpf/ctmap"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 )
@@ -31,8 +30,8 @@ const (
 	GcInterval int = 10
 )
 
-func runGC(e *endpoint.Endpoint, prefix string, ctType ctmap.CtType) {
-	file := prefix + strconv.Itoa(int(e.ID))
+func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
+	file := bpf.MapPath(name + strconv.Itoa(int(e.ID)))
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		log.Warningf("Unable to open CT map %s: %s\n", file, err)
@@ -64,8 +63,8 @@ func (d *Daemon) EnableConntrackGC() {
 					continue
 				}
 
-				runGC(e, common.BPFMapCT6, ctmap.CtTypeIPv6)
-				runGC(e, common.BPFMapCT4, ctmap.CtTypeIPv4)
+				runGC(e, ctmap.MapName6, ctmap.CtTypeIPv6)
+				runGC(e, ctmap.MapName4, ctmap.CtTypeIPv4)
 			}
 
 			d.endpointsMU.Unlock()

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -424,7 +425,7 @@ func (d *Daemon) PolicyInit() error {
 		secLbl.AddOrUpdateContainer(lbl.String())
 		secLbl.Labels[k] = lbl
 
-		policyMapPath := fmt.Sprintf("%sreserved_%d", common.PolicyMapPath, uint32(v))
+		policyMapPath := bpf.MapPath(fmt.Sprintf("%sreserved_%d", policymap.MapName, int(v)))
 
 		policyMap, _, err := policymap.OpenMap(policyMapPath)
 		if err != nil {

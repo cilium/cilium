@@ -28,12 +28,12 @@ import (
 )
 
 var (
-	Service6Map = bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb6_services",
+	Service6Map = bpf.NewMap("cilium_lb6_services",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(Service6Value{})),
 		maxEntries)
-	RevNat6Map = bpf.NewMap(common.BPFCiliumMaps+"/cilium_lb6_reverse_nat",
+	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),

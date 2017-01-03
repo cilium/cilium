@@ -29,6 +29,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 )
 
+const (
+	MapName = "cilium_policy_"
+)
+
 type PolicyMap struct {
 	path string
 	Fd   int
@@ -128,7 +132,6 @@ func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 }
 
 func OpenMap(path string) (*PolicyMap, bool, error) {
-
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,
 		C.BPF_MAP_TYPE_HASH,

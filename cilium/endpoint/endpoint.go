@@ -367,7 +367,7 @@ func dumpMap(ctx *cli.Context) {
 		return
 	}
 
-	file := common.PolicyMapPath + lbl
+	file := bpf.MapPath(policymap.MapName + lbl)
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -454,7 +454,7 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 		return
 	}
 
-	file := common.PolicyMapPath + lbl
+	file := bpf.MapPath(policymap.MapName + lbl)
 	policyMap, _, err := policymap.OpenMap(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not open policymap '%s' : %s", file, err)
@@ -589,7 +589,9 @@ func listEndpointsBash(ctx *cli.Context) {
 
 }
 
-func dumpCtProto(file string, ctType ctmap.CtType) {
+func dumpCtProto(name string, ctType ctmap.CtType) {
+	file := bpf.MapPath(name)
+
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to open %s: %s\n", file, err)
@@ -609,6 +611,6 @@ func dumpCtProto(file string, ctType ctmap.CtType) {
 func dumpCt(ctx *cli.Context) {
 	lbl := ctx.Args().First()
 
-	dumpCtProto(common.BPFMapCT6+lbl, ctmap.CtTypeIPv6)
-	dumpCtProto(common.BPFMapCT4+lbl, ctmap.CtTypeIPv4)
+	dumpCtProto(ctmap.MapName6+lbl, ctmap.CtTypeIPv6)
+	dumpCtProto(ctmap.MapName4+lbl, ctmap.CtTypeIPv4)
 }

@@ -21,26 +21,12 @@ var (
 )
 
 const (
-	// Cilium constants
-
 	// CiliumPath is the path where cilium operational files are running.
 	CiliumPath    = "/var/run/cilium"
 	DefaultLibDir = "/usr/lib/cilium"
 	CiliumUIPath  = DefaultLibDir + "/ui"
 	// CiliumSock is the cilium socket for the communication between the daemon and cilium client.
 	CiliumSock = CiliumPath + "/cilium.sock"
-	// BPFMap is the file that contains the BPF Map for the host.
-	BPFMapRoot    = "/sys/fs/bpf"
-	BPFCiliumMaps = BPFMapRoot + "/tc/globals"
-	BPFMap        = BPFCiliumMaps + "/cilium_lxc"
-	// Basename prefix of endpoint specific policy map
-	PolicyMapName = "cilium_policy_"
-	// Path prefix to endpoint specific policy map
-	PolicyMapPath = BPFCiliumMaps + "/" + PolicyMapName
-	Ct6MapName    = "cilium_ct6_"
-	BPFMapCT6     = BPFCiliumMaps + "/" + Ct6MapName
-	Ct4MapName    = "cilium_ct4_"
-	BPFMapCT4     = BPFCiliumMaps + "/" + Ct4MapName
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
 	// log files.
 	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"

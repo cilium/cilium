@@ -27,12 +27,15 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/bpf/lxcmap"
+	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -262,9 +265,9 @@ func (d *Daemon) init() error {
 		}
 		d.conf.OptsMU.RUnlock()
 
-		d.conf.LXCMap, err = lxcmap.OpenMap(common.BPFMap)
+		d.conf.LXCMap, err = lxcmap.OpenMap()
 		if err != nil {
-			log.Warningf("Could not create BPF map '%s': %s", common.BPFMap, err)
+			log.Warningf("Could not create BPF endpoint map: %s", err)
 			return err
 		}
 
@@ -443,7 +446,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	walker := func(path string, _ os.FileInfo, _ error) error {
 		return d.staleMapWalker(path)
 	}
-	if err := filepath.Walk(common.BPFCiliumMaps, walker); err != nil {
+	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
 		log.Warningf("Error while scanning for stale maps: %s", err)
 	}
 
@@ -466,9 +469,9 @@ func (d *Daemon) staleMapWalker(path string) error {
 	filename := filepath.Base(path)
 
 	mapPrefix := []string{
-		common.PolicyMapName,
-		common.Ct6MapName,
-		common.Ct4MapName,
+		policymap.MapName,
+		ctmap.MapName6,
+		ctmap.MapName4,
 	}
 
 	for _, m := range mapPrefix {

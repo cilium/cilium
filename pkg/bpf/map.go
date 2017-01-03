@@ -30,6 +30,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"syscall"
 )
 
@@ -95,10 +96,11 @@ type MapInfo struct {
 type Map struct {
 	MapInfo
 	fd   int
+	name string
 	path string
 }
 
-func NewMap(path string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
+func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
 	return &Map{
 		MapInfo: MapInfo{
 			MapType:    mapType,
@@ -106,7 +108,7 @@ func NewMap(path string, mapType MapType, keySize int, valueSize int, maxEntries
 			ValueSize:  uint32(valueSize),
 			MaxEntries: uint32(maxEntries),
 		},
-		path: path,
+		name: name,
 	}
 }
 
@@ -147,8 +149,13 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 	return info, nil
 }
 
-func OpenMap(path string) (*Map, error) {
-	fd, err := ObjGet(path)
+func OpenMap(name string) (*Map, error) {
+	// Expand path if needed
+	if !path.IsAbs(name) {
+		name = MapPath(name)
+	}
+
+	fd, err := ObjGet(name)
 	if err != nil {
 		return nil, err
 	}
@@ -169,13 +176,30 @@ func OpenMap(path string) (*Map, error) {
 	return &Map{
 		MapInfo: *info,
 		fd:      fd,
-		path:    path,
+		name:    path.Base(name),
+		path:    name,
 	}, nil
+}
+
+func (m *Map) setPathIfUnset() error {
+	if m.path == "" {
+		if m.name == "" {
+			return fmt.Errorf("either path or name must be set")
+		}
+
+		m.path = MapPath(m.name)
+	}
+
+	return nil
 }
 
 func (m *Map) OpenOrCreate() (bool, error) {
 	if m.fd != 0 {
 		return false, nil
+	}
+
+	if err := m.setPathIfUnset(); err != nil {
+		return false, err
 	}
 
 	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries)
@@ -191,6 +215,10 @@ func (m *Map) OpenOrCreate() (bool, error) {
 func (m *Map) Open() error {
 	if m.fd != 0 {
 		return nil
+	}
+
+	if err := m.setPathIfUnset(); err != nil {
+		return err
 	}
 
 	fd, err := ObjGet(m.path)

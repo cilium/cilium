@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/geneve"
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
@@ -276,8 +277,8 @@ func (d *Daemon) writeBPFHeader(lxcDir string, ep *endpoint.Endpoint, geneveOpts
 	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(ep.PolicyMapPath()))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 512000\n")
-	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", path.Base(common.BPFMapCT6+strconv.Itoa(int(ep.ID))))
-	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", path.Base(common.BPFMapCT4+strconv.Itoa(int(ep.ID))))
+	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(ep.ID)))
+	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(ep.ID)))
 
 	// Always enable L4 and L3 load balancer for now
 	fw.WriteString("#define LB_L3\n")
