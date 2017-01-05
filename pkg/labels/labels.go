@@ -98,6 +98,21 @@ type Label struct {
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
 
+// AppendPrefixInKey appends the given prefix to all the Key's of the map and the
+// respective Labels' Key.
+func (l Labels) AppendPrefixInKey(prefix string) Labels {
+	newLabels := Labels{}
+	for k, v := range l {
+		newLabels[prefix+k] = &Label{
+			prefix + v.Key,
+			v.Value,
+			v.Source,
+			v.absKey,
+		}
+	}
+	return newLabels
+}
+
 // SecCtxLabel is the representation of the security context for a particular set of
 // labels.
 type SecCtxLabel struct {

@@ -44,8 +44,9 @@ type LabelPrefixCfg struct {
 
 // DefaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
 // LPCfgFileVersion and the following label prefixes: Key: common.GlobalLabelPrefix,
-// Source: common.CiliumLabelSource and Key: common.GlobalLabelPrefix, Source:
-// common.K8sLabelSource.
+// Source: common.CiliumLabelSource, Key: common.GlobalLabelPrefix, Source:
+// common.CiliumLabelSource, Key: common.GlobalLabelPrefix, Source: common.K8sLabelSource
+// and Key: common.K8sPodNamespaceLabel, Source: common.K8sLabelSource.
 func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 	return &LabelPrefixCfg{
 		Version: LPCfgFileVersion,
@@ -64,6 +65,25 @@ func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 			},
 			{
 				Prefix: common.K8sPodNamespaceLabel,
+				Source: common.K8sLabelSource,
+			},
+		},
+	}
+}
+
+// DefaultK8sLabelPrefixCfg returns a default LabelPrefixCfg using the latest
+// LPCfgFileVersion and the following label prefixes: Key: "k8s-app", Source:
+// common.K8sLabelSource and Key: "version", Source: common.K8sLabelSource.
+func DefaultK8sLabelPrefixCfg() *LabelPrefixCfg {
+	return &LabelPrefixCfg{
+		Version: LPCfgFileVersion,
+		LabelPrefixes: []*LabelPrefix{
+			{
+				Prefix: "k8s-app",
+				Source: common.K8sLabelSource,
+			},
+			{
+				Prefix: "version",
 				Source: common.K8sLabelSource,
 			},
 		},

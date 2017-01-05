@@ -49,6 +49,7 @@ var (
 	enableTracing      bool
 	enableLogstash     bool
 	etcdAddr           cli.StringSlice
+	k8sLabels          cli.StringSlice
 	labelPrefixFile    string
 	logstashAddr       string
 	logstashProbeTimer int
@@ -133,6 +134,11 @@ func init() {
 						Destination: &config.K8sCfgPath,
 						Name:        "k8s-kubeconfig-path",
 						Usage:       "Absolute path to the kubeconfig file",
+					},
+					cli.StringSliceFlag{
+						Value: &k8sLabels,
+						Name:  "k8s-prefix",
+						Usage: "Key values that will be read from kubernetes. (Default: k8s-app, version)",
 					},
 					cli.BoolTFlag{
 						Destination: &config.KeepConfig,
@@ -391,6 +397,17 @@ func initEnv(ctx *cli.Context) error {
 		}
 	} else {
 		config.ValidLabelPrefixes = labels.DefaultLabelPrefixCfg()
+	}
+
+	if len(k8sLabels) == 0 {
+		config.ValidK8sLabelPrefixes = labels.DefaultK8sLabelPrefixCfg()
+	} else {
+		for _, prefix := range k8sLabels {
+			config.ValidK8sLabelPrefixes.LabelPrefixes = append(
+				config.ValidK8sLabelPrefixes.LabelPrefixes,
+				&labels.LabelPrefix{Prefix: prefix, Source: common.K8sLabelSource},
+			)
+		}
 	}
 	config.ValidLabelPrefixesMU.Unlock()
 
