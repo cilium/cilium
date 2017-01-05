@@ -155,24 +155,30 @@ int from_netdev(struct __sk_buff *skb)
 	case __constant_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
+
+		/* We should only be seeing an error here for packets which have
+		 * been targetting an endpoint managed by us. */
+		if (IS_ERR(ret))
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 		break;
 
 #ifdef ENABLE_IPV4
 	case __constant_htons(ETH_P_IP):
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
-		ret = DROP_MISSED_TAIL_CALL;
-		break;
+		/* We are not returning an error here to always allow traffic to
+		 * the stack in case maps have become unavailable.
+		 *
+		 * Note: Since drop notification requires a tail call as well,
+		 * this notification is unlikely to succeed. */
+		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL, TC_ACT_OK);
 #endif
 
 	default:
 		/* Pass unknown traffic to the stack */
-		return TC_ACT_OK;
+		ret = TC_ACT_OK;
 	}
 
-	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	else
-		return ret;
+	return ret;
 }
 
 __BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
