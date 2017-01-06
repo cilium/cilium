@@ -28,22 +28,18 @@ uninstall_libvirt:
 	sudo virsh vol-delete --pool default "noironetworks-VAGRANTSLASH-net-next_vagrant_box_image_${image_version}.img"
 	-service libvirt-bin restart
 	-service libvirtd restart
-	rm Vagrantfile
 
 uninstall_vbox:
 	vagrant destroy
 	vagrant box remove noironetworks/net-next
-	rm Vagrantfile
 
 upload:
 	packer push -name noironetworks/net-next ubuntu-1404-atlas.json
 
 install_libvirt:
 	vagrant box add --force noironetworks/net-next ubuntu-1404-libvirt.box
-	cp Vagrantfile.sample  Vagrantfile
 	vagrant up --provider=libvirt
 
 install_vbox:
 	vagrant box add --force noironetworks/net-next ubuntu-1404-virtualbox.box
-	cp Vagrantfile.sample  Vagrantfile
 	vagrant up --provider=virtualbox
