@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
@@ -276,8 +277,8 @@ func (pn *Node) BuildPath() (string, error) {
 		}
 	}
 
-	if pn.Name != common.GlobalLabelPrefix {
-		return "", fmt.Errorf("error in policy: node %s is lacking parent", pn.Name)
+	if !strings.HasPrefix(pn.Name, common.GlobalLabelPrefix) {
+		return "", fmt.Errorf("error in policy: node %s parent prefix is different than %s", pn.Name, common.GlobalLabelPrefix)
 	}
 
 	return common.GlobalLabelPrefix, nil

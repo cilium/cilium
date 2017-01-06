@@ -83,12 +83,12 @@ func (d *Daemon) policyAddFn(obj interface{}) {
 	if !ok {
 		return
 	}
-	nodePath, pn, err := types.K8sNP2CP(k8sNP)
+	parentsPath, pn, err := types.K8sNP2CP(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
 	}
-	if err := d.PolicyAdd(nodePath, pn); err != nil {
+	if err := d.PolicyAdd(parentsPath, pn); err != nil {
 		log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
 		return
 	}
@@ -105,12 +105,15 @@ func (d *Daemon) policyDelFn(obj interface{}) {
 	if !ok {
 		return
 	}
-	nodePath, pn, err := types.K8sNP2CP(k8sNP)
+	parentsPath, pn, err := types.K8sNP2CP(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
 	}
-	if err := d.PolicyDelete(nodePath); err != nil {
+	if pn != nil {
+		parentsPath += "." + pn.Name
+	}
+	if err := d.PolicyDelete(parentsPath); err != nil {
 		log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
 		return
 	}
