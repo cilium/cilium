@@ -2,10 +2,10 @@
     "kind":"Service",
     "apiVersion":"v1",
     "metadata":{
-        "name":"redis-master",
+        "name":"redis-slave",
         "labels":{
-            "app":"redis",
-            "role":"master"
+            "k8s-app.guestbook":"redis",
+            "role":"slave"
         }
     },
     "spec":{
@@ -14,9 +14,8 @@
             "targetPort":"redis-server"
         }],
         "selector":{
-            "app":"redis",
-            "role":"master",
-            "io.cilium.lizards.db": ""
+            "k8s-app.guestbook":"redis",
+            "role":"slave"
         }
     }
 }

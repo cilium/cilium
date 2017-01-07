@@ -20,11 +20,6 @@ fi
 
 if [ -n "${K8S}" ]; then
     export 'K8STAG'="-k8s"
-    export 'VM_MEMORY'=5120
-    export 'VM_CPUS'=8
-    echo "Warning: In K8S mode, the VM memory and number of CPUs had to be"
-    echo "increased to ${VM_MEMORY} and ${VM_CPUS} respectively."
-    sleep 2s
 fi
 
 if [ -z "${VAGRANT_DEFAULT_PROVIDER}" ]; then
