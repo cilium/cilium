@@ -302,14 +302,23 @@ func (pn *Node) resolveRules() error {
 	return nil
 }
 
-func (p *Node) HasPolicyRule(pr PolicyRule) bool {
-	pr256Sum, _ := pr.SHA256Sum()
-	for _, r := range p.Rules {
-		if r256Sum, _ := r.SHA256Sum(); r256Sum == pr256Sum {
-			return true
+// HasPolicyRule checks if the given policy rule's coverage is present in the given node.
+// If found, returns the index of the rule, if not found returns -1.
+func (p *Node) HasPolicyRuleCoverage(pr PolicyRule) int {
+	pr256Sum, _ := pr.CoverageSHA256Sum()
+	return p.HasPolicyRuleCoverage256Sum(pr256Sum)
+}
+
+// HasPolicyRuleCoverage256Sum checks if the given coverageSHA256Sum coverage is present
+// in the given node's rules coverages. If found, returns the index of the rule, if not
+// found returns -1.
+func (p *Node) HasPolicyRuleCoverage256Sum(coverageSHA256Sum string) int {
+	for i, r := range p.Rules {
+		if r256Sum, _ := r.CoverageSHA256Sum(); r256Sum == coverageSHA256Sum {
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
 func (pn *Node) ResolveTree() error {
@@ -367,8 +376,9 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			if pn.HasPolicyRule(&pr_c) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_c)
+			if i := pn.HasPolicyRuleCoverage(&pr_c); i != -1 {
+				log.Infof("Replacing old rule %+v with %+v", pn.Rules[i], pr_c)
+				pn.Rules[i] = &pr_c
 			} else {
 				pn.Rules = append(pn.Rules, &pr_c)
 			}
@@ -386,8 +396,9 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				}
 			}
 
-			if pn.HasPolicyRule(&pr_c) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_c)
+			if i := pn.HasPolicyRuleCoverage(&pr_c); i != -1 {
+				log.Infof("Replacing old rule %+v with %+v", pn.Rules[i], pr_c)
+				pn.Rules[i] = &pr_c
 			} else {
 				pn.Rules = append(pn.Rules, &pr_c)
 			}
@@ -398,8 +409,9 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			if pn.HasPolicyRule(&pr_r) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_r)
+			if i := pn.HasPolicyRuleCoverage(&pr_r); i != -1 {
+				log.Infof("Replacing old rule %+v with %+v", pn.Rules[i], pr_r)
+				pn.Rules[i] = &pr_r
 			} else {
 				pn.Rules = append(pn.Rules, &pr_r)
 			}
@@ -434,8 +446,9 @@ func (pn *Node) Merge(obj *Node) error {
 	}
 
 	for _, objRule := range obj.Rules {
-		if pn.HasPolicyRule(objRule) {
-			log.Infof("Ignoring rule %+v since it's already present in the list of rules", objRule)
+		if i := pn.HasPolicyRuleCoverage(objRule); i != -1 {
+			log.Infof("Replacing old rule %+v with %+v", pn.Rules[i], objRule)
+			pn.Rules[i] = objRule
 		} else {
 			pn.Rules = append(pn.Rules, objRule)
 		}
