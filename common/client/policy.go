@@ -38,10 +38,10 @@ func (cli Client) PolicyAdd(path string, node *policy.Node) error {
 	return nil
 }
 
-// PolicyDelete sends a DELETE request to the "/policy/+path" endpoint to the daemon.
-func (cli Client) PolicyDelete(path string) error {
+// PolicyDelete sends a DELETE request to the "/policy/+path+/+coverage256Sum" endpoint to the daemon.
+func (cli Client) PolicyDelete(path, coverage256Sum string) error {
 
-	serverResp, err := cli.R().Delete("/policy/" + path)
+	serverResp, err := cli.R().Delete("/policy/" + path + "/" + coverage256Sum)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}

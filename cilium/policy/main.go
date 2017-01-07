@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/backend"
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -38,7 +39,7 @@ import (
 )
 
 var (
-	client             *cnc.Client
+	client             backend.CiliumBackend
 	ignoredMasksSource = []string{".git"}
 	ignoredMasks       []*regexp.Regexp
 	log                = l.MustGetLogger("cilium-cli")
@@ -88,7 +89,13 @@ func init() {
 				Usage:     "Delete policy (sub)tree",
 				Action:    deletePolicy,
 				ArgsUsage: "<path>",
-				Before:    verifyArgumentsValidate,
+				Flags: []cli.Flag{
+					cli.StringSliceFlag{
+						Name:  "coverage, c",
+						Usage: "Coverage for the given path. [SOURCE:]KEY[=VALUE]",
+					},
+				},
+				Before: verifyArgumentsValidate,
 			},
 			{
 				Name:   "get-id",
@@ -407,10 +414,20 @@ func dumpPolicy(ctx *cli.Context) {
 }
 
 func deletePolicy(ctx *cli.Context) {
-	path := ctx.Args().First()
+	path := ctx.Args().Get(0)
+	var err error
+	coverSHA256Sum := "0"
+	if coverageSlice := ctx.StringSlice("coverage"); len(coverageSlice) != 0 {
+		coverageLabels := labels.ParseStringLabelsInOrder(coverageSlice)
+		coverSHA256Sum, err = labels.LabelSliceSHA256Sum(coverageLabels)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to calculate SHA256Sum for the given labels: %s\n", err)
+			os.Exit(1)
+		}
+	}
 
-	if err := client.PolicyDelete(path); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
+	if err := client.PolicyDelete(path, coverSHA256Sum); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not delete node policy for: %s: %s\n", path, err)
 		os.Exit(1)
 	}
 }

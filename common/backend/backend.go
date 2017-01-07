@@ -59,7 +59,7 @@ type labelBackend interface {
 
 type policyBackend interface {
 	PolicyAdd(path string, node *policy.Node) error
-	PolicyDelete(path string) error
+	PolicyDelete(path, coverSHA256 string) error
 	PolicyGet(path string) (*policy.Node, error)
 	PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error)
 }

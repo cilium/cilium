@@ -523,8 +523,8 @@ func (router *Router) policyDelete(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, errors.New("server received empty policy path"))
 		return
 	}
-
-	if err := router.daemon.PolicyDelete(path); err != nil {
+	cover256Sum := vars["coverage256sum"]
+	if err := router.daemon.PolicyDelete(path, cover256Sum); err != nil {
 		processServerError(w, r, err)
 		return
 	}

@@ -17,6 +17,7 @@ package policy
 
 import (
 	"bytes"
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -188,10 +189,15 @@ func (s *SearchContext) TargetCoveredBy(coverage []labels.Label) bool {
 	return false
 }
 
+var (
+	CoverageSHASize = sha512.New512_256().Size()
+)
+
 type PolicyRule interface {
 	Allows(ctx *SearchContext) ConsumableDecision
 	Resolve(node *Node) error
 	SHA256Sum() (string, error)
+	CoverageSHA256Sum() (string, error)
 }
 
 // Do not allow further rules of specified type

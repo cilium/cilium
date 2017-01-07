@@ -380,28 +380,53 @@ func (d *Daemon) PolicyAdd(path string, node *policy.Node) error {
 	return nil
 }
 
-// PolicyDelete deletes the policy set in path from the policy tree.
-func (d *Daemon) PolicyDelete(path string) error {
+// PolicyDelete deletes the policy set in the given path from the policy tree. If
+// cover256Sum is set it finds the rule with the respective coverage that rule from the
+// node. If the path's node becomes ruleless it is removed from the tree.
+func (d *Daemon) PolicyDelete(path, cover256Sum string) (err error) {
 	log.Debugf("Policy Delete Request: %s", path)
 
 	d.policyMU.Lock()
-	node, parent, err := d.findNode(path)
-	if err != nil {
+	defer func() {
 		d.policyMU.Unlock()
+		if err != nil {
+			d.triggerPolicyUpdates([]uint32{})
+		}
+	}()
+
+	var node, parent *policy.Node
+	node, parent, err = d.findNode(path)
+	if err != nil {
 		return err
 	}
+
 	if parent == nil {
 		d.policy.Root = policy.NewNode(common.GlobalLabelPrefix, nil)
 
 		d.policy.Root.Path()
 	} else {
+		if len(cover256Sum) == policy.CoverageSHASize {
+			ruleIndex := -1
+			for i, pr := range node.Rules {
+				if prCover256Sum, err := pr.CoverageSHA256Sum(); err == nil &&
+					prCover256Sum == cover256Sum {
+					ruleIndex = i
+					break
+				}
+			}
+			if ruleIndex == -1 {
+				// rule with the given coverage was not found
+				return
+			}
+			if len(node.Rules) > 1 {
+				node.Rules = append(node.Rules[:ruleIndex], node.Rules[ruleIndex+1:]...)
+				return
+			}
+		}
 		delete(parent.Children, node.Name)
 	}
-	d.policyMU.Unlock()
 
-	d.triggerPolicyUpdates([]uint32{})
-
-	return nil
+	return
 }
 
 // PolicyGet returns the policy of the given path.

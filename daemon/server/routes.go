@@ -103,7 +103,7 @@ func (r *Router) initBackendRoutes() {
 			"PolicyAdd", "POST", "/policy/{path}", r.policyAdd,
 		},
 		route{
-			"PolicyDelete", "DELETE", "/policy/{path}", r.policyDelete,
+			"PolicyDelete", "DELETE", "/policy/{path}/{coverage256sum}", r.policyDelete,
 		},
 		route{
 			"PolicyGet", "GET", "/policy/{path}", r.policyGet,

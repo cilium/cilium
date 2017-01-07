@@ -55,7 +55,7 @@ type TestDaemon struct {
 	OnDeleteLabelsBySHA256      func(sha256sum, contID string) error
 	OnGetMaxLabelID             func() (uint32, error)
 	OnPolicyAdd                 func(path string, node *policy.Node) error
-	OnPolicyDelete              func(path string) error
+	OnPolicyDelete              func(path, cover256sum string) error
 	OnPolicyGet                 func(path string) (*policy.Node, error)
 	OnPolicyCanConsume          func(sc *policy.SearchContext) (*policy.SearchContextReply, error)
 	OnSVCAdd                    func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
@@ -255,9 +255,9 @@ func (d TestDaemon) PolicyAdd(path string, node *policy.Node) error {
 	return errors.New("PolicyAdd should not have been called")
 }
 
-func (d TestDaemon) PolicyDelete(path string) error {
+func (d TestDaemon) PolicyDelete(path, cover256sum string) error {
 	if d.OnPolicyDelete != nil {
-		return d.OnPolicyDelete(path)
+		return d.OnPolicyDelete(path, cover256sum)
 	}
 	return errors.New("PolicyDelete should not have been called")
 }
