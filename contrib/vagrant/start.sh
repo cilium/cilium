@@ -43,7 +43,11 @@ function write_header(){
     filename="${2}"
     cat <<EOF > "${filename}"
 # Use of IPv6 'documentation block' to provide example
-ip -6 a a 2001:DB8:AAAA::${index}/48 dev eth1
+if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
+    ip -6 a a 2001:DB8:AAAA::${index}/48 dev eth1
+else
+    ip -6 a a 2001:DB8:AAAA::${index}/48 dev enp0s8
+fi
 echo '2001:DB8:AAAA::1 cilium${K8STAG}-master' >> /etc/hosts
 
 EOF
@@ -70,14 +74,22 @@ EOF
 # Even numbered nodes are clients and odd numbered servers. Clients connect to servers via load balancer IP and servers directly connect to client nodes.
 	if [ "$LB" = 1 ] && [ $((node_index%2)) -eq 0 ]; then
 		cat <<EOF >> "${filename}"
-ip r a 10.${index}.0.1/32 dev eth1
+if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
+    ip r a 10.${index}.0.1/32 dev eth1
+else
+    ip r a 10.${index}.0.1/32 dev enp0s8
+fi
 ip -6 r a ${ipv6_base_addr: : -2}${hexIPv4}:0:0/96 via 2001:DB8:AAAA::1
 echo "2001:DB8:AAAA::${hexIPv6} cilium${K8STAG}-node-${index}" >> /etc/hosts
 
 EOF
 	else
 		cat <<EOF >> "${filename}"
-ip r a 10.${index}.0.1/32 dev eth1
+if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
+    ip r a 10.${index}.0.1/32 dev eth1
+else
+    ip r a 10.${index}.0.1/32 dev enp0s8
+fi
 ip -6 r a ${ipv6_base_addr: : -2}${hexIPv4}:0:0/96 via 2001:DB8:AAAA::${hexIPv6}
 echo "2001:DB8:AAAA::${hexIPv6} cilium${K8STAG}-node-${index}" >> /etc/hosts
 
@@ -106,23 +118,36 @@ function write_footer() {
     if [ "$LB" = 1 ] && [ "$index" = 1 ]; then
 	    cat <<EOF >> "$filename"
 sleep 2s
-sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-echo 'script' >> /etc/init/cilium-net-daemon.conf
-echo 'cilium lb init 2001:db8:aaaa::1 f00d::' >> /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run ${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
-echo 'end script' >> /etc/init/cilium-net-daemon.conf
-service cilium-net-daemon restart
-sleep 6s
-
+if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
+    sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
+    echo 'script' >> /etc/init/cilium-net-daemon.conf
+    echo 'cilium lb init 2001:db8:aaaa::1 f00d::' >> /etc/init/cilium-net-daemon.conf
+    echo 'exec cilium -D daemon run ${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+    echo 'end script' >> /etc/init/cilium-net-daemon.conf
+    service cilium-net-daemon restart
+else
+    sed -i '9s+.*+ExecStart=/usr/bin/cilium -D daemon run \$CILIUM_OPTS+' /lib/systemd/system/cilium-net-daemon.service
+    sed -i '9i ExecPreStart=/usr/bin/cilium lb init 2001:db8:aaaa::1 f00d::' /lib/systemd/system/cilium-net-daemon.service
+    echo 'CILIUM_OPTS=${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/sysconfig/cilium
+    echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
+    systemctl restart cilium-net-daemon.service
+fi
+sleep 10s
 EOF
     else
 	    cat <<EOF >> "$filename"
 sleep 2s
-sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-echo 'exec cilium -D daemon run ${k8s_options}-n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
-service cilium-net-daemon restart
-sleep 6s
-
+if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
+    sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
+    echo 'exec cilium -D daemon run ${k8s_options}-n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
+    service cilium-net-daemon restart
+else
+    sed -i '9s+.*+ExecStart=/usr/bin/cilium -D daemon run \$CILIUM_OPTS+' /lib/systemd/system/cilium-net-daemon.service
+    echo 'CILIUM_OPTS=${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/sysconfig/cilium
+    echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
+    systemctl restart cilium-net-daemon.service
+fi
+sleep 10s
 EOF
     fi
 }
@@ -145,7 +170,11 @@ function create_nodes(){
 
             cat <<EOF >> "${dir}/node-start-${i}.sh"
 ip -6 r a ${ipv6_base_addr}:0:0/96 via 2001:DB8:AAAA::1
-ip r a 10.1.0.1/32 dev eth1
+if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
+    ip r a 10.1.0.1/32 dev eth1
+else
+    ip r a 10.1.0.1/32 dev enp0s8
+fi
 
 echo "2001:DB8:AAAA::$(printf "%04X" "${i}") cilium${K8STAG}-node-${i}" >> /etc/hosts
 
