@@ -3,20 +3,34 @@
   "kind": "NetworkPolicy",
   "metadata": {
     "annotations": {
-      "io.cilium.name": "lizards",
+      "io.cilium.name": "k8s",
       "io.cilium.parent": "io.cilium"
     },
-    "name": "lizards-policy-web"
+    "name": "kubedns"
   },
   "spec": {
     "podSelector": {
       "matchLabels": {
-        "web": ""
+        "k8s-app": "kube-dns"
       }
     },
     "ingress": [
       {
         "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kube-system": ""
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "default": ""
+              }
+            }
+          },
           {
             "podSelector": {
               "matchLabels": {

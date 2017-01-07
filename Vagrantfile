@@ -53,33 +53,17 @@ SCRIPT
 
 $install_k8s = <<SCRIPT
 sudo apt-get -y install curl
-curl -L  https://github.com/coreos/etcd/releases/download/v2.2.4/etcd-v2.2.4-linux-amd64.tar.gz -o etcd-v2.2.4-linux-amd64.tar.gz
-tar xzvf etcd-v2.2.4-linux-amd64.tar.gz
+cd $HOME
+mkdir -p "$HOME/k8s"
+cd "$HOME/k8s"
 
-export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64
-echo 'export PATH=$PATH:/home/vagrant/etcd-v2.2.4-linux-amd64' >> $HOME/.profile
+k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/scripts"
 
-sudo chmod -R 775  /usr/local/go/pkg/
-sudo chgrp vagrant /usr/local/go/pkg/
-
-git clone -b v1.4.0 https://github.com/kubernetes/kubernetes.git
-sudo chown -R vagrant.vagrant kubernetes
-cd kubernetes
-patch -p1 < /home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/kubernetes-v1.4.0.patch
-
-go get -u github.com/jteeuwen/go-bindata/go-bindata
-
-# Install loopback cni plugin
-sudo mkdir -p /opt/cni/bin
-cd /opt/cni/bin
-sudo wget https://github.com/containernetworking/cni/releases/download/v0.3.0/cni-v0.3.0.tgz
-sudo tar zxvf cni-v0.3.0.tgz
-find . ! -name 'loopback' -type f -exec sudo rm -f {} +
-sudo tee /etc/cni/net.d/99-loopback.conf <<EOF
-{
-    "type": "loopback"
-}
-EOF
+INSTALL=1 "${k8s_path}/02-certificate-authority.sh"
+"${k8s_path}/03-2-run-inside-vms-etcd.sh"
+"${k8s_path}/04-2-run-inside-vms-kubernetes-controller.sh"
+"${k8s_path}/05-2-run-inside-vms-kubernetes-worker.sh"
+INSTALL=1 "${k8s_path}/06-kubectl.sh"
 
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
 

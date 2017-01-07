@@ -4,20 +4,18 @@
     "metadata":{
         "name":"guestbook",
         "labels":{
-            "app":"guestbook"
+            "k8s-app.guestbook":"web"
         }
     },
     "spec":{
         "replicas":1,
         "selector":{
-            "app":"guestbook",
-            "io.cilium.lizards.web": ""
+            "k8s-app.guestbook":"web"
         },
         "template":{
             "metadata":{
                 "labels":{
-                    "app":"guestbook",
-                    "io.cilium.lizards.web": ""
+                    "k8s-app.guestbook":"web"
                 }
             },
             "spec":{

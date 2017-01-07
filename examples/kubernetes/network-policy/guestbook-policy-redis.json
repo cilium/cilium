@@ -3,15 +3,15 @@
   "kind": "NetworkPolicy",
   "metadata": {
     "annotations": {
-      "io.cilium.name": "lizards",
-      "io.cilium.parent": "io.cilium"
+      "io.cilium.name": "k8s-app",
+      "io.cilium.parent": "io.cilium.k8s"
     },
-    "name": "lizards-policy-db"
+    "name": "guestbook-redis"
   },
   "spec": {
     "podSelector": {
       "matchLabels": {
-        "db": ""
+        "guestbook": "redis"
       }
     },
     "ingress": [
@@ -20,14 +20,14 @@
           {
             "podSelector": {
               "matchLabels": {
-                "web": ""
+                "guestbook": "redis"
               }
             }
           },
           {
-            "namespaceSelector": {
+            "podSelector": {
               "matchLabels": {
-                "default": ""
+                "guestbook": "web"
               }
             }
           }

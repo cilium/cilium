@@ -4,7 +4,7 @@
     "metadata":{
         "name":"guestbook",
         "labels":{
-            "app":"guestbook"
+            "k8s-app.guestbook":"web"
         }
     },
     "spec":{
@@ -13,8 +13,7 @@
             "targetPort":"http-server"
         }],
         "selector":{
-            "app":"guestbook",
-            "io.cilium.lizards.web": ""
+            "k8s-app.guestbook":"web"
         }
     }
 }

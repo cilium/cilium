@@ -3,137 +3,168 @@
 This tutorial will show you how you can have full IPv6 connectivity between
 docker containers orchestrated by kubernetes. All your services will be able to
 talk with their producers by only using the service name instead of static IPs.
-The containers started by kubernetes will have some labels where the policy for those labels
-will be pushed to the [v1beta1 kubernetes network policy API](https://github.com/kubernetes/kubernetes/blob/master/docs/proposals/network-policy.md)
+The containers started by kubernetes will have some labels. The network policy for those
+labels will be created via [v1beta1 kubernetes network policy API](https://github.com/kubernetes/kubernetes/blob/master/docs/proposals/network-policy.md)
 and enforced with Cilium.
 
 ## Requirements
 
- - Cilium Vagrant Image
- - IPv6 connectivity between host and Cilium Vagrant VM
- - Setup cilium-net-daemon in direct routing mode
- - Tested with `kubernetes-v1.4.0` patched with `kubernetes-v1.4.0.patch`
+ - VirtualBox with 2 host only networks `192.168.33.1/24` and `192.168.34.1/24` and DHCP mode off
+ - Vagrant
+ - Cilium vagrant image with `K8S` mode ON
+ - Tested with `kubernetes-v1.5.1`
 
-### IPv6 connectivity between host and Cilium Vagrant VM - VirtualBox provider
+### Set up cilium vagrant image with K8S mode ON
 
-1 - Search for the interface that connects to your VMs, it should be something like
-`vboxnet#` and have the IP network `192.168.34.0/24`.
+**Make sure you've 2 host only networks in your VirtualBox configurations. Open Virtualbox: File > Preferences > Network > Host-only and check.**
 
-```bash
-HOST $ ip address show dev vboxnet1
-     11: vboxnet1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
-         link/ether 0a:00:27:00:00:01 brd ff:ff:ff:ff:ff:ff
-         inet 192.168.34.1/24 brd 192.168.34.255 scope global vboxnet1
-            valid_lft forever preferred_lft forever
-         inet6 fe80::800:27ff:fe00:1/64 scope link
-            valid_lft forever preferred_lft forever
+Start the vagrant VM with our provided scripts:
+```
+K8S=1 ./contrib/vagrant/start.sh
 ```
 
-2 - Set the IPv6 disable to 0 for that vboxnet interface
+*This might take a while depending on your network bandwidth and machine speed.*
 
-```bash
-HOST $ sudo sysctl net.ipv6.conf.vboxnet1.disable_ipv6=0
+After the machine is set up you can SSH into it and check if everything is running properly:
+
+```
+K8S=1 vagrant ssh cilium-k8s-master
+```
+*Inside the VM check kubernetes component statuses:*
+```
+kubectl get cs
+```
+```
+NAME                 STATUS    MESSAGE              ERROR
+controller-manager   Healthy   ok
+scheduler            Healthy   ok
+etcd-0               Healthy   {"health": "true"}
+```
+Check kubernetes nodes:
+```
+kubectl get nodes
+```
+```
+NAME            STATUS    AGE
+cilium-master   Ready     9m
+```
+Check cilium daemon status:
+```
+cilium daemon status
+```
+```
+KVStore:      OK - 172.17.0.2:8300
+Docker:       OK
+Kubernetes:   OK - v1.5.1
+Cilium:       OK
+V4 addresses reserved:
+ 10.1.0.1
+V6 addresses reserved:
 ```
 
-3 - Set an IPv6 address in your host
+*Note: Cilium is running in "baremetal" and not in a kubernetes daemonset.*
 
-```bash
-HOST $ sudo ip -6 address add beef::dead:fffd/112 dev vboxnet1
+### Check if you can ping your VM from the host
+```
+$ ping -c 1 192.168.34.11
+PING 192.168.34.11 (192.168.34.11) 56(84) bytes of data.
+64 bytes from 192.168.34.11: icmp_seq=1 ttl=64 time=0.195 ms
+
+--- 192.168.34.11 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.195/0.195/0.195/0.000 ms
 ```
 
-4 - Set an IPv6 address in your VM that connects to your host, it should have the
-IP network `192.168.34.0/24`:
-```bash
-VM $ ip address show dev eth2
-4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
-    link/ether 08:00:27:dc:9c:08 brd ff:ff:ff:ff:ff:ff
-    inet 192.168.34.11/24 brd 192.168.34.255 scope global eth2
-       valid_lft forever preferred_lft forever
-    inet6 fe80::a00:27ff:fedc:9c08/64 scope link
-       valid_lft forever preferred_lft forever
-VM $
-VM $ sudo ip -6 address add beef::dead:fffe/112 dev eth2
+## Create the kubernetes network policies
+
+Go to the VM and run the following commands:
+
+```
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/network-policy/guestbook-policy-redis.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/network-policy/guestbook-policy-web.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/network-policy/kubedns-policy.json
+```
+Check the deployment:
+```
+kubectl get networkpolicy
+```
+```
+NAME              POD-SELECTOR                   AGE
+guestbook-redis   guestbook=redis                14s
+guestbook-web     guestbook=web                  14s
+kubedns           k8s-app=kube-dns               13s
 ```
 
-5 - You should be able to ping the host from the VM
-
-```bash
-VM $ ping6 beef::dead:fffd
-PING beef::dead:fffd(beef::dead:fffd) 56 data bytes
-64 bytes from beef::dead:fffd: icmp_seq=1 ttl=64 time=0.691 ms
-...
+And import the cilium policy to the daemon:
+```
+cat <<EOF | cilium -D policy import -
+{
+        "name": "io.cilium",
+        "rules": [{
+                "coverage": ["reserved:world"],
+                "allow": ["k8s:io.cilium.k8s.k8s-app=kube-dns"]
+        }]
+}
+EOF
 ```
 
-6 - Add the IPv6 route for the services IP addresses in the host so the host can reach
-the containers:
+## Create some administration services
 
-```bash
-HOST $ sudo ip -6 route add f00d:1::/112 via beef::dead:fffe
+Now that we have all network policies set in place we will be able to set up some services such
+as the kube-dns.
+
+```
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/kubedns-svc.yaml
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/kubedns-rc.yaml
+```
+And check the deployment
+```
+kubectl --namespace=kube-system get svc
+```
+```
+NAME                   CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE
+kube-dns               10.32.0.10   <none>        53/UDP,53/TCP   10s
+```
+```
+kubectl --namespace=kube-system get pods
+```
+```
+NAME                                    READY     STATUS    RESTARTS   AGE
+kube-dns-v20-1485703853-mqbsq           3/3       Running   0          1m
+kube-dns-v20-1485703853-q742f           3/3       Running   0          1m
 ```
 
-7 - Set the VM as a router so it can route the traffic from the HOST to the containers:
+*Wait until all pods are in running state*
 
-```bash
-VM $ sudo sysctl -w net.ipv6.conf.all.forwarding=1
+## Run guestbook service
+
+Now that we have a proper kubernetes cluster ready for our services we can run a simple service in our cluster:
+```
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/guestbook/1-redis-master-controller.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/guestbook/2-redis-master-service.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/guestbook/3-redis-slave-controller.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/guestbook/4-redis-slave-service.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/guestbook/5-guestbook-controller.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/deployments/guestbook/6-guestbook-service.json
+```
+Check the deployment
+```
+kubectl get pods -o wide
+```
+```
+NAME                 READY     STATUS    RESTARTS   AGE       IP             NODE
+guestbook-dxg09      1/1       Running   0          3m        10.1.16.218    cilium-master
+redis-master-rpxm0   1/1       Running   0          3m        10.1.100.129   cilium-master
+redis-slave-3vv08    1/1       Running   0          3m        10.1.15.138    cilium-master
+```
+*Wait until all pods are in running state*
+
+Check the guestbook pod IP, on this case is `10.1.16.218` and run `socat` in the VM:
+
+```
+sudo socat TCP-LISTEN:3000,fork TCP:10.1.16.218:3000
 ```
 
-### Setup cilium-net-daemon in direct routing mode
-
-Edit the file `/etc/init.d/cilium-net-daemon.conf` and make sure it has the following
-options set up:
-
-```bash
-VM $ sudo cat /etc/init/cilium-net-daemon.conf
-env PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-exec cilium -D daemon run --lb -n F00D::C0A8:210B:0:0 -t vxlan -c "192.168.33.11:8500" -k http://[f00d::c0a8:210b:0:ffff]:8080
-```
-
-Don't forget to restart the service: `sudo service cilium-net-daemon restart`
-
-## Edit the env-kube.sh
-
-Source the `env-kube.sh` file to your console and run
-`~/kubernetes/hack/local-up-cluster.sh`:
-
-```bash
-VM $ source ./env-kube.sh
-VM $ cd ~/kubernetes
-VM $ ./hack/local-up-cluster.sh
-```
-
-Wait until kubernetes has started (you'll see a message similar to):
-```
-To start using your cluster, open up another terminal/tab and run:
-```
-
-## Setting up the 3rd party extensions
-
-Kubernetes is already running with `--runtime-config=extensions/v1beta1=true,extensions/v1beta1/thirdpartyresources=true`
-so we'll first put some kubernetes network policies. Simply run `./0-policy.sh` that will
-take care of it.
-
-```bash
-VM $ ./0-policy.sh
-```
-
-## Setting up guestbook example
-
-Next run `1-guestbook.sh` and you should be something similar to this:
-
-```bash
-VM $ ./1-guestbook.sh
-replicationcontroller "redis-master" created
-service "redis-master" created
-replicationcontroller "redis-slave" created
-service "redis-slave" created
-replicationcontroller "guestbook" created
-service "guestbook" created
-Getting Guestbook IP. Attempt 1/10...
-Getting Guestbook IP. Attempt 2/10...
-Guestbook IP found! Open in your host the address
-http://[f00d:1::6fa0]:3000
-```
-
-Open your browser and you should see something similar to this:
+Open your browser in 192.168.34.11:3000 and you should see something similar to this:
 
 ![browser](browser.png)

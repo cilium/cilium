@@ -2,31 +2,29 @@
     "kind":"ReplicationController",
     "apiVersion":"v1",
     "metadata":{
-        "name":"redis-slave",
+        "name":"redis-master",
         "labels":{
-            "app":"redis",
-            "role":"slave"
+            "k8s-app.guestbook":"redis",
+            "role":"master"
         }
     },
     "spec":{
         "replicas":1,
         "selector":{
-            "app":"redis",
-            "role":"slave",
-            "io.cilium.lizards.db": ""
+            "k8s-app.guestbook":"redis",
+            "role":"master"
         },
         "template":{
             "metadata":{
                 "labels":{
-                    "app":"redis",
-                    "role":"slave",
-                    "io.cilium.lizards.db": ""
+                    "k8s-app.guestbook":"redis",
+                    "role":"master"
                 }
             },
             "spec":{
                 "containers":[{
-                    "name":"redis-slave",
-                    "image":"gcr.io/google_samples/gb-redisslave:v1",
+                    "name":"redis-master",
+                    "image":"redis",
                     "ports":[{
                         "name":"redis-server",
                         "containerPort":6379
