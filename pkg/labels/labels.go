@@ -473,3 +473,21 @@ func ParseStringLabels(strLbls []string) Labels {
 
 	return lbls
 }
+
+func LabelSliceSHA256Sum(labels []Label) (string, error) {
+	sha := sha512.New512_256()
+	if err := json.NewEncoder(sha).Encode(labels); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+}
+
+func ParseStringLabelsInOrder(strLbls []string) []Label {
+	lbls := []Label{}
+	for _, l := range strLbls {
+		lbl := ParseLabel(l)
+		lbls = append(lbls, *lbl)
+	}
+
+	return lbls
+}

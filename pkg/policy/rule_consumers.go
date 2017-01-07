@@ -153,3 +153,7 @@ func (c *PolicyRuleConsumers) SHA256Sum() (string, error) {
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
+
+func (c *PolicyRuleConsumers) CoverageSHA256Sum() (string, error) {
+	return labels.LabelSliceSHA256Sum(c.Coverage)
+}

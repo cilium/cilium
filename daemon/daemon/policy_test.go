@@ -75,7 +75,7 @@ func (ds *DaemonSuite) TestFindNode(c *C) {
 	c.Assert(n, Not(Equals), nullPtr)
 	c.Assert(p, Not(Equals), nullPtr)
 
-	err = ds.d.PolicyDelete("io.cilium")
+	err = ds.d.PolicyDelete("io.cilium", "")
 	c.Assert(err, Equals, nil)
 }
 
@@ -96,7 +96,7 @@ func (ds *DaemonSuite) TestPolicyGet(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(n, Not(Equals), nil)
 
-	err = ds.d.PolicyDelete("io.cilium.foo")
+	err = ds.d.PolicyDelete("io.cilium.foo", "")
 	c.Assert(err, Equals, nil)
 }
 
@@ -221,6 +221,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
-	err = ds.d.PolicyDelete("io.cilium")
+	err = ds.d.PolicyDelete("io.cilium", "")
 	c.Assert(err, Equals, nil)
 }

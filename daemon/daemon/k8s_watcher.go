@@ -113,11 +113,23 @@ func (d *Daemon) policyDelFn(obj interface{}) {
 	if pn != nil {
 		parentsPath += "." + pn.Name
 	}
-	if err := d.PolicyDelete(parentsPath); err != nil {
-		log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
-		return
+
+	gotErrors := false
+	for _, rule := range pn.Rules {
+		coverageSHA256Sum, err := rule.CoverageSHA256Sum()
+		if err != nil {
+			log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
+			gotErrors = true
+			continue
+		}
+		if err := d.PolicyDelete(parentsPath, coverageSHA256Sum); err != nil {
+			log.Errorf("Error while deleting kubernetes network policy %+v rule %+v: %s with ", pn, rule, err)
+			gotErrors = true
+		}
 	}
-	log.Infof("Kubernetes network policy successfully removed %+v", obj)
+	if !gotErrors {
+		log.Infof("Kubernetes network policy successfully removed %+v", obj)
+	}
 }
 
 func (d *Daemon) serviceAddFn(obj interface{}) {

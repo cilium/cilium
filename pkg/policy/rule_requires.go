@@ -89,3 +89,11 @@ func (c *PolicyRuleRequires) SHA256Sum() (string, error) {
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
+
+func (c *PolicyRuleRequires) CoverageSHA256Sum() (string, error) {
+	sha := sha512.New512_256()
+	if err := json.NewEncoder(sha).Encode(c.Coverage); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+}
