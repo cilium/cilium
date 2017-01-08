@@ -34,7 +34,7 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 		return TC_ACT_OK;
 	}
 
-	if (skb->cb[CB_POLICY] == POLICY_SKIP)
+	if (skb->cb[CB_POLICY])
 		goto allow;
 
 	cilium_trace(skb, DBG_POLICY_DENIED, src_label, SECLABEL);
@@ -56,12 +56,17 @@ allow:
  */
 static inline void policy_mark_skip(struct __sk_buff *skb)
 {
-	skb->cb[CB_POLICY] = POLICY_SKIP;
+	skb->cb[CB_POLICY] = 1;
 }
 
 static inline void policy_clear_mark(struct __sk_buff *skb)
 {
 	skb->cb[CB_POLICY] = 0;
+}
+
+static inline int is_policy_skip(struct __sk_buff *skb)
+{
+	return skb->cb[CB_POLICY];
 }
 
 #else /* POLICY_ENFORCEMENT */
@@ -77,6 +82,11 @@ static inline void policy_mark_skip(struct __sk_buff *skb)
 
 static inline void policy_clear_mark(struct __sk_buff *skb)
 {
+}
+
+static inline int is_policy_skip(struct __sk_buff *skb)
+{
+	return 1;
 }
 #endif /* !POLICY_ENFORCEMENT */
 

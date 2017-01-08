@@ -84,6 +84,7 @@ type Daemon struct {
 	registerUIListener        chan *Conn
 	ignoredContainers         map[string]int
 	ignoredMutex              sync.RWMutex
+	loopbackIPv4              net.IP
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
@@ -237,6 +238,7 @@ func (d *Daemon) init() error {
 
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
+	fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", binary.LittleEndian.Uint32(d.loopbackIPv4))
 
 	ipv4Range := d.conf.NodeAddress.IPv4AllocRange()
 	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
@@ -420,6 +422,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	if d.ipamConf, err = d.conf.createIPAMConf(); err != nil {
 		return nil, err
+	}
+
+	if d.conf.IPv4Enabled {
+		// Allocate IPv4 service loopback IP
+		loopbackIPv4, err := d.ipamConf.IPv4Allocator.AllocateNext()
+		if err != nil {
+			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
+		}
+		d.loopbackIPv4 = loopbackIPv4
 	}
 
 	if err = d.init(); err != nil {

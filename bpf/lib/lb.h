@@ -299,7 +299,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb6_key *key,
 				       struct ipv6_ct_tuple *tuple, struct lb6_service *svc,
-				       __u16 *rev_nat_index)
+				       struct ct_state *state)
 {
 	__u16 slave;
 
@@ -309,8 +309,8 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
 
 	ipv6_addr_copy(&tuple->addr, &svc->target);
 
-	if (rev_nat_index)
-		*rev_nat_index = svc->rev_nat_index;
+	if (state)
+		state->rev_nat_index = svc->rev_nat_index;
 
 	return lb6_xlate(skb, &tuple->addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, svc);
@@ -319,9 +319,10 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
 static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
-					 struct lb4_reverse_nat *nat)
+					 struct lb4_reverse_nat *nat,
+					 struct ct_state *ct_state)
 {
-	__be32 old_sip, new_sip, sum;
+	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
 	cilium_trace(skb, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
@@ -343,11 +344,35 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		new_sip = nat->address;
 	}
 
+	if (ct_state->loopback) {
+		/* The packet was looped back to the sending endpoint on the
+		 * forward service translation. This implies that the original
+		 * source address of the packet is the source address of the
+		 * current packet. We therefore need to make the current source
+		 * address the new destination address */
+		__be32 old_dip;
+
+		ret = skb_load_bytes(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
+		if (IS_ERR(ret))
+			return ret;
+
+		cilium_trace(skb, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
+
+		ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, daddr), &old_sip, 4, 0);
+		if (IS_ERR(ret))
+			return DROP_WRITE_ERROR;
+
+		sum = csum_diff(&old_dip, 4, &old_sip, 4, 0);
+
+		/* Update the tuple address which is representing the destination address */
+		tuple->addr = old_sip;
+	}
+
         ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &new_sip, 4, 0);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&old_sip, 4, &new_sip, 4, 0);
+	sum = csum_diff(&old_sip, 4, &new_sip, 4, sum);
 	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
@@ -369,17 +394,19 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
  * @arg tuple		tuple
  */
 static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
-					 struct csum_offset *csum_off, __u16 index,
+					 struct csum_offset *csum_off,
+					 struct ct_state *ct_state,
 					 struct ipv4_ct_tuple *tuple, int flags)
 {
 	struct lb4_reverse_nat *nat;
 
-	cilium_trace(skb, DBG_LB4_REVERSE_NAT_LOOKUP, index, 0);
-	nat = map_lookup_elem(&cilium_lb4_reverse_nat, &index);
+	cilium_trace(skb, DBG_LB4_REVERSE_NAT_LOOKUP, ct_state->rev_nat_index, 0);
+	nat = map_lookup_elem(&cilium_lb4_reverse_nat, &ct_state->rev_nat_index);
 	if (nat == NULL)
 		return 0;
 
-	return __lb4_rev_nat(skb, l3_off, l4_off, csum_off, tuple, flags, nat);
+	return __lb4_rev_nat(skb, l3_off, l4_off, csum_off, tuple, flags, nat,
+			     ct_state);
 }
 
 /** Extract IPv4 LB key from packet
@@ -457,18 +484,30 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 	return NULL;
 }
 
-static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, __u8 nexthdr,
-				       int l3_off, int l4_off, struct csum_offset *csum_off,
-				       struct lb4_key *key, struct lb4_service *svc)
+static inline int __inline__
+lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
+	  __be32 *old_saddr, __u8 nexthdr, int l3_off, int l4_off,
+	  struct csum_offset *csum_off, struct lb4_key *key,
+	  struct lb4_service *svc)
 {
 	int ret;
 	__be32 sum;
 
-	ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, daddr), new_addr, 4, 0);
+	ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, daddr), new_daddr, 4, 0);
 	if (ret < 0)
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&key->address, 4, new_addr, 4, 0);
+	sum = csum_diff(&key->address, 4, new_daddr, 4, 0);
+
+	if (new_saddr && *new_saddr) {
+		cilium_trace(skb, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
+		ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), new_saddr, 4, 0);
+		if (ret < 0)
+			return DROP_WRITE_ERROR;
+
+		sum = csum_diff(old_saddr, 4, new_saddr, 4, sum);
+	}
+
 	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
@@ -494,21 +533,36 @@ static inline int __inline__ lb4_xlate(struct __sk_buff *skb, __be32 *new_addr, 
 static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb4_key *key,
 				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc,
-				       __u16 *rev_nat_index)
+				       struct ct_state *state, __be32 saddr)
 {
+	__be32 new_saddr = 0, new_daddr;
 	__u16 slave;
 
 	slave = lb_select_slave(skb, svc->count);
 	if (!(svc = lb4_lookup_slave(skb, key, slave)))
 		return DROP_NO_SERVICE;
 
-	tuple->addr = svc->target;
+	state->rev_nat_index = svc->rev_nat_index;
+	state->addr = new_daddr = svc->target;
 
-	if (rev_nat_index)
-		*rev_nat_index = svc->rev_nat_index;
+#ifndef DISABLE_LOOPBACK_LB
+	/* Special loopback case: The origin endpoint has transmitted to a
+	 * service which is being translated back to the source. This would
+	 * result in a packet with identical source and destination address.
+	 * Linux considers such packets as martian source and will drop unless
+	 * received on a loopback device. Perform NAT on the source address
+	 * to make it appear from an outside address.
+	 */
+	if (saddr == svc->target) {
+		new_saddr = IPV4_LOOPBACK;
+		state->loopback = 1;
+		state->addr = new_saddr;
+	}
+#endif
 
-	return lb4_xlate(skb, &tuple->addr, tuple->nexthdr, l3_off, l4_off,
-			 csum_off, key, svc);
+	return lb4_xlate(skb, &new_daddr, &new_saddr, &saddr,
+			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
+			 svc);
 }
 
 #endif /* __LB_H_ */

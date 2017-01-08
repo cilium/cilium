@@ -638,7 +638,7 @@ cat <<EOF | cilium -D policy import -
 		"client": { },
 		"server": {
 			"rules": [{
-				"allow": ["reserved:host", "../client"]
+				"allow": ["reserved:host", "../client", "../server"]
 			}]
 		}
 
@@ -741,7 +741,17 @@ docker exec -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-## Test 4: Run wrk & ab from container => bpf_lxc (LB) => local container
+sudo cilium endpoint ct dump $SERVER1_ID
+
+## Test 4: Reachability of own service IP
+cilium lb update-service --rev --frontend "$SVC_IP4:0"  --id 223 \
+			--backend "$SERVER1_IP4:0"
+
+docker exec -ti server1 ping -c 4 $SVC_IP4 || {
+	abort "Error: Unable to reach own service IP"
+}
+
+## Test 5: Run wrk & ab from container => bpf_lxc (LB) => local container
 
 cilium lb update-service --rev --frontend "[$SVC_IP6]:80" --id 2223 \
                         --backend "[$SERVER1_IP]:80" \

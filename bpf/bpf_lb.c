@@ -33,6 +33,8 @@
  *  - LB_L4           - Enable L4 matching and mapping
  */
 
+#define DISABLE_LOOPBACK_LB
+
 #include <netdev_config.h>
 
 #include <bpf/api.h>
@@ -156,7 +158,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return DROP_NO_SERVICE;
 
 	new_dst = svc->target;
-	ret = lb4_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
+	ret = lb4_xlate(skb, &new_dst, NULL, NULL, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
 
