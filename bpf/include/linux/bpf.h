@@ -441,23 +441,23 @@ enum bpf_func_id {
  * new fields can only be added to the end of this structure
  */
 struct __sk_buff {
-	__u32 len;
-	__u32 pkt_type;
-	__u32 mark;
-	__u32 queue_mapping;
-	__u32 protocol;
-	__u32 vlan_present;
-	__u32 vlan_tci;
-	__u32 vlan_proto;
-	__u32 priority;
-	__u32 ingress_ifindex;
-	__u32 ifindex;
-	__u32 tc_index;
-	__u32 cb[5];
-	__u32 hash;
-	__u32 tc_classid;
-	__u32 data;
-	__u32 data_end;
+	__u32 len;		/*  0 */
+	__u32 pkt_type;		/*  4 */
+	__u32 mark;		/*  8 */
+	__u32 queue_mapping;	/* 12 */
+	__u32 protocol;		/* 16 */
+	__u32 vlan_present;	/* 20 */
+	__u32 vlan_tci;		/* 24 */
+	__u32 vlan_proto;	/* 28 */
+	__u32 priority;		/* 32 */
+	__u32 ingress_ifindex;	/* 36 */
+	__u32 ifindex;		/* 40 */
+	__u32 tc_index;		/* 44 */
+	__u32 cb[5];		/* 48: cb[0], 52: cb[1], 56: cb[2], 60: cb[3], 64: cb[4] */
+	__u32 hash;		/* 68 */
+	__u32 tc_classid;	/* 72 */
+	__u32 data;		/* 76 */
+	__u32 data_end;		/* 80 */
 };
 
 struct bpf_tunnel_key {
