@@ -66,6 +66,9 @@ const (
 	DBG_LB4_LOOKUP_SLAVE_SUCCESS
 	DBG_LB4_REVERSE_NAT_LOOKUP
 	DBG_LB4_REVERSE_NAT
+	DBG_LB4_LOOPBACK_SNAT
+	DBG_LB4_LOOPBACK_SNAT_REV
+	DBG_CT_LOOKUP4
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -121,6 +124,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
 	case DBG_CT_LOOKUP:
 		fmt.Printf("CT lookup: %s\n", CtInfo(n.Arg1, n.Arg2))
+	case DBG_CT_LOOKUP4:
+		fmt.Printf("CT lookup address: %x\n", n.Arg1)
 	case DBG_CT_MATCH:
 		fmt.Printf("CT entry found lifetime=%d, revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_CT_CREATED:
@@ -169,6 +174,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Slave service lookup result: target=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_LB4_REVERSE_NAT:
 		fmt.Printf("Performing reverse NAT, address=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB4_LOOPBACK_SNAT:
+		fmt.Printf("Loopback SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
+	case DBG_LB4_LOOPBACK_SNAT_REV:
+		fmt.Printf("Loopback reverse SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

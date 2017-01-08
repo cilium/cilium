@@ -110,7 +110,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
-	__u16 rev_nat_index = 0, nat_index = 0;
+	struct ct_state ct_state_new = {};
+	struct ct_state ct_state_reply = {};
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -152,7 +153,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 */
 	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
 		ret = lb6_local(skb, l3_off, l4_off, &csum_off, &key, tuple, svc,
-				&nat_index);
+				&ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -168,7 +169,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, 0, &rev_nat_index);
+	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, 0, &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
@@ -179,7 +180,7 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = ct_create6(&CT_MAP6, tuple, skb, 0, nat_index);
+		ret = ct_create6(&CT_MAP6, tuple, skb, 0, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -189,10 +190,11 @@ skip_service_lookup:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		skb->cb[CB_POLICY] = POLICY_SKIP;
+		policy_mark_skip(skb);
 
-		if (rev_nat_index) {
-			ret = lb6_rev_nat(skb, l4_off, &csum_off, rev_nat_index, tuple, 0);
+		if (ct_state_reply.rev_nat_index) {
+			ret = lb6_rev_nat(skb, l4_off, &csum_off,
+					  ct_state_reply.rev_nat_index, tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -256,7 +258,7 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
-		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
@@ -279,7 +281,7 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
+	cilium_trace(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
 
 	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr);
 	if (unlikely(ret != TC_ACT_OK))
@@ -346,7 +348,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
 	struct lb4_key key = {};
-	__u16 rev_nat_index = 0, nat_index = 0;
+	struct ct_state ct_state_new = {};
+	struct ct_state ct_state_reply = {};
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -385,7 +388,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
-				&key, &tuple, svc, &nat_index);
+				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -401,7 +404,8 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 0, &rev_nat_index);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 0,
+			 &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
@@ -412,7 +416,7 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = ct_create4(&CT_MAP4, &tuple, skb, 0, nat_index);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 0, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -422,17 +426,13 @@ skip_service_lookup:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		skb->cb[CB_POLICY] = POLICY_SKIP;
+		policy_mark_skip(skb);
 
-		if (rev_nat_index) {
+		if (ct_state_reply.rev_nat_index) {
 			ret = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
-					  rev_nat_index, &tuple, 0);
+					  &ct_state_reply, &tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
-
-			/* A reverse translate packet is always allowed except for delivery
-			 * on the local node in which case this marking is cleared again. */
-			policy_mark_skip(skb);
 		}
 		break;
 
@@ -446,6 +446,8 @@ skip_service_lookup:
 	ip4 = data + ETH_HLEN;
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
+
+	tuple.addr = ip4->daddr;
 
 	/* Check if destination is within our cluster prefix */
 	if ((tuple.addr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
@@ -484,7 +486,7 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
-		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
@@ -507,7 +509,7 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_trace(skb, DBG_TO_STACK, skb->cb[CB_POLICY], 0);
+	cilium_trace(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
 
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
@@ -597,21 +599,21 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	struct csum_offset off = {};
 	int ret, l4_off, verdict;
-	__u32 rev_nat_index;
-	__u16 src_rev_nat = 0;
+	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state_new = {};
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	skb->cb[CB_POLICY] = 0;
+	policy_clear_mark(skb);
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.addr, (union v6addr *) &ip6->saddr);
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	csum_l4_offset_and_flags(tuple.nexthdr, &off);
 
 	/* derive reverse NAT index and zero it. */
-	rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
-	if (rev_nat_index) {
+	ct_state_new.rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
+	if (ct_state_new.rev_nat_index) {
 		union v6addr dip;
 
 		ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
@@ -622,20 +624,21 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 		if (off.offset) {
 			__u32 zero_nat = 0;
-			__be32 sum = csum_diff(&rev_nat_index, 4, &zero_nat, 4, 0);
+			__be32 sum = csum_diff(&ct_state_new.rev_nat_index, 4, &zero_nat, 4, 0);
 			if (csum_l4_replace(skb, l4_off, &off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 				return DROP_CSUM_L4;
 		}
 	}
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, 1, &src_rev_nat);
+	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, 1, &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
-	if (unlikely(src_rev_nat)) {
+	if (unlikely(ct_state_reply.rev_nat_index)) {
 		int ret2;
 
-		ret2 = lb6_rev_nat(skb, l4_off, &off, src_rev_nat, &tuple, 0);
+		ret2 = lb6_rev_nat(skb, l4_off, &off,
+				   ct_state_reply.rev_nat_index, &tuple, 0);
 		if (IS_ERR(ret2))
 			return ret2;
 	}
@@ -647,7 +650,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
 
-		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, rev_nat_index);
+		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -663,19 +666,20 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct csum_offset off = {};
 	int ret, verdict, l4_off;
-	__u16 src_rev_nat = 0;
+	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state_new = {};
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	skb->cb[CB_POLICY] = 0;
+	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
 	tuple.addr = ip4->saddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &off);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 1, &src_rev_nat);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 1, &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
@@ -686,11 +690,13 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 #endif
 
-	if (unlikely(src_rev_nat)) {
+	if (unlikely(ret == CT_REPLY && ct_state_reply.rev_nat_index &&
+		     !ct_state_reply.loopback)) {
 		int ret2;
 
-		ret2 = lb4_rev_nat(skb, ETH_HLEN, l4_off, &off, src_rev_nat, &tuple,
-				  REV_NAT_F_TUPLE_SADDR);
+		ret2 = lb4_rev_nat(skb, ETH_HLEN, l4_off, &off,
+				   &ct_state_reply, &tuple,
+				   REV_NAT_F_TUPLE_SADDR);
 		if (IS_ERR(ret2))
 			return ret2;
 
@@ -700,11 +706,10 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	 * passed through the allowed consumer. */
 	verdict = policy_can_access(&POLICY_MAP, skb, src_label);
 	if (unlikely(ret == CT_NEW)) {
-		//volatile int rev_nat;
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
 
-		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, 0);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 	}

@@ -146,6 +146,7 @@ enum {
 	CB_IFINDEX,
 	CB_POLICY,
 	CB_NAT46_STATE,
+	CB_CT_STATE,
 };
 
 /* State values for NAT46 */
@@ -153,12 +154,6 @@ enum {
 	NAT46_CLEAR,
 	NAT64,
 	NAT46,
-};
-
-/* Flag values for CB_POLICY */
-enum {
-	POLICY_UNSPEC,
-	POLICY_SKIP,
 };
 
 struct ipv6_ct_tuple {
@@ -188,7 +183,8 @@ struct ct_entry {
 	__u16 rx_closing:1,
 	      tx_closing:1,
 	      nat46:1,
-	      reserve:13;
+	      lb_loopback:1,
+	      reserve:12;
 	__u16 rev_nat_index;
 };
 
@@ -227,5 +223,12 @@ struct lb4_reverse_nat {
 	__be32 address;
 	__u16 port;
 } __attribute__((packed));
+
+struct ct_state {
+	__u16 rev_nat_index;
+	__u16 loopback:1,
+	      reserved:15;
+	__be32 addr;
+};
 
 #endif

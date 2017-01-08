@@ -34,6 +34,7 @@
 #define IPV4_CLUSTER_MASK 0xff0000
 #define IPV4_CLUSTER_RANGE 0x100000
 #define IPV4_GATEWAY 0xfffff50a
+#define IPV4_LOOPBACK 0x1ffff50a
 #define ENCAP_GENEVE 1
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff

@@ -49,7 +49,8 @@ enum {
 
 
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
-					 void *tuple, int action, int in, __u16 *rev_nat_index)
+					 void *tuple, int action, int in,
+					 struct ct_state *ct_state)
 {
 	struct ct_entry *entry;
 	int ret;
@@ -57,8 +58,10 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		entry->lifetime = CT_DEFAULT_LIFEIME;
-		if (rev_nat_index)
-			*rev_nat_index = entry->rev_nat_index;;
+		if (ct_state) {
+			ct_state->rev_nat_index = entry->rev_nat_index;
+			ct_state->loopback = entry->lb_loopback;
+		}
 
 #ifdef LXC_NAT46
 		/* This packet needs nat46 translation */
@@ -128,7 +131,8 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int l4_off, __u32 secctx, int in, __u16 *rev_nat_index)
+					struct __sk_buff *skb, int l4_off, __u32 secctx, int in,
+					struct ct_state *ct_state)
 {
 	int ret, action = ACTION_UNSPEC;
 
@@ -222,7 +226,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 */
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	if ((ret = __ct_lookup(map, skb, tuple, action, in, rev_nat_index)) != CT_NEW) {
+	if ((ret = __ct_lookup(map, skb, tuple, action, in, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -269,7 +273,7 @@ static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 /* Offset must point to IPv4 header */
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, __u32 secctx, int in,
-					__u16 *rev_nat_index)
+					struct ct_state *ct_state)
 {
 	int ret, action = ACTION_UNSPEC;
 	int type = 0;
@@ -360,7 +364,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 */
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	if ((ret = __ct_lookup(map, skb, tuple, action, in, rev_nat_index)) != CT_NEW) {
+	cilium_trace(skb, DBG_CT_LOOKUP4, tuple->addr, 0);
+	if ((ret = __ct_lookup(map, skb, tuple, action, in, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -374,7 +379,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	ipv4_ct_tuple_reverse(tuple);
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	ret = __ct_lookup(map, skb, tuple, action, in, NULL);
+	ret = __ct_lookup(map, skb, tuple, action, in, ct_state);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
@@ -387,14 +392,16 @@ out:
 
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int in, __u16 rev_nat_index)
+					struct __sk_buff *skb, int in,
+					struct ct_state *ct_state)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = {
 		.lifetime = CT_DEFAULT_LIFEIME,
 	};
 
-	entry.rev_nat_index = rev_nat_index;
+	entry.rev_nat_index = ct_state->rev_nat_index;
+	entry.lb_loopback = ct_state->loopback;
 
 	if (in) {
 		entry.rx_packets = 1;
@@ -406,7 +413,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	cilium_trace(skb, DBG_CT_CREATED2, tuple->addr.p4, rev_nat_index);
+	cilium_trace(skb, DBG_CT_CREATED2, tuple->addr.p4, ct_state->rev_nat_index);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
@@ -429,14 +436,16 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 }
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int in, __u16 rev_nat_index)
+					struct __sk_buff *skb, int in,
+					struct ct_state *ct_state)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = {
 		.lifetime = CT_DEFAULT_LIFEIME,
 	};
 
-	entry.rev_nat_index = rev_nat_index;
+	entry.rev_nat_index = ct_state->rev_nat_index;
+	entry.lb_loopback = ct_state->loopback;
 
 	if (in) {
 		entry.rx_packets = 1;
@@ -453,9 +462,31 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	cilium_trace(skb, DBG_CT_CREATED2, tuple->addr, rev_nat_index);
+	cilium_trace(skb, DBG_CT_CREATED2, tuple->addr, ct_state->rev_nat_index);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
+
+	if (ct_state->addr) {
+		__be32 tmp = tuple->addr;
+		tuple->addr = ct_state->addr;
+		__u8 flags = tuple->flags;
+
+		/* We are looping back into the origin endpoint through a service,
+		 * set up a conntrack tuple for the reply to ensure we do rev NAT
+		 * before attempting to route the destination address which will
+		 * not point back to the right source. */
+		if (ct_state->loopback)
+			tuple->flags = TUPLE_F_IN;
+
+		cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
+			     (tuple->nexthdr << 8) | tuple->flags);
+		cilium_trace(skb, DBG_CT_CREATED2, tuple->addr, ct_state->rev_nat_index);
+		if (map_update_elem(map, tuple, &entry, 0) < 0)
+			return DROP_CT_CREATE_FAILED;
+
+		tuple->addr = tmp;
+		tuple->flags = flags;
+	}
 
 	/* Create an ICMPv6 entry to relate errors */
 	/* FIXME: We could do a lookup and check if an L3 entry already exists */
@@ -472,34 +503,36 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 }
 
 #else /* !CONNTRACK */
-static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
-void *tuple, int action, int in, __u16 *rev_nat_index)
+static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb, void *tuple,
+					 int action, int in, struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, __u32 secctx, int in,
-					__u16 *rev_nat_index)
+					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, __u32 secctx, int in,
-					__u16 *rev_nat_index)
+					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int in, __u16 rev_nat_index)
+					struct __sk_buff *skb, int in,
+					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int in, __u16 rev_nat_index)
+					struct __sk_buff *skb, int in,
+					struct ct_state *ct_state)
 {
 	return 0;
 }
