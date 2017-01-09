@@ -296,6 +296,7 @@ func (d *Daemon) EndpointUpdate(epID uint16, opts option.OptionMap) error {
 	defer d.endpointsMU.Unlock()
 
 	if ep := d.lookupCiliumEndpoint(epID); ep != nil {
+		d.invalidateCache()
 		err := ep.Update(d, opts)
 		if err == nil {
 			if val, ok := opts[endpoint.OptionLearnTraffic]; ok {
