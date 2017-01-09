@@ -17,6 +17,7 @@ package policy
 
 import (
 	"encoding/json"
+	"testing"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
@@ -24,25 +25,16 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-type CommonSuite struct{}
-
-var _ = Suite(&CommonSuite{})
-
-func (s *CommonSuite) TestReservedID(c *C) {
-	i1 := labels.GetID("host")
-	c.Assert(i1, Equals, labels.ID_HOST)
-	c.Assert(i1.String(), Equals, "host")
-
-	i2 := labels.GetID("world")
-	c.Assert(i2, Equals, labels.ID_WORLD)
-	c.Assert(i2.String(), Equals, "world")
-
-	c.Assert(labels.GetID("unknown"), Equals, labels.ID_UNKNOWN)
-	unknown := labels.ReservedID(700)
-	c.Assert(unknown.String(), Equals, "")
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
 }
 
-func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
+type PolicyTestSuite struct{}
+
+var _ = Suite(&PolicyTestSuite{})
+
+func (s *PolicyTestSuite) TestUnmarshalAllowRule(c *C) {
 	var rule AllowRule
 
 	longLabel := `{"source": "kubernetes", "key": "!io.kubernetes.pod.name", "value": "foo"}`
@@ -78,7 +70,7 @@ func (s *CommonSuite) TestUnmarshalAllowRule(c *C) {
 	c.Assert(err, Not(Equals), nil)
 }
 
-func (s *CommonSuite) TestNodeCovers(c *C) {
+func (s *PolicyTestSuite) TestNodeCovers(c *C) {
 	root := Node{
 		Name: common.GlobalLabelPrefix,
 		Children: map[string]*Node{
@@ -109,7 +101,7 @@ func (s *CommonSuite) TestNodeCovers(c *C) {
 	c.Assert(root.Children["bar"].Covers(&ctx), Equals, false)
 }
 
-func (s *CommonSuite) TestLabelCompare(c *C) {
+func (s *PolicyTestSuite) TestLabelCompare(c *C) {
 	a1 := labels.NewLabel("io.cilium", "", "")
 	a2 := labels.NewLabel("io.cilium", "", "")
 	b1 := labels.NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
@@ -124,7 +116,7 @@ func (s *CommonSuite) TestLabelCompare(c *C) {
 	c.Assert(b1.Equals(c1), Equals, false)
 }
 
-func (s *CommonSuite) TestAllowRule(c *C) {
+func (s *PolicyTestSuite) TestAllowRule(c *C) {
 	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	lblBar := labels.NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	lblBaz := labels.NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
@@ -150,7 +142,7 @@ func (s *CommonSuite) TestAllowRule(c *C) {
 	c.Assert(allowAll.Allows(&ctx2), Equals, ACCEPT)
 }
 
-func (s *CommonSuite) TestTargetCoveredBy(c *C) {
+func (s *PolicyTestSuite) TestTargetCoveredBy(c *C) {
 	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	lblBar := labels.NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	lblBaz := labels.NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
@@ -184,7 +176,7 @@ func (s *CommonSuite) TestTargetCoveredBy(c *C) {
 	c.Assert(ctx.TargetCoveredBy(list4), Equals, true)
 }
 
-func (s *CommonSuite) TestAllowConsumer(c *C) {
+func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 	lblTeamA := labels.NewLabel("io.cilium.teamA", "", common.CiliumLabelSource)
 	lblTeamB := labels.NewLabel("io.cilium.teamB", "", common.CiliumLabelSource)
 	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
@@ -269,7 +261,7 @@ func (s *CommonSuite) TestAllowConsumer(c *C) {
 	c.Assert(consumers.Allows(&bBazToBar), Equals, UNDECIDED)
 }
 
-func (s *CommonSuite) TestBuildPath(c *C) {
+func (s *PolicyTestSuite) TestBuildPath(c *C) {
 	rootNode := Node{Name: common.GlobalLabelPrefix}
 	p, err := rootNode.BuildPath()
 	c.Assert(p, Equals, common.GlobalLabelPrefix)
@@ -294,7 +286,7 @@ func (s *CommonSuite) TestBuildPath(c *C) {
 
 }
 
-func (s *CommonSuite) TestValidateCoverage(c *C) {
+func (s *PolicyTestSuite) TestValidateCoverage(c *C) {
 	rootNode := Node{Name: common.GlobalLabelPrefix}
 	node := Node{
 		Name:   "foo",
@@ -317,7 +309,7 @@ func (s *CommonSuite) TestValidateCoverage(c *C) {
 	c.Assert(consumer.Resolve(&node), Equals, nil)
 }
 
-func (s *CommonSuite) TestRequires(c *C) {
+func (s *PolicyTestSuite) TestRequires(c *C) {
 	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
 	lblBar := labels.NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
 	lblBaz := labels.NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
@@ -352,7 +344,7 @@ func (s *CommonSuite) TestRequires(c *C) {
 	c.Assert(requires.Allows(&aBarToBaz), Equals, UNDECIDED)
 }
 
-func (s *CommonSuite) TestNodeAllows(c *C) {
+func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 	lblProd := labels.NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
 	lblQA := labels.NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
 	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
@@ -443,7 +435,7 @@ func (s *CommonSuite) TestNodeAllows(c *C) {
 	c.Assert(rootNode.Allows(&qaBazToQaBar), Equals, UNDECIDED)
 }
 
-func (s *CommonSuite) TestResolveTree(c *C) {
+func (s *PolicyTestSuite) TestResolveTree(c *C) {
 	rootNode := Node{
 		Name: common.GlobalLabelPrefix,
 		Children: map[string]*Node{
@@ -455,7 +447,7 @@ func (s *CommonSuite) TestResolveTree(c *C) {
 	c.Assert(rootNode.Children["foo"].Name, Equals, "foo")
 }
 
-func (s *CommonSuite) TestpolicyAllows(c *C) {
+func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 	lblProd := labels.NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
 	lblQA := labels.NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
 	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
@@ -542,7 +534,7 @@ func (s *CommonSuite) TestpolicyAllows(c *C) {
 
 	c.Assert(rootNode.ResolveTree(), Equals, nil)
 
-	root := Tree{&rootNode}
+	root := Tree{Root: &rootNode}
 	c.Assert(root.Allows(&qaFooToQaBar), Equals, ACCEPT)
 	c.Assert(root.Allows(&prodFooToProdBar), Equals, ACCEPT)
 	c.Assert(root.Allows(&qaFooToProdBar), Equals, DENY)
@@ -554,7 +546,7 @@ func (s *CommonSuite) TestpolicyAllows(c *C) {
 	c.Assert(err, Equals, nil)
 }
 
-func (s *CommonSuite) TestNodeMerge(c *C) {
+func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	// Name mismatch
 	aNode := Node{Name: "a"}
 	bNode := Node{Name: "b"}
@@ -636,7 +628,7 @@ func (s *CommonSuite) TestNodeMerge(c *C) {
 	c.Assert(err, Equals, nil)
 }
 
-func (s *CommonSuite) TestSearchContextReplyJSON(c *C) {
+func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
 	scr := SearchContextReply{
 		Logging:  []byte(`foo`),
 		Decision: ConsumableDecision(0x1),

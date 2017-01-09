@@ -228,7 +228,7 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 		line, ctx, off := getContext(content, e.Offset)
 
 		if off <= 1 {
-			return fmt.Errorf("Error: No policy")
+			return fmt.Errorf("malformed policy, not JSON?")
 		}
 
 		preoff := off - 1
@@ -240,14 +240,14 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 			}
 		}
 
-		return fmt.Errorf("Error: %s:%d: Syntax error at offset %d:\n%s\n%s^",
+		return fmt.Errorf("%s:%d: syntax error at offset %d:\n%s\n%s^",
 			path.Base(f), line, off, ctx, pre)
 	case *json.UnmarshalTypeError:
 		line, ctx, off := getContext(content, e.Offset)
-		return fmt.Errorf("Error: %s:%d: Unable to assign value '%s' to type '%v':\n%s\n%*c",
+		return fmt.Errorf("%s:%d: unable to assign value '%s' to type '%v':\n%s\n%*c",
 			path.Base(f), line, e.Value, e.Type, ctx, off, '^')
 	default:
-		return fmt.Errorf("Error: %s: Unknown error:%s", path.Base(f), err)
+		return fmt.Errorf("%s: unknown error:%s", path.Base(f), err)
 	}
 }
 
@@ -434,7 +434,7 @@ func deletePolicy(ctx *cli.Context) {
 
 func getSecID(ctx *cli.Context) {
 	if ctx.Bool("list") {
-		for k, v := range labels.ResDec {
+		for k, v := range policy.ReservedIdentities {
 			fmt.Printf("%-15s %3d\n", k, v)
 		}
 		return
@@ -442,7 +442,7 @@ func getSecID(ctx *cli.Context) {
 
 	lbl := ctx.Args().First()
 
-	if id := labels.GetID(lbl); id != labels.ID_UNKNOWN {
+	if id := policy.GetReservedID(lbl); id != policy.ID_UNKNOWN {
 		fmt.Printf("%d\n", id)
 	} else {
 		os.Exit(1)
@@ -451,7 +451,7 @@ func getSecID(ctx *cli.Context) {
 
 func parseAllowedSlice(slice []string) ([]labels.Label, error) {
 	inLabels := []labels.Label{}
-	id := uint32(0)
+	id := policy.NumericIdentity(0)
 
 	for _, v := range slice {
 		if n, err := strconv.ParseUint(v, 10, 32); err != nil {
@@ -463,7 +463,7 @@ func parseAllowedSlice(slice []string) ([]labels.Label, error) {
 				return nil, fmt.Errorf("More than one security ID provided")
 			}
 
-			id = uint32(n)
+			id = policy.NumericIdentity(n)
 		}
 	}
 

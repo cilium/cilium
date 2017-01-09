@@ -19,13 +19,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 // PutLabels sends POST request with labels to the daemon. Returns
-func (cli Client) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
+func (cli Client) PutLabels(lbls labels.Labels, contID string) (*policy.Identity, bool, error) {
 
 	serverResp, err := cli.R().SetBody(lbls).Post("/labels/" + contID)
 	if err != nil {
@@ -37,7 +37,7 @@ func (cli Client) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLa
 	}
 
 	// TODO: check if the value is new or not. Possible by checking if labelsResp.RefCount == 1
-	var labelsResp labels.SecCtxLabel
+	var labelsResp policy.Identity
 	if err := json.Unmarshal(serverResp.Body(), &labelsResp); err != nil {
 		return nil, false, err
 	}
@@ -45,11 +45,10 @@ func (cli Client) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLa
 	return &labelsResp, false, nil
 }
 
-// GetLabels sends a GET request with id to the daemon. Returns the labels.SecCtxLabels
-// with the given id. If it's not found, labels.SecCtxLabels and error are booth nil.
-func (cli Client) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
-
-	serverResp, err := cli.R().Get("/labels/by-uuid/" + strconv.FormatUint(uint64(id), 10))
+// GetLabels sends a GET request with id to the daemon. Returns the policy.Identitys
+// with the given id. If it's not found, policy.Identitys and error are booth nil.
+func (cli Client) GetLabels(id policy.NumericIdentity) (*policy.Identity, error) {
+	serverResp, err := cli.R().Get("/labels/by-uuid/" + id.StringID())
 	if err != nil {
 		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -63,18 +62,18 @@ func (cli Client) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
 		return nil, nil
 	}
 
-	var secCtxLabels labels.SecCtxLabel
-	if err := json.Unmarshal(serverResp.Body(), &secCtxLabels); err != nil {
+	var res policy.Identity
+	if err := json.Unmarshal(serverResp.Body(), &res); err != nil {
 		return nil, err
 	}
 
-	return &secCtxLabels, nil
+	return &res, nil
 }
 
 // GetLabelsBySHA256 sends a GET request with sha256sum to the daemon. Returns the
-// labels.SecCtxLabels with the given id. If it's not found, labels.SecCtxLabels and error
+// policy.Identitys with the given id. If it's not found, policy.Identitys and error
 // are booth nil.
-func (cli Client) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error) {
+func (cli Client) GetLabelsBySHA256(sha256sum string) (*policy.Identity, error) {
 
 	serverResp, err := cli.R().Get("/labels/by-sha256sum/" + sha256sum)
 	if err != nil {
@@ -90,7 +89,7 @@ func (cli Client) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, erro
 		return nil, nil
 	}
 
-	var secCtxLabels labels.SecCtxLabel
+	var secCtxLabels policy.Identity
 	if err := json.Unmarshal(serverResp.Body(), &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -99,9 +98,8 @@ func (cli Client) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, erro
 }
 
 // DeleteLabelsByUUID sends a DELETE request with id to the daemon.
-func (cli Client) DeleteLabelsByUUID(id uint32, contID string) error {
-
-	serverResp, err := cli.R().Delete("/labels/by-uuid/" + strconv.FormatUint(uint64(id), 10) + "/" + contID)
+func (cli Client) DeleteLabelsByUUID(id policy.NumericIdentity, contID string) error {
+	serverResp, err := cli.R().Delete("/labels/by-uuid/" + id.StringID() + "/" + contID)
 	if err != nil {
 		return fmt.Errorf("error while connecting to daemon: %s", err)
 	}
@@ -129,7 +127,7 @@ func (cli Client) DeleteLabelsBySHA256(sha256sum, contID string) error {
 }
 
 // GetMaxLabelID sends a GET request to the daemon. Returns the next, possible, free UUID.
-func (cli Client) GetMaxLabelID() (uint32, error) {
+func (cli Client) GetMaxLabelID() (policy.NumericIdentity, error) {
 
 	serverResp, err := cli.R().Get("/labels/status/maxUUID")
 	if err != nil {
@@ -140,7 +138,7 @@ func (cli Client) GetMaxLabelID() (uint32, error) {
 		return 0, processErrorBody(serverResp.Body(), nil)
 	}
 
-	var maxID uint32
+	var maxID policy.NumericIdentity
 	if err := json.Unmarshal(serverResp.Body(), &maxID); err != nil {
 		return 0, err
 	}

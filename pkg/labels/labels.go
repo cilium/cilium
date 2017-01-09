@@ -33,6 +33,12 @@ var (
 	log = logging.MustGetLogger("cilium-labels")
 )
 
+const (
+	ID_NAME_ALL   = "all"
+	ID_NAME_HOST  = "host"
+	ID_NAME_WORLD = "world"
+)
+
 type LabelOpType string
 
 const (
@@ -111,54 +117,6 @@ func (l Labels) AppendPrefixInKey(prefix string) Labels {
 		}
 	}
 	return newLabels
-}
-
-// SecCtxLabel is the representation of the security context for a particular set of
-// labels.
-type SecCtxLabel struct {
-	// SecCtxLabel's ID.
-	ID uint32 `json:"id"`
-	// Containers that have this SecCtxLabel where their value is the last time they were seen.
-	Labels Labels `json:"labels"`
-	// Set of labels that belong to this SecCtxLabel.
-	Containers map[string]time.Time `json:"containers"`
-}
-
-func (s *SecCtxLabel) DeepCopy() *SecCtxLabel {
-	cpy := &SecCtxLabel{
-		ID:         s.ID,
-		Labels:     s.Labels.DeepCopy(),
-		Containers: make(map[string]time.Time, len(s.Containers)),
-	}
-	for k, v := range s.Containers {
-		cpy.Containers[k] = v
-	}
-	return cpy
-}
-
-func NewSecCtxLabel() *SecCtxLabel {
-	return &SecCtxLabel{
-		Containers: make(map[string]time.Time),
-		Labels:     make(map[string]*Label),
-	}
-}
-
-func (s *SecCtxLabel) AddOrUpdateContainer(contID string) {
-	s.Containers[contID] = time.Now()
-}
-
-func (s *SecCtxLabel) DelContainer(contID string) {
-	delete(s.Containers, contID)
-}
-
-func (s *SecCtxLabel) RefCount() int {
-	refCount := 0
-	for _, t := range s.Containers {
-		if t.Add(secLabelTimeout).After(time.Now()) {
-			refCount++
-		}
-	}
-	return refCount
 }
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,

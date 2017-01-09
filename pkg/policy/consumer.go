@@ -22,8 +22,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+// An entity that consumes a Consumable
 type Consumer struct {
-	ID           uint32
+	ID           NumericIdentity
 	Reverse      *Consumer
 	DeletionMark bool
 	Decision     ConsumableDecision
@@ -40,18 +41,25 @@ func (c *Consumer) DeepCopy() *Consumer {
 	return cpy
 }
 
-func NewConsumer(id uint32) *Consumer {
+func (c *Consumer) StringID() string {
+	return c.ID.String()
+}
+
+func NewConsumer(id NumericIdentity) *Consumer {
 	return &Consumer{ID: id, Decision: ACCEPT}
 }
 
+// An entity that is being consumed by a Consumable
 type Consumable struct {
-	ID           uint32                       `json:"id"`
-	Iteration    int                          `json:"-"`
-	Labels       *labels.SecCtxLabel          `json:"labels"`
-	LabelList    []labels.Label               `json:"-"`
-	Maps         map[int]*policymap.PolicyMap `json:"-"`
-	Consumers    map[string]*Consumer         `json:"consumers"`
-	ReverseRules map[uint32]*Consumer         `json:"-"`
+	ID           NumericIdentity               `json:"id"`
+	Iteration    int                           `json:"-"`
+	Labels       *Identity                     `json:"labels"`
+	LabelList    []labels.Label                `json:"-"`
+	Maps         map[int]*policymap.PolicyMap  `json:"-"`
+	Consumers    map[string]*Consumer          `json:"consumers"`
+	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
+	L4Policy     *L4Policy                     `json:"l4-policy"`
+	cache        *ConsumableCache
 }
 
 func (c *Consumable) DeepCopy() *Consumable {
@@ -61,11 +69,15 @@ func (c *Consumable) DeepCopy() *Consumable {
 		LabelList:    make([]labels.Label, len(c.LabelList)),
 		Maps:         make(map[int]*policymap.PolicyMap, len(c.Maps)),
 		Consumers:    make(map[string]*Consumer, len(c.Consumers)),
-		ReverseRules: make(map[uint32]*Consumer, len(c.ReverseRules)),
+		ReverseRules: make(map[NumericIdentity]*Consumer, len(c.ReverseRules)),
+		cache:        c.cache,
 	}
 	copy(cpy.LabelList, c.LabelList)
 	if c.Labels != nil {
 		cpy.Labels = c.Labels.DeepCopy()
+	}
+	if c.L4Policy != nil {
+		cpy.L4Policy = c.L4Policy.DeepCopy()
 	}
 	for k, v := range c.Maps {
 		cpy.Maps[k] = v.DeepCopy()
@@ -79,14 +91,15 @@ func (c *Consumable) DeepCopy() *Consumable {
 	return cpy
 }
 
-func newConsumable(id uint32, lbls *labels.SecCtxLabel) *Consumable {
+func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
 	consumable := &Consumable{
 		ID:           id,
 		Iteration:    0,
 		Labels:       lbls,
 		Maps:         map[int]*policymap.PolicyMap{},
 		Consumers:    map[string]*Consumer{},
-		ReverseRules: map[uint32]*Consumer{},
+		ReverseRules: map[NumericIdentity]*Consumer{},
+		cache:        cache,
 	}
 
 	if lbls != nil {
@@ -105,23 +118,6 @@ func newConsumable(id uint32, lbls *labels.SecCtxLabel) *Consumable {
 	return consumable
 }
 
-var consumableCache = map[uint32]*Consumable{}
-
-func GetConsumable(id uint32, lbls *labels.SecCtxLabel) *Consumable {
-	if v, ok := consumableCache[id]; ok {
-		return v
-	}
-
-	consumableCache[id] = newConsumable(id, lbls)
-
-	return consumableCache[id]
-}
-
-func LookupConsumable(id uint32) *Consumable {
-	v, _ := consumableCache[id]
-	return v
-}
-
 func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	if c.Maps == nil {
 		c.Maps = make(map[int]*policymap.PolicyMap)
@@ -138,14 +134,19 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	// Populate the new map with the already established consumers of
 	// this consumable
 	for _, c := range c.Consumers {
-		if err := m.AllowConsumer(c.ID); err != nil {
+		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
 		}
 	}
 }
 
-func deleteReverseRule(consumable, consumer uint32) {
-	if reverse := LookupConsumable(consumable); reverse != nil {
+func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer NumericIdentity) {
+	if c.cache == nil {
+		log.Errorf("Consumable without cache association: %+v", consumer)
+		return
+	}
+
+	if reverse := c.cache.Lookup(consumable); reverse != nil {
 		delete(reverse.ReverseRules, consumer)
 		if reverse.wasLastRule(consumer) {
 			reverse.removeFromMaps(consumer)
@@ -161,10 +162,12 @@ func (c *Consumable) Delete() {
 			c.removeFromMaps(consumer.ID)
 		}
 
-		deleteReverseRule(consumer.ID, c.ID)
+		c.deleteReverseRule(consumer.ID, c.ID)
 	}
 
-	delete(consumableCache, c.ID)
+	if c.cache != nil {
+		c.cache.Remove(c)
+	}
 }
 
 func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
@@ -182,45 +185,45 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) Consumer(id uint32) *Consumer {
-	val, _ := c.Consumers[strconv.FormatUint(uint64(id), 10)]
+func (c *Consumable) GetConsumer(id NumericIdentity) *Consumer {
+	val, _ := c.Consumers[id.String()]
 	return val
 }
 
-func (c *Consumable) isNewRule(id uint32) bool {
+func (c *Consumable) isNewRule(id NumericIdentity) bool {
 	r1 := c.ReverseRules[id] != nil
-	r2 := c.Consumers[strconv.FormatUint(uint64(id), 10)] != nil
+	r2 := c.Consumers[id.String()] != nil
 
 	// golang has no XOR ... whaaa?
 	return (r1 || r2) && !(r1 && r2)
 }
 
-func (c *Consumable) addToMaps(id uint32) {
+func (c *Consumable) addToMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
 		log.Debugf("Updating policy BPF map %s: allowing %d\n", m.String(), id)
-		if err := m.AllowConsumer(id); err != nil {
+		if err := m.AllowConsumer(id.Uint32()); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
 		}
 	}
 }
 
-func (c *Consumable) wasLastRule(id uint32) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[strconv.FormatUint(uint64(id), 10)] == nil
+func (c *Consumable) wasLastRule(id NumericIdentity) bool {
+	return c.ReverseRules[id] == nil && c.Consumers[id.String()] == nil
 }
 
-func (c *Consumable) removeFromMaps(id uint32) {
+func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
 		log.Debugf("Updating policy BPF map %s: denying %d\n", m.String(), id)
-		if err := m.DeleteConsumer(id); err != nil {
+		if err := m.DeleteConsumer(id.Uint32()); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
 		}
 	}
 }
 
-func (c *Consumable) AllowConsumer(id uint32) *Consumer {
+func (c *Consumable) AllowConsumer(cache *ConsumableCache, id NumericIdentity) *Consumer {
 	var consumer *Consumer
 
-	if consumer = c.Consumer(id); consumer == nil {
+	if consumer = c.GetConsumer(id); consumer == nil {
 		log.Debugf("New consumer %d for consumable %v", id, c)
 		consumer = NewConsumer(id)
 		c.Consumers[strconv.FormatUint(uint64(id), 10)] = consumer
@@ -235,11 +238,11 @@ func (c *Consumable) AllowConsumer(id uint32) *Consumer {
 	return consumer
 }
 
-func (c *Consumable) AllowConsumerAndReverse(id uint32) {
+func (c *Consumable) AllowConsumerAndReverse(cache *ConsumableCache, id NumericIdentity) {
 	log.Debugf("Allowing direction %d -> %d\n", id, c.ID)
-	fwd := c.AllowConsumer(id)
+	fwd := c.AllowConsumer(cache, id)
 
-	if reverse := LookupConsumable(id); reverse != nil {
+	if reverse := cache.Lookup(id); reverse != nil {
 		log.Debugf("Allowing reverse direction %d -> %d\n", c.ID, id)
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			fwd.Reverse = NewConsumer(c.ID)
@@ -253,24 +256,23 @@ func (c *Consumable) AllowConsumerAndReverse(id uint32) {
 	}
 }
 
-func (c *Consumable) BanConsumer(id uint32) {
-	n := strconv.FormatUint(uint64(id), 10)
-
-	if consumer, ok := c.Consumers[n]; ok {
+func (c *Consumable) BanConsumer(id NumericIdentity) {
+	if consumer, ok := c.Consumers[id.String()]; ok {
 		log.Debugf("Removing consumer %v\n", consumer)
-		delete(c.Consumers, n)
+		delete(c.Consumers, id.String())
+
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
 		}
 
 		if consumer.Reverse != nil {
-			deleteReverseRule(id, c.ID)
+			c.deleteReverseRule(id, c.ID)
 		}
 	}
 }
 
-func (c *Consumable) Allows(id uint32) bool {
-	if consumer := c.Consumer(id); consumer != nil {
+func (c *Consumable) Allows(id NumericIdentity) bool {
+	if consumer := c.GetConsumer(id); consumer != nil {
 		if consumer.Decision == ACCEPT {
 			return true
 		}

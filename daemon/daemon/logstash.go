@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 type LogstashStat struct {
@@ -92,7 +93,7 @@ func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 	}
 }
 
-func (d *Daemon) getInlineLabelStr(id uint32) string {
+func (d *Daemon) getInlineLabelStr(id policy.NumericIdentity) string {
 	l, err := d.GetCachedLabelList(id)
 	if err != nil {
 		return ""
@@ -113,7 +114,7 @@ func (d *Daemon) processStats(allPes map[uint16][]policymap.PolicyEntryDump) []L
 		for _, stat := range v {
 			lss = append(lss, LogstashStat{
 				FromID:  stat.ID,
-				From:    d.getInlineLabelStr(stat.ID),
+				From:    d.getInlineLabelStr(policy.NumericIdentity(stat.ID)),
 				ToID:    strconv.FormatUint(uint64(k), 10),
 				Bytes:   stat.Bytes,
 				Packets: stat.Packets,

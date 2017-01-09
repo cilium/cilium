@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -148,7 +147,7 @@ type Endpoint struct {
 	IfIndex          int                   `json:"interface-index"`    // Host's interface index.
 	NodeMAC          mac.MAC               `json:"node-mac"`           // Node MAC address.
 	NodeIP           net.IP                `json:"node-ip"`            // Node IPv6 address.
-	SecLabel         *labels.SecCtxLabel   `json:"security-label"`     // Security Label  set to this endpoint.
+	SecLabel         *policy.Identity      `json:"security-label"`     // Security Label  set to this endpoint.
 	PortMap          []PortMap             `json:"port-mapping"`       // Port mapping used for this endpoint.
 	Consumable       *policy.Consumable    `json:"consumable"`
 	PolicyMap        *policymap.PolicyMap  `json:"-"`
@@ -282,17 +281,16 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	return cpy
 }
 
+func (e *Endpoint) StringID() string {
+	return strconv.Itoa(int(e.ID))
+}
+
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
 	e.ID = e.IPv6.EndpointID()
 }
 
-func (e *Endpoint) SetSecLabel(labels *labels.SecCtxLabel) {
-	e.SecLabel = labels
-	e.Consumable = policy.GetConsumable(labels.ID, labels)
-}
-
-func (e *Endpoint) Allows(id uint32) bool {
+func (e *Endpoint) Allows(id policy.NumericIdentity) bool {
 	if e.Consumable != nil {
 		return e.Consumable.Allows(id)
 	} else {
@@ -463,14 +461,6 @@ func (e *Endpoint) Ct4MapPath() string {
 	return Ct4MapPath(int(e.ID))
 }
 
-func (e *Endpoint) InvalidatePolicy() {
-	if e.Consumable != nil {
-		// Resetting to 0 will trigger a regeneration on the next update
-		log.Debugf("Invalidated policy for endpoint %s", e.ID)
-		e.Consumable.Iteration = 0
-	}
-}
-
 func (e *Endpoint) LogStatus(code StatusCode, msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
@@ -492,4 +482,21 @@ func (e *Endpoint) LogStatusOK(msg string) {
 		Timestamp: time.Now(),
 	}
 	e.Status.addStatusLog(sts)
+}
+
+// Updates the endpoint options and regenerates the program
+func (e *Endpoint) Update(owner Owner, opts option.OptionMap) error {
+	if err := e.Opts.Validate(opts); err != nil {
+		return err
+	}
+
+	if opts != nil && !e.ApplyOpts(opts) {
+		// No changes have been applied, skip update
+		return nil
+	}
+
+	return e.regenerateLocked(owner)
+}
+
+func (e *Endpoint) Leave(owner Owner) {
 }

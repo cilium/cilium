@@ -144,6 +144,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 			return ret;
 	}
 
+	ct_state_new.orig_dport = key.dport;
+
 	/*
 	 * Check if the destination address is among the address that should be
 	 * load balanced. This operation is performed before we go through the
@@ -385,6 +387,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		else
 			return ret;
 	}
+
+	ct_state_new.orig_dport = key.dport;
 
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
@@ -650,6 +654,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
 
+		ct_state_new.orig_dport = tuple.dport;
 		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
@@ -709,6 +714,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
 
+		ct_state_new.orig_dport = tuple.dport;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;

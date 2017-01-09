@@ -359,7 +359,7 @@ func dumpMap(ctx *cli.Context) {
 	printIDs := ctx.Bool("id")
 
 	if lbl != "" {
-		if id := labels.GetID(lbl); id != labels.ID_UNKNOWN {
+		if id := policy.GetReservedID(lbl); id != policy.ID_UNKNOWN {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
@@ -380,7 +380,7 @@ func dumpMap(ctx *cli.Context) {
 		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
 		return
 	}
-	labelsID := map[uint32]*labels.SecCtxLabel{}
+	labelsID := map[policy.NumericIdentity]*policy.Identity{}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
@@ -394,16 +394,16 @@ func dumpMap(ctx *cli.Context) {
 
 	for _, stat := range statsMap {
 		if !printIDs {
-			secCtxLbl, err := client.GetLabels(stat.ID)
+			id := policy.NumericIdentity(stat.ID)
+			secCtxLbl, err := client.GetLabels(id)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
-					stat.ID, err)
+					id, err)
 			}
 			if secCtxLbl == nil {
-				fmt.Fprintf(os.Stderr, "Label with ID %d was not found\n",
-					stat.ID)
+				fmt.Fprintf(os.Stderr, "Label with ID %d was not found\n", id)
 			}
-			labelsID[stat.ID] = secCtxLbl
+			labelsID[id] = secCtxLbl
 		}
 
 	}
@@ -414,10 +414,11 @@ func dumpMap(ctx *cli.Context) {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsDesTitle, actionTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
+		id := policy.NumericIdentity(stat.ID)
 		act := policy.ConsumableDecision(stat.Action)
 		if printIDs {
-			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", stat.ID, act.String(), stat.Bytes, stat.Packets)
-		} else if lbls := labelsID[stat.ID]; lbls != nil {
+			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
+		} else if lbls := labelsID[id]; lbls != nil {
 			first := true
 			for _, lbl := range lbls.Labels {
 				if first {
@@ -428,7 +429,7 @@ func dumpMap(ctx *cli.Context) {
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", stat.ID, act.String(), stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
 		}
 	}
 	w.Flush()
@@ -446,7 +447,7 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 	lbl := ctx.Args().Get(0)
 
 	if lbl != "" {
-		if id := labels.GetID(lbl); id != labels.ID_UNKNOWN {
+		if id := policy.GetReservedID(lbl); id != policy.ID_UNKNOWN {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {

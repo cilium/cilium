@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
@@ -41,7 +42,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 		d.endpointsLearningMU.RLock()
 		for _, v := range d.endpointsLearning {
 			if dn.DstID == uint32(v.EndpointID) {
-				go func(epID uint16, lblID uint32) {
+				go func(epID uint16, lblID policy.NumericIdentity) {
 					sec, err := d.GetLabels(lblID)
 					if err != nil {
 						log.Errorf("Error while getting label ID %d: %s", lblID, err)
@@ -54,7 +55,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 					if err := d.EndpointLabelsUpdate(epID, labels.LabelOp{labels.AddLabelsOp: sec.Labels}); err != nil {
 						log.Warningf("Error while add learned labels into the daemon %s", err)
 					}
-				}(v.EndpointID, dn.SrcLabel)
+				}(v.EndpointID, policy.NumericIdentity(dn.SrcLabel))
 			}
 		}
 		d.endpointsLearningMU.RUnlock()

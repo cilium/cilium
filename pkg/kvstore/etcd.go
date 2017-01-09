@@ -25,7 +25,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -224,26 +224,26 @@ func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 	return e.SetValue(key, maxID)
 }
 
-func (e *EtcdClient) updateSecLabelIDRef(secCtxLabels labels.SecCtxLabel) error {
-	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
-	return e.SetValue(key, secCtxLabels)
+func (e *EtcdClient) updateSecLabelIDRef(id policy.Identity) error {
+	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(id.ID), 10))
+	return e.SetValue(key, id)
 }
 
 func (e *EtcdClient) setMaxLabelID(maxID uint32) error {
-	return e.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, maxID)
+	return e.SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), maxID)
 }
 
-// GASNewSecLabelID gets the next available LabelID and sets it in secCtxLabels. After
-// assigning the LabelID to secCtxLabels it sets the LabelID + 1 in
+// GASNewSecLabelID gets the next available LabelID and sets it in id. After
+// assigning the LabelID to id it sets the LabelID + 1 in
 // common.LastFreeLabelIDKeyPath path.
-func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabels *labels.SecCtxLabel) error {
-	setID2Label := func(id uint32) error {
-		secCtxLabels.ID = id
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
-		if err := e.SetValue(keyPath, secCtxLabels); err != nil {
+func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, id *policy.Identity) error {
+	setID2Label := func(new_id uint32) error {
+		id.ID = policy.NumericIdentity(new_id)
+		keyPath := path.Join(basePath, id.ID.String())
+		if err := e.SetValue(keyPath, new_id); err != nil {
 			return err
 		}
-		return e.setMaxLabelID(id + 1)
+		return e.setMaxLabelID(new_id + 1)
 	}
 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
@@ -263,7 +263,7 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabe
 		if value == nil {
 			return false, setID2Label(*incID)
 		}
-		var consulLabels labels.SecCtxLabel
+		var consulLabels policy.Identity
 		if err := json.Unmarshal(value, &consulLabels); err != nil {
 			return false, err
 		}
@@ -274,7 +274,7 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabe
 
 		*incID++
 		if *incID > common.MaxSetOfLabels {
-			*incID = common.FirstFreeLabelID
+			*incID = policy.MinimalNumericIdentity.Uint32()
 		}
 		if firstID == *incID {
 			return false, fmt.Errorf("reached maximum set of labels available.")
@@ -364,8 +364,8 @@ func (e *EtcdClient) DeleteTree(path string) error {
 
 // GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
 // every time the key path is changed.
-func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []uint32 {
-	ch := make(chan []uint32, 100)
+func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
+	ch := make(chan []policy.NumericIdentity, 100)
 	go func() {
 		curSeconds := time.Second
 		for {
@@ -380,7 +380,7 @@ func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []ui
 			}
 			curSeconds = time.Second
 			go func() {
-				ch <- []uint32{}
+				ch <- []policy.NumericIdentity{}
 			}()
 		}
 	}()
