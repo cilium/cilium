@@ -236,7 +236,7 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 }
 
 func (d *Daemon) endpointModFn(_ interface{}, newObj interface{}) {
-	newEp, ok := newObj.(*v1.Endpoints)
+	_, ok := newObj.(*v1.Endpoints)
 	if !ok {
 		return
 	}
