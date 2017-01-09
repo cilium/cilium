@@ -245,7 +245,14 @@ func (d *Daemon) PolicyDelete(path, cover256Sum string) (err error) {
 		d.policy.Root.Path()
 	} else {
 		if len(cover256Sum) == policy.CoverageSHASize {
-			ruleIndex := node.HasPolicyRuleCoverage256Sum(cover256Sum)
+			ruleIndex := -1
+			for i, pr := range node.Rules {
+				if prCover256Sum, err := pr.CoverageSHA256Sum(); err == nil &&
+					prCover256Sum == cover256Sum {
+					ruleIndex = i
+					break
+				}
+			}
 			if ruleIndex == -1 {
 				// rule with the given coverage was not found
 				return
