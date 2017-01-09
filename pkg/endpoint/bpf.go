@@ -156,7 +156,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecLabel.ID.StringID())
 	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(e.SecLabel.ID.Uint32()))
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPath()))
-	fmt.Fprintf(fw, "#define CT_MAP_SIZE 512000\n")
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE 64000\n")
 	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
 
