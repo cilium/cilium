@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type CtMap struct {
@@ -61,7 +62,7 @@ type CtKey6 struct {
 	addr    types.IPv6
 	sport   uint16
 	dport   uint16
-	nexthdr types.U8proto
+	nexthdr u8proto.U8proto
 	flags   uint8
 }
 
@@ -97,7 +98,7 @@ type CtKey4 struct {
 	addr    types.IPv4
 	sport   uint16
 	dport   uint16
-	nexthdr types.U8proto
+	nexthdr u8proto.U8proto
 	flags   uint8
 }
 
