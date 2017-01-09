@@ -137,7 +137,6 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 	if !ok {
 		return
 	}
-	log.Debugf("Service %+v", svc)
 
 	if svc.Spec.Type != v1.ServiceTypeClusterIP {
 		log.Infof("Ignoring service %s/%s since its type is %s", svc.Namespace, svc.Name, svc.Spec.Type)
@@ -162,8 +161,6 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 			newSI.Ports[types.FEPortName(port.Name)] = p
 		}
 	}
-
-	log.Debugf("Got new service %+v", newSI)
 
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
@@ -407,7 +404,6 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 			delete(d.loadBalancer.K8sServices, delSN)
 			return
 		}
-		log.Debugf("endpoint %+v", *endpoint)
 
 		d.delK8sSVCs(delSN, svc, endpoint)
 
