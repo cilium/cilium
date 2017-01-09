@@ -60,6 +60,7 @@ const (
 	OptionLearnTraffic        = "LearnTraffic"
 	OptionNAT46               = "NAT46"
 	OptionPolicy              = "Policy"
+	LearningTimeoutSeconds    = 60
 
 	maxLogs = 256
 )
@@ -98,8 +99,9 @@ var (
 	}
 
 	OptionSpecLearnTraffic = option.Option{
-		Define:      "LEARN_TRAFFIC",
-		Description: "Learn and add labels to the list of allowed labels",
+		Define: "LEARN_TRAFFIC",
+		Description: fmt.Sprintf("Learn and add labels to the list of allowed "+
+			"labels (Automatically disabled after %d seconds)", LearningTimeoutSeconds),
 	}
 
 	OptionSpecNAT46 = option.Option{
