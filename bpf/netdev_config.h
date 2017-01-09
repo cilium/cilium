@@ -21,3 +21,4 @@
  */
 #define DROP_NOTIFY
 #define DEBUG
+#define ENABLE_IPV4

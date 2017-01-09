@@ -72,7 +72,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			d.conf.OptsMU.RUnlock()
 		}
 
-		if err := d.regenerateEndpoint(ep); err != nil {
+		if err := ep.Regenerate(d); err != nil {
 			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
 			continue
 		}
@@ -108,7 +108,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			log.Warningf("Failed while updating ep %d: %s", ep.ID, err)
 		} else {
 			if ep.SecLabel != nil {
-				d.AddOrUpdateUINode(ep.SecLabel.ID, ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount())
+				d.AddOrUpdateUINode(ep.SecLabel.ID.Uint32(), ep.SecLabel.Labels.ToSlice(), ep.SecLabel.RefCount())
 			}
 			log.Infof("EP %d completely restored", ep.ID)
 		}
@@ -242,7 +242,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 			"that the one stored, updating from %d to %d\n",
 			ep.ID, ep.SecLabel.ID, labels.ID)
 	}
-	ep.SetSecLabel(labels)
+	ep.SetIdentity(d, labels)
 
 	return nil
 }

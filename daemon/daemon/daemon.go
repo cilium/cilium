@@ -76,15 +76,48 @@ type Daemon struct {
 	k8sClient                 *k8s.Clientset
 	conf                      *Config
 	policy                    policy.Tree
-	policyMU                  sync.RWMutex
-	cacheIteration            int
-	reservedConsumables       []*policy.Consumable
+	consumableCache           *policy.ConsumableCache
 	uiTopo                    types.UITopo
 	uiListeners               map[*Conn]bool
 	registerUIListener        chan *Conn
 	ignoredContainers         map[string]int
 	ignoredMutex              sync.RWMutex
 	loopbackIPv4              net.IP
+}
+
+func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
+	if err := d.conf.LXCMap.WriteEndpoint(e); err != nil {
+		return fmt.Errorf("Unable to update eBPF map: %s", err)
+	}
+
+	return nil
+}
+
+func (d *Daemon) GetRuntimeDir() string {
+	return d.conf.RunDir
+}
+
+func (d *Daemon) GetLibraryDir() string {
+	return d.conf.LibDir
+}
+
+func (d *Daemon) GetPolicyTree() *policy.Tree {
+	return &d.policy
+}
+
+func (d *Daemon) GetConsumableCache() *policy.ConsumableCache {
+	return d.consumableCache
+}
+
+func (d *Daemon) TracingEnabled() bool {
+	d.conf.OptsMU.RLock()
+	defer d.conf.OptsMU.RUnlock()
+
+	return d.conf.Opts.IsEnabled(OptionPolicyTracing)
+}
+
+func (d *Daemon) DryModeEnabled() bool {
+	return d.conf.DryMode
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
@@ -253,8 +286,8 @@ func (d *Daemon) init() error {
 	}
 
 	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
-	fmt.Fprintf(fw, "#define HOST_ID %d\n", labels.GetID(labels.ID_NAME_HOST))
-	fmt.Fprintf(fw, "#define WORLD_ID %d\n", labels.GetID(labels.ID_NAME_WORLD))
+	fmt.Fprintf(fw, "#define HOST_ID %d\n", policy.GetReservedID(labels.ID_NAME_HOST))
+	fmt.Fprintf(fw, "#define WORLD_ID %d\n", policy.GetReservedID(labels.ID_NAME_WORLD))
 
 	fw.Flush()
 	f.Close()
@@ -396,8 +429,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpointsLearning:         make(map[uint16]labels.LearningLabel),
 		endpointsLearningRegister: make(chan labels.LearningLabel, 1),
 		loadBalancer:              lb,
-		cacheIteration:            1,
-		reservedConsumables:       make([]*policy.Consumable, 0),
+		consumableCache:           policy.NewConsumableCache(),
 		policy:                    rootNode,
 		uiTopo:                    types.NewUITopo(),
 		uiListeners:               make(map[*Conn]bool),

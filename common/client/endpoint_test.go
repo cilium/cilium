@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
@@ -38,11 +39,11 @@ var (
 	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
 	NodeAddr    = net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x11, 0, 0}
 	HardAddr    = mac.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	SecLabel    = &labels.SecCtxLabel{
+	SecLabel    = &policy.Identity{
 		Labels: labels.Labels{
 			"foo": labels.NewLabel("foo", "", ""),
 		},
-		Containers: map[string]time.Time{
+		Endpoints: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
 		},
 		ID: 0x100,

@@ -112,6 +112,15 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 	}
 }
 
+func (m *Map) GetFd() int {
+	return m.fd
+}
+
+func (m *Map) DeepCopy() *Map {
+	cpy := *m
+	return &cpy
+}
+
 func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 	fdinfoFile := fmt.Sprintf("/proc/%d/fdinfo/%d", pid, fd)
 

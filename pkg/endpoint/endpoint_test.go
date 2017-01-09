@@ -92,12 +92,12 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	}
 	cpy := epWant.DeepCopy()
 	c.Assert(*cpy, DeepEquals, *epWant)
-	epWant.SecLabel = &labels.SecCtxLabel{
+	epWant.SecLabel = &policy.Identity{
 		ID: 1,
 		Labels: labels.Labels{
 			"io.cilium.kubernetes": labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
-		Containers: map[string]time.Time{
+		Endpoints: map[string]time.Time{
 			"1234": time.Now(),
 		},
 	}
@@ -114,7 +114,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		Consumers: map[string]*policy.Consumer{
 			"foo": policy.NewConsumer(12),
 		},
-		ReverseRules: map[uint32]*policy.Consumer{
+		ReverseRules: map[policy.NumericIdentity]*policy.Consumer{
 			12: policy.NewConsumer(12),
 		},
 	}
@@ -124,12 +124,12 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	c.Assert(*cpy.Consumable, DeepEquals, *epWant.Consumable)
 	c.Assert(*cpy.PolicyMap, DeepEquals, *epWant.PolicyMap)
 
-	epWant.Consumable.Labels = &labels.SecCtxLabel{
+	epWant.Consumable.Labels = &policy.Identity{
 		ID: 1,
 		Labels: labels.Labels{
 			"io.cilium.kubernetes": labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
-		Containers: map[string]time.Time{
+		Endpoints: map[string]time.Time{
 			"1234": time.Now(),
 		},
 	}
@@ -139,6 +139,6 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 
 	c.Assert(*cpy.Consumable.Labels, DeepEquals, *epWant.Consumable.Labels)
 
-	cpy.Consumable.Labels.Containers["1234"] = time.Now()
+	cpy.Consumable.Labels.Endpoints["1234"] = time.Now()
 	c.Assert(*cpy.Consumable.Labels, Not(DeepEquals), *epWant.Consumable.Labels)
 }

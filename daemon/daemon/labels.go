@@ -23,26 +23,27 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
-func (d *Daemon) updateSecLabelIDRef(secCtxLabels labels.SecCtxLabel) error {
+func (d *Daemon) updateSecLabelIDRef(secCtxLabels policy.Identity) error {
 	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
 	return d.kvClient.SetValue(key, secCtxLabels)
 }
 
 // gasNewSecLabelID gets and sets a New SecLabel ID.
-func (d *Daemon) gasNewSecLabelID(secCtxLabel *labels.SecCtxLabel) error {
+func (d *Daemon) gasNewSecLabelID(secCtxLabel *policy.Identity) error {
 	baseID, err := d.GetMaxLabelID()
 	if err != nil {
 		return err
 	}
 
-	return d.kvClient.GASNewSecLabelID(common.LabelIDKeyPath, baseID, secCtxLabel)
+	return d.kvClient.GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), secCtxLabel)
 }
 
 // PutLabels stores to given labels in consul and returns the SecCtxLabels created for
 // the given labels.
-func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
+func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*policy.Identity, bool, error) {
 	log.Debugf("Resolving labels %+v of %s", lbls, contID)
 
 	isNew := false
@@ -67,7 +68,7 @@ func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLab
 		return nil, false, err
 	}
 
-	secCtxLbls := labels.NewSecCtxLabel()
+	secCtxLbls := policy.NewIdentity()
 	if rmsg == nil {
 		secCtxLbls.Labels = lbls
 		isNew = true
@@ -78,7 +79,7 @@ func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLab
 		// If RefCount is 0 then we have to retrieve a new ID
 		if secCtxLbls.RefCount() == 0 {
 			isNew = true
-			secCtxLbls.Containers = make(map[string]time.Time)
+			secCtxLbls.Endpoints = make(map[string]time.Time)
 		}
 	}
 
@@ -94,7 +95,7 @@ func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLab
 
 	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount())
 
-	d.AddOrUpdateUINode(secCtxLbls.ID, secCtxLbls.Labels.ToSlice(), secCtxLbls.RefCount())
+	d.AddOrUpdateUINode(secCtxLbls.ID.Uint32(), secCtxLbls.Labels.ToSlice(), secCtxLbls.RefCount())
 
 	err = d.kvClient.SetValue(lblPath, secCtxLbls)
 
@@ -102,17 +103,13 @@ func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*labels.SecCtxLab
 }
 
 // GetLabels returns the SecCtxLabels that belongs to the given id.
-func (d *Daemon) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
-	if id > 0 && id < common.FirstFreeLabelID {
-		key := labels.ReservedID(id).String()
-		if key == "" {
-			return nil, nil
-		}
-
+func (d *Daemon) GetLabels(id policy.NumericIdentity) (*policy.Identity, error) {
+	if id > 0 && id < policy.MinimalNumericIdentity {
+		key := id.String()
 		lbl := labels.NewLabel(
 			key, "", common.ReservedLabelSource,
 		)
-		secLbl := labels.NewSecCtxLabel()
+		secLbl := policy.NewIdentity()
 		secLbl.AddOrUpdateContainer(lbl.String())
 		secLbl.ID = id
 		secLbl.Labels = labels.Labels{
@@ -131,7 +128,7 @@ func (d *Daemon) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
 		return nil, nil
 	}
 
-	var secCtxLabels labels.SecCtxLabel
+	var secCtxLabels policy.Identity
 	if err := json.Unmarshal(rmsg, &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -142,7 +139,7 @@ func (d *Daemon) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
 }
 
 // GetLabelsBySHA256 returns the SecCtxLabels that have the given SHA256SUM.
-func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error) {
+func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*policy.Identity, error) {
 	path := path.Join(common.LabelsKeyPath, sha256sum)
 	rmsg, err := d.kvClient.GetValue(path)
 	if err != nil {
@@ -151,7 +148,7 @@ func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error
 	if rmsg == nil {
 		return nil, nil
 	}
-	var secCtxLabels labels.SecCtxLabel
+	var secCtxLabels policy.Identity
 	if err := json.Unmarshal(rmsg, &secCtxLabels); err != nil {
 		return nil, err
 	}
@@ -162,7 +159,7 @@ func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error
 }
 
 // DeleteLabelsByUUID deletes the SecCtxLabels belonging to the given id.
-func (d *Daemon) DeleteLabelsByUUID(id uint32, contID string) error {
+func (d *Daemon) DeleteLabelsByUUID(id policy.NumericIdentity, contID string) error {
 	secCtxLabels, err := d.GetLabels(id)
 	if err != nil {
 		return err
@@ -200,7 +197,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 		return nil
 	}
 
-	var dbSecCtxLbls labels.SecCtxLabel
+	var dbSecCtxLbls policy.Identity
 	if err := json.Unmarshal(rmsg, &dbSecCtxLbls); err != nil {
 		return err
 	}
@@ -212,9 +209,9 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 	}
 
 	if dbSecCtxLbls.RefCount() == 0 {
-		d.DeleteUINode(dbSecCtxLbls.ID)
+		d.DeleteUINode(dbSecCtxLbls.ID.Uint32())
 	} else {
-		d.AddOrUpdateUINode(dbSecCtxLbls.ID, dbSecCtxLbls.Labels.ToSlice(), dbSecCtxLbls.RefCount())
+		d.AddOrUpdateUINode(dbSecCtxLbls.ID.Uint32(), dbSecCtxLbls.Labels.ToSlice(), dbSecCtxLbls.RefCount())
 	}
 
 	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
@@ -223,6 +220,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 }
 
 // GetMaxID returns the maximum possible free UUID stored in consul.
-func (d *Daemon) GetMaxLabelID() (uint32, error) {
-	return d.kvClient.GetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID)
+func (d *Daemon) GetMaxLabelID() (policy.NumericIdentity, error) {
+	n, err := d.kvClient.GetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32())
+	return policy.NumericIdentity(n), err
 }

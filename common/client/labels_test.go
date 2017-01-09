@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
@@ -39,9 +40,9 @@ var (
 		`//=/`:   labels.NewLabel(`//=/`, "", common.CiliumLabelSource),
 		`%`:      labels.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
-	seclbl = labels.SecCtxLabel{
+	seclbl = policy.Identity{
 		ID: 123,
-		Containers: map[string]time.Time{
+		Endpoints: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
 		},
 		Labels: lbls,
@@ -115,7 +116,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsFail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	var wantLabels *labels.SecCtxLabel
+	var wantLabels *policy.Identity
 	receivedLabels, err := cli.GetLabels(123)
 	c.Assert(err, Equals, nil)
 	c.Assert(receivedLabels, Equals, wantLabels)
@@ -149,7 +150,7 @@ func (s *CiliumNetClientSuite) TestGetLabelsBySHA256Fail(c *C) {
 
 	cli := NewTestClient(server.URL, c)
 
-	var wantLabels *labels.SecCtxLabel
+	var wantLabels *policy.Identity
 	receivedLabels, err := cli.GetLabelsBySHA256("a7c782feccd5cd9a94a524b1a49d1cd3ffacdb5591b157217e07ab32a821a504")
 	c.Assert(err, Equals, nil)
 	c.Assert(receivedLabels, Equals, wantLabels)
@@ -228,7 +229,7 @@ func (s *CiliumNetClientSuite) TestGetMaxIDOK(c *C) {
 
 	maxID, err := cli.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
-	c.Assert(maxID, Equals, uint32(123))
+	c.Assert(maxID, Equals, policy.NumericIdentity(123))
 }
 
 func (s *CiliumNetClientSuite) TestGetMaxIDFail(c *C) {

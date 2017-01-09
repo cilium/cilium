@@ -29,8 +29,8 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
@@ -342,9 +342,9 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 
 	try := 1
 	maxTries := 5
-	var ep *endpoint.Endpoint
+	var epID uint16
 	for try <= maxTries {
-		if ep = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); ep != nil {
+		if epID = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); epID != 0 {
 			break
 		}
 		if container.IsDockerOrInfracontainer() {
@@ -361,14 +361,14 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 		return nil
 	}
 	if isNewContainer {
-		if err = d.createBPFMAPs(ep.ID); err != nil {
+		if err = d.createBPFMAPs(epID); err != nil {
 			return fmt.Errorf("Unable to create & attach BPF programs for container %s: %s", dockerID, err)
 		}
 	}
 
 	// Perform the policy map updates after programs have been created
 	if isNewLabel || isNewContainer {
-		d.triggerPolicyUpdates([]uint32{secCtxlabels.ID})
+		d.triggerPolicyUpdates([]policy.NumericIdentity{secCtxlabels.ID})
 	}
 
 	log.Infof("Assigned security context %d to container %s", secCtxlabels.ID, dockerID)

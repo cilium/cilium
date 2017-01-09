@@ -48,12 +48,12 @@ type TestDaemon struct {
 	OnGlobalStatus              func() (*endpoint.StatusResponse, error)
 	OnUpdate                    func(opts option.OptionMap) error
 	OnSyncState                 func(path string, clean bool) error
-	OnPutLabels                 func(labels labels.Labels, contID string) (*labels.SecCtxLabel, bool, error)
-	OnGetLabels                 func(id uint32) (*labels.SecCtxLabel, error)
-	OnGetLabelsBySHA256         func(sha256sum string) (*labels.SecCtxLabel, error)
-	OnDeleteLabelsByUUID        func(uuid uint32, contID string) error
+	OnPutLabels                 func(labels labels.Labels, contID string) (*policy.Identity, bool, error)
+	OnGetLabels                 func(id policy.NumericIdentity) (*policy.Identity, error)
+	OnGetLabelsBySHA256         func(sha256sum string) (*policy.Identity, error)
+	OnDeleteLabelsByUUID        func(uuid policy.NumericIdentity, contID string) error
 	OnDeleteLabelsBySHA256      func(sha256sum, contID string) error
-	OnGetMaxLabelID             func() (uint32, error)
+	OnGetMaxLabelID             func() (policy.NumericIdentity, error)
 	OnPolicyAdd                 func(path string, node *policy.Node) error
 	OnPolicyDelete              func(path, cover256sum string) error
 	OnPolicyGet                 func(path string) (*policy.Node, error)
@@ -206,28 +206,28 @@ func (d TestDaemon) ReleaseIP(ipamType ipam.IPAMType, opts ipam.IPAMReq) error {
 	return errors.New("ReleaseIP should not have been called")
 }
 
-func (d TestDaemon) PutLabels(labels labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
+func (d TestDaemon) PutLabels(labels labels.Labels, contID string) (*policy.Identity, bool, error) {
 	if d.OnPutLabels != nil {
 		return d.OnPutLabels(labels, contID)
 	}
 	return nil, false, errors.New("GetLabelsID should not have been called")
 }
 
-func (d TestDaemon) GetLabels(id uint32) (*labels.SecCtxLabel, error) {
+func (d TestDaemon) GetLabels(id policy.NumericIdentity) (*policy.Identity, error) {
 	if d.OnGetLabels != nil {
 		return d.OnGetLabels(id)
 	}
 	return nil, errors.New("GetLabels should not have been called")
 }
 
-func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error) {
+func (d TestDaemon) GetLabelsBySHA256(sha256sum string) (*policy.Identity, error) {
 	if d.OnGetLabelsBySHA256 != nil {
 		return d.OnGetLabelsBySHA256(sha256sum)
 	}
 	return nil, errors.New("GetLabelsBySHA256 should not have been called")
 }
 
-func (d TestDaemon) DeleteLabelsByUUID(uuid uint32, contID string) error {
+func (d TestDaemon) DeleteLabelsByUUID(uuid policy.NumericIdentity, contID string) error {
 	if d.OnDeleteLabelsByUUID != nil {
 		return d.OnDeleteLabelsByUUID(uuid, contID)
 	}
@@ -241,7 +241,7 @@ func (d TestDaemon) DeleteLabelsBySHA256(sha256sum, contID string) error {
 	return errors.New("DeleteLabelsBySHA256 should not have been called")
 }
 
-func (d TestDaemon) GetMaxLabelID() (uint32, error) {
+func (d TestDaemon) GetMaxLabelID() (policy.NumericIdentity, error) {
 	if d.OnGetMaxLabelID != nil {
 		return d.OnGetMaxLabelID()
 	}

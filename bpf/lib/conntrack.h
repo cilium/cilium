@@ -24,6 +24,7 @@
 #include "common.h"
 #include "ipv6.h"
 #include "dbg.h"
+#include "l4.h"
 
 #define CT_DEFAULT_LIFEIME 360
 
@@ -40,6 +41,9 @@ enum {
 #define TUPLE_F_IN		1	/* Incoming flow */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
 
+#define CT_EGRESS 0
+#define CT_INGRESS 1
+
 enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
@@ -47,9 +51,8 @@ enum {
 	ACTION_DELETE,
 };
 
-
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
-					 void *tuple, int action, int in,
+					 void *tuple, int action, int dir,
 					 struct ct_state *ct_state)
 {
 	struct ct_entry *entry;
@@ -71,7 +74,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
-		if (in) {
+		if (dir == CT_INGRESS) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
 			__sync_fetch_and_add(&entry->rx_bytes, skb->len);
 		} else {
@@ -83,7 +86,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		switch (action) {
 		case ACTION_CLOSE:
 			/* RST or similar, immediately delete ct entry */
-			if (in)
+			if (dir == CT_INGRESS)
 				entry->rx_closing = 1;
 			else
 				entry->tx_closing = 1;
@@ -131,7 +134,7 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int l4_off, __u32 secctx, int in,
+					struct __sk_buff *skb, int l4_off, __u32 secctx, int dir,
 					struct ct_state *ct_state)
 {
 	int ret, action = ACTION_UNSPEC;
@@ -148,7 +151,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
 	 * address the field currently represents.
 	 */
-	if (in)
+	if (dir == CT_INGRESS)
 		tuple->flags = TUPLE_F_OUT;
 	else
 		tuple->flags = TUPLE_F_IN;
@@ -226,7 +229,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 */
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	if ((ret = __ct_lookup(map, skb, tuple, action, in, ct_state)) != CT_NEW) {
+	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -240,7 +243,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	ipv6_ct_tuple_reverse(tuple);
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	ret = __ct_lookup(map, skb, tuple, action, in, NULL);
+	ret = __ct_lookup(map, skb, tuple, action, dir, NULL);
 
 #ifdef LXC_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
@@ -272,7 +275,7 @@ static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 /* Offset must point to IPv4 header */
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int off, __u32 secctx, int in,
+					struct __sk_buff *skb, int off, __u32 secctx, int dir,
 					struct ct_state *ct_state)
 {
 	int ret, action = ACTION_UNSPEC;
@@ -290,7 +293,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
 	 * address the field currently represents.
 	 */
-	if (in)
+	if (dir == CT_INGRESS)
 		tuple->flags = TUPLE_F_OUT;
 	else
 		tuple->flags = TUPLE_F_IN;
@@ -365,7 +368,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
 	cilium_trace(skb, DBG_CT_LOOKUP4, tuple->addr, 0);
-	if ((ret = __ct_lookup(map, skb, tuple, action, in, ct_state)) != CT_NEW) {
+	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -379,7 +382,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	ipv4_ct_tuple_reverse(tuple);
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	ret = __ct_lookup(map, skb, tuple, action, in, ct_state);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
@@ -392,7 +395,7 @@ out:
 
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int in,
+					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
 {
 	/* Create entry in original direction */
@@ -403,10 +406,28 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 
-	if (in) {
+	if (dir == CT_INGRESS) {
+		if (tuple->nexthdr == IPPROTO_UDP ||
+		    tuple->nexthdr == IPPROTO_TCP) {
+			int ret;
+
+			ret = l4_ingress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
 		entry.rx_packets = 1;
 		entry.rx_bytes = skb->len;
 	} else {
+		if (tuple->nexthdr == IPPROTO_UDP ||
+		    tuple->nexthdr == IPPROTO_TCP) {
+			int ret;
+
+			ret = l4_egress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
@@ -436,7 +457,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 }
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int in,
+					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
 {
 	/* Create entry in original direction */
@@ -447,17 +468,35 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 
-	if (in) {
+	if (dir == CT_INGRESS) {
+		if (tuple->nexthdr == IPPROTO_UDP ||
+		    tuple->nexthdr == IPPROTO_TCP) {
+			int ret;
+
+			ret = l4_ingress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
 		entry.rx_packets = 1;
 		entry.rx_bytes = skb->len;
 	} else {
+		if (tuple->nexthdr == IPPROTO_UDP ||
+		    tuple->nexthdr == IPPROTO_TCP) {
+			int ret;
+
+			ret = l4_egress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
 
 #ifdef LXC_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT64)
-		entry.nat46 = !in;
+		entry.nat46 = dir == CT_EGRESS;
 #endif
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
@@ -504,34 +543,34 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 #else /* !CONNTRACK */
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb, void *tuple,
-					 int action, int in, struct ct_state *ct_state)
+					 int action, int dir, struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int off, __u32 secctx, int in,
+					struct __sk_buff *skb, int off, __u32 secctx, int dir,
 					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int off, __u32 secctx, int in,
+					struct __sk_buff *skb, int off, __u32 secctx, int dir,
 					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-					struct __sk_buff *skb, int in,
+					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-					struct __sk_buff *skb, int in,
+					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
 {
 	return 0;

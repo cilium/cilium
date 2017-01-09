@@ -69,10 +69,11 @@ func (d *Daemon) getReceivedStats() (receivedStats, error) {
 					continue
 				}
 
-				stat, exists := stats[ep.SecLabel.ID]
+				id := ep.SecLabel.ID.Uint32()
+				stat, exists := stats[id]
 				if !exists {
-					stats[ep.SecLabel.ID] = map[uint32]*policymap.PolicyEntry{}
-					stat = stats[ep.SecLabel.ID]
+					stats[id] = map[uint32]*policymap.PolicyEntry{}
+					stat = stats[id]
 				}
 
 				for _, p := range pm {

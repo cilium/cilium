@@ -122,4 +122,110 @@ static inline int l4_load_port(struct __sk_buff *skb, int off, __u16 *port)
         return skb_load_bytes(skb, off, port, sizeof(__u16));
 }
 
+/* Structure to define an L4 port which may ingress into an endpoint */
+struct l4_allow
+{
+	/* Allowed destination port number */
+	__u16 port;
+
+	__u16 unused;
+
+	/* Allowed nexthdr (IPPROTO_ICMP, IPPROTO_TCP, IPPROTO_UDP) */
+	__u8 nexthdr;
+};
+
+#if (defined CFG_L4_INGRESS || defined CFG_L4_EGRESS) && !defined CONNTRACK
+#error "CFG_L4_* requires CONNTRACK to be enabled"
+#endif
+
+#ifdef CFG_L4_INGRESS
+static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
+{
+	struct l4_allow allowed[] = CFG_L4_INGRESS;
+	int i;
+
+#pragma unroll
+	for (i = 0; i < ARRAY_SIZE(allowed); i++) {
+		if (allowed[i].nexthdr && allowed[i].nexthdr != nexthdr)
+			continue;
+
+		if (allowed[i].port && allowed[i].port != dport)
+			continue;
+
+		return 1;
+	}
+
+	return DROP_POLICY_L4;
+}
+#endif
+
+#ifdef CFG_L4_EGRESS
+static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
+{
+	struct l4_allow allowed[] = CFG_L4_EGRESS;
+	int i;
+
+#pragma unroll
+	for (i = 0; i < ARRAY_SIZE(allowed); i++) {
+		if (allowed[i].nexthdr && allowed[i].nexthdr != nexthdr)
+			continue;
+
+		if (allowed[i].port && allowed[i].port != dport)
+			continue;
+
+		return 1;
+	}
+
+	return DROP_POLICY_L4;
+}
+#endif
+
+/**
+ * Perform L4 ingress policy lookup
+ * @arg skb:	 packet
+ * @arg dport:	 destination port (ingress port on endpoint)
+ * @arg nexthdr: next header (IPPROTO_TCP, IPPROTO_UDP, ..)
+ *
+ * The L4 space defaults to allow all unless CFG_L4_INGRESS is
+ * specified in which case only allowed port + protocol pairs
+ * will be allowed.
+ *
+ * Returns: 0 if connection is allowed
+ *          n > 0 if connection should be proxied to n
+ *          n < 0 if connection should be dropped with reason n
+ */
+static inline int __inline__
+l4_ingress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
+{
+#ifdef CFG_L4_INGRESS
+	return l4_ingress_embedded(dport, nexthdr);
+#else
+	return 0;
+#endif
+}
+
+/**
+ * Perform L4 egress policy lookup
+ * @arg skb:	 packet
+ * @arg dport:	 egress destination port
+ * @arg nexthdr: next header (IPPROTO_TCP, IPPROTO_UDP, ..)
+ *
+ * The L4 space defaults to allow all unless CFG_L4_INGRESS is
+ * specified in which case only allowed port + protocol pairs
+ * will be allowed.
+ *
+ * Returns: 0 if connection is allowed
+ *          n > 0 if connection should be proxied to n
+ *          n < 0 if connection should be dropped with reason n
+ */
+static inline int __inline__
+l4_egress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
+{
+#ifdef CFG_L4_EGRESS
+	return l4_egress_embedded(dport, nexthdr);
+#else
+	return 0;
+#endif
+}
+
 #endif

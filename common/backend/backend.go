@@ -49,12 +49,12 @@ type ipamBackend interface {
 }
 
 type labelBackend interface {
-	PutLabels(labels labels.Labels, contĨD string) (*labels.SecCtxLabel, bool, error)
-	GetLabels(uuid uint32) (*labels.SecCtxLabel, error)
-	GetLabelsBySHA256(sha256sum string) (*labels.SecCtxLabel, error)
-	DeleteLabelsByUUID(uuid uint32, contĨD string) error
+	PutLabels(labels labels.Labels, contĨD string) (*policy.Identity, bool, error)
+	GetLabels(uuid policy.NumericIdentity) (*policy.Identity, error)
+	GetLabelsBySHA256(sha256sum string) (*policy.Identity, error)
+	DeleteLabelsByUUID(uuid policy.NumericIdentity, contĨD string) error
 	DeleteLabelsBySHA256(sha256sum, contID string) error
-	GetMaxLabelID() (uint32, error)
+	GetMaxLabelID() (policy.NumericIdentity, error)
 }
 
 type policyBackend interface {

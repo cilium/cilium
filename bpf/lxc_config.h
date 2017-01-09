@@ -38,3 +38,6 @@
 #define CT_MAP_SIZE 4096
 #define LB_L3
 #define LB_L4
+#define CONNTRACK
+#define CFG_L4_INGRESS { {80, 0, 0} }
+#define CFG_L4_EGRESS { {80, 0, 0} }

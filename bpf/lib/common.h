@@ -33,6 +33,8 @@
 
 #define __inline__ __attribute__((always_inline))
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 #define CILIUM_CALL_DROP_NOTIFY			1
 #define CILIUM_CALL_ERROR_NOTIFY		2
 #define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
@@ -139,6 +141,7 @@ struct drop_notify {
 #define DROP_INVALID_EXTHDR	-156
 #define DROP_FRAG_NOSUPPORT	-157
 #define DROP_NO_SERVICE		-158
+#define DROP_POLICY_L4		-159
 
 /* skb->cb[] usage: */
 enum {
@@ -228,6 +231,7 @@ struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
 	      reserved:15;
+	__u16 orig_dport;
 	__be32 addr;
 };
 

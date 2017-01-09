@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	consulAPI "github.com/hashicorp/consul/api"
 )
@@ -208,22 +208,22 @@ func (c *ConsulClient) SetMaxID(key string, firstID, maxID uint32) error {
 	return err
 }
 
-func (c *ConsulClient) updateSecLabelIDRef(secCtxLabels labels.SecCtxLabel) error {
-	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
-	return c.SetValue(key, secCtxLabels)
+func (c *ConsulClient) updateSecLabelIDRef(id policy.Identity) error {
+	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(id.ID), 10))
+	return c.SetValue(key, id)
 }
 
 func (c *ConsulClient) setMaxLabelID(maxID uint32) error {
-	return c.SetMaxID(common.LastFreeLabelIDKeyPath, common.FirstFreeLabelID, maxID)
+	return c.SetMaxID(common.LastFreeLabelIDKeyPath, uint32(policy.MinimalNumericIdentity), maxID)
 }
 
-func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLabels *labels.SecCtxLabel) error {
+func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, id *policy.Identity) error {
 
 	setID2Label := func(lockPair *consulAPI.KVPair) error {
 		defer c.KV().Release(lockPair, nil)
-		secCtxLabels.ID = baseID
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
-		if err := c.SetValue(keyPath, secCtxLabels); err != nil {
+		id.ID = policy.NumericIdentity(baseID)
+		keyPath := path.Join(basePath, id.ID.String())
+		if err := c.SetValue(keyPath, id); err != nil {
 			return err
 		}
 		return c.setMaxLabelID(baseID + 1)
@@ -254,7 +254,7 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLa
 			if lblKey == nil {
 				return setID2Label(lockPair)
 			}
-			var consulLabels labels.SecCtxLabel
+			var consulLabels policy.Identity
 			if err := json.Unmarshal(lblKey.Value, &consulLabels); err != nil {
 				c.KV().Release(lockPair, nil)
 				return err
@@ -267,7 +267,7 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, secCtxLa
 		}
 		baseID++
 		if baseID > common.MaxSetOfLabels {
-			baseID = common.FirstFreeLabelID
+			baseID = policy.MinimalNumericIdentity.Uint32()
 		}
 		if beginning == baseID {
 			return fmt.Errorf("reached maximum set of labels available.")
@@ -339,8 +339,8 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 
 // GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
 // every time the key path is changed.
-func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []uint32 {
-	ch := make(chan []uint32, 100)
+func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
+	ch := make(chan []policy.NumericIdentity, 100)
 	go func() {
 		curSeconds := time.Second
 		var (
@@ -378,7 +378,7 @@ func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []
 			curSeconds = time.Second
 			qo.WaitIndex = q.LastIndex
 			go func() {
-				ch <- []uint32{}
+				ch <- []policy.NumericIdentity{}
 			}()
 		}
 	}()

@@ -16,22 +16,16 @@
 package daemon
 
 import (
-	"bufio"
-	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 
-	"github.com/cilium/cilium/bpf/ctmap"
-	"github.com/cilium/cilium/bpf/geneve"
-	"github.com/cilium/cilium/bpf/policymap"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 func (d *Daemon) lookupCiliumEndpoint(id uint16) *endpoint.Endpoint {
@@ -56,26 +50,6 @@ func (d *Daemon) lookupDockerID(id string) *endpoint.Endpoint {
 	} else {
 		return nil
 	}
-}
-
-func writeGeneve(lxcDir string, ep *endpoint.Endpoint) ([]byte, error) {
-
-	// Write container options values for each available option in
-	// bpf/lib/geneve.h
-	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
-	err := geneve.WriteOpts(filepath.Join(lxcDir, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabel.ID))
-	if err != nil {
-		log.Warningf("Could not write geneve options %s", err)
-		return nil, fmt.Errorf("Could not write geneve options %s", err)
-	}
-
-	_, rawData, err := geneve.ReadOpts(filepath.Join(lxcDir, "geneve_opts.cfg"))
-	if err != nil {
-		log.Warningf("Could not read geneve options %s", err)
-		return nil, fmt.Errorf("Could not read geneve options %s", err)
-	}
-
-	return rawData, nil
 }
 
 // Public API to insert an endpoint without connecting it to a container
@@ -104,7 +78,7 @@ func (d *Daemon) insertEndpoint(ep *endpoint.Endpoint) {
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
-func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID string, labels *labels.SecCtxLabel) *endpoint.Endpoint {
+func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID string, labels *policy.Identity) uint16 {
 	var (
 		ep *endpoint.Endpoint
 		ok bool
@@ -132,21 +106,23 @@ func (d *Daemon) setEndpointSecLabel(endpointID *uint16, dockerID, dockerEPID st
 	} else if dockerEPID != "" {
 		ep, ok = d.endpointsDockerEP[dockerEPID]
 	} else {
-		return nil
+		return 0
 	}
 
-	if ok {
-		setIfNotEmpty(&ep.DockerID, dockerID)
-		setIfNotEmpty(&ep.DockerEndpointID, dockerEPID)
-		setIfNotEmptyUint16(&ep.ID, endpointID)
-
-		ep.SetSecLabel(labels)
-		// Update all IDs in respective MAPs
-		d.insertEndpoint(ep)
-		return ep.DeepCopy()
+	if !ok {
+		return 0
 	}
 
-	return nil
+	log.Debugf("Setting labels of %d: %+v", ep.ID, labels)
+
+	setIfNotEmpty(&ep.DockerID, dockerID)
+	setIfNotEmpty(&ep.DockerEndpointID, dockerEPID)
+	setIfNotEmptyUint16(&ep.ID, endpointID)
+
+	ep.SetIdentity(d, labels)
+	// Update all IDs in respective MAPs
+	d.insertEndpoint(ep)
+	return ep.ID
 }
 
 // EndpointGetByDockerID returns a copy of the endpoint for the given dockerEPID, or nil
@@ -215,89 +191,6 @@ func (d *Daemon) deleteEndpoint(endpointID uint16) {
 	}
 }
 
-func (d *Daemon) writeBPFHeader(lxcDir string, ep *endpoint.Endpoint, geneveOpts []byte) error {
-	headerPath := filepath.Join(lxcDir, common.CHeaderFileName)
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
-	}
-	defer f.Close()
-
-	fw := bufio.NewWriter(f)
-
-	fmt.Fprint(fw, "/*\n")
-
-	if epStr64, err := ep.Base64(); err == nil {
-		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
-			common.Version, epStr64)
-	} else {
-		ep.LogStatus(endpoint.Warning, fmt.Sprintf("Unable to create a base64: %s", err))
-	}
-
-	if ep.DockerID == "" {
-		fmt.Fprintf(fw, " * Docker Network ID: %s\n", ep.DockerNetworkID)
-		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", ep.DockerEndpointID)
-	} else {
-		fmt.Fprintf(fw, " * Docker Container ID: %s\n", ep.DockerID)
-	}
-
-	fmt.Fprintf(fw, ""+
-		" * MAC: %s\n"+
-		" * IPv6 address: %s\n"+
-		" * IPv4 address: %s\n"+
-		" * SecLabelID: %#x\n"+
-		" * PolicyMap: %s\n"+
-		" * NodeMAC: %s\n"+
-		" */\n\n",
-		ep.LXCMAC, ep.IPv6.String(), ep.IPv4.String(),
-		ep.SecLabel.ID, path.Base(ep.PolicyMapPath()), ep.NodeMAC)
-
-	fw.WriteString("/*\n")
-	fw.WriteString(" * Labels:\n")
-	if len(ep.SecLabel.Labels) == 0 {
-		fmt.Fprintf(fw, " * - %s\n", "(no labels)")
-	} else {
-		for _, v := range ep.SecLabel.Labels {
-			fmt.Fprintf(fw, " * - %s\n", v)
-		}
-	}
-	fw.WriteString(" */\n\n")
-
-	fw.WriteString(common.FmtDefineAddress("LXC_MAC", ep.LXCMAC))
-	fw.WriteString(common.FmtDefineAddress("LXC_IP", ep.IPv6))
-	if ep.IPv4 != nil {
-		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", binary.BigEndian.Uint32(ep.IPv4))
-	}
-	fw.WriteString(common.FmtDefineAddress("NODE_MAC", ep.NodeMAC))
-	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
-	fmt.Fprintf(fw, "#define LXC_ID %#x\n", ep.ID)
-	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(ep.ID))
-	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(ep.SecLabel.ID))
-	fmt.Fprintf(fw, "#define SECLABEL %#x\n", ep.SecLabel.ID)
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(ep.PolicyMapPath()))
-	fmt.Fprintf(fw, "#define CT_MAP_SIZE 512000\n")
-	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(ep.ID)))
-	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(ep.ID)))
-
-	// Always enable L4 and L3 load balancer for now
-	fw.WriteString("#define LB_L3\n")
-	fw.WriteString("#define LB_L4\n")
-
-	// Endpoint options
-	fw.WriteString(ep.Opts.GetFmtList())
-
-	fw.WriteString("#define LXC_PORT_MAPPINGS ")
-	for _, m := range ep.PortMap {
-		// Write mappings directly in network byte order so we don't have
-		// to convert it in the fast path
-		fmt.Fprintf(fw, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
-	}
-	fw.WriteString("\n")
-
-	return fw.Flush()
-}
-
 func (d *Daemon) createBPFMAPs(epID uint16) error {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
@@ -306,102 +199,7 @@ func (d *Daemon) createBPFMAPs(epID uint16) error {
 		return fmt.Errorf("endpoint %d not found", epID)
 	}
 
-	err := d.regenerateBPF(ep, filepath.Join(".", strconv.Itoa(int(ep.ID))))
-	if err != nil {
-		ep.LogStatus(endpoint.Failure, err.Error())
-	} else {
-		ep.LogStatusOK("Regenerated BPF code")
-	}
-	return err
-}
-
-// regenerateBPF rewrites all headers and updates all BPF maps to reflect the
-// specified endpoint.
-//
-// If endpointSuffix is set, it will be appended to the container directory to
-// allow writing to a temporary directory and then atomically rename it.
-func (d *Daemon) regenerateBPF(ep *endpoint.Endpoint, lxcDir string) error {
-	var err error
-	createdPolicyMap := false
-
-	policyMapPath := ep.PolicyMapPath()
-
-	// Cleanup on failure
-	defer func() {
-		if err != nil {
-			if createdPolicyMap {
-				// Remove policy map file only if it was created
-				// in this update cycle
-				if ep.Consumable != nil {
-					ep.Consumable.RemoveMap(ep.PolicyMap)
-				}
-
-				os.RemoveAll(policyMapPath)
-				ep.PolicyMap = nil
-			}
-
-			// Always remove endpoint directory, if this was a subsequent
-			// update call, it was the responsibility of the updater to
-			// to provide an endpoint suffix to not bluntly overwrite the
-			// existing directory.
-			os.RemoveAll(lxcDir)
-		}
-	}()
-
-	if !d.conf.DryMode {
-		if ep.PolicyMap == nil {
-			ep.PolicyMap, createdPolicyMap, err = policymap.OpenMap(policyMapPath)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Only generate & populate policy map if a seclabel and consumer model is set up
-	if ep.Consumable != nil {
-		if !d.conf.DryMode {
-			ep.Consumable.AddMap(ep.PolicyMap)
-		}
-
-		// The policy is only regenerated but the endpoint is not
-		// regenerated as we regenerate below anyway.
-		if err := d.regenerateEndpointPolicy(ep, false); err != nil {
-			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
-				ep.PolicyMap.String(), err)
-		}
-	}
-
-	if err := os.MkdirAll(lxcDir, 0777); err != nil {
-		return fmt.Errorf("Failed to create endpoint directory: %s", err)
-	}
-
-	geneveOpts, err := writeGeneve(lxcDir, ep)
-	if err != nil {
-		return err
-	}
-
-	err = d.writeBPFHeader(lxcDir, ep, geneveOpts)
-	if err != nil {
-		return fmt.Errorf("failed to create temporary directory: %s", err)
-	}
-
-	if !d.conf.DryMode {
-		if err := d.conf.LXCMap.WriteEndpoint(ep); err != nil {
-			return fmt.Errorf("Unable to update eBPF map: %s", err)
-		}
-
-		args := []string{d.conf.LibDir, d.conf.RunDir, lxcDir, ep.IfName}
-		out, err := exec.Command(filepath.Join(d.conf.LibDir, "join_ep.sh"), args...).CombinedOutput()
-		if err != nil {
-			log.Warningf("Command execution failed: %s", err)
-			log.Warningf("Command output:\n%s", out)
-			return fmt.Errorf("error: %q command output: %q", err, out)
-		}
-
-		log.Infof("Command successful:\n%s", out)
-	}
-
-	return nil
+	return ep.Regenerate(d)
 }
 
 // EndpointJoin sets up the endpoint working directory.
@@ -432,6 +230,8 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 	if ep == nil {
 		return fmt.Errorf("endpoint %d not found", epID)
 	}
+
+	ep.Leave(d)
 
 	lxcDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
 	os.RemoveAll(lxcDir)
@@ -490,74 +290,23 @@ func (d *Daemon) EndpointLeaveByDockerEPID(dockerEPID string) error {
 	}
 }
 
-func (d *Daemon) regenerateEndpoint(ep *endpoint.Endpoint) error {
-	// This is the temporary directory to store the generated headers,
-	// the original existing directory is not overwritten until all
-	// generation has succeeded.
-	origDir := filepath.Join(".", strconv.Itoa(int(ep.ID)))
-	tmpDir := origDir + "_update"
-	backupDir := origDir + "_backup"
-
-	if err := d.regenerateBPF(ep, tmpDir); err != nil {
-		return err
-	}
-
-	// Attempt to move the original endpoint directory to a backup location
-	if err := os.Rename(origDir, backupDir); err != nil {
-		os.RemoveAll(tmpDir)
-		return fmt.Errorf("Unable to create backup of endpoint directory: %s", err)
-	}
-
-	// Move new endpoint directory in place, upon failure, restore backup
-	if err := os.Rename(tmpDir, origDir); err != nil {
-		os.RemoveAll(tmpDir)
-
-		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			log.Warningf("Restoring the backup directory for %s for endpoint "+
-				"%s did not succeed, the endpoint is now in an inconsistent state",
-				backupDir, ep.String())
-			return err2
-		}
-
-		return fmt.Errorf("Restored original endpoint directory, atomic replace failed: %s", err)
-	}
-
-	os.RemoveAll(backupDir)
-	log.Infof("Successfully regenerated program for endpoint %s", ep.String())
-
-	return nil
-}
-
 // EndpointUpdate updates the given endpoint and recompiles the bpf map.
 func (d *Daemon) EndpointUpdate(epID uint16, opts option.OptionMap) error {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
 	if ep := d.lookupCiliumEndpoint(epID); ep != nil {
-		if err := ep.Opts.Validate(opts); err != nil {
-			return err
-		}
-
-		if opts != nil && !ep.ApplyOpts(opts) {
-			// No changes have been applied, skip update
-			return nil
-		}
-
-		if val, ok := opts[endpoint.OptionLearnTraffic]; ok {
-			ll := labels.NewLearningLabel(ep.ID, val)
-			d.endpointsLearningRegister <- *ll
-		}
-
-		err := d.regenerateEndpoint(ep)
-		if err != nil {
-			ep.LogStatus(endpoint.Failure, err.Error())
-		} else {
-			ep.LogStatusOK("Successfully regenerated endpoint")
+		err := ep.Update(d, opts)
+		if err == nil {
+			if val, ok := opts[endpoint.OptionLearnTraffic]; ok {
+				ll := labels.NewLearningLabel(ep.ID, val)
+				d.endpointsLearningRegister <- *ll
+			}
 		}
 		return err
-	} else {
-		return fmt.Errorf("endpoint %d not found", epID)
 	}
+
+	return fmt.Errorf("endpoint %d not found", epID)
 }
 
 // EndpointSave saves the endpoint in the daemon internal endpoint map.

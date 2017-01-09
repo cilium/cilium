@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
@@ -37,9 +38,9 @@ var (
 		`%`:      labels.NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 
-	wantSecCtxLbls = labels.SecCtxLabel{
+	wantSecCtxLbls = policy.Identity{
 		ID: 123,
-		Containers: map[string]time.Time{
+		Endpoints: map[string]time.Time{
 			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
 		},
 		Labels: lbls,
@@ -47,7 +48,7 @@ var (
 )
 
 func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
-	s.d.OnPutLabels = func(lblsReceived labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived labels.Labels, contID string) (*policy.Identity, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
 		c.Assert(contID, Equals, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		return &wantSecCtxLbls, true, nil
@@ -59,7 +60,7 @@ func (s *DaemonSuite) TestGetLabelsIDOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
-	s.d.OnPutLabels = func(lblsReceived labels.Labels, contID string) (*labels.SecCtxLabel, bool, error) {
+	s.d.OnPutLabels = func(lblsReceived labels.Labels, contID string) (*policy.Identity, bool, error) {
 		c.Assert(lblsReceived, DeepEquals, lbls)
 		c.Assert(contID, Equals, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		return nil, false, errors.New("Reached maximum valid IDs")
@@ -70,8 +71,8 @@ func (s *DaemonSuite) TestGetLabelsIDFail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsOK(c *C) {
-	s.d.OnGetLabels = func(id uint32) (*labels.SecCtxLabel, error) {
-		c.Assert(id, Equals, uint32(123))
+	s.d.OnGetLabels = func(id policy.NumericIdentity) (*policy.Identity, error) {
+		c.Assert(id, Equals, policy.NumericIdentity(123))
 		return &wantSecCtxLbls, nil
 	}
 
@@ -81,8 +82,8 @@ func (s *DaemonSuite) TestGetLabelsOK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsFail(c *C) {
-	s.d.OnGetLabels = func(id uint32) (*labels.SecCtxLabel, error) {
-		c.Assert(id, Equals, uint32(123))
+	s.d.OnGetLabels = func(id policy.NumericIdentity) (*policy.Identity, error) {
+		c.Assert(id, Equals, policy.NumericIdentity(123))
 		return nil, errors.New("Unable to contact consul")
 	}
 
@@ -91,7 +92,7 @@ func (s *DaemonSuite) TestGetLabelsFail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsBySHA256OK(c *C) {
-	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*labels.SecCtxLabel, error) {
+	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*policy.Identity, error) {
 		c.Assert(sha256sum, Equals, "82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
 		return &wantSecCtxLbls, nil
 	}
@@ -102,7 +103,7 @@ func (s *DaemonSuite) TestGetLabelsBySHA256OK(c *C) {
 }
 
 func (s *DaemonSuite) TestGetLabelsBySHA256Fail(c *C) {
-	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*labels.SecCtxLabel, error) {
+	s.d.OnGetLabelsBySHA256 = func(sha256sum string) (*policy.Identity, error) {
 		c.Assert(sha256sum, Equals, "82078f981c61a5a71acbe92d38b2de3e3c5f7469450feab03d2739dfe6cbc049")
 		return nil, errors.New("Unable to contact consul")
 	}
@@ -112,8 +113,8 @@ func (s *DaemonSuite) TestGetLabelsBySHA256Fail(c *C) {
 }
 
 func (s *DaemonSuite) TestDeleteLabelsByUUIDOK(c *C) {
-	s.d.OnDeleteLabelsByUUID = func(id uint32, contID string) error {
-		c.Assert(id, Equals, uint32(123))
+	s.d.OnDeleteLabelsByUUID = func(id policy.NumericIdentity, contID string) error {
+		c.Assert(id, Equals, policy.NumericIdentity(123))
 		c.Assert(contID, Equals, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		return nil
 	}
@@ -123,8 +124,8 @@ func (s *DaemonSuite) TestDeleteLabelsByUUIDOK(c *C) {
 }
 
 func (s *DaemonSuite) TestDeleteLabelsByUUIDFail(c *C) {
-	s.d.OnDeleteLabelsByUUID = func(id uint32, contID string) error {
-		c.Assert(id, Equals, uint32(123))
+	s.d.OnDeleteLabelsByUUID = func(id policy.NumericIdentity, contID string) error {
+		c.Assert(id, Equals, policy.NumericIdentity(123))
 		c.Assert(contID, Equals, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 		return errors.New("Unable to contact consul")
 	}
@@ -158,17 +159,17 @@ func (s *DaemonSuite) TestDeleteLabelsBySHA256Fail(c *C) {
 }
 
 func (s *DaemonSuite) TestGetMaxLabelIDOK(c *C) {
-	s.d.OnGetMaxLabelID = func() (uint32, error) {
-		return 100, nil
+	s.d.OnGetMaxLabelID = func() (policy.NumericIdentity, error) {
+		return policy.NumericIdentity(100), nil
 	}
 
 	maxID, err := s.c.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
-	c.Assert(maxID, Equals, uint32(100))
+	c.Assert(maxID, Equals, policy.NumericIdentity(100))
 }
 
 func (s *DaemonSuite) TestGetMaxLabelIDFail(c *C) {
-	s.d.OnGetMaxLabelID = func() (uint32, error) {
+	s.d.OnGetMaxLabelID = func() (policy.NumericIdentity, error) {
 		return 0, errors.New("Unable to contact consul")
 	}
 

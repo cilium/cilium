@@ -5,54 +5,106 @@ source "./helpers.bash"
 set -e
 
 TEST_NET="cilium"
-NETPERF_IMAGE="noironetworks/netperf"
 
 function cleanup {
-	docker rm -f server client 2> /dev/null || true
+	docker rm -f server client httpd1 httpd2 curl 2> /dev/null || true
 	monitor_stop
 }
 
 trap cleanup EXIT
 
-SERVER_LABEL="io.cilium.server"
-CLIENT_LABEL="io.cilium.client"
-
+cleanup
 monitor_start
 
 docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
-docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
-docker run -dt --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE
+docker run -dt --net=$TEST_NET --name server -l io.cilium.server tgraf/netperf
+docker run -dt --net=$TEST_NET --name httpd1 -l io.cilium.httpd httpd
+docker run -dt --net=$TEST_NET --name httpd2 -l io.cilium.httpd_deny httpd
+docker run -dt --net=$TEST_NET --name client -l io.cilium.client tgraf/netperf
+docker run -dt --net=$TEST_NET --name curl   -l io.cilium.curl tgraf/netperf
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
-CLIENT_ID=$(cilium endpoint list | grep $CLIENT_LABEL | awk '{ print $1}')
+CLIENT_ID=$(cilium endpoint list | grep io.cilium.client | awk '{ print $1}')
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
-SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
+SERVER_ID=$(cilium endpoint list | grep io.cilium.server | awk '{ print $1}')
+HTTPD1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd1)
+HTTPD1_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd1)
+HTTPD2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd2)
+HTTPD2_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd2)
 
 # FIXME IPv6 DAD period
+echo -n "Sleeping 5 seconds..."
 sleep 5
+echo " done."
 set -x
+
+cilium endpoint list
 
 cat <<EOF | cilium -D policy import -
 {
         "name": "io.cilium",
         "children": {
 		"client": { },
+		"curl": {
+			"rules": [{
+                                "l4": [{
+                                        "out-ports": [{"port": 80, "protocol": "tcp"}]
+                                }]
+			}]
+		},
 		"server": {
 			"rules": [{
 				"allow": ["reserved:host", "../client"]
 			}]
+		},
+		"httpd": {
+			"rules": [{
+				"allow": ["../curl"]
+			},{
+                                "l4": [{
+                                        "in-ports": [{"port": 80, "protocol": "tcp"}]
+                                }]
+			}]
+		},
+		"httpd_deny": {
+			"rules": [{
+				"allow": ["../curl"]
+			},{
+                                "l4": [{
+                                        "in-ports": [{"port": 9090, "protocol": "tcp"}]
+                                }]
+			}]
 		}
-
 	}
 }
 EOF
 
 function connectivity_test() {
+	monitor_clear
+	docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD1_IP]:80" || {
+		abort "Error: Could not reach httpd1 on port 80"
+	}
+
+	monitor_clear
+	docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://$HTTPD1_IP4:80" || {
+		abort "Error: Could not reach httpd1 on port 80"
+	}
+
+	monitor_clear
+	docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD2_IP]:80" && {
+		abort "Error: Unexpected success reaching httpd2 on port 80"
+	}
+
+	monitor_clear
+	docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://$HTTPD2_IP4:80" && {
+		abort "Error: Unexpected success reaching httpd2 on port 80"
+	}
+
 	# ICMPv6 echo request client => server should succeed
 	monitor_clear
 	docker exec -i client ping6 -c 5 $SERVER_IP || {
@@ -101,14 +153,14 @@ function connectivity_test() {
 
 	# TCP request to closed port should fail
 	monitor_clear
-	docker exec -i client nc $SERVER_IP 777 && {
+	docker exec -i client nc -w 5 $SERVER_IP 777 && {
 		abort "Error: Unexpected success of TCP IPv6 session to port 777"
 	}
 
 	if [ $SERVER_IP4 ]; then
 		# TCP request to closed port should fail
 		monitor_clear
-		docker exec -i client nc $SERVER_IP4 777 && {
+		docker exec -i client nc -w 5 $SERVER_IP4 777 && {
 			abort "Error: Unexpected success of TCP IPv4 session to port 777"
 		}
 	fi

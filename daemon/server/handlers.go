@@ -350,7 +350,7 @@ func (router *Router) getLabels(w http.ResponseWriter, r *http.Request) {
 		processServerError(w, r, fmt.Errorf("server received invalid UUID '%s': '%s'", idStr, err))
 		return
 	}
-	lbls, err := router.daemon.GetLabels(uint32(id))
+	lbls, err := router.daemon.GetLabels(policy.NumericIdentity(id))
 	if err != nil {
 		processServerError(w, r, err)
 		return
@@ -432,7 +432,7 @@ func (router *Router) deleteLabelsByUUID(w http.ResponseWriter, r *http.Request)
 		processServerError(w, r, errors.New("server received empty container ID"))
 		return
 	}
-	if err := router.daemon.DeleteLabelsByUUID(uint32(id), contID); err != nil {
+	if err := router.daemon.DeleteLabelsByUUID(policy.NumericIdentity(id), contID); err != nil {
 		processServerError(w, r, err)
 		return
 	}
