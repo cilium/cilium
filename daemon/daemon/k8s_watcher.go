@@ -205,7 +205,6 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 	if !ok {
 		return
 	}
-	log.Debugf("Endpoint %+v", ep)
 
 	svcns := types.K8sServiceNamespace{
 		Service:   ep.Name,
@@ -241,7 +240,6 @@ func (d *Daemon) endpointModFn(_ interface{}, newObj interface{}) {
 	if !ok {
 		return
 	}
-	log.Debugf("Endpoint %+v", newEp)
 
 	d.endpointAddFn(newObj)
 }
@@ -251,7 +249,6 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	if !ok {
 		return
 	}
-	log.Debugf("Endpoint %+v", ep)
 
 	svcns := &types.K8sServiceNamespace{
 		Service:   ep.Name,
@@ -398,8 +395,6 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 }
 
 func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
-	log.Debugf("newns %+v, modns %+v, delns %+v", newSN, modSN, delSN)
-
 	deleteSN := func(delSN types.K8sServiceNamespace) {
 		svc, ok := d.loadBalancer.K8sServices[delSN]
 		if !ok {
