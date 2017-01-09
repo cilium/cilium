@@ -13,10 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package types
+package u8proto
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 )
 
 var protoNames = map[int]string{
@@ -24,6 +26,13 @@ var protoNames = map[int]string{
 	6:  "TCP",
 	17: "UDP",
 	58: "ICMPv6",
+}
+
+var protoIDs = map[string]U8proto{
+	"icmp":   1,
+	"tcp":    6,
+	"udp":    17,
+	"icmpv6": 58,
 }
 
 type U8proto uint8
@@ -35,5 +44,13 @@ func (p *U8proto) String() string {
 		return protoNames[proto]
 	} else {
 		return strconv.Itoa(proto)
+	}
+}
+
+func ParseProtocol(proto string) (U8proto, error) {
+	if u, ok := protoIDs[strings.ToLower(proto)]; ok {
+		return u, nil
+	} else {
+		return 0, fmt.Errorf("unknown protocol '%s'", proto)
 	}
 }
