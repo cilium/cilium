@@ -550,14 +550,14 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	// Name mismatch
 	aNode := Node{Name: "a"}
 	bNode := Node{Name: "b"}
-	err := aNode.Merge(&bNode)
+	_, err := aNode.Merge(&bNode)
 	c.Assert(err, Not(Equals), nil)
 
 	// Empty nodes
 	aOrig := Node{Name: "a"}
 	aNode = Node{Name: "a"}
 	bNode = Node{Name: "a"}
-	err = aNode.Merge(&bNode)
+	_, err = aNode.Merge(&bNode)
 	c.Assert(err, Equals, nil)
 	c.Assert(aNode, DeepEquals, aOrig)
 
@@ -624,7 +624,7 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	aNode.Path()
 	bNode.Path()
 
-	err = aNode.Merge(&bNode)
+	_, err = aNode.Merge(&bNode)
 	c.Assert(err, Equals, nil)
 }
 

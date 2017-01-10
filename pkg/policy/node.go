@@ -264,35 +264,39 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (pn *Node) Merge(obj *Node) error {
+func (pn *Node) Merge(obj *Node) (bool, error) {
 	if obj.Name != pn.Name {
-		return fmt.Errorf("policy node merge failed: Node name mismatch %s != %s",
+		return false, fmt.Errorf("policy node merge failed: Node name mismatch %s != %s",
 			obj.Name, pn.Name)
 	}
 
 	if obj.path != pn.path {
-		return fmt.Errorf("policy node merge failed: Node path mismatch %s != %s",
+		return false, fmt.Errorf("policy node merge failed: Node path mismatch %s != %s",
 			obj.path, pn.path)
 	}
 
+	policyModified := false
 	for _, objRule := range obj.Rules {
 		if pn.HasPolicyRule(objRule) {
 			log.Infof("Ignoring rule %+v since it's already present in the list of rules", objRule)
 		} else {
 			pn.Rules = append(pn.Rules, objRule)
+			policyModified = true
 		}
 	}
 
 	for k := range obj.Children {
-		if err := pn.AddChild(k, obj.Children[k]); err != nil {
-			return err
+		childPolicyModified, err := pn.AddChild(k, obj.Children[k])
+		if err != nil {
+			return false, err
 		}
+		policyModified = policyModified || childPolicyModified
 	}
 
-	return nil
+	return policyModified, nil
 }
 
-func (pn *Node) AddChild(name string, child *Node) error {
+func (pn *Node) AddChild(name string, child *Node) (bool, error) {
 	if _, ok := pn.Children[name]; ok {
 		child.Parent = pn
 		child.Path()
@@ -303,7 +307,7 @@ func (pn *Node) AddChild(name string, child *Node) error {
 		child.Path()
 	}
 
-	return nil
+	return true, nil
 }
 
 func (pn *Node) DebugString(level int) string {
