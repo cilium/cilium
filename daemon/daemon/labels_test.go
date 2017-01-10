@@ -229,5 +229,5 @@ func (ds *DaemonSuite) TestGetMaxID(c *C) {
 
 	id, err := ds.d.GetMaxLabelID()
 	c.Assert(err, Equals, nil)
-	c.Assert(id, Equals, (common.MaxSetOfLabels - 1))
+	c.Assert(id, Equals, lastID)
 }
