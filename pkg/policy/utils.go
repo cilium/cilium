@@ -21,5 +21,8 @@ import (
 
 func SplitNodePath(fullPath string) (string, string) {
 	var extension = filepath.Ext(fullPath)
+	if len(extension) > 0 {
+		return fullPath[0 : len(fullPath)-len(extension)], extension[1:]
+	}
 	return fullPath[0 : len(fullPath)-len(extension)], extension
 }

@@ -61,7 +61,7 @@ func (ds *DaemonSuite) TestFindNode(c *C) {
 	c.Assert(p, Not(Equals), nil)
 
 	n, p, err = ds.d.findNode("io.cilium.baz")
-	c.Assert(err, Not(Equals), nil)
+	c.Assert(err, Equals, nil)
 	c.Assert(n, Equals, nullPtr)
 	c.Assert(p, Equals, nullPtr)
 
@@ -180,6 +180,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		IPv4:    IPv4Addr,
 		LXCMAC:  HardAddr,
 		NodeMAC: HardAddr,
+		Status:  &endpoint.EndpointStatus{},
 	}
 	e.Opts = option.NewBoolOptions(&DaemonOptionLibrary)
 	e.Opts.SetIfUnset(endpoint.OptionLearnTraffic, false)
@@ -208,6 +209,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		IPv4:    IPv4Addr,
 		LXCMAC:  HardAddr,
 		NodeMAC: HardAddr,
+		Status:  &endpoint.EndpointStatus{},
 	}
 	e.Opts = option.NewBoolOptions(&DaemonOptionLibrary)
 	e.Opts.SetIfUnset(endpoint.OptionLearnTraffic, false)

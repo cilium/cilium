@@ -54,7 +54,7 @@ func (d *Daemon) findNode(path string) (*policy.Node, *policy.Node, error) {
 			parent = current
 			current = child
 		} else {
-			return nil, nil, fmt.Errorf("Unable to find child %s of node %s in path %s", nodeName, current.Name, path)
+			return nil, nil, nil
 		}
 	}
 
