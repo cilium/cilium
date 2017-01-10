@@ -185,5 +185,5 @@ func (s *SearchContext) TargetCoveredBy(coverage []labels.Label) bool {
 }
 
 var (
-	CoverageSHASize = sha512.New512_256().Size()
+	CoverageSHASize = len(fmt.Sprintf("%x", sha512.New512_256().Sum(nil)))
 )
