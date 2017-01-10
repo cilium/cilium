@@ -287,13 +287,8 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	cache := owner.GetConsumableCache()
 
 	if e.Consumable != nil {
-		if e.SecLabel != nil && id.ID == e.Consumable.ID {
-			return
-		}
-
 		cache.Remove(e.Consumable)
 	}
-
 	e.SecLabel = id
 	e.Consumable = cache.GetOrCreate(id.ID, id)
 
