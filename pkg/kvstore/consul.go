@@ -217,13 +217,13 @@ func (c *ConsulClient) setMaxLabelID(maxID uint32) error {
 	return c.SetMaxID(common.LastFreeLabelIDKeyPath, uint32(policy.MinimalNumericIdentity), maxID)
 }
 
-func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, id *policy.Identity) error {
+func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy.Identity) error {
 
 	setID2Label := func(lockPair *consulAPI.KVPair) error {
 		defer c.KV().Release(lockPair, nil)
-		id.ID = policy.NumericIdentity(baseID)
-		keyPath := path.Join(basePath, id.ID.String())
-		if err := c.SetValue(keyPath, id); err != nil {
+		pI.ID = policy.NumericIdentity(baseID)
+		keyPath := path.Join(basePath, pI.ID.StringID())
+		if err := c.SetValue(keyPath, pI); err != nil {
 			return err
 		}
 		return c.setMaxLabelID(baseID + 1)

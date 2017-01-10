@@ -80,13 +80,7 @@ func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) ([]labels.Label, 
 		return nil, nil
 	}
 
-	l := make([]labels.Label, len(lbls.Labels))
-
-	idx := 0
-	for k, v := range lbls.Labels {
-		l[idx] = labels.Label{Key: k, Value: v.Value, Source: v.Source}
-		idx++
-	}
+	l := lbls.Labels.ToSlice()
 
 	return l, nil
 }

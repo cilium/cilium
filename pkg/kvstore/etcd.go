@@ -236,11 +236,11 @@ func (e *EtcdClient) setMaxLabelID(maxID uint32) error {
 // GASNewSecLabelID gets the next available LabelID and sets it in id. After
 // assigning the LabelID to id it sets the LabelID + 1 in
 // common.LastFreeLabelIDKeyPath path.
-func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, id *policy.Identity) error {
+func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy.Identity) error {
 	setID2Label := func(new_id uint32) error {
-		id.ID = policy.NumericIdentity(new_id)
-		keyPath := path.Join(basePath, id.ID.String())
-		if err := e.SetValue(keyPath, new_id); err != nil {
+		pI.ID = policy.NumericIdentity(new_id)
+		keyPath := path.Join(basePath, pI.ID.StringID())
+		if err := e.SetValue(keyPath, pI); err != nil {
 			return err
 		}
 		return e.setMaxLabelID(new_id + 1)
