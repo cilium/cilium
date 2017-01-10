@@ -271,7 +271,9 @@ func (d *Daemon) init() error {
 
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
-	fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", binary.LittleEndian.Uint32(d.loopbackIPv4))
+	if d.conf.IPv4Enabled {
+		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", binary.LittleEndian.Uint32(d.loopbackIPv4))
+	}
 
 	ipv4Range := d.conf.NodeAddress.IPv4AllocRange()
 	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
@@ -410,12 +412,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
-	rootNode := policy.Tree{
-		Root: policy.NewNode(common.GlobalLabelPrefix, nil),
-	}
-
-	rootNode.Root.Path()
-
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
@@ -430,12 +426,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpointsLearningRegister: make(chan labels.LearningLabel, 1),
 		loadBalancer:              lb,
 		consumableCache:           policy.NewConsumableCache(),
-		policy:                    rootNode,
+		policy:                    policy.Tree{Root: policy.NewNode(common.GlobalLabelPrefix, nil)},
 		uiTopo:                    types.NewUITopo(),
 		uiListeners:               make(map[*Conn]bool),
 		registerUIListener:        make(chan *Conn, 1),
 		ignoredContainers:         make(map[string]int),
 	}
+	d.policy.Root.Path()
 
 	if c.IsK8sEnabled() {
 		d.k8sClient, err = createK8sClient(c.K8sEndpoint, c.K8sCfgPath)
