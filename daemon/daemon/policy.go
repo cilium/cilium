@@ -142,9 +142,10 @@ func (d *Daemon) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchCont
 	return &scr, nil
 }
 
-func (d *Daemon) policyAdd(path string, node *policy.Node) error {
+func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
 	var (
 		currNode, parentNode *policy.Node
+		policyModified       bool
 		err                  error
 	)
 
@@ -156,7 +157,7 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) error {
 
 	currNode, parentNode, err = d.findNode(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	log.Debugf("Policy currNode %+v, parentNode %+v", currNode, parentNode)
 
@@ -166,12 +167,13 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) error {
 		(currNode == nil && parentNode != nil) {
 
 		pn := policy.NewNode("", nil)
-		if err := d.policyAdd(path, pn); err != nil {
-			return err
+		policyModified, err = d.policyAdd(path, pn)
+		if err != nil {
+			return false, err
 		}
 		currNode, parentNode, err = d.findNode(path)
 		if err != nil {
-			return err
+			return false, err
 		}
 		log.Debugf("Policy currNode %+v, parentNode %+v", currNode, parentNode)
 	}
@@ -179,21 +181,24 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) error {
 	if currNode != nil && parentNode == nil {
 		if currNode.Name == node.Name {
 			node.Path()
-			if err := currNode.Merge(node); err != nil {
-				return err
+			policyModified, err = currNode.Merge(node)
+			if err != nil {
+				return false, err
 			}
 		} else {
-			if err := currNode.AddChild(node.Name, node); err != nil {
-				return err
+			policyModified, err = currNode.AddChild(node.Name, node)
+			if err != nil {
+				return false, err
 			}
 		}
 	} else if currNode != nil && parentNode != nil {
 		// eg. path = io.cilium.lizards.db exists
-		if err := currNode.AddChild(node.Name, node); err != nil {
-			return err
+		policyModified, err = currNode.AddChild(node.Name, node)
+		if err != nil {
+			return false, err
 		}
 	}
-	return nil
+	return policyModified, nil
 }
 
 func (d *Daemon) PolicyAdd(path string, node *policy.Node) error {
@@ -203,20 +208,26 @@ func (d *Daemon) PolicyAdd(path string, node *policy.Node) error {
 		return fmt.Errorf("the given path %q doesn't have the prefix %q", path, common.GlobalLabelPrefix)
 	}
 
+	var (
+		err            error
+		policyModified bool
+	)
+
 	d.policy.Mutex.Lock()
-	if err := d.policyAdd(path, node); err != nil {
+	defer func() {
 		d.policy.Mutex.Unlock()
+		if err == nil && policyModified {
+			log.Info("New policy received, triggering updates...")
+			d.triggerPolicyUpdates([]policy.NumericIdentity{})
+		}
+	}()
+
+	policyModified, err = d.policyAdd(path, node)
+	if err != nil || !policyModified {
 		return err
 	}
-	if err := node.ResolveTree(); err != nil {
-		d.policy.Mutex.Unlock()
-		return err
-	}
-	d.policy.Mutex.Unlock()
-
-	d.triggerPolicyUpdates([]policy.NumericIdentity{})
-
-	return nil
+	err = node.ResolveTree()
+	return err
 }
 
 // PolicyDelete deletes the policy set in the given path from the policy tree. If

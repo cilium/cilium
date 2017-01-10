@@ -318,7 +318,7 @@ func loadPolicy(name string) (*policy.Node, error) {
 			return nil, err
 		} else {
 			if node != nil {
-				if err := node.Merge(p); err != nil {
+				if _, err := node.Merge(p); err != nil {
 					return nil, fmt.Errorf("Error: %s: %s", f.Name(), err)
 				}
 			} else {
