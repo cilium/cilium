@@ -62,6 +62,9 @@ type netNS struct {
 	closed  bool
 }
 
+// netNS implements the NetNS interface
+var _ NetNS = &netNS{}
+
 func getCurrentThreadNetNSPath() string {
 	// /proc/self/ns/net returns the namespace of the main thread, not
 	// of whatever thread this goroutine is running on.  Make sure we

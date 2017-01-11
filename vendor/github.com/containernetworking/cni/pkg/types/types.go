@@ -112,6 +112,14 @@ type Route struct {
 	GW  net.IP
 }
 
+// Well known error codes
+// see https://github.com/containernetworking/cni/blob/master/SPEC.md#well-known-error-codes
+const (
+	ErrUnknown                uint = iota // 0
+	ErrIncompatibleCNIVersion             // 1
+	ErrUnsupportedField                   // 2
+)
+
 type Error struct {
 	Code    uint   `json:"code"`
 	Msg     string `json:"msg"`
