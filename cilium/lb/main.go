@@ -28,8 +28,8 @@ import (
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/types"
 
-	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
+	"github.com/urfave/cli"
 )
 
 var (

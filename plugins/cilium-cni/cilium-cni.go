@@ -30,10 +30,10 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	"github.com/appc/cni/pkg/version"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/version"
 	l "github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 )

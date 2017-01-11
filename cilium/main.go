@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/common"
 	daemon "github.com/cilium/cilium/daemon"
 
-	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
+	"github.com/urfave/cli"
 )
 
 var (

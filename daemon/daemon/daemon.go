@@ -43,14 +43,14 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
+	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
 	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 	k8s "k8s.io/client-go/1.5/kubernetes"
 	k8sRest "k8s.io/client-go/1.5/rest"
 	k8sClientCmd "k8s.io/client-go/1.5/tools/clientcmd"
-	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
+	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 var (

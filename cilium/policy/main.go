@@ -34,8 +34,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
-	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
+	"github.com/urfave/cli"
 )
 
 var (

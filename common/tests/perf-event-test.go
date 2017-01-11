@@ -27,7 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 )
 
 var (
