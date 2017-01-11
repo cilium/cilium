@@ -51,7 +51,7 @@
      - [ ] RR [#191]
      - [ ] Least connected [#191]
  - [ ] Integration
-   - [ ] CNI (waiting for https://github.com/containernetworking/cni/pull/115)
+   - [X] CNI ~~(waiting for https://github.com/containernetworking/cni/pull/115)~~
    - [ ] libnetwork (waiting for https://github.com/docker/libnetwork/pull/826)
    - [ ] GCE (test and write tutorial for GCE)
 
