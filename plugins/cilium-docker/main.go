@@ -21,8 +21,8 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
-	"github.com/codegangsta/cli"
 	l "github.com/op/go-logging"
+	"github.com/urfave/cli"
 )
 
 const (

@@ -19,10 +19,10 @@ import (
 	"net"
 	"sync"
 
-	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend"
+	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
-	"k8s.io/kubernetes/pkg/registry/service/ipallocator"
+	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 type IPAMType string

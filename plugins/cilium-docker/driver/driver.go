@@ -28,11 +28,11 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	"github.com/codegangsta/cli"
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
 	l "github.com/op/go-logging"
+	"github.com/urfave/cli"
 	"github.com/vishvananda/netlink"
 )
 

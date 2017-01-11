@@ -33,10 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/codegangsta/cli"
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/op/go-logging"
+	"github.com/urfave/cli"
 )
 
 var (
