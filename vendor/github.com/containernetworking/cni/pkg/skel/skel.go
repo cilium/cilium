@@ -43,6 +43,9 @@ type dispatcher struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+
+	ConfVersionDecoder version.ConfigDecoder
+	VersionReconciler  version.Reconciler
 }
 
 type reqForCmdEntry map[string]bool
@@ -143,6 +146,22 @@ func createTypedError(f string, args ...interface{}) *types.Error {
 	}
 }
 
+func (t *dispatcher) checkVersionAndCall(cmdArgs *CmdArgs, pluginVersionInfo version.PluginInfo, toCall func(*CmdArgs) error) error {
+	configVersion, err := t.ConfVersionDecoder.Decode(cmdArgs.StdinData)
+	if err != nil {
+		return err
+	}
+	verErr := t.VersionReconciler.Check(configVersion, pluginVersionInfo)
+	if verErr != nil {
+		return &types.Error{
+			Code:    types.ErrIncompatibleCNIVersion,
+			Msg:     "incompatible CNI versions",
+			Details: verErr.Details(),
+		}
+	}
+	return toCall(cmdArgs)
+}
+
 func (t *dispatcher) pluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionInfo version.PluginInfo) *types.Error {
 	cmd, cmdArgs, err := t.getCmdArgsFromEnv()
 	if err != nil {
@@ -151,14 +170,11 @@ func (t *dispatcher) pluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionIn
 
 	switch cmd {
 	case "ADD":
-		err = cmdAdd(cmdArgs)
-
+		err = t.checkVersionAndCall(cmdArgs, versionInfo, cmdAdd)
 	case "DEL":
-		err = cmdDel(cmdArgs)
-
+		err = t.checkVersionAndCall(cmdArgs, versionInfo, cmdDel)
 	case "VERSION":
 		err = versionInfo.Encode(t.Stdout)
-
 	default:
 		return createTypedError("unknown CNI_COMMAND: %v", cmd)
 	}
