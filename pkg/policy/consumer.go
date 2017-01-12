@@ -16,8 +16,6 @@
 package policy
 
 import (
-	"strconv"
-
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -186,20 +184,16 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 }
 
 func (c *Consumable) GetConsumer(id NumericIdentity) *Consumer {
-	val, _ := c.Consumers[id.String()]
+	val, _ := c.Consumers[id.StringID()]
 	return val
-}
-
-func (c *Consumable) isNewRule(id NumericIdentity) bool {
-	r1 := c.ReverseRules[id] != nil
-	r2 := c.Consumers[id.String()] != nil
-
-	// golang has no XOR ... whaaa?
-	return (r1 || r2) && !(r1 && r2)
 }
 
 func (c *Consumable) addToMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
+		if m.ConsumerExists(id.Uint32()) {
+			continue
+		}
+
 		log.Debugf("Updating policy BPF map %s: allowing %d\n", m.String(), id)
 		if err := m.AllowConsumer(id.Uint32()); err != nil {
 			log.Warningf("Update of policy map failed: %s\n", err)
@@ -208,7 +202,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[id.String()] == nil
+	return c.ReverseRules[id] == nil && c.Consumers[id.StringID()] == nil
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
@@ -224,13 +218,9 @@ func (c *Consumable) AllowConsumer(cache *ConsumableCache, id NumericIdentity) *
 	var consumer *Consumer
 
 	if consumer = c.GetConsumer(id); consumer == nil {
-		log.Debugf("New consumer %d for consumable %v", id, c)
-		consumer = NewConsumer(id)
-		c.Consumers[strconv.FormatUint(uint64(id), 10)] = consumer
-
-		if c.isNewRule(id) {
-			c.addToMaps(id)
-		}
+		log.Debugf("New consumer %d for consumable %+v", id, c)
+		c.addToMaps(id)
+		c.Consumers[id.StringID()] = NewConsumer(id)
 	} else {
 		consumer.DeletionMark = false
 	}
@@ -240,16 +230,13 @@ func (c *Consumable) AllowConsumer(cache *ConsumableCache, id NumericIdentity) *
 
 func (c *Consumable) AllowConsumerAndReverse(cache *ConsumableCache, id NumericIdentity) {
 	log.Debugf("Allowing direction %d -> %d\n", id, c.ID)
-	fwd := c.AllowConsumer(cache, id)
+	c.AllowConsumer(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
 		log.Debugf("Allowing reverse direction %d -> %d\n", c.ID, id)
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
-			fwd.Reverse = NewConsumer(c.ID)
-			reverse.ReverseRules[c.ID] = fwd.Reverse
-			if reverse.isNewRule(c.ID) {
-				reverse.addToMaps(c.ID)
-			}
+			reverse.addToMaps(c.ID)
+			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
 		}
 	} else {
 		log.Warningf("Allowed a consumer %d->%d which can't be found in the reverse direction", c.ID, id)
@@ -257,9 +244,9 @@ func (c *Consumable) AllowConsumerAndReverse(cache *ConsumableCache, id NumericI
 }
 
 func (c *Consumable) BanConsumer(id NumericIdentity) {
-	if consumer, ok := c.Consumers[id.String()]; ok {
+	if consumer, ok := c.Consumers[id.StringID()]; ok {
 		log.Debugf("Removing consumer %v\n", consumer)
-		delete(c.Consumers, id.String())
+		delete(c.Consumers, id.StringID())
 
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)

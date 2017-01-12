@@ -75,6 +75,11 @@ func (m *PolicyMap) AllowConsumer(id uint32) error {
 	return bpf.UpdateElement(m.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry), 0)
 }
 
+func (m *PolicyMap) ConsumerExists(id uint32) bool {
+	var entry PolicyEntry
+	return bpf.LookupElement(m.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry)) == nil
+}
+
 func (m *PolicyMap) DeleteConsumer(id uint32) error {
 	return bpf.DeleteElement(m.Fd, unsafe.Pointer(&id))
 }
