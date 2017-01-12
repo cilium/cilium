@@ -18,6 +18,7 @@ package policy
 import (
 	"crypto/sha512"
 	"fmt"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/labels"
 
@@ -116,6 +117,8 @@ func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
 	case TRACE_ENABLED, TRACE_VERBOSE:
 		log.Debugf(format, a...)
 		if ctx.Logging != nil {
+			format = "%-" + ctx.CallDepth() + "s" + format
+			a = append([]interface{}{""}, a...)
 			ctx.Logging.Logger.Printf(format, a...)
 		}
 	}
@@ -159,6 +162,7 @@ func (d ConsumableDecision) MarshalJSON() ([]byte, error) {
 
 type SearchContext struct {
 	Trace   Tracing
+	Depth   int
 	Logging *logging.LogBackend
 	// TODO: Put this as []*Label?
 	From []labels.Label
@@ -168,6 +172,14 @@ type SearchContext struct {
 type SearchContextReply struct {
 	Logging  []byte
 	Decision ConsumableDecision
+}
+
+func (s *SearchContext) String() string {
+	return fmt.Sprintf("From: %s => To: %s", s.From, s.To)
+}
+
+func (s *SearchContext) CallDepth() string {
+	return strconv.Itoa(s.Depth * 2)
 }
 
 func (s *SearchContext) TargetCoveredBy(coverage []labels.Label) bool {

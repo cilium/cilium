@@ -78,16 +78,24 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (a *AllowRule) String() string {
+	return fmt.Sprintf("{label: %s, action: %s}", a.Label, a.Action.String())
+}
+
 func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
+	ctx.Depth++
+	defer func() {
+		ctx.Depth--
+	}()
 	for k := range ctx.From {
 		label := &ctx.From[k]
 		if a.Label.Matches(label) {
-			policyTrace(ctx, "Label %v matched in rule %+v\n", label, a)
+			policyTrace(ctx, "Found label matching [%s] in rule: [%s]\n", label.String(), a.String())
 			return a.Action
 		}
 	}
 
-	policyTrace(ctx, "No match in allow rule %+v\n", a)
+	policyTrace(ctx, "No matching labels in allow rule: [%s]\n", a.String())
 	return UNDECIDED
 }
 
@@ -97,17 +105,21 @@ type PolicyRuleConsumers struct {
 	Allow    []AllowRule    `json:"allow"`
 }
 
+func (prc *PolicyRuleConsumers) String() string {
+	return fmt.Sprintf("Coverage: %s Allowing: %s", prc.Coverage, prc.Allow)
+}
+
 func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	// A decision is undecided until we encoutner a DENY or ACCEPT.
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := UNDECIDED
 
 	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(c.Coverage) {
-		policyTrace(ctx, "Rule %v has no coverage\n", c)
+		policyTrace(ctx, "Rule has no coverage: [%s]\n", c.String())
 		return UNDECIDED
 	}
 
-	policyTrace(ctx, "Matching coverage for rule %+v ", c)
+	policyTrace(ctx, "Found coverage rule: [%s]", c.String())
 
 	for k := range c.Allow {
 		allowRule := &c.Allow[k]

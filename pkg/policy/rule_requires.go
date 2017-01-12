@@ -31,6 +31,10 @@ type PolicyRuleRequires struct {
 	Requires []labels.Label `json:"requires"`
 }
 
+func (prr *PolicyRuleRequires) String() string {
+	return fmt.Sprintf("Coverage: %s, Requires: %s", prr.Coverage, prr.Requires)
+}
+
 // A require rule imposes additional label requirements but does not
 // imply access immediately. Hence if the label context is not sufficient
 // access can be denied but fullfillment of the requirement only leads to
@@ -38,7 +42,7 @@ type PolicyRuleRequires struct {
 // down the tree
 func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(r.Coverage) {
-		policyTrace(ctx, "Matching coverage for rule %+v ", r)
+		policyTrace(ctx, "Found coverage rule: %s\n", r.String())
 		for k := range r.Requires {
 			reqLabel := &r.Requires[k]
 			match := false
@@ -51,12 +55,14 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 			}
 
 			if match == false {
-				policyTrace(ctx, "... did not find required labels [%+v]: %v\n", r.Requires, DENY)
+				ctx.Depth++
+				policyTrace(ctx, "No matching labels in required rule [%s], verdict: [%s]\n", r.Requires, DENY.String())
+				ctx.Depth--
 				return DENY
 			}
 		}
 	} else {
-		policyTrace(ctx, "Rule %v has no coverage\n", r)
+		policyTrace(ctx, "Rule has no coverage: %s\n", r)
 	}
 
 	return UNDECIDED
