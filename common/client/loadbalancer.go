@@ -21,12 +21,13 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/types"
 )
 
 // SVCAdd sends a POST request with the given frontend and respective backends to the
 // daemon. The addRevNAT will be sent as an URL query value.
-func (cli Client) SVCAdd(fe types.L3n4AddrID, bes []types.L3n4Addr, addRevNAT bool) error {
+func (cli Client) SVCAdd(fe types.L3n4AddrID, bes []types.LBBackendServer, addRevNAT bool) error {
 	svcRest := types.LBSVC{
 		FE:  fe,
 		BES: bes,
@@ -232,6 +233,31 @@ func (cli Client) RevNATDump() ([]types.L3n4AddrID, error) {
 	}
 
 	var dump []types.L3n4AddrID
+	if err := json.Unmarshal(serverResp.Body(), &dump); err != nil {
+		return nil, err
+	}
+
+	return dump, nil
+}
+
+// WRRDump sends a GET request to receive all Wrrs (frontend with respective backend wrr seq)
+// stored in the daemon.
+func (cli Client) WRRDump() ([]lbmap.ServiceRR, error) {
+	serverResp, err := cli.R().Get("/lb/wrrs")
+	if err != nil {
+		return nil, fmt.Errorf("error while connecting to daemon: %s", err)
+	}
+
+	if serverResp.StatusCode() != http.StatusNoContent &&
+		serverResp.StatusCode() != http.StatusOK {
+		return nil, processErrorBody(serverResp.Body(), nil)
+	}
+
+	if serverResp.StatusCode() == http.StatusNoContent {
+		return nil, nil
+	}
+
+	dump := []lbmap.ServiceRR{}
 	if err := json.Unmarshal(serverResp.Body(), &dump); err != nil {
 		return nil, err
 	}

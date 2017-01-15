@@ -144,5 +144,8 @@ func (r *Router) initBackendRoutes() {
 		route{
 			"SyncLBMap", "POST", "/lb/synclbmap", r.syncLBMap,
 		},
+		route{
+			"LBWrrSeq", "GET", "/lb/wrrs", r.wrrDump,
+		},
 	}
 }

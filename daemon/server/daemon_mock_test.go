@@ -18,6 +18,7 @@ package server
 import (
 	"errors"
 
+	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -55,7 +56,7 @@ type TestDaemon struct {
 	OnPolicyDelete              func(path, cover256sum string) error
 	OnPolicyGet                 func(path string) (*policy.Node, error)
 	OnPolicyCanConsume          func(sc *policy.SearchContext) (*policy.SearchContextReply, error)
-	OnSVCAdd                    func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
+	OnSVCAdd                    func(fe types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error
 	OnSVCDelete                 func(feL3n4 types.L3n4Addr) error
 	OnSVCDeleteBySHA256Sum      func(feL3n4SHA256Sum string) error
 	OnSVCDeleteAll              func() error
@@ -68,6 +69,7 @@ type TestDaemon struct {
 	OnRevNATGet                 func(id types.ServiceID) (*types.L3n4Addr, error)
 	OnRevNATDump                func() ([]types.L3n4AddrID, error)
 	OnSyncLBMap                 func() error
+	OnWRRDump                   func() ([]lbmap.ServiceRR, error)
 }
 
 func NewTestDaemon() *TestDaemon {
@@ -270,7 +272,7 @@ func (d TestDaemon) PolicyCanConsume(sc *policy.SearchContext) (*policy.SearchCo
 	return nil, errors.New("PolicyCanConsume should not have been called")
 }
 
-func (d TestDaemon) SVCAdd(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error {
+func (d TestDaemon) SVCAdd(fe types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error {
 	if d.OnSVCAdd != nil {
 		return d.OnSVCAdd(fe, be, addRevNAT)
 	}
@@ -359,4 +361,11 @@ func (d TestDaemon) SyncLBMap() error {
 		return d.OnSyncLBMap()
 	}
 	return errors.New("SyncLBMap should not have been called")
+}
+
+func (d TestDaemon) WRRDump() ([]lbmap.ServiceRR, error) {
+	if d.OnWRRDump != nil {
+		return d.OnWRRDump()
+	}
+	return nil, errors.New("WRRDump should not have been called")
 }

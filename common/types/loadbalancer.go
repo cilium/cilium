@@ -42,7 +42,7 @@ type ServiceID uint16
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
 	FE  L3n4AddrID
-	BES []L3n4Addr
+	BES []LBBackendServer
 }
 
 // SVCMap is a map of the daemon's services. The key is the sha256sum of the LBSVC's FE
@@ -156,6 +156,12 @@ type L3n4Addr struct {
 	L4Addr
 }
 
+// LBBackendServer is load balancer backend, weight is used for weighted round robin.
+type LBBackendServer struct {
+	Addr   L3n4Addr
+	Weight uint16
+}
+
 // NewL3n4Addr creates a new L3n4Addr.
 func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, error) {
 	lbport, err := NewL4Addr(protocol, portNumber)
@@ -163,6 +169,15 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, erro
 		return nil, err
 	}
 	return &L3n4Addr{IP: ip, L4Addr: *lbport}, nil
+}
+
+// NewLBBackendServer creates a new LBBackendServer
+func NewLBBackendServer(protocol L4Type, ip net.IP, portNumber uint16, weight uint16) (*LBBackendServer, error) {
+	addr, err := NewL3n4Addr(protocol, ip, portNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &LBBackendServer{Addr: *addr, Weight: weight}, nil
 }
 
 // String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and "[IPv6]:Port" format
@@ -242,7 +257,7 @@ func (l *L3n4AddrID) IsIPv6() bool {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
+func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackendServer, beIndex int) error {
 	if beIndex < 0 {
 		return fmt.Errorf("invalid beIndex (%d)", beIndex)
 	}
@@ -254,12 +269,12 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
 	var lbsvc LBSVC
 	lbsvc, ok := svcs[feL3n4Uniq]
 	if !ok {
-		var bes []L3n4Addr
+		var bes []LBBackendServer
 		if beIndex == 0 {
-			bes = make([]L3n4Addr, 1)
+			bes = make([]LBBackendServer, 1)
 			bes[0] = *be
 		} else {
-			bes = make([]L3n4Addr, beIndex)
+			bes = make([]LBBackendServer, beIndex)
 			bes[beIndex-1] = *be
 		}
 		lbsvc = LBSVC{
@@ -267,9 +282,9 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
 			BES: bes,
 		}
 	} else {
-		var bes []L3n4Addr
+		var bes []LBBackendServer
 		if len(lbsvc.BES) < beIndex {
-			bes = make([]L3n4Addr, beIndex)
+			bes = make([]LBBackendServer, beIndex)
 			for i, lbsvcBE := range lbsvc.BES {
 				bes[i] = lbsvcBE
 			}

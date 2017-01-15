@@ -55,19 +55,27 @@ const (
 	DBG_TO_STACK
 	DBG_PKT_HASH
 	DBG_LB6_LOOKUP_MASTER
+	DBG_LB6_LOOKUP_MASTER_SUCCESS
 	DBG_LB6_LOOKUP_MASTER_FAIL
 	DBG_LB6_LOOKUP_SLAVE
 	DBG_LB6_LOOKUP_SLAVE_SUCCESS
+	DBG_LB6_SLAVE_SELECTION
 	DBG_LB6_REVERSE_NAT_LOOKUP
 	DBG_LB6_REVERSE_NAT
+	DBG_LB6_LOOKUP_RR_SEQ
+	DBG_LB6_LOOKUP_RR_SEQ_SUCCESS
 	DBG_LB4_LOOKUP_MASTER
+	DBG_LB4_LOOKUP_MASTER_SUCCESS
 	DBG_LB4_LOOKUP_MASTER_FAIL
 	DBG_LB4_LOOKUP_SLAVE
 	DBG_LB4_LOOKUP_SLAVE_SUCCESS
+	DBG_LB4_SLAVE_SELECTION
 	DBG_LB4_REVERSE_NAT_LOOKUP
 	DBG_LB4_REVERSE_NAT
 	DBG_LB4_LOOPBACK_SNAT
 	DBG_LB4_LOOPBACK_SNAT_REV
+	DBG_LB4_LOOKUP_RR_SEQ
+	DBG_LB4_LOOKUP_RR_SEQ_SUCCESS
 	DBG_CT_LOOKUP4
 )
 
@@ -156,12 +164,20 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Packet hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
 	case DBG_LB6_LOOKUP_MASTER:
 		fmt.Printf("Master service lookup, addr.p4=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB6_LOOKUP_MASTER_SUCCESS, DBG_LB4_LOOKUP_MASTER_SUCCESS:
+		fmt.Printf("Master service lookup Success, svc.count=%d svc.weights=%d\n", n.Arg1, n.Arg2)
 	case DBG_LB6_LOOKUP_MASTER_FAIL:
 		fmt.Printf("Master service lookup failed, addr.p2=%x addr.p3=%x\n", n.Arg1, n.Arg2)
 	case DBG_LB6_LOOKUP_SLAVE, DBG_LB4_LOOKUP_SLAVE:
 		fmt.Printf("Slave service lookup: slave=%d, dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DBG_LB6_LOOKUP_SLAVE_SUCCESS:
 		fmt.Printf("Slave service lookup result: target.p4=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB6_SLAVE_SELECTION, DBG_LB4_SLAVE_SELECTION:
+		fmt.Printf("LB selected slave %d\n", n.Arg1)
+	case DBG_LB6_LOOKUP_RR_SEQ, DBG_LB4_LOOKUP_RR_SEQ:
+		fmt.Printf("LB RR Seq lookup: key.addr=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+	case DBG_LB6_LOOKUP_RR_SEQ_SUCCESS, DBG_LB4_LOOKUP_RR_SEQ_SUCCESS:
+		fmt.Printf("LB RR Seq lookup Success: seq.current=%d seq.count=%d\n", n.Arg1, n.Arg2)
 	case DBG_LB6_REVERSE_NAT_LOOKUP, DBG_LB4_REVERSE_NAT_LOOKUP:
 		fmt.Printf("Reverse NAT lookup, index=%d\n", common.Swab16(uint16(n.Arg1)))
 	case DBG_LB6_REVERSE_NAT:

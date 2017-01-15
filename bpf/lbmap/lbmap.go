@@ -18,6 +18,7 @@ package lbmap
 import (
 	"fmt"
 	"net"
+	"unsafe"
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -25,7 +26,9 @@ import (
 
 const (
 	// Maximum number of entries in each hashtable
-	maxEntries = 65536
+	maxEntries   = 65536
+	maxFrontEnds = 256
+	maxSeq       = 64
 )
 
 // Interface describing protocol independent key for services map
@@ -40,6 +43,9 @@ type ServiceKey interface {
 
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
+
+	// Returns the BPF Weighted Round Robin map matching the key type
+	RRMap() *bpf.Map
 
 	// Returns a RevNatValue matching a ServiceKey
 	RevNatValue() RevNatValue
@@ -82,9 +88,31 @@ type ServiceValue interface {
 	// Set reverse NAT identifier
 	SetRevNat(int)
 
+	// Set Weight
+	SetWeight(uint16)
+
+	// Get Weight
+	GetWeight() uint16
+
 	// Convert between host byte order and map byte order
 	Convert() ServiceValue
 }
+
+type ServiceRRSeq struct {
+	Current uint64
+	Count   uint16
+	_       [3]uint16
+	Idx     [maxSeq]uint16
+}
+
+func (s ServiceRRSeq) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&s) }
+
+type ServiceRR struct {
+	FE  types.L3n4Addr
+	SEQ ServiceRRSeq
+}
+
+type WRRMap map[string]ServiceRR
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
 	if key.GetBackend() != 0 && value.RevNatKey().GetKey() == 0 {
@@ -95,6 +123,14 @@ func UpdateService(key ServiceKey, value ServiceValue) error {
 	}
 
 	return key.Map().Update(key.Convert(), value.Convert())
+}
+
+func UpdateServiceWeights(key ServiceKey, value *ServiceRRSeq) error {
+	if _, err := key.RRMap().OpenOrCreate(); err != nil {
+		return err
+	}
+
+	return key.RRMap().Update(key.Convert(), value)
 }
 
 func DeleteService(key ServiceKey) error {
@@ -173,13 +209,95 @@ func LookupRevNat(key RevNatKey) (RevNatValue, error) {
 	return revnat.Convert(), nil
 }
 
+func gcd(x, y uint16) uint16 {
+	for y != 0 {
+		x, y = y, x%y
+	}
+	return x
+}
+
+type rrState struct {
+	index int
+	cw    uint16
+}
+
+func next(state *rrState, n int, max uint16, weights []uint16) uint16 {
+	for {
+		state.index = (state.index + 1) % n
+		if state.index == 0 {
+			state.cw = state.cw - 1
+			if state.cw <= 0 {
+				state.cw = max
+			}
+		}
+		if weights[state.index] >= state.cw {
+			return uint16(state.index)
+		}
+	}
+}
+
+func GenerateWrrSeq(weights []uint16) *ServiceRRSeq {
+	var seq []uint16
+	svcRRSeq := ServiceRRSeq{}
+
+	n := len(weights)
+	g := gcd(weights[0], weights[1])
+
+	if g == 0 {
+		return nil
+	}
+
+	for i := 2; i < n; i++ {
+		g = gcd(g, weights[i])
+	}
+
+	sum := uint16(0)
+	for i := 0; i < n; i++ {
+		weights[i] = weights[i] / g
+		sum += weights[i]
+	}
+
+	state := rrState{
+		index: -1,
+		cw:    uint16(0),
+	}
+	for i := 0; i < int(sum); i++ {
+		seq = append(seq, next(&state, n, sum, weights))
+	}
+	copy(svcRRSeq.Idx[:], seq)
+	svcRRSeq.Count = uint16(len(seq))
+	svcRRSeq.Current = 0
+	return &svcRRSeq
+}
+
+func UpdateWrrSeq(fe ServiceKey, weights []uint16) error {
+	sum := uint16(0)
+	for i := 0; i < len(weights); i++ {
+		sum += weights[i]
+	}
+	if sum == 0 {
+		return nil
+	}
+	svcRRSeq := GenerateWrrSeq(weights)
+	if svcRRSeq != nil {
+		return UpdateServiceWeights(fe, svcRRSeq)
+	}
+	return fmt.Errorf("unable to generate weighted round robin seq for %+v with value %+v", fe, weights)
+}
+
 // AddSVC2BPFMap adds the given bpf service to the bpf maps.
 func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revNATID int) error {
 	var err error
+	var weights []uint16
 	// Put all the backend services first
 	nSvcs := 1
+	nNonZeroWeights := 0
 	for _, be := range besValues {
 		fe.SetBackend(nSvcs)
+		weights = append(weights, be.GetWeight())
+		if be.GetWeight() != 0 {
+			nNonZeroWeights++
+		}
 		if err := UpdateService(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
@@ -204,11 +322,18 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 	fe.SetBackend(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nSvcs - 1)
+	zeroValue.SetWeight(uint16(nNonZeroWeights))
 
 	err = UpdateService(fe, zeroValue)
 	if err != nil {
 		return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, zeroValue, err)
 	}
+
+	err = UpdateWrrSeq(fe, weights)
+	if err != nil {
+		return fmt.Errorf("unable to update service weights %+v with value %+v: %s", fe, weights, err)
+	}
+
 	return nil
 }
 
@@ -232,11 +357,12 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 	besValues := []ServiceValue{}
 	for _, be := range svc.BES {
 		beValue := fe.NewValue().(ServiceValue)
-		if err := beValue.SetAddress(be.IP); err != nil {
+		if err := beValue.SetAddress(be.Addr.IP); err != nil {
 			return nil, nil, err
 		}
-		beValue.SetPort(uint16(be.Port))
+		beValue.SetPort(uint16(be.Addr.Port))
 		beValue.SetRevNat(int(svc.FE.ID))
+		beValue.SetWeight(be.Weight)
 
 		besValues = append(besValues, beValue)
 	}
@@ -274,22 +400,25 @@ func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
 
 // ServiceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend int the
 // form of L3n4AddrID and backend int he form of L3n4Addr.
-func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3n4AddrID, *types.L3n4Addr, error) {
+func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3n4AddrID, *types.LBBackendServer, error) {
 	var (
-		beIP   net.IP
-		svcID  types.ServiceID
-		bePort uint16
+		beIP     net.IP
+		svcID    types.ServiceID
+		bePort   uint16
+		beWeight uint16
 	)
 	if svcKey.IsIPv6() {
 		svc6Val := svcValue.(*Service6Value)
 		svcID = types.ServiceID(svc6Val.RevNat)
 		beIP = svc6Val.Address.IP()
 		bePort = svc6Val.Port
+		beWeight = svc6Val.Weight
 	} else {
 		svc4Val := svcValue.(*Service4Value)
 		svcID = types.ServiceID(svc4Val.RevNat)
 		beIP = svc4Val.Address.IP()
 		bePort = svc4Val.Port
+		beWeight = svc4Val.Weight
 	}
 
 	feL3n4Addr, err := ServiceKey2L3n4Addr(svcKey)
@@ -297,7 +426,7 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 		return nil, nil, fmt.Errorf("unable to create a new FE for service key %s: %s", svcKey, err)
 	}
 
-	beL3n4Addr, err := types.NewL3n4Addr(types.TCP, beIP, bePort)
+	beLBBackendServer, err := types.NewLBBackendServer(types.TCP, beIP, bePort, beWeight)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create a new BE for IP: %s Port: %d: %s", beIP, bePort, err)
 	}
@@ -307,7 +436,7 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 		ID:       svcID,
 	}
 
-	return feL3n4AddrID, beL3n4Addr, nil
+	return feL3n4AddrID, beLBBackendServer, nil
 }
 
 // RevNat6Value2L3n4Addr converts the given RevNat6Value to a L3n4Addr.
@@ -347,22 +476,25 @@ func RevNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) (*type
 	return &types.L3n4AddrID{L3n4Addr: *be, ID: svcID}, nil
 }
 
-// ServiceValue2L3n4Addr converts the svcValue to a L3n4Addr. The svcKey is necessary to
+// ServiceValue2LBBackendServer converts the svcValue to a LBBackendServer. The svcKey is necessary to
 // determine which IP version svcValue is.
-func ServiceValue2L3n4Addr(svcKey ServiceKey, svcValue ServiceValue) (*types.L3n4Addr, error) {
+func ServiceValue2LBBackendServer(svcKey ServiceKey, svcValue ServiceValue) (*types.LBBackendServer, error) {
 	var (
-		feIP   net.IP
-		fePort uint16
+		feIP     net.IP
+		fePort   uint16
+		feWeight uint16
 	)
 	if svcKey.IsIPv6() {
 		svc6Value := svcValue.(*Service6Value)
 		feIP = svc6Value.Address.IP()
 		fePort = svc6Value.Port
+		feWeight = svc6Value.Weight
 	} else {
 		svc4Value := svcValue.(*Service4Value)
 		feIP = svc4Value.Address.IP()
 		fePort = svc4Value.Port
+		feWeight = svc4Value.Weight
 	}
 
-	return types.NewL3n4Addr(types.TCP, feIP, fePort)
+	return types.NewLBBackendServer(types.TCP, feIP, fePort, feWeight)
 }

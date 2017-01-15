@@ -44,7 +44,7 @@ func (d *Daemon) addSVC2BPFMap(feCilium types.L3n4AddrID, feBPF lbmap.ServiceKey
 // SVCAdd is the public method to add services. We assume the ID provided is not in
 // synced with the KVStore. If that's the case the service won't be used and an error is
 // returned to the caller.
-func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) error {
+func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error {
 	if feL3n4Addr.ID == 0 {
 		return fmt.Errorf("invalid service ID 0")
 	}
@@ -76,7 +76,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr
 	if feAddr256Sum != feL3n4Addr256Sum {
 		return fmt.Errorf("service ID %d is already registered to service %s, please choose a different ID", feL3n4Addr.ID, feAddr.String())
 	}
-	return d.svcAdd(feL3n4Addr, beL3n4Addr, addRevNAT)
+	return d.svcAdd(feL3n4Addr, be, addRevNAT)
 }
 
 // svcAdd adds a service from the given feL3n4Addr (frontend) and beL3n4Addr (backends).
@@ -86,17 +86,17 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
-func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) error {
+func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error {
 	// We will move the slice to the loadbalancer map which have a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
-	beL3n4AddrCpy := []types.L3n4Addr{}
-	for _, v := range beL3n4Addr {
-		beL3n4AddrCpy = append(beL3n4AddrCpy, v)
+	beCpy := []types.LBBackendServer{}
+	for _, v := range be {
+		beCpy = append(beCpy, v)
 	}
 
 	svc := types.LBSVC{
 		FE:  feL3n4Addr,
-		BES: beL3n4AddrCpy,
+		BES: beCpy,
 	}
 
 	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
@@ -216,7 +216,7 @@ func (d *Daemon) SVCGetBySHA256Sum(feL3n4SHA256Sum string) (*types.LBSVC, error)
 		// We will move the slice from the loadbalancer map which have a mutex. If
 		// we don't copy the slice we might risk changing memory that should be
 		// locked.
-		beL3n4AddrCpy := []types.L3n4Addr{}
+		beL3n4AddrCpy := []types.LBBackendServer{}
 		for _, v := range v.BES {
 			beL3n4AddrCpy = append(beL3n4AddrCpy, v)
 		}
@@ -235,7 +235,7 @@ func (d *Daemon) SVCDump() ([]types.LBSVC, error) {
 	defer d.loadBalancer.BPFMapMU.RUnlock()
 
 	for _, v := range d.loadBalancer.SVCMap {
-		beL3n4AddrCpy := []types.L3n4Addr{}
+		beL3n4AddrCpy := []types.LBBackendServer{}
 		for _, v := range v.BES {
 			beL3n4AddrCpy = append(beL3n4AddrCpy, v)
 		}
@@ -332,6 +332,31 @@ func (d *Daemon) RevNATDump() ([]types.L3n4AddrID, error) {
 		})
 	}
 
+	return dump, nil
+}
+
+// WrrDump dumps a DeepCopy of cilium's wrr sequences.
+func (d *Daemon) WRRDump() ([]lbmap.ServiceRR, error) {
+	dump := []lbmap.ServiceRR{}
+
+	d.loadBalancer.BPFMapMU.RLock()
+	defer d.loadBalancer.BPFMapMU.RUnlock()
+
+	for _, u := range d.loadBalancer.SVCMap {
+		weights := []uint16{}
+		for _, v := range u.BES {
+			weights = append(weights, v.Weight)
+		}
+		seq := lbmap.GenerateWrrSeq(weights)
+		if seq == nil {
+			return nil, fmt.Errorf("unable to generate weighted round robin seq for %+v with value %+v", u.FE, weights)
+		}
+		svcrr := lbmap.ServiceRR{
+			FE:  u.FE.L3n4Addr,
+			SEQ: *seq,
+		}
+		dump = append(dump, svcrr)
+	}
 	return dump, nil
 }
 

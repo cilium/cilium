@@ -739,6 +739,23 @@ func (router *Router) revNATDump(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *Router) wrrDump(w http.ResponseWriter, r *http.Request) {
+	dump, err := router.daemon.WRRDump()
+	if err != nil {
+		processServerError(w, r, err)
+		return
+	}
+	if dump == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(dump); err != nil {
+		processServerError(w, r, err)
+		return
+	}
+}
+
 func (router *Router) syncLBMap(w http.ResponseWriter, r *http.Request) {
 	err := router.daemon.SyncLBMap()
 	if err != nil {

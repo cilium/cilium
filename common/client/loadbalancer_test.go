@@ -45,6 +45,14 @@ var (
 			Port:     1911,
 		},
 	}
+	bes1 = types.LBBackendServer{
+		Addr:   revNat1,
+		Weight: 0,
+	}
+	bes2 = types.LBBackendServer{
+		Addr:   revNat2,
+		Weight: 0,
+	}
 )
 
 func (s *CiliumNetClientSuite) TestSVCAddOK(c *C) {
@@ -53,9 +61,9 @@ func (s *CiliumNetClientSuite) TestSVCAddOK(c *C) {
 	c.Assert(err, IsNil)
 	wantLBSVC := types.LBSVC{
 		FE: *fe,
-		BES: []types.L3n4Addr{
-			revNat1,
-			revNat2,
+		BES: []types.LBBackendServer{
+			bes1,
+			bes2,
 		},
 	}
 	addRevNAT := true
@@ -84,9 +92,9 @@ func (s *CiliumNetClientSuite) TestSVCAddFail(c *C) {
 	c.Assert(err, IsNil)
 	wantLBSVC := types.LBSVC{
 		FE: *fe,
-		BES: []types.L3n4Addr{
-			revNat1,
-			revNat2,
+		BES: []types.LBBackendServer{
+			bes1,
+			bes2,
 		},
 	}
 	addRevNAT := true
@@ -196,9 +204,9 @@ func (s *CiliumNetClientSuite) TestSVCGetOK(c *C) {
 	c.Assert(err, IsNil)
 	wantLBSVC := types.LBSVC{
 		FE: *fe,
-		BES: []types.L3n4Addr{
-			revNat1,
-			revNat2,
+		BES: []types.LBBackendServer{
+			bes1,
+			bes2,
 		},
 	}
 	feSHA256Sum, err := fe.SHA256Sum()
@@ -253,16 +261,16 @@ func (s *CiliumNetClientSuite) TestSVCDumpOK(c *C) {
 	wantLBSVC := []types.LBSVC{
 		{
 			FE: *fe,
-			BES: []types.L3n4Addr{
-				revNat1,
-				revNat2,
+			BES: []types.LBBackendServer{
+				bes1,
+				bes2,
 			},
 		},
 		{
 			FE: *fe,
-			BES: []types.L3n4Addr{
-				revNat1,
-				revNat2,
+			BES: []types.LBBackendServer{
+				bes1,
+				bes2,
 			},
 		},
 	}

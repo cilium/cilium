@@ -64,6 +64,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
+			ct_state->lb_slave_index = entry->lb_slave_index;
 		}
 
 #ifdef LXC_NAT46
@@ -405,6 +406,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.lb_slave_index = ct_state->lb_slave_index;
 
 	if (dir == CT_INGRESS) {
 		if (tuple->nexthdr == IPPROTO_UDP ||
@@ -467,6 +469,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.lb_slave_index = ct_state->lb_slave_index;
 
 	if (dir == CT_INGRESS) {
 		if (tuple->nexthdr == IPPROTO_UDP ||

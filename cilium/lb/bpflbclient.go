@@ -33,7 +33,7 @@ func NewLBClient() *LBClient {
 	return &LBClient{}
 }
 
-func (cli *LBClient) SVCAdd(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error {
+func (cli *LBClient) SVCAdd(fe types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error {
 	svc := types.LBSVC{
 		FE:  fe,
 		BES: be,
@@ -75,7 +75,7 @@ func (cli *LBClient) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
 	} else {
 		besLen = int(svc.(*lbmap.Service4Value).Count)
 	}
-	bes := []types.L3n4Addr{}
+	bes := []types.LBBackendServer{}
 	svcID := types.ServiceID(0)
 	for i := 1; i <= besLen; i++ {
 		key.SetBackend(i)
@@ -83,7 +83,7 @@ func (cli *LBClient) SVCGet(feL3n4 types.L3n4Addr) (*types.LBSVC, error) {
 		if err != nil {
 			return nil, err
 		}
-		sv, err := lbmap.ServiceValue2L3n4Addr(key, svc)
+		sv, err := lbmap.ServiceValue2LBBackendServer(key, svc)
 		if err != nil {
 			return nil, err
 		}
@@ -212,6 +212,44 @@ func (cli *LBClient) RevNATDump() ([]types.L3n4AddrID, error) {
 			ID:       k,
 			L3n4Addr: v,
 		})
+	}
+	return dump, nil
+}
+
+func (cli *LBClient) WRRDump() ([]lbmap.ServiceRR, error) {
+	wrrSeqs := lbmap.WRRMap{}
+	var svcrr lbmap.ServiceRR
+
+	parseWRRSeq := func(key bpf.MapKey, value bpf.MapValue) {
+		wrrSeqKey := key.(lbmap.ServiceKey)
+		wrrSeqVal := value.(*lbmap.ServiceRRSeq)
+		feL3n4Addr, err := lbmap.ServiceKey2L3n4Addr(wrrSeqKey)
+		if err != nil {
+			log.Errorf("unable to create a new FE for service key %s: %s", wrrSeqKey, err)
+			return
+		}
+		feL3n4Uniq, err := feL3n4Addr.SHA256Sum()
+		if err != nil {
+			log.Errorf("unable to get the SHA256Sum for FE Service: %s: %s", feL3n4Uniq, err)
+			return
+		}
+		svcrr = lbmap.ServiceRR{
+			FE:  *feL3n4Addr,
+			SEQ: *wrrSeqVal,
+		}
+		wrrSeqs[feL3n4Uniq] = svcrr
+	}
+
+	if err := lbmap.RRSeq4Map.Dump(lbmap.Service4RRSeqDumpParser, parseWRRSeq); err != nil {
+		return nil, err
+	}
+	if err := lbmap.RRSeq6Map.Dump(lbmap.Service6RRSeqDumpParser, parseWRRSeq); err != nil {
+		return nil, err
+	}
+
+	dump := []lbmap.ServiceRR{}
+	for _, v := range wrrSeqs {
+		dump = append(dump, v)
 	}
 	return dump, nil
 }

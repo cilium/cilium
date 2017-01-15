@@ -159,6 +159,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 64000\n")
 	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
+	fmt.Fprintf(fw, "#define CT_MAP6_EWLB %s\n", ctmap.MapName6+"lb_"+strconv.Itoa(int(e.ID)))
+	fmt.Fprintf(fw, "#define CT_MAP4_EWLB %s\n", ctmap.MapName4+"lb_"+strconv.Itoa(int(e.ID)))
 
 	// Always enable L4 and L3 load balancer for now
 	fw.WriteString("#define LB_L3\n")

@@ -36,6 +36,7 @@
 #define DISABLE_LOOPBACK_LB
 
 #include <netdev_config.h>
+#include <node_config.h>
 
 #include <bpf/api.h>
 
@@ -50,9 +51,13 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/drop.h"
+#include "lib/conntrack.h"
 #include "lib/lb.h"
 
 #ifndef LB_DISABLE_IPV6
+__BPF_MAP(CT_MAP6_NSLB, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
+	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_LB_SIZE);
+
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	void *data = (void *) (long) skb->data;
@@ -66,6 +71,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	union v6addr new_dst;
 	__u8 nexthdr;
 	__u16 slave;
+	struct ct_state ct_state_prexlate = {};
+	struct ipv6_ct_tuple tuple = {};
 
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
@@ -73,29 +80,25 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
 
 	nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&key.address, dst);
+	tuple.nexthdr = nexthdr;
+	ipv6_addr_copy(&tuple.addr, dst);
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
-	csum_l4_offset_and_flags(nexthdr, &csum_off);
 
-#ifdef LB_L4
-	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);
+	ret = lb6_extract_key(skb, &tuple, l4_off, &key, &csum_off);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4) {
-			/* Pass unknown L4 to stack */
+		/* Pass unknown L4 to stack */
+		if (ret == DROP_UNKNOWN_L4)
 			return TC_ACT_OK;
-		} else
+		else
 			return ret;
 	}
-#endif
 
-	svc = lb6_lookup_service(skb, &key);
-	if (svc == NULL) {
-		/* Pass packets to the stack which should not be loadbalanced */
+	/* Pass packets to the stack which should not be loadbalanced */
+	if (lb6_skip(&CT_MAP6_NSLB, skb, &key, &tuple, &ct_state_prexlate, l4_off, 0))
 		return TC_ACT_OK;
-	}
 
-	slave = lb_select_slave(skb, svc->count);
+	slave = ct_state_prexlate.lb_slave_index;
 	if (!(svc = lb6_lookup_slave(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 
@@ -112,6 +115,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #endif
 
 #ifndef LB_DISABLE_IPV4
+__BPF_MAP(CT_MAP4_NSLB, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
+	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_LB_SIZE);
+
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data = (void *) (long) skb->data;
@@ -124,6 +130,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	__be32 new_dst;
 	__u8 nexthdr;
 	__u16 slave;
+	struct ct_state ct_state_prexlate = {};
+	struct ipv4_ct_tuple tuple = {};
 
 	if (data + ETH_HLEN + sizeof(*ip) > data_end)
 		return DROP_INVALID;
@@ -131,29 +139,24 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
 
 	nexthdr = ip->protocol;
-	key.address = ip->daddr;
+	tuple.addr = ip->daddr;
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip);
-	csum_l4_offset_and_flags(nexthdr, &csum_off);
 
-#ifdef LB_L4
-	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);
+	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4) {
+		if (ret == DROP_UNKNOWN_L4)
 			/* Pass unknown L4 to stack */
 			return TC_ACT_OK;
-		} else
+		else
 			return ret;
 	}
-#endif
 
-	svc = lb4_lookup_service(skb, &key);
-	if (svc == NULL) {
-		/* Pass packets to the stack which should not be loadbalanced */
+	/* Pass packets to the stack which should not be loadbalanced */
+	if (lb4_skip(&CT_MAP4_NSLB, skb, &key, &tuple, &ct_state_prexlate, l4_off, 0))
 		return TC_ACT_OK;
-	}
 
-	slave = lb_select_slave(skb, svc->count);
+	slave = ct_state_prexlate.lb_slave_index;
 	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 

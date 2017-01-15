@@ -41,3 +41,6 @@
 #define ENABLE_ARP_RESPONDER
 #define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
 #define ENABLE_IPV4
+#define CT_MAP6_NSLB cilium_ct6_lb
+#define CT_MAP4_NSLB cilium_ct4_lb
+#define CT_MAP_LB_SIZE 4096

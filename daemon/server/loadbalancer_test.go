@@ -41,10 +41,17 @@ var (
 			Port:     1911,
 		},
 	}
-
-	bes = []types.L3n4Addr{
-		revNat1,
-		revNat2,
+	bes1 = types.LBBackendServer{
+		Addr:   revNat1,
+		Weight: 0,
+	}
+	bes2 = types.LBBackendServer{
+		Addr:   revNat2,
+		Weight: 0,
+	}
+	bes = []types.LBBackendServer{
+		bes1,
+		bes2,
 	}
 )
 
@@ -52,7 +59,7 @@ func (s *DaemonSuite) TestSVCAddIDOK(c *C) {
 	feWant, err := types.NewL3n4AddrID(types.TCP, randomAddr1, 1984, 2016)
 	c.Assert(err, IsNil)
 
-	s.d.OnSVCAdd = func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error {
+	s.d.OnSVCAdd = func(fe types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error {
 		c.Assert(fe, DeepEquals, *feWant)
 		c.Assert(be, DeepEquals, bes)
 		c.Assert(addRevNAT, Equals, false)
@@ -67,7 +74,7 @@ func (s *DaemonSuite) TestSVCAddIDFail(c *C) {
 	feWant, err := types.NewL3n4AddrID(types.TCP, randomAddr1, 1984, 2016)
 	c.Assert(err, IsNil)
 
-	s.d.OnSVCAdd = func(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error {
+	s.d.OnSVCAdd = func(fe types.L3n4AddrID, be []types.LBBackendServer, addRevNAT bool) error {
 		c.Assert(fe, DeepEquals, *feWant)
 		c.Assert(be, DeepEquals, bes)
 		c.Assert(addRevNAT, Equals, true)

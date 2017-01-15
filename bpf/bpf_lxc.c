@@ -49,6 +49,10 @@ __BPF_MAP(CT_MAP6, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
 	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
 __BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
 	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
+__BPF_MAP(CT_MAP6_EWLB, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
+	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_LB_SIZE);
+__BPF_MAP(CT_MAP4_EWLB, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
+	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_LB_SIZE);
 
 #if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
 static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
@@ -108,10 +112,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	union v6addr host_ip = HOST_IP;
 	int ret, l4_off;
 	struct csum_offset csum_off = {};
-	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state_prexlate = {};
+	__u16 slave;
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -143,23 +148,16 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		else
 			return ret;
 	}
-
 	ct_state_new.orig_dport = key.dport;
 
-	/*
-	 * Check if the destination address is among the address that should be
-	 * load balanced. This operation is performed before we go through the
-	 * connection tracker to allow storing the reverse nat index in the CT
-	 * entry for destination endpoints where we can't encode the state in the
-	 * address.
-	 */
-	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
-		ret = lb6_local(skb, l3_off, l4_off, &csum_off, &key, tuple, svc,
-				&ct_state_new);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	if (lb6_skip(&CT_MAP6_EWLB, skb, &key, tuple, &ct_state_prexlate, l4_off, SECLABEL))
+		goto skip_service_lookup;
 
+	slave = ct_state_prexlate.lb_slave_index;
+	ret = lb6_local(skb, l3_off, l4_off, &csum_off, &key, tuple,
+			&ct_state_new, slave);
+	if (IS_ERR(ret))
+		return ret;
 skip_service_lookup:
 	/* Port reverse mapping can never happen when we balanced to a service */
 	ret = map_lxc_out(skb, l4_off, tuple->nexthdr);
@@ -348,10 +346,11 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct ethhdr *eth = data;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
-	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state_prexlate = {};
+	__u16 slave;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -387,16 +386,16 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		else
 			return ret;
 	}
-
 	ct_state_new.orig_dport = key.dport;
 
-	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
-		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
-				&key, &tuple, svc, &ct_state_new, ip4->saddr);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	if (lb4_skip(&CT_MAP4_EWLB, skb, &key, &tuple, &ct_state_prexlate, l4_off, SECLABEL))
+		goto skip_service_lookup;
 
+	slave = ct_state_prexlate.lb_slave_index;
+	ret = lb4_local(skb, l3_off, l4_off, &csum_off,
+			&key, &tuple, &ct_state_new, ip4->saddr, slave);
+	if (IS_ERR(ret))
+		return ret;
 skip_service_lookup:
 	ret = map_lxc_out(skb, l4_off, tuple.nexthdr);
 	if (IS_ERR(ret))

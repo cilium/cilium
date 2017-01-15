@@ -22,6 +22,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/backend"
@@ -65,6 +66,12 @@ func init() {
 				Name:   "dump-rev-nat",
 				Usage:  "Dumps the RevNAT map present on the daemon",
 				Action: cliDumpRevNat,
+				Before: initEnv,
+			},
+			{
+				Name:   "dump-wrr-seq",
+				Usage:  "Dumps the weighted round robin sequences for backends",
+				Action: cliDumpWrr,
 				Before: initEnv,
 			},
 			{
@@ -197,7 +204,12 @@ func cliDumpServices(ctx *cli.Context) {
 	for _, v := range dump {
 		besWithID := []string{}
 		for i, be := range v.BES {
-			str := fmt.Sprintf("%d => %s (%d)", i+1, be.String(), v.FE.ID)
+			var str string
+			if be.Weight != 0 {
+				str = fmt.Sprintf("%d => %s,%d (%d)", i+1, be.Addr.String(), be.Weight, v.FE.ID)
+			} else {
+				str = fmt.Sprintf("%d => %s (%d)", i+1, be.Addr.String(), v.FE.ID)
+			}
 			besWithID = append(besWithID, str)
 		}
 		svcs[v.FE.L3n4Addr.String()] = besWithID
@@ -214,6 +226,30 @@ func cliDumpServices(ctx *cli.Context) {
 		for _, be := range svcs[svcKey] {
 			fmt.Printf("\t\t%s\n", be)
 		}
+	}
+}
+
+func cliDumpWrr(ctx *cli.Context) {
+	dump, err := client.WRRDump()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Unable to dump map: %s\n", err)
+	}
+
+	wrrs := map[string]string{}
+	for _, v := range dump {
+		str := fmt.Sprintf("(current %d, count %d) seq%v", v.SEQ.Current, v.SEQ.Count, v.SEQ.Idx[:v.SEQ.Count])
+		wrrs[v.FE.String()] = str
+	}
+
+	var wrrKeys []string
+	for k := range wrrs {
+		wrrKeys = append(wrrKeys, k)
+	}
+	sort.Strings(wrrKeys)
+
+	for _, wrrKey := range wrrKeys {
+		fmt.Printf("%s =>\n", wrrKey)
+		fmt.Printf("\t\t%s\n", wrrs[wrrKey])
 	}
 }
 
@@ -286,7 +322,7 @@ func cliLookupService(ctx *cli.Context) {
 
 	besSlice := []string{}
 	for _, revNat := range lbSVC.BES {
-		besSlice = append(besSlice, revNat.String())
+		besSlice = append(besSlice, revNat.Addr.String())
 	}
 
 	fmt.Printf("%s =>\n", key.String())
@@ -326,7 +362,7 @@ func cliLookupRevNat(ctx *cli.Context) {
 
 func cliUpdateService(ctx *cli.Context) {
 	feL3n4Addr := parseServiceKey(ctx.String("frontend"))
-	backends := []types.L3n4Addr{}
+	backends := []types.LBBackendServer{}
 	fe := types.L3n4AddrID{
 		ID:       types.ServiceID(ctx.Int("id")),
 		L3n4Addr: *feL3n4Addr,
@@ -344,19 +380,34 @@ func cliUpdateService(ctx *cli.Context) {
 	}
 
 	for _, backend := range backendList {
-		beAddr, err := net.ResolveTCPAddr("tcp", backend)
+		tmp := strings.Split(backend, ",")
+		if len(tmp) > 2 {
+			fmt.Fprintf(os.Stderr, "Incorrect backend specification %s\n", backend)
+			os.Exit(1)
+		}
+		addr := tmp[0]
+		weight := uint64(0)
+		if len(tmp) == 2 {
+			var err error
+			weight, err = strconv.ParseUint(tmp[1], 10, 16)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+		}
+		beAddr, err := net.ResolveTCPAddr("tcp", addr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
 
-		be, err := types.NewL3n4Addr(types.TCP, beAddr.IP, uint16(beAddr.Port))
+		be, err := types.NewLBBackendServer(types.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to create a new L3n4Addr for backend %s: %s\n", backend, err)
 			os.Exit(1)
 		}
 
-		if !be.IsIPv6() && fe.IsIPv6() {
+		if !be.Addr.IsIPv6() && fe.IsIPv6() {
 			fmt.Fprintf(os.Stderr, "Address mismatch between frontend and backend %s\n",
 				backend)
 			os.Exit(1)
