@@ -62,7 +62,7 @@ function write_nodes_routes(){
 EOF
     local i
     local index=1
-    for i in `seq $(( FIRST_IP_SUFFIX + 1 )) $(( FIRST_IP_SUFFIX + NUM_NODES ))`; do
+    for i in `seq $(( FIRST_IP_SUFFIX + 1 )) $(( FIRST_IP_SUFFIX + NWORKERS ))`; do
         index=$(( index + 1 ))
         if [ "${node_index}" -eq "${index}" ]; then
             eval "${1}=$(printf '%02X' ${i})"
@@ -155,7 +155,7 @@ EOF
 function create_master(){
     write_header 1 "${dir}/cilium-master.sh"
 
-    if [ -n "${NUM_NODES}" ]; then
+    if [ -n "${NWORKERS}" ]; then
         write_nodes_routes hexNodeIPv4 1 "${dir}/cilium-master.sh"
     fi
 
@@ -164,8 +164,8 @@ function create_master(){
 }
 
 function create_nodes(){
-    if [ -n "${NUM_NODES}" ]; then
-        for i in `seq 2 $(( NUM_NODES + 1 ))`; do
+    if [ -n "${NWORKERS}" ]; then
+        for i in `seq 2 $(( NWORKERS + 1 ))`; do
             write_header "${i}" "${dir}/node-start-${i}.sh"
 
             cat <<EOF >> "${dir}/node-start-${i}.sh"
@@ -179,7 +179,7 @@ fi
 echo "2001:DB8:AAAA::$(printf "%04X" "${i}") cilium${K8STAG}-node-${i}" >> /etc/hosts
 
 EOF
-            if [ -n "${NUM_NODES}" ]; then
+            if [ -n "${NWORKERS}" ]; then
                 write_nodes_routes hexNodeIPv4 "${i}" "${dir}/node-start-${i}.sh"
             fi
 

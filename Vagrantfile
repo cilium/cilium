@@ -6,7 +6,7 @@ Vagrant.require_version ">= 1.7.4"
 if ARGV.first == "up" && ENV['CILIUM_SCRIPT'] != 'true'
     raise Vagrant::Errors::VagrantError.new, <<END
 Calling 'vagrant up' directly is not supported.  Instead, please run the following:
-  export NUM_NODES=n
+  export NWORKERS=n
   ./contrib/vagrant/start.sh
 END
 end
@@ -99,7 +99,7 @@ SCRIPT
 
 $node_ip_base = ENV['NODE_IP_BASE'] || ""
 $master_ip = $node_ip_base + "#{ENV['FIRST_IP_SUFFIX']}"
-$num_node = (ENV['NUM_NODES'] || 0).to_i
+$num_node = (ENV['NWORKERS'] || 0).to_i
 $node_ips = $num_node.times.collect { |n| $node_ip_base + "#{n+(ENV['FIRST_IP_SUFFIX']).to_i+1}" }
 $node_nfs_base_ip = ENV['NODE_NFS_IP_BASE']
 
