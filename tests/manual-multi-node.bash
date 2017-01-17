@@ -3,7 +3,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 set -e
 
-export NUM_NODES=1
+export NWORKERS=1
 
 function node_run {
 	NODE=$1
