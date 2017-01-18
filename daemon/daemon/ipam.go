@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/pkg/endpoint"
 
+	log "github.com/Sirupsen/logrus"
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 )

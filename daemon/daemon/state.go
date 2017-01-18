@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/pkg/endpoint"
 
+	log "github.com/Sirupsen/logrus"
 	dockerAPI "github.com/docker/engine-api/client"
 	ctx "golang.org/x/net/context"
 )

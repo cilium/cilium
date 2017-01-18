@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common/ipam"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/ipams/remote/api"
 )
 

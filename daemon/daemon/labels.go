@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"

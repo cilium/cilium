@@ -22,6 +22,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // Any further consumer requires the specified list of

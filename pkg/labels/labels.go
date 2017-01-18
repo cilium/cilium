@@ -26,11 +26,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 
-	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-labels")
+	log "github.com/Sirupsen/logrus"
 )
 
 const (

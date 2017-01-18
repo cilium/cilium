@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/mac"
 
-	"github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -31,10 +31,6 @@ const (
 	hostInterfacePrefix = "lxc"
 	// temporaryInterfacePrefix is the temporary interface prefix while setting up libNetwork interface.
 	temporaryInterfacePrefix = "tmp"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-net")
 )
 
 // Endpoint2IfName returns the host interface name for the given endpointID.

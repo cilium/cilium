@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
-	l "github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -42,7 +42,6 @@ var (
 	client             backend.CiliumBackend
 	ignoredMasksSource = []string{".git"}
 	ignoredMasks       []*regexp.Regexp
-	log                = l.MustGetLogger("cilium-cli")
 	CliCommand         cli.Command
 )
 
@@ -130,9 +129,9 @@ func init() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
+		common.SetupLOG("debug")
 	} else {
-		common.SetupLOG(log, "INFO")
+		common.SetupLOG("info")
 	}
 
 	var (

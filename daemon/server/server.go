@@ -25,11 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/daemon"
 
-	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-net")
+	log "github.com/Sirupsen/logrus"
 )
 
 // Server listens for HTTP requests and sends them to our router.

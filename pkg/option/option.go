@@ -21,12 +21,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common"
-
-	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-option")
 )
 
 type Option struct {

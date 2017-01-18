@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
-	"github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 )
 
 // findNode returns node and its parent or an error
@@ -123,7 +123,9 @@ func (d *Daemon) triggerPolicyUpdates(added []policy.NumericIdentity) {
 func (d *Daemon) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error) {
 	buffer := new(bytes.Buffer)
 	if ctx.Trace != policy.TRACE_DISABLED {
-		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+		ctx.Logging = log.New()
+		ctx.Logging.Out = buffer
+		ctx.Logging.Level = log.DebugLevel
 	}
 	scr := policy.SearchContextReply{}
 	d.policy.Mutex.RLock()

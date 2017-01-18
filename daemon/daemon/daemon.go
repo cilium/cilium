@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/lbmap"
@@ -42,19 +43,15 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
+	log "github.com/Sirupsen/logrus"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
-	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 	k8s "k8s.io/client-go/1.5/kubernetes"
 	k8sRest "k8s.io/client-go/1.5/rest"
 	k8sClientCmd "k8s.io/client-go/1.5/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-net")
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -472,12 +469,14 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if c.RestoreState {
+		start := time.Now()
 		if err := d.SyncState(common.CiliumPath, true); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
 		if err := d.SyncLBMap(); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
+		timeTrack(start, "SyncState")
 	}
 
 	d.endpointsMU.Lock()
@@ -491,6 +490,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	return &d, nil
+}
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Debugf("%s took %s\n", name, elapsed)
 }
 
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {

@@ -24,6 +24,8 @@ import (
 
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type LogstashStat struct {

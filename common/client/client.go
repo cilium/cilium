@@ -24,14 +24,12 @@ import (
 
 	common "github.com/cilium/cilium/common"
 
-	l "github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"gopkg.in/resty.v0"
 )
 
-var log = l.MustGetLogger("cilium-net-client")
-
 func init() {
-	common.SetupLOG(log, "DEBUG")
+	common.SetupLOG("debug")
 }
 
 // Client has the internal details necessary to talk with the daemon.

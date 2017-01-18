@@ -22,6 +22,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func (e *Endpoint) checkEgressAccess(owner Owner, opts option.OptionMap, dstID policy.NumericIdentity, opt string) {

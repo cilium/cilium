@@ -34,12 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-endpoint")
 )
 
 // PortMap is the port mapping representation for a particular endpoint.
@@ -87,7 +81,7 @@ var (
 	}
 
 	OptionSpecDebug = option.Option{
-		Define:      "DEBUG",
+		Define:      "debug",
 		Description: "Enable debugging trace statements",
 	}
 

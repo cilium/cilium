@@ -31,9 +31,9 @@
 			"Rev": "5bd2802263f21d8788851d5305584c82a5c75d7e"
 		},
 		{
-			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.8.7-60-gbe52937",
-			"Rev": "be52937128b38f1d99787bb476c789e2af1147f1"
+			"ImportPath": log "github.com/Sirupsen/logrus",
+			"Comment": "v0.11.0-35-g61e43dc",
+			"Rev": "61e43dc76f7ee59a82bdf3d71033dc12bea4c77d"
 		},
 		{
 			"ImportPath": "github.com/blang/semver",
@@ -452,10 +452,6 @@
 		{
 			"ImportPath": "github.com/mattn/go-isatty",
 			"Rev": "56b76bdf51f7708750eac80fa38b952bb9f32639"
-		},
-		{
-			"ImportPath": "github.com/op/go-logging",
-			"Rev": "0882c9abce533ab4afbab5677fcef7434dd36d5a"
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runc/libcontainer/user",

@@ -18,6 +18,8 @@ package policy
 import (
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/pkg/labels"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // An entity that consumes a Consumable

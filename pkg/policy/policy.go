@@ -22,11 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 
-	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-policy")
+	log "github.com/Sirupsen/logrus"
 )
 
 // Available privileges for policy nodes to define
@@ -119,7 +115,7 @@ func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
 		if ctx.Logging != nil {
 			format = "%-" + ctx.CallDepth() + "s" + format
 			a = append([]interface{}{""}, a...)
-			ctx.Logging.Logger.Printf(format, a...)
+			ctx.Logging.Printf(format, a...)
 		}
 	}
 }
@@ -129,7 +125,7 @@ func policyTraceVerbose(ctx *SearchContext, format string, a ...interface{}) {
 	case TRACE_VERBOSE:
 		log.Debugf(format, a...)
 		if ctx.Logging != nil {
-			ctx.Logging.Logger.Printf(format, a...)
+			ctx.Logging.Printf(format, a...)
 		}
 	}
 }
@@ -163,7 +159,7 @@ func (d ConsumableDecision) MarshalJSON() ([]byte, error) {
 type SearchContext struct {
 	Trace   Tracing
 	Depth   int
-	Logging *logging.LogBackend
+	Logging *log.Logger
 	// TODO: Put this as []*Label?
 	From []labels.Label
 	To   []labels.Label

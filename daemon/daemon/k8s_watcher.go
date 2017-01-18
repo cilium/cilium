@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 
+	log "github.com/Sirupsen/logrus"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/1.5/pkg/fields"

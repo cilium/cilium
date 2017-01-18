@@ -28,7 +28,6 @@ import (
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/types"
 
-	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
 
@@ -37,7 +36,6 @@ var (
 	noDaemon bool
 
 	client backend.LBBackend
-	log    = l.MustGetLogger("cilium-cli")
 
 	// CliCommand is the command that will be used in cilium-net main program.
 	CliCommand cli.Command
@@ -160,9 +158,9 @@ func init() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
+		common.SetupLOG("debug")
 	} else {
-		common.SetupLOG(log, "INFO")
+		common.SetupLOG("info")
 	}
 
 	if noDaemon {

@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (

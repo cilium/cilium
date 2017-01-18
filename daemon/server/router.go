@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/common/backend"
 	"github.com/cilium/cilium/common/types"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 

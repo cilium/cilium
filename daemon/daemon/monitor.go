@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {

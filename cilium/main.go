@@ -25,12 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	daemon "github.com/cilium/cilium/daemon"
 
-	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
-)
-
-var (
-	log = l.MustGetLogger("cilium-cli")
 )
 
 func main() {
@@ -62,9 +57,9 @@ func main() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.Bool("debug") {
-		common.SetupLOG(log, "DEBUG")
+		common.SetupLOG("debug")
 	} else {
-		common.SetupLOG(log, "INFO")
+		common.SetupLOG("info")
 	}
 	return nil
 }

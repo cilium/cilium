@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func (d *Daemon) lookupCiliumEndpoint(id uint16) *endpoint.Endpoint {

@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // EndpointJoin sends a endpoint POST request with ep to the daemon.

@@ -32,14 +32,13 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
-	l "github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
 var (
 	CliCommand cli.Command
 	client     *cnc.Client
-	log        = l.MustGetLogger("cilium-tools-endpoint")
 )
 
 func init() {
@@ -161,9 +160,9 @@ func init() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
+		common.SetupLOG("debug")
 	} else {
-		common.SetupLOG(log, "INFO")
+		common.SetupLOG("info")
 	}
 
 	var (

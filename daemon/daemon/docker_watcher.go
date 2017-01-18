@@ -36,6 +36,8 @@ import (
 	dTypesEvents "github.com/docker/engine-api/types/events"
 	ctx "golang.org/x/net/context"
 	k8sDockerLbls "k8s.io/client-go/1.5/pkg/kubelet/types"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (

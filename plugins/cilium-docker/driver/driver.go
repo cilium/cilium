@@ -28,15 +28,13 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/endpoint"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
-	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"github.com/vishvananda/netlink"
 )
-
-var log = l.MustGetLogger("cilium-net-client")
 
 const (
 	// ContainerInterfacePrefix is the container's internal interface name prefix.

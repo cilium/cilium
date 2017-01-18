@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
-	l "github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -31,8 +31,6 @@ const (
 	// driverSock is the cilium socket for the communication between docker and cilium.
 	driverSock = pluginPath + "cilium.sock"
 )
-
-var log = l.MustGetLogger("cilium-net-docker-plugin")
 
 func main() {
 	app := cli.NewApp()
@@ -52,9 +50,9 @@ func main() {
 
 func initEnv(ctx *cli.Context) error {
 	if ctx.Bool("debug") {
-		common.SetupLOG(log, "DEBUG")
+		common.SetupLOG("debug")
 	} else {
-		common.SetupLOG(log, "INFO")
+		common.SetupLOG("info")
 	}
 
 	if err := os.MkdirAll(pluginPath, 0755); err != nil && !os.IsExist(err) {

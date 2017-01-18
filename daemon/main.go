@@ -33,9 +33,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
+	log "github.com/Sirupsen/logrus"
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
-	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
 
@@ -59,8 +59,6 @@ var (
 	v6Address          string
 	nat46prefix        string
 	bpfRoot            string
-
-	log = logging.MustGetLogger("cilium-net-daemon")
 
 	// CliCommand is the command that will be used in cilium-net main program.
 	CliCommand cli.Command
@@ -374,10 +372,10 @@ func initEnv(ctx *cli.Context) error {
 
 	config.OptsMU.Lock()
 	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
+		common.SetupLOG("debug")
 		config.Opts.Set(endpoint.OptionDebug, true)
 	} else {
-		common.SetupLOG(log, "INFO")
+		common.SetupLOG("info")
 	}
 
 	config.Opts.Set(endpoint.OptionDropNotify, true)

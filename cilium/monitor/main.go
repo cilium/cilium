@@ -32,12 +32,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 
-	l "github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
 var (
-	log        = l.MustGetLogger("cilium-cli")
 	CliCommand cli.Command
 	dissect    = false
 	config     = bpf.PerfEventConfig{

@@ -18,6 +18,8 @@ package server
 import (
 	"net/http"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // Logger creates a wrapper for inner and logs all requests made to that particular inner.

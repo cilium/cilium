@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
