@@ -92,7 +92,7 @@ func (d *Daemon) policyAddFn(obj interface{}) {
 		log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
 		return
 	}
-	log.Infof("Kubernetes network policy successfully add %+v", obj)
+	log.Infof("Kubernetes network policy '%s' successfully add", k8sNP.Name)
 }
 
 func (d *Daemon) policyModFn(oldObj interface{}, newObj interface{}) {
@@ -128,7 +128,7 @@ func (d *Daemon) policyDelFn(obj interface{}) {
 		}
 	}
 	if !gotErrors {
-		log.Infof("Kubernetes network policy successfully removed %+v", obj)
+		log.Infof("Kubernetes network policy '%s' successfully removed", k8sNP.Name)
 	}
 }
 

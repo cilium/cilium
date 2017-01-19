@@ -57,10 +57,10 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	}
 
 	for _, ep := range possibleEPs {
-		log.Debugf("Restoring endpoint %+v", ep)
+		log.Debugf("Restoring endpoint ID %d", ep.ID)
 
 		if err := d.syncLabels(ep); err != nil {
-			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
+			log.Warningf("Unable to restore endpoint %+v: %s", ep, err)
 			continue
 		}
 
@@ -73,19 +73,19 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		}
 
 		if err := ep.Regenerate(d); err != nil {
-			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
+			log.Warningf("Unable to restore endpoint %+v: %s", ep, err)
 			continue
 		}
 
 		d.insertEndpoint(ep)
 		restored++
 
-		log.Infof("Restored endpoint: %d\n", ep.ID)
+		log.Infof("Restored endpoint: %d", ep.ID)
 	}
 
 	d.endpointsMU.Unlock()
 
-	log.Infof("Restored %d endpoints", restored)
+	log.Infof("Successfully restored %d endpoints", restored)
 
 	if clean {
 		d.cleanUpDockerDandlingEndpoints()
@@ -256,7 +256,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	}
 
 	cleanUp := func(ep endpoint.Endpoint) {
-		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
+		log.Infof("Endpoint %d not found in docker, cleaning it up...", ep.ID)
 		d.EndpointLeave(ep.ID)
 		// FIXME: IPV4
 		if ep.IPv6 != nil {
@@ -270,7 +270,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	}
 
 	for _, ep := range eps {
-		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
+		log.Debugf("Checking if endpoint %d is running in docker", ep.ID)
 		if ep.DockerNetworkID != "" {
 			nls, err := d.dockerClient.NetworkInspect(ctx.Background(), ep.DockerNetworkID)
 			if dockerAPI.IsErrNetworkNotFound(err) {
