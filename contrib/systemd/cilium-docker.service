@@ -4,6 +4,7 @@ Documentation=https://github.com/cilium/cilium
 Requires=docker.service
 
 [Service]
+Environment=INITSYSTEM=SYSTEMD
 Type=simple
 ExecStartPre=-/usr/bin/killall -9 cilium-docker
 ExecStart=/usr/bin/cilium-docker

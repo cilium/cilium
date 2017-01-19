@@ -130,6 +130,7 @@ else
     sed -i '9i ExecPreStart=/usr/bin/cilium lb init 2001:db8:aaaa::1 f00d::' /lib/systemd/system/cilium-net-daemon.service
     echo 'CILIUM_OPTS=${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} -c "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/sysconfig/cilium
     echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
+    echo 'INITSYSTEM=SYSTEMD' >> /etc/sysconfig/cilium
     systemctl restart cilium-net-daemon.service
 fi
 sleep 10s
