@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -474,8 +475,13 @@ func run(cli *cli.Context) {
 
 	d.EnableLearningTraffic()
 
+	var wg sync.WaitGroup
+	sinceLastSync := time.Now()
+	d.SyncDocker(&wg)
+	wg.Wait()
+
 	// Register event listener in docker endpoint
-	if err := d.EnableDockerEventListener(); err != nil {
+	if err := d.EnableDockerEventListener(sinceLastSync); err != nil {
 		log.Warningf("Error while enabling docker event watcher %s", err)
 	}
 
@@ -485,7 +491,7 @@ func run(cli *cli.Context) {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
 
-	go d.EnableDockerSync(false)
+	go d.EnableDockerSync()
 
 	if config.IsUIEnabled() {
 		uiServer, err := s.NewUIServer(config.UIServerAddr, d)

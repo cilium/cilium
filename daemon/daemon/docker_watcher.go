@@ -46,42 +46,39 @@ const (
 
 // EnableDockerEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
-func (d *Daemon) EnableDockerEventListener() error {
-	eo := dTypes.EventsOptions{Since: strconv.FormatInt(time.Now().Unix(), 10)}
+func (d *Daemon) EnableDockerEventListener(since time.Time) error {
+	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
 	r, err := d.dockerClient.Events(ctx.Background(), eo)
 	if err != nil {
 		return err
 	}
-
-	d.EnableDockerSync(true)
-
 	log.Debugf("Listening for docker events")
 	go d.listenForEvents(r)
 	return nil
 }
 
-func (d *Daemon) EnableDockerSync(once bool) {
+func (d *Daemon) SyncDocker(wg *sync.WaitGroup) {
+	cList, err := d.dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
+	if err != nil {
+		log.Errorf("Failed to retrieve the container list %s", err)
+	}
+	for _, cont := range cList {
+		if d.IgnoredContainer(cont.ID) {
+			continue
+		}
+
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, id string) {
+			d.createContainer(id)
+			wg.Done()
+		}(wg, cont.ID)
+	}
+}
+
+func (d *Daemon) EnableDockerSync() {
 	var wg sync.WaitGroup
 	for {
-		cList, err := d.dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
-		if err != nil {
-			log.Errorf("Failed to retrieve the container list %s", err)
-		}
-		for _, cont := range cList {
-			if d.IgnoredContainer(cont.ID) {
-				continue
-			}
-
-			wg.Add(1)
-			go func(wg *sync.WaitGroup, id string) {
-				d.createContainer(id)
-				wg.Done()
-			}(&wg, cont.ID)
-		}
-
-		if once {
-			return
-		}
+		d.SyncDocker(&wg)
 		wg.Wait()
 		time.Sleep(syncRateDocker)
 	}
