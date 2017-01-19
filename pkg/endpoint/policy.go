@@ -238,7 +238,7 @@ func (e *Endpoint) regenerate(owner Owner) error {
 
 	os.RemoveAll(backupDir)
 
-	log.Infof("Regenerated program of endpoint %s", e.String())
+	log.Infof("Regenerated program of endpoint %d", e.ID)
 
 	return nil
 }

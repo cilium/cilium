@@ -366,9 +366,8 @@ func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool
 	// Perform the policy map updates after programs have been created
 	if isNewLabel || isNewContainer {
 		d.triggerPolicyUpdates([]policy.NumericIdentity{secCtxlabels.ID})
+		log.Infof("Assigned security context %d to container %s", secCtxlabels.ID, dockerID)
 	}
-
-	log.Infof("Assigned security context %d to container %s", secCtxlabels.ID, dockerID)
 
 	return nil
 }
