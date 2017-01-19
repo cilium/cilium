@@ -72,11 +72,18 @@ func Swab32(n uint32) uint32 {
 
 // SetupLOG sets up logger with the correct parameters for the whole cilium architecture.
 func SetupLOG(logger *l.Logger, logLevel string) {
-	hostname, _ := os.Hostname()
-	fileFormat := l.MustStringFormatter(
-		`%{time:` + RFC3339Milli + `} ` + hostname +
-			` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`,
-	)
+
+	var fileFormat l.Formatter
+	switch os.Getenv("INITSYSTEM") {
+	case "SYSTEMD":
+		fileFormat = l.MustStringFormatter(
+			`%{level:.4s} %{id:03x} %{shortfunc} > %{message}`)
+	default:
+		hostname, _ := os.Hostname()
+		fileFormat = l.MustStringFormatter(
+			`%{time:` + RFC3339Milli + `} ` + hostname +
+				` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`)
+	}
 
 	level, err := l.LogLevel(logLevel)
 	if err != nil {

@@ -54,5 +54,6 @@ echo '#!/usr/bin/env bash\ncp /opt/cni/bin/cilium-cni /tmp/cni/bin && /usr/bin/c
 chmod +x /home/with-cni.sh
 
 ENV PATH="/usr/local/clang+llvm/bin:$PATH"
+ENV INITSYSTEM="SYSTEMD"
 
 CMD ["/usr/bin/cilium"]
