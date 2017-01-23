@@ -16,16 +16,12 @@
 package backend
 
 import (
-	"net"
-
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/gorilla/websocket"
 )
 
 type bpfBackend interface {
@@ -71,12 +67,6 @@ type control interface {
 	GlobalStatus() (*endpoint.StatusResponse, error)
 }
 
-type ui interface {
-	GetUIIP() (*net.TCPAddr, error)
-	GetUIPath() (string, error)
-	RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
-}
-
 type LBBackend interface {
 	SVCAdd(fe types.L3n4AddrID, be []types.L3n4Addr, addRevNAT bool) error
 	SVCDelete(feL3n4 types.L3n4Addr) error
@@ -106,5 +96,4 @@ type CiliumBackend interface {
 // CiliumDaemonBackend is the interface for daemon only.
 type CiliumDaemonBackend interface {
 	CiliumBackend
-	ui
 }

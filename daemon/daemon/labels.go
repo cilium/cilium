@@ -95,8 +95,6 @@ func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*policy.Identity,
 
 	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount())
 
-	d.AddOrUpdateUINode(secCtxLbls.ID.Uint32(), secCtxLbls.Labels.ToSlice(), secCtxLbls.RefCount())
-
 	err = d.kvClient.SetValue(lblPath, secCtxLbls)
 
 	return secCtxLbls, isNew, err
@@ -206,12 +204,6 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 	// update the value in the kvstore
 	if err := d.updateSecLabelIDRef(dbSecCtxLbls); err != nil {
 		return err
-	}
-
-	if dbSecCtxLbls.RefCount() == 0 {
-		d.DeleteUINode(dbSecCtxLbls.ID.Uint32())
-	} else {
-		d.AddOrUpdateUINode(dbSecCtxLbls.ID.Uint32(), dbSecCtxLbls.Labels.ToSlice(), dbSecCtxLbls.RefCount())
 	}
 
 	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())

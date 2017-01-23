@@ -16,8 +16,6 @@
 package common
 
 import (
-	"errors"
-	"net"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -58,67 +56,4 @@ func (s *CommonSuite) TestSwab16(c *C) {
 func (s *CommonSuite) TestSwab32(c *C) {
 	c.Assert(Swab32(0xAABBCCDD), Equals, uint32(0xDDCCBBAA),
 		Commentf("Swab32 failed: Swab16(0xAABBCCDD) != 0xDDCCBBAA"))
-}
-
-func (s *CommonSuite) TestParseHost(c *C) {
-	var emptyPtr *net.TCPAddr
-	tests := []struct {
-		test string
-		net  string
-		want *net.TCPAddr
-		err  error
-	}{
-		{
-			"tcp://1.1.1.1:8081",
-			"tcp",
-			&net.TCPAddr{
-				IP:   net.ParseIP("1.1.1.1"),
-				Port: 8081,
-				Zone: "",
-			},
-			nil,
-		},
-		{
-			"tcp://0.0.0.0:8081",
-			"tcp",
-			&net.TCPAddr{
-				IP:   net.ParseIP("0.0.0.0"),
-				Port: 8081,
-				Zone: "",
-			},
-			nil,
-		},
-		{
-			"tcp://1.1.1.1:",
-			"",
-			emptyPtr,
-			errors.New("invalid endpoint"),
-		},
-		{
-			"tcp6://[::1]:8081",
-			"tcp6",
-			&net.TCPAddr{
-				IP:   net.ParseIP("::1"),
-				Port: 8081,
-				Zone: "",
-			},
-			nil,
-		},
-		{
-			"tcp6://[::1%eth0]:8081",
-			"tcp6",
-			&net.TCPAddr{
-				IP:   net.ParseIP("::1"),
-				Port: 8081,
-				Zone: "eth0",
-			},
-			nil,
-		},
-	}
-	for _, tt := range tests {
-		netProto, tcpAddr, err := ParseHost(tt.test)
-		c.Assert(err, DeepEquals, tt.err, Commentf("Test %s", tt.test))
-		c.Assert(tcpAddr, DeepEquals, tt.want)
-		c.Assert(netProto, Equals, tt.net)
-	}
 }

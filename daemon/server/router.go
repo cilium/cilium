@@ -49,25 +49,6 @@ func NewRouter(daemon backend.CiliumDaemonBackend) Router {
 	return r
 }
 
-// NewUIRouter creates and returns a new router only for the UI.
-func NewUIRouter(daemon backend.CiliumDaemonBackend) Router {
-	mRouter := mux.NewRouter().StrictSlash(true)
-	r := Router{mRouter, routes{}, daemon}
-	r.initUIRoutes()
-	for _, route := range r.routes {
-		handler := Logger(route.HandlerFunc, route.Name)
-
-		r.Methods(route.Method).
-			Path(route.Pattern).
-			Name(route.Name).
-			Handler(handler)
-	}
-
-	uiDir, _ := daemon.GetUIPath()
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir(uiDir))))
-	return r
-}
-
 func processServerError(w http.ResponseWriter, r *http.Request, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Header().Set("Content-Type", "application/json")

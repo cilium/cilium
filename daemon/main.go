@@ -55,7 +55,6 @@ var (
 	logstashAddr       string
 	logstashProbeTimer int
 	socketPath         string
-	uiServerAddr       string
 	v4Prefix           string
 	v6Address          string
 	nat46prefix        string
@@ -197,17 +196,6 @@ func init() {
 						Name:        "s",
 						Value:       common.CiliumSock,
 						Usage:       "Sets the socket path to listen for connections",
-					},
-					cli.StringFlag{
-						Destination: &uiServerAddr,
-						Name:        "ui-addr",
-						Value:       "tcp://0.0.0.0:8080",
-						Usage:       "IP address and port for UI server",
-					},
-					cli.BoolFlag{
-						Destination: &config.UIEnabled,
-						Name:        "ui",
-						Usage:       "Enables cilium web UI",
 					},
 					cli.BoolFlag{
 						Destination: &config.LBMode,
@@ -430,13 +418,6 @@ func initEnv(ctx *cli.Context) error {
 		config.K8sEndpoint = "http://" + config.K8sEndpoint
 	}
 
-	if uiServerAddr != "" {
-		if _, _, err := common.ParseHost(uiServerAddr); err != nil {
-			log.Fatalf("Invalid UI server address and port address '%s': %s", uiServerAddr, err)
-		}
-		config.UIServerAddr = uiServerAddr
-	}
-
 	return nil
 }
 
@@ -492,17 +473,6 @@ func run(cli *cli.Context) {
 	}
 
 	go d.EnableDockerSync()
-
-	if config.IsUIEnabled() {
-		uiServer, err := s.NewUIServer(config.UIServerAddr, d)
-		if err != nil {
-			log.Fatalf("Error while creating ui server: %s", err)
-		}
-		defer uiServer.Stop()
-		go uiServer.Start()
-	} else {
-		log.Info("UI is disabled")
-	}
 
 	server, err := s.NewServer(socketPath, d)
 	if err != nil {
