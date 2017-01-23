@@ -105,24 +105,6 @@ chmod 644 %{buildroot}/etc/init/*
 /usr/lib/cilium/lib/utils.h
 /usr/lib/cilium/probes/skb_change_tail.c
 /usr/lib/cilium/run_probes.sh
-/usr/lib/cilium/ui/css/bootstrap-3.3.6.min.css
-/usr/lib/cilium/ui/css/bootstrap-theme-3.3.6.min.css
-/usr/lib/cilium/ui/css/cilium.css
-/usr/lib/cilium/ui/css/vis.min.css
-/usr/lib/cilium/ui/fonts/glyphicons-halflings-regular.eot
-/usr/lib/cilium/ui/fonts/glyphicons-halflings-regular.svg
-/usr/lib/cilium/ui/fonts/glyphicons-halflings-regular.ttf
-/usr/lib/cilium/ui/fonts/glyphicons-halflings-regular.woff
-/usr/lib/cilium/ui/fonts/glyphicons-halflings-regular.woff2
-/usr/lib/cilium/ui/images/cilium.ico
-/usr/lib/cilium/ui/images/cilium.svg
-/usr/lib/cilium/ui/images/loading.gif
-/usr/lib/cilium/ui/index.html
-/usr/lib/cilium/ui/js/bootstrap-3.3.6.min.js
-/usr/lib/cilium/ui/js/cilium.js
-/usr/lib/cilium/ui/js/jquery-2.2.4.min.js
-/usr/lib/cilium/ui/js/vis.animatetraffic.js
-/usr/lib/cilium/ui/js/vis.min.js
 
 %changelog
 * Wed Oct 12 2016 Andre Martins <andre@cilium.io> - ${VERSION}

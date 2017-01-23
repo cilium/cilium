@@ -34,4 +34,3 @@ override_dh_auto_test:
 
 override_dh_fixperms:
 	dh_fixperms
-	find $(DESTDIR)/usr/lib/cilium/ui -exec chgrp cilium {} \;
