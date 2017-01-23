@@ -1,12 +1,14 @@
 version: '2'
 services:
   cilium:
+    container_name: cilium
     image: cilium/cilium:cilium-ubuntu-16-04
-    command: cilium -D daemon run --ipv4 -d ${IFACE} --ui -c 127.0.0.1:8500
+    command: cilium -D daemon run --ipv4 -d ${IFACE} -c 127.0.0.1:8500
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium
-      - /run/docker/plugins/:/run/docker/plugins
+      - /run/docker/plugins:/run/docker/plugins
+      - /sys/fs/bpf:/sys/fs/bpf
     network_mode: "host"
     cap_add:
       - "NET_ADMIN"
@@ -15,11 +17,12 @@ services:
       - consul
 
   cilium_docker:
+    container_name: cilium-docker-plugin
     image: cilium/cilium:cilium-ubuntu-16-04
     command: cilium-docker -D
     volumes:
       - /var/run/cilium:/var/run/cilium
-      - /run/docker/plugins/:/run/docker/plugins
+      - /run/docker/plugins:/run/docker/plugins
     network_mode: "host"
     cap_add:
       - "NET_ADMIN"
@@ -28,6 +31,7 @@ services:
       - cilium
 
   consul:
+    container_name: cilium-kvstore
     ports:
       - "8500:8500"
     environment:
