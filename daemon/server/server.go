@@ -78,20 +78,6 @@ func NewServer(socketPath string, daemon *daemon.Daemon) (Server, error) {
 	return server{listener, socketPath, router}, nil
 }
 
-func NewUIServer(host string, daemon *daemon.Daemon) (Server, error) {
-	router := NewUIRouter(daemon)
-	netStr, listAddr, err := common.ParseHost(host)
-	if err != nil {
-		return nil, err
-	}
-	listener, err := net.ListenTCP(netStr, listAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create listener socket: %s", err)
-	}
-
-	return server{listener, host, router}, nil
-}
-
 // Start starts the server and blocks to server HTTP requests.
 func (d server) Start() error {
 	log.Infof("Listening on %q", d.socketPath)

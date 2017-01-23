@@ -146,35 +146,3 @@ func (r *Router) initBackendRoutes() {
 		},
 	}
 }
-
-func (r *Router) initUIRoutes() {
-	r.routes = routes{
-		route{
-			"GetUI", "GET", "/", r.createUIHTMLIndex,
-		},
-		route{
-			"WebSocketUI", "GET", "/ws", r.webSocketUIStats,
-		},
-		route{
-			"EndpointsGet", "GET", "/endpoints", r.endpointsGet,
-		},
-		route{
-			"EndpointUpdate", "POST", "/endpoint/update/{endpointID}", r.endpointUpdate,
-		},
-		route{
-			"Update", "POST", "/update", r.update,
-		},
-		route{
-			"PolicyAdd", "POST", "/policy/{path}", r.policyAddForm,
-		},
-		route{
-			"PolicyGet", "GET", "/policy/{path}", r.policyGet,
-		},
-		route{
-			"EndpointLabelsGet", "GET", "/endpoint/labels/{endpointID}", r.endpointLabelsGet,
-		},
-		route{
-			"EndpointLabelsUpdate", "POST", "/endpoint/labels/{endpointID}", r.endpointLabelsUpdate,
-		},
-	}
-}

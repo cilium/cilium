@@ -69,8 +69,6 @@ type Config struct {
 	ValidLabelPrefixes    *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
 	ValidK8sLabelPrefixes *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
 	ValidLabelPrefixesMU  sync.RWMutex
-	UIServerAddr          string // TCP address for UI server
-	UIEnabled             bool
 	LBMode                bool   // Set to true on load balancer node
 	Tunnel                string // Tunnel mode
 
@@ -87,10 +85,6 @@ func NewConfig() *Config {
 	return &Config{
 		Opts: option.NewBoolOptions(&DaemonOptionLibrary),
 	}
-}
-
-func (c *Config) IsUIEnabled() bool {
-	return c.UIEnabled
 }
 
 func (c *Config) IsK8sEnabled() bool {

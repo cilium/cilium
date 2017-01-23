@@ -77,9 +77,6 @@ type Daemon struct {
 	conf                      *Config
 	policy                    policy.Tree
 	consumableCache           *policy.ConsumableCache
-	uiTopo                    types.UITopo
-	uiListeners               map[*Conn]bool
-	registerUIListener        chan *Conn
 	ignoredContainers         map[string]int
 	ignoredMutex              sync.RWMutex
 	loopbackIPv4              net.IP
@@ -427,9 +424,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		loadBalancer:              lb,
 		consumableCache:           policy.NewConsumableCache(),
 		policy:                    policy.Tree{Root: policy.NewNode(common.GlobalLabelPrefix, nil)},
-		uiTopo:                    types.NewUITopo(),
-		uiListeners:               make(map[*Conn]bool),
-		registerUIListener:        make(chan *Conn, 1),
 		ignoredContainers:         make(map[string]int),
 	}
 	d.policy.Root.Path()
@@ -465,10 +459,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if err = d.init(); err != nil {
 		log.Errorf("Error while initializing daemon: %s\n", err)
 		return nil, err
-	}
-
-	if d.conf.IsUIEnabled() {
-		d.ListenBuildUIEvents()
 	}
 
 	if c.RestoreState {

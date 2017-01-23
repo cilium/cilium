@@ -24,7 +24,6 @@ const (
 	// CiliumPath is the path where cilium operational files are running.
 	CiliumPath    = "/var/run/cilium"
 	DefaultLibDir = "/usr/lib/cilium"
-	CiliumUIPath  = DefaultLibDir + "/ui"
 	// CiliumSock is the cilium socket for the communication between the daemon and cilium client.
 	CiliumSock = CiliumPath + "/cilium.sock"
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format

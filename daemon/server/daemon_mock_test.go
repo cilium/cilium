@@ -17,7 +17,6 @@ package server
 
 import (
 	"errors"
-	"net"
 
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
@@ -25,8 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/gorilla/websocket"
 )
 
 type TestDaemon struct {
@@ -71,9 +68,6 @@ type TestDaemon struct {
 	OnRevNATGet                 func(id types.ServiceID) (*types.L3n4Addr, error)
 	OnRevNATDump                func() ([]types.L3n4AddrID, error)
 	OnSyncLBMap                 func() error
-	OnGetUIIP                   func() (*net.TCPAddr, error)
-	OnGetUIPath                 func() (string, error)
-	OnRegisterUIListener        func(conn *websocket.Conn) (chan types.UIUpdateMsg, error)
 }
 
 func NewTestDaemon() *TestDaemon {
@@ -365,25 +359,4 @@ func (d TestDaemon) SyncLBMap() error {
 		return d.OnSyncLBMap()
 	}
 	return errors.New("SyncLBMap should not have been called")
-}
-
-func (d TestDaemon) GetUIIP() (*net.TCPAddr, error) {
-	if d.OnGetUIIP != nil {
-		return d.OnGetUIIP()
-	}
-	return nil, errors.New("GetUIIP should not have been called")
-}
-
-func (d TestDaemon) GetUIPath() (string, error) {
-	if d.OnGetUIPath != nil {
-		return d.OnGetUIPath()
-	}
-	return "", errors.New("GetUIPath should not have been called")
-}
-
-func (d TestDaemon) RegisterUIListener(conn *websocket.Conn) (chan types.UIUpdateMsg, error) {
-	if d.OnRegisterUIListener != nil {
-		return d.OnRegisterUIListener(conn)
-	}
-	return nil, errors.New("RegisterUIListener should not have been called")
 }
