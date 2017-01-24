@@ -133,7 +133,13 @@ else
     echo 'INITSYSTEM=SYSTEMD' >> /etc/sysconfig/cilium
     systemctl restart cilium-net-daemon.service
 fi
-sleep 10s
+for ((i = 0 ; i < 24; i++)); do
+    if cilium daemon status > /dev/null 2>&1; then
+        break
+    fi
+    sleep 5
+    echo "Waiting for Cilium daemon to come up..."
+done
 EOF
     else
 	    cat <<EOF >> "$filename"
@@ -148,7 +154,13 @@ else
     echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
     systemctl restart cilium-net-daemon.service
 fi
-sleep 10s
+for ((i = 0 ; i < 24; i++)); do
+    if cilium daemon status > /dev/null 2>&1; then
+        break
+    fi
+    sleep 5
+    echo "Waiting for Cilium daemon to come up..."
+done
 EOF
     fi
 }
