@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/events"
 
 	dockerAPI "github.com/docker/engine-api/client"
 	ctx "golang.org/x/net/context"
@@ -107,6 +108,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		if err != nil {
 			log.Warningf("Failed while updating ep %d: %s", ep.ID, err)
 		} else {
+			if ep.SecLabel != nil {
+				d.events <- *events.NewEvent(events.IdentityAdd, ep.SecLabel.DeepCopy())
+			}
 			log.Infof("EP %d completely restored", ep.ID)
 		}
 	}

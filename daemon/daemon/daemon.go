@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -71,6 +72,7 @@ type Daemon struct {
 	endpointsLearning         map[uint16]labels.LearningLabel
 	endpointsLearningMU       sync.RWMutex
 	endpointsLearningRegister chan labels.LearningLabel
+	events                    chan events.Event
 	dockerClient              *dClient.Client
 	loadBalancer              *types.LoadBalancer
 	k8sClient                 *k8s.Clientset
@@ -421,12 +423,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		endpointsDockerEP:         make(map[string]*endpoint.Endpoint),
 		endpointsLearning:         make(map[uint16]labels.LearningLabel),
 		endpointsLearningRegister: make(chan labels.LearningLabel, 1),
-		loadBalancer:              lb,
-		consumableCache:           policy.NewConsumableCache(),
-		policy:                    policy.Tree{Root: policy.NewNode(common.GlobalLabelPrefix, nil)},
-		ignoredContainers:         make(map[string]int),
+		events:            make(chan events.Event, 512),
+		loadBalancer:      lb,
+		consumableCache:   policy.NewConsumableCache(),
+		policy:            policy.Tree{Root: policy.NewNode(common.GlobalLabelPrefix, nil)},
+		ignoredContainers: make(map[string]int),
 	}
 	d.policy.Root.Path()
+
+	d.listenForCiliumEvents()
 
 	if c.IsK8sEnabled() {
 		d.k8sClient, err = createK8sClient(c.K8sEndpoint, c.K8sCfgPath)
