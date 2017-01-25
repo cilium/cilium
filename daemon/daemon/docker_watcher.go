@@ -53,7 +53,7 @@ func (d *Daemon) EnableDockerEventListener(since time.Time) error {
 		return err
 	}
 	log.Debugf("Listening for docker events")
-	go d.listenForEvents(r)
+	go d.listenForDockerEvents(r)
 	return nil
 }
 
@@ -84,7 +84,7 @@ func (d *Daemon) EnableDockerSync() {
 	}
 }
 
-func (d *Daemon) listenForEvents(reader io.ReadCloser) {
+func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var e dTypesEvents.Message

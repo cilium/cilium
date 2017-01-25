@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -94,6 +95,8 @@ func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*policy.Identity,
 	}
 
 	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount())
+
+	d.events <- *events.NewEvent(events.IdentityAdd, secCtxLbls.DeepCopy())
 
 	err = d.kvClient.SetValue(lblPath, secCtxLbls)
 
@@ -204,6 +207,12 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 	// update the value in the kvstore
 	if err := d.updateSecLabelIDRef(dbSecCtxLbls); err != nil {
 		return err
+	}
+
+	if dbSecCtxLbls.RefCount() == 0 {
+		d.events <- *events.NewEvent(events.IdentityDel, dbSecCtxLbls.DeepCopy())
+	} else {
+		d.events <- *events.NewEvent(events.IdentityMod, dbSecCtxLbls.DeepCopy())
 	}
 
 	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
