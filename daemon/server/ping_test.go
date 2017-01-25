@@ -20,6 +20,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/common/types"
@@ -39,6 +40,7 @@ type DaemonSuite struct {
 var _ = Suite(&DaemonSuite{})
 
 func (s *DaemonSuite) SetUpSuite(c *C) {
+	time.Local = time.UTC
 	s.d = NewTestDaemon()
 
 	r := NewRouter(s.d)
