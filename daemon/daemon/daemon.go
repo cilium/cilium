@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/lbmap"
@@ -194,6 +195,29 @@ func (d *Daemon) compileBase() error {
 	log.Warningf("Enabled bpf_jit_enable")
 	log.Warningf("Disabled rp_filter on all interfaces!")
 
+	return nil
+}
+
+func (d *Daemon) registerNodeAddress() error {
+	if !d.conf.IPv4Enabled {
+		return nil
+	}
+	var err error
+	ipv6NodeAddress := d.conf.NodeAddress.IPv6Address.NodeIP().String()
+	nodeIPv4Prefix, _, err := d.PutNodeAddr(ipv6NodeAddress)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			d.DeleteNodeIPv4PrefixByNodeAddr(ipv6NodeAddress)
+		}
+	}()
+	nodeAddr, err := addressing.NewNodeAddress(ipv6NodeAddress, nodeIPv4Prefix.IPv4, "")
+	if err != nil {
+		return err
+	}
+	d.conf.NodeAddress = nodeAddr
 	return nil
 }
 
@@ -446,6 +470,30 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if err := d.useK8sNodeCIDR(nodeName); err != nil {
 			return nil, err
 		}
+	}
+
+	if d.conf.KVStoreIPv4Registration {
+		// Register IPv4 prefix in KVStore
+		if err := d.registerNodeAddress(); err != nil {
+			return nil, err
+		}
+		go func() {
+			for {
+				// Register IPv4 prefix forever every 10 minutes...
+				ipv6NodeAddress := d.conf.NodeAddress.IPv6Address.NodeIP().String()
+				_, _, err := d.PutNodeAddr(ipv6NodeAddress)
+				if err != nil {
+					log.Errorf("Unable to refresh node address in the KVStore: %s", err)
+				}
+				time.Sleep(10 * time.Minute)
+			}
+		}()
+		ipv6NodeAddress := d.conf.NodeAddress.IPv6Address.NodeIP().String()
+		defer func(ipv6NodeAddress string) {
+			if err != nil {
+				d.DeleteNodeIPv4PrefixByNodeAddr(ipv6NodeAddress)
+			}
+		}(ipv6NodeAddress)
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
