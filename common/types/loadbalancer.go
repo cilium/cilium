@@ -116,8 +116,7 @@ func NewK8sServiceEndpoint() *K8sServiceEndpoint {
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
 // the Port number.
 type L4Addr struct {
-	// TODO: Remove json's omission once we care about protocols.
-	Protocol L4Type `json:"-"`
+	Protocol L4Type
 	Port     uint16
 }
 
@@ -188,6 +187,13 @@ func (l *L3n4Addr) DeepCopy() *L3n4Addr {
 
 // SHA256Sum calculates L3n4Addr's internal SHA256Sum.
 func (l3n4Addr L3n4Addr) SHA256Sum() (string, error) {
+	// FIXME: Remove Protocol's omission once we care about protocols.
+	protoBak := l3n4Addr.Protocol
+	l3n4Addr.Protocol = ""
+	defer func() {
+		l3n4Addr.Protocol = protoBak
+	}()
+
 	sha := sha512.New512_256()
 	if err := json.NewEncoder(sha).Encode(l3n4Addr); err != nil {
 		return "", err

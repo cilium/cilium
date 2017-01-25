@@ -27,11 +27,15 @@ import (
 var (
 	l3n4Addr1 = types.L3n4Addr{
 		IP:     net.IPv6loopback,
-		L4Addr: types.L4Addr{Port: 0},
+		L4Addr: types.L4Addr{Port: 0, Protocol: "UDP"},
 	}
 	l3n4Addr2 = types.L3n4Addr{
 		IP:     net.IPv6loopback,
-		L4Addr: types.L4Addr{Port: 1},
+		L4Addr: types.L4Addr{Port: 1, Protocol: "TCP"},
+	}
+	l3n4Addr3 = types.L3n4Addr{
+		IP:     net.IPv6loopback,
+		L4Addr: types.L4Addr{Port: 1, Protocol: "UDP"},
 	}
 	wantL3n4AddrID = &types.L3n4AddrID{
 		ID:       123,
@@ -57,6 +61,12 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
 
 	l3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr2, 0)
+	c.Assert(err, Equals, nil)
+	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
+
+	// l3n4Addr3 should have the same ID as l3n4Addr2 since we are omitting the
+	// protocol type.
+	l3n4AddrID, err = ds.d.PutL3n4Addr(l3n4Addr3, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
 
