@@ -55,6 +55,7 @@ var (
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
+	time.Local = time.UTC
 	tempLibDir, err := ioutil.TempDir("", "cilium-test")
 	c.Assert(err, IsNil)
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")

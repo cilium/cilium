@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/common/types"
 
@@ -47,6 +48,10 @@ func NewTestClient(urlStr string, c *C) *Client {
 		c.Fatalf("Failed while creating new cilium-net test client: %+v", err)
 	}
 	return cli
+}
+
+func (ds *CiliumNetClientSuite) SetUpTest(c *C) {
+	time.Local = time.UTC
 }
 
 func (s *CiliumNetClientSuite) TestPingOK(c *C) {
