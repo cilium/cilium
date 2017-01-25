@@ -47,6 +47,9 @@ const (
 	MapTypePerCPUArray
 	MapTypeStackTrace
 	MapTypeCgroupArray
+	MapTypeLRUHash
+	MapTypeLRUPerCPUHash
+	MapTypeLPMTrie
 )
 
 func (t MapType) String() string {
@@ -67,6 +70,12 @@ func (t MapType) String() string {
 		return "Stack trace"
 	case MapTypeCgroupArray:
 		return "Cgroup array"
+	case MapTypeLRUHash:
+		return "LRU hash"
+	case MapTypeLRUPerCPUHash:
+		return "LRU per-CPU hash"
+	case MapTypeLPMTrie:
+		return "Longest prefix match trie"
 	}
 
 	return "Unknown"
