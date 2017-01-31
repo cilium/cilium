@@ -21,9 +21,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -45,11 +47,12 @@ type Client struct {
 	Auth
 	Maintenance
 
-	conn         *grpc.ClientConn
-	cfg          Config
-	creds        *credentials.TransportCredentials
-	balancer     *simpleBalancer
-	retryWrapper retryRpcFunc
+	conn             *grpc.ClientConn
+	cfg              Config
+	creds            *credentials.TransportCredentials
+	balancer         *simpleBalancer
+	retryWrapper     retryRpcFunc
+	retryAuthWrapper retryRpcFunc
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -58,6 +61,8 @@ type Client struct {
 	Username string
 	// Password is a password for authentication
 	Password string
+	// tokenCred is an instance of WithPerRPCCredentials()'s argument
+	tokenCred *authTokenCredential
 }
 
 // New creates a new etcdv3 client from a given configuration.
@@ -86,6 +91,8 @@ func NewFromConfigFile(path string) (*Client, error) {
 // Close shuts down the client's etcd connections.
 func (c *Client) Close() error {
 	c.cancel()
+	c.Watcher.Close()
+	c.Lease.Close()
 	return toErr(c.ctx, c.conn.Close())
 }
 
@@ -95,7 +102,12 @@ func (c *Client) Close() error {
 func (c *Client) Ctx() context.Context { return c.ctx }
 
 // Endpoints lists the registered endpoints for the client.
-func (c *Client) Endpoints() []string { return c.cfg.Endpoints }
+func (c *Client) Endpoints() (eps []string) {
+	// copy the slice; protect original endpoints from being changed
+	eps = make([]string, len(c.cfg.Endpoints))
+	copy(eps, c.cfg.Endpoints)
+	return
+}
 
 // SetEndpoints updates client's endpoints.
 func (c *Client) SetEndpoints(eps ...string) {
@@ -136,7 +148,8 @@ func (c *Client) autoSync() {
 }
 
 type authTokenCredential struct {
-	token string
+	token   string
+	tokenMu *sync.RWMutex
 }
 
 func (cred authTokenCredential) RequireTransportSecurity() bool {
@@ -144,6 +157,8 @@ func (cred authTokenCredential) RequireTransportSecurity() bool {
 }
 
 func (cred authTokenCredential) GetRequestMetadata(ctx context.Context, s ...string) (map[string]string, error) {
+	cred.tokenMu.RLock()
+	defer cred.tokenMu.RUnlock()
 	return map[string]string{
 		"token": cred.token,
 	}, nil
@@ -228,23 +243,55 @@ func (c *Client) Dial(endpoint string) (*grpc.ClientConn, error) {
 	return c.dial(endpoint)
 }
 
+func (c *Client) getToken(ctx context.Context) error {
+	var err error // return last error in a case of fail
+	var auth *authenticator
+
+	for i := 0; i < len(c.cfg.Endpoints); i++ {
+		endpoint := c.cfg.Endpoints[i]
+		host := getHost(endpoint)
+		// use dial options without dopts to avoid reusing the client balancer
+		auth, err = newAuthenticator(host, c.dialSetupOpts(endpoint))
+		if err != nil {
+			continue
+		}
+		defer auth.close()
+
+		var resp *AuthenticateResponse
+		resp, err = auth.authenticate(ctx, c.Username, c.Password)
+		if err != nil {
+			continue
+		}
+
+		c.tokenCred.tokenMu.Lock()
+		c.tokenCred.token = resp.Token
+		c.tokenCred.tokenMu.Unlock()
+
+		return nil
+	}
+
+	return err
+}
+
 func (c *Client) dial(endpoint string, dopts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts := c.dialSetupOpts(endpoint, dopts...)
 	host := getHost(endpoint)
 	if c.Username != "" && c.Password != "" {
-		// use dial options without dopts to avoid reusing the client balancer
-		auth, err := newAuthenticator(host, c.dialSetupOpts(endpoint))
-		if err != nil {
-			return nil, err
+		c.tokenCred = &authTokenCredential{
+			tokenMu: &sync.RWMutex{},
 		}
-		defer auth.close()
 
-		resp, err := auth.authenticate(c.ctx, c.Username, c.Password)
+		err := c.getToken(context.TODO())
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, grpc.WithPerRPCCredentials(authTokenCredential{token: resp.Token}))
+
+		opts = append(opts, grpc.WithPerRPCCredentials(c.tokenCred))
 	}
+
+	// add metrics options
+	opts = append(opts, grpc.WithUnaryInterceptor(prometheus.UnaryClientInterceptor))
+	opts = append(opts, grpc.WithStreamInterceptor(prometheus.StreamClientInterceptor))
 
 	conn, err := grpc.Dial(host, opts...)
 	if err != nil {
@@ -291,6 +338,7 @@ func newClient(cfg *Config) (*Client, error) {
 	}
 	client.conn = conn
 	client.retryWrapper = client.newRetryWrapper()
+	client.retryAuthWrapper = client.newAuthRetryWrapper()
 
 	// wait for a connection
 	if cfg.DialTimeout > 0 {

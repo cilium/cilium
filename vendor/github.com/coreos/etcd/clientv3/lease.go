@@ -69,6 +69,21 @@ const (
 	NoLease LeaseID = 0
 )
 
+// ErrKeepAliveHalted is returned if client keep alive loop halts with an unexpected error.
+//
+// This usually means that automatic lease renewal via KeepAlive is broken, but KeepAliveOnce will still work as expected.
+type ErrKeepAliveHalted struct {
+	Reason error
+}
+
+func (e ErrKeepAliveHalted) Error() string {
+	s := "etcdclient: leases keep alive halted"
+	if e.Reason != nil {
+		s += ": " + e.Reason.Error()
+	}
+	return s
+}
+
 type Lease interface {
 	// Grant creates a new lease.
 	Grant(ctx context.Context, ttl int64) (*LeaseGrantResponse, error)
@@ -94,8 +109,9 @@ type Lease interface {
 type lessor struct {
 	mu sync.Mutex // guards all fields
 
-	// donec is closed when recvKeepAliveLoop stops
-	donec chan struct{}
+	// donec is closed and loopErr is set when recvKeepAliveLoop stops
+	donec   chan struct{}
+	loopErr error
 
 	remote pb.LeaseClient
 
@@ -161,9 +177,6 @@ func (l *lessor) Grant(ctx context.Context, ttl int64) (*LeaseGrantResponse, err
 		if isHaltErr(cctx, err) {
 			return nil, toErr(cctx, err)
 		}
-		if nerr := l.newStream(); nerr != nil {
-			return nil, nerr
-		}
 	}
 }
 
@@ -182,9 +195,6 @@ func (l *lessor) Revoke(ctx context.Context, id LeaseID) (*LeaseRevokeResponse, 
 		if isHaltErr(ctx, err) {
 			return nil, toErr(ctx, err)
 		}
-		if nerr := l.newStream(); nerr != nil {
-			return nil, nerr
-		}
 	}
 }
 
@@ -195,7 +205,7 @@ func (l *lessor) TimeToLive(ctx context.Context, id LeaseID, opts ...LeaseOption
 
 	for {
 		r := toLeaseTimeToLiveRequest(id, opts...)
-		resp, err := l.remote.LeaseTimeToLive(cctx, r)
+		resp, err := l.remote.LeaseTimeToLive(cctx, r, grpc.FailFast(false))
 		if err == nil {
 			gresp := &LeaseTimeToLiveResponse{
 				ResponseHeader: resp.GetHeader(),
@@ -216,6 +226,15 @@ func (l *lessor) KeepAlive(ctx context.Context, id LeaseID) (<-chan *LeaseKeepAl
 	ch := make(chan *LeaseKeepAliveResponse, leaseResponseChSize)
 
 	l.mu.Lock()
+	// ensure that recvKeepAliveLoop is still running
+	select {
+	case <-l.donec:
+		err := l.loopErr
+		l.mu.Unlock()
+		close(ch)
+		return ch, ErrKeepAliveHalted{Reason: err}
+	default:
+	}
 	ka, ok := l.keepAlives[id]
 	if !ok {
 		// create fresh keep alive
@@ -254,10 +273,6 @@ func (l *lessor) KeepAliveOnce(ctx context.Context, id LeaseID) (*LeaseKeepAlive
 		}
 		if isHaltErr(ctx, err) {
 			return nil, toErr(ctx, err)
-		}
-
-		if nerr := l.newStream(); nerr != nil {
-			return nil, nerr
 		}
 	}
 }
@@ -327,10 +342,11 @@ func (l *lessor) keepAliveOnce(ctx context.Context, id LeaseID) (*LeaseKeepAlive
 	return karesp, nil
 }
 
-func (l *lessor) recvKeepAliveLoop() {
+func (l *lessor) recvKeepAliveLoop() (gerr error) {
 	defer func() {
 		l.mu.Lock()
 		close(l.donec)
+		l.loopErr = gerr
 		for _, ka := range l.keepAlives {
 			ka.Close()
 		}
@@ -343,21 +359,35 @@ func (l *lessor) recvKeepAliveLoop() {
 		resp, err := stream.Recv()
 		if err != nil {
 			if isHaltErr(l.stopCtx, err) {
-				return
+				return err
 			}
 			stream, serr = l.resetRecv()
 			continue
 		}
 		l.recvKeepAlive(resp)
 	}
+	return serr
 }
 
 // resetRecv opens a new lease stream and starts sending LeaseKeepAliveRequests
 func (l *lessor) resetRecv() (pb.Lease_LeaseKeepAliveClient, error) {
-	if err := l.newStream(); err != nil {
+	sctx, cancel := context.WithCancel(l.stopCtx)
+	stream, err := l.remote.LeaseKeepAlive(sctx, grpc.FailFast(false))
+	if err = toErr(sctx, err); err != nil {
+		cancel()
 		return nil, err
 	}
-	stream := l.getKeepAliveStream()
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.stream != nil && l.streamCancel != nil {
+		l.stream.CloseSend()
+		l.streamCancel()
+	}
+
+	l.streamCancel = cancel
+	l.stream = stream
+
 	go l.sendKeepAliveLoop(stream)
 	return stream, nil
 }
@@ -451,32 +481,6 @@ func (l *lessor) sendKeepAliveLoop(stream pb.Lease_LeaseKeepAliveClient) {
 			}
 		}
 	}
-}
-
-func (l *lessor) getKeepAliveStream() pb.Lease_LeaseKeepAliveClient {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.stream
-}
-
-func (l *lessor) newStream() error {
-	sctx, cancel := context.WithCancel(l.stopCtx)
-	stream, err := l.remote.LeaseKeepAlive(sctx, grpc.FailFast(false))
-	if err != nil {
-		cancel()
-		return toErr(sctx, err)
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.stream != nil && l.streamCancel != nil {
-		l.stream.CloseSend()
-		l.streamCancel()
-	}
-
-	l.streamCancel = cancel
-	l.stream = stream
-	return nil
 }
 
 func (ka *keepAlive) Close() {
