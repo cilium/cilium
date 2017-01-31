@@ -6,12 +6,7 @@ source "${dir}/helpers.bash"
 
 set -e
 
-kubectl create -f "${dir}/../deployments/guestbook/1-redis-master-controller.json"
-kubectl create -f "${dir}/../deployments/guestbook/2-redis-master-service.json"
-kubectl create -f "${dir}/../deployments/guestbook/3-redis-slave-controller.json"
-kubectl create -f "${dir}/../deployments/guestbook/4-redis-slave-service.json"
-kubectl create -f "${dir}/../deployments/guestbook/5-guestbook-controller.json"
-kubectl create -f "${dir}/../deployments/guestbook/6-guestbook-service.json"
+kubectl create -f "${dir}/../deployments/guestbook/"
 
 kubectl get pods -o wide
 
@@ -26,12 +21,16 @@ while [[ "$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name
     sleep 2s
 done
 
-worker=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' | grep guestbook | cut -d' ' -f2)
+if [ -z "${SOCAT_OFF}" ]; then
 
-podIP=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.status.podIP}{"\n"}{end}' | grep guestbook | cut -d' ' -f2)
+    worker=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' | grep guestbook | cut -d' ' -f2)
 
-echo "sudo apt-get install socat -y && sudo socat TCP-LISTEN:3000,fork TCP:${podIP}:3000" > "./10-2-run-inside-${worker}.sh"
+    podIP=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.status.podIP}{"\n"}{end}' | grep guestbook | cut -d' ' -f2)
 
-chmod +x "./10-2-run-inside-${worker}.sh"
+    echo "sudo apt-get install socat -y && sudo socat TCP-LISTEN:3000,fork TCP:${podIP}:3000" > "./10-2-run-inside-${worker}.sh"
 
-echo "Please run ./10-2-run-inside-${worker}.sh inside ${worker}"
+    chmod +x "./10-2-run-inside-${worker}.sh"
+
+    echo "Please run ./10-2-run-inside-${worker}.sh inside ${worker}"
+
+fi
