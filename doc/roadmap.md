@@ -16,7 +16,7 @@
    - [ ] Add port mapping to spec [#202]
    - [ ] Egress CIDR policy [#164]
    - [X] Kubernetes network policy integration
-   - [ ] Etcdv3 (waiting 3.1.0 release, tested with v3.1.0-rc.0) [#203]
+   - [X] etcdv3 (tested with 3.1.0) [#203]
  - [ ] BPF Modules
    - [X] L3
      - [X] IPv6
