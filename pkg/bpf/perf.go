@@ -425,9 +425,9 @@ func (e *EventMap) Close() {
 }
 
 type PerCpuEvents struct {
-	cpus     int
-	npages   int
-	pagesize int
+	Cpus     int
+	Npages   int
+	Pagesize int
 	eventMap *EventMap
 	event    map[int]*PerfEvent
 	poll     EPoll
@@ -437,9 +437,9 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 	var err error
 
 	e := &PerCpuEvents{
-		cpus:     config.NumCpus,
-		npages:   config.NumPages,
-		pagesize: os.Getpagesize(),
+		Cpus:     config.NumCpus,
+		Npages:   config.NumPages,
+		Pagesize: os.Getpagesize(),
 		event:    make(map[int]*PerfEvent),
 	}
 
@@ -464,7 +464,7 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		return nil, err
 	}
 
-	for cpu := int(0); cpu < config.NumCpus; cpu++ {
+	for cpu := int(0); cpu < e.Cpus; cpu++ {
 		event, err := PerfEventOpen(config, -1, cpu, -1, 0)
 		if err != nil {
 			return nil, err
@@ -476,7 +476,7 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 			return nil, err
 		}
 
-		if err = event.Mmap(e.pagesize, e.npages); err != nil {
+		if err = event.Mmap(e.Pagesize, e.Npages); err != nil {
 			return nil, err
 		}
 
