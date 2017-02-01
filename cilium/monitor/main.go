@@ -26,12 +26,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 
-	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
 
 var (
-	log        = l.MustGetLogger("cilium-cli")
 	CliCommand cli.Command
 	dissect    = false
 	config     = bpf.PerfEventConfig{
@@ -54,20 +52,20 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	if data[0] == bpf.CILIUM_NOTIFY_DROP {
 		dn := bpf.DropNotify{}
 		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
-			log.Warningf("Error while parsing drop notification message: %s\n", err)
+			fmt.Printf("Error while parsing drop notification message: %s\n", err)
 		}
 		dn.Dump(dissect, data, prefix)
 	} else if data[0] == bpf.CILIUM_DBG_MSG {
 		dm := bpf.DebugMsg{}
 		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dm); err != nil {
-			log.Warningf("Error while parsing debug message: %s\n", err)
+			fmt.Printf("Error while parsing debug message: %s\n", err)
 		} else {
 			dm.Dump(data, prefix)
 		}
 	} else if data[0] == bpf.CILIUM_DBG_CAPTURE {
 		dc := bpf.DebugCapture{}
 		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dc); err != nil {
-			log.Warningf("Error while parsing debug capture message: %s\n", err)
+			fmt.Printf("Error while parsing debug capture message: %s\n", err)
 		}
 		dc.Dump(dissect, data, prefix)
 	} else {
@@ -89,7 +87,7 @@ func run(ctx *cli.Context) {
 
 			lost, unknown := events.Stats()
 			if lost != 0 || unknown != 0 {
-				log.Warningf("%d events lost, %d unknown notifications", lost, unknown)
+				fmt.Printf("%d events lost, %d unknown notifications\n", lost, unknown)
 			}
 
 			if err := events.CloseAll(); err != nil {
@@ -100,6 +98,10 @@ func run(ctx *cli.Context) {
 		}
 	}()
 
+	fmt.Printf("Listening for events on %d CPUs with %dx%d of shared memory\n",
+		events.Cpus, events.Npages, events.Pagesize)
+	fmt.Printf("Press Ctrl-C to quit\n")
+
 	for {
 		todo, err := events.Poll(5000)
 		if err != nil && err != syscall.EINTR {
@@ -107,7 +109,7 @@ func run(ctx *cli.Context) {
 		}
 		if todo > 0 {
 			if err := events.ReadAll(receiveEvent, lostEvent); err != nil {
-				log.Warningf("Error received while reading from perf buffer: %s", err)
+				fmt.Printf("Error received while reading from perf buffer: %s\n", err)
 			}
 		}
 	}
