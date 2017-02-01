@@ -15,12 +15,6 @@
 //
 package monitor
 
-/*
-#cgo CFLAGS: -I../../bpf/include
-#include <linux/perf_event.h>
-*/
-import "C"
-
 import (
 	"bytes"
 	"encoding/binary"
@@ -42,9 +36,9 @@ var (
 	dissect    = false
 	config     = bpf.PerfEventConfig{
 		MapName:      bpf.EventsMapName,
-		Type:         C.PERF_TYPE_SOFTWARE,
-		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
-		SampleType:   C.PERF_SAMPLE_RAW,
+		Type:         bpf.PERF_TYPE_SOFTWARE,
+		Config:       bpf.PERF_COUNT_SW_BPF_OUTPUT,
+		SampleType:   bpf.PERF_SAMPLE_RAW,
 		WakeupEvents: 1,
 	}
 )

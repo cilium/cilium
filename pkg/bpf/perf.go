@@ -138,6 +138,35 @@ import (
 const (
 	EventsMapName   = "cilium_events"
 	MAX_POLL_EVENTS = 32
+
+	PERF_TYPE_HARDWARE   = 0
+	PERF_TYPE_SOFTWARE   = 1
+	PERF_TYPE_TRACEPOINT = 2
+	PERF_TYPE_HW_CACHE   = 3
+	PERF_TYPE_RAW        = 4
+	PERF_TYPE_BREAKPOINT = 5
+
+	PERF_SAMPLE_IP           = 1 << 0
+	PERF_SAMPLE_TID          = 1 << 1
+	PERF_SAMPLE_TIME         = 1 << 2
+	PERF_SAMPLE_ADDR         = 1 << 3
+	PERF_SAMPLE_READ         = 1 << 4
+	PERF_SAMPLE_CALLCHAIN    = 1 << 5
+	PERF_SAMPLE_ID           = 1 << 6
+	PERF_SAMPLE_CPU          = 1 << 7
+	PERF_SAMPLE_PERIOD       = 1 << 8
+	PERF_SAMPLE_STREAM_ID    = 1 << 9
+	PERF_SAMPLE_RAW          = 1 << 10
+	PERF_SAMPLE_BRANCH_STACK = 1 << 11
+	PERF_SAMPLE_REGS_USER    = 1 << 12
+	PERF_SAMPLE_STACK_USER   = 1 << 13
+	PERF_SAMPLE_WEIGHT       = 1 << 14
+	PERF_SAMPLE_DATA_SRC     = 1 << 15
+	PERF_SAMPLE_IDENTIFIER   = 1 << 16
+	PERF_SAMPLE_TRANSACTION  = 1 << 17
+	PERF_SAMPLE_REGS_INTR    = 1 << 18
+
+	PERF_COUNT_SW_BPF_OUTPUT = 10
 )
 
 type PerfEventConfig struct {
@@ -153,9 +182,9 @@ type PerfEventConfig struct {
 func DefaultPerfEventConfig() *PerfEventConfig {
 	return &PerfEventConfig{
 		MapName:      EventsMapName,
-		Type:         C.PERF_TYPE_SOFTWARE,
-		Config:       C.PERF_COUNT_SW_BPF_OUTPUT,
-		SampleType:   C.PERF_SAMPLE_RAW,
+		Type:         PERF_TYPE_SOFTWARE,
+		Config:       PERF_COUNT_SW_BPF_OUTPUT,
+		SampleType:   PERF_SAMPLE_RAW,
 		WakeupEvents: 1,
 		NumCpus:      runtime.NumCPU(),
 		NumPages:     8,
