@@ -11,6 +11,7 @@ SERVER_LABEL="io.cilium.server"
 CLIENT_LABEL="io.cilium.client"
 SERVER_NAME="server"
 CLIENT_NAME="client"
+HEADERS=${HEADERS_OFF:+"-P 0"}
 
 # Only run these tests if BENCHMARK=1 and GCE=1 has been set
 if [ -z ${BENCHMARK} ] || [ -z ${GCE} ]; then
@@ -37,8 +38,6 @@ function cleanup_k8s {
 
 trap cleanup_k8s EXIT
 
-all_pods=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' | grep cilium-net)
-
 kubectl create -f ./gce-deployment/client.json
 kubectl create -f ./gce-deployment/server.json
 
@@ -52,6 +51,8 @@ while [[ "$(kubectl get pods | grep ${SERVER_NAME} | grep Running -c)" -ne "1" ]
     sleep 2s
 done
 
+echo "Getting Client and Server IPv6, IPv4 and ID from containers"
+
 server_pod=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep "${SERVER_NAME}")
 client_pod=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep "${CLIENT_NAME}")
 
@@ -60,6 +61,8 @@ client_worker=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.
 
 server_cilium=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' | grep cilium | grep "${server_worker}" | cut -d' ' -f1)
 client_cilium=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' | grep cilium | grep "${client_worker}" | cut -d' ' -f1)
+
+echo "..."
 
 function cleanup_cilium {
     cleanup_k8s
@@ -83,6 +86,7 @@ SERVER_DEV=$(kubectl exec ${server_cilium} -- cilium endpoint inspect $SERVER_ID
 NODE_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint inspect $SERVER_ID | grep node-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 LXC_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint inspect $SERVER_ID | grep lxc-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 
+echo "... Done"
 
 sleep 5
 set -x
@@ -113,27 +117,27 @@ cat <<EOF | kubectl exec -i "${server_cilium}" -- cilium -D policy import -
 EOF
 
 function perf_test() {
-	kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP || {
+	kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
 	if [ $SERVER_IP4 ]; then
-		kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP4 || {
+		kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_STREAM -H $SERVER_IP4 || {
 			abort "Error: Unable to reach netperf TCP endpoint"
 		}
 	fi
 
-	kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP || {
+	kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
 	if [ $SERVER_IP4 ]; then
-		kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
+		kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP4 || {
 			abort "Error: Unable to reach netperf TCP endpoint"
 		}
 	fi
 
-	kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP -- -m 256 || {
+	kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_SENDFILE -H $SERVER_IP -- -m 256 || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
@@ -147,12 +151,12 @@ function perf_test() {
 		}
 	fi
 
-	kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP || {
+	kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_RR -H $SERVER_IP || {
 		abort "Error: Unable to reach netperf TCP endpoint"
 	}
 
 	if [ $SERVER_IP4 ]; then
-		kubectl exec ${client_pod} -- netperf -l $TEST_TIME -t TCP_RR -H $SERVER_IP4 || {
+		kubectl exec ${client_pod} -- netperf $HEADERS -l $TEST_TIME -t TCP_RR -H $SERVER_IP4 || {
 			abort "Error: Unable to reach netperf TCP endpoint"
 		}
 	fi
