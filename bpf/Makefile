@@ -3,7 +3,7 @@ include ../Makefile.defs
 CLANG_FLAGS := -Iinclude -D__NR_CPUS__=$(shell nproc) -O2 -target bpf -I. -Wall -Werror
 
 BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o
-SCRIPTS = init.sh join_ep.sh leave_ep.sh run_probes.sh
+SCRIPTS = init.sh join_ep.sh run_probes.sh
 LIB := $(shell find ./lib -name '*.h')
 
 ifeq ("$(PKG_BUILD)","")
