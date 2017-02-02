@@ -259,15 +259,6 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	cleanUp := func(ep endpoint.Endpoint) {
 		log.Infof("Endpoint %d not found in docker, cleaning it up...", ep.ID)
 		d.EndpointLeave(ep.ID)
-		// FIXME: IPV4
-		if ep.IPv6 != nil {
-			if ep.IsCNI() {
-				d.ReleaseIP(ipam.CNIIPAMType, ep.IPv6.IPAMReq())
-			} else if ep.IsLibnetwork() {
-				d.ReleaseIP(ipam.LibnetworkIPAMType, ep.IPv6.IPAMReq())
-			}
-		}
-
 	}
 
 	for _, ep := range eps {

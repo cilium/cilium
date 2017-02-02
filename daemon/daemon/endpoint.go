@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -271,6 +272,24 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 	d.deleteEndpoint(epID)
 
 	log.Infof("Command successful:\n%s", out)
+
+	var ipamType ipam.IPAMType
+	if ep.IsCNI() {
+		ipamType = ipam.CNIIPAMType
+	} else {
+		ipamType = ipam.LibnetworkIPAMType
+	}
+
+	if d.conf.IPv4Enabled {
+		ipv4 := ep.IPv4.IP()
+		if err := d.ReleaseIP(ipamType, ipam.IPAMReq{IP: &ipv4}); err != nil {
+			log.Warningf("error while releasing IPv4 %s: %s", ep.IPv4.IP(), err)
+		}
+	}
+	ipv6 := ep.IPv6.IP()
+	if err := d.ReleaseIP(ipamType, ipam.IPAMReq{IP: &ipv6}); err != nil {
+		log.Warningf("error while releasing IPv6 %s: %s", ep.IPv6.IP(), err)
+	}
 
 	return nil
 }
