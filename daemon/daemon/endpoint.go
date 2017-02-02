@@ -18,7 +18,6 @@ package daemon
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 
@@ -241,15 +240,6 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 		log.Warningf("Unable to remove endpoint from map: %s", err)
 	}
 
-	args := []string{d.conf.LibDir, strconv.Itoa(int(epID))}
-	out, err := exec.Command(filepath.Join(d.conf.LibDir, "leave_ep.sh"), args...).CombinedOutput()
-	if err != nil {
-		log.Warningf("Command execution failed: %s", err)
-		log.Warningf("Command output:\n%s", out)
-		ep.LogStatus(endpoint.Failure, fmt.Sprintf("error: \"%s\" command output: \"%s\"", err, out))
-		return fmt.Errorf("error: \"%s\"\noutput: \"%s\"", err, out)
-	}
-
 	if ep.Consumable != nil {
 		ep.Consumable.RemoveMap(ep.PolicyMap)
 	}
@@ -270,8 +260,6 @@ func (d *Daemon) EndpointLeave(epID uint16) error {
 	}
 
 	d.deleteEndpoint(epID)
-
-	log.Infof("Command successful:\n%s", out)
 
 	var ipamType ipam.IPAMType
 	if ep.IsCNI() {

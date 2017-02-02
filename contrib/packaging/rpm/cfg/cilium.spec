@@ -81,7 +81,6 @@ chmod 644 %{buildroot}/etc/init/*
 /usr/lib/cilium/include/linux/udp.h
 /usr/lib/cilium/init.sh
 /usr/lib/cilium/join_ep.sh
-/usr/lib/cilium/leave_ep.sh
 /usr/lib/cilium/lib/arp.h
 /usr/lib/cilium/lib/common.h
 /usr/lib/cilium/lib/conntrack.h
