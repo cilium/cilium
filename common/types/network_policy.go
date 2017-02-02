@@ -26,7 +26,7 @@ import (
 func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *policy.Node, error) {
 	var parentNodeName, policyName string
 	if np.Annotations[common.K8sAnnotationParentName] == "" {
-		parentNodeName = common.GlobalLabelPrefix
+		parentNodeName = common.K8sDefaultParent
 	} else {
 		parentNodeName = np.Annotations[common.K8sAnnotationParentName]
 	}

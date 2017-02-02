@@ -3,8 +3,7 @@
   "kind": "NetworkPolicy",
   "metadata": {
     "annotations": {
-      "io.cilium.name": "k8s-app",
-      "io.cilium.parent": "io.cilium.k8s"
+      "io.cilium.name": "k8s-app"
     },
     "name": "guestbook-redis"
   },

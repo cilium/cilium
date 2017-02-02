@@ -68,6 +68,9 @@ const (
 	// K8sLabelPrefix is the default prefix used when parsing labels that don't have
 	// the GlobalLabelPrefix in kubernetes.
 	K8sLabelPrefix = "io.cilium.k8s."
+	// K8sDefaultParent is the default prefix for network policies received from
+	// kubernetes.
+	K8sDefaultParent = "io.cilium.k8s"
 	// K8sPodNamespaceLabel is the label used in kubernetes containers to specify
 	// which namespace they belong to.
 	K8sPodNamespaceLabel = "io.kubernetes.pod.namespace"
