@@ -27,7 +27,6 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -377,11 +376,6 @@ func (d *Daemon) deleteContainer(dockerID string) {
 
 	d.containersMU.Lock()
 	if container, ok := d.containers[dockerID]; ok {
-		ep, err := d.EndpointGetByDockerID(dockerID)
-		if err != nil {
-			log.Warningf("Error while getting endpoint by docker ID: %s", err)
-		}
-
 		sha256sum, err := container.OpLabels.EndpointLabels.SHA256Sum()
 		if err != nil {
 			log.Errorf("Error while creating SHA256Sum for labels %+v: %s", container.OpLabels.EndpointLabels, err)
@@ -392,27 +386,15 @@ func (d *Daemon) deleteContainer(dockerID string) {
 		}
 
 		delete(d.containers, dockerID)
-
-		if ep != nil {
-			d.EndpointLeave(ep.ID)
-			var ipamType ipam.IPAMType
-			if ep.IsCNI() {
-				ipamType = ipam.CNIIPAMType
-			} else {
-				ipamType = ipam.LibnetworkIPAMType
-			}
-
-			if d.conf.IPv4Enabled {
-				ipv4 := ep.IPv4.IP()
-				if err := d.ReleaseIP(ipamType, ipam.IPAMReq{IP: &ipv4}); err != nil {
-					log.Warningf("error while releasing IPv4 %s: %s", ep.IPv4.IP(), err)
-				}
-			}
-			ipv6 := ep.IPv6.IP()
-			if err := d.ReleaseIP(ipamType, ipam.IPAMReq{IP: &ipv6}); err != nil {
-				log.Warningf("error while releasing IPv6 %s: %s", ep.IPv6.IP(), err)
-			}
-		}
 	}
 	d.containersMU.Unlock()
+
+	ep, err := d.EndpointGetByDockerID(dockerID)
+	if err != nil {
+		log.Warningf("Error while getting endpoint by docker ID: %s", err)
+	}
+
+	if ep != nil {
+		d.EndpointLeave(ep.ID)
+	}
 }
