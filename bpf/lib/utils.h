@@ -36,4 +36,15 @@
 	_x > _y ? _x : _y;	\
 })
 
+/* Clear CB values */
+static inline void bpf_clear_cb(struct __sk_buff *skb)
+{
+	__u32 zero = 0;
+	skb->cb[0] = zero;
+	skb->cb[1] = zero;
+	skb->cb[2] = zero;
+	skb->cb[3] = zero;
+	skb->cb[4] = zero;
+}
+
 #endif
