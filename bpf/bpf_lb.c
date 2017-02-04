@@ -171,6 +171,8 @@ int from_netdev(struct __sk_buff *skb)
 {
 	int ret;
 
+	bpf_clear_cb(skb);
+
 	switch (skb->protocol) {
 #ifndef LB_DISABLE_IPV6
 	case __constant_htons(ETH_P_IPV6):

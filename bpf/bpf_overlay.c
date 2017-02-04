@@ -118,6 +118,8 @@ int from_overlay(struct __sk_buff *skb)
 {
 	int ret;
 
+	bpf_clear_cb(skb);
+
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_OVERLAY, skb->ingress_ifindex);
 
 	switch (skb->protocol) {
