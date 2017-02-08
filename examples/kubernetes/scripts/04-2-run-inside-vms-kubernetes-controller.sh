@@ -7,7 +7,6 @@ source "${dir}/helpers.bash"
 set -e
 
 sudo mkdir -p /var/lib/kubernetes
-sudo cp ca.pem kubernetes-key.pem kubernetes.pem /var/lib/kubernetes/
 
 wget https://storage.googleapis.com/kubernetes-release/release/${k8s_version}/bin/linux/amd64/kube-apiserver
 
@@ -39,15 +38,10 @@ ExecStart=/usr/bin/kube-apiserver \\
   --authorization-policy-file=/var/lib/kubernetes/authorization-policy.jsonl \\
   --bind-address=0.0.0.0 \\
   --enable-swagger-ui=true \\
-  --etcd-cafile=/var/lib/kubernetes/ca.pem \\
   --insecure-bind-address=0.0.0.0 \\
-  --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \\
-  --etcd=https://${controllers_ips[0]}:2379 \\
-  --service-account-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
+  --etcd-servers=http://${controllers_ips[0]}:2379 \\
   --service-cluster-ip-range=${k8s_service_cluster_ip_range} \\
   --service-node-port-range=30000-32767 \\
-  --tls-cert-file=/var/lib/kubernetes/kubernetes.pem \\
-  --tls-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
   --token-auth-file=/var/lib/kubernetes/token.csv \\
   --v=2
 Restart=on-failure
@@ -77,8 +71,6 @@ ExecStart=/usr/bin/kube-controller-manager \\
   --cluster-name=kubernetes \\
   --leader-elect=true \\
   --master=http://${controllers_ips[0]}:8080 \\
-  --root-ca-file=/var/lib/kubernetes/ca.pem \\
-  --service-account-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
   --service-cluster-ip-range=${k8s_service_cluster_ip_range} \\
   --v=2
 Restart=on-failure
