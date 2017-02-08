@@ -8,8 +8,6 @@ set -e
 
 sudo mkdir -p /etc/etcd/
 
-sudo cp ca.pem kubernetes-key.pem kubernetes.pem /etc/etcd/
-
 wget https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
 
 tar -xvf etcd-${etcd_version}-linux-amd64.tar.gz
@@ -27,18 +25,12 @@ Documentation=https://github.com/coreos
 
 [Service]
 ExecStart=/usr/bin/etcd --name ${ETCD_NAME} \\
-  --cert-file=/etc/etcd/kubernetes.pem \\
-  --key-file=/etc/etcd/kubernetes-key.pem \\
-  --peer-cert-file=/etc/etcd/kubernetes.pem \\
-  --peer-key-file=/etc/etcd/kubernetes-key.pem \\
-  --trusted-ca-file=/etc/etcd/ca.pem \\
-  --peer-trusted-ca-file=/etc/etcd/ca.pem \\
-  --initial-advertise-peer-urls https://${controllers_ips[0]}:2380 \\
-  --listen-peer-urls https://${controllers_ips[0]}:2380 \\
-  --listen-client-urls https://${controllers_ips[0]}:2379,http://127.0.0.1:2379 \\
-  --advertise-client-urls https://${controllers_ips[0]}:2379 \\
+  --initial-advertise-peer-urls http://${controllers_ips[0]}:2380 \\
+  --listen-peer-urls http://${controllers_ips[0]}:2380 \\
+  --listen-client-urls http://${controllers_ips[0]}:2379,http://127.0.0.1:2379 \\
+  --advertise-client-urls http://${controllers_ips[0]}:2379 \\
   --initial-cluster-token etcd-cluster-0 \\
-  --initial-cluster controller0=https://${controllers_ips[0]}:2380 \\
+  --initial-cluster controller0=http://${controllers_ips[0]}:2380 \\
   --initial-cluster-state new \\
   --data-dir=/var/lib/etcd
 Restart=on-failure
@@ -56,5 +48,4 @@ sudo systemctl restart etcd
 
 sudo systemctl status etcd --no-pager
 
-echo "The next command is expected to fail on the first setup node"
-sudo etcdctl --ca-file=/etc/etcd/ca.pem cluster-health
+sudo etcdctl cluster-health

@@ -6,17 +6,12 @@ source "${dir}/helpers.bash"
 
 set -e
 
-sudo mkdir -p /var/lib/kubernetes
-
-sudo cp ca.pem kubernetes-key.pem kubernetes.pem /var/lib/kubernetes/
-
 sudo mkdir -p /var/lib/cilium
 
 sudo tee /var/lib/cilium/etcd-config.yml <<EOF
 ---
 endpoints:
-- https://${controllers_ips[0]}:2379
-ca-file: '/var/lib/kubernetes/ca.pem'
+- http://${controllers_ips[0]}:2379
 EOF
 
 sudo mkdir -p /etc/cni/net.d
@@ -48,8 +43,7 @@ apiVersion: v1
 kind: Config
 clusters:
 - cluster:
-    certificate-authority: /var/lib/kubernetes/ca.pem
-    server: https://${controllers_ips[0]}:6443
+    server: http://${controllers_ips[0]}:8080
   name: kubernetes
 contexts:
 - context:
@@ -74,7 +68,7 @@ Requires=docker.service
 ExecPre=/bin/mount bpffs /sys/fs/bpf -t bpf
 ExecStart=/usr/bin/kubelet \\
   --allow-privileged=true \\
-  --api-servers=https://${controllers_ips[0]}:6443 \\
+  --api-servers=http://${controllers_ips[0]}:8080 \\
   --cloud-provider= \\
   --make-iptables-util-chains=false \\
   --cluster-dns=${cluster_dns_ip} \\
@@ -84,8 +78,6 @@ ExecStart=/usr/bin/kubelet \\
   --network-plugin=cni \\
   --kubeconfig=/var/lib/kubelet/kubeconfig \\
   --serialize-image-pulls=false \\
-  --tls-cert-file=/var/lib/kubernetes/kubernetes.pem \\
-  --tls-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
   --v=2
 
 Restart=on-failure
