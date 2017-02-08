@@ -80,11 +80,15 @@ $load_default_policy = <<SCRIPT
 sudo cilium policy import /home/vagrant/go/src/github.com/cilium/cilium/examples/policy/default/
 SCRIPT
 
-$node_ip_base = ENV['NODE_IP_BASE'] || ""
-$master_ip = $node_ip_base + "#{ENV['FIRST_IP_SUFFIX']}"
-$num_node = (ENV['NWORKERS'] || 0).to_i
-$node_ips = $num_node.times.collect { |n| $node_ip_base + "#{n+(ENV['FIRST_IP_SUFFIX']).to_i+1}" }
-$node_nfs_base_ip = ENV['NODE_NFS_IP_BASE']
+$node_ip_base = ENV['IPV4_BASE_ADDR'] || ""
+$node_nfs_base_ip = ENV['IPV4_BASE_ADDR_NFS'] || ""
+$num_workers = (ENV['NWORKERS'] || 0).to_i
+$workers_ipv4_addrs = $num_workers.times.collect { |n| $node_ip_base + "#{n+(ENV['FIRST_IP_SUFFIX']).to_i+1}" }
+$workers_ipv4_addrs_nfs = $num_workers.times.collect { |n| $node_nfs_base_ip + "#{n+(ENV['FIRST_IP_SUFFIX_NFS']).to_i+1}" }
+$master_ip = ENV['MASTER_IPV4']
+$master_ipv6 = ENV['MASTER_IPV6_PUBLIC']
+$workers_ipv6_addrs_str = ENV['IPV6_PUBLIC_WORKERS_ADDRS'] || ""
+$workers_ipv6_addrs = $workers_ipv6_addrs_str.split(' ')
 
 if ENV['K8S'] then
     $k8stag="-k8s"
