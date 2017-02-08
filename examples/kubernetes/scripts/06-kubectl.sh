@@ -14,15 +14,13 @@ fi
 
 KUBERNETES_PUBLIC_ADDRESS="192.168.34.11"
 
-kubectl config set-cluster kubernetes-the-hard-way \
-  --certificate-authority=ca.pem \
-  --embed-certs=true \
-  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443
+kubectl config set-cluster cilium-k8s-local \
+  --server=http://${KUBERNETES_PUBLIC_ADDRESS}:8080
 
 kubectl config set-credentials admin --token chAng3m3
 
 kubectl config set-context default-context \
-  --cluster=kubernetes-cilium \
+  --cluster=cilium-k8s-local \
   --user=admin
 
 kubectl config use-context default-context
