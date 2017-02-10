@@ -93,8 +93,8 @@ ip addr add $HOST_IP/128 dev $HOST_DEV1
 
 ip route del $ADDR/128 dev $HOST_DEV1 2> /dev/null || true
 ip route add $ADDR/128 dev $HOST_DEV1
-ip route del $ADDR/112 via $ADDR 2> /dev/null || true
-ip route add $ADDR/112 via $ADDR
+ip route del $ADDR/96 via $ADDR 2> /dev/null || true
+ip route add $ADDR/96 via $ADDR
 
 V4RANGE=$(echo $V4ADDR | sed 's/.[0-9].[0-9]$/.0.0/')
 ip route del $V4RANGE/16 via $V4ADDR 2> /dev/null || true
