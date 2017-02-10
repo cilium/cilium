@@ -756,6 +756,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	return redirect(ifindex, 0);
 }
 
+#ifdef LXC_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
 	int ret = ipv6_to_ipv4(skb, 14, htonl(LXC_IPV4));
@@ -790,4 +791,5 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	tail_call(skb, &cilium_policy, LXC_ID);
 	return DROP_MISSED_TAIL_CALL;
 }
+#endif
 BPF_LICENSE("GPL");

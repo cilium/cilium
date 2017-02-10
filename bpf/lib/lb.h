@@ -530,6 +530,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	return TC_ACT_OK;
 }
 
+#ifdef ENABLE_IPV4
 static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb4_key *key,
 				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc,
@@ -564,5 +565,6 @@ static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 svc);
 }
+#endif
 
 #endif /* __LB_H_ */
