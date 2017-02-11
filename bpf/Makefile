@@ -10,14 +10,8 @@ ifeq ("$(PKG_BUILD)","")
 
 all: $(BPF)
 
-bpf_lxc.o:
-	clang ${CLANG_FLAGS} -c bpf_lxc.c -o $@
-
-bpf_netdev.o:
-	clang ${CLANG_FLAGS} -c bpf_netdev.c -o $@
-
-bpf_overlay.o:
-	clang ${CLANG_FLAGS} -c bpf_overlay.c -o $@
+%.o: %.c
+	clang ${CLANG_FLAGS} -c $< -o $@
 
 LB_OPTIONS = \
 	 \
