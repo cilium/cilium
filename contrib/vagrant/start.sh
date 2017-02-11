@@ -154,9 +154,99 @@ EOF
 EOF
 }
 
-# write_cilium_cfg writes cilium configuration options in ${3}. If node index
-# ${1} is even and LB is enabled, adds cilium --lb option. Sets the cilium node
-# IPv4 address with suffix ${2} and sets the IPv6 address with ${3}.
+# write_k8s_header create the file in ${2} and writes the k8s configuration.
+# Sets up the k8s temporary directory inside the VM with ${1}.
+function write_k8s_header(){
+    k8s_dir="${1}"
+    filename="${2}"
+    cat <<EOF > "${filename}"
+#!/usr/bin/env bash
+# K8s installation
+sudo apt-get -y install curl
+mkdir -p "${k8s_dir}"
+cd "${k8s_dir}"
+
+EOF
+}
+
+# write_install_nsenter writes the dependencies and installation for nsenter in
+# ${1}.
+function write_install_nsenter(){
+    filename="${1}"
+    cat <<EOF >> "${filename}"
+#Install nsenter
+sudo apt-get -y install libncurses5-dev libslang2-dev gettext \
+zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config \
+po-debconf autoconf automake autopoint libtool
+wget https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
+tar -xvzf util-linux-2.24.1.tar.gz
+cd util-linux-2.24.1
+./autogen.sh
+./configure --without-python --disable-all-programs --enable-nsenter
+make nsenter
+sudo cp nsenter /usr/bin
+
+EOF
+}
+
+# write_k8s_install writes the k8s installation first half in ${2} and the
+# second half in ${3}. Changes the k8s temporary directory inside the VM,
+# defined in ${1}, owner and group to vagrant.
+function write_k8s_install() {
+    k8s_dir="${1}"
+    filename="${2}"
+    filename_2nd_half="${3}"
+    if [[ -n "${IPV6_EXT}" ]]; then
+        split_ipv4 ipv4_array "${MASTER_IPV4}"
+        hexIPv4=$(printf "%d.%d.0.0" "${ipv4_array[0]}" "${ipv4_array[1]}")
+        get_cilium_node_addr k8s_cluster_cidr "${hexIPv4}"
+        k8s_cluster_cidr+="/96"
+        k8s_node_cidr_mask_size="112"
+        k8s_service_cluster_ip_range="FD03::/112"
+        k8s_cluster_dns_ip="FD03::A"
+    fi
+    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.0.0.0/10"}
+    k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"16"}
+    k8s_service_cluster_ip_range=${k8s_service_cluster_ip_range:-"172.20.0.0/24"}
+    k8s_cluster_dns_ip=${k8s_cluster_dns_ip:-"172.20.0.10"}
+
+    cat <<EOF >> "${filename}"
+# K8s
+k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/scripts"
+export IPV6_EXT="${IPV6_EXT}"
+export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
+export K8S_NODE_CDIR_MASK_SIZE="${k8s_node_cidr_mask_size}"
+export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
+export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+if [[ "\$(hostname)" -eq "cilium${K8STAG}-master" ]]; then
+    "\${k8s_path}/03-2-run-inside-vms-etcd.sh"
+    "\${k8s_path}/04-2-run-inside-vms-kubernetes-controller.sh"
+fi
+# All nodes are a kubernetes worker
+"\${k8s_path}/05-2-run-inside-vms-kubernetes-worker.sh"
+INSTALL=1 "\${k8s_path}/06-kubectl.sh"
+chown vagrant.vagrant -R "${k8s_dir}"
+
+EOF
+
+    cat <<EOF > "${filename_2nd_half}"
+#!/usr/bin/env bash
+# K8s installation 2nd half
+k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/scripts"
+export IPV6_EXT="${IPV6_EXT}"
+export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
+export K8S_NODE_CDIR_MASK_SIZE="${k8s_node_cidr_mask_size}"
+export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
+export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+
+cd "${k8s_dir}"
+"\${k8s_path}/08-cilium.sh"
+if [[ "\$(hostname)" -eq "cilium${K8STAG}-master" ]]; then
+    "\${k8s_path}/09-dns-addon.sh"
+fi
+EOF
+}
+
 function write_cilium_cfg() {
     node_index="${1}"
     master_ipv4_suffix="${2}"
@@ -260,6 +350,18 @@ function create_workers(){
     fi
 }
 
+# create_k8s_config creates k8s config
+function create_k8s_config(){
+    if [ -n "${K8S}" ]; then
+        k8s_temp_dir="/home/vagrant/k8s"
+        output_file="${dir}/cilium-k8s-install-1st-part.sh"
+        output_2nd_file="${dir}/cilium-k8s-install-2nd-part.sh"
+        write_k8s_header "${k8s_temp_dir}" "${output_file}"
+        write_install_nsenter "${output_file}"
+        write_k8s_install "${k8s_temp_dir}" "${output_file}" "${output_2nd_file}"
+    fi
+}
+
 # set_vagrant_env sets up Vagrantfile environment variables
 function set_vagrant_env(){
     split_ipv4 ipv4_array "${MASTER_IPV4}"
@@ -315,6 +417,7 @@ MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
 create_master
 create_workers
 set_vagrant_env
+create_k8s_config
 
 cd "${dir}/../.."
 

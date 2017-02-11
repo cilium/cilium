@@ -50,36 +50,6 @@ make -C ~/go/src/github.com/cilium/cilium/ tests
 sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
 SCRIPT
 
-$install_k8s = <<SCRIPT
-sudo apt-get -y install curl
-cd $HOME
-mkdir -p "$HOME/k8s"
-cd "$HOME/k8s"
-
-k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/scripts"
-
-INSTALL=1 "${k8s_path}/02-certificate-authority.sh"
-"${k8s_path}/03-2-run-inside-vms-etcd.sh"
-"${k8s_path}/04-2-run-inside-vms-kubernetes-controller.sh"
-"${k8s_path}/05-2-run-inside-vms-kubernetes-worker.sh"
-INSTALL=1 "${k8s_path}/06-kubectl.sh"
-
-sudo apt-get -y install libncurses5-dev libslang2-dev gettext zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config po-debconf autoconf automake autopoint libtool
-
-cd $HOME
-wget https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
-tar -xvzf util-linux-2.24.1.tar.gz
-cd util-linux-2.24.1
-./autogen.sh
-./configure --without-python --disable-all-programs --enable-nsenter
-make nsenter
-sudo cp nsenter /usr/bin
-SCRIPT
-
-$load_default_policy = <<SCRIPT
-sudo cilium policy import /home/vagrant/go/src/github.com/cilium/cilium/examples/policy/default/
-SCRIPT
-
 $node_ip_base = ENV['IPV4_BASE_ADDR'] || ""
 $node_nfs_base_ip = ENV['IPV4_BASE_ADDR_NFS'] || ""
 $num_workers = (ENV['NWORKERS'] || 0).to_i
@@ -91,7 +61,7 @@ $workers_ipv6_addrs_str = ENV['IPV6_PUBLIC_WORKERS_ADDRS'] || ""
 $workers_ipv6_addrs = $workers_ipv6_addrs_str.split(' ')
 
 if ENV['K8S'] then
-    $k8stag="-k8s"
+    $k8stag = ENV['K8STAG'] || "-k8s"
 end
 
 Vagrant.configure(2) do |config|
@@ -101,10 +71,6 @@ Vagrant.configure(2) do |config|
 
     if ENV['RUN_TEST_SUITE'] then
         config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
-    end
-
-    if ENV['K8S'] then
-        config.vm.provision "install-k8s", type: "shell", privileged: false, run: "no", inline: $install_k8s
     end
 
     config.vm.provider :libvirt do |libvirt|
@@ -132,45 +98,72 @@ Vagrant.configure(2) do |config|
     end
 
     master_vm_name = "cilium#{$k8stag}-master"
-
     config.vm.define master_vm_name, primary: true do |cm|
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test",
             :libvirt__guest_ipv6 => "yes",
             :libvirt__dhcp_enabled => false
-        if ENV["NFS"] then
-            if ENV['FIRST_IP_SUFFIX'] then
-                $nfs_addr = $node_nfs_base_ip + "#{ENV['FIRST_IP_SUFFIX']}"
+        if ENV["NFS"] || ENV["IPV6_EXT"] then
+            if ENV['FIRST_IP_SUFFIX_NFS'] then
+                $nfs_ipv4_master_addr = $node_nfs_base_ip + "#{ENV['FIRST_IP_SUFFIX_NFS']}"
             end
-            cm.vm.network "private_network", ip: "#{$nfs_addr}"
+            cm.vm.network "private_network", ip: "#{$nfs_ipv4_master_addr}", bridge: "enp0s9"
+            # Add IPv6 address this way or we get hit by a virtualbox bug
+            cm.vm.provision "ipv6-config",
+                type: "shell",
+                run: "always",
+                inline: "ip -6 a a #{$master_ipv6}/16 dev enp0s9"
         end
-        cm.vm.hostname = "cilium-master"
+        cm.vm.hostname = "cilium#{$k8stag}-master"
         if ENV['CILIUM_TEMP'] then
-            script = "#{ENV['CILIUM_TEMP']}/cilium-master.sh"
-            cm.vm.provision "shell", privileged: true, run: "always", path: script
+           if ENV["K8S"] then
+               k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"
+               cm.vm.provision "shell", privileged: true, path: k8sinstall
+           end
+           script = "#{ENV['CILIUM_TEMP']}/cilium-master.sh"
+           cm.vm.provision "config-install", type: "shell", privileged: true, run: "always", path: script
+           # In k8s mode cilium needs etcd in order to run which was started in
+           # the first part of the script. The 2nd part will install the
+           # policies into kubernetes and cilium.
+           if ENV["K8S"] then
+               k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-2nd-part.sh"
+               cm.vm.provision "shell", privileged: true, path: k8sinstall
+           end
         end
-        cm.vm.provision "load-policy", type: "shell", privileged: false, run: "always", inline: $load_default_policy
     end
 
-    $num_node.times do |n|
+    $num_workers.times do |n|
         # n starts with 0
-        node_vm_name =  "cilium#{$k8stag}-node-#{n+2}"
-        node_hostname =  "cilium#{$k8stag}-node-#{n+2}"
+        node_vm_name = "cilium#{$k8stag}-node-#{n+2}"
+        node_hostname = "cilium#{$k8stag}-node-#{n+2}"
         config.vm.define node_vm_name do |node|
-            node_ip = $node_ips[n]
-            if ENV['CILIUM_TEMP'] then
-                script = "#{ENV['CILIUM_TEMP']}/node-start-#{n+2}.sh"
-                node.vm.provision "shell", privileged: true, run: "always", path: script
-            end
+            node_ip = $workers_ipv4_addrs[n]
             node.vm.network "private_network", ip: "#{node_ip}",
                 virtualbox__intnet: "cilium-test",
                 :libvirt__guest_ipv6 => 'yes',
                 :libvirt__dhcp_enabled => false
-            if ENV["NFS"] then
-                if ENV['FIRST_IP_SUFFIX'] then
-                    $nfs_addr = $node_nfs_base_ip + "#{n+1+(ENV['FIRST_IP_SUFFIX']).to_i+1}"
+            if ENV["NFS"] || ENV["IPV6_EXT"] then
+                nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
+                ipv6_addr = $workers_ipv6_addrs[n]
+                node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"
+                # Add IPv6 address this way or we get hit by a virtualbox bug
+                node.vm.provision "ipv6-config",
+                    type: "shell",
+                    run: "always",
+                    inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
+            end
+            node.vm.hostname = "cilium#{$k8stag}-node-#{n+2}"
+            if ENV['CILIUM_TEMP'] then
+                if ENV["K8S"] then
+                    k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"
+                    node.vm.provision "shell", privileged: true, path: k8sinstall
                 end
-                node.vm.network "private_network", ip: "#{$nfs_addr}"
+                script = "#{ENV['CILIUM_TEMP']}/node-start-#{n+2}.sh"
+                node.vm.provision "config-install", type: "shell", privileged: true, run: "always", path: script
+                if ENV["K8S"] then
+                    k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-2nd-part.sh"
+                    node.vm.provision "shell", privileged: true, path: k8sinstall
+                end
             end
         end
     end
