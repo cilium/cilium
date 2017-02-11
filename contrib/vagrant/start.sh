@@ -146,6 +146,61 @@ EOF
 EOF
 }
 
+# write_k8s_header create the file in ${2} and writes the k8s configuration. Sets up the
+# k8s temporary directory inside the VM with ${1}.
+function write_k8s_header(){
+    k8s_dir="${1}"
+    filename="${2}"
+    cat <<EOF > "${filename}"
+#!/usr/bin/env bash
+# K8s installation
+sudo apt-get -y install curl
+mkdir -p "${k8s_dir}"
+cd "${k8s_dir}"
+
+EOF
+}
+
+# write_install_nsenter writes the dependencies and installation for nsenter in ${1}.
+function write_install_nsenter(){
+    filename="${1}"
+    cat <<EOF >> "${filename}"
+#Install nsenter
+sudo apt-get -y install libncurses5-dev libslang2-dev gettext \
+zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config \
+po-debconf autoconf automake autopoint libtool
+wget https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
+tar -xvzf util-linux-2.24.1.tar.gz
+cd util-linux-2.24.1
+./autogen.sh
+./configure --without-python --disable-all-programs --enable-nsenter
+make nsenter
+sudo cp nsenter /usr/bin
+
+EOF
+}
+
+# write_k8s_install writes the k8s installation in ${2}. Changes the k8s temporary
+# directory inside the VM, defined in ${1}, owner and group to vagrant.
+function write_k8s_install() {
+    k8s_dir="${1}"
+    filename="${2}"
+    cat <<EOF >> "${filename}"
+# K8s
+k8s_path="/home/vagrant/go/src/github.com/cilium/cilium/examples/kubernetes/scripts"
+
+if [[ "\$(hostname)" -eq "cilium${K8STAG}-master" ]]; then
+    "\${k8s_path}/03-2-run-inside-vms-etcd.sh"
+    "\${k8s_path}/04-2-run-inside-vms-kubernetes-controller.sh"
+fi
+# All nodes are a kubernetes worker
+"\${k8s_path}/05-2-run-inside-vms-kubernetes-worker.sh"
+INSTALL=1 "\${k8s_path}/06-kubectl.sh"
+chown vagrant.vagrant -R "${k8s_dir}"
+
+EOF
+}
+
 # write_cilium_cfg writes cilium configuration options in ${3}. If node index ${1} is even
 # and LB is enabled, adds cilium --lb option. Sets the cilium node IPv6 address with ${2}.
 function write_cilium_cfg() {
@@ -247,6 +302,17 @@ function create_workers(){
     fi
 }
 
+# create_k8s_config creates k8s config
+function create_k8s_config(){
+    if [ -n "${K8S}" ]; then
+        k8s_temp_dir="/home/vagrant/k8s"
+        output_file="${dir}/cilium-k8s-install.sh"
+        write_k8s_header "${k8s_temp_dir}" "${output_file}"
+        write_install_nsenter "${output_file}"
+        write_k8s_install "${k8s_temp_dir}" "${output_file}"
+    fi
+}
+
 # set_vagrant_env sets up Vagrantfile environment variables
 function set_vagrant_env(){
     split_ipv4 ipv4_array "${MASTER_IPV4}"
@@ -301,6 +367,7 @@ MASTER_IPV6="${IPV6_INTERNAL_CIDR}$(printf '%02X' ${ipv4_array[3]})"
 
 create_master
 create_workers
+create_k8s_config
 set_vagrant_env
 
 cd "${dir}/../.."
