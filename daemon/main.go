@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
@@ -33,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
-	loads "github.com/go-openapi/loads"
+	"github.com/go-openapi/loads"
 	consulAPI "github.com/hashicorp/consul/api"
 	flags "github.com/jessevdk/go-flags"
 	logging "github.com/op/go-logging"
