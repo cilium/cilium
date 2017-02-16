@@ -26,7 +26,10 @@
                         "name":"http-server",
                         "containerPort":3000
                     }]
-                }]
+                }],
+                "nodeSelector": {
+                    "kubernetes.io/hostname": "cilium-k8s-node-2"
+                }
             }
         }
     }

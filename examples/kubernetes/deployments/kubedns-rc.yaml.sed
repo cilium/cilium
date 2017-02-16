@@ -22,7 +22,7 @@ metadata:
     version: v20
     kubernetes.io/cluster-service: "true"
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       k8s-app: kube-dns
@@ -72,6 +72,7 @@ spec:
         # command = "/kube-dns"
         - --domain=cluster.local
         - --dns-port=10053
+        - --kube-master-url=http://$kube-master:8080
         ports:
         - containerPort: 10053
           name: dns-local
@@ -121,3 +122,5 @@ spec:
         - containerPort: 8080
           protocol: TCP
       dnsPolicy: Default  # Don't use cluster DNS.
+      nodeSelector:
+        kubernetes.io/hostname: cilium-k8s-node-2
