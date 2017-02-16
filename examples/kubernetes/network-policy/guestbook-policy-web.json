@@ -19,7 +19,7 @@
           {
             "podSelector": {
               "matchLabels": {
-                "io.cilium.reserved": "host"
+                "io.cilium.reserved": "world"
               }
             }
           }

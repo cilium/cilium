@@ -65,7 +65,10 @@ After=docker.service
 Requires=docker.service
 
 [Service]
-ExecPre=/bin/mount bpffs /sys/fs/bpf -t bpf
+ExecStartPre=/bin/bash -c ' \
+        if [[ $(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \
+           /bin/mount bpffs /sys/fs/bpf -t bpf; \
+        fi'
 ExecStart=/usr/bin/kubelet \\
   --allow-privileged=true \\
   --api-servers=http://${controllers_ips[0]}:8080 \\

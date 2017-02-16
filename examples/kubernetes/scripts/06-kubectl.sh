@@ -12,7 +12,7 @@ if [ -n "${INSTALL}" ]; then
     sudo mv kubectl /usr/local/bin
 fi
 
-KUBERNETES_PUBLIC_ADDRESS="192.168.34.11"
+KUBERNETES_PUBLIC_ADDRESS=${kubernetes_master:-"192.168.33.11"}
 
 kubectl config set-cluster cilium-k8s-local \
   --server=http://${KUBERNETES_PUBLIC_ADDRESS}:8080
@@ -25,6 +25,10 @@ kubectl config set-context default-context \
 
 kubectl config use-context default-context
 
-kubectl get componentstatuses
+until kubectl get componentstatuses
+do
+echo "Waiting for kubectl to connect to api-server"
+sleep 1s
+done
 
 kubectl get nodes

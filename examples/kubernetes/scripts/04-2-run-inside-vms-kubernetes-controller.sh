@@ -30,8 +30,8 @@ Documentation=https://github.com/GoogleCloudPlatform/kubernetes
 
 [Service]
 ExecStart=/usr/bin/kube-apiserver \\
-  --admission-control=NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota \\
-  --advertise-address=${controllers_ips[0]} \\
+  --admission-control=NamespaceLifecycle,LimitRanger,SecurityContextDeny,ResourceQuota \\
+  --advertise-address=${controllers_ips[1]} \\
   --allow-privileged=true \\
   --apiserver-count=3 \\
   --authorization-mode=ABAC \\
@@ -65,7 +65,6 @@ Documentation=https://github.com/GoogleCloudPlatform/kubernetes
 
 [Service]
 ExecStart=/usr/bin/kube-controller-manager \\
-  --allocate-node-cidrs \\
   --cluster-cidr=${k8s_cluster_cidr} \\
   --node-cidr-mask-size ${k8s_node_cidr_mask_size} \\
   --cluster-name=kubernetes \\
