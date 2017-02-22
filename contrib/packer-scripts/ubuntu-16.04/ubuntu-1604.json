@@ -4,8 +4,8 @@
         "memory": "8192",
         "disk_size": "10000",
         "headless": "true",
-        "iso_url": "http://releases.ubuntu.com/16.04/ubuntu-16.04.1-server-amd64.iso",
-        "iso_checksum": "29a8b9009509b39d542ecb229787cdf48f05e739a932289de9e9858d7c487c80",
+        "iso_url": "http://releases.ubuntu.com/16.04/ubuntu-16.04.2-server-amd64.iso",
+        "iso_checksum": "737ae7041212c628de5751d15c3016058b0e833fdc32e7420209b76ca3d0a535",
         "iso_checksum_type": "sha256",
         "ssh_username": "vagrant",
         "ssh_password": "vagrant"
