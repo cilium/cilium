@@ -21,12 +21,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common/addressing"
@@ -56,7 +58,6 @@ const (
 	OptionConntrack           = "Conntrack"
 	OptionDebug               = "Debug"
 	OptionDropNotify          = "DropNotification"
-	OptionLearnTraffic        = "LearnTraffic"
 	OptionNAT46               = "NAT46"
 	OptionPolicy              = "Policy"
 
@@ -96,11 +97,6 @@ var (
 		Description: "Enable drop notifications",
 	}
 
-	OptionSpecLearnTraffic = option.Option{
-		Define:      "LEARN_TRAFFIC",
-		Description: "Learn and add labels to the list of allowed labels",
-	}
-
 	OptionSpecNAT46 = option.Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
@@ -116,7 +112,6 @@ var (
 		OptionConntrack:           &OptionSpecConntrack,
 		OptionDebug:               &OptionSpecDebug,
 		OptionDropNotify:          &OptionSpecDropNotify,
-		OptionLearnTraffic:        &OptionSpecLearnTraffic,
 		OptionNAT46:               &OptionSpecNAT46,
 		OptionPolicy:              &OptionSpecPolicy,
 	}
@@ -133,26 +128,111 @@ func init() {
 	}
 }
 
+const (
+	StateCreating           = string(models.EndpointStateCreating)
+	StateDisconnected       = string(models.EndpointStateDisconnected)
+	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
+	StateReady              = string(models.EndpointStateReady)
+)
+
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID               uint16                `json:"id"`                 // Endpoint ID.
-	DockerID         string                `json:"docker-id"`          // Docker ID.
-	DockerNetworkID  string                `json:"docker-network-id"`  // Docker network ID.
-	DockerEndpointID string                `json:"docker-endpoint-id"` // Docker endpoint ID.
-	IfName           string                `json:"interface-name"`     // Container's interface name.
-	LXCMAC           mac.MAC               `json:"lxc-mac"`            // Container MAC address.
-	IPv6             addressing.CiliumIPv6 `json:"ipv6"`               // Container IPv6 address.
-	IPv4             addressing.CiliumIPv4 `json:"ipv4"`               // Container IPv4 address.
-	IfIndex          int                   `json:"interface-index"`    // Host's interface index.
-	NodeMAC          mac.MAC               `json:"node-mac"`           // Node MAC address.
-	NodeIP           net.IP                `json:"node-ip"`            // Node IPv6 address.
-	SecLabel         *policy.Identity      `json:"security-label"`     // Security Label  set to this endpoint.
-	PortMap          []PortMap             `json:"port-mapping"`       // Port mapping used for this endpoint.
-	Consumable       *policy.Consumable    `json:"consumable"`
-	PolicyMap        *policymap.PolicyMap  `json:"-"`
-	Opts             *option.BoolOptions   `json:"options"` // Endpoint bpf options.
-	Status           *EndpointStatus       `json:"status,omitempty"`
+	ID               uint16                // Endpoint ID.
+	DockerID         string                // Docker ID.
+	DockerNetworkID  string                // Docker network ID.
+	DockerEndpointID string                // Docker endpoint ID.
+	IfName           string                // Container's interface name.
+	LXCMAC           mac.MAC               // Container MAC address.
+	IPv6             addressing.CiliumIPv6 // Container IPv6 address.
+	IPv4             addressing.CiliumIPv4 // Container IPv4 address.
+	IfIndex          int                   // Host's interface index.
+	NodeMAC          mac.MAC               // Node MAC address.
+	NodeIP           net.IP                // Node IPv6 address.
+	SecLabel         *policy.Identity      // Security Label  set to this endpoint.
+	PortMap          []PortMap             // Port mapping used for this endpoint.
+	Consumable       *policy.Consumable
+	PolicyMap        *policymap.PolicyMap
+	Opts             *option.BoolOptions // Endpoint bpf options.
+	Status           *EndpointStatus
+	State            string
+}
+
+func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, error) {
+	if base == nil {
+		return nil, nil
+	}
+
+	ep := &Endpoint{
+		ID:               uint16(base.ID),
+		DockerID:         base.ContainerID,
+		DockerNetworkID:  base.DockerNetworkID,
+		DockerEndpointID: base.DockerEndpointID,
+		IfName:           base.InterfaceName,
+		IfIndex:          int(base.InterfaceIndex),
+		State:            string(base.State),
+	}
+
+	if base.Mac != "" {
+		if m, err := mac.ParseMAC(base.Mac); err != nil {
+			return nil, err
+		} else {
+			ep.LXCMAC = m
+		}
+	}
+
+	if base.HostMac != "" {
+		if m, err := mac.ParseMAC(base.HostMac); err != nil {
+			return nil, err
+		} else {
+			ep.NodeMAC = m
+		}
+	}
+
+	if base.Addressing != nil {
+		if ip := base.Addressing.IPV6; ip != "" {
+			if ip6, err := addressing.NewCiliumIPv6(ip); err != nil {
+				return nil, err
+			} else {
+				ep.IPv6 = ip6
+			}
+		}
+
+		if ip := base.Addressing.IPV4; ip != "" {
+			if ip4, err := addressing.NewCiliumIPv4(ip); err != nil {
+				return nil, err
+			} else {
+				ep.IPv4 = ip4
+			}
+		}
+	}
+
+	return ep, nil
+}
+
+func (e *Endpoint) GetModel() *models.Endpoint {
+	if e == nil {
+		return nil
+	}
+
+	return &models.Endpoint{
+		ID:               int64(e.ID),
+		ContainerID:      e.DockerID,
+		DockerEndpointID: e.DockerEndpointID,
+		DockerNetworkID:  e.DockerNetworkID,
+		Identity:         e.SecLabel.GetModel(),
+		InterfaceIndex:   int64(e.IfIndex),
+		InterfaceName:    e.IfName,
+		Mac:              e.LXCMAC.String(),
+		HostMac:          e.NodeMAC.String(),
+		State:            models.EndpointState(e.State), // TODO: Validate
+		Policy:           e.Consumable.GetModel(),
+		Status:           e.Status.GetModel(),
+		Addressing: &models.EndpointAddressing{
+			IPV4: e.IPv4.String(),
+			IPV6: e.IPv6.String(),
+		},
+	}
 }
 
 type statusLog struct {
@@ -164,6 +244,30 @@ type EndpointStatus struct {
 	Log     []*statusLog `json:"log,omitempty"`
 	Index   int          `json:"index"`
 	indexMU sync.RWMutex
+}
+
+func (e *EndpointStatus) GetModel() []*models.EndpointStatusChange {
+	e.indexMU.RLock()
+	defer e.indexMU.RUnlock()
+
+	list := []*models.EndpointStatusChange{}
+	for i := e.lastIndex(); ; i-- {
+		if i < 0 {
+			i = maxLogs - 1
+		}
+		if i < len(e.Log) && e.Log[i] != nil {
+			list = append(list, &models.EndpointStatusChange{
+				Timestamp: e.Log[i].Timestamp.Format(time.RFC3339),
+				Code:      e.Log[i].Status.Code.String(),
+				Message:   e.Log[i].Status.Msg,
+			})
+		}
+		if i == e.Index {
+			break
+		}
+	}
+
+	return list
 }
 
 func (e *EndpointStatus) lastIndex() int {
@@ -202,28 +306,6 @@ func (e *EndpointStatus) String() string {
 		}
 	}
 	return OK.String()
-}
-
-func (e *EndpointStatus) DumpLog() string {
-	e.indexMU.RLock()
-	defer e.indexMU.RUnlock()
-	logs := []string{}
-	for i := e.lastIndex(); ; i-- {
-		if i < 0 {
-			i = maxLogs - 1
-		}
-		if i < len(e.Log) && e.Log[i] != nil {
-			logs = append(logs, fmt.Sprintf("%s - %s",
-				e.Log[i].Timestamp.Format(time.RFC3339), e.Log[i].Status))
-		}
-		if i == e.Index {
-			break
-		}
-	}
-	if len(logs) == 0 {
-		return OK.String()
-	}
-	return strings.Join(logs, "\n")
 }
 
 func (es *EndpointStatus) DeepCopy() *EndpointStatus {
@@ -290,6 +372,10 @@ func (e *Endpoint) SetID() {
 	e.ID = e.IPv6.EndpointID()
 }
 
+func (e *Endpoint) DirectoryPath() string {
+	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
+}
+
 func (e *Endpoint) Allows(id policy.NumericIdentity) bool {
 	if e.Consumable != nil {
 		return e.Consumable.Allows(id)
@@ -315,12 +401,7 @@ func OptionChanged(key string, value bool, data interface{}) {
 	}
 }
 
-func (e *Endpoint) ApplyOpts(opts option.OptionMap) bool {
-	// We want to be notified if the packets are dropped with the learn traffic
-	if val, ok := opts[OptionLearnTraffic]; ok && val {
-		opts[OptionDropNotify] = true
-	}
-
+func (e *Endpoint) ApplyOpts(opts map[string]string) bool {
 	return e.Opts.Apply(opts, OptionChanged, e) > 0
 }
 
@@ -336,8 +417,6 @@ func (ep *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 		for k := range EndpointMutableOptionLibrary {
 			ep.Opts.Set(k, opts.IsEnabled(k))
 		}
-		// Lets keep this here to prevent users to hurt themselves.
-		ep.Opts.SetIfUnset(OptionLearnTraffic, false)
 	}
 }
 
@@ -423,16 +502,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	return &ep, nil
 }
 
-// IsLibnetwork returns true if the endpoint was created by Libnetwork, false otherwise.
-func (e *Endpoint) IsLibnetwork() bool {
-	return e.DockerNetworkID != ""
-}
-
-// IsCNI returns true if the endpoint was created by CNI, false otherwise.
-func (e *Endpoint) IsCNI() bool {
-	return e.DockerNetworkID == ""
-}
-
 // Return path to policy map for endpoint ID
 func PolicyMapPath(id int) string {
 	return bpf.MapPath(policymap.MapName + strconv.Itoa(id))
@@ -484,10 +553,22 @@ func (e *Endpoint) LogStatusOK(msg string) {
 	e.Status.addStatusLog(sts)
 }
 
+type UpdateValidationError struct {
+	msg string
+}
+
+func (e UpdateValidationError) Error() string { return e.msg }
+
+type UpdateCompilationError struct {
+	msg string
+}
+
+func (e UpdateCompilationError) Error() string { return e.msg }
+
 // Updates the endpoint options and regenerates the program
-func (e *Endpoint) Update(owner Owner, opts option.OptionMap) error {
+func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	if err := e.Opts.Validate(opts); err != nil {
-		return err
+		return UpdateValidationError{err.Error()}
 	}
 
 	if opts != nil && !e.ApplyOpts(opts) {
@@ -495,8 +576,35 @@ func (e *Endpoint) Update(owner Owner, opts option.OptionMap) error {
 		return nil
 	}
 
-	return e.regenerateLocked(owner)
+	// FIXME: restore previous configuration on failure
+	if err := e.regenerateLocked(owner); err != nil {
+		return UpdateCompilationError{err.Error()}
+	}
+
+	return nil
 }
 
 func (e *Endpoint) Leave(owner Owner) {
+	e.RemoveDirectory()
+}
+
+func (e *Endpoint) RemoveDirectory() {
+	os.RemoveAll(e.DirectoryPath())
+}
+
+func (e *Endpoint) CreateDirectory() error {
+	lxcDir := e.DirectoryPath()
+	if err := os.MkdirAll(lxcDir, 0777); err != nil {
+		return fmt.Errorf("unable to create endpoint directory: %s", err)
+	}
+
+	return nil
+}
+
+func (e *Endpoint) RegenerateIfReady(owner Owner) error {
+	if e.State != StateReady {
+		return nil
+	}
+
+	return e.Regenerate(owner)
 }

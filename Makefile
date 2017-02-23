@@ -1,7 +1,7 @@
 include Makefile.defs
 
-SUBDIRS = plugins cilium bpf
-SUBDIRSLIB = daemon integration
+SUBDIRS = plugins cli bpf
+SUBDIRSLIB = daemon
 GOFILES = $(shell go list ./... | grep -v /vendor/)
 
 all: $(SUBDIRS)
@@ -85,6 +85,11 @@ build-rpm:
 
 runtime-tests:
 	$(MAKE) -C tests runtime-tests
+
+generate-api:
+	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi -s server
+	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
+	rm -r api/v1/cmd/
 
 .PHONY: force
 force :;

@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 
 	"github.com/op/go-logging"
@@ -57,6 +58,17 @@ func (l OptionLibrary) Define(name string) string {
 	return name
 }
 
+func NormalizeBool(value string) (bool, error) {
+	switch strings.ToLower(value) {
+	case "true", "on", "enable", "enabled":
+		return true, nil
+	case "false", "off", "disable", "disabled":
+		return false, nil
+	default:
+		return false, fmt.Errorf("Invalid option value %s", value)
+	}
+}
+
 func (l OptionLibrary) Validate(name string) error {
 	key, spec := l.Lookup(name)
 	if key == "" {
@@ -83,6 +95,23 @@ func (om OptionMap) DeepCopy() OptionMap {
 type BoolOptions struct {
 	Opts    OptionMap      `json:"map"`
 	Library *OptionLibrary `json:"-"`
+}
+
+func (bo *BoolOptions) GetModel() *models.Configuration {
+	cfg := models.Configuration{
+		Immutable: make(models.ConfigurationMap),
+		Mutable:   make(models.ConfigurationMap),
+	}
+
+	for k, v := range bo.Opts {
+		if v {
+			cfg.Mutable[k] = "Enabled"
+		} else {
+			cfg.Mutable[k] = "Disabled"
+		}
+	}
+
+	return &cfg
 }
 
 func (bo *BoolOptions) DeepCopy() *BoolOptions {
@@ -134,13 +163,14 @@ func ParseOption(arg string, lib *OptionLibrary) (string, bool, error) {
 	optionSplit := strings.SplitN(arg, "=", 2)
 	arg = optionSplit[0]
 	if len(optionSplit) > 1 {
-		switch strings.ToLower(optionSplit[1]) {
-		case "true", "on", "enable", "enabled":
-			enabled = true
-		case "false", "off", "disable", "disabled":
-			enabled = false
-		default:
-			return "", false, fmt.Errorf("Invalid option value %s", optionSplit[1])
+		if !enabled {
+			return "", false, fmt.Errorf("Invalid boolean format")
+		}
+
+		var err error
+		enabled, err = NormalizeBool(optionSplit[1])
+		if err != nil {
+			return "", false, err
 		}
 	}
 
@@ -206,8 +236,12 @@ func (o *BoolOptions) Dump() {
 	}
 }
 
-func (o *BoolOptions) Validate(n OptionMap) error {
-	for k := range n {
+func (o *BoolOptions) Validate(n models.ConfigurationMap) error {
+	for k, v := range n {
+		if _, err := NormalizeBool(v); err != nil {
+			return err
+		}
+
 		if err := o.Library.Validate(k); err != nil {
 			return err
 		}
@@ -218,25 +252,25 @@ func (o *BoolOptions) Validate(n OptionMap) error {
 
 type ChangedFunc func(key string, value bool, data interface{})
 
-func (o *BoolOptions) Apply(n OptionMap, changed ChangedFunc, data interface{}) int {
+func (o *BoolOptions) Apply(n models.ConfigurationMap, changed ChangedFunc, data interface{}) int {
 	changes := 0
 
 	for k, v := range n {
 		val, ok := o.Opts[k]
 
-		if v {
+		if boolVal, _ := NormalizeBool(v); boolVal {
 			/* Only enable if not enabled already */
 			if !ok || !val {
 				o.Opts[k] = true
 				changes++
-				changed(k, v, data)
+				changed(k, true, data)
 			}
 		} else {
 			/* Only disable if enabled already */
 			if ok && val {
 				o.Opts[k] = false
 				changes++
-				changed(k, v, data)
+				changed(k, false, data)
 			}
 		}
 	}

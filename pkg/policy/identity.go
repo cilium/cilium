@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -32,6 +33,14 @@ const (
 // Represents an identity of an entity to which consumer policy can be
 // applied to
 type NumericIdentity uint32
+
+func ParseNumericIdentity(id string) (NumericIdentity, error) {
+	if nid, err := strconv.ParseUint(id, 0, 32); err != nil {
+		return NumericIdentity(0), err
+	} else {
+		return NumericIdentity(nid), nil
+	}
+}
 
 func (id NumericIdentity) StringID() string {
 	return strconv.FormatUint(uint64(id), 10)
@@ -61,6 +70,41 @@ type Identity struct {
 	Endpoints map[string]time.Time `json:"containers"`
 }
 
+func NewIdentityFromModel(base *models.Identity) *Identity {
+	if base == nil {
+		return nil
+	}
+
+	id := &Identity{
+		ID:        NumericIdentity(base.ID),
+		Labels:    make(labels.Labels),
+		Endpoints: make(map[string]time.Time),
+	}
+	for _, v := range base.Labels {
+		lbl := labels.ParseLabel(v)
+		id.Labels[lbl.Key] = lbl
+	}
+
+	return id
+}
+
+func (id *Identity) GetModel() *models.Identity {
+	if id == nil {
+		return nil
+	}
+
+	ret := &models.Identity{
+		ID:     int64(id.ID),
+		Labels: []string{},
+	}
+
+	for _, v := range id.Labels {
+		ret.Labels = append(ret.Labels, v.String())
+	}
+
+	return ret
+}
+
 func (s *Identity) DeepCopy() *Identity {
 	cpy := &Identity{
 		ID:        s.ID,
@@ -80,12 +124,19 @@ func NewIdentity() *Identity {
 	}
 }
 
-func (s *Identity) AddOrUpdateContainer(contID string) {
-	s.Endpoints[contID] = time.Now()
+// Associate endpoint with identity
+func (s *Identity) AssociateEndpoint(id string) {
+	s.Endpoints[id] = time.Now()
 }
 
-func (s *Identity) DelContainer(contID string) {
-	delete(s.Endpoints, contID)
+// Disassociate endpoint with identity and return true if successful
+func (s *Identity) DisassociateEndpoint(id string) bool {
+	if _, ok := s.Endpoints[id]; ok {
+		delete(s.Endpoints, id)
+		return true
+	}
+
+	return false
 }
 
 func (s *Identity) RefCount() int {

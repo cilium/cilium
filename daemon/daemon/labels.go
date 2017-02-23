@@ -17,101 +17,184 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"path"
 	"strconv"
 	"time"
 
+	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
+
+	"github.com/go-openapi/runtime/middleware"
 )
 
-func (d *Daemon) updateSecLabelIDRef(secCtxLabels policy.Identity) error {
-	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(secCtxLabels.ID), 10))
-	return d.kvClient.SetValue(key, secCtxLabels)
+func (d *Daemon) updateSecLabelIDRef(id policy.Identity) error {
+	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(id.ID), 10))
+	return d.kvClient.SetValue(key, id)
 }
 
 // gasNewSecLabelID gets and sets a New SecLabel ID.
-func (d *Daemon) gasNewSecLabelID(secCtxLabel *policy.Identity) error {
+func (d *Daemon) gasNewSecLabelID(id *policy.Identity) error {
 	baseID, err := d.GetMaxLabelID()
 	if err != nil {
 		return err
 	}
 
-	return d.kvClient.GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), secCtxLabel)
+	return d.kvClient.GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), id)
 }
 
-// PutLabels stores to given labels in consul and returns the SecCtxLabels created for
-// the given labels.
-func (d *Daemon) PutLabels(lbls labels.Labels, contID string) (*policy.Identity, bool, error) {
-	log.Debugf("Resolving labels %+v of %s", lbls, contID)
+// type putIdentity struct {
+// 	daemon *Daemon
+// }
+//
+// func NewPutIdentityHandler(d *Daemon) PutIdentityHandler {
+// 	return &putIdentity{daemon: d}
+// }
+//
+// func (h *putIdentity) Handle(params PutIdentityParams) middleware.Responder {
+// 	d := h.daemon
+// 	lbls := labels.NewLabelsFromModel(params.Labels)
+// 	epid := ""
+// 	if params.Endpoint != nil {
+// 		epid = *params.Endpoint
+// 	}
+//
+// 	if id, _, err := d.CreateOrUpdateIdentity(lbls, epid); err != nil {
+// 		return err
+// 	} else {
+// 		return NewPutIdentityOK().WithPayload(id.GetModel())
+// 	}
+// }
+
+func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*policy.Identity, bool, error) {
+	log.Debugf("Associating labels %+v with endpoint %s", lbls, epid)
 
 	isNew := false
 
-	// Retrieve unique SHA256Sum for labels
-	sha256Sum, err := lbls.SHA256Sum()
-	if err != nil {
-		return nil, false, err
-	}
-	lblPath := path.Join(common.LabelsKeyPath, sha256Sum)
+	// Calculate hash over identity labels and generate path
+	identityPath := path.Join(common.LabelsKeyPath, lbls.SHA256Sum())
 
-	// Lock that sha256Sum
-	lockKey, err := d.kvClient.LockPath(lblPath)
+	// Lock the idendity
+	lockKey, err := d.kvClient.LockPath(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
 	defer lockKey.Unlock()
 
-	// After lock complete, get label's path
-	rmsg, err := d.kvClient.GetValue(lblPath)
+	// Retrieve current identity for labels
+	rmsg, err := d.kvClient.GetValue(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
 
-	secCtxLbls := policy.NewIdentity()
+	identity := policy.NewIdentity()
+
 	if rmsg == nil {
-		secCtxLbls.Labels = lbls
+		// Identity does not exist yet, create new one
+		identity.Labels = lbls
 		isNew = true
 	} else {
-		if err := json.Unmarshal(rmsg, &secCtxLbls); err != nil {
+		if err := json.Unmarshal(rmsg, &identity); err != nil {
 			return nil, false, err
 		}
+
 		// If RefCount is 0 then we have to retrieve a new ID
-		if secCtxLbls.RefCount() == 0 {
+		if identity.RefCount() == 0 {
 			isNew = true
-			secCtxLbls.Endpoints = make(map[string]time.Time)
+			identity.Endpoints = make(map[string]time.Time)
 		}
 	}
 
-	secCtxLbls.AddOrUpdateContainer(contID)
+	if epid != "" {
+		// Refresh timestamp of endpoint association
+		identity.AssociateEndpoint(epid)
+	}
+
+	// FIXME FIXME FIXME
+	//
+	// These operations are currently not atomic. Use transactional
+	// K/V store operations
 
 	if isNew {
-		if err := d.gasNewSecLabelID(secCtxLbls); err != nil {
+		log.Debugf("Creating new identity %d ref-count to %d\n", identity.ID, identity.RefCount())
+		if err := d.gasNewSecLabelID(identity); err != nil {
 			return nil, false, err
 		}
-	} else if err := d.updateSecLabelIDRef(*secCtxLbls); err != nil {
+	} else {
+		log.Debugf("Incrementing identity %d ref-count to %d\n", identity.ID, identity.RefCount())
+		if err := d.updateSecLabelIDRef(*identity); err != nil {
+			return nil, false, err
+		}
+	}
+
+	// store updated identity entry
+	if err = d.kvClient.SetValue(identityPath, identity); err != nil {
 		return nil, false, err
 	}
 
-	log.Debugf("Incrementing label %d ref-count to %d\n", secCtxLbls.ID, secCtxLbls.RefCount())
+	d.events <- *events.NewEvent(events.IdentityAdd, identity.DeepCopy())
 
-	d.events <- *events.NewEvent(events.IdentityAdd, secCtxLbls.DeepCopy())
-
-	err = d.kvClient.SetValue(lblPath, secCtxLbls)
-
-	return secCtxLbls, isNew, err
+	return identity, isNew, nil
 }
 
-// GetLabels returns the SecCtxLabels that belongs to the given id.
-func (d *Daemon) GetLabels(id policy.NumericIdentity) (*policy.Identity, error) {
+func (d *Daemon) updateContainerIdentity(container *types.Container) (*policy.Identity, error) {
+	lbls := container.OpLabels.Enabled()
+	log.Debugf("Container %s is resolving identity for labels %+v", container.ID, lbls)
+
+	newLabelsHash := lbls.SHA256Sum()
+	identity, _, err := d.CreateOrUpdateIdentity(lbls, container.ID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get identity ID: %s", err)
+	}
+
+	oldLabelsHash := container.LabelsHash
+	container.LabelsHash = newLabelsHash
+
+	if newLabelsHash != oldLabelsHash {
+		if err := d.DeleteIdentityBySHA256(oldLabelsHash, container.ID); err != nil {
+			log.Warningf("Error while deleting old labels (%+v) of container %s: %s",
+				oldLabelsHash, container.ID, err)
+			// FIXME: Undo new identity and fail?
+		}
+	}
+
+	log.Debugf("Resolved identity: %+v", identity)
+	return identity, nil
+}
+
+func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.ApiError) {
+	var id policy.Identity
+
+	// Empty reply
+	if rmsg == nil {
+		return nil, nil
+	}
+
+	if err := json.Unmarshal(rmsg, &id); err != nil {
+		return nil, apierror.Error(GetIdentityInvalidStorageFormatCode, err)
+	}
+
+	// Unused identity (EOL)
+	if id.RefCount() == 0 {
+		return nil, nil
+	}
+
+	return &id, nil
+}
+
+func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *apierror.ApiError) {
 	if id > 0 && id < policy.MinimalNumericIdentity {
 		key := id.String()
 		lbl := labels.NewLabel(
 			key, "", common.ReservedLabelSource,
 		)
 		secLbl := policy.NewIdentity()
-		secLbl.AddOrUpdateContainer(lbl.String())
+		secLbl.AssociateEndpoint(lbl.String())
 		secLbl.ID = id
 		secLbl.Labels = labels.Labels{
 			common.ReservedLabelSource: lbl,
@@ -123,61 +206,113 @@ func (d *Daemon) GetLabels(id policy.NumericIdentity) (*policy.Identity, error) 
 	strID := strconv.FormatUint(uint64(id), 10)
 	rmsg, err := d.kvClient.GetValue(path.Join(common.LabelIDKeyPath, strID))
 	if err != nil {
-		return nil, err
-	}
-	if rmsg == nil {
-		return nil, nil
+		return nil, apierror.Error(GetIdentityUnreachableCode, err)
 	}
 
-	var secCtxLabels policy.Identity
-	if err := json.Unmarshal(rmsg, &secCtxLabels); err != nil {
-		return nil, err
-	}
-	if secCtxLabels.RefCount() == 0 {
-		return nil, nil
-	}
-	return &secCtxLabels, nil
+	return parseIdentityResponse(rmsg)
 }
 
-// GetLabelsBySHA256 returns the SecCtxLabels that have the given SHA256SUM.
-func (d *Daemon) GetLabelsBySHA256(sha256sum string) (*policy.Identity, error) {
-	path := path.Join(common.LabelsKeyPath, sha256sum)
-	rmsg, err := d.kvClient.GetValue(path)
+func (d *Daemon) LookupIdentityBySHA256(sha256sum string) (*policy.Identity, *apierror.ApiError) {
+	rmsg, err := d.kvClient.GetValue(path.Join(common.LabelsKeyPath, sha256sum))
 	if err != nil {
-		return nil, err
+		return nil, apierror.Error(GetIdentityUnreachableCode, err)
 	}
-	if rmsg == nil {
-		return nil, nil
-	}
-	var secCtxLabels policy.Identity
-	if err := json.Unmarshal(rmsg, &secCtxLabels); err != nil {
-		return nil, err
-	}
-	if secCtxLabels.RefCount() == 0 {
-		return nil, nil
-	}
-	return &secCtxLabels, nil
+
+	return parseIdentityResponse(rmsg)
 }
 
-// DeleteLabelsByUUID deletes the SecCtxLabels belonging to the given id.
-func (d *Daemon) DeleteLabelsByUUID(id policy.NumericIdentity, contID string) error {
-	secCtxLabels, err := d.GetLabels(id)
-	if err != nil {
+type getIdentity struct {
+	daemon *Daemon
+}
+
+func NewGetIdentityHandler(d *Daemon) GetIdentityHandler {
+	return &getIdentity{daemon: d}
+}
+
+func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
+	d := h.daemon
+
+	lbls := labels.NewLabelsFromModel(params.Labels)
+	if id, err := d.LookupIdentityBySHA256(lbls.SHA256Sum()); err != nil {
 		return err
+	} else if id == nil {
+		return NewGetIdentityNotFound()
+	} else {
+		return NewGetIdentityOK().WithPayload(id.GetModel())
 	}
-	if secCtxLabels == nil {
-		return nil
-	}
-	sha256sum, err := secCtxLabels.Labels.SHA256Sum()
-	if err != nil {
-		return err
-	}
-
-	return d.DeleteLabelsBySHA256(sha256sum, contID)
 }
 
-// DeleteLabelsBySHA256 deletes the SecCtxLabels that belong to the labels' sha256Sum.
-func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
+type getIdentityID struct {
+	daemon *Daemon
+}
+
+func NewGetIdentityIDHandler(d *Daemon) GetIdentityIDHandler {
+	return &getIdentityID{daemon: d}
+}
+
+func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder {
+	d := h.daemon
+
+	nid, err := policy.ParseNumericIdentity(params.ID)
+	if err != nil {
+		return NewGetIdentityIDBadRequest()
+	}
+
+	if id, err := d.LookupIdentity(nid); err != nil {
+		return err
+	} else if id == nil {
+		return NewGetIdentityIDNotFound()
+	} else {
+		return NewGetIdentityIDOK().WithPayload(id.GetModel())
+	}
+}
+
+func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, container string) error {
+	if id, err := d.LookupIdentity(id); err != nil {
+		return err
+	} else if id == nil {
+		return fmt.Errorf("identity not found")
+	} else {
+		hash := id.Labels.SHA256Sum()
+		if err := d.DeleteIdentityBySHA256(hash, container); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// type deleteIdentity struct {
+// 	daemon *Daemon
+// }
+//
+// func NewDeleteIdentityHandler(d *Daemon) DeleteIdentityHandler {
+// 	return &deleteIdentity{daemon: d}
+// }
+//
+// func (h *deleteIdentity) Handle(params DeleteIdentityParams) middleware.Responder {
+// 	d := h.daemon
+//
+// 	if params.ID == nil {
+// 		return NewDeleteIdentityNotFound()
+// 	}
+//
+// 	id := policy.NumericIdentity(*params.ID)
+//
+// 	epid := ""
+// 	if params.Endpoint != nil {
+// 		epid = *params.Endpoint
+// 	}
+//
+// 	if err := d.DeleteIdentity(id, epid); err != nil {
+// 		return err
+// 	}
+//
+// 	return NewDeleteIdentityOK()
+// }
+
+// Deletes the SecCtxLabels that belong to the labels' sha256Sum.
+func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	if sha256Sum == "" {
 		return nil
 	}
@@ -195,17 +330,31 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 		return err
 	}
 	if rmsg == nil {
-		return nil
+		return fmt.Errorf("label patch not found")
 	}
 
 	var dbSecCtxLbls policy.Identity
 	if err := json.Unmarshal(rmsg, &dbSecCtxLbls); err != nil {
 		return err
 	}
-	dbSecCtxLbls.DelContainer(contID)
+
+	if epid != "" && !dbSecCtxLbls.DisassociateEndpoint(epid) {
+		return fmt.Errorf("Association not found")
+	}
+
+	// FIXME FIXME FIXME
+	//
+	// These operations are currently not atomic. Use transactional
+	// K/V store operations
 
 	// update the value in the kvstore
 	if err := d.updateSecLabelIDRef(dbSecCtxLbls); err != nil {
+		return err
+	}
+
+	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
+
+	if err := d.kvClient.SetValue(lblPath, dbSecCtxLbls); err != nil {
 		return err
 	}
 
@@ -215,9 +364,7 @@ func (d *Daemon) DeleteLabelsBySHA256(sha256Sum string, contID string) error {
 		d.events <- *events.NewEvent(events.IdentityMod, dbSecCtxLbls.DeepCopy())
 	}
 
-	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
-
-	return d.kvClient.SetValue(lblPath, dbSecCtxLbls)
+	return nil
 }
 
 // GetMaxID returns the maximum possible free UUID stored in consul.

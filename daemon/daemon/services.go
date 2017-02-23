@@ -50,10 +50,7 @@ func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n
 	log.Debugf("Resolving service %+v", l3n4Addr)
 
 	// Retrieve unique SHA256Sum for service
-	sha256Sum, err := l3n4Addr.SHA256Sum()
-	if err != nil {
-		return nil, err
-	}
+	sha256Sum := l3n4Addr.SHA256Sum()
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
@@ -122,12 +119,8 @@ func (d *Daemon) DeleteL3n4AddrIDByUUID(id uint32) error {
 	if l3n4AddrID == nil {
 		return nil
 	}
-	sha256sum, err := l3n4AddrID.SHA256Sum()
-	if err != nil {
-		return err
-	}
 
-	return d.DeleteL3n4AddrIDBySHA256(sha256sum)
+	return d.DeleteL3n4AddrIDBySHA256(l3n4AddrID.SHA256Sum())
 }
 
 // DeleteL3n4AddrIDBySHA256 deletes the L3n4AddrID that belong to the serviceL4ID'

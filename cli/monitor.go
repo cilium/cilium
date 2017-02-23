@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package monitor
+package main
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	CliCommand cli.Command
+	cliMonitor cli.Command
 	dissect    = false
 	config     = bpf.PerfEventConfig{
 		MapName:      bpf.EventsMapName,
@@ -117,7 +117,7 @@ func run(ctx *cli.Context) {
 }
 
 func init() {
-	CliCommand = cli.Command{
+	cliMonitor = cli.Command{
 		Name:  "monitor",
 		Usage: "Monitor packet drop notifications",
 		Flags: []cli.Flag{

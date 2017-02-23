@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -36,6 +37,14 @@ type L4Filter struct {
 	Protocol string    `json:"protocol,omitempty"`
 	Redirect string    `json:"redirect,omitempty"`
 	Rules    []AuxRule `json:"rules,omitempty"`
+}
+
+func (l4 *L4Filter) String() string {
+	b, err := json.MarshalIndent(l4, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
 }
 
 func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
@@ -161,6 +170,27 @@ func NewL4Policy() *L4Policy {
 	return &L4Policy{
 		Ingress: make(L4PolicyMap),
 		Egress:  make(L4PolicyMap),
+	}
+}
+
+func (l4 *L4Policy) GetModel() *models.L4Policy {
+	if l4 == nil {
+		return nil
+	}
+
+	ingress := []string{}
+	for _, v := range l4.Ingress {
+		ingress = append(ingress, v.String())
+	}
+
+	egress := []string{}
+	for _, v := range l4.Egress {
+		ingress = append(ingress, v.String())
+	}
+
+	return &models.L4Policy{
+		Ingress: ingress,
+		Egress:  egress,
 	}
 }
 

@@ -17,30 +17,35 @@ package daemon
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
 )
 
-// findNode returns node and its parent or an error
-func (d *Daemon) findNode(path string) (*policy.Node, *policy.Node, error) {
-	var parent *policy.Node
+func validPath(path string) bool {
+	return strings.HasPrefix(path, common.GlobalLabelPrefix)
+}
 
-	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
-		return nil, nil, fmt.Errorf("Invalid path %s: must start with %s", path, common.GlobalLabelPrefix)
-	}
+// findNode returns node and its parent or an error
+func (d *Daemon) findNode(path string) (*policy.Node, *policy.Node) {
+	var parent *policy.Node
 
 	newPath := strings.Replace(path, common.GlobalLabelPrefix, "", 1)
 	if newPath == "" {
-		return d.policy.Root, nil, nil
+		return d.policy.Root, nil
 	}
 
 	current := d.policy.Root
@@ -54,11 +59,11 @@ func (d *Daemon) findNode(path string) (*policy.Node, *policy.Node, error) {
 			parent = current
 			current = child
 		} else {
-			return nil, nil, nil
+			return nil, nil
 		}
 	}
 
-	return current, parent, nil
+	return current, parent
 }
 
 func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) ([]labels.Label, error) {
@@ -70,7 +75,7 @@ func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) ([]labels.Label, 
 
 	// No cache entry or labels not available, do full lookup of labels
 	// via KV store
-	lbls, err := d.GetLabels(ID)
+	lbls, err := d.LookupIdentity(ID)
 	if err != nil {
 		return nil, err
 	}
@@ -105,16 +110,21 @@ func (d *Daemon) triggerPolicyUpdates(added []policy.NumericIdentity) {
 		d.invalidateCache()
 	}
 
+	log.Debugf("Iterating over endpoints...")
+
 	for _, ep := range d.endpoints {
+		log.Debugf("Triggering policy update for ep %+v", ep)
 		err := ep.TriggerPolicyUpdates(d)
 		if err != nil {
 			log.Warningf("Error while handling policy updates for endpoint %s: %s\n",
-				ep.String(), err)
+				ep.StringID(), err)
 			ep.LogStatus(endpoint.Failure, err.Error())
 		} else {
 			ep.LogStatusOK("Policy regenerated")
 		}
 	}
+
+	log.Debugf("End")
 }
 
 // PolicyCanConsume calculates if the ctx allows the consumer to be consumed. This public
@@ -136,7 +146,38 @@ func (d *Daemon) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchCont
 	return &scr, nil
 }
 
-func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
+type getPolicyResolve struct {
+	daemon *Daemon
+}
+
+func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
+	return &getPolicyResolve{daemon: d}
+}
+
+func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
+	d := h.daemon
+	buffer := new(bytes.Buffer)
+	ctx := params.IdentityContext
+	search := policy.SearchContext{
+		Trace:   policy.TRACE_ENABLED,
+		Logging: logging.NewLogBackend(buffer, "", 0),
+		From:    labels.NewLabelsFromModel(ctx.From).ToSlice(),
+		To:      labels.NewLabelsFromModel(ctx.To).ToSlice(),
+	}
+
+	d.policy.Mutex.RLock()
+	verdict := d.policy.Allows(&search)
+	d.policy.Mutex.RUnlock()
+
+	result := models.PolicyTraceResult{
+		Verdict: verdict.String(),
+		Log:     buffer.String(),
+	}
+
+	return NewGetPolicyResolveOK().WithPayload(&result)
+}
+
+func (d *Daemon) policyAddNode(path string, node *policy.Node) (bool, error) {
 	var (
 		currNode, parentNode *policy.Node
 		policyModified       bool
@@ -149,10 +190,7 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
 		path, node.Name = policy.SplitNodePath(path + "." + node.Name)
 	}
 
-	currNode, parentNode, err = d.findNode(path)
-	if err != nil {
-		return false, err
-	}
+	currNode, parentNode = d.findNode(path)
 	log.Debugf("Policy currNode %+v, parentNode %+v", currNode, parentNode)
 
 	// eg. path = io.cilium.lizards.foo.db and io.cilium.lizards doesn't exist
@@ -161,14 +199,11 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
 		(currNode == nil && parentNode != nil) {
 
 		pn := policy.NewNode("", nil)
-		policyModified, err = d.policyAdd(path, pn)
+		policyModified, err = d.policyAddNode(path, pn)
 		if err != nil {
 			return false, err
 		}
-		currNode, parentNode, err = d.findNode(path)
-		if err != nil {
-			return false, err
-		}
+		currNode, parentNode = d.findNode(path)
 		log.Debugf("Policy currNode %+v, parentNode %+v", currNode, parentNode)
 	}
 	// eg. path = io.cilium
@@ -192,94 +227,183 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
 			return false, err
 		}
 	}
+
 	return policyModified, nil
 }
 
-func (d *Daemon) PolicyAdd(path string, node *policy.Node) error {
+func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
+	d.policy.Mutex.Lock()
+	defer d.policy.Mutex.Unlock()
+
+	if modified, err := d.policyAddNode(path, node); err != nil {
+		return false, err
+	} else if modified {
+		return modified, node.ResolveTree()
+	}
+
+	return false, nil
+}
+
+func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.ApiError {
 	log.Debugf("Policy Add Request: %s %+v", path, node)
 
 	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
-		return fmt.Errorf("the given path %q doesn't have the prefix %q", path, common.GlobalLabelPrefix)
+		return apierror.New(PutPolicyPathInvalidPathCode,
+			"Invalid path %s: must start with %s", path, common.GlobalLabelPrefix)
 	}
 
-	var (
-		err            error
-		policyModified bool
-	)
-
-	d.policy.Mutex.Lock()
-	defer func() {
-		d.policy.Mutex.Unlock()
-		if err == nil && policyModified {
-			log.Info("New policy received, triggering updates...")
-			d.triggerPolicyUpdates([]policy.NumericIdentity{})
-		}
-	}()
-
-	policyModified, err = d.policyAdd(path, node)
-	if err != nil || !policyModified {
-		return err
+	if policyModified, err := d.policyAdd(path, node); err != nil {
+		return apierror.Error(PutPolicyPathFailureCode, err)
+	} else if policyModified {
+		log.Info("New policy imported, regenerating...")
+		d.triggerPolicyUpdates([]policy.NumericIdentity{})
 	}
-	err = node.ResolveTree()
-	return err
+
+	return nil
 }
 
-// PolicyDelete deletes the policy set in the given path from the policy tree. If
-// cover256Sum is set it finds the rule with the respective coverage that rule from the
-// node. If the path's node becomes ruleless it is removed from the tree.
-func (d *Daemon) PolicyDelete(path, cover256Sum string) (err error) {
-	log.Debugf("Policy Delete Request: %s, cover256Sum %s", path, cover256Sum)
-
-	d.policy.Mutex.Lock()
-	defer func() {
-		d.policy.Mutex.Unlock()
-		if err == nil {
-			d.triggerPolicyUpdates([]policy.NumericIdentity{})
-		}
-	}()
-
-	var node, parent *policy.Node
-	node, parent, err = d.findNode(path)
-	if err != nil {
-		return err
-	}
-
-	if len(cover256Sum) == policy.CoverageSHASize {
-		ruleIndex := -1
-		for i, pr := range node.Rules {
-			if prCover256Sum, err := pr.CoverageSHA256Sum(); err == nil &&
-				prCover256Sum == cover256Sum {
-				ruleIndex = i
-				break
-			}
-		}
-		if ruleIndex == -1 {
-			// rule with the given coverage was not found
-			return
-		}
-		node.Rules = append(node.Rules[:ruleIndex], node.Rules[ruleIndex+1:]...)
-		if node.Children != nil && len(node.Children) != 0 {
-			return
-		}
-	}
-
-	if parent == nil {
+func (d *Daemon) deleteNode(node *policy.Node, parent *policy.Node) {
+	if node == d.policy.Root {
 		d.policy.Root = policy.NewNode(common.GlobalLabelPrefix, nil)
 		d.policy.Root.Path()
 	} else {
 		delete(parent.Children, node.Name)
 	}
-
-	return
 }
 
-// PolicyGet returns the policy of the given path.
-func (d *Daemon) PolicyGet(path string) (*policy.Node, error) {
-	log.Debugf("Policy Get Request: %s", path)
+// PolicyDelete deletes the policy set in the given path from the policy tree. If
+// cover256Sum is set it finds the rule with the respective coverage that rule from the
+// node. If the path's node becomes ruleless it is removed from the tree.
+func (d *Daemon) PolicyDelete(path, cover256Sum string) *apierror.ApiError {
+	log.Debugf("Policy Delete Request: %s, cover256Sum %s", path, cover256Sum)
+
+	d.policy.Mutex.Lock()
+	node, parent := d.findNode(path)
+	if node == nil {
+		d.policy.Mutex.Unlock()
+		return apierror.New(DeletePolicyPathNotFoundCode, "Policy node not found")
+	}
+
+	// Deletion request of a specific rule of a node
+	if cover256Sum != "" {
+		if len(cover256Sum) != policy.CoverageSHASize {
+			d.policy.Mutex.Unlock()
+			return apierror.New(DeletePolicyPathInvalidCode,
+				"Invalid length of hash, must be %d", policy.CoverageSHASize)
+		}
+
+		for i, pr := range node.Rules {
+			if prCover256Sum, err := pr.CoverageSHA256Sum(); err == nil &&
+				prCover256Sum == cover256Sum {
+				node.Rules = append(node.Rules[:i], node.Rules[i+1:]...)
+
+				// If the rule was the last remaining, delete the node
+				if !node.HasRules() {
+					d.deleteNode(node, parent)
+				}
+
+				d.policy.Mutex.Unlock()
+				d.triggerPolicyUpdates([]policy.NumericIdentity{})
+				return nil
+			}
+		}
+
+		d.policy.Mutex.Unlock()
+		return apierror.New(DeletePolicyPathNotFoundCode, "policy not found")
+	}
+
+	// Deletion request for entire node
+	d.deleteNode(node, parent)
+	d.policy.Mutex.Unlock()
+
+	d.triggerPolicyUpdates([]policy.NumericIdentity{})
+	return nil
+}
+
+type deletePolicyPath struct {
+	daemon *Daemon
+}
+
+func NewDeletePolicyPathHandler(d *Daemon) DeletePolicyPathHandler {
+	return &deletePolicyPath{daemon: d}
+}
+
+func (h *deletePolicyPath) Handle(params DeletePolicyPathParams) middleware.Responder {
+	d := h.daemon
+	if err := d.PolicyDelete(params.Path, ""); err != nil {
+		return apierror.Error(DeletePolicyPathFailureCode, err)
+	}
+
+	return NewDeletePolicyPathNoContent()
+}
+
+type putPolicyPath struct {
+	daemon *Daemon
+}
+
+func NewPutPolicyPathHandler(d *Daemon) PutPolicyPathHandler {
+	return &putPolicyPath{daemon: d}
+}
+
+func (h *putPolicyPath) Handle(params PutPolicyPathParams) middleware.Responder {
+	d := h.daemon
+	if !validPath(params.Path) {
+		return apierror.New(PutPolicyPathInvalidPathCode,
+			"path must have prefix %s", common.GlobalLabelPrefix)
+	}
+
+	var node policy.Node
+	if err := json.Unmarshal([]byte(*params.Policy), &node); err != nil {
+		return NewPutPolicyPathInvalidPolicy()
+	}
+
+	if err := d.PolicyAdd(params.Path, &node); err != nil {
+		return apierror.Error(PutPolicyPathFailureCode, err)
+	}
+
+	return NewPutPolicyPathOK().WithPayload(models.PolicyTree(node.JSONMarshal()))
+}
+
+type getPolicy struct {
+	daemon *Daemon
+}
+
+func NewGetPolicyHandler(d *Daemon) GetPolicyHandler {
+	return &getPolicy{daemon: d}
+}
+
+// Returns the entire policy tree
+func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
+	d := h.daemon
 	d.policy.Mutex.RLock()
-	node, _, err := d.findNode(path)
-	d.policy.Mutex.RUnlock()
-	return node, err
+	defer d.policy.Mutex.RUnlock()
+	node := d.policy.Root
+	return NewGetPolicyOK().WithPayload(models.PolicyTree(node.JSONMarshal()))
+}
+
+type getPolicyPath struct {
+	daemon *Daemon
+}
+
+func NewGetPolicyPathHandler(d *Daemon) GetPolicyPathHandler {
+	return &getPolicyPath{daemon: d}
+}
+
+func (h *getPolicyPath) Handle(params GetPolicyPathParams) middleware.Responder {
+	d := h.daemon
+	d.policy.Mutex.RLock()
+	defer d.policy.Mutex.RUnlock()
+
+	if !validPath(params.Path) {
+		return apierror.New(GetPolicyPathInvalidCode,
+			"path must have prefix %s", common.GlobalLabelPrefix)
+	}
+
+	if node, _ := d.findNode(params.Path); node == nil {
+		return NewGetPolicyPathNotFound()
+	} else {
+		return NewGetPolicyPathOK().WithPayload(models.PolicyTree(node.JSONMarshal()))
+	}
 }
 
 func (d *Daemon) PolicyInit() error {
@@ -290,7 +414,7 @@ func (d *Daemon) PolicyInit() error {
 		)
 		secLbl := policy.NewIdentity()
 		secLbl.ID = v
-		secLbl.AddOrUpdateContainer(lbl.String())
+		secLbl.AssociateEndpoint(lbl.String())
 		secLbl.Labels[k] = lbl
 
 		policyMapPath := bpf.MapPath(fmt.Sprintf("%sreserved_%d", policymap.MapName, int(v)))

@@ -18,60 +18,89 @@ package daemon
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 
+	"github.com/go-openapi/runtime/middleware"
 	ctx "golang.org/x/net/context"
 	k8sTypes "k8s.io/client-go/1.5/pkg/api/v1"
 )
 
-func (d *Daemon) getK8sStatus() endpoint.Status {
-	var k8sStatus endpoint.Status
+func (d *Daemon) getK8sStatus() *models.Status {
+	var k8sStatus *models.Status
 	if d.conf.IsK8sEnabled() {
 		if v, err := d.k8sClient.ComponentStatuses().Get("controller-manager"); err != nil {
-			k8sStatus = endpoint.Status{Code: endpoint.Failure, Msg: err.Error()}
+			k8sStatus = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 		} else if len(v.Conditions) == 0 {
-			k8sStatus = endpoint.Status{Code: endpoint.Warning, Msg: "Unable to retrieve controller-manager's kubernetes status"}
+			k8sStatus = &models.Status{
+				State: models.StatusStateWarning,
+				Msg:   "Unable to retrieve controller-manager's kubernetes status",
+			}
 		} else {
 			if v.Conditions[0].Status == k8sTypes.ConditionTrue {
-				k8sStatus = endpoint.NewStatusOK(string(v.Conditions[0].Type))
+				k8sStatus = &models.Status{
+					State: models.StatusStateOk,
+					Msg:   "OK",
+				}
 			} else {
-				k8sStatus = endpoint.Status{Code: endpoint.Failure, Msg: v.Conditions[0].Message}
+				k8sStatus = &models.Status{
+					State: models.StatusStateFailure,
+					Msg:   v.Conditions[0].Message,
+				}
 			}
 		}
 	} else {
-		k8sStatus = endpoint.Status{Code: endpoint.Disabled}
+		k8sStatus = &models.Status{State: models.StatusStateDisabled}
 	}
 	return k8sStatus
 }
 
-func (d *Daemon) GlobalStatus() (*endpoint.StatusResponse, error) {
-	sr := endpoint.StatusResponse{}
+type getHealthz struct {
+	daemon *Daemon
+}
+
+func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
+	return &getHealthz{daemon: d}
+}
+
+func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
+	d := h.daemon
+	sr := models.StatusResponse{}
+
 	if info, err := d.kvClient.Status(); err != nil {
-		sr.KVStore = endpoint.Status{Code: endpoint.Failure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
+		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
-		sr.KVStore = endpoint.NewStatusOK(info)
+		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
 	}
 
 	if _, err := d.dockerClient.Info(ctx.Background()); err != nil {
-		sr.Docker = endpoint.Status{Code: endpoint.Failure, Msg: err.Error()}
+		sr.ContainerRuntime = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 	} else {
-		sr.Docker = endpoint.NewStatusOK("")
+		sr.ContainerRuntime = &models.Status{State: models.StatusStateOk, Msg: ""}
 	}
 
 	sr.Kubernetes = d.getK8sStatus()
 
-	if sr.KVStore.Code != endpoint.OK {
-		sr.Cilium = endpoint.Status{Code: sr.KVStore.Code, Msg: "KVStore service is not ready!"}
-	} else if sr.Docker.Code != endpoint.OK {
-		sr.Cilium = endpoint.Status{Code: sr.Docker.Code, Msg: "Docker service is not ready!"}
-	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.Code != endpoint.OK {
-		sr.Cilium = endpoint.Status{Code: sr.Kubernetes.Code, Msg: "Kubernetes service is not ready!"}
+	if sr.Kvstore.State != models.StatusStateOk {
+		sr.Cilium = &models.Status{
+			State: sr.Kvstore.State,
+			Msg:   "Kvstore service is not ready",
+		}
+	} else if sr.ContainerRuntime.State != models.StatusStateOk {
+		sr.Cilium = &models.Status{
+			State: sr.ContainerRuntime.State,
+			Msg:   "Container runtime is not ready",
+		}
+	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.State != models.StatusStateOk {
+		sr.Cilium = &models.Status{
+			State: sr.Kubernetes.State,
+			Msg:   "Kubernetes service is not ready",
+		}
+	} else {
+		sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
 	}
 
-	// TODO Create a logstash status in its runnable function
-	//Logstash   Status `json:"logstash"`
+	sr.IPAM = d.DumpIPAM()
 
-	sr.IPAMStatus = d.DumpIPAM()
-
-	return &sr, nil
+	return NewGetHealthzOK().WithPayload(&sr)
 }

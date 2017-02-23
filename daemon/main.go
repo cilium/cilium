@@ -19,23 +19,28 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"text/tabwriter"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/server"
+	"github.com/cilium/cilium/api/v1/server/restapi"
 	common "github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/daemon/daemon"
-	s "github.com/cilium/cilium/daemon/server"
 	"github.com/cilium/cilium/pkg/bpf"
+	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
+	loads "github.com/go-openapi/loads"
 	consulAPI "github.com/hashicorp/consul/api"
+	flags "github.com/jessevdk/go-flags"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
@@ -242,58 +247,84 @@ func init() {
 	}
 }
 
+var (
+	client *clientPkg.Client
+)
+
+func initClient(ctx *cli.Context) {
+	if cl, err := clientPkg.NewClient(ctx.GlobalString("host")); err != nil {
+		fmt.Fprintf(os.Stderr, "Error while creating client: %s\n", err)
+		os.Exit(1)
+	} else {
+		client = cl
+	}
+}
+
 func statusDaemon(ctx *cli.Context) {
-	var (
-		client *cnc.Client
-		err    error
-	)
-	if host := ctx.GlobalString("host"); host == "" {
-		client, err = cnc.NewDefaultClient()
-	} else {
-		client, err = cnc.NewClient(host, nil)
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		os.Exit(1)
-	}
+	initClient(ctx)
 
-	if sr, err := client.GlobalStatus(); err != nil {
-		fmt.Fprintf(os.Stderr, "Status: ERROR - Unable to reach out daemon: %s\n", err)
+	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: Unable to reach out daemon: %s\n", err)
 		os.Exit(1)
 	} else {
+		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-		fmt.Fprintf(w, "KVStore:\t%s\n", sr.KVStore)
-		fmt.Fprintf(w, "Docker:\t%s\n", sr.Docker)
-		fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes)
-		fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium)
-		w.Flush()
+		if sr.Kvstore != nil {
+			fmt.Fprintf(w, "KVStore:\t%s\n", sr.Kvstore.State)
+		}
+		if sr.ContainerRuntime != nil {
+			fmt.Fprintf(w, "ContainerRuntime:\t%s\n", sr.ContainerRuntime.State)
+		}
+		if sr.Kubernetes != nil {
+			fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes.State)
+		}
+		if sr.Cilium != nil {
+			fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium.State)
+		}
 
-		if sr.IPAMStatus != nil {
-			fmt.Printf("V4 addresses reserved:\n")
-			for _, ipv4 := range sr.IPAMStatus["4"] {
+		if sr.IPAM != nil {
+			fmt.Printf("Allocated IPv4 addresses:\n")
+			for _, ipv4 := range sr.IPAM.IPV4 {
 				fmt.Printf(" %s\n", ipv4)
 
 			}
-			fmt.Printf("V6 addresses reserved:\n")
-			for _, ipv6 := range sr.IPAMStatus["6"] {
+			fmt.Printf("Allocated IPv6 addresses:\n")
+			for _, ipv6 := range sr.IPAM.IPV6 {
 				fmt.Printf(" %s\n", ipv6)
 			}
-			w.Flush()
 		}
 
-		os.Exit(int(sr.Cilium.Code))
+		w.Flush()
+
+		if sr.Cilium != nil && sr.Cilium.State != models.StatusStateOk {
+			os.Exit(1)
+		} else {
+			os.Exit(0)
+		}
 	}
 
 }
 
+func dumpConfig(Opts map[string]string) {
+	opts := []string{}
+	for k := range Opts {
+		opts = append(opts, k)
+	}
+	sort.Strings(opts)
+
+	for _, k := range opts {
+		text := common.Green("Enabled")
+
+		if Opts[k] == "" {
+			text = common.Red("Disabled")
+		}
+
+		fmt.Printf("%-24s %s\n", k, text)
+	}
+}
+
 func configDaemon(ctx *cli.Context) {
-	var (
-		client *cnc.Client
-		err    error
-	)
-
 	first := ctx.Args().First()
-
 	if first == "list" {
 		for k, s := range daemon.DaemonOptionLibrary {
 			fmt.Printf("%-24s %s\n", k, s.Description)
@@ -301,36 +332,22 @@ func configDaemon(ctx *cli.Context) {
 		return
 	}
 
-	if host := ctx.GlobalString("host"); host == "" {
-		client, err = cnc.NewDefaultClient()
-	} else {
-		client, err = cnc.NewClient(host, nil)
-	}
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		os.Exit(1)
-	}
-
-	res, err := client.Ping()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to reach daemon: %s\n", err)
-		os.Exit(1)
-	}
-
-	if res == nil {
-		fmt.Fprintf(os.Stderr, "Empty response from daemon\n")
-		os.Exit(1)
-	}
+	initClient(ctx)
 
 	opts := ctx.Args()
-
 	if len(opts) == 0 {
-		res.Opts.Dump()
+		resp, err := client.ConfigGet()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error while retrieving configuration: %s", err)
+			os.Exit(1)
+		}
+
+		dumpConfig(resp.Configuration.Immutable)
+		dumpConfig(resp.Configuration.Mutable)
 		return
 	}
 
-	dOpts := make(option.OptionMap, len(opts))
+	dOpts := make(models.ConfigurationMap, len(opts))
 
 	for k := range opts {
 		name, value, err := option.ParseOption(opts[k], &daemon.DaemonOptionLibrary)
@@ -339,11 +356,14 @@ func configDaemon(ctx *cli.Context) {
 			os.Exit(1)
 		}
 
-		dOpts[name] = value
+		if value {
+			dOpts[name] = "Enabled"
+		} else {
+			dOpts[name] = "Disabled"
+		}
 
-		err = client.Update(dOpts)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to update daemon: %s\n", err)
+		if err = client.ConfigPatch(dOpts); err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to set daemon configuration: %s\n", err)
 			os.Exit(1)
 		}
 	}
@@ -454,7 +474,7 @@ func run(cli *cli.Context) {
 		go d.EnableLogstash(logstashAddr, logstashProbeTimer)
 	}
 
-	d.EnableLearningTraffic()
+	d.EnableMonitor()
 
 	var wg sync.WaitGroup
 	sinceLastSync := time.Now()
@@ -474,10 +494,74 @@ func run(cli *cli.Context) {
 
 	go d.EnableDockerSync()
 
-	server, err := s.NewServer(socketPath, d)
+	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
-		log.Fatalf("Error while creating daemon: %s", err)
+		log.Fatal(err)
 	}
-	defer server.Stop()
-	server.Start()
+
+	api := restapi.NewCiliumAPI(swaggerSpec)
+
+	api.Logger = log.Infof
+
+	// /healthz/
+	api.DaemonGetHealthzHandler = daemon.NewGetHealthzHandler(d)
+
+	// /config/
+	api.DaemonGetConfigHandler = daemon.NewGetConfigHandler(d)
+	api.DaemonPatchConfigHandler = daemon.NewPatchConfigHandler(d)
+
+	// /endpoint/
+	api.EndpointGetEndpointHandler = daemon.NewGetEndpointHandler(d)
+
+	// /endpoint/{id}
+	api.EndpointGetEndpointIDHandler = daemon.NewGetEndpointIDHandler(d)
+	api.EndpointPutEndpointIDHandler = daemon.NewPutEndpointIDHandler(d)
+	api.EndpointPatchEndpointIDHandler = daemon.NewPatchEndpointIDHandler(d)
+	api.EndpointDeleteEndpointIDHandler = daemon.NewDeleteEndpointIDHandler(d)
+
+	// /endpoint/{id}config/
+	api.EndpointGetEndpointIDConfigHandler = daemon.NewGetEndpointIDConfigHandler(d)
+	api.EndpointPatchEndpointIDConfigHandler = daemon.NewPatchEndpointIDConfigHandler(d)
+
+	// /endpoint/{id}/labels/
+	api.EndpointGetEndpointIDLabelsHandler = daemon.NewGetEndpointIDLabelsHandler(d)
+	api.EndpointPutEndpointIDLabelsHandler = daemon.NewPutEndpointIDLabelsHandler(d)
+
+	// /identity/
+	api.PolicyGetIdentityHandler = daemon.NewGetIdentityHandler(d)
+	api.PolicyGetIdentityIDHandler = daemon.NewGetIdentityIDHandler(d)
+
+	// /policy/
+	api.PolicyGetPolicyHandler = daemon.NewGetPolicyHandler(d)
+	// /policy/{path}
+	api.PolicyGetPolicyPathHandler = daemon.NewGetPolicyPathHandler(d)
+	api.PolicyPutPolicyPathHandler = daemon.NewPutPolicyPathHandler(d)
+	api.PolicyDeletePolicyPathHandler = daemon.NewDeletePolicyPathHandler(d)
+
+	// /policy/resolve/
+	api.PolicyGetPolicyResolveHandler = daemon.NewGetPolicyResolveHandler(d)
+
+	// /service/{id}/
+	api.ServiceGetServiceIDHandler = daemon.NewGetServiceIDHandler(d)
+	api.ServiceDeleteServiceIDHandler = daemon.NewDeleteServiceIDHandler(d)
+	api.ServicePutServiceIDHandler = daemon.NewPutServiceIDHandler(d)
+
+	// /service/
+	api.ServiceGetServiceHandler = daemon.NewGetServiceHandler(d)
+
+	// /ipam/{ip}/
+	api.IPAMPostIPAMHandler = daemon.NewPostIPAMHandler(d)
+	api.IPAMPostIPAMIPHandler = daemon.NewPostIPAMIPHandler(d)
+	api.IPAMDeleteIPAMIPHandler = daemon.NewDeleteIPAMIPHandler(d)
+
+	server := server.NewServer(api)
+	server.EnabledListeners = []string{"http", "unix"}
+	server.SocketPath = flags.Filename(socketPath)
+	defer server.Shutdown()
+
+	server.ConfigureAPI()
+
+	if err := server.Serve(); err != nil {
+		log.Fatal(err)
+	}
 }

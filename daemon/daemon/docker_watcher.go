@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -68,7 +69,7 @@ func (d *Daemon) SyncDocker(wg *sync.WaitGroup) {
 
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, id string) {
-			d.createContainer(id)
+			d.handleCreateContainer(id)
 			wg.Done()
 		}(wg, cont.ID)
 	}
@@ -104,25 +105,25 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 		case "start":
 			// A real event overwrites any memory of ignored containers
 			d.StopIgnoringContainer(m.ID)
-			d.createContainer(m.ID)
+			d.handleCreateContainer(m.ID)
 		case "die":
 			d.deleteContainer(m.ID)
 		}
 	}
 }
 
-func getCiliumEndpointID(cont dTypes.ContainerJSON, gwIP *addressing.NodeAddress) *uint16 {
+func getCiliumEndpointID(cont *dTypes.ContainerJSON, gwIP *addressing.NodeAddress) uint16 {
 	for _, contNetwork := range cont.NetworkSettings.Networks {
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
 		if ipv6gw.Equal(gwIP.IPv6Address.IP()) {
 			ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
 			if err == nil {
-				id := ip.EndpointID()
-				return &id
+				return ip.EndpointID()
 			}
 		}
 	}
-	return nil
+
+	return 0
 }
 
 func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
@@ -179,196 +180,180 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 	return normalLabels
 }
 
-func (d *Daemon) createContainer(dockerID string) {
-	log.Debugf("Processing create event for docker container %s", dockerID)
+func (d *Daemon) retrieveWorkingContainerCopy(id string) (types.Container, bool) {
+	d.containersMU.RLock()
+	defer d.containersMU.RUnlock()
 
-	d.containersMU.Lock()
-	if isNewContainer, container, err := d.updateProbeLabels(dockerID); err != nil {
-		d.containersMU.Unlock()
-		log.Errorf("%s", err)
+	if c, ok := d.containers[id]; ok {
+		return *c, true
 	} else {
-		d.containersMU.Unlock()
-		if err := d.updateContainer(container, isNewContainer); err != nil {
-			log.Errorf("%s", err)
-		}
+		return types.Container{}, false
 	}
 }
 
-func (d *Daemon) updateProbeLabels(dockerID string) (bool, *types.Container, error) {
-	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
-	if err != nil {
-		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
+func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) types.Container {
+	return types.Container{
+		ContainerJSON: *dc,
+		OpLabels: labels.OpLabels{
+			Custom:        labels.Labels{},
+			Disabled:      labels.Labels{},
+			Orchestration: l.DeepCopy(),
+		},
 	}
-
-	ciliumLabels := labels.Labels{}
-	if dockerCont.Config != nil {
-		log.Debugf("Read docker labels %+v", dockerCont.Config.Labels)
-		ciliumLabels = d.getFilteredLabels(dockerCont.Config.Labels)
-	}
-	log.Debugf("Using filtered labels %+v", ciliumLabels)
-
-	return d.updateOperationalLabels(dockerID, dockerCont, ciliumLabels, true)
 }
 
-func (d *Daemon) updateUserLabels(dockerID string, labels labels.Labels) (bool, *types.Container, error) {
-	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
-	if err != nil {
-		return false, nil, fmt.Errorf("Error while inspecting container '%s': %s", dockerID, err)
-	}
-	return d.updateOperationalLabels(dockerID, dockerCont, labels, false)
-}
+func (d *Daemon) handleCreateContainer(id string) {
+	log.Debugf("Processing create event for docker container %s", id)
 
-func (d *Daemon) updateOperationalLabels(dockerID string, dockerCont dTypes.ContainerJSON, newLabels labels.Labels, isProbe bool) (bool, *types.Container, error) {
-	isNewContainer := false
-	var (
-		cont           types.Container
-		epLabelsSHA256 string
-	)
-
-	if ciliumContainer, ok := d.containers[dockerID]; !ok {
-		isNewContainer = true
-		cont = types.Container{
-			ContainerJSON: dockerCont,
-			OpLabels: labels.OpLabels{
-				AllLabels:      newLabels.DeepCopy(),
-				UserLabels:     labels.Labels{},
-				ProbeLabels:    newLabels.DeepCopy(),
-				EndpointLabels: newLabels.DeepCopy(),
-			},
-			NRetries: 0,
-		}
-	} else {
-		if ciliumContainer.NRetries > maxRetries {
-			epSHA256Sum, err := ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
-			if err != nil {
-				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
-			}
-			d.DeleteLabelsBySHA256(epSHA256Sum, ciliumContainer.ID)
-			return isNewContainer, nil, nil
-		}
-		ep, err := d.EndpointGetByDockerID(ciliumContainer.ID)
-		if err == nil && ep == nil {
-			ciliumContainer.NRetries++
-		} else {
-			ciliumContainer.NRetries = 0
-		}
-
-		newLabelsSHA256, err := newLabels.SHA256Sum()
-		if err != nil {
-			log.Errorf("Error calculating SHA256Sum of labels %+v: %s", newLabels, err)
-		}
-
-		if isProbe {
-			probeLabelsSHA256, err := ciliumContainer.OpLabels.ProbeLabels.SHA256Sum()
-			if err != nil {
-				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.ProbeLabels, err)
-			}
-			if probeLabelsSHA256 != newLabelsSHA256 {
-				isNewContainer = true
-				epLabelsSHA256, err = ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
-				if err != nil {
-					log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
-				}
-				// probe labels have changed
-				// we need to find out which labels were deleted and added
-				deletedLabels := ciliumContainer.OpLabels.ProbeLabels.DeepCopy()
-				for k, v := range newLabels {
-					if ciliumContainer.OpLabels.ProbeLabels[k] == nil {
-						tmpLbl1 := *v
-						tmpLbl2 := *v
-						ciliumContainer.OpLabels.AllLabels[k] = &tmpLbl1
-						ciliumContainer.OpLabels.EndpointLabels[k] = &tmpLbl2
-					} else {
-						delete(deletedLabels, k)
-					}
-				}
-
-				for k := range deletedLabels {
-					delete(ciliumContainer.OpLabels.AllLabels, k)
-					delete(ciliumContainer.OpLabels.EndpointLabels, k)
-				}
-			}
-		} else {
-			// If it is not probe then all newLabels will be applied
-			epLabelsSHA256, err = ciliumContainer.OpLabels.EndpointLabels.SHA256Sum()
-			if err != nil {
-				log.Errorf("Error calculating SHA256Sum of labels %+v: %s", ciliumContainer.OpLabels.EndpointLabels, err)
-			}
-			if epLabelsSHA256 != newLabelsSHA256 {
-				isNewContainer = true
-				ciliumContainer.OpLabels.EndpointLabels = newLabels
-			}
-		}
-		cont = types.Container{
-			ContainerJSON: dockerCont,
-			OpLabels:      ciliumContainer.OpLabels,
-			NRetries:      ciliumContainer.NRetries,
-		}
-	}
-
-	if isNewContainer {
-		if err := d.DeleteLabelsBySHA256(epLabelsSHA256, dockerID); err != nil {
-			log.Errorf("Error while deleting old labels (%+v) of container %s: %s", epLabelsSHA256, dockerID, err)
-		}
-	}
-
-	d.containers[dockerID] = &cont
-	contCpy := cont
-
-	return isNewContainer, &contCpy, nil
-}
-
-func (d *Daemon) updateContainer(container *types.Container, isNewContainer bool) error {
-	if container == nil {
-		return nil
-	}
-
-	dockerID := container.ID
-
-	secCtxlabels, isNewLabel, err := d.PutLabels(container.OpLabels.EndpointLabels, dockerID)
-	if err != nil {
-		return fmt.Errorf("Error while getting labels ID: %s", err)
-	}
-
-	ciliumID := getCiliumEndpointID(container.ContainerJSON, d.conf.NodeAddress)
-	var dockerEPID string
-	if container.ContainerJSON.NetworkSettings != nil {
-		dockerEPID = container.ContainerJSON.NetworkSettings.EndpointID
-	}
-
-	try := 1
 	maxTries := 5
-	var epID uint16
-	for try <= maxTries {
-		if epID = d.setEndpointSecLabel(ciliumID, dockerID, dockerEPID, secCtxlabels); epID != 0 {
-			break
+
+	for try := 1; try <= maxTries; try++ {
+		if try > 1 {
+			log.Debugf("Waiting for container %s to appear as endpoint [%d/%d]",
+				id, try, maxTries)
+			time.Sleep(time.Duration(try) * time.Second)
 		}
-		if container.IsDockerOrInfracontainer() {
-			log.Debugf("Waiting for orchestration system to request networking for container %s... [%d/%d]", dockerID, try, maxTries)
+
+		dockerContainer, lbls, err := d.retrieveDockerLabels(id)
+		if err != nil {
+			log.Warningf("unable to inspect container %d, retrying later (%s)", id, err)
+			continue
 		}
-		time.Sleep(time.Duration(try) * time.Second)
-		try++
+
+		dockerEpID := ""
+		if dockerContainer.NetworkSettings != nil {
+			dockerEpID = dockerContainer.NetworkSettings.EndpointID
+		}
+
+		d.endpointsMU.Lock()
+		ep := d.lookupDockerID(id)
+		if ep == nil {
+			// container id is yet unknown, try and find endpoint via
+			// the IP address assigned.
+			cid := getCiliumEndpointID(dockerContainer, d.conf.NodeAddress)
+			if cid != 0 {
+				ep = d.lookupCiliumEndpoint(cid)
+				if ep != nil {
+					// Associate container id with endpoint
+					ep.DockerID = id
+					d.linkContainerID(ep)
+				}
+			}
+		}
+
+		d.endpointsMU.Unlock()
+		if ep == nil {
+			// Endpoint does not exist yet. This indicates that the
+			// orchestration system has not requested us to handle
+			// networking for this container yet (or never will). We
+			// will retry a couple of times to wait for this to
+			// happen.
+			continue
+		}
+
+		containerCopy, ok := d.retrieveWorkingContainerCopy(id)
+		if ok {
+			if !updateOrchLabels(&containerCopy, lbls) {
+				log.Debugf("No changes to orch labels, ignoring")
+				return
+			}
+		} else {
+			containerCopy = createContainer(dockerContainer, lbls)
+		}
+
+		identity, err := d.updateContainerIdentity(&containerCopy)
+		if err != nil {
+			log.Warningf("unable to update identity of container %s: %s", id, err)
+			return
+		}
+
+		// FIXME:
+
+		d.endpointsMU.Lock()
+		ep = d.lookupDockerID(id)
+		if ep == nil {
+			d.endpointsMU.Unlock()
+			log.Warningf("endpoint disappeared while processing event for %s, ignoring", id)
+			return
+		}
+
+		d.containersMU.Lock()
+
+		// If the container ID was known and found before, check if it still
+		// exists, it may have disappared while we gave up the containers
+		// lock to create/udpate the identity.
+		if ok && d.containers[ep.DockerID] == nil {
+			// endpoint is around but container id was removed, likely
+			// a bug.
+			//
+			// FIXME: Disconnect endpoint?
+			d.endpointsMU.Unlock()
+			d.containersMU.Unlock()
+			log.Errorf("BUG: unrefered container %s with endpoint %d present",
+				id, ep.ID)
+			return
+		}
+
+		// Commit label changes to container
+		d.containers[ep.DockerID] = &containerCopy
+
+		d.setEndpointIdentity(ep, containerCopy.ID, dockerEpID, identity)
+		if err := ep.Regenerate(d); err != nil {
+			// FIXME: Disconnect endpoint?
+		}
+
+		d.endpointsMU.Unlock()
+		d.containersMU.Unlock()
+
+		// FIXME: Does this rebuild epID twice?
+		d.triggerPolicyUpdates([]policy.NumericIdentity{identity.ID})
+		return
 	}
-	if try >= maxTries {
-		if container.IsDockerOrInfracontainer() {
-			d.StartIgnoringContainer(dockerID)
-			return fmt.Errorf("No manage request received for %s. Likely managed by other plugin", dockerID)
-		}
-		return nil
+
+	d.StartIgnoringContainer(id)
+	log.Infof("Container %s did not appear as endpoint. Likely managed by other plugin", id)
+}
+
+func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels, error) {
+	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to inspect container '%s': %s", dockerID, err)
 	}
-	if isNewContainer {
-		if err = d.createBPFMAPs(epID); err != nil {
-			return fmt.Errorf("Unable to create & attach BPF programs for container %s: %s", dockerID, err)
+
+	newLabels := labels.Labels{}
+	if dockerCont.Config != nil {
+		newLabels = d.getFilteredLabels(dockerCont.Config.Labels)
+	}
+
+	return &dockerCont, newLabels, nil
+}
+
+func updateOrchLabels(c *types.Container, l labels.Labels) bool {
+	changed := false
+
+	c.OpLabels.Orchestration.MarkAllForDeletion()
+	c.OpLabels.Disabled.MarkAllForDeletion()
+
+	for k, v := range l {
+		if c.OpLabels.Disabled[k] != nil {
+			c.OpLabels.Disabled[k].DeletionMark = false
+		} else {
+			if c.OpLabels.Orchestration[k] != nil {
+				c.OpLabels.Orchestration[k].DeletionMark = false
+			} else {
+				tmp := *v
+				log.Debugf("Assigning orchestration label %+v", tmp)
+				c.OpLabels.Orchestration[k] = &tmp
+				changed = true
+			}
 		}
 	}
 
-	// Perform the policy map updates after programs have been created
-	if isNewLabel || isNewContainer {
-		d.triggerPolicyUpdates([]policy.NumericIdentity{secCtxlabels.ID})
-		log.Infof("Assigned security context %d to container %s", secCtxlabels.ID, dockerID)
+	if c.OpLabels.Orchestration.DeleteMarked() || c.OpLabels.Disabled.DeleteMarked() {
+		changed = true
 	}
 
-	return nil
+	return changed
 }
 
 func (d *Daemon) deleteContainer(dockerID string) {
@@ -376,25 +361,15 @@ func (d *Daemon) deleteContainer(dockerID string) {
 
 	d.containersMU.Lock()
 	if container, ok := d.containers[dockerID]; ok {
-		sha256sum, err := container.OpLabels.EndpointLabels.SHA256Sum()
-		if err != nil {
-			log.Errorf("Error while creating SHA256Sum for labels %+v: %s", container.OpLabels.EndpointLabels, err)
-		}
-
-		if err := d.DeleteLabelsBySHA256(sha256sum, dockerID); err != nil {
-			log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s", sha256sum, container.OpLabels.EndpointLabels, err)
+		sha256sum := container.OpLabels.Enabled().SHA256Sum()
+		if err := d.DeleteIdentityBySHA256(sha256sum, dockerID); err != nil {
+			log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
+				sha256sum, container.OpLabels.Enabled(), err)
 		}
 
 		delete(d.containers, dockerID)
 	}
 	d.containersMU.Unlock()
 
-	ep, err := d.EndpointGetByDockerID(dockerID)
-	if err != nil {
-		log.Warningf("Error while getting endpoint by docker ID: %s", err)
-	}
-
-	if ep != nil {
-		d.EndpointLeave(ep.ID)
-	}
+	d.DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, dockerID))
 }

@@ -22,7 +22,6 @@ import (
 	"reflect"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/events"
 
@@ -39,12 +38,12 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	log.Info("Recovering old running endpoints...")
 
 	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
 	if dir == "" {
 		dir = common.CiliumPath
 	}
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
-		d.endpointsMU.Unlock()
 		return err
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
@@ -53,7 +52,6 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 	if len(possibleEPs) == 0 {
 		log.Debug("No old endpoints found.")
-		d.endpointsMU.Unlock()
 		return nil
 	}
 
@@ -84,34 +82,29 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		log.Infof("Restored endpoint: %d", ep.ID)
 	}
 
-	d.endpointsMU.Unlock()
-
-	log.Infof("Successfully restored %d endpoints", restored)
+	log.Infof("Restored %d endpoints", restored)
 
 	if clean {
 		d.cleanUpDockerDandlingEndpoints()
 	}
 
-	eps, err := d.EndpointsGet()
-	if err != nil {
-		log.Warningf("Error while getting endpoints: %s", err)
-	}
-
-	for _, ep := range eps {
-		if err := d.allocateIPs(&ep); err != nil {
+	for k := range d.endpoints {
+		ep := d.endpoints[k]
+		if err := d.allocateIPs(ep); err != nil {
 			log.Errorf("Failed while reallocating ep %d's IP addresses: %s. Endpoint won't be restored", ep.ID, err)
-			d.EndpointLeave(ep.ID)
+			d.DeleteEndpointLocked(ep)
 			continue
 		}
+
 		log.Infof("EP %d's IP addresses successfully reallocated", ep.ID)
-		err = d.EndpointUpdate(ep.ID, nil)
+		err = ep.Regenerate(d)
 		if err != nil {
-			log.Warningf("Failed while updating ep %d: %s", ep.ID, err)
+			log.Warningf("Failed while regenerating endpoint %d: %s", ep.ID, err)
 		} else {
 			if ep.SecLabel != nil {
 				d.events <- *events.NewEvent(events.IdentityAdd, ep.SecLabel.DeepCopy())
 			}
-			log.Infof("EP %d completely restored", ep.ID)
+			log.Infof("Restored endpoint %d", ep.ID)
 		}
 	}
 
@@ -119,44 +112,23 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 }
 
 func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
-	allocateIP := func(ep *endpoint.Endpoint, ipamReq ipam.IPAMReq) (resp *ipam.IPAMRep, err error) {
-		if ep.IsCNI() {
-			resp, err = d.AllocateIP(ipam.CNIIPAMType, ipamReq)
-		} else if ep.IsLibnetwork() {
-			resp, err = d.AllocateIP(ipam.LibnetworkIPAMType, ipamReq)
-		}
-		return
-	}
-	releaseIP := func(ep *endpoint.Endpoint, ipamReq ipam.IPAMReq) (err error) {
-		if ep.IsCNI() {
-			err = d.ReleaseIP(ipam.CNIIPAMType, ipamReq)
-		} else if ep.IsLibnetwork() {
-			err = d.ReleaseIP(ipam.LibnetworkIPAMType, ipamReq)
-		}
-		return
-	}
-
-	_, err := allocateIP(ep, ep.IPv6.IPAMReq())
+	err := d.AllocateIP(ep.IPv6.IP())
 	if err != nil {
 		// TODO if allocation failed reallocate a new IP address and setup veth
 		// pair accordingly
 		return fmt.Errorf("unable to reallocate IPv6 address: %s", err)
-	} else {
-		log.Infof("EP %d's IPv6 successfully reallocated", ep.ID)
 	}
+
 	defer func(ep *endpoint.Endpoint) {
 		if err != nil {
-			releaseIP(ep, ep.IPv6.IPAMReq())
+			d.ReleaseIP(ep.IPv6.IP())
 		}
 	}(ep)
 
 	if d.conf.IPv4Enabled {
 		if ep.IPv4 != nil {
-			_, err := allocateIP(ep, ep.IPv4.IPAMReq())
-			if err != nil {
+			if err = d.AllocateIP(ep.IPv4.IP()); err != nil {
 				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)
-			} else {
-				log.Infof("EP %d's IPv4 successfully reallocated", ep.ID)
 			}
 		}
 	}
@@ -212,12 +184,8 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
 	}
 
-	sha256sum, err := ep.SecLabel.Labels.SHA256Sum()
-	if err != nil {
-		return fmt.Errorf("Unable to get the sha256sum of labels: %+v\n", ep.SecLabel.Labels)
-	}
-
-	labels, err := d.GetLabelsBySHA256(sha256sum)
+	sha256sum := ep.SecLabel.Labels.SHA256Sum()
+	labels, err := d.LookupIdentityBySHA256(sha256sum)
 	if err != nil {
 		return fmt.Errorf("Unable to get labels of sha256sum:%s: %+v\n", sha256sum, err)
 	}
@@ -227,10 +195,11 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	if labels == nil {
-		labels, _, err = d.PutLabels(ep.SecLabel.Labels, ep.DockerID)
+		l, _, err := d.CreateOrUpdateIdentity(ep.SecLabel.Labels, ep.DockerID)
 		if err != nil {
 			return fmt.Errorf("Unable to put labels %+v: %s\n", ep.SecLabel.Labels, err)
 		}
+		labels = l
 	}
 
 	if !reflect.DeepEqual(labels.Labels, ep.SecLabel.Labels) {
@@ -251,18 +220,14 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 // cleanUpDockerDandlingEndpoints cleans all endpoints that are dandling by checking out
 // if a particular endpoint has its container running.
 func (d *Daemon) cleanUpDockerDandlingEndpoints() {
-	eps, _ := d.EndpointsGet()
-	if eps == nil {
-		return
+	cleanUp := func(ep *endpoint.Endpoint) {
+		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
+		d.DeleteEndpointLocked(ep)
 	}
 
-	cleanUp := func(ep endpoint.Endpoint) {
-		log.Infof("Endpoint %d not found in docker, cleaning it up...", ep.ID)
-		d.EndpointLeave(ep.ID)
-	}
-
-	for _, ep := range eps {
-		log.Debugf("Checking if endpoint %d is running in docker", ep.ID)
+	for k := range d.endpoints {
+		ep := d.endpoints[k]
+		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
 		if ep.DockerNetworkID != "" {
 			nls, err := d.dockerClient.NetworkInspect(ctx.Background(), ep.DockerNetworkID)
 			if dockerAPI.IsErrNetworkNotFound(err) {

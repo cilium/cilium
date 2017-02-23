@@ -1,5 +1,5 @@
 //
-// Copyright 2016 Authors of Cilium
+// Copyright 2016-2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,16 +16,22 @@
 package client
 
 import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/api/v1/client/daemon"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
-func processErrorBody(serverResp []byte, i interface{}) error {
-	var sErr types.ServerError
-	if err := json.Unmarshal(serverResp, &sErr); err != nil {
-		return fmt.Errorf("error retrieving server body response: %s [%s]", err, string(serverResp))
+// Get daemon configuration
+func (c *Client) ConfigGet() (*models.DaemonConfigurationResponse, error) {
+	resp, err := c.Daemon.GetConfig(nil)
+	if err != nil {
+		return nil, err
 	}
-	return fmt.Errorf("server error for interface: (%T) \"%+v\", (%d) %s", i, i, sErr.Code, sErr.Text)
+	return resp.Payload, nil
+}
+
+// Modify daemon configuration
+func (c *Client) ConfigPatch(cfg models.ConfigurationMap) error {
+	params := daemon.NewPatchConfigParams().WithConfiguration(cfg)
+	_, err := c.Daemon.PatchConfig(params)
+	return err
 }
