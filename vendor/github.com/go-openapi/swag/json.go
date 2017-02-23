@@ -17,6 +17,7 @@ package swag
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"reflect"
 	"strings"
 	"sync"
@@ -110,28 +111,40 @@ func ConcatJSON(blobs ...[]byte) []byte {
 
 		if len(b) < 3 { // yep empty but also the last one, so closing this thing
 			if i == last && a > 0 {
-				buf.WriteByte(closing)
+				if err := buf.WriteByte(closing); err != nil {
+					log.Println(err)
+				}
 			}
 			continue
 		}
 
 		idx = 0
 		if a > 0 { // we need to join with a comma for everything beyond the first non-empty item
-			buf.WriteByte(comma)
+			if err := buf.WriteByte(comma); err != nil {
+				log.Println(err)
+			}
 			idx = 1 // this is not the first or the last so we want to drop the leading bracket
 		}
 
 		if i != last { // not the last one, strip brackets
-			buf.Write(b[idx : len(b)-1])
+			if _, err := buf.Write(b[idx : len(b)-1]); err != nil {
+				log.Println(err)
+			}
 		} else { // last one, strip only the leading bracket
-			buf.Write(b[idx:])
+			if _, err := buf.Write(b[idx:]); err != nil {
+				log.Println(err)
+			}
 		}
 		a++
 	}
 	// somehow it ended up being empty, so provide a default value
 	if buf.Len() == 0 {
-		buf.WriteByte(opening)
-		buf.WriteByte(closing)
+		if err := buf.WriteByte(opening); err != nil {
+			log.Println(err)
+		}
+		if err := buf.WriteByte(closing); err != nil {
+			log.Println(err)
+		}
 	}
 	return buf.Bytes()
 }
@@ -139,15 +152,23 @@ func ConcatJSON(blobs ...[]byte) []byte {
 // ToDynamicJSON turns an object into a properly JSON typed structure
 func ToDynamicJSON(data interface{}) interface{} {
 	// TODO: convert straight to a json typed map (mergo + iterate?)
-	b, _ := json.Marshal(data)
+	b, err := json.Marshal(data)
+	if err != nil {
+		log.Println(err)
+	}
 	var res interface{}
-	json.Unmarshal(b, &res)
+	if err := json.Unmarshal(b, &res); err != nil {
+		log.Println(err)
+	}
 	return res
 }
 
 // FromDynamicJSON turns an object into a properly JSON typed structure
 func FromDynamicJSON(data, target interface{}) error {
-	b, _ := json.Marshal(data)
+	b, err := json.Marshal(data)
+	if err != nil {
+		log.Println(err)
+	}
 	return json.Unmarshal(b, target)
 }
 

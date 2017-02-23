@@ -40,6 +40,11 @@
 			"Rev": "b965b613227fddccbfffe13eae360ed3fa822f8d"
 		},
 		{
+			"ImportPath": "github.com/asaskevich/govalidator",
+			"Comment": "v5-20-gfdf1978",
+			"Rev": "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
+		},
+		{
 			"ImportPath": "github.com/blang/semver",
 			"Comment": "v3.1.0",
 			"Rev": "aea32c919a18e5ef4537bbd283ff29594b1b0165"
@@ -326,20 +331,76 @@
 			"Rev": "aa0c862057666179de291b67d9f093d12b5a8473"
 		},
 		{
+			"ImportPath": "github.com/go-openapi/analysis",
+			"Rev": "d5a75b7d751ca3f11ad5d93cfe97405f2c3f6a47"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/errors",
+			"Rev": "fc3f73a224499b047eda7191e5d22e1e9631e86f"
+		},
+		{
 			"ImportPath": "github.com/go-openapi/jsonpointer",
-			"Rev": "46af16f9f7b149af66e5d1bd010e3574dc06de98"
+			"Rev": "779f45308c19820f1a69e9a4cd965f496e0da10f"
 		},
 		{
 			"ImportPath": "github.com/go-openapi/jsonreference",
-			"Rev": "13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272"
+			"Rev": "36d33bfe519efae5632669801b180bf1a245da3b"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/loads",
+			"Rev": "bf98340e04734f11563fd3008e87be4c1d4ffc08"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/loads/fmts",
+			"Rev": "bf98340e04734f11563fd3008e87be4c1d4ffc08"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/client",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/flagext",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/middleware",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/middleware/denco",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/middleware/header",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/middleware/untyped",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/runtime/security",
+			"Rev": "1d8c6bfb558482451650ea00b40dfa1129e76872"
 		},
 		{
 			"ImportPath": "github.com/go-openapi/spec",
-			"Rev": "8f2b3d0e3aa15100eea0ab61dc6fa02f00f5e713"
+			"Rev": "3a0434164aa36744c7ba29b822d36894a1e5ec96"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/strfmt",
+			"Rev": "0cb3db44c13bad3b3f567b762a66751972a310cc"
 		},
 		{
 			"ImportPath": "github.com/go-openapi/swag",
-			"Rev": "c98c5a1cc708d9860aeeceea6391da6f223d479c"
+			"Rev": "96d7b9ebd181a1735a1c9ac87914f2b32fbf56c9"
+		},
+		{
+			"ImportPath": "github.com/go-openapi/validate",
+			"Rev": "b11dbf889b64cf815a7e2667412df313f4a3f17b"
 		},
 		{
 			"ImportPath": "github.com/gogo/protobuf/proto",
@@ -429,6 +490,11 @@
 			"Rev": "bb554f9fd6ee4cd190eef868de608ced813aeda1"
 		},
 		{
+			"ImportPath": "github.com/jessevdk/go-flags",
+			"Comment": "v1.1-5-g4e64e4a",
+			"Rev": "4e64e4a4e2552194cf594243e23aa9baf3b4297e"
+		},
+		{
 			"ImportPath": "github.com/jonboulle/clockwork",
 			"Comment": "v0.1.0-4-gbcac988",
 			"Rev": "bcac9884e7502bb2b474c0339d889cb981a2f27f"
@@ -461,6 +527,10 @@
 		{
 			"ImportPath": "github.com/matttproud/golang_protobuf_extensions/pbutil",
 			"Rev": "d0c3fe89de86839aecf2e0579c40ba3bb336a453"
+		},
+		{
+			"ImportPath": "github.com/mitchellh/mapstructure",
+			"Rev": "bfdb1a85537d60bc7e954e600c250219ea497417"
 		},
 		{
 			"ImportPath": "github.com/op/go-logging",
@@ -504,6 +574,11 @@
 		{
 			"ImportPath": "github.com/spf13/pflag",
 			"Rev": "7f60f83a2c81bc3c3c0d5297f61ddfa68da9d3b7"
+		},
+		{
+			"ImportPath": "github.com/tylerb/graceful",
+			"Comment": "v1.2.13-4-gd37e108",
+			"Rev": "d37e108c89765a8e307f15b8fb2ecd10575da6bb"
 		},
 		{
 			"ImportPath": "github.com/ugorji/go/codec",

@@ -17,6 +17,7 @@ package spec
 import (
 	"encoding/json"
 
+	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
 )
 
@@ -34,6 +35,15 @@ type ResponseProps struct {
 type Response struct {
 	Refable
 	ResponseProps
+}
+
+// JSONLookup look up a value by the json property name
+func (p Response) JSONLookup(token string) (interface{}, error) {
+	if token == "$ref" {
+		return &p.Ref, nil
+	}
+	r, _, err := jsonpointer.GetForToken(p.ResponseProps, token)
+	return r, err
 }
 
 // UnmarshalJSON hydrates this items instance with the data from JSON

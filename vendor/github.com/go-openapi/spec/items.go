@@ -16,7 +16,9 @@ package spec
 
 import (
 	"encoding/json"
+	"strings"
 
+	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
 )
 
@@ -196,4 +198,21 @@ func (i Items) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return swag.ConcatJSON(b3, b1, b2), nil
+}
+
+// JSONLookup look up a value by the json property name
+func (p Items) JSONLookup(token string) (interface{}, error) {
+	if token == "$ref" {
+		return &p.Ref, nil
+	}
+
+	r, _, err := jsonpointer.GetForToken(p.CommonValidations, token)
+	if err != nil && !strings.HasPrefix(err.Error(), "object has no field") {
+		return nil, err
+	}
+	if r != nil {
+		return r, nil
+	}
+	r, _, err = jsonpointer.GetForToken(p.SimpleSchema, token)
+	return r, err
 }
