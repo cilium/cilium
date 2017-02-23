@@ -30,7 +30,7 @@ tests-etcd:
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(GOFILES),\
 	go test \
-            -ldflags "-X "github.com/cilium/cilium/daemon/daemon".kvBackend=etcd" \
+            -ldflags "-X "github.com/cilium/cilium/daemon".kvBackend=etcd" \
             -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
 	go tool cover -html=coverage-all.out -o=coverage-all.html
@@ -51,7 +51,7 @@ tests-consul:
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(GOFILES),\
 	go test \
-            -ldflags "-X "github.com/cilium/cilium/daemon/daemon".kvBackend=consul" \
+            -ldflags "-X "github.com/cilium/cilium/daemon".kvBackend=consul" \
             -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
 	go tool cover -html=coverage-all.out -o=coverage-all.html

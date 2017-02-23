@@ -48,16 +48,11 @@ import (
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 	k8s "k8s.io/client-go/1.5/kubernetes"
 	k8sRest "k8s.io/client-go/1.5/rest"
 	k8sClientCmd "k8s.io/client-go/1.5/tools/clientcmd"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-net")
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,

@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	common "github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/daemon/daemon"
 	"github.com/cilium/cilium/pkg/bpf"
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -45,7 +44,7 @@ import (
 )
 
 var (
-	config = daemon.NewConfig()
+	config = NewConfig()
 
 	// Arguments variables keep in alphabetical order
 	consulAddr         string
@@ -325,7 +324,7 @@ func dumpConfig(Opts map[string]string) {
 func configDaemon(ctx *cli.Context) {
 	first := ctx.Args().First()
 	if first == "list" {
-		for k, s := range daemon.DaemonOptionLibrary {
+		for k, s := range DaemonOptionLibrary {
 			fmt.Printf("%-24s %s\n", k, s.Description)
 		}
 		return
@@ -349,7 +348,7 @@ func configDaemon(ctx *cli.Context) {
 	dOpts := make(models.ConfigurationMap, len(opts))
 
 	for k := range opts {
-		name, value, err := option.ParseOption(opts[k], &daemon.DaemonOptionLibrary)
+		name, value, err := option.ParseOption(opts[k], &DaemonOptionLibrary)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)
@@ -390,7 +389,7 @@ func initEnv(ctx *cli.Context) error {
 
 	config.Opts.Set(endpoint.OptionDropNotify, true)
 	config.Opts.Set(endpoint.OptionNAT46, true)
-	config.Opts.Set(daemon.OptionPolicyTracing, enableTracing)
+	config.Opts.Set(OptionPolicyTracing, enableTracing)
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionPolicy, !disablePolicy)
@@ -457,7 +456,7 @@ func run(cli *cli.Context) {
 		config.EtcdConfig.Endpoints = etcdAddr.Value()
 	}
 
-	d, err := daemon.NewDaemon(config)
+	d, err := NewDaemon(config)
 	if err != nil {
 		log.Fatalf("Error while creating daemon: %s", err)
 		return
@@ -503,55 +502,55 @@ func run(cli *cli.Context) {
 	api.Logger = log.Infof
 
 	// /healthz/
-	api.DaemonGetHealthzHandler = daemon.NewGetHealthzHandler(d)
+	api.DaemonGetHealthzHandler = NewGetHealthzHandler(d)
 
 	// /config/
-	api.DaemonGetConfigHandler = daemon.NewGetConfigHandler(d)
-	api.DaemonPatchConfigHandler = daemon.NewPatchConfigHandler(d)
+	api.DaemonGetConfigHandler = NewGetConfigHandler(d)
+	api.DaemonPatchConfigHandler = NewPatchConfigHandler(d)
 
 	// /endpoint/
-	api.EndpointGetEndpointHandler = daemon.NewGetEndpointHandler(d)
+	api.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
 
 	// /endpoint/{id}
-	api.EndpointGetEndpointIDHandler = daemon.NewGetEndpointIDHandler(d)
-	api.EndpointPutEndpointIDHandler = daemon.NewPutEndpointIDHandler(d)
-	api.EndpointPatchEndpointIDHandler = daemon.NewPatchEndpointIDHandler(d)
-	api.EndpointDeleteEndpointIDHandler = daemon.NewDeleteEndpointIDHandler(d)
+	api.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
+	api.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
+	api.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
+	api.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
 
 	// /endpoint/{id}config/
-	api.EndpointGetEndpointIDConfigHandler = daemon.NewGetEndpointIDConfigHandler(d)
-	api.EndpointPatchEndpointIDConfigHandler = daemon.NewPatchEndpointIDConfigHandler(d)
+	api.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
+	api.EndpointPatchEndpointIDConfigHandler = NewPatchEndpointIDConfigHandler(d)
 
 	// /endpoint/{id}/labels/
-	api.EndpointGetEndpointIDLabelsHandler = daemon.NewGetEndpointIDLabelsHandler(d)
-	api.EndpointPutEndpointIDLabelsHandler = daemon.NewPutEndpointIDLabelsHandler(d)
+	api.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
+	api.EndpointPutEndpointIDLabelsHandler = NewPutEndpointIDLabelsHandler(d)
 
 	// /identity/
-	api.PolicyGetIdentityHandler = daemon.NewGetIdentityHandler(d)
-	api.PolicyGetIdentityIDHandler = daemon.NewGetIdentityIDHandler(d)
+	api.PolicyGetIdentityHandler = NewGetIdentityHandler(d)
+	api.PolicyGetIdentityIDHandler = NewGetIdentityIDHandler(d)
 
 	// /policy/
-	api.PolicyGetPolicyHandler = daemon.NewGetPolicyHandler(d)
+	api.PolicyGetPolicyHandler = NewGetPolicyHandler(d)
 	// /policy/{path}
-	api.PolicyGetPolicyPathHandler = daemon.NewGetPolicyPathHandler(d)
-	api.PolicyPutPolicyPathHandler = daemon.NewPutPolicyPathHandler(d)
-	api.PolicyDeletePolicyPathHandler = daemon.NewDeletePolicyPathHandler(d)
+	api.PolicyGetPolicyPathHandler = NewGetPolicyPathHandler(d)
+	api.PolicyPutPolicyPathHandler = NewPutPolicyPathHandler(d)
+	api.PolicyDeletePolicyPathHandler = NewDeletePolicyPathHandler(d)
 
 	// /policy/resolve/
-	api.PolicyGetPolicyResolveHandler = daemon.NewGetPolicyResolveHandler(d)
+	api.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)
 
 	// /service/{id}/
-	api.ServiceGetServiceIDHandler = daemon.NewGetServiceIDHandler(d)
-	api.ServiceDeleteServiceIDHandler = daemon.NewDeleteServiceIDHandler(d)
-	api.ServicePutServiceIDHandler = daemon.NewPutServiceIDHandler(d)
+	api.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d)
+	api.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d)
+	api.ServicePutServiceIDHandler = NewPutServiceIDHandler(d)
 
 	// /service/
-	api.ServiceGetServiceHandler = daemon.NewGetServiceHandler(d)
+	api.ServiceGetServiceHandler = NewGetServiceHandler(d)
 
 	// /ipam/{ip}/
-	api.IPAMPostIPAMHandler = daemon.NewPostIPAMHandler(d)
-	api.IPAMPostIPAMIPHandler = daemon.NewPostIPAMIPHandler(d)
-	api.IPAMDeleteIPAMIPHandler = daemon.NewDeleteIPAMIPHandler(d)
+	api.IPAMPostIPAMHandler = NewPostIPAMHandler(d)
+	api.IPAMPostIPAMIPHandler = NewPostIPAMIPHandler(d)
+	api.IPAMDeleteIPAMIPHandler = NewDeleteIPAMIPHandler(d)
 
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"http", "unix"}
