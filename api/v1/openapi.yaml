@@ -1,0 +1,1025 @@
+---
+swagger: '2.0'
+info:
+  title: Cilium API
+  description: Cilium
+  version: v1beta
+schemes:
+- http
+x-schemes:
+- unix
+basePath: "/v1beta"
+produces:
+- application/json
+consumes:
+- application/json
+paths:
+  "/healthz":
+    get:
+      summary: Get health of Cilium daemon
+      description: |
+        Returns health and status information of the Cilium daemon and related
+        components such as the local container runtime, connected datastore,
+        Kubernetes integration.
+      tags:
+      - daemon
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/StatusResponse"
+  "/config":
+    get:
+      summary: Get configuration of Cilium daemon
+      description: |
+        Returns the configuration of the Cilium daemon.
+      tags:
+      - daemon
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/DaemonConfigurationResponse"
+    patch:
+      summary: Modify daemon configuration
+      description: |
+        Updates the daemon configuration by applying the provided
+        ConfigurationMap and regenerates & recompiles all required datapath
+        components.
+      tags:
+      - daemon
+      parameters:
+      - name: configuration
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/ConfigurationMap"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad configuration parameters
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: Recompilation failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+  "/endpoint/{id}":
+    get:
+      summary: Get endpoint by endpoint ID
+      description: |
+        Returns endpoint information
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Endpoint"
+        '400':
+          description: Invalid endpoint ID format for specified type
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: Endpoint not found
+    put:
+      summary: Create endpoint
+      description: |
+        Updates an existing endpoint
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      - "$ref": "#/parameters/endpoint-change-request"
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Invalid endpoint in request
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '409':
+          description: Endpoint already exists
+          x-go-name: Exists
+        '500':
+          description: Endpoint creation failed
+          x-go-name: Failed
+          schema:
+            "$ref": "#/definitions/Error"
+    patch:
+      summary: Modify existing endpoint
+      description: |
+        Applies the endpoint change request to an existing endpoint
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      - "$ref": "#/parameters/endpoint-change-request"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid modify endpoint request
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: Endpoint does not exist
+        '500':
+          description: Endpoint update failed
+          x-go-name: Failed
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete endpoint
+      description: |
+        Deletes the endpoint specified by the ID. Deletion is imminent and
+        atomic, if the deletion request is valid and the endpoint exists,
+        deletion will occur even if errors are encounted in the process. If
+        errors have been encountered, the code 202 will be returned, otherwise
+        200 on success.
+
+        All resources associated with the endpoint will be freed and the
+        workload represented by the endpoint will be disconnected.It will no
+        longer be able to initiate or receive communications of any sort.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      responses:
+        '200':
+          description: Success
+        '206':
+          description: Deleted with a number of errors encountered
+          x-go-name: Errors
+          schema:
+            type: integer
+        '400':
+          description: |
+            Invalid endpoint ID format for specified type. Details in error
+            message
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: Endpoint not found
+  "/endpoint":
+    get:
+      summary: Get list of all endpoints
+      description: |
+        Returns an array of all local endpoints.
+      tags:
+      - endpoint
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/Endpoint"
+  "/endpoint/{id}/config":
+    get:
+      summary: Retrieve endpoint configuration
+      description: |
+        Retrieves the configuration of the specified endpoint.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Configuration"
+        '404':
+          description: Endpoint not found
+    patch:
+      summary: Modify mutable endpoint configuration
+      description: |
+        Update the configuration of an existing endpoint and regenerates &
+        recompiles the corresponding programs automatically.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      - name: configuration
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/ConfigurationMap"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid configuration request
+          x-go-name: Invalid
+        '404':
+          description: Endpoint not found
+        '500':
+          description: Update failed. Details in message.
+          x-go-name: Failed
+          schema:
+            "$ref": "#/definitions/Error"
+  "/endpoint/{id}/labels":
+    get:
+      summary: Retrieves the list of labels associated with an endpoint.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/LabelConfiguration"
+        '404':
+          description: Endpoint not found
+    put:
+      summary: Modify label configuration of endpoint
+      description: |
+        Updates the list of labels associated with an endpoint by applying
+        a label modificator structure to the label configuration of an
+        endpoint.
+
+        The label configuration mutation is only executed as a whole, i.e.
+        if any of the labels to be deleted are not either on the list of
+        orchestration system labels, custom labels, or already disabled,
+        then the request will fail. Labels to be added which already exist
+        on either the orchestration list or custom list will be ignored.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      - name: configuration
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/LabelConfigurationModifier"
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Endpoint not found
+        '460':
+          description: Label to be deleted not found
+          x-go-name: LabelNotFound
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: Error while updating labels
+          x-go-name: UpdateFailed
+          schema:
+            "$ref": "#/definitions/Error"
+  "/identity":
+    get:
+      summary: Retrieve identity by labels
+      tags:
+      - policy
+      parameters:
+      - name: labels
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/Labels"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Identity"
+        '404':
+          description: Identity not found
+        '520':
+          description: Identity storage unreachable. Likely a network problem.
+          x-go-name: Unreachable
+          schema:
+            "$ref": "#/definitions/Error"
+        '521':
+          description: Invalid identity format in storage
+          x-go-name: InvalidStorageFormat
+          schema:
+            "$ref": "#/definitions/Error"
+  "/identity/{id}":
+    get:
+      summary: Retrieve identity
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/identity-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Identity"
+        '400':
+          description: Invalid identity provided
+        '404':
+          description: Identity not found
+        '520':
+          description: Identity storage unreachable. Likely a network problem.
+          x-go-name: Unreachable
+          schema:
+            "$ref": "#/definitions/Error"
+        '521':
+          description: Invalid identity format in storage
+          x-go-name: InvalidStorageFormat
+          schema:
+            "$ref": "#/definitions/Error"
+  "/ipam":
+    post:
+      summary: Allocate an IP address
+      tags:
+      - ipam
+      parameters:
+      - "$ref": "#/parameters/ipam-family"
+      responses:
+        '201':
+          description: Success
+          schema:
+            "$ref": "#/definitions/IPAM"
+        '502':
+          description: Allocation failure
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+  "/ipam/{ip}":
+    post:
+      summary: Allocate an IP address
+      tags:
+      - ipam
+      parameters:
+      - "$ref": "#/parameters/ipam-ip"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid IP address
+          x-go-name: Invalid
+        '409':
+          description: IP already allocated
+          x-go-name: Exists
+        '500':
+          description: IP allocation failure. Details in message.
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: Allocation for address family disabled
+          x-go-name: Disabled
+    delete:
+      summary: Release an allocated IP address
+      tags:
+      - ipam
+      parameters:
+      - "$ref": "#/parameters/ipam-ip"
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Invalid IP address
+          x-go-name: Invalid
+        '404':
+          description: IP address not found
+        '500':
+          description: Address release failure
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: Allocation for address family disabled
+          x-go-name: Disabled
+  "/policy":
+    get:
+      summary: Retrieve entire policy tree
+      description: |
+        Returns the entire policy tree with all children.
+      tags:
+      - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/PolicyTree"
+  "/policy/{path}":
+    get:
+      summary: Retrieve policy subtree
+      description: |
+        Returns the policy node at path with all its children
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/policy-path"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/PolicyTree"
+        '400':
+          description: Invalid policy path
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: Policy tree not found
+    put:
+      summary: Create or update a policy (sub)tree
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/policy-path"
+      - "$ref": "#/parameters/policy-tree"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/PolicyTree"
+        '400':
+          description: Invalid policy
+          x-go-name: InvalidPolicy
+          schema:
+            "$ref": "#/definitions/Error"
+        '460':
+          description: Invalid path
+          x-go-name: InvalidPath
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: Policy import failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete a policy (sub)tree
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/policy-path"
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Invalid request
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '404':
+          description: Policy tree not found
+        '500':
+          description: Error while deleting policy
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+  "/policy/resolve":
+    get:
+      summary: Resolve policy for an identity context
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/identity-context"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/PolicyTraceResult"
+  "/service":
+    get:
+      summary: Retrieve list of all services
+      tags:
+      - service
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/Service"
+  "/service/{id}":
+    get:
+      summary: Retrieve configuration of a service
+      tags:
+      - service
+      parameters:
+      - "$ref": "#/parameters/service-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Service"
+        '404':
+          description: Service not found
+    put:
+      summary: Create or update service
+      tags:
+      - service
+      parameters:
+      - "$ref": "#/parameters/service-id"
+      - "$ref": "#/parameters/service-config"
+      responses:
+        '200':
+          description: Updated
+        '201':
+          description: Created
+        '460':
+          description: Invalid frontend in service configuration
+          x-go-name: InvalidFrontend
+          schema:
+            "$ref": "#/definitions/Error"
+        '461':
+          description: Invalid backend in service configuration
+          x-go-name: InvalidBackend
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: Error while creating service
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete a service
+      tags:
+      - service
+      parameters:
+      - "$ref": "#/parameters/service-id"
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Service not found
+        '500':
+          description: Service deletion failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+parameters:
+  endpoint-id:
+    name: id
+    description: |
+      String describing an endpoint with the format `[prefix:]id`. If no prefix
+      is specified, a prefix of `cilium-local:` is assumed. Not all endpoints
+      will be addressable by all endpoint ID prefixes with the exception of the
+      local Cilium UUID which is assigned to all endpoints.
+
+      Supported endpoint id prefixes:
+        - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595
+        - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343
+        - container-id: Container runtime ID, e.g. container-id:22222
+        - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444
+    in: path
+    required: true
+    type: string
+  endpoint-change-request:
+    name: endpoint
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/EndpointChangeRequest"
+  identity-id:
+    name: id
+    description: |
+      Cluster wide unique identifier of a security identity.
+    in: path
+    required: true
+    type: string
+  policy-path:
+    name: path
+    description: Path to policy node
+    required: true
+    in: path
+    type: string
+  policy-tree:
+    name: policy
+    description: Policy tree or subtree
+    required: true
+    in: body
+    schema:
+      type: string
+  identity-context:
+    name: identity-context
+    description: Context to provide policy evaluation on
+    in: body
+    schema:
+      "$ref": "#/definitions/IdentityContext"
+  service-id:
+    name: id
+    description: ID of service
+    required: true
+    in: path
+    type: integer
+  service-address:
+    name: address
+    description: Service address configuration
+    in: body
+    schema:
+      "$ref": "#/definitions/FrontendAddress"
+  service-config:
+    name: config
+    description: Service configuration
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/Service"
+  ipam-ip:
+    name: ip
+    description: IP address
+    in: path
+    required: true
+    type: string
+  ipam-family:
+    name: family
+    in: query
+    type: string
+    enum:
+    - ipv4
+    - ipv6
+definitions:
+  Endpoint:
+    description: Endpoint
+    type: object
+    required:
+      - state
+    properties:
+      id:
+        description: Local endpoint ID
+        type: integer
+      container-id:
+        description: ID assigned by container runtime
+        type: string
+      docker-endpoint-id:
+        description: Docker endpoint ID
+        type: string
+      docker-network-id:
+        description: Docker network ID
+        type: string
+      interface-name:
+        description: Name of network device
+        type: string
+      interface-index:
+        description: Index of network device
+        type: integer
+      state:
+        description: Current state of endpoint
+        "$ref": "#/definitions/EndpointState"
+      status:
+        description: Current state of endpoint
+        type: array
+        items:
+          "$ref": "#/definitions/EndpointStatusChange"
+      mac:
+        description: MAC address
+        type: string
+      host-mac:
+        description: MAC address
+        type: string
+      addressing:
+        "$ref": "#/definitions/EndpointAddressing"
+      identity:
+        description: Security identity
+        "$ref": "#/definitions/Identity"
+      policy:
+        description: Policy information of endpoint
+        "$ref": "#/definitions/EndpointPolicy"
+  EndpointChangeRequest:
+    description: |
+      Structure which contains the mutable elements of an Endpoint.
+    type: object
+    required:
+      - state
+    properties:
+      id:
+        description: Local endpoint ID
+        type: integer
+      container-id:
+        description: ID assigned by container runtime
+        type: string
+      docker-endpoint-id:
+        description: Docker endpoint ID
+        type: string
+      docker-network-id:
+        description: Docker network ID
+        type: string
+      interface-name:
+        description: Name of network device
+        type: string
+      interface-index:
+        description: Index of network device
+        type: integer
+      state:
+        description: Current state of endpoint
+        "$ref": "#/definitions/EndpointState"
+      mac:
+        description: MAC address
+        type: string
+      host-mac:
+        description: MAC address
+        type: string
+      addressing:
+        "$ref": "#/definitions/EndpointAddressing"
+  EndpointState:
+    description: State of endpoint
+    type: string
+    enum:
+      - creating
+      - disconnected
+      - waiting-for-identity
+      - ready
+  EndpointStatusChange:
+    description: Indication of a change of status
+    type: object
+    properties:
+      timestamp:
+        description: Timestamp when status change occured
+        type: string
+      code:
+        description: Code indicate type of status change
+        type: string
+        enum:
+         - ok
+         - failed
+      message:
+        description: Status message
+        type: string
+  EndpointPolicy:
+    description: Policy information of an endpoint
+    type: object
+    properties:
+      id:
+        description: Own identity of endpoint
+        type: integer
+      build:
+        description: Build number of calculated policy in use
+        type: integer
+      allowed-consumers:
+        description: |
+          List of identities allowed to communicate to this endpoint
+        type: array
+        items:
+          type: integer
+      l4:
+        "$ref": "#/definitions/L4Policy"
+  L4Policy:
+    description: L4 endpoint policy
+    type: object
+    properties:
+      ingress:
+        description: List of L4 ingress rules
+        type: array
+        items:
+          type: string
+      egress:
+        description: List of L4 egress rules
+        type: array
+        items:
+          type: string
+  IPAM:
+    description: IPAM configuration of an endpoint
+    type: object
+    required:
+      - endpoint
+      - host-addressing
+    properties:
+      endpoint:
+        "$ref": "#/definitions/EndpointAddressing"
+      host-addressing:
+        "$ref": "#/definitions/NodeAddressing"
+  EndpointAddressing:
+    description: Addressing information of an endpoint
+    type: object
+    properties:
+      ipv4:
+        description: IPv4 address
+        type: string
+      ipv6:
+        description: IPv6 address
+        type: string
+  Address:
+    description: IP address
+    type: string
+  Identity:
+    description: Security identity
+    type: object
+    properties:
+      id:
+        description: Unique identifier
+        type: integer
+      labels:
+        description: Labels describing the identity
+        "$ref": "#/definitions/Labels"
+  Labels:
+    description: Set of labels
+    type: array
+    items:
+      type: string
+  LabelConfiguration:
+    description: Label configuration of an endpoint
+    type: object
+    properties:
+      orchestration-system:
+        description: "Labels derived from orchestration system"
+        "$ref": "#/definitions/Labels"
+      custom:
+        description: "Custom labels in addition to orchestration system labels."
+        "$ref": "#/definitions/Labels"
+      disabled:
+        description: "Labels derived from orchestration system which have been disabled."
+        "$ref": "#/definitions/Labels"
+  LabelConfigurationModifier:
+    description: |
+      Structure describing label mutations to be performed on a
+      LabelConfiguration object.
+    type: object
+    properties:
+      add:
+        description: |
+          List of labels to add and enable. If the label is an orchestration
+          system label which has been disabled before, it will be removed from
+          the disabled list and readded to the orchestration list. Otherwise
+          it will be added to the custom label list.
+        "$ref": "#/definitions/Labels"
+      delete:
+        description: |
+          List of labels to delete. If the label is an orchestration system
+          label, then it will be deleted from the orchestration list and
+          added to the disabled list. Otherwise it will be removed from the
+          custom list.
+        "$ref": "#/definitions/Labels"
+  StatusResponse:
+    description: Health and status information of daemon
+    type: object
+    properties:
+      cilium:
+        description: Status of Cilium daemon
+        "$ref": "#/definitions/Status"
+      kvstore:
+        description: Status of key/value datastore
+        "$ref": "#/definitions/Status"
+      container-runtime:
+        description: Status of local container runtime
+        "$ref": "#/definitions/Status"
+      kubernetes:
+        description: Status of Kubernetes integration
+        "$ref": "#/definitions/Status"
+      ipam:
+        description: Status of IP address management
+        "$ref": "#/definitions/IPAMStatus"
+  Status:
+    description: Status of an individual component
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+        - Ok
+        - Warning
+        - Failure
+        - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+  IPAMStatus:
+    description: Status of IP address management
+    properties:
+      ipv4:
+        type: array
+        items:
+          type: string
+      ipv6:
+        type: array
+        items:
+          type: string
+  DaemonConfigurationResponse:
+    description: |
+      Response to a daemon configuration request. Contains the adddresing
+      information and configuration settings.
+    type: object
+    properties:
+      addressing:
+        "$ref": "#/definitions/NodeAddressing"
+      configuration:
+        "$ref": "#/definitions/Configuration"
+  Configuration:
+    description: |
+      General purpose structure to hold configuration of the daemon and
+      endpoints. Split into a mutable and immutable section.
+    type: object
+    properties:
+      mutable:
+        description: Changeable configuration
+        "$ref": "#/definitions/ConfigurationMap"
+      immutable:
+        description: Immutable configuration (read-only)
+        "$ref": "#/definitions/ConfigurationMap"
+  ConfigurationMap:
+    description: |
+      Map of configuration key/value pairs.
+    type: object
+    additionalProperties:
+      type: string
+  NodeAddressing:
+    description: Addressing information of a node for all address families
+    type: object
+    properties:
+      ipv6:
+        "$ref": "#/definitions/NodeAddressingElement"
+      ipv4:
+        "$ref": "#/definitions/NodeAddressingElement"
+  NodeAddressingElement:
+    description: Addressing information
+    type: object
+    properties:
+      enabled:
+        description: True if address family is enabled
+        type: boolean
+      ip:
+        description: IP address of node
+        type: string
+      alloc-range:
+        description: Address pool to be used for local endpoints
+        type: string
+  PolicyTree:
+    description: Policy tree or subtree
+    type: string
+  PolicyTraceResult:
+    description: Response to a policy resolution process
+    type: object
+    properties:
+      verdict:
+        type: string
+      log:
+        type: string
+  IdentityContext:
+    description: Context describing a pair of source and destination identies
+    type: object
+    properties:
+      from:
+        "$ref": "#/definitions/Labels"
+      to:
+        "$ref": "#/definitions/Labels"
+  FrontendAddress:
+    description: Layer 4 address
+    type: object
+    required:
+    - ip
+    properties:
+      ip:
+        description: Layer 3 address
+        type: string
+      protocol:
+        description: Layer 4 protocol
+        type: string
+        enum:
+        - tcp
+        - udp
+        - any
+      port:
+        description: Layer 4 port number
+        type: integer
+        format: uint16
+  BackendAddress:
+    description: Service backend address
+    type: object
+    required:
+    - ip
+    properties:
+      ip:
+        description: Layer 3 address
+        type: string
+      port:
+        description: Layer 4 port number
+        type: integer
+        format: uint16
+  Service:
+    description: Collection of endpoints to be served
+    type: object
+    required:
+    - frontend-address
+    properties:
+      id:
+        description: Unique identification
+        type: integer
+      frontend-address:
+        description: Frontend address
+        "$ref": "#/definitions/FrontendAddress"
+      backend-addresses:
+        description: List of backend addresses
+        type: array
+        items:
+          "$ref": "#/definitions/BackendAddress"
+      flags:
+        description: Optional service configuration flags
+        type: object
+        properties:
+          active-frontend:
+            description: Frontend to backend translation activated
+            type: boolean
+          direct-server-return:
+            description: Perform direct server return
+            type: boolean
+  Error:
+    type: string
+
