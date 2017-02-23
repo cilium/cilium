@@ -27,6 +27,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/bpf/lxcmap"
@@ -35,17 +37,18 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 	k8s "k8s.io/client-go/1.5/kubernetes"
@@ -61,27 +64,23 @@ var (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ipamConf                  *ipam.IPAMConfig
-	kvClient                  kvstore.KVClient
-	containers                map[string]*types.Container
-	containersMU              sync.RWMutex
-	endpoints                 map[uint16]*endpoint.Endpoint
-	endpointsDocker           map[string]*endpoint.Endpoint
-	endpointsDockerEP         map[string]*endpoint.Endpoint
-	endpointsMU               sync.RWMutex
-	endpointsLearning         map[uint16]labels.LearningLabel
-	endpointsLearningMU       sync.RWMutex
-	endpointsLearningRegister chan labels.LearningLabel
-	events                    chan events.Event
-	dockerClient              *dClient.Client
-	loadBalancer              *types.LoadBalancer
-	k8sClient                 *k8s.Clientset
-	conf                      *Config
-	policy                    policy.Tree
-	consumableCache           *policy.ConsumableCache
-	ignoredContainers         map[string]int
-	ignoredMutex              sync.RWMutex
-	loopbackIPv4              net.IP
+	ipamConf          *ipam.IPAMConfig
+	kvClient          kvstore.KVClient
+	containers        map[string]*types.Container
+	containersMU      sync.RWMutex
+	endpoints         map[uint16]*endpoint.Endpoint
+	endpointsAux      map[string]*endpoint.Endpoint
+	endpointsMU       sync.RWMutex
+	events            chan events.Event
+	dockerClient      *dClient.Client
+	loadBalancer      *types.LoadBalancer
+	k8sClient         *k8s.Clientset
+	conf              *Config
+	policy            policy.Tree
+	consumableCache   *policy.ConsumableCache
+	ignoredContainers map[string]int
+	ignoredMutex      sync.RWMutex
+	loopbackIPv4      net.IP
 }
 
 func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
@@ -323,9 +322,7 @@ func (d *Daemon) init() error {
 		}
 		// Clean all lb entries
 		if !d.conf.RestoreState {
-			if err := d.SVCDeleteAll(); err != nil {
-				return err
-			}
+			// FIXME Remove all loadbalancer entries
 		}
 	}
 
@@ -414,15 +411,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
-		conf:                      c,
-		kvClient:                  kvClient,
-		dockerClient:              dockerClient,
-		containers:                make(map[string]*types.Container),
-		endpoints:                 make(map[uint16]*endpoint.Endpoint),
-		endpointsDocker:           make(map[string]*endpoint.Endpoint),
-		endpointsDockerEP:         make(map[string]*endpoint.Endpoint),
-		endpointsLearning:         make(map[uint16]labels.LearningLabel),
-		endpointsLearningRegister: make(chan labels.LearningLabel, 1),
+		conf:              c,
+		kvClient:          kvClient,
+		dockerClient:      dockerClient,
+		containers:        make(map[string]*types.Container),
+		endpoints:         make(map[uint16]*endpoint.Endpoint),
+		endpointsAux:      make(map[string]*endpoint.Endpoint),
 		events:            make(chan events.Event, 512),
 		loadBalancer:      lb,
 		consumableCache:   policy.NewConsumableCache(),
@@ -523,22 +517,72 @@ func (d *Daemon) staleMapWalker(path string) error {
 func changedOption(key string, value bool, data interface{}) {
 }
 
-func (d *Daemon) Update(opts option.OptionMap) error {
+type patchConfig struct {
+	daemon *Daemon
+}
+
+func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
+	return &patchConfig{daemon: d}
+}
+
+func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
+	d := h.daemon
+
 	d.conf.OptsMU.Lock()
 	defer d.conf.OptsMU.Unlock()
 
-	if err := d.conf.Opts.Validate(opts); err != nil {
-		return err
+	if err := d.conf.Opts.Validate(params.Configuration); err != nil {
+		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
-	changes := d.conf.Opts.Apply(opts, changedOption, d)
+	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
 	if changes > 0 {
 		if err := d.compileBase(); err != nil {
-			log.Warningf("Unable to recompile base programs: %s\n", err)
+			msg := fmt.Errorf("Unable to recompile base programs: %s\n", err)
+			log.Warningf("%s", msg)
+			return apierror.Error(PatchConfigFailureCode, msg)
 		}
 	}
 
-	return nil
+	return NewPatchConfigOK()
+}
+
+func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
+	addr := d.conf.NodeAddress
+
+	return &models.NodeAddressing{
+		IPV6: &models.NodeAddressingElement{
+			Enabled:    true,
+			IP:         addr.IPv6Address.String(),
+			AllocRange: addr.IPv6AllocRange().String(),
+		},
+		IPV4: &models.NodeAddressingElement{
+			Enabled:    d.conf.IPv4Enabled,
+			IP:         addr.IPv4Address.String(),
+			AllocRange: addr.IPv4AllocRange().String(),
+		},
+	}
+}
+
+type getConfig struct {
+	daemon *Daemon
+}
+
+func NewGetConfigHandler(d *Daemon) GetConfigHandler {
+	return &getConfig{daemon: d}
+}
+
+func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
+	d := h.daemon
+	d.conf.OptsMU.RLock()
+	defer d.conf.OptsMU.RUnlock()
+
+	cfg := &models.DaemonConfigurationResponse{
+		Addressing:    d.getNodeAddressing(),
+		Configuration: d.conf.Opts.GetModel(),
+	}
+
+	return NewGetConfigOK().WithPayload(cfg)
 }
 
 func (d *Daemon) IgnoredContainer(id string) bool {

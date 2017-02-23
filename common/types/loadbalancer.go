@@ -17,13 +17,16 @@ package types
 
 import (
 	"crypto/sha512"
-	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 const (
+	NONE = L4Type("NONE")
 	// TCP type.
 	TCP = L4Type("TCP")
 	// UDP type.
@@ -41,13 +44,36 @@ type ServiceID uint16
 
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
-	FE  L3n4AddrID
-	BES []L3n4Addr
+	Sha256 string
+	FE     L3n4AddrID
+	BES    []L3n4Addr
+}
+
+func (s *LBSVC) GetModel() *models.Service {
+	if s == nil {
+		return nil
+	}
+
+	id := int64(s.FE.ID)
+	svc := &models.Service{
+		ID:               id,
+		FrontendAddress:  s.FE.GetModel(),
+		BackendAddresses: make([]*models.BackendAddress, len(s.BES)),
+	}
+
+	for i, ba := range s.BES {
+		svc.BackendAddresses[i] = ba.GetBackendModel()
+	}
+
+	return svc
 }
 
 // SVCMap is a map of the daemon's services. The key is the sha256sum of the LBSVC's FE
 // and the value the LBSVC.
 type SVCMap map[string]LBSVC
+
+// Maps service IDs to service structures
+type SVCMapID map[ServiceID]*LBSVC
 
 // RevNATMap is a map of the daemon's RevNATs.
 type RevNATMap map[ServiceID]L3n4Addr
@@ -57,6 +83,7 @@ type RevNATMap map[ServiceID]L3n4Addr
 type LoadBalancer struct {
 	BPFMapMU  sync.RWMutex
 	SVCMap    SVCMap
+	SVCMapID  SVCMapID
 	RevNATMap RevNATMap
 
 	K8sMU        sync.Mutex
@@ -64,10 +91,39 @@ type LoadBalancer struct {
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
 }
 
+// Add service to list of loadbalancers and return true if created
+func (lb *LoadBalancer) AddService(svc LBSVC) bool {
+	oldSvc, ok := lb.SVCMapID[svc.FE.ID]
+	if ok {
+		// If service already existed, remove old entry from map
+		delete(lb.SVCMap, oldSvc.Sha256)
+	}
+	lb.SVCMap[svc.Sha256] = svc
+	lb.SVCMapID[svc.FE.ID] = &svc
+	return !ok
+}
+
+func (lb *LoadBalancer) DeleteService(svc *LBSVC) {
+	delete(lb.SVCMap, svc.Sha256)
+	delete(lb.SVCMapID, svc.FE.ID)
+}
+
+func NewL4Type(name string) (L4Type, error) {
+	switch strings.ToLower(name) {
+	case "tcp":
+		return TCP, nil
+	case "udp":
+		return UDP, nil
+	default:
+		return "", fmt.Errorf("Unknown L4 protocol")
+	}
+}
+
 // NewLoadBalancer returns a LoadBalancer with all maps initialized.
 func NewLoadBalancer() *LoadBalancer {
 	return &LoadBalancer{
 		SVCMap:       SVCMap{},
+		SVCMapID:     SVCMapID{},
 		RevNATMap:    RevNATMap{},
 		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
 		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
@@ -123,7 +179,7 @@ type L4Addr struct {
 // NewL4Addr creates a new L4Addr. Returns an error if protocol is not recognized.
 func NewL4Addr(protocol L4Type, number uint16) (*L4Addr, error) {
 	switch protocol {
-	case TCP, UDP:
+	case TCP, UDP, NONE:
 	default:
 		return nil, fmt.Errorf("unknown protocol type %s", protocol)
 	}
@@ -165,6 +221,76 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, erro
 	return &L3n4Addr{IP: ip, L4Addr: *lbport}, nil
 }
 
+func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
+	if base == nil {
+		return nil, nil
+	}
+
+	if base.IP == nil {
+		return nil, fmt.Errorf("Missing IP address")
+	}
+
+	proto, err := NewL4Type(base.Protocol)
+	if err != nil {
+		return nil, err
+	}
+
+	l4addr, err := NewL4Addr(proto, base.Port)
+	if err != nil {
+		return nil, err
+	}
+
+	ip := net.ParseIP(*base.IP)
+	if ip == nil {
+		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
+	}
+
+	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
+}
+
+func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
+	if base.IP == nil {
+		return nil, fmt.Errorf("Missing IP address")
+	}
+
+	l4addr, err := NewL4Addr(NONE, base.Port)
+	if err != nil {
+		return nil, err
+	}
+
+	ip := net.ParseIP(*base.IP)
+	if ip == nil {
+		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
+	}
+
+	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
+}
+
+func (a *L3n4Addr) GetModel() *models.FrontendAddress {
+	if a == nil {
+		return nil
+	}
+
+	ip := a.IP.String()
+	return &models.FrontendAddress{
+		IP:       &ip,
+		Protocol: string(a.Protocol),
+		Port:     a.Port,
+	}
+}
+
+func (a *L3n4Addr) GetBackendModel() *models.BackendAddress {
+	if a == nil {
+		return nil
+	}
+
+	ip := a.IP.String()
+	return &models.BackendAddress{
+		IP:   &ip,
+		Port: a.Port,
+	}
+}
+
 // String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and "[IPv6]:Port" format
 // for IPv6.
 func (l *L3n4Addr) String() string {
@@ -186,7 +312,7 @@ func (l *L3n4Addr) DeepCopy() *L3n4Addr {
 }
 
 // SHA256Sum calculates L3n4Addr's internal SHA256Sum.
-func (l3n4Addr L3n4Addr) SHA256Sum() (string, error) {
+func (l3n4Addr L3n4Addr) SHA256Sum() string {
 	// FIXME: Remove Protocol's omission once we care about protocols.
 	protoBak := l3n4Addr.Protocol
 	l3n4Addr.Protocol = ""
@@ -194,11 +320,8 @@ func (l3n4Addr L3n4Addr) SHA256Sum() (string, error) {
 		l3n4Addr.Protocol = protoBak
 	}()
 
-	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(l3n4Addr); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+	str := []byte(fmt.Sprintf("%+v", l3n4Addr))
+	return fmt.Sprintf("%x", sha512.New512_256().Sum(str))
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
@@ -242,17 +365,11 @@ func (l *L3n4AddrID) IsIPv6() bool {
 // beIndex and the new 'be' will be inserted on index beIndex-1 of that new array. All
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
-func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
-	if beIndex < 0 {
-		return fmt.Errorf("invalid beIndex (%d)", beIndex)
-	}
-	feL3n4Uniq, err := fe.SHA256Sum()
-	if err != nil {
-		return fmt.Errorf("unable to get the SHA256Sum for FE Service: %s: %s", fe, err)
-	}
+func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) {
+	sha := fe.SHA256Sum()
 
 	var lbsvc LBSVC
-	lbsvc, ok := svcs[feL3n4Uniq]
+	lbsvc, ok := svcs[sha]
 	if !ok {
 		var bes []L3n4Addr
 		if beIndex == 0 {
@@ -282,6 +399,5 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *L3n4Addr, beIndex int) error {
 		}
 	}
 
-	svcs[feL3n4Uniq] = lbsvc
-	return nil
+	svcs[sha] = lbsvc
 }

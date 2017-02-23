@@ -40,7 +40,6 @@ The following are video tutorials showcasing how to use Cilium:
 
  * [Networks & simple policies](https://asciinema.org/a/83373)
  * [Debugging a connectivity issue](https://asciinema.org/a/83376)
- * [Automatic learning of policy labels](https://asciinema.org/a/83365)
  * [Examine networking configuration of container](https://asciinema.org/a/83372)
 
 ## What is eBPF and XDP?

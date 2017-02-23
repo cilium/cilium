@@ -30,6 +30,19 @@ func (m MAC) String() string {
 	return net.HardwareAddr(m).String()
 }
 
+// ParseMAC parses s only as an IEEE 802 MAC-48.
+func ParseMAC(s string) (MAC, error) {
+	ha, err := net.ParseMAC(s)
+	if err != nil {
+		return MAC{}, err
+	}
+	if len(ha) != 6 {
+		return MAC{}, fmt.Errorf("invalid MAC address %s", s)
+	}
+
+	return MAC(ha), nil
+}
+
 // Uint64 returns the MAC in uint64 format. The MAC is represented as little-endian in
 // the returned value.
 // Example:

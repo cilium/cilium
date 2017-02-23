@@ -43,13 +43,12 @@ var (
 )
 
 func (s *LabelsSuite) TestSHA256Sum(c *C) {
-	str, err := lbls.SHA256Sum()
-	c.Assert(err, Equals, nil)
+	str := lbls.SHA256Sum()
 	c.Assert(str, Equals, "f4b2082334cdcf08e58c5bb5a04bb291ecc6a4de7555baaf4d5ac110edd7d222")
 }
 
 func (s *LabelsSuite) TestSortMap(c *C) {
-	sortedMap := lbls.sortMap()
+	sortedMap := lbls.sortedList()
 	c.Assert(sortedMap, DeepEquals, lblsArray)
 }
 
@@ -97,8 +96,8 @@ func (s *LabelsSuite) TestSliceToMap(c *C) {
 	}
 
 	lbls := LabelSlice2LabelsMap([]Label{
-		{"key1", "value3", "source4", ""},
-		{"key2", "value5", "source7", ""},
+		{"key1", "value3", "source4", "", false},
+		{"key2", "value5", "source7", "", false},
 	})
 	c.Assert(len(lbls), Equals, 2)
 	c.Assert(lbls, DeepEquals, want)

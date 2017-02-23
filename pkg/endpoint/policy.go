@@ -20,11 +20,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-func (e *Endpoint) checkEgressAccess(owner Owner, opts option.OptionMap, dstID policy.NumericIdentity, opt string) {
+func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, dstID policy.NumericIdentity, opt string) {
 	var err error
 
 	ctx := policy.SearchContext{
@@ -43,9 +43,9 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts option.OptionMap, dstID p
 
 	switch owner.GetPolicyTree().Allows(&ctx) {
 	case policy.ACCEPT, policy.ALWAYS_ACCEPT:
-		opts[opt] = true
+		opts[opt] = "enabled"
 	case policy.DENY:
-		opts[opt] = false
+		opts[opt] = "disabled"
 	}
 }
 
@@ -109,6 +109,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	}
 	tree.Mutex.RUnlock()
 
+	// FIXME: Move to outer loops to avoid refetching
 	maxID, err := owner.GetMaxLabelID()
 	if err != nil {
 		return false, err
@@ -142,6 +143,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	// Iterate over all possible assigned search contexts
 	idx := policy.MinimalNumericIdentity
+	log.Debugf("Policy eval from %+v to %+v", idx, maxID)
 	for idx < maxID {
 		if err := e.evaluateConsumerSource(owner, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent
@@ -174,13 +176,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		return false, err
 	}
 
-	opts := make(option.OptionMap)
+	opts := make(models.ConfigurationMap)
 	e.checkEgressAccess(owner, opts, policy.ID_HOST, OptionAllowToHost)
 	e.checkEgressAccess(owner, opts, policy.ID_WORLD, OptionAllowToWorld)
 
 	// L4 policy requires connection tracking
 	if e.Consumable != nil && e.Consumable.L4Policy != nil {
-		opts[OptionConntrack] = true
+		opts[OptionConntrack] = "enabled"
 	}
 
 	optsChanged := e.ApplyOpts(opts)
@@ -297,5 +299,9 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	e.SecLabel = id
 	e.Consumable = cache.GetOrCreate(id.ID, id)
 
-	log.Debug("Set identity to %+v and consumable to %+v", id, e.Consumable)
+	if e.State == StateWaitingForIdentity {
+		e.State = StateReady
+	}
+
+	log.Debugf("Set identity of EP %d to %d and consumable to %+v", e.ID, id, e.Consumable)
 }

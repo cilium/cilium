@@ -16,22 +16,26 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
-	endpoint "github.com/cilium/cilium/cilium/endpoint"
-	"github.com/cilium/cilium/cilium/lb"
-	"github.com/cilium/cilium/cilium/monitor"
-	policy "github.com/cilium/cilium/cilium/policy"
 	"github.com/cilium/cilium/common"
-	daemon "github.com/cilium/cilium/daemon"
+	"github.com/cilium/cilium/daemon"
+	clientPkg "github.com/cilium/cilium/pkg/client"
 
 	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
 
 var (
-	log = l.MustGetLogger("cilium-cli")
+	client *clientPkg.Client
+	log    = l.MustGetLogger("cilium-cli")
 )
+
+func Fatalf(msg string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, msg, args...)
+	os.Exit(1)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -46,15 +50,15 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "host, H",
-			Usage: "Daemon host to connect to",
+			Usage: "Host agent to connect to",
 		},
 	}
 	app.Commands = []cli.Command{
 		daemon.CliCommand,
-		policy.CliCommand,
-		endpoint.CliCommand,
-		monitor.CliCommand,
-		lb.CliCommand,
+		cliPolicy,
+		cliEndpoint,
+		cliMonitor,
+		cliLB,
 	}
 	app.Before = initEnv
 	app.Run(os.Args)
@@ -66,5 +70,12 @@ func initEnv(ctx *cli.Context) error {
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+
+	if cl, err := clientPkg.NewClient(ctx.GlobalString("host")); err != nil {
+		Fatalf("Error while creating client: %s\n", err)
+	} else {
+		client = cl
+	}
+
 	return nil
 }

@@ -27,8 +27,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
@@ -39,58 +37,16 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 			log.Warningf("Error while parsing drop notification message: %s\n", err)
 			return
 		}
-		d.endpointsLearningMU.RLock()
-		for _, v := range d.endpointsLearning {
-			if dn.DstID == uint32(v.EndpointID) {
-				go func(epID uint16, lblID policy.NumericIdentity) {
-					sec, err := d.GetLabels(lblID)
-					if err != nil {
-						log.Errorf("Error while getting label ID %d: %s", lblID, err)
-						return
-					}
-					if sec == nil {
-						log.Warningf("Endpoint %d is receiving traffic from an unknown label ID %d", epID, lblID)
-						return
-					}
-					if err := d.EndpointLabelsUpdate(epID, labels.LabelOp{labels.AddLabelsOp: sec.Labels}); err != nil {
-						log.Warningf("Error while add learned labels into the daemon %s", err)
-					}
-				}(v.EndpointID, policy.NumericIdentity(dn.SrcLabel))
-			}
-		}
-		d.endpointsLearningMU.RUnlock()
 	}
 }
 
 func (d *Daemon) lostEvent(msg *bpf.PerfEventLost, cpu int) {
 }
 
-func (d *Daemon) EnableLearningTraffic() {
+func (d *Daemon) EnableMonitor() {
 	startChan := make(chan bool, 1)
 	stopChan1 := make(chan bool, 1)
 	eventStopped := make(chan bool, 1)
-
-	go func() {
-		for {
-			select {
-			case lEP := <-d.endpointsLearningRegister:
-				log.Debugf("Registering endpoint %+v", lEP)
-				d.endpointsLearningMU.Lock()
-				if lEP.Learn {
-					if len(d.endpointsLearning) == 0 {
-						startChan <- true
-					}
-					d.endpointsLearning[lEP.EndpointID] = lEP
-				} else {
-					delete(d.endpointsLearning, lEP.EndpointID)
-					if len(d.endpointsLearning) == 0 {
-						stopChan1 <- true
-					}
-				}
-				d.endpointsLearningMU.Unlock()
-			}
-		}
-	}()
 
 	go func() {
 		var events *bpf.PerCpuEvents
@@ -124,7 +80,7 @@ func (d *Daemon) EnableLearningTraffic() {
 					}
 				}()
 			case <-stopChan1:
-				log.Info("All endpoints stopped learning traffic, stopping monitor...")
+				log.Info("Stopping monitor...")
 				events.CloseAll()
 				eventStopped <- true
 			}

@@ -13,40 +13,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package endpoint
+package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
-	cnc "github.com/cilium/cilium/common/client"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
-	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
 
 var (
-	CliCommand cli.Command
-	client     *cnc.Client
-	log        = l.MustGetLogger("cilium-tools-endpoint")
+	cliEndpoint cli.Command
 )
 
 func init() {
-	CliCommand = cli.Command{
-		Name:   "endpoint",
-		Usage:  "Manage endpoint operations",
-		Before: initEnv,
+	cliEndpoint = cli.Command{
+		Name:  "endpoint",
+		Usage: "Manage endpoint operations",
 		Subcommands: []cli.Command{
 			{
 				Name:         "detach",
@@ -59,7 +56,7 @@ func init() {
 			{
 				Name:         "inspect",
 				Usage:        "Dumps lxc-info of the given endpoint",
-				Action:       dumpLXCInfo,
+				Action:       inspectEndpoint,
 				BashComplete: listEndpointsBash,
 				ArgsUsage:    "<endpoint>",
 				Before:       verifyArguments,
@@ -159,31 +156,6 @@ func init() {
 	}
 }
 
-func initEnv(ctx *cli.Context) error {
-	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
-	} else {
-		common.SetupLOG(log, "INFO")
-	}
-
-	var (
-		c   *cnc.Client
-		err error
-	)
-	if host := ctx.GlobalString("host"); host == "" {
-		c, err = cnc.NewDefaultClient()
-	} else {
-		c, err = cnc.NewClient(host, nil)
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return fmt.Errorf("Error while creating cilium-client: %s", err)
-	}
-	client = c
-
-	return nil
-}
-
 func verifyArguments(ctx *cli.Context) error {
 	ep := ctx.Args().First()
 	if ep == "" {
@@ -195,103 +167,64 @@ func verifyArguments(ctx *cli.Context) error {
 	return nil
 }
 
-func getValidEPID(arg string) (uint16, error) {
-	if arg == "" {
-		return 0, fmt.Errorf("Empty endpoint")
-	}
-	epID, err := strconv.ParseUint(arg, 10, 16)
-	return uint16(epID), err
-}
-
 func printEndpointLabels(lbls *labels.OpLabels) {
 	log.Debugf("All Labels %#v", *lbls)
-
-	for _, lbl := range lbls.EndpointLabels {
-		delete(lbls.UserLabels, lbl.Key)
-		delete(lbls.ProbeLabels, lbl.Key)
-	}
-
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
-	for _, v := range lbls.EndpointLabels {
+	for _, v := range lbls.Enabled() {
 		text := common.Green("Enabled")
-
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
-	for _, v := range lbls.ProbeLabels {
-		text := common.Red("Disabled")
 
-		fmt.Fprintf(w, "%s\t%s\n", v, text)
-	}
-	for _, v := range lbls.UserLabels {
+	for _, v := range lbls.Disabled {
 		text := common.Red("Disabled")
-
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}
 	w.Flush()
 }
 
 func configLabels(ctx *cli.Context) {
-	epID, err := getValidEPID(ctx.Args().First())
+	_, id, err := endpoint.ValidateID(ctx.Args().First())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		Fatalf("%s", err)
 	}
+
+	lo := &models.LabelConfigurationModifier{}
 
 	addLabels := labels.ParseStringLabels(ctx.StringSlice("add"))
-	enableLabels := labels.ParseStringLabels(ctx.StringSlice("enable"))
-	disableLabels := labels.ParseStringLabels(ctx.StringSlice("disable"))
-	deleteLabels := labels.ParseStringLabels(ctx.StringSlice("delete"))
-
-	lo := labels.LabelOp{}
-
 	if len(addLabels) != 0 {
-		lo[labels.AddLabelsOp] = addLabels
+		lo.Add = addLabels.GetModel()
 	}
-	if len(enableLabels) != 0 {
-		lo[labels.EnableLabelsOp] = enableLabels
-	}
-	if len(disableLabels) != 0 {
-		lo[labels.DisableLabelsOp] = disableLabels
-	}
+
+	deleteLabels := labels.ParseStringLabels(ctx.StringSlice("delete"))
 	if len(deleteLabels) != 0 {
-		lo[labels.DelLabelsOp] = deleteLabels
+		lo.Delete = deleteLabels.GetModel()
 	}
 
-	if err := client.EndpointLabelsUpdate(epID, lo); err != nil {
-		log.Errorf("Error while deleting labels %s", err)
+	if err := client.EndpointLabelsPut(id, lo); err != nil {
+		log.Errorf("Error while modifying labels %s", err)
 	}
 
-	if lbls, err := client.EndpointLabelsGet(epID); err != nil {
+	if lbls, err := client.EndpointLabelsGet(id); err != nil {
 		log.Errorf("Error while getting endpoint labels: %s", err)
 	} else {
-		if lbls != nil {
-			printEndpointLabels(lbls)
-		} else {
-			fmt.Printf("(Endpoint with empty labels)")
-		}
+		printEndpointLabels(labels.NewOplabelsFromModel(lbls))
 	}
 }
 
-func dumpLXCInfo(ctx *cli.Context) {
-	epID, err := getValidEPID(ctx.Args().First())
+func inspectEndpoint(ctx *cli.Context) {
+	_, id, err := endpoint.ValidateID(ctx.Args().First())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		Fatalf("%s", err)
 	}
 
-	ep, err := client.EndpointGet(epID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %d from daemon: %s\n", epID, err)
-		return
+	if e, err := client.EndpointGet(id); err != nil {
+		Fatalf("Error while inspecting endpoint %s: %s\n", id, err)
+	} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
+		Fatalf(err.Error())
+	} else {
+		fmt.Println(string(b))
 	}
-	if ep == nil {
-		fmt.Printf("Endpoint %d not found\n", epID)
-		return
-	}
-
-	fmt.Printf("Endpoint %d\n%s\n", ep.ID, ep)
-	fmt.Printf("Endpoint status: \n%s\n", ep.Status.DumpLog())
 }
 
 func listEndpointOptions() {
@@ -312,45 +245,41 @@ func configEndpoint(ctx *cli.Context) {
 		listEndpointOptions()
 		return
 	}
-	epID, err := getValidEPID(ctx.Args().First())
+
+	_, id, err := endpoint.ValidateID(ctx.Args().First())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		Fatalf("%s", err)
 	}
 
-	ep, err := client.EndpointGet(epID)
+	cfg, err := client.EndpointConfigGet(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoint %d from daemon: %s\n", epID, err)
-		os.Exit(1)
-	}
-
-	if ep == nil {
-		fmt.Printf("Endpoint %d not found\n", epID)
-		os.Exit(1)
+		Fatalf("Error while retrieving endpoint %s: %s\n", id, err)
 	}
 
 	opts := ctx.Args().Tail()
 	if len(opts) == 0 {
-		ep.Opts.Dump()
+		fmt.Printf("%+v\n", cfg)
 		return
 	}
 
-	epOpts := make(option.OptionMap, len(opts))
+	epOpts := make(models.ConfigurationMap, len(opts))
 
 	for k := range opts {
 		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointOptionLibrary)
 		if err != nil {
-			fmt.Printf("%s\n", err)
-			os.Exit(1)
+			Fatalf("%s\n", err)
 		}
 
-		epOpts[name] = value
+		if value {
+			epOpts[name] = "enabled"
+		} else {
+			epOpts[name] = "disabled"
+		}
 	}
 
-	err = client.EndpointUpdate(ep.ID, epOpts)
+	err = client.EndpointConfigPatch(id, epOpts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to update endpoint %d: %s\n", ep.ID, err)
-		os.Exit(1)
+		Fatalf("Unable to update endpoint %s: %s\n", id, err)
 	}
 }
 
@@ -363,29 +292,26 @@ func dumpMap(ctx *cli.Context) {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "Need ID or label\n")
-		return
+		Fatalf("Need ID or label\n")
 	}
 
 	file := bpf.MapPath(policymap.MapName + lbl)
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		Fatalf("%s\n", err)
 	}
 
 	m := policymap.PolicyMap{Fd: fd}
 	statsMap, err := m.DumpToSlice()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while opening bpf Map: %s\n", err)
-		return
+		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
 	labelsID := map[policy.NumericIdentity]*policy.Identity{}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
 	const (
-		labelsIDTitle  = "LABEL ID"
+		labelsIDTitle  = "IDENTITY"
 		labelsDesTitle = "LABELS (source:key[=value])"
 		actionTitle    = "ACTION"
 		bytesTitle     = "BYTES"
@@ -395,15 +321,12 @@ func dumpMap(ctx *cli.Context) {
 	for _, stat := range statsMap {
 		if !printIDs {
 			id := policy.NumericIdentity(stat.ID)
-			secCtxLbl, err := client.GetLabels(id)
-			if err != nil {
+			if lbls, err := client.IdentityGet(id.StringID()); err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
 					id, err)
+			} else {
+				labelsID[id] = policy.NewIdentityFromModel(lbls)
 			}
-			if secCtxLbl == nil {
-				fmt.Fprintf(os.Stderr, "Label with ID %d was not found\n", id)
-			}
-			labelsID[id] = secCtxLbl
 		}
 
 	}
@@ -440,8 +363,7 @@ func dumpMap(ctx *cli.Context) {
 
 func updatePolicyKey(ctx *cli.Context, add bool) {
 	if len(ctx.Args()) < 2 {
-		fmt.Fprintf(os.Stderr, "Incorrect number of arguments.\n")
-		return
+		Fatalf("Incorrect number of arguments.\n")
 	}
 
 	lbl := ctx.Args().Get(0)
@@ -451,15 +373,13 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "Need ID or label\n")
-		return
+		Fatalf("Need ID or label\n")
 	}
 
 	file := bpf.MapPath(policymap.MapName + lbl)
 	policyMap, _, err := policymap.OpenMap(file)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not open policymap '%s' : %s", file, err)
-		return
+		Fatalf("Could not open policymap '%s' : %s", file, err)
 	}
 
 	peer_lbl, err := strconv.ParseUint(ctx.Args().Get(1), 10, 32)
@@ -470,8 +390,7 @@ func updatePolicyKey(ctx *cli.Context, add bool) {
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "allow label %d failed for %s", peer_lbl, lbl)
-		return
+		Fatalf("allow label %d failed for %s", peer_lbl, lbl)
 	}
 }
 
@@ -483,31 +402,28 @@ func removePolicyKey(ctx *cli.Context) {
 	updatePolicyKey(ctx, false)
 }
 
-func dumpFirstEndpoint(w *tabwriter.Writer, ep *endpoint.Endpoint, seclabel string, label string) {
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID, seclabel, label, ep.IPv6.String(), ep.IPv4.String(), ep.Status.String())
+func dumpFirstEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n",
+		ep.ID, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
 }
 
 func dumpEndpoints(ctx *cli.Context) {
-	eps, err := client.EndpointsGet()
+	eps, err := client.EndpointList()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while getting endpoints from daemon: %s\n", err)
-		return
-	}
-	if eps == nil {
-		fmt.Printf("No endpoints\n")
-		return
+		Fatalf("Error while getting endpoints from daemon: %s\n", err)
 	}
 
-	endpoint.OrderEndpointAsc(eps)
+	// FIXME: sorting
+	//endpoint.OrderEndpointAsc(eps)
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
 	const (
-		labelsIDTitle  = "LABEL ID"
+		labelsIDTitle  = "IDENTITY"
 		labelsDesTitle = "LABELS (source:key[=value])"
 		ipv6Title      = "IPv6"
 		ipv4Title      = "IPv4"
-		endpointTitle  = "ENDPOINT ID"
+		endpointTitle  = "ID"
 		statusTitle    = "STATUS"
 	)
 
@@ -515,18 +431,18 @@ func dumpEndpoints(ctx *cli.Context) {
 		endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
 
 	for _, ep := range eps {
-		if ep.SecLabel == nil {
-			dumpFirstEndpoint(w, &ep, "<no label id>", "")
+		if ep.Identity == nil {
+			dumpFirstEndpoint(w, ep, "<no label id>", "")
 		} else {
-			seclabel := fmt.Sprintf("%d", ep.SecLabel.ID)
+			id := fmt.Sprintf("%d", ep.Identity.ID)
 
-			if len(ep.SecLabel.Labels) == 0 {
-				dumpFirstEndpoint(w, &ep, seclabel, "no labels")
+			if len(ep.Identity.Labels) == 0 {
+				dumpFirstEndpoint(w, ep, id, "no labels")
 			} else {
 				first := true
-				for _, lbl := range ep.SecLabel.Labels {
+				for _, lbl := range ep.Identity.Labels {
 					if first {
-						dumpFirstEndpoint(w, &ep, seclabel, lbl.String())
+						dumpFirstEndpoint(w, ep, id, lbl)
 						first = false
 					} else {
 						fmt.Fprintf(w, "\t\t%s\t\t\t\t\n", lbl)
@@ -540,54 +456,43 @@ func dumpEndpoints(ctx *cli.Context) {
 }
 
 func recompileBPF(ctx *cli.Context) {
-	epID, err := getValidEPID(ctx.Args().First())
+	_, id, err := endpoint.ValidateID(ctx.Args().First())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		Fatalf("%s", err)
 	}
 
-	err = client.EndpointUpdate(epID, nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while recompiling endpoint %d on daemon: %s\n", epID, err)
-		return
+	if err := client.EndpointConfigPatch(id, nil); err != nil {
+		Fatalf("Error while recompiling endpoint %s on daemon: %s\n", id, err)
+	} else {
+		fmt.Printf("Endpoint %s successfully recompiled\n", id)
 	}
-
-	fmt.Printf("Endpoint %d's successfully recompiled\n", epID)
 }
 
 func detachBPF(ctx *cli.Context) {
-	epID, err := getValidEPID(ctx.Args().First())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+	id := ctx.Args().First()
+	if err := client.EndpointDelete(id); err != nil {
+		fmt.Fprintf(os.Stderr, "Error while detaching endpoint %s on daemon: %s\n", id, err)
+	} else {
+		fmt.Printf("Endpoint %s's successfully detached\n", id)
 	}
-
-	err = client.EndpointLeave(epID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while detaching endpoint %d on daemon: %s\n", epID, err)
-		return
-	}
-
-	fmt.Printf("Endpoint %d's successfully detached\n", epID)
 }
 
 func listEndpointsBash(ctx *cli.Context) {
-	eps, _ := client.EndpointsGet()
+	eps, _ := client.EndpointList()
 	if ctx.Args().Present() {
 		if len(ctx.Args()) < 1 {
 			firstArg := ctx.Args().First()
 			for _, ep := range eps {
-				if strings.HasPrefix(strconv.Itoa(int(ep.ID)), firstArg) {
+				if strings.HasPrefix(string(ep.ID), firstArg) {
 					fmt.Println(ep.ID)
 				}
 			}
 		}
 	} else {
 		for _, ep := range eps {
-			fmt.Println(ep.ID)
+			fmt.Println(string(ep.ID))
 		}
 	}
-
 }
 
 func dumpCtProto(name string, ctType ctmap.CtType) {
@@ -595,15 +500,13 @@ func dumpCtProto(name string, ctType ctmap.CtType) {
 
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to open %s: %s\n", file, err)
-		os.Exit(1)
+		Fatalf("Unable to open %s: %s\n", file, err)
 	}
 
 	m := ctmap.CtMap{Fd: fd, Type: ctType}
 	out, err := m.Dump()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while dumping BPF Map: %s\n", err)
-		os.Exit(1)
+		Fatalf("Error while dumping BPF Map: %s\n", err)
 	}
 
 	fmt.Println(out)

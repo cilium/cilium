@@ -16,271 +16,159 @@
 package daemon
 
 import (
-	"fmt"
 	"math/big"
 	"net"
+	"strings"
 
-	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/ipam"
+	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/api/v1/server/restapi/ipam"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
+	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/swag"
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 )
 
-// allocateIPCNI allocates an IP for the CNI plugin.
-func (d *Daemon) allocateIPCNI(cniReq ipam.IPAMReq) (*ipam.IPAMRep, error) {
+func (d *Daemon) AllocateIP(ip net.IP) *apierror.ApiError {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
-	if cniReq.IP != nil {
-		var err error
-		if cniReq.IP.To4() != nil {
-			if d.conf.IPv4Enabled {
-				err = d.ipamConf.IPv4Allocator.Allocate(*cniReq.IP)
-			}
-		} else {
-			err = d.ipamConf.IPv6Allocator.Allocate(*cniReq.IP)
+	if ip.To4() != nil {
+		if d.ipamConf.IPv4Allocator == nil {
+			return apierror.New(PostIPAMIPDisabledCode, "IPv4 allocation disabled")
 		}
-		return nil, err
-	}
 
-	ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
-	if err != nil {
-		return nil, err
-	}
+		if err := d.ipamConf.IPv4Allocator.Allocate(ip); err != nil {
+			return apierror.Error(PostIPAMIPFailureCode, err)
+		}
+	} else {
+		if d.ipamConf.IPv6Allocator == nil {
+			return apierror.New(PostIPAMIPDisabledCode, "IPv6 allocation disabled")
+		}
 
-	v6Routes := []ipam.Route{}
-	v4Routes := []ipam.Route{}
-	for _, r := range d.ipamConf.IPAMConfig.Routes {
-		rt := ipam.NewRoute(r.Dst, r.GW)
-		if r.Dst.IP.To4() == nil {
-			v6Routes = append(v6Routes, *rt)
-		} else {
-			v4Routes = append(v4Routes, *rt)
+		if err := d.ipamConf.IPv6Allocator.Allocate(ip); err != nil {
+			return apierror.Error(PostIPAMIPFailureCode, err)
 		}
 	}
 
-	ipamRep := &ipam.IPAMRep{
-		IP6: &ipam.IPConfig{
-			Gateway: d.conf.NodeAddress.IPv6Address.IP(),
-			IP:      net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv6Mask},
-			Routes:  v6Routes,
-		},
-	}
-
-	if d.ipamConf.IPv4Allocator != nil {
-		ip4Conf, err := d.ipamConf.IPv4Allocator.AllocateNext()
-		if err != nil {
-			return nil, err
-		}
-		if d.ipamConf.IPv4Allocator != nil {
-			ipamRep.IP4 = &ipam.IPConfig{
-				Gateway: d.conf.NodeAddress.IPv4Address.IP(),
-				IP:      net.IPNet{IP: ip4Conf, Mask: addressing.ContainerIPv4Mask},
-				Routes:  v4Routes,
-			}
-		}
-	}
-	return ipamRep, nil
-}
-
-// releaseIPCNI releases an IP for the CNI plugin.
-func (d *Daemon) releaseIPCNI(cniReq ipam.IPAMReq) error {
-	d.ipamConf.AllocatorMutex.Lock()
-	defer d.ipamConf.AllocatorMutex.Unlock()
-	if cniReq.IP != nil {
-		if cniReq.IP.To4() != nil {
-			if d.conf.IPv4Enabled {
-				return d.ipamConf.IPv4Allocator.Release(*cniReq.IP)
-			}
-		} else {
-			return d.ipamConf.IPv6Allocator.Release(*cniReq.IP)
-		}
-	}
 	return nil
 }
 
-// allocateIPLibnetwork allocates an IP for the libnetwork plugin.
-func (d *Daemon) allocateIPLibnetwork(ln ipam.IPAMReq) (*ipam.IPAMRep, error) {
+func (d *Daemon) allocateIP(ipAddr string) *apierror.ApiError {
+	if ip := net.ParseIP(ipAddr); ip == nil {
+		return apierror.New(PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
+	} else {
+		return d.AllocateIP(ip)
+	}
+}
+
+func (d *Daemon) ReleaseIP(ip net.IP) *apierror.ApiError {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
-	if ln.IP != nil {
-		var err error
-		if ln.IP.To4() != nil {
-			if d.conf.IPv4Enabled {
-				err = d.ipamConf.IPv4Allocator.Allocate(*ln.IP)
-			}
-		} else {
-			err = d.ipamConf.IPv6Allocator.Allocate(*ln.IP)
+	if ip.To4() != nil {
+		if d.ipamConf.IPv4Allocator == nil {
+			return apierror.New(DeleteIPAMIPDisabledCode, "IPv4 allocation disabled")
 		}
-		return nil, err
+
+		if err := d.ipamConf.IPv4Allocator.Release(ip); err != nil {
+			return apierror.Error(DeleteIPAMIPFailureCode, err)
+		}
+	} else {
+		if d.ipamConf.IPv6Allocator == nil {
+			return apierror.New(DeleteIPAMIPDisabledCode, "IPv6 allocation disabled")
+		}
+
+		if err := d.ipamConf.IPv6Allocator.Release(ip); err != nil {
+			return apierror.Error(DeleteIPAMIPFailureCode, err)
+		}
 	}
 
-	switch ln.RequestAddressRequest.PoolID {
-	case ipam.LibnetworkDefaultPoolV4:
-		if d.ipamConf.IPv4Allocator != nil {
-			ipConf, err := d.ipamConf.IPv4Allocator.AllocateNext()
-			if err != nil {
-				return nil, err
-			}
-			resp := ipam.IPAMRep{
-				IP4: &ipam.IPConfig{
-					IP: net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv4Mask},
-				},
-			}
-			log.Debugf("Docker requested us to use IPv4, %+v", resp.IP4.IP)
-			return &resp, nil
-		}
-		return &ipam.IPAMRep{}, nil
-	case ipam.LibnetworkDefaultPoolV6:
+	return nil
+}
+
+func (d *Daemon) releaseIP(ipAddr string) *apierror.ApiError {
+	if ip := net.ParseIP(ipAddr); ip == nil {
+		return apierror.New(DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
+	} else {
+		return d.ReleaseIP(ip)
+	}
+}
+
+type postIPAM struct {
+	daemon *Daemon
+}
+
+func NewPostIPAMHandler(d *Daemon) PostIPAMHandler {
+	return &postIPAM{daemon: d}
+}
+
+func (h *postIPAM) Handle(params PostIPAMParams) middleware.Responder {
+	d := h.daemon
+	d.ipamConf.AllocatorMutex.Lock()
+	defer d.ipamConf.AllocatorMutex.Unlock()
+
+	resp := &models.IPAM{
+		HostAddressing: d.getNodeAddressing(),
+		Endpoint:       &models.EndpointAddressing{},
+	}
+
+	family := strings.ToLower(swag.StringValue(params.Family))
+
+	log.Debugf("%+v %+v\n", family, d.ipamConf.IPv4Allocator)
+
+	if (family == "ipv6" || family == "") && d.ipamConf.IPv6Allocator != nil {
 		ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
 		if err != nil {
-			return nil, err
+			return apierror.Error(PostIPAMFailureCode, err)
 		}
-		resp := ipam.IPAMRep{
-			IP6: &ipam.IPConfig{
-				IP: net.IPNet{IP: ipConf, Mask: addressing.ContainerIPv6Mask},
-			},
-		}
-		log.Debugf("Docker requested us to use IPv6, %+v", resp.IP6.IP)
-		return &resp, nil
+
+		resp.Endpoint.IPV6 = ipConf.String()
 	}
 
-	log.Warning("Address request for unknown address pool: %s", ln.RequestAddressRequest.PoolID)
+	if (family == "ipv4" || family == "") && d.ipamConf.IPv4Allocator != nil {
+		ipConf, err := d.ipamConf.IPv4Allocator.AllocateNext()
+		if err != nil {
+			return apierror.Error(PostIPAMFailureCode, err)
+		}
 
-	return nil, nil
+		resp.Endpoint.IPV4 = ipConf.String()
+	}
+
+	return NewPostIPAMCreated().WithPayload(resp)
 }
 
-// releaseIPLibnetwork releases an IP for the libnetwork plugin.
-func (d *Daemon) releaseIPLibnetwork(ln ipam.IPAMReq) error {
-	log.Debugf("%+v", ln)
-
-	d.ipamConf.AllocatorMutex.Lock()
-	defer d.ipamConf.AllocatorMutex.Unlock()
-
-	if ln.IP != nil {
-		if ln.IP.To4() != nil {
-			if d.conf.IPv4Enabled {
-				return d.ipamConf.IPv4Allocator.Release(*ln.IP)
-			}
-		} else {
-			return d.ipamConf.IPv6Allocator.Release(*ln.IP)
-		}
-	}
-
-	switch ln.ReleaseAddressRequest.PoolID {
-	case ipam.LibnetworkDefaultPoolV4:
-		if d.conf.IPv4Enabled {
-			ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
-			return d.ipamConf.IPv4Allocator.Release(ip)
-		} else {
-			return nil
-		}
-	case ipam.LibnetworkDefaultPoolV6:
-		ip := net.ParseIP(ln.ReleaseAddressRequest.Address)
-		return d.ipamConf.IPv6Allocator.Release(ip)
-	}
-	return nil
+type postIPAMIP struct {
+	daemon *Daemon
 }
 
-// AllocateIP allocates and returns a free IPv6 address with plugin configurations
-// specific set up.
-func (d *Daemon) AllocateIP(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMRep, error) {
-	switch ipamType {
-	case ipam.CNIIPAMType:
-		return d.allocateIPCNI(options)
-	case ipam.LibnetworkIPAMType:
-		return d.allocateIPLibnetwork(options)
-	}
-	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
+func NewPostIPAMIPHandler(d *Daemon) PostIPAMIPHandler {
+	return &postIPAMIP{daemon: d}
 }
 
-// ReleaseIP releases an IP address in use by the specific IPAM type.
-func (d *Daemon) ReleaseIP(ipamType ipam.IPAMType, options ipam.IPAMReq) error {
-	if options.IP != nil && d.isReservedAddress(*options.IP) {
-		return fmt.Errorf("refusing to release reserved IP address: %s", options.IP)
+func (h *postIPAMIP) Handle(params PostIPAMIPParams) middleware.Responder {
+	if err := h.daemon.allocateIP(params.IP); err != nil {
+		return err
 	}
 
-	switch ipamType {
-	case ipam.CNIIPAMType:
-		return d.releaseIPCNI(options)
-	case ipam.LibnetworkIPAMType:
-		return d.releaseIPLibnetwork(options)
-	}
-	return fmt.Errorf("unknown IPAM Type %s", ipamType)
+	return NewPostIPAMIPOK()
 }
 
-// getIPAMConfLibnetwork returns the Libnetwork specific IPAM configuration.
-func (d *Daemon) getIPAMConfLibnetwork(ln ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
-	if ln.RequestPoolRequest != nil {
-		var poolID, pool, gw string
-
-		if ln.RequestPoolRequest.V6 == false {
-			poolID = ipam.LibnetworkDefaultPoolV4
-			pool = ipam.LibnetworkDummyV4AllocPool
-			gw = ipam.LibnetworkDummyV4Gateway
-		} else {
-			subnetGo := net.IPNet(d.ipamConf.IPAMConfig.Subnet)
-			poolID = ipam.LibnetworkDefaultPoolV6
-			pool = subnetGo.String()
-			gw = d.ipamConf.IPAMConfig.Gateway.String() + "/128"
-		}
-
-		return &ipam.IPAMConfigRep{
-			RequestPoolResponse: &lnAPI.RequestPoolResponse{
-				PoolID: poolID,
-				Pool:   pool,
-				Data: map[string]string{
-					"com.docker.network.gateway": gw,
-				},
-			},
-		}, nil
-	}
-
-	ciliumV6Routes := []ipam.Route{}
-	for _, r := range d.ipamConf.IPAMConfig.Routes {
-		if r.Dst.IP.To4() == nil {
-			ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
-			ciliumV6Routes = append(ciliumV6Routes, *ciliumRoute)
-		}
-	}
-
-	rep := &ipam.IPAMConfigRep{
-		IPAMConfig: &ipam.IPAMRep{
-			IP6: &ipam.IPConfig{
-				Gateway: d.ipamConf.IPAMConfig.Gateway,
-				Routes:  ciliumV6Routes,
-			},
-		},
-	}
-
-	if d.conf.IPv4Enabled {
-		ciliumV4Routes := []ipam.Route{}
-		for _, r := range d.ipamConf.IPAMConfig.Routes {
-			if r.Dst.IP.To4() != nil {
-				ciliumRoute := ipam.NewRoute(r.Dst, r.GW)
-				ciliumV4Routes = append(ciliumV4Routes, *ciliumRoute)
-			}
-		}
-
-		rep.IPAMConfig.IP4 = &ipam.IPConfig{
-			Gateway: d.conf.NodeAddress.IPv4Address.IP(),
-			Routes:  ciliumV4Routes,
-		}
-	}
-
-	return rep, nil
+type deleteIPAMIP struct {
+	d *Daemon
 }
 
-// GetIPAMConf returns the IPAM configuration details of the given IPAM type.
-func (d *Daemon) GetIPAMConf(ipamType ipam.IPAMType, options ipam.IPAMReq) (*ipam.IPAMConfigRep, error) {
-	switch ipamType {
-	case ipam.LibnetworkIPAMType:
-		return d.getIPAMConfLibnetwork(options)
+func NewDeleteIPAMIPHandler(d *Daemon) DeleteIPAMIPHandler {
+	return &deleteIPAMIP{d: d}
+}
+
+func (h *deleteIPAMIP) Handle(params DeleteIPAMIPParams) middleware.Responder {
+	if err := h.d.releaseIP(params.IP); err != nil {
+		return err
 	}
-	return nil, fmt.Errorf("unknown IPAM Type %s", ipamType)
+
+	return NewDeleteIPAMIPOK()
 }
 
 func (d *Daemon) isReservedAddress(ip net.IP) bool {
@@ -289,7 +177,7 @@ func (d *Daemon) isReservedAddress(ip net.IP) bool {
 
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
 // reserved IPv4 and IPv6 addresses.
-func (d *Daemon) DumpIPAM() map[string][]string {
+func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	d.conf.OptsMU.RLock()
 	isDebugActive := d.conf.Opts.IsEnabled(endpoint.OptionDebug)
 	d.conf.OptsMU.RUnlock()
@@ -324,8 +212,8 @@ func (d *Daemon) DumpIPAM() map[string][]string {
 		}
 	}
 
-	return map[string][]string{
-		"4": allocv4,
-		"6": allocv6,
+	return &models.IPAMStatus{
+		IPV4: allocv4,
+		IPV6: allocv6,
 	}
 }

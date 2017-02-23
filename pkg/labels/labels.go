@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 
 	"github.com/op/go-logging"
@@ -52,43 +53,45 @@ const (
 type LabelOp map[LabelOpType]Labels
 
 type OpLabels struct {
-	// All labels
-	AllLabels Labels
 	// Active labels that are enabled and disabled but not deleted
-	UserLabels Labels
-	// Labels that are enabled
-	EndpointLabels Labels
-	// Labels from probes
-	ProbeLabels Labels
+	Custom Labels
+	// Labels derived from orchestration system
+	Orchestration Labels
+	// Orchestration labels which have been disabled
+	Disabled Labels
 }
 
 func (o *OpLabels) DeepCopy() *OpLabels {
 	return &OpLabels{
-		AllLabels:      o.AllLabels.DeepCopy(),
-		UserLabels:     o.UserLabels.DeepCopy(),
-		EndpointLabels: o.EndpointLabels.DeepCopy(),
-		ProbeLabels:    o.ProbeLabels.DeepCopy(),
+		Custom:        o.Custom.DeepCopy(),
+		Disabled:      o.Disabled.DeepCopy(),
+		Orchestration: o.Orchestration.DeepCopy(),
 	}
 }
 
-func (opl *OpLabels) GetDeletedLabels() Labels {
-	deletedLabels := opl.AllLabels.DeepCopy()
-	for k := range opl.UserLabels {
-		delete(deletedLabels, k)
+func (o *OpLabels) Enabled() Labels {
+	enabled := make(Labels, len(o.Custom)+len(o.Orchestration))
+
+	for k, v := range o.Custom {
+		enabled[k] = v
 	}
 
-	return deletedLabels
+	for k, v := range o.Orchestration {
+		enabled[k] = v
+	}
+
+	return enabled
 }
 
-type LearningLabel struct {
-	EndpointID uint16
-	Learn      bool
-}
+func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
+	if base == nil {
+		return nil
+	}
 
-func NewLearningLabel(endpointID uint16, learn bool) *LearningLabel {
-	return &LearningLabel{
-		EndpointID: endpointID,
-		Learn:      learn,
+	return &OpLabels{
+		Custom:        NewLabelsFromModel(base.Custom),
+		Disabled:      NewLabelsFromModel(base.Disabled),
+		Orchestration: NewLabelsFromModel(base.OrchestrationSystem),
 	}
 }
 
@@ -99,10 +102,32 @@ type Label struct {
 	// Source can be on of the values present in const.go (e.g.: CiliumLabelSource)
 	Source string `json:"source"`
 	absKey string
+	// Mark element to be used to find unused labels in lists
+	DeletionMark bool `json:"-"`
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
+
+// Marks all labels with the DeletionMark
+func (l Labels) MarkAllForDeletion() {
+	for k := range l {
+		l[k].DeletionMark = true
+	}
+}
+
+// Deletes the labels which have the DeletionMark set and returns true if any
+func (l Labels) DeleteMarked() bool {
+	deleted := false
+	for k := range l {
+		if l[k].DeletionMark {
+			delete(l, k)
+			deleted = true
+		}
+	}
+
+	return deleted
+}
 
 // AppendPrefixInKey appends the given prefix to all the Key's of the map and the
 // respective Labels' Key.
@@ -110,10 +135,10 @@ func (l Labels) AppendPrefixInKey(prefix string) Labels {
 	newLabels := Labels{}
 	for k, v := range l {
 		newLabels[prefix+k] = &Label{
-			prefix + v.Key,
-			v.Value,
-			v.Source,
-			v.absKey,
+			Key:    prefix + v.Key,
+			Value:  v.Value,
+			Source: v.Source,
+			absKey: v.absKey,
 		}
 	}
 	return newLabels
@@ -299,13 +324,31 @@ func (lbls Labels) DeepCopy() Labels {
 	o := Labels{}
 	for k, v := range lbls {
 		o[k] = &Label{
-			v.Key,
-			v.Value,
-			v.Source,
-			v.absKey,
+			Key:    v.Key,
+			Value:  v.Value,
+			Source: v.Source,
+			absKey: v.absKey,
 		}
 	}
 	return o
+}
+
+func NewLabelsFromModel(base []string) Labels {
+	lbls := Labels{}
+	for _, v := range base {
+		lbl := ParseLabel(v)
+		lbls[lbl.Key] = lbl
+	}
+
+	return lbls
+}
+
+func (lbls Labels) GetModel() []string {
+	res := []string{}
+	for _, v := range lbls {
+		res = append(res, v.String())
+	}
+	return res
 }
 
 // MergeLabels merges labels from into to. It overwrites all labels with the same Key as
@@ -325,29 +368,25 @@ func (lbls Labels) MergeLabels(from Labels) {
 
 // SHA256Sum calculates lbls' internal SHA256Sum. For a particular set of labels is
 // guarantee that it will always have the same SHA256Sum.
-func (lbls Labels) SHA256Sum() (string, error) {
-	sha := sha512.New512_256()
-	sortedMap := lbls.sortMap()
-	if err := json.NewEncoder(sha).Encode(sortedMap); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+func (lbls Labels) SHA256Sum() string {
+	return fmt.Sprintf("%x", sha512.New512_256().Sum(lbls.sortedList()))
 }
 
-func (lbls Labels) sortMap() []string {
+func (lbls Labels) sortedList() []byte {
 	var keys []string
 	for k := range lbls {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	var sortedMap []string
+
+	result := ""
 	for _, k := range keys {
 		// We don't care if the values already have a '=' since this method is
 		// only used to calculate a SHA256Sum
-		str := fmt.Sprintf(`%s=%s`, k, lbls[k].Value)
-		sortedMap = append(sortedMap, str)
+		result += fmt.Sprintf(`%s=%s;`, k, lbls[k].Value)
 	}
-	return sortedMap
+
+	return []byte(result)
 }
 
 /// ToSlice returns a slice of label with the values of the given Labels' map.

@@ -20,19 +20,18 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cilium/cilium/common/ipam"
+	"github.com/cilium/cilium/pkg/client"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
 )
 
-type compatGetCapabilityResponse struct {
-	SupportsAutoIPv6 bool
-}
+const (
+	PoolIPv4 = "CiliumPoolv4"
+	PoolIPv6 = "CiliumPoolv6"
+)
 
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
-	err := json.NewEncoder(w).Encode(&compatGetCapabilityResponse{
-		SupportsAutoIPv6: true,
-	})
+	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{})
 	if err != nil {
 		log.Fatalf("capabilities encode: %s", err)
 		sendError(w, "encode error", http.StatusInternalServerError)
@@ -53,6 +52,27 @@ func (driver *driver) getDefaultAddressSpaces(w http.ResponseWriter, r *http.Req
 	objectResponse(w, resp)
 }
 
+func (driver *driver) getPoolResponse(req *api.RequestPoolRequest) *api.RequestPoolResponse {
+	addr := driver.conf.Addressing
+	if req.V6 == false {
+		return &api.RequestPoolResponse{
+			PoolID: PoolIPv4,
+			Pool:   "0.0.0.0/0",
+			Data: map[string]string{
+				"com.docker.network.gateway": addr.IPV4.IP + "/32",
+			},
+		}
+	} else {
+		return &api.RequestPoolResponse{
+			PoolID: PoolIPv6,
+			Pool:   addr.IPV6.AllocRange,
+			Data: map[string]string{
+				"com.docker.network.gateway": addr.IPV6.IP + "/128",
+			},
+		}
+	}
+}
+
 func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 	var req api.RequestPoolRequest
 
@@ -62,15 +82,7 @@ func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debugf("Request Pool request: %+v", &req)
-
-	pr, err := driver.client.GetIPAMConf(ipam.LibnetworkIPAMType, ipam.IPAMReq{RequestPoolRequest: &req})
-
-	if err != nil {
-		sendError(w, fmt.Sprintf("Could not get cilium IPAM configuration: %s", err), http.StatusBadRequest)
-	}
-
-	resp := pr.RequestPoolResponse
-
+	resp := driver.getPoolResponse(&req)
 	log.Debugf("Request Pool response: %+v", resp)
 	objectResponse(w, resp)
 }
@@ -96,27 +108,37 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Request Address request: %+v", &request)
 
-	ipConfig, err := driver.client.AllocateIP(ipam.LibnetworkIPAMType,
-		ipam.IPAMReq{RequestAddressRequest: &request},
-	)
+	family := client.AddressFamilyIPv6 // Default
+	switch request.PoolID {
+	case PoolIPv4:
+		family = client.AddressFamilyIPv4
+	case PoolIPv6:
+		family = client.AddressFamilyIPv6
+	}
 
+	ipam, err := driver.client.IPAMAllocate(family)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Could not allocate IP address: %s", err), http.StatusBadRequest)
 		return
 	}
 
-	var addr string
-	if ipConfig.IP6 != nil {
-		addr = ipConfig.IP6.IP.IP.String() + "/128"
-	} else if ipConfig.IP4 != nil {
-		addr = ipConfig.IP4.IP.IP.String() + "/32"
+	addr := ipam.Endpoint
+	if addr == nil {
+		sendError(w, "No IP addressing provided", http.StatusBadRequest)
+		return
 	}
 
-	var resp *api.RequestAddressResponse
-	if ipConfig.IP6 != nil || ipConfig.IP4 != nil {
-		resp = &api.RequestAddressResponse{
-			Address: addr,
+	resp := &api.RequestAddressResponse{}
+	if addr.IPV6 != "" {
+		if family != client.AddressFamilyIPv6 {
+			sendError(w, "Requested IPv4, received IPv6 address", http.StatusInternalServerError)
 		}
+		resp.Address = addr.IPV6 + "/128"
+	} else if addr.IPV4 != "" {
+		if family != client.AddressFamilyIPv4 {
+			sendError(w, "Requested IPv6, received IPv4 address", http.StatusInternalServerError)
+		}
+		resp.Address = addr.IPV4 + "/32"
 	}
 
 	log.Debugf("Request Address response: %+v", resp)
@@ -131,10 +153,7 @@ func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debugf("Release Address request: %+v", release)
-
-	err := driver.client.ReleaseIP(ipam.LibnetworkIPAMType,
-		ipam.IPAMReq{ReleaseAddressRequest: &release})
-	if err != nil {
+	if err := driver.client.IPAMReleaseIP(release.Address); err != nil {
 		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return
 	}

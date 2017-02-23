@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-package policy_repo
+package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,22 +27,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/backend"
-	cnc "github.com/cilium/cilium/common/client"
+	. "github.com/cilium/cilium/api/v1/client/policy"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
-	l "github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
 
 var (
-	client             backend.CiliumBackend
 	ignoredMasksSource = []string{".git"}
 	ignoredMasks       []*regexp.Regexp
-	log                = l.MustGetLogger("cilium-cli")
-	CliCommand         cli.Command
+	cliPolicy          cli.Command
 )
 
 func init() {
@@ -53,7 +48,7 @@ func init() {
 		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
 	}
 
-	CliCommand = cli.Command{
+	cliPolicy = cli.Command{
 		Name:  "policy",
 		Usage: "Manage policy operations",
 		Subcommands: []cli.Command{
@@ -75,14 +70,19 @@ func init() {
 				Usage:     "Import a policy (sub)tree",
 				Action:    importPolicy,
 				ArgsUsage: "<path>",
-				Before:    verifyArgumentsValidate,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "echo, e",
+						Usage: "Echo the inserted policy after successful insertion",
+					},
+				},
+				Before: verifyArgumentsValidate,
 			},
 			{
 				Name:      "dump",
 				Usage:     "Dump policy (sub)tree",
 				Action:    dumpPolicy,
 				ArgsUsage: "<path>",
-				Before:    initEnv,
 			},
 			{
 				Name:      "delete",
@@ -107,7 +107,6 @@ func init() {
 						Usage: "List all reserved IDs",
 					},
 				},
-				Before: initEnv,
 			},
 			{
 				Name: "allowed",
@@ -128,37 +127,12 @@ func init() {
 	}
 }
 
-func initEnv(ctx *cli.Context) error {
-	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
-	} else {
-		common.SetupLOG(log, "INFO")
-	}
-
-	var (
-		c   *cnc.Client
-		err error
-	)
-	if host := ctx.GlobalString("host"); host == "" {
-		c, err = cnc.NewDefaultClient()
-	} else {
-		c, err = cnc.NewClient(host, nil)
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating cilium-client: %s\n", err)
-		return fmt.Errorf("Error while creating cilium-client: %s", err)
-	}
-	client = c
-
-	return nil
-}
-
 func verifyArgumentsValidate(ctx *cli.Context) error {
 	path := ctx.Args().First()
 	if path == "" {
 		return fmt.Errorf("Error: empty path")
 	}
-	return initEnv(ctx)
+	return nil
 }
 
 func verifyAllowedSlice(slice []string) error {
@@ -193,7 +167,7 @@ func verifyArgumentsPolicy(ctx *cli.Context) error {
 		return fmt.Errorf("Invalid destination: %s", err)
 	}
 
-	return initEnv(ctx)
+	return nil
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {
@@ -355,8 +329,7 @@ func loadPolicy(name string) (*policy.Node, error) {
 func importPolicy(ctx *cli.Context) {
 	path := ctx.Args().First()
 	if node, err := loadPolicy(path); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not import policy %s: %s\n", path, err)
-		os.Exit(1)
+		Fatalf("Could not import policy %s: %s\n", path, err)
 	} else {
 		log.Debugf("Constructed policy object for import %+v", node)
 
@@ -365,9 +338,11 @@ func importPolicy(ctx *cli.Context) {
 			return
 		}
 
-		if err := client.PolicyAdd(node.Name, node); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not import policy directory %s: %s\n", path, err)
-			os.Exit(1)
+		jsonPolicy := node.JSONMarshal()
+		if resp, err := client.PolicyPut(node.Name, jsonPolicy); err != nil {
+			Fatalf("Could not import policy directory %s: %s\n", path, err)
+		} else if ctx.Bool("echo") {
+			fmt.Printf("%s\n", resp)
 		}
 	}
 }
@@ -385,8 +360,7 @@ func prettyPrint(node *policy.Node) {
 func validatePolicy(ctx *cli.Context) {
 	path := ctx.Args().First()
 	if node, err := loadPolicy(path); err != nil {
-		fmt.Fprintf(os.Stderr, "Validation of %s failed\n%s\n", path, err)
-		os.Exit(1)
+		Fatalf("Validation of %s failed\n%s\n", path, err)
 	} else {
 		fmt.Printf("All policy elements are valid.\n")
 
@@ -399,36 +373,17 @@ func validatePolicy(ctx *cli.Context) {
 
 func dumpPolicy(ctx *cli.Context) {
 	path := ctx.Args().First()
-
-	if path == "" {
-		path = common.GlobalLabelPrefix
+	if resp, err := client.PolicyGet(path); err != nil {
+		Fatalf("Could not retrieve policy for: %s: %s\n", path, err)
+	} else {
+		fmt.Printf("%s\n", resp)
 	}
-
-	n, err := client.PolicyGet(path)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not retrieve policy for: %s: %s\n", path, err)
-		os.Exit(1)
-	}
-
-	prettyPrint(n)
 }
 
 func deletePolicy(ctx *cli.Context) {
 	path := ctx.Args().Get(0)
-	var err error
-	coverSHA256Sum := "0"
-	if coverageSlice := ctx.StringSlice("coverage"); len(coverageSlice) != 0 {
-		coverageLabels := labels.ParseStringLabelsInOrder(coverageSlice)
-		coverSHA256Sum, err = labels.LabelSliceSHA256Sum(coverageLabels)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to calculate SHA256Sum for the given labels: %s\n", err)
-			os.Exit(1)
-		}
-	}
-
-	if err := client.PolicyDelete(path, coverSHA256Sum); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not delete node policy for: %s: %s\n", path, err)
-		os.Exit(1)
+	if err := client.PolicyDelete(path); err != nil {
+		Fatalf("Could not delete node policy for: %s: %s\n", path, err)
 	}
 }
 
@@ -449,38 +404,37 @@ func getSecID(ctx *cli.Context) {
 	}
 }
 
-func parseAllowedSlice(slice []string) ([]labels.Label, error) {
-	inLabels := []labels.Label{}
-	id := policy.NumericIdentity(0)
+func parseAllowedSlice(slice []string) ([]string, error) {
+	inLabels := []string{}
+	id := ""
 
 	for _, v := range slice {
-		if n, err := strconv.ParseUint(v, 10, 32); err != nil {
+		if _, err := strconv.ParseInt(v, 10, 64); err != nil {
 			// can fail which means it needs to be a label
-			lbl := labels.ParseLabel(v)
-			inLabels = append(inLabels, *lbl)
+			inLabels = append(inLabels, v)
 		} else {
-			if id != 0 {
+			if id != "" {
 				return nil, fmt.Errorf("More than one security ID provided")
 			}
 
-			id = policy.NumericIdentity(n)
+			id = v
 		}
 	}
 
-	if id != 0 {
+	if id != "" {
 		if len(inLabels) > 0 {
 			return nil, fmt.Errorf("You can only specify either ID or labels")
 		}
 
-		ctx, err := client.GetLabels(id)
+		resp, err := client.IdentityGet(id)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to retrieve labels for ID %d: %s", id, err)
+			return nil, fmt.Errorf("Unable to retrieve labels for ID %s: %s", id, err)
 		}
-		if ctx == nil {
-			return nil, fmt.Errorf("ID %d not found", id)
+		if resp == nil {
+			return nil, fmt.Errorf("ID %s not found", id)
 		}
 
-		return ctx.Labels.ToSlice(), nil
+		return resp.Labels, nil
 	} else {
 		if len(inLabels) == 0 {
 			return nil, fmt.Errorf("No label or security ID provided")
@@ -496,27 +450,27 @@ func verifyPolicy(ctx *cli.Context) {
 
 	srcSlice, err := parseAllowedSlice(srcInSlice)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid source: %s\n", err)
-		os.Exit(1)
+		Fatalf("Invalid source: %s\n", err)
 	}
 
 	dstSlice, err := parseAllowedSlice(dstInSlice)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid destination: %s\n", err)
-		os.Exit(1)
+		Fatalf("Invalid destination: %s\n", err)
 	}
 
-	searchCtx := policy.SearchContext{
-		Trace: policy.TRACE_ENABLED,
-		From:  srcSlice,
-		To:    dstSlice,
+	search := models.IdentityContext{
+		From: srcSlice,
+		To:   dstSlice,
 	}
 
-	scr, err := client.PolicyCanConsume(&searchCtx)
-
+	params := NewGetPolicyResolveParams().WithIdentityContext(&search)
+	scr, err := client.Policy.GetPolicyResolve(params)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while retrieving policy consume result: %s\n", err)
-		os.Exit(1)
+		Fatalf("Error while retrieving policy consume result: %s\n", err)
 	}
-	bytes.NewBuffer(scr.Logging).WriteTo(os.Stdout)
+
+	if scr != nil && scr.Payload != nil {
+		fmt.Printf("%s\n", scr.Payload.Log)
+		fmt.Printf("Verdict: %s\n", scr.Payload.Verdict)
+	}
 }

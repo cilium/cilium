@@ -32,15 +32,6 @@ const (
 	CNIIPAMType IPAMType = "cni-host-local"
 	// LibnetworkIPAMType
 	LibnetworkIPAMType IPAMType = "libnetwork"
-
-	// LibnetworkDefaultPoolV4 is the IPv4 pool name for libnetwork.
-	LibnetworkDefaultPoolV4 = "CiliumPoolv4"
-	// LibnetworkDefaultPoolV6 is the IPv6 pool name for libnetwork.
-	LibnetworkDefaultPoolV6 = "CiliumPoolv6"
-	// LibnetworkDummyV4AllocPool is never exposed, makes libnetwork happy.
-	LibnetworkDummyV4AllocPool = "0.0.0.0/0"
-	// LibnetworkDummyV4Gateway is never exposed, makes libnetwork happy.
-	LibnetworkDummyV4Gateway = "1.1.1.1/32"
 )
 
 // IPAMConfig is the IPAM configuration used for a particular IPAM type.
@@ -127,9 +118,4 @@ func NewRoute(dst net.IPNet, nextHop net.IP) *Route {
 // IsL2 returns true if the route represents a L2 route and false otherwise.
 func (r *Route) IsL2() bool {
 	return r.NextHop == nil
-}
-
-// IsL3 returns true if the route represents a L3 route and false otherwise.
-func (r *Route) IsL3() bool {
-	return r.NextHop != nil
 }

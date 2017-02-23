@@ -104,9 +104,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
-	sha256sum, err := l3n4Addr2.SHA256Sum()
-	c.Assert(err, Equals, nil)
-
+	sha256sum := l3n4Addr2.SHA256Sum()
 	gotL3n4AddrID, err = ds.d.GetL3n4AddrIDBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID, DeepEquals, wantL3n4AddrID)

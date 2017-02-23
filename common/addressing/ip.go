@@ -29,7 +29,10 @@ type CiliumIP interface {
 	State() uint16
 	EndpointID() uint16
 	IPNet(ones int) *net.IPNet
+	EndpointPrefix() *net.IPNet
+	IP() net.IP
 	String() string
+	IsIPv6() bool
 }
 
 type CiliumIPv6 []byte
@@ -38,9 +41,12 @@ type CiliumIPv6 []byte
 // - Node ID, bits from 112 to 120, must be different than 0
 // - Endpoint ID, bits from 120 to 128, must be equal to 0
 func NewCiliumIPv6(address string) (CiliumIPv6, error) {
-	ip := net.ParseIP(address)
-	if ip == nil {
-		return nil, fmt.Errorf("Unable to parse IPv6 address: %s", address)
+	ip, _, err := net.ParseCIDR(address)
+	if err != nil {
+		ip = net.ParseIP(address)
+		if ip == nil {
+			return nil, fmt.Errorf("Invalid IPv6 address: %s", address)
+		}
 	}
 
 	// As result of ParseIP, ip is either a valid IPv6 or IPv4 address. net.IP
@@ -57,6 +63,10 @@ func DeriveCiliumIPv6(src net.IP) CiliumIPv6 {
 	ip := make(CiliumIPv6, 16)
 	copy(ip, src.To16())
 	return ip
+}
+
+func (ip CiliumIPv6) IsIPv6() bool {
+	return true
 }
 
 // Returns the node ID portion of the address or 0
@@ -120,6 +130,10 @@ func (ip CiliumIPv6) IPNet(ones int) *net.IPNet {
 	}
 }
 
+func (ip CiliumIPv6) EndpointPrefix() *net.IPNet {
+	return ip.IPNet(128)
+}
+
 func (ip CiliumIPv6) IP() net.IP {
 	return net.IP(ip)
 }
@@ -163,9 +177,12 @@ func (ip *CiliumIPv6) UnmarshalJSON(b []byte) error {
 type CiliumIPv4 []byte
 
 func NewCiliumIPv4(address string) (CiliumIPv4, error) {
-	ip := net.ParseIP(address)
-	if ip == nil {
-		return nil, fmt.Errorf("Unable to parse IPv4 address: %s", address)
+	ip, _, err := net.ParseCIDR(address)
+	if err != nil {
+		ip = net.ParseIP(address)
+		if ip == nil {
+			return nil, fmt.Errorf("Invalid IPv4 address: %s", address)
+		}
 	}
 
 	if ip4 := ip.To4(); ip4 == nil {
@@ -179,6 +196,10 @@ func DeriveCiliumIPv4(src net.IP) CiliumIPv4 {
 	ip := make(CiliumIPv4, 4)
 	copy(ip, src.To4())
 	return ip
+}
+
+func (ip CiliumIPv4) IsIPv6() bool {
+	return false
 }
 
 func (ip CiliumIPv4) NodeID() uint32 {
@@ -198,8 +219,17 @@ func (ip CiliumIPv4) IPNet(ones int) *net.IPNet {
 	}
 }
 
+func (ip CiliumIPv4) EndpointPrefix() *net.IPNet {
+	return ip.IPNet(32)
+}
+
 func (ip CiliumIPv4) IP() net.IP {
 	return net.IP(ip)
+}
+
+func (ip CiliumIPv4) State() uint16 {
+	// IPv4 addresses can't carry state
+	return 0
 }
 
 func (ip CiliumIPv4) IPAMReq() ipam.IPAMReq {

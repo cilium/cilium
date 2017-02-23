@@ -16,6 +16,7 @@
 package daemon
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -52,6 +54,7 @@ var (
 		},
 		Labels: lbls,
 	}
+	nilApiError *apierror.ApiError
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -92,7 +95,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	d, err := NewDaemon(daemonConf)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	ds.d = d
 	d.kvClient.DeleteTree(common.OperationalPath)
 }
@@ -105,119 +108,117 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 func (ds *DaemonSuite) TestLabels(c *C) {
 	//Set up last free ID with zero
 	id, err := ds.d.GetMaxLabelID()
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	c.Assert(id, Equals, policy.MinimalNumericIdentity)
 
-	secCtxLbl, new, err := ds.d.PutLabels(lbls, "containerLabel1-1")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err := ds.d.CreateOrUpdateIdentity(lbls, "containerLabel1-1")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel1-2")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls, "containerLabel1-2")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity)
 	c.Assert(secCtxLbl.RefCount(), Equals, 2)
 	c.Assert(new, Equals, false)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-1")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls2, "containerLabel2-1")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-2")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls2, "containerLabel2-2")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 2)
 	c.Assert(new, Equals, false)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel1-3")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls, "containerLabel1-3")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity)
 	c.Assert(secCtxLbl.RefCount(), Equals, 3)
 	c.Assert(new, Equals, false)
 
 	//Get labels from ID
-	gotSecCtxLbl, err := ds.d.GetLabels(policy.MinimalNumericIdentity)
-	c.Assert(err, Equals, nil)
+	gotSecCtxLbl, err := ds.d.LookupIdentity(policy.MinimalNumericIdentity)
+	c.Assert(err, IsNil)
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 3)
 
-	err = ds.d.DeleteLabelsByUUID(policy.MinimalNumericIdentity, "containerLabel1-1")
-	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(policy.MinimalNumericIdentity)
-	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-1")
+	c.Assert(err, IsNil)
+	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity)
+	c.Assert(err, IsNil)
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 2)
 
-	gotSecCtxLbl, err = ds.d.GetLabels(policy.MinimalNumericIdentity + 1)
-	c.Assert(err, Equals, nil)
+	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity + 1)
+	c.Assert(err, IsNil)
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity + 1
 	wantSecCtxLbls.Labels = lbls2
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 2)
 
-	err = ds.d.DeleteLabelsByUUID(policy.MinimalNumericIdentity, "containerLabel1-2")
-	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(policy.MinimalNumericIdentity)
+	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-2")
+	c.Assert(err, IsNil)
+	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity)
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
 	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 1)
 
-	err = ds.d.DeleteLabelsByUUID(policy.MinimalNumericIdentity, "containerLabel1-3")
-	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(policy.MinimalNumericIdentity)
-	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-3")
+	c.Assert(err, IsNil)
+	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity)
+	c.Assert(err, IsNil)
 	var emptySecCtxLblPtr *policy.Identity
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
 	err = ds.d.kvClient.SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), policy.MinimalNumericIdentity.Uint32())
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 
-	err = ds.d.DeleteLabelsByUUID(policy.MinimalNumericIdentity, "containerLabel1-non-existent")
-	c.Assert(err, Equals, nil)
-	gotSecCtxLbl, err = ds.d.GetLabels(policy.MinimalNumericIdentity)
-	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-non-existent")
+	c.Assert(err, DeepEquals, errors.New("identity not found"))
+	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity)
+	c.Assert(err, IsNil)
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-3")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls2, "containerLabel2-3")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 3)
 	c.Assert(new, Equals, false)
 
-	sha256sum, err := lbls2.SHA256Sum()
-	c.Assert(err, Equals, nil)
-
-	gotSecCtxLbl, err = ds.d.GetLabelsBySHA256(sha256sum)
-	c.Assert(err, Equals, nil)
+	sha256sum := lbls2.SHA256Sum()
+	gotSecCtxLbl, err = ds.d.LookupIdentityBySHA256(sha256sum)
+	c.Assert(err, IsNil)
 	c.Assert(gotSecCtxLbl, DeepEquals, secCtxLbl)
 
-	err = ds.d.DeleteLabelsBySHA256(sha256sum, "containerLabel2-1")
-	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabelsByUUID(policy.MinimalNumericIdentity+1, "containerLabel2-2")
-	c.Assert(err, Equals, nil)
-	err = ds.d.DeleteLabelsByUUID(policy.MinimalNumericIdentity+1, "containerLabel2-3")
-	c.Assert(err, Equals, nil)
+	err = ds.d.DeleteIdentityBySHA256(sha256sum, "containerLabel2-1")
+	c.Assert(err, IsNil)
+	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity+1, "containerLabel2-2")
+	c.Assert(err, IsNil)
+	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity+1, "containerLabel2-3")
+	c.Assert(err, IsNil)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls2, "containerLabel2-3")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls2, "containerLabel2-3")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
 
-	secCtxLbl, new, err = ds.d.PutLabels(lbls, "containerLabel2-3")
-	c.Assert(err, Equals, nil)
+	secCtxLbl, new, err = ds.d.CreateOrUpdateIdentity(lbls, "containerLabel2-3")
+	c.Assert(err, IsNil)
 	c.Assert(secCtxLbl.ID, Equals, policy.MinimalNumericIdentity+1)
 	c.Assert(secCtxLbl.RefCount(), Equals, 1)
 	c.Assert(new, Equals, true)
@@ -226,9 +227,9 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 func (ds *DaemonSuite) TestGetMaxID(c *C) {
 	lastID := policy.NumericIdentity(common.MaxSetOfLabels - 1)
 	err := ds.d.kvClient.SetValue(common.LastFreeLabelIDKeyPath, lastID)
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 
 	id, err := ds.d.GetMaxLabelID()
-	c.Assert(err, Equals, nil)
+	c.Assert(err, IsNil)
 	c.Assert(id, Equals, lastID)
 }

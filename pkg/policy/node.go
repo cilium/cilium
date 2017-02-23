@@ -321,6 +321,14 @@ func (pn *Node) DebugString(level int) string {
 	return str
 }
 
+func (pn *Node) JSONMarshal() string {
+	b, err := json.MarshalIndent(pn, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
 func (n *Node) ResolveL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 	for k := range n.Rules {
 		switch n.Rules[k].(type) {
@@ -337,4 +345,9 @@ func (n *Node) ResolveL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 	}
 
 	return result
+}
+
+// Returns true if a node has any rules attached or at least one child
+func (n *Node) HasRules() bool {
+	return (n.Children != nil && len(n.Children) > 0) || len(n.Rules) > 0
 }

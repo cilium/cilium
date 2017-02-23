@@ -11,7 +11,6 @@
  - [ ] Policy
    - [X] Ingress/consumer access based on labels
    - [X] Distributed label to ID map
-   - [ ] Learning capability
    - [ ] Verification suite [#201]
    - [ ] Add port mapping to spec [#202]
    - [ ] Egress CIDR policy [#164]

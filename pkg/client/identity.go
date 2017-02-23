@@ -1,5 +1,5 @@
 //
-// Copyright 2016 Authors of Cilium
+// Copyright 2016-2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,23 +16,17 @@
 package client
 
 import (
-	"fmt"
-	"net/http"
-
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/api/v1/client/policy"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
-// Update sends a SET request to the daemon to update its configuration
-func (cli Client) Update(opts option.OptionMap) error {
-	serverResp, err := cli.R().SetBody(opts).Post("/update")
-	if err != nil {
-		return fmt.Errorf("error while connecting to daemon: %s", err)
-	}
+// Get security identity
+func (c *Client) IdentityGet(id string) (*models.Identity, error) {
+	params := policy.NewGetIdentityIDParams().WithID(id)
 
-	if serverResp.StatusCode() != http.StatusOK &&
-		serverResp.StatusCode() != http.StatusAccepted {
-		return processErrorBody(serverResp.Body(), nil)
+	if resp, err := c.Policy.GetIdentityID(params); err != nil {
+		return nil, err
+	} else {
+		return resp.Payload, nil
 	}
-
-	return nil
 }

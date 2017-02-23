@@ -18,16 +18,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	cnc "github.com/cilium/cilium/common/client"
-	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/plugins"
+	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/containernetworking/cni/pkg/ns"
@@ -47,6 +48,16 @@ func init() {
 	// since namespace ops (unshare, setns) are done for a single thread, we
 	// must ensure that the goroutine does not jump from OS thread to thread
 	runtime.LockOSThread()
+}
+
+type CmdState struct {
+	Endpoint  *models.EndpointChangeRequest
+	IP6       addressing.CiliumIPv6
+	IP6routes []plugins.Route
+	IP4       addressing.CiliumIPv4
+	IP4routes []plugins.Route
+	Client    *client.Client
+	HostAddr  *models.NodeAddressing
 }
 
 type netConf struct {
@@ -88,35 +99,49 @@ func renameLink(curName, newName string) error {
 	return netlink.LinkSetName(link, newName)
 }
 
-func addIPConfigToLink(ipConfig *ipam.IPConfig, link netlink.Link, ifName string) error {
-	log.Debugf("Configuring link %+v/%s with %+v", link, ifName, ipConfig)
+func releaseIP(client *client.Client, ip string) {
+	if ip != "" {
+		if err := client.IPAMReleaseIP(ip); err != nil {
+			log.Warningf("Unable to release IP %s: %s", ip, err)
+		}
+	}
+}
 
-	addr := &netlink.Addr{IPNet: &ipConfig.IP}
+func releaseIPs(client *client.Client, addr *models.EndpointAddressing) {
+	releaseIP(client, addr.IPV6)
+	releaseIP(client, addr.IPV4)
+}
+
+func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netlink.Link, ifName string) error {
+	log.Debugf("Configuring link %+v/%s with %s", link, ifName, ip.String())
+
+	addr := &netlink.Addr{IPNet: ip.EndpointPrefix()}
 	if err := netlink.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
 
 	// Sort provided routes to make sure we apply any more specific
 	// routes first which may be used as nexthops in wider routes
-	sort.Sort(ipam.ByMask(ipConfig.Routes))
+	sort.Sort(plugins.ByMask(routes))
 
-	for _, r := range ipConfig.Routes {
+	for _, r := range routes {
 		log.Debugf("Adding route %+v", r)
 		rt := &netlink.Route{
 			LinkIndex: link.Attrs().Index,
 			Scope:     netlink.SCOPE_UNIVERSE,
-			Dst:       &r.Destination,
-			Gw:        r.NextHop,
+			Dst:       &r.Prefix,
 		}
 
-		if r.IsL2() {
+		if r.Nexthop == nil {
 			rt.Scope = netlink.SCOPE_LINK
+		} else {
+			rt.Gw = *r.Nexthop
 		}
 
 		if err := netlink.RouteAdd(rt); err != nil {
 			if !os.IsExist(err) {
 				return fmt.Errorf("failed to add route '%s via %v dev %v': %v",
-					r.Destination.String(), r.NextHop, ifName, err)
+					r.Prefix.String(), r.Nexthop, ifName, err)
 			}
 		}
 	}
@@ -124,7 +149,7 @@ func addIPConfigToLink(ipConfig *ipam.IPConfig, link netlink.Link, ifName string
 	return nil
 }
 
-func configureIface(ifName string, config *ipam.IPAMRep) error {
+func configureIface(ifName string, state *CmdState) error {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -134,13 +159,14 @@ func configureIface(ifName string, config *ipam.IPAMRep) error {
 		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
-	if config.IP4 != nil {
-		if err := addIPConfigToLink(config.IP4, link, ifName); err != nil {
+	if state.HostAddr.IPV4 != nil {
+		if err := addIPConfigToLink(state.IP4, state.IP4routes, link, ifName); err != nil {
 			return fmt.Errorf("error configuring IPv4: %s", err.Error())
 		}
 	}
-	if config.IP6 != nil {
-		if err := addIPConfigToLink(config.IP6, link, ifName); err != nil {
+
+	if state.HostAddr.IPV6 != nil {
+		if err := addIPConfigToLink(state.IP6, state.IP6routes, link, ifName); err != nil {
 			return fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
 	}
@@ -148,58 +174,73 @@ func configureIface(ifName string, config *ipam.IPAMRep) error {
 	return nil
 }
 
-func createCNIReply(ipamConf *ipam.IPAMRep) error {
-	v6Routes := []cniTypes.Route{}
-	v4Routes := []cniTypes.Route{}
-	for _, r := range ipamConf.IP6.Routes {
-		newRoute := cniTypes.Route{
-			Dst: r.Destination,
-		}
-		if r.NextHop != nil {
-			newRoute.GW = r.NextHop
-		}
-		v6Routes = append(v6Routes, newRoute)
+func newCNIRoute(r plugins.Route) cniTypes.Route {
+	rt := cniTypes.Route{
+		Dst: r.Prefix,
+	}
+	if r.Nexthop != nil {
+		rt.GW = *r.Nexthop
 	}
 
-	r := cniTypes.Result{
-		IP6: &cniTypes.IPConfig{
-			IP:      ipamConf.IP6.IP,
-			Gateway: ipamConf.IP6.Gateway,
-			Routes:  v6Routes,
-		},
+	return rt
+}
+
+func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypes.IPConfig, error) {
+	var routes []plugins.Route
+	var err error
+	var gw string
+	var ip addressing.CiliumIP
+
+	if isIPv6 {
+		if state.IP6, err = addressing.NewCiliumIPv6(ipAddr); err != nil {
+			return nil, err
+		}
+		if state.IP6routes, err = plugins.IPv6Routes(state.HostAddr); err != nil {
+			return nil, err
+		}
+		routes = state.IP6routes
+		ip = state.IP6
+		gw = plugins.IPv6Gateway(state.HostAddr)
+	} else {
+		if state.IP4, err = addressing.NewCiliumIPv4(ipAddr); err != nil {
+			return nil, err
+		}
+		if state.IP4routes, err = plugins.IPv4Routes(state.HostAddr); err != nil {
+			return nil, err
+		}
+		routes = state.IP4routes
+		ip = state.IP4
+		gw = plugins.IPv4Gateway(state.HostAddr)
 	}
 
-	if ipamConf.IP4 != nil {
-		for _, r := range ipamConf.IP4.Routes {
-			newRoute := cniTypes.Route{
-				Dst: r.Destination,
-			}
-			if r.NextHop != nil {
-				newRoute.GW = r.NextHop
-			}
-			v4Routes = append(v4Routes, newRoute)
-		}
-		r.IP4 = &cniTypes.IPConfig{
-			IP:      ipamConf.IP4.IP,
-			Gateway: ipamConf.IP4.Gateway,
-			Routes:  v4Routes,
-		}
+	rt := []cniTypes.Route{}
+	for _, r := range routes {
+		rt = append(rt, newCNIRoute(r))
 	}
 
-	return r.Print()
+	gwIP := net.ParseIP(gw)
+	if gwIP == nil {
+		return nil, fmt.Errorf("Invalid gateway address: %s", gw)
+	}
+
+	return &cniTypes.IPConfig{
+		IP:      *ip.EndpointPrefix(),
+		Gateway: gwIP,
+		Routes:  rt,
+	}, nil
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
+	log.Debugf("ADD %s", args)
+
 	n, err := loadNetConf(args.StdinData)
 	if err != nil {
 		return err
 	}
 
-	log.Debugf("Args %s", args)
-
-	c, err := cnc.NewDefaultClient()
+	client, err := client.NewDefaultClient()
 	if err != nil {
-		return fmt.Errorf("error while starting cilium-client: %s", err)
+		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
 
 	netNs, err := ns.GetNS(args.Netns)
@@ -213,15 +254,20 @@ func cmdAdd(args *skel.CmdArgs) error {
 			args.IfName, args.Netns, err)
 	}
 
-	var ep endpoint.Endpoint
-	veth, peer, tmpIfName, err := plugins.SetupVeth(args.ContainerID, n.MTU, &ep)
+	ep := &models.EndpointChangeRequest{
+		ContainerID: args.ContainerID,
+		State:       models.EndpointStateWaitingForIdentity,
+		Addressing:  &models.EndpointAddressing{},
+	}
+
+	veth, peer, tmpIfName, err := plugins.SetupVeth(ep.ContainerID, n.MTU, ep)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.Warningf("failed to clean up veth %q: %s", veth.Name, err)
+				log.Warningf("failed to clean up and delete veth %q: %s", veth.Name, err)
 			}
 		}
 	}()
@@ -238,75 +284,87 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return nil
 	})
 
-	req := ipam.IPAMReq{}
-	ipamConf, err := c.AllocateIP(ipam.CNIIPAMType, req)
+	ipam, err := client.IPAMAllocate("")
 	if err != nil {
 		return err
 	}
+
+	if ipam.Endpoint == nil {
+		return fmt.Errorf("Invalid IPAM response, missing addressing")
+	}
+
+	ep.Addressing.IPV6 = ipam.Endpoint.IPV6
+	ep.Addressing.IPV4 = ipam.Endpoint.IPV4
+
+	// release addresses on failure
 	defer func() {
-		if err != nil && ipamConf != nil {
-			if ipamConf.IP6 != nil {
-				req := ipam.IPAMReq{IP: &ipamConf.IP6.IP.IP}
-				if err = c.ReleaseIP(ipam.CNIIPAMType, req); err != nil {
-					log.Warningf("failed to release allocated IPv6 of container ID %q: %s", args.ContainerID, err)
-				}
-			}
-			if ipamConf.IP4 != nil {
-				req := ipam.IPAMReq{IP: &ipamConf.IP4.IP.IP}
-				if err = c.ReleaseIP(ipam.CNIIPAMType, req); err != nil {
-					log.Warningf("failed to release allocated IPv4 of container ID %q: %s", args.ContainerID, err)
-				}
-			}
+		if err != nil {
+			releaseIPs(client, ep.Addressing)
 		}
 	}()
 
+	if err = plugins.SufficientAddressing(ipam.HostAddressing); err != nil {
+		return fmt.Errorf("%s", err)
+	}
+
+	state := CmdState{
+		Endpoint: ep,
+		Client:   client,
+		HostAddr: ipam.HostAddressing,
+	}
+
+	res := cniTypes.Result{}
+
+	if ep.Addressing.IPV6 != "" {
+		res.IP6, err = prepareIP(ep.Addressing.IPV6, true, &state)
+		if err != nil {
+			return err
+		}
+
+		ep.ID = int64(state.IP6.EndpointID())
+	} else {
+		return fmt.Errorf("IPAM did not provide required IPv6 address")
+	}
+
+	if ep.Addressing.IPV4 != "" {
+		if res.IP4, err = prepareIP(ep.Addressing.IPV4, false, &state); err != nil {
+			return err
+		}
+	}
+
+	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		return configureIface(args.IfName, ipamConf)
+		return configureIface(args.IfName, &state)
 	}); err != nil {
 		return err
 	}
 
-	ep.IPv6 = addressing.DeriveCiliumIPv6(ipamConf.IP6.IP.IP)
-	if ipamConf.IP4 != nil {
-		ep.IPv4 = addressing.DeriveCiliumIPv4(ipamConf.IP4.IP.IP)
-	}
-	ep.NodeIP = ipamConf.IP6.Gateway
-	ep.DockerID = args.ContainerID
-	ep.SetID()
-	if err = c.EndpointJoin(ep); err != nil {
-		return fmt.Errorf("unable to create eBPF map: %s", err)
+	if err = client.EndpointCreate(ep); err != nil {
+		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
 
-	return createCNIReply(ipamConf)
+	return res.Print()
 }
 
 func cmdDel(args *skel.CmdArgs) error {
-	c, err := cnc.NewDefaultClient()
+	log.Debugf("DEL %s", args)
+
+	client, err := client.NewDefaultClient()
 	if err != nil {
-		return fmt.Errorf("error while starting cilium-client: %s", err)
+		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
 
-	ep, err := c.EndpointGetByDockerID(args.ContainerID)
-	if err != nil {
-		return fmt.Errorf("error while retrieving endpoint from cilium daemon: %s", err)
-	}
-	if ep == nil {
-		return fmt.Errorf("endpoint with container ID %s not found", args.ContainerID)
-	}
-
-	ipv6addr := ep.IPv6.IP()
-	if err = c.ReleaseIP(ipam.CNIIPAMType, ipam.IPAMReq{IP: &ipv6addr}); err != nil {
-		log.Warningf("failed to release allocated IPv6 of container ID %q: %s", args.ContainerID, err)
-	}
-	ipv4addr := ep.IPv4.IP()
-	if ep.IPv4 != nil {
-		if err = c.ReleaseIP(ipam.CNIIPAMType, ipam.IPAMReq{IP: &ipv4addr}); err != nil {
-			log.Warningf("failed to release allocated IPv4 of container ID %q: %s", args.ContainerID, err)
-		}
+	id := endpoint.NewID(endpoint.ContainerIdPrefix, args.ContainerID)
+	if ep, err := client.EndpointGet(id); err != nil {
+		return fmt.Errorf("unable to find endpoint %s: %s", id, err)
+	} else if ep == nil {
+		return fmt.Errorf("unable to find endpoint %s", id)
+	} else {
+		releaseIPs(client, ep.Addressing)
 	}
 
-	if err := c.EndpointLeave(ep.ID); err != nil {
-		log.Warningf("leaving the endpoint failed: %s\n", err)
+	if err := client.EndpointDelete(id); err != nil {
+		log.Warningf("Deletion of endpoint failed: %s\n", err)
 	}
 
 	return ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {

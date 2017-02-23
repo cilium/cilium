@@ -19,8 +19,7 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/api/v1/models"
 
 	"github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
@@ -46,7 +45,7 @@ func Endpoint2IfName(endpointID string) string {
 // fields such as LXCMAC, NodeMac, IfIndex and IfName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
-func SetupVeth(id string, mtu int, ep *endpoint.Endpoint) (*netlink.Veth, *netlink.Link, string, error) {
+func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, *netlink.Link, string, error) {
 
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := temporaryInterfacePrefix + id[:5]
@@ -102,10 +101,10 @@ func SetupVeth(id string, mtu int, ep *endpoint.Endpoint) (*netlink.Veth, *netli
 		return nil, nil, "", fmt.Errorf("unable to bring up veth pair: %s", err)
 	}
 
-	ep.LXCMAC = mac.MAC(peer.Attrs().HardwareAddr)
-	ep.NodeMAC = mac.MAC(hostVeth.Attrs().HardwareAddr)
-	ep.IfIndex = hostVeth.Attrs().Index
-	ep.IfName = lxcIfName
+	ep.Mac = peer.Attrs().HardwareAddr.String()
+	ep.HostMac = hostVeth.Attrs().HardwareAddr.String()
+	ep.InterfaceIndex = int64(hostVeth.Attrs().Index)
+	ep.InterfaceName = lxcIfName
 
 	return veth, &peer, tmpIfName, nil
 }
