@@ -124,7 +124,7 @@ func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
 		}
 	}(ep)
 
-	if d.conf.IPv4Enabled {
+	if !d.conf.IPv4Disabled {
 		if ep.IPv4 != nil {
 			if err = d.AllocateIP(ep.IPv4.IP()); err != nil {
 				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)

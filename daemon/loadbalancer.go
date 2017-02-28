@@ -341,7 +341,7 @@ func (d *Daemon) RevNATDeleteAll() error {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	if d.conf.IPv4Enabled {
+	if !d.conf.IPv4Disabled {
 		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 			return err
 		}
@@ -461,7 +461,7 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	if d.conf.IPv4Enabled {
+	if !d.conf.IPv4Disabled {
 		lbmap.Service4Map.Dump(lbmap.Service4DumpParser, parseSVCEntries)
 		lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, parseRevNATEntries)
 	}

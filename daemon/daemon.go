@@ -192,7 +192,7 @@ func (d *Daemon) compileBase() error {
 // useK8sNodeCIDR sets the ipv4-range value from the cluster-node-cidr defined in the,
 // kube-apiserver.
 func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
-	if !d.conf.IPv4Enabled {
+	if d.conf.IPv4Disabled {
 		return nil
 	}
 	k8sNode, err := d.k8sClient.Nodes().Get(nodeName)
@@ -248,14 +248,14 @@ func (d *Daemon) init() error {
 		d.conf.NodeAddress.IPv6Address.IP().String(),
 		hostIP.String())
 
-	if d.conf.IPv4Enabled {
+	if d.conf.IPv4Disabled {
+		fw.WriteString(" */\n\n")
+	} else {
 		fmt.Fprintf(fw, ""+
 			" * Host-IPv4: %s\n"+
 			" */\n\n"+
 			"#define ENABLE_IPV4\n",
 			d.conf.NodeAddress.IPv4Address.IP().String())
-	} else {
-		fw.WriteString(" */\n\n")
 	}
 
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
@@ -263,7 +263,8 @@ func (d *Daemon) init() error {
 
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
-	if d.conf.IPv4Enabled {
+
+	if !d.conf.IPv4Disabled {
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", binary.LittleEndian.Uint32(d.loopbackIPv4))
 	}
 
@@ -306,7 +307,7 @@ func (d *Daemon) init() error {
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
 			return err
 		}
-		if d.conf.IPv4Enabled {
+		if !d.conf.IPv4Disabled {
 			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 				return err
 			}
@@ -349,7 +350,7 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		IPv6Allocator: ipallocator.NewCIDRRange(c.NodeAddress.IPv6AllocRange()),
 	}
 
-	if c.IPv4Enabled {
+	if !c.IPv4Disabled {
 		ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(c.NodeAddress.IPv4AllocRange())
 		ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
 			// IPv4
@@ -440,7 +441,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
-	if d.conf.IPv4Enabled {
+	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, err := d.ipamConf.IPv4Allocator.AllocateNext()
 		if err != nil {
@@ -551,7 +552,7 @@ func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
 			AllocRange: addr.IPv6AllocRange().String(),
 		},
 		IPV4: &models.NodeAddressingElement{
-			Enabled:    d.conf.IPv4Enabled,
+			Enabled:    !d.conf.IPv4Disabled,
 			IP:         addr.IPv4Address.String(),
 			AllocRange: addr.IPv4AllocRange().String(),
 		},

@@ -62,7 +62,7 @@ type Config struct {
 	EtcdConfig            *etcdAPI.Config         // Etcd Configuration
 	EtcdCfgPath           string                  // Etcd Configuration path
 	DockerEndpoint        string                  // Docker endpoint
-	IPv4Enabled           bool                    // Gives IPv4 addresses to containers
+	IPv4Disabled          bool                    // Disable IPv4 allocation
 	K8sEndpoint           string                  // Kubernetes endpoint
 	K8sCfgPath            string                  // Kubeconfig path
 	ValidLabelPrefixes    *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels

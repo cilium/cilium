@@ -298,7 +298,7 @@ func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
 
 func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) {
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if !areIPsConsistent(d.conf.IPv4Enabled, isSvcIPv4, svc, se) {
+	if !areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se) {
 		return
 	}
 
@@ -338,7 +338,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 
 func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) {
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if !areIPsConsistent(d.conf.IPv4Enabled, isSvcIPv4, svc, se) {
+	if !areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se) {
 		return
 	}
 
