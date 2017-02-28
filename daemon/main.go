@@ -48,7 +48,7 @@ var (
 	// Arguments variables keep in alphabetical order
 	consulAddr         string
 	disableConntrack   bool
-	disablePolicy      bool
+	enablePolicy       bool
 	enableTracing      bool
 	enableLogstash     bool
 	etcdAddr           []string
@@ -90,7 +90,7 @@ func init() {
 	flags.StringVar(&consulAddr, "consul", "", "Consul agent address [127.0.0.1:8500]")
 	flags.StringVarP(&config.Device, "device", "d", "undefined", "Device to snoop on")
 	flags.BoolVar(&disableConntrack, "disable-conntrack", false, "Disable connection tracking")
-	flags.BoolVar(&disablePolicy, "disable-policy", false, "Disable policy enforcement")
+	flags.BoolVar(&enablePolicy, "enable-policy", false, "Enable policy enforcement")
 	flags.StringVarP(&config.DockerEndpoint, "docker", "e", "unix:///var/run/docker.sock",
 		"Register a listener for docker events on the given endpoint")
 	flags.StringSliceVar(&etcdAddr, "etcd", []string{}, "Etcd agent address [http://127.0.0.1:2379]")
@@ -167,7 +167,7 @@ func initEnv() {
 	config.Opts.Set(options.PolicyTracing, enableTracing)
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
-	config.Opts.Set(endpoint.OptionPolicy, !disablePolicy)
+	config.Opts.Set(endpoint.OptionPolicy, enablePolicy)
 	config.OptsMU.Unlock()
 
 	config.ValidLabelPrefixesMU.Lock()

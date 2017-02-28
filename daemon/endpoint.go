@@ -649,3 +649,12 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 
 	return NewPutEndpointIDLabelsOK()
 }
+
+func (d *Daemon) triggerRebuildAll() {
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	for _, ep := range d.endpoints {
+		ep.RegenerateIfReady(d)
+	}
+}

@@ -243,12 +243,32 @@ func (d *Daemon) policyAdd(path string, node *policy.Node) (bool, error) {
 	return false, nil
 }
 
+func (d *Daemon) enablePolicyEnforcement() {
+	d.conf.Opts.Set(endpoint.OptionPolicy, true)
+
+	d.endpointsMU.Lock()
+	defer d.endpointsMU.Unlock()
+
+	enablePolicy := map[string]string{endpoint.OptionPolicy: "enabled"}
+
+	for _, ep := range d.endpoints {
+		if ep.ApplyOpts(enablePolicy) {
+			ep.RegenerateIfReady(d)
+		}
+	}
+}
+
 func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.ApiError {
 	log.Debugf("Policy Add Request: %s %+v", path, node)
 
 	if !strings.HasPrefix(path, common.GlobalLabelPrefix) {
 		return apierror.New(PutPolicyPathInvalidPathCode,
 			"Invalid path %s: must start with %s", path, common.GlobalLabelPrefix)
+	}
+
+	// Enable policy if not already enabled
+	if !d.conf.Opts.IsEnabled(endpoint.OptionPolicy) {
+		d.enablePolicyEnforcement()
 	}
 
 	if policyModified, err := d.policyAdd(path, node); err != nil {
