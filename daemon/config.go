@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package daemon
+package main
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/bpf/lxcmap"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -29,26 +29,9 @@ import (
 	consulAPI "github.com/hashicorp/consul/api"
 )
 
-const (
-	OptionPolicyTracing = "PolicyTracing"
-)
-
 var (
-	OptionSpecPolicyTracing = option.Option{
-		Description: "Enable tracing when resolving policy (Debug)",
-	}
-
-	DaemonOptionLibrary = option.OptionLibrary{
-		OptionPolicyTracing: &OptionSpecPolicyTracing,
-	}
 	kvBackend = ""
 )
-
-func init() {
-	for k, v := range endpoint.EndpointMutableOptionLibrary {
-		DaemonOptionLibrary[k] = v
-	}
-}
 
 // Config is the configuration used by Daemon.
 type Config struct {
@@ -82,7 +65,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Opts: option.NewBoolOptions(&DaemonOptionLibrary),
+		Opts: option.NewBoolOptions(&options.Library),
 	}
 }
 

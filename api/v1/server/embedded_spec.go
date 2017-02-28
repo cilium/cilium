@@ -1072,9 +1072,6 @@ func init() {
     "FrontendAddress": {
       "description": "Layer 4 address",
       "type": "object",
-      "required": [
-        "ip"
-      ],
       "properties": {
         "ip": {
           "description": "Layer 3 address",

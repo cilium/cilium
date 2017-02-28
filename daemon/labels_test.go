@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package daemon
+package main
 
 import (
 	"errors"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
@@ -70,7 +71,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	daemonConf := &Config{
 		DryMode: true,
-		Opts:    option.NewBoolOptions(&DaemonOptionLibrary),
+		Opts:    option.NewBoolOptions(&options.Library),
 	}
 	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir

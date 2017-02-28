@@ -225,7 +225,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, nil
 	}
 
-	if base.IP == nil {
+	if base.IP == "" {
 		return nil, fmt.Errorf("Missing IP address")
 	}
 
@@ -239,9 +239,9 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, err
 	}
 
-	ip := net.ParseIP(*base.IP)
+	ip := net.ParseIP(base.IP)
 	if ip == nil {
-		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
+		return nil, fmt.Errorf("Invalid IP address \"%s\"", base.IP)
 	}
 
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
@@ -270,9 +270,8 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		return nil
 	}
 
-	ip := a.IP.String()
 	return &models.FrontendAddress{
-		IP:       &ip,
+		IP:       a.IP.String(),
 		Protocol: string(a.Protocol),
 		Port:     a.Port,
 	}

@@ -16,15 +16,15 @@ collide with other services running in your machine.
 ### Edit your `cilium-net-daemon.conf` or your docker-compose.yml cilium file
 
 If your are running cilium as standalone edit your `/etc/init/cilium-net-daemon.conf` file
-and add the `-l` flag to point to the logstash address and port that you set up on the
+and add the `--logstash` flag to point to the logstash address and port that you set up on the
 previous step and after editing restart the `cilium-net-daemon` service.
 
 ```
-exec cilium daemon run -l 192.168.33.21:9302
+exec cilium-agent --logstash 192.168.33.21:9302
 ```
 
 Otherwise if you are running cilium with docker-compose edit the cilium docker-compose.yml
-and add the `-l` flag to point to the logstash address and port that you set up on the
+and add the `--logstash` flag to point to the logstash address and port that you set up on the
 previous step.
 
 ```
@@ -32,7 +32,7 @@ version: '2'
 services:
   cilium:
     image: cilium:cilium-ubuntu-16-04
-    command: cilium -D daemon run -l 192.168.33.21:9302
+    command: cilium-agent --debug --logstash 192.168.33.21:9302
 ...
 ```
 

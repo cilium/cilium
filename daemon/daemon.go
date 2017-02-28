@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package daemon
+package main
 
 import (
 	"bufio"
@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -105,7 +106,7 @@ func (d *Daemon) TracingEnabled() bool {
 	d.conf.OptsMU.RLock()
 	defer d.conf.OptsMU.RUnlock()
 
-	return d.conf.Opts.IsEnabled(OptionPolicyTracing)
+	return d.conf.Opts.IsEnabled(options.PolicyTracing)
 }
 
 func (d *Daemon) DryModeEnabled() bool {
@@ -456,7 +457,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if c.RestoreState {
-		if err := d.SyncState(common.CiliumPath, true); err != nil {
+		if err := d.SyncState(d.conf.RunDir, true); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
 		if err := d.SyncLBMap(); err != nil {

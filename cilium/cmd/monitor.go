@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
 import (
 	"bytes"
@@ -25,13 +25,33 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
+// monitorCmd represents the monitor command
+var monitorCmd = &cobra.Command{
+	Use:   "monitor",
+	Short: "Monitoring",
+	Long: `The monitor displays notifications and events ommited by the BPF
+programs attached to endpoints and devices. This includes:
+  * Dropped packet notifications
+  * Captured packet traces
+  * Debugging information`,
+	Run: func(cmd *cobra.Command, args []string) {
+		runMonitor()
+	},
+}
+
+func init() {
+	RootCmd.AddCommand(monitorCmd)
+	monitorCmd.Flags().IntVarP(&eventConfig.NumCpus, "num-cpus", "c", runtime.NumCPU(), "Number of CPUs")
+	monitorCmd.Flags().IntVarP(&eventConfig.NumPages, "num-pages", "n", 64, "Number of pages for ring buffer")
+	monitorCmd.Flags().BoolVarP(&dissect, "dissect", "d", false, "Dissect packet data")
+}
+
 var (
-	cliMonitor cli.Command
-	dissect    = false
-	config     = bpf.PerfEventConfig{
+	dissect     = false
+	eventConfig = bpf.PerfEventConfig{
 		MapName:      bpf.EventsMapName,
 		Type:         bpf.PERF_TYPE_SOFTWARE,
 		Config:       bpf.PERF_COUNT_SW_BPF_OUTPUT,
@@ -72,8 +92,8 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	}
 }
 
-func run(ctx *cli.Context) {
-	events, err := bpf.NewPerCpuEvents(&config)
+func runMonitor() {
+	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -113,32 +133,4 @@ func run(ctx *cli.Context) {
 		}
 	}
 
-}
-
-func init() {
-	cliMonitor = cli.Command{
-		Name:  "monitor",
-		Usage: "Monitor packet drop notifications",
-		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:        "num-cpus, c",
-				Usage:       "Number of CPUs",
-				Value:       runtime.NumCPU(),
-				EnvVar:      "__NR_CPUS__",
-				Destination: &config.NumCpus,
-			},
-			cli.IntFlag{
-				Name:        "num-pages, n",
-				Usage:       "Number of pages for ring buffer",
-				Value:       64,
-				Destination: &config.NumPages,
-			},
-			cli.BoolFlag{
-				Name:        "d",
-				Usage:       "Dissect packet data",
-				Destination: &dissect,
-			},
-		},
-		Action: run,
-	}
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package daemon
+package main
 
 import (
 	"os"
@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
@@ -172,7 +173,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		NodeMAC: HardAddr,
 		Status:  &endpoint.EndpointStatus{},
 	}
-	e.Opts = option.NewBoolOptions(&DaemonOptionLibrary)
+	e.Opts = option.NewBoolOptions(&options.Library)
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
 	defer func() {
@@ -200,7 +201,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		NodeMAC: HardAddr,
 		Status:  &endpoint.EndpointStatus{},
 	}
-	e.Opts = option.NewBoolOptions(&DaemonOptionLibrary)
+	e.Opts = option.NewBoolOptions(&options.Library)
 	e.SetIdentity(ds.d, prodBarSecLblsCtx)
 	err2 = e.Regenerate(ds.d)
 	c.Assert(err2, IsNil)

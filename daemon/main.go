@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016- 2017Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,39 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package daemon
+package main
 
 import (
 	"fmt"
 	"net"
 	"os"
-	"sort"
 	"strings"
 	"sync"
-	"text/tabwriter"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	common "github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
-	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	loads "github.com/go-openapi/loads"
 	consulAPI "github.com/hashicorp/consul/api"
 	flags "github.com/jessevdk/go-flags"
-	"github.com/op/go-logging"
-	"github.com/urfave/cli"
+	logging "github.com/op/go-logging"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
 	config = NewConfig()
+	log    = logging.MustGetLogger("cilium")
 
 	// Arguments variables keep in alphabetical order
 	consulAddr         string
@@ -52,322 +51,101 @@ var (
 	disablePolicy      bool
 	enableTracing      bool
 	enableLogstash     bool
-	etcdAddr           cli.StringSlice
-	k8sLabels          cli.StringSlice
+	etcdAddr           []string
+	k8sLabels          []string
 	labelPrefixFile    string
 	logstashAddr       string
-	logstashProbeTimer int
+	logstashProbeTimer uint32
 	socketPath         string
 	v4Prefix           string
 	v6Address          string
 	nat46prefix        string
 	bpfRoot            string
-
-	log = logging.MustGetLogger("cilium-net-daemon")
-
-	// CliCommand is the command that will be used in cilium-net main program.
-	CliCommand cli.Command
 )
+
+var cfgFile string
+
+// RootCmd represents the base command when called without any subcommands
+var RootCmd = &cobra.Command{
+	Use:   "daemon",
+	Short: "Run cilium daemon",
+	Run: func(cmd *cobra.Command, args []string) {
+		initEnv()
+		runDaemon()
+	},
+}
+
+func main() {
+	if err := RootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
+}
 
 func init() {
-	CliCommand = cli.Command{
-		Name: "daemon",
-		// Keep Destination alphabetical order
-		Subcommands: []cli.Command{
-			{
-				Name:   "run",
-				Usage:  "Run the daemon",
-				Before: initEnv,
-				Action: run,
-				Flags: []cli.Flag{
-					cli.StringFlag{
-						Destination: &consulAddr,
-						Name:        "consul-server, c",
-						Usage:       "Consul agent address [127.0.0.1:8500]",
-					},
-					cli.StringFlag{
-						Destination: &config.Device,
-						Name:        "snoop-device, d",
-						Value:       "undefined",
-						Usage:       "Device to snoop on",
-					},
-					cli.BoolFlag{
-						Destination: &disableConntrack,
-						Name:        "disable-conntrack",
-						Usage:       "Disable connection tracking",
-					},
-					cli.BoolFlag{
-						Destination: &disablePolicy,
-						Name:        "disable-policy",
-						Usage:       "Disable policy enforcement",
-					},
-					cli.StringFlag{
-						Destination: &config.DockerEndpoint,
-						Name:        "e",
-						Value:       "unix:///var/run/docker.sock",
-						Usage:       "Register a listener for docker events on the given endpoint",
-					},
-					cli.StringSliceFlag{
-						Value: &etcdAddr,
-						Name:  "etcd-servers",
-						Usage: "Etcd agent address [http://127.0.0.1:2379]",
-					},
-					cli.StringFlag{
-						Destination: &config.EtcdCfgPath,
-						Name:        "etcd-config-path",
-						Usage:       "Absolute path to the etcd configuration file",
-					},
-					cli.BoolFlag{
-						Destination: &enableTracing,
-						Name:        "enable-tracing",
-						Usage:       "Enable tracing while determining policy",
-					},
-					cli.StringFlag{
-						Destination: &nat46prefix,
-						Name:        "nat46-range",
-						Value:       addressing.DefaultNAT46Prefix,
-						Usage:       "IPv6 prefix to map IPv4 addresses to",
-					},
-					cli.StringFlag{
-						Destination: &config.K8sEndpoint,
-						Name:        "k8s-api-server, k",
-						Usage:       "Kubernetes api address server",
-					},
-					cli.StringFlag{
-						Destination: &config.K8sCfgPath,
-						Name:        "k8s-kubeconfig-path",
-						Usage:       "Absolute path to the kubeconfig file",
-					},
-					cli.StringSliceFlag{
-						Value: &k8sLabels,
-						Name:  "k8s-prefix",
-						Usage: "Key values that will be read from kubernetes. (Default: k8s-app, version)",
-					},
-					cli.BoolTFlag{
-						Destination: &config.KeepConfig,
-						Name:        "keep-config",
-						Usage:       "When restoring state, keeps containers' configuration in place",
-					},
-					cli.StringFlag{
-						Destination: &labelPrefixFile,
-						Name:        "p",
-						Value:       "",
-						Usage:       "File with valid label prefixes",
-					},
-					cli.StringFlag{
-						Destination: &config.LibDir,
-						Name:        "D",
-						Value:       common.DefaultLibDir,
-						Usage:       "Cilium library directory",
-					},
-					cli.BoolFlag{
-						Destination: &enableLogstash,
-						Name:        "logstash",
-						Usage:       "Enables logstash agent",
-					},
-					cli.StringFlag{
-						Destination: &logstashAddr,
-						Name:        "logstash-agent",
-						Value:       "127.0.0.1:8080",
-						Usage:       "Logstash agent address",
-					},
-					cli.IntFlag{
-						Destination: &logstashProbeTimer,
-						Name:        "logstash-probe-timer",
-						Value:       10,
-						Usage:       "Logstash probe timer (seconds)",
-					},
-					cli.StringFlag{
-						Destination: &v6Address,
-						Name:        "n, node-address",
-						Value:       "",
-						Usage:       "IPv6 address of node, must be in correct format",
-					},
-					cli.BoolTFlag{
-						Destination: &config.RestoreState,
-						Name:        "restore",
-						Usage:       "Restores state, if possible, from previous daemon",
-					},
-					cli.StringFlag{
-						Destination: &config.RunDir,
-						Name:        "R",
-						Value:       common.CiliumPath,
-						Usage:       "Runtime data directory",
-					},
-					cli.StringFlag{
-						Destination: &socketPath,
-						Name:        "s",
-						Value:       common.CiliumSock,
-						Usage:       "Sets the socket path to listen for connections",
-					},
-					cli.BoolFlag{
-						Destination: &config.LBMode,
-						Name:        "lb",
-						Usage:       "Enables load balancer mode where load balancer bpf program is attached to the interface ",
-					},
-					cli.BoolFlag{
-						Destination: &config.IPv4Disabled,
-						Name:        "disable-ipv4",
-						Usage:       "Enables IPv4 mode where containers receive an IPv4 address ",
-					},
-					cli.StringFlag{
-						Destination: &v4Prefix,
-						Name:        "ipv4-range",
-						Value:       "",
-						Usage:       "IPv4 prefix",
-					},
-					cli.StringFlag{
-						Destination: &config.Tunnel,
-						Name:        "t",
-						Value:       "vxlan",
-						Usage:       "Tunnel mode vxlan or geneve, vxlan is the default",
-					},
-					cli.StringFlag{
-						Destination: &bpfRoot,
-						Name:        "bpf-root",
-						EnvVar:      "BPF_ROOT",
-						Usage:       "Path to mounted BPF filesystem",
-					},
-				},
-			},
-			{
-				Name:      "config",
-				Usage:     "Manage daemon configuration",
-				Action:    configDaemon,
-				ArgsUsage: "[<option>=(enable|disable) ...]",
-			},
-			{
-				Name:   "status",
-				Usage:  "Returns the daemon current status",
-				Action: statusDaemon,
-			},
-		},
-	}
+	cobra.OnInitialize(initConfig)
+	flags := RootCmd.Flags()
+	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/ciliumd.yaml)")
+	flags.BoolP("debug", "D", false, "Enable debug messages")
+	flags.StringVar(&consulAddr, "consul", "", "Consul agent address [127.0.0.1:8500]")
+	flags.StringVarP(&config.Device, "device", "d", "undefined", "Device to snoop on")
+	flags.BoolVar(&disableConntrack, "disable-conntrack", false, "Disable connection tracking")
+	flags.BoolVar(&disablePolicy, "disable-policy", false, "Disable policy enforcement")
+	flags.StringVarP(&config.DockerEndpoint, "docker", "e", "unix:///var/run/docker.sock",
+		"Register a listener for docker events on the given endpoint")
+	flags.StringSliceVar(&etcdAddr, "etcd", []string{}, "Etcd agent address [http://127.0.0.1:2379]")
+	flags.StringVar(&config.EtcdCfgPath, "etcd-config-path", "", "Absolute path to the etcd configuration file")
+	flags.BoolVar(&enableTracing, "enable-tracing", false, "Enable tracing while determining policy")
+	flags.StringVar(&nat46prefix, "nat46-range", addressing.DefaultNAT46Prefix,
+		"IPv6 prefix to map IPv4 addresses to")
+	flags.StringVar(&config.K8sEndpoint, "k8s-api-server", "", "Kubernetes api address server")
+	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
+	flags.StringSliceVar(&k8sLabels, "k8s-prefix", []string{},
+		"Key values that will be read from kubernetes. (Default: k8s-app, version)")
+	flags.BoolVar(&config.KeepConfig, "keep-config", false,
+		"When restoring state, keeps containers' configuration in place")
+	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
+	flags.StringVar(&config.LibDir, "libdir", defaults.LibDir, "Path to directory with program templates")
+	flags.BoolVar(&enableLogstash, "logstash", false, "Enable logstash integration")
+	flags.StringVar(&logstashAddr, "logstash-agent", "127.0.0.1:8080", "Logstash agent address")
+	flags.Uint32Var(&logstashProbeTimer, "logstash-probe-timer", 10, "Logstash probe timer (seconds)")
+	flags.StringVarP(&v6Address, "node-address", "n", "", "IPv6 address of node, must be in correct format")
+	flags.BoolVar(&config.RestoreState, "restore", false,
+		"Restores state, if possible, from previous daemon")
+	flags.StringVar(&config.RunDir, "state-dir", defaults.RuntimePath, "Path to directory to store runtime state")
+	flags.StringVar(&socketPath, "socket-path", defaults.SockPath, "Sets the socket path to listen for connections")
+	flags.BoolVar(&config.LBMode, "lb", false,
+		"Enables load balancer mode where load balancer bpf program is attached to the interface ")
+	flags.BoolVar(&config.IPv4Disabled, "disable-ipv4", false, "Disable IPv4 mode")
+	flags.StringVar(&v4Prefix, "ipv4-range", "", "IPv4 prefix")
+	flags.StringVarP(&config.Tunnel, "tunnel", "t", "vxlan", "Tunnel mode vxlan or geneve, vxlan is the default")
+	flags.StringVar(&bpfRoot, "bpf-root", "", "Path to mounted BPF filesystem")
+	viper.BindPFlags(flags)
 }
 
-var (
-	client *clientPkg.Client
-)
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cfgFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(cfgFile)
+	}
 
-func initClient(ctx *cli.Context) {
-	if cl, err := clientPkg.NewClient(ctx.GlobalString("host")); err != nil {
-		fmt.Fprintf(os.Stderr, "Error while creating client: %s\n", err)
-		os.Exit(1)
+	viper.SetEnvPrefix("cilium")
+	viper.SetConfigName("ciliumd") // name of config file (without extension)
+	viper.AutomaticEnv()           // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	if viper.GetBool("debug") {
+		common.SetupLOG(log, "DEBUG")
 	} else {
-		client = cl
+		common.SetupLOG(log, "INFO")
 	}
 }
 
-func statusDaemon(ctx *cli.Context) {
-	initClient(ctx)
-
-	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Unable to reach out daemon: %s\n", err)
-		os.Exit(1)
-	} else {
-		sr := resp.Payload
-		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-		if sr.Kvstore != nil {
-			fmt.Fprintf(w, "KVStore:\t%s\n", sr.Kvstore.State)
-		}
-		if sr.ContainerRuntime != nil {
-			fmt.Fprintf(w, "ContainerRuntime:\t%s\n", sr.ContainerRuntime.State)
-		}
-		if sr.Kubernetes != nil {
-			fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes.State)
-		}
-		if sr.Cilium != nil {
-			fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium.State)
-		}
-
-		if sr.IPAM != nil {
-			fmt.Printf("Allocated IPv4 addresses:\n")
-			for _, ipv4 := range sr.IPAM.IPV4 {
-				fmt.Printf(" %s\n", ipv4)
-
-			}
-			fmt.Printf("Allocated IPv6 addresses:\n")
-			for _, ipv6 := range sr.IPAM.IPV6 {
-				fmt.Printf(" %s\n", ipv6)
-			}
-		}
-
-		w.Flush()
-
-		if sr.Cilium != nil && sr.Cilium.State != models.StatusStateOk {
-			os.Exit(1)
-		} else {
-			os.Exit(0)
-		}
-	}
-
-}
-
-func dumpConfig(Opts map[string]string) {
-	opts := []string{}
-	for k := range Opts {
-		opts = append(opts, k)
-	}
-	sort.Strings(opts)
-
-	for _, k := range opts {
-		text := common.Green("Enabled")
-
-		if Opts[k] == "" {
-			text = common.Red("Disabled")
-		}
-
-		fmt.Printf("%-24s %s\n", k, text)
-	}
-}
-
-func configDaemon(ctx *cli.Context) {
-	first := ctx.Args().First()
-	if first == "list" {
-		for k, s := range DaemonOptionLibrary {
-			fmt.Printf("%-24s %s\n", k, s.Description)
-		}
-		return
-	}
-
-	initClient(ctx)
-
-	opts := ctx.Args()
-	if len(opts) == 0 {
-		resp, err := client.ConfigGet()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error while retrieving configuration: %s", err)
-			os.Exit(1)
-		}
-
-		dumpConfig(resp.Configuration.Immutable)
-		dumpConfig(resp.Configuration.Mutable)
-		return
-	}
-
-	dOpts := make(models.ConfigurationMap, len(opts))
-
-	for k := range opts {
-		name, value, err := option.ParseOption(opts[k], &DaemonOptionLibrary)
-		if err != nil {
-			fmt.Printf("%s\n", err)
-			os.Exit(1)
-		}
-
-		if value {
-			dOpts[name] = "Enabled"
-		} else {
-			dOpts[name] = "Disabled"
-		}
-
-		if err = client.ConfigPatch(dOpts); err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to set daemon configuration: %s\n", err)
-			os.Exit(1)
-		}
-	}
-}
-
-func initEnv(ctx *cli.Context) error {
+func initEnv() {
 	// The standard operation is to mount the BPF filesystem to the
 	// standard location (/sys/fs/bpf). The user may chose to specify
 	// the path to an already mounted filesystem instead. This is
@@ -380,16 +158,13 @@ func initEnv(ctx *cli.Context) error {
 	}
 
 	config.OptsMU.Lock()
-	if ctx.GlobalBool("debug") {
-		common.SetupLOG(log, "DEBUG")
+	if viper.GetBool("debug") {
 		config.Opts.Set(endpoint.OptionDebug, true)
-	} else {
-		common.SetupLOG(log, "INFO")
 	}
 
 	config.Opts.Set(endpoint.OptionDropNotify, true)
 	config.Opts.Set(endpoint.OptionNAT46, true)
-	config.Opts.Set(OptionPolicyTracing, enableTracing)
+	config.Opts.Set(options.PolicyTracing, enableTracing)
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionPolicy, !disablePolicy)
@@ -435,11 +210,9 @@ func initEnv(ctx *cli.Context) error {
 	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {
 		config.K8sEndpoint = "http://" + config.K8sEndpoint
 	}
-
-	return nil
 }
 
-func run(cli *cli.Context) {
+func runDaemon() {
 	if consulAddr != "" {
 		consulDefaultAPI := consulAPI.DefaultConfig()
 		consulSplitAddr := strings.Split(consulAddr, "://")
@@ -451,9 +224,9 @@ func run(cli *cli.Context) {
 		consulDefaultAPI.Address = consulAddr
 		config.ConsulConfig = consulDefaultAPI
 	}
-	if len(etcdAddr.Value()) != 0 && config.EtcdCfgPath == "" {
+	if len(etcdAddr) != 0 && config.EtcdCfgPath == "" {
 		config.EtcdConfig = &etcdAPI.Config{}
-		config.EtcdConfig.Endpoints = etcdAddr.Value()
+		config.EtcdConfig.Endpoints = etcdAddr
 	}
 
 	d, err := NewDaemon(config)
@@ -469,7 +242,7 @@ func run(cli *cli.Context) {
 	d.EnableConntrackGC()
 
 	if enableLogstash {
-		go d.EnableLogstash(logstashAddr, logstashProbeTimer)
+		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
 
 	d.EnableMonitor()
