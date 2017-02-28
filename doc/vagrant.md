@@ -55,7 +55,7 @@ and manually install Cilium:
   $ sudo make install
   $ sudo cp contrib/upstart/* /etc/init/
   $ sudo usermod -a -G cilium vagrant
-  $ sudo service cilium-net-daemon restart
+  $ sudo service cilium restart
   ```
 
 ## (Re)building the box

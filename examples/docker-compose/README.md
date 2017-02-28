@@ -24,12 +24,12 @@ Download the `docker-compose.yml` [here](https://raw.githubusercontent.com/ciliu
 ### Vagrant users: Stop existing cilium and consul instance
 
 If you are running the vagrant box. The Vagrantfile will have automatically
-started both a consul container and the cilium-net service managed by upstart.
+started both a consul container and the cilium service managed by upstart.
 You need to stop both:
 
 ```
 docker rm -f cilium-consul
-sudo service cilium-net-daemon stop
+sudo service cilium stop
 ```
 
 ### Run docker-compose

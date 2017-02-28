@@ -20,7 +20,7 @@ override_dh_auto_install:
 	cp contrib/upstart/* "$(DESTDIR)/etc/init"
 	apt-get install -y gettext-base
 	sed 's+env.*+env PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin+g' \
-	 "contrib/upstart/cilium-net-daemon.conf" > "$(DESTDIR)/etc/init/cilium-net-daemon.conf"
+	 "contrib/upstart/cilium.conf" > "$(DESTDIR)/etc/init/cilium.conf"
 	chmod 644 $(DESTDIR)/etc/init/*
 
 
