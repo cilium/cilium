@@ -1,7 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = plugins cli bpf
-SUBDIRSLIB = daemon
+SUBDIRS = plugins bpf cilium daemon
 GOFILES = $(shell go list ./... | grep -v /vendor/)
 
 all: $(SUBDIRS)
@@ -67,7 +66,7 @@ clean:
 	-$(MAKE) -C ./contrib/packaging/rpm clean
 	-$(MAKE) -C ./contrib/packaging/docker clean
 
-install:
+install: all
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/lib
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/githooks

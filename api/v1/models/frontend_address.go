@@ -18,8 +18,7 @@ import (
 type FrontendAddress struct {
 
 	// Layer 3 address
-	// Required: true
-	IP *string `json:"ip"`
+	IP string `json:"ip,omitempty"`
 
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
@@ -32,11 +31,6 @@ type FrontendAddress struct {
 func (m *FrontendAddress) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateIP(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
 	if err := m.validateProtocol(formats); err != nil {
 		// prop
 		res = append(res, err)
@@ -45,15 +39,6 @@ func (m *FrontendAddress) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *FrontendAddress) validateIP(formats strfmt.Registry) error {
-
-	if err := validate.Required("ip", "body", m.IP); err != nil {
-		return err
-	}
-
 	return nil
 }
 

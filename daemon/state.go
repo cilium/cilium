@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package daemon
+package main
 
 import (
 	"fmt"
@@ -38,9 +38,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
-	if dir == "" {
-		dir = common.CiliumPath
-	}
+
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err

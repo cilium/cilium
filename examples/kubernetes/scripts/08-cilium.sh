@@ -20,4 +20,4 @@ cat <<EOF | cilium -D policy import -
 }
 EOF
 
-cilium policy dump
+cilium policy get

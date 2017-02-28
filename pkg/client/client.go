@@ -19,10 +19,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	clientapi "github.com/cilium/cilium/api/v1/client"
-	common "github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/daemon/defaults"
 
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
@@ -51,7 +52,7 @@ func configureTransport(tr *http.Transport, proto, addr string) *http.Transport 
 	return tr
 }
 
-// Create client with default parameters
+// Create client with default parameters connecting to UNIX domain socket
 func NewDefaultClient() (*Client, error) {
 	return NewClient("")
 }
@@ -59,9 +60,14 @@ func NewDefaultClient() (*Client, error) {
 // Create client
 func NewClient(host string) (*Client, error) {
 	if host == "" {
-		host = "unix://" + common.CiliumSock
+		// Check if environment variable points to socket
+		e := os.Getenv(defaults.SockPathEnv)
+		if e == "" {
+			// If unset, fall back to default value
+			e = defaults.SockPath
+		}
+		host = "unix://" + e
 	}
-
 	tmp := strings.SplitN(host, "://", 2)
 	if len(tmp) != 2 {
 		return nil, fmt.Errorf("invalid host format '%s'", host)

@@ -6,7 +6,7 @@ Requires=docker.service cilium-consul.service cilium-docker.service
 [Service]
 Type=simple
 EnvironmentFile=-/etc/sysconfig/cilium
-ExecStart=/usr/bin/cilium daemon run $CILIUM_OPTS
+ExecStart=/usr/bin/cilium-agent $CILIUM_OPTS
 Restart=on-failure
 
 [Install]

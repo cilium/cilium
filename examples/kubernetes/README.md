@@ -48,9 +48,9 @@ kubectl get nodes
 NAME            STATUS    AGE
 cilium-master   Ready     9m
 ```
-Check cilium daemon status:
+Check cilium status:
 ```
-cilium daemon status
+cilium status
 ```
 ```
 KVStore:      OK - 172.17.0.2:8300
