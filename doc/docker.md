@@ -19,8 +19,7 @@ upstart or systemd can be found in the [`contrib/`](../contrib) directory.
 
 NOTE: Docker libnetwork is currently not capable of running IPv6 only
 containers via the libnetwork abstraction. A [pull request] is pending to
-resolve this. In the meantime, you have to start Cilium with IPv4 enabled:
-`cilium daemon run --ipv4`.
+resolve this.
 
 ## Usage
 

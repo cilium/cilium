@@ -99,7 +99,7 @@ function write_footer() {
     filename="${3}"
 
     if [ -n "${IPV4}" ] && [ "${IPV4}" -ne "0" ]; then
-        ipv4_options="--ipv4 --ipv4-range 10.${index}.0.1 "
+        ipv4_options="--ipv4-range 10.${index}.0.1 "
     fi
 
     if [ -n "${K8S}" ]; then

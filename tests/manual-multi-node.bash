@@ -77,5 +77,5 @@ function test_nodes {
 }
 
 init
-IPV4=1 test_nodes "-t vxlan --ipv4"
+IPV4=1 test_nodes "-t vxlan"
 test_nodes "-d eth1"

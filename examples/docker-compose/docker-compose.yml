@@ -3,7 +3,7 @@ services:
   cilium:
     container_name: cilium
     image: cilium/cilium:cilium-ubuntu-16-04
-    command: cilium -D daemon run --ipv4 -d ${IFACE} -c 127.0.0.1:8500
+    command: cilium -D daemon run -d ${IFACE} -c 127.0.0.1:8500
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium

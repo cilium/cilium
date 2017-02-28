@@ -206,8 +206,8 @@ func init() {
 						Usage:       "Enables load balancer mode where load balancer bpf program is attached to the interface ",
 					},
 					cli.BoolFlag{
-						Destination: &config.IPv4Enabled,
-						Name:        "ipv4",
+						Destination: &config.IPv4Disabled,
+						Name:        "disable-ipv4",
 						Usage:       "Enables IPv4 mode where containers receive an IPv4 address ",
 					},
 					cli.StringFlag{

@@ -171,7 +171,7 @@ func (h *deleteIPAMIP) Handle(params DeleteIPAMIPParams) middleware.Responder {
 }
 
 func (d *Daemon) isReservedAddress(ip net.IP) bool {
-	return d.conf.IPv4Enabled && d.conf.NodeAddress.IPv4Address.IP().Equal(ip)
+	return !d.conf.IPv4Disabled && d.conf.NodeAddress.IPv4Address.IP().Equal(ip)
 }
 
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
@@ -188,7 +188,7 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	defer d.ipamConf.AllocatorMutex.RUnlock()
 
 	allocv4 := []string{}
-	if d.conf.IPv4Enabled {
+	if !d.conf.IPv4Disabled {
 		ralv4 := k8sAPI.RangeAllocation{}
 		d.ipamConf.IPv4Allocator.Snapshot(&ralv4)
 		origIP := big.NewInt(0).SetBytes(d.conf.NodeAddress.IPv4AllocRange().IP)

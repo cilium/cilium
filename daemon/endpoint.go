@@ -364,7 +364,7 @@ func (d *Daemon) DeleteEndpointLocked(ep *endpoint.Endpoint) int {
 
 	d.removeEndpoint(ep)
 
-	if d.conf.IPv4Enabled {
+	if !d.conf.IPv4Disabled {
 		if err := d.ReleaseIP(ep.IPv4.IP()); err != nil {
 			log.Warningf("error while releasing IPv4 %s: %s", ep.IPv4.IP(), err)
 			errors++

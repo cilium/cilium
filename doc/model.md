@@ -64,8 +64,7 @@ Container on B: f00d:0:0:0:B:B:0:2222/128
 
 ### IPv4
 
-IPv4 addressing is optional and must be enabled when starting the daemon using
-the `--ipv4` option. If enabled, Cilium will allocate IPv4 addresses to
+Cilium will allocate IPv4 addresses to
 containers out of a `/16` node prefix. This prefix can be specified with the
 `--ipv4-range` option. If left unspecified, Cilium will try and generate a
 unique prefix using the format `10.X.0.0/16` where X is replace with the last
