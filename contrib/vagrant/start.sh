@@ -114,19 +114,19 @@ function write_footer() {
 	    cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
-    sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-    echo 'script' >> /etc/init/cilium-net-daemon.conf
-    echo 'cilium lb init 2001:db8:aaaa::1 f00d::' >> /etc/init/cilium-net-daemon.conf
-    echo 'exec cilium-agent --debug ${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} --consul "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
-    echo 'end script' >> /etc/init/cilium-net-daemon.conf
-    service cilium-net-daemon restart
+    sed -i '/exec/d' /etc/init/ciliumt.conf
+    echo 'script' >> /etc/init/cilium.conf
+    echo 'cilium lb init 2001:db8:aaaa::1 f00d::' >> /etc/init/cilium.conf
+    echo 'exec cilium-agent --debug ${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} --consul "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium.conf
+    echo 'end script' >> /etc/init/cilium.conf
+    service cilium restart
 else
-    sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium-net-daemon.service
-    sed -i '9i ExecPreStart=/usr/bin/cilium lb init 2001:db8:aaaa::1 f00d::' /lib/systemd/system/cilium-net-daemon.service
+    sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
+    sed -i '9i ExecPreStart=/usr/bin/cilium lb init 2001:db8:aaaa::1 f00d::' /lib/systemd/system/cilium.service
     echo 'CILIUM_OPTS=${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} --consul "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/sysconfig/cilium
     echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
     echo 'INITSYSTEM=SYSTEMD' >> /etc/sysconfig/cilium
-    systemctl restart cilium-net-daemon.service
+    systemctl restart cilium.service
 fi
 for ((i = 0 ; i < 24; i++)); do
     if cilium status > /dev/null 2>&1; then
@@ -140,14 +140,14 @@ EOF
 	    cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
-    sed -i '/exec/d' /etc/init/cilium-net-daemon.conf
-    echo 'exec cilium-agent --debug ${k8s_options}-n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} --consul "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium-net-daemon.conf
-    service cilium-net-daemon restart
+    sed -i '/exec/d' /etc/init/cilium.conf
+    echo 'exec cilium-agent --debug ${k8s_options}-n ${ipv6_addr} ${ipv4_options}${TUNNEL_MODE_STRING} --consul "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/init/cilium.conf
+    service cilium restart
 else
-    sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium-net-daemon.service
+    sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
     echo 'CILIUM_OPTS=${k8s_options}-n ${ipv6_addr} ${ipv4_options}--lb ${TUNNEL_MODE_STRING} --consul "${NODE_IP_BASE}${FIRST_IP_SUFFIX}:8500"' >> /etc/sysconfig/cilium
     echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
-    systemctl restart cilium-net-daemon.service
+    systemctl restart cilium.service
 fi
 for ((i = 0 ; i < 24; i++)); do
     if cilium status > /dev/null 2>&1; then

@@ -43,14 +43,13 @@ chmod 644 %{buildroot}/etc/init/*
 /etc/init/cilium-consul.conf
 /etc/init/cilium-docker.conf
 /etc/init/cilium-etcd.conf
-/etc/init/cilium-net-daemon.conf
+/etc/init/cilium.conf
 /etc/init/cilium-policy-watcher.conf
-/etc/init/cilium-socket-proxy.conf
 /etc/sysconfig/cilium
 /lib/systemd/system/cilium-consul.service
 /lib/systemd/system/cilium-docker.service
 /lib/systemd/system/cilium-etcd.service
-/lib/systemd/system/cilium-net-daemon.service
+/lib/systemd/system/cilium.service
 /opt/cni/bin/cilium-cni
 /usr/bin/cilium
 /usr/bin/cilium-docker

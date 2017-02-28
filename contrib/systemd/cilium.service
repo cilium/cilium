@@ -1,5 +1,5 @@
 [Unit]
-Description=cilium-net-daemon
+Description=cilium
 Documentation=https://github.com/cilium/cilium
 Requires=docker.service cilium-consul.service cilium-docker.service
 

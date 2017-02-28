@@ -25,7 +25,7 @@ and upstart can be found in the [`contrib`](../contrib) directory.
 
 
 ```
-service cilium-net-daemon start
+service cilium start
 ```
 
 ## Integration with existing networking

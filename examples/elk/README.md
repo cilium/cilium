@@ -13,11 +13,11 @@ This tutorial will show you how you you can retrieve cilium statistics with ELK
 Download the `docker-compose.yml` [here](docker-compose.yml) and check if the set up ports
 collide with other services running in your machine.
 
-### Edit your `cilium-net-daemon.conf` or your docker-compose.yml cilium file
+### Edit the `cilium.conf` or docker-compose.yml cilium file
 
-If your are running cilium as standalone edit your `/etc/init/cilium-net-daemon.conf` file
+If your are running cilium as standalone edit your `/etc/init/cilium.conf` file
 and add the `--logstash` flag to point to the logstash address and port that you set up on the
-previous step and after editing restart the `cilium-net-daemon` service.
+previous step and after editing restart the `cilium` service.
 
 ```
 exec cilium-agent --logstash 192.168.33.21:9302

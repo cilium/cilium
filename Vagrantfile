@@ -28,8 +28,7 @@ sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 if [ -n "$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-docker.conf /etc/init/
-    sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-net-daemon.conf /etc/init/
-    sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-socket-proxy.conf /etc/init/
+    sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium.conf /etc/init/
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-consul.conf /etc/init/
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-policy-watcher.conf /etc/init/
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/upstart/cilium-etcd.conf /etc/init/
@@ -39,7 +38,7 @@ else
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-consul.service /lib/systemd/system
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-docker.service /lib/systemd/system
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-etcd.service /lib/systemd/system
-    sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-net-daemon.service /lib/systemd/system
+    sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium.service /lib/systemd/system
     sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium /etc/sysconfig
 fi
 
