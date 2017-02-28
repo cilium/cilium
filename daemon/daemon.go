@@ -383,6 +383,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	var kvClient kvstore.KVClient
 
+	// FIXME: This should really be a single configuration flag
 	if c.ConsulConfig != nil {
 		c, err := kvstore.NewConsulClient(c.ConsulConfig)
 		if err != nil {
@@ -396,7 +397,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 		kvClient = c
 	} else {
-		return nil, fmt.Errorf("empty KVStore configuration provided")
+		log.Infof("No key/value store configuration. Using local storage.")
+		kvClient = kvstore.NewLocalClient()
 	}
 
 	dockerClient, err := createDockerClient(c.DockerEndpoint)
