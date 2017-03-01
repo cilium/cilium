@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -146,6 +147,15 @@ func initConfig() {
 }
 
 func initEnv() {
+	socketDir := path.Dir(socketPath)
+	if err := os.MkdirAll(socketDir, 0700); err != nil {
+		log.Fatalf("Cannot mkdir directory \"%s\" for cilium socket: %s", socketDir, err)
+	}
+
+	if err := os.Remove(socketPath); !os.IsNotExist(err) && err != nil {
+		log.Fatalf("Cannot remove existing Cilium sock \"%s\": %s", socketPath, err)
+	}
+
 	// The standard operation is to mount the BPF filesystem to the
 	// standard location (/sys/fs/bpf). The user may chose to specify
 	// the path to an already mounted filesystem instead. This is

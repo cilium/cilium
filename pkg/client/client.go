@@ -73,19 +73,17 @@ func NewClient(host string) (*Client, error) {
 		return nil, fmt.Errorf("invalid host format '%s'", host)
 	}
 
-	proto, addr := tmp[0], tmp[1]
-
-	switch proto {
+	switch tmp[0] {
 	case "tcp":
-		if _, err := url.Parse("tcp://" + addr); err != nil {
+		if _, err := url.Parse("tcp://" + tmp[1]); err != nil {
 			return nil, err
 		}
-		addr = "http://" + addr
-	case "http":
-		addr = "http://" + addr
+		host = "http://" + tmp[1]
+	case "unix":
+		host = tmp[1]
 	}
 
-	transport := configureTransport(nil, proto, addr)
+	transport := configureTransport(nil, tmp[0], host)
 	httpClient := &http.Client{Transport: transport}
 	clientTrans := runtime_client.NewWithClient(host, clientapi.DefaultBasePath,
 		clientapi.DefaultSchemes, httpClient)
