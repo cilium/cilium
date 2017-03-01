@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -223,7 +224,7 @@ func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
 
 func (d *Daemon) init() error {
 	globalsDir := filepath.Join(d.conf.RunDir, "globals")
-	if err := os.MkdirAll(globalsDir, 0755); err != nil {
+	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
 	}
 

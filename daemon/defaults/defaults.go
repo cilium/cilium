@@ -15,15 +15,18 @@
 package defaults
 
 const (
-	// Default path to runtime files
+	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
 
-	// Default path to static library files
+	// RuntimePathRights are the default access rights of the RuntimePath directory
+	RuntimePathRights = 0770
+
+	// LibDir is the default path to static library files
 	LibDir = "/usr/lib/cilium"
 
-	// Path to UNIX domain socket exposing the API to clients
+	// SockPath is the path to the UNIX domain socket exposing the API to clients locally
 	SockPath = RuntimePath + "/cilium.sock"
 
-	// Environment variable for UNIX domain socket
+	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 )
