@@ -94,11 +94,13 @@ type MapValue interface {
 }
 
 type MapInfo struct {
-	MapType    MapType
-	KeySize    uint32
-	ValueSize  uint32
-	MaxEntries uint32
-	Flags      uint32
+	MapType       MapType
+	KeySize       uint32
+	ValueSize     uint32
+	MaxEntries    uint32
+	Flags         uint32
+	OwnerProgType uint32
+	MemLock       uint64
 }
 
 type Map struct {
@@ -154,8 +156,12 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 			info.ValueSize = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "max_entries:\t%d", &value); n == 1 && err == nil {
 			info.MaxEntries = uint32(value)
-		} else if n, err := fmt.Sscanf(line, "map_flas:\t%i", &value); n == 1 && err == nil {
+		} else if n, err := fmt.Sscanf(line, "map_flags:\t%i", &value); n == 1 && err == nil {
 			info.Flags = uint32(value)
+		} else if n, err := fmt.Sscanf(line, "memlock:\t%llu", &value); n == 1 && err == nil {
+			info.MemLock = uint64(value)
+		} else if n, err := fmt.Sscanf(line, "owner_prog_type:\t%d", &value); n == 1 && err == nil {
+			info.OwnerProgType = uint32(value)
 		}
 	}
 
