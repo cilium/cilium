@@ -15,7 +15,9 @@
 package main
 
 import (
+	"fmt"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -117,6 +119,22 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go endpointController.Run(wait.NeverStop)
+
+	// We only care about ingress in LBMode
+	if d.conf.IsLBEnabled() {
+		_, ingressController := cache.NewInformer(
+			cache.NewListWatchFromClient(d.k8sClient.Extensions().GetRESTClient(),
+				"ingresses", v1.NamespaceAll, fields.Everything()),
+			&v1beta1.Ingress{},
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    d.ingressAddFn,
+				UpdateFunc: d.ingressModFn,
+				DeleteFunc: d.ingressDelFn,
+			},
+		)
+		go ingressController.Run(wait.NeverStop)
+	}
 
 	return nil
 }
@@ -273,6 +291,13 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 	d.loadBalancer.K8sEndpoints[svcns] = newSvcEP
 
 	d.syncLB(&svcns, nil, nil)
+
+	if d.conf.IsLBEnabled() {
+		if err := d.syncExternalLB(&svcns, nil, nil); err != nil {
+			log.Errorf("Unable to add endpoints on ingress service %s: %s", svcns, err)
+			return
+		}
+	}
 }
 
 func (d *Daemon) endpointModFn(_ interface{}, newObj interface{}) {
@@ -299,34 +324,36 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	defer d.loadBalancer.K8sMU.Unlock()
 
 	d.syncLB(nil, nil, svcns)
+	if d.conf.IsLBEnabled() {
+		if err := d.syncExternalLB(nil, nil, svcns); err != nil {
+			log.Errorf("Unable to remove endpoints on ingress service %s: %s", svcns, err)
+			return
+		}
+	}
 }
 
-func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.K8sServiceNamespace, se *types.K8sServiceEndpoint) bool {
-
+func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.K8sServiceNamespace, se *types.K8sServiceEndpoint) error {
 	if isSvcIPv4 {
 		if !ipv4Enabled {
-			log.Warningf("Received an IPv4 kubernetes service but IPv4 is"+
+			return fmt.Errorf("Received an IPv4 kubernetes service but IPv4 is "+
 				"disabled in the cilium daemon. Ignoring service %+v", svc)
-			return false
 		}
 
 		for epIP := range se.BEIPs {
 			//is IPv6?
 			if net.ParseIP(epIP).To4() == nil {
-				log.Errorf("Not all endpoints IPs are IPv4. Ignoring IPv4 service %+v", svc)
-				return false
+				return fmt.Errorf("Not all endpoints IPs are IPv4. Ignoring IPv4 service %+v", svc)
 			}
 		}
 	} else {
 		for epIP := range se.BEIPs {
 			//is IPv4?
 			if net.ParseIP(epIP).To4() != nil {
-				log.Errorf("Not all endpoints IPs are IPv6. Ignoring IPv6 service %+v", svc)
-				return false
+				return fmt.Errorf("Not all endpoints IPs are IPv6. Ignoring IPv6 service %+v", svc)
 			}
 		}
 	}
-	return true
+	return nil
 }
 
 func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
@@ -340,10 +367,10 @@ func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
 	return uniqPorts
 }
 
-func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) {
+func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if !areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se) {
-		return
+	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+		return err
 	}
 
 	repPorts := getUniqPorts(svcInfo.Ports)
@@ -378,12 +405,13 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			log.Debugf("# cilium lb delete-rev-nat %d", svcPort.ID)
 		}
 	}
+	return nil
 }
 
-func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) {
+func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if !areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se) {
-		return
+	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+		return err
 	}
 
 	uniqPorts := getUniqPorts(svcInfo.Ports)
@@ -432,6 +460,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			log.Errorf("Error while inserting service in LB map: %s", err)
 		}
 	}
+	return nil
 }
 
 func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
@@ -448,7 +477,10 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 			return
 		}
 
-		d.delK8sSVCs(delSN, svc, endpoint)
+		if err := d.delK8sSVCs(delSN, svc, endpoint); err != nil {
+			log.Errorf("Unable to delete k8s service: %s", err)
+			return
+		}
 
 		delete(d.loadBalancer.K8sServices, delSN)
 		delete(d.loadBalancer.K8sEndpoints, delSN)
@@ -465,7 +497,9 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 			return
 		}
 
-		d.addK8sSVCs(addSN, svcInfo, endpoint)
+		if err := d.addK8sSVCs(addSN, svcInfo, endpoint); err != nil {
+			log.Errorf("Unable to add K8s service: %s", err)
+		}
 	}
 
 	if delSN != nil {
@@ -480,4 +514,179 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 		// Add new services
 		addSN(*newSN)
 	}
+}
+
+func (d *Daemon) ingressAddFn(obj interface{}) {
+	ingress, ok := obj.(*v1beta1.Ingress)
+	if !ok {
+		return
+	}
+
+	if ingress.Spec.Backend == nil {
+		// We only support Single Service Ingress for now
+		return
+	}
+
+	svcName := types.K8sServiceNamespace{
+		Service:   ingress.Spec.Backend.ServiceName,
+		Namespace: ingress.Namespace,
+	}
+
+	ingressPort := ingress.Spec.Backend.ServicePort.IntValue()
+	fePort, err := types.NewFEPort(types.TCP, uint16(ingressPort))
+	if err != nil {
+		return
+	}
+
+	var host net.IP
+	if d.conf.IPv4Disabled {
+		host = d.conf.HostV6Addr
+	} else {
+		host = d.conf.HostV4Addr
+	}
+	ingressSvcInfo := types.NewK8sServiceInfo(host)
+	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
+
+	syncIngress := func(ingressSvcInfo *types.K8sServiceInfo) error {
+		d.loadBalancer.K8sIngress[svcName] = ingressSvcInfo
+
+		if err := d.syncExternalLB(&svcName, nil, nil); err != nil {
+			return fmt.Errorf("Unable to add ingress service %s: %s", svcName, err)
+		}
+		return nil
+	}
+
+	d.loadBalancer.K8sMU.Lock()
+	err = syncIngress(ingressSvcInfo)
+	d.loadBalancer.K8sMU.Unlock()
+	if err != nil {
+		log.Errorf("%s", err)
+		return
+	}
+
+	hostname, _ := os.Hostname()
+	ingress.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{
+		{
+			IP:       host.String(),
+			Hostname: hostname,
+		},
+	}
+
+	_, err = d.k8sClient.Extensions().Ingresses(ingress.Namespace).UpdateStatus(ingress)
+	if err != nil {
+		log.Errorf("Unable to update status of ingress %s: %s", ingress.Name, err)
+		return
+	}
+}
+
+func (d *Daemon) ingressModFn(oldObj interface{}, newObj interface{}) {
+	oldIngress, ok := oldObj.(*v1beta1.Ingress)
+	if !ok {
+		return
+	}
+	newIngress, ok := newObj.(*v1beta1.Ingress)
+	if !ok {
+		return
+	}
+
+	if oldIngress.Spec.Backend == nil || newIngress.Spec.Backend == nil {
+		// We only support Single Service Ingress for now
+		return
+	}
+	if oldIngress.Spec.Backend.ServiceName == newIngress.Spec.Backend.ServiceName &&
+		oldIngress.Spec.Backend.ServicePort == newIngress.Spec.Backend.ServicePort {
+		return
+	}
+	d.ingressAddFn(newObj)
+}
+
+func (d *Daemon) ingressDelFn(obj interface{}) {
+	ingress, ok := obj.(*v1beta1.Ingress)
+	if !ok {
+		return
+	}
+
+	if ingress.Spec.Backend == nil {
+		// We only support Single Service Ingress for now
+		return
+	}
+
+	svcName := types.K8sServiceNamespace{
+		Service:   ingress.Spec.Backend.ServiceName,
+		Namespace: ingress.Namespace,
+	}
+
+	d.loadBalancer.K8sMU.Lock()
+	defer d.loadBalancer.K8sMU.Unlock()
+
+	ingressSvcInfo, ok := d.loadBalancer.K8sIngress[svcName]
+	if !ok {
+		return
+	}
+
+	// Get all active endpoints for the service specified in ingress
+	k8sEP, ok := d.loadBalancer.K8sEndpoints[svcName]
+	if !ok {
+		return
+	}
+
+	err := d.delK8sSVCs(svcName, ingressSvcInfo, k8sEP)
+	if err != nil {
+		log.Errorf("Unable to delete K8s ingress: %s", err)
+		return
+	}
+	delete(d.loadBalancer.K8sIngress, svcName)
+}
+
+func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) error {
+	deleteSN := func(delSN types.K8sServiceNamespace) error {
+		ingSvc, ok := d.loadBalancer.K8sIngress[delSN]
+		if !ok {
+			return nil
+		}
+
+		endpoint, ok := d.loadBalancer.K8sEndpoints[delSN]
+		if !ok {
+			return nil
+		}
+
+		if err := d.delK8sSVCs(delSN, ingSvc, endpoint); err != nil {
+			return err
+		}
+
+		delete(d.loadBalancer.K8sServices, delSN)
+		return nil
+	}
+
+	addSN := func(addSN types.K8sServiceNamespace) error {
+		ingressSvcInfo, ok := d.loadBalancer.K8sIngress[addSN]
+		if !ok {
+			return nil
+		}
+
+		k8sEP, ok := d.loadBalancer.K8sEndpoints[addSN]
+		if !ok {
+			return nil
+		}
+
+		err := d.addK8sSVCs(addSN, ingressSvcInfo, k8sEP)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if delSN != nil {
+		// Clean old services
+		return deleteSN(*delSN)
+	}
+	if modSN != nil {
+		// Re-add modified services
+		return addSN(*modSN)
+	}
+	if newSN != nil {
+		// Add new services
+		return addSN(*newSN)
+	}
+	return nil
 }

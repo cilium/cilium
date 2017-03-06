@@ -88,6 +88,7 @@ type LoadBalancer struct {
 	K8sMU        sync.Mutex
 	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
+	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo
 }
 
 // Add service to list of loadbalancers and return true if created
@@ -126,6 +127,7 @@ func NewLoadBalancer() *LoadBalancer {
 		RevNATMap:    RevNATMap{},
 		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
 		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
+		K8sIngress:   map[K8sServiceNamespace]*K8sServiceInfo{},
 	}
 }
 
