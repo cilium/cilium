@@ -99,7 +99,6 @@ chmod 644 %{buildroot}/etc/init/*
 /usr/lib/cilium/lib/maps.h
 /usr/lib/cilium/lib/nat46.h
 /usr/lib/cilium/lib/policy.h
-/usr/lib/cilium/lib/policy_map.h
 /usr/lib/cilium/lib/utils.h
 /usr/lib/cilium/probes/skb_change_tail.c
 /usr/lib/cilium/run_probes.sh
