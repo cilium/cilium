@@ -112,7 +112,7 @@ func (d *Daemon) triggerPolicyUpdates(added []policy.NumericIdentity) {
 	log.Debugf("Iterating over endpoints...")
 
 	for _, ep := range d.endpoints {
-		log.Debugf("Triggering policy update for ep %+v", ep)
+		log.Debugf("Triggering policy update for ep %s", ep.StringID())
 		err := ep.TriggerPolicyUpdates(d)
 		if err != nil {
 			log.Warningf("Error while handling policy updates for endpoint %s: %s\n",
