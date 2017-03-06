@@ -68,6 +68,30 @@ func main() {
 	skel.PluginMain(cmdAdd, cmdDel, version.PluginSupports("0.1.0", "0.2.0"))
 }
 
+func IPv6IsEnabled(ipam *models.IPAM) bool {
+	if ipam == nil || ipam.Endpoint.IPV6 == "" {
+		return false
+	}
+
+	if ipam.HostAddressing != nil {
+		return ipam.HostAddressing.IPV6.Enabled
+	}
+
+	return true
+}
+
+func IPv4IsEnabled(ipam *models.IPAM) bool {
+	if ipam == nil || ipam.Endpoint.IPV4 == "" {
+		return false
+	}
+
+	if ipam.HostAddressing != nil {
+		return ipam.HostAddressing.IPV4.Enabled
+	}
+
+	return true
+}
+
 func loadNetConf(bytes []byte) (*netConf, error) {
 	n := &netConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
@@ -148,7 +172,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netl
 	return nil
 }
 
-func configureIface(ifName string, state *CmdState) error {
+func configureIface(ipam *models.IPAM, ifName string, state *CmdState) error {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -158,13 +182,13 @@ func configureIface(ifName string, state *CmdState) error {
 		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
-	if state.HostAddr.IPV4 != nil {
+	if IPv4IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, link, ifName); err != nil {
 			return fmt.Errorf("error configuring IPv4: %s", err.Error())
 		}
 	}
 
-	if state.HostAddr.IPV6 != nil {
+	if IPv6IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, link, ifName); err != nil {
 			return fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
@@ -314,7 +338,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	res := cniTypes.Result{}
 
-	if ep.Addressing.IPV6 != "" {
+	if IPv6IsEnabled(ipam) {
 		res.IP6, err = prepareIP(ep.Addressing.IPV6, true, &state)
 		if err != nil {
 			return err
@@ -325,7 +349,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("IPAM did not provide required IPv6 address")
 	}
 
-	if ep.Addressing.IPV4 != "" {
+	if IPv4IsEnabled(ipam) {
 		if res.IP4, err = prepareIP(ep.Addressing.IPV4, false, &state); err != nil {
 			return err
 		}
@@ -333,7 +357,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		return configureIface(args.IfName, &state)
+		return configureIface(ipam, args.IfName, &state)
 	}); err != nil {
 		return err
 	}
