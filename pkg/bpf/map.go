@@ -154,7 +154,7 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 			info.ValueSize = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "max_entries:\t%d", &value); n == 1 && err == nil {
 			info.MaxEntries = uint32(value)
-		} else if n, err := fmt.Sscanf(line, "map_flags:\t%i", &value); n == 1 && err == nil {
+		} else if n, err := fmt.Sscanf(line, "map_flags:\t%x", &value); n == 1 && err == nil {
 			info.Flags = uint32(value)
 		}
 	}
