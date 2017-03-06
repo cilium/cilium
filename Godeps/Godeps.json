@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/cilium/cilium",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v79",
+	"GodepVersion": "v77",
 	"Packages": [
 		"./..."
 	],
@@ -666,11 +666,6 @@
 		{
 			"ImportPath": "github.com/ugorji/go/codec",
 			"Rev": "c062049c1793b01a3cc3fe786108edabbaf7756b"
-		},
-		{
-			"ImportPath": "github.com/urfave/cli",
-			"Comment": "v1.19.1-4-g8ef3805",
-			"Rev": "8ef3805c9de2519805c3f060524b695bba2cd715"
 		},
 		{
 			"ImportPath": "github.com/vishvananda/netlink",
