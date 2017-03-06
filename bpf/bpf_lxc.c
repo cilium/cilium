@@ -45,10 +45,21 @@
 
 #define POLICY_ID ((LXC_ID << 16) | SECLABEL)
 
-__BPF_MAP(CT_MAP6, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv6_ct_tuple),
-	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
-__BPF_MAP(CT_MAP4, BPF_MAP_TYPE_HASH, 0, sizeof(struct ipv4_ct_tuple),
-	  sizeof(struct ct_entry), PIN_GLOBAL_NS, CT_MAP_SIZE);
+struct bpf_elf_map __section_maps CT_MAP6 = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct ipv6_ct_tuple),
+	.size_value	= sizeof(struct ct_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CT_MAP_SIZE,
+};
+
+struct bpf_elf_map __section_maps CT_MAP4 = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct ipv4_ct_tuple),
+	.size_value	= sizeof(struct ct_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CT_MAP_SIZE,
+};
 
 #if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
 static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
@@ -594,8 +605,13 @@ int handle_ingress(struct __sk_buff *skb)
 		return ret;
 }
 
-__BPF_MAP(POLICY_MAP, BPF_MAP_TYPE_HASH, 0, sizeof(__u32),
-	  sizeof(struct policy_entry), PIN_GLOBAL_NS, 1024);
+struct bpf_elf_map __section_maps POLICY_MAP = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(struct policy_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1024,
+};
 
 static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label)
 {

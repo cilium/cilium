@@ -20,18 +20,45 @@
 
 #include "common.h"
 
-#define CILIUM_MAP_LXC		0
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
 #define CILIUM_MAP_RES_POLICY	3
 
-__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, CILIUM_MAP_LXC, sizeof(__u32), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
+struct bpf_elf_map __section_maps cilium_lxc = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(struct lxc_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1024,
+};
 
 /* Global map to jump into policy enforcement of receiving endpoint */
-BPF_PROG_ARRAY(cilium_policy, CILIUM_MAP_POLICY, PIN_GLOBAL_NS, POLICY_MAP_SIZE);
-BPF_PROG_ARRAY(cilium_reserved_policy, CILIUM_MAP_RES_POLICY, PIN_GLOBAL_NS, RESERVED_POLICY_SIZE);
+struct bpf_elf_map __section_maps cilium_policy = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= CILIUM_MAP_POLICY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= POLICY_MAP_SIZE,
+};
+
+struct bpf_elf_map __section_maps cilium_reserved_policy = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= CILIUM_MAP_RES_POLICY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= RESERVED_POLICY_SIZE,
+};
 
 /* Private map for internal tail calls */
-BPF_PROG_ARRAY(cilium_calls, CILIUM_MAP_CALLS, PIN_OBJECT_NS, CILIUM_CALL_SIZE);
+struct bpf_elf_map __section_maps cilium_calls = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= CILIUM_MAP_CALLS,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_OBJECT_NS,
+	.max_elem	= CILIUM_CALL_SIZE,
+};
 
 #endif

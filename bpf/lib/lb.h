@@ -35,21 +35,37 @@
 /* FIXME: Make configurable */
 #define CILIUM_LB_MAP_MAX_ENTRIES	65536
 
-__BPF_MAP(cilium_lb6_reverse_nat, BPF_MAP_TYPE_HASH, 0,
-	  sizeof(__u16), sizeof(struct lb6_reverse_nat),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
+struct bpf_elf_map __section_maps cilium_lb6_reverse_nat = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(struct lb6_reverse_nat),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
 
-__BPF_MAP(cilium_lb6_services, BPF_MAP_TYPE_HASH, 0,
-	  sizeof(struct lb6_key), sizeof(struct lb6_service),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
+struct bpf_elf_map __section_maps cilium_lb6_services = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb6_key),
+	.size_value	= sizeof(struct lb6_service),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
 
-__BPF_MAP(cilium_lb4_reverse_nat, BPF_MAP_TYPE_HASH, 0,
-	  sizeof(__u16), sizeof(struct lb4_reverse_nat),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
+struct bpf_elf_map __section_maps cilium_lb4_reverse_nat = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(struct lb4_reverse_nat),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
 
-__BPF_MAP(cilium_lb4_services, BPF_MAP_TYPE_HASH, 0,
-	  sizeof(struct lb4_key), sizeof(struct lb4_service),
-	  PIN_GLOBAL_NS, CILIUM_LB_MAP_MAX_ENTRIES);
+struct bpf_elf_map __section_maps cilium_lb4_services = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb4_key),
+	.size_value	= sizeof(struct lb4_service),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+};
 
 #define REV_NAT_F_TUPLE_SADDR 1
 

@@ -106,51 +106,6 @@
 	char ____license[] __section_license = NAME
 #endif
 
-#ifndef __BPF_MAP
-# define __BPF_MAP(NAME, TYPE, ID, SIZE_KEY, SIZE_VALUE, PIN, MAX_ELEM)	\
-	struct bpf_elf_map __section_maps NAME = {			\
-		.type		= (TYPE),				\
-		.id		= (ID),					\
-		.size_key	= (SIZE_KEY),				\
-		.size_value	= (SIZE_VALUE),				\
-		.pinning	= (PIN),				\
-		.max_elem	= (MAX_ELEM),				\
-	}
-#endif
-
-#ifndef BPF_HASH
-# define BPF_HASH(NAME, ID, SIZE_KEY, SIZE_VALUE, PIN, MAX_ELEM)	\
-	__BPF_MAP(NAME, BPF_MAP_TYPE_HASH, ID, SIZE_KEY, SIZE_VALUE,	\
-		  PIN, MAX_ELEM)
-#endif
-
-#ifndef BPF_ARRAY
-# define BPF_ARRAY(NAME, ID, SIZE_VALUE, PIN, MAX_ELEM)			\
-	__BPF_MAP(NAME, BPF_MAP_TYPE_ARRAY, ID, sizeof(uint32_t), 	\
-		  SIZE_VALUE, PIN, MAX_ELEM)
-#endif
-
-#ifndef BPF_ARRAY2
-# define BPF_ARRAY2(NAME, ID, PIN, MAX_ELEM)				\
-	BPF_ARRAY(NAME, ID, sizeof(uint16_t), PIN, MAX_ELEM)
-#endif
-
-#ifndef BPF_ARRAY4
-# define BPF_ARRAY4(NAME, ID, PIN, MAX_ELEM)				\
-	BPF_ARRAY(NAME, ID, sizeof(uint32_t), PIN, MAX_ELEM)
-#endif
-
-#ifndef BPF_ARRAY8
-# define BPF_ARRAY8(NAME, ID, PIN, MAX_ELEM)				\
-	BPF_ARRAY(NAME, ID, sizeof(uint64_t), PIN, MAX_ELEM)
-#endif
-
-#ifndef BPF_PROG_ARRAY
-# define BPF_PROG_ARRAY(NAME, ID, PIN, MAX_ELEM)			\
-	__BPF_MAP(NAME, BPF_MAP_TYPE_PROG_ARRAY, ID, sizeof(uint32_t),	\
-		  sizeof(uint32_t), PIN, MAX_ELEM)
-#endif
-
 /** Classifier helper */
 
 #ifndef BPF_H_DEFAULT

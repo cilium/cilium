@@ -20,6 +20,12 @@
 
 #include "common.h"
 
-__BPF_MAP(cilium_lxc, BPF_MAP_TYPE_HASH, 0, sizeof(__u16), sizeof(struct lxc_info), PIN_GLOBAL_NS, 1024);
+struct bpf_elf_map __section_maps cilium_lxc = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(struct lxc_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1024,
+};
 
 #endif
