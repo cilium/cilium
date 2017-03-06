@@ -26,7 +26,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -39,30 +39,6 @@ var (
 	}
 )
 
-func main() {
-	app := cli.NewApp()
-	app.Name = "perf-event-test"
-	app.Usage = "Test utility for perf events"
-	app.Version = "0.1.0"
-	app.Flags = []cli.Flag{
-		cli.IntFlag{
-			Name:        "num-cpus, c",
-			Usage:       "Number of CPUs",
-			Value:       1,
-			EnvVar:      "__NR_CPUS__",
-			Destination: &config.NumCpus,
-		},
-		cli.IntFlag{
-			Name:        "num-pages, n",
-			Usage:       "Number of pages for ring buffer",
-			Value:       8,
-			Destination: &config.NumPages,
-		},
-	}
-	app.Action = run
-	app.Run(os.Args)
-}
-
 func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	fmt.Printf("%+v\n", msg)
 }
@@ -71,24 +47,37 @@ func lostEvent(lost *bpf.PerfEventLost, cpu int) {
 	fmt.Printf("Lost %d\n", lost.Lost)
 }
 
-func run(ctx *cli.Context) {
-	events, err := bpf.NewPerCpuEvents(&config)
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-		todo, err := events.Poll(-1)
+var RootCmd = &cobra.Command{
+	Use:   "perf-event-test",
+	Short: "Test utility for perf events",
+	Run: func(cmd *cobra.Command, args []string) {
+		events, err := bpf.NewPerCpuEvents(&config)
 		if err != nil {
 			panic(err)
 		}
-		if todo > 0 {
-			events.ReadAll(receiveEvent, lostEvent)
+
+		for {
+			todo, err := events.Poll(-1)
+			if err != nil {
+				panic(err)
+			}
+			if todo > 0 {
+				events.ReadAll(receiveEvent, lostEvent)
+			}
 		}
+
+	},
+}
+
+func main() {
+	if err := RootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err)
+		os.Exit(-1)
 	}
+}
 
-	//if err := events.CloseAll(); err != nil {
-	//	panic(err)
-	//}
-
+func init() {
+	flags := RootCmd.PersistentFlags()
+	flags.IntVarP(&config.NumCpus, "num-cpus", "c", 1, "Number of CPUs")
+	flags.IntVarP(&config.NumPages, "num-pagse", "n", 8, "Number of pages for ring buffer")
 }
