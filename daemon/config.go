@@ -41,6 +41,8 @@ type Config struct {
 	NodeAddress           *addressing.NodeAddress // Node IPv6 Address
 	NAT46Prefix           *net.IPNet              // NAT46 IPv6 Prefix
 	Device                string                  // Receive device
+	HostV4Addr            net.IP                  // Host v4 address of the snooping device
+	HostV6Addr            net.IP                  // Host v6 address of the snooping device
 	ConsulConfig          *consulAPI.Config       // Consul configuration
 	EtcdConfig            *etcdAPI.Config         // Etcd Configuration
 	EtcdCfgPath           string                  // Etcd Configuration path
@@ -51,7 +53,7 @@ type Config struct {
 	ValidLabelPrefixes    *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
 	ValidK8sLabelPrefixes *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
 	ValidLabelPrefixesMU  sync.RWMutex
-	LBMode                bool   // Set to true on load balancer node
+	LBInterface           string // Set with name of the interface to loadbalance packets from
 	Tunnel                string // Tunnel mode
 
 	DryMode      bool // Do not create BPF maps, devices, ..
@@ -71,6 +73,10 @@ func NewConfig() *Config {
 
 func (c *Config) IsK8sEnabled() bool {
 	return c.K8sEndpoint != "" || c.K8sCfgPath != ""
+}
+
+func (c *Config) IsLBEnabled() bool {
+	return c.LBInterface != ""
 }
 
 // SetKVBackend is only used for test purposes

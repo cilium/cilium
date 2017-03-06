@@ -151,6 +151,46 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	return fw.Flush()
 }
 
+func (d *Daemon) setHostAddresses() error {
+	l, err := netlink.LinkByName(d.conf.LBInterface)
+	if err != nil {
+		return fmt.Errorf("unable to get network device %s: %s", d.conf.Device, err)
+	}
+
+	getAddr := func(netLinkFamily int) (net.IP, error) {
+		addrs, err := netlink.AddrList(l, netLinkFamily)
+		if err != nil {
+			return nil, fmt.Errorf("error while getting %s's addresses: %s", d.conf.Device, err)
+		}
+		for _, possibleAddr := range addrs {
+			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
+				return possibleAddr.IP, nil
+			}
+		}
+		return nil, nil
+	}
+
+	if !d.conf.IPv4Disabled {
+		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
+		if err != nil {
+			return err
+		}
+		if hostV4Addr != nil {
+			d.conf.HostV4Addr = hostV4Addr
+			log.Infof("Using IPv4 host address: %s", d.conf.HostV4Addr)
+		}
+	}
+	hostV6Addr, err := getAddr(netlink.FAMILY_V6)
+	if err != nil {
+		return err
+	}
+	if hostV6Addr != nil {
+		d.conf.HostV6Addr = hostV6Addr
+		log.Infof("Using IPv6 host address: %s", d.conf.HostV6Addr)
+	}
+	return nil
+}
+
 func (d *Daemon) compileBase() error {
 	var args []string
 	var mode string
@@ -161,12 +201,20 @@ func (d *Daemon) compileBase() error {
 	}
 
 	if d.conf.Device != "undefined" {
-		if _, err := netlink.LinkByName(d.conf.Device); err != nil {
+		_, err := netlink.LinkByName(d.conf.Device)
+		if err != nil {
 			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
 			return err
 		}
 
-		if d.conf.LBMode {
+		if d.conf.IsLBEnabled() {
+			if d.conf.Device != d.conf.LBInterface {
+				//FIXME: allow different interfaces
+				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
+			}
+			if err := d.setHostAddresses(); err != nil {
+				return err
+			}
 			mode = "lb"
 		} else {
 			mode = "direct"
@@ -174,6 +222,10 @@ func (d *Daemon) compileBase() error {
 
 		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
 	} else {
+		if d.conf.IsLBEnabled() {
+			//FIXME: allow LBMode in tunnel
+			return fmt.Errorf("Unable to run LB mode with tunnel mode")
+		}
 		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
