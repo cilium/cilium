@@ -115,8 +115,8 @@ func init() {
 		"Restores state, if possible, from previous daemon")
 	flags.StringVar(&config.RunDir, "state-dir", defaults.RuntimePath, "Path to directory to store runtime state")
 	flags.StringVar(&socketPath, "socket-path", defaults.SockPath, "Sets the socket path to listen for connections")
-	flags.BoolVar(&config.LBMode, "lb", false,
-		"Enables load balancer mode where load balancer bpf program is attached to the interface ")
+	flags.StringVar(&config.LBInterface, "lb", "",
+		"Enables load balancer mode where load balancer bpf program is attached to the given interface")
 	flags.BoolVar(&config.IPv4Disabled, "disable-ipv4", false, "Disable IPv4 mode")
 	flags.StringVar(&v4Prefix, "ipv4-range", "", "IPv4 prefix")
 	flags.StringVarP(&config.Tunnel, "tunnel", "t", "vxlan", "Tunnel mode vxlan or geneve, vxlan is the default")
