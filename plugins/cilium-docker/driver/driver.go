@@ -32,11 +32,10 @@ import (
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
 	l "github.com/op/go-logging"
-	"github.com/urfave/cli"
 	"github.com/vishvananda/netlink"
 )
 
-var log = l.MustGetLogger("cilium-docker-plugin")
+var log = l.MustGetLogger("cilium-docker")
 
 const (
 	// ContainerInterfacePrefix is the container's internal interface name prefix.
@@ -74,9 +73,9 @@ func newLibnetworkRoute(route plugins.Route) api.StaticRoute {
 	return rt
 }
 
-// NewDriver creates and returns a new Driver for the given ctx.
-func NewDriver(ctx *cli.Context) (Driver, error) {
-	c, err := client.NewDefaultClient()
+// NewDriver creates and returns a new Driver for the given API URL
+func NewDriver(url string) (Driver, error) {
+	c, err := client.NewClient(url)
 	if err != nil {
 		log.Fatalf("Error while starting cilium-client: %s", err)
 	}
@@ -86,7 +85,7 @@ func NewDriver(ctx *cli.Context) (Driver, error) {
 	for tries := 0; tries < 24; tries++ {
 		if res, err := c.ConfigGet(); err != nil {
 			if tries == 23 {
-				log.Fatalf("Unable to reach cilium daemon: %s", err)
+				log.Fatalf("Unable to connect to cilium daemon: %s", err)
 			} else {
 				log.Warningf("Waiting for cilium daemon to come up...")
 			}
