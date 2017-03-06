@@ -21,40 +21,67 @@ import (
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	l "github.com/op/go-logging"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 )
 
-const (
-	// PluginPath is the docker plugins directory where docker plugin is present.
-	pluginPath = "/run/docker/plugins/"
-	// driverSock is the cilium socket for the communication between docker and cilium.
-	driverSock = pluginPath + "cilium.sock"
+var (
+	pluginPath string
+	driverSock string
+	debug      bool
+	ciliumAPI  string
+	log        = l.MustGetLogger("cilium-docker")
 )
 
-var log = l.MustGetLogger("cilium-net-docker-plugin")
+// RootCmd represents the base command when called without any subcommands
+var RootCmd = &cobra.Command{
+	Use:   "cilium-docker",
+	Short: "Cilium plugin for Docker (libnetwork)",
+	Long: `Cilium plugin for Docker (libnetwork)
 
-func main() {
-	app := cli.NewApp()
-	app.Name = "cilium-net"
-	app.Usage = "Cilium Networking Docker Plugin"
-	app.Version = common.Version
-	app.Flags = []cli.Flag{
-		cli.BoolFlag{
-			Name:  "debug, D",
-			Usage: "Enable debug messages",
-		},
-	}
-	app.Before = initEnv
-	app.Action = run
-	app.Run(os.Args)
+Docker plugin implementing the networking and IPAM API.
+
+The plugin handles requests from the local Docker runtime to provide
+network connectivity and IP address management for containers that are
+connected to a Docker network of type "cilium".`,
+	Example: `  docker network create my_network --ipam-driver cilium --driver cilium
+  docker run --net my_network hello-world
+`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if d, err := driver.NewDriver(ciliumAPI); err != nil {
+			log.Fatalf("Unable to create cilium-net driver: %s", err)
+		} else {
+			log.Infof("Listening for events from Docker on %s", driverSock)
+			if err := d.Listen(driverSock); err != nil {
+				log.Fatal(err)
+			}
+		}
+	},
 }
 
-func initEnv(ctx *cli.Context) error {
-	if ctx.Bool("debug") {
+func main() {
+	if err := RootCmd.Execute(); err != nil {
+		log.Fatal(err)
+		os.Exit(-1)
+	}
+}
+
+func init() {
+	cobra.OnInitialize(initConfig)
+	flags := RootCmd.PersistentFlags()
+	flags.BoolVarP(&debug, "debug", "D", false, "Enable debug messages")
+	flags.StringVar(&ciliumAPI, "cilium-api", "", "URI to server-side API")
+	flags.StringVar(&pluginPath, "docker-plugins", "/run/docker/plugins",
+		"Path to Docker plugins directory")
+}
+
+func initConfig() {
+	if debug {
 		common.SetupLOG(log, "DEBUG")
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+
+	driverSock = pluginPath + "cilium.sock"
 
 	if err := os.MkdirAll(pluginPath, 0755); err != nil && !os.IsExist(err) {
 		log.Fatalf("Could not create net plugin path directory: %s", err)
@@ -63,22 +90,5 @@ func initEnv(ctx *cli.Context) error {
 	if _, err := os.Stat(driverSock); err == nil {
 		log.Debugf("socket file %s already exists, unlinking the old file handle.", driverSock)
 		os.RemoveAll(driverSock)
-	}
-
-	log.Debugf("The plugin absolute path and handle is %s", driverSock)
-
-	return nil
-}
-
-func run(ctx *cli.Context) {
-	d, err := driver.NewDriver(ctx)
-	if err != nil {
-		log.Fatalf("Unable to create cilium-net driver: %s", err)
-	}
-
-	log.Info("Cilium networking Docker plugin ready")
-
-	if err := d.Listen(driverSock); err != nil {
-		log.Fatal(err)
 	}
 }
