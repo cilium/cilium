@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type GetPolicyOK
+// GetPolicyOKCode is the HTTP code returned for type GetPolicyOK
 const GetPolicyOKCode int = 200
 
 /*GetPolicyOK Success

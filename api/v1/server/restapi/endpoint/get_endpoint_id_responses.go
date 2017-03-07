@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type GetEndpointIDOK
+// GetEndpointIDOKCode is the HTTP code returned for type GetEndpointIDOK
 const GetEndpointIDOKCode int = 200
 
 /*GetEndpointIDOK Success
@@ -54,7 +54,7 @@ func (o *GetEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runtime
 	}
 }
 
-// HTTP code for type GetEndpointIDInvalid
+// GetEndpointIDInvalidCode is the HTTP code returned for type GetEndpointIDInvalid
 const GetEndpointIDInvalidCode int = 400
 
 /*GetEndpointIDInvalid Invalid endpoint ID format for specified type
@@ -96,7 +96,7 @@ func (o *GetEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer ru
 
 }
 
-// HTTP code for type GetEndpointIDNotFound
+// GetEndpointIDNotFoundCode is the HTTP code returned for type GetEndpointIDNotFound
 const GetEndpointIDNotFoundCode int = 404
 
 /*GetEndpointIDNotFound Endpoint not found

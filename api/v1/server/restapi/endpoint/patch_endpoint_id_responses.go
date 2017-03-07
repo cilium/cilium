@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type PatchEndpointIDOK
+// PatchEndpointIDOKCode is the HTTP code returned for type PatchEndpointIDOK
 const PatchEndpointIDOKCode int = 200
 
 /*PatchEndpointIDOK Success
@@ -32,7 +32,7 @@ func (o *PatchEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runti
 	rw.WriteHeader(200)
 }
 
-// HTTP code for type PatchEndpointIDInvalid
+// PatchEndpointIDInvalidCode is the HTTP code returned for type PatchEndpointIDInvalid
 const PatchEndpointIDInvalidCode int = 400
 
 /*PatchEndpointIDInvalid Invalid modify endpoint request
@@ -74,7 +74,7 @@ func (o *PatchEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer 
 
 }
 
-// HTTP code for type PatchEndpointIDNotFound
+// PatchEndpointIDNotFoundCode is the HTTP code returned for type PatchEndpointIDNotFound
 const PatchEndpointIDNotFoundCode int = 404
 
 /*PatchEndpointIDNotFound Endpoint does not exist
@@ -95,7 +95,7 @@ func (o *PatchEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer
 	rw.WriteHeader(404)
 }
 
-// HTTP code for type PatchEndpointIDFailed
+// PatchEndpointIDFailedCode is the HTTP code returned for type PatchEndpointIDFailed
 const PatchEndpointIDFailedCode int = 500
 
 /*PatchEndpointIDFailed Endpoint update failed

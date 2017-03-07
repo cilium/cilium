@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type GetPolicyPathOK
+// GetPolicyPathOKCode is the HTTP code returned for type GetPolicyPathOK
 const GetPolicyPathOKCode int = 200
 
 /*GetPolicyPathOK Success
@@ -53,7 +53,7 @@ func (o *GetPolicyPathOK) WriteResponse(rw http.ResponseWriter, producer runtime
 
 }
 
-// HTTP code for type GetPolicyPathInvalid
+// GetPolicyPathInvalidCode is the HTTP code returned for type GetPolicyPathInvalid
 const GetPolicyPathInvalidCode int = 400
 
 /*GetPolicyPathInvalid Invalid policy path
@@ -95,7 +95,7 @@ func (o *GetPolicyPathInvalid) WriteResponse(rw http.ResponseWriter, producer ru
 
 }
 
-// HTTP code for type GetPolicyPathNotFound
+// GetPolicyPathNotFoundCode is the HTTP code returned for type GetPolicyPathNotFound
 const GetPolicyPathNotFoundCode int = 404
 
 /*GetPolicyPathNotFound Policy tree not found

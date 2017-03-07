@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type DeleteServiceIDOK
+// DeleteServiceIDOKCode is the HTTP code returned for type DeleteServiceIDOK
 const DeleteServiceIDOKCode int = 200
 
 /*DeleteServiceIDOK Success
@@ -32,7 +32,7 @@ func (o *DeleteServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runti
 	rw.WriteHeader(200)
 }
 
-// HTTP code for type DeleteServiceIDNotFound
+// DeleteServiceIDNotFoundCode is the HTTP code returned for type DeleteServiceIDNotFound
 const DeleteServiceIDNotFoundCode int = 404
 
 /*DeleteServiceIDNotFound Service not found
@@ -53,7 +53,7 @@ func (o *DeleteServiceIDNotFound) WriteResponse(rw http.ResponseWriter, producer
 	rw.WriteHeader(404)
 }
 
-// HTTP code for type DeleteServiceIDFailure
+// DeleteServiceIDFailureCode is the HTTP code returned for type DeleteServiceIDFailure
 const DeleteServiceIDFailureCode int = 500
 
 /*DeleteServiceIDFailure Service deletion failed
