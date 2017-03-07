@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type DeletePolicyPathNoContent
+// DeletePolicyPathNoContentCode is the HTTP code returned for type DeletePolicyPathNoContent
 const DeletePolicyPathNoContentCode int = 204
 
 /*DeletePolicyPathNoContent Success
@@ -32,7 +32,7 @@ func (o *DeletePolicyPathNoContent) WriteResponse(rw http.ResponseWriter, produc
 	rw.WriteHeader(204)
 }
 
-// HTTP code for type DeletePolicyPathInvalid
+// DeletePolicyPathInvalidCode is the HTTP code returned for type DeletePolicyPathInvalid
 const DeletePolicyPathInvalidCode int = 400
 
 /*DeletePolicyPathInvalid Invalid request
@@ -74,7 +74,7 @@ func (o *DeletePolicyPathInvalid) WriteResponse(rw http.ResponseWriter, producer
 
 }
 
-// HTTP code for type DeletePolicyPathNotFound
+// DeletePolicyPathNotFoundCode is the HTTP code returned for type DeletePolicyPathNotFound
 const DeletePolicyPathNotFoundCode int = 404
 
 /*DeletePolicyPathNotFound Policy tree not found
@@ -95,7 +95,7 @@ func (o *DeletePolicyPathNotFound) WriteResponse(rw http.ResponseWriter, produce
 	rw.WriteHeader(404)
 }
 
-// HTTP code for type DeletePolicyPathFailure
+// DeletePolicyPathFailureCode is the HTTP code returned for type DeletePolicyPathFailure
 const DeletePolicyPathFailureCode int = 500
 
 /*DeletePolicyPathFailure Error while deleting policy

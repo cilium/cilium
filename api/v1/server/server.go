@@ -182,6 +182,8 @@ func (s *Server) Serve() (err error) {
 	if s.hasScheme(schemeHTTP) {
 		httpServer := &graceful.Server{Server: new(http.Server)}
 		httpServer.MaxHeaderBytes = int(s.MaxHeaderSize)
+		httpServer.ReadTimeout = s.ReadTimeout
+		httpServer.WriteTimeout = s.WriteTimeout
 		httpServer.SetKeepAlivesEnabled(int64(s.KeepAlive) > 0)
 		httpServer.TCPKeepAlive = s.KeepAlive
 		if s.ListenLimit > 0 {

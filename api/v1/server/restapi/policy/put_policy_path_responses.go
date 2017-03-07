@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type PutPolicyPathOK
+// PutPolicyPathOKCode is the HTTP code returned for type PutPolicyPathOK
 const PutPolicyPathOKCode int = 200
 
 /*PutPolicyPathOK Success
@@ -53,7 +53,7 @@ func (o *PutPolicyPathOK) WriteResponse(rw http.ResponseWriter, producer runtime
 
 }
 
-// HTTP code for type PutPolicyPathInvalidPolicy
+// PutPolicyPathInvalidPolicyCode is the HTTP code returned for type PutPolicyPathInvalidPolicy
 const PutPolicyPathInvalidPolicyCode int = 400
 
 /*PutPolicyPathInvalidPolicy Invalid policy
@@ -95,7 +95,7 @@ func (o *PutPolicyPathInvalidPolicy) WriteResponse(rw http.ResponseWriter, produ
 
 }
 
-// HTTP code for type PutPolicyPathInvalidPath
+// PutPolicyPathInvalidPathCode is the HTTP code returned for type PutPolicyPathInvalidPath
 const PutPolicyPathInvalidPathCode int = 460
 
 /*PutPolicyPathInvalidPath Invalid path
@@ -137,7 +137,7 @@ func (o *PutPolicyPathInvalidPath) WriteResponse(rw http.ResponseWriter, produce
 
 }
 
-// HTTP code for type PutPolicyPathFailure
+// PutPolicyPathFailureCode is the HTTP code returned for type PutPolicyPathFailure
 const PutPolicyPathFailureCode int = 500
 
 /*PutPolicyPathFailure Policy import failed
