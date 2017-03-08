@@ -120,21 +120,18 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go endpointController.Run(wait.NeverStop)
 
-	// We only care about ingress in LBMode
-	if d.conf.IsLBEnabled() {
-		_, ingressController := cache.NewInformer(
-			cache.NewListWatchFromClient(d.k8sClient.Extensions().GetRESTClient(),
-				"ingresses", v1.NamespaceAll, fields.Everything()),
-			&v1beta1.Ingress{},
-			reSyncPeriod,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc:    d.ingressAddFn,
-				UpdateFunc: d.ingressModFn,
-				DeleteFunc: d.ingressDelFn,
-			},
-		)
-		go ingressController.Run(wait.NeverStop)
-	}
+	_, ingressController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.Extensions().GetRESTClient(),
+			"ingresses", v1.NamespaceAll, fields.Everything()),
+		&v1beta1.Ingress{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.ingressAddFn,
+			UpdateFunc: d.ingressModFn,
+			DeleteFunc: d.ingressDelFn,
+		},
+	)
+	go ingressController.Run(wait.NeverStop)
 
 	return nil
 }
@@ -517,6 +514,10 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 }
 
 func (d *Daemon) ingressAddFn(obj interface{}) {
+	if !d.conf.IsLBEnabled() {
+		// Add operations don't matter to non-LB nodes.
+		return
+	}
 	ingress, ok := obj.(*v1beta1.Ingress)
 	if !ok {
 		return
@@ -593,27 +594,82 @@ func (d *Daemon) ingressModFn(oldObj interface{}, newObj interface{}) {
 		// We only support Single Service Ingress for now
 		return
 	}
+
+	// Add RevNAT to the BPF Map for non-LB nodes when a LB node update the
+	// ingress status with its address.
+	if !d.conf.IsLBEnabled() {
+		port := newIngress.Spec.Backend.ServicePort.IntValue()
+		for _, loadbalancer := range newIngress.Status.LoadBalancer.Ingress {
+			ingressIP := net.ParseIP(loadbalancer.IP)
+			if ingressIP == nil {
+				continue
+			}
+			feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
+			if err != nil {
+				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
+				continue
+			}
+			feAddrID, err := d.PutL3n4Addr(*feAddr, 0)
+			if err != nil {
+				log.Errorf("Error while getting a new service ID: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
+				continue
+			}
+			log.Debugf("Got service ID %d for ingress %s/%s", feAddrID.ID, newIngress.Namespace, newIngress.Name)
+
+			if err := d.RevNATAdd(feAddrID.ID, feAddrID.L3n4Addr); err != nil {
+				log.Errorf("Unable to add reverse NAT ID for ingress %s/%s: %s", newIngress.Namespace, newIngress.Name, err)
+			}
+		}
+		return
+	}
+
 	if oldIngress.Spec.Backend.ServiceName == newIngress.Spec.Backend.ServiceName &&
 		oldIngress.Spec.Backend.ServicePort == newIngress.Spec.Backend.ServicePort {
 		return
 	}
+
 	d.ingressAddFn(newObj)
 }
 
 func (d *Daemon) ingressDelFn(obj interface{}) {
-	ingress, ok := obj.(*v1beta1.Ingress)
+	ing, ok := obj.(*v1beta1.Ingress)
 	if !ok {
 		return
 	}
 
-	if ingress.Spec.Backend == nil {
+	if ing.Spec.Backend == nil {
 		// We only support Single Service Ingress for now
 		return
 	}
 
 	svcName := types.K8sServiceNamespace{
-		Service:   ingress.Spec.Backend.ServiceName,
-		Namespace: ingress.Namespace,
+		Service:   ing.Spec.Backend.ServiceName,
+		Namespace: ing.Namespace,
+	}
+
+	// Remove RevNAT from the BPF Map for non-LB nodes.
+	if !d.conf.IsLBEnabled() {
+		port := ing.Spec.Backend.ServicePort.IntValue()
+		for _, loadbalancer := range ing.Status.LoadBalancer.Ingress {
+			ingressIP := net.ParseIP(loadbalancer.IP)
+			if ingressIP == nil {
+				continue
+			}
+			feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
+			if err != nil {
+				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, ing.Namespace, ing.Name)
+				continue
+			}
+			// This is the only way that we can get the service's ID
+			// without accessing the KVStore.
+			svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())
+			if svc != nil {
+				if err := d.RevNATDelete(svc.FE.ID); err != nil {
+					log.Errorf("Error while removing RevNAT for ID %d for ingress %s/%s: %s", svc.FE.ID, ing.Namespace, ing.Name, err)
+				}
+			}
+		}
+		return
 	}
 
 	d.loadBalancer.K8sMU.Lock()
