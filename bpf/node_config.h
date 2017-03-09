@@ -41,3 +41,4 @@
 #define ENABLE_ARP_RESPONDER
 #define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
 #define ENABLE_IPV4
+#define LB_RR_MAX_SEQ 31

@@ -50,7 +50,7 @@ func (d *Daemon) addSVC2BPFMap(feCilium types.L3n4AddrID, feBPF lbmap.ServiceKey
 // returned to the caller.
 //
 // Returns true if service was created
-func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) (bool, error) {
+func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackEnd, addRevNAT bool) (bool, error) {
 	if feL3n4Addr.ID == 0 {
 		return false, fmt.Errorf("invalid service ID 0")
 	}
@@ -77,27 +77,27 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr
 		return false, fmt.Errorf("service ID %d is already registered to service %s, please choose a different ID", feL3n4Addr.ID, feAddr.String())
 	}
 
-	return d.svcAdd(feL3n4Addr, beL3n4Addr, addRevNAT)
+	return d.svcAdd(feL3n4Addr, be, addRevNAT)
 }
 
-// svcAdd adds a service from the given feL3n4Addr (frontend) and beL3n4Addr (backends).
+// svcAdd adds a service from the given feL3n4Addr (frontend) and LBBackEnd (backends).
 // If addRevNAT is set, the RevNAT entry is also created for this particular service.
 // If any of the backend addresses set in bes have a different L3 address type than the
 // one set in fe, it returns an error without modifying the bpf LB map. If any backend
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
-func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, beL3n4Addr []types.L3n4Addr, addRevNAT bool) (bool, error) {
+func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, bes []types.LBBackEnd, addRevNAT bool) (bool, error) {
 	// We will move the slice to the loadbalancer map which have a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
-	beL3n4AddrCpy := []types.L3n4Addr{}
-	for _, v := range beL3n4Addr {
-		beL3n4AddrCpy = append(beL3n4AddrCpy, v)
+	beCpy := []types.LBBackEnd{}
+	for _, v := range bes {
+		beCpy = append(beCpy, v)
 	}
 
 	svc := types.LBSVC{
 		FE:     feL3n4Addr,
-		BES:    beL3n4AddrCpy,
+		BES:    beCpy,
 		Sha256: feL3n4Addr.L3n4Addr.SHA256Sum(),
 	}
 
@@ -138,9 +138,9 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		ID:       types.ServiceID(params.Config.ID),
 	}
 
-	backends := []types.L3n4Addr{}
+	backends := []types.LBBackEnd{}
 	for _, v := range params.Config.BackendAddresses {
-		b, err := types.NewL3n4AddrFromBackendModel(v)
+		b, err := types.NewLBBackEndFromBackendModel(v)
 		if err != nil {
 			return apierror.Error(PutServiceIDInvalidBackendCode, err)
 		}
@@ -260,13 +260,13 @@ func (d *Daemon) svcGetBySHA256Sum(feL3n4SHA256Sum string) *types.LBSVC {
 	// We will move the slice from the loadbalancer map which have a mutex. If
 	// we don't copy the slice we might risk changing memory that should be
 	// locked.
-	beL3n4AddrCpy := []types.L3n4Addr{}
+	beCpy := []types.LBBackEnd{}
 	for _, v := range v.BES {
-		beL3n4AddrCpy = append(beL3n4AddrCpy, v)
+		beCpy = append(beCpy, v)
 	}
 	return &types.LBSVC{
 		FE:  *v.FE.DeepCopy(),
-		BES: beL3n4AddrCpy,
+		BES: beCpy,
 	}
 }
 
@@ -461,10 +461,14 @@ func (d *Daemon) SyncLBMap() error {
 	}
 
 	if !d.conf.IPv4Disabled {
+		// lbmap.RRSeq4Map is updated as part of Service4Map and does
+		// not need separate dump.
 		lbmap.Service4Map.Dump(lbmap.Service4DumpParser, parseSVCEntries)
 		lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, parseRevNATEntries)
 	}
 
+	// lbmap.RRSeq6Map is updated as part of Service6Map and does not need
+	// separate dump.
 	lbmap.Service6Map.Dump(lbmap.Service6DumpParser, parseSVCEntries)
 	lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, parseRevNATEntries)
 

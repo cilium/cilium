@@ -56,6 +56,7 @@ enum {
 	DBG_LB4_LOOPBACK_SNAT,
 	DBG_LB4_LOOPBACK_SNAT_REV,
 	DBG_CT_LOOKUP4,
+	DBG_RR_SLAVE_SEL,
 };
 
 /* Capture types */

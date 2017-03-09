@@ -35,6 +35,7 @@
 
 #define DISABLE_LOOPBACK_LB
 
+#include <node_config.h>
 #include <netdev_config.h>
 
 #include <bpf/api.h>
@@ -95,7 +96,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	slave = lb_select_slave(skb, svc->count);
+	slave = lb6_select_slave(skb, &key, svc->count, svc->weight);
 	if (!(svc = lb6_lookup_slave(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 
@@ -153,7 +154,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	slave = lb_select_slave(skb, svc->count);
+	slave = lb4_select_slave(skb, &key, svc->count, svc->weight);
 	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 

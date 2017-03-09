@@ -53,7 +53,12 @@ func listServices() {
 				fmt.Fprintf(os.Stderr, "error parsing backend %+v", be)
 				continue
 			}
-			str := fmt.Sprintf("%d => %s (%d)", i+1, beA.String(), svc.ID)
+			var str string
+			if be.Weight != 0 {
+				str = fmt.Sprintf("%d => %s (W: %d, ID: %d)", i+1, beA.String(), be.Weight, svc.ID)
+			} else {
+				str = fmt.Sprintf("%d => %s (%d)", i+1, beA.String(), svc.ID)
+			}
 			besWithID = append(besWithID, str)
 		}
 

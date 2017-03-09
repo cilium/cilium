@@ -436,13 +436,13 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			fePort.ID = feAddrID.ID
 		}
 
-		besValues := []types.L3n4Addr{}
+		besValues := []types.LBBackEnd{}
 
 		if k8sBEPort != nil {
 			for epIP := range se.BEIPs {
-				bePort := types.L3n4Addr{
-					IP:     net.ParseIP(epIP),
-					L4Addr: *k8sBEPort,
+				bePort := types.LBBackEnd{
+					L3n4Addr: types.L3n4Addr{IP: net.ParseIP(epIP), L4Addr: *k8sBEPort},
+					Weight:   0,
 				}
 				besValues = append(besValues, bePort)
 			}

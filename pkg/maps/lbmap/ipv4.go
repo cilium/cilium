@@ -37,6 +37,11 @@ var (
 		int(unsafe.Sizeof(RevNat4Key{})),
 		int(unsafe.Sizeof(RevNat4Value{})),
 		maxEntries)
+	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
+		bpf.MapTypeHash,
+		int(unsafe.Sizeof(Service4Key{})),
+		int(unsafe.Sizeof(RRSeqValue{})),
+		maxFrontEnds)
 )
 
 // Must match 'struct lb4_key' in "bpf/lib/common.h"
@@ -48,6 +53,7 @@ type Service4Key struct {
 
 func (k Service4Key) IsIPv6() bool               { return false }
 func (k Service4Key) Map() *bpf.Map              { return Service4Map }
+func (k Service4Key) RRMap() *bpf.Map            { return RRSeq4Map }
 func (k Service4Key) NewValue() bpf.MapValue     { return &Service4Value{} }
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service4Key) GetPort() uint16           { return k.Port }
@@ -93,13 +99,15 @@ type Service4Value struct {
 	Port    uint16
 	Count   uint16
 	RevNat  uint16
+	Weight  uint16
 }
 
-func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16) *Service4Value {
+func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service4Value {
 	svc := Service4Value{
 		Count:  count,
 		RevNat: revNat,
 		Port:   port,
+		Weight: weight,
 	}
 
 	copy(svc.Address[:], target.To4())
@@ -112,6 +120,9 @@ func (s *Service4Value) SetPort(port uint16)         { s.Port = port }
 func (s *Service4Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int               { return int(s.Count) }
 func (s *Service4Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
+func (s *Service4Value) SetWeight(weight uint16)     { s.Weight = weight }
+func (s *Service4Value) GetWeight() uint16           { return s.Weight }
+
 func (s *Service4Value) SetAddress(ip net.IP) error {
 	ip4 := ip.To4()
 	if ip4 == nil {
@@ -125,6 +136,7 @@ func (v *Service4Value) Convert() ServiceValue {
 	n := *v
 	n.RevNat = common.Swab16(n.RevNat)
 	n.Port = common.Swab16(n.Port)
+	n.Weight = common.Swab16(n.Weight)
 	return &n
 }
 
@@ -151,6 +163,23 @@ func Service4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 	}
 
 	return svcKey.Convert(), svcVal.Convert(), nil
+}
+
+func Service4RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	keyBuf := bytes.NewBuffer(key)
+	valueBuf := bytes.NewBuffer(value)
+	svcKey := Service4Key{}
+	svcVal := RRSeqValue{}
+
+	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+	}
+
+	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
+	}
+
+	return svcKey.Convert(), &svcVal, nil
 }
 
 type RevNat4Key struct {
