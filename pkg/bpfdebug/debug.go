@@ -78,6 +78,7 @@ const (
 	DbgLb4LoopbackSnat
 	DbgLb4LoopbackSnatRev
 	DbgCtLookup4
+	DbgRRSlaveSel
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -165,6 +166,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
 	case DbgPktHash:
 		fmt.Printf("Packet hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
+	case DbgRRSlaveSel:
+		fmt.Printf("RR slave selection hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLb6LookupMaster:
 		fmt.Printf("Master service lookup, addr.p4=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DbgLb6LookupMasterFail:

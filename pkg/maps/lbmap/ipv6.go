@@ -37,6 +37,11 @@ var (
 		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),
 		maxEntries)
+	RRSeq6Map = bpf.NewMap("cilium_lb6_rr_seq",
+		bpf.MapTypeHash,
+		int(unsafe.Sizeof(Service6Key{})),
+		int(unsafe.Sizeof(RRSeqValue{})),
+		maxFrontEnds)
 )
 
 // Must match 'struct lb6_key' in "bpf/lib/common.h"
@@ -59,6 +64,7 @@ func NewService6Key(ip net.IP, port uint16, slave uint16) *Service6Key {
 
 func (k Service6Key) IsIPv6() bool               { return true }
 func (k Service6Key) Map() *bpf.Map              { return Service6Map }
+func (k Service6Key) RRMap() *bpf.Map            { return RRSeq6Map }
 func (k Service6Key) NewValue() bpf.MapValue     { return &Service6Value{} }
 func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service6Key) GetPort() uint16           { return k.Port }
@@ -89,13 +95,15 @@ type Service6Value struct {
 	Port    uint16
 	Count   uint16
 	RevNat  uint16
+	Weight  uint16
 }
 
-func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16) *Service6Value {
+func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service6Value {
 	svc := Service6Value{
 		Count:  count,
 		Port:   port,
 		RevNat: revNat,
+		Weight: weight,
 	}
 
 	copy(svc.Address[:], target.To16())
@@ -109,6 +117,8 @@ func (s *Service6Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int               { return int(s.Count) }
 func (s *Service6Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service6Value) RevNatKey() RevNatKey        { return &RevNat6Key{s.RevNat} }
+func (s *Service6Value) SetWeight(weight uint16)     { s.Weight = weight }
+func (s *Service6Value) GetWeight() uint16           { return s.Weight }
 
 func (s *Service6Value) SetAddress(ip net.IP) error {
 	if ip.To4() != nil {
@@ -123,6 +133,7 @@ func (v *Service6Value) Convert() ServiceValue {
 	n := *v
 	n.RevNat = common.Swab16(n.RevNat)
 	n.Port = common.Swab16(n.Port)
+	n.Weight = common.Swab16(n.Weight)
 	return &n
 }
 
@@ -145,6 +156,23 @@ func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 	}
 
 	return svcKey.Convert(), svcVal.Convert(), nil
+}
+
+func Service6RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	keyBuf := bytes.NewBuffer(key)
+	valueBuf := bytes.NewBuffer(value)
+	svcKey := Service6Key{}
+	svcVal := RRSeqValue{}
+
+	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+	}
+
+	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+	}
+
+	return svcKey.Convert(), &svcVal, nil
 }
 
 type RevNat6Key struct {

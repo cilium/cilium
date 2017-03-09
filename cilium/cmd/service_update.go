@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/types"
@@ -47,7 +49,7 @@ func init() {
 	serviceUpdateCmd.Flags().BoolVarP(&addRev, "rev", "", true, "Add reverse translation")
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
-	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend addresses")
+	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses followed by optional weight (<IP:Port>[/weight])")
 }
 
 func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
@@ -87,12 +89,25 @@ func updateService(cmd *cobra.Command, args []string) {
 	}
 
 	for _, backend := range backends {
-		beAddr, err := net.ResolveTCPAddr("tcp", backend)
+		tmp := strings.Split(backend, "/")
+		if len(tmp) > 2 {
+			Fatalf("Incorrect backend specification %s\n", backend)
+		}
+		addr := tmp[0]
+		weight := uint64(0)
+		if len(tmp) == 2 {
+			var err error
+			weight, err = strconv.ParseUint(tmp[1], 10, 16)
+			if err != nil {
+				Fatalf("Error converting weight %s\n", err)
+			}
+		}
+		beAddr, err := net.ResolveTCPAddr("tcp", addr)
 		if err != nil {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
-		be, err := types.NewL3n4Addr(types.TCP, beAddr.IP, uint16(beAddr.Port))
+		be, err := types.NewLBBackEnd(types.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
 		if err != nil {
 			Fatalf("Unable to create a new L3n4Addr for backend %s: %s", backend, err)
 		}
