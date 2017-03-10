@@ -16,6 +16,8 @@ package main
 
 import (
 	"net"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/types"
@@ -23,9 +25,51 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/1.5/pkg/fields"
+	"k8s.io/client-go/1.5/pkg/util/runtime"
 	"k8s.io/client-go/1.5/pkg/util/wait"
 	"k8s.io/client-go/1.5/tools/cache"
 )
+
+const (
+	k8sErrLogTimeout = time.Minute
+)
+
+var (
+	k8sLogMessagesTimer     = time.NewTimer(k8sErrLogTimeout)
+	firstK8sErrorLogMessage sync.Once
+)
+
+func init() {
+	// Replace error handler with our own
+	runtime.ErrorHandlers = []func(error){
+		k8sErrorHandler,
+	}
+}
+
+// k8sErrorHandler handles the error messages on a non verbose way by omitting
+// same error messages for a timeout defined with k8sErrLogTimeout.
+func k8sErrorHandler(e error) {
+	if e == nil {
+		return
+	}
+	// Omitting the 'connection refused' common messages
+	if strings.Contains(e.Error(), "connection refused") {
+		firstK8sErrorLogMessage.Do(func() {
+			// Reset the timer for the first message
+			log.Error(e)
+			k8sLogMessagesTimer.Reset(k8sErrLogTimeout)
+		})
+		select {
+		case <-k8sLogMessagesTimer.C:
+			log.Error(e)
+			k8sLogMessagesTimer.Reset(k8sErrLogTimeout)
+		default:
+		}
+		return
+	}
+	// Still log other error messages
+	log.Error(e)
+}
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the kurbenetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
