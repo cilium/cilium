@@ -243,6 +243,8 @@ cd "${k8s_dir}"
 "\${k8s_path}/08-cilium.sh"
 if [[ "\$(hostname)" -eq "cilium${K8STAG}-master" ]]; then
     "\${k8s_path}/09-dns-addon.sh"
+else
+    "\${k8s_path}/06-kubectl.sh"
 fi
 EOF
 }
