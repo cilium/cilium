@@ -10,7 +10,8 @@ kubectl create -f "${dir}/../network-policy/" || true
 
 kubectl get networkpolicy
 
-cat <<EOF | cilium -D policy import -
+# TODO remove sudo once socket permissions are set with cilium group
+cat <<EOF | sudo cilium -D policy import -
 {
         "name": "io.cilium",
         "rules": [{
@@ -20,4 +21,4 @@ cat <<EOF | cilium -D policy import -
 }
 EOF
 
-cilium policy get
+sudo cilium policy get io.cilium

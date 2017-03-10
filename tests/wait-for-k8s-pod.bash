@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-set -e
 if [ -z $1 ]; then
 	echo "Empty name"
 	exit 1
@@ -17,14 +16,14 @@ fi
 
 #Wait for container ${name} to be ready
 i=1
-while [[ -z "$contID" && ${i} -le ${tries} ]] ; do
-	echo "Waiting for container ${name}. Attempt ${i}/${tries}..."
-	contID=$(docker ps -aq --filter=name="${name}")
+while [[ -z "${isRunning}" && ${i} -le ${tries} ]] ; do
+	echo "Waiting for pod ${name}. Attempt ${i}/${tries}..."
+	isRunning=$(kubectl get pods | grep "${name}" | grep -o "Running")
 	sleep 2
 	i=$(( $i + 1 ))
 done
 
 if [ ${i} -ge ${tries} ]; then
-	echo "Unable to find container ${name}, please try again in a couple moments"
+	echo "Unable to find pod ${name}, please try again in a moment"
 	exit 1
 fi

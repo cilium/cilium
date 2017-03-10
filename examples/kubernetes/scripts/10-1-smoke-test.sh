@@ -21,16 +21,4 @@ while [[ "$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name
     sleep 2s
 done
 
-if [ -z "${SOCAT_OFF}" ]; then
-
-    worker=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.spec.nodeName}{"\n"}{end}' | grep guestbook | cut -d' ' -f2)
-
-    podIP=$(kubectl get pods --output=jsonpath='{range .items[*]}{.metadata.name} {.status.podIP}{"\n"}{end}' | grep guestbook | cut -d' ' -f2)
-
-    echo "sudo apt-get install socat -y && sudo socat TCP-LISTEN:3000,fork TCP:${podIP}:3000" > "./10-2-run-inside-${worker}.sh"
-
-    chmod +x "./10-2-run-inside-${worker}.sh"
-
-    echo "Please run ./10-2-run-inside-${worker}.sh inside ${worker}"
-
-fi
+kubectl create -f "${dir}/../deployments/guestbook/ingress/"
