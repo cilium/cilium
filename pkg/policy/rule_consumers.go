@@ -111,12 +111,12 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 }
 
 // Allow the following consumers
-type PolicyRuleConsumers struct {
+type RuleConsumers struct {
 	Coverage []labels.Label `json:"coverage,omitempty"`
 	Allow    []AllowRule    `json:"allow"`
 }
 
-func (prc *PolicyRuleConsumers) IsMergeable() bool {
+func (prc *RuleConsumers) IsMergeable() bool {
 	for _, r := range prc.Allow {
 		if !r.IsMergeable() {
 			return false
@@ -126,11 +126,11 @@ func (prc *PolicyRuleConsumers) IsMergeable() bool {
 	return true
 }
 
-func (prc *PolicyRuleConsumers) String() string {
+func (prc *RuleConsumers) String() string {
 	return fmt.Sprintf("Coverage: %s Allowing: %s", prc.Coverage, prc.Allow)
 }
 
-func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
+func (c *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	// A decision is undecided until we encoutner a DENY or ACCEPT.
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := UNDECIDED
@@ -158,7 +158,7 @@ func (c *PolicyRuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	return decision
 }
 
-func (c *PolicyRuleConsumers) Resolve(node *Node) error {
+func (c *RuleConsumers) Resolve(node *Node) error {
 	log.Debugf("Resolving consumer rule %+v\n", c)
 	for k := range c.Coverage {
 		l := &c.Coverage[k]
@@ -179,7 +179,7 @@ func (c *PolicyRuleConsumers) Resolve(node *Node) error {
 	return nil
 }
 
-func (c *PolicyRuleConsumers) SHA256Sum() (string, error) {
+func (c *RuleConsumers) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
 	if err := json.NewEncoder(sha).Encode(c); err != nil {
 		return "", err
@@ -187,6 +187,6 @@ func (c *PolicyRuleConsumers) SHA256Sum() (string, error) {
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
-func (c *PolicyRuleConsumers) CoverageSHA256Sum() (string, error) {
+func (c *RuleConsumers) CoverageSHA256Sum() (string, error) {
 	return labels.LabelSliceSHA256Sum(c.Coverage)
 }

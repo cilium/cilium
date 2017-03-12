@@ -102,7 +102,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	rootNode := policy.Node{
 		Name: common.GlobalLabelPrefix,
 		Rules: []policy.PolicyRule{
-			&policy.PolicyRuleConsumers{
+			&policy.RuleConsumers{
 				Coverage: []labels.Label{*lblBar},
 				Allow: []policy.AllowRule{
 					// always-allow: user=joe
@@ -111,11 +111,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 					{Action: policy.ACCEPT, Label: *lblPete},
 				},
 			},
-			&policy.PolicyRuleRequires{ // coverage qa, requires qa
+			&policy.RuleRequires{ // coverage qa, requires qa
 				Coverage: []labels.Label{*lblQA},
 				Requires: []labels.Label{*lblQA},
 			},
-			&policy.PolicyRuleRequires{ // coverage prod, requires: prod
+			&policy.RuleRequires{ // coverage prod, requires: prod
 				Coverage: []labels.Label{*lblProd},
 				Requires: []labels.Label{*lblProd},
 			},
@@ -124,7 +124,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			"foo": {},
 			"bar": {
 				Rules: []policy.PolicyRule{
-					&policy.PolicyRuleConsumers{
+					&policy.RuleConsumers{
 						Allow: []policy.AllowRule{
 							{ // allow: foo
 								Action: policy.ACCEPT,

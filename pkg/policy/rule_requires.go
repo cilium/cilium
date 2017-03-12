@@ -25,16 +25,16 @@ import (
 
 // Any further consumer requires the specified list of
 // labels in order to consume
-type PolicyRuleRequires struct {
+type RuleRequires struct {
 	Coverage []labels.Label `json:"coverage,omitempty"`
 	Requires []labels.Label `json:"requires"`
 }
 
-func (prr *PolicyRuleRequires) IsMergeable() bool {
+func (prr *RuleRequires) IsMergeable() bool {
 	return true
 }
 
-func (prr *PolicyRuleRequires) String() string {
+func (prr *RuleRequires) String() string {
 	return fmt.Sprintf("Coverage: %s, Requires: %s", prr.Coverage, prr.Requires)
 }
 
@@ -43,7 +43,7 @@ func (prr *PolicyRuleRequires) String() string {
 // access can be denied but fullfillment of the requirement only leads to
 // the decision being UNDECIDED waiting on an explicit allow rule further
 // down the tree
-func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
+func (r *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(r.Coverage) {
 		policyTrace(ctx, "Found coverage rule: %s\n", r.String())
 		for k := range r.Requires {
@@ -71,7 +71,7 @@ func (r *PolicyRuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 	return UNDECIDED
 }
 
-func (c *PolicyRuleRequires) Resolve(node *Node) error {
+func (c *RuleRequires) Resolve(node *Node) error {
 	log.Debugf("Resolving requires rule %+v\n", c)
 	for k := range c.Coverage {
 		l := &c.Coverage[k]
@@ -91,7 +91,7 @@ func (c *PolicyRuleRequires) Resolve(node *Node) error {
 	return nil
 }
 
-func (c *PolicyRuleRequires) SHA256Sum() (string, error) {
+func (c *RuleRequires) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
 	if err := json.NewEncoder(sha).Encode(c); err != nil {
 		return "", err
@@ -99,7 +99,7 @@ func (c *PolicyRuleRequires) SHA256Sum() (string, error) {
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
-func (c *PolicyRuleRequires) CoverageSHA256Sum() (string, error) {
+func (c *RuleRequires) CoverageSHA256Sum() (string, error) {
 	sha := sha512.New512_256()
 	if err := json.NewEncoder(sha).Encode(c.Coverage); err != nil {
 		return "", err
