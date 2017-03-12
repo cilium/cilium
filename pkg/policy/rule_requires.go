@@ -30,6 +30,10 @@ type PolicyRuleRequires struct {
 	Requires []labels.Label `json:"requires"`
 }
 
+func (prr *PolicyRuleRequires) IsMergeable() bool {
+	return true
+}
+
 func (prr *PolicyRuleRequires) String() string {
 	return fmt.Sprintf("Coverage: %s, Requires: %s", prr.Coverage, prr.Requires)
 }

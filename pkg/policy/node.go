@@ -26,19 +26,22 @@ import (
 
 // Node to define hierarchy of rules
 type Node struct {
-	path     string
-	Name     string           `json:"name"`
-	Parent   *Node            `json:"-"`
-	Rules    []PolicyRule     `json:"rules,omitempty"`
-	Children map[string]*Node `json:"children,omitempty"`
+	path      string
+	Name      string           `json:"name"`
+	Parent    *Node            `json:"-"`
+	Rules     []PolicyRule     `json:"rules,omitempty"`
+	Children  map[string]*Node `json:"children,omitempty"`
+	mergeable bool
+	resolved  bool
 }
 
 func NewNode(name string, parent *Node) *Node {
 	return &Node{
-		Name:     name,
-		Parent:   parent,
-		Rules:    nil,
-		Children: map[string]*Node{},
+		Name:      name,
+		Parent:    parent,
+		Rules:     nil,
+		Children:  map[string]*Node{},
+		mergeable: false,
 	}
 }
 
@@ -126,6 +129,11 @@ func (pn *Node) resolveRules() error {
 		if err := pn.Rules[k].Resolve(pn); err != nil {
 			return err
 		}
+
+		if !pn.Rules[k].IsMergeable() {
+			pn.mergeable = false
+			break
+		}
 	}
 
 	return nil
@@ -164,7 +172,31 @@ func (pn *Node) ResolveTree() error {
 		}
 	}
 
+	pn.isMergeable()
+	pn.resolved = true
+
 	return nil
+}
+
+func (pn *Node) isMergeable() bool {
+	for k := range pn.Rules {
+		if !pn.Rules[k].IsMergeable() {
+			pn.mergeable = false
+			return pn.mergeable
+		}
+	}
+
+	pn.mergeable = true
+	return pn.mergeable
+}
+
+// IsMergeable returns true if the node is eligible to be merged with another node
+func (pn *Node) IsMergeable() bool {
+	if pn.resolved {
+		return pn.mergeable
+	}
+
+	return pn.isMergeable()
 }
 
 func (pn *Node) UnmarshalJSON(data []byte) error {
@@ -263,22 +295,40 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (pn *Node) Merge(obj *Node) (bool, error) {
+// CanMerge returns an error if obj cannot be safely merged into an existing node
+func (pn *Node) CanMerge(obj *Node) error {
 	if obj.Name != pn.Name {
-		return false, fmt.Errorf("policy node merge failed: Node name mismatch %s != %s",
-			obj.Name, pn.Name)
+		return fmt.Errorf("node name mismatch %s != %s", obj.Name, pn.Name)
 	}
 
 	if obj.path != pn.path {
-		return false, fmt.Errorf("policy node merge failed: Node path mismatch %s != %s",
-			obj.path, pn.path)
+		return fmt.Errorf("node path mismatch %s != %s", obj.path, pn.path)
+	}
+
+	if !pn.IsMergeable() || !obj.IsMergeable() {
+		return fmt.Errorf("node %s is not mergeable", obj.Name)
+	}
+
+	for k := range obj.Children {
+		if childNode, ok := pn.Children[k]; ok {
+			if err := childNode.CanMerge(obj.Children[k]); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Merge incorporates the rules and children of obj into an existnig node
+func (pn *Node) Merge(obj *Node) (bool, error) {
+	if err := pn.CanMerge(obj); err != nil {
+		return false, fmt.Errorf("cannot merge node: %s", err)
 	}
 
 	policyModified := false
 	for _, objRule := range obj.Rules {
-		if pn.HasPolicyRule(objRule) {
-			log.Infof("Ignoring rule %+v since it's already present in the list of rules", objRule)
-		} else {
+		if !pn.HasPolicyRule(objRule) {
 			pn.Rules = append(pn.Rules, objRule)
 			policyModified = true
 		}
@@ -287,10 +337,12 @@ func (pn *Node) Merge(obj *Node) (bool, error) {
 	for k := range obj.Children {
 		childPolicyModified, err := pn.AddChild(k, obj.Children[k])
 		if err != nil {
-			return false, err
+			log.Warningf("unexpected error while merging nodes: %s", err)
 		}
 		policyModified = policyModified || childPolicyModified
 	}
+
+	pn.resolved = false
 
 	return policyModified, nil
 }

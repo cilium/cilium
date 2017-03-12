@@ -18,4 +18,9 @@ type PolicyRule interface {
 	Resolve(node *Node) error
 	SHA256Sum() (string, error)
 	CoverageSHA256Sum() (string, error)
+
+	// Must return true if a rule allows merging with other rules within a node.
+	// Certain rules are not additive and require strict ordering, such rules
+	// may never be merged in a node as merging may occur in undefined order.
+	IsMergeable() bool
 }

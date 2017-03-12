@@ -112,6 +112,10 @@ type RuleL4 struct {
 	Allow    []AllowL4      `json:"l4"`
 }
 
+func (l4 *RuleL4) IsMergeable() bool {
+	return true
+}
+
 func (l4 *RuleL4) GetL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 	if len(l4.Coverage) > 0 && !ctx.TargetCoveredBy(l4.Coverage) {
 		policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)

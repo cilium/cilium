@@ -30,6 +30,18 @@ type AllowRule struct {
 	Label  labels.Label       `json:"label"`
 }
 
+func (a *AllowRule) IsMergeable() bool {
+	switch a.Action {
+	case DENY:
+		// Deny rules will result in immediate return from the policy
+		// evaluation process and thus rely on strict ordering of the rules.
+		// Merging of such rules in a node will result in undefined behaviour.
+		return false
+	}
+
+	return true
+}
+
 func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	if a == nil {
 		a = new(AllowRule)
@@ -102,6 +114,16 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 type PolicyRuleConsumers struct {
 	Coverage []labels.Label `json:"coverage,omitempty"`
 	Allow    []AllowRule    `json:"allow"`
+}
+
+func (prc *PolicyRuleConsumers) IsMergeable() bool {
+	for _, r := range prc.Allow {
+		if !r.IsMergeable() {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (prc *PolicyRuleConsumers) String() string {
