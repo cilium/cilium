@@ -136,7 +136,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		if err := e.evaluateConsumerSource(owner, &ctx, id.ID); err != nil {
 			// This should never really happen
 			// FIXME: clear policy because it is inconsistent
-			break
+			log.Debugf("Received error while evaluating policy: %s", err)
 		}
 	}
 
@@ -146,7 +146,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	for idx < maxID {
 		if err := e.evaluateConsumerSource(owner, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent
-			break
+			log.Debugf("Received error while evaluating policy: %s", err)
 		}
 		idx++
 	}
