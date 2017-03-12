@@ -54,6 +54,7 @@ var (
 	enableLogstash     bool
 	etcdAddr           []string
 	k8sLabels          []string
+	validLabels        []string
 	labelPrefixFile    string
 	logstashAddr       string
 	logstashProbeTimer uint32
@@ -106,6 +107,8 @@ func init() {
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
 		"When restoring state, keeps containers' configuration in place")
 	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
+	flags.StringSliceVar(&validLabels, "labels", []string{},
+		"List of label prefixes used to determine identity of an endpoint")
 	flags.StringVar(&config.LibDir, "libdir", defaults.LibDir, "Path to directory with program templates")
 	flags.BoolVar(&enableLogstash, "logstash", false, "Enable logstash integration")
 	flags.StringVar(&logstashAddr, "logstash-agent", "127.0.0.1:8080", "Logstash agent address")
@@ -201,6 +204,11 @@ func initEnv() {
 			)
 		}
 	}
+
+	for _, label := range validLabels {
+		config.ValidLabelPrefixes.Append(labels.ParseLabelPrefix(label))
+	}
+
 	config.ValidLabelPrefixesMU.Unlock()
 
 	_, r, err := net.ParseCIDR(nat46prefix)
