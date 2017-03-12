@@ -34,11 +34,29 @@ type LabelPrefix struct {
 	Source string `json:"source"`
 }
 
+func ParseLabelPrefix(label string) *LabelPrefix {
+	labelPrefix := LabelPrefix{}
+	t := strings.SplitN(label, ":", 2)
+	if len(t) > 1 {
+		labelPrefix.Source = t[0]
+		labelPrefix.Prefix = t[1]
+	} else {
+		labelPrefix.Prefix = label
+	}
+
+	return &labelPrefix
+}
+
 // LabelPrefixCfg is the label prefix configuration to filter labels of started
 // containers.
 type LabelPrefixCfg struct {
 	Version       int            `json:"version"`
 	LabelPrefixes []*LabelPrefix `json:"valid-prefixes"`
+}
+
+// Append adds an additional allowed label prefix to the configuration
+func (cfg *LabelPrefixCfg) Append(l *LabelPrefix) {
+	cfg.LabelPrefixes = append(cfg.LabelPrefixes, l)
 }
 
 // DefaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
@@ -122,8 +140,11 @@ func (lpc *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 	filteredLabels := Labels{}
 	for k, v := range lbls {
 		for _, lpcValue := range lpc.LabelPrefixes {
-			if lpcValue.Source == v.Source &&
-				strings.HasPrefix(v.Key, lpcValue.Prefix) {
+			if lpcValue.Source != "" && lpcValue.Source != v.Source {
+				continue
+			}
+
+			if strings.HasPrefix(v.Key, lpcValue.Prefix) {
 				// Just want to make sure we don't have labels deleted in
 				// on side and disappearing in the other side...
 				cpy := Label(*v)
