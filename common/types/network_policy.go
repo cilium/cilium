@@ -68,7 +68,7 @@ func K8sNP2CP(np *v1beta1.NetworkPolicy) (string, *policy.Node, error) {
 	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
 	pn := policy.NewNode(policyName, nil)
 	pn.Rules = []policy.PolicyRule{
-		&policy.PolicyRuleConsumers{
+		&policy.RuleConsumers{
 			Coverage: coverageLbls.ToSlice(),
 			Allow:    allowRules,
 		},

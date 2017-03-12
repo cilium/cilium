@@ -78,12 +78,12 @@ func (p *Node) Allows(ctx *SearchContext) ConsumableDecision {
 		sub_decision := UNDECIDED
 
 		switch rule.(type) {
-		case *PolicyRuleConsumers:
-			r := rule.(*PolicyRuleConsumers)
+		case *RuleConsumers:
+			r := rule.(*RuleConsumers)
 			sub_decision = r.Allows(ctx)
 
-		case *PolicyRuleRequires:
-			r := rule.(*PolicyRuleRequires)
+		case *RuleRequires:
+			r := rule.(*RuleRequires)
 			sub_decision = r.Allows(ctx)
 		}
 
@@ -222,7 +222,7 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 		}
 
 		if _, ok := om[privEnc[ALLOW]]; ok {
-			var pr_c PolicyRuleConsumers
+			var pr_c RuleConsumers
 
 			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
 				return err
@@ -234,7 +234,7 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				pn.Rules = append(pn.Rules, &pr_c)
 			}
 		} else if _, ok := om[privEnc[ALWAYS_ALLOW]]; ok {
-			var pr_c PolicyRuleConsumers
+			var pr_c RuleConsumers
 
 			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
 				return err
@@ -253,7 +253,7 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				pn.Rules = append(pn.Rules, &pr_c)
 			}
 		} else if _, ok := om[privEnc[REQUIRES]]; ok {
-			var pr_r PolicyRuleRequires
+			var pr_r RuleRequires
 
 			if err := json.Unmarshal(*rawMsg, &pr_r); err != nil {
 				return err
