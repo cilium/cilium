@@ -471,10 +471,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		events:            make(chan events.Event, 512),
 		loadBalancer:      lb,
 		consumableCache:   policy.NewConsumableCache(),
-		policy:            policy.Tree{Root: policy.NewNode(common.GlobalLabelPrefix, nil)},
+		policy:            policy.Tree{},
 		ignoredContainers: make(map[string]int),
 	}
-	d.policy.Root.Path()
 
 	d.listenForCiliumEvents()
 

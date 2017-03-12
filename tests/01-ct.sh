@@ -20,18 +20,18 @@ docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
-docker run -dt --net=$TEST_NET --name server -l io.cilium.server tgraf/netperf
-docker run -dt --net=$TEST_NET --name httpd1 -l io.cilium.httpd httpd
-docker run -dt --net=$TEST_NET --name httpd2 -l io.cilium.httpd_deny httpd
-docker run -dt --net=$TEST_NET --name client -l io.cilium.client tgraf/netperf
-docker run -dt --net=$TEST_NET --name curl   -l io.cilium.curl tgraf/netperf
+docker run -dt --net=$TEST_NET --name server -l id.server tgraf/netperf
+docker run -dt --net=$TEST_NET --name httpd1 -l id.httpd httpd
+docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
+docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
+docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
-CLIENT_ID=$(cilium endpoint list | grep io.cilium.client | awk '{ print $1}')
+CLIENT_ID=$(cilium endpoint list | grep id.client | awk '{ print $1}')
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
-SERVER_ID=$(cilium endpoint list | grep io.cilium.server | awk '{ print $1}')
+SERVER_ID=$(cilium endpoint list | grep id.server | awk '{ print $1}')
 HTTPD1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd1)
 HTTPD1_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd1)
 HTTPD2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd2)
@@ -47,40 +47,32 @@ cilium endpoint list
 
 cat <<EOF | cilium -D policy import -
 {
-        "name": "io.cilium",
-        "children": {
-		"client": { },
-		"curl": {
-			"rules": [{
-                                "l4": [{
-                                        "out-ports": [{"port": 80, "protocol": "tcp"}]
-                                }]
-			}]
-		},
-		"server": {
-			"rules": [{
-				"allow": ["reserved:host", "../client"]
-			}]
-		},
-		"httpd": {
-			"rules": [{
-				"allow": ["../curl"]
-			},{
-                                "l4": [{
-                                        "in-ports": [{"port": 80, "protocol": "tcp"}]
-                                }]
-			}]
-		},
-		"httpd_deny": {
-			"rules": [{
-				"allow": ["../curl"]
-			},{
-                                "l4": [{
-                                        "in-ports": [{"port": 9090, "protocol": "tcp"}]
-                                }]
-			}]
-		}
-	}
+        "name": "root",
+	"rules": [{
+		"coverage": ["id.curl"],
+		"l4": [{
+			"out-ports": [{"port": 80, "protocol": "tcp"}]
+		}]
+	},{
+		"coverage": ["id.server"],
+		"allow": ["reserved:host", "id.client"]
+	},{
+		"coverage": ["id.httpd"],
+		"allow": ["id.curl"]
+	},{
+		"coverage": ["id.httpd"],
+		"l4": [{
+			"in-ports": [{"port": 80, "protocol": "tcp"}]
+		}]
+	},{
+		"coverage": ["id.httpd_deny"],
+		"allow": ["id.curl"]
+	},{
+		"coverage": ["id.httpd_deny"],
+		"l4": [{
+			"in-ports": [{"port": 9090, "protocol": "tcp"}]
+		}]
+	}]
 }
 EOF
 
@@ -213,4 +205,4 @@ cilium endpoint config $CLIENT_ID Conntrack=false
 BIDIRECTIONAL=0
 connectivity_test
 
-cilium -D policy delete io.cilium
+cilium -D policy delete root

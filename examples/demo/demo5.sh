@@ -14,14 +14,14 @@ function cleanup {
     sudo killall -9 kube-proxy 2> /dev/null || true
     sudo killall -9 kube-apiserver 2> /dev/null || true
     docker rm -f `docker ps -aq --filter=name=k8s` 2> /dev/null || true
-    cilium policy delete io.cilium
+    cilium policy delete .
 }
 
 trap cleanup EXIT
 
 docker network rm $NETWORK > /dev/null 2>&1
 docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK > /dev/null
-cilium policy delete io.cilium
+cilium policy delete .
 #Clean old kubernetes certificates
 sudo rm -fr /run/kubernetes
 

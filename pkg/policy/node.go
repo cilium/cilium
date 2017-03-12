@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -45,22 +44,130 @@ func NewNode(name string, parent *Node) *Node {
 	}
 }
 
-func (p *Node) GetLabelParent() labels.LabelAttachment {
-	return p.Parent
-}
-
 func (p *Node) Path() string {
 	if p.path == "" {
-		p.path, _ = p.BuildPath()
-		// FIXME: handle error?
+		p.buildPath()
 	}
 
 	return p.path
 }
 
+// ResolveName translates a possibly relative name to an absolute path relative to the node
+func (node *Node) ResolveName(name string) string {
+	// If name is an absolute path already, return it
+	if strings.HasPrefix(name, RootPrefix) {
+		return name
+	}
+
+	for strings.HasPrefix(name, "../") {
+		name = name[3:]
+		node = node.Parent
+		if node == nil {
+			log.Warningf("Could not resolve label %+v, reached root\n", name)
+			return name
+		}
+	}
+
+	return JoinPath(node.Path(), name)
+}
+
+// NormalizeNames walks all policy nodes and normalizes the policy node name
+// according to to the path specified. Takes a node with a list of optional
+// children and the path to where the node is/will be located in the tree.
+//
+// 1. If the name of a node is ommitted, the node name will be derived from
+// the path. The element after the last node path delimiter is assumed to
+// be the node name, e.g. rootNode.parentNode.name
+//
+// 2. If the node name is an absolute path, it must match the path but will
+// be translated to a relative node name.
+func (n *Node) NormalizeNames(path string) (string, error) {
+	if n == nil {
+		return path, nil
+	}
+
+	// Path is always absolute. If root delimiter has not been added,
+	// add it now.
+	if !strings.HasPrefix(path, RootNodeName) {
+		path = JoinPath(RootNodeName, path)
+	}
+
+	// If no name is provided, the last node name in the path is assumed
+	// to be the node's name
+	if n.Name == "" {
+		if path == RootNodeName {
+			path, n.Name = RootNodeName, RootNodeName
+		} else {
+			path, n.Name = SplitNodePath(path)
+		}
+	}
+
+	// If name starts with a node path delimiter, it is an absolute path,
+	// check if it matches the provided path
+	if n.Name != RootNodeName {
+		if strings.HasPrefix(n.Name, RootNodeName) {
+			// If path is ".foo", we need to subtract ".foo."
+			sub := JoinPath(path, "")
+
+			if !strings.HasPrefix(n.Name, sub) {
+				return "", fmt.Errorf("absolute node name '%s' must match path '%s'",
+					n.Name, path)
+			}
+
+			n.Name = strings.TrimPrefix(n.Name, sub)
+		}
+
+		if strings.Contains(n.Name, NodePathDelimiter) {
+			return "", fmt.Errorf("relative node name '%s' may not contain path delimiter",
+				n.Name)
+		}
+	}
+
+	// Validate all child nodes as well
+	for keyName, child := range n.Children {
+		if child.Name != "" {
+			if keyName != child.Name {
+				return "", fmt.Errorf("map key name '%s' must match child name '%s'",
+					keyName, child.Name)
+			}
+		} else {
+			child.Name = keyName
+		}
+
+		if _, err := child.NormalizeNames(JoinPath(path, n.Name)); err != nil {
+			return "", err
+		}
+	}
+
+	return path, nil
+}
+
+func coversLabel(l *labels.Label, path string) bool {
+	key := l.AbsoluteKey()
+
+	// root matches everything, e.g. "." matches ".foo"
+	if path == RootNodeName {
+		return true
+	}
+
+	if strings.HasPrefix(key, path) {
+		// key and path are identical, e.g. ".foo" matches ".foo"
+		if len(key) == len(path) {
+			return true
+		}
+
+		// if path < prefix, then match must be up to delimiter, e.g. ".foo" matches ".foo.bar"
+		if len(path) < len(key) && key[len(path)] == '.' {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (p *Node) Covers(ctx *SearchContext) bool {
 	for k := range ctx.To {
-		if ctx.To[k].Covers(p.Path()) {
+		if coversLabel(&ctx.To[k], p.Path()) {
 			return true
 		}
 	}
@@ -100,26 +207,28 @@ func (p *Node) Allows(ctx *SearchContext) ConsumableDecision {
 	return decision
 }
 
-func (pn *Node) BuildPath() (string, error) {
+func (pn *Node) buildPath() (string, error) {
 	if pn.Parent != nil {
 		// Optimization: if parent has calculated path already (likely),
 		// we don't have to walk to the entire root again
-		if pn.Parent.path != "" {
-			return fmt.Sprintf("%s.%s", pn.Parent.path, pn.Name), nil
+		s := pn.Parent.path
+		if s == "" {
+			var err error
+			if s, err = pn.Parent.buildPath(); err != nil {
+				return "", err
+			}
 		}
 
-		if s, err := pn.Parent.BuildPath(); err != nil {
-			return "", err
-		} else {
-			return fmt.Sprintf("%s.%s", s, pn.Name), nil
-		}
+		pn.path = JoinPath(s, pn.Name)
+		return pn.path, nil
 	}
 
-	if !strings.HasPrefix(pn.Name, common.GlobalLabelPrefix) {
-		return "", fmt.Errorf("error in policy: node %s parent prefix is different than %s", pn.Name, common.GlobalLabelPrefix)
+	if pn.Name != RootNodeName {
+		return "", fmt.Errorf("encountered non-root node '%s' without a parent while building path", pn.Name)
 	}
 
-	return common.GlobalLabelPrefix, nil
+	pn.path = RootNodeName
+	return pn.path, nil
 }
 
 func (pn *Node) resolveRules() error {
@@ -150,12 +259,9 @@ func (p *Node) HasPolicyRule(pr PolicyRule) bool {
 }
 
 func (pn *Node) ResolveTree() error {
-	var err error
-
 	log.Debugf("Resolving policy node %+v\n", pn)
 
-	pn.path, err = pn.BuildPath()
-	if err != nil {
+	if _, err := pn.buildPath(); err != nil {
 		return err
 	}
 
@@ -167,7 +273,7 @@ func (pn *Node) ResolveTree() error {
 		pn.Children[k].Parent = pn
 		val.Parent = pn
 		val.Name = k
-		if err = val.ResolveTree(); err != nil {
+		if err := val.ResolveTree(); err != nil {
 			return err
 		}
 	}
@@ -284,7 +390,7 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 	// We have now parsed all children in a recursive manner and are back
 	// to the root node. Walk the tree again to resolve the path and the
 	// labels of all nodes and rules.
-	if pn.Name == common.GlobalLabelPrefix {
+	if pn.Name == RootNodeName {
 		log.Debugf("Resolving tree: %+v\n", pn)
 		if err := pn.ResolveTree(); err != nil {
 			return err

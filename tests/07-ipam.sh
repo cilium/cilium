@@ -5,7 +5,7 @@ source "./helpers.bash"
 set -e
 
 # Set debug mode on so that we can retrieve the list of IPs allocated
-cilium daemon config Debug=true
+cilium config Debug=true
 
 # Check the list of IPs allocated. The IPv4 IP used on the IPv4 range should be allocated.
 if [[ "$(cilium status | tail -n 3)" != \

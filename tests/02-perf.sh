@@ -21,8 +21,8 @@ function cleanup {
 
 trap cleanup EXIT
 
-SERVER_LABEL="io.cilium.server"
-CLIENT_LABEL="io.cilium.client"
+SERVER_LABEL="id.server"
+CLIENT_LABEL="id.client"
 
 docker network inspect $TEST_NET || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
@@ -49,16 +49,11 @@ set -x
 
 cat <<EOF | cilium -D policy import -
 {
-        "name": "io.cilium",
-        "children": {
-            "client": { },
-            "server": {
-                "rules": [{
-                    "allow": ["reserved:host", "../client"]
-                }]
-            }
-
-	    }
+        "name": "root",
+	"rules": [{
+		"coverage": ["${SERVER_LABEL}"],
+		"allow": ["reserved:host", "${CLIENT_LABEL}"]
+	}]
 }
 EOF
 
@@ -168,4 +163,4 @@ cilium endpoint config $SERVER_ID Policy=false
 cilium endpoint config $CLIENT_ID Policy=false
 perf_test
 
-cilium -D policy delete io.cilium
+cilium -D policy delete root

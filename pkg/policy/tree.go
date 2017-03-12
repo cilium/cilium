@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -78,7 +79,7 @@ func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
 }
 
 func (t *Tree) Allows(ctx *SearchContext) ConsumableDecision {
-	policyTrace(ctx, "Resolving policy: %s\n", ctx.String())
+	policyTrace(ctx, "NEW TRACE >> %s\n", ctx.String())
 
 	var decision, sub_decision ConsumableDecision
 	// In absence of policy, deny
@@ -113,7 +114,7 @@ func (t *Tree) Allows(ctx *SearchContext) ConsumableDecision {
 	}
 
 end:
-	policyTrace(ctx, "Final verdict: [%s]\n", strings.ToUpper(decision.String()))
+	policyTrace(ctx, "END TRACE << verdict: [%s]\n", strings.ToUpper(decision.String()))
 
 	return decision
 }
@@ -131,4 +132,134 @@ func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 	policyTrace(ctx, "Final tree L4 policy: %+v\n", result)
 
 	return result
+}
+
+// Lookup returns a policy node and its parent for a given path
+func (t *Tree) Lookup(path string) (node, parent *Node) {
+	// Empty tree
+	if t.Root == nil {
+		return nil, nil
+	}
+
+	if path == RootNodeName {
+		return t.Root, nil
+	}
+
+	cut := JoinPath(RootNodeName, "")
+	if strings.HasPrefix(path, cut) {
+		path = strings.TrimPrefix(path, cut)
+	}
+
+	if path == "" {
+		return t.Root, nil
+	}
+
+	node = t.Root
+	parent = nil
+
+	elements := strings.Split(path, NodePathDelimiter)
+	for index, nodeName := range elements {
+		log.Debugf("Looking for %s in %+v", nodeName, node)
+		if child, ok := node.Children[nodeName]; ok {
+			parent = node
+			node = child
+		} else {
+			// Return parent if we failed at last element
+			if index == len(elements)-1 {
+				return nil, parent
+			} else {
+				return nil, nil
+			}
+		}
+	}
+
+	return node, parent
+}
+
+// Add adds the provided policy node at the specified path
+func (t *Tree) Add(path string, node *Node) (bool, error) {
+	var err error
+
+	if node == nil {
+		return false, nil
+	}
+
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+
+	if path, err = node.NormalizeNames(path); err != nil {
+		return false, err
+	}
+
+	modified := false
+
+	if path == RootNodeName && node.Name == RootNodeName {
+		node.Path()
+		if t.Root == nil {
+			t.Root = node
+			modified = true
+		} else {
+			if modified, err = t.Root.Merge(node); err != nil {
+				return false, err
+			}
+		}
+	} else {
+		absPath := JoinPath(path, node.Name)
+		_, parent := t.Lookup(absPath)
+		if parent == nil {
+			return false, fmt.Errorf("path '%s' does not point to a valid node", path)
+		}
+
+		if modified, err = parent.AddChild(node.Name, node); err != nil {
+			return false, err
+		}
+	}
+
+	if modified {
+		return true, node.ResolveTree()
+	}
+
+	return modified, nil
+}
+
+func (t *Tree) deleteNode(node, parent *Node) {
+	if node == t.Root {
+		t.Root = nil
+	} else if parent != nil {
+		delete(parent.Children, node.Name)
+	}
+}
+
+func (t *Tree) Delete(path string, coverage string) bool {
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+
+	node, parent := t.Lookup(path)
+	if node == nil {
+		return false
+	}
+
+	// Deletion request of a specific rule of a node
+	if coverage != "" {
+		for i, pr := range node.Rules {
+			if prCover256Sum, err := pr.CoverageSHA256Sum(); err == nil &&
+				prCover256Sum == coverage {
+				node.Rules = append(node.Rules[:i], node.Rules[i+1:]...)
+
+				// If the rule was the last remaining, delete the node
+				if !node.HasRules() {
+					t.deleteNode(node, parent)
+				}
+
+				return true
+			}
+		}
+
+		return false
+	}
+
+	// Deletion request for entire node
+	t.deleteNode(node, parent)
+
+	return true
 }

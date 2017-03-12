@@ -3,8 +3,8 @@
 . $(dirname ${BASH_SOURCE})/../../contrib/shell/util.sh
 
 NETWORK="cilium"
-CLIENT_LABEL="io.cilium.client"
-SERVER_LABEL="io.cilium.server"
+CLIENT_LABEL="client"
+SERVER_LABEL="server"
 
 function cleanup {
 	tmux kill-session -t my-session >/dev/null 2>&1
@@ -15,7 +15,7 @@ trap cleanup EXIT
 
 docker network rm $NETWORK > /dev/null 2>&1
 docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK > /dev/null
-cilium policy delete io.cilium
+cilium policy delete .
 
 desc "How to debug a connectivity issue?"
 desc "Start client and server containers"

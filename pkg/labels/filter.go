@@ -60,10 +60,7 @@ func (cfg *LabelPrefixCfg) Append(l *LabelPrefix) {
 }
 
 // DefaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
-// LPCfgFileVersion and the following label prefixes: Key: common.GlobalLabelPrefix,
-// Source: common.CiliumLabelSource, Key: common.GlobalLabelPrefix, Source:
-// common.CiliumLabelSource, Key: common.GlobalLabelPrefix, Source: common.K8sLabelSource
-// and Key: common.K8sPodNamespaceLabel, Source: common.K8sLabelSource.
+// LPCfgFileVersion
 func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 	return &LabelPrefixCfg{
 		Version: LPCfgFileVersion,
