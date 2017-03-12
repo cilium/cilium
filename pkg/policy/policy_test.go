@@ -549,15 +549,17 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	// Name mismatch
 	aNode := Node{Name: "a"}
 	bNode := Node{Name: "b"}
-	_, err := aNode.Merge(&bNode)
+	modified, err := aNode.Merge(&bNode)
 	c.Assert(err, Not(Equals), nil)
+	c.Assert(modified, Equals, false)
 
 	// Empty nodes
-	aOrig := Node{Name: "a"}
+	aOrig := Node{Name: "a", mergeable: true}
 	aNode = Node{Name: "a"}
 	bNode = Node{Name: "a"}
-	_, err = aNode.Merge(&bNode)
+	modified, err = aNode.Merge(&bNode)
 	c.Assert(err, Equals, nil)
+	c.Assert(modified, Equals, false)
 	c.Assert(aNode, DeepEquals, aOrig)
 
 	lblProd := labels.NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
@@ -581,8 +583,8 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 				Rules: []PolicyRule{
 					&PolicyRuleConsumers{
 						Allow: []AllowRule{
-							{Action: DENY, Label: *lblJoe},
-							{Action: DENY, Label: *lblPete},
+							{Action: ACCEPT, Label: *lblJoe},
+							{Action: ACCEPT, Label: *lblPete},
 						},
 					},
 				},
@@ -623,8 +625,32 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	aNode.Path()
 	bNode.Path()
 
-	_, err = aNode.Merge(&bNode)
+	modified, err = aNode.Merge(&bNode)
 	c.Assert(err, Equals, nil)
+	c.Assert(modified, Equals, true)
+
+	unmergeableNode := Node{
+		Name: common.GlobalLabelPrefix,
+		Rules: []PolicyRule{
+			&PolicyRuleConsumers{
+				Allow: []AllowRule{
+					{ // deny: foo
+						Action: DENY,
+						Label:  *lblFoo,
+					},
+				},
+			},
+		},
+	}
+
+	unmergeableNode.Path()
+
+	c.Assert(aNode.IsMergeable(), Equals, true)
+	c.Assert(unmergeableNode.IsMergeable(), Equals, false)
+	c.Assert(aNode.CanMerge(&unmergeableNode), Not(Equals), nil)
+
+	modified, err = aNode.Merge(&unmergeableNode)
+	c.Assert(err, Not(Equals), nil)
 }
 
 func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
@@ -644,4 +670,18 @@ func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
 	err = json.Unmarshal(b, &scrGot)
 	c.Assert(err, IsNil)
 	c.Assert(scrGot, DeepEquals, scrWanted)
+}
+
+func (s *PolicyTestSuite) TestRuleMergeable(c *C) {
+	deny := AllowRule{Action: DENY}
+	c.Assert(deny.IsMergeable(), Equals, false)
+
+	allow := AllowRule{Action: ACCEPT}
+	c.Assert(allow.IsMergeable(), Equals, true)
+
+	always_allow := AllowRule{Action: ALWAYS_ACCEPT}
+	c.Assert(always_allow.IsMergeable(), Equals, true)
+
+	req := PolicyRuleRequires{}
+	c.Assert(req.IsMergeable(), Equals, true)
 }
