@@ -1,5 +1,5 @@
 {
-        "name": "io.cilium",
+	"name": "root",
 	"rules": [{
 		"coverage": ["public"],
 		"allow": ["$world"]
@@ -8,21 +8,15 @@
 		"allow": ["$all"]
 	},{
 		"coverage": ["$world"],
-		"allow": ["client"]
+		"allow": ["id.client"]
 	},{
 		"coverage": ["$host"],
 		"allow": ["$all"]
 	},{
 		"coverage": ["$all"],
 		"allow": ["$host"]
-	}],
-        "children": {
-		"client": { },
-		"server": {
-			"rules": [{
-				"allow": ["../client"]
-			}]
-		}
-
-	}
+	},{
+		"coverage": ["id.server"],
+		"allow": ["id.client"]
+	}]
 }

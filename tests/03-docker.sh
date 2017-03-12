@@ -14,8 +14,8 @@ function cleanup {
 
 trap cleanup EXIT
 
-SERVER_LABEL="io.cilium.test.server"
-CLIENT_LABEL="io.cilium.test.client"
+SERVER_LABEL="id.server"
+CLIENT_LABEL="id.client"
 
 sudo cilium -D policy import ./policy
 
@@ -61,4 +61,4 @@ ping6 -c 5 "$SERVER_IP" || {
 	abort "Error: Could not ping server container from host"
 }
 
-sudo cilium -D policy delete io.cilium
+sudo cilium -D policy delete root

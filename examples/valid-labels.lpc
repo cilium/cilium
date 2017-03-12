@@ -3,11 +3,11 @@
     "valid-prefixes": [
         {
             "prefix": "io.cilium",
-            "source": "cilium"
+            "source": ""
         },
         {
-            "prefix": "io.cilium",
-            "source": "k8s"
+            "prefix": "id.",
+            "source": ""
         }
     ]
 }

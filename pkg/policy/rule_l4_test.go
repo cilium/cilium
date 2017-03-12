@@ -22,9 +22,9 @@ import (
 )
 
 func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
-	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
-	lblBar := labels.NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
-	lblBaz := labels.NewLabel("io.cilium.baz", "", common.CiliumLabelSource)
+	lblFoo := labels.NewLabel("root.foo", "", common.CiliumLabelSource)
+	lblBar := labels.NewLabel("root.bar", "", common.CiliumLabelSource)
+	lblBaz := labels.NewLabel("root.baz", "", common.CiliumLabelSource)
 
 	// -> [Foo]
 	toFoo := SearchContext{To: []labels.Label{*lblFoo}}
@@ -69,7 +69,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	}
 
 	rootNode := Node{
-		Name:  common.GlobalLabelPrefix,
+		Name:  RootNodeName,
 		Rules: []PolicyRule{&rule1},
 		Children: map[string]*Node{
 			"foo": {},

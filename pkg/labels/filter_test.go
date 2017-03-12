@@ -27,8 +27,8 @@ var _ = Suite(&LabelsPrefCfgSuite{})
 
 func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	wanted := Labels{
-		"io.cilium.lizards":     NewLabel("io.cilium.lizards", "web", common.CiliumLabelSource),
-		"io.cilium.lizards.k8s": NewLabel("io.cilium.lizards.k8s", "web", common.K8sLabelSource),
+		"id.lizards":     NewLabel("id.lizards", "web", common.CiliumLabelSource),
+		"id.lizards.k8s": NewLabel("id.lizards.k8s", "web", common.K8sLabelSource),
 	}
 
 	dlpcfg := DefaultLabelPrefixCfg()
@@ -45,13 +45,13 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	allLabels := Map2Labels(allNormalLabels, common.CiliumLabelSource)
 	filtered := dlpcfg.FilterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 0)
-	allLabels["io.cilium.lizards"] = NewLabel("io.cilium.lizards", "web", common.CiliumLabelSource)
-	allLabels["io.cilium.lizards.k8s"] = NewLabel("io.cilium.lizards.k8s", "web", common.K8sLabelSource)
+	allLabels["id.lizards"] = NewLabel("id.lizards", "web", common.CiliumLabelSource)
+	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", common.K8sLabelSource)
 	filtered = dlpcfg.FilterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 2)
 	c.Assert(filtered, DeepEquals, wanted)
 
 	// Making sure we are deep copying the labels
-	allLabels["io.cilium.lizards"].Source = "I can change this and doesn't affect any one"
+	allLabels["id.lizards"].Source = "I can change this and doesn't affect any one"
 	c.Assert(filtered, DeepEquals, wanted)
 }

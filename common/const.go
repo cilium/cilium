@@ -50,8 +50,6 @@ const (
 
 	// Miscellaneous dedicated constants
 
-	// GlobalLabelPrefix is the default root path for the policy.
-	GlobalLabelPrefix = "io.cilium"
 	// CiliumLabelSource is the default label source for the labels read from containers.
 	CiliumLabelSource = "cilium"
 	// K8sLabelSource is the default label source for the labels read from kubernetes.
@@ -59,8 +57,7 @@ const (
 	// K8sAnnotationName is the annotation name used for the cilium policy name in the
 	// kubernetes network policy.
 	K8sAnnotationName = "io.cilium.name"
-	// K8sLabelPrefix is the default prefix used when parsing labels that don't have
-	// the GlobalLabelPrefix in kubernetes.
+	// K8sLabelPrefix is the default prefix used to represent kubernetes labels
 	K8sLabelPrefix = "io.cilium.k8s."
 	// K8sDefaultParent is the default prefix for network policies received from
 	// kubernetes.
@@ -76,7 +73,7 @@ const (
 	// Label source for reserved types
 	ReservedLabelSource = "reserved"
 	// Label used to represent the reserved source
-	ReservedLabelKey = GlobalLabelPrefix + "." + ReservedLabelSource
+	ReservedLabelKey = "io.cilium." + ReservedLabelSource
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
 	// represent the same number of IPv6 addresses supported on each node.
 	EndpointsPerHost = 0xFFFF

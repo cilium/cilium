@@ -7,8 +7,8 @@ set -e
 TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/nettools"
 TEST_TIME=30
-SERVER_LABEL="io.cilium.server"
-CLIENT_LABEL="io.cilium.client"
+SERVER_LABEL="id.server"
+CLIENT_LABEL="id.client"
 SERVER_NAME="server"
 CLIENT_NAME="client"
 HEADERS=${HEADERS_OFF:+"-P 0"}
@@ -93,26 +93,26 @@ set -x
 
 cat <<EOF | kubectl exec -i "${server_cilium}" -- cilium -D policy import -
 {
-    "name": "io.cilium",
-            "rules": [
-                {
-                    "coverage": [
-                        {
-                            "key": "server",
-                            "source": "k8s"
-                        }
-                    ],
-                    "allow": [
-                        {
-                            "action": "always-accept",
-                            "label": {
-                                "key": "client",
-                                "source": "k8s"
-                            }
-                        }
-                    ]
-                }
-            ]
+    "name": "root",
+    "rules": [
+	{
+	    "coverage": [
+		{
+		    "key": "${SERVER_LABEL}",
+		    "source": "k8s"
+		}
+	    ],
+	    "allow": [
+		{
+		    "action": "always-accept",
+		    "label": {
+			"key": "${CLIENT_LABEL}",
+			"source": "k8s"
+		    }
+		}
+	    ]
+	}
+    ]
 }
 EOF
 

@@ -95,8 +95,8 @@ func (s *LabelsSuite) TestSliceToMap(c *C) {
 	}
 
 	lbls := LabelSlice2LabelsMap([]Label{
-		{"key1", "value3", "source4", "", false},
-		{"key2", "value5", "source7", "", false},
+		{"key1", "value3", "source4", "", false, nil},
+		{"key2", "value5", "source7", "", false, nil},
 	})
 	c.Assert(len(lbls), Equals, 2)
 	c.Assert(lbls, DeepEquals, want)
@@ -157,4 +157,19 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)
 	c.Assert(err, Not(Equals), nil)
+}
+
+func (s *LabelsSuite) TestLabelCompare(c *C) {
+	a1 := NewLabel(".", "", "")
+	a2 := NewLabel(".", "", "")
+	b1 := NewLabel("bar", "", common.CiliumLabelSource)
+	c1 := NewLabel("bar", "", "kubernetes")
+	d1 := NewLabel("", "", "")
+
+	c.Assert(a1.Equals(a2), Equals, true)
+	c.Assert(a2.Equals(a1), Equals, true)
+	c.Assert(a1.Equals(b1), Equals, false)
+	c.Assert(a1.Equals(c1), Equals, false)
+	c.Assert(a1.Equals(d1), Equals, false)
+	c.Assert(b1.Equals(c1), Equals, false)
 }

@@ -310,9 +310,9 @@ docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
-docker run -dt --net=$TEST_NET --name server1 -l io.cilium.server -l server1 httpd
-docker run -dt --net=$TEST_NET --name server2 -l io.cilium.server -l server2 httpd
-docker run -dt --net=$TEST_NET --name client -l io.cilium.client noironetworks/nettools
+docker run -dt --net=$TEST_NET --name server1 -l id.server -l server1 httpd
+docker run -dt --net=$TEST_NET --name server2 -l id.server -l server2 httpd
+docker run -dt --net=$TEST_NET --name client -l id.client noironetworks/nettools
 
 # FIXME IPv6 DAD period
 sleep 5
@@ -334,16 +334,12 @@ SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $5}')
 
 cat <<EOF | cilium -D policy import -
 {
-        "name": "io.cilium",
-        "children": {
-		"client": { },
-		"server": {
-			"rules": [{
-				"allow": ["reserved:host", "../client", "../server"]
-			}]
-		}
+        "name": "root",
+	"rules": [{
+		"coverage": ["id.server"],
+		"allow": ["reserved:host", "id.client", "id.server"]
+	}]
 
-	}
 }
 EOF
 
@@ -458,8 +454,8 @@ cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 #cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
 #cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
 
-docker run -dt --net=$TEST_NET --name wrk -l io.cilium.client --entrypoint sleep skandyla/wrk 100000s
-docker run -dt --net=$TEST_NET --name ab -l io.cilium.client jordi/ab sleep 100000s
+docker run -dt --net=$TEST_NET --name wrk -l id.client --entrypoint sleep skandyla/wrk 100000s
+docker run -dt --net=$TEST_NET --name ab -l id.client jordi/ab sleep 100000s
 
 sleep 2
 
@@ -482,4 +478,4 @@ docker exec -i ab ab -t 30 -c 20 -v 1 "http://$SVC_IP4/" || {
 #cilium daemon config Debug=true DropNotification=true
 
 cleanup
-cilium -D policy delete io.cilium
+cilium -D policy delete root

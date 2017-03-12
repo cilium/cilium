@@ -94,6 +94,10 @@ func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 	}
 }
 
+type LabelOwner interface {
+	ResolveName(name string) string
+}
+
 // Label is the cilium's representation of a container label.
 type Label struct {
 	Key   string `json:"key"`
@@ -103,6 +107,7 @@ type Label struct {
 	absKey string
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`
+	owner        LabelOwner
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
@@ -170,6 +175,18 @@ func NewLabel(key string, value string, source string) *Label {
 	}
 }
 
+// NewOwnedLabel returns a new label like NewLabel but also assigns an owner
+func NewOwnedLabel(key string, value string, source string, owner LabelOwner) *Label {
+	l := NewLabel(key, value, source)
+	l.SetOwner(owner)
+	return l
+}
+
+// SetOwner modifies the owner of a label
+func (l *Label) SetOwner(owner LabelOwner) {
+	l.owner = owner
+}
+
 // Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
 	return l.Source == b.Source &&
@@ -186,59 +203,33 @@ func (l *Label) Matches(target *Label) bool {
 	return l.IsAllLabel() || l.Equals(target)
 }
 
-func (l *Label) Covers(path string) bool {
-	key := l.AbsoluteKey()
-
-	// Step 1: Path of node must be a prefix of the label key
-	if strings.HasPrefix(key, path) {
-		// Step 2: Coverage is only met on either a full match or if the prefix covers an entire layer
-		if len(key) == len(path) || key[len(path)] == '.' {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Interface to implement in order to attach a label to it
-type LabelAttachment interface {
-	GetLabelParent() LabelAttachment
-	Path() string
-}
-
 // Resolve resolves the absolute key path for this Label from policyNode.
-func (l *Label) Resolve(policyNode LabelAttachment) {
-	// FIXME: the HasPrefix should be using daemon.config.ValidLabelPrefixes
-	if l.Source != common.ReservedLabelSource &&
-		!strings.HasPrefix(l.Key, common.GlobalLabelPrefix) &&
-		!strings.HasPrefix(l.Key, common.K8sPodNamespaceLabel) {
-		k := l.Key
-		node := policyNode
+func (l *Label) Resolve(owner LabelOwner) {
+	l.SetOwner(owner)
 
-		for strings.HasPrefix(k, "../") {
-			k = k[3:]
-			node = node.GetLabelParent()
-			if node == nil {
-				log.Warningf("Could not resolve label %+v, reached root\n", l)
-				return
-			}
-		}
+	// Force generation of absolute key
+	l.AbsoluteKey()
 
-		l.absKey = node.Path() + "." + k
-	} else {
-		l.absKey = l.Key
-	}
-
-	log.Debugf("Resolved label %s to %s\n", l.String(), l.absKey)
+	log.Debugf("Resolved label %s to path %s\n", l.String(), l.absKey)
 }
 
 // AbsoluteKey if set returns the absolute key path, otherwise returns the label's Key.
 func (l *Label) AbsoluteKey() string {
-	if l.absKey != "" {
-		return l.absKey
+	if l.absKey == "" {
+		// Never translate using an owner if a reserved label
+		if l.owner != nil && l.Source != common.ReservedLabelSource &&
+			!strings.HasPrefix(l.Key, common.K8sPodNamespaceLabel) {
+			l.absKey = l.owner.ResolveName(l.Key)
+		} else {
+			if !strings.HasPrefix(l.Key, "root.") {
+				l.absKey = "root." + l.Key
+			} else {
+				l.absKey = l.Key
+			}
+		}
 	}
 
-	return l.Key
+	return l.absKey
 }
 
 // String returns the string representation of Label in the for of Source:Key=Value or

@@ -3,7 +3,7 @@
 . $(dirname ${BASH_SOURCE})/../../contrib/shell/util.sh
 
 NETWORK="cilium"
-CLIENT_LABEL="io.cilium.client"
+CLIENT_LABEL="client"
 
 function cleanup {
 	docker rm -f demo1 2> /dev/null || true

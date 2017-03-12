@@ -36,71 +36,16 @@ var (
 	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
 )
 
-func (ds *DaemonSuite) TestFindNode(c *C) {
-	var nullPtr *policy.Node
-
-	pn := policy.Node{
-		Name: "io.cilium",
-		Children: map[string]*policy.Node{
-			"foo": {},
-			"bar": {},
-		},
-	}
-
-	err := ds.d.PolicyAdd("io.cilium", &pn)
-	c.Assert(err, Equals, nilApiError)
-
-	n, p := ds.d.findNode("io.cilium")
-	c.Assert(n, Not(Equals), nil)
-	c.Assert(p, Equals, nullPtr)
-
-	n, p = ds.d.findNode("io.cilium.foo")
-	c.Assert(n, Not(Equals), nil)
-	c.Assert(p, Not(Equals), nil)
-
-	n, p = ds.d.findNode("io.cilium.baz")
-	c.Assert(n, Equals, nullPtr)
-	c.Assert(p, Equals, nullPtr)
-
-	n, p = ds.d.findNode("io.cilium..foo")
-	c.Assert(n, Not(Equals), nullPtr)
-	c.Assert(p, Not(Equals), nullPtr)
-
-	err = ds.d.PolicyDelete("io.cilium", "")
-	c.Assert(err, IsNil)
-}
-
-func (ds *DaemonSuite) TestPolicyGet(c *C) {
-	pn := policy.Node{
-		Name: "io.cilium",
-		Children: map[string]*policy.Node{
-			"foo": {
-				Name: "magic",
-			},
-		},
-	}
-
-	err := ds.d.PolicyAdd("io.cilium", &pn)
-	c.Assert(err, Equals, nilApiError)
-
-	n, p := ds.d.findNode("io.cilium.foo")
-	c.Assert(n, Not(Equals), nil)
-	c.Assert(p, Not(Equals), nil)
-
-	err = ds.d.PolicyDelete("io.cilium.foo", "")
-	c.Assert(err, IsNil)
-}
-
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
-	lblProd := labels.NewLabel("io.cilium.Prod", "", common.CiliumLabelSource)
-	lblQA := labels.NewLabel("io.cilium.QA", "", common.CiliumLabelSource)
-	lblFoo := labels.NewLabel("io.cilium.foo", "", common.CiliumLabelSource)
-	lblBar := labels.NewLabel("io.cilium.bar", "", common.CiliumLabelSource)
-	lblJoe := labels.NewLabel("io.cilium.user", "joe", common.CiliumLabelSource)
-	lblPete := labels.NewLabel("io.cilium.user", "pete", common.CiliumLabelSource)
+	lblProd := labels.NewLabel("root.Prod", "", common.CiliumLabelSource)
+	lblQA := labels.NewLabel("root.QA", "", common.CiliumLabelSource)
+	lblFoo := labels.NewLabel("root.foo", "", common.CiliumLabelSource)
+	lblBar := labels.NewLabel("root.bar", "", common.CiliumLabelSource)
+	lblJoe := labels.NewLabel("root.user", "joe", common.CiliumLabelSource)
+	lblPete := labels.NewLabel("root.user", "pete", common.CiliumLabelSource)
 
 	rootNode := policy.Node{
-		Name: common.GlobalLabelPrefix,
+		Name: "root",
 		Rules: []policy.PolicyRule{
 			&policy.RuleConsumers{
 				Coverage: []labels.Label{*lblBar},
@@ -141,7 +86,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	c.Assert(rootNode.ResolveTree(), IsNil)
 
-	err3 := ds.d.PolicyAdd("io.cilium", &rootNode)
+	err3 := ds.d.PolicyAdd("root", &rootNode)
 	c.Assert(err3, Equals, nilApiError)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -212,6 +157,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
-	err = ds.d.PolicyDelete("io.cilium", "")
+	err = ds.d.PolicyDelete("root", "")
 	c.Assert(err, IsNil)
 }

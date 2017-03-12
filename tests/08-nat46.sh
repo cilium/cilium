@@ -13,8 +13,8 @@ function cleanup {
 
 trap cleanup EXIT
 
-SERVER_LABEL="io.cilium.server"
-CLIENT_LABEL="io.cilium.client"
+SERVER_LABEL="id.server"
+CLIENT_LABEL="id.client"
 NETPERF_IMAGE="noironetworks/netperf"
 
 monitor_start
@@ -46,16 +46,11 @@ set -x
 
 cat <<EOF | cilium -D policy import -
 {
-        "name": "io.cilium",
-        "children": {
-                "client": { },
-                "server": {
-                        "rules": [{
-                                "allow": ["../client"]
-                        }]
-                }
-
-        }
+        "name": "root",
+	"rules": [{
+		"coverage": ["$SERVER_LABEL"],
+		"allow": ["$CLIENT_LABEL"]
+	}]
 }
 EOF
 
@@ -68,4 +63,4 @@ function connectivity_test64() {
 }
 
 connectivity_test64
-cilium -D policy delete io.cilium
+cilium -D policy delete root
