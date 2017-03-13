@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
 )
@@ -56,13 +56,13 @@ func dumpConfig(Opts map[string]string) {
 	sort.Strings(opts)
 
 	for _, k := range opts {
-		text := common.Green("Enabled")
-
-		if Opts[k] == "" || strings.ToLower(Opts[k]) == "disabled" {
-			text = common.Red("Disabled")
+		if enabled, err := option.NormalizeBool(Opts[k]); err != nil {
+			Fatalf("Invalid option answer %s: %s", Opts[k], err)
+		} else if enabled {
+			fmt.Printf("%-24s %s\n", k, common.Green("Enabled"))
+		} else {
+			fmt.Printf("%-24s %s\n", k, common.Red("Disabled"))
 		}
-
-		fmt.Printf("%-24s %s\n", k, text)
 	}
 }
 
@@ -70,8 +70,7 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 	if len(opts) == 0 {
 		resp, err := client.ConfigGet()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error while retrieving configuration: %s", err)
-			os.Exit(1)
+			Fatalf("Error while retrieving configuration: %s", err)
 		}
 
 		dumpConfig(resp.Configuration.Immutable)
@@ -93,10 +92,9 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		} else {
 			dOpts[name] = "Disabled"
 		}
+	}
 
-		if err = client.ConfigPatch(dOpts); err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to set daemon configuration: %s\n", err)
-			os.Exit(1)
-		}
+	if err := client.ConfigPatch(dOpts); err != nil {
+		Fatalf("Unable to change agent configuration: %s\n", err)
 	}
 }

@@ -576,8 +576,9 @@ func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
 }
 
 func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
-	d := h.daemon
+	log.Debugf("PATCH /config request: %+v", params)
 
+	d := h.daemon
 	d.conf.OptsMU.Lock()
 	defer d.conf.OptsMU.Unlock()
 
@@ -586,6 +587,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	}
 
 	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
+	log.Debugf("Applied %d changes", changes)
 	if changes > 0 {
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s\n", err)
@@ -623,6 +625,8 @@ func NewGetConfigHandler(d *Daemon) GetConfigHandler {
 }
 
 func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
+	log.Debugf("GET /config request: %+v", params)
+
 	d := h.daemon
 	d.conf.OptsMU.RLock()
 	defer d.conf.OptsMU.RUnlock()
