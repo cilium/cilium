@@ -176,6 +176,12 @@ func NewL4Policy() *L4Policy {
 	}
 }
 
+// RequiresConntrack returns true if if the L4 configuration requires
+// connection tracking to be enabled.
+func (l4 *L4Policy) RequiresConntrack() bool {
+	return l4 != nil && (len(l4.Ingress) > 0 || len(l4.Egress) > 0)
+}
+
 func (l4 *L4Policy) GetModel() *models.L4Policy {
 	if l4 == nil {
 		return nil
