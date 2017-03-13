@@ -124,13 +124,11 @@ func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 
 	policyTrace(ctx, "Resolving L4 policy for context %+v\n", ctx)
 
-	if t.Root == nil {
-		return nil
+	if t.Root != nil {
+		t.Root.ResolveL4Policy(ctx, result)
 	}
 
-	t.Root.ResolveL4Policy(ctx, result)
 	policyTrace(ctx, "Final tree L4 policy: %+v\n", result)
-
 	return result
 }
 
