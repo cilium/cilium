@@ -179,8 +179,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	e.checkEgressAccess(owner, opts, policy.ID_HOST, OptionAllowToHost)
 	e.checkEgressAccess(owner, opts, policy.ID_WORLD, OptionAllowToWorld)
 
-	// L4 policy requires connection tracking
-	if e.Consumable != nil && e.Consumable.L4Policy != nil {
+	if e.Consumable != nil && e.Consumable.L4Policy.RequiresConntrack() {
 		opts[OptionConntrack] = "enabled"
 	}
 
