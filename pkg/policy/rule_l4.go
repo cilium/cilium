@@ -188,7 +188,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 
 	egress := []string{}
 	for _, v := range l4.Egress {
-		ingress = append(ingress, v.String())
+		egress = append(egress, v.String())
 	}
 
 	return &models.L4Policy{
