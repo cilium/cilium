@@ -33,6 +33,18 @@ type Option struct {
 	Define      string
 	Description string
 	Immutable   bool
+	Requires    []string
+}
+
+// Requires returns true if the option requires the specified option `name`
+func (o Option) RequiresOption(name string) bool {
+	for _, o := range o.Requires {
+		if o == name {
+			return true
+		}
+	}
+
+	return false
 }
 
 type OptionLibrary map[string]*Option
@@ -234,6 +246,7 @@ func (o *BoolOptions) Dump() {
 	}
 }
 
+// Validate validates a given configuration map based on the option library
 func (o *BoolOptions) Validate(n models.ConfigurationMap) error {
 	for k, v := range n {
 		if _, err := NormalizeBool(v); err != nil {
@@ -248,8 +261,42 @@ func (o *BoolOptions) Validate(n models.ConfigurationMap) error {
 	return nil
 }
 
+// ChangedFunc is called by `Apply()` for each option changed
 type ChangedFunc func(key string, value bool, data interface{})
 
+// Enable enables the option `name` with all its dependencies
+func (o *BoolOptions) Enable(name string) {
+	if o.Library != nil {
+		if _, opt := o.Library.Lookup(name); opt != nil {
+			for _, dependency := range opt.Requires {
+				o.Enable(dependency)
+			}
+		}
+	}
+
+	o.Opts[name] = true
+}
+
+// Disable disables the option `name`. All options which depend on the option
+// to be disabled will be disabled. Options which have previously been enabled
+// as a dependency will not be automatically disabled.
+func (o *BoolOptions) Disable(name string) {
+	o.Opts[name] = false
+
+	if o.Library != nil {
+		// Disable all options which have a dependency on the option
+		// that was just disabled
+		for key, opt := range *o.Library {
+			if opt.RequiresOption(name) && o.Opts[key] {
+				o.Disable(key)
+			}
+		}
+	}
+}
+
+// Apply takes a configuration map and applies the changes. For an option
+// which is changed, the `ChangedFunc` function is called with the `data`
+// argument passed in as well. Returns the number of options changed if any.
 func (o *BoolOptions) Apply(n models.ConfigurationMap, changed ChangedFunc, data interface{}) int {
 	changes := 0
 
@@ -259,14 +306,14 @@ func (o *BoolOptions) Apply(n models.ConfigurationMap, changed ChangedFunc, data
 		if boolVal, _ := NormalizeBool(v); boolVal {
 			/* Only enable if not enabled already */
 			if !ok || !val {
-				o.Opts[k] = true
+				o.Enable(k)
 				changes++
 				changed(k, true, data)
 			}
 		} else {
 			/* Only disable if enabled already */
 			if ok && val {
-				o.Opts[k] = false
+				o.Disable(k)
 				changes++
 				changed(k, false, data)
 			}

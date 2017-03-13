@@ -79,6 +79,7 @@ var (
 	OptionSpecConntrackAccounting = option.Option{
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
+		Requires:    []string{OptionConntrack},
 	}
 
 	OptionSpecConntrack = option.Option{
@@ -99,6 +100,7 @@ var (
 	OptionSpecNAT46 = option.Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
+		Requires:    []string{OptionConntrack},
 	}
 
 	OptionSpecPolicy = option.Option{
