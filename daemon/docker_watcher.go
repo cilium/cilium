@@ -56,7 +56,9 @@ func (d *Daemon) EnableDockerEventListener(since time.Time) error {
 	return nil
 }
 
-func (d *Daemon) SyncDocker(wg *sync.WaitGroup) {
+func (d *Daemon) SyncDocker() {
+	var wg sync.WaitGroup
+
 	cList, err := d.dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
 	if err != nil {
 		log.Errorf("Failed to retrieve the container list %s", err)
@@ -68,19 +70,28 @@ func (d *Daemon) SyncDocker(wg *sync.WaitGroup) {
 
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, id string) {
-			d.handleCreateContainer(id)
+			d.handleCreateContainer(id, false)
 			wg.Done()
-		}(wg, cont.ID)
+		}(&wg, cont.ID)
+	}
+
+	// Wait for all spawned go routines handling container creations to exit
+	wg.Wait()
+}
+
+func (d *Daemon) backgroundContainerSync() {
+	for {
+		d.SyncDocker()
+		time.Sleep(syncRateDocker)
 	}
 }
 
-func (d *Daemon) EnableDockerSync() {
-	var wg sync.WaitGroup
-	for {
-		d.SyncDocker(&wg)
-		wg.Wait()
-		time.Sleep(syncRateDocker)
-	}
+// RunBackgroundContainerSync spawns a go routine which periodically
+// synchronizes containers managed by the local container runtime and
+// checks if any of them need to be managed by Cilium. This is a fall
+// back mechanism in case an event notification has been lost.
+func (d *Daemon) RunBackgroundContainerSync() {
+	go d.backgroundContainerSync()
 }
 
 func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
@@ -104,7 +115,7 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 		case "start":
 			// A real event overwrites any memory of ignored containers
 			d.StopIgnoringContainer(m.ID)
-			d.handleCreateContainer(m.ID)
+			d.handleCreateContainer(m.ID, true)
 		case "die":
 			d.deleteContainer(m.ID)
 		}
@@ -200,16 +211,20 @@ func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) types.Container 
 	}
 }
 
-func (d *Daemon) handleCreateContainer(id string) {
+func (d *Daemon) handleCreateContainer(id string, retry bool) {
 	log.Debugf("Processing create event for docker container %s", id)
 
 	maxTries := 5
 
 	for try := 1; try <= maxTries; try++ {
 		if try > 1 {
-			log.Debugf("Waiting for container %s to appear as endpoint [%d/%d]",
-				id, try, maxTries)
-			time.Sleep(time.Duration(try) * time.Second)
+			if retry {
+				log.Debugf("Waiting for container %s to appear as endpoint [%d/%d]",
+					id, try, maxTries)
+				time.Sleep(time.Duration(try) * time.Second)
+			} else {
+				return
+			}
 		}
 
 		dockerContainer, lbls, err := d.retrieveDockerLabels(id)

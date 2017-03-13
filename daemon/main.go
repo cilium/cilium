@@ -20,7 +20,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -270,10 +269,8 @@ func runDaemon() {
 
 	d.EnableMonitor()
 
-	var wg sync.WaitGroup
 	sinceLastSync := time.Now()
-	d.SyncDocker(&wg)
-	wg.Wait()
+	d.SyncDocker()
 
 	// Register event listener in docker endpoint
 	if err := d.EnableDockerEventListener(sinceLastSync); err != nil {
@@ -286,7 +283,7 @@ func runDaemon() {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
 
-	go d.EnableDockerSync()
+	d.RunBackgroundContainerSync()
 
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
