@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-MAINTAINER "Andre Martins <andre@cilium.io>"
+LABEL "Maintainer: Andre Martins <andre@cilium.io>"
 
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
@@ -26,7 +26,7 @@ ls -d /usr/local/clang+llvm/bin/* | grep -vE "clang$|clang-3.8$|llc$" | xargs rm
 #
 # iproute2-begin
 cd /tmp && \
-git clone -b v4.9.0 git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git && \
+git clone -b v4.10.0 git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git && \
 cd /tmp/iproute2 && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
@@ -37,7 +37,7 @@ make install && \
 
 cd /tmp && \
 curl -Sslk -o go.linux-amd64.tar.gz \
-https://storage.googleapis.com/golang/go1.7.4.linux-amd64.tar.gz && \
+https://storage.googleapis.com/golang/go1.7.5.linux-amd64.tar.gz && \
 tar -C /usr/local -xzf go.linux-amd64.tar.gz && \
 cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
@@ -50,7 +50,7 @@ make PKG_BUILD=1 install && \
 apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils && \
 apt-get clean && \
 rm -fr /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/local/go && \
-echo '#!/usr/bin/env bash\ncp /opt/cni/bin/cilium-cni /tmp/cni/bin && /usr/bin/cilium $@' > /home/with-cni.sh && \
+echo '#!/usr/bin/env bash\ncp /opt/cni/bin/cilium-cni /tmp/cni/bin && /usr/bin/cilium-agent $@' > /home/with-cni.sh && \
 chmod +x /home/with-cni.sh
 
 ENV PATH="/usr/local/clang+llvm/bin:$PATH"
