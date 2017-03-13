@@ -209,6 +209,11 @@ func initEnv() {
 		config.ValidLabelPrefixes.Append(labels.ParseLabelPrefix(label))
 	}
 
+	log.Infof("Valid label prefix configuration:")
+	for _, l := range config.ValidLabelPrefixes.LabelPrefixes {
+		log.Infof(" - %s", l)
+	}
+
 	config.ValidLabelPrefixesMU.Unlock()
 
 	_, r, err := net.ParseCIDR(nat46prefix)
