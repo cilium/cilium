@@ -34,6 +34,10 @@ type LabelPrefix struct {
 	Source string `json:"source"`
 }
 
+func (p LabelPrefix) String() string {
+	return fmt.Sprintf("%s:%s", p.Source, p.Prefix)
+}
+
 func ParseLabelPrefix(label string) *LabelPrefix {
 	labelPrefix := LabelPrefix{}
 	t := strings.SplitN(label, ":", 2)
