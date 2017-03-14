@@ -108,13 +108,14 @@ func init() {
 	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
 	flags.StringSliceVar(&validLabels, "labels", []string{},
 		"List of label prefixes used to determine identity of an endpoint")
-	flags.StringVar(&config.LibDir, "libdir", defaults.LibDir, "Path to directory with program templates")
 	flags.BoolVar(&enableLogstash, "logstash", false, "Enable logstash integration")
 	flags.StringVar(&logstashAddr, "logstash-agent", "127.0.0.1:8080", "Logstash agent address")
 	flags.Uint32Var(&logstashProbeTimer, "logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.StringVarP(&v6Address, "node-address", "n", "", "IPv6 address of node, must be in correct format")
 	flags.BoolVar(&config.RestoreState, "restore", false,
 		"Restores state, if possible, from previous daemon")
+	flags.BoolVar(&config.KeepTemplates, "keep-templates", false,
+		"Do not restore template files from binary")
 	flags.StringVar(&config.RunDir, "state-dir", defaults.RuntimePath, "Path to directory to store runtime state")
 	flags.StringVar(&socketPath, "socket-path", defaults.SockPath, "Sets the socket path to listen for connections")
 	flags.StringVar(&config.LBInterface, "lb", "",

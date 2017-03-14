@@ -1,2 +1,3 @@
 cilium-agent
 globals
+bindata.go

@@ -91,8 +91,8 @@ func (d *Daemon) GetRuntimeDir() string {
 	return d.conf.RunDir
 }
 
-func (d *Daemon) GetLibraryDir() string {
-	return d.conf.LibDir
+func (d *Daemon) GetBpfDir() string {
+	return d.conf.BpfDir
 }
 
 func (d *Daemon) GetPolicyTree() *policy.Tree {
@@ -220,19 +220,19 @@ func (d *Daemon) compileBase() error {
 			mode = "direct"
 		}
 
-		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
+		args = []string{d.conf.BpfDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
 	} else {
 		if d.conf.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
-		args = []string{d.conf.LibDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
+		args = []string{d.conf.BpfDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
-	out, err := exec.Command(filepath.Join(d.conf.LibDir, "init.sh"), args...).CombinedOutput()
+	out, err := exec.Command(filepath.Join(d.conf.BpfDir, "init.sh"), args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution %s %s failed: %s",
-			filepath.Join(d.conf.LibDir, "init.sh"),
+			filepath.Join(d.conf.BpfDir, "init.sh"),
 			strings.Join(args, " "), err)
 		log.Warningf("Command output:\n%s", out)
 		return err
@@ -341,7 +341,7 @@ func (d *Daemon) init() error {
 	fw.Flush()
 	f.Close()
 
-	if !d.conf.DryMode {
+	if !d.DryModeEnabled() {
 		d.conf.OptsMU.RLock()
 		if err := d.compileBase(); err != nil {
 			d.conf.OptsMU.RUnlock()
@@ -428,11 +428,23 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 	return ipamConf, nil
 }
 
+func (d *Daemon) restoreBPFtemplates() error {
+	if !d.conf.KeepTemplates {
+		if err := RestoreAssets(d.conf.RunDir, "bpf"); err != nil {
+			return fmt.Errorf("Unable to restore agent assets: %s", err)
+		}
+	}
+
+	return nil
+}
+
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
+
+	c.BpfDir = filepath.Join(c.RunDir, defaults.BpfDir)
 
 	var kvClient kvstore.KVClient
 
@@ -473,6 +485,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consumableCache:   policy.NewConsumableCache(),
 		policy:            policy.Tree{},
 		ignoredContainers: make(map[string]int),
+	}
+
+	if err := d.restoreBPFtemplates(); err != nil {
+		return nil, err
 	}
 
 	d.listenForCiliumEvents()

@@ -33,16 +33,5 @@ all:
 
 endif
 
-install:
-	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/ $(BPF:.o=.c)
-	$(INSTALL) -m 0755 -t $(DESTDIR)$(LIBDIR)/cilium/ $(SCRIPTS)
-	$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/lib/ $(LIB)
-	for dir in `find include probes -type d`; do \
-		$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/$$dir; \
-		for f in `find $$dir -maxdepth 1 -type f`; do \
-			$(INSTALL) -m 0644 -t $(DESTDIR)$(LIBDIR)/cilium/$$dir $$f; \
-		done; \
-	done
-
 clean:
 	rm -fr *.o
