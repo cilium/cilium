@@ -20,6 +20,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -29,6 +30,7 @@ import (
 
 type LocalClient struct {
 	store map[string]string
+	lock  sync.RWMutex
 }
 
 type LocalLocker struct {
@@ -47,6 +49,9 @@ func (l *LocalLocker) Unlock() error {
 }
 
 func (l *LocalClient) GetValue(k string) (json.RawMessage, error) {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+
 	if v, ok := l.store[k]; ok {
 		return json.RawMessage(v), nil
 	}
@@ -58,7 +63,10 @@ func (l *LocalClient) SetValue(k string, v interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	l.lock.Lock()
 	l.store[k] = string(vByte)
+	l.lock.Unlock()
 
 	return nil
 }
