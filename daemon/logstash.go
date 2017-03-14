@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/bpf/policymap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 )
 

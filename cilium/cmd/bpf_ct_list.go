@@ -17,8 +17,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/bpf/ctmap"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	"github.com/spf13/cobra"
 )

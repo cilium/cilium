@@ -19,10 +19,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/bpf/lbmap"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 
 	"github.com/go-openapi/runtime/middleware"
 )

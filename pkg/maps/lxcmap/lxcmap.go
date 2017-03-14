@@ -15,7 +15,7 @@
 package lxcmap
 
 /*
-#cgo CFLAGS: -I../include
+#cgo CFLAGS: -I../../../bpf/include
 #include <linux/bpf.h>
 */
 import "C"
@@ -47,7 +47,7 @@ const (
 )
 
 // MAC is the __u64 representation of a MAC address.
-type MAC C.__u64
+type MAC uint64
 
 func (m MAC) String() string {
 	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",

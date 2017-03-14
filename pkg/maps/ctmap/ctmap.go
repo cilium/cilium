@@ -14,12 +14,6 @@
 
 package ctmap
 
-/*
-#cgo CFLAGS: -I../include
-#include <linux/bpf.h>
-*/
-import "C"
-
 import (
 	"bytes"
 	"fmt"

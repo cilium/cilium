@@ -28,10 +28,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	"github.com/cilium/cilium/bpf/ctmap"
-	"github.com/cilium/cilium/bpf/lbmap"
-	"github.com/cilium/cilium/bpf/lxcmap"
-	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
@@ -44,6 +40,10 @@ import (
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
