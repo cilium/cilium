@@ -15,7 +15,7 @@
 package policymap
 
 /*
-#cgo CFLAGS: -I../include
+#cgo CFLAGS: -I../../../bpf/include
 #include <linux/bpf.h>
 */
 import "C"

@@ -16,8 +16,8 @@ package policy
 
 import (
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
 // An entity that consumes a Consumable

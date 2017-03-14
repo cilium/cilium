@@ -24,10 +24,10 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/cilium/cilium/bpf/ctmap"
-	"github.com/cilium/cilium/bpf/geneve"
-	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/geneve"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 )

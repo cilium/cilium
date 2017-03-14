@@ -28,11 +28,11 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/bpf/ctmap"
-	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 

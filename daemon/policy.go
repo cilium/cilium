@@ -21,12 +21,12 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/runtime/middleware"

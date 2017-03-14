@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/bpf/policymap"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
