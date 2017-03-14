@@ -26,12 +26,13 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/bpfdebug"
 )
 
 func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	data := msg.DataDirect()
-	if data[0] == bpf.CILIUM_NOTIFY_DROP {
-		dn := bpf.DropNotify{}
+	if data[0] == bpfdebug.MessageTypeDrop {
+		dn := bpfdebug.DropNotify{}
 		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
 			log.Warningf("Error while parsing drop notification message: %s\n", err)
 			return

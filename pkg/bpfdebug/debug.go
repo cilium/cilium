@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bpf
+package bpfdebug
 
 import (
 	"fmt"
@@ -20,85 +20,96 @@ import (
 	"github.com/cilium/cilium/common"
 )
 
+// Must be synchronized with <bpf/lib/common.h>
 const (
-	DBG_CAPTURE_UNSPEC = iota
-	DBG_CAPTURE_FROM_LXC
-	DBG_CAPTURE_FROM_NETDEV
-	DBG_CAPTURE_FROM_OVERLAY
-	DBG_CAPTURE_DELIVERY
-	DBG_CAPTURE_FROM_LB
-	DBG_CAPTURE_AFTER_V46
-	DBG_CAPTURE_AFTER_V64
+	MessageTypeUnspec = iota
+	MessageTypeDrop
+	MessageTypeDebug
+	MessageTypeCapture
 )
 
+// must be in sync with <bpf/lib/dbg.h>
 const (
-	DBG_UNSPEC = iota
-	DBG_GENERIC
-	DBG_LOCAL_DELIVERY
-	DBG_ENCAP
-	DBG_LXC_FOUND
-	DBG_POLICY_DENIED
-	DBG_CT_LOOKUP
-	DBG_CT_MATCH
-	DBG_CT_CREATED
-	DBG_CT_CREATED2
-	DBG_ICMP6_HANDLE
-	DBG_ICMP6_REQUEST
-	DBG_ICMP6_NS
-	DBG_ICMP6_TIME_EXCEEDED
-	DBG_CT_VERDICT
-	DBG_DECAP
-	DBG_PORT_MAP
-	DBG_ERROR_RET
-	DBG_TO_HOST
-	DBG_TO_STACK
-	DBG_PKT_HASH
-	DBG_LB6_LOOKUP_MASTER
-	DBG_LB6_LOOKUP_MASTER_FAIL
-	DBG_LB6_LOOKUP_SLAVE
-	DBG_LB6_LOOKUP_SLAVE_SUCCESS
-	DBG_LB6_REVERSE_NAT_LOOKUP
-	DBG_LB6_REVERSE_NAT
-	DBG_LB4_LOOKUP_MASTER
-	DBG_LB4_LOOKUP_MASTER_FAIL
-	DBG_LB4_LOOKUP_SLAVE
-	DBG_LB4_LOOKUP_SLAVE_SUCCESS
-	DBG_LB4_REVERSE_NAT_LOOKUP
-	DBG_LB4_REVERSE_NAT
-	DBG_LB4_LOOPBACK_SNAT
-	DBG_LB4_LOOPBACK_SNAT_REV
-	DBG_CT_LOOKUP4
+	DbgCaptureUnspec = iota
+	DbgCaptureFromLxc
+	DbgCaptureFromNetdev
+	DbgCaptureFromOverlay
+	DbgCaptureDelivery
+	DbgCaptureFromLb
+	DbgCaptureAfterV46
+	DbgCaptureAfterV64
+)
+
+// must be in sync with <bpf/lib/dbg.h>
+const (
+	DbgUnspec = iota
+	DbgGeneric
+	DbgLocalDelivery
+	DbgEncap
+	DbgLxcFound
+	DbgPolicyDenied
+	DbgCtLookup
+	DbgCtMatch
+	DbgCtCreated
+	DbgCtCreated2
+	DbgIcmp6Handle
+	DbgIcmp6Request
+	DbgIcmp6Ns
+	DbgIcmp6TimeExceeded
+	DbgCtVerdict
+	DbgDecap
+	DbgPortMap
+	DbgErrorRet
+	DbgToHost
+	DbgToStack
+	DbgPktHash
+	DbgLb6LookupMaster
+	DbgLb6LookupMasterFail
+	DbgLb6LookupSlave
+	DbgLb6LookupSlaveSuccess
+	DbgLb6ReverseNatLookup
+	DbgLb6ReverseNat
+	DbgLb4LookupMaster
+	DbgLb4LookupMasterFail
+	DbgLb4LookupSlave
+	DbgLb4LookupSlaveSuccess
+	DbgLb4ReverseNatLookup
+	DbgLb4ReverseNat
+	DbgLb4LoopbackSnat
+	DbgLb4LoopbackSnatRev
+	DbgCtLookup4
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
 const (
-	CT_NEW int = iota
-	CT_ESTABLISHED
-	CT_REPLY
-	CT_RELATED
+	CtNew uint32 = iota
+	CtEstablished
+	CtReply
+	CtRelated
 )
 
-var ctState = map[int]string{
-	CT_NEW:         "New",
-	CT_ESTABLISHED: "Established",
-	CT_REPLY:       "Reply",
-	CT_RELATED:     "Related",
+var ctStateText = map[uint32]string{
+	CtNew:         "New",
+	CtEstablished: "Established",
+	CtReply:       "Reply",
+	CtRelated:     "Related",
 }
 
-func CtState(state int32) string {
-	txt, ok := ctState[int(state)]
+func ctState(state uint32) string {
+	txt, ok := ctStateText[state]
 	if ok {
 		return txt
 	}
 
-	return DropReason(uint8(state))
+	return dropReason(uint8(state))
 }
 
-func CtInfo(arg1 uint32, arg2 uint32) string {
+func ctInfo(arg1 uint32, arg2 uint32) string {
 	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
 		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
 }
 
+// DebugMsg is the message format of the debug message found in the BPF ring buffer
 type DebugMsg struct {
 	Type    uint8
 	SubType uint8
@@ -108,74 +119,75 @@ type DebugMsg struct {
 	Arg2    uint32
 }
 
+// Dump prints the debug message in a human readable format.
 func (n *DebugMsg) Dump(data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: ", prefix, n.Hash, n.Source)
 	switch n.SubType {
-	case DBG_GENERIC:
+	case DbgGeneric:
 		fmt.Printf("No message, arg1=%d (%#x) arg2=%d (%#x)\n", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
-	case DBG_LOCAL_DELIVERY:
+	case DbgLocalDelivery:
 		fmt.Printf("Attempting local delivery for container id %d from seclabel %d\n", n.Arg1, n.Arg2)
-	case DBG_ENCAP:
+	case DbgEncap:
 		fmt.Printf("Encapsulating to node %d (%#x) from seclabel %d\n", n.Arg1, n.Arg1, n.Arg2)
-	case DBG_LXC_FOUND:
+	case DbgLxcFound:
 		fmt.Printf("Local container found ifindex %d seclabel %d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_POLICY_DENIED:
+	case DbgPolicyDenied:
 		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
-	case DBG_CT_LOOKUP:
-		fmt.Printf("CT lookup: %s\n", CtInfo(n.Arg1, n.Arg2))
-	case DBG_CT_LOOKUP4:
+	case DbgCtLookup:
+		fmt.Printf("CT lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
+	case DbgCtLookup4:
 		fmt.Printf("CT lookup address: %x\n", n.Arg1)
-	case DBG_CT_MATCH:
+	case DbgCtMatch:
 		fmt.Printf("CT entry found lifetime=%d, revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_CT_CREATED:
-		fmt.Printf("CT created 1/2: %s\n", CtInfo(n.Arg1, n.Arg2))
-	case DBG_CT_CREATED2:
+	case DbgCtCreated:
+		fmt.Printf("CT created 1/2: %s\n", ctInfo(n.Arg1, n.Arg2))
+	case DbgCtCreated2:
 		fmt.Printf("CT created 2/2: %x revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_CT_VERDICT:
-		fmt.Printf("CT verdict: %s\n", CtState(int32(n.Arg1)))
-	case DBG_ICMP6_HANDLE:
+	case DbgCtVerdict:
+		fmt.Printf("CT verdict: %s\n", ctState(n.Arg1))
+	case DbgIcmp6Handle:
 		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
-	case DBG_ICMP6_REQUEST:
+	case DbgIcmp6Request:
 		fmt.Printf("ICMPv6 echo request for router offset=%d\n", n.Arg1)
-	case DBG_ICMP6_NS:
+	case DbgIcmp6Ns:
 		fmt.Printf("ICMPv6 neighbour soliciation for address %x:%x\n", n.Arg1, n.Arg2)
-	case DBG_ICMP6_TIME_EXCEEDED:
+	case DbgIcmp6TimeExceeded:
 		fmt.Printf("Sending ICMPv6 time exceeded\n")
-	case DBG_DECAP:
+	case DbgDecap:
 		fmt.Printf("Tunnel decap: id=%d flowlabel=%x\n", n.Arg1, n.Arg2)
-	case DBG_PORT_MAP:
+	case DbgPortMap:
 		fmt.Printf("Mapping port from=%d to=%d\n", n.Arg1, n.Arg2)
-	case DBG_ERROR_RET:
+	case DbgErrorRet:
 		fmt.Printf("BPF function %d returned error %d\n", n.Arg1, n.Arg2)
-	case DBG_TO_HOST:
+	case DbgToHost:
 		fmt.Printf("Going to host, policy-skip=%d\n", n.Arg1)
-	case DBG_TO_STACK:
+	case DbgToStack:
 		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
-	case DBG_PKT_HASH:
+	case DbgPktHash:
 		fmt.Printf("Packet hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
-	case DBG_LB6_LOOKUP_MASTER:
+	case DbgLb6LookupMaster:
 		fmt.Printf("Master service lookup, addr.p4=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB6_LOOKUP_MASTER_FAIL:
+	case DbgLb6LookupMasterFail:
 		fmt.Printf("Master service lookup failed, addr.p2=%x addr.p3=%x\n", n.Arg1, n.Arg2)
-	case DBG_LB6_LOOKUP_SLAVE, DBG_LB4_LOOKUP_SLAVE:
+	case DbgLb6LookupSlave, DbgLb4LookupSlave:
 		fmt.Printf("Slave service lookup: slave=%d, dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB6_LOOKUP_SLAVE_SUCCESS:
+	case DbgLb6LookupSlaveSuccess:
 		fmt.Printf("Slave service lookup result: target.p4=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB6_REVERSE_NAT_LOOKUP, DBG_LB4_REVERSE_NAT_LOOKUP:
+	case DbgLb6ReverseNatLookup, DbgLb4ReverseNatLookup:
 		fmt.Printf("Reverse NAT lookup, index=%d\n", common.Swab16(uint16(n.Arg1)))
-	case DBG_LB6_REVERSE_NAT:
+	case DbgLb6ReverseNat:
 		fmt.Printf("Performing reverse NAT, address.p4=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB4_LOOKUP_MASTER:
+	case DbgLb4LookupMaster:
 		fmt.Printf("Master service lookup, addr=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB4_LOOKUP_MASTER_FAIL:
+	case DbgLb4LookupMasterFail:
 		fmt.Printf("Master service lookup failed\n")
-	case DBG_LB4_LOOKUP_SLAVE_SUCCESS:
+	case DbgLb4LookupSlaveSuccess:
 		fmt.Printf("Slave service lookup result: target=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB4_REVERSE_NAT:
+	case DbgLb4ReverseNat:
 		fmt.Printf("Performing reverse NAT, address=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
-	case DBG_LB4_LOOPBACK_SNAT:
+	case DbgLb4LoopbackSnat:
 		fmt.Printf("Loopback SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
-	case DBG_LB4_LOOPBACK_SNAT_REV:
+	case DbgLb4LoopbackSnatRev:
 		fmt.Printf("Loopback reverse SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
@@ -183,9 +195,11 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 }
 
 const (
+	// DebugCaptureLen is the amount of packet data in a packet capture message
 	DebugCaptureLen = 20
 )
 
+// DebugCapture is the metadata sent along with a captured packet frame
 type DebugCapture struct {
 	Type    uint8
 	SubType uint8
@@ -197,22 +211,23 @@ type DebugCapture struct {
 	// data
 }
 
+// Dump prints the captured packet in human readable format
 func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes ", prefix, n.Hash, n.Source, n.Len)
 	switch n.SubType {
-	case DBG_CAPTURE_FROM_LXC:
+	case DbgCaptureFromLxc:
 		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)
-	case DBG_CAPTURE_FROM_NETDEV:
+	case DbgCaptureFromNetdev:
 		fmt.Printf("Incoming packet from netdev ifindex %d\n", n.Arg1)
-	case DBG_CAPTURE_FROM_OVERLAY:
+	case DbgCaptureFromOverlay:
 		fmt.Printf("Incoming packet from overlay ifindex %d\n", n.Arg1)
-	case DBG_CAPTURE_DELIVERY:
+	case DbgCaptureDelivery:
 		fmt.Printf("Delivery to ifindex %d\n", n.Arg1)
-	case DBG_CAPTURE_FROM_LB:
+	case DbgCaptureFromLb:
 		fmt.Printf("Incoming packet to load balancer on ifindex %d\n", n.Arg1)
-	case DBG_CAPTURE_AFTER_V46:
+	case DbgCaptureAfterV46:
 		fmt.Printf("Packet after nat46 ifindex %d\n", n.Arg1)
-	case DBG_CAPTURE_AFTER_V64:
+	case DbgCaptureAfterV64:
 		fmt.Printf("Packet after nat64 ifindex %d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)

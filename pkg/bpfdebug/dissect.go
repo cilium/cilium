@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bpf
+package bpfdebug
 
 import (
 	"encoding/hex"
@@ -38,6 +38,8 @@ var (
 	lock    sync.Mutex
 )
 
+// Dissect parses and prints the provided data if dissect is set to true,
+// otherwise the data is printed as HEX output
 func Dissect(dissect bool, data []byte) {
 	lock.Lock()
 	if dissect {
