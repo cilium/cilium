@@ -716,10 +716,6 @@
 			"Rev": "f2499483f923065a842d38eb4c7f1927e6fc6e6d"
 		},
 		{
-			"ImportPath": "golang.org/x/net/publicsuffix",
-			"Rev": "f2499483f923065a842d38eb4c7f1927e6fc6e6d"
-		},
-		{
 			"ImportPath": "golang.org/x/net/trace",
 			"Rev": "f2499483f923065a842d38eb4c7f1927e6fc6e6d"
 		},
@@ -886,11 +882,6 @@
 			"ImportPath": "gopkg.in/inf.v0",
 			"Comment": "v0.9.0",
 			"Rev": "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4"
-		},
-		{
-			"ImportPath": "gopkg.in/resty.v0",
-			"Comment": "v0.7-14-g0ae7f5f",
-			"Rev": "0ae7f5f7fc26b9b563be4071acc135673d9e49df"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
