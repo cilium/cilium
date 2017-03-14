@@ -215,7 +215,7 @@ func (d *Daemon) handleCreateContainer(id string) {
 
 		dockerContainer, lbls, err := d.retrieveDockerLabels(id)
 		if err != nil {
-			log.Warningf("unable to inspect container %d, retrying later (%s)", id, err)
+			log.Warningf("unable to inspect container %s, retrying later (%s)", id, err)
 			continue
 		}
 
