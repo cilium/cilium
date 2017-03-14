@@ -41,8 +41,10 @@ var (
 // Dissect parses and prints the provided data if dissect is set to true,
 // otherwise the data is printed as HEX output
 func Dissect(dissect bool, data []byte) {
-	lock.Lock()
 	if dissect {
+		lock.Lock()
+		defer lock.Unlock()
+
 		parser.DecodeLayers(data, &decoded)
 
 		for _, typ := range decoded {
@@ -72,5 +74,4 @@ func Dissect(dissect bool, data []byte) {
 	} else {
 		fmt.Println(hex.Dump(data))
 	}
-	lock.Unlock()
 }
