@@ -199,7 +199,7 @@ func writeGeneve(prefix string, ep *Endpoint) ([]byte, error) {
 }
 
 func (e *Endpoint) runInit(owner Owner, prefix string) error {
-	libdir := owner.GetLibraryDir()
+	libdir := owner.GetBpfDir()
 	rundir := owner.GetRuntimeDir()
 	args := []string{libdir, rundir, prefix, e.IfName}
 

@@ -17,8 +17,7 @@ with existing networks.
 
 ## Manual Installation
 
-Running `make install` will install cilium binaries in your `bindir` and
-all required additional runtime files in `libdir/cilium`.
+Running `make install` will install cilium binaries in your `bindir`.
 
 Templates for integration into service management systems such as systemd
 and upstart can be found in the [`contrib`](../contrib) directory.

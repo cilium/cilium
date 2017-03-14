@@ -11,5 +11,7 @@ sudo tar -C /usr/local -xJf $CLANG_FILE
 sudo ln -s /usr/local/$CLANG_DIR /usr/local/clang
 rm $CLANG_FILE
 
+go get -u github.com/jteeuwen/go-bindata/...
+
 NEWPATH="/usr/local/clang/bin"
 export PATH="$NEWPATH:$PATH"

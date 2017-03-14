@@ -35,7 +35,7 @@ var (
 
 // Config is the configuration used by Daemon.
 type Config struct {
-	LibDir                string                  // Cilium library directory
+	BpfDir                string                  // BPF template files directory
 	RunDir                string                  // Cilium runtime directory
 	LXCMap                *lxcmap.LXCMap          // LXCMap where all LXCs are stored
 	NodeAddress           *addressing.NodeAddress // Node IPv6 Address
@@ -56,9 +56,10 @@ type Config struct {
 	LBInterface           string // Set with name of the interface to loadbalance packets from
 	Tunnel                string // Tunnel mode
 
-	DryMode      bool // Do not create BPF maps, devices, ..
-	RestoreState bool // RestoreState restores the state from previous running daemons.
-	KeepConfig   bool // Keep configuration of existing endpoints when starting up.
+	DryMode       bool // Do not create BPF maps, devices, ..
+	RestoreState  bool // RestoreState restores the state from previous running daemons.
+	KeepConfig    bool // Keep configuration of existing endpoints when starting up.
+	KeepTemplates bool // Do not overwrite the template files
 
 	// Options changeable at runtime
 	Opts   *option.BoolOptions

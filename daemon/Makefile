@@ -3,8 +3,8 @@ include ../Makefile.defs
 all:
 
 TARGET=cilium-agent
-SOURCES := $(shell find ../api ../bpf ../common ../daemon ../pkg . -name '*.go')
-$(TARGET): $(SOURCES)
+SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
+$(TARGET): $(SOURCES) bindata.go
 	go build $(GOBUILD) -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)
 
 all: $(TARGET)
@@ -17,3 +17,6 @@ install: all
 	groupadd -f cilium
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+bindata.go: $(shell find ../bpf)
+	go-bindata -prefix ../ -ignore Makefile -ignore '.+\.o$$' ../bpf/...

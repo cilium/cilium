@@ -21,8 +21,8 @@ const (
 	// RuntimePathRights are the default access rights of the RuntimePath directory
 	RuntimePathRights = 0770
 
-	// LibDir is the default path to static library files
-	LibDir = "/usr/lib/cilium"
+	// BpfDir is the default path for template files relative to RuntimePath
+	BpfDir = "bpf"
 
 	// SockPath is the path to the UNIX domain socket exposing the API to clients locally
 	SockPath = RuntimePath + "/cilium.sock"

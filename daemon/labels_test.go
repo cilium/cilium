@@ -59,8 +59,6 @@ var (
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	time.Local = time.UTC
-	tempLibDir, err := ioutil.TempDir("", "cilium-test")
-	c.Assert(err, IsNil)
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
 	c.Assert(err, IsNil)
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
@@ -73,7 +71,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		DryMode: true,
 		Opts:    option.NewBoolOptions(&options.Library),
 	}
-	daemonConf.LibDir = tempLibDir
 	daemonConf.RunDir = tempRunDir
 	daemonConf.LXCMap = nil
 	daemonConf.NodeAddress = nodeAddress
@@ -88,12 +85,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	err = daemonConf.SetKVBackend()
 	c.Assert(err, IsNil)
 
-	d1 := []byte("#!/usr/bin/env bash\necho \"OK\"\n")
-	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "join_ep.sh"), d1, 0755)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filepath.Join(daemonConf.LibDir, "init.sh"), d1, 0755)
-	c.Assert(err, IsNil)
-
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, IsNil)
 	ds.d = d
@@ -101,7 +92,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
-	os.RemoveAll(ds.d.conf.LibDir)
 	os.RemoveAll(ds.d.conf.RunDir)
 }
 

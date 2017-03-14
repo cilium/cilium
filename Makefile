@@ -68,8 +68,6 @@ clean:
 
 install: all
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/lib
-	$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)/cilium/githooks
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 

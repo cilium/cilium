@@ -45,6 +45,6 @@ type Owner interface {
 	// Must return path to runtime directory
 	GetRuntimeDir() string
 
-	// Must return path to library directory
-	GetLibraryDir() string
+	// Must return path to BPF template files directory
+	GetBpfDir() string
 }
