@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bpf
+package bpfdebug
 
 import (
 	"fmt"
 )
 
 const (
+	// DropNotifyLen is the amount of packet data provided in a drop notification
 	DropNotifyLen = 32
 )
 
+// DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
 	Type     uint8
 	SubType  uint8
@@ -35,14 +37,6 @@ type DropNotify struct {
 	Ifindex  uint32
 	// data
 }
-
-// Must be synchronized with <bpf/lib/common.h>
-const (
-	CILIUM_NOTIFY_UNSPEC = iota
-	CILIUM_NOTIFY_DROP
-	CILIUM_DBG_MSG
-	CILIUM_DBG_CAPTURE
-)
 
 var errors = map[uint8]string{
 	0:   "Success",
@@ -79,16 +73,17 @@ var errors = map[uint8]string{
 	159: "Policy denied (L4)",
 }
 
-func DropReason(reason uint8) string {
+func dropReason(reason uint8) string {
 	if err, ok := errors[reason]; ok {
 		return err
 	}
 	return fmt.Sprintf("%d", reason)
 }
 
+// Dump prints the drop notification in human readable form
 func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d Packet dropped %d (%s) %d bytes ifindex=%d",
-		prefix, n.Hash, n.Source, n.SubType, DropReason(n.SubType), n.OrigLen, n.Ifindex)
+		prefix, n.Hash, n.Source, n.SubType, dropReason(n.SubType), n.OrigLen, n.Ifindex)
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)
