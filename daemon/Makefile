@@ -18,5 +18,5 @@ install: all
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
-bindata.go: $(shell find ../bpf)
+go-bindata: $(shell find ../bpf)
 	go-bindata -prefix ../ -ignore Makefile -ignore '.+\.o$$' ../bpf/...
