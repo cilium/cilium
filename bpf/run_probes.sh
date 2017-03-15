@@ -43,7 +43,7 @@ function probe_run()
 	FEATURE=$2
 	tc qdisc del dev $DEV clsact 2> /dev/null
 
-	PROBE_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include"
+	PROBE_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
 	clang $PROBE_OPTS -c $PROBE -o $OUT &&
 	tc qdisc add dev $DEV clsact &&

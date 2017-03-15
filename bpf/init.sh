@@ -59,7 +59,7 @@ function bpf_compile()
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -DENABLE_ARP_RESPONDER -DHANDLE_NS"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -DENABLE_ARP_RESPONDER -DHANDLE_NS -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
