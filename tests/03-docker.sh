@@ -17,7 +17,7 @@ trap cleanup EXIT
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
 
-sudo cilium -D policy import ./policy
+cilium -D policy import ./policy
 
 docker network inspect $TEST_NET || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
@@ -61,4 +61,4 @@ ping6 -c 5 "$SERVER_IP" || {
 	abort "Error: Could not ping server container from host"
 }
 
-sudo cilium -D policy delete root
+cilium -D policy delete root
