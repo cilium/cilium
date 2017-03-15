@@ -308,13 +308,22 @@ fi
 
 service cilium restart
 
+cilium_started=false
+
 for ((i = 0 ; i < 24; i++)); do
     if cilium status > /dev/null 2>&1; then
+        cilium_started=true
         break
     fi
     sleep 5s
     echo "Waiting for Cilium daemon to come up..."
 done
+
+if [ "\$cilium_started" = true ] ; then
+    echo 'Cilium successfully started!'
+else
+    >&2 echo 'Timeout waiting for Cilium to start...'
+fi
 EOF
 }
 
