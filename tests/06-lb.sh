@@ -23,7 +23,7 @@ NETPERF_IMAGE="noironetworks/netperf"
 function cleanup {
 	docker rm -f server1 server2 client wrk ab 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
-	sudo ip link del lbtest1 2> /dev/null || true
+	ip link del lbtest1 2> /dev/null || true
 }
 
 function mac2array()
@@ -54,7 +54,7 @@ set -x
 
 # Clean everything first
 cilium service delete --all
-sudo cilium service list
+cilium service list
 
 # Check if everything was deleted
 if [ -n "$(cilium service list)" ]; then
@@ -62,18 +62,18 @@ if [ -n "$(cilium service list)" ]; then
 fi
 
 # Add a service with ID 1
-sudo cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 1 --rev 2> /dev/null || {
+cilium service update --frontend [::]:80 --backends '[::1]:90,[::2]:91' --id 1 --rev 2> /dev/null || {
 	abort "Service should have been added"
 }
 
 # Check if it's the only service present
-if [[ "$(sudo cilium service list)" != \
+if [[ "$(cilium service list)" != \
       "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
      abort "Service was not properly added"
 fi
 
 # Check if we can get the service by it's ID
-if [[ "$(sudo cilium service get 1)" != \
+if [[ "$(cilium service get 1)" != \
       "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
      abort "Service was not properly added"
 fi
@@ -84,7 +84,7 @@ cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 0 --r
 }
 
 # BPF's map should be unmodified
-if [[ "$(sudo cilium service list)" != \
+if [[ "$(cilium service list)" != \
       "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
      abort "Service with ID 0 should not have been added"
 fi
@@ -95,7 +95,7 @@ cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 2 --r
 }
 
 # Check if it's the only service present
-if [[ "$(sudo cilium service list)" != \
+if [[ "$(cilium service list)" != \
       "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
      abort "Service ID 2 seems to have been added after all"
 fi
@@ -112,87 +112,8 @@ if [ -n "$(cilium service list)" ]; then
 fi
 
 #FIXME The services maps are not being properly cleaned
-#if [ -n "$(sudo cilium service --no-daemon dump-service)" ]; then
+#if [ -n "$(cilium service --no-daemon dump-service)" ]; then
 #	abort "Services map should be clean"
-#fi
-
-# Test SyncLBMap
-
-# Clean everything first
-#cilium service delete --all
-#sudo cilium service list
-#cilium service delete-rev-nat --all
-#sudo cilium service --no-daemon delete-rev-nat --all
-
-
-# Add a service with ID 2
-#cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 2 --rev 2> /dev/null || {
-#	abort "Service should have been added"
-#}
-
-# Add the same service with ID 1
-#sudo cilium service --no-daemon update-service --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 1 --rev 2> /dev/null || {
-#	abort "Service should have been added"
-#}
-
-# Add other service with ID 3
-#sudo cilium service --no-daemon update-service --frontend [::1]:80 --backends [::1]:90,[::2]:91 --id 3 --rev 2> /dev/null || {
-#	abort "Service should have been added"
-#}
-
-# BPF's map should contain service with RevNAT ID 1
-#if [[ "$(sudo cilium service --no-daemon dump-service)" != \
-#      "$(echo -e "[::1]:80 =>\n\t\t1 => [::1]:90 (3)\n\t\t2 => [::2]:91 (3)\n[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)\n")" ]]; then
-#     abort "Service was not properly added"
-#fi
-
-# Daemon's map should contain service with RevNAT ID 2
-#if [[ "$(cilium service dump-service)" != \
-#      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
-#     abort "Service was not properly added"
-#fi
-
-# BPF's RevNAT map's should contain all RevNATs
-#if [[ "$(sudo cilium service --no-daemon dump-rev-nat)" != \
-#      "$(echo -e "IPv6:\n1 => [::]:80\n2 => [::]:80\n3 => [::1]:80")" ]]; then
-#     abort "RevNAT's service was not properly added"
-#fi
-
-# Daemon's RevNAT map's should contain only 1 RevNATs
-#if [[ "$(cilium service dump-rev-nat)" != \
-#      "$(echo -e "IPv6:\n2 => [::]:80")" ]]; then
-#     abort "RevNAT's service was not properly added"
-#fi
-
-# Sync LB Maps
-#cilium service sync-lb-maps 2> /dev/null || {
-#	abort "Unable to sync LB Maps"
-#}
-
-# Daemon's map should contain service with RevNAT ID 2
-#if [[ "$(cilium service dump-service)" != \
-#      "$(echo -e "[::1]:80 =>\n\t\t1 => [::1]:90 (3)\n\t\t2 => [::2]:91 (3)\n[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
-#     abort "Service was not properly synced"
-#fi
-
-# BPF's map should contain service with RevNAT ID 2
-#if [[ "$(sudo cilium service --no-daemon dump-service)" != \
-#      "$(echo -e "[::1]:80 =>\n\t\t1 => [::1]:90 (3)\n\t\t2 => [::2]:91 (3)\n[::]:80 =>\n\t\t1 => [::1]:90 (2)\n\t\t2 => [::2]:91 (2)\n")" ]]; then
-#     abort "Service was not properly synced"
-#fi
-
-# BPF's RevNAT map's should contain RevNATs 2 and 3, number 1 was removed since the new
-# service ID is 2.
-#if [[ "$(sudo cilium service --no-daemon dump-rev-nat)" != \
-#      "$(echo -e "IPv6:\n2 => [::]:80\n3 => [::1]:80")" ]]; then
-#     abort "RevNAT's service was not properly synced"
-#fi
-
-# Daemon's RevNAT map's should contain RevNATs 2 and 3, number 1 was removed since the new
-# service ID is 2.
-#if [[ "$(cilium service dump-rev-nat)" != \
-#      "$(echo -e "IPv6:\n2 => [::]:80\n3 => [::1]:80")" ]]; then
-#     abort "RevNAT's service was not properly synced"
 #fi
 
 # Test the same for IPv4 addresses
@@ -200,7 +121,7 @@ if [ -n "${IPV4}" ]; then
 
 	# Clean everything first
 	cilium service delete --all
-	sudo cilium service list
+	cilium service list
 
 	# Check if everything was deleted
 	if [ -n "$(cilium service list)" ]; then
@@ -208,28 +129,28 @@ if [ -n "${IPV4}" ]; then
 	fi
 
 	# Add a service with ID 0, it should fail
-	sudo cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90,127.0.0.3:90 --id 0 --rev 2> /dev/null && {
+	cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90,127.0.0.3:90 --id 0 --rev 2> /dev/null && {
 		abort "Unexpected success in creating a frontend with reverse nat ID 0"
 	}
 
 	# Daemon's map should be empty
-	if [ -n "$(sudo cilium service list)" ]; then
+	if [ -n "$(cilium service list)" ]; then
 		abort "Services map should be clean"
 	fi
 
 	# Add a service with ID 10
-	sudo cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90,127.0.0.3:90 --id 10 --rev 2> /dev/null || {
+	cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90 --backends 127.0.0.3:90 --id 10 --rev 2> /dev/null || {
 		abort "Service should have been added"
 	}
 
 	# Check if it's the only service present
-	if [[ "$(sudo cilium service list)" != \
+	if [[ "$(cilium service list)" != \
 	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (10)\n\t\t2 => 127.0.0.3:90 (10)")" ]]; then
 	     abort "Service was not properly added"
 	fi
 
 	# Check if we can get the service by it's ID
-	if [[ "$(sudo cilium service get 10)" != \
+	if [[ "$(cilium service get 10)" != \
 	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (10)\n\t\t2 => 127.0.0.3:90 (10)")" ]]; then
 	     abort "Service was not properly added"
 	fi
@@ -252,7 +173,7 @@ if [ -n "${IPV4}" ]; then
 #	fi
 
 #	# BPF's map should contain service with a different RevNAT ID
-#	if [[ "$(sudo cilium service list)" != \
+#	if [[ "$(cilium service list)" != \
 #	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
 #	     abort "Service was not properly added"
 #	fi
@@ -269,29 +190,29 @@ if [ -n "${IPV4}" ]; then
 	fi
 
 	#FIXME The services maps are not being properly cleaned
-	#if [ -n "$(sudo cilium service --no-daemon dump-service)" ]; then
+	#if [ -n "$(cilium service --no-daemon dump-service)" ]; then
 	#	abort "Services map should be clean"
 	#fi
 fi
 
-sudo ip link add lbtest1 type veth peer name lbtest2
-sudo ip link set lbtest1 up
+ip link add lbtest1 type veth peer name lbtest2
+ip link set lbtest1 up
 
 # Route f00d::1:1 IPv6 packets to a fantasy router ("fbfb::10:10") behind lbtest1
-sudo ip -6 route add fbfb::10:10/128 dev lbtest1
+ip -6 route add fbfb::10:10/128 dev lbtest1
 MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
-sudo ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
-sudo ip -6 route add f00d::1:1/128 via fbfb::10:10
+ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
+ip -6 route add f00d::1:1/128 via fbfb::10:10
 
 # Route 2.2.2.2 IPv4 packets to a fantasy router ("3.3.3.3") behind lbtest1
 SRC=$(ip addr show dev cilium_host | grep 'inet ' | awk '{print $2}' | sed 's/\/32//')
-sudo ip route add 3.3.3.3/32 dev lbtest1
+ip route add 3.3.3.3/32 dev lbtest1
 MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
-sudo ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
-sudo ip route add 2.2.2.2/32 via 3.3.3.3 src $SRC
+ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
+ip route add 2.2.2.2/32 via 3.3.3.3 src $SRC
 
-sudo ip link set lbtest2 up
-LIB=/usr/lib/cilium
+ip link set lbtest2 up
+LIB=/var/run/cilium/bpf
 RUN=/var/run/cilium
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
@@ -300,9 +221,9 @@ CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC
 touch netdev_config.h
 clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
 
-sudo tc qdisc del dev lbtest2 clsact 2> /dev/null || true
-sudo tc qdisc add dev lbtest2 clsact
-sudo tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
+tc qdisc del dev lbtest2 clsact 2> /dev/null || true
+tc qdisc add dev lbtest2 clsact
+tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 
 docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
@@ -344,7 +265,6 @@ EOF
 # Clear eventual old entries, this may fail if the maps have not been created
 cilium service delete --all || true
 cilium service list
-#cilium service delete-rev-nat --all || true
 
 # Create IPv4 L3 service without reverse entry
 cilium service update --frontend 4.4.4.4:0 --id 1 --backends 5.5.5.5:0 || {
@@ -431,7 +351,7 @@ docker exec -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-#sudo cilium endpoint ct dump $SERVER1_ID
+cilium bpf ct list $SERVER1_ID
 
 ## Test 4: Reachability of own service IP
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
