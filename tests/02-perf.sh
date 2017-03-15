@@ -10,6 +10,8 @@ TEST_TIME=30
 
 # Only run these tests if BENCHMARK=1 has been set
 if [ -z $BENCHMARK ]; then
+	echo "Skipping test, not in benchmark mode."
+	echo "Run with BENCHMARK=1 to enable this test"
 	exit 0
 fi
 
