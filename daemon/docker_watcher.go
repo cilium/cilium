@@ -250,19 +250,25 @@ func (d *Daemon) handleCreateContainer(id string) {
 			continue
 		}
 
+		var orchLabelsModified bool
 		containerCopy, ok := d.retrieveWorkingContainerCopy(id)
 		if ok {
-			if !updateOrchLabels(&containerCopy, lbls) {
+			if orchLabelsModified = updateOrchLabels(&containerCopy, lbls); !orchLabelsModified {
 				log.Debugf("No changes to orch labels, ignoring")
-				return
 			}
 		} else {
 			containerCopy = createContainer(dockerContainer, lbls)
 		}
 
+		// It's mandatory to update the container in its label otherwise
+		// the label will be considered unused.
 		identity, err := d.updateContainerIdentity(&containerCopy)
 		if err != nil {
 			log.Warningf("unable to update identity of container %s: %s", id, err)
+			return
+		}
+
+		if ok && !orchLabelsModified {
 			return
 		}
 
