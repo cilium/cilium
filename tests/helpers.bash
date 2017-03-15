@@ -2,7 +2,7 @@ DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 
 function monitor_start {
-	sudo cilium monitor > $DUMP_FILE &
+	cilium monitor > $DUMP_FILE &
 	MONITOR_PID=$!
 }
 
@@ -21,7 +21,7 @@ function monitor_dump {
 
 function monitor_stop {
 	if [ ! -z "$MONITOR_PID" ]; then
-		sudo kill $MONITOR_PID
+		kill $MONITOR_PID
 	fi
 }
 
