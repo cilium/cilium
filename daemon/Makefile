@@ -4,7 +4,7 @@ all:
 
 TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
-$(TARGET): $(SOURCES) bindata.go
+$(TARGET): $(SOURCES)
 	go build $(GOBUILD) -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)
 
 all: $(TARGET)
