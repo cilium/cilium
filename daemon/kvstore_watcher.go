@@ -25,9 +25,15 @@ import (
 func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
 	ch := d.kvClient.GetWatcher(common.LastFreeLabelIDKeyPath, maxSeconds)
 	go func() {
-		select {
-		case updates := <-ch:
-			d.triggerPolicyUpdates(updates)
+		for {
+			select {
+			case updates, update_ok := <-ch:
+				if !update_ok {
+					log.Debugf("Watcher for %s closed, reacquiring it", common.LastFreeLabelIDKeyPath)
+					ch = d.kvClient.GetWatcher(common.LastFreeLabelIDKeyPath, maxSeconds)
+				}
+				d.triggerPolicyUpdates(updates)
+			}
 		}
 	}()
 }
