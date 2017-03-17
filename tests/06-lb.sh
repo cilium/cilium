@@ -11,6 +11,8 @@
 #                                           |
 #                                           +---> cilium_host
 
+# Only run basic IPv4 tests if IPV4=1 has been set
+
 source "./helpers.bash"
 
 set -e
@@ -60,7 +62,7 @@ if [ -n "$(cilium service list)" ]; then
 fi
 
 # Add a service with ID 1
-sudo cilium service update --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 1 --rev 2> /dev/null || {
+sudo cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 1 --rev 2> /dev/null || {
 	abort "Service should have been added"
 }
 
@@ -71,13 +73,13 @@ if [[ "$(sudo cilium service list)" != \
 fi
 
 # Check if we can get the service by it's ID
-if [[ "$(sudo cilium service inspect 1)" != \
+if [[ "$(sudo cilium service get 1)" != \
       "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
      abort "Service was not properly added"
 fi
 
 # Add a service with ID 0 to the daemon, it should fail
-cilium service update --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 0 --rev 2> /dev/null && {
+cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 0 --rev 2> /dev/null && {
 	abort "Unexpected success in creating a frontend with reverse ID 0"
 }
 
@@ -88,7 +90,7 @@ if [[ "$(sudo cilium service list)" != \
 fi
 
 # Add a service with ID 2 with a conflicting frontend address
-cilium service update --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 2 --rev 2> /dev/null && {
+cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 2 --rev 2> /dev/null && {
 	abort "Conflicting service should not have been added"
 }
 
@@ -100,7 +102,7 @@ fi
 
 # Let's try delete the only service
 if [[ "$(cilium service delete 1)" != \
-      "$(echo -e "Successfully deleted")" ]]; then
+      "$(echo -e "Service 1 deleted successfully")" ]]; then
      abort "Service ID 1 could not be deleted"
 fi
 
@@ -124,17 +126,17 @@ fi
 
 
 # Add a service with ID 2
-#cilium service update --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 2 --rev 2> /dev/null || {
+#cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 2 --rev 2> /dev/null || {
 #	abort "Service should have been added"
 #}
 
 # Add the same service with ID 1
-#sudo cilium service --no-daemon update-service --frontend [::]:80 --backend [::1]:90 --backend [::2]:91 --id 1 --rev 2> /dev/null || {
+#sudo cilium service --no-daemon update-service --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 1 --rev 2> /dev/null || {
 #	abort "Service should have been added"
 #}
 
 # Add other service with ID 3
-#sudo cilium service --no-daemon update-service --frontend [::1]:80 --backend [::1]:90 --backend [::2]:91 --id 3 --rev 2> /dev/null || {
+#sudo cilium service --no-daemon update-service --frontend [::1]:80 --backends [::1]:90,[::2]:91 --id 3 --rev 2> /dev/null || {
 #	abort "Service should have been added"
 #}
 
@@ -206,23 +208,19 @@ if [ -n "${IPV4}" ]; then
 	fi
 
 	# Add a service with ID 0, it should fail
-	sudo cilium service update --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 0 --rev 2> /dev/null && {
+	sudo cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90,127.0.0.3:90 --id 0 --rev 2> /dev/null && {
 		abort "Unexpected success in creating a frontend with reverse nat ID 0"
 	}
 
+	# Daemon's map should be empty
 	if [ -n "$(sudo cilium service list)" ]; then
 		abort "Services map should be clean"
 	fi
 
 	# Add a service with ID 10
-	sudo cilium service update --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 10 --rev 2> /dev/null || {
+	sudo cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90,127.0.0.3:90 --id 10 --rev 2> /dev/null || {
 		abort "Service should have been added"
 	}
-
-	# Daemon's map should be empty
-	if [ -n "$(cilium service list)" ]; then
-		abort "Daemon's services map should be clean"
-	fi
 
 	# Check if it's the only service present
 	if [[ "$(sudo cilium service list)" != \
@@ -231,37 +229,37 @@ if [ -n "${IPV4}" ]; then
 	fi
 
 	# Check if we can get the service by it's ID
-	if [[ "$(sudo cilium service inspect 10)" != \
+	if [[ "$(sudo cilium service get 10)" != \
 	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (10)\n\t\t2 => 127.0.0.3:90 (10)")" ]]; then
 	     abort "Service was not properly added"
 	fi
 
-	# Add a service with ID 20
-	cilium service update --frontend 127.0.0.1:80 --backend 127.0.0.2:90 --backend 127.0.0.3:90 --id 20 --rev 2> /dev/null || {
-		abort "Service should have been added"
+	# Add a service with ID 20 with a conflicting frontend address
+	cilium service update --frontend 127.0.0.1:80 --backends 127.0.0.2:90,127.0.0.3:90 --id 20 --rev 2> /dev/null && {
+		abort "Conflicting service should not have been added"
 	}
 
 	# Check if it's the only service present
 	if [[ "$(cilium service list)" != \
-	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
-	     abort "Service was not properly added"
+	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (10)\n\t\t2 => 127.0.0.3:90 (10)")" ]]; then
+	     abort "Service ID 20 seems to have been added after all"
 	fi
 
-	# Check if we can get the service by it's ID
-	if [[ "$(cilium service inspect 20)" != \
-	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
-	     abort "Service was not properly added"
-	fi
+#	# Check if we can get the service by it's ID
+#	if [[ "$(cilium service get 20)" != \
+#	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
+#	     abort "Service was not properly added"
+#	fi
 
-	# BPF's map should contain service with a different RevNAT ID
-	if [[ "$(sudo cilium service list)" != \
-	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
-	     abort "Service was not properly added"
-	fi
+#	# BPF's map should contain service with a different RevNAT ID
+#	if [[ "$(sudo cilium service list)" != \
+#	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
+#	     abort "Service was not properly added"
+#	fi
 
 	# Let's try delete the only service
 	if [[ "$(cilium service delete 10)" != \
-	      "$(echo -e "Successfully deleted")" ]]; then
+	      "$(echo -e "Service 10 deleted successfully")" ]]; then
 	     abort "RevNAT's was not deleted"
 	fi
 
@@ -349,7 +347,7 @@ cilium service list
 #cilium service delete-rev-nat --all || true
 
 # Create IPv4 L3 service without reverse entry
-cilium service update --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:0 || {
+cilium service update --frontend 4.4.4.4:0 --id 1 --backends 5.5.5.5:0 || {
 	abort "Unable to add IPv4 service entry"
 }
 
@@ -361,12 +359,12 @@ cilium service delete 1 || {
 }
 
 # Mixing L3/L4 in frontend and backend is not allowed
-cilium service update --frontend 4.4.4.4:0 --id 1 --backend 5.5.5.5:80 2> /dev/null && {
+cilium service update --frontend 4.4.4.4:0 --id 1 --backends 5.5.5.5:80 2> /dev/null && {
 	abort "Unexpected success in creating mixed L3/L4 service"
 }
 
 # Add L4 IPv4 entry
-cilium service update --frontend 4.4.4.4:40 --rev --id 5 --backend 5.5.5.5:80 || {
+cilium service update --frontend 4.4.4.4:40 --rev --id 5 --backends 5.5.5.5:80 || {
 	abort "Unable to add IPv4 service entry"
 }
 
@@ -383,23 +381,26 @@ cilium service delete 5 || {
 	abort "Unable to delete IPv4 service entry"
 }
 
+# We can also use multiple --backends that will get appended.
 SVC_IP6="f00d::1:1"
 cilium service update --rev --frontend "[$SVC_IP6]:0" --id 222 \
-                        --backend "[$SERVER1_IP]:0" \
-                        --backend "[$SERVER2_IP]:0"
+                        --backends "[$SERVER1_IP]:0" \
+                        --backends "[$SERVER2_IP]:0"
 
 SVC_IP4="2.2.2.2"
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
-			--backend "$SERVER1_IP4:0" \
-			--backend "$SERVER2_IP4:0"
+			--backends "$SERVER1_IP4:0" \
+			--backends "$SERVER2_IP4:0"
 
 LB_HOST_IP6="f00d::1:2"
 cilium service update --rev --frontend "[$LB_HOST_IP6]:0" --id 224 \
-			--backend "[$(host_ip6)]:0"
+			--backends "[$(host_ip6)]:0"
 
 LB_HOST_IP4="3.3.3.3"
 cilium service update --rev --frontend "$LB_HOST_IP4:0" --id 225 \
-			--backend "$(host_ip4):0"
+			--backends "$(host_ip4):0"
+
+cilium service list
 
 ## Test 1: local host => bpf_lb => local container
 ping6 $SVC_IP6 -c 4 || {
@@ -430,11 +431,11 @@ docker exec -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-sudo cilium endpoint ct dump $SERVER1_ID
+#sudo cilium endpoint ct dump $SERVER1_ID
 
 ## Test 4: Reachability of own service IP
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
-			--backend "$SERVER1_IP4:0"
+			--backends "$SERVER1_IP4:0"
 
 docker exec -ti server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
@@ -443,11 +444,11 @@ docker exec -ti server1 ping -c 4 $SVC_IP4 || {
 ## Test 5: Run wrk & ab from container => bpf_lxc (LB) => local container
 
 cilium service update --rev --frontend "[$SVC_IP6]:80" --id 2223 \
-                        --backend "[$SERVER1_IP]:80" \
-                        --backend "[$SERVER2_IP]:80"
+                        --backends "[$SERVER1_IP]:80" \
+                        --backends "[$SERVER2_IP]:80"
 cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
-			--backend "$SERVER1_IP4:80" \
-			--backend "$SERVER2_IP4:80"
+			--backends "$SERVER1_IP4:80" \
+			--backends "$SERVER2_IP4:80"
 
 
 #cilium config Debug=false DropNotification=false
