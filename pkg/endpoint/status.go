@@ -29,13 +29,24 @@ const (
 	Disabled StatusCode = -3
 )
 
-func NewStatusOK(info string) Status {
-	return Status{Code: OK, Msg: info}
+// StatusType represents the type for the given status, higher the value, higher
+// the priority.
+type StatusType int
+
+const (
+	BPF    StatusType = 200
+	Policy StatusType = 100
+	Other  StatusType = 0
+)
+
+func NewStatusOK(typ StatusType, info string) Status {
+	return Status{Code: OK, Msg: info, Type: typ}
 }
 
 type Status struct {
 	Code StatusCode `json:"code"`
 	Msg  string     `json:"msg"`
+	Type StatusType `json:"status-type"`
 }
 
 func (sc StatusCode) String() string {

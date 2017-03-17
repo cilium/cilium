@@ -85,9 +85,9 @@ func (d *Daemon) triggerPolicyUpdates(added []policy.NumericIdentity) {
 		if err != nil {
 			log.Warningf("Error while handling policy updates for endpoint %s: %s\n",
 				ep.StringID(), err)
-			ep.LogStatus(endpoint.Failure, err.Error())
+			ep.LogStatus(endpoint.Policy, endpoint.Failure, err.Error())
 		} else {
-			ep.LogStatusOK("Policy regenerated")
+			ep.LogStatusOK(endpoint.Policy, "Policy regenerated")
 		}
 	}
 

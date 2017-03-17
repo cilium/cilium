@@ -103,7 +103,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
 			common.Version, epStr64)
 	} else {
-		e.LogStatus(Warning, fmt.Sprintf("Unable to create a base64: %s", err))
+		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
 	if e.DockerID == "" {
