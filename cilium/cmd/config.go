@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -57,7 +58,7 @@ func dumpConfig(Opts map[string]string) {
 	for _, k := range opts {
 		text := common.Green("Enabled")
 
-		if Opts[k] == "" {
+		if Opts[k] == "" || strings.ToLower(Opts[k]) == "disabled" {
 			text = common.Red("Disabled")
 		}
 
