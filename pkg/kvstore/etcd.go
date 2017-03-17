@@ -178,7 +178,7 @@ func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	for {
 		switch value, err = e.GetValue(key); {
 		case attempts == 0:
-			err = fmt.Errorf("Unable to retreive last free ID because key is always empty")
+			err = fmt.Errorf("Unable to retrieve last free ID because key is always empty")
 			log.Error(err)
 			fallthrough
 		case err != nil:

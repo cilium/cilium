@@ -23,7 +23,7 @@ type EndpointStatusChange struct {
 	// Status message
 	Message string `json:"message,omitempty"`
 
-	// Timestamp when status change occured
+	// Timestamp when status change occurred
 	Timestamp string `json:"timestamp,omitempty"`
 }
 
