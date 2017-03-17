@@ -141,7 +141,7 @@ paths:
       description: |
         Deletes the endpoint specified by the ID. Deletion is imminent and
         atomic, if the deletion request is valid and the endpoint exists,
-        deletion will occur even if errors are encounted in the process. If
+        deletion will occur even if errors are encountered in the process. If
         errors have been encountered, the code 202 will be returned, otherwise
         200 on success.
 
@@ -732,7 +732,7 @@ definitions:
     type: object
     properties:
       timestamp:
-        description: Timestamp when status change occured
+        description: Timestamp when status change occurred
         type: string
       code:
         description: Code indicate type of status change
@@ -894,7 +894,7 @@ definitions:
           type: string
   DaemonConfigurationResponse:
     description: |
-      Response to a daemon configuration request. Contains the adddresing
+      Response to a daemon configuration request. Contains the addressing
       information and configuration settings.
     type: object
     properties:
@@ -953,7 +953,7 @@ definitions:
       log:
         type: string
   IdentityContext:
-    description: Context describing a pair of source and destination identies
+    description: Context describing a pair of source and destination identity
     type: object
     properties:
       from:
