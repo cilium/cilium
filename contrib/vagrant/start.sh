@@ -392,25 +392,95 @@ function set_vagrant_env(){
     fi
 }
 
+# vboxnet_create_new_interface creates a new host only network interface with
+# VBoxManage utility. Returns the created interface name in ${1}.
+function vboxnet_create_new_interface(){
+    output=$(VBoxManage hostonlyif create)
+    vboxnet_interface=$(echo "${output}" | grep -oE "'[a-zA-Z0-9]+'" | sed "s/'//g")
+    if [ -z "${vboxnet_interface}" ]; then
+        echo "Unable create VBox hostonly interface:"
+        echo "${output}"
+        return
+    fi
+    eval "${1}=${vboxnet_interface}"
+}
+
+# vboxnet_add_ipv6 adds the IPv6 in ${2} with the netmask length in ${3} in the
+# hostonly network interface set in ${1}.
+function vboxnet_add_ipv6(){
+    vboxnetif="${1}"
+    ipv6="${2}"
+    ipv6_mask="${3}"
+    VBoxManage hostonlyif ipconfig "${vboxnetif}" \
+        --ipv6 "${ipv6}" --netmasklengthv6 "${ipv6_mask}"
+}
+
+# vboxnet_add_ipv4 adds the IPv4 in ${2} with the netmask in ${3} in the
+# hostonly network interface set in ${1}.
+function vboxnet_add_ipv4(){
+    vboxnetif="${1}"
+    ipv4="${2}"
+    ipv4_mask="${3}"
+    VBoxManage hostonlyif ipconfig "${vboxnetif}" \
+        --ip "${ipv4}" --netmask "${ipv4_mask}"
+}
+
 # vboxnet_addr_finder checks if any vboxnet interface has the IPv6 public CIDR
 function vboxnet_addr_finder(){
     if [ -z "${IPV6_EXT}" ] && [ -z "${NFS}" ]; then
         return
     fi
-    iname_prefix="vboxnet"
-    interfaces=$(ip l | grep -Eo "${iname_prefix}[0-9]+")
-    for int in ${interfaces}; do
-        addr_found=$(ip -6 a s dev "${int}" | grep -i "${IPV6_PUBLIC_CIDR}")
-        if [[ -n "${addr_found}" ]]; then
-            found=1
+    all_vbox_interfaces=$(VBoxManage list hostonlyifs | grep -E "^Name|IPV6Address|IPV6NetworkMaskPrefixLength" | awk -F" " '{print $2}')
+    # all_vbox_interfaces format example:
+    # vboxnet0
+    # fd00:0000:0000:0000:0000:0000:0000:0001
+    # 64
+    # vboxnet1
+    # fd05:0000:0000:0000:0000:0000:0000:0001
+    # 16
+    all_ipv6=$(echo "${all_vbox_interfaces}" | awk 'NR % 3 == 2')
+    line_ip=0
+    while read -r ip; do
+        line_ip=$(( $line_ip + 1 ))
+        if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR::-1}") ]; then
+            found=${line_ip}
+            net_mask=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip}")
+            vboxnetname=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip} - 2")
             break
         fi
-    done
+    done <<< "${all_ipv6}"
     if [[ -z "${found}" ]]; then
-            echo "ERROR: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" not found"
-            echo "Please configure a HostOnly VirtualBox network interface with \"${IPV6_PUBLIC_CIDR}1/16\""
+        echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" not found"
+        read -r -p "Create a new VBox hostonly network interface? [y/N] " response
+        case "${response}" in
+            [yY])
+                echo "Creating VBox hostonly network..."
+            ;;
+            *)
+                exit
+            ;;
+        esac
+        vboxnet_create_new_interface vboxnetname
+        if [ -z "${vboxnet_interface}" ]; then
             exit 1
+        fi
+    elif [[ "${net_mask}" -ne 16 ]]; then
+        echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" found in ${vboxnetname}"
+        echo "but set wrong network mask (64 instead of 16)"
+        read -r -p "Change network mask of '${vboxnetname}' to 16? [y/N] " response
+        case "${response}" in
+            [yY])
+                echo "Changing network mask to 16..."
+            ;;
+            *)
+                exit
+            ;;
+        esac
     fi
+    split_ipv4 ipv4_array_nfs "${MASTER_IPV4_NFS}"
+    IPV4_BASE_ADDR_NFS="$(printf "%d.%d.%d.1" "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
+    vboxnet_add_ipv6 "${vboxnetname}" "${IPV6_PUBLIC_CIDR}1" 16
+    vboxnet_add_ipv4 "${vboxnetname}" "${IPV4_BASE_ADDR_NFS}" "255.255.255.0"
 }
 
 if [[ "${VAGRANT_DEFAULT_PROVIDER}" -eq "virtualbox" ]]; then
