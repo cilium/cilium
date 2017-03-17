@@ -100,13 +100,12 @@ func parseAllowedSlice(slice []string) ([]string, error) {
 		}
 
 		return resp.Labels, nil
-	} else {
-		if len(inLabels) == 0 {
-			return nil, fmt.Errorf("No label or security ID provided")
-		}
-
-		return inLabels, nil
 	}
+	if len(inLabels) == 0 {
+		return nil, fmt.Errorf("No label or security ID provided")
+	}
+
+	return inLabels, nil
 }
 
 func verifyAllowedSlice(slice []string) error {

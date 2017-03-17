@@ -185,9 +185,8 @@ func (d *Daemon) retrieveWorkingContainerCopy(id string) (types.Container, bool)
 
 	if c, ok := d.containers[id]; ok {
 		return *c, true
-	} else {
-		return types.Container{}, false
 	}
+	return types.Container{}, false
 }
 
 func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) types.Container {

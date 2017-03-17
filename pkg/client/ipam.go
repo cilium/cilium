@@ -35,9 +35,8 @@ func (c *Client) IPAMAllocate(family string) (*models.IPAM, error) {
 	resp, err := c.IPAM.PostIPAM(params)
 	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Try to allocate a particular IP address

@@ -216,9 +216,8 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 func L3n4Addr2ServiceKey(l3n4Addr types.L3n4Addr) ServiceKey {
 	if l3n4Addr.IsIPv6() {
 		return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
-	} else {
-		return NewService4Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 	}
+	return NewService4Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 }
 
 // LBSVC2ServiceKeynValue transforms the SVC cilium type into a bpf SVC type.
@@ -247,9 +246,8 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 func L3n4Addr2RevNatKeynValue(svcID types.ServiceID, feL3n4Addr types.L3n4Addr) (RevNatKey, RevNatValue) {
 	if feL3n4Addr.IsIPv6() {
 		return NewRevNat6Key(uint16(svcID)), NewRevNat6Value(feL3n4Addr.IP, feL3n4Addr.Port)
-	} else {
-		return NewRevNat4Key(uint16(svcID)), NewRevNat4Value(feL3n4Addr.IP, feL3n4Addr.Port)
 	}
+	return NewRevNat4Key(uint16(svcID)), NewRevNat4Value(feL3n4Addr.IP, feL3n4Addr.Port)
 }
 
 // ServiceKey2L3n4Addr converts the given svcKey to a L3n4Addr.

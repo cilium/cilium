@@ -146,9 +146,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	geneveOpts, err := writeGeneve(prefix, e)
 	if err != nil {
 		return err
-	} else {
-		fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 	}
+	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(e.ID))

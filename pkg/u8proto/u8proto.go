@@ -41,15 +41,13 @@ func (p *U8proto) String() string {
 
 	if _, ok := protoNames[proto]; ok {
 		return protoNames[proto]
-	} else {
-		return strconv.Itoa(proto)
 	}
+	return strconv.Itoa(proto)
 }
 
 func ParseProtocol(proto string) (U8proto, error) {
 	if u, ok := protoIDs[strings.ToLower(proto)]; ok {
 		return u, nil
-	} else {
-		return 0, fmt.Errorf("unknown protocol '%s'", proto)
 	}
+	return 0, fmt.Errorf("unknown protocol '%s'", proto)
 }

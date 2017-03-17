@@ -458,11 +458,11 @@ func (pn *Node) AddChild(name string, child *Node) (bool, error) {
 		child.Parent = pn
 		child.Path()
 		return pn.Children[name].Merge(child)
-	} else {
-		pn.Children[name] = child
-		child.Parent = pn
-		child.Path()
 	}
+
+	pn.Children[name] = child
+	child.Parent = pn
+	child.Path()
 
 	return true, nil
 }

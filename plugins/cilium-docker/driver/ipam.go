@@ -61,14 +61,14 @@ func (driver *driver) getPoolResponse(req *api.RequestPoolRequest) *api.RequestP
 				"com.docker.network.gateway": addr.IPV4.IP + "/32",
 			},
 		}
-	} else {
-		return &api.RequestPoolResponse{
-			PoolID: PoolIPv6,
-			Pool:   addr.IPV6.AllocRange,
-			Data: map[string]string{
-				"com.docker.network.gateway": addr.IPV6.IP + "/128",
-			},
-		}
+	}
+
+	return &api.RequestPoolResponse{
+		PoolID: PoolIPv6,
+		Pool:   addr.IPV6.AllocRange,
+		Data: map[string]string{
+			"com.docker.network.gateway": addr.IPV6.IP + "/128",
+		},
 	}
 }
 

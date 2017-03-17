@@ -195,9 +195,8 @@ func (o *BoolOptions) GetFmtOpt(name string) string {
 
 	if o.IsEnabled(name) {
 		return "#define " + o.Library.Define(name)
-	} else {
-		return "#undef " + o.Library.Define(name)
 	}
+	return "#undef " + o.Library.Define(name)
 }
 
 func (o *BoolOptions) GetFmtList() string {

@@ -30,27 +30,24 @@ import (
 func (d *Daemon) lookupCiliumEndpoint(id uint16) *endpoint.Endpoint {
 	if ep, ok := d.endpoints[id]; ok {
 		return ep
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (d *Daemon) lookupDockerEndpoint(id string) *endpoint.Endpoint {
 	i := endpoint.NewID(endpoint.DockerEndpointPrefix, id)
 	if ep, ok := d.endpointsAux[i]; ok {
 		return ep
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (d *Daemon) lookupDockerID(id string) *endpoint.Endpoint {
 	i := endpoint.NewID(endpoint.ContainerIdPrefix, id)
 	if ep, ok := d.endpointsAux[i]; ok {
 		return ep
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (d *Daemon) linkContainerID(ep *endpoint.Endpoint) {
