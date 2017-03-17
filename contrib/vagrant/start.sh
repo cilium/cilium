@@ -394,6 +394,9 @@ function set_vagrant_env(){
 
 # vboxnet_addr_finder checks if any vboxnet interface has the IPv6 public CIDR
 function vboxnet_addr_finder(){
+    if [ -z "${IPV6_EXT}" ] && [ -z "${NFS}" ]; then
+        return
+    fi
     iname_prefix="vboxnet"
     interfaces=$(ip l | grep -Eo "${iname_prefix}[0-9]+")
     for int in ${interfaces}; do
