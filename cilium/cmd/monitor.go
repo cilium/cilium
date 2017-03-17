@@ -32,7 +32,7 @@ import (
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
 	Short: "Monitoring",
-	Long: `The monitor displays notifications and events ommited by the BPF
+	Long: `The monitor displays notifications and events omitted by the BPF
 programs attached to endpoints and devices. This includes:
   * Dropped packet notifications
   * Captured packet traces

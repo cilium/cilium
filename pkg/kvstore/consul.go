@@ -297,7 +297,7 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 
 	beginning := baseID
 	for {
-		log.Debugf("Trying to aquire a new free ID %d", baseID)
+		log.Debugf("Trying to acquire a new free ID %d", baseID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(baseID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: GetLockPath(keyPath), Session: session}

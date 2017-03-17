@@ -33,7 +33,7 @@ Delete endpoint
 
 Deletes the endpoint specified by the ID. Deletion is imminent and
 atomic, if the deletion request is valid and the endpoint exists,
-deletion will occur even if errors are encounted in the process. If
+deletion will occur even if errors are encountered in the process. If
 errors have been encountered, the code 202 will be returned, otherwise
 200 on success.
 

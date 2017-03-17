@@ -169,7 +169,7 @@ func init() {
         }
       },
       "delete": {
-        "description": "Deletes the endpoint specified by the ID. Deletion is imminent and\natomic, if the deletion request is valid and the endpoint exists,\ndeletion will occur even if errors are encounted in the process. If\nerrors have been encountered, the code 202 will be returned, otherwise\n200 on success.\n\nAll resources associated with the endpoint will be freed and the\nworkload represented by the endpoint will be disconnected.It will no\nlonger be able to initiate or receive communications of any sort.\n",
+        "description": "Deletes the endpoint specified by the ID. Deletion is imminent and\natomic, if the deletion request is valid and the endpoint exists,\ndeletion will occur even if errors are encountered in the process. If\nerrors have been encountered, the code 202 will be returned, otherwise\n200 on success.\n\nAll resources associated with the endpoint will be freed and the\nworkload represented by the endpoint will be disconnected.It will no\nlonger be able to initiate or receive communications of any sort.\n",
         "tags": [
           "endpoint"
         ],
@@ -1061,7 +1061,7 @@ func init() {
           "type": "string"
         },
         "timestamp": {
-          "description": "Timestamp when status change occured",
+          "description": "Timestamp when status change occurred",
           "type": "string"
         }
       }
