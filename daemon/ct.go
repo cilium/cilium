@@ -34,7 +34,7 @@ func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		log.Warningf("Unable to open CT map %s: %s\n", file, err)
-		e.LogStatus(endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
 

@@ -141,3 +141,102 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	cpy.Consumable.Labels.Endpoints["1234"] = time.Now()
 	c.Assert(*cpy.Consumable.Labels, Not(DeepEquals), *epWant.Consumable.Labels)
 }
+
+func (s *EndpointSuite) TestEndpointStatus(c *C) {
+	eps := NewEndpointStatus()
+
+	c.Assert(eps.String(), Equals, "OK")
+
+	sts := &statusLogMsg{
+		Status: Status{
+			Code: OK,
+			Msg:  "BPF Program compiled",
+			Type: BPF,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "OK")
+
+	sts = &statusLogMsg{
+		Status: Status{
+			Code: Failure,
+			Msg:  "BPF Program failed to compile",
+			Type: BPF,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "Failure")
+
+	sts = &statusLogMsg{
+		Status: Status{
+			Code: OK,
+			Msg:  "Policy compiled",
+			Type: Policy,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "Failure")
+
+	// An OK message with priority Other can't hide a High Failure message.
+	for i := 0; i <= maxLogs; i++ {
+		st := &statusLogMsg{
+			Status: Status{
+				Code: OK,
+				Msg:  "Other thing compiled",
+				Type: Other,
+			},
+			Timestamp: time.Now(),
+		}
+		eps.addStatusLog(st)
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "Failure")
+
+	sts = &statusLogMsg{
+		Status: Status{
+			Code: Failure,
+			Msg:  "Policy failed",
+			Type: Policy,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "Failure")
+
+	sts = &statusLogMsg{
+		Status: Status{
+			Code: OK,
+			Msg:  "BPF Program compiled",
+			Type: BPF,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	// BPF might be ok but the policy is still in fail mode.
+	c.Assert(eps.String(), Equals, "Failure")
+
+	sts = &statusLogMsg{
+		Status: Status{
+			Code: Failure,
+			Msg:  "Policy failed",
+			Type: Policy,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "Failure")
+
+	sts = &statusLogMsg{
+		Status: Status{
+			Code: OK,
+			Msg:  "Policy compiled",
+			Type: Policy,
+		},
+		Timestamp: time.Now(),
+	}
+	eps.addStatusLog(sts)
+	c.Assert(eps.String(), Equals, "OK")
+}

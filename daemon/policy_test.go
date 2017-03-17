@@ -116,7 +116,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		IPv4:    IPv4Addr,
 		LXCMAC:  HardAddr,
 		NodeMAC: HardAddr,
-		Status:  &endpoint.EndpointStatus{},
+		Status:  endpoint.NewEndpointStatus(),
 	}
 	e.Opts = option.NewBoolOptions(&options.Library)
 	err2 := os.Mkdir("1", 755)
@@ -144,7 +144,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		IPv4:    IPv4Addr,
 		LXCMAC:  HardAddr,
 		NodeMAC: HardAddr,
-		Status:  &endpoint.EndpointStatus{},
+		Status:  endpoint.NewEndpointStatus(),
 	}
 	e.Opts = option.NewBoolOptions(&options.Library)
 	e.SetIdentity(ds.d, prodBarSecLblsCtx)

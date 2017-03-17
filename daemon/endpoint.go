@@ -58,7 +58,7 @@ func (d *Daemon) linkContainerID(ep *endpoint.Endpoint) {
 // insertEndpoint inserts the ep in the endpoints map. To be used with endpointsMU locked.
 func (d *Daemon) insertEndpoint(ep *endpoint.Endpoint) {
 	if ep.Status == nil {
-		ep.Status = &endpoint.EndpointStatus{}
+		ep.Status = endpoint.NewEndpointStatus()
 	}
 
 	d.endpoints[ep.ID] = ep

@@ -247,9 +247,9 @@ func (e *Endpoint) regenerate(owner Owner) error {
 func (e *Endpoint) regenerateLocked(owner Owner) error {
 	err := e.regenerate(owner)
 	if err != nil {
-		e.LogStatus(Failure, err.Error())
+		e.LogStatus(BPF, Failure, err.Error())
 	} else {
-		e.LogStatusOK("Successfully regenerated endpoint program")
+		e.LogStatusOK(BPF, "Successfully regenerated endpoint program")
 	}
 
 	return err
