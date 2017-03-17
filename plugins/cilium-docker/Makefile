@@ -4,7 +4,7 @@ TARGET=cilium-docker
 
 all: $(TARGET)
 
-SOURCES := $(shell find . -name '*.go')
+SOURCES := $(shell find ../../api/v1 ../../common ../../pkg/client ../../pkg/endpoint driver . -name '*.go')
 
 $(TARGET): $(SOURCES)
 	go build $(GOBUILD) -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)

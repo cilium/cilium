@@ -8,7 +8,7 @@ clean:
 	go clean
 	rm -f $(TARGET)
 
-SOURCES := $(shell find . -name '*.go')
+SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')
 
 $(TARGET): $(SOURCES)
 	go build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
