@@ -68,7 +68,7 @@ function cleanup_cilium {
     cleanup_k8s
 
     for line in ${server_cilium} ${client_cilium}; do
-        kubectl exec -i ${line} -- cilium daemon config DropNotification=true Debug=true
+        kubectl exec -i ${line} -- cilium config DropNotification=true Debug=true
     done
 }
 
@@ -193,8 +193,8 @@ function perf_test() {
 	fi
 }
 
-kubectl exec ${server_cilium} -- cilium daemon config DropNotification=false Debug=false
-kubectl exec ${client_cilium} -- cilium daemon config DropNotification=false Debug=false
+kubectl exec ${server_cilium} -- cilium config DropNotification=false Debug=false
+kubectl exec ${client_cilium} -- cilium config DropNotification=false Debug=false
 kubectl exec ${server_cilium} -- cilium endpoint config $SERVER_ID DropNotification=false Debug=false
 kubectl exec ${client_cilium} -- cilium endpoint config $CLIENT_ID DropNotification=false Debug=false
 perf_test
