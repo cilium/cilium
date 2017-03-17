@@ -62,7 +62,8 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 
 	opts := args[1:]
 	if len(opts) == 0 {
-		fmt.Printf("%+v\n", cfg)
+		dumpConfig(cfg.Immutable)
+		dumpConfig(cfg.Mutable)
 		return
 	}
 
