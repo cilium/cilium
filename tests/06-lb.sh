@@ -46,7 +46,7 @@ cleanup
 
 set -x
 
-#cilium daemon config Debug=true DropNotification=true
+#cilium config Debug=true DropNotification=true
 
 # Test the addition and removal of services with and without daemon
 
@@ -450,7 +450,7 @@ cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 			--backend "$SERVER2_IP4:80"
 
 
-#cilium daemon config Debug=false DropNotification=false
+#cilium config Debug=false DropNotification=false
 #cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
 #cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
 
@@ -475,7 +475,7 @@ docker exec -i ab ab -t 30 -c 20 -v 1 "http://$SVC_IP4/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-#cilium daemon config Debug=true DropNotification=true
+#cilium config Debug=true DropNotification=true
 
 cleanup
 cilium -D policy delete root

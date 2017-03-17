@@ -16,7 +16,7 @@ fi
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
 
-	cilium daemon config DropNotification=true Debug=true
+	cilium config DropNotification=true Debug=true
 }
 
 trap cleanup EXIT
@@ -146,7 +146,7 @@ function perf_pktgen() {
 	done
 }
 
-cilium daemon config DropNotification=false Debug=false
+cilium config DropNotification=false Debug=false
 cilium endpoint config $SERVER_ID DropNotification=false Debug=false
 cilium endpoint config $CLIENT_ID DropNotification=false Debug=false
 perf_test
