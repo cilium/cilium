@@ -35,9 +35,8 @@ func New(code int, msg string, args ...interface{}) *ApiError {
 
 	if len(args) > 0 {
 		return &ApiError{code: code, msg: fmt.Sprintf(msg, args...)}
-	} else {
-		return &ApiError{code: code, msg: msg}
 	}
+	return &ApiError{code: code, msg: msg}
 }
 
 func Error(code int, err error) *ApiError {

@@ -124,10 +124,9 @@ func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 
 		if err != nil {
 			return nil, err
-		} else {
-			eDump := PolicyEntryDump{ID: nextKey, PolicyEntry: entry}
-			entries = append(entries, eDump)
 		}
+		eDump := PolicyEntryDump{ID: nextKey, PolicyEntry: entry}
+		entries = append(entries, eDump)
 
 		key = nextKey
 	}

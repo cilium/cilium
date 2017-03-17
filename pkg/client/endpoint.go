@@ -25,9 +25,8 @@ func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 	resp, err := c.Endpoint.GetEndpoint(nil)
 	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Get endpoint by ID

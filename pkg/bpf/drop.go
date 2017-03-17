@@ -82,9 +82,8 @@ var errors = map[uint8]string{
 func DropReason(reason uint8) string {
 	if err, ok := errors[reason]; ok {
 		return err
-	} else {
-		return fmt.Sprintf("%d", reason)
 	}
+	return fmt.Sprintf("%d", reason)
 }
 
 func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {

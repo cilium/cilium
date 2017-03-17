@@ -296,9 +296,8 @@ func (a *L3n4Addr) GetBackendModel() *models.BackendAddress {
 func (l *L3n4Addr) String() string {
 	if l.IsIPv6() {
 		return fmt.Sprintf("[%s]:%d", l.IP.String(), l.Port)
-	} else {
-		return fmt.Sprintf("%s:%d", l.IP.String(), l.Port)
 	}
+	return fmt.Sprintf("%s:%d", l.IP.String(), l.Port)
 }
 
 // DeepCopy returns a DeepCopy of the given L3n4Addr.

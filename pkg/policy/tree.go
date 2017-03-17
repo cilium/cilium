@@ -167,9 +167,8 @@ func (t *Tree) Lookup(path string) (node, parent *Node) {
 			// Return parent if we failed at last element
 			if index == len(elements)-1 {
 				return nil, parent
-			} else {
-				return nil, nil
 			}
+			return nil, nil
 		}
 	}
 

@@ -467,9 +467,8 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		event, err := PerfEventOpen(config, -1, cpu, -1, 0)
 		if err != nil {
 			return nil, err
-		} else {
-			e.event[event.Fd] = event
 		}
+		e.event[event.Fd] = event
 
 		if err := e.poll.AddFD(event.Fd, syscall.EPOLLIN); err != nil {
 			return nil, err

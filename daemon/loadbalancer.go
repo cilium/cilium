@@ -244,9 +244,8 @@ func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
 
 	if svc, ok := d.loadBalancer.SVCMapID[types.ServiceID(params.ID)]; ok {
 		return NewGetServiceIDOK().WithPayload(svc.GetModel())
-	} else {
-		return NewGetServiceIDNotFound()
 	}
+	return NewGetServiceIDNotFound()
 }
 
 // SVCGetBySHA256Sum returns a DeepCopied frontend with its backends.

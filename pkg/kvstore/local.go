@@ -49,9 +49,8 @@ func (l *LocalLocker) Unlock() error {
 func (l *LocalClient) GetValue(k string) (json.RawMessage, error) {
 	if v, ok := l.store[k]; ok {
 		return json.RawMessage(v), nil
-	} else {
-		return nil, nil
 	}
+	return nil, nil
 }
 
 func (l *LocalClient) SetValue(k string, v interface{}) error {
