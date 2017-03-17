@@ -42,6 +42,8 @@ export 'K8STAG'=${K8S+"-k8s"}
 export 'VAGRANT_DEFAULT_PROVIDER'=${VAGRANT_DEFAULT_PROVIDER:-"virtualbox"}
 # Sets the default cilium TUNNEL_MODE to "vxlan"
 export 'TUNNEL_MODE_STRING'=${TUNNEL_MODE_STRING:-"-t vxlan"}
+# Replies Yes to all prompts asked in this script
+export 'YES_TO_ALL'=${YES_TO_ALL:-"0"}
 
 # Internal variables used in the Vagrantfile
 export 'CILIUM_SCRIPT'=true
@@ -451,7 +453,11 @@ function vboxnet_addr_finder(){
     done <<< "${all_ipv6}"
     if [[ -z "${found}" ]]; then
         echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" not found"
-        read -r -p "Create a new VBox hostonly network interface? [y/N] " response
+        if [ ${YES_TO_ALL} -eq "0" ]; then
+            read -r -p "Create a new VBox hostonly network interface? [y/N] " response
+        else
+            response="Y"
+        fi
         case "${response}" in
             [yY])
                 echo "Creating VBox hostonly network..."
@@ -467,7 +473,11 @@ function vboxnet_addr_finder(){
     elif [[ "${net_mask}" -ne 16 ]]; then
         echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" found in ${vboxnetname}"
         echo "but set wrong network mask (64 instead of 16)"
-        read -r -p "Change network mask of '${vboxnetname}' to 16? [y/N] " response
+        if [ ${YES_TO_ALL} -eq "0" ]; then
+            read -r -p "Change network mask of '${vboxnetname}' to 16? [y/N] " response
+        else
+            response="Y"
+        fi
         case "${response}" in
             [yY])
                 echo "Changing network mask to 16..."
