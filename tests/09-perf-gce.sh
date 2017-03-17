@@ -82,9 +82,9 @@ SERVER_IP4=$(kubectl exec ${server_pod} -- ip -4 a s | grep global | tr -s ' ' |
 SERVER_ID=$(kubectl exec ${server_cilium} -- cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
 
 HOST_IP=$(echo $SERVER_IP | sed -e 's/:[0-9a-f]\{4\}$/:ffff/')
-SERVER_DEV=$(kubectl exec ${server_cilium} -- cilium endpoint inspect $SERVER_ID | grep interface-name | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
-NODE_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint inspect $SERVER_ID | grep node-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
-LXC_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint inspect $SERVER_ID | grep lxc-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
+SERVER_DEV=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | grep interface-name | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
+NODE_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | grep host-mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
+LXC_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | grep mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 
 echo "... Done"
 
