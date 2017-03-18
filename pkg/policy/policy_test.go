@@ -660,8 +660,8 @@ func (s *PolicyTestSuite) TestRuleMergeable(c *C) {
 	allow := AllowRule{Action: ACCEPT}
 	c.Assert(allow.IsMergeable(), Equals, true)
 
-	always_allow := AllowRule{Action: ALWAYS_ACCEPT}
-	c.Assert(always_allow.IsMergeable(), Equals, true)
+	alwaysAllow := AllowRule{Action: ALWAYS_ACCEPT}
+	c.Assert(alwaysAllow.IsMergeable(), Equals, true)
 
 	req := RuleRequires{}
 	c.Assert(req.IsMergeable(), Equals, true)

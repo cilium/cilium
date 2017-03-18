@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpf_policy_deleteCmd represents the bpf_policy_delete command
-var bpf_policy_deleteCmd = &cobra.Command{
+// bpfPolicyDeleteCmd represents the bpf_policy_delete command
+var bpfPolicyDeleteCmd = &cobra.Command{
 	Use:    "delete <endpoint id> <identity>",
 	Short:  "Delete a policy entry",
 	PreRun: requireEndpointID,
@@ -29,5 +29,5 @@ var bpf_policy_deleteCmd = &cobra.Command{
 }
 
 func init() {
-	bpf_policyCmd.AddCommand(bpf_policy_deleteCmd)
+	bpfPolicyCmd.AddCommand(bpfPolicyDeleteCmd)
 }

@@ -24,8 +24,8 @@ import (
 
 var deleteAll bool
 
-// service_deleteCmd represents the service_delete command
-var service_deleteCmd = &cobra.Command{
+// serviceDeleteCmd represents the service_delete command
+var serviceDeleteCmd = &cobra.Command{
 	Use:   "delete { <service id> | --all }",
 	Short: "Delete a service",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -59,6 +59,6 @@ var service_deleteCmd = &cobra.Command{
 }
 
 func init() {
-	serviceCmd.AddCommand(service_deleteCmd)
-	service_deleteCmd.Flags().BoolVarP(&deleteAll, "all", "", false, "Delete all services")
+	serviceCmd.AddCommand(serviceDeleteCmd)
+	serviceDeleteCmd.Flags().BoolVarP(&deleteAll, "all", "", false, "Delete all services")
 }

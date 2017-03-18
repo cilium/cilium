@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpf_policy_addCmd represents the bpf_policy_add command
-var bpf_policy_addCmd = &cobra.Command{
+// bpfPolicyAddCmd represents the bpf_policy_add command
+var bpfPolicyAddCmd = &cobra.Command{
 	Use:    "add <endpoint id> <identity>",
 	Short:  "Add/update policy entry",
 	PreRun: requireEndpointID,
@@ -35,7 +35,7 @@ var bpf_policy_addCmd = &cobra.Command{
 }
 
 func init() {
-	bpf_policyCmd.AddCommand(bpf_policy_addCmd)
+	bpfPolicyCmd.AddCommand(bpfPolicyAddCmd)
 }
 
 func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
@@ -54,13 +54,13 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		Fatalf("Cannot open policymap '%s' : %s", file, err)
 	}
 
-	peer_lbl, err := strconv.ParseUint(args[1], 10, 32)
+	peerLbl, err := strconv.ParseUint(args[1], 10, 32)
 	if add == true {
-		if err := policyMap.AllowConsumer(uint32(peer_lbl)); err != nil {
+		if err := policyMap.AllowConsumer(uint32(peerLbl)); err != nil {
 			Fatalf("Cannot add policy key: %s", err)
 		}
 	} else {
-		if err := policyMap.DeleteConsumer(uint32(peer_lbl)); err != nil {
+		if err := policyMap.DeleteConsumer(uint32(peerLbl)); err != nil {
 			Fatalf("Cannot delete policy key: %s", err)
 		}
 	}

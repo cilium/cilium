@@ -21,8 +21,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bash_completionCmd represents the bash_completion command
-var bash_completionCmd = &cobra.Command{
+// bashCompletionCmd represents the bash_completion command
+var bashCompletionCmd = &cobra.Command{
 	Use:    "generate-bash-completion",
 	Short:  "Hidden bash completion command",
 	Hidden: true,
@@ -34,5 +34,5 @@ var bash_completionCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(bash_completionCmd)
+	RootCmd.AddCommand(bashCompletionCmd)
 }

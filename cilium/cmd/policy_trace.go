@@ -27,8 +27,8 @@ import (
 
 var src, dst []string
 
-// policy_traceCmd represents the policy_trace command
-var policy_traceCmd = &cobra.Command{
+// policyTraceCmd represents the policy_trace command
+var policyTraceCmd = &cobra.Command{
 	Use:   "trace -s <context> -d <context>",
 	Short: "Trace a policy decision",
 	Long: `Verifies if source ID or LABEL(s) is allowed to consume
@@ -62,11 +62,11 @@ SOURCE:KEY[=VALUE]`,
 }
 
 func init() {
-	policyCmd.AddCommand(policy_traceCmd)
-	policy_traceCmd.Flags().StringSliceVarP(&src, "src", "s", []string{}, "Source label context")
-	policy_traceCmd.MarkFlagRequired("src")
-	policy_traceCmd.Flags().StringSliceVarP(&dst, "dst", "d", []string{}, "Destination label context")
-	policy_traceCmd.MarkFlagRequired("dst")
+	policyCmd.AddCommand(policyTraceCmd)
+	policyTraceCmd.Flags().StringSliceVarP(&src, "src", "s", []string{}, "Source label context")
+	policyTraceCmd.MarkFlagRequired("src")
+	policyTraceCmd.Flags().StringSliceVarP(&dst, "dst", "d", []string{}, "Destination label context")
+	policyTraceCmd.MarkFlagRequired("dst")
 }
 
 func parseAllowedSlice(slice []string) ([]string, error) {

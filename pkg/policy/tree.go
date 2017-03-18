@@ -81,7 +81,7 @@ func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
 func (t *Tree) Allows(ctx *SearchContext) ConsumableDecision {
 	policyTrace(ctx, "NEW TRACE >> %s\n", ctx.String())
 
-	var decision, sub_decision ConsumableDecision
+	var decision, subDecision ConsumableDecision
 	// In absence of policy, deny
 	if t.Root == nil {
 		decision = DENY
@@ -100,9 +100,9 @@ func (t *Tree) Allows(ctx *SearchContext) ConsumableDecision {
 	}
 
 	policyTrace(ctx, "Searching in [%s]'s children that have the coverage for: [%s]\n", t.Root.path, ctx.To)
-	sub_decision = canConsume(t.Root, ctx)
-	policyTrace(ctx, "Root's [%s] children verdict: [%s]\n", t.Root.path, sub_decision)
-	switch sub_decision {
+	subDecision = canConsume(t.Root, ctx)
+	policyTrace(ctx, "Root's [%s] children verdict: [%s]\n", t.Root.path, subDecision)
+	switch subDecision {
 	case ALWAYS_ACCEPT, ACCEPT:
 		decision = ACCEPT
 	case DENY:

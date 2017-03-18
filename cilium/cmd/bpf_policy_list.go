@@ -29,8 +29,8 @@ import (
 
 var printIDs bool
 
-// bpf_policy_listCmd represents the bpf_policy_list command
-var bpf_policy_listCmd = &cobra.Command{
+// bpfPolicyListCmd represents the bpf_policy_list command
+var bpfPolicyListCmd = &cobra.Command{
 	Use:    "list",
 	Short:  "List contents of a policy BPF map",
 	PreRun: requireEndpointID,
@@ -40,8 +40,8 @@ var bpf_policy_listCmd = &cobra.Command{
 }
 
 func init() {
-	bpf_policyCmd.AddCommand(bpf_policy_listCmd)
-	bpf_policy_listCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
+	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
+	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
 }
 
 func listMap(cmd *cobra.Command, args []string) {

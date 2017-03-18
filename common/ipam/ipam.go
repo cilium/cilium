@@ -90,9 +90,9 @@ func (a ByMask) Len() int {
 }
 
 func (a ByMask) Less(i, j int) bool {
-	len_a, _ := a[i].Destination.Mask.Size()
-	len_b, _ := a[j].Destination.Mask.Size()
-	return len_a > len_b
+	lenA, _ := a[i].Destination.Mask.Size()
+	lenB, _ := a[j].Destination.Mask.Size()
+	return lenA > lenB
 }
 
 func (a ByMask) Swap(i, j int) {

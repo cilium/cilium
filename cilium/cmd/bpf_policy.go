@@ -18,12 +18,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpf_policyCmd represents the bpf_policy command
-var bpf_policyCmd = &cobra.Command{
+// bpfPolicyCmd represents the bpf_policy command
+var bpfPolicyCmd = &cobra.Command{
 	Use:   "policy",
 	Short: "Manage policy related BPF maps",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpf_policyCmd)
+	bpfCmd.AddCommand(bpfPolicyCmd)
 }

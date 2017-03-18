@@ -21,8 +21,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// endpoint_getCmd represents the endpoint_get command
-var endpoint_getCmd = &cobra.Command{
+// endpointGetCmd represents the endpoint_get command
+var endpointGetCmd = &cobra.Command{
 	Use:     "get <endpoint-id>",
 	Aliases: []string{"inspect, show"},
 	Short:   "Display endpoint information",
@@ -41,5 +41,5 @@ var endpoint_getCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpoint_getCmd)
+	endpointCmd.AddCommand(endpointGetCmd)
 }

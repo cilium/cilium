@@ -33,7 +33,7 @@ var (
 )
 
 const (
-	bash_completion_func = `__cilium_endpoint()
+	bashCompletionFunc = `__cilium_endpoint()
 {
     local cilium_output out
     if cilium_output=$(cilium endpoint list --no-headers 2>/dev/null); then
@@ -60,7 +60,7 @@ var RootCmd = &cobra.Command{
 	Use:   "cilium",
 	Short: "A brief description of your application",
 	Long:  `TBD`,
-	BashCompletionFunction: bash_completion_func,
+	BashCompletionFunction: bashCompletionFunc,
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
