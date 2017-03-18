@@ -55,6 +55,10 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 	}
 
 	peerLbl, err := strconv.ParseUint(args[1], 10, 32)
+	if err != nil {
+		Fatalf("Failed to convert %s", args[1])
+	}
+
 	if add == true {
 		if err := policyMap.AllowConsumer(uint32(peerLbl)); err != nil {
 			Fatalf("Cannot add policy key: %s", err)
