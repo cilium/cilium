@@ -140,11 +140,11 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	backends := []types.L3n4Addr{}
 	for _, v := range params.Config.BackendAddresses {
-		if b, err := types.NewL3n4AddrFromBackendModel(v); err != nil {
+		b, err := types.NewL3n4AddrFromBackendModel(v)
+		if err != nil {
 			return apierror.Error(PutServiceIDInvalidBackendCode, err)
-		} else {
-			backends = append(backends, *b)
 		}
+		backends = append(backends, *b)
 	}
 
 	revnat := false
@@ -200,11 +200,11 @@ func (d *Daemon) svcDeleteByFrontend(frontend *types.L3n4Addr) error {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	if svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]; !ok {
+	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
+	if !ok {
 		return fmt.Errorf("Service frontend not found %+v", frontend)
-	} else {
-		return d.svcDelete(&svc)
 	}
+	return d.svcDelete(&svc)
 }
 
 func (d *Daemon) svcDelete(svc *types.LBSVC) error {
@@ -253,20 +253,20 @@ func (d *Daemon) svcGetBySHA256Sum(feL3n4SHA256Sum string) *types.LBSVC {
 	d.loadBalancer.BPFMapMU.RLock()
 	defer d.loadBalancer.BPFMapMU.RUnlock()
 
-	if v, ok := d.loadBalancer.SVCMap[feL3n4SHA256Sum]; !ok {
+	v, ok := d.loadBalancer.SVCMap[feL3n4SHA256Sum]
+	if !ok {
 		return nil
-	} else {
-		// We will move the slice from the loadbalancer map which have a mutex. If
-		// we don't copy the slice we might risk changing memory that should be
-		// locked.
-		beL3n4AddrCpy := []types.L3n4Addr{}
-		for _, v := range v.BES {
-			beL3n4AddrCpy = append(beL3n4AddrCpy, v)
-		}
-		return &types.LBSVC{
-			FE:  *v.FE.DeepCopy(),
-			BES: beL3n4AddrCpy,
-		}
+	}
+	// We will move the slice from the loadbalancer map which have a mutex. If
+	// we don't copy the slice we might risk changing memory that should be
+	// locked.
+	beL3n4AddrCpy := []types.L3n4Addr{}
+	for _, v := range v.BES {
+		beL3n4AddrCpy = append(beL3n4AddrCpy, v)
+	}
+	return &types.LBSVC{
+		FE:  *v.FE.DeepCopy(),
+		BES: beL3n4AddrCpy,
 	}
 }
 

@@ -160,11 +160,11 @@ func (driver *driver) Listen(socket string) error {
 	handleMethod("IpamDriver.RequestAddress", driver.requestAddress)
 	handleMethod("IpamDriver.ReleaseAddress", driver.releaseAddress)
 
-	if listener, err := net.Listen("unix", socket); err != nil {
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
 		return err
-	} else {
-		return http.Serve(listener, router)
 	}
+	return http.Serve(listener, router)
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {

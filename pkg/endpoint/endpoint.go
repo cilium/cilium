@@ -175,36 +175,36 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	if base.Mac != "" {
-		if m, err := mac.ParseMAC(base.Mac); err != nil {
+		m, err := mac.ParseMAC(base.Mac)
+		if err != nil {
 			return nil, err
-		} else {
-			ep.LXCMAC = m
 		}
+		ep.LXCMAC = m
 	}
 
 	if base.HostMac != "" {
-		if m, err := mac.ParseMAC(base.HostMac); err != nil {
+		m, err := mac.ParseMAC(base.HostMac)
+		if err != nil {
 			return nil, err
-		} else {
-			ep.NodeMAC = m
 		}
+		ep.NodeMAC = m
 	}
 
 	if base.Addressing != nil {
 		if ip := base.Addressing.IPV6; ip != "" {
-			if ip6, err := addressing.NewCiliumIPv6(ip); err != nil {
+			ip6, err := addressing.NewCiliumIPv6(ip)
+			if err != nil {
 				return nil, err
-			} else {
-				ep.IPv6 = ip6
 			}
+			ep.IPv6 = ip6
 		}
 
 		if ip := base.Addressing.IPV4; ip != "" {
-			if ip4, err := addressing.NewCiliumIPv4(ip); err != nil {
+			ip4, err := addressing.NewCiliumIPv4(ip)
+			if err != nil {
 				return nil, err
-			} else {
-				ep.IPv4 = ip4
 			}
+			ep.IPv4 = ip4
 		}
 	}
 
@@ -380,9 +380,8 @@ func (e *Endpoint) DirectoryPath() string {
 func (e *Endpoint) Allows(id policy.NumericIdentity) bool {
 	if e.Consumable != nil {
 		return e.Consumable.Allows(id)
-	} else {
-		return false
 	}
+	return false
 }
 
 // String returns endpoint on a JSON format.

@@ -113,12 +113,12 @@ func (s *Service4Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int               { return int(s.Count) }
 func (s *Service4Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service4Value) SetAddress(ip net.IP) error {
-	if ip4 := ip.To4(); ip4 == nil {
+	ip4 := ip.To4()
+	if ip4 == nil {
 		return fmt.Errorf("Not an IPv4 address")
-	} else {
-		copy(s.Address[:], ip4)
-		return nil
 	}
+	copy(s.Address[:], ip4)
+	return nil
 }
 
 func (v *Service4Value) Convert() ServiceValue {

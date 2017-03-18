@@ -58,42 +58,42 @@ func (a ByMask) Swap(i, j int) {
 
 // Returns IPv6 routes to be installed in endpoint's networking namespace
 func IPv6Routes(addr *models.NodeAddressing) ([]Route, error) {
-	if ip := net.ParseIP(addr.IPV6.IP); ip == nil {
+	ip := net.ParseIP(addr.IPV6.IP)
+	if ip == nil {
 		return []Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
-	} else {
-		return []Route{
-			{
-				Prefix: net.IPNet{
-					IP:   ip,
-					Mask: addressing.ContainerIPv6Mask,
-				},
-			},
-			{
-				Prefix:  addressing.IPv6DefaultRoute,
-				Nexthop: &ip,
-			},
-		}, nil
 	}
+	return []Route{
+		{
+			Prefix: net.IPNet{
+				IP:   ip,
+				Mask: addressing.ContainerIPv6Mask,
+			},
+		},
+		{
+			Prefix:  addressing.IPv6DefaultRoute,
+			Nexthop: &ip,
+		},
+	}, nil
 }
 
 // Returns IPv4 routes to be installed in endpoint's networking namespace
 func IPv4Routes(addr *models.NodeAddressing) ([]Route, error) {
-	if ip := net.ParseIP(addr.IPV4.IP); ip == nil {
+	ip := net.ParseIP(addr.IPV4.IP)
+	if ip == nil {
 		return []Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV4.IP)
-	} else {
-		return []Route{
-			{
-				Prefix: net.IPNet{
-					IP:   ip,
-					Mask: addressing.ContainerIPv4Mask,
-				},
-			},
-			{
-				Prefix:  addressing.IPv4DefaultRoute,
-				Nexthop: &ip,
-			},
-		}, nil
 	}
+	return []Route{
+		{
+			Prefix: net.IPNet{
+				IP:   ip,
+				Mask: addressing.ContainerIPv4Mask,
+			},
+		},
+		{
+			Prefix:  addressing.IPv4DefaultRoute,
+			Nexthop: &ip,
+		},
+	}, nil
 }
 
 func SufficientAddressing(addr *models.NodeAddressing) error {

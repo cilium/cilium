@@ -22,29 +22,28 @@ import (
 // Modify a node in the policy tree
 func (c *Client) PolicyPut(path string, policyJSON string) (string, error) {
 	params := policy.NewPutPolicyPathParams().WithPath(path).WithPolicy(&policyJSON)
-	if resp, err := c.Policy.PutPolicyPath(params); err != nil {
+	resp, err := c.Policy.PutPolicyPath(params)
+	if err != nil {
 		return "", err
-	} else {
-		return string(resp.Payload), nil
 	}
+	return string(resp.Payload), nil
 }
 
 // Get policy tree or subtree
 func (c *Client) PolicyGet(path string) (string, error) {
 	if path == "" {
-		if resp, err := c.Policy.GetPolicy(nil); err != nil {
+		resp, err := c.Policy.GetPolicy(nil)
+		if err != nil {
 			return "", err
-		} else {
-			return string(resp.Payload), nil
 		}
-	} else {
-		params := policy.NewGetPolicyPathParams().WithPath(path)
-		if resp, err := c.Policy.GetPolicyPath(params); err != nil {
-			return "", err
-		} else {
-			return string(resp.Payload), nil
-		}
+		return string(resp.Payload), nil
 	}
+	params := policy.NewGetPolicyPathParams().WithPath(path)
+	resp, err := c.Policy.GetPolicyPath(params)
+	if err != nil {
+		return "", err
+	}
+	return string(resp.Payload), nil
 }
 
 // Delete a node in the policy tree
@@ -57,9 +56,9 @@ func (c *Client) PolicyDelete(path string) error {
 // Resolve policy for a context with source and destination identity
 func (c *Client) PolicyResolveGet(context *models.IdentityContext) (*models.PolicyTraceResult, error) {
 	params := policy.NewGetPolicyResolveParams().WithIdentityContext(context)
-	if resp, err := c.Policy.GetPolicyResolve(params); err != nil {
+	resp, err := c.Policy.GetPolicyResolve(params)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }

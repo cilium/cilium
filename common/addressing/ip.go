@@ -51,11 +51,11 @@ func NewCiliumIPv6(address string) (CiliumIPv6, error) {
 	// As result of ParseIP, ip is either a valid IPv6 or IPv4 address. net.IP
 	// represents both versions on 16 bytes, so a more reliable way to tell
 	// IPv4 and IPv6 apart is to see if it fits 4 bytes
-	if ip4 := ip.To4(); ip4 != nil {
+	ip4 := ip.To4()
+	if ip4 != nil {
 		return nil, fmt.Errorf("Not an IPv6 address: %s", address)
-	} else {
-		return DeriveCiliumIPv6(ip.To16()), nil
 	}
+	return DeriveCiliumIPv6(ip.To16()), nil
 }
 
 func DeriveCiliumIPv6(src net.IP) CiliumIPv6 {
@@ -184,11 +184,11 @@ func NewCiliumIPv4(address string) (CiliumIPv4, error) {
 		}
 	}
 
-	if ip4 := ip.To4(); ip4 == nil {
+	ip4 := ip.To4()
+	if ip4 == nil {
 		return nil, fmt.Errorf("Not an IPv4 address")
-	} else {
-		return DeriveCiliumIPv4(ip4), nil
 	}
+	return DeriveCiliumIPv4(ip4), nil
 }
 
 func DeriveCiliumIPv4(src net.IP) CiliumIPv4 {

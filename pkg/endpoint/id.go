@@ -43,23 +43,22 @@ func NewID(prefix PrefixType, id string) string {
 func SplitID(id string) (PrefixType, string) {
 	if s := strings.Split(id, ":"); len(s) == 2 {
 		return PrefixType(s[0]), s[1]
-	} else {
-		// default prefix
-		return CiliumLocalIdPrefix, id
 	}
+	// default prefix
+	return CiliumLocalIdPrefix, id
 }
 
 // Parses id as cilium endpoint id and returns numeric portion
 func ParseCiliumID(id string) (int64, error) {
-	if prefix, id := SplitID(id); prefix != CiliumLocalIdPrefix {
+	prefix, id := SplitID(id)
+	if prefix != CiliumLocalIdPrefix {
 		return 0, fmt.Errorf("not a cilium identifier")
-	} else {
-		if n, err := strconv.ParseInt(id, 0, 64); err != nil {
-			return 0, fmt.Errorf("invalid numeric cilium id: %s", err)
-		} else {
-			return n, nil
-		}
 	}
+	n, err := strconv.ParseInt(id, 0, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid numeric cilium id: %s", err)
+	}
+	return n, nil
 }
 
 // FIXME:
@@ -84,9 +83,9 @@ func ParseID(id string) (PrefixType, string, error) {
 
 // Parses specified id and returns normalized id as string
 func ValidateID(id string) (PrefixType, string, error) {
-	if prefix, _, err := ParseID(id); err != nil {
+	prefix, _, err := ParseID(id)
+	if err != nil {
 		return "", "", err
-	} else {
-		return prefix, id, nil
 	}
+	return prefix, id, nil
 }

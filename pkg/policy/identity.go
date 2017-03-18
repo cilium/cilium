@@ -34,11 +34,11 @@ const (
 type NumericIdentity uint32
 
 func ParseNumericIdentity(id string) (NumericIdentity, error) {
-	if nid, err := strconv.ParseUint(id, 0, 32); err != nil {
+	nid, err := strconv.ParseUint(id, 0, 32)
+	if err != nil {
 		return NumericIdentity(0), err
-	} else {
-		return NumericIdentity(nid), nil
 	}
+	return NumericIdentity(nid), nil
 }
 
 func (id NumericIdentity) StringID() string {

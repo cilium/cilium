@@ -21,21 +21,21 @@ import (
 
 // Get list of all services
 func (c *Client) GetServices() ([]*models.Service, error) {
-	if resp, err := c.Service.GetService(nil); err != nil {
+	resp, err := c.Service.GetService(nil)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Get service by ID
 func (c *Client) GetServiceID(id int64) (*models.Service, error) {
 	params := service.NewGetServiceIDParams().WithID(id)
-	if resp, err := c.Service.GetServiceID(params); err != nil {
+	resp, err := c.Service.GetServiceID(params)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Create or update service. Returns true if service was created
