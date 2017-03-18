@@ -20,8 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// endpoint_regenerateCmd represents the endpoint_regenerate command
-var endpoint_regenerateCmd = &cobra.Command{
+// endpointRegenerateCmd represents the endpoint_regenerate command
+var endpointRegenerateCmd = &cobra.Command{
 	Use:    "regenerate <endpoint-id>",
 	Short:  "Force regeneration of endpoint program",
 	PreRun: requireEndpointID,
@@ -36,5 +36,5 @@ var endpoint_regenerateCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpoint_regenerateCmd)
+	endpointCmd.AddCommand(endpointRegenerateCmd)
 }

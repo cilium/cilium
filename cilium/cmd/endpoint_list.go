@@ -26,8 +26,8 @@ import (
 
 var noHeaders bool
 
-// endpoint_listCmd represents the endpoint_list command
-var endpoint_listCmd = &cobra.Command{
+// endpointListCmd represents the endpoint_list command
+var endpointListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all endpoints",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -36,8 +36,8 @@ var endpoint_listCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpoint_listCmd)
-	endpoint_listCmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Do not print headers")
+	endpointCmd.AddCommand(endpointListCmd)
+	endpointListCmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Do not print headers")
 }
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {

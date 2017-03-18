@@ -32,8 +32,8 @@ var (
 	toDelete []string
 )
 
-// endpoint_labelsCmd represents the endpoint_labels command
-var endpoint_labelsCmd = &cobra.Command{
+// endpointLabelsCmd represents the endpoint_labels command
+var endpointLabelsCmd = &cobra.Command{
 	Use:    "labels",
 	Short:  "Manage label configuration of endpoint",
 	PreRun: requireEndpointID,
@@ -65,9 +65,9 @@ var endpoint_labelsCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpoint_labelsCmd)
-	endpoint_labelsCmd.Flags().StringSliceVarP(&toAdd, "add", "a", []string{}, "Add/enable labels")
-	endpoint_labelsCmd.Flags().StringSliceVarP(&toDelete, "delete", "d", []string{}, "Delete/disable labels")
+	endpointCmd.AddCommand(endpointLabelsCmd)
+	endpointLabelsCmd.Flags().StringSliceVarP(&toAdd, "add", "a", []string{}, "Add/enable labels")
+	endpointLabelsCmd.Flags().StringSliceVarP(&toDelete, "delete", "d", []string{}, "Delete/disable labels")
 }
 
 func printEndpointLabels(lbls *labels.OpLabels) {

@@ -182,19 +182,19 @@ func (p *Node) Allows(ctx *SearchContext) ConsumableDecision {
 
 	for k := range p.Rules {
 		rule := p.Rules[k]
-		sub_decision := UNDECIDED
+		subDecision := UNDECIDED
 
 		switch rule.(type) {
 		case *RuleConsumers:
 			r := rule.(*RuleConsumers)
-			sub_decision = r.Allows(ctx)
+			subDecision = r.Allows(ctx)
 
 		case *RuleRequires:
 			r := rule.(*RuleRequires)
-			sub_decision = r.Allows(ctx)
+			subDecision = r.Allows(ctx)
 		}
 
-		switch sub_decision {
+		switch subDecision {
 		case ALWAYS_ACCEPT:
 			return ALWAYS_ACCEPT
 		case DENY:
@@ -328,59 +328,59 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 		}
 
 		if _, ok := om[privEnc[ALLOW]]; ok {
-			var pr_c RuleConsumers
+			var prC RuleConsumers
 
-			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
+			if err := json.Unmarshal(*rawMsg, &prC); err != nil {
 				return err
 			}
 
-			if pn.HasPolicyRule(&pr_c) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_c)
+			if pn.HasPolicyRule(&prC) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prC)
 			} else {
-				pn.Rules = append(pn.Rules, &pr_c)
+				pn.Rules = append(pn.Rules, &prC)
 			}
 		} else if _, ok := om[privEnc[ALWAYS_ALLOW]]; ok {
-			var pr_c RuleConsumers
+			var prC RuleConsumers
 
-			if err := json.Unmarshal(*rawMsg, &pr_c); err != nil {
+			if err := json.Unmarshal(*rawMsg, &prC); err != nil {
 				return err
 			}
 
-			for _, r := range pr_c.Allow {
+			for _, r := range prC.Allow {
 				// DENY rules are always deny anyway
 				if r.Action == ACCEPT {
 					r.Action = ALWAYS_ACCEPT
 				}
 			}
 
-			if pn.HasPolicyRule(&pr_c) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_c)
+			if pn.HasPolicyRule(&prC) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prC)
 			} else {
-				pn.Rules = append(pn.Rules, &pr_c)
+				pn.Rules = append(pn.Rules, &prC)
 			}
 		} else if _, ok := om[privEnc[REQUIRES]]; ok {
-			var pr_r RuleRequires
+			var prR RuleRequires
 
-			if err := json.Unmarshal(*rawMsg, &pr_r); err != nil {
+			if err := json.Unmarshal(*rawMsg, &prR); err != nil {
 				return err
 			}
 
-			if pn.HasPolicyRule(&pr_r) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_r)
+			if pn.HasPolicyRule(&prR) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prR)
 			} else {
-				pn.Rules = append(pn.Rules, &pr_r)
+				pn.Rules = append(pn.Rules, &prR)
 			}
 		} else if _, ok := om[privEnc[L4]]; ok {
-			var pr_l4 RuleL4
+			var prL4 RuleL4
 
-			if err := json.Unmarshal(*rawMsg, &pr_l4); err != nil {
+			if err := json.Unmarshal(*rawMsg, &prL4); err != nil {
 				return err
 			}
 
-			if pn.HasPolicyRule(&pr_l4) {
-				log.Infof("Ignoring rule %+v since it's already present in the list of rules", pr_l4)
+			if pn.HasPolicyRule(&prL4) {
+				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prL4)
 			} else {
-				pn.Rules = append(pn.Rules, &pr_l4)
+				pn.Rules = append(pn.Rules, &prL4)
 			}
 		} else {
 			return fmt.Errorf("unknown policy rule object: %+v", om)

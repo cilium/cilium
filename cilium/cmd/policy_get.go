@@ -20,8 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// policy_getCmd represents the policy_get command
-var policy_getCmd = &cobra.Command{
+// policyGetCmd represents the policy_get command
+var policyGetCmd = &cobra.Command{
 	Use:    "get <policy-path>",
 	Short:  "Display policy node information",
 	PreRun: requirePath,
@@ -36,5 +36,5 @@ var policy_getCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policy_getCmd)
+	policyCmd.AddCommand(policyGetCmd)
 }

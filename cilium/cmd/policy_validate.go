@@ -20,8 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// policy_validateCmd represents the policy_validate command
-var policy_validateCmd = &cobra.Command{
+// policyValidateCmd represents the policy_validate command
+var policyValidateCmd = &cobra.Command{
 	Use:    "validate <path>",
 	Short:  "Validate a policy",
 	PreRun: requirePath,
@@ -41,7 +41,7 @@ var policy_validateCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policy_validateCmd)
-	policy_validateCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after validation")
+	policyCmd.AddCommand(policyValidateCmd)
+	policyValidateCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after validation")
 
 }

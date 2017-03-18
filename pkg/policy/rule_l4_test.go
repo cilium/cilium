@@ -35,12 +35,12 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	http1 := L4Filter{Port: 80, Protocol: "tcp"}
 	http2 := L4Filter{Port: 8080, Protocol: "tcp"}
 
-	filter_http := AllowL4{
+	filterHttp := AllowL4{
 		Ingress: []L4Filter{http1, http2},
 		Egress:  []L4Filter{},
 	}
 
-	filter_90_to_92 := AllowL4{
+	filter90To92 := AllowL4{
 		Ingress: []L4Filter{
 			{Port: 90},
 			{Port: 91},
@@ -51,7 +51,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 
 	rule1 := RuleL4{
 		Coverage: []labels.Label{*lblBar},
-		Allow:    []AllowL4{filter_http},
+		Allow:    []AllowL4{filterHttp},
 	}
 
 	res := NewL4Policy()
@@ -65,7 +65,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	c.Assert(*rule1.GetL4Policy(&toBazBar, res), DeepEquals, *expected)
 
 	rule2 := RuleL4{
-		Allow: []AllowL4{filter_90_to_92},
+		Allow: []AllowL4{filter90To92},
 	}
 
 	rootNode := Node{

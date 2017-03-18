@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// policy_deleteCmd represents the policy_delete command
-var policy_deleteCmd = &cobra.Command{
+// policyDeleteCmd represents the policy_delete command
+var policyDeleteCmd = &cobra.Command{
 	Use:    "delete <policy-path>",
 	Short:  "Delete a policy tree node",
 	PreRun: requirePath,
@@ -32,5 +32,5 @@ var policy_deleteCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policy_deleteCmd)
+	policyCmd.AddCommand(policyDeleteCmd)
 }

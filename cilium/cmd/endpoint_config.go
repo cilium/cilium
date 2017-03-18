@@ -26,8 +26,8 @@ import (
 
 var listOptions bool
 
-// endpoint_configCmd represents the endpoint_config command
-var endpoint_configCmd = &cobra.Command{
+// endpointConfigCmd represents the endpoint_config command
+var endpointConfigCmd = &cobra.Command{
 	Use:     "config <endpoint id> [<option>=(enable|disable) ...]",
 	Short:   "View & modify endpoint configuration",
 	Example: "endpoint config 5421 DropNotification=disable",
@@ -43,8 +43,8 @@ var endpoint_configCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpoint_configCmd)
-	endpoint_configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
+	endpointCmd.AddCommand(endpointConfigCmd)
+	endpointConfigCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 }
 
 func listEndpointOptions() {

@@ -23,8 +23,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpf_ct_listCmd represents the bpf_ct_list command
-var bpf_ct_listCmd = &cobra.Command{
+// bpfCtListCmd represents the bpf_ct_list command
+var bpfCtListCmd = &cobra.Command{
 	Use:    "list",
 	Short:  "List connection tracking entries",
 	PreRun: requireEndpointID,
@@ -35,7 +35,7 @@ var bpf_ct_listCmd = &cobra.Command{
 }
 
 func init() {
-	bpf_ctCmd.AddCommand(bpf_ct_listCmd)
+	bpfCtCmd.AddCommand(bpfCtListCmd)
 }
 
 func dumpCtProto(name string, ctType ctmap.CtType) {

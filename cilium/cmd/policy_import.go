@@ -22,8 +22,8 @@ import (
 
 var printPolicy bool
 
-// policy_importCmd represents the policy_import command
-var policy_importCmd = &cobra.Command{
+// policyImportCmd represents the policy_import command
+var policyImportCmd = &cobra.Command{
 	Use:   "import <path>",
 	Short: "Import security policy",
 	Example: `  cilium policy import ~/app.policy
@@ -52,6 +52,6 @@ var policy_importCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policy_importCmd)
-	policy_importCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after import")
+	policyCmd.AddCommand(policyImportCmd)
+	policyImportCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after import")
 }

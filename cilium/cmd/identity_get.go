@@ -25,8 +25,8 @@ import (
 
 var listID bool
 
-// identity_getCmd represents the identity_get command
-var identity_getCmd = &cobra.Command{
+// identityGetCmd represents the identity_get command
+var identityGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "A brief description of your command",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -50,6 +50,6 @@ var identity_getCmd = &cobra.Command{
 }
 
 func init() {
-	identityCmd.AddCommand(identity_getCmd)
-	identity_getCmd.Flags().BoolVarP(&listID, "list", "", false, "List all identities")
+	identityCmd.AddCommand(identityGetCmd)
+	identityGetCmd.Flags().BoolVarP(&listID, "list", "", false, "List all identities")
 }

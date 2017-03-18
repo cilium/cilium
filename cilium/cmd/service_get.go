@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// service_getCmd represents the service_get command
-var service_getCmd = &cobra.Command{
+// serviceGetCmd represents the service_get command
+var serviceGetCmd = &cobra.Command{
 	Use:    "get <service id>",
 	Short:  "Display service information",
 	PreRun: requireServiceID,
@@ -63,5 +63,5 @@ var service_getCmd = &cobra.Command{
 }
 
 func init() {
-	serviceCmd.AddCommand(service_getCmd)
+	serviceCmd.AddCommand(serviceGetCmd)
 }

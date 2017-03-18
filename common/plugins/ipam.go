@@ -47,9 +47,9 @@ func (a ByMask) Len() int {
 }
 
 func (a ByMask) Less(i, j int) bool {
-	len_a, _ := a[i].Prefix.Mask.Size()
-	len_b, _ := a[j].Prefix.Mask.Size()
-	return len_a > len_b
+	lenA, _ := a[i].Prefix.Mask.Size()
+	lenB, _ := a[j].Prefix.Mask.Size()
+	return lenA > lenB
 }
 
 func (a ByMask) Swap(i, j int) {

@@ -20,8 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// endpoint_disconnectCmd represents the endpoint_disconnect command
-var endpoint_disconnectCmd = &cobra.Command{
+// endpointDisconnectCmd represents the endpoint_disconnect command
+var endpointDisconnectCmd = &cobra.Command{
 	Use:    "disconnect <endpoint-id>",
 	Short:  "Disconnect an endpoint from the network",
 	PreRun: requireEndpointID,
@@ -36,6 +36,6 @@ var endpoint_disconnectCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpoint_disconnectCmd)
+	endpointCmd.AddCommand(endpointDisconnectCmd)
 
 }

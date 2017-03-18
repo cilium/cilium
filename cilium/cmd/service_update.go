@@ -33,8 +33,8 @@ var (
 	backends []string
 )
 
-// service_updateCmd represents the service_update command
-var service_updateCmd = &cobra.Command{
+// serviceUpdateCmd represents the service_update command
+var serviceUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "A brief description of your command",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -43,11 +43,11 @@ var service_updateCmd = &cobra.Command{
 }
 
 func init() {
-	serviceCmd.AddCommand(service_updateCmd)
-	service_updateCmd.Flags().BoolVarP(&addRev, "rev", "", true, "Add reverse translation")
-	service_updateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
-	service_updateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
-	service_updateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend addresses")
+	serviceCmd.AddCommand(serviceUpdateCmd)
+	serviceUpdateCmd.Flags().BoolVarP(&addRev, "rev", "", true, "Add reverse translation")
+	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
+	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
+	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend addresses")
 }
 
 func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
