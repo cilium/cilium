@@ -23,6 +23,8 @@ const (
 	EndpointStateDisconnected EndpointState = "disconnected"
 	// EndpointStateWaitingForIdentity captures enum value "waiting-for-identity"
 	EndpointStateWaitingForIdentity EndpointState = "waiting-for-identity"
+	// EndpointStateNotReady captures enum value "not-ready"
+	EndpointStateNotReady EndpointState = "not-ready"
 	// EndpointStateReady captures enum value "ready"
 	EndpointStateReady EndpointState = "ready"
 )
@@ -32,7 +34,7 @@ var endpointStateEnum []interface{}
 
 func init() {
 	var res []EndpointState
-	if err := json.Unmarshal([]byte(`["creating","disconnected","waiting-for-identity","ready"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["creating","disconnected","waiting-for-identity","not-ready","ready"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

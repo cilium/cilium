@@ -10,7 +10,7 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// DaemonConfigurationResponse Response to a daemon configuration request. Contains the adddresing
+// DaemonConfigurationResponse Response to a daemon configuration request. Contains the addressing
 // information and configuration settings.
 //
 // swagger:model DaemonConfigurationResponse
