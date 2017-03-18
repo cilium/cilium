@@ -216,6 +216,11 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		return nil
 	}
 
+	currentState := models.EndpointState(e.State)
+	if currentState == models.EndpointStateReady && e.Status.String() != "OK" {
+		currentState = models.EndpointStateNotReady
+	}
+
 	return &models.Endpoint{
 		ID:               int64(e.ID),
 		ContainerID:      e.DockerID,
@@ -226,7 +231,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		InterfaceName:    e.IfName,
 		Mac:              e.LXCMAC.String(),
 		HostMac:          e.NodeMAC.String(),
-		State:            models.EndpointState(e.State), // TODO: Validate
+		State:            currentState, // TODO: Validate
 		Policy:           e.Consumable.GetModel(),
 		Status:           e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
