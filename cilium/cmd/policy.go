@@ -179,16 +179,16 @@ func loadPolicy(name string) (*policy.Node, error) {
 			continue
 		}
 
-		if p, err := loadPolicyFile(filepath.Join(name, f.Name())); err != nil {
+		p, err := loadPolicyFile(filepath.Join(name, f.Name()))
+		if err != nil {
 			return nil, err
-		} else {
-			if node != nil {
-				if _, err := node.Merge(p); err != nil {
-					return nil, fmt.Errorf("Error: %s: %s", f.Name(), err)
-				}
-			} else {
-				node = p
+		}
+		if node != nil {
+			if _, err := node.Merge(p); err != nil {
+				return nil, fmt.Errorf("Error: %s: %s", f.Name(), err)
 			}
+		} else {
+			node = p
 		}
 	}
 
@@ -199,16 +199,16 @@ func loadPolicy(name string) (*policy.Node, error) {
 				continue
 			}
 			subpath := filepath.Join(name, f.Name())
-			if p, err := loadPolicy(subpath); err != nil {
+			p, err := loadPolicy(subpath)
+			if err != nil {
 				return nil, err
-			} else {
-				if p.Name == "" {
-					return nil, fmt.Errorf("Policy node import from %s did not derive a name",
-						subpath)
-				}
-
-				node.AddChild(p.Name, p)
 			}
+			if p.Name == "" {
+				return nil, fmt.Errorf("Policy node import from %s did not derive a name",
+					subpath)
+			}
+
+			node.AddChild(p.Name, p)
 		}
 	}
 

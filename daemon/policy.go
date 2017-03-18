@@ -270,11 +270,11 @@ func (h *getPolicyPath) Handle(params GetPolicyPathParams) middleware.Responder 
 	d.policy.Mutex.RLock()
 	defer d.policy.Mutex.RUnlock()
 
-	if node, _ := d.policy.Lookup(params.Path); node == nil {
+	node, _ := d.policy.Lookup(params.Path)
+	if node == nil {
 		return NewGetPolicyPathNotFound()
-	} else {
-		return NewGetPolicyPathOK().WithPayload(models.PolicyTree(node.JSONMarshal()))
 	}
+	return NewGetPolicyPathOK().WithPayload(models.PolicyTree(node.JSONMarshal()))
 }
 
 func (d *Daemon) PolicyInit() error {
@@ -295,12 +295,12 @@ func (d *Daemon) PolicyInit() error {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
 
-		if c := d.consumableCache.GetOrCreate(v, secLbl); c == nil {
+		c := d.consumableCache.GetOrCreate(v, secLbl)
+		if c == nil {
 			return fmt.Errorf("Unable to initialize consumable for %v", secLbl)
-		} else {
-			d.consumableCache.AddReserved(c)
-			c.AddMap(policyMap)
 		}
+		d.consumableCache.AddReserved(c)
+		c.AddMap(policyMap)
 	}
 
 	return nil

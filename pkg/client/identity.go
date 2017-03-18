@@ -23,9 +23,9 @@ import (
 func (c *Client) IdentityGet(id string) (*models.Identity, error) {
 	params := policy.NewGetIdentityIDParams().WithID(id)
 
-	if resp, err := c.Policy.GetIdentityID(params); err != nil {
+	resp, err := c.Policy.GetIdentityID(params)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }

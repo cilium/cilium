@@ -54,11 +54,11 @@ func (l *LocalClient) GetValue(k string) (json.RawMessage, error) {
 }
 
 func (l *LocalClient) SetValue(k string, v interface{}) error {
-	if vByte, err := json.Marshal(v); err != nil {
+	vByte, err := json.Marshal(v)
+	if err != nil {
 		return err
-	} else {
-		l.store[k] = string(vByte)
 	}
+	l.store[k] = string(vByte)
 
 	return nil
 }

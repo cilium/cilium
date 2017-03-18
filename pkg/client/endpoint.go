@@ -32,11 +32,11 @@ func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 // Get endpoint by ID
 func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 	params := endpoint.NewGetEndpointIDParams().WithID(id)
-	if resp, err := c.Endpoint.GetEndpointID(params); err != nil {
+	resp, err := c.Endpoint.GetEndpointID(params)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Create endpoint
@@ -64,11 +64,11 @@ func (c *Client) EndpointDelete(id string) error {
 // Get endpoint configuration
 func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 	params := endpoint.NewGetEndpointIDConfigParams().WithID(id)
-	if resp, err := c.Endpoint.GetEndpointIDConfig(params); err != nil {
+	resp, err := c.Endpoint.GetEndpointIDConfig(params)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Modify endpoint configuration
@@ -85,11 +85,11 @@ func (c *Client) EndpointConfigPatch(id string, cfg models.ConfigurationMap) err
 // Get endpoint label configuration
 func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error) {
 	params := endpoint.NewGetEndpointIDLabelsParams().WithID(id)
-	if resp, err := c.Endpoint.GetEndpointIDLabels(params); err != nil {
+	resp, err := c.Endpoint.GetEndpointIDLabels(params)
+	if err != nil {
 		return nil, err
-	} else {
-		return resp.Payload, nil
 	}
+	return resp.Payload, nil
 }
 
 // Modify endpoint label configuration

@@ -55,11 +55,11 @@ func (d *Daemon) AllocateIP(ip net.IP) *apierror.ApiError {
 }
 
 func (d *Daemon) allocateIP(ipAddr string) *apierror.ApiError {
-	if ip := net.ParseIP(ipAddr); ip == nil {
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
 		return apierror.New(PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
-	} else {
-		return d.AllocateIP(ip)
 	}
+	return d.AllocateIP(ip)
 }
 
 func (d *Daemon) ReleaseIP(ip net.IP) *apierror.ApiError {
@@ -88,11 +88,11 @@ func (d *Daemon) ReleaseIP(ip net.IP) *apierror.ApiError {
 }
 
 func (d *Daemon) releaseIP(ipAddr string) *apierror.ApiError {
-	if ip := net.ParseIP(ipAddr); ip == nil {
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
 		return apierror.New(DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
-	} else {
-		return d.ReleaseIP(ip)
 	}
+	return d.ReleaseIP(ip)
 }
 
 type postIPAM struct {
