@@ -631,6 +631,7 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	c.Assert(aNode.CanMerge(&unmergeableNode), Not(Equals), nil)
 
 	modified, err = aNode.Merge(&unmergeableNode)
+	c.Assert(modified, Equals, false)
 	c.Assert(err, Not(Equals), nil)
 }
 
