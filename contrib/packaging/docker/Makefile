@@ -11,7 +11,7 @@ build: clean
 	docker build -t "cilium:cilium-ubuntu-16-04" $(BUILDDIR)
 
 clean:
-	ls -d ./* | grep -vE Makefile | xargs rm -rf
+	ls -d ./* | grep -vE "Makefile|clang-3.8.1.key" | xargs rm -rf
 
 .PHONY: clean build force
 force :;
