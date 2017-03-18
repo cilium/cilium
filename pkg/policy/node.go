@@ -75,7 +75,7 @@ func (node *Node) ResolveName(name string) string {
 // according to to the path specified. Takes a node with a list of optional
 // children and the path to where the node is/will be located in the tree.
 //
-// 1. If the name of a node is ommitted, the node name will be derived from
+// 1. If the name of a node is omitted, the node name will be derived from
 // the path. The element after the last node path delimiter is assumed to
 // be the node name, e.g. rootNode.parentNode.name
 //
