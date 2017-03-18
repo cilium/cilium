@@ -9,7 +9,7 @@ import (
 	"github.com/go-openapi/errors"
 )
 
-// IdentityContext Context describing a pair of source and destination identies
+// IdentityContext Context describing a pair of source and destination identity
 // swagger:model IdentityContext
 type IdentityContext struct {
 
