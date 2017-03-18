@@ -10,8 +10,12 @@ apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git li
 # clang-3.8.1-begin
 apt-get install -y --no-install-recommends curl xz-utils && \
 cd /tmp && \
+gpg --import /tmp/cilium-net-build/src/github.com/cilium/cilium/contrib/packaging/docker/clang-3.8.1.key && \
 curl -Ssl -o clang+llvm.tar.xz \
 http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
+curl -Ssl -o clang+llvm.tar.xz.sig \
+http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz.sig && \
+gpg --verify clang+llvm.tar.xz.sig && \
 mkdir -p /usr/local && \
 tar -C /usr/local -xJf ./clang+llvm.tar.xz && \
 mv /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04 /usr/local/clang+llvm && \
@@ -49,7 +53,7 @@ make PKG_BUILD=1 install && \
 #
 apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils && \
 apt-get clean && \
-rm -fr /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/local/go && \
+rm -fr /root /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/local/go && \
 echo '#!/usr/bin/env bash\ncp /opt/cni/bin/cilium-cni /tmp/cni/bin && /usr/bin/cilium-agent $@' > /home/with-cni.sh && \
 chmod +x /home/with-cni.sh
 
