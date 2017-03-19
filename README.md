@@ -32,7 +32,7 @@ for containers.
  * 5-min Quickstart: [Using the prebuilt docker images](examples/docker-compose/README.md)
  * For Developers: [Setting up a vagrant environment](doc/vagrant.md)
  * Manual installation: [Detailed installation instructions](doc/installation.md)
- * F.A.Q.: [F.A.Q.](doc/faq.md)
+ * F.A.Q.: [FAQ](doc/faq.md)
 
 ## Demo Tutorials
 
