@@ -28,7 +28,7 @@ const (
 	LPCfgFileVersion = 1
 )
 
-// Label is the cilium's representation of a container label.
+// LabelPrefix is the cilium's representation of a container label.
 type LabelPrefix struct {
 	Prefix string `json:"prefix"`
 	Source string `json:"source"`
@@ -38,6 +38,7 @@ func (p LabelPrefix) String() string {
 	return fmt.Sprintf("%s:%s", p.Source, p.Prefix)
 }
 
+// ParseLabelPrefix returns a LabelPrefix created from the string label parameter.
 func ParseLabelPrefix(label string) *LabelPrefix {
 	labelPrefix := LabelPrefix{}
 	t := strings.SplitN(label, ":", 2)
@@ -131,10 +132,10 @@ func ReadLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
 
 // FilterLabels returns Labels from the given labels that have the same source and the
 // same prefix as one of lpc valid prefixes.
-func (lpc *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
+func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 	filteredLabels := Labels{}
 	for k, v := range lbls {
-		for _, lpcValue := range lpc.LabelPrefixes {
+		for _, lpcValue := range cfg.LabelPrefixes {
 			if lpcValue.Source != "" && lpcValue.Source != v.Source {
 				continue
 			}
