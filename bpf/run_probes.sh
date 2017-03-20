@@ -22,6 +22,7 @@ RUNDIR=$2
 DEV="cilium-probe"
 PROBE_DIR=$(mktemp -d)
 FEATURE_FILE="$RUNDIR/globals/bpf_features.h"
+WARNING_FILE="$RUNDIR/bpf_features.log"
 
 function cleanup {
 	if [ ! -z "$PROBE_DIR" ]; then
@@ -36,14 +37,15 @@ trap cleanup EXIT
 ip link del $DEV 2> /dev/null
 ip link add $DEV type dummy || exit 1
 
-function probe_run()
+# High level probes that require to invoke tc.
+function probe_run_tc()
 {
 	PROBE="${LIB}/probes/$1"
 	OUT="$PROBE_DIR/${1}.o"
 	FEATURE=$2
 	tc qdisc del dev $DEV clsact 2> /dev/null
 
-	PROBE_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -Wno-address-of-packed-member -Wno-unknown-warning-option"
+	PROBE_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -Wall -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
 	clang $PROBE_OPTS -c $PROBE -o $OUT &&
 	tc qdisc add dev $DEV clsact &&
@@ -51,9 +53,34 @@ function probe_run()
 	echo "#define $FEATURE" >> $FEATURE_FILE
 }
 
-echo "#ifndef BPF_FEATURES_H_" > $FEATURE_FILE
+# Low level probes that only check verifier.
+function probe_run_ll()
+{
+	PROBE_BASE="${LIB}/probes/"
+	OUT="$PROBE_DIR/"
+	PROBE_OPTS="-O2 -I$OUT -I$PROBE_BASE/ -I$LIB/include -Wall"
+
+	for PROBE in $PROBE_BASE/*.t
+	do
+		OUT_BIN=`basename $PROBE`
+
+		cp $PROBE $OUT/raw_probe.t
+		clang $PROBE_OPTS $PROBE_BASE/raw_main.c -o $OUT/$OUT_BIN &&
+		$OUT/$OUT_BIN 1>> $FEATURE_FILE 2>> $WARNING_FILE
+	done
+}
+
+rm -f $WARNING_FILE
+
+echo "#ifndef BPF_FEATURES_H_"  > $FEATURE_FILE
 echo "#define BPF_FEATURES_H_" >> $FEATURE_FILE
+echo "" >> $FEATURE_FILE
 
-probe_run "skb_change_tail.c" "HAVE_SKB_CHANGE_TAIL"
+#probe_run_tc "skb_change_tail.c" "HAVE_SKB_CHANGE_TAIL"
+probe_run_ll
 
-echo "#endif" >> $FEATURE_FILE
+echo "#endif /* BPF_FEATURES_H_ */" >> $FEATURE_FILE
+
+if [ ! -s "$WARNING_FILE" ]; then
+	rm -f $WARNING_FILE
+fi
