@@ -25,7 +25,7 @@ const (
 	BpfDir = "bpf"
 
 	// SockPath is the path to the UNIX domain socket exposing the API to clients locally
-	SockPath = RuntimePath + "/cilium.sock"
+	SockPath = "/var/run/cilium.sock"
 
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"

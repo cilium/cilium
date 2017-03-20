@@ -12,7 +12,7 @@ the daemon itself.
 The plugin consists of a single binary `cilium-docker` which can be installed
 in any location. The `make install` target will install it in `bindir`.
 For connectivity to the Cilium daemon, the UNIX domain socket of the daemon
-(`/var/run/cilium/cilium.sock`) must be accessible for the plugin.
+(`/var/run/cilium.sock`) must be accessible for the plugin.
 
 Various templates for integration with service management tools such as
 upstart or systemd can be found in the [`contrib/`](../contrib) directory.
