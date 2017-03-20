@@ -84,9 +84,9 @@ runtime-tests:
 	$(MAKE) -C tests runtime-tests
 
 generate-api:
-	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi -s server
+	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi \
+	    -s server -C api/v1/cilium-server.yml
 	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
-	rm -r api/v1/cmd/
 
 .PHONY: force
 force :;

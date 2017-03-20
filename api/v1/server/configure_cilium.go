@@ -13,7 +13,7 @@ import (
 
 // This file is safe to edit. Once it exists it will not be overwritten
 
-//go:generate swagger generate server --target ../api/v1 --name  --spec ../api/v1/openapi.json --api-package restapi --server-package server
+//go:generate swagger generate server --target ../api/v1 --name  --spec ../api/v1/openapi.yaml --api-package restapi --server-package server
 
 func configureFlags(api *restapi.CiliumAPI) {
 	// api.CommandLineOptionsGroups = []swag.CommandLineOptionsGroup{ ... }
