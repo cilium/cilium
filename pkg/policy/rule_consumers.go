@@ -130,20 +130,20 @@ func (prc *RuleConsumers) String() string {
 	return fmt.Sprintf("Coverage: %s Allowing: %s", prc.Coverage, prc.Allow)
 }
 
-func (c *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
+func (prc *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	// A decision is undecided until we encoutner a DENY or ACCEPT.
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := UNDECIDED
 
-	if len(c.Coverage) > 0 && !ctx.TargetCoveredBy(c.Coverage) {
-		policyTrace(ctx, "Rule has no coverage: [%s]\n", c.String())
+	if len(prc.Coverage) > 0 && !ctx.TargetCoveredBy(prc.Coverage) {
+		policyTrace(ctx, "Rule has no coverage: [%s]\n", prc.String())
 		return UNDECIDED
 	}
 
-	policyTrace(ctx, "Found coverage rule: [%s]", c.String())
+	policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
 
-	for k := range c.Allow {
-		allowRule := &c.Allow[k]
+	for k := range prc.Allow {
+		allowRule := &prc.Allow[k]
 		switch allowRule.Allows(ctx) {
 		case DENY:
 			return DENY
@@ -158,10 +158,10 @@ func (c *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 	return decision
 }
 
-func (c *RuleConsumers) Resolve(node *Node) error {
-	log.Debugf("Resolving consumer rule %+v\n", c)
-	for k := range c.Coverage {
-		l := &c.Coverage[k]
+func (prc *RuleConsumers) Resolve(node *Node) error {
+	log.Debugf("Resolving consumer rule %+v\n", prc)
+	for k := range prc.Coverage {
+		l := &prc.Coverage[k]
 		l.Resolve(node)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
@@ -171,22 +171,22 @@ func (c *RuleConsumers) Resolve(node *Node) error {
 		}
 	}
 
-	for k := range c.Allow {
-		r := &c.Allow[k]
+	for k := range prc.Allow {
+		r := &prc.Allow[k]
 		r.Label.Resolve(node)
 	}
 
 	return nil
 }
 
-func (c *RuleConsumers) SHA256Sum() (string, error) {
+func (prc *RuleConsumers) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(c); err != nil {
+	if err := json.NewEncoder(sha).Encode(prc); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
-func (c *RuleConsumers) CoverageSHA256Sum() (string, error) {
-	return labels.LabelSliceSHA256Sum(c.Coverage)
+func (prc *RuleConsumers) CoverageSHA256Sum() (string, error) {
+	return labels.LabelSliceSHA256Sum(prc.Coverage)
 }

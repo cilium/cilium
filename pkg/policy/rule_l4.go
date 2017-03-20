@@ -74,11 +74,11 @@ func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (f *L4Filter) Merge(result *L4Policy, m map[string]L4Filter, proto string) {
-	fmt := fmt.Sprintf("%s:%d", proto, f.Port)
+func (l4 *L4Filter) Merge(result *L4Policy, m map[string]L4Filter, proto string) {
+	fmt := fmt.Sprintf("%s:%d", proto, l4.Port)
 
 	if _, ok := m[fmt]; !ok {
-		m[fmt] = *f
+		m[fmt] = *l4
 	}
 }
 

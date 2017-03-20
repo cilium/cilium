@@ -43,11 +43,11 @@ func (prr *RuleRequires) String() string {
 // access can be denied but fullfillment of the requirement only leads to
 // the decision being UNDECIDED waiting on an explicit allow rule further
 // down the tree
-func (r *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
-	if len(r.Coverage) > 0 && ctx.TargetCoveredBy(r.Coverage) {
-		policyTrace(ctx, "Found coverage rule: %s\n", r.String())
-		for k := range r.Requires {
-			reqLabel := &r.Requires[k]
+func (prr *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
+	if len(prr.Coverage) > 0 && ctx.TargetCoveredBy(prr.Coverage) {
+		policyTrace(ctx, "Found coverage rule: %s\n", prr.String())
+		for k := range prr.Requires {
+			reqLabel := &prr.Requires[k]
 			match := false
 
 			for k2 := range ctx.From {
@@ -59,22 +59,22 @@ func (r *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 
 			if match == false {
 				ctx.Depth++
-				policyTrace(ctx, "No matching labels in required rule [%s], verdict: [%s]\n", r.Requires, DENY.String())
+				policyTrace(ctx, "No matching labels in required rule [%s], verdict: [%s]\n", prr.Requires, DENY.String())
 				ctx.Depth--
 				return DENY
 			}
 		}
 	} else {
-		policyTrace(ctx, "Rule has no coverage: %s\n", r)
+		policyTrace(ctx, "Rule has no coverage: %s\n", prr)
 	}
 
 	return UNDECIDED
 }
 
-func (c *RuleRequires) Resolve(node *Node) error {
-	log.Debugf("Resolving requires rule %+v\n", c)
-	for k := range c.Coverage {
-		l := &c.Coverage[k]
+func (prr *RuleRequires) Resolve(node *Node) error {
+	log.Debugf("Resolving requires rule %+v\n", prr)
+	for k := range prr.Coverage {
+		l := &prr.Coverage[k]
 		l.Resolve(node)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
@@ -83,25 +83,25 @@ func (c *RuleRequires) Resolve(node *Node) error {
 		}
 	}
 
-	for k := range c.Requires {
-		l := &c.Requires[k]
+	for k := range prr.Requires {
+		l := &prr.Requires[k]
 		l.Resolve(node)
 	}
 
 	return nil
 }
 
-func (c *RuleRequires) SHA256Sum() (string, error) {
+func (prr *RuleRequires) SHA256Sum() (string, error) {
 	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(c); err != nil {
+	if err := json.NewEncoder(sha).Encode(prr); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
-func (c *RuleRequires) CoverageSHA256Sum() (string, error) {
+func (prr *RuleRequires) CoverageSHA256Sum() (string, error) {
 	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(c.Coverage); err != nil {
+	if err := json.NewEncoder(sha).Encode(prr.Coverage); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil

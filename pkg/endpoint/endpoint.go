@@ -394,13 +394,13 @@ func (e *EndpointStatus) String() string {
 	return OK.String()
 }
 
-func (es *EndpointStatus) DeepCopy() *EndpointStatus {
+func (e *EndpointStatus) DeepCopy() *EndpointStatus {
 	cpy := NewEndpointStatus()
-	es.indexMU.RLock()
-	defer es.indexMU.RUnlock()
-	cpy.Index = es.Index
+	e.indexMU.RLock()
+	defer e.indexMU.RUnlock()
+	cpy.Index = e.Index
 	cpy.Log = statusLog{}
-	for _, v := range es.Log {
+	for _, v := range e.Log {
 		cpy.Log = append(cpy.Log, v)
 	}
 	return cpy
@@ -490,17 +490,17 @@ func (e *Endpoint) ApplyOpts(opts map[string]string) bool {
 	return e.Opts.Apply(opts, OptionChanged, e) > 0
 }
 
-func (ep *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
-	if ep.Opts == nil {
-		ep.Opts = option.NewBoolOptions(&EndpointOptionLibrary)
+func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
+	if e.Opts == nil {
+		e.Opts = option.NewBoolOptions(&EndpointOptionLibrary)
 	}
-	if ep.Opts.Library == nil {
-		ep.Opts.Library = &EndpointOptionLibrary
+	if e.Opts.Library == nil {
+		e.Opts.Library = &EndpointOptionLibrary
 	}
 
 	if opts != nil {
 		for k := range EndpointMutableOptionLibrary {
-			ep.Opts.Set(k, opts.IsEnabled(k))
+			e.Opts.Set(k, opts.IsEnabled(k))
 		}
 	}
 }
@@ -541,8 +541,8 @@ func (epS *epSorter) Less(i, j int) bool {
 }
 
 // Base64 returns the endpoint in a base64 format.
-func (ep Endpoint) Base64() (string, error) {
-	jsonBytes, err := json.Marshal(ep)
+func (e Endpoint) Base64() (string, error) {
+	jsonBytes, err := json.Marshal(e)
 	if err != nil {
 		return "", err
 	}

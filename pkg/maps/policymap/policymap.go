@@ -37,10 +37,10 @@ type PolicyMap struct {
 	Fd   int
 }
 
-func (p *PolicyMap) DeepCopy() *PolicyMap {
+func (pm *PolicyMap) DeepCopy() *PolicyMap {
 	return &PolicyMap{
-		path: p.path,
-		Fd:   p.Fd,
+		path: pm.path,
+		Fd:   pm.Fd,
 	}
 }
 
@@ -48,8 +48,8 @@ const (
 	MAX_KEYS = 1024
 )
 
-func (e *PolicyEntry) String() string {
-	return string(e.Action)
+func (pe *PolicyEntry) String() string {
+	return string(pe.Action)
 }
 
 type PolicyEntry struct {
@@ -69,27 +69,27 @@ type PolicyEntryDump struct {
 	ID uint32
 }
 
-func (m *PolicyMap) AllowConsumer(id uint32) error {
+func (pm *PolicyMap) AllowConsumer(id uint32) error {
 	entry := PolicyEntry{Action: 1}
-	return bpf.UpdateElement(m.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry), 0)
+	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry), 0)
 }
 
-func (m *PolicyMap) ConsumerExists(id uint32) bool {
+func (pm *PolicyMap) ConsumerExists(id uint32) bool {
 	var entry PolicyEntry
-	return bpf.LookupElement(m.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry)) == nil
+	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry)) == nil
 }
 
-func (m *PolicyMap) DeleteConsumer(id uint32) error {
-	return bpf.DeleteElement(m.Fd, unsafe.Pointer(&id))
+func (pm *PolicyMap) DeleteConsumer(id uint32) error {
+	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&id))
 }
 
-func (m *PolicyMap) String() string {
-	return m.path
+func (pm *PolicyMap) String() string {
+	return pm.path
 }
 
-func (m *PolicyMap) Dump() (string, error) {
+func (pm *PolicyMap) Dump() (string, error) {
 	var buffer bytes.Buffer
-	entries, err := m.DumpToSlice()
+	entries, err := pm.DumpToSlice()
 	if err != nil {
 		return "", err
 	}
@@ -100,14 +100,14 @@ func (m *PolicyMap) Dump() (string, error) {
 	return buffer.String(), nil
 }
 
-func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
+func (pm *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 	var key, nextKey uint32
 	key = MAX_KEYS
 	entries := []PolicyEntryDump{}
 	for {
 		var entry PolicyEntry
 		err := bpf.GetNextKey(
-			m.Fd,
+			pm.Fd,
 			unsafe.Pointer(&key),
 			unsafe.Pointer(&nextKey),
 		)
@@ -117,7 +117,7 @@ func (m *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 		}
 
 		err = bpf.LookupElement(
-			m.Fd,
+			pm.Fd,
 			unsafe.Pointer(&nextKey),
 			unsafe.Pointer(&entry),
 		)

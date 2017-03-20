@@ -75,8 +75,8 @@ func (p *Privilege) UnmarshalJSON(b []byte) error {
 	return fmt.Errorf("unknown '%s' privilege", string(b))
 }
 
-func (d Privilege) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, d)), nil
+func (p Privilege) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%s"`, p)), nil
 }
 
 type ConsumableDecision byte

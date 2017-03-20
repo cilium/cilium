@@ -333,39 +333,39 @@ func (b *LBBackEnd) GetBackendModel() *models.BackendAddress {
 
 // String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and "[IPv6]:Port" format
 // for IPv6.
-func (l *L3n4Addr) String() string {
-	if l.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d", l.IP.String(), l.Port)
+func (a *L3n4Addr) String() string {
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d", a.IP.String(), a.Port)
 	}
-	return fmt.Sprintf("%s:%d", l.IP.String(), l.Port)
+	return fmt.Sprintf("%s:%d", a.IP.String(), a.Port)
 }
 
 // DeepCopy returns a DeepCopy of the given L3n4Addr.
-func (l *L3n4Addr) DeepCopy() *L3n4Addr {
-	copyIP := make(net.IP, len(l.IP))
-	copy(copyIP, l.IP)
+func (a *L3n4Addr) DeepCopy() *L3n4Addr {
+	copyIP := make(net.IP, len(a.IP))
+	copy(copyIP, a.IP)
 	return &L3n4Addr{
 		IP:     copyIP,
-		L4Addr: *l.L4Addr.DeepCopy(),
+		L4Addr: *a.L4Addr.DeepCopy(),
 	}
 }
 
 // SHA256Sum calculates L3n4Addr's internal SHA256Sum.
-func (l3n4Addr L3n4Addr) SHA256Sum() string {
+func (a L3n4Addr) SHA256Sum() string {
 	// FIXME: Remove Protocol's omission once we care about protocols.
-	protoBak := l3n4Addr.Protocol
-	l3n4Addr.Protocol = ""
+	protoBak := a.Protocol
+	a.Protocol = ""
 	defer func() {
-		l3n4Addr.Protocol = protoBak
+		a.Protocol = protoBak
 	}()
 
-	str := []byte(fmt.Sprintf("%+v", l3n4Addr))
+	str := []byte(fmt.Sprintf("%+v", a))
 	return fmt.Sprintf("%x", sha512.New512_256().Sum(str))
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
-func (l *L3n4Addr) IsIPv6() bool {
-	return l.IP.To4() == nil
+func (a *L3n4Addr) IsIPv6() bool {
+	return a.IP.To4() == nil
 }
 
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the

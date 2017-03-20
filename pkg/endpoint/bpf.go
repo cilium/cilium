@@ -181,11 +181,11 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 }
 
 // FIXME: Clean this function up
-func writeGeneve(prefix string, ep *Endpoint) ([]byte, error) {
+func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	// Write container options values for each available option in
 	// bpf/lib/geneve.h
 	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
-	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", ep.SecLabel.ID.Uint32()))
+	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", e.SecLabel.ID.Uint32()))
 	if err != nil {
 		return nil, fmt.Errorf("Could not write geneve options %s", err)
 	}

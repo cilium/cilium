@@ -264,6 +264,6 @@ func (l *LocalClient) GetWatcher(key string, timeSleep time.Duration) <-chan []p
 	return make(chan []policy.NumericIdentity, 1)
 }
 
-func (e *LocalClient) Status() (string, error) {
+func (l *LocalClient) Status() (string, error) {
 	return "Local: OK", nil
 }
