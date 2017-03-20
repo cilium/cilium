@@ -310,9 +310,9 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
-func (lbls Labels) DeepCopy() Labels {
+func (l Labels) DeepCopy() Labels {
 	o := Labels{}
-	for k, v := range lbls {
+	for k, v := range l {
 		o[k] = &Label{
 			Key:    v.Key,
 			Value:  v.Value,
@@ -333,9 +333,9 @@ func NewLabelsFromModel(base []string) Labels {
 	return lbls
 }
 
-func (lbls Labels) GetModel() []string {
+func (l Labels) GetModel() []string {
 	res := []string{}
-	for _, v := range lbls {
+	for _, v := range l {
 		res = append(res, v.String())
 	}
 	return res
@@ -349,22 +349,22 @@ func (lbls Labels) GetModel() []string {
 // to.MergeLabels(from)
 // fmt.Printf("%+v\n", to)
 //   Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
-func (lbls Labels) MergeLabels(from Labels) {
+func (l Labels) MergeLabels(from Labels) {
 	fromCpy := from.DeepCopy()
 	for k, v := range fromCpy {
-		lbls[k] = v
+		l[k] = v
 	}
 }
 
-// SHA256Sum calculates lbls' internal SHA256Sum. For a particular set of labels is
+// SHA256Sum calculates l' internal SHA256Sum. For a particular set of labels is
 // guarantee that it will always have the same SHA256Sum.
-func (lbls Labels) SHA256Sum() string {
-	return fmt.Sprintf("%x", sha512.New512_256().Sum(lbls.sortedList()))
+func (l Labels) SHA256Sum() string {
+	return fmt.Sprintf("%x", sha512.New512_256().Sum(l.sortedList()))
 }
 
-func (lbls Labels) sortedList() []byte {
+func (l Labels) sortedList() []byte {
 	var keys []string
-	for k := range lbls {
+	for k := range l {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -373,16 +373,16 @@ func (lbls Labels) sortedList() []byte {
 	for _, k := range keys {
 		// We don't care if the values already have a '=' since this method is
 		// only used to calculate a SHA256Sum
-		result += fmt.Sprintf(`%s=%s;`, k, lbls[k].Value)
+		result += fmt.Sprintf(`%s=%s;`, k, l[k].Value)
 	}
 
 	return []byte(result)
 }
 
 /// ToSlice returns a slice of label with the values of the given Labels' map.
-func (lbls Labels) ToSlice() []Label {
+func (l Labels) ToSlice() []Label {
 	labels := []Label{}
-	for _, v := range lbls {
+	for _, v := range l {
 		labels = append(labels, *v)
 	}
 	return labels

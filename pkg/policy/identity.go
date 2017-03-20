@@ -104,13 +104,13 @@ func (id *Identity) GetModel() *models.Identity {
 	return ret
 }
 
-func (s *Identity) DeepCopy() *Identity {
+func (id *Identity) DeepCopy() *Identity {
 	cpy := &Identity{
-		ID:        s.ID,
-		Labels:    s.Labels.DeepCopy(),
-		Endpoints: make(map[string]time.Time, len(s.Endpoints)),
+		ID:        id.ID,
+		Labels:    id.Labels.DeepCopy(),
+		Endpoints: make(map[string]time.Time, len(id.Endpoints)),
 	}
-	for k, v := range s.Endpoints {
+	for k, v := range id.Endpoints {
 		cpy.Endpoints[k] = v
 	}
 	return cpy
@@ -124,23 +124,23 @@ func NewIdentity() *Identity {
 }
 
 // Associate endpoint with identity
-func (s *Identity) AssociateEndpoint(id string) {
-	s.Endpoints[id] = time.Now()
+func (id *Identity) AssociateEndpoint(epID string) {
+	id.Endpoints[epID] = time.Now()
 }
 
 // Disassociate endpoint with identity and return true if successful
-func (s *Identity) DisassociateEndpoint(id string) bool {
-	if _, ok := s.Endpoints[id]; ok {
-		delete(s.Endpoints, id)
+func (id *Identity) DisassociateEndpoint(epID string) bool {
+	if _, ok := id.Endpoints[epID]; ok {
+		delete(id.Endpoints, epID)
 		return true
 	}
 
 	return false
 }
 
-func (s *Identity) RefCount() int {
+func (id *Identity) RefCount() int {
 	refCount := 0
-	for _, t := range s.Endpoints {
+	for _, t := range id.Endpoints {
 		if t.Add(secLabelTimeout).After(time.Now()) {
 			refCount++
 		}

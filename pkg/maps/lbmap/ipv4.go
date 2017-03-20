@@ -132,20 +132,20 @@ func (s *Service4Value) SetAddress(ip net.IP) error {
 	return nil
 }
 
-func (v *Service4Value) Convert() ServiceValue {
-	n := *v
+func (s *Service4Value) Convert() ServiceValue {
+	n := *s
 	n.RevNat = common.Swab16(n.RevNat)
 	n.Port = common.Swab16(n.Port)
 	n.Weight = common.Swab16(n.Weight)
 	return &n
 }
 
-func (v *Service4Value) RevNatKey() RevNatKey {
-	return &RevNat4Key{v.RevNat}
+func (s *Service4Value) RevNatKey() RevNatKey {
+	return &RevNat4Key{s.RevNat}
 }
 
-func (v *Service4Value) String() string {
-	return fmt.Sprintf("%s:%d (%d)", v.Address, v.Port, v.RevNat)
+func (s *Service4Value) String() string {
+	return fmt.Sprintf("%s:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
 func Service4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {

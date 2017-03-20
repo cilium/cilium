@@ -129,16 +129,16 @@ func (s *Service6Value) SetAddress(ip net.IP) error {
 	return nil
 }
 
-func (v *Service6Value) Convert() ServiceValue {
-	n := *v
+func (s *Service6Value) Convert() ServiceValue {
+	n := *s
 	n.RevNat = common.Swab16(n.RevNat)
 	n.Port = common.Swab16(n.Port)
 	n.Weight = common.Swab16(n.Weight)
 	return &n
 }
 
-func (v *Service6Value) String() string {
-	return fmt.Sprintf("[%s]:%d (%d)", v.Address, v.Port, v.RevNat)
+func (s *Service6Value) String() string {
+	return fmt.Sprintf("[%s]:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
 func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
@@ -183,15 +183,15 @@ func NewRevNat6Key(value uint16) *RevNat6Key {
 	return &RevNat6Key{value}
 }
 
-func (k *RevNat6Key) IsIPv6() bool              { return true }
-func (k *RevNat6Key) Map() *bpf.Map             { return RevNat6Map }
-func (k *RevNat6Key) NewValue() bpf.MapValue    { return &RevNat6Value{} }
-func (k *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *RevNat6Key) String() string            { return fmt.Sprintf("%d", k.Key) }
-func (k *RevNat6Key) GetKey() uint16            { return k.Key }
+func (v *RevNat6Key) IsIPv6() bool              { return true }
+func (v *RevNat6Key) Map() *bpf.Map             { return RevNat6Map }
+func (v *RevNat6Key) NewValue() bpf.MapValue    { return &RevNat6Value{} }
+func (v *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(v) }
+func (v *RevNat6Key) String() string            { return fmt.Sprintf("%d", v.Key) }
+func (v *RevNat6Key) GetKey() uint16            { return v.Key }
 
-func (k *RevNat6Key) Convert() RevNatKey {
-	n := *k
+func (v *RevNat6Key) Convert() RevNatKey {
+	n := *v
 	n.Key = common.Swab16(n.Key)
 	return &n
 }
@@ -211,7 +211,7 @@ func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
 	return &revNat
 }
 
-func (k *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (v *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
 
 func (v *RevNat6Value) Convert() RevNatValue {

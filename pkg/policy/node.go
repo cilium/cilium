@@ -44,16 +44,16 @@ func NewNode(name string, parent *Node) *Node {
 	}
 }
 
-func (p *Node) Path() string {
-	if p.path == "" {
-		p.buildPath()
+func (n *Node) Path() string {
+	if n.path == "" {
+		n.buildPath()
 	}
 
-	return p.path
+	return n.path
 }
 
 // ResolveName translates a possibly relative name to an absolute path relative to the node
-func (node *Node) ResolveName(name string) string {
+func (n *Node) ResolveName(name string) string {
 	// If name is an absolute path already, return it
 	if strings.HasPrefix(name, RootPrefix) {
 		return name
@@ -61,14 +61,14 @@ func (node *Node) ResolveName(name string) string {
 
 	for strings.HasPrefix(name, "../") {
 		name = name[3:]
-		node = node.Parent
-		if node == nil {
+		n = n.Parent
+		if n == nil {
 			log.Warningf("Could not resolve label %+v, reached root\n", name)
 			return name
 		}
 	}
 
-	return JoinPath(node.Path(), name)
+	return JoinPath(n.Path(), name)
 }
 
 // NormalizeNames walks all policy nodes and normalizes the policy node name
@@ -165,9 +165,9 @@ func coversLabel(l *labels.Label, path string) bool {
 	return false
 }
 
-func (p *Node) Covers(ctx *SearchContext) bool {
+func (n *Node) Covers(ctx *SearchContext) bool {
 	for k := range ctx.To {
-		if coversLabel(&ctx.To[k], p.Path()) {
+		if coversLabel(&ctx.To[k], n.Path()) {
 			return true
 		}
 	}
@@ -175,13 +175,13 @@ func (p *Node) Covers(ctx *SearchContext) bool {
 	return false
 }
 
-func (p *Node) Allows(ctx *SearchContext) ConsumableDecision {
+func (n *Node) Allows(ctx *SearchContext) ConsumableDecision {
 	decision := UNDECIDED
 
-	policyTraceVerbose(ctx, "Evaluating node %+v\n", p)
+	policyTraceVerbose(ctx, "Evaluating node %+v\n", n)
 
-	for k := range p.Rules {
-		rule := p.Rules[k]
+	for k := range n.Rules {
+		rule := n.Rules[k]
 		subDecision := UNDECIDED
 
 		switch rule.(type) {
@@ -207,40 +207,40 @@ func (p *Node) Allows(ctx *SearchContext) ConsumableDecision {
 	return decision
 }
 
-func (pn *Node) buildPath() (string, error) {
-	if pn.Parent != nil {
+func (n *Node) buildPath() (string, error) {
+	if n.Parent != nil {
 		// Optimization: if parent has calculated path already (likely),
 		// we don't have to walk to the entire root again
-		s := pn.Parent.path
+		s := n.Parent.path
 		if s == "" {
 			var err error
-			if s, err = pn.Parent.buildPath(); err != nil {
+			if s, err = n.Parent.buildPath(); err != nil {
 				return "", err
 			}
 		}
 
-		pn.path = JoinPath(s, pn.Name)
-		return pn.path, nil
+		n.path = JoinPath(s, n.Name)
+		return n.path, nil
 	}
 
-	if pn.Name != RootNodeName {
-		return "", fmt.Errorf("encountered non-root node '%s' without a parent while building path", pn.Name)
+	if n.Name != RootNodeName {
+		return "", fmt.Errorf("encountered non-root node '%s' without a parent while building path", n.Name)
 	}
 
-	pn.path = RootNodeName
-	return pn.path, nil
+	n.path = RootNodeName
+	return n.path, nil
 }
 
-func (pn *Node) resolveRules() error {
-	log.Debugf("Resolving rules of node %+v\n", pn)
+func (n *Node) resolveRules() error {
+	log.Debugf("Resolving rules of node %+v\n", n)
 
-	for k := range pn.Rules {
-		if err := pn.Rules[k].Resolve(pn); err != nil {
+	for k := range n.Rules {
+		if err := n.Rules[k].Resolve(n); err != nil {
 			return err
 		}
 
-		if !pn.Rules[k].IsMergeable() {
-			pn.mergeable = false
+		if !n.Rules[k].IsMergeable() {
+			n.mergeable = false
 			break
 		}
 	}
@@ -248,9 +248,9 @@ func (pn *Node) resolveRules() error {
 	return nil
 }
 
-func (p *Node) HasPolicyRule(pr PolicyRule) bool {
+func (n *Node) HasPolicyRule(pr PolicyRule) bool {
 	pr256Sum, _ := pr.SHA256Sum()
-	for _, r := range p.Rules {
+	for _, r := range n.Rules {
 		if r256Sum, _ := r.SHA256Sum(); r256Sum == pr256Sum {
 			return true
 		}
@@ -258,54 +258,54 @@ func (p *Node) HasPolicyRule(pr PolicyRule) bool {
 	return false
 }
 
-func (pn *Node) ResolveTree() error {
-	log.Debugf("Resolving policy node %+v\n", pn)
+func (n *Node) ResolveTree() error {
+	log.Debugf("Resolving policy node %+v\n", n)
 
-	if _, err := pn.buildPath(); err != nil {
+	if _, err := n.buildPath(); err != nil {
 		return err
 	}
 
-	if err := pn.resolveRules(); err != nil {
+	if err := n.resolveRules(); err != nil {
 		return err
 	}
 
-	for k, val := range pn.Children {
-		pn.Children[k].Parent = pn
-		val.Parent = pn
+	for k, val := range n.Children {
+		n.Children[k].Parent = n
+		val.Parent = n
 		val.Name = k
 		if err := val.ResolveTree(); err != nil {
 			return err
 		}
 	}
 
-	pn.isMergeable()
-	pn.resolved = true
+	n.isMergeable()
+	n.resolved = true
 
 	return nil
 }
 
-func (pn *Node) isMergeable() bool {
-	for k := range pn.Rules {
-		if !pn.Rules[k].IsMergeable() {
-			pn.mergeable = false
-			return pn.mergeable
+func (n *Node) isMergeable() bool {
+	for k := range n.Rules {
+		if !n.Rules[k].IsMergeable() {
+			n.mergeable = false
+			return n.mergeable
 		}
 	}
 
-	pn.mergeable = true
-	return pn.mergeable
+	n.mergeable = true
+	return n.mergeable
 }
 
 // IsMergeable returns true if the node is eligible to be merged with another node
-func (pn *Node) IsMergeable() bool {
-	if pn.resolved {
-		return pn.mergeable
+func (n *Node) IsMergeable() bool {
+	if n.resolved {
+		return n.mergeable
 	}
 
-	return pn.isMergeable()
+	return n.isMergeable()
 }
 
-func (pn *Node) UnmarshalJSON(data []byte) error {
+func (n *Node) UnmarshalJSON(data []byte) error {
 	var policyNode struct {
 		Name     string             `json:"name,omitempty"`
 		Rules    []*json.RawMessage `json:"rules,omitempty"`
@@ -317,8 +317,8 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("decode of Node failed: %s", err)
 	}
 
-	pn.Name = policyNode.Name
-	pn.Children = policyNode.Children
+	n.Name = policyNode.Name
+	n.Children = policyNode.Children
 
 	for _, rawMsg := range policyNode.Rules {
 		var om map[string]*json.RawMessage
@@ -334,10 +334,10 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			if pn.HasPolicyRule(&prC) {
+			if n.HasPolicyRule(&prC) {
 				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prC)
 			} else {
-				pn.Rules = append(pn.Rules, &prC)
+				n.Rules = append(n.Rules, &prC)
 			}
 		} else if _, ok := om[privEnc[ALWAYS_ALLOW]]; ok {
 			var prC RuleConsumers
@@ -353,10 +353,10 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				}
 			}
 
-			if pn.HasPolicyRule(&prC) {
+			if n.HasPolicyRule(&prC) {
 				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prC)
 			} else {
-				pn.Rules = append(pn.Rules, &prC)
+				n.Rules = append(n.Rules, &prC)
 			}
 		} else if _, ok := om[privEnc[REQUIRES]]; ok {
 			var prR RuleRequires
@@ -365,10 +365,10 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			if pn.HasPolicyRule(&prR) {
+			if n.HasPolicyRule(&prR) {
 				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prR)
 			} else {
-				pn.Rules = append(pn.Rules, &prR)
+				n.Rules = append(n.Rules, &prR)
 			}
 		} else if _, ok := om[privEnc[L4]]; ok {
 			var prL4 RuleL4
@@ -377,10 +377,10 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 				return err
 			}
 
-			if pn.HasPolicyRule(&prL4) {
+			if n.HasPolicyRule(&prL4) {
 				log.Infof("Ignoring rule %+v since it's already present in the list of rules", prL4)
 			} else {
-				pn.Rules = append(pn.Rules, &prL4)
+				n.Rules = append(n.Rules, &prL4)
 			}
 		} else {
 			return fmt.Errorf("unknown policy rule object: %+v", om)
@@ -390,33 +390,33 @@ func (pn *Node) UnmarshalJSON(data []byte) error {
 	// We have now parsed all children in a recursive manner and are back
 	// to the root node. Walk the tree again to resolve the path and the
 	// labels of all nodes and rules.
-	if pn.Name == RootNodeName {
-		log.Debugf("Resolving tree: %+v\n", pn)
-		if err := pn.ResolveTree(); err != nil {
+	if n.Name == RootNodeName {
+		log.Debugf("Resolving tree: %+v\n", n)
+		if err := n.ResolveTree(); err != nil {
 			return err
 		}
-		log.Debugf("Resolved tree: %+v\n", pn)
+		log.Debugf("Resolved tree: %+v\n", n)
 	}
 
 	return nil
 }
 
 // CanMerge returns an error if obj cannot be safely merged into an existing node
-func (pn *Node) CanMerge(obj *Node) error {
-	if obj.Name != pn.Name {
-		return fmt.Errorf("node name mismatch %s != %s", obj.Name, pn.Name)
+func (n *Node) CanMerge(obj *Node) error {
+	if obj.Name != n.Name {
+		return fmt.Errorf("node name mismatch %s != %s", obj.Name, n.Name)
 	}
 
-	if obj.path != pn.path {
-		return fmt.Errorf("node path mismatch %s != %s", obj.path, pn.path)
+	if obj.path != n.path {
+		return fmt.Errorf("node path mismatch %s != %s", obj.path, n.path)
 	}
 
-	if !pn.IsMergeable() || !obj.IsMergeable() {
+	if !n.IsMergeable() || !obj.IsMergeable() {
 		return fmt.Errorf("node %s is not mergeable", obj.Name)
 	}
 
 	for k := range obj.Children {
-		if childNode, ok := pn.Children[k]; ok {
+		if childNode, ok := n.Children[k]; ok {
 			if err := childNode.CanMerge(obj.Children[k]); err != nil {
 				return err
 			}
@@ -427,50 +427,50 @@ func (pn *Node) CanMerge(obj *Node) error {
 }
 
 // Merge incorporates the rules and children of obj into an existnig node
-func (pn *Node) Merge(obj *Node) (bool, error) {
-	if err := pn.CanMerge(obj); err != nil {
+func (n *Node) Merge(obj *Node) (bool, error) {
+	if err := n.CanMerge(obj); err != nil {
 		return false, fmt.Errorf("cannot merge node: %s", err)
 	}
 
 	policyModified := false
 	for _, objRule := range obj.Rules {
-		if !pn.HasPolicyRule(objRule) {
-			pn.Rules = append(pn.Rules, objRule)
+		if !n.HasPolicyRule(objRule) {
+			n.Rules = append(n.Rules, objRule)
 			policyModified = true
 		}
 	}
 
 	for k := range obj.Children {
-		childPolicyModified, err := pn.AddChild(k, obj.Children[k])
+		childPolicyModified, err := n.AddChild(k, obj.Children[k])
 		if err != nil {
 			log.Warningf("unexpected error while merging nodes: %s", err)
 		}
 		policyModified = policyModified || childPolicyModified
 	}
 
-	pn.resolved = false
+	n.resolved = false
 
 	return policyModified, nil
 }
 
-func (pn *Node) AddChild(name string, child *Node) (bool, error) {
-	if _, ok := pn.Children[name]; ok {
-		child.Parent = pn
+func (n *Node) AddChild(name string, child *Node) (bool, error) {
+	if _, ok := n.Children[name]; ok {
+		child.Parent = n
 		child.Path()
-		return pn.Children[name].Merge(child)
+		return n.Children[name].Merge(child)
 	}
 
-	pn.Children[name] = child
-	child.Parent = pn
+	n.Children[name] = child
+	child.Parent = n
 	child.Path()
 
 	return true, nil
 }
 
-func (pn *Node) DebugString(level int) string {
-	str := fmt.Sprintf("%+v\n", pn)
+func (n *Node) DebugString(level int) string {
+	str := fmt.Sprintf("%+v\n", n)
 
-	for _, child := range pn.Children {
+	for _, child := range n.Children {
 		f := fmt.Sprintf("%%%ds%%s", level*4)
 		str += fmt.Sprintf(f, " ", child.DebugString(level+1))
 	}
@@ -478,8 +478,8 @@ func (pn *Node) DebugString(level int) string {
 	return str
 }
 
-func (pn *Node) JSONMarshal() string {
-	b, err := json.MarshalIndent(pn, "", "  ")
+func (n *Node) JSONMarshal() string {
+	b, err := json.MarshalIndent(n, "", "  ")
 	if err != nil {
 		return err.Error()
 	}
