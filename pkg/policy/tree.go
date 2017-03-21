@@ -173,10 +173,8 @@ func (t *Tree) Lookup(path string) (node, parent *Node) {
 	return node, parent
 }
 
-// Add adds the provided policy node at the specified path
-func (t *Tree) Add(path string, node *Node) (bool, error) {
-	var err error
-
+// Add adds the provided policy node at the specified path.
+func (t *Tree) Add(parentPath string, node *Node) (bool, error) {
 	if node == nil {
 		return false, nil
 	}
@@ -184,13 +182,21 @@ func (t *Tree) Add(path string, node *Node) (bool, error) {
 	t.Mutex.Lock()
 	defer t.Mutex.Unlock()
 
-	if path, err = node.NormalizeNames(path); err != nil {
+	return t.add(parentPath, node)
+}
+
+// add adds the provided policy node at the specified path. Must be called with
+// t.Mutex locked.
+func (t *Tree) add(parentPath string, node *Node) (bool, error) {
+	var err error
+
+	if parentPath, err = node.NormalizeNames(parentPath); err != nil {
 		return false, err
 	}
 
 	modified := false
 
-	if path == RootNodeName && node.Name == RootNodeName {
+	if parentPath == RootNodeName && node.Name == RootNodeName {
 		node.Path()
 		if t.Root == nil {
 			t.Root = node
@@ -199,12 +205,21 @@ func (t *Tree) Add(path string, node *Node) (bool, error) {
 			if modified, err = t.Root.Merge(node); err != nil {
 				return false, err
 			}
+			// If modified we need to resolve the tree's root
+			if modified {
+				return true, t.Root.ResolveTree()
+			}
 		}
 	} else {
-		absPath := JoinPath(path, node.Name)
+		absPath := JoinPath(parentPath, node.Name)
 		_, parent := t.Lookup(absPath)
 		if parent == nil {
-			return false, fmt.Errorf("path '%s' does not point to a valid node", path)
+			grandParentPath, parentName := SplitNodePath(parentPath)
+			parent = NewNode(parentName, nil)
+			_, err := t.add(grandParentPath, parent)
+			if err != nil {
+				return false, fmt.Errorf("unable to add parent's node for path '%s': %s", parentPath, err)
+			}
 		}
 
 		if modified, err = parent.AddChild(node.Name, node); err != nil {

@@ -403,12 +403,12 @@ func (n *Node) UnmarshalJSON(data []byte) error {
 
 // CanMerge returns an error if obj cannot be safely merged into an existing node
 func (n *Node) CanMerge(obj *Node) error {
-	if obj.Name != n.Name {
-		return fmt.Errorf("node name mismatch %s != %s", obj.Name, n.Name)
+	if n.Name != obj.Name {
+		return fmt.Errorf("node name mismatch %q != %q", n.Name, obj.Name)
 	}
 
-	if obj.path != n.path {
-		return fmt.Errorf("node path mismatch %s != %s", obj.path, n.path)
+	if obj.path != "" && n.path != obj.path {
+		return fmt.Errorf("node path mismatch %q != %q", n.path, obj.path)
 	}
 
 	if !n.IsMergeable() || !obj.IsMergeable() {
@@ -426,7 +426,7 @@ func (n *Node) CanMerge(obj *Node) error {
 	return nil
 }
 
-// Merge incorporates the rules and children of obj into an existnig node
+// Merge incorporates the rules and children of obj into an existing node
 func (n *Node) Merge(obj *Node) (bool, error) {
 	if err := n.CanMerge(obj); err != nil {
 		return false, fmt.Errorf("cannot merge node: %s", err)
