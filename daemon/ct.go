@@ -38,6 +38,15 @@ func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
 		return
 	}
 
+	info, err := bpf.GetMapInfo(os.Getpid(), fd)
+	if err != nil {
+		log.Warningf("Unable to open CT map's fdinfo %s: %s\n", file, err)
+	}
+
+	if info.MapType == bpf.MapTypeLRUHash {
+		return
+	}
+
 	f := os.NewFile(uintptr(fd), file)
 	m := ctmap.CtMap{Fd: fd, Type: ctType}
 
