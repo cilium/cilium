@@ -21,7 +21,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/resource.h>
 
@@ -125,33 +124,34 @@ static int bpf_test_length(const struct bpf_insn *insn)
 	return len + 1;
 }
 
-static void bpf_report_success(const struct bpf_test *test)
-{
-	printf("#define %s\n\n", test->emits);
-}
-
-static void bpf_report_failure(const struct bpf_test *test)
+static void bpf_report(const struct bpf_test *test, int success,
+		       int debug_mode)
 {
 	static char bpf_vlog[1U << 16];
 	int fd;
 
-	printf("// #define %s\n\n", test->emits);
-	printf("#if 0\n");
-	printf("%s failed due to load error: ", test->emits);
+	printf("%s#define %s\n\n", success ? "" : "// ", test->emits);
 
-	memset(bpf_vlog, 0, sizeof(bpf_vlog));
-	fd = bpf_prog_load(test->type, test->insns,
-			   bpf_test_length(test->insns), "GPL",
-			   bpf_vlog, sizeof(bpf_vlog));
-	assert(fd < 0);
-	printf("%s\n%s", strerror(errno), bpf_vlog);
-	printf("#endif\n\n");
+	if (!success || debug_mode) {
+		printf("#if 0\n");
+		printf("%s %s: ", test->emits, success ?
+		       "debug output" : "failed due to load error");
 
-	if (test->warn)
+		memset(bpf_vlog, 0, sizeof(bpf_vlog));
+		fd = bpf_prog_load(test->type, test->insns,
+				   bpf_test_length(test->insns), "GPL",
+				   bpf_vlog, sizeof(bpf_vlog));
+		printf("%s\n%s", strerror(errno), bpf_vlog);
+		printf("#endif\n\n");
+		if (fd > 0)
+			close(fd);
+	}
+
+	if (!success && test->warn)
 		fprintf(stderr, "%s: %s\n", test->emits, test->warn);
 }
 
-static void bpf_run_test(struct bpf_test *test)
+static void bpf_run_test(struct bpf_test *test, int debug_mode)
 {
 	struct bpf_map_fixup *map = test->fixup_map;
 	int fd;
@@ -169,24 +169,25 @@ static void bpf_run_test(struct bpf_test *test)
 
 	fd = bpf_prog_load(test->type, test->insns,
 			   bpf_test_length(test->insns), "GPL", NULL, 0);
-	if (fd > 0) {
-		bpf_report_success(test);
+	bpf_report(test, fd > 0, debug_mode);
+	if (fd > 0)
 		close(fd);
-	} else {
-		bpf_report_failure(test);
-	}
 }
 
 int main(int argc, char **argv)
 {
 	struct rlimit rold, rinf = { RLIM_INFINITY, RLIM_INFINITY };
+	int debug_mode = 0;
 	int i;
+
+	if (argc > 1 && !strncmp(argv[argc - 1], "debug", sizeof("debug")))
+		debug_mode = 1;
 
 	getrlimit(RLIMIT_MEMLOCK, &rold);
 	setrlimit(RLIMIT_MEMLOCK, &rinf);
 
 	for (i = 0; i < ARRAY_SIZE(tests); i++)
-		bpf_run_test(&tests[i]);
+		bpf_run_test(&tests[i], debug_mode);
 
 	setrlimit(RLIMIT_MEMLOCK, &rold);
 	return 0;
