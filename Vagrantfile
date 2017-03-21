@@ -19,6 +19,8 @@ echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 SCRIPT
 
 $build = <<SCRIPT
+# FIXME remove this hack
+sudo mount -o remount,exec tmpfs /run
 ~/go/src/github.com/cilium/cilium/common/build.sh
 rm -fr ~/go/bin/cilium*
 SCRIPT
@@ -68,10 +70,6 @@ Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
-
-    if ENV['RUN_TEST_SUITE'] then
-        config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
-    end
 
     config.vm.provider :libvirt do |libvirt|
         config.vm.box = "noironetworks/net-next"
@@ -129,6 +127,9 @@ Vagrant.configure(2) do |config|
                k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-2nd-part.sh"
                cm.vm.provision "shell", privileged: true, path: k8sinstall
            end
+        end
+        if ENV['RUN_TEST_SUITE'] then
+           cm.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite
         end
     end
 
