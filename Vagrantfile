@@ -69,10 +69,6 @@ Vagrant.configure(2) do |config|
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
 
-    if ENV['RUN_TEST_SUITE'] then
-        config.vm.provision "testsuite", type: "shell", privileged: false, inline: $testsuite
-    end
-
     config.vm.provider :libvirt do |libvirt|
         config.vm.box = "noironetworks/net-next"
         libvirt.memory = ENV['VM_MEMORY'].to_i
@@ -129,6 +125,9 @@ Vagrant.configure(2) do |config|
                k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-2nd-part.sh"
                cm.vm.provision "shell", privileged: true, path: k8sinstall
            end
+        end
+        if ENV['RUN_TEST_SUITE'] then
+           cm.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite
         end
     end
 
