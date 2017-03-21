@@ -18,9 +18,6 @@ func init() {
   "produces": [
     "application/json"
   ],
-  "schemes": [
-    "http"
-  ],
   "swagger": "2.0",
   "info": {
     "description": "Cilium",

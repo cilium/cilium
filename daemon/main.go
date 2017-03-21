@@ -347,7 +347,7 @@ func runDaemon() {
 	api.IPAMDeleteIPAMIPHandler = NewDeleteIPAMIPHandler(d)
 
 	server := server.NewServer(api)
-	server.EnabledListeners = []string{"http", "unix"}
+	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
 	defer server.Shutdown()
 

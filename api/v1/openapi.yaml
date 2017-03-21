@@ -4,8 +4,6 @@ info:
   title: Cilium API
   description: Cilium
   version: v1beta
-schemes:
-- http
 x-schemes:
 - unix
 basePath: "/v1beta"
