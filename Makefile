@@ -85,7 +85,7 @@ runtime-tests:
 
 generate-api:
 	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi \
-	    -s server -C api/v1/cilium-server.yml
+	    -s server --default-scheme=unix -C api/v1/cilium-server.yml
 	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
 
 .PHONY: force
