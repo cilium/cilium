@@ -34,5 +34,8 @@
 			"with map value after bpf_map_lookup_elem(). Some "
 			"clang versions might generate code that spills such "
 			"registers to stack before a NULL test. Recommendation "
-			"is to run 4.9+ kernels.",
+			"is to run 4.10+ kernels.",
+			/* Note: Expected to be in 4.9.17 or 4.9.18. Once that
+			 * is released, we can upgrade the warning message.
+			 */
 	},
