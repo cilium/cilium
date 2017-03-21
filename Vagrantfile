@@ -19,6 +19,8 @@ echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 SCRIPT
 
 $build = <<SCRIPT
+# FIXME remove this hack
+sudo mount -o remount,exec tmpfs /run
 ~/go/src/github.com/cilium/cilium/common/build.sh
 rm -fr ~/go/bin/cilium*
 SCRIPT
