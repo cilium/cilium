@@ -90,6 +90,7 @@ struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
 #define cilium_trace_lb(a, b, c, d)
 #endif
 
+#ifdef HAVE_MAP_VAL_ADJ
 static inline int lb_next_rr(struct __sk_buff *skb,
 			     struct lb_sequence *seq,
 			     __be16 hash)
@@ -105,20 +106,24 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 
 	return slave;
 }
+#endif
 
 static inline int lb6_select_slave(struct __sk_buff *skb,
 				   struct lb6_key *key,
 				   __u16 count, __u16 weight)
 {
 	__be16 hash = get_hash_recalc(skb);
-	struct lb_sequence *seq;
 	int slave = 0;
 
+#ifdef HAVE_MAP_VAL_ADJ
 	if (weight) {
+		struct lb_sequence *seq;
+
 		seq = map_lookup_elem(&cilium_lb6_rr_seq, key);
 		if (seq && seq->count != 0)
 			slave = lb_next_rr(skb, seq, hash);
 	}
+#endif
 
 	if (slave == 0) {
 		/* Slave 0 is reserved for the master slot */
@@ -134,14 +139,17 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 				   __u16 count, __u16 weight)
 {
 	__be16 hash = get_hash_recalc(skb);
-	struct lb_sequence *seq;
 	int slave = 0;
 
+#ifdef HAVE_MAP_VAL_ADJ
 	if (weight) {
+		struct lb_sequence *seq;
+
 		seq = map_lookup_elem(&cilium_lb4_rr_seq, key);
 		if (seq && seq->count != 0)
 			slave = lb_next_rr(skb, seq, hash);
 	}
+#endif
 
 	if (slave == 0) {
 		/* Slave 0 is reserved for the master slot */
