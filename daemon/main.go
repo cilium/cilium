@@ -207,6 +207,9 @@ func initConfig() {
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+	if err := os.MkdirAll(config.RunDir, defaults.RuntimePathRights); err != nil {
+		log.Fatalf("Could not create runtime directory %q: %s", config.RunDir, err)
+	}
 	if !config.KeepTemplates {
 		if err := RestoreAssets(config.RunDir, "bpf"); err != nil {
 			log.Fatalf("Unable to restore agent assets: %s", err)
