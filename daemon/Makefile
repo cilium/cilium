@@ -19,4 +19,11 @@ install: all
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 go-bindata: $(shell find ../bpf)
-	go-bindata -prefix ../ -ignore Makefile -ignore '.+\.o$$' ../bpf/...
+	go-bindata -prefix ../ \
+	-ignore Makefile \
+	-ignore bpf_features.h \
+	-ignore lxc_config.h \
+	-ignore netdev_config.h \
+	-ignore node_config.h \
+	-ignore '.+\.o$$' \
+	../bpf/...
