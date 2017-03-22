@@ -49,7 +49,7 @@ type Status struct {
 	Type StatusType `json:"status-type"`
 }
 
-func (sc StatusCode) String() string {
+func (sc StatusCode) ColorString() string {
 	var text string
 	switch sc {
 	case OK:
@@ -64,6 +64,21 @@ func (sc StatusCode) String() string {
 		text = "Unknown code"
 	}
 	return fmt.Sprintf("%s", text)
+}
+
+func (sc StatusCode) String() string {
+	switch sc {
+	case OK:
+		return "OK"
+	case Warning:
+		return "Warning"
+	case Failure:
+		return "Failure"
+	case Disabled:
+		return "Disabled"
+	default:
+		return "Unknown code"
+	}
 }
 
 func (s Status) String() string {
