@@ -16,9 +16,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -80,6 +83,62 @@ func main() {
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
+	}
+}
+
+func checkMinRequirements() {
+	log.Infof("Checking minimal requirements...")
+	clangVersion, err := exec.Command("clang", "--version").CombinedOutput()
+	if err != nil {
+		log.Fatalf("clang 3.8.x version: NOT OK: %s", err)
+	}
+	if !strings.Contains(string(clangVersion), " 3.8") {
+		log.Fatalf("clang 3.8.x version: NOT OK, please install clang version 3.8.x in your system")
+	}
+	log.Infof("clang 3.8.x version: OK!")
+	lccVersion, err := exec.Command("llc", "--version").CombinedOutput()
+	if err == nil {
+		if strings.Contains(strings.ToLower(string(lccVersion)), "debug") {
+			log.Warningf("llc version was compiled in debug mode, expect higher latency!")
+		}
+	}
+	// /usr/include/gnu/stubs-32.h is installed by 'glibc-devel.i686' in fedora
+	// /usr/include/sys/cdefs.h is installed by 'libc6-dev-i386' in ubuntu
+	// both files exist on both systems but cdefs.h already exists in fedora
+	// without 'glibc-devel.i686' so we check for 'stubs-32.h first.
+	if _, err := os.Stat("/usr/include/gnu/stubs-32.h"); os.IsNotExist(err) {
+		log.Fatalf("libraries: NOT OK, please make sure you have 'glibc-devel.i686' in your system")
+	}
+	if _, err := os.Stat("/usr/include/sys/cdefs.h"); os.IsNotExist(err) {
+		log.Fatalf("libraries: NOT OK, please make sure you have 'libc6-dev-i386' in your system")
+	}
+	log.Infof("libraries: OK!")
+
+	// Checking for bpf_features
+	globalsDir := filepath.Join(config.RunDir, "globals")
+	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
+		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
+	}
+	if err := os.Chdir(config.RunDir); err != nil {
+		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
+			config.RunDir, err)
+	}
+	_, err = exec.Command("./bpf/run_probes.sh", ".", ".").CombinedOutput()
+	if err != nil {
+		log.Fatalf("BPF Verifier: NOT OK. Unable to run checker for bpf_features: %s", err)
+	}
+	bpfFeatures, err := ioutil.ReadFile(filepath.Join(globalsDir, "bpf_features.h"))
+	if err != nil {
+		log.Fatalf("BPF Verifier: NOT OK. Unable to read bpf_features.h: %s", err)
+	}
+	if !strings.Contains(strings.ToLower(string(bpfFeatures)), "HAVE_MARK_MAP_VALS") {
+		log.Warningf("BPF Verifier: NOT OK. Verifier is too old to detect identical registers " +
+			"with map value after bpf_map_lookup_elem(). Some " +
+			"clang versions might generate code that spills such " +
+			"registers to stack before a NULL test. Recommendation " +
+			"is to run 4.10+ kernels.")
+	} else {
+		log.Infof("BPF Verifier: OK!")
 	}
 }
 
@@ -147,6 +206,7 @@ func initConfig() {
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+	checkMinRequirements()
 }
 
 func initEnv() {
