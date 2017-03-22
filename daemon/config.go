@@ -36,6 +36,7 @@ var (
 // Config is the configuration used by Daemon.
 type Config struct {
 	BpfDir                string                  // BPF template files directory
+	LibDir                string                  // Cilium library files directory
 	RunDir                string                  // Cilium runtime directory
 	LXCMap                *lxcmap.LXCMap          // LXCMap where all LXCs are stored
 	NodeAddress           *addressing.NodeAddress // Node IPv6 Address

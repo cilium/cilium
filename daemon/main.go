@@ -120,11 +120,11 @@ func checkMinRequirements() {
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Could not create runtime directory %q: %s", globalsDir, err)
 	}
-	if err := os.Chdir(config.RunDir); err != nil {
+	if err := os.Chdir(config.LibDir); err != nil {
 		log.Fatalf("Could not change to runtime directory %q: %s",
-			config.RunDir, err)
+			config.LibDir, err)
 	}
-	if err := exec.Command("./bpf/run_probes.sh", "./bpf", ".").Run(); err != nil {
+	if err := exec.Command("./bpf/run_probes.sh", "./bpf", config.RunDir).Run(); err != nil {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to run checker for bpf_features: %s", err)
 	}
 	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
@@ -178,6 +178,7 @@ func init() {
 	flags.BoolVar(&config.KeepTemplates, "keep-templates", false,
 		"Do not restore template files from binary")
 	flags.StringVar(&config.RunDir, "state-dir", defaults.RuntimePath, "Path to directory to store runtime state")
+	flags.StringVar(&config.LibDir, "lib-dir", defaults.LibraryPath, "Path to store runtime build environment")
 	flags.StringVar(&socketPath, "socket-path", defaults.SockPath, "Sets the socket path to listen for connections")
 	flags.StringVar(&config.LBInterface, "lb", "",
 		"Enables load balancer mode where load balancer bpf program is attached to the given interface")
@@ -232,15 +233,20 @@ func initConfig() {
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+
+	config.BpfDir = filepath.Join(config.LibDir, defaults.BpfDir)
 	if err := os.MkdirAll(config.RunDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Could not create runtime directory %q: %s", config.RunDir, err)
 	}
+	if err := os.MkdirAll(config.LibDir, defaults.RuntimePathRights); err != nil {
+		log.Fatalf("Could not create library directory %q: %s", config.RunDir, err)
+	}
 	if !config.KeepTemplates {
-		if err := RestoreAssets(config.RunDir, "bpf"); err != nil {
+		if err := RestoreAssets(config.LibDir, defaults.BpfDir); err != nil {
 			log.Fatalf("Unable to restore agent assets: %s", err)
 		}
 		// Restore permissions of executable files
-		if err := RestoreExecPermissions(config.RunDir, `.*\.sh`); err != nil {
+		if err := RestoreExecPermissions(config.LibDir, `.*\.sh`); err != nil {
 			log.Fatalf("Unable to restore agent assets: %s", err)
 		}
 	}
