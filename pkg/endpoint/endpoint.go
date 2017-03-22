@@ -217,7 +217,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 	}
 
 	currentState := models.EndpointState(e.State)
-	if currentState == models.EndpointStateReady && e.Status.String() != "OK" {
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
 		currentState = models.EndpointStateNotReady
 	}
 
@@ -382,16 +382,20 @@ func (e *EndpointStatus) GetModel() []*models.EndpointStatusChange {
 	return list
 }
 
-func (e *EndpointStatus) String() string {
+func (e *EndpointStatus) CurrentStatus() StatusCode {
 	e.indexMU.RLock()
 	defer e.indexMU.RUnlock()
 	sP := e.CurrentStatuses.sortByPriority()
 	for _, v := range sP {
 		if v.Status.Code != OK {
-			return fmt.Sprintf("%s", v.Status.Code)
+			return v.Status.Code
 		}
 	}
-	return OK.String()
+	return OK
+}
+
+func (e *EndpointStatus) String() string {
+	return e.CurrentStatus().String()
 }
 
 func (e *EndpointStatus) DeepCopy() *EndpointStatus {
