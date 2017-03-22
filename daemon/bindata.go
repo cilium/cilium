@@ -136,7 +136,7 @@ func bpfCopying() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/COPYING", size: 18012, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/COPYING", size: 18012, mode: os.FileMode(416), modTime: time.Unix(1481040726, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -156,7 +156,7 @@ func bpfBpf_lbC() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/bpf_lb.c", size: 5637, mode: os.FileMode(436), modTime: time.Unix(1490122894, 0)}
+	info := bindataFileInfo{name: "bpf/bpf_lb.c", size: 5637, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -176,7 +176,7 @@ func bpfBpf_lxcC() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/bpf_lxc.c", size: 21713, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/bpf_lxc.c", size: 21713, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -196,7 +196,7 @@ func bpfBpf_netdevC() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/bpf_netdev.c", size: 5621, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/bpf_netdev.c", size: 5621, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -216,7 +216,7 @@ func bpfBpf_overlayC() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/bpf_overlay.c", size: 4523, mode: os.FileMode(436), modTime: time.Unix(1489550486, 0)}
+	info := bindataFileInfo{name: "bpf/bpf_overlay.c", size: 4523, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -236,7 +236,7 @@ func bpfIncludeBpfApiH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/bpf/api.h", size: 6875, mode: os.FileMode(436), modTime: time.Unix(1489273532, 0)}
+	info := bindataFileInfo{name: "bpf/include/bpf/api.h", size: 6875, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -256,7 +256,7 @@ func bpfIncludeIproute2Bpf_elfH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/iproute2/bpf_elf.h", size: 905, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/iproute2/bpf_elf.h", size: 905, mode: os.FileMode(416), modTime: time.Unix(1481040726, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -276,7 +276,7 @@ func bpfIncludeLinuxBpfH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/bpf.h", size: 14138, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/bpf.h", size: 14138, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -296,7 +296,7 @@ func bpfIncludeLinuxBpf_commonH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/bpf_common.h", size: 1230, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/bpf_common.h", size: 1230, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -316,7 +316,7 @@ func bpfIncludeLinuxByteorderBig_endianH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/byteorder/big_endian.h", size: 3419, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/byteorder/big_endian.h", size: 3419, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -336,7 +336,7 @@ func bpfIncludeLinuxByteorderLittle_endianH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/byteorder/little_endian.h", size: 3494, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/byteorder/little_endian.h", size: 3494, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -356,7 +356,7 @@ func bpfIncludeLinuxByteorderH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/byteorder.h", size: 247, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/byteorder.h", size: 247, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -376,7 +376,7 @@ func bpfIncludeLinuxIcmpH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/icmp.h", size: 2898, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/icmp.h", size: 2898, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -396,7 +396,7 @@ func bpfIncludeLinuxIcmpv6H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/icmpv6.h", size: 3916, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/icmpv6.h", size: 3916, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -416,7 +416,7 @@ func bpfIncludeLinuxIf_arpH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/if_arp.h", size: 5491, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/if_arp.h", size: 5491, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -436,7 +436,7 @@ func bpfIncludeLinuxIf_etherH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/if_ether.h", size: 7077, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/if_ether.h", size: 7077, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -456,7 +456,7 @@ func bpfIncludeLinuxInH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/in.h", size: 7163, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/in.h", size: 7163, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -476,7 +476,7 @@ func bpfIncludeLinuxIn6H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/in6.h", size: 3887, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/in6.h", size: 3887, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -496,7 +496,7 @@ func bpfIncludeLinuxIoctlH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/ioctl.h", size: 3153, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/ioctl.h", size: 3153, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -516,7 +516,7 @@ func bpfIncludeLinuxIpH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/ip.h", size: 3557, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/ip.h", size: 3557, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -536,7 +536,7 @@ func bpfIncludeLinuxIpv6H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/ipv6.h", size: 3164, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/ipv6.h", size: 3164, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -556,7 +556,7 @@ func bpfIncludeLinuxPerf_eventH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/perf_event.h", size: 28514, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/perf_event.h", size: 28514, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -576,7 +576,7 @@ func bpfIncludeLinuxSwabH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/swab.h", size: 6498, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/swab.h", size: 6498, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -596,7 +596,7 @@ func bpfIncludeLinuxTcpH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/tcp.h", size: 2204, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/tcp.h", size: 2204, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -616,7 +616,7 @@ func bpfIncludeLinuxType_mapperH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/type_mapper.h", size: 476, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/type_mapper.h", size: 476, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -636,7 +636,7 @@ func bpfIncludeLinuxUdpH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/include/linux/udp.h", size: 1313, mode: os.FileMode(436), modTime: time.Unix(1486864431, 0)}
+	info := bindataFileInfo{name: "bpf/include/linux/udp.h", size: 1313, mode: os.FileMode(416), modTime: time.Unix(1468446420, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -656,7 +656,7 @@ func bpfInitSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/init.sh", size: 5139, mode: os.FileMode(509), modTime: time.Unix(1489597063, 0)}
+	info := bindataFileInfo{name: "bpf/init.sh", size: 5139, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -676,7 +676,7 @@ func bpfJoin_epSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/join_ep.sh", size: 1174, mode: os.FileMode(509), modTime: time.Unix(1489597063, 0)}
+	info := bindataFileInfo{name: "bpf/join_ep.sh", size: 1174, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -696,7 +696,7 @@ func bpfLibArpH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/arp.h", size: 3095, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/arp.h", size: 3095, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -716,7 +716,7 @@ func bpfLibCommonH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/common.h", size: 5395, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/common.h", size: 5395, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -736,7 +736,7 @@ func bpfLibConntrackH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/conntrack.h", size: 15500, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/conntrack.h", size: 15500, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -756,7 +756,7 @@ func bpfLibCsumH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/csum.h", size: 2441, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/csum.h", size: 2441, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -776,7 +776,7 @@ func bpfLibDbgH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/dbg.h", size: 3458, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/dbg.h", size: 3458, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -796,7 +796,7 @@ func bpfLibDropH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/drop.h", size: 4390, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/drop.h", size: 4390, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -816,7 +816,7 @@ func bpfLibEthH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/eth.h", size: 1942, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/eth.h", size: 1942, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -836,7 +836,7 @@ func bpfLibEventsH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/events.h", size: 1067, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/events.h", size: 1067, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -856,7 +856,7 @@ func bpfLibGeneveH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/geneve.h", size: 1894, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/geneve.h", size: 1894, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -876,7 +876,7 @@ func bpfLibIcmp6H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/icmp6.h", size: 12116, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/icmp6.h", size: 12116, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -896,7 +896,7 @@ func bpfLibIpv4H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/ipv4.h", size: 1495, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/ipv4.h", size: 1495, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -916,7 +916,7 @@ func bpfLibIpv6H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/ipv6.h", size: 7874, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/ipv6.h", size: 7874, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -936,7 +936,7 @@ func bpfLibL3H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/l3.h", size: 5524, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/l3.h", size: 5524, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -956,7 +956,7 @@ func bpfLibL4H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/l4.h", size: 6633, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/l4.h", size: 6633, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -976,7 +976,7 @@ func bpfLibLbH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/lb.h", size: 18059, mode: os.FileMode(436), modTime: time.Unix(1490187709, 0)}
+	info := bindataFileInfo{name: "bpf/lib/lb.h", size: 18059, mode: os.FileMode(416), modTime: time.Unix(1490191323, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -996,7 +996,7 @@ func bpfLibLxcH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/lxc.h", size: 1972, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/lxc.h", size: 1972, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1016,7 +1016,7 @@ func bpfLibMapsH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/maps.h", size: 1967, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/maps.h", size: 1967, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1036,7 +1036,7 @@ func bpfLibNat46H() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/nat46.h", size: 10798, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/nat46.h", size: 10798, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1056,7 +1056,7 @@ func bpfLibPolicyH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/policy.h", size: 2265, mode: os.FileMode(436), modTime: time.Unix(1490187706, 0)}
+	info := bindataFileInfo{name: "bpf/lib/policy.h", size: 2265, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1076,7 +1076,7 @@ func bpfLibUtilsH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/lib/utils.h", size: 1306, mode: os.FileMode(436), modTime: time.Unix(1488275770, 0)}
+	info := bindataFileInfo{name: "bpf/lib/utils.h", size: 1306, mode: os.FileMode(416), modTime: time.Unix(1489968939, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1096,7 +1096,7 @@ func bpfProbesRaw_change_tailT() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/probes/raw_change_tail.t", size: 541, mode: os.FileMode(436), modTime: time.Unix(1490122894, 0)}
+	info := bindataFileInfo{name: "bpf/probes/raw_change_tail.t", size: 541, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1116,7 +1116,7 @@ func bpfProbesRaw_insnH() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/probes/raw_insn.h", size: 5008, mode: os.FileMode(436), modTime: time.Unix(1490122894, 0)}
+	info := bindataFileInfo{name: "bpf/probes/raw_insn.h", size: 5008, mode: os.FileMode(416), modTime: time.Unix(1490134889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1136,7 +1136,7 @@ func bpfProbesRaw_mainC() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/probes/raw_main.c", size: 4595, mode: os.FileMode(436), modTime: time.Unix(1490146939, 0)}
+	info := bindataFileInfo{name: "bpf/probes/raw_main.c", size: 4595, mode: os.FileMode(416), modTime: time.Unix(1490152578, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1156,7 +1156,7 @@ func bpfProbesRaw_map_val_adjT() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/probes/raw_map_val_adj.t", size: 1162, mode: os.FileMode(436), modTime: time.Unix(1490146939, 0)}
+	info := bindataFileInfo{name: "bpf/probes/raw_map_val_adj.t", size: 1162, mode: os.FileMode(416), modTime: time.Unix(1490152578, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1176,12 +1176,12 @@ func bpfProbesRaw_mark_map_valT() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/probes/raw_mark_map_val.t", size: 1445, mode: os.FileMode(436), modTime: time.Unix(1490146939, 0)}
+	info := bindataFileInfo{name: "bpf/probes/raw_mark_map_val.t", size: 1445, mode: os.FileMode(416), modTime: time.Unix(1490152578, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _bpfRun_probesSh = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\x7c\x54\x5f\x6f\xda\x48\x10\x7f\xf6\x7e\x8a\xa9\xb1\xaa\xa4\x8a\x71\xc2\xc3\x9d\x74\x15\x95\x20\x90\xc6\x2a\x82\x08\x93\xe4\xaa\xd3\xc9\x5d\xaf\xc7\xf6\x1e\xeb\x5d\x77\xbd\x0e\xe1\xd2\x7e\xf7\xd3\x1a\x48\x81\xa0\xe3\x09\x7b\x7e\x3b\xf3\xfb\x33\xde\xce\xbb\x20\xe1\x32\x48\x68\x5d\x90\x0e\xe9\xc0\xb5\xaa\xd6\x9a\xe7\x85\x81\xde\xe5\xd5\x6f\x7e\xef\xf2\xea\x77\x18\x34\xa6\x50\xba\x06\x95\xc1\x35\x17\xbc\x29\x5b\xe4\x84\x33\x94\x35\xa6\xd0\xc8\x14\x35\x98\x02\x61\x50\x51\x56\xe0\xae\x72\x01\x0f\xa8\x6b\xae\x24\xf4\xba\x97\x70\x66\x01\xee\xb6\xe4\x9e\x7f\x24\x1d\x58\xab\x06\x4a\xba\x06\xa9\x0c\x34\x35\x82\x29\x78\x0d\x19\x17\x08\xf8\xcc\xb0\x32\xc0\x25\x30\x55\x56\x82\x53\xc9\x10\x56\xdc\x14\xed\x98\x6d\x93\x2e\xe9\xc0\xd7\x6d\x0b\x95\x18\xca\x25\x50\x60\xaa\x5a\x5b\xa2\x7b\x38\xa0\xa6\x25\x6c\x7f\x85\x31\xd5\x1f\x41\xb0\x5a\xad\xba\xb4\x25\xdb\x55\x3a\x0f\xc4\x06\x58\x07\x93\xf0\x7a\x3c\x8d\xc6\x7e\xaf\x7b\xd9\x1e\xb9\x97\x02\xeb\x1a\x34\x7e\x6f\xb8\xc6\x14\x92\x35\xd0\xaa\x12\x9c\xd1\x44\x20\x08\xba\x02\xa5\x81\xe6\x1a\x31\x05\xa3\x2c\xdf\x95\xe6\x86\xcb\xfc\x02\x6a\x95\x99\x15\xd5\x48\x3a\x90\xf2\xda\x68\x9e\x34\xe6\xc0\xac\x1d\x3b\x5e\x1f\x00\x94\x04\x2a\xc1\x1d\x44\x10\x46\x2e\x0c\x07\x51\x18\x5d\x90\x0e\x3c\x86\x8b\xdb\xd9\xfd\x02\x1e\x07\xf3\xf9\x60\xba\x08\xc7\x11\xcc\xe6\x70\x3d\x9b\x8e\xc2\x45\x38\x9b\x46\x30\xbb\x81\xc1\xf4\x2b\x7c\x09\xa7\xa3\x0b\x40\x6e\x0a\xd4\x80\xcf\x95\xb6\xfc\x95\x06\x6e\x6d\xc4\xd4\x7a\x16\x21\x1e\x10\xc8\xd4\x86\x50\x5d\x21\xe3\x19\x67\x20\xa8\xcc\x1b\x9a\x23\xe4\xea\x09\xb5\xe4\x32\x87\x0a\x75\xc9\x6b\x1b\x66\x0d\x54\xa6\xa4\x03\x82\x97\xdc\x50\xd3\xbe\x79\x23\xaa\x4b\x48\x8d\x06\xfc\x67\x42\x26\xe1\xb0\xef\x5d\x91\xf9\xfd\x74\x14\xce\xfb\x5e\x8f\x90\xd1\xf8\xa1\xef\xb2\x76\x91\xfc\x4a\xab\x04\x5d\x72\x37\x9f\x0d\xc7\x71\x0b\x38\x2b\x97\x06\xcb\x0a\xfc\xf4\x9c\xdc\x8c\x07\x8b\xfb\xf9\x38\xbe\x09\x27\xe3\xbe\xeb\x6d\x7a\x04\xb9\x50\x09\x15\x75\x90\x54\x59\x9c\x21\x35\x8d\xc6\xba\x5b\xb8\xe4\x71\x30\x9f\x86\xd3\xcf\x47\xe8\x03\x94\x50\xb9\x4b\x48\xd6\x48\x66\x89\x03\x13\x48\x65\x53\xc1\x0b\x71\x78\x06\x7f\xc1\x3b\xf0\xff\x05\xd7\x7b\x65\xe3\xc2\xdf\x1f\xad\x2c\x49\x1c\x47\x97\xe0\xeb\x0c\x7e\x15\x89\x93\x71\x42\x1c\x5e\x81\xe0\x72\x09\x29\x0a\xf0\x46\xe3\x07\xe8\x7d\x82\x20\xc5\xa7\x40\x36\x42\x90\x9f\x84\x18\x4d\xab\xd7\x49\xe3\x3f\xc3\x05\x21\xff\x7f\x66\x57\xa5\x69\xba\xa9\x9a\x75\x85\x90\x36\x65\xb9\x86\x1f\x3f\x00\x9f\xb9\x81\x2b\x42\x3a\x70\xcb\xf3\x02\x04\x3e\xa1\x80\xd6\xc7\x1a\x4c\x41\xcd\x6e\x5b\x37\x0b\xf9\xa4\x96\x08\x86\x75\x7f\x89\x6e\xa1\xb1\x6e\x64\x6c\xd8\xd9\x39\x79\x21\x4e\x2b\xa9\xef\x7a\x2f\x93\x70\xf8\x33\xd8\xb4\x0a\xbc\x2b\x97\x38\xb3\xfb\x45\x7f\xcf\x8f\xc0\x7b\xb9\xfa\xd9\x55\x2e\x71\xb6\xc9\xd8\x3c\x1d\xc3\xe0\x7b\xca\x6b\xd6\xca\x49\xf1\x69\x43\x9a\x89\x9a\x32\x73\xa8\x6c\x3b\x2a\x9e\xdd\x2d\xa2\xbe\xeb\x8f\xe2\x78\x3a\x8f\xaf\xef\xee\xa3\x38\xee\x7b\x67\xb2\xd2\x8a\x9d\x83\x3f\xeb\x81\x6f\xa8\xce\xd1\x40\x52\x65\xe0\x87\xde\x28\x9c\x83\x1f\x76\xed\xdf\x49\x38\x0c\xb8\x64\xa2\x49\x11\xfc\x47\x2a\x04\xf8\x8f\x52\xf9\x34\x4d\xed\xa6\xfb\x2a\xf3\x2b\xca\x96\x98\xfa\x25\x96\x09\xea\x4d\xb5\x91\x4b\xa9\x56\xd2\x5f\xd1\x76\x9b\x7d\x55\x59\x27\x5c\x42\x1c\x66\x77\x7d\x17\xaa\xa5\x05\x3e\xdb\x3e\x82\xaf\xc0\xb3\x9f\xdc\xfb\xf7\x7b\x1a\x6d\x28\xc7\x1a\xb7\x80\x8c\x0b\x83\xfa\x10\xc1\x65\xde\x7e\x81\x56\x48\x4a\x41\x25\xff\x6c\x7a\xd6\xc8\x36\x41\xb4\x87\x91\x15\x0a\xdc\x4e\x8a\x19\x97\x08\xde\xd6\x5c\x17\x3e\x7d\x7a\x7d\x68\xb7\xda\xae\x53\x07\x26\x6a\x75\x22\x75\x25\xc5\x1a\x58\x81\x6c\x09\x4f\xa8\x79\xc6\x51\x9f\x0c\x5d\x88\xbd\xd0\xe3\xe1\x20\x7a\x93\xfc\x89\xdc\xdd\xa3\xe4\x6c\x44\x61\x2b\xc4\x0f\xbd\x5f\x9d\x82\x93\x09\x59\x9f\xed\x1d\xb3\x71\x95\x4b\xd8\x3f\xf1\xa1\x6b\x88\x93\x2a\xe2\xd8\x99\xf1\x30\x9c\xf6\xbf\x25\xb4\x46\x49\x4b\xdc\xe2\xbe\x11\xe2\x38\xac\xda\xa5\x62\xa7\x06\x9a\xae\xe2\x96\xad\x3d\x7d\x22\xc4\xfd\x09\x16\x5b\x52\x2e\xbb\x6c\x97\x68\xe0\x6d\x67\xb5\xe6\x3b\x87\xaf\xae\x8e\x4d\x87\x9e\x7d\xb3\x7f\xb9\x58\xc2\x12\x6d\x18\xf6\x52\xc8\x8e\x8a\x64\x9b\x26\xcf\x64\x8a\x19\x0c\xef\x6e\xe2\x6d\xbb\x28\xbe\x8d\x5d\x80\xe3\x50\x0f\xd3\x7f\x83\x7f\xb3\x04\x1b\xfc\x89\x02\xe9\xec\x7f\xdb\xe0\xd6\xcb\x24\x66\x05\x95\x39\xc6\x86\x72\xd1\x65\x2e\xb8\xb7\x83\x87\x71\x1c\x7d\x19\xc6\xd7\xb7\x83\xe9\xe7\x71\xbc\x18\x84\x13\x97\xec\xaf\xc7\xab\x00\x94\x29\xcf\x20\xf8\x70\x4c\x09\x3e\x04\xa7\x86\xef\x6e\xd0\x1a\xdc\x03\x43\xf6\x2e\xd1\x53\x76\x65\x9c\xfc\x17\x00\x00\xff\xff\x7b\xa7\xea\xec\x84\x08\x00\x00")
+var _bpfRun_probesSh = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\x84\x54\xef\x6f\xe2\x38\x10\xfd\x1c\xff\x15\xb3\x26\x5a\xb5\xab\x86\xb4\x7c\xb8\x93\x6e\xc5\x4a\x50\xe8\x36\x5a\x04\x15\x3f\xda\x5b\x9d\x4e\x59\xe3\x4c\x88\xaf\x8e\x9d\x75\x9c\x52\xae\xdb\xff\xfd\xe4\x84\x16\x28\x95\x8e\x2f\x41\x99\xe7\xf1\x7b\xf3\x5e\xa6\xf5\x21\x5c\x0a\x15\x2e\x59\x99\x91\x16\x69\xc1\xa5\x2e\x36\x46\xac\x32\x0b\x9d\xf3\x8b\xdf\x82\xce\xf9\xc5\xef\xd0\xab\x6c\xa6\x4d\x09\x3a\x85\x4b\x21\x45\x95\xd7\xc8\x91\xe0\xa8\x4a\x4c\xa0\x52\x09\x1a\xb0\x19\x42\xaf\x60\x3c\xc3\x97\xca\x19\xdc\xa2\x29\x85\x56\xd0\x69\x9f\xc3\x89\x03\xd0\x6d\x89\x9e\x7e\x26\x2d\xd8\xe8\x0a\x72\xb6\x01\xa5\x2d\x54\x25\x82\xcd\x44\x09\xa9\x90\x08\xf8\xc8\xb1\xb0\x20\x14\x70\x9d\x17\x52\x30\xc5\x11\xd6\xc2\x66\xf5\x35\xdb\x26\x6d\xd2\x82\xef\xdb\x16\x7a\x69\x99\x50\xc0\x80\xeb\x62\xe3\x88\xee\xe1\x80\xd9\x9a\xb0\xfb\x65\xd6\x16\x7f\x84\xe1\x7a\xbd\x6e\xb3\x9a\x6c\x5b\x9b\x55\x28\x1b\x60\x19\x8e\xa2\xcb\xe1\x78\x36\x0c\x3a\xed\xf3\xfa\xc8\x42\x49\x2c\x4b\x30\xf8\xb3\x12\x06\x13\x58\x6e\x80\x15\x85\x14\x9c\x2d\x25\x82\x64\x6b\xd0\x06\xd8\xca\x20\x26\x60\xb5\xe3\xbb\x36\xc2\x0a\xb5\x3a\x83\x52\xa7\x76\xcd\x0c\x92\x16\x24\xa2\xb4\x46\x2c\x2b\x7b\x30\xac\x17\x76\xa2\x3c\x00\x68\x05\x4c\x01\xed\xcd\x20\x9a\x51\xe8\xf7\x66\xd1\xec\x8c\xb4\xe0\x2e\x9a\x5f\x4f\x16\x73\xb8\xeb\x4d\xa7\xbd\xf1\x3c\x1a\xce\x60\x32\x85\xcb\xc9\x78\x10\xcd\xa3\xc9\x78\x06\x93\x2b\xe8\x8d\xbf\xc3\xb7\x68\x3c\x38\x03\x14\x36\x43\x03\xf8\x58\x18\xc7\x5f\x1b\x10\x6e\x8c\x98\xb8\x99\xcd\x10\x0f\x08\xa4\xba\x21\x54\x16\xc8\x45\x2a\x38\x48\xa6\x56\x15\x5b\x21\xac\xf4\x03\x1a\x25\xd4\x0a\x0a\x34\xb9\x28\x9d\x99\x25\x30\x95\x90\x16\x48\x91\x0b\xcb\x6c\xfd\xe6\x48\x54\x9b\x90\x12\x2d\x04\x8f\xcd\x03\x9b\x47\x45\xc8\x28\xea\x77\xfd\x0b\x32\x5d\x8c\x07\xd1\xb4\xeb\x77\x08\x69\x0d\x86\xb7\x5d\xca\xeb\x5c\x05\x85\xd1\x4b\xa4\xe4\x66\x3a\xe9\x0f\xe3\x1a\x71\x92\xdf\x5b\xcc\x0b\x08\x92\x53\x72\x35\xec\xcd\x17\xd3\x61\x7c\x15\x8d\x86\x5d\xea\x37\x4d\xc2\x95\xd4\x4b\x26\xcb\x70\x59\xa4\x71\x8a\xcc\x56\x06\xcb\x76\x46\xc9\x5d\x6f\x3a\x8e\xc6\x5f\xdf\xa0\x0f\x50\x52\xaf\x28\x21\x69\xa5\xb8\xd3\x01\x5c\x22\x53\x55\x01\x4f\xc4\x13\x29\xfc\x05\x1f\x20\xf8\x17\xa8\xff\xca\x86\xc2\xdf\x9f\x9d\x4a\x45\x3c\xcf\xe4\x10\x98\xf4\xa0\x4a\xbc\x54\x10\xe2\xb5\x44\x01\x52\xa8\x7b\x48\x50\x82\x3f\x18\xde\x42\xe7\x0b\x84\x09\x3e\x84\xaa\x92\x92\x3c\x13\x62\x0d\x2b\x5e\x2f\x1b\xfe\x19\xcd\x09\x21\xff\x73\xea\xb5\xcc\x92\xa4\x29\xdb\x4d\x81\x90\x54\x79\xbe\x81\x5f\xbf\x00\x1f\x85\x85\x0b\x42\x5a\x70\x2d\x56\x19\x48\x7c\x40\x09\xf5\x34\x4b\xb0\x19\xb3\x2f\x11\x6e\x52\xfa\xa0\xef\x11\x2c\x6f\xef\xa4\xd7\xd0\xd8\x54\x2a\xb6\xfc\xe4\x94\x3c\x11\xaf\xd6\xd5\xa5\xfe\xd3\x28\xea\x3f\x87\x4d\xab\xd0\xbf\xa0\xc4\x9b\x2c\xe6\xdd\x3d\xdd\xa1\xff\x74\xf1\xdc\xd6\x94\x78\x5b\x7f\x9c\xad\x9e\xe5\xf0\x33\x11\x25\xaf\xf5\x24\xf8\xd0\x90\xe6\xb2\x64\xdc\x1e\x4a\xdb\x5e\x15\x4f\x6e\xe6\xb3\x2e\x0d\x06\x71\x3c\x9e\xc6\x97\x37\x8b\x59\x1c\x77\xfd\x13\x55\x18\xcd\x4f\x21\x98\x74\x20\xb0\xcc\xac\xd0\xc2\xb2\x48\x21\x88\xfc\x41\x34\x85\x20\x6a\xbb\xbf\xa3\xa8\x1f\x0a\xc5\x65\x95\x20\x04\x77\x4c\x4a\x08\xee\x94\x0e\x58\x92\xb8\xf8\x07\x3a\x0d\x0a\xc6\xef\x31\x09\x72\xcc\x97\x68\x9a\x6a\xa5\xee\x95\x5e\xab\x60\xcd\xea\x88\x07\xba\x70\x93\xa0\x84\x78\xdc\x7d\x00\xe0\xef\x68\x41\xc0\x5f\x9c\xa6\x10\x68\xa0\xfe\x64\x31\xa7\xf0\xf1\xe3\x9e\x4e\x67\xcc\x5b\x9d\x5b\x40\x2a\xa4\x45\x73\x88\x10\x6a\x55\x7f\x9a\x4e\x4c\xc2\x40\x2f\xff\x01\xd7\x14\x4a\xe4\x8d\x19\xf5\x61\xe4\x99\x06\xda\x4a\x30\x15\x0a\xc1\xdf\x0e\x98\xc2\x97\x2f\x40\xfd\xfd\xcf\x81\xba\x5c\xb5\x60\xa4\xd7\xef\x78\xaf\x95\xdc\x00\xcf\x90\xdf\xc3\x03\x1a\x91\x0a\x34\xef\x5a\x2f\xe5\x9e\xf5\x71\xbf\x37\x7b\xeb\xff\xb1\xf9\x94\x78\xa3\xa8\x1f\x47\xe3\xcb\xd1\x62\xb0\x83\x6f\xcd\xa0\x6f\xbc\x75\x26\x46\xb5\xcc\x20\xf2\x77\xb7\x6c\x2d\x7c\xe9\xd2\x58\xe8\x8c\x70\x9b\xa9\x86\xb9\xcd\x4a\xfd\xa7\xdd\x91\x67\x1a\x7e\x6a\x5b\xe2\x25\x9a\x78\x8e\x53\xdc\x8f\xc6\xdd\x1f\x4b\x56\xa2\x62\x39\xbe\x9a\xf5\x83\x10\xcf\xe3\xc5\xce\xbc\xda\xb9\xd0\xb0\x75\x5c\x2b\x6a\x5b\xea\x00\x47\x7e\xd3\x3d\x76\x35\x3a\x67\x42\xb5\xf9\xce\xfc\xd0\xdf\x5e\xda\xa4\xc0\x7b\xfb\xf2\xe2\xd8\x21\xe8\xd4\xef\xf6\xd7\x12\x75\x02\x14\x3a\xef\xdc\x3e\x49\x8f\xca\x64\x1b\x00\x91\xaa\x04\x53\xe8\xdf\x5c\xc5\xdb\x9e\xb3\xf8\x3a\xa6\x00\xc7\x39\x38\x8c\xcc\xd1\x89\x77\x92\xd3\x9c\x78\xb7\x44\x5a\xfb\x8b\x01\x68\x79\xbf\x8c\x79\xc6\xd4\x0a\x63\xcb\x84\x74\x13\xa1\xd7\xbd\xdb\x61\x3c\xfb\xd6\x8f\x2f\xaf\x7b\xe3\xaf\xc3\x78\xde\x8b\x46\x94\xec\xa7\xea\x55\x06\xaa\x44\xa4\x10\x7e\x7a\x4b\x0b\x3e\x85\xef\x5f\xff\xb2\x86\xcb\xb7\x93\xd9\x6d\xe2\xf7\x07\x97\x0a\xf2\x5f\x00\x00\x00\xff\xff\xdd\xf4\xeb\x14\xda\x08\x00\x00")
 
 func bpfRun_probesShBytes() ([]byte, error) {
 	return bindataRead(
@@ -1196,7 +1196,7 @@ func bpfRun_probesSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "bpf/run_probes.sh", size: 2180, mode: os.FileMode(509), modTime: time.Unix(1490122894, 0)}
+	info := bindataFileInfo{name: "bpf/run_probes.sh", size: 2266, mode: os.FileMode(416), modTime: time.Unix(1490219641, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
