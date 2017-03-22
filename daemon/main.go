@@ -117,28 +117,29 @@ func checkMinRequirements() {
 	// Checking for bpf_features
 	globalsDir := filepath.Join(config.RunDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
+		log.Fatalf("Could not create runtime directory %q: %s", globalsDir, err)
 	}
 	if err := os.Chdir(config.RunDir); err != nil {
-		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
+		log.Fatalf("Could not change to runtime directory %q: %s",
 			config.RunDir, err)
 	}
-	_, err = exec.Command("./bpf/run_probes.sh", ".", ".").CombinedOutput()
-	if err != nil {
+	if err := exec.Command("./bpf/run_probes.sh", "./bpf", ".").Run(); err != nil {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to run checker for bpf_features: %s", err)
 	}
-	bpfFeatures, err := ioutil.ReadFile(filepath.Join(globalsDir, "bpf_features.h"))
-	if err != nil {
+	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to read bpf_features.h: %s", err)
 	}
-	if !strings.Contains(strings.ToLower(string(bpfFeatures)), "HAVE_MARK_MAP_VALS") {
-		log.Warningf("BPF Verifier: NOT OK. Verifier is too old to detect identical registers " +
-			"with map value after bpf_map_lookup_elem(). Some " +
-			"clang versions might generate code that spills such " +
-			"registers to stack before a NULL test. Recommendation " +
-			"is to run 4.10+ kernels.")
-	} else {
+	bpfLogPath := filepath.Join(config.RunDir, "bpf_features.log")
+	if _, err := os.Stat(bpfLogPath); os.IsNotExist(err) {
 		log.Infof("BPF Verifier: OK!")
+	} else if err == nil {
+		bpfFeaturesLog, err := ioutil.ReadFile(bpfLogPath)
+		if err != nil {
+			log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
+		}
+		log.Warningf("BPF Verifier: NOT OK. %s", string(bpfFeaturesLog))
+	} else {
+		log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
 	}
 }
 
@@ -217,11 +218,11 @@ func initConfig() {
 func initEnv() {
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Cannot mkdir directory \"%s\" for cilium socket: %s", socketDir, err)
+		log.Fatalf("Cannot mkdir directory %q for cilium socket: %s", socketDir, err)
 	}
 
 	if err := os.Remove(socketPath); !os.IsNotExist(err) && err != nil {
-		log.Fatalf("Cannot remove existing Cilium sock \"%s\": %s", socketPath, err)
+		log.Fatalf("Cannot remove existing Cilium sock %q: %s", socketPath, err)
 	}
 
 	// The standard operation is to mount the BPF filesystem to the
