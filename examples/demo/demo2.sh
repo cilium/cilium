@@ -3,14 +3,16 @@
 . $(dirname ${BASH_SOURCE})/../../contrib/shell/util.sh
 
 NETWORK="cilium"
-CLIENT_LABEL="client"
-SERVER_LABEL="server"
+CLIENT_LABEL="id.client"
+SERVER_LABEL="id.server"
 
 function cleanup {
 	docker rm -f server client 2> /dev/null || true
 }
 
 trap cleanup EXIT
+
+cilium policy delete root 2> /dev/null && true
 
 desc "Demo: Create network, attach container, import policy"
 desc ""
@@ -21,8 +23,6 @@ desc "Create network \"cilium\""
 desc "This step is only required once, all containers can be attached to the same network,"
 desc "thus creating a single flat network. Isolation can then be defined based on labels."
 run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK"
-
-cilium policy delete .
 
 desc "Start a container with label $SERVER_LABEL"
 run "docker run -d --net cilium --name server -l $SERVER_LABEL noironetworks/netperf"
@@ -62,7 +62,7 @@ run "docker exec -ti client ping6 -c 4 $SERVER_IP"
 
 desc "Show policy table of server container"
 desc "The table maintains a packets/bytes counter for each allowed consumer"
-run "sudo cilium endpoint policy get $SERVER_ID"
+run "sudo cilium bpf policy list $SERVER_ID"
 
 desc "Policies are directional and stateful, allowing client->server does not"
 desc "automatically allow the reverse direction server->client. Only reply"

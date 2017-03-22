@@ -1,12 +1,7 @@
 {
-        "name": "io.cilium",
-        "children": {
-		"client": { },
-		"server": {
-			"rules": [{
-				"allow": ["reserved:host", "../client"]
-			}]
-		}
-
-	}
+        "name": "root",
+	"rules": [{
+		"coverage": ["id.server"],
+		"allow": ["reserved:host", "id.client"]
+	}]
 }
