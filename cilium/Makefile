@@ -11,7 +11,7 @@ clean:
 	rm -f $(TARGET)
 	go clean
 
-install: all
+install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d

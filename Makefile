@@ -73,7 +73,7 @@ clean:
 	-$(MAKE) -C ./contrib/packaging/rpm clean
 	-$(MAKE) -C ./contrib/packaging/docker clean
 
-install: all
+install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done

@@ -16,5 +16,5 @@ clean:
 	go clean
 	rm -f $(TARGET)
 
-install: all
+install:
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
