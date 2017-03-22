@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -241,11 +240,6 @@ func (d *Daemon) compileBase() error {
 
 	log.Warningf("Enabled bpf_jit_enable")
 	log.Warningf("Disabled rp_filter on all interfaces!")
-
-	fout, err := ioutil.ReadFile(filepath.Join(d.conf.RunDir, "bpf_features.log"))
-	if err == nil {
-		log.Warningf("BPF feature test warnings:\n%s", string(fout))
-	}
 
 	return nil
 }
