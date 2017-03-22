@@ -442,16 +442,6 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 	return ipamConf, nil
 }
 
-func (d *Daemon) restoreBPFtemplates() error {
-	if !d.conf.KeepTemplates {
-		if err := RestoreAssets(d.conf.RunDir, "bpf"); err != nil {
-			return fmt.Errorf("Unable to restore agent assets: %s", err)
-		}
-	}
-
-	return nil
-}
-
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
@@ -499,10 +489,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consumableCache:   policy.NewConsumableCache(),
 		policy:            policy.Tree{},
 		ignoredContainers: make(map[string]int),
-	}
-
-	if err := d.restoreBPFtemplates(); err != nil {
-		return nil, err
 	}
 
 	d.listenForCiliumEvents()
