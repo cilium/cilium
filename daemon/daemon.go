@@ -442,8 +442,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	c.BpfDir = filepath.Join(c.RunDir, defaults.BpfDir)
-
 	var kvClient kvstore.KVClient
 
 	// FIXME: This should really be a single configuration flag

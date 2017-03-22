@@ -24,6 +24,9 @@ const (
 	// BpfDir is the default path for template files relative to RuntimePath
 	BpfDir = "bpf"
 
+	// LibraryPath is the default path to the cilium libraries directory
+	LibraryPath = "/var/lib/cilium"
+
 	// SockPath is the path to the UNIX domain socket exposing the API to clients locally
 	SockPath = "/var/run/cilium.sock"
 
