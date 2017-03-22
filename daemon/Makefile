@@ -4,6 +4,9 @@ TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
 $(TARGET): $(SOURCES) check-bindata
 	go build $(GOBUILD) -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)
+GO_BINDATA := go-bindata -prefix ../ -mode 0640 -ignore Makefile -ignore bpf_features.h \
+	-ignore lxc_config.h -ignore netdev_config.h -ignore node_config.h \
+	-ignore '.+\.o$$'
 
 all: $(TARGET)
 
@@ -19,7 +22,7 @@ install: all
 .PHONY: check-bindata
 check-bindata:
 	@which go-bindata > /dev/null 2> /dev/null || exit 0 && \
-	(go-bindata -prefix ../ -ignore Makefile -ignore '.+\.o$$' -o bindata.tmp ../bpf/...; \
+	($(GO_BINDATA)  -o ./bindata.tmp ../bpf/...; \
 	diff -Nru bindata.go bindata.tmp; FAIL=$$?; rm bindata.tmp; test $$FAIL -eq 1 && (\
 	echo "##################################################################"; \
 	echo ""; \
@@ -29,11 +32,4 @@ check-bindata:
 	exit $$FAIL)
 
 go-bindata: $(shell find ../bpf)
-	go-bindata -prefix ../ \
-	-ignore Makefile \
-	-ignore bpf_features.h \
-	-ignore lxc_config.h \
-	-ignore netdev_config.h \
-	-ignore node_config.h \
-	-ignore '.+\.o$$' \
-	../bpf/...
+	$(GO_BINDATA) -o ./bindata.go ../bpf/...
