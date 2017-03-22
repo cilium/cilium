@@ -1,10 +1,8 @@
 include ../Makefile.defs
 
-all:
-
 TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
-$(TARGET): $(SOURCES)
+$(TARGET): $(SOURCES) check-bindata
 	go build $(GOBUILD) -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)
 
 all: $(TARGET)
@@ -17,6 +15,18 @@ install: all
 	groupadd -f cilium
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+.PHONY: check-bindata
+check-bindata:
+	@which go-bindata > /dev/null 2> /dev/null || exit 0 && \
+	(go-bindata -prefix ../ -ignore Makefile -ignore '.+\.o$$' -o bindata.tmp ../bpf/...; \
+	diff -Nru bindata.go bindata.tmp; FAIL=$$?; rm bindata.tmp; test $$FAIL -eq 1 && (\
+	echo "##################################################################"; \
+	echo ""; \
+	echo "  ERROR: bindata.go is out of date. Run 'make go-bindata' in daemon/"; \
+	echo ""; \
+	echo "##################################################################" ); \
+	exit $$FAIL)
 
 go-bindata: $(shell find ../bpf)
 	go-bindata -prefix ../ \
