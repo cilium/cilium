@@ -206,6 +206,11 @@ func initConfig() {
 	} else {
 		common.SetupLOG(log, "INFO")
 	}
+	if !config.KeepTemplates {
+		if err := RestoreAssets(config.RunDir, "bpf"); err != nil {
+			log.Fatalf("Unable to restore agent assets: %s", err)
+		}
+	}
 	checkMinRequirements()
 }
 
