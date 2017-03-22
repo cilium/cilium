@@ -5,7 +5,7 @@ BUILDDIR := "$(CURDIR)/cilium-$(VERSION)"
 build: clean
 	mkdir -p $(BUILDDIR)
 	@$(CURDIR)/../cp-dirs.sh $(BUILDDIR)
-	find $(BUILDDIR) -name ".*" -exec rm -rf {} \;
+	find $(BUILDDIR) -name ".*" -prune -exec rm -rf {} \;
 	cp $(CURDIR)/cfg/* $(BUILDDIR)
 	$(MAKE) -C $(BUILDDIR) clean
 	tar -czf cilium-$(VERSION).tar.gz cilium-$(VERSION)
