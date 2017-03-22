@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -187,6 +188,30 @@ func init() {
 	viper.BindPFlags(flags)
 }
 
+// RestoreExecPermissions restores file permissions to 0740 of all files inside
+// `searchDir` with the given regex `patterns`.
+func RestoreExecPermissions(searchDir string, patterns ...string) error {
+	fileList := []string{}
+	err := filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
+		for _, pattern := range patterns {
+			if regexp.MustCompile(pattern).MatchString(f.Name()) {
+				fileList = append(fileList, path)
+				break
+			}
+		}
+		return nil
+	})
+	for _, fileToChange := range fileList {
+		// Changing files permissions to -rwx:r--:---, we are only
+		// adding executable permission to the owner and keeping the
+		// same permissions stored by go-bindata.
+		if err := os.Chmod(fileToChange, os.FileMode(0740)); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" { // enable ability to specify config file via flag
@@ -212,6 +237,10 @@ func initConfig() {
 	}
 	if !config.KeepTemplates {
 		if err := RestoreAssets(config.RunDir, "bpf"); err != nil {
+			log.Fatalf("Unable to restore agent assets: %s", err)
+		}
+		// Restore permissions of executable files
+		if err := RestoreExecPermissions(config.RunDir, `.*\.sh`); err != nil {
 			log.Fatalf("Unable to restore agent assets: %s", err)
 		}
 	}
