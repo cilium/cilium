@@ -14,7 +14,7 @@ clean:
 	rm -f $(TARGET)
 	go clean
 
-install: all
+install:
 	groupadd -f cilium
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
