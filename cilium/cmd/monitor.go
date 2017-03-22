@@ -94,6 +94,11 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 }
 
 func runMonitor() {
+	if os.Getuid() != 0 {
+		fmt.Fprintf(os.Stderr, "Please run the monitor with root privileges.\n")
+		os.Exit(1)
+	}
+
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {
 		panic(err)
