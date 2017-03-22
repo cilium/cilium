@@ -456,8 +456,5 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Warningf("Leaving the endpoint failed: %s", err)
 	}
 
-	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(l.EndpointID)); err != nil {
-		log.Warningf("Error while deleting link: %s", err)
-	}
 	emptyResponse(w)
 }
