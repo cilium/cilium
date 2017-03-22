@@ -6,7 +6,7 @@ License:    Apache
 URL:        https://github/cilium/cilium
 BuildArch:  x86_64
 Source0:    %{name}-%{version}.tar.gz
-Requires:   docker-engine >= 1.12, clang >= 3.8, glibc-devel(x86-32), iproute >= 4.6, kernel >= 4.8
+Requires:   docker-engine >= 1.12, clang >= 3.8, clang < 3.9, glibc-devel(x86-32), iproute >= 4.6, kernel >= 4.8
 
 %description
 Cilium provides fast in-kernel networking and security policy enforcement
