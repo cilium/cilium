@@ -27,9 +27,9 @@ import (
 type IPAMType string
 
 const (
-	// CNIIPAMType
+	// CNIIPAMType used by daemon.
 	CNIIPAMType IPAMType = "cni-host-local"
-	// LibnetworkIPAMType
+	// LibnetworkIPAMType is unused.
 	LibnetworkIPAMType IPAMType = "libnetwork"
 )
 
@@ -82,7 +82,7 @@ type Route struct {
 	Type        int
 }
 
-// Sort an array of routes by mask, narrow first
+// ByMask is used to sort an array of routes by mask, narrow first.
 type ByMask []Route
 
 func (a ByMask) Len() int {

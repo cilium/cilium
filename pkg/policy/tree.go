@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-// Overall policy tree
+// Tree overall policy tree.
 type Tree struct {
 	Root  *Node
 	Mutex sync.RWMutex

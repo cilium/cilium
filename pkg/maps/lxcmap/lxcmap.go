@@ -197,7 +197,7 @@ func (m *LXCMap) DeleteElement(ep *endpoint.Endpoint) error {
 	return err
 }
 
-// Open the endpoint map
+// OpenMap opens the endpoint map.
 func OpenMap() (*LXCMap, error) {
 	path := bpf.MapPath(MapName)
 

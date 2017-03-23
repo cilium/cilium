@@ -18,7 +18,7 @@ import (
 	"net"
 )
 
-// binary representation for encoding in binary structs
+// IPv6 is the binary representation for encoding in binary structs.
 type IPv6 [16]byte
 
 func (v6 IPv6) IP() net.IP {

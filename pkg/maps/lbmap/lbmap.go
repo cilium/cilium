@@ -27,11 +27,11 @@ const (
 	// Maximum number of entries in each hashtable
 	maxEntries   = 65536
 	maxFrontEnds = 256
-	// Used by daemon for generating bpf define LB_RR_MAX_SEQ.
+	// MaxSeq is used by daemon for generating bpf define LB_RR_MAX_SEQ.
 	MaxSeq = 31
 )
 
-// Interface describing protocol independent key for services map
+// ServiceKey is the interface describing protocol independent key for services map.
 type ServiceKey interface {
 	bpf.MapKey
 
@@ -63,7 +63,7 @@ type ServiceKey interface {
 	Convert() ServiceKey
 }
 
-// Interface describing protocol independent value for services map
+// ServiceValue is the interface describing protocol independent value for services map.
 type ServiceValue interface {
 	bpf.MapValue
 

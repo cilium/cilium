@@ -255,14 +255,14 @@ func (e *Endpoint) regenerateLocked(owner Owner) error {
 	return err
 }
 
-// Force regeneration of endpoint programs & policy
+// Regenerate forces the regeneration of endpoint programs & policy.
 func (e *Endpoint) Regenerate(owner Owner) error {
 	return e.regenerateLocked(owner)
 }
 
-// Called to indicate that a policy change is likely to affect this endpoint.
-// Will update all required endpoint configuration and state to reflect new
-// policy and regenerate programs if required.
+// TriggerPolicyUpdates indicates that a policy change is likely to
+// affect this endpoint. Will update all required endpoint configuration and
+// state to reflect new policy and regenerate programs if required.
 func (e *Endpoint) TriggerPolicyUpdates(owner Owner) error {
 	if e.Consumable == nil {
 		return nil

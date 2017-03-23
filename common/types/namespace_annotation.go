@@ -17,13 +17,13 @@ package types
 type IngressIsolationPolicy string
 
 const (
-	// Deny all ingress traffic to pods in this namespace. Ingress means
+	// DefaultDeny denies all ingress traffic to pods in this namespace. Ingress means
 	// any incoming traffic to pods, whether that be from other pods within this namespace
 	// or any source outside of this namespace.
 	DefaultDeny IngressIsolationPolicy = "DefaultDeny"
 )
 
-// Standard NamespaceSpec object, modified to include a new
+// NamespaceSpec is the standard namespace object, modified to include a new
 // NamespaceNetworkPolicy field.
 type NamespaceSpec struct {
 	// This is a pointer so that it can be left undefined.
@@ -38,8 +38,8 @@ type NamespaceNetworkPolicy struct {
 	Ingress *NamespaceIngressPolicy `json:"ingress,omitempty"`
 }
 
-// Configuration for ingress to pods within this namespace.
-// For now, this only supports specifying an isolation policy.
+// NamespaceIngressPolicy is the configuration for ingress to pods within this
+// namespace. For now, this only supports specifying an isolation policy.
 type NamespaceIngressPolicy struct {
 	// The isolation policy to apply to pods in this namespace.
 	// Currently this field only supports "DefaultDeny", but could

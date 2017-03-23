@@ -52,12 +52,12 @@ func configureTransport(tr *http.Transport, proto, addr string) *http.Transport 
 	return tr
 }
 
-// Create client with default parameters connecting to UNIX domain socket
+// NewDefaultClient creates a client with default parameters connecting to UNIX domain socket.
 func NewDefaultClient() (*Client, error) {
 	return NewClient("")
 }
 
-// Create client
+// NewClient creates a client for the given `host`.
 func NewClient(host string) (*Client, error) {
 	if host == "" {
 		// Check if environment variable points to socket

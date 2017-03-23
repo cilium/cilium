@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// Get security identity
+// IdentityGet returns a security identity.
 func (c *Client) IdentityGet(id string) (*models.Identity, error) {
 	params := policy.NewGetIdentityIDParams().WithID(id)
 

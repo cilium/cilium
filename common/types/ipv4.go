@@ -18,7 +18,7 @@ import (
 	"net"
 )
 
-// binary representation for encoding in binary structs
+// IPv4 is the binary representation for encoding in binary structs.
 type IPv4 [4]byte
 
 func (v4 IPv4) IP() net.IP {

@@ -113,14 +113,15 @@ type Label struct {
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
 
-// Marks all labels with the DeletionMark
+// MarkAllForDeletion marks all the labels with the DeletionMark.
 func (l Labels) MarkAllForDeletion() {
 	for k := range l {
 		l[k].DeletionMark = true
 	}
 }
 
-// Deletes the labels which have the DeletionMark set and returns true if any
+// DeleteMarked deletes the labels which have the DeletionMark set and returns
+// true if any of them were deleted.
 func (l Labels) DeleteMarked() bool {
 	deleted := false
 	for k := range l {
@@ -379,7 +380,7 @@ func (l Labels) sortedList() []byte {
 	return []byte(result)
 }
 
-/// ToSlice returns a slice of label with the values of the given Labels' map.
+// ToSlice returns a slice of label with the values of the given Labels' map.
 func (l Labels) ToSlice() []Label {
 	labels := []Label{}
 	for _, v := range l {
@@ -388,7 +389,7 @@ func (l Labels) ToSlice() []Label {
 	return labels
 }
 
-/// LabelSlice2LabelsMap returns a Labels' map with all labels from the given slice of
+// LabelSlice2LabelsMap returns a Labels' map with all labels from the given slice of
 // label.
 func LabelSlice2LabelsMap(lbls []Label) Labels {
 	labels := Labels{}

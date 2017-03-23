@@ -110,7 +110,7 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	return UNDECIDED
 }
 
-// Allow the following consumers
+// RuleConsumers allows the following consumers.
 type RuleConsumers struct {
 	Coverage []labels.Label `json:"coverage,omitempty"`
 	Allow    []AllowRule    `json:"allow"`

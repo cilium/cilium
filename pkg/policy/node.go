@@ -504,7 +504,7 @@ func (n *Node) ResolveL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 	return result
 }
 
-// Returns true if a node has any rules attached or at least one child
+// HasRules returns true if a node has any rules attached or at least one child.
 func (n *Node) HasRules() bool {
 	return (n.Children != nil && len(n.Children) > 0) || len(n.Rules) > 0
 }

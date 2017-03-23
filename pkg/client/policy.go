@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// Modify a node in the policy tree
+// PolicyPut inserts the `policyJSON` into the given `path`.
 func (c *Client) PolicyPut(path string, policyJSON string) (string, error) {
 	params := policy.NewPutPolicyPathParams().WithPath(path).WithPolicy(&policyJSON)
 	resp, err := c.Policy.PutPolicyPath(params)
@@ -29,7 +29,7 @@ func (c *Client) PolicyPut(path string, policyJSON string) (string, error) {
 	return string(resp.Payload), nil
 }
 
-// Get policy tree or subtree
+// PolicyGet returns a policy tree or subtree.
 func (c *Client) PolicyGet(path string) (string, error) {
 	if path == "" {
 		resp, err := c.Policy.GetPolicy(nil)
@@ -46,14 +46,14 @@ func (c *Client) PolicyGet(path string) (string, error) {
 	return string(resp.Payload), nil
 }
 
-// Delete a node in the policy tree
+// PolicyDelete returns a node in the policy tree.
 func (c *Client) PolicyDelete(path string) error {
 	params := policy.NewDeletePolicyPathParams().WithPath(path)
 	_, err := c.Policy.DeletePolicyPath(params)
 	return err
 }
 
-// Resolve policy for a context with source and destination identity
+// PolicyResolveGet resolves policy for a context with source and destination identity.
 func (c *Client) PolicyResolveGet(context *models.IdentityContext) (*models.PolicyTraceResult, error) {
 	params := policy.NewGetPolicyResolveParams().WithIdentityContext(context)
 	resp, err := c.Policy.GetPolicyResolve(params)

@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// Get daemon configuration
+// ConfigGet returns a daemon configuration.
 func (c *Client) ConfigGet() (*models.DaemonConfigurationResponse, error) {
 	resp, err := c.Daemon.GetConfig(nil)
 	if err != nil {
@@ -28,7 +28,7 @@ func (c *Client) ConfigGet() (*models.DaemonConfigurationResponse, error) {
 	return resp.Payload, nil
 }
 
-// Modify daemon configuration
+// ConfigPatch modifies the daemon configuration.
 func (c *Client) ConfigPatch(cfg models.ConfigurationMap) error {
 	params := daemon.NewPatchConfigParams().WithConfiguration(cfg)
 	_, err := c.Daemon.PatchConfig(params)

@@ -28,7 +28,7 @@ var (
 	log = logging.MustGetLogger("cilium-policy")
 )
 
-// Available privileges for policy nodes to define
+// Privilege represents the privileges available to define for a policy node.
 type Privilege byte
 
 const (

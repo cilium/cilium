@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
-// An entity that consumes a Consumable
+// Consumer is the entity that consumes a Consumable.
 type Consumer struct {
 	ID           NumericIdentity
 	Reverse      *Consumer
@@ -47,7 +47,7 @@ func NewConsumer(id NumericIdentity) *Consumer {
 	return &Consumer{ID: id, Decision: ACCEPT}
 }
 
-// An entity that is being consumed by a Consumable
+// Consumable is the entity that is being consumed by a Consumable.
 type Consumable struct {
 	ID           NumericIdentity               `json:"id"`
 	Iteration    int                           `json:"-"`

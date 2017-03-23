@@ -77,7 +77,7 @@ func (s *LBSVC) GetModel() *models.Service {
 // and the value the LBSVC.
 type SVCMap map[string]LBSVC
 
-// Maps service IDs to service structures
+// SVCMapID maps service IDs to service structures.
 type SVCMapID map[ServiceID]*LBSVC
 
 // RevNATMap is a map of the daemon's RevNATs.
@@ -97,7 +97,7 @@ type LoadBalancer struct {
 	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo
 }
 
-// Add service to list of loadbalancers and return true if created
+// AddService adds a service to list of loadbalancers and returns true if created.
 func (lb *LoadBalancer) AddService(svc LBSVC) bool {
 	oldSvc, ok := lb.SVCMapID[svc.FE.ID]
 	if ok {

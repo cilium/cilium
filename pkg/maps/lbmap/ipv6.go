@@ -44,7 +44,7 @@ var (
 		maxFrontEnds)
 )
 
-// Must match 'struct lb6_key' in "bpf/lib/common.h"
+// Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".
 type Service6Key struct {
 	Address types.IPv6
 	Port    uint16
@@ -89,7 +89,7 @@ func (k *Service6Key) RevNatValue() RevNatValue {
 	}
 }
 
-// Must match 'struct lb6_service' in "bpf/lib/common.h"
+// Service6Value must match 'struct lb6_service' in "bpf/lib/common.h".
 type Service6Value struct {
 	Address types.IPv6
 	Port    uint16

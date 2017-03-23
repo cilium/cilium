@@ -24,7 +24,7 @@ const (
 	AddressFamilyIPv4 = "ipv4"
 )
 
-// Allocate IP address out of address family specific pool
+// IPAMAllocate allocates an IP address out of address family specific pool.
 func (c *Client) IPAMAllocate(family string) (*models.IPAM, error) {
 	params := ipam.NewPostIPAMParams()
 
@@ -39,14 +39,14 @@ func (c *Client) IPAMAllocate(family string) (*models.IPAM, error) {
 	return resp.Payload, nil
 }
 
-// Try to allocate a particular IP address
+// IPAMAllocateIP tries to allocate a particular IP address.
 func (c *Client) IPAMAllocateIP(ip string) error {
 	params := ipam.NewPostIPAMIPParams().WithIP(ip)
 	_, err := c.IPAM.PostIPAMIP(params)
 	return err
 }
 
-// Release an IP address back to the pool
+// IPAMReleaseIP releases a IP address back to the pool.
 func (c *Client) IPAMReleaseIP(ip string) error {
 	params := ipam.NewDeleteIPAMIPParams().WithIP(ip)
 	_, err := c.IPAM.DeleteIPAMIP(params)
