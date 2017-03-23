@@ -39,7 +39,7 @@ const (
 	MaxSetOfLabels = uint32(0xFFFF)
 	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in consul.
 	LastFreeServiceIDKeyPath = OperationalPath + "/Services/LastUUID"
-	// ServiceKeyPath is the base path where services are stored in consul.
+	// ServicesKeyPath is the base path where services are stored in consul.
 	ServicesKeyPath = OperationalPath + "/Services/SHA256SUMServices"
 	// ServiceIDKeyPath is the base path where the IDs are stored in consul.
 	ServiceIDKeyPath = OperationalPath + "/Services/IDs"
@@ -68,11 +68,11 @@ const (
 	// K8sAnnotationParentName is the annotation name used for the cilium policy
 	// parent name in the kubernetes network policy.
 	K8sAnnotationParentName = "io.cilium.parent"
-	// K8s environment variable label
+	// K8sEnvNodeNameSpec is the environment variable label.
 	K8sEnvNodeNameSpec = "K8S_NODE_NAME"
-	// Label source for reserved types
+	// ReservedLabelSource is the label source for reserved types.
 	ReservedLabelSource = "reserved"
-	// Label used to represent the reserved source
+	// ReservedLabelKey is the label used to represent the reserved source.
 	ReservedLabelKey = "io.cilium." + ReservedLabelSource
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
 	// represent the same number of IPv6 addresses supported on each node.
@@ -85,7 +85,7 @@ const (
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "lxc_config.h"
-	// Name of the header file used for bpf_netdev.c and bpf_overlay.c
+	// NetdevHeaderFileName is the name of the header file used for bpf_netdev.c and bpf_overlay.c.
 	NetdevHeaderFileName = "netdev_config.h"
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
