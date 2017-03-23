@@ -26,13 +26,6 @@ import (
 
 type IPAMType string
 
-const (
-	// CNIIPAMType used by daemon.
-	CNIIPAMType IPAMType = "cni-host-local"
-	// LibnetworkIPAMType is unused.
-	LibnetworkIPAMType IPAMType = "libnetwork"
-)
-
 // IPAMConfig is the IPAM configuration used for a particular IPAM type.
 type IPAMConfig struct {
 	IPAMConfig     hb.IPAMConfig
