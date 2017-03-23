@@ -20,7 +20,7 @@ import (
 	pkgEndpoint "github.com/cilium/cilium/pkg/endpoint"
 )
 
-// Get list of endpoints
+// EndpointList returns list of endpoints
 func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 	resp, err := c.Endpoint.GetEndpoint(nil)
 	if err != nil {
@@ -29,7 +29,7 @@ func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 	return resp.Payload, nil
 }
 
-// Get endpoint by ID
+// EndpointGet returns endpoint by ID
 func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 	params := endpoint.NewGetEndpointIDParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointID(params)
@@ -39,7 +39,7 @@ func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 	return resp.Payload, nil
 }
 
-// Create endpoint
+// EndpointCreate creates a new endpoint
 func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
 	id := pkgEndpoint.NewCiliumID(ep.ID)
 	params := endpoint.NewPutEndpointIDParams().WithID(id).WithEndpoint(ep)
@@ -47,21 +47,21 @@ func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
 	return err
 }
 
-// Modify endpoint
+// EndpointPatch modifies the endpoint
 func (c *Client) EndpointPatch(id string, ep *models.EndpointChangeRequest) error {
 	params := endpoint.NewPatchEndpointIDParams().WithID(id).WithEndpoint(ep)
 	_, err := c.Endpoint.PatchEndpointID(params)
 	return err
 }
 
-// Delete endpoint
+// EndpointDelete deletes endpoint
 func (c *Client) EndpointDelete(id string) error {
 	params := endpoint.NewDeleteEndpointIDParams().WithID(id)
 	_, _, err := c.Endpoint.DeleteEndpointID(params)
 	return err
 }
 
-// Get endpoint configuration
+// EndpointConfigGet returns endpoint configuration
 func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 	params := endpoint.NewGetEndpointIDConfigParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointIDConfig(params)
@@ -71,7 +71,7 @@ func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 	return resp.Payload, nil
 }
 
-// Modify endpoint configuration
+// EndpointConfigPatch modifies endpoint configuration
 func (c *Client) EndpointConfigPatch(id string, cfg models.ConfigurationMap) error {
 	params := endpoint.NewPatchEndpointIDConfigParams().WithID(id)
 	if cfg != nil {
@@ -82,7 +82,7 @@ func (c *Client) EndpointConfigPatch(id string, cfg models.ConfigurationMap) err
 	return err
 }
 
-// Get endpoint label configuration
+// EndpointLabelsGet returns endpoint label configuration
 func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error) {
 	params := endpoint.NewGetEndpointIDLabelsParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointIDLabels(params)
@@ -92,7 +92,7 @@ func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error
 	return resp.Payload, nil
 }
 
-// Modify endpoint label configuration
+// EndpointLabelsPut modifies endpoint label configuration
 func (c *Client) EndpointLabelsPut(id string, cfg *models.LabelConfigurationModifier) error {
 	params := endpoint.NewPutEndpointIDLabelsParams().WithID(id)
 	_, err := c.Endpoint.PutEndpointIDLabels(params.WithConfiguration(cfg))
