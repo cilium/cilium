@@ -2,8 +2,8 @@
 
 . $(dirname ${BASH_SOURCE})/../../contrib/shell/util.sh
 
-CLIENT_LABEL="io.cilium.client"
-SERVER_LABEL="io.cilium.server"
+CLIENT_LABEL="id.client"
+SERVER_LABEL="id.server"
 
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 
@@ -26,7 +26,7 @@ run "docker exec -ti client ping6 -c 4 $SERVER_IP"
 
 clear
 desc "Packets get dropped due to policy denial. Trace the policy decision"
-run "cilium policy allowed -s $CLIENT_LABEL -d $SERVER_LABEL"
+run "cilium policy trace -s $CLIENT_LABEL -d $SERVER_LABEL"
 
 desc "No policy has been loaded, import it."
 run "cat $(relative policy.json)"
@@ -34,7 +34,7 @@ run "cilium policy import $(relative policy.json)"
 
 clear
 desc "Trace policy again"
-run "cilium policy allowed -s $CLIENT_LABEL -d $SERVER_LABEL"
+run "cilium policy trace -s $CLIENT_LABEL -d $SERVER_LABEL"
 
 desc "Ping should now work as expected"
 run "docker exec -ti client ping6 -c 4 $SERVER_IP"

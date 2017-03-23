@@ -21,11 +21,8 @@ desc "Wait until the redis-master's service is ready"
 run "${dir}/../../tests/wait-for-docker.bash k8s_redis-master 100"
 desc "Success!"
 desc ""
-desc "LB and rev-nat maps were automatically created and updated"
-desc "Services"
-run "sudo cilium lb dump-service"
-desc "Reverse NAT"
-run "sudo cilium lb dump-rev-nat"
+desc "List the services which have been installed"
+run "sudo cilium service list"
 
 containerID=$(docker ps -aq --filter=name=k8s_guestbook)
 desc "Ping will not work because we are not load balancing ICMP messages for the redis-master service"
