@@ -33,5 +33,7 @@ all:
 
 endif
 
+install:
+
 clean:
 	rm -fr *.o
