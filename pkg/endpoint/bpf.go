@@ -47,7 +47,14 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 		}
 
 		dport := common.Swab16(uint16(l4.Port))
-		redirect := uint16(0)
+
+		redirect := uint16(l4.RedirectPort)
+		if l4.IsRedirect() && redirect == 0 {
+			redirect, err = e.addRedirect(owner, &l4)
+			if err != nil {
+				return err
+			}
+		}
 
 		redirect = common.Swab16(redirect)
 		entry := fmt.Sprintf("{%d,%d,%d}", dport, redirect, protoNum)

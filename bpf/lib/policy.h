@@ -19,7 +19,6 @@
 #define __LIB_POLICY_H_
 
 #include "drop.h"
-#include "conntrack.h"
 
 #ifdef POLICY_ENFORCEMENT
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)

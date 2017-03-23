@@ -38,6 +38,8 @@ const (
 	DbgCaptureFromLb
 	DbgCaptureAfterV46
 	DbgCaptureAfterV64
+	DbgCaptureProxyPre
+	DbgCaptureProxyPost
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -79,6 +81,10 @@ const (
 	DbgLb4LoopbackSnatRev
 	DbgCtLookup4
 	DbgRRSlaveSel
+	DbgRevProxyLookup
+	DbgRevProxyFound
+	DbgRevProxyUpdate
+	DbgL4Policy
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -108,6 +114,12 @@ func ctState(state uint32) string {
 func ctInfo(arg1 uint32, arg2 uint32) string {
 	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
 		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
+}
+
+func proxyInfo(arg1 uint32, arg2 uint32) string {
+	sport := common.Swab16(uint16(arg1 >> 16))
+	dport := common.Swab16(uint16(arg1 & 0xFFFF))
+	return fmt.Sprintf("sport=%d dport=%d saddr=%x", sport, dport, arg2)
 }
 
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
@@ -192,6 +204,14 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Loopback SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
 	case DbgLb4LoopbackSnatRev:
 		fmt.Printf("Loopback reverse SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
+	case DbgRevProxyLookup:
+		fmt.Printf("Reverse proxy lookup, %s\n", proxyInfo(n.Arg1, n.Arg2))
+	case DbgRevProxyFound:
+		fmt.Printf("Reverse proxy entry found, orig-daddr=%x orig-dport=%d\n", n.Arg1, n.Arg2)
+	case DbgRevProxyUpdate:
+		fmt.Printf("Reverse proxy updated, %s\n", proxyInfo(n.Arg1, n.Arg2))
+	case DbgL4Policy:
+		fmt.Printf("Resolved L4 policy to: %d / %d\n", common.Swab16(uint16(n.Arg1)), n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
@@ -232,6 +252,10 @@ func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
 		fmt.Printf("Packet after nat46 ifindex %d\n", n.Arg1)
 	case DbgCaptureAfterV64:
 		fmt.Printf("Packet after nat64 ifindex %d\n", n.Arg1)
+	case DbgCaptureProxyPre:
+		fmt.Printf("Packet to proxy port %d (Pre)\n", common.Swab16(uint16(n.Arg1)))
+	case DbgCaptureProxyPost:
+		fmt.Printf("Packet to proxy port %d (Post)\n", common.Swab16(uint16(n.Arg1)))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}

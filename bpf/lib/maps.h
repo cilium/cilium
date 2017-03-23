@@ -61,4 +61,13 @@ struct bpf_elf_map __section_maps cilium_calls = {
 	.max_elem	= CILIUM_CALL_SIZE,
 };
 
+struct bpf_elf_map __section_maps cilium_proxy4 = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct proxy4_tbl_key),
+	.size_value	= sizeof(struct proxy4_tbl_value),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 8192,
+};
+
+
 #endif

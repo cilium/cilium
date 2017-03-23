@@ -128,7 +128,8 @@ struct l4_allow
 	/* Allowed destination port number */
 	__u16 port;
 
-	__u16 unused;
+	/* If defined, will redirect all traffic to this proxy port */
+	__u16 proxy;
 
 	/* Allowed nexthdr (IPPROTO_ICMP, IPPROTO_TCP, IPPROTO_UDP) */
 	__u8 nexthdr;
@@ -152,7 +153,7 @@ static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
 		if (allowed[i].port && allowed[i].port != dport)
 			continue;
 
-		return 1;
+		return allowed[i].proxy;
 	}
 
 	return DROP_POLICY_L4;
@@ -173,7 +174,7 @@ static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
 		if (allowed[i].port && allowed[i].port != dport)
 			continue;
 
-		return 1;
+		return allowed[i].proxy;
 	}
 
 	return DROP_POLICY_L4;
