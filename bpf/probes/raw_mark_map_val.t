@@ -1,4 +1,4 @@
-/* Tests for availability of kernel commits (4.9/stable, 4.10+):
+/* Tests for availability of kernel commits (4.9.17+):
  *
  * 6760bf2ddde8 ("bpf: fix mark_reg_unknown_value for spilled regs on map value marking")
  * a08dd0da5307 ("bpf: fix regression on verifier pruning wrt map lookups")
@@ -34,8 +34,5 @@
 			"with map value after bpf_map_lookup_elem(). Some "
 			"clang versions might generate code that spills such "
 			"registers to stack before a NULL test. Recommendation "
-			"is to run 4.10+ kernels.",
-			/* Note: Expected to be in 4.9.17 or 4.9.18. Once that
-			 * is released, we can upgrade the warning message.
-			 */
+			"is to run 4.9.17+ kernels.",
 	},
