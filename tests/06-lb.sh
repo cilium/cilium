@@ -21,7 +21,7 @@ TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
 function cleanup {
-	docker rm -f server1 server2 client wrk ab 2> /dev/null || true
+	docker rm -f server1 server2 client misc bomb 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
 	ip link del lbtest1 2> /dev/null || true
 }
@@ -212,7 +212,7 @@ ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
 ip route add 2.2.2.2/32 via 3.3.3.3 src $SRC
 
 ip link set lbtest2 up
-LIB=/var/run/cilium/bpf
+LIB=/var/lib/cilium/bpf
 RUN=/var/run/cilium
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
@@ -371,48 +371,44 @@ cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 			--backends "$SERVER1_IP4:80" \
 			--backends "$SERVER2_IP4:80"
 
-
 #cilium config Debug=false DropNotification=false
 #cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
 #cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
 
-docker run -dt --net=$TEST_NET --name wrk -l id.client --entrypoint sleep skandyla/wrk 100000s
-docker run -dt --net=$TEST_NET --name ab -l id.client jordi/ab sleep 100000s
+docker run -dt --net=$TEST_NET --name misc -l id.client --entrypoint sleep borkmann/misc   100000s
+docker run -dt --net=$TEST_NET --name bomb -l id.client --entrypoint sleep waja/bombardier 100000s
 
 sleep 2
 
-docker exec -i wrk wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
+docker exec -i misc wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
 }
 
-docker exec -i wrk wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/" || {
+docker exec -i misc wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-# With HTTP KeepAlive.
-docker exec -i ab ab -r -n 1000000 -k -c 200 -v 1 "http://[$SVC_IP6]/" || {
+docker exec -i bomb bombardier -c 200 -n 1000000 "http://[$SVC_IP6]:80/" || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
 }
 
-docker exec -i ab ab -r -n 1000000 -k -c 200 -v 1 "http://$SVC_IP4/" || {
+docker exec -i bomb bombardier -c 200 -n 1000000 "http://$SVC_IP4:80/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-# Without HTTP KeepAlive.
-docker exec -i ab ab -r -n 1000000 -c 20 -v 1 "http://[$SVC_IP6]/" || {
+docker exec -i bomb bombardier -l -c 1000 -n 1000000 "http://[$SVC_IP6]:80/" || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
 }
 
-docker exec -i ab ab -r -n 1000000 -c 20 -v 1 "http://$SVC_IP4/" || {
+docker exec -i bomb bombardier -l -c 1000 -n 1000000 "http://$SVC_IP4:80/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-# Without HTTP KeepAlive, 200 concurrent.
-docker exec -i ab ab -r -n 1000000 -c 200 -v 1 "http://[$SVC_IP6]/" || {
+docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://[$SVC_IP6]/" || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
 }
 
-docker exec -i ab ab -r -n 1000000 -c 200 -v 1 "http://$SVC_IP4/" || {
+docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://$SVC_IP4/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
