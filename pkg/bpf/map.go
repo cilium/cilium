@@ -49,6 +49,8 @@ const (
 	MapTypeLRUHash
 	MapTypeLRUPerCPUHash
 	MapTypeLPMTrie
+	MapTypeArrayOfMaps
+	MapTypeHashOfMaps
 )
 
 func (t MapType) String() string {
@@ -75,6 +77,10 @@ func (t MapType) String() string {
 		return "LRU per-CPU hash"
 	case MapTypeLPMTrie:
 		return "Longest prefix match trie"
+	case MapTypeArrayOfMaps:
+		return "Array of maps"
+	case MapTypeHashOfMaps:
+		return "Hash of maps"
 	}
 
 	return "Unknown"
