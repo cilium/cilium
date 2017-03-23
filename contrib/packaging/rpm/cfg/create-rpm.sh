@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
 
-envsubst \\\$VERSION < cilium.spec > cilium.spec
-fedpkg --dist f24 local
+cd /root
+source envs
+envsubst < cilium.spec.envsubst > cilium.spec
+fedpkg --release f25 local
