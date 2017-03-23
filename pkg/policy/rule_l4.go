@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/u8proto"
+
+	"github.com/vulcand/route"
 )
 
 type AuxRule struct {
@@ -32,10 +34,16 @@ type AuxRule struct {
 }
 
 type L4Filter struct {
-	Port     int       `json:"port,omitempty"`
-	Protocol string    `json:"protocol,omitempty"`
-	Redirect string    `json:"redirect,omitempty"`
-	Rules    []AuxRule `json:"rules,omitempty"`
+	Port         int       `json:"port,omitempty"`
+	Protocol     string    `json:"protocol,omitempty"`
+	Redirect     string    `json:"redirect,omitempty"`
+	RedirectPort int       `json:"redirect-port,omitempty"`
+	Rules        []AuxRule `json:"rules,omitempty"`
+}
+
+// IsRedirect returns true if the L4 filter contains a port redirection
+func (l4 *L4Filter) IsRedirect() bool {
+	return l4.Redirect != ""
 }
 
 func (l4 *L4Filter) String() string {
@@ -48,10 +56,11 @@ func (l4 *L4Filter) String() string {
 
 func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 	var l4filter struct {
-		Port     int       `json:"port,omitempty"`
-		Protocol string    `json:"protocol,omitempty"`
-		Redirect string    `json:"redirect,omitempty"`
-		Rules    []AuxRule `json:"rules,omitempty"`
+		Port         int       `json:"port,omitempty"`
+		Protocol     string    `json:"protocol,omitempty"`
+		Redirect     string    `json:"redirect,omitempty"`
+		RedirectPort int       `json:"redirect-port,omitempty"`
+		Rules        []AuxRule `json:"rules,omitempty"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
@@ -65,9 +74,18 @@ func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	for _, r := range l4filter.Rules {
+		if !route.IsValid(r.Expr) {
+			return fmt.Errorf("invalid filter expression: %s", r.Expr)
+		}
+
+		log.Debugf("Valid L7 rule: %s\n", r.Expr)
+	}
+
 	l4.Port = l4filter.Port
 	l4.Protocol = l4filter.Protocol
 	l4.Redirect = l4filter.Redirect
+	l4.RedirectPort = l4filter.RedirectPort
 	l4.Rules = make([]AuxRule, len(l4filter.Rules))
 	copy(l4.Rules, l4filter.Rules)
 
@@ -163,6 +181,18 @@ func (l4 *RuleL4) CoverageSHA256Sum() (string, error) {
 
 type L4PolicyMap map[string]L4Filter
 
+// HasRedirect returns true if at least one L4 filter contains a port
+// redirection
+func (l4 L4PolicyMap) HasRedirect() bool {
+	for _, f := range l4 {
+		if f.IsRedirect() {
+			return true
+		}
+	}
+
+	return false
+}
+
 type L4Policy struct {
 	// key format: "proto:port"
 	Ingress L4PolicyMap
@@ -174,6 +204,11 @@ func NewL4Policy() *L4Policy {
 		Ingress: make(L4PolicyMap),
 		Egress:  make(L4PolicyMap),
 	}
+}
+
+// HasRedirect returns true if the L4 policy contains at least one port redirection
+func (l4 *L4Policy) HasRedirect() bool {
+	return l4 != nil && (l4.Ingress.HasRedirect() || l4.Egress.HasRedirect())
 }
 
 // RequiresConntrack returns true if if the L4 configuration requires

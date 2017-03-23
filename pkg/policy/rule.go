@@ -15,6 +15,10 @@
 package policy
 
 type PolicyRule interface {
+	// Must return the consumable decision of this rule if the rule
+	// covers the search context in question.
+	//
+	// Rules unrelated to identity policy must return UNDECIDED
 	Resolve(node *Node) error
 	SHA256Sum() (string, error)
 	CoverageSHA256Sum() (string, error)
