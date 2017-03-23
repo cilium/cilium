@@ -5,7 +5,7 @@ source "./helpers.bash"
 set -e
 
 TEST_NET="cilium"
-NETPERF_IMAGE="noironetworks/netperf"
+NETPERF_IMAGE="tgraf/netperf"
 TEST_TIME=30
 
 # Only run these tests if BENCHMARK=1 has been set

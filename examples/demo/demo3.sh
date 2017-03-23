@@ -19,8 +19,8 @@ cilium policy delete .
 
 desc "How to debug a connectivity issue?"
 desc "Start client and server containers"
-run "docker run -d --net cilium --name server -l $SERVER_LABEL noironetworks/netperf"
-run "docker run -d --net cilium --name client -l $CLIENT_LABEL noironetworks/netperf"
+run "docker run -d --net cilium --name server -l $SERVER_LABEL tgraf/netperf"
+run "docker run -d --net cilium --name client -l $CLIENT_LABEL tgraf/netperf"
 sleep 2
 
 SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')

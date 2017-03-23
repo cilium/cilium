@@ -15,7 +15,7 @@ trap cleanup EXIT
 
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
-NETPERF_IMAGE="noironetworks/netperf"
+NETPERF_IMAGE="tgraf/netperf"
 
 monitor_start
 

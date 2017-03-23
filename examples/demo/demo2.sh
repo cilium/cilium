@@ -25,7 +25,7 @@ desc "thus creating a single flat network. Isolation can then be defined based o
 run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK"
 
 desc "Start a container with label $SERVER_LABEL"
-run "docker run -d --net cilium --name server -l $SERVER_LABEL noironetworks/netperf"
+run "docker run -d --net cilium --name server -l $SERVER_LABEL tgraf/netperf"
 sleep 3
 
 desc "List local endpoints"
@@ -48,7 +48,7 @@ desc "Ping from local node to server container now succeeds"
 run "ping6 -c 2 $SERVER_IP"
 
 desc "Start another container with label $CLIENT_LABEL"
-run "docker run -d --net cilium --name client -l $CLIENT_LABEL noironetworks/netperf"
+run "docker run -d --net cilium --name client -l $CLIENT_LABEL tgraf/netperf"
 sleep 3
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)

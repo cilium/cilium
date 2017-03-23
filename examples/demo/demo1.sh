@@ -21,7 +21,7 @@ desc "thus creating a single flat network. Isolation can then be defined based o
 run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK"
 
 desc "Start a container"
-run "docker run -d --net cilium --name demo1 -l $CLIENT_LABEL noironetworks/netperf"
+run "docker run -d --net cilium --name demo1 -l $CLIENT_LABEL tgraf/netperf"
 
 desc "Examine network configuration of container"
 desc "The container was allocated a unique IPv6 address from the node prefix"
