@@ -1,0 +1,12 @@
+{
+        "name": "root",
+	"rules": [{
+		"coverage": ["id.empire.deathstar"],
+		"allow": ["id.spaceship"]
+	},{
+		"coverage": ["id.empire.deathstar"],
+		"l4": [{
+			"in-ports": [{ "port": 80, "protocol": "tcp" }]
+		}]
+	}]
+}
