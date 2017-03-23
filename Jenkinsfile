@@ -2,6 +2,9 @@ pipeline {
     agent {
         label 'vagrant'
     }
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+    }
     stages {
         stage('Build') {
             environment {
