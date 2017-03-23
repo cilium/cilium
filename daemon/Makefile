@@ -14,10 +14,20 @@ clean:
 	rm -f $(TARGET)
 	go clean
 
+ifeq ("$(PKG_BUILD)","")
+
 install:
 	groupadd -f cilium
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+else
+
+install:
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+endif
 
 .PHONY: check-bindata
 check-bindata:

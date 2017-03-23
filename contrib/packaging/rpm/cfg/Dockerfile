@@ -1,24 +1,14 @@
-FROM fedora:24
+FROM fedora:25
 
-LABEL maintainer "Andre Martins <andre@cilium.io>"
+LABEL "Maintainer: Marcin Skarbek <marcin@skarbek.name>"
 
-RUN dnf install -y gettext curl gcc fedora-packager fedora-review && \
-cd /tmp && \
-curl -Sslk -o go1.7.4.linux-amd64.tar.gz \
-https://storage.googleapis.com/golang/go1.7.4.linux-amd64.tar.gz && \
-tar -C /usr/local -xzf go1.7.4.linux-amd64.tar.gz && \
-rm -f go1.7.4.linux-amd64.tar.gz
+RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf &&\
+    curl -o /etc/yum.repos.d/mskarbek-golang-for-cilium-fedora-25.repo https://copr.fedorainfracloud.org/coprs/mskarbek/golang-for-cilium/repo/fedora-25/mskarbek-golang-for-cilium-fedora-25.repo &&\
+    dnf -y update &&\
+    dnf -y install fedora-packager fedora-review golang gettext &&\
+    dnf -y install glibc-devel.i686 &&\
+    dnf clean all
 
-ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
+ADD . /root
 
-WORKDIR /tmp/cilium-net-build/src/github.com/cilium/cilium
-
-RUN rpmdev-setuptree && \
-export VERSION_PATH="cilium_$(cat VERSION)" && \
-export DESTDIR="~/rpmbuild/" && \
-export GOPATH=/tmp/cilium-net-build && \
-export GOROOT=/usr/local/go && \
-export PATH="$GOROOT/bin:$PATH" && \
-export PKG_BUILD=1 && \
-export VERSION="$(cat VERSION)" && \
-./create-rpm.sh
+RUN /root/create-rpm.sh
