@@ -24,6 +24,10 @@ desc "This step is only required once, all containers can be attached to the sam
 desc "thus creating a single flat network. Isolation can then be defined based on labels."
 run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK"
 
+desc "Policy enforcement is disabled by default, enable it."
+desc "Policy enforcement is also enabled as soon as you load a policy into the daemon."
+run "cilium config Policy=true"
+
 desc "Start a container with label $SERVER_LABEL"
 run "docker run -d --net cilium --name server -l $SERVER_LABEL tgraf/netperf"
 sleep 3
