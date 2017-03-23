@@ -395,7 +395,7 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 
 	ipamConf := &ipam.IPAMConfig{
 		IPAMConfig: hb.IPAMConfig{
-			Name:    string(ipam.CNIIPAMType),
+			Name:    "cilium-local-IPAM",
 			Subnet:  cniTypes.IPNet(ipamSubnets),
 			Gateway: c.NodeAddress.IPv6Address.IP(),
 			Routes: []cniTypes.Route{
