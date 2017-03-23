@@ -37,8 +37,8 @@ function init {
 }
 
 function test_run {
-	SERVER=$(node_run_quiet cilium-master 'docker run -d --net cilium -l id.server --name server noironetworks/netperf')
-	CLIENT=$(node_run_quiet cilium-node-2 'docker run -d --net cilium -l id.client --name client noironetworks/netperf')
+	SERVER=$(node_run_quiet cilium-master 'docker run -d --net cilium -l id.server --name server tgraf/netperf')
+	CLIENT=$(node_run_quiet cilium-node-2 'docker run -d --net cilium -l id.client --name client tgraf/netperf')
 	sleep 5s
 
 	SERVER_IP=$(node_run_quiet cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server" | tr -d '\r')

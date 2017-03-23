@@ -18,7 +18,7 @@ source "./helpers.bash"
 set -e
 
 TEST_NET="cilium"
-NETPERF_IMAGE="noironetworks/netperf"
+NETPERF_IMAGE="tgraf/netperf"
 
 function cleanup {
 	docker rm -f server1 server2 client wrk ab 2> /dev/null || true
@@ -231,7 +231,7 @@ docker network inspect $TEST_NET 2> /dev/null || {
 
 docker run -dt --net=$TEST_NET --name server1 -l id.server -l server1 httpd
 docker run -dt --net=$TEST_NET --name server2 -l id.server -l server2 httpd
-docker run -dt --net=$TEST_NET --name client -l id.client noironetworks/nettools
+docker run -dt --net=$TEST_NET --name client -l id.client tgraf/nettools
 
 # FIXME IPv6 DAD period
 sleep 5

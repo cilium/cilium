@@ -100,8 +100,8 @@ export CNI_PATH=`pwd`/bin
 cp "${dir}/../plugins/cilium-cni/cilium-cni" "${CNI_PATH}"
 cd scripts
 
-server_id=$(run_cni_container -d -l id.server --name cni-server noironetworks/netperf)
-client_id=$(run_cni_container -d -l id.client --name cni-client noironetworks/netperf)
+server_id=$(run_cni_container -d -l id.server --name cni-server tgraf/netperf)
+client_id=$(run_cni_container -d -l id.client --name cni-client tgraf/netperf)
 
 server_ip=$(extract_ip6 $server_id)
 server_ip4=$(extract_ip4 $server_id)
