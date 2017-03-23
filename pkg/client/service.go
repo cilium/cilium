@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// Get list of all services
+// GetServices returns a list of all services.
 func (c *Client) GetServices() ([]*models.Service, error) {
 	resp, err := c.Service.GetService(nil)
 	if err != nil {
@@ -28,7 +28,7 @@ func (c *Client) GetServices() ([]*models.Service, error) {
 	return resp.Payload, nil
 }
 
-// Get service by ID
+// GetServiceID returns a service by ID.
 func (c *Client) GetServiceID(id int64) (*models.Service, error) {
 	params := service.NewGetServiceIDParams().WithID(id)
 	resp, err := c.Service.GetServiceID(params)
@@ -38,7 +38,7 @@ func (c *Client) GetServiceID(id int64) (*models.Service, error) {
 	return resp.Payload, nil
 }
 
-// Create or update service. Returns true if service was created
+// PutServiceID creates or updates a service. Returns true if service was created.
 func (c *Client) PutServiceID(id int64, svc *models.Service) (bool, error) {
 	svc.ID = id
 	params := service.NewPutServiceIDParams().WithID(id).WithConfig(svc)
@@ -46,7 +46,7 @@ func (c *Client) PutServiceID(id int64, svc *models.Service) (bool, error) {
 	return created != nil, err
 }
 
-// Delete service
+// DeleteServiceID deletes a service by ID.
 func (c *Client) DeleteServiceID(id int64) error {
 	params := service.NewDeleteServiceIDParams().WithID(id)
 	_, err := c.Service.DeleteServiceID(params)

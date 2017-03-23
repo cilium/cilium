@@ -44,7 +44,7 @@ var (
 		maxFrontEnds)
 )
 
-// Must match 'struct lb4_key' in "bpf/lib/common.h"
+// Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
 type Service4Key struct {
 	Address types.IPv4
 	Port    uint16
@@ -93,7 +93,7 @@ func (k *Service4Key) RevNatValue() RevNatValue {
 	}
 }
 
-// Must match 'struct lb4_service' in "bpf/lib/common.h"
+// Service4Value must match 'struct lb4_service' in "bpf/lib/common.h".
 type Service4Value struct {
 	Address types.IPv4
 	Port    uint16

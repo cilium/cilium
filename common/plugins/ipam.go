@@ -22,13 +22,13 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 )
 
-// Returns the IPv6 gateway address for endpoints
+// IPv6Gateway returns the IPv6 gateway address for endpoints.
 func IPv6Gateway(addr *models.NodeAddressing) string {
 	// The host's IP is the gateway address
 	return addr.IPV6.IP
 }
 
-// Returns the IPv4 gateway address for endpoints
+// IPv4Gateway returns the IPv4 gateway address for endpoints.
 func IPv4Gateway(addr *models.NodeAddressing) string {
 	// The host's IP is the gateway address
 	return addr.IPV4.IP
@@ -39,7 +39,7 @@ type Route struct {
 	Nexthop *net.IP
 }
 
-// Sort an array of routes by mask, narrow first
+// ByMask is used to sort an array of routes by mask, narrow first.
 type ByMask []Route
 
 func (a ByMask) Len() int {
@@ -56,7 +56,7 @@ func (a ByMask) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-// Returns IPv6 routes to be installed in endpoint's networking namespace
+// IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
 func IPv6Routes(addr *models.NodeAddressing) ([]Route, error) {
 	ip := net.ParseIP(addr.IPV6.IP)
 	if ip == nil {
@@ -76,7 +76,7 @@ func IPv6Routes(addr *models.NodeAddressing) ([]Route, error) {
 	}, nil
 }
 
-// Returns IPv4 routes to be installed in endpoint's networking namespace
+// IPv4Routes returns IPv4 routes to be installed in endpoint's networking namespace.
 func IPv4Routes(addr *models.NodeAddressing) ([]Route, error) {
 	ip := net.ParseIP(addr.IPV4.IP)
 	if ip == nil {

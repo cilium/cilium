@@ -591,12 +591,12 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	return &ep, nil
 }
 
-// Return path to policy map for endpoint ID
+// PolicyMapPath returns the path to policy map for endpoint ID.
 func PolicyMapPath(id int) string {
 	return bpf.MapPath(policymap.MapName + strconv.Itoa(id))
 }
 
-// Return path to policy map of endpoint
+// PolicyMapPath returns the path to policy map of endpoint.
 func (e *Endpoint) PolicyMapPath() string {
 	return PolicyMapPath(int(e.ID))
 }
@@ -605,7 +605,7 @@ func Ct6MapPath(id int) string {
 	return bpf.MapPath(ctmap.MapName6 + strconv.Itoa(id))
 }
 
-// Return path to IPv6 connection tracking map of endpoint
+// Ct6MapPath returns the path to IPv6 connection tracking map of endpoint.
 func (e *Endpoint) Ct6MapPath() string {
 	return Ct6MapPath(int(e.ID))
 }
@@ -614,7 +614,7 @@ func Ct4MapPath(id int) string {
 	return bpf.MapPath(ctmap.MapName4 + strconv.Itoa(id))
 }
 
-// Return path to IPv4 connection tracking map of endpoint
+// Ct4MapPath returns the path to IPv4 connection tracking map of endpoint.
 func (e *Endpoint) Ct4MapPath() string {
 	return Ct4MapPath(int(e.ID))
 }
@@ -655,7 +655,7 @@ type UpdateCompilationError struct {
 
 func (e UpdateCompilationError) Error() string { return e.msg }
 
-// Updates the endpoint options and regenerates the program
+// Update modifies the endpoint options and regenerates the program.
 func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	if err := e.Opts.Validate(opts); err != nil {
 		return UpdateValidationError{err.Error()}

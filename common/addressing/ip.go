@@ -36,7 +36,8 @@ type CiliumIP interface {
 
 type CiliumIPv6 []byte
 
-// - Be an IPv6 address
+// NewCiliumIPv6 returns a IPv6 if the given `address` is:
+// - An IPv6 address.
 // - Node ID, bits from 112 to 120, must be different than 0
 // - Endpoint ID, bits from 120 to 128, must be equal to 0
 func NewCiliumIPv6(address string) (CiliumIPv6, error) {
@@ -68,7 +69,7 @@ func (ip CiliumIPv6) IsIPv6() bool {
 	return true
 }
 
-// Returns the node ID portion of the address or 0
+// NodeID returns the node ID portion of the address or 0.
 func (ip CiliumIPv6) NodeID() uint32 {
 	return binary.BigEndian.Uint32(ip[8:12])
 }
@@ -81,12 +82,12 @@ func (ip CiliumIPv6) SetState(state uint16) {
 	binary.BigEndian.PutUint16(ip[12:14], state)
 }
 
-// Returns the container ID portion of the address or 0
+// EndpointID returns the container ID portion of the address or 0.
 func (ip CiliumIPv6) EndpointID() uint16 {
 	return binary.BigEndian.Uint16(ip[14:])
 }
 
-// Returns true if IP is a valid IP for a container
+// ValidContainerIP returns true if IP is a valid IP for a container.
 // To be valid must obey to the following rules:
 // - Node ID, bits from 64 to 96, must be different than 0
 // - State, bits from 96 to 112, must be 0
@@ -95,7 +96,7 @@ func (ip CiliumIPv6) ValidContainerIP() bool {
 	return ip.NodeID() != 0 && ip.State() == 0 && ip.EndpointID() != 0
 }
 
-// Returns true if IP is a valid IP of a node
+// ValidNodeIP returns true if IP is a valid IP of a node.
 // - Node ID, bits from 64 to 96, must be different than 0
 // - State, bits from 96 to 112, must be 0
 // - Endpoint ID, bits from 112 to 128, must be 0
@@ -103,8 +104,7 @@ func (ip *CiliumIPv6) ValidNodeIP() bool {
 	return ip.NodeID() != 0 && ip.State() == 0 && ip.EndpointID() == 0
 }
 
-// NodeIP() return the node's IP based on an endpoint IP
-// of the local node
+// NodeIP returns the node's IP based on an endpoint IP of the local node.
 func (ip CiliumIPv6) NodeIP() net.IP {
 	nodeAddr := make(net.IP, len(ip))
 	copy(nodeAddr, ip)
@@ -113,7 +113,7 @@ func (ip CiliumIPv6) NodeIP() net.IP {
 	return nodeAddr
 }
 
-// Returns the host address from the node ID
+// HostIP returns the host address from the node ID.
 func (ip CiliumIPv6) HostIP() net.IP {
 	nodeAddr := make(net.IP, len(ip))
 	copy(nodeAddr, ip)
@@ -267,7 +267,7 @@ func (ip *CiliumIPv4) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Returns true if the IPv4 address is a valid IP for a container
+// ValidContainerIP returns true if the IPv4 address is a valid IP for a container.
 // To be valid must obey to the following rules:
 // - Node ID, bits from 0 to 16, must be different than 0
 // - Endpoint ID, bits from 16 to 32, must be different than 0
@@ -275,14 +275,13 @@ func (ip CiliumIPv4) ValidContainerIP() bool {
 	return ip.NodeID() != 0 && ip.EndpointID() != 0
 }
 
-// Returns true if the IPv4 address is a valid IP of a node
+// ValidNodeIP returns true if the IPv4 address is a valid IP of a node.
 func (ip CiliumIPv4) ValidNodeIP() bool {
 	// Unlike IPv6, a node address looks the same as a container address
 	return ip.ValidContainerIP()
 }
 
-// NodeIP() return the node's IP based on an endpoint IP
-// of the local node
+// NodeIP returns the node's IP based on an endpoint IP of the local node.
 func (ip CiliumIPv4) NodeIP() net.IP {
 	nodeIP := make(net.IP, len(ip))
 	copy(nodeIP, ip)

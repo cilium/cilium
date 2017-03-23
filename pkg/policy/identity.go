@@ -25,12 +25,13 @@ import (
 const (
 	secLabelTimeout = time.Duration(120 * time.Second)
 
-	// All IDs lesser than this value are reserved
+	// MinimalNumericIdentity represents the minimal numeric identity not
+	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
 )
 
-// Represents an identity of an entity to which consumer policy can be
-// applied to
+// NumericIdentity represents an identity of an entity to which consumer policy
+// can be applied to.
 type NumericIdentity uint32
 
 func ParseNumericIdentity(id string) (NumericIdentity, error) {
@@ -53,7 +54,7 @@ func (id NumericIdentity) String() string {
 	return id.StringID()
 }
 
-// Normalize ID for use in BPF program
+// Uint32 normalizes the ID for use in BPF program.
 func (id NumericIdentity) Uint32() uint32 {
 	return uint32(id)
 }
@@ -123,12 +124,13 @@ func NewIdentity() *Identity {
 	}
 }
 
-// Associate endpoint with identity
+// AssociateEndpoint associates the endpoint with identity.
 func (id *Identity) AssociateEndpoint(epID string) {
 	id.Endpoints[epID] = time.Now()
 }
 
-// Disassociate endpoint with identity and return true if successful
+// DisassociateEndpoint disassociates the endpoint endpoint with identity and
+// return true if successful.
 func (id *Identity) DisassociateEndpoint(epID string) bool {
 	if _, ok := id.Endpoints[epID]; ok {
 		delete(id.Endpoints, epID)

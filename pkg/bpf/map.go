@@ -350,7 +350,7 @@ func (m *Map) Delete(key MapKey) error {
 	return DeleteElement(m.fd, key.GetKeyPtr())
 }
 
-// Delete all entries of a map by traversing the map and deleting individual
+// DeleteAll deletes all entries of a map by traversing the map and deleting individual
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
 func (m *Map) DeleteAll() error {

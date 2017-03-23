@@ -310,7 +310,7 @@ func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, container string) err
 // 	return NewDeleteIdentityOK()
 // }
 
-// Deletes the SecCtxLabels that belong to the labels' sha256Sum.
+// DeleteIdentityBySHA256 deletes the SecCtxLabels that belong to the labels' sha256Sum.
 func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	if sha256Sum == "" {
 		return nil
@@ -366,7 +366,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	return nil
 }
 
-// GetMaxID returns the maximum possible free UUID stored in consul.
+// GetMaxLabelID returns the maximum possible free UUID stored in consul.
 func (d *Daemon) GetMaxLabelID() (policy.NumericIdentity, error) {
 	n, err := d.kvClient.GetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32())
 	return policy.NumericIdentity(n), err

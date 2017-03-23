@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
-// Any further consumer requires the specified list of
-// labels in order to consume
+// RuleRequires any further consumer requires the specified list of
+// labels in order to consume.
 type RuleRequires struct {
 	Coverage []labels.Label `json:"coverage,omitempty"`
 	Requires []labels.Label `json:"requires"`
@@ -38,7 +38,7 @@ func (prr *RuleRequires) String() string {
 	return fmt.Sprintf("Coverage: %s, Requires: %s", prr.Coverage, prr.Requires)
 }
 
-// A require rule imposes additional label requirements but does not
+// Allows a require rule imposes additional label requirements but does not
 // imply access immediately. Hence if the label context is not sufficient
 // access can be denied but fullfillment of the requirement only leads to
 // the decision being UNDECIDED waiting on an explicit allow rule further

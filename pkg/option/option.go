@@ -36,7 +36,7 @@ type Option struct {
 	Requires    []string
 }
 
-// Requires returns true if the option requires the specified option `name`
+// RequiresOption returns true if the option requires the specified option `name`.
 func (o Option) RequiresOption(name string) bool {
 	for _, o := range o.Requires {
 		if o == name {

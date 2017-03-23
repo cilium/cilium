@@ -200,21 +200,21 @@ type PerfEvent struct {
 	data     []byte
 }
 
-// Matching 'struct perf_event_header in <linux/perf_event.h>
+// PerfEventHeader must match 'struct perf_event_header in <linux/perf_event.h>.
 type PerfEventHeader struct {
 	Type      uint32
 	Misc      uint16
 	TotalSize uint16
 }
 
-// Matching 'struct perf_event_sample in kernel sources
+// PerfEventSample must match 'struct perf_event_sample in kernel sources.
 type PerfEventSample struct {
 	PerfEventHeader
 	Size uint32
 	data byte // Size bytes of data
 }
 
-// Matching 'struct perf_event_lost in kernel sources
+// PerfEventLost must match 'struct perf_event_lost in kernel sources.
 type PerfEventLost struct {
 	PerfEventHeader
 	Id   uint64

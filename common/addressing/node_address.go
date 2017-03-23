@@ -42,7 +42,7 @@ func (a *NodeAddress) String() string {
 	return a.IPv6Address.String()
 }
 
-// Allocate new node address
+// NewNodeAddress allocate a new node address.
 func NewNodeAddress(v6Address string, ipv4Range string, device string) (*NodeAddress, error) {
 	v6, err := initIPv6Address(v6Address, device)
 	if err != nil {

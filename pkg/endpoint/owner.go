@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-// This interface defines the requirements for anybody owning policies
+// Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
 	// Must return true if tracing of the policy resolution is to be enabled
 	TracingEnabled() bool
