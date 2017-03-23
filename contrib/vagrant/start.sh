@@ -33,7 +33,7 @@ export 'IPV6_INTERNAL_CIDR'=${IPV4+"FD01::"}
 #   worker 1: FD02::C0A8:210C:0:0/96
 export 'CILIUM_IPV6_NODE_CIDR'=${CILIUM_IPV6_NODE_CIDR:-"FD02::"}
 # VM memory
-export 'VM_MEMORY'=${MEMORY:-2048}
+export 'VM_MEMORY'=${MEMORY:-3072}
 # Number of CPUs
 export 'VM_CPUS'=${CPUS:-2}
 # K8STAG tag is only set if K8S option is active
