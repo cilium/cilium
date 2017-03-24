@@ -41,9 +41,6 @@ enum {
 #define TUPLE_F_IN		1	/* Incoming flow */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
 
-#define CT_EGRESS 0
-#define CT_INGRESS 1
-
 enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
@@ -120,9 +117,18 @@ struct tcp_flags {
 
 static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
+	__u16 tmp;
+
+#ifndef CONNTRACK_LOCAL
+	union v6addr tmp_addr = {};
+	ipv6_addr_copy(&tmp_addr, &tuple->saddr);
+	ipv6_addr_copy(&tuple->saddr, &tuple->daddr);
+	ipv6_addr_copy(&tuple->daddr, &tmp_addr);
+#endif
+
 	/* The meaning of .addr switches without requiring to copy bits
 	 * around, we only have to swap the ports */
-	__u16 tmp = tuple->sport;
+	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
 
@@ -260,9 +266,17 @@ out:
 
 static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
+	__u16 tmp;
+
+#ifndef CONNTRACK_LOCAL
+	__be32 tmp_addr = tuple->saddr;
+	tuple->saddr = tuple->daddr;
+	tuple->daddr = tmp_addr;
+#endif
+
 	/* The meaning of .addr switches without requiring to copy bits
-	 * around, we only have to swap the ports */
-	__u16 tmp = tuple->sport;
+	 * around for CONNTRACK_LOCAL, we only have to swap the ports */
+	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
 
@@ -280,6 +294,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	int type = 0;
+	__be32 addr;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -367,7 +382,12 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 */
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	cilium_trace(skb, DBG_CT_LOOKUP4, tuple->addr, 0);
+#ifdef CONNTRACK_LOCAL
+	addr = tuple->addr;
+#else
+	addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+#endif
+	cilium_trace(skb, DBG_CT_LOOKUP4, addr, 0);
 	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -398,6 +418,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
 {
+	__u32 addr_p4;
+
 	/* Create entry in original direction */
 	struct ct_entry entry = {
 		.lifetime = CT_DEFAULT_LIFEIME,
@@ -459,7 +481,12 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	cilium_trace(skb, DBG_CT_CREATED2, tuple->addr.p4, ct_state->rev_nat_index);
+#ifdef CONNTRACK_LOCAL
+	addr_p4 = tuple->addr.p4;
+#else
+	addr_p4 = (dir == CT_INGRESS) ? tuple->saddr.p4 : tuple->daddr.p4;
+#endif
+	cilium_trace(skb, DBG_CT_CREATED2, addr_p4, ct_state->rev_nat_index);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
@@ -488,6 +515,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
 {
+	__be32 addr;
+
 	/* Create entry in original direction */
 	struct ct_entry entry = {
 		.lifetime = CT_DEFAULT_LIFEIME,
@@ -538,13 +567,29 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	cilium_trace(skb, DBG_CT_CREATED2, tuple->addr, ct_state->rev_nat_index);
+#ifdef CONNTRACK_LOCAL
+	addr = tuple->addr;
+#else
+	addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+#endif
+	cilium_trace(skb, DBG_CT_CREATED2, addr, ct_state->rev_nat_index);
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
 	if (ct_state->addr) {
-		__be32 tmp = tuple->addr;
+#ifdef CONNTRACK_LOCAL
+		addr = tuple->addr;
 		tuple->addr = ct_state->addr;
+#else
+		if (dir == CT_INGRESS) {
+			addr = tuple->saddr;
+			tuple->saddr = ct_state->addr;
+		} else {
+			addr = tuple->daddr;
+			tuple->daddr = ct_state->addr;
+		}
+#endif
+
 		__u8 flags = tuple->flags;
 
 		/* We are looping back into the origin endpoint through a service,
@@ -556,11 +601,19 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 		cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 			     (tuple->nexthdr << 8) | tuple->flags);
-		cilium_trace(skb, DBG_CT_CREATED2, tuple->addr, ct_state->rev_nat_index);
+#ifdef CONNTRACK_LOCAL
+	addr = tuple->addr;
+#else
+	addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+#endif
+		cilium_trace(skb, DBG_CT_CREATED2, addr, ct_state->rev_nat_index);
 		if (map_update_elem(map, tuple, &entry, 0) < 0)
 			return DROP_CT_CREATE_FAILED;
-
-		tuple->addr = tmp;
+#ifdef CONNTRACK_LOCAL
+		tuple->addr = addr;
+#else
+		(dir == CT_INGRESS) ? (tuple->saddr = addr) : (tuple->daddr = addr);
+#endif
 		tuple->flags = flags;
 	}
 

@@ -159,8 +159,16 @@ enum {
 	NAT46,
 };
 
+#define CT_EGRESS 0
+#define CT_INGRESS 1
+
 struct ipv6_ct_tuple {
+#ifdef CONNTRACK_LOCAL
 	union v6addr	addr;
+#else
+	union v6addr	daddr;
+	union v6addr	saddr;
+#endif
 	/* The order of dport+sport must not be changed */
 	__u16		dport;
 	__u16		sport;
@@ -169,7 +177,12 @@ struct ipv6_ct_tuple {
 };
 
 struct ipv4_ct_tuple {
+#ifdef CONNTRACK_LOCAL
 	__be32		addr;
+#else
+	__be32		daddr;
+	__be32		saddr;
+#endif
 	/* The order of dport+sport must not be changed */
 	__u16		dport;
 	__u16		sport;
