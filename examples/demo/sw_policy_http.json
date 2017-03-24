@@ -11,7 +11,7 @@
 				"redirect": "http",
 				"rules": [
 					{ "expr": "Method(\"GET\") && Path(\"/v1/\")" },
-					{ "expr": "Method(\"POST\") && Path(\"/v1/requestlanding\")" }
+					{ "expr": "Method(\"POST\") && Path(\"/v1/request-landing\")" }
 				]
 			}]
 		}]

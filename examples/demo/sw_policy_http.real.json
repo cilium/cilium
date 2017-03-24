@@ -11,8 +11,8 @@
 				"redirect": "http",
 				"rules": [
 					{ "expr": "Method(\"GET\") && Path(\"/v1/\")" },
-					{ "expr": "Method(\"POST\") && Path(\"/v1/requestlanding\")" },
-					{ "expr": "Method(\"PUT\") && Header(\"X-Has-Force\", \"true\") && Path(\"/v1/exhaustport\")" }
+					{ "expr": "Method(\"POST\") && Path(\"/v1/request-landing\")" },
+					{ "expr": "Method(\"PUT\") && Header(\"X-Has-Force\", \"true\") && Path(\"/v1/exhaust-port\")" }
 				]
 			}]
 		}]
