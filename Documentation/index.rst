@@ -11,7 +11,7 @@ Welcome to Cilium's documentation!
    :caption: Contents:
 
    intro
-   firststeps
+   gettingstarted
    concepts
    guides
    installation
