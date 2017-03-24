@@ -31,5 +31,5 @@ check-bindata:
 	echo "##################################################################" ); \
 	exit $$FAIL)
 
-go-bindata: $(shell find ../bpf)
+go-bindata:
 	$(GO_BINDATA) -o ./bindata.go ../bpf/...
