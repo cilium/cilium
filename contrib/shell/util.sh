@@ -26,6 +26,16 @@ function desc() {
     prompt
 }
 
+function desc_rate() {
+    maybe_first_prompt
+    rate=30
+    if [ -n "$DEMO_RUN_FAST" ]; then
+      rate=1000
+    fi
+    echo "$blue# $@$reset" | pv -qL $rate
+    prompt
+}
+
 function prompt() {
     echo -n "$yellow\$ $reset"
 }
