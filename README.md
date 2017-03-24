@@ -1,4 +1,4 @@
-![Cilium Logo](https://cdn.rawgit.com/cilium/cilium/master/doc/images/cilium.svg)
+![Cilium Logo](https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium.svg)
 # BPF & XDP for containers
 
 [![Build Status](https://jenkins.cilium.io/job/cilium/job/cilium/job/master/badge/icon)](https://jenkins.cilium.io/job/cilium/job/cilium/job/master/)
@@ -14,7 +14,7 @@ project aiming at enabling emerging kernel technologies such as BPF and XDP
 for containers.
 
 <p align="center">
-   <img src="doc/images/cilium-arch.png" />
+   <img src="Documentation/images/cilium-arch.png" />
 </p>
 
 ## Components:
@@ -31,9 +31,9 @@ for containers.
 ## Getting Started
 
  * 5-min Quickstart: [Using the prebuilt docker images](examples/docker-compose/README.md)
- * For Developers: [Setting up a vagrant environment](doc/vagrant.md)
- * Manual installation: [Detailed installation instructions](doc/installation.md)
- * F.A.Q.: [FAQ](doc/faq.md)
+ * For Developers: [Setting up a vagrant environment](Documentation/vagrant.rst)
+ * Manual installation: [Detailed installation instructions](Documentation/installation.rst)
+ * Frequently Asked Questions: [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
 
 ## Demo Tutorials
 
@@ -56,7 +56,7 @@ various hooking points in the kernel such as for incoming packets, outgoing
 packets, system call level, kprobes, etc.
 
 <p align="center">
-   <img src="doc/images/bpf-overview.png" width="508" />
+   <img src="Documentation/images/bpf-overview.png" width="508" />
 </p>
 
 XDP is a further step in evolution and enables to run a specific flavour of
@@ -119,18 +119,18 @@ functionality backported.
 
 ## Installation
 
-See the [installation instructions](doc/installation.md).
+See the [installation instructions](Documentation/installation.md).
 
 ## Integration
 
 Cilium provides integration plugins for the following orchestration systems:
   * CNI (Kubernetes/Mesos) [Installation instructions](examples/kubernetes/README.md)
-  * libnetwork (Docker) [Installation instructions](doc/docker.md)
+  * libnetwork (Docker) [Installation instructions](Documentation/docker.md)
 
 ## Contributions
 
 We are eager to receive feedback and contributions. Please see the
-[contributing guide](doc/contributing.md) for further instructions and ideas
+[contributing guide](Documentation/contributing.md) for further instructions and ideas
 on how to contribute.
 
 ## Presentations
