@@ -158,7 +158,7 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 
 	/* We can use off here as it's never first insns. */
 	while (map->off) {
-		fd = bpf_map_create(BPF_MAP_TYPE_HASH, map->size_key,
+		fd = bpf_map_create(map->type, map->size_key,
 				    map->size_val, 1, 0);
 		if (fd < 0)
 			/* We fail in verifier eventually. */
