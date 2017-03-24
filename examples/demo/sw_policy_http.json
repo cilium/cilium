@@ -1,0 +1,19 @@
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["id.empire.deathstar"],
+		"allow": ["id.spaceship", "reserved:host"]
+	},{
+		"coverage": ["id.spaceship"],
+		"l4": [{
+			"out-ports": [{
+				"port": 80, "protocol": "tcp",
+				"redirect": "http",
+				"rules": [
+					{ "expr": "Method(\"GET\") && Path(\"/v1/\")" },
+					{ "expr": "Method(\"POST\") && Path(\"/v1/requestlanding\")" }
+				]
+			}]
+		}]
+	}]
+}
