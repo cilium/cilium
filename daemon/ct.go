@@ -26,6 +26,7 @@ import (
 )
 
 const (
+	// GcInterval is the garbage collection interval.
 	GcInterval int = 10
 )
 
@@ -58,6 +59,7 @@ func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
 	f.Close()
 }
 
+// EnableConntrackGC enables the connection tracking garbage collection.
 func (d *Daemon) EnableConntrackGC() {
 	go func() {
 		for {
