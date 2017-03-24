@@ -256,9 +256,15 @@ static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
 	}
 
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
+#ifdef CONNTRACK_LOCAL
 		ipv6_addr_copy(&old_saddr, &tuple->addr);
 		ipv6_addr_copy(&tuple->addr, &nat->address);
 		new_saddr = tuple->addr.addr;
+#else
+		ipv6_addr_copy(&old_saddr, &tuple->saddr);
+		ipv6_addr_copy(&tuple->saddr, &nat->address);
+		new_saddr = tuple->saddr.addr;
+#endif
 	} else {
 		if (ipv6_load_saddr(skb, ETH_HLEN, &old_saddr) < 0)
 			return DROP_INVALID;
@@ -318,9 +324,15 @@ static inline int __inline__ lb6_rev_nat(struct __sk_buff *skb, int l4_off,
  */
 static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
 					     int l4_off, struct lb6_key *key,
-					     struct csum_offset *csum_off)
+					     struct csum_offset *csum_off, int dir)
 {
-	ipv6_addr_copy(&key->address, &tuple->addr);
+	union v6addr *addr;
+#ifdef CONNTRACK_LOCAL
+	addr = &tuple->addr;
+#else
+	addr = (dir == CT_INGRESS) ? &tuple->saddr : &tuple->daddr;
+#endif
+	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
 #ifdef LB_L4
@@ -411,17 +423,24 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
 				       struct ct_state *state)
 {
 	__u16 slave;
+	union v6addr *addr;
 
 	slave = lb6_select_slave(skb, key, svc->count, svc->weight);
 	if (!(svc = lb6_lookup_slave(skb, key, slave)))
 		return DROP_NO_SERVICE;
 
+#ifdef CONNTRACK_LOCAL
 	ipv6_addr_copy(&tuple->addr, &svc->target);
+	addr = &tuple->addr;
+#else
+	ipv6_addr_copy(&tuple->daddr, &svc->target);
+	addr = &tuple->daddr;
+#endif
 
 	if (state)
 		state->rev_nat_index = svc->rev_nat_index;
 
-	return lb6_xlate(skb, &tuple->addr, tuple->nexthdr, l3_off, l4_off,
+	return lb6_xlate(skb, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, svc);
 }
 
@@ -443,8 +462,13 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 	}
 
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
+#ifdef CONNTRACK_LOCAL
 		old_sip = tuple->addr;
 		tuple->addr = new_sip = nat->address;
+#else
+		old_sip = tuple->saddr;
+		tuple->saddr = new_sip = nat->address;
+#endif
 	} else {
 		ret = skb_load_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
@@ -474,7 +498,11 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		sum = csum_diff(&old_dip, 4, &old_sip, 4, 0);
 
 		/* Update the tuple address which is representing the destination address */
+#ifdef CONNTRACK_LOCAL
 		tuple->addr = old_sip;
+#else
+		tuple->saddr = old_sip;
+#endif
 	}
 
         ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &new_sip, 4, 0);
@@ -532,9 +560,13 @@ static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int 
  */
 static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
 					     int l4_off, struct lb4_key *key,
-					     struct csum_offset *csum_off)
+					     struct csum_offset *csum_off, int dir)
 {
+#ifdef CONNTRACK_LOCAL
 	key->address = tuple->addr;
+#else
+	key->address = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+#endif
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
 #ifdef LB_L4
