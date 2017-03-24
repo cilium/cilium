@@ -1,0 +1,6 @@
+foo
+===
+
+.. toctree::
+
+    bar

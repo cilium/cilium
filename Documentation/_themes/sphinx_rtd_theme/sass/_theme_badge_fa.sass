@@ -1,0 +1,68 @@
+// Slimmer version of FA for use on the badge_only.sass file.
+
++font-face(FontAwesome, '#{$font-awesome-dir}fontawesome-webfont')
+
+.fa:before
+  display: inline-block
+  font-family: FontAwesome
+  font-style: normal
+  font-weight: normal
+  line-height: 1
+  text-decoration: inherit
+  +font-smooth
+
+a .fa
+  display: inline-block
+  text-decoration: inherit
+
+
+li
+  .fa
+    display: inline-block
+  .fa-large:before,
+  .fa-large:before
+    /* 1.5 increased font size for fa-large * 1.25 width
+    width: 1.5 * 1.25em
+
+ul.fas
+  list-style-type: none
+  margin-left: 2em
+  text-indent: -0.8em
+  li
+    .fa
+      width: .8em
+    .fa-large:before,
+    .fa-large:before
+      /* 1.5 increased font size for fa-large * 1.25 width
+      vertical-align: baseline
+      //      width: 1.5*1.25em
+
+.fa-book:before
+  content: "\f02d"
+
+.icon-book:before
+  content: "\f02d"
+
+.fa-caret-down:before
+  content: "\f0d7"
+
+.icon-caret-down:before
+  content: "\f0d7"
+
+.fa-caret-up:before
+  content: "\f0d8"
+
+.icon-caret-up:before
+  content: "\f0d8"
+
+.fa-caret-left:before
+  content: "\f0d9"
+
+.icon-caret-left:before
+  content: "\f0d9"
+
+.fa-caret-right:before
+  content: "\f0da"
+
+.icon-caret-right:before
+  content: "\f0da"

@@ -1,0 +1,31 @@
+.wy-breadcrumbs li
+  display: inline-block
+  &.wy-breadcrumbs-aside
+    float: right
+  a
+    display: inline-block
+    padding: 5px
+    &:first-child
+      padding-left: 0
+  code
+    padding: 5px
+    border: none
+    background: none
+    &.literal
+      color: $text-color
+.wy-breadcrumbs-extra
+  margin-bottom: 0
+  color: $text-light
+  font-size: 80%
+  display: inline-block
+
+
++media($mobile)
+  .wy-breadcrumbs-extra
+    display: none
+  .wy-breadcrumbs li.wy-breadcrumbs-aside
+    display: none
+
+@media print
+  .wy-breadcrumbs li.wy-breadcrumbs-aside
+    display: none

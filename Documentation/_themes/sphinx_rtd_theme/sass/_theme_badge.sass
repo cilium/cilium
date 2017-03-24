@@ -1,0 +1,88 @@
+.rst-versions
+  position: fixed
+  bottom: 0
+  left: 0
+  width: $nav-desktop-width
+  color: $section-background-color
+  background: darken($menu-background-color, 8%)
+  border-top: solid 10px $menu-background-color
+  font-family: $base-font-family
+  z-index: $z-index-tray
+  a
+    color: $link_color
+    text-decoration: none
+  .rst-badge-small
+    display: none
+  .rst-current-version
+    padding: $base-line-height / 2
+    background-color: darken($menu-background-color, 5%)
+    display: block
+    text-align: right
+    font-size: 90%
+    cursor: pointer
+    color: $green
+    +clearfix
+    .fa
+      color: $section-background-color
+    .fa-book
+      float: left
+    .icon-book
+      float: left
+    &.rst-out-of-date
+      background-color: $red
+      color: $white
+    &.rst-active-old-version
+      background-color: $yellow
+      color: $black
+  &.shift-up .rst-other-versions
+    display: block
+  .rst-other-versions
+    font-size: 90%
+    padding: $base-line-height / 2
+    color: $text-medium
+    display: none
+    hr
+      display: block
+      height: 1px
+      border: 0
+      margin: 20px 0
+      padding: 0
+      border-top: solid 1px lighten($menu-background-color, 5%)
+    dd
+      display: inline-block
+      margin: 0
+      a
+        display: inline-block
+        padding: $base-line-height / 4
+        color: $section-background-color
+  &.rst-badge
+    width: auto
+    bottom: 20px
+    right: 20px
+    left: auto
+    border: none
+    max-width: $nav-desktop-width
+    .icon-book
+      float: none
+    .fa-book
+      float: none
+    &.shift-up .rst-current-version
+      text-align: right
+      .fa-book
+        float: left
+      .icon-book
+        float: left
+    .rst-current-version
+      width: auto
+      height: 30px
+      line-height: 30px
+      padding: 0 $base-line-height / 4
+      display: block
+      text-align: center
+
++media($tablet)
+  .rst-versions
+    width: 85%
+    display: none
+    &.shift
+      display: block
