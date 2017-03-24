@@ -173,7 +173,20 @@ func loadPolicy(name string) (*policy.Node, error) {
 
 	var node *policy.Node
 
-	// process all files first
+	if err = processAllFilesFirst(name, node, files); err != nil {
+		return nil, err
+	}
+
+	if err = recursiveSearch(name, node, files); err != nil {
+		return nil, err
+	}
+
+	log.Debugf("Leaving directory %s...", name)
+
+	return node, nil
+}
+
+func processAllFilesFirst(name string, node *policy.Node, files []os.FileInfo) error {
 	for _, f := range files {
 		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
 			continue
@@ -181,18 +194,20 @@ func loadPolicy(name string) (*policy.Node, error) {
 
 		p, err := loadPolicyFile(filepath.Join(name, f.Name()))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if node != nil {
 			if _, err := node.Merge(p); err != nil {
-				return nil, fmt.Errorf("Error: %s: %s", f.Name(), err)
+				return fmt.Errorf("Error: %s: %s", f.Name(), err)
 			}
 		} else {
 			node = p
 		}
 	}
+	return nil
+}
 
-	// recursive search
+func recursiveSearch(name string, node *policy.Node, files []os.FileInfo) error {
 	for _, f := range files {
 		if f.IsDir() {
 			if ignoredFile(path.Base(f.Name())) {
@@ -201,18 +216,15 @@ func loadPolicy(name string) (*policy.Node, error) {
 			subpath := filepath.Join(name, f.Name())
 			p, err := loadPolicy(subpath)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if p.Name == "" {
-				return nil, fmt.Errorf("Policy node import from %s did not derive a name",
+				return fmt.Errorf("Policy node import from %s did not derive a name",
 					subpath)
 			}
 
 			node.AddChild(p.Name, p)
 		}
 	}
-
-	log.Debugf("Leaving directory %s...", name)
-
-	return node, nil
+	return nil
 }
