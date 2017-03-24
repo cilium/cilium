@@ -152,11 +152,11 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	cache := owner.GetConsumableCache()
 
 	// Skip if policy for this consumable is already valid
-	if c.Iteration == cache.Iteration {
-		tree.Mutex.RUnlock()
-		log.Debugf("Reusing cached policy for identity %d", c.ID)
-		return false, nil
-	}
+	//if c.Iteration == cache.Iteration {
+	//	tree.Mutex.RUnlock()
+	//	log.Debugf("Reusing cached policy for identity %d", c.ID)
+	//	return false, nil
+	//}
 	tree.Mutex.RUnlock()
 
 	// FIXME: Move to outer loops to avoid refetching
