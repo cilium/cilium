@@ -11,9 +11,12 @@ plus dependencies installed, run:
 
     $ contrib/vagrant/start.sh
 
-This will bring up a master node plus the configured number of
-additional worker nodes. The master node will run a consul agent with
-the slaves configured to point to it.
+This will create and run a vagrant VM based on the base box
+``cilium/ubuntu-16.10``. The box is currently available for the
+following providers:
+
+* libvirt
+* virtualbox
 
 Options
 ~~~~~~~
@@ -29,34 +32,28 @@ enabled \* VAGRANT\_DEFAULT\_PROVIDER={virtualbox \| libvirt \| ...}
 If you want to start the VM with cilium enabled with IPv4, with
 kubernetes installed and plus a worker, run:
 
-``$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh``
-
-If you have any issue with the provided vagrant box
-``noironetworks/net-next`` if your need a different box format, you may
-build the box yourself using packer:
-
 ::
 
-    $ cd contrib/packer-scripts/ubuntu-16.10/
-    $ make build-vbox [See Makefile for other targets]
-    $ vagrant box add --name noironetworks/net-next [...]
+	$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh
+
+If you have any issue with the provided vagrant box
+``cilium/ubuntu-16.10`` if your need a different box format, you may
+build the box yourself using the [packer scripts](https://github.com/cilium/packer-ubuntu-16.10)
 
 Manual installation
 -------------------
 
-Alternatively you can import the vagrant box ``noironetworks/net-next``
+Alternatively you can import the vagrant box ``cilium/ubuntu-16.10``
 directly and manually install Cilium:
-
-``$ vagrant init noironetworks/net-next   $ vagrant up   $ vagrant ssh [...]   $ cd go/src/github.com/cilium/cilium/   $ make   $ sudo make install   $ sudo cp contrib/upstart/* /etc/init/   $ sudo usermod -a -G cilium vagrant   $ sudo service cilium restart``
-
-(Re)building the box
---------------------
-
-To manually build the vagrant boxes using packer:
 
 ::
 
-    $ cd contrib/packer-scripts/ubuntu-16.10/
-    $ make build-vbox
-    $ make build-libvirt
-    $ make build-...
+        $ vagrant init cilium/ubuntu-16.10
+        $ vagrant up
+        $ vagrant ssh [...]
+        $ cd go/src/github.com/cilium/cilium/
+        $ make
+        $ sudo make install
+        $ sudo cp contrib/upstart/* /etc/init/
+        $ sudo usermod -a -G cilium vagrant
+        $ sudo service cilium restart``
