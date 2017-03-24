@@ -50,6 +50,11 @@
 			"Rev": "aea32c919a18e5ef4537bbd283ff29594b1b0165"
 		},
 		{
+			"ImportPath": "github.com/braintree/manners",
+			"Comment": "0.4.0-15-g82a8879",
+			"Rev": "82a8879fc5fd0381fa8b2d8033b19bf255252088"
+		},
+		{
 			"ImportPath": "github.com/cloudfoundry-incubator/candiedyaml",
 			"Rev": "99c3df83b51532e3615f851d8c2dbb638f5313bf"
 		},
@@ -678,6 +683,22 @@
 		{
 			"ImportPath": "github.com/vishvananda/netns",
 			"Rev": "8ba1072b58e0c2a240eb5f6120165c7776c3e7b8"
+		},
+		{
+			"ImportPath": "github.com/vulcand/oxy/forward",
+			"Rev": "9d07313adea3bb9c7817ea887df6ac79648675f9"
+		},
+		{
+			"ImportPath": "github.com/vulcand/oxy/utils",
+			"Rev": "9d07313adea3bb9c7817ea887df6ac79648675f9"
+		},
+		{
+			"ImportPath": "github.com/vulcand/predicate",
+			"Rev": "19b9dde14240d94c804ae5736ad0e1de10bf8fe6"
+		},
+		{
+			"ImportPath": "github.com/vulcand/route",
+			"Rev": "61904570391bdf22252f8e376b49a57593d9124c"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/ssh/terminal",
