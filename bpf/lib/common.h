@@ -189,6 +189,7 @@ struct ct_entry {
 	      lb_loopback:1,
 	      reserve:12;
 	__u16 rev_nat_index;
+	__u16 proxy_port;
 };
 
 struct lb6_key {
@@ -240,7 +241,21 @@ struct ct_state {
 	__u16 loopback:1,
 	      reserved:15;
 	__u16 orig_dport;
+	__u16 proxy_port;
 	__be32 addr;
 };
+
+struct proxy4_tbl_key {
+	__be32 saddr;
+	__u16 dport; /* dport must be in front of sport, loaded with 4 bytes read */
+	__u16 sport;
+	__u8 nexthdr;
+} __attribute__((packed));
+
+struct proxy4_tbl_value {
+	__be32 orig_daddr;
+	__u16 orig_dport;
+	__u16 lifetime;
+} __attribute__((packed));
 
 #endif

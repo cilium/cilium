@@ -675,6 +675,12 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 }
 
 func (e *Endpoint) Leave(owner Owner) {
+	if c := e.Consumable; c != nil && c.L4Policy != nil {
+		// Passing a new map of nil will purge all redirects
+		e.cleanUnusedRedirects(owner, c.L4Policy.Ingress, nil)
+		e.cleanUnusedRedirects(owner, c.L4Policy.Egress, nil)
+	}
+
 	e.RemoveDirectory()
 }
 

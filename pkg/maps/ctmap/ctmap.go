@@ -131,6 +131,7 @@ type CtEntry struct {
 	lifetime   uint16
 	flags      uint16
 	revnat     uint16
+	proxy_port uint16
 }
 
 type CtEntryDump struct {
@@ -155,14 +156,15 @@ func (m *CtMap) Dump() (string, error) {
 
 		value := entry.Value
 		buffer.WriteString(
-			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d\n",
+			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d proxyport=%d\n",
 				value.lifetime,
 				value.rx_packets,
 				value.rx_bytes,
 				value.tx_packets,
 				value.tx_bytes,
 				value.flags,
-				common.Swab16(value.revnat)),
+				common.Swab16(value.revnat),
+				common.Swab16(value.proxy_port)),
 		)
 
 	}

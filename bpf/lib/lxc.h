@@ -23,6 +23,8 @@
 #include "ipv4.h"
 #include "eth.h"
 #include "dbg.h"
+#include "csum.h"
+#include "l4.h"
 
 #ifndef DISABLE_SMAC_VERIFICATION
 static inline int valid_src_mac(struct ethhdr *eth)
@@ -80,5 +82,48 @@ static inline int valid_dst_mac(struct ethhdr *eth)
 	return 1;
 }
 #endif
+
+static inline int __inline__
+ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
+			  int l4_off, __u16 new_port, __u16 old_port, __be32 old_ip,
+			  struct ipv4_ct_tuple *tuple)
+{
+	__be32 host_ip = IPV4_GATEWAY;
+	struct proxy4_tbl_key key = {
+		.saddr = __constant_htonl(LXC_IPV4),
+		.sport = tuple->sport,
+		.dport = new_port,
+		.nexthdr = tuple->nexthdr,
+	};
+	struct proxy4_tbl_value value = {
+		.orig_daddr = old_ip,
+		.orig_dport = old_port,
+		.lifetime = 360,
+	};
+
+	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_PRE, old_port);
+
+	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum,
+			   new_port, old_port) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, daddr), &host_ip, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check), old_ip, host_ip, 4) < 0)
+		return DROP_CSUM_L3;
+
+	if (csum->offset &&
+	    csum_l4_replace(skb, l4_off, csum, old_ip, host_ip, 4 | BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
+
+	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
+
+	cilium_trace(skb, DBG_REV_PROXY_UPDATE, key.sport << 16 | key.dport, key.saddr);
+	if (map_update_elem(&cilium_proxy4, &key, &value, 0) < 0)
+		return DROP_CT_CREATE_FAILED;
+
+	return 0;
+}
 
 #endif

@@ -15,12 +15,20 @@
 package policy
 
 type PolicyRule interface {
+	// Resolve must resolve any internal label members to the full path
+	// assuming that the rule is attached to the specified node.
 	Resolve(node *Node) error
+
+	// SHA256Sum must return the SHA256 hash over the policy rule
 	SHA256Sum() (string, error)
+
+	// CoverageSHA256Sum must return the SHA256 hash over the coverage
+	// section of the policy rule
 	CoverageSHA256Sum() (string, error)
 
-	// Must return true if a rule allows merging with other rules within a node.
-	// Certain rules are not additive and require strict ordering, such rules
-	// may never be merged in a node as merging may occur in undefined order.
+	// IsMergeable must return true if a rule allows merging with other
+	// rules within a node. Certain rules are not additive and require
+	// strict ordering, such rules may never be merged in a node as
+	// merging may occur in undefined order.
 	IsMergeable() bool
 }
