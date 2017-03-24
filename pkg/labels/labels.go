@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -42,7 +41,6 @@ const (
 type LabelOpType string
 
 const (
-	secLabelTimeout             = time.Duration(120 * time.Second)
 	AddLabelsOp     LabelOpType = "AddLabelsOp"
 	DelLabelsOp     LabelOpType = "DelLabelsOp"
 	EnableLabelsOp  LabelOpType = "EnableLabelsOp"
@@ -197,7 +195,7 @@ func (l *Label) Equals(b *Label) bool {
 
 func (l *Label) IsAllLabel() bool {
 	// ID_NAME_ALL is a special label which matches all labels
-	return l.Source == common.ReservedLabelSource && l.Key == ID_NAME_ALL
+	return l.Source == common.ReservedLabelSource && l.Key == "all"
 }
 
 func (l *Label) Matches(target *Label) bool {

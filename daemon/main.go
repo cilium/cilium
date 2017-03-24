@@ -186,6 +186,7 @@ func init() {
 	flags.StringVar(&v4Prefix, "ipv4-range", "", "IPv4 prefix")
 	flags.StringVarP(&config.Tunnel, "tunnel", "t", "vxlan", "Tunnel mode vxlan or geneve, vxlan is the default")
 	flags.StringVar(&bpfRoot, "bpf-root", "", "Path to mounted BPF filesystem")
+	flags.String("access-log", "", "Path to access log of all HTTP requests observed")
 	viper.BindPFlags(flags)
 }
 

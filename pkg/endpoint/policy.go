@@ -48,10 +48,19 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 	}
 }
 
+// allowConsumer must be called with endpointsMU held
+func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) {
+	cache := owner.GetConsumableCache()
+	if !e.Opts.IsEnabled(OptionConntrack) {
+		e.Consumable.AllowConsumerAndReverse(cache, id)
+	} else {
+		e.Consumable.AllowConsumer(cache, id)
+	}
+}
+
 func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext, srcID policy.NumericIdentity) error {
 	var err error
 
-	c := e.Consumable
 	ctx.From, err = owner.GetCachedLabelList(srcID)
 	if err != nil {
 		return err
@@ -65,14 +74,8 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 	log.Debugf("Evaluating policy for %+v", ctx)
 
 	decision := owner.GetPolicyTree().Allows(ctx)
-	// Only accept rules get stored
 	if decision == policy.ACCEPT {
-		cache := owner.GetConsumableCache()
-		if !e.Opts.IsEnabled(OptionConntrack) {
-			c.AllowConsumerAndReverse(cache, srcID)
-		} else {
-			c.AllowConsumer(cache, srcID)
-		}
+		e.allowConsumer(owner, srcID)
 	}
 
 	return nil
@@ -83,6 +86,54 @@ func (e *Endpoint) InvalidatePolicy() {
 		// Resetting to 0 will trigger a regeneration on the next update
 		log.Debugf("Invalidated policy for endpoint %d", e.ID)
 		e.Consumable.Iteration = 0
+	}
+}
+
+// proxyID returns a unique string to identify a proxy mapping
+func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
+	return fmt.Sprintf("%d:%s:%d", e.ID, l4.Protocol, l4.Port)
+}
+
+func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error) {
+	proxy := owner.GetProxy()
+	if proxy == nil {
+		return 0, fmt.Errorf("can't redirect, proxy disabled")
+	}
+
+	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)
+	r, err := proxy.CreateOrUpdateRedirect(l4, e.proxyID(l4), e)
+	if err != nil {
+		return 0, err
+	}
+
+	return r.ToPort, nil
+}
+
+func (e *Endpoint) removeRedirect(owner Owner, l4 *policy.L4Filter) error {
+	proxy := owner.GetProxy()
+	if proxy == nil {
+		return nil
+	}
+
+	id := e.proxyID(l4)
+	log.Debugf("Removing redirect %s from endpoint %d", id, e.ID)
+	return proxy.RemoveRedirect(id)
+}
+
+func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, newMap policy.L4PolicyMap) {
+	for k, v := range oldMap {
+		if newMap != nil {
+			// Keep redirects which are also in the new policy
+			if _, ok := newMap[k]; ok {
+				continue
+			}
+		}
+
+		if v.Redirect != "" {
+			if err := e.removeRedirect(owner, &v); err != nil {
+				log.Warningf("error while removing proxy: %s", err)
+			}
+		}
 	}
 }
 
@@ -129,7 +180,18 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	tree.Mutex.RLock()
 	newL4policy := tree.ResolveL4Policy(&ctx)
+
+	if c.L4Policy != nil {
+		e.cleanUnusedRedirects(owner, c.L4Policy.Ingress, newL4policy.Ingress)
+		e.cleanUnusedRedirects(owner, c.L4Policy.Egress, newL4policy.Egress)
+	}
+
 	c.L4Policy = newL4policy
+
+	if newL4policy.HasRedirect() {
+		log.Debugf("Endpoint %d interacts with proxy, allowing localhost", e.ID)
+		e.allowConsumer(owner, policy.ID_HOST)
+	}
 
 	// Check access from reserved consumables first
 	for _, id := range cache.Reserved {

@@ -35,9 +35,11 @@
 #define DROP_NOTIFY
 #define CT_MAP6 cilium_ct6_111
 #define CT_MAP4 cilium_ct4_111
+#define PROXY_MAP cilium_proxy_111
 #define CT_MAP_SIZE 4096
+#define PROXY_MAX_ELEMENTS 1024
 #define LB_L3
 #define LB_L4
 #define CONNTRACK
-#define CFG_L4_INGRESS { {80, 0, 0} }
-#define CFG_L4_EGRESS { {80, 0, 0} }
+#define CFG_L4_INGRESS { {80, 8080, 0} }
+#define CFG_L4_EGRESS { {80, 8080, 0} }
