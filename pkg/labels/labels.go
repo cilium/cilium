@@ -38,17 +38,6 @@ const (
 	ID_NAME_WORLD = "world"
 )
 
-type LabelOpType string
-
-const (
-	AddLabelsOp     LabelOpType = "AddLabelsOp"
-	DelLabelsOp     LabelOpType = "DelLabelsOp"
-	EnableLabelsOp  LabelOpType = "EnableLabelsOp"
-	DisableLabelsOp LabelOpType = "DisableLabelsOp"
-)
-
-type LabelOp map[LabelOpType]Labels
-
 type OpLabels struct {
 	// Active labels that are enabled and disabled but not deleted
 	Custom Labels
