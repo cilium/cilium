@@ -14,11 +14,6 @@
 
 package common
 
-var (
-	// Version number needs to be var since we override the value when building
-	Version = "dev"
-)
-
 const (
 	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
 	// log files.

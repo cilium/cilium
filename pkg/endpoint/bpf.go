@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/cilium/pkg/version"
 )
 
 const (
@@ -108,7 +109,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	if epStr64, err := e.Base64(); err == nil {
 		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
-			common.Version, epStr64)
+			version.Version, epStr64)
 	} else {
 		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
