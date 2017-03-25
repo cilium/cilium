@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
@@ -51,14 +52,14 @@ func (s *EndpointSuite) TestEndpointID(c *C) {
 }
 
 func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
-	eps := []Endpoint{
+	eps := []*models.Endpoint{
 		{ID: 5},
 		{ID: 1000},
 		{ID: 1},
 		{ID: 3},
 		{ID: 2},
 	}
-	epsWant := []Endpoint{
+	epsWant := []*models.Endpoint{
 		{ID: 1},
 		{ID: 2},
 		{ID: 3},
