@@ -164,6 +164,7 @@ static uint32_t BPF_FUNC(get_smp_processor_id);
 static uint32_t BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
 static uint32_t BPF_FUNC(get_route_realm, struct __sk_buff *skb);
 static uint32_t BPF_FUNC(get_hash_recalc, struct __sk_buff *skb);
+static uint32_t BPF_FUNC(set_hash_invalid, struct __sk_buff *skb);
 
 static int BPF_FUNC(skb_under_cgroup, void *map, uint32_t index);
 
