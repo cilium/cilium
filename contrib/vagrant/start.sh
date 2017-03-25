@@ -8,7 +8,7 @@ export 'MASTER_IPV4'=${MASTER_IPV4:-"192.168.33.11"}
 # NFS address is only set if NFS option is active. This will create a new
 # network interface for each VM with starting on this IP. This IP will be
 # available to reach from the host.
-export 'MASTER_IPV4_NFS'=${NFS+"192.168.34.11"}
+export 'MASTER_IPV4_NFS'=${MASTER_IPV4_NFS:-"192.168.34.11"}
 # Enable IPv4 mode. It's enabled by default since it's required for several
 # runtime tests.
 export 'IPV4'=${IPV4:-1}
@@ -56,7 +56,7 @@ function split_ipv4(){
     IFS='.' read -r -a ipv4_array <<< "${2}"
     eval "${1}=( ${ipv4_array[@]} )"
     if [[ "${#ipv4_array[@]}" -ne 4 ]]; then
-        echo "${2}: Invalid IPv4 address"
+        echo "Invalid IPv4 address: ${2}"
         exit 1
     fi
 }
@@ -385,10 +385,10 @@ function set_vagrant_env(){
     export 'FIRST_IP_SUFFIX'="${ipv4_array[3]}"
     export 'MASTER_IPV6_PUBLIC'="${IPV6_PUBLIC_CIDR}$(printf '%02X' ${ipv4_array[3]})"
 
+    split_ipv4 ipv4_array_nfs "${MASTER_IPV4_NFS}"
+    export 'IPV4_BASE_ADDR_NFS'="$(printf "%d.%d.%d." "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
+    export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
     if [[ -n "${NFS}" ]]; then
-        split_ipv4 ipv4_array_nfs "${MASTER_IPV4_NFS}"
-        export 'IPV4_BASE_ADDR_NFS'="$(printf "%d.%d.%d." "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
-        export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
         echo "# NFS enabled. don't forget to enable this ports on your host"
         echo "# before starting the VMs in order to have nfs working"
         echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
