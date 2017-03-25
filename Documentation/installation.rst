@@ -100,7 +100,7 @@ Private IPv6 addresses for containers
 -------------------------------------
 
 If privates IPv6 addresses are being used to address containers. The
-addresses must be masquaraded. This can be done on each node or at the
+addresses must be masqueraded. This can be done on each node or at the
 gateway/edge as the packets leave the internal network. An example
 ip6tables rule to achieve this is:
 
