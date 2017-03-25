@@ -1,6 +1,6 @@
 FROM fedora:24
 
-MAINTAINER "Andre Martins <andre@cilium.io>"
+LABEL maintainer "Andre Martins <andre@cilium.io>"
 
 RUN dnf install -y gettext curl gcc fedora-packager fedora-review && \
 cd /tmp && \

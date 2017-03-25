@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-MAINTAINER "Andre Martins <andre@cilium.io>"
+LABEL maintainer "Andre Martins <andre@cilium.io>"
 
 RUN apt-get update && \
 apt-get install -y --no-install-recommends dh-golang devscripts fakeroot dh-make \
