@@ -3,7 +3,7 @@ include ../Makefile.defs
 TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
 $(TARGET): $(SOURCES) check-bindata
-	go build $(GOBUILD) -ldflags "-X "github.com/cilium/cilium/common".Version=$(VERSION)" -o $(TARGET)
+	go build $(GOBUILD) -o $(TARGET)
 GO_BINDATA := go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \
 	-ignore netdev_config.h -ignore node_config.h -ignore '.+\.o$$'

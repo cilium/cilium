@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/version"
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	"github.com/go-openapi/loads"
@@ -187,6 +188,7 @@ func init() {
 	flags.StringVarP(&config.Tunnel, "tunnel", "t", "vxlan", "Tunnel mode vxlan or geneve, vxlan is the default")
 	flags.StringVar(&bpfRoot, "bpf-root", "", "Path to mounted BPF filesystem")
 	flags.String("access-log", "", "Path to access log of all HTTP requests observed")
+	flags.Bool("version", false, "Print version information")
 	viper.BindPFlags(flags)
 }
 
@@ -216,6 +218,11 @@ func RestoreExecPermissions(searchDir string, patterns ...string) error {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	if viper.GetBool("version") {
+		fmt.Printf("Cilium %s\n", version.Version)
+		os.Exit(0)
+	}
+
 	if cfgFile != "" { // enable ability to specify config file via flag
 		viper.SetConfigFile(cfgFile)
 	}
