@@ -12,10 +12,8 @@ Welcome to Cilium's documentation!
 
    intro
    gettingstarted
-   concepts
-   guides
-   installation
-   integrations
+   architecture
+   admin
    contributing
 
 Indices and tables

@@ -1,9 +1,13 @@
-Getting Started Guide
-=====================
+.. _gs_guide:
+
+Cilium Getting Started Guide
+============================
 
 This document serves as the easiest introduction to Cilium.   It is a detailed walk through
 of getting a single-node Cilium + Docker environment running on your laptop.
 It is designed to take 15-30 minutes.
+
+If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
 The tutorial leverages Vagrant, and as such should run on any operating system supported
 by Vagrant, including Linux, MacOS X, and Windows.   The VM running Docker + Cilium requires
@@ -12,7 +16,7 @@ hungry applications.
 
 The best way to get help if you get stuck is to ask a question on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
-accross the globe, there's almost alway someone available to help.
+across the globe, there is almost always someone available to help.
 
 Step 0: Install Vagrant
 -----------------------
@@ -26,7 +30,7 @@ Step 1: Download the Cilium Source Code
 
 Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_ and unzip the files.
 
-Alternatively, if you are a developer, feel free to use Git to clone the repo:
+Alternatively, if you are a developer, feel free to use Git to clone the repository:
 
 ::
 
@@ -95,36 +99,31 @@ it using the ``cilium`` CLI client. Check the status of the agent by running
 The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
 
-Step 5: Start an Example Service with Docker
---------------------------------------------
+Step 5: Create a Docker Network of Type Cilium
+----------------------------------------------
 
 Cilium integrates with local container runtimes, which in the case of this demo means Docker.
 With Docker, native networking is handled via a component called libnetwork. In order to steer
 Docker to request networking of a container from Cilium, a container must be
-started with a network of driver type "cilium". Typically you would have to
-create such a network first, but for this tutorial, the network comes pre-created.
+started with a network of driver type "cilium".
 
-You can confirm this by running:
-
-::
-
-   $ docker network list
-
-You should see a list of networks, one of which has both name and type of "cilium"
+With Cilium, all containers are connected to a single logical network, with isolation
+added not based on IP addresses but based on container labels (as we will do in the steps
+below).   So with Docker, we simple create a single network named 'net1' for all containers:
 
 ::
 
-    NETWORK ID          NAME                DRIVER              SCOPE
-    7b7eda65f9be        bridge              bridge              local
-    5eb7c141df2f        cilium              cilium              local
-    b0e3e0474e6b        host                host                local
-    17c585e7b5b0        none                null                local
+    $ docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium cilium-net
 
-So you can now simply launch your first container right away:
+
+Step 6: Start an Example Service with Docker
+--------------------------------------------
+
+Next, we can start a container connected to the Docker network managed by Cilium:
 
 ::
 
-    $ docker run -d --name service1-instance1 --net cilium -l "id.service1" httpd
+    $ docker run -d --name service1-instance1 --net cilium-net -l "id.service1" httpd
     e5723edaa2a1307e7aa7e71b4087882de0250973331bc74a37f6f80667bc5856
 
 
@@ -133,7 +132,7 @@ managing as an `endpoint`. A Cilium endpoint is one or more application
 containers which can be addressed by an individual IP address.
 
 
-Step 6: Apply an L3/L4 Policy With Cilium
+Step 7: Apply an L3/L4 Policy With Cilium
 --------------------------------------------
 
 For security purposes though, Cilium let's you not worry about IP addresses.  Instead, you can
@@ -141,27 +140,31 @@ use the labels assigned to the VM to define security policies, which are automat
 any container with that label, no matter where or when it is run within a container cluster.  In
 this case, we simply give the label "id.service1" to identify any containers that are part of service1.
 
-We'll start with an overly simple example where we just want some containers of another service "service2" to
-be able to reach "service1", but not containers from any other service.  Additionally, we only want to allow
+We'll start with an overly simple example where we create two additional services, "Service2" and "Service3",
+and we want Service2 containers to be able to reach Service1 containers, but Service3 containers should not be
+allowed to reach Service1 containers.  Additionally, we only want to allow
 service1 to be reachable on port 80, but no other ports.  This is a simple policy that filters only on IP address
 (network layer 3) and TCP port (network layer 4), so it is often referred to as an L3/L4 network security policy.
 
+Cilium performs stateful ''connection tracking'', meaning that if policy allows the Service2 to contact Service3,
+it will automatically allow return packets that are part of Service1 replying to Service2 within the context of the
+same TCP/UDP connection.
 
 We can achieve that with the following Cilium policy:
 
 ::
 
   {
-        "name": "root",
-    "rules": [{
-        "coverage": ["id.service1"],
-        "allow": ["id.service2"]
-    },{
-        "coverage": ["id.service1"],
-        "l4": [{
-            "in-ports": [{ "port": 80, "protocol": "tcp" }]
-        }]
-    }]
+      "name": "root",
+      "rules": [{
+          "coverage": ["id.service1"],
+          "allow": ["id.service2"]
+      },{
+          "coverage": ["id.service1"],
+          "l4": [{
+              "in-ports": [{ "port": 80, "protocol": "tcp" }]
+          }]
+      }]
   }
 
 Save this JSON to a file name l3_l4_policy.json in your VM, and apply the policy by running:
@@ -171,7 +174,7 @@ Save this JSON to a file name l3_l4_policy.json in your VM, and apply the policy
   $ cilium policy import l3_l4_policy.json
 
 
-Step 7: Test L3/L4 Policy
+Step 8: Test L3/L4 Policy
 -------------------------
 
 You can now launch additional containers represent other services attempting to access service1.
@@ -182,7 +185,7 @@ To test this out, we'll make an HTTP request to Service1 from a container with t
 
 ::
 
-    $ docker run --rm -ti --net cilium -l "id.service2" tgraf/netperf ping service1-instance1
+    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client ping service1-instance1
     PING service1-instance1 (10.11.250.189): 56 data bytes
     64 bytes from 10.11.250.189: seq=4 ttl=64 time=0.100 ms
     64 bytes from 10.11.250.189: seq=5 ttl=64 time=0.107 ms
@@ -195,11 +198,11 @@ End the pinging and destroy the container by typing Control-C .
 
 We can see that this request was successful, as we get a valid ping responses.
 
-Now let's run the same ping request to Service1 from a container that does not have that label:
+Now let's run the same ping request to Service1 from a container that has label "id.service3":
 
 ::
 
-    $ docker run --rm -ti --net cilium tgraf/netperf ping service1-instance1
+    $ docker run --rm -ti --net cilium-net -l "id.service3" cilium/demo-client ping service1-instance1
 
 You will see no ping replies, as all requests are dropped by the Cilium security policy.
 
@@ -209,10 +212,10 @@ anything about the IP address of the container IP or requiring some complex mech
 that containers of a particular service are assigned an IP address in a particular range.
 
 
-Step 8:  Apply and Test an L7 Policy with Cilium
+Step 9:  Apply and Test an L7 Policy with Cilium
 ------------------------------------------------
 
-In the simple scenario above, it was sufficient to either give a service full access to Service1's API
+In the simple scenario above, it was sufficient to either give Service2/Service3 full access to Service1's API
 or no access at all.   But to provide the strongest security (i.e., enforce least-privilege isolation)
 between microservices, each service that calls Service1's API should be limited to making only the set
 of HTTP requests it requires for legitimate operation.
@@ -229,13 +232,13 @@ To see this, run:
 
 ::
 
-    $ docker run --rm -ti --net cilium -l "id.service2" tgraf/netperf curl -si 'http://service1-instance1/public'
+    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/public'
 
 and
 
 ::
 
-    $ docker run --rm -ti --net cilium -l "id.service2" tgraf/netperf curl -si 'http://service1-instance1/private'
+    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/private'
 
 Both return HTTP 404 errors, indicating that the requests were allowed to reach the API services (FIXME: we need a container image
 that actually responds on these URLs).
@@ -273,20 +276,22 @@ Create a file with this contents and name it l7_aware_policy.json .  Then import
 
 ::
 
-    $ docker run --rm -ti --net cilium -l "id.service2" tgraf/netperf curl -si 'http://service1-instance1/public'
+    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/public'
 
 and
 
 ::
 
-    $ docker run --rm -ti --net cilium -l "id.service2" tgraf/netperf curl -si 'http://service1-instance1/private'
+    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/private'
 
 FIXME:  both requests return with no output.  So this is not working as expected.
 
-Step 9: Clean-Up
----------------
+Step 10: Clean-Up
+-----------------
 
-When you are done with the setup and want to tear-down the Cilium + Docker VM, open a terminal, cd to the cilium directory
+When you are done with the setup and want to tear-down the Cilium + Docker VM,
+and destroy all local state (e.g., the VM disk image), open a terminal, cd to
+the cilium directory
 and run:
 
 ::
@@ -295,7 +300,7 @@ and run:
 
 You can always re-create the VM using the steps described above.
 
-
-
-
+If instead you instead just want to shut down the VM but may use it later,
+"vagrant halt cilium-master" will work, and you can start it again later
+using the contrib/vagrant/start.sh script.
 

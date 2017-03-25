@@ -1,11 +1,16 @@
-Contributing
-============
+.. _dev_guide:
 
-If you wish to contribute to the Cilium project, feel encouraged to do
-so.
+Cilium Developer / Contributor Guide
+====================================
 
-Setting up the a development enviroment
----------------------------------------
+We're happy you're interested in contributing to the Cilium project.
+
+This guide will help you make sure you have an environment capable of testing
+changes to the Cilium source code, and that you understand the workflow of getting
+these changes reviewed and merged upstream.
+
+Setting up the a development environment
+----------------------------------------
 
 Developer requirements
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -98,10 +103,14 @@ certify the below:
         maintained indefinitely and may be redistributed consistent with
         this project or the open source license(s) involved.
 
-then you just add a line saying::
+then you just add a line saying:
 
 ::
-
     Signed-off-by: Random J Developer <random@developer.example.org>
 
 using your real name (sorry, no pseudonyms or anonymous contributions.)
+
+.. toctree::
+
+   commit-access
+
