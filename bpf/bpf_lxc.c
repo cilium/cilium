@@ -755,6 +755,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	return 0;
 }
 
+#ifdef LXC_IPV4
 static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label)
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -838,6 +839,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	return 0;
 }
+#endif
 
 __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
@@ -849,9 +851,11 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		ret = ipv6_policy(skb, ifindex, src_label);
 		break;
 
+#ifdef LXC_IPV4
 	case __constant_htons(ETH_P_IP):
 		ret = ipv4_policy(skb, ifindex, src_label);
 		break;
+#endif
 
 	default:
 		ret = DROP_UNKNOWN_L3;
