@@ -20,6 +20,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/spf13/cobra"
 )
@@ -51,8 +52,7 @@ func listEndpoints() {
 		Fatalf("cannot get endpoint list: %s\n", err)
 	}
 
-	// FIXME: sorting
-	//endpoint.OrderEndpointAsc(eps)
+	endpoint.OrderEndpointAsc(eps)
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 

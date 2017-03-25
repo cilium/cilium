@@ -531,17 +531,17 @@ func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 	}
 }
 
-type orderEndpoint func(e1, e2 *Endpoint) bool
+type orderEndpoint func(e1, e2 *models.Endpoint) bool
 
 // OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
-func OrderEndpointAsc(eps []Endpoint) {
-	ascPriority := func(e1, e2 *Endpoint) bool {
+func OrderEndpointAsc(eps []*models.Endpoint) {
+	ascPriority := func(e1, e2 *models.Endpoint) bool {
 		return e1.ID < e2.ID
 	}
 	orderEndpoint(ascPriority).sort(eps)
 }
 
-func (by orderEndpoint) sort(eps []Endpoint) {
+func (by orderEndpoint) sort(eps []*models.Endpoint) {
 	dS := &epSorter{
 		eps: eps,
 		by:  by,
@@ -550,8 +550,8 @@ func (by orderEndpoint) sort(eps []Endpoint) {
 }
 
 type epSorter struct {
-	eps []Endpoint
-	by  func(e1, e2 *Endpoint) bool
+	eps []*models.Endpoint
+	by  func(e1, e2 *models.Endpoint) bool
 }
 
 func (epS *epSorter) Len() int {
@@ -563,7 +563,7 @@ func (epS *epSorter) Swap(i, j int) {
 }
 
 func (epS *epSorter) Less(i, j int) bool {
-	return epS.by(&epS.eps[i], &epS.eps[j])
+	return epS.by(epS.eps[i], epS.eps[j])
 }
 
 // Base64 returns the endpoint in a base64 format.
