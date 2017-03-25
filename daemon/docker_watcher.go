@@ -33,6 +33,7 @@ import (
 
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
+	dNetwork "github.com/docker/engine-api/types/network"
 	ctx "golang.org/x/net/context"
 	k8sDockerLbls "k8s.io/client-go/1.5/pkg/kubelet/types"
 )
@@ -123,17 +124,31 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 }
 
 func getCiliumEndpointID(cont *dTypes.ContainerJSON, gwIP *addressing.NodeAddress) uint16 {
-	for _, contNetwork := range cont.NetworkSettings.Networks {
-		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
-		if ipv6gw.Equal(gwIP.IPv6Address.IP()) {
-			ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
-			if err == nil {
-				return ip.EndpointID()
-			}
-		}
+	if cont.NetworkSettings == nil {
+		return 0
 	}
 
+	if ciliumIP := getCiliumIPv6(cont.NetworkSettings.Networks, gwIP); ciliumIP != nil {
+		return ciliumIP.EndpointID()
+	}
 	return 0
+}
+
+func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings, gwIP *addressing.NodeAddress) *addressing.CiliumIPv6 {
+	for _, contNetwork := range networks {
+		if contNetwork == nil {
+			continue
+		}
+		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
+		if !ipv6gw.Equal(gwIP.IPv6Address.IP()) {
+			continue
+		}
+		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
+		if err == nil {
+			return &ip
+		}
+	}
+	return nil
 }
 
 func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
@@ -391,4 +406,32 @@ func (d *Daemon) deleteContainer(dockerID string) {
 	d.containersMU.Unlock()
 
 	d.DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, dockerID))
+}
+
+// IgnoreRunningContainers checks for already running containers and checks
+// their IP address, then adds the containers to the list of ignored containers
+// and allocates the IPs they are using to prevent future collisions.
+func (d *Daemon) IgnoreRunningContainers() {
+	conts, err := d.dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{})
+	if err != nil {
+		return
+	}
+	for _, cont := range conts {
+		log.Infof("Adding running container %q to the list of ignored containers", cont.ID)
+		d.StartIgnoringContainer(cont.ID)
+		if cont.NetworkSettings == nil {
+			continue
+		}
+		cIP := getCiliumIPv6(cont.NetworkSettings.Networks, d.conf.NodeAddress)
+		if cIP == nil {
+			continue
+		}
+		if err := d.AllocateIP(cIP.IP()); err != nil {
+			continue
+		}
+		// TODO Release this address when the ignored container leaves
+		log.Infof("Found container running with potential "+
+			"collision IP address %q, adding to the list "+
+			"of allocated IPs", cIP.IP().String())
+	}
 }

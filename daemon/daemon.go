@@ -534,6 +534,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if err := d.SyncLBMap(); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
+	} else {
+		// We need to read all docker containers so we know we won't
+		// going to allocate the same IP addresses and we will ignore
+		// these containers from reading.
+		d.IgnoreRunningContainers()
 	}
 
 	d.endpointsMU.Lock()
