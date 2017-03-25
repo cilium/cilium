@@ -242,6 +242,10 @@ func initConfig() {
 		common.SetupLOG(log, "INFO")
 	}
 
+	if config.IPv4Disabled {
+		endpoint.IPv4Enabled = false
+	}
+
 	config.BpfDir = filepath.Join(config.LibDir, defaults.BpfDir)
 	if err := os.MkdirAll(config.RunDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Could not create runtime directory %q: %s", config.RunDir, err)
@@ -288,7 +292,9 @@ func initEnv() {
 	}
 
 	config.Opts.Set(endpoint.OptionDropNotify, true)
-	config.Opts.Set(endpoint.OptionNAT46, true)
+	if !config.IPv4Disabled {
+		config.Opts.Set(endpoint.OptionNAT46, true)
+	}
 	config.Opts.Set(options.PolicyTracing, enableTracing)
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)

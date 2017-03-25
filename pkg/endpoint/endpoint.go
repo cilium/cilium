@@ -40,7 +40,9 @@ import (
 )
 
 var (
-	log = logging.MustGetLogger("cilium-endpoint")
+	//IPv4Enabled can be set to false to indicate IPv6 only operation
+	IPv4Enabled = true
+	log         = logging.MustGetLogger("cilium-endpoint")
 )
 
 // PortMap is the port mapping representation for a particular endpoint.
@@ -101,6 +103,13 @@ var (
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{OptionConntrack},
+		Verify: func(key string, val bool) error {
+			if !IPv4Enabled {
+				return fmt.Errorf("NAT46 requires IPv4 to be enabled")
+			} else {
+				return nil
+			}
+		},
 	}
 
 	OptionSpecPolicy = option.Option{
