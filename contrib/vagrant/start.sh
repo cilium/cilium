@@ -180,7 +180,7 @@ function write_install_nsenter(){
 sudo apt-get -y install libncurses5-dev libslang2-dev gettext \
 zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config \
 po-debconf autoconf automake autopoint libtool
-wget https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
+wget -nv https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
 tar -xvzf util-linux-2.24.1.tar.gz
 cd util-linux-2.24.1
 ./autogen.sh

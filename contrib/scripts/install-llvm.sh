@@ -23,7 +23,7 @@ if [ -d "/usr/local/$CLANG_DIR" ]; then
 	rm -rf /usr/local/$CLANG_DIR
 fi
 
-wget $CLANG_URL
+wget -nv $CLANG_URL
 mkdir -p /usr/local
 tar -C /usr/local -xJf $CLANG_FILE
 ln -s /usr/local/$CLANG_DIR $CLANGROOT
