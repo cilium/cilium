@@ -83,6 +83,7 @@ static inline int valid_dst_mac(struct ethhdr *eth)
 }
 #endif
 
+#ifdef LXC_IPV4
 static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __u16 new_port, __u16 old_port, __be32 old_ip,
@@ -125,5 +126,6 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	return 0;
 }
+#endif /* LXC_IPV4 */
 
 #endif
