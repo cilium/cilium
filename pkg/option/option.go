@@ -29,11 +29,24 @@ var (
 	log = logging.MustGetLogger("cilium-option")
 )
 
+// VerifyFunc validates option key with value and may return an error if the
+// option should not be applied
+type VerifyFunc func(key string, value bool) error
+
+// Option is the structure used to specify the semantics of a configurable
+// boolean option
 type Option struct {
-	Define      string
+	// Define is the name of the #define used for BPF programs
+	Define string
+	// Description is a short human readable description
 	Description string
-	Immutable   bool
-	Requires    []string
+	// Immutable marks an option which is read-only
+	Immutable bool
+	// Requires is a list of required options, such options will be
+	// automatically enabled as required.
+	Requires []string
+	// Verify is called prior to applying the option
+	Verify VerifyFunc
 }
 
 // RequiresOption returns true if the option requires the specified option `name`.
@@ -80,7 +93,7 @@ func NormalizeBool(value string) (bool, error) {
 	}
 }
 
-func (l OptionLibrary) Validate(name string) error {
+func (l OptionLibrary) Validate(name string, value bool) error {
 	key, spec := l.Lookup(name)
 	if key == "" {
 		return fmt.Errorf("Unknown option %s", name)
@@ -88,6 +101,10 @@ func (l OptionLibrary) Validate(name string) error {
 
 	if spec.Immutable {
 		return fmt.Errorf("Specified option is immutable (read-only)")
+	}
+
+	if spec.Verify != nil {
+		return spec.Verify(key, value)
 	}
 
 	return nil
@@ -249,11 +266,9 @@ func (bo *BoolOptions) Dump() {
 // Validate validates a given configuration map based on the option library
 func (bo *BoolOptions) Validate(n models.ConfigurationMap) error {
 	for k, v := range n {
-		if _, err := NormalizeBool(v); err != nil {
+		if val, err := NormalizeBool(v); err != nil {
 			return err
-		}
-
-		if err := bo.Library.Validate(k); err != nil {
+		} else if err := bo.Library.Validate(k, val); err != nil {
 			return err
 		}
 	}
