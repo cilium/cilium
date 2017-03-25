@@ -47,9 +47,9 @@ $ docker-compose up
 Download the `docker.policy` [here](../docker-compose/docker.policy)
 
 ```
-$ docker run -d --name wine --net cilium --label io.cilium.service.wine noironetworks/nettools sleep 30000
-$ docker run -d --name bar --net cilium --label io.cilium.service.bar noironetworks/nettools sleep 30000
-$ docker run -d --name client --net cilium --label io.cilium.service.client noironetworks/nettools sleep 30000
+$ docker run -d --name wine --net cilium --label io.cilium.service.wine tgraf/nettools sleep 30000
+$ docker run -d --name bar --net cilium --label io.cilium.service.bar tgraf/nettools sleep 30000
+$ docker run -d --name client --net cilium --label io.cilium.service.client tgraf/nettools sleep 30000
 $ cilium policy import ./docker.policy
 ```
 
