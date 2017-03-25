@@ -292,9 +292,6 @@ func initEnv() {
 	}
 
 	config.Opts.Set(endpoint.OptionDropNotify, true)
-	if !config.IPv4Disabled {
-		config.Opts.Set(endpoint.OptionNAT46, true)
-	}
 	config.Opts.Set(options.PolicyTracing, enableTracing)
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
