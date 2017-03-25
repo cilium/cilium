@@ -7,7 +7,7 @@ source "${dir}/helpers.bash"
 set -e
 
 if [ -n "${INSTALL}" ]; then
-    wget https://storage.googleapis.com/kubernetes-release/release/${k8s_version}/bin/linux/amd64/kubectl
+    wget -nv https://storage.googleapis.com/kubernetes-release/release/${k8s_version}/bin/linux/amd64/kubectl
     chmod +x kubectl
     sudo mv kubectl /usr/local/bin
 fi

@@ -8,7 +8,7 @@ set -e
 
 sudo mkdir -p /etc/etcd/
 
-wget https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
+wget -nv https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
 
 tar -xvf etcd-${etcd_version}-linux-amd64.tar.gz
 

@@ -26,11 +26,11 @@ EOF
 
 sudo mkdir -p /opt/cni
 
-wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz
+wget -nv https://storage.googleapis.com/kubernetes-release/network-plugins/cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz
 
 sudo tar -xvf cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz -C /opt/cni
 
-wget https://storage.googleapis.com/kubernetes-release/release/${k8s_version}/bin/linux/amd64/kubelet
+wget -nv https://storage.googleapis.com/kubernetes-release/release/${k8s_version}/bin/linux/amd64/kubelet
 
 chmod +x kubelet
 
