@@ -231,7 +231,10 @@ docker network inspect $TEST_NET 2> /dev/null || {
 
 docker run -dt --net=$TEST_NET --name server1 -l id.server -l server1 httpd
 docker run -dt --net=$TEST_NET --name server2 -l id.server -l server2 httpd
-docker run -dt --net=$TEST_NET --name client -l id.client tgraf/nettools
+docker run -dt --net=$TEST_NET --name server3 -l id.server -l server3 httpd
+docker run -dt --net=$TEST_NET --name server4 -l id.server -l server4 httpd
+docker run -dt --net=$TEST_NET --name server5 -l id.server -l server5 httpd
+docker run -dt --net=$TEST_NET --name client -l id.client noironetworks/nettools
 
 # FIXME IPv6 DAD period
 sleep 5
@@ -242,9 +245,22 @@ CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')
 SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
 SERVER1_ID=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $1}')
 SERVER1_IP4=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $5}')
+
 SERVER2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server2)
 SERVER2_ID=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $1}')
 SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $5}')
+
+SERVER3_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server3)
+SERVER3_ID=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $1}')
+SERVER3_IP4=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $5}')
+
+SERVER4_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server4)
+SERVER4_ID=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $1}')
+SERVER4_IP4=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $5}')
+
+SERVER5_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server5)
+SERVER5_ID=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $1}')
+SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $5}')
 
 #IFACE=$(ip link | grep lxc | sed -e 's/.* \(lxc[^@]*\).*/\1/')
 #for name in $IFACE; do
@@ -366,10 +382,17 @@ docker exec -ti server1 ping -c 4 $SVC_IP4 || {
 
 cilium service update --rev --frontend "[$SVC_IP6]:80" --id 2223 \
                         --backends "[$SERVER1_IP]:80" \
-                        --backends "[$SERVER2_IP]:80"
+                        --backends "[$SERVER2_IP]:80" \
+                        --backends "[$SERVER3_IP]:80" \
+                        --backends "[$SERVER4_IP]:80" \
+                        --backends "[$SERVER5_IP]:80"
+
 cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 			--backends "$SERVER1_IP4:80" \
-			--backends "$SERVER2_IP4:80"
+			--backends "$SERVER2_IP4:80" \
+			--backends "$SERVER3_IP4:80" \
+			--backends "$SERVER4_IP4:80" \
+			--backends "$SERVER5_IP4:80"
 
 #cilium config Debug=false DropNotification=false
 #cilium endpoint config $SERVER1_ID Debug=false DropNotification=false

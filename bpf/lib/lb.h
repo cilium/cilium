@@ -108,11 +108,17 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 }
 #endif
 
+static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
+{
+	set_hash_invalid(skb);
+	return get_hash_recalc(skb);
+}
+
 static inline int lb6_select_slave(struct __sk_buff *skb,
 				   struct lb6_key *key,
 				   __u16 count, __u16 weight)
 {
-	__be16 hash = get_hash_recalc(skb);
+	__u32 hash = lb_enforce_rehash(skb);
 	int slave = 0;
 
 #ifdef HAVE_MAP_VAL_ADJ
@@ -138,7 +144,7 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 				   struct lb4_key *key,
 				   __u16 count, __u16 weight)
 {
-	__be16 hash = get_hash_recalc(skb);
+	__u32 hash = lb_enforce_rehash(skb);
 	int slave = 0;
 
 #ifdef HAVE_MAP_VAL_ADJ
