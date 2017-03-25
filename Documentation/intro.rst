@@ -1,8 +1,10 @@
-Introduction
-============
+.. _intro:
+
+Introduction to Cilium
+======================
 
 What is Cilium?
---------------
+---------------
 
 Cilium is open source software for transparently securing the network connectivity between application services deployed using Linux container management platforms like Docker and Kubernetes.
 
@@ -21,20 +23,28 @@ By leveraging Linux BPF, Cilium retains the ability to transparently insert secu
 Documentation Roadmap
 ---------------------
 
-The remainder of this documentation is divided into three sections:
+The remainder of this documentation is divided into four sections:
 
-* **Getting Started Guide:**   A simple tutorial for running a small Cilium setup on your laptop.  Intended as an easy way to get your hands dirty applying Cilium security policies between containers.
+* :ref:`gs_guide` :   A simple tutorial for running a small Cilium setup on your laptop.  Intended as an easy way to get your hands dirty applying Cilium security policies between containers.
 
-* **Architecture Guide:**   Describes the components of the Cilium architecture, and the different models for deploying Cilium.  Focuses on the higher-level understanding required to run a full Cilium deployment and understand its behavior.
+* :ref:`arch_guide` :   Describes the components of the Cilium architecture, and the different models for deploying Cilium.  Focuses on the higher-level understanding required to run a full Cilium deployment and understand its behavior.
 
-* **Installation + Configuration Guide:**  Detailed instructions for installing + configuring Cilium in different configurations.
+* :ref:`admin_guide` :  Detailed instructions for installing, configuring, and troubleshooting Cilium in different deployment modes.
+
+* :ref:`dev_guide` : Instructions for those looking to develop and contribute modifications to the Cilium code or documentation.
+
 
 Getting Help
 ------------
 
+We use Github issues to maintain a list of `Cilium Frequently Asks Questions (FAQ)
+<https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_ .  Check there to see if you questions
+is already addressed.
+
 The best way to get help if you get stuck is to contact us on the `Cilium Slack channel <https://cilium.herokuapp.com>`_ .
 
-If you’re confident that you’ve found a bug, please go ahead and create an issue on our `Github <https://github.com/cilium/cilium/issues>`_.
+If you’re confident that you’ve found a bug, or if you have a feature request, please go ahead and create
+an issue on our `Github <https://github.com/cilium/cilium/issues>`_.
 
 If you’re interested in contributing to the code or docs, ping us on `Slack <https://cilium.herokuapp.com>`_ or just dive in on `Github <https://github.com/cilium/cilium/>`_!
 

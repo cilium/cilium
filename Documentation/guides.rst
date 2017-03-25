@@ -1,7 +1,0 @@
-Guides
-======
-
-.. toctree::
-   :glob:
-
-   guides/*
