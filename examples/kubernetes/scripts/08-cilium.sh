@@ -13,7 +13,7 @@ kubectl get networkpolicy
 # TODO remove sudo once socket permissions are set with cilium group
 cat <<EOF | sudo cilium -D policy import -
 {
-        "name": "io.cilium",
+        "name": "root",
         "rules": [{
                 "coverage": ["reserved:world"],
                 "allow": ["k8s:io.cilium.k8s.k8s-app=kube-dns"]
@@ -21,4 +21,4 @@ cat <<EOF | sudo cilium -D policy import -
 }
 EOF
 
-sudo cilium policy get io.cilium
+sudo cilium policy get root
