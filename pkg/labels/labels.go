@@ -33,11 +33,15 @@ var (
 )
 
 const (
-	ID_NAME_ALL   = "all"
-	ID_NAME_HOST  = "host"
-	ID_NAME_WORLD = "world"
+	// IDNameAll is a special label which matches all labels.
+	IDNameAll = "all"
+	// IDNameHost is the label used for the hostname ID.
+	IDNameHost = "host"
+	// IDNameHost is the label used for the world ID.
+	IDNameWorld = "world"
 )
 
+// OpLabels represents the the possible types.
 type OpLabels struct {
 	// Active labels that are enabled and disabled but not deleted
 	Custom Labels
@@ -47,6 +51,7 @@ type OpLabels struct {
 	Disabled Labels
 }
 
+// DeepCopy returns deep copy of the label.
 func (o *OpLabels) DeepCopy() *OpLabels {
 	return &OpLabels{
 		Custom:        o.Custom.DeepCopy(),
@@ -55,6 +60,7 @@ func (o *OpLabels) DeepCopy() *OpLabels {
 	}
 }
 
+// Enabled returns map of enabled labels.
 func (o *OpLabels) Enabled() Labels {
 	enabled := make(Labels, len(o.Custom)+len(o.Orchestration))
 
@@ -69,6 +75,7 @@ func (o *OpLabels) Enabled() Labels {
 	return enabled
 }
 
+// NewOplabelsFromModel creates new label from the model.
 func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 	if base == nil {
 		return nil
@@ -81,6 +88,7 @@ func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 	}
 }
 
+// LabelOwner represents owner of the label.
 type LabelOwner interface {
 	ResolveName(name string) string
 }
@@ -182,11 +190,12 @@ func (l *Label) Equals(b *Label) bool {
 		l.Value == b.Value
 }
 
+// IsAllLabel returns true if the label is reserved and matches with IDNameAll.
 func (l *Label) IsAllLabel() bool {
-	// ID_NAME_ALL is a special label which matches all labels
 	return l.Source == common.ReservedLabelSource && l.Key == "all"
 }
 
+// Matches returns true if it's a special label or the label equals the target.
 func (l *Label) Matches(target *Label) bool {
 	return l.IsAllLabel() || l.Equals(target)
 }
@@ -298,6 +307,7 @@ func Map2Labels(m map[string]string, source string) Labels {
 	return o
 }
 
+// DeepCopy returns a deep copy of the labels.
 func (l Labels) DeepCopy() Labels {
 	o := Labels{}
 	for k, v := range l {
@@ -311,6 +321,7 @@ func (l Labels) DeepCopy() Labels {
 	return o
 }
 
+// NewLabelsFromModel creates labels from string array.
 func NewLabelsFromModel(base []string) Labels {
 	lbls := Labels{}
 	for _, v := range base {
@@ -321,6 +332,7 @@ func NewLabelsFromModel(base []string) Labels {
 	return lbls
 }
 
+// GetModel returns model with all the values of the labels.
 func (l Labels) GetModel() []string {
 	res := []string{}
 	for _, v := range l {
@@ -439,6 +451,7 @@ func ParseLabel(str string) *Label {
 	return &lbl
 }
 
+// ParseStringLabels returns label representations from strings.
 func ParseStringLabels(strLbls []string) Labels {
 	lbls := Labels{}
 	for _, l := range strLbls {
@@ -449,6 +462,7 @@ func ParseStringLabels(strLbls []string) Labels {
 	return lbls
 }
 
+// LabelSliceSHA256Sum returns SHA256 checksum from the labels.
 func LabelSliceSHA256Sum(labels []Label) (string, error) {
 	sha := sha512.New512_256()
 	if err := json.NewEncoder(sha).Encode(labels); err != nil {
@@ -457,6 +471,7 @@ func LabelSliceSHA256Sum(labels []Label) (string, error) {
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
 }
 
+// ParseStringLabelsInOrder returns label representations from strings in order.
 func ParseStringLabelsInOrder(strLbls []string) []Label {
 	lbls := []Label{}
 	for _, l := range strLbls {

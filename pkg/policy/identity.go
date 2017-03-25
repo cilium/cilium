@@ -158,12 +158,12 @@ const (
 
 var (
 	ReservedIdentities = map[string]NumericIdentity{
-		labels.ID_NAME_HOST:  ID_HOST,
-		labels.ID_NAME_WORLD: ID_WORLD,
+		labels.IDNameHost:  ID_HOST,
+		labels.IDNameWorld: ID_WORLD,
 	}
 	ReservedIdentityNames = map[NumericIdentity]string{
-		ID_HOST:  labels.ID_NAME_HOST,
-		ID_WORLD: labels.ID_NAME_WORLD,
+		ID_HOST:  labels.IDNameHost,
+		ID_WORLD: labels.IDNameWorld,
 	}
 )
 
