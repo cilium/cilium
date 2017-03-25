@@ -37,7 +37,7 @@ const (
 	IDNameAll = "all"
 	// IDNameHost is the label used for the hostname ID.
 	IDNameHost = "host"
-	// IDNameHost is the label used for the world ID.
+	// IDNameWorld is the label used for the world ID.
 	IDNameWorld = "world"
 )
 
