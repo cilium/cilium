@@ -74,7 +74,9 @@ func (d *Daemon) EnableConntrackGC() {
 				}
 
 				runGC(e, ctmap.MapName6, ctmap.CtTypeIPv6)
-				runGC(e, ctmap.MapName4, ctmap.CtTypeIPv4)
+				if !d.conf.IPv4Disabled {
+					runGC(e, ctmap.MapName4, ctmap.CtTypeIPv4)
+				}
 			}
 
 			d.endpointsMU.Unlock()
