@@ -97,23 +97,25 @@ buffer.
 
 ## Prerequisites
 
-Cilium requires a recent version of the Linux kernel, iproute2 and clang+LLVM.
-All required changes have been merged upstream and are available in official
-releases:
- * Linux >= 4.8.0: http://www.kernel.org/
+The easiest way to meet the prerequisites is to use the provided vagrant box
+which provides all prerequisites in a sandbox environment. Please see the
+[vagrant guide](doc/vagrant.md) for more details.
+
+In order to meet the prerequisites for an installation outside of vagrant,
+the following components must be installed in at least the version specified:
+
+ * Linux kernel (http://www.kernel.org/)
+    * Minimum: >= 4.8.0
+    * Recommended: >= 4.9.17. Use of a 4.9.17 kernel or later will ensure
+      compatibility with clang > 3.9.x
+ * clang+LLVM >=3.7.1. Please note that in order to use clang 3.9.x, the
+   kernel version requirement is >= 4.9.17
  * iproute2 >= 4.8.0: https://www.kernel.org/pub/linux/utils/net/iproute2/
- * clang+LLVM >=3.7.1: http://llvm.org/releases
 
-Cilium can make use of additional functionality available in >= 4.9 kernels. It
-will probe for the availability upon startup and enable it automatically.
-Development snapshots of the Linux kernel and iproute2 tree can be found here:
- * https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
- * https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git
-
-Alternatively, the vagrant box `noironetworks/net-next` is built regularly
-and provides the above branches compiled and pre-installed. See the
-[vagrant section](doc/vagrant.md) for instructions on how to bring up a
-virtual machine with all dependencies pre installed.
+Cilium will make use of later kernel versions if available. It will probe
+for the availability of the functionality automatically. It is therefore
+perfectly acceptable to use a distribution kernel which has the required
+functionality backported.
 
 ## Installation
 
