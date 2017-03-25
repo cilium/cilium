@@ -70,14 +70,14 @@ Vagrant.configure(2) do |config|
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
 
     config.vm.provider :libvirt do |libvirt|
-        config.vm.box = "noironetworks/net-next"
+        config.vm.box = "cilium/ubuntu-16.10"
         libvirt.memory = ENV['VM_MEMORY'].to_i
         libvirt.cpus = ENV['VM_CPUS'].to_i
         config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
     end
 
     config.vm.provider "virtualbox" do |vb|
-        config.vm.box = "noironetworks/net-next"
+        config.vm.box = "cilium/ubuntu-16.10"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
 
