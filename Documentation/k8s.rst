@@ -10,7 +10,7 @@ kept updated as possible.
 Kubernetes loadbalancer (kube-proxy)
 ------------------------------------
 
-Kubernetes has developed the Services abstration which provides the user
+Kubernetes has developed the Services abstraction which provides the user
 the ability to load balance network traffic to different pods. This
 abstraction allows the pods reaching out to other pods by a single IP
 address, a virtual IP address, without knowing all the pods that are

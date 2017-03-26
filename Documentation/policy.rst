@@ -76,12 +76,12 @@ Policy Specification
           requires:           // List of additional labels required to consume selected pods (optional)
             - labels:         // Label selector
 
-Rule matching precendence: 1. The default decision is deny (undecided)
+Rule matching precedence: 1. The default decision is deny (undecided)
 2. If a rule matches and the from portion the source pod, the decision
 is changed to allow but the evaluation continues. If multiple rules in a
-policy element overlap, then the negated selector takes precendence. 3.
+policy element overlap, then the negated selector takes precedence. 3.
 If a from rules has the always boolean set, the decision is final
-immediately, the evaulation is not continued. 4. If a requires rule is
-encounted, the additional list of labels is added to the list of
+immediately, the evaluation is not continued. 4. If a requires rule is
+encountered, the additional list of labels is added to the list of
 required labels of a possible source. The rule itself does not change
 the decision though.
