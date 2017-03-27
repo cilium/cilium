@@ -5,7 +5,7 @@ Cilium Administrator Guide
 
 This document describes how to install, configure, and troubleshoot Cilium in different deployment modes.
 
-It assumes you have already read and understood the conponents and concepts described in the :ref:`arch_guide`.
+It assumes you have already read and understood the components and concepts described in the :ref:`arch_guide`.
 
 This document focuses on a full deployment of Cilium within a datacenter or public cloud.  If you are just looking
 for a simple way to run a small setup on your laptop, we highly recommend using our Vagrant environment:
@@ -37,8 +37,8 @@ general purpose distro that runs a 4.8+ kernel by default.  However, many other 
 ability to optionally install a kernel with version 4.8 or newer.
 
 
-Installing the Cilium
----------------------
+Installing Cilium
+-----------------
 
 Cilium consists of an agent plus additional optional integration plugins
 which must be installed on all servers which will run containers.
@@ -53,7 +53,7 @@ Installing Cilium using Docker Compose
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Below is an example of using Docker Compose to deploy the
-Cilium agent and the Cilium Docker libnetwork plugin using Docker Compose
+Cilium agent and the Cilium Docker libnetwork plugin using Docker Compose.
 
 Note: for multi-host deployments using a key-value store, you would want to
 update this template to point cilium to a central key-value store.
@@ -235,11 +235,11 @@ For example:
 Container Node Network Configuration
 ------------------------------------
 
-The networking configuration requires on you Linux container node
-depends on the IP interconnectivity model you are using and the
-requirements your containers to have reach or be reached by
-resources outside the container cluster.  For more details, see the
-Architecture Guide's section on :ref:`arch_ip_connectivity` .
+The networking configuration required on your Linux container node
+depends on the IP interconnectivity model you are using and your
+requirements regarding the reachability of your containers to/from
+resources outside the container cluster. For more details, see the
+Architecture Guide's section on :ref:`arch_ip_connectivity`.
 
 Overlay Mode - Container-to-Container Access
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -284,13 +284,13 @@ External Network Access
 
 By default with Cilium, containers use IP addresses that are private to the
 cluster.  This is very common in overlay mode, but may also be the case even
-if direct mode is being used.    In either scenario, if a container with a private
+if direct mode is being used. In either scenario, if a container with a private
 IP should be allowed to make outgoing network connections to resources
-either elsewere in the data center or on the public Internet, the Linux node
-should be configured to perform IP masquerading, also known as source network
-address translation (SNAT), for all traffic destined from a container to the outside world.
+either elsewhere in the data center or on the public Internet, the Linux node
+should be configured to perform IP masquerading, also known as NAPT, for all
+traffic destined from a container to the outside world.
 
-An example of configuring IP masuerading for IPv6 is:
+An example of configuring IP masquerading for IPv6 is:
 
 ::
 
@@ -403,12 +403,12 @@ Kubernetes starts supporting multiple IP addresses for a single pod.
 
 TODO:  do we need to recommend installing security policies that enable kube-dns, etc?
 
-Container Node / Kublet Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Container Node / Kubelet Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Enabling the Cilium and Loopback CNI Plugins
 ````````````````````````````````````````````
-Create cni configuration file to tell the kublet
+Create cni configuration file to tell the kubelet
 that it should use the cilium cni plugin:
 
 
@@ -431,10 +431,10 @@ Since kubernetes ``v1.3.5`` the user needs to install the ``loopback`` cni plugi
    wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz
    sudo tar -xvf cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz -C /opt/cni
 
-Make to changes to the kublet systemd unit file:
+Make to changes to the kubelet systemd unit file:
 
  *  include an [ExecPre] block to mount the BPF filesystem: ``ExecPre=/bin/mount bpffs /sys/fs/bpf -t bpf``
- *  include a flag instructing the kublet to use CNI plugins: ``--network-plugin=cni``
+ *  include a flag instructing the kubelet to use CNI plugins: ``--network-plugin=cni``
 
 An example systemd file with these changes is below:
 

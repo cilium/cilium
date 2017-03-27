@@ -3,12 +3,14 @@
 Cilium Architecture Guide
 =========================
 
-The goal of this document is to describe the components of the Cilium architecture, and the different models for deploying Cilium within
-your datacenter or cloud environment.  It focuses on the higher-level understanding required to run a full Cilium deployment and understand
-its behavior.  You can then use the more detailed Cilium Installation & Configuration Guide to understand the details of setting up Cilium.
+The goal of this document is to describe the components of the Cilium
+architecture, and the different models for deploying Cilium within
+your datacenter or cloud environment.  It focuses on the higher-level
+understanding required to run a full Cilium deployment and understand
+its behavior.  You can then use the more detailed Cilium Installation
+& Configuration Guide to understand the details of setting up Cilium.
 
-The concepts sections introduces you to the base concepts of Cilium and
-introduces you to all the components.
+TODO: fix reference
 
 Cilium Components
 -----------------
@@ -21,7 +23,7 @@ Cilium Components
 A deployment of Cilium consists of the following components running on each Linux container node
 in the container cluster:
 
-* **Cilium Agent:** Userspace daemon that interacts with the container runtime to setup networking for each container.  Has an API
+* **Cilium Agent:** Userspace daemon that interacts with the container runtime to setup networking for each container. Provides an API
   for configuring network security policies, extracting network visibility data, etc.
 
 * **Cilium CLI Client:** Simple CLI client for communicating with the local Cilium Agent, for example, to configure network security or visibility
@@ -37,8 +39,11 @@ in the container cluster:
   to the main Cilium Agent.
 
 
-In addition to the components that run on each Linux container host, Cilium leverages a key-value store (e.g., etcd, consul) to
-share data between Cilium Agents running on different nodes.
+In addition to the components that run on each Linux container host, Cilium leverages a key-value store to share data between Cilium Agents running on different nodes. The currently supported key-value stores are:
+
+* etcd
+* consul
+* local storage (golang hashmap)
 
 
 Cilium Agent
@@ -53,7 +58,7 @@ network access in/out of those containers.  In more detail, the agent:
   containers in the cluster.  These APIs also expose monitoring capabilities to gain additional visibility into network forwarding and filtering
   behavior.
 
-* Gathers metadata about each new container that is created.  In particular, it grabs identity metadata like container/pod labels, which are used
+* Gathers metadata about each new container that is created.  In particular, it queries identity metadata such as container/pod labels, which are used
   to identify endpoints in Cilium security policies.
 
 * Interacts with the container platforms network plugin to perform IP address management (IPAM), which controls what IPv4 and IPv6 addresses
@@ -70,7 +75,7 @@ Cilium CLI Client
 ^^^^^^^^^^^^^^^^^
 
 The Cilium CLI Client (cilium) is a command-line tool that is installed along with the Cilium Agent.  It gives a command-line
-interface to interact with all aspects of the Cilium Agent API.   This includes inspecting the Cilium's state about each network
+interface to interact with all aspects of the Cilium Agent API.   This includes inspecting Cilium's state about each network
 endpoint (i.e., container), configuring and viewing security policies, and configuring network monitoring behavior.
 
 Linux Kernel BPF
@@ -84,7 +89,7 @@ encapsulation, etc. An in-kernel verifier ensures that BPF programs are safe
 to run and a JIT compiler converts the bytecode to CPU architecture specific
 instructions for native execution efficiency. BPF programs can be run at
 various hooking points in the kernel such as for incoming packets, outgoing
-packets, system call level, kprobes, etc.
+packets, system calls, kprobes, etc.
 
 BPF continues to evolve and gain additional capabilities with each new Linux release.
 Cilium leverages BPF to perform core datapath filtering, mangling, monitoring and redirection,
@@ -103,13 +108,14 @@ Key-Value Store
 ^^^^^^^^^^^^^^^
 
 The Key-Value (KV) Store is used for the following state:
+
 * policy identities: list of labels <=> policy identity identifier
 * global services: global service id to VIP association (optional)
-* Encapsulation VTEP mapping (optional)
+* encapsulation VTEP mapping (optional)
 
 To simplify things in a larger key-value store can be the same one used by the container
 orchestrater (e.g., Kubernetes using etcd).  In single node Cilium deployments used for basic
-testing/learning, Cilium can use a "local store", avoiding the need to setup a dedicated K-V store.
+testing/learning, Cilium can use a local store implemented as golang hashmap, avoiding the need to setup a dedicated K-V store.
 
 Container IP Address Management and Connectivity
 ------------------------------------------------
@@ -127,11 +133,11 @@ Cluster IP Prefixes and Container IP Assignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With Cilium, all containers in the cluster are connected to a single logical network,
-which is associated with a single ''cluster prefix''.  Cilium may have an IPv6 cluster
+which is associated with a single *cluster prefix*.  Cilium may have an IPv6 cluster
 prefix and an IPv4 cluster prefix, in which case a container gets both a IPv6 and
 IPv4 address, or just a single cluster prefix.
 
-The simplest approach is to use private address space, though there are some scenarios
+The simplest approach is to use a private address space, though there are some scenarios
 where you would choose to use publicly routable addresses (see the next section on IP
 Interconnectivity).
 
@@ -139,11 +145,12 @@ Each Linux node running containers gets a ''node prefix'' out of the larger clus
 and uses it to assign IPs to its local containers.   Cilium chooses the node prefix for
 a node deterministically based on the IP address of the node itself, so that for a given
 destination container address, it is possible for Cilium to map directly to the IP address of
-the corresponding node (this is value when we discuss various option in the next section on
-IP Interconnectivity).
+the corresponding node.
 
 IPv6 IP Address Assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TODO:  I'd like to know what the logic to assign addresses. Especially, are those addresses assigned sequentially? Are they randomly chosen from available addresses in the prefix? What is the delay before an IPv6 address is reused? Is all that information persisted? Where? Is there really no risk of assigning the same IPv6 address twice?
 
 Cilium allocates addresses for all containers from a single ``/48`` IPv6
 prefix called the cluster prefix. If left unspecified, this prefix will
@@ -198,7 +205,7 @@ IPv4 IP Address Assignment
 Cilium will allocate IPv4 addresses to containers out of a ``/16`` node
 prefix. This prefix can be specified with the ``--ipv4-range`` option.
 If left unspecified, Cilium will try and generate a unique prefix using
-the format ``10.X.0.0/16`` where X is replace with the last byte of the
+the format ``10.X.0.0/16`` where X is replaced with the last byte of the
 first global scope IPv4 address discovered on the node. This generated
 prefix is relatively weak in uniqueness so it is highly recommended to
 always specify the IPv4 range.
@@ -220,6 +227,8 @@ different types of connectivity:
 Container-to-Container Connectivity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+TODO: Simplify
+
 In the case of connectivity between two containers in the cluster, Cilium processes
 packets on both ends of the connection, and uses the packet headers (either unused bits
 in the IPv6 header, or fields in the encapsulation header in the case of IPv4) to
@@ -236,8 +245,7 @@ traffic:
   node IP prefixes are reachable
   by using the node's primary IP address as an L3 next hop address.   In the case of a traditional
   physical network this would typically involve announcing each node prefix as a route using a routing
-  protocol within the datacenter.   However, in the case of some cloud networking solutions (e.g,
-  AWS VPC, or GCE, there are programmable APIs to achieve this same result.
+  protocol within the datacenter. Cloud providers (e.g, AWS VPC, or GCE) provide APIs to achieve the same result.
 
 * **Overlay Routing:** In this mode, the network connecting the Linux node hosts are never aware of the
   node IP prefixes.  Instead, because
@@ -282,7 +290,7 @@ capability, which achieve the same effect that Cilium handles forwarding and sec
 ''internal'' traffic between different services.
 
 Containers that simply need to make outgoing connections to external hosts can be addressed by
-configuring each Linux node host to SNAT connections from containers to IP ranges other than the
+configuring each Linux node host to masquerade connections from containers to IP ranges other than the
 cluster prefix.  This approach can be used even if there is a mismatch between the IP version used
 for the container prefix and the version used for Node IP addresses.
 
@@ -304,7 +312,7 @@ TODO: tgraf to complete this section
 Integration with Container Platforms
 ------------------------------------
 
-Cilium can be tightly coupled to a particular container platform like Docker or Kubernetes, which
+Cilium can be tightly integrated to a particular container platform like Docker or Kubernetes, which
 enables Cilium to perform network forwarding and security in a way that it well-integrated with the
 identity and service abstractions that are native to the container platform.
 
@@ -352,7 +360,7 @@ node prefix of the Linux node running the Pod.   In the absence of any network s
 all Pods can reach each other.
 
 Pod IP addresses are typically local to the Kubernetes cluster.  If pods need to reach services
-outside the cluster as a client, the Kubernetes nodes are typically configured to SNAT all traffic
+outside the cluster as a client, the Kubernetes nodes are typically configured to masquerade all traffic
 sent from containers to external prefix.
 
 Pod-to-Pod Service-based Load-balancing
@@ -390,10 +398,12 @@ affects both direct pod-to-pod communication, as well as service-based communica
 the ''cluster ip'' of a service, and is sent to a particular pod by the kube-proxy load-balancer (or in the case of
 Cilium, the Cilium load-balancer).
 
-L3/L4 policies can either be configured dirctly via Cilium in the Cilium policy lanaguage, or they can be specified
+L3/L4 policies can either be configured directly via Cilium in the Cilium policy language, or they can be specified
 by as `Kubernetes Network Policies <https://kubernetes.io/docs/user-guide/networkpolicies/>`_ , in which case
 the Cilium Kubernetes network plugin translates the Kubernetes Network Policies into Cilium policies and automatically
 keeps them in sync.  For more details on Kubernetes Network Policies, see:
+
+TODO: One major difference that is omitted in the comparison between Cilium policies and K8s policies, is that K8s policies are defined globally, for the whole cluster, whereas Cilium policies must be configured on every node.
 
 .. toctree::
 
@@ -411,6 +421,8 @@ where L3/L4 policies are defined via Kubernetes Network Policies and L7 policies
 
 External-to-Pod Service-based Load-balancing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TODO: Verify this
 
 Kubernetes supports an abstraction known as `Ingress <https://kubernetes.io/docs/user-guide/ingress/#what-is-ingress>`_
 that allows a Pod-based Kubernetes service expose itself for access outside of the cluster in a load-balanced way.

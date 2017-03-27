@@ -14,7 +14,7 @@ At the foundation of Cilium is a new Linux kernel technology called BPF, which e
 Why Cilium?
 -----------
 
-The development of modern datacenter applications has shifted to a service-oriented architecture often referred to as “microservices”, wherein a large application is broken down into small independent units that communicate with each other via APIs using lightweight protocols like HTTP.    Microservices applications also tend to be highly dynamic, with individual containers coming and going as the application scales out/in based on load and rolling updates are deployed as part of continuous delivery.
+The development of modern datacenter applications has shifted to a service-oriented architecture often referred to as “microservices”, wherein a large application is split into small independent services that communicate with each other via APIs using lightweight protocols like HTTP.    Microservices applications tend to be highly dynamic, with individual containers getting started or destroyed as the application scales out/in to adapt to load changes and during rolling updates are deployed as part of continuous delivery.
 
 This shift toward highly dynamic microservices presents both a challenge and an opportunity in terms of securing connectivity between microservices.  Traditional Linux network security approaches (e.g., iptables) filter on IP address and TCP/UDP port, and as a result struggle to properly lock-down connectivity between microservices and stay up to date with the frequent churn of container instances.
 

@@ -43,14 +43,17 @@ Contributions may be submitted in the form of pull requests against the
 github repository at: [https://github.com/cilium/cilium]
 
 Before hitting the submit button, please make sure that the following
-requirements have been met: \* The pull request and all corresponding
-commits have been equipped with a well written commit message which
-explains the reasoning and details of the change. \* You have added unit
-and/or runtime tests where feasible. \* You have tested the changes and
-checked for regressions by running the existing testsuite against your
-changes. See the "Testsuite" section for additional details. \* You have
-signed off on your commits, see the section "Developer's Certificate of
-Origin" for more details.
+requirements have been met:
+
+* The pull request and all corresponding commits have been equipped
+  with a well written commit message which explains the reasoning
+  and details of the change.
+* You have added unit and/or runtime tests where feasible.
+* You have tested the changes and checked for regressions by running
+  the existing testsuite against your changes. See the "Testsuite"
+  section for additional details.
+* You have signed off on your commits, see the section "Developer's
+  Certificate of Origin" for more details.
 
 Developer's Certificate of Origin
 ---------------------------------
