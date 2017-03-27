@@ -4,6 +4,11 @@ Vagrant
 Using the provided Vagrantfile
 ------------------------------
 
+.. note::
+
+   You need to run Vagrant version 1.8.3 or later or you will run into issues
+   booting the Ubuntu 16.10 base image.
+
 To bring up a `vagrant <https://www.vagrantup.com/>`__ VM with Cilium
 plus dependencies installed, run:
 

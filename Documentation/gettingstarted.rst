@@ -21,6 +21,11 @@ across the globe, there is almost always someone available to help.
 Step 0: Install Vagrant
 -----------------------
 
+.. note::
+
+   You need to run Vagrant version 1.8.3 or later or you will run into issues
+   booting the Ubuntu 16.10 base image.
+
 If you don't already have Vagrant installed, follow the
 `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_
 
