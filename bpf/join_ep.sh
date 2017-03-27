@@ -27,7 +27,7 @@ echo "Join EP id=$ID ifname=$IFNAME"
 DIR="$PWD/$ID"
 CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$RUNDIR/globals -I$DIR -I$LIB/include -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
-clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $DIR/bpf_lxc.asm
+#clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $DIR/bpf_lxc.asm
 clang $CLANG_OPTS -c $LIB/bpf_lxc.c -o $DIR/bpf_lxc.o
 
 tc qdisc replace dev $IFNAME clsact || true
