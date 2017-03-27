@@ -23,6 +23,9 @@
 #ifdef POLICY_ENFORCEMENT
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
 {
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
 	struct policy_entry *policy;
 
 	policy = map_lookup_elem(map, &src_label);
@@ -44,6 +47,7 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 
 allow:
 	return TC_ACT_OK;
+#endif /* DROP_ALL */
 }
 
 /**

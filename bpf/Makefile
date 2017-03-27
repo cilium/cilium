@@ -18,14 +18,22 @@ all: $(BPF)
 	clang ${CLANG_FLAGS} -c $< -o $@
 
 LB_OPTIONS = \
-	 \
+	-DUNKNOWN \
 	-DLB_L3 \
 	-DLB_L4 \
 	-DLB_L3 -DLB_L4
 
 bpf_lb.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
-		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o $@;)
+		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o /dev/null;)
+
+LXC_OPTIONS = \
+	 -DUNKNOWN \
+	 -DDROP_ALL
+
+bpf_lxc.o:
+	$(foreach OPTS,$(LXC_OPTIONS), \
+		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lxc.c -o /dev/null;)
 
 else
 
