@@ -424,7 +424,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 			 * as we do not support redirection yet and the expectation
 			 * may be to apply security rules.
 			 */
-			return DROP_POLICY;
+			if (proxy_port)
+				return DROP_POLICY;
 		}
 
 		entry.rx_packets = 1;
@@ -446,7 +447,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 			 * as we do not support redirection yet and the expectation
 			 * may be to apply security rules.
 			 */
-			return DROP_POLICY;
+			if (proxy_port)
+				return DROP_POLICY;
 		}
 
 		entry.tx_packets = 1;
