@@ -109,7 +109,7 @@ started with a network of driver type "cilium".
 
 With Cilium, all containers are connected to a single logical network, with isolation
 added not based on IP addresses but based on container labels (as we will do in the steps
-below).   So with Docker, we simple create a single network named 'net1' for all containers:
+below).   So with Docker, we simply create a single network named 'cilium-net' for all containers:
 
 ::
 
@@ -119,11 +119,15 @@ below).   So with Docker, we simple create a single network named 'net1' for all
 Step 6: Start an Example Service with Docker
 --------------------------------------------
 
-Next, we can start a container connected to the Docker network managed by Cilium:
+In this tutorial, we'll use a container running a simple HTTP server to represent a microservice
+which we will refer to as *Service1*.  As a result, we will start this container with the label
+"id.service1", so we can create Cilium security policies for that service.
+
+Use the following command to start the *Service1* container connected to the Docker network managed by Cilium:
 
 ::
 
-    $ docker run -d --name service1-instance1 --net cilium-net -l "id.service1" httpd
+    $ docker run -d --name service1-instance1 --net cilium-net -l "id.service1" cilium/demo-httpd
     e5723edaa2a1307e7aa7e71b4087882de0250973331bc74a37f6f80667bc5856
 
 
@@ -135,19 +139,18 @@ containers which can be addressed by an individual IP address.
 Step 7: Apply an L3/L4 Policy With Cilium
 --------------------------------------------
 
-For security purposes though, Cilium let's you not worry about IP addresses.  Instead, you can
+When using Cilium, endpoint IP addresses are irrelevant when defining security policies.  Instead, you can
 use the labels assigned to the VM to define security policies, which are automatically applied to
-any container with that label, no matter where or when it is run within a container cluster.  In
-this case, we simply give the label "id.service1" to identify any containers that are part of service1.
+any container with that label, no matter where or when it is run within a container cluster.
 
-We'll start with an overly simple example where we create two additional services, "Service2" and "Service3",
-and we want Service2 containers to be able to reach Service1 containers, but Service3 containers should not be
-allowed to reach Service1 containers.  Additionally, we only want to allow
-service1 to be reachable on port 80, but no other ports.  This is a simple policy that filters only on IP address
+We'll start with an overly simple example where we create two additional services, *Service2* and *Service3*,
+and we want Service2 containers to be able to reach *Service1* containers, but *Service3* containers should not be
+allowed to reach *Service1* containers.  Additionally, we only want to allow
+*Service1* to be reachable on port 80, but no other ports.  This is a simple policy that filters only on IP address
 (network layer 3) and TCP port (network layer 4), so it is often referred to as an L3/L4 network security policy.
 
-Cilium performs stateful ''connection tracking'', meaning that if policy allows the Service2 to contact Service3,
-it will automatically allow return packets that are part of Service1 replying to Service2 within the context of the
+Cilium performs stateful ''connection tracking'', meaning that if policy allows the *Service2* to contact *Service3*,
+it will automatically allow return packets that are part of *Service1* replying to *Service2* within the context of the
 same TCP/UDP connection.
 
 We can achieve that with the following Cilium policy:
@@ -177,11 +180,11 @@ Save this JSON to a file name l3_l4_policy.json in your VM, and apply the policy
 Step 8: Test L3/L4 Policy
 -------------------------
 
-You can now launch additional containers represent other services attempting to access service1.
-Any new container with label "id.service2" will be allowed to access service1 on port 80, otherwise
+You can now launch additional containers represent other services attempting to access *Service1*.
+Any new container with label "id.service2" will be allowed to access *Service1* on port 80, otherwise
 the network request will be dropped.
 
-To test this out, we'll make an HTTP request to Service1 from a container with the label "id.service2" :
+To test this out, we'll make an HTTP request to *Service1* from a container with the label "id.service2" :
 
 ::
 
@@ -198,7 +201,7 @@ End the pinging and destroy the container by typing Control-C .
 
 We can see that this request was successful, as we get a valid ping responses.
 
-Now let's run the same ping request to Service1 from a container that has label "id.service3":
+Now let's run the same ping request to *Service1* from a container that has label "id.service3":
 
 ::
 
@@ -215,36 +218,35 @@ that containers of a particular service are assigned an IP address in a particul
 Step 9:  Apply and Test an L7 Policy with Cilium
 ------------------------------------------------
 
-In the simple scenario above, it was sufficient to either give Service2/Service3 full access to Service1's API
+In the simple scenario above, it was sufficient to either give *Service2* / *Service3* full access to *Service1's* API
 or no access at all.   But to provide the strongest security (i.e., enforce least-privilege isolation)
-between microservices, each service that calls Service1's API should be limited to making only the set
+between microservices, each service that calls *Service1's* API should be limited to making only the set
 of HTTP requests it requires for legitimate operation.
 
-For example, consider a scenario where Service1 has two API calls:
+For example, consider a scenario where *Service1* has two API calls:
  * GET /public
  * GET /private
 
-Continuing with the example from above, if Service2 requires access only to the GET /public API call,
+Continuing with the example from above, if *Service2* requires access only to the GET /public API call,
 the L3/L4 policy along has no visibility into the HTTP requests, and therefore would allow any HTTP request
-from Service2 (since all HTTP is over port 80).
+from *Service2* (since all HTTP is over port 80).
 
 To see this, run:
 
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/public'
+    { 'val': 'this is public' }
 
 and
 
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/private'
+    { 'val': 'this is private' }
 
-Both return HTTP 404 errors, indicating that the requests were allowed to reach the API services (FIXME: we need a container image
-that actually responds on these URLs).
-
-Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what URLs Service2 is allowed to reach.  Here is an
-example policy file that extends our original policy by limiting Service2 to making only a GET /public API call, but disallowing
+Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what URLs *Service2* is allowed to reach.  Here is an
+example policy file that extends our original policy by limiting *Service2* to making only a GET /public API call, but disallowing
 all other calls (including GET /private).
 
 ::
@@ -277,14 +279,21 @@ Create a file with this contents and name it l7_aware_policy.json .  Then import
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/public'
+    { 'val': 'this is public' }
 
 and
 
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/private'
+    Access denied
 
-FIXME:  both requests return with no output.  So this is not working as expected.
+As you can see, with Cilium L7 security policies, we are able to permit *Service2* to access only the required API resources on
+*Service1*, thereby implementing a "least privilege" security approach for communication between microservices.
+
+We hope you enjoy the tutorial.  Feel free to play more with the setup, read the rest of the documentation, and
+feel free to reach out to us on the `Cilium Slack channel <https://cilium.herokuapp.com>`_ with any questions!
+
 
 Step 10: Clean-Up
 -----------------
