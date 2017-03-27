@@ -622,6 +622,11 @@ int handle_ingress(struct __sk_buff *skb)
 
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
 
+#ifdef DROP_ALL
+	if (1) {
+		ret = DROP_POLICY;
+	} else {
+#endif
 	switch (skb->protocol) {
 	case __constant_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
@@ -641,6 +646,10 @@ int handle_ingress(struct __sk_buff *skb)
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
+
+#ifdef DROP_ALL
+	}
+#endif
 
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
