@@ -88,6 +88,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		NodeIP:           net.ParseIP("192.168.0.1"),
 		PortMap:          make([]PortMap, 2),
 		Opts:             option.NewBoolOptions(&EndpointOptionLibrary),
+		Status:           NewEndpointStatus(),
 	}
 	cpy := epWant.DeepCopy()
 	c.Assert(*cpy, DeepEquals, *epWant)
