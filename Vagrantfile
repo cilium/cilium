@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-Vagrant.require_version ">= 1.7.4"
+Vagrant.require_version ">= 1.8.3"
 
 if ARGV.first == "up" && ENV['CILIUM_SCRIPT'] != 'true'
     raise Vagrant::Errors::VagrantError.new, <<END
