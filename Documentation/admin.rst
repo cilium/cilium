@@ -1,7 +1,7 @@
 .. _admin_guide:
 
-Cilium Administrator Guide
-==========================
+Administrator Guide
+===================
 
 This document describes how to install, configure, and troubleshoot Cilium in different deployment modes.
 
