@@ -130,16 +130,18 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.LXCMAC, e.IPv6.String(), e.IPv4.String(),
-		e.SecLabel.ID, path.Base(e.PolicyMapPath()),
+		e.GetIdentity(), path.Base(e.PolicyMapPath()),
 		e.NodeMAC)
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	if len(e.SecLabel.Labels) == 0 {
-		fmt.Fprintf(fw, " * - %s\n", "(no labels)")
-	} else {
-		for _, v := range e.SecLabel.Labels {
-			fmt.Fprintf(fw, " * - %s\n", v)
+	if e.SecLabel != nil {
+		if len(e.SecLabel.Labels) == 0 {
+			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
+		} else {
+			for _, v := range e.SecLabel.Labels {
+				fmt.Fprintf(fw, " * - %s\n", v)
+			}
 		}
 	}
 	fw.WriteString(" */\n\n")
@@ -163,8 +165,14 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(e.ID))
-	fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecLabel.ID.StringID())
-	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(e.SecLabel.ID.Uint32()))
+	if e.SecLabel != nil {
+		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecLabel.ID.StringID())
+		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(e.SecLabel.ID.Uint32()))
+	} else {
+		invalid := policy.InvalidIdentity
+		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
+		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(invalid.Uint32()))
+	}
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPath()))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 64000\n")
 	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
@@ -197,7 +205,7 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	// Write container options values for each available option in
 	// bpf/lib/geneve.h
 	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
-	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", e.SecLabel.ID.Uint32()))
+	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", e.GetIdentity()))
 	if err != nil {
 		return nil, fmt.Errorf("Could not write geneve options %s", err)
 	}

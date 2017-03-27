@@ -28,6 +28,10 @@ const (
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
+
+	// InvalidIdentity is the identity assigned if the identity is invalid
+	// or not determined yet
+	InvalidIdentity = NumericIdentity(0)
 )
 
 // NumericIdentity represents an identity of an entity to which consumer policy

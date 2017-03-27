@@ -184,6 +184,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		IfName:           base.InterfaceName,
 		IfIndex:          int(base.InterfaceIndex),
 		State:            string(base.State),
+		Status:           NewEndpointStatus(),
 	}
 
 	if base.Mac != "" {
@@ -435,6 +436,7 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 		NodeMAC:          make(mac.MAC, len(e.NodeMAC)),
 		NodeIP:           make(net.IP, len(e.NodeIP)),
 		PortMap:          make([]PortMap, len(e.PortMap)),
+		Status:           NewEndpointStatus(),
 	}
 	copy(cpy.LXCMAC, e.LXCMAC)
 	copy(cpy.IPv6, e.IPv6)
@@ -472,6 +474,14 @@ func (e *Endpoint) StringID() string {
 // SetID sets the endpoint's host local unique ID.
 func (e *Endpoint) SetID() {
 	e.ID = e.IPv6.EndpointID()
+}
+
+func (e *Endpoint) GetIdentity() policy.NumericIdentity {
+	if e.SecLabel != nil {
+		return e.SecLabel.ID
+	}
+
+	return policy.InvalidIdentity
 }
 
 func (e *Endpoint) DirectoryPath() string {
@@ -600,6 +610,11 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if err := ParseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
 	}
+
+	if ep.Status == nil {
+		ep.Status = NewEndpointStatus()
+	}
+
 	return &ep, nil
 }
 
@@ -710,7 +725,7 @@ func (e *Endpoint) CreateDirectory() error {
 }
 
 func (e *Endpoint) RegenerateIfReady(owner Owner) error {
-	if e.State != StateReady {
+	if e.State != StateReady && e.State != StateWaitingForIdentity {
 		return nil
 	}
 
