@@ -28,6 +28,9 @@ type Owner interface {
 	// Must return true if dry mode is enabled
 	DryModeEnabled() bool
 
+	// PolicyEnabled returns true if policy enforcement has been enabled
+	PolicyEnabled() bool
+
 	// Must return an instance of a ConsumableCache
 	GetConsumableCache() *policy.ConsumableCache
 
