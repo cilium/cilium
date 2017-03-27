@@ -1,7 +1,7 @@
 .. _arch_guide:
 
-Cilium Architecture Guide
-=========================
+Architecture Guide
+==================
 
 The goal of this document is to describe the components of the Cilium
 architecture, and the different models for deploying Cilium within

@@ -1,7 +1,7 @@
 .. _gs_guide:
 
-Cilium Getting Started Guide
-============================
+Getting Started Guide
+=====================
 
 This document serves as the easiest introduction to Cilium.   It is a detailed walk through
 of getting a single-node Cilium + Docker environment running on your laptop.
