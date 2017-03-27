@@ -166,6 +166,9 @@ type Endpoint struct {
 	Opts             *option.BoolOptions // Endpoint bpf options.
 	Status           *EndpointStatus
 	State            string
+	// PolicyCalculated is true as soon as the policy has been calculated
+	// for the first time
+	PolicyCalculated bool
 }
 
 func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, error) {

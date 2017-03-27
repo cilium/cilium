@@ -144,6 +144,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
+	if !e.PolicyCalculated && owner.PolicyEnabled() {
+		fw.WriteString("#define DROP_ALL\n")
+	}
+
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
 	fw.WriteString(common.FmtDefineAddress("LXC_IP", e.IPv6))
 	if e.IPv4 != nil {

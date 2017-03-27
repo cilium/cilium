@@ -247,6 +247,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 	optsChanged := e.ApplyOpts(opts)
 
+	if !e.PolicyCalculated {
+		e.PolicyCalculated = true
+		// Always trigger a regenerate after the first policy
+		// calculation has been performed
+		policyChanged = true
+	}
+
 	return policyChanged || optsChanged, nil
 }
 

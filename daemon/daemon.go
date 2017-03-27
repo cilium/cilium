@@ -120,6 +120,13 @@ func (d *Daemon) DryModeEnabled() bool {
 	return d.conf.DryMode
 }
 
+func (d *Daemon) PolicyEnabled() bool {
+	d.conf.OptsMU.RLock()
+	defer d.conf.OptsMU.RUnlock()
+
+	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
+}
+
 func createDockerClient(endpoint string) (*dClient.Client, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
