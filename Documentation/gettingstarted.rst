@@ -175,7 +175,7 @@ We can achieve that with the following Cilium policy:
       }]
   }
 
-Save this JSON to a file name l3_l4_policy.json in your VM, and apply the policy by running:
+Save this JSON to a file named l3_l4_policy.json in your VM, and apply the policy by running:
 
 ::
 
@@ -202,8 +202,6 @@ To test this out, we'll make an HTTP request to *Service1* from a container with
     64 bytes from 10.11.250.189: seq=8 ttl=64 time=0.107 ms
     64 bytes from 10.11.250.189: seq=9 ttl=64 time=0.103 ms
 
-End the pinging and destroy the container by typing Control-C .
-
 We can see that this request was successful, as we get a valid ping responses.
 
 Now let's run the same ping request to *Service1* from a container that has label "id.service3":
@@ -216,7 +214,7 @@ You will see no ping replies, as all requests are dropped by the Cilium security
 
 So with this we see Cilium's ability to segment containers based purely on a container-level
 identity label.  This means that the end user can apply security policies without knowing
-anything about the IP address of the container IP or requiring some complex mechanism to ensure
+anything about the IP address of the container or requiring some complex mechanism to ensure
 that containers of a particular service are assigned an IP address in a particular range.
 
 
