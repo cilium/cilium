@@ -33,7 +33,7 @@ for containers.
 
  * 5-min Quickstart: [Using the prebuilt docker images](examples/docker-compose/README.md)
  * For Developers: [Setting up a vagrant environment](Documentation/vagrant.rst)
- * Manual installation: [Detailed installation instructions](Documentation/installation.rst)
+ * Manual installation: [Detailed installation instructions](Documentation/admin.rst)
  * Frequently Asked Questions: [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
 
 ## Demo Tutorials
@@ -100,7 +100,7 @@ buffer.
 
 The easiest way to meet the prerequisites is to use the provided vagrant box
 which provides all prerequisites in a sandbox environment. Please see the
-[vagrant guide](doc/vagrant.md) for more details.
+[vagrant guide](Documentation/vagrant.rst) for more details.
 
 In order to meet the prerequisites for an installation outside of vagrant,
 the following components must be installed in at least the version specified:
@@ -120,18 +120,18 @@ functionality backported.
 
 ## Installation
 
-See the [installation instructions](Documentation/installation.md).
+See the [installation instructions](Documentation/admin.rst).
 
 ## Integration
 
 Cilium provides integration plugins for the following orchestration systems:
   * CNI (Kubernetes/Mesos) [Installation instructions](examples/kubernetes/README.md)
-  * libnetwork (Docker) [Installation instructions](Documentation/docker.md)
+  * libnetwork (Docker) [Installation instructions](examples/docker-compose/README.md)
 
 ## Contributions
 
 We are eager to receive feedback and contributions. Please see the
-[contributing guide](Documentation/contributing.md) for further instructions and ideas
+[contributing guide](Documentation/contributing.rst) for further instructions and ideas
 on how to contribute.
 
 ## Presentations

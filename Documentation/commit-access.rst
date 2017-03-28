@@ -42,7 +42,7 @@ Expectations for Developers with commit access
 Pre-requisites
 ~~~~~~~~~~~~~~
 
-Be familiar with the `contributing <contributing.md>`__ guide.
+Be familiar with the `contributing <contributing.rst>`__ guide.
 
 Review
 ~~~~~~
@@ -350,7 +350,7 @@ Invitation to Accepted Committer
     Developers with commit access must agree to fulfill specific
     responsibilities described in the source repository:
 
-        /doc/commit-access.md
+        /Documentation/commit-access.rst
 
     Please let us know if you would like to accept commit access and if so that
     you agree to fulfill these responsibilities. Once we receive your response

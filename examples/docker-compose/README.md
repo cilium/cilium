@@ -5,7 +5,7 @@ docker containers using the cilium docker image.
 
 ## Requirements
 
-The easiest way is to use the [vagrant box](../../doc/vagrant.md) and just
+The easiest way is to use the [vagrant box](../../Documentation/vagrant.rst) and just
 install docker-compose >=1.7.1 in it.
 
 If you want to install the dependencies manually, you need:
