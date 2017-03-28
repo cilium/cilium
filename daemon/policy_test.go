@@ -87,7 +87,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(rootNode.ResolveTree(), IsNil)
 
 	err3 := ds.d.PolicyAdd("root", &rootNode)
-	c.Assert(err3, Equals, nilApiError)
+	c.Assert(err3, Equals, nilAPIError)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.CreateOrUpdateIdentity(qaBarLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")

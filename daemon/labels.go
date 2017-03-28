@@ -166,7 +166,7 @@ func (d *Daemon) updateContainerIdentity(container *types.Container) (*policy.Id
 	return identity, nil
 }
 
-func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.ApiError) {
+func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.APIError) {
 	var id policy.Identity
 
 	// Empty reply
@@ -186,7 +186,7 @@ func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.ApiError) {
 	return &id, nil
 }
 
-func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *apierror.ApiError) {
+func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *apierror.APIError) {
 	if id > 0 && id < policy.MinimalNumericIdentity {
 		key := id.String()
 		lbl := labels.NewLabel(
@@ -211,7 +211,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *a
 	return parseIdentityResponse(rmsg)
 }
 
-func (d *Daemon) LookupIdentityBySHA256(sha256sum string) (*policy.Identity, *apierror.ApiError) {
+func (d *Daemon) LookupIdentityBySHA256(sha256sum string) (*policy.Identity, *apierror.APIError) {
 	rmsg, err := d.kvClient.GetValue(path.Join(common.LabelsKeyPath, sha256sum))
 	if err != nil {
 		return nil, apierror.Error(GetIdentityUnreachableCode, err)

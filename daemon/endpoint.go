@@ -98,7 +98,7 @@ func (d *Daemon) setEndpointIdentity(ep *endpoint.Endpoint, dockerID, dockerEPID
 	ep.SetIdentity(d, labels)
 }
 
-func (d *Daemon) lookupEndpointLocked(id string) (*endpoint.Endpoint, *apierror.ApiError) {
+func (d *Daemon) lookupEndpointLocked(id string) (*endpoint.Endpoint, *apierror.APIError) {
 	prefix, eid, err := endpoint.ParseID(id)
 	if err != nil {
 		return nil, apierror.Error(GetEndpointIDInvalidCode, err)
@@ -372,7 +372,7 @@ func (d *Daemon) DeleteEndpointLocked(ep *endpoint.Endpoint) int {
 	return errors
 }
 
-func (d *Daemon) DeleteEndpoint(id string) (int, *apierror.ApiError) {
+func (d *Daemon) DeleteEndpoint(id string) (int, *apierror.APIError) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
@@ -407,7 +407,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 }
 
 // EndpointUpdate updates the given endpoint and regenerates the endpoint
-func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) *apierror.ApiError {
+func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) *apierror.APIError {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 

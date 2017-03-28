@@ -54,7 +54,7 @@ var (
 		},
 		Labels: lbls,
 	}
-	nilApiError *apierror.ApiError
+	nilAPIError *apierror.APIError
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
