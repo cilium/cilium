@@ -53,7 +53,7 @@ Installing Cilium using Docker Compose
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Below is an example of using Docker Compose to deploy the
-Cilium agent and the Cilium Docker libnetwork plugin using Docker Compose.
+Cilium agent and the Cilium Docker libnetwork plugin.
 
 Note: for multi-host deployments using a key-value store, you would want to
 update this template to point cilium to a central key-value store.
@@ -236,10 +236,10 @@ Container Node Network Configuration
 ------------------------------------
 
 The networking configuration required on your Linux container node
-depends on the IP interconnectivity model you are using and your
-requirements regarding the reachability of your containers to/from
-resources outside the container cluster. For more details, see the
-Architecture Guide's section on :ref:`arch_ip_connectivity`.
+depends on the IP interconnectivity model in use and the
+whether the deployment requires containers in the cluster to reach or be reached by
+resources outside the cluster.  For more details, see the
+Architecture Guide's section on :ref:`arch_ip_connectivity` .
 
 Overlay Mode - Container-to-Container Access
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -249,12 +249,20 @@ additional network configuration on the Linux container node, as
 overlay connectivity is handled by Cilium itself, and the physical
 network only sees IP traffic destined to/from the Linux node IP address.
 
+The use of Overlay Mode is configured by passing a ``--tunnel`` or ``-t``
+flag to the Cilium indicating the type of encapsulation to be used.  Valid
+options include ``vxlan`` and ``geneve``.
+
+
 Direct Mode - Container-to-Container Access
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In direct mode, container traffic is sent to the underlying network
 unencapsulated, and thus that network must understand how to route
 a packet to the right destination Linux node running the container.
+
+Direct mode is used if no ``-t`` or ``--tunneling`` flag is passed to the
+Cilium agent at startup.
 
 Cilium automatically enables IP forwarding in Linux when direct mode is
 configured, but it is up to the container cluster administrator to
@@ -286,9 +294,9 @@ By default with Cilium, containers use IP addresses that are private to the
 cluster.  This is very common in overlay mode, but may also be the case even
 if direct mode is being used. In either scenario, if a container with a private
 IP should be allowed to make outgoing network connections to resources
-either elsewhere in the data center or on the public Internet, the Linux node
-should be configured to perform IP masquerading, also known as NAPT, for all
-traffic destined from a container to the outside world.
+either elsewere in the data center or on the public Internet, the Linux node
+should be configured to perform IP masquerading, also known as network
+address port translation (NAPT), for all traffic destined from a container to the outside world.
 
 An example of configuring IP masquerading for IPv6 is:
 
@@ -338,6 +346,12 @@ world scope. To load and test:
 
     $ cilium policy import examples/policy/test/test.policy
     $ cilium policy allowed -s reserved:world -d io.cilium
+
+Configuring Cilium to use a Key-Value Store
+-------------------------------------------
+
+Cilium can use both Consul and etcd as a key-value store.   See
+:ref:`admin_agent_options` for the command-line options to configure both options.
 
 
 Container Platform Integrations
@@ -479,12 +493,94 @@ Disabling Kube-proxy
 Additionally, you should disable the local kube-proxy running on each container
 Node, as Cilium performs this function itself.
 
-TODO:  detailed command
+TODO:  include command for disabling kube-proxy
+
+
+.. _admin_agent_options:
+
+Cilium Agent Command Line Options
+---------------------------------
+
++---------------------+--------------------------------------+----------------------+
+| Option              | Description                          | Default              |
++---------------------+--------------------------------------+----------------------+
+| config              | config file                          | $HOME/ciliumd.yaml   |
++---------------------+--------------------------------------+----------------------+
+| consul              | Consul agent address                 |                      |
++---------------------+--------------------------------------+----------------------+
+| debug               | Enable debug messages                | false                |
++---------------------+--------------------------------------+----------------------+
+| device              | Ethernet device to snoop on          |                      |
++---------------------+--------------------------------------+----------------------+
+| disable-conntrack   | Disable connection tracking          | false                |
++---------------------+--------------------------------------+----------------------+
+| enable-policy       | Enable policy enforcement            | false                |
++---------------------+--------------------------------------+----------------------+
+| docker              | Docker socket endpoint               |                      |
++---------------------+--------------------------------------+----------------------+
+| etcd                | etcd agent address                   |                      |
++---------------------+--------------------------------------+----------------------+
+| etcd-config-path    | absolute path to the etcd config     |                      |
++---------------------+--------------------------------------+----------------------+
+| enable-tracing      | enable policy tracing                |                      |
++---------------------+--------------------------------------+----------------------+
+| nat46-range         | IPv6 range to map IPv4 addresses to  |                      |
++---------------------+--------------------------------------+----------------------+
+| k8s-api-server      | Kubernetes api address server        |                      |
++---------------------+--------------------------------------+----------------------+
+| k8s-kubeconfig-path | Absolute path to the kubeconfig file |                      |
++---------------------+--------------------------------------+----------------------+
+| k8s-prefix          | Key-value store prefix used by k8s   |                      |
++---------------------+--------------------------------------+----------------------+
+| keep-config         | When restoring state, keeps          | false                |
+|                     | containers' configuration in place   |                      |
++---------------------+--------------------------------------+----------------------+
+| label-prefix-file   | file with label prefixes cilium      |                      |
+|                     | Cilium should use for policy         |                      |
++---------------------+--------------------------------------+----------------------+
+| labels              | list of label prefixes Cilium should |                      |
+|                     | use for policy                       |                      |
++---------------------+--------------------------------------+----------------------+
+| logstash            | enable logstash integration          | false                |
++---------------------+--------------------------------------+----------------------+
+| logstash-agent      | logstash agent address and port      | 127.0.0.1:8080       |
++---------------------+--------------------------------------+----------------------+
+| node-address        | IPv6 address of the node             |                      |
++---------------------+--------------------------------------+----------------------+
+| restore             | Restore state from previously        | false                |
+|                     | running version of the agent         |                      |
++---------------------+--------------------------------------+----------------------+
+| keep-templates      | do not restore templates from binary | false                |
++---------------------+--------------------------------------+----------------------+
+| state-dir           | path to store runtime state          |                      |
++---------------------+--------------------------------------+----------------------+
+| lib-dir             | path to store runtime build env      |                      |
++---------------------+--------------------------------------+----------------------+
+| socket-path         | path for agent unix socket           |                      |
++---------------------+--------------------------------------+----------------------+
+| lb                  | enables load-balancing mode on       |                      |
+|                     | interface 'device'                   |                      |
++---------------------+--------------------------------------+----------------------+
+| disable-ipv4        | disable IPv4 mode                    | false                |
++---------------------+--------------------------------------+----------------------+
+| ipv4-range          | IPv4 prefix                          |                      |
++---------------------+--------------------------------------+----------------------+
+| tunnel              | Overlay/tunnel mode (vxlan/geneve)   | vxlan                |
++---------------------+--------------------------------------+----------------------+
+| bpf-root            | Path to mounted BPF filesystem       |                      |
++---------------------+--------------------------------------+----------------------+
+| access-log          | Path to HTTP access log              |                      |
++---------------------+--------------------------------------+----------------------+
+
+Cilium CLI Commands
+-------------------
+
+TODO: cover Cilium CLI commands
 
 Troubleshooting
 ---------------
 
-TODO:
+TODO: troubleshooting
  * describe locations of log files
  * describeg tools used for debugging
 

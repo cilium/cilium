@@ -109,9 +109,10 @@ certify the below:
 then you just add a line saying:
 
 ::
-    Signed-off-by: Random J Developer <random@developer.example.org>
 
-using your real name (sorry, no pseudonyms or anonymous contributions.)
+   Signed-off-by: Random J Developer <random@developer.example.org>
+
+Use your real name (sorry, no pseudonyms or anonymous contributions.)
 
 .. toctree::
 
