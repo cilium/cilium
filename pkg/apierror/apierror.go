@@ -23,23 +23,26 @@ import (
 	"github.com/go-openapi/runtime"
 )
 
-type ApiError struct {
+// APIError is the error representation for the API.
+type APIError struct {
 	code int
 	msg  string
 }
 
-func New(code int, msg string, args ...interface{}) *ApiError {
+// New creates a API error from the code, msg and extra arguments.
+func New(code int, msg string, args ...interface{}) *APIError {
 	if code <= 0 {
 		code = 500
 	}
 
 	if len(args) > 0 {
-		return &ApiError{code: code, msg: fmt.Sprintf(msg, args...)}
+		return &APIError{code: code, msg: fmt.Sprintf(msg, args...)}
 	}
-	return &ApiError{code: code, msg: msg}
+	return &APIError{code: code, msg: msg}
 }
 
-func Error(code int, err error) *ApiError {
+// Error creates a new API error from the code and error.
+func Error(code int, err error) *APIError {
 	if err == nil {
 		err = fmt.Errorf("Error pointer was nil")
 	}
@@ -47,16 +50,19 @@ func Error(code int, err error) *ApiError {
 	return New(code, err.Error())
 }
 
-func (a *ApiError) Error() string {
+// Error returns the API error message.
+func (a *APIError) Error() string {
 	return a.msg
 }
 
-func (a *ApiError) GetModel() *models.Error {
+// GetModel returns model error.
+func (a *APIError) GetModel() *models.Error {
 	m := models.Error(a.msg)
 	return &m
 }
 
-func (a *ApiError) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+// WriteResponse to the client.
+func (a *APIError) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 	rw.WriteHeader(a.code)
 	m := a.GetModel()
 	if err := producer.Produce(rw, m); err != nil {

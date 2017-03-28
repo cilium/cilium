@@ -29,7 +29,7 @@ import (
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 )
 
-func (d *Daemon) AllocateIP(ip net.IP) *apierror.ApiError {
+func (d *Daemon) AllocateIP(ip net.IP) *apierror.APIError {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
@@ -54,7 +54,7 @@ func (d *Daemon) AllocateIP(ip net.IP) *apierror.ApiError {
 	return nil
 }
 
-func (d *Daemon) allocateIP(ipAddr string) *apierror.ApiError {
+func (d *Daemon) allocateIP(ipAddr string) *apierror.APIError {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
 		return apierror.New(PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
@@ -62,7 +62,7 @@ func (d *Daemon) allocateIP(ipAddr string) *apierror.ApiError {
 	return d.AllocateIP(ip)
 }
 
-func (d *Daemon) ReleaseIP(ip net.IP) *apierror.ApiError {
+func (d *Daemon) ReleaseIP(ip net.IP) *apierror.APIError {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
@@ -87,7 +87,7 @@ func (d *Daemon) ReleaseIP(ip net.IP) *apierror.ApiError {
 	return nil
 }
 
-func (d *Daemon) releaseIP(ipAddr string) *apierror.ApiError {
+func (d *Daemon) releaseIP(ipAddr string) *apierror.APIError {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
 		return apierror.New(DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)

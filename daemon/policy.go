@@ -159,7 +159,7 @@ func (d *Daemon) enablePolicyEnforcement() {
 	}
 }
 
-func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.ApiError {
+func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.APIError {
 	log.Debugf("Policy Add Request: %s %+v", path, node)
 
 	// Enable policy if not already enabled
@@ -181,7 +181,7 @@ func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.ApiError {
 // If cover256Sum is set it finds the rule with the respective coverage that
 // rule from the node. If the path's node becomes ruleless it is removed from
 // the tree.
-func (d *Daemon) PolicyDelete(path, cover256Sum string) *apierror.ApiError {
+func (d *Daemon) PolicyDelete(path, cover256Sum string) *apierror.APIError {
 	log.Debugf("Policy Delete Request: %s, cover256Sum %s", path, cover256Sum)
 
 	if cover256Sum != "" && len(cover256Sum) != policy.CoverageSHASize {
