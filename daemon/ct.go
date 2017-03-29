@@ -30,8 +30,17 @@ const (
 	GcInterval int = 10
 )
 
-func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
-	file := bpf.MapPath(name + strconv.Itoa(int(e.ID)))
+func runGC(e *endpoint.Endpoint, nameLocal string, nameGlobal string, ctType ctmap.CtType) {
+	var file string
+
+	// TODO: We need to optimize this a bit in future, so we traverse
+	// the global table less often.
+
+	if (e.Opts.IsEnabled(endpoint.OptionConntrackLocal)) {
+		file = bpf.MapPath(nameLocal + strconv.Itoa(int(e.ID)))
+	} else {
+		file = bpf.MapPath(nameGlobal)
+	}
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		log.Warningf("Unable to open CT map %s: %s\n", file, err)
@@ -73,9 +82,9 @@ func (d *Daemon) EnableConntrackGC() {
 					continue
 				}
 
-				runGC(e, ctmap.MapName6, ctmap.CtTypeIPv6)
+                                runGC(e, ctmap.MapName6, ctmap.MapName6Global, ctmap.CtTypeIPv6)
 				if !d.conf.IPv4Disabled {
-					runGC(e, ctmap.MapName4, ctmap.CtTypeIPv4)
+                                	runGC(e, ctmap.MapName4, ctmap.MapName4Global, ctmap.CtTypeIPv4)
 				}
 			}
 

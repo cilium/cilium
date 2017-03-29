@@ -34,6 +34,11 @@ type CtMap struct {
 const (
 	MapName6 = "cilium_ct6_"
 	MapName4 = "cilium_ct4_"
+	MapName6Global = MapName6 + "global"
+	MapName4Global = MapName4 + "global"
+
+	MapNumEntriesLocal  = 64000
+	MapNumEntriesGlobal = 1000000
 
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1

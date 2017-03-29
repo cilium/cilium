@@ -548,28 +548,56 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		d.IgnoreRunningContainers()
 	}
 
+	d.collectStaleMapGarbage()
+
+	return &d, nil
+}
+
+func (d *Daemon) collectStaleMapGarbage() {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
 	walker := func(path string, _ os.FileInfo, _ error) error {
 		return d.staleMapWalker(path)
 	}
+
 	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
 		log.Warningf("Error while scanning for stale maps: %s", err)
 	}
+}
 
-	return &d, nil
+func (d *Daemon) removeStaleMap(path string) {
+	if err := os.RemoveAll(path); err != nil {
+		log.Warningf("Error while deleting stale map file %s: %s", path, err)
+	} else {
+		log.Infof("Removed stale bpf map %s", path)
+	}
 }
 
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
 		if _, ok := d.endpoints[uint16(tmp)]; !ok {
-			if err := os.RemoveAll(path); err != nil {
-				log.Warningf("Error while deleting stale map file %s: %s", path, err)
-			} else {
-				log.Infof("Removed stale bpf map %s", path)
-			}
+			d.removeStaleMap(path)
 		}
+	}
+}
+
+func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
+	var globalCTinUse = false
+
+	for k := range d.endpoints {
+		e := d.endpoints[k]
+		if (e.Consumable != nil &&
+		    e.Opts.IsDisabled(endpoint.OptionConntrackLocal)) {
+			globalCTinUse = true
+			break
+		}
+	}
+
+	if (!globalCTinUse &&
+	    (filename == ctmap.MapName6Global ||
+	     filename == ctmap.MapName4Global)) {
+		d.removeStaleMap(path)
 	}
 }
 
@@ -581,6 +609,8 @@ func (d *Daemon) staleMapWalker(path string) error {
 		ctmap.MapName6,
 		ctmap.MapName4,
 	}
+
+	d.checkStaleGlobalMap(path, filename)
 
 	for _, m := range mapPrefix {
 		if strings.HasPrefix(filename, m) {
