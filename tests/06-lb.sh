@@ -370,7 +370,7 @@ docker exec -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-cilium bpf ct list $SERVER1_ID
+cilium bpf ct list global
 
 ## Test 4: Reachability of own service IP
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \

@@ -32,8 +32,8 @@ type CtMap struct {
 }
 
 const (
-	MapName6 = "cilium_ct6_"
-	MapName4 = "cilium_ct4_"
+	MapName6       = "cilium_ct6_"
+	MapName4       = "cilium_ct4_"
 	MapName6Global = MapName6 + "global"
 	MapName4Global = MapName4 + "global"
 
@@ -50,6 +50,8 @@ type CtType int
 const (
 	CtTypeIPv6 CtType = iota
 	CtTypeIPv4
+	CtTypeIPv6Global
+	CtTypeIPv4Global
 )
 
 type CtKey interface {
@@ -118,6 +120,78 @@ func (key CtKey4) Dump(buffer *bytes.Buffer) bool {
 			key.addr.IP().String(),
 			key.dport,
 			key.sport),
+		)
+	}
+
+	if key.flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	return true
+}
+
+type CtKey6Global struct {
+	daddr   types.IPv6
+	saddr   types.IPv6
+	sport   uint16
+	dport   uint16
+	nexthdr u8proto.U8proto
+	flags   uint8
+}
+
+func (key CtKey6Global) Dump(buffer *bytes.Buffer) bool {
+	if key.nexthdr == 0 {
+		return false
+	}
+
+	if key.flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN [%s]:%d -> [%s]:%d ",
+			key.nexthdr.String(),
+			key.saddr.IP().String(), key.sport,
+			key.daddr.IP().String(), key.dport),
+		)
+
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT [%s]:%d -> [%s]:%d ",
+			key.nexthdr.String(),
+			key.saddr.IP().String(), key.sport,
+			key.daddr.IP().String(), key.dport),
+		)
+	}
+
+	if key.flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	return true
+}
+
+type CtKey4Global struct {
+	daddr   types.IPv4
+	saddr   types.IPv4
+	sport   uint16
+	dport   uint16
+	nexthdr u8proto.U8proto
+	flags   uint8
+}
+
+func (key CtKey4Global) Dump(buffer *bytes.Buffer) bool {
+	if key.nexthdr == 0 {
+		return false
+	}
+
+	if key.flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+			key.nexthdr.String(),
+			key.saddr.IP().String(), key.sport,
+			key.daddr.IP().String(), key.dport),
+		)
+
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s%d -> %s:%d ",
+			key.nexthdr.String(),
+			key.saddr.IP().String(), key.sport,
+			key.daddr.IP().String(), key.dport),
 		)
 	}
 
@@ -226,6 +300,52 @@ func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
 
 			key = nextKey
 		}
+
+	case CtTypeIPv6Global:
+		var key, nextKey CtKey6Global
+		for {
+			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			if err != nil {
+				break
+			}
+
+			err = bpf.LookupElement(
+				m.Fd,
+				unsafe.Pointer(&nextKey),
+				unsafe.Pointer(&entry),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			entries = append(entries, eDump)
+
+			key = nextKey
+		}
+
+	case CtTypeIPv4Global:
+		var key, nextKey CtKey4Global
+		for {
+			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			if err != nil {
+				break
+			}
+
+			err = bpf.LookupElement(
+				m.Fd,
+				unsafe.Pointer(&nextKey),
+				unsafe.Pointer(&entry),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			entries = append(entries, eDump)
+
+			key = nextKey
+		}
 	}
 
 	return entries, nil
@@ -266,6 +386,16 @@ func (m *CtMap) GC(interval uint16) int {
 		}
 	case CtTypeIPv4:
 		var key, nextKey CtKey4
+		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+			key = nextKey
+		}
+	case CtTypeIPv6Global:
+		var key, nextKey CtKey6Global
+		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+			key = nextKey
+		}
+	case CtTypeIPv4Global:
+		var key, nextKey CtKey4Global
 		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
 			key = nextKey
 		}
