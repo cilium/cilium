@@ -56,6 +56,7 @@ const (
 	OptionAllowToHost         = "AllowToHost"
 	OptionAllowToWorld        = "AllowToWorld"
 	OptionConntrackAccounting = "ConntrackAccounting"
+	OptionConntrackLocal      = "ConntrackLocal"
 	OptionConntrack           = "Conntrack"
 	OptionDebug               = "Debug"
 	OptionDropNotify          = "DropNotification"
@@ -81,6 +82,12 @@ var (
 	OptionSpecConntrackAccounting = option.Option{
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
+		Requires:    []string{OptionConntrack},
+	}
+
+	OptionSpecConntrackLocal = option.Option{
+		Define:      "CONNTRACK_LOCAL",
+		Description: "Use endpoint dedicated tracking table instead of global one",
 		Requires:    []string{OptionConntrack},
 	}
 
@@ -119,6 +126,7 @@ var (
 
 	EndpointMutableOptionLibrary = option.OptionLibrary{
 		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
+		OptionConntrackLocal:      &OptionSpecConntrackLocal,
 		OptionConntrack:           &OptionSpecConntrack,
 		OptionDebug:               &OptionSpecDebug,
 		OptionDropNotify:          &OptionSpecDropNotify,

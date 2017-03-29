@@ -382,6 +382,7 @@ func initEnv() {
 	config.Opts.Set(options.PolicyTracing, enableTracing)
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
+	config.Opts.Set(endpoint.OptionConntrackLocal, false)
 	config.Opts.Set(endpoint.OptionPolicy, enablePolicy)
 
 	//Validate specified key-value store type and related flags for the given key-value store type.
