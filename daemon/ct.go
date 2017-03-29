@@ -36,10 +36,15 @@ func runGC(e *endpoint.Endpoint, nameLocal string, nameGlobal string, ctType ctm
 	// TODO: We need to optimize this a bit in future, so we traverse
 	// the global table less often.
 
-	if (e.Opts.IsEnabled(endpoint.OptionConntrackLocal)) {
+	if e.Opts.IsEnabled(endpoint.OptionConntrackLocal) {
 		file = bpf.MapPath(nameLocal + strconv.Itoa(int(e.ID)))
 	} else {
 		file = bpf.MapPath(nameGlobal)
+		if ctType == ctmap.CtTypeIPv6 {
+			ctType = ctmap.CtTypeIPv6Global
+		} else if ctType == ctmap.CtTypeIPv4 {
+			ctType = ctmap.CtTypeIPv4Global
+		}
 	}
 	fd, err := bpf.ObjGet(file)
 	if err != nil {

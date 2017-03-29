@@ -29,8 +29,13 @@ var bpfCtListCmd = &cobra.Command{
 	Short:  "List connection tracking entries",
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
-		dumpCtProto(ctmap.MapName6+args[0], ctmap.CtTypeIPv6)
-		dumpCtProto(ctmap.MapName4+args[0], ctmap.CtTypeIPv4)
+		if args[0] == "global" {
+			dumpCtProto(ctmap.MapName6+args[0], ctmap.CtTypeIPv6Global)
+			dumpCtProto(ctmap.MapName4+args[0], ctmap.CtTypeIPv4Global)
+		} else {
+			dumpCtProto(ctmap.MapName6+args[0], ctmap.CtTypeIPv6)
+			dumpCtProto(ctmap.MapName4+args[0], ctmap.CtTypeIPv4)
+		}
 	},
 }
 
