@@ -1,5 +1,4 @@
-![Cilium Logo](https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium.svg)
-# BPF & XDP for containers
+<img src="https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg" alt="Cilium Logo" width="300" />
 
 [![Build Status](https://jenkins.cilium.io/job/cilium/job/cilium/job/master/badge/icon)](https://jenkins.cilium.io/job/cilium/job/cilium/job/master/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cilium/cilium)](https://goreportcard.com/report/github.com/cilium/cilium)
