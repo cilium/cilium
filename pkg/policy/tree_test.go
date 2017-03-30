@@ -15,6 +15,10 @@
 package policy
 
 import (
+	"encoding/json"
+
+	"github.com/cilium/cilium/pkg/labels"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -112,4 +116,132 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	n, p = tree.Lookup("root.foo")
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
+}
+
+var defaultCtx = &SearchContext{
+	Trace: TRACE_ENABLED,
+	From: []labels.Label{
+		labels.Label{Key: "id.foo", Source: "cilium"},
+	},
+	To: []labels.Label{
+		labels.Label{Key: "id.bar", Source: "cilium"},
+	},
+}
+
+func (ds *PolicyTestSuite) TestAlwaysAllow(c *C) {
+	// always-accept foo of root must overwrite deny foo of child
+	policyText := `
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["id.bar"],
+		"allow": [{
+			"action": "always-accept",
+			"label": {
+				"key": "id.foo",
+				"source": "cilium"
+			}
+		}]
+	}],
+	"children": {
+		"id": {
+			"rules": [{
+				"coverage": ["bar"],
+				"allow": ["!foo"]
+			}]
+		}
+	}
+}
+`
+	node := Node{}
+	err := json.Unmarshal([]byte(policyText), &node)
+	c.Assert(err, IsNil)
+
+	tree := Tree{}
+	added, err := tree.Add("root", &node)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	decision := tree.Allows(defaultCtx)
+	c.Assert(decision, Equals, ACCEPT)
+}
+
+func (ds *PolicyTestSuite) TestDenyOverwrite(c *C) {
+	// deny foo of child must overwrite allow foo of root
+	policyText := `
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["id.bar"],
+		"allow": ["id.foo"]
+	}],
+	"children": {
+		"id": {
+			"rules": [{
+				"coverage": ["bar"],
+				"allow": ["!foo"]
+			}]
+		}
+	}
+}
+`
+	node := Node{}
+	err := json.Unmarshal([]byte(policyText), &node)
+	c.Assert(err, IsNil)
+
+	tree := Tree{}
+	added, err := tree.Add("root", &node)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	decision := tree.Allows(defaultCtx)
+	c.Assert(decision, Equals, DENY)
+}
+
+func (ds *PolicyTestSuite) TestRulePrecedence(c *C) {
+	// !id.foo rule must overwrite id.foo rule
+	policyText := `
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["id.bar"],
+		"allow": ["id.foo", "!id.foo"]
+	}]
+}
+`
+	node := Node{}
+	err := json.Unmarshal([]byte(policyText), &node)
+	c.Assert(err, IsNil)
+
+	tree := Tree{}
+	added, err := tree.Add("root", &node)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	decision := tree.Allows(defaultCtx)
+	c.Assert(decision, Equals, DENY)
+}
+
+func (ds *PolicyTestSuite) TestOutsideCoverage(c *C) {
+	// coverage of not_id rules it outside of the node path
+	policyText := `
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["id.bar"],
+		"allow": ["id.foo"]
+	}],
+	"children": {
+		"not_id": {
+			"rules": [{
+				"coverage": ["root.id.bar"],
+				"allow": ["!root.id.foo"]
+			}]
+		}
+	}
+}
+`
+	node := Node{}
+	err := json.Unmarshal([]byte(policyText), &node)
+	c.Assert(err, Not(IsNil))
 }
