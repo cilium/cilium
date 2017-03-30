@@ -191,11 +191,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return nil, err
 	}
 
-	if strings.ToLower(l4.Redirect) != "http" {
-		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.Redirect)
+	if strings.ToLower(l4.L7Parser) != "http" {
+		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
 	}
 
-	for _, r := range l4.Rules {
+	for _, r := range l4.L7Rules {
 		if !route.IsValid(r.Expr) {
 			return nil, fmt.Errorf("invalid filter expression: %s", r.Expr)
 		}
@@ -223,7 +223,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	p.mutex.Lock()
 
 	if r, ok := p.redirects[id]; ok {
-		r.updateRules(l4.Rules)
+		r.updateRules(l4.L7Rules)
 		log.Debugf("updated existing proxy instance %+v", r)
 		p.mutex.Unlock()
 		return r, nil
@@ -289,7 +289,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		Handler: redirect,
 	})
 
-	redir.updateRules(l4.Rules)
+	redir.updateRules(l4.L7Rules)
 	p.allocatedPorts[to] = redir
 	p.redirects[id] = redir
 
