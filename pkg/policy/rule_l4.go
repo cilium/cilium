@@ -38,17 +38,17 @@ type L4Filter struct {
 	Port int `json:"port,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol string `json:"protocol,omitempty"`
-	// Redirect specified the L7 protocol parser (optional)
-	Redirect string `json:"redirect,omitempty"`
-	// RedirectPort is the L7 proxy port to redirect to (optional)
-	RedirectPort int `json:"redirect-port,omitempty"`
-	// Rules is a list of L7 rules which are passed to the L7 proxy (optional)
-	Rules []AuxRule `json:"rules,omitempty"`
+	// L7Parser specifies the L7 protocol parser (optional)
+	L7Parser string `json:"l7-parser,omitempty"`
+	// L7RedirectPort is the L7 proxy port to redirect to (optional)
+	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
+	// L7Rules is a list of L7 rules which are passed to the L7 proxy (optional)
+	L7Rules []AuxRule `json:"l7-rules,omitempty"`
 }
 
 // IsRedirect returns true if the L4 filter contains a port redirection
 func (l4 *L4Filter) IsRedirect() bool {
-	return l4.Redirect != ""
+	return l4.L7Parser != ""
 }
 
 func (l4 *L4Filter) String() string {
@@ -61,11 +61,11 @@ func (l4 *L4Filter) String() string {
 
 func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 	var l4filter struct {
-		Port         int       `json:"port,omitempty"`
-		Protocol     string    `json:"protocol,omitempty"`
-		Redirect     string    `json:"redirect,omitempty"`
-		RedirectPort int       `json:"redirect-port,omitempty"`
-		Rules        []AuxRule `json:"rules,omitempty"`
+		Port           int       `json:"port,omitempty"`
+		Protocol       string    `json:"protocol,omitempty"`
+		L7Parser       string    `json:"l7-parser,omitempty"`
+		L7RedirectPort int       `json:"l7-redirect-port,omitempty"`
+		L7Rules        []AuxRule `json:"l7-rules,omitempty"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
@@ -79,7 +79,7 @@ func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	for _, r := range l4filter.Rules {
+	for _, r := range l4filter.L7Rules {
 		if !route.IsValid(r.Expr) {
 			return fmt.Errorf("invalid filter expression: %s", r.Expr)
 		}
@@ -89,10 +89,10 @@ func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 
 	l4.Port = l4filter.Port
 	l4.Protocol = l4filter.Protocol
-	l4.Redirect = l4filter.Redirect
-	l4.RedirectPort = l4filter.RedirectPort
-	l4.Rules = make([]AuxRule, len(l4filter.Rules))
-	copy(l4.Rules, l4filter.Rules)
+	l4.L7Rules = l4filter.L7Rules
+	l4.L7RedirectPort = l4filter.L7RedirectPort
+	l4.L7Rules = make([]AuxRule, len(l4filter.L7Rules))
+	copy(l4.L7Rules, l4filter.L7Rules)
 
 	return nil
 }

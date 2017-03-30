@@ -8,8 +8,8 @@
 		"l4": [{
 			"out-ports": [{
 				"port": 80, "protocol": "tcp",
-				"redirect": "http",
-				"rules": [
+				"l7-parser": "http",
+				"l7-rules": [
 					{ "expr": "Method(\"GET\") && Path(\"/v1/\")" },
 					{ "expr": "Method(\"POST\") && Path(\"/v1/request-landing\")" }
 				]
