@@ -15,10 +15,6 @@
 package common
 
 const (
-	// RFC3339Milli is the RFC3339 with milliseconds for the default timestamp format
-	// log files.
-	RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
-
 	// Consul dedicated constants
 
 	// OperationalPath is the base path to store the operational details in consul.
