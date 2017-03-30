@@ -242,6 +242,12 @@ func initConfig() {
 		common.SetupLOG(log, "INFO")
 	}
 
+	log.Info("     _ _ _")
+	log.Info(" ___|_| |_|_ _ _____")
+	log.Info("|  _| | | | | |     |")
+	log.Info("|___|_|_|_|___|_|_|_|")
+	log.Infof("Cilium %s", version.Version)
+
 	if config.IPv4Disabled {
 		endpoint.IPv4Enabled = false
 	}

@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	l "github.com/op/go-logging"
 )
@@ -75,12 +76,11 @@ func SetupLOG(logger *l.Logger, logLevel string) {
 	switch os.Getenv("INITSYSTEM") {
 	case "SYSTEMD":
 		fileFormat = l.MustStringFormatter(
-			`%{level:.4s} %{id:03x} %{shortfunc} > %{message}`)
+			`%{level:.4s} %{message}`)
 	default:
-		hostname, _ := os.Hostname()
 		fileFormat = l.MustStringFormatter(
-			`%{time:` + RFC3339Milli + `} ` + hostname +
-				` %{level:.4s} %{id:03x} %{shortfunc} > %{message}`)
+			`%{color}%{time:` + time.RFC3339 +
+				`} %{level:.4s} %{color:reset}%{message}`)
 	}
 
 	level, err := l.LogLevel(logLevel)
