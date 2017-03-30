@@ -1,4 +1,4 @@
-<img src="https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg" alt="Cilium Logo" width="300" />
+<img src="https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg" alt="Cilium Logo" width="350" />
 
 [![Build Status](https://jenkins.cilium.io/job/cilium/job/cilium/job/master/badge/icon)](https://jenkins.cilium.io/job/cilium/job/cilium/job/master/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cilium/cilium)](https://goreportcard.com/report/github.com/cilium/cilium)
@@ -8,10 +8,14 @@
 [![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/cilium/cilium/blob/master/bpf/COPYING)
 [![Join the Cilium slack channel](https://cilium.herokuapp.com/badge.svg)](https://cilium.herokuapp.com/)
 
-Cilium provides fast in-kernel networking and security policy enforcement for
-containers based on eBPF programs generated on the fly. It is an experimental
-project aiming at enabling emerging kernel technologies such as BPF and XDP
-for containers.
+Cilium is open source software for providing and transparently securing the
+network connectivity between application services deployed using Linux
+container management platforms like Docker and Kubernetes.
+
+At the foundation of Cilium is a new Linux kernel technology called eBPF, which
+enables the dynamic insertion of BPF bytecode into the Linux kernel. Cilium
+generates individual BPF programs for each container to provide networking,
+security and visibility.
 
 <p align="center">
    <img src="Documentation/images/cilium-arch.png" />
@@ -22,38 +26,52 @@ for containers.
     programs, manages the BPF maps, and interacts with the local container
     runtime.
   * **BPF programs**:
-    * **container**: Container connectivity
+    * **container**: Container connectivity & security policies
     * **netdev**: Integration with L3 networks (physical/virtual)
     * **overlay**: Integration with overlay networks (VXLAN, Geneve)
     * **load balancer**: Fast L3/L4 load balancer with direct server return.
-  * **Integration**: CNI, Kubernetes, Docker
+  * **Integrations**
+    * **networking frameworks**: CNI, libnetwork
+    * **container runtimes**: Docker
+    * **orchestration systems**: Kubernetes
+    * **logging**: logstash
+    * **monitoring**:
 
 ## Getting Started
 
- * 5-min Quickstart: [Using the prebuilt docker images](examples/docker-compose/README.md)
- * For Developers: [Setting up a vagrant environment](Documentation/vagrant.rst)
- * Manual installation: [Detailed installation instructions](Documentation/admin.rst)
- * Frequently Asked Questions: [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
-
-## Demo Tutorials
-
-The following are video tutorials showcasing how to use Cilium:
-
- * [Networks & simple policies](https://asciinema.org/a/83373)
- * [Debugging a connectivity issue](https://asciinema.org/a/83376)
- * [Examine networking configuration of container](https://asciinema.org/a/83372)
+ * [Why Cilium?](http://docs.cilium.io/en/latest/intro/#why-cilium)
+ * [Getting Started Guide with Vagrant](http://docs.cilium.io/en/latest/gettingstarted/)
+ * [Architecture](http://docs.cilium.io/en/latest/architecture/)
+ * [Administrator Guide](http://docs.cilium.io/en/latest/admin/)
+ * [Frequently Asked Questions](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
+ * [Contributing](contributing)
 
 ## What is eBPF and XDP?
 
-Berkley Packet Filter (BPF) is a bytecode interpreter orignially introduced
-to filter network packets, e.g. tcpdump and socket filters. It has since been
-extended to with additional data structures such as hashtable and arrays as
-well as additional actions to support packet mangling, forwarding,
-encapsulation, etc. An in-kernel verifier ensures that BPF programs are safe
-to run and a JIT compiler converts the bytecode to CPU architecture specifc
+Berkeley Packet Filter (BPF) is a Linux kernel bytecode interpreter originally
+introduced to filter network packets, e.g. tcpdump and socket filters. It has
+since been extended with additional data structures such as hashtable and
+arrays as well as additional actions to support packet mangling, forwarding,
+encapsulation, etc. An in-kernel verifier ensures that BPF programs are safe to
+run and a JIT compiler converts the bytecode to CPU architecture specific
 instructions for native execution efficiency. BPF programs can be run at
 various hooking points in the kernel such as for incoming packets, outgoing
-packets, system call level, kprobes, etc.
+packets, system calls, kprobes, etc.
+
+BPF continues to evolve and gain additional capabilities with each new Linux
+release. Cilium leverages BPF to perform core datapath filtering, mangling,
+monitoring and redirection, and requires BPF capabilities that are in any Linux
+kernel version 4.8.0 or newer (the latest current stable Linux kernel is
+4.10.x).
+
+Linux distros that focus on being a container runtime (e.g., CoreOS, Fedora
+Atomic) typically already have default kernels that are newer than 4.8, but
+even recent versions of general purpose operating systems, with the exception
+of Ubuntu 16.10, are unlikely to have a default kernel that is 4.8+. However,
+such OSes should support installing and running an alternative kernel that is
+4.8+.
+
+For more detail on kernel versions, see: [Prerequisites](prerequisites)
 
 <p align="center">
    <img src="Documentation/images/bpf-overview.png" width="508" />
@@ -62,38 +80,6 @@ packets, system call level, kprobes, etc.
 XDP is a further step in evolution and enables to run a specific flavour of
 BPF programs from the network driver with direct access to the packet's DMA
 buffer.
-
-## What are the benefits of Cilium's use of BPF?
-
- * **simple:**
-   Every container is assigned a unique IPv6 address. An IPv4 address can be
-   assigned optionally. There is no concept of networks, all containers are
-   connected to a single virtual space. Isolation among containers is defined
-   based on container labels.
- * **ipv6-focused**
-   IPv6 is considered the primary addressing model with IPv4 support provided
-   for backwards compatibility based on either native integration or with
-   NAT46.
- * **extendable:**
-   Users can extend and customize any aspect of the BPF programs. Forwarding
-   logic and policy enforcement is not limited to the capabilities of a
-   specific Linux kernel version. This may include the addition of additional
-   statistics not provided by the Linux kernel, support for additional protocol
-   parsers, modifications of the connection tracker or policy layer, additional
-   forwarding logic, etc.
- * **fast:**
-   The BPF JIT compiler integrated into the Linux kernel guarantees for
-   efficient execution of BPF programs. A separate BPF program is generated for
-   each individual container on the fly which allows to automatically reduce the
-   code size to the minimal, similar to static linking.
- * **hotfixable:**
-   Updates to the kernel forwarding path can be applied without restarting the
-   kernel or any of the running containers.
- * **debuggable:**
-   A highly efficient monitoring subsystem is integrated and can be enabled on
-   demand at runtime. It provides visibility into the network activity of
-   containers under high network speeds without disruption or introduction of
-   latency.
 
 ## Prerequisites
 
@@ -119,22 +105,11 @@ functionality backported.
 
 ## Installation
 
-See the [installation instructions](Documentation/admin.rst).
-
-## Integration
-
-Cilium provides integration plugins for the following orchestration systems:
-  * CNI (Kubernetes/Mesos) [Installation instructions](examples/kubernetes/README.md)
-  * libnetwork (Docker) [Installation instructions](examples/docker-compose/README.md)
-
-## Contributions
-
-We are eager to receive feedback and contributions. Please see the
-[contributing guide](Documentation/contributing.rst) for further instructions and ideas
-on how to contribute.
+See the [Installation instructions](installation)
 
 ## Presentations
 
+ * CNCF/KubeCon Meetup, March 28, 2017: [Linux Native, HTTP Aware Network Security](https://www.slideshare.net/ThomasGraf5/linux-native-http-aware-network-security)
  * Docker Distributed Systems Summit, Berlin, Oct 2016: [Slides](http://www.slideshare.net/Docker/cilium-bpf-xdp-for-containers-66969823), [Video](https://www.youtube.com/watch?v=TnJF7ht3ZYc&list=PLkA60AVN3hh8oPas3cq2VA9xB7WazcIgs&index=7)
  * NetDev1.2, Tokyo, Sep 2016 - cls_bpf/eBPF updates since netdev 1.1: [Slides](http://borkmann.ch/talks/2016_tcws.pdf), [Video](https://youtu.be/gwzaKXWIelc?t=12m55s)
  * NetDev1.2, Tokyo, Sep 2016 - Advanced programmability and recent updates with tc’s cls_bpf: [Slides](http://borkmann.ch/talks/2016_netdev2.pdf), [Video](https://www.youtube.com/watch?v=GwT9hRiqdUo)
@@ -146,9 +121,10 @@ on how to contribute.
  * Software Gone Wild by Ivan Pepelnjak, Oct 2016: [Blog](http://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-with.html), [MP3](http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3)
  * OVS Orbit by Ben Pfaff, May 2016: [Blog](https://ovsorbit.benpfaff.org/#e4), [MP3](https://ovsorbit.benpfaff.org/episode-4.mp3)
 
-## Blog posts
+## Community blog posts
 
- * Cilium, BPF and XDP, Google Open Source Blog, Nov 2016: [Blog](https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html)
+ * Cilium, BPF and XDP, Google Open Source Blog, Nov 2016:
+   [Blog](https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html)
 
 ## Contact
 
@@ -159,3 +135,6 @@ If you have any questions feel free to contact us on [Slack](https://cilium.hero
 The cilium user space components are licensed under the
 [Apache License, Version 2.0](LICENSE). The BPF code templates are licensed
 under the [General Public License, Version 2.0](bpf/COPYING).
+
+[prerequisites]: http://docs.cilium.io/en/latest/admin/#admin-kernel-version
+[installation]: http://docs.cilium.io/en/latest/admin/#installing-cilium
