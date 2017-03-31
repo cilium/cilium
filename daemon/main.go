@@ -125,7 +125,6 @@ func checkKernelVersion() (int, int, error) {
 }
 
 func checkMinRequirements() {
-	log.Infof("Checking minimal requirements...")
 	kernelMajor, kernelMinor, err := checkKernelVersion()
 	if err != nil {
 		log.Fatalf("kernel version: NOT OK: %s", err)
@@ -176,12 +175,12 @@ func checkMinRequirements() {
 	// both files exist on both systems but cdefs.h already exists in fedora
 	// without 'glibc-devel.i686' so we check for 'stubs-32.h first.
 	if _, err := os.Stat("/usr/include/gnu/stubs-32.h"); os.IsNotExist(err) {
-		log.Fatalf("libraries: NOT OK, please make sure you have 'glibc-devel.i686' in your system")
+		log.Fatal("linking environment: NOT OK, please make sure you have 'glibc-devel.i686' in your system")
 	}
 	if _, err := os.Stat("/usr/include/sys/cdefs.h"); os.IsNotExist(err) {
-		log.Fatalf("libraries: NOT OK, please make sure you have 'libc6-dev-i386' in your system")
+		log.Fatal("linking environment: NOT OK, please make sure you have 'libc6-dev-i386' in your system")
 	}
-	log.Infof("libraries: OK!")
+	log.Info("linking environment: OK!")
 
 	// Checking for bpf_features
 	globalsDir := filepath.Join(config.RunDir, "globals")
