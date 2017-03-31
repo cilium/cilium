@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 )
 
+// SplitNodePath returns path without extension and the extension if any.
 func SplitNodePath(fullPath string) (string, string) {
 	var extension = filepath.Ext(fullPath)
 	if len(extension) > 0 {
@@ -26,6 +27,7 @@ func SplitNodePath(fullPath string) (string, string) {
 	return fullPath[0 : len(fullPath)-len(extension)], extension
 }
 
+// JoinPath returns a joined path from a and b.
 func JoinPath(a, b string) string {
 	return a + NodePathDelimiter + b
 }
