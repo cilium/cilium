@@ -289,8 +289,8 @@ API call, but disallowing all other calls (including GET /private).
         "l4": [{
             "out-ports": [{
                 "port": 80, "protocol": "tcp",
-                "redirect": "http",
-                "rules": [
+                "l7-parser": "http",
+                "l7-rules": [
                     { "expr": "Method(\"GET\") && Path(\"/public\")" }
                 ]
             }]
