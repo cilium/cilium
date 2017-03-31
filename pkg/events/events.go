@@ -19,19 +19,28 @@ import (
 )
 
 const (
+        // IdentityAdd is the event type used when a new identity is added to
+        // the K/V store.
 	IdentityAdd EventType = iota
+        // IdentityMod is the event type used when a existing identity is
+        // scheduled for deletion but there are still reference counts to it.
 	IdentityMod
+        // IdentityDel is the event type used when a existing identity is
+        // deleted.
 	IdentityDel
 )
 
+// EventType represents the type of event that occurred.
 type EventType int
 
+// Event is used to trigger events throughout the daemon.
 type Event struct {
 	Type      EventType
 	Timestamp time.Time
 	Obj       interface{}
 }
 
+// NewEvent creates a new event from type and interface.
 func NewEvent(t EventType, obj interface{}) *Event {
 	return &Event{
 		Type:      t,
