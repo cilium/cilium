@@ -43,8 +43,8 @@ cat <<EOF | cilium -D policy import -
 		"l4": [{
 			"out-ports": [{
 				"port": 80, "protocol": "tcp",
-				"redirect": "http",
-				"rules": [{ "expr": "Method(\"GET\")" }]
+				"l7-parser": "http",
+				"l7-rules": [{ "expr": "Method(\"GET\")" }]
 			}]
 		}]
 	},{
@@ -58,6 +58,6 @@ sleep 2
 
 docker exec -i client bash -c "curl --connect-timeout 10 -XGET http://$SERVER_IP4:80"
 
-docker exec -i client bash -c "curl --connect-timeout 10 -XGET http://$SERVER_IP4:80"
+docker exec -i client bash -c "curl --connect-timeout 10 -XPUT http://$SERVER_IP4:80"
 
 cilium policy delete root
