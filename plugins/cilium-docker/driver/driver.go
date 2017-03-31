@@ -87,7 +87,7 @@ func NewDriver(url string) (Driver, error) {
 			if tries == 23 {
 				log.Fatalf("Unable to connect to cilium daemon: %s", err)
 			} else {
-				log.Warningf("Waiting for cilium daemon to come up...")
+				log.Info("Waiting for cilium daemon to start up...")
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
