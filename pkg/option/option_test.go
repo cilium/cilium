@@ -44,7 +44,7 @@ func (s *OptionSuite) TestGetFmtOpt(c *C) {
 			"test": &OptionTest,
 		},
 	}
-	c.Assert(o.GetFmtOpt("test"), Equals, "#define TEST_DEFINE")
-	c.Assert(o.GetFmtOpt("BAR"), Equals, "#undef BAR")
-	c.Assert(o.GetFmtOpt("BAZ"), Equals, "#undef BAZ")
+	c.Assert(o.getFmtOpt("test"), Equals, "#define TEST_DEFINE")
+	c.Assert(o.getFmtOpt("BAR"), Equals, "#undef BAR")
+	c.Assert(o.getFmtOpt("BAZ"), Equals, "#undef BAZ")
 }

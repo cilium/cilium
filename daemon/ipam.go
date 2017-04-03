@@ -177,9 +177,7 @@ func (d *Daemon) isReservedAddress(ip net.IP) bool {
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {
-	d.conf.OptsMU.RLock()
 	isDebugActive := d.conf.Opts.IsEnabled(endpoint.OptionDebug)
-	d.conf.OptsMU.RUnlock()
 	if !isDebugActive {
 		return nil
 	}

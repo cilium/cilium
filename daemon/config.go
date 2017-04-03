@@ -66,8 +66,7 @@ type Config struct {
 	StateDir string
 
 	// Options changeable at runtime
-	Opts   *option.BoolOptions
-	OptsMU sync.RWMutex
+	Opts *option.BoolOptions
 }
 
 func NewConfig() *Config {

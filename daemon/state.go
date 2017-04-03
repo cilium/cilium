@@ -63,9 +63,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		if d.conf.KeepConfig {
 			ep.SetDefaultOpts(nil)
 		} else {
-			d.conf.OptsMU.RLock()
 			ep.SetDefaultOpts(d.conf.Opts)
-			d.conf.OptsMU.RUnlock()
 		}
 
 		if err := ep.Regenerate(d); err != nil {

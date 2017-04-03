@@ -365,7 +365,6 @@ func initEnv() {
 		log.Fatalf("Unable to mount BPF filesystem: %s\n", err)
 	}
 
-	config.OptsMU.Lock()
 	if viper.GetBool("debug") {
 		config.Opts.Set(endpoint.OptionDebug, true)
 	}
@@ -375,7 +374,6 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionPolicy, enablePolicy)
-	config.OptsMU.Unlock()
 
 	config.ValidLabelPrefixesMU.Lock()
 	if labelPrefixFile != "" {
