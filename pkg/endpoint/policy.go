@@ -159,8 +159,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	//}
 	tree.Mutex.RUnlock()
 
-	// FIXME: Move to outer loops to avoid refetching
-	maxID, err := owner.GetMaxLabelID()
+	maxID, err := owner.GetCachedMaxLabelID()
 	if err != nil {
 		return false, err
 	}

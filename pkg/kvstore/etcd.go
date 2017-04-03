@@ -29,6 +29,7 @@ import (
 
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
+	"github.com/coreos/etcd/mvcc/mvccpb"
 	ctx "golang.org/x/net/context"
 )
 
@@ -364,12 +365,14 @@ func (e *EtcdClient) DeleteTree(path string) error {
 
 // GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
 // every time the key path is changed.
+// FIXME This function is highly tightened to the maxFreeID, change name accordingly
 func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
 	ch := make(chan []policy.NumericIdentity, 100)
 	go func() {
 		curSeconds := time.Second
+		lastRevision := int64(0)
 		for {
-			w := <-e.cli.Watch(ctx.Background(), key)
+			w := <-e.cli.Watch(ctx.Background(), key, client.WithRev(lastRevision))
 			if w.Err() != nil {
 				log.Warning("Unable to watch key %s, retrying...", key)
 				time.Sleep(curSeconds)
@@ -379,8 +382,23 @@ func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []po
 				continue
 			}
 			curSeconds = time.Second
+			lastRevision = w.CompactRevision
 			go func() {
-				ch <- []policy.NumericIdentity{}
+				freeID := uint32(0)
+				maxFreeID := uint32(0)
+				for _, event := range w.Events {
+					if event.Type != mvccpb.PUT ||
+						event.Kv == nil {
+						continue
+					}
+					if err := json.Unmarshal(event.Kv.Value, &freeID); err != nil {
+						continue
+					}
+					if freeID > maxFreeID {
+						maxFreeID = freeID
+					}
+				}
+				ch <- []policy.NumericIdentity{policy.NumericIdentity(maxFreeID)}
 			}()
 		}
 	}()

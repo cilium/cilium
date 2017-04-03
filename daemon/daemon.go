@@ -62,24 +62,26 @@ import (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ipamConf          *ipam.IPAMConfig
-	kvClient          kvstore.KVClient
-	containers        map[string]*container.Container
-	containersMU      sync.RWMutex
-	endpoints         map[uint16]*endpoint.Endpoint
-	endpointsAux      map[string]*endpoint.Endpoint
-	endpointsMU       sync.RWMutex
-	events            chan events.Event
-	dockerClient      *dClient.Client
-	loadBalancer      *types.LoadBalancer
-	k8sClient         *k8s.Clientset
-	conf              *Config
-	policy            policy.Tree
-	consumableCache   *policy.ConsumableCache
-	ignoredContainers map[string]int
-	ignoredMutex      sync.RWMutex
-	loopbackIPv4      net.IP
-	l7Proxy           *proxy.Proxy
+	ipamConf           *ipam.IPAMConfig
+	kvClient           kvstore.KVClient
+	containers         map[string]*container.Container
+	containersMU       sync.RWMutex
+	endpoints          map[uint16]*endpoint.Endpoint
+	endpointsAux       map[string]*endpoint.Endpoint
+	endpointsMU        sync.RWMutex
+	events             chan events.Event
+	dockerClient       *dClient.Client
+	loadBalancer       *types.LoadBalancer
+	k8sClient          *k8s.Clientset
+	conf               *Config
+	policy             policy.Tree
+	consumableCache    *policy.ConsumableCache
+	ignoredContainers  map[string]int
+	ignoredMutex       sync.RWMutex
+	loopbackIPv4       net.IP
+	maxCachedLabelIDMU sync.RWMutex
+	maxCachedLabelID   policy.NumericIdentity
+	l7Proxy            *proxy.Proxy
 }
 
 func (d *Daemon) GetProxy() *proxy.Proxy {
