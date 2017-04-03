@@ -27,10 +27,10 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	lblBaz := labels.NewLabel("root.baz", "", common.CiliumLabelSource)
 
 	// -> [Foo]
-	toFoo := SearchContext{To: []labels.Label{*lblFoo}}
+	toFoo := SearchContext{To: []*labels.Label{lblFoo}}
 
 	// -> [Baz, Bar]
-	toBazBar := SearchContext{To: []labels.Label{*lblBaz, *lblBar}}
+	toBazBar := SearchContext{To: []*labels.Label{lblBaz, lblBar}}
 
 	http1 := L4Filter{Port: 80, Protocol: "tcp"}
 	http2 := L4Filter{Port: 8080, Protocol: "tcp"}
@@ -50,7 +50,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	}
 
 	rule1 := RuleL4{
-		Coverage: []labels.Label{*lblBar},
+		Coverage: []*labels.Label{lblBar},
 		Allow:    []AllowL4{filterHttp},
 	}
 

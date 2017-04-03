@@ -26,8 +26,8 @@ import (
 // RuleRequires any further consumer requires the specified list of
 // labels in order to consume.
 type RuleRequires struct {
-	Coverage []labels.Label `json:"coverage,omitempty"`
-	Requires []labels.Label `json:"requires"`
+	Coverage []*labels.Label `json:"coverage,omitempty"`
+	Requires []*labels.Label `json:"requires"`
 }
 
 func (prr *RuleRequires) IsMergeable() bool {
@@ -46,12 +46,10 @@ func (prr *RuleRequires) String() string {
 func (prr *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 	if len(prr.Coverage) > 0 && ctx.TargetCoveredBy(prr.Coverage) {
 		policyTrace(ctx, "Found coverage rule: %s\n", prr.String())
-		for k := range prr.Requires {
-			reqLabel := &prr.Requires[k]
+		for _, reqLabel := range prr.Requires {
 			match := false
 
-			for k2 := range ctx.From {
-				label := &ctx.From[k2]
+			for _, label := range ctx.From {
 				if label.Equals(reqLabel) {
 					match = true
 				}
@@ -73,8 +71,7 @@ func (prr *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 
 func (prr *RuleRequires) Resolve(node *Node) error {
 	log.Debugf("Resolving requires rule %+v\n", prr)
-	for k := range prr.Coverage {
-		l := &prr.Coverage[k]
+	for _, l := range prr.Coverage {
 		l.Resolve(node)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
@@ -83,8 +80,7 @@ func (prr *RuleRequires) Resolve(node *Node) error {
 		}
 	}
 
-	for k := range prr.Requires {
-		l := &prr.Requires[k]
+	for _, l := range prr.Requires {
 		l.Resolve(node)
 	}
 

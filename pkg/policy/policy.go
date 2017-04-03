@@ -18,6 +18,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 
@@ -163,9 +164,8 @@ type SearchContext struct {
 	Trace   Tracing
 	Depth   int
 	Logging *logging.LogBackend
-	// TODO: Put this as []*Label?
-	From []labels.Label
-	To   []labels.Label
+	From    []*labels.Label
+	To      []*labels.Label
 }
 
 type SearchContextReply struct {
@@ -174,18 +174,26 @@ type SearchContextReply struct {
 }
 
 func (s *SearchContext) String() string {
-	return fmt.Sprintf("From: %s => To: %s", s.From, s.To)
+	from := []string{}
+	to := []string{}
+	for _, fromLabel := range s.From {
+		from = append(from, fromLabel.String())
+	}
+	for _, toLabel := range s.To {
+		to = append(to, toLabel.String())
+	}
+	return fmt.Sprintf("From: [%s] => To: [%s]", strings.Join(from, ", "), strings.Join(to, ", "))
 }
 
 func (s *SearchContext) CallDepth() string {
 	return strconv.Itoa(s.Depth * 2)
 }
 
-func (s *SearchContext) TargetCoveredBy(coverage []labels.Label) bool {
-	for k := range coverage {
-		covLabel := &coverage[k]
-		for k2 := range s.To {
-			toLabel := &s.To[k2]
+// TargetCoveredBy checks if the SearchContext is covered by the `coverage`
+// slice of labels.
+func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
+	for _, covLabel := range coverage {
+		for _, toLabel := range s.To {
 			if covLabel.Matches(toLabel) {
 				return true
 			}

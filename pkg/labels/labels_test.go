@@ -88,20 +88,6 @@ func (s *LabelsSuite) TestMergeLabels(c *C) {
 	c.Assert(to, DeepEquals, want)
 }
 
-func (s *LabelsSuite) TestSliceToMap(c *C) {
-	want := Labels{
-		"key1": NewLabel("key1", "value3", "source4"),
-		"key2": NewLabel("key2", "value5", "source7"),
-	}
-
-	lbls := LabelSlice2LabelsMap([]Label{
-		{"key1", "value3", "source4", "", false, nil},
-		{"key2", "value5", "source7", "", false, nil},
-	})
-	c.Assert(len(lbls), Equals, 2)
-	c.Assert(lbls, DeepEquals, want)
-}
-
 func (s *LabelsSuite) TestParseLabel(c *C) {
 	tests := []struct {
 		str string
@@ -172,4 +158,22 @@ func (s *LabelsSuite) TestLabelCompare(c *C) {
 	c.Assert(a1.Equals(c1), Equals, false)
 	c.Assert(a1.Equals(d1), Equals, false)
 	c.Assert(b1.Equals(c1), Equals, false)
+}
+
+func (s *LabelsSuite) TestLabelSliceSHA256Sum(c *C) {
+	a1 := NewLabel(".", "", "")
+	a2 := NewLabel(".", "", "")
+	b1 := NewLabel("bar", "", common.CiliumLabelSource)
+	c1 := NewLabel("bar", "", "kubernetes")
+	d1 := NewLabel("", "", "")
+	labels := []*Label{
+		a1,
+		a2,
+		b1,
+		c1,
+		d1,
+	}
+	sha256sum, err := LabelSliceSHA256Sum(labels)
+	c.Assert(err, IsNil)
+	c.Assert(sha256sum, DeepEquals, "180d22655dec0e78f62c3e4ac17f5994baedbdfc5c882cbbd668e2628c44f320")
 }

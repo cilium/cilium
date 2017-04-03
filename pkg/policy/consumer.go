@@ -52,7 +52,7 @@ type Consumable struct {
 	ID           NumericIdentity               `json:"id"`
 	Iteration    int                           `json:"-"`
 	Labels       *Identity                     `json:"labels"`
-	LabelList    []labels.Label                `json:"-"`
+	LabelList    []*labels.Label               `json:"-"`
 	Maps         map[int]*policymap.PolicyMap  `json:"-"`
 	Consumers    map[string]*Consumer          `json:"consumers"`
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
@@ -64,7 +64,7 @@ func (c *Consumable) DeepCopy() *Consumable {
 	cpy := &Consumable{
 		ID:           c.ID,
 		Iteration:    c.Iteration,
-		LabelList:    make([]labels.Label, len(c.LabelList)),
+		LabelList:    make([]*labels.Label, len(c.LabelList)),
 		Maps:         make(map[int]*policymap.PolicyMap, len(c.Maps)),
 		Consumers:    make(map[string]*Consumer, len(c.Consumers)),
 		ReverseRules: make(map[NumericIdentity]*Consumer, len(c.ReverseRules)),
@@ -119,10 +119,10 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 	}
 
 	if lbls != nil {
-		consumable.LabelList = make([]labels.Label, len(lbls.Labels))
+		consumable.LabelList = make([]*labels.Label, len(lbls.Labels))
 		idx := 0
 		for k, v := range lbls.Labels {
-			consumable.LabelList[idx] = labels.Label{
+			consumable.LabelList[idx] = &labels.Label{
 				Key:    k,
 				Value:  v.Value,
 				Source: v.Source,

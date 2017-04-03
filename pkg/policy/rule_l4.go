@@ -131,8 +131,8 @@ func (l4 *AllowL4) Merge(result *L4Policy) {
 }
 
 type RuleL4 struct {
-	Coverage []labels.Label `json:"coverage,omitempty"`
-	Allow    []AllowL4      `json:"l4"`
+	Coverage []*labels.Label `json:"coverage,omitempty"`
+	Allow    []AllowL4       `json:"l4"`
 }
 
 func (l4 *RuleL4) IsMergeable() bool {
@@ -154,8 +154,7 @@ func (l4 *RuleL4) GetL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 
 func (l4 *RuleL4) Resolve(node *Node) error {
 	log.Debugf("Resolving L4 rule %+v\n", l4)
-	for k := range l4.Coverage {
-		l := &l4.Coverage[k]
+	for _, l := range l4.Coverage {
 		l.Resolve(node)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
