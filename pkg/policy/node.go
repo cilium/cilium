@@ -169,8 +169,8 @@ func coversLabel(l *labels.Label, path string) bool {
 }
 
 func (n *Node) Covers(ctx *SearchContext) bool {
-	for k := range ctx.To {
-		if coversLabel(&ctx.To[k], n.Path()) {
+	for _, v := range ctx.To {
+		if coversLabel(v, n.Path()) {
 			return true
 		}
 	}

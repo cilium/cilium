@@ -171,6 +171,15 @@ func NewLabel(key string, value string, source string) *Label {
 	}
 }
 
+// DeepCopy returns a Deep copy of the receiver's label.
+func (l *Label) DeepCopy() *Label {
+	ret := NewLabel(l.Key, l.Value, l.Source)
+	ret.absKey = l.absKey
+	ret.DeletionMark = l.DeletionMark
+	ret.owner = l.owner
+	return ret
+}
+
 // NewOwnedLabel returns a new label like NewLabel but also assigns an owner
 func NewOwnedLabel(key string, value string, source string, owner LabelOwner) *Label {
 	l := NewLabel(key, value, source)
@@ -231,7 +240,7 @@ func (l *Label) AbsoluteKey() string {
 
 // String returns the string representation of Label in the for of Source:Key=Value or
 // Source:Key if Value is empty.
-func (l Label) String() string {
+func (l *Label) String() string {
 	if len(l.Value) != 0 {
 		return fmt.Sprintf("%s:%s=%s", l.Source, l.Key, l.Value)
 	}
@@ -380,20 +389,10 @@ func (l Labels) sortedList() []byte {
 }
 
 // ToSlice returns a slice of label with the values of the given Labels' map.
-func (l Labels) ToSlice() []Label {
-	labels := []Label{}
+func (l Labels) ToSlice() []*Label {
+	labels := []*Label{}
 	for _, v := range l {
-		labels = append(labels, *v)
-	}
-	return labels
-}
-
-// LabelSlice2LabelsMap returns a Labels' map with all labels from the given slice of
-// label.
-func LabelSlice2LabelsMap(lbls []Label) Labels {
-	labels := Labels{}
-	for _, v := range lbls {
-		labels[v.Key] = NewLabel(v.Key, v.Value, v.Source)
+		labels = append(labels, v.DeepCopy())
 	}
 	return labels
 }
@@ -463,21 +462,10 @@ func ParseStringLabels(strLbls []string) Labels {
 }
 
 // LabelSliceSHA256Sum returns SHA256 checksum from the labels.
-func LabelSliceSHA256Sum(labels []Label) (string, error) {
+func LabelSliceSHA256Sum(labels []*Label) (string, error) {
 	sha := sha512.New512_256()
 	if err := json.NewEncoder(sha).Encode(labels); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
-}
-
-// ParseStringLabelsInOrder returns label representations from strings in order.
-func ParseStringLabelsInOrder(strLbls []string) []Label {
-	lbls := []Label{}
-	for _, l := range strLbls {
-		lbl := ParseLabel(l)
-		lbls = append(lbls, *lbl)
-	}
-
-	return lbls
 }

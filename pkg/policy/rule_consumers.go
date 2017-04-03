@@ -98,8 +98,7 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 	defer func() {
 		ctx.Depth--
 	}()
-	for k := range ctx.From {
-		label := &ctx.From[k]
+	for _, label := range ctx.From {
 		if a.Label.Matches(label) {
 			policyTrace(ctx, "Found label matching [%s] in rule: [%s]\n", label.String(), a.String())
 			return a.Action
@@ -112,8 +111,8 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 
 // RuleConsumers allows the following consumers.
 type RuleConsumers struct {
-	Coverage []labels.Label `json:"coverage,omitempty"`
-	Allow    []AllowRule    `json:"allow"`
+	Coverage []*labels.Label `json:"coverage,omitempty"`
+	Allow    []AllowRule     `json:"allow"`
 }
 
 func (prc *RuleConsumers) IsMergeable() bool {
@@ -160,8 +159,7 @@ func (prc *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 
 func (prc *RuleConsumers) Resolve(node *Node) error {
 	log.Debugf("Resolving consumer rule %+v\n", prc)
-	for k := range prc.Coverage {
-		l := &prc.Coverage[k]
+	for _, l := range prc.Coverage {
 		l.Resolve(node)
 
 		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
