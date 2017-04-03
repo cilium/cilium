@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
+	"sync"
 )
 
 var (
@@ -29,7 +30,12 @@ var (
 
 	// Set to true on first get request to detect misorder
 	lockedDown = false
+	once       sync.Once
 )
+
+func lockDown() {
+	lockedDown = true
+}
 
 func SetMapRoot(path string) {
 	if lockedDown {
@@ -39,7 +45,7 @@ func SetMapRoot(path string) {
 }
 
 func GetMapRoot() string {
-	lockedDown = true
+	once.Do(lockDown)
 	return mapRoot
 }
 
@@ -51,17 +57,17 @@ func SetMapPrefix(path string) {
 }
 
 func GetMapPrefix() string {
-	lockedDown = true
+	once.Do(lockDown)
 	return mapPrefix
 }
 
 func MapPrefixPath() string {
-	lockedDown = true
+	once.Do(lockDown)
 	return path.Join(mapRoot, mapPrefix)
 }
 
 func MapPath(name string) string {
-	lockedDown = true
+	once.Do(lockDown)
 	return path.Join(mapRoot, mapPrefix, name)
 }
 
