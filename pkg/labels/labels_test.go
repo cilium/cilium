@@ -17,6 +17,8 @@ package labels
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"testing"
 
 	"github.com/cilium/cilium/common"
 
@@ -24,6 +26,10 @@ import (
 )
 
 // Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
 type LabelsSuite struct{}
 
 var _ = Suite(&LabelsSuite{})
@@ -43,12 +49,15 @@ var (
 
 func (s *LabelsSuite) TestSHA256Sum(c *C) {
 	str := lbls.SHA256Sum()
-	c.Assert(str, Equals, "f4b2082334cdcf08e58c5bb5a04bb291ecc6a4de7555baaf4d5ac110edd7d222")
+	c.Assert(str, Equals, "253d2565643b2f2f3d2f3d3b666f6f3d6261723b666f6f323d3d626172323b666f6f3d3d3d3d3"+
+		"d3b666f6f5c5c3d3d5c3d3b6b65793d3bc672b8d1ef56ed28ab87c3622c5114069bdd3ad7b8f9737498d0c01ecef0967a")
 }
 
 func (s *LabelsSuite) TestSortMap(c *C) {
+	lblsString := strings.Join(lblsArray, ";")
+	lblsString += ";"
 	sortedMap := lbls.sortedList()
-	c.Assert(sortedMap, DeepEquals, lblsArray)
+	c.Assert(sortedMap, DeepEquals, []byte(lblsString))
 }
 
 type lblTest struct {
@@ -126,7 +135,7 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	err := json.Unmarshal([]byte(longLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, "kubernetes")
-	c.Assert(label.AbsoluteKey(), Equals, "io.kubernetes.pod.name")
+	c.Assert(label.AbsoluteKey(), Equals, "root.io.kubernetes.pod.name")
 	c.Assert(label.Value, Equals, "foo")
 
 	label = Label{}
@@ -137,7 +146,7 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, common.CiliumLabelSource)
-	c.Assert(label.AbsoluteKey(), Equals, "web")
+	c.Assert(label.AbsoluteKey(), Equals, "root.web")
 	c.Assert(label.Value, Equals, "")
 
 	label = Label{}
