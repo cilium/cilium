@@ -78,9 +78,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
-	daemonConf.OptsMU.Lock()
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
-	daemonConf.OptsMU.Unlock()
 	daemonConf.Device = "undefined"
 
 	err = daemonConf.SetKVBackend()

@@ -200,9 +200,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		return apierror.Error(PutEndpointIDInvalidCode, err)
 	}
 
-	h.d.conf.OptsMU.RLock()
 	ep.SetDefaultOpts(h.d.conf.Opts)
-	h.d.conf.OptsMU.RUnlock()
 
 	h.d.endpointsMU.Lock()
 	defer h.d.endpointsMU.Unlock()
