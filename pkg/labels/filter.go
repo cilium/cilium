@@ -143,8 +143,7 @@ func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 			if strings.HasPrefix(v.Key, lpcValue.Prefix) {
 				// Just want to make sure we don't have labels deleted in
 				// on side and disappearing in the other side...
-				cpy := Label(*v)
-				filteredLabels[k] = &cpy
+				filteredLabels[k] = v.DeepCopy()
 			}
 		}
 	}

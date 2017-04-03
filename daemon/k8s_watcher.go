@@ -64,7 +64,7 @@ func parseK8sNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, err
 		policyName = np.Annotations[common.K8sAnnotationName]
 	}
 
-	allowRules := []policy.AllowRule{}
+	allowRules := []*policy.AllowRule{}
 	for _, iRule := range np.Spec.Ingress {
 		if iRule.From != nil {
 			for _, rule := range iRule.From {
@@ -74,18 +74,18 @@ func parseK8sNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, err
 						if l.Source == common.CiliumLabelSource {
 							l.Source = common.K8sLabelSource
 						}
-						ar := policy.AllowRule{
+						ar := &policy.AllowRule{
 							Action: policy.ALWAYS_ACCEPT,
-							Label:  *l,
+							Label:  l,
 						}
 						allowRules = append(allowRules, ar)
 					}
 				} else if rule.NamespaceSelector != nil {
 					for k := range rule.NamespaceSelector.MatchLabels {
 						l := labels.NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
-						ar := policy.AllowRule{
+						ar := &policy.AllowRule{
 							Action: policy.ALWAYS_ACCEPT,
-							Label:  *l,
+							Label:  l,
 						}
 						allowRules = append(allowRules, ar)
 					}

@@ -27,7 +27,7 @@ import (
 
 type AllowRule struct {
 	Action ConsumableDecision `json:"action,omitempty"`
-	Label  labels.Label       `json:"label"`
+	Label  *labels.Label      `json:"label"`
 }
 
 func (a *AllowRule) IsMergeable() bool {
@@ -53,7 +53,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 
 	var aux struct {
 		Action ConsumableDecision `json:"action,omitempty"`
-		Label  labels.Label       `json:"label"`
+		Label  *labels.Label      `json:"label"`
 	}
 
 	// Default is allow
@@ -65,7 +65,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	// can be used as a shortform to specify allow rules.
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	err := decoder.Decode(&aux)
-	if err != nil || !aux.Label.IsValid() {
+	if err != nil || aux.Label == nil || !aux.Label.IsValid() {
 		var aux labels.Label
 
 		decoder = json.NewDecoder(bytes.NewReader(data))
@@ -80,7 +80,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 			a.Action = ACCEPT
 		}
 
-		a.Label = aux
+		a.Label = &aux
 	} else {
 		a.Action = aux.Action
 		a.Label = aux.Label
@@ -112,7 +112,7 @@ func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
 // RuleConsumers allows the following consumers.
 type RuleConsumers struct {
 	Coverage []*labels.Label `json:"coverage,omitempty"`
-	Allow    []AllowRule     `json:"allow"`
+	Allow    []*AllowRule    `json:"allow"`
 }
 
 func (prc *RuleConsumers) IsMergeable() bool {
@@ -126,7 +126,16 @@ func (prc *RuleConsumers) IsMergeable() bool {
 }
 
 func (prc *RuleConsumers) String() string {
-	return fmt.Sprintf("Coverage: %s Allowing: %s", prc.Coverage, prc.Allow)
+	coverages := []string{}
+	for _, lbl := range prc.Coverage {
+		coverages = append(coverages, lbl.String())
+	}
+	allows := []string{}
+	for _, allow := range prc.Allow {
+		allows = append(allows, allow.String())
+	}
+	return fmt.Sprintf("Coverage: [%s] Allowing: [%s]", strings.Join(coverages, " "),
+		strings.Join(allows, " "))
 }
 
 func (prc *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
@@ -141,8 +150,7 @@ func (prc *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
 
 	policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
 
-	for k := range prc.Allow {
-		allowRule := &prc.Allow[k]
+	for _, allowRule := range prc.Allow {
 		switch allowRule.Allows(ctx) {
 		case DENY:
 			return DENY
@@ -169,8 +177,7 @@ func (prc *RuleConsumers) Resolve(node *Node) error {
 		}
 	}
 
-	for k := range prc.Allow {
-		r := &prc.Allow[k]
+	for _, r := range prc.Allow {
 		r.Label.Resolve(node)
 	}
 

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -98,8 +99,9 @@ type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 	// Source can be on of the values present in const.go (e.g.: CiliumLabelSource)
-	Source string `json:"source"`
-	absKey string
+	Source   string `json:"source"`
+	absKeyMU sync.RWMutex
+	absKey   string
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`
 	owner        LabelOwner
@@ -134,12 +136,14 @@ func (l Labels) DeleteMarked() bool {
 func (l Labels) AppendPrefixInKey(prefix string) Labels {
 	newLabels := Labels{}
 	for k, v := range l {
+		v.absKeyMU.RLock()
 		newLabels[prefix+k] = &Label{
 			Key:    prefix + v.Key,
 			Value:  v.Value,
 			Source: v.Source,
 			absKey: v.absKey,
 		}
+		v.absKeyMU.RUnlock()
 	}
 	return newLabels
 }
@@ -174,7 +178,9 @@ func NewLabel(key string, value string, source string) *Label {
 // DeepCopy returns a Deep copy of the receiver's label.
 func (l *Label) DeepCopy() *Label {
 	ret := NewLabel(l.Key, l.Value, l.Source)
+	l.absKeyMU.RLock()
 	ret.absKey = l.absKey
+	l.absKeyMU.RUnlock()
 	ret.DeletionMark = l.DeletionMark
 	ret.owner = l.owner
 	return ret
@@ -214,13 +220,15 @@ func (l *Label) Resolve(owner LabelOwner) {
 	l.SetOwner(owner)
 
 	// Force generation of absolute key
-	l.AbsoluteKey()
+	absKey := l.AbsoluteKey()
 
-	log.Debugf("Resolved label %s to path %s\n", l.String(), l.absKey)
+	log.Debugf("Resolved label %s to path %s\n", l.String(), absKey)
 }
 
 // AbsoluteKey if set returns the absolute key path, otherwise returns the label's Key.
 func (l *Label) AbsoluteKey() string {
+	l.absKeyMU.Lock()
+	defer l.absKeyMU.Unlock()
 	if l.absKey == "" {
 		// Never translate using an owner if a reserved label
 		if l.owner != nil && l.Source != common.ReservedLabelSource &&
@@ -320,12 +328,14 @@ func Map2Labels(m map[string]string, source string) Labels {
 func (l Labels) DeepCopy() Labels {
 	o := Labels{}
 	for k, v := range l {
+		v.absKeyMU.RLock()
 		o[k] = &Label{
 			Key:    v.Key,
 			Value:  v.Value,
 			Source: v.Source,
 			absKey: v.absKey,
 		}
+		v.absKeyMU.RUnlock()
 	}
 	return o
 }

@@ -205,18 +205,8 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 	return normalLabels
 }
 
-func (d *Daemon) retrieveWorkingContainerCopy(id string) (container.Container, bool) {
-	d.containersMU.RLock()
-	defer d.containersMU.RUnlock()
-
-	if c, ok := d.containers[id]; ok {
-		return *c, true
-	}
-	return container.Container{}, false
-}
-
-func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) container.Container {
-	return container.Container{
+func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) *container.Container {
+	return &container.Container{
 		ContainerJSON: *dc,
 		OpLabels: labels.OpLabels{
 			Custom:        labels.Labels{},
@@ -280,9 +270,11 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		}
 
 		var orchLabelsModified bool
-		containerCopy, ok := d.retrieveWorkingContainerCopy(id)
+		d.containersMU.RLock()
+		containerCopy, ok := d.containers[id]
+		d.containersMU.RUnlock()
 		if ok {
-			if orchLabelsModified = updateOrchLabels(&containerCopy, lbls); !orchLabelsModified {
+			if orchLabelsModified = updateOrchLabels(containerCopy, lbls); !orchLabelsModified {
 				log.Debugf("No changes to orch labels, ignoring")
 			}
 		} else {
@@ -291,7 +283,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 
 		// It's mandatory to update the container in its label otherwise
 		// the label will be considered unused.
-		identity, err := d.updateContainerIdentity(&containerCopy)
+		identity, err := d.updateContainerIdentity(containerCopy)
 		if err != nil {
 			log.Warningf("unable to update identity of container %s: %s", id, err)
 			return
@@ -329,7 +321,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		}
 
 		// Commit label changes to container
-		d.containers[ep.DockerID] = &containerCopy
+		d.containers[ep.DockerID] = containerCopy
 
 		d.setEndpointIdentity(ep, containerCopy.ID, dockerEpID, identity)
 		if err := ep.Regenerate(d); err != nil {
@@ -375,9 +367,9 @@ func updateOrchLabels(c *container.Container, l labels.Labels) bool {
 			if c.OpLabels.Orchestration[k] != nil {
 				c.OpLabels.Orchestration[k].DeletionMark = false
 			} else {
-				tmp := *v
+				tmp := v.DeepCopy()
 				log.Debugf("Assigning orchestration label %+v", tmp)
-				c.OpLabels.Orchestration[k] = &tmp
+				c.OpLabels.Orchestration[k] = tmp
 				changed = true
 			}
 		}
