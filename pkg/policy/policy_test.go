@@ -105,9 +105,9 @@ func (s *PolicyTestSuite) TestAllowRule(c *C) {
 	lblBar := labels.NewLabel("bar", "", common.CiliumLabelSource)
 	lblBaz := labels.NewLabel("baz", "", common.CiliumLabelSource)
 	lblAll := labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource)
-	allow := AllowRule{Action: ACCEPT, Label: *lblFoo}
-	deny := AllowRule{Action: DENY, Label: *lblFoo}
-	allowAll := AllowRule{Action: ACCEPT, Label: *lblAll}
+	allow := &AllowRule{Action: ACCEPT, Label: lblFoo}
+	deny := &AllowRule{Action: DENY, Label: lblFoo}
+	allowAll := &AllowRule{Action: ACCEPT, Label: lblAll}
 
 	ctx := SearchContext{
 		From: []*labels.Label{lblFoo},
@@ -191,16 +191,16 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 		To:   []*labels.Label{lblBar},
 	}
 
-	allowFoo := AllowRule{Action: ACCEPT, Label: *lblFoo}
-	dontAllowFoo := AllowRule{Action: DENY, Label: *lblFoo}
-	allowTeamA := AllowRule{Action: ACCEPT, Label: *lblTeamA}
-	dontAllowBaz := AllowRule{Action: DENY, Label: *lblBaz}
-	alwaysAllowFoo := AllowRule{Action: ALWAYS_ACCEPT, Label: *lblFoo}
+	allowFoo := &AllowRule{Action: ACCEPT, Label: lblFoo}
+	dontAllowFoo := &AllowRule{Action: DENY, Label: lblFoo}
+	allowTeamA := &AllowRule{Action: ACCEPT, Label: lblTeamA}
+	dontAllowBaz := &AllowRule{Action: DENY, Label: lblBaz}
+	alwaysAllowFoo := &AllowRule{Action: ALWAYS_ACCEPT, Label: lblFoo}
 
 	// Allow: foo, !foo
 	consumers := RuleConsumers{
 		Coverage: []*labels.Label{lblBar},
-		Allow:    []AllowRule{allowFoo, dontAllowFoo},
+		Allow:    []*AllowRule{allowFoo, dontAllowFoo},
 	}
 
 	// NOTE: We are testing on single consumer rule leve, there is
@@ -214,7 +214,7 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 	// Always-Allow: foo, !foo
 	consumers = RuleConsumers{
 		Coverage: []*labels.Label{lblBar},
-		Allow:    []AllowRule{alwaysAllowFoo, dontAllowFoo},
+		Allow:    []*AllowRule{alwaysAllowFoo, dontAllowFoo},
 	}
 
 	c.Assert(consumers.Allows(&aFooToBar), Equals, ALWAYS_ACCEPT)
@@ -225,7 +225,7 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 	// Allow: TeamA, !baz
 	consumers = RuleConsumers{
 		Coverage: []*labels.Label{lblBar},
-		Allow:    []AllowRule{allowTeamA, dontAllowBaz},
+		Allow:    []*AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&aFooToBar), Equals, ACCEPT)
@@ -236,7 +236,7 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 	// Allow: TeamA, !baz
 	consumers = RuleConsumers{
 		Coverage: []*labels.Label{lblFoo},
-		Allow:    []AllowRule{allowTeamA, dontAllowBaz},
+		Allow:    []*AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&aFooToBar), Equals, UNDECIDED)
@@ -378,14 +378,14 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 		Rules: []PolicyRule{
 			&RuleConsumers{
 				Coverage: []*labels.Label{lblBar},
-				Allow: []AllowRule{
+				Allow: []*AllowRule{
 					{ // always-allow:  user=joe
 						Action: ALWAYS_ACCEPT,
-						Label:  *lblJoe,
+						Label:  lblJoe,
 					},
 					{ // allow:  user=pete
 						Action: ACCEPT,
-						Label:  *lblPete,
+						Label:  lblPete,
 					},
 				},
 			},
@@ -399,10 +399,10 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 			},
 			&RuleConsumers{
 				Coverage: []*labels.Label{lblBar},
-				Allow: []AllowRule{
+				Allow: []*AllowRule{
 					{ // allow: foo
 						Action: ACCEPT,
-						Label:  *lblFoo,
+						Label:  lblFoo,
 					},
 				},
 			},
@@ -480,11 +480,11 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 		Rules: []PolicyRule{
 			&RuleConsumers{
 				Coverage: []*labels.Label{lblBar},
-				Allow: []AllowRule{
+				Allow: []*AllowRule{
 					// always-allow: user=joe
-					{Action: ALWAYS_ACCEPT, Label: *lblJoe},
+					{Action: ALWAYS_ACCEPT, Label: lblJoe},
 					// allow:  user=pete
-					{Action: ACCEPT, Label: *lblPete},
+					{Action: ACCEPT, Label: lblPete},
 				},
 			},
 			&RuleRequires{ // coverage qa, requires qa
@@ -501,10 +501,10 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 			"bar": {
 				Rules: []PolicyRule{
 					&RuleConsumers{
-						Allow: []AllowRule{
-							{Action: ACCEPT, Label: *lblFoo},
-							{Action: DENY, Label: *lblJoe},
-							{Action: DENY, Label: *lblPete},
+						Allow: []*AllowRule{
+							{Action: ACCEPT, Label: lblFoo},
+							{Action: DENY, Label: lblJoe},
+							{Action: DENY, Label: lblPete},
 						},
 					},
 				},
@@ -563,9 +563,9 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 				path: ".bar",
 				Rules: []PolicyRule{
 					&RuleConsumers{
-						Allow: []AllowRule{
-							{Action: ACCEPT, Label: *lblJoe},
-							{Action: ACCEPT, Label: *lblPete},
+						Allow: []*AllowRule{
+							{Action: ACCEPT, Label: lblJoe},
+							{Action: ACCEPT, Label: lblPete},
 						},
 					},
 				},
@@ -591,10 +591,10 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 				path: ".bar",
 				Rules: []PolicyRule{
 					&RuleConsumers{
-						Allow: []AllowRule{
+						Allow: []*AllowRule{
 							{ // allow: foo
 								Action: ACCEPT,
-								Label:  *lblFoo,
+								Label:  lblFoo,
 							},
 						},
 					},
@@ -614,10 +614,10 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 		Name: RootNodeName,
 		Rules: []PolicyRule{
 			&RuleConsumers{
-				Allow: []AllowRule{
+				Allow: []*AllowRule{
 					{ // deny: foo
 						Action: DENY,
-						Label:  *lblFoo,
+						Label:  lblFoo,
 					},
 				},
 			},
@@ -655,13 +655,13 @@ func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
 }
 
 func (s *PolicyTestSuite) TestRuleMergeable(c *C) {
-	deny := AllowRule{Action: DENY}
+	deny := &AllowRule{Action: DENY}
 	c.Assert(deny.IsMergeable(), Equals, false)
 
-	allow := AllowRule{Action: ACCEPT}
+	allow := &AllowRule{Action: ACCEPT}
 	c.Assert(allow.IsMergeable(), Equals, true)
 
-	alwaysAllow := AllowRule{Action: ALWAYS_ACCEPT}
+	alwaysAllow := &AllowRule{Action: ALWAYS_ACCEPT}
 	c.Assert(alwaysAllow.IsMergeable(), Equals, true)
 
 	req := RuleRequires{}

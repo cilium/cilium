@@ -560,13 +560,12 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	d.endpointsMU.RUnlock()
 
 	d.containersMU.Lock()
-	cont := d.containers[dockerID]
-	if cont == nil {
+	c := d.containers[dockerID]
+	if c == nil {
 		d.containersMU.Unlock()
 		return NewPutEndpointIDLabelsNotFound()
 	}
 
-	c := *cont
 	d.containersMU.Unlock()
 
 	if len(delLabels) > 0 {
@@ -609,7 +608,7 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 		}
 	}
 
-	identity, err2 := d.updateContainerIdentity(&c)
+	identity, err2 := d.updateContainerIdentity(c)
 	if err != nil {
 		return apierror.Error(PutEndpointIDLabelsUpdateFailedCode, err2)
 	}
@@ -630,7 +629,7 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	}
 
 	// Commit label changes to container
-	d.containers[ep.DockerID] = &c
+	d.containers[ep.DockerID] = c
 
 	d.setEndpointIdentity(ep, c.ID, "", identity)
 
