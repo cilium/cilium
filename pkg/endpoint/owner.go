@@ -41,7 +41,7 @@ type Owner interface {
 	GetPolicyTree() *policy.Tree
 
 	// Return the next available global identity
-	GetMaxLabelID() (policy.NumericIdentity, error)
+	GetCachedMaxLabelID() (policy.NumericIdentity, error)
 
 	// Must return proxy object
 	GetProxy() *proxy.Proxy
