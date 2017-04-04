@@ -89,7 +89,7 @@ func (l4 *L4Filter) UnmarshalJSON(data []byte) error {
 
 	l4.Port = l4filter.Port
 	l4.Protocol = l4filter.Protocol
-	l4.L7Rules = l4filter.L7Rules
+	l4.L7Parser = l4filter.L7Parser
 	l4.L7RedirectPort = l4filter.L7RedirectPort
 	l4.L7Rules = make([]AuxRule, len(l4filter.L7Rules))
 	copy(l4.L7Rules, l4filter.L7Rules)
