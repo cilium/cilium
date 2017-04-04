@@ -234,7 +234,7 @@ docker run -dt --net=$TEST_NET --name server2 -l id.server -l server2 httpd
 docker run -dt --net=$TEST_NET --name server3 -l id.server -l server3 httpd
 docker run -dt --net=$TEST_NET --name server4 -l id.server -l server4 httpd
 docker run -dt --net=$TEST_NET --name server5 -l id.server -l server5 httpd
-docker run -dt --net=$TEST_NET --name client -l id.client noironetworks/nettools
+docker run -dt --net=$TEST_NET --name client -l id.client tgraf/nettools
 
 # FIXME IPv6 DAD period
 sleep 5
