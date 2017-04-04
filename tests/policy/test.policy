@@ -1,5 +1,5 @@
 {
-        "name": "root",
+	"name": "root",
 	"rules": [{
 		"coverage": ["id.qa"],
 		"requires": ["id.qa"]
