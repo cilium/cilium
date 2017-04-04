@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,16 @@ import (
 	logging "github.com/op/go-logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	majorMinKernelVersion         = 4
+	minorRecommendedKernelVersion = 9
+	minorMinKernelVersion         = 8
+
+	majorMinClangVersion         = 3
+	minorRecommendedClangVersion = 9
+	minorMinClangVersion         = 8
 )
 
 var (
@@ -88,16 +99,72 @@ func main() {
 	}
 }
 
+func getMajorMinorVersion(version string) (int, int, error) {
+	versions := strings.Split(version, ".")
+	if len(versions) < 2 {
+		return 0, 0, fmt.Errorf("unable to get version from %q", version)
+	}
+	majorStr, minorStr := versions[0], versions[1]
+	major, err := strconv.Atoi(majorStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("unable to get major version from %q", version)
+	}
+	minor, err := strconv.Atoi(minorStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("unable to get minor version from %q", version)
+	}
+	return major, minor, nil
+}
+
+func checkKernelVersion() (int, int, error) {
+	kernelVersion, err := exec.Command("uname", "-r").CombinedOutput()
+	if err != nil {
+		return 0, 0, err
+	}
+	return getMajorMinorVersion(string(kernelVersion))
+}
+
 func checkMinRequirements() {
 	log.Infof("Checking minimal requirements...")
+	kernelMajor, kernelMinor, err := checkKernelVersion()
+	if err != nil {
+		log.Fatalf("kernel version: NOT OK: %s", err)
+	}
+	if kernelMajor < majorMinKernelVersion ||
+		(kernelMajor == majorMinKernelVersion && kernelMinor < minorMinKernelVersion) {
+		log.Fatalf("kernel version: NOT OK: minimal supported kernel "+
+			"version is >= %d.%d", majorMinKernelVersion, minorMinKernelVersion)
+	}
+
 	clangVersion, err := exec.Command("clang", "--version").CombinedOutput()
 	if err != nil {
-		log.Fatalf("clang 3.8.x version: NOT OK: %s", err)
+		log.Fatalf("clang version: NOT OK: %s", err)
 	}
-	if !strings.Contains(string(clangVersion), " 3.8") {
-		log.Fatalf("clang 3.8.x version: NOT OK, please install clang version 3.8.x in your system")
+	res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(clangVersion))
+	if len(res) != 3 {
+		log.Fatalf("clang version: NOT OK: unable to get clang's version "+
+			"number from: %q", string(clangVersion))
 	}
-	log.Infof("clang 3.8.x version: OK!")
+	clangMajor, clangMinor, err := getMajorMinorVersion(res[2])
+	if err != nil {
+		log.Fatalf("clang version: NOT OK: %s", err)
+	}
+	if clangMajor < majorMinClangVersion ||
+		(clangMajor == majorMinClangVersion && clangMinor < minorMinClangVersion) {
+		log.Fatalf("clang version: NOT OK: minimal supported clang version is "+
+			">= %d.%d", majorMinClangVersion, minorMinClangVersion)
+	}
+	//clang >= 3.9 / kernel < 4.9 - does not work
+	if ((clangMajor == majorMinClangVersion && clangMinor > minorMinClangVersion) ||
+		clangMajor > majorMinClangVersion) &&
+		((kernelMajor < majorMinKernelVersion) ||
+			(kernelMajor == majorMinKernelVersion && kernelMinor < minorRecommendedKernelVersion)) {
+		log.Fatalf("clang and kernel version: NOT OK: please upgrade "+
+			"your kernel version to at least %d.%d", majorMinKernelVersion,
+			minorRecommendedKernelVersion)
+	}
+	log.Infof("clang and kernel versions: OK!")
+
 	lccVersion, err := exec.Command("llc", "--version").CombinedOutput()
 	if err == nil {
 		if strings.Contains(strings.ToLower(string(lccVersion)), "debug") {
