@@ -16,6 +16,7 @@ package main
 
 import (
 	"os"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -57,6 +58,8 @@ func (d *Daemon) linkContainerID(ep *endpoint.Endpoint) {
 
 // insertEndpoint inserts the ep in the endpoints map. To be used with endpointsMU locked.
 func (d *Daemon) insertEndpoint(ep *endpoint.Endpoint) {
+	ep.Mutex.Lock()
+	defer ep.Mutex.Unlock()
 	d.endpoints[ep.ID] = ep
 
 	if ep.DockerID != "" {
@@ -85,20 +88,22 @@ func (d *Daemon) removeEndpoint(ep *endpoint.Endpoint) {
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
-func (d *Daemon) setEndpointIdentity(ep *endpoint.Endpoint, dockerID, dockerEPID string, labels *policy.Identity) {
+func (d *Daemon) SetEndpointIdentity(ep *endpoint.Endpoint, dockerID, dockerEPID string, labels *policy.Identity) {
 	setIfNotEmpty := func(receiver *string, provider string) {
 		if receiver != nil && *receiver == "" && provider != "" {
 			*receiver = provider
 		}
 	}
 
+	ep.Mutex.Lock()
 	setIfNotEmpty(&ep.DockerID, dockerID)
 	setIfNotEmpty(&ep.DockerEndpointID, dockerEPID)
+	ep.Mutex.Unlock()
 
 	ep.SetIdentity(d, labels)
 }
 
-func (d *Daemon) lookupEndpointLocked(id string) (*endpoint.Endpoint, *apierror.APIError) {
+func (d *Daemon) lookupEndpoint(id string) (*endpoint.Endpoint, *apierror.APIError) {
 	prefix, eid, err := endpoint.ParseID(id)
 	if err != nil {
 		return nil, apierror.Error(GetEndpointIDInvalidCode, err)
@@ -122,9 +127,8 @@ func (d *Daemon) lookupEndpointLocked(id string) (*endpoint.Endpoint, *apierror.
 
 func (d *Daemon) EndpointExists(id string) bool {
 	d.endpointsMU.RLock()
-	defer d.endpointsMU.RUnlock()
-
-	ep, err := d.lookupEndpointLocked(id)
+	ep, err := d.lookupEndpoint(id)
+	d.endpointsMU.RUnlock()
 	return err == nil && ep != nil
 }
 
@@ -139,13 +143,20 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	log.Debugf("GET /endpoint request: %+v", params)
 
+	var wg sync.WaitGroup
+	i := 0
 	h.d.endpointsMU.RLock()
-	defer h.d.endpointsMU.RUnlock()
-
-	eps := []*models.Endpoint{}
+	eps := make([]*models.Endpoint, len(h.d.endpoints))
+	wg.Add(len(h.d.endpoints))
 	for k := range h.d.endpoints {
-		eps = append(eps, h.d.endpoints[k].GetModel())
+		go func(wg *sync.WaitGroup, i int, ep *endpoint.Endpoint) {
+			eps[i] = ep.GetModel()
+			wg.Done()
+		}(&wg, i, h.d.endpoints[k])
+		i++
 	}
+	h.d.endpointsMU.RUnlock()
+	wg.Wait()
 
 	return NewGetEndpointOK().WithPayload(eps)
 }
@@ -162,9 +173,9 @@ func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder 
 	log.Debugf("GET /endpoint/{id} request: %+v", params.ID)
 
 	h.d.endpointsMU.RLock()
-	defer h.d.endpointsMU.RUnlock()
-
-	if ep, err := h.d.lookupEndpointLocked(params.ID); err != nil {
+	ep, err := h.d.lookupEndpoint(params.ID)
+	h.d.endpointsMU.RUnlock()
+	if err != nil {
 		return err
 	} else if ep == nil {
 		return NewGetEndpointIDNotFound()
@@ -205,7 +216,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	h.d.endpointsMU.Lock()
 	defer h.d.endpointsMU.Unlock()
 
-	oldEp, err2 := h.d.lookupEndpointLocked(params.ID)
+	oldEp, err2 := h.d.lookupEndpoint(params.ID)
 	if err2 != nil {
 		return err2
 	} else if oldEp != nil {
@@ -246,13 +257,13 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return apierror.Error(PutEndpointIDInvalidCode, err2)
 	}
 
-	h.d.endpointsMU.Lock()
-	defer h.d.endpointsMU.Unlock()
-
-	ep, err := h.d.lookupEndpointLocked(params.ID)
+	h.d.endpointsMU.RLock()
+	ep, err := h.d.lookupEndpoint(params.ID)
+	h.d.endpointsMU.RUnlock()
 	if err != nil {
 		return err
-	} else if ep == nil {
+	}
+	if ep == nil {
 		return NewPatchEndpointIDNotFound()
 	}
 
@@ -265,6 +276,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//
 	//  Support arbitrary changes? Support only if unset?
 
+	ep.Mutex.Lock()
 	if epTemplate.InterfaceIndex != 0 {
 		ep.IfIndex = int(epTemplate.InterfaceIndex)
 		changed = true
@@ -309,6 +321,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		ep.State = endpoint.StateReady
 		changed = true
 	}
+	ep.Mutex.Unlock()
 
 	if changed {
 		if err := ep.RegenerateIfReady(h.d); err != nil {
@@ -321,10 +334,12 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	return NewPatchEndpointIDOK()
 }
 
-func (d *Daemon) DeleteEndpointLocked(ep *endpoint.Endpoint) int {
+// deleteEndpoint must be called with d.endpointsMU locked.
+func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	errors := 0
-
-	ep.Leave(d)
+	ep.Mutex.Lock()
+	defer ep.Mutex.Unlock()
+	ep.LeaveLocked(d)
 
 	if err := d.conf.LXCMap.DeleteElement(ep); err != nil {
 		log.Warningf("Unable to remove endpoint from map: %s", err)
@@ -336,20 +351,20 @@ func (d *Daemon) DeleteEndpointLocked(ep *endpoint.Endpoint) int {
 	}
 
 	// Remove policy BPF map
-	if err := os.RemoveAll(ep.PolicyMapPath()); err != nil {
-		log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPath(), err)
+	if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
+		log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPathLocked(), err)
 		errors++
 	}
 
 	// Remove IPv6 connection tracking map
-	if err := os.RemoveAll(ep.Ct6MapPath()); err != nil {
-		log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPath(), err)
+	if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
+		log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPathLocked(), err)
 		errors++
 	}
 
 	// Remove IPv4 connection tracking map
-	if err := os.RemoveAll(ep.Ct4MapPath()); err != nil {
-		log.Warningf("Unable to remove IPv4 CT map file (%s): %s", ep.Ct4MapPath(), err)
+	if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
+		log.Warningf("Unable to remove IPv4 CT map file (%s): %s", ep.Ct4MapPathLocked(), err)
 		errors++
 	}
 
@@ -374,12 +389,12 @@ func (d *Daemon) DeleteEndpoint(id string) (int, *apierror.APIError) {
 	d.endpointsMU.Lock()
 	defer d.endpointsMU.Unlock()
 
-	if ep, err := d.lookupEndpointLocked(id); err != nil {
+	if ep, err := d.lookupEndpoint(id); err != nil {
 		return 0, err
 	} else if ep == nil {
 		return 0, apierror.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
 	} else {
-		return d.DeleteEndpointLocked(ep), nil
+		return d.deleteEndpoint(ep), nil
 	}
 }
 
@@ -406,10 +421,9 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 // EndpointUpdate updates the given endpoint and regenerates the endpoint
 func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) *apierror.APIError {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-
-	ep, err := d.lookupEndpointLocked(id)
+	d.endpointsMU.RLock()
+	ep, err := d.lookupEndpoint(id)
+	d.endpointsMU.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -462,9 +476,9 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 
 	d := h.daemon
 	d.endpointsMU.RLock()
-	defer d.endpointsMU.RUnlock()
-
-	if ep, err := d.lookupEndpointLocked(params.ID); err != nil {
+	ep, err := d.lookupEndpoint(params.ID)
+	d.endpointsMU.RUnlock()
+	if err != nil {
 		return err
 	} else if ep == nil {
 		return NewGetEndpointIDConfigNotFound()
@@ -486,32 +500,33 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 
 	d := h.daemon
 	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpointLocked(params.ID)
+	ep, err := d.lookupEndpoint(params.ID)
+	d.endpointsMU.RUnlock()
 	if err != nil {
-		d.endpointsMU.RUnlock()
 		return err
 	}
 	if ep == nil {
-		d.endpointsMU.RUnlock()
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
+	ep.Mutex.RLock()
 	dockerID := ep.DockerID
-	d.endpointsMU.RUnlock()
+	ep.Mutex.RUnlock()
 
 	d.containersMU.RLock()
-	defer d.containersMU.RUnlock()
-
 	cont := d.containers[dockerID]
+	d.containersMU.RUnlock()
 	if cont == nil {
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
+	cont.Mutex.RLock()
 	cfg := models.LabelConfiguration{
 		Disabled:            cont.OpLabels.Disabled.GetModel(),
 		Custom:              cont.OpLabels.Custom.GetModel(),
 		OrchestrationSystem: cont.OpLabels.Orchestration.GetModel(),
 	}
+	cont.Mutex.RUnlock()
 
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
@@ -546,36 +561,38 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	}
 
 	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpointLocked(params.ID)
+	ep, err := d.lookupEndpoint(params.ID)
+	d.endpointsMU.RUnlock()
 	if err != nil {
-		d.endpointsMU.RUnlock()
 		return err
 	}
 	if ep == nil {
-		d.endpointsMU.RUnlock()
 		return NewPutEndpointIDLabelsNotFound()
 	}
 
-	dockerID := ep.DockerID
-	d.endpointsMU.RUnlock()
+	ep.Mutex.RLock()
+	epDockerID := ep.DockerID
+	ep.Mutex.RUnlock()
 
-	d.containersMU.Lock()
-	c := d.containers[dockerID]
-	if c == nil {
-		d.containersMU.Unlock()
+	d.containersMU.RLock()
+	cont := d.containers[epDockerID]
+	d.containersMU.RUnlock()
+	if cont == nil {
 		return NewPutEndpointIDLabelsNotFound()
 	}
 
-	d.containersMU.Unlock()
+	cont.Mutex.RLock()
+	oldLabels := cont.OpLabels.DeepCopy()
+	cont.Mutex.RUnlock()
 
 	if len(delLabels) > 0 {
 		for k := range delLabels {
 			// The change request is accepted if the label is on
 			// any of the lists. If the label is already disabled,
 			// we will simply ignore that change.
-			if c.OpLabels.Orchestration[k] != nil ||
-				c.OpLabels.Custom[k] != nil ||
-				c.OpLabels.Disabled[k] != nil {
+			if oldLabels.Orchestration[k] != nil ||
+				oldLabels.Custom[k] != nil ||
+				oldLabels.Disabled[k] != nil {
 				break
 			}
 
@@ -586,65 +603,63 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 
 	if len(addLabels) > 0 {
 		for k, v := range addLabels {
-			if c.OpLabels.Disabled[k] != nil {
-				c.OpLabels.Disabled[k] = nil
-				c.OpLabels.Orchestration[k] = v
-			} else if c.OpLabels.Orchestration[k] == nil {
-				c.OpLabels.Custom[k] = v
+			if oldLabels.Disabled[k] != nil {
+				oldLabels.Disabled[k] = nil
+				oldLabels.Orchestration[k] = v
+			} else if oldLabels.Orchestration[k] == nil {
+				oldLabels.Custom[k] = v
 			}
 		}
 	}
 
 	if len(delLabels) > 0 {
 		for k, v := range delLabels {
-			if c.OpLabels.Orchestration[k] != nil {
-				delete(c.OpLabels.Orchestration, k)
-				c.OpLabels.Disabled[k] = v
+			if oldLabels.Orchestration[k] != nil {
+				delete(oldLabels.Orchestration, k)
+				oldLabels.Disabled[k] = v
 			}
 
-			if c.OpLabels.Custom[k] != nil {
-				delete(c.OpLabels.Custom, k)
+			if oldLabels.Custom[k] != nil {
+				delete(oldLabels.Custom, k)
 			}
 		}
 	}
 
-	identity, err2 := d.updateContainerIdentity(c)
-	if err != nil {
+	identity, newHash, err2 := d.updateContainerIdentity(cont.ID, cont.LabelsHash, oldLabels)
+	if err2 != nil {
 		return apierror.Error(PutEndpointIDLabelsUpdateFailedCode, err2)
 	}
+	cont.Mutex.Lock()
+	cont.LabelsHash = newHash
+	cont.OpLabels = *oldLabels
+	contID := cont.ID
+	cont.Mutex.Unlock()
 
 	// FIXME: Undo identity update?
 
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-	ep, _ = d.lookupEndpointLocked(params.ID)
+	d.endpointsMU.RLock()
+	ep, _ = d.lookupEndpoint(params.ID)
+	d.endpointsMU.RUnlock()
 	if ep == nil {
 		return NewPutEndpointIDLabelsNotFound()
 	}
+	containerFound := false
 
-	d.containersMU.Lock()
-	defer d.containersMU.Unlock()
-	if d.containers[ep.DockerID] == nil {
+	d.containersMU.RLock()
+	if d.containers[epDockerID] != nil {
+		containerFound = true
+	}
+	d.containersMU.RUnlock()
+
+	if !containerFound {
 		return NewPutEndpointIDLabelsNotFound()
 	}
 
-	// Commit label changes to container
-	d.containers[ep.DockerID] = c
+	d.SetEndpointIdentity(ep, contID, "", identity)
 
-	d.setEndpointIdentity(ep, c.ID, "", identity)
-
-	if err := ep.Regenerate(d); err != nil {
+	if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
 		return apierror.Error(PutEndpointIDLabelsUpdateFailedCode, err)
 	}
 
 	return NewPutEndpointIDLabelsOK()
-}
-
-func (d *Daemon) triggerRebuildAll() {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-
-	for _, ep := range d.endpoints {
-		ep.RegenerateIfReady(d)
-	}
 }

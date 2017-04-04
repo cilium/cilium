@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,6 +82,9 @@ type Daemon struct {
 	loopbackIPv4       net.IP
 	maxCachedLabelIDMU sync.RWMutex
 	maxCachedLabelID   policy.NumericIdentity
+	buildEndpointChan  chan *endpoint.Request
+	uniqueID           map[uint64]bool
+	uniqueIDMU         sync.Mutex
 	l7Proxy            *proxy.Proxy
 }
 
@@ -94,6 +98,70 @@ func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
 	}
 
 	return nil
+}
+
+// QueueEndpointBuild puts the given request in the endpoints queue for
+// processing. The given request will receive 'true' in the MyTurn channel
+// whenever it's its turn or false if the request was denied/canceled.
+func (d *Daemon) QueueEndpointBuild(req *endpoint.Request) {
+	go func(req *endpoint.Request) {
+		d.uniqueIDMU.Lock()
+		// We are skipping new requests, but only if the endpoint has not
+		// started its build process, since the endpoint is already in queue.
+		if isBuilding, exists := d.uniqueID[req.ID]; !isBuilding && exists {
+			req.MyTurn <- false
+		} else {
+			// We mark the request "not building" state and send it to
+			// the building queue.
+			d.uniqueID[req.ID] = false
+			d.buildEndpointChan <- req
+		}
+		d.uniqueIDMU.Unlock()
+	}(req)
+}
+
+// RemoveFromEndpointQueue removes the endpoint from the queue.
+func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
+	d.uniqueIDMU.Lock()
+	delete(d.uniqueID, epID)
+	d.uniqueIDMU.Unlock()
+}
+
+// StartEndpointBuilders creates `nRoutines` go routines that listen on the
+// `d.buildEndpointChan` for new endpoints.
+func (d *Daemon) StartEndpointBuilders(nRoutines int) {
+	log.Debugf("Creating %d worker threads", nRoutines)
+	for w := 0; w < nRoutines; w++ {
+		go func() {
+			for e := range d.buildEndpointChan {
+				d.uniqueIDMU.Lock()
+				if _, ok := d.uniqueID[e.ID]; !ok {
+					// If the request is not present in the uniqueID,
+					// it means the request was deleted from the queue
+					// so we deny the request's turn.
+					e.MyTurn <- false
+					d.uniqueIDMU.Unlock()
+					continue
+				}
+				// Set the endpoint to "building" state
+				d.uniqueID[e.ID] = true
+				e.MyTurn <- true
+				d.uniqueIDMU.Unlock()
+				// Wait for the endpoint to build
+				<-e.Done
+				d.uniqueIDMU.Lock()
+				// In a case where the same endpoint enters the
+				// building queue, while it was still being build,
+				// it will be marked as `false`/"not building",
+				// thus, we only delete the endpoint from the
+				// queue only if it is marked as isBuilding.
+				if isBuilding := d.uniqueID[e.ID]; isBuilding {
+					delete(d.uniqueID, e.ID)
+				}
+				d.uniqueIDMU.Unlock()
+			}
+		}()
+	}
 }
 
 // GetStateDir returns the path to the state directory
@@ -489,7 +557,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consumableCache:   policy.NewConsumableCache(),
 		policy:            policy.Tree{},
 		ignoredContainers: make(map[string]int),
+		buildEndpointChan: make(chan *endpoint.Request, common.EndpointsPerHost),
+		uniqueID:          map[uint64]bool{},
 	}
+
+	// Create the same amount of worker threads as there are CPUs
+	d.StartEndpointBuilders(runtime.NumCPU())
 
 	d.listenForCiliumEvents()
 
@@ -543,19 +616,19 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		d.IgnoreRunningContainers()
 	}
 
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-
+	d.endpointsMU.RLock()
 	walker := func(path string, _ os.FileInfo, _ error) error {
 		return d.staleMapWalker(path)
 	}
 	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
 		log.Warningf("Error while scanning for stale maps: %s", err)
 	}
+	d.endpointsMU.RUnlock()
 
 	return &d, nil
 }
 
+// call with d.endpointsMU.RLocked
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
 		if _, ok := d.endpoints[uint16(tmp)]; !ok {
@@ -568,6 +641,7 @@ func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	}
 }
 
+// call with d.endpointsMU.RLocked
 func (d *Daemon) staleMapWalker(path string) error {
 	filename := filepath.Base(path)
 

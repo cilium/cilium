@@ -107,7 +107,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fmt.Fprint(fw, "/*\n")
 
-	if epStr64, err := e.Base64(); err == nil {
+	if epStr64, err := e.base64(); err == nil {
 		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
 			version.Version, epStr64)
 	} else {
@@ -130,7 +130,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.LXCMAC, e.IPv6.String(), e.IPv4.String(),
-		e.GetIdentity(), path.Base(e.PolicyMapPath()),
+		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
 		e.NodeMAC)
 
 	fw.WriteString("/*\n")
@@ -173,7 +173,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
 		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(invalid.Uint32()))
 	}
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPath()))
+	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE 64000\n")
 	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
@@ -218,9 +218,7 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (e *Endpoint) runInit(owner Owner, prefix string) error {
-	libdir := owner.GetBpfDir()
-	rundir := owner.GetStateDir()
+func (e *Endpoint) runInit(libdir, rundir, prefix string) error {
 	args := []string{libdir, rundir, prefix, e.IfName}
 
 	out, err := exec.Command(filepath.Join(libdir, "join_ep.sh"), args...).CombinedOutput()
@@ -259,14 +257,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 					e.Consumable.RemoveMap(e.PolicyMap)
 				}
 
-				os.RemoveAll(e.PolicyMapPath())
+				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
 			}
 		}
 	}()
 
 	if e.PolicyMap == nil {
-		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPath())
+		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			return err
 		}
@@ -277,7 +275,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 		e.Consumable.AddMap(e.PolicyMap)
 	}
 
-	if err = e.runInit(owner, prefix); err != nil {
+	libdir := owner.GetBpfDir()
+	rundir := owner.GetStateDir()
+	if err = e.runInit(libdir, rundir, prefix); err != nil {
 		return err
 	}
 

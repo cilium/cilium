@@ -15,27 +15,30 @@
 package container
 
 import (
+	"sync"
+
 	"github.com/cilium/cilium/pkg/labels"
 
 	dTypes "github.com/docker/engine-api/types"
 )
 
-const (
-	// KubernetesContainerNameLabel is the name of the pod label carrying
-	// the name of the container
-	KubernetesContainerNameLabel = "io.kubernetes.container.name"
-)
-
 type Container struct {
+	// Mutex internal mutex for the whole container structure
+	Mutex sync.RWMutex
 	dTypes.ContainerJSON
 	LabelsHash string
 	OpLabels   labels.OpLabels
 }
 
-func (c *Container) IsDockerOrInfracontainer() bool {
-	if c.Config != nil {
-		contName, exists := c.Config.Labels[KubernetesContainerNameLabel]
-		return !exists || contName == "POD"
+// NewContainer a Container with its labels initialized.
+func NewContainer(dc *dTypes.ContainerJSON, l labels.Labels) *Container {
+	// FIXME should we calculate LabelsHash here?
+	return &Container{
+		ContainerJSON: *dc,
+		OpLabels: labels.OpLabels{
+			Custom:        labels.Labels{},
+			Disabled:      labels.Labels{},
+			Orchestration: l.DeepCopy(),
+		},
 	}
-	return false
 }

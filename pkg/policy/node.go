@@ -44,6 +44,25 @@ func NewNode(name string, parent *Node) *Node {
 	}
 }
 
+// DeepCopy returns a deep copy of the given node plus a deep copy of its
+// children and rules.
+func (n *Node) DeepCopy() *Node {
+	cpy := NewNode(n.Name, nil)
+	if n.Parent != nil {
+		cpy.Parent = n.Parent.DeepCopy()
+	}
+	cpy.Rules = []PolicyRule{}
+	for _, rule := range n.Rules {
+		cpy.Rules = append(cpy.Rules, rule)
+	}
+	for k, v := range n.Children {
+		cpy.Children[k] = v.DeepCopy()
+	}
+	cpy.mergeable = n.mergeable
+	cpy.resolved = n.resolved
+	return cpy
+}
+
 func (n *Node) Path() string {
 	if n.path == "" {
 		n.buildPath()

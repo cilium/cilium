@@ -515,12 +515,12 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 	root := Tree{}
 	_, err := root.Add("root", &rootNode)
 	c.Assert(err, IsNil)
-	c.Assert(root.Allows(&qaFooToQaBar), Equals, ACCEPT)
-	c.Assert(root.Allows(&prodFooToProdBar), Equals, ACCEPT)
-	c.Assert(root.Allows(&qaFooToProdBar), Equals, DENY)
-	c.Assert(root.Allows(&qaJoeFooToProdBar), Equals, ACCEPT)
-	c.Assert(root.Allows(&qaPeteFooToProdBar), Equals, DENY)
-	c.Assert(root.Allows(&qaBazToQaBar), Equals, DENY)
+	c.Assert(root.AllowsRLocked(&qaFooToQaBar), Equals, ACCEPT)
+	c.Assert(root.AllowsRLocked(&prodFooToProdBar), Equals, ACCEPT)
+	c.Assert(root.AllowsRLocked(&qaFooToProdBar), Equals, DENY)
+	c.Assert(root.AllowsRLocked(&qaJoeFooToProdBar), Equals, ACCEPT)
+	c.Assert(root.AllowsRLocked(&qaPeteFooToProdBar), Equals, DENY)
+	c.Assert(root.AllowsRLocked(&qaBazToQaBar), Equals, DENY)
 
 	_, err = json.MarshalIndent(rootNode, "", "    ")
 	c.Assert(err, Equals, nil)

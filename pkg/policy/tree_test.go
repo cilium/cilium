@@ -28,7 +28,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	tree := Tree{}
 
 	// Empty tree should return empty result
-	n, p := tree.Lookup("")
+	n, p := tree.lookup("")
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
@@ -40,13 +40,13 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(err, IsNil)
 
 	// lookup of root node should succeed now
-	n, p = tree.Lookup(RootNodeName)
+	n, p = tree.lookup(RootNodeName)
 	c.Assert(n, Equals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
 
 	// lookup of empty path should return root node
-	n, p = tree.Lookup("")
+	n, p = tree.lookup("")
 	c.Assert(n, Equals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
@@ -54,7 +54,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	deleted := tree.Delete(RootNodeName, "")
 	c.Assert(deleted, Equals, true)
 
-	n, p = tree.Lookup(RootNodeName)
+	n, p = tree.lookup(RootNodeName)
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
@@ -65,13 +65,13 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(err, IsNil)
 
 	// The node should exist afterwards
-	n, pBar := tree.Lookup(RootNodeName + ".bar.foo")
+	n, pBar := tree.lookup(RootNodeName + ".bar.foo")
 	c.Assert(n, Equals, foo)
 	c.Assert(pBar.Name, Equals, "bar")
 	c.Assert(pBar.path, Equals, RootNodeName+".bar")
 
 	// The root node should have been added
-	n, p = tree.Lookup(RootNodeName)
+	n, p = tree.lookup(RootNodeName)
 	c.Assert(n, Not(IsNil))
 	c.Assert(p, IsNil)
 
@@ -89,7 +89,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(err, IsNil)
 
 	// lookup of root node should succeed now
-	n, p = tree.Lookup(RootNodeName)
+	n, p = tree.lookup(RootNodeName)
 	// The "root" node was merged into the tree's root, therefore we need to
 	// make it the same with this hack
 	root.Children["bar"] = pBar
@@ -99,7 +99,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(p, IsNil)
 
 	// lookup of child foo should succeed
-	n, p = tree.Lookup("root.foo")
+	n, p = tree.lookup("root.foo")
 	c.Assert(n, Equals, fooNode)
 	c.Assert(p, DeepEquals, root)
 
@@ -108,12 +108,12 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(deleted, Equals, true)
 
 	// lookup of root node should fail now
-	n, p = tree.Lookup(RootNodeName)
+	n, p = tree.lookup(RootNodeName)
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
 	// lookup of child foo should fail now
-	n, p = tree.Lookup("root.foo")
+	n, p = tree.lookup("root.foo")
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 }
@@ -274,7 +274,7 @@ func (ds *PolicyTestSuite) TestAlwaysAllow(c *C) {
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
 
-	decision := tree.Allows(defaultCtx)
+	decision := tree.AllowsRLocked(defaultCtx)
 	c.Assert(decision, Equals, ACCEPT)
 }
 
@@ -306,7 +306,7 @@ func (ds *PolicyTestSuite) TestDenyOverwrite(c *C) {
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
 
-	decision := tree.Allows(defaultCtx)
+	decision := tree.AllowsRLocked(defaultCtx)
 	c.Assert(decision, Equals, DENY)
 }
 
@@ -330,7 +330,7 @@ func (ds *PolicyTestSuite) TestRulePrecedence(c *C) {
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
 
-	decision := tree.Allows(defaultCtx)
+	decision := tree.AllowsRLocked(defaultCtx)
 	c.Assert(decision, Equals, DENY)
 }
 

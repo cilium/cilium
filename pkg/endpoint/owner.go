@@ -54,4 +54,24 @@ type Owner interface {
 
 	// Must return path to BPF template files directory
 	GetBpfDir() string
+
+	// QueueEndpointBuild puts the given request in the processing queue
+	QueueEndpointBuild(*Request)
+
+	// RemoveFromEndpointQueue removes all requests from the working que
+	RemoveFromEndpointQueue(epID uint64)
+}
+
+// Request is used to create the endpoint's request and send it to the endpoints
+// processor.
+type Request struct {
+	// ID request ID.
+	ID uint64
+	// MyTurn is used to know when is its turn.
+	MyTurn chan bool
+	// Done is used to tell the Processor the request as finished.
+	Done chan bool
+	// ExternalDone is used for external listeners this request as finished
+	// if returns true the build was successful, false otherwise.
+	ExternalDone chan bool
 }

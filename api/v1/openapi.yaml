@@ -725,6 +725,7 @@ definitions:
       - disconnected
       - waiting-for-identity
       - not-ready
+      - regenerating
       - ready
   EndpointStatusChange:
     description: Indication of a change of status

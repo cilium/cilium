@@ -1046,6 +1046,7 @@ func init() {
         "disconnected",
         "waiting-for-identity",
         "not-ready",
+        "regenerating",
         "ready"
       ]
     },

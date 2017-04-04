@@ -36,9 +36,6 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 	log.Info("Recovering old running endpoints...")
 
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
-
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
@@ -66,12 +63,13 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			ep.SetDefaultOpts(d.conf.Opts)
 		}
 
-		if err := ep.Regenerate(d); err != nil {
-			log.Warningf("Unable to restore endpoint %+v: %s", ep, err)
+		if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
 			continue
 		}
 
+		d.endpointsMU.Lock()
 		d.insertEndpoint(ep)
+		d.endpointsMU.Unlock()
 		restored++
 
 		log.Infof("Restored endpoint: %d", ep.ID)
@@ -83,30 +81,39 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		d.cleanUpDockerDandlingEndpoints()
 	}
 
+	d.endpointsMU.Lock()
 	for k := range d.endpoints {
 		ep := d.endpoints[k]
 		if err := d.allocateIPs(ep); err != nil {
 			log.Errorf("Failed while reallocating ep %d's IP addresses: %s. Endpoint won't be restored", ep.ID, err)
-			d.DeleteEndpointLocked(ep)
+			d.deleteEndpoint(ep)
 			continue
 		}
 
 		log.Infof("EP %d's IP addresses successfully reallocated", ep.ID)
-		err = ep.Regenerate(d)
-		if err != nil {
+		if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
 			log.Warningf("Failed while regenerating endpoint %d: %s", ep.ID, err)
-		} else {
-			if ep.SecLabel != nil {
-				d.events <- *events.NewEvent(events.IdentityAdd, ep.SecLabel.DeepCopy())
-			}
-			log.Infof("Restored endpoint %d", ep.ID)
+			continue
 		}
+		ep.Mutex.RLock()
+		epID := ep.ID
+		if ep.SecLabel != nil {
+			epLabels := ep.SecLabel.DeepCopy()
+			ep.Mutex.RUnlock()
+			d.events <- *events.NewEvent(events.IdentityAdd, epLabels)
+		} else {
+			ep.Mutex.RUnlock()
+		}
+		log.Infof("Restored endpoint %d", epID)
 	}
+	d.endpointsMU.Unlock()
 
 	return nil
 }
 
 func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
+	ep.Mutex.RLock()
+	defer ep.Mutex.RUnlock()
 	err := d.AllocateIP(ep.IPv6.IP())
 	if err != nil {
 		// TODO if allocation failed reallocate a new IP address and setup veth
@@ -217,11 +224,13 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	cleanUp := func(ep *endpoint.Endpoint) {
 		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
-		d.DeleteEndpointLocked(ep)
+		ep.Mutex.RUnlock()
+		d.deleteEndpoint(ep)
 	}
 
 	for k := range d.endpoints {
 		ep := d.endpoints[k]
+		ep.Mutex.RLock()
 		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
 		if ep.DockerNetworkID != "" {
 			nls, err := d.dockerClient.NetworkInspect(ctx.Background(), ep.DockerNetworkID)
@@ -230,6 +239,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 				continue
 			}
 			if err != nil {
+				ep.Mutex.RUnlock()
 				continue
 			}
 			found := false
@@ -250,6 +260,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 				continue
 			}
 			if err != nil {
+				ep.Mutex.RUnlock()
 				continue
 			}
 			if !cont.State.Running {
