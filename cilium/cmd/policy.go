@@ -173,7 +173,7 @@ func loadPolicy(name string) (*policy.Node, error) {
 
 	var node *policy.Node
 
-	if err = processAllFilesFirst(name, node, files); err != nil {
+	if err = processAllFilesFirst(name, &node, files); err != nil {
 		return nil, err
 	}
 
@@ -186,7 +186,7 @@ func loadPolicy(name string) (*policy.Node, error) {
 	return node, nil
 }
 
-func processAllFilesFirst(name string, node *policy.Node, files []os.FileInfo) error {
+func processAllFilesFirst(name string, node **policy.Node, files []os.FileInfo) error {
 	for _, f := range files {
 		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
 			continue
@@ -196,12 +196,12 @@ func processAllFilesFirst(name string, node *policy.Node, files []os.FileInfo) e
 		if err != nil {
 			return err
 		}
-		if node != nil {
-			if _, err := node.Merge(p); err != nil {
+		if *node != nil {
+			if _, err := (*node).Merge(p); err != nil {
 				return fmt.Errorf("Error: %s: %s", f.Name(), err)
 			}
 		} else {
-			node = p
+			*node = p
 		}
 	}
 	return nil

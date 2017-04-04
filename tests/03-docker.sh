@@ -13,6 +13,7 @@ function cleanup {
 }
 
 trap cleanup EXIT
+cleanup
 
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
