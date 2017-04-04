@@ -65,21 +65,25 @@ func (d *Daemon) EnableConntrackGC() {
 		for {
 			sleepTime := time.Duration(GcInterval) * time.Second
 
-			d.endpointsMU.Lock()
+			d.endpointsMU.RLock()
 
 			for k := range d.endpoints {
 				e := d.endpoints[k]
+				e.Mutex.RLock()
 				if e.Consumable == nil {
+					e.Mutex.RUnlock()
 					continue
 				}
-
+				e.Mutex.RUnlock()
+				// We can unlock the endpoint mutex sense
+				// in runGC it will be locked as needed.
 				runGC(e, ctmap.MapName6, ctmap.CtTypeIPv6)
 				if !d.conf.IPv4Disabled {
 					runGC(e, ctmap.MapName4, ctmap.CtTypeIPv4)
 				}
 			}
 
-			d.endpointsMU.Unlock()
+			d.endpointsMU.RUnlock()
 			time.Sleep(sleepTime)
 		}
 	}()

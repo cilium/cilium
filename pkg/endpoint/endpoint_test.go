@@ -92,7 +92,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		Status:           NewEndpointStatus(),
 	}
 	cpy := epWant.DeepCopy()
-	c.Assert(*cpy, DeepEquals, *epWant)
+	c.Assert(cpy, DeepEquals, epWant)
 	epWant.SecLabel = &policy.Identity{
 		ID: 1,
 		Labels: labels.Labels{

@@ -65,11 +65,13 @@ func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 			allPes := map[uint16][]policymap.PolicyEntryDump{}
 			d.endpointsMU.RLock()
 			for _, ep := range d.endpoints {
+				ep.Mutex.RLock()
 				pes, err := ep.PolicyMap.DumpToSlice()
 				if err != nil {
 					continue
 				}
 				allPes[ep.ID] = pes
+				ep.Mutex.RUnlock()
 			}
 			d.endpointsMU.RUnlock()
 			lss := d.processStats(allPes)

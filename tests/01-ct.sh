@@ -26,6 +26,11 @@ docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
 docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
 docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
 
+until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
+    echo "Waiting for all endpoints to be ready"
+    sleep 2s
+done
+
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
 CLIENT_ID=$(cilium endpoint list | grep id.client | awk '{ print $1}')
@@ -37,10 +42,6 @@ HTTPD1_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddr
 HTTPD2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd2)
 HTTPD2_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd2)
 
-# FIXME IPv6 DAD period
-echo -n "Sleeping 5 seconds..."
-sleep 5
-echo " done."
 set -x
 
 cilium endpoint list
@@ -75,6 +76,11 @@ cat <<EOF | cilium -D policy import -
 	}]
 }
 EOF
+
+until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
+    echo "Waiting for all endpoints to be ready"
+    sleep 2s
+done
 
 function connectivity_test() {
 	monitor_clear
@@ -202,6 +208,10 @@ BIDIRECTIONAL=1
 connectivity_test
 cilium endpoint config $SERVER_ID Conntrack=false
 cilium endpoint config $CLIENT_ID Conntrack=false
+until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
+    echo "Waiting for all endpoints to be ready"
+    sleep 2s
+done
 BIDIRECTIONAL=0
 connectivity_test
 

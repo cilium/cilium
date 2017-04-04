@@ -205,17 +205,6 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 	return normalLabels
 }
 
-func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) *container.Container {
-	return &container.Container{
-		ContainerJSON: *dc,
-		OpLabels: labels.OpLabels{
-			Custom:        labels.Labels{},
-			Disabled:      labels.Labels{},
-			Orchestration: l.DeepCopy(),
-		},
-	}
-}
-
 func (d *Daemon) handleCreateContainer(id string, retry bool) {
 	log.Debugf("Processing create event for docker container %s", id)
 
@@ -243,23 +232,27 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			dockerEpID = dockerContainer.NetworkSettings.EndpointID
 		}
 
-		d.endpointsMU.Lock()
+		d.endpointsMU.RLock()
 		ep := d.lookupDockerID(id)
+		d.endpointsMU.RUnlock()
 		if ep == nil {
 			// container id is yet unknown, try and find endpoint via
 			// the IP address assigned.
 			cid := getCiliumEndpointID(dockerContainer, d.conf.NodeAddress)
 			if cid != 0 {
+				d.endpointsMU.Lock()
 				ep = d.lookupCiliumEndpoint(cid)
 				if ep != nil {
 					// Associate container id with endpoint
+					ep.Mutex.Lock()
 					ep.DockerID = id
+					ep.Mutex.Unlock()
 					d.linkContainerID(ep)
 				}
+				d.endpointsMU.Unlock()
 			}
 		}
 
-		d.endpointsMU.Unlock()
 		if ep == nil {
 			// Endpoint does not exist yet. This indicates that the
 			// orchestration system has not requested us to handle
@@ -271,68 +264,71 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 
 		var orchLabelsModified bool
 		d.containersMU.RLock()
-		containerCopy, ok := d.containers[id]
+		cont, ok := d.containers[id]
 		d.containersMU.RUnlock()
 		if ok {
-			if orchLabelsModified = updateOrchLabels(containerCopy, lbls); !orchLabelsModified {
+			cont.Mutex.Lock()
+			if orchLabelsModified = updateOrchLabels(cont, lbls); !orchLabelsModified {
 				log.Debugf("No changes to orch labels, ignoring")
 			}
 		} else {
-			containerCopy = createContainer(dockerContainer, lbls)
+			cont = container.NewContainer(dockerContainer, lbls)
+			cont.Mutex.Lock()
 		}
 
 		// It's mandatory to update the container in its label otherwise
 		// the label will be considered unused.
-		identity, err := d.updateContainerIdentity(containerCopy)
+		identity, newHash, err := d.updateContainerIdentity(cont.ID, cont.LabelsHash, &cont.OpLabels)
 		if err != nil {
+			cont.Mutex.Unlock()
 			log.Warningf("unable to update identity of container %s: %s", id, err)
 			return
 		}
+		cont.LabelsHash = newHash
+		cID := cont.ID
+		cont.Mutex.Unlock()
 
 		if ok && !orchLabelsModified {
 			return
 		}
 
-		// FIXME:
-
-		d.endpointsMU.Lock()
+		d.endpointsMU.RLock()
 		ep = d.lookupDockerID(id)
+		d.endpointsMU.RUnlock()
 		if ep == nil {
-			d.endpointsMU.Unlock()
 			log.Warningf("endpoint disappeared while processing event for %s, ignoring", id)
 			return
 		}
+		ep.Mutex.RLock()
+		epDockerID := ep.DockerID
+		epID := ep.ID
+		ep.Mutex.RUnlock()
 
 		d.containersMU.Lock()
 
 		// If the container ID was known and found before, check if it still
 		// exists, it may have disappared while we gave up the containers
 		// lock to create/udpate the identity.
-		if ok && d.containers[ep.DockerID] == nil {
+		if ok && d.containers[epDockerID] == nil {
+			d.containersMU.Unlock()
 			// endpoint is around but container id was removed, likely
 			// a bug.
 			//
 			// FIXME: Disconnect endpoint?
-			d.endpointsMU.Unlock()
-			d.containersMU.Unlock()
 			log.Errorf("BUG: unrefered container %s with endpoint %d present",
-				id, ep.ID)
+				id, epID)
 			return
 		}
 
 		// Commit label changes to container
-		d.containers[ep.DockerID] = containerCopy
-
-		d.setEndpointIdentity(ep, containerCopy.ID, dockerEpID, identity)
-		if err := ep.Regenerate(d); err != nil {
-			// FIXME: Disconnect endpoint?
-		}
-
-		d.endpointsMU.Unlock()
+		d.containers[epDockerID] = cont
 		d.containersMU.Unlock()
 
+		d.SetEndpointIdentity(ep, cID, dockerEpID, identity)
+		ep.Regenerate(d)
+
 		// FIXME: Does this rebuild epID twice?
-		d.triggerPolicyUpdates([]policy.NumericIdentity{identity.ID})
+		d.TriggerPolicyUpdates([]policy.NumericIdentity{identity.ID})
 		return
 	}
 

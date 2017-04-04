@@ -24,7 +24,6 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/apierror"
-	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -141,29 +140,26 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	return identity, isNew, nil
 }
 
-func (d *Daemon) updateContainerIdentity(container *container.Container) (*policy.Identity, error) {
-	lbls := container.OpLabels.Enabled()
-	log.Debugf("Container %s is resolving identity for labels %+v", container.ID, lbls)
+func (d *Daemon) updateContainerIdentity(contID, oldLabelsHash string, opLabels *labels.OpLabels) (*policy.Identity, string, error) {
+	lbls := opLabels.Enabled()
+	log.Debugf("Container %s is resolving identity for labels %+v", contID, lbls)
 
 	newLabelsHash := lbls.SHA256Sum()
-	identity, _, err := d.CreateOrUpdateIdentity(lbls, container.ID)
+	identity, _, err := d.CreateOrUpdateIdentity(lbls, contID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get identity ID: %s", err)
+		return nil, "", fmt.Errorf("unable to get identity ID: %s", err)
 	}
 
-	oldLabelsHash := container.LabelsHash
-	container.LabelsHash = newLabelsHash
-
 	if newLabelsHash != oldLabelsHash {
-		if err := d.DeleteIdentityBySHA256(oldLabelsHash, container.ID); err != nil {
+		if err := d.DeleteIdentityBySHA256(oldLabelsHash, contID); err != nil {
 			log.Warningf("Error while deleting old labels (%+v) of container %s: %s",
-				oldLabelsHash, container.ID, err)
+				oldLabelsHash, contID, err)
 			// FIXME: Undo new identity and fail?
 		}
 	}
 
 	log.Debugf("Resolved identity: %+v", identity)
-	return identity, nil
+	return identity, newLabelsHash, nil
 }
 
 func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.APIError) {

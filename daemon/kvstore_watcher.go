@@ -39,7 +39,7 @@ func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
 				if len(updates) != 0 {
 					d.setCachedMaxLabelID(updates[0])
 				}
-				d.triggerPolicyUpdates(updates)
+				d.TriggerPolicyUpdates(updates)
 			}
 		}
 	}()
