@@ -49,28 +49,28 @@ func (s *PolicyTestSuite) TestConsumer(c *C) {
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, false)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, false)
 
-	c1.AllowConsumer(cache, CONSUMER_ID2)
+	c1.AllowConsumerLocked(cache, CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, true)
-	consumer1 := c1.GetConsumer(CONSUMER_ID2)
+	consumer1 := c1.getConsumer(CONSUMER_ID2)
 	c.Assert(consumer1.ID, Equals, CONSUMER_ID2)
 
-	c1.AllowConsumer(cache, CONSUMER_ID2)
+	c1.AllowConsumerLocked(cache, CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, true)
-	consumer2 := c1.GetConsumer(CONSUMER_ID2)
+	consumer2 := c1.getConsumer(CONSUMER_ID2)
 	c.Assert(consumer2.ID, Equals, CONSUMER_ID2)
 
-	c1.AllowConsumer(cache, CONSUMER_ID3)
+	c1.AllowConsumerLocked(cache, CONSUMER_ID3)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, true)
-	consumer3 := c1.GetConsumer(CONSUMER_ID3)
+	consumer3 := c1.getConsumer(CONSUMER_ID3)
 	c.Assert(consumer3.ID, Equals, CONSUMER_ID3)
 
-	c1.BanConsumer(CONSUMER_ID2)
+	c1.BanConsumerLocked(CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, false)
-	consumer2 = c1.GetConsumer(CONSUMER_ID2)
+	consumer2 = c1.getConsumer(CONSUMER_ID2)
 	c.Assert(consumer2, IsNil)
 
-	c1.BanConsumer(CONSUMER_ID3)
+	c1.BanConsumerLocked(CONSUMER_ID3)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, false)
-	consumer3 = c1.GetConsumer(CONSUMER_ID3)
+	consumer3 = c1.getConsumer(CONSUMER_ID3)
 	c.Assert(consumer3, IsNil)
 }

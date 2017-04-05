@@ -122,7 +122,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	epWant.PolicyMap = &policymap.PolicyMap{}
 	cpy = epWant.DeepCopy()
 	c.Assert(*cpy.SecLabel, DeepEquals, *epWant.SecLabel)
-	c.Assert(*cpy.Consumable, DeepEquals, *epWant.Consumable)
+	c.Assert(cpy.Consumable, DeepEquals, epWant.Consumable)
 	c.Assert(*cpy.PolicyMap, DeepEquals, *epWant.PolicyMap)
 
 	epWant.Consumable.Labels = &policy.Identity{

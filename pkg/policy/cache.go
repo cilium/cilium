@@ -14,24 +14,31 @@
 
 package policy
 
+import (
+	"sync"
+)
+
 type ConsumableCache struct {
-	cache map[NumericIdentity]*Consumable
+	cacheMU sync.RWMutex
+	cache   map[NumericIdentity]*Consumable
 	// List of consumables representing the reserved identities
-	Reserved  []*Consumable
-	Iteration int
+	reserved  []*Consumable
+	iteration int
 }
 
 func NewConsumableCache() *ConsumableCache {
 	return &ConsumableCache{
 		cache:     map[NumericIdentity]*Consumable{},
-		Reserved:  make([]*Consumable, 0),
-		Iteration: 1,
+		reserved:  make([]*Consumable, 0),
+		iteration: 1,
 	}
 }
 
 func (c *ConsumableCache) GetOrCreate(id NumericIdentity, lbls *Identity) *Consumable {
-	if _, ok := c.cache[id]; ok {
-		return c.cache[id]
+	c.cacheMU.Lock()
+	defer c.cacheMU.Unlock()
+	if cons, ok := c.cache[id]; ok {
+		return cons
 	}
 
 	c.cache[id] = NewConsumable(id, lbls, c)
@@ -39,14 +46,50 @@ func (c *ConsumableCache) GetOrCreate(id NumericIdentity, lbls *Identity) *Consu
 }
 
 func (c *ConsumableCache) Lookup(id NumericIdentity) *Consumable {
+	c.cacheMU.RLock()
 	v, _ := c.cache[id]
+	c.cacheMU.RUnlock()
 	return v
 }
 
 func (c *ConsumableCache) Remove(elem *Consumable) {
+	c.cacheMU.Lock()
 	delete(c.cache, elem.ID)
+	c.cacheMU.Unlock()
 }
 
 func (c *ConsumableCache) AddReserved(elem *Consumable) {
-	c.Reserved = append(c.Reserved, elem)
+	c.cacheMU.Lock()
+	c.reserved = append(c.reserved, elem)
+	c.cacheMU.Unlock()
+}
+
+// GetReservedIDs returns a slice of NumericIdentity present in the
+// ConsumableCache.
+func (c *ConsumableCache) GetReservedIDs() []NumericIdentity {
+	identities := []NumericIdentity{}
+	c.cacheMU.RLock()
+	for _, id := range c.reserved {
+		identities = append(identities, id.ID)
+	}
+	c.cacheMU.RUnlock()
+	return identities
+}
+
+// GetIteration returns the current iteration of the ConsumableCache.
+func (c *ConsumableCache) GetIteration() int {
+	c.cacheMU.RLock()
+	defer c.cacheMU.RUnlock()
+	return c.iteration
+}
+
+// IncrementIteration increments by 1 the current iteration of the
+// ConsumableCache.
+func (c *ConsumableCache) IncrementIteration() {
+	c.cacheMU.Lock()
+	c.iteration++
+	if c.iteration == 0 {
+		c.iteration = 1
+	}
+	c.cacheMU.Unlock()
 }
