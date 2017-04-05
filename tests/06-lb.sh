@@ -354,7 +354,7 @@ docker exec -i client ping6 -c 4 $SVC_IP6 || {
 }
 
 docker exec -i client ping -c 4 $SVC_IP4 || {
-	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
+	abort "Error: Unable to reach netperf TCP IPv4 endpoint"
 }
 
 cilium endpoint config $CLIENT_ID Policy=false
