@@ -59,10 +59,7 @@ func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) ([]*labels.Label,
 }
 
 func (d *Daemon) invalidateCache() {
-	d.consumableCache.Iteration++
-	if d.consumableCache.Iteration == 0 {
-		d.consumableCache.Iteration = 1
-	}
+	d.consumableCache.IncrementIteration()
 }
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.

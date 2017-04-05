@@ -52,9 +52,9 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) {
 	cache := owner.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
-		e.Consumable.AllowConsumerAndReverse(cache, id)
+		e.Consumable.AllowConsumerAndReverseLocked(cache, id)
 	} else {
-		e.Consumable.AllowConsumer(cache, id)
+		e.Consumable.AllowConsumerLocked(cache, id)
 	}
 }
 
@@ -85,7 +85,9 @@ func (e *Endpoint) invalidatePolicy() {
 	if e.Consumable != nil {
 		// Resetting to 0 will trigger a regeneration on the next update
 		log.Debugf("Invalidated policy for endpoint %d", e.ID)
+		e.Consumable.Mutex.Lock()
 		e.Consumable.Iteration = 0
+		e.Consumable.Mutex.Unlock()
 	}
 }
 
@@ -161,9 +163,11 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		return false, err
 	}
 
+	c.Mutex.RLock()
 	ctx := policy.SearchContext{
 		To: c.LabelList,
 	}
+	c.Mutex.RUnlock()
 
 	if owner.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
@@ -174,6 +178,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	newL4policy := tree.ResolveL4Policy(&ctx)
 	defer tree.Mutex.Unlock()
 
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
 	// Mark all entries unused by denying them
 	for k := range c.Consumers {
 		c.Consumers[k].DeletionMark = true
@@ -192,8 +198,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	}
 
 	// Check access from reserved consumables first
-	for _, id := range cache.Reserved {
-		if err := e.evaluateConsumerSource(owner, &ctx, id.ID); err != nil {
+	reservedIDs := cache.GetReservedIDs()
+	for _, id := range reservedIDs {
+		if err := e.evaluateConsumerSource(owner, &ctx, id); err != nil {
 			// This should never really happen
 			// FIXME: clear policy because it is inconsistent
 			log.Debugf("Received error while evaluating policy: %s", err)
@@ -215,12 +222,12 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	for _, val := range c.Consumers {
 		if val.DeletionMark {
 			val.DeletionMark = false
-			c.BanConsumer(val.ID)
+			c.BanConsumerLocked(val.ID)
 		}
 	}
 
 	// Result is valid until cache iteration advances
-	c.Iteration = cache.Iteration
+	c.Iteration = cache.GetIteration()
 
 	log.Debugf("New policy (iteration %d) for consumable %d: %+v\n", c.Iteration, c.ID, c.Consumers)
 
@@ -235,12 +242,19 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	}
 
 	opts := make(models.ConfigurationMap)
+	tree := owner.GetPolicyTree()
+	tree.Mutex.RLock()
+	e.Consumable.Mutex.RLock()
+
 	e.checkEgressAccess(owner, opts, policy.ID_HOST, OptionAllowToHost)
 	e.checkEgressAccess(owner, opts, policy.ID_WORLD, OptionAllowToWorld)
 
 	if e.Consumable != nil && e.Consumable.L4Policy.RequiresConntrack() {
 		opts[OptionConntrack] = "enabled"
 	}
+
+	e.Consumable.Mutex.RUnlock()
+	tree.Mutex.RUnlock()
 
 	optsChanged := e.ApplyOptsLocked(opts)
 
@@ -377,7 +391,10 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	if e.Consumable != nil {
 		if e.SecLabel != nil && id.ID == e.Consumable.ID {
 			e.SecLabel = id
+			e.Consumable.Mutex.Lock()
 			e.Consumable.Labels = id
+			e.Consumable.LabelList = id.Labels.ToSlice()
+			e.Consumable.Mutex.Unlock()
 			return
 		}
 		cache.Remove(e.Consumable)
@@ -389,5 +406,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		e.State = StateReady
 	}
 
+	e.Consumable.Mutex.RLock()
 	log.Debugf("Set identity of EP %d to %d and consumable to %+v", e.ID, id, e.Consumable)
+	e.Consumable.Mutex.RUnlock()
 }

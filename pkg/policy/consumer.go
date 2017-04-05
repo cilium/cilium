@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"sync"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -29,7 +31,8 @@ type Consumer struct {
 }
 
 func (c *Consumer) DeepCopy() *Consumer {
-	cpy := &Consumer{ID: c.ID,
+	cpy := &Consumer{
+		ID:           c.ID,
 		DeletionMark: c.DeletionMark,
 		Decision:     c.Decision,
 	}
@@ -47,20 +50,49 @@ func NewConsumer(id NumericIdentity) *Consumer {
 	return &Consumer{ID: id, Decision: ACCEPT}
 }
 
-// Consumable is the entity that is being consumed by a Consumable.
+// Consumable is the entity that is being consumed by a Consumer.
 type Consumable struct {
-	ID           NumericIdentity               `json:"id"`
-	Iteration    int                           `json:"-"`
-	Labels       *Identity                     `json:"labels"`
-	LabelList    []*labels.Label               `json:"-"`
-	Maps         map[int]*policymap.PolicyMap  `json:"-"`
-	Consumers    map[string]*Consumer          `json:"consumers"`
+	// ID of the consumable
+	ID    NumericIdentity `json:"id"`
+	Mutex sync.RWMutex
+	// Labels are the Identity of this consumable
+	Labels *Identity `json:"labels"`
+	// LabelList contains the same labels from identity in a form of a list, used for faster lookup
+	LabelList []*labels.Label `json:"-"`
+	// Iteration policy of the Consumable
+	Iteration int `json:"-"`
+	// FIXME what is this for?
+	Maps map[int]*policymap.PolicyMap `json:"-"`
+	// Consumers contains the list of consumers where the key is the Consumers ID
+	// FIXME change key to NumericIdentity?
+	Consumers map[string]*Consumer `json:"consumers"`
+	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
-	L4Policy     *L4Policy                     `json:"l4-policy"`
-	cache        *ConsumableCache
+	// L4Policy contains the policy of this consumable
+	L4Policy *L4Policy `json:"l4-policy"`
+	cache    *ConsumableCache
+}
+
+// NewConsumable creates a new consumable
+func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
+	consumable := &Consumable{
+		ID:           id,
+		Iteration:    0,
+		Labels:       lbls,
+		Maps:         map[int]*policymap.PolicyMap{},
+		Consumers:    map[string]*Consumer{},
+		ReverseRules: map[NumericIdentity]*Consumer{},
+		cache:        cache,
+	}
+	if lbls != nil {
+		consumable.LabelList = lbls.Labels.ToSlice()
+	}
+
+	return consumable
 }
 
 func (c *Consumable) DeepCopy() *Consumable {
+	c.Mutex.RLock()
 	cpy := &Consumable{
 		ID:           c.ID,
 		Iteration:    c.Iteration,
@@ -86,6 +118,7 @@ func (c *Consumable) DeepCopy() *Consumable {
 	for k, v := range c.ReverseRules {
 		cpy.ReverseRules[k] = v.DeepCopy()
 	}
+	c.Mutex.RUnlock()
 	return cpy
 }
 
@@ -93,6 +126,8 @@ func (c *Consumable) GetModel() *models.EndpointPolicy {
 	if c == nil {
 		return nil
 	}
+	c.Mutex.RLock()
+	defer c.Mutex.RUnlock()
 
 	consumers := []int64{}
 	for _, v := range c.Consumers {
@@ -107,34 +142,9 @@ func (c *Consumable) GetModel() *models.EndpointPolicy {
 	}
 }
 
-func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
-	consumable := &Consumable{
-		ID:           id,
-		Iteration:    0,
-		Labels:       lbls,
-		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[string]*Consumer{},
-		ReverseRules: map[NumericIdentity]*Consumer{},
-		cache:        cache,
-	}
-
-	if lbls != nil {
-		consumable.LabelList = make([]*labels.Label, len(lbls.Labels))
-		idx := 0
-		for k, v := range lbls.Labels {
-			consumable.LabelList[idx] = &labels.Label{
-				Key:    k,
-				Value:  v.Value,
-				Source: v.Source,
-			}
-			idx++
-		}
-	}
-
-	return consumable
-}
-
 func (c *Consumable) AddMap(m *policymap.PolicyMap) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
 	if c.Maps == nil {
 		c.Maps = make(map[int]*policymap.PolicyMap)
 	}
@@ -170,7 +180,7 @@ func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer Nume
 	}
 }
 
-func (c *Consumable) Delete() {
+func (c *Consumable) delete() {
 	for _, consumer := range c.Consumers {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway
@@ -188,6 +198,7 @@ func (c *Consumable) Delete() {
 
 func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 	if m != nil {
+		c.Mutex.Lock()
 		delete(c.Maps, m.Fd)
 		log.Debugf("Removing map %v from consumable %v, new len %d", m, c, len(c.Maps))
 
@@ -195,13 +206,14 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 		// needed and should be removed from the cache and all cross references
 		// must be undone.
 		if len(c.Maps) == 0 {
-			c.Delete()
+			c.delete()
 		}
+		c.Mutex.Unlock()
 	}
 
 }
 
-func (c *Consumable) GetConsumer(id NumericIdentity) *Consumer {
+func (c *Consumable) getConsumer(id NumericIdentity) *Consumer {
 	val, _ := c.Consumers[id.StringID()]
 	return val
 }
@@ -232,23 +244,24 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	}
 }
 
-func (c *Consumable) AllowConsumer(cache *ConsumableCache, id NumericIdentity) *Consumer {
-	var consumer *Consumer
-
-	if consumer = c.GetConsumer(id); consumer == nil {
+// AllowConsumerLocked adds the given consumer ID to the Consumable's
+// consumers map. Must be called with Consumable mutex Locked.
+func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) {
+	if consumer := c.getConsumer(id); consumer == nil {
 		log.Debugf("New consumer %d for consumable %+v", id, c)
 		c.addToMaps(id)
 		c.Consumers[id.StringID()] = NewConsumer(id)
 	} else {
 		consumer.DeletionMark = false
 	}
-
-	return consumer
 }
 
-func (c *Consumable) AllowConsumerAndReverse(cache *ConsumableCache, id NumericIdentity) {
+// AllowConsumerAndReverseLocked adds the given consumer ID to the Consumable's
+// consumers map and the given consumable to the given consumer's consumers map.
+// Must be called with Consumable mutex Locked.
+func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) {
 	log.Debugf("Allowing direction %d -> %d\n", id, c.ID)
-	c.AllowConsumer(cache, id)
+	c.AllowConsumerLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
 		log.Debugf("Allowing reverse direction %d -> %d\n", c.ID, id)
@@ -261,7 +274,9 @@ func (c *Consumable) AllowConsumerAndReverse(cache *ConsumableCache, id NumericI
 	}
 }
 
-func (c *Consumable) BanConsumer(id NumericIdentity) {
+// BanConsumerLocked removes the given consumer from the Consumable's consumers
+// map. Must be called with the Consumable mutex locked.
+func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
 	if consumer, ok := c.Consumers[id.StringID()]; ok {
 		log.Debugf("Removing consumer %v\n", consumer)
 		delete(c.Consumers, id.StringID())
@@ -277,11 +292,8 @@ func (c *Consumable) BanConsumer(id NumericIdentity) {
 }
 
 func (c *Consumable) Allows(id NumericIdentity) bool {
-	if consumer := c.GetConsumer(id); consumer != nil {
-		if consumer.Decision == ACCEPT {
-			return true
-		}
-	}
-
-	return false
+	c.Mutex.RLock()
+	consumer := c.getConsumer(id)
+	c.Mutex.RUnlock()
+	return consumer != nil && consumer.Decision == ACCEPT
 }

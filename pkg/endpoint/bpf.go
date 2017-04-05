@@ -77,7 +77,12 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 }
 
 func (e *Endpoint) writeL4Policy(fw *bufio.Writer, owner Owner) error {
-	if e.Consumable == nil || e.Consumable.L4Policy == nil {
+	if e.Consumable == nil {
+		return nil
+	}
+	e.Consumable.Mutex.RLock()
+	defer e.Consumable.Mutex.RUnlock()
+	if e.Consumable.L4Policy == nil {
 		return nil
 	}
 
