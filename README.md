@@ -44,7 +44,7 @@ security and visibility.
  * [Architecture](http://docs.cilium.io/en/latest/architecture/)
  * [Administrator Guide](http://docs.cilium.io/en/latest/admin/)
  * [Frequently Asked Questions](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
- * [Contributing](contributing)
+ * [Contributing](http://docs.cilium.io/en/latest/contributing)
 
 ## What is eBPF and XDP?
 
