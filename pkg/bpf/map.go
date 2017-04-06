@@ -24,13 +24,13 @@ package bpf
 import "C"
 
 import (
-	"unsafe"
-
 	"bufio"
 	"fmt"
 	"os"
 	"path"
+	"sync"
 	"syscall"
+	"unsafe"
 )
 
 type MapType int
@@ -112,6 +112,7 @@ type Map struct {
 	fd   int
 	name string
 	path string
+	once sync.Once
 }
 
 func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
@@ -128,11 +129,6 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 
 func (m *Map) GetFd() int {
 	return m.fd
-}
-
-func (m *Map) DeepCopy() *Map {
-	cpy := *m
-	return &cpy
 }
 
 func GetMapInfo(pid int, fd int) (*MapInfo, error) {
@@ -236,22 +232,25 @@ func (m *Map) OpenOrCreate() (bool, error) {
 }
 
 func (m *Map) Open() error {
-	if m.fd != 0 {
-		return nil
-	}
+	var err error
+	m.once.Do(func() {
+		if m.fd != 0 {
+			err = nil
+			return
+		}
 
-	if err := m.setPathIfUnset(); err != nil {
-		return err
-	}
+		if err = m.setPathIfUnset(); err != nil {
+			return
+		}
+		var fd int
+		fd, err = ObjGet(m.path)
+		if err != nil {
+			return
+		}
 
-	fd, err := ObjGet(m.path)
-	if err != nil {
-		return err
-	}
-
-	m.fd = fd
-
-	return nil
+		m.fd = fd
+	})
+	return err
 }
 
 func (m *Map) Close() error {
