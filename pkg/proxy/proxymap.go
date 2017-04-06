@@ -92,10 +92,6 @@ func (v *Proxy4Value) String() string {
 }
 
 func LookupEgress4(key *Proxy4Key) (*Proxy4Value, error) {
-	if err := proxy4Map.Open(); err != nil {
-		return nil, err
-	}
-
 	val, err := proxy4Map.Lookup(key.Convert())
 	if err != nil {
 		return nil, err
