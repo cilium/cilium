@@ -52,8 +52,7 @@ network access in/out of those containers.  In more detail, the agent:
   containers in the cluster.  These APIs also expose monitoring capabilities to gain additional visibility into network forwarding and filtering
   behavior.
 
-* Gathers metadata about each new container that is created.  In particular, it
-queries identity metadata like container/pod labels, which are used
+* Gathers metadata about each new container that is created.  In particular, it queries identity metadata like container/pod labels, which are used
   to identify endpoints in Cilium security policies.
 
 * Interacts with the container platforms network plugin to perform IP address management (IPAM), which controls what IPv4 and IPv6 addresses
@@ -267,7 +266,9 @@ Container Communication with External Hosts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Container communication with the outside world has two primary modes:
+
  * Containers exposing API services for consumption by hosts outside of the container cluster.
+
  * Containers making outgoing connections.  Examples include connecting to 3rd-party API services
    like Twillio or Stripe as well as accessing private APIs that are hosted elsewhere in your enterprise
    datacenter or cloud deployment.
