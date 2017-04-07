@@ -16,8 +16,8 @@ resources, you may want to close other memory hungry applications.
 
 The vagrant box is currently available for the following hypervisors. Please
 contact us on :ref:`slack` to request building for additional hypervisors.
-* VirtualBox
-* libvirt
+ * VirtualBox
+ * libvirt
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
