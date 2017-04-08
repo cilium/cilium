@@ -49,7 +49,7 @@ microservices architectures.
 
 By leveraging Linux BPF, Cilium retains the ability to transparently insert
 security visibility + enforcement, but does so in a way that is based on
-service/pod/container identity (in contrast to IP address identification in
+service / pod / container identity (in contrast to IP address identification in
 traditional systems) and can filter on application-layer (e.g. HTTP).  As a
 result, Cilium not only makes it simple to apply security policies in a highly
 dynamic environment by decoupling security from addressing, but can also
@@ -82,7 +82,7 @@ The remainder of this documentation is divided into four sections:
 Getting Help
 ------------
 
-We use Github issues to maintain a list of `Cilium Frequently Asks Questions (FAQ)
+We use Github issues to maintain a list of `Cilium Frequently Asked Questions (FAQ)
 <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_ .
 Check there to see if you questions is already addressed.
 
