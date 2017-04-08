@@ -1,4 +1,4 @@
-// Copyright 2015 CNI authors
+// Copyright 2015-2017 CNI authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build !linux
+
 package ip
 
 import (
 	"net"
 
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/vishvananda/netlink"
 )
 
-// AddDefaultRoute sets the default route on the given gateway.
-func AddDefaultRoute(gw net.IP, dev netlink.Link) error {
-	_, defNet, _ := net.ParseCIDR("0.0.0.0/0")
-	return AddRoute(defNet, gw, dev)
+// AddRoute adds a universally-scoped route to a device.
+func AddRoute(ipn *net.IPNet, gw net.IP, dev netlink.Link) error {
+	return types.NotImplementedError
+}
+
+// AddHostRoute adds a host-scoped route to a device.
+func AddHostRoute(ipn *net.IPNet, gw net.IP, dev netlink.Link) error {
+	return types.NotImplementedError
 }

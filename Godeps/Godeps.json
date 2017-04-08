@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/cilium/cilium",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v77",
+	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
 	],
@@ -60,43 +60,53 @@
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/ip",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/ns",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/skel",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/types",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/types/020",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
+		},
+		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/types/current",
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/utils/hwaddr",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/version",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/plugins/ipam/host-local/backend",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator",
-			"Comment": "v0.3.0-142-g4406607",
-			"Rev": "440660764978233146bb4380bd3a7252cd75f945"
+			"Comment": "v0.5.2",
+			"Rev": "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/auth/authpb",

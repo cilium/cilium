@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/plugins/ipam/host-local/backend"
 )
 
@@ -129,7 +131,7 @@ func validateRangeIP(ip net.IP, ipnet *net.IPNet, start net.IP, end net.IP) erro
 }
 
 // Returns newly allocated IP along with its config
-func (a *IPAllocator) Get(id string) (*types.IPConfig, error) {
+func (a *IPAllocator) Get(id string) (*current.IPConfig, []*types.Route, error) {
 	a.store.Lock()
 	defer a.store.Unlock()
 
@@ -145,7 +147,7 @@ func (a *IPAllocator) Get(id string) (*types.IPConfig, error) {
 
 	if requestedIP != nil {
 		if gw != nil && gw.Equal(a.conf.Args.IP) {
-			return nil, fmt.Errorf("requested IP must differ gateway IP")
+			return nil, nil, fmt.Errorf("requested IP must differ gateway IP")
 		}
 
 		subnet := net.IPNet{
@@ -154,22 +156,24 @@ func (a *IPAllocator) Get(id string) (*types.IPConfig, error) {
 		}
 		err := validateRangeIP(requestedIP, &subnet, a.start, a.end)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		reserved, err := a.store.Reserve(id, requestedIP)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if reserved {
-			return &types.IPConfig{
-				IP:      net.IPNet{IP: requestedIP, Mask: a.conf.Subnet.Mask},
+			ipConfig := &current.IPConfig{
+				Version: "4",
+				Address: net.IPNet{IP: requestedIP, Mask: a.conf.Subnet.Mask},
 				Gateway: gw,
-				Routes:  a.conf.Routes,
-			}, nil
+			}
+			routes := convertRoutesToCurrent(a.conf.Routes)
+			return ipConfig, routes, nil
 		}
-		return nil, fmt.Errorf("requested IP address %q is not available in network: %s", requestedIP, a.conf.Name)
+		return nil, nil, fmt.Errorf("requested IP address %q is not available in network: %s", requestedIP, a.conf.Name)
 	}
 
 	startIP, endIP := a.getSearchRange()
@@ -181,21 +185,23 @@ func (a *IPAllocator) Get(id string) (*types.IPConfig, error) {
 
 		reserved, err := a.store.Reserve(id, cur)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if reserved {
-			return &types.IPConfig{
-				IP:      net.IPNet{IP: cur, Mask: a.conf.Subnet.Mask},
+			ipConfig := &current.IPConfig{
+				Version: "4",
+				Address: net.IPNet{IP: cur, Mask: a.conf.Subnet.Mask},
 				Gateway: gw,
-				Routes:  a.conf.Routes,
-			}, nil
+			}
+			routes := convertRoutesToCurrent(a.conf.Routes)
+			return ipConfig, routes, nil
 		}
 		// break here to complete the loop
 		if cur.Equal(endIP) {
 			break
 		}
 	}
-	return nil, fmt.Errorf("no IP addresses available in network: %s", a.conf.Name)
+	return nil, nil, fmt.Errorf("no IP addresses available in network: %s", a.conf.Name)
 }
 
 // Releases all IPs allocated for the container with given ID
@@ -248,7 +254,7 @@ func (a *IPAllocator) getSearchRange() (net.IP, net.IP) {
 	var endIP net.IP
 	startFromLastReservedIP := false
 	lastReservedIP, err := a.store.LastReservedIP()
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Printf("Error retriving last reserved ip: %v", err)
 	} else if lastReservedIP != nil {
 		subnet := net.IPNet{
