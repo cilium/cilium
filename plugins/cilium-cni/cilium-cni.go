@@ -33,6 +33,7 @@ import (
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
+	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
 	l "github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
@@ -65,7 +66,7 @@ type netConf struct {
 }
 
 func main() {
-	skel.PluginMain(cmdAdd, cmdDel, version.PluginSupports("0.1.0", "0.2.0"))
+	skel.PluginMain(cmdAdd, cmdDel, version.All)
 }
 
 func IPv6IsEnabled(ipam *models.IPAM) bool {
@@ -172,33 +173,37 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netl
 	return nil
 }
 
-func configureIface(ipam *models.IPAM, ifName string, state *CmdState) error {
+func configureIface(ipam *models.IPAM, ifName string, state *CmdState) (string, error) {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
-		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
+		return "", fmt.Errorf("failed to lookup %q: %v", ifName, err)
 	}
 
 	if err := netlink.LinkSetUp(link); err != nil {
-		return fmt.Errorf("failed to set %q UP: %v", ifName, err)
+		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
 	}
 
 	if IPv4IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP4, state.IP4routes, link, ifName); err != nil {
-			return fmt.Errorf("error configuring IPv4: %s", err.Error())
+			return "", fmt.Errorf("error configuring IPv4: %s", err.Error())
 		}
 	}
 
 	if IPv6IsEnabled(ipam) {
 		if err := addIPConfigToLink(state.IP6, state.IP6routes, link, ifName); err != nil {
-			return fmt.Errorf("error configuring IPv6: %s", err.Error())
+			return "", fmt.Errorf("error configuring IPv6: %s", err.Error())
 		}
 	}
 
-	return nil
+	if link.Attrs() != nil {
+		return link.Attrs().HardwareAddr.String(), nil
+	}
+
+	return "", nil
 }
 
-func newCNIRoute(r plugins.Route) cniTypes.Route {
-	rt := cniTypes.Route{
+func newCNIRoute(r plugins.Route) *cniTypes.Route {
+	rt := &cniTypes.Route{
 		Dst: r.Prefix,
 	}
 	if r.Nexthop != nil {
@@ -208,49 +213,58 @@ func newCNIRoute(r plugins.Route) cniTypes.Route {
 	return rt
 }
 
-func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypes.IPConfig, error) {
-	var routes []plugins.Route
-	var err error
-	var gw string
-	var ip addressing.CiliumIP
+func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConfig, []*cniTypes.Route, error) {
+	var (
+		routes  []plugins.Route
+		err     error
+		gw      string
+		version string
+		ip      addressing.CiliumIP
+	)
 
 	if isIPv6 {
 		if state.IP6, err = addressing.NewCiliumIPv6(ipAddr); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if state.IP6routes, err = plugins.IPv6Routes(state.HostAddr); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		routes = state.IP6routes
 		ip = state.IP6
 		gw = plugins.IPv6Gateway(state.HostAddr)
+		version = "6"
 	} else {
 		if state.IP4, err = addressing.NewCiliumIPv4(ipAddr); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if state.IP4routes, err = plugins.IPv4Routes(state.HostAddr); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		routes = state.IP4routes
 		ip = state.IP4
 		gw = plugins.IPv4Gateway(state.HostAddr)
+		version = "4"
 	}
 
-	rt := []cniTypes.Route{}
+	rt := []*cniTypes.Route{}
 	for _, r := range routes {
 		rt = append(rt, newCNIRoute(r))
 	}
 
 	gwIP := net.ParseIP(gw)
 	if gwIP == nil {
-		return nil, fmt.Errorf("Invalid gateway address: %s", gw)
+		return nil, nil, fmt.Errorf("Invalid gateway address: %s", gw)
 	}
 
-	return &cniTypes.IPConfig{
-		IP:      *ip.EndpointPrefix(),
+	return &cniTypesVer.IPConfig{
+		Address: *ip.EndpointPrefix(),
 		Gateway: gwIP,
-		Routes:  rt,
-	}, nil
+		Version: version,
+		// We only configure one interface for each run, thus, the
+		// interface index from the Result interface list will be always
+		// 0.
+		Interface: 0,
+	}, rt, nil
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
@@ -336,31 +350,47 @@ func cmdAdd(args *skel.CmdArgs) error {
 		HostAddr: ipam.HostAddressing,
 	}
 
-	res := cniTypes.Result{}
+	res := cniTypesVer.Result{
+		Interfaces: []*cniTypesVer.Interface{},
+		IPs:        []*cniTypesVer.IPConfig{},
+		Routes:     []*cniTypes.Route{},
+	}
 
 	if IPv6IsEnabled(ipam) {
-		res.IP6, err = prepareIP(ep.Addressing.IPV6, true, &state)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state)
 		if err != nil {
 			return err
 		}
-
 		ep.ID = int64(state.IP6.EndpointID())
+		res.IPs = append(res.IPs, ipConfig)
+		res.Routes = append(res.Routes, routes...)
 	} else {
 		return fmt.Errorf("IPAM did not provide required IPv6 address")
 	}
 
 	if IPv4IsEnabled(ipam) {
-		if res.IP4, err = prepareIP(ep.Addressing.IPV4, false, &state); err != nil {
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state)
+		if err != nil {
 			return err
 		}
+		res.IPs = append(res.IPs, ipConfig)
+		res.Routes = append(res.Routes, routes...)
 	}
 
+	var macAddrStr string
 	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		return configureIface(ipam, args.IfName, &state)
+		macAddrStr, err = configureIface(ipam, args.IfName, &state)
+		return err
 	}); err != nil {
 		return err
 	}
+
+	res.Interfaces = append(res.Interfaces, &cniTypesVer.Interface{
+		Name:    args.IfName,
+		Mac:     macAddrStr,
+		Sandbox: "/proc/" + args.Netns + "/ns/net",
+	})
 
 	if err = client.EndpointCreate(ep); err != nil {
 		return fmt.Errorf("Unable to create endpoint: %s", err)
