@@ -16,6 +16,7 @@ package ip
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -23,6 +24,10 @@ import (
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/utils/hwaddr"
 	"github.com/vishvananda/netlink"
+)
+
+var (
+	ErrLinkNotFound = errors.New("link not found")
 )
 
 func makeVethPair(name, peer string, mtu int) (netlink.Link, error) {
@@ -90,30 +95,46 @@ func RandomVethName() (string, error) {
 	return fmt.Sprintf("veth%x", entropy), nil
 }
 
-// SetupVeth sets up a virtual ethernet link.
-// Should be in container netns, and will switch back to hostNS to set the host
-// veth end up.
-func SetupVeth(contVethName string, mtu int, hostNS ns.NetNS) (hostVeth, contVeth netlink.Link, err error) {
-	var hostVethName string
-	hostVethName, contVeth, err = makeVeth(contVethName, mtu)
+func RenameLink(curName, newName string) error {
+	link, err := netlink.LinkByName(curName)
+	if err == nil {
+		err = netlink.LinkSetName(link, newName)
+	}
+	return err
+}
+
+func ifaceFromNetlinkLink(l netlink.Link) net.Interface {
+	a := l.Attrs()
+	return net.Interface{
+		Index:        a.Index,
+		MTU:          a.MTU,
+		Name:         a.Name,
+		HardwareAddr: a.HardwareAddr,
+		Flags:        a.Flags,
+	}
+}
+
+// SetupVeth sets up a pair of virtual ethernet devices.
+// Call SetupVeth from inside the container netns.  It will create both veth
+// devices and move the host-side veth into the provided hostNS namespace.
+// On success, SetupVeth returns (hostVeth, containerVeth, nil)
+func SetupVeth(contVethName string, mtu int, hostNS ns.NetNS) (net.Interface, net.Interface, error) {
+	hostVethName, contVeth, err := makeVeth(contVethName, mtu)
 	if err != nil {
-		return
+		return net.Interface{}, net.Interface{}, err
 	}
 
 	if err = netlink.LinkSetUp(contVeth); err != nil {
-		err = fmt.Errorf("failed to set %q up: %v", contVethName, err)
-		return
+		return net.Interface{}, net.Interface{}, fmt.Errorf("failed to set %q up: %v", contVethName, err)
 	}
 
-	hostVeth, err = netlink.LinkByName(hostVethName)
+	hostVeth, err := netlink.LinkByName(hostVethName)
 	if err != nil {
-		err = fmt.Errorf("failed to lookup %q: %v", hostVethName, err)
-		return
+		return net.Interface{}, net.Interface{}, fmt.Errorf("failed to lookup %q: %v", hostVethName, err)
 	}
 
 	if err = netlink.LinkSetNsFd(hostVeth, int(hostNS.Fd())); err != nil {
-		err = fmt.Errorf("failed to move veth to host netns: %v", err)
-		return
+		return net.Interface{}, net.Interface{}, fmt.Errorf("failed to move veth to host netns: %v", err)
 	}
 
 	err = hostNS.Do(func(_ ns.NetNS) error {
@@ -127,7 +148,10 @@ func SetupVeth(contVethName string, mtu int, hostNS ns.NetNS) (hostVeth, contVet
 		}
 		return nil
 	})
-	return
+	if err != nil {
+		return net.Interface{}, net.Interface{}, err
+	}
+	return ifaceFromNetlinkLink(hostVeth), ifaceFromNetlinkLink(contVeth), nil
 }
 
 // DelLinkByName removes an interface link.
@@ -149,6 +173,9 @@ func DelLinkByName(ifName string) error {
 func DelLinkByNameAddr(ifName string, family int) (*net.IPNet, error) {
 	iface, err := netlink.LinkByName(ifName)
 	if err != nil {
+		if err != nil && err.Error() == "Link not found" {
+			return nil, ErrLinkNotFound
+		}
 		return nil, fmt.Errorf("failed to lookup %q: %v", ifName, err)
 	}
 

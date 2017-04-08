@@ -32,6 +32,7 @@ type IPAMConfig struct {
 	Gateway    net.IP        `json:"gateway"`
 	Routes     []types.Route `json:"routes"`
 	DataDir    string        `json:"dataDir"`
+	ResolvConf string        `json:"resolvConf"`
 	Args       *IPAMArgs     `json:"-"`
 }
 
@@ -41,31 +42,43 @@ type IPAMArgs struct {
 }
 
 type Net struct {
-	Name string      `json:"name"`
-	IPAM *IPAMConfig `json:"ipam"`
+	Name       string      `json:"name"`
+	CNIVersion string      `json:"cniVersion"`
+	IPAM       *IPAMConfig `json:"ipam"`
 }
 
 // NewIPAMConfig creates a NetworkConfig from the given network name.
-func LoadIPAMConfig(bytes []byte, args string) (*IPAMConfig, error) {
+func LoadIPAMConfig(bytes []byte, args string) (*IPAMConfig, string, error) {
 	n := Net{}
 	if err := json.Unmarshal(bytes, &n); err != nil {
-		return nil, err
+		return nil, "", err
+	}
+
+	if n.IPAM == nil {
+		return nil, "", fmt.Errorf("IPAM config missing 'ipam' key")
 	}
 
 	if args != "" {
 		n.IPAM.Args = &IPAMArgs{}
 		err := types.LoadArgs(args, n.IPAM.Args)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-	}
-
-	if n.IPAM == nil {
-		return nil, fmt.Errorf("IPAM config missing 'ipam' key")
 	}
 
 	// Copy net name into IPAM so not to drag Net struct around
 	n.IPAM.Name = n.Name
 
-	return n.IPAM, nil
+	return n.IPAM, n.CNIVersion, nil
+}
+
+func convertRoutesToCurrent(routes []types.Route) []*types.Route {
+	var currentRoutes []*types.Route
+	for _, r := range routes {
+		currentRoutes = append(currentRoutes, &types.Route{
+			Dst: r.Dst,
+			GW:  r.GW,
+		})
+	}
+	return currentRoutes
 }

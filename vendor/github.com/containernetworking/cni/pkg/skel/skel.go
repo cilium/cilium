@@ -189,25 +189,40 @@ func (t *dispatcher) pluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionIn
 	return nil
 }
 
-// PluginMain is the "main" for a plugin. It accepts
-// two callback functions for add and del commands.
-func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionInfo version.PluginInfo) {
-	caller := dispatcher{
+// PluginMainWithError is the core "main" for a plugin. It accepts
+// callback functions for add and del CNI commands and returns an error.
+//
+// The caller must also specify what CNI spec versions the plugin supports.
+//
+// It is the responsibility of the caller to check for non-nil error return.
+//
+// For a plugin to comply with the CNI spec, it must print any error to stdout
+// as JSON and then exit with nonzero status code.
+//
+// To let this package automatically handle errors and call os.Exit(1) for you,
+// use PluginMain() instead.
+func PluginMainWithError(cmdAdd, cmdDel func(_ *CmdArgs) error, versionInfo version.PluginInfo) *types.Error {
+	return (&dispatcher{
 		Getenv: os.Getenv,
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}
-
-	err := caller.pluginMain(cmdAdd, cmdDel, versionInfo)
-	if err != nil {
-		dieErr(err)
-	}
+	}).pluginMain(cmdAdd, cmdDel, versionInfo)
 }
 
-func dieErr(e *types.Error) {
-	if err := e.Print(); err != nil {
-		log.Print("Error writing error JSON to stdout: ", err)
+// PluginMain is the core "main" for a plugin which includes automatic error handling.
+//
+// The caller must also specify what CNI spec versions the plugin supports.
+//
+// When an error occurs in either cmdAdd or cmdDel, PluginMain will print the error
+// as JSON to stdout and call os.Exit(1).
+//
+// To have more control over error handling, use PluginMainWithError() instead.
+func PluginMain(cmdAdd, cmdDel func(_ *CmdArgs) error, versionInfo version.PluginInfo) {
+	if e := PluginMainWithError(cmdAdd, cmdDel, versionInfo); e != nil {
+		if err := e.Print(); err != nil {
+			log.Print("Error writing error JSON to stdout: ", err)
+		}
+		os.Exit(1)
 	}
-	os.Exit(1)
 }
