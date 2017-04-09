@@ -19,14 +19,14 @@ import (
 )
 
 const (
-        // IdentityAdd is the event type used when a new identity is added to
-        // the K/V store.
+	// IdentityAdd is the event type used when a new identity is added to
+	// the K/V store.
 	IdentityAdd EventType = iota
-        // IdentityMod is the event type used when a existing identity is
-        // scheduled for deletion but there are still reference counts to it.
+	// IdentityMod is the event type used when a existing identity is
+	// scheduled for deletion but there are still reference counts to it.
 	IdentityMod
-        // IdentityDel is the event type used when a existing identity is
-        // deleted.
+	// IdentityDel is the event type used when a existing identity is
+	// deleted.
 	IdentityDel
 )
 
