@@ -11,7 +11,7 @@ If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
 The tutorial leverages Vagrant, and as such should run on any operating system
 supported by Vagrant, including Linux, MacOS X, and Windows. The VM running
-Docker + Cilium requires about 3 GB of RAM, so if you laptop has limited
+Docker + Cilium requires about 3 GB of RAM, so if your laptop has limited
 resources, you may want to close other memory hungry applications.
 
 The vagrant box is currently available for the following hypervisors. Please
@@ -92,7 +92,8 @@ After the script has successfully completed, you can log into the VM using
 
 All commands for the rest of the tutorial below should be run from inside this
 Vagrant VM.  If you end up disconnecting from this VM, you can always reconnect
-in a new terminal window just by running ``vagrant ssh`` again.
+in a new terminal window just by running ``vagrant ssh`` again from the Cilium
+directory.
 
 
 Step 4: Confirm that Cilium is Running
