@@ -24,7 +24,7 @@ Since Cilium builds on the foundation of BPF, the kernel version running on the 
 containers and Cilium must support a modern version of BPF.  For practical purposes, this means that
 the kernel must be 4.8.0 or newer.
 
-For version of Linux designed to be used as a container runtime, this is often the case already, as
+For a version of Linux designed to be used as a container runtime, this is often the case already, as
 such distributions frequently update their default kernels.  For example:
 
 * `CoreOS stable <https://coreos.com/releases/>`_ is already at 4.9.9 as of March 2017.
@@ -208,7 +208,7 @@ watch the progress of this deployment using:
 
 Build + Install From Source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Installing Cilium from a container is recommmened.  If you need to build/install
+Installing Cilium from a container is recommmened.  If you need to build / install
 Cilium directly on the container Linux node, there are additional required dependencies
 beyond a 4.8.0+ Linux kernel:
 
@@ -236,8 +236,8 @@ Container Node Network Configuration
 ------------------------------------
 
 The networking configuration required on your Linux container node
-depends on the IP interconnectivity model in use and the
-whether the deployment requires containers in the cluster to reach or be reached by
+depends on the IP interconnectivity model in use and whether the
+deployment requires containers in the cluster to reach or be reached by
 resources outside the cluster.  For more details, see the
 Architecture Guide's section on :ref:`arch_ip_connectivity` .
 
@@ -247,7 +247,7 @@ Overlay Mode - Container-to-Container Access
 With overlay mode, container-to-container access does not require
 additional network configuration on the Linux container node, as
 overlay connectivity is handled by Cilium itself, and the physical
-network only sees IP traffic destined to/from the Linux node IP address.
+network only sees IP traffic destined to / from the Linux node IP address.
 
 The use of Overlay Mode is configured by passing a ``--tunnel`` or ``-t``
 flag to the Cilium indicating the type of encapsulation to be used.  Valid
@@ -445,7 +445,7 @@ Since kubernetes ``v1.3.5`` the user needs to install the ``loopback`` cni plugi
    wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz
    sudo tar -xvf cni-07a8a28637e97b22eb8dfe710eeae1344f69d16e.tar.gz -C /opt/cni
 
-Make to changes to the kubelet systemd unit file:
+Make two changes to the kubelet systemd unit file:
 
  *  include an [ExecPre] block to mount the BPF filesystem: ``ExecPre=/bin/mount bpffs /sys/fs/bpf -t bpf``
  *  include a flag instructing the kubelet to use CNI plugins: ``--network-plugin=cni``
@@ -582,5 +582,5 @@ Troubleshooting
 
 TODO: troubleshooting
  * describe locations of log files
- * describeg tools used for debugging
+ * describe tools used for debugging
 

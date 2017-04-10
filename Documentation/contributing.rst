@@ -86,6 +86,7 @@ candidates in which case they will be backported to previous release branches.
 Upon necessity, stable releases are published with the version `X.Y.Z+1`.
 
 Criteria for the inclusion into stable release branches are:
+
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium
 
