@@ -14,4 +14,5 @@ Welcome to Cilium's documentation!
    gettingstarted
    architecture
    admin
+   api
    contributing
