@@ -19,29 +19,45 @@ import (
 )
 
 func (ds *PolicyTestSuite) TestNormalizeNames(c *C) {
+	// name:nil path:root => root node
 	n := Node{}
 	path, err := n.NormalizeNames(RootNodeName)
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, RootNodeName)
 	c.Assert(n.Name, Equals, RootNodeName)
 
+	// name:foo, path:root => foo@root
 	n = Node{Name: "foo"}
 	path, err = n.NormalizeNames(RootNodeName)
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, RootNodeName)
 	c.Assert(n.Name, Equals, "foo")
 
+	// name:nil, path:root.foo.bar => bar@root.foo
 	n = Node{}
 	path, err = n.NormalizeNames("root.foo.bar")
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "root.foo")
 	c.Assert(n.Name, Equals, "bar")
 
-	// absolute name foo.bar does not match path .bar.foo
-	n = Node{Name: "foo.bar"}
+	// name:foo1.foo2.bar, path:root => bar@root.foo1.foo2
+	n = Node{Name: "foo1.foo2.bar"}
+	path, err = n.NormalizeNames("root")
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "root.foo1.foo2")
+	c.Assert(n.Name, Equals, "bar")
+
+	// name:foo1.foo2.bar, path:root.foo1.foo2 => bar@root.foo1.foo2.foo1.foo2
+	n = Node{Name: "foo1.foo2.bar"}
+	path, err = n.NormalizeNames("root.foo1.foo2")
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, "root.foo1.foo2.foo1.foo2")
+	c.Assert(n.Name, Equals, "bar")
+
+	// name:foo.bar path:root.bar.foo => error
+	n = Node{Name: "root.foo.bar"}
 	path, err = n.NormalizeNames("root.bar.foo")
 	c.Assert(err, Not(IsNil))
-	c.Assert(path, Equals, "")
 
 	// absolute name root.foo.bar matches path .bar.foo
 	n = Node{Name: "root.foo.bar"}
@@ -50,22 +66,22 @@ func (ds *PolicyTestSuite) TestNormalizeNames(c *C) {
 	c.Assert(path, Equals, "root.foo")
 	c.Assert(n.Name, Equals, "bar")
 
-	// absolute name foo.bar2 does not match path baz
+	// absolute name foo.bar2 does not match map key bar
 	n = Node{
 		Children: map[string]*Node{
 			"bar": {Name: "foo.bar2"},
 		},
 	}
-	path, err = n.NormalizeNames("baz")
+	path, err = n.NormalizeNames(RootNodeName)
 	c.Assert(err, Not(IsNil))
 	c.Assert(path, Equals, "")
 
 	n = Node{
 		Children: map[string]*Node{
-			"bar": {Name: "bar2"},
+			"bar.foo": {Name: "bar.foo"},
 		},
 	}
-	path, err = n.NormalizeNames(".")
-	c.Assert(err, Not(IsNil))
-	c.Assert(path, Equals, "")
+	path, err = n.NormalizeNames(RootNodeName)
+	c.Assert(err, IsNil)
+	c.Assert(path, Equals, RootNodeName)
 }
