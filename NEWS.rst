@@ -7,6 +7,7 @@ HEAD
 
 - Separate state directory inside runtime directory (`GH #537 <https://github.com/cilium/cilium/pull/537>`_)
 - Fix all remaining testsuites and have Jenkins fail properly on all failures (`GH #513 <https://github.com/cilium/cilium/pull/513>`_)
+- policy: Support carrying part of the path in the name (`GH #533 <https://github.com/cilium/cilium/pull/533>`_)
 
 0.8.1
 =====
