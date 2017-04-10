@@ -1,1 +1,2 @@
 sphinxcontrib-httpdomain
+sphinxcontrib-openapi
