@@ -86,7 +86,7 @@ func (n *Node) NormalizeNames(path string) (string, error) {
 		return path, nil
 	}
 
-	// Path is always absolute. If root delimiter has not been added,
+	// Path must always be absolute. If root delimiter has not been added,
 	// add it now.
 	if !strings.HasPrefix(path, RootNodeName) {
 		path = JoinPath(RootNodeName, path)
@@ -102,24 +102,27 @@ func (n *Node) NormalizeNames(path string) (string, error) {
 		}
 	}
 
-	// If name starts with a node path delimiter, it is an absolute path,
-	// check if it matches the provided path
 	if n.Name != RootNodeName {
-		if strings.HasPrefix(n.Name, RootNodeName) {
-			// If path is ".foo", we need to subtract ".foo."
-			sub := JoinPath(path, "")
+		// If name starts with the root prefix, it is an absolute path,
+		// check if it matches the provided path
+		if strings.HasPrefix(n.Name, RootPrefix) {
+			// If path is "root.foo", we need to subtract "root.foo."
+			toTrim := JoinPath(path, "")
 
-			if !strings.HasPrefix(n.Name, sub) {
+			if !strings.HasPrefix(n.Name, toTrim) {
 				return "", fmt.Errorf("absolute node name '%s' must match path '%s'",
-					n.Name, path)
+					n.Name, toTrim)
 			}
 
-			n.Name = strings.TrimPrefix(n.Name, sub)
+			n.Name = strings.TrimPrefix(n.Name, toTrim)
 		}
 
-		if strings.Contains(n.Name, NodePathDelimiter) {
-			return "", fmt.Errorf("relative node name '%s' may not contain path delimiter",
-				n.Name)
+		// Any additional segments separated by a node path delimiter
+		// are moved into the path
+		for strings.Contains(n.Name, NodePathDelimiter) {
+			remainingPath, isolatedName := SplitNodePath(n.Name)
+			path = JoinPath(path, remainingPath)
+			n.Name = isolatedName
 		}
 	}
 
