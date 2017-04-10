@@ -126,6 +126,11 @@ See the [Installation instructions](installation)
  * Cilium, BPF and XDP, Google Open Source Blog, Nov 2016:
    [Blog](https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html)
 
+## Weekly Hangout
+ * The developer community is hanging out on zoom on a weekly basis to chat. Everybody is welcome.
+ * Weekly, Monday, 8am PT, 11am ET, 5pm CEST
+ * [Join zoom](https://zoom.us/j/344163933)
+
 ## Contact
 
 If you have any questions feel free to contact us on [Slack](https://cilium.herokuapp.com/)
