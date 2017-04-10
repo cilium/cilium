@@ -23,8 +23,8 @@ docker network inspect $TEST_NET 2> /dev/null || {
         docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
-docker run -dt -ti --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
-docker run -dt -ti --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE
+docker run -d -i --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
+docker run -d -i --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
