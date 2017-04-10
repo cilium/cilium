@@ -14,5 +14,6 @@ Welcome to Cilium's documentation!
    gettingstarted
    architecture
    admin
+   bpf
    api
    contributing
