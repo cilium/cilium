@@ -374,7 +374,7 @@ cilium bpf ct list $SERVER1_ID
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
 			--backends "$SERVER1_IP4:0"
 
-docker exec -ti server1 ping -c 4 $SVC_IP4 || {
+docker exec -i server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
 }
 
