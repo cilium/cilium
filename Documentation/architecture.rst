@@ -25,7 +25,7 @@ in the container cluster:
 
 * **Linux Kernel BPF:** Integrated capability of the Linux kernel to accept compiled bytecode that is run at various hook/trace points within
   the kernel.  Cilium compiles BPF programs and has the kernel run them at key points in the network stack to have visibility and control over all
-  network traffic in/out of all containers.
+  network traffic in / out of all containers.
 
 * **Container Platform Network Plugin:**  Each container platform (e.g., Docker, Kubernetes) has its own plugin
   model for how external networking platforms integrate.  In the case of Docker, each Linux
@@ -46,13 +46,13 @@ Cilium Agent
 The Cilium agent (cilium-agent) runs on each Linux container host.  At a high-level, the agent accepts configuration that describes
 service-level network security and visibility policies.   It then listens to events in the container runtime to
 learn when containers are started or stopped, and it creates custom BPF programs which the Linux kernel uses to control all
-network access in/out of those containers.  In more detail, the agent:
+network access in / out of those containers.  In more detail, the agent:
 
-* Exposes APIs to allow operations/security teams to configure security policies (see below) that control all communication between
+* Exposes APIs to allow operations / security teams to configure security policies (see below) that control all communication between
   containers in the cluster.  These APIs also expose monitoring capabilities to gain additional visibility into network forwarding and filtering
   behavior.
 
-* Gathers metadata about each new container that is created.  In particular, it queries identity metadata like container/pod labels, which are used
+* Gathers metadata about each new container that is created.  In particular, it queries identity metadata like container / pod labels, which are used
   to identify endpoints in Cilium security policies.
 
 * Interacts with the container platforms network plugin to perform IP address management (IPAM), which controls what IPv4 and IPv6 addresses
@@ -62,7 +62,7 @@ network access in/out of those containers.  In more detail, the agent:
   efficient BPF programs that are tailored to the network forwarding and security behavior appropriate for each container.
 
 * Compiles the BPF programs to bytecode using `clang/LLVM <https://clang.llvm.org/>`_ and passes them to the Linux kernel to run at
-  for all packets in/out of the container's virtual ethernet device(s).
+  for all packets in / out of the container's virtual ethernet device(s).
 
 
 Cilium CLI Client
@@ -113,7 +113,7 @@ The Key-Value (KV) Store is used for the following state:
 To simplify things in a larger deployment, the key-value store can be the
 same one used by the container
 orchestrater (e.g., Kubernetes using etcd).  In single node Cilium deployments used for basic
-testing/learning, Cilium can use a local store implemented as golang hashmap, avoiding the need to setup a dedicated K-V store.
+testing / learning, Cilium can use a local store implemented as a golang hash map, avoiding the need to setup a dedicated K-V store.
 
 Container IP Address Management and Connectivity
 ------------------------------------------------
@@ -433,7 +433,7 @@ that allows a Pod-based Kubernetes service to expose itself for access outside o
 In a typical setup, the external traffic would be sent to a publicly reachable IP + port on the host running the
 Kubernetes master, and then be load-balanced to the pods implementing the current service within the cluster.
 
-Cilium supports Ingress with TCP-based load-balancing.  Moreoever, it supports ''direct server return'', meaning that
+Cilium supports Ingress with TCP-based load-balancing.  Moreover, it supports ''direct server return'', meaning that
 reply traffic from the pod to the external client is sent directly, without needing to pass through the kubernetes
 master host.
 
