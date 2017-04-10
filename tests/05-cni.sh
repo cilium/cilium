@@ -95,7 +95,8 @@ export NETCONFPATH=`pwd`/net.d
 
 git clone 'https://github.com/containernetworking/cni'
 cd cni
-./build
+git checkout tags/v0.5.2
+./build.sh
 export CNI_PATH=`pwd`/bin
 cp "${dir}/../plugins/cilium-cni/cilium-cni" "${CNI_PATH}"
 cd scripts
