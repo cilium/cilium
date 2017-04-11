@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	. "github.com/cilium/cilium/api/v1/server/restapi/ipam"
+	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 
@@ -29,25 +29,26 @@ import (
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 )
 
+// AllocateIP allocates a IP address.
 func (d *Daemon) AllocateIP(ip net.IP) *apierror.APIError {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
 	if ip.To4() != nil {
 		if d.ipamConf.IPv4Allocator == nil {
-			return apierror.New(PostIPAMIPDisabledCode, "IPv4 allocation disabled")
+			return apierror.New(ipam.PostIPAMIPDisabledCode, "IPv4 allocation disabled")
 		}
 
 		if err := d.ipamConf.IPv4Allocator.Allocate(ip); err != nil {
-			return apierror.Error(PostIPAMIPFailureCode, err)
+			return apierror.Error(ipam.PostIPAMIPFailureCode, err)
 		}
 	} else {
 		if d.ipamConf.IPv6Allocator == nil {
-			return apierror.New(PostIPAMIPDisabledCode, "IPv6 allocation disabled")
+			return apierror.New(ipam.PostIPAMIPDisabledCode, "IPv6 allocation disabled")
 		}
 
 		if err := d.ipamConf.IPv6Allocator.Allocate(ip); err != nil {
-			return apierror.Error(PostIPAMIPFailureCode, err)
+			return apierror.Error(ipam.PostIPAMIPFailureCode, err)
 		}
 	}
 
@@ -57,30 +58,31 @@ func (d *Daemon) AllocateIP(ip net.IP) *apierror.APIError {
 func (d *Daemon) allocateIP(ipAddr string) *apierror.APIError {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
-		return apierror.New(PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
+		return apierror.New(ipam.PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
 	}
 	return d.AllocateIP(ip)
 }
 
+// ReleaseIP release a IP address.
 func (d *Daemon) ReleaseIP(ip net.IP) *apierror.APIError {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
 	if ip.To4() != nil {
 		if d.ipamConf.IPv4Allocator == nil {
-			return apierror.New(DeleteIPAMIPDisabledCode, "IPv4 allocation disabled")
+			return apierror.New(ipam.DeleteIPAMIPDisabledCode, "IPv4 allocation disabled")
 		}
 
 		if err := d.ipamConf.IPv4Allocator.Release(ip); err != nil {
-			return apierror.Error(DeleteIPAMIPFailureCode, err)
+			return apierror.Error(ipam.DeleteIPAMIPFailureCode, err)
 		}
 	} else {
 		if d.ipamConf.IPv6Allocator == nil {
-			return apierror.New(DeleteIPAMIPDisabledCode, "IPv6 allocation disabled")
+			return apierror.New(ipam.DeleteIPAMIPDisabledCode, "IPv6 allocation disabled")
 		}
 
 		if err := d.ipamConf.IPv6Allocator.Release(ip); err != nil {
-			return apierror.Error(DeleteIPAMIPFailureCode, err)
+			return apierror.Error(ipam.DeleteIPAMIPFailureCode, err)
 		}
 	}
 
@@ -90,7 +92,7 @@ func (d *Daemon) ReleaseIP(ip net.IP) *apierror.APIError {
 func (d *Daemon) releaseIP(ipAddr string) *apierror.APIError {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
-		return apierror.New(DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
+		return apierror.New(ipam.DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
 	}
 	return d.ReleaseIP(ip)
 }
@@ -99,11 +101,13 @@ type postIPAM struct {
 	daemon *Daemon
 }
 
-func NewPostIPAMHandler(d *Daemon) PostIPAMHandler {
+// NewPostIPAMHandler creates a new postIPAM from the daemon.
+func NewPostIPAMHandler(d *Daemon) ipam.PostIPAMHandler {
 	return &postIPAM{daemon: d}
 }
 
-func (h *postIPAM) Handle(params PostIPAMParams) middleware.Responder {
+// Handle incoming requests address allocation requests for the daemon.
+func (h *postIPAM) Handle(params ipam.PostIPAMParams) middleware.Responder {
 	d := h.daemon
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
@@ -120,7 +124,7 @@ func (h *postIPAM) Handle(params PostIPAMParams) middleware.Responder {
 	if (family == "ipv6" || family == "") && d.ipamConf.IPv6Allocator != nil {
 		ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
 		if err != nil {
-			return apierror.Error(PostIPAMFailureCode, err)
+			return apierror.Error(ipam.PostIPAMFailureCode, err)
 		}
 
 		resp.Endpoint.IPV6 = ipConf.String()
@@ -129,45 +133,48 @@ func (h *postIPAM) Handle(params PostIPAMParams) middleware.Responder {
 	if (family == "ipv4" || family == "") && d.ipamConf.IPv4Allocator != nil {
 		ipConf, err := d.ipamConf.IPv4Allocator.AllocateNext()
 		if err != nil {
-			return apierror.Error(PostIPAMFailureCode, err)
+			return apierror.Error(ipam.PostIPAMFailureCode, err)
 		}
 
 		resp.Endpoint.IPV4 = ipConf.String()
 	}
 
-	return NewPostIPAMCreated().WithPayload(resp)
+	return ipam.NewPostIPAMCreated().WithPayload(resp)
 }
 
 type postIPAMIP struct {
 	daemon *Daemon
 }
 
-func NewPostIPAMIPHandler(d *Daemon) PostIPAMIPHandler {
+// NewPostIPAMIPHandler creates a new postIPAM from the daemon.
+func NewPostIPAMIPHandler(d *Daemon) ipam.PostIPAMIPHandler {
 	return &postIPAMIP{daemon: d}
 }
 
-func (h *postIPAMIP) Handle(params PostIPAMIPParams) middleware.Responder {
+// Handle incoming requests address allocation requests for the daemon.
+func (h *postIPAMIP) Handle(params ipam.PostIPAMIPParams) middleware.Responder {
 	if err := h.daemon.allocateIP(params.IP); err != nil {
 		return err
 	}
 
-	return NewPostIPAMIPOK()
+	return ipam.NewPostIPAMIPOK()
 }
 
 type deleteIPAMIP struct {
 	d *Daemon
 }
 
-func NewDeleteIPAMIPHandler(d *Daemon) DeleteIPAMIPHandler {
+// NewDeleteIPAMIPHandler handle incoming requests to delete addresses.
+func NewDeleteIPAMIPHandler(d *Daemon) ipam.DeleteIPAMIPHandler {
 	return &deleteIPAMIP{d: d}
 }
 
-func (h *deleteIPAMIP) Handle(params DeleteIPAMIPParams) middleware.Responder {
+func (h *deleteIPAMIP) Handle(params ipam.DeleteIPAMIPParams) middleware.Responder {
 	if err := h.d.releaseIP(params.IP); err != nil {
 		return err
 	}
 
-	return NewDeleteIPAMIPOK()
+	return ipam.NewDeleteIPAMIPOK()
 }
 
 func (d *Daemon) isReservedAddress(ip net.IP) bool {
