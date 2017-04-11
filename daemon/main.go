@@ -198,7 +198,7 @@ func checkMinRequirements() {
 	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to read bpf_features.h: %s", err)
 	}
-	bpfLogPath := filepath.Join(config.RunDir, "bpf_features.log")
+	bpfLogPath := filepath.Join(config.StateDir, "bpf_features.log")
 	if _, err := os.Stat(bpfLogPath); os.IsNotExist(err) {
 		log.Infof("BPF Verifier: OK!")
 	} else if err == nil {
