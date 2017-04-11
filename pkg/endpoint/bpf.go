@@ -220,7 +220,7 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 
 func (e *Endpoint) runInit(owner Owner, prefix string) error {
 	libdir := owner.GetBpfDir()
-	rundir := owner.GetRuntimeDir()
+	rundir := owner.GetStateDir()
 	args := []string{libdir, rundir, prefix, e.IfName}
 
 	out, err := exec.Command(filepath.Join(libdir, "join_ep.sh"), args...).CombinedOutput()

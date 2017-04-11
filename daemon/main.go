@@ -183,15 +183,16 @@ func checkMinRequirements() {
 	log.Info("linking environment: OK!")
 
 	// Checking for bpf_features
-	globalsDir := filepath.Join(config.RunDir, "globals")
-	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
+	globalsDir := filepath.Join(config.StateDir, "globals")
+	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.Fatalf("Could not create runtime directory %q: %s", globalsDir, err)
 	}
 	if err := os.Chdir(config.LibDir); err != nil {
 		log.Fatalf("Could not change to runtime directory %q: %s",
 			config.LibDir, err)
 	}
-	if err := exec.Command("./bpf/run_probes.sh", "./bpf", config.RunDir).Run(); err != nil {
+	probeScript := filepath.Join(config.BpfDir, "run_probes.sh")
+	if err := exec.Command(probeScript, config.BpfDir, config.StateDir).Run(); err != nil {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to run checker for bpf_features: %s", err)
 	}
 	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
@@ -322,8 +323,14 @@ func initConfig() {
 	if err := os.MkdirAll(config.RunDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Could not create runtime directory %q: %s", config.RunDir, err)
 	}
+
+	config.StateDir = filepath.Join(config.RunDir, defaults.StateDir)
+	if err := os.MkdirAll(config.StateDir, defaults.StateDirRights); err != nil {
+		log.Fatalf("Could not create state directory %q: %s", config.StateDir, err)
+	}
+
 	if err := os.MkdirAll(config.LibDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Could not create library directory %q: %s", config.RunDir, err)
+		log.Fatalf("Could not create library directory %q: %s", config.LibDir, err)
 	}
 	if !config.KeepTemplates {
 		if err := RestoreAssets(config.LibDir, defaults.BpfDir); err != nil {

@@ -19,16 +19,22 @@ const (
 	RuntimePath = "/var/run/cilium"
 
 	// RuntimePathRights are the default access rights of the RuntimePath directory
-	RuntimePathRights = 0770
+	RuntimePathRights = 0775
 
-	// BpfDir is the default path for template files relative to RuntimePath
+	// StateDirRights are the default access rights of the state directory
+	StateDirRights = 0770
+
+	//StateDir is the default path for the state directory relative to RuntimePath
+	StateDir = "state"
+
+	// BpfDir is the default path for template files relative to LibDir
 	BpfDir = "bpf"
 
 	// LibraryPath is the default path to the cilium libraries directory
 	LibraryPath = "/var/lib/cilium"
 
 	// SockPath is the path to the UNIX domain socket exposing the API to clients locally
-	SockPath = "/var/run/cilium.sock"
+	SockPath = RuntimePath + "/cilium.sock"
 
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
