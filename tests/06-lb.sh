@@ -213,7 +213,7 @@ ip route add 2.2.2.2/32 via 3.3.3.3 src $SRC
 
 ip link set lbtest2 up
 LIB=/var/lib/cilium/bpf
-RUN=/var/run/cilium
+RUN=/var/run/cilium/state
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
 NH_MAC="{.addr=$(mac2array $NH_MAC)}"
