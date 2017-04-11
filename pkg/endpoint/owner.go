@@ -49,8 +49,8 @@ type Owner interface {
 	// Must synchronize endpoint object with datapath
 	WriteEndpoint(ep *Endpoint) error
 
-	// Must return path to runtime directory
-	GetRuntimeDir() string
+	// GetStateDir must return path to the state directory
+	GetStateDir() string
 
 	// Must return path to BPF template files directory
 	GetBpfDir() string

@@ -369,7 +369,7 @@ cilium-docker binary automatically registers itself with the local Docker daemon
 
 The cilium-docker binary also communicates
 with the main Cilium Agent via the agent's UNIX domain
-socket (``/var/run/cilium.sock``), so the plugin binary
+socket (``/var/run/cilium/cilium.sock``), so the plugin binary
 must have permissions to send/receive calls to this socket.
 
 Network Creation

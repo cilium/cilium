@@ -2,6 +2,11 @@
 NEWS
 ****
 
+HEAD
+====
+
+- Separate state directory inside runtime directory (`GH #537 <https://github.com/cilium/cilium/pull/537>`_)
+
 0.8.1
 =====
 

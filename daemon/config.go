@@ -62,6 +62,9 @@ type Config struct {
 	KeepConfig    bool // Keep configuration of existing endpoints when starting up.
 	KeepTemplates bool // Do not overwrite the template files
 
+	// StateDir is the directory where runtime state of endpoints is stored
+	StateDir string
+
 	// Options changeable at runtime
 	Opts   *option.BoolOptions
 	OptsMU sync.RWMutex
