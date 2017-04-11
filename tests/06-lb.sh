@@ -379,6 +379,12 @@ docker exec -i server1 ping -c 4 $SVC_IP4 || {
 }
 
 ## Test 5: Run wrk & ab from container => bpf_lxc (LB) => local container
+# Only run these tests if BENCHMARK=1 has been set
+if [ -z $BENCHMARK ]; then
+	echo "Skipping Test 5, not in benchmark mode."
+	echo "Run with BENCHMARK=1 to enable this test"
+	exit 0
+fi
 
 cilium service update --rev --frontend "[$SVC_IP6]:80" --id 2223 \
                         --backends "[$SERVER1_IP]:80" \
