@@ -93,8 +93,9 @@ func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
 	return nil
 }
 
-func (d *Daemon) GetRuntimeDir() string {
-	return d.conf.RunDir
+// GetStateDir returns the path to the state directory
+func (d *Daemon) GetStateDir() string {
+	return d.conf.StateDir
 }
 
 func (d *Daemon) GetBpfDir() string {
@@ -233,13 +234,13 @@ func (d *Daemon) compileBase() error {
 			mode = "direct"
 		}
 
-		args = []string{d.conf.BpfDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
+		args = []string{d.conf.BpfDir, d.conf.StateDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
 	} else {
 		if d.conf.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
-		args = []string{d.conf.BpfDir, d.conf.RunDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
+		args = []string{d.conf.BpfDir, d.conf.StateDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
 	out, err := exec.Command(filepath.Join(d.conf.BpfDir, "init.sh"), args...).CombinedOutput()
@@ -289,14 +290,14 @@ func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
 }
 
 func (d *Daemon) init() error {
-	globalsDir := filepath.Join(d.conf.RunDir, "globals")
+	globalsDir := filepath.Join(d.conf.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
 	}
 
-	if err := os.Chdir(d.conf.RunDir); err != nil {
+	if err := os.Chdir(d.conf.StateDir); err != nil {
 		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
-			d.conf.RunDir, err)
+			d.conf.StateDir, err)
 	}
 
 	f, err := os.Create("./globals/node_config.h")
@@ -535,7 +536,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.l7Proxy = proxy.NewProxy(10000, 20000)
 
 	if c.RestoreState {
-		if err := d.SyncState(d.conf.RunDir, true); err != nil {
+		if err := d.SyncState(d.conf.StateDir, true); err != nil {
 			log.Warningf("Error while recovering endpoints: %s\n", err)
 		}
 		if err := d.SyncLBMap(); err != nil {
