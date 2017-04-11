@@ -72,6 +72,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		Opts:    option.NewBoolOptions(&options.Library),
 	}
 	daemonConf.RunDir = tempRunDir
+	daemonConf.StateDir = tempRunDir
 	daemonConf.LXCMap = nil
 	daemonConf.NodeAddress = nodeAddress
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
