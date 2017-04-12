@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/common"
@@ -33,7 +34,8 @@ import (
 
 // LXCMap is an internal representation of an eBPF LXC Map.
 type LXCMap struct {
-	fd int
+	Mutex sync.Mutex
+	fd    int
 }
 
 const (
@@ -161,6 +163,9 @@ func (m *LXCMap) WriteEndpoint(ep *endpoint.Endpoint) error {
 		}
 	}
 
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+
 	err = bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
 	if err != nil {
 		return err
@@ -183,6 +188,8 @@ func (m *LXCMap) DeleteElement(ep *endpoint.Endpoint) error {
 
 	// FIXME: errors are currently ignored
 	id6 := uint32(ep.ID)
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
 	err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id6))
 
 	if ep.IPv4 != nil {
