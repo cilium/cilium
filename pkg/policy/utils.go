@@ -16,6 +16,7 @@ package policy
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 func SplitNodePath(fullPath string) (string, string) {
@@ -28,4 +29,14 @@ func SplitNodePath(fullPath string) (string, string) {
 
 func JoinPath(a, b string) string {
 	return a + NodePathDelimiter + b
+}
+
+// removeRootPrefix removes an eventual "root." prefix from the path
+func removeRootPrefix(path string) string {
+	cut := JoinPath(RootNodeName, "")
+	if strings.HasPrefix(path, cut) {
+		path = strings.TrimPrefix(path, cut)
+	}
+
+	return path
 }
