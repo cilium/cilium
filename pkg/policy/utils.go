@@ -16,6 +16,7 @@ package policy
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 // SplitNodePath returns path without extension and the extension if any.
@@ -30,4 +31,14 @@ func SplitNodePath(fullPath string) (string, string) {
 // JoinPath returns a joined path from a and b.
 func JoinPath(a, b string) string {
 	return a + NodePathDelimiter + b
+}
+
+// removeRootPrefix removes an eventual "root." prefix from the path
+func removeRootPrefix(path string) string {
+	cut := JoinPath(RootNodeName, "")
+	if strings.HasPrefix(path, cut) {
+		path = strings.TrimPrefix(path, cut)
+	}
+
+	return path
 }

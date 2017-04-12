@@ -32,22 +32,22 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
-	root := Node{}
+	root := NewNode(RootNodeName, nil)
 
 	// adding a root node should succeed
-	added, err := tree.Add(RootNodeName, &root)
+	added, err := tree.Add(RootNodeName, root)
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
 
 	// lookup of root node should succeed now
 	n, p = tree.Lookup(RootNodeName)
-	c.Assert(n, Equals, &root)
+	c.Assert(n, Equals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
 
 	// lookup of empty path should return root node
 	n, p = tree.Lookup("")
-	c.Assert(n, Equals, &root)
+	c.Assert(n, Equals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
 
@@ -59,7 +59,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(p, IsNil)
 
 	// Added a child if no root node exist must add parents of that node
-	foo := &Node{Name: "foo"}
+	foo := NewNode("foo", nil)
 	added, err = tree.Add(RootNodeName+".bar", foo)
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
@@ -75,16 +75,16 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(n, Not(IsNil))
 	c.Assert(p, IsNil)
 
-	fooNode := Node{}
-	root = Node{
+	fooNode := NewNode("foo", nil)
+	root = &Node{
 		Children: map[string]*Node{
-			"foo": &fooNode,
+			"foo": fooNode,
 			"bar": {},
 		},
 	}
 
 	// Add root node with children, should succeed
-	added, err = tree.Add(RootNodeName, &root)
+	added, err = tree.Add(RootNodeName, root)
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
 
@@ -94,14 +94,14 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	// make it the same with this hack
 	root.Children["bar"] = pBar
 	root.resolved = true
-	c.Assert(n, DeepEquals, &root)
+	c.Assert(n, DeepEquals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
 
 	// lookup of child foo should succeed
 	n, p = tree.Lookup("root.foo")
-	c.Assert(n, Equals, &fooNode)
-	c.Assert(p, DeepEquals, &root)
+	c.Assert(n, Equals, fooNode)
+	c.Assert(p, DeepEquals, root)
 
 	// delete root node
 	deleted = tree.Delete("root", "")
@@ -114,6 +114,118 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 
 	// lookup of child foo should fail now
 	n, p = tree.Lookup("root.foo")
+	c.Assert(n, IsNil)
+	c.Assert(p, IsNil)
+}
+
+func (ds *PolicyTestSuite) TestLookup(c *C) {
+	//var nullPtr *Node
+
+	tree := Tree{}
+	foo := NewNode("foo", nil)
+
+	// adding foo to root
+	added, err := tree.Add(RootNodeName, foo)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// search for foo.bar, should return nil, foo
+	n, p := tree.Lookup("foo.bar")
+	c.Assert(n, IsNil)
+	c.Assert(p, Equals, foo)
+
+	// adding bar to foo
+	bar := NewNode("bar", nil)
+	added, err = tree.Add("root.foo", bar)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// lookup of foo
+	n, p = tree.Lookup("foo")
+	c.Assert(n, Equals, foo)
+	c.Assert(n.path, Equals, "root.foo")
+	c.Assert(n.Name, Equals, "foo")
+	c.Assert(p.Name, Equals, "root")
+
+	// lookup of bar should fail
+	n, p = tree.Lookup("bar")
+	c.Assert(n, IsNil)
+	c.Assert(p, IsNil)
+
+	// lookup of foo.bar should suceed
+	n, p = tree.Lookup("foo.bar")
+	c.Assert(n, Equals, bar)
+	c.Assert(n.path, Equals, "root.foo.bar")
+	c.Assert(n.Name, Equals, "bar")
+	c.Assert(p, Equals, foo)
+
+	// lookup of foo.bar.baz should return nil, bar
+	n, p = tree.Lookup("foo.bar.baz")
+	c.Assert(n, IsNil)
+	c.Assert(p, Equals, bar)
+
+	// adding bar to foo
+	deep := Node{Name: "deep"}
+	added, err = tree.Add("foo.bar.1.2.3", &deep)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// lookup of foo.bar.1
+	n, p = tree.Lookup("foo.bar.1")
+	c.Assert(n.Name, Equals, "1")
+	c.Assert(p, Equals, bar)
+
+	// lookup of foo.bar.1.2
+	n, p = tree.Lookup("foo.bar.1.2")
+	c.Assert(n.Name, Equals, "2")
+	c.Assert(p.Name, Equals, "1")
+
+	// lookup of foo.bar.1.2.3.deep
+	n, p = tree.Lookup("foo.bar.1.2.3.deep")
+	c.Assert(n.Name, Equals, "deep")
+	c.Assert(p.Name, Equals, "3")
+}
+
+func (ds *PolicyTestSuite) TestAddDelete2(c *C) {
+	//var nullPtr *Node
+
+	tree := Tree{}
+	root := NewNode("io.cilium", nil)
+
+	// adding "io.cilium" to root node should succeed
+	added, err := tree.Add(RootNodeName, root)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// Lookup io and io.cilium nodes created
+	n, p := tree.Lookup("io")
+	c.Assert(n.Name, Equals, "io")
+	c.Assert(p.Name, Equals, "root")
+	n, p = tree.Lookup("io.cilium")
+	c.Assert(n.Name, Equals, "cilium")
+	c.Assert(p.Name, Equals, "io")
+
+	// adding "k8s-app" to io.cilium.k8s node should succeed
+	k8s := NewNode("k8s-app", nil)
+	added, err = tree.Add("io.cilium.k8s", k8s)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	// Lookup io.cilium.k8s and io.cilium.k8s.k8s-app nodes created
+	n, p = tree.Lookup("io.cilium.k8s")
+	c.Assert(n, Not(IsNil))
+	c.Assert(n.Name, Equals, "k8s")
+	c.Assert(p.Name, Equals, "cilium")
+	c.Assert(p.path, Equals, "root.io.cilium")
+	n, p = tree.Lookup("io.cilium.k8s.k8s-app")
+	c.Assert(n, Equals, k8s)
+	c.Assert(p.Name, Equals, "k8s")
+	c.Assert(p.path, Equals, "root.io.cilium.k8s")
+
+	deleted := tree.Delete(RootNodeName, "")
+	c.Assert(deleted, Equals, true)
+
+	n, p = tree.Lookup(RootNodeName)
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 }
