@@ -29,8 +29,8 @@ import (
 )
 
 type LocalClient struct {
+	lock  sync.RWMutex // lock protects the `store` map
 	store map[string]string
-	lock  sync.RWMutex
 }
 
 type LocalLocker struct {

@@ -34,7 +34,7 @@ import (
 
 // LXCMap is an internal representation of an eBPF LXC Map.
 type LXCMap struct {
-	Mutex sync.Mutex
+	Mutex sync.Mutex // Mutex protects the whole LXCMap.
 	fd    int
 }
 

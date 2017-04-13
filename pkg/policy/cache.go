@@ -19,7 +19,7 @@ import (
 )
 
 type ConsumableCache struct {
-	cacheMU sync.RWMutex
+	cacheMU sync.RWMutex // Protects the `cache` map
 	cache   map[NumericIdentity]*Consumable
 	// List of consumables representing the reserved identities
 	reserved  []*Consumable

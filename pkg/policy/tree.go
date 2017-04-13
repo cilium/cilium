@@ -22,8 +22,9 @@ import (
 
 // Tree overall policy tree.
 type Tree struct {
-	Root  *Node
+	// Mutex protects the whole policy tree
 	Mutex sync.RWMutex
+	Root  *Node
 }
 
 func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {

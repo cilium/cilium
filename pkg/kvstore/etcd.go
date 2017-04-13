@@ -35,10 +35,10 @@ import (
 
 type EtcdClient struct {
 	cli         *client.Client
-	session     *concurrency.Session
 	sessionMU   sync.RWMutex
-	lockPaths   map[string]*sync.Mutex
+	session     *concurrency.Session
 	lockPathsMU sync.Mutex
+	lockPaths   map[string]*sync.Mutex
 }
 
 type EtcdLocker struct {

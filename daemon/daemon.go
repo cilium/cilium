@@ -63,29 +63,34 @@ import (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	ipamConf           *ipam.IPAMConfig
-	kvClient           kvstore.KVClient
-	containers         map[string]*container.Container
-	containersMU       sync.RWMutex
-	endpoints          map[uint16]*endpoint.Endpoint
-	endpointsAux       map[string]*endpoint.Endpoint
-	endpointsMU        sync.RWMutex
-	events             chan events.Event
-	dockerClient       *dClient.Client
-	loadBalancer       *types.LoadBalancer
-	k8sClient          *k8s.Clientset
-	conf               *Config
-	policy             policy.Tree
-	consumableCache    *policy.ConsumableCache
-	ignoredContainers  map[string]int
-	ignoredMutex       sync.RWMutex
-	loopbackIPv4       net.IP
+	buildEndpointChan chan *endpoint.Request
+	conf              *Config
+	consumableCache   *policy.ConsumableCache
+	dockerClient      *dClient.Client
+	events            chan events.Event
+	ipamConf          *ipam.IPAMConfig
+	k8sClient         *k8s.Clientset
+	kvClient          kvstore.KVClient
+	l7Proxy           *proxy.Proxy
+	loadBalancer      *types.LoadBalancer
+	loopbackIPv4      net.IP
+	policy            policy.Tree
+
+	containersMU sync.RWMutex
+	containers   map[string]*container.Container
+
+	endpointsMU  sync.RWMutex
+	endpoints    map[uint16]*endpoint.Endpoint
+	endpointsAux map[string]*endpoint.Endpoint
+
+	ignoredMutex      sync.RWMutex
+	ignoredContainers map[string]int
+
 	maxCachedLabelIDMU sync.RWMutex
 	maxCachedLabelID   policy.NumericIdentity
-	buildEndpointChan  chan *endpoint.Request
-	uniqueID           map[uint64]bool
-	uniqueIDMU         sync.Mutex
-	l7Proxy            *proxy.Proxy
+
+	uniqueIDMU sync.Mutex
+	uniqueID   map[uint64]bool
 }
 
 func (d *Daemon) GetProxy() *proxy.Proxy {

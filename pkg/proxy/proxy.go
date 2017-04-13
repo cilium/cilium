@@ -68,6 +68,9 @@ type ProxySource interface {
 }
 
 type Proxy struct {
+	// mutex is the lock required when modifying any proxy datastructure
+	mutex sync.RWMutex
+
 	// rangeMin is the minimum port used for proxy port allocation
 	rangeMin uint16
 
@@ -86,9 +89,6 @@ type Proxy struct {
 	// redirects is a map of all redirect configurations indexed by
 	// the redirect identifier
 	redirects map[string]*Redirect
-
-	// mutex is the lock required when modifying any proxy datastructure
-	mutex sync.RWMutex
 }
 
 func NewProxy(minPort uint16, maxPort uint16) *Proxy {

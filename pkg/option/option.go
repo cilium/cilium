@@ -122,7 +122,7 @@ func (om OptionMap) DeepCopy() OptionMap {
 }
 
 type BoolOptions struct {
-	optsMU  sync.RWMutex
+	optsMU  sync.RWMutex   // Protects all variables from this structure below this line
 	Opts    OptionMap      `json:"map"`
 	Library *OptionLibrary `json:"-"`
 }

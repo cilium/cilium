@@ -155,8 +155,8 @@ const (
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	Mutex            sync.RWMutex          // Mutex is used for any RW operations made in this structure.
 	ID               uint16                // Endpoint ID.
+	Mutex            sync.RWMutex          // Protects all variables from this structure below this line
 	DockerID         string                // Docker ID.
 	DockerNetworkID  string                // Docker network ID.
 	DockerEndpointID string                // Docker endpoint ID.
