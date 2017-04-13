@@ -35,6 +35,11 @@ echo 1 > /proc/sys/net/core/bpf_jit_enable
 # Disable rp_filter
 echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
 
+# Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
+# interface (https://github.com/docker/libnetwork/issues/1720)
+# Enable IPv6 for now
+sysctl -w net.ipv6.conf.all.disable_ipv6=0
+
 function mac2array()
 {
 	echo "{0x${1//:/,0x}}"

@@ -254,6 +254,7 @@ func (d *Daemon) compileBase() error {
 
 	log.Info("Setting sysctl net.core.bpf_jit_enable=1")
 	log.Info("Setting sysctl net.ipv4.conf.all.rp_filter=0")
+	log.Info("Setting sysctl net.ipv6.conf.all.disable_ipv6=0")
 
 	return nil
 }
