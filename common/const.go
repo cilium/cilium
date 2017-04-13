@@ -45,22 +45,11 @@ const (
 	CiliumLabelSource = "cilium"
 	// K8sLabelSource is the default label source for the labels read from kubernetes.
 	K8sLabelSource = "k8s"
-	// K8sAnnotationName is the annotation name used for the cilium policy name in the
-	// kubernetes network policy.
-	K8sAnnotationName = "io.cilium.name"
 	// K8sLabelPrefix is the default prefix used to represent kubernetes labels
 	K8sLabelPrefix = "io.cilium.k8s."
-	// K8sDefaultParent is the default prefix for network policies received from
-	// kubernetes.
-	K8sDefaultParent = "io.cilium.k8s"
 	// K8sPodNamespaceLabel is the label used in kubernetes containers to specify
 	// which namespace they belong to.
 	K8sPodNamespaceLabel = "io.kubernetes.pod.namespace"
-	// K8sAnnotationParentName is the annotation name used for the cilium policy
-	// parent name in the kubernetes network policy.
-	K8sAnnotationParentName = "io.cilium.parent"
-	// K8sEnvNodeNameSpec is the environment variable label.
-	K8sEnvNodeNameSpec = "K8S_NODE_NAME"
 	// ReservedLabelSource is the label source for reserved types.
 	ReservedLabelSource = "reserved"
 	// ReservedLabelKey is the label used to represent the reserved source.
