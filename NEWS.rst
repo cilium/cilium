@@ -8,7 +8,7 @@ HEAD
 Fixes
 -----
 
--
+- Correctly handle k8s NetworkPolicy matchLabels
 
 Features
 --------

@@ -22,12 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
@@ -51,59 +47,6 @@ func init() {
 	runtime.ErrorHandlers = []func(error){
 		k8sErrorHandler,
 	}
-}
-
-func parseK8sNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error) {
-	// The parent policy node can optionally be specified via an annotation
-	parentNodeName := np.Annotations[k8s.AnnotationParentPath]
-	if parentNodeName == "" {
-		parentNodeName = k8s.DefaultPolicyParentPath
-	}
-
-	policyName := np.Annotations[k8s.AnnotationName]
-	if policyName == "" {
-		policyName = np.Name
-	}
-
-	allowRules := []*policy.AllowRule{}
-	for _, iRule := range np.Spec.Ingress {
-		if iRule.From != nil {
-			for _, rule := range iRule.From {
-				if rule.PodSelector != nil {
-					for k, v := range rule.PodSelector.MatchLabels {
-						l := labels.NewLabel(k, v, "")
-						if l.Source == common.CiliumLabelSource {
-							l.Source = common.K8sLabelSource
-						}
-						ar := &policy.AllowRule{
-							Action: api.ALWAYS_ACCEPT,
-							Labels: labels.LabelArray{l},
-						}
-						allowRules = append(allowRules, ar)
-					}
-				} else if rule.NamespaceSelector != nil {
-					for k := range rule.NamespaceSelector.MatchLabels {
-						l := labels.NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
-						ar := &policy.AllowRule{
-							Action: api.ALWAYS_ACCEPT,
-							Labels: labels.LabelArray{l},
-						}
-						allowRules = append(allowRules, ar)
-					}
-				}
-			}
-		}
-	}
-
-	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
-	pn := policy.NewNode(policyName, nil)
-	pn.Rules = []policy.PolicyRule{
-		&policy.RuleConsumers{
-			Coverage: coverageLbls.ToSlice(),
-			Allow:    allowRules,
-		},
-	}
-	return parentNodeName, pn, nil
 }
 
 // k8sErrorHandler handles the error messages on a non verbose way by omitting
@@ -200,7 +143,7 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy addition")
 		return
 	}
-	parentsPath, pn, err := parseK8sNetworkPolicy(k8sNP)
+	parentsPath, pn, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
@@ -223,7 +166,7 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy deletion")
 		return
 	}
-	parentsPath, pn, err := parseK8sNetworkPolicy(k8sNP)
+	parentsPath, pn, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
