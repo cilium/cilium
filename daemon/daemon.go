@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/events"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -54,9 +55,7 @@ import (
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/vishvananda/netlink"
-	k8s "k8s.io/client-go/1.5/kubernetes"
-	k8sRest "k8s.io/client-go/1.5/rest"
-	k8sClientCmd "k8s.io/client-go/1.5/tools/clientcmd"
+	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -69,7 +68,7 @@ type Daemon struct {
 	dockerClient      *dClient.Client
 	events            chan events.Event
 	ipamConf          *ipam.IPAMConfig
-	k8sClient         *k8s.Clientset
+	k8sClient         *kubernetes.Clientset
 	kvClient          kvstore.KVClient
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
@@ -206,23 +205,6 @@ func (d *Daemon) DebugEnabled() bool {
 func createDockerClient(endpoint string) (*dClient.Client, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
-}
-
-func createK8sClient(endpoint, kubeCfgPath string) (*k8s.Clientset, error) {
-	var (
-		config *k8sRest.Config
-		err    error
-	)
-	if kubeCfgPath != "" {
-		config, err = k8sClientCmd.BuildConfigFromFlags("", kubeCfgPath)
-	} else {
-		config = &k8sRest.Config{Host: endpoint}
-		err = k8sRest.SetKubernetesDefaults(config)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return k8s.NewForConfig(config)
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
@@ -588,12 +570,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.listenForCiliumEvents()
 
 	if c.IsK8sEnabled() {
-		d.k8sClient, err = createK8sClient(c.K8sEndpoint, c.K8sCfgPath)
+		d.k8sClient, err = k8s.CreateClient(c.K8sEndpoint, c.K8sCfgPath)
 		if err != nil {
 			return nil, err
 		}
 
-		if nodeName := os.Getenv(common.K8sEnvNodeNameSpec); nodeName != "" {
+		if nodeName := os.Getenv(k8s.EnvNodeNameSpec); nodeName != "" {
 			// Try to retrieve node's cidr from k8s's configuration
 			if err := d.useK8sNodeCIDR(nodeName); err != nil {
 				return nil, err

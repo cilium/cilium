@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -52,16 +53,15 @@ func init() {
 }
 
 func parseK8sNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error) {
-	var parentNodeName, policyName string
-	if np.Annotations[common.K8sAnnotationParentName] == "" {
-		parentNodeName = common.K8sDefaultParent
-	} else {
-		parentNodeName = np.Annotations[common.K8sAnnotationParentName]
+	// The parent policy node can optionally be specified via an annotation
+	parentNodeName := np.Annotations[k8s.AnnotationParentPath]
+	if parentNodeName == "" {
+		parentNodeName = k8s.DefaultPolicyParentPath
 	}
-	if np.Annotations[common.K8sAnnotationName] == "" {
+
+	policyName := np.Annotations[k8s.AnnotationName]
+	if policyName == "" {
 		policyName = np.Name
-	} else {
-		policyName = np.Annotations[common.K8sAnnotationName]
 	}
 
 	allowRules := []*policy.AllowRule{}
