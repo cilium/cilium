@@ -2,8 +2,8 @@
 NEWS
 ****
 
-HEAD
-====
+0.8.2
+=====
 
 - Separate state directory inside runtime directory (`GH #537 <https://github.com/cilium/cilium/pull/537>`_)
 - Fix all remaining testsuites and have Jenkins fail properly on all failures (`GH #513 <https://github.com/cilium/cilium/pull/513>`_)
