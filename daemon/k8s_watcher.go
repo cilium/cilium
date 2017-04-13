@@ -144,9 +144,9 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1beta1.NetworkPolicy{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.policyAddFn,
-			UpdateFunc: d.policyModFn,
-			DeleteFunc: d.policyDelFn,
+			AddFunc:    d.addK8sNetworkPolicy,
+			UpdateFunc: d.updateK8sNetworkPolicy,
+			DeleteFunc: d.deleteK8sNetworkPolicy,
 		},
 	)
 	go policyController.Run(wait.NeverStop)
@@ -193,7 +193,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	return nil
 }
 
-func (d *Daemon) policyAddFn(obj interface{}) {
+func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
 	if !ok {
 		return
@@ -210,12 +210,12 @@ func (d *Daemon) policyAddFn(obj interface{}) {
 	log.Infof("Kubernetes network policy '%s' successfully add", k8sNP.Name)
 }
 
-func (d *Daemon) policyModFn(oldObj interface{}, newObj interface{}) {
+func (d *Daemon) updateK8sNetworkPolicy(oldObj interface{}, newObj interface{}) {
 	log.Debugf("Modified policy %+v->%+v", oldObj, newObj)
-	d.policyAddFn(newObj)
+	d.addK8sNetworkPolicy(newObj)
 }
 
-func (d *Daemon) policyDelFn(obj interface{}) {
+func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
 	if !ok {
 		return
