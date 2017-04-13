@@ -12,13 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+package container
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
 
 	dTypes "github.com/docker/engine-api/types"
-	k8sDockerLbls "k8s.io/client-go/1.5/pkg/kubelet/types"
+)
+
+const (
+	// KubernetesContainerNameLabel is the name of the pod label carrying
+	// the name of the container
+	KubernetesContainerNameLabel = "io.kubernetes.container.name"
 )
 
 type Container struct {
@@ -29,7 +34,7 @@ type Container struct {
 
 func (c *Container) IsDockerOrInfracontainer() bool {
 	if c.Config != nil {
-		contName, exists := c.Config.Labels[k8sDockerLbls.KubernetesContainerNameLabel]
+		contName, exists := c.Config.Labels[KubernetesContainerNameLabel]
 		return !exists || contName == "POD"
 	}
 	return false

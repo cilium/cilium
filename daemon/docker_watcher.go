@@ -26,7 +26,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -205,18 +205,18 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 	return normalLabels
 }
 
-func (d *Daemon) retrieveWorkingContainerCopy(id string) (types.Container, bool) {
+func (d *Daemon) retrieveWorkingContainerCopy(id string) (container.Container, bool) {
 	d.containersMU.RLock()
 	defer d.containersMU.RUnlock()
 
 	if c, ok := d.containers[id]; ok {
 		return *c, true
 	}
-	return types.Container{}, false
+	return container.Container{}, false
 }
 
-func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) types.Container {
-	return types.Container{
+func createContainer(dc *dTypes.ContainerJSON, l labels.Labels) container.Container {
+	return container.Container{
 		ContainerJSON: *dc,
 		OpLabels: labels.OpLabels{
 			Custom:        labels.Labels{},
@@ -362,7 +362,7 @@ func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, l
 	return &dockerCont, newLabels, nil
 }
 
-func updateOrchLabels(c *types.Container, l labels.Labels) bool {
+func updateOrchLabels(c *container.Container, l labels.Labels) bool {
 	changed := false
 
 	c.OpLabels.Orchestration.MarkAllForDeletion()

@@ -23,8 +23,8 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -141,7 +141,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	return identity, isNew, nil
 }
 
-func (d *Daemon) updateContainerIdentity(container *types.Container) (*policy.Identity, error) {
+func (d *Daemon) updateContainerIdentity(container *container.Container) (*policy.Identity, error) {
 	lbls := container.OpLabels.Enabled()
 	log.Debugf("Container %s is resolving identity for labels %+v", container.ID, lbls)
 
