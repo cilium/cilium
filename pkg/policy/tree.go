@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // Tree overall policy tree.
@@ -33,9 +35,9 @@ func NewTree() *Tree {
 	return tree
 }
 
-func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
+func canConsume(root *Node, ctx *SearchContext) api.ConsumableDecision {
 	ctx.Depth++
-	decision := UNDECIDED
+	decision := api.UNDECIDED
 	nmatch := 0
 	defer func() {
 		if nmatch != 0 {
@@ -49,14 +51,14 @@ func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
 			policyTrace(ctx, "Coverage found in [%s], processing rules...\n", child.path)
 			ctx.Depth++
 			switch child.Allows(ctx) {
-			case DENY:
+			case api.DENY:
 				ctx.Depth--
-				return DENY
-			case ALWAYS_ACCEPT:
+				return api.DENY
+			case api.ALWAYS_ACCEPT:
 				ctx.Depth--
-				return ALWAYS_ACCEPT
-			case ACCEPT:
-				decision = ACCEPT
+				return api.ALWAYS_ACCEPT
+			case api.ACCEPT:
+				decision = api.ACCEPT
 			}
 			ctx.Depth--
 			policyTrace(ctx, "No conclusion in [%s] rules, current verdict: [%s]\n", child.path, decision)
@@ -72,12 +74,12 @@ func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
 			switch canConsume(child, ctx) {
-			case DENY:
-				return DENY
-			case ALWAYS_ACCEPT:
-				return ALWAYS_ACCEPT
-			case ACCEPT:
-				decision = ACCEPT
+			case api.DENY:
+				return api.DENY
+			case api.ALWAYS_ACCEPT:
+				return api.ALWAYS_ACCEPT
+			case api.ACCEPT:
+				decision = api.ACCEPT
 			}
 		}
 	}
@@ -87,13 +89,13 @@ func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
 
 // AllowsRLocked checks the ConsumableDecision of the given `SearchContext`.
 // Must be called with the Mutex's tree at least RLocked.
-func (t *Tree) AllowsRLocked(ctx *SearchContext) ConsumableDecision {
+func (t *Tree) AllowsRLocked(ctx *SearchContext) api.ConsumableDecision {
 	policyTrace(ctx, "NEW TRACE >> %s\n", ctx.String())
 
-	var decision, subDecision ConsumableDecision
+	var decision, subDecision api.ConsumableDecision
 	// In absence of policy, deny
 	if t.Root == nil {
-		decision = DENY
+		decision = api.DENY
 		policyTrace(ctx, "No policy loaded: [%s]\n", decision.String())
 		goto end
 	}
@@ -101,10 +103,10 @@ func (t *Tree) AllowsRLocked(ctx *SearchContext) ConsumableDecision {
 	decision = t.Root.Allows(ctx)
 	policyTrace(ctx, "Root's [%s] rules verdict: [%s]\n", t.Root.path, decision)
 	switch decision {
-	case ALWAYS_ACCEPT:
-		decision = ACCEPT
+	case api.ALWAYS_ACCEPT:
+		decision = api.ACCEPT
 		goto end
-	case DENY:
+	case api.DENY:
 		goto end
 	}
 
@@ -112,13 +114,13 @@ func (t *Tree) AllowsRLocked(ctx *SearchContext) ConsumableDecision {
 	subDecision = canConsume(t.Root, ctx)
 	policyTrace(ctx, "Root's [%s] children verdict: [%s]\n", t.Root.path, subDecision)
 	switch subDecision {
-	case ALWAYS_ACCEPT, ACCEPT:
-		decision = ACCEPT
-	case DENY:
-		decision = DENY
-	case UNDECIDED:
-		if decision == UNDECIDED {
-			decision = DENY
+	case api.ALWAYS_ACCEPT, api.ACCEPT:
+		decision = api.ACCEPT
+	case api.DENY:
+		decision = api.DENY
+	case api.UNDECIDED:
+		if decision == api.UNDECIDED {
+			decision = api.DENY
 		}
 	}
 

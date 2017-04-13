@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
 )
@@ -51,9 +52,15 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Coverage: []*labels.Label{lblBar},
 				Allow: []*policy.AllowRule{
 					// always-allow: user=joe
-					{Action: policy.ALWAYS_ACCEPT, Label: lblJoe},
+					{
+						Action: api.ALWAYS_ACCEPT,
+						Labels: labels.LabelArray{lblJoe},
+					},
 					// allow:  user=pete
-					{Action: policy.ACCEPT, Label: lblPete},
+					{
+						Action: api.ACCEPT,
+						Labels: labels.LabelArray{lblPete},
+					},
 				},
 			},
 			&policy.RuleRequires{ // coverage qa, requires qa
@@ -72,11 +79,17 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 					&policy.RuleConsumers{
 						Allow: []*policy.AllowRule{
 							{ // allow: foo
-								Action: policy.ACCEPT,
-								Label:  lblFoo,
+								Action: api.ACCEPT,
+								Labels: labels.LabelArray{lblFoo},
 							},
-							{Action: policy.DENY, Label: lblJoe},
-							{Action: policy.DENY, Label: lblPete},
+							{
+								Action: api.DENY,
+								Labels: labels.LabelArray{lblJoe},
+							},
+							{
+								Action: api.DENY,
+								Labels: labels.LabelArray{lblPete},
+							},
 						},
 					},
 				},

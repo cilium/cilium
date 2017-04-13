@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/spf13/cobra"
 )
@@ -98,7 +99,7 @@ func listMap(cmd *cobra.Command, args []string) {
 	}
 	for _, stat := range statsMap {
 		id := policy.NumericIdentity(stat.ID)
-		act := policy.ConsumableDecision(stat.Action)
+		act := api.ConsumableDecision(stat.Action)
 		if printIDs {
 			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil {

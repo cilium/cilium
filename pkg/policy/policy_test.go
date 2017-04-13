@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
 )
@@ -43,27 +44,27 @@ func (s *PolicyTestSuite) TestUnmarshalAllowRule(c *C) {
 
 	err := json.Unmarshal([]byte(longLabel), &rule)
 	c.Assert(err, Equals, nil)
-	c.Assert(rule.Action, Equals, DENY)
-	c.Assert(rule.Label.Source, Equals, "kubernetes")
-	c.Assert(rule.Label.AbsoluteKey(), Equals, "root.io.kubernetes.pod.name")
-	c.Assert(rule.Label.Value, Equals, "foo")
+	c.Assert(rule.Action, Equals, api.DENY)
+	c.Assert(rule.Labels[0].Source, Equals, "kubernetes")
+	c.Assert(rule.Labels[0].AbsoluteKey(), Equals, "root.io.kubernetes.pod.name")
+	c.Assert(rule.Labels[0].Value, Equals, "foo")
 
 	err = json.Unmarshal([]byte(invLabel), &rule)
 	c.Assert(err, Not(Equals), nil)
 
 	err = json.Unmarshal([]byte(shortLabel), &rule)
 	c.Assert(err, Equals, nil)
-	c.Assert(rule.Action, Equals, ACCEPT)
-	c.Assert(rule.Label.Source, Equals, common.CiliumLabelSource)
-	c.Assert(rule.Label.AbsoluteKey(), Equals, "root.web")
-	c.Assert(rule.Label.Value, Equals, "")
+	c.Assert(rule.Action, Equals, api.ACCEPT)
+	c.Assert(rule.Labels[0].Source, Equals, common.CiliumLabelSource)
+	c.Assert(rule.Labels[0].AbsoluteKey(), Equals, "root.web")
+	c.Assert(rule.Labels[0].Value, Equals, "")
 
 	err = json.Unmarshal([]byte(invertedLabel), &rule)
 	c.Assert(err, Equals, nil)
-	c.Assert(rule.Action, Equals, DENY)
-	c.Assert(rule.Label.Source, Equals, common.CiliumLabelSource)
-	c.Assert(rule.Label.AbsoluteKey(), Equals, "root.web")
-	c.Assert(rule.Label.Value, Equals, "")
+	c.Assert(rule.Action, Equals, api.DENY)
+	c.Assert(rule.Labels[0].Source, Equals, common.CiliumLabelSource)
+	c.Assert(rule.Labels[0].AbsoluteKey(), Equals, "root.web")
+	c.Assert(rule.Labels[0].Value, Equals, "")
 
 	err = json.Unmarshal([]byte(""), &rule)
 	c.Assert(err, Not(Equals), nil)
@@ -101,29 +102,29 @@ func (s *PolicyTestSuite) TestNodeCovers(c *C) {
 }
 
 func (s *PolicyTestSuite) TestAllowRule(c *C) {
-	lblFoo := labels.NewLabel("foo", "", common.CiliumLabelSource)
-	lblBar := labels.NewLabel("bar", "", common.CiliumLabelSource)
-	lblBaz := labels.NewLabel("baz", "", common.CiliumLabelSource)
-	lblAll := labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource)
-	allow := &AllowRule{Action: ACCEPT, Label: lblFoo}
-	deny := &AllowRule{Action: DENY, Label: lblFoo}
-	allowAll := &AllowRule{Action: ACCEPT, Label: lblAll}
+	lblFoo := labels.LabelArray{labels.NewLabel("foo", "", common.CiliumLabelSource)}
+	lblBar := labels.LabelArray{labels.NewLabel("bar", "", common.CiliumLabelSource)}
+	lblBaz := labels.LabelArray{labels.NewLabel("baz", "", common.CiliumLabelSource)}
+	lblAll := labels.LabelArray{labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource)}
+	allow := &AllowRule{Action: api.ACCEPT, Labels: lblFoo}
+	deny := &AllowRule{Action: api.DENY, Labels: lblFoo}
+	allowAll := &AllowRule{Action: api.ACCEPT, Labels: lblAll}
 
 	ctx := SearchContext{
-		From: []*labels.Label{lblFoo},
-		To:   []*labels.Label{lblBar},
+		From: lblFoo,
+		To:   lblBar,
 	}
 	ctx2 := SearchContext{
-		From: []*labels.Label{lblBaz},
-		To:   []*labels.Label{lblBar},
+		From: lblBaz,
+		To:   lblBar,
 	}
 
-	c.Assert(allow.Allows(&ctx), Equals, ACCEPT)
-	c.Assert(deny.Allows(&ctx), Equals, DENY)
-	c.Assert(allowAll.Allows(&ctx), Equals, ACCEPT)
-	c.Assert(allow.Allows(&ctx2), Equals, UNDECIDED)
-	c.Assert(deny.Allows(&ctx2), Equals, UNDECIDED)
-	c.Assert(allowAll.Allows(&ctx2), Equals, ACCEPT)
+	c.Assert(allow.Allows(&ctx), Equals, api.ACCEPT)
+	c.Assert(deny.Allows(&ctx), Equals, api.DENY)
+	c.Assert(allowAll.Allows(&ctx), Equals, api.ACCEPT)
+	c.Assert(allow.Allows(&ctx2), Equals, api.UNDECIDED)
+	c.Assert(deny.Allows(&ctx2), Equals, api.UNDECIDED)
+	c.Assert(allowAll.Allows(&ctx2), Equals, api.ACCEPT)
 }
 
 func (s *PolicyTestSuite) TestTargetCoveredBy(c *C) {
@@ -175,27 +176,27 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 
 	// [Baz, TeamA] -> Bar
 	aBazToBar := SearchContext{
-		From: []*labels.Label{lblTeamA, lblBaz},
-		To:   []*labels.Label{lblBar},
+		From: labels.LabelArray{lblTeamA, lblBaz},
+		To:   labels.LabelArray{lblBar},
 	}
 
 	// [Foo,TeamB] -> Bar
 	bFooToBar := SearchContext{
-		From: []*labels.Label{lblTeamB, lblFoo},
-		To:   []*labels.Label{lblBar},
+		From: labels.LabelArray{lblTeamB, lblFoo},
+		To:   labels.LabelArray{lblBar},
 	}
 
 	// [Baz, TeamB] -> Bar
 	bBazToBar := SearchContext{
-		From: []*labels.Label{lblTeamB, lblBaz},
-		To:   []*labels.Label{lblBar},
+		From: labels.LabelArray{lblTeamB, lblBaz},
+		To:   labels.LabelArray{lblBar},
 	}
 
-	allowFoo := &AllowRule{Action: ACCEPT, Label: lblFoo}
-	dontAllowFoo := &AllowRule{Action: DENY, Label: lblFoo}
-	allowTeamA := &AllowRule{Action: ACCEPT, Label: lblTeamA}
-	dontAllowBaz := &AllowRule{Action: DENY, Label: lblBaz}
-	alwaysAllowFoo := &AllowRule{Action: ALWAYS_ACCEPT, Label: lblFoo}
+	allowFoo := &AllowRule{Action: api.ACCEPT, Labels: labels.LabelArray{lblFoo}}
+	dontAllowFoo := &AllowRule{Action: api.DENY, Labels: labels.LabelArray{lblFoo}}
+	allowTeamA := &AllowRule{Action: api.ACCEPT, Labels: labels.LabelArray{lblTeamA}}
+	dontAllowBaz := &AllowRule{Action: api.DENY, Labels: labels.LabelArray{lblBaz}}
+	alwaysAllowFoo := &AllowRule{Action: api.ALWAYS_ACCEPT, Labels: labels.LabelArray{lblFoo}}
 
 	// Allow: foo, !foo
 	consumers := RuleConsumers{
@@ -206,10 +207,10 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 	// NOTE: We are testing on single consumer rule leve, there is
 	// no default deny policy enforced. No match equals UNDECIDED
 
-	c.Assert(consumers.Allows(&aFooToBar), Equals, DENY)
-	c.Assert(consumers.Allows(&bFooToBar), Equals, DENY)
-	c.Assert(consumers.Allows(&aBazToBar), Equals, UNDECIDED)
-	c.Assert(consumers.Allows(&bBazToBar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&aFooToBar), Equals, api.DENY)
+	c.Assert(consumers.Allows(&bFooToBar), Equals, api.DENY)
+	c.Assert(consumers.Allows(&aBazToBar), Equals, api.UNDECIDED)
+	c.Assert(consumers.Allows(&bBazToBar), Equals, api.UNDECIDED)
 
 	// Always-Allow: foo, !foo
 	consumers = RuleConsumers{
@@ -217,10 +218,10 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 		Allow:    []*AllowRule{alwaysAllowFoo, dontAllowFoo},
 	}
 
-	c.Assert(consumers.Allows(&aFooToBar), Equals, ALWAYS_ACCEPT)
-	c.Assert(consumers.Allows(&bFooToBar), Equals, ALWAYS_ACCEPT)
-	c.Assert(consumers.Allows(&aBazToBar), Equals, UNDECIDED)
-	c.Assert(consumers.Allows(&bBazToBar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&aFooToBar), Equals, api.ALWAYS_ACCEPT)
+	c.Assert(consumers.Allows(&bFooToBar), Equals, api.ALWAYS_ACCEPT)
+	c.Assert(consumers.Allows(&aBazToBar), Equals, api.UNDECIDED)
+	c.Assert(consumers.Allows(&bBazToBar), Equals, api.UNDECIDED)
 
 	// Allow: TeamA, !baz
 	consumers = RuleConsumers{
@@ -228,10 +229,10 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 		Allow:    []*AllowRule{allowTeamA, dontAllowBaz},
 	}
 
-	c.Assert(consumers.Allows(&aFooToBar), Equals, ACCEPT)
-	c.Assert(consumers.Allows(&aBazToBar), Equals, DENY)
-	c.Assert(consumers.Allows(&bFooToBar), Equals, UNDECIDED)
-	c.Assert(consumers.Allows(&bBazToBar), Equals, DENY)
+	c.Assert(consumers.Allows(&aFooToBar), Equals, api.ACCEPT)
+	c.Assert(consumers.Allows(&aBazToBar), Equals, api.DENY)
+	c.Assert(consumers.Allows(&bFooToBar), Equals, api.UNDECIDED)
+	c.Assert(consumers.Allows(&bBazToBar), Equals, api.DENY)
 
 	// Allow: TeamA, !baz
 	consumers = RuleConsumers{
@@ -239,10 +240,10 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 		Allow:    []*AllowRule{allowTeamA, dontAllowBaz},
 	}
 
-	c.Assert(consumers.Allows(&aFooToBar), Equals, UNDECIDED)
-	c.Assert(consumers.Allows(&aBazToBar), Equals, UNDECIDED)
-	c.Assert(consumers.Allows(&bFooToBar), Equals, UNDECIDED)
-	c.Assert(consumers.Allows(&bBazToBar), Equals, UNDECIDED)
+	c.Assert(consumers.Allows(&aFooToBar), Equals, api.UNDECIDED)
+	c.Assert(consumers.Allows(&aBazToBar), Equals, api.UNDECIDED)
+	c.Assert(consumers.Allows(&bFooToBar), Equals, api.UNDECIDED)
+	c.Assert(consumers.Allows(&bBazToBar), Equals, api.UNDECIDED)
 }
 
 func (s *PolicyTestSuite) TestBuildPath(c *C) {
@@ -323,9 +324,9 @@ func (s *PolicyTestSuite) TestRequires(c *C) {
 		Requires: []*labels.Label{lblFoo},
 	}
 
-	c.Assert(requires.Allows(&aFooToBar), Equals, UNDECIDED)
-	c.Assert(requires.Allows(&aBazToBar), Equals, DENY)
-	c.Assert(requires.Allows(&aBarToBaz), Equals, UNDECIDED)
+	c.Assert(requires.Allows(&aFooToBar), Equals, api.UNDECIDED)
+	c.Assert(requires.Allows(&aBazToBar), Equals, api.DENY)
+	c.Assert(requires.Allows(&aBarToBaz), Equals, api.UNDECIDED)
 }
 
 func (s *PolicyTestSuite) TestNodeAllows(c *C) {
@@ -339,14 +340,14 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 
 	// [Foo,QA] -> [Bar,QA]
 	qaFooToQaBar := SearchContext{
-		From: []*labels.Label{lblQA, lblFoo},
-		To:   []*labels.Label{lblBar, lblQA},
+		From: labels.LabelArray{lblQA, lblFoo},
+		To:   labels.LabelArray{lblBar, lblQA},
 	}
 
 	// [Foo, Prod] -> [Bar,Prod]
 	prodFooToProdBar := SearchContext{
-		From: []*labels.Label{lblProd, lblFoo},
-		To:   []*labels.Label{lblBar},
+		From: labels.LabelArray{lblProd, lblFoo},
+		To:   labels.LabelArray{lblBar},
 	}
 
 	// [Foo,QA] -> [Bar,prod]
@@ -380,12 +381,12 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 				Coverage: []*labels.Label{lblBar},
 				Allow: []*AllowRule{
 					{ // always-allow:  user=joe
-						Action: ALWAYS_ACCEPT,
-						Label:  lblJoe,
+						Action: api.ALWAYS_ACCEPT,
+						Labels: labels.LabelArray{lblJoe},
 					},
 					{ // allow:  user=pete
-						Action: ACCEPT,
-						Label:  lblPete,
+						Action: api.ACCEPT,
+						Labels: labels.LabelArray{lblPete},
 					},
 				},
 			},
@@ -401,8 +402,8 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 				Coverage: []*labels.Label{lblBar},
 				Allow: []*AllowRule{
 					{ // allow: foo
-						Action: ACCEPT,
-						Label:  lblFoo,
+						Action: api.ACCEPT,
+						Labels: labels.LabelArray{lblFoo},
 					},
 				},
 			},
@@ -411,12 +412,12 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 
 	c.Assert(rootNode.ResolveTree(), Equals, nil)
 
-	c.Assert(rootNode.Allows(&qaFooToQaBar), Equals, ACCEPT)
-	c.Assert(rootNode.Allows(&prodFooToProdBar), Equals, ACCEPT)
-	c.Assert(rootNode.Allows(&qaFooToProdBar), Equals, DENY)
-	c.Assert(rootNode.Allows(&qaJoeFooToProdBar), Equals, ALWAYS_ACCEPT)
-	c.Assert(rootNode.Allows(&qaPeteFooToProdBar), Equals, DENY)
-	c.Assert(rootNode.Allows(&qaBazToQaBar), Equals, UNDECIDED)
+	c.Assert(rootNode.Allows(&qaFooToQaBar), Equals, api.ACCEPT)
+	c.Assert(rootNode.Allows(&prodFooToProdBar), Equals, api.ACCEPT)
+	c.Assert(rootNode.Allows(&qaFooToProdBar), Equals, api.DENY)
+	c.Assert(rootNode.Allows(&qaJoeFooToProdBar), Equals, api.ALWAYS_ACCEPT)
+	c.Assert(rootNode.Allows(&qaPeteFooToProdBar), Equals, api.DENY)
+	c.Assert(rootNode.Allows(&qaBazToQaBar), Equals, api.UNDECIDED)
 }
 
 func (s *PolicyTestSuite) TestResolveTree(c *C) {
@@ -482,9 +483,15 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 				Coverage: []*labels.Label{lblBar},
 				Allow: []*AllowRule{
 					// always-allow: user=joe
-					{Action: ALWAYS_ACCEPT, Label: lblJoe},
+					{
+						Action: api.ALWAYS_ACCEPT,
+						Labels: labels.LabelArray{lblJoe},
+					},
 					// allow:  user=pete
-					{Action: ACCEPT, Label: lblPete},
+					{
+						Action: api.ACCEPT,
+						Labels: labels.LabelArray{lblPete},
+					},
 				},
 			},
 			&RuleRequires{ // coverage qa, requires qa
@@ -502,9 +509,16 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 				Rules: []PolicyRule{
 					&RuleConsumers{
 						Allow: []*AllowRule{
-							{Action: ACCEPT, Label: lblFoo},
-							{Action: DENY, Label: lblJoe},
-							{Action: DENY, Label: lblPete},
+							{
+								Action: api.ACCEPT,
+								Labels: labels.LabelArray{lblFoo}},
+							{
+								Action: api.DENY,
+								Labels: labels.LabelArray{lblJoe}},
+							{
+								Action: api.DENY,
+								Labels: labels.LabelArray{lblPete},
+							},
 						},
 					},
 				},
@@ -515,12 +529,12 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 	root := NewTree()
 	_, err := root.Add("root", &rootNode)
 	c.Assert(err, IsNil)
-	c.Assert(root.AllowsRLocked(&qaFooToQaBar), Equals, ACCEPT)
-	c.Assert(root.AllowsRLocked(&prodFooToProdBar), Equals, ACCEPT)
-	c.Assert(root.AllowsRLocked(&qaFooToProdBar), Equals, DENY)
-	c.Assert(root.AllowsRLocked(&qaJoeFooToProdBar), Equals, ACCEPT)
-	c.Assert(root.AllowsRLocked(&qaPeteFooToProdBar), Equals, DENY)
-	c.Assert(root.AllowsRLocked(&qaBazToQaBar), Equals, DENY)
+	c.Assert(root.AllowsRLocked(&qaFooToQaBar), Equals, api.ACCEPT)
+	c.Assert(root.AllowsRLocked(&prodFooToProdBar), Equals, api.ACCEPT)
+	c.Assert(root.AllowsRLocked(&qaFooToProdBar), Equals, api.DENY)
+	c.Assert(root.AllowsRLocked(&qaJoeFooToProdBar), Equals, api.ACCEPT)
+	c.Assert(root.AllowsRLocked(&qaPeteFooToProdBar), Equals, api.DENY)
+	c.Assert(root.AllowsRLocked(&qaBazToQaBar), Equals, api.DENY)
 
 	_, err = json.MarshalIndent(rootNode, "", "    ")
 	c.Assert(err, Equals, nil)
@@ -564,8 +578,14 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 				Rules: []PolicyRule{
 					&RuleConsumers{
 						Allow: []*AllowRule{
-							{Action: ACCEPT, Label: lblJoe},
-							{Action: ACCEPT, Label: lblPete},
+							{
+								Action: api.ACCEPT,
+								Labels: labels.LabelArray{lblJoe},
+							},
+							{
+								Action: api.ACCEPT,
+								Labels: labels.LabelArray{lblPete},
+							},
 						},
 					},
 				},
@@ -593,8 +613,8 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 					&RuleConsumers{
 						Allow: []*AllowRule{
 							{ // allow: foo
-								Action: ACCEPT,
-								Label:  lblFoo,
+								Action: api.ACCEPT,
+								Labels: labels.LabelArray{lblFoo},
 							},
 						},
 					},
@@ -616,8 +636,8 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 			&RuleConsumers{
 				Allow: []*AllowRule{
 					{ // deny: foo
-						Action: DENY,
-						Label:  lblFoo,
+						Action: api.DENY,
+						Labels: labels.LabelArray{lblFoo},
 					},
 				},
 			},
@@ -638,11 +658,11 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
 	scr := SearchContextReply{
 		Logging:  []byte(`foo`),
-		Decision: ConsumableDecision(0x1),
+		Decision: api.ConsumableDecision(0x1),
 	}
 	scrWanted := SearchContextReply{
 		Logging:  []byte(`foo`),
-		Decision: ConsumableDecision(0x1),
+		Decision: api.ConsumableDecision(0x1),
 	}
 	b, err := json.Marshal(scr)
 	c.Assert(err, IsNil)
@@ -655,13 +675,13 @@ func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
 }
 
 func (s *PolicyTestSuite) TestRuleMergeable(c *C) {
-	deny := &AllowRule{Action: DENY}
+	deny := &AllowRule{Action: api.DENY}
 	c.Assert(deny.IsMergeable(), Equals, false)
 
-	allow := &AllowRule{Action: ACCEPT}
+	allow := &AllowRule{Action: api.ACCEPT}
 	c.Assert(allow.IsMergeable(), Equals, true)
 
-	alwaysAllow := &AllowRule{Action: ALWAYS_ACCEPT}
+	alwaysAllow := &AllowRule{Action: api.ALWAYS_ACCEPT}
 	c.Assert(alwaysAllow.IsMergeable(), Equals, true)
 
 	req := RuleRequires{}

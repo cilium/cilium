@@ -16,6 +16,8 @@ package policy
 
 import (
 	. "gopkg.in/check.v1"
+
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 const (
@@ -27,7 +29,7 @@ const (
 func (s *PolicyTestSuite) TestNewConsumer(c *C) {
 	consumer := NewConsumer(CONSUMER_ID1)
 	c.Assert(consumer.ID, Equals, CONSUMER_ID1)
-	c.Assert(consumer.Decision, Equals, ACCEPT)
+	c.Assert(consumer.Decision, Equals, api.ACCEPT)
 }
 
 func (s *PolicyTestSuite) TestGetConsumer(c *C) {

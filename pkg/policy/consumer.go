@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // Consumer is the entity that consumes a Consumable.
@@ -27,7 +28,7 @@ type Consumer struct {
 	ID           NumericIdentity
 	Reverse      *Consumer
 	DeletionMark bool
-	Decision     ConsumableDecision
+	Decision     api.ConsumableDecision
 }
 
 func (c *Consumer) DeepCopy() *Consumer {
@@ -47,7 +48,7 @@ func (c *Consumer) StringID() string {
 }
 
 func NewConsumer(id NumericIdentity) *Consumer {
-	return &Consumer{ID: id, Decision: ACCEPT}
+	return &Consumer{ID: id, Decision: api.ACCEPT}
 }
 
 // Consumable is the entity that is being consumed by a Consumer.
@@ -296,5 +297,5 @@ func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
 	consumer := c.getConsumer(id)
 	c.Mutex.RUnlock()
-	return consumer != nil && consumer.Decision == ACCEPT
+	return consumer != nil && consumer.Decision == api.ACCEPT
 }
