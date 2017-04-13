@@ -16,7 +16,6 @@ package labels
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -75,8 +74,6 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 		`//=/`:     "",
 		`%`:        `%ed`,
 	}, common.CiliumLabelSource)
-	fmt.Printf("%+v\n", m)
-	fmt.Printf("%+v\n", lbls)
 	c.Assert(m, DeepEquals, lbls)
 }
 
