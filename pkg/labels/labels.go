@@ -99,8 +99,8 @@ type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 	// Source can be on of the values present in const.go (e.g.: CiliumLabelSource)
-	Source   string `json:"source"`
-	absKeyMU sync.RWMutex
+	Source   string       `json:"source"`
+	absKeyMU sync.RWMutex // absKeyMU protects the absKey variable
 	absKey   string
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`

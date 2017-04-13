@@ -53,7 +53,8 @@ func NewConsumer(id NumericIdentity) *Consumer {
 // Consumable is the entity that is being consumed by a Consumer.
 type Consumable struct {
 	// ID of the consumable
-	ID    NumericIdentity `json:"id"`
+	ID NumericIdentity `json:"id"`
+	// Mutex protects all variables from this structure below this line
 	Mutex sync.RWMutex
 	// Labels are the Identity of this consumable
 	Labels *Identity `json:"labels"`

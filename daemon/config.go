@@ -35,27 +35,28 @@ var (
 
 // Config is the configuration used by Daemon.
 type Config struct {
-	BpfDir                string                  // BPF template files directory
-	LibDir                string                  // Cilium library files directory
-	RunDir                string                  // Cilium runtime directory
-	LXCMap                *lxcmap.LXCMap          // LXCMap where all LXCs are stored
-	NodeAddress           *addressing.NodeAddress // Node IPv6 Address
-	NAT46Prefix           *net.IPNet              // NAT46 IPv6 Prefix
-	Device                string                  // Receive device
-	HostV4Addr            net.IP                  // Host v4 address of the snooping device
-	HostV6Addr            net.IP                  // Host v6 address of the snooping device
-	ConsulConfig          *consulAPI.Config       // Consul configuration
-	EtcdConfig            *etcdAPI.Config         // Etcd Configuration
-	EtcdCfgPath           string                  // Etcd Configuration path
-	DockerEndpoint        string                  // Docker endpoint
-	IPv4Disabled          bool                    // Disable IPv4 allocation
-	K8sEndpoint           string                  // Kubernetes endpoint
-	K8sCfgPath            string                  // Kubeconfig path
-	ValidLabelPrefixes    *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
-	ValidK8sLabelPrefixes *labels.LabelPrefixCfg  // Label prefixes used to filter from all labels
-	ValidLabelPrefixesMU  sync.RWMutex
-	LBInterface           string // Set with name of the interface to loadbalance packets from
-	Tunnel                string // Tunnel mode
+	BpfDir         string                  // BPF template files directory
+	LibDir         string                  // Cilium library files directory
+	RunDir         string                  // Cilium runtime directory
+	LXCMap         *lxcmap.LXCMap          // LXCMap where all LXCs are stored
+	NodeAddress    *addressing.NodeAddress // Node IPv6 Address
+	NAT46Prefix    *net.IPNet              // NAT46 IPv6 Prefix
+	Device         string                  // Receive device
+	HostV4Addr     net.IP                  // Host v4 address of the snooping device
+	HostV6Addr     net.IP                  // Host v6 address of the snooping device
+	ConsulConfig   *consulAPI.Config       // Consul configuration
+	EtcdConfig     *etcdAPI.Config         // Etcd Configuration
+	EtcdCfgPath    string                  // Etcd Configuration path
+	DockerEndpoint string                  // Docker endpoint
+	IPv4Disabled   bool                    // Disable IPv4 allocation
+	K8sEndpoint    string                  // Kubernetes endpoint
+	K8sCfgPath     string                  // Kubeconfig path
+	LBInterface    string                  // Set with name of the interface to loadbalance packets from
+	Tunnel         string                  // Tunnel mode
+
+	ValidLabelPrefixesMU  sync.RWMutex // Protects the 2 variables below
+	ValidLabelPrefixes    *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
+	ValidK8sLabelPrefixes *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 
 	DryMode       bool // Do not create BPF maps, devices, ..
 	RestoreState  bool // RestoreState restores the state from previous running daemons.
