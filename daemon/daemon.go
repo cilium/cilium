@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -63,7 +64,7 @@ import (
 type Daemon struct {
 	ipamConf          *ipam.IPAMConfig
 	kvClient          kvstore.KVClient
-	containers        map[string]*types.Container
+	containers        map[string]*container.Container
 	containersMU      sync.RWMutex
 	endpoints         map[uint16]*endpoint.Endpoint
 	endpointsAux      map[string]*endpoint.Endpoint
@@ -488,7 +489,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		conf:              c,
 		kvClient:          kvClient,
 		dockerClient:      dockerClient,
-		containers:        make(map[string]*types.Container),
+		containers:        make(map[string]*container.Container),
 		endpoints:         make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:      make(map[string]*endpoint.Endpoint),
 		events:            make(chan events.Event, 512),
