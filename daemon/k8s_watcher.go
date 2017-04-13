@@ -196,6 +196,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
 	if !ok {
+		log.Errorf("Ignoring invalid k8s NetworkPolicy addition")
 		return
 	}
 	parentsPath, pn, err := parseK8sNetworkPolicy(k8sNP)
@@ -218,6 +219,7 @@ func (d *Daemon) updateK8sNetworkPolicy(oldObj interface{}, newObj interface{}) 
 func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
 	if !ok {
+		log.Errorf("Ignoring invalid k8s NetworkPolicy deletion")
 		return
 	}
 	parentsPath, pn, err := parseK8sNetworkPolicy(k8sNP)
