@@ -49,6 +49,7 @@ export GOPATH=/tmp/cilium-net-build && \
 export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$PATH" && \
 make && \
 make PKG_BUILD=1 install && \
+groupadd -f cilium && \
 # cilium-end
 #
 apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils && \
