@@ -8,6 +8,7 @@ HEAD
 - Separate state directory inside runtime directory (`GH #537 <https://github.com/cilium/cilium/pull/537>`_)
 - Fix all remaining testsuites and have Jenkins fail properly on all failures (`GH #513 <https://github.com/cilium/cilium/pull/513>`_)
 - policy: Support carrying part of the path in the name (`GH #533 <https://github.com/cilium/cilium/pull/533>`_)
+- Temporary fix: Set net.ipv6.conf.all.disable_ipv6=1 as Docker disables it by mistake (`GH #544 <https://github.com/cilium/cilium/pull/544>`_, `libnetwork #1720 <https://github.com/docker/libnetwork/issues/1720>`_)
 
 0.8.1
 =====
