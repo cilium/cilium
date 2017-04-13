@@ -46,7 +46,7 @@ sudo usermod -a -G cilium vagrant
 SCRIPT
 
 $testsuite = <<SCRIPT
-make -C ~/go/src/github.com/cilium/cilium/ tests
+make -C ~/go/src/github.com/cilium/cilium/ tests || exit 1
 sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
 SCRIPT
 
