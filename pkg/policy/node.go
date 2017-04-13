@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // Node to define hierarchy of rules
@@ -178,14 +179,16 @@ func (n *Node) Covers(ctx *SearchContext) bool {
 	return false
 }
 
-func (n *Node) Allows(ctx *SearchContext) ConsumableDecision {
-	decision := UNDECIDED
+// Allows returns the decision whether the node allows the From to consume the
+// To in the provided search context
+func (n *Node) Allows(ctx *SearchContext) api.ConsumableDecision {
+	decision := api.UNDECIDED
 
 	policyTraceVerbose(ctx, "Evaluating node %+v\n", n)
 
 	for k := range n.Rules {
 		rule := n.Rules[k]
-		subDecision := UNDECIDED
+		subDecision := api.UNDECIDED
 
 		switch rule.(type) {
 		case *RuleConsumers:
@@ -198,12 +201,12 @@ func (n *Node) Allows(ctx *SearchContext) ConsumableDecision {
 		}
 
 		switch subDecision {
-		case ALWAYS_ACCEPT:
-			return ALWAYS_ACCEPT
-		case DENY:
-			return DENY
-		case ACCEPT:
-			decision = ACCEPT
+		case api.ALWAYS_ACCEPT:
+			return api.ALWAYS_ACCEPT
+		case api.DENY:
+			return api.DENY
+		case api.ACCEPT:
+			decision = api.ACCEPT
 		}
 	}
 
@@ -351,8 +354,8 @@ func (n *Node) UnmarshalJSON(data []byte) error {
 
 			for _, r := range prC.Allow {
 				// DENY rules are always deny anyway
-				if r.Action == ACCEPT {
-					r.Action = ALWAYS_ACCEPT
+				if r.Action == api.ACCEPT {
+					r.Action = api.ALWAYS_ACCEPT
 				}
 			}
 

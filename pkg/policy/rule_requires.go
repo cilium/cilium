@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // RuleRequires any further consumer requires the specified list of
@@ -43,7 +44,7 @@ func (prr *RuleRequires) String() string {
 // access can be denied but fullfillment of the requirement only leads to
 // the decision being UNDECIDED waiting on an explicit allow rule further
 // down the tree
-func (prr *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
+func (prr *RuleRequires) Allows(ctx *SearchContext) api.ConsumableDecision {
 	if len(prr.Coverage) > 0 && ctx.TargetCoveredBy(prr.Coverage) {
 		policyTrace(ctx, "Found coverage rule: %s\n", prr.String())
 		for _, reqLabel := range prr.Requires {
@@ -57,16 +58,17 @@ func (prr *RuleRequires) Allows(ctx *SearchContext) ConsumableDecision {
 
 			if match == false {
 				ctx.Depth++
-				policyTrace(ctx, "No matching labels in required rule [%s], verdict: [%s]\n", prr.Requires, DENY.String())
+				policyTrace(ctx, "No matching labels in required rule [%s], verdict: [%s]\n",
+					prr.Requires, api.DENY.String())
 				ctx.Depth--
-				return DENY
+				return api.DENY
 			}
 		}
 	} else {
 		policyTrace(ctx, "Rule has no coverage: %s\n", prr)
 	}
 
-	return UNDECIDED
+	return api.UNDECIDED
 }
 
 func (prr *RuleRequires) Resolve(node *Node) error {

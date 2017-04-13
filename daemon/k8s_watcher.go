@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
@@ -75,8 +76,8 @@ func parseK8sNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, err
 							l.Source = common.K8sLabelSource
 						}
 						ar := &policy.AllowRule{
-							Action: policy.ALWAYS_ACCEPT,
-							Label:  l,
+							Action: api.ALWAYS_ACCEPT,
+							Labels: labels.LabelArray{l},
 						}
 						allowRules = append(allowRules, ar)
 					}
@@ -84,8 +85,8 @@ func parseK8sNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, err
 					for k := range rule.NamespaceSelector.MatchLabels {
 						l := labels.NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
 						ar := &policy.AllowRule{
-							Action: policy.ALWAYS_ACCEPT,
-							Label:  l,
+							Action: api.ALWAYS_ACCEPT,
+							Labels: labels.LabelArray{l},
 						}
 						allowRules = append(allowRules, ar)
 					}

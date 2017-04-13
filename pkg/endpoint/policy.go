@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, dstID policy.NumericIdentity, opt string) {
@@ -41,9 +42,9 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 	}
 
 	switch owner.GetPolicyTree().AllowsRLocked(&ctx) {
-	case policy.ACCEPT, policy.ALWAYS_ACCEPT:
+	case api.ACCEPT, api.ALWAYS_ACCEPT:
 		opts[opt] = "enabled"
-	case policy.DENY:
+	case api.DENY:
 		opts[opt] = "disabled"
 	}
 }
@@ -74,7 +75,7 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 	log.Debugf("Evaluating policy for %+v", ctx)
 
 	decision := owner.GetPolicyTree().AllowsRLocked(ctx)
-	if decision == policy.ACCEPT {
+	if decision == api.ACCEPT {
 		e.allowConsumer(owner, srcID)
 	}
 

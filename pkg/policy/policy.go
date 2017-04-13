@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/op/go-logging"
 )
@@ -80,30 +81,6 @@ func (p Privilege) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, p)), nil
 }
 
-type ConsumableDecision byte
-
-const (
-	UNDECIDED ConsumableDecision = iota
-	ACCEPT
-	ALWAYS_ACCEPT
-	DENY
-)
-
-var (
-	cdEnc = map[ConsumableDecision]string{
-		UNDECIDED:     "undecided",
-		ACCEPT:        "accept",
-		ALWAYS_ACCEPT: "always-accept",
-		DENY:          "deny",
-	}
-	cdDec = map[string]ConsumableDecision{
-		"undecided":     UNDECIDED,
-		"accept":        ACCEPT,
-		"always-accept": ALWAYS_ACCEPT,
-		"deny":          DENY,
-	}
-)
-
 type Tracing int
 
 const (
@@ -134,43 +111,17 @@ func policyTraceVerbose(ctx *SearchContext, format string, a ...interface{}) {
 	}
 }
 
-func (d ConsumableDecision) String() string {
-	if v, exists := cdEnc[d]; exists {
-		return v
-	}
-	return ""
-}
-
-func (d *ConsumableDecision) UnmarshalJSON(b []byte) error {
-	if d == nil {
-		d = new(ConsumableDecision)
-	}
-	if len(b) <= len(`""`) {
-		return fmt.Errorf("invalid consumable decision '%s'", string(b))
-	}
-	if v, exists := cdDec[string(b[1:len(b)-1])]; exists {
-		*d = ConsumableDecision(v)
-		return nil
-	}
-
-	return fmt.Errorf("unknown '%s' consumable decision", string(b))
-}
-
-func (d ConsumableDecision) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, d)), nil
-}
-
 type SearchContext struct {
 	Trace   Tracing
 	Depth   int
 	Logging *logging.LogBackend
-	From    []*labels.Label
-	To      []*labels.Label
+	From    labels.LabelArray
+	To      labels.LabelArray
 }
 
 type SearchContextReply struct {
 	Logging  []byte
-	Decision ConsumableDecision
+	Decision api.ConsumableDecision
 }
 
 func (s *SearchContext) String() string {

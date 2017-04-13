@@ -23,16 +23,17 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 type AllowRule struct {
-	Action ConsumableDecision `json:"action,omitempty"`
-	Label  *labels.Label      `json:"label"`
+	Action api.ConsumableDecision `json:"action,omitempty"`
+	Labels labels.LabelArray      `json:"matchLabels"`
 }
 
 func (a *AllowRule) IsMergeable() bool {
 	switch a.Action {
-	case DENY:
+	case api.DENY:
 		// Deny rules will result in immediate return from the policy
 		// evaluation process and thus rely on strict ordering of the rules.
 		// Merging of such rules in a node will result in undefined behaviour.
@@ -51,13 +52,9 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid AllowRule: empty data")
 	}
 
-	var aux struct {
-		Action ConsumableDecision `json:"action,omitempty"`
-		Label  *labels.Label      `json:"label"`
-	}
-
-	// Default is allow
-	aux.Action = ACCEPT
+	// Template to parse allow rule into
+	// default action is accept
+	aux := api.RuleAllow{Action: api.ACCEPT}
 
 	// We first attempt to parse a full AllowRule JSON object which
 	// was likely created by MarshalJSON of the client, in case that
@@ -65,7 +62,7 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 	// can be used as a shortform to specify allow rules.
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	err := decoder.Decode(&aux)
-	if err != nil || aux.Label == nil || !aux.Label.IsValid() {
+	if err != nil || !aux.IsValid() {
 		var aux labels.Label
 
 		decoder = json.NewDecoder(bytes.NewReader(data))
@@ -74,39 +71,44 @@ func (a *AllowRule) UnmarshalJSON(data []byte) error {
 		}
 
 		if aux.Key[0] == '!' {
-			a.Action = DENY
+			a.Action = api.DENY
 			aux.Key = aux.Key[1:]
 		} else {
-			a.Action = ACCEPT
+			a.Action = api.ACCEPT
 		}
 
-		a.Label = &aux
+		a.Labels = labels.LabelArray{&aux}
 	} else {
 		a.Action = aux.Action
-		a.Label = aux.Label
+		if aux.LabelCompat != nil && aux.LabelCompat.Key != "" {
+			a.Labels = labels.LabelArray{aux.LabelCompat}
+		} else {
+			a.Labels = aux.Labels
+		}
 	}
 
 	return nil
 }
 
 func (a *AllowRule) String() string {
-	return fmt.Sprintf("{label: %s, action: %s}", a.Label, a.Action.String())
+	return fmt.Sprintf("{labels: %s, action: %s}", a.Labels, a.Action.String())
 }
 
-func (a *AllowRule) Allows(ctx *SearchContext) ConsumableDecision {
+// Allows returns the decision whether the node allows the From to consume the
+// To in the provided search context
+func (a *AllowRule) Allows(ctx *SearchContext) api.ConsumableDecision {
 	ctx.Depth++
 	defer func() {
 		ctx.Depth--
 	}()
-	for _, label := range ctx.From {
-		if a.Label.Matches(label) {
-			policyTrace(ctx, "Found label matching [%s] in rule: [%s]\n", label.String(), a.String())
-			return a.Action
-		}
+
+	if ctx.From.Contains(a.Labels) {
+		policyTrace(ctx, "Found all required labels [%v] in rule: [%s]\n", a.Labels, a.String())
+		return a.Action
 	}
 
 	policyTrace(ctx, "No matching labels in allow rule: [%s]\n", a.String())
-	return UNDECIDED
+	return api.UNDECIDED
 }
 
 // RuleConsumers allows the following consumers.
@@ -138,26 +140,28 @@ func (prc *RuleConsumers) String() string {
 		strings.Join(allows, " "))
 }
 
-func (prc *RuleConsumers) Allows(ctx *SearchContext) ConsumableDecision {
+// Allows returns the decision whether the node allows the From to consume the
+// To in the provided search context
+func (prc *RuleConsumers) Allows(ctx *SearchContext) api.ConsumableDecision {
 	// A decision is undecided until we encoutner a DENY or ACCEPT.
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
-	decision := UNDECIDED
+	decision := api.UNDECIDED
 
 	if len(prc.Coverage) > 0 && !ctx.TargetCoveredBy(prc.Coverage) {
 		policyTrace(ctx, "Rule has no coverage: [%s]\n", prc.String())
-		return UNDECIDED
+		return api.UNDECIDED
 	}
 
 	policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
 
 	for _, allowRule := range prc.Allow {
 		switch allowRule.Allows(ctx) {
-		case DENY:
-			return DENY
-		case ALWAYS_ACCEPT:
-			return ALWAYS_ACCEPT
-		case ACCEPT:
-			decision = ACCEPT
+		case api.DENY:
+			return api.DENY
+		case api.ALWAYS_ACCEPT:
+			return api.ALWAYS_ACCEPT
+		case api.ACCEPT:
+			decision = api.ACCEPT
 			break
 		}
 	}
@@ -178,7 +182,7 @@ func (prc *RuleConsumers) Resolve(node *Node) error {
 	}
 
 	for _, r := range prc.Allow {
-		r.Label.Resolve(node)
+		r.Labels.Resolve(node)
 	}
 
 	return nil
