@@ -53,31 +53,27 @@ Step 2: Starting the Docker + Cilium VM
 
 Open a terminal and cd into the top of the cilium source directory.
 
-The script ``contrib/vagrant/start.sh`` will setup a Vagrant VM, with Docker
-and Cilium installed and running as services.  Simply run the following command
-to get started:
+Then cd into `examples/getting-started` and run `vagrant up`:
 
 ::
 
-    $ contrib/vagrant/start.sh
+    $ cd examples/getting-started
+    $ vagrant up
 
-The script usually takes a few minutes, but may take much longer if you are on
-a slow Internet connection.   When the script completes successfully, it will
-print:
-
-::
-
-   $ ==> cilium-master: Cilium successfully started!
-
-If the script exits with the following error message, something went wrong:
+The script usually takes a few minutes depending on the speed of your internet
+connection. Vagrant will set up a VM, install the Docker container runtime and
+run Cilium with the help of Docker compose. When the script completes successfully,
+it will print:
 
 ::
+    ==> cilium-1: Creating cilium-kvstore
+    ==> cilium-1: Creating cilium
+    ==> cilium-1: Creating cilium-docker-plugin
+    $
 
-   $ ==> cilium-master: Timeout waiting for Cilium to start...
-
-If this error appears, do not attempt to proceed with the tutorial, as later
-steps will not work properly.   Instead, contact us on the `Cilium Slack
-channel <https://cilium.herokuapp.com>`_ .
+If the script exits with an error message, do not attempt to proceed with the
+tutorial, as later steps will not work properly.   Instead, contact us on the
+`Cilium Slack channel <https://cilium.herokuapp.com>`_ .
 
 Step 3: Accessing the VM
 ------------------------
