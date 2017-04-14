@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
+// LogstashStat is used to collect stats from the policy dumps.
 type LogstashStat struct {
 	FromID  uint32
 	From    string
@@ -54,6 +55,7 @@ func newLogstashClient(addr string) net.Conn {
 	}
 }
 
+// EnableLogstash is used to start collecting statistics with Logstash.
 func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 	readStats := func(c net.Conn) {
 		defer func() {
