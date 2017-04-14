@@ -1,0 +1,71 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.require_version ">= 1.8.3"
+
+num_nodes = (ENV['NNODES'] || 1).to_i
+cilium_version = (ENV['CILIUM_VERSION'] || "v0.8.1")
+cilium_opts = (ENV['CILIUM_OPTS'] || "--consul 192.168.33.11:8500 -t vxlan")
+cilium_tag = (ENV['CILIUM_TAG'] || "0.8")
+
+# This runs only once when vagrant box is provisioned for the first time
+$bootstrap = <<SCRIPT
+# install docker-compose
+curl -sS -L "https://github.com/docker/compose/releases/download/1.11.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+
+# install cilium client
+curl -sS -L "https://github.com/cilium/cilium/releases/download/#{cilium_version}/cilium-x86_64" -o /usr/local/bin/cilium
+chmod +x /usr/local/bin/cilium
+
+# Store specified tag and options for docker-compose so we can rerun easily
+cat > /home/vagrant/cilium/examples/getting-started/.env <<EOF
+CILIUM_TAG=#{cilium_tag}
+CILIUM_OPTS=#{cilium_opts}
+EOF
+
+# workaround for cilium binaries < 0.8.2
+echo 'export CILIUM_SOCK=/var/run/cilium/cilium.sock' >> /home/vagrant/.bashrc
+
+# cd into getting-started directory by default
+echo 'cd ~/cilium/examples/getting-started' >> /home/vagrant/.bashrc
+SCRIPT
+
+# This is run every time vagrant box is booted
+$run = <<SCRIPT
+sudo mount bpffs /sys/fs/bpf -t bpf
+cd ~/cilium/examples/getting-started
+sudo -E docker-compose up -d --remove-orphans
+SCRIPT
+
+Vagrant.configure(2) do |config|
+    config.vm.box = "bento/ubuntu-16.10"
+
+    # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
+    config.vm.provision "fix-no-tty", type: "shell" do |s|
+	s.privileged = false
+	s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
+    end
+
+    config.vm.synced_folder "../..", "/home/vagrant/cilium", disabled: false
+
+    # install docker runtime
+    config.vm.provision :docker, images: [
+	"consul:v0.6.4",
+	"cilium/cilium:#{cilium_tag}"
+    ]
+
+    config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
+    config.vm.provision "run", type: "shell", run: "always",
+       env: {"CILIUM_TAG" => cilium_tag, "CILIUM_OPTS" => cilium_opts},
+       privileged: false, inline: $run
+
+    (1..num_nodes).each do |n|
+        node_vm_name = "cilium-#{n}"
+        config.vm.define node_vm_name do |node|
+            node.vm.hostname = node_vm_name
+            node_ip = "192.168.33.1#{n}"
+            node.vm.network "private_network", ip: "#{node_ip}"
+        end
+    end
+end
