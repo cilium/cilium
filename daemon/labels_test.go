@@ -163,6 +163,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-2")
 	c.Assert(err, IsNil)
 	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity)
+	c.Assert(err, IsNil)
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
