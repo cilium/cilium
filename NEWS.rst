@@ -20,6 +20,8 @@ Features
 - Decreased endpoint operations time by introducing parallelization in regeneration
 - Replaced all endpoint synchronous CLI operations with asynchronous CLI operations
 - Allow rule now supports matching multiple labels
+- Kubernetes NetworkPolicy improvements
+  - Support L4 filtering with v1beta1.NetworkPolicyPort
 
 0.8.0
 =====

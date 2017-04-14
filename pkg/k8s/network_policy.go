@@ -15,6 +15,9 @@
 package k8s
 
 import (
+	"fmt"
+	"net"
+
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -38,6 +41,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 	}
 
 	allowRules := []*policy.AllowRule{}
+	l4Rules := []policy.AllowL4{}
 	for _, iRule := range np.Spec.Ingress {
 		// Based on NetworkPolicyIngressRule docs:
 		//   From []NetworkPolicyPeer
@@ -80,6 +84,42 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 				}
 			}
 		}
+
+		if iRule.Ports != nil && len(iRule.Ports) > 0 {
+			l4filters := []policy.L4Filter{}
+			for _, port := range iRule.Ports {
+				if port.Protocol == nil && port.Port == nil {
+					continue
+				}
+
+				protocol := "tcp"
+				if port.Protocol != nil {
+					protocol = string(*port.Protocol)
+				}
+
+				portNum := 0
+				if port.Port != nil {
+					portStr := port.Port.String()
+					p, err := net.LookupPort(protocol, portStr)
+					if err != nil {
+						return "", nil, fmt.Errorf("Unable to parse port %s: %s",
+							portStr, err)
+					}
+					portNum = p
+				}
+
+				l4filters = append(l4filters, policy.L4Filter{
+					Port:     portNum,
+					Protocol: protocol,
+				})
+			}
+
+			if len(l4filters) > 0 {
+				l4Rules = append(l4Rules, policy.AllowL4{
+					Ingress: l4filters,
+				})
+			}
+		}
 	}
 
 	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
@@ -90,5 +130,13 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 			Allow:    allowRules,
 		},
 	}
+
+	if len(l4Rules) > 0 {
+		pn.Rules = append(pn.Rules, &policy.RuleL4{
+			Coverage: coverageLbls.ToSlice(),
+			Allow:    l4Rules,
+		})
+	}
+
 	return parentNodeName, pn, nil
 }

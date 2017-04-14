@@ -24,6 +24,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/1.5/pkg/util/intstr"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -56,15 +57,23 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 							},
 						},
 					},
+					Ports: []v1beta1.NetworkPolicyPort{
+						v1beta1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{
+								Type:   intstr.String,
+								StrVal: "http",
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 
 	parent, node, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
 	c.Assert(parent, Equals, DefaultPolicyParentPath)
 	c.Assert(node, Not(IsNil))
-	c.Assert(err, IsNil)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -78,6 +87,42 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
+
+	result := policy.NewL4Policy()
+	node.ResolveL4Policy(&ctx, result)
+	c.Assert(result, DeepEquals, &policy.L4Policy{
+		Ingress: policy.L4PolicyMap{
+			"tcp:80": policy.L4Filter{
+				Port: 80, Protocol: "tcp", L7Parser: "",
+				L7RedirectPort: 0, L7Rules: []policy.AuxRule(nil),
+			},
+		},
+		Egress: policy.L4PolicyMap{},
+	})
+}
+
+func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
+	netPolicy := &v1beta1.NetworkPolicy{
+		Spec: v1beta1.NetworkPolicySpec{
+			Ingress: []v1beta1.NetworkPolicyIngressRule{
+				v1beta1.NetworkPolicyIngressRule{
+					Ports: []v1beta1.NetworkPolicyPort{
+						v1beta1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{
+								Type:   intstr.String,
+								StrVal: "unknown",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	parent, node, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, Not(IsNil))
+	c.Assert(parent, Equals, "")
+	c.Assert(node, IsNil)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
@@ -96,9 +141,9 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	}
 
 	parent, node, err := ParseNetworkPolicy(netPolicy1)
+	c.Assert(err, IsNil)
 	c.Assert(parent, Equals, DefaultPolicyParentPath)
 	c.Assert(node, Not(IsNil))
-	c.Assert(err, IsNil)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -121,16 +166,17 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 			},
 			Ingress: []v1beta1.NetworkPolicyIngressRule{
 				v1beta1.NetworkPolicyIngressRule{
-					From: []v1beta1.NetworkPolicyPeer{},
+					From:  []v1beta1.NetworkPolicyPeer{},
+					Ports: []v1beta1.NetworkPolicyPort{},
 				},
 			},
 		},
 	}
 
 	parent, node, err = ParseNetworkPolicy(netPolicy2)
+	c.Assert(err, IsNil)
 	c.Assert(parent, Equals, DefaultPolicyParentPath)
 	c.Assert(node, Not(IsNil))
-	c.Assert(err, IsNil)
 	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
 }
 
@@ -147,7 +193,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 	}
 
 	parent, node, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
 	c.Assert(parent, Equals, DefaultPolicyParentPath)
 	c.Assert(node, Not(IsNil))
-	c.Assert(err, IsNil)
 }
