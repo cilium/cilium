@@ -43,6 +43,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 func (d *Daemon) lostEvent(msg *bpf.PerfEventLost, cpu int) {
 }
 
+// EnableMonitor is used by the daemon to turn on the traffic monitoring.
 func (d *Daemon) EnableMonitor() {
 	startChan := make(chan bool, 1)
 	stopChan1 := make(chan bool, 1)
