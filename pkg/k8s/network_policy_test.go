@@ -80,6 +80,60 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
+	// From missing, all sources should be allowed
+	netPolicy1 := &v1beta1.NetworkPolicy{
+		Spec: v1beta1.NetworkPolicySpec{
+			PodSelector: v1beta1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo1": "bar1",
+				},
+			},
+			Ingress: []v1beta1.NetworkPolicyIngressRule{
+				v1beta1.NetworkPolicyIngressRule{},
+			},
+		},
+	}
+
+	parent, node, err := ParseNetworkPolicy(netPolicy1)
+	c.Assert(parent, Equals, DefaultPolicyParentPath)
+	c.Assert(node, Not(IsNil))
+	c.Assert(err, IsNil)
+
+	ctx := policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel("foo0", "bar0", common.K8sLabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel("foo1", "bar1", common.K8sLabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
+
+	// Empty From rules, all sources should be allowed
+	netPolicy2 := &v1beta1.NetworkPolicy{
+		Spec: v1beta1.NetworkPolicySpec{
+			PodSelector: v1beta1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo1": "bar1",
+				},
+			},
+			Ingress: []v1beta1.NetworkPolicyIngressRule{
+				v1beta1.NetworkPolicyIngressRule{
+					From: []v1beta1.NetworkPolicyPeer{},
+				},
+			},
+		},
+	}
+
+	parent, node, err = ParseNetworkPolicy(netPolicy2)
+	c.Assert(parent, Equals, DefaultPolicyParentPath)
+	c.Assert(node, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 	netPolicy := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
