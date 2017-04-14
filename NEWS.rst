@@ -8,7 +8,9 @@ HEAD
 Fixes
 -----
 
-- Correctly handle k8s NetworkPolicy matchLabels
+- k8s NetworkPolicy fixes
+  - Correctly handle k8s NetworkPolicy matchLabels
+  - Allow all sources if []NetworkPolicyPeer is empty or missing
 
 Features
 --------

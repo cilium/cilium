@@ -39,7 +39,18 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 
 	allowRules := []*policy.AllowRule{}
 	for _, iRule := range np.Spec.Ingress {
-		if iRule.From != nil {
+		// Based on NetworkPolicyIngressRule docs:
+		//   From []NetworkPolicyPeer
+		//   If this field is empty or missing, this rule matches all
+		//   sources (traffic not restricted by source).
+		if iRule.From == nil || len(iRule.From) == 0 {
+			all := labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource)
+			ar := &policy.AllowRule{
+				Action: api.ALWAYS_ACCEPT,
+				Labels: labels.LabelArray{all},
+			}
+			allowRules = append(allowRules, ar)
+		} else {
 			for _, rule := range iRule.From {
 				if rule.PodSelector != nil {
 					lbls := labels.LabelArray{}
