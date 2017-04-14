@@ -58,6 +58,8 @@ func (d *Daemon) EnableDockerEventListener(since time.Time) error {
 	return nil
 }
 
+// SyncDocker is used by the daemon to synchronize changes between Docker and
+// Cilium. This includes identities, labels, etc.
 func (d *Daemon) SyncDocker() {
 	var wg sync.WaitGroup
 
