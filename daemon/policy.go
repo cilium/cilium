@@ -274,7 +274,7 @@ func (h *getPolicyPath) Handle(params GetPolicyPathParams) middleware.Responder 
 	d.policy.Mutex.RLock()
 	defer d.policy.Mutex.RUnlock()
 
-	node, _ := d.policy.Lookup(params.Path)
+	node, _ := d.policy.LookupLocked(params.Path)
 	if node == nil {
 		return NewGetPolicyPathNotFound()
 	}
