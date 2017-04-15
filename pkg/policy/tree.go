@@ -135,23 +135,8 @@ func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 	return result
 }
 
-// Lookup returns a policy node and its parent for a given path and returns
-// a deepcopy of the nodes found.
-func (t *Tree) Lookup(path string) (node, parent *Node) {
-	t.Mutex.RLock()
-	defer t.Mutex.RUnlock()
-	n, p := t.lookup(path)
-	if n != nil {
-		node = n.DeepCopy()
-	}
-	if p != nil {
-		parent = p.DeepCopy()
-	}
-	return
-}
-
-// Lookup returns a policy node and its parent for a given path
-func (t *Tree) lookup(path string) (node, parent *Node) {
+// LookupLocked returns a policy node and its parent for a given path
+func (t *Tree) LookupLocked(path string) (node, parent *Node) {
 	// Empty tree
 	if t.Root == nil {
 		return nil, nil
@@ -227,7 +212,7 @@ func (t *Tree) add(parentPath string, node *Node) (bool, error) {
 		}
 	} else {
 		absPath := JoinPath(parentPath, node.Name)
-		_, parent := t.lookup(absPath)
+		_, parent := t.LookupLocked(absPath)
 		if parent == nil {
 			grandParentPath, parentName := SplitNodePath(parentPath)
 			parent = NewNode(parentName, nil)
@@ -261,7 +246,7 @@ func (t *Tree) Delete(path string, coverage string) bool {
 	t.Mutex.Lock()
 	defer t.Mutex.Unlock()
 
-	node, parent := t.lookup(path)
+	node, parent := t.LookupLocked(path)
 	if node == nil {
 		return false
 	}

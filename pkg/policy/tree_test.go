@@ -28,7 +28,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	tree := Tree{}
 
 	// Empty tree should return empty result
-	n, p := tree.lookup("")
+	n, p := tree.LookupLocked("")
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
@@ -40,13 +40,13 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(err, IsNil)
 
 	// lookup of root node should succeed now
-	n, p = tree.lookup(RootNodeName)
+	n, p = tree.LookupLocked(RootNodeName)
 	c.Assert(n, Equals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
 
 	// lookup of empty path should return root node
-	n, p = tree.lookup("")
+	n, p = tree.LookupLocked("")
 	c.Assert(n, Equals, root)
 	c.Assert(n.Name, Equals, RootNodeName)
 	c.Assert(p, IsNil)
@@ -54,7 +54,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	deleted := tree.Delete(RootNodeName, "")
 	c.Assert(deleted, Equals, true)
 
-	n, p = tree.lookup(RootNodeName)
+	n, p = tree.LookupLocked(RootNodeName)
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
@@ -65,13 +65,13 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(err, IsNil)
 
 	// The node should exist afterwards
-	n, pBar := tree.lookup(RootNodeName + ".bar.foo")
+	n, pBar := tree.LookupLocked(RootNodeName + ".bar.foo")
 	c.Assert(n, Equals, foo)
 	c.Assert(pBar.Name, Equals, "bar")
 	c.Assert(pBar.path, Equals, RootNodeName+".bar")
 
 	// The root node should have been added
-	n, p = tree.lookup(RootNodeName)
+	n, p = tree.LookupLocked(RootNodeName)
 	c.Assert(n, Not(IsNil))
 	c.Assert(p, IsNil)
 
@@ -89,7 +89,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(err, IsNil)
 
 	// lookup of root node should succeed now
-	n, p = tree.lookup(RootNodeName)
+	n, p = tree.LookupLocked(RootNodeName)
 	// The "root" node was merged into the tree's root, therefore we need to
 	// make it the same with this hack
 	root.Children["bar"] = pBar
@@ -99,7 +99,7 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(p, IsNil)
 
 	// lookup of child foo should succeed
-	n, p = tree.lookup("root.foo")
+	n, p = tree.LookupLocked("root.foo")
 	c.Assert(n, Equals, fooNode)
 	c.Assert(p, DeepEquals, root)
 
@@ -108,12 +108,12 @@ func (ds *PolicyTestSuite) TestAddDelete(c *C) {
 	c.Assert(deleted, Equals, true)
 
 	// lookup of root node should fail now
-	n, p = tree.lookup(RootNodeName)
+	n, p = tree.LookupLocked(RootNodeName)
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
 	// lookup of child foo should fail now
-	n, p = tree.lookup("root.foo")
+	n, p = tree.LookupLocked("root.foo")
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 }
@@ -130,7 +130,7 @@ func (ds *PolicyTestSuite) TestLookup(c *C) {
 	c.Assert(err, IsNil)
 
 	// search for foo.bar, should return nil, foo
-	n, p := tree.Lookup("foo.bar")
+	n, p := tree.LookupLocked("foo.bar")
 	c.Assert(n, IsNil)
 	c.Assert(p, Equals, foo)
 
@@ -141,26 +141,26 @@ func (ds *PolicyTestSuite) TestLookup(c *C) {
 	c.Assert(err, IsNil)
 
 	// lookup of foo
-	n, p = tree.Lookup("foo")
+	n, p = tree.LookupLocked("foo")
 	c.Assert(n, Equals, foo)
 	c.Assert(n.path, Equals, "root.foo")
 	c.Assert(n.Name, Equals, "foo")
 	c.Assert(p.Name, Equals, "root")
 
 	// lookup of bar should fail
-	n, p = tree.Lookup("bar")
+	n, p = tree.LookupLocked("bar")
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 
 	// lookup of foo.bar should suceed
-	n, p = tree.Lookup("foo.bar")
+	n, p = tree.LookupLocked("foo.bar")
 	c.Assert(n, Equals, bar)
 	c.Assert(n.path, Equals, "root.foo.bar")
 	c.Assert(n.Name, Equals, "bar")
 	c.Assert(p, Equals, foo)
 
 	// lookup of foo.bar.baz should return nil, bar
-	n, p = tree.Lookup("foo.bar.baz")
+	n, p = tree.LookupLocked("foo.bar.baz")
 	c.Assert(n, IsNil)
 	c.Assert(p, Equals, bar)
 
@@ -171,17 +171,17 @@ func (ds *PolicyTestSuite) TestLookup(c *C) {
 	c.Assert(err, IsNil)
 
 	// lookup of foo.bar.1
-	n, p = tree.Lookup("foo.bar.1")
+	n, p = tree.LookupLocked("foo.bar.1")
 	c.Assert(n.Name, Equals, "1")
 	c.Assert(p, Equals, bar)
 
 	// lookup of foo.bar.1.2
-	n, p = tree.Lookup("foo.bar.1.2")
+	n, p = tree.LookupLocked("foo.bar.1.2")
 	c.Assert(n.Name, Equals, "2")
 	c.Assert(p.Name, Equals, "1")
 
 	// lookup of foo.bar.1.2.3.deep
-	n, p = tree.Lookup("foo.bar.1.2.3.deep")
+	n, p = tree.LookupLocked("foo.bar.1.2.3.deep")
 	c.Assert(n.Name, Equals, "deep")
 	c.Assert(p.Name, Equals, "3")
 }
@@ -198,10 +198,10 @@ func (ds *PolicyTestSuite) TestAddDelete2(c *C) {
 	c.Assert(err, IsNil)
 
 	// Lookup io and io.cilium nodes created
-	n, p := tree.Lookup("io")
+	n, p := tree.LookupLocked("io")
 	c.Assert(n.Name, Equals, "io")
 	c.Assert(p.Name, Equals, "root")
-	n, p = tree.Lookup("io.cilium")
+	n, p = tree.LookupLocked("io.cilium")
 	c.Assert(n.Name, Equals, "cilium")
 	c.Assert(p.Name, Equals, "io")
 
@@ -212,12 +212,12 @@ func (ds *PolicyTestSuite) TestAddDelete2(c *C) {
 	c.Assert(err, IsNil)
 
 	// Lookup io.cilium.k8s and io.cilium.k8s.k8s-app nodes created
-	n, p = tree.Lookup("io.cilium.k8s")
+	n, p = tree.LookupLocked("io.cilium.k8s")
 	c.Assert(n, Not(IsNil))
 	c.Assert(n.Name, Equals, "k8s")
 	c.Assert(p.Name, Equals, "cilium")
 	c.Assert(p.path, Equals, "root.io.cilium")
-	n, p = tree.Lookup("io.cilium.k8s.k8s-app")
+	n, p = tree.LookupLocked("io.cilium.k8s.k8s-app")
 	c.Assert(n, Equals, k8s)
 	c.Assert(p.Name, Equals, "k8s")
 	c.Assert(p.path, Equals, "root.io.cilium.k8s")
@@ -225,7 +225,7 @@ func (ds *PolicyTestSuite) TestAddDelete2(c *C) {
 	deleted := tree.Delete(RootNodeName, "")
 	c.Assert(deleted, Equals, true)
 
-	n, p = tree.Lookup(RootNodeName)
+	n, p = tree.LookupLocked(RootNodeName)
 	c.Assert(n, IsNil)
 	c.Assert(p, IsNil)
 }
