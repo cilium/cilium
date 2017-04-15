@@ -33,7 +33,7 @@ Linux container node in the container cluster:
   policies.
 
 * **Linux Kernel BPF:** Integrated capability of the Linux kernel to accept
-  compiled bytecode that is run at various hook/trace points within the kernel.
+  compiled bytecode that is run at various hook / trace points within the kernel.
   Cilium compiles BPF programs and has the kernel run them at key points in the
   network stack to have visibility and control over all network traffic in /
   out of all containers.
@@ -77,7 +77,7 @@ access in / out of those containers.  In more detail, the agent:
   management (IPAM), which controls what IPv4 and IPv6 addresses are assigned
   to each container. The IPAM is managed by the agent in a shared pool between
   all plugins which means that the Docker and CNI network plugin can run side
-  by side allocating of a single address pool.
+  by side allocating a single address pool.
 
 * Combines its knowledge about container identity and addresses with the
   already configured security and visibility policies to generate highly
@@ -85,7 +85,7 @@ access in / out of those containers.  In more detail, the agent:
   security behavior appropriate for each container.
 
 * Compiles the BPF programs to bytecode using `clang/LLVM
-  <https://clang.llvm.org/>`_ and passes them to the Linux kernel to run at for
+  <https://clang.llvm.org/>`_ and passes them to the Linux kernel to run for
   all packets in / out of the container's virtual ethernet device(s).
 
 
@@ -114,7 +114,7 @@ packets, system calls, kprobes, etc.
 BPF continues to evolve and gain additional capabilities with each new Linux
 release.  Cilium leverages BPF to perform core datapath filtering, mangling,
 monitoring and redirection, and requires BPF capabilities that are in any Linux
-kernel version 4.8.0 or newer. On the basis that 4.8.x is already declared and
+kernel version 4.8.0 or newer. On the basis that 4.8.x is already declared end
 of life and 4.9.x has been nominated as a stable release we recommend to run at
 least kernel 4.9.17 (the latest current stable Linux kernel as of this writing
 is 4.10.x).
@@ -145,7 +145,7 @@ To simplify things in a larger deployment, the key-value store can be the same
 one used by the container orchestrater (e.g., Kubernetes using etcd).  In
 single node Cilium deployments used for basic testing / learning, Cilium can
 use a local store implemented as a golang hash map, avoiding the need to setup
-a dedicated K-V store.
+a dedicated KV store.
 
 ******************
 Address Management
@@ -196,7 +196,7 @@ communication within an isolated environment, the prefix is not publicly
 routable. It is strongly recommended to specify a public prefix owned by the
 user using the ``--node-addr`` option.
 
-If no node address is specified, Cilium will try and generate a unique node
+If no node address is specified, Cilium will try to generate a unique node
 prefix by using the first global scope IPv4 address as a 32 bit node
 identifier, e.g. ``f00d:0:0:0:<ipv4-address>::/96``. Within that ``/96``
 prefix, each node will independently allocate addresses for local containers.
@@ -443,7 +443,7 @@ What is an Endpoint Identity?
 -----------------------------
 
 The identity of an endpoint is derived based on the labels associated with the
-pod or container. When a pod or container is started, Cilium will creat an
+pod or container. When a pod or container is started, Cilium will create an
 endpoint based on the event received by the container runtime to represent the
 pod or container on the network. As a next step, Cilium will resolve the
 identity of the endpoint created. Whenever the labels of the pod or container
@@ -583,8 +583,8 @@ Policy consists of a list of rules:
 Policy Rules
 ------------
 
-Multiple types of policy rules are supported, all types following the following
-simple template:
+Multiple types of policy rules are supported, all types following the simple
+template:
 
 * **coverage:** A list of labels which the endpoint must carry.
 * **rule:** A type specific rule, the following rule types have been
