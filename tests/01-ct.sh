@@ -200,6 +200,12 @@ function connectivity_test() {
 
 BIDIRECTIONAL=1
 connectivity_test
+cilium endpoint config $SERVER_ID ConntrackLocal=true
+cilium endpoint config $CLIENT_ID ConntrackLocal=true
+connectivity_test
+cilium endpoint config $SERVER_ID ConntrackLocal=false
+cilium endpoint config $CLIENT_ID ConntrackLocal=false
+connectivity_test
 cilium endpoint config $SERVER_ID Conntrack=false
 cilium endpoint config $CLIENT_ID Conntrack=false
 BIDIRECTIONAL=0

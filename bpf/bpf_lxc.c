@@ -132,6 +132,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state_reply = {};
+	union v6addr *daddr;
 
 	if (unlikely(!valid_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -152,11 +153,18 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
 	 * address the field currently represents.
 	 */
+#ifdef CONNTRACK_LOCAL
 	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
+	daddr = &tuple->addr;
+#else
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
+	daddr = &tuple->daddr;
+#endif
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 
-	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off);
+	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -231,11 +239,11 @@ skip_service_lookup:
 	}
 
 	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_prefix_64(&tuple->addr, &host_ip)) {
+	if (ipv6_match_prefix_64(daddr, &host_ip)) {
 		void *data = (void *) (long) skb->data;
 		void *data_end = (void *) (long) skb->data_end;
 		struct ipv6hdr *ip6 = data + ETH_HLEN;
-		__u32 node_id = ipv6_derive_node_id(&tuple->addr);
+		__u32 node_id = ipv6_derive_node_id(daddr);
 
 		if (node_id != NODE_ID) {
 #ifdef ENCAP_IFINDEX
@@ -250,8 +258,8 @@ skip_service_lookup:
 		}
 
 #ifdef HOST_IFINDEX
-		if (tuple->addr.addr[14] == host_ip.addr[14] &&
-		    tuple->addr.addr[15] == host_ip.addr[15])
+		if (daddr->addr[14] == host_ip.addr[14] &&
+		    daddr->addr[15] == host_ip.addr[15])
 			goto to_host;
 #endif
 
@@ -263,7 +271,7 @@ skip_service_lookup:
 		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr);
 	} else {
 #ifdef LXC_NAT46
-		if (unlikely(ipv6_addr_is_mapped(&tuple->addr))) {
+		if (unlikely(ipv6_addr_is_mapped(daddr))) {
 			tail_call(skb, &cilium_calls, CILIUM_CALL_NAT64);
 			return DROP_MISSED_TAIL_CALL;
                 }
@@ -399,10 +407,18 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
 	 * address the field currently represents.
 	 */
+#ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->daddr;
+	orig_dip = tuple.addr;
+#else
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+	orig_dip = tuple.daddr;
+#endif
+
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off);
+	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNKNOWN_L4)
 			goto skip_service_lookup;
@@ -411,7 +427,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-	orig_dip = tuple.addr;
 
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
@@ -505,11 +520,18 @@ skip_service_lookup:
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
+#ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->daddr;
+	orig_dip = tuple.addr;
+#else
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+	orig_dip = tuple.daddr;
+#endif
 
 	/* Check if destination is within our cluster prefix */
-	if ((tuple.addr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-		__u32 node_id = tuple.addr & IPV4_MASK;
+	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+		__u32 node_id = orig_dip & IPV4_MASK;
 
 		if (node_id != IPV4_RANGE) {
 #ifdef ENCAP_IFINDEX
@@ -526,7 +548,7 @@ skip_service_lookup:
 		}
 
 #ifdef HOST_IFINDEX
-		if (tuple.addr == IPV4_GATEWAY)
+		if (orig_dip == IPV4_GATEWAY)
 			goto to_host;
 #endif
 		policy_clear_mark(skb);
@@ -682,7 +704,14 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip6->nexthdr;
+
+#ifdef CONNTRACK_LOCAL
 	ipv6_addr_copy(&tuple.addr, (union v6addr *) &ip6->saddr);
+#else
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+#endif
+
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
@@ -782,7 +811,13 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
+
+#ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->saddr;
+#else
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+#endif
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
