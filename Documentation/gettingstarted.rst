@@ -12,7 +12,7 @@ If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 The tutorial leverages Vagrant, and as such should run on any operating system
 supported by Vagrant, including Linux, MacOS X, and Windows. The VM running
 Docker + Cilium requires about 3 GB of RAM, so if your laptop has limited
-resources, you may want to close other memory hungry applications.
+resources, you may want to close other memory intensive applications.
 
 The vagrant box is currently available for the following hypervisors. Please
 contact us on :ref:`slack` to request building for additional hypervisors.
@@ -51,9 +51,9 @@ repository:
 Step 2: Starting the Docker + Cilium VM
 ---------------------------------------
 
-Open a terminal and cd into the top of the cilium source directory.
+Open a terminal and navigate into the top of the cilium source directory.
 
-Then cd into `examples/getting-started` and run `vagrant up`:
+Then navigate into `examples/getting-started` and run `vagrant up`:
 
 ::
 
@@ -319,7 +319,7 @@ As you can see, with Cilium L7 security policies, we are able to permit
 implementing a "least privilege" security approach for communication between
 microservices.
 
-We hope you enjoy the tutorial.  Feel free to play more with the setup, read
+We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and feel free to reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
@@ -337,7 +337,7 @@ the cilium directory and run:
 
 You can always re-create the VM using the steps described above.
 
-If instead you instead just want to shut down the VM but may use it later,
+If instead you just want to shut down the VM but may use it later,
 "vagrant halt cilium-master" will work, and you can start it again later
 using the contrib/vagrant/start.sh script.
 
