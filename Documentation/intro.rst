@@ -39,12 +39,12 @@ these approaches to struggle to scale side by side with the application as load
 balancing tables and access control lists carrying hundreds of thousands of
 rules that  need to be update with a continuously growing frequency. Protocol
 ports (e.g. TCP port 80 for HTTP traffic) can no longer be used to
-diafferentiate between application traffic for security purposes as the port is
+differentiate between application traffic for security purposes as the port is
 utilized for a wide range of messages across services
 
 An additional challenge is the ability to provide accurate visibility as
 traditional systems are using IP addresses as primary identification vehicle
-which may have a drastically reduce lifetime of just a few seconds in
+which may have a drastically reduced lifetime of just a few seconds in
 microservices architectures.
 
 By leveraging Linux BPF, Cilium retains the ability to transparently insert
@@ -84,7 +84,7 @@ Getting Help
 
 We use Github issues to maintain a list of `Cilium Frequently Asked Questions (FAQ)
 <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_ .
-Check there to see if you questions is already addressed.
+Check there to see if your question(s) is already addressed.
 
 The best way to get help if you get stuck is to contact us on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_ .
