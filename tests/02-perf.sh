@@ -8,6 +8,8 @@ TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 TEST_TIME=30
 
+logs_clear
+
 # Only run these tests if BENCHMARK=1 has been set
 if [ -z $BENCHMARK ]; then
 	echo "Skipping test, not in benchmark mode."

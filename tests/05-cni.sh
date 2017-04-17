@@ -8,6 +8,8 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 server_id=""
 client_id=""
 
+logs_clear
+
 set -e
 
 function run_cni_container {

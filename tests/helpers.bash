@@ -1,5 +1,6 @@
 DUMP_FILE=$(mktemp)
 MONITOR_PID=""
+LAST_LOG_DATE=""
 
 function monitor_start {
 	cilium monitor > $DUMP_FILE &
@@ -25,6 +26,10 @@ function monitor_stop {
 	fi
 }
 
+function logs_clear {
+    LAST_LOG_DATE="$(date +'%F %T')"
+}
+
 function abort {
 	set +x
 
@@ -36,6 +41,12 @@ function abort {
 
 	monitor_dump
 	monitor_stop
+
+	echo "------------------------------------------------------------------------"
+	echo "                            Cilium logs"
+	journalctl --since "${LAST_LOG_DATE}" -u cilium
+	echo ""
+	echo "------------------------------------------------------------------------"
 
 	exit 1
 }
