@@ -135,15 +135,17 @@ func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 	return result
 }
 
-// LookupLocked returns a policy node and its parent for a given path
+// LookupLocked returns a policy node and its parent for a given path.
+// The `RootNodeName` is optional. If `path` is "", `node` will be the tree's
+// root and `parent` will be `nil`.
+//
+// If `path` does not start with `RootNodeName`, it will be assumed `path` is a
+// root's child. Thus, if `path` is a single node, the `parent` returned will be
+// the tree's root.
 func (t *Tree) LookupLocked(path string) (node, parent *Node) {
 	// Empty tree
 	if t.Root == nil {
 		return nil, nil
-	}
-
-	if path == RootNodeName {
-		return t.Root, nil
 	}
 
 	path = removeRootPrefix(path)
@@ -163,7 +165,7 @@ func (t *Tree) LookupLocked(path string) (node, parent *Node) {
 			node = child
 		} else {
 			// Return parent if we failed at last element
-			if index > 0 && index == len(elements)-1 {
+			if index == len(elements)-1 {
 				return nil, node
 			}
 			return nil, nil
