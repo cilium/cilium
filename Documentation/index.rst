@@ -8,7 +8,7 @@ Welcome to Cilium's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Table of contents:
 
    intro
    gettingstarted
