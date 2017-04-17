@@ -66,6 +66,7 @@ run Cilium with the help of Docker compose. When the script completes successful
 it will print:
 
 ::
+
     ==> cilium-1: Creating cilium-kvstore
     ==> cilium-1: Creating cilium
     ==> cilium-1: Creating cilium-docker-plugin
@@ -328,7 +329,7 @@ Step 10: Clean-Up
 -----------------
 
 When you are done with the setup and want to tear-down the Cilium + Docker VM,
-and destroy all local state (e.g., the VM disk image), open a terminal, cd to
+and destroy all local state (e.g., the VM disk image), open a terminal, navigate to
 the cilium directory and run:
 
 ::
@@ -338,6 +339,6 @@ the cilium directory and run:
 You can always re-create the VM using the steps described above.
 
 If instead you just want to shut down the VM but may use it later,
-"vagrant halt cilium-master" will work, and you can start it again later
+``vagrant halt cilium-master`` will work, and you can start it again later
 using the contrib/vagrant/start.sh script.
 
