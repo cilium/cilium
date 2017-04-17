@@ -126,7 +126,7 @@ Linux distros that focus on being a container runtime (e.g., CoreOS, Fedora
 Atomic) typically already ship kernels that are newer than 4.8, but even recent
 versions of general purpose operating systems such as Ubuntu 16.10 ship fairly
 recent kernels. Some Linux distributions still ship older kernels but many of
-them allow install recent kernels from separate kernel package repositories.
+them allow installing recent kernels from separate kernel package repositories.
 
 For more detail on kernel versions, see: :ref:`admin_kernel_version` .
 
@@ -155,7 +155,7 @@ Building microservices on top of container orchestrations platforms like Docker
 and Kubernetes means that application architects assume the existence of core
 platform capabilities like service discovery and service-based load-balancing
 to map between a logical service identifier and the IP address assigned to the
-containers/pods actually running that service.   This, along with the fact that
+containers / pods actually running that service.   This, along with the fact that
 Cilium provides network security and visibility based on container identity,
 not addressing, means that Cilium can keep the underlying network addressing
 model extremely simple.
@@ -306,7 +306,7 @@ container-to-container traffic:
   node's primary IP address as an L3 next hop address.   In the case of a
   traditional physical network this would typically involve announcing each
   node prefix as a route using a routing protocol within the datacenter. Cloud
-  providers (e.g, AWS VPC, or GCE) provide APIs to achieve the same result.
+  providers (e.g, AWS VPC, or GCE Routes) provide APIs to achieve the same result.
 
 Regardless of the option chosen, the container itself has no awareness of the
 underlying network it runs on, it only contains a default route which points to
@@ -505,7 +505,7 @@ session based protocols. This means that the intent of the policy is to
 describe allowed direction of connection establishment. If the policy allows `A
 => B` then reply packets from `B` to `A` are automatically allowed as well.
 However, `B` is not automatically allowed to initiate connections to `A`. If
-that outcome is desired, the both directions must be explicitly allowed.
+that outcome is desired, then both directions must be explicitly allowed.
 
 Security policies are primarily enforced at *ingress* which means that each
 cluster node verifies all incoming packets and determines whether the packet is
@@ -556,7 +556,7 @@ Policy Language
 The security policy can be specified in the following formats:
 
 * The Kubernetes *NetworkPolicy* specification which offers to configure a
-  subset of the full Cilium security fun See `Kubernetes Network Policies
+  subset of the full Cilium security. For fun see `Kubernetes Network Policies
   <https://kubernetes.io/docs/concepts/services-networking/networkpolicies/>`_
   for details on how to configure Kubernetes network policies. It is possible
   to define base rules using the Kubernetes specification and then
