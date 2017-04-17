@@ -45,7 +45,7 @@ kubernetes installed and plus a worker, run:
 	$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh
 
 If you have any issue with the provided vagrant box
-``cilium/ubuntu-16.10`` if you need a different box format, you may
+``cilium/ubuntu-16.10`` or need a different box format, you may
 build the box yourself using the `packer scripts <https://github.com/cilium/packer-ubuntu-16.10>`_
 
 Manual installation
