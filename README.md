@@ -105,7 +105,7 @@ functionality backported.
 
 ## Installation
 
-See the [Installation instructions](installation)
+See the [Installation instructions][installation]
 
 ## Presentations
 
