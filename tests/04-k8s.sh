@@ -5,6 +5,8 @@ source "./helpers.bash"
 
 set -e
 
+logs_clear
+
 if [ -z $K8S ]; then
 	exit 0
 fi

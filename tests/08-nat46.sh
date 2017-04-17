@@ -18,6 +18,7 @@ CLIENT_LABEL="id.client"
 NETPERF_IMAGE="tgraf/netperf"
 
 monitor_start
+logs_clear
 
 docker network inspect $TEST_NET 2> /dev/null || {
         docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET

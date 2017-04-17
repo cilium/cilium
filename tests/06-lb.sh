@@ -20,6 +20,8 @@ set -e
 TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
+logs_clear
+
 function cleanup {
 	docker rm -f server1 server2 server3 server4 server5 client misc bomb 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true

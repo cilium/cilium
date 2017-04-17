@@ -12,6 +12,8 @@ function cleanup {
 	monitor_stop
 }
 
+logs_clear
+
 trap cleanup EXIT
 cleanup
 
