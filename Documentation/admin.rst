@@ -8,7 +8,7 @@ This document describes how to install, configure, and troubleshoot Cilium in di
 It assumes you have already read and understood the components and concepts described in the :ref:`arch_guide`.
 
 This document focuses on a full deployment of Cilium within a datacenter or public cloud.  If you are just looking
-for a simple way to run a small setup on your laptop, we highly recommend using our Vagrant environment:
+for a simple way to experiment on your laptop, we highly recommend using our Vagrant environment:
 
 .. toctree::
 
@@ -338,7 +338,7 @@ The following tests connectivity from a container to the outside world:
 
 Note that an appropriate policy must be loaded or policy enforcement
 will drop the relevant packets. An example policy can be found in
-```examples/policy/test/`` <../examples/policy/test>`__ which will allow
+`examples/policy/test/ <../examples/policy/test>`_ which will allow
 the above container with the label ``io.cilium`` to be reached from
 world scope. To load and test:
 
@@ -370,7 +370,7 @@ cilium-docker binary automatically registers itself with the local Docker daemon
 The cilium-docker binary also communicates
 with the main Cilium Agent via the agent's UNIX domain
 socket (``/var/run/cilium/cilium.sock``), so the plugin binary
-must have permissions to send/receive calls to this socket.
+must have permissions to send / receive calls to this socket.
 
 Network Creation
 ~~~~~~~~~~~~~~~~
@@ -378,9 +378,6 @@ Network Creation
 As isolation and segmentation is enforced based on Docker container labels,
 all containers can be attached to a single Docker network (this is the
 recommended configuration).
-Please note that IPv6 must be enabled on the network as
-the IPv6 address is also the unique identifier for each container:
-
 Please note that IPv6 must be enabled on the network as
 the IPv6 address is also the unique identifier for each container:
 
@@ -407,7 +404,7 @@ API Server Configuration
 
 With kubernetes there is only one implicit logical network for pods, so
 rather than creating a network, you start the
-kubernetes apiserver with a prefix matching your Cilium prefix (e.g.,
+kubernetes API server with a prefix matching your Cilium prefix (e.g.,
 ``--service-cluster-ip-range="f00d:1::/112"``)
 
 **Important note**: The `service-cluster-ip-range` is currently limited to a single address
