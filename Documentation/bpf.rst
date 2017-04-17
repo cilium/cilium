@@ -73,7 +73,7 @@ through a compiler back end (e.g., LLVM), such that the kernel can later on map 
 through an in-kernel JIT compiler into native opcodes for optimal execution performance
 inside the kernel.
 
-The advantages for pushing these instructions into the kernel are, for example:
+The advantages for pushing these instructions into the kernel are:
 
 * Making the kernel programmable without having to cross kernel / user space
   boundaries. For example, eBPF programs related to networking as in the case of
@@ -134,8 +134,8 @@ follows:
 * ``r1`` - ``r5`` hold arguments from the eBPF program to the kernel helper function.
 * ``r6`` - ``r9`` are callee saved registers that will be preserved on helper function call.
 
-The eBPF calling convention is generic enough that it maps directly to ABIs used by
-the kernel, thus all eBPF registers map one to one to HW registers, so that a JIT
+The eBPF calling convention is generic enough that it maps directly to x86, arm64 and
+other ABIs, thus all eBPF registers map one to one to HW CPU registers, so that a JIT
 only needs to issue a call instruction, but no additional extra moves for placing
 function arguments. This calling convention was modeled to cover common call
 situations without having a performance penalty. Calls with 6 or more arguments
@@ -178,7 +178,7 @@ and is usually used to decouple parts of the program logic, for example, into st
 
 The instruction format is modeled as two operand instructions, which helps mapping
 eBPF instructions to native instructions during JIT phase. The instruction set is
-of fixed size, meaning every instruction is 64 bit wide. Currently, 87 instructions
+of fixed size, meaning every instruction has 64 bit encoding. Currently, 87 instructions
 have been implemented and the encoding also allows to extend the set with further
 instructions when needed. The instruction encoding of a single 64 bit instruction is
 defined as a bit sequence (from MSB to LSB) of ``op:8``, ``dst_reg:4``, ``src_reg:4``,
@@ -189,7 +189,7 @@ includes ``linux/bpf_common.h``.
 ``op`` defines the actual operation to be performed. Most of the encoding for ``op``
 has been reused from cBPF. The operation can be based on register or immediate
 operands. The encoding of ``op`` itself provides information on which mode to use
-(``BPF_A`` for denoting register-based operations, and ``BPF_K`` for immediate-based
+(``BPF_X`` for denoting register-based operations, and ``BPF_K`` for immediate-based
 operations respectively). In case of the latter, the destination operand is always
 a register. Both ``dst_reg`` and ``src_reg`` provide additional information about
 the register operands to be used (e.g., ``r0`` - ``r9``) for the operation. ``off``
