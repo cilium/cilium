@@ -311,7 +311,7 @@ func initConfig() {
 
 	// The cilium-agent must be run as root user.
 	if os.Getuid() != 0 {
-		fmt.Fprintf(os.Stderr, "Please run the cilium agent with root privileges.\n")
+		fmt.Fprintf(os.Stderr, "Please run the cilium-agent with root privileges.\n")
 		os.Exit(1)
 	}
 
