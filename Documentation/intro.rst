@@ -24,20 +24,17 @@ service-oriented architecture often referred to as *microservices*, wherein a
 large application is split into small independent services that communicate
 with each other via APIs using lightweight protocols like HTTP.  Microservices
 applications tend to be highly dynamic, with individual containers getting
-started or destroyed as the application scales out/in to adapt to load changes
+started or destroyed as the application scales out / in to adapt to load changes
 and during rolling updates that are deployed as part of continuous delivery.
 
 This shift toward highly dynamic microservices presents both a challenge and an
 opportunity in terms of securing connectivity between microservices.
 Traditional Linux network security approaches (e.g., iptables) filter on IP
-address and TCP/UDP port, but IP addresses frequently churn in dynamic
-microservices environments and
-
-Traditional Linux network security approaches (e.g., iptables) filter on IP
-addresses and TCP/UDP ports. The highly volatile lifecyle of containers causes
+address and TCP/UDP ports, but IP addresses frequently churn in dynamic
+microservices environments. The highly volatile life cycle of containers causes
 these approaches to struggle to scale side by side with the application as load
 balancing tables and access control lists carrying hundreds of thousands of
-rules that  need to be update with a continuously growing frequency. Protocol
+rules that need to be updated with a continuously growing frequency. Protocol
 ports (e.g. TCP port 80 for HTTP traffic) can no longer be used to
 differentiate between application traffic for security purposes as the port is
 utilized for a wide range of messages across services
