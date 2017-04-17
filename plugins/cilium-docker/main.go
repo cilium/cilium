@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
+	"fmt"
 	l "github.com/op/go-logging"
 	"github.com/spf13/cobra"
 )
@@ -80,6 +81,12 @@ func initConfig() {
 		common.SetupLOG(log, "DEBUG")
 	} else {
 		common.SetupLOG(log, "INFO")
+	}
+
+	// The cilium-docker plugin must be run as root user.
+	if os.Getuid() != 0 {
+		fmt.Fprintf(os.Stderr, "Please run the cilium-docker plugin with root privileges.\n")
+		os.Exit(1)
 	}
 
 	driverSock = path.Join(pluginPath, "cilium.sock")
