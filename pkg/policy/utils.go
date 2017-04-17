@@ -33,12 +33,14 @@ func JoinPath(a, b string) string {
 	return a + NodePathDelimiter + b
 }
 
-// removeRootPrefix removes an eventual "root." prefix from the path
+// removeRootPrefix removes an eventual `root.` or `root` prefix from the path.
 func removeRootPrefix(path string) string {
+	if path == RootNodeName {
+		return ""
+	}
 	cut := JoinPath(RootNodeName, "")
 	if strings.HasPrefix(path, cut) {
 		path = strings.TrimPrefix(path, cut)
 	}
-
 	return path
 }

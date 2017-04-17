@@ -134,6 +134,11 @@ func (ds *PolicyTestSuite) TestLookup(c *C) {
 	c.Assert(n, IsNil)
 	c.Assert(p, Equals, foo)
 
+	// search for root.io, should return nil, root
+	n, p = tree.LookupLocked("root.io")
+	c.Assert(n, IsNil)
+	c.Assert(p, Equals, tree.Root)
+
 	// adding bar to foo
 	bar := NewNode("bar", nil)
 	added, err = tree.Add("root.foo", bar)
@@ -147,12 +152,12 @@ func (ds *PolicyTestSuite) TestLookup(c *C) {
 	c.Assert(n.Name, Equals, "foo")
 	c.Assert(p.Name, Equals, "root")
 
-	// lookup of bar should fail
+	// lookup of bar should return nil, root
 	n, p = tree.LookupLocked("bar")
 	c.Assert(n, IsNil)
-	c.Assert(p, IsNil)
+	c.Assert(p, Equals, tree.Root)
 
-	// lookup of foo.bar should suceed
+	// lookup of foo.bar should succeed
 	n, p = tree.LookupLocked("foo.bar")
 	c.Assert(n, Equals, bar)
 	c.Assert(n.path, Equals, "root.foo.bar")
