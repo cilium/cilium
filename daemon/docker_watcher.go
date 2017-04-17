@@ -170,6 +170,9 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 		return nil, err
 	}
 	k8sLabels := result.GetLabels()
+	if k8sLabels == nil {
+		return nil, nil
+	}
 	k8sLabels[common.K8sPodNamespaceLabel] = ns
 	return k8sLabels, nil
 }
