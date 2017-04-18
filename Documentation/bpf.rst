@@ -42,7 +42,7 @@ functionality, tail calls for calling into other eBPF programs, security hardeni
 primitives, a pseudo file system for pinning objects (maps, programs), and
 infrastructure for allowing eBPF to be offloaded, for example, to a network card.
 
-LLVM provides an eBPF back end, such that tools like ``clang`` can be used to compile
+LLVM provides an eBPF back end, such that tools like clang can be used to compile
 C into an eBPF object file, which can then be loaded into the kernel. eBPF is
 deeply tied into the Linux kernel and allows for full programmability without
 sacrificing native kernel performance.
@@ -590,8 +590,8 @@ LLVM is currently the only compiler suite that provides an eBPF back end. gcc do
 not support eBPF at this point.
 
 The eBPF back end was merged into LLVM's 3.7 release. Major distributions enable
-the eBPF back end by default when they package LLVM, such that installing ``clang``
-and ``llvm`` is sufficient on most recent distributions to start compiling C
+the eBPF back end by default when they package LLVM, such that installing clang
+and llvm is sufficient on most recent distributions to start compiling C
 into eBPF object files.
 
 The typical workflow is that eBPF programs are written in C, compiled by LLVM
@@ -620,6 +620,24 @@ For LLVM, eBPF target support can be checked, for example, through the following
       bpfel      - BPF (little endian)
       [...]
 
+By default, the ``bpf`` target uses the endianness of the CPU it compiles on,
+meaning, if the CPU's endianness is little endian, the program is represented
+in little endian format as well, and if the CPU's endianness is big endian,
+the program is represented in big endian. This also matches the runtime behavior
+of eBPF, which is generic and uses the CPU's endianness it runs on in order
+to not disadvantage architectures in any of the format.
+
+For cross-compilation, the two targets ``bpfeb`` and ``bpfel`` were introduced,
+such that eBPF programs can be compiled on a node running in one endianness (f.e.,
+little endian on x86) and run on a node in another endianness format (f.e., big
+endian on arm). Note that the front end (clang) needs to run in the target
+endianness as well.
+
+Using ``bpf`` as a target is the preferred way in situations where no mixture of
+endianness applies. For example, compilation on x86 results in the same output
+for the targets ``bpf`` and ``bpfel`` due to being little endian, therefore
+scripts triggering a compilation also do not have to be endian aware.
+
 A minimal, stand-alone XDP drop program might look like the following (``xdp.c``):
 
 ::
@@ -647,11 +665,21 @@ It can then be compiled and loaded into the kernel as follows:
     # ip link set dev em1 xdp obj xdp.o
 
 For the generated object file LLVM (>= 3.9) uses the official eBPF machine value,
-that is, ``EM_BPF`` (``247`` in decimal). ``readelf -a xdp.o`` will dump related
-information.
+that is, ``EM_BPF`` (decimal: ``247`` / hex: ``0xf7``). In this example, the program
+has been compiled with ``bpf`` target under x86, therefore ``LSB`` (as opposed to
+``MSB``) is shown regarding endianness:
 
-In the unlikely case where ``clang`` and ``llvm`` needs to be compiled
-from scratch, the following commands can be used:
+::
+
+    $ file xdp.o
+    xdp.o: ELF 64-bit LSB relocatable, *unknown arch 0xf7* version 1 (SYSV), not stripped
+
+``readelf -a xdp.o`` will dump further information about the ELF file, which can
+sometimes be useful for introspecting generated section headers, relocation entries
+and the symbol table.
+
+In the unlikely case where clang and LLVM needs to be compiled from scratch, the
+following commands can be used:
 
 ::
 
@@ -679,9 +707,10 @@ from scratch, the following commands can be used:
     $ export PATH=$PWD/bin:$PATH   # add to ~/.bashrc
 
 Make sure that ``--version`` mentions ``Optimized build.``, otherwise the
-compilation time for LLVM in debugging mode will significantly increase.
+compilation time for programs when having LLVM in debugging mode will
+significantly increase (f.e., by 10x or more).
 
-For debugging, ``clang`` can generate the assembler output as follows:
+For debugging, clang can generate the assembler output as follows:
 
 ::
 
@@ -701,7 +730,7 @@ For debugging, ``clang`` can generate the assembler output as follows:
     __license:
         .asciz    "GPL"
 
-Furthermore, more recent llvm versions (>= 4.0) can also store debugging
+Furthermore, more recent LLVM versions (>= 4.0) can also store debugging
 information in dwarf format into the object file. This can be done through
 the usual workflow by adding ``-g`` for compilation.
 
@@ -751,7 +780,7 @@ Leaving out the ``-no-show-raw-insn`` option will also dump the raw
 
 ::
 
-    # llvm-objdump -S xdp.o
+    $ llvm-objdump -S xdp.o
 
     xdp.o:        file format ELF64-BPF
 
@@ -762,8 +791,27 @@ Leaving out the ``-no-show-raw-insn`` option will also dump the raw
     ; return foo();
        1:       95 00 00 00 00 00 00 00     exit
 
+For LLVM IR debugging, the compilation process for eBPF can be split into
+two steps, generating a binary LLVM IR intermediate file ``xdp.bc``, which
+can later on be passed to llc:
+
+::
+
+    $ clang -O2 -Wall -emit-llvm -c xdp.c -o xdp.bc
+    $ llc xdp.bc -march=bpf -filetype=obj -o xdp.o
+
+The generated LLVM IR can also be dumped in human readable format through:
+
+::
+
+    $ clang -O2 -Wall -emit-llvm -S -c xdp.c -o -
+
 Note that LLVM's eBPF back end currently does not support generating code
-that makes use of eBPF's 32 bit subregisters.
+that makes use of eBPF's 32 bit subregisters. Inline assembly for eBPF is
+currently unsupported, too.
+
+Furthermore, compilation from eBPF assembly (f.e., ``llvm-mc xdp.S -arch bpf -filetype=obj -o xdp.o``)
+is currently also not supported due to missing eBPF assembly parser.
 
 When writing C programs for eBPF, there are a couple of pitfalls to be aware
 of compared to usual application development with C. The following items
@@ -1561,21 +1609,6 @@ that the kernel can later on convert them into map kernel pointers. After
 that all the programs themselves are created through the BPF system call,
 and tail called maps, if present, updated with the program's file descriptors.
 
-ulimit
-------
-
-eBPF programs and maps are memory accounted against ``RLIMIT_MEMLOCK`` similar
-to ``perf``. The currently available size in unit of system pages that may be
-locked into memory can be inspected through ``ulimit -l``. The setrlimit system
-call man page provides further details.
-
-The default limit is usually insufficient to load more complex programs or
-larger eBPF maps, such that the BPF system call will return with ``errno``
-of ``EPERM``. In such situations a workaround with ``ulimit -l unlimited`` or
-with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
-mainly enforcing limits for unprivileged users. Depending on the setup,
-setting a higher limit for privileged users is often acceptable.
-
 BPF sysctls
 -----------
 
@@ -1867,6 +1900,21 @@ Both tracepoint classes can also be inspected with an eBPF program itself
 that is attached to one or more tracepoints, collecting further information
 in a map or punting such events to a user space collector through the
 ``bpf_perf_event_output()`` helper, for example.
+
+Miscellaneous
+-------------
+
+eBPF programs and maps are memory accounted against ``RLIMIT_MEMLOCK`` similar
+to ``perf``. The currently available size in unit of system pages that may be
+locked into memory can be inspected through ``ulimit -l``. The setrlimit system
+call man page provides further details.
+
+The default limit is usually insufficient to load more complex programs or
+larger eBPF maps, such that the BPF system call will return with ``errno``
+of ``EPERM``. In such situations a workaround with ``ulimit -l unlimited`` or
+with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
+mainly enforcing limits for unprivileged users. Depending on the setup,
+setting a higher limit for privileged users is often acceptable.
 
 tc (traffic control)
 ====================
