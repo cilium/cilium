@@ -289,7 +289,7 @@ all eBPF helper functions.
 
 The kernel abstracts helper function into macros ``BPF_CALL_0()`` to ``BPF_CALL_5()``
 that are similar to those of system calls. The following example is an extract
-from a helper functions which updates map elements by calling into the
+from a helper function which updates map elements by calling into the
 corresponding map implementation callbacks:
 
 ::
