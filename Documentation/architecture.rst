@@ -840,8 +840,8 @@ Name : string (optional)
     attached to the same parent.
 Rules : array of rules
     List of rules, see :ref:`_arch_rules`
-Children : Array of nodes (optional)
-    List of policy node children. The name of each child policy node is
+Children:  Map with node entries (optional)
+    Map holding children policy nodes. The name of each child policy node is
     prefixed with the name of its parent policy node using a `.` delimiter,
     e.g. a node `child` attached to the root node will have the absolute name
     `root.child`.
