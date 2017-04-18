@@ -767,7 +767,7 @@ basic connectivity.
 |               | labels    | rule to be applied.                              |
 +---------------+-----------+--------------------------------------------------+
 | in-ports      | Array of  | Layer 4 policy for any incoming connection to an |
-|               | l4-pocliy | endpoint covered by coverage.                    |
+|               | l4-policy | endpoint covered by coverage.                    |
 +---------------+-----------+--------------------------------------------------+
 | out-ports     | Array of  | Layer 4 policy for any outgoing connection to an |
 |               | l4-policy | endpoint covered by coverage.                    |
