@@ -49,27 +49,29 @@ security and visibility.
 ## What is eBPF and XDP?
 
 Berkeley Packet Filter (BPF) is a Linux kernel bytecode interpreter originally
-introduced to filter network packets, e.g. tcpdump and socket filters. It has
-since been extended with additional data structures such as hashtable and
-arrays as well as additional actions to support packet mangling, forwarding,
-encapsulation, etc. An in-kernel verifier ensures that BPF programs are safe to
-run and a JIT compiler converts the bytecode to CPU architecture specific
-instructions for native execution efficiency. BPF programs can be run at
-various hooking points in the kernel such as for incoming packets, outgoing
-packets, system calls, kprobes, etc.
+introduced to filter network packets, e.g. for tcpdump and socket filters. The
+BPF instruction set and surrounding architecture has since been significantly
+reworked with additional data structures such as hash tables and arrays for
+keeping state as well as additional actions to support packet mangling,
+forwarding, encapsulation, etc. Furthermore, a compiler back end for LLVM allows
+for programs to be written in C and compiled into BPF instructions. An in-kernel
+verifier ensures that BPF programs are safe to run and a JIT compiler converts
+the BPF bytecode to CPU architecture specific instructions for native execution
+efficiency. BPF programs can be run at various hooking points in the kernel such
+as for incoming packets, outgoing packets, system calls, kprobes, uprobes,
+tracepoints, etc.
 
 BPF continues to evolve and gain additional capabilities with each new Linux
-release. Cilium leverages BPF to perform core datapath filtering, mangling,
+release. Cilium leverages BPF to perform core data path filtering, mangling,
 monitoring and redirection, and requires BPF capabilities that are in any Linux
 kernel version 4.8.0 or newer (the latest current stable Linux kernel is
 4.10.x).
 
-Linux distros that focus on being a container runtime (e.g., CoreOS, Fedora
-Atomic) typically already have default kernels that are newer than 4.8, but
-even recent versions of general purpose operating systems, with the exception
-of Ubuntu 16.10, are unlikely to have a default kernel that is 4.8+. However,
-such OSes should support installing and running an alternative kernel that is
-4.8+.
+Many Linux distributions including CoreOS, Debian, Docker's LinuxKit, Fedora,
+and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
+kernel version by running ``uname -a``. If you are not running a recent enough
+kernel yet, check the Documentation of your Linux distribution on how to run
+Linux kernel 4.9.x or later.
 
 For more detail on kernel versions, see: [Prerequisites](prerequisites)
 
@@ -77,9 +79,11 @@ For more detail on kernel versions, see: [Prerequisites](prerequisites)
    <img src="Documentation/images/bpf-overview.png" width="508" />
 </p>
 
-XDP is a further step in evolution and enables to run a specific flavour of
-BPF programs from the network driver with direct access to the packet's DMA
-buffer.
+XDP is a further step in evolution and enables to run a specific flavor of BPF
+programs from the network driver with direct access to the packet's DMA buffer.
+This is, by definition, the earliest possible point in the software stack,
+where programs can be attached to in order to allow for a programmable, high
+performance packet processor in the Linux kernel networking data path.
 
 ## Prerequisites
 
