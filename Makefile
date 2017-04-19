@@ -2,7 +2,7 @@ include Makefile.defs
 
 SUBDIRS = plugins bpf cilium daemon
 GOFILES = $(shell go list ./... | grep -v /vendor/)
-GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9](.[0-9])?)')
+GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 
 all: check-golang $(SUBDIRS)
 
