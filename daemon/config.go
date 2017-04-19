@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/daemon/options"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -51,10 +52,11 @@ type Config struct {
 	IPv4Disabled   bool                    // Disable IPv4 allocation
 	K8sEndpoint    string                  // Kubernetes endpoint
 	K8sCfgPath     string                  // Kubeconfig path
+	KVStore        string                  // key-value store type
 	LBInterface    string                  // Set with name of the interface to loadbalance packets from
 	Tunnel         string                  // Tunnel mode
 
-	ValidLabelPrefixesMU  sync.RWMutex // Protects the 2 variables below
+	ValidLabelPrefixesMU  sync.RWMutex           // Protects the 2 variables below
 	ValidLabelPrefixes    *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 	ValidK8sLabelPrefixes *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 
@@ -87,14 +89,18 @@ func (c *Config) IsLBEnabled() bool {
 // SetKVBackend is only used for test purposes
 func (c *Config) SetKVBackend() error {
 	switch kvBackend {
-	case "consul":
+	case kvstore.Consul:
+		log.Infof("using consul as key-value store")
 		consulConfig := consulAPI.DefaultConfig()
 		consulConfig.Address = "127.0.0.1:8501"
 		c.ConsulConfig = consulConfig
+		c.KVStore = kvstore.Consul
 		return nil
-	case "etcd":
+	case kvstore.Etcd:
+		log.Infof("using etcd as key-value store")
 		c.EtcdConfig = &etcdAPI.Config{}
 		c.EtcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
+		c.KVStore = kvstore.Etcd
 		return nil
 	default:
 		return fmt.Errorf("invalid backend %s", kvBackend)
