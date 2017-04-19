@@ -530,21 +530,32 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	var kvClient kvstore.KVClient
 
-	// FIXME: This should really be a single configuration flag
-	if c.ConsulConfig != nil {
-		c, err := kvstore.NewConsulClient(c.ConsulConfig)
-		if err != nil {
-			return nil, err
+	// Create new key-value store client structures based on provided kvstore type.
+	switch c.KVStore {
+	case kvstore.Consul:
+		if c.ConsulConfig != nil {
+			log.Infof("Using consul as key-value store")
+			c, err := kvstore.NewConsulClient(c.ConsulConfig)
+			if err != nil {
+				return nil, err
+			}
+			kvClient = c
+		} else {
+			return nil, fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with the --consul option")
 		}
-		kvClient = c
-	} else if c.EtcdCfgPath != "" || c.EtcdConfig != nil {
-		c, err := kvstore.NewEtcdClient(c.EtcdConfig, c.EtcdCfgPath)
-		if err != nil {
-			return nil, err
+	case kvstore.Etcd:
+		if c.EtcdCfgPath != "" || c.EtcdConfig != nil {
+			log.Infof("Using etcd as key-value store")
+			c, err := kvstore.NewEtcdClient(c.EtcdConfig, c.EtcdCfgPath)
+			if err != nil {
+				return nil, err
+			}
+			kvClient = c
+		} else {
+			return nil, fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --etcd-config-path or an etcd agent address with --etcd")
 		}
-		kvClient = c
-	} else {
-		log.Infof("No key/value store configuration. Using local storage.")
+	case kvstore.Local:
+		log.Infof("Using local storage as key-value store")
 		kvClient = kvstore.NewLocalClient()
 	}
 

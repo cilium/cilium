@@ -28,6 +28,13 @@ var (
 	log = logging.MustGetLogger("cilium-net")
 )
 
+// Supported key-value store types.
+const (
+	Local = "local"
+	Consul = "consul"
+	Etcd = "etcd"
+)
+
 type KVClient interface {
 	LockPath(path string) (KVLocker, error)
 	GetValue(k string) (json.RawMessage, error)
