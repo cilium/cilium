@@ -17,3 +17,4 @@ Welcome to Cilium's documentation!
    bpf
    api
    contributing
+   glossary
