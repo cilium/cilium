@@ -451,15 +451,17 @@ function vboxnet_addr_finder(){
     # 16
     all_ipv6=$(echo "${all_vbox_interfaces}" | awk 'NR % 3 == 2')
     line_ip=0
-    while read -r ip; do
-        line_ip=$(( $line_ip + 1 ))
-        if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR::-1}") ]; then
-            found=${line_ip}
-            net_mask=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip}")
-            vboxnetname=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip} - 2")
-            break
-        fi
-    done <<< "${all_ipv6}"
+    if [[ -n "${all_vbox_interfaces}" ]]; then
+        while read -r ip; do
+            line_ip=$(( $line_ip + 1 ))
+            if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR::-1}") ]; then
+                found=${line_ip}
+                net_mask=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip}")
+                vboxnetname=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip} - 2")
+                break
+            fi
+        done <<< "${all_ipv6}"
+    fi
     if [[ -z "${found}" ]]; then
         echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" not found"
         if [ ${YES_TO_ALL} -eq "0" ]; then
