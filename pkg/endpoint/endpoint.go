@@ -787,8 +787,9 @@ func (e *Endpoint) RegenerateIfReady(owner Owner) error {
 	}
 	e.Mutex.RUnlock()
 
-	// TODO: Should we change RegenerateIfReady to block/non-block like
-	// e.Regenerate?
-	e.Regenerate(owner)
+	if !<-e.Regenerate(owner) {
+		return fmt.Errorf("error while regenerating endpoint."+
+			" For more info run: 'cilium endpoint get %d'", e.ID)
+	}
 	return nil
 }
