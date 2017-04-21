@@ -21,11 +21,11 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
 
+	"golang.org/x/sys/unix"
 	"github.com/spf13/cobra"
 )
 
@@ -129,7 +129,7 @@ func runMonitor() {
 
 	for {
 		todo, err := events.Poll(5000)
-		if err != nil && err != syscall.EINTR {
+		if err != nil && err != unix.EINTR {
 			panic(err)
 		}
 		if todo > 0 {
