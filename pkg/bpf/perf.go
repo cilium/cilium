@@ -130,8 +130,9 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -245,7 +246,7 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 		unsafe.Pointer(&attr),
 	)
 
-	ret, _, err := syscall.Syscall6(
+	ret, _, err := unix.Syscall6(
 		C.__NR_perf_event_open,
 		uintptr(unsafe.Pointer(&attr)),
 		uintptr(pid),
@@ -264,11 +265,11 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 
 func (e *PerfEvent) Mmap(pagesize int, npages int) error {
 	size := pagesize * (npages + 1)
-	data, err := syscall.Mmap(e.Fd,
+	data, err := unix.Mmap(e.Fd,
 		0,
 		size,
-		syscall.PROT_READ|syscall.PROT_WRITE,
-		syscall.MAP_SHARED)
+		unix.PROT_READ|unix.PROT_WRITE,
+		unix.MAP_SHARED)
 
 	if err != nil {
 		return fmt.Errorf("Unable to mmap perf event: %s", err)
@@ -282,8 +283,8 @@ func (e *PerfEvent) Mmap(pagesize int, npages int) error {
 }
 
 func (e *PerfEvent) Enable() error {
-	_, _, err := syscall.Syscall(
-		syscall.SYS_IOCTL,
+	_, _, err := unix.Syscall(
+		unix.SYS_IOCTL,
 		uintptr(e.Fd),
 		C.PERF_EVENT_IOC_ENABLE,
 		0)
@@ -300,8 +301,8 @@ func (e *PerfEvent) Disable() error {
 		return nil
 	}
 
-	_, _, err := syscall.Syscall(
-		syscall.SYS_IOCTL,
+	_, _, err := unix.Syscall(
+		unix.SYS_IOCTL,
 		uintptr(e.Fd),
 		C.PERF_EVENT_IOC_DISABLE,
 		0)
@@ -361,26 +362,26 @@ func (e *PerfEvent) Close() {
 		return
 	}
 
-	syscall.Close(e.Fd)
+	unix.Close(e.Fd)
 }
 
 type EPoll struct {
 	fd     int
 	nfds   int
-	events [MAX_POLL_EVENTS]syscall.EpollEvent
+	events [MAX_POLL_EVENTS]unix.EpollEvent
 }
 
 func (ep *EPoll) AddFD(fd int, events uint32) error {
-	ev := syscall.EpollEvent{
+	ev := unix.EpollEvent{
 		Events: events,
 		Fd:     int32(fd),
 	}
 
-	return syscall.EpollCtl(ep.fd, syscall.EPOLL_CTL_ADD, fd, &ev)
+	return unix.EpollCtl(ep.fd, unix.EPOLL_CTL_ADD, fd, &ev)
 }
 
 func (ep *EPoll) Poll(timeout int) (int, error) {
-	nfds, err := syscall.EpollWait(ep.fd, ep.events[0:], timeout)
+	nfds, err := unix.EpollWait(ep.fd, ep.events[0:], timeout)
 	if err != nil {
 		return 0, err
 	}
@@ -392,7 +393,7 @@ func (ep *EPoll) Poll(timeout int) (int, error) {
 
 func (ep *EPoll) Close() {
 	if ep.fd > 0 {
-		syscall.Close(ep.fd)
+		unix.Close(ep.fd)
 	}
 }
 
@@ -420,7 +421,7 @@ func (e *EventMap) Close() {
 		return
 	}
 
-	syscall.Close(e.fd)
+	unix.Close(e.fd)
 }
 
 type PerCpuEvents struct {
@@ -448,7 +449,7 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		}
 	}()
 
-	e.poll.fd, err = syscall.EpollCreate1(0)
+	e.poll.fd, err = unix.EpollCreate1(0)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +471,7 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		}
 		e.event[event.Fd] = event
 
-		if err := e.poll.AddFD(event.Fd, syscall.EPOLLIN); err != nil {
+		if err := e.poll.AddFD(event.Fd, unix.EPOLLIN); err != nil {
 			return nil, err
 		}
 

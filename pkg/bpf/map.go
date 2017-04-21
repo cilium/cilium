@@ -29,8 +29,9 @@ import (
 	"os"
 	"path"
 	"sync"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 type MapType int
@@ -255,7 +256,7 @@ func (m *Map) Open() error {
 
 func (m *Map) Close() error {
 	if m.fd != 0 {
-		syscall.Close(m.fd)
+		unix.Close(m.fd)
 		m.fd = 0
 	}
 

@@ -18,9 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"syscall"
 
 	"github.com/vishvananda/netlink"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -106,7 +107,7 @@ func firstGlobalV4Addr(intf string) (net.IP, error) {
 	}
 
 	for _, a := range addr {
-		if a.Scope == syscall.RT_SCOPE_UNIVERSE {
+		if a.Scope == unix.RT_SCOPE_UNIVERSE {
 			if len(a.IP) < 4 {
 				return nil, ErrIPv4Invalid
 			}

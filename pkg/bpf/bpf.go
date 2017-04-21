@@ -99,8 +99,9 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
@@ -115,7 +116,7 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) 
 		C.int(maxEntries),
 		unsafe.Pointer(&uba),
 	)
-	ret, _, err := syscall.Syscall(
+	ret, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_MAP_CREATE,
 		uintptr(unsafe.Pointer(&uba)),
@@ -142,7 +143,7 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 		C.ulonglong(flags),
 		unsafe.Pointer(&uba),
 	)
-	ret, _, err := syscall.Syscall(
+	ret, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_MAP_UPDATE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
@@ -166,7 +167,7 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 		value,
 		unsafe.Pointer(&uba),
 	)
-	ret, _, err := syscall.Syscall(
+	ret, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_MAP_LOOKUP_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
@@ -188,7 +189,7 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 		key,
 		unsafe.Pointer(&uba),
 	)
-	ret, _, err := syscall.Syscall(
+	ret, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_MAP_DELETE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
@@ -211,7 +212,7 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 		nextKey,
 		unsafe.Pointer(&uba),
 	)
-	ret, _, err := syscall.Syscall(
+	ret, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_MAP_GET_NEXT_KEY,
 		uintptr(unsafe.Pointer(&uba)),
@@ -230,7 +231,7 @@ func ObjPin(fd int, pathname string) error {
 	pathStr := C.CString(pathname)
 	uba := C.union_bpf_attr{}
 	C.create_bpf_obj_pin(C.int(fd), pathStr, unsafe.Pointer(&uba))
-	ret, _, err := syscall.Syscall(
+	ret, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_OBJ_PIN,
 		uintptr(unsafe.Pointer(&uba)),
@@ -250,7 +251,7 @@ func ObjGet(pathname string) (int, error) {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_obj_get(pathStr, unsafe.Pointer(&uba))
 
-	fd, _, err := syscall.Syscall(
+	fd, _, err := unix.Syscall(
 		C.__NR_bpf,
 		C.BPF_OBJ_GET,
 		uintptr(unsafe.Pointer(&uba)),
@@ -269,12 +270,12 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries ui
 
 	isNewMap := false
 
-	rl := syscall.Rlimit{
+	rl := unix.Rlimit{
 		Cur: math.MaxUint64,
 		Max: math.MaxUint64,
 	}
 
-	err := syscall.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
+	err := unix.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
 		return 0, isNewMap, fmt.Errorf("Unable to increase rlimit: %s", err)
 	}
