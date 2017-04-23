@@ -17,25 +17,54 @@ for a simple way to experiment on your laptop, we highly recommend using our Vag
 
 .. _admin_kernel_version:
 
-Prerequisites - Linux Kernel Version
-------------------------------------
+Prerequisites
+-------------
 
-Since Cilium builds on the foundation of BPF, the kernel version running on the Linux node that runs
-containers and Cilium must support a modern version of BPF.  For practical purposes, this means that
-the kernel must be 4.8.0 or newer.
+Linux Kernel Version
+^^^^^^^^^^^^^^^^^^^^
 
-For a version of Linux designed to be used as a container runtime, this is often the case already, as
-such distributions frequently update their default kernels.  For example:
+Since Cilium builds on the foundation of BPF, the kernel version running on the
+Linux node that runs containers and Cilium must support a modern version of
+BPF.  For practical purposes, this means that the kernel must be 4.8.0 or
+newer. However, we recommend to run at least the 4.9.x kernel releases which is
+a supported stable release series of the Linux kernel.
+
+For a version of Linux designed to be used as a container runtime, this is
+often the case already, as such distributions frequently update their default
+kernels.  For example:
 
 * `CoreOS stable <https://coreos.com/releases/>`_ is already at 4.9.9 as of March 2017.
 
 * `Fedora atomic <http://www.projectatomic.io/blog/2017/03/fedora_atomic_2week_2/>`_ is at 4.9.12 as of March 2017.
 
-General purpose Linux distros are less likely to come with a 4.8+ kernel by default.  As of March 2017,
-`Ubuntu 16.10 <https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8>`_ is the most widely used
-general purpose distro that runs a 4.8+ kernel by default.  However, many other popular distros have the
-ability to optionally install a kernel with version 4.8 or newer.
+General purpose Linux distros are less likely to come with a 4.8+ kernel by
+default.  As of March 2017, `Ubuntu 16.10
+<https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8>`_ is the
+most widely used general purpose distro that runs a 4.8+ kernel by default.
+However, many other popular distros have the ability to optionally install a
+kernel with version 4.8 or newer.
 
+Cilium will make use of later kernel versions if available by probing for the
+availability of the functionality automatically when the agent starts. It is
+therefore perfectly acceptable to use a distribution kernel which has the
+required functionality backported.
+
+clang+LLVM
+^^^^^^^^^^
+
+clang+LLVM >=3.7.1 is required. Please note that in order to use clang 3.9.x,
+the kernel version requirement is >= 4.9.17
+
+Note: If you are using the Cilium container image ``cilium/cilium``, this
+dependency/prerequisite is already included.
+
+iproute2
+^^^^^^^^^
+
+iproute2 >= 4.8.0: https://www.kernel.org/pub/linux/utils/net/iproute2/
+
+Note: If you are using the Cilium container image ``cilium/cilium``, this
+dependency/prerequisite is already included.
 
 Installing Cilium
 -----------------
