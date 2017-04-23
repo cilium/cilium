@@ -839,7 +839,7 @@ Name : string (optional)
     rules belong to the root node. Must be unique across all siblings which are
     attached to the same parent.
 Rules : array of rules
-    List of rules, see :ref:`_arch_rules`
+    List of rules, see :ref:`arch_rules`
 Children:  Map with node entries (optional)
     Map holding children policy nodes. The name of each child policy node is
     prefixed with the name of its parent policy node using a `.` delimiter,

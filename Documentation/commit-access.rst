@@ -42,7 +42,7 @@ Expectations for Developers with commit access
 Pre-requisites
 ~~~~~~~~~~~~~~
 
-Be familiar with the `contributing <contributing.rst>`__ guide.
+Be familiar with the :ref:`dev_guide`.
 
 Review
 ~~~~~~
@@ -104,7 +104,7 @@ syntax.
 Use Reported-by: and Tested-by: tags in commit messages to indicate the
 source of a bug report.
 
-Keep the `AUTHORS <../AUTHORS>`__ file up to date.
+Keep the `AUTHORS <https://github.com/cilium/cilium/blob/master/AUTHORS>`__ file up to date.
 
 Granting Commit Access
 ----------------------
