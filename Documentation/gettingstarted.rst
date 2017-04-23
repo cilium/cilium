@@ -15,7 +15,8 @@ Docker + Cilium requires about 3 GB of RAM, so if your laptop has limited
 resources, you may want to close other memory intensive applications.
 
 The vagrant box is currently available for the following hypervisors. Please
-contact us on :ref:`slack` to request building for additional hypervisors.
+contact us on `slack <https://cilium.herokuapp.com>`_ to request building for
+additional hypervisors.
  * VirtualBox
  * libvirt
 

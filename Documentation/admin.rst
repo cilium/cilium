@@ -336,10 +336,10 @@ The following tests connectivity from a container to the outside world:
     64 bytes from zrh04s07-in-x04.1e100.net: icmp_seq=2 ttl=56 time=8.63 ms
     64 bytes from zrh04s07-in-x04.1e100.net: icmp_seq=3 ttl=56 time=8.83 ms
 
-Note that an appropriate policy must be loaded or policy enforcement
-will drop the relevant packets. An example policy can be found in
-`examples/policy/test/ <../examples/policy/test>`_ which will allow
-the above container with the label ``io.cilium`` to be reached from
+Note that an appropriate policy must be loaded or policy enforcement will drop
+the relevant packets. An example policy can be found in `examples/policy/test/
+<https://github.com/cilium/cilium/tree/master/examples/policy/test>`_ which
+will allow the above container with the label ``io.cilium`` to be reached from
 world scope. To load and test:
 
 ::
