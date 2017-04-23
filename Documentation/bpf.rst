@@ -2021,3 +2021,11 @@ The following list includes publications and talks related to BPF and XDP:
        On getting tc classifier fully programmable with cls_bpf, Daniel Borkmann
        http://borkmann.ch/talks/2016_netdev.pdf>
 
+Further Reading
+---------------
+
+- Dive into BPF: a list of reading material, Quentin Monnet
+  (https://qmonnet.github.io/whirl-offload/2016/09/01/dive-into-bpf/)
+- XDP - eXpress Data Path, Jesper Dangaard Brouer
+  (https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html)
+
