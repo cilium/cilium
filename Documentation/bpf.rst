@@ -4,71 +4,76 @@
 BPF and XDP Reference Guide
 ***************************
 
-.. note:: This purely serves as a developer's guide and is explicitly not a
-          requirement for Cilium users to read.
+.. note:: This documentation section is targeted at developers and users who
+          want want to understand BPF and XDP in great technical depth. While
+          reading this reference guide may help broaden yur understanding of
+          Cilium, it is not a requirement to use Cilium. Please refer to the
+          :ref:`_gs_guide` and :ref:`_arch_guide` for a higher level
+          introduction.
 
-eBPF is a minimal, highly flexible and efficient "virtual machine"-like construct
-in the Linux kernel which is used in a number of subsystems, most prominently
+BPF is a highly flexible and efficient "virtual machine"-like construct in the
+Linux kernel allowing to execute bytecode at various hook points in a safe
+manner. It is used in a number of Linux kernel subsystems, most prominently
 networking, tracing and security (f.e. sandboxing).
 
-It replaced the traditional in-kernel "classic" BPF (cBPF) interpreter, which is
-perhaps mostly known from tcpdump filters that are passed as cBPF bytecode into
-the kernel. eBPF stands for "extended Berkeley Packet Filter", but has little to
-do with being tied to only packet filters these days. The instruction set is
-generic and flexible enough that there are many kernel subsystems which use eBPF
-apart from only networking. Nowadays, the Linux kernel runs eBPF only and loaded
-cBPF bytecode is transparently translated into an eBPF representation in the
-kernel before program execution.
+While BPF has existed since 1992, this document covers the extended Berkley
+Paket Filter (eBPF) version which has first appeared in Kernel 3.18 and
+obsoletes the original version which is being referred to as "classic" BPF
+(cBPF) these days. cBPF is known to many as being the packet filter language
+use by tcpdump. Nowadays, the Linux kernel runs eBPF only and loaded cBPF
+bytecode is transparently translated into an eBPF representation in the kernel
+before program execution. This documentation will generally refer to the term
+BPF unless explicit differences between eBPF and cBPF are being pointed out.
 
-Note that, generally, the term "BPF" refers to eBPF implicitly today (and not
-cBPF anymore)!
+Even though the name Berkley Packet Filter hints at a packet filtering specific
+purpose, the instruction set is generic and flexible enough these days that
+there are many use cases for BPF apart from networking. See :ref:`_bpf_users`
+for a list of projects which use BPF.
 
-Cilium uses eBPF heavily in its data path, see :ref:`arch_guide` for further
-information. The goal of this chapter is to provide an eBPF reference guide in
-oder to gain basic understanding of eBPF and networking related eBPF program
-types such as tc (traffic control) and XDP (eXpress Data Path), and to aide
-developing Cilium's eBPF templates.
+Cilium uses BPF heavily in its data path, see :ref:`arch_guide` for further
+information. The goal of this chapter is to provide an BPF reference guide in
+oder to gain understanding of BPF its networking specific use including loading
+BPF programs with tc (traffic control) and XDP (eXpress Data Path), and to aide
+developing Cilium's BPF templates.
 
-The older cBPF architecture is not covered by this document, since Cilium does
-not make use of it.
+BPF Architecture
+================
 
-eBPF Architecture
-=================
-
-eBPF does not define itself by only providing its instruction set, but also by
+BPF does not define itself by only providing its instruction set, but also by
 offering further infrastructure around it such as maps that act as efficient
 key / value stores, helper functions to interact with and leverage kernel
-functionality, tail calls for calling into other eBPF programs, security hardening
-primitives, a pseudo file system for pinning objects (maps, programs), and
-infrastructure for allowing eBPF to be offloaded, for example, to a network card.
+functionality, tail calls for calling into other BPF programs, security
+hardening primitives, a pseudo file system for pinning objects (maps,
+programs), and infrastructure for allowing BPF to be offloaded, for example, to
+a network card.
 
-LLVM provides an eBPF back end, such that tools like clang can be used to compile
-C into an eBPF object file, which can then be loaded into the kernel. eBPF is
-deeply tied into the Linux kernel and allows for full programmability without
-sacrificing native kernel performance.
+LLVM provides an BPF back end, such that tools like clang can be used to
+compile C into an BPF object file, which can then be loaded into the kernel.
+BPF is deeply tied into the Linux kernel and allows for full programmability
+without sacrificing native kernel performance.
 
-Last but not least, also the kernel subsystems making use of eBPF are part of
-eBPF's infrastructure. The two main subsystems discussed throughout this document
-are tc and XDP where eBPF programs can be attached to. XDP eBPF programs are
-attached at the earliest networking driver stage and trigger a run of the eBPF
-program upon packet reception. By definition, this achieves the best possible
-packet processing performance since packets cannot get processed at an even
-earlier point in software. Driver support is necessary in order to use XDP eBPF
-programs, though. However, tc eBPF programs don't need any driver support and
-can be attached to receive and transmit paths of any networking device, including
-virtual ones such as ``veth`` devices since they hook later in the kernel stack
-compared to XDP. Apart from tc and XDP programs, there are various other kernel
-subsystems as well that use eBPF such as tracing (kprobes, uprobes, tracepoints,
-etc).
+Last but not least, also the kernel subsystems making use of BPF are part of
+BPF's infrastructure. The two main subsystems discussed throughout this
+document are tc and XDP where BPF programs can be attached to. XDP BPF programs
+are attached at the earliest networking driver stage and trigger a run of the
+BPF program upon packet reception. By definition, this achieves the best
+possible packet processing performance since packets cannot get processed at an
+even earlier point in software. Driver support is necessary in order to use XDP
+BPF programs, though. However, tc BPF programs don't need any driver support
+and can be attached to receive and transmit paths of any networking device,
+including virtual ones such as ``veth`` devices since they hook later in the
+kernel stack compared to XDP. Apart from tc and XDP programs, there are various
+other kernel subsystems as well that use BPF such as tracing (kprobes, uprobes,
+tracepoints, etc).
 
 The following subsections provide further details on individual aspects of the
-eBPF architecture.
+BPF architecture.
 
 Instruction Set
 ---------------
 
-eBPF is a general purpose RISC instruction set and was originally designed with the
-goal to write programs in a subset of C that can be compiled into eBPF instructions
+BPF is a general purpose RISC instruction set and was originally designed with the
+goal to write programs in a subset of C that can be compiled into BPF instructions
 through a compiler back end (e.g., LLVM), such that the kernel can later on map them
 through an in-kernel JIT compiler into native opcodes for optimal execution performance
 inside the kernel.
@@ -76,108 +81,108 @@ inside the kernel.
 The advantages for pushing these instructions into the kernel are:
 
 * Making the kernel programmable without having to cross kernel / user space
-  boundaries. For example, eBPF programs related to networking as in the case of
+  boundaries. For example, BPF programs related to networking as in the case of
   Cilium, can implement flexible container policies, load balancing and other means
   without having to move packets to user space and back into the kernel. State
-  between eBPF programs and kernel / user space can still be shared through maps
+  between BPF programs and kernel / user space can still be shared through maps
   whenever needed.
 
 * Given the flexibility of a programmable data path, programs can be heavily optimized
   for performance also by compiling out features that are not required for the use cases
-  the program solves. F.e., if a container does not require IPv4, then the eBPF program
+  the program solves. F.e., if a container does not require IPv4, then the BPF program
   can be built to only deal with IPv6 in order to save resources in the fast-path.
 
-* In case of networking (e.g., tc and XDP), eBPF programs can be updated atomically
+* In case of networking (e.g., tc and XDP), BPF programs can be updated atomically
   without having to restart the kernel, system services or containers, and without
   traffic interruptions. Furthermore, any program state can also be maintained
-  throughout updates via eBPF maps.
+  throughout updates via BPF maps.
 
-* eBPF provides a stable ABI towards user space, and does not require any third party
-  kernel modules, for example. eBPF is a core part of the Linux kernel that is shipped
-  everywhere, and guarantees that existing eBPF programs keep running with newer kernel
+* BPF provides a stable ABI towards user space, and does not require any third party
+  kernel modules, for example. BPF is a core part of the Linux kernel that is shipped
+  everywhere, and guarantees that existing BPF programs keep running with newer kernel
   versions. This guarantee is the same guarantee that the kernel provides for system
   calls with regard to user space applications.
 
-* eBPF programs work in concert with the kernel, they make use of existing kernel
+* BPF programs work in concert with the kernel, they make use of existing kernel
   infrastructure (e.g., drivers, netdevices, tunnels, protocol stack, sockets) and
   tooling (e.g., iproute2) as well as the safety guarantees that the kernel provides.
-  Unlike kernel modules, eBPF programs are verified through an in-kernel verifier in
+  Unlike kernel modules, BPF programs are verified through an in-kernel verifier in
   order to ensure that they cannot crash the kernel, always terminate, etc. XDP
   programs, for example, reuse the existing in-kernel drivers and operate on the
   provided DMA buffers containing the packet frames without exposing them or an entire
   driver to user space as in other models. Moreover, XDP programs reuse the existing
-  stack instead of bypassing it. eBPF can be considered as generic "glue code" to
+  stack instead of bypassing it. BPF can be considered as generic "glue code" to
   kernel facilities for crafting programs to solve specific use cases.
 
-The execution of an eBPF program inside the kernel is always event driven! For example,
-a networking device that has an eBPF program attached on its ingress path will trigger
+The execution of an BPF program inside the kernel is always event driven! For example,
+a networking device that has an BPF program attached on its ingress path will trigger
 the execution of the program once a packet is received, a kernel address that has a
-kprobes with an eBPF program attached will trap once the code at that address gets
+kprobes with an BPF program attached will trap once the code at that address gets
 executed, invoke the kprobes callback function for instrumentation and testing which
-then triggers the execution of the eBPF program attached to it.
+then triggers the execution of the BPF program attached to it.
 
-eBPF consists of eleven 64 bit registers with 32 bit subregisters, a program counter
-and a 512 byte large eBPF stack space. Registers are named ``r0`` - ``r10``. The
+BPF consists of eleven 64 bit registers with 32 bit subregisters, a program counter
+and a 512 byte large BPF stack space. Registers are named ``r0`` - ``r10``. The
 operating mode is 64 bit by default, the 32 bit subregisters can only be accessed
 through special ALU operations. The 32-bit lower subregisters zero-extend into 64-bit
 when they are being written to.
 
 Register ``r10`` is the only register which is read-only and contains the frame pointer
-address in order to access the eBPF stack space. The remaining ``r0`` - ``r9``
+address in order to access the BPF stack space. The remaining ``r0`` - ``r9``
 registers are general purpose and of read/write nature.
 
-An eBPF program can call into a predefined helper function, which is defined by
-the core kernel (never by modules). The eBPF calling convention is defined as
+An BPF program can call into a predefined helper function, which is defined by
+the core kernel (never by modules). The BPF calling convention is defined as
 follows:
 
 * ``r0`` contains the return value of a helper function call.
-* ``r1`` - ``r5`` hold arguments from the eBPF program to the kernel helper function.
+* ``r1`` - ``r5`` hold arguments from the BPF program to the kernel helper function.
 * ``r6`` - ``r9`` are callee saved registers that will be preserved on helper function call.
 
-The eBPF calling convention is generic enough that it maps directly to x86, arm64 and
-other ABIs, thus all eBPF registers map one to one to HW CPU registers, so that a JIT
+The BPF calling convention is generic enough that it maps directly to x86, arm64 and
+other ABIs, thus all BPF registers map one to one to HW CPU registers, so that a JIT
 only needs to issue a call instruction, but no additional extra moves for placing
 function arguments. This calling convention was modeled to cover common call
 situations without having a performance penalty. Calls with 6 or more arguments
 are currently not supported. The helper functions in the kernel that are dedicated
-to eBPF (``BPF_CALL_0()`` to ``BPF_CALL_5()`` functions) are specifically designed
+to BPF (``BPF_CALL_0()`` to ``BPF_CALL_5()`` functions) are specifically designed
 with this convention in mind.
 
-Register ``r0`` is also the register that contains the exit value for the eBPF program.
+Register ``r0`` is also the register that contains the exit value for the BPF program.
 The semantics of the exit value are defined by the type of program. Furthermore, when
 handing execution back to the kernel, the exit value is passed as a 32 bit value.
 
-Registers ``r1`` - ``r5`` are scratch registers, meaning the eBPF program needs to
-either spill them to the eBPF stack or move them to callee saved registers if these
+Registers ``r1`` - ``r5`` are scratch registers, meaning the BPF program needs to
+either spill them to the BPF stack or move them to callee saved registers if these
 arguments are to be reused across multiple helper function calls. Spilling means
-that the variable in the register is moved to the eBPF stack. The reverse operation
-of moving the variable from the eBPF stack to the register is called filling. The
+that the variable in the register is moved to the BPF stack. The reverse operation
+of moving the variable from the BPF stack to the register is called filling. The
 reason for spilling/filling is due to limited number of registers.
 
-Upon entering execution of an eBPF program, register ``r1`` initially contains the
+Upon entering execution of an BPF program, register ``r1`` initially contains the
 context for the program. The context is the input argument for the program (similar
-to ``argc/argv`` pair for a typical C program). eBPF is restricted to work on a single
+to ``argc/argv`` pair for a typical C program). BPF is restricted to work on a single
 context. The context is defined by the program type, for example, a networking
 program can have a kernel representation of the network packet (``skb``) as the
 input argument.
 
-The general operation of eBPF is 64 bit to follow the natural model of 64-bit
+The general operation of BPF is 64 bit to follow the natural model of 64-bit
 architectures in order to perform pointer arithmetics, pass pointers but also pass 64
 bit values into helper functions, and to allow for 64 bit atomic operations.
 
-The maximum instruction limit per program is restricted to 4096 eBPF instructions,
+The maximum instruction limit per program is restricted to 4096 BPF instructions,
 which, by design, means that any program will terminate quickly. Although the
-instruction set contains forward as well as backward jumps, the in-kernel eBPF
-verifier will forbid loops such that termination is always guaranteed. Since eBPF
+instruction set contains forward as well as backward jumps, the in-kernel BPF
+verifier will forbid loops such that termination is always guaranteed. Since BPF
 programs run inside the kernel, the verifier's job is to make sure that these are
 safe to run, not affecting the system's stability. This means that from an instruction
 set point of view, loops can be implemented, but the verifier will restrict that.
-However, there is also a concept of tail calls that allows for one eBPF program to
+However, there is also a concept of tail calls that allows for one BPF program to
 jump into another one. This, too, comes with an upper nesting limit of 32 calls,
 and is usually used to decouple parts of the program logic, for example, into stages.
 
 The instruction format is modeled as two operand instructions, which helps mapping
-eBPF instructions to native instructions during JIT phase. The instruction set is
+BPF instructions to native instructions during JIT phase. The instruction set is
 of fixed size, meaning every instruction has 64 bit encoding. Currently, 87 instructions
 have been implemented and the encoding also allows to extend the set with further
 instructions when needed. The instruction encoding of a single 64 bit instruction is
@@ -194,7 +199,7 @@ operations respectively). In case of the latter, the destination operand is alwa
 a register. Both ``dst_reg`` and ``src_reg`` provide additional information about
 the register operands to be used (e.g., ``r0`` - ``r9``) for the operation. ``off``
 is used in some instructions to provide a relative offset, for example, for addressing
-the stack or other buffers available to eBPF (e.g., map values, packet data, etc),
+the stack or other buffers available to BPF (e.g., map values, packet data, etc),
 or jump targets in jump instructions. ``imm`` contains a constant / immediate value.
 
 The available ``op`` instructions can be categorized into various instruction
@@ -207,8 +212,8 @@ or an immediate value. Possible instruction classes are:
 * ``BPF_LD``, ``BPF_LDX``: Both classes are for load operations. ``BPF_LD`` is
   used for loading a double word as a special instruction spanning two instructions
   due to the ``imm:32`` split, and for byte / half-word / word loads of packet data.
-  The latter was carried over from cBPF mainly in order to keep cBPF to eBPF
-  translations efficient, since they have optimized JIT code. For native eBPF
+  The latter was carried over from cBPF mainly in order to keep cBPF to BPF
+  translations efficient, since they have optimized JIT code. For native BPF
   these packet load instructions are less relevant nowadays. ``BPF_LDX`` class
   holds instructions for byte / half-word / word / double-word loads out of
   memory. Memory in this context is generic and could be stack memory, map value
@@ -247,20 +252,20 @@ or an immediate value. Possible instruction classes are:
   conditions are jeq (``==``), jne (``!=``), jgt (``>``), jge (``>=``), jsgt
   (signed ``>``), jsge (signed ``>=``), jset (jump if ``DST & SRC``). Apart from
   that, there are three special jump operations within this class: the exit instruction
-  which will leave the eBPF program and return the current value in ``r0`` as a return
+  which will leave the BPF program and return the current value in ``r0`` as a return
   code, the call instruction, which will issue a function call into one of the available
-  eBPF helper functions, and a hidden tail call instruction, which will jump into a
-  different eBPF program.
+  BPF helper functions, and a hidden tail call instruction, which will jump into a
+  different BPF program.
 
-The Linux kernel ships with an eBPF interpreter that executes programs assembled in
-eBPF instructions. Even cBPF programs are translated into eBPF programs transparently
+The Linux kernel ships with an BPF interpreter that executes programs assembled in
+BPF instructions. Even cBPF programs are translated into BPF programs transparently
 in the kernel with the exception that an architecture still ships with a cBPF JIT and
-has not yet migrated to an eBPF JIT.
+has not yet migrated to an BPF JIT.
 
 Currently ``x86_64``, ``arm64``, ``ppc64`` and ``s390x`` architectures ship with an
-in-kernel eBPF JIT compiler.
+in-kernel BPF JIT compiler.
 
-All eBPF handling such as loading of programs into the kernel or creation of eBPF maps
+All BPF handling such as loading of programs into the kernel or creation of BPF maps
 is managed through a central ``bpf()`` system call. It is also used for managing map
 entries (lookup / update / delete), and making programs as well as maps persistent
 in the BPF file system through pinning.
@@ -268,11 +273,11 @@ in the BPF file system through pinning.
 Helper Functions
 ----------------
 
-Helper functions are a concept that lets eBPF programs consult a core kernel
+Helper functions are a concept that lets BPF programs consult a core kernel
 defined set of function calls in order to retrieve / push data from / to the
-kernel. Available helper functions may differ for each eBPF program type,
-for example, eBPF programs attached to sockets are only allowed to call into
-a subset of helpers as opposed to eBPF programs attached to the tc layer.
+kernel. Available helper functions may differ for each BPF program type,
+for example, BPF programs attached to sockets are only allowed to call into
+a subset of helpers as opposed to BPF programs attached to the tc layer.
 Encapsulation and decapsulation helpers for lightweight tunneling constitute
 an example of functions that are only available to lower tc layers, event
 output helpers for pushing notifications to user space for tc and XDP programs.
@@ -285,7 +290,7 @@ similar to system calls. The signature is defined as:
     u64 fn(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 
 The calling convention as described in the previous section applies for
-all eBPF helper functions.
+all BPF helper functions.
 
 The kernel abstracts helper function into macros ``BPF_CALL_0()`` to ``BPF_CALL_5()``
 that are similar to those of system calls. The following example is an extract
@@ -317,7 +322,7 @@ invoke auxiliary helper functions, each cBPF JIT needed to implement support
 for such a cBPF extension. In case of eBPF, each newly added helper function
 will be JIT compiled in a transparent and efficient way, meaning that the JIT
 compiler only needs to emit a call instruction since the register mapping
-is made in such a way that eBPF register assignments already match the
+is made in such a way that BPF register assignments already match the
 underlying architecture's calling convention. This allows for easily extending
 the core kernel with new helper functionality.
 
@@ -325,10 +330,10 @@ Mentioned function signature also allows the verifier to perform type checks.
 The above ``struct bpf_func_proto`` is used to hand all the necessary
 information that is needed to know about the helper to the verifier, so
 the verifier can make sure that expected types from the helper match with
-the current contents of the eBPF program's analyzed registers.
+the current contents of the BPF program's analyzed registers.
 
 Argument types can range from passing in any kind of value up to restricted
-contents such as a pointer / size pair for the eBPF's stack buffer, which the
+contents such as a pointer / size pair for the BPF's stack buffer, which the
 helper should read from or write to. In the latter case, the verifier can also
 perform additional checks, for example, whether the buffer was initialized
 previously.
@@ -337,13 +342,13 @@ Maps
 ----
 
 Maps are efficient key / value stores that reside in kernel space. They can be
-accessed from an eBPF program in order to keep state among multiple eBPF program
+accessed from an BPF program in order to keep state among multiple BPF program
 invocations. They can also be accessed through file descriptors from user space
-and can be arbitrarily shared with other eBPF programs or user space applications.
+and can be arbitrarily shared with other BPF programs or user space applications.
 
-eBPF programs that share maps with each other are not required to be of the same
+BPF programs that share maps with each other are not required to be of the same
 program type, for example, tracing programs can share maps with networking programs.
-A single eBPF program can currently access up to 64 different maps directly.
+A single BPF program can currently access up to 64 different maps directly.
 
 Map implementations are provided by the core kernel. There are generic maps with
 per-CPU and non-per-CPU flavour that can read / write arbitrary data, but there are
@@ -373,7 +378,7 @@ TODO: further coverage of maps and their purpose
 Object Pinning
 --------------
 
-eBPF maps and programs act as a kernel resource and can only be accessed through
+BPF maps and programs act as a kernel resource and can only be accessed through
 file descriptors, backed by anonymous inodes in the kernel. Advantages, but
 also a number of disadvantages come along with them:
 
@@ -387,11 +392,11 @@ where tc or XDP sets up and loads the program into the kernel and terminates
 itself eventually. With that, also access to maps are unavailable from user
 space side, where it would otherwise have been useful, for example, when maps
 are shared between ingress and egress locations of the data path. Also, third
-party applications may wish to monitor or update map contents during eBPF
+party applications may wish to monitor or update map contents during BPF
 program runtime.
 
 To overcome this limitation, a minimal kernel space BPF file system has been
-implemented, where eBPF map and programs can be pinned to, a process called
+implemented, where BPF map and programs can be pinned to, a process called
 object pinning. The BPF system call has therefore been extended with two new
 commands that can pin (``BPF_OBJ_PIN``) or retrieve (``BPF_OBJ_GET``) a
 previously pinned object.
@@ -403,8 +408,8 @@ it does support multiple mount instances, hard and soft links, etc.
 Tail Calls
 ----------
 
-Another concept that can be used with eBPF is called tail calls. Tail calls can
-be seen as a mechanism that allows one eBPF program to call another, without
+Another concept that can be used with BPF is called tail calls. Tail calls can
+be seen as a mechanism that allows one BPF program to call another, without
 returning back to the old program. Such a call has minimal overhead as unlike
 function calls, it is implemented as a long jump, reusing the same stack frame.
 
@@ -419,26 +424,26 @@ can be invoked, but not mixed together.
 There are two components involved for realizing tail calls: the first part
 needs to setup a specialized map called program array (``BPF_MAP_TYPE_PROG_ARRAY``)
 that can be populated by user space with key / values where values are the
-file descriptors of the tail called eBPF programs, the second part is a
+file descriptors of the tail called BPF programs, the second part is a
 ``bpf_tail_call()`` helper where the context, a reference to the program array
 and the lookup key is passed to. The kernel then inlines this helper call
-directly into a specialized eBPF instruction. Such a program array is currently
+directly into a specialized BPF instruction. Such a program array is currently
 write-only from user space side.
 
-The kernel looks up the related eBPF program from the passed file descriptor
+The kernel looks up the related BPF program from the passed file descriptor
 and atomically replaces program pointers at the given map slot. When no map
 entry has been found at the provided key, the kernel will just "fall through"
 and continue execution of the old program with the instructions following
 after the ``bpf_tail_call()``. Tail calls are a powerful utility, for example,
 parsing network headers could be structured through tail calls. During runtime,
-functionality can be added or replaced atomically, and thus altering the eBPF
+functionality can be added or replaced atomically, and thus altering the BPF
 program's execution behaviour.
 
 JIT
 ---
 
 The ``x86_64``, ``arm64``, ``ppc64`` and ``s390x`` architectures all ship with an
-in-kernel eBPF JIT compiler, also all of them are feature equivalent and can be
+in-kernel BPF JIT compiler, also all of them are feature equivalent and can be
 enabled through:
 
 ::
@@ -446,12 +451,12 @@ enabled through:
     # echo 1 > /proc/sys/net/core/bpf_jit_enable
 
 ``arm``, ``mips``, ``ppc``, ``sparc`` currently still have a cBPF JIT compiler and
-are likely to rework their JIT into an eBPF JIT compiler as well in the future.
+are likely to rework their JIT into an BPF JIT compiler as well in the future.
 These mentioned architectures still having a cBPF JIT as well as all remaining
-architectures supported by the Linux kernel need to run eBPF programs through
+architectures supported by the Linux kernel need to run BPF programs through
 the in-kernel interpreter.
 
-In the kernel's source tree, eBPF JIT support can be easily determined through
+In the kernel's source tree, BPF JIT support can be easily determined through
 issuing a grep for ``HAVE_EBPF_JIT``:
 
 ::
@@ -465,7 +470,7 @@ issuing a grep for ``HAVE_EBPF_JIT``:
 Hardening
 ---------
 
-eBPF locks the entire eBPF interpreter image (``struct bpf_prog``) as well
+BPF locks the entire BPF interpreter image (``struct bpf_prog``) as well
 as the JIT compiled image (``struct bpf_binary_header``) in the kernel as
 read-only during the program's life-time in order to prevent the code from
 potential corruptions. Any corruption happening at that point, for example,
@@ -495,7 +500,7 @@ decrease in program execution still results in better performance compared
 to switching to interpreter entirely.
 
 Currently, enabling hardening will blind all user provided 32 bit and 64 bit
-constants from the eBPF program when it gets JIT compiled in order to prevent
+constants from the BPF program when it gets JIT compiled in order to prevent
 JIT spraying attacks that inject native opcodes as immediate values. This is
 problematic as these immediate values reside in executable kernel memory, such
 that a jump that could be triggered from some kernel bug would jump to the
@@ -567,42 +572,42 @@ for privileged users, so that kernel addresses are not exposed to
 Offloads
 --------
 
-Networking programs in eBPF, in particular for tc and XDP do have an
-offload-interface to hardware in the kernel in order to execute eBPF
+Networking programs in BPF, in particular for tc and XDP do have an
+offload-interface to hardware in the kernel in order to execute BPF
 code directly on the NIC.
 
 Currently, the ``nfp`` driver from Netronome has support for offloading
-eBPF through a JIT compiler which translates eBPF instructions to an
+BPF through a JIT compiler which translates BPF instructions to an
 instruction set implemented against the NIC.
 
 Toolchain
 =========
 
 Current user space tooling, introspection facilities and kernel control knobs around
-eBPF are discussed in this section. Note, the tooling and infrastructure around eBPF
+BPF are discussed in this section. Note, the tooling and infrastructure around BPF
 is still heavily evolving and thus may not provide a complete picture of all available
 tools.
 
 LLVM
 ----
 
-LLVM is currently the only compiler suite that provides an eBPF back end. gcc does
-not support eBPF at this point.
+LLVM is currently the only compiler suite that provides an BPF back end. gcc does
+not support BPF at this point.
 
-The eBPF back end was merged into LLVM's 3.7 release. Major distributions enable
-the eBPF back end by default when they package LLVM, such that installing clang
+The BPF back end was merged into LLVM's 3.7 release. Major distributions enable
+the BPF back end by default when they package LLVM, such that installing clang
 and llvm is sufficient on most recent distributions to start compiling C
-into eBPF object files.
+into BPF object files.
 
-The typical workflow is that eBPF programs are written in C, compiled by LLVM
-into object / ELF files, that are parsed by user space eBPF ELF loaders (such as
+The typical workflow is that BPF programs are written in C, compiled by LLVM
+into object / ELF files, that are parsed by user space BPF ELF loaders (such as
 iproute2 or others), and pushed into the kernel through the BPF system call.
 The kernel verifies the BPF instructions and JITs them, returning a new file
 descriptor for the program, which can then be attached to a subsystem (e.g.,
-networking). If supported, the subsystem could then further offload the eBPF
+networking). If supported, the subsystem could then further offload the BPF
 program to hardware (e.g., NIC).
 
-For LLVM, eBPF target support can be checked, for example, through the following:
+For LLVM, BPF target support can be checked, for example, through the following:
 
 ::
 
@@ -624,11 +629,11 @@ By default, the ``bpf`` target uses the endianness of the CPU it compiles on,
 meaning, if the CPU's endianness is little endian, the program is represented
 in little endian format as well, and if the CPU's endianness is big endian,
 the program is represented in big endian. This also matches the runtime behavior
-of eBPF, which is generic and uses the CPU's endianness it runs on in order
+of BPF, which is generic and uses the CPU's endianness it runs on in order
 to not disadvantage architectures in any of the format.
 
 For cross-compilation, the two targets ``bpfeb`` and ``bpfel`` were introduced,
-such that eBPF programs can be compiled on a node running in one endianness (f.e.,
+such that BPF programs can be compiled on a node running in one endianness (f.e.,
 little endian on x86) and run on a node in another endianness format (f.e., big
 endian on arm). Note that the front end (clang) needs to run in the target
 endianness as well.
@@ -664,7 +669,7 @@ It can then be compiled and loaded into the kernel as follows:
     $ clang -O2 -Wall -target bpf -c xdp.c -o xdp.o
     # ip link set dev em1 xdp obj xdp.o
 
-For the generated object file LLVM (>= 3.9) uses the official eBPF machine value,
+For the generated object file LLVM (>= 3.9) uses the official BPF machine value,
 that is, ``EM_BPF`` (decimal: ``247`` / hex: ``0xf7``). In this example, the program
 has been compiled with ``bpf`` target under x86, therefore ``LSB`` (as opposed to
 ``MSB``) is shown regarding endianness:
@@ -753,7 +758,7 @@ original C code that was used in the compilation. The trivial example in
 this case does not contain much C code, however, the line numbers shown as
 ``0:`` and ``1:`` correspond directly to the kernel's verifier log.
 
-This means that in case eBPF programs get rejected by the verifier, ``llvm-objdump``
+This means that in case BPF programs get rejected by the verifier, ``llvm-objdump``
 can help to correlate the instructions back to the original C code, which is
 highly useful for analysis.
 
@@ -773,7 +778,7 @@ highly useful for analysis.
     processed 2 insns
 
 As can be seen in the verifier analysis, the ``llvm-objdump`` output dumps
-the same eBPF assembler code as the kernel.
+the same BPF assembler code as the kernel.
 
 Leaving out the ``-no-show-raw-insn`` option will also dump the raw
 ``struct bpf_insn`` as hex in front of the assembly:
@@ -791,7 +796,7 @@ Leaving out the ``-no-show-raw-insn`` option will also dump the raw
     ; return foo();
        1:       95 00 00 00 00 00 00 00     exit
 
-For LLVM IR debugging, the compilation process for eBPF can be split into
+For LLVM IR debugging, the compilation process for BPF can be split into
 two steps, generating a binary LLVM IR intermediate file ``xdp.bc``, which
 can later on be passed to llc:
 
@@ -806,36 +811,36 @@ The generated LLVM IR can also be dumped in human readable format through:
 
     $ clang -O2 -Wall -emit-llvm -S -c xdp.c -o -
 
-Note that LLVM's eBPF back end currently does not support generating code
-that makes use of eBPF's 32 bit subregisters. Inline assembly for eBPF is
+Note that LLVM's BPF back end currently does not support generating code
+that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
 currently unsupported, too.
 
-Furthermore, compilation from eBPF assembly (f.e., ``llvm-mc xdp.S -arch bpf -filetype=obj -o xdp.o``)
-is currently also not supported due to missing eBPF assembly parser.
+Furthermore, compilation from BPF assembly (f.e., ``llvm-mc xdp.S -arch bpf -filetype=obj -o xdp.o``)
+is currently also not supported due to missing BPF assembly parser.
 
-When writing C programs for eBPF, there are a couple of pitfalls to be aware
+When writing C programs for BPF, there are a couple of pitfalls to be aware
 of compared to usual application development with C. The following items
-describe some of the differences for the eBPF model:
+describe some of the differences for the BPF model:
 
 1. **Everything needs to be inlined, there are no function or shared library
    calls available.**
 
-   Shared libraries, etc, cannot be used with eBPF. However, common library
-   code that is used in eBPF programs can be placed into header files and
+   Shared libraries, etc, cannot be used with BPF. However, common library
+   code that is used in BPF programs can be placed into header files and
    included into the main programs. For example, Cilium makes heavy use of
    this (see ``bpf/lib/``). However, this still allows for including header
    files, for example, from the kernel or other libraries and reuse their
    static inline functions or macros / definitions.
 
    Eventually LLVM needs to compile the entire code into a flat sequence of
-   eBPF instructions for a given program section. Best practice is to use an
+   BPF instructions for a given program section. Best practice is to use an
    annotation like ``__inline`` for every library function as shown below.
    The use of ``always_inline`` is recommended, since the compiler could still
    decide to uninline large functions that are only annotated as ``inline``.
 
    In case the latter happens, LLVM will generate a relocation entry into
-   the ELF file, which eBPF ELF loaders such as iproute2 cannot resolve and
-   will thus throw an error since only eBPF maps are valid relocation entries
+   the ELF file, which BPF ELF loaders such as iproute2 cannot resolve and
+   will thus throw an error since only BPF maps are valid relocation entries
    that loaders can process.
 
    ::
@@ -867,18 +872,18 @@ describe some of the differences for the eBPF model:
 
 2. **Multiple programs can reside inside a single C file in different sections.**
 
-   C programs for eBPF make heavy use of section annotations. A C file is
-   typically structured into 3 or more sections. eBPF ELF loaders use these
+   C programs for BPF make heavy use of section annotations. A C file is
+   typically structured into 3 or more sections. BPF ELF loaders use these
    names to extract and prepare the relevant information in order to load
    the programs and maps through the bpf system call. For example, iproute2
    uses ``maps`` and ``license`` as default section name to find meta data
-   needed for map creation and the license for the eBPF program, respectively.
+   needed for map creation and the license for the BPF program, respectively.
    The latter is pushed into the kernel as well on program creation time,
    and enables some of the helper functions that are exposed as GPL only
    in case the program also holds a GPL compatible license, for example
    ``bpf_ktime_get_ns()``, ``bpf_probe_read()`` and others.
 
-   The remaining section names are specific for eBPF program code, for example,
+   The remaining section names are specific for BPF program code, for example,
    the below code has been modified to contain two program sections, ``ingress``
    and ``egress``. The toy example code demonstrates that both can share a map
    and common static inline helpers such as the ``account_data()`` function.
@@ -954,36 +959,36 @@ describe some of the differences for the eBPF model:
   The example also demonstrates a couple of other things that are useful
   to be aware of when developing programs. The code includes kernel headers,
   standard C headers and an iproute2 specific header that contains the
-  definition of ``struct bpf_elf_map``. iproute2 has a common eBPF ELF loader
+  definition of ``struct bpf_elf_map``. iproute2 has a common BPF ELF loader
   and as such the definition of ``struct bpf_elf_map`` is the very same for
   XDP and tc typed programs.
 
   A ``struct bpf_elf_map`` entry defines a map in the program and contains
   all relevant information (such as key / value size, etc) that is needed
-  in order to generate a map that is used from the two eBPF programs. The
+  in order to generate a map that is used from the two BPF programs. The
   structure must be placed into the ``maps`` section, so that the loader
   can find it. There can be multiple such map declarations with different
   variable names, but all must be annotated with ``__section("maps")``.
 
-  The ``struct bpf_elf_map`` is specific to iproute2. Different eBPF ELF
+  The ``struct bpf_elf_map`` is specific to iproute2. Different BPF ELF
   loaders can have different formats, for example, the libbpf in the kernel
   source tree which is mainly used by ``perf`` has a different specification.
   iproute2 guarantees backwards compatibility for ``struct bpf_elf_map``.
   Cilium follows the iproute2 model.
 
-  The example also demonstrates how eBPF helper functions are mapped into
+  The example also demonstrates how BPF helper functions are mapped into
   the C code and being used. Here, ``map_lookup_elem()`` is defined by
   mapping this function into the ``BPF_FUNC_map_lookup_elem`` enum value
   that is exposed as a helper in ``linux/bpf.h``. When the program is later
   loaded into the kernel, the verifier checks whether the passed arguments
   are of the expected type and re-points the helper call into a real
   function call. Moreover, ``map_lookup_elem()`` also demonstrates how
-  maps can be passed to eBPF helper functions. Here, ``&acc_map`` from the
+  maps can be passed to BPF helper functions. Here, ``&acc_map`` from the
   ``maps`` section is passed as the first argument to ``map_lookup_elem()``.
 
   Since the defined array map is global, the accounting needs to use an
   atomic operation, which is defined as ``lock_xadd()``. LLVM maps
-  ``__sync_fetch_and_add()`` as a built-in function to the eBPF atomic
+  ``__sync_fetch_and_add()`` as a built-in function to the BPF atomic
   add instruction, that is, ``BPF_STX | BPF_XADD | BPF_W`` for word sizes.
 
   Last but not least, the ``struct bpf_elf_map`` tells that the map is to
@@ -994,9 +999,9 @@ describe some of the differences for the eBPF model:
   ``globals`` acts as a global namespace that spans across object files.
   If the example would have used ``PIN_OBJECT_NS``, then tc will create
   a directory that is local to the object file. For example, different C
-  files with eBPF code could have the same ``acc_map`` definition as above
+  files with BPF code could have the same ``acc_map`` definition as above
   with a ``PIN_GLOBAL_NS`` pinning. In that case, the map will be shared
-  among eBPF programs originating from various object files. ``PIN_NONE``
+  among BPF programs originating from various object files. ``PIN_NONE``
   would mean that the map is not placed into the BPF file system as a node,
   and would as a result not be accessible from user space after tc has
   quit. It would also mean that tc creates two separate map instances
@@ -1049,32 +1054,32 @@ describe some of the differences for the eBPF model:
 
     4 directories, 1 file
 
-  As soon as packets pass the ``em1`` device, counters from the eBPF map will
+  As soon as packets pass the ``em1`` device, counters from the BPF map will
   be increased.
 
 3. **There are no global variables allowed.**
 
-  For the same reasons as mentioned in point 1., eBPF cannot have global variables
+  For the same reasons as mentioned in point 1., BPF cannot have global variables
   as often used in normal C programs.
 
-  However, there is a work-around in that the program can simply use an eBPF map
+  However, there is a work-around in that the program can simply use an BPF map
   of type ``BPF_MAP_TYPE_PERCPU_ARRAY`` with just a single slot of arbitrary
-  value size. This works, because during execution, eBPF programs are guaranteed
+  value size. This works, because during execution, BPF programs are guaranteed
   to never get preempted by the kernel and therefore can use the single map entry
   as a scratch buffer for temporary data, for example, to extend beyond the stack
   limitation. This also works across tail calls, since it has the same guarantees
   with regards to preemption.
 
-  Otherwise, for holding state across multiple eBPF program runs, normal eBPF
+  Otherwise, for holding state across multiple BPF program runs, normal BPF
   maps can be used.
 
 4. **There are no const strings or arrays allowed.**
 
-  Defining ``const`` strings or other arrays in the eBPF C program does not work
+  Defining ``const`` strings or other arrays in the BPF C program does not work
   for the same reasons as pointed out in 1. and 3., which is, that relocation
   entries will be generated in the ELF file that loaders will reject due to not
   being part of the ABI towards loaders (loaders also cannot fix up such entries
-  as it would require large rewrites of the already compiled eBPF sequence).
+  as it would require large rewrites of the already compiled BPF sequence).
 
   In future, LLVM might detect these occurrences and throw an error early to
   the user.
@@ -1099,14 +1104,14 @@ describe some of the differences for the eBPF model:
 
   The use of the ``trace_printk()`` helper function has a couple of disadvantages
   and is thus not recommended for production usage. Constant strings like the
-  ``"skb len:%u\n"`` need to be loaded into the eBPF stack each time the helper
-  function is called, but also eBPF helper functions are limited to a maximum
+  ``"skb len:%u\n"`` need to be loaded into the BPF stack each time the helper
+  function is called, but also BPF helper functions are limited to a maximum
   of 5 arguments. This leaves room for only 3 additional variables that can be
   passed for dumping.
 
   Therefore, while helpful for quick debugging, it is recommended (for networking
   programs) to use the ``skb_event_output()`` or the ``xdp_event_output()`` helper,
-  respectively. They allow for passing custom structs from the eBPF program to
+  respectively. They allow for passing custom structs from the BPF program to
   the perf event ring buffer along with an optional packet sample. For example,
   Cilium's monitor makes use of these helpers in order to implement a debugging
   framework, notifications for network policy violations, etc. These helpers pass
@@ -1115,7 +1120,7 @@ describe some of the differences for the eBPF model:
 
 5. **Use of LLVM built-in functions for memset()/memcpy()/memmove()/memcmp().**
 
-  Since eBPF programs cannot perform any function calls other than those to eBPF
+  Since BPF programs cannot perform any function calls other than those to BPF
   helpers, common library code needs to be implemented as inline functions. In
   addition, also LLVM provides some built-ins that the programs can use for
   constant sizes (here: ``n``) which will then always get inlined:
@@ -1140,13 +1145,13 @@ describe some of the differences for the eBPF model:
 
 6. **There are no loops available.**
 
-  The eBPF verifier in the kernel checks that an eBPF program does not contain
+  The BPF verifier in the kernel checks that an BPF program does not contain
   loops by performing a depth first search of all possible program paths besides
   other control flow graph validations. The purpose is to make sure that the
   program is always guaranteed to terminate.
 
   A very limited form of looping is available for constant upper loop bounds
-  by using ``#pragma unroll`` directive. Example code that is compiled to eBPF:
+  by using ``#pragma unroll`` directive. Example code that is compiled to BPF:
 
   ::
 
@@ -1181,12 +1186,12 @@ describe some of the differences for the eBPF model:
   scratch space. While being dynamic, this form of looping however is limited
   to a maximum of 32 iterations.
 
-  In future, eBPF may have some native, but limited form of implementing loops.
+  In future, BPF may have some native, but limited form of implementing loops.
 
 7. **Partitioning programs with tail calls.**
 
   Tail calls provide the flexibility to atomically alter program behavior during
-  runtime by jumping from one eBPF program into another. In order to select the
+  runtime by jumping from one BPF program into another. In order to select the
   next program, tail calls make use of program array maps (``BPF_MAP_TYPE_PROG_ARRAY``),
   and pass the map as well as the index to the next program to jump to. There is no
   return to the old program after the jump has been performed, and in case there was
@@ -1272,13 +1277,13 @@ describe some of the differences for the eBPF model:
 
   When loading this toy program, tc will create the program array and pin it
   to the BPF file system in the global namespace under ``jmp_map``. Also, the
-  eBPF ELF loader in iproute2 will also recognize sections that are marked as
+  BPF ELF loader in iproute2 will also recognize sections that are marked as
   ``__section_tail()``. The provided ``id`` in ``struct bpf_elf_map`` will be
   matched against the id marker in the ``__section_tail()``, that is, ``JMP_MAP_ID``,
   and the program therefore loaded at the user specified program array map index,
   which is ``0`` in this example. As a result, all provided tail call sections
   will be populated by the iproute2 loader to the corresponding maps. This mechanism
-  is not specific to tc, but can be applied with any other eBPF program type
+  is not specific to tc, but can be applied with any other BPF program type
   that iproute2 supports (such as XDP, lwt).
 
   The pinned map can be retrieved by a user space applications (e.g., Cilium daemon),
@@ -1299,7 +1304,7 @@ describe some of the differences for the eBPF model:
 
 8. **Limited stack space of 512 bytes.**
 
-  Stack space in eBPF programs is very limited, namely to 512 bytes, which needs
+  Stack space in BPF programs is very limited, namely to 512 bytes, which needs
   to be taken into careful consideration when implementing them in C. However,
   as mentioned earlier in point 3., a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map with a
   single entry can be used in order to enlarge scratch buffer space.
@@ -1307,37 +1312,37 @@ describe some of the differences for the eBPF model:
 iproute2
 --------
 
-There are various front ends for loading eBPF programs into the kernel such as bcc,
+There are various front ends for loading BPF programs into the kernel such as bcc,
 perf, iproute2 and others. The Linux kernel source tree also provides a user space
 library under ``tools/lib/bpf/``, which is mainly used and driven by perf for
-loading eBPF tracing programs into the kernel. However, the library itself is
+loading BPF tracing programs into the kernel. However, the library itself is
 generic and not limited to perf only. bcc is a toolkit that provides many useful
-eBPF programs mainly for tracing that are loaded ad-hoc through a Python interface
-embedding the eBPF C code. Syntax and semantics for implementing eBPF programs
+BPF programs mainly for tracing that are loaded ad-hoc through a Python interface
+embedding the BPF C code. Syntax and semantics for implementing BPF programs
 slightly differ among front ends in general, though. Additionally, there are also
 BPF samples in the kernel source tree (``samples/bpf/``) that parse the generated
 object files and load the code directly through the system call interface.
 
-This and previous sections mainly focus on the iproute2 suite's eBPF front end for
+This and previous sections mainly focus on the iproute2 suite's BPF front end for
 loading networking programs of XDP, tc or lwt type, since Cilium's programs are
-implemented against this eBPF loader. In future, Cilium will ship with a native
-eBPF loader, but programs will still be compatible to be loaded through iproute2
+implemented against this BPF loader. In future, Cilium will ship with a native
+BPF loader, but programs will still be compatible to be loaded through iproute2
 suite in order to facilitate development and debugging.
 
-All eBPF program types supported by iproute2 share the same eBPF loader logic
+All BPF program types supported by iproute2 share the same BPF loader logic
 due to having a common loader back end implemented as a library (``lib/bpf.c``
 in iproute2 source tree).
 
 The previous section on LLVM also covered some iproute2 parts related to writing
-eBPF C programs, and later sections in this document are related to tc and XDP
+BPF C programs, and later sections in this document are related to tc and XDP
 specific aspects when writing programs. Therefore, this section will rather focus
 on usage examples for loading object files with iproute2 as well as some of the
 generic mechanics of the loader. It does not try to provide a complete coverage
 of all details, but enough for getting started.
 
-**1. Loading of XDP eBPF object files.**
+**1. Loading of XDP BPF object files.**
 
-  Given an eBPF object file ``prog.o`` has been compiled for XDP, it can be loaded
+  Given an BPF object file ``prog.o`` has been compiled for XDP, it can be loaded
   through ``ip`` to a XDP-supported netdevice called ``em1`` with the following
   command:
 
@@ -1383,11 +1388,11 @@ of all details, but enough for getting started.
 
     # ip link set dev em1 xdp off
 
-**2. Loading of tc eBPF object files.**
+**2. Loading of tc BPF object files.**
 
-  Given an eBPF object file ``prog.o`` has been compiled for tc, it can be loaded
+  Given an BPF object file ``prog.o`` has been compiled for tc, it can be loaded
   through the tc command to a netdevice. Unlike XDP, there is no driver dependency
-  for supporting attaching eBPF programs to the device. Here, the netdevice is called
+  for supporting attaching BPF programs to the device. Here, the netdevice is called
   ``em1``, and with the following command the program can be attached to the networking
   ``ingress`` path of ``em1``:
 
@@ -1421,7 +1426,7 @@ of all details, but enough for getting started.
   It basically means that the ``bpf`` classifier does not need to call into external
   tc action modules, which are not necessary for ``bpf`` anyway, since all packet
   mangling, forwarding or other kind of actions can already be performed inside
-  the single eBPF program that is to be attached, and is therefore significantly
+  the single BPF program that is to be attached, and is therefore significantly
   faster.
 
   At this point, the program has been attached and is executed once packets traverse
@@ -1432,7 +1437,7 @@ of all details, but enough for getting started.
 
     # tc filter add dev em1 egress bpf da obj prog.o sec foobar
 
-  iproute2's eBPF loader allows for using the same command line syntax across
+  iproute2's BPF loader allows for using the same command line syntax across
   program types, hence the ``obj prog.o sec foobar`` is the same syntax as with
   XDP mentioned earlier.
 
@@ -1453,22 +1458,22 @@ of all details, but enough for getting started.
   The program tags are appended for each, which denotes a hash over the instruction
   stream that can be used for debugging / introspection.
 
-  tc can attach more than just a single eBPF program, it provides various other
-  classifiers that can be chained together. However, attaching a single eBPF program
+  tc can attach more than just a single BPF program, it provides various other
+  classifiers that can be chained together. However, attaching a single BPF program
   is fully sufficient since all packet operations can be contained in the program
   itself thanks to ``da`` (``direct-action``) mode. For optimal performance and
   flexibility, this is the recommended usage.
 
   In the above ``show`` command, tc also displays ``pref 49152`` and
-  ``handle 0x1`` next to the eBPF related output. Both are auto-generated in
+  ``handle 0x1`` next to the BPF related output. Both are auto-generated in
   case they are not explicitly provided through the command line. ``pref``
   denotes a priority number, such that in case multiple classifiers are attached,
   they will be executed based on ascending priority, and ``handle`` represents
   an identifier in case multiple instances of the same classifier have been
-  loaded under the same ``pref``. Since in case of eBPF, a single program is
+  loaded under the same ``pref``. Since in case of BPF, a single program is
   fully sufficient, ``pref`` and ``handle`` can typically be ignored.
 
-  Only in the case where it is planned to atomically replace the attached eBPF
+  Only in the case where it is planned to atomically replace the attached BPF
   programs, it would be recommended to explicitly specify ``pref`` and ``handle``
   a-priori on initial load, such that they do not have to be queried at a later
   point in time for the ``replace`` operation. Thus, creation becomes:
@@ -1482,7 +1487,7 @@ of all details, but enough for getting started.
     filter protocol all pref 1 bpf handle 0x1 prog.o:[foobar] direct-action tag c5f7825e5dac396f
 
   And for the atomic replacement, the following can be issued for updating the
-  existing program at ``ingress`` hook with the new eBPF program from the file
+  existing program at ``ingress`` hook with the new BPF program from the file
   ``prog.o`` in section ``foobar``:
 
   ::
@@ -1505,10 +1510,10 @@ of all details, but enough for getting started.
 
     # tc qdisc del dev em1 clsact
 
-These two workflows are the basic operations to load XDP eBPF respectively tc eBPF
+These two workflows are the basic operations to load XDP BPF respectively tc BPF
 programs with iproute2.
 
-There are various other advanced options for the eBPF loader that apply both to XDP
+There are various other advanced options for the BPF loader that apply both to XDP
 and tc, some of them are listed here. In the examples only XDP is presented for
 simplicity.
 
@@ -1549,7 +1554,7 @@ simplicity.
 
   # ip link set dev em1 xdp pinned m:prog
 
-When loading eBPF programs, iproute2 will automatically detect the mounted
+When loading BPF programs, iproute2 will automatically detect the mounted
 file system instance in order to perform pinning of nodes. In case no mounted
 BPF file system instance was found, then tc will automatically mount it
 to the default location under ``/sys/fs/bpf/``.
@@ -1575,34 +1580,34 @@ mount will be performed:
 
 By default tc will create an initial directory structure as shown above,
 where all subsystem users will point to the same location through symbolic
-links for the ``globals`` namespace, such that pinned eBPF maps can be reused
-among various eBPF program types in iproute2. In case the file system instance
+links for the ``globals`` namespace, such that pinned BPF maps can be reused
+among various BPF program types in iproute2. In case the file system instance
 was mounted already and an existing structure exists already, then tc will
 not override it. This could be the case for separating ``lwt``, ``tc`` and
 ``xdp`` maps in order to not share ``globals`` among all.
 
 As briefly covered in the previous LLVM section, iproute2 will install a
 header file upon installation that can be included through the standard
-include path by eBPF programs:
+include path by BPF programs:
 
   ::
 
     #include <iproute2/bpf_elf.h>
 
 The header file's purpose is to provide an API for maps and default section
-names used by programs. It's a stable contract between iproute2 and eBPF programs.
+names used by programs. It's a stable contract between iproute2 and BPF programs.
 
 The map definition for iproute2 is ``struct bpf_elf_map``. Its members have
 been covered earlier in the LLVM section of this document.
 
-When parsing the eBPF object file, the iproute2 loader will walk through
+When parsing the BPF object file, the iproute2 loader will walk through
 all ELF sections. It initially fetches ancillary sections like ``maps`` and
 ``license``. For ``maps``, the ``struct bpf_elf_map`` array will be checked
 for validity and whenever needed, compatibility workarounds are performed.
 Subsequently all maps are created with the user provided information, either
 retrieved as a pinned object, or newly created and then pinned into the BPF
 file system. Next the loader will handle all program sections that contain
-ELF relocation entries for maps, meaning that eBPF instructions that load
+ELF relocation entries for maps, meaning that BPF instructions that load
 map file descriptors into registers are rewritten such that the corresponding
 map file descriptors are encoded into the instructions immediate value, so
 that the kernel can later on convert them into map kernel pointers. After
@@ -1629,9 +1634,9 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
   As described in subsequent sections, ``bpf_jit_disasm`` tool can be used to
   process debugging traces when the JIT compiler is set to debugging mode (option ``2``).
 
-* ``/proc/sys/net/core/bpf_jit_harden``: Enables or disables eBPF JIT hardening.
+* ``/proc/sys/net/core/bpf_jit_harden``: Enables or disables BPF JIT hardening.
   Note that enabling hardening trades off performance, but can mitigate JIT spraying
-  by blinding out the eBPF program's immediate values. For programs processed through
+  by blinding out the BPF program's immediate values. For programs processed through
   the interpreter, blinding of immediate values is not needed / performed.
 
   +-------+-------------------------------------------------------------------+
@@ -1648,7 +1653,7 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
   programs as kernel symbols to ``/proc/kallsyms`` such that they can be used together
   with ``perf`` tooling as well as making these addresses aware to the kernel for
   stack unwinding, for example, used in dumping stack traces. The symbol names
-  contain the eBPF program tag (``bpf_prog_<tag>``). If ``bpf_jit_harden`` is enabled,
+  contain the BPF program tag (``bpf_prog_<tag>``). If ``bpf_jit_harden`` is enabled,
   then this feature is disabled.
 
   +-------+-------------------------------------------------------------------+
@@ -1662,7 +1667,7 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
 Kernel Testing
 --------------
 
-The Linux kernel ships an eBPF selftest suite, which can be found in the kernel
+The Linux kernel ships an BPF selftest suite, which can be found in the kernel
 source tree under ``tools/testing/selftests/bpf/``.
 
 ::
@@ -1671,8 +1676,8 @@ source tree under ``tools/testing/selftests/bpf/``.
     $ make
     # make run_tests
 
-The test suite contains test cases against the eBPF verifier, program tags,
-various tests against the eBPF map interface and map types. It contains various
+The test suite contains test cases against the BPF verifier, program tags,
+various tests against the BPF map interface and map types. It contains various
 runtime tests from C code for checking LLVM back end, and eBPF as well as cBPF
 asm code that is run in the kernel for testing the interpreter and JITs.
 
@@ -1783,7 +1788,7 @@ Alternatively, the tool can also dump related opcodes along with the disassembly
       45:       retq
         c3
 
-For performance analysis of JITed eBPF programs, ``perf`` can be used as
+For performance analysis of JITed BPF programs, ``perf`` can be used as
 usual. As a prerequisite, JITed programs need to be exported through kallsyms
 infrastructure.
 
@@ -1793,8 +1798,8 @@ infrastructure.
     # echo 1 > /proc/sys/net/core/bpf_jit_kallsyms
 
 Enabling or disabling ``bpf_jit_kallsyms`` does not require a reload of the
-related eBPF programs. Next, a small workflow example is provided for profiling
-eBPF programs. A crafted tc eBPF program is used for demonstration purposes,
+related BPF programs. Next, a small workflow example is provided for profiling
+BPF programs. A crafted tc BPF program is used for demonstration purposes,
 where perf records a failed allocation inside ``bpf_clone_redirect()`` helper.
 Due to the use of direct write, ``bpf_try_make_head_writable()`` failed that
 would then release the cloned ``skb`` again and return with an error message.
@@ -1834,7 +1839,7 @@ would then release the cloned ``skb`` again and return with an error message.
        7fffb885e09c ret_from_fork (/lib/modules/4.10.0+/build/vmlinux)
 
 The stack trace recorded by ``perf`` will then show the ``bpf_prog_8227addf251b7543()``
-symbol as part of the call trace, meaning the eBPF program with the
+symbol as part of the call trace, meaning the BPF program with the
 tag ``8227addf251b7543`` was related to the ``kfree_skb`` event, and
 such program was attached to netdevice ``em1`` on the ingress hook
 as shown by tc.
@@ -1846,7 +1851,7 @@ The Linux kernel provides various tracepoints around BPF and XDP that
 can be used for additional introspection, for example, to trace interactions
 of user space programs with the bpf system call.
 
-Tracepoints for eBPF:
+Tracepoints for BPF:
 
 ::
 
@@ -1879,7 +1884,7 @@ a specific application like ``tc`` could be used here instead, of course):
     sock_example  6197 [005]   288.990868: bpf:bpf_map_lookup_elem: map type=ARRAY ufd=4 key=[01 00 00 00] val=[14 00 00 00 00 00 00 00]
          swapper     0 [005]   289.338243:    bpf:bpf_prog_put_rcu: prog=a5ea8fa30ea6849c type=SOCKET_FILTER
 
-For the eBPF programs, their individual program tag is displayed.
+For the BPF programs, their individual program tag is displayed.
 
 For debugging, XDP also has a tracepoint that is triggered when exceptions are raised:
 
@@ -1890,13 +1895,13 @@ For debugging, XDP also has a tracepoint that is triggered when exceptions are r
 
 Exceptions are triggered in the following scenarios:
 
-* The eBPF program returned an invalid / unknown XDP action code.
-* The eBPF program returned with ``XDP_ABORTED`` indicating a non-graceful exit.
-* The eBPF program returned with ``XDP_TX``, but there was an error on transmit,
+* The BPF program returned an invalid / unknown XDP action code.
+* The BPF program returned with ``XDP_ABORTED`` indicating a non-graceful exit.
+* The BPF program returned with ``XDP_TX``, but there was an error on transmit,
   for example, due to the port not being up, due to the transmit ring being full,
   due to allocation failures, etc.
 
-Both tracepoint classes can also be inspected with an eBPF program itself
+Both tracepoint classes can also be inspected with an BPF program itself
 that is attached to one or more tracepoints, collecting further information
 in a map or punting such events to a user space collector through the
 ``bpf_perf_event_output()`` helper, for example.
@@ -1904,13 +1909,13 @@ in a map or punting such events to a user space collector through the
 Miscellaneous
 -------------
 
-eBPF programs and maps are memory accounted against ``RLIMIT_MEMLOCK`` similar
+BPF programs and maps are memory accounted against ``RLIMIT_MEMLOCK`` similar
 to ``perf``. The currently available size in unit of system pages that may be
 locked into memory can be inspected through ``ulimit -l``. The setrlimit system
 call man page provides further details.
 
 The default limit is usually insufficient to load more complex programs or
-larger eBPF maps, such that the BPF system call will return with ``errno``
+larger BPF maps, such that the BPF system call will return with ``errno``
 of ``EPERM``. In such situations a workaround with ``ulimit -l unlimited`` or
 with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
 mainly enforcing limits for unprivileged users. Depending on the setup,
@@ -1925,3 +1930,94 @@ XDP
 ===
 
 TODO
+
+References
+==========
+
+.. _bpf_users:
+
+Projects using BPF
+------------------
+
+The following projects are making use of BPF. This list is probably not
+complete, feel free to open pull requests to complete the list.
+
+- BCC - Tools for BPF-based Linux IO analysis, networking, monitoring, and more
+  (https://github.com/iovisor/bcc)
+- Cilium
+  (https://github.com/cilium/cilium)
+- ply - a dynamic tracer for Linux
+  (https://wkz.github.io/ply)
+- Go bindings for creating BPF programs
+  (https://github.com/iovisor/gobpf)
+- Suricata IDS
+  (https://suricata-ids.org)
+
+Talks & Publications
+--------------------
+
+The following list includes publications and talks related to BPF and XDP:
+
+.. [20] April 2017, DockerCon,
+        Cilium - Network and Application Security with BPF and XDP, Thomas Graf
+        https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-and-application-security-with-bpf-and-xdp
+.. [19] April 2017, NetDev 2.1,
+        XDP Mythbusters, David Miller
+        https://www.netdevconf.org/2.1/slides/apr7/miller-XDP-MythBusters.pdf
+.. [18] April 2017, NetDev 2.1,
+        Droplet: DDoS countermeasures powered by BPF + XDP, Huapeng Zhou, Doug
+        Porter, Ryan Tierney, Nikita Shirokov
+        https://www.netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
+.. [17] April 2017, NetDev 2.1,
+        XDP in practice: integrating XDP in our DDoS mitigation pipeline,
+        Gilberto Bertin
+        https://www.netdevconf.org/2.1/slides/apr6/bertin_Netdev-XDP.pdf
+.. [16] April 2017, NetDev 2.1,
+        XDP for the Rest of Us, Andy Gospodarek, Jesper Dangaard Brouer
+        https://www.netdevconf.org/2.1/slides/apr7/gospodarek-Netdev2.1-XDP-for-the-Rest-of-Us_Final.pdf
+.. [15] January 2017, linuxconf.au,
+        BPF: Tracing and more, Brendan Gregg
+        https://www.slideshare.net/brendangregg/bpf-tracing-and-more
+.. [14] Nov 2016, Santa Fe,
+        Cilium: Networking & Security for Containers with BPF & XDP, Thomas Graf
+        http://www.slideshare.net/ThomasGraf5/clium-container-networking-with-bpf-xdp
+.. [13] Nov 2016, OVS Conference, Santa Clara,
+        Offloading OVS Flow Processing using eBPF, William (Cheng-Chun)
+        http://openvswitch.org/support/ovscon2016/7/1120-tu.pdf
+.. [12] Oct 2016, Docker Distributed Systems Summit, Berlin,
+        Cilium: Networking & Security for Containers with BPF & XDP, Thomas Graf
+        http://www.slideshare.net/Docker/cilium-bpf-xdp-for-containers-66969823
+.. [11] Sep 2016, NetDev 1.2, Tokyo
+        XDP workshop — Introduction, experience, and future development, Tom
+        Herbert, http://netdevconf.org/1.2/session.html?herbert-xdp-workshop
+.. [10] Sep 2016, NetDev1.2, Tokyo,
+       cls_bpf/eBPF updates since netdev 1.1, Daniel Borkmann
+       http://borkmann.ch/talks/2016_tcws.pdf
+.. [9] Sep 2016, NetDev1.2, Tokyo,
+       Advanced programmability and recent updates with tc’s cls_bpf
+       http://borkmann.ch/talks/2016_netdev2.pdf>
+.. [8] Sep 2016, NetDev 1.2, Tokyo,
+       eBPF/XDP hardware offload to SmartNICs, Jakub Kicinski, Nic Viljoen
+       http://netdevconf.org/1.2/papers/eBPF_HW_OFFLOAD.pdf
+.. [7] August 2016, LinuxCon, Toronto,
+       What Can BPF Do For You?, Brenden Blanco
+       https://events.linuxfoundation.org/sites/events/files/slides/iovisor-lc-bof-2016.pdf
+.. [6] August 2016,
+       P4, EBPF and Linux TC Offload, Dinan Gunawardena and Jakub Kicinski
+       http://open-nfp.org/media/pdfs/Open_NFP_P4_EBPF_Linux_TC_Offload_FINAL.pdf
+.. [5] July 2016, Linux Meetup, Santa Clara,
+       eXpress Data Path, Brenden Blanco
+       http://www.slideshare.net/IOVisor/express-data-path-linux-meetup-santa-clara-july-2016
+.. [4] July 2016, Linux Meetup, Santa Clara,
+       CETH for XDP, Yan Chan and Yunsong Lu
+       http://www.slideshare.net/IOVisor/ceth-for-xdp-linux-meetup-santa-clara-july-2016
+.. [3] March 2016,
+       Linux BPF Superpowers, Brendan Gregg
+       https://www.slideshare.net/brendangregg/linux-bpf-superpowers
+.. [2] May 2016,
+       P4 on the Edge, John Fastabend
+       https://schd.ws/hosted_files/2016p4workshop/1d/Intel%20Fastabend-P4%20on%20the%20Edge.pdf
+.. [1] Feb 2016, NetDev1.1, Seville,
+       On getting tc classifier fully programmable with cls_bpf, Daniel Borkmann
+       http://borkmann.ch/talks/2016_netdev.pdf>
+
