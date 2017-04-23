@@ -14,33 +14,40 @@ container management platforms like Docker and Kubernetes.
 
 At the foundation of Cilium is a new Linux kernel technology called eBPF, which
 enables the dynamic insertion of BPF bytecode into the Linux kernel. Cilium
-generates individual BPF programs for each container to provide networking,
+generates BPF programs for each individual container to provide networking,
 security and visibility.
 
 <p align="center">
    <img src="Documentation/images/cilium-arch.png" />
 </p>
 
-## Components:
-  * **Cilium Daemon**: Agent written in Go. Generates & compiles the BPF
-    programs, manages the BPF maps, and interacts with the local container
-    runtime.
-  * **BPF programs**:
-    * **container**: Container connectivity & security policies
-    * **netdev**: Integration with L3 networks (physical/virtual)
-    * **overlay**: Integration with overlay networks (VXLAN, Geneve)
-    * **load balancer**: Fast L3/L4 load balancer with direct server return.
-  * **Integrations**
-    * **networking frameworks**: CNI, libnetwork
-    * **container runtimes**: Docker
-    * **orchestration systems**: Kubernetes
-    * **logging**: logstash
-    * **monitoring**:
+## Features Overview
+
+ * **Security Policies:** Enforcement of security policies at application and
+   networking layer. Application level policies include filtering of HTTP
+   protocol properties such as method, path, and headers. Networking policies
+   include container/pod/service interconnectivity rules as well as restriction
+   to particular port ranges.
+ * **Networking:** Single flat Layer 3 network which can span multiple clusters
+   if needed. Support for native routing of container/pod/service IPs via the
+   regular Linux routing layer or automatic creation of an overlay network with
+   the means of encapsulation protocols (VXLAN/Geneve/GRE). No dependency on
+   key/value store or external control plane.
+ * **Load balancing:** Distributed load balancing for both inter service as
+   well external traffic with direct server return (DSR) capability. Implements
+   the Kubernetes Ingress and Service spec.
+ * **Troubleshooting:** Built-in troubleshooting tools with full context
+   visibility. tcpdump free troubleshooting guaranteed(tm)
+ * **Integrations:**
+    * Network plugins: CNI, libnetwork
+    * container runtime events: containerd
+    * Kubernetes: pod labels, Ingress, Service, NetworkPolicy
+    * logging: logstash
 
 ## Getting Started
 
  * [Why Cilium?](http://docs.cilium.io/en/latest/intro/#why-cilium)
- * [Getting Started Guide with Vagrant](http://docs.cilium.io/en/latest/gettingstarted/)
+ * [Getting Started with Vagrant](http://docs.cilium.io/en/latest/gettingstarted/)
  * [Architecture](http://docs.cilium.io/en/latest/architecture/)
  * [Administrator Guide](http://docs.cilium.io/en/latest/admin/)
  * [Frequently Asked Questions](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
@@ -53,13 +60,13 @@ introduced to filter network packets, e.g. for tcpdump and socket filters. The
 BPF instruction set and surrounding architecture has since been significantly
 reworked with additional data structures such as hash tables and arrays for
 keeping state as well as additional actions to support packet mangling,
-forwarding, encapsulation, etc. Furthermore, a compiler back end for LLVM allows
-for programs to be written in C and compiled into BPF instructions. An in-kernel
-verifier ensures that BPF programs are safe to run and a JIT compiler converts
-the BPF bytecode to CPU architecture specific instructions for native execution
-efficiency. BPF programs can be run at various hooking points in the kernel such
-as for incoming packets, outgoing packets, system calls, kprobes, uprobes,
-tracepoints, etc.
+forwarding, encapsulation, etc. Furthermore, a compiler back end for LLVM
+allows for programs to be written in C and compiled into BPF instructions. An
+in-kernel verifier ensures that BPF programs are safe to run and a JIT compiler
+converts the BPF bytecode to CPU architecture specific instructions for native
+execution efficiency. BPF programs can be run at various hooking points in the
+kernel such as for incoming packets, outgoing packets, system calls, kprobes,
+uprobes, tracepoints, etc.
 
 BPF continues to evolve and gain additional capabilities with each new Linux
 release. Cilium leverages BPF to perform core data path filtering, mangling,
@@ -87,28 +94,6 @@ performance packet processor in the Linux kernel networking data path.
 
 Further information about BPF and XDP targeted for developers can be found in
 the [BPF and XDP reference guide](http://docs.cilium.io/en/latest/bpf).
-
-## Prerequisites
-
-The easiest way to meet the prerequisites is to use the provided vagrant box
-which provides all prerequisites in a sandbox environment. Please see the
-[vagrant guide](Documentation/vagrant.rst) for more details.
-
-In order to meet the prerequisites for an installation outside of vagrant,
-the following components must be installed in at least the version specified:
-
- * Linux kernel (http://www.kernel.org/)
-    * Minimum: >= 4.8.0
-    * Recommended: >= 4.9.17. Use of a 4.9.17 kernel or later will ensure
-      compatibility with clang > 3.9.x
- * clang+LLVM >=3.7.1. Please note that in order to use clang 3.9.x, the
-   kernel version requirement is >= 4.9.17
- * iproute2 >= 4.8.0: https://www.kernel.org/pub/linux/utils/net/iproute2/
-
-Cilium will make use of later kernel versions if available. It will probe
-for the availability of the functionality automatically. It is therefore
-perfectly acceptable to use a distribution kernel which has the required
-functionality backported.
 
 ## Installation
 
