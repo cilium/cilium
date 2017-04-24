@@ -12,9 +12,19 @@ BUILDDIR      = _build
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help Makefile
+check-requirements:
+	@pip list --format=json | grep sphinxcontrib-httpdomain > /dev/null || \
+	 (echo "sphinxcontrib-httpdomain not installed."; \
+	  echo "Run pip install sphinxcontrib-httpdomain";  \
+	  exit 1)
+	@pip list --format=json | grep sphinxcontrib-openapi > /dev/null || \
+	 (echo "sphinxcontrib-openapi not installed."; \
+	  echo "Run: pip install sphinxcontrib-openapi"; \
+	  exit 1)
+
+.PHONY: help Makefile check-requirements
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
+%: Makefile check-requirements
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
