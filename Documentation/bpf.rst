@@ -1938,88 +1938,101 @@ References
 
 .. _bpf_users:
 
+Mentioned lists of projects, talks, papers, and further reading material
+are likely not complete. Thus, feel free to open pull requests to complete
+the list.
+
 Projects using BPF
 ------------------
 
-The following projects are making use of BPF. This list is probably not
-complete, feel free to open pull requests to complete the list.
+The following list includes open source projects making use of BPF:
 
 - BCC - tools for BPF-based Linux IO analysis, networking, monitoring, and more
   (https://github.com/iovisor/bcc)
 - Cilium
   (https://github.com/cilium/cilium)
+- iproute2 (ip and tc tools)
+  (https://wiki.linuxfoundation.org/networking/iproute2)
+- perf tool
+  (https://perf.wiki.kernel.org/index.php/Main_Page)
 - ply - a dynamic tracer for Linux
   (https://wkz.github.io/ply)
 - Go bindings for creating BPF programs
   (https://github.com/iovisor/gobpf)
 - Suricata IDS
   (https://suricata-ids.org)
-- perf tool
-  (https://perf.wiki.kernel.org/index.php/Main_Page)
-- iproute2 (ip and tc tools)
-  (https://wiki.linuxfoundation.org/networking/iproute2)
 
 Talks & Publications
 --------------------
 
 The following list includes publications and talks related to BPF and XDP:
 
-.. [36] Apr 2017,
+.. [38] Apr 2017,
         DockerCon, Austin,
         Cilium - Network and Application Security with BPF and XDP,
         Thomas Graf,
         https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-and-application-security-with-bpf-and-xdp
-.. [35] Apr 2017,
+.. [37] Apr 2017,
         NetDev 2.1, Montreal,
         XDP Mythbusters,
         David S. Miller,
         https://www.netdevconf.org/2.1/slides/apr7/miller-XDP-MythBusters.pdf
-.. [34] Apr 2017,
+.. [36] Apr 2017,
         NetDev 2.1, Montreal,
         Droplet: DDoS countermeasures powered by BPF + XDP,
         Huapeng Zhou, Doug Porter, Ryan Tierney, Nikita Shirokov,
         https://www.netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
-.. [33] Apr 2017,
+.. [35] Apr 2017,
         NetDev 2.1, Montreal,
         XDP in practice: integrating XDP in our DDoS mitigation pipeline,
         Gilberto Bertin,
         https://www.netdevconf.org/2.1/slides/apr6/bertin_Netdev-XDP.pdf
-.. [32] Apr 2017,
+.. [34] Apr 2017,
         NetDev 2.1, Montreal,
         XDP for the Rest of Us,
         Andy Gospodarek, Jesper Dangaard Brouer,
         https://www.netdevconf.org/2.1/slides/apr7/gospodarek-Netdev2.1-XDP-for-the-Rest-of-Us_Final.pdf
-.. [31] Mar 2017,
+.. [33] Mar 2017,
+        SCALE15x, Pasadena,
+        Linux 4.x Tracing: Performance Analysis with bcc/BPF,
+        Brendan Gregg,
+        https://www.slideshare.net/brendangregg/linux-4x-tracing-performance-analysis-with-bccbpf
+.. [32] Mar 2017,
         XDP Inside and Out,
         David S. Miller,
         https://github.com/iovisor/bpf-docs/raw/master/XDP_Inside_and_Out.pdf
-.. [30] Mar 2017,
+.. [31] Mar 2017,
         OpenSourceDays, Copenhagen,
         XDP - eXpress Data Path, Used for DDoS protection,
         Jesper Dangaard Brouer,
         https://github.com/iovisor/bpf-docs/raw/master/XDP_Inside_and_Out.pdf
-.. [29] Feb 2017,
+.. [30] Feb 2017,
         FOSDEM 2017, Brussels,
         Stateful packet processing with eBPF, an implementation of OpenState interface,
         Quentin Monnet,
         https://fosdem.org/2017/schedule/event/stateful_ebpf/
-.. [28] Feb 2017,
+.. [29] Feb 2017,
         FOSDEM 2017, Brussels,
         eBPF and XDP walkthrough and recent updates,
         Daniel Borkmann,
         http://borkmann.ch/talks/2017_fosdem.pdf
-.. [27] Feb 2017,
+.. [28] Feb 2017,
         FOSDEM 2017, Brussels,
         Cilium - BPF & XDP for containers,
         Thomas Graf,
         https://fosdem.org/2017/schedule/event/cilium/
-.. [26] Jan 2017,
+.. [27] Jan 2017,
         linuxconf.au, Hobart,
         BPF: Tracing and more,
         Brendan Gregg,
         https://www.slideshare.net/brendangregg/bpf-tracing-and-more
+.. [26] Dec 2016,
+        USENIX LISA 2016, Boston,
+        Linux 4.x Tracing Tools: Using BPF Superpowers,
+        Brendan Gregg,
+        https://www.slideshare.net/brendangregg/linux-4x-tracing-tools-using-bpf-superpowers
 .. [25] Nov 2016,
-        Santa Fe,
+        Linux Plumbers, Santa Fe,
         Cilium: Networking & Security for Containers with BPF & XDP,
         Thomas Graf,
         http://www.slideshare.net/ThomasGraf5/clium-container-networking-with-bpf-xdp
@@ -2097,14 +2110,16 @@ The following list includes publications and talks related to BPF and XDP:
         CETH for XDP,
         Yan Chan, Yunsong Lu,
         http://www.slideshare.net/IOVisor/ceth-for-xdp-linux-meetup-santa-clara-july-2016
-.. [9] Mar 2016,
-       Linux BPF Superpowers,
-       Brendan Gregg,
-       https://www.slideshare.net/brendangregg/linux-bpf-superpowers
-.. [8] May 2016,
+.. [9] May 2016,
+       P4 workshop, Stanford,
        P4 on the Edge,
        John Fastabend,
        https://schd.ws/hosted_files/2016p4workshop/1d/Intel%20Fastabend-P4%20on%20the%20Edge.pdf
+.. [8] Mar 2016,
+       Performance @Scale 2016, Menlo Park,
+       Linux BPF Superpowers,
+       Brendan Gregg,
+       https://www.slideshare.net/brendangregg/linux-bpf-superpowers
 .. [7] Mar 2016,
        eXpress Data Path,
        Tom Herbert, Alexei Starovoitov,
