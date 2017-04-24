@@ -85,6 +85,9 @@ This is, by definition, the earliest possible point in the software stack,
 where programs can be attached to in order to allow for a programmable, high
 performance packet processor in the Linux kernel networking data path.
 
+Further information about BPF and XDP targeted for developers can be found in
+the [BPF and XDP reference guide](http://docs.cilium.io/en/latest/bpf).
+
 ## Prerequisites
 
 The easiest way to meet the prerequisites is to use the provided vagrant box
