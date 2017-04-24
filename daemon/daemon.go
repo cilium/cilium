@@ -198,6 +198,11 @@ func (d *Daemon) PolicyEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
 }
 
+// DebugEnabled returns whether if debug mode is enabled.
+func (d *Daemon) DebugEnabled() bool {
+	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
+}
+
 func createDockerClient(endpoint string) (*dClient.Client, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)

@@ -60,6 +60,9 @@ type Owner interface {
 
 	// RemoveFromEndpointQueue removes all requests from the working que
 	RemoveFromEndpointQueue(epID uint64)
+
+	// Returns true if debugging has been enabled
+	DebugEnabled() bool
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints
