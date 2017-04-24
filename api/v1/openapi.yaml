@@ -952,6 +952,21 @@ definitions:
         type: string
       log:
         type: string
+  Port:
+    description: Layer 4 port / protocol pair
+    type: object
+    properties:
+      protocol:
+        description: Layer 4 protocol
+        type: string
+        enum:
+          - tcp
+          - udp
+          - any
+      port:
+        description: Layer 4 port number
+        type: integer
+        format: uint16
   IdentityContext:
     description: Context describing a pair of source and destination identity
     type: object
@@ -960,6 +975,13 @@ definitions:
         "$ref": "#/definitions/Labels"
       to:
         "$ref": "#/definitions/Labels"
+      dports:
+        description: |
+          List of Layer 4 port and protocol pairs which will be used in communication
+          from the source identity to the destination identity.
+        type: array
+        items:
+          "$ref": "#/definitions/Port"
   FrontendAddress:
     description: Layer 4 address
     type: object
