@@ -145,7 +145,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgLxcFound:
 		fmt.Printf("Local container found ifindex %d seclabel %d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DbgPolicyDenied:
-		fmt.Printf("Policy denied from %d to %d\n", n.Arg1, n.Arg2)
+		fmt.Printf("Policy evaluation would deny packet from %d to %d\n", n.Arg1, n.Arg2)
 	case DbgCtLookup:
 		fmt.Printf("CT lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
 	case DbgCtLookup4:
