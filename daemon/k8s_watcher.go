@@ -25,12 +25,12 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
 
-	"k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/1.5/pkg/fields"
-	"k8s.io/client-go/1.5/pkg/util/runtime"
-	"k8s.io/client-go/1.5/pkg/util/wait"
-	"k8s.io/client-go/1.5/tools/cache"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -83,7 +83,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	}
 
 	_, policyController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Extensions().GetRESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.NetworkPolicy{},
 		reSyncPeriod,
@@ -96,7 +96,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go policyController.Run(wait.NeverStop)
 
 	_, svcController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Core().GetRESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.Core().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
 		reSyncPeriod,
@@ -109,7 +109,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go svcController.Run(wait.NeverStop)
 
 	_, endpointController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Core().GetRESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.Core().RESTClient(),
 			"endpoints", v1.NamespaceAll, fields.Everything()),
 		&v1.Endpoints{},
 		reSyncPeriod,
@@ -122,7 +122,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go endpointController.Run(wait.NeverStop)
 
 	_, ingressController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Extensions().GetRESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
 			"ingresses", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.Ingress{},
 		reSyncPeriod,

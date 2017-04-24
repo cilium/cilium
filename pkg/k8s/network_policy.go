@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a Cilium policy

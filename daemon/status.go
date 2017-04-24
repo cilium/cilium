@@ -22,13 +22,14 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	ctx "golang.org/x/net/context"
-	k8sTypes "k8s.io/client-go/1.5/pkg/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/client-go/pkg/api/v1"
 )
 
 func (d *Daemon) getK8sStatus() *models.Status {
 	var k8sStatus *models.Status
 	if d.conf.IsK8sEnabled() {
-		if v, err := d.k8sClient.ComponentStatuses().Get("controller-manager"); err != nil {
+		if v, err := d.k8sClient.ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
 			k8sStatus = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 		} else if len(v.Conditions) == 0 {
 			k8sStatus = &models.Status{

@@ -35,7 +35,8 @@ import (
 	dTypesEvents "github.com/docker/engine-api/types/events"
 	dNetwork "github.com/docker/engine-api/types/network"
 	ctx "golang.org/x/net/context"
-	k8sDockerLbls "k8s.io/client-go/1.5/pkg/kubelet/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 const (
@@ -165,7 +166,7 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	}
 	log.Debugf("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
 
-	result, err := d.k8sClient.Pods(ns).Get(podName)
+	result, err := d.k8sClient.Pods(ns).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
