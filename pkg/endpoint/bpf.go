@@ -223,9 +223,8 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (e *Endpoint) runInit(libdir, rundir, prefix string) error {
-	args := []string{libdir, rundir, prefix, e.IfName}
-
+func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
+	args := []string{libdir, rundir, prefix, e.IfName, debug}
 	out, err := exec.Command(filepath.Join(libdir, "join_ep.sh"), args...).CombinedOutput()
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
@@ -282,7 +281,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
-	if err = e.runInit(libdir, rundir, prefix); err != nil {
+	debug := strconv.FormatBool(owner.DebugEnabled())
+
+	if err = e.runInit(libdir, rundir, prefix, debug); err != nil {
 		return err
 	}
 

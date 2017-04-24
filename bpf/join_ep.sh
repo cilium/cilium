@@ -20,6 +20,7 @@ LIB=$1
 RUNDIR=$2
 ID=$3
 IFNAME=$4
+DEBUG=$5
 
 echo "Join EP id=$ID ifname=$IFNAME"
 
@@ -27,7 +28,11 @@ echo "Join EP id=$ID ifname=$IFNAME"
 DIR="$PWD/$ID"
 CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$RUNDIR/globals -I$DIR -I$LIB/include -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
-#clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $DIR/bpf_lxc.asm
+# Only generate ASM output if debug is enabled.
+if [[ "${DEBUG}" == "true" ]]; then
+  clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $DIR/bpf_lxc.asm
+fi
+
 clang $CLANG_OPTS -c $LIB/bpf_lxc.c -o $DIR/bpf_lxc.o
 
 tc qdisc replace dev $IFNAME clsact || true
