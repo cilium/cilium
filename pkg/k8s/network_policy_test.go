@@ -23,8 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/1.5/pkg/util/intstr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -39,7 +40,7 @@ var _ = Suite(&K8sSuite{})
 func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	netPolicy := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
-			PodSelector: v1beta1.LabelSelector{
+			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 					"foo2": "bar2",
@@ -49,7 +50,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 				v1beta1.NetworkPolicyIngressRule{
 					From: []v1beta1.NetworkPolicyPeer{
 						v1beta1.NetworkPolicyPeer{
-							PodSelector: &v1beta1.LabelSelector{
+							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"foo3": "bar3",
 									"foo4": "bar4",
@@ -130,7 +131,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	// From missing, all sources should be allowed
 	netPolicy1 := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
-			PodSelector: v1beta1.LabelSelector{
+			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 				},
@@ -160,7 +161,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	// Empty From rules, all sources should be allowed
 	netPolicy2 := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
-			PodSelector: v1beta1.LabelSelector{
+			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 				},
@@ -184,7 +185,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 	netPolicy := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
-			PodSelector: v1beta1.LabelSelector{
+			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 					"foo2": "bar2",

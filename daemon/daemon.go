@@ -55,7 +55,8 @@ import (
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/vishvananda/netlink"
-	"k8s.io/client-go/1.5/kubernetes"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -322,7 +323,7 @@ func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
 	if d.conf.IPv4Disabled {
 		return nil
 	}
-	k8sNode, err := d.k8sClient.Nodes().Get(nodeName)
+	k8sNode, err := d.k8sClient.Nodes().Get(nodeName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
