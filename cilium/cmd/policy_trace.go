@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	. "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
@@ -25,15 +26,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var src, dst []string
+var src, dst, dports []string
 
 // policyTraceCmd represents the policy_trace command
 var policyTraceCmd = &cobra.Command{
-	Use:   "trace -s <context> -d <context>",
+	Use:   "trace -s <context> -d <context> [--dport <port>[/<protocol>]",
 	Short: "Trace a policy decision",
 	Long: `Verifies if source ID or LABEL(s) is allowed to consume
 destination ID or LABEL(s). LABEL is represented as
-SOURCE:KEY[=VALUE]`,
+SOURCE:KEY[=VALUE].
+dports can be can be for example: 80/tcp, 53 or 23/udp.`,
 	PreRun: verifyPolicyTrace,
 	Run: func(cmd *cobra.Command, args []string) {
 		srcSlice, err := parseAllowedSlice(src)
@@ -46,9 +48,15 @@ SOURCE:KEY[=VALUE]`,
 			Fatalf("Invalid destination: %s", err)
 		}
 
+		dports, err := parseL4PortsSlice(dports)
+		if err != nil {
+			Fatalf("Invalid destination port: %s", err)
+		}
+
 		search := models.IdentityContext{
-			From: srcSlice,
-			To:   dstSlice,
+			From:   srcSlice,
+			To:     dstSlice,
+			Dports: dports,
 		}
 
 		params := NewGetPolicyResolveParams().WithIdentityContext(&search)
@@ -67,6 +75,7 @@ func init() {
 	policyTraceCmd.MarkFlagRequired("src")
 	policyTraceCmd.Flags().StringSliceVarP(&dst, "dst", "d", []string{}, "Destination label context")
 	policyTraceCmd.MarkFlagRequired("dst")
+	policyTraceCmd.Flags().StringSliceVarP(&dports, "dport", "", []string{}, "L4 destination port to search on outgoing traffic of the source label context and on incoming traffic of the destination label context")
 }
 
 func parseAllowedSlice(slice []string) ([]string, error) {
@@ -106,6 +115,43 @@ func parseAllowedSlice(slice []string) ([]string, error) {
 	}
 
 	return inLabels, nil
+}
+
+// parseL4PortsSlice parses a given `slice` of strings. Each string should be in
+// the form of `<port>[/<protocol>]`, where the `<port>` in an integer and an
+// `<protocol>` is an optional layer 4 protocol `tcp` or `udp`. In case
+// `protocol` is not present, or is set to `any`, the parsed port will be set to
+// `models.PortProtocolAny`.
+func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
+	rules := []*models.Port{}
+	for _, v := range slice {
+		vSplit := strings.Split(v, "/")
+		var protoStr string
+		switch len(vSplit) {
+		case 1:
+			protoStr = models.PortProtocolAny
+		case 2:
+			protoStr = strings.ToLower(vSplit[1])
+			switch protoStr {
+			case models.PortProtocolTCP, models.PortProtocolUDP, models.PortProtocolAny:
+			default:
+				return nil, fmt.Errorf("invalid protocol %q", protoStr)
+			}
+		default:
+			return nil, fmt.Errorf("invalid format %q. Should be <port>[/<protocol>]", v)
+		}
+		portStr := vSplit[0]
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+		}
+		l4 := &models.Port{
+			Port:     uint16(port),
+			Protocol: protoStr,
+		}
+		rules = append(rules, l4)
+	}
+	return rules, nil
 }
 
 func verifyAllowedSlice(slice []string) error {

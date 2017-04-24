@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 
@@ -135,4 +136,27 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	}
 
 	c.Assert(rootNode.ResolveTree(), Equals, nil)
+}
+
+func (s *PolicyTestSuite) TestcontainsAllL4(c *C) {
+	l4Map := L4PolicyMap{}
+	l4Map["tcp:8080"] = L4Filter{
+		Port:     8080,
+		Protocol: "tcp",
+	}
+	l4Map["tcp:8081"] = L4Filter{
+		Port:     8081,
+		Protocol: "tcp",
+	}
+	c.Assert(l4Map.containsAllL4([]*models.Port{}), Equals, false)
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8080, Protocol: "tcp"}}), Equals, true)
+	delete(l4Map, "tcp:8080")
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8080, Protocol: "tcp"}}), Equals, false)
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8080, Protocol: "any"}}), Equals, false)
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8081, Protocol: "any"}}), Equals, true)
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8081, Protocol: "udp"}}), Equals, false)
+	delete(l4Map, "tcp:8081")
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8080, Protocol: "any"}}), Equals, true)
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8081, Protocol: "any"}}), Equals, true)
+	c.Assert(l4Map.containsAllL4([]*models.Port{{Port: 8081, Protocol: "udp"}}), Equals, true)
 }

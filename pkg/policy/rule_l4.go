@@ -19,6 +19,7 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -48,8 +49,18 @@ func (l4 *L4Filter) IsRedirect() bool {
 	return l4.L7Parser != ""
 }
 
-func (l4 *L4Filter) String() string {
+// MarshalIndent returns the `L4Filter` in indented JSON string.
+func (l4 *L4Filter) MarshalIndent() string {
 	b, err := json.MarshalIndent(l4, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
+// String returns the `L4Filter` in a human-readable string.
+func (l4 L4Filter) String() string {
+	b, err := json.Marshal(l4)
 	if err != nil {
 		return err.Error()
 	}
@@ -107,6 +118,10 @@ type AllowL4 struct {
 	Egress  []L4Filter `json:"out-ports,omitempty"`
 }
 
+func (l4 AllowL4) String() string {
+	return fmt.Sprintf("ingress: %s, egress: %s", l4.Ingress, l4.Egress)
+}
+
 func (l4 *AllowL4) merge(result *L4Policy) {
 	for _, f := range l4.Ingress {
 		if f.Protocol == "" {
@@ -134,6 +149,11 @@ type RuleL4 struct {
 
 func (l4 *RuleL4) IsMergeable() bool {
 	return true
+}
+
+// String returns the RuleL4 in a human readable format.
+func (l4 *RuleL4) String() string {
+	return fmt.Sprintf("Coverage: %s, Allows L4: %s", l4.Coverage, l4.Allow)
 }
 
 // GetL4Policy checks whether the L4 rule covers the destination context
@@ -191,6 +211,37 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 	return false
 }
 
+// containsAllL4 checks if the L4PolicyMap contains all `l4Ports`. Returns false
+// if the `L4PolicyMap` has a single rule and l4Ports is empty or if a single
+// `l4Port`'s port is not present in the `L4PolicyMap`.
+func (l4 L4PolicyMap) containsAllL4(l4Ports []*models.Port) bool {
+	if len(l4) == 0 {
+		return true
+	}
+	if len(l4Ports) == 0 {
+		return false
+	}
+	for _, l4CtxIng := range l4Ports {
+		lwrProtocol := strings.ToLower(l4CtxIng.Protocol)
+		switch lwrProtocol {
+		case models.PortProtocolAny:
+			tcpPort := fmt.Sprintf("tcp:%d", l4CtxIng.Port)
+			_, tcpmatch := l4[tcpPort]
+			udpPort := fmt.Sprintf("udp:%d", l4CtxIng.Port)
+			_, udpmatch := l4[udpPort]
+			if !tcpmatch && !udpmatch {
+				return false
+			}
+		default:
+			port := fmt.Sprintf("%s:%d", lwrProtocol, l4CtxIng.Port)
+			if _, match := l4[port]; !match {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 type L4Policy struct {
 	// key format: "proto:port"
 	Ingress L4PolicyMap
@@ -202,6 +253,18 @@ func NewL4Policy() *L4Policy {
 		Ingress: make(L4PolicyMap),
 		Egress:  make(L4PolicyMap),
 	}
+}
+
+// IngressCoversDPorts checks if the receiver's ingress `L4Policy` contains all
+// `dPorts`.
+func (l4 *L4Policy) IngressCoversDPorts(dPorts []*models.Port) bool {
+	return l4.Ingress.containsAllL4(dPorts)
+}
+
+// EgressCoversDPorts checks if the receiver's egress `L4Policy` contains all
+// `dPorts`.
+func (l4 *L4Policy) EgressCoversDPorts(dPorts []*models.Port) bool {
+	return l4.Egress.containsAllL4(dPorts)
 }
 
 // HasRedirect returns true if the L4 policy contains at least one port redirection
@@ -222,12 +285,12 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 
 	ingress := []string{}
 	for _, v := range l4.Ingress {
-		ingress = append(ingress, v.String())
+		ingress = append(ingress, v.MarshalIndent())
 	}
 
 	egress := []string{}
 	for _, v := range l4.Egress {
-		egress = append(egress, v.String())
+		egress = append(egress, v.MarshalIndent())
 	}
 
 	return &models.L4Policy{

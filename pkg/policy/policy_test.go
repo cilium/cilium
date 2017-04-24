@@ -655,25 +655,6 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	c.Assert(err, Not(Equals), nil)
 }
 
-func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
-	scr := SearchContextReply{
-		Logging:  []byte(`foo`),
-		Decision: api.ConsumableDecision(0x1),
-	}
-	scrWanted := SearchContextReply{
-		Logging:  []byte(`foo`),
-		Decision: api.ConsumableDecision(0x1),
-	}
-	b, err := json.Marshal(scr)
-	c.Assert(err, IsNil)
-	c.Assert(b, DeepEquals, []byte(`{"Logging":"Zm9v","Decision":"accept"}`))
-
-	var scrGot SearchContextReply
-	err = json.Unmarshal(b, &scrGot)
-	c.Assert(err, IsNil)
-	c.Assert(scrGot, DeepEquals, scrWanted)
-}
-
 func (s *PolicyTestSuite) TestRuleMergeable(c *C) {
 	deny := &AllowRule{Action: api.DENY}
 	c.Assert(deny.IsMergeable(), Equals, false)
