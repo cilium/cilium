@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
@@ -96,25 +97,6 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 	d.endpointsMU.RUnlock()
 }
 
-// PolicyCanConsume calculates if the ctx allows the consumer to be consumed. This public
-// function returns a SearchContextReply with the consumable decision and the tracing log
-// if ctx.Trace was set.
-func (d *Daemon) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error) {
-	buffer := new(bytes.Buffer)
-	if ctx.Trace != policy.TRACE_DISABLED {
-		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
-	}
-	scr := policy.SearchContextReply{}
-	d.policy.Mutex.RLock()
-	scr.Decision = d.policy.AllowsRLocked(ctx)
-	d.policy.Mutex.RUnlock()
-
-	if ctx.Trace != policy.TRACE_DISABLED {
-		scr.Logging = buffer.Bytes()
-	}
-	return &scr, nil
-}
-
 type getPolicyResolve struct {
 	daemon *Daemon
 }
@@ -127,16 +109,52 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d := h.daemon
 	buffer := new(bytes.Buffer)
 	ctx := params.IdentityContext
-	search := policy.SearchContext{
+	searchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
 		Logging: logging.NewLogBackend(buffer, "", 0),
 		From:    labels.NewLabelArrayFromModel(ctx.From),
 		To:      labels.NewLabelArrayFromModel(ctx.To),
+		DPorts:  ctx.Dports,
 	}
+	var l4SrcPolicy, l4DstPolicy *policy.L4Policy
 
 	d.policy.Mutex.RLock()
-	verdict := d.policy.AllowsRLocked(&search)
+
+	verdict := d.policy.AllowsRLocked(&searchCtx)
+
+	searchCtx.PolicyTrace("L3 verdict: [%s]\n\n", verdict.String())
+	if verdict != api.DENY {
+		l4DstPolicy = d.policy.ResolveL4Policy(&searchCtx)
+
+		searchCtx.To, searchCtx.From = searchCtx.From, searchCtx.To
+		l4SrcPolicy = d.policy.ResolveL4Policy(&searchCtx)
+	}
+
 	d.policy.Mutex.RUnlock()
+
+	if verdict != api.DENY {
+		var l4DstVerdict, l4SrcVerdict bool
+
+		if l4DstPolicy != nil {
+			l4DstVerdict = l4DstPolicy.IngressCoversDPorts(searchCtx.DPorts)
+		} else {
+			l4DstVerdict = true
+		}
+
+		if l4SrcPolicy != nil {
+			l4SrcVerdict = l4SrcPolicy.EgressCoversDPorts(searchCtx.DPorts)
+		} else {
+			l4SrcVerdict = true
+		}
+
+		if !(l4DstVerdict && l4SrcVerdict) {
+			verdict = api.DENY
+		}
+
+		searchCtx.PolicyTrace("\nL4 verdict: [%s]\n", verdict.String())
+	} else {
+		searchCtx.PolicyTrace("Ignoring L4 tracing result since L3 verdict is [%s]\n", verdict.String())
+	}
 
 	result := models.PolicyTraceResult{
 		Verdict: verdict.String(),

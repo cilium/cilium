@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/op/go-logging"
 )
@@ -121,23 +121,28 @@ type SearchContext struct {
 	Logging *logging.LogBackend
 	From    labels.LabelArray
 	To      labels.LabelArray
-}
-
-type SearchContextReply struct {
-	Logging  []byte
-	Decision api.ConsumableDecision
+	DPorts  []*models.Port
 }
 
 func (s *SearchContext) String() string {
 	from := []string{}
 	to := []string{}
+	dports := []string{}
 	for _, fromLabel := range s.From {
 		from = append(from, fromLabel.String())
 	}
 	for _, toLabel := range s.To {
 		to = append(to, toLabel.String())
 	}
-	return fmt.Sprintf("From: [%s] => To: [%s]", strings.Join(from, ", "), strings.Join(to, ", "))
+	for _, dport := range s.DPorts {
+		dports = append(dports, fmt.Sprintf("%d/%s", dport.Port, dport.Protocol))
+	}
+	ret := fmt.Sprintf("From: [%s]", strings.Join(from, ", "))
+	ret += fmt.Sprintf(" => To: [%s]", strings.Join(to, ", "))
+	if len(dports) != 0 {
+		ret += fmt.Sprintf(" AND to destination ports: [%s]", strings.Join(dports, ", "))
+	}
+	return ret
 }
 
 func (s *SearchContext) CallDepth() string {
