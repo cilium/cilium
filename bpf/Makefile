@@ -19,6 +19,9 @@ all: $(BPF)
 %.o: %.c
 	${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
+check:
+	clang ${CLANG_FLAGS} --analyze *.c
+
 LB_OPTIONS = \
 	-DUNKNOWN \
 	-DLB_L3 \
