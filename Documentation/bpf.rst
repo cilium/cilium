@@ -262,8 +262,8 @@ BPF instructions. Even cBPF programs are translated into BPF programs transparen
 in the kernel with the exception that an architecture still ships with a cBPF JIT and
 has not yet migrated to an BPF JIT.
 
-Currently ``x86_64``, ``arm64``, ``ppc64`` and ``s390x`` architectures ship with an
-in-kernel BPF JIT compiler.
+Currently ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64`` architectures
+come with an in-kernel eBPF JIT compiler.
 
 All BPF handling such as loading of programs into the kernel or creation of BPF maps
 is managed through a central ``bpf()`` system call. It is also used for managing map
@@ -442,21 +442,22 @@ program's execution behaviour.
 JIT
 ---
 
-The ``x86_64``, ``arm64``, ``ppc64`` and ``s390x`` architectures all ship with an
-in-kernel BPF JIT compiler, also all of them are feature equivalent and can be
+The 64 bit ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64``
+architectures all ship with an in-kernel eBPF JIT compiler (``mips64`` is work
+in progress at this time), also all of them are feature equivalent and can be
 enabled through:
 
 ::
 
     # echo 1 > /proc/sys/net/core/bpf_jit_enable
 
-``arm``, ``mips``, ``ppc``, ``sparc`` currently still have a cBPF JIT compiler and
-are likely to rework their JIT into an BPF JIT compiler as well in the future.
-These mentioned architectures still having a cBPF JIT as well as all remaining
-architectures supported by the Linux kernel need to run BPF programs through
+The 32 bit ``arm``, ``mips``, ``ppc`` and ``sparc`` architectures currently
+have a cBPF JIT compiler. The mentioned architectures still having a cBPF
+JIT as well as all remaining architectures supported by the Linux kernel
+which do not have a BPF JIT compiler at all need to run eBPF programs through
 the in-kernel interpreter.
 
-In the kernel's source tree, BPF JIT support can be easily determined through
+In the kernel's source tree, eBPF JIT support can be easily determined through
 issuing a grep for ``HAVE_EBPF_JIT``:
 
 ::
@@ -465,6 +466,7 @@ issuing a grep for ``HAVE_EBPF_JIT``:
     arch/arm64/Kconfig:     select HAVE_EBPF_JIT
     arch/powerpc/Kconfig:   select HAVE_EBPF_JIT   if PPC64
     arch/s390/Kconfig:      select HAVE_EBPF_JIT   if PACK_STACK && HAVE_MARCH_Z196_FEATURES
+    arch/sparc/Kconfig:     select HAVE_EBPF_JIT   if SPARC64
     arch/x86/Kconfig:       select HAVE_EBPF_JIT   if X86_64
 
 Hardening
@@ -1975,6 +1977,9 @@ The following list includes publications and talks related to BPF and XDP:
 .. [16] April 2017, NetDev 2.1,
         XDP for the Rest of Us, Andy Gospodarek, Jesper Dangaard Brouer
         https://www.netdevconf.org/2.1/slides/apr7/gospodarek-Netdev2.1-XDP-for-the-Rest-of-Us_Final.pdf
+.. [16] Februar 2017, FOSDEM 2017, Brussels,
+        eBPF and XDP walkthrough and recent updates, Daniel Borkmann
+        http://borkmann.ch/talks/2017_fosdem.pdf
 .. [15] January 2017, linuxconf.au,
         BPF: Tracing and more, Brendan Gregg
         https://www.slideshare.net/brendangregg/bpf-tracing-and-more
@@ -1994,8 +1999,8 @@ The following list includes publications and talks related to BPF and XDP:
        cls_bpf/eBPF updates since netdev 1.1, Daniel Borkmann
        http://borkmann.ch/talks/2016_tcws.pdf
 .. [9] Sep 2016, NetDev1.2, Tokyo,
-       Advanced programmability and recent updates with tc’s cls_bpf
-       http://borkmann.ch/talks/2016_netdev2.pdf>
+       Advanced programmability and recent updates with tc’s cls_bpf,
+       Daniel Borkmann, http://borkmann.ch/talks/2016_netdev2.pdf
 .. [8] Sep 2016, NetDev 1.2, Tokyo,
        eBPF/XDP hardware offload to SmartNICs, Jakub Kicinski, Nic Viljoen
        http://netdevconf.org/1.2/papers/eBPF_HW_OFFLOAD.pdf
@@ -2019,7 +2024,10 @@ The following list includes publications and talks related to BPF and XDP:
        https://schd.ws/hosted_files/2016p4workshop/1d/Intel%20Fastabend-P4%20on%20the%20Edge.pdf
 .. [1] Feb 2016, NetDev1.1, Seville,
        On getting tc classifier fully programmable with cls_bpf, Daniel Borkmann
-       http://borkmann.ch/talks/2016_netdev.pdf>
+       http://borkmann.ch/talks/2016_netdev.pdf
+.. [0] January 2016, FOSDEM 2016, Brussels,
+       Linux tc and eBPF, Daniel Borkmann
+       http://borkmann.ch/talks/2016_fosdem.pdf
 
 Further Reading
 ---------------
