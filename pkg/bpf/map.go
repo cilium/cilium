@@ -114,6 +114,7 @@ type Map struct {
 	name string
 	path string
 	once sync.Once
+	lock sync.RWMutex
 }
 
 func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
@@ -133,6 +134,7 @@ func (m *Map) GetFd() int {
 }
 
 func GetMapInfo(pid int, fd int) (*MapInfo, error) {
+
 	fdinfoFile := fmt.Sprintf("/proc/%d/fdinfo/%d", pid, fd)
 
 	file, err := os.Open(fdinfoFile)
@@ -214,6 +216,9 @@ func (m *Map) setPathIfUnset() error {
 }
 
 func (m *Map) OpenOrCreate() (bool, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	if m.fd != 0 {
 		return false, nil
 	}
@@ -255,6 +260,9 @@ func (m *Map) Open() error {
 }
 
 func (m *Map) Close() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	if m.fd != 0 {
 		unix.Close(m.fd)
 		m.fd = 0
@@ -266,7 +274,11 @@ func (m *Map) Close() error {
 type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
 type DumpCallback func(key MapKey, value MapValue)
 
+
 func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 	value := make([]byte, m.ValueSize)
@@ -309,11 +321,13 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 
 		copy(key, nextKey)
 	}
-
 	return nil
 }
 
 func (m *Map) Lookup(key MapKey) (MapValue, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
 	value := key.NewValue()
 
 	if m.fd == 0 {
@@ -326,11 +340,13 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return value, nil
 }
 
 func (m *Map) Update(key MapKey, value MapValue) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
@@ -341,6 +357,9 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 }
 
 func (m *Map) Delete(key MapKey) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	if m.fd == 0 {
 		if err := m.Open(); err != nil {
 			return err
@@ -354,6 +373,9 @@ func (m *Map) Delete(key MapKey) error {
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
 func (m *Map) DeleteAll() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 
