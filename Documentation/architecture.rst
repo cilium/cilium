@@ -22,7 +22,7 @@ Cilium Components
 A deployment of Cilium consists of the following components running on each
 Linux container node in the container cluster:
 
-* **Cilium Agent:** Userspace daemon that interacts with the container runtime
+* **Cilium Agent (Daemon):** Userspace daemon that interacts with the container runtime
   and orchestration systems such as Kubernetes via Plugins to setup networking
   and security for containers running on the local server.  Provides an API for
   configuring network security policies, extracting network visibility data,
@@ -298,8 +298,8 @@ container-to-container traffic:
   requires no configuration changes in the underlying network, it is often the
   easiest approach to adopt initially.
 
-* **Direct Routing:**  In this mode, Cilium will hand all packets which are not
-  addresses to a local container and not addresses to the local node to the
+* **Direct Routing:**  In this mode, Cilium will hand all packets that are not
+  addressed to a local container and not addressed to the local node to the
   Linux stack causing it to route the packet as it would route any other
   non-local packet. As a result, the network connecting the Linux node hosts
   must be aware that each of the node IP prefixes are reachable by using the
