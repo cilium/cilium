@@ -532,7 +532,7 @@ policy rule is loaded, policy enforcement is enabled automatically and any
 communication must then be white listed or the relevant packets will be
 dropped.
 
-Similar, if an endpoint is not subject to an *L4* policy, communication from
+Similarly, if an endpoint is not subject to an *L4* policy, communication from
 and to all ports is permitted. Associating at least one *L4* policy to an
 endpoint will block all connectivity to ports unless explicitly allowed.
 
@@ -597,7 +597,7 @@ template:
 **Example:**
 
 The following example describes a rule which applies to all endpoints which
-carry the label `id.service1`. 
+carry the label `backend`. 
 
 ::
 
@@ -623,7 +623,7 @@ dropped.
 +---------------+----------+---------------------------------------------------+
 | Field         | Type     | Description                                       |
 +---------------+----------+---------------------------------------------------+
-| coverage      | Array of | List of labels which must match in order for this |
+| coverage      | Array of | List of labels that must match in order for this  |
 |               | labels   | rule to be applied.                               |
 +---------------+----------+---------------------------------------------------+
 | allow         | Array of | List of labels which are allowed to initiate a    |
@@ -645,7 +645,7 @@ A short form is available as alternative to the above verbose JSON syntax:
 +---------------+----------+---------------------------------------------------+
 | Field         | Type     | Description                                       |
 +---------------+----------+---------------------------------------------------+
-| coverage      | Array of | List of labels which must match in order for this |
+| coverage      | Array of | List of labels that must match in order for this  |
 |               | strings  | rule to be applied.                               |
 +---------------+----------+---------------------------------------------------+
 | allow         | Array of | List of labels which are allowed to initiate a    |
@@ -677,19 +677,19 @@ frontend pod carries the label `user=joe`:
 		"allow": ["role=frontend", "!user=joe"]
 	}]
 
-The special *always-allow* action is useful in combination with hierarchical
+The special *always-accept* action is useful in combination with hierarchical
 policy trees.  It allows to define *allow* rules which cannot be overruled by
 child policy nodes. See :ref:`arch_tree_rules` for additional information on
 policy tree and their precedence model.
 
-The following example shows a child node `role` which contains a rule which
+The following example shows a child node `role`, which contains a rule that
 disallows access from `role=frontend` to `role=backend`. However, the parent
-node `root` access by using *always-accept*.
+node `root` allows access by using *always-accept*.
 
 ::
 
 	{
-                "name": "root",
+		"name": "root",
 		"rules": [{
                         "coverage": ["role=backend"],
                         "allow": [{
@@ -710,25 +710,25 @@ node `root` access by using *always-accept*.
 Requires Rules
 --------------
 
-*Requires* rules allow to define a list of additional labels which require to
-be present in the sending endpoint order for an allow rule to take effect. A
-*requires* rule itself does not grant permissions for consumption, it merely
+*Requires* rules define a list of additional labels that must
+be present in the sending endpoint for an allow rule to take effect. A
+*requires* rule itself does not grant permissions for consumption; It merely
 imposes additional constraints. At least one *allow* rule is always required.
 
 +---------------+----------+---------------------------------------------------+
 | Field         | Type     | Description                                       |
 +---------------+----------+---------------------------------------------------+
-| coverage      | Array of | List of labels which must match in order for this |
+| coverage      | Array of | List of labels that must match in order for this  |
 |               | labels   | rule to be applied.                               |
 +---------------+----------+---------------------------------------------------+
-| requires      | Array of | List of labels which must be present in any       |
+| requires      | Array of | List of labels that must be present in any        |
 |               | labels   | transmitting endpoint desiring to connect to any  |
 |               |          | endpoint covered by coverage.                     |
 +---------------+----------+---------------------------------------------------+
 
 If an endpoint transmits to another endpoint and the communication is not
 permitted because at least one of the required labels is not present, then the
-same behaviour applied as if it would lack an *allow* rule.
+applied behaviour would be the same as if it lacks an *allow* rule.
 
 ::
 
@@ -763,14 +763,14 @@ basic connectivity.
 +---------------+-----------+--------------------------------------------------+
 | Field         | Type      | Description                                      |
 +---------------+-----------+--------------------------------------------------+
-| coverage      | Array of  | List of labels which must match in order for this|
+| coverage      | Array of  | List of labels that must match in order for this |
 |               | labels    | rule to be applied.                              |
 +---------------+-----------+--------------------------------------------------+
 | in-ports      | Array of  | Layer 4 policy for any incoming connection to an |
 |               | l4-policy | endpoint covered by coverage.                    |
 +---------------+-----------+--------------------------------------------------+
-| out-ports     | Array of  | Layer 4 policy for any outgoing connection to an |
-|               | l4-policy | endpoint covered by coverage.                    |
+| out-ports     | Array of  | Layer 4 policy for any outgoing connection from  |
+|               | l4-policy | an endpoint covered by coverage.                 |
 +---------------+-----------+--------------------------------------------------+
 
 **l4-policy:**
@@ -836,7 +836,7 @@ based on the following definition:
 
 Name : string (optional)
     Relative name of the policy node. If omitted, then "root" is assumed and
-    rules belong to the root node. Must be unique across all siblings which are
+    rules belong to the root node. Must be unique across all siblings 
     attached to the same parent.
 Rules : array of rules
     List of rules, see :ref:`arch_rules`
@@ -865,7 +865,7 @@ Automatic coverage of child nodes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A key property of child policy nodes is that their name implies an implicit
-*coverage*. The absolute name of the policy node with the `root.` prefix
+*coverage*. The absolute name of the policy node with the `root` prefix
 omitted acts as an implicit coverage which is applied to all rules of the node.
 
 **Example:**
@@ -873,13 +873,13 @@ A node `k8s` which is attached to the node `io` will have the absolute name
 `root.io.k8s`. Rules of the node will only apply if the endpoint in question
 carries a label which starts with the prefix `io.k8s`.
 
-Additionally, any rules of a child node may only cover labels which share the
+Additionally, any rules of a child node may only cover labels that share the
 prefix of the absolute node path. This means that a child `id.foo` cannot
-contain a rule which covers the label `id.bar.example` but it can contain a
-rule which covers the label `id.foo.example`.
+contain a rule which covers the label `id.bar.example`, but it can contain a
+rule that covers the label `id.foo.example`.
 
 Unlike an arbitrary label selector attached to each node, this property ensures
-that a parent node always covers all endpoints of all its children which is
+that a parent node always covers all endpoints of all its children, which is
 essential to keep  precedence rules simple as described in the next section.
 
 Precedence Rules
@@ -889,7 +889,7 @@ Precedence Rules
    allow rules. If a label is both denied and allowed, it will always be
    denied.
 2. If a node allows a label and a child node later denies the label then the
-   label will be denied unless the allow rule is a *always-allow* rule in which
+   label will be denied unless the allow rule is a *always-accept* rule in which
    case the parent always takes precedence.
 
 Merging of Nodes
@@ -916,7 +916,7 @@ nodes:
 * Use of a git tree to maintain the policy in combination with a post-merge
   hook which automatically imports the policy. (TODO: Write & link to guide)
 * Use of a distributed filesystem shared across all cluster node in combination
-  with a filesystem watcher which invokes `cilium import` upon detection of any
+  with a filesystem watcher that invokes `cilium import` upon detection of any
   change.
 
 ************************************
@@ -938,20 +938,21 @@ Docker supports network plugins via the `libnetwork plugin interface
 <https://github.com/docker/libnetwork/blob/master/docs/design.md>`_ .
 
 When using Cilium with Docker, one creates a single logical Docker network of
-type ''cilium'' and with an IPAM-driver of type ''cilium'', which delegates
+type `cilium` and with an IPAM-driver of type `cilium`, which delegates
 control over IP address management and network connectivity to Cilium for all
 containers attached to this network for both IPv4 and IPv6 connectivity.  Each
 Docker container gets an IP address from the node prefix of the node running
 the container.
 
-When deployed with Docker, each Linux node runs a ''cilium-docker'' agent,
+When deployed with Docker, each Linux node runs a `cilium-docker` agent,
 which receives libnetwork calls from Docker and then communicates with the
 Cilium Agent to control container networking.
 
 Security policies controlling connectivity between the Docker containers can be
-written in terms of the Docker container labels passed to Docker when creating
+written in terms of the Docker container labels passed to Docker while creating
 the container.  These policies can be created/updated via communication
-directly with the Cilium agent, either via API or using the Cilium CLI client.
+directly with the Cilium agent, either via API or by using the Cilium CLI
+client.
 
 Kubernetes Integration
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -964,7 +965,7 @@ capabilities:
   kube-proxy replacement).
 * Identity-based security policies for all  (direct and service-based)
   Pod-to-Pod inter-connectivity.
-* External-to-Pod service-based load-balancing (referred to as ''Ingress'' in
+* External-to-Pod service-based load-balancing (referred to as `Ingress` in
   Kubernetes)
 
 The Kubernetes documentation contains more background on the `Kubernetes
@@ -1005,7 +1006,7 @@ guide for `Services  <http://kubernetes.io/docs/user-guide/services>`__.
 
 Cilium loadbalancer acts on the same principles as kube-proxy, it watches for
 services addition or removal, but instead of doing the enforcement on the
-iptables, it updates bpf maps entries on each node. For more information, see
+iptables, it updates BPF map entries on each node. For more information, see
 the `Pull Request <https://github.com/cilium/cilium/pull/109>`__.
 
 TODO: describe benefits of BPF based load-balancer compared to kube-proxy
