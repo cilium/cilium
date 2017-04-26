@@ -512,7 +512,7 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 		},
 	}
 
-	root := Tree{}
+	root := NewTree()
 	_, err := root.Add("root", &rootNode)
 	c.Assert(err, IsNil)
 	c.Assert(root.AllowsRLocked(&qaFooToQaBar), Equals, ACCEPT)
