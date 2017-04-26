@@ -192,6 +192,7 @@ func (s *SearchContext) CallDepth() string {
 // TargetCoveredBy checks if the SearchContext is covered by the `coverage`
 // slice of labels.
 func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
+	policyTraceVerbose(s, "Checking if %+v covers %+v", coverage, s.To)
 	for _, covLabel := range coverage {
 		for _, toLabel := range s.To {
 			if covLabel.Matches(toLabel) {
