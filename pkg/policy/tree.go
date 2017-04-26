@@ -27,6 +27,12 @@ type Tree struct {
 	Root  *Node
 }
 
+// NewTree allocates and initializes a new policy tree
+func NewTree() *Tree {
+	tree := &Tree{}
+	return tree
+}
+
 func canConsume(root *Node, ctx *SearchContext) ConsumableDecision {
 	ctx.Depth++
 	decision := UNDECIDED
