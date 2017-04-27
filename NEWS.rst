@@ -11,6 +11,7 @@ Fixes
 - k8s NetworkPolicy fixes
   - Correctly handle k8s NetworkPolicy matchLabels
   - Allow all sources if []NetworkPolicyPeer is empty or missing
+- Fixed incorrect extraction of the path for 'cilium policy import'
 
 Features
 --------
