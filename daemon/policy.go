@@ -157,6 +157,62 @@ func (d *Daemon) enablePolicyEnforcement() {
 	d.endpointsMU.RUnlock()
 }
 
+// PolicyAtomicReplace does an atomic operation for the provided
+// subPath.subNode, addPath.addNode.
+// The "path", "node" tuple will have the same behaviour use as other similar
+// Policy functions.
+//
+// sub[Path|Node] represents the node that will be subtracted from the tree,
+// this means the rules inside this node will be removed from rules of the node
+// with the same path in the policy tree.
+//
+// add[Path|Node] represents the node that will be added/merged to the tree,
+// this means the rules inside this node will be append to an existing node with
+// the same path or, in case it doesn't exist in the tree, the node itself will
+// be created.
+// Examples:
+// tree
+// {
+//   "root": [{coverage: world, accept: id.foo},{coverage: host, accept: id.foo}],
+//   "children": ["id": [{coverage: foo, accept: root.bar}]
+// }
+//
+// PolicyAtomicReplace("root", Node{coverage: world, accept: id.foo}, "", nil)
+// // Expected result:
+// tree
+// {
+//   "root": [{coverage: host, accept: id.foo}],
+//   "children": ["id": [{coverage: foo, accept: root.bar}]
+// }
+//
+// PolicyAtomicReplace("root", Node{coverage: host, accept: id.foo},
+//               "root", Node{name: "id", coverage: foo, accept: id.foo})
+// // Expected result:
+// tree
+// {
+//   "root": [],
+//   "children": ["id": [{coverage: foo, accept: root.bar},
+//                       {coverage: foo, accept: id.foo}]
+// }
+func (d *Daemon) PolicyAtomicReplace(subPath string, subNode *policy.Node,
+	addPath string, addNode *policy.Node) *apierror.APIError {
+	log.Debugf("Policy replace Request: %s %+v %s %+v", subPath, subNode, addPath, addNode)
+
+	// Enable policy if not already enabled
+	if !d.conf.Opts.IsEnabled(endpoint.OptionPolicy) {
+		d.enablePolicyEnforcement()
+	}
+
+	if policyModified, err := d.policy.AtomicReplace(subPath, subNode, addPath, addNode); err != nil {
+		return apierror.Error(PutPolicyPathFailureCode, err)
+	} else if policyModified {
+		log.Info("Policy modified imported, regenerating...")
+		d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+	}
+
+	return nil
+}
+
 func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.APIError {
 	log.Debugf("Policy Add Request: %s %+v", path, node)
 

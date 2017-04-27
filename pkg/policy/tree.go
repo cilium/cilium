@@ -226,6 +226,97 @@ func (t *Tree) Add(parentPath string, node *Node) (bool, error) {
 	return t.add(parentPath, node)
 }
 
+// AtomicReplace does an atomic operation for the provided subPath.subNode,
+// addPath.addNode.
+// The "path", "node" tuple will have the same behaviour use as other similar
+// Tree functions.
+//
+// sub[Path|Node] represents the node that will be subtracted from the tree,
+// this means the rules inside this node will be removed from rules of the node
+// with the same path in the policy tree.
+//
+// add[Path|Node] represents the node that will be added/merged to the tree,
+// this means the rules inside this node will be append to an existing node with
+// the same path or, in case it doesn't exist in the tree, the node itself will
+// be created.
+// Examples:
+// tree
+// {
+//   "root": [{coverage: world, accept: id.foo},{coverage: host, accept: id.foo}],
+//   "children": ["id": [{coverage: foo, accept: root.bar}]
+// }
+//
+// AtomicReplace("root", Node{coverage: world, accept: id.foo}, "", nil)
+// // Expected result:
+// tree
+// {
+//   "root": [{coverage: host, accept: id.foo}],
+//   "children": ["id": [{coverage: foo, accept: root.bar}]
+// }
+//
+// AtomicReplace("root", Node{coverage: host, accept: id.foo},
+//               "root", Node{name: "id", coverage: foo, accept: id.foo})
+// // Expected result:
+// tree
+// {
+//   "root": [],
+//   "children": ["id": [{coverage: foo, accept: root.bar},
+//                       {coverage: foo, accept: id.foo}]
+// }
+func (t *Tree) AtomicReplace(subPath string, subNode *Node, addPath string, addNode *Node) (bool, error) {
+	modified := false
+
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+
+	if subPath != "" {
+		if subNode == nil {
+			rmNodeTree, rmNodeTreeParent := t.LookupLocked(subPath)
+			if rmNodeTree != nil {
+				t.deleteNode(rmNodeTree, rmNodeTreeParent)
+				modified = true
+			}
+		} else {
+			ln := JoinPath(subPath, subNode.Name)
+			rmNodeTree, rmNodeTreeParent := t.LookupLocked(ln)
+			if rmNodeTree != nil {
+				for _, ruleToRm := range subNode.Rules {
+					idx := rmNodeTree.PolicyRuleIdx(ruleToRm)
+					if idx >= 0 {
+						rmNodeTree.Rules = append(rmNodeTree.Rules[:idx], rmNodeTree.Rules[idx+1:]...)
+						modified = true
+					}
+				}
+				// If the rule was the last remaining, delete the node
+				if !rmNodeTree.HasRules() {
+					t.deleteNode(rmNodeTree, rmNodeTreeParent)
+					modified = true
+				}
+			}
+		}
+	}
+
+	if addPath == "" {
+		return modified, nil
+	}
+	if addNode != nil {
+		addNodeTree, _ := t.LookupLocked(JoinPath(addPath, addNode.Name))
+		if addNodeTree == nil {
+			return t.add(addPath, addNode)
+		}
+		addNode.Name = addNodeTree.Name
+		modified, err := addNodeTree.Merge(addNode)
+		if err != nil {
+			return false, err
+		}
+		if modified {
+			addNodeTree.ResolveTree()
+		}
+	}
+
+	return modified, nil
+}
+
 // add adds the provided policy node at the specified path. Must be called with
 // t.Mutex locked.
 func (t *Tree) add(parentPath string, node *Node) (bool, error) {
