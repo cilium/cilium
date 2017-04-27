@@ -401,7 +401,7 @@ func initEnv() {
 			log.Fatalf("invalid configuration for consul provided; please specify the address to a consul instance with the --consul option")
 		}
 	case kvstore.Etcd:
-		if len(etcdAddr) != 0 && config.EtcdCfgPath == "" {
+		if len(etcdAddr) != 0 || config.EtcdCfgPath != "" {
 			config.EtcdConfig = &etcdAPI.Config{}
 			config.EtcdConfig.Endpoints = etcdAddr
 		} else {
