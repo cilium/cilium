@@ -26,11 +26,16 @@ import (
 
 // Node to define hierarchy of rules
 type Node struct {
-	path      string
-	Name      string           `json:"name"`
-	Parent    *Node            `json:"-"`
-	Rules     []PolicyRule     `json:"rules,omitempty"`
-	Children  map[string]*Node `json:"children,omitempty"`
+	path string
+	Name string `json:"name"`
+	// IgnoreNameCoverage marks policy nodes which should always have their
+	// rules applied regardless of whether the name/path of the node
+	// matches any of the labels in the search context.
+	IgnoreNameCoverage bool             `json:"ignoreNameCoverage,omitempty"`
+	Parent             *Node            `json:"-"`
+	Rules              []PolicyRule     `json:"rules,omitempty"`
+	Children           map[string]*Node `json:"children,omitempty"`
+
 	mergeable bool
 	resolved  bool
 }
@@ -169,7 +174,13 @@ func coversLabel(l *labels.Label, path string) bool {
 	return false
 }
 
+// Covers returns true if node covers any of the search context `To` elements
+// present.
 func (n *Node) Covers(ctx *SearchContext) bool {
+	if n.IgnoreNameCoverage {
+		return true
+	}
+
 	for _, v := range ctx.To {
 		if coversLabel(v, n.Path()) {
 			return true
@@ -179,8 +190,8 @@ func (n *Node) Covers(ctx *SearchContext) bool {
 	return false
 }
 
-// Allows returns the decision whether the node allows the From to consume the
-// To in the provided search context
+// Allows returns the decision whether the node allows the `From` to consume the
+// `To` in the provided search context.
 func (n *Node) Allows(ctx *SearchContext) api.ConsumableDecision {
 	decision := api.UNDECIDED
 
@@ -313,9 +324,10 @@ func (n *Node) IsMergeable() bool {
 
 func (n *Node) UnmarshalJSON(data []byte) error {
 	var policyNode struct {
-		Name     string             `json:"name,omitempty"`
-		Rules    []*json.RawMessage `json:"rules,omitempty"`
-		Children map[string]*Node   `json:"children,omitempty"`
+		Name               string             `json:"name,omitempty"`
+		Rules              []*json.RawMessage `json:"rules,omitempty"`
+		IgnoreNameCoverage bool               `json:"ignoreNameCoverage,omitempty"`
+		Children           map[string]*Node   `json:"children,omitempty"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 
@@ -325,6 +337,7 @@ func (n *Node) UnmarshalJSON(data []byte) error {
 
 	n.Name = policyNode.Name
 	n.Children = policyNode.Children
+	n.IgnoreNameCoverage = policyNode.IgnoreNameCoverage
 
 	for _, rawMsg := range policyNode.Rules {
 		var om map[string]*json.RawMessage
