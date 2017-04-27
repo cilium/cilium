@@ -351,6 +351,17 @@ func NewLabelsFromModel(base []string) Labels {
 	return lbls
 }
 
+// NewLabelArrayFromModel creates labels from string array.
+func NewLabelArrayFromModel(base []string) LabelArray {
+	lbls := LabelArray{}
+	for _, v := range base {
+		lbl := ParseLabel(v)
+		lbls = append(lbls, lbl)
+	}
+
+	return lbls
+}
+
 // GetModel returns model with all the values of the labels.
 func (l Labels) GetModel() []string {
 	res := []string{}
