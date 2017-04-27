@@ -16,6 +16,7 @@ package kvstore
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strconv"
@@ -26,6 +27,11 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	consulAPI "github.com/hashicorp/consul/api"
+)
+
+var (
+	maxRetries = 30
+	retrySleep = 2 * time.Second
 )
 
 type ConsulClient struct {
@@ -45,24 +51,31 @@ func NewConsulClient(config *consulAPI.Config) (KVClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	maxRetries := 30
-	i := 0
-	for {
-		leader, err := c.Status().Leader()
-		if err != nil || leader == "" {
-			log.Info("Waiting for consul client to be ready...")
-			time.Sleep(2 * time.Second)
-			i++
-			if i > maxRetries {
-				e := fmt.Errorf("Unable to contact consul: %s", err)
-				log.Error(e)
-				return nil, e
+
+	for i := 0; i < maxRetries; i++ {
+		var leader string
+		leader, err = c.Status().Leader()
+
+		if err == nil {
+			if leader != "" {
+				// happy path
+				break
+			} else {
+				err = errors.New("no leader returned")
 			}
-		} else {
-			log.Info("Consul client ready")
-			break
 		}
+
+		log.Info("Waiting for consul client to be ready...")
+		time.Sleep(retrySleep)
 	}
+
+	if err != nil {
+		e := fmt.Errorf("Unable to contact consul: %s", err)
+		log.Error(e)
+		return nil, e
+	}
+
+	log.Info("Consul client ready")
 	return &ConsulClient{c}, nil
 }
 
