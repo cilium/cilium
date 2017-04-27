@@ -22,6 +22,7 @@ Features
 - Allow rule now supports matching multiple labels
 - Kubernetes NetworkPolicy improvements
   - Support L4 filtering with v1beta1.NetworkPolicyPort
+  - All NetworkPolicy based policies are attached to node "root.k8s" now
 
 0.8.0
 =====
