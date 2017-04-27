@@ -531,37 +531,21 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
 
-// Must be called with d.conf.ValidLabelPrefixesMU locked
-func (d *Daemon) filterLabels(from []string) labels.Labels {
-	tmp := labels.NewLabelsFromModel(from)
-	return d.conf.ValidLabelPrefixes.FilterLabels(tmp)
-}
-
-type putEndpointIDLabels struct {
-	daemon *Daemon
-}
-
-func NewPutEndpointIDLabelsHandler(d *Daemon) PutEndpointIDLabelsHandler {
-	return &putEndpointIDLabels{daemon: d}
-}
-
-func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middleware.Responder {
-	d := h.daemon
-
-	log.Debugf("PUT /endpoint/{id}/labels %+v", params)
-
-	mod := params.Configuration
+// UpdateSecLabels add and deletes the given labels on given endpoint ID.
+// The received `add` and `del` labels will be filtered with the valid label
+// prefixes.
+func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.Responder {
 	d.conf.ValidLabelPrefixesMU.RLock()
-	addLabels := d.filterLabels(mod.Add)
-	delLabels := d.filterLabels(mod.Delete)
+	addLabels := d.conf.ValidLabelPrefixes.FilterLabels(add)
+	delLabels := d.conf.ValidLabelPrefixes.FilterLabels(del)
 	d.conf.ValidLabelPrefixesMU.RUnlock()
 
-	if len(addLabels) == 0 || len(delLabels) == 0 {
-		return NewPutEndpointIDLabelsOK()
+	if len(addLabels) == 0 && len(delLabels) == 0 {
+		return nil
 	}
 
 	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpoint(params.ID)
+	ep, err := d.lookupEndpoint(id)
 	d.endpointsMU.RUnlock()
 	if err != nil {
 		return err
@@ -638,7 +622,7 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	// FIXME: Undo identity update?
 
 	d.endpointsMU.RLock()
-	ep, _ = d.lookupEndpoint(params.ID)
+	ep, _ = d.lookupEndpoint(id)
 	d.endpointsMU.RUnlock()
 	if ep == nil {
 		return NewPutEndpointIDLabelsNotFound()
@@ -657,8 +641,31 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 
 	d.SetEndpointIdentity(ep, contID, "", identity)
 
-	if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
-		return apierror.Error(PutEndpointIDLabelsUpdateFailedCode, err)
+	ep.Regenerate(d)
+
+	return nil
+}
+
+type putEndpointIDLabels struct {
+	daemon *Daemon
+}
+
+func NewPutEndpointIDLabelsHandler(d *Daemon) PutEndpointIDLabelsHandler {
+	return &putEndpointIDLabels{daemon: d}
+}
+
+func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middleware.Responder {
+	d := h.daemon
+
+	log.Debugf("PUT /endpoint/{id}/labels %+v", params)
+
+	mod := params.Configuration
+	add := labels.NewLabelsFromModel(mod.Add)
+	del := labels.NewLabelsFromModel(mod.Delete)
+
+	err := d.UpdateSecLabels(params.ID, add, del)
+	if err != nil {
+		return err
 	}
 
 	return NewPutEndpointIDLabelsOK()
