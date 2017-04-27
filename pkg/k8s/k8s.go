@@ -29,7 +29,7 @@ const (
 
 	// DefaultPolicyParentPath is the default path to the policy node
 	// received from kubernetes.
-	DefaultPolicyParentPath = "io.cilium.k8s"
+	DefaultPolicyParentPath = "k8s"
 
 	// AnnotationName is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
