@@ -534,6 +534,9 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 // UpdateSecLabels add and deletes the given labels on given endpoint ID.
 // The received `add` and `del` labels will be filtered with the valid label
 // prefixes.
+// The `add` labels take precedence over `del` labels, this means if the same
+// label is set on both `add` and `del`, that specific label will exist in the
+// endpoint's labels.
 func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.Responder {
 	d.conf.ValidLabelPrefixesMU.RLock()
 	addLabels := d.conf.ValidLabelPrefixes.FilterLabels(add)
@@ -585,17 +588,6 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		}
 	}
 
-	if len(addLabels) > 0 {
-		for k, v := range addLabels {
-			if oldLabels.Disabled[k] != nil {
-				oldLabels.Disabled[k] = nil
-				oldLabels.Orchestration[k] = v
-			} else if oldLabels.Orchestration[k] == nil {
-				oldLabels.Custom[k] = v
-			}
-		}
-	}
-
 	if len(delLabels) > 0 {
 		for k, v := range delLabels {
 			if oldLabels.Orchestration[k] != nil {
@@ -605,6 +597,17 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 
 			if oldLabels.Custom[k] != nil {
 				delete(oldLabels.Custom, k)
+			}
+		}
+	}
+
+	if len(addLabels) > 0 {
+		for k, v := range addLabels {
+			if oldLabels.Disabled[k] != nil {
+				delete(oldLabels.Disabled, k)
+				oldLabels.Orchestration[k] = v
+			} else if oldLabels.Orchestration[k] == nil {
+				oldLabels.Custom[k] = v
 			}
 		}
 	}
@@ -641,6 +644,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 
 	d.SetEndpointIdentity(ep, contID, "", identity)
 
+	// FIXME if the labels weren't changed do we still need to regenerate?
 	ep.Regenerate(d)
 
 	return nil
