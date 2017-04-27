@@ -130,8 +130,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	search := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
 		Logging: logging.NewLogBackend(buffer, "", 0),
-		From:    labels.NewLabelsFromModel(ctx.From).ToSlice(),
-		To:      labels.NewLabelsFromModel(ctx.To).ToSlice(),
+		From:    labels.NewLabelArrayFromModel(ctx.From),
+		To:      labels.NewLabelArrayFromModel(ctx.To),
 	}
 
 	d.policy.Mutex.RLock()
