@@ -142,14 +142,14 @@ func (s *PolicyTestSuite) TestTargetCoveredBy(c *C) {
 	// any -> .bar
 	ctx := SearchContext{To: []*labels.Label{lblBar}}
 	c.Assert(ctx.TargetCoveredBy(list1), Equals, false)
-	c.Assert(ctx.TargetCoveredBy(list2), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list2), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list3), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list4), Equals, true)
 
 	// any -> kubernetes:.baz
 	ctx = SearchContext{To: []*labels.Label{lblBaz}}
 	c.Assert(ctx.TargetCoveredBy(list1), Equals, false)
-	c.Assert(ctx.TargetCoveredBy(list2), Equals, true)
+	c.Assert(ctx.TargetCoveredBy(list2), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list3), Equals, false)
 	c.Assert(ctx.TargetCoveredBy(list4), Equals, true)
 
