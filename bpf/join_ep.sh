@@ -36,4 +36,4 @@ fi
 clang $CLANG_OPTS -c $LIB/bpf_lxc.c -o $DIR/bpf_lxc.o
 
 tc qdisc replace dev $IFNAME clsact || true
-tc filter replace dev $IFNAME ingress bpf da obj $DIR/bpf_lxc.o sec from-container
+tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $DIR/bpf_lxc.o sec from-container
