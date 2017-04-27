@@ -148,10 +148,28 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
 	}
+
 	if err := d.PolicyAdd(parentsPath, pn); err != nil {
 		log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
 		return
 	}
+
+	// Ensure that the k8s policy node has the IgnoreNameCoverage flag set
+	// All policy evaluations must enter this node
+	if parentsPath == k8s.DefaultPolicyParentPath {
+		d.policy.Mutex.Lock()
+		defer d.policy.Mutex.Unlock()
+
+		node, _ := d.policy.LookupLocked(parentsPath)
+		if node == nil {
+			log.Errorf("Inconsistent policy state. Unable to find parent node after adding k8s policy")
+			return
+		}
+
+		// Make sure that "root.k8s" always ignores name coverage
+		node.IgnoreNameCoverage = true
+	}
+
 	log.Infof("Kubernetes network policy '%s' successfully add", k8sNP.Name)
 }
 
