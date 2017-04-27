@@ -127,14 +127,14 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 	pn.IgnoreNameCoverage = true
 	pn.Rules = []policy.PolicyRule{
 		&policy.RuleConsumers{
-			Coverage: coverageLbls.ToSlice(),
+			RuleBase: policy.RuleBase{Coverage: coverageLbls.ToSlice()},
 			Allow:    allowRules,
 		},
 	}
 
 	if len(l4Rules) > 0 {
 		pn.Rules = append(pn.Rules, &policy.RuleL4{
-			Coverage: coverageLbls.ToSlice(),
+			RuleBase: policy.RuleBase{Coverage: coverageLbls.ToSlice()},
 			Allow:    l4Rules,
 		})
 	}

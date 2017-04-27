@@ -200,8 +200,8 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 
 	// Allow: foo, !foo
 	consumers := RuleConsumers{
-		Coverage: []*labels.Label{lblBar},
-		Allow:    []*AllowRule{allowFoo, dontAllowFoo},
+		RuleBase{[]*labels.Label{lblBar}},
+		[]*AllowRule{allowFoo, dontAllowFoo},
 	}
 
 	// NOTE: We are testing on single consumer rule leve, there is
@@ -214,8 +214,8 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 
 	// Always-Allow: foo, !foo
 	consumers = RuleConsumers{
-		Coverage: []*labels.Label{lblBar},
-		Allow:    []*AllowRule{alwaysAllowFoo, dontAllowFoo},
+		RuleBase{[]*labels.Label{lblBar}},
+		[]*AllowRule{alwaysAllowFoo, dontAllowFoo},
 	}
 
 	c.Assert(consumers.Allows(&aFooToBar), Equals, api.ALWAYS_ACCEPT)
@@ -225,8 +225,8 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 
 	// Allow: TeamA, !baz
 	consumers = RuleConsumers{
-		Coverage: []*labels.Label{lblBar},
-		Allow:    []*AllowRule{allowTeamA, dontAllowBaz},
+		RuleBase{[]*labels.Label{lblBar}},
+		[]*AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&aFooToBar), Equals, api.ACCEPT)
@@ -236,8 +236,8 @@ func (s *PolicyTestSuite) TestAllowConsumer(c *C) {
 
 	// Allow: TeamA, !baz
 	consumers = RuleConsumers{
-		Coverage: []*labels.Label{lblFoo},
-		Allow:    []*AllowRule{allowTeamA, dontAllowBaz},
+		RuleBase{[]*labels.Label{lblFoo}},
+		[]*AllowRule{allowTeamA, dontAllowBaz},
 	}
 
 	c.Assert(consumers.Allows(&aFooToBar), Equals, api.UNDECIDED)
@@ -279,18 +279,18 @@ func (s *PolicyTestSuite) TestValidateCoverage(c *C) {
 	}
 
 	lblBar := labels.NewLabel("root.bar", "", common.CiliumLabelSource)
-	consumer := RuleConsumers{Coverage: []*labels.Label{lblBar}}
+	consumer := RuleConsumers{RuleBase: RuleBase{[]*labels.Label{lblBar}}}
 	c.Assert(consumer.Resolve(&node), Not(Equals), nil)
 
-	consumer2 := RuleRequires{Coverage: []*labels.Label{lblBar}}
+	consumer2 := RuleRequires{RuleBase: RuleBase{[]*labels.Label{lblBar}}}
 	c.Assert(consumer2.Resolve(&node), Not(IsNil))
 
 	lblFoo := labels.NewLabel("root.foo", "", common.CiliumLabelSource)
-	consumer = RuleConsumers{Coverage: []*labels.Label{lblFoo}}
+	consumer = RuleConsumers{RuleBase: RuleBase{[]*labels.Label{lblFoo}}}
 	c.Assert(consumer.Resolve(&node), IsNil)
 
 	lblFoo = labels.NewLabel("root.foo", "", common.CiliumLabelSource)
-	consumer = RuleConsumers{Coverage: []*labels.Label{lblFoo}}
+	consumer = RuleConsumers{RuleBase: RuleBase{[]*labels.Label{lblFoo}}}
 	c.Assert(consumer.Resolve(&node), IsNil)
 }
 
@@ -320,8 +320,8 @@ func (s *PolicyTestSuite) TestRequires(c *C) {
 	// coverage: bar
 	// Require: foo
 	requires := RuleRequires{
-		Coverage: []*labels.Label{lblBar},
-		Requires: []*labels.Label{lblFoo},
+		RuleBase{[]*labels.Label{lblBar}},
+		[]*labels.Label{lblFoo},
 	}
 
 	c.Assert(requires.Allows(&aFooToBar), Equals, api.UNDECIDED)
@@ -378,8 +378,8 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 		Name: RootNodeName,
 		Rules: []PolicyRule{
 			&RuleConsumers{
-				Coverage: []*labels.Label{lblBar},
-				Allow: []*AllowRule{
+				RuleBase{[]*labels.Label{lblBar}},
+				[]*AllowRule{
 					{ // always-allow:  user=joe
 						Action: api.ALWAYS_ACCEPT,
 						Labels: labels.LabelArray{lblJoe},
@@ -391,16 +391,16 @@ func (s *PolicyTestSuite) TestNodeAllows(c *C) {
 				},
 			},
 			&RuleRequires{ // coverage qa, requires qa
-				Coverage: []*labels.Label{lblQA},
-				Requires: []*labels.Label{lblQA},
+				RuleBase{[]*labels.Label{lblQA}},
+				[]*labels.Label{lblQA},
 			},
 			&RuleRequires{ // coverage prod, requires: prod
-				Coverage: []*labels.Label{lblProd},
-				Requires: []*labels.Label{lblProd},
+				RuleBase{[]*labels.Label{lblProd}},
+				[]*labels.Label{lblProd},
 			},
 			&RuleConsumers{
-				Coverage: []*labels.Label{lblBar},
-				Allow: []*AllowRule{
+				RuleBase{[]*labels.Label{lblBar}},
+				[]*AllowRule{
 					{ // allow: foo
 						Action: api.ACCEPT,
 						Labels: labels.LabelArray{lblFoo},
@@ -480,8 +480,8 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 	rootNode := Node{
 		Rules: []PolicyRule{
 			&RuleConsumers{
-				Coverage: []*labels.Label{lblBar},
-				Allow: []*AllowRule{
+				RuleBase{[]*labels.Label{lblBar}},
+				[]*AllowRule{
 					// always-allow: user=joe
 					{
 						Action: api.ALWAYS_ACCEPT,
@@ -495,12 +495,12 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 				},
 			},
 			&RuleRequires{ // coverage qa, requires qa
-				Coverage: []*labels.Label{lblQA},
-				Requires: []*labels.Label{lblQA},
+				RuleBase{[]*labels.Label{lblQA}},
+				[]*labels.Label{lblQA},
 			},
 			&RuleRequires{ // coverage prod, requires: prod
-				Coverage: []*labels.Label{lblProd},
-				Requires: []*labels.Label{lblProd},
+				RuleBase{[]*labels.Label{lblProd}},
+				[]*labels.Label{lblProd},
 			},
 		},
 		Children: map[string]*Node{
@@ -567,8 +567,8 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 		Name: RootNodeName,
 		Rules: []PolicyRule{
 			&RuleRequires{ // coverage qa, requires qa
-				Coverage: []*labels.Label{lblQA},
-				Requires: []*labels.Label{lblQA},
+				RuleBase{[]*labels.Label{lblQA}},
+				[]*labels.Label{lblQA},
 			},
 		},
 		Children: map[string]*Node{
@@ -597,8 +597,8 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 		Name: RootNodeName,
 		Rules: []PolicyRule{
 			&RuleRequires{ // coverage prod, requires: prod
-				Coverage: []*labels.Label{lblProd},
-				Requires: []*labels.Label{lblProd},
+				RuleBase{[]*labels.Label{lblProd}},
+				[]*labels.Label{lblProd},
 			},
 		},
 		Children: map[string]*Node{

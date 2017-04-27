@@ -19,11 +19,8 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/vulcand/route"
@@ -131,8 +128,8 @@ func (l4 *AllowL4) Merge(result *L4Policy) {
 }
 
 type RuleL4 struct {
-	Coverage []*labels.Label `json:"coverage,omitempty"`
-	Allow    []AllowL4       `json:"l4"`
+	RuleBase
+	Allow []AllowL4 `json:"l4"`
 }
 
 func (l4 *RuleL4) IsMergeable() bool {
@@ -154,17 +151,8 @@ func (l4 *RuleL4) GetL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 
 func (l4 *RuleL4) Resolve(node *Node) error {
 	log.Debugf("Resolving L4 rule %+v\n", l4)
-	for _, l := range l4.Coverage {
-		l.Resolve(node)
 
-		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
-			!(l.Source == common.ReservedLabelSource) {
-			return fmt.Errorf("label %s does not share prefix of node %s",
-				l.AbsoluteKey(), node.Path())
-		}
-	}
-
-	return nil
+	return l4.RuleBase.Resolve(node)
 }
 
 func (l4 *RuleL4) SHA256Sum() (string, error) {
