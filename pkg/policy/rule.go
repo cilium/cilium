@@ -14,6 +14,14 @@
 
 package policy
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/labels"
+)
+
 type PolicyRule interface {
 	// Resolve must resolve any internal label members to the full path
 	// assuming that the rule is attached to the specified node.
@@ -31,4 +39,32 @@ type PolicyRule interface {
 	// strict ordering, such rules may never be merged in a node as
 	// merging may occur in undefined order.
 	IsMergeable() bool
+}
+
+// RuleBase is the base type for all other rules
+type RuleBase struct {
+	Coverage labels.LabelArray `json:"coverage,omitempty"`
+}
+
+// Resolve translates all relative names of the generic part of the rule
+// to absolute names. It also verifies that all label references are
+// within the scope rules of the node
+func (r *RuleBase) Resolve(node *Node) error {
+	log.Debugf("Resolving rule %+v\n", r)
+
+	for _, l := range r.Coverage {
+		l.Resolve(node)
+
+		if node.IgnoreNameCoverage {
+			continue
+		}
+
+		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
+			!(l.Source == common.ReservedLabelSource) {
+			return fmt.Errorf("label %s does not share prefix of node %s",
+				l.AbsoluteKey(), node.Path())
+		}
+	}
+
+	return nil
 }

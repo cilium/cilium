@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -113,8 +112,8 @@ func (a *AllowRule) Allows(ctx *SearchContext) api.ConsumableDecision {
 
 // RuleConsumers allows the following consumers.
 type RuleConsumers struct {
-	Coverage []*labels.Label `json:"coverage,omitempty"`
-	Allow    []*AllowRule    `json:"allow"`
+	RuleBase
+	Allow []*AllowRule `json:"allow"`
 }
 
 func (prc *RuleConsumers) IsMergeable() bool {
@@ -171,14 +170,9 @@ func (prc *RuleConsumers) Allows(ctx *SearchContext) api.ConsumableDecision {
 
 func (prc *RuleConsumers) Resolve(node *Node) error {
 	log.Debugf("Resolving consumer rule %+v\n", prc)
-	for _, l := range prc.Coverage {
-		l.Resolve(node)
 
-		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) &&
-			!(l.Source == common.ReservedLabelSource) {
-			return fmt.Errorf("label %s does not share prefix of node %s",
-				l.AbsoluteKey(), node.Path())
-		}
+	if err := prc.RuleBase.Resolve(node); err != nil {
+		return err
 	}
 
 	for _, r := range prc.Allow {

@@ -18,7 +18,6 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -27,7 +26,7 @@ import (
 // RuleRequires any further consumer requires the specified list of
 // labels in order to consume.
 type RuleRequires struct {
-	Coverage []*labels.Label `json:"coverage,omitempty"`
+	RuleBase
 	Requires []*labels.Label `json:"requires"`
 }
 
@@ -73,13 +72,9 @@ func (prr *RuleRequires) Allows(ctx *SearchContext) api.ConsumableDecision {
 
 func (prr *RuleRequires) Resolve(node *Node) error {
 	log.Debugf("Resolving requires rule %+v\n", prr)
-	for _, l := range prr.Coverage {
-		l.Resolve(node)
 
-		if !strings.HasPrefix(l.AbsoluteKey(), node.Path()) {
-			return fmt.Errorf("label %s does not share prefix of node %s",
-				l.AbsoluteKey(), node.Path())
-		}
+	if err := prr.RuleBase.Resolve(node); err != nil {
+		return err
 	}
 
 	for _, l := range prr.Requires {

@@ -49,7 +49,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		Name: "root",
 		Rules: []policy.PolicyRule{
 			&policy.RuleConsumers{
-				Coverage: []*labels.Label{lblBar},
+				RuleBase: policy.RuleBase{Coverage: labels.LabelArray{lblBar}},
 				Allow: []*policy.AllowRule{
 					// always-allow: user=joe
 					{
@@ -64,11 +64,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				},
 			},
 			&policy.RuleRequires{ // coverage qa, requires qa
-				Coverage: []*labels.Label{lblQA},
+				RuleBase: policy.RuleBase{Coverage: labels.LabelArray{lblQA}},
 				Requires: []*labels.Label{lblQA},
 			},
 			&policy.RuleRequires{ // coverage prod, requires: prod
-				Coverage: []*labels.Label{lblProd},
+				RuleBase: policy.RuleBase{Coverage: labels.LabelArray{lblProd}},
 				Requires: []*labels.Label{lblProd},
 			},
 		},
