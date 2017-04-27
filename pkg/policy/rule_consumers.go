@@ -143,7 +143,7 @@ func (prc *RuleConsumers) String() string {
 // Allows returns the decision whether the node allows the From to consume the
 // To in the provided search context
 func (prc *RuleConsumers) Allows(ctx *SearchContext) api.ConsumableDecision {
-	// A decision is undecided until we encoutner a DENY or ACCEPT.
+	// A decision is undecided until we encounter a DENY or ACCEPT.
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := api.UNDECIDED
 
