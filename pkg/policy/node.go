@@ -265,14 +265,22 @@ func (n *Node) resolveRules() error {
 	return nil
 }
 
+// HasPolicyRule returns true if the given PolicyRule exists in the node's list
+// of rules.
 func (n *Node) HasPolicyRule(pr PolicyRule) bool {
+	return n.PolicyRuleIdx(pr) >= 0
+}
+
+// PolicyRuleIdx returns the index of the given PolicyRule in the given node's
+// list of rules. If the given policy rule doesn't exist, returns -1.
+func (n *Node) PolicyRuleIdx(pr PolicyRule) int {
 	pr256Sum, _ := pr.SHA256Sum()
-	for _, r := range n.Rules {
+	for i, r := range n.Rules {
 		if r256Sum, _ := r.SHA256Sum(); r256Sum == pr256Sum {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
 func (n *Node) ResolveTree() error {
