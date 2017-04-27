@@ -17,6 +17,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/policy"
+
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +44,11 @@ var policyImportCmd = &cobra.Command{
 			}
 
 			jsonPolicy := node.JSONMarshal()
-			if resp, err := client.PolicyPut(node.Name, jsonPolicy); err != nil {
+			path, name := policy.SplitNodePath(node.Name)
+			if name == "" {
+				path = policy.RootNodeName
+			}
+			if resp, err := client.PolicyPut(path, jsonPolicy); err != nil {
 				Fatalf("Cannot import policy %s: %s\n", path, err)
 			} else if printPolicy {
 				fmt.Printf("%s\n", resp)
