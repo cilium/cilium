@@ -30,6 +30,7 @@ func (s *PolicyTestSuite) TestSplitNodePath(c *C) {
 		{"rootless..foo", "rootless.", "foo"},
 		{"root.foo", "root", "foo"},
 		{"foo.bar", "foo", "bar"},
+		{"foo.bar.baz", "foo.bar", "baz"},
 		{".bar", "", "bar"},
 	}
 	for _, tt := range removeRootTests {

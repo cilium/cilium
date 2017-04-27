@@ -19,7 +19,12 @@ import (
 	"strings"
 )
 
-// SplitNodePath returns path without extension and the extension if any.
+// SplitNodePath splits a policy node path into the path and name portion.
+// Examples:
+//   - "foo.bar"     => "foo", "bar"
+//   - "foo.bar.baz" => "foo.bar", "baz"
+//   - "foo"         => "foo", ""
+//   - ""            => "", ""
 func SplitNodePath(fullPath string) (string, string) {
 	var extension = filepath.Ext(fullPath)
 	if len(extension) > 0 {
