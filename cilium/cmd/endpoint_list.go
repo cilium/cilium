@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -80,7 +81,9 @@ func listEndpoints() {
 				listEndpoint(w, ep, id, "no labels")
 			} else {
 				first := true
-				for _, lbl := range ep.Identity.Labels {
+				lbls := []string(ep.Identity.Labels)
+				sort.Strings(lbls)
+				for _, lbl := range lbls {
 					if first {
 						listEndpoint(w, ep, id, lbl)
 						first = false
