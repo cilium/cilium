@@ -23,7 +23,7 @@ NETPERF_IMAGE="tgraf/netperf"
 logs_clear
 
 function cleanup {
-	docker rm -f server1 server2 server3 server4 server5 client misc bomb 2> /dev/null || true
+	docker rm -f server1 server2 server3 server4 server5 client misc 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
 	ip link del lbtest1 2> /dev/null || true
 }
@@ -351,22 +351,22 @@ ping $SVC_IP4 -c 4 || {
 }
 
 ## Test 2: local container => bpf_lxc (LB) => local container
-docker exec -i client ping6 -c 4 $SVC_IP6 || {
+docker exec --privileged -i client ping6 -c 4 $SVC_IP6 || {
 	abort "Error: Unable to reach netperf TCP IPv6 endpoint"
 }
 
-docker exec -i client ping -c 4 $SVC_IP4 || {
+docker exec --privileged -i client ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach netperf TCP IPv4 endpoint"
 }
 
 cilium endpoint config $CLIENT_ID Policy=false
 
 ## Test 3: local container => bpf_lxc (LB) => local host
-docker exec -i client ping6 -c 4 $LB_HOST_IP6 || {
+docker exec --privileged -i client ping6 -c 4 $LB_HOST_IP6 || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
 }
 
-docker exec -i client ping -c 4 $LB_HOST_IP4 || {
+docker exec --privileged -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
@@ -376,7 +376,7 @@ cilium bpf ct list global
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
 			--backends "$SERVER1_IP4:0"
 
-docker exec -i server1 ping -c 4 $SVC_IP4 || {
+docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
 }
 
@@ -407,7 +407,6 @@ cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 #cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
 
 docker run -dt --net=$TEST_NET --name misc -l id.client --entrypoint sleep borkmann/misc   100000s
-docker run -dt --net=$TEST_NET --name bomb -l id.client --entrypoint sleep waja/bombardier 100000s
 
 sleep 2
 
@@ -416,22 +415,6 @@ docker exec -i misc wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
 }
 
 docker exec -i misc wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/" || {
-	abort "Error: Unable to reach local IPv4 node via loadbalancer"
-}
-
-docker exec -i bomb bombardier -c 200 -n 1000000 "http://[$SVC_IP6]:80/" || {
-	abort "Error: Unable to reach local IPv6 node via loadbalancer"
-}
-
-docker exec -i bomb bombardier -c 200 -n 1000000 "http://$SVC_IP4:80/" || {
-	abort "Error: Unable to reach local IPv4 node via loadbalancer"
-}
-
-docker exec -i bomb bombardier -l -c 1000 -n 1000000 "http://[$SVC_IP6]:80/" || {
-	abort "Error: Unable to reach local IPv6 node via loadbalancer"
-}
-
-docker exec -i bomb bombardier -l -c 1000 -n 1000000 "http://$SVC_IP4:80/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
