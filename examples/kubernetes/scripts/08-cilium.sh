@@ -10,15 +10,6 @@ kubectl create -f "${dir}/../network-policy/" || true
 
 kubectl get networkpolicy
 
-# TODO remove sudo once socket permissions are set with cilium group
-cat <<EOF | sudo cilium -D policy import -
-{
-        "name": "root",
-        "rules": [{
-                "coverage": ["reserved:world"],
-                "allow": ["k8s:io.cilium.k8s.k8s-app=kube-dns"]
-        }]
-}
-EOF
+kubectl annotate --overwrite ns default "net.beta.kubernetes.io/network-policy={\"ingress\": {\"isolation\": \"DefaultDeny\"}}"
 
-sudo cilium policy get root
+cilium policy get root
