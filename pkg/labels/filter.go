@@ -80,6 +80,10 @@ func DefaultLabelPrefixCfg() *LabelPrefixCfg {
 				Prefix: k8s.PodNamespaceLabelPrefix,
 				Source: k8s.LabelSource,
 			},
+			{
+				Prefix: k8s.PodNamespaceMetaLabelsPrefix,
+				Source: k8s.LabelSource,
+			},
 		},
 	}
 }

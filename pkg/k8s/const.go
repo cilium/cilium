@@ -56,6 +56,9 @@ const (
 	// can pick a kubernetes namespace called "ns-labels", causing conflicts
 	// between the namespaces' labels and the namespace's name.
 	PodNamespaceMetaLabels = "io.cilium.k8s.ns-labels"
+	// PodNamespaceMetaLabelsPrefix is the PodNamespaceMetaLabels prefixed
+	// with the DefaultPolicyParentPathPrefix.
+	PodNamespaceMetaLabelsPrefix = DefaultPolicyParentPathPrefix + PodNamespaceMetaLabels
 
 	// FIXME this is a duplicate from policy/defaults.go. Suggestion is to
 	// moved to the policy/api

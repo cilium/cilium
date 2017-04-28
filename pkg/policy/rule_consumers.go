@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -129,6 +130,41 @@ func (a *AllowRule) Allows(ctx *SearchContext) api.ConsumableDecision {
 type RuleConsumers struct {
 	RuleBase
 	Allow []*AllowRule `json:"allow"`
+}
+
+// AllowReserved creates a RuleConsumers that allows to receive traffic from the
+// `res` reserved label to the given `coverage` label array.
+func AllowReserved(coverage *labels.Label, res string) PolicyRule {
+	ar := &AllowRule{
+		Action: api.ACCEPT,
+		Labels: []*labels.Label{
+			labels.NewLabel(
+				res, "", common.ReservedLabelSource,
+			),
+		},
+	}
+
+	return &RuleConsumers{
+		RuleBase: RuleBase{Coverage: []*labels.Label{coverage}},
+		Allow:    []*AllowRule{ar},
+	}
+}
+
+// ReservedAllow creates a RuleConsumers that allows to receive traffic from the
+// `allow` label to the given `res` reserved label.
+func ReservedAllow(res string, allow *labels.Label) PolicyRule {
+	ar := &AllowRule{
+		Action: api.ACCEPT,
+		Labels: []*labels.Label{
+			allow,
+		},
+	}
+	return &RuleConsumers{
+		RuleBase: RuleBase{Coverage: []*labels.Label{
+			labels.NewLabel(res, "", common.ReservedLabelSource)},
+		},
+		Allow: []*AllowRule{ar},
+	}
 }
 
 func (prc *RuleConsumers) IsMergeable() bool {
