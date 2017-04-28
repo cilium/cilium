@@ -8,14 +8,14 @@ This tutorial demonstrates how to set up Kubernetes using Cilium to:
 - Run the BPF based kube-proxy replacement for services and ingress objects
 
 On top of this, the pods will have some labels assigned by kubernetes and cilium
-will enforce the kubernetes policy created via [v1beta1 kubernetes network policy API](https://github.com/kubernetes-ingress/kubernetes-ingress/blob/master/docs/proposals/network-policy.md).
+will enforce the kubernetes policy created via [kubernetes network policy API](https://kubernetes.io/docs/concepts/services-networking/networkpolicies/).
 
 Besides the network policy enforcement, kubernetes will be running **without**
 kube-proxy and will enforce a basic set of ingress rules from an ingress object,
 giving you a north-south loadbalancer, all of this will be taken care by cilium
 which will also have the ability to perform east-west loadbalancer enforcement.
 
-*What's Ingress? See [here](https://kubernetes.io/docs/user-guide/ingress/#what-is-ingress)*
+*What's Ingress? See [here](https://kubernetes.io/docs/concepts/services-networking/ingress/#what-is-ingress)*
 
 ![ingress-architecture](ingress-architecture.png)
 
@@ -24,7 +24,7 @@ which will also have the ability to perform east-west loadbalancer enforcement.
  - VirtualBox
  - Vagrant
  - Cilium vagrant image with `K8S` mode ON
- - Tested with `kubernetes-v1.5.1`
+ - Tested with kubernetes `v1.6.4`
  - 4GB of RAM (2GB per VM) (Minimal 1536MB per VM)
 
 ### Set up cilium vagrant image with K8S
@@ -33,23 +33,16 @@ Start the vagrant VM with our provided script and the following options:
 
 - `LB=1` sets up the `cilium-k8s-master` to start up in loadbalancer mode;
 - `IPV4=0` disables IPv4 mode in cilium;
-- `K8S=1` installs k8s in the provided VM;
-- `ǸWORKERS=1` runs a second VM.
+- `K8S=1` installs k8s in the provided VMs;
+- `ǸWORKERS=1` to start a second VM.
 
 Optional:
 - `NFS=1` syncs the project's root directory with the VM;
-(Demands firewall to be open to the VMs network: `udp:111`, `udp:2049`,
+(Demands host's firewall to be open to the VMs network: `udp:111`, `udp:2049`,
 `udp:20048`)
-- `MEMORY=1536` sets the VMs memory to 1536MB each.
+- `MEMORY=1536` sets the VMs memory to 1536 MB each.
 
 If you encounter an error similar to:
-
-```
-WARN: VirtualBox network interface with "FD00::" set up not found
-Please configure a VirtualBox network interface with "FD00::1/16"
-```
-You can add the IP address in VirtualBox: File > Preferences > Network >
-Host-only.
 
 Start the VM:
 
@@ -94,17 +87,26 @@ kubectl get networkpolicies
 ```
 
 ```
-NAME              POD-SELECTOR       AGE
-guestbook-redis   guestbook=redis    46m
-guestbook-web     guestbook=web      46m
-kubedns           k8s-app=kube-dns   46m
+NAME              POD-SELECTOR              AGE
+guestbook-redis   k8s-app.guestbook=redis   16h
 ```
+
+And if the cilium network policies are also in kubernetes:
+```
+kubectl get ciliumnetworkpolicies
+```
+
+```
+NAME            KIND
+guestbook-web   CiliumNetworkPolicy.v1.cilium.io
+```
+
+
 If they are not present you can install them by running:
 
 ```
 kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/guestbook-policy-redis.json
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/guestbook-policy-web.json
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/kubedns-policy.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/guestbook-policy-web.yaml
 ```
 
 
@@ -113,8 +115,8 @@ Check if `kube-dns` is running:
 kubectl get pods -o wide --all-namespaces
 ```
 ```
-NAMESPACE     NAME                           READY     STATUS    RESTARTS   AGE       IP                       NODE
-kube-system   kube-dns-v20-888219237-mb931   3/3       Running   0          47m       fd02::c0a8:210c:0:74ca   cilium-k8s-node-2
+NAMESPACE     NAME                        READY     STATUS    RESTARTS   AGE       IP                       NODE
+kube-system   kube-dns-2227720648-l500t   4/4       Running   0          2m        fd02::c0a8:210c:0:ad     cilium-k8s-node-2
 ```
 
 ### Create the guestbook pods and services
@@ -142,9 +144,9 @@ kubectl get pods -o wide
 ```
 ```
 NAME                 READY     STATUS    RESTARTS   AGE       IP                       NODE
-guestbook-cjxlw      1/1       Running   0          2m        fd02::c0a8:210c:0:fb5f   cilium-k8s-node-2
-redis-master-r6psv   1/1       Running   0          2m        fd02::c0a8:210c:0:193a   cilium-k8s-node-2
-redis-slave-shv8f    1/1       Running   0          2m        fd02::c0a8:210c:0:81db   cilium-k8s-node-2
+guestbook-1x3br      1/1       Running   0          4m        fd02::c0a8:210c:0:c164   cilium-k8s-node-2
+redis-master-svhf3   1/1       Running   0          4m        fd02::c0a8:210c:0:2afc   cilium-k8s-node-2
+redis-slave-2ccvq    1/1       Running   0          4m        fd02::c0a8:210c:0:367d   cilium-k8s-node-2
 ```
 
 *Wait until all pods are in `Running` status.*
@@ -155,12 +157,11 @@ Check the list of services installed in the cluster:
 kubectl get svc
 ```
 ```
-$ kubectl get svc
 NAME           CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
-guestbook      fd03::ee8c   <none>        3000/TCP   4m
-kubernetes     fd03::1      <none>        443/TCP    58m
-redis-master   fd03::2e03   <none>        6379/TCP   5m
-redis-slave    fd03::b1e7   <none>        6379/TCP   5m
+guestbook      fd03::25be   <none>        3000/TCP   5m
+kubernetes     fd03::1      <none>        443/TCP    17h
+redis-master   fd03::2d66   <none>        6379/TCP   5m
+redis-slave    fd03::fa12   <none>        6379/TCP   5m
 ```
 
 ### Create ingress rules
@@ -169,7 +170,7 @@ You now have a set of pods and services inside your cluster. That isn't too much
 helpful unless they are exposed outside of the cluster.
 
 ```
-kubectl create -f  examples/kubernetes-ingress/deployments/guestbook/ingress/guestbook-ingress.yml
+kubectl create -f  examples/kubernetes-ingress/deployments/guestbook/ingress/guestbook-ingress.yaml
 ```
 ```
 ingress "guestbook-ingress" created
@@ -180,7 +181,7 @@ kubectl get ingresses
 ```
 ```
 NAME                HOSTS     ADDRESS   PORTS     AGE
-guestbook-ingress   *         FD00::B   80        6s
+guestbook-ingress   *         fd00::b   80        2m
 ```
 
 As you may noticed, cilium has set up the public address of `cilium-k8s-master`

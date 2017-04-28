@@ -86,8 +86,8 @@ else
 fi
 
 echo '${master_ipv6} cilium${K8STAG}-master' >> /etc/hosts
-    export 'TUNNEL_MODE_STRING'="--tunnel vxlan"
-
+export 'TUNNEL_MODE_STRING'="--tunnel vxlan"
+sysctl -w net.ipv6.conf.all.forwarding=1
 EOF
 }
 
@@ -242,6 +242,8 @@ export K8S_CLUSTER_CIDR="${k8s_cluster_cidr}"
 export K8S_NODE_CDIR_MASK_SIZE="${k8s_node_cidr_mask_size}"
 export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+export K8STAG="${K8STAG}"
+export NWORKERS="${NWORKERS}"
 
 cd "${k8s_dir}"
 "\${k8s_path}/08-cilium.sh"
