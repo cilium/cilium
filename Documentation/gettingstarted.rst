@@ -335,11 +335,11 @@ the cilium directory and run:
 
 ::
 
-    $ vagrant destroy cilium-master
+    $ vagrant destroy cilium-1
 
 You can always re-create the VM using the steps described above.
 
 If instead you just want to shut down the VM but may use it later,
-``vagrant halt cilium-master`` will work, and you can start it again later
+``vagrant halt cilium-1`` will work, and you can start it again later
 using the contrib/vagrant/start.sh script.
 
