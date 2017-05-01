@@ -208,7 +208,7 @@ func checkMinRequirements() {
 		if err != nil {
 			log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
 		}
-		log.Warningf("BPF Verifier: NOT OK. %s", string(bpfFeaturesLog))
+		log.Infof("BPF Verifier: NOT OK. %s", string(bpfFeaturesLog))
 	} else {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
 	}
