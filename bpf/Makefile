@@ -10,12 +10,14 @@ BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o
 SCRIPTS = init.sh join_ep.sh run_probes.sh
 LIB := $(shell find ./lib -name '*.h')
 
+CLANG ?= clang
+
 ifeq ("$(PKG_BUILD)","")
 
 all: $(BPF)
 
 %.o: %.c
-	clang ${CLANG_FLAGS} -c $< -o $@
+	${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
 LB_OPTIONS = \
 	-DUNKNOWN \
@@ -25,7 +27,7 @@ LB_OPTIONS = \
 
 bpf_lb.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
-		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o /dev/null;)
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o /dev/null;)
 
 LXC_OPTIONS = \
 	 -DUNKNOWN \
@@ -33,7 +35,7 @@ LXC_OPTIONS = \
 
 bpf_lxc.o:
 	$(foreach OPTS,$(LXC_OPTIONS), \
-		clang ${OPTS} ${CLANG_FLAGS} -c bpf_lxc.c -o /dev/null;)
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lxc.c -o /dev/null;)
 
 else
 
