@@ -134,7 +134,7 @@ func checkMinRequirements() {
 	if kernelMajor < majorMinKernelVersion ||
 		(kernelMajor == majorMinKernelVersion && kernelMinor < minorMinKernelVersion) {
 		log.Fatalf("kernel version: NOT OK: minimal supported kernel "+
-			"version is >= %d.%d", majorMinKernelVersion, minorMinKernelVersion)
+			"version is >= %d.%d; kernel version that is running is: %d.%d", majorMinKernelVersion, minorMinKernelVersion, kernelMajor, kernelMinor)
 	}
 
 	clangVersion, err := exec.Command("clang", "--version").CombinedOutput()
