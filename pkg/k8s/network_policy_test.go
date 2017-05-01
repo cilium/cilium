@@ -47,9 +47,9 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 				},
 			},
 			Ingress: []v1beta1.NetworkPolicyIngressRule{
-				v1beta1.NetworkPolicyIngressRule{
+				{
 					From: []v1beta1.NetworkPolicyPeer{
-						v1beta1.NetworkPolicyPeer{
+						{
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"foo3": "bar3",
@@ -59,7 +59,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 						},
 					},
 					Ports: []v1beta1.NetworkPolicyPort{
-						v1beta1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{
 								Type:   intstr.String,
 								StrVal: "http",
@@ -107,9 +107,9 @@ func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	netPolicy := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
 			Ingress: []v1beta1.NetworkPolicyIngressRule{
-				v1beta1.NetworkPolicyIngressRule{
+				{
 					Ports: []v1beta1.NetworkPolicyPort{
-						v1beta1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{
 								Type:   intstr.String,
 								StrVal: "unknown",
@@ -137,7 +137,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 				},
 			},
 			Ingress: []v1beta1.NetworkPolicyIngressRule{
-				v1beta1.NetworkPolicyIngressRule{},
+				{},
 			},
 		},
 	}
@@ -167,7 +167,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 				},
 			},
 			Ingress: []v1beta1.NetworkPolicyIngressRule{
-				v1beta1.NetworkPolicyIngressRule{
+				{
 					From:  []v1beta1.NetworkPolicyPeer{},
 					Ports: []v1beta1.NetworkPolicyPort{},
 				},

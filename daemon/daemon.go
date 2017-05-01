@@ -662,16 +662,16 @@ func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
 
 	for k := range d.endpoints {
 		e := d.endpoints[k]
-		if (e.Consumable != nil &&
-		    e.Opts.IsDisabled(endpoint.OptionConntrackLocal)) {
+		if e.Consumable != nil &&
+			e.Opts.IsDisabled(endpoint.OptionConntrackLocal) {
 			globalCTinUse = true
 			break
 		}
 	}
 
-	if (!globalCTinUse &&
-	    (filename == ctmap.MapName6Global ||
-	     filename == ctmap.MapName4Global)) {
+	if !globalCTinUse &&
+		(filename == ctmap.MapName6Global ||
+			filename == ctmap.MapName4Global) {
 		d.removeStaleMap(path)
 	}
 }

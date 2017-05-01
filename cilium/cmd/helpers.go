@@ -51,7 +51,7 @@ func requireEndpointIDorGlobal(cmd *cobra.Command, args []string) {
 		Usagef(cmd, "Missing endpoint id or 'global' argument")
 	}
 
-	if (args[0] != "global") {
+	if args[0] != "global" {
 		requireEndpointID(cmd, args)
 	}
 }

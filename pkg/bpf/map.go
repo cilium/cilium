@@ -274,7 +274,6 @@ func (m *Map) Close() error {
 type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
 type DumpCallback func(key MapKey, value MapValue)
 
-
 func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
