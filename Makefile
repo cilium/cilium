@@ -4,13 +4,7 @@ SUBDIRS = plugins bpf cilium daemon
 GOFILES = $(shell go list ./... | grep -v /vendor/)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 
-all: check-golang $(SUBDIRS)
-
-check-golang:
-	if [ "${GOLANGVERSION}" = "go1.8" ]; then \
-		echo "golang 1.8 is currently not supported, please downgrade to a lower version"; \
-		exit 1; \
-	fi
+all: $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
