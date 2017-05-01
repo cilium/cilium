@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
 
-	"golang.org/x/sys/unix"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 )
 
 // monitorCmd represents the monitor command

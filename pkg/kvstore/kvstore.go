@@ -30,9 +30,9 @@ var (
 
 // Supported key-value store types.
 const (
-	Local = "local"
+	Local  = "local"
 	Consul = "consul"
-	Etcd = "etcd"
+	Etcd   = "etcd"
 )
 
 type KVClient interface {
