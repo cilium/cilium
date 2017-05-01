@@ -15,31 +15,85 @@
 package runtime
 
 import (
+	"bytes"
+	"encoding"
 	"errors"
+	"fmt"
 	"io"
+	"reflect"
 )
 
-// ByteStreamConsumer creates a consmer for byte streams, takes a writer and reads from the provided reader
+// ByteStreamConsumer creates a consmer for byte streams,
+// takes a Writer/BinaryUnmarshaler interface or binary slice by reference,
+// and reads from the provided reader
 func ByteStreamConsumer() Consumer {
-	return ConsumerFunc(func(r io.Reader, v interface{}) error {
-		wrtr, ok := v.(io.Writer)
-		if !ok {
-			return errors.New("ByteStreamConsumer can only deal with io.Writer")
+	return ConsumerFunc(func(reader io.Reader, data interface{}) error {
+		if reader == nil {
+			return errors.New("ByteStreamConsumer requires a reader") // early exit
 		}
 
-		_, err := io.Copy(wrtr, r)
-		return err
+		if wrtr, ok := data.(io.Writer); ok {
+			_, err := io.Copy(wrtr, reader)
+			return err
+		}
+
+		buf := new(bytes.Buffer)
+		_, err := buf.ReadFrom(reader)
+		if err != nil {
+			return err
+		}
+		b := buf.Bytes()
+
+		if bu, ok := data.(encoding.BinaryUnmarshaler); ok {
+			return bu.UnmarshalBinary(b)
+		}
+
+		if t := reflect.TypeOf(data); data != nil && t.Kind() == reflect.Ptr {
+			v := reflect.Indirect(reflect.ValueOf(data))
+			if t = v.Type(); t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8 {
+				v.SetBytes(b)
+				return nil
+			}
+		}
+
+		return fmt.Errorf("%v (%T) is not supported by the ByteStreamConsumer, %s",
+			data, data, "can be resolved by supporting Writer/BinaryUnmarshaler interface")
 	})
 }
 
-// ByteStreamProducer creates a producer for byte streams, takes a reader, writes to a writer (essentially a pipe)
+// ByteStreamProducer creates a producer for byte streams,
+// takes a Reader/BinaryMarshaler interface or binary slice,
+// and writes to a writer (essentially a pipe)
 func ByteStreamProducer() Producer {
-	return ProducerFunc(func(w io.Writer, v interface{}) error {
-		rdr, ok := v.(io.Reader)
-		if !ok {
-			return errors.New("ByteStreamProducer can only deal with io.Reader")
+	return ProducerFunc(func(writer io.Writer, data interface{}) error {
+		if writer == nil {
+			return errors.New("ByteStreamProducer requires a writer") // early exit
 		}
-		_, err := io.Copy(w, rdr)
-		return err
+
+		if rdr, ok := data.(io.Reader); ok {
+			_, err := io.Copy(writer, rdr)
+			return err
+		}
+
+		if bm, ok := data.(encoding.BinaryMarshaler); ok {
+			bytes, err := bm.MarshalBinary()
+			if err != nil {
+				return err
+			}
+
+			_, err = writer.Write(bytes)
+			return err
+		}
+
+		if data != nil {
+			v := reflect.Indirect(reflect.ValueOf(data))
+			if t := v.Type(); t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8 {
+				_, err := writer.Write(v.Bytes())
+				return err
+			}
+		}
+
+		return fmt.Errorf("%v (%T) is not supported by the ByteStreamProducer, %s",
+			data, data, "can be resolved by supporting Reader/BinaryMarshaler interface")
 	})
 }
