@@ -163,5 +163,11 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 		})
 	}
 
+	if np.Annotations[k8s.AnnotationCiliumPolicy] != "" {
+		if err := ParseNetworkPolicyExtension(np, pn); err != nil {
+			return "", nil, err
+		}
+	}
+
 	return parentNodeName, pn, nil
 }
