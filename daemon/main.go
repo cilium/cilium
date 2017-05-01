@@ -234,7 +234,7 @@ func init() {
 	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
 	flags.StringSliceVar(&k8sLabels, "k8s-prefix", []string{},
 		"Key values that will be read from kubernetes. (Default: k8s-app, version)")
-	flags.StringVar(&kvStore, "kvstore", kvstore.Local, "Key-value store type")
+	flags.StringVar(&kvStore, "kvstore", "", "Key-value store type")
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
 		"When restoring state, keeps containers' configuration in place")
 	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
@@ -409,6 +409,13 @@ func initEnv() {
 		}
 	case kvstore.Local:
 		log.Infof("Using local storage for key-value store")
+	// Case where no kvstore flag is provided. Ensure that no kvstore-related configuration flags are provided if this is the case.
+	case "":
+		if consulAddr != "" || len(etcdAddr) != 0 || config.EtcdCfgPath != "" {
+			log.Fatalf("no kvstore specified but kvstore-related configuration flags have been provided; please explicitly specify a kvstore with --kvstore")
+		}
+		log.Infof("No specific kvstore configuration provided; using local storage for key-value store")
+		kvStore = kvstore.Local
 	default:
 		log.Fatalf("unsupported key-value store %q provided", kvStore)
 	}
