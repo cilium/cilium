@@ -288,5 +288,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 	}
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
-	return owner.WriteEndpoint(e)
+	err = owner.WriteEndpoint(e)
+	return err
 }
