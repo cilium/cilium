@@ -39,6 +39,9 @@ func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
 		return
 	}
 
+	f := os.NewFile(uintptr(fd), file)
+	defer f.Close()
+
 	info, err := bpf.GetMapInfo(os.Getpid(), fd)
 	if err != nil {
 		log.Warningf("Unable to open CT map's fdinfo %s: %s\n", file, err)
@@ -48,15 +51,12 @@ func runGC(e *endpoint.Endpoint, name string, ctType ctmap.CtType) {
 		return
 	}
 
-	f := os.NewFile(uintptr(fd), file)
 	m := ctmap.CtMap{Fd: fd, Type: ctType}
 
 	deleted := m.GC(uint16(GcInterval))
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)
 	}
-
-	f.Close()
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
