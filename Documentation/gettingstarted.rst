@@ -30,10 +30,11 @@ Step 0: Install Vagrant
 .. note::
 
    You need to run Vagrant version 1.8.3 or later or you will run into issues
-   booting the Ubuntu 16.10 base image.
+   booting the Ubuntu 16.10 base image. You can verify by running ``vagrant --version``.
 
 If you don't already have Vagrant installed, follow the
 `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_
+or see `Download Vagrant <https://www.vagrantup.com/downloads.html>`_ for newer versions.
 
 
 Step 1: Download the Cilium Source Code
