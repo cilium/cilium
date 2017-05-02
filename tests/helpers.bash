@@ -44,7 +44,7 @@ function abort {
 
 	echo "------------------------------------------------------------------------"
 	echo "                            Cilium logs"
-	journalctl --since "${LAST_LOG_DATE}" -u cilium
+	journalctl --no-pager --since "${LAST_LOG_DATE}" -u cilium
 	echo ""
 	echo "------------------------------------------------------------------------"
 

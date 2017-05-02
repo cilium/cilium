@@ -28,7 +28,7 @@
                     }]
                 }],
                 "nodeSelector": {
-                    "kubernetes.io/hostname": "cilium-k8s-node-2"
+                    "kubernetes.io/hostname": "$kube-node-selector"
                 }
             }
         }
