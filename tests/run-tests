@@ -6,5 +6,10 @@ set -e
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 
 for test in *.sh; do
+	echo "------------------------------------------------------------------------"
+	echo "                            Running test"
+	echo "./$test"
+	echo ""
+	echo "------------------------------------------------------------------------"
 	./$test
 done
