@@ -7,8 +7,11 @@ set -e
 
 logs_clear
 
+echo "K8S flag is not set, ignoring test"
+env
+
 if [ -z $K8S ]; then
-	exit 0
+    exit 0
 fi
 
 if [[ "${IPV4}" -ne "1" ]]; then
