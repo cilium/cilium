@@ -43,11 +43,23 @@ programs attached to endpoints and devices. This includes:
 	},
 }
 
+func listEventTypes() []string {
+	types := []string{}
+	for k := range eventTypes {
+		types = append(types, k)
+	}
+	return types
+}
+
 func init() {
 	RootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().IntVarP(&eventConfig.NumCpus, "num-cpus", "c", runtime.NumCPU(), "Number of CPUs")
 	monitorCmd.Flags().IntVarP(&eventConfig.NumPages, "num-pages", "n", 64, "Number of pages for ring buffer")
 	monitorCmd.Flags().BoolVarP(&dissect, "dissect", "d", false, "Dissect packet data")
+	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
+	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
+	monitorCmd.Flags().Uint32Var(&toDst, "to", 0, "Filter by destination endpoint id")
+	monitorCmd.Flags().Uint32Var(&related, "related-to", 0, "Filter by either source or destination endpoint id")
 }
 
 var (
@@ -59,38 +71,105 @@ var (
 		SampleType:   bpf.PERF_SAMPLE_RAW,
 		WakeupEvents: 1,
 	}
+	eventTypeIdx = -1 // for integer comparison
+	eventType    = ""
+	eventTypes   = map[string]int{
+		"drop":    bpfdebug.MessageTypeDrop,
+		"debug":   bpfdebug.MessageTypeDebug,
+		"capture": bpfdebug.MessageTypeCapture,
+	}
+	fromSource = uint16(0)
+	toDst      = uint32(0)
+	related    = uint32(0)
 )
 
 func lostEvent(lost *bpf.PerfEventLost, cpu int) {
 	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost.Lost)
 }
 
+// match checks if the event type, from endpoint and / or to endpoint match
+// when they are supplied. The either part of from and to endpoint depends on
+// related to, which can match on both.  If either one of them is less than or
+// equal to zero, then it is assumed user did not use them.
+func match(messageType int, src uint16, dst uint32) bool {
+	if eventTypeIdx > bpfdebug.MessageTypeUnspec && messageType != eventTypeIdx {
+		return false
+	} else if fromSource > 0 && fromSource != src {
+		return false
+	} else if toDst > 0 && toDst != dst {
+		return false
+	} else if related > 0 && uint16(related) != src && related != dst {
+		return false
+	}
+
+	return true
+}
+
+// dropEvents prints out all the received drop notifications.
+func dropEvents(prefix string, data []byte) {
+	dn := bpfdebug.DropNotify{}
+
+	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
+		fmt.Printf("Error while parsing drop notification message: %s\n", err)
+	}
+	if match(bpfdebug.MessageTypeDrop, dn.Source, dn.DstID) {
+		dn.Dump(dissect, data, prefix)
+	}
+}
+
+// debugEvents prints out all the debug messages.
+func debugEvents(prefix string, data []byte) {
+	dm := bpfdebug.DebugMsg{}
+
+	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dm); err != nil {
+		fmt.Printf("Error while parsing debug message: %s\n", err)
+	}
+	if match(bpfdebug.MessageTypeDebug, dm.Source, 0) {
+		dm.Dump(data, prefix)
+	}
+}
+
+// captureEvents prints out all the capture messages.
+func captureEvents(prefix string, data []byte) {
+	dc := bpfdebug.DebugCapture{}
+
+	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dc); err != nil {
+		fmt.Printf("Error while parsing debug capture message: %s\n", err)
+	}
+	if match(bpfdebug.MessageTypeCapture, dc.Source, 0) {
+		dc.Dump(dissect, data, prefix)
+	}
+}
+
+// receiveEvent forwards all the per CPU events to the appropriate type function.
 func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
-
 	data := msg.DataDirect()
-	if data[0] == bpfdebug.MessageTypeDrop {
-		dn := bpfdebug.DropNotify{}
-		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
-			fmt.Printf("Error while parsing drop notification message: %s\n", err)
-		}
-		dn.Dump(dissect, data, prefix)
-	} else if data[0] == bpfdebug.MessageTypeDebug {
-		dm := bpfdebug.DebugMsg{}
-		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dm); err != nil {
-			fmt.Printf("Error while parsing debug message: %s\n", err)
-		} else {
-			dm.Dump(data, prefix)
-		}
-	} else if data[0] == bpfdebug.MessageTypeCapture {
-		dc := bpfdebug.DebugCapture{}
-		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dc); err != nil {
-			fmt.Printf("Error while parsing debug capture message: %s\n", err)
-		}
-		dc.Dump(dissect, data, prefix)
-	} else {
+	messageType := data[0]
+
+	switch messageType {
+	case bpfdebug.MessageTypeDrop:
+		dropEvents(prefix, data)
+	case bpfdebug.MessageTypeDebug:
+		debugEvents(prefix, data)
+	case bpfdebug.MessageTypeCapture:
+		captureEvents(prefix, data)
+	default:
 		fmt.Printf("%s Unknonwn event: %+v\n", prefix, msg)
 	}
+}
+
+// validateEventTypeFilter does some input validation to give the user feedback if they
+// wrote something close that did not match for example 'srop' instead of
+// 'drop'.
+func validateEventTypeFilter() {
+	i, err := eventTypes[eventType]
+	if !err {
+		err := "Unknown type (%s). Please use one of the following ones %v\n"
+		fmt.Printf(err, eventType, listEventTypes())
+		os.Exit(1)
+	}
+	eventTypeIdx = i
 }
 
 func runMonitor() {
@@ -102,6 +181,10 @@ func runMonitor() {
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {
 		panic(err)
+	}
+
+	if eventType != "" {
+		validateEventTypeFilter()
 	}
 
 	signalChan := make(chan os.Signal, 1)
