@@ -373,12 +373,25 @@ docker exec --privileged -i client ping -c 4 $LB_HOST_IP4 || {
 cilium bpf ct list global
 
 ## Test 4: Reachability of own service IP
+cilium endpoint config $SERVER1_ID Debug=true DropNotification=true ConntrackLocal=true
+
+cilium service update --rev --frontend "[$SVC_IP6]:0"  --id 222 \
+			--backends "[$SERVER1_IP]:0"
+
 cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
 			--backends "$SERVER1_IP4:0"
+
+cilium service list
+
+docker exec --privileged -i server1 ping6 -c 4 $SVC_IP6 || {
+	abort "Error: Unable to reach own service IP"
+}
 
 docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
 }
+
+cilium endpoint config $SERVER1_ID Debug=false DropNotification=false ConntrackLocal=false
 
 ## Test 5: Run wrk & ab from container => bpf_lxc (LB) => local container
 # Only run these tests if BENCHMARK=1 has been set

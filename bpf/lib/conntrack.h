@@ -293,8 +293,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
-	int type = 0;
-	__be32 addr;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -316,6 +314,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
 		if (1) {
+			__u8 type;
+
 			if (skb_load_bytes(skb, off, &type, 1) < 0)
 				return DROP_CT_INVALID_HDR;
 
@@ -382,12 +382,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 */
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-#ifdef CONNTRACK_LOCAL
-	addr = tuple->addr;
-#else
-	addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
-#endif
-	cilium_trace(skb, DBG_CT_LOOKUP4, addr, 0);
 	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))

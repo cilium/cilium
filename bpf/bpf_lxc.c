@@ -410,13 +410,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 */
 #ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->daddr;
-	orig_dip = tuple.addr;
 #else
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
-	orig_dip = tuple.daddr;
 #endif
 
+	orig_dip = ip4->daddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	ret = lb4_extract_key(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
@@ -480,6 +479,10 @@ skip_service_lookup:
 					  &ct_state_reply, &tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
+
+			/* A reverse translate packet is always allowed except for delivery
+                         * on the local node in which case this marking is cleared again. */
+                        policy_mark_skip(skb);
 		}
 		break;
 
@@ -517,17 +520,18 @@ skip_service_lookup:
 	/* After L4 write in port mapping: revalidate for direct packet access */
 	data = (void *) (long) skb->data;
 	data_end = (void *) (long) skb->data_end;
-	ip4 = data + ETH_HLEN;
+
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
+	ip4 = data + ETH_HLEN;
+	orig_dip = ip4->daddr;
+
 #ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->daddr;
-	orig_dip = tuple.addr;
 #else
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
-	orig_dip = tuple.daddr;
 #endif
 
 	/* Check if destination is within our cluster prefix */
