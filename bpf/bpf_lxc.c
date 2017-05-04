@@ -517,18 +517,12 @@ skip_service_lookup:
 	/* After L4 write in port mapping: revalidate for direct packet access */
 	data = (void *) (long) skb->data;
 	data_end = (void *) (long) skb->data_end;
-	ip4 = data + ETH_HLEN;
+
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-#ifdef CONNTRACK_LOCAL
-	tuple.addr = ip4->daddr;
-	orig_dip = tuple.addr;
-#else
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-	orig_dip = tuple.daddr;
-#endif
+	ip4 = data + ETH_HLEN;
+	orig_dip = ip4->daddr;
 
 	/* Check if destination is within our cluster prefix */
 	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
