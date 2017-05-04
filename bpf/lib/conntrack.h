@@ -293,7 +293,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
-	int type = 0;
 	__be32 addr;
 
 	/* The tuple is created in reverse order initially to find a
@@ -316,6 +315,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
 		if (1) {
+			__u8 type;
+
 			if (skb_load_bytes(skb, off, &type, 1) < 0)
 				return DROP_CT_INVALID_HDR;
 
