@@ -687,12 +687,6 @@ static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4
 	state->rev_nat_index = svc->rev_nat_index;
 	state->addr = new_daddr = svc->target;
 
-#ifdef CONNTRACK_LOCAL
-	tuple->addr = svc->target;
-#else
-	tuple->daddr = svc->target;
-#endif
-
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
 	 * service which is being translated back to the source. This would
@@ -707,6 +701,14 @@ static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4
 		state->addr = new_saddr;
 	}
 #endif
+
+	if (!state->loopback) {
+#ifdef CONNTRACK_LOCAL
+		tuple->addr = svc->target;
+#else
+		tuple->daddr = svc->target;
+#endif
+	}
 
 	return lb4_xlate(skb, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
