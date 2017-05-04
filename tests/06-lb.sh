@@ -17,6 +17,8 @@ source "./helpers.bash"
 
 set -e
 
+cilium config ConntrackLocal=true
+
 TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
@@ -264,6 +266,13 @@ SERVER5_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.Global
 SERVER5_ID=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $1}')
 SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $5}')
 
+cilium endpoint config $CLIENT_ID  | grep ConntrackLocal
+cilium endpoint config $SERVER1_ID | grep ConntrackLocal
+cilium endpoint config $SERVER2_ID | grep ConntrackLocal
+cilium endpoint config $SERVER3_ID | grep ConntrackLocal
+cilium endpoint config $SERVER4_ID | grep ConntrackLocal
+cilium endpoint config $SERVER5_ID | grep ConntrackLocal
+
 #IFACE=$(ip link | grep lxc | sed -e 's/.* \(lxc[^@]*\).*/\1/')
 #for name in $IFACE; do
 #	ethtool -k $name tso off gso off gro off
@@ -370,12 +379,22 @@ docker exec --privileged -i client ping -c 4 $LB_HOST_IP4 || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-cilium bpf ct list global
+#cilium bpf ct list global
 
 ## Test 4: Reachability of own service IP
-cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
-			--backends "$SERVER1_IP4:0"
+cilium service update --rev --frontend "[$SVC_IP6]:0"  --id 222 \
+		      --backends "[$SERVER1_IP]:0"
 
+cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
+		      --backends "$SERVER1_IP4:0"
+
+cilium service list
+
+docker exec --privileged -i server1 ping6 -c 4 $SVC_IP6 || {
+	abort "Error: Unable to reach own service IP"
+}
+
+# TODO global CT
 docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
 }
