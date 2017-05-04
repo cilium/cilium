@@ -602,9 +602,9 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 			     (tuple->nexthdr << 8) | tuple->flags);
 #ifdef CONNTRACK_LOCAL
-	addr = tuple->addr;
+		addr = tuple->addr;
 #else
-	addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+		addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
 #endif
 		cilium_trace(skb, DBG_CT_CREATED2, addr, ct_state->rev_nat_index);
 		if (map_update_elem(map, tuple, &entry, 0) < 0)
