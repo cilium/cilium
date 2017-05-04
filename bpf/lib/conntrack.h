@@ -402,7 +402,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	ipv4_ct_tuple_reverse(tuple);
 	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
 		     (tuple->nexthdr << 8) | tuple->flags);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
+	ret = __ct_lookup(map, skb, tuple, action, dir, NULL);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
