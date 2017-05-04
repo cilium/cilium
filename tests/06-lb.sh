@@ -387,7 +387,8 @@ docker exec --privileged -i server1 ping6 -c 4 $SVC_IP6 || {
 	abort "Error: Unable to reach own service IP"
 }
 
-docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
+docker exec --privileged -i server1 ab -r -n 1000000 -c 200 -s 60 -v 1 "http://$SVC_IP4/" || {
+#docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
 }
 
