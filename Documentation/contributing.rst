@@ -9,8 +9,8 @@ This guide will help you make sure you have an environment capable of testing
 changes to the Cilium source code, and that you understand the workflow of getting
 these changes reviewed and merged upstream.
 
-Setting up the a development environment
-----------------------------------------
+Setting up a development environment
+------------------------------------
 
 Developer requirements
 ~~~~~~~~~~~~~~~~~~~~~~

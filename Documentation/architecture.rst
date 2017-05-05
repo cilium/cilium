@@ -181,7 +181,7 @@ Interconnectivity).
 Each container host is assigned  a *node prefix* out of the *cluster prefix*
 which is used to allocate IPs for local containers.  Based on this, Cilium is
 capable of deriving the container host IP address of any container and
-automatically create a logical overlay network without further configurtion.
+automatically create a logical overlay network without further configuration.
 See section *Overlay Routing* for additional details.
 
 
