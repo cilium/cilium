@@ -77,3 +77,23 @@ func (s *PolicyTestSuite) TestremoveRootPrefix(c *C) {
 		c.Assert(actual, Equals, tt.expected)
 	}
 }
+
+func (s *PolicyTestSuite) TestremoveRootK8sPrefix(c *C) {
+	var removeRootTests = []struct {
+		input    string // input
+		expected string // expected result
+	}{
+		{"", ""},
+		{"root", ""},
+		{"root.", ""},
+		{"root.root.", "root."},
+		{"root.root.k8s.", "root.k8s."},
+		{"root.k8s.", ""},
+		{"k8s.", ""},
+		{"root.k8s.foo.bar", "foo.bar"},
+	}
+	for _, tt := range removeRootTests {
+		actual := removeRootK8sPrefix(tt.input)
+		c.Assert(actual, Equals, tt.expected)
+	}
+}

@@ -175,7 +175,7 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	if k8sLabels == nil {
 		return nil, nil
 	}
-	k8sLabels[k8s.PodNamespaceLabel] = ns
+	k8sLabels[k8s.PodNamespaceLabelPrefix] = ns
 	return k8sLabels, nil
 }
 

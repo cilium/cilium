@@ -164,6 +164,11 @@ func NewLabel(key string, value string, source string) *Label {
 			source = src
 		}
 	}
+
+	var owner LabelOwner
+	if source == k8s.LabelSource {
+		owner = k8s.LabelOwner
+	}
 	if src == common.ReservedLabelSource && key == "" {
 		key = value
 		value = ""
@@ -173,6 +178,7 @@ func NewLabel(key string, value string, source string) *Label {
 		Key:    key,
 		Value:  value,
 		Source: source,
+		owner:  owner,
 	}
 }
 
@@ -232,8 +238,7 @@ func (l *Label) AbsoluteKey() string {
 	defer l.absKeyMU.Unlock()
 	if l.absKey == "" {
 		// Never translate using an owner if a reserved label
-		if l.owner != nil && l.Source != common.ReservedLabelSource &&
-			!strings.HasPrefix(l.Key, k8s.PodNamespaceLabel) {
+		if l.owner != nil && l.Source != common.ReservedLabelSource {
 			l.absKey = l.owner.ResolveName(l.Key)
 		} else {
 			if !strings.HasPrefix(l.Key, "root.") {
@@ -308,6 +313,14 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// GetValue returns the value of a label.
+func (l *Label) GetValue() string {
+	if l.Source == common.ReservedLabelSource {
+		return l.Key
+	}
+	return l.Value
 }
 
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
@@ -454,10 +467,15 @@ func parseSource(str string) (src, next string) {
 func ParseLabel(str string) *Label {
 	lbl := Label{}
 	src, next := parseSource(str)
-	if src != "" {
-		lbl.Source = src
-	} else {
+
+	switch src {
+	case "":
 		lbl.Source = common.CiliumLabelSource
+	case k8s.LabelSource:
+		lbl.owner = k8s.LabelOwner
+		fallthrough
+	default:
+		lbl.Source = src
 	}
 
 	keySplit := strings.SplitN(next, "=", 2)
@@ -470,6 +488,19 @@ func ParseLabel(str string) *Label {
 		}
 	}
 	return &lbl
+}
+
+// ParseKey returns the key of a label.
+// FIXME remove this once we decide to remove the "source" field from labels
+func ParseKey(str string) string {
+	l := ParseLabel(str)
+	if l == nil {
+		return ""
+	}
+	if l.Source == common.ReservedLabelSource {
+		return common.ReservedLabelKey
+	}
+	return l.Key
 }
 
 // ParseStringLabels returns label representations from strings.

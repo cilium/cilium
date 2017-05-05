@@ -17,8 +17,11 @@ package policy
 import (
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (ds *PolicyTestSuite) TestConsumerAllows(c *C) {
@@ -45,4 +48,36 @@ func (ds *PolicyTestSuite) TestConsumerAllows(c *C) {
 
 	c.Assert(rule1.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
 	c.Assert(rule2.Allows(&ctx), Equals, api.UNDECIDED)
+}
+
+func (ds *PolicyTestSuite) TestK8sRule(c *C) {
+	ctx := SearchContext{
+		Trace: TRACE_VERBOSE,
+		From: labels.LabelArray{
+			labels.NewLabel("k8s.role", "frontend", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel("root.k8s.role", "backend", k8s.LabelSource),
+		},
+	}
+
+	rule1 := &AllowRule{
+		Action: api.ALWAYS_ACCEPT,
+		Labels: labels.LabelArray{
+			labels.NewLabel("k8s.role", "frontend", k8s.LabelSource),
+		},
+	}
+
+	k8sRule := RuleConsumers{
+		RuleBase: RuleBase{
+			CoverageSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"role": "backend",
+				},
+			},
+		},
+		Allow: []*AllowRule{rule1},
+	}
+
+	c.Assert(k8sRule.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
 }

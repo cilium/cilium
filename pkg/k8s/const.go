@@ -15,10 +15,15 @@
 package k8s
 
 import (
+	"strings"
+
 	"k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 const (
+	// AnnotationIsolationNS is the annotation key used in the annotation
+	// map for the network isolation on the respective namespace.
+	AnnotationIsolationNS = "net.beta.kubernetes.io/network-policy"
 	// AnnotationName is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
@@ -42,7 +47,43 @@ const (
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
 	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
+	// PodNamespaceLabelPrefix is the PodNamespaceLabel prefixed with
+	// DefaultPolicyParentPathPrefix.
+	PodNamespaceLabelPrefix = DefaultPolicyParentPathPrefix + PodNamespaceLabel
+	// PodNamespaceMetaLabels is the label used to store the labels of the
+	// kubernetes namespace's labels. This was carefully chosen, e.g. do not
+	// change this to "io.kubernetes.pod.namespace.ns-labels" as the user
+	// can pick a kubernetes namespace called "ns-labels", causing conflicts
+	// between the namespaces' labels and the namespace's name.
+	PodNamespaceMetaLabels = "io.cilium.k8s.ns-labels"
 
-	// NodePathDelimiter is the label's key path delimiter.
+	// FIXME this is a duplicate from policy/defaults.go. Suggestion is to
+	// moved to the policy/api
+
+	// RootNodeName is the root node name for the policy tree
+	RootNodeName = "root"
+	// NodePathDelimiter is the label's key path del
 	NodePathDelimiter = "."
+	// RootPrefix is the prefix used in the label's absPath for the root
+	// node.
+	RootPrefix = RootNodeName + NodePathDelimiter
 )
+
+var (
+	// LabelOwner should be the LabelOwner for all labels with the k8s
+	// source.
+	LabelOwner = &labelOwner{}
+)
+
+type labelOwner struct{}
+
+// ResolveName resolves the given key to the proper full name for a k8s label.
+func (k8s *labelOwner) ResolveName(key string) string {
+	if strings.HasPrefix(key, RootPrefix) {
+		return key
+	}
+	if strings.HasPrefix(key, DefaultPolicyParentPathPrefix) {
+		return RootPrefix + key
+	}
+	return RootPrefix + DefaultPolicyParentPathPrefix + key
+}

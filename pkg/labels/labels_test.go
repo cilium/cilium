@@ -183,3 +183,49 @@ func (s *LabelsSuite) TestLabelSliceSHA256Sum(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sha256sum, DeepEquals, "180d22655dec0e78f62c3e4ac17f5994baedbdfc5c882cbbd668e2628c44f320")
 }
+
+func (s *LabelsSuite) TestLabelGetValue(c *C) {
+	tests := []struct {
+		lblIn    *Label
+		valueOut string
+	}{
+		{NewLabel("key1", "value1", "source1"), "value1"},
+		{NewLabel("key1", "value1", common.CiliumLabelSource), "value1"},
+		{NewLabel("value1", "", common.CiliumLabelSource), ""},
+		{NewLabel("key1", "", "source1"), ""},
+		{NewLabel("key1", "=value1", "source1"), "=value1"},
+		{NewLabel("::key1", "value1", "source"), "value1"},
+		{NewLabel("key1", "value1", common.ReservedLabelSource), "key1"},
+		{NewLabel("host", "", common.ReservedLabelSource), "host"},
+	}
+	for _, test := range tests {
+		c.Assert(test.lblIn.GetValue(), DeepEquals, test.valueOut)
+	}
+}
+
+func (s *LabelsSuite) TestLabelParseKey(c *C) {
+	tests := []struct {
+		str string
+		out string
+	}{
+		{"source1:key1=value1", "key1"},
+		{"key1=value1", "key1"},
+		{"value1", "value1"},
+		{"source1:key1", "key1"},
+		{"source1:key1==value1", "key1"},
+		{"source::key1=value1", ":key1"},
+		{"$world=value1", "io.cilium.reserved"},
+		{"1foo", "1foo"},
+		{":2foo", "2foo"},
+		{":3foo=", "3foo"},
+		{"4blah=:foo=", "foo"},
+		{"5blah::foo=", ":foo"},
+		{"6foo==", "6foo"},
+		{"7foo=bar", "7foo"},
+		{"k8s:foo=bar:", "foo"},
+	}
+	for _, test := range tests {
+		lbl := ParseKey(test.str)
+		c.Assert(lbl, DeepEquals, test.out)
+	}
+}
