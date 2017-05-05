@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -572,7 +573,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.listenForCiliumEvents()
 
 	if c.IsK8sEnabled() {
-		d.k8sClient, err = k8s.CreateClient(c.K8sEndpoint, c.K8sCfgPath)
+		d.k8sClient, err = k8sTypes.CreateClient(c.K8sEndpoint, c.K8sCfgPath)
 		if err != nil {
 			return nil, err
 		}

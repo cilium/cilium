@@ -403,13 +403,13 @@ func (ds *PolicyTestSuite) TestAtomicReplace(c *C) {
 
 	rmNode := NewNode("id", nil)
 	rmNode.Rules = append(rmNode.Rules, &RuleConsumers{
-		RuleBase: RuleBase{[]*labels.Label{labels.NewLabel("bar", "", "")}},
+		RuleBase: RuleBase{Coverage: []*labels.Label{labels.NewLabel("bar", "", "")}},
 		Allow:    []*AllowRule{{Action: api.ACCEPT, Labels: labels.LabelArray{labels.NewLabel("foo", "", "")}}},
 	})
 
 	addNode := NewNode("not_id", nil)
 	addNode.Rules = append(addNode.Rules, &RuleConsumers{
-		RuleBase: RuleBase{[]*labels.Label{labels.NewLabel("root.not_id.bar", "", "")}},
+		RuleBase: RuleBase{Coverage: []*labels.Label{labels.NewLabel("root.not_id.bar", "", "")}},
 		Allow:    []*AllowRule{{Action: api.ACCEPT, Labels: labels.LabelArray{labels.NewLabel("baz", "", "")}}},
 	})
 

@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -30,12 +31,12 @@ import (
 // node that can be merged into the return parent path
 func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error) {
 	// The parent policy node can optionally be specified via an annotation
-	parentNodeName := np.Annotations[AnnotationParentPath]
+	parentNodeName := np.Annotations[k8s.AnnotationParentPath]
 	if parentNodeName == "" {
-		parentNodeName = DefaultPolicyParentPath
+		parentNodeName = k8s.DefaultPolicyParentPath
 	}
 
-	policyName := np.Annotations[AnnotationName]
+	policyName := np.Annotations[k8s.AnnotationName]
 	if policyName == "" {
 		policyName = np.Name
 	}
@@ -61,7 +62,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 					for k, v := range rule.PodSelector.MatchLabels {
 						l := labels.NewLabel(k, v, "")
 						if l.Source == common.CiliumLabelSource {
-							l.Source = common.K8sLabelSource
+							l.Source = k8s.LabelSource
 						}
 						lbls = append(lbls, l)
 					}
@@ -73,7 +74,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 				} else if rule.NamespaceSelector != nil {
 					lbls := labels.LabelArray{}
 					for k := range rule.NamespaceSelector.MatchLabels {
-						l := labels.NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
+						l := labels.NewLabel(k8s.PodNamespaceLabel, k, k8s.LabelSource)
 						lbls = append(lbls, l)
 					}
 					ar := &policy.AllowRule{
@@ -122,7 +123,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (string, *policy.Node, error)
 		}
 	}
 
-	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
+	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, k8s.LabelSource)
 	pn := policy.NewNode(policyName, nil)
 	pn.IgnoreNameCoverage = true
 	pn.Rules = []policy.PolicyRule{

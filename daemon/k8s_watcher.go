@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -143,7 +144,7 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy addition")
 		return
 	}
-	parentsPath, pn, err := k8s.ParseNetworkPolicy(k8sNP)
+	parentsPath, pn, err := k8sTypes.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
@@ -184,7 +185,7 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy deletion")
 		return
 	}
-	parentsPath, pn, err := k8s.ParseNetworkPolicy(k8sNP)
+	parentsPath, pn, err := k8sTypes.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return

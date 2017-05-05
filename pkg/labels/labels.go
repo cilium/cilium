@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/k8s"
 
 	"github.com/op/go-logging"
 )
@@ -232,7 +233,7 @@ func (l *Label) AbsoluteKey() string {
 	if l.absKey == "" {
 		// Never translate using an owner if a reserved label
 		if l.owner != nil && l.Source != common.ReservedLabelSource &&
-			!strings.HasPrefix(l.Key, common.K8sPodNamespaceLabel) {
+			!strings.HasPrefix(l.Key, k8s.PodNamespaceLabel) {
 			l.absKey = l.owner.ResolveName(l.Key)
 		} else {
 			if !strings.HasPrefix(l.Key, "root.") {

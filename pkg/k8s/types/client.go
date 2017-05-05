@@ -21,26 +21,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	// AnnotationParentPath is an optional annotation to the NetworkPolicy
-	// resource which specifies the path to the parent policy node to which
-	// all must be merged into.
-	AnnotationParentPath = "io.cilium.parent"
-
-	// DefaultPolicyParentPath is the default path to the policy node
-	// received from kubernetes.
-	DefaultPolicyParentPath = "k8s"
-
-	// AnnotationName is an optional annotation to the NetworkPolicy
-	// resource which specifies the name of the policy node to which all
-	// rules should be applied to.
-	AnnotationName = "io.cilium.name"
-
-	// EnvNodeNameSpec is the environment label used by Kubernetes to
-	// specify the node's name
-	EnvNodeNameSpec = "K8S_NODE_NAME"
-)
-
 // CreateClient creates a new client to access the Kubernetes API
 func CreateClient(endpoint, kubeCfgPath string) (*kubernetes.Clientset, error) {
 	var (
