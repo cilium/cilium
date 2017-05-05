@@ -38,8 +38,8 @@ static inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
 
-	return arp->ar_op == __constant_htons(ARPOP_REQUEST) &&
-	       arp->ar_hrd == __constant_htons(ARPHRD_ETHER) &&
+	return arp->ar_op  == bpf_htons(ARPOP_REQUEST) &&
+	       arp->ar_hrd == bpf_htons(ARPHRD_ETHER) &&
 	       (eth_is_bcast(dmac) || !eth_addrcmp(dmac, mac)) &&
 	       arp_eth->ar_tip == ip;
 }
@@ -50,7 +50,7 @@ static inline int arp_prepare_response(struct __sk_buff *skb, struct ethhdr *eth
 {
 	union macaddr smac = *(union macaddr *) &eth->h_source;
 	__be32 sip = arp_eth->ar_sip;
-	__be16 arpop = __constant_htons(ARPOP_REPLY);
+	__be16 arpop = bpf_htons(ARPOP_REPLY);
 
 	if (eth_store_saddr(skb, mac->addr, 0) < 0 ||
 	    eth_store_daddr(skb, smac.addr, 0) < 0 ||

@@ -47,22 +47,6 @@
 # define unlikely(X)		__builtin_expect(!!(X), 0)
 #endif
 
-#ifndef htons
-# define htons(X)		__constant_htons((X))
-#endif
-
-#ifndef ntohs
-# define ntohs(X)		__constant_ntohs((X))
-#endif
-
-#ifndef htonl
-# define htonl(X)		__constant_htonl((X))
-#endif
-
-#ifndef ntohl
-# define ntohl(X)		__constant_ntohl((X))
-#endif
-
 #ifndef __inline__
 # define __inline__		__attribute__((always_inline))
 #endif

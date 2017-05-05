@@ -102,9 +102,9 @@ static inline int icmp4_to_icmp6(struct __sk_buff *skb, int nh_off)
 			icmp6.icmp6_code = 0;
 			/* FIXME */
 			if (icmp4.un.frag.mtu)
-				icmp6.icmp6_mtu = htonl(ntohs(icmp4.un.frag.mtu));
+				icmp6.icmp6_mtu = bpf_htonl(bpf_ntohs(icmp4.un.frag.mtu));
 			else
-				icmp6.icmp6_mtu = htonl(1500);
+				icmp6.icmp6_mtu = bpf_htonl(1500);
 			break;
 		case ICMP_SR_FAILED:
 			icmp6.icmp6_code = ICMPV6_NOROUTE;
@@ -188,9 +188,9 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 		icmp4.code = ICMP_FRAG_NEEDED;
 		/* FIXME */
 		if (icmp6.icmp6_mtu)
-			icmp4.un.frag.mtu = htons(ntohl(icmp6.icmp6_mtu));
+			icmp4.un.frag.mtu = bpf_htons(bpf_ntohl(icmp6.icmp6_mtu));
 		else
-			icmp4.un.frag.mtu = htons(1500);
+			icmp4.un.frag.mtu = bpf_htons(1500);
 		break;
 	case ICMPV6_TIME_EXCEED:
 		icmp4.type = ICMP_TIME_EXCEEDED;
@@ -246,7 +246,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 	int csum_off;
 	__be32 csum;
 	__be16 v4hdr_len;
-	__be16 protocol = htons(ETH_P_IPV6);
+	__be16 protocol = bpf_htons(ETH_P_IPV6);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	union v6addr nat46_prefix = NAT46_PREFIX;
 	
@@ -272,7 +272,8 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 		v6.daddr.in6_u.u6_addr32[0] = nat46_prefix.p1;
 		v6.daddr.in6_u.u6_addr32[1] = nat46_prefix.p2;
 		v6.daddr.in6_u.u6_addr32[2] = nat46_prefix.p3;
-		v6.daddr.in6_u.u6_addr32[3] = htonl((ntohl(nat46_prefix.p4) & 0xFFFF0000) | (ntohl(v4.daddr) & 0xFFFF));
+		v6.daddr.in6_u.u6_addr32[3] = bpf_htonl((bpf_ntohl(nat46_prefix.p4) & 0xFFFF0000) |
+							(bpf_ntohl(v4.daddr) & 0xFFFF));
 	}
 
 	if (v4.protocol == IPPROTO_ICMP)
@@ -281,9 +282,9 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 		v6.nexthdr = v4.protocol;
 	v6.hop_limit = v4.ttl;
 	v4hdr_len = (v4.ihl << 2);
-	v6.payload_len = htons(ntohs(v4.tot_len) - v4hdr_len);
+	v6.payload_len = bpf_htons(bpf_ntohs(v4.tot_len) - v4hdr_len);
 
-	if (skb_change_proto(skb, htons(ETH_P_IPV6), 0) < 0) {
+	if (skb_change_proto(skb, bpf_htons(ETH_P_IPV6), 0) < 0) {
 #ifdef DEBUG_NAT46
 		printk("v46 NAT: skb_modify failed\n");
 #endif
@@ -297,7 +298,7 @@ static inline int ipv4_to_ipv6(struct __sk_buff *skb, struct iphdr *ip4,
 	if (v4.protocol == IPPROTO_ICMP) {
 		csum = icmp4_to_icmp6(skb, nh_off + sizeof(v6));
 		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
-					       ntohs(v6.payload_len), csum);
+					       bpf_ntohs(v6.payload_len), csum);
 	} else {
 		csum = 0;
 		csum = csum_diff(&v4.saddr, 4, &v6.saddr, 16, csum);
@@ -338,7 +339,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 	struct iphdr v4 = {};
 	int csum_off;
 	__be32 csum = 0;
-	__be16 protocol = htons(ETH_P_IP);
+	__be16 protocol = bpf_htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 
 	if (skb_load_bytes(skb, nh_off, &v6, sizeof(v6)) < 0)
@@ -358,11 +359,11 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 	else
 		v4.protocol = v6.nexthdr;
 	v4.ttl = v6.hop_limit;
-	v4.tot_len = htons(ntohs(v6.payload_len) + sizeof(v4));
+	v4.tot_len = bpf_htons(bpf_ntohs(v6.payload_len) + sizeof(v4));
 	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
 
-	if (skb_change_proto(skb, htons(ETH_P_IP), 0) < 0) {
+	if (skb_change_proto(skb, bpf_htons(ETH_P_IP), 0) < 0) {
 #ifdef DEBUG_NAT46
 		printk("v46 NAT: skb_modify failed\n");
 #endif
@@ -380,7 +381,7 @@ static inline int ipv6_to_ipv4(struct __sk_buff *skb, int nh_off, __be32 saddr)
 		__be32 csum1 = 0;
 		csum = icmp6_to_icmp4(skb, nh_off + sizeof(v4));
 		csum1 = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
-						ntohs(v6.payload_len), 0);
+						bpf_ntohs(v6.payload_len), 0);
 		csum = csum - csum1;
 	} else {
 		csum = 0;

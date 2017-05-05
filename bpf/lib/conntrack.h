@@ -234,8 +234,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * This will find an existing flow in the reverse direction.
 	 * The reverse direction is the one where reverse nat index is stored.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-		     (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -248,8 +248,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv6_ct_tuple_reverse(tuple);
-	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-		     (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, dir, NULL);
 
 #ifdef LXC_NAT46
@@ -380,8 +380,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 *
 	 * This will find an existing flow in the reverse direction.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-		     (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 #ifdef CONNTRACK_LOCAL
 	addr = tuple->addr;
 #else
@@ -400,8 +400,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv4_ct_tuple_reverse(tuple);
-	cilium_trace(skb, DBG_CT_LOOKUP, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-		     (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, dir, NULL);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
@@ -479,8 +479,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.proxy_port = proxy_port;
 
-	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-		     (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 #ifdef CONNTRACK_LOCAL
 	addr_p4 = tuple->addr.p4;
 #else
@@ -565,8 +565,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.nat46 = dir == CT_EGRESS;
 #endif
 
-	cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-		     (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 #ifdef CONNTRACK_LOCAL
 	addr = tuple->addr;
 #else
@@ -599,8 +599,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		if (ct_state->loopback)
 			tuple->flags = TUPLE_F_IN;
 
-		cilium_trace(skb, DBG_CT_CREATED, (ntohs(tuple->sport) << 16) | ntohs(tuple->dport),
-			     (tuple->nexthdr << 8) | tuple->flags);
+		cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
+			     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 #ifdef CONNTRACK_LOCAL
 		addr = tuple->addr;
 #else
