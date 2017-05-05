@@ -52,7 +52,7 @@ static inline int parse_geneve_options(struct geneveopt_val *val, uint8_t *buf)
 	    (opt->length  << 2) != sizeof(val->seclabel))
 		return DROP_INVALID_GENEVE;
 
-	val->seclabel = ntohl(*(__u32*)opt->opt_data);
+	val->seclabel = bpf_ntohl(*(__u32*)opt->opt_data);
 #ifdef DEBUG_GENEVE
 	printk("geneve seclabel %x\n", val->seclabel);
 #endif

@@ -181,7 +181,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
 						 __u32 seclabel, struct iphdr *ip4)
 {
-	__u32 lxc_id = ntohl(ip4->daddr) & 0xffff;
+	__u32 lxc_id = bpf_ntohl(ip4->daddr) & 0xffff;
 	struct lxc_info *dst_lxc;
 	int ret;
 

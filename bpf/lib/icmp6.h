@@ -255,8 +255,8 @@ static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
                                    upper, 8) < 0)
 			return DROP_INVALID;
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
-		payload_len = htons(56);
-		trimlen = 56 - ntohs(ipv6hdr->payload_len);
+		payload_len = bpf_htons(56);
+		trimlen = 56 - bpf_ntohs(ipv6hdr->payload_len);
 		if (skb_change_tail(skb, skb->len + trimlen, 0) < 0)
 			return DROP_WRITE_ERROR;
 		/* trim or expand buffer and copy data buffer after ipv6 header */
@@ -273,9 +273,9 @@ static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
                                    upper, 20) < 0)
                         return DROP_INVALID;
 		sum = compute_icmp6_csum(data, 68, ipv6hdr);
-		payload_len = htons(68);
+		payload_len = bpf_htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
-		trimlen = 68 - ntohs(ipv6hdr->payload_len);
+		trimlen = 68 - bpf_ntohs(ipv6hdr->payload_len);
 		if (skb_change_tail(skb, skb->len + trimlen, 0) < 0)
 			return DROP_WRITE_ERROR;
 		if (skb_store_bytes(skb, nh_off + sizeof(struct ipv6hdr),

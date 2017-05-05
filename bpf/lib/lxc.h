@@ -91,7 +91,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 {
 	__be32 host_ip = IPV4_GATEWAY;
 	struct proxy4_tbl_key key = {
-		.saddr = __constant_htonl(LXC_IPV4),
+		.saddr = bpf_htonl(LXC_IPV4),
 		.sport = tuple->sport,
 		.dport = new_port,
 		.nexthdr = tuple->nexthdr,

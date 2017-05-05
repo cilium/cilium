@@ -21,9 +21,9 @@
 #include <linux/ipv6.h>
 
 #include "dbg.h"
-#define IPV6_FLOWINFO_MASK              htonl(0x0FFFFFFF)
-#define IPV6_FLOWLABEL_MASK             htonl(0x000FFFFF)
-#define IPV6_FLOWLABEL_STATELESS_FLAG   htonl(0x00080000)
+#define IPV6_FLOWINFO_MASK              bpf_htonl(0x0FFFFFFF)
+#define IPV6_FLOWLABEL_MASK             bpf_htonl(0x000FFFFF)
+#define IPV6_FLOWLABEL_STATELESS_FLAG   bpf_htonl(0x00080000)
 
 #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
 #define IPV6_TCLASS_SHIFT       20
@@ -224,7 +224,7 @@ static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 la
 		return DROP_INVALID;
 
 	old &= IPV6_TCLASS_MASK;
-	old = htonl(0x60000000) | label | old;
+	old = bpf_htonl(0x60000000) | label | old;
 
 	if (skb_store_bytes(skb, off, &old, 4, BPF_F_RECOMPUTE_CSUM) < 0)
 		return DROP_WRITE_ERROR;
@@ -234,34 +234,34 @@ static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 la
 
 static inline __u16 derive_lxc_id(union v6addr *addr)
 {
-	return ntohl(addr->p4) & 0xFFFF;
+	return bpf_ntohl(addr->p4) & 0xFFFF;
 }
 
 /* FIXME: rewrite this to avoid byte order conversion */
 static inline void ipv6_set_lxc_id(union v6addr *addr, __u16 lxc_id)
 {
-	__u32 p4 = ntohl(addr->p4);
+	__u32 p4 = bpf_ntohl(addr->p4);
 	p4 &= ~0xFFFF;
 	p4 |= lxc_id;
-	addr->p4 = htonl(p4);
+	addr->p4 = bpf_htonl(p4);
 }
 
 static inline __u32 ipv6_derive_node_id(union v6addr *addr)
 {
-	return ntohl(addr->p3);
+	return bpf_ntohl(addr->p3);
 }
 
 static inline void ipv6_set_node_id(union v6addr *addr, __u32 node_id)
 {
-	addr->p3 = htonl(node_id);
+	addr->p3 = bpf_htonl(node_id);
 }
 
 static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
                                              __u8 next_hdr,
 					     __u16 payload_len, __be32 sum)
 {
-	__u32 len = htonl((__u32)payload_len);
-	__u32 nexthdr = htonl((__u32)next_hdr);
+	__u32 len = bpf_htonl((__u32)payload_len);
+	__u32 nexthdr = bpf_htonl((__u32)next_hdr);
 	sum = csum_diff(NULL, 0, &hdr->saddr, sizeof(struct in6_addr), sum);
 	sum = csum_diff(NULL, 0, &hdr->daddr, sizeof(struct in6_addr), sum);
 	sum = csum_diff(NULL, 0, &len, sizeof(len), sum);

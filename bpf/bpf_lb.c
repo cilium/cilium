@@ -43,6 +43,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
@@ -176,13 +177,13 @@ int from_netdev(struct __sk_buff *skb)
 
 	switch (skb->protocol) {
 #ifndef LB_DISABLE_IPV6
-	case __constant_htons(ETH_P_IPV6):
+	case bpf_htons(ETH_P_IPV6):
 		ret = handle_ipv6(skb);
 		break;
 #endif
 
 #ifndef LB_DISABLE_IPV4
-	case __constant_htons(ETH_P_IP):
+	case bpf_htons(ETH_P_IP):
 		ret = handle_ipv4(skb);
 		break;
 #endif

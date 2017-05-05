@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
@@ -50,7 +51,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
 		__u32 *tmp = (__u32 *) ip6;
-		return ntohl(*tmp & IPV6_FLOWLABEL_MASK);
+		return bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
 	}
 
 	return WORLD_ID;
@@ -142,7 +143,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	new_sport = val->orig_dport;
 	old_sport = key.dport;
 
-	cilium_trace(skb, DBG_REV_PROXY_FOUND, new_saddr, ntohs(new_sport));
+	cilium_trace(skb, DBG_REV_PROXY_FOUND, new_saddr, bpf_ntohs(new_sport));
 	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_PRE, 0);
 
 	if (l4_modify_port(skb, l4_off, TCP_SPORT_OFF, &csum, new_sport, old_sport) < 0)
@@ -225,7 +226,7 @@ int from_netdev(struct __sk_buff *skb)
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
 	switch (skb->protocol) {
-	case __constant_htons(ETH_P_IPV6):
+	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
 
@@ -236,7 +237,7 @@ int from_netdev(struct __sk_buff *skb)
 		break;
 
 #ifdef ENABLE_IPV4
-	case __constant_htons(ETH_P_IP):
+	case bpf_htons(ETH_P_IP):
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.

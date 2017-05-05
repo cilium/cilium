@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
@@ -123,12 +124,12 @@ int from_overlay(struct __sk_buff *skb)
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_OVERLAY, skb->ingress_ifindex);
 
 	switch (skb->protocol) {
-	case __constant_htons(ETH_P_IPV6):
+	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
 		break;
 
-	case __constant_htons(ETH_P_IP):
+	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
 		ret = DROP_MISSED_TAIL_CALL;

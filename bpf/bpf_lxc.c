@@ -26,6 +26,8 @@
 #include <stdio.h>
 
 #include <linux/icmpv6.h>
+
+#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/arp.h"
@@ -532,7 +534,7 @@ skip_service_lookup:
 		if (node_id != IPV4_RANGE) {
 #ifdef ENCAP_IFINDEX
 			/* 10.X.0.0 => 10.X.0.1 */
-			node_id = ntohl(node_id) | 1;
+			node_id = bpf_ntohl(node_id) | 1;
 			return lxc_encap(skb, node_id);
 #else
 			/* Packets to other nodes are always allowed, the remote
@@ -646,17 +648,17 @@ int handle_ingress(struct __sk_buff *skb)
 	} else {
 #endif
 	switch (skb->protocol) {
-	case __constant_htons(ETH_P_IPV6):
+	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
 		break;
 
-	case __constant_htons(ETH_P_IP):
+	case bpf_htons(ETH_P_IP):
 		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
-	case __constant_htons(ETH_P_ARP):
+	case bpf_htons(ETH_P_ARP):
 		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
@@ -888,12 +890,12 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
 	switch (skb->protocol) {
-	case __constant_htons(ETH_P_IPV6):
+	case bpf_htons(ETH_P_IPV6):
 		ret = ipv6_policy(skb, ifindex, src_label);
 		break;
 
 #ifdef LXC_IPV4
-	case __constant_htons(ETH_P_IP):
+	case bpf_htons(ETH_P_IP):
 		ret = ipv4_policy(skb, ifindex, src_label);
 		break;
 #endif
@@ -924,7 +926,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 #ifdef LXC_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
-	int ret = ipv6_to_ipv4(skb, 14, htonl(LXC_IPV4));
+	int ret = ipv6_to_ipv4(skb, 14, bpf_htonl(LXC_IPV4));
 	if (IS_ERR(ret))
 		return ret;
 
