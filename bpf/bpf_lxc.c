@@ -198,7 +198,8 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, 0, &ct_state_reply);
+	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, CT_EGRESS,
+			 &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
@@ -209,7 +210,7 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = ct_create6(&CT_MAP6, tuple, skb, 0, &ct_state_new);
+		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -447,7 +448,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 0,
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_EGRESS,
 			 &ct_state_reply);
 	if (ret < 0)
 		return ret;
@@ -461,7 +462,7 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = ct_create4(&CT_MAP4, &tuple, skb, 0, &ct_state_new);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -729,7 +730,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		}
 	}
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, 1, &ct_state_reply);
+	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, CT_INGRESS,
+			 &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
@@ -754,7 +756,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return DROP_POLICY;
 
 		ct_state_new.orig_dport = tuple.dport;
-		ret = ct_create6(&CT_MAP6, &tuple, skb, 1, &ct_state_new);
+		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -817,7 +819,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, 1, &ct_state_reply);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state_reply);
 	if (ret < 0)
 		return ret;
 
@@ -851,7 +853,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return DROP_POLICY;
 
 		ct_state_new.orig_dport = tuple.dport;
-		ret = ct_create4(&CT_MAP4, &tuple, skb, 1, &ct_state_new);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
