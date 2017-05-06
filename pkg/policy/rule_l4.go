@@ -107,7 +107,7 @@ type AllowL4 struct {
 	Egress  []L4Filter `json:"out-ports,omitempty"`
 }
 
-func (l4 *AllowL4) Merge(result *L4Policy) {
+func (l4 *AllowL4) merge(result *L4Policy) {
 	for _, f := range l4.Ingress {
 		if f.Protocol == "" {
 			f.Merge(result, result.Ingress, "tcp")
@@ -136,14 +136,20 @@ func (l4 *RuleL4) IsMergeable() bool {
 	return true
 }
 
+// GetL4Policy checks whether the L4 rule covers the destination context
+// and if so, merges both ingress and egress rules into the result.
 func (l4 *RuleL4) GetL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
-	if len(l4.Coverage) > 0 && !ctx.TargetCoveredBy(l4.Coverage) {
-		policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)
+	if result == nil {
 		return nil
 	}
 
-	for _, a := range l4.Allow {
-		a.Merge(result)
+	if len(l4.Coverage) == 0 || ctx.TargetCoveredBy(l4.Coverage) {
+		for _, a := range l4.Allow {
+			a.merge(result)
+		}
+	} else {
+		policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)
+		return nil
 	}
 
 	return result
