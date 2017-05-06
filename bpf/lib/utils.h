@@ -18,8 +18,6 @@
 #ifndef __LIB_UTILS_H_
 #define __LIB_UTILS_H_
 
-#include <asm/byteorder.h>
-
 #include <bpf/api.h>
 
 #define min(x, y)		\
