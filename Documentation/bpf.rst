@@ -20,7 +20,7 @@ While BPF has existed since 1992, this document covers the extended Berkley
 Paket Filter (eBPF) version which has first appeared in Kernel 3.18 and
 obsoletes the original version which is being referred to as "classic" BPF
 (cBPF) these days. cBPF is known to many as being the packet filter language
-use by tcpdump. Nowadays, the Linux kernel runs eBPF only and loaded cBPF
+used by tcpdump. Nowadays, the Linux kernel runs eBPF only and loaded cBPF
 bytecode is transparently translated into an eBPF representation in the kernel
 before program execution. This documentation will generally refer to the term
 BPF unless explicit differences between eBPF and cBPF are being pointed out.
@@ -124,8 +124,8 @@ then triggers the execution of the BPF program attached to it.
 BPF consists of eleven 64 bit registers with 32 bit subregisters, a program counter
 and a 512 byte large BPF stack space. Registers are named ``r0`` - ``r10``. The
 operating mode is 64 bit by default, the 32 bit subregisters can only be accessed
-through special ALU operations. The 32-bit lower subregisters zero-extend into 64-bit
-when they are being written to.
+through special arithmetic logic unit (ALU) operations. The 32-bit lower subregisters
+zero-extend into 64-bit when they are being written to.
 
 Register ``r10`` is the only register which is read-only and contains the frame pointer
 address in order to access the BPF stack space. The remaining ``r0`` - ``r9``
@@ -1933,10 +1933,10 @@ XDP
 
 TODO
 
+.. _bpf_users:
+
 References
 ==========
-
-.. _bpf_users:
 
 Mentioned lists of projects, talks, papers, and further reading material
 are likely not complete. Thus, feel free to open pull requests to complete

@@ -323,7 +323,7 @@ By default with Cilium, containers use IP addresses that are private to the
 cluster.  This is very common in overlay mode, but may also be the case even
 if direct mode is being used. In either scenario, if a container with a private
 IP should be allowed to make outgoing network connections to resources
-either elsewere in the data center or on the public Internet, the Linux node
+either elsewhere in the data center or on the public Internet, the Linux node
 should be configured to perform IP masquerading, also known as network
 address port translation (NAPT), for all traffic destined from a container to the outside world.
 
