@@ -24,6 +24,8 @@ Features
 - Kubernetes NetworkPolicy improvements
   - Support L4 filtering with v1beta1.NetworkPolicyPort
   - All NetworkPolicy based policies are attached to node "root.k8s" now
+- Option to choose between per endpoint connection tracking table or
+  a single global one, by default switch to the global one
 
 0.8.0
 =====
