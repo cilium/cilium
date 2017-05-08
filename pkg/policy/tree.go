@@ -48,7 +48,7 @@ func canConsume(root *Node, ctx *SearchContext) api.ConsumableDecision {
 	for _, child := range root.Children {
 		if child.Covers(ctx) {
 			nmatch++
-			policyTrace(ctx, "Coverage found in [%s], processing rules...\n", child.path)
+			ctx.PolicyTrace("Coverage found in [%s], processing rules...\n", child.path)
 			ctx.Depth++
 			switch child.Allows(ctx) {
 			case api.DENY:
@@ -61,13 +61,13 @@ func canConsume(root *Node, ctx *SearchContext) api.ConsumableDecision {
 				decision = api.ACCEPT
 			}
 			ctx.Depth--
-			policyTrace(ctx, "No conclusion in [%s] rules, current verdict: [%s]\n", child.path, decision)
+			ctx.PolicyTrace("No conclusion in [%s] rules, current verdict: [%s]\n", child.path, decision)
 		}
 	}
 
 	if nmatch == 0 {
 		ctx.Depth--
-		policyTrace(ctx, "No matching children in [%s]\n", root.path)
+		ctx.PolicyTrace("No matching children in [%s]\n", root.path)
 		return decision
 	}
 
@@ -90,18 +90,18 @@ func canConsume(root *Node, ctx *SearchContext) api.ConsumableDecision {
 // AllowsRLocked checks the ConsumableDecision of the given `SearchContext`.
 // Must be called with the Mutex's tree at least RLocked.
 func (t *Tree) AllowsRLocked(ctx *SearchContext) api.ConsumableDecision {
-	policyTrace(ctx, "NEW TRACE >> %s\n", ctx.String())
+	ctx.PolicyTrace("NEW TRACE >> %s\n", ctx.String())
 
 	var decision, subDecision api.ConsumableDecision
 	// In absence of policy, deny
 	if t.Root == nil {
 		decision = api.DENY
-		policyTrace(ctx, "No policy loaded: [%s]\n", decision.String())
+		ctx.PolicyTrace("No policy loaded: [%s]\n", decision.String())
 		goto end
 	}
 
 	decision = t.Root.Allows(ctx)
-	policyTrace(ctx, "Root's [%s] rules verdict: [%s]\n", t.Root.path, decision)
+	ctx.PolicyTrace("Root's [%s] rules verdict: [%s]\n", t.Root.path, decision)
 	switch decision {
 	case api.ALWAYS_ACCEPT:
 		decision = api.ACCEPT
@@ -110,9 +110,9 @@ func (t *Tree) AllowsRLocked(ctx *SearchContext) api.ConsumableDecision {
 		goto end
 	}
 
-	policyTrace(ctx, "Searching in [%s]'s children that have the coverage for: [%s]\n", t.Root.path, ctx.To)
+	ctx.PolicyTrace("Searching in [%s]'s children that have the coverage for: [%s]\n", t.Root.path, ctx.To)
 	subDecision = canConsume(t.Root, ctx)
-	policyTrace(ctx, "Root's [%s] children verdict: [%s]\n", t.Root.path, subDecision)
+	ctx.PolicyTrace("Root's [%s] children verdict: [%s]\n", t.Root.path, subDecision)
 	switch subDecision {
 	case api.ALWAYS_ACCEPT, api.ACCEPT:
 		decision = api.ACCEPT
@@ -125,7 +125,7 @@ func (t *Tree) AllowsRLocked(ctx *SearchContext) api.ConsumableDecision {
 	}
 
 end:
-	policyTrace(ctx, "END TRACE << verdict: [%s]\n", strings.ToUpper(decision.String()))
+	ctx.PolicyTrace("END TRACE << verdict: [%s]\n", strings.ToUpper(decision.String()))
 
 	return decision
 }
@@ -133,13 +133,13 @@ end:
 func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 	result := NewL4Policy()
 
-	policyTrace(ctx, "Resolving L4 policy for context %+v\n", ctx)
+	ctx.PolicyTrace("Resolving L4 policy for context %+v\n", ctx)
 
 	if t.Root != nil {
 		t.Root.ResolveL4Policy(ctx, result)
 	}
 
-	policyTrace(ctx, "Final tree L4 policy: %+v\n", result)
+	ctx.PolicyTrace("Final tree L4 policy: %+v\n", result)
 	return result
 }
 

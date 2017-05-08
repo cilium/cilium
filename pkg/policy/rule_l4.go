@@ -148,7 +148,7 @@ func (l4 *RuleL4) GetL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
 			a.merge(result)
 		}
 	} else {
-		policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)
+		ctx.PolicyTrace("L4 Rule %v has no coverage\n", l4)
 		return nil
 	}
 

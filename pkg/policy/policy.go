@@ -89,24 +89,28 @@ const (
 	TRACE_VERBOSE
 )
 
-func policyTrace(ctx *SearchContext, format string, a ...interface{}) {
-	switch ctx.Trace {
+// PolicyTrace logs the given message into the SearchContext logger only if
+// TRACE_ENABLED or TRACE_VERBOSE is enabled in the receiver's SearchContext.
+func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
+	switch s.Trace {
 	case TRACE_ENABLED, TRACE_VERBOSE:
 		log.Debugf(format, a...)
-		if ctx.Logging != nil {
-			format = "%-" + ctx.CallDepth() + "s" + format
+		if s.Logging != nil {
+			format = "%-" + s.CallDepth() + "s" + format
 			a = append([]interface{}{""}, a...)
-			ctx.Logging.Logger.Printf(format, a...)
+			s.Logging.Logger.Printf(format, a...)
 		}
 	}
 }
 
-func policyTraceVerbose(ctx *SearchContext, format string, a ...interface{}) {
-	switch ctx.Trace {
+// PolicyTraceVerbose logs the given message into the SearchContext logger only
+// if TRACE_VERBOSE is enabled in the receiver's SearchContext.
+func (s *SearchContext) PolicyTraceVerbose(format string, a ...interface{}) {
+	switch s.Trace {
 	case TRACE_VERBOSE:
 		log.Debugf(format, a...)
-		if ctx.Logging != nil {
-			ctx.Logging.Logger.Printf(format, a...)
+		if s.Logging != nil {
+			s.Logging.Logger.Printf(format, a...)
 		}
 	}
 }
@@ -143,7 +147,7 @@ func (s *SearchContext) CallDepth() string {
 // TargetCoveredBy checks if the SearchContext `To` is covered by the all
 // `coverage` labels.
 func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
-	policyTraceVerbose(s, "Checking if %+v covers %+v", coverage, s.To)
+	s.PolicyTraceVerbose("Checking if %+v covers %+v", coverage, s.To)
 	return s.To.Contains(coverage)
 }
 

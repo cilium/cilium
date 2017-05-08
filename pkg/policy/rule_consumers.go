@@ -102,11 +102,11 @@ func (a *AllowRule) Allows(ctx *SearchContext) api.ConsumableDecision {
 	}()
 
 	if ctx.From.Contains(a.Labels) {
-		policyTrace(ctx, "Found all required labels [%v] in rule: [%s]\n", a.Labels, a.String())
+		ctx.PolicyTrace("Found all required labels [%v] in rule: [%s]\n", a.Labels, a.String())
 		return a.Action
 	}
 
-	policyTrace(ctx, "No matching labels in allow rule: [%s]\n", a.String())
+	ctx.PolicyTrace("No matching labels in allow rule: [%s]\n", a.String())
 	return api.UNDECIDED
 }
 
@@ -147,11 +147,11 @@ func (prc *RuleConsumers) Allows(ctx *SearchContext) api.ConsumableDecision {
 	decision := api.UNDECIDED
 
 	if len(prc.Coverage) > 0 && !ctx.TargetCoveredBy(prc.Coverage) {
-		policyTrace(ctx, "Rule has no coverage: [%s]\n", prc.String())
+		ctx.PolicyTrace("Rule has no coverage: [%s]\n", prc.String())
 		return api.UNDECIDED
 	}
 
-	policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
+	ctx.PolicyTrace("Found coverage rule: [%s]", prc.String())
 
 	for _, allowRule := range prc.Allow {
 		switch allowRule.Allows(ctx) {
