@@ -146,6 +146,8 @@ else
     ip r a 10.${i}.0.1/32 dev enp0s8
 fi
 
+ip r a 10.${i}.0.0/16 via 10.${i}.0.1
+
 ip -6 r a ${CILIUM_IPV6_NODE_CIDR}${hexIPv4}:0:0/96 via ${worker_internal_ipv6}
 echo "${worker_internal_ipv6} cilium${K8STAG}-node-${index}" >> /etc/hosts
 EOF
