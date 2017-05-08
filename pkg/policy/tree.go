@@ -130,6 +130,37 @@ end:
 	return decision
 }
 
+// AllowsL4RLocked checks the ConsumableDecision of the given `SearchContext` in
+// L4 policy rules.
+// Must be called with the Mutex's tree at least RLocked.
+func (t *Tree) AllowsL4RLocked(ctx *SearchContext) api.ConsumableDecision {
+
+	l4DstPolicy := t.ResolveL4Policy(ctx)
+
+	ctx.To, ctx.From = ctx.From, ctx.To
+	l4SrcPolicy := t.ResolveL4Policy(ctx)
+	ctx.To, ctx.From = ctx.From, ctx.To
+
+	var l4DstVerdict, l4SrcVerdict bool
+
+	if l4DstPolicy != nil {
+		l4DstVerdict = l4DstPolicy.IngressCoversDPorts(ctx.DPorts)
+	} else {
+		l4DstVerdict = true
+	}
+
+	if l4SrcPolicy != nil {
+		l4SrcVerdict = l4SrcPolicy.EgressCoversDPorts(ctx.DPorts)
+	} else {
+		l4SrcVerdict = true
+	}
+
+	if l4DstVerdict && l4SrcVerdict {
+		return api.ACCEPT
+	}
+	return api.DENY
+}
+
 func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 	result := NewL4Policy()
 

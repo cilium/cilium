@@ -116,7 +116,6 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		To:      labels.NewLabelArrayFromModel(ctx.To),
 		DPorts:  ctx.Dports,
 	}
-	var l4SrcPolicy, l4DstPolicy *policy.L4Policy
 
 	d.policy.Mutex.RLock()
 
@@ -124,37 +123,14 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	searchCtx.PolicyTrace("L3 verdict: [%s]\n\n", verdict.String())
 	if verdict != api.DENY {
-		l4DstPolicy = d.policy.ResolveL4Policy(&searchCtx)
-
-		searchCtx.To, searchCtx.From = searchCtx.From, searchCtx.To
-		l4SrcPolicy = d.policy.ResolveL4Policy(&searchCtx)
-	}
-
-	d.policy.Mutex.RUnlock()
-
-	if verdict != api.DENY {
-		var l4DstVerdict, l4SrcVerdict bool
-
-		if l4DstPolicy != nil {
-			l4DstVerdict = l4DstPolicy.IngressCoversDPorts(searchCtx.DPorts)
-		} else {
-			l4DstVerdict = true
-		}
-
-		if l4SrcPolicy != nil {
-			l4SrcVerdict = l4SrcPolicy.EgressCoversDPorts(searchCtx.DPorts)
-		} else {
-			l4SrcVerdict = true
-		}
-
-		if !(l4DstVerdict && l4SrcVerdict) {
-			verdict = api.DENY
-		}
+		verdict = d.policy.AllowsL4RLocked(&searchCtx)
 
 		searchCtx.PolicyTrace("\nL4 verdict: [%s]\n", verdict.String())
 	} else {
 		searchCtx.PolicyTrace("Ignoring L4 tracing result since L3 verdict is [%s]\n", verdict.String())
 	}
+
+	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
 		Verdict: verdict.String(),
