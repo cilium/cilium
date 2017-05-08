@@ -3,6 +3,7 @@
 dir=$(cd $(dirname ${BASH_SOURCE})/../.. && pwd)
 
 function cleanup {
+	docker rm -f "cilium-consul" 2> /dev/null || true
 	killall -9 cilium-docker 2> /dev/null
 	killall -9 cilium-agent 2> /dev/null
 }
@@ -19,5 +20,12 @@ fi
 
 sleep 3s
 
+docker run -d \
+   --name "cilium-consul" \
+   -p 8501:8500 \
+   -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
+   consul:v0.6.4 \
+   agent -client=0.0.0.0 -server -bootstrap-expect 1
+
 $dir/plugins/cilium-docker/cilium-docker&
-$dir/daemon/cilium-agent $*
+$dir/daemon/cilium-agent --kvstore consul --consul 127.0.0.1:8501 $*
