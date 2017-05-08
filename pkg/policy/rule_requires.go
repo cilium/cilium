@@ -45,7 +45,7 @@ func (prr *RuleRequires) String() string {
 // down the tree
 func (prr *RuleRequires) Allows(ctx *SearchContext) api.ConsumableDecision {
 	if len(prr.Coverage) > 0 && ctx.TargetCoveredBy(prr.Coverage) {
-		policyTrace(ctx, "Found coverage rule: %s\n", prr.String())
+		ctx.PolicyTrace("Found coverage rule: %s\n", prr.String())
 		for _, reqLabel := range prr.Requires {
 			match := false
 
@@ -57,14 +57,14 @@ func (prr *RuleRequires) Allows(ctx *SearchContext) api.ConsumableDecision {
 
 			if match == false {
 				ctx.Depth++
-				policyTrace(ctx, "No matching labels in required rule [%s], verdict: [%s]\n",
+				ctx.PolicyTrace("No matching labels in required rule [%s], verdict: [%s]\n",
 					prr.Requires, api.DENY.String())
 				ctx.Depth--
 				return api.DENY
 			}
 		}
 	} else {
-		policyTrace(ctx, "Rule has no coverage: %s\n", prr)
+		ctx.PolicyTrace("Rule has no coverage: %s\n", prr)
 	}
 
 	return api.UNDECIDED

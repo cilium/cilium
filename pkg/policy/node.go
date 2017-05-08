@@ -195,7 +195,7 @@ func (n *Node) Covers(ctx *SearchContext) bool {
 func (n *Node) Allows(ctx *SearchContext) api.ConsumableDecision {
 	decision := api.UNDECIDED
 
-	policyTraceVerbose(ctx, "Evaluating node %+v\n", n)
+	ctx.PolicyTraceVerbose("Evaluating node %+v\n", n)
 
 	for k := range n.Rules {
 		rule := n.Rules[k]
