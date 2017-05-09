@@ -25,3 +25,7 @@ _testmain.go
 coverage.out
 coverage-all.out
 coverage-all.html
+
+.DS_Store
+.idea/
+*.plist
