@@ -384,7 +384,7 @@ func (d *Daemon) RevNATDump() ([]types.L3n4AddrID, error) {
 }
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
-// the daemon's LB map. If the bpf lbmap entry have a different service ID than the
+// the daemon's LB map. If the bpf lbmap entry has a different service ID than the
 // KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
 // retrieved from the KVStore.
 func (d *Daemon) SyncLBMap() error {

@@ -282,10 +282,8 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 	nextKey := make([]byte, m.KeySize)
 	value := make([]byte, m.ValueSize)
 
-	if m.fd == 0 {
-		if err := m.Open(); err != nil {
-			return err
-		}
+	if err := m.Open(); err != nil {
+		return err
 	}
 
 	for {
@@ -329,10 +327,8 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 
 	value := key.NewValue()
 
-	if m.fd == 0 {
-		if err := m.Open(); err != nil {
-			return nil, err
-		}
+	if err := m.Open(); err != nil {
+		return nil, err
 	}
 
 	err := LookupElement(m.fd, key.GetKeyPtr(), value.GetValuePtr())
@@ -346,10 +342,8 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.fd == 0 {
-		if err := m.Open(); err != nil {
-			return err
-		}
+	if err := m.Open(); err != nil {
+		return err
 	}
 
 	return UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
@@ -359,10 +353,8 @@ func (m *Map) Delete(key MapKey) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.fd == 0 {
-		if err := m.Open(); err != nil {
-			return err
-		}
+	if err := m.Open(); err != nil {
+		return err
 	}
 
 	return DeleteElement(m.fd, key.GetKeyPtr())
@@ -378,10 +370,8 @@ func (m *Map) DeleteAll() error {
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 
-	if m.fd == 0 {
-		if err := m.Open(); err != nil {
-			return err
-		}
+	if err := m.Open(); err != nil {
+		return err
 	}
 
 	for {
@@ -404,4 +394,13 @@ func (m *Map) DeleteAll() error {
 	}
 
 	return nil
+}
+
+//GetNextKey returns the next key in the Map after key.
+func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	return GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
 }

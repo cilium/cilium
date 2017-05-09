@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -30,42 +29,44 @@ const (
 	GcInterval int = 10
 )
 
-func runGC(e *endpoint.Endpoint, nameLocal string, nameGlobal string, ctType ctmap.CtType) {
+func runGC(e *endpoint.Endpoint, isIPv6 bool) {
 	var file string
-
+	var mapType string
 	// TODO: We need to optimize this a bit in future, so we traverse
 	// the global table less often.
 
+	// Use local or global conntrack maps depending on configuration settings.
 	if e.Opts.IsEnabled(endpoint.OptionConntrackLocal) {
-		file = bpf.MapPath(nameLocal + strconv.Itoa(int(e.ID)))
-	} else {
-		file = bpf.MapPath(nameGlobal)
-		if ctType == ctmap.CtTypeIPv6 {
-			ctType = ctmap.CtTypeIPv6Global
-		} else if ctType == ctmap.CtTypeIPv4 {
-			ctType = ctmap.CtTypeIPv4Global
+		if isIPv6 {
+			mapType = ctmap.MapName6
+		} else {
+			mapType = ctmap.MapName4
 		}
+		file = bpf.MapPath(mapType + strconv.Itoa(int(e.ID)))
+	} else {
+		if isIPv6 {
+			mapType = ctmap.MapName6Global
+		} else {
+			mapType = ctmap.MapName4Global
+		}
+		file = bpf.MapPath(mapType)
 	}
-	fd, err := bpf.ObjGet(file)
+
+	m, err := bpf.OpenMap(file)
+	defer m.Close()
+
 	if err != nil {
-		log.Warningf("Unable to open CT map %s: %s\n", file, err)
+		log.Warningf("Unable to open map %s: %s", file, err)
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
-		return
-	}
-	defer bpf.ObjClose(fd)
-
-	info, err := bpf.GetMapInfo(os.Getpid(), fd)
-	if err != nil {
-		log.Warningf("Unable to open CT map's fdinfo %s: %s\n", file, err)
 	}
 
-	if info.MapType == bpf.MapTypeLRUHash {
+	// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
+	if m.MapInfo.MapType == bpf.MapTypeLRUHash {
 		return
 	}
 
-	m := ctmap.CtMap{Fd: fd, Type: ctType}
+	deleted := ctmap.GC(m, uint16(GcInterval), mapType)
 
-	deleted := m.GC(uint16(GcInterval))
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)
 	}
@@ -89,9 +90,9 @@ func (d *Daemon) EnableConntrackGC() {
 				e.Mutex.RUnlock()
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
-				runGC(e, ctmap.MapName6, ctmap.MapName6Global, ctmap.CtTypeIPv6)
+				runGC(e, true)
 				if !d.conf.IPv4Disabled {
-					runGC(e, ctmap.MapName4, ctmap.MapName4Global, ctmap.CtTypeIPv4)
+					runGC(e, false)
 				}
 			}
 

@@ -406,8 +406,8 @@ func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
 	return types.NewL3n4Addr(types.TCP, feIP, fePort)
 }
 
-// ServiceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend int the
-// form of L3n4AddrID and backend int he form of L3n4Addr.
+// ServiceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
+// form of L3n4AddrID and backend in the form of L3n4Addr.
 func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3n4AddrID, *types.LBBackEnd, error) {
 	var (
 		beIP     net.IP

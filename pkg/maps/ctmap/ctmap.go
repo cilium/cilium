@@ -20,16 +20,12 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/u8proto"
+
+	"github.com/op/go-logging"
 )
 
-type CtMap struct {
-	path string
-	Fd   int
-	Type CtType
-}
+var log = logging.MustGetLogger("cilium")
 
 const (
 	MapName6       = "cilium_ct6_"
@@ -47,161 +43,31 @@ const (
 
 type CtType int
 
-const (
-	CtTypeIPv6 CtType = iota
-	CtTypeIPv4
-	CtTypeIPv6Global
-	CtTypeIPv4Global
-)
-
+// CtKey is the interface describing keys to the conntrack maps.
 type CtKey interface {
+	bpf.MapKey
+
+	// Returns human readable string representation
+	String() string
+
+	// Convert converts fields between host byte order and map byte order
+	// if necessary.
+	Convert() CtKey
+
+	// Dumps contents of key to buffer. Returns true if successful.
 	Dump(buffer *bytes.Buffer) bool
 }
 
-type CtKey6 struct {
-	addr    types.IPv6
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
+// CtValue is the interface describing values in the conntrack maps.
+type CtValue interface {
+	bpf.MapValue
+
+	// Convert converts fields between host byte order and map byte order
+	// if necessary.
+	Convert() CtValue
 }
 
-func (key CtKey6) Dump(buffer *bytes.Buffer) bool {
-	if key.nexthdr == 0 {
-		return false
-	}
-
-	if key.flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.sport, key.dport),
-		)
-
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.dport,
-			key.sport),
-		)
-	}
-
-	if key.flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	return true
-}
-
-type CtKey4 struct {
-	addr    types.IPv4
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
-}
-
-func (key CtKey4) Dump(buffer *bytes.Buffer) bool {
-	if key.nexthdr == 0 {
-		return false
-	}
-
-	if key.flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.sport, key.dport),
-		)
-
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			key.nexthdr.String(),
-			key.addr.IP().String(),
-			key.dport,
-			key.sport),
-		)
-	}
-
-	if key.flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	return true
-}
-
-type CtKey6Global struct {
-	daddr   types.IPv6
-	saddr   types.IPv6
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
-}
-
-func (key CtKey6Global) Dump(buffer *bytes.Buffer) bool {
-	if key.nexthdr == 0 {
-		return false
-	}
-
-	if key.flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN [%s]:%d -> [%s]:%d ",
-			key.nexthdr.String(),
-			key.saddr.IP().String(), key.sport,
-			key.daddr.IP().String(), key.dport),
-		)
-
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT [%s]:%d -> [%s]:%d ",
-			key.nexthdr.String(),
-			key.saddr.IP().String(), key.sport,
-			key.daddr.IP().String(), key.dport),
-		)
-	}
-
-	if key.flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	return true
-}
-
-type CtKey4Global struct {
-	daddr   types.IPv4
-	saddr   types.IPv4
-	sport   uint16
-	dport   uint16
-	nexthdr u8proto.U8proto
-	flags   uint8
-}
-
-func (key CtKey4Global) Dump(buffer *bytes.Buffer) bool {
-	if key.nexthdr == 0 {
-		return false
-	}
-
-	if key.flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
-			key.nexthdr.String(),
-			key.saddr.IP().String(), key.sport,
-			key.daddr.IP().String(), key.dport),
-		)
-
-	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s%d -> %s:%d ",
-			key.nexthdr.String(),
-			key.saddr.IP().String(), key.sport,
-			key.daddr.IP().String(), key.dport),
-		)
-	}
-
-	if key.flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
-	}
-
-	return true
-}
-
+// CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
 	rx_packets uint64
 	rx_bytes   uint64
@@ -213,18 +79,20 @@ type CtEntry struct {
 	proxy_port uint16
 }
 
+// GetValuePtr returns the unsafe.Pointer for s.
+func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
+
+// CtEntryDump represents the key and value contained in the conntrack map.
 type CtEntryDump struct {
 	Key   CtKey
 	Value CtEntry
 }
 
-func (m *CtMap) String() string {
-	return m.path
-}
-
-func (m *CtMap) Dump() (string, error) {
+// ToString iterates through Map m and writes the values of the ct entries in m
+// to a string.
+func ToString(m *bpf.Map, mapName string) (string, error) {
 	var buffer bytes.Buffer
-	entries, err := m.DumpToSlice()
+	entries, err := dumpToSlice(m, mapName)
 	if err != nil {
 		return "", err
 	}
@@ -250,156 +118,164 @@ func (m *CtMap) Dump() (string, error) {
 	return buffer.String(), nil
 }
 
-func (m *CtMap) DumpToSlice() ([]CtEntryDump, error) {
-	var entry CtEntry
+// DumpToSlice iterates through map m and returns a slice mapping each key to
+// its value in m.
+func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 	entries := []CtEntryDump{}
 
-	switch m.Type {
-	case CtTypeIPv6:
+	switch mapType {
+	case MapName6:
 		var key, nextKey CtKey6
 		for {
-			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			err := m.GetNextKey(&key, &nextKey)
 			if err != nil {
 				break
 			}
 
-			err = bpf.LookupElement(
-				m.Fd,
-				unsafe.Pointer(&nextKey),
-				unsafe.Pointer(&entry),
-			)
+			entry, err := m.Lookup(&nextKey)
 			if err != nil {
 				return nil, err
 			}
-
-			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			ctEntry := entry.(*CtEntry)
+			nK := nextKey
+			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 
-	case CtTypeIPv4:
+	case MapName4:
 		var key, nextKey CtKey4
 		for {
-			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			err := m.GetNextKey(&key, &nextKey)
 			if err != nil {
 				break
 			}
 
-			err = bpf.LookupElement(
-				m.Fd,
-				unsafe.Pointer(&nextKey),
-				unsafe.Pointer(&entry),
-			)
+			entry, err := m.Lookup(&nextKey)
 			if err != nil {
 				return nil, err
 			}
+			ctEntry := entry.(*CtEntry)
 
-			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			nK := nextKey
+			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 
-	case CtTypeIPv6Global:
+	case MapName6Global:
 		var key, nextKey CtKey6Global
 		for {
-			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			err := m.GetNextKey(&key, &nextKey)
 			if err != nil {
 				break
 			}
 
-			err = bpf.LookupElement(
-				m.Fd,
-				unsafe.Pointer(&nextKey),
-				unsafe.Pointer(&entry),
-			)
+			entry, err := m.Lookup(&nextKey)
 			if err != nil {
 				return nil, err
 			}
+			ctEntry := entry.(*CtEntry)
 
-			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			nK := nextKey
+			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 
-	case CtTypeIPv4Global:
+	case MapName4Global:
 		var key, nextKey CtKey4Global
 		for {
-			err := bpf.GetNextKey(m.Fd, unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+			err := m.GetNextKey(&key, &nextKey)
 			if err != nil {
 				break
 			}
 
-			err = bpf.LookupElement(
-				m.Fd,
-				unsafe.Pointer(&nextKey),
-				unsafe.Pointer(&entry),
-			)
+			entry, err := m.Lookup(&nextKey)
 			if err != nil {
 				return nil, err
 			}
+			ctEntry := entry.(*CtEntry)
 
-			eDump := CtEntryDump{Key: nextKey, Value: entry}
+			nK := nextKey
+			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
 			entries = append(entries, eDump)
 
 			key = nextKey
 		}
 	}
-
 	return entries, nil
 }
 
-func (m *CtMap) doGc(interval uint16, key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int) bool {
-	var entry CtEntry
+// doGC removes key and its corresponding value from Map m if key has a lifetime
+// less than interval. It sets nextKey's address to be the key after key in map
+// m. Returns false if there is no other key after key in Map m, and increments
+// deleted if an item is removed from m.
+func doGc(m *bpf.Map, interval uint16, key bpf.MapKey, nextKey bpf.MapKey, deleted *int) bool {
+	err := m.GetNextKey(key, nextKey)
 
-	err := bpf.GetNextKey(m.Fd, key, nextKey)
+	// GetNextKey errors out if we have reached the last entry in the map.
+	// This signifies that the entire map has been traversed and that
+	// garbage collection is done.
 	if err != nil {
 		return false
 	}
 
-	err = bpf.LookupElement(m.Fd, nextKey, unsafe.Pointer(&entry))
+	nextEntry, err := m.Lookup(nextKey)
+
 	if err != nil {
+		log.Errorf("error during map Lookup: %s", err)
 		return false
 	}
 
+	entry := nextEntry.(*CtEntry)
 	if entry.lifetime <= interval {
-		bpf.DeleteElement(m.Fd, nextKey)
+		err := m.Delete(nextKey)
+		if err != nil {
+			log.Debugf("error during Delete: %s", err)
+
+		}
 		(*deleted)++
 	} else {
 		entry.lifetime -= interval
-		bpf.UpdateElement(m.Fd, nextKey, unsafe.Pointer(&entry), 0)
+		err := m.Update(nextKey, entry)
+		if err != nil {
+			log.Debugf("error during Update: %s", err)
+		}
 	}
 
 	return true
 }
 
-func (m *CtMap) GC(interval uint16) int {
+// GC runs garbage collection for map m with name mapName with interval interval.
+// It returns how many items were deleted from m.
+func GC(m *bpf.Map, interval uint16, mapName string) int {
 	deleted := 0
 
-	switch m.Type {
-	case CtTypeIPv6:
+	switch mapName {
+	case MapName6:
 		var key, nextKey CtKey6
-		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+		for doGc(m, interval, &key, &nextKey, &deleted) {
 			key = nextKey
 		}
-	case CtTypeIPv4:
+	case MapName4:
 		var key, nextKey CtKey4
-		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+		for doGc(m, interval, &key, &nextKey, &deleted) {
 			key = nextKey
 		}
-	case CtTypeIPv6Global:
+	case MapName6Global:
 		var key, nextKey CtKey6Global
-		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+		for doGc(m, interval, &key, &nextKey, &deleted) {
 			key = nextKey
 		}
-	case CtTypeIPv4Global:
+	case MapName4Global:
 		var key, nextKey CtKey4Global
-		for m.doGc(interval, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+		for doGc(m, interval, &key, &nextKey, &deleted) {
 			key = nextKey
 		}
 	}
-
 	return deleted
 }
