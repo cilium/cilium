@@ -348,6 +348,7 @@ func (t *Tree) add(parentPath string, node *Node) (bool, error) {
 		if parent == nil {
 			grandParentPath, parentName := SplitNodePath(parentPath)
 			parent = NewNode(parentName, nil)
+			parent.IgnoreNameCoverage = node.IgnoreNameCoverage
 			_, err := t.add(grandParentPath, parent)
 			if err != nil {
 				return false, fmt.Errorf("unable to add parent's node for path '%s': %s", parentPath, err)
