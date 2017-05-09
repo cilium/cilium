@@ -89,5 +89,8 @@ generate-api:
 	    -s server --default-scheme=unix -C api/v1/cilium-server.yml
 	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
 
+vps:
+	VBoxManage list runningvms
+
 .PHONY: force
 force :;
