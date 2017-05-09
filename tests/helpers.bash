@@ -7,6 +7,11 @@ function monitor_start {
 	MONITOR_PID=$!
 }
 
+function monitor_resume {
+	cilium monitor $@ >> $DUMP_FILE &
+	MONITOR_PID=$!
+}
+
 function monitor_clear {
 	set +x
 	sleep 1s
