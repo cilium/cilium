@@ -62,7 +62,7 @@ var (
 )
 
 func lostEvent(lost *bpf.PerfEventLost, cpu int) {
-	fmt.Printf("Lost %d events\n", lost.Lost)
+	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost.Lost)
 }
 
 func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
