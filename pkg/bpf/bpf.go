@@ -99,6 +99,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -265,6 +266,14 @@ func ObjGet(pathname string) (int, error) {
 	return int(fd), nil
 }
 
+// ObjClose closes the map's fd.
+func ObjClose(fd int) error {
+	if fd > 0 {
+		return syscall.Close(fd)
+	}
+	return nil
+}
+
 func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries uint32) (int, bool, error) {
 	var fd int
 
@@ -295,6 +304,14 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries ui
 			maxEntries,
 		)
 
+		defer func() {
+			if err != nil {
+				// In case of error, we need to close
+				// this fd since it was open by CreateMap
+				ObjClose(fd)
+			}
+		}()
+
 		isNewMap = true
 
 		if err != nil {
@@ -305,6 +322,8 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries ui
 		if err != nil {
 			return 0, isNewMap, err
 		}
+
+		return fd, isNewMap, nil
 	}
 
 	fd, err = ObjGet(path)
