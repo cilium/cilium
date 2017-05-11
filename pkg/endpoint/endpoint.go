@@ -763,6 +763,25 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 		c.Mutex.RUnlock()
 	}
 
+	if e.PolicyMap != nil {
+		if err := e.PolicyMap.Close(); err != nil {
+			log.Warningf("Unable to close policy map %s: %s", e.PolicyMapPathLocked(), err)
+		}
+	}
+
+	if f, err := os.Open(e.Ct6MapPathLocked()); err != nil {
+		log.Debugf("Unable to close IPv6 CT map %s: %s", e.Ct6MapPathLocked(), err)
+	} else {
+		f.Close()
+	}
+
+	log.Debugf("Closing e.Ct4MapPathLocked")
+	if f, err := os.Open(e.Ct4MapPathLocked()); err != nil {
+		log.Debugf("Unable to close IPv4 CT map %s: %s", e.Ct4MapPathLocked(), err)
+	} else {
+		f.Close()
+	}
+
 	e.removeDirectory()
 }
 
