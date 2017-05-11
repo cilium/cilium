@@ -23,6 +23,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // LogstashStat is used to collect stats from the policy dumps.

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
 )
 

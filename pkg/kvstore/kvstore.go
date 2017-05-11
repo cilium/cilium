@@ -20,12 +20,6 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-net")
 )
 
 // Supported key-value store types.

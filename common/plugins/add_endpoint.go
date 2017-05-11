@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 
-	"github.com/op/go-logging"
+	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	log = logging.MustGetLogger("cilium-net")
+//log = logging.MustGetLogger("cilium-net")
 )
 
 // Endpoint2IfName returns the host interface name for the given endpointID.

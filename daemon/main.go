@@ -40,11 +40,11 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/version"
 
+	log "github.com/Sirupsen/logrus"
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	"github.com/go-openapi/loads"
 	consulAPI "github.com/hashicorp/consul/api"
 	flags "github.com/jessevdk/go-flags"
-	logging "github.com/op/go-logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -61,7 +61,6 @@ const (
 
 var (
 	config = NewConfig()
-	log    = logging.MustGetLogger("cilium")
 
 	// Arguments variables keep in alphabetical order
 	bpfRoot            string
@@ -77,11 +76,14 @@ var (
 	labelPrefixFile    string
 	logstashAddr       string
 	logstashProbeTimer uint32
+	loggers            []string
 	nat46prefix        string
 	socketPath         string
 	v4Prefix           string
 	v6Address          string
 )
+
+var logOpts = make(map[string]string)
 
 var cfgFile string
 
@@ -262,6 +264,8 @@ func init() {
 	flags.StringVar(&bpfRoot, "bpf-root", "", "Path to mounted BPF filesystem")
 	flags.String("access-log", "", "Path to access log of all HTTP requests observed")
 	flags.Bool("version", false, "Print version information")
+	flags.StringSliceVar(&loggers, "log-driver", []string{}, "logging endpoints to use")
+	flags.Var(common.NewNamedMapOptions("log-opts", &logOpts, nil), "log-opt", "log driver options for cilium")
 	viper.BindPFlags(flags)
 }
 
@@ -307,12 +311,6 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
-
-	if viper.GetBool("debug") {
-		common.SetupLOG(log, "DEBUG")
-	} else {
-		common.SetupLOG(log, "INFO")
 	}
 
 	// The cilium-agent must be run as root user.
@@ -368,6 +366,8 @@ func initConfig() {
 }
 
 func initEnv() {
+	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
+
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Cannot mkdir directory %q for cilium socket: %s", socketDir, err)

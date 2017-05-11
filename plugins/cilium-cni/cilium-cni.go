@@ -30,19 +30,17 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	l "github.com/op/go-logging"
 	"github.com/vishvananda/netlink"
 )
 
-var log = l.MustGetLogger("cilium-net-cni")
-
 func init() {
-	common.SetupLOG(log, "DEBUG")
+	common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "debug"}, "cilium-net-cni", true)
 
 	// this ensures that main runs only on main thread (thread group leader).
 	// since namespace ops (unshare, setns) are done for a single thread, we

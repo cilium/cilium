@@ -22,9 +22,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
-
-	l "github.com/op/go-logging"
 )
 
 // goArray2C transforms a byte slice into its hexadecimal string representation.
@@ -67,33 +64,6 @@ func Swab16(n uint16) uint16 {
 func Swab32(n uint32) uint32 {
 	return ((n & 0x000000ff) << 24) | ((n & 0x0000ff00) << 8) |
 		((n & 0x00ff0000) >> 8) | ((n & 0xff000000) >> 24)
-}
-
-// SetupLOG sets up logger with the correct parameters for the whole cilium architecture.
-func SetupLOG(logger *l.Logger, logLevel string) {
-
-	var fileFormat l.Formatter
-	switch os.Getenv("INITSYSTEM") {
-	case "SYSTEMD":
-		fileFormat = l.MustStringFormatter(
-			`%{level:.4s} %{message}`)
-	default:
-		fileFormat = l.MustStringFormatter(
-			`%{color}%{time:` + time.RFC3339 +
-				`} %{level:.4s} %{color:reset}%{message}`)
-	}
-
-	level, err := l.LogLevel(logLevel)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	backend := l.NewLogBackend(os.Stderr, "", 0)
-	oBF := l.NewBackendFormatter(backend, fileFormat)
-
-	backendLeveled := l.SetBackend(oBF)
-	backendLeveled.SetLevel(level, "")
-	logger.SetBackend(backendLeveled)
 }
 
 // GetGroupIDByName returns the group ID for the given grpName.
