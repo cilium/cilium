@@ -22,11 +22,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/op/go-logging"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-policy")
 )
 
 type Tracing int
