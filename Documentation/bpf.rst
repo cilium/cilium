@@ -1923,6 +1923,156 @@ with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
 mainly enforcing limits for unprivileged users. Depending on the setup,
 setting a higher limit for privileged users is often acceptable.
 
+Setting up a BPF development environment
+========================================
+
+The first thing we really need is to get the dependencies right. This might be
+tricky so below is a step by step guide to get up and running on Fedora and
+Ubuntu.
+
+Fedora 25
+---------
+
+::
+
+	sudo dnf install -y git gcc ncurses-devel elfutils-libelf-devel bc \
+        openssl-devel libcap-devel clang llvm
+
+.. note:: Note If you are running some other Fedora derivative and ``dnf`` is missing, try using ``yum`` instead.
+
+Ubuntu 17.04
+------------
+
+::
+
+	sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
+	clang gcc-multilib llvm libncurses5-dev
+
+Compiling the kernel
+--------------------
+
+You should have git installed by now, if not see installation instructions.
+
+Getting the source
+
+::
+
+	git clone --depth 1 git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+
+Supplying the depth option let's us clone a smaller portion of the history and it's faster.
+If you want the full history drop `--depth 1`.
+
+Navigate to the kernel source
+
+::
+
+	cd net-next
+
+We need a valid configuration to compile our new kernel.
+
+::
+
+	cp  /boot/config-`uname -r` .config
+
+Prepare the configuration for use
+
+::
+
+	make clean
+	make olddefconfig
+	
+Most distros have the appropriate defaults, but verify the BPF knobs are sane
+
+::	
+
+	grep BPF .config
+	# should be something like
+	CONFIG_CGROUP_BPF=y
+	CONFIG_BPF=y
+	CONFIG_BPF_SYSCALL=y
+	CONFIG_NETFILTER_XT_MATCH_BPF=m
+	CONFIG_NET_CLS_BPF=m
+	CONFIG_NET_ACT_BPF=m
+	CONFIG_BPF_JIT=y
+	CONFIG_LWTUNNEL_BPF=y
+	CONFIG_HAVE_EBPF_JIT=y
+	CONFIG_BPF_EVENTS=y
+	CONFIG_TEST_BPF=m
+	
+If you get very different results, you can correct the defaults via the menu configuration
+
+::
+
+	make menuconfig
+
+The build might generate a lot of files depending on your configuration.
+Try to at least to have 30G of space available before compiling. To compile
+the kernel and modules
+
+::
+
+    make -j`grep -Pc '^processor\t' /proc/cpuinfo`
+    make modules
+
+Install them all by running the commands below one at a time. Stop to check for signs of failure or  errors.
+
+::
+
+    sudo make modules_install
+    sudo make install
+    make headers_install
+
+
+Before we can reboot we need to update the menu entries in grub depending on
+which bootloader you use this might be different. It might look something like
+
+Ubuntu
+
+::
+
+    sudo update-grub
+
+Fedora
+
+::
+
+    sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+
+If you are using EFI then use this path instead
+
+::
+
+    sudo grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg
+
+If all of the above went fine it's time to reboot
+
+::
+
+	sudo reboot
+
+Verifying the setup
+-------------------
+
+After you have booted into your new kernel, navigate to the BPF test verifier.
+We want to start checking everything is at it should be.
+
+::
+
+	cd net-next/tools/testing/selftests/bpf/
+	make
+	sudo ./test_verifier
+
+The tests verifier should print out all the checks being performed. Look for
+the summary near the end
+
+::
+
+	Summary: 418 PASSED, 0 FAILED
+
+If you see any failures stop, please contact us on Slack with the full test
+output. You can also try out the other tests but some of those might fail
+depending on your hardware setup.
+
 tc (traffic control)
 ====================
 
