@@ -383,12 +383,14 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 
 func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	tree := owner.GetPolicyTree()
-	tree.Mutex.Lock()
-	defer tree.Mutex.Unlock()
 	cache := owner.GetConsumableCache()
 
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
+
+	tree.Mutex.Lock()
+	defer tree.Mutex.Unlock()
+
 	if e.Consumable != nil {
 		if e.SecLabel != nil && id.ID == e.Consumable.ID {
 			e.SecLabel = id
