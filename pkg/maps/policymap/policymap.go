@@ -134,6 +134,11 @@ func (pm *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 	return entries, nil
 }
 
+// Close closes the FD of the given PolicyMap
+func (pm *PolicyMap) Close() error {
+	return bpf.ObjClose(pm.Fd)
+}
+
 func OpenMap(path string) (*PolicyMap, bool, error) {
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,

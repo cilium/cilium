@@ -61,6 +61,7 @@ func listMap(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("%s\n", err)
 	}
+	defer bpf.ObjClose(fd)
 
 	m := policymap.PolicyMap{Fd: fd}
 	statsMap, err := m.DumpToSlice()

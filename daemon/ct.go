@@ -52,9 +52,7 @@ func runGC(e *endpoint.Endpoint, nameLocal string, nameGlobal string, ctType ctm
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
-
-	f := os.NewFile(uintptr(fd), file)
-	defer f.Close()
+	defer bpf.ObjClose(fd)
 
 	info, err := bpf.GetMapInfo(os.Getpid(), fd)
 	if err != nil {

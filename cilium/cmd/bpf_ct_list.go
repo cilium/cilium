@@ -47,6 +47,7 @@ func dumpCtProto(name string, ctType ctmap.CtType) {
 	file := bpf.MapPath(name)
 
 	fd, err := bpf.ObjGet(file)
+	defer bpf.ObjClose(fd)
 	if err != nil {
 		Fatalf("Unable to open %s: %s\n", file, err)
 	}
