@@ -26,5 +26,4 @@ var bpfCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(bpfCmd)
-
 }

@@ -17,6 +17,7 @@ package cmd
 import (
 	"strconv"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -30,6 +31,7 @@ var bpfPolicyAddCmd = &cobra.Command{
 	Short:  "Add/update policy entry",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
+		common.RequireRootPrivilege("cilium bpf policy add")
 		updatePolicyKey(cmd, args, true)
 	},
 }

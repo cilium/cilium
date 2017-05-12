@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -36,6 +37,7 @@ var bpfPolicyListCmd = &cobra.Command{
 	Short:  "List contents of a policy BPF map",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
+		common.RequireRootPrivilege("cilium bpf policy list")
 		listMap(cmd, args)
 	},
 }

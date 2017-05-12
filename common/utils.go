@@ -152,3 +152,11 @@ func GetCiliumVersionString(epCHeaderFilePath string) (string, error) {
 		}
 	}
 }
+
+// RequireRootPrivilege checks if the user running cmd is root. If not, it exits the program
+func RequireRootPrivilege(cmd string) {
+	if os.Getuid() != 0 {
+		fmt.Fprintf(os.Stderr, "Please run %q commands with root privileges.\n", cmd)
+		os.Exit(1)
+	}
+}
