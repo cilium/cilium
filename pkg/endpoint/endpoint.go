@@ -752,6 +752,7 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex locked.
 func (e *Endpoint) LeaveLocked(owner Owner) {
+	e.State = StateDisconnected
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if c := e.Consumable; c != nil {
 		c.Mutex.RLock()

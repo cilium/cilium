@@ -333,19 +333,36 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		ExternalDone: make(chan bool),
 	}
 	owner.QueueEndpointBuild(newReq)
-	go func(e *Endpoint, myTurn <-chan bool, finish chan<- bool, externalFinish chan<- bool) {
+	go func(req *Request, e *Endpoint) {
 		buildSuccess := true
+
 		e.Mutex.Lock()
-		e.State = StateRegenerating
+		// If endpoint was marked as disconnected then
+		// it won't be regenerated
+		if e.State != StateDisconnected {
+			e.State = StateRegenerating
+		}
 		eID := e.ID
 		e.Mutex.Unlock()
-		isMyTurn, isMyTurnChanOK := <-myTurn
+
+		isMyTurn, isMyTurnChanOK := <-req.MyTurn
 		if isMyTurnChanOK && isMyTurn {
-			log.Debugf("Finally, is my turn to regenerate myself [%d]", eID)
+			log.Debugf("it is now [%d]'s turn to regenerate", eID)
 			e.Mutex.Lock()
-			err := e.regenerate(owner)
-			e.State = StateReady
+			var err error
+
+			// If endpoint was marked as disconnected then
+			// it won't be regenerated
+			if e.State != StateDisconnected {
+				log.Debugf("Regenerating... [%d]", eID)
+				err = e.regenerate(owner)
+				e.State = StateReady
+			} else {
+				log.Debugf("Endpoint disconnected %d", e.ID)
+				err = fmt.Errorf("Endpoint disconnected")
+			}
 			e.Mutex.Unlock()
+
 			if err != nil {
 				buildSuccess = false
 				e.LogStatus(BPF, Failure, err.Error())
@@ -353,7 +370,8 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 				buildSuccess = true
 				e.LogStatusOK(BPF, "Successfully regenerated endpoint program")
 			}
-			finish <- buildSuccess
+
+			req.Done <- buildSuccess
 		} else {
 			buildSuccess = false
 			log.Debugf("My request was canceled because I'm already in line [%d]", eID)
@@ -361,11 +379,11 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		// The external listener can ignore the channel so we need to
 		// make sure we don't block
 		select {
-		case externalFinish <- buildSuccess:
+		case req.ExternalDone <- buildSuccess:
 		default:
 		}
-		close(externalFinish)
-	}(e, newReq.MyTurn, newReq.Done, newReq.ExternalDone)
+		close(req.ExternalDone)
+	}(newReq, e)
 	return newReq.ExternalDone
 }
 
