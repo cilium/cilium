@@ -11,19 +11,20 @@ BPF and XDP Reference Guide
           :ref:`gs_guide` and :ref:`arch_guide` for a higher level
           introduction.
 
-BPF is a highly flexible and efficient "virtual machine"-like construct in the
+BPF is a highly flexible and efficient virtual machine-like construct in the
 Linux kernel allowing to execute bytecode at various hook points in a safe
 manner. It is used in a number of Linux kernel subsystems, most prominently
-networking, tracing and security (f.e. sandboxing).
+networking, tracing and security (e.g. sandboxing).
 
-While BPF has existed since 1992, this document covers the extended Berkley
+Although BPF exists since 1992, this document covers the extended Berkley
 Paket Filter (eBPF) version which has first appeared in Kernel 3.18 and
-obsoletes the original version which is being referred to as "classic" BPF
-(cBPF) these days. cBPF is known to many as being the packet filter language
-used by tcpdump. Nowadays, the Linux kernel runs eBPF only and loaded cBPF
-bytecode is transparently translated into an eBPF representation in the kernel
-before program execution. This documentation will generally refer to the term
-BPF unless explicit differences between eBPF and cBPF are being pointed out.
+renders the original version which is being referred to as "classic" BPF
+(cBPF) these days mostly obsolete. cBPF is known to many as being the packet
+filter language used by tcpdump. Nowadays, the Linux kernel runs eBPF only and
+loaded cBPF bytecode is transparently translated into an eBPF representation
+in the kernel before program execution. This documentation will generally refer
+to the term BPF unless explicit differences between eBPF and cBPF are being
+pointed out.
 
 Even though the name Berkley Packet Filter hints at a packet filtering specific
 purpose, the instruction set is generic and flexible enough these days that
@@ -31,25 +32,25 @@ there are many use cases for BPF apart from networking. See :ref:`bpf_users`
 for a list of projects which use BPF.
 
 Cilium uses BPF heavily in its data path, see :ref:`arch_guide` for further
-information. The goal of this chapter is to provide an BPF reference guide in
-oder to gain understanding of BPF its networking specific use including loading
-BPF programs with tc (traffic control) and XDP (eXpress Data Path), and to aide
-developing Cilium's BPF templates.
+information. The goal of this chapter is to provide a BPF reference guide in
+oder to gain understanding of BPF, its networking specific use including loading
+BPF programs with tc (traffic control) and XDP (eXpress Data Path), and to aid
+with developing Cilium's BPF templates.
 
 BPF Architecture
 ================
 
 BPF does not define itself by only providing its instruction set, but also by
-offering further infrastructure around it such as maps that act as efficient
+offering further infrastructure around it such as maps which act as efficient
 key / value stores, helper functions to interact with and leverage kernel
 functionality, tail calls for calling into other BPF programs, security
 hardening primitives, a pseudo file system for pinning objects (maps,
 programs), and infrastructure for allowing BPF to be offloaded, for example, to
 a network card.
 
-LLVM provides an BPF back end, such that tools like clang can be used to
-compile C into an BPF object file, which can then be loaded into the kernel.
-BPF is deeply tied into the Linux kernel and allows for full programmability
+LLVM provides a BPF back end, so that tools like clang can be used to
+compile C into a BPF object file, which can then be loaded into the kernel.
+BPF is deeply tied to the Linux kernel and allows for full programmability
 without sacrificing native kernel performance.
 
 Last but not least, also the kernel subsystems making use of BPF are part of
@@ -63,7 +64,7 @@ BPF programs, though. However, tc BPF programs don't need any driver support
 and can be attached to receive and transmit paths of any networking device,
 including virtual ones such as ``veth`` devices since they hook later in the
 kernel stack compared to XDP. Apart from tc and XDP programs, there are various
-other kernel subsystems as well that use BPF such as tracing (kprobes, uprobes,
+other kernel subsystems as well which use BPF such as tracing (kprobes, uprobes,
 tracepoints, etc).
 
 The following subsections provide further details on individual aspects of the
@@ -72,16 +73,16 @@ BPF architecture.
 Instruction Set
 ---------------
 
-BPF is a general purpose RISC instruction set and was originally designed with the
-goal to write programs in a subset of C that can be compiled into BPF instructions
-through a compiler back end (e.g., LLVM), such that the kernel can later on map them
+BPF is a general purpose RISC instruction set and was originally designed for the
+purpose of writing programs in a subset of C which can be compiled into BPF instructions
+through a compiler back end (e.g. LLVM), so that the kernel can later on map them
 through an in-kernel JIT compiler into native opcodes for optimal execution performance
 inside the kernel.
 
-The advantages for pushing these instructions into the kernel are:
+The advantages for pushing these instructions into the kernel include:
 
 * Making the kernel programmable without having to cross kernel / user space
-  boundaries. For example, BPF programs related to networking as in the case of
+  boundaries. For example, BPF programs related to networking, as in the case of
   Cilium, can implement flexible container policies, load balancing and other means
   without having to move packets to user space and back into the kernel. State
   between BPF programs and kernel / user space can still be shared through maps
@@ -89,49 +90,49 @@ The advantages for pushing these instructions into the kernel are:
 
 * Given the flexibility of a programmable data path, programs can be heavily optimized
   for performance also by compiling out features that are not required for the use cases
-  the program solves. F.e., if a container does not require IPv4, then the BPF program
-  can be built to only deal with IPv6 in order to save resources in the fast-path.
+  the program solves. For example, if a container does not require IPv4, then the BPF
+  program can be built to only deal with IPv6 in order to save resources in the fast-path.
 
-* In case of networking (e.g., tc and XDP), BPF programs can be updated atomically
+* In case of networking (e.g. tc and XDP), BPF programs can be updated atomically
   without having to restart the kernel, system services or containers, and without
   traffic interruptions. Furthermore, any program state can also be maintained
   throughout updates via BPF maps.
 
 * BPF provides a stable ABI towards user space, and does not require any third party
-  kernel modules, for example. BPF is a core part of the Linux kernel that is shipped
-  everywhere, and guarantees that existing BPF programs keep running with newer kernel
-  versions. This guarantee is the same guarantee that the kernel provides for system
-  calls with regard to user space applications.
+  kernel modules. BPF is a core part of the Linux kernel that is shipped everywhere,
+  and guarantees that existing BPF programs keep running with newer kernel versions.
+  This guarantee is the same guarantee that the kernel provides for system calls with
+  regard to user space applications.
 
 * BPF programs work in concert with the kernel, they make use of existing kernel
-  infrastructure (e.g., drivers, netdevices, tunnels, protocol stack, sockets) and
-  tooling (e.g., iproute2) as well as the safety guarantees that the kernel provides.
+  infrastructure (e.g. drivers, netdevices, tunnels, protocol stack, sockets) and
+  tooling (e.g. iproute2) as well as the safety guarantees which the kernel provides.
   Unlike kernel modules, BPF programs are verified through an in-kernel verifier in
   order to ensure that they cannot crash the kernel, always terminate, etc. XDP
   programs, for example, reuse the existing in-kernel drivers and operate on the
   provided DMA buffers containing the packet frames without exposing them or an entire
   driver to user space as in other models. Moreover, XDP programs reuse the existing
-  stack instead of bypassing it. BPF can be considered as generic "glue code" to
+  stack instead of bypassing it. BPF can be considered a generic "glue code" to
   kernel facilities for crafting programs to solve specific use cases.
 
-The execution of an BPF program inside the kernel is always event driven! For example,
-a networking device that has an BPF program attached on its ingress path will trigger
-the execution of the program once a packet is received, a kernel address that has a
-kprobes with an BPF program attached will trap once the code at that address gets
-executed, invoke the kprobes callback function for instrumentation and testing which
-then triggers the execution of the BPF program attached to it.
+The execution of a BPF program inside the kernel is always event driven! For example,
+a networking device which has a BPF program attached on its ingress path will trigger
+the execution of the program once a packet is received, a kernel address which has a
+kprobes with a BPF program attached will trap once the code at that address gets
+executed, then invoke the kprobes callback function for instrumentation which
+subsequently triggers the execution of the BPF program attached to it.
 
 BPF consists of eleven 64 bit registers with 32 bit subregisters, a program counter
 and a 512 byte large BPF stack space. Registers are named ``r0`` - ``r10``. The
 operating mode is 64 bit by default, the 32 bit subregisters can only be accessed
-through special arithmetic logic unit (ALU) operations. The 32-bit lower subregisters
-zero-extend into 64-bit when they are being written to.
+through special ALU (arithmetic logic unit) operations. The 32 bit lower subregisters
+zero-extend into 64 bit when they are being written to.
 
 Register ``r10`` is the only register which is read-only and contains the frame pointer
 address in order to access the BPF stack space. The remaining ``r0`` - ``r9``
 registers are general purpose and of read/write nature.
 
-An BPF program can call into a predefined helper function, which is defined by
+A BPF program can call into a predefined helper function, which is defined by
 the core kernel (never by modules). The BPF calling convention is defined as
 follows:
 
@@ -139,16 +140,16 @@ follows:
 * ``r1`` - ``r5`` hold arguments from the BPF program to the kernel helper function.
 * ``r6`` - ``r9`` are callee saved registers that will be preserved on helper function call.
 
-The BPF calling convention is generic enough that it maps directly to x86, arm64 and
-other ABIs, thus all BPF registers map one to one to HW CPU registers, so that a JIT
-only needs to issue a call instruction, but no additional extra moves for placing
+The BPF calling convention is generic enough to map directly to ``x86_64``, ``arm64``
+and other ABIs, thus all BPF registers map one to one to HW CPU registers, so that a
+JIT only needs to issue a call instruction, but no additional extra moves for placing
 function arguments. This calling convention was modeled to cover common call
 situations without having a performance penalty. Calls with 6 or more arguments
-are currently not supported. The helper functions in the kernel that are dedicated
+are currently not supported. The helper functions in the kernel which are dedicated
 to BPF (``BPF_CALL_0()`` to ``BPF_CALL_5()`` functions) are specifically designed
 with this convention in mind.
 
-Register ``r0`` is also the register that contains the exit value for the BPF program.
+Register ``r0`` is also the register containing the exit value for the BPF program.
 The semantics of the exit value are defined by the type of program. Furthermore, when
 handing execution back to the kernel, the exit value is passed as a 32 bit value.
 
@@ -157,23 +158,23 @@ either spill them to the BPF stack or move them to callee saved registers if the
 arguments are to be reused across multiple helper function calls. Spilling means
 that the variable in the register is moved to the BPF stack. The reverse operation
 of moving the variable from the BPF stack to the register is called filling. The
-reason for spilling/filling is due to limited number of registers.
+reason for spilling/filling is due to the limited number of registers.
 
-Upon entering execution of an BPF program, register ``r1`` initially contains the
+Upon entering execution of a BPF program, register ``r1`` initially contains the
 context for the program. The context is the input argument for the program (similar
 to ``argc/argv`` pair for a typical C program). BPF is restricted to work on a single
 context. The context is defined by the program type, for example, a networking
 program can have a kernel representation of the network packet (``skb``) as the
 input argument.
 
-The general operation of BPF is 64 bit to follow the natural model of 64-bit
+The general operation of BPF is 64 bit to follow the natural model of 64 bit
 architectures in order to perform pointer arithmetics, pass pointers but also pass 64
 bit values into helper functions, and to allow for 64 bit atomic operations.
 
 The maximum instruction limit per program is restricted to 4096 BPF instructions,
 which, by design, means that any program will terminate quickly. Although the
 instruction set contains forward as well as backward jumps, the in-kernel BPF
-verifier will forbid loops such that termination is always guaranteed. Since BPF
+verifier will forbid loops so that termination is always guaranteed. Since BPF
 programs run inside the kernel, the verifier's job is to make sure that these are
 safe to run, not affecting the system's stability. This means that from an instruction
 set point of view, loops can be implemented, but the verifier will restrict that.
@@ -195,11 +196,11 @@ includes ``linux/bpf_common.h``.
 has been reused from cBPF. The operation can be based on register or immediate
 operands. The encoding of ``op`` itself provides information on which mode to use
 (``BPF_X`` for denoting register-based operations, and ``BPF_K`` for immediate-based
-operations respectively). In case of the latter, the destination operand is always
+operations respectively). In the latter case, the destination operand is always
 a register. Both ``dst_reg`` and ``src_reg`` provide additional information about
-the register operands to be used (e.g., ``r0`` - ``r9``) for the operation. ``off``
+the register operands to be used (e.g. ``r0`` - ``r9``) for the operation. ``off``
 is used in some instructions to provide a relative offset, for example, for addressing
-the stack or other buffers available to BPF (e.g., map values, packet data, etc),
+the stack or other buffers available to BPF (e.g. map values, packet data, etc),
 or jump targets in jump instructions. ``imm`` contains a constant / immediate value.
 
 The available ``op`` instructions can be categorized into various instruction
@@ -207,7 +208,7 @@ classes. These classes are also encoded inside the ``op`` field. The ``op`` fiel
 is divided into (from MSB to LSB) ``code:4``, ``source:1`` and ``class:3``. ``class``
 is the more generic instruction class, ``code`` denotes a specific operational
 code inside that class, and ``source`` tells whether the source operand is a register
-or an immediate value. Possible instruction classes are:
+or an immediate value. Possible instruction classes include:
 
 * ``BPF_LD``, ``BPF_LDX``: Both classes are for load operations. ``BPF_LD`` is
   used for loading a double word as a special instruction spanning two instructions
@@ -229,7 +230,7 @@ or an immediate value. Possible instruction classes are:
 
 * ``BPF_ALU``, ``BPF_ALU64``: Both classes contain ALU operations. Generally,
   ``BPF_ALU`` operations are in 32 bit mode and ``BPF_ALU64`` in 64 bit mode.
-  Both ALU classes have basic operations with source operand that is register-based
+  Both ALU classes have basic operations with source operand which is register-based
   and an immediate-based counterpart. Supported by both are add (``+``), sub (``-``),
   and (``&``), or (``|``), left shift (``<<``), right shift (``>>``), xor (``^``),
   mul (``*``), div (``/``), mod (``%``), neg (``~``) operations. Also mov (``<X> := <Y>``)
@@ -239,28 +240,28 @@ or an immediate value. Possible instruction classes are:
   on a given source register.
 
 * ``BPF_JMP``: This class is dedicated to jump operations. Jumps can be unconditional
-  and conditional. Unconditional jumps simply move the program counter forward, thus
+  and conditional. Unconditional jumps simply move the program counter forward, so
   that the next instruction to be executed relative to the current instruction is
   ``off + 1``, where ``off`` is the constant offset encoded in the instruction. Since
   ``off`` is signed, the jump can also be performed backwards as long as it does not
   create a loop and is within program bounds. Conditional jumps operate on both,
   register-based and immediate-based source operands. If the condition in the jump
   operations results in ``true``, then a relative jump to ``off + 1`` is performed,
-  otherwise when ``false`` the next instruction (``0 + 1``) is performed. This
-  fall-through jump logic differs compared to cBPF and allows for better branch
-  prediction as it fits the CPU branch predictor logic more naturally. Available
-  conditions are jeq (``==``), jne (``!=``), jgt (``>``), jge (``>=``), jsgt
-  (signed ``>``), jsge (signed ``>=``), jset (jump if ``DST & SRC``). Apart from
-  that, there are three special jump operations within this class: the exit instruction
-  which will leave the BPF program and return the current value in ``r0`` as a return
-  code, the call instruction, which will issue a function call into one of the available
-  BPF helper functions, and a hidden tail call instruction, which will jump into a
-  different BPF program.
+  when in ``false`` the next instruction (``0 + 1``) is performed. This fall-through
+  jump logic differs compared to cBPF and allows for better branch prediction as it
+  fits the CPU branch predictor logic more naturally. Available conditions are
+  jeq (``==``), jne (``!=``), jgt (``>``), jge (``>=``), jsgt (signed ``>``), jsge
+  (signed ``>=``), jset (jump if ``DST & SRC``). Apart from that, there are three
+  special jump operations within this class: the exit instruction which will leave
+  the BPF program and return the current value in ``r0`` as a return code, the call
+  instruction, which will issue a function call into one of the available BPF helper
+  functions, and a hidden tail call instruction, which will jump into a different
+  BPF program.
 
-The Linux kernel ships with an BPF interpreter that executes programs assembled in
-BPF instructions. Even cBPF programs are translated into BPF programs transparently
-in the kernel with the exception that an architecture still ships with a cBPF JIT and
-has not yet migrated to an BPF JIT.
+The Linux kernel is shipped with a BPF interpreter which executes programs assembled in
+BPF instructions. Even cBPF programs are translated into eBPF programs transparently
+in the kernel with the exception of architectures which still ship with a cBPF JIT and
+have not yet migrated to an eBPF JIT.
 
 Currently ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64`` architectures
 come with an in-kernel eBPF JIT compiler.
@@ -273,13 +274,13 @@ in the BPF file system through pinning.
 Helper Functions
 ----------------
 
-Helper functions are a concept that lets BPF programs consult a core kernel
+Helper functions are a concept which enables BPF programs to consult a core kernel
 defined set of function calls in order to retrieve / push data from / to the
 kernel. Available helper functions may differ for each BPF program type,
 for example, BPF programs attached to sockets are only allowed to call into
-a subset of helpers as opposed to BPF programs attached to the tc layer.
+a subset of helpers compared to BPF programs attached to the tc layer.
 Encapsulation and decapsulation helpers for lightweight tunneling constitute
-an example of functions that are only available to lower tc layers, event
+an example of functions which are only available to lower tc layers, event
 output helpers for pushing notifications to user space for tc and XDP programs.
 
 Each helper function is implemented with a commonly shared function signature
@@ -289,11 +290,11 @@ similar to system calls. The signature is defined as:
 
     u64 fn(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 
-The calling convention as described in the previous section applies for
-all BPF helper functions.
+The calling convention as described in the previous section applies to all
+BPF helper functions.
 
-The kernel abstracts helper function into macros ``BPF_CALL_0()`` to ``BPF_CALL_5()``
-that are similar to those of system calls. The following example is an extract
+The kernel abstracts helper functions into macros ``BPF_CALL_0()`` to ``BPF_CALL_5()``
+which are similar to those of system calls. The following example is an extract
 from a helper function which updates map elements by calling into the
 corresponding map implementation callbacks:
 
@@ -316,7 +317,7 @@ corresponding map implementation callbacks:
         .arg4_type      = ARG_ANYTHING,
     };
 
-There are various advantages with this approach: while cBPF overloaded its
+There are various advantages of this approach: while cBPF overloaded its
 load instructions in order to fetch data at an impossible packet offset to
 invoke auxiliary helper functions, each cBPF JIT needed to implement support
 for such a cBPF extension. In case of eBPF, each newly added helper function
@@ -326,35 +327,35 @@ is made in such a way that BPF register assignments already match the
 underlying architecture's calling convention. This allows for easily extending
 the core kernel with new helper functionality.
 
-Mentioned function signature also allows the verifier to perform type checks.
-The above ``struct bpf_func_proto`` is used to hand all the necessary
-information that is needed to know about the helper to the verifier, so
-the verifier can make sure that expected types from the helper match with
-the current contents of the BPF program's analyzed registers.
+The aforementioned function signature also allows the verifier to perform type
+checks. The above ``struct bpf_func_proto`` is used to hand all the necessary
+information which need to be known about the helper to the verifier, so that
+the verifier can make sure that the expected types from the helper match the
+current contents of the BPF program's analyzed registers.
 
 Argument types can range from passing in any kind of value up to restricted
-contents such as a pointer / size pair for the BPF's stack buffer, which the
+contents such as a pointer / size pair for the BPF stack buffer, which the
 helper should read from or write to. In the latter case, the verifier can also
-perform additional checks, for example, whether the buffer was initialized
-previously.
+perform additional checks, for example, whether the buffer was previously
+initialized.
 
 Maps
 ----
 
 Maps are efficient key / value stores that reside in kernel space. They can be
-accessed from an BPF program in order to keep state among multiple BPF program
+accessed from a BPF program in order to keep state among multiple BPF program
 invocations. They can also be accessed through file descriptors from user space
 and can be arbitrarily shared with other BPF programs or user space applications.
 
-BPF programs that share maps with each other are not required to be of the same
+BPF programs which share maps with each other are not required to be of the same
 program type, for example, tracing programs can share maps with networking programs.
 A single BPF program can currently access up to 64 different maps directly.
 
 Map implementations are provided by the core kernel. There are generic maps with
-per-CPU and non-per-CPU flavour that can read / write arbitrary data, but there are
+per-CPU and non-per-CPU flavor that can read / write arbitrary data, but there are
 also a few non-generic maps that are used along with helper functions.
 
-Generic maps that are currently available:
+Generic maps currently available:
 
 * ``BPF_MAP_TYPE_HASH``
 * ``BPF_MAP_TYPE_ARRAY``
@@ -385,20 +386,20 @@ also a number of disadvantages come along with them:
 User space applications can make use of most file descriptor related APIs,
 file descriptor passing for Unix domain sockets work transparently, etc, but
 at the same time, file descriptors are limited to a processes' lifetime,
-which makes possibilities like map sharing rather cumbersome to realize.
+which makes options like map sharing rather cumbersome to carry out.
 
 Thus, it brings a number of complications for certain use cases such as iproute2,
 where tc or XDP sets up and loads the program into the kernel and terminates
-itself eventually. With that, also access to maps are unavailable from user
-space side, where it would otherwise have been useful, for example, when maps
-are shared between ingress and egress locations of the data path. Also, third
+itself eventually. With that, also access to maps is unavailable from user
+space side, where it could otherwise be useful, for example, when maps are
+shared between ingress and egress locations of the data path. Also, third
 party applications may wish to monitor or update map contents during BPF
 program runtime.
 
 To overcome this limitation, a minimal kernel space BPF file system has been
 implemented, where BPF map and programs can be pinned to, a process called
 object pinning. The BPF system call has therefore been extended with two new
-commands that can pin (``BPF_OBJ_PIN``) or retrieve (``BPF_OBJ_GET``) a
+commands which can pin (``BPF_OBJ_PIN``) or retrieve (``BPF_OBJ_GET``) a
 previously pinned object.
 
 For instance, tools such as tc make use of this infrastructure for sharing
@@ -421,12 +422,12 @@ Only programs of the same type can be tail called, and they also need to match
 in terms of JIT compilation, thus either JIT compiled or only interpreted programs
 can be invoked, but not mixed together.
 
-There are two components involved for realizing tail calls: the first part
+There are two components involved for carrying out tail calls: the first part
 needs to setup a specialized map called program array (``BPF_MAP_TYPE_PROG_ARRAY``)
-that can be populated by user space with key / values where values are the
+that can be populated by user space with key / values, where values are the
 file descriptors of the tail called BPF programs, the second part is a
 ``bpf_tail_call()`` helper where the context, a reference to the program array
-and the lookup key is passed to. The kernel then inlines this helper call
+and the lookup key is passed to. Then the kernel inlines this helper call
 directly into a specialized BPF instruction. Such a program array is currently
 write-only from user space side.
 
@@ -443,9 +444,9 @@ JIT
 ---
 
 The 64 bit ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64``
-architectures all ship with an in-kernel eBPF JIT compiler (``mips64`` is work
-in progress at this time), also all of them are feature equivalent and can be
-enabled through:
+architectures are all shipped with an in-kernel eBPF JIT compiler (``mips64`` is
+work in progress at this time), also all of them are feature equivalent and can
+be enabled through:
 
 ::
 
@@ -474,10 +475,10 @@ Hardening
 
 BPF locks the entire BPF interpreter image (``struct bpf_prog``) as well
 as the JIT compiled image (``struct bpf_binary_header``) in the kernel as
-read-only during the program's life-time in order to prevent the code from
+read-only during the program's lifetime in order to prevent the code from
 potential corruptions. Any corruption happening at that point, for example,
 due to some kernel bugs will result in a general protection fault and thus
-crash the kernel instead of allowing the corruption silently to happen.
+crash the kernel instead of allowing the corruption to happen silently.
 
 Architectures that support setting the image memory as read-only can be
 determined through:
@@ -490,26 +491,26 @@ determined through:
     arch/s390/Kconfig:   select ARCH_HAS_SET_MEMORY
     arch/x86/Kconfig:    select ARCH_HAS_SET_MEMORY
 
-The option ``CONFIG_ARCH_HAS_SET_MEMORY`` is not configurable, such that
-this protection is always built-in. Other architectures might follow in
-the future.
+The option ``CONFIG_ARCH_HAS_SET_MEMORY`` is not configurable, thanks to
+which this protection is always built-in. Other architectures might follow
+in the future.
 
 In case of ``/proc/sys/net/core/bpf_jit_harden`` set to ``1`` additional
 hardening steps for the JIT compilation take effect for unprivileged users.
-This effectively trades off performance for them by decreasing a (potential)
-attack surface in case of untrusted users operating on the system. The
-decrease in program execution still results in better performance compared
-to switching to interpreter entirely.
+This effectively trades off their performance slightly by decreasing a
+(potential) attack surface in case of untrusted users operating on the
+system. The decrease in program execution still results in better performance
+compared to switching to interpreter entirely.
 
 Currently, enabling hardening will blind all user provided 32 bit and 64 bit
 constants from the BPF program when it gets JIT compiled in order to prevent
-JIT spraying attacks that inject native opcodes as immediate values. This is
-problematic as these immediate values reside in executable kernel memory, such
-that a jump that could be triggered from some kernel bug would jump to the
-start of the immediate value and then execute these as native instructions.
+JIT spraying attacks which inject native opcodes as immediate values. This is
+problematic as these immediate values reside in executable kernel memory,
+therefore a jump that could be triggered from some kernel bug would jump to
+the start of the immediate value and then execute these as native instructions.
 
-JIT constant blinding prevents that by randomizing the actual instruction,
-meaning the operation is transformed from a immediate based source operand
+JIT constant blinding prevents this due to randomizing the actual instruction,
+which means the operation is transformed from an immediate based source operand
 to a register based one through rewriting the instruction by splitting the
 actual load of the value into two steps: 1) load of a blinded immediate
 value ``rnd ^ imm`` into a register, 2) xoring that register with ``rnd``
@@ -564,12 +565,13 @@ as an unprivileged user in the case hardening is enabled:
       96:   mov    %r10d,%eax
       [...]
 
-The programs are both semantically the same, only that none of the
-original immediate values are visible anymore in the disassembly.
+Both programs are semantically the same, only that none of the
+original immediate values are visible anymore in the disassembly of
+the second program.
 
-At the same time, hardening also disabled any JIT kallsyms exposure
-for privileged users, so that kernel addresses are not exposed to
-``/proc/kallsyms``.
+At the same time, hardening also disables any JIT kallsyms exposure
+for privileged users, preventing that JIT image addresses are not
+exposed to ``/proc/kallsyms`` anymore.
 
 Offloads
 --------
@@ -587,27 +589,27 @@ Toolchain
 
 Current user space tooling, introspection facilities and kernel control knobs around
 BPF are discussed in this section. Note, the tooling and infrastructure around BPF
-is still heavily evolving and thus may not provide a complete picture of all available
+is still rapidly evolving and thus may not provide a complete picture of all available
 tools.
 
 LLVM
 ----
 
-LLVM is currently the only compiler suite that provides an BPF back end. gcc does
+LLVM is currently the only compiler suite providing a BPF back end. gcc does
 not support BPF at this point.
 
 The BPF back end was merged into LLVM's 3.7 release. Major distributions enable
-the BPF back end by default when they package LLVM, such that installing clang
+the BPF back end by default when they package LLVM, therefore installing clang
 and llvm is sufficient on most recent distributions to start compiling C
 into BPF object files.
 
 The typical workflow is that BPF programs are written in C, compiled by LLVM
-into object / ELF files, that are parsed by user space BPF ELF loaders (such as
+into object / ELF files, which are parsed by user space BPF ELF loaders (such as
 iproute2 or others), and pushed into the kernel through the BPF system call.
 The kernel verifies the BPF instructions and JITs them, returning a new file
-descriptor for the program, which can then be attached to a subsystem (e.g.,
+descriptor for the program, which then can be attached to a subsystem (e.g.
 networking). If supported, the subsystem could then further offload the BPF
-program to hardware (e.g., NIC).
+program to hardware (e.g. NIC).
 
 For LLVM, BPF target support can be checked, for example, through the following:
 
@@ -628,24 +630,25 @@ For LLVM, BPF target support can be checked, for example, through the following:
       [...]
 
 By default, the ``bpf`` target uses the endianness of the CPU it compiles on,
-meaning, if the CPU's endianness is little endian, the program is represented
+meaning that if the CPU's endianness is little endian, the program is represented
 in little endian format as well, and if the CPU's endianness is big endian,
 the program is represented in big endian. This also matches the runtime behavior
 of BPF, which is generic and uses the CPU's endianness it runs on in order
 to not disadvantage architectures in any of the format.
 
 For cross-compilation, the two targets ``bpfeb`` and ``bpfel`` were introduced,
-such that BPF programs can be compiled on a node running in one endianness (f.e.,
-little endian on x86) and run on a node in another endianness format (f.e., big
-endian on arm). Note that the front end (clang) needs to run in the target
+thanks to that BPF programs can be compiled on a node running in one endianness
+(e.g. little endian on x86) and run on a node in another endianness format (e.g.
+big endian on arm). Note that the front end (clang) needs to run in the target
 endianness as well.
 
 Using ``bpf`` as a target is the preferred way in situations where no mixture of
-endianness applies. For example, compilation on x86 results in the same output
-for the targets ``bpf`` and ``bpfel`` due to being little endian, therefore
+endianness applies. For example, compilation on ``x86_64`` results in the same
+output for the targets ``bpf`` and ``bpfel`` due to being little endian, therefore
 scripts triggering a compilation also do not have to be endian aware.
 
-A minimal, stand-alone XDP drop program might look like the following (``xdp.c``):
+A minimal, stand-alone XDP drop program might look like the following example
+(``xdp.c``):
 
 ::
 
@@ -673,8 +676,8 @@ It can then be compiled and loaded into the kernel as follows:
 
 For the generated object file LLVM (>= 3.9) uses the official BPF machine value,
 that is, ``EM_BPF`` (decimal: ``247`` / hex: ``0xf7``). In this example, the program
-has been compiled with ``bpf`` target under x86, therefore ``LSB`` (as opposed to
-``MSB``) is shown regarding endianness:
+has been compiled with ``bpf`` target under ``x86_64``, therefore ``LSB`` (as opposed
+to ``MSB``) is shown regarding endianness:
 
 ::
 
@@ -685,7 +688,7 @@ has been compiled with ``bpf`` target under x86, therefore ``LSB`` (as opposed t
 sometimes be useful for introspecting generated section headers, relocation entries
 and the symbol table.
 
-In the unlikely case where clang and LLVM needs to be compiled from scratch, the
+In the unlikely case where clang and LLVM need to be compiled from scratch, the
 following commands can be used:
 
 ::
@@ -715,7 +718,7 @@ following commands can be used:
 
 Make sure that ``--version`` mentions ``Optimized build.``, otherwise the
 compilation time for programs when having LLVM in debugging mode will
-significantly increase (f.e., by 10x or more).
+significantly increase (e.g. by 10x or more).
 
 For debugging, clang can generate the assembler output as follows:
 
@@ -756,9 +759,9 @@ the usual workflow by adding ``-g`` for compilation.
         1:        exit
 
 The ``llvm-objdump`` tool can then annotate the assembler output with the
-original C code that was used in the compilation. The trivial example in
-this case does not contain much C code, however, the line numbers shown as
-``0:`` and ``1:`` correspond directly to the kernel's verifier log.
+original C code used in the compilation. The trivial example in this case
+does not contain much C code, however, the line numbers shown as ``0:``
+and ``1:`` correspond directly to the kernel's verifier log.
 
 This means that in case BPF programs get rejected by the verifier, ``llvm-objdump``
 can help to correlate the instructions back to the original C code, which is
@@ -779,7 +782,7 @@ highly useful for analysis.
     1: (95) exit
     processed 2 insns
 
-As can be seen in the verifier analysis, the ``llvm-objdump`` output dumps
+As it can be seen in the verifier analysis, the ``llvm-objdump`` output dumps
 the same BPF assembler code as the kernel.
 
 Leaving out the ``-no-show-raw-insn`` option will also dump the raw
@@ -817,22 +820,22 @@ Note that LLVM's BPF back end currently does not support generating code
 that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
 currently unsupported, too.
 
-Furthermore, compilation from BPF assembly (f.e., ``llvm-mc xdp.S -arch bpf -filetype=obj -o xdp.o``)
-is currently also not supported due to missing BPF assembly parser.
+Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp.S -arch bpf -filetype=obj -o xdp.o``)
+is currently not supported either due to missing BPF assembly parser.
 
 When writing C programs for BPF, there are a couple of pitfalls to be aware
-of compared to usual application development with C. The following items
+of, compared to usual application development with C. The following items
 describe some of the differences for the BPF model:
 
 1. **Everything needs to be inlined, there are no function or shared library
    calls available.**
 
-   Shared libraries, etc, cannot be used with BPF. However, common library
-   code that is used in BPF programs can be placed into header files and
-   included into the main programs. For example, Cilium makes heavy use of
-   this (see ``bpf/lib/``). However, this still allows for including header
-   files, for example, from the kernel or other libraries and reuse their
-   static inline functions or macros / definitions.
+   Shared libraries, etc cannot be used with BPF. However, common library
+   code used in BPF programs can be placed into header files and included in
+   the main programs. For example, Cilium makes heavy use of it (see ``bpf/lib/``).
+   However, this still allows for including header files, for example, from
+   the kernel or other libraries and reuse their static inline functions or
+   macros / definitions.
 
    Eventually LLVM needs to compile the entire code into a flat sequence of
    BPF instructions for a given program section. Best practice is to use an
@@ -842,8 +845,8 @@ describe some of the differences for the BPF model:
 
    In case the latter happens, LLVM will generate a relocation entry into
    the ELF file, which BPF ELF loaders such as iproute2 cannot resolve and
-   will thus throw an error since only BPF maps are valid relocation entries
-   that loaders can process.
+   will thus produce an error since only BPF maps are valid relocation entries
+   which loaders can process.
 
    ::
 
@@ -878,10 +881,10 @@ describe some of the differences for the BPF model:
    typically structured into 3 or more sections. BPF ELF loaders use these
    names to extract and prepare the relevant information in order to load
    the programs and maps through the bpf system call. For example, iproute2
-   uses ``maps`` and ``license`` as default section name to find meta data
+   uses ``maps`` and ``license`` as default section name to find metadata
    needed for map creation and the license for the BPF program, respectively.
-   The latter is pushed into the kernel as well on program creation time,
-   and enables some of the helper functions that are exposed as GPL only
+   On program creation time the latter is pushed into the kernel as well,
+   and enables some of the helper functions which are exposed as GPL only
    in case the program also holds a GPL compatible license, for example
    ``bpf_ktime_get_ns()``, ``bpf_probe_read()`` and others.
 
@@ -958,30 +961,30 @@ describe some of the differences for the BPF model:
 
     char __license[] __section("license") = "GPL";
 
-  The example also demonstrates a couple of other things that are useful
+  The example also demonstrates a couple of other things which are useful
   to be aware of when developing programs. The code includes kernel headers,
-  standard C headers and an iproute2 specific header that contains the
+  standard C headers and an iproute2 specific header containing the
   definition of ``struct bpf_elf_map``. iproute2 has a common BPF ELF loader
   and as such the definition of ``struct bpf_elf_map`` is the very same for
   XDP and tc typed programs.
 
   A ``struct bpf_elf_map`` entry defines a map in the program and contains
-  all relevant information (such as key / value size, etc) that is needed
-  in order to generate a map that is used from the two BPF programs. The
-  structure must be placed into the ``maps`` section, so that the loader
-  can find it. There can be multiple such map declarations with different
-  variable names, but all must be annotated with ``__section("maps")``.
+  all relevant information (such as key / value size, etc) needed to generate
+  a map which is used from the two BPF programs. The structure must be placed
+  into the ``maps`` section, so that the loader can find it. There can be
+  multiple map declarations of this type with different variable names, but
+  all must be annotated with ``__section("maps")``.
 
   The ``struct bpf_elf_map`` is specific to iproute2. Different BPF ELF
   loaders can have different formats, for example, the libbpf in the kernel
-  source tree which is mainly used by ``perf`` has a different specification.
+  source tree, which is mainly used by ``perf``, has a different specification.
   iproute2 guarantees backwards compatibility for ``struct bpf_elf_map``.
   Cilium follows the iproute2 model.
 
   The example also demonstrates how BPF helper functions are mapped into
   the C code and being used. Here, ``map_lookup_elem()`` is defined by
   mapping this function into the ``BPF_FUNC_map_lookup_elem`` enum value
-  that is exposed as a helper in ``linux/bpf.h``. When the program is later
+  which is exposed as a helper in ``linux/bpf.h``. When the program is later
   loaded into the kernel, the verifier checks whether the passed arguments
   are of the expected type and re-points the helper call into a real
   function call. Moreover, ``map_lookup_elem()`` also demonstrates how
@@ -999,30 +1002,30 @@ describe some of the differences for the BPF model:
   to ``/sys/fs/bpf/tc/globals/acc_map`` for the given example. Due to the
   ``PIN_GLOBAL_NS``, the map will be placed under ``/sys/fs/bpf/tc/globals/``.
   ``globals`` acts as a global namespace that spans across object files.
-  If the example would have used ``PIN_OBJECT_NS``, then tc will create
-  a directory that is local to the object file. For example, different C
-  files with BPF code could have the same ``acc_map`` definition as above
-  with a ``PIN_GLOBAL_NS`` pinning. In that case, the map will be shared
-  among BPF programs originating from various object files. ``PIN_NONE``
-  would mean that the map is not placed into the BPF file system as a node,
-  and would as a result not be accessible from user space after tc has
-  quit. It would also mean that tc creates two separate map instances
-  for each program, since it cannot retrieve a previously pinned map under
-  that name. The ``acc_map`` part from the mentioned path is the name of
-  the map as specified in the source code.
+  If the example used ``PIN_OBJECT_NS``, then tc would create a directory
+  that is local to the object file. For example, different C files with
+  BPF code could have the same ``acc_map`` definition as above with a
+  ``PIN_GLOBAL_NS`` pinning. In that case, the map will be shared among
+  BPF programs originating from various object files. ``PIN_NONE`` would
+  mean that the map is not placed into the BPF file system as a node,
+  and as a result will not be accessible from user space after tc quits. It
+  would also mean that tc creates two separate map instances for each
+  program, since it cannot retrieve a previously pinned map under that
+  name. The ``acc_map`` part from the mentioned path is the name of the
+  map as specified in the source code.
 
-  Thus, upon below loading of the ``ingress`` program, tc will find
-  that no such map exists in the BPF file system and creates a new one.
-  Upon success, it will also pin the map, so that when the ``egress``
-  program is loaded through tc, it will find that such map already
-  exists in the BPF file system and will reuse that for the ``egress``
-  program. The loader also makes sure in case maps exist with the same
-  name that also their properties (key / value size, etc) match.
+  Thus, upon loading of the ``ingress`` program, tc will find that no such
+  map exists in the BPF file system and creates a new one. On success, the
+  map will also be pinned, so that when the ``egress`` program is loaded
+  through tc, it will find that such map already exists in the BPF file
+  system and will reuse that for the ``egress`` program. The loader also
+  makes sure in case maps exist with the same name that also their properties
+  (key / value size, etc) match.
 
   Just like tc can retrieve the same map, also third party applications
   can use the ``BPF_OBJ_GET`` command from the bpf system call in order
-  to create a new file descriptor that points to the same map instance,
-  which can then be used to lookup / update / delete map elements.
+  to create a new file descriptor pointing to the same map instance, which
+  can then be used to lookup / update / delete map elements.
 
   The code can be compiled and loaded via iproute2 as follows:
 
@@ -1061,16 +1064,16 @@ describe some of the differences for the BPF model:
 
 3. **There are no global variables allowed.**
 
-  For the same reasons as mentioned in point 1., BPF cannot have global variables
+  For the reasons already mentioned in point 1, BPF cannot have global variables
   as often used in normal C programs.
 
-  However, there is a work-around in that the program can simply use an BPF map
+  However, there is a work-around in that the program can simply use a BPF map
   of type ``BPF_MAP_TYPE_PERCPU_ARRAY`` with just a single slot of arbitrary
   value size. This works, because during execution, BPF programs are guaranteed
   to never get preempted by the kernel and therefore can use the single map entry
   as a scratch buffer for temporary data, for example, to extend beyond the stack
-  limitation. This also works across tail calls, since it has the same guarantees
-  with regards to preemption.
+  limitation. This also functions across tail calls, since it has the same
+  guarantees with regards to preemption.
 
   Otherwise, for holding state across multiple BPF program runs, normal BPF
   maps can be used.
@@ -1078,13 +1081,13 @@ describe some of the differences for the BPF model:
 4. **There are no const strings or arrays allowed.**
 
   Defining ``const`` strings or other arrays in the BPF C program does not work
-  for the same reasons as pointed out in 1. and 3., which is, that relocation
-  entries will be generated in the ELF file that loaders will reject due to not
-  being part of the ABI towards loaders (loaders also cannot fix up such entries
-  as it would require large rewrites of the already compiled BPF sequence).
+  for the same reasons as pointed out in sections 1 and 3, which is, that relocation
+  entries will be generated in the ELF file which will be rejected by loaders due
+  to not being part of the ABI towards loaders (loaders also cannot fix up such
+  entries as it would require large rewrites of the already compiled BPF sequence).
 
-  In future, LLVM might detect these occurrences and throw an error early to
-  the user.
+  In the future, LLVM might detect these occurrences and early throw an error
+  to the user.
 
   Helper functions such as ``trace_printk()`` can be worked around as follows:
 
@@ -1105,13 +1108,13 @@ describe some of the differences for the BPF model:
   used to retrieve the messages from there.
 
   The use of the ``trace_printk()`` helper function has a couple of disadvantages
-  and is thus not recommended for production usage. Constant strings like the
+  and thus is not recommended for production usage. Constant strings like the
   ``"skb len:%u\n"`` need to be loaded into the BPF stack each time the helper
   function is called, but also BPF helper functions are limited to a maximum
-  of 5 arguments. This leaves room for only 3 additional variables that can be
+  of 5 arguments. This leaves room for only 3 additional variables which can be
   passed for dumping.
 
-  Therefore, while helpful for quick debugging, it is recommended (for networking
+  Therefore, despite being helpful for quick debugging, it is recommended (for networking
   programs) to use the ``skb_event_output()`` or the ``xdp_event_output()`` helper,
   respectively. They allow for passing custom structs from the BPF program to
   the perf event ring buffer along with an optional packet sample. For example,
@@ -1141,13 +1144,13 @@ describe some of the differences for the BPF model:
     # define memmove(dest, src, n)  __builtin_memmove((dest), (src), (n))
     #endif
 
-  The ``memcmp()`` built-in had some corner cases where inlining took not place
+  The ``memcmp()`` built-in had some corner cases where inlining did not take place
   due to an LLVM issue in the back end, and is therefore not recommended to be
   used until the issue is fixed.
 
 6. **There are no loops available.**
 
-  The BPF verifier in the kernel checks that an BPF program does not contain
+  The BPF verifier in the kernel checks that a BPF program does not contain
   loops by performing a depth first search of all possible program paths besides
   other control flow graph validations. The purpose is to make sure that the
   program is always guaranteed to terminate.
@@ -1188,7 +1191,7 @@ describe some of the differences for the BPF model:
   scratch space. While being dynamic, this form of looping however is limited
   to a maximum of 32 iterations.
 
-  In future, BPF may have some native, but limited form of implementing loops.
+  In the future, BPF may have some native, but limited form of implementing loops.
 
 7. **Partitioning programs with tail calls.**
 
@@ -1207,10 +1210,10 @@ describe some of the differences for the BPF model:
   drop notifications during runtime, where the ``skb_event_output()`` call is
   located inside the tail called program. Thus, during normal operations, the
   fall-through path will always be executed unless a program is added to the
-  related map index, where the program then prepares the meta data and triggers
+  related map index, where the program then prepares the metadata and triggers
   the event notification to a user space daemon.
 
-  Program array maps are quite flexible, such that also individual actions can
+  Program array maps are quite flexible, enabling also individual actions to
   be implemented for programs located in each map index. For example, the root
   program attached to XDP or tc could perform an initial tail call to index 0
   of the program array map, performing traffic sampling, then jumping to index 1
@@ -1288,7 +1291,7 @@ describe some of the differences for the BPF model:
   is not specific to tc, but can be applied with any other BPF program type
   that iproute2 supports (such as XDP, lwt).
 
-  The pinned map can be retrieved by a user space applications (e.g., Cilium daemon),
+  The pinned map can be retrieved by a user space applications (e.g. Cilium daemon),
   but also by tc itself in order to update the map with new programs. Updates
   happen atomically, the initial entry programs that are triggered first from the
   various subsystems are also updated atomically.
@@ -1308,7 +1311,7 @@ describe some of the differences for the BPF model:
 
   Stack space in BPF programs is very limited, namely to 512 bytes, which needs
   to be taken into careful consideration when implementing them in C. However,
-  as mentioned earlier in point 3., a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map with a
+  as mentioned earlier in point 3, a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map with a
   single entry can be used in order to enlarge scratch buffer space.
 
 iproute2
@@ -1318,18 +1321,18 @@ There are various front ends for loading BPF programs into the kernel such as bc
 perf, iproute2 and others. The Linux kernel source tree also provides a user space
 library under ``tools/lib/bpf/``, which is mainly used and driven by perf for
 loading BPF tracing programs into the kernel. However, the library itself is
-generic and not limited to perf only. bcc is a toolkit that provides many useful
+generic and not limited to perf only. bcc is a toolkit providing many useful
 BPF programs mainly for tracing that are loaded ad-hoc through a Python interface
 embedding the BPF C code. Syntax and semantics for implementing BPF programs
 slightly differ among front ends in general, though. Additionally, there are also
-BPF samples in the kernel source tree (``samples/bpf/``) that parse the generated
+BPF samples in the kernel source tree (``samples/bpf/``) which parse the generated
 object files and load the code directly through the system call interface.
 
 This and previous sections mainly focus on the iproute2 suite's BPF front end for
 loading networking programs of XDP, tc or lwt type, since Cilium's programs are
-implemented against this BPF loader. In future, Cilium will ship with a native
-BPF loader, but programs will still be compatible to be loaded through iproute2
-suite in order to facilitate development and debugging.
+implemented against this BPF loader. In future, Cilium will be equipped with a
+native BPF loader, but programs will still be compatible to be loaded through
+iproute2 suite in order to facilitate development and debugging.
 
 All BPF program types supported by iproute2 share the same BPF loader logic
 due to having a common loader back end implemented as a library (``lib/bpf.c``
@@ -1344,7 +1347,7 @@ of all details, but enough for getting started.
 
 **1. Loading of XDP BPF object files.**
 
-  Given an BPF object file ``prog.o`` has been compiled for XDP, it can be loaded
+  Given a BPF object file ``prog.o`` has been compiled for XDP, it can be loaded
   through ``ip`` to a XDP-supported netdevice called ``em1`` with the following
   command:
 
@@ -1354,15 +1357,15 @@ of all details, but enough for getting started.
 
   The above command assumes that the program code resides in the default section
   which is called ``prog`` in XDP case. Should this not be the case, and the
-  section named differently, for example, ``foobar``, then the program needs to
-  be loaded as:
+  section is named differently, for example, ``foobar``, then the program needs
+  to be loaded as:
 
   ::
 
     # ip link set dev em1 xdp obj prog.o sec foobar
 
   By default, ``ip`` will throw an error in case a XDP program is already attached
-  to the networking interface, thus that it will not be overridden by accident. In
+  to the networking interface, to prevent it from being overridden by accident. In
   order to replace the currently running XDP program with a new one, the ``-force``
   option must be used:
 
@@ -1375,7 +1378,7 @@ of all details, but enough for getting started.
   single program attached to an XDP-enabled driver due to performance reasons,
   hence a chain of programs is not supported. However, as described in the
   previous section, partitioning of programs can be performed through tail
-  calls to achieve a similar use-case when necessary.
+  calls to achieve a similar use case when necessary.
 
   The ``ip link`` command will display an ``xdp`` flag if the interface has an XDP
   program attached. ``ip link | grep xdp`` can thus be used to find all interfaces
@@ -1392,7 +1395,7 @@ of all details, but enough for getting started.
 
 **2. Loading of tc BPF object files.**
 
-  Given an BPF object file ``prog.o`` has been compiled for tc, it can be loaded
+  Given a BPF object file ``prog.o`` has been compiled for tc, it can be loaded
   through the tc command to a netdevice. Unlike XDP, there is no driver dependency
   for supporting attaching BPF programs to the device. Here, the netdevice is called
   ``em1``, and with the following command the program can be attached to the networking
@@ -1408,7 +1411,7 @@ of all details, but enough for getting started.
   and actions, but does not perform actual queueing. It is needed in order to attach
   the ``bpf`` classifier. The ``clsact`` qdisc provides two special hooks called
   ``ingress`` and ``egress``, where the classifier can be attached to. Both ``ingress``
-  and ``egress`` hooks are located at central receive and transmit locations in the
+  and ``egress`` hooks are located in central receive and transmit locations in the
   networking data path, where every packet on the device passes through. The ``ingress``
   hook is called from ``__netif_receive_skb_core() -> sch_handle_ingress()`` in the
   kernel and the ``egress`` hook from ``__dev_queue_xmit() -> sch_handle_egress()``.
@@ -1428,7 +1431,7 @@ of all details, but enough for getting started.
   It basically means that the ``bpf`` classifier does not need to call into external
   tc action modules, which are not necessary for ``bpf`` anyway, since all packet
   mangling, forwarding or other kind of actions can already be performed inside
-  the single BPF program that is to be attached, and is therefore significantly
+  the single BPF program which is to be attached, and is therefore significantly
   faster.
 
   At this point, the program has been attached and is executed once packets traverse
@@ -1458,10 +1461,10 @@ of all details, but enough for getting started.
   The output of ``prog.o:[ingress]`` tells that program section ``ingress`` was
   loaded from the file ``prog.o``, and ``bpf`` operates in ``direct-action`` mode.
   The program tags are appended for each, which denotes a hash over the instruction
-  stream that can be used for debugging / introspection.
+  stream which can be used for debugging / introspection.
 
   tc can attach more than just a single BPF program, it provides various other
-  classifiers that can be chained together. However, attaching a single BPF program
+  classifiers which can be chained together. However, attaching a single BPF program
   is fully sufficient since all packet operations can be contained in the program
   itself thanks to ``da`` (``direct-action``) mode. For optimal performance and
   flexibility, this is the recommended usage.
@@ -1469,15 +1472,15 @@ of all details, but enough for getting started.
   In the above ``show`` command, tc also displays ``pref 49152`` and
   ``handle 0x1`` next to the BPF related output. Both are auto-generated in
   case they are not explicitly provided through the command line. ``pref``
-  denotes a priority number, such that in case multiple classifiers are attached,
-  they will be executed based on ascending priority, and ``handle`` represents
-  an identifier in case multiple instances of the same classifier have been
-  loaded under the same ``pref``. Since in case of BPF, a single program is
+  denotes a priority number, which means that in case multiple classifiers are
+  attached, they will be executed based on ascending priority, and ``handle``
+  represents an identifier in case multiple instances of the same classifier have
+  been loaded under the same ``pref``. Since in case of BPF, a single program is
   fully sufficient, ``pref`` and ``handle`` can typically be ignored.
 
   Only in the case where it is planned to atomically replace the attached BPF
   programs, it would be recommended to explicitly specify ``pref`` and ``handle``
-  a-priori on initial load, such that they do not have to be queried at a later
+  a priori on initial load, so that they do not have to be queried at a later
   point in time for the ``replace`` operation. Thus, creation becomes:
 
   ::
@@ -1515,7 +1518,7 @@ of all details, but enough for getting started.
 These two workflows are the basic operations to load XDP BPF respectively tc BPF
 programs with iproute2.
 
-There are various other advanced options for the BPF loader that apply both to XDP
+There are other various advanced options for the BPF loader that apply both to XDP
 and tc, some of them are listed here. In the examples only XDP is presented for
 simplicity.
 
@@ -1561,7 +1564,7 @@ file system instance in order to perform pinning of nodes. In case no mounted
 BPF file system instance was found, then tc will automatically mount it
 to the default location under ``/sys/fs/bpf/``.
 
-In case an instance was already found, then it will be used and no additional
+In case an instance has already been found, then it will be used and no additional
 mount will be performed:
 
   ::
@@ -1582,21 +1585,21 @@ mount will be performed:
 
 By default tc will create an initial directory structure as shown above,
 where all subsystem users will point to the same location through symbolic
-links for the ``globals`` namespace, such that pinned BPF maps can be reused
+links for the ``globals`` namespace, so that pinned BPF maps can be reused
 among various BPF program types in iproute2. In case the file system instance
-was mounted already and an existing structure exists already, then tc will
+has already been mounted and an existing structure already exists, then tc will
 not override it. This could be the case for separating ``lwt``, ``tc`` and
 ``xdp`` maps in order to not share ``globals`` among all.
 
 As briefly covered in the previous LLVM section, iproute2 will install a
-header file upon installation that can be included through the standard
+header file upon installation which can be included through the standard
 include path by BPF programs:
 
   ::
 
     #include <iproute2/bpf_elf.h>
 
-The header file's purpose is to provide an API for maps and default section
+The purpose of this header file is to provide an API for maps and default section
 names used by programs. It's a stable contract between iproute2 and BPF programs.
 
 The map definition for iproute2 is ``struct bpf_elf_map``. Its members have
@@ -1609,12 +1612,13 @@ for validity and whenever needed, compatibility workarounds are performed.
 Subsequently all maps are created with the user provided information, either
 retrieved as a pinned object, or newly created and then pinned into the BPF
 file system. Next the loader will handle all program sections that contain
-ELF relocation entries for maps, meaning that BPF instructions that load
-map file descriptors into registers are rewritten such that the corresponding
-map file descriptors are encoded into the instructions immediate value, so
-that the kernel can later on convert them into map kernel pointers. After
-that all the programs themselves are created through the BPF system call,
-and tail called maps, if present, updated with the program's file descriptors.
+ELF relocation entries for maps, meaning that BPF instructions loading
+map file descriptors into registers are rewritten so that the corresponding
+map file descriptors are encoded into the instructions immediate value, in
+order for the kernel to be able to convert them later on into map kernel
+pointers. After that all the programs themselves are created through the BPF
+system call, and tail called maps, if present, updated with the program's file
+descriptors.
 
 BPF sysctls
 -----------
@@ -1652,7 +1656,7 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
   +-------+-------------------------------------------------------------------+
 
 * ``/proc/sys/net/core/bpf_jit_kallsyms``: Enables or disables export of JITed
-  programs as kernel symbols to ``/proc/kallsyms`` such that they can be used together
+  programs as kernel symbols to ``/proc/kallsyms`` so that they can be used together
   with ``perf`` tooling as well as making these addresses aware to the kernel for
   stack unwinding, for example, used in dumping stack traces. The symbol names
   contain the BPF program tag (``bpf_prog_<tag>``). If ``bpf_jit_harden`` is enabled,
@@ -1669,7 +1673,7 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
 Kernel Testing
 --------------
 
-The Linux kernel ships an BPF selftest suite, which can be found in the kernel
+The Linux kernel ships a BPF selftest suite, which can be found in the kernel
 source tree under ``tools/testing/selftests/bpf/``.
 
 ::
@@ -1693,7 +1697,7 @@ can output the generated JIT image into the kernel log through:
 
     # echo 2 > /proc/sys/net/core/bpf_jit_enable
 
-Whenever a new BPF program is loaded, the JIT compiler will dump the output
+Whenever a new BPF program is loaded, the JIT compiler will dump the output,
 which can then be inspected with ``dmesg``, for example:
 
 ::
@@ -1706,11 +1710,11 @@ which can then be inspected with ``dmesg``, for example:
     [ 3389.935852] JIT code: 00000040: eb 02 31 c0 c9 c3
 
 ``flen`` is the length of the BPF program (here, 6 BPF instructions), and ``proglen``
-tells the number of bytes that were generated by the JIT for the opcode image (here,
-70 bytes in size). ``pass`` means that the image was generated in 3 compiler passes,
-for example, x86_64 can have various optimization passes to further reduce the image
+tells the number of bytes generated by the JIT for the opcode image (here, 70 bytes
+in size). ``pass`` means that the image was generated in 3 compiler passes, for
+example, ``x86_64`` can have various optimization passes to further reduce the image
 size when possible. ``image`` contains the address of the generated JIT image, ``from``
-and ``pid`` the user space application name and PID respectively, that triggered the
+and ``pid`` the user space application name and PID respectively, which triggered the
 compilation process. The dump output for eBPF and cBPF JITs is the same format.
 
 In the kernel tree under ``tools/net/``, there is a tool called ``bpf_jit_disasm``. It
@@ -1803,7 +1807,7 @@ Enabling or disabling ``bpf_jit_kallsyms`` does not require a reload of the
 related BPF programs. Next, a small workflow example is provided for profiling
 BPF programs. A crafted tc BPF program is used for demonstration purposes,
 where perf records a failed allocation inside ``bpf_clone_redirect()`` helper.
-Due to the use of direct write, ``bpf_try_make_head_writable()`` failed that
+Due to the use of direct write, ``bpf_try_make_head_writable()`` failed, which
 would then release the cloned ``skb`` again and return with an error message.
 ``perf`` thus records all ``kfree_skb`` events.
 
@@ -1841,15 +1845,15 @@ would then release the cloned ``skb`` again and return with an error message.
        7fffb885e09c ret_from_fork (/lib/modules/4.10.0+/build/vmlinux)
 
 The stack trace recorded by ``perf`` will then show the ``bpf_prog_8227addf251b7543()``
-symbol as part of the call trace, meaning the BPF program with the
+symbol as part of the call trace, meaning that the BPF program with the
 tag ``8227addf251b7543`` was related to the ``kfree_skb`` event, and
-such program was attached to netdevice ``em1`` on the ingress hook
-as shown by tc.
+such program was attached to netdevice ``em1`` on the ingress hook as
+shown by tc.
 
 Introspection
 -------------
 
-The Linux kernel provides various tracepoints around BPF and XDP that
+The Linux kernel provides various tracepoints around BPF and XDP which
 can be used for additional introspection, for example, to trace interactions
 of user space programs with the bpf system call.
 
@@ -1903,8 +1907,8 @@ Exceptions are triggered in the following scenarios:
   for example, due to the port not being up, due to the transmit ring being full,
   due to allocation failures, etc.
 
-Both tracepoint classes can also be inspected with an BPF program itself
-that is attached to one or more tracepoints, collecting further information
+Both tracepoint classes can also be inspected with a BPF program itself
+attached to one or more tracepoints, collecting further information
 in a map or punting such events to a user space collector through the
 ``bpf_perf_event_output()`` helper, for example.
 
@@ -1912,12 +1916,12 @@ Miscellaneous
 -------------
 
 BPF programs and maps are memory accounted against ``RLIMIT_MEMLOCK`` similar
-to ``perf``. The currently available size in unit of system pages that may be
+to ``perf``. The currently available size in unit of system pages which may be
 locked into memory can be inspected through ``ulimit -l``. The setrlimit system
 call man page provides further details.
 
 The default limit is usually insufficient to load more complex programs or
-larger BPF maps, such that the BPF system call will return with ``errno``
+larger BPF maps, so that the BPF system call will return with ``errno``
 of ``EPERM``. In such situations a workaround with ``ulimit -l unlimited`` or
 with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
 mainly enforcing limits for unprivileged users. Depending on the setup,
