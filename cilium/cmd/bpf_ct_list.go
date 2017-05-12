@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
@@ -29,6 +31,7 @@ var bpfCtListCmd = &cobra.Command{
 	Short:  "List connection tracking entries",
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
+		common.RequireRootPrivilege("cilium bpf ct list")
 		if args[0] == "global" {
 			dumpCtProto(ctmap.MapName6+args[0], ctmap.CtTypeIPv6Global)
 			dumpCtProto(ctmap.MapName4+args[0], ctmap.CtTypeIPv4Global)
@@ -49,7 +52,11 @@ func dumpCtProto(name string, ctType ctmap.CtType) {
 	fd, err := bpf.ObjGet(file)
 	defer bpf.ObjClose(fd)
 	if err != nil {
-		Fatalf("Unable to open %s: %s\n", file, err)
+		if err == os.ErrNotExist {
+			Fatalf("Unable to open %s: %s: please try using \"cilium bpf ct list global\"\n", file, err)
+		} else {
+			Fatalf("Unable to open %s: %s\n", file, err)
+		}
 	}
 
 	m := ctmap.CtMap{Fd: fd, Type: ctType}
