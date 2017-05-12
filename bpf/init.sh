@@ -96,14 +96,14 @@ HOST_IP=$(echo $ADDR | sed 's/:0$/:ffff/')
 ip addr del $HOST_IP/128 dev $HOST_DEV1 2> /dev/null || true
 ip addr add $HOST_IP/128 dev $HOST_DEV1
 
-ip route del $ADDR/128 dev $HOST_DEV1 2> /dev/null || true
+ip route del $ADDR/128 2> /dev/null || true
 ip route add $ADDR/128 dev $HOST_DEV1
-ip route del $ADDR/96 via $ADDR 2> /dev/null || true
+ip route del $ADDR/96 2> /dev/null || true
 ip route add $ADDR/96 via $ADDR
 
 V4RANGE=$(echo $V4ADDR | sed 's/.[0-9].[0-9]$/.0.0/')
-ip route del $V4RANGE/16 via $V4ADDR 2> /dev/null || true
-ip route del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
+ip route del $V4RANGE/16 2> /dev/null || true
+ip route del $V4ADDR/32 2> /dev/null || true
 ip addr del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
 
 ip route add $V4ADDR/32 dev $HOST_DEV1
