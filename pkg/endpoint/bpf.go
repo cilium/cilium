@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/geneve"
@@ -34,7 +36,8 @@ import (
 )
 
 const (
-	ProxyMaxElements = 1024
+	// ExecTimeout is the execution timeout to use in join_ep.sh executions
+	ExecTimeout = time.Duration(30 * time.Second)
 )
 
 func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMap, config string) error {
@@ -231,7 +234,16 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 
 func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
 	args := []string{libdir, rundir, prefix, e.IfName, debug}
-	out, err := exec.Command(filepath.Join(libdir, "join_ep.sh"), args...).CombinedOutput()
+	prog := filepath.Join(libdir, "join_ep.sh")
+
+	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		return ctx.Err()
+	}
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
 		log.Warningf("Command output:\n%s", out)

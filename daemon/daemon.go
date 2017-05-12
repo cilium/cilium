@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -58,6 +60,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
+)
+
+const (
+	// ExecTimeout is the execution timeout to use in init.sh executions
+	ExecTimeout = time.Duration(30 * time.Second)
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -301,10 +308,16 @@ func (d *Daemon) compileBase() error {
 		args = []string{d.conf.BpfDir, d.conf.StateDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
-	out, err := exec.Command(filepath.Join(d.conf.BpfDir, "init.sh"), args...).CombinedOutput()
+	prog := filepath.Join(d.conf.BpfDir, "init.sh")
+	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+	}
 	if err != nil {
-		log.Warningf("Command execution %s %s failed: %s",
-			filepath.Join(d.conf.BpfDir, "init.sh"),
+		log.Warningf("Command execution %s %s failed: %s", prog,
 			strings.Join(args, " "), err)
 		log.Warningf("Command output:\n%s", out)
 		return err
