@@ -8,14 +8,14 @@
 [![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/cilium/cilium/blob/master/bpf/COPYING)
 [![Join the Cilium slack channel](https://cilium.herokuapp.com/badge.svg)](https://cilium.herokuapp.com/)
 
-Cilium is open source software for providing and transparently securing the
+Cilium is open source software for providing and transparently securing
 network connectivity between application services deployed using Linux
 container management platforms like Docker and Kubernetes.
 
-At the foundation of Cilium is a new Linux kernel technology called eBPF, which
-enables the dynamic insertion of BPF bytecode into the Linux kernel. Cilium
-generates BPF programs for each individual container to provide networking,
-security and visibility.
+A new Linux kernel technology called eBPF is at the foundation of Cilium,
+which enables the dynamic insertion of BPF bytecode into the Linux kernel.
+Cilium generates BPF programs for each individual container to provide
+networking, security and visibility.
 
 <p align="center">
    <img src="Documentation/images/cilium-arch.png" />
@@ -34,15 +34,15 @@ security and visibility.
    the means of encapsulation protocols (VXLAN/Geneve/GRE). No dependency on
    key/value store or external control plane.
  * **Load balancing:** Distributed load balancing for both inter service as
-   well external traffic with direct server return (DSR) capability. Implements
-   the Kubernetes Ingress and Service spec.
+   well external traffic with direct server return (DSR) capability. It
+   implements the Kubernetes Ingress and Service specification.
  * **Troubleshooting:** Built-in troubleshooting tools with full context
-   visibility. tcpdump free troubleshooting guaranteed(tm)
+   visibility. tcpdump-free troubleshooting guaranteed (tm).
  * **Integrations:**
     * Network plugins: CNI, libnetwork
-    * container runtime events: containerd
+    * Container runtime events: containerd
     * Kubernetes: pod labels, Ingress, Service, NetworkPolicy
-    * logging: logstash
+    * Logging: logstash
 
 ## Getting Started
 
@@ -57,7 +57,7 @@ security and visibility.
 
 Berkeley Packet Filter (BPF) is a Linux kernel bytecode interpreter originally
 introduced to filter network packets, e.g. for tcpdump and socket filters. The
-BPF instruction set and surrounding architecture has since been significantly
+BPF instruction set and surrounding architecture has recently been significantly
 reworked with additional data structures such as hash tables and arrays for
 keeping state as well as additional actions to support packet mangling,
 forwarding, encapsulation, etc. Furthermore, a compiler back end for LLVM
@@ -76,9 +76,9 @@ kernel version 4.8.0 or newer (the latest current stable Linux kernel is
 
 Many Linux distributions including CoreOS, Debian, Docker's LinuxKit, Fedora,
 and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
-kernel version by running ``uname -a``. If you are not running a recent enough
-kernel yet, check the Documentation of your Linux distribution on how to run
-Linux kernel 4.9.x or later.
+kernel version by running ``uname -a``. If you are not yet running a recent
+enough kernel, check the Documentation of your Linux distribution on how to
+run Linux kernel 4.9.x or later.
 
 For more detail on kernel versions, see: [Prerequisites](prerequisites)
 
