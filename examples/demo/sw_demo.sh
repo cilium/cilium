@@ -8,7 +8,7 @@ PWD=$(dirname ${BASH_SOURCE})
 function cleanup {
 	tmux kill-session -t my-session >/dev/null 2>&1
 	docker rm -f deathstar luke xwing_luke xwing fighter1 2> /dev/null || true
-	cilium policy delete root 2> /dev/null
+	cilium policy delete --all 2> /dev/null
 }
 
 trap cleanup EXIT
@@ -63,7 +63,7 @@ desc_rate "In the meantime, the SecOps team of the empire have detected"
 desc_rate "the security hole and deployed cilium to put a HTTP level"
 desc_rate "policy in place:"
 run "cat sw_policy_http.json"
-run "cilium policy delete root"
+run "cilium policy delete --all"
 run "cilium policy import sw_policy_http.real.json"
 
 desc_rate "The rebels attack, they can see the deathstar:"

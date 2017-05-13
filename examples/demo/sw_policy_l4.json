@@ -1,12 +1,9 @@
-{
-        "name": "root",
-	"rules": [{
-		"coverage": ["id.empire.deathstar"],
-		"allow": ["id.spaceship"]
-	},{
-		"coverage": ["id.empire.deathstar"],
-		"l4": [{
-			"in-ports": [{ "port": 80, "protocol": "tcp" }]
-		}]
-	}]
-}
+[{
+    "endpointSelector": ["id.empire.deathstar"],
+    "ingress": [{
+        "fromEndpoints": [["id.spaceship"]],
+	"toPorts": [
+	    {"ports": [{"port": "80", "protocol": "tcp"}]}
+	]
+    }]
+}]

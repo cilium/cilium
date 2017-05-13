@@ -12,7 +12,7 @@ function cleanup {
 
 trap cleanup EXIT
 
-cilium policy delete root 2> /dev/null && true
+cilium policy delete --all 2> /dev/null && true
 
 desc "Demo: Create network, attach container, import policy"
 desc ""
@@ -30,7 +30,6 @@ run "cilium config Policy=true"
 
 desc "Start a container with label $SERVER_LABEL"
 run "docker run -d --net cilium --name server -l $SERVER_LABEL tgraf/netperf"
-sleep 3
 
 desc "List local endpoints"
 run "cilium endpoint list"

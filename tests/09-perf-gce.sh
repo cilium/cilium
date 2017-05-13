@@ -92,28 +92,14 @@ sleep 5
 set -x
 
 cat <<EOF | kubectl exec -i "${server_cilium}" -- cilium -D policy import -
-{
-    "name": "root",
-    "rules": [
-	{
-	    "coverage": [
-		{
-		    "key": "${SERVER_LABEL}",
-		    "source": "k8s"
-		}
-	    ],
-	    "allow": [
-		{
-		    "action": "always-accept",
-		    "label": {
-			"key": "${CLIENT_LABEL}",
-			"source": "k8s"
-		    }
-		}
-	    ]
-	}
-    ]
-}
+[{
+    "endpointSelector": ["k8s:${SERVER_LABEL}"],
+    "ingress": [{
+        "fromEndpoints": [
+            ["k8s:${CLIENT_LABEL}"]
+	]
+    }]
+}]
 EOF
 
 function perf_test() {
@@ -213,4 +199,4 @@ kubectl exec ${server_cilium} -- cilium endpoint config $SERVER_ID Policy=false
 kubectl exec ${client_cilium} -- cilium endpoint config $CLIENT_ID Policy=false
 perf_test
 
-kubectl exec ${server_cilium} -- cilium -D policy delete "${SERVER_LABEL}"
+kubectl exec ${server_cilium} -- cilium policy delete "${SERVER_LABEL}"

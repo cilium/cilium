@@ -7,11 +7,13 @@ set -e
 TEST_NET="cilium"
 
 function cleanup {
+	cilium policy delete --all 2> /dev/null || true
         docker rm -f server client 2> /dev/null || true
         monitor_stop
 }
 
 trap cleanup EXIT
+cleanup
 
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
@@ -46,13 +48,14 @@ sleep 5
 set -x
 
 cat <<EOF | cilium -D policy import -
-{
-        "name": "root",
-	"rules": [{
-		"coverage": ["$SERVER_LABEL"],
-		"allow": ["$CLIENT_LABEL"]
-	}]
-}
+[{
+    "endpointSelector": ["${SERVER_LABEL}"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["${CLIENT_LABEL}"]
+	]
+    }]
+}]
 EOF
 
 cilium endpoint config ${CLIENT_ID} NAT46=true
@@ -67,4 +70,4 @@ function connectivity_test64() {
 }
 
 connectivity_test64
-cilium -D policy delete root
+cilium -D policy delete --all

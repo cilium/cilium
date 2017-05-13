@@ -8,6 +8,7 @@ TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
 function cleanup {
+	cilium policy delete --all 2> /dev/null || true
 	docker rm -f server client 2> /dev/null || true
 	monitor_stop
 }
@@ -64,4 +65,4 @@ ping6 -c 5 "$SERVER_IP" || {
 	abort "Error: Could not ping server container from host"
 }
 
-cilium -D policy delete root
+cilium policy delete --all
