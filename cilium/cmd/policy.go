@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/spf13/cobra"
 )
@@ -49,16 +49,6 @@ func init() {
 	}
 
 	RootCmd.AddCommand(policyCmd)
-}
-
-func prettyPrintPolicy(node *policy.Node) {
-	if node == nil {
-		fmt.Println("No policy loaded.")
-	} else if b, err := json.MarshalIndent(node, "", "  "); err != nil {
-		Fatalf("Cannot marshal response: %s", err)
-	} else {
-		fmt.Printf("%s\n", b)
-	}
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {
@@ -127,7 +117,7 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func loadPolicyFile(path string) (*policy.Node, error) {
+func loadPolicyFile(path string) (api.Rules, error) {
 	var content []byte
 	var err error
 	log.Debugf("Loading file %s", path)
@@ -142,16 +132,16 @@ func loadPolicyFile(path string) (*policy.Node, error) {
 		return nil, err
 	}
 
-	var policyNode policy.Node
-	err = json.Unmarshal(content, &policyNode)
+	var ruleList api.Rules
+	err = json.Unmarshal(content, &ruleList)
 	if err != nil {
 		return nil, handleUnmarshalError(path, content, err)
 	}
 
-	return &policyNode, nil
+	return ruleList, nil
 }
 
-func loadPolicy(name string) (*policy.Node, error) {
+func loadPolicy(name string) (api.Rules, error) {
 	log.Debugf("Entering directory %s...", name)
 
 	if name == "-" {
@@ -171,60 +161,57 @@ func loadPolicy(name string) (*policy.Node, error) {
 		return nil, err
 	}
 
-	var node *policy.Node
-
-	if err = processAllFilesFirst(name, &node, files); err != nil {
+	result := api.Rules{}
+	ruleList, err := processAllFilesFirst(name, files)
+	if err != nil {
 		return nil, err
 	}
+	result = append(result, ruleList...)
 
-	if err = recursiveSearch(name, node, files); err != nil {
+	ruleList, err = recursiveSearch(name, files)
+	if err != nil {
 		return nil, err
 	}
+	result = append(result, ruleList...)
 
 	log.Debugf("Leaving directory %s...", name)
 
-	return node, nil
+	return result, nil
 }
 
-func processAllFilesFirst(name string, node **policy.Node, files []os.FileInfo) error {
+func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
+	result := api.Rules{}
+
 	for _, f := range files {
 		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
 			continue
 		}
 
-		p, err := loadPolicyFile(filepath.Join(name, f.Name()))
+		ruleList, err := loadPolicyFile(filepath.Join(name, f.Name()))
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if *node != nil {
-			if _, err := (*node).Merge(p); err != nil {
-				return fmt.Errorf("Error: %s: %s", f.Name(), err)
-			}
-		} else {
-			*node = p
-		}
+
+		result = append(result, ruleList...)
 	}
-	return nil
+
+	return result, nil
 }
 
-func recursiveSearch(name string, node *policy.Node, files []os.FileInfo) error {
+func recursiveSearch(name string, files []os.FileInfo) (api.Rules, error) {
+	result := api.Rules{}
 	for _, f := range files {
 		if f.IsDir() {
 			if ignoredFile(path.Base(f.Name())) {
 				continue
 			}
 			subpath := filepath.Join(name, f.Name())
-			p, err := loadPolicy(subpath)
+			ruleList, err := loadPolicy(subpath)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if p.Name == "" {
-				return fmt.Errorf("Policy node import from %s did not derive a name",
-					subpath)
-			}
-
-			node.AddChild(p.Name, p)
+			result = append(result, ruleList...)
 		}
 	}
-	return nil
+	return result, nil
 }

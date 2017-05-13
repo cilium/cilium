@@ -19,9 +19,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PolicyPut inserts the `policyJSON` into the given `path`.
-func (c *Client) PolicyPut(path string, policyJSON string) (string, error) {
-	params := policy.NewPutPolicyPathParams().WithPath(path).WithPolicy(&policyJSON)
+// PolicyPut inserts the `policyJSON`
+func (c *Client) PolicyPut(policyJSON string) (string, error) {
+	params := policy.NewPutPolicyPathParams().WithPolicy(&policyJSON)
 	resp, err := c.Policy.PutPolicyPath(params)
 	if err != nil {
 		return "", err

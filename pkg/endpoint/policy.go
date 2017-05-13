@@ -41,10 +41,10 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 		return
 	}
 
-	switch owner.GetPolicyTree().AllowsRLocked(&ctx) {
-	case api.ACCEPT, api.ALWAYS_ACCEPT:
+	switch owner.GetPolicyRepository().AllowsRLocked(&ctx) {
+	case api.Allowed:
 		opts[opt] = "enabled"
-	case api.DENY:
+	case api.Denied:
 		opts[opt] = "disabled"
 	}
 }
@@ -74,8 +74,7 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 	log.Debugf("Evaluating policy for %+v", ctx)
 
-	decision := owner.GetPolicyTree().AllowsRLocked(ctx)
-	if decision == api.ACCEPT {
+	if owner.GetPolicyRepository().AllowsRLocked(ctx) == api.Allowed {
 		e.allowConsumer(owner, srcID)
 	}
 
@@ -154,7 +153,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	// Skip if policy for this consumable is already valid
 	//if c.Iteration == cache.Iteration {
-	//	tree.Mutex.RUnlock()
+	//	repo.Mutex.RUnlock()
 	//	log.Debugf("Reusing cached policy for identity %d", c.ID)
 	//	return false, nil
 	//}
@@ -174,10 +173,10 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 
-	tree := owner.GetPolicyTree()
-	tree.Mutex.Lock()
-	newL4policy := tree.ResolveL4Policy(&ctx)
-	defer tree.Mutex.Unlock()
+	repo := owner.GetPolicyRepository()
+	repo.Mutex.Lock()
+	newL4policy := repo.ResolveL4Policy(&ctx)
+	defer repo.Mutex.Unlock()
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -243,8 +242,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	}
 
 	opts := make(models.ConfigurationMap)
-	tree := owner.GetPolicyTree()
-	tree.Mutex.RLock()
+	repo := owner.GetPolicyRepository()
+	repo.Mutex.RLock()
 	e.Consumable.Mutex.RLock()
 
 	e.checkEgressAccess(owner, opts, policy.ID_HOST, OptionAllowToHost)
@@ -255,7 +254,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	}
 
 	e.Consumable.Mutex.RUnlock()
-	tree.Mutex.RUnlock()
+	repo.Mutex.RUnlock()
 
 	optsChanged := e.ApplyOptsLocked(opts)
 
@@ -400,14 +399,14 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 }
 
 func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
-	tree := owner.GetPolicyTree()
+	repo := owner.GetPolicyRepository()
 	cache := owner.GetConsumableCache()
 
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
 
-	tree.Mutex.Lock()
-	defer tree.Mutex.Unlock()
+	repo.Mutex.Lock()
+	defer repo.Mutex.Unlock()
 
 	if e.Consumable != nil {
 		if e.SecLabel != nil && id.ID == e.Consumable.ID {

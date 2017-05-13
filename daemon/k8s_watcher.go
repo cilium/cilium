@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/labels"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -143,31 +144,15 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy addition")
 		return
 	}
-	parentsPath, pn, err := k8s.ParseNetworkPolicy(k8sNP)
+	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
 	}
 
-	if err := d.PolicyAdd(parentsPath, pn); err != nil {
-		log.Errorf("Error while adding kubernetes network policy %+v: %s", pn, err)
+	if err := d.PolicyAdd(rules); err != nil {
+		log.Errorf("Error while adding kubernetes network policy %+v: %s", rules, err)
 		return
-	}
-
-	// Ensure that the k8s policy node has the IgnoreNameCoverage flag set
-	// All policy evaluations must enter this node
-	if parentsPath == k8s.DefaultPolicyParentPath {
-		d.policy.Mutex.Lock()
-		defer d.policy.Mutex.Unlock()
-
-		node, _ := d.policy.LookupLocked(parentsPath)
-		if node == nil {
-			log.Errorf("Inconsistent policy state. Unable to find parent node after adding k8s policy")
-			return
-		}
-
-		// Make sure that "root.k8s" always ignores name coverage
-		node.IgnoreNameCoverage = true
 	}
 
 	log.Infof("Kubernetes network policy '%s' successfully add", k8sNP.Name)
@@ -184,29 +169,12 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy deletion")
 		return
 	}
-	parentsPath, pn, err := k8s.ParseNetworkPolicy(k8sNP)
-	if err != nil {
-		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
-		return
-	}
-	if pn != nil {
-		parentsPath += "." + pn.Name
-	}
 
-	gotErrors := false
-	for _, rule := range pn.Rules {
-		coverageSHA256Sum, err := rule.CoverageSHA256Sum()
-		if err != nil {
-			log.Errorf("Error while deleting kubernetes network policy %+v: %s", pn, err)
-			gotErrors = true
-			continue
-		}
-		if err := d.PolicyDelete(parentsPath, coverageSHA256Sum); err != nil {
-			log.Errorf("Error while deleting kubernetes network policy %+v rule %+v: %s with ", pn, rule, err)
-			gotErrors = true
-		}
-	}
-	if !gotErrors {
+	labels := labels.ParseLabelArray(k8s.ExtractPolicyName(k8sNP))
+
+	if err := d.PolicyDelete(labels); err != nil {
+		log.Errorf("Error while deleting kubernetes network policy %+v: %s", labels, err)
+	} else {
 		log.Infof("Kubernetes network policy '%s' successfully removed", k8sNP.Name)
 	}
 }

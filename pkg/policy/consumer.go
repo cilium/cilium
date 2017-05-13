@@ -28,7 +28,7 @@ type Consumer struct {
 	ID           NumericIdentity
 	Reverse      *Consumer
 	DeletionMark bool
-	Decision     api.ConsumableDecision
+	Decision     api.Decision
 }
 
 func (c *Consumer) DeepCopy() *Consumer {
@@ -48,7 +48,7 @@ func (c *Consumer) StringID() string {
 }
 
 func NewConsumer(id NumericIdentity) *Consumer {
-	return &Consumer{ID: id, Decision: api.ACCEPT}
+	return &Consumer{ID: id, Decision: api.Allowed}
 }
 
 // Consumable is the entity that is being consumed by a Consumer.
@@ -297,5 +297,5 @@ func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
 	consumer := c.getConsumer(id)
 	c.Mutex.RUnlock()
-	return consumer != nil && consumer.Decision == api.ACCEPT
+	return consumer != nil && consumer.Decision == api.Allowed
 }

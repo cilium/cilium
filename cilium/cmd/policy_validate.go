@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -27,14 +28,17 @@ var policyValidateCmd = &cobra.Command{
 	PreRun: requirePath,
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
-		if node, err := loadPolicy(path); err != nil {
+		if ruleList, err := loadPolicy(path); err != nil {
 			Fatalf("Validation of policy has failed: %s\n", err)
 		} else {
 			fmt.Printf("All policy elements are valid.\n")
 
 			if printPolicy {
-				fmt.Printf("%s\n", node.DebugString(1))
-				prettyPrintPolicy(node)
+				jsonPolicy, err := json.MarshalIndent(ruleList, "", "  ")
+				if err != nil {
+					Fatalf("Cannot marshal policy: %s\n", err)
+				}
+				fmt.Printf("%s", string(jsonPolicy))
 			}
 		}
 	},

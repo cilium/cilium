@@ -132,7 +132,6 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	err := json.Unmarshal([]byte(longLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, "kubernetes")
-	c.Assert(label.AbsoluteKey(), Equals, "root.io.kubernetes.pod.name")
 	c.Assert(label.Value, Equals, "foo")
 
 	label = Label{}
@@ -143,7 +142,6 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
 	c.Assert(label.Source, Equals, common.CiliumLabelSource)
-	c.Assert(label.AbsoluteKey(), Equals, "root.web")
 	c.Assert(label.Value, Equals, "")
 
 	label = Label{}

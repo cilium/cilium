@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -89,22 +88,14 @@ func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 	}
 }
 
-// LabelOwner represents owner of the label.
-type LabelOwner interface {
-	ResolveName(name string) string
-}
-
 // Label is the cilium's representation of a container label.
 type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 	// Source can be on of the values present in const.go (e.g.: CiliumLabelSource)
-	Source   string       `json:"source"`
-	absKeyMU sync.RWMutex // absKeyMU protects the absKey variable
-	absKey   string
+	Source string `json:"source"`
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`
-	owner        LabelOwner
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
@@ -136,14 +127,11 @@ func (l Labels) DeleteMarked() bool {
 func (l Labels) AppendPrefixInKey(prefix string) Labels {
 	newLabels := Labels{}
 	for k, v := range l {
-		v.absKeyMU.RLock()
 		newLabels[prefix+k] = &Label{
 			Key:    prefix + v.Key,
 			Value:  v.Value,
 			Source: v.Source,
-			absKey: v.absKey,
 		}
-		v.absKeyMU.RUnlock()
 	}
 	return newLabels
 }
@@ -178,31 +166,13 @@ func NewLabel(key string, value string, source string) *Label {
 // DeepCopy returns a Deep copy of the receiver's label.
 func (l *Label) DeepCopy() *Label {
 	ret := NewLabel(l.Key, l.Value, l.Source)
-	l.absKeyMU.RLock()
-	ret.absKey = l.absKey
-	l.absKeyMU.RUnlock()
 	ret.DeletionMark = l.DeletionMark
-	ret.owner = l.owner
 	return ret
-}
-
-// NewOwnedLabel returns a new label like NewLabel but also assigns an owner
-func NewOwnedLabel(key string, value string, source string, owner LabelOwner) *Label {
-	l := NewLabel(key, value, source)
-	l.SetOwner(owner)
-	return l
-}
-
-// SetOwner modifies the owner of a label
-func (l *Label) SetOwner(owner LabelOwner) {
-	l.owner = owner
 }
 
 // Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
-	return l.Source == b.Source &&
-		l.AbsoluteKey() == b.AbsoluteKey() &&
-		l.Value == b.Value
+	return l.Source == b.Source && l.Key == b.Key && l.Value == b.Value
 }
 
 // IsAllLabel returns true if the label is reserved and matches with IDNameAll.
@@ -213,37 +183,6 @@ func (l *Label) IsAllLabel() bool {
 // Matches returns true if it's a special label or the label equals the target.
 func (l *Label) Matches(target *Label) bool {
 	return l.IsAllLabel() || l.Equals(target)
-}
-
-// Resolve resolves the absolute key path for this Label from policyNode.
-func (l *Label) Resolve(owner LabelOwner) {
-	l.SetOwner(owner)
-
-	// Force generation of absolute key
-	absKey := l.AbsoluteKey()
-
-	log.Debugf("Resolved label %s to path %s\n", l.String(), absKey)
-}
-
-// AbsoluteKey if set returns the absolute key path, otherwise returns the label's Key.
-func (l *Label) AbsoluteKey() string {
-	l.absKeyMU.Lock()
-	defer l.absKeyMU.Unlock()
-	if l.absKey == "" {
-		// Never translate using an owner if a reserved label
-		if l.owner != nil && l.Source != common.ReservedLabelSource &&
-			!strings.HasPrefix(l.Key, common.K8sPodNamespaceLabel) {
-			l.absKey = l.owner.ResolveName(l.Key)
-		} else {
-			if !strings.HasPrefix(l.Key, "root.") {
-				l.absKey = "root." + l.Key
-			} else {
-				l.absKey = l.Key
-			}
-		}
-	}
-
-	return l.absKey
 }
 
 // String returns the string representation of Label in the for of Source:Key=Value or
@@ -328,14 +267,11 @@ func Map2Labels(m map[string]string, source string) Labels {
 func (l Labels) DeepCopy() Labels {
 	o := Labels{}
 	for k, v := range l {
-		v.absKeyMU.RLock()
 		o[k] = &Label{
 			Key:    v.Key,
 			Value:  v.Value,
 			Source: v.Source,
-			absKey: v.absKey,
 		}
-		v.absKeyMU.RUnlock()
 	}
 	return o
 }

@@ -37,8 +37,8 @@ type Owner interface {
 	// Must resolve label id to an identiy
 	GetCachedLabelList(ID policy.NumericIdentity) ([]*labels.Label, error)
 
-	// Must return the policy tree object
-	GetPolicyTree() *policy.Tree
+	// Must return the policy repository
+	GetPolicyRepository() *policy.Repository
 
 	// Return the next available global identity
 	GetCachedMaxLabelID() (policy.NumericIdentity, error)

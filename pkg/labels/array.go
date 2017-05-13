@@ -43,9 +43,19 @@ nextLabel:
 	return true
 }
 
-// Resolve resolves all labels in the array by calling Resolve() on each label
-func (ls LabelArray) Resolve(owner LabelOwner) {
-	for _, l := range ls {
-		l.Resolve(owner)
+// Lacks is identical to Contains but returns all missing labels
+func (ls LabelArray) Lacks(needed LabelArray) LabelArray {
+	missing := LabelArray{}
+nextLabel:
+	for _, neededLabel := range needed {
+		for _, l := range ls {
+			if neededLabel.Matches(l) {
+				continue nextLabel
+			}
+		}
+
+		missing = append(missing, neededLabel)
 	}
+
+	return missing
 }

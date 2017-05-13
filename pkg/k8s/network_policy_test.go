@@ -61,8 +61,8 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 					Ports: []v1beta1.NetworkPolicyPort{
 						{
 							Port: &intstr.IntOrString{
-								Type:   intstr.String,
-								StrVal: "http",
+								Type:   intstr.Int,
+								IntVal: 80,
 							},
 						},
 					},
@@ -71,11 +71,9 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		},
 	}
 
-	parent, node, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, IsNil)
-	c.Assert(parent, Equals, DefaultPolicyParentPath)
-	c.Assert(node, Not(IsNil))
-	c.Assert(node.IgnoreNameCoverage, Equals, true)
+	c.Assert(len(rules), Equals, 1)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -88,13 +86,15 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
-	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
 
-	result := policy.NewL4Policy()
-	node.ResolveL4Policy(&ctx, result)
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+
+	result := repo.ResolveL4Policy(&ctx)
 	c.Assert(result, DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
-			"tcp:80": policy.L4Filter{
+			"80/tcp": policy.L4Filter{
 				Port: 80, Protocol: "tcp", L7Parser: "",
 				L7RedirectPort: 0, L7Rules: []policy.AuxRule(nil),
 			},
@@ -121,10 +121,9 @@ func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 		},
 	}
 
-	parent, node, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, Not(IsNil))
-	c.Assert(parent, Equals, "")
-	c.Assert(node, IsNil)
+	c.Assert(len(rules), Equals, 0)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
@@ -142,10 +141,9 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 		},
 	}
 
-	parent, node, err := ParseNetworkPolicy(netPolicy1)
+	rules, err := ParseNetworkPolicy(netPolicy1)
 	c.Assert(err, IsNil)
-	c.Assert(parent, Equals, DefaultPolicyParentPath)
-	c.Assert(node, Not(IsNil))
+	c.Assert(len(rules), Equals, 1)
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -156,7 +154,10 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
-	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
+
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 
 	// Empty From rules, all sources should be allowed
 	netPolicy2 := &v1beta1.NetworkPolicy{
@@ -175,11 +176,12 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 		},
 	}
 
-	parent, node, err = ParseNetworkPolicy(netPolicy2)
+	rules, err = ParseNetworkPolicy(netPolicy2)
 	c.Assert(err, IsNil)
-	c.Assert(parent, Equals, DefaultPolicyParentPath)
-	c.Assert(node, Not(IsNil))
-	c.Assert(node.Allows(&ctx), Equals, api.ALWAYS_ACCEPT)
+	c.Assert(len(rules), Equals, 1)
+	repo = policy.NewPolicyRepository()
+	repo.AddList(rules)
+	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
@@ -194,8 +196,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 		},
 	}
 
-	parent, node, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, IsNil)
-	c.Assert(parent, Equals, DefaultPolicyParentPath)
-	c.Assert(node, Not(IsNil))
+	c.Assert(len(rules), Equals, 1)
 }
