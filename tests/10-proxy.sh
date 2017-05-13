@@ -44,6 +44,41 @@ cat <<EOF | cilium -D policy import -
     "ingress": [{
         "fromEndpoints": [
 	    ["reserved:host"], ["id.client"]
+	],
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+}]
+EOF
+
+sleep 2
+
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
+if [[ "${RETURN//$'\n'}" != "200" ]]; then
+	abort "GET /public, unexpected return"
+fi
+
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
+if [[ "${RETURN//$'\n'}" != "403" ]]; then
+	abort "GET /private, unexpected return"
+fi
+
+cilium policy delete --all
+
+cilium policy delete --all
+cat <<EOF | cilium -D policy import -
+[{
+    "endpointSelector": ["id.server"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["reserved:host"], ["id.client"]
 	]
     }]
 },{
