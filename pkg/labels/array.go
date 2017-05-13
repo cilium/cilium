@@ -17,6 +17,15 @@ package labels
 // LabelArray is an array of labels forming a set
 type LabelArray []*Label
 
+// ParseLabelArray parses a list of labels and returns a LabelArray
+func ParseLabelArray(labels ...string) LabelArray {
+	array := make([]*Label, len(labels))
+	for i := range labels {
+		array[i] = ParseLabel(labels[i])
+	}
+	return array
+}
+
 // Contains returns true if all ls contains all the labels in needed. If
 // needed contains no labels, Contains() will always return true
 func (ls LabelArray) Contains(needed LabelArray) bool {
