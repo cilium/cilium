@@ -102,6 +102,16 @@ var ctStateText = map[uint32]string{
 	CtRelated:     "Related",
 }
 
+const (
+	ctEgress  = 0
+	ctIngress = 1
+)
+
+var ctDirection = map[int]string{
+	ctEgress:  "egress",
+	ctIngress: "ingress",
+}
+
 func ctState(state uint32) string {
 	txt, ok := ctStateText[state]
 	if ok {
@@ -211,7 +221,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgRevProxyUpdate:
 		fmt.Printf("Reverse proxy updated, %s\n", proxyInfo(n.Arg1, n.Arg2))
 	case DbgL4Policy:
-		fmt.Printf("Resolved L4 policy to: %d / %d\n", common.Swab16(uint16(n.Arg1)), n.Arg2)
+		fmt.Printf("Resolved L4 policy to: %d / %s\n",
+			common.Swab16(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
