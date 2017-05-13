@@ -129,6 +129,12 @@ func ctInfo(arg1 uint32, arg2 uint32) string {
 		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
 }
 
+func verdictInfo(arg uint32) string {
+	proxyPort := common.Swab16(uint16(arg >> 16))
+	revnat := common.Swab16(uint16(arg & 0xFFFF))
+	return fmt.Sprintf("proxy_port=%d revnat=%d", proxyPort, revnat)
+}
+
 func proxyInfo(arg1 uint32, arg2 uint32) string {
 	sport := common.Swab16(uint16(arg1 >> 16))
 	dport := common.Swab16(uint16(arg1 & 0xFFFF))
@@ -174,13 +180,16 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgCtLookup4:
 		fmt.Printf("CT lookup address: %s\n", ip4Str(n.Arg1))
 	case DbgCtMatch:
-		fmt.Printf("CT entry found lifetime=%d, revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+		fmt.Printf("CT entry found lifetime=%d, %s\n", n.Arg1,
+			verdictInfo(n.Arg2))
 	case DbgCtCreated:
-		fmt.Printf("CT created 1/2: %s\n", ctInfo(n.Arg1, n.Arg2))
+		fmt.Printf("CT created 1/2: %s %s\n",
+			ctInfo(n.Arg1, n.Arg2), verdictInfo(n.Arg3))
 	case DbgCtCreated2:
 		fmt.Printf("CT created 2/2: %s revnat=%d\n", ip4Str(n.Arg1), common.Swab16(uint16(n.Arg2)))
 	case DbgCtVerdict:
-		fmt.Printf("CT verdict: %s\n", ctState(n.Arg1))
+		fmt.Printf("CT verdict: %s, %s\n",
+			ctState(n.Arg1), verdictInfo(n.Arg2))
 	case DbgIcmp6Handle:
 		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
 	case DbgIcmp6Request:

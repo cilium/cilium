@@ -56,7 +56,8 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
-		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
+		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime,
+			entry->proxy_port << 16 | entry->rev_nat_index);
 		entry->lifetime = CT_DEFAULT_LIFEIME;
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
@@ -260,7 +261,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		ret = DROP_CT_CANT_CREATE;
 
 out:
-	cilium_trace(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, 0);
+	cilium_trace(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret,
+		ct_state->proxy_port << 16 | ct_state->rev_nat_index);
 	return ret;
 }
 
@@ -410,7 +412,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		ret = DROP_CT_CANT_CREATE;
 
 out:
-	cilium_trace(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, 0);
+	cilium_trace(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret,
+		ct_state->proxy_port << 16 | ct_state->rev_nat_index);
 	return ret;
 }
 
@@ -480,8 +483,9 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.proxy_port = proxy_port;
 
-	cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace3(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
+		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags,
+		     entry.proxy_port << 16 | entry.rev_nat_index);
 #ifdef CONNTRACK_LOCAL
 	addr_p4 = tuple->addr.p4;
 #else
@@ -577,8 +581,9 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.nat46 = dir == CT_EGRESS;
 #endif
 
-	cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace3(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
+		      bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags,
+		      entry.proxy_port << 16 | entry.rev_nat_index);
 #ifdef CONNTRACK_LOCAL
 	addr = tuple->addr;
 #else
