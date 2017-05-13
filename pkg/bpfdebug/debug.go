@@ -149,6 +149,7 @@ type DebugMsg struct {
 	Hash    uint32
 	Arg1    uint32
 	Arg2    uint32
+	Arg3    uint32
 }
 
 // Dump prints the debug message in a human readable format.
