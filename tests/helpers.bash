@@ -27,7 +27,7 @@ function monitor_dump {
 
 function monitor_stop {
 	if [ ! -z "$MONITOR_PID" ]; then
-		kill $MONITOR_PID
+		kill $MONITOR_PID || true
 	fi
 }
 
