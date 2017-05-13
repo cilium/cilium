@@ -120,7 +120,8 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
-	cilium_trace(skb, DBG_REV_PROXY_UPDATE, key.sport << 16 | key.dport, key.saddr);
+	cilium_trace3(skb, DBG_REV_PROXY_UPDATE,
+		     key.sport << 16 | key.dport, key.saddr, key.nexthdr);
 	if (map_update_elem(&cilium_proxy4, &key, &value, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 

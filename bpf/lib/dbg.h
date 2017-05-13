@@ -27,6 +27,7 @@ enum {
 	DBG_LXC_FOUND,
 	DBG_POLICY_DENIED,
 	DBG_CT_LOOKUP,
+	DBG_CT_LOOKUP_REV,
 	DBG_CT_MATCH,
 	DBG_CT_CREATED,
 	DBG_CT_CREATED2,
@@ -96,7 +97,7 @@ struct debug_msg {
 	NOTIFY_COMMON_HDR
 	__u32		arg1;
 	__u32		arg2;
-	__u32		pad;
+	__u32		arg3;
 };
 
 struct debug_capture_msg {
@@ -116,6 +117,23 @@ static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __
 		.hash = hash,
 		.arg1 = arg1,
 		.arg2 = arg2,
+	};
+
+	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
+}
+
+static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
+				 __u32 arg2, __u32 arg3)
+{
+	uint32_t hash = get_hash_recalc(skb);
+	struct debug_msg msg = {
+		.type = CILIUM_NOTIFY_DBG_MSG,
+		.subtype = type,
+		.source = EVENT_SOURCE,
+		.hash = hash,
+		.arg1 = arg1,
+		.arg2 = arg2,
+		.arg3 = arg3,
 	};
 
 	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
@@ -145,6 +163,11 @@ static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 
 		do { } while (0)
 
 static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+{
+}
+
+static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
+				 __u32 arg2, __u32 arg3)
 {
 }
 

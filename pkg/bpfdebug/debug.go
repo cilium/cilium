@@ -15,7 +15,9 @@
 package bpfdebug
 
 import (
+	"encoding/binary"
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/common"
 )
@@ -51,6 +53,7 @@ const (
 	DbgLxcFound
 	DbgPolicyDenied
 	DbgCtLookup
+	DbgCtLookupRev
 	DbgCtMatch
 	DbgCtCreated
 	DbgCtCreated2
@@ -102,6 +105,16 @@ var ctStateText = map[uint32]string{
 	CtRelated:     "Related",
 }
 
+const (
+	CtEgress  = 0
+	CtIngress = 1
+)
+
+var ctDirection = map[int]string{
+	CtEgress:  "egress",
+	CtIngress: "ingress",
+}
+
 func ctState(state uint32) string {
 	txt, ok := ctStateText[state]
 	if ok {
@@ -119,7 +132,14 @@ func ctInfo(arg1 uint32, arg2 uint32) string {
 func proxyInfo(arg1 uint32, arg2 uint32) string {
 	sport := common.Swab16(uint16(arg1 >> 16))
 	dport := common.Swab16(uint16(arg1 & 0xFFFF))
-	return fmt.Sprintf("sport=%d dport=%d saddr=%x", sport, dport, arg2)
+	return fmt.Sprintf("sport=%d dport=%d saddr=%s", sport, dport, ip4Str(arg2))
+}
+
+func ip4Str(arg1 uint32) string {
+	ip := make(net.IP, 4)
+	binary.LittleEndian.PutUint32(ip, arg1)
+	return ip.String()
+
 }
 
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
@@ -130,6 +150,7 @@ type DebugMsg struct {
 	Hash    uint32
 	Arg1    uint32
 	Arg2    uint32
+	Arg3    uint32
 }
 
 // Dump prints the debug message in a human readable format.
@@ -148,14 +169,16 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Policy evaluation would deny packet from %d to %d\n", n.Arg1, n.Arg2)
 	case DbgCtLookup:
 		fmt.Printf("CT lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
+	case DbgCtLookupRev:
+		fmt.Printf("CT reverse lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
 	case DbgCtLookup4:
-		fmt.Printf("CT lookup address: %x\n", n.Arg1)
+		fmt.Printf("CT lookup address: %s\n", ip4Str(n.Arg1))
 	case DbgCtMatch:
 		fmt.Printf("CT entry found lifetime=%d, revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DbgCtCreated:
 		fmt.Printf("CT created 1/2: %s\n", ctInfo(n.Arg1, n.Arg2))
 	case DbgCtCreated2:
-		fmt.Printf("CT created 2/2: %x revnat=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+		fmt.Printf("CT created 2/2: %s revnat=%d\n", ip4Str(n.Arg1), common.Swab16(uint16(n.Arg2)))
 	case DbgCtVerdict:
 		fmt.Printf("CT verdict: %s\n", ctState(n.Arg1))
 	case DbgIcmp6Handle:
@@ -193,25 +216,28 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgLb6ReverseNat:
 		fmt.Printf("Performing reverse NAT, address.p4=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
 	case DbgLb4LookupMaster:
-		fmt.Printf("Master service lookup, addr=%x key.dport=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+		fmt.Printf("Master service lookup, addr=%s key.dport=%d\n", ip4Str(n.Arg1), common.Swab16(uint16(n.Arg2)))
 	case DbgLb4LookupMasterFail:
 		fmt.Printf("Master service lookup failed\n")
 	case DbgLb4LookupSlaveSuccess:
-		fmt.Printf("Slave service lookup result: target=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+		fmt.Printf("Slave service lookup result: target=%s port=%d\n", ip4Str(n.Arg1), common.Swab16(uint16(n.Arg2)))
 	case DbgLb4ReverseNat:
-		fmt.Printf("Performing reverse NAT, address=%x port=%d\n", n.Arg1, common.Swab16(uint16(n.Arg2)))
+		fmt.Printf("Performing reverse NAT, address=%s port=%d\n", ip4Str(n.Arg1), common.Swab16(uint16(n.Arg2)))
 	case DbgLb4LoopbackSnat:
-		fmt.Printf("Loopback SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
+		fmt.Printf("Loopback SNAT from=%s to=%s\n", ip4Str(n.Arg1), ip4Str(n.Arg2))
 	case DbgLb4LoopbackSnatRev:
-		fmt.Printf("Loopback reverse SNAT from=%x to=%x\n", n.Arg1, n.Arg2)
+		fmt.Printf("Loopback reverse SNAT from=%s to=%s\n", ip4Str(n.Arg1), ip4Str(n.Arg2))
 	case DbgRevProxyLookup:
-		fmt.Printf("Reverse proxy lookup, %s\n", proxyInfo(n.Arg1, n.Arg2))
+		fmt.Printf("Reverse proxy lookup %s nexthdr=%d\n",
+			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgRevProxyFound:
-		fmt.Printf("Reverse proxy entry found, orig-daddr=%x orig-dport=%d\n", n.Arg1, n.Arg2)
+		fmt.Printf("Reverse proxy entry found, orig-daddr=%s orig-dport=%d\n", ip4Str(n.Arg1), n.Arg2)
 	case DbgRevProxyUpdate:
-		fmt.Printf("Reverse proxy updated, %s\n", proxyInfo(n.Arg1, n.Arg2))
+		fmt.Printf("Reverse proxy updated %s nexthdr=%d\n",
+			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgL4Policy:
-		fmt.Printf("Resolved L4 policy to: %d / %d\n", common.Swab16(uint16(n.Arg1)), n.Arg2)
+		fmt.Printf("Resolved L4 policy to: %d / %s\n",
+			common.Swab16(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
