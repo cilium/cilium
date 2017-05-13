@@ -234,7 +234,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * This will find an existing flow in the reverse direction.
 	 * The reverse direction is the one where reverse nat index is stored.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
+	cilium_trace(skb, DBG_CT_LOOKUP_REV, (bpf_ntohs(tuple->sport) << 16) |
 		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
@@ -381,7 +381,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 *
 	 * This will find an existing flow in the reverse direction.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
+	cilium_trace(skb, DBG_CT_LOOKUP_REV, (bpf_ntohs(tuple->sport) << 16) |
 		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 #ifdef CONNTRACK_LOCAL
 	addr = tuple->addr;
