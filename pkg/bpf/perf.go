@@ -224,8 +224,7 @@ type PerfEventLost struct {
 
 func (e *PerfEventSample) DataDirect() []byte {
 	// http://stackoverflow.com/questions/27532523/how-to-convert-1024c-char-to-1024byte
-	size := e.Size - 4
-	return (*[1 << 30]byte)(unsafe.Pointer(&e.data))[:int(size):int(size)]
+	return (*[1 << 30]byte)(unsafe.Pointer(&e.data))[:int(e.Size):int(e.Size)]
 }
 
 func (e *PerfEventSample) DataCopy() []byte {
