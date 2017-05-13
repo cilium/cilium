@@ -1950,7 +1950,7 @@ Ubuntu 17.04
 ::
 
 	sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
-	clang gcc-multilib llvm libncurses5-dev
+	clang gcc-multilib llvm libncurses5-dev git
 
 Compiling the kernel
 --------------------
