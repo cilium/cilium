@@ -532,6 +532,12 @@ func (e *Endpoint) String() string {
 	return string(b)
 }
 
+// PolicyID returns an identifier for the endpoint's policy. Must be called
+// with the endpoint's lock held.
+func (e *Endpoint) PolicyID() string {
+	return fmt.Sprintf("Policy ID %d", e.ID)
+}
+
 func OptionChanged(key string, value bool, data interface{}) {
 	e := data.(*Endpoint)
 	switch key {

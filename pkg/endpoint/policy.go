@@ -69,10 +69,11 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 	// Skip currently unused IDs
 	if ctx.From == nil || len(ctx.From) == 0 {
+		log.Debugf("[%s] Ignoring unused ID %v", e.PolicyID(), ctx)
 		return nil
 	}
 
-	log.Debugf("Evaluating policy for %+v", ctx)
+	log.Debugf("[%s] Evaluating context %+v", e.PolicyID(), ctx)
 
 	if owner.GetPolicyRepository().AllowsRLocked(ctx) == api.Allowed {
 		e.allowConsumer(owner, srcID)
@@ -145,7 +146,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	// Containers without a security label are not accessible
 	if c.ID == 0 {
-		log.Fatalf("BUG: Endpoints lacks identity")
+		log.Fatalf("[%s] BUG: Endpoints lacks identity", e.PolicyID())
 		return false, nil
 	}
 
@@ -193,7 +194,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	c.L4Policy = newL4policy
 
 	if newL4policy.HasRedirect() {
-		log.Debugf("Endpoint %d interacts with proxy, allowing localhost", e.ID)
+		log.Debugf("[%s] Interaction with proxy, allowing localhost", e.PolicyID())
 		e.allowConsumer(owner, policy.ID_HOST)
 	}
 
@@ -203,17 +204,19 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		if err := e.evaluateConsumerSource(owner, &ctx, id); err != nil {
 			// This should never really happen
 			// FIXME: clear policy because it is inconsistent
-			log.Debugf("Received error while evaluating policy: %s", err)
+			log.Debugf("[%s] Received error while evaluating policy: %s",
+				e.PolicyID(), err)
 		}
 	}
 
 	// Iterate over all possible assigned search contexts
 	idx := policy.MinimalNumericIdentity
-	log.Debugf("Policy eval from %+v to %+v", idx, maxID)
+	log.Debugf("[%s] Eval ID range %+v-%+v", e.PolicyID(), idx, maxID)
 	for idx < maxID {
 		if err := e.evaluateConsumerSource(owner, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent
-			log.Debugf("Received error while evaluating policy: %s", err)
+			log.Debugf("[%s] Received error while evaluating policy: %s",
+				e.PolicyID(), err)
 		}
 		idx++
 	}
@@ -229,13 +232,16 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	// Result is valid until cache iteration advances
 	c.Iteration = cache.GetIteration()
 
-	log.Debugf("New policy (iteration %d) for consumable %d: %+v\n", c.Iteration, c.ID, c.Consumers)
+	log.Debugf("[%s] Iteration %d: new consumable %d, consumers = %+v\n",
+		e.PolicyID(), c.Iteration, c.ID, c.Consumers)
 
 	// FIXME: Optimize this and only return true if L4 policy changed
 	return true, nil
 }
 
 func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
+	log.Debugf("[%s] Starting regenerate...", e.PolicyID())
+
 	policyChanged, err := e.regenerateConsumable(owner)
 	if err != nil {
 		return false, err
@@ -264,6 +270,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		// calculation has been performed
 		policyChanged = true
 	}
+
+	log.Debugf("[%s] Done regenerating policyChanged=%v optsChanged=%v",
+		e.PolicyID(), policyChanged, optsChanged)
 
 	return policyChanged || optsChanged, nil
 }
@@ -389,6 +398,8 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 // TriggerPolicyUpdates indicates that a policy change is likely to
 // affect this endpoint. Will update all required endpoint configuration and
 // state to reflect new policy and regenerate programs if required.
+//
+// Returns true if policy was changed and endpoints needs to be rebuilt
 func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
