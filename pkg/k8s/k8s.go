@@ -41,6 +41,13 @@ const (
 	EnvNodeNameSpec = "K8S_NODE_NAME"
 )
 
+// Cilium policy labels
+const (
+	// PolicyLabelName is the name of the policy label which refers to the
+	// k8s policy name
+	PolicyLabelName = "io.cilium.k8s-policy-name"
+)
+
 // CreateClient creates a new client to access the Kubernetes API
 func CreateClient(endpoint, kubeCfgPath string) (*kubernetes.Clientset, error) {
 	var (

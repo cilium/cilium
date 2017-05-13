@@ -102,7 +102,7 @@ func listMap(cmd *cobra.Command, args []string) {
 	}
 	for _, stat := range statsMap {
 		id := policy.NumericIdentity(stat.ID)
-		act := api.ConsumableDecision(stat.Action)
+		act := api.Decision(stat.Action)
 		if printIDs {
 			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil {

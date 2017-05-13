@@ -18,14 +18,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
@@ -38,68 +36,47 @@ var (
 )
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
-	lblProd := labels.NewLabel("root.Prod", "", common.CiliumLabelSource)
-	lblQA := labels.NewLabel("root.QA", "", common.CiliumLabelSource)
-	lblFoo := labels.NewLabel("root.foo", "", common.CiliumLabelSource)
-	lblBar := labels.NewLabel("root.bar", "", common.CiliumLabelSource)
-	lblJoe := labels.NewLabel("root.user", "joe", common.CiliumLabelSource)
-	lblPete := labels.NewLabel("root.user", "pete", common.CiliumLabelSource)
+	lblProd := labels.ParseLabel("Prod")
+	lblQA := labels.ParseLabel("QA")
+	lblFoo := labels.ParseLabel("foo")
+	lblBar := labels.ParseLabel("bar")
+	lblJoe := labels.ParseLabel("user=joe")
+	lblPete := labels.ParseLabel("user=pete")
 
-	rootNode := policy.Node{
-		Name: "root",
-		Rules: []policy.PolicyRule{
-			&policy.RuleConsumers{
-				RuleBase: policy.RuleBase{Coverage: labels.LabelArray{lblBar}},
-				Allow: []*policy.AllowRule{
-					// always-allow: user=joe
-					{
-						Action: api.ALWAYS_ACCEPT,
-						Labels: labels.LabelArray{lblJoe},
-					},
-					// allow:  user=pete
-					{
-						Action: api.ACCEPT,
-						Labels: labels.LabelArray{lblPete},
+	rules := api.Rules{
+		{
+			EndpointSelector: api.EndpointSelector{lblBar},
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{
+						{lblJoe}, {lblPete}, {lblFoo},
 					},
 				},
 			},
-			&policy.RuleRequires{ // coverage qa, requires qa
-				RuleBase: policy.RuleBase{Coverage: labels.LabelArray{lblQA}},
-				Requires: []*labels.Label{lblQA},
-			},
-			&policy.RuleRequires{ // coverage prod, requires: prod
-				RuleBase: policy.RuleBase{Coverage: labels.LabelArray{lblProd}},
-				Requires: []*labels.Label{lblProd},
+		},
+		{
+			EndpointSelector: api.EndpointSelector{lblQA},
+			Ingress: []api.IngressRule{
+				{
+					FromRequires: []api.EndpointSelector{
+						{lblQA},
+					},
+				},
 			},
 		},
-		Children: map[string]*policy.Node{
-			"foo": {},
-			"bar": {
-				Rules: []policy.PolicyRule{
-					&policy.RuleConsumers{
-						Allow: []*policy.AllowRule{
-							{ // allow: foo
-								Action: api.ACCEPT,
-								Labels: labels.LabelArray{lblFoo},
-							},
-							{
-								Action: api.DENY,
-								Labels: labels.LabelArray{lblJoe},
-							},
-							{
-								Action: api.DENY,
-								Labels: labels.LabelArray{lblPete},
-							},
-						},
+		{
+			EndpointSelector: api.EndpointSelector{lblProd},
+			Ingress: []api.IngressRule{
+				{
+					FromRequires: []api.EndpointSelector{
+						{lblProd},
 					},
 				},
 			},
 		},
 	}
 
-	c.Assert(rootNode.ResolveTree(), IsNil)
-
-	err3 := ds.d.PolicyAdd("root", &rootNode)
+	err3 := ds.d.PolicyAdd(rules)
 	c.Assert(err3, Equals, nilAPIError)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -148,7 +125,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
 	e = endpoint.Endpoint{
 		ID:      1,
@@ -169,7 +145,4 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
-
-	err = ds.d.PolicyDelete("root", "")
-	c.Assert(err, IsNil)
 }
