@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetPolicyOKCode is the HTTP code returned for type GetPolicyOK
+// HTTP code for type GetPolicyOK
 const GetPolicyOKCode int = 200
 
 /*GetPolicyOK Success
@@ -51,4 +51,25 @@ func (o *GetPolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pro
 		panic(err) // let the recovery middleware deal with this
 	}
 
+}
+
+// HTTP code for type GetPolicyNotFound
+const GetPolicyNotFoundCode int = 404
+
+/*GetPolicyNotFound No policy rules found
+
+swagger:response getPolicyNotFound
+*/
+type GetPolicyNotFound struct {
+}
+
+// NewGetPolicyNotFound creates GetPolicyNotFound with default headers values
+func NewGetPolicyNotFound() *GetPolicyNotFound {
+	return &GetPolicyNotFound{}
+}
+
+// WriteResponse to the client
+func (o *GetPolicyNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(404)
 }

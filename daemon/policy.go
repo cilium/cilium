@@ -203,7 +203,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules) *apierror.APIError {
 
 	for _, r := range rules {
 		if err := r.Validate(); err != nil {
-			return apierror.Error(PutPolicyPathFailureCode, err)
+			return apierror.Error(PutPolicyFailureCode, err)
 		}
 	}
 
@@ -213,7 +213,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules) *apierror.APIError {
 	}
 
 	if err := d.policy.AddList(rules); err != nil {
-		return apierror.Error(PutPolicyPathFailureCode, err)
+		return apierror.Error(PutPolicyFailureCode, err)
 	}
 
 	log.Info("New policy imported, regenerating...")
@@ -227,99 +227,85 @@ func (d *Daemon) PolicyAdd(rules api.Rules) *apierror.APIError {
 // rule from the node. If the path's node becomes ruleless it is removed from
 // the tree.
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) *apierror.APIError {
-	//log.Debugf("Policy Delete Request: %s, cover256Sum %s", path, cover256Sum)
 	log.Debugf("Policy Delete Request: %+v", labels)
 
-	//if cover256Sum != "" && len(cover256Sum) != policy.CoverageSHASize {
-	//	return apierror.New(DeletePolicyPathInvalidCode,
-	//		"invalid length of hash, must be %d", policy.CoverageSHASize)
-	//}
-
-	if d.policy.DeleteByLabels(labels) == 0 {
-		return apierror.New(DeletePolicyPathNotFoundCode, "policy not found")
+	// An error is only returned if a label filter was provided and then
+	// not found A deletion request for all policy entries if no policied
+	// are loaded should not fail.
+	if d.policy.DeleteByLabels(labels) == 0 && len(labels) != 0 {
+		return apierror.New(DeletePolicyNotFoundCode, "policy not found")
 	}
 
 	d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 	return nil
 }
 
-type deletePolicyPath struct {
+type deletePolicy struct {
 	daemon *Daemon
 }
 
-func NewDeletePolicyPathHandler(d *Daemon) DeletePolicyPathHandler {
-	return &deletePolicyPath{daemon: d}
+func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
+	return &deletePolicy{daemon: d}
 }
 
-func (h *deletePolicyPath) Handle(params DeletePolicyPathParams) middleware.Responder {
+func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	d := h.daemon
-	// FIXME
-	if err := d.PolicyDelete(labels.LabelArray{}); err != nil {
-		return apierror.Error(DeletePolicyPathFailureCode, err)
+	lbls := labels.ParseLabelArrayFromArray(params.Labels)
+	if err := d.PolicyDelete(lbls); err != nil {
+		return apierror.Error(DeletePolicyFailureCode, err)
 	}
 
-	return NewDeletePolicyPathNoContent()
+	return NewDeletePolicyNoContent()
 }
 
-type putPolicyPath struct {
+type putPolicy struct {
 	daemon *Daemon
 }
 
-func NewPutPolicyPathHandler(d *Daemon) PutPolicyPathHandler {
-	return &putPolicyPath{daemon: d}
+func newPutPolicyHandler(d *Daemon) PutPolicyHandler {
+	return &putPolicy{daemon: d}
 }
 
-func (h *putPolicyPath) Handle(params PutPolicyPathParams) middleware.Responder {
+func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	d := h.daemon
 
 	var rules api.Rules
 	if err := json.Unmarshal([]byte(*params.Policy), &rules); err != nil {
-		return NewPutPolicyPathInvalidPolicy()
+		return NewPutPolicyInvalidPolicy()
 	}
 
 	if err := d.PolicyAdd(rules); err != nil {
-		return apierror.Error(PutPolicyPathFailureCode, err)
+		return apierror.Error(PutPolicyFailureCode, err)
 	}
 
 	json := policy.JSONMarshalRules(rules)
-	return NewPutPolicyPathOK().WithPayload(models.PolicyTree(json))
+	return NewPutPolicyOK().WithPayload(models.PolicyTree(json))
 }
 
 type getPolicy struct {
 	daemon *Daemon
 }
 
-func NewGetPolicyHandler(d *Daemon) GetPolicyHandler {
+func newGetPolicyHandler(d *Daemon) GetPolicyHandler {
 	return &getPolicy{daemon: d}
 }
 
-// Returns the entire policy tree
 func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
-	d := h.daemon
-	return NewGetPolicyOK().WithPayload(models.PolicyTree(d.policy.GetJSON()))
-}
-
-type getPolicyPath struct {
-	daemon *Daemon
-}
-
-func NewGetPolicyPathHandler(d *Daemon) GetPolicyPathHandler {
-	return &getPolicyPath{daemon: d}
-}
-
-func (h *getPolicyPath) Handle(params GetPolicyPathParams) middleware.Responder {
 	d := h.daemon
 	d.policy.Mutex.RLock()
 	defer d.policy.Mutex.RUnlock()
 
-	// FIXME
-	ruleList := d.policy.SearchRLocked(labels.LabelArray{})
-	if len(ruleList) == 0 {
-		return NewGetPolicyPathNotFound()
+	lbls := labels.ParseLabelArrayFromArray(params.Labels)
+	ruleList := d.policy.SearchRLocked(lbls)
+
+	// Error if labels have been specified but no entries found, otherwise,
+	// return empty list
+	if len(ruleList) == 0 && len(lbls) != 0 {
+		return NewGetPolicyNotFound()
 	}
 
 	json := policy.JSONMarshalRules(ruleList)
-	return NewGetPolicyPathOK().WithPayload(models.PolicyTree(json))
+	return NewGetPolicyOK().WithPayload(models.PolicyTree(json))
 }
 
 func (d *Daemon) PolicyInit() error {

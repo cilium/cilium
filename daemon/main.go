@@ -540,11 +540,9 @@ func runDaemon() {
 	api.PolicyGetIdentityIDHandler = NewGetIdentityIDHandler(d)
 
 	// /policy/
-	api.PolicyGetPolicyHandler = NewGetPolicyHandler(d)
-	// /policy/{path}
-	api.PolicyGetPolicyPathHandler = NewGetPolicyPathHandler(d)
-	api.PolicyPutPolicyPathHandler = NewPutPolicyPathHandler(d)
-	api.PolicyDeletePolicyPathHandler = NewDeletePolicyPathHandler(d)
+	api.PolicyGetPolicyHandler = newGetPolicyHandler(d)
+	api.PolicyPutPolicyHandler = newPutPolicyHandler(d)
+	api.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
 
 	// /policy/resolve/
 	api.PolicyGetPolicyResolveHandler = NewGetPolicyResolveHandler(d)

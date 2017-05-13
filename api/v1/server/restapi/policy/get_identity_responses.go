@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetIdentityOKCode is the HTTP code returned for type GetIdentityOK
+// HTTP code for type GetIdentityOK
 const GetIdentityOKCode int = 200
 
 /*GetIdentityOK Success
@@ -54,7 +54,7 @@ func (o *GetIdentityOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 	}
 }
 
-// GetIdentityNotFoundCode is the HTTP code returned for type GetIdentityNotFound
+// HTTP code for type GetIdentityNotFound
 const GetIdentityNotFoundCode int = 404
 
 /*GetIdentityNotFound Identity not found
@@ -75,7 +75,7 @@ func (o *GetIdentityNotFound) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(404)
 }
 
-// GetIdentityUnreachableCode is the HTTP code returned for type GetIdentityUnreachable
+// HTTP code for type GetIdentityUnreachable
 const GetIdentityUnreachableCode int = 520
 
 /*GetIdentityUnreachable Identity storage unreachable. Likely a network problem.
@@ -117,7 +117,7 @@ func (o *GetIdentityUnreachable) WriteResponse(rw http.ResponseWriter, producer 
 
 }
 
-// GetIdentityInvalidStorageFormatCode is the HTTP code returned for type GetIdentityInvalidStorageFormat
+// HTTP code for type GetIdentityInvalidStorageFormat
 const GetIdentityInvalidStorageFormatCode int = 521
 
 /*GetIdentityInvalidStorageFormat Invalid identity format in storage

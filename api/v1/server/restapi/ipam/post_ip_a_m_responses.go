@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PostIPAMCreatedCode is the HTTP code returned for type PostIPAMCreated
+// HTTP code for type PostIPAMCreated
 const PostIPAMCreatedCode int = 201
 
 /*PostIPAMCreated Success
@@ -54,7 +54,7 @@ func (o *PostIPAMCreated) WriteResponse(rw http.ResponseWriter, producer runtime
 	}
 }
 
-// PostIPAMFailureCode is the HTTP code returned for type PostIPAMFailure
+// HTTP code for type PostIPAMFailure
 const PostIPAMFailureCode int = 502
 
 /*PostIPAMFailure Allocation failure

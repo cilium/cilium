@@ -398,39 +398,24 @@ paths:
         Returns the entire policy tree with all children.
       tags:
       - policy
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/PolicyTree"
-  "/policy/{path}":
-    get:
-      summary: Retrieve policy subtree
-      description: |
-        Returns the policy node at path with all its children
-      tags:
-      - policy
       parameters:
-      - "$ref": "#/parameters/policy-path"
+      - name: labels
+        in: body
+        schema:
+          "$ref": "#/definitions/Labels"
       responses:
         '200':
           description: Success
           schema:
             "$ref": "#/definitions/PolicyTree"
-        '400':
-          description: Invalid policy path
-          x-go-name: Invalid
-          schema:
-            "$ref": "#/definitions/Error"
         '404':
-          description: Policy tree not found
+          description: No policy rules found
     put:
       summary: Create or update a policy (sub)tree
       tags:
       - policy
       parameters:
-      - "$ref": "#/parameters/policy-path"
-      - "$ref": "#/parameters/policy-tree"
+      - "$ref": "#/parameters/policy-rules"
       responses:
         '200':
           description: Success
@@ -456,7 +441,11 @@ paths:
       tags:
       - policy
       parameters:
-      - "$ref": "#/parameters/policy-path"
+      - name: labels
+        in: body
+        required: true
+        schema:
+          "$ref": "#/definitions/Labels"
       responses:
         '204':
           description: Success
@@ -583,15 +572,9 @@ parameters:
     in: path
     required: true
     type: string
-  policy-path:
-    name: path
-    description: Path to policy node
-    required: true
-    in: path
-    type: string
-  policy-tree:
+  policy-rules:
     name: policy
-    description: Policy tree or subtree
+    description: Policy rules
     required: true
     in: body
     schema:

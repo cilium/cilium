@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetServiceOKCode is the HTTP code returned for type GetServiceOK
+// HTTP code for type GetServiceOK
 const GetServiceOKCode int = 200
 
 /*GetServiceOK Success

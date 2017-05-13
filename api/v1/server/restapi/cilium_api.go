@@ -41,8 +41,8 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		IPAMDeleteIPAMIPHandler: ipam.DeleteIPAMIPHandlerFunc(func(params ipam.DeleteIPAMIPParams) middleware.Responder {
 			return middleware.NotImplemented("operation IPAMDeleteIPAMIP has not yet been implemented")
 		}),
-		PolicyDeletePolicyPathHandler: policy.DeletePolicyPathHandlerFunc(func(params policy.DeletePolicyPathParams) middleware.Responder {
-			return middleware.NotImplemented("operation PolicyDeletePolicyPath has not yet been implemented")
+		PolicyDeletePolicyHandler: policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyDeletePolicy has not yet been implemented")
 		}),
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServiceDeleteServiceID has not yet been implemented")
@@ -74,9 +74,6 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetPolicy has not yet been implemented")
 		}),
-		PolicyGetPolicyPathHandler: policy.GetPolicyPathHandlerFunc(func(params policy.GetPolicyPathParams) middleware.Responder {
-			return middleware.NotImplemented("operation PolicyGetPolicyPath has not yet been implemented")
-		}),
 		PolicyGetPolicyResolveHandler: policy.GetPolicyResolveHandlerFunc(func(params policy.GetPolicyResolveParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetPolicyResolve has not yet been implemented")
 		}),
@@ -107,8 +104,8 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointPutEndpointIDLabelsHandler: endpoint.PutEndpointIDLabelsHandlerFunc(func(params endpoint.PutEndpointIDLabelsParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointPutEndpointIDLabels has not yet been implemented")
 		}),
-		PolicyPutPolicyPathHandler: policy.PutPolicyPathHandlerFunc(func(params policy.PutPolicyPathParams) middleware.Responder {
-			return middleware.NotImplemented("operation PolicyPutPolicyPath has not yet been implemented")
+		PolicyPutPolicyHandler: policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyPutPolicy has not yet been implemented")
 		}),
 		ServicePutServiceIDHandler: service.PutServiceIDHandlerFunc(func(params service.PutServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServicePutServiceID has not yet been implemented")
@@ -135,8 +132,8 @@ type CiliumAPI struct {
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
 	// IPAMDeleteIPAMIPHandler sets the operation handler for the delete IP a m IP operation
 	IPAMDeleteIPAMIPHandler ipam.DeleteIPAMIPHandler
-	// PolicyDeletePolicyPathHandler sets the operation handler for the delete policy path operation
-	PolicyDeletePolicyPathHandler policy.DeletePolicyPathHandler
+	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
+	PolicyDeletePolicyHandler policy.DeletePolicyHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// DaemonGetConfigHandler sets the operation handler for the get config operation
@@ -157,8 +154,6 @@ type CiliumAPI struct {
 	PolicyGetIdentityIDHandler policy.GetIdentityIDHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
 	PolicyGetPolicyHandler policy.GetPolicyHandler
-	// PolicyGetPolicyPathHandler sets the operation handler for the get policy path operation
-	PolicyGetPolicyPathHandler policy.GetPolicyPathHandler
 	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
 	PolicyGetPolicyResolveHandler policy.GetPolicyResolveHandler
 	// ServiceGetServiceHandler sets the operation handler for the get service operation
@@ -179,8 +174,8 @@ type CiliumAPI struct {
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
 	// EndpointPutEndpointIDLabelsHandler sets the operation handler for the put endpoint ID labels operation
 	EndpointPutEndpointIDLabelsHandler endpoint.PutEndpointIDLabelsHandler
-	// PolicyPutPolicyPathHandler sets the operation handler for the put policy path operation
-	PolicyPutPolicyPathHandler policy.PutPolicyPathHandler
+	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
+	PolicyPutPolicyHandler policy.PutPolicyHandler
 	// ServicePutServiceIDHandler sets the operation handler for the put service ID operation
 	ServicePutServiceIDHandler service.PutServiceIDHandler
 
@@ -254,8 +249,8 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "ipam.DeleteIPAMIPHandler")
 	}
 
-	if o.PolicyDeletePolicyPathHandler == nil {
-		unregistered = append(unregistered, "policy.DeletePolicyPathHandler")
+	if o.PolicyDeletePolicyHandler == nil {
+		unregistered = append(unregistered, "policy.DeletePolicyHandler")
 	}
 
 	if o.ServiceDeleteServiceIDHandler == nil {
@@ -298,10 +293,6 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "policy.GetPolicyHandler")
 	}
 
-	if o.PolicyGetPolicyPathHandler == nil {
-		unregistered = append(unregistered, "policy.GetPolicyPathHandler")
-	}
-
 	if o.PolicyGetPolicyResolveHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicyResolveHandler")
 	}
@@ -342,8 +333,8 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "endpoint.PutEndpointIDLabelsHandler")
 	}
 
-	if o.PolicyPutPolicyPathHandler == nil {
-		unregistered = append(unregistered, "policy.PutPolicyPathHandler")
+	if o.PolicyPutPolicyHandler == nil {
+		unregistered = append(unregistered, "policy.PutPolicyHandler")
 	}
 
 	if o.ServicePutServiceIDHandler == nil {
@@ -443,7 +434,7 @@ func (o *CiliumAPI) initHandlerCache() {
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
-	o.handlers["DELETE"]["/policy/{path}"] = policy.NewDeletePolicyPath(o.context, o.PolicyDeletePolicyPathHandler)
+	o.handlers["DELETE"]["/policy"] = policy.NewDeletePolicy(o.context, o.PolicyDeletePolicyHandler)
 
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
@@ -498,11 +489,6 @@ func (o *CiliumAPI) initHandlerCache() {
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
-	o.handlers["GET"]["/policy/{path}"] = policy.NewGetPolicyPath(o.context, o.PolicyGetPolicyPathHandler)
-
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
 	o.handlers["GET"]["/policy/resolve"] = policy.NewGetPolicyResolve(o.context, o.PolicyGetPolicyResolveHandler)
 
 	if o.handlers["GET"] == nil {
@@ -553,7 +539,7 @@ func (o *CiliumAPI) initHandlerCache() {
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
-	o.handlers["PUT"]["/policy/{path}"] = policy.NewPutPolicyPath(o.context, o.PolicyPutPolicyPathHandler)
+	o.handlers["PUT"]["/policy"] = policy.NewPutPolicy(o.context, o.PolicyPutPolicyHandler)
 
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)

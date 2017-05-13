@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
+// HTTP code for type GetHealthzOK
 const GetHealthzOKCode int = 200
 
 /*GetHealthzOK Success

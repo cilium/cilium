@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// DeleteEndpointIDOKCode is the HTTP code returned for type DeleteEndpointIDOK
+// HTTP code for type DeleteEndpointIDOK
 const DeleteEndpointIDOKCode int = 200
 
 /*DeleteEndpointIDOK Success
@@ -32,7 +32,7 @@ func (o *DeleteEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runt
 	rw.WriteHeader(200)
 }
 
-// DeleteEndpointIDErrorsCode is the HTTP code returned for type DeleteEndpointIDErrors
+// HTTP code for type DeleteEndpointIDErrors
 const DeleteEndpointIDErrorsCode int = 206
 
 /*DeleteEndpointIDErrors Deleted with a number of errors encountered
@@ -74,7 +74,7 @@ func (o *DeleteEndpointIDErrors) WriteResponse(rw http.ResponseWriter, producer 
 
 }
 
-// DeleteEndpointIDInvalidCode is the HTTP code returned for type DeleteEndpointIDInvalid
+// HTTP code for type DeleteEndpointIDInvalid
 const DeleteEndpointIDInvalidCode int = 400
 
 /*DeleteEndpointIDInvalid Invalid endpoint ID format for specified type. Details in error
@@ -118,7 +118,7 @@ func (o *DeleteEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer
 
 }
 
-// DeleteEndpointIDNotFoundCode is the HTTP code returned for type DeleteEndpointIDNotFound
+// HTTP code for type DeleteEndpointIDNotFound
 const DeleteEndpointIDNotFoundCode int = 404
 
 /*DeleteEndpointIDNotFound Endpoint not found

@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PutEndpointIDLabelsOKCode is the HTTP code returned for type PutEndpointIDLabelsOK
+// HTTP code for type PutEndpointIDLabelsOK
 const PutEndpointIDLabelsOKCode int = 200
 
 /*PutEndpointIDLabelsOK Success
@@ -32,7 +32,7 @@ func (o *PutEndpointIDLabelsOK) WriteResponse(rw http.ResponseWriter, producer r
 	rw.WriteHeader(200)
 }
 
-// PutEndpointIDLabelsNotFoundCode is the HTTP code returned for type PutEndpointIDLabelsNotFound
+// HTTP code for type PutEndpointIDLabelsNotFound
 const PutEndpointIDLabelsNotFoundCode int = 404
 
 /*PutEndpointIDLabelsNotFound Endpoint not found
@@ -53,7 +53,7 @@ func (o *PutEndpointIDLabelsNotFound) WriteResponse(rw http.ResponseWriter, prod
 	rw.WriteHeader(404)
 }
 
-// PutEndpointIDLabelsLabelNotFoundCode is the HTTP code returned for type PutEndpointIDLabelsLabelNotFound
+// HTTP code for type PutEndpointIDLabelsLabelNotFound
 const PutEndpointIDLabelsLabelNotFoundCode int = 460
 
 /*PutEndpointIDLabelsLabelNotFound Label to be deleted not found
@@ -95,7 +95,7 @@ func (o *PutEndpointIDLabelsLabelNotFound) WriteResponse(rw http.ResponseWriter,
 
 }
 
-// PutEndpointIDLabelsUpdateFailedCode is the HTTP code returned for type PutEndpointIDLabelsUpdateFailed
+// HTTP code for type PutEndpointIDLabelsUpdateFailed
 const PutEndpointIDLabelsUpdateFailedCode int = 500
 
 /*PutEndpointIDLabelsUpdateFailed Error while updating labels

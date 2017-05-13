@@ -10,32 +10,25 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
-
-	strfmt "github.com/go-openapi/strfmt"
 )
 
-// NewPutPolicyPathParams creates a new PutPolicyPathParams object
+// NewPutPolicyParams creates a new PutPolicyParams object
 // with the default values initialized.
-func NewPutPolicyPathParams() PutPolicyPathParams {
+func NewPutPolicyParams() PutPolicyParams {
 	var ()
-	return PutPolicyPathParams{}
+	return PutPolicyParams{}
 }
 
-// PutPolicyPathParams contains all the bound params for the put policy path operation
+// PutPolicyParams contains all the bound params for the put policy operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters PutPolicyPath
-type PutPolicyPathParams struct {
+// swagger:parameters PutPolicy
+type PutPolicyParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request
 
-	/*Path to policy node
-	  Required: true
-	  In: path
-	*/
-	Path string
-	/*Policy tree or subtree
+	/*Policy rules
 	  Required: true
 	  In: body
 	*/
@@ -44,14 +37,9 @@ type PutPolicyPathParams struct {
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
 // for simple values it will use straight method calls
-func (o *PutPolicyPathParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
+func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 	o.HTTPRequest = r
-
-	rPath, rhkPath, _ := route.Params.GetOK("path")
-	if err := o.bindPath(rPath, rhkPath, route.Formats); err != nil {
-		res = append(res, err)
-	}
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
@@ -77,16 +65,5 @@ func (o *PutPolicyPathParams) BindRequest(r *http.Request, route *middleware.Mat
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (o *PutPolicyPathParams) bindPath(rawData []string, hasKey bool, formats strfmt.Registry) error {
-	var raw string
-	if len(rawData) > 0 {
-		raw = rawData[len(rawData)-1]
-	}
-
-	o.Path = raw
-
 	return nil
 }

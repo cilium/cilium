@@ -26,6 +26,15 @@ func ParseLabelArray(labels ...string) LabelArray {
 	return array
 }
 
+// ParseLabelArrayFromArray converts an array of strings as labels and returns a LabelArray
+func ParseLabelArrayFromArray(base []string) LabelArray {
+	array := make([]*Label, len(base))
+	for i := range base {
+		array[i] = ParseLabel(base[i])
+	}
+	return array
+}
+
 // Contains returns true if all ls contains all the labels in needed. If
 // needed contains no labels, Contains() will always return true
 func (ls LabelArray) Contains(needed LabelArray) bool {

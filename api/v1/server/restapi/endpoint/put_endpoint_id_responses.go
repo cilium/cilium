@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PutEndpointIDCreatedCode is the HTTP code returned for type PutEndpointIDCreated
+// HTTP code for type PutEndpointIDCreated
 const PutEndpointIDCreatedCode int = 201
 
 /*PutEndpointIDCreated Created
@@ -32,7 +32,7 @@ func (o *PutEndpointIDCreated) WriteResponse(rw http.ResponseWriter, producer ru
 	rw.WriteHeader(201)
 }
 
-// PutEndpointIDInvalidCode is the HTTP code returned for type PutEndpointIDInvalid
+// HTTP code for type PutEndpointIDInvalid
 const PutEndpointIDInvalidCode int = 400
 
 /*PutEndpointIDInvalid Invalid endpoint in request
@@ -74,7 +74,7 @@ func (o *PutEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer ru
 
 }
 
-// PutEndpointIDExistsCode is the HTTP code returned for type PutEndpointIDExists
+// HTTP code for type PutEndpointIDExists
 const PutEndpointIDExistsCode int = 409
 
 /*PutEndpointIDExists Endpoint already exists
@@ -95,7 +95,7 @@ func (o *PutEndpointIDExists) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(409)
 }
 
-// PutEndpointIDFailedCode is the HTTP code returned for type PutEndpointIDFailed
+// HTTP code for type PutEndpointIDFailed
 const PutEndpointIDFailedCode int = 500
 
 /*PutEndpointIDFailed Endpoint creation failed

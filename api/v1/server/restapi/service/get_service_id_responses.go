@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetServiceIDOKCode is the HTTP code returned for type GetServiceIDOK
+// HTTP code for type GetServiceIDOK
 const GetServiceIDOKCode int = 200
 
 /*GetServiceIDOK Success
@@ -54,7 +54,7 @@ func (o *GetServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 	}
 }
 
-// GetServiceIDNotFoundCode is the HTTP code returned for type GetServiceIDNotFound
+// HTTP code for type GetServiceIDNotFound
 const GetServiceIDNotFoundCode int = 404
 
 /*GetServiceIDNotFound Service not found

@@ -14,12 +14,14 @@ import (
 	cr "github.com/go-openapi/runtime/client"
 
 	strfmt "github.com/go-openapi/strfmt"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetPolicyParams creates a new GetPolicyParams object
 // with the default values initialized.
 func NewGetPolicyParams() *GetPolicyParams {
-
+	var ()
 	return &GetPolicyParams{
 
 		timeout: cr.DefaultTimeout,
@@ -29,7 +31,7 @@ func NewGetPolicyParams() *GetPolicyParams {
 // NewGetPolicyParamsWithTimeout creates a new GetPolicyParams object
 // with the default values initialized, and the ability to set a timeout on a request
 func NewGetPolicyParamsWithTimeout(timeout time.Duration) *GetPolicyParams {
-
+	var ()
 	return &GetPolicyParams{
 
 		timeout: timeout,
@@ -39,7 +41,7 @@ func NewGetPolicyParamsWithTimeout(timeout time.Duration) *GetPolicyParams {
 // NewGetPolicyParamsWithContext creates a new GetPolicyParams object
 // with the default values initialized, and the ability to set a context for a request
 func NewGetPolicyParamsWithContext(ctx context.Context) *GetPolicyParams {
-
+	var ()
 	return &GetPolicyParams{
 
 		Context: ctx,
@@ -49,7 +51,7 @@ func NewGetPolicyParamsWithContext(ctx context.Context) *GetPolicyParams {
 // NewGetPolicyParamsWithHTTPClient creates a new GetPolicyParams object
 // with the default values initialized, and the ability to set a custom HTTPClient for a request
 func NewGetPolicyParamsWithHTTPClient(client *http.Client) *GetPolicyParams {
-
+	var ()
 	return &GetPolicyParams{
 		HTTPClient: client,
 	}
@@ -59,6 +61,10 @@ func NewGetPolicyParamsWithHTTPClient(client *http.Client) *GetPolicyParams {
 for the get policy operation typically these are written to a http.Request
 */
 type GetPolicyParams struct {
+
+	/*Labels*/
+	Labels models.Labels
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -97,11 +103,26 @@ func (o *GetPolicyParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithLabels adds the labels to the get policy params
+func (o *GetPolicyParams) WithLabels(labels models.Labels) *GetPolicyParams {
+	o.SetLabels(labels)
+	return o
+}
+
+// SetLabels adds the labels to the get policy params
+func (o *GetPolicyParams) SetLabels(labels models.Labels) {
+	o.Labels = labels
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
 	r.SetTimeout(o.timeout)
 	var res []error
+
+	if err := r.SetBodyParam(o.Labels); err != nil {
+		return err
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
