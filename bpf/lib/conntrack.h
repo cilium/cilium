@@ -492,15 +492,25 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		return DROP_CT_CREATE_FAILED;
 
 	/* Create an ICMPv6 entry to relate errors */
-	/* FIXME: We could do a lookup and check if an L3 entry already exists */
-	tuple->nexthdr = IPPROTO_ICMPV6;
-	tuple->sport = 0;
-	tuple->dport = 0;
-	tuple->flags |= TUPLE_F_RELATED;
+	struct ipv6_ct_tuple icmp_tuple = {
+		.nexthdr = IPPROTO_ICMP,
+		.sport = 0,
+		.dport = 0,
+		.flags = tuple->flags | TUPLE_F_RELATED,
+	};
+
 	entry.proxy_port = 0;
 
-	cilium_trace(skb, DBG_CT_CREATED, 0, (tuple->nexthdr << 8) | tuple->flags);
-	if (map_update_elem(map, tuple, &entry, 0) < 0) {
+#ifdef CONNTRACK_LOCAL
+	ipv6_addr_copy(&icmp_tuple.addr, &tuple->addr);
+#else
+	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
+	ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
+#endif
+
+	cilium_trace(skb, DBG_CT_CREATED, 0, (icmp_tuple.nexthdr << 8) | icmp_tuple.flags);
+	/* FIXME: We could do a lookup and check if an L3 entry already exists */
+	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0) {
 		/* Previous map update succeeded, we could delete it
 		 * but we might as well just let it time out.
 		 */
@@ -530,6 +540,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	if (dir == CT_INGRESS) {
 		if (tuple->nexthdr == IPPROTO_UDP ||
 		    tuple->nexthdr == IPPROTO_TCP) {
+			cilium_trace(skb, DBG_GENERIC, ct_state->orig_dport, tuple->nexthdr);
 			/* Resolve L4 policy. This may fail due to policy reasons. May
 			 * optonally return a proxy port number to redirect all traffic to.
 			 */
@@ -618,16 +629,25 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		tuple->flags = flags;
 	}
 
-	/* Create an ICMPv6 entry to relate errors */
-	/* FIXME: We could do a lookup and check if an L3 entry already exists */
-	tuple->nexthdr = IPPROTO_ICMP;
-	tuple->sport = 0;
-	tuple->dport = 0;
-	tuple->flags |= TUPLE_F_RELATED;
+	/* Create an ICMP entry to relate errors */
+	struct ipv4_ct_tuple icmp_tuple = {
+#ifdef CONNTRACK_LOCAL
+		.addr = tuple->addr,
+#else
+		.daddr = tuple->daddr,
+		.saddr = tuple->saddr,
+#endif
+		.nexthdr = IPPROTO_ICMP,
+		.sport = 0,
+		.dport = 0,
+		.flags = tuple->flags | TUPLE_F_RELATED,
+	};
+
 	entry.proxy_port = 0;
 
-	cilium_trace(skb, DBG_CT_CREATED, 0, (tuple->nexthdr << 8) | tuple->flags);
-	if (map_update_elem(map, tuple, &entry, 0) < 0)
+	cilium_trace(skb, DBG_CT_CREATED, 0, (icmp_tuple.nexthdr << 8) | icmp_tuple.flags);
+	/* FIXME: We could do a lookup and check if an L3 entry already exists */
+	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
 	ct_state->proxy_port = proxy_port;

@@ -385,7 +385,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state_reply = {};
 	__be32 orig_dip;
-	__u16 dport;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -455,8 +454,6 @@ skip_service_lookup:
 	if (ret < 0)
 		return ret;
 
-	dport = tuple.dport;
-
 	switch (ret) {
 	case CT_NEW:
 		/* New connection implies that rev_nat_index remains untouched
@@ -495,7 +492,7 @@ skip_service_lookup:
 		int ret;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state_reply.proxy_port, dport,
+						 ct_state_reply.proxy_port, tuple.dport,
 						 orig_dip, &tuple);
 		if (IS_ERR(ret))
 			return ret;
@@ -695,7 +692,6 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, l4_off, verdict;
 	struct ct_state ct_state_reply = {};
 	struct ct_state ct_state_new = {};
-	__u16 dport;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -737,8 +733,6 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ret < 0)
 		return ret;
 
-	dport = tuple.dport;
-
 	if (unlikely(ct_state_reply.rev_nat_index)) {
 		int ret2;
 
@@ -771,7 +765,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		//__be32 sum;
 
 		if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, &csum_off,
-				   ct_state_reply.proxy_port, dport) < 0)
+				   ct_state_reply.proxy_port, tuple.dport) < 0)
 			return DROP_WRITE_ERROR;
 
 #if 0
@@ -803,7 +797,6 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, verdict, l4_off;
 	struct ct_state ct_state_reply = {};
 	struct ct_state ct_state_new = {};
-	__u16 dport;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -824,9 +817,6 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state_reply);
 	if (ret < 0)
 		return ret;
-
-	/* store dport because ct_create4() will invalidate it */
-	dport = tuple.dport;
 
 #ifdef LXC_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT46) {
@@ -868,7 +858,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		__be32 orig_dip = LXC_IPV4;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state_reply.proxy_port, dport,
+						 ct_state_reply.proxy_port, tuple.dport,
 						 orig_dip, &tuple);
 		if (IS_ERR(ret))
 			return ret;
