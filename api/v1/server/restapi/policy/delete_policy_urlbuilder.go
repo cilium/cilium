@@ -7,22 +7,17 @@ import (
 	"errors"
 	"net/url"
 	golangswaggerpaths "path"
-	"strings"
 )
 
-// GetPolicyPathURL generates an URL for the get policy path operation
-type GetPolicyPathURL struct {
-	Path string
-
+// DeletePolicyURL generates an URL for the delete policy operation
+type DeletePolicyURL struct {
 	_basePath string
-	// avoid unkeyed usage
-	_ struct{}
 }
 
 // WithBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *GetPolicyPathURL) WithBasePath(bp string) *GetPolicyPathURL {
+func (o *DeletePolicyURL) WithBasePath(bp string) *DeletePolicyURL {
 	o.SetBasePath(bp)
 	return o
 }
@@ -30,22 +25,16 @@ func (o *GetPolicyPathURL) WithBasePath(bp string) *GetPolicyPathURL {
 // SetBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *GetPolicyPathURL) SetBasePath(bp string) {
+func (o *DeletePolicyURL) SetBasePath(bp string) {
 	o._basePath = bp
 }
 
 // Build a url path and query string
-func (o *GetPolicyPathURL) Build() (*url.URL, error) {
+func (o *DeletePolicyURL) Build() (*url.URL, error) {
 	var result url.URL
 
-	var _path = "/policy/{path}"
+	var _path = "/policy"
 
-	path := o.Path
-	if path != "" {
-		_path = strings.Replace(_path, "{path}", path, -1)
-	} else {
-		return nil, errors.New("Path is required on GetPolicyPathURL")
-	}
 	_basePath := o._basePath
 	if _basePath == "" {
 		_basePath = "/v1beta"
@@ -56,7 +45,7 @@ func (o *GetPolicyPathURL) Build() (*url.URL, error) {
 }
 
 // Must is a helper function to panic when the url builder returns an error
-func (o *GetPolicyPathURL) Must(u *url.URL, err error) *url.URL {
+func (o *DeletePolicyURL) Must(u *url.URL, err error) *url.URL {
 	if err != nil {
 		panic(err)
 	}
@@ -67,17 +56,17 @@ func (o *GetPolicyPathURL) Must(u *url.URL, err error) *url.URL {
 }
 
 // String returns the string representation of the path with query string
-func (o *GetPolicyPathURL) String() string {
+func (o *DeletePolicyURL) String() string {
 	return o.Must(o.Build()).String()
 }
 
 // BuildFull builds a full url with scheme, host, path and query string
-func (o *GetPolicyPathURL) BuildFull(scheme, host string) (*url.URL, error) {
+func (o *DeletePolicyURL) BuildFull(scheme, host string) (*url.URL, error) {
 	if scheme == "" {
-		return nil, errors.New("scheme is required for a full url on GetPolicyPathURL")
+		return nil, errors.New("scheme is required for a full url on DeletePolicyURL")
 	}
 	if host == "" {
-		return nil, errors.New("host is required for a full url on GetPolicyPathURL")
+		return nil, errors.New("host is required for a full url on DeletePolicyURL")
 	}
 
 	base, err := o.Build()
@@ -91,6 +80,6 @@ func (o *GetPolicyPathURL) BuildFull(scheme, host string) (*url.URL, error) {
 }
 
 // StringFull returns the string representation of a complete url
-func (o *GetPolicyPathURL) StringFull(scheme, host string) string {
+func (o *DeletePolicyURL) StringFull(scheme, host string) string {
 	return o.Must(o.BuildFull(scheme, host)).String()
 }

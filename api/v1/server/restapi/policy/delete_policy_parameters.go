@@ -4,6 +4,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/go-openapi/errors"
@@ -13,23 +14,24 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewGetPolicyParams creates a new GetPolicyParams object
+// NewDeletePolicyParams creates a new DeletePolicyParams object
 // with the default values initialized.
-func NewGetPolicyParams() GetPolicyParams {
+func NewDeletePolicyParams() DeletePolicyParams {
 	var ()
-	return GetPolicyParams{}
+	return DeletePolicyParams{}
 }
 
-// GetPolicyParams contains all the bound params for the get policy operation
+// DeletePolicyParams contains all the bound params for the delete policy operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters GetPolicy
-type GetPolicyParams struct {
+// swagger:parameters DeletePolicy
+type DeletePolicyParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request
 
 	/*
+	  Required: true
 	  In: body
 	*/
 	Labels models.Labels
@@ -37,7 +39,7 @@ type GetPolicyParams struct {
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
 // for simple values it will use straight method calls
-func (o *GetPolicyParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
+func (o *DeletePolicyParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 	o.HTTPRequest = r
 
@@ -45,7 +47,12 @@ func (o *GetPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 		defer r.Body.Close()
 		var body models.Labels
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			res = append(res, errors.NewParseError("labels", "body", "", err))
+			if err == io.EOF {
+				res = append(res, errors.Required("labels", "body"))
+			} else {
+				res = append(res, errors.NewParseError("labels", "body", "", err))
+			}
+
 		} else {
 
 			if len(res) == 0 {
@@ -53,6 +60,8 @@ func (o *GetPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 			}
 		}
 
+	} else {
+		res = append(res, errors.Required("labels", "body"))
 	}
 
 	if len(res) > 0 {

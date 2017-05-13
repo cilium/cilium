@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetConfigOKCode is the HTTP code returned for type GetConfigOK
+// HTTP code for type GetConfigOK
 const GetConfigOKCode int = 200
 
 /*GetConfigOK Success

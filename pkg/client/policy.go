@@ -21,35 +21,28 @@ import (
 
 // PolicyPut inserts the `policyJSON`
 func (c *Client) PolicyPut(policyJSON string) (string, error) {
-	params := policy.NewPutPolicyPathParams().WithPolicy(&policyJSON)
-	resp, err := c.Policy.PutPolicyPath(params)
+	params := policy.NewPutPolicyParams().WithPolicy(&policyJSON)
+	resp, err := c.Policy.PutPolicy(params)
 	if err != nil {
 		return "", err
 	}
 	return string(resp.Payload), nil
 }
 
-// PolicyGet returns a policy tree or subtree.
-func (c *Client) PolicyGet(path string) (string, error) {
-	if path == "" {
-		resp, err := c.Policy.GetPolicy(nil)
-		if err != nil {
-			return "", err
-		}
-		return string(resp.Payload), nil
-	}
-	params := policy.NewGetPolicyPathParams().WithPath(path)
-	resp, err := c.Policy.GetPolicyPath(params)
+// PolicyGet returns policy rules
+func (c *Client) PolicyGet(labels []string) (string, error) {
+	params := policy.NewGetPolicyParams().WithLabels(labels)
+	resp, err := c.Policy.GetPolicy(params)
 	if err != nil {
 		return "", err
 	}
 	return string(resp.Payload), nil
 }
 
-// PolicyDelete returns a node in the policy tree.
-func (c *Client) PolicyDelete(path string) error {
-	params := policy.NewDeletePolicyPathParams().WithPath(path)
-	_, err := c.Policy.DeletePolicyPath(params)
+// PolicyDelete deletes policy rules
+func (c *Client) PolicyDelete(labels []string) error {
+	params := policy.NewDeletePolicyParams().WithLabels(labels)
+	_, err := c.Policy.DeletePolicy(params)
 	return err
 }
 

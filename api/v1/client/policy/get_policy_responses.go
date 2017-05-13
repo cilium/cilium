@@ -30,6 +30,13 @@ func (o *GetPolicyReader) ReadResponse(response runtime.ClientResponse, consumer
 		}
 		return result, nil
 
+	case 404:
+		result := NewGetPolicyNotFound()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+
 	default:
 		return nil, runtime.NewAPIError("unknown error", response, response.Code())
 	}
@@ -58,6 +65,27 @@ func (o *GetPolicyOK) readResponse(response runtime.ClientResponse, consumer run
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewGetPolicyNotFound creates a GetPolicyNotFound with default headers values
+func NewGetPolicyNotFound() *GetPolicyNotFound {
+	return &GetPolicyNotFound{}
+}
+
+/*GetPolicyNotFound handles this case with default header values.
+
+No policy rules found
+*/
+type GetPolicyNotFound struct {
+}
+
+func (o *GetPolicyNotFound) Error() string {
+	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound ", 404)
+}
+
+func (o *GetPolicyNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

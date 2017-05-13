@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetEndpointOKCode is the HTTP code returned for type GetEndpointOK
+// HTTP code for type GetEndpointOK
 const GetEndpointOKCode int = 200
 
 /*GetEndpointOK Success

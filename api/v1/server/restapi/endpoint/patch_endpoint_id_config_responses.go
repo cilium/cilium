@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PatchEndpointIDConfigOKCode is the HTTP code returned for type PatchEndpointIDConfigOK
+// HTTP code for type PatchEndpointIDConfigOK
 const PatchEndpointIDConfigOKCode int = 200
 
 /*PatchEndpointIDConfigOK Success
@@ -32,7 +32,7 @@ func (o *PatchEndpointIDConfigOK) WriteResponse(rw http.ResponseWriter, producer
 	rw.WriteHeader(200)
 }
 
-// PatchEndpointIDConfigInvalidCode is the HTTP code returned for type PatchEndpointIDConfigInvalid
+// HTTP code for type PatchEndpointIDConfigInvalid
 const PatchEndpointIDConfigInvalidCode int = 400
 
 /*PatchEndpointIDConfigInvalid Invalid configuration request
@@ -53,7 +53,7 @@ func (o *PatchEndpointIDConfigInvalid) WriteResponse(rw http.ResponseWriter, pro
 	rw.WriteHeader(400)
 }
 
-// PatchEndpointIDConfigNotFoundCode is the HTTP code returned for type PatchEndpointIDConfigNotFound
+// HTTP code for type PatchEndpointIDConfigNotFound
 const PatchEndpointIDConfigNotFoundCode int = 404
 
 /*PatchEndpointIDConfigNotFound Endpoint not found
@@ -74,7 +74,7 @@ func (o *PatchEndpointIDConfigNotFound) WriteResponse(rw http.ResponseWriter, pr
 	rw.WriteHeader(404)
 }
 
-// PatchEndpointIDConfigFailedCode is the HTTP code returned for type PatchEndpointIDConfigFailed
+// HTTP code for type PatchEndpointIDConfigFailed
 const PatchEndpointIDConfigFailedCode int = 500
 
 /*PatchEndpointIDConfigFailed Update failed. Details in message.

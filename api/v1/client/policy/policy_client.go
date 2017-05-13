@@ -23,30 +23,30 @@ type Client struct {
 }
 
 /*
-DeletePolicyPath deletes a policy sub tree
+DeletePolicy deletes a policy sub tree
 */
-func (a *Client) DeletePolicyPath(params *DeletePolicyPathParams) (*DeletePolicyPathNoContent, error) {
+func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyNoContent, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewDeletePolicyPathParams()
+		params = NewDeletePolicyParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "DeletePolicyPath",
+		ID:                 "DeletePolicy",
 		Method:             "DELETE",
-		PathPattern:        "/policy/{path}",
+		PathPattern:        "/policy",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &DeletePolicyPathReader{formats: a.formats},
+		Reader:             &DeletePolicyReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*DeletePolicyPathNoContent), nil
+	return result.(*DeletePolicyNoContent), nil
 
 }
 
@@ -138,37 +138,6 @@ func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
 }
 
 /*
-GetPolicyPath retrieves policy subtree
-
-Returns the policy node at path with all its children
-
-*/
-func (a *Client) GetPolicyPath(params *GetPolicyPathParams) (*GetPolicyPathOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetPolicyPathParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "GetPolicyPath",
-		Method:             "GET",
-		PathPattern:        "/policy/{path}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetPolicyPathReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*GetPolicyPathOK), nil
-
-}
-
-/*
 GetPolicyResolve resolves policy for an identity context
 */
 func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyResolveOK, error) {
@@ -197,30 +166,30 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 }
 
 /*
-PutPolicyPath creates or update a policy sub tree
+PutPolicy creates or update a policy sub tree
 */
-func (a *Client) PutPolicyPath(params *PutPolicyPathParams) (*PutPolicyPathOK, error) {
+func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewPutPolicyPathParams()
+		params = NewPutPolicyParams()
 	}
 
 	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "PutPolicyPath",
+		ID:                 "PutPolicy",
 		Method:             "PUT",
-		PathPattern:        "/policy/{path}",
+		PathPattern:        "/policy",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &PutPolicyPathReader{formats: a.formats},
+		Reader:             &PutPolicyReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result.(*PutPolicyPathOK), nil
+	return result.(*PutPolicyOK), nil
 
 }
 

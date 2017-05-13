@@ -18,19 +18,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var confirmDeleteAll bool
+
 // policyDeleteCmd represents the policy_delete command
 var policyDeleteCmd = &cobra.Command{
-	Use:    "delete <policy-path>",
-	Short:  "Delete a policy tree node",
-	PreRun: requirePath,
+	Use:   "delete [<labels>]",
+	Short: "Delete policy rules",
 	Run: func(cmd *cobra.Command, args []string) {
-		path := args[0]
-		if err := client.PolicyDelete(path); err != nil {
-			Fatalf("Cannot delete policy %s: %s\n", path, err)
+		if len(args) == 0 && !confirmDeleteAll {
+			Fatalf("Please use --all flag to delete all policies")
+		}
+
+		if err := client.PolicyDelete(args); err != nil {
+			Fatalf("Cannot delete policy: %s\n", err)
 		}
 	},
 }
 
 func init() {
 	policyCmd.AddCommand(policyDeleteCmd)
+	policyDeleteCmd.Flags().BoolVarP(&confirmDeleteAll, "all", "", false, "Delete all policies")
 }

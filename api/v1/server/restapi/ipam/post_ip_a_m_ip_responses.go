@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PostIPAMIPOKCode is the HTTP code returned for type PostIPAMIPOK
+// HTTP code for type PostIPAMIPOK
 const PostIPAMIPOKCode int = 200
 
 /*PostIPAMIPOK Success
@@ -32,7 +32,7 @@ func (o *PostIPAMIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 	rw.WriteHeader(200)
 }
 
-// PostIPAMIPInvalidCode is the HTTP code returned for type PostIPAMIPInvalid
+// HTTP code for type PostIPAMIPInvalid
 const PostIPAMIPInvalidCode int = 400
 
 /*PostIPAMIPInvalid Invalid IP address
@@ -53,7 +53,7 @@ func (o *PostIPAMIPInvalid) WriteResponse(rw http.ResponseWriter, producer runti
 	rw.WriteHeader(400)
 }
 
-// PostIPAMIPExistsCode is the HTTP code returned for type PostIPAMIPExists
+// HTTP code for type PostIPAMIPExists
 const PostIPAMIPExistsCode int = 409
 
 /*PostIPAMIPExists IP already allocated
@@ -74,7 +74,7 @@ func (o *PostIPAMIPExists) WriteResponse(rw http.ResponseWriter, producer runtim
 	rw.WriteHeader(409)
 }
 
-// PostIPAMIPFailureCode is the HTTP code returned for type PostIPAMIPFailure
+// HTTP code for type PostIPAMIPFailure
 const PostIPAMIPFailureCode int = 500
 
 /*PostIPAMIPFailure IP allocation failure. Details in message.
@@ -116,7 +116,7 @@ func (o *PostIPAMIPFailure) WriteResponse(rw http.ResponseWriter, producer runti
 
 }
 
-// PostIPAMIPDisabledCode is the HTTP code returned for type PostIPAMIPDisabled
+// HTTP code for type PostIPAMIPDisabled
 const PostIPAMIPDisabledCode int = 501
 
 /*PostIPAMIPDisabled Allocation for address family disabled

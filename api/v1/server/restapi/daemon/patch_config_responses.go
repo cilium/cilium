@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PatchConfigOKCode is the HTTP code returned for type PatchConfigOK
+// HTTP code for type PatchConfigOK
 const PatchConfigOKCode int = 200
 
 /*PatchConfigOK Success
@@ -32,7 +32,7 @@ func (o *PatchConfigOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 	rw.WriteHeader(200)
 }
 
-// PatchConfigBadRequestCode is the HTTP code returned for type PatchConfigBadRequest
+// HTTP code for type PatchConfigBadRequest
 const PatchConfigBadRequestCode int = 400
 
 /*PatchConfigBadRequest Bad configuration parameters
@@ -74,7 +74,7 @@ func (o *PatchConfigBadRequest) WriteResponse(rw http.ResponseWriter, producer r
 
 }
 
-// PatchConfigFailureCode is the HTTP code returned for type PatchConfigFailure
+// HTTP code for type PatchConfigFailure
 const PatchConfigFailureCode int = 500
 
 /*PatchConfigFailure Recompilation failed

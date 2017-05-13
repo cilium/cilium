@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// GetEndpointIDLabelsOKCode is the HTTP code returned for type GetEndpointIDLabelsOK
+// HTTP code for type GetEndpointIDLabelsOK
 const GetEndpointIDLabelsOKCode int = 200
 
 /*GetEndpointIDLabelsOK Success
@@ -54,7 +54,7 @@ func (o *GetEndpointIDLabelsOK) WriteResponse(rw http.ResponseWriter, producer r
 	}
 }
 
-// GetEndpointIDLabelsNotFoundCode is the HTTP code returned for type GetEndpointIDLabelsNotFound
+// HTTP code for type GetEndpointIDLabelsNotFound
 const GetEndpointIDLabelsNotFoundCode int = 404
 
 /*GetEndpointIDLabelsNotFound Endpoint not found
