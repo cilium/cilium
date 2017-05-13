@@ -37,10 +37,11 @@ function test_event_types {
   expected_log_entry=( "Packet dropped" "DEBUG:" "DEBUG:" )
 
   for ((i=0;i<${#event_types[@]};++i)); do
+    echo "------- ${event_types[i]} -------"
     setup
     monitor_start --type ${event_types[i]}
     spin_up_container
-    sleep 3
+    sleep 10
     if grep "${expected_log_entry[i]}" $DUMP_FILE; then
       echo Test for ${event_types[i]} succeded
     else
@@ -63,12 +64,12 @@ function test_from {
   setup
   spin_up_container
   monitor_start --type debug --from $(last_endpoint_id)
-  sleep 3
+  sleep 10
   # We are not expecting drop events so fail if they occur.
   if grep "Packet dropped" $DUMP_FILE; then
     abort
   fi
-  sleep 3
+  sleep 10
   if grep "FROM $(last_endpoint_id) DEBUG: " $DUMP_FILE; then
     echo Test succeded test_from
   else
@@ -82,7 +83,7 @@ function test_to {
   setup
   spin_up_container
   monitor_start --type drop --to $(last_endpoint_id)
-  sleep 3
+  sleep 10
   ping6 -c 3 $(container_addr)
   if grep "FROM $(last_endpoint_id) Packet dropped" $DUMP_FILE; then
     echo Test succeded test_to
@@ -101,7 +102,7 @@ function test_related_to {
   monitor_stop
   monitor_resume --type debug --related-to $(last_endpoint_id)
   ping6 -c 3 $(container_addr)
-  sleep 2
+  sleep 10
   if grep "FROM $(last_endpoint_id) DEBUG: " $DUMP_FILE && \
    grep "FROM $(last_endpoint_id) Packet dropped" $DUMP_FILE; then
     echo Test succeded test_from
