@@ -71,7 +71,7 @@ var (
 		SampleType:   bpf.PERF_SAMPLE_RAW,
 		WakeupEvents: 1,
 	}
-	eventTypeIdx = -1 // for integer comparison
+	eventTypeIdx = bpfdebug.MessageTypeUnspec // for integer comparison
 	eventType    = ""
 	eventTypes   = map[string]int{
 		"drop":    bpfdebug.MessageTypeDrop,
@@ -92,7 +92,7 @@ func lostEvent(lost *bpf.PerfEventLost, cpu int) {
 // related to, which can match on both.  If either one of them is less than or
 // equal to zero, then it is assumed user did not use them.
 func match(messageType int, src uint16, dst uint32) bool {
-	if eventTypeIdx > bpfdebug.MessageTypeUnspec && messageType != eventTypeIdx {
+	if eventTypeIdx != bpfdebug.MessageTypeUnspec && messageType != eventTypeIdx {
 		return false
 	} else if fromSource > 0 && fromSource != src {
 		return false
