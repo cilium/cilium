@@ -53,6 +53,7 @@ const (
 	DbgLxcFound
 	DbgPolicyDenied
 	DbgCtLookup
+	DbgCtLookupRev
 	DbgCtMatch
 	DbgCtCreated
 	DbgCtCreated2
@@ -168,6 +169,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Policy evaluation would deny packet from %d to %d\n", n.Arg1, n.Arg2)
 	case DbgCtLookup:
 		fmt.Printf("CT lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
+	case DbgCtLookupRev:
+		fmt.Printf("CT reverse lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
 	case DbgCtLookup4:
 		fmt.Printf("CT lookup address: %s\n", ip4Str(n.Arg1))
 	case DbgCtMatch:
