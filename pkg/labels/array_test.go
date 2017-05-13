@@ -38,3 +38,10 @@ func (s *LabelsSuite) TestMatches(c *C) {
 	c.Assert(b.Contains(empty), Equals, true)  // empty is in b
 	c.Assert(empty.Contains(a), Equals, false) // a is NOT in empty
 }
+
+func (s *LabelsSuite) TestParse(c *C) {
+	c.Assert(ParseLabelArray(), DeepEquals, LabelArray{})
+	c.Assert(ParseLabelArray("magic"), DeepEquals, LabelArray{ParseLabel("magic")})
+	c.Assert(ParseLabelArray("a", "b", "c"), DeepEquals,
+		LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")})
+}
