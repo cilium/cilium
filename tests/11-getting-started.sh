@@ -10,6 +10,7 @@ ID_SERVICE1="id.service1"
 ID_SERVICE2="id.service2"
 
 function cleanup {
+  cilium policy delete --all 2> /dev/null || true
   docker rm -f ${HTTPD_CONTAINER_NAME}  2> /dev/null || true
   docker network rm ${TEST_NET} 2> /dev/null || true
   monitor_stop
@@ -32,18 +33,17 @@ docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1
 
 echo "------ creating l3_l4_policy.json ------"
 cat <<EOF | cilium policy import -
-{
-    "name": "root",
-    "rules": [{
-        "coverage": ["${ID_SERVICE1}"],
-        "allow": ["${ID_SERVICE2}"]
-    },{
-        "coverage": ["${ID_SERVICE1}"],
-        "l4": [{
-            "in-ports": [{ "port": 80, "protocol": "tcp" }]
-        }]
+[{
+    "endpointSelector": ["${ID_SERVICE1}"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["${ID_SERVICE2}"]
+	],
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}]
+	}]
     }]
-}
+}]
 EOF
 
 monitor_clear
@@ -60,50 +60,57 @@ docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} curl -si "http://${HTTPD_CONTAINER_NAME}/public" || {
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/public")
+if [[ "${RETURN//$'\n'}" != "200" ]]; then
   abort "Error: Could not reach ${HTTPD_CONTAINER_NAME}/public on port 80"
-}
+fi
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/private from service2 ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} curl -si "http://${HTTPD_CONTAINER_NAME}/private" || {
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/private")
+if [[ "${RETURN//$'\n'}" != "200" ]]; then
   abort "Error: Could not reach ${HTTPD_CONTAINER_NAME}/private on port 80"
-}
+fi
 
 echo "------ creating l7_aware_policy.json ------"
+cilium policy delete --all
 cat <<EOF | cilium policy import -
-{
-  "name": "root",
-  "rules": [{
-      "coverage": ["${ID_SERVICE1}"],
-      "allow": ["${ID_SERVICE2}", "reserved:host"]
-  },{
-      "coverage": ["${ID_SERVICE2}"],
-      "l4": [{
-          "out-ports": [{
-              "port": 80, "protocol": "tcp",
-              "l7-parser": "http",
-              "l7-rules": [
-                  { "expr": "Method(\"GET\") && Path(\"/public\")" }
-              ]
-          }]
-      }]
-  }]
-} 
+[{
+    "endpointSelector": ["${ID_SERVICE1}"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["${ID_SERVICE2}"], ["reserved:host"]
+	]
+    }]
+},{
+    "endpointSelector": ["${ID_SERVICE2}"],
+    "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+}]
 EOF
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} curl -si "http://${HTTPD_CONTAINER_NAME}/public" || {
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/public")
+if [[ "${RETURN//$'\n'}" != "200" ]]; then
   abort "Error: Could not reach ${HTTPD_CONTAINER_NAME}/public on port 80"
-}
+fi
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/private from service2 ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -si \"http://${HTTPD_CONTAINER_NAME}/private\" && false" && {
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/private")
+if [[ "${RETURN//$'\n'}" != "403" ]]; then
   abort "Error: Unexpected success reaching ${HTTPD_CONTAINER_NAME}/private on port 80"
-}
+fi
 
-
-cilium -D policy delete root
+cilium policy delete --all
 

@@ -278,15 +278,16 @@ cilium endpoint config $SERVER5_ID | grep ConntrackLocal
 #	ethtool -k $name tso off gso off gro off
 #done
 
+cilium policy delete --all 2> /dev/null || true
 cat <<EOF | cilium -D policy import -
-{
-        "name": "root",
-	"rules": [{
-		"coverage": ["id.server"],
-		"allow": ["reserved:host", "id.client", "id.server"]
-	}]
-
-}
+[{
+    "endpointSelector": ["id.server"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["reserved:host"], ["id.client"], ["id.server"]
+	]
+    }]
+}]
 EOF
 
 # Clear eventual old entries, this may fail if the maps have not been created
@@ -448,4 +449,4 @@ docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://$SVC_IP4/" || {
 #cilium config Debug=true DropNotification=true
 
 cleanup
-cilium -D policy delete root
+cilium policy delete --all

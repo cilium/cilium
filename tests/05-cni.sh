@@ -60,6 +60,7 @@ function clean_container {
 }
 
 function cleanup {
+	cilium policy delete --all 2> /dev/null || true
 	kill_cni_container $server_id cni-server
 	kill_cni_container $client_id cni-client
 	monitor_stop
@@ -75,14 +76,16 @@ cd $DIR
 
 monitor_start
 
+cilium policy delete --all 2> /dev/null || true
 cat <<EOF | cilium -D policy import -
-{
-        "name": "root",
-	"rules": [{
-		"coverage": ["id.server"],
-		"allow": ["reserved:host", "id.client"]
-	}]
-}
+[{
+    "endpointSelector": ["id.server"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["reserved:host"], ["id.client"]
+	]
+    }]
+}]
 EOF
 
 mkdir net.d

@@ -48,34 +48,41 @@ set -x
 cilium endpoint list
 
 cat <<EOF | cilium -D policy import -
-{
-        "name": "root",
-	"rules": [{
-		"coverage": ["id.curl"],
-		"l4": [{
-			"out-ports": [{"port": 80, "protocol": "tcp"}]
-		}]
-	},{
-		"coverage": ["id.server"],
-		"allow": ["reserved:host", "id.client"]
-	},{
-		"coverage": ["id.httpd"],
-		"allow": ["id.curl"]
-	},{
-		"coverage": ["id.httpd"],
-		"l4": [{
-			"in-ports": [{"port": 80, "protocol": "tcp"}]
-		}]
-	},{
-		"coverage": ["id.httpd_deny"],
-		"allow": ["id.curl"]
-	},{
-		"coverage": ["id.httpd_deny"],
-		"l4": [{
-			"in-ports": [{"port": 9090, "protocol": "tcp"}]
-		}]
-	}]
-}
+[{
+    "endpointSelector": ["id.curl"],
+    "egress": [{
+	    "toPorts": [{
+		    "ports": [{"port": "80", "protocol": "tcp"}]
+	    }]
+    }]
+},{
+    "endpointSelector": ["id.server"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["reserved:host"], ["id.client"]
+	]
+    }]
+},{
+    "endpointSelector": ["id.httpd"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["id.curl"]
+	],
+	"toPorts": [
+	    {"ports": [{"port": "80", "protocol": "tcp"}]}
+	]
+    }]
+},{
+    "endpointSelector": ["id.httpd_deny"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["id.curl"]
+	],
+	"toPorts": [
+	    {"ports": [{"port": "9090", "protocol": "tcp"}]}
+	]
+    }]
+}]
 EOF
 
 until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
@@ -222,4 +229,4 @@ done
 BIDIRECTIONAL=0
 connectivity_test
 
-cilium -D policy delete root
+cilium policy delete --all

@@ -1,13 +1,18 @@
-{
-	"name": "root",
-	"rules": [{
-		"coverage": ["id.qa"],
-		"requires": ["id.qa"]
-	},{
-		"coverage": ["id.prod"],
-		"requires": ["id.prod"]
-	},{
-		"coverage": ["id.server"],
-		"allow": ["id.client", "$host"]
-	}]
-}
+[{
+    "endpointSelector": ["id.qa"],
+    "ingress": [{
+        "fromRequires": [["id.qa"]]
+    }]
+},{
+    "endpointSelector": ["id.prod"],
+    "ingress": [{
+        "fromRequires": [["id.prod"]]
+    }]
+},{
+    "endpointSelector": ["id.server"],
+    "ingress": [{
+        "fromEndpoints": [
+	    ["id.client"], ["reserved:host"]
+	]
+    }]
+}]

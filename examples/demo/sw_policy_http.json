@@ -1,19 +1,26 @@
-{
-	"name": "root",
-	"rules": [{
-		"coverage": ["id.empire.deathstar"],
-		"allow": ["id.spaceship", "reserved:host"]
-	},{
-		"coverage": ["id.spaceship"],
-		"l4": [{
-			"out-ports": [{
-				"port": 80, "protocol": "tcp",
-				"l7-parser": "http",
-				"l7-rules": [
-					{ "expr": "Method(\"GET\") && Path(\"/v1/\")" },
-					{ "expr": "Method(\"POST\") && Path(\"/v1/request-landing\")" }
-				]
-			}]
-		}]
+[{
+    "endpointSelector": ["id.empire.deathstar"],
+    "ingress": [{
+        "fromEndpoints": [["id.spaceship"], ["reserved:host"]]
+    }]
+},{
+    "endpointSelector": ["id.spaceship"],
+    "egress": [{
+	"toPorts": [{
+	    "ports": [
+                {"port": "80", "protocol": "tcp"}
+            ],
+	    "rules": {
+                "HTTP": [
+                    {
+                        "method": "GET",
+                        "path": "/v1/"
+                    },{
+                        "method": "POST",
+                        "path": "/v1/request-landing/"
+                    }
+		]
+	    }
 	}]
-}
+    }]
+}]
