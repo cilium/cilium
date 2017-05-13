@@ -133,7 +133,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state = {};
 	void *data, *data_end;
 	union v6addr *daddr;
 
@@ -201,7 +201,7 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
 	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, CT_EGRESS,
-			 &ct_state_reply);
+			 &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -224,9 +224,9 @@ skip_service_lookup:
 	case CT_REPLY:
 		policy_mark_skip(skb);
 
-		if (ct_state_reply.rev_nat_index) {
+		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,
-					  ct_state_reply.rev_nat_index, tuple, 0);
+					  ct_state.rev_nat_index, tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -383,7 +383,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state = {};
 	__be32 orig_dip;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
@@ -450,7 +450,7 @@ skip_service_lookup:
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_EGRESS,
-			 &ct_state_reply);
+			 &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -465,7 +465,7 @@ skip_service_lookup:
 		if (IS_ERR(ret))
 			return ret;
 
-		ct_state_reply.proxy_port = ct_state_new.proxy_port;
+		ct_state.proxy_port = ct_state_new.proxy_port;
 		break;
 
 	case CT_ESTABLISHED:
@@ -475,9 +475,9 @@ skip_service_lookup:
 	case CT_REPLY:
 		policy_mark_skip(skb);
 
-		if (ct_state_reply.rev_nat_index) {
+		if (ct_state.rev_nat_index) {
 			ret = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
-					  &ct_state_reply, &tuple, 0);
+					  &ct_state, &tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -487,12 +487,12 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (ct_state_reply.proxy_port) {
+	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state_reply.proxy_port, tuple.dport,
+						 ct_state.proxy_port, tuple.dport,
 						 orig_dip, &tuple);
 		if (IS_ERR(ret))
 			return ret;
@@ -690,7 +690,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
 	int ret, l4_off, verdict;
-	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
@@ -729,15 +729,15 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, CT_INGRESS,
-			 &ct_state_reply);
+			 &ct_state);
 	if (ret < 0)
 		return ret;
 
-	if (unlikely(ct_state_reply.rev_nat_index)) {
+	if (unlikely(ct_state.rev_nat_index)) {
 		int ret2;
 
 		ret2 = lb6_rev_nat(skb, l4_off, &csum_off,
-				   ct_state_reply.rev_nat_index, &tuple, 0);
+				   ct_state.rev_nat_index, &tuple, 0);
 		if (IS_ERR(ret2))
 			return ret2;
 	}
@@ -756,16 +756,16 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		if (IS_ERR(ret))
 			return ret;
 
-		ct_state_reply.proxy_port = ct_state_new.proxy_port;
+		ct_state.proxy_port = ct_state_new.proxy_port;
 	}
 
-	if (ct_state_reply.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		//union v6addr host_ip = HOST_IP;
 		//union v6addr lxc_ip = LXC_IP;
 		//__be32 sum;
 
 		if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, &csum_off,
-				   ct_state_reply.proxy_port, tuple.dport) < 0)
+				   ct_state.proxy_port, tuple.dport) < 0)
 			return DROP_WRITE_ERROR;
 
 #if 0
@@ -795,7 +795,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
 	int ret, verdict, l4_off;
-	struct ct_state ct_state_reply = {};
+	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
@@ -814,7 +814,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state_reply);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -825,12 +825,12 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 #endif
 
-	if (unlikely(ret == CT_REPLY && ct_state_reply.rev_nat_index &&
-		     !ct_state_reply.loopback)) {
+	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index &&
+		     !ct_state.loopback)) {
 		int ret2;
 
 		ret2 = lb4_rev_nat(skb, ETH_HLEN, l4_off, &csum_off,
-				   &ct_state_reply, &tuple,
+				   &ct_state, &tuple,
 				   REV_NAT_F_TUPLE_SADDR);
 		if (IS_ERR(ret2))
 			return ret2;
@@ -851,14 +851,14 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 		/* NOTE: tuple has been invalidated after this */
 
-		ct_state_reply.proxy_port = ct_state_new.proxy_port;
+		ct_state.proxy_port = ct_state_new.proxy_port;
 	}
 
-	if (ct_state_reply.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		__be32 orig_dip = LXC_IPV4;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state_reply.proxy_port, tuple.dport,
+						 ct_state.proxy_port, tuple.dport,
 						 orig_dip, &tuple);
 		if (IS_ERR(ret))
 			return ret;
