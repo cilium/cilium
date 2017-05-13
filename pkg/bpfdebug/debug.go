@@ -228,11 +228,13 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgLb4LoopbackSnatRev:
 		fmt.Printf("Loopback reverse SNAT from=%s to=%s\n", ip4Str(n.Arg1), ip4Str(n.Arg2))
 	case DbgRevProxyLookup:
-		fmt.Printf("Reverse proxy lookup, %s\n", proxyInfo(n.Arg1, n.Arg2))
+		fmt.Printf("Reverse proxy lookup %s nexthdr=%d\n",
+			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgRevProxyFound:
 		fmt.Printf("Reverse proxy entry found, orig-daddr=%s orig-dport=%d\n", ip4Str(n.Arg1), n.Arg2)
 	case DbgRevProxyUpdate:
-		fmt.Printf("Reverse proxy updated, %s\n", proxyInfo(n.Arg1, n.Arg2))
+		fmt.Printf("Reverse proxy updated %s nexthdr=%d\n",
+			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgL4Policy:
 		fmt.Printf("Resolved L4 policy to: %d / %s\n",
 			common.Swab16(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
