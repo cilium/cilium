@@ -45,7 +45,7 @@ cat <<EOF | cilium -D policy import -
 			"out-ports": [{
 				"port": 80, "protocol": "tcp",
 				"l7-parser": "http",
-				"l7-rules": [{ "expr": "Method(\"GET\")" }]
+				"l7-rules": [{ "expr": "Method(\"GET\") && Path(\"/public\")" }]
 			}]
 		}]
 	},{
@@ -57,8 +57,15 @@ EOF
 
 sleep 2
 
-docker exec -i client bash -c "curl --connect-timeout 10 -XGET http://$SERVER_IP4:80"
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
+if [[ "${RETURN//$'\n'}" != "404" ]]; then
+	abort "GET /public, unexpected return"
+fi
 
-docker exec -i client bash -c "curl --connect-timeout 10 -XPUT http://$SERVER_IP4:80"
+
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
+if [[ "${RETURN//$'\n'}" != "403" ]]; then
+	abort "GET /private, unexpected return"
+fi
 
 cilium policy delete root
