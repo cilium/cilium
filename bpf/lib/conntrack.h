@@ -251,7 +251,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	ipv6_ct_tuple_reverse(tuple);
 	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
 		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
-	ret = __ct_lookup(map, skb, tuple, action, dir, NULL);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
 
 #ifdef LXC_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
@@ -405,7 +405,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	ipv4_ct_tuple_reverse(tuple);
 	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
 		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
-	ret = __ct_lookup(map, skb, tuple, action, dir, NULL);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
 	if (ret == CT_NEW && action != ACTION_CREATE)
