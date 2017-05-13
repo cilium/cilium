@@ -133,7 +133,8 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
 
-	cilium_trace(skb, DBG_REV_PROXY_LOOKUP, key.sport << 16 | key.dport, key.saddr);
+	cilium_trace3(skb, DBG_REV_PROXY_LOOKUP, key.sport << 16 | key.dport,
+		      key.saddr, key.nexthdr);
 
 	val = map_lookup_elem(&cilium_proxy4, &key);
 	if (!val)
