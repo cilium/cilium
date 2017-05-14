@@ -458,7 +458,7 @@ function vboxnet_addr_finder(){
     if [[ -n "${all_vbox_interfaces}" ]]; then
         while read -r ip; do
             line_ip=$(( $line_ip + 1 ))
-            if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR::-1}") ]; then
+            if [ ! -z $(echo "${ip}" | grep -i "${IPV6_PUBLIC_CIDR/::/:}") ]; then
                 found=${line_ip}
                 net_mask=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip}")
                 vboxnetname=$(echo "${all_vbox_interfaces}" | awk "NR == 3 * ${line_ip} - 2")
