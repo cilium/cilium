@@ -487,7 +487,7 @@ function vboxnet_addr_finder(){
         fi
     elif [[ "${net_mask}" -ne 16 ]]; then
         echo "WARN: VirtualBox interface with \"${IPV6_PUBLIC_CIDR}\" found in ${vboxnetname}"
-        echo "but set wrong network mask (64 instead of 16)"
+        echo "but set wrong network mask (${net_mask} instead of 16)"
         if [ ${YES_TO_ALL} -eq "0" ]; then
             read -r -p "Change network mask of '${vboxnetname}' to 16? [y/N] " response
         else
