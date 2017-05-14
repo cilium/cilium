@@ -23,6 +23,8 @@ const (
 	DefaultIPv6Prefix = "f00d::"
 	// DefaultIPv6PrefixLen is the length used to allocate container IPv6 addresses from.
 	DefaultIPv6PrefixLen = 112
+	// DefaultIPv6ClusterPrefixLen is the IPv6 prefix length of the entire cluster.
+	DefaultIPv6ClusterPrefixLen = 64
 	// DefaultIPv4Prefix is the prefix for all the IPv4 addresses.
 	// %d is substituted with the last byte of first global IPv4 address
 	// configured on the system.
