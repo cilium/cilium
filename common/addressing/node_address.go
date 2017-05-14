@@ -81,6 +81,16 @@ func (a *NodeAddress) IPv4AllocRange() *net.IPNet {
 	}
 }
 
+// IPv6ClusterRange returns the IPv6 cluster range
+func (a *NodeAddress) IPv6ClusterRange() *net.IPNet {
+	mask := net.CIDRMask(DefaultIPv6ClusterPrefixLen, 128)
+
+	return &net.IPNet{
+		IP:   a.IPv6Address.IP().Mask(mask),
+		Mask: mask,
+	}
+}
+
 func (a *NodeAddress) IPv6AllocRange() *net.IPNet {
 	mask := net.CIDRMask(DefaultIPv6PrefixLen, 128)
 

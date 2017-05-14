@@ -604,6 +604,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
+	log.Infof("Cluster IPv6 prefix: %s", d.conf.NodeAddress.IPv6ClusterRange())
+	log.Infof("Cluster IPv4 prefix: %s", d.conf.NodeAddress.IPv4ClusterRange())
+	log.Infof("IPv6 allocation prefix: %s", d.conf.NodeAddress.IPv6AllocRange())
+	log.Infof("IPv4 allocation prefix: %s", d.conf.NodeAddress.IPv4AllocRange())
+
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, err := d.ipamConf.IPv4Allocator.AllocateNext()
