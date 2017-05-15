@@ -985,7 +985,7 @@ describe some of the differences for the BPF model:
   The example also demonstrates how BPF helper functions are mapped into
   the C code and being used. Here, ``map_lookup_elem()`` is defined by
   mapping this function into the ``BPF_FUNC_map_lookup_elem`` enum value
-  which is exposed as a helper in ``linux/bpf.h``. When the program is later
+  which is exposed as a helper in ``uapi/linux/bpf.h``. When the program is later
   loaded into the kernel, the verifier checks whether the passed arguments
   are of the expected type and re-points the helper call into a real
   function call. Moreover, ``map_lookup_elem()`` also demonstrates how
