@@ -84,6 +84,11 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return nil
 	}
 
+	tprClient, err := k8sTypes.CreateTPRClient(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
+	if err != nil {
+		return fmt.Errorf("Unable to create third party resource client: %s", err)
+	}
+
 	_, policyController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
@@ -137,14 +142,14 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go ingressController.Run(wait.NeverStop)
 
 	_, ciliumRulesController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
-			"ciliumrules", v1.NamespaceAll, fields.Everything()),
-		&k8sTypes.CiliumRule{},
+		cache.NewListWatchFromClient(tprClient, "ciliumnetworkpolicies",
+			v1.NamespaceAll, fields.Everything()),
+		&k8sTypes.CiliumNetworkPolicy{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addCiliumRule,
-			UpdateFunc: d.updateCiliumRule,
-			DeleteFunc: d.deleteCiliumRule,
+			AddFunc:    d.addCiliumNetworkPolicy,
+			UpdateFunc: d.updateCiliumNetworkPolicy,
+			DeleteFunc: d.deleteCiliumNetworkPolicy,
 		},
 	)
 	go ciliumRulesController.Run(wait.NeverStop)
@@ -751,12 +756,14 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 	return nil
 }
 
-func (d *Daemon) addCiliumRule(obj interface{}) {
-	rule, ok := obj.(*k8sTypes.CiliumRule)
+func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
+	rule, ok := obj.(*k8sTypes.CiliumNetworkPolicy)
 	if !ok {
-		log.Warningf("Invalid third-party objected, expected CiliumRule, got %+v", obj)
+		log.Warningf("Invalid third-party objected, expected CiliumNetworkPolicy, got %+v", obj)
 		return
 	}
+
+	log.Debugf("Adding k8s TPR CiliumNetworkPolicy %+v", rule)
 
 	rules, err := rule.Parse()
 	if err != nil {
@@ -773,15 +780,17 @@ func (d *Daemon) addCiliumRule(obj interface{}) {
 		return
 	}
 
-	log.Infof("Imported third-party policy rule '%s'", rule.Name)
+	log.Infof("Imported third-party policy rule '%s'", rule.Metadata.Name)
 }
 
-func (d *Daemon) deleteCiliumRule(obj interface{}) {
-	rule, ok := obj.(*k8sTypes.CiliumRule)
+func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
+	rule, ok := obj.(*k8sTypes.CiliumNetworkPolicy)
 	if !ok {
-		log.Warningf("Invalid third-party objected, expected CiliumRule, got %+v", obj)
+		log.Warningf("Invalid third-party objected, expected CiliumNetworkPolicy, got %+v", obj)
 		return
 	}
+
+	log.Debugf("Deleting k8s TPR CiliumNetworkPolicy %+v", rule)
 
 	rules, err := rule.Parse()
 	if err != nil {
@@ -794,11 +803,11 @@ func (d *Daemon) deleteCiliumRule(obj interface{}) {
 		return
 	}
 
-	log.Infof("Deleted third-party policy rule '%s'", rule.Name)
+	log.Infof("Deleted third-party policy rule '%s'", rule.Metadata.Name)
 }
 
-func (d *Daemon) updateCiliumRule(oldObj interface{}, newObj interface{}) {
+func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{}) {
 	// FIXME
-	d.deleteCiliumRule(oldObj)
-	d.addCiliumRule(newObj)
+	d.deleteCiliumNetworkPolicy(oldObj)
+	d.addCiliumNetworkPolicy(newObj)
 }
