@@ -157,17 +157,17 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	verdict := d.policy.AllowsRLocked(&searchCtx)
 	searchCtx.PolicyTrace("L3 verdict: %s\n", verdict.String())
 
-	l4Egress := d.traceL4Egress(searchCtx, searchCtx.DPorts)
-	l4Ingress := d.traceL4Ingress(searchCtx, searchCtx.DPorts)
-	d.policy.Mutex.RUnlock()
-
 	// We only report the overall verdict as L4 inclusive if a port has
 	// been specified
 	if len(searchCtx.DPorts) != 0 {
+		l4Egress := d.traceL4Egress(searchCtx, searchCtx.DPorts)
+		l4Ingress := d.traceL4Ingress(searchCtx, searchCtx.DPorts)
 		if l4Egress != api.Allowed || l4Ingress != api.Allowed {
 			verdict = api.Denied
 		}
 	}
+
+	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
 		Verdict: verdict.String(),

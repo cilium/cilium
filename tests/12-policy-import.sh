@@ -117,16 +117,6 @@ Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
 Result: ALLOWED
 L3 verdict: allowed
 
-Resolving egress port policy for [cilium:id.foo]
-0 rules matched
-L4 egress verdict: [no port context specified]
-
-Resolving ingress port policy for [cilium:id.bar]
-* Rule 0 [cilium:id.bar]: match
-    No L4 rules
-1 rules matched
-L4 ingress verdict: [no port context specified]
-
 Verdict: allowed
 EOF
 
@@ -177,16 +167,6 @@ Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
 1 rules matched
 Result: ALLOWED
 L3 verdict: allowed
-
-Resolving egress port policy for [cilium:id.foo]
-0 rules matched
-L4 egress verdict: [no port context specified]
-
-Resolving ingress port policy for [cilium:id.bar]
-* Rule 0 [cilium:id.bar]: match
-    No L4 rules
-1 rules matched
-L4 ingress verdict: [no port context specified]
 
 Verdict: allowed
 EOF
