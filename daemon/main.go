@@ -235,6 +235,8 @@ func init() {
 	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
 	flags.StringSliceVar(&k8sLabelsPrefixes, "k8s-prefix", []string{},
 		"Key values that will be read from kubernetes. (Default: k8s-app, version)")
+	flags.StringVar(&config.AllowLocalhost, "allow-localhost", AllowLocalhostAuto,
+		"Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.StringVar(&kvStore, "kvstore", kvstore.Local, "Key-value store type")
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
 		"When restoring state, keeps containers' configuration in place")
@@ -352,6 +354,17 @@ func initConfig() {
 		}
 	}
 	checkMinRequirements()
+
+	config.AllowLocalhost = strings.ToLower(config.AllowLocalhost)
+	switch config.AllowLocalhost {
+	case AllowLocalhostAlways:
+		config.alwaysAllowLocalhost = true
+	case AllowLocalhostAuto, AllowLocalhostPolicy:
+		config.alwaysAllowLocalhost = false
+	default:
+		log.Fatalf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
+			AllowLocalhostAuto, AllowLocalhostAlways, AllowLocalhostPolicy)
+	}
 }
 
 func initEnv() {

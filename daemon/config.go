@@ -34,6 +34,21 @@ var (
 	kvBackend = ""
 )
 
+const (
+	// AllowLocalhostAuto defaults to policy except when running in
+	// Kubernetes where it then defaults to "always"
+	AllowLocalhostAuto = "auto"
+
+	// AllowLocalhostAlways always allows the local stack to reach local
+	// endpoints
+	AllowLocalhostAlways = "always"
+
+	// AllowLocalhostPolicy requires a policy rule to allow the local stack
+	// to reach particular endpoints or policy enforcement must be
+	// disabled.
+	AllowLocalhostPolicy = "policy"
+)
+
 // Config is the configuration used by Daemon.
 type Config struct {
 	BpfDir         string                  // BPF template files directory
@@ -64,6 +79,15 @@ type Config struct {
 	RestoreState  bool // RestoreState restores the state from previous running daemons.
 	KeepConfig    bool // Keep configuration of existing endpoints when starting up.
 	KeepTemplates bool // Do not overwrite the template files
+
+	// AllowLocalhost defines when to allows the local stack to local endpoints
+	// values: { auto | always | policy }
+	AllowLocalhost string
+
+	// alwaysAllowLocalhost is set based on the value of AllowLocalhost and
+	// is either set to true when localhost can always reach local
+	// endpoints or false when policy should be evaluated
+	alwaysAllowLocalhost bool
 
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
