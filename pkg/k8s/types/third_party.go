@@ -17,6 +17,7 @@ package k8s
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -43,7 +44,7 @@ func (r *CiliumRule) Parse() (api.Rules, error) {
 	}
 
 	// Convert resource name to a Cilium policy rule label
-	label := fmt.Sprintf("%s=%s", PolicyLabelName, r.Name)
+	label := fmt.Sprintf("%s=%s", k8s.PolicyLabelName, r.Name)
 
 	// TODO: Warn about overwritten labels?
 	r.Spec.Labels = labels.ParseLabelArray(label)

@@ -43,13 +43,6 @@ const (
 
 	// CiliumLabelSource is the default label source for the labels read from containers.
 	CiliumLabelSource = "cilium"
-	// K8sLabelSource is the default label source for the labels read from kubernetes.
-	K8sLabelSource = "k8s"
-	// K8sLabelPrefix is the default prefix used to represent kubernetes labels
-	K8sLabelPrefix = "io.cilium.k8s."
-	// K8sPodNamespaceLabel is the label used in kubernetes containers to specify
-	// which namespace they belong to.
-	K8sPodNamespaceLabel = "io.kubernetes.pod.namespace"
 	// ReservedLabelSource is the label source for reserved types.
 	ReservedLabelSource = "reserved"
 	// ReservedLabelKey is the label used to represent the reserved source.

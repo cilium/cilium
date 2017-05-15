@@ -12,34 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package k8s abstracts all Kubernetes specific behaviour
 package k8s
 
 import (
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
-
-	. "gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-func (s *K8sSuite) TestParseThirdParty(c *C) {
-	policyRule := &CiliumRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "foo",
-		},
-		Spec: api.Rule{
-			EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
-			Ingress: []api.IngressRule{
-				{
-					FromEndpoints: []api.EndpointSelector{
-						api.ParseEndpointSelector("foo", "foo2"),
-					},
-				},
-			},
-		},
+// CreateClient creates a new client to access the Kubernetes API
+func CreateClient(endpoint, kubeCfgPath string) (*kubernetes.Clientset, error) {
+	var (
+		config *rest.Config
+		err    error
+	)
+	if kubeCfgPath != "" {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeCfgPath)
+	} else {
+		config = &rest.Config{Host: endpoint}
+		err = rest.SetKubernetesDefaults(config)
 	}
-
-	rules, err := policyRule.Parse()
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(config)
 }

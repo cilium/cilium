@@ -17,7 +17,7 @@ package k8s
 import (
 	"testing"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -77,12 +77,12 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel("foo3", "bar3", common.K8sLabelSource),
-			labels.NewLabel("foo4", "bar4", common.K8sLabelSource),
+			labels.NewLabel("foo3", "bar3", k8s.LabelSource),
+			labels.NewLabel("foo4", "bar4", k8s.LabelSource),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel("foo1", "bar1", common.K8sLabelSource),
-			labels.NewLabel("foo2", "bar2", common.K8sLabelSource),
+			labels.NewLabel("foo1", "bar1", k8s.LabelSource),
+			labels.NewLabel("foo2", "bar2", k8s.LabelSource),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -147,10 +147,10 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel("foo0", "bar0", common.K8sLabelSource),
+			labels.NewLabel("foo0", "bar0", k8s.LabelSource),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel("foo1", "bar1", common.K8sLabelSource),
+			labels.NewLabel("foo1", "bar1", k8s.LabelSource),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
