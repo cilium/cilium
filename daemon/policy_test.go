@@ -150,15 +150,16 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
+	lblBar := labels.ParseLabel("bar")
 	lbls := labels.ParseLabelArray("foo", "bar")
 	rules := api.Rules{
 		{
 			Labels:           lbls,
-			EndpointSelector: api.EndpointSelector{labels.ParseLabel("foo")},
+			EndpointSelector: api.NewESFromLabels(lblBar),
 		},
 		{
 			Labels:           lbls,
-			EndpointSelector: api.EndpointSelector{labels.ParseLabel("foo")},
+			EndpointSelector: api.NewESFromLabels(lblBar),
 		},
 	}
 
