@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -22,32 +23,93 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// CiliumRule is third-party ressource that can be used with Kubernetes
-type CiliumRule struct {
-	metav1.TypeMeta
+// CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
+// of NetworkPolicy
+type CiliumNetworkPolicy struct {
+	metav1.TypeMeta `json:",inline"`
 	// +optional
-	metav1.ObjectMeta
+	Metadata metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Cilium specific rule specification.
-	Spec api.Rule
+	Spec api.Rule `json:"spec"`
 }
 
-func (r *CiliumRule) Parse() (api.Rules, error) {
+// GetObjectKind returns the kind of the object
+func (r *CiliumNetworkPolicy) GetObjectKind() schema.ObjectKind {
+	return &r.TypeMeta
+}
+
+// GetObjectMeta returns the metadata of the object
+func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
+	return &r.Metadata
+}
+
+// Parse parses a CiliumNetworkPolicy and returns a list of internal policy rules
+func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	if err := r.Spec.Validate(); err != nil {
 		return nil, fmt.Errorf("Invalid spec: %s", err)
 	}
 
-	if r.Name == "" {
-		return nil, fmt.Errorf("CiliumRule must have name")
+	if r.Metadata.Name == "" {
+		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
 	}
 
 	// Convert resource name to a Cilium policy rule label
-	label := fmt.Sprintf("%s=%s", k8s.PolicyLabelName, r.Name)
+	label := fmt.Sprintf("%s=%s", k8s.PolicyLabelName, r.Metadata.Name)
 
 	// TODO: Warn about overwritten labels?
 	r.Spec.Labels = labels.ParseLabelArray(label)
 
 	return api.Rules{&r.Spec}, nil
+}
+
+type ciliumNetworkPolicyCopy CiliumNetworkPolicy
+
+// UnmarshalJSON parses JSON into a CiliumNetworkPolicy
+func (e *CiliumNetworkPolicy) UnmarshalJSON(data []byte) error {
+	tmp := ciliumNetworkPolicyCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := CiliumNetworkPolicy(tmp)
+	*e = tmp2
+	return nil
+}
+
+// CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
+type CiliumNetworkPolicyList struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	Metadata metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumNetworkPolicy
+	Items []CiliumNetworkPolicy `json:"items"`
+}
+
+// GetObjectKind returns the kind of the object
+func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
+	return &r.TypeMeta
+}
+
+// GetListMeta returns the metadata of the object
+func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
+	return &r.Metadata
+}
+
+type ciliumNetworkPolicyListCopy CiliumNetworkPolicyList
+
+// UnmarshalJSON parses JSON into a CiliumNetworkPolicyList
+func (e *CiliumNetworkPolicyList) UnmarshalJSON(data []byte) error {
+	tmp := ciliumNetworkPolicyListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := CiliumNetworkPolicyList(tmp)
+	*e = tmp2
+	return nil
 }

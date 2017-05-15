@@ -23,8 +23,8 @@ import (
 )
 
 func (s *K8sSuite) TestParseThirdParty(c *C) {
-	policyRule := &CiliumRule{
-		ObjectMeta: metav1.ObjectMeta{
+	policyRule := &CiliumNetworkPolicy{
+		Metadata: metav1.ObjectMeta{
 			Name: "foo",
 		},
 		Spec: api.Rule{
