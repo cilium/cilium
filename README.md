@@ -80,7 +80,7 @@ kernel version by running ``uname -a``. If you are not yet running a recent
 enough kernel, check the Documentation of your Linux distribution on how to
 run Linux kernel 4.9.x or later.
 
-For more detail on kernel versions, see: [Prerequisites](prerequisites)
+For more detail on kernel versions, see: [Prerequisites][prerequisites]
 
 <p align="center">
    <img src="Documentation/images/bpf-overview.png" width="508" />
