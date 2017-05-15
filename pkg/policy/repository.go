@@ -152,11 +152,8 @@ func (p *Repository) Add(r api.Rule) error {
 	return nil
 }
 
-// AddList inserts a rule into the policy repository
-func (p *Repository) AddList(rules api.Rules) error {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
-
+// AddListLocked inserts a rule into the policy repository with the repository already locked
+func (p *Repository) AddListLocked(rules api.Rules) error {
 	// Validate entire rule list first and only append array if
 	// all rules are valid
 	newList := make([]*rule, len(rules))
@@ -171,12 +168,16 @@ func (p *Repository) AddList(rules api.Rules) error {
 	return nil
 }
 
-// DeleteByLabels deletes all rules in the policy repository which contain the
-// specified labels
-func (p *Repository) DeleteByLabels(labels labels.LabelArray) int {
+// AddList inserts a rule into the policy repository
+func (p *Repository) AddList(rules api.Rules) error {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
+	return p.AddListLocked(rules)
+}
 
+// DeleteByLabelsLocked deletes all rules in the policy repository which
+// contain the specified labels
+func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) int {
 	deleted := 0
 	new := p.rules[:0]
 
@@ -193,6 +194,14 @@ func (p *Repository) DeleteByLabels(labels labels.LabelArray) int {
 	}
 
 	return deleted
+}
+
+// DeleteByLabels deletes all rules in the policy repository which contain the
+// specified labels
+func (p *Repository) DeleteByLabels(labels labels.LabelArray) int {
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+	return p.DeleteByLabelsLocked(labels)
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON
