@@ -31,6 +31,10 @@ type Owner interface {
 	// PolicyEnabled returns true if policy enforcement has been enabled
 	PolicyEnabled() bool
 
+	// AlwaysAllowLocalhost returns true if localhost is always allowed to
+	// reach local endpoints
+	AlwaysAllowLocalhost() bool
+
 	// Must return an instance of a ConsumableCache
 	GetConsumableCache() *policy.ConsumableCache
 

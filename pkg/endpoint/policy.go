@@ -193,8 +193,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	c.L4Policy = newL4policy
 
-	if newL4policy.HasRedirect() {
-		log.Debugf("[%s] Interaction with proxy, allowing localhost", e.PolicyID())
+	if newL4policy.HasRedirect() || owner.AlwaysAllowLocalhost() {
 		e.allowConsumer(owner, policy.ID_HOST)
 	}
 

@@ -203,6 +203,12 @@ func (d *Daemon) DryModeEnabled() bool {
 	return d.conf.DryMode
 }
 
+// AlwaysAllowLocalhost returns true if the daemon has the option set that
+// localhost can always reach local endpoints
+func (d *Daemon) AlwaysAllowLocalhost() bool {
+	return d.conf.alwaysAllowLocalhost
+}
+
 func (d *Daemon) PolicyEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
 }
@@ -597,6 +603,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			if err := d.useK8sNodeCIDR(nodeName); err != nil {
 				return nil, err
 			}
+		}
+
+		// Kubernetes demands that the localhost can always reach local
+		// pods. Therefore unless the AllowLocalhost policy is set to a
+		// specific mode, always allow localhost to reach local
+		// endpoints.
+		if d.conf.AllowLocalhost == AllowLocalhostAuto {
+			log.Infof("k8s mode: Allowing localhost to reach local endpoints")
+			config.alwaysAllowLocalhost = true
 		}
 	}
 
