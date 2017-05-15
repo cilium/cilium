@@ -15,7 +15,6 @@
 package policy
 
 import (
-	"crypto/sha512"
 	"fmt"
 	"strconv"
 	"strings"
@@ -110,7 +109,3 @@ func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
 	s.PolicyTraceVerbose("Checking if %+v covers %+v", coverage, s.To)
 	return s.To.Contains(coverage)
 }
-
-var (
-	CoverageSHASize = len(fmt.Sprintf("%x", sha512.New512_256().Sum(nil)))
-)
