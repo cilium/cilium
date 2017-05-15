@@ -135,6 +135,19 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go ingressController.Run(wait.NeverStop)
 
+	_, ciliumRulesController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
+			"ciliumrules", v1.NamespaceAll, fields.Everything()),
+		&k8s.CiliumRule{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.addCiliumRule,
+			UpdateFunc: d.updateCiliumRule,
+			DeleteFunc: d.deleteCiliumRule,
+		},
+	)
+	go ciliumRulesController.Run(wait.NeverStop)
+
 	return nil
 }
 
@@ -734,4 +747,55 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 		return addSN(*newSN)
 	}
 	return nil
+}
+
+func (d *Daemon) addCiliumRule(obj interface{}) {
+	rule, ok := obj.(*k8s.CiliumRule)
+	if !ok {
+		log.Warningf("Invalid third-party objected, expected CiliumRule, got %+v", obj)
+		return
+	}
+
+	rules, err := rule.Parse()
+	if err != nil {
+		log.Warningf("Ignoring invalid third-party policy rule: %s", err)
+		return
+	}
+
+	// Delete an eventual existing rule with matching label
+	d.PolicyDelete(rules[0].Labels)
+
+	if err := d.PolicyAdd(rules); err != nil {
+		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
+		return
+	}
+
+	log.Infof("Imported third-party policy rule '%s'", rule.Name)
+}
+
+func (d *Daemon) deleteCiliumRule(obj interface{}) {
+	rule, ok := obj.(*k8s.CiliumRule)
+	if !ok {
+		log.Warningf("Invalid third-party objected, expected CiliumRule, got %+v", obj)
+		return
+	}
+
+	rules, err := rule.Parse()
+	if err != nil {
+		log.Warningf("Ignoring invalid third-party policy rule: %s", err)
+		return
+	}
+
+	if err := d.PolicyDelete(rules[0].Labels); err != nil {
+		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
+		return
+	}
+
+	log.Infof("Deleted third-party policy rule '%s'", rule.Name)
+}
+
+func (d *Daemon) updateCiliumRule(oldObj interface{}, newObj interface{}) {
+	// FIXME
+	d.deleteCiliumRule(oldObj)
+	d.addCiliumRule(newObj)
 }
