@@ -19,28 +19,155 @@ You need to have the following tools available in order to effectively
 contribute to Cilium:
 
 - git
+- `go <https://golang.org/dl/>`_
 - go-swagger
-  `go get -u github.com/go-swagger/go-swagger/cmd/swagger`
+  ``go get -u github.com/go-swagger/go-swagger/cmd/swagger``
 - go-bindata
-  `go get -u github.com/jteeuwen/go-bindata/...`
+  ``go get -u github.com/jteeuwen/go-bindata/...``
+
+To use the Vagrantfiles and related scripts you also need:
+
+- `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt)
+- `Vagrant <https://www.vagrantup.com/downloads.html>`_
+
+Finally, in order to build the documentation, you should have Sphinx installed:
+
+::
+
+    $ sudo pip install sphinx
+  
+You should start with the :ref:`gs_guide`, which walks you through the
+set-up, such as installing Vagrant, getting the Cilium sources, and
+going through some Cilium basics.
+
+  
+Vagrant Setup
+~~~~~~~~~~~~~
+
+While the the :ref:`gs_guide` uses a Vagrantfile tuned for the basic
+walk through, the setup for the Vagrantfile in the root of the Cilium
+tree depends on a number of environment variables and network setup
+that are managed via ``contrib/vagrant/start.sh``.
+
+Your Cilium tree is mapped to the VM so that you do not need to keep
+copying files between your host and the VM.  The default sync method
+is rsync, which only syncs when the VM is brought up, or when manually
+triggered (``vagrant rsync`` command in the Cilium tree).  You can
+also use NFS to access your Cilium tree from the VM by setting the
+environment variable ``NFS`` before running the startup script
+(``export NFS=1``).  Note that your host firewall have the NFS UDP
+ports open, the startup script will give the address and port details
+for this.
+
+.. note::
+
+   OSX file system is by default case insensitive, which can confuse
+   git.  At the writing of this Cilium repo has no file names that
+   would be considered referring to the same file on a case
+   insensitive file system.  Regardless, it may be useful to create a
+   disk image with a case sensitive file system for holding your git
+   repos.
+
+.. note::
+
+   VirtualBox for OSX currently (version 5.1.22) always reports
+   host-only networks' prefix length as 64.  Cilium needs this prefix
+   to be 16, and the startup script will check for this.  This check
+   always fails when using VirtualBox on OSX, but it is safe to let
+   the startup script to reset the prefix length to 16.
+
+With the caveats above, starting up the build/test VM is done with:
+
+::
+   
+    $ ./contrib/vagrant/start.sh
+
+If this fails for any reason, you should bring the VM down before tring again:
+
+::
+   
+    $ vagrant halt
+
+Development Cycle
+-----------------
+
+The Vagrantfile in the Cilium repo root (hereon just ``Vagrantfile``),
+always provisions Cilium build and install when the VM is started.
+After the initial build and install you can do further building and
+testing incrementally inside the VM. ``vagrant ssh`` takes you to the
+Cilium source tree directory
+(``/home/vagrant/go/src/github.com/cilium/cilium``) by default, and the
+following commands assume that being your current directory.
+
+Build
+~~~~~
+
+Assuming you have synced (rsync) the source tree after you have made
+changes, or the tree is automatically in sync via NFS or guest
+additions folder sharing, you can issue a build as follows:
+
+::
+   
+    $ make
+
+A successful build should be followed by running the unit tests:
+
+::
+   
+    $ make tests
+
+Install
+~~~~~~~
+
+After a successful build and test you can re-install Cilium by:
+
+::
+
+    $ sudo -E make install
+
+Restart Cilium service
+~~~~~~~~~~~~~~~~~~~~~~
+
+To run the newly installed version of Cilium, restart the service:
+
+::
+
+    $ sudo service cilium restart
+
+You can verify the service and cilium-agent status by the following
+commands, respectively:
+
+::
+   
+    $ service cilium status
+    $ cilium status
 
 Testsuite
----------
+~~~~~~~~~
 
-Please test all changes by running the testsuites. You have several options,
-you can either run the vagrant provisioner *testsuite* as follows:
+After the new version of Cilium is running, you should run the runtime tests:
 
-``$ vagrant provision --provision-with testsuite``
+::
+   
+    $ sudo make runtime-tests
 
-or you can ``vagrant ssh`` into the machine and then run the tests yourself:
+Building Documentation
+~~~~~~~~~~~~~~~~~~~~~~
 
-``$ sudo make runtime-tests``
+Whenever making changes to Cilium documentation you should check that you did not introduce any new warnings or errors, and also check that your changes look as you intended.  To do this you can build the docs:
+
+::
+
+    $ make -C Documentation html
+
+After this you can browse the updated docs as HTML starting at
+``Documentation\_build\html\index.html``.
 
 Submitting a pull request
 -------------------------
 
 Contributions may be submitted in the form of pull requests against the
-github repository at: [https://github.com/cilium/cilium]
+github repository at: `<https://github.com/cilium/cilium>`_
 
 Before hitting the submit button, please make sure that the following
 requirements have been met:
