@@ -164,7 +164,8 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	if err := d.PolicyAdd(rules); err != nil {
+	opts := AddOptions{Replace: true}
+	if err := d.PolicyAdd(rules, &opts); err != nil {
 		log.Errorf("Error while adding kubernetes network policy %+v: %s", rules, err)
 		return
 	}
@@ -766,7 +767,8 @@ func (d *Daemon) addCiliumRule(obj interface{}) {
 	// Delete an eventual existing rule with matching label
 	d.PolicyDelete(rules[0].Labels)
 
-	if err := d.PolicyAdd(rules); err != nil {
+	opts := AddOptions{Replace: true}
+	if err := d.PolicyAdd(rules, &opts); err != nil {
 		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
 		return
 	}

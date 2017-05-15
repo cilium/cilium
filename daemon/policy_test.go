@@ -78,7 +78,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		},
 	}
 
-	err3 := ds.d.PolicyAdd(rules)
+	err3 := ds.d.PolicyAdd(rules, nil)
 	c.Assert(err3, Equals, nilAPIError)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -147,4 +147,27 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
+}
+
+func (ds *DaemonSuite) TestReplacePolicy(c *C) {
+	lbls := labels.ParseLabelArray("foo", "bar")
+	rules := api.Rules{
+		{
+			Labels:           lbls,
+			EndpointSelector: api.EndpointSelector{labels.ParseLabel("foo")},
+		},
+		{
+			Labels:           lbls,
+			EndpointSelector: api.EndpointSelector{labels.ParseLabel("foo")},
+		},
+	}
+
+	c.Assert(ds.d.PolicyAdd(rules, nil), IsNil)
+	ds.d.policy.Mutex.RLock()
+	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
+	ds.d.policy.Mutex.RUnlock()
+	c.Assert(ds.d.PolicyAdd(rules, &AddOptions{Replace: true}), IsNil)
+	ds.d.policy.Mutex.RLock()
+	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
+	ds.d.policy.Mutex.RUnlock()
 }

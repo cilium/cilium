@@ -195,11 +195,51 @@ func (d *Daemon) enablePolicyEnforcement() {
 	d.endpointsMU.RUnlock()
 }
 
+// AddOptions are options which can be passed to PolicyAdd
+type AddOptions struct {
+	// Replace if true indicates that existing rules with identical labels should be replaced
+	Replace bool
+}
+
+func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) error {
+	d.policy.Mutex.Lock()
+	defer d.policy.Mutex.Unlock()
+
+	oldRules := api.Rules{}
+
+	if opts != nil && opts.Replace {
+		// Make copy of rules matching labels of new rules while
+		// deleting them.
+		for _, r := range rules {
+			tmp := d.policy.SearchRLocked(r.Labels)
+			if len(tmp) > 0 {
+				d.policy.DeleteByLabelsLocked(r.Labels)
+				oldRules = append(oldRules, tmp...)
+			}
+		}
+	}
+
+	if err := d.policy.AddListLocked(rules); err != nil {
+		// Restore old rules
+		if len(oldRules) > 0 {
+			if err2 := d.policy.AddListLocked(oldRules); err2 != nil {
+				log.Errorf("Error while restore old rules after adding of new rules failed: %s", err2)
+				log.Errorf("--- INCONSISTENT STATE OF POLICY ---")
+				return err
+			}
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 // PolicyAdd adds a slice of rules to the policy repository owned by the
 // daemon.  Policy enforcement is automatically enabled if currently disabled.
 // Eventual changes in policy rules are propagated to all locally managed
 // endpoints.
-func (d *Daemon) PolicyAdd(rules api.Rules) *apierror.APIError {
+func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) *apierror.APIError {
 	log.Debugf("Policy Add Request: %+v", rules)
 
 	for _, r := range rules {
@@ -213,7 +253,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules) *apierror.APIError {
 		d.enablePolicyEnforcement()
 	}
 
-	if err := d.policy.AddList(rules); err != nil {
+	if err := d.policyAdd(rules, opts); err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
 	}
 
@@ -275,7 +315,7 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
-	if err := d.PolicyAdd(rules); err != nil {
+	if err := d.PolicyAdd(rules, nil); err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
 	}
 
