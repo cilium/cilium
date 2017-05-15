@@ -247,7 +247,7 @@ or an immediate value. Possible instruction classes include:
   create a loop and is within program bounds. Conditional jumps operate on both,
   register-based and immediate-based source operands. If the condition in the jump
   operations results in ``true``, then a relative jump to ``off + 1`` is performed,
-  when in ``false`` the next instruction (``0 + 1``) is performed. This fall-through
+  otherwise the next instruction (``0 + 1``) is performed. This fall-through
   jump logic differs compared to cBPF and allows for better branch prediction as it
   fits the CPU branch predictor logic more naturally. Available conditions are
   jeq (``==``), jne (``!=``), jgt (``>``), jge (``>=``), jsgt (signed ``>``), jsge
@@ -260,7 +260,7 @@ or an immediate value. Possible instruction classes include:
 
 The Linux kernel is shipped with a BPF interpreter which executes programs assembled in
 BPF instructions. Even cBPF programs are translated into eBPF programs transparently
-in the kernel with the exception of architectures which still ship with a cBPF JIT and
+in the kernel, except for architectures that still ship with a cBPF JIT and
 have not yet migrated to an eBPF JIT.
 
 Currently ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64`` architectures
@@ -280,8 +280,9 @@ kernel. Available helper functions may differ for each BPF program type,
 for example, BPF programs attached to sockets are only allowed to call into
 a subset of helpers compared to BPF programs attached to the tc layer.
 Encapsulation and decapsulation helpers for lightweight tunneling constitute
-an example of functions which are only available to lower tc layers, event
-output helpers for pushing notifications to user space for tc and XDP programs.
+an example of functions which are only available to lower tc layers, whereas
+event output helpers for pushing notifications to user space are available to
+tc and XDP programs.
 
 Each helper function is implemented with a commonly shared function signature
 similar to system calls. The signature is defined as:
@@ -1309,8 +1310,8 @@ describe some of the differences for the BPF model:
 
 8. **Limited stack space of 512 bytes.**
 
-  Stack space in BPF programs is very limited, namely to 512 bytes, which needs
-  to be taken into careful consideration when implementing them in C. However,
+  Stack space in BPF programs is limited to only 512 bytes, which needs to be
+  taken into careful consideration when implementing BPF programs in C. However,
   as mentioned earlier in point 3, a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map with a
   single entry can be used in order to enlarge scratch buffer space.
 
