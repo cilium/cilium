@@ -116,7 +116,6 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		To:      labels.NewLabelArrayFromModel(ctx.To),
 		DPorts:  ctx.Dports,
 	}
-	var l4SrcPolicy, l4DstPolicy *policy.L4Policy
 
 	d.policy.Mutex.RLock()
 
@@ -124,37 +123,14 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	searchCtx.PolicyTrace("L3 verdict: [%s]\n\n", verdict.String())
 	if verdict != api.DENY {
-		l4DstPolicy = d.policy.ResolveL4Policy(&searchCtx)
-
-		searchCtx.To, searchCtx.From = searchCtx.From, searchCtx.To
-		l4SrcPolicy = d.policy.ResolveL4Policy(&searchCtx)
-	}
-
-	d.policy.Mutex.RUnlock()
-
-	if verdict != api.DENY {
-		var l4DstVerdict, l4SrcVerdict bool
-
-		if l4DstPolicy != nil {
-			l4DstVerdict = l4DstPolicy.IngressCoversDPorts(searchCtx.DPorts)
-		} else {
-			l4DstVerdict = true
-		}
-
-		if l4SrcPolicy != nil {
-			l4SrcVerdict = l4SrcPolicy.EgressCoversDPorts(searchCtx.DPorts)
-		} else {
-			l4SrcVerdict = true
-		}
-
-		if !(l4DstVerdict && l4SrcVerdict) {
-			verdict = api.DENY
-		}
+		verdict = d.policy.AllowsL4RLocked(&searchCtx)
 
 		searchCtx.PolicyTrace("\nL4 verdict: [%s]\n", verdict.String())
 	} else {
 		searchCtx.PolicyTrace("Ignoring L4 tracing result since L3 verdict is [%s]\n", verdict.String())
 	}
+
+	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
 		Verdict: verdict.String(),
@@ -179,6 +155,62 @@ func (d *Daemon) enablePolicyEnforcement() {
 		}
 	}
 	d.endpointsMU.RUnlock()
+}
+
+// PolicyAtomicReplace does an atomic operation for the provided
+// subPath.subNode, addPath.addNode.
+// The "path", "node" tuple will have the same behaviour use as other similar
+// Policy functions.
+//
+// sub[Path|Node] represents the node that will be subtracted from the tree,
+// this means the rules inside this node will be removed from rules of the node
+// with the same path in the policy tree.
+//
+// add[Path|Node] represents the node that will be added/merged to the tree,
+// this means the rules inside this node will be append to an existing node with
+// the same path or, in case it doesn't exist in the tree, the node itself will
+// be created.
+// Examples:
+// tree
+// {
+//   "root": [{coverage: world, accept: id.foo},{coverage: host, accept: id.foo}],
+//   "children": ["id": [{coverage: foo, accept: root.bar}]
+// }
+//
+// PolicyAtomicReplace("root", Node{coverage: world, accept: id.foo}, "", nil)
+// // Expected result:
+// tree
+// {
+//   "root": [{coverage: host, accept: id.foo}],
+//   "children": ["id": [{coverage: foo, accept: root.bar}]
+// }
+//
+// PolicyAtomicReplace("root", Node{coverage: host, accept: id.foo},
+//               "root", Node{name: "id", coverage: foo, accept: id.foo})
+// // Expected result:
+// tree
+// {
+//   "root": [],
+//   "children": ["id": [{coverage: foo, accept: root.bar},
+//                       {coverage: foo, accept: id.foo}]
+// }
+func (d *Daemon) PolicyAtomicReplace(subPath string, subNode *policy.Node,
+	addPath string, addNode *policy.Node) *apierror.APIError {
+	log.Debugf("Policy replace Request: %s %+v %s %+v", subPath, subNode, addPath, addNode)
+
+	// Enable policy if not already enabled
+	if !d.conf.Opts.IsEnabled(endpoint.OptionPolicy) {
+		d.enablePolicyEnforcement()
+	}
+
+	if policyModified, err := d.policy.AtomicReplace(subPath, subNode, addPath, addNode); err != nil {
+		return apierror.Error(PutPolicyPathFailureCode, err)
+	} else if policyModified {
+		log.Info("Policy modified imported, regenerating...")
+		d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+	}
+
+	return nil
 }
 
 func (d *Daemon) PolicyAdd(path string, node *policy.Node) *apierror.APIError {
