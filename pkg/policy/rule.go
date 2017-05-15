@@ -20,6 +20,9 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type PolicyRule interface {
@@ -41,9 +44,18 @@ type PolicyRule interface {
 	IsMergeable() bool
 }
 
+type Rule interface {
+	Allows(ctx *SearchContext) api.ConsumableDecision
+	String() string
+	IsMergeable() bool
+}
+
 // RuleBase is the base type for all other rules
+// Coverage and CoverageSelector are mutually exclusive. Only one of them can be
+// defined.
 type RuleBase struct {
-	Coverage labels.LabelArray `json:"coverage,omitempty"`
+	Coverage         labels.LabelArray     `json:"coverage,omitempty"`
+	CoverageSelector *metav1.LabelSelector `json:"coverageSelector,omitempty"`
 }
 
 // Resolve translates all relative names of the generic part of the rule

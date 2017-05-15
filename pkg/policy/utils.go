@@ -17,6 +17,9 @@ package policy
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // SplitNodePath splits a policy node path into the path and name portion.
@@ -46,6 +49,27 @@ func removeRootPrefix(path string) string {
 	cut := JoinPath(RootNodeName, "")
 	if strings.HasPrefix(path, cut) {
 		path = strings.TrimPrefix(path, cut)
+	}
+	return path
+}
+
+func removeRootK8sPrefixFromLabelArray(lblsIn labels.LabelArray) labels.LabelArray {
+	lbl := make(labels.LabelArray, len(lblsIn))
+	for i, v := range lblsIn {
+		lbl[i] = labels.NewLabel(removeRootK8sPrefix(v.Key), v.Value, v.Source)
+	}
+	return lbl
+}
+
+// removeRootK8sPrefix removes an eventual `root.`, `root`, `k8s`, `k8s.`,
+// `root.k8s.`, `root.k8s` prefix from the path.
+func removeRootK8sPrefix(path string) string {
+	path = removeRootPrefix(path)
+	if path == k8s.DefaultPolicyParentPath {
+		return ""
+	}
+	if strings.HasPrefix(path, k8s.DefaultPolicyParentPath) {
+		return strings.TrimPrefix(path, k8s.DefaultPolicyParentPathPrefix)
 	}
 	return path
 }

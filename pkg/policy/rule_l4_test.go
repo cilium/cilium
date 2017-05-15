@@ -65,7 +65,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 
 	// coverage: [Bar], allow: ingressHTTP
 	ruleBarIngressHTTP := RuleL4{
-		RuleBase{[]*labels.Label{labels.NewLabel("root.bar", "", common.CiliumLabelSource)}},
+		RuleBase{Coverage: []*labels.Label{labels.NewLabel("root.bar", "", common.CiliumLabelSource)}},
 		[]AllowL4{filterIngressHTTP},
 	}
 
@@ -79,7 +79,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 
 	// coverage: [bar], allow: egressHTTP
 	ruleBarEgressHTTP := RuleL4{
-		RuleBase{[]*labels.Label{labels.NewLabel("root.bar", "", common.CiliumLabelSource)}},
+		RuleBase{Coverage: []*labels.Label{labels.NewLabel("root.bar", "", common.CiliumLabelSource)}},
 		[]AllowL4{filterEgressHTTP},
 	}
 
@@ -93,7 +93,7 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 
 	// coverage: [Bar], allow: ingressHTTP, egressHTTP
 	ruleBarIngressEgressHTTP := RuleL4{
-		RuleBase{[]*labels.Label{labels.NewLabel("root.bar", "", common.CiliumLabelSource)}},
+		RuleBase{Coverage: []*labels.Label{labels.NewLabel("root.bar", "", common.CiliumLabelSource)}},
 		[]AllowL4{filterIngressEgressHTTP},
 	}
 

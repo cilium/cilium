@@ -1,0 +1,32 @@
+---
+apiVersion: extensions/v1beta1
+kind: NetworkPolicy
+metadata:
+  name: guestbook-web
+  annotations:
+   cilium-policy: |
+    {
+      "ingress": [
+        {
+          "from": [
+            {
+              "ciliumSelector": {
+                "matchLabels": {
+                  "io.cilium.reserved": "world"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app.guestbook: web
+  ingress:
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 3000

@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types
+package k8s
+
+import (
+	"encoding/json"
+
+	"github.com/cilium/cilium/pkg/k8s"
+)
 
 type IngressIsolationPolicy string
 
@@ -47,4 +53,21 @@ type NamespaceIngressPolicy struct {
 	// pods in this namespace are denied ingress traffic by default.  When not defined,
 	// the cluster default ingress isolation policy is applied (currently allow all).
 	Isolation *IngressIsolationPolicy `json:"isolation,omitempty"`
+}
+
+// IsAnnotationSetTo checks if the kubernetes annotations contains a
+// `NamespaceNetworkPolicy` and if the `NamespaceNetworkPolicy.IngressIsolationPolicy`
+// is equals the given `value`.
+func IsAnnotationSetTo(annotations map[string]string, value IngressIsolationPolicy) bool {
+	if value == "" {
+		return false
+	}
+	annoStr := annotations[k8s.AnnotationIsolationNS]
+	ing := NamespaceNetworkPolicy{}
+	if err := json.Unmarshal([]byte(annoStr), &ing); err != nil {
+		return false
+	}
+	return ing.Ingress != nil &&
+		ing.Ingress.Isolation != nil &&
+		*ing.Ingress.Isolation == value
 }

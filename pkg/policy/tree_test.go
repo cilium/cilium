@@ -363,3 +363,88 @@ func (ds *PolicyTestSuite) TestOutsideCoverage(c *C) {
 	err := json.Unmarshal([]byte(policyText), &node)
 	c.Assert(err, Not(IsNil))
 }
+
+func (ds *PolicyTestSuite) TestAtomicReplace(c *C) {
+	policyText := `
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["reserved:world"],
+		"allow": ["id.foo"]
+	}],
+	"children": {
+		"id": {
+			"rules": [{
+				"coverage": ["bar"],
+				"allow": ["foo"]
+			},{
+				"coverage": ["foo"],
+				"allow": ["bar"]
+			}]
+		},
+		"not_id": {
+			"rules": [{
+				"coverage": ["root.not_id.bar"],
+				"allow": ["root.id.foo"]
+			}]
+		}
+	}
+}
+`
+	node := Node{}
+	err := json.Unmarshal([]byte(policyText), &node)
+	c.Assert(err, IsNil)
+
+	tree := NewTree()
+	// adding a root node should succeed
+	added, err := tree.Add(RootNodeName, &node)
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+
+	rmNode := NewNode("id", nil)
+	rmNode.Rules = append(rmNode.Rules, &RuleConsumers{
+		RuleBase: RuleBase{Coverage: []*labels.Label{labels.NewLabel("bar", "", "")}},
+		Allow:    []*AllowRule{{Action: api.ACCEPT, Labels: labels.LabelArray{labels.NewLabel("foo", "", "")}}},
+	})
+
+	addNode := NewNode("not_id", nil)
+	addNode.Rules = append(addNode.Rules, &RuleConsumers{
+		RuleBase: RuleBase{Coverage: []*labels.Label{labels.NewLabel("root.not_id.bar", "", "")}},
+		Allow:    []*AllowRule{{Action: api.ACCEPT, Labels: labels.LabelArray{labels.NewLabel("baz", "", "")}}},
+	})
+
+	modified, err := tree.AtomicReplace("root", rmNode, "root", addNode)
+	c.Assert(modified, Equals, true)
+	c.Assert(err, IsNil)
+
+	wantText := `
+{
+	"name": "root",
+	"rules": [{
+		"coverage": ["reserved:world"],
+		"allow": ["id.foo"]
+	}],
+	"children": {
+		"id": {
+			"rules": [{
+				"coverage": ["foo"],
+				"allow": ["bar"]
+			}]
+		},
+		"not_id": {
+			"rules": [{
+				"coverage": ["root.not_id.bar"],
+				"allow": ["root.id.foo"]
+			},{
+				"coverage": ["root.not_id.bar"],
+				"allow": ["baz"]
+			}]
+		}
+	}
+}`
+	nodeWanted := Node{}
+	err = json.Unmarshal([]byte(wantText), &nodeWanted)
+	c.Assert(err, IsNil)
+
+	c.Check(tree.Root, DeepEquals, &nodeWanted)
+}
