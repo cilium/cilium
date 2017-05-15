@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/version"
@@ -70,8 +71,8 @@ var (
 	enableTracing      bool
 	enableLogstash     bool
 	etcdAddr           []string
+	k8sLabelsPrefixes  []string
 	kvStore            string
-	k8sLabels          []string
 	validLabels        []string
 	labelPrefixFile    string
 	logstashAddr       string
@@ -232,7 +233,7 @@ func init() {
 		"IPv6 prefix to map IPv4 addresses to")
 	flags.StringVar(&config.K8sEndpoint, "k8s-api-server", "", "Kubernetes api address server")
 	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
-	flags.StringSliceVar(&k8sLabels, "k8s-prefix", []string{},
+	flags.StringSliceVar(&k8sLabelsPrefixes, "k8s-prefix", []string{},
 		"Key values that will be read from kubernetes. (Default: k8s-app, version)")
 	flags.StringVar(&kvStore, "kvstore", kvstore.Local, "Key-value store type")
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
@@ -426,13 +427,13 @@ func initEnv() {
 		config.ValidLabelPrefixes = labels.DefaultLabelPrefixCfg()
 	}
 
-	if len(k8sLabels) == 0 {
+	if len(k8sLabelsPrefixes) == 0 {
 		config.ValidK8sLabelPrefixes = labels.DefaultK8sLabelPrefixCfg()
 	} else {
-		for _, prefix := range k8sLabels {
+		for _, prefix := range k8sLabelsPrefixes {
 			config.ValidK8sLabelPrefixes.LabelPrefixes = append(
 				config.ValidK8sLabelPrefixes.LabelPrefixes,
-				&labels.LabelPrefix{Prefix: prefix, Source: common.K8sLabelSource},
+				&labels.LabelPrefix{Prefix: prefix, Source: k8s.LabelSource},
 			)
 		}
 	}

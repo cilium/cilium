@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -26,12 +27,12 @@ import (
 
 // ExtractPolicyName extracts the name of policy name
 func ExtractPolicyName(np *v1beta1.NetworkPolicy) string {
-	policyName := np.Annotations[AnnotationName]
+	policyName := np.Annotations[k8s.AnnotationName]
 	if policyName == "" {
 		policyName = np.Name
 	}
 
-	return fmt.Sprintf("%s=%s", PolicyLabelName, policyName)
+	return fmt.Sprintf("%s=%s", k8s.PolicyLabelName, policyName)
 }
 
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
@@ -55,7 +56,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 					for k, v := range rule.PodSelector.MatchLabels {
 						l := labels.NewLabel(k, v, "")
 						if l.Source == common.CiliumLabelSource {
-							l.Source = common.K8sLabelSource
+							l.Source = k8s.LabelSource
 						}
 						lbls = append(lbls, l)
 					}
@@ -63,7 +64,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 				} else if rule.NamespaceSelector != nil {
 					lbls := api.EndpointSelector{}
 					for k := range rule.NamespaceSelector.MatchLabels {
-						l := labels.NewLabel(common.K8sPodNamespaceLabel, k, common.K8sLabelSource)
+						l := labels.NewLabel(k8s.PodNamespaceLabel, k, k8s.LabelSource)
 						lbls = append(lbls, l)
 					}
 					ingress.FromEndpoints = append(ingress.FromEndpoints, lbls)
@@ -99,7 +100,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	tag := ExtractPolicyName(np)
-	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, common.K8sLabelSource)
+	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, k8s.LabelSource)
 
 	rule := &api.Rule{
 		EndpointSelector: coverageLbls.ToSlice(),

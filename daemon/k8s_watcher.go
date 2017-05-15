@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/pkg/k8s"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 
 	"k8s.io/apimachinery/pkg/fields"
@@ -138,7 +138,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	_, ciliumRulesController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
 			"ciliumrules", v1.NamespaceAll, fields.Everything()),
-		&k8s.CiliumRule{},
+		&k8sTypes.CiliumRule{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    d.addCiliumRule,
@@ -157,7 +157,7 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy addition")
 		return
 	}
-	rules, err := k8s.ParseNetworkPolicy(k8sNP)
+	rules, err := k8sTypes.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		log.Errorf("Error while parsing kubernetes network policy %+v: %s", obj, err)
 		return
@@ -183,7 +183,7 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	labels := labels.ParseLabelArray(k8s.ExtractPolicyName(k8sNP))
+	labels := labels.ParseLabelArray(k8sTypes.ExtractPolicyName(k8sNP))
 
 	if err := d.PolicyDelete(labels); err != nil {
 		log.Errorf("Error while deleting kubernetes network policy %+v: %s", labels, err)
@@ -750,7 +750,7 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 }
 
 func (d *Daemon) addCiliumRule(obj interface{}) {
-	rule, ok := obj.(*k8s.CiliumRule)
+	rule, ok := obj.(*k8sTypes.CiliumRule)
 	if !ok {
 		log.Warningf("Invalid third-party objected, expected CiliumRule, got %+v", obj)
 		return
@@ -774,7 +774,7 @@ func (d *Daemon) addCiliumRule(obj interface{}) {
 }
 
 func (d *Daemon) deleteCiliumRule(obj interface{}) {
-	rule, ok := obj.(*k8s.CiliumRule)
+	rule, ok := obj.(*k8sTypes.CiliumRule)
 	if !ok {
 		log.Warningf("Invalid third-party objected, expected CiliumRule, got %+v", obj)
 		return
