@@ -239,7 +239,7 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *

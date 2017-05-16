@@ -276,7 +276,7 @@ skip_service_lookup:
 	} else {
 #ifdef LXC_NAT46
 		if (unlikely(ipv6_addr_is_mapped(daddr))) {
-			tail_call(skb, &cilium_calls, CILIUM_CALL_NAT64);
+			ep_tail_call(skb, CILIUM_CALL_NAT64);
 			return DROP_MISSED_TAIL_CALL;
                 }
 #endif
@@ -641,7 +641,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
-		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
+		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 	} else if (1) {
 		ret = DROP_POLICY;
@@ -654,12 +654,12 @@ int handle_ingress(struct __sk_buff *skb)
 		break;
 
 	case bpf_htons(ETH_P_IP):
-		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
 	case bpf_htons(ETH_P_ARP):
-		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
+		ep_tail_call(skb, CILIUM_CALL_ARP);
 		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
@@ -823,7 +823,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 #ifdef LXC_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT46) {
-		tail_call(skb, &cilium_calls, CILIUM_CALL_NAT46);
+		ep_tail_call(skb, CILIUM_CALL_NAT46);
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
@@ -927,7 +927,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 
 	skb->cb[CB_NAT46_STATE] = NAT64;
 
-	tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+	ep_tail_call(skb, CILIUM_CALL_IPV4);
 	return DROP_MISSED_TAIL_CALL;
 }
 

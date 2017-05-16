@@ -88,7 +88,7 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
-OPTS="-DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+OPTS="-DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
 
 bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_netdev_ns.o from-netdev
 
@@ -131,7 +131,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_overlay_${ID}"
 	bpf_compile $ENCAP_DEV "$OPTS" bpf_overlay.c bpf_overlay.o from-overlay
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
@@ -151,7 +151,7 @@ if [ "$MODE" = "direct" ]; then
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
 		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
 		bpf_compile $NATIVE_DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
@@ -162,7 +162,7 @@ elif [ "$MODE" = "lb" ]; then
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
-		OPTS="-DLB_L3 -DLB_L4"
+		OPTS="-DLB_L3 -DLB_L4 -DCALLS_MAP=cilium_calls_lb_${ID}"
 		bpf_compile $NATIVE_DEV "$OPTS" bpf_lb.c bpf_lb.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state

@@ -51,16 +51,6 @@ struct bpf_elf_map __section_maps cilium_reserved_policy = {
 	.max_elem	= RESERVED_POLICY_SIZE,
 };
 
-/* Private map for internal tail calls */
-struct bpf_elf_map __section_maps cilium_calls = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_CALLS,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= PIN_OBJECT_NS,
-	.max_elem	= CILIUM_CALL_SIZE,
-};
-
 struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy4_tbl_key),
@@ -69,5 +59,19 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.max_elem	= 8192,
 };
 
+/* Private per EP map for internal tail calls */
+struct bpf_elf_map __section_maps CALLS_MAP = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.id		= CILIUM_MAP_CALLS,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_CALL_SIZE,
+};
+
+static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
+{
+	tail_call(skb, &CALLS_MAP, index);
+}
 
 #endif

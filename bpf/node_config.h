@@ -36,6 +36,7 @@
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
 #define ENCAP_GENEVE 1
+#define CALLS_MAP cilium_calls_111
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
 #define ENABLE_ARP_RESPONDER

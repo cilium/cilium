@@ -81,7 +81,7 @@ static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int e
 		skb->cb[0] = exitcode;
 		skb->cb[1] = error;
 
-		tail_call(skb, &cilium_calls, CILIUM_CALL_ERROR_NOTIFY);
+		ep_tail_call(skb, CILIUM_CALL_ERROR_NOTIFY);
 
 		return exitcode;
 	}
@@ -138,7 +138,7 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 	skb->cb[3] = dst_id;
 	skb->cb[4] = ifindex,
 
-	tail_call(skb, &cilium_calls, CILIUM_CALL_DROP_NOTIFY);
+	ep_tail_call(skb, CILIUM_CALL_DROP_NOTIFY);
 
 	return exitcode;
 }
