@@ -640,7 +640,10 @@ int handle_ingress(struct __sk_buff *skb)
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex);
 
 #ifdef DROP_ALL
-	if (1) {
+	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
+		tail_call(skb, &cilium_calls, CILIUM_CALL_ARP);
+		ret = DROP_MISSED_TAIL_CALL;
+	} else if (1) {
 		ret = DROP_POLICY;
 	} else {
 #endif
