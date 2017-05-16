@@ -3,11 +3,388 @@
 Getting Started Guide
 =====================
 
-This document serves as the easiest introduction to Cilium.   It is a detailed
-walk through of getting a single-node Cilium + Docker environment running on
-your laptop.  It is designed to take 15-30 minutes.
+This document serves as the easiest introduction to using Cilium.
+It is a detailed walk through of getting a single-node Cilium environment running on
+your laptop/desktop.  It is designed to take 15-30 minutes.
 
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
+
+This document includes two different guides:
+ * `Getting Started Using Kubernetes`_
+ * `Getting Started Using Docker`_
+
+Both guides follow the same basic flow.   The flow in the Kubernetes variant
+is more realistic of a production deployment, but is also a bit more complex.
+
+The best way to get help if you get stuck is to ask a question on the `Cilium
+Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
+across the globe, there is almost always someone available to help.
+
+Getting Started Using Kubernetes
+--------------------------------
+
+This guide uses `minikube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
+to demonstrate deployment and operation of Cilium in a single-node Kubernetes cluster.
+The minikube VM requires approximately 2 GB of RAM and supports hypervisors like VirtualBox
+that run on Linux, Mac OS X, and Windows.
+
+If you instead want to understand the details of
+deploying Cilium on a full fledged Kubernetes cluster, then go straight to
+:ref:`k8s_ds` .
+
+Step 0: Install kubectl & minikube
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install ``kubectl`` as described in the `Kubernetes Docs
+<https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
+
+Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_ .
+
+Install ``minikube`` 0.19 as described on `minikube's github page
+<https://github.com/kubernetes/minikube/releases>`_.
+
+Then, boot a minikube cluster with the Container Network Interface (CNI) network plugin enabled:
+
+::
+
+    $ minikube start --network-plugin=cni --iso-url https://github.com/cilium/minikube-iso/raw/master/minikube.iso
+
+.. note:: The ``--iso-url`` is required only temporarily because the default minikube
+          ISO has a 4.7 Linux kernel and Cilium + BPF works best on 4.8+ kernels. The base
+          ISO image of minikube has since been updated to 4.8+ in the development
+          branch of minikube, so in the future passing the ``-iso-url`` parameter will
+          not be required.
+
+After minikube has finished  setting up your new Kubernetes cluster, you can
+check the status of the cluster by running ``kubectl get cs``:
+
+::
+
+    $ kubectl get cs
+    NAME                 STATUS    MESSAGE              ERROR
+    controller-manager   Healthy   ok
+    scheduler            Healthy   ok
+    etcd-0               Healthy   {"health": "true"}
+
+If you see output similar to this, you are ready to proceed to installing Cilium.
+
+Step 1: Installing Cilium
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The next step is to install Cilium into your Kubernetes cluster.  Cilium installation
+leverages the `Kubernetes Daemon Set <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
+abstraction, which will deploy one Cilium pod per
+cluster node.   This Cilium pod will run in the ``kube-system`` namespace along with
+all other system relevant daemons and services.  The Cilium pod will run both the Cilium
+agent and the Cilium CNI plugin.  The Cilium daemonset also starts a pod running
+`Consul <https://www.consul.io/>`_ as the underlying key-value store.
+
+To deploy the Cilium Daemon Set, run:
+
+::
+
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
+    clusterrole "cilium" created
+    serviceaccount "cilium" created
+    clusterrolebinding "cilium" created
+    daemonset "cilium-consul" created
+    daemonset "cilium" created
+
+Kubernetes is now deploying the Cilium Daemon Set as a pod on all cluster
+nodes. This operation is performed in the background.
+Run the following command to check the progress of the deployment:
+
+::
+
+    $ kubectl get ds --namespace kube-system
+    NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
+    cilium          1         1         1         <none>          2m
+    cilium-consul   1         1         1         <none>          2m
+
+Wait until the cilium and cilium-consul Deployments shows a ``READY``
+count of ``1`` like above.
+
+Step 2: Restart kube-dns pods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As part of running ``minikube start``, Minikube automatically deployed a ``kube-dns`` Kubernetes
+Deployment to provide DNS resolution for all pods. However, since this deployment
+happened before we deployed Cilium, Cilium is not managing networking and DNS would be
+disabled for all new pods.  A simple fix for this is to leverage the fact that Kubernetes
+automatically restarts pods in a Deployment if they are deleted, so we can simply delete
+the original kube-dns pod and the replacment will have networking managed by Cilium.
+If this was a production deployment
+deployment, we would recommend performing a rolling update of kube-dns pods to avoid downtime
+of the DNS service.
+
+::
+
+    $ kubectl --namespace kube-system delete pods -l k8s-app=kube-dns
+    pod "kube-dns-268032401-t57r2" deleted
+
+Running ``kubectl get pods`` will show you that Kubernetes started a new set of
+``kube-dns`` pods while at the same time terminating the old pods:
+
+::
+
+    $ kubectl --namespace kube-system get pods
+    NAME                          READY     STATUS        RESTARTS   AGE
+    cilium-5074s                  1/1       Running       0          58m
+    cilium-consul-plxdm           1/1       Running       0          58m
+    kube-addon-manager-minikube   1/1       Running       0          59m
+    kube-dns-268032401-j0vml      3/3       Running       0          9s
+    kube-dns-268032401-t57r2      3/3       Terminating   0          57m
+
+
+Step 3: Deploy the Demo Application
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
+deploy our demo application.
+
+In our simple example, there are three microservices applications: *app1*, *app2*, and *app3*.
+*App1* runs an HTTP webservice on port 80, which is exposed as a Kubernetes Service that
+load-balances requests to *app1* to be across two pod replicas.
+
+*App2* and *app3* exist so that we can test different security policies for allowing applications
+to access *app1*.
+
+.. image:: cilium_gsg_k8s_topo.png
+
+The file ``demo_app.yaml`` contains a Kubernetes Deployment for each of three applications,
+with each deployment identified using the Kubernetes labels app=app1, app=app2,
+and app=app3.
+It also include a app1-service, which load-balances traffic to all pods with label app=app1.
+
+::
+
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/Documentation/demo_apps.yaml
+    service "app1-service" created
+    deployment "app1" created
+    deployment "app2" created
+    deployment "app3" created
+
+Kubernetes will deploy the
+pods and service  in the background.  Running ``kubectl get svc,pods`` will
+inform you about the progress of the operation. Each pod will go through
+several states until it reaches ``Running`` at which point the pod is ready.
+
+::
+
+    $ kubectl get pods,svc
+
+    NAME                       READY     STATUS              RESTARTS   AGE
+    po/app1-2741898079-66lz0   0/1       ContainerCreating   0          40s
+    po/app1-2741898079-jwfmk   1/1       Running             0          40s
+    po/app2-2889674625-wxs08   0/1       ContainerCreating   0          40s
+    po/app3-3000954754-fbqtz   0/1       ContainerCreating   0          40s
+
+    NAME               CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+    svc/app1-service   10.0.0.40    <none>        80/TCP    40s
+    svc/kubernetes     10.0.0.1     <none>        443/TCP   5h
+
+Step 4: Apply an L3/L4 Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When using Cilium, endpoint IP addresses are irrelevant when defining security
+policies.  Instead, you can use the labels assigned to the VM to define
+security policies, which are automatically applied to any container with that
+label, no matter where or when it is run within a container cluster.
+
+Kubernetes requires to enable isolation per namespace. Therefore, we enable
+it in the ``default`` namespace where our demo app is running.
+
+TODO: This step is not functional yet PR552. Enforcment is automatically
+enabled when the first policy is loaded.
+
+::
+
+    $ kubectl patch ns default -p '{"spec": {"networkPolicy": {"ingress": {"isolation": "DefaultDeny"}}}}'
+    "default" patched
+
+We'll start with a simple example where allow *app2* to reach *app1* on port 80, but
+disallow the same connectivity from *app3* to *app1*.
+This is a simple policy that filters only on IP protocol (network layer
+3) and TCP protocol (network layer 4), so it is often referred to as an L3/L4
+network security policy.
+
+Note: Cilium performs stateful *connection tracking*, meaning that if policy allows
+the frontend to reach backend, it will automatically allow all required reply
+packets that are part of backend replying to frontend within the context of the
+same TCP/UDP connection.
+
+.. image:: cilium_gsg_k8s_l3l4.png
+
+We can achieve that with the following Kubernetes NetworkPolicy:
+
+::
+
+    kind: NetworkPolicy
+    apiVersion: extensions/v1beta1
+    metadata:
+      name: access-app1
+    spec:
+      podSelector:
+        matchLabels:
+          app: app1
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: app2
+        ports:
+        - protocol: tcp
+          port: 80
+
+Kubernetes NetworkPolicies match on pod labels using "podSelector" to
+identify the sources and destinations to which the policy applies.
+The above policy whitelists traffic sent from *app2* pods to *app1* pods
+on TCP port 80.
+
+To apply this L3/L4 policy, run:
+
+::
+
+  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/Documentation/l3_l4_policy.yaml
+
+Step 5: Test L3/L4 Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We can now verify the network policy that was imported.
+You can now launch additional containers represent other services attempting to
+access backend. Any new container with label `app=app2` will be
+allowed to access the *app1* on port 80, otherwise the network request will be
+dropped.
+
+To test this out, we'll make an HTTP request to app1 from both *app2* and *app3* pods:
+
+TODO: PR552 is blocking kube-dns to be allowed if isolation is not enabled
+      in kube-system namespace
+
+::
+
+    $ APP2_POD=$(kubectl get pods -l app=app2 -o jsonpath='{.items[0].metadata.name}')
+    $ kubectl exec $APP2_POD -- curl -s app1
+    <html><body><h1>It works!</h1></body></html>
+
+This works, as expected.   Now the same request run from an *app3* pod will fail:
+
+::
+
+    $ APP3_POD=$(kubectl get pods -l app=app3 -o jsonpath='{.items[0].metadata.name}')
+    $ kubectl exec $APP3_POD -- curl -s app1
+
+This request will hang, so press Control-C to kill the curl request, or wait for it
+to time out.
+
+
+Step 6:  Apply and Test HTTP-aware L7 Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the simple scenario above, it was sufficient to either give *app2* /
+*app3* full access to *app1's* API or no access at all.   But to
+provide the strongest security (i.e., enforce least-privilege isolation)
+between microservices, each service that calls *app1's* API should be
+limited to making only the set of HTTP requests it requires for legitimate
+operation.
+
+For example, consider an extremely simple scenario where *app1* has only two API calls:
+ * GET /public
+ * GET /private
+
+Continuing with the example from above, if *app2* requires access only to
+the GET /public API call, the L3/L4 policy along has no visibility into the
+HTTP requests, and therefore would allow any HTTP request from *app2*
+(since all HTTP is over port 80).
+
+To see this, run:
+
+::
+
+    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    { 'val': 'this is public' }
+
+and
+
+::
+
+    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    { 'val': 'this is private' }
+
+Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
+URLs *app2* is allowed to reach.  Here is an example policy file that
+extends our original policy by limiting *app2* to making only a GET /public
+API call, but disallowing all other calls (including GET /private).
+
+.. image:: cilium_gsg_k8s_l7.png
+
+TODO: show this as a CiliumNetworkPolicy yaml.
+
+::
+
+  {
+    "name": "root",
+    "rules": [{
+        "coverage": ["id.service1"],
+        "allow": ["id.service2", "reserved:host"]
+    },{
+        "coverage": ["id.service2"],
+        "l4": [{
+            "out-ports": [{
+                "port": 80, "protocol": "tcp",
+                "l7-parser": "http",
+                "l7-rules": [
+                    { "expr": "Method(\"GET\") && Path(\"/public\")" }
+                ]
+            }]
+        }]
+    }]
+  }
+
+Create an L7-aware policy to protect *app1* using:
+
+::
+
+  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/Documentation/l3_l4_l7_policy.yaml
+
+We can now re-run the same test as above, but we will see a different outcome:
+
+::
+
+    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    { 'val': 'this is public' }
+
+and
+
+::
+
+    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    Access denied
+
+As you can see, with Cilium L7 security policies, we are able to permit
+*app2* to access only the required API resources on *app1*, thereby
+implementing a "least privilege" security approach for communication between
+microservices.
+
+We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
+the rest of the documentation, and feel free to reach out to us on the `Cilium
+Slack channel <https://cilium.herokuapp.com>`_ with any questions!
+
+Step 7:  Clean-up
+^^^^^^^^^^^^^^^^^
+
+You have now installed Cilium, deployed a demo app, and tested both
+L3/L4 and L7 network security policies.
+
+::
+
+   $ minikube delete
+
+After this, you can re-run the `Getting Started with Kubenetes`_ from Step 1.
+
+
+Getting Started Using Docker
+-----------------------------
 
 The tutorial leverages Vagrant, and as such should run on any operating system
 supported by Vagrant, including Linux, MacOS X, and Windows. The VM running
@@ -20,12 +397,8 @@ additional hypervisors.
  * VirtualBox
  * libvirt
 
-The best way to get help if you get stuck is to ask a question on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
-across the globe, there is almost always someone available to help.
-
 Step 0: Install Vagrant
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. note::
 
@@ -38,7 +411,7 @@ or see `Download Vagrant <https://www.vagrantup.com/downloads.html>`_ for newer 
 
 
 Step 1: Download the Cilium Source Code
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_
 and unzip the files.
@@ -51,7 +424,7 @@ repository:
     $ git clone https://github.com/cilium/cilium
 
 Step 2: Starting the Docker + Cilium VM
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Open a terminal and navigate into the top of the cilium source directory.
 
@@ -79,7 +452,7 @@ tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_ .
 
 Step 3: Accessing the VM
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 After the script has successfully completed, you can log into the VM using
 ``vagrant ssh``:
@@ -96,7 +469,7 @@ directory.
 
 
 Step 4: Confirm that Cilium is Running
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Cilium agent is now running as a system service and you can interact with
 it using the ``cilium`` CLI client. Check the status of the agent by running
@@ -114,7 +487,7 @@ The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
 
 Step 5: Create a Docker Network of Type Cilium
-----------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Cilium integrates with local container runtimes, which in the case of this demo
 means Docker. With Docker, native networking is handled via a component called
@@ -132,19 +505,19 @@ named 'cilium-net' for all containers:
 
 
 Step 6: Start an Example Service with Docker
---------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this tutorial, we'll use a container running a simple HTTP server to
-represent a microservice which we will refer to as *Service1*.  As a result, we
-will start this container with the label "id.service1", so we can create Cilium
+represent a microservice application which we will refer to a *app1*.  As a result, we
+will start this container with the label "id.app1", so we can create Cilium
 security policies for that service.
 
-Use the following command to start the *Service1* container connected to the
+Use the following command to start the *app1* container connected to the
 Docker network managed by Cilium:
 
 ::
 
-    $ docker run -d --name service1-instance1 --net cilium-net -l "id.service1" cilium/demo-httpd
+    $ docker run -d --name app1 --net cilium-net -l "id.app1" cilium/demo-httpd
     e5723edaa2a1307e7aa7e71b4087882de0250973331bc74a37f6f80667bc5856
 
 
@@ -154,7 +527,7 @@ containers which can be addressed by an individual IP address.
 
 
 Step 7: Apply an L3/L4 Policy With Cilium
---------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
 policies.  Instead, you can use the labels assigned to the VM to define
@@ -162,17 +535,19 @@ security policies, which are automatically applied to any container with that
 label, no matter where or when it is run within a container cluster.
 
 We'll start with an overly simple example where we create two additional
-services, *Service2* and *Service3*, and we want Service2 containers to be able
-to reach *Service1* containers, but *Service3* containers should not be allowed
-to reach *Service1* containers.  Additionally, we only want to allow *Service1*
+appss, *app2* and *app3*, and we want *app2* containers to be able
+to reach *app1* containers, but *app3* containers should not be allowed
+to reach *app1* containers.  Additionally, we only want to allow *app1*
 to be reachable on port 80, but no other ports.  This is a simple policy that
 filters only on IP address (network layer 3) and TCP port (network layer 4), so
 it is often referred to as an L3/L4 network security policy.
 
 Cilium performs stateful ''connection tracking'', meaning that if policy allows
-the *Service2* to contact *Service3*, it will automatically allow return
-packets that are part of *Service1* replying to *Service2* within the context
+the *app2* to contact *app3*, it will automatically allow return
+packets that are part of *app1* replying to *app2* within the context
 of the same TCP/UDP connection.
+
+.. image:: cilium_gsg_docker_l3l4.png
 
 We can achieve that with the following Cilium policy:
 
@@ -181,10 +556,10 @@ We can achieve that with the following Cilium policy:
   {
       "name": "root",
       "rules": [{
-          "coverage": ["id.service1"],
-          "allow": ["id.service2"]
+          "coverage": ["id.app1"],
+          "allow": ["id.app2"]
       },{
-          "coverage": ["id.service1"],
+          "coverage": ["id.app1"],
           "l4": [{
               "in-ports": [{ "port": 80, "protocol": "tcp" }]
           }]
@@ -200,37 +575,32 @@ policy by running:
 
 
 Step 8: Test L3/L4 Policy
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 You can now launch additional containers represent other services attempting to
-access *Service1*. Any new container with label "id.service2" will be allowed
-to access *Service1* on port 80, otherwise the network request will be dropped.
+access *app1*. Any new container with label "id.app2" will be allowed
+to access *app1* on port 80, otherwise the network request will be dropped.
 
-To test this out, we'll make an HTTP request to *Service1* from a container
-with the label "id.service2" :
+To test this out, we'll make an HTTP request to *app1* from a container
+with the label "id.app2" :
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.service2" --cap-add NET_ADMIN cilium/demo-client ping service1-instance1
-    PING service1-instance1 (10.11.250.189): 56 data bytes
-    64 bytes from 10.11.250.189: seq=4 ttl=64 time=0.100 ms
-    64 bytes from 10.11.250.189: seq=5 ttl=64 time=0.107 ms
-    64 bytes from 10.11.250.189: seq=6 ttl=64 time=0.070 ms
-    64 bytes from 10.11.250.189: seq=7 ttl=64 time=0.084 ms
-    64 bytes from 10.11.250.189: seq=8 ttl=64 time=0.107 ms
-    64 bytes from 10.11.250.189: seq=9 ttl=64 time=0.103 ms
+    $ docker run --rm -ti --net cilium-net -l "id.app2" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
+    <html><body><h1>It works!</h1></body></html>
 
 We can see that this request was successful, as we get a valid ping responses.
 
-Now let's run the same ping request to *Service1* from a container that has
-label "id.service3":
+Now let's run the same ping request to *app1* from a container that has
+label "id.app3":
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.service3" --cap-add NET_ADMIN cilium/demo-client ping service1-instance1
+    $ docker run --rm -ti --net cilium-net -l "id.app3" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
 
-You will see no ping replies, as all requests are dropped by the Cilium
-security policy.
+You will see no reply as all packets are dropped by the Cilium security policy.
+The request will time-out after 10 seconds.
 
 So with this we see Cilium's ability to segment containers based purely on a
 container-level identity label.  This means that the end user can apply
@@ -240,52 +610,56 @@ particular service are assigned an IP address in a particular range.
 
 
 Step 9:  Apply and Test an L7 Policy with Cilium
-------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In the simple scenario above, it was sufficient to either give *Service2* /
-*Service3* full access to *Service1's* API or no access at all.   But to
+In the simple scenario above, it was sufficient to either give *app2* /
+*app3* full access to *app1's* API or no access at all.   But to
 provide the strongest security (i.e., enforce least-privilege isolation)
-between microservices, each service that calls *Service1's* API should be
+between microservices, each service that calls *app1's* API should be
 limited to making only the set of HTTP requests it requires for legitimate
 operation.
 
-For example, consider a scenario where *Service1* has two API calls:
+For example, consider a scenario where *app1* has two API calls:
  * GET /public
  * GET /private
 
-Continuing with the example from above, if *Service2* requires access only to
+Continuing with the example from above, if *app2* requires access only to
 the GET /public API call, the L3/L4 policy along has no visibility into the
-HTTP requests, and therefore would allow any HTTP request from *Service2*
+HTTP requests, and therefore would allow any HTTP request from *app2*
 (since all HTTP is over port 80).
 
 To see this, run:
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/public'
+    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl 'http://app1/public'
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/private'
+    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl 'http://app1/private'
     { 'val': 'this is private' }
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
-URLs *Service2* is allowed to reach.  Here is an example policy file that
-extends our original policy by limiting *Service2* to making only a GET /public
+URLs *app2* is allowed to reach.  Here is an example policy file that
+extends our original policy by limiting *app2* to making only a GET /public
 API call, but disallowing all other calls (including GET /private).
+
+.. image:: cilium_gsg_docker_l7.png
+
+The following Cilium policy file achieves this goal:
 
 ::
 
   {
     "name": "root",
     "rules": [{
-        "coverage": ["id.service1"],
-        "allow": ["id.service2", "reserved:host"]
+        "coverage": ["id.app1"],
+        "allow": ["id.app2", "reserved:host"]
     },{
-        "coverage": ["id.service2"],
+        "coverage": ["id.app2"],
         "l4": [{
             "out-ports": [{
                 "port": 80, "protocol": "tcp",
@@ -307,18 +681,18 @@ import this policy to Cilium by running:
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/public'
+    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl -si 'http://app1/public'
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.service2" cilium/demo-client curl -si 'http://service1-instance1/private'
+    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl -si 'http://app1/private'
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
-*Service2* to access only the required API resources on *Service1*, thereby
+*app2* to access only the required API resources on *app1*, thereby
 implementing a "least privilege" security approach for communication between
 microservices.
 
@@ -328,11 +702,13 @@ Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
 
 Step 10: Clean-Up
------------------
+^^^^^^^^^^^^^^^^^
+
+Exit the vagrant VM by typing ``exit``.
 
 When you are done with the setup and want to tear-down the Cilium + Docker VM,
-and destroy all local state (e.g., the VM disk image), open a terminal, navigate to
-the cilium directory and run:
+and destroy all local state (e.g., the VM disk image), open a terminal in the
+cilium/examples/getting-started directory and type:
 
 ::
 
