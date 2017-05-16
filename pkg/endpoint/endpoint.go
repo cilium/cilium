@@ -161,6 +161,8 @@ const (
 
 	// CallsMapName specifies the base prefix for EP specific call map.
 	CallsMapName = "cilium_calls_"
+	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
+	PolicyGlobalMapName = "cilium_policy"
 )
 
 // Endpoint contains all the details for a particular LXC and the host interface to where
@@ -667,6 +669,18 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	return &ep, nil
 }
 
+func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
+	gpm, err := policymap.OpenGlobalMap(e.PolicyGlobalMapPathLocked())
+	if err == nil {
+		// We need to remove ourselves from global map, so that
+		// resources (prog/map reference counts) can be released.
+		gpm.DeleteConsumer(uint32(e.ID))
+		gpm.Close()
+	}
+
+	return err
+}
+
 // PolicyMapPath returns the path to policy map for endpoint ID.
 func PolicyMapPath(id int) string {
 	return bpf.MapPath(policymap.MapName + strconv.Itoa(id))
@@ -675,6 +689,11 @@ func PolicyMapPath(id int) string {
 // PolicyMapPath returns the path to policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
 	return PolicyMapPath(int(e.ID))
+}
+
+// PolicyGlobalMapPathLocked returns the path to the global policy map.
+func (e *Endpoint) PolicyGlobalMapPathLocked() string {
+	return bpf.MapPath(PolicyGlobalMapName)
 }
 
 func CallsMapPath(id int) string {
