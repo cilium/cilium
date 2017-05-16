@@ -9,6 +9,242 @@ your laptop.  It is designed to take 15-30 minutes.
 
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
+Getting Started using Kubernetes
+--------------------------------
+
+This guide is using minikube to demonstrate deployment and operation of Cilium
+in a Kubernetes cluster. If instead you want to dive right into the details of
+deploying Cilium on a full fledged Kubernetes cluster, then go straight to the
+<<k8s install ref>>.
+
+The best way to get help if you get stuck is to ask a question on the `Cilium
+Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
+across the globe, there is almost always someone available to help.
+
+Step 0: Install minikube & kubectl
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install ``kubectl`` as described in the `Kubernetes installation guide
+<https://kubernetes.io/docs/tasks/kubectl/install/>`_.
+
+Install ``minikube`` 0.19 as described in the guide `Running Kubernetes Locally
+via Minikube
+<https://kubernetes.io/docs/getting-started-guides/minikube/#installation>`_.
+
+::
+
+    $ minikube start --network-plugin=cni --iso-url https://github.com/cilium/minikube-iso/raw/master/minikube.iso
+
+.. note:: The ``--iso-url`` is required to run a recent enough kernel. The base
+          ISO image of minikube has since been updated in the development
+          branch of minikube. As soon as the minikube 0.19 ISO is released,
+          passing the ``-iso-url`` parameter will no longer be required.
+
+After minikube has finished  setting up your new Kubernetes cluster, you can
+check the status of it by running ``kubectl get cs``:
+
+::
+
+    $ kubectl get cs
+    NAME                 STATUS    MESSAGE              ERROR
+    controller-manager   Healthy   ok
+    scheduler            Healthy   ok
+    etcd-0               Healthy   {"health": "true"}
+
+Step 1: Deploy Cilium
+^^^^^^^^^^^^^^^^^^^^^
+
+The next step is to deploy Cilium to your Kubernetes cluster in the form of a
+DaemonSet_ which will deploy one Cilium pod per cluster node in the
+``kube-system`` namespace along with all other system relevant daemons and
+services.
+
+To deploy Cilium, run ``kubectl create -f`` and pass in the file ``cilium-ds.yaml``
+contained in this directory.
+
+::
+
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/cilium-ds.yaml
+    clusterrole "cilium" created
+    serviceaccount "cilium" created
+    clusterrolebinding "cilium" created
+    daemonset "cilium-consul" created
+    daemonset "cilium" created
+
+Kubernetes is now deploying the Cilium DaemonSet_ as a pod on all cluster
+nodes. This operation is performed in the background. You can run ``kubectl
+--namespace kube-system get ds`` to check the progress of the DaemonSet_
+deployment.  Notice how the number of pods in the ``READY`` column will start
+increasing from 0 to match the number in the ``DESIRED`` column.
+
+::
+
+    $ kubectl get ds --namespace kube-system
+    NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
+    cilium          1         1         1         <none>          2m
+    cilium-consul   1         1         1         <none>          2m
+
+Wait until the cilium Deployment shows a ``READY`` count of ``1`` like above.
+If this does not happen for some reason, go to the Troubleshooting_ section to
+investigate.
+
+Step 2: Restart kube-dns pods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When we ran ``minikube start``, minikube automatically created a Kubernetes
+Deployment_ ``kube-dns`` to provide DNS resolution. This deployment was
+performed before we deployed Cilium. Because of this, Cilium is not aware of
+the ``kube-dns`` pods can thus not reach them. There is an easy fix for this.
+Kubernetes automatically restarts pods of a deployment if we delete the pods.
+The restarted pods will then be managed by Cilium. If this was a real
+deployment, you would instead perform a rolling update to avoid downtime of the
+DNS service. The outcome for this simple guide is effectively the same though.
+
+::
+
+    $ kubectl --namespace kube-system delete pods -l k8s-app=kube-dns
+    pod "kube-dns-268032401-t57r2" deleted
+
+Running ``kubectl get pods`` will show you that Kubernetes started a new set of
+``kube-dns`` pods while at the same time terminating the old pods:
+
+::
+
+    $ kubectl --namespace kube-system get pods
+    NAME                          READY     STATUS        RESTARTS   AGE
+    cilium-5074s                  1/1       Running       0          58m
+    cilium-consul-plxdm           1/1       Running       0          58m
+    kube-addon-manager-minikube   1/1       Running       0          59m
+    kube-dns-268032401-j0vml      3/3       Running       0          9s
+    kube-dns-268032401-t57r2      3/3       Terminating   0          57m
+
+
+Step 3: Deploy the demo pods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
+deploy an actual application. The file ``demo.yaml`` contains two Kubernetes
+resources:
+
+- A Deployment_ "backend" which will create a backend pod with two replicas. The
+  backend pod provides a REST API to frontends.
+- A Service_ "backend" which exposes all pods of the deployment via a
+  *ClusterIP* to make them highly available. ``kube-dns`` will automatically
+  resolve the service name *backend* to this *ClusterIP*.
+- A Deployment_ "frontend" which will create a pod that we can execute from.
+
+::
+
+    $ kubectl create -f 
+    service "backend" created
+    deployment "backend" created
+    deployment "frontend" created
+
+Just like when we deployed Cilium as a DaemonSet_, Kubernetes will deploy the
+pods and service  in the background.  Running ``kubectl get svc,pods`` will
+inform you about the progress of the operation. Each pod will go through
+several states until it reaches ``Running`` at which point the pod is ready.
+
+::
+
+    $ kubectl get svc,pod
+    NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+    svc/backend      10.0.0.21    <none>        80/TCP    13s
+    svc/kubernetes   10.0.0.1     <none>        443/TCP   34m
+
+    NAME                          READY     STATUS              RESTARTS   AGE
+    po/backend-1758924707-9vg1n   1/1       Running             0          13s
+    po/backend-1758924707-k32p7   1/1       Running             0          13s
+    po/frontend-504426975-gcv8g   0/1       ContainerCreating   0          13s
+
+Step 4: Apply an L3/L4 Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When using Cilium, endpoint IP addresses are irrelevant when defining security
+policies.  Instead, you can use the labels assigned to the VM to define
+security policies, which are automatically applied to any container with that
+label, no matter where or when it is run within a container cluster.
+
+Kubernetes requires to enable isolation per namespace. Therefore, we enable
+it in the ``default`` namespace where our demo app is running.
+
+TODO: This step is not functional yet PR552. Enforcment is automatically
+enabled when the first policy is loaded.
+
+::
+
+    $ kubectl patch ns default -p '{"spec": {"networkPolicy": {"ingress": {"isolation": "DefaultDeny"}}}}'
+    "default" patched
+
+We'll start with a simple example where we allow connectivity between the
+frontend and the backend. Other pods should not be able to reach the backend.
+Additionally, we want backend to be reachable only on port 80, but no other
+ports.  This is a simple policy that filters only on IP protocol (network layer
+3) and TCP protocol (network layer 4), so it is often referred to as an L3/L4
+network security policy.
+
+Cilium performs stateful *connection tracking*, meaning that if policy allows
+the frontend to reach backend, it will automatically allow all required reply
+packets that are part of backend replying to frontend within the context of the
+same TCP/UDP connection.
+
+We can achieve that with the following Kubernetes NetworkPolicy:
+
+::
+
+    kind: NetworkPolicy
+    apiVersion: extensions/v1beta1
+    metadata:
+      name: access-backend
+    spec:
+      podSelector:
+        matchLabels:
+          role: backend
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              role: frontend
+        ports:
+        - port: 80
+          protocol: TCP
+
+Save this YAML to a file named ``l3_l4_policy.yaml`` in your VM, and apply the
+policy by using ``kubectl create -f``:
+
+::
+
+  $ kubectl create -f l3_l4_policy.yaml
+
+Step 5: Test L3/L4 Policy
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We can now verify the network policy that was imported.
+You can now launch additional containers represent other services attempting to
+access backend. Any new container with label `app=demo, role=frontend` will be
+allowed to access the backend on port 80, otherwise the network request will be
+dropped.
+
+To test this out, we'll make an HTTP request to backend from a container
+with the labels `app=demo, role=frontend`:
+
+TODO: PR552 is blocking kube-dns to be allowed if isolation is not enabled
+      in kube-system namespace
+
+::
+
+    POD=$(kubectl get pods -l role=frontend -o jsonpath='{.items[0].metadata.name}')
+    kubectl exec $POD -- curl -s backend
+    <html><body><h1>It works!</h1></body></html>
+
+Step 5:  Apply and Test an L7 Policy using Annotations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+TODO
+
+Getting Started using Vagrant
+-----------------------------
+
 The tutorial leverages Vagrant, and as such should run on any operating system
 supported by Vagrant, including Linux, MacOS X, and Windows. The VM running
 Docker + Cilium requires about 3 GB of RAM, so if your laptop has limited
@@ -25,7 +261,7 @@ Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
 across the globe, there is almost always someone available to help.
 
 Step 0: Install Vagrant
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. note::
 
@@ -38,7 +274,7 @@ or see `Download Vagrant <https://www.vagrantup.com/downloads.html>`_ for newer 
 
 
 Step 1: Download the Cilium Source Code
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_
 and unzip the files.
@@ -51,7 +287,7 @@ repository:
     $ git clone https://github.com/cilium/cilium
 
 Step 2: Starting the Docker + Cilium VM
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Open a terminal and navigate into the top of the cilium source directory.
 
@@ -79,7 +315,7 @@ tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_ .
 
 Step 3: Accessing the VM
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 After the script has successfully completed, you can log into the VM using
 ``vagrant ssh``:
@@ -96,7 +332,7 @@ directory.
 
 
 Step 4: Confirm that Cilium is Running
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Cilium agent is now running as a system service and you can interact with
 it using the ``cilium`` CLI client. Check the status of the agent by running
@@ -114,7 +350,7 @@ The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
 
 Step 5: Create a Docker Network of Type Cilium
-----------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Cilium integrates with local container runtimes, which in the case of this demo
 means Docker. With Docker, native networking is handled via a component called
@@ -132,7 +368,7 @@ named 'cilium-net' for all containers:
 
 
 Step 6: Start an Example Service with Docker
---------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this tutorial, we'll use a container running a simple HTTP server to
 represent a microservice which we will refer to as *Service1*.  As a result, we
@@ -154,7 +390,7 @@ containers which can be addressed by an individual IP address.
 
 
 Step 7: Apply an L3/L4 Policy With Cilium
---------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
 policies.  Instead, you can use the labels assigned to the VM to define
@@ -200,7 +436,8 @@ policy by running:
 
 
 Step 8: Test L3/L4 Policy
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 You can now launch additional containers represent other services attempting to
 access *Service1*. Any new container with label "id.service2" will be allowed
@@ -240,7 +477,7 @@ particular service are assigned an IP address in a particular range.
 
 
 Step 9:  Apply and Test an L7 Policy with Cilium
-------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the simple scenario above, it was sufficient to either give *Service2* /
 *Service3* full access to *Service1's* API or no access at all.   But to
@@ -328,7 +565,7 @@ Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
 
 Step 10: Clean-Up
------------------
+^^^^^^^^^^^^^^^^^
 
 When you are done with the setup and want to tear-down the Cilium + Docker VM,
 and destroy all local state (e.g., the VM disk image), open a terminal, navigate to
@@ -344,3 +581,6 @@ If instead you just want to shut down the VM but may use it later,
 ``vagrant halt cilium-1`` will work, and you can start it again later
 using the contrib/vagrant/start.sh script.
 
+.. _DaemonSet: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+.. _Deployment: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+.. _Service: https://kubernetes.io/docs/concepts/services-networking/service/
