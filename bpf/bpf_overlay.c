@@ -131,7 +131,7 @@ int from_overlay(struct __sk_buff *skb)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
-		tail_call(skb, &cilium_calls, CILIUM_CALL_IPV4);
+		ep_tail_call(skb, CILIUM_CALL_IPV4);
 		ret = DROP_MISSED_TAIL_CALL;
 #else
 		ret = DROP_UNKNOWN_L3;

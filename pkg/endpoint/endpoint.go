@@ -158,6 +158,9 @@ const (
 	StateReady = string(models.EndpointStateReady)
 	// StateRegenerating specifies when the endpoint is being regenerated.
 	StateRegenerating = string(models.EndpointStateRegenerating)
+
+	// CallsMapName specifies the base prefix for EP specific call map.
+	CallsMapName = "cilium_calls_"
 )
 
 // Endpoint contains all the details for a particular LXC and the host interface to where
@@ -672,6 +675,15 @@ func PolicyMapPath(id int) string {
 // PolicyMapPath returns the path to policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
 	return PolicyMapPath(int(e.ID))
+}
+
+func CallsMapPath(id int) string {
+	return bpf.MapPath(CallsMapName + strconv.Itoa(id))
+}
+
+// CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
+func (e *Endpoint) CallsMapPathLocked() string {
+	return CallsMapPath(int(e.ID))
 }
 
 func Ct6MapPath(id int) string {

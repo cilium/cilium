@@ -27,6 +27,7 @@ logs_clear
 function cleanup {
 	docker rm -f server1 server2 server3 server4 server5 client misc 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
+	rm /sys/fs/bpf/tc/globals/lbtest 2> /dev/null || true
 	ip link del lbtest1 2> /dev/null || true
 }
 
@@ -221,7 +222,7 @@ RUN=/var/run/cilium/state
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
 NH_MAC="{.addr=$(mac2array $NH_MAC)}"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
 touch netdev_config.h
 clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
 

@@ -356,6 +356,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		errors++
 	}
 
+	// Remove calls BPF map
+	if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
+		log.Warningf("Unable to remove calls map file (%s): %s", ep.CallsMapPathLocked(), err)
+		errors++
+	}
+
 	// Remove IPv6 connection tracking map
 	if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
 		log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPathLocked(), err)
