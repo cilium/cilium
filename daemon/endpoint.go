@@ -374,6 +374,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		errors++
 	}
 
+	// Remove handle_policy() tail call entry for EP
+	if ep.RemoveFromGlobalPolicyMap() != nil {
+		log.Warningf("Unable to remove EP from global policy map!")
+		errors++
+	}
+
 	d.removeEndpoint(ep)
 
 	if !d.conf.IPv4Disabled {
