@@ -119,6 +119,9 @@ update this template to point cilium to a central key-value store.
       depends_on:
         - cilium
 
+
+.. _k8s_ds:
+
 Installing Cilium using Kubernetes Daemon Sets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
