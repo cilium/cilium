@@ -99,7 +99,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -269,7 +268,7 @@ func ObjGet(pathname string) (int, error) {
 // ObjClose closes the map's fd.
 func ObjClose(fd int) error {
 	if fd > 0 {
-		return syscall.Close(fd)
+		return unix.Close(fd)
 	}
 	return nil
 }
