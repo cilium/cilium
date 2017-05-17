@@ -110,7 +110,7 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 static inline int __inline__ map_lxc_in(struct __sk_buff *skb, int l4_off,
 					struct lxc_info *lxc, __u8 nexthdr)
 {
-	struct csum_offset off;
+	struct csum_offset off = {};
 	uint16_t dport;
 	int i, ret;
 
