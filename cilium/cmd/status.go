@@ -27,7 +27,7 @@ import (
 // statusCmd represents the daemon_status command
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Display stsatus of daemon",
+	Short: "Display status of daemon",
 	Run: func(cmd *cobra.Command, args []string) {
 		statusDaemon(cmd, args)
 	},
