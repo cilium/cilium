@@ -858,7 +858,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
-		__be32 orig_dip = LXC_IPV4;
+		__be32 orig_dip = bpf_htonl(LXC_IPV4);
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
