@@ -117,7 +117,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	};
 	__be32 new_saddr, old_saddr = ip4->saddr;
 	__be16 new_sport, old_sport;
-	struct csum_offset csum;
+	struct csum_offset csum = {};
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
