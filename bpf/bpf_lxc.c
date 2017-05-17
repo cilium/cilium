@@ -137,11 +137,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	void *data, *data_end;
 	union v6addr *daddr;
 
-	if (unlikely(!valid_src_mac(eth)))
+	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
-	else if (unlikely(!valid_dst_mac(eth)))
+	else if (unlikely(!is_valid_gw_dst_mac(eth)))
 		return DROP_INVALID_DMAC;
-	else if (unlikely(!valid_src_ip(ip6)))
+	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
 	/* The tuple is created in reverse order initially to find a
@@ -391,11 +391,11 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 	tuple.nexthdr = ip4->protocol;
 
-	if (unlikely(!valid_src_mac(eth)))
+	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
-	else if (unlikely(!valid_dst_mac(eth)))
+	else if (unlikely(!is_valid_gw_dst_mac(eth)))
 		return DROP_INVALID_DMAC;
-	else if (unlikely(!valid_src_ipv4(ip4)))
+	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
 	/* The tuple is created in reverse order initially to find a
