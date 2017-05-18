@@ -21,11 +21,7 @@ docker network inspect $TEST_NET 2> /dev/null || {
 }
 
 docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL cilium/demo-httpd
-docker run -dt --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf
 
-CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
-CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
-CLIENT_ID=$(cilium endpoint list | grep $CLIENT_LABEL | awk '{ print $1}')
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
 SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
@@ -65,15 +61,14 @@ EOF
 
 sleep 2
 
-RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
+RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "GET /public, unexpected return"
 fi
 
-RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
-# FIXME: Re-enable when redirect issue is resolved
-#if [[ "${RETURN//$'\n'}" != "403" ]]; then
-#	abort "GET /private, unexpected return"
-#fi
+RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
+if [[ "${RETURN//$'\n'}" != "403" ]]; then
+	abort "GET /private, unexpected return"
+fi
 
 cilium policy delete --all
