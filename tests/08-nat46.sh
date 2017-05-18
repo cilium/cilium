@@ -49,10 +49,10 @@ set -x
 
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["${SERVER_LABEL}"],
+    "endpointSelector": {"matchLabels":{"${SERVER_LABEL}":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["${CLIENT_LABEL}"]
+	    {"matchLabels":{"${CLIENT_LABEL}":""}}
 	]
     }]
 }]

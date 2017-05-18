@@ -93,10 +93,10 @@ set -x
 
 cat <<EOF | kubectl exec -i "${server_cilium}" -- cilium -D policy import -
 [{
-    "endpointSelector": ["k8s:${SERVER_LABEL}"],
+    "endpointSelector": {"matchLabels":{"k8s:${SERVER_LABEL}":""}},
     "ingress": [{
         "fromEndpoints": [
-            ["k8s:${CLIENT_LABEL}"]
+	    {"matchLabels":{"k8s:${CLIENT_LABEL}":""}}
 	]
     }]
 }]

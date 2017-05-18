@@ -1,18 +1,19 @@
 [{
-    "endpointSelector": ["id.qa"],
+    "endpointSelector": {"matchLabels":{"id.qa":""}},
     "ingress": [{
-        "fromRequires": [["id.qa"]]
+        "fromRequires": [{"matchLabels":{"id.qa":""}}]
     }]
 },{
-    "endpointSelector": ["id.prod"],
+    "endpointSelector": {"matchLabels":{"id.prod":""}},
     "ingress": [{
-        "fromRequires": [["id.prod"]]
+        "fromRequires": [{"matchLabels":{"id.prod":""}}]
     }]
 },{
-    "endpointSelector": ["id.server"],
+    "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["id.client"], ["reserved:host"]
+	    {"matchLabels":{"id.client":""}},
+	    {"matchLabels":{"reserved:host":""}}
 	]
     }]
 }]

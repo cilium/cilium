@@ -282,10 +282,12 @@ cilium endpoint config $SERVER5_ID | grep ConntrackLocal
 cilium policy delete --all 2> /dev/null || true
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["id.server"],
+    "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["reserved:host"], ["id.client"], ["id.server"]
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}},
+	    {"matchLabels":{"id.server":""}}
 	]
     }]
 }]
