@@ -40,14 +40,15 @@ cilium endpoint list
 cilium policy delete --all
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["id.server"],
+    "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["reserved:host"], ["id.client"]
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
 	]
     }]
 },{
-    "endpointSelector": ["id.client"],
+    "endpointSelector": {"matchLabels":{"id.client":""}},
     "egress": [{
 	"toPorts": [{
 	    "ports": [{"port": "80", "protocol": "tcp"}],

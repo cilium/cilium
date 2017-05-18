@@ -23,20 +23,18 @@ echo "------ simple policy import ------"
 
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["role=frontend"]
+    "endpointSelector": {"matchLabels":{"role":"frontend"}}
 }]
 EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
 [
   {
-    "endpointSelector": [
-      {
-        "key": "role",
-        "value": "frontend",
-        "source": "cilium"
+    "endpointSelector": {
+      "matchLabels": {
+        "cilium:role": "frontend"
       }
-    ]
+    }
   }
 ]
 EOF
@@ -54,13 +52,13 @@ cilium policy get
 echo "------ import policy with labels ------"
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["role=frontend"],
+    "endpointSelector": {"matchLabels":{"role":"frontend"}},
     "labels": ["key1"]
 },{
-    "endpointSelector": ["role=frontend"],
+    "endpointSelector": {"matchLabels":{"role":"frontend"}},
     "labels": ["key2"]
 },{
-    "endpointSelector": ["role=frontend"],
+    "endpointSelector": {"matchLabels":{"role":"frontend"}},
     "labels": ["key3"]
 }]
 EOF
@@ -97,10 +95,11 @@ docker run -dt --net=$TEST_NET --name baz -l id.baz tgraf/netperf
 
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["id.bar"],
+    "endpointSelector": {"matchLabels":{"id.bar":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["reserved:host"], ["id.foo"]
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.foo":""}}
 	]
     }]
 }]
@@ -108,10 +107,10 @@ EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
 Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
-* Rule 0 [cilium:id.bar]: match
-    Allows from labels [reserved:host]
-      Labels [reserved:host] not found
-    Allows from labels [cilium:id.foo]
+* Rule 0 {"matchLabels":{"cilium:id.bar":""}}: match
+    Allows from labels {"matchLabels":{"reserved:host":""}}
+      Labels [cilium:id.foo] not found
+    Allows from labels {"matchLabels":{"cilium:id.foo":""}}
 +     Found all required labels
 1 rules matched
 Result: ALLOWED
@@ -143,17 +142,17 @@ echo "------ validate foo=>bar && teamA requires teamA policy ------"
 
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["id.bar"],
+    "endpointSelector": {"matchLabels":{"id.bar":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["id.foo"]
+	    {"matchLabels":{"id.foo":""}}
 	]
     }]
 },{
-    "endpointSelector": ["id.teamA"],
+    "endpointSelector": {"matchLabels":{"id.teamA":""}},
     "ingress": [{
         "fromRequires": [
-	    ["id.teamA"]
+	    {"matchLabels":{"id.teamA":""}}
 	]
     }]
 }]
@@ -161,8 +160,8 @@ EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
 Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
-* Rule 0 [cilium:id.bar]: match
-    Allows from labels [cilium:id.foo]
+* Rule 0 {"matchLabels":{"cilium:id.bar":""}}: match
+    Allows from labels {"matchLabels":{"cilium:id.foo":""}}
 +     Found all required labels
 1 rules matched
 Result: ALLOWED

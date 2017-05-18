@@ -49,34 +49,35 @@ cilium endpoint list
 
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["id.curl"],
+    "endpointSelector": {"matchLabels":{"id.curl":""}},
     "egress": [{
 	    "toPorts": [{
 		    "ports": [{"port": "80", "protocol": "tcp"}]
 	    }]
     }]
 },{
-    "endpointSelector": ["id.server"],
+    "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["reserved:host"], ["id.client"]
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
 	]
     }]
 },{
-    "endpointSelector": ["id.httpd"],
+    "endpointSelector": {"matchLabels":{"id.httpd":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["id.curl"]
+	    {"matchLabels":{"id.curl":""}}
 	],
 	"toPorts": [
 	    {"ports": [{"port": "80", "protocol": "tcp"}]}
 	]
     }]
 },{
-    "endpointSelector": ["id.httpd_deny"],
+    "endpointSelector": {"matchLabels":{"id.httpd_deny":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["id.curl"]
+	    {"matchLabels":{"id.curl":""}}
 	],
 	"toPorts": [
 	    {"ports": [{"port": "9090", "protocol": "tcp"}]}

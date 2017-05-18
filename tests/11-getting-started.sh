@@ -34,10 +34,10 @@ docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1
 echo "------ creating l3_l4_policy.json ------"
 cat <<EOF | cilium policy import -
 [{
-    "endpointSelector": ["${ID_SERVICE1}"],
+    "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["${ID_SERVICE2}"]
+	    {"matchLabels":{"${ID_SERVICE2}":""}}
 	],
 	"toPorts": [{
 	    "ports": [{"port": "80", "protocol": "tcp"}]
@@ -76,14 +76,15 @@ echo "------ creating l7_aware_policy.json ------"
 cilium policy delete --all
 cat <<EOF | cilium policy import -
 [{
-    "endpointSelector": ["${ID_SERVICE1}"],
+    "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["${ID_SERVICE2}"], ["reserved:host"]
+	    {"matchLabels":{"${ID_SERVICE2}":""}},
+	    {"matchLabels":{"reserved:host":""}}
 	]
     }]
 },{
-    "endpointSelector": ["${ID_SERVICE2}"],
+    "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
     "egress": [{
 	"toPorts": [{
 	    "ports": [{"port": "80", "protocol": "tcp"}],

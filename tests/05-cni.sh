@@ -79,10 +79,11 @@ monitor_start
 cilium policy delete --all 2> /dev/null || true
 cat <<EOF | cilium -D policy import -
 [{
-    "endpointSelector": ["id.server"],
+    "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
         "fromEndpoints": [
-	    ["reserved:host"], ["id.client"]
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
 	]
     }]
 }]
