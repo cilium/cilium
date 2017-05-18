@@ -169,7 +169,7 @@ You now have a set of pods and services inside your cluster. That isn't too much
 helpful unless they are exposed outside of the cluster.
 
 ```
-kubectl -f create examples/kubernetes/deployments/guestbook/ingress/ingress.yml
+kubectl create -f  examples/kubernetes/deployments/guestbook/ingress/guestbook-ingress.yml
 ```
 ```
 ingress "guestbook-ingress" created
