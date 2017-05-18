@@ -31,18 +31,18 @@ import (
 )
 
 const (
-	fAddr = "fluentd.address"
-	fTag = "fluentd.tag"
+	fAddr  = "fluentd.address"
+	fTag   = "fluentd.tag"
 	fLevel = "fluentd.level"
 
 	SLevel = "syslog.level"
 
-	lAddr = "logstash.address"
-	lLevel = "logstash.level"
+	lAddr     = "logstash.address"
+	lLevel    = "logstash.level"
 	lProtocol = "logstash.protocol"
 
-	Syslog = "syslog"
-	Fluentd = "fluentd"
+	Syslog   = "syslog"
+	Fluentd  = "fluentd"
 	Logstash = "logstash"
 )
 
@@ -53,14 +53,14 @@ var syslogOpts = map[string]bool{
 
 // fluentDOpts is the set of supported options for fluentD configuration.
 var fluentDOpts = map[string]bool{
-	fAddr: true,
-	fTag:     true,
-	fLevel:   true,
+	fAddr:  true,
+	fTag:   true,
+	fLevel: true,
 }
 
 // logstashOpts is the set of supported options for logstash configuration.
 var logstashOpts = map[string]bool{
-	lAddr:  true,
+	lAddr:     true,
 	lLevel:    true,
 	lProtocol: true,
 }
