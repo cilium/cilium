@@ -34,6 +34,21 @@ import (
 	ctx "golang.org/x/net/context"
 )
 
+const (
+	// EAddr is the string representing the key mapping to the value of the
+	// address for Etcd.
+	EAddr = "etcd.address"
+	// ECfg is the string representing the key mapping to the path of the
+	// configuration for Etcd.
+	ECfg = "etcd.config"
+)
+
+// EtcdOpts is the set of supported options for Etcd configuration.
+var EtcdOpts = map[string]bool{
+	EAddr: true,
+	ECfg:  true,
+}
+
 type EtcdClient struct {
 	cli         *client.Client
 	sessionMU   sync.RWMutex

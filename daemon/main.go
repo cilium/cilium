@@ -84,6 +84,7 @@ var (
 )
 
 var logOpts = make(map[string]string)
+var kvStoreOpts = make(map[string]string)
 
 var cfgFile string
 
@@ -222,14 +223,12 @@ func init() {
 	flags := RootCmd.Flags()
 	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/ciliumd.yaml)")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
-	flags.StringVar(&consulAddr, "consul", "", "Consul agent address [127.0.0.1:8500]")
+
 	flags.StringVarP(&config.Device, "device", "d", "undefined", "Device to snoop on")
 	flags.BoolVar(&disableConntrack, "disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&enablePolicy, "enable-policy", false, "Enable policy enforcement")
 	flags.StringVarP(&config.DockerEndpoint, "docker", "e", "unix:///var/run/docker.sock",
 		"Register a listener for docker events on the given endpoint")
-	flags.StringSliceVar(&etcdAddr, "etcd", []string{}, "Etcd agent address [http://127.0.0.1:2379]")
-	flags.StringVar(&config.EtcdCfgPath, "etcd-config-path", "", "Absolute path to the etcd configuration file")
 	flags.BoolVar(&enableTracing, "enable-tracing", false, "Enable tracing while determining policy")
 	flags.StringVar(&nat46prefix, "nat46-range", addressing.DefaultNAT46Prefix,
 		"IPv6 prefix to map IPv4 addresses to")
@@ -240,6 +239,7 @@ func init() {
 	flags.StringVar(&config.AllowLocalhost, "allow-localhost", AllowLocalhostAuto,
 		"Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.StringVar(&kvStore, "kvstore", kvstore.Local, "Key-value store type")
+	flags.Var(common.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "key-value store options")
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
 		"When restoring state, keeps containers' configuration in place")
 	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
@@ -365,6 +365,60 @@ func initConfig() {
 	}
 }
 
+// SetupKvStore sets up the key-value store specified in kvStore and configures
+// it with the options provided in kvStoreOpts.
+func SetupKvStore(kvStore string, kvStoreOpts map[string]string) error {
+	var err error
+	switch kvStore {
+	case kvstore.Etcd:
+		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, kvstore.EtcdOpts)
+		if err != nil {
+			return err
+		}
+		etcdAddr, ok := kvStoreOpts[kvstore.EAddr]
+		etcdConfig, ok2 := kvStoreOpts[kvstore.ECfg]
+		if ok || ok2 {
+			config.EtcdConfig = &etcdAPI.Config{}
+			config.EtcdCfgPath = etcdConfig
+			config.EtcdConfig.Endpoints = []string{etcdAddr}
+		} else {
+			return fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --log-opt %s=<path> or an etcd agent address with --log-opt %s=<address>", kvstore.ECfg, kvstore.EAddr)
+		}
+	case kvstore.Consul:
+		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, kvstore.ConsulOpts)
+		if err != nil {
+			return err
+		}
+		consulAddr, ok := kvStoreOpts[kvstore.CAddr]
+		if ok {
+			consulDefaultAPI := consulAPI.DefaultConfig()
+			consulSplitAddr := strings.Split(consulAddr, "://")
+			if len(consulSplitAddr) == 2 {
+				consulAddr = consulSplitAddr[1]
+			} else if len(consulSplitAddr) == 1 {
+				consulAddr = consulSplitAddr[0]
+			}
+			consulDefaultAPI.Address = consulAddr
+			config.ConsulConfig = consulDefaultAPI
+		} else {
+			return fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with --kvstore-opt %s=<consul address> option", kvstore.CAddr)
+		}
+	case kvstore.Local:
+		// Local storage doesn't take any configuration, but we want to
+		// make sure user is not passing configuration for other types of kvstores.
+		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, map[string]bool{})
+		if err != nil {
+			return err
+		}
+		log.Infof("Using local storage for key-value store")
+	default:
+		return fmt.Errorf("unsupported key-value store %q provided", kvStore)
+	}
+	config.KVStore = kvStore
+
+	return nil
+}
+
 func initEnv() {
 	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
 
@@ -399,35 +453,10 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrackLocal, false)
 	config.Opts.Set(endpoint.OptionPolicy, enablePolicy)
 
-	//Validate specified key-value store type and related flags for the given key-value store type.
-	switch kvStore {
-	case kvstore.Consul:
-		if consulAddr != "" {
-			consulDefaultAPI := consulAPI.DefaultConfig()
-			consulSplitAddr := strings.Split(consulAddr, "://")
-			if len(consulSplitAddr) == 2 {
-				consulAddr = consulSplitAddr[1]
-			} else if len(consulSplitAddr) == 1 {
-				consulAddr = consulSplitAddr[0]
-			}
-			consulDefaultAPI.Address = consulAddr
-			config.ConsulConfig = consulDefaultAPI
-		} else {
-			log.Fatalf("invalid configuration for consul provided; please specify the address to a consul instance with the --consul option")
-		}
-	case kvstore.Etcd:
-		if len(etcdAddr) != 0 || config.EtcdCfgPath != "" {
-			config.EtcdConfig = &etcdAPI.Config{}
-			config.EtcdConfig.Endpoints = etcdAddr
-		} else {
-			log.Fatalf("invalid configuration for etcd provided; please specify an etcd configuration path with --etcd-config-path or an etcd agent address with --etcd")
-		}
-	case kvstore.Local:
-		log.Infof("Using local storage for key-value store")
-	default:
-		log.Fatalf("unsupported key-value store %q provided", kvStore)
+	err := SetupKvStore(kvStore, kvStoreOpts)
+	if err != nil {
+		log.Fatalf("Unable to setup kvstore: %s\n", err)
 	}
-	config.KVStore = kvStore
 
 	config.ValidLabelPrefixesMU.Lock()
 	if labelPrefixFile != "" {
