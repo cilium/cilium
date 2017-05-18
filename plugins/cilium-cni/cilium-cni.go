@@ -40,7 +40,7 @@ import (
 )
 
 func init() {
-	common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "debug"}, "cilium-net-cni", true)
+	common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "debug"}, "cilium-net-cni", true)
 
 	// this ensures that main runs only on main thread (thread group leader).
 	// since namespace ops (unshare, setns) are done for a single thread, we
