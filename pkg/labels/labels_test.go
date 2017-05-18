@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/k8s"
 
 	. "gopkg.in/check.v1"
 )
@@ -205,6 +206,7 @@ func (s *LabelsSuite) TestLabelParseKey(c *C) {
 		{"key1=value1", CiliumLabelSourceKeyPrefix + "key1"},
 		{"value1", CiliumLabelSourceKeyPrefix + "value1"},
 		{"$world=value1", common.ReservedLabelSourceKeyPrefix + "world"},
+		{"k8s:foo=bar:", k8s.LabelSourceKeyPrefix + "foo"},
 	}
 	for _, test := range tests {
 		lbl := GetExtendedKeyFrom(test.str)

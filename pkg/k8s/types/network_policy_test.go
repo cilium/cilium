@@ -15,8 +15,10 @@
 package k8s
 
 import (
+	"encoding/json"
 	"testing"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -224,4 +226,525 @@ func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 	rules, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
+}
+
+func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
+	// Example 1: Only allow traffic from frontend pods on TCP port 6379 to
+	// backend pods in the same namespace `myns`.
+	ex1 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/v1beta1",
+  "metadata": {
+    "name": "allow-frontend",
+    "namespace": "myns"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "backend"
+      }
+    },
+    "ingress": [
+      {
+        "from": [
+          {
+            "podSelector": {
+              "matchLabels": {
+                "role": "frontend"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 6379
+          }
+        ]
+      }
+    ]
+  }
+}`)
+	np := v1beta1.NetworkPolicy{}
+	err := json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+	ctx := policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel("role", "backend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Doesn't share the same namespace
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel("role", "backend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Doesn't share the same namespace
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+			labels.NewLabel("role", "backend", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     6379,
+				Protocol: "tcp",
+			},
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT sense the traffic needs to come from `frontend` AND
+	// port 6379 and belong to the same namespace `myns`.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	// Example 2: Allow TCP 443 from any source in Bob's namespaces.
+	ex2 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/v1beta1",
+  "metadata": {
+    "name": "allow-tcp-443"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "frontend"
+      }
+    },
+    "ingress": [
+      {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 443
+          }
+        ],
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "user": "bob"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = v1beta1.NetworkPolicy{}
+	err = json.Unmarshal(ex2, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	repo = policy.NewPolicyRepository()
+	repo.AddList(rules)
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	// Should be DENY sense the traffic needs to come from
+	// namespace `user=bob` AND port 443.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	l4Policy := repo.ResolveL4Policy(&ctx)
+	l4Veridict := l4Policy.IngressCoversDPorts([]*models.Port{})
+	c.Assert(l4Veridict, Equals, api.Denied)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     443,
+				Protocol: "tcp",
+			},
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT sense the traffic comes from Bob's namespaces
+	// (even if it's a different namespace than `default`) AND port 443.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	// Example 3: Allow all traffic to all pods in this namespace.
+	ex3 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/v1beta1",
+  "metadata": {
+    "name": "allow-all"
+  },
+  "spec": {
+    "podSelector": null,
+    "ingress": [
+      {
+      }
+    ]
+  }
+}`)
+
+	np = v1beta1.NetworkPolicy{}
+	err = json.Unmarshal(ex3, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	repo = policy.NewPolicyRepository()
+	repo.AddList(rules)
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "backend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT since it's going to `default` namespace
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "backend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT since it's coming from `default` and going to `default` ns
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "backend", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     443,
+				Protocol: "tcp",
+			},
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT since it's coming from `default` and going to `default` namespace.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	// Example 4: Example 4 is similar to example 2 but we will add both network
+	// policies to see if the rules are additive for the same podSelector.
+	ex4 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/v1beta1",
+  "metadata": {
+    "name": "allow-tcp-8080"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "frontend"
+      }
+    },
+    "ingress": [
+      {
+        "ports": [
+          {
+            "protocol": "UDP",
+            "port": 8080
+          }
+        ],
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "user": "bob"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = v1beta1.NetworkPolicy{}
+	err = json.Unmarshal(ex4, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	repo = policy.NewPolicyRepository()
+	// add example 4
+	repo.AddList(rules)
+
+	np = v1beta1.NetworkPolicy{}
+	err = json.Unmarshal(ex2, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	// add example 2
+	repo.AddList(rules)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Protocol: "udp",
+				Port:     8080,
+			},
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 8080 as specified in `ex4`.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "user"), "bob", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     443,
+				Protocol: "tcp",
+			},
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
+			labels.NewLabel("role", "frontend", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 443 as specified in `ex2`.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	// Example 5: Some policies with match expressions.
+	ex5 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/v1beta1",
+  "metadata": {
+    "name": "allow-tcp-8080",
+    "namespace": "expressions"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "component": "redis"
+      },
+      "matchExpressions": [
+        {
+          "key": "tier",
+          "operator": "In",
+          "values": [
+            "cache"
+          ]
+        },
+        {
+          "key": "environment",
+          "operator": "NotIn",
+          "values": [
+            "dev"
+          ]
+        }
+      ]
+    },
+    "ingress": [
+      {
+        "ports": [
+          {
+            "protocol": "UDP",
+            "port": 8080
+          }
+        ],
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "component": "redis"
+              },
+              "matchExpressions": [
+                {
+                  "key": "tier",
+                  "operator": "In",
+                  "values": [
+                    "cache"
+                  ]
+                },
+                {
+                  "key": "environment",
+                  "operator": "NotIn",
+                  "values": [
+                    "dev"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = v1beta1.NetworkPolicy{}
+	err = json.Unmarshal(ex5, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+	repo.AddList(rules)
+
+	// A reminder: from the kubernetes network policy spec:
+	// namespaceSelector:
+	//  Selects Namespaces using cluster scoped-labels.  This
+	//  matches all pods in all namespaces selected by this label selector.
+	//  This field follows standard label selector semantics.
+	//  If omitted, this selector selects no namespaces.
+	//  If present but empty, this selector selects all namespaces.
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			// doesn't matter the namespace.
+			labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+			// component==redis is in the policy
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "component"), "redis", k8s.LabelSource),
+			// tier==cache is in the policy
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "tier"), "cache", k8s.LabelSource),
+			// environment is not in `dev` which is in the policy
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "environment"), "production", k8s.LabelSource),
+			// doesn't matter, there isn't any matchExpression denying traffic from any zone.
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "zone"), "eu-1", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     8080,
+				Protocol: "udp",
+			},
+		},
+		To: labels.LabelArray{
+			// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
+			labels.NewLabel(k8s.PodNamespaceLabel, "expressions", k8s.LabelSource),
+			// component==redis is in the policy.
+			labels.NewLabel("component", "redis", k8s.LabelSource),
+			// tier==cache is in the policy
+			labels.NewLabel("tier", "cache", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT since the SearchContext is being covered by the rules.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
+	ctx.To = labels.LabelArray{
+		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
+		labels.NewLabel(k8s.PodNamespaceLabel, "myns", k8s.LabelSource),
+		// component==redis is in the policy.
+		labels.NewLabel("component", "redis", k8s.LabelSource),
+		// tier==cache is in the policy
+		labels.NewLabel("tier", "cache", k8s.LabelSource),
+	}
+	// Should be DENY since the namespace doesn't belong to the policy.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "component"), "redis", k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "tier"), "cache", k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "environment"), "dev", k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "zone"), "eu-1", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     8080,
+				Protocol: "udp",
+			},
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "expressions", k8s.LabelSource),
+			labels.NewLabel("component", "redis", k8s.LabelSource),
+			labels.NewLabel("tier", "cache", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be DENY since the environment is from dev.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "component"), "redis", k8s.LabelSource),
+			labels.NewLabel(policy.JoinPath(k8s.PodNamespaceMetaLabels, "tier"), "cache", k8s.LabelSource),
+		},
+		DPorts: []*models.Port{
+			{
+				Port:     8080,
+				Protocol: "udp",
+			},
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, "expressions", k8s.LabelSource),
+			labels.NewLabel("component", "redis", k8s.LabelSource),
+			labels.NewLabel("tier", "cache", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT since the environment is from dev.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 }
