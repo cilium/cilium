@@ -17,6 +17,7 @@ package api
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // Validate validates a policy rule
@@ -84,10 +85,10 @@ func (pp PortProtocol) Validate() error {
 		return fmt.Errorf("Port cannot be 0")
 	}
 
-	if pp.Protocol != "" && pp.Protocol != "any" &&
-		pp.Protocol != "tcp" && pp.Protocol != "udp" {
-		return fmt.Errorf("Invalid protocol \"%s\", must be { tcp | udp }",
-			pp.Protocol)
+	switch strings.ToLower(pp.Protocol) {
+	case "", "any", "tcp", "udp":
+	default:
+		return fmt.Errorf("Invalid protocol %q, must be { tcp | udp }", pp.Protocol)
 	}
 
 	return nil
