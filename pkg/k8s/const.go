@@ -15,6 +15,8 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/common"
+
 	"k8s.io/kubernetes/pkg/kubelet/types"
 )
 
@@ -29,15 +31,9 @@ const (
 	// LabelSource is the default label source for the labels imported from
 	// kubernetes.
 	LabelSource = "k8s"
-	// DefaultPolicyParentPath is the default path to the policy node
-	// received from kubernetes.
-	DefaultPolicyParentPath = "k8s"
-	// DefaultPolicyParentPathPrefix is the DefaultPolicyParentPath with the
+	// LabelSourceKeyPrefix is the DefaultPolicyParentPath with the
 	// NodePathDelimiter.
-	DefaultPolicyParentPathPrefix = DefaultPolicyParentPath + NodePathDelimiter
-
-	// NodePathDelimiter is the label's key path delimiter.
-	NodePathDelimiter = "."
+	LabelSourceKeyPrefix = LabelSource + common.PathDelimiter
 
 	// PolicyLabelName is the name of the policy label which refers to the
 	// k8s policy name
@@ -45,4 +41,7 @@ const (
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
 	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
+	// PodNamespaceMetaLabels is the label used to store the labels of the
+	// kubernetes namespace's labels.
+	PodNamespaceMetaLabels = "ns-labels"
 )

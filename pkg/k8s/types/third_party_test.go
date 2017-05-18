@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
@@ -27,11 +28,14 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 			Name: "foo",
 		},
 		Spec: api.Rule{
-			EndpointSelector: api.ParseEndpointSelector("bar"),
+			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
-						api.ParseEndpointSelector("foo", "foo2"),
+						api.NewESFromLabels(
+							labels.ParseLabel("foo"),
+							labels.ParseLabel("foo2"),
+						),
 					},
 				},
 			},

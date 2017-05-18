@@ -33,11 +33,14 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 
 	rule1 := rule{
 		api.Rule{
-			EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
+			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
-						api.ParseEndpointSelector("foo", "foo2"),
+						api.NewESFromLabels(
+							labels.ParseLabel("foo"),
+							labels.ParseLabel("foo2"),
+						),
 					},
 				},
 			},
@@ -56,14 +59,14 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	// require: baz
 	rule2 := rule{
 		api.Rule{
-			EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
+			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
-						api.ParseEndpointSelector("foo"),
+						api.NewESFromLabels(labels.ParseLabel("foo")),
 					},
 					FromRequires: []api.EndpointSelector{
-						api.ParseEndpointSelector("baz"),
+						api.NewESFromLabels(labels.ParseLabel("baz")),
 					},
 				},
 			},
@@ -98,7 +101,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	rule1 := &rule{
 		api.Rule{
-			EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
+			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					ToPorts: []api.PortRule{{

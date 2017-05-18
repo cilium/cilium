@@ -195,7 +195,6 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 			d.conf.ValidLabelPrefixesMU.RLock()
 			k8sSpecialLabels = d.conf.ValidK8sLabelPrefixes.FilterLabels(k8sLbls)
 			d.conf.ValidLabelPrefixesMU.RUnlock()
-			k8sSpecialLabels = k8sSpecialLabels.AppendPrefixInKey(k8s.DefaultPolicyParentPathPrefix)
 			log.Debug("Special labels %s", k8sSpecialLabels)
 		}
 	}

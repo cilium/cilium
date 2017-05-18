@@ -45,31 +45,33 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	rules := api.Rules{
 		{
-			EndpointSelector: api.EndpointSelector{lblBar},
+			EndpointSelector: api.NewESFromLabels(lblBar),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
-						{lblJoe}, {lblPete}, {lblFoo},
+						api.NewESFromLabels(lblJoe),
+						api.NewESFromLabels(lblPete),
+						api.NewESFromLabels(lblFoo),
 					},
 				},
 			},
 		},
 		{
-			EndpointSelector: api.EndpointSelector{lblQA},
+			EndpointSelector: api.NewESFromLabels(lblQA),
 			Ingress: []api.IngressRule{
 				{
 					FromRequires: []api.EndpointSelector{
-						{lblQA},
+						api.NewESFromLabels(lblQA),
 					},
 				},
 			},
 		},
 		{
-			EndpointSelector: api.EndpointSelector{lblProd},
+			EndpointSelector: api.NewESFromLabels(lblProd),
 			Ingress: []api.IngressRule{
 				{
 					FromRequires: []api.EndpointSelector{
-						{lblProd},
+						api.NewESFromLabels(lblProd),
 					},
 				},
 			},

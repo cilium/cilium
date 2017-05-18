@@ -32,16 +32,16 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 		labels.ParseLabel("tag2"),
 	}
 	rule1 := api.Rule{
-		EndpointSelector: api.EndpointSelector{labels.ParseLabel("foo")},
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("foo")),
 		Labels:           lbls1,
 	}
 	rule2 := api.Rule{
-		EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 		Labels:           lbls1,
 	}
 	lbls2 := labels.LabelArray{labels.ParseLabel("tag3")}
 	rule3 := api.Rule{
-		EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 		Labels:           lbls2,
 	}
 
@@ -100,11 +100,11 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	rule1 := api.Rule{
-		EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar")},
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
 		Ingress: []api.IngressRule{
 			{
 				FromEndpoints: []api.EndpointSelector{
-					api.ParseEndpointSelector("foo"),
+					api.NewESFromLabels(labels.ParseLabel("foo")),
 				},
 			},
 		},
@@ -114,22 +114,22 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	// selector: groupA
 	// require: groupA
 	rule2 := api.Rule{
-		EndpointSelector: api.EndpointSelector{labels.ParseLabel("groupA")},
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("groupA")),
 		Ingress: []api.IngressRule{
 			{
 				FromRequires: []api.EndpointSelector{
-					api.ParseEndpointSelector("groupA"),
+					api.NewESFromLabels(labels.ParseLabel("groupA")),
 				},
 			},
 		},
 		Labels: tag1,
 	}
 	rule3 := api.Rule{
-		EndpointSelector: api.EndpointSelector{labels.ParseLabel("bar2")},
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar2")),
 		Ingress: []api.IngressRule{
 			{
 				FromEndpoints: []api.EndpointSelector{
-					api.ParseEndpointSelector("foo"),
+					api.NewESFromLabels(labels.ParseLabel("foo")),
 				},
 			},
 		},

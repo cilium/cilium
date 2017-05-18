@@ -68,3 +68,25 @@ nextLabel:
 
 	return missing
 }
+
+// Has returns whether the provided key exists.
+// Implementation of the k8s.io/apimachinery/pkg/labels.Labels interface.
+func (ls LabelArray) Has(key string) bool {
+	for _, lsl := range ls {
+		if lsl.GetExtendedKey() == key {
+			return true
+		}
+	}
+	return false
+}
+
+// Get returns the value for the provided key.
+// Implementation of the k8s.io/apimachinery/pkg/labels.Labels interface.
+func (ls LabelArray) Get(key string) string {
+	for _, lsl := range ls {
+		if lsl.GetExtendedKey() == key {
+			return lsl.Value
+		}
+	}
+	return ""
+}
