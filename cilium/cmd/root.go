@@ -96,9 +96,9 @@ func initConfig() {
 	}
 
 	if viper.GetBool("debug") {
-		common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "debug"}, "cilium-cmd", true)
+		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "debug"}, "cilium-cmd", true)
 	} else {
-		common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "info"}, "cilium-cmd", false)
+		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "info"}, "cilium-cmd", false)
 	}
 
 	if cl, err := clientPkg.NewClient(viper.GetString("host")); err != nil {

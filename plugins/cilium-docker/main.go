@@ -77,9 +77,9 @@ func init() {
 
 func initConfig() {
 	if debug {
-		common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "debug"}, "cilium-docker", true)
+		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "debug"}, "cilium-docker", true)
 	} else {
-		common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "info"}, "cilium-docker", false)
+		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "info"}, "cilium-docker", false)
 	}
 
 	// The cilium-docker plugin must be run as root user.

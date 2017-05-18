@@ -30,6 +30,22 @@ import (
 	"regexp"
 )
 
+const (
+	fAddr = "fluentd.address"
+	fTag = "fluentd.tag"
+	fLevel = "fluentd.level"
+
+	SLevel = "syslog.level"
+
+	lAddr = "logstash.address"
+	lLevel = "logstash.level"
+	lProtocol = "logstash.protocol"
+
+	Syslog = "syslog"
+	Fluentd = "fluentd"
+	Logstash = "logstash"
+)
+
 // syslogOpts is the set of supported options for syslog configuration.
 var syslogOpts = map[string]bool{
 	"syslog.level": true,
@@ -37,16 +53,16 @@ var syslogOpts = map[string]bool{
 
 // fluentDOpts is the set of supported options for fluentD configuration.
 var fluentDOpts = map[string]bool{
-	"fluentd.address": true,
-	"fluentd.tag":     true,
-	"fluentd.level":   true,
+	fAddr: true,
+	fTag:     true,
+	fLevel:   true,
 }
 
 // logstashOpts is the set of supported options for logstash configuration.
 var logstashOpts = map[string]bool{
-	"logstash.address":  true,
-	"logstash.level":    true,
-	"logstash.protocol": true,
+	lAddr:  true,
+	lLevel:    true,
+	lProtocol: true,
 }
 
 // syslogLevelMap maps logrus.Level values to syslog.Priority levels.
@@ -86,8 +102,8 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 	setupFormatter()
 
 	// Always setup syslog.
-	valuesToValidate := getLogDriverConfig("syslog", logOpts)
-	err := validateOpts("syslog", valuesToValidate, syslogOpts)
+	valuesToValidate := getLogDriverConfig(Syslog, logOpts)
+	err := validateOpts(Syslog, valuesToValidate, syslogOpts)
 	if err != nil {
 		return err
 	}
@@ -102,17 +118,17 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 	for _, logger := range loggers {
 		valuesToValidate := getLogDriverConfig(logger, logOpts)
 		switch logger {
-		case "syslog":
+		case Syslog:
 			// Syslog is always set up; do not want to error out, so continue.
 			continue
-		case "fluentd":
+		case Fluentd:
 			err := validateOpts(logger, valuesToValidate, fluentDOpts)
 			if err != nil {
 				return err
 			}
 			setupFluentD(valuesToValidate, debug)
 			//TODO - need to finish logstash integration.
-		/*case "logstash":
+		/*case Logstash:
 		fmt.Printf("SetupLogging: in logstash case\n")
 		err := validateOpts(logger, valuesToValidate, logstashOpts)
 		fmt.Printf("SetupLogging: validating options for logstash complete\n")
@@ -133,7 +149,7 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 // setupSyslog sets up and configures syslog with the provided options in
 // logOpts. If some options are not provided, sensible defaults are used.
 func setupSyslog(logOpts map[string]string, tag string, debug bool) {
-	logLevel, ok := logOpts["syslog.level"]
+	logLevel, ok := logOpts[SLevel]
 	if !ok {
 		if debug {
 			logLevel = "debug"
@@ -177,7 +193,7 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 	//If no logging level set for fluentd, use debug value if it is set.
 	// Logging level set for fluentd takes precedence over debug flag
 	// fluent.level provided.
-	logLevel, ok := logOpts["fluentd.level"]
+	logLevel, ok := logOpts[fLevel]
 	if !ok {
 		if debug {
 			logLevel = "debug"
@@ -190,7 +206,7 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 		logrus.Fatal(err)
 	}
 
-	hostAndPort, ok := logOpts["fluentd.address"]
+	hostAndPort, ok := logOpts[fAddr]
 	if !ok {
 		hostAndPort = "localhost:24224"
 	}
@@ -206,7 +222,7 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 		logrus.Fatal(err)
 	}
 
-	tag, ok := logOpts["fluentd.tag"]
+	tag, ok := logOpts[fTag]
 	if ok {
 		h.SetTag(tag)
 	}
@@ -220,12 +236,12 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 // logOpts. If some options are not provided, sensible defaults are used.
 /// TODO fix me later - needs to be tested with a working logstash setup.
 func setupLogstash(logOpts map[string]string) {
-	hostAndPort, ok := logOpts["logstash.address"]
+	hostAndPort, ok := logOpts[lAddr]
 	if !ok {
 		hostAndPort = "172.17.0.2:999"
 	}
 
-	protocol, ok := logOpts["logstash.protocol"]
+	protocol, ok := logOpts[lProtocol]
 	if !ok {
 		protocol = "tcp"
 	}
