@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"fmt"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -54,4 +55,15 @@ type KVLocker interface {
 // GetLockPath returns the lock path representation of the given path.
 func GetLockPath(path string) string {
 	return path + ".lock"
+}
+
+// ValidateOpts iterates through all of the keys in kvStoreOpts, and errors out
+// if the key in kvStoreOpts is not a supported key in supportedOpts.
+func ValidateOpts(kvStore string, kvStoreOpts map[string]string, supportedOpts map[string]bool) error {
+	for k := range kvStoreOpts {
+		if !supportedOpts[k] {
+			return fmt.Errorf("provided configuration value %q is not supported as a key-value store option for kvstore %s", k, kvStore)
+		}
+	}
+	return nil
 }

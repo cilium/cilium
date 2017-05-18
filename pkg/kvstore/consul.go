@@ -30,6 +30,17 @@ import (
 	consulAPI "github.com/hashicorp/consul/api"
 )
 
+const (
+	// CAddr is the string representing the key mapping to the value of the
+	// address for Consul.
+	CAddr = "consul.address"
+)
+
+// / ConsulOpts is the set of supported options for Consul configuration.
+var ConsulOpts = map[string]bool{
+	CAddr: true,
+}
+
 var (
 	maxRetries = 30
 	retrySleep = 2 * time.Second

@@ -28,4 +28,4 @@ docker run -d \
    agent -client=0.0.0.0 -server -bootstrap-expect 1
 
 $dir/plugins/cilium-docker/cilium-docker&
-$dir/daemon/cilium-agent --kvstore consul --consul 127.0.0.1:8501 $*
+$dir/daemon/cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8501 $*
