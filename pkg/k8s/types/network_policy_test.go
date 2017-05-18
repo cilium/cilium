@@ -25,6 +25,7 @@ import (
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
@@ -77,10 +78,12 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
 			labels.NewLabel("foo3", "bar3", k8s.LabelSource),
 			labels.NewLabel("foo4", "bar4", k8s.LabelSource),
 		},
 		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
 			labels.NewLabel("foo1", "bar1", k8s.LabelSource),
 			labels.NewLabel("foo2", "bar2", k8s.LabelSource),
 		},
@@ -101,6 +104,26 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		},
 		Egress: policy.L4PolicyMap{},
 	})
+
+	ctx.To = labels.LabelArray{
+		labels.NewLabel("foo2", "bar2", k8s.LabelSource),
+	}
+
+	// ctx.To needs to have all labels from the policy in order to be accepted
+	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel("foo3", "bar3", k8s.LabelSource),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel("foo1", "bar1", k8s.LabelSource),
+			labels.NewLabel("foo2", "bar2", k8s.LabelSource),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// ctx.From also needs to have all labels from the policy in order to be accepted
+	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
@@ -147,9 +170,11 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
 			labels.NewLabel("foo0", "bar0", k8s.LabelSource),
 		},
 		To: labels.LabelArray{
+			labels.NewLabel(k8s.PodNamespaceLabel, v1.NamespaceDefault, k8s.LabelSource),
 			labels.NewLabel("foo1", "bar1", k8s.LabelSource),
 		},
 		Trace: policy.TRACE_VERBOSE,

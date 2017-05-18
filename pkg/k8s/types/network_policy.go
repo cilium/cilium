@@ -20,8 +20,10 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
@@ -35,39 +37,60 @@ func ExtractPolicyName(np *v1beta1.NetworkPolicy) string {
 	return fmt.Sprintf("%s=%s", k8s.PolicyLabelName, policyName)
 }
 
+// ExtractNamespace extracts the namespace of policy name.
+func ExtractNamespace(np *v1beta1.NetworkPolicy) string {
+	if np.Namespace == "" {
+		return v1.NamespaceDefault
+	}
+
+	return np.Namespace
+}
+
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	ingress := api.IngressRule{}
+	namespace := ExtractNamespace(np)
 	for _, iRule := range np.Spec.Ingress {
 		// Based on NetworkPolicyIngressRule docs:
 		//   From []NetworkPolicyPeer
 		//   If this field is empty or missing, this rule matches all
 		//   sources (traffic not restricted by source).
 		if iRule.From == nil || len(iRule.From) == 0 {
-			all := api.EndpointSelector{
+			all := api.NewESFromLabels(
 				labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource),
-			}
+			)
 			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
 		} else {
 			for _, rule := range iRule.From {
+				// Only one or the other can be set, not both
 				if rule.PodSelector != nil {
-					lbls := api.EndpointSelector{}
-					for k, v := range rule.PodSelector.MatchLabels {
-						l := labels.NewLabel(k, v, "")
-						if l.Source == common.CiliumLabelSource {
-							l.Source = k8s.LabelSource
-						}
-						lbls = append(lbls, l)
+					if rule.PodSelector.MatchLabels == nil {
+						rule.PodSelector.MatchLabels = map[string]string{}
 					}
-					ingress.FromEndpoints = append(ingress.FromEndpoints, lbls)
+					// The PodSelector should only reflect to the same namespace
+					// the policy is being stored, thus we add the namespace to
+					// the MatchLabels map.
+					rule.PodSelector.MatchLabels[k8s.PodNamespaceLabel] = namespace
+					ingress.FromEndpoints = append(ingress.FromEndpoints,
+						api.NewESFromK8sLabelSelector(k8s.LabelSourceKeyPrefix, rule.PodSelector))
 				} else if rule.NamespaceSelector != nil {
-					lbls := api.EndpointSelector{}
-					for k := range rule.NamespaceSelector.MatchLabels {
-						l := labels.NewLabel(k8s.PodNamespaceLabel, k, k8s.LabelSource)
-						lbls = append(lbls, l)
+					matchLabels := map[string]string{}
+					// We use our own special label prefix for namespace metadata,
+					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+					for k, v := range rule.NamespaceSelector.MatchLabels {
+						matchLabels[policy.JoinPath(k8s.PodNamespaceMetaLabels, k)] = v
 					}
-					ingress.FromEndpoints = append(ingress.FromEndpoints, lbls)
+					rule.NamespaceSelector.MatchLabels = matchLabels
+
+					// We use our own special label prefix for namespace metadata,
+					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+					for i, lsr := range rule.NamespaceSelector.MatchExpressions {
+						lsr.Key = policy.JoinPath(k8s.PodNamespaceMetaLabels, lsr.Key)
+						rule.NamespaceSelector.MatchExpressions[i] = lsr
+					}
+					ingress.FromEndpoints = append(ingress.FromEndpoints,
+						api.NewESFromK8sLabelSelector(k8s.LabelSourceKeyPrefix, rule.NamespaceSelector))
 				}
 			}
 		}
@@ -100,10 +123,13 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	tag := ExtractPolicyName(np)
-	coverageLbls := labels.Map2Labels(np.Spec.PodSelector.MatchLabels, k8s.LabelSource)
+	if np.Spec.PodSelector.MatchLabels == nil {
+		np.Spec.PodSelector.MatchLabels = map[string]string{}
+	}
+	np.Spec.PodSelector.MatchLabels[k8s.PodNamespaceLabel] = namespace
 
 	rule := &api.Rule{
-		EndpointSelector: coverageLbls.ToSlice(),
+		EndpointSelector: api.NewESFromK8sLabelSelector(k8s.LabelSourceKeyPrefix, &np.Spec.PodSelector),
 		Labels:           labels.ParseLabelArray(tag),
 		Ingress:          []api.IngressRule{ingress},
 	}

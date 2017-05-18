@@ -102,10 +102,3 @@ func (s *SearchContext) String() string {
 func (s *SearchContext) CallDepth() string {
 	return strconv.Itoa(s.Depth * 2)
 }
-
-// TargetCoveredBy checks if the SearchContext `To` is covered by the all
-// `coverage` labels.
-func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
-	s.PolicyTraceVerbose("Checking if %+v covers %+v", coverage, s.To)
-	return s.To.Contains(coverage)
-}

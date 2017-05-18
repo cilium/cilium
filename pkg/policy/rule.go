@@ -17,7 +17,6 @@ package policy
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -30,11 +29,12 @@ func (r *rule) String() string {
 }
 
 func (r *rule) validate() error {
-	if r == nil {
+	if r == nil || r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("nil rule")
 	}
 
-	if len(r.EndpointSelector) == 0 {
+	if len(r.EndpointSelector.MatchLabels) == 0 &&
+		len(r.EndpointSelector.MatchExpressions) == 0 {
 		return fmt.Errorf("empty EndpointSelector")
 	}
 
@@ -81,7 +81,7 @@ func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4
 }
 
 func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4Policy) *L4Policy {
-	if !ctx.TargetCoveredBy(r.EndpointSelector) {
+	if !r.EndpointSelector.Matches(ctx.To) {
 		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
 		return nil
 	}
@@ -111,8 +111,8 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 }
 
 func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
-	if !ctx.TargetCoveredBy(r.EndpointSelector) {
-		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
+	if !r.EndpointSelector.Matches(ctx.To) {
+		ctx.PolicyTraceVerbose("  Rule %d %s: no match for %+v\n", state.ruleID, r, ctx.To)
 		return api.Undecided
 	}
 
@@ -122,10 +122,8 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromRequires {
 			ctx.PolicyTrace("    Requires from labels %+v", sel)
-			// TODO: get rid of this cast
-			lacks := ctx.From.Lacks(labels.LabelArray(sel))
-			if len(lacks) > 0 {
-				ctx.PolicyTrace("-     Labels %v not found\n", lacks)
+			if !sel.Matches(ctx.From) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.From)
 				return api.Denied
 			}
 			ctx.PolicyTrace("+     Found all required labels\n")
@@ -136,15 +134,13 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 	// precedence over FromEndpoints
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromEndpoints {
-			// TODO: get rid of this cast
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
-			lacks := ctx.From.Lacks(labels.LabelArray(sel))
-			if len(lacks) == 0 {
+			if sel.Matches(ctx.From) {
 				ctx.PolicyTrace("+     Found all required labels\n")
 				return api.Allowed
 			}
 
-			ctx.PolicyTrace("      Labels %v not found\n", lacks)
+			ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
 		}
 	}
 

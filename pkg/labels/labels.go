@@ -248,6 +248,38 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// GetExtendedKey returns the key of a label with the source encoded.
+func (l *Label) GetExtendedKey() string {
+	return l.Source + common.PathDelimiter + l.Key
+}
+
+// GetCiliumKeyFrom returns the label's source and key from the an extended key
+// in the format SOURCE:KEY.
+func GetCiliumKeyFrom(extKey string) string {
+	sourceSplit := strings.SplitN(extKey, common.PathDelimiter, 2)
+	if len(sourceSplit) == 2 {
+		return sourceSplit[0] + ":" + sourceSplit[1]
+	}
+	// TODO: Replace with `any`?
+	return common.CiliumLabelSource + ":" + sourceSplit[0]
+}
+
+// GetExtendedKeyFrom returns the extended key of a label string.
+// For example:
+// `k8s:foo=bar` returns `k8s.foo`
+// `cilium:foo=bar` returns `cilium.foo`
+// `foo=bar` returns `cilium.foo=bar`
+func GetExtendedKeyFrom(str string) string {
+	src, next := parseSource(str)
+	if src == "" {
+		src = common.CiliumLabelSource
+	}
+	// Remove an eventually value
+	nextSplit := strings.SplitN(next, "=", 2)
+	next = nextSplit[0]
+	return src + common.PathDelimiter + next
+}
+
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
 // source argument will overwrite the source written in the key of the given map.
 // Example:
@@ -370,9 +402,9 @@ func parseSource(str string) (src, next string) {
 	sourceSplit := strings.SplitN(str, ":", 2)
 	if len(sourceSplit) != 2 {
 		next = sourceSplit[0]
-		if strings.HasPrefix(next, common.ReservedLabelKey) {
+		if strings.HasPrefix(next, common.ReservedLabelSource) {
 			src = common.ReservedLabelSource
-			next = strings.TrimPrefix(next, common.ReservedLabelKey)
+			next = strings.TrimPrefix(next, common.ReservedLabelSourceKeyPrefix)
 		}
 	} else {
 		if sourceSplit[0] != "" {
