@@ -699,6 +699,7 @@ static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
 		state->addr = new_saddr;
+		state->svc_addr = saddr;
 	}
 #endif
 

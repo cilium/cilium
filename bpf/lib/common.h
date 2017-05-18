@@ -256,6 +256,7 @@ struct ct_state {
 	__u16 orig_dport;
 	__u16 proxy_port;
 	__be32 addr;
+	__be32 svc_addr;
 };
 
 struct proxy4_tbl_key {

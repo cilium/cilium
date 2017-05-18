@@ -17,7 +17,7 @@ source "./helpers.bash"
 
 set -e
 
-cilium config ConntrackLocal=true
+#cilium config ConntrackLocal=true
 
 TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
@@ -398,7 +398,6 @@ docker exec --privileged -i server1 ping6 -c 4 $SVC_IP6 || {
 	abort "Error: Unable to reach own service IP"
 }
 
-# TODO global CT
 docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach own service IP"
 }

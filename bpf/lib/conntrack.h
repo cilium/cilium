@@ -600,29 +600,35 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		return DROP_CT_CREATE_FAILED;
 
 	if (ct_state->addr) {
+		__u8 flags = tuple->flags;
 		__be32 addr;
 
 #ifdef CONNTRACK_LOCAL
 		addr = tuple->addr;
 		tuple->addr = ct_state->addr;
 #else
-		if (dir == CT_INGRESS) {
-			addr = tuple->saddr;
+		__be32 daddr;
+
+		addr  = tuple->saddr;
+		daddr = tuple->daddr;
+		if (dir == CT_INGRESS)
 			tuple->saddr = ct_state->addr;
-		} else {
-			addr = tuple->daddr;
+		else
 			tuple->daddr = ct_state->addr;
-		}
 #endif
-
-		__u8 flags = tuple->flags;
-
 		/* We are looping back into the origin endpoint through a service,
 		 * set up a conntrack tuple for the reply to ensure we do rev NAT
 		 * before attempting to route the destination address which will
 		 * not point back to the right source. */
-		if (ct_state->loopback)
+		if (ct_state->loopback) {
 			tuple->flags = TUPLE_F_IN;
+#ifndef CONNTRACK_LOCAL
+			if (dir == CT_INGRESS)
+				tuple->daddr = ct_state->svc_addr;
+			else
+				tuple->saddr = ct_state->svc_addr;
+#endif
+		}
 
 		cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
 			     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
@@ -633,10 +639,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 #ifdef CONNTRACK_LOCAL
 		tuple->addr = addr;
 #else
-		if (dir == CT_INGRESS)
-			tuple->saddr = addr;
-		else
-			tuple->daddr = addr;
+		tuple->saddr = addr;
+		tuple->daddr = daddr;
 #endif
 		tuple->flags = flags;
 	}
