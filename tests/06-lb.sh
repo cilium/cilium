@@ -240,6 +240,7 @@ docker run -dt --net=$TEST_NET --name server3 -l id.server -l server3 httpd
 docker run -dt --net=$TEST_NET --name server4 -l id.server -l server4 httpd
 docker run -dt --net=$TEST_NET --name server5 -l id.server -l server5 httpd
 docker run -dt --net=$TEST_NET --name client -l id.client tgraf/nettools
+docker run -dt --net=$TEST_NET --name misc   -l id.client borkmann/misc
 
 # FIXME IPv6 DAD period
 sleep 5
@@ -427,10 +428,6 @@ cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 #cilium config Debug=false DropNotification=false
 #cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
 #cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
-
-docker run -dt --net=$TEST_NET --name misc -l id.client --entrypoint sleep borkmann/misc   100000s
-
-sleep 2
 
 docker exec -i misc wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
