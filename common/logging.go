@@ -16,7 +16,6 @@ package common
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log/syslog"
 	"net"
 	"os"
@@ -101,17 +100,9 @@ func setFireLevels(level logrus.Level) []logrus.Level {
 func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug bool) error {
 	setupFormatter()
 
-	// Always setup syslog.
-	valuesToValidate := getLogDriverConfig(Syslog, logOpts)
-	err := validateOpts(Syslog, valuesToValidate, syslogOpts)
-	if err != nil {
-		return err
-	}
-
 	// Logrus has a default logger that outputs to os.stderr. Set this
-	// default output to go to ioutil.Discard to not have duplicate logs.
-	logrus.SetOutput(ioutil.Discard)
-	setupSyslog(valuesToValidate, tag, debug)
+	// default output to go to os.Stdout to not have duplicate logs.
+	logrus.SetOutput(os.Stdout)
 
 	// Iterate through all provided loggers and configure them according
 	// to user-provided settings.
@@ -119,8 +110,13 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 		valuesToValidate := getLogDriverConfig(logger, logOpts)
 		switch logger {
 		case Syslog:
-			// Syslog is always set up; do not want to error out, so continue.
-			continue
+			// Always setup syslog.
+			valuesToValidate := getLogDriverConfig(Syslog, logOpts)
+			err := validateOpts(Syslog, valuesToValidate, syslogOpts)
+			if err != nil {
+				return err
+			}
+			setupSyslog(valuesToValidate, tag, debug)
 		case Fluentd:
 			err := validateOpts(logger, valuesToValidate, fluentDOpts)
 			if err != nil {
