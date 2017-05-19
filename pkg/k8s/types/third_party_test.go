@@ -15,6 +15,8 @@
 package k8s
 
 import (
+	"encoding/json"
+
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -22,20 +24,69 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	ciliumRule = []byte(`{
+    "metadata": {
+        "name": "rule1"
+    },
+    "spec": {
+        "endpointSelector": {
+            "matchLabels": {
+                "role": "backend"
+            }
+        },
+        "ingress": [
+            {
+                "fromEndpoints": [
+                    {
+                        "matchLabels": {
+                            "role": "frontend"
+                        }
+                    }
+                ],
+                "toPorts": [
+                    {
+                        "ports": [
+                            {
+                                "port": "80",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "rules": {
+                            "http": [
+                                {
+                                    "path": "/public",
+                                    "method": "GET"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}`)
+)
+
 func (s *K8sSuite) TestParseThirdParty(c *C) {
 	policyRule := &CiliumNetworkPolicy{
 		Metadata: metav1.ObjectMeta{
-			Name: "foo",
+			Name: "rule1",
 		},
 		Spec: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("role=backend")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
 						api.NewESFromLabels(
-							labels.ParseLabel("foo"),
-							labels.ParseLabel("foo2"),
+							labels.ParseLabel("role=frontend"),
 						),
+					},
+					ToPorts: []api.PortRule{
+						{
+							Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+							Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+						},
 					},
 				},
 			},
@@ -45,4 +96,9 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 	rules, err := policyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
+
+	cnpl := CiliumNetworkPolicy{}
+	err = json.Unmarshal(ciliumRule, &cnpl)
+	c.Assert(err, IsNil)
+	c.Assert(cnpl, DeepEquals, *policyRule)
 }

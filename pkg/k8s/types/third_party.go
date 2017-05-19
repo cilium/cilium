@@ -15,7 +15,6 @@
 package k8s
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -57,28 +56,61 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
 	}
 
+	namespace := ExtractNamespace(&r.Metadata)
+
+	retRule := &api.Rule{}
+	if r.Spec.EndpointSelector.LabelSelector != nil {
+		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.Spec.EndpointSelector.LabelSelector)
+		// The PodSelector should only reflect to the same namespace
+		// the policy is being stored, thus we add the namespace to
+		// the MatchLabels map.
+		if retRule.EndpointSelector.LabelSelector.MatchLabels == nil {
+			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
+		}
+		retRule.EndpointSelector.LabelSelector.MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
+	}
+
+	retRule.Ingress = make([]api.IngressRule, len(r.Spec.Ingress))
+	for i, ing := range r.Spec.Ingress {
+		retRule.Ingress[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
+		for j, ep := range ing.FromEndpoints {
+			retRule.Ingress[i].FromEndpoints[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+			if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
+				retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
+			}
+			retRule.Ingress[i].FromEndpoints[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
+		}
+		copy(retRule.Ingress[i].ToPorts, ing.ToPorts)
+		copy(retRule.Ingress[i].FromCIDR, ing.FromCIDR)
+
+		retRule.Ingress[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
+		for j, ep := range ing.FromRequires {
+			retRule.Ingress[i].FromRequires[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+			if retRule.Ingress[i].FromRequires[j].MatchLabels == nil {
+				retRule.Ingress[i].FromRequires[j].MatchLabels = map[string]string{}
+			}
+			retRule.Ingress[i].FromRequires[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
+		}
+	}
+
+	retRule.Egress = make([]api.EgressRule, len(r.Spec.Egress))
+	for i, ing := range r.Spec.Egress {
+		copy(retRule.Egress[i].ToPorts, ing.ToPorts)
+		copy(retRule.Egress[i].ToCIDR, ing.ToCIDR)
+	}
+
 	// Convert resource name to a Cilium policy rule label
 	label := fmt.Sprintf("%s=%s", k8s.PolicyLabelName, r.Metadata.Name)
 
 	// TODO: Warn about overwritten labels?
-	r.Spec.Labels = labels.ParseLabelArray(label)
+	retRule.Labels = labels.ParseLabelArray(label)
 
-	return api.Rules{&r.Spec}, nil
+	retRule.Description = r.Spec.Description
+
+	return api.Rules{retRule}, nil
 }
 
 type ciliumNetworkPolicyCopy CiliumNetworkPolicy
-
-// UnmarshalJSON parses JSON into a CiliumNetworkPolicy
-func (e *CiliumNetworkPolicy) UnmarshalJSON(data []byte) error {
-	tmp := ciliumNetworkPolicyCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := CiliumNetworkPolicy(tmp)
-	*e = tmp2
-	return nil
-}
 
 // CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
 type CiliumNetworkPolicyList struct {
@@ -98,18 +130,4 @@ func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
 // GetListMeta returns the metadata of the object
 func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
 	return &r.Metadata
-}
-
-type ciliumNetworkPolicyListCopy CiliumNetworkPolicyList
-
-// UnmarshalJSON parses JSON into a CiliumNetworkPolicyList
-func (e *CiliumNetworkPolicyList) UnmarshalJSON(data []byte) error {
-	tmp := ciliumNetworkPolicyListCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := CiliumNetworkPolicyList(tmp)
-	*e = tmp2
-	return nil
 }
