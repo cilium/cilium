@@ -24,13 +24,12 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -39,12 +38,12 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func init() {
-	common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "debug"}, "cilium-net-cni", true)
+var (
+	log = logrus.New()
+)
 
-	// this ensures that main runs only on main thread (thread group leader).
-	// since namespace ops (unshare, setns) are done for a single thread, we
-	// must ensure that the goroutine does not jump from OS thread to thread
+func init() {
+	log.Level = logrus.DebugLevel
 	runtime.LockOSThread()
 }
 

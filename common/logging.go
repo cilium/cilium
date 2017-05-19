@@ -16,10 +16,10 @@ package common
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log/syslog"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -27,7 +27,6 @@ import (
 	"github.com/Sirupsen/logrus/hooks/syslog"
 	"github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/evalphobia/logrus_fluent"
-	"regexp"
 )
 
 const (
@@ -75,7 +74,8 @@ var syslogLevelMap = map[logrus.Level]syslog.Priority{
 	logrus.DebugLevel: syslog.LOG_DEBUG,
 }
 
-// setFireLevels sets the
+// setFireLevels returns a slice of logrus.Level values higher in priority
+// and including level, excluding any levels lower in priority.
 func setFireLevels(level logrus.Level) []logrus.Level {
 	switch level {
 	case logrus.PanicLevel:
@@ -101,17 +101,16 @@ func setFireLevels(level logrus.Level) []logrus.Level {
 func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug bool) error {
 	setupFormatter()
 
-	// Always setup syslog.
-	valuesToValidate := getLogDriverConfig(Syslog, logOpts)
-	err := validateOpts(Syslog, valuesToValidate, syslogOpts)
-	if err != nil {
-		return err
+	// Set default logger to output to stdout if no loggers are provided.
+	if len(loggers) == 0 {
+		logrus.SetOutput(os.Stdout)
 	}
 
-	// Logrus has a default logger that outputs to os.stderr. Set this
-	// default output to go to ioutil.Discard to not have duplicate logs.
-	logrus.SetOutput(ioutil.Discard)
-	setupSyslog(valuesToValidate, tag, debug)
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+	}
 
 	// Iterate through all provided loggers and configure them according
 	// to user-provided settings.
@@ -119,8 +118,12 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 		valuesToValidate := getLogDriverConfig(logger, logOpts)
 		switch logger {
 		case Syslog:
-			// Syslog is always set up; do not want to error out, so continue.
-			continue
+			valuesToValidate := getLogDriverConfig(Syslog, logOpts)
+			err := validateOpts(Syslog, valuesToValidate, syslogOpts)
+			if err != nil {
+				return err
+			}
+			setupSyslog(valuesToValidate, tag, debug)
 		case Fluentd:
 			err := validateOpts(logger, valuesToValidate, fluentDOpts)
 			if err != nil {

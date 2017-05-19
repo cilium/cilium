@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/common"
 	clientPkg "github.com/cilium/cilium/pkg/client"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,6 +28,7 @@ import (
 var (
 	cfgFile string
 	client  *clientPkg.Client
+	log     = logrus.New()
 )
 
 const (
@@ -96,9 +97,9 @@ func initConfig() {
 	}
 
 	if viper.GetBool("debug") {
-		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "debug"}, "cilium-cmd", true)
+		log.Level = logrus.DebugLevel
 	} else {
-		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "info"}, "cilium-cmd", false)
+		log.Level = logrus.InfoLevel
 	}
 
 	if cl, err := clientPkg.NewClient(viper.GetString("host")); err != nil {
