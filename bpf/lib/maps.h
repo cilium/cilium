@@ -59,6 +59,14 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.max_elem	= 8192,
 };
 
+struct bpf_elf_map __section_maps cilium_proxy6= {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct proxy6_tbl_key),
+	.size_value	= sizeof(struct proxy6_tbl_value),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 8192,
+};
+
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,

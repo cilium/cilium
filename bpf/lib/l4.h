@@ -53,7 +53,7 @@ static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
 	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
 		return DROP_CSUM_L4;
 
-        if (skb_store_bytes(skb, l4_off + off, &port, sizeof(port), 0) < 0)
+	if (skb_store_bytes(skb, l4_off + off, &port, sizeof(port), 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	return 0;

@@ -135,4 +135,43 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 }
 #endif /* LXC_IPV4 */
 
+static inline int __inline__
+ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
+			  int l4_off, __u16 new_port, __u16 old_port,
+			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip)
+{
+	struct proxy6_tbl_key key = {
+#ifdef CONNTRACK_LOCAL
+		.saddr = tuple->addr,
+#else
+		.saddr = tuple->daddr,
+#endif
+		.sport = tuple->sport,
+		.dport = new_port,
+		.nexthdr = tuple->nexthdr,
+	};
+	struct proxy6_tbl_value value = {
+		.orig_daddr = old_ip,
+		.orig_dport = old_port,
+		.lifetime = 360,
+	};
+
+	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum, new_port, old_port) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (ipv6_store_daddr(skb, host_ip->addr, ETH_HLEN) > 0)
+		return DROP_WRITE_ERROR;
+
+	if (csum->offset) {
+		__be32 sum = csum_diff(old_ip.addr, 16, host_ip->addr, 16, 0);
+
+		if (csum_l4_replace(skb, l4_off, csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
+
+	if (map_update_elem(&cilium_proxy6, &key, &value, 0) < 0)
+		return DROP_CT_CREATE_FAILED;
+
+	return 0;
+}
 #endif

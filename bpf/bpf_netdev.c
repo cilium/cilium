@@ -58,6 +58,60 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
+static inline int __inline__
+reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
+{
+	struct proxy6_tbl_value *val;
+	struct proxy6_tbl_key key = {
+		.nexthdr = nh,
+	};
+	union v6addr new_saddr, old_saddr;
+	struct csum_offset csum = {};
+	__be16 new_sport, old_sport;
+	int ret;
+
+	switch (nh) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+		/* load sport + dport in reverse order, sport=dport, dport=sport */
+		if (skb_load_bytes(skb, l4_off, &key.dport, 4) < 0)
+			return DROP_CT_INVALID_HDR;
+		break;
+	default:
+		/* ignore */
+		return 0;
+	}
+
+	ipv6_addr_copy(&key.saddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&old_saddr, (union v6addr *) &ip6->saddr);
+	csum_l4_offset_and_flags(nh, &csum);
+
+	val = map_lookup_elem(&cilium_proxy6, &key);
+	if (!val)
+		return 0;
+
+	ipv6_addr_copy(&new_saddr, (union v6addr *)&val->orig_daddr);
+	new_sport = val->orig_dport;
+	old_sport = key.dport;
+
+	ret = l4_modify_port(skb, l4_off, TCP_SPORT_OFF, &csum, new_sport, old_sport);
+	if (ret < 0)
+		return DROP_WRITE_ERROR;
+
+	ret = ipv6_store_saddr(skb, new_saddr.addr, ETH_HLEN);
+	if (IS_ERR(ret))
+		return DROP_WRITE_ERROR;
+
+	if (csum.offset) {
+		__be32 sum = csum_diff(old_saddr.addr, 16, new_saddr.addr, 16, 0);
+
+		if (csum_l4_replace(skb, l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
+
+	return 0;
+}
+
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { . addr = ROUTER_IP };
@@ -68,6 +122,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	int l4_off, l3_off = ETH_HLEN;
 	__u8 nexthdr;
 	__u32 flowlabel;
+	int ret;
 
 	if (data + l3_off + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
@@ -85,8 +140,19 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
-	if (likely(ipv6_match_prefix_96(dst, &node_ip)))
+	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
+		if (IS_ERR(ret))
+			return ret;
+
+		data = (void *) (long) skb->data;
+		data_end = (void *) (long) skb->data_end;
+		ip6 = data + ETH_HLEN;
+		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
+			return DROP_INVALID;
+
 		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr);
+	}
 
 	return TC_ACT_OK;
 }

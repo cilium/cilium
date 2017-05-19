@@ -462,14 +462,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 				return proxy_port;
 
 			cilium_trace(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
-
-			/* FIXME:
-			 * Drop all packets which need to go to the proxy for now
-			 * as we do not support redirection yet and the expectation
-			 * may be to apply security rules.
-			 */
-			if (proxy_port)
-				return DROP_POLICY;
 		}
 
 		entry.rx_packets = 1;
@@ -485,14 +477,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 				return proxy_port;
 
 			cilium_trace(skb, DBG_L4_POLICY, proxy_port, CT_EGRESS);
-
-			/* FIXME:
-			 * Drop all packets which need to go to the proxy for now
-			 * as we do not support redirection yet and the expectation
-			 * may be to apply security rules.
-			 */
-			if (proxy_port)
-				return DROP_POLICY;
 		}
 
 		entry.tx_packets = 1;
