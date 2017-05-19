@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
@@ -37,8 +38,8 @@ func ExtractPolicyName(np *v1beta1.NetworkPolicy) string {
 	return fmt.Sprintf("%s=%s", k8s.PolicyLabelName, policyName)
 }
 
-// ExtractNamespace extracts the namespace of policy name.
-func ExtractNamespace(np *v1beta1.NetworkPolicy) string {
+// ExtractNamespace extracts the namespace of ObjectMeta.
+func ExtractNamespace(np *metav1.ObjectMeta) string {
 	if np.Namespace == "" {
 		return v1.NamespaceDefault
 	}
@@ -50,7 +51,7 @@ func ExtractNamespace(np *v1beta1.NetworkPolicy) string {
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	ingress := api.IngressRule{}
-	namespace := ExtractNamespace(np)
+	namespace := ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
 		// Based on NetworkPolicyIngressRule docs:
 		//   From []NetworkPolicyPeer
