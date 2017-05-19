@@ -38,7 +38,6 @@ type NamedMapOptions struct {
 
 // NewNamedMapOptions creates a reference to a new NamedMapOpts struct.
 func NewNamedMapOptions(name string, values *map[string]string, validator Validator) *NamedMapOptions {
-	fmt.Printf("NewNamedMapOptionss: %v, %p\n", *values, values)
 	return &NamedMapOptions{
 		name:       name,
 		MapOptions: *NewMapOpts(*values, validator),
