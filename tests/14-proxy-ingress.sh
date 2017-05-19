@@ -62,7 +62,17 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "GET /public, unexpected return"
 fi
 
+RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/public")
+if [[ "${RETURN//$'\n'}" != "200" ]]; then
+	abort "GET /public, unexpected return"
+fi
+
 RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
+if [[ "${RETURN//$'\n'}" != "403" ]]; then
+	abort "GET /private, unexpected return"
+fi
+
+RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/private")
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
 	abort "GET /private, unexpected return"
 fi
