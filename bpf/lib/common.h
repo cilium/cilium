@@ -272,4 +272,17 @@ struct proxy4_tbl_value {
 	__u16 lifetime;
 } __attribute__((packed));
 
+struct proxy6_tbl_key {
+	union v6addr saddr;
+	__u16 dport;
+	__u16 sport;
+	__u8 nexthdr;
+} __attribute__((packed));
+
+struct proxy6_tbl_value {
+	union v6addr orig_daddr;
+	__u16 orig_dport;
+	__u16 lifetime;
+} __attribute__((packed));
+
 #endif

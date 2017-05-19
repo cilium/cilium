@@ -135,7 +135,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
-	union v6addr *daddr;
+	union v6addr *daddr, orig_dip;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -158,9 +158,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 */
 #ifdef CONNTRACK_LOCAL
 	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 #else
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 #endif
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
@@ -215,6 +217,7 @@ skip_service_lookup:
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
+		ct_state.proxy_port = ct_state_new.proxy_port;
 		break;
 
 	case CT_ESTABLISHED:
@@ -240,6 +243,35 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
+	BPF_V6(host_ip, HOST_IP);
+
+	if (ct_state.proxy_port) {
+		union macaddr host_mac = HOST_IFINDEX_MAC;
+		int ret;
+
+		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
+						 ct_state.proxy_port, tuple->dport,
+						 orig_dip, tuple, &host_ip);
+		if (IS_ERR(ret))
+			return ret;
+
+		/* After L4 write in port mapping: revalidate for direct packet access */
+		data = (void *) (long) skb->data;
+		data_end = (void *) (long) skb->data_end;
+		ip6 = data + ETH_HLEN;
+		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
+			return DROP_INVALID;
+
+		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+
+		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		if (ret != TC_ACT_OK)
+			return ret;
+
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		return redirect(HOST_IFINDEX, 0);
+	}
+
 	data = (void *)(long)skb->data;
 	data_end = (void *)(long)skb->data_end;
 
@@ -248,8 +280,6 @@ skip_service_lookup:
 
 	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
-
-	BPF_V6(host_ip, HOST_IP);
 
 	/* Check if destination is within our cluster prefix */
 	if (ipv6_match_prefix_64(daddr, &host_ip)) {
@@ -768,22 +798,24 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
-		//union v6addr host_ip = HOST_IP;
-		//union v6addr lxc_ip = LXC_IP;
-		//__be32 sum;
+		union v6addr host_ip = {};
+		union v6addr lxc_ip = {};
+		__be32 sum;
+
+		BPF_V6(lxc_ip, LXC_IP);
+		BPF_V6(host_ip, HOST_IP);
 
 		if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, &csum_off,
 				   ct_state.proxy_port, tuple.dport) < 0)
 			return DROP_WRITE_ERROR;
 
-#if 0
 		if (ipv6_store_daddr(skb, host_ip.addr, ETH_HLEN) < 0)
 			return DROP_WRITE_ERROR;
-		/* FIXME: Calculate the checksum fix in user space */
+
 		sum = csum_diff(lxc_ip.addr, 16, host_ip.addr, 16, 0);
 		if (csum_l4_replace(skb, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
-#endif
+
 		/* Mark packet with PACKET_HOST and pass to host */
 		if (skb_change_type(skb, 0) < 0)
 			return DROP_WRITE_ERROR;
