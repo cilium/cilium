@@ -800,6 +800,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
+	__be32 orig_dip;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -813,6 +814,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 #endif
+	orig_dip = ip4->daddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
@@ -858,8 +860,6 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
-		__be32 orig_dip = bpf_htonl(LXC_IPV4);
-
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
 						 orig_dip, &tuple);

@@ -557,10 +557,19 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 			cilium_trace(skb, DBG_GENERIC, ct_state->orig_dport, tuple->nexthdr);
 			/* Resolve L4 policy. This may fail due to policy reasons. May
 			 * optonally return a proxy port number to redirect all traffic to.
+			 *
+			 * However when the sender _is_ the proxy we need to ensure that
+			 * we short circuit the redirect to proxy port logic. This happens
+			 * when using ingress policies because we are doing the
+			 * l4_ingress_policy() lookup in the context of the server.
 			 */
-			proxy_port = l4_ingress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
-			if (IS_ERR(proxy_port))
-				return proxy_port;
+			if (tuple->daddr == IPV4_GATEWAY) {
+				proxy_port = 0;
+			} else {
+				proxy_port = l4_ingress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+				if (IS_ERR(proxy_port))
+					return proxy_port;
+			}
 
 			cilium_trace(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
 		}
