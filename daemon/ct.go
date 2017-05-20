@@ -55,12 +55,12 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool) {
 	}
 
 	m, err := bpf.OpenMap(file)
-	defer m.Close()
-
 	if err != nil {
 		log.Warningf("Unable to open map %s: %s", file, err)
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		return
 	}
+	defer m.Close()
 
 	// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 	if m.MapInfo.MapType == bpf.MapTypeLRUHash {
