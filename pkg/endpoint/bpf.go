@@ -33,8 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 const (

@@ -22,8 +22,10 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("cilium")
 
 const (
 	MapName6       = "cilium_ct6_"

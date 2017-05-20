@@ -24,6 +24,12 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+
+	"github.com/op/go-logging"
+)
+
+var (
+	log = logging.MustGetLogger("cilium-labels")
 )
 
 const (

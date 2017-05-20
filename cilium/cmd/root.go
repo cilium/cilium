@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/common"
 	clientPkg "github.com/cilium/cilium/pkg/client"
 
+	l "github.com/op/go-logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,6 +29,7 @@ import (
 var (
 	cfgFile string
 	client  *clientPkg.Client
+	log     = l.MustGetLogger("cilium")
 )
 
 const (
@@ -96,9 +98,9 @@ func initConfig() {
 	}
 
 	if viper.GetBool("debug") {
-		common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "debug"}, "cilium-cmd", true)
+		common.SetupLOG(log, "DEBUG")
 	} else {
-		common.SetupLogging([]string{"syslog"}, map[string]string{"syslog.level": "info"}, "cilium-cmd", false)
+		common.SetupLOG(log, "INFO")
 	}
 
 	if cl, err := clientPkg.NewClient(viper.GetString("host")); err != nil {
