@@ -50,8 +50,6 @@ func dumpCtProto(mapType, eID string) {
 
 	file := bpf.MapPath(mapType + eID)
 	m, err := bpf.OpenMap(file)
-	defer m.Close()
-
 	if err != nil {
 		if err == os.ErrNotExist {
 			Fatalf("Unable to open %s: %s: please try using \"cilium bpf ct list global\"", file, err)
@@ -59,6 +57,7 @@ func dumpCtProto(mapType, eID string) {
 			Fatalf("Unable to open %s: %s", file, err)
 		}
 	}
+	defer m.Close()
 	out, err := ctmap.ToString(m, mapType)
 	if err != nil {
 		Fatalf("Error while dumping BPF Map: %s", err)
