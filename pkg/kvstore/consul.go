@@ -26,20 +26,8 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/Sirupsen/logrus"
 	consulAPI "github.com/hashicorp/consul/api"
 )
-
-const (
-	// CAddr is the string representing the key mapping to the value of the
-	// address for Consul.
-	CAddr = "consul.address"
-)
-
-// / ConsulOpts is the set of supported options for Consul configuration.
-var ConsulOpts = map[string]bool{
-	CAddr: true,
-}
 
 var (
 	maxRetries = 30

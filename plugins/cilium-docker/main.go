@@ -15,14 +15,14 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
-	log "github.com/Sirupsen/logrus"
+	"fmt"
+	l "github.com/op/go-logging"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +31,7 @@ var (
 	driverSock string
 	debug      bool
 	ciliumAPI  string
+	log        = l.MustGetLogger("cilium-docker")
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -77,9 +78,9 @@ func init() {
 
 func initConfig() {
 	if debug {
-		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "debug"}, "cilium-docker", true)
+		common.SetupLOG(log, "DEBUG")
 	} else {
-		common.SetupLogging([]string{common.Syslog}, map[string]string{common.SLevel: "info"}, "cilium-docker", false)
+		common.SetupLOG(log, "INFO")
 	}
 
 	// The cilium-docker plugin must be run as root user.

@@ -36,12 +36,13 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/op/go-logging"
 )
 
 var (
 	//IPv4Enabled can be set to false to indicate IPv6 only operation
 	IPv4Enabled = true
+	log         = logging.MustGetLogger("cilium-endpoint")
 )
 
 // PortMap is the port mapping representation for a particular endpoint.
