@@ -215,14 +215,26 @@ function connectivity_test() {
 
 BIDIRECTIONAL=1
 connectivity_test
-cilium endpoint config $SERVER_ID ConntrackLocal=true
-cilium endpoint config $CLIENT_ID ConntrackLocal=true
+cilium endpoint config $SERVER_ID ConntrackLocal=true || {
+	abort "Error: Unable to change config for $SERVER_ID"
+}
+cilium endpoint config $CLIENT_ID ConntrackLocal=true || {
+	abort "Error: Unable to change config for $CLIENT_ID"
+}
 connectivity_test
-cilium endpoint config $SERVER_ID ConntrackLocal=false
-cilium endpoint config $CLIENT_ID ConntrackLocal=false
+cilium endpoint config $SERVER_ID ConntrackLocal=false || {
+	abort "Error: Unable to change config for $SERVER_ID"
+}
+cilium endpoint config $CLIENT_ID ConntrackLocal=false || {
+	abort "Error: Unable to change config for $CLIENT_ID"
+}
 connectivity_test
-cilium endpoint config $SERVER_ID Conntrack=false
-cilium endpoint config $CLIENT_ID Conntrack=false
+cilium endpoint config $SERVER_ID Conntrack=false || {
+	abort "Error: Unable to change config for $SERVER_ID"
+}
+cilium endpoint config $CLIENT_ID Conntrack=false || {
+	abort "Error: Unable to change config for $CLIENT_ID"
+}
 until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
     echo "Waiting for all endpoints to be ready"
     sleep 2s
