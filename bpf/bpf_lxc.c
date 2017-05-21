@@ -384,6 +384,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	bool orig_was_proxy;
 	__be32 orig_dip;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
@@ -410,6 +411,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
 	 * address the field currently represents.
 	 */
+	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
 #ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->daddr;
 	orig_dip = tuple.addr;
@@ -461,7 +463,8 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new,
+				 orig_was_proxy);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -800,6 +803,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
+	bool orig_was_proxy;
+	__be32 orig_dip;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -807,12 +812,14 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
 
+	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
 #ifdef CONNTRACK_LOCAL
 	tuple.addr = ip4->saddr;
 #else
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 #endif
+	orig_dip = ip4->daddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
@@ -848,7 +855,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return DROP_POLICY;
 
 		ct_state_new.orig_dport = tuple.dport;
-		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new,
+				 orig_was_proxy);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -858,8 +866,6 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
-		__be32 orig_dip = bpf_htonl(LXC_IPV4);
-
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
 						 orig_dip, &tuple);
