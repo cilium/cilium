@@ -9,6 +9,8 @@ rules:
   - pods
   - namespaces
   - nodes
+  - ingress
+  - endpoints
   verbs:
   - get
   - list
