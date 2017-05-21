@@ -83,7 +83,7 @@ To deploy the Cilium Daemon Set, run:
 
 ::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/cilium-ds.yaml
     clusterrole "cilium" created
     serviceaccount "cilium" created
     clusterrolebinding "cilium" created
