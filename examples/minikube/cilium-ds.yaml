@@ -99,8 +99,8 @@ spec:
           - "role,app"
           - "--kvstore"
           - "consul"
-          - "--consul"
-          - "http://127.0.0.1:8500"
+          - "--kvstore-opt"
+          - "consul.address=http://127.0.0.1:8500"
           - "-d"
           - "eth0"
         lifecycle:
