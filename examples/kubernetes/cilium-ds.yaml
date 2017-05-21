@@ -46,6 +46,37 @@ subjects:
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
+  name: cilium-consul
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: consul
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+      - image: consul:v0.6.4
+        imagePullPolicy: Always
+        name: cilium-consul
+        command: [ "consul" ]
+        args:
+          - "agent" 
+          - "-server"
+          - "-bootstrap-expect"
+          - "1"
+          - "-data-dir=/var/lib/consul"
+          - "-bind=127.0.0.1"
+        env:
+          - name: "CONSUL_LOCAL_CONFIG"
+            value: "{\"skip_leave_on_interrupt\": true}"
+        securityContext:
+          privileged: true
+      hostNetwork: true
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
   name: cilium
   namespace: kube-system
 spec:
@@ -66,6 +97,10 @@ spec:
           - "127.0.0.1:8080"
           - "--labels"
           - "role,app"
+          - "--kvstore"
+          - "consul"
+          - "--kvstore-opt"
+          - "consul.address=http://127.0.0.1:8500"
           - "-d"
           - "eth0"
         lifecycle:
