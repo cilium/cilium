@@ -649,7 +649,7 @@ output for the targets ``bpf`` and ``bpfel`` due to being little endian, therefo
 scripts triggering a compilation also do not have to be endian aware.
 
 A minimal, stand-alone XDP drop program might look like the following example
-(``xdp.c``):
+(``xdp-example.c``):
 
 ::
 
@@ -672,8 +672,8 @@ It can then be compiled and loaded into the kernel as follows:
 
 ::
 
-    $ clang -O2 -Wall -target bpf -c xdp.c -o xdp.o
-    # ip link set dev em1 xdp obj xdp.o
+    $ clang -O2 -Wall -target bpf -c xdp-example.c -o xdp-example.o
+    # ip link set dev em1 xdp obj xdp-example.o
 
 For the generated object file LLVM (>= 3.9) uses the official BPF machine value,
 that is, ``EM_BPF`` (decimal: ``247`` / hex: ``0xf7``). In this example, the program
@@ -682,10 +682,10 @@ to ``MSB``) is shown regarding endianness:
 
 ::
 
-    $ file xdp.o
-    xdp.o: ELF 64-bit LSB relocatable, *unknown arch 0xf7* version 1 (SYSV), not stripped
+    $ file xdp-example.o
+    xdp-example.o: ELF 64-bit LSB relocatable, *unknown arch 0xf7* version 1 (SYSV), not stripped
 
-``readelf -a xdp.o`` will dump further information about the ELF file, which can
+``readelf -a xdp-example.o`` will dump further information about the ELF file, which can
 sometimes be useful for introspecting generated section headers, relocation entries
 and the symbol table.
 
@@ -725,8 +725,8 @@ For debugging, clang can generate the assembler output as follows:
 
 ::
 
-    $ clang -O2 -S -Wall -target bpf -c xdp.c -o xdp.S
-    $ cat xdp.S
+    $ clang -O2 -S -Wall -target bpf -c xdp-example.c -o xdp-example.S
+    $ cat xdp-example.S
         .text
         .section    prog,"ax",@progbits
         .globl      xdp_drop
@@ -747,10 +747,10 @@ the usual workflow by adding ``-g`` for compilation.
 
 ::
 
-    $ clang -O2 -g -Wall -target bpf -c xdp.c -o xdp.o
-    $ llvm-objdump -S -no-show-raw-insn xdp.o
+    $ clang -O2 -g -Wall -target bpf -c xdp-example.c -o xdp-example.o
+    $ llvm-objdump -S -no-show-raw-insn xdp-example.o
 
-    xdp.o:        file format ELF64-BPF
+    xdp-example.o:        file format ELF64-BPF
 
     Disassembly of section prog:
     xdp_drop:
@@ -770,7 +770,7 @@ highly useful for analysis.
 
 ::
 
-    # ip link set dev em1 xdp obj xdp.o verb
+    # ip link set dev em1 xdp obj xdp-example.o verb
 
     Prog section 'prog' loaded (5)!
      - Type:         6
@@ -791,9 +791,9 @@ Leaving out the ``-no-show-raw-insn`` option will also dump the raw
 
 ::
 
-    $ llvm-objdump -S xdp.o
+    $ llvm-objdump -S xdp-example.o
 
-    xdp.o:        file format ELF64-BPF
+    xdp-example.o:        file format ELF64-BPF
 
     Disassembly of section prog:
     xdp_drop:
@@ -803,25 +803,25 @@ Leaving out the ``-no-show-raw-insn`` option will also dump the raw
        1:       95 00 00 00 00 00 00 00     exit
 
 For LLVM IR debugging, the compilation process for BPF can be split into
-two steps, generating a binary LLVM IR intermediate file ``xdp.bc``, which
+two steps, generating a binary LLVM IR intermediate file ``xdp-example.bc``, which
 can later on be passed to llc:
 
 ::
 
-    $ clang -O2 -Wall -emit-llvm -c xdp.c -o xdp.bc
-    $ llc xdp.bc -march=bpf -filetype=obj -o xdp.o
+    $ clang -O2 -Wall -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ llc xdp-example.bc -march=bpf -filetype=obj -o xdp-example.o
 
 The generated LLVM IR can also be dumped in human readable format through:
 
 ::
 
-    $ clang -O2 -Wall -emit-llvm -S -c xdp.c -o -
+    $ clang -O2 -Wall -emit-llvm -S -c xdp-example.c -o -
 
 Note that LLVM's BPF back end currently does not support generating code
 that makes use of BPF's 32 bit subregisters. Inline assembly for BPF is
 currently unsupported, too.
 
-Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp.S -arch bpf -filetype=obj -o xdp.o``)
+Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
 is currently not supported either due to missing BPF assembly parser.
 
 When writing C programs for BPF, there are a couple of pitfalls to be aware
@@ -894,11 +894,11 @@ describe some of the differences for the BPF model:
    and ``egress``. The toy example code demonstrates that both can share a map
    and common static inline helpers such as the ``account_data()`` function.
 
-   The ``xdp.c`` example has been modified to a ``tc.c`` example that can
-   be loaded with tc and attached to a netdevice's ingress and egress hook.
-   It accounts the transferred bytes into a map called ``acc_map``, which has
-   two map slots, one for traffic accounted on the ingress hook, one on the
-   egress hook.
+   The ``xdp-example.c`` example has been modified to a ``tc-example.c``
+   example that can be loaded with tc and attached to a netdevice's ingress
+   and egress hook.  It accounts the transferred bytes into a map called
+   ``acc_map``, which has two map slots, one for traffic accounted on the
+   ingress hook, one on the egress hook.
 
    ::
 
@@ -1032,19 +1032,19 @@ describe some of the differences for the BPF model:
 
   ::
 
-    $ clang -O2 -Wall -target bpf -c tc.c -o tc.o
+    $ clang -O2 -Wall -target bpf -c tc-example.c -o tc-example.o
 
     # tc qdisc add dev em1 clsact
-    # tc filter add dev em1 ingress bpf da obj tc.o sec ingress
-    # tc filter add dev em1 egress bpf da obj tc.o sec egress
+    # tc filter add dev em1 ingress bpf da obj tc-example.o sec ingress
+    # tc filter add dev em1 egress bpf da obj tc-example.o sec egress
 
     # tc filter show dev em1 ingress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 tc.o:[ingress] direct-action tag c5f7825e5dac396f
+    filter protocol all pref 49152 bpf handle 0x1 tc-example.o:[ingress] direct-action tag c5f7825e5dac396f
 
     # tc filter show dev em1 egress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 tc.o:[egress] direct-action tag b2fd5adc0f262714
+    filter protocol all pref 49152 bpf handle 0x1 tc-example.o:[egress] direct-action tag b2fd5adc0f262714
 
     # mount | grep bpf
     sysfs on /sys/fs/bpf type sysfs (rw,nosuid,nodev,noexec,relatime,seclabel)
@@ -1530,7 +1530,7 @@ simplicity.
 
   ::
 
-    # ip link set dev em1 xdp obj xdp.o verb
+    # ip link set dev em1 xdp obj xdp-example.o verb
 
     Prog section 'prog' loaded (5)!
      - Type:         6
@@ -1573,7 +1573,7 @@ mount will be performed:
     # mkdir /var/run/bpf
     # mount --bind /var/run/bpf /var/run/bpf
     # mount -t bpf bpf /var/run/bpf
-    # tc filter add dev em1 ingress bpf da obj tc.o sec prog
+    # tc filter add dev em1 ingress bpf da obj tc-example.o sec prog
     # tree /var/run/bpf
     /var/run/bpf
     +-- ip -> /run/bpf/tc/
