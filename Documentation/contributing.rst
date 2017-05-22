@@ -82,7 +82,7 @@ With the caveats above, starting up the build/test VM is done with:
    
     $ ./contrib/vagrant/start.sh
 
-If this fails for any reason, you should bring the VM down before tring again:
+If this fails for any reason, you should bring the VM down before trying again:
 
 ::
    

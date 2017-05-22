@@ -367,7 +367,7 @@ implementing a "least privilege" security approach for communication between
 microservices.
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
-the rest of the documentation, and feel free to reach out to us on the `Cilium
+the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
 Step 7:  Clean-up
@@ -380,7 +380,7 @@ L3/L4 and L7 network security policies.
 
    $ minikube delete
 
-After this, you can re-run the `Getting Started with Kubenetes`_ from Step 1.
+After this, you can re-run the `Getting Started Using Kubernetes`_ from Step 1.
 
 
 Getting Started Using Docker
@@ -402,7 +402,7 @@ Step 0: Install Vagrant
 
 .. note::
 
-   You need to run Vagrant version 1.8.3 or later or you will run into issues
+   You need to run at least Vagrant version 1.8.3 or you will run into issues
    booting the Ubuntu 16.10 base image. You can verify by running ``vagrant --version``.
 
 If you don't already have Vagrant installed, follow the
@@ -416,8 +416,7 @@ Step 1: Download the Cilium Source Code
 Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_
 and unzip the files.
 
-Alternatively, if you are a developer, feel free to use Git to clone the
-repository:
+Alternatively, if you are a developer, feel free to clone the repository:
 
 ::
 
@@ -697,7 +696,7 @@ implementing a "least privilege" security approach for communication between
 microservices.
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
-the rest of the documentation, and feel free to reach out to us on the `Cilium
+the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
 

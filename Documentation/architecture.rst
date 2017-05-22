@@ -128,7 +128,7 @@ versions of general purpose operating systems such as Ubuntu 16.10 ship fairly
 recent kernels. Some Linux distributions still ship older kernels but many of
 them allow installing recent kernels from separate kernel package repositories.
 
-For more detail on kernel versions, see: :ref:`admin_kernel_version` .
+For more detail on kernel versions, see: :ref:`admin_kernel_version`.
 
 Key-Value Store
 ===============
