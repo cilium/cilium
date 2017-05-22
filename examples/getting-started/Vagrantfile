@@ -5,7 +5,7 @@ Vagrant.require_version ">= 1.8.3"
 
 num_nodes = (ENV['NNODES'] || 1).to_i
 cilium_version = (ENV['CILIUM_VERSION'] || "v0.8.1")
-cilium_opts = (ENV['CILIUM_OPTS'] || "--consul 192.168.33.11:8500 -t vxlan")
+cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address 192.168.33.11:8500 -t vxlan")
 cilium_tag = (ENV['CILIUM_TAG'] || "0.8")
 
 # This runs only once when vagrant box is provisioned for the first time

@@ -155,8 +155,10 @@ Here is an example Daemon Set definition:
 	        args:
 	          - "-t"
 	          - "vxlan"
-	          - "--etcd-config-path"
-	          - "/var/lib/cilium/etcd-config.yml"
+	          - "--kvstore"
+	          - "etcd"
+	          - "--kvstore-opt"
+	          - "etcd.config=/var/lib/cilium/etcd-config.yml"
 	          - "--k8s-kubeconfig-path"
 	          - "/var/lib/kubelet/kubeconfig"
 	        env:
@@ -535,8 +537,6 @@ Cilium Agent Command Line Options
 +---------------------+--------------------------------------+----------------------+
 | config              | config file                          | $HOME/ciliumd.yaml   |
 +---------------------+--------------------------------------+----------------------+
-| consul              | Consul agent address                 |                      |
-+---------------------+--------------------------------------+----------------------+
 | debug               | Enable debug messages                | false                |
 +---------------------+--------------------------------------+----------------------+
 | device              | Ethernet device to snoop on          |                      |
@@ -546,10 +546,6 @@ Cilium Agent Command Line Options
 | enable-policy       | Enable policy enforcement            | false                |
 +---------------------+--------------------------------------+----------------------+
 | docker              | Docker socket endpoint               |                      |
-+---------------------+--------------------------------------+----------------------+
-| etcd                | etcd agent address                   |                      |
-+---------------------+--------------------------------------+----------------------+
-| etcd-config-path    | absolute path to the etcd config     |                      |
 +---------------------+--------------------------------------+----------------------+
 | enable-tracing      | enable policy tracing                |                      |
 +---------------------+--------------------------------------+----------------------+
@@ -563,6 +559,20 @@ Cilium Agent Command Line Options
 +---------------------+--------------------------------------+----------------------+
 | keep-config         | When restoring state, keeps          | false                |
 |                     | containers' configuration in place   |                      |
++---------------------+--------------------------------------+----------------------+
+| kvstore             | Key Value Store Type:                |                      |
+|                     | (consul, etcd, local)                |                      |
++---------------------+--------------------------------------+----------------------+
+| kvstore-opt         | Local:                               |                      |
+|                     |    - None                            |                      |
+|                     | Etcd:                                |                      |
+|                     |    - etcd.address: Etcd agent        |                      |
+|                     |      address.                        |                      |
+|                     |    - etcd.config: Absolute path to   |                      |
+|                     |      the etcd configuration file.    |                      |
+|                     | Consul:                              |                      |
+|                     |    - consul.address: Consul agent    |                      |
+|                     |      agent address.                  |                      |
 +---------------------+--------------------------------------+----------------------+
 | label-prefix-file   | file with label prefixes cilium      |                      |
 |                     | Cilium should use for policy         |                      |
