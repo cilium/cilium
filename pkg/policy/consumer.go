@@ -65,7 +65,7 @@ type Consumable struct {
 	LabelList []*labels.Label `json:"-"`
 	// Iteration policy of the Consumable
 	Iteration int `json:"-"`
-	// FIXME what is this for?
+	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
 	// Consumers contains the list of consumers where the key is the Consumers ID
 	// FIXME change key to NumericIdentity?
