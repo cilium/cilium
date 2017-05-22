@@ -88,7 +88,7 @@ The best way to get help if you get stuck is to contact us on the
 
 If you are confident that you have found a bug, or if you have a feature
 request, please go ahead and create an issue on our
-`Github <https://github.com/cilium/cilium/issues>`_.
+`bug tracker <https://github.com/cilium/cilium/issues>`_.
 
 If you are interested in contributing to the code or docs, ping us on
 `Slack <https://cilium.herokuapp.com>`_ or just dive in on
