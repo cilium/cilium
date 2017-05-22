@@ -235,8 +235,8 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 
 func (l4 *L4Policy) DeepCopy() *L4Policy {
 	cpy := &L4Policy{
-		Ingress: make(map[string]L4Filter, len(l4.Ingress)),
-		Egress:  make(map[string]L4Filter, len(l4.Ingress)),
+		Ingress: make(L4PolicyMap, len(l4.Ingress)),
+		Egress:  make(L4PolicyMap, len(l4.Egress)),
 	}
 
 	for k, v := range l4.Ingress {
