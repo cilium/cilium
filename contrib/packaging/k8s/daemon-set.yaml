@@ -19,8 +19,10 @@ spec:
           - "--ipv4"
           - "-t"
           - "vxlan"
-          - "--etcd-config-path"
-          - "/var/lib/cilium/etcd-config.yml"
+          - "--kvstore"
+          - "etcd"
+          - "--kvstore-opt"
+          - "etcd.config=/var/lib/cilium/etcd-config.yml"
           - "--k8s-kubeconfig-path"
           - "/var/lib/kubelet/kubeconfig"
         env:

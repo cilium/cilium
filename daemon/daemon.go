@@ -547,7 +547,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			}
 			kvClient = c
 		} else {
-			return nil, fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with the --consul option")
+			return nil, fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with the consul.address option")
 		}
 	case kvstore.Etcd:
 		if c.EtcdCfgPath != "" || c.EtcdConfig != nil {
@@ -558,7 +558,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			}
 			kvClient = c
 		} else {
-			return nil, fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --etcd-config-path or an etcd agent address with --etcd")
+			return nil, fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with etcd.config or an etcd agent address with etcd.address")
 		}
 	case kvstore.Local:
 		log.Infof("Using local storage as key-value store")
