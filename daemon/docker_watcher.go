@@ -170,15 +170,26 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	}
 	log.Debugf("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
 
-	result, err := d.k8sClient.Pods(ns).Get(podName, metav1.GetOptions{})
+	pod, err := d.k8sClient.Pods(ns).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	k8sLabels := result.GetLabels()
+	k8sLabels := pod.GetLabels()
+	namespace, err := d.k8sClient.Namespaces().Get(ns, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	k8sNSLabels := namespace.GetLabels()
 	if k8sLabels == nil {
-		return nil, nil
+		if k8sNSLabels == nil {
+			return nil, nil
+		}
+		k8sLabels = map[string]string{}
 	}
 	k8sLabels[k8s.PodNamespaceLabel] = ns
+	for k, v := range k8sNSLabels {
+		k8sLabels[policy.JoinPath(k8s.PodNamespaceMetaLabels, k)] = v
+	}
 	return k8sLabels, nil
 }
 
