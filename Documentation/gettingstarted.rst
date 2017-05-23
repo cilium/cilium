@@ -542,18 +542,17 @@ We can achieve that with the following Cilium policy:
 
 ::
 
-  {
-      "name": "root",
-      "rules": [{
-          "coverage": ["id=app1"],
-          "allow": ["id=app2"]
-      },{
-          "coverage": ["id=app1"],
-          "l4": [{
-              "in-ports": [{ "port": 80, "protocol": "tcp" }]
-          }]
-      }]
-  }
+    [{
+        "endpointSelector": {"matchLabels":{"id":"app1"}},
+        "ingress": [{
+            "fromEndpoints": [
+                {"matchLabels":{"id":"app2"}}
+            ],
+            "toPorts": [{
+                    "ports": [{"port": "80", "protocol": "tcp"}]
+            }]
+        }]
+    }]
 
 Save this JSON to a file named l3_l4_policy.json in your VM, and apply the
 policy by running:
@@ -642,30 +641,30 @@ The following Cilium policy file achieves this goal:
 
 ::
 
-  {
-    "name": "root",
-    "rules": [{
-        "coverage": ["id=app1"],
-        "allow": ["id=app2", "reserved:host"]
-    },{
-        "coverage": ["id=app2"],
-        "l4": [{
-            "out-ports": [{
-                "port": 80, "protocol": "tcp",
-                "l7-parser": "http",
-                "l7-rules": [
-                    { "expr": "Method(\"GET\") && Path(\"/public\")" }
-                ]
+    [{
+        "endpointSelector": {"matchLabels":{"id":"app1"}},
+        "ingress": [{
+            "fromEndpoints": [
+                {"matchLabels":{"id":"app2"}}
+            ],
+            "toPorts": [{
+                "ports": [{"port": "80", "protocol": "tcp"}],
+                "rules": {
+                    "HTTP": [{
+                        "method": "GET",
+                        "path": "/public"
+                    }]
+                }
             }]
         }]
     }]
-  }
 
 Create a file with this contents and name it l7_aware_policy.json. Then
 import this policy to Cilium by running:
 
 ::
 
+  $ cilium policy delete --all
   $ cilium policy import l7_aware_policy.json
 
 ::
