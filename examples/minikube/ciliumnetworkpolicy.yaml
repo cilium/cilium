@@ -1,0 +1,7 @@
+apiVersion: extensions/v1beta1
+kind: ThirdPartyResource
+metadata:
+  name: cilium-network-policy.cilium.io
+description: "Cilium specific network policy rule"
+versions:
+- name: v1
