@@ -313,14 +313,14 @@ We can now re-run the same test as above, but we will see a different outcome:
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/public
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/private
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
