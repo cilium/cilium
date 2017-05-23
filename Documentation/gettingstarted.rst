@@ -247,14 +247,11 @@ dropped.
 
 To test this out, we'll make an HTTP request to app1 from both *app2* and *app3* pods:
 
-TODO: PR552 is blocking kube-dns to be allowed if isolation is not enabled
-      in kube-system namespace
-
 ::
 
     $ APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
-    $ APP1_IP=$(kubectl get pods -l id=app1 -o jsonpath='{.items[0].status.podIP}')
-    $ kubectl exec $APP2_POD -- curl -s $APP1_IP
+    $ SVC_IP=$(kubectl get svc app1-service -o jsonpath='{.spec.clusterIP}')
+    $ kubectl exec $APP2_POD -- curl -s $SVC_IP
     <html><body><h1>It works!</h1></body></html>
 
 This works, as expected.   Now the same request run from an *app3* pod will fail:
@@ -262,7 +259,7 @@ This works, as expected.   Now the same request run from an *app3* pod will fail
 ::
 
     $ APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
-    $ kubectl exec $APP3_POD -- curl -s $APP1_IP
+    $ kubectl exec $APP3_POD -- curl -s $SVC_IP
 
 This request will hang, so press Control-C to kill the curl request, or wait for it
 to time out.
@@ -291,14 +288,14 @@ To see this, run:
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http://${APP1_IP}/public
+    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/public
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http://${APP1_IP}/private
+    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/private
     { 'val': 'this is private' }
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
