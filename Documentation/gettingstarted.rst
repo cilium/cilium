@@ -104,39 +104,7 @@ Run the following command to check the progress of the deployment:
 Wait until the cilium and cilium-consul Deployments shows a ``READY``
 count of ``1`` like above.
 
-Step 2: Restart kube-dns pods
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-As part of running ``minikube start``, Minikube automatically deployed a ``kube-dns`` Kubernetes
-Deployment to provide DNS resolution for all pods. However, since this deployment
-happened before we deployed Cilium, Cilium is not managing networking and DNS would be
-disabled for all new pods.  A simple fix for this is to leverage the fact that Kubernetes
-automatically restarts pods in a Deployment if they are deleted, so we can simply delete
-the original kube-dns pod and the replacment will have networking managed by Cilium.
-If this was a production deployment
-deployment, we would recommend performing a rolling update of kube-dns pods to avoid downtime
-of the DNS service.
-
-::
-
-    $ kubectl --namespace kube-system delete pods -l k8s-app=kube-dns
-    pod "kube-dns-268032401-t57r2" deleted
-
-Running ``kubectl get pods`` will show you that Kubernetes started a new set of
-``kube-dns`` pods while at the same time terminating the old pods:
-
-::
-
-    $ kubectl --namespace kube-system get pods
-    NAME                          READY     STATUS        RESTARTS   AGE
-    cilium-5074s                  1/1       Running       0          58m
-    cilium-consul-plxdm           1/1       Running       0          58m
-    kube-addon-manager-minikube   1/1       Running       0          59m
-    kube-dns-268032401-j0vml      3/3       Running       0          9s
-    kube-dns-268032401-t57r2      3/3       Terminating   0          57m
-
-
-Step 3: Deploy the Demo Application
+Step 2: Deploy the Demo Application
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
@@ -183,7 +151,7 @@ several states until it reaches ``Running`` at which point the pod is ready.
     svc/app1-service   10.0.0.40    <none>        80/TCP    40s
     svc/kubernetes     10.0.0.1     <none>        443/TCP   5h
 
-Step 4: Apply an L3/L4 Policy
+Step 3: Apply an L3/L4 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
@@ -236,7 +204,7 @@ To apply this L3/L4 policy, run:
 
   $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
 
-Step 5: Test L3/L4 Policy
+Step 4: Test L3/L4 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We can now verify the network policy that was imported.
@@ -265,7 +233,7 @@ This request will hang, so press Control-C to kill the curl request, or wait for
 to time out.
 
 
-Step 6:  Apply and Test HTTP-aware L7 Policy
+Step 5:  Apply and Test HTTP-aware L7 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the simple scenario above, it was sufficient to either give *app2* /
@@ -364,7 +332,7 @@ We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
-Step 7:  Clean-up
+Step 6:  Clean-up
 ^^^^^^^^^^^^^^^^^
 
 You have now installed Cilium, deployed a demo app, and tested both
