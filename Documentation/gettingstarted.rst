@@ -151,14 +151,14 @@ to access *app1*.
 
 .. image:: cilium_gsg_k8s_topo.png
 
-The file ``demo_app.yaml`` contains a Kubernetes Deployment for each of three applications,
+The file ``demo.yaml`` contains a Kubernetes Deployment for each of three applications,
 with each deployment identified using the Kubernetes labels id=app1, id=app2,
 and id=app3.
 It also include a app1-service, which load-balances traffic to all pods with label id=app1.
 
 ::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/Documentation/demo_apps.yaml
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/example/minikube/demo.yaml
     service "app1-service" created
     deployment "app1" created
     deployment "app2" created
