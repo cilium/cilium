@@ -152,9 +152,9 @@ to access *app1*.
 .. image:: cilium_gsg_k8s_topo.png
 
 The file ``demo_app.yaml`` contains a Kubernetes Deployment for each of three applications,
-with each deployment identified using the Kubernetes labels app=app1, app=app2,
-and app=app3.
-It also include a app1-service, which load-balances traffic to all pods with label app=app1.
+with each deployment identified using the Kubernetes labels id=app1, id=app2,
+and id=app3.
+It also include a app1-service, which load-balances traffic to all pods with label id=app1.
 
 ::
 
@@ -190,17 +190,6 @@ When using Cilium, endpoint IP addresses are irrelevant when defining security
 policies.  Instead, you can use the labels assigned to the VM to define
 security policies, which are automatically applied to any container with that
 label, no matter where or when it is run within a container cluster.
-
-Kubernetes requires to enable isolation per namespace. Therefore, we enable
-it in the ``default`` namespace where our demo app is running.
-
-TODO: This step is not functional yet PR552. Enforcment is automatically
-enabled when the first policy is loaded.
-
-::
-
-    $ kubectl patch ns default -p '{"spec": {"networkPolicy": {"ingress": {"isolation": "DefaultDeny"}}}}'
-    "default" patched
 
 We'll start with a simple example where allow *app2* to reach *app1* on port 80, but
 disallow the same connectivity from *app3* to *app1*.
@@ -245,14 +234,14 @@ To apply this L3/L4 policy, run:
 
 ::
 
-  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/Documentation/l3_l4_policy.yaml
+  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
 
 Step 5: Test L3/L4 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We can now verify the network policy that was imported.
 You can now launch additional containers represent other services attempting to
-access backend. Any new container with label `app=app2` will be
+access backend. Any new container with label `id=app2` will be
 allowed to access the *app1* on port 80, otherwise the network request will be
 dropped.
 
@@ -263,7 +252,7 @@ TODO: PR552 is blocking kube-dns to be allowed if isolation is not enabled
 
 ::
 
-    $ APP2_POD=$(kubectl get pods -l app=app2 -o jsonpath='{.items[0].metadata.name}')
+    $ APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
     $ kubectl exec $APP2_POD -- curl -s app1
     <html><body><h1>It works!</h1></body></html>
 
@@ -271,7 +260,7 @@ This works, as expected.   Now the same request run from an *app3* pod will fail
 
 ::
 
-    $ APP3_POD=$(kubectl get pods -l app=app3 -o jsonpath='{.items[0].metadata.name}')
+    $ APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
     $ kubectl exec $APP3_POD -- curl -s app1
 
 This request will hang, so press Control-C to kill the curl request, or wait for it
@@ -318,34 +307,35 @@ API call, but disallowing all other calls (including GET /private).
 
 .. image:: cilium_gsg_k8s_l7.png
 
-TODO: show this as a CiliumNetworkPolicy yaml.
-
 ::
 
-  {
-    "name": "root",
-    "rules": [{
-        "coverage": ["id.service1"],
-        "allow": ["id.service2", "reserved:host"]
-    },{
-        "coverage": ["id.service2"],
-        "l4": [{
-            "out-ports": [{
-                "port": 80, "protocol": "tcp",
-                "l7-parser": "http",
-                "l7-rules": [
-                    { "expr": "Method(\"GET\") && Path(\"/public\")" }
-                ]
-            }]
-        }]
-    }]
-  }
+    apiVersion: "cilium.io/v1"
+    kind: CiliumNetworkPolicy
+    description: "L7 policy for getting started using Kubernetes guide"
+    metadata:
+      name: "rule1"
+    spec:
+      endpointSelector:
+        matchLabels:
+          id: app1
+      ingress:
+      - fromEndpoints:
+        - matchLabels:
+            id: app2
+          toPorts:
+          - ports:
+            - port: 80
+              protocol: TCP
+            rules:
+              HTTP:
+              - method: "GET"
+                path: "/public"
 
 Create an L7-aware policy to protect *app1* using:
 
 ::
 
-  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/Documentation/l3_l4_l7_policy.yaml
+  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_l7_policy.yaml
 
 We can now re-run the same test as above, but we will see a different outcome:
 
@@ -508,7 +498,7 @@ Step 6: Start an Example Service with Docker
 
 In this tutorial, we'll use a container running a simple HTTP server to
 represent a microservice application which we will refer to a *app1*.  As a result, we
-will start this container with the label "id.app1", so we can create Cilium
+will start this container with the label "id=app1", so we can create Cilium
 security policies for that service.
 
 Use the following command to start the *app1* container connected to the
@@ -516,7 +506,7 @@ Docker network managed by Cilium:
 
 ::
 
-    $ docker run -d --name app1 --net cilium-net -l "id.app1" cilium/demo-httpd
+    $ docker run -d --name app1 --net cilium-net -l "id=app1" cilium/demo-httpd
     e5723edaa2a1307e7aa7e71b4087882de0250973331bc74a37f6f80667bc5856
 
 
@@ -555,10 +545,10 @@ We can achieve that with the following Cilium policy:
   {
       "name": "root",
       "rules": [{
-          "coverage": ["id.app1"],
-          "allow": ["id.app2"]
+          "coverage": ["id=app1"],
+          "allow": ["id=app2"]
       },{
-          "coverage": ["id.app1"],
+          "coverage": ["id=app1"],
           "l4": [{
               "in-ports": [{ "port": 80, "protocol": "tcp" }]
           }]
@@ -578,25 +568,25 @@ Step 8: Test L3/L4 Policy
 
 
 You can now launch additional containers represent other services attempting to
-access *app1*. Any new container with label "id.app2" will be allowed
+access *app1*. Any new container with label "id=app2" will be allowed
 to access *app1* on port 80, otherwise the network request will be dropped.
 
 To test this out, we'll make an HTTP request to *app1* from a container
-with the label "id.app2" :
+with the label "id=app2" :
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.app2" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
+    $ docker run --rm -ti --net cilium-net -l "id=app2" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
     <html><body><h1>It works!</h1></body></html>
 
 We can see that this request was successful, as we get a valid ping responses.
 
 Now let's run the same ping request to *app1* from a container that has
-label "id.app3":
+label "id=app3":
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.app3" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
+    $ docker run --rm -ti --net cilium-net -l "id=app3" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
 
 You will see no reply as all packets are dropped by the Cilium security policy.
 The request will time-out after 10 seconds.
@@ -631,14 +621,14 @@ To see this, run:
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl 'http://app1/public'
+    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl 'http://app1/public'
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl 'http://app1/private'
+    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl 'http://app1/private'
     { 'val': 'this is private' }
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
@@ -655,10 +645,10 @@ The following Cilium policy file achieves this goal:
   {
     "name": "root",
     "rules": [{
-        "coverage": ["id.app1"],
-        "allow": ["id.app2", "reserved:host"]
+        "coverage": ["id=app1"],
+        "allow": ["id=app2", "reserved:host"]
     },{
-        "coverage": ["id.app2"],
+        "coverage": ["id=app2"],
         "l4": [{
             "out-ports": [{
                 "port": 80, "protocol": "tcp",

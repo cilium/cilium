@@ -2,28 +2,26 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend
-  labels:
-    role: backend
+  name: app1-service
 spec:
   ports:
   - port: 80
   selector:
-    role: backend
+    id: app1
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: backend
+  name: app1
 spec:
   replicas: 2
   template:
     metadata:
       labels:
-        role: backend
+        id: app1
     spec:
       containers:
-      - name: db-backend
+      - name: web
         image: cilium/demo-httpd
         ports:
         - containerPort: 80
@@ -31,13 +29,31 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: frontend
+  name: app2
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        role: frontend
+        id: app2
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app3
     spec:
       containers:
       - name: app-frontend
