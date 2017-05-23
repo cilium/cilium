@@ -11,11 +11,11 @@ spec:
   - fromEndpoints:
     - matchLabels:
         id: app2
-      toPorts:
-      - ports:
-        - port: 80
-          protocol: TCP
-        rules:
-          HTTP:
-          - method: "GET"
-            path: "/public"
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        HTTP:
+        - method: "GET"
+          path: "/public"
