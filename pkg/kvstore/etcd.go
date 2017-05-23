@@ -180,7 +180,7 @@ func (e *EtcdClient) InitializeFreeID(path string, firstID uint32) error {
 	if err != nil {
 		return err
 	}
-	log.Info("Free ID for path %s successfully initialized", path)
+	log.Infof("Free ID for path %s successfully initialized", path)
 
 	return nil
 }
