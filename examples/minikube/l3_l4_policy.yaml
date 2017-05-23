@@ -5,12 +5,12 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      role: backend
+      id: app1
   ingress:
   - from:
     - podSelector:
         matchLabels:
-          role: frontend
+          id: app2
     ports:
     - port: 80
       protocol: TCP
