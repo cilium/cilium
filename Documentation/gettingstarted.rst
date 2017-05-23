@@ -335,6 +335,12 @@ Create an L7-aware policy to protect *app1* using:
 
 ::
 
+  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/ciliumnetworkpolicy.yaml
+
+Wait until the ThirdPartyResource has been created, then:
+
+::
+
   $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_l7_policy.yaml
 
 We can now re-run the same test as above, but we will see a different outcome:
