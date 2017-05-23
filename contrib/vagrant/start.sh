@@ -269,7 +269,7 @@ function write_cilium_cfg() {
 
     if [ -n "${K8S}" ]; then
         cilium_options+=" --k8s-api-server http://${MASTER_IPV4}:8080"
-        cilium_options+=" --kvstore-opt etcd.confg=/var/lib/cilium/etcd-config.yml"
+        cilium_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
         cilium_options+=" --kvstore etcd"
     else
         if [[ "${IPV4}" -eq "1" ]]; then
