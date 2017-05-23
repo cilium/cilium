@@ -17,57 +17,75 @@ for a simple way to experiment on your laptop, we highly recommend using our Vag
 
 .. _admin_kernel_version:
 
-Prerequisites
--------------
+System Requirements
+-------------------
 
-Linux Kernel Version
-^^^^^^^^^^^^^^^^^^^^
+Linux Kernel
+^^^^^^^^^^^^
 
-Since Cilium builds on the foundation of BPF, the kernel version running on the
-Linux node that runs containers and Cilium must support a modern version of
-BPF.  For practical purposes, this means that the kernel must be 4.8.0 or
-newer. However, we recommend to run at least the 4.9.x kernel releases which is
-a supported stable release series of the Linux kernel.
+Cilium leverages and builds on the kernel functionality BPF as well as various
+subsystems which integrate with BPF. Therefore, all systems that will run a
+Cilium agent are required to run the Linux kernel version 4.8.0 or later.
 
-For a version of Linux designed to be used as a container runtime, this is
-often the case already, as such distributions frequently update their default
-kernels.  For example:
+In order for the BPF feature to be enabled properly, the following kernel
+configuration options must be enabled. This is typically the case automatically
+with distribution kernels. If an option provides the choice to build as module
+or statically linked, then both choices are valid.
 
-* `CoreOS stable <https://coreos.com/releases/>`_ is already at 4.9.9 as of March 2017.
+::
 
-* `Fedora atomic <http://www.projectatomic.io/blog/2017/03/fedora_atomic_2week_2/>`_ is at 4.9.12 as of March 2017.
+        CONFIG_BPF=y
+        CONFIG_BPF_SYSCALL=y
+        CONFIG_NET_CLS_BPF=y
+        CONFIG_BPF_JIT=y
+        CONFIG_NET_CLS_ACT=y
+        CONFIG_NET_SCH_INGRESS=y
+        CONFIG_CRYPTO_SHA1=y
+        CONFIG_CRYPTO_USER_API_HASH=y
 
-General purpose Linux distros are less likely to come with a 4.8+ kernel by
-default.  As of March 2017, `Ubuntu 16.10
-<https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8>`_ is the
-most widely used general purpose distro that runs a 4.8+ kernel by default.
-However, many other popular distros have the ability to optionally install a
-kernel with version 4.8 or newer.
+These requirements are met on most modern container workload focused Linux
+distributions:
 
-Cilium will make use of later kernel versions if available by probing for the
-availability of the functionality automatically when the agent starts. It is
-therefore perfectly acceptable to use a distribution kernel which has the
-required functionality backported.
+=================== ========== ===================================================
+Distribution        Version    More information
+=================== ========== ===================================================
+CoreOS              stable     https://coreos.com/releases/
+Debian              9 Stretch  https://wiki.debian.org/DebianStretch
+Fedora Atomic/Core  25         http://www.projectatomic.io/blog/2017/03/fedora_atomic_2week_2/
+LinuxKit            all        https://github.com/linuxkit/linuxkit/tree/master/kernel
+Ubuntu              16.10      https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
+=================== ========== ===================================================
+
+The 4.8.0 kernel is minimal kernel version required, more recent kernels may
+provide additional BPF functionality. Cilium will automatically detect
+additional available functionality by probing for the functionality when the
+agent starts.
 
 clang+LLVM
 ^^^^^^^^^^
 
-clang+LLVM >=3.7.1 is required. Please note that in order to use clang 3.9.x,
-the kernel version requirement is >= 4.9.17
+.. note:: This requirement is only needed if you run ``cilium-agent`` natively
+          as binary. If you are using the Cilium container image
+          ``cilium/cilium``, this dependency/prerequisite is shipped as part of
+          the container image.
 
-Note: If you are using the Cilium container image ``cilium/cilium``, this
-dependency/prerequisite is already included.
+clang+LLVM >=3.7.1: http://releases.llvm.org/
+
+Please note that in order to use clang 3.9.x, the kernel version requirement is
+>= 4.9.17
 
 iproute2
 ^^^^^^^^^
 
+.. note:: This requirement is only needed if you run ``cilium-agent`` natively
+          as binary. If you are using the Cilium container image
+          ``cilium/cilium``, this dependency/prerequisite is shipped as part of
+          the container image.
+
 iproute2 >= 4.8.0: https://www.kernel.org/pub/linux/utils/net/iproute2/
 
-Note: If you are using the Cilium container image ``cilium/cilium``, this
-dependency/prerequisite is already included.
-
-Installing Cilium
------------------
+Installation
+------------
 
 Cilium consists of an agent plus additional optional integration plugins
 which must be installed on all servers which will run containers.
@@ -78,79 +96,74 @@ both vanilla Docker deployments as well as Kubernetes.  It will also describe
 how to build and install from source in the case that you need to run Cilium
 directly on the Linux container host without a container.
 
-Installing Cilium using Docker Compose
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Installing Cilium using Kubernetes DaemonSets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Below is an example of using Docker Compose to deploy the
-Cilium agent and the Cilium Docker libnetwork plugin.
+The easiest way of deploying Cilium in an existing Kubernetes cluster is to use
+a `DaemonSet <https://kubernetes.io/docs/admin/daemons/>`_. This will
+automatically deploy and run a ``cilium/cilium`` container image as a pod on
+each Kubernetes worker node.
 
-Note: for multi-host deployments using a key-value store, you would want to
-update this template to point cilium to a central key-value store.
+Mounting the BPF FS (Optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This step is optional but recommended. It allows the Cilium agent to pin BPF
+resources to a persistent filesystem to make them persistent across
+cilium-agent restarts.  If the BPF filesystem is not mounted in the host
+filesystem, then all BPF resources created in the namespace of the pod will be
+released when the pod is stopped and restarted. This would result in network
+connectivity loss of all locally managed pods when the agent is restarted.
+Mounting the BPF filesystem in the host will ensure that the agent can be
+restarted without affecting connectivity of any pods.
+
+In order to mount the BPF filesystem, the following command must be run in the
+host mount namespace. The command must only be run once during the boot process
+of the machine.
 
 ::
 
-  version: '2'
-  services:
-    cilium:
-      container_name: cilium
-      image: cilium/cilium:cilium-ubuntu-16-04
-      command: cilium-agent --debug -d ${IFACE} -c 127.0.0.1:8500
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
-        - /var/run/cilium:/var/run/cilium
-        - /run/docker/plugins:/run/docker/plugins
-        - /sys/fs/bpf:/sys/fs/bpf
-      network_mode: "host"
-      cap_add:
-        - "NET_ADMIN"
-      privileged: true
+	mount bpffs /sys/fs/bpf -t bpf
 
-    cilium_docker:
-      container_name: cilium-docker-plugin
-      image: cilium/cilium:cilium-ubuntu-16-04
-      command: cilium-docker -D
-      volumes:
-        - /var/run/cilium:/var/run/cilium
-        - /run/docker/plugins:/run/docker/plugins
-      network_mode: "host"
-      cap_add:
-        - "NET_ADMIN"
-      privileged: true
-      depends_on:
-        - cilium
+If you are using systemd to manage the kubelet, the easiest way to achieve this
+is to add a ``ExecStartPre`` line in the ``/etc/systemd/kubelet.service`` file
+as follows.
 
+::
+
+	[Service]
+        ExecStartPre=/bin/bash -c ' \\
+                if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
+                   /bin/mount bpffs /sys/fs/bpf -t bpf; \\
+                fi'
 
 .. _k8s_ds:
 
 Installing Cilium using Kubernetes Daemon Sets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you are using Kubernetes, you can automatically have
-a pod running cilium distributed to each Linux container
-node in the cluster using Kubernetes `Daemon Sets
-<https://kubernetes.io/docs/admin/daemons/>`_ .
+Deploying the DaemonSet
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Here is an example Daemon Set definition:
+Save the following template to a file ``cilium-ds.yaml`` and adjust any
+configuration as necessary if default behaviour is not desirable:
 
 ::
 
 	apiVersion: extensions/v1beta1
 	kind: DaemonSet
 	metadata:
-	  name: cilium-net-controller
+	  name: cilium
 	spec:
 	  template:
 	    metadata:
 	      labels:
-	        name: cilium-net-controller
-	        io.cilium.admin.daemon-set: "cilium"
+	        k8s-app: cilium
+	        kubernetes.io/cluster-service: "true"
 	    spec:
-	      nodeSelector:
-	        with-network-plugin: cilium
 	      containers:
-	      - image: cilium/cilium:cilium-ubuntu-16-04
+	      - image: cilium/cilium:latest
 	        imagePullPolicy: Always
-	        name: cilium-net-daemon
+	        name: cilium-agent
 	        command: [ "/home/with-cni.sh", "--debug", "daemon", "run" ]
 	        args:
 	          - "-t"
@@ -214,8 +227,78 @@ Here is an example Daemon Set definition:
 	          hostPath:
 	              path: /var/lib/kubernetes/ca.pem
 
-To deploy this pod to each cluster node, first give each node
-in the cluster a label like ''with-network-plugin=cilium''
+Deploy Cilium to all nodes using ``kubectl``:
+
+::
+
+   $ kubectl create -f cilium-ds.yaml
+
+While ``kubectl`` deploys the pods, you can monitor the progress and you will
+notice the number of ready pods going from 0 to the desired number which will
+equals to the number of nodes in the cluster.
+
+::
+
+        $ kubectl get ds
+        NAME      DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
+        cilium    1         1         0         <none>          3s
+
+As the pods are deployed, the number in the ready column will increase and
+eventually reach the desired count. This indicates the progress of deployment.
+
+::
+
+        $ kubectl describe ds cilium
+        Name:		cilium
+        Image(s):	cilium/cilium:latest
+        Selector:	io.cilium.admin.daemon-set=cilium,name=cilium
+        Node-Selector:	<none>
+        Labels:		io.cilium.admin.daemon-set=cilium
+                        name=cilium
+        Desired Number of Nodes Scheduled: 1
+        Current Number of Nodes Scheduled: 1
+        Number of Nodes Misscheduled: 0
+        Pods Status:	1 Running / 0 Waiting / 0 Succeeded / 0 Failed
+        Events:
+          FirstSeen	LastSeen	Count	From		SubObjectPath	Type		Reason			Message
+          ---------	--------	-----	----		-------------	--------	------			-------
+          35s		35s		1	{daemon-set }			Normal		SuccessfulCreate	Created pod: cilium-2xzqm
+
+
+We can now check the logfile of a particular cilium agent:
+
+::
+
+	$ kubectl get pods
+        NAME           READY     STATUS    RESTARTS   AGE
+        cilium-2xzqm   1/1       Running   0          41m
+        $ kubectl logs cilium-2xzqm
+        INFO      _ _ _
+        INFO  ___|_| |_|_ _ _____
+        INFO |  _| | | | | |     |
+        INFO |___|_|_|_|___|_|_|_|
+        INFO Cilium 0.8.90 f022e2f Thu, 27 Apr 2017 23:17:56 -0700 go version go1.7.5 linux/amd64
+        INFO clang and kernel versions: OK!
+        INFO linking environment: OK!
+        [...]
+
+
+
+Deploying to selected nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To deploy Cilium to only a selected list of nodes, you can add a
+``NodeSelector`` to the ``DaemonSet`` like this:
+
+::
+
+	spec:
+	  template:
+	    spec:
+	      nodeSelector:
+	        with-network-plugin: cilium
+
+And then label each node where Cilium should be deployed:
 
 ::
 
@@ -223,22 +306,102 @@ in the cluster a label like ''with-network-plugin=cilium''
     kubectl label node worker1 with-network-plugin=cilium
     kubectl label node worker2 with-network-plugin=cilium
 
-Save the above daemon set definition to a file named cilium-ds.yaml, and then
-create this daemon set with kubectl:
+Removing the cilium daemon
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All cilium agents are managed as a DaemonSet which means that deleting
+the DaemonSet will automatically stop and remove all pods which run Cilium
+on each node:
 
 ::
 
-    kubectl create -f cilium-ds.yaml
+        $ kubectl delete ds cilium
 
-Kubernetes will deploy a copy of the daemon set to each node
-with the correct ''with-network-plugin=cilium'' label.  You can
-watch the progress of this deployment using:
+Troubleshooting
+~~~~~~~~~~~~~~~
+
+Check the status of the ``DaemonSet`` and verify that all all desired
+instances are in "ready" state:
 
 ::
 
-   kubectl get daemonset cilium-net-controller
-   NAME                    DESIRED   CURRENT   READY     NODE-SELECTOR                AGE
-   cilium-net-controller   3         3         3         with-network-plugin=cilium   19h
+        $ kubectl get ds
+        NAME      DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
+        cilium    1         1         0         <none>          3s
+
+In this example, we see a desired state of 1 with 0 being ready. This indicates
+a problem. Let's list all cilium pods by matching on the label
+``k8s-app=cilium`` and also sort the list by the restart count of each pod to
+identify the failing pods:
+
+::
+
+        $ kubectl get pods --selector k8s-app=cilium --sort-by='.status.containerStatuses[0].restartCount'
+        NAME           READY     STATUS             RESTARTS   AGE
+        cilium-813gf   0/1       CrashLoopBackOff   2          44s
+
+Pod ``cilium-813gf`` is failing and has already been restarted 2 times. Let's
+print the logfile of that pod to investigate the cause:
+
+::
+
+        $ kubectl logs cilium-813gf
+        INFO      _ _ _
+        INFO  ___|_| |_|_ _ _____
+        INFO |  _| | | | | |     |
+        INFO |___|_|_|_|___|_|_|_|
+        INFO Cilium 0.8.90 f022e2f Thu, 27 Apr 2017 23:17:56 -0700 go version go1.7.5 linux/amd64
+        CRIT kernel version: NOT OK: minimal supported kernel version is >= 4.8
+
+In this example, the cause for the failure is a Linux kernel that is not recent
+enough.
+
+If the cause for the problem is not apparent or you seek further help, consider
+joining on our `slack channel <https://cilium.herokuapp.com>`_ to ask
+questions.
+
+
+Installing Cilium using Docker Compose
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Below is an example of using Docker Compose to deploy the
+Cilium agent and the Cilium Docker libnetwork plugin.
+
+Note: for multi-host deployments using a key-value store, you would want to
+update this template to point cilium to a central key-value store.
+
+::
+
+  version: '2'
+  services:
+    cilium:
+      container_name: cilium
+      image: cilium/cilium:cilium-ubuntu-16-04
+      command: cilium-agent --debug -d ${IFACE} -c 127.0.0.1:8500
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - /var/run/cilium:/var/run/cilium
+        - /run/docker/plugins:/run/docker/plugins
+        - /sys/fs/bpf:/sys/fs/bpf
+      network_mode: "host"
+      cap_add:
+        - "NET_ADMIN"
+      privileged: true
+
+    cilium_docker:
+      container_name: cilium-docker-plugin
+      image: cilium/cilium:cilium-ubuntu-16-04
+      command: cilium-docker -D
+      volumes:
+        - /var/run/cilium:/var/run/cilium
+        - /run/docker/plugins:/run/docker/plugins
+      network_mode: "host"
+      cap_add:
+        - "NET_ADMIN"
+      privileged: true
+      depends_on:
+        - cilium
+
 
 Build + Install From Source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
