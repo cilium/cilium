@@ -29,7 +29,7 @@ var (
 	log = logging.MustGetLogger("cilium-policy")
 )
 
-// EndpointSelector is a list a wrapper for k8s LabelSelector.
+// EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
 	*metav1.LabelSelector
 }
