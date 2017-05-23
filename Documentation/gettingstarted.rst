@@ -158,7 +158,7 @@ It also include a app1-service, which load-balances traffic to all pods with lab
 
 ::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/example/minikube/demo.yaml
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/demo.yaml
     service "app1-service" created
     deployment "app1" created
     deployment "app2" created
@@ -253,7 +253,8 @@ TODO: PR552 is blocking kube-dns to be allowed if isolation is not enabled
 ::
 
     $ APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
-    $ kubectl exec $APP2_POD -- curl -s app1
+    $ APP1_IP=$(kubectl get pods -l id=app1 -o jsonpath='{.items[0].status.podIP}')
+    $ kubectl exec $APP2_POD -- curl -s $APP1_IP
     <html><body><h1>It works!</h1></body></html>
 
 This works, as expected.   Now the same request run from an *app3* pod will fail:
@@ -261,7 +262,7 @@ This works, as expected.   Now the same request run from an *app3* pod will fail
 ::
 
     $ APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
-    $ kubectl exec $APP3_POD -- curl -s app1
+    $ kubectl exec $APP3_POD -- curl -s $APP1_IP
 
 This request will hang, so press Control-C to kill the curl request, or wait for it
 to time out.
@@ -290,14 +291,14 @@ To see this, run:
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    $ kubectl exec $APP2_POD -- curl -s http://${APP1_IP}/public
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http:app1/public
+    $ kubectl exec $APP2_POD -- curl -s http://${APP1_IP}/private
     { 'val': 'this is private' }
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
