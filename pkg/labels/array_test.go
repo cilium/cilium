@@ -15,6 +15,8 @@
 package labels
 
 import (
+	"github.com/cilium/cilium/common"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -44,4 +46,32 @@ func (s *LabelsSuite) TestParse(c *C) {
 	c.Assert(ParseLabelArray("magic"), DeepEquals, LabelArray{ParseLabel("magic")})
 	c.Assert(ParseLabelArray("a", "b", "c"), DeepEquals,
 		LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")})
+}
+
+func (s *LabelsSuite) TestHas(c *C) {
+	lbls := LabelArray{
+		NewLabel("env", "devel", common.AnyLabelSource),
+		NewLabel("user", "bob", common.CiliumLabelSource),
+	}
+	var hasTests = []struct {
+		input    string // input
+		expected bool   // expected result
+	}{
+		{"", false},
+		{"any", false},
+		{"env", true},
+		{"cilium.env", false},
+		{"cilium:env", false},
+		{"any:env", false},
+		{"any.env", true},
+		{"any:user", false},
+		{"any.user", true},
+		{"user", true},
+		{"cilium.user", true},
+		{"cilium:bob", false},
+	}
+	for _, tt := range hasTests {
+		c.Logf("has %q?", tt.input)
+		c.Assert(lbls.Has(tt.input), Equals, tt.expected)
+	}
 }

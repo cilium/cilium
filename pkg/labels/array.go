@@ -72,9 +72,20 @@ nextLabel:
 // Has returns whether the provided key exists.
 // Implementation of the k8s.io/apimachinery/pkg/labels.Labels interface.
 func (ls LabelArray) Has(key string) bool {
-	for _, lsl := range ls {
-		if lsl.GetExtendedKey() == key {
-			return true
+	// The key is submitted in the form of `source.key=value`
+	ck := GetCiliumKeyFrom(key)
+	keyLabel := ParseLabel(ck)
+	if keyLabel.IsAnySource() {
+		for _, lsl := range ls {
+			if lsl.Key == keyLabel.Key {
+				return true
+			}
+		}
+	} else {
+		for _, lsl := range ls {
+			if lsl.GetExtendedKey() == key {
+				return true
+			}
 		}
 	}
 	return false
@@ -83,9 +94,19 @@ func (ls LabelArray) Has(key string) bool {
 // Get returns the value for the provided key.
 // Implementation of the k8s.io/apimachinery/pkg/labels.Labels interface.
 func (ls LabelArray) Get(key string) string {
-	for _, lsl := range ls {
-		if lsl.GetExtendedKey() == key {
-			return lsl.Value
+	ck := GetCiliumKeyFrom(key)
+	keyLabel := ParseLabel(ck)
+	if keyLabel.IsAnySource() {
+		for _, lsl := range ls {
+			if lsl.Key == keyLabel.Key {
+				return lsl.Value
+			}
+		}
+	} else {
+		for _, lsl := range ls {
+			if lsl.GetExtendedKey() == key {
+				return lsl.Value
+			}
 		}
 	}
 	return ""

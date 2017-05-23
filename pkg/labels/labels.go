@@ -166,12 +166,22 @@ func (l *Label) DeepCopy() *Label {
 
 // Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
-	return l.Source == b.Source && l.Key == b.Key && l.Value == b.Value
+	if !l.IsAnySource() {
+		if l.Source != b.Source {
+			return false
+		}
+	}
+	return l.Key == b.Key && l.Value == b.Value
 }
 
 // IsAllLabel returns true if the label is reserved and matches with IDNameAll.
 func (l *Label) IsAllLabel() bool {
 	return l.Source == common.ReservedLabelSource && l.Key == "all"
+}
+
+// IsAnySource return if the label was set with source "any".
+func (l *Label) IsAnySource() bool {
+	return l.Source == common.AnyLabelSource
 }
 
 // Matches returns true if it's a special label or the label equals the target.
@@ -254,8 +264,7 @@ func GetCiliumKeyFrom(extKey string) string {
 	if len(sourceSplit) == 2 {
 		return sourceSplit[0] + ":" + sourceSplit[1]
 	}
-	// TODO: Replace with `any`?
-	return common.CiliumLabelSource + ":" + sourceSplit[0]
+	return common.AnyLabelSource + ":" + sourceSplit[0]
 }
 
 // GetExtendedKeyFrom returns the extended key of a label string.
@@ -266,7 +275,7 @@ func GetCiliumKeyFrom(extKey string) string {
 func GetExtendedKeyFrom(str string) string {
 	src, next := parseSource(str)
 	if src == "" {
-		src = common.CiliumLabelSource
+		src = common.AnyLabelSource
 	}
 	// Remove an eventually value
 	nextSplit := strings.SplitN(next, "=", 2)
