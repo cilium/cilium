@@ -32,7 +32,7 @@ read -d '' EXPECTED_POLICY <<"EOF" || true
   {
     "endpointSelector": {
       "matchLabels": {
-        "cilium:role": "frontend"
+        "any:role": "frontend"
       }
     }
   }
@@ -107,10 +107,10 @@ EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
 Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
-* Rule 0 {"matchLabels":{"cilium:id.bar":""}}: match
+* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"reserved:host":""}}
       Labels [cilium:id.foo] not found
-    Allows from labels {"matchLabels":{"cilium:id.foo":""}}
+    Allows from labels {"matchLabels":{"any:id.foo":""}}
 +     Found all required labels
 1 rules matched
 Result: ALLOWED
@@ -160,8 +160,8 @@ EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
 Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
-* Rule 0 {"matchLabels":{"cilium:id.bar":""}}: match
-    Allows from labels {"matchLabels":{"cilium:id.foo":""}}
+* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+    Allows from labels {"matchLabels":{"any:id.foo":""}}
 +     Found all required labels
 1 rules matched
 Result: ALLOWED

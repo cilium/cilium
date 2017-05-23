@@ -46,7 +46,7 @@ var (
 		`%`:      NewLabel(`%`, `%ed`, common.CiliumLabelSource),
 	}
 
-	CiliumLabelSourceKeyPrefix = common.CiliumLabelSource + common.PathDelimiter
+	DefaultLabelSourceKeyPrefix = common.AnyLabelSource + common.PathDelimiter
 )
 
 func (s *LabelsSuite) TestSHA256Sum(c *C) {
@@ -196,15 +196,15 @@ func (s *LabelsSuite) TestLabelParseKey(c *C) {
 		{"source::key1=value1", "source.:key1"},
 		{"4blah=:foo=", "4blah=.foo"},
 		{"5blah::foo=", "5blah.:foo"},
-		{"source2.key1=value1", CiliumLabelSourceKeyPrefix + "source2.key1"},
-		{"1foo", CiliumLabelSourceKeyPrefix + "1foo"},
-		{":2foo", CiliumLabelSourceKeyPrefix + "2foo"},
-		{":3foo=", CiliumLabelSourceKeyPrefix + "3foo"},
-		{"6foo==", CiliumLabelSourceKeyPrefix + "6foo"},
-		{"7foo=bar", CiliumLabelSourceKeyPrefix + "7foo"},
-		{"cilium.key1=value1", CiliumLabelSourceKeyPrefix + "cilium.key1"},
-		{"key1=value1", CiliumLabelSourceKeyPrefix + "key1"},
-		{"value1", CiliumLabelSourceKeyPrefix + "value1"},
+		{"source2.key1=value1", DefaultLabelSourceKeyPrefix + "source2.key1"},
+		{"1foo", DefaultLabelSourceKeyPrefix + "1foo"},
+		{":2foo", DefaultLabelSourceKeyPrefix + "2foo"},
+		{":3foo=", DefaultLabelSourceKeyPrefix + "3foo"},
+		{"6foo==", DefaultLabelSourceKeyPrefix + "6foo"},
+		{"7foo=bar", DefaultLabelSourceKeyPrefix + "7foo"},
+		{"cilium.key1=value1", DefaultLabelSourceKeyPrefix + "cilium.key1"},
+		{"key1=value1", DefaultLabelSourceKeyPrefix + "key1"},
+		{"value1", DefaultLabelSourceKeyPrefix + "value1"},
 		{"$world=value1", common.ReservedLabelSourceKeyPrefix + "world"},
 		{"k8s:foo=bar:", k8s.LabelSourceKeyPrefix + "foo"},
 	}

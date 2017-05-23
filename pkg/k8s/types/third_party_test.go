@@ -74,12 +74,12 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 			Name: "rule1",
 		},
 		Spec: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("role=backend")),
+			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("any:role=backend")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
 						api.NewESFromLabels(
-							labels.ParseLabel("role=frontend"),
+							labels.ParseLabel("any:role=frontend"),
 						),
 					},
 					ToPorts: []api.PortRule{

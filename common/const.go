@@ -43,6 +43,8 @@ const (
 
 	// PathDelimiter is the delimiter used in the labels paths.
 	PathDelimiter = "."
+	// AnyLabelSource is the default label source to select any source.
+	AnyLabelSource = "any"
 	// CiliumLabelSource is the default label source for the labels read from containers.
 	CiliumLabelSource = "cilium"
 	// ReservedLabelSource is the label source for reserved types.
