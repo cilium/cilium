@@ -27,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 
 	log "github.com/Sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -76,12 +78,37 @@ func k8sErrorHandler(e error) {
 	log.Error(e)
 }
 
+func (d *Daemon) createThirdPartyResources() error {
+	// TODO: Retry a couple of times
+
+	res := &v1beta1.ThirdPartyResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cilium-network-policy." + k8sTypes.ThirdPartyResourceGroup,
+		},
+		Description: "Cilium network policy rule",
+		Versions: []v1beta1.APIVersion{
+			{Name: k8sTypes.ThirdPartyResourceVersion},
+		},
+	}
+
+	_, err := d.k8sClient.Extensions().ThirdPartyResources().Create(res)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
+}
+
 // EnableK8sWatcher watches for policy, services and endpoint changes on the kurbenetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
 // kubernetes api server at the given reSyncPeriod duration.
 func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	if !d.conf.IsK8sEnabled() {
 		return nil
+	}
+
+	if err := d.createThirdPartyResources(); err != nil {
+		return fmt.Errorf("Unable to create third party resource: %s", err)
 	}
 
 	tprClient, err := k8sTypes.CreateTPRClient(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
