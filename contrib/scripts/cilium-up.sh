@@ -24,7 +24,7 @@ docker run -d \
    --name "cilium-consul" \
    -p 8501:8500 \
    -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
-   consul:v0.6.4 \
+   consul:0.8.3 \
    agent -client=0.0.0.0 -server -bootstrap-expect 1
 
 $dir/plugins/cilium-docker/cilium-docker&
