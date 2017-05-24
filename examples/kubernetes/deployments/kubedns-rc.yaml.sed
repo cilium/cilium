@@ -123,4 +123,4 @@ spec:
           protocol: TCP
       dnsPolicy: Default  # Don't use cluster DNS.
       nodeSelector:
-        kubernetes.io/hostname: cilium-k8s-node-2
+        kubernetes.io/hostname: $kube-node-selector
