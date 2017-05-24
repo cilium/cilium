@@ -21,6 +21,9 @@ import (
 )
 
 const (
+	// AnnotationIsolationNS is the annotation key used in the annotation
+	// map for the network isolation on the respective namespace.
+	AnnotationIsolationNS = "net.beta.kubernetes.io/network-policy"
 	// AnnotationName is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
@@ -36,8 +39,11 @@ const (
 	LabelSourceKeyPrefix = LabelSource + common.PathDelimiter
 
 	// PolicyLabelName is the name of the policy label which refers to the
-	// k8s policy name
+	// k8s policy name.
 	PolicyLabelName = "io.cilium.k8s-policy-name"
+	// PolicyNSLabelName is the name of the namespace label which refers to
+	// the NS name.
+	PolicyNSLabelName = "io.cilium.k8s-namespace-name"
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
 	PodNamespaceLabel = types.KubernetesPodNamespaceLabel

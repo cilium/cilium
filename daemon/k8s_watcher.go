@@ -22,9 +22,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	log "github.com/Sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/fields"
@@ -76,9 +81,10 @@ func k8sErrorHandler(e error) {
 	log.Error(e)
 }
 
-// EnableK8sWatcher watches for policy, services and endpoint changes on the kurbenetes
-// api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
-// kubernetes api server at the given reSyncPeriod duration.
+// EnableK8sWatcher watches for namespaces, policy, services, endpoint and
+// ingress changes on the kurbenetes api server defined in the receiver's daemon
+// k8sClient. Re-syncs all state from the kubernetes api server at the given
+// reSyncPeriod duration.
 func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	if !d.conf.IsK8sEnabled() {
 		return nil
@@ -88,6 +94,19 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("Unable to create third party resource client: %s", err)
 	}
+
+	_, namespaceController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.Core().RESTClient(),
+			"namespaces", v1.NamespaceAll, fields.Everything()),
+		&v1.Namespace{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.namespaceAddFn,
+			UpdateFunc: d.namespaceModFn,
+			DeleteFunc: d.namespaceDelFn,
+		},
+	)
+	go namespaceController.Run(wait.NeverStop)
 
 	_, policyController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
@@ -155,6 +174,141 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go ciliumRulesController.Run(wait.NeverStop)
 
 	return nil
+}
+
+// AtomicReplace removes all rules with the given LabelArray and adds the given
+// api.Rules.
+// FIXME implement this function as written in the description.
+func (d *Daemon) AtomicReplace(rm []labels.LabelArray, add api.Rules) error {
+	for _, del := range rm {
+		d.PolicyDelete(del)
+	}
+	return d.PolicyAdd(add, &AddOptions{Replace: true})
+}
+
+func (d *Daemon) allowEndpointsToHost(ns string, defaultDeny bool) {
+
+	nsLabel := labels.NewLabel(k8s.PodNamespaceLabel, ns, k8s.LabelSource)
+	worldLabel := labels.NewLabel(labels.IDNameWorld, "", common.ReservedLabelSource)
+	hostLabel := labels.NewLabel(labels.IDNameHost, "", common.ReservedLabelSource)
+	allLabel := labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource)
+
+	var newResLbl *labels.Label
+	if defaultDeny {
+		newResLbl = labels.NewLabel(labels.IDNameHost, "", common.ReservedLabelSource)
+	} else {
+		newResLbl = labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource)
+	}
+
+	// Depending if DefaultDeny is true or false we allow that reserved
+	// label to talk with the namespace.
+	resToNSRule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(nsLabel),
+		Ingress: []api.IngressRule{
+			{FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(newResLbl)}},
+		},
+		Labels: labels.LabelArray{labels.NewLabel(k8s.PolicyNSLabelName, ns, k8s.LabelSource)},
+	}
+
+	nsToAllRule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(allLabel),
+		Ingress: []api.IngressRule{
+			{FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(nsLabel)}},
+		},
+		Labels: labels.LabelArray{labels.NewLabel(k8s.PolicyNSLabelName, ns, k8s.LabelSource), allLabel},
+	}
+	nsToWorldRule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(worldLabel),
+		Ingress: []api.IngressRule{
+			{FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(nsLabel)}},
+		},
+		Labels: labels.LabelArray{labels.NewLabel(k8s.PolicyNSLabelName, ns, k8s.LabelSource), worldLabel},
+	}
+	nsToHostRule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(hostLabel),
+		Ingress: []api.IngressRule{
+			{FromEndpoints: []api.EndpointSelector{api.NewESFromLabels(nsLabel)}},
+		},
+		Labels: labels.LabelArray{labels.NewLabel(k8s.PolicyNSLabelName, ns, k8s.LabelSource), hostLabel},
+	}
+
+	var err error
+	if defaultDeny {
+		// Allow NS to talk with host and world
+		err = d.AtomicReplace(
+			[]labels.LabelArray{resToNSRule.Labels, nsToAllRule.Labels},
+			api.Rules{resToNSRule, nsToHostRule, nsToWorldRule},
+		)
+	} else {
+		// Allow NS to talk with all
+		err = d.AtomicReplace(
+			[]labels.LabelArray{resToNSRule.Labels, nsToHostRule.Labels, nsToWorldRule.Labels},
+			api.Rules{resToNSRule, nsToAllRule},
+		)
+	}
+	if err != nil {
+		log.Errorf("Error while atomically replacing ns policy %s", err)
+	}
+}
+
+func (d *Daemon) namespaceAddFn(obj interface{}) {
+	ns, ok := obj.(*v1.Namespace)
+	if !ok {
+		return
+	}
+
+	var wg sync.WaitGroup
+	d.endpointsMU.RLock()
+	wg.Add(len(d.endpoints))
+	for i := range d.endpoints {
+		go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
+			id := ""
+			lblsToDel := labels.Labels{}
+			ep.Mutex.RLock()
+			if ep.SecLabel != nil {
+				// Check if the endpoint is in the same namespace
+				if v, ok := ep.SecLabel.Labels[k8s.PodNamespaceMetaLabels]; ok && v.Value == ns.Name {
+					for k, v := range ep.SecLabel.Labels {
+						if strings.HasPrefix(k, k8s.PodNamespaceMetaLabels) {
+							lblsToDel[k] = v.DeepCopy()
+						}
+					}
+					_, id, _ = endpoint.ValidateID(ep.StringIDLocked())
+				}
+			}
+			ep.Mutex.RUnlock()
+
+			if id != "" {
+				lblsToAdd := map[string]string{}
+				// Prefix the special key
+				for k, v := range ns.Labels {
+					lblsToAdd[policy.JoinPath(k8s.PodNamespaceMetaLabels, k)] = v
+				}
+				newNSLabels := labels.Map2Labels(lblsToAdd, k8s.LabelSource)
+				// Update the new labels in the endpoint
+				err := d.UpdateSecLabels(id, newNSLabels, lblsToDel)
+				if err != nil {
+					log.Errorf("Error while adding namespace policy to endpoint %s: %s", id, err)
+				}
+			}
+			wg.Done()
+		}(&wg, d.endpoints[i])
+	}
+	d.endpointsMU.RUnlock()
+	wg.Wait()
+	d.allowEndpointsToHost(ns.Name, k8sTypes.IsAnnotationSetTo(ns.Annotations, k8sTypes.DefaultDeny))
+}
+
+func (d *Daemon) namespaceModFn(oldObj interface{}, newObj interface{}) {
+	d.namespaceAddFn(newObj)
+}
+
+func (d *Daemon) namespaceDelFn(obj interface{}) {
+	ns, ok := obj.(*v1.Namespace)
+	if !ok {
+		return
+	}
+	d.allowEndpointsToHost(ns.Name, false)
 }
 
 func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
