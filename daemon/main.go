@@ -472,6 +472,7 @@ func initEnv() {
 	if len(k8sLabelsPrefixes) == 0 {
 		config.ValidK8sLabelPrefixes = labels.DefaultK8sLabelPrefixCfg()
 	} else {
+		config.ValidK8sLabelPrefixes = &labels.LabelPrefixCfg{}
 		for _, prefix := range k8sLabelsPrefixes {
 			config.ValidK8sLabelPrefixes.LabelPrefixes = append(
 				config.ValidK8sLabelPrefixes.LabelPrefixes,
