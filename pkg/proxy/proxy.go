@@ -136,23 +136,44 @@ func generateURL(w http.ResponseWriter, req *http.Request, dport uint16) (*url.U
 		return nil, fmt.Errorf("unable to parse port string: %s", err)
 	}
 
-	key := &Proxy4Key{
+	if pIP.To4() != nil {
+		key := &Proxy4Key{
+			SPort:   uint16(sport),
+			DPort:   dport,
+			Nexthdr: 6,
+		}
+
+		copy(key.SAddr[:], pIP.To4())
+
+		val, err := LookupEgress4(key)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
+		}
+
+		newUrl := *req.URL
+		newUrl.Scheme = "http"
+		newUrl.Host = val.HostPort()
+		log.Debugf("Found IPv4 proxy entry: %+v, new-url %+v\n", val, newUrl)
+		return &newUrl, nil
+	}
+
+	key := &Proxy6Key{
 		SPort:   uint16(sport),
 		DPort:   dport,
 		Nexthdr: 6,
 	}
 
-	copy(key.SAddr[:], pIP.To4())
+	copy(key.SAddr[:], pIP.To16())
 
-	val, err := LookupEgress4(key)
+	val, err := LookupEgress6(key)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to find proxy entry for %s: %s", key, err)
+		return nil, fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
 
 	newUrl := *req.URL
 	newUrl.Scheme = "http"
 	newUrl.Host = val.HostPort()
-	log.Debugf("Found proxy entry: %+v, new-url %+v\n", val, newUrl)
+	log.Debugf("Found IPv6 proxy entry: %+v, new-url %+v\n", val, newUrl)
 
 	return &newUrl, nil
 }
@@ -284,7 +305,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	})
 
 	redir.server = manners.NewWithServer(&http.Server{
-		Addr:    fmt.Sprintf(":%d", to),
+		Addr:    fmt.Sprintf("[::]:%d", to),
 		Handler: redirect,
 	})
 
