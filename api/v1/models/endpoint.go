@@ -49,6 +49,9 @@ type Endpoint struct {
 	// Policy information of endpoint
 	Policy *EndpointPolicy `json:"policy,omitempty"`
 
+	// Whether policy enforcement is enabled or not
+	PolicyEnabled bool `json:"policy-enabled,omitempty"`
+
 	// Current state of endpoint
 	// Required: true
 	State EndpointState `json:"state"`

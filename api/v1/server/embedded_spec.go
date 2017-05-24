@@ -921,6 +921,10 @@ func init() {
           "description": "Policy information of endpoint",
           "$ref": "#/definitions/EndpointPolicy"
         },
+        "policy-enabled": {
+          "description": "Whether policy enforcement is enabled or not",
+          "type": "boolean"
+        },
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
@@ -989,6 +993,10 @@ func init() {
         "mac": {
           "description": "MAC address",
           "type": "string"
+        },
+        "policy-enabled": {
+          "description": "Whether policy enforcement is enabled or not",
+          "type": "boolean"
         },
         "state": {
           "description": "Current state of endpoint",
