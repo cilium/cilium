@@ -230,9 +230,9 @@ func (p *Repository) GetJSON() string {
 
 // GetRulesMatching returns whether any of the rules in a repository contain a
 // rule with labels matching the labels in the provided LabelArray.
+//
+// Must be called with p.Mutex held
 func (p *Repository) GetRulesMatching(labels labels.LabelArray) bool {
-	p.Mutex.RLock()
-	defer p.Mutex.RUnlock()
 	for _, r := range p.rules {
 		rulesMatch := r.EndpointSelector.Matches(labels)
 		if rulesMatch {
@@ -243,8 +243,8 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) bool {
 }
 
 // NumRules returns the amount of rules in the policy repository.
+//
+// Must be called with p.Mutex held
 func (p *Repository) NumRules() int {
-	p.Mutex.RLock()
-	defer p.Mutex.RUnlock()
 	return len(p.rules)
 }
