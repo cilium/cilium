@@ -30,11 +30,16 @@ type CommonSuite struct{}
 var _ = Suite(&CommonSuite{})
 
 func (s *CommonSuite) TestGoArray2C(c *C) {
-	c.Assert(goArray2C([]byte{0, 0x01, 0x02, 0x03}), Equals, "{ 0x0, 0x1, 0x2, 0x3 }")
-	c.Assert(goArray2C([]byte{0, 0xFF, 0xFF, 0xFF}), Equals, "{ 0x0, 0xff, 0xff, 0xff }")
-	c.Assert(goArray2C([]byte{0xa, 0xbc, 0xde, 0xf1}), Equals, "{ 0xa, 0xbc, 0xde, 0xf1 }")
-	c.Assert(goArray2C([]byte{0}), Equals, "{ 0x0 }")
-	c.Assert(goArray2C([]byte{}), Equals, "{  }")
+	c.Assert(goArray2C([]byte{0, 0x01, 0x02, 0x03}), Equals, "0x0, 0x1, 0x2, 0x3")
+	c.Assert(goArray2C([]byte{0, 0xFF, 0xFF, 0xFF}), Equals, "0x0, 0xff, 0xff, 0xff")
+	c.Assert(goArray2C([]byte{0xa, 0xbc, 0xde, 0xf1}), Equals, "0xa, 0xbc, 0xde, 0xf1")
+	c.Assert(goArray2C([]byte{0}), Equals, "0x0")
+	c.Assert(goArray2C([]byte{}), Equals, "")
+}
+
+func (s *CommonSuite) TestFmtDefineComma(c *C) {
+	c.Assert(FmtDefineComma("foo", []byte{1, 2, 3}), Equals, "#define foo 0x1, 0x2, 0x3\n")
+	c.Assert(FmtDefineComma("foo", []byte{}), Equals, "#define foo \n")
 }
 
 func (s *CommonSuite) TestFmtDefineAddress(c *C) {
