@@ -664,6 +664,9 @@ definitions:
       policy:
         description: Policy information of endpoint
         "$ref": "#/definitions/EndpointPolicy"
+      policy-enabled:
+        description: Whether policy enforcement is enabled or not
+        type: boolean
   EndpointChangeRequest:
     description: |
       Structure which contains the mutable elements of an Endpoint.
@@ -700,6 +703,9 @@ definitions:
         type: string
       addressing:
         "$ref": "#/definitions/EndpointAddressing"
+      policy-enabled:
+        description: Whether policy enforcement is enabled or not
+        type: boolean
   EndpointState:
     description: State of endpoint
     type: string
