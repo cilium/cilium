@@ -16,7 +16,9 @@ package k8s
 
 import (
 	"encoding/json"
+	"fmt"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -63,13 +65,40 @@ var (
                     }
                 ]
             }
+        ],
+        "egress": [
+            {
+                "toPorts": [
+                    {
+                        "ports": [
+                            {
+                                "port": "80",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "rules": {
+                            "http": [
+                                {
+                                    "path": "/public",
+                                    "method": "GET"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "toCIDR": [
+                    {
+                        "ip": "10.0.0.1"
+                    }
+                ]
+            }
         ]
     }
 }`)
 )
 
 func (s *K8sSuite) TestParseThirdParty(c *C) {
-	policyRule := &CiliumNetworkPolicy{
+	expectedPolicyRule := &CiliumNetworkPolicy{
 		Metadata: metav1.ObjectMeta{
 			Name: "rule1",
 		},
@@ -90,15 +119,67 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 					},
 				},
 			},
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{
+						{
+							Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+							Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+						},
+					},
+					ToCIDR: []api.CIDR{
+						{
+							IP: "10.0.0.1",
+						},
+					},
+				},
+			},
 		},
 	}
 
-	rules, err := policyRule.Parse()
+	expectedSpecRule := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("any:role=backend"), labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default")),
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(
+						labels.ParseLabel("any:role=frontend"),
+						labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default"),
+					),
+				},
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+					},
+				},
+				ToCIDR: []api.CIDR{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+		},
+		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", k8s.PolicyLabelName, "rule1")),
+	}
+
+	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
+	c.Assert(*rules[0], DeepEquals, expectedSpecRule)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
-	c.Assert(cnpl, DeepEquals, *policyRule)
+	c.Assert(cnpl, DeepEquals, *expectedPolicyRule)
 }
