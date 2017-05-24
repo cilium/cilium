@@ -136,6 +136,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
+	bool orig_was_proxy;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -164,6 +165,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 #endif
+	BPF_V6(host_ip, HOST_IP);
+	orig_was_proxy = ipv6_addrcmp(&tuple->saddr, &host_ip) == 0;
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 
@@ -214,7 +217,8 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
+		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new,
+				 orig_was_proxy);
 		if (IS_ERR(ret))
 			return ret;
 		ct_state.proxy_port = ct_state_new.proxy_port;
@@ -242,8 +246,6 @@ skip_service_lookup:
 	default:
 		return DROP_POLICY;
 	}
-
-	BPF_V6(host_ip, HOST_IP);
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
@@ -727,9 +729,12 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
+	union v6addr host_ip = {};
 	int ret, l4_off, verdict;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
+	bool orig_was_proxy;
+	union v6addr orig_dip = {};
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -743,6 +748,10 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 #endif
+	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
+
+	BPF_V6(host_ip, HOST_IP);
+	orig_was_proxy = ipv6_addrcmp(&tuple.saddr, &host_ip) == 0;
 
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
@@ -790,7 +799,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return DROP_POLICY;
 
 		ct_state_new.orig_dport = tuple.dport;
-		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new);
+		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new,
+				 orig_was_proxy);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -798,23 +808,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
-		union v6addr host_ip = {};
-		union v6addr lxc_ip = {};
-		__be32 sum;
-
-		BPF_V6(lxc_ip, LXC_IP);
-		BPF_V6(host_ip, HOST_IP);
-
-		if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, &csum_off,
-				   ct_state.proxy_port, tuple.dport) < 0)
-			return DROP_WRITE_ERROR;
-
-		if (ipv6_store_daddr(skb, host_ip.addr, ETH_HLEN) < 0)
-			return DROP_WRITE_ERROR;
-
-		sum = csum_diff(lxc_ip.addr, 16, host_ip.addr, 16, 0);
-		if (csum_l4_replace(skb, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-			return DROP_CSUM_L4;
+		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
+						 ct_state.proxy_port, tuple.dport,
+						 orig_dip, &tuple, &host_ip);
+		if (IS_ERR(ret))
+			return ret;
 
 		/* Mark packet with PACKET_HOST and pass to host */
 		if (skb_change_type(skb, 0) < 0)
