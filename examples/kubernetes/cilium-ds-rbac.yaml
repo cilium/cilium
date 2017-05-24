@@ -19,10 +19,17 @@ rules:
   - extensions
   resources:
   - networkpolicies
+  - thirdpartyresources
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - "*"
 ---
 apiVersion: v1
 kind: ServiceAccount
