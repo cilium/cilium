@@ -80,7 +80,9 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 			}
 			retRule.Ingress[i].FromEndpoints[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
 		}
+		retRule.Ingress[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
 		copy(retRule.Ingress[i].ToPorts, ing.ToPorts)
+		retRule.Ingress[i].FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
 		copy(retRule.Ingress[i].FromCIDR, ing.FromCIDR)
 
 		retRule.Ingress[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
@@ -95,7 +97,9 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	retRule.Egress = make([]api.EgressRule, len(r.Spec.Egress))
 	for i, ing := range r.Spec.Egress {
+		retRule.Egress[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
 		copy(retRule.Egress[i].ToPorts, ing.ToPorts)
+		retRule.Egress[i].ToCIDR = make([]api.CIDR, len(ing.ToCIDR))
 		copy(retRule.Egress[i].ToCIDR, ing.ToCIDR)
 	}
 
