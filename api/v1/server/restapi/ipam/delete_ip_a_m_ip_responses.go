@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type DeleteIPAMIPOK
+// DeleteIPAMIPOKCode is the HTTP code returned for type DeleteIPAMIPOK
 const DeleteIPAMIPOKCode int = 200
 
 /*DeleteIPAMIPOK Success
@@ -32,7 +32,7 @@ func (o *DeleteIPAMIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 	rw.WriteHeader(200)
 }
 
-// HTTP code for type DeleteIPAMIPInvalid
+// DeleteIPAMIPInvalidCode is the HTTP code returned for type DeleteIPAMIPInvalid
 const DeleteIPAMIPInvalidCode int = 400
 
 /*DeleteIPAMIPInvalid Invalid IP address
@@ -53,7 +53,7 @@ func (o *DeleteIPAMIPInvalid) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(400)
 }
 
-// HTTP code for type DeleteIPAMIPNotFound
+// DeleteIPAMIPNotFoundCode is the HTTP code returned for type DeleteIPAMIPNotFound
 const DeleteIPAMIPNotFoundCode int = 404
 
 /*DeleteIPAMIPNotFound IP address not found
@@ -74,7 +74,7 @@ func (o *DeleteIPAMIPNotFound) WriteResponse(rw http.ResponseWriter, producer ru
 	rw.WriteHeader(404)
 }
 
-// HTTP code for type DeleteIPAMIPFailure
+// DeleteIPAMIPFailureCode is the HTTP code returned for type DeleteIPAMIPFailure
 const DeleteIPAMIPFailureCode int = 500
 
 /*DeleteIPAMIPFailure Address release failure
@@ -116,7 +116,7 @@ func (o *DeleteIPAMIPFailure) WriteResponse(rw http.ResponseWriter, producer run
 
 }
 
-// HTTP code for type DeleteIPAMIPDisabled
+// DeleteIPAMIPDisabledCode is the HTTP code returned for type DeleteIPAMIPDisabled
 const DeleteIPAMIPDisabledCode int = 501
 
 /*DeleteIPAMIPDisabled Allocation for address family disabled
