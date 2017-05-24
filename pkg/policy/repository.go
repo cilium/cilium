@@ -227,3 +227,24 @@ func (p *Repository) GetJSON() string {
 
 	return JSONMarshalRules(result)
 }
+
+// GetRulesMatching returns whether any of the rules in a repository contain a
+// rule with labels matching the labels in the provided LabelArray.
+func (p *Repository) GetRulesMatching(labels labels.LabelArray) bool {
+	p.Mutex.RLock()
+	defer p.Mutex.RUnlock()
+	for _, r := range p.rules {
+		rulesMatch := r.EndpointSelector.Matches(labels)
+		if rulesMatch {
+			return true
+		}
+	}
+	return false
+}
+
+// NumRules returns the amount of rules in the policy repository.
+func (p *Repository) NumRules() int {
+	p.Mutex.RLock()
+	defer p.Mutex.RUnlock()
+	return len(p.rules)
+}

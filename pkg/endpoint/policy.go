@@ -263,6 +263,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	e.Consumable.Mutex.RUnlock()
 	repo.Mutex.RUnlock()
 
+	enable := owner.UpdatePolicyEnforcement(e)
+	if enable {
+		opts[OptionPolicy] = "enabled"
+	} else {
+		opts[OptionPolicy] = "disabled"
+	}
+
 	optsChanged := e.ApplyOptsLocked(opts)
 
 	if !e.PolicyCalculated {
