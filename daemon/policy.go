@@ -100,6 +100,8 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 
 // UpdatePolicyEnforcement returns whether policy enforcement needs to be
 // enabled for the specified endpoint.
+//
+// Must be called with e.Consumable.Mutex and d.GetPolicyRepositor().Mutex held
 func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		return true
@@ -116,15 +118,11 @@ func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
 			return false
 		}
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
-		e.Mutex.RLock()
 		// Convert to LabelArray so we can pass to Matches function later.
 		var endpointLabels labels.LabelArray
 		for _, lbl := range e.Consumable.LabelList {
 			endpointLabels = append(endpointLabels, lbl)
 		}
-		e.Mutex.RUnlock()
-		d.GetPolicyRepository().Mutex.RLock()
-		defer d.GetPolicyRepository().Mutex.RUnlock()
 		// Check if rules match the labels for this endpoint.
 		// If so, enable policy enforcement.
 		return d.GetPolicyRepository().GetRulesMatching(endpointLabels)
