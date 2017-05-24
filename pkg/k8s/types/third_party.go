@@ -70,37 +70,45 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		retRule.EndpointSelector.LabelSelector.MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
 	}
 
-	retRule.Ingress = make([]api.IngressRule, len(r.Spec.Ingress))
-	for i, ing := range r.Spec.Ingress {
-		retRule.Ingress[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
-		for j, ep := range ing.FromEndpoints {
-			retRule.Ingress[i].FromEndpoints[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
-			if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
-				retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
+	if r.Spec.Ingress != nil {
+		retRule.Ingress = make([]api.IngressRule, len(r.Spec.Ingress))
+		for i, ing := range r.Spec.Ingress {
+			if ing.FromEndpoints != nil {
+				retRule.Ingress[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
+				for j, ep := range ing.FromEndpoints {
+					retRule.Ingress[i].FromEndpoints[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+					if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
+						retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
+					}
+					retRule.Ingress[i].FromEndpoints[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
+				}
 			}
-			retRule.Ingress[i].FromEndpoints[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
-		}
-		retRule.Ingress[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
-		copy(retRule.Ingress[i].ToPorts, ing.ToPorts)
-		retRule.Ingress[i].FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
-		copy(retRule.Ingress[i].FromCIDR, ing.FromCIDR)
 
-		retRule.Ingress[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
-		for j, ep := range ing.FromRequires {
-			retRule.Ingress[i].FromRequires[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
-			if retRule.Ingress[i].FromRequires[j].MatchLabels == nil {
-				retRule.Ingress[i].FromRequires[j].MatchLabels = map[string]string{}
+			if ing.ToPorts != nil {
+				retRule.Ingress[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
+				copy(retRule.Ingress[i].ToPorts, ing.ToPorts)
 			}
-			retRule.Ingress[i].FromRequires[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
+			if ing.FromCIDR != nil {
+				retRule.Ingress[i].FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
+				copy(retRule.Ingress[i].FromCIDR, ing.FromCIDR)
+			}
+
+			if ing.FromRequires != nil {
+				retRule.Ingress[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
+				for j, ep := range ing.FromRequires {
+					retRule.Ingress[i].FromRequires[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+					if retRule.Ingress[i].FromRequires[j].MatchLabels == nil {
+						retRule.Ingress[i].FromRequires[j].MatchLabels = map[string]string{}
+					}
+					retRule.Ingress[i].FromRequires[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
+				}
+			}
 		}
 	}
 
-	retRule.Egress = make([]api.EgressRule, len(r.Spec.Egress))
-	for i, ing := range r.Spec.Egress {
-		retRule.Egress[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
-		copy(retRule.Egress[i].ToPorts, ing.ToPorts)
-		retRule.Egress[i].ToCIDR = make([]api.CIDR, len(ing.ToCIDR))
-		copy(retRule.Egress[i].ToCIDR, ing.ToCIDR)
+	if r.Spec.Egress != nil {
+		retRule.Egress = make([]api.EgressRule, len(r.Spec.Egress))
+		copy(retRule.Egress, r.Spec.Egress)
 	}
 
 	// Convert resource name to a Cilium policy rule label
