@@ -250,23 +250,23 @@ CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')
 
 SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
 SERVER1_ID=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $1}')
-SERVER1_IP4=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $5}')
+SERVER1_IP4=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $6}')
 
 SERVER2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server2)
 SERVER2_ID=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $1}')
-SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $5}')
+SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $6}')
 
 SERVER3_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server3)
 SERVER3_ID=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $1}')
-SERVER3_IP4=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $5}')
+SERVER3_IP4=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $6}')
 
 SERVER4_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server4)
 SERVER4_ID=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $1}')
-SERVER4_IP4=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $5}')
+SERVER4_IP4=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $6}')
 
 SERVER5_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server5)
 SERVER5_ID=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $1}')
-SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $5}')
+SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $6}')
 
 cilium endpoint config $CLIENT_ID  | grep ConntrackLocal
 cilium endpoint config $SERVER1_ID | grep ConntrackLocal

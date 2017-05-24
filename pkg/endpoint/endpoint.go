@@ -61,6 +61,9 @@ const (
 	OptionDropNotify          = "DropNotification"
 	OptionNAT46               = "NAT46"
 	OptionPolicy              = "Policy"
+	AlwaysEnforce             = "always"
+	NeverEnforce              = "never"
+	DefaultEnforcement        = "default"
 
 	maxLogs = 256
 )
@@ -268,6 +271,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		HostMac:          e.NodeMAC.String(),
 		State:            currentState, // TODO: Validate
 		Policy:           e.Consumable.GetModel(),
+		PolicyEnabled:    e.Opts.IsEnabled(OptionPolicy),
 		Status:           e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),

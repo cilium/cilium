@@ -64,12 +64,9 @@ var (
 
 	// Arguments variables keep in alphabetical order
 	bpfRoot            string
-	consulAddr         string
 	disableConntrack   bool
-	enablePolicy       bool
 	enableTracing      bool
 	enableLogstash     bool
-	etcdAddr           []string
 	k8sLabelsPrefixes  []string
 	kvStore            string
 	validLabels        []string
@@ -226,7 +223,7 @@ func init() {
 
 	flags.StringVarP(&config.Device, "device", "d", "undefined", "Device to snoop on")
 	flags.BoolVar(&disableConntrack, "disable-conntrack", false, "Disable connection tracking")
-	flags.BoolVar(&enablePolicy, "enable-policy", false, "Enable policy enforcement")
+	flags.StringVar(&config.EnablePolicy, "enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.StringVarP(&config.DockerEndpoint, "docker", "e", "unix:///var/run/docker.sock",
 		"Register a listener for docker events on the given endpoint")
 	flags.BoolVar(&enableTracing, "enable-tracing", false, "Enable tracing while determining policy")
@@ -447,7 +444,19 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackLocal, false)
-	config.Opts.Set(endpoint.OptionPolicy, enablePolicy)
+
+	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
+
+	switch config.EnablePolicy {
+	case endpoint.DefaultEnforcement:
+		config.Opts.Set(endpoint.OptionPolicy, false)
+	case endpoint.NeverEnforce:
+		config.Opts.Set(endpoint.OptionPolicy, false)
+	case endpoint.AlwaysEnforce:
+		config.Opts.Set(endpoint.OptionPolicy, true)
+	default:
+		log.Fatalf("invalid value for enable-policy %q provided. Supported values: %s, %s, %s.", config.EnablePolicy, endpoint.DefaultEnforcement, endpoint.NeverEnforce, endpoint.AlwaysEnforce)
+	}
 
 	err := SetupKvStore(kvStore, kvStoreOpts)
 	if err != nil {

@@ -214,6 +214,10 @@ func (d *Daemon) PolicyEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
 }
 
+func (d *Daemon) PolicyEnforcement() string {
+	return d.conf.EnablePolicy
+}
+
 // DebugEnabled returns whether if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
@@ -758,6 +762,11 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
 	log.Debugf("Applied %d changes", changes)
 	if changes > 0 {
+		if config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.AlwaysEnforce {
+			config.EnablePolicy = endpoint.AlwaysEnforce
+		} else if !config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.NeverEnforce {
+			config.EnablePolicy = endpoint.NeverEnforce
+		}
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s\n", err)
 			log.Warningf("%s", msg)

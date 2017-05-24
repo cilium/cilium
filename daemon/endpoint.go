@@ -213,6 +213,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 
 	ep.SetDefaultOpts(h.d.conf.Opts)
+	ep.Opts.Set(endpoint.OptionPolicy, h.d.PolicyEnabled())
 
 	h.d.endpointsMU.Lock()
 	defer h.d.endpointsMU.Unlock()

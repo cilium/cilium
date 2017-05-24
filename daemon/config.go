@@ -70,6 +70,7 @@ type Config struct {
 	K8sCfgPath     string                  // Kubeconfig path
 	KVStore        string                  // key-value store type
 	LBInterface    string                  // Set with name of the interface to loadbalance packets from
+	EnablePolicy   string                  // Whether policy enforcement is enabled.
 	Tunnel         string                  // Tunnel mode
 
 	ValidLabelPrefixesMU  sync.RWMutex           // Protects the 2 variables below
@@ -103,6 +104,7 @@ func NewConfig() *Config {
 	}
 }
 
+// IsK8sEnabled checks if Cilium is being used in tandem with Kubernetes.
 func (c *Config) IsK8sEnabled() bool {
 	return c.K8sEndpoint != "" || c.K8sCfgPath != ""
 }
