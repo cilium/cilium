@@ -43,7 +43,9 @@ static inline int is_valid_lxc_src_mac(struct ethhdr *eth)
 #ifndef DISABLE_SIP_VERIFICATION
 static inline int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
-	union v6addr valid = LXC_IP;
+	union v6addr valid = {};
+
+	BPF_V6(valid, LXC_IP);
 
 	return !ipv6_addrcmp((union v6addr *) &ip6->saddr, &valid);
 }
