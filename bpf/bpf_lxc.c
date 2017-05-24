@@ -127,7 +127,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
-	union v6addr host_ip = HOST_IP;
+	union v6addr host_ip = {};
 	int ret, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
@@ -248,6 +248,8 @@ skip_service_lookup:
 
 	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
+
+	BPF_V6(host_ip, HOST_IP);
 
 	/* Check if destination is within our cluster prefix */
 	if (ipv6_match_prefix_64(daddr, &host_ip)) {
@@ -939,7 +941,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
 {
-	union v6addr dp = LXC_IP;
+	union v6addr dp = {};
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
@@ -948,6 +950,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
+	BPF_V6(dp, LXC_IP);
 	ret = ipv4_to_ipv6(skb, ip4, 14, &dp);
 	if (IS_ERR(ret))
 		return ret;

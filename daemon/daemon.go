@@ -431,7 +431,7 @@ func (d *Daemon) init() error {
 		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
-	fw.WriteString(common.FmtDefineAddress("HOST_IP", hostIP))
+	fw.WriteString(common.FmtDefineComma("HOST_IP", hostIP))
 	fmt.Fprintf(fw, "#define HOST_ID %d\n", policy.GetReservedID(labels.IDNameHost))
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", policy.GetReservedID(labels.IDNameWorld))
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)

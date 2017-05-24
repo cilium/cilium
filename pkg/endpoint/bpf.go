@@ -161,7 +161,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
-	fw.WriteString(common.FmtDefineAddress("LXC_IP", e.IPv6))
+	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
 	if e.IPv4 != nil {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", binary.BigEndian.Uint32(e.IPv4))
 	}
