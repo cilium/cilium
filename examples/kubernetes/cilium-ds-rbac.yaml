@@ -63,7 +63,7 @@ spec:
         kubernetes.io/cluster-service: "true"
     spec:
       containers:
-      - image: consul:v0.6.4
+      - image: consul:0.8.3
         imagePullPolicy: Always
         name: cilium-consul
         command: [ "consul" ]
