@@ -98,6 +98,40 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 	d.endpointsMU.RUnlock()
 }
 
+// UpdatePolicyEnforcement returns whether policy enforcement needs to be
+// enabled for the specified endpoint.
+func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
+	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
+		return true
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
+		log.Infof("updatePolicyEnforcement: default enforcement, no k8s")
+		if d.GetPolicyRepository().NumRules() > 0 {
+			log.Infof("updatePolicyEnforcement: set to true, num rules > 0 ")
+			// TODO - revisit setting Daemon endpoint.OptionPolicy here
+			d.conf.Opts.Set(endpoint.OptionPolicy, true)
+			return true
+		} else {
+			log.Infof("updatePolicyEnforcement: set to false, num rules == 0")
+			d.conf.Opts.Set(endpoint.OptionPolicy, false)
+			return false
+		}
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
+		e.Mutex.RLock()
+		// Convert to LabelArray so we can pass to Matches function later.
+		var endpointLabels labels.LabelArray
+		for _, lbl := range e.Consumable.LabelList {
+			endpointLabels = append(endpointLabels, lbl)
+		}
+		e.Mutex.RUnlock()
+		d.GetPolicyRepository().Mutex.RLock()
+		defer d.GetPolicyRepository().Mutex.RUnlock()
+		// Check if rules match the labels for this endpoint.
+		// If so, enable policy enforcement.
+		return d.GetPolicyRepository().GetRulesMatching(endpointLabels)
+	}
+	return false
+}
+
 type getPolicyResolve struct {
 	daemon *Daemon
 }
@@ -178,23 +212,6 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	return NewGetPolicyResolveOK().WithPayload(&result)
 }
 
-func (d *Daemon) enablePolicyEnforcement() {
-	d.conf.Opts.Set(endpoint.OptionPolicy, true)
-
-	enablePolicy := map[string]string{endpoint.OptionPolicy: "enabled"}
-
-	d.endpointsMU.RLock()
-	for _, ep := range d.endpoints {
-		ep.Mutex.Lock()
-		optionsChanged := ep.ApplyOptsLocked(enablePolicy)
-		ep.Mutex.Unlock()
-		if optionsChanged {
-			ep.RegenerateIfReady(d)
-		}
-	}
-	d.endpointsMU.RUnlock()
-}
-
 // AddOptions are options which can be passed to PolicyAdd
 type AddOptions struct {
 	// Replace if true indicates that existing rules with identical labels should be replaced
@@ -223,7 +240,7 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) error {
 		// Restore old rules
 		if len(oldRules) > 0 {
 			if err2 := d.policy.AddListLocked(oldRules); err2 != nil {
-				log.Errorf("Error while restore old rules after adding of new rules failed: %s", err2)
+				log.Errorf("Error while restoring old rules after adding of new rules failed: %s", err2)
 				log.Errorf("--- INCONSISTENT STATE OF POLICY ---")
 				return err
 			}
@@ -236,9 +253,10 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) error {
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
-// daemon.  Policy enforcement is automatically enabled if currently disabled.
-// Eventual changes in policy rules are propagated to all locally managed
-// endpoints.
+// daemon.  Policy enforcement is automatically enabled if currently disabled if
+// k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
+// pods which are selected. Eventual changes in policy rules are propagated to
+// all locally managed endpoints.
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) *apierror.APIError {
 	log.Debugf("Policy Add Request: %+v", rules)
 
@@ -246,11 +264,6 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) *apierror.APIError
 		if err := r.Validate(); err != nil {
 			return apierror.Error(PutPolicyFailureCode, err)
 		}
-	}
-
-	// Enable policy if not already enabled
-	if !d.conf.Opts.IsEnabled(endpoint.OptionPolicy) {
-		d.enablePolicyEnforcement()
 	}
 
 	if err := d.policyAdd(rules, opts); err != nil {

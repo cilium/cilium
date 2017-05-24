@@ -156,7 +156,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	if !e.PolicyCalculated && owner.PolicyEnabled() {
+	if !e.PolicyCalculated && e.Opts.IsEnabled(OptionPolicy) && owner.PolicyEnforcement() != NeverEnforce {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 

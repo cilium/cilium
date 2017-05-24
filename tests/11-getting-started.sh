@@ -99,6 +99,8 @@ cat <<EOF | cilium policy import -
 }]
 EOF
 
+sleep 5
+
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 ------"
 RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/public")

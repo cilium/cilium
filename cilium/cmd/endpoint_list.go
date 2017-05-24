@@ -43,8 +43,14 @@ func init() {
 }
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n",
-		ep.ID, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
+	var isPolicyEnabled string
+	if ep.PolicyEnabled {
+		isPolicyEnabled = "Enabled"
+	} else {
+		isPolicyEnabled = "Disabled"
+	}
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		ep.ID, isPolicyEnabled, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
 }
 
 func listEndpoints() {
@@ -58,17 +64,20 @@ func listEndpoints() {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
 	const (
-		labelsIDTitle  = "IDENTITY"
-		labelsDesTitle = "LABELS (source:key[=value])"
-		ipv6Title      = "IPv6"
-		ipv4Title      = "IPv4"
-		endpointTitle  = "ENDPOINT"
-		statusTitle    = "STATUS"
+		labelsIDTitle    = "IDENTITY"
+		labelsDesTitle   = "LABELS (source:key[=value])"
+		ipv6Title        = "IPv6"
+		ipv4Title        = "IPv4"
+		endpointTitle    = "ENDPOINT"
+		statusTitle      = "STATUS"
+		policyTitle      = "POLICY"
+		enforcementTitle = "ENFORCEMENT"
 	)
 
 	if !noHeaders {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			endpointTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			endpointTitle, policyTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
+		fmt.Fprintf(w, "\t%s\t\t\t\t\t\t\n", enforcementTitle)
 	}
 
 	for _, ep := range eps {
@@ -88,7 +97,7 @@ func listEndpoints() {
 						listEndpoint(w, ep, id, lbl)
 						first = false
 					} else {
-						fmt.Fprintf(w, "\t\t%s\t\t\t\t\n", lbl)
+						fmt.Fprintf(w, "\t\t\t%s\t\t\t\t\n", lbl)
 					}
 				}
 			}

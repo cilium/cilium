@@ -126,7 +126,7 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
-FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $2}')
+FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
 
 EXPECTED_CONSUMER="1\n$FOO_SEC_ID"
 
@@ -177,7 +177,7 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
-FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $2}')
+FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
 
 EXPECTED_CONSUMER="$FOO_SEC_ID"
 

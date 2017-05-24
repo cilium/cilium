@@ -134,7 +134,7 @@ func (id *Identity) AssociateEndpoint(epID string) {
 }
 
 // DisassociateEndpoint disassociates the endpoint endpoint with identity and
-// return true if successful.
+// returns true if successful.
 func (id *Identity) DisassociateEndpoint(epID string) bool {
 	if _, ok := id.Endpoints[epID]; ok {
 		delete(id.Endpoints, epID)

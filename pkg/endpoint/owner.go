@@ -28,8 +28,14 @@ type Owner interface {
 	// Must return true if dry mode is enabled
 	DryModeEnabled() bool
 
-	// PolicyEnabled returns true if policy enforcement has been enabled
+	// PolicyEnabled returns whether policy enforcement is enabled
 	PolicyEnabled() bool
+
+	// UpdatePolicyEnforcement returns whether policy enforcement needs to be updated.
+	UpdatePolicyEnforcement(ep *Endpoint) bool
+
+	// GetPolicyEnforcementType returns the type of policy enforcement for the Owner.
+	PolicyEnforcement() string
 
 	// AlwaysAllowLocalhost returns true if localhost is always allowed to
 	// reach local endpoints
