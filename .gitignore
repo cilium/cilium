@@ -20,6 +20,7 @@ _testmain.go
 *.test
 *.prof
 
+*.swn
 *.swp
 .vagrant
 coverage.out
