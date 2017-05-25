@@ -58,6 +58,16 @@ union v6addr {
         __u8 addr[16];
 };
 
+/* Macros for working with L3 cilium defined IPV6 addresses */
+#define BPF_V6(dst, ...)	BPF_V6_16(dst, __VA_ARGS__)
+#define BPF_V6_16(dst, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) \
+	({										\
+		dst.p1 = bpf_htonl( (a1) << 24 |  (a2) << 16 |  (a3) << 8 |  (a4));	\
+		dst.p2 = bpf_htonl( (a5) << 24 |  (a6) << 16 |  (a7) << 8 |  (a8));	\
+		dst.p3 = bpf_htonl( (a9) << 24 | (a10) << 16 | (a11) << 8 | (a12));	\
+		dst.p4 = bpf_htonl((a13) << 24 | (a14) << 16 | (a15) << 8 | (a16));	\
+	})
+
 #define PORTMAP_MAX 16
 
 struct portmap {

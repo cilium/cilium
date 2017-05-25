@@ -114,7 +114,7 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
-	union v6addr node_ip = { . addr = ROUTER_IP };
+	union v6addr node_ip = { };
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
@@ -138,6 +138,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	}
 #endif
 
+	BPF_V6(node_ip, ROUTER_IP);
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {

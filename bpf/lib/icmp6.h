@@ -44,23 +44,23 @@ static inline int __inline__ icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 {
 	union macaddr smac, dmac = NODE_MAC;
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-	union v6addr sip, dip;
+	union v6addr sip, dip, router_ip;
 	__be32 sum;
-	__u8 router_ip[] = ROUTER_IP;
 
 	if (ipv6_load_saddr(skb, nh_off, &sip) < 0 ||
 	    ipv6_load_daddr(skb, nh_off, &dip) < 0)
 		return DROP_INVALID;
 
-	/* skb->saddr = skb->daddr  */
-	if (ipv6_store_saddr(skb, router_ip, nh_off) < 0)
+	BPF_V6(router_ip, ROUTER_IP);
+	/* skb->saddr = skb->daddr */
+	if (ipv6_store_saddr(skb, router_ip.addr, nh_off) < 0)
 		return DROP_WRITE_ERROR;
 	/* skb->daddr = skb->saddr */
 	if (ipv6_store_daddr(skb, sip.addr, nh_off) < 0)
 		return DROP_WRITE_ERROR;
 
 	/* fixup checksums */
-	sum = csum_diff(sip.addr, 16, router_ip, 16, 0);
+	sum = csum_diff(sip.addr, 16, router_ip.addr, 16, 0);
 	if (l4_csum_replace(skb, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
@@ -330,7 +330,7 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 
 static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 {
-	union v6addr target, router = { . addr = ROUTER_IP };
+	union v6addr target, router;
 
 	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
@@ -338,6 +338,7 @@ static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 
 	cilium_trace(skb, DBG_ICMP6_NS, target.p3, target.p4);
 
+	BPF_V6(router, ROUTER_IP);
 	if (ipv6_addrcmp(&target, &router) == 0) {
 		union macaddr router_mac = NODE_MAC;
 
@@ -378,10 +379,11 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 
 static inline int icmp6_handle(struct __sk_buff *skb, int nh_off, struct ipv6hdr *ip6)
 {
-	union v6addr router_ip = { .addr = ROUTER_IP };
+	union v6addr router_ip;
 	__u8 type = icmp6_load_type(skb, nh_off);
 
 	cilium_trace(skb, DBG_ICMP6_HANDLE, type, 0);
+	BPF_V6(router_ip, ROUTER_IP);
 
 	switch(type) {
 	case 135:

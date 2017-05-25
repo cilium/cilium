@@ -410,7 +410,7 @@ func (d *Daemon) init() error {
 	}
 
 	fmt.Fprintf(fw, "#define NODE_ID %#x\n", d.conf.NodeAddress.IPv6Address.NodeID())
-	fw.WriteString(common.FmtDefineArray("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
+	fw.WriteString(common.FmtDefineComma("ROUTER_IP", d.conf.NodeAddress.IPv6Address))
 
 	ipv4GW := d.conf.NodeAddress.IPv4Address
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
