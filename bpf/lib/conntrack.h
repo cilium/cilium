@@ -120,14 +120,12 @@ struct tcp_flags {
 
 static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
+	union v6addr tmp_addr = {};
 	__u16 tmp;
 
-#ifndef CONNTRACK_LOCAL
-	union v6addr tmp_addr = {};
 	ipv6_addr_copy(&tmp_addr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &tuple->daddr);
 	ipv6_addr_copy(&tuple->daddr, &tmp_addr);
-#endif
 
 	/* The meaning of .addr switches without requiring to copy bits
 	 * around, we only have to swap the ports */
@@ -146,12 +144,8 @@ static inline void ct6_cilium_trace_tuple(struct __sk_buff *skb, __u8 type,
 					  const struct ipv6_ct_tuple *tuple,
 					  __u32 rev_nat_index, int dir)
 {
-#ifdef CONNTRACK_LOCAL
-	cilium_trace(skb, type, tuple->addr.p4, rev_nat_index);
-#else
 	__u32 addr_p4 = (dir == CT_INGRESS) ? tuple->saddr.p4 : tuple->daddr.p4;
 	cilium_trace(skb, type, addr_p4, rev_nat_index);
-#endif
 }
 
 /* Offset must point to IPv6 */
@@ -282,16 +276,12 @@ out:
 
 static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
+	__be32 tmp_addr = tuple->saddr;
 	__u16 tmp;
 
-#ifndef CONNTRACK_LOCAL
-	__be32 tmp_addr = tuple->saddr;
 	tuple->saddr = tuple->daddr;
 	tuple->daddr = tmp_addr;
-#endif
 
-	/* The meaning of .addr switches without requiring to copy bits
-	 * around for CONNTRACK_LOCAL, we only have to swap the ports */
 	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
@@ -307,12 +297,8 @@ static inline void ct4_cilium_trace_tuple(struct __sk_buff *skb, __u8 type,
 					  const struct ipv4_ct_tuple *tuple,
 					  __u32 rev_nat_index, int dir)
 {
-#ifdef CONNTRACK_LOCAL
-	cilium_trace(skb, type, tuple->addr, rev_nat_index);
-#else
 	__be32 addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
 	cilium_trace(skb, type, addr, rev_nat_index);
-#endif
 }
 
 /* Offset must point to IPv4 header */
@@ -508,12 +494,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.proxy_port = 0;
 
-#ifdef CONNTRACK_LOCAL
-	ipv6_addr_copy(&icmp_tuple.addr, &tuple->addr);
-#else
 	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 	ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
-#endif
 
 	cilium_trace(skb, DBG_CT_CREATED, 0, (icmp_tuple.nexthdr << 8) | icmp_tuple.flags);
 	/* FIXME: We could do a lookup and check if an L3 entry already exists */
@@ -602,33 +584,25 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	if (ct_state->addr) {
 		__u8 flags = tuple->flags;
-		__be32 addr;
+		__be32 saddr, daddr;
 
-#ifdef CONNTRACK_LOCAL
-		addr = tuple->addr;
-		tuple->addr = ct_state->addr;
-#else
-		__be32 daddr;
-
-		addr  = tuple->saddr;
+		saddr = tuple->saddr;
 		daddr = tuple->daddr;
 		if (dir == CT_INGRESS)
 			tuple->saddr = ct_state->addr;
 		else
 			tuple->daddr = ct_state->addr;
-#endif
+
 		/* We are looping back into the origin endpoint through a service,
 		 * set up a conntrack tuple for the reply to ensure we do rev NAT
 		 * before attempting to route the destination address which will
 		 * not point back to the right source. */
 		if (ct_state->loopback) {
 			tuple->flags = TUPLE_F_IN;
-#ifndef CONNTRACK_LOCAL
 			if (dir == CT_INGRESS)
 				tuple->daddr = ct_state->svc_addr;
 			else
 				tuple->saddr = ct_state->svc_addr;
-#endif
 		}
 
 		cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
@@ -637,23 +611,15 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 				       ct_state->rev_nat_index, dir);
 		if (map_update_elem(map, tuple, &entry, 0) < 0)
 			return DROP_CT_CREATE_FAILED;
-#ifdef CONNTRACK_LOCAL
-		tuple->addr = addr;
-#else
-		tuple->saddr = addr;
+		tuple->saddr = saddr;
 		tuple->daddr = daddr;
-#endif
 		tuple->flags = flags;
 	}
 
 	/* Create an ICMP entry to relate errors */
 	struct ipv4_ct_tuple icmp_tuple = {
-#ifdef CONNTRACK_LOCAL
-		.addr = tuple->addr,
-#else
 		.daddr = tuple->daddr,
 		.saddr = tuple->saddr,
-#endif
 		.nexthdr = IPPROTO_ICMP,
 		.sport = 0,
 		.dport = 0,

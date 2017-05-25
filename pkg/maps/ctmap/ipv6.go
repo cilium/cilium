@@ -27,7 +27,8 @@ import (
 
 //CtKey6 represents the key for IPv6 entries in the local BPF conntrack map.
 type CtKey6 struct {
-	addr    types.IPv6
+	saddr   types.IPv6
+	daddr   types.IPv6
 	sport   uint16
 	dport   uint16
 	nexthdr u8proto.U8proto
@@ -49,7 +50,7 @@ func (k *CtKey6) Convert() CtKey {
 }
 
 func (k *CtKey6) String() string {
-	return fmt.Sprintf("%s:%d, %d, %d, %d", k.addr, k.sport, k.dport, k.nexthdr, k.flags)
+	return fmt.Sprintf("%s:%d, %d, %d, %d", k.daddr, k.sport, k.dport, k.nexthdr, k.flags)
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
@@ -62,14 +63,14 @@ func (k CtKey6) Dump(buffer *bytes.Buffer) bool {
 	if k.flags&TUPLE_F_IN != 0 {
 		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
 			k.nexthdr.String(),
-			k.addr.IP().String(),
+			k.daddr.IP().String(),
 			k.sport, k.dport),
 		)
 
 	} else {
 		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
 			k.nexthdr.String(),
-			k.addr.IP().String(),
+			k.daddr.IP().String(),
 			k.dport,
 			k.sport),
 		)

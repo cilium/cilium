@@ -157,14 +157,10 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
 	 * address the field currently represents.
 	 */
-#ifdef CONNTRACK_LOCAL
-	ipv6_addr_copy(&tuple->addr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
-#else
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
-#endif
+
 	BPF_V6(host_ip, HOST_IP);
 	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
 
@@ -446,14 +442,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	 * address the field currently represents.
 	 */
 	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
-#ifdef CONNTRACK_LOCAL
-	tuple.addr = ip4->daddr;
-	orig_dip = tuple.addr;
-#else
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	orig_dip = tuple.daddr;
-#endif
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
@@ -742,12 +733,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip6->nexthdr;
 
-#ifdef CONNTRACK_LOCAL
-	ipv6_addr_copy(&tuple.addr, (union v6addr *) &ip6->saddr);
-#else
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-#endif
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
 	BPF_V6(host_ip, HOST_IP);
@@ -845,12 +832,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	tuple.nexthdr = ip4->protocol;
 
 	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
-#ifdef CONNTRACK_LOCAL
-	tuple.addr = ip4->saddr;
-#else
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
-#endif
 	orig_dip = ip4->daddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
