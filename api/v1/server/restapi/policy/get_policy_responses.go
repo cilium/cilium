@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type GetPolicyOK
+// GetPolicyOKCode is the HTTP code returned for type GetPolicyOK
 const GetPolicyOKCode int = 200
 
 /*GetPolicyOK Success
@@ -53,7 +53,7 @@ func (o *GetPolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pro
 
 }
 
-// HTTP code for type GetPolicyNotFound
+// GetPolicyNotFoundCode is the HTTP code returned for type GetPolicyNotFound
 const GetPolicyNotFoundCode int = 404
 
 /*GetPolicyNotFound No policy rules found

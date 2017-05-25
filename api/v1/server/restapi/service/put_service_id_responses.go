@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// HTTP code for type PutServiceIDOK
+// PutServiceIDOKCode is the HTTP code returned for type PutServiceIDOK
 const PutServiceIDOKCode int = 200
 
 /*PutServiceIDOK Updated
@@ -32,7 +32,7 @@ func (o *PutServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 	rw.WriteHeader(200)
 }
 
-// HTTP code for type PutServiceIDCreated
+// PutServiceIDCreatedCode is the HTTP code returned for type PutServiceIDCreated
 const PutServiceIDCreatedCode int = 201
 
 /*PutServiceIDCreated Created
@@ -53,7 +53,7 @@ func (o *PutServiceIDCreated) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(201)
 }
 
-// HTTP code for type PutServiceIDInvalidFrontend
+// PutServiceIDInvalidFrontendCode is the HTTP code returned for type PutServiceIDInvalidFrontend
 const PutServiceIDInvalidFrontendCode int = 460
 
 /*PutServiceIDInvalidFrontend Invalid frontend in service configuration
@@ -95,7 +95,7 @@ func (o *PutServiceIDInvalidFrontend) WriteResponse(rw http.ResponseWriter, prod
 
 }
 
-// HTTP code for type PutServiceIDInvalidBackend
+// PutServiceIDInvalidBackendCode is the HTTP code returned for type PutServiceIDInvalidBackend
 const PutServiceIDInvalidBackendCode int = 461
 
 /*PutServiceIDInvalidBackend Invalid backend in service configuration
@@ -137,7 +137,7 @@ func (o *PutServiceIDInvalidBackend) WriteResponse(rw http.ResponseWriter, produ
 
 }
 
-// HTTP code for type PutServiceIDFailure
+// PutServiceIDFailureCode is the HTTP code returned for type PutServiceIDFailure
 const PutServiceIDFailureCode int = 500
 
 /*PutServiceIDFailure Error while creating service
