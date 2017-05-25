@@ -77,6 +77,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool) {
 // EnableConntrackGC enables the connection tracking garbage collection.
 func (d *Daemon) EnableConntrackGC() {
 	go func() {
+		seenGlobal := false
 		for {
 			sleepTime := time.Duration(GcInterval) * time.Second
 
@@ -85,10 +86,29 @@ func (d *Daemon) EnableConntrackGC() {
 			for k := range d.endpoints {
 				e := d.endpoints[k]
 				e.Mutex.RLock()
+
 				if e.Consumable == nil {
 					e.Mutex.RUnlock()
 					continue
 				}
+
+				// Only process global CT once per round.
+				// We don't really care about which EP
+				// triggers the traversal as long as we do
+				// traverse it eventually. Update/delete
+				// combo only serialized done from here,
+				// so no extra mutex for global CT needed
+				// right now. We still need to traverse
+				// other EPs since some may not be part
+				// of the global CT, but have a local one.
+				if e.Opts.IsEnabled(endpoint.OptionConntrackLocal) == false {
+					if seenGlobal == true {
+						e.Mutex.RUnlock()
+						continue
+					}
+					seenGlobal = true
+				}
+
 				e.Mutex.RUnlock()
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
@@ -100,6 +120,7 @@ func (d *Daemon) EnableConntrackGC() {
 
 			d.endpointsMU.RUnlock()
 			time.Sleep(sleepTime)
+			seenGlobal = false
 		}
 	}()
 }
