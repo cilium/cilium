@@ -166,7 +166,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 #endif
 	BPF_V6(host_ip, HOST_IP);
-	orig_was_proxy = ipv6_addrcmp(&tuple->saddr, &host_ip) == 0;
+	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 
@@ -751,7 +751,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
 	BPF_V6(host_ip, HOST_IP);
-	orig_was_proxy = ipv6_addrcmp(&tuple.saddr, &host_ip) == 0;
+	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
 
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
