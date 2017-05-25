@@ -81,3 +81,21 @@ func (m *Port) validateProtocol(formats strfmt.Registry) error {
 
 	return nil
 }
+
+// MarshalBinary interface implementation
+func (m *Port) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *Port) UnmarshalBinary(b []byte) error {
+	var res Port
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}

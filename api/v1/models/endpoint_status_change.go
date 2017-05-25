@@ -82,3 +82,21 @@ func (m *EndpointStatusChange) validateCode(formats strfmt.Registry) error {
 
 	return nil
 }
+
+// MarshalBinary interface implementation
+func (m *EndpointStatusChange) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *EndpointStatusChange) UnmarshalBinary(b []byte) error {
+	var res EndpointStatusChange
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
