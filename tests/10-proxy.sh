@@ -21,6 +21,7 @@ docker network inspect $TEST_NET 2> /dev/null || {
 }
 
 docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL cilium/demo-httpd
+docker run -dt --net=cilium --name client -l id.client tgraf/netperf
 
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
@@ -61,22 +62,27 @@ EOF
 
 sleep 2
 
-RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
+until [ "$(cilium endpoint list | grep cilium -c)" -eq 3 ]; do
+	    echo "Waiting for all endpoints to be ready"
+	        sleep 4s
+done
+
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "GET /public, unexpected return"
 fi
 
-RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/public")
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "GET /public, unexpected return"
 fi
 
-RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
 	abort "GET /private, unexpected return"
 fi
 
-RETURN=$(docker run --rm=true -i --net=$TEST_NET --name client -l $CLIENT_LABEL tgraf/netperf bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/private")
+RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/private")
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
 	abort "GET /private, unexpected return"
 fi
