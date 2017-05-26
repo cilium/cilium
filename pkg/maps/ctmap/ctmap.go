@@ -123,46 +123,6 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 
 	switch mapType {
 	case MapName6:
-		var key, nextKey CtKey6
-		for {
-			err := m.GetNextKey(&key, &nextKey)
-			if err != nil {
-				break
-			}
-
-			entry, err := m.Lookup(&nextKey)
-			if err != nil {
-				return nil, err
-			}
-			ctEntry := entry.(*CtEntry)
-			nK := nextKey
-			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
-			entries = append(entries, eDump)
-
-			key = nextKey
-		}
-
-	case MapName4:
-		var key, nextKey CtKey4
-		for {
-			err := m.GetNextKey(&key, &nextKey)
-			if err != nil {
-				break
-			}
-
-			entry, err := m.Lookup(&nextKey)
-			if err != nil {
-				return nil, err
-			}
-			ctEntry := entry.(*CtEntry)
-
-			nK := nextKey
-			eDump := CtEntryDump{Key: &nK, Value: *ctEntry}
-			entries = append(entries, eDump)
-
-			key = nextKey
-		}
-
 	case MapName6Global:
 		var key, nextKey CtKey6Global
 		for {
@@ -184,6 +144,7 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 			key = nextKey
 		}
 
+	case MapName4:
 	case MapName4Global:
 		var key, nextKey CtKey4Global
 		for {
@@ -255,20 +216,12 @@ func GC(m *bpf.Map, interval uint16, mapName string) int {
 
 	switch mapName {
 	case MapName6:
-		var key, nextKey CtKey6
-		for doGc(m, interval, &key, &nextKey, &deleted) {
-			key = nextKey
-		}
-	case MapName4:
-		var key, nextKey CtKey4
-		for doGc(m, interval, &key, &nextKey, &deleted) {
-			key = nextKey
-		}
 	case MapName6Global:
 		var key, nextKey CtKey6Global
 		for doGc(m, interval, &key, &nextKey, &deleted) {
 			key = nextKey
 		}
+	case MapName4:
 	case MapName4Global:
 		var key, nextKey CtKey4Global
 		for doGc(m, interval, &key, &nextKey, &deleted) {
