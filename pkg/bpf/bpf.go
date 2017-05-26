@@ -19,6 +19,7 @@ package bpf
 #include <linux/unistd.h>
 #include <linux/bpf.h>
 #include <sys/resource.h>
+#include <time.h>
 
 #if !defined __NR_bpf && defined CI_BUILD
 #define __NR_bpf 1
@@ -90,6 +91,17 @@ void create_bpf_obj_get(const char *pathname, void *attr)
 	union bpf_attr* ptr_bpf_attr;
 	ptr_bpf_attr = (union bpf_attr*)attr;
 	ptr_bpf_attr->pathname = ptr_to_u64(pathname);
+}
+
+int get_bpf_ktime_ns_uspace(__u64 *res)
+{
+	struct timespec t;
+	int ret;
+
+	ret = clock_gettime(CLOCK_MONOTONIC, &t);
+	*res = t.tv_nsec + t.tv_sec * 1000ULL * 1000ULL * 1000ULL;
+
+	return ret;
 }
 */
 import "C"
@@ -327,4 +339,20 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries ui
 
 	fd, err = ObjGet(path)
 	return fd, isNewMap, err
+}
+
+// GetMtime returns monotonic time that can be used to compare
+// values with ktime_get_ns() BPF helper, e.g. needed to check
+// the timeout in sec for BPF entries. We return the raw nsec,
+// although that is not quite usable for comparison. Go has
+// runtime.nanotime() but doesn't expose it as API.
+func GetMtime() (uint64, error) {
+	var time uint64
+
+	err := C.get_bpf_ktime_ns_uspace((*C.uint64_t)(unsafe.Pointer(&time)))
+	if err == 0 {
+		return time, nil
+	} else {
+		return time, fmt.Errorf("Unable get time: %s", err)
+	}
 }
