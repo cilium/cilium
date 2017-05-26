@@ -86,7 +86,7 @@ run "diff -Nru sw_policy_http.json sw_policy_http.real.json"
 desc_rate "The policy allows an HTTP request to pass through if the"
 desc_rate "HTTP header X-Has-Force: true is set in the request"
 run "docker run -dt --net=$NETWORK --name xwing_luke -l id.spaceship --add-host deathstar:$DEATHSTAR_IP4 tgraf/netperf"
-run "docker exec -i xwing_luke curl -si -H 'X-Has-Force: true' -XPUT http://deathstar/v1/exhaust-port"
+run "docker exec -i xwing_luke curl -si -H 'X-Has-Force: true' -XPUT http://deathstar/v1/exhaust-port/"
 
 desc_rate "Everything is back in order, the deathstar is gone ..."
 run "docker exec -i xwing_luke ping deathstar"

@@ -1,10 +1,13 @@
 [{
-    "endpointSelector": ["id.empire.deathstar"],
+    "endpointSelector": {"matchLabels":{"id.empire.deathstar":""}},
     "ingress": [{
-        "fromEndpoints": [["id.spaceship"], ["reserved:host"]]
+        "fromEndpoints": [
+          {"matchLabels":{"id.spaceship":""}},
+          {"matchLabels":{"reserved:host":""}}
+        ]
     }]
 },{
-    "endpointSelector": ["id.spaceship"],
+    "endpointSelector": {"matchLabels":{"id.spaceship":""}},
     "egress": [{
 	"toPorts": [{
 	    "ports": [
