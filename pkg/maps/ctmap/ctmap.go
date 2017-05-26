@@ -169,44 +169,86 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 	return entries, nil
 }
 
-// doGC removes key and its corresponding value from Map m if key has a lifetime
-// less than interval. It sets nextKey's address to be the key after key in map
-// m. Returns false if there is no other key after key in Map m, and increments
-// deleted if an item is removed from m.
-func doGc(m *bpf.Map, interval uint16, key bpf.MapKey, nextKey bpf.MapKey, deleted *int) bool {
-	err := m.GetNextKey(key, nextKey)
+// doGC6 iterates through a CTv6 map and drops entries when they
+// timeout resp. updates the timeout by interval units.
+func doGC6(m *bpf.Map, interval uint16, deleted *int) {
+	var nextKey, tmpKey CtKey6Global
 
-	// GetNextKey errors out if we have reached the last entry in the map.
-	// This signifies that the entire map has been traversed and that
-	// garbage collection is done.
+	err := m.GetNextKey(&tmpKey, &nextKey)
 	if err != nil {
-		return false
+		return
 	}
 
-	nextEntry, err := m.Lookup(nextKey)
+	for true {
+		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
+		entryMap, err := m.Lookup(&nextKey)
+		if err != nil {
+			log.Errorf("error during map Lookup: %s", err)
+			break
+		}
 
+		entry := entryMap.(*CtEntry)
+		if entry.lifetime <= interval {
+			err := m.Delete(&nextKey)
+			if err != nil {
+				log.Debugf("error during Delete: %s", err)
+			} else {
+				(*deleted)++
+			}
+		} else {
+			entry.lifetime -= interval
+			err := m.Update(&nextKey, entry)
+			if err != nil {
+				log.Debugf("error during Update: %s", err)
+			}
+		}
+
+		if nextKeyValid != nil {
+			break
+		}
+		nextKey = tmpKey
+	}
+}
+
+// doGC4 iterates through a CTv4 map and drops entries when they
+// timeout resp. updates the timeout by interval units.
+func doGC4(m *bpf.Map, interval uint16, deleted *int) {
+	var nextKey, tmpKey CtKey4Global
+
+	err := m.GetNextKey(&tmpKey, &nextKey)
 	if err != nil {
-		log.Errorf("error during map Lookup: %s", err)
-		return false
+		return
 	}
 
-	entry := nextEntry.(*CtEntry)
-	if entry.lifetime <= interval {
-		err := m.Delete(nextKey)
+	for true {
+		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
+		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
-			log.Debugf("error during Delete: %s", err)
+			log.Errorf("error during map Lookup: %s", err)
+			break
+		}
 
+		entry := entryMap.(*CtEntry)
+		if entry.lifetime <= interval {
+			err := m.Delete(&nextKey)
+			if err != nil {
+				log.Debugf("error during Delete: %s", err)
+			} else {
+				(*deleted)++
+			}
+		} else {
+			entry.lifetime -= interval
+			err := m.Update(&nextKey, entry)
+			if err != nil {
+				log.Debugf("error during Update: %s", err)
+			}
 		}
-		(*deleted)++
-	} else {
-		entry.lifetime -= interval
-		err := m.Update(nextKey, entry)
-		if err != nil {
-			log.Debugf("error during Update: %s", err)
+
+		if nextKeyValid != nil {
+			break
 		}
+		nextKey = tmpKey
 	}
-
-	return true
 }
 
 // GC runs garbage collection for map m with name mapName with interval interval.
@@ -217,16 +259,11 @@ func GC(m *bpf.Map, interval uint16, mapName string) int {
 	switch mapName {
 	case MapName6:
 	case MapName6Global:
-		var key, nextKey CtKey6Global
-		for doGc(m, interval, &key, &nextKey, &deleted) {
-			key = nextKey
-		}
+		doGC6(m, interval, &deleted)
 	case MapName4:
 	case MapName4Global:
-		var key, nextKey CtKey4Global
-		for doGc(m, interval, &key, &nextKey, &deleted) {
-			key = nextKey
-		}
+		doGC4(m, interval, &deleted)
 	}
+
 	return deleted
 }
