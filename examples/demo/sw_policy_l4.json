@@ -1,7 +1,7 @@
 [{
-    "endpointSelector": ["id.empire.deathstar"],
+    "endpointSelector": {"matchLabels":{"id.empire.deathstar":""}},
     "ingress": [{
-        "fromEndpoints": [["id.spaceship"]],
+        "fromEndpoints": [{"matchLabels":{"id.spaceship":""}}],
 	"toPorts": [
 	    {"ports": [{"port": "80", "protocol": "tcp"}]}
 	]
