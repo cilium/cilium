@@ -71,7 +71,7 @@ type CtEntry struct {
 	rx_bytes   uint64
 	tx_packets uint64
 	tx_bytes   uint64
-	lifetime   uint16
+	lifetime   uint32
 	flags      uint16
 	revnat     uint16
 	proxy_port uint16
@@ -169,9 +169,8 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 	return entries, nil
 }
 
-// doGC6 iterates through a CTv6 map and drops entries when they
-// timeout resp. updates the timeout by interval units.
-func doGC6(m *bpf.Map, interval uint16, deleted *int) {
+// doGC6 iterates through a CTv6 map and drops entries when they timeout.
+func doGC6(m *bpf.Map, deleted *int, time uint32) {
 	var nextKey, tmpKey CtKey6Global
 
 	err := m.GetNextKey(&tmpKey, &nextKey)
@@ -188,18 +187,12 @@ func doGC6(m *bpf.Map, interval uint16, deleted *int) {
 		}
 
 		entry := entryMap.(*CtEntry)
-		if entry.lifetime <= interval {
+		if entry.lifetime < time {
 			err := m.Delete(&nextKey)
 			if err != nil {
 				log.Debugf("error during Delete: %s", err)
 			} else {
 				(*deleted)++
-			}
-		} else {
-			entry.lifetime -= interval
-			err := m.Update(&nextKey, entry)
-			if err != nil {
-				log.Debugf("error during Update: %s", err)
 			}
 		}
 
@@ -210,9 +203,8 @@ func doGC6(m *bpf.Map, interval uint16, deleted *int) {
 	}
 }
 
-// doGC4 iterates through a CTv4 map and drops entries when they
-// timeout resp. updates the timeout by interval units.
-func doGC4(m *bpf.Map, interval uint16, deleted *int) {
+// doGC4 iterates through a CTv4 map and drops entries when they timeout.
+func doGC4(m *bpf.Map, deleted *int, time uint32) {
 	var nextKey, tmpKey CtKey4Global
 
 	err := m.GetNextKey(&tmpKey, &nextKey)
@@ -229,18 +221,12 @@ func doGC4(m *bpf.Map, interval uint16, deleted *int) {
 		}
 
 		entry := entryMap.(*CtEntry)
-		if entry.lifetime <= interval {
+		if entry.lifetime < time {
 			err := m.Delete(&nextKey)
 			if err != nil {
 				log.Debugf("error during Delete: %s", err)
 			} else {
 				(*deleted)++
-			}
-		} else {
-			entry.lifetime -= interval
-			err := m.Update(&nextKey, entry)
-			if err != nil {
-				log.Debugf("error during Update: %s", err)
 			}
 		}
 
@@ -253,16 +239,18 @@ func doGC4(m *bpf.Map, interval uint16, deleted *int) {
 
 // GC runs garbage collection for map m with name mapName with interval interval.
 // It returns how many items were deleted from m.
-func GC(m *bpf.Map, interval uint16, mapName string) int {
+func GC(m *bpf.Map, mapName string) int {
+	t, _ := bpf.GetMtime()
+	tsec := t / 1000000000
 	deleted := 0
 
 	switch mapName {
 	case MapName6:
 	case MapName6Global:
-		doGC6(m, interval, &deleted)
+		doGC6(m, &deleted, uint32(tsec))
 	case MapName4:
 	case MapName4Global:
-		doGC4(m, interval, &deleted)
+		doGC4(m, &deleted, uint32(tsec))
 	}
 
 	return deleted

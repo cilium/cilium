@@ -24,6 +24,10 @@
 #include <linux/in.h>
 #include <stdint.h>
 
+#ifndef HAVE_LRU_MAP_TYPE
+#define NEEDS_TIMEOUT 1
+#endif
+
 #ifndef EVENT_SOURCE
 #define EVENT_SOURCE 0
 #endif
@@ -197,7 +201,7 @@ struct ct_entry {
 	__u64 rx_bytes;
 	__u64 tx_packets;
 	__u64 tx_bytes;
-	__u16 lifetime;
+	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
 	      nat46:1,

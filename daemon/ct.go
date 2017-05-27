@@ -67,7 +67,7 @@ func runGC(e *endpoint.Endpoint, isIPv6 bool) {
 		return
 	}
 
-	deleted := ctmap.GC(m, uint16(GcInterval), mapType)
+	deleted := ctmap.GC(m, mapType)
 
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)
