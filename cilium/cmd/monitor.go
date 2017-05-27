@@ -22,6 +22,7 @@ import (
 	"os/signal"
 	"runtime"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
 
@@ -173,10 +174,7 @@ func validateEventTypeFilter() {
 }
 
 func runMonitor() {
-	if os.Getuid() != 0 {
-		fmt.Fprintf(os.Stderr, "Please run the monitor with root privileges.\n")
-		os.Exit(1)
-	}
+	common.RequireRootPrivilege("cilium monitor")
 
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {

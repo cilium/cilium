@@ -313,11 +313,7 @@ func initConfig() {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
 
-	// The cilium-agent must be run as root user.
-	if os.Getuid() != 0 {
-		fmt.Fprintf(os.Stderr, "Please run the cilium-agent with root privileges.\n")
-		os.Exit(1)
-	}
+	common.RequireRootPrivilege("cilium-agent")
 
 	log.Info("     _ _ _")
 	log.Info(" ___|_| |_|_ _ _____")
