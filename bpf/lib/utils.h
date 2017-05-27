@@ -47,6 +47,22 @@ static inline void bpf_clear_cb(struct __sk_buff *skb)
 	skb->cb[4] = zero;
 }
 
+#define NSEC_PER_SEC	1000000000UL
+
+/* Monotonic clock, scalar format. */
+static inline __u64 bpf_ktime_get_nsec(void)
+{
+	return ktime_get_ns();
+}
+
+static inline __u32 bpf_ktime_get_sec(void)
+{
+	/* Ignores remainder subtraction as we'd do in
+	 * ns_to_timespec(), but good enough here.
+	 */
+	return (__u64)(bpf_ktime_get_nsec() / NSEC_PER_SEC);
+}
+
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 # define __bpf_ntohs(x)		__builtin_bswap16(x)
 # define __bpf_htons(x)		__builtin_bswap16(x)

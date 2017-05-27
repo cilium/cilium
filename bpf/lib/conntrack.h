@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include "common.h"
+#include "utils.h"
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
@@ -50,6 +51,13 @@ enum {
 	ACTION_DELETE,
 };
 
+static inline void __inline__ ct_update_timeout(struct ct_entry *entry)
+{
+#ifdef NEEDS_TIMEOUT
+	entry->lifetime = bpf_ktime_get_sec() + CT_DEFAULT_LIFEIME;
+#endif
+}
+
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int dir,
 					 struct ct_state *ct_state)
@@ -60,7 +68,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime,
 			entry->proxy_port << 16 | entry->rev_nat_index);
-		entry->lifetime = CT_DEFAULT_LIFEIME;
+		ct_update_timeout(entry);
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
@@ -430,13 +438,12 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					bool orig_was_proxy)
 {
 	/* Create entry in original direction */
-	struct ct_entry entry = {
-		.lifetime = CT_DEFAULT_LIFEIME,
-	};
+	struct ct_entry entry = { };
 	int proxy_port = 0;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	ct_update_timeout(&entry);
 
 	if (dir == CT_INGRESS) {
 		if (tuple->nexthdr == IPPROTO_UDP ||
@@ -517,13 +524,12 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					bool orig_was_proxy)
 {
 	/* Create entry in original direction */
-	struct ct_entry entry = {
-		.lifetime = CT_DEFAULT_LIFEIME,
-	};
+	struct ct_entry entry = { };
 	int proxy_port = 0;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	ct_update_timeout(&entry);
 
 	if (dir == CT_INGRESS) {
 		if (tuple->nexthdr == IPPROTO_UDP ||
