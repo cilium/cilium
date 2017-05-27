@@ -15,10 +15,10 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	"github.com/Sirupsen/logrus"
@@ -82,11 +82,7 @@ func initConfig() {
 		log.Level = logrus.InfoLevel
 	}
 
-	// The cilium-docker plugin must be run as root user.
-	if os.Getuid() != 0 {
-		fmt.Fprintf(os.Stderr, "Please run the cilium-docker plugin with root privileges.\n")
-		os.Exit(1)
-	}
+	common.RequireRootPrivilege("cilium-docker")
 
 	driverSock = path.Join(pluginPath, "cilium.sock")
 
