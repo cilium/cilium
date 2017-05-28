@@ -31,14 +31,14 @@ const (
 	GcInterval int = 10
 )
 
-func runGC(e *endpoint.Endpoint, isIPv6 bool) {
+func runGC(e *endpoint.Endpoint, isLocal, isIPv6 bool) {
 	var file string
 	var mapType string
 	// TODO: We need to optimize this a bit in future, so we traverse
 	// the global table less often.
 
 	// Use local or global conntrack maps depending on configuration settings.
-	if e.Opts.IsEnabled(endpoint.OptionConntrackLocal) {
+	if isLocal {
 		if isIPv6 {
 			mapType = ctmap.MapName6
 		} else {
@@ -108,13 +108,14 @@ func (d *Daemon) EnableConntrackGC() {
 					}
 					seenGlobal = true
 				}
+				isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
 
 				e.Mutex.RUnlock()
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
-				runGC(e, true)
+				runGC(e, isLocal, true)
 				if !d.conf.IPv4Disabled {
-					runGC(e, false)
+					runGC(e, isLocal, false)
 				}
 			}
 
