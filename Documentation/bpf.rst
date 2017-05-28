@@ -2090,8 +2090,8 @@ TODO
 
 .. _bpf_users:
 
-References
-==========
+Further Reading
+===============
 
 Mentioned lists of projects, talks, papers, and further reading material
 are likely not complete. Thus, feel free to open pull requests to complete
@@ -2100,7 +2100,7 @@ the list.
 Projects using BPF
 ------------------
 
-The following list includes open source projects making use of BPF:
+The following list includes some open source projects making use of BPF:
 
 - BCC - tools for BPF-based Linux IO analysis, networking, monitoring, and more
   (https://github.com/iovisor/bcc)
@@ -2117,50 +2117,301 @@ The following list includes open source projects making use of BPF:
 - Suricata IDS
   (https://suricata-ids.org)
 
-Talks & Publications
---------------------
+XDP Newbies
+-----------
 
-The following list includes publications and talks related to BPF and XDP:
+There are a couple of walk-through posts by David S. Miller to the xdp-newbies
+mailing list (http://vger.kernel.org/vger-lists.html#xdp-newbies), which explain
+various parts of XDP and BPF:
 
-38. Apr 2017,
+4. May 2017,
+     BPF Verifier Overview
+     David S. Miller,
+     https://www.spinics.net/lists/xdp-newbies/msg00185.html
+3. May 2017,
+     Contextually speaking...
+     David S. Miller,
+     https://www.spinics.net/lists/xdp-newbies/msg00181.html
+2. May 2017,
+     bpf.h and you...
+     David S. Miller,
+     https://www.spinics.net/lists/xdp-newbies/msg00179.html
+1. Apr 2017,
+     XDP example of the day
+     David S. Miller,
+     https://www.spinics.net/lists/xdp-newbies/msg00009.html
+
+BPF Newsletter
+--------------
+
+Alexander Alemayhu initiated a newsletter around BPF that appears roughly once
+per week covering latest developments around BPF in Linux kernel land and its
+surrounding ecosystem in user space:
+
+4. May 2017,
+     BPF Updates 04
+     Alexander Alemayhu,
+     https://www.cilium.io/blog/2017/5/24/bpf-updates-04
+3. May 2017,
+     BPF Updates 03
+     Alexander Alemayhu,
+     https://www.cilium.io/blog/2017/5/17/bpf-updates-03
+2. May 2017,
+     BPF Updates 02
+     Alexander Alemayhu,
+     https://www.cilium.io/blog/2017/5/10/bpf-updates-02
+1. May 2017,
+     BPF Updates 01
+     Alexander Alemayhu,
+     https://www.cilium.io/blog/2017/5/2/bpf-updates-01-2017-05-02
+
+Podcasts
+--------
+
+There have been a number of technical podcasts partially covering BPF.
+Incomplete list:
+
+5. Feb 2017,
+     Linux Networking Update from Netdev Conference
+     Thomas Graf,
+     Software Gone Wild, Show 71,
+     http://blog.ipspace.net/2017/02/linux-networking-update-from-netdev.html
+     http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_71-NetDev_Update.mp3
+4. Jan 2017,
+     The IO Visor Project,
+     Brenden Blanco,
+     OVS Orbit, Episode 23,
+     https://ovsorbit.org/#e23
+     https://ovsorbit.org/episode-23.mp3
+3. Oct 2016,
+     Fast Linux Packet Forwarding,
+     Thomas Graf,
+     Software Gone Wild, Show 64,
+     http://blog.ipspace.net/2016/10/fast-linux-packet-forwarding-with.html
+     http://media.blubrry.com/ipspace/stream.ipspace.net/nuggets/podcast/Show_64-Cilium_with_Thomas_Graf.mp3
+2. Aug 2016,
+     P4 on the Edge,
+     John Fastabend,
+     OVS Orbit, Episode 11,
+     https://ovsorbit.org/#e11
+     https://ovsorbit.org/episode-11.mp3
+1. May 2016,
+     Cilium,
+     Thomas Graf,
+     OVS Orbit, Episode 4,
+     https://ovsorbit.org/#e4
+     https://ovsorbit.benpfaff.org/episode-4.mp3
+
+Blog posts
+----------
+
+The following (incomplete) list includes blog posts around BPF, XDP and related projects:
+
+33. May 2017,
+     An entertaining eBPF XDP adventure,
+     Suchakra Sharma,
+     https://suchakra.wordpress.com/2017/05/23/an-entertaining-ebpf-xdp-adventure/
+32. May 2017,
+     Blog post,
+     eBPF, part 2: Syscall and Map Types,
+     Ferris Ellis,
+     https://ferrisellis.com/posts/ebpf_syscall_and_maps/
+31. May 2017,
+     Monitoring the Control Plane,
+     Gary Berger,
+     http://firstclassfunc.com/2017/05/monitoring-the-control-plane/
+30. Apr 2017,
+     USENIX/LISA 2016 Linux bcc/BPF Tools,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2017-04-29/usenix-lisa-2016-bcc-bpf-tools.html
+29. Apr 2017,
+     Liveblog: Cilium for Network and Application Security with BPF and XDP,
+     Scott Lowe,
+     http://blog.scottlowe.org//2017/04/18/black-belt-cilium/
+28. Apr 2017,
+     Blog post,
+     eBPF, part 1: Past, Present, and Future,
+     Ferris Ellis,
+     https://ferrisellis.com/posts/ebpf_past_present_future/
+27. Mar 2017,
+     Analyzing KVM Hypercalls with eBPF Tracing,
+     Suchakra Sharma,
+     https://suchakra.wordpress.com/2017/03/31/analyzing-kvm-hypercalls-with-ebpf-tracing/
+26. Jan 2017,
+     Golang bcc/BPF Function Tracing,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2017-01-31/golang-bcc-bpf-function-tracing.html
+25. Dec 2016,
+     Give me 15 minutes and I'll change your view of Linux tracing,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-12-27/linux-tracing-in-15-minutes.html
+24. Nov 2016,
+     Cilium: Networking and security for containers with BPF and XDP,
+     Daniel Borkmann,
+     https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html
+23. Nov 2016,
+     Linux bcc/BPF tcplife: TCP Lifespans,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-11-30/linux-bcc-tcplife.html
+22. Oct 2016,
+     DTrace for Linux 2016,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-27/dtrace-for-linux-2016.html
+21. Oct 2016,
+     Linux 4.9's Efficient BPF-based Profiler,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-21/linux-efficient-profiler.html
+20. Oct 2016,
+     Linux bcc tcptop,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-15/linux-bcc-tcptop.html
+19. Oct 2016,
+     Linux bcc/BPF Node.js USDT Tracing,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-12/linux-bcc-nodejs-usdt.html
+18. Oct 2016,
+     Linux bcc/BPF Run Queue (Scheduler) Latency,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-08/linux-bcc-runqlat.html
+17. Oct 2016,
+     Linux bcc ext4 Latency Tracing,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-06/linux-bcc-ext4dist-ext4slower.html
+16. Oct 2016,
+     Linux MySQL Slow Query Tracing with bcc/BPF,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-04/linux-bcc-mysqld-qslower.html
+15. Oct 2016,
+     Linux bcc Tracing Security Capabilities,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-10-01/linux-bcc-security-capabilities.html
+14. Aug 2016,
+     Introducing the p0f BPF compiler,
+     Gilberto Bertin,
+     https://blog.cloudflare.com/introducing-the-p0f-bpf-compiler/
+13. Jun 2016,
+     Ubuntu Xenial bcc/BPF,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-06-14/ubuntu-xenial-bcc-bpf.html
+12. Mar 2016,
+     Linux BPF/bcc Road Ahead, March 2016,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-03-28/linux-bpf-bcc-road-ahead-2016.html
+11. Mar 2016,
+     Linux BPF Superpowers,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-03-05/linux-bpf-superpowers.html
+10. Feb 2016,
+     Linux eBPF/bcc uprobes,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-02-08/linux-ebpf-bcc-uprobes.html
+9. Feb 2016,
+     Who is waking the waker? (Linux chain graph prototype),
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-02-05/ebpf-chaingraph-prototype.html
+8. Feb 2016,
+     Linux Wakeup and Off-Wake Profiling,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-02-01/linux-wakeup-offwake-profiling.html
+7. Jan 2016,
+     Linux eBPF Off-CPU Flame Graph,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-01-20/ebpf-offcpu-flame-graph.html
+6. Jan 2016,
+     Linux eBPF Stack Trace Hack,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2016-01-18/ebpf-stack-trace-hack.html
+5. Aug 2015,
+     BPF Internals – II,
+     Suchakra Sharma,
+     https://suchakra.wordpress.com/2015/08/12/bpf-internals-ii/
+4. May 2015,
+     eBPF: One Small Step,
+     Brendan Gregg,
+     http://www.brendangregg.com/blog/2015-05-15/ebpf-one-small-step.html
+3. May 2015,
+     BPF Internals – I,
+     Suchakra Sharma,
+     https://suchakra.wordpress.com/2015/05/18/bpf-internals-i/
+2. Jul 2014,
+     Introducing the BPF Tools,
+     Marek Majkowski,
+     https://blog.cloudflare.com/introducing-the-bpf-tools/
+1. May 2014,
+     BPF - the forgotten bytecode,
+     Marek Majkowski,
+     https://blog.cloudflare.com/bpf-the-forgotten-bytecode/
+
+Talks
+-----
+
+The following (incomplete) list includes talks and conference papers
+related to BPF and XDP:
+
+43. May 2017,
+     PyCon 2017, Portland,
+     Executing python functions in the linux kernel by transpiling to bpf,
+     Alex Gartrell,
+     https://www.youtube.com/watch?v=CpqMroMBGP4
+42. May 2017,
+     gluecon 2017, Denver,
+     Cilium + BPF: Least Privilege Security on API Call Level for Microservices,
+     Dan Wendlandt,
+     http://gluecon.com/#agenda
+41. May 2017,
+     Lund Linux Con, Lund,
+     XDP - eXpress Data Path,
+     Jesper Dangaard Brouer,
+     http://people.netfilter.org/hawk/presentations/LLC2017/XDP_DDoS_protecting_LLC2017.pdf
+40. May 2017,
+     Polytechnique Montreal,
+     Trace Aggregation and Collection with eBPF,
+     Suchakra Sharma,
+     http://step.polymtl.ca/~suchakra/eBPF-5May2017.pdf
+39. Apr 2017,
      DockerCon, Austin,
      Cilium - Network and Application Security with BPF and XDP,
      Thomas Graf,
      https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-and-application-security-with-bpf-and-xdp
-37. Apr 2017,
+38. Apr 2017,
      NetDev 2.1, Montreal,
      XDP Mythbusters,
      David S. Miller,
      https://www.netdevconf.org/2.1/slides/apr7/miller-XDP-MythBusters.pdf
-36. Apr 2017,
+37. Apr 2017,
      NetDev 2.1, Montreal,
      Droplet: DDoS countermeasures powered by BPF + XDP,
      Huapeng Zhou, Doug Porter, Ryan Tierney, Nikita Shirokov,
      https://www.netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
-35. Apr 2017,
+36. Apr 2017,
      NetDev 2.1, Montreal,
      XDP in practice: integrating XDP in our DDoS mitigation pipeline,
      Gilberto Bertin,
      https://www.netdevconf.org/2.1/slides/apr6/bertin_Netdev-XDP.pdf
-34. Apr 2017,
+35. Apr 2017,
      NetDev 2.1, Montreal,
      XDP for the Rest of Us,
      Andy Gospodarek, Jesper Dangaard Brouer,
      https://www.netdevconf.org/2.1/slides/apr7/gospodarek-Netdev2.1-XDP-for-the-Rest-of-Us_Final.pdf
-33. Mar 2017,
+34. Mar 2017,
      SCALE15x, Pasadena,
      Linux 4.x Tracing: Performance Analysis with bcc/BPF,
      Brendan Gregg,
      https://www.slideshare.net/brendangregg/linux-4x-tracing-performance-analysis-with-bccbpf
-32. Mar 2017,
+33. Mar 2017,
      XDP Inside and Out,
      David S. Miller,
      https://github.com/iovisor/bpf-docs/raw/master/XDP_Inside_and_Out.pdf
-31. Mar 2017,
+32. Mar 2017,
      OpenSourceDays, Copenhagen,
      XDP - eXpress Data Path, Used for DDoS protection,
      Jesper Dangaard Brouer,
      https://github.com/iovisor/bpf-docs/raw/master/XDP_Inside_and_Out.pdf
+31. Mar 2017,
+     source{d}, Infrastructure 2017, Madrid,
+     High-performance Linux monitoring with eBPF,
+     Alfonso Acosta,
+     https://www.youtube.com/watch?v=k4jqTLtdrxQ
 30. Feb 2017,
      FOSDEM 2017, Brussels,
      Stateful packet processing with eBPF, an implementation of OpenState interface,
@@ -2236,6 +2487,7 @@ The following list includes publications and talks related to BPF and XDP:
      Advanced programmability and recent updates with tc’s cls_bpf,
      Daniel Borkmann,
      http://borkmann.ch/talks/2016_netdev2.pdf
+     http://www.netdevconf.org/1.2/papers/borkmann.pdf
 15. Oct 2016,
      NetDev 1.2, Tokyo,
      eBPF/XDP hardware offload to SmartNICs,
@@ -2284,6 +2536,7 @@ The following list includes publications and talks related to BPF and XDP:
     On getting tc classifier fully programmable with cls_bpf,
     Daniel Borkmann,
     http://borkmann.ch/talks/2016_netdev.pdf
+    http://www.netdevconf.org/1.1/proceedings/papers/On-getting-tc-classifier-fully-programmable-with-cls-bpf.pdf
 5. Jan 2016,
     FOSDEM 2016, Brussels,
     Linux tc and eBPF,
@@ -2313,11 +2566,10 @@ The following list includes publications and talks related to BPF and XDP:
     BPF: In-kernel Virtual Machine, Alexei Starovoitov,
     http://netdevconf.org/0.1/sessions/15.html
 
-Further Reading
----------------
+Further Documents
+-----------------
 
 - Dive into BPF: a list of reading material, Quentin Monnet
   (https://qmonnet.github.io/whirl-offload/2016/09/01/dive-into-bpf/)
 - XDP - eXpress Data Path, Jesper Dangaard Brouer
   (https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html)
-
