@@ -245,11 +245,9 @@ func GC(m *bpf.Map, mapName string) int {
 	deleted := 0
 
 	switch mapName {
-	case MapName6:
-	case MapName6Global:
+	case MapName6, MapName6Global:
 		doGC6(m, &deleted, uint32(tsec))
-	case MapName4:
-	case MapName4Global:
+	case MapName4, MapName4Global:
 		doGC4(m, &deleted, uint32(tsec))
 	}
 
