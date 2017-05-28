@@ -979,7 +979,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 #ifdef LXC_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
-	int ret = ipv6_to_ipv4(skb, 14, bpf_htonl(LXC_IPV4));
+	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
 	if (IS_ERR(ret))
 		return ret;
 
