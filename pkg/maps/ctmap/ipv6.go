@@ -27,8 +27,8 @@ import (
 
 //CtKey6 represents the key for IPv6 entries in the local BPF conntrack map.
 type CtKey6 struct {
-	saddr   types.IPv6
 	daddr   types.IPv6
+	saddr   types.IPv6
 	sport   uint16
 	dport   uint16
 	nexthdr u8proto.U8proto
