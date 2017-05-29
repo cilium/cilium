@@ -593,6 +593,168 @@ BPF are discussed in this section. Note, the tooling and infrastructure around B
 is still rapidly evolving and thus may not provide a complete picture of all available
 tools.
 
+Development Environment
+-----------------------
+
+A step by step guide for setting up a development environment for BPF can be found
+below for both Fedora and Ubuntu. This will guide you through building, installing
+and testing a development kernel as well as building and installing iproute2.
+
+The step of building your own iproute2 and Linux kernel is usually not necessary
+given that major distributions already ship recent enough kernels by default, but
+would be needed for testing bleeding edge versions or contributing BPF patches to
+iproute2 and to the Linux kernel, respectively.
+
+Fedora
+``````
+
+The following applies to Fedora 25 or later:
+
+::
+
+    $ sudo dnf install -y git gcc ncurses-devel elfutils-libelf-devel bc \
+      openssl-devel libcap-devel clang llvm
+
+.. note:: If you are running some other Fedora derivative and ``dnf`` is missing,
+          try using ``yum`` instead.
+
+Ubuntu
+``````
+
+The following applies to Ubuntu 17.04 or later:
+
+::
+
+    $ sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
+      clang gcc-multilib llvm libncurses5-dev git
+
+Compiling the Kernel
+````````````````````
+
+Development of new BPF features for the Linux kernel happens inside the ``net-next``
+git tree, latest BPF fixes in the ``net`` tree. The following command will obtain
+the kernel source for the ``net-next`` tree through git:
+
+::
+
+    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+
+If the git commit history is not of interest, then ``--depth 1`` will clone the
+tree much faster by truncating the git history only to the most recent commit.
+
+In case the ``net`` tree is of interest, it can be cloned from this url:
+
+::
+
+    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+
+There are dozens of tutorials in the Internet on how to build Linux kernels, one
+good resource is the Kernel Newbies website (https://kernelnewbies.org/KernelBuild)
+that can be followed with one of the two git trees mentioned above.
+
+Make sure that the generated ``.config`` file contains the following ``CONFIG_*``
+entries for running BPF. These entries are also needed for Cilium.
+
+::
+
+    CONFIG_CGROUP_BPF=y
+    CONFIG_BPF=y
+    CONFIG_BPF_SYSCALL=y
+    CONFIG_NET_SCH_INGRESS=m
+    CONFIG_NET_CLS_BPF=m
+    CONFIG_NET_CLS_ACT=y
+    CONFIG_BPF_JIT=y
+    CONFIG_LWTUNNEL_BPF=y
+    CONFIG_HAVE_EBPF_JIT=y
+    CONFIG_BPF_EVENTS=y
+    CONFIG_TEST_BPF=m
+
+Some of the entries cannot be adjusted through ``make menuconfig``. For example,
+``CONFIG_HAVE_EBPF_JIT`` is selected automatically if a given architecture does
+come with an eBPF JIT. In this specific case, ``CONFIG_HAVE_EBPF_JIT`` is optional
+but highly recommended. An architecture not having an eBPF JIT compiler will need
+to fall back to the in-kernel interpreter with the cost of being less efficient
+executing BPF instructions.
+
+Verifying the Setup
+```````````````````
+
+After you have booted into the newly compiled kernel, navigate to the BPF selftest
+suite in order to test BPF functionality (current working directory points to
+the root of the cloned git tree):
+
+::
+
+    $ cd tools/testing/selftests/bpf/
+    $ make
+    $ sudo ./test_verifier
+
+The verifier tests print out all the current checks being performed. The summary
+at the end of running all tests will dump information of test successes and
+failures:
+
+::
+
+    Summary: 418 PASSED, 0 FAILED
+
+In order to run through all BPF selftests, the following command is needed:
+
+::
+
+    $ sudo make run_tests
+
+If you see any failures, please contact us on Slack with the full test output.
+
+Compiling iproute2
+``````````````````
+
+Similar to the ``net`` (fixes only) and ``net-next`` (new features) kernel trees,
+the iproute2 git tree has two branches, namely ``master`` and ``net-next``. The
+``master`` branch is based on the ``net`` tree and the ``net-next`` branch is
+based against the ``net-next`` kernel tree. This is necessary, so that changes
+in header files can be synchronized in the iproute2 tree.
+
+In order to clone the iproute2 ``master`` branch, the following command can
+be used:
+
+::
+
+    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+Similarly, to clone into mentioned ``net-next`` branch of iproute2, run the
+following:
+
+::
+
+    $ git clone -b net-next git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+After that, proceed with the build and installation:
+
+::
+
+    $ cd iproute2/
+    $ ./configure --prefix=/usr
+    TC schedulers
+     ATM    no
+
+    libc has setns: yes
+    SELinux support: yes
+    ELF support: yes
+    libmnl support: no
+    Berkeley DB: no
+
+    docs: latex: no
+     WARNING: no docs can be built from LaTeX files
+     sgml2html: no
+     WARNING: no HTML docs can be built from SGML
+    $ make
+    [...]
+    $ sudo make install
+
+Ensure that the ``configure`` script shows ``ELF support: yes``, so that iproute2
+can process ELF files from LLVM's BPF back end. libelf was listed in the instructions
+for installing the dependencies in case of Fedora and Ubuntu earlier.
+
 LLVM
 ----
 
@@ -1928,156 +2090,6 @@ with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
 mainly enforcing limits for unprivileged users. Depending on the setup,
 setting a higher limit for privileged users is often acceptable.
 
-Setting up a BPF development environment
-========================================
-
-The first thing we really need is to get the dependencies right. This might be
-tricky so below is a step by step guide to get up and running on Fedora and
-Ubuntu.
-
-Fedora 25
----------
-
-::
-
-	sudo dnf install -y git gcc ncurses-devel elfutils-libelf-devel bc \
-        openssl-devel libcap-devel clang llvm
-
-.. note:: Note If you are running some other Fedora derivative and ``dnf`` is missing, try using ``yum`` instead.
-
-Ubuntu 17.04
-------------
-
-::
-
-	sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
-	clang gcc-multilib llvm libncurses5-dev git
-
-Compiling the kernel
---------------------
-
-You should have git installed by now, if not see installation instructions.
-
-Getting the source
-
-::
-
-	git clone --depth 1 git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
-Supplying the depth option let's us clone a smaller portion of the history and it's faster.
-If you want the full history drop `--depth 1`.
-
-Navigate to the kernel source
-
-::
-
-	cd net-next
-
-We need a valid configuration to compile our new kernel.
-
-::
-
-	cp  /boot/config-`uname -r` .config
-
-Prepare the configuration for use
-
-::
-
-	make clean
-	make olddefconfig
-	
-Most distros have the appropriate defaults, but verify the BPF knobs are sane
-
-::	
-
-	grep BPF .config
-	# should be something like
-	CONFIG_CGROUP_BPF=y
-	CONFIG_BPF=y
-	CONFIG_BPF_SYSCALL=y
-	CONFIG_NETFILTER_XT_MATCH_BPF=m
-	CONFIG_NET_CLS_BPF=m
-	CONFIG_NET_ACT_BPF=m
-	CONFIG_BPF_JIT=y
-	CONFIG_LWTUNNEL_BPF=y
-	CONFIG_HAVE_EBPF_JIT=y
-	CONFIG_BPF_EVENTS=y
-	CONFIG_TEST_BPF=m
-	
-If you get very different results, you can correct the defaults via the menu configuration
-
-::
-
-	make menuconfig
-
-The build might generate a lot of files depending on your configuration.
-Try to at least to have 30G of space available before compiling. To compile
-the kernel and modules
-
-::
-
-    make -j`grep -Pc '^processor\t' /proc/cpuinfo`
-    make modules
-
-Install them all by running the commands below one at a time. Stop to check for signs of failure or  errors.
-
-::
-
-    sudo make modules_install
-    sudo make install
-    make headers_install
-
-
-Before we can reboot we need to update the menu entries in grub depending on
-which bootloader you use this might be different. It might look something like
-
-Ubuntu
-
-::
-
-    sudo update-grub
-
-Fedora
-
-::
-
-    sudo grub2-mkconfig -o /boot/grub2/grub.cfg
-
-If you are using EFI then use this path instead
-
-::
-
-    sudo grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg
-
-If all of the above went fine it's time to reboot
-
-::
-
-	sudo reboot
-
-Verifying the setup
--------------------
-
-After you have booted into your new kernel, navigate to the BPF test verifier.
-We want to start checking everything is at it should be.
-
-::
-
-	cd net-next/tools/testing/selftests/bpf/
-	make
-	sudo ./test_verifier
-
-The tests verifier should print out all the checks being performed. Look for
-the summary near the end
-
-::
-
-	Summary: 418 PASSED, 0 FAILED
-
-If you see any failures stop, please contact us on Slack with the full test
-output. You can also try out the other tests but some of those might fail
-depending on your hardware setup.
-
 tc (traffic control)
 ====================
 
@@ -2125,19 +2137,19 @@ mailing list (http://vger.kernel.org/vger-lists.html#xdp-newbies), which explain
 various parts of XDP and BPF:
 
 4. May 2017,
-     BPF Verifier Overview
+     BPF Verifier Overview,
      David S. Miller,
      https://www.spinics.net/lists/xdp-newbies/msg00185.html
 3. May 2017,
-     Contextually speaking...
+     Contextually speaking...,
      David S. Miller,
      https://www.spinics.net/lists/xdp-newbies/msg00181.html
 2. May 2017,
-     bpf.h and you...
+     bpf.h and you...,
      David S. Miller,
      https://www.spinics.net/lists/xdp-newbies/msg00179.html
 1. Apr 2017,
-     XDP example of the day
+     XDP example of the day,
      David S. Miller,
      https://www.spinics.net/lists/xdp-newbies/msg00009.html
 
@@ -2149,19 +2161,19 @@ per week covering latest developments around BPF in Linux kernel land and its
 surrounding ecosystem in user space:
 
 4. May 2017,
-     BPF Updates 04
+     BPF Updates 04,
      Alexander Alemayhu,
      https://www.cilium.io/blog/2017/5/24/bpf-updates-04
 3. May 2017,
-     BPF Updates 03
+     BPF Updates 03,
      Alexander Alemayhu,
      https://www.cilium.io/blog/2017/5/17/bpf-updates-03
 2. May 2017,
-     BPF Updates 02
+     BPF Updates 02,
      Alexander Alemayhu,
      https://www.cilium.io/blog/2017/5/10/bpf-updates-02
 1. May 2017,
-     BPF Updates 01
+     BPF Updates 01,
      Alexander Alemayhu,
      https://www.cilium.io/blog/2017/5/2/bpf-updates-01-2017-05-02
 
@@ -2172,7 +2184,7 @@ There have been a number of technical podcasts partially covering BPF.
 Incomplete list:
 
 5. Feb 2017,
-     Linux Networking Update from Netdev Conference
+     Linux Networking Update from Netdev Conference,
      Thomas Graf,
      Software Gone Wild, Show 71,
      http://blog.ipspace.net/2017/02/linux-networking-update-from-netdev.html
