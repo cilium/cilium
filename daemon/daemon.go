@@ -762,10 +762,13 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
 	log.Debugf("Applied %d changes", changes)
 	if changes > 0 {
-		if config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.AlwaysEnforce {
-			config.EnablePolicy = endpoint.AlwaysEnforce
-		} else if !config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.NeverEnforce {
-			config.EnablePolicy = endpoint.NeverEnforce
+		_, ok := params.Configuration[endpoint.OptionPolicy]
+		if ok {
+			if config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.AlwaysEnforce {
+				config.EnablePolicy = endpoint.AlwaysEnforce
+			} else if !config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.NeverEnforce {
+				config.EnablePolicy = endpoint.NeverEnforce
+			}
 		}
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s\n", err)
