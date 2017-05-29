@@ -12,7 +12,7 @@ management platforms like Docker and Kubernetes.
 
 At the foundation of Cilium is a new Linux kernel technology called BPF, which
 enables the dynamic insertion of powerful security visibility and control logic
-within Linux itself.  Because BPF runs inside the Linux kernel itself, Cilium
+within Linux itself.  Because BPF runs inside the Linux kernel, Cilium
 security policies can be applied and updated without any changes to the
 application code or container configuration.
 
@@ -37,7 +37,7 @@ balancing tables and access control lists carrying hundreds of thousands of
 rules that need to be updated with a continuously growing frequency. Protocol
 ports (e.g. TCP port 80 for HTTP traffic) can no longer be used to
 differentiate between application traffic for security purposes as the port is
-utilized for a wide range of messages across services
+utilized for a wide range of messages across services.
 
 An additional challenge is the ability to provide accurate visibility as
 traditional systems are using IP addresses as primary identification vehicle
@@ -80,11 +80,11 @@ Getting Help
 ------------
 
 We use Github issues to maintain a list of `Cilium Frequently Asked Questions (FAQ)
-<https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_ .
+<https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_.
 Check there to see if your question(s) is already addressed.
 
 The best way to get help if you get stuck is to contact us on the
-`Cilium Slack channel <https://cilium.herokuapp.com>`_ .
+`Cilium Slack channel <https://cilium.herokuapp.com>`_.
 
 If you are confident that you have found a bug, or if you have a feature
 request, please go ahead and create an issue on our

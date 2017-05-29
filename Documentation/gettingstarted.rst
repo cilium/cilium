@@ -463,7 +463,7 @@ Step 6: Start an Example Service with Docker
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this tutorial, we'll use a container running a simple HTTP server to
-represent a microservice application which we will refer to a *app1*.  As a result, we
+represent a microservice application which we will refer to as *app1*.  As a result, we
 will start this container with the label "id=app1", so we can create Cilium
 security policies for that service.
 
@@ -490,7 +490,7 @@ security policies, which are automatically applied to any container with that
 label, no matter where or when it is run within a container cluster.
 
 We'll start with an overly simple example where we create two additional
-appss, *app2* and *app3*, and we want *app2* containers to be able
+apps, *app2* and *app3*, and we want *app2* containers to be able
 to reach *app1* containers, but *app3* containers should not be allowed
 to reach *app1* containers.  Additionally, we only want to allow *app1*
 to be reachable on port 80, but no other ports.  This is a simple policy that
