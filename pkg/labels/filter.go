@@ -30,12 +30,30 @@ const (
 
 // LabelPrefix is the cilium's representation of a container label.
 type LabelPrefix struct {
+	// Ignore if true will cause this prefix to be ignored insted of being accepted
+	Ignore bool   `json:"invert"`
 	Prefix string `json:"prefix"`
 	Source string `json:"source"`
 }
 
+// String returns a human readable representation of the LabelPrefix
 func (p LabelPrefix) String() string {
-	return fmt.Sprintf("%s:%s", p.Source, p.Prefix)
+	s := fmt.Sprintf("%s:%s", p.Source, p.Prefix)
+	if p.Ignore {
+		s = "!" + s
+	}
+
+	return s
+}
+
+// Matches returns true if the label is matched by the LabelPrefix. The Ignore
+// flag has no effect at this point.
+func (p LabelPrefix) Matches(l *Label) bool {
+	if p.Source != "" && p.Source != l.Source {
+		return false
+	}
+
+	return strings.HasPrefix(l.Key, p.Prefix)
 }
 
 // parseLabelPrefix returns a LabelPrefix created from the string label parameter.
@@ -47,6 +65,11 @@ func parseLabelPrefix(label string) *LabelPrefix {
 		labelPrefix.Prefix = t[1]
 	} else {
 		labelPrefix.Prefix = label
+	}
+
+	if labelPrefix.Prefix[0] == '!' {
+		labelPrefix.Ignore = true
+		labelPrefix.Prefix = labelPrefix.Prefix[1:]
 	}
 
 	return &labelPrefix
@@ -73,10 +96,17 @@ func ParseLabelPrefixCfg(prefixes []string, file string) (*LabelPrefixCfg, error
 type LabelPrefixCfg struct {
 	Version       int            `json:"version"`
 	LabelPrefixes []*LabelPrefix `json:"valid-prefixes"`
+	// whitelist if true, indicates that at least one non-ignore prefix
+	// rule is present
+	whitelist bool
 }
 
 // Append adds an additional allowed label prefix to the configuration
 func (cfg *LabelPrefixCfg) Append(l *LabelPrefix) {
+	if !l.Ignore {
+		cfg.whitelist = true
+	}
+
 	cfg.LabelPrefixes = append(cfg.LabelPrefixes, l)
 }
 
@@ -84,7 +114,8 @@ func (cfg *LabelPrefixCfg) Append(l *LabelPrefix) {
 // LPCfgFileVersion
 func defaultLabelPrefixCfg() *LabelPrefixCfg {
 	return &LabelPrefixCfg{
-		Version: LPCfgFileVersion,
+		Version:   LPCfgFileVersion,
+		whitelist: true,
 		LabelPrefixes: []*LabelPrefix{
 			{
 				Prefix: "id.",
@@ -147,6 +178,9 @@ func readLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
 		if lp.Source == "" {
 			return nil, fmt.Errorf("invalid label prefix file: source was empty")
 		}
+		if !lp.Ignore {
+			lpc.whitelist = true
+		}
 	}
 	return &lpc, nil
 }
@@ -156,16 +190,27 @@ func readLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
 func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 	filteredLabels := Labels{}
 	for k, v := range lbls {
-		for _, lpcValue := range cfg.LabelPrefixes {
-			if lpcValue.Source != "" && lpcValue.Source != v.Source {
-				continue
-			}
+		included, ignored := false, false
 
-			if strings.HasPrefix(v.Key, lpcValue.Prefix) {
-				// Just want to make sure we don't have labels deleted in
-				// on side and disappearing in the other side...
-				filteredLabels[k] = v.DeepCopy()
+		for _, p := range cfg.LabelPrefixes {
+			if p.Matches(v) {
+				if p.Ignore {
+					ignored = true
+				} else {
+					included = true
+				}
 			}
+		}
+
+		// A label is let through if it is:
+		// - Not ignored
+		// - Explicitely listed
+		// - Not listed but no prefix has been whitelisted and thus all
+		//   prefixes are included except those ignored
+		if (!cfg.whitelist || included) && !ignored {
+			// Just want to make sure we don't have labels deleted in
+			// on side and disappearing in the other side...
+			filteredLabels[k] = v.DeepCopy()
 		}
 	}
 	return filteredLabels

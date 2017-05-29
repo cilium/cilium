@@ -33,6 +33,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	}
 
 	dlpcfg := defaultLabelPrefixCfg()
+	dlpcfg.Append(parseLabelPrefix("!id.ignore"))
 	allNormalLabels := map[string]string{
 		"io.kubernetes.container.hash":                   "cf58006d",
 		"io.kubernetes.container.name":                   "POD",
@@ -42,6 +43,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"io.kubernetes.pod.namespace":                    "default",
 		"io.kubernetes.pod.terminationGracePeriod":       "30",
 		"io.kubernetes.pod.uid":                          "c2e22414-dfc3-11e5-9792-080027755f5a",
+		"id.ignore":                                      "foo",
 	}
 	allLabels := Map2Labels(allNormalLabels, common.CiliumLabelSource)
 	filtered := dlpcfg.FilterLabels(allLabels)
