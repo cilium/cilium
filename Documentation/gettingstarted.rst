@@ -30,7 +30,7 @@ that run on Linux, Mac OS X, and Windows.
 
 If you instead want to understand the details of
 deploying Cilium on a full fledged Kubernetes cluster, then go straight to
-:ref:`k8s_ds` .
+:ref:`admin_install_daemonset`.
 
 Step 0: Install kubectl & minikube
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
