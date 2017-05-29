@@ -46,16 +46,21 @@ cat <<EOF | cilium policy import -
 }]
 EOF
 
-monitor_clear
-echo "------ pinging service1 from service2 ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 5 ${HTTPD_CONTAINER_NAME}  || {
-  abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
-}
+until [ "$(cilium endpoint list | grep cilium -c)" -eq 1 ]; do
+	echo "Waiting for all endpoints to be ready"
+	sleep 4s
+done
 
 monitor_clear
 echo "------ pinging service1 from service3 ------"
 docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 5 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
+}
+
+monitor_clear
+echo "------ pinging service1 from service2 ------"
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 5 ${HTTPD_CONTAINER_NAME}  || {
+  abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear
@@ -117,4 +122,5 @@ RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAIN
 #fi
 
 cilium policy delete --all
+
 

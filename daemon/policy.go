@@ -104,14 +104,11 @@ func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
-		log.Infof("updatePolicyEnforcement: default enforcement, no k8s")
 		if d.GetPolicyRepository().NumRules() > 0 {
-			log.Infof("updatePolicyEnforcement: set to true, num rules > 0 ")
 			// TODO - revisit setting Daemon endpoint.OptionPolicy here
 			d.conf.Opts.Set(endpoint.OptionPolicy, true)
 			return true
 		} else {
-			log.Infof("updatePolicyEnforcement: set to false, num rules == 0")
 			d.conf.Opts.Set(endpoint.OptionPolicy, false)
 			return false
 		}
@@ -123,8 +120,6 @@ func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
 			endpointLabels = append(endpointLabels, lbl)
 		}
 		e.Mutex.RUnlock()
-		d.GetPolicyRepository().Mutex.RLock()
-		defer d.GetPolicyRepository().Mutex.RUnlock()
 		// Check if rules match the labels for this endpoint.
 		// If so, enable policy enforcement.
 		return d.GetPolicyRepository().GetRulesMatching(endpointLabels)
