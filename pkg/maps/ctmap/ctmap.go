@@ -122,8 +122,7 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 	entries := []CtEntryDump{}
 
 	switch mapType {
-	case MapName6:
-	case MapName6Global:
+	case MapName6, MapName6Global:
 		var key, nextKey CtKey6Global
 		for {
 			err := m.GetNextKey(&key, &nextKey)
@@ -144,8 +143,7 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 			key = nextKey
 		}
 
-	case MapName4:
-	case MapName4Global:
+	case MapName4, MapName4Global:
 		var key, nextKey CtKey4Global
 		for {
 			err := m.GetNextKey(&key, &nextKey)
