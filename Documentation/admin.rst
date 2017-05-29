@@ -250,7 +250,7 @@ eventually reach the desired count. This indicates the progress of deployment.
 
         $ kubectl describe ds cilium
         Name:		cilium
-        Image(s):	cilium/cilium:latest
+        Image(s):	cilium/cilium:stable
         Selector:	io.cilium.admin.daemon-set=cilium,name=cilium
         Node-Selector:	<none>
         Labels:		io.cilium.admin.daemon-set=cilium
@@ -390,7 +390,7 @@ update this template to point cilium to a central key-value store.
 
     cilium_docker:
       container_name: cilium-docker-plugin
-      image: cilium/cilium:cilium-ubuntu-16-04
+      image: cilium/cilium:stable
       command: cilium-docker -D
       volumes:
         - /var/run/cilium:/var/run/cilium

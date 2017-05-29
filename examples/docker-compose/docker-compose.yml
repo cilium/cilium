@@ -2,7 +2,7 @@ version: '2'
 services:
   cilium:
     container_name: cilium
-    image: cilium/cilium:cilium-ubuntu-16-04
+    image: cilium/cilium:stable
     command: cilium-agent --debug -d ${IFACE} -c 127.0.0.1:8500
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -18,7 +18,7 @@ services:
 
   cilium_docker:
     container_name: cilium-docker-plugin
-    image: cilium/cilium:cilium-ubuntu-16-04
+    image: cilium/cilium:stable
     command: cilium-docker -D
     volumes:
       - /var/run/cilium:/var/run/cilium
