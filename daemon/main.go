@@ -463,15 +463,10 @@ func initEnv() {
 		log.Fatalf("Unable to setup kvstore: %s\n", err)
 	}
 
-	config.ValidLabelPrefixesMU.Lock()
-	if labelPrefixFile != "" {
-		var err error
-		config.ValidLabelPrefixes, err = labels.ReadLabelPrefixCfgFrom(labelPrefixFile)
-		if err != nil {
-			log.Fatalf("Unable to read label prefix file: %s\n", err)
-		}
+	if p, err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
+		log.Fatalf("%s", err)
 	} else {
-		config.ValidLabelPrefixes = labels.DefaultLabelPrefixCfg()
+		config.ValidLabelPrefixes = p
 	}
 
 	if len(k8sLabelsPrefixes) == 0 {
@@ -486,16 +481,10 @@ func initEnv() {
 		}
 	}
 
-	for _, label := range validLabels {
-		config.ValidLabelPrefixes.Append(labels.ParseLabelPrefix(label))
-	}
-
 	log.Infof("Valid label prefix configuration:")
 	for _, l := range config.ValidLabelPrefixes.LabelPrefixes {
 		log.Infof(" - %s", l)
 	}
-
-	config.ValidLabelPrefixesMU.Unlock()
 
 	_, r, err := net.ParseCIDR(nat46prefix)
 	if err != nil {
