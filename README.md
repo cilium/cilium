@@ -123,7 +123,7 @@ See the [Installation instructions][installation]
 
 ## Weekly Hangout
  * The developer community is hanging out on zoom on a weekly basis to chat. Everybody is welcome.
- * Weekly, Monday, 8am PT, 11am ET, 5pm CEST
+ * Weekly, Monday, 9:00 am PT, 12:00 pm (noon) ET, 6:00 pm CEST
  * [Join zoom](https://zoom.us/j/344163933)
 
 ## Contact
