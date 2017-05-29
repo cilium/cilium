@@ -32,7 +32,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"id.lizards.k8s": NewLabel("id.lizards.k8s", "web", k8s.LabelSource),
 	}
 
-	dlpcfg := DefaultLabelPrefixCfg()
+	dlpcfg := defaultLabelPrefixCfg()
 	allNormalLabels := map[string]string{
 		"io.kubernetes.container.hash":                   "cf58006d",
 		"io.kubernetes.container.name":                   "POD",

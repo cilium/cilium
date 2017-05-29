@@ -38,8 +38,8 @@ func (p LabelPrefix) String() string {
 	return fmt.Sprintf("%s:%s", p.Source, p.Prefix)
 }
 
-// ParseLabelPrefix returns a LabelPrefix created from the string label parameter.
-func ParseLabelPrefix(label string) *LabelPrefix {
+// parseLabelPrefix returns a LabelPrefix created from the string label parameter.
+func parseLabelPrefix(label string) *LabelPrefix {
 	labelPrefix := LabelPrefix{}
 	t := strings.SplitN(label, ":", 2)
 	if len(t) > 1 {
@@ -50,6 +50,22 @@ func ParseLabelPrefix(label string) *LabelPrefix {
 	}
 
 	return &labelPrefix
+}
+
+// ParseLabelPrefixCfg parses valid label prefixes from a file and from a slice
+// of valid prefixes. Both are optional. If both are provided, both list are
+// appended together.
+func ParseLabelPrefixCfg(prefixes []string, file string) (*LabelPrefixCfg, error) {
+	cfg, err := readLabelPrefixCfgFrom(file)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to read label prefix file: %s\n", err)
+	}
+
+	for _, label := range prefixes {
+		cfg.Append(parseLabelPrefix(label))
+	}
+
+	return cfg, nil
 }
 
 // LabelPrefixCfg is the label prefix configuration to filter labels of started
@@ -64,9 +80,9 @@ func (cfg *LabelPrefixCfg) Append(l *LabelPrefix) {
 	cfg.LabelPrefixes = append(cfg.LabelPrefixes, l)
 }
 
-// DefaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
+// defaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
 // LPCfgFileVersion
-func DefaultLabelPrefixCfg() *LabelPrefixCfg {
+func defaultLabelPrefixCfg() *LabelPrefixCfg {
 	return &LabelPrefixCfg{
 		Version: LPCfgFileVersion,
 		LabelPrefixes: []*LabelPrefix{
@@ -103,9 +119,14 @@ func DefaultK8sLabelPrefixCfg() *LabelPrefixCfg {
 	}
 }
 
-// ReadLabelPrefixCfgFrom reads a label prefix configuration file from fileName. If the
+// readLabelPrefixCfgFrom reads a label prefix configuration file from fileName. If the
 // version is not supported by us it returns an error.
-func ReadLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
+func readLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
+	// if not file is specified, the default is empty
+	if fileName == "" {
+		return defaultLabelPrefixCfg(), nil
+	}
+
 	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
