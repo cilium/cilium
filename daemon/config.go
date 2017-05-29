@@ -73,9 +73,8 @@ type Config struct {
 	EnablePolicy   string                  // Whether policy enforcement is enabled.
 	Tunnel         string                  // Tunnel mode
 
-	ValidLabelPrefixesMU  sync.RWMutex           // Protects the 2 variables below
-	ValidLabelPrefixes    *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
-	ValidK8sLabelPrefixes *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
+	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
+	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 
 	DryMode       bool // Do not create BPF maps, devices, ..
 	RestoreState  bool // RestoreState restores the state from previous running daemons.

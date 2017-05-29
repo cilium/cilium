@@ -718,8 +718,6 @@ Cilium Agent Command Line Options
 +---------------------+--------------------------------------+----------------------+
 | k8s-kubeconfig-path | Absolute path to the kubeconfig file |                      |
 +---------------------+--------------------------------------+----------------------+
-| k8s-prefix          | Key-value store prefix used by k8s   |                      |
-+---------------------+--------------------------------------+----------------------+
 | keep-config         | When restoring state, keeps          | false                |
 |                     | containers' configuration in place   |                      |
 +---------------------+--------------------------------------+----------------------+
