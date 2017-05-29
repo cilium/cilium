@@ -101,14 +101,14 @@ func (d *Daemon) EnableConntrackGC() {
 				// right now. We still need to traverse
 				// other EPs since some may not be part
 				// of the global CT, but have a local one.
-				if e.Opts.IsEnabled(endpoint.OptionConntrackLocal) == false {
+				isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+				if isLocal == false {
 					if seenGlobal == true {
 						e.Mutex.RUnlock()
 						continue
 					}
 					seenGlobal = true
 				}
-				isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
 
 				e.Mutex.RUnlock()
 				// We can unlock the endpoint mutex sense
