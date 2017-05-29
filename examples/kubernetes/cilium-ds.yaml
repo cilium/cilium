@@ -42,7 +42,7 @@ spec:
         kubernetes.io/cluster-service: "true"
     spec:
       containers:
-      - image: cilium/cilium:latest
+      - image: cilium/cilium:stable
         imagePullPolicy: Always
         name: cilium-agent
         command: [ "cilium-agent" ]
