@@ -28,12 +28,13 @@ var _ = Suite(&LabelsPrefCfgSuite{})
 
 func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	wanted := Labels{
-		"id.lizards":     NewLabel("id.lizards", "web", common.CiliumLabelSource),
-		"id.lizards.k8s": NewLabel("id.lizards.k8s", "web", k8s.LabelSource),
+		"id.lizards":          NewLabel("id.lizards", "web", common.CiliumLabelSource),
+		"id.lizards.k8s":      NewLabel("id.lizards.k8s", "web", k8s.LabelSource),
+		k8s.PodNamespaceLabel: NewLabel(k8s.PodNamespaceLabel, "default", common.CiliumLabelSource),
 	}
 
 	dlpcfg := defaultLabelPrefixCfg()
-	dlpcfg.Append(parseLabelPrefix("!id.ignore"))
+	dlpcfg.Append(parseLabelPrefix("!ignore"))
 	allNormalLabels := map[string]string{
 		"io.kubernetes.container.hash":                   "cf58006d",
 		"io.kubernetes.container.name":                   "POD",
@@ -43,15 +44,15 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"io.kubernetes.pod.namespace":                    "default",
 		"io.kubernetes.pod.terminationGracePeriod":       "30",
 		"io.kubernetes.pod.uid":                          "c2e22414-dfc3-11e5-9792-080027755f5a",
-		"id.ignore":                                      "foo",
+		"ignore":                                         "foo",
 	}
 	allLabels := Map2Labels(allNormalLabels, common.CiliumLabelSource)
 	filtered := dlpcfg.FilterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 0)
+	c.Assert(len(filtered), Equals, 1)
 	allLabels["id.lizards"] = NewLabel("id.lizards", "web", common.CiliumLabelSource)
 	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", k8s.LabelSource)
 	filtered = dlpcfg.FilterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 2)
+	c.Assert(len(filtered), Equals, 3)
 	c.Assert(filtered, DeepEquals, wanted)
 
 	// Making sure we are deep copying the labels

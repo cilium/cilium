@@ -48,8 +48,6 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug"
-          - "--labels"
-          - "role,app"
           - "--kvstore"
           - "consul"
           - "--kvstore-opt"

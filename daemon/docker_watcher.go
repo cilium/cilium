@@ -183,20 +183,13 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 }
 
 func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
-	var ciliumLabels, k8sLbls, k8sSpecialLabels labels.Labels
+	var ciliumLabels, k8sLbls labels.Labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
 			log.Warningf("Error while getting kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {
 			k8sLbls = labels.Map2Labels(k8sNormalLabels, k8s.LabelSource)
-
-			// Transform all labels "k8s-app" and "version" to
-			// "k8s.k8s-app" and "k8s.version"
-			d.conf.ValidLabelPrefixesMU.RLock()
-			k8sSpecialLabels = d.conf.ValidK8sLabelPrefixes.FilterLabels(k8sLbls)
-			d.conf.ValidLabelPrefixesMU.RUnlock()
-			log.Debug("Special labels %s", k8sSpecialLabels)
 		}
 	}
 
@@ -208,7 +201,6 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 	normalLabels := d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
 	d.conf.ValidLabelPrefixesMU.RUnlock()
 
-	normalLabels.MergeLabels(k8sSpecialLabels)
 	return normalLabels
 }
 
