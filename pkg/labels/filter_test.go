@@ -45,6 +45,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"io.kubernetes.pod.terminationGracePeriod":       "30",
 		"io.kubernetes.pod.uid":                          "c2e22414-dfc3-11e5-9792-080027755f5a",
 		"ignore":                                         "foo",
+		"annotation.kubernetes.io/config.seen": "2017-05-30T14:22:17.691491034Z",
 	}
 	allLabels := Map2Labels(allNormalLabels, common.CiliumLabelSource)
 	filtered := dlpcfg.FilterLabels(allLabels)
