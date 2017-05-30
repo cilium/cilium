@@ -21,10 +21,6 @@ package bpf
 #include <sys/resource.h>
 #include <time.h>
 
-#if !defined __NR_bpf && defined CI_BUILD
-#define __NR_bpf 1
-#endif
-
 static __u64 ptr_to_u64(const void *ptr)
 {
 	return (__u64) (unsigned long) ptr;
