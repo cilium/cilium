@@ -128,7 +128,7 @@ func (k CtKey4Global) Dump(buffer *bytes.Buffer) bool {
 		)
 
 	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s%d -> %s:%d ",
+		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
 			k.nexthdr.String(),
 			k.saddr.IP().String(), k.sport,
 			k.daddr.IP().String(), k.dport),

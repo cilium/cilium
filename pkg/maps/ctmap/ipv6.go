@@ -50,7 +50,7 @@ func (k *CtKey6) Convert() CtKey {
 }
 
 func (k *CtKey6) String() string {
-	return fmt.Sprintf("%s:%d, %d, %d, %d", k.daddr, k.sport, k.dport, k.nexthdr, k.flags)
+	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.daddr, k.sport, k.dport, k.nexthdr, k.flags)
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
@@ -108,7 +108,7 @@ func (k *CtKey6Global) Convert() CtKey {
 }
 
 func (k *CtKey6Global) String() string {
-	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.saddr, k.sport, k.daddr, k.dport, k.nexthdr, k.flags)
+	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.saddr, k.sport, k.daddr, k.dport, k.nexthdr, k.flags)
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
