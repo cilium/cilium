@@ -8,7 +8,7 @@ This tutorial demonstrates how to set up Kubernetes using Cilium to:
 - Run the BPF based kube-proxy replacement for services and ingress objects
 
 On top of this, the pods will have some labels assigned by kubernetes and cilium
-will enforce the kubernetes policy created via [v1beta1 kubernetes network policy API](https://github.com/kubernetes/kubernetes/blob/master/docs/proposals/network-policy.md).
+will enforce the kubernetes policy created via [v1beta1 kubernetes network policy API](https://github.com/kubernetes-ingress/kubernetes-ingress/blob/master/docs/proposals/network-policy.md).
 
 Besides the network policy enforcement, kubernetes will be running **without**
 kube-proxy and will enforce a basic set of ingress rules from an ingress object,
@@ -69,7 +69,7 @@ so it sets `cilium-k8s-local` as the default `kubectl` cluster. The `IPV6_EXT`
 is used to set the kubernetes master with the IPv6 address.
 
 ```
-INSTALL=1 IPV6_EXT=1 examples/kubernetes/scripts/06-kubectl.sh
+INSTALL=1 IPV6_EXT=1 examples/kubernetes-ingress/scripts/06-kubectl.sh
 ```
 
 ```
@@ -102,9 +102,9 @@ kubedns           k8s-app=kube-dns   46m
 If they are not present you can install them by running:
 
 ```
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/network-policy/guestbook-policy-redis.json
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/network-policy/guestbook-policy-web.json
-kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/network-policy/kubedns-policy.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/guestbook-policy-redis.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/guestbook-policy-web.json
+kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes-ingress/network-policy/kubedns-policy.json
 ```
 
 
@@ -125,7 +125,7 @@ services up and running, you can start creating your services.
 Let's create the guestbook with the redis service:
 
 ```
-kubectl create -f examples/kubernetes/deployments/guestbook
+kubectl create -f examples/kubernetes-ingress/deployments/guestbook
 ```
 ```
 replicationcontroller "redis-master" created
@@ -169,7 +169,7 @@ You now have a set of pods and services inside your cluster. That isn't too much
 helpful unless they are exposed outside of the cluster.
 
 ```
-kubectl create -f  examples/kubernetes/deployments/guestbook/ingress/guestbook-ingress.yml
+kubectl create -f  examples/kubernetes-ingress/deployments/guestbook/ingress/guestbook-ingress.yml
 ```
 ```
 ingress "guestbook-ingress" created

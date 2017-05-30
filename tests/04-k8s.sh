@@ -31,7 +31,7 @@ function cleanup {
     echo "Cleaning up"
     sleep 3s
     monitor_stop
-    "${dir}/../examples/kubernetes/scripts/11-cleanup.sh"
+    "${dir}/../examples/kubernetes-ingress/scripts/11-cleanup.sh"
 }
 
 trap cleanup EXIT
@@ -42,13 +42,13 @@ set -x
 
 if [ ! "${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh" ]; then
     echo "File ${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh not found, falling back to default"
-    "${dir}/../examples/kubernetes/scripts/08-cilium.sh"
+    "${dir}/../examples/kubernetes-ingress/scripts/08-cilium.sh"
 else
     # This way we configure kubectl with the same IPs set with start.sh
     "${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh"
 fi
-"${dir}/../examples/kubernetes/scripts/09-dns-addon.sh"
-"${dir}/../examples/kubernetes/scripts/10-1-smoke-test.sh"
+"${dir}/../examples/kubernetes-ingress/scripts/09-dns-addon.sh"
+"${dir}/../examples/kubernetes-ingress/scripts/10-1-smoke-test.sh"
 "${dir}/wait-for-k8s-pod.bash" guestbook 100
 "${dir}/wait-for-k8s-pod.bash" redis-slave 100
 "${dir}/wait-for-k8s-pod.bash" redis-master 100
