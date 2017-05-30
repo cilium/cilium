@@ -44,6 +44,11 @@ var (
                         "matchLabels": {
                             "role": "frontend"
                         }
+                    },
+                    {
+                        "matchLabels": {
+                            "reserved:world": ""
+                        }
                     }
                 ],
                 "toPorts": [
@@ -110,6 +115,9 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 						api.NewESFromLabels(
 							labels.ParseLabel("any:role=frontend"),
 						),
+						api.NewESFromLabels(
+							labels.ParseLabel("reserved:world"),
+						),
 					},
 					ToPorts: []api.PortRule{
 						{
@@ -145,6 +153,9 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 					api.NewESFromLabels(
 						labels.ParseLabel("any:role=frontend"),
 						labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default"),
+					),
+					api.NewESFromLabels(
+						labels.ParseLabel("reserved:world"),
 					),
 				},
 				ToPorts: []api.PortRule{

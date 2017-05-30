@@ -17,6 +17,7 @@ package k8s
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -79,6 +80,9 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 					retRule.Ingress[i].FromEndpoints[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
 					if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
 						retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
+					}
+					if retRule.Ingress[i].FromEndpoints[j].HasKeyPrefix(common.ReservedLabelSourceKeyPrefix) {
+						continue
 					}
 					retRule.Ingress[i].FromEndpoints[j].MatchLabels[k8s.LabelSourceKeyPrefix+k8s.PodNamespaceLabel] = namespace
 				}

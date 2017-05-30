@@ -16,6 +16,7 @@ package api
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
@@ -84,6 +85,22 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 		ls.MatchExpressions = newMatchExpr
 	}
 	return json.Marshal(ls)
+}
+
+// HasKeyPrefix checks if the endpoint selector contains the given key prefix in
+// its MatchLabels map and MatchExpressions slice.
+func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
+	for k := range n.MatchLabels {
+		if strings.HasPrefix(k, prefix) {
+			return true
+		}
+	}
+	for _, v := range n.MatchExpressions {
+		if strings.HasPrefix(v.Key, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // NewESFromLabels creates a new endpoint selector from the given labels.
