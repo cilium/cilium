@@ -132,10 +132,10 @@ It also include a app1-service, which load-balances traffic to all pods with lab
     deployment "app2" created
     deployment "app3" created
 
-Kubernetes will deploy the
-pods and service  in the background.  Running ``kubectl get svc,pods`` will
-inform you about the progress of the operation. Each pod will go through
-several states until it reaches ``Running`` at which point the pod is ready.
+Kubernetes will deploy the pods and service  in the background.  Running
+``kubectl get svc,pods`` will inform you about the progress of the operation.
+Each pod will go through several states until it reaches ``Running`` at which
+point the pod is ready.
 
 ::
 
@@ -150,6 +150,29 @@ several states until it reaches ``Running`` at which point the pod is ready.
     NAME               CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
     svc/app1-service   10.0.0.40    <none>        80/TCP    40s
     svc/kubernetes     10.0.0.1     <none>        443/TCP   5h
+
+All of these pods will be repsented in Cilium as `endpoints`. We can invoke the
+``cilium`` tool inside the Cilium pod to list them:
+
+::
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
+    NAME           READY     STATUS    RESTARTS   AGE
+    cilium-wjb9t   1/1       Running   0          17m
+    $ kubectl -n kube-system exec cilium-wjb9t cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])               IPv6                   IPv4            STATUS
+               ENFORCEMENT
+    3365       Disabled      256        k8s:id=app1                               f00d::a00:20f:0:d25    10.15.191.0     ready
+                                        k8s:io.kubernetes.pod.namespace=default
+    25917      Disabled      258        k8s:id=app3                               f00d::a00:20f:0:653d   10.15.100.129   ready
+                                        k8s:io.kubernetes.pod.namespace=default
+    42910      Disabled      256        k8s:id=app1                               f00d::a00:20f:0:a79e   10.15.236.254   ready
+                                        k8s:io.kubernetes.pod.namespace=default
+    50133      Disabled      257        k8s:id=app2                               f00d::a00:20f:0:c3d5   10.15.59.20     ready
+                                        k8s:io.kubernetes.pod.namespace=default
+
+Policy enforcement is still disabled on all of these pods because no network
+policy has been imported yet which select any of the pods.
+
 
 Step 3: Apply an L3/L4 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -183,12 +206,12 @@ We can achieve that with the following Kubernetes NetworkPolicy:
     spec:
       podSelector:
         matchLabels:
-          app: app1
+          id: app1
       ingress:
       - from:
         - podSelector:
             matchLabels:
-              app: app2
+              id: app2
         ports:
         - protocol: tcp
           port: 80
@@ -202,7 +225,23 @@ To apply this L3/L4 policy, run:
 
 ::
 
-  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
+
+If we run ``cilium endpoint list`` again we will see that the pods with the
+label ``id=app1`` now have policy enforcement enabled.
+
+::
+
+    $ kubectl -n kube-system exec cilium-wjb9t cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])               IPv6                   IPv4            STATUS
+               ENFORCEMENT
+    3365       Enabled       256        k8s:id=app1                               f00d::a00:20f:0:d25    10.15.191.0     ready
+                                        k8s:io.kubernetes.pod.namespace=default
+    25917      Disabled      258        k8s:id=app3                               f00d::a00:20f:0:653d   10.15.100.129   ready
+                                        k8s:io.kubernetes.pod.namespace=default
+    42910      Enabled       256        k8s:id=app1                               f00d::a00:20f:0:a79e   10.15.236.254   ready
+                                        k8s:io.kubernetes.pod.namespace=default
+    50133      Disabled      257        k8s:id=app2                               f00d::a00:20f:0:c3d5   10.15.59.20     ready
 
 Step 4: Test L3/L4 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
