@@ -533,7 +533,7 @@ with the label "id=app2" :
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id=app2" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
+    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -m 10 http://app1
     <html><body><h1>It works!</h1></body></html>
 
 We can see that this request was successful, as we get a valid ping responses.
@@ -543,7 +543,7 @@ label "id=app3":
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id=app3" --cap-add NET_ADMIN cilium/demo-client curl -m 10 http://app1
+    $ docker run --rm -ti --net cilium-net -l "id=app3" cilium/demo-client curl -m 10 http://app1
 
 You will see no reply as all packets are dropped by the Cilium security policy.
 The request will time-out after 10 seconds.
