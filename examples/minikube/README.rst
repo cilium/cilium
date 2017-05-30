@@ -11,14 +11,11 @@ Kubernetes to use the CNI plugin infrastructure:
 ::
 
 	$ minikube start --network-plugin=cni --iso-url https://raw.githubusercontent.com/cilium/minikube-iso/master/minikube.iso
-
-
-.. note:: All the required changes have already been merged into the minikube
-          repository and the next release of the minikube ISO image will no
-          longer require to provide the ``--iso-url``` parameter.
-
-Deploy Cilium:
-
-::
-
+        [...]
 	$ kubectl create -f cilium-ds.yaml
+
+Please see full `Getting Started on Kubernetes`_  guide for additional details
+on how to get started on Kubernetes including details on how to import
+Kubernetes NetworkPolicies.
+
+.. _Getting Started on Kubernetes: http://cilium.readthedocs.io/en/stable/gettingstarted/#getting-started-using-kubernetes
