@@ -124,6 +124,11 @@ func defaultLabelPrefixCfg() *LabelPrefixCfg {
 				Prefix: "io.kubernetes",
 			},
 			{
+				// Ignore all annotation.kubernete.io labels
+				Ignore: true,
+				Prefix: "annotation.kubernetes.io",
+			},
+			{
 				// Ignore pod-template-hash
 				Ignore: true,
 				Prefix: "pod-template-hash",
