@@ -43,12 +43,21 @@ func (r *rule) validate() error {
 
 func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, proto string, resMap L4PolicyMap) int {
 	fmt := p.Port + "/" + proto
-	if _, ok := resMap[fmt]; !ok {
+	v, ok := resMap[fmt]
+	if !ok {
 		resMap[fmt] = CreateL4Filter(r, p, proto)
 		return 1
 	}
-
-	return 0
+	l4Filter := CreateL4Filter(r, p, proto)
+	if l4Filter.L7Parser != "" {
+		v.L7Parser = l4Filter.L7Parser
+	}
+	if l4Filter.L7RedirectPort != 0 {
+		v.L7RedirectPort = l4Filter.L7RedirectPort
+	}
+	v.L7Rules = append(v.L7Rules, l4Filter.L7Rules...)
+	resMap[fmt] = v
+	return 1
 }
 
 func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4PolicyMap) int {
