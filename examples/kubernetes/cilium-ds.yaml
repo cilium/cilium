@@ -41,6 +41,7 @@ spec:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
     spec:
+      serviceAccountName: cilium
       containers:
       - image: cilium/cilium:stable
         imagePullPolicy: Always
