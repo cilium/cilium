@@ -21,6 +21,7 @@ rules:
   - networkpolicies
   - thirdpartyresources
   verbs:
+  - create
   - get
   - list
   - watch
