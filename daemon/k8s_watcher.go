@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -79,8 +80,6 @@ func k8sErrorHandler(e error) {
 }
 
 func (d *Daemon) createThirdPartyResources() error {
-	// TODO: Retry a couple of times
-
 	res := &v1beta1.ThirdPartyResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cilium-network-policy." + k8sTypes.ThirdPartyResourceGroup,
@@ -105,15 +104,6 @@ func (d *Daemon) createThirdPartyResources() error {
 func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	if !d.conf.IsK8sEnabled() {
 		return nil
-	}
-
-	if err := d.createThirdPartyResources(); err != nil {
-		return fmt.Errorf("Unable to create third party resource: %s", err)
-	}
-
-	tprClient, err := k8sTypes.CreateTPRClient(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
-	if err != nil {
-		return fmt.Errorf("Unable to create third party resource client: %s", err)
 	}
 
 	_, policyController := cache.NewInformer(
@@ -168,18 +158,48 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go ingressController.Run(wait.NeverStop)
 
-	_, ciliumRulesController := cache.NewInformer(
-		cache.NewListWatchFromClient(tprClient, "ciliumnetworkpolicies",
-			v1.NamespaceAll, fields.Everything()),
-		&k8sTypes.CiliumNetworkPolicy{},
-		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addCiliumNetworkPolicy,
-			UpdateFunc: d.updateCiliumNetworkPolicy,
-			DeleteFunc: d.deleteCiliumNetworkPolicy,
-		},
-	)
-	go ciliumRulesController.Run(wait.NeverStop)
+	go func() {
+		n := 1
+		for {
+			if err := d.createThirdPartyResources(); err != nil {
+				log.Errorf("Unable to create third party resource: %s, retrying in %d seconds...", err, n)
+			} else {
+				break
+			}
+			time.Sleep(time.Duration(n) * time.Second)
+			if n < 30 {
+				n += n
+			}
+		}
+		n = 1
+		var tprClient *rest.RESTClient
+		for {
+			var err error
+			tprClient, err = k8sTypes.CreateTPRClient(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
+			if err != nil {
+				log.Errorf("Unable to create third party resource client: %s, retrying in %d seconds...", err, n)
+			} else {
+				break
+			}
+			time.Sleep(time.Duration(n) * time.Second)
+			if n < 30 {
+				n += n
+			}
+		}
+
+		_, ciliumRulesController := cache.NewInformer(
+			cache.NewListWatchFromClient(tprClient, "ciliumnetworkpolicies",
+				v1.NamespaceAll, fields.Everything()),
+			&k8sTypes.CiliumNetworkPolicy{},
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    d.addCiliumNetworkPolicy,
+				UpdateFunc: d.updateCiliumNetworkPolicy,
+				DeleteFunc: d.deleteCiliumNetworkPolicy,
+			},
+		)
+		ciliumRulesController.Run(wait.NeverStop)
+	}()
 
 	return nil
 }
