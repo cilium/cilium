@@ -623,7 +623,8 @@ Command Line Options
 +---------------------+--------------------------------------+----------------------+
 | disable-conntrack   | Disable connection tracking          | false                |
 +---------------------+--------------------------------------+----------------------+
-| enable-policy       | Enable policy enforcement            | false                |
+| enable-policy       | Enable policy enforcement            | default              |
+|                     | (default, false, true)               |                      |
 +---------------------+--------------------------------------+----------------------+
 | docker              | Docker socket endpoint               |                      |
 +---------------------+--------------------------------------+----------------------+
