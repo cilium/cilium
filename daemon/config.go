@@ -126,7 +126,7 @@ func (c *Config) SetKVBackend() error {
 	case kvstore.Etcd:
 		log.Infof("using etcd as key-value store")
 		c.EtcdConfig = &etcdAPI.Config{}
-		c.EtcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
+		c.EtcdConfig.Endpoints = []string{"http://127.0.0.1:4001"}
 		c.KVStore = kvstore.Etcd
 		return nil
 	default:
