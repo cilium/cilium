@@ -10,6 +10,7 @@ rules:
   - namespaces
   - nodes
   - endpoints
+  - componentstatuses
   verbs:
   - get
   - list
