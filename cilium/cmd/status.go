@@ -45,16 +45,17 @@ func statusDaemon(cmd *cobra.Command, args []string) {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 		if sr.Kvstore != nil {
-			fmt.Fprintf(w, "KVStore:\t%s\n", sr.Kvstore.State)
+			fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
 		}
 		if sr.ContainerRuntime != nil {
-			fmt.Fprintf(w, "ContainerRuntime:\t%s\n", sr.ContainerRuntime.State)
+			fmt.Fprintf(w, "ContainerRuntime:\t%s\t%s\n",
+				sr.ContainerRuntime.State, sr.ContainerRuntime.Msg)
 		}
 		if sr.Kubernetes != nil {
-			fmt.Fprintf(w, "Kubernetes:\t%s\n", sr.Kubernetes.State)
+			fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
 		}
 		if sr.Cilium != nil {
-			fmt.Fprintf(w, "Cilium:\t%s\n", sr.Cilium.State)
+			fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
 		}
 
 		if sr.IPAM != nil {
