@@ -155,6 +155,7 @@ All of these pods will be repsented in Cilium as `endpoints`. We can invoke the
 ``cilium`` tool inside the Cilium pod to list them:
 
 ::
+
     $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME           READY     STATUS    RESTARTS   AGE
     cilium-wjb9t   1/1       Running   0          17m
