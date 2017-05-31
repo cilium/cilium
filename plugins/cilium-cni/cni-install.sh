@@ -13,7 +13,11 @@ CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}
 echo "Installing $CILIUM_CNI ..."
 cp /opt/cni/bin/cilium-cni ${CILIUM_CNI}
 
-cat > ${CNI_CONF_NAME} <<EOF
+if [ -f "${CILIUM_CNI_CONF}" ]; then
+	echo "Using existing ${CILIUM_CNI_CONF}..."
+else
+	echo "Installing new $CILIUM_CNI_CONF ..."
+	cat > ${CNI_CONF_NAME} <<EOF
 {
     "name": "cilium",
     "type": "cilium-cni",
@@ -21,6 +25,5 @@ cat > ${CNI_CONF_NAME} <<EOF
 }
 EOF
 
-# Install CNI configuration to host
-echo "Installing $CILIUM_CNI_CONF ..."
-mv ${CNI_CONF_NAME} ${CILIUM_CNI_CONF}
+	mv ${CNI_CONF_NAME} ${CILIUM_CNI_CONF}
+fi
