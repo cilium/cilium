@@ -40,5 +40,7 @@
 #define LB_L3
 #define LB_L4
 #define CONNTRACK
-#define CFG_L4_INGRESS { {80, 8080, 0} }
-#define CFG_L4_EGRESS { {80, 8080, 0} }
+#define NR_CFG_L4_INGRESS 2
+#define CFG_L4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0
+#define NR_CFG_L4_EGRESS 1
+#define CFG_L4_EGRESS 0, 80, 8080, 0, (), 0

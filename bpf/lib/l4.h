@@ -142,42 +142,20 @@ struct l4_allow
 #ifdef CFG_L4_INGRESS
 static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
 {
-	struct l4_allow allowed[] = CFG_L4_INGRESS;
-	int i;
+	int allowed = DROP_POLICY_L4;
 
-#pragma unroll
-	for (i = 0; i < ARRAY_SIZE(allowed); i++) {
-		if (allowed[i].nexthdr && allowed[i].nexthdr != nexthdr)
-			continue;
-
-		if (allowed[i].port && allowed[i].port != dport)
-			continue;
-
-		return allowed[i].proxy;
-	}
-
-	return DROP_POLICY_L4;
+	BPF_L4_MAP(allowed, dport, nexthdr, CFG_L4_INGRESS);
+	return allowed;
 }
 #endif
 
 #ifdef CFG_L4_EGRESS
 static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
 {
-	struct l4_allow allowed[] = CFG_L4_EGRESS;
-	int i;
+	int allowed = DROP_POLICY_L4;
 
-#pragma unroll
-	for (i = 0; i < ARRAY_SIZE(allowed); i++) {
-		if (allowed[i].nexthdr && allowed[i].nexthdr != nexthdr)
-			continue;
-
-		if (allowed[i].port && allowed[i].port != dport)
-			continue;
-
-		return allowed[i].proxy;
-	}
-
-	return DROP_POLICY_L4;
+	BPF_L4_MAP(allowed, dport, nexthdr, CFG_L4_EGRESS);
+	return allowed;
 }
 #endif
 
