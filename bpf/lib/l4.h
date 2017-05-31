@@ -142,8 +142,10 @@ struct l4_allow
 #ifdef CFG_L4_INGRESS
 static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
 {
-	struct l4_allow allowed[] = CFG_L4_INGRESS;
+	struct l4_allow allowed[NR_CFG_L4_INGRESS];
 	int i;
+
+	BPF_L4_MAP(allowed, CFG_L4_INGRESS);
 
 #pragma unroll
 	for (i = 0; i < ARRAY_SIZE(allowed); i++) {
@@ -163,8 +165,10 @@ static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
 #ifdef CFG_L4_EGRESS
 static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
 {
-	struct l4_allow allowed[] = CFG_L4_EGRESS;
+	struct l4_allow allowed[NR_CFG_L4_EGRESS];
 	int i;
+
+	BPF_L4_MAP(allowed, CFG_L4_EGRESS);
 
 #pragma unroll
 	for (i = 0; i < ARRAY_SIZE(allowed); i++) {
