@@ -223,8 +223,7 @@ provided DaemonSet_. The script ``cni-install.sh`` is automatically run via the
 configuration suits you, then you can skip the rest of this section.
 
 If you want to adjust the CNI configuration you may do so by creating the CNI
-configuration manually. Do so by running the following commands on all your
-servers:
+configuration manually.
 
 .. code:: bash
 
@@ -234,7 +233,10 @@ servers:
         "type": "cilium-cni",
         "mtu": 1450
     }
-    " > /etc/cni/net.d/10-cilium-cni.conf'
+    " > /etc/cni/net.d/10-cilium.conf'
+
+Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
+already exists on a workder node and only create it if it does not exist yet.
 
 Since kubernetes ``v1.3.5`` you also need to install the ``loopback`` cni
 plugin:
