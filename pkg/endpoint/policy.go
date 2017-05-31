@@ -293,7 +293,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		opts[OptionConntrack] = "enabled"
 	}
 
-	if owner.UpdatePolicyEnforcement(e) {
+	if owner.UpdateEndpointPolicyEnforcement(e) {
 		opts[OptionPolicy] = "enabled"
 	} else {
 		opts[OptionPolicy] = "disabled"
