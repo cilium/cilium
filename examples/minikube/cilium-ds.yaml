@@ -9,7 +9,6 @@ rules:
   - pods
   - namespaces
   - nodes
-  - ingress
   - endpoints
   verbs:
   - get
@@ -19,6 +18,7 @@ rules:
   - extensions
   resources:
   - networkpolicies
+  - ingresses
   - thirdpartyresources
   verbs:
   - get
@@ -49,6 +49,8 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
+- kind: Group
+  name: system:nodes
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
