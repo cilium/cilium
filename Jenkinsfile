@@ -3,22 +3,26 @@ pipeline {
         label 'vagrant'
     }
     options {
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 40, unit: 'MINUTES')
     }
     stages {
-        stage('Build') {
-            environment {
-                MEMORY = '4096'
-                RUN_TEST_SUITE = '1'
-            }
-            steps {
-                sh './contrib/vagrant/start.sh'
-            }
+        stage ('Tests') {
+                environment {
+                    MEMORY = '4096'
+                    RUN_TEST_SUITE = '1'
+		}
+		steps {
+                    parallel(
+                        "Runtime Tests": { sh './contrib/vagrant/start.sh' }, 
+                         "K8s Tests": { sh './tests/k8s/start' } 
+                    )
+	        }
         }
     }
     post {
         always {
             sh 'vagrant destroy -f'
+            sh 'cd ./tests/k8s && vagrant destroy -f'
         }
     }
 }

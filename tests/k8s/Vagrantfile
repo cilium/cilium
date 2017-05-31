@@ -1,0 +1,58 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.require_version ">= 1.8.3"
+
+$build = <<SCRIPT
+docker run -d -p 5000:5000 registry
+cd /home/vagrant/go/src/github.com/cilium/cilium/
+docker build -t cilium:build_test /home/vagrant/go/src/github.com/cilium/cilium
+export ID=$(docker images | grep "build_test" | awk '{print $3}')
+docker tag $ID localhost:5000/cilium:build_test
+docker push localhost:5000/cilium:build_test
+SCRIPT
+
+$k8s = <<SCRIPT
+sudo apt-get update && sudo apt-get install -y apt-transport-https
+sudo touch /etc/apt/sources.list.d/kubernetes.list
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
+sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
+deb http://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+"
+sudo apt-get update
+sudo apt-get install -y docker-engine
+sudo apt-get install -y kubelet kubeadm kubectl kubernetes-cni
+sudo kubeadm init
+sudo cp /etc/kubernetes/admin.conf /home/vagrant/admin.conf
+sudo chown 1000:1000 /home/vagrant/admin.conf
+echo "export KUBECONFIG=/home/vagrant/admin.conf" >> /home/vagrant/.bashrc
+echo "export KUBECONFIG=/home/vagrant/admin.conf" >> /home/vagrant/.profile
+export KUBECONFIG=/home/vagrant/admin.conf
+kubectl taint nodes --all node-role.kubernetes.io/master-
+SCRIPT
+
+$testsuite = <<SCRIPT
+make -C ~/go/src/github.com/cilium/cilium/ k8s-tests || exit 1
+SCRIPT
+
+Vagrant.configure(2) do |config|
+    config.vm.box = "bento/ubuntu-16.10"
+
+    # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
+    config.vm.provision "fix-no-tty", type: "shell" do |s|
+        s.privileged = false
+        s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
+    end
+
+    # install docker runtime
+    #config.vm.provision :docker
+    config.vm.provision "k8s", type: "shell", inline: $k8s
+    config.vm.provision "build", type: "shell", inline: $build
+    config.vm.provider "virtualbox" do |vb|
+        config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync"
+    end
+    if ENV['RUN_TEST_SUITE'] then
+        config.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite
+    end
+end
