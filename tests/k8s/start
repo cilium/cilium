@@ -1,0 +1,5 @@
+#!/bin/bash
+set -exv 
+
+cd ./tests/k8s
+RUN_TEST_SUITE=1 vagrant up
