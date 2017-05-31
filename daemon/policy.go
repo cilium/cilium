@@ -76,7 +76,12 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 		d.invalidateCache()
 	}
 
+	d.GetPolicyRepository().Mutex.RLock()
+	d.EnablePolicyEnforcement()
+	d.GetPolicyRepository().Mutex.RUnlock()
+
 	d.endpointsMU.RLock()
+
 	for k := range d.endpoints {
 		go func(ep *endpoint.Endpoint) {
 			ep.Mutex.RLock()
@@ -98,11 +103,31 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 	d.endpointsMU.RUnlock()
 }
 
-// UpdatePolicyEnforcement returns whether policy enforcement needs to be
+// UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
 // enabled for the specified endpoint.
 //
-// Must be called with e.Consumable.Mutex and d.GetPolicyRepositor().Mutex held
-func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
+// Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held
+func (d *Daemon) UpdateEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
+	if d.EnablePolicyEnforcement() {
+		return true
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
+		// Convert to LabelArray so we can pass to Matches function later.
+		var endpointLabels labels.LabelArray
+		for _, lbl := range e.Consumable.LabelList {
+			endpointLabels = append(endpointLabels, lbl)
+		}
+		// Check if rules match the labels for this endpoint.
+		// If so, enable policy enforcement.
+		return d.GetPolicyRepository().GetRulesMatching(endpointLabels)
+	}
+	return false
+}
+
+// EnablePolicyEnforcement returns whether policy enforcement needs to be
+// enabled for the daemon.
+//
+// Must be called d.GetPolicyRepository().Mutex held
+func (d *Daemon) EnablePolicyEnforcement() bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
@@ -114,15 +139,6 @@ func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
 			d.conf.Opts.Set(endpoint.OptionPolicy, false)
 			return false
 		}
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
-		// Convert to LabelArray so we can pass to Matches function later.
-		var endpointLabels labels.LabelArray
-		for _, lbl := range e.Consumable.LabelList {
-			endpointLabels = append(endpointLabels, lbl)
-		}
-		// Check if rules match the labels for this endpoint.
-		// If so, enable policy enforcement.
-		return d.GetPolicyRepository().GetRulesMatching(endpointLabels)
 	}
 	return false
 }
