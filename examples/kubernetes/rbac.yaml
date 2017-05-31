@@ -9,7 +9,6 @@ rules:
   - pods
   - namespaces
   - nodes
-  - ingress
   - endpoints
   verbs:
   - get
@@ -20,6 +19,7 @@ rules:
   resources:
   - networkpolicies
   - thirdpartyresources
+  - ingresses
   verbs:
   - create
   - get
@@ -50,3 +50,5 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
+- kind: Group
+  name: system:nodes
