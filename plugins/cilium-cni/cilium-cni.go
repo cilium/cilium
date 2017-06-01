@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"runtime"
 	"sort"
 	"strings"
@@ -377,6 +378,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	var macAddrStr string
 	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
+		out, err := exec.Command("sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=0").CombinedOutput()
+		if err != nil {
+			log.Warnf("Error while enabling IPv6 on all interfaces: %s", err)
+		}
+		log.Debugf("Enabling IPv6 command output: %s", out)
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
