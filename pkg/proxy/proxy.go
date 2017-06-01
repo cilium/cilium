@@ -223,7 +223,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
-			if logFile, err = os.OpenFile(lf, os.O_APPEND|os.O_WRONLY, 0666); err != nil {
+			if logFile, err = os.OpenFile(lf, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666); err != nil {
 				log.Warningf("cannot open access log: %s", err)
 			} else {
 				logBuf = bufio.NewWriter(logFile)
