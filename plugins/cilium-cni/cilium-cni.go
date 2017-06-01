@@ -406,9 +406,12 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	id := endpoint.NewID(endpoint.ContainerIdPrefix, args.ContainerID)
 	if ep, err := client.EndpointGet(id); err != nil {
-		return fmt.Errorf("unable to find endpoint %s: %s", id, err)
+		// Ignore endpoints not found
+		log.Debugf("unable to find endpoint %s: %s", id, err)
+		return nil
 	} else if ep == nil {
-		return fmt.Errorf("unable to find endpoint %s", id)
+		log.Debugf("unable to find endpoint %s: %s", id, err)
+		return nil
 	} else {
 		releaseIPs(client, ep.Addressing)
 	}
