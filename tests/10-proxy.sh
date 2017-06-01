@@ -66,6 +66,37 @@ function policy_single_egress {
 EOF
 }
 
+function policy_many_egress {
+	cilium policy delete --all
+	cat <<EOF | cilium -D policy import -
+[{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
+	]
+    }]
+},{
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "8000", "protocol": "tcp"},
+		      {"port": "80",   "protocol": "tcp"},
+		      {"port": "8080", "protocol": "tcp"},
+		      {"port": "8080", "protocol": "udp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+}]
+EOF
+}
+
 function policy_single_ingress {
 	cilium policy delete --all
 	cat <<EOF | cilium -D policy import -
@@ -90,6 +121,32 @@ function policy_single_ingress {
 EOF
 }
 
+function policy_many_ingress {
+	cilium policy delete --all
+	cat <<EOF | cilium -D policy import -
+[{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
+	],
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"},
+		      {"port": "8080", "protool": "tcp"},
+		      {"port": "8080", "protocol": "udp"},
+		      {"port": "8000", "protocol": "udp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+}]
+EOF
+}
 
 function proxy_test {
 until [ "$(cilium endpoint list | grep cilium -c)" -eq 3 ]; do
@@ -118,7 +175,7 @@ if [[ "${RETURN//$'\n'}" != "403" ]]; then
 fi
 }
 
-for policy in "egress" "ingress"; do
+for policy in "egress" "ingress" "many_egress" "many_ingress"; do
 	for state in "false" "true"; do
 		echo "Testing with Policy=$policy, Conntrack=$state"
 		cilium config ConntrackLocal=$state
@@ -127,8 +184,12 @@ for policy in "egress" "ingress"; do
 		sleep 2
 
 		case $policy in
+			"many_egress")
+				policy_many_egress;;
 			"egress")
 				policy_single_egress;;
+			"many_ingress")
+				policy_many_ingress;;
 			"ingress")
 				policy_single_ingress;;
 		esac
