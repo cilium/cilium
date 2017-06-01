@@ -267,7 +267,7 @@ func ObjGet(pathname string) (int, error) {
 	)
 
 	if fd == 0 || err != 0 {
-		return 0, fmt.Errorf("Unable to get object: %s", err)
+		return 0, fmt.Errorf("Unable to get object %s: %s", pathname, err)
 	}
 
 	return int(fd), nil
