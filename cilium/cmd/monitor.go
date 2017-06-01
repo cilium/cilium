@@ -178,7 +178,8 @@ func runMonitor() {
 
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {
-		panic(err)
+		fmt.Printf("Error: Unable to get BPF events (%s)\n", err)
+		os.Exit(1)
 	}
 
 	if eventType != "" {
