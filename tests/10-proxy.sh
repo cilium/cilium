@@ -36,7 +36,9 @@ function proxy_init {
 	set -x
 
 	cilium endpoint list
+}
 
+function policy_single_egress {
 	cilium policy delete --all
 	cat <<EOF | cilium -D policy import -
 [{
@@ -50,6 +52,30 @@ function proxy_init {
 },{
     "endpointSelector": {"matchLabels":{"id.client":""}},
     "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+}]
+EOF
+}
+
+function policy_single_ingress {
+	cilium policy delete --all
+	cat <<EOF | cilium -D policy import -
+[{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"reserved:host":""}},
+	    {"matchLabels":{"id.client":""}}
+	],
 	"toPorts": [{
 	    "ports": [{"port": "80", "protocol": "tcp"}],
 	    "rules": {
@@ -92,14 +118,25 @@ if [[ "${RETURN//$'\n'}" != "403" ]]; then
 fi
 }
 
-for state in "false" "true"; do
-	echo "Testing with Conntrack=$state"
-	cilium config ConntrackLocal=$state
-	sleep 2
-	proxy_init
-	sleep 2
-	proxy_test
-	cilium policy delete --all 2> /dev/null || true
-	docker rm -f server client 2> /dev/null || true
-	sleep 2
+for policy in "egress" "ingress"; do
+	for state in "false" "true"; do
+		echo "Testing with Policy=$policy, Conntrack=$state"
+		cilium config ConntrackLocal=$state
+		sleep 2
+		proxy_init
+		sleep 2
+
+		case $policy in
+			"egress")
+				policy_single_egress;;
+			"ingress")
+				policy_single_ingress;;
+		esac
+
+		sleep 2
+		proxy_test
+		cilium policy delete --all 2> /dev/null || true
+		docker rm -f server client 2> /dev/null || true
+		sleep 2
+	done
 done
