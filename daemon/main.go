@@ -160,8 +160,10 @@ func checkMinRequirements() {
 		clangMajor > majorMinClangVersion) &&
 		((kernelMajor < majorMinKernelVersion) ||
 			(kernelMajor == majorMinKernelVersion && kernelMinor < minorRecommendedKernelVersion)) {
-		log.Fatalf("clang and kernel version: NOT OK: please upgrade "+
-			"your kernel version to at least %d.%d", majorMinKernelVersion,
+		log.Fatalf("clang (%d.%d) and kernel (%d.%d) version: NOT OK: please upgrade "+
+			"your kernel version to at least %d.%d",
+			clangMajor, clangMinor, kernelMajor, kernelMinor,
+			majorMinKernelVersion,
 			minorRecommendedKernelVersion)
 	}
 	log.Infof("clang and kernel versions: OK!")
