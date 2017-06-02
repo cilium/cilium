@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -186,6 +187,8 @@ type Endpoint struct {
 	PortMap          []PortMap             // Port mapping used for this endpoint.
 	Consumable       *policy.Consumable
 	PolicyMap        *policymap.PolicyMap
+	L3Policy         *policy.L3Policy
+	L3Maps           L3Maps
 	Opts             *option.BoolOptions // Endpoint bpf options.
 	Status           *EndpointStatus
 	State            string
@@ -485,6 +488,10 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	if e.PolicyMap != nil {
 		cpy.PolicyMap = e.PolicyMap.DeepCopy()
 	}
+	if e.L3Policy != nil {
+		cpy.L3Policy = e.L3Policy.DeepCopy()
+	}
+	cpy.L3Maps = e.L3Maps.DeepCopy()
 	if e.Opts != nil {
 		cpy.Opts = e.Opts.DeepCopy()
 	}
@@ -684,14 +691,34 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	return err
 }
 
-// PolicyMapPath returns the path to policy map for endpoint ID.
-func PolicyMapPath(id int) string {
-	return bpf.MapPath(policymap.MapName + strconv.Itoa(id))
+// mapPath returns the path to a map for endpoint ID.
+func mapPath(mapname string, id int) string {
+	return bpf.MapPath(mapname + strconv.Itoa(id))
 }
 
-// PolicyMapPath returns the path to policy map of endpoint.
+// PolicyMapPathLocked returns the path to policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
-	return PolicyMapPath(int(e.ID))
+	return mapPath(policymap.MapName, int(e.ID))
+}
+
+// IPv6IngressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv6IngressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"ingress6_", int(e.ID))
+}
+
+// IPv6EgressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv6EgressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"egress6_", int(e.ID))
+}
+
+// IPv4IngressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv4IngressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"ingress4_", int(e.ID))
+}
+
+// IPv4EgressMapPathLocked returns the path to policy map of endpoint.
+func (e *Endpoint) IPv4EgressMapPathLocked() string {
+	return mapPath(cidrmap.MapName+"egress4_", int(e.ID))
 }
 
 // PolicyGlobalMapPathLocked returns the path to the global policy map.
@@ -809,6 +836,8 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 			log.Warningf("Unable to close policy map %s: %s", e.PolicyMapPathLocked(), err)
 		}
 	}
+
+	e.L3Maps.Close()
 
 	e.removeDirectory()
 }
