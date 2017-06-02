@@ -313,6 +313,10 @@ skip_service_lookup:
 
 #ifdef ALLOW_TO_WORLD
 		policy_mark_skip(skb);
+#else
+		/* Skip policy on matching egress prefixes. */
+		if (likely(lpm6_egress_lookup(daddr)))
+			policy_mark_skip(skb);
 #endif
 		goto pass_to_stack;
 	}
@@ -580,6 +584,10 @@ skip_service_lookup:
 	} else {
 #ifdef ALLOW_TO_WORLD
 		policy_mark_skip(skb);
+#else
+		/* Skip policy on matching egress prefixes. */
+		if (likely(lpm4_egress_lookup(orig_dip)))
+			policy_mark_skip(skb);
 #endif
 		goto pass_to_stack;
 	}
@@ -780,7 +788,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	 * passed through the allowed consumer. */
 	/* FIXME: Add option to disable policy accounting and avoid policy
 	 * lookup if policy accounting is disabled */
-	verdict = policy_can_access(&POLICY_MAP, skb, src_label);
+	verdict = policy_can_access(&POLICY_MAP, skb, src_label, sizeof(tuple.saddr), &tuple.saddr);
 	if (unlikely(ret == CT_NEW)) {
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
@@ -864,7 +872,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	/* Policy lookup is done on every packet to account for packets that
 	 * passed through the allowed consumer. */
-	verdict = policy_can_access(&POLICY_MAP, skb, src_label);
+	verdict = policy_can_access(&POLICY_MAP, skb, src_label, sizeof(tuple.saddr), &tuple.saddr);
 	if (unlikely(ret == CT_NEW)) {
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;

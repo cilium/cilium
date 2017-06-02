@@ -19,9 +19,12 @@
 #define __LIB_POLICY_H_
 
 #include "drop.h"
+#include "maps.h"
 
 #ifdef POLICY_ENFORCEMENT
-static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
+
+static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
+				    size_t cidr_addr_size, void *cidr_addr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -35,6 +38,12 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 		__sync_fetch_and_add(&policy->bytes, skb->len);
 		return TC_ACT_OK;
 	}
+
+	// cidr_addr_size is a compile time constant so this should all be inlined neatly.
+	if (cidr_addr_size == sizeof(union v6addr) && lpm6_ingress_lookup(cidr_addr))
+		goto allow;
+	if (cidr_addr_size == sizeof(__be32) && lpm4_ingress_lookup(*(__be32 *)cidr_addr))
+		goto allow;
 
 	if (skb->cb[CB_POLICY])
 		goto allow;
@@ -74,7 +83,8 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 
 #else /* POLICY_ENFORCEMENT */
 
-static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label)
+static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
+				    size_t cidr_addr_size, void *cidr_addr)
 {
 	return TC_ACT_OK;
 }

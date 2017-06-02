@@ -122,6 +122,17 @@ static inline int ipv6_addrcmp(union v6addr *a, union v6addr *b)
 	return tmp;
 }
 
+// Only works with contiguous masks.
+static inline int ipv6_addr_in_net(union v6addr *addr, union v6addr *net, union v6addr *mask)
+{
+	return ((addr->p1 & mask->p1) == net->p1)
+		&& (!mask->p2
+		    || (((addr->p2 & mask->p2) == net->p2)
+			&& (!mask->p3
+			    || (((addr->p3 & mask->p3) == net->p3)
+				&& (!mask->p4 || ((addr->p4 & mask->p4) == net->p4))))));
+}
+
 static inline int ipv6_match_prefix_96(const union v6addr *addr, const union v6addr *prefix)
 {
 	int tmp;

@@ -19,6 +19,7 @@
 #define __LIB_MAPS_H_
 
 #include "common.h"
+#include "ipv6.h"
 
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
@@ -76,6 +77,189 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_CALL_SIZE,
 };
+
+#ifdef POLICY_ENFORCEMENT
+
+#ifdef HAVE_LPM_MAP_TYPE
+
+#ifndef LPM_MAP_SIZE
+#define LPM_MAP_SIZE 1024
+#endif
+
+#ifndef LPM_MAP_VALUE_SIZE
+#define LPM_MAP_VALUE_SIZE 1
+#endif
+
+struct bpf_lpm_trie_key6 {
+	struct bpf_lpm_trie_key lpm_key;
+	union v6addr lpm_addr;
+};
+
+static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map, union v6addr *addr)
+{
+	struct bpf_lpm_trie_key6 key = { { 128 }, *addr };
+	return map_lookup_elem(map, &key) != NULL;
+}
+
+#ifdef CIDR6_INGRESS_MAP
+struct bpf_elf_map __section_maps CIDR6_INGRESS_MAP = {
+	.type		= BPF_MAP_TYPE_LPM_TRIE,
+	.size_key	= sizeof(struct bpf_lpm_trie_key6),
+	.size_value	= LPM_MAP_VALUE_SIZE,
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= LPM_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#define lpm6_ingress_lookup(ADDR) lpm6_map_lookup(&CIDR6_INGRESS_MAP, ADDR)
+#else
+#define lpm6_ingress_lookup(ADDR) 0
+#endif
+
+#ifdef CIDR6_EGRESS_MAP
+struct bpf_elf_map __section_maps CIDR6_EGRESS_MAP = {
+	.type		= BPF_MAP_TYPE_LPM_TRIE,
+	.size_key	= sizeof(struct bpf_lpm_trie_key6),
+	.size_value	= LPM_MAP_VALUE_SIZE,
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= LPM_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#define lpm6_egress_lookup(ADDR) lpm6_map_lookup(&CIDR6_EGRESS_MAP, ADDR)
+#else
+#define lpm6_egress_lookup(ADDR) 0
+#endif
+
+struct bpf_lpm_trie_key4 {
+	struct bpf_lpm_trie_key lpm_key;
+	__be32 lpm_addr;
+};
+
+static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map, __be32 addr)
+{
+	struct bpf_lpm_trie_key6 key = { { 32 }, addr };
+	return map_lookup_elem(map, &key) != NULL;
+}
+
+#ifdef CIDR4_INGRESS_MAP
+struct bpf_elf_map __section_maps CIDR4_INGRESS_MAP = {
+	.type		= BPF_MAP_TYPE_LPM_TRIE,
+	.size_key	= sizeof(struct bpf_lpm_trie_key4),
+	.size_value	= LPM_MAP_VALUE_SIZE,
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= LPM_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#define lpm4_ingress_lookup(ADDR) lpm4_map_lookup(&CIDR4_INGRESS_MAP, ADDR)
+#else
+#define lpm4_ingress_lookup(ADDR) 0
+#endif
+#ifdef CIDR4_EGRESS_MAP
+struct bpf_elf_map __section_maps CIDR4_EGRESS_MAP = {
+	.type		= BPF_MAP_TYPE_LPM_TRIE,
+	.size_key	= sizeof(struct bpf_lpm_trie_key4),
+	.size_value	= LPM_MAP_VALUE_SIZE,
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= LPM_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#define lpm4_egress_lookup(ADDR) lpm4_map_lookup(&CIDR4_EGRESS_MAP, ADDR)
+#else
+#define lpm4_egress_lookup(ADDR) 0
+#endif
+
+#else /* HAVE_LPM_MAP_TYPE */
+/* No LPM map, use an array instead. Since our policies are default
+ * deny we can stop at the first match. */
+
+struct cidr6_entry {
+	union v6addr net, mask;
+};
+
+#ifdef CIDR6_INGRESS_MAPPINGS
+static __always_inline int lpm6_ingress_lookup(union v6addr *addr)
+{
+	struct cidr6_entry map[] = { CIDR6_INGRESS_MAPPINGS };
+	const int size = (sizeof(map) / sizeof(map[0]));
+	int i;
+
+#pragma unroll
+	for (i = 0; i < size; i++)
+		if (ipv6_addr_in_net(addr, &map[i].net, &map[i].mask))
+			return 1;
+
+	return 0;
+}
+#else
+#define lpm6_ingress_lookup(ADDR) 0
+#endif
+
+#ifdef CIDR6_EGRESS_MAPPINGS
+static __always_inline int lpm6_egress_lookup(union v6addr *addr)
+{
+	struct cidr6_entry map[] = { CIDR6_EGRESS_MAPPINGS };
+	const int size = (sizeof(map) / sizeof(map[0]));
+	int i;
+
+#pragma unroll
+	for (i = 0; i < size; i++)
+		if (ipv6_addr_in_net(addr, &map[i].net, &map[i].mask))
+			return 1;
+
+	return 0;
+}
+#else
+#define lpm6_egress_lookup(ADDR) 0
+#endif
+
+struct cidr4_entry {
+	__be32 net, mask;
+};
+
+#ifdef CIDR4_INGRESS_MAPPINGS
+static __always_inline int lpm4_ingress_lookup(__be32 addr)
+{
+	struct cidr4_entry map[] = { CIDR4_INGRESS_MAPPINGS };
+	const int size = (sizeof(map) / sizeof(map[0]));
+	int i;
+
+#pragma unroll
+	for (i = 0; i < size; i++)
+		if ((addr & map[i].mask) == map[i].net)
+			return 1;
+
+	return 0;
+}
+#else
+#define lpm4_ingress_lookup(ADDR) 0
+#endif
+
+#ifdef CIDR4_EGRESS_MAPPINGS
+static __always_inline int lpm4_egress_lookup(__be32 addr)
+{
+	struct cidr4_entry map[] = { CIDR4_EGRESS_MAPPINGS };
+	const int size = (sizeof(map) / sizeof(map[0]));
+	int i;
+
+#pragma unroll
+	for (i = 0; i < size; i++) {
+		if ((addr & map[i].mask) == map[i].net)
+			return 1;
+	}
+
+	return 0;
+}
+#else
+#define lpm4_egress_lookup(ADDR) 0
+#endif
+
+#endif  /* HAVE_LPM_MAP_TYPE */
+
+#else /* POLICY_ENFORCEMENT */
+#define lpm6_ingress_lookup(ADDR) 0
+#define lpm6_egress_lookup(ADDR) 0
+#define lpm4_ingress_lookup(ADDR) 0
+#define lpm4_egress_lookup(ADDR) 0
+#endif /* POLICY_ENFORCEMENT */
 
 static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
 {
