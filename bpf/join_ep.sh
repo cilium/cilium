@@ -30,6 +30,8 @@ CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$RUNDIR/globals -I$DIR -I$L
 
 # Only generate ASM output if debug is enabled.
 if [[ "${DEBUG}" == "true" ]]; then
+  echo "kernel version: " `uname -a`
+  echo "clang version: " `clang --version`
   clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $DIR/bpf_lxc.asm
 fi
 
