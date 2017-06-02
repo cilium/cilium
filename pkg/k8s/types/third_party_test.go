@@ -35,7 +35,16 @@ var (
         "endpointSelector": {
             "matchLabels": {
                 "role": "backend"
-            }
+            },
+            "matchExpressions": [
+                {
+                    "key": "role",
+                    "operator": "NotIn",
+                    "values": [
+                        "production"
+                    ]
+                }
+            ]
         },
         "ingress": [
             {
@@ -103,12 +112,15 @@ var (
 )
 
 func (s *K8sSuite) TestParseThirdParty(c *C) {
+	es := api.NewESFromLabels(labels.ParseLabel("any:role=backend"))
+	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+
 	expectedPolicyRule := &CiliumNetworkPolicy{
 		Metadata: metav1.ObjectMeta{
 			Name: "rule1",
 		},
 		Spec: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("any:role=backend")),
+			EndpointSelector: es,
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
@@ -145,8 +157,11 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 		},
 	}
 
+	expectedES := api.NewESFromLabels(labels.ParseLabel("any:role=backend"), labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default"))
+	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+
 	expectedSpecRule := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("any:role=backend"), labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default")),
+		EndpointSelector: expectedES,
 		Ingress: []api.IngressRule{
 			{
 				FromEndpoints: []api.EndpointSelector{
@@ -188,6 +203,13 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 	c.Assert(*rules[0], DeepEquals, expectedSpecRule)
+
+	b, err := json.Marshal(expectedPolicyRule)
+	c.Assert(err, IsNil)
+	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
+	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
+	c.Assert(err, IsNil)
+	c.Assert(expectedPolicyRuleUnmarshalled, DeepEquals, *expectedPolicyRule)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)

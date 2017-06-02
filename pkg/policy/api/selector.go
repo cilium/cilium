@@ -77,7 +77,7 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 		ls.MatchLabels = newLabels
 	}
 	if n.MatchExpressions != nil {
-		newMatchExpr := make([]metav1.LabelSelectorRequirement, len(ls.MatchExpressions))
+		newMatchExpr := make([]metav1.LabelSelectorRequirement, len(n.MatchExpressions))
 		for i, v := range n.MatchExpressions {
 			v.Key = labels.GetCiliumKeyFrom(v.Key)
 			newMatchExpr[i] = v
