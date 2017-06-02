@@ -35,6 +35,7 @@ struct bpf_map_fixup {
 	enum bpf_map_type type;
 	uint32_t size_key;
 	uint32_t size_val;
+	uint32_t flags;
 };
 
 struct bpf_test {
@@ -159,10 +160,17 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 	/* We can use off here as it's never first insns. */
 	while (map->off) {
 		fd = bpf_map_create(map->type, map->size_key,
-				    map->size_val, 1, 0);
-		if (fd < 0)
+				    map->size_val, 1, map->flags);
+		if (fd < 0) {
+			if (debug_mode) {
+				printf("#if 0\n");
+				printf("%s: bpf_map_create(): %s\n",
+				       test->emits, strerror(errno));
+				printf("#endif\n\n");
+			}
 			/* We fail in verifier eventually. */
 			break;
+		}
 		test->insns[map->off].imm = fd;
 		map++;
 	}
