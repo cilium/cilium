@@ -117,13 +117,14 @@ type Map struct {
 	lock sync.RWMutex
 }
 
-func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int) *Map {
+func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32) *Map {
 	return &Map{
 		MapInfo: MapInfo{
 			MapType:    mapType,
 			KeySize:    uint32(keySize),
 			ValueSize:  uint32(valueSize),
 			MaxEntries: uint32(maxEntries),
+			Flags:      flags,
 		},
 		name: name,
 	}
@@ -227,7 +228,7 @@ func (m *Map) OpenOrCreate() (bool, error) {
 		return false, err
 	}
 
-	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries)
+	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags)
 	if err != nil {
 		return false, err
 	}

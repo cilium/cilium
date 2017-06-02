@@ -27,7 +27,7 @@ static __u64 ptr_to_u64(const void *ptr)
 }
 
 void create_bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
-			   int max_entries, void *attr)
+			   int max_entries, unsigned long flags, void *attr)
 {
 	union bpf_attr* ptr_bpf_attr;
 	ptr_bpf_attr = (union bpf_attr*)attr;
@@ -35,6 +35,7 @@ void create_bpf_create_map(enum bpf_map_type map_type, int key_size, int value_s
 	ptr_bpf_attr->key_size = key_size;
 	ptr_bpf_attr->value_size = value_size;
 	ptr_bpf_attr->max_entries = max_entries;
+	ptr_bpf_attr->map_flags = flags;
 }
 
 void create_bpf_update_elem(int fd, const void *key, const void *value,
@@ -115,13 +116,14 @@ import (
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
 // valueSize and the maximum amount of entries of maxEntries.
 // mapType should be one of the bpf_map_type in "uapi/linux/bpf.h"
-func CreateMap(mapType int, keySize, valueSize, maxEntries uint32) (int, error) {
+func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, error) {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_create_map(
 		C.enum_bpf_map_type(mapType),
 		C.int(keySize),
 		C.int(valueSize),
 		C.int(maxEntries),
+		C.ulong(flags),
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := unix.Syscall(
@@ -281,7 +283,7 @@ func ObjClose(fd int) error {
 	return nil
 }
 
-func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries uint32) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32) (int, bool, error) {
 	var fd int
 
 	isNewMap := false
@@ -309,6 +311,7 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries ui
 			keySize,
 			valueSize,
 			maxEntries,
+			flags,
 		)
 
 		defer func() {

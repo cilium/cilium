@@ -146,6 +146,7 @@ func OpenMap(path string) (*PolicyMap, bool, error) {
 		uint32(unsafe.Sizeof(uint32(0))),
 		uint32(unsafe.Sizeof(PolicyEntry{})),
 		MAX_KEYS,
+		0,
 	)
 
 	if err != nil {

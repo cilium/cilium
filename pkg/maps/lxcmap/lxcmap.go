@@ -214,6 +214,7 @@ func OpenMap() (*LXCMap, error) {
 		uint32(unsafe.Sizeof(uint32(0))),
 		uint32(unsafe.Sizeof(LXCInfo{})),
 		MaxKeys,
+		0,
 	)
 	if err != nil {
 		return nil, err
