@@ -31,17 +31,17 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service4Key{})),
 		int(unsafe.Sizeof(Service4Value{})),
-		maxEntries)
+		maxEntries, 0)
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat4Key{})),
 		int(unsafe.Sizeof(RevNat4Value{})),
-		maxEntries)
+		maxEntries, 0)
 	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service4Key{})),
 		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds)
+		maxFrontEnds, 0)
 )
 
 // Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".

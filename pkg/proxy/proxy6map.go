@@ -55,7 +55,7 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy6Key{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
-		8192)
+		8192, 0)
 )
 
 func (k Proxy6Key) NewValue() bpf.MapValue {

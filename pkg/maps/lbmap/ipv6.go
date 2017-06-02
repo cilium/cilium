@@ -31,17 +31,17 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(Service6Value{})),
-		maxEntries)
+		maxEntries, 0)
 	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),
-		maxEntries)
+		maxEntries, 0)
 	RRSeq6Map = bpf.NewMap("cilium_lb6_rr_seq",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds)
+		maxFrontEnds, 0)
 )
 
 // Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".
