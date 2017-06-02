@@ -26,6 +26,8 @@
 
 #include "raw_insn.h"
 
+#include "iproute2/bpf_elf.h"
+
 #define BPF_MAX_FIXUPS	64
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -125,6 +127,95 @@ static int bpf_test_length(const struct bpf_insn *insn)
 	return len + 1;
 }
 
+/* From iproute2/lib/bpf.c */
+static void bpf_map_pin_report(const struct bpf_elf_map *pin,
+			       const struct bpf_elf_map *obj)
+{
+	fprintf(stderr, "Map specification differs from pinned file!\n");
+
+	if (obj->type != pin->type)
+		fprintf(stderr, " - Type:         %u (obj) != %u (pin)\n",
+			obj->type, pin->type);
+	if (obj->size_key != pin->size_key)
+		fprintf(stderr, " - Size key:     %u (obj) != %u (pin)\n",
+			obj->size_key, pin->size_key);
+	if (obj->size_value != pin->size_value)
+		fprintf(stderr, " - Size value:   %u (obj) != %u (pin)\n",
+			obj->size_value, pin->size_value);
+	if (obj->max_elem != pin->max_elem)
+		fprintf(stderr, " - Max elems:    %u (obj) != %u (pin)\n",
+			obj->max_elem, pin->max_elem);
+	if (obj->flags != pin->flags)
+		fprintf(stderr, " - Flags:        %#x (obj) != %#x (pin)\n",
+			obj->flags, pin->flags);
+	if (obj->pinning != pin->pinning)
+		fprintf(stderr, " - Pinning:      %#x (obj) != %#x (pin)\n",
+			obj->pinning, pin->pinning);
+
+	fprintf(stderr, "\n");
+}
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
+/* From iproute2/lib/bpf.c */
+static int bpf_map_selfcheck_pinned(int fd, const struct bpf_elf_map *map,
+				    int length, enum bpf_prog_type type)
+{
+	char file[PATH_MAX], buff[4096];
+	struct bpf_elf_map tmp = {}, zero = {};
+	unsigned int val, owner_type = 0;
+	FILE *fp;
+
+	snprintf(file, sizeof(file), "/proc/%d/fdinfo/%d", getpid(), fd);
+
+	fp = fopen(file, "r");
+	if (!fp) {
+		fprintf(stderr, "No procfs support?!\n");
+		return -EIO;
+	}
+
+	while (fgets(buff, sizeof(buff), fp)) {
+		if (sscanf(buff, "map_type:\t%u", &val) == 1)
+			tmp.type = val;
+		else if (sscanf(buff, "key_size:\t%u", &val) == 1)
+			tmp.size_key = val;
+		else if (sscanf(buff, "value_size:\t%u", &val) == 1)
+			tmp.size_value = val;
+		else if (sscanf(buff, "max_entries:\t%u", &val) == 1)
+			tmp.max_elem = val;
+		else if (sscanf(buff, "map_flags:\t%i", &val) == 1)
+			tmp.flags = val;
+		else if (sscanf(buff, "owner_prog_type:\t%i", &val) == 1)
+			owner_type = val;
+	}
+
+	fclose(fp);
+
+	/* The decision to reject this is on kernel side eventually, but
+	 * at least give the user a chance to know what's wrong.
+	 */
+	if (owner_type && owner_type != type)
+		fprintf(stderr, "Program array map owner types differ: %u (obj) != %u (pin)\n",
+			type, owner_type);
+
+	if (!memcmp(&tmp, map, length)) {
+		return 0;
+	} else {
+		/* If kernel doesn't have eBPF-related fdinfo, we cannot do much,
+		 * so just accept it. We know we do have an eBPF fd and in this
+		 * case, everything is 0. It is guaranteed that no such map exists
+		 * since map type of 0 is unloadable BPF_MAP_TYPE_UNSPEC.
+		 */
+		if (!memcmp(&tmp, &zero, length))
+			return 0;
+
+		bpf_map_pin_report(&tmp, map);
+		return -EINVAL;
+	}
+}
+
 static void bpf_report(const struct bpf_test *test, int success,
 		       int debug_mode)
 {
@@ -159,6 +250,15 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 
 	/* We can use off here as it's never first insns. */
 	while (map->off) {
+		struct bpf_elf_map elf_map = {
+			.type		= map->type,
+			.size_key	= map->size_key,
+			.size_value	= map->size_val,
+			.pinning	= 0,
+			.max_elem	= 1,
+			.flags		= map->flags,
+		};
+	  
 		fd = bpf_map_create(map->type, map->size_key,
 				    map->size_val, 1, map->flags);
 		if (fd < 0) {
@@ -171,6 +271,10 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 			/* We fail in verifier eventually. */
 			break;
 		}
+		
+		if (bpf_map_selfcheck_pinned(fd, &elf_map, sizeof elf_map, test->type) != 0)
+			break;
+
 		test->insns[map->off].imm = fd;
 		map++;
 	}
