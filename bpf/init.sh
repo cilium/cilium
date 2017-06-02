@@ -29,6 +29,11 @@ WORLD_ID="world"
 set -e
 set -x
 
+if [[ ! $(command -v cilium) ]]; then
+	echo "Can't be initialized because 'cilium' is not in the path."
+	exit 1
+fi
+
 # Enable JIT
 echo 1 > /proc/sys/net/core/bpf_jit_enable
 
