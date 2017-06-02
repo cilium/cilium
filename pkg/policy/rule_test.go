@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -160,7 +162,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 					{IP: "10.0.1.0/24"},
 					{IP: "192.168.2.0"},
 					{IP: "10.0.3.1"},
-					{IP: "2001:db8::/48"},
+					{IP: "2001:db8::1/48"},
 					{IP: "2001:db9::"},
 				},
 			},
@@ -182,7 +184,31 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	err = rule1.validate()
 	c.Assert(err, IsNil)
 
-	// Must be parsable
+	expected := NewL3Policy()
+	expected.Ingress.Map["10.0.1.0/24"] = net.IPNet{IP: []byte{10, 0, 1, 0}, Mask: []byte{255, 255, 255, 0}}
+	expected.Ingress.Map["192.168.2.0/24"] = net.IPNet{IP: []byte{192, 168, 2, 0}, Mask: []byte{255, 255, 255, 0}}
+	expected.Ingress.Map["10.0.3.1/32"] = net.IPNet{IP: []byte{10, 0, 3, 1}, Mask: []byte{255, 255, 255, 255}}
+	expected.Ingress.IPv4Changed = true
+	expected.Ingress.IPv4Count = 3
+	expected.Ingress.Map["2001:db8::/48"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+	expected.Ingress.Map["2001:db9::/128"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+	expected.Ingress.IPv6Changed = true
+	expected.Ingress.IPv6Count = 2
+	expected.Egress.Map["10.1.0.0/16"] = net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}
+	expected.Egress.IPv4Changed = true
+	expected.Egress.IPv4Count = 1
+	expected.Egress.Map["2001:dbf::/64"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}
+	expected.Egress.IPv6Changed = true
+	expected.Egress.IPv6Count = 1
+
+	toBar := &SearchContext{To: labels.ParseLabelArray("bar")}
+	state := traceState{}
+	res := rule1.resolveL3Policy(toBar, &state, NewL3Policy())
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+
+	// Must be parsable, make sure Validate fails when not.
 	err = api.Rule{
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{{IP: "10.0.1..0/24"}},
@@ -190,7 +216,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	}.Validate()
 	c.Assert(err, Not(IsNil))
 
-	// Must have a mask
+	// Must have a mask, make sure Validate fails when not.
 	err = api.Rule{
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{{IP: "10.0.1.0/0"}},
@@ -198,7 +224,8 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	}.Validate()
 	c.Assert(err, Not(IsNil))
 
-	// Prefix length must be in range for the address
+	// Prefix length must be in range for the address, make sure
+	// Validate fails if given prefix length is out of range.
 	err = api.Rule{
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{{IP: "10.0.1.0/34"}},

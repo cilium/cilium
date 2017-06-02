@@ -119,6 +119,43 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 	return nil
 }
 
+func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {
+	found := 0
+
+	for _, r := range ipRules {
+		ctx.PolicyTrace("  Allows %s IP %s\n", dir, r.IP)
+
+		found += resMap.Insert(r.IP)
+	}
+
+	return found
+}
+
+func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3Policy) *L3Policy {
+	if !r.EndpointSelector.Matches(ctx.To) {
+		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
+		return nil
+	}
+
+	state.selectedRules++
+	ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
+	found := 0
+
+	for _, r := range r.Ingress {
+		found += mergeL3(ctx, "Ingress", r.FromCIDR, &result.Ingress)
+	}
+	for _, r := range r.Egress {
+		found += mergeL3(ctx, "Egress", r.ToCIDR, &result.Egress)
+	}
+
+	if found > 0 {
+		return result
+	}
+
+	ctx.PolicyTrace("    No L3 rules\n")
+	return nil
+}
+
 func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 	if !r.EndpointSelector.Matches(ctx.To) {
 		ctx.PolicyTraceVerbose("  Rule %d %s: no match for %+v\n", state.ruleID, r, ctx.To)

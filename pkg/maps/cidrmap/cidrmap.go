@@ -43,6 +43,10 @@ type CIDRMap struct {
 
 // DeepCopy duplicates CIDRMap 'cm', but both copies refer to the same map.
 func (cm *CIDRMap) DeepCopy() *CIDRMap {
+	if cm == nil {
+		return nil
+	}
+
 	return &CIDRMap{
 		path:     cm.path,
 		Fd:       cm.Fd,
@@ -86,11 +90,17 @@ func (cm *CIDRMap) CIDRExists(cidr net.IPNet) bool {
 
 // String returns the path of the map.
 func (cm *CIDRMap) String() string {
+	if cm == nil {
+		return ""
+	}
 	return cm.path
 }
 
 // Close closes the FD of the given CIDRMap
 func (cm *CIDRMap) Close() error {
+	if cm == nil {
+		return nil
+	}
 	return bpf.ObjClose(cm.Fd)
 }
 

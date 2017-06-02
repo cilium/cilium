@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/geneve"
+	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -137,10 +138,18 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * IPv4 address: %s\n"+
 		" * Identity: %d\n"+
 		" * PolicyMap: %s\n"+
+		" * IPv6 Ingress Map: %s\n"+
+		" * IPv6 Egress Map: %s\n"+
+		" * IPv4 Ingress Map: %s\n"+
+		" * IPv4 Egress Map: %s\n"+
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.LXCMAC, e.IPv6.String(), e.IPv4.String(),
 		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
+		path.Base(e.IPv6IngressMapPathLocked()),
+		path.Base(e.IPv6EgressMapPathLocked()),
+		path.Base(e.IPv4IngressMapPathLocked()),
+		path.Base(e.IPv4EgressMapPathLocked()),
 		e.NodeMAC)
 
 	fw.WriteString("/*\n")
@@ -184,6 +193,21 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(invalid.Uint32()))
 	}
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
+	if e.L3Policy != nil {
+		fmt.Fprintf(fw, "#define LPM_MAP_VALUE_SIZE %s\n", strconv.Itoa(cidrmap.LPM_MAP_VALUE_SIZE))
+		if e.L3Policy.Ingress.IPv6Count > 0 {
+			fmt.Fprintf(fw, "#define CIDR6_INGRESS_MAP %s\n", path.Base(e.IPv6IngressMapPathLocked()))
+		}
+		if e.L3Policy.Egress.IPv6Count > 0 {
+			fmt.Fprintf(fw, "#define CIDR6_EGRESS_MAP %s\n", path.Base(e.IPv6EgressMapPathLocked()))
+		}
+		if e.L3Policy.Ingress.IPv4Count > 0 {
+			fmt.Fprintf(fw, "#define CIDR4_INGRESS_MAP %s\n", path.Base(e.IPv4IngressMapPathLocked()))
+		}
+		if e.L3Policy.Egress.IPv4Count > 0 {
+			fmt.Fprintf(fw, "#define CIDR4_EGRESS_MAP %s\n", path.Base(e.IPv4EgressMapPathLocked()))
+		}
+	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
 	if e.Opts.IsEnabled(OptionConntrackLocal) {
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
@@ -212,6 +236,40 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	if err := e.writeL4Policy(fw, owner); err != nil {
 		return err
+	}
+
+	if e.L3Policy != nil {
+		ipv6Ingress, ipv4Ingress := e.L3Policy.Ingress.ToBPFData()
+		ipv6Egress, ipv4Egress := e.L3Policy.Egress.ToBPFData()
+
+		if len(ipv6Ingress) > 0 {
+			fw.WriteString("#define CIDR6_INGRESS_MAPPINGS ")
+			for _, m := range ipv6Ingress {
+				fmt.Fprintf(fw, "%s,", m)
+			}
+			fw.WriteString("\n")
+		}
+		if len(ipv6Egress) > 0 {
+			fw.WriteString("#define CIDR6_EGRESS_MAPPINGS ")
+			for _, m := range ipv6Egress {
+				fmt.Fprintf(fw, "%s,", m)
+			}
+			fw.WriteString("\n")
+		}
+		if len(ipv4Ingress) > 0 {
+			fw.WriteString("#define CIDR4_INGRESS_MAPPINGS ")
+			for _, m := range ipv4Ingress {
+				fmt.Fprintf(fw, "%s,", m)
+			}
+			fw.WriteString("\n")
+		}
+		if len(ipv4Egress) > 0 {
+			fw.WriteString("#define CIDR4_EGRESS_MAPPINGS ")
+			for _, m := range ipv4Egress {
+				fmt.Fprintf(fw, "%s,", m)
+			}
+			fw.WriteString("\n")
+		}
 	}
 
 	return fw.Flush()
@@ -273,6 +331,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 	// Anything below this point must be reverted upon failure as we are
 	// changing live BPF maps
 	createdPolicyMap := false
+	createdIPv6IngressMap := false
+	createdIPv6EgressMap := false
+	createdIPv4IngressMap := false
+	createdIPv4EgressMap := false
 	defer func() {
 		if err != nil {
 			if createdPolicyMap {
@@ -284,6 +346,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
+			}
+			if createdIPv6IngressMap {
+				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
+			}
+			if createdIPv6EgressMap {
+				e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
+			}
+			if createdIPv4IngressMap {
+				e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
+			}
+			if createdIPv4EgressMap {
+				e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
 			}
 		}
 	}()
@@ -298,6 +372,46 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if e.Consumable != nil {
 		e.Consumable.AddMap(e.PolicyMap)
+	}
+
+	if e.L3Policy != nil {
+		if e.L3Policy.Ingress.IPv6Changed {
+			if e.L3Policy.Ingress.IPv6Count > 0 &&
+				e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {
+				createdIPv6IngressMap = true
+				e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv6Ingress])
+			} else {
+				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
+			}
+		}
+		if e.L3Policy.Egress.IPv6Changed {
+			if e.L3Policy.Egress.IPv6Count > 0 &&
+				e.L3Maps.ResetBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked()) == nil {
+				createdIPv6EgressMap = true
+				e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv6Egress])
+			} else {
+				e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
+			}
+		}
+
+		if e.L3Policy.Ingress.IPv4Changed {
+			if e.L3Policy.Ingress.IPv4Count > 0 &&
+				e.L3Maps.ResetBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked()) == nil {
+				createdIPv4IngressMap = true
+				e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv4Ingress])
+			} else {
+				e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
+			}
+		}
+		if e.L3Policy.Egress.IPv4Changed {
+			if e.L3Policy.Egress.IPv4Count > 0 &&
+				e.L3Maps.ResetBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked()) == nil {
+				createdIPv4EgressMap = true
+				e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv4Egress])
+			} else {
+				e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
+			}
+		}
 	}
 
 	libdir := owner.GetBpfDir()

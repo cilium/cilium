@@ -124,6 +124,25 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 	return result
 }
 
+// ResolveL3Policy resolves the L3 policy for a set of endpoints by searching
+// the policy repository for `CIDR` rules that are attached to a `Rule`
+// where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
+// is ignored in the search.
+func (p *Repository) ResolveL3Policy(ctx *SearchContext) *L3Policy {
+	result := NewL3Policy()
+
+	ctx.PolicyTrace("Resolving L3 (CIDR) policy for %+v\n", ctx.To)
+
+	state := traceState{}
+	for _, r := range p.rules {
+		r.resolveL3Policy(ctx, &state, result)
+		state.ruleID++
+	}
+
+	ctx.PolicyTrace("%d rules matched\n", state.selectedRules)
+	return result
+}
+
 // SearchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
 func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
