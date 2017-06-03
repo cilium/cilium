@@ -217,9 +217,16 @@ of the machine.
 
 	mount bpffs /sys/fs/bpf -t bpf
 
-If you are using systemd to manage the kubelet, the easiest way to achieve this
-is to add a ``ExecStartPre`` line in the ``/etc/systemd/kubelet.service`` file
-as follows.
+A portable way to achieve this with persistence is to add the following line to
+`/etc/fstab` and then run `mount /sys/fs/bpf`. This will cause the filesystem
+to be automatically mounted when the node boots.
+
+.. code:: bash
+
+     bpffs			/sys/fs/bpf		bpf	defaults 0 0
+
+If you are using systemd to manage the kubelet, another option is to add a
+``ExecStartPre`` line in the ``/etc/systemd/kubelet.service`` file as follows:
 
 .. code:: bash
 
