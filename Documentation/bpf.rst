@@ -2160,6 +2160,11 @@ Alexander Alemayhu initiated a newsletter around BPF that appears roughly once
 per week covering latest developments around BPF in Linux kernel land and its
 surrounding ecosystem in user space:
 
+5. May 2017,
+     BPF Updates 05,
+     Alexander Alemayhu,
+     https://www.cilium.io/blog/2017/5/31/bpf-updates-05
+
 4. May 2017,
      BPF Updates 04,
      Alexander Alemayhu,
