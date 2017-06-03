@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -32,6 +33,7 @@ type LabelPrefix struct {
 	Ignore bool   `json:"invert"`
 	Prefix string `json:"prefix"`
 	Source string `json:"source"`
+	expr   *regexp.Regexp
 }
 
 // String returns a human readable representation of the LabelPrefix
@@ -44,18 +46,31 @@ func (p LabelPrefix) String() string {
 	return s
 }
 
-// Matches returns true if the label is matched by the LabelPrefix. The Ignore
-// flag has no effect at this point.
-func (p LabelPrefix) Matches(l *Label) bool {
+// matches returns true and the length of the matched section if the label is
+// matched by the LabelPrefix. The Ignore flag has no effect at this point.
+func (p LabelPrefix) matches(l *Label) (bool, int) {
 	if p.Source != "" && p.Source != l.Source {
-		return false
+		return false, 0
 	}
 
-	return strings.HasPrefix(l.Key, p.Prefix)
+	// If no regular expression is available, fall back to prefix matching
+	if p.expr == nil {
+		return strings.HasPrefix(l.Key, p.Prefix), len(p.Prefix)
+	}
+
+	res := p.expr.FindStringIndex(l.Key)
+
+	// No match if regexp was not found
+	if res == nil {
+		return false, 0
+	}
+
+	// Otherwise match if match was found at start of key
+	return res[0] == 0, res[1]
 }
 
 // parseLabelPrefix returns a LabelPrefix created from the string label parameter.
-func parseLabelPrefix(label string) *LabelPrefix {
+func parseLabelPrefix(label string) (*LabelPrefix, error) {
 	labelPrefix := LabelPrefix{}
 	t := strings.SplitN(label, ":", 2)
 	if len(t) > 1 {
@@ -70,7 +85,13 @@ func parseLabelPrefix(label string) *LabelPrefix {
 		labelPrefix.Prefix = labelPrefix.Prefix[1:]
 	}
 
-	return &labelPrefix
+	r, err := regexp.Compile(labelPrefix.Prefix)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to compile regexp: %s", err)
+	}
+	labelPrefix.expr = r
+
+	return &labelPrefix, nil
 }
 
 // ParseLabelPrefixCfg parses valid label prefixes from a file and from a slice
@@ -83,7 +104,16 @@ func ParseLabelPrefixCfg(prefixes []string, file string) (*LabelPrefixCfg, error
 	}
 
 	for _, label := range prefixes {
-		cfg.Append(parseLabelPrefix(label))
+		p, err := parseLabelPrefix(label)
+		if err != nil {
+			return nil, err
+		}
+
+		if !p.Ignore {
+			cfg.whitelist = true
+		}
+
+		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
 	return cfg, nil
@@ -99,42 +129,31 @@ type LabelPrefixCfg struct {
 	whitelist bool
 }
 
-// Append adds an additional allowed label prefix to the configuration
-func (cfg *LabelPrefixCfg) Append(l *LabelPrefix) {
-	if !l.Ignore {
-		cfg.whitelist = true
-	}
-
-	cfg.LabelPrefixes = append(cfg.LabelPrefixes, l)
-}
-
 // defaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
 // LPCfgFileVersion
 func defaultLabelPrefixCfg() *LabelPrefixCfg {
-	return &LabelPrefixCfg{
-		Version: LPCfgFileVersion,
-		LabelPrefixes: []*LabelPrefix{
-			{
-				// Include namespace label
-				Prefix: "io.kubernetes.pod.namespace",
-			},
-			{
-				// Ignore all other labels
-				Ignore: true,
-				Prefix: "io.kubernetes",
-			},
-			{
-				// Ignore all annotation.kubernete.io labels
-				Ignore: true,
-				Prefix: "annotation.kubernetes.io",
-			},
-			{
-				// Ignore pod-template-hash
-				Ignore: true,
-				Prefix: "pod-template-hash",
-			},
-		},
+	cfg := &LabelPrefixCfg{
+		Version:       LPCfgFileVersion,
+		LabelPrefixes: []*LabelPrefix{},
 	}
+
+	expressions := []string{
+		"io.kubernetes.pod.namespace", // include io.kubernetes.pod.namspace
+		"!io.kubernetes",              // ignore all other io.kubernetes labels
+		"!.*kubernetes.io",            // ignore all other kubernetes.io labels (annotation.*.k8s.io)
+		"!pod-template-hash",          // ignore pod-template-hash
+	}
+
+	for _, e := range expressions {
+		p, err := parseLabelPrefix(e)
+		if err != nil {
+			msg := fmt.Sprintf("BUG: Unable to parse default label prefix '%s': %s", e, err)
+			panic(msg)
+		}
+		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
+	}
+
+	return cfg
 }
 
 // readLabelPrefixCfgFrom reads a label prefix configuration file from fileName. If the
@@ -180,25 +199,31 @@ func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 		included, ignored := 0, 0
 
 		for _, p := range cfg.LabelPrefixes {
-			if p.Matches(v) {
+			if m, len := p.matches(v); m {
 				if p.Ignore {
 					// save length of shortest matching ignore
-					if ignored == 0 || len(p.Prefix) < ignored {
-						ignored = len(p.Prefix)
+					if ignored == 0 || len < ignored {
+						ignored = len
 					}
 				} else {
 					// save length of longest matching include
-					if len(p.Prefix) > included {
-						included = len(p.Prefix)
+					if len > included {
+						included = len
 					}
 				}
 			}
 		}
 
-		// A label is let through if it is:
-		// - Included if at least one inclusive prefix is configured
-		//   and not ignored with a longer or equal prefix length
-		// - Not ignored if no inclusive prefix is configured
+		// A label is accepted if :
+		// - No inclusive LabelPrefix (Ignore flag not set) is
+		//   configured and label is not ignored.
+		// - An inclusive LabelPrefix matches the label
+		// - If both an inclusive and ignore LabelPrefix match, the
+		//   label is accepted if the matching section in the label
+		//   is greater than the ignored matching section in label,
+		//   e.g. when evaluating the label foo.bar, the prefix rules
+		//   {!foo, foo.bar} will cause the label to be accepted
+		//   because the inclusive prefix matches over a longer section.
 		if (!cfg.whitelist && ignored == 0) || included > ignored {
 			// Just want to make sure we don't have labels deleted in
 			// on side and disappearing in the other side...
