@@ -45,6 +45,7 @@ const (
 
 func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMap, config string) error {
 	array := ""
+	index := 0
 
 	for _, l4 := range m {
 		// Represents struct l4_allow in bpf/lib/l4.h
@@ -64,19 +65,21 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 		}
 
 		redirect = common.Swab16(redirect)
-		entry := fmt.Sprintf("{%d,%d,%d}", dport, redirect, protoNum)
+		entry := fmt.Sprintf("%d,%d,%d,%d", index, dport, redirect, protoNum)
 		if array != "" {
 			array = array + "," + entry
 		} else {
 			array = entry
 		}
 
+		index++
 	}
 
 	if array == "" {
 		fmt.Fprintf(fw, "#undef %s\n", config)
 	} else {
-		fmt.Fprintf(fw, "#define %s {%s}\n", config, array)
+		fmt.Fprintf(fw, "#define %s %s, (), 0\n", config, array)
+		fmt.Fprintf(fw, "#define NR_%s %d\n", config, len(m))
 	}
 
 	return nil
