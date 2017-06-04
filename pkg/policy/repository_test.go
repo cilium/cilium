@@ -32,16 +32,16 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 		labels.ParseLabel("tag2"),
 	}
 	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("foo")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 		Labels:           lbls1,
 	}
 	rule2 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls1,
 	}
-	lbls2 := labels.LabelArray{labels.ParseLabel("tag3")}
+	lbls2 := labels.LabelArray{labels.ParseSelectLabel("tag3")}
 	rule3 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls2,
 	}
 
@@ -87,8 +87,8 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	repo := NewPolicyRepository()
 
 	fooToBar := &SearchContext{
-		From: labels.ParseLabelArray("foo"),
-		To:   labels.ParseLabelArray("bar"),
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
 	repo.Mutex.RLock()
@@ -100,11 +100,11 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{
 			{
 				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(labels.ParseLabel("foo")),
+					api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 				},
 			},
 		},
@@ -114,22 +114,22 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	// selector: groupA
 	// require: groupA
 	rule2 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("groupA")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
 		Ingress: []api.IngressRule{
 			{
 				FromRequires: []api.EndpointSelector{
-					api.NewESFromLabels(labels.ParseLabel("groupA")),
+					api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
 				},
 			},
 		},
 		Labels: tag1,
 	}
 	rule3 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar2")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar2")),
 		Ingress: []api.IngressRule{
 			{
 				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(labels.ParseLabel("foo")),
+					api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 				},
 			},
 		},
@@ -145,31 +145,31 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 
 	// foo=>bar2 is OK
 	c.Assert(repo.AllowsRLocked(&SearchContext{
-		From: labels.ParseLabelArray("foo"),
-		To:   labels.ParseLabelArray("bar2"),
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar2"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar inside groupA is OK
 	c.Assert(repo.AllowsRLocked(&SearchContext{
-		From: labels.ParseLabelArray("foo", "groupA"),
-		To:   labels.ParseLabelArray("bar", "groupA"),
+		From: labels.ParseSelectLabelArray("foo", "groupA"),
+		To:   labels.ParseSelectLabelArray("bar", "groupA"),
 	}), Equals, api.Allowed)
 
 	// groupB can't talk to groupA => Denied
 	c.Assert(repo.AllowsRLocked(&SearchContext{
-		From: labels.ParseLabelArray("foo", "groupB"),
-		To:   labels.ParseLabelArray("bar", "groupA"),
+		From: labels.ParseSelectLabelArray("foo", "groupB"),
+		To:   labels.ParseSelectLabelArray("bar", "groupA"),
 	}), Equals, api.Denied)
 
 	// no restriction on groupB, unused label => OK
 	c.Assert(repo.AllowsRLocked(&SearchContext{
-		From: labels.ParseLabelArray("foo", "groupB"),
-		To:   labels.ParseLabelArray("bar", "groupB"),
+		From: labels.ParseSelectLabelArray("foo", "groupB"),
+		To:   labels.ParseSelectLabelArray("bar", "groupB"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar3, no rule => Denied
 	c.Assert(repo.AllowsRLocked(&SearchContext{
-		From: labels.ParseLabelArray("foo"),
-		To:   labels.ParseLabelArray("bar3"),
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar3"),
 	}), Equals, api.Denied)
 }

@@ -27,10 +27,7 @@ docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
 docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
 docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
 
-until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
-    echo "Waiting for all endpoints to be ready"
-    sleep 2s
-done
+wait_for_endpoints 5
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
@@ -86,10 +83,7 @@ cat <<EOF | cilium -D policy import -
 }]
 EOF
 
-until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
-    echo "Waiting for all endpoints to be ready"
-    sleep 2s
-done
+wait_for_endpoints 5
 
 function connectivity_test() {
 	monitor_clear
@@ -235,10 +229,7 @@ cilium endpoint config $SERVER_ID Conntrack=false || {
 cilium endpoint config $CLIENT_ID Conntrack=false || {
 	abort "Error: Unable to change config for $CLIENT_ID"
 }
-until [ "$(cilium endpoint list | grep ready -c)" -eq "5" ]; do
-    echo "Waiting for all endpoints to be ready"
-    sleep 2s
-done
+wait_for_endpoints 5
 BIDIRECTIONAL=0
 connectivity_test
 

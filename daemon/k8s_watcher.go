@@ -217,7 +217,7 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	labels := labels.ParseLabelArray(k8s.ExtractPolicyName(k8sNP))
+	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyName(k8sNP))
 
 	if err := d.PolicyDelete(labels); err != nil {
 		log.Errorf("Error while deleting kubernetes network policy %+v: %s", labels, err)

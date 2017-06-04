@@ -55,3 +55,10 @@ function abort {
 
 	exit 1
 }
+
+function wait_for_endpoints {
+	until [ "$(cilium endpoint list | grep ready -c)" -eq "$1" ]; do
+	    echo "Waiting for all endpoints to be ready"
+	    sleep 2s
+	done
+}

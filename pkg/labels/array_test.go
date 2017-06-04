@@ -49,7 +49,7 @@ func (s *LabelsSuite) TestParse(c *C) {
 func (s *LabelsSuite) TestHas(c *C) {
 	lbls := LabelArray{
 		NewLabel("env", "devel", LabelSourceAny),
-		NewLabel("user", "bob", LabelSourceCilium),
+		NewLabel("user", "bob", LabelSourceContainer),
 	}
 	var hasTests = []struct {
 		input    string // input
@@ -58,15 +58,15 @@ func (s *LabelsSuite) TestHas(c *C) {
 		{"", false},
 		{"any", false},
 		{"env", true},
-		{"cilium.env", false},
-		{"cilium:env", false},
+		{"container.env", false},
+		{"container:env", false},
 		{"any:env", false},
 		{"any.env", true},
 		{"any:user", false},
 		{"any.user", true},
 		{"user", true},
-		{"cilium.user", true},
-		{"cilium:bob", false},
+		{"container.user", true},
+		{"container:bob", false},
 	}
 	for _, tt := range hasTests {
 		c.Logf("has %q?", tt.input)

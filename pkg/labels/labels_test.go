@@ -34,13 +34,13 @@ var _ = Suite(&LabelsSuite{})
 var (
 	lblsArray = []string{`%=%ed`, `//=/=`, `foo=bar`, `foo2==bar2`, `foo=====`, `foo\\==\=`, `key=`}
 	lbls      = Labels{
-		"foo":    NewLabel("foo", "bar", LabelSourceCilium),
-		"foo2":   NewLabel("foo2", "=bar2", LabelSourceCilium),
-		"key":    NewLabel("key", "", LabelSourceCilium),
-		"foo==":  NewLabel("foo==", "==", LabelSourceCilium),
-		`foo\\=`: NewLabel(`foo\\=`, `\=`, LabelSourceCilium),
-		`//=/`:   NewLabel(`//=/`, "", LabelSourceCilium),
-		`%`:      NewLabel(`%`, `%ed`, LabelSourceCilium),
+		"foo":    NewLabel("foo", "bar", LabelSourceUnspec),
+		"foo2":   NewLabel("foo2", "=bar2", LabelSourceUnspec),
+		"key":    NewLabel("key", "", LabelSourceUnspec),
+		"foo==":  NewLabel("foo==", "==", LabelSourceUnspec),
+		`foo\\=`: NewLabel(`foo\\=`, `\=`, LabelSourceUnspec),
+		`//=/`:   NewLabel(`//=/`, "", LabelSourceUnspec),
+		`%`:      NewLabel(`%`, `%ed`, LabelSourceUnspec),
 	}
 
 	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
@@ -73,7 +73,7 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 		`foo\\=`:   `\=`,
 		`//=/`:     "",
 		`%`:        `%ed`,
-	}, LabelSourceCilium)
+	}, LabelSourceUnspec)
 	c.Assert(m, DeepEquals, lbls)
 }
 
@@ -100,24 +100,52 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		out *Label
 	}{
 		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
-		{"key1=value1", NewLabel("key1", "value1", LabelSourceCilium)},
-		{"value1", NewLabel("value1", "", LabelSourceCilium)},
+		{"key1=value1", NewLabel("key1", "value1", LabelSourceUnspec)},
+		{"value1", NewLabel("value1", "", LabelSourceUnspec)},
 		{"source1:key1", NewLabel("key1", "", "source1")},
 		{"source1:key1==value1", NewLabel("key1", "=value1", "source1")},
 		{"source::key1=value1", NewLabel("::key1", "value1", "source")},
 		{"$key1=value1", NewLabel("key1", "value1", LabelSourceReserved)},
-		{"1foo", NewLabel("1foo", "", LabelSourceCilium)},
-		{":2foo", NewLabel("2foo", "", LabelSourceCilium)},
-		{":3foo=", NewLabel("3foo", "", LabelSourceCilium)},
+		{"1foo", NewLabel("1foo", "", LabelSourceUnspec)},
+		{":2foo", NewLabel("2foo", "", LabelSourceUnspec)},
+		{":3foo=", NewLabel("3foo", "", LabelSourceUnspec)},
 		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
 		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
-		{"6foo==", NewLabel("6foo", "=", LabelSourceCilium)},
-		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceCilium)},
+		{"6foo==", NewLabel("6foo", "=", LabelSourceUnspec)},
+		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceUnspec)},
 		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
 		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)
+		c.Assert(lbl, DeepEquals, test.out)
+	}
+}
+
+func (s *LabelsSuite) TestParseSelectLabel(c *C) {
+	tests := []struct {
+		str string
+		out *Label
+	}{
+		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
+		{"key1=value1", NewLabel("key1", "value1", LabelSourceAny)},
+		{"value1", NewLabel("value1", "", LabelSourceAny)},
+		{"source1:key1", NewLabel("key1", "", "source1")},
+		{"source1:key1==value1", NewLabel("key1", "=value1", "source1")},
+		{"source::key1=value1", NewLabel("::key1", "value1", "source")},
+		{"$key1=value1", NewLabel("key1", "value1", LabelSourceReserved)},
+		{"1foo", NewLabel("1foo", "", LabelSourceAny)},
+		{":2foo", NewLabel("2foo", "", LabelSourceAny)},
+		{":3foo=", NewLabel("3foo", "", LabelSourceAny)},
+		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
+		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
+		{"6foo==", NewLabel("6foo", "=", LabelSourceAny)},
+		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceAny)},
+		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
+		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
+	}
+	for _, test := range tests {
+		lbl := ParseSelectLabel(test.str)
 		c.Assert(lbl, DeepEquals, test.out)
 	}
 }
@@ -141,7 +169,7 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	label = Label{}
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, LabelSourceCilium)
+	c.Assert(label.Source, Equals, LabelSourceUnspec)
 	c.Assert(label.Value, Equals, "")
 
 	label = Label{}
@@ -152,7 +180,7 @@ func (s *LabelsSuite) TestLabel(c *C) {
 func (s *LabelsSuite) TestLabelCompare(c *C) {
 	a1 := NewLabel(".", "", "")
 	a2 := NewLabel(".", "", "")
-	b1 := NewLabel("bar", "", LabelSourceCilium)
+	b1 := NewLabel("bar", "", LabelSourceUnspec)
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 
@@ -167,7 +195,7 @@ func (s *LabelsSuite) TestLabelCompare(c *C) {
 func (s *LabelsSuite) TestLabelSliceSHA256Sum(c *C) {
 	a1 := NewLabel(".", "", "")
 	a2 := NewLabel(".", "", "")
-	b1 := NewLabel("bar", "", LabelSourceCilium)
+	b1 := NewLabel("bar", "", LabelSourceUnspec)
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 	labels := []*Label{
@@ -179,7 +207,7 @@ func (s *LabelsSuite) TestLabelSliceSHA256Sum(c *C) {
 	}
 	sha256sum, err := LabelSliceSHA256Sum(labels)
 	c.Assert(err, IsNil)
-	c.Assert(sha256sum, DeepEquals, "180d22655dec0e78f62c3e4ac17f5994baedbdfc5c882cbbd668e2628c44f320")
+	c.Assert(sha256sum, DeepEquals, "330d57790ccf8cd0b10000d6297baa5fa27b9d6e1cb228055b45dc6e440ea4da")
 }
 
 func (s *LabelsSuite) TestLabelParseKey(c *C) {

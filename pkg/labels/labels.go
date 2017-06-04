@@ -83,6 +83,9 @@ func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 }
 
 const (
+	// LabelSourceUnspec is a label with unspecified source
+	LabelSourceUnspec = "unspec"
+
 	// LabelSourceAny is a label that matches any source
 	LabelSourceAny = "any"
 
@@ -92,8 +95,8 @@ const (
 	// LabelSourceK8sKeyPrefix is prefix of a Kubernetes label
 	LabelSourceK8sKeyPrefix = LabelSourceK8s + "."
 
-	// LabelSourceCilium is an internal Cilium label
-	LabelSourceCilium = "cilium"
+	// LabelSourceContainer is a label imported from the container runtime
+	LabelSourceContainer = "container"
 
 	// LabelSourceReserved is the label source for reserved types.
 	LabelSourceReserved = "reserved"
@@ -106,7 +109,7 @@ const (
 type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
-	// Source can be on of the values present in const.go (e.g.: LabelSourceCilium)
+	// Source can be on of the values present in const.go (e.g.: LabelSourceContainer)
 	Source string `json:"source"`
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`
@@ -151,7 +154,7 @@ func (l Labels) AppendPrefixInKey(prefix string) Labels {
 }
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,
-// the default value will be LabelSourceCilium. If key starts with '$', the source
+// the default value will be LabelSourceUnspec. If key starts with '$', the source
 // will be overwritten with LabelSourceReserved. If key contains ':', the value
 // before ':' will be used as source if given source is empty, otherwise the value before
 // ':' will be deleted and unused.
@@ -160,7 +163,7 @@ func NewLabel(key string, value string, source string) *Label {
 	src, key = parseSource(key)
 	if source == "" {
 		if src == "" {
-			source = LabelSourceCilium
+			source = LabelSourceUnspec
 		} else {
 			source = src
 		}
@@ -204,7 +207,7 @@ func (l *Label) IsAnySource() bool {
 	return l.Source == LabelSourceAny
 }
 
-// Matches returns true if it's a special label or the label equals the target.
+// Matches returns true if l matches the target
 func (l *Label) Matches(target *Label) bool {
 	return l.IsAllLabel() || l.Equals(target)
 }
@@ -290,8 +293,8 @@ func GetCiliumKeyFrom(extKey string) string {
 // GetExtendedKeyFrom returns the extended key of a label string.
 // For example:
 // `k8s:foo=bar` returns `k8s.foo`
-// `cilium:foo=bar` returns `cilium.foo`
-// `foo=bar` returns `cilium.foo=bar`
+// `container:foo=bar` returns `container.foo`
+// `foo=bar` returns `any.foo=bar`
 func GetExtendedKeyFrom(str string) string {
 	src, next := parseSource(str)
 	if src == "" {
@@ -342,12 +345,12 @@ func NewLabelsFromModel(base []string) Labels {
 	return lbls
 }
 
-// NewLabelArrayFromModel creates labels from string array.
-func NewLabelArrayFromModel(base []string) LabelArray {
+// NewSelectLabelArrayFromModel parses a slice of strings and converts them
+// into a an array of selecg labels.
+func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	lbls := LabelArray{}
 	for _, v := range base {
-		lbl := ParseLabel(v)
-		lbls = append(lbls, lbl)
+		lbls = append(lbls, ParseSelectLabel(v))
 	}
 
 	return lbls
@@ -447,7 +450,7 @@ func ParseLabel(str string) *Label {
 	if src != "" {
 		lbl.Source = src
 	} else {
-		lbl.Source = LabelSourceCilium
+		lbl.Source = LabelSourceUnspec
 	}
 
 	keySplit := strings.SplitN(next, "=", 2)
@@ -460,6 +463,19 @@ func ParseLabel(str string) *Label {
 		}
 	}
 	return &lbl
+}
+
+// ParseSelectLabel returns a selecting label representation of the given
+// string. Unlike ParseLabel, if source is unspecified, the source defaults to
+// LabelSourceAny
+func ParseSelectLabel(str string) *Label {
+	lbl := ParseLabel(str)
+
+	if lbl.Source == LabelSourceUnspec {
+		lbl.Source = LabelSourceAny
+	}
+
+	return lbl
 }
 
 // ParseStringLabels returns label representations from strings.

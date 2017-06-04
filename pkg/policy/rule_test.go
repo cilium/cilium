@@ -25,23 +25,23 @@ import (
 
 func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	fooFoo2ToBar := &SearchContext{
-		From: labels.ParseLabelArray("foo", "foo2"),
-		To:   labels.ParseLabelArray("bar"),
+		From: labels.ParseSelectLabelArray("foo", "foo2"),
+		To:   labels.ParseSelectLabelArray("bar"),
 	}
 	fooToBar := &SearchContext{
-		From: labels.ParseLabelArray("foo"),
-		To:   labels.ParseLabelArray("bar"),
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
 	rule1 := rule{
 		api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
 						api.NewESFromLabels(
-							labels.ParseLabel("foo"),
-							labels.ParseLabel("foo2"),
+							labels.ParseSelectLabel("foo"),
+							labels.ParseSelectLabel("foo2"),
 						),
 					},
 				},
@@ -61,14 +61,14 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	// require: baz
 	rule2 := rule{
 		api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseLabel("foo")),
+						api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 					},
 					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseLabel("baz")),
+						api.NewESFromLabels(labels.ParseSelectLabel("baz")),
 					},
 				},
 			},
@@ -76,12 +76,12 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	fooBazToBar := &SearchContext{
-		From: labels.ParseLabelArray("foo", "baz"),
-		To:   labels.ParseLabelArray("bar"),
+		From: labels.ParseSelectLabelArray("foo", "baz"),
+		To:   labels.ParseSelectLabelArray("bar"),
 	}
 	bazToBar := &SearchContext{
-		From: labels.ParseLabelArray("baz"),
-		To:   labels.ParseLabelArray("bar"),
+		From: labels.ParseSelectLabelArray("baz"),
+		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
 	state = traceState{}
@@ -98,12 +98,12 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
-	toBar := &SearchContext{To: labels.ParseLabelArray("bar")}
-	toFoo := &SearchContext{To: labels.ParseLabelArray("foo")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
 	rule1 := &rule{
 		api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
 					ToPorts: []api.PortRule{{
@@ -154,7 +154,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	apiRule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseLabel("bar")),
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 
 		Ingress: []api.IngressRule{
 			{
@@ -201,7 +201,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	expected.Egress.IPv6Changed = true
 	expected.Egress.IPv6Count = 1
 
-	toBar := &SearchContext{To: labels.ParseLabelArray("bar")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	state := traceState{}
 	res := rule1.resolveL3Policy(toBar, &state, NewL3Policy())
 	c.Assert(res, Not(IsNil))
