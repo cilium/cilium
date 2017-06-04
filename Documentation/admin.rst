@@ -23,10 +23,11 @@ meet the requirements.
 Summary
 ^^^^^^^
 
-When running Cilium using the container image ``cilium/cilium``, the only
-requirement is to run a recent enough Linux kernel:
+When running Cilium using the container image ``cilium/cilium``, these are
+the requirements your system has to fulfil:
 
 - `Linux kernel`_ >= 4.8 (>= 4.9.17 LTS recommended)
+- Key-Value store (see :ref:`req_kvstore` for version details)
 
 The following additional dependencies are **only** required if you choose to
 run Cilium natively and you are **not** using ``cilium/cilium`` container
@@ -92,6 +93,21 @@ or statically linked, then both choices are valid.
         CONFIG_NET_SCH_INGRESS=y
         CONFIG_CRYPTO_SHA1=y
         CONFIG_CRYPTO_USER_API_HASH=y
+
+.. _req_kvstore:
+
+Key-Value store
+^^^^^^^^^^^^^^^
+
+Cilium uses a distributed Key-Value store to manage and distribute security
+identities across all cluster nodes. The following Key-Value stores are
+currently supported:
+
+- etcd >= 3.1.0
+- consul >= 0.6.4
+
+See section :ref:`admin_kvstore` for details on how to configure the
+`cilium-agent` to use a Key-Value store.
 
 clang+LLVM
 ^^^^^^^^^^
@@ -606,8 +622,40 @@ Agent Configuration
 Key-Value Store
 ^^^^^^^^^^^^^^^
 
-Cilium requires a Key-Value store 
++---------------------+--------------------------------------+----------------------+
+| Option              | Description                          | Default              |
++---------------------+--------------------------------------+----------------------+
+| --kvstore TYPE      | Key Value Store Type:                |                      |
+|                     | (consul, etcd, local)                |                      |
++---------------------+--------------------------------------+----------------------+
+| --kvstore-opt OPTS  | Local:                               |                      |
++---------------------+--------------------------------------+----------------------+
 
+consul
+~~~~~~
+
+When using consul, the consul agent address needs to be provided with the
+``consul.address``:
+
++---------------------+---------+---------------------------------------------------+
+| Option              |  Type   | Description                                       |
++---------------------+---------+---------------------------------------------------+
+| consul.address      | Address | Address of consul agent                           |
++---------------------+---------+---------------------------------------------------+
+
+etcd
+~~~~
+
+When using etcd, one of the following options need to be provided to configure the
+etcd endpoints:
+
++---------------------+---------+---------------------------------------------------+
+| Option              |  Type   | Description                                       |
++---------------------+---------+---------------------------------------------------+
+| etcd.address        | Address | Address of etcd endpoint                          |
++---------------------+---------+---------------------------------------------------+
+| etcd.config         | Path    | Path to an etcd configuration file.               |
++---------------------+---------+---------------------------------------------------+
 
 .. _admin_agent_options:
 
