@@ -187,13 +187,13 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *a
 	if id > 0 && id < policy.MinimalNumericIdentity {
 		key := id.String()
 		lbl := labels.NewLabel(
-			key, "", common.ReservedLabelSource,
+			key, "", labels.LabelSourceReserved,
 		)
 		secLbl := policy.NewIdentity()
 		secLbl.AssociateEndpoint(lbl.String())
 		secLbl.ID = id
 		secLbl.Labels = labels.Labels{
-			common.ReservedLabelSource: lbl,
+			labels.LabelSourceReserved: lbl,
 		}
 
 		return secLbl, nil

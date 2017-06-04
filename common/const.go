@@ -43,14 +43,6 @@ const (
 
 	// PathDelimiter is the delimiter used in the labels paths.
 	PathDelimiter = "."
-	// AnyLabelSource is the default label source to select any source.
-	AnyLabelSource = "any"
-	// CiliumLabelSource is the default label source for the labels read from containers.
-	CiliumLabelSource = "cilium"
-	// ReservedLabelSource is the label source for reserved types.
-	ReservedLabelSource = "reserved"
-	// ReservedLabelSourceKeyPrefix is the BaseLabelSourceExtPrefix suffixed with the ReservedLabelSource and PathDelimiter.
-	ReservedLabelSourceKeyPrefix = ReservedLabelSource + PathDelimiter
 	// EndpointsPerHost is the maximum number of endpoints allowed per host. It should
 	// represent the same number of IPv6 addresses supported on each node.
 	EndpointsPerHost = 0xFFFF

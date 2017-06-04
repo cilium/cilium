@@ -17,7 +17,6 @@ package k8s
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -58,7 +57,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 		//   sources (traffic not restricted by source).
 		if iRule.From == nil || len(iRule.From) == 0 {
 			all := api.NewESFromLabels(
-				labels.NewLabel(labels.IDNameAll, "", common.ReservedLabelSource),
+				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
 			)
 			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
 		} else {
@@ -73,7 +72,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 					// the MatchLabels map.
 					rule.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
 					ingress.FromEndpoints = append(ingress.FromEndpoints,
-						api.NewESFromK8sLabelSelector(LabelSourceKeyPrefix, rule.PodSelector))
+						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.PodSelector))
 				} else if rule.NamespaceSelector != nil {
 					matchLabels := map[string]string{}
 					// We use our own special label prefix for namespace metadata,
@@ -90,7 +89,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 						rule.NamespaceSelector.MatchExpressions[i] = lsr
 					}
 					ingress.FromEndpoints = append(ingress.FromEndpoints,
-						api.NewESFromK8sLabelSelector(LabelSourceKeyPrefix, rule.NamespaceSelector))
+						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.NamespaceSelector))
 				}
 			}
 		}
@@ -129,7 +128,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	np.Spec.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
 
 	rule := &api.Rule{
-		EndpointSelector: api.NewESFromK8sLabelSelector(LabelSourceKeyPrefix, &np.Spec.PodSelector),
+		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           labels.ParseLabelArray(tag),
 		Ingress:          []api.IngressRule{ingress},
 	}

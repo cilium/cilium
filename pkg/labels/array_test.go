@@ -15,8 +15,6 @@
 package labels
 
 import (
-	"github.com/cilium/cilium/common"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -50,8 +48,8 @@ func (s *LabelsSuite) TestParse(c *C) {
 
 func (s *LabelsSuite) TestHas(c *C) {
 	lbls := LabelArray{
-		NewLabel("env", "devel", common.AnyLabelSource),
-		NewLabel("user", "bob", common.CiliumLabelSource),
+		NewLabel("env", "devel", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceCilium),
 	}
 	var hasTests = []struct {
 		input    string // input

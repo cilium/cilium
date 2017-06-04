@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -189,11 +188,11 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
 		if err != nil {
 			log.Warningf("Error while getting kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {
-			k8sLbls = labels.Map2Labels(k8sNormalLabels, k8s.LabelSource)
+			k8sLbls = labels.Map2Labels(k8sNormalLabels, labels.LabelSourceK8s)
 		}
 	}
 
-	ciliumLabels = labels.Map2Labels(allLabels, common.CiliumLabelSource)
+	ciliumLabels = labels.Map2Labels(allLabels, labels.LabelSourceCilium)
 
 	ciliumLabels.MergeLabels(k8sLbls)
 

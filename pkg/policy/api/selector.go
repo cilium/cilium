@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/op/go-logging"
@@ -152,7 +151,7 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 	}
 
 	for k := range n.MatchLabels {
-		if k == common.ReservedLabelSourceKeyPrefix+labels.IDNameAll {
+		if k == labels.LabelSourceReservedKeyPrefix+labels.IDNameAll {
 			return true
 		}
 	}

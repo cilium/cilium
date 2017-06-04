@@ -82,11 +82,31 @@ func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 	}
 }
 
+const (
+	// LabelSourceAny is a label that matches any source
+	LabelSourceAny = "any"
+
+	// LabelSourceK8s is a label imported from Kubernetes
+	LabelSourceK8s = "k8s"
+
+	// LabelSourceK8sKeyPrefix is prefix of a Kubernetes label
+	LabelSourceK8sKeyPrefix = LabelSourceK8s + "."
+
+	// LabelSourceCilium is an internal Cilium label
+	LabelSourceCilium = "cilium"
+
+	// LabelSourceReserved is the label source for reserved types.
+	LabelSourceReserved = "reserved"
+
+	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
+	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
+)
+
 // Label is the cilium's representation of a container label.
 type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
-	// Source can be on of the values present in const.go (e.g.: CiliumLabelSource)
+	// Source can be on of the values present in const.go (e.g.: LabelSourceCilium)
 	Source string `json:"source"`
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`
@@ -131,8 +151,8 @@ func (l Labels) AppendPrefixInKey(prefix string) Labels {
 }
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,
-// the default value will be common.CiliumLabelSource. If key starts with '$', the source
-// will be overwritten with common.ReservedLabelSource. If key contains ':', the value
+// the default value will be LabelSourceCilium. If key starts with '$', the source
+// will be overwritten with LabelSourceReserved. If key contains ':', the value
 // before ':' will be used as source if given source is empty, otherwise the value before
 // ':' will be deleted and unused.
 func NewLabel(key string, value string, source string) *Label {
@@ -140,12 +160,12 @@ func NewLabel(key string, value string, source string) *Label {
 	src, key = parseSource(key)
 	if source == "" {
 		if src == "" {
-			source = common.CiliumLabelSource
+			source = LabelSourceCilium
 		} else {
 			source = src
 		}
 	}
-	if src == common.ReservedLabelSource && key == "" {
+	if src == LabelSourceReserved && key == "" {
 		key = value
 		value = ""
 	}
@@ -176,12 +196,12 @@ func (l *Label) Equals(b *Label) bool {
 
 // IsAllLabel returns true if the label is reserved and matches with IDNameAll.
 func (l *Label) IsAllLabel() bool {
-	return l.Source == common.ReservedLabelSource && l.Key == "all"
+	return l.Source == LabelSourceReserved && l.Key == "all"
 }
 
 // IsAnySource return if the label was set with source "any".
 func (l *Label) IsAnySource() bool {
-	return l.Source == common.AnyLabelSource
+	return l.Source == LabelSourceAny
 }
 
 // Matches returns true if it's a special label or the label equals the target.
@@ -264,7 +284,7 @@ func GetCiliumKeyFrom(extKey string) string {
 	if len(sourceSplit) == 2 {
 		return sourceSplit[0] + ":" + sourceSplit[1]
 	}
-	return common.AnyLabelSource + ":" + sourceSplit[0]
+	return LabelSourceAny + ":" + sourceSplit[0]
 }
 
 // GetExtendedKeyFrom returns the extended key of a label string.
@@ -275,7 +295,7 @@ func GetCiliumKeyFrom(extKey string) string {
 func GetExtendedKeyFrom(str string) string {
 	src, next := parseSource(str)
 	if src == "" {
-		src = common.AnyLabelSource
+		src = LabelSourceAny
 	}
 	// Remove an eventually value
 	nextSplit := strings.SplitN(next, "=", 2)
@@ -400,14 +420,14 @@ func parseSource(str string) (src, next string) {
 		return "", ""
 	}
 	if str[0] == '$' {
-		str = strings.Replace(str, "$", common.ReservedLabelSource+":", 1)
+		str = strings.Replace(str, "$", LabelSourceReserved+":", 1)
 	}
 	sourceSplit := strings.SplitN(str, ":", 2)
 	if len(sourceSplit) != 2 {
 		next = sourceSplit[0]
-		if strings.HasPrefix(next, common.ReservedLabelSource) {
-			src = common.ReservedLabelSource
-			next = strings.TrimPrefix(next, common.ReservedLabelSourceKeyPrefix)
+		if strings.HasPrefix(next, LabelSourceReserved) {
+			src = LabelSourceReserved
+			next = strings.TrimPrefix(next, LabelSourceReservedKeyPrefix)
 		}
 	} else {
 		if sourceSplit[0] != "" {
@@ -427,13 +447,13 @@ func ParseLabel(str string) *Label {
 	if src != "" {
 		lbl.Source = src
 	} else {
-		lbl.Source = common.CiliumLabelSource
+		lbl.Source = LabelSourceCilium
 	}
 
 	keySplit := strings.SplitN(next, "=", 2)
 	lbl.Key = keySplit[0]
 	if len(keySplit) > 1 {
-		if src == common.ReservedLabelSource && keySplit[0] == "" {
+		if src == LabelSourceReserved && keySplit[0] == "" {
 			lbl.Key = keySplit[1]
 		} else {
 			lbl.Value = keySplit[1]

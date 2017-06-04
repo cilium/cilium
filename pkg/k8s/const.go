@@ -15,8 +15,6 @@
 package k8s
 
 import (
-	"github.com/cilium/cilium/common"
-
 	"k8s.io/kubernetes/pkg/kubelet/types"
 )
 
@@ -25,15 +23,10 @@ const (
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
 	AnnotationName = "io.cilium.name"
+
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"
-	// LabelSource is the default label source for the labels imported from
-	// kubernetes.
-	LabelSource = "k8s"
-	// LabelSourceKeyPrefix is the DefaultPolicyParentPath with the
-	// NodePathDelimiter.
-	LabelSourceKeyPrefix = LabelSource + common.PathDelimiter
 
 	// PolicyLabelName is the name of the policy label which refers to the
 	// k8s policy name

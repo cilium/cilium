@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -361,7 +360,7 @@ func (d *Daemon) PolicyInit() error {
 	for k, v := range policy.ReservedIdentities {
 		key := policy.NumericIdentity(v).String()
 		lbl := labels.NewLabel(
-			key, "", common.ReservedLabelSource,
+			key, "", labels.LabelSourceReserved,
 		)
 		secLbl := policy.NewIdentity()
 		secLbl.ID = v
