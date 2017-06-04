@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
 	log "github.com/Sirupsen/logrus"
@@ -235,7 +236,7 @@ func init() {
 	flags.StringVar(&config.AllowLocalhost, "allow-localhost", AllowLocalhostAuto,
 		"Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.StringVar(&kvStore, "kvstore", kvstore.Local, "Key-value store type")
-	flags.Var(common.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "key-value store options")
+	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "key-value store options")
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
 		"When restoring state, keeps containers' configuration in place")
 	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
@@ -261,7 +262,7 @@ func init() {
 	flags.String("access-log", "", "Path to access log of all HTTP requests observed")
 	flags.Bool("version", false, "Print version information")
 	flags.StringSliceVar(&loggers, "log-driver", []string{}, "logging endpoints to use")
-	flags.Var(common.NewNamedMapOptions("log-opts", &logOpts, nil), "log-opt", "log driver options for cilium")
+	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil), "log-opt", "log driver options for cilium")
 	viper.BindPFlags(flags)
 }
 
