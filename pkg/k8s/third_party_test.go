@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -157,7 +156,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 		},
 	}
 
-	expectedES := api.NewESFromLabels(labels.ParseLabel("any:role=backend"), labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default"))
+	expectedES := api.NewESFromLabels(labels.ParseLabel("any:role=backend"), labels.ParseLabel("k8s:"+PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
 	expectedSpecRule := api.Rule{
@@ -167,7 +166,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 				FromEndpoints: []api.EndpointSelector{
 					api.NewESFromLabels(
 						labels.ParseLabel("any:role=frontend"),
-						labels.ParseLabel("k8s:"+k8s.PodNamespaceLabel+"=default"),
+						labels.ParseLabel("k8s:"+PodNamespaceLabel+"=default"),
 					),
 					api.NewESFromLabels(
 						labels.ParseLabel("reserved:world"),
@@ -196,7 +195,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 				},
 			},
 		},
-		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", k8s.PolicyLabelName, "rule1")),
+		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", PolicyLabelName, "rule1")),
 	}
 
 	rules, err := expectedPolicyRule.Parse()
