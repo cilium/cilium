@@ -147,6 +147,67 @@ single node Cilium deployments used for basic testing / learning, Cilium can
 use a local store implemented as a golang hash map, avoiding the need to setup
 a dedicated KV store.
 
+******
+Labels
+******
+
+Labels are a generic, flexible and highly scaleable way of addressing a large
+set of resources as they allow for arbitrary grouping and creation of sets.
+Whenever something needs to be descried, addressed or selected this is done
+based on labels:
+
+- Endpoints are assigned labels as derived from container runtime or the
+  orchestration system.
+- Network policies select endpoints based on labels and allow consumers based
+  on labels.
+- Network policies themselves are described and addressed by labels.
+
+Basic Label: Key/Value Pair
+---------------------------
+
+A label is a pair of strings consisting of a ``key`` and ``value``. A label can
+be formatted as a single string with the format ``key=value``. The key portion
+is mandatory and must be unique. This is typically achieved by using the
+reverse domain name notion, e.g. ``io.cilium.mykey=myvalue``. The value portion
+is optional and can be omitted, e.g. ``io.cilium.mykey``.
+
+Key names should typically consist of the character set ``[a-z0-9-.]``.
+
+When using labels to select resources, both the key and the value must match,
+e.g. when a policy should be applied to all endpoints will label
+``my.corp.foo`` then the label ``my.corp.foo=bar`` will not match the
+selector.
+
+Label Source
+------------
+
+A label can be derived from various sources. For example, a Cilium endpoint
+will derive the labels associated to the container by the local container
+runtime as well as the labels associated with the pod as provided by
+Kubernetes. As these two label namespaces are not aware of each other, this may
+result in conflicting label keys.
+
+To resolve this potential conflict, Cilium prefixes all label keys with
+``source:`` to indicate the source of the label when importing labels, e.g.
+``k8s:role=frontend``, ``container:user=joe``, ``k8s:role=backend``. This means
+that when you run a Docker container using ``docker run [...] -l foo=bar``, the
+label ``container:foo=bar`` will appear on the Cilium endpoint representing the
+container. Similiarly, a Kubernetes pod started with the label ``foo: bar``
+will be represented with a Cilium endpoint associated with the label
+``k8s:foo=bar``. A unique name is allocated for each potential source. The
+following label sources are currently supported:
+
+- ``container:`` for labels derived from the local container runtime
+- ``k8s:`` for labels derived from Kubernetes
+- ``reserved:`` for special reserved labels, see :ref:`reserved_labels`.
+- ``unspec:`` for labels with unspecified source
+
+When using labels to identify other resources, the source can be included to
+limit matching of labels to a particular type. If no source is provided, the
+label source defaults to ``any:`` which will match all labels regardless of
+their source. If a source is provided, the source of the selecting and matching
+labels need to match.
+
 ******************
 Address Management
 ******************
@@ -458,6 +519,8 @@ meaningful labels. The standard behavior is to include all labels which start
 with the prefix `id.`, e.g.  `id.service1`, `id.service2`,
 `id.groupA.service44`. The list of meaningful label prefixes can be specified
 when starting the cilium agent, see :ref:`admin_agent_options`.
+
+.. _reserved_labels:
 
 Special Identities
 ^^^^^^^^^^^^^^^^^^
