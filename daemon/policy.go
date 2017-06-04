@@ -176,8 +176,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	searchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
 		Logging: logging.NewLogBackend(buffer, "", 0),
-		From:    labels.NewLabelArrayFromModel(ctx.From),
-		To:      labels.NewLabelArrayFromModel(ctx.To),
+		From:    labels.NewSelectLabelArrayFromModel(ctx.From),
+		To:      labels.NewSelectLabelArrayFromModel(ctx.To),
 		DPorts:  ctx.Dports,
 	}
 
@@ -298,7 +298,7 @@ func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
 
 func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	d := h.daemon
-	lbls := labels.ParseLabelArrayFromArray(params.Labels)
+	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	if err := d.PolicyDelete(lbls); err != nil {
 		return apierror.Error(DeletePolicyFailureCode, err)
 	}
@@ -343,7 +343,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 	d.policy.Mutex.RLock()
 	defer d.policy.Mutex.RUnlock()
 
-	lbls := labels.ParseLabelArrayFromArray(params.Labels)
+	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	ruleList := d.policy.SearchRLocked(lbls)
 
 	// Error if labels have been specified but no entries found, otherwise,

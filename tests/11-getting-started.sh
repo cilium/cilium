@@ -46,10 +46,7 @@ cat <<EOF | cilium policy import -
 }]
 EOF
 
-until [ "$(cilium endpoint list | grep cilium -c)" -eq 1 ]; do
-	echo "Waiting for all endpoints to be ready"
-	sleep 4s
-done
+wait_for_endpoints 1
 
 monitor_clear
 echo "------ pinging service1 from service3 ------"

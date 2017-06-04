@@ -182,25 +182,23 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 }
 
 func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
-	var ciliumLabels, k8sLbls labels.Labels
+	combinedLabels := labels.Map2Labels(allLabels, labels.LabelSourceContainer)
+
+	// Merge Kubernetes labels into container runtime labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
 			log.Warningf("Error while getting kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {
-			k8sLbls = labels.Map2Labels(k8sNormalLabels, labels.LabelSourceK8s)
+			k8sLbls := labels.Map2Labels(k8sNormalLabels, labels.LabelSourceK8s)
+			combinedLabels.MergeLabels(k8sLbls)
 		}
 	}
 
-	ciliumLabels = labels.Map2Labels(allLabels, labels.LabelSourceCilium)
-
-	ciliumLabels.MergeLabels(k8sLbls)
-
 	d.conf.ValidLabelPrefixesMU.RLock()
-	normalLabels := d.conf.ValidLabelPrefixes.FilterLabels(ciliumLabels)
-	d.conf.ValidLabelPrefixesMU.RUnlock()
+	defer d.conf.ValidLabelPrefixesMU.RUnlock()
 
-	return normalLabels
+	return d.conf.ValidLabelPrefixes.FilterLabels(combinedLabels)
 }
 
 func (d *Daemon) handleCreateContainer(id string, retry bool) {

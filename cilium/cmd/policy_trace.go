@@ -21,7 +21,6 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/spf13/cobra"
 )
@@ -156,9 +155,8 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 
 func verifyAllowedSlice(slice []string) error {
 	for i, v := range slice {
-		if _, err := strconv.ParseUint(v, 10, 32); err != nil {
+		if _, err := strconv.ParseUint(v, 10, 32); err == nil {
 			// can fail which means it needs to be a label
-			labels.ParseLabel(v)
 		} else if i != 0 {
 			return fmt.Errorf("value %q: must be only one unsigned "+
 				"number or label(s) in format of SOURCE:KEY[=VALUE]", v)

@@ -26,11 +26,29 @@ func ParseLabelArray(labels ...string) LabelArray {
 	return array
 }
 
+// ParseSelectLabelArray parses a list of select labels and returns a LabelArray
+func ParseSelectLabelArray(labels ...string) LabelArray {
+	array := make([]*Label, len(labels))
+	for i := range labels {
+		array[i] = ParseSelectLabel(labels[i])
+	}
+	return array
+}
+
 // ParseLabelArrayFromArray converts an array of strings as labels and returns a LabelArray
 func ParseLabelArrayFromArray(base []string) LabelArray {
 	array := make([]*Label, len(base))
 	for i := range base {
 		array[i] = ParseLabel(base[i])
+	}
+	return array
+}
+
+// ParseSelectLabelArrayFromArray converts an array of strings as select labels and returns a LabelArray
+func ParseSelectLabelArrayFromArray(base []string) LabelArray {
+	array := make([]*Label, len(base))
+	for i := range base {
+		array[i] = ParseSelectLabel(base[i])
 	}
 	return array
 }

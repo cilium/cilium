@@ -106,10 +106,10 @@ cat <<EOF | cilium -D policy import -
 EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
-Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
+Tracing From: [any:id.foo] => To: [any:id.bar]
 * Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [cilium:id.foo] not found
+      Labels [any:id.foo] not found
     Allows from labels {"matchLabels":{"any:id.foo":""}}
 +     Found all required labels
 1 rules matched
@@ -159,7 +159,7 @@ cat <<EOF | cilium -D policy import -
 EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
-Tracing From: [cilium:id.foo] => To: [cilium:id.bar]
+Tracing From: [any:id.foo] => To: [any:id.bar]
 * Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
 +     Found all required labels

@@ -149,10 +149,7 @@ EOF
 }
 
 function proxy_test {
-until [ "$(cilium endpoint list | grep cilium -c)" -eq 3 ]; do
-	    echo "Waiting for all endpoints to be ready"
-	        sleep 4s
-done
+	wait_for_endpoints 2
 
 RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then

@@ -35,17 +35,17 @@ import (
 
 var (
 	lbls = labels.Labels{
-		"foo":    labels.NewLabel("foo", "bar", labels.LabelSourceCilium),
-		"foo2":   labels.NewLabel("foo2", "=bar2", labels.LabelSourceCilium),
-		"key":    labels.NewLabel("key", "", labels.LabelSourceCilium),
-		"foo==":  labels.NewLabel("foo==", "==", labels.LabelSourceCilium),
-		`foo\\=`: labels.NewLabel(`foo\\=`, `\=`, labels.LabelSourceCilium),
-		`//=/`:   labels.NewLabel(`//=/`, "", labels.LabelSourceCilium),
-		`%`:      labels.NewLabel(`%`, `%ed`, labels.LabelSourceCilium),
+		"foo":    labels.NewLabel("foo", "bar", labels.LabelSourceContainer),
+		"foo2":   labels.NewLabel("foo2", "=bar2", labels.LabelSourceContainer),
+		"key":    labels.NewLabel("key", "", labels.LabelSourceContainer),
+		"foo==":  labels.NewLabel("foo==", "==", labels.LabelSourceContainer),
+		`foo\\=`: labels.NewLabel(`foo\\=`, `\=`, labels.LabelSourceContainer),
+		`//=/`:   labels.NewLabel(`//=/`, "", labels.LabelSourceContainer),
+		`%`:      labels.NewLabel(`%`, `%ed`, labels.LabelSourceContainer),
 	}
 	lbls2 = labels.Labels{
-		"foo":  labels.NewLabel("foo", "bar", labels.LabelSourceCilium),
-		"foo2": labels.NewLabel("foo2", "=bar2", labels.LabelSourceCilium),
+		"foo":  labels.NewLabel("foo", "bar", labels.LabelSourceContainer),
+		"foo2": labels.NewLabel("foo2", "=bar2", labels.LabelSourceContainer),
 	}
 	wantSecCtxLbls = policy.Identity{
 		ID: 123,

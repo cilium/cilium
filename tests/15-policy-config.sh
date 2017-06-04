@@ -36,13 +36,6 @@ function cleanup {
 	docker rm -f foo foo bar baz 2> /dev/null || true
 }
 
-function wait_endpoints_ready {
-	until [ "$(cilium endpoint list | grep ready -c)" -eq "3" ]; do
-		echo "Waiting for all endpoints to be ready"
-		sleep 2s
-	done
-}
-
 function check_endpoints_policy_enabled {
 	echo "------ checking if all endpoints have policy enforcement enabled ------"
 	POLICY_ENFORCED=`eval ${LIST_CMD}`
@@ -103,17 +96,17 @@ echo "------ test default configuration for enable-policy ------"
 	sleep 10
 	start_containers
 
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_disabled
 	check_endpoints_policy_disabled
 	
 	import_test_policy
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_enabled
 	check_endpoints_policy_enabled
 	
 	cilium policy delete --all
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_disabled
 }
 
@@ -123,17 +116,17 @@ function test_true_policy_configuration {
 	cilium config Policy=true
 	start_containers
 
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_enabled
 	check_endpoints_policy_enabled
 	import_test_policy
 	
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_enabled
 	check_endpoints_policy_enabled
 	cilium policy delete --all
 	
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_enabled
 }
 
@@ -143,15 +136,15 @@ function test_false_policy_configuration {
 	cilium config Policy=false
 	start_containers
 
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_disabled
 	check_endpoints_policy_disabled
 	import_test_policy
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_disabled
 	check_endpoints_policy_disabled
 	cilium policy delete --all
-	wait_endpoints_ready
+	wait_for_endpoints 3
 	check_config_policy_disabled
 }
 

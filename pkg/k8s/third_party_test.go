@@ -111,7 +111,7 @@ var (
 )
 
 func (s *K8sSuite) TestParseThirdParty(c *C) {
-	es := api.NewESFromLabels(labels.ParseLabel("any:role=backend"))
+	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
 	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
 	expectedPolicyRule := &CiliumNetworkPolicy{
@@ -124,10 +124,10 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 				{
 					FromEndpoints: []api.EndpointSelector{
 						api.NewESFromLabels(
-							labels.ParseLabel("any:role=frontend"),
+							labels.ParseSelectLabel("role=frontend"),
 						),
 						api.NewESFromLabels(
-							labels.ParseLabel("reserved:world"),
+							labels.ParseSelectLabel("reserved:world"),
 						),
 					},
 					ToPorts: []api.PortRule{
@@ -156,7 +156,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 		},
 	}
 
-	expectedES := api.NewESFromLabels(labels.ParseLabel("any:role=backend"), labels.ParseLabel("k8s:"+PodNamespaceLabel+"=default"))
+	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
 	expectedSpecRule := api.Rule{
@@ -165,11 +165,11 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 			{
 				FromEndpoints: []api.EndpointSelector{
 					api.NewESFromLabels(
-						labels.ParseLabel("any:role=frontend"),
-						labels.ParseLabel("k8s:"+PodNamespaceLabel+"=default"),
+						labels.ParseSelectLabel("role=frontend"),
+						labels.ParseSelectLabel("k8s:"+PodNamespaceLabel+"=default"),
 					),
 					api.NewESFromLabels(
-						labels.ParseLabel("reserved:world"),
+						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
 				ToPorts: []api.PortRule{
