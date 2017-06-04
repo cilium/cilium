@@ -19,9 +19,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/k8s"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -37,16 +34,16 @@ var _ = Suite(&LabelsSuite{})
 var (
 	lblsArray = []string{`%=%ed`, `//=/=`, `foo=bar`, `foo2==bar2`, `foo=====`, `foo\\==\=`, `key=`}
 	lbls      = Labels{
-		"foo":    NewLabel("foo", "bar", common.CiliumLabelSource),
-		"foo2":   NewLabel("foo2", "=bar2", common.CiliumLabelSource),
-		"key":    NewLabel("key", "", common.CiliumLabelSource),
-		"foo==":  NewLabel("foo==", "==", common.CiliumLabelSource),
-		`foo\\=`: NewLabel(`foo\\=`, `\=`, common.CiliumLabelSource),
-		`//=/`:   NewLabel(`//=/`, "", common.CiliumLabelSource),
-		`%`:      NewLabel(`%`, `%ed`, common.CiliumLabelSource),
+		"foo":    NewLabel("foo", "bar", LabelSourceCilium),
+		"foo2":   NewLabel("foo2", "=bar2", LabelSourceCilium),
+		"key":    NewLabel("key", "", LabelSourceCilium),
+		"foo==":  NewLabel("foo==", "==", LabelSourceCilium),
+		`foo\\=`: NewLabel(`foo\\=`, `\=`, LabelSourceCilium),
+		`//=/`:   NewLabel(`//=/`, "", LabelSourceCilium),
+		`%`:      NewLabel(`%`, `%ed`, LabelSourceCilium),
 	}
 
-	DefaultLabelSourceKeyPrefix = common.AnyLabelSource + common.PathDelimiter
+	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
 )
 
 func (s *LabelsSuite) TestSHA256Sum(c *C) {
@@ -76,7 +73,7 @@ func (s *LabelsSuite) TestMap2Labels(c *C) {
 		`foo\\=`:   `\=`,
 		`//=/`:     "",
 		`%`:        `%ed`,
-	}, common.CiliumLabelSource)
+	}, LabelSourceCilium)
 	c.Assert(m, DeepEquals, lbls)
 }
 
@@ -103,21 +100,21 @@ func (s *LabelsSuite) TestParseLabel(c *C) {
 		out *Label
 	}{
 		{"source1:key1=value1", NewLabel("key1", "value1", "source1")},
-		{"key1=value1", NewLabel("key1", "value1", common.CiliumLabelSource)},
-		{"value1", NewLabel("value1", "", common.CiliumLabelSource)},
+		{"key1=value1", NewLabel("key1", "value1", LabelSourceCilium)},
+		{"value1", NewLabel("value1", "", LabelSourceCilium)},
 		{"source1:key1", NewLabel("key1", "", "source1")},
 		{"source1:key1==value1", NewLabel("key1", "=value1", "source1")},
 		{"source::key1=value1", NewLabel("::key1", "value1", "source")},
-		{"$key1=value1", NewLabel("key1", "value1", common.ReservedLabelSource)},
-		{"1foo", NewLabel("1foo", "", common.CiliumLabelSource)},
-		{":2foo", NewLabel("2foo", "", common.CiliumLabelSource)},
-		{":3foo=", NewLabel("3foo", "", common.CiliumLabelSource)},
+		{"$key1=value1", NewLabel("key1", "value1", LabelSourceReserved)},
+		{"1foo", NewLabel("1foo", "", LabelSourceCilium)},
+		{":2foo", NewLabel("2foo", "", LabelSourceCilium)},
+		{":3foo=", NewLabel("3foo", "", LabelSourceCilium)},
 		{"4blah=:foo=", NewLabel("foo", "", "4blah=")},
 		{"5blah::foo=", NewLabel("::foo", "", "5blah")},
-		{"6foo==", NewLabel("6foo", "=", common.CiliumLabelSource)},
-		{"7foo=bar", NewLabel("7foo", "bar", common.CiliumLabelSource)},
+		{"6foo==", NewLabel("6foo", "=", LabelSourceCilium)},
+		{"7foo=bar", NewLabel("7foo", "bar", LabelSourceCilium)},
 		{"k8s:foo=bar:", NewLabel("foo", "bar:", "k8s")},
-		{common.ReservedLabelSourceKeyPrefix + "host", NewLabel("host", "", common.ReservedLabelSource)},
+		{LabelSourceReservedKeyPrefix + "host", NewLabel("host", "", LabelSourceReserved)},
 	}
 	for _, test := range tests {
 		lbl := ParseLabel(test.str)
@@ -144,7 +141,7 @@ func (s *LabelsSuite) TestLabel(c *C) {
 	label = Label{}
 	err = json.Unmarshal([]byte(shortLabel), &label)
 	c.Assert(err, Equals, nil)
-	c.Assert(label.Source, Equals, common.CiliumLabelSource)
+	c.Assert(label.Source, Equals, LabelSourceCilium)
 	c.Assert(label.Value, Equals, "")
 
 	label = Label{}
@@ -155,7 +152,7 @@ func (s *LabelsSuite) TestLabel(c *C) {
 func (s *LabelsSuite) TestLabelCompare(c *C) {
 	a1 := NewLabel(".", "", "")
 	a2 := NewLabel(".", "", "")
-	b1 := NewLabel("bar", "", common.CiliumLabelSource)
+	b1 := NewLabel("bar", "", LabelSourceCilium)
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 
@@ -170,7 +167,7 @@ func (s *LabelsSuite) TestLabelCompare(c *C) {
 func (s *LabelsSuite) TestLabelSliceSHA256Sum(c *C) {
 	a1 := NewLabel(".", "", "")
 	a2 := NewLabel(".", "", "")
-	b1 := NewLabel("bar", "", common.CiliumLabelSource)
+	b1 := NewLabel("bar", "", LabelSourceCilium)
 	c1 := NewLabel("bar", "", "kubernetes")
 	d1 := NewLabel("", "", "")
 	labels := []*Label{
@@ -205,8 +202,8 @@ func (s *LabelsSuite) TestLabelParseKey(c *C) {
 		{"cilium.key1=value1", DefaultLabelSourceKeyPrefix + "cilium.key1"},
 		{"key1=value1", DefaultLabelSourceKeyPrefix + "key1"},
 		{"value1", DefaultLabelSourceKeyPrefix + "value1"},
-		{"$world=value1", common.ReservedLabelSourceKeyPrefix + "world"},
-		{"k8s:foo=bar:", k8s.LabelSourceKeyPrefix + "foo"},
+		{"$world=value1", LabelSourceReservedKeyPrefix + "world"},
+		{"k8s:foo=bar:", LabelSourceK8sKeyPrefix + "foo"},
 	}
 	for _, test := range tests {
 		lbl := GetExtendedKeyFrom(test.str)

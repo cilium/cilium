@@ -79,14 +79,14 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("foo3", "bar3", LabelSource),
-			labels.NewLabel("foo4", "bar4", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("foo1", "bar1", LabelSource),
-			labels.NewLabel("foo2", "bar2", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -107,7 +107,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	})
 
 	ctx.To = labels.LabelArray{
-		labels.NewLabel("foo2", "bar2", LabelSource),
+		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
@@ -115,11 +115,11 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel("foo3", "bar3", LabelSource),
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel("foo1", "bar1", LabelSource),
-			labels.NewLabel("foo2", "bar2", LabelSource),
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -171,12 +171,12 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("foo0", "bar0", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("foo1", "bar1", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -276,11 +276,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo.AddList(rules)
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel("role", "backend", LabelSource),
+			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -289,11 +289,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel("role", "backend", LabelSource),
+			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -302,12 +302,12 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
-			labels.NewLabel("role", "backend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -368,12 +368,12 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -387,8 +387,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -397,8 +397,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -434,12 +434,12 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "backend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -448,12 +448,12 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "backend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -462,12 +462,12 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "backend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -538,8 +538,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -548,8 +548,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -558,8 +558,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -568,8 +568,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, LabelSource),
-			labels.NewLabel("role", "frontend", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -663,15 +663,15 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
 			// doesn't matter the namespace.
-			labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			// component==redis is in the policy
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", LabelSource),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
 			// tier==cache is in the policy
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", LabelSource),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
 			// environment is not in `dev` which is in the policy
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "environment"), "production", LabelSource),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "environment"), "production", labels.LabelSourceK8s),
 			// doesn't matter, there isn't any matchExpression denying traffic from any zone.
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "zone"), "eu-1", LabelSource),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -681,11 +681,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		},
 		To: labels.LabelArray{
 			// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
-			labels.NewLabel(PodNamespaceLabel, "expressions", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			// component==redis is in the policy.
-			labels.NewLabel("component", "redis", LabelSource),
+			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			// tier==cache is in the policy
-			labels.NewLabel("tier", "cache", LabelSource),
+			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -694,21 +694,21 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx.To = labels.LabelArray{
 		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
-		labels.NewLabel(PodNamespaceLabel, "myns", LabelSource),
+		labels.NewLabel(PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 		// component==redis is in the policy.
-		labels.NewLabel("component", "redis", LabelSource),
+		labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 		// tier==cache is in the policy
-		labels.NewLabel("tier", "cache", LabelSource),
+		labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 	}
 	// Should be DENY since the namespace doesn't belong to the policy.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "environment"), "dev", LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "zone"), "eu-1", LabelSource),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "environment"), "dev", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -717,9 +717,9 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "expressions", LabelSource),
-			labels.NewLabel("component", "redis", LabelSource),
-			labels.NewLabel("tier", "cache", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
+			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -728,8 +728,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", LabelSource),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", LabelSource),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -738,9 +738,9 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, "expressions", LabelSource),
-			labels.NewLabel("component", "redis", LabelSource),
-			labels.NewLabel("tier", "cache", LabelSource),
+			labels.NewLabel(PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
+			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}

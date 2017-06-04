@@ -17,7 +17,6 @@ package k8s
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -67,7 +66,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		if retRule.EndpointSelector.LabelSelector.MatchLabels == nil {
 			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
 		}
-		retRule.EndpointSelector.LabelSelector.MatchLabels[LabelSourceKeyPrefix+PodNamespaceLabel] = namespace
+		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 	}
 
 	if r.Spec.Ingress != nil {
@@ -80,10 +79,10 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 					if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
 						retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
 					}
-					if retRule.Ingress[i].FromEndpoints[j].HasKeyPrefix(common.ReservedLabelSourceKeyPrefix) {
+					if retRule.Ingress[i].FromEndpoints[j].HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
 						continue
 					}
-					retRule.Ingress[i].FromEndpoints[j].MatchLabels[LabelSourceKeyPrefix+PodNamespaceLabel] = namespace
+					retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 				}
 			}
 
@@ -103,7 +102,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 					if retRule.Ingress[i].FromRequires[j].MatchLabels == nil {
 						retRule.Ingress[i].FromRequires[j].MatchLabels = map[string]string{}
 					}
-					retRule.Ingress[i].FromRequires[j].MatchLabels[LabelSourceKeyPrefix+PodNamespaceLabel] = namespace
+					retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 				}
 			}
 		}

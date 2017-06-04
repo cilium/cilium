@@ -15,9 +15,6 @@
 package labels
 
 import (
-	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/k8s"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -28,9 +25,9 @@ var _ = Suite(&LabelsPrefCfgSuite{})
 
 func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	wanted := Labels{
-		"id.lizards":          NewLabel("id.lizards", "web", common.CiliumLabelSource),
-		"id.lizards.k8s":      NewLabel("id.lizards.k8s", "web", k8s.LabelSource),
-		k8s.PodNamespaceLabel: NewLabel(k8s.PodNamespaceLabel, "default", common.CiliumLabelSource),
+		"id.lizards":                  NewLabel("id.lizards", "web", LabelSourceCilium),
+		"id.lizards.k8s":              NewLabel("id.lizards.k8s", "web", LabelSourceK8s),
+		"io.kubernetes.pod.namespace": NewLabel("io.kubernetes.pod.namespace", "default", LabelSourceCilium),
 	}
 
 	dlpcfg := defaultLabelPrefixCfg()
@@ -56,11 +53,11 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"ignorE":                                         "foo",
 		"annotation.kubernetes.io/config.seen": "2017-05-30T14:22:17.691491034Z",
 	}
-	allLabels := Map2Labels(allNormalLabels, common.CiliumLabelSource)
+	allLabels := Map2Labels(allNormalLabels, LabelSourceCilium)
 	filtered := dlpcfg.FilterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 1)
-	allLabels["id.lizards"] = NewLabel("id.lizards", "web", common.CiliumLabelSource)
-	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", k8s.LabelSource)
+	allLabels["id.lizards"] = NewLabel("id.lizards", "web", LabelSourceCilium)
+	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", LabelSourceK8s)
 	filtered = dlpcfg.FilterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 3)
 	c.Assert(filtered, DeepEquals, wanted)
