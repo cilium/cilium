@@ -104,38 +104,43 @@
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/auth/authpb",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/clientv3",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/clientv3/concurrency",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/clientv3/yaml",
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/etcdserver/etcdserverpb",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/mvcc/mvccpb",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/tlsutil",
-			"Comment": "v3.1.0",
-			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+			"Comment": "v3.2.1",
+			"Rev": "61fc123e7a8b14a0a258aa3f5c4159861b1ec2e7"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-iptables/iptables",

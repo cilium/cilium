@@ -32,7 +32,7 @@ type KV interface {
 	// Put puts a key-value pair into etcd.
 	// Note that key,value can be plain bytes array and string is
 	// an immutable representation of that bytes array.
-	// To get a string of bytes, do string([]byte(0x10, 0x20)).
+	// To get a string of bytes, do string([]byte{0x10, 0x20}).
 	Put(ctx context.Context, key, val string, opts ...OpOption) (*PutResponse, error)
 
 	// Get retrieves keys.
@@ -50,11 +50,6 @@ type KV interface {
 
 	// Compact compacts etcd KV history before the given rev.
 	Compact(ctx context.Context, rev int64, opts ...CompactOption) (*CompactResponse, error)
-
-	// Do applies a single Op on KV without a transaction.
-	// Do is useful when declaring operations to be issued at a later time
-	// whereas Get/Put/Delete are for better suited for when the operation
-	// should be immediately issued at time of declaration.
 
 	// Do applies a single Op on KV without a transaction.
 	// Do is useful when creating arbitrary operations to be issued at a
@@ -148,7 +143,7 @@ func (kv *kv) do(ctx context.Context, op Op) (OpResponse, error) {
 		}
 	case tPut:
 		var resp *pb.PutResponse
-		r := &pb.PutRequest{Key: op.key, Value: op.val, Lease: int64(op.leaseID), PrevKv: op.prevKV}
+		r := &pb.PutRequest{Key: op.key, Value: op.val, Lease: int64(op.leaseID), PrevKv: op.prevKV, IgnoreValue: op.ignoreValue, IgnoreLease: op.ignoreLease}
 		resp, err = kv.remote.Put(ctx, r)
 		if err == nil {
 			return OpResponse{put: (*PutResponse)(resp)}, nil

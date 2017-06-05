@@ -24,6 +24,7 @@ import (
 	mvccpb "github.com/coreos/etcd/mvcc/mvccpb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -65,6 +66,9 @@ type WatchResponse struct {
 	Created bool
 
 	closeErr error
+
+	// cancelReason is a reason of canceling watch
+	cancelReason string
 }
 
 // IsCreate returns true if the event tells that the key is newly created.
@@ -85,6 +89,9 @@ func (wr *WatchResponse) Err() error {
 	case wr.CompactRevision != 0:
 		return v3rpc.ErrCompacted
 	case wr.Canceled:
+		if len(wr.cancelReason) != 0 {
+			return v3rpc.Error(grpc.Errorf(codes.FailedPrecondition, "%s", wr.cancelReason))
+		}
 		return v3rpc.ErrFutureRev
 	}
 	return nil
@@ -132,6 +139,8 @@ type watchGrpcStream struct {
 	errc chan error
 	// closingc gets the watcherStream of closing watchers
 	closingc chan *watcherStream
+	// wg is Done when all substream goroutines have exited
+	wg sync.WaitGroup
 
 	// resumec closes to signal that all substreams should begin resuming
 	resumec chan struct{}
@@ -406,7 +415,7 @@ func (w *watchGrpcStream) run() {
 		for range closing {
 			w.closeSubstream(<-w.closingc)
 		}
-
+		w.wg.Wait()
 		w.owner.closeStream(w)
 	}()
 
@@ -431,6 +440,7 @@ func (w *watchGrpcStream) run() {
 			}
 
 			ws.donec = make(chan struct{})
+			w.wg.Add(1)
 			go w.serveSubstream(ws, w.resumec)
 
 			// queue up for watcher creation/resume
@@ -517,10 +527,6 @@ func (w *watchGrpcStream) nextResume() *watcherStream {
 
 // dispatchEvent sends a WatchResponse to the appropriate watcher stream
 func (w *watchGrpcStream) dispatchEvent(pbresp *pb.WatchResponse) bool {
-	ws, ok := w.substreams[pbresp.WatchId]
-	if !ok {
-		return false
-	}
 	events := make([]*Event, len(pbresp.Events))
 	for i, ev := range pbresp.Events {
 		events[i] = (*Event)(ev)
@@ -531,6 +537,11 @@ func (w *watchGrpcStream) dispatchEvent(pbresp *pb.WatchResponse) bool {
 		CompactRevision: pbresp.CompactRevision,
 		Created:         pbresp.Created,
 		Canceled:        pbresp.Canceled,
+		cancelReason:    pbresp.CancelReason,
+	}
+	ws, ok := w.substreams[pbresp.WatchId]
+	if !ok {
+		return false
 	}
 	select {
 	case ws.recvc <- wr:
@@ -576,6 +587,7 @@ func (w *watchGrpcStream) serveSubstream(ws *watcherStream, resumec chan struct{
 		if !resuming {
 			w.closingc <- ws
 		}
+		w.wg.Done()
 	}()
 
 	emptyWr := &WatchResponse{}
@@ -612,10 +624,24 @@ func (w *watchGrpcStream) serveSubstream(ws *watcherStream, resumec chan struct{
 					if ws.initReq.createdNotify {
 						ws.outc <- *wr
 					}
+					// once the watch channel is returned, a current revision
+					// watch must resume at the store revision. This is necessary
+					// for the following case to work as expected:
+					//	wch := m1.Watch("a")
+					//	m2.Put("a", "b")
+					//	<-wch
+					// If the revision is only bound on the first observed event,
+					// if wch is disconnected before the Put is issued, then reconnects
+					// after it is committed, it'll miss the Put.
+					if ws.initReq.rev == 0 {
+						nextRev = wr.Header.Revision
+					}
 				}
+			} else {
+				// current progress of watch; <= store revision
+				nextRev = wr.Header.Revision
 			}
 
-			nextRev = wr.Header.Revision
 			if len(wr.Events) > 0 {
 				nextRev = wr.Events[len(wr.Events)-1].Kv.ModRevision + 1
 			}
@@ -674,6 +700,7 @@ func (w *watchGrpcStream) newWatchClient() (pb.Watch_WatchClient, error) {
 			continue
 		}
 		ws.donec = make(chan struct{})
+		w.wg.Add(1)
 		go w.serveSubstream(ws, w.resumec)
 	}
 
@@ -694,6 +721,10 @@ func (w *watchGrpcStream) waitCancelSubstreams(stopc <-chan struct{}) <-chan str
 		go func(ws *watcherStream) {
 			defer wg.Done()
 			if ws.closing {
+				if ws.initReq.ctx.Err() != nil && ws.outc != nil {
+					close(ws.outc)
+					ws.outc = nil
+				}
 				return
 			}
 			select {
@@ -702,7 +733,11 @@ func (w *watchGrpcStream) waitCancelSubstreams(stopc <-chan struct{}) <-chan str
 				ws.closing = true
 				close(ws.outc)
 				ws.outc = nil
-				go func() { w.closingc <- ws }()
+				w.wg.Add(1)
+				go func() {
+					defer w.wg.Done()
+					w.closingc <- ws
+				}()
 			case <-stopc:
 			}
 		}(w.resuming[i])
