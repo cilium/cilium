@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/cilium/cilium",
-	"GoVersion": "go1.7",
+	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -463,6 +463,10 @@
 		{
 			"ImportPath": "github.com/hashicorp/go-cleanhttp",
 			"Rev": "875fb671b3ddc66f8e2f0acc33829c8cb989a38d"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/go-version",
+			"Rev": "03c5bf6be031b6dd45afec16b1cf94fc8938bc77"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/hcl",
