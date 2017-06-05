@@ -106,7 +106,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		ID:        123,
 		Iteration: 3,
 		Labels:    nil,
-		LabelList: []*labels.Label{
+		LabelArray: labels.LabelArray{
 			labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
 		},
 		Maps: map[int]*policymap.PolicyMap{

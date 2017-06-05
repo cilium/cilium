@@ -30,7 +30,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 	var err error
 
 	ctx := policy.SearchContext{
-		From: e.Consumable.LabelList,
+		From: e.Consumable.LabelArray,
 	}
 
 	if owner.TracingEnabled() {
@@ -168,7 +168,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	c.Mutex.RLock()
 	ctx := policy.SearchContext{
-		To: c.LabelList,
+		To: c.LabelArray,
 	}
 	c.Mutex.RUnlock()
 
@@ -248,7 +248,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner) (bool, error) {
 	repo.Mutex.Lock() // Must be taken before c.Mutex
 	c.Mutex.RLock()
 	ctx := policy.SearchContext{
-		To:    c.LabelList, // keep c.Mutex taken to protect this.
+		To:    c.LabelArray, // keep c.Mutex taken to protect this.
 		Trace: policy.TRACE_VERBOSE,
 	}
 	if owner.TracingEnabled() {
@@ -464,7 +464,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 			e.SecLabel = id
 			e.Consumable.Mutex.Lock()
 			e.Consumable.Labels = id
-			e.Consumable.LabelList = id.Labels.ToSlice()
+			e.Consumable.LabelArray = id.Labels.ToSlice()
 			e.Consumable.Mutex.Unlock()
 			return
 		}
