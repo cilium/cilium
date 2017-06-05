@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/cilium/cilium",
-	"GoVersion": "go1.7",
+	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -138,8 +138,17 @@
 			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
 		},
 		{
+			"ImportPath": "github.com/coreos/etcd/version",
+			"Comment": "v3.1.0",
+			"Rev": "8ba2897a21e4fc51b298ca553d251318425f93ae"
+		},
+		{
 			"ImportPath": "github.com/coreos/go-iptables/iptables",
 			"Rev": "90456be57fcb8185b264b77ce42a9539df42df25"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-semver/semver",
+			"Rev": "294930c1e79c64e7dbe360054274fdad492c8cf5"
 		},
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
@@ -463,6 +472,10 @@
 		{
 			"ImportPath": "github.com/hashicorp/go-cleanhttp",
 			"Rev": "875fb671b3ddc66f8e2f0acc33829c8cb989a38d"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/go-version",
+			"Rev": "03c5bf6be031b6dd45afec16b1cf94fc8938bc77"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/hcl",
