@@ -52,6 +52,10 @@ type Op struct {
 	// for watch, put, delete
 	prevKV bool
 
+	// for put
+	ignoreValue bool
+	ignoreLease bool
+
 	// progressNotify is for progress updates.
 	progressNotify bool
 	// createdNotify is for created event
@@ -64,6 +68,26 @@ type Op struct {
 	val     []byte
 	leaseID LeaseID
 }
+
+// accesors / mutators
+
+// KeyBytes returns the byte slice holding the Op's key.
+func (op Op) KeyBytes() []byte { return op.key }
+
+// WithKeyBytes sets the byte slice for the Op's key.
+func (op *Op) WithKeyBytes(key []byte) { op.key = key }
+
+// RangeBytes returns the byte slice holding with the Op's range end, if any.
+func (op Op) RangeBytes() []byte { return op.end }
+
+// WithRangeBytes sets the byte slice for the Op's range end.
+func (op *Op) WithRangeBytes(end []byte) { op.end = end }
+
+// ValueBytes returns the byte slice holding the Op's value, if any.
+func (op Op) ValueBytes() []byte { return op.val }
+
+// WithValueBytes sets the byte slice for the Op's value.
+func (op *Op) WithValueBytes(v []byte) { op.val = v }
 
 func (op Op) toRangeRequest() *pb.RangeRequest {
 	if op.t != tRange {
@@ -94,7 +118,7 @@ func (op Op) toRequestOp() *pb.RequestOp {
 	case tRange:
 		return &pb.RequestOp{Request: &pb.RequestOp_RequestRange{RequestRange: op.toRangeRequest()}}
 	case tPut:
-		r := &pb.PutRequest{Key: op.key, Value: op.val, Lease: int64(op.leaseID), PrevKv: op.prevKV}
+		r := &pb.PutRequest{Key: op.key, Value: op.val, Lease: int64(op.leaseID), PrevKv: op.prevKV, IgnoreValue: op.ignoreValue, IgnoreLease: op.ignoreLease}
 		return &pb.RequestOp{Request: &pb.RequestOp_RequestPut{RequestPut: r}}
 	case tDeleteRange:
 		r := &pb.DeleteRangeRequest{Key: op.key, RangeEnd: op.end, PrevKv: op.prevKV}
@@ -207,6 +231,7 @@ func WithLease(leaseID LeaseID) OpOption {
 }
 
 // WithLimit limits the number of results to return from 'Get' request.
+// If WithLimit is given a 0 limit, it is treated as no limit.
 func WithLimit(n int64) OpOption { return func(op *Op) { op.limit = n } }
 
 // WithRev specifies the store revision for 'Get' request.
@@ -257,6 +282,10 @@ func getPrefix(key []byte) []byte {
 // can return 'foo1', 'foo2', and so on.
 func WithPrefix() OpOption {
 	return func(op *Op) {
+		if len(op.key) == 0 {
+			op.key, op.end = []byte{0}, []byte{0}
+			return
+		}
 		op.end = getPrefix(op.key)
 	}
 }
@@ -357,6 +386,24 @@ func WithFilterDelete() OpOption {
 func WithPrevKV() OpOption {
 	return func(op *Op) {
 		op.prevKV = true
+	}
+}
+
+// WithIgnoreValue updates the key using its current value.
+// Empty value should be passed when ignore_value is set.
+// Returns an error if the key does not exist.
+func WithIgnoreValue() OpOption {
+	return func(op *Op) {
+		op.ignoreValue = true
+	}
+}
+
+// WithIgnoreLease updates the key using its current lease.
+// Empty lease should be passed when ignore_lease is set.
+// Returns an error if the key does not exist.
+func WithIgnoreLease() OpOption {
+	return func(op *Op) {
+		op.ignoreLease = true
 	}
 }
 
