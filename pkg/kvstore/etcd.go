@@ -31,6 +31,7 @@ import (
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/mvcc/mvccpb"
+	"github.com/hashicorp/go-version"
 	ctx "golang.org/x/net/context"
 )
 
@@ -41,6 +42,10 @@ const (
 	// ECfg is the string representing the key mapping to the path of the
 	// configuration for Etcd.
 	ECfg = "etcd.config"
+)
+
+var (
+	minEVersion, _ = version.NewConstraint(">= 3.1.0")
 )
 
 // EtcdOpts is the set of supported options for Etcd configuration.
@@ -83,11 +88,13 @@ func NewEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to contact etcd: %s", err)
 	}
-	log.Info("Etcd client ready")
 	ec := &EtcdClient{
 		cli:       c,
 		session:   s,
 		lockPaths: map[string]*sync.Mutex{},
+	}
+	if err := ec.CheckMinVersion(15 * time.Second); err != nil {
+		log.Fatalf("%s", err)
 	}
 	go func() {
 		for {
@@ -101,10 +108,58 @@ func NewEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 				ec.session = newSession
 				ec.sessionMU.Unlock()
 				log.Debugf("Renewing etcd session")
+				if err := ec.CheckMinVersion(10 * time.Second); err != nil {
+					log.Fatalf("%s", err)
+				}
 			}
 		}
 	}()
 	return ec, nil
+}
+
+func getEPVersion(cli client.Maintenance, etcdEP string, timeout time.Duration) (*version.Version, error) {
+	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), timeout)
+	defer cancel()
+	sr, err := cli.Status(ctxTimeout, etcdEP)
+	if err != nil {
+		return nil, err
+	}
+	v, err := version.NewVersion(sr.Version)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing server version %q: %s", sr.Version, err)
+	}
+	return v, nil
+}
+
+// CheckMinVersion checks the minimal version running on etcd cluster. If the
+// minimal version running doesn't meet cilium minimal requirements, returns
+// an error.
+func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
+	eps := e.cli.Endpoints()
+	var errors bool
+	for _, ep := range eps {
+		v, err := getEPVersion(e.cli.Maintenance, ep, timeout)
+		if err != nil {
+			log.Debugf("Unable to check etcd min version: %s", err)
+			log.Warningf("Checking version of etcd endpoint %q: %s", ep, err)
+			errors = true
+			continue
+		}
+		if !minEVersion.Check(v) {
+			// FIXME: after we rework the refetching IDs for a connection lost
+			// remove this Errorf and replace it with a warning
+			return fmt.Errorf("Minimal etcd version not met in %q,"+
+				" required: %s, found: %s", ep, minEVersion.String(), v.String())
+		}
+		log.Infof("Version of etcd endpoint %q: %s OK!", ep, v.String())
+	}
+	if len(eps) == 0 {
+		log.Warningf("Minimal etcd version unknown: No etcd endpoints available!")
+	} else if errors {
+		log.Warningf("Unable to check etcd's cluster version."+
+			" Please make sure the minimal etcd version running on all endpoints is %s", minEVersion.String())
+	}
+	return nil
 }
 
 func (e *EtcdClient) LockPath(path string) (KVLocker, error) {
