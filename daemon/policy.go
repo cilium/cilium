@@ -36,11 +36,11 @@ import (
 )
 
 // GetCachedLabelList returns the cached labels for the given identity.
-func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) ([]*labels.Label, error) {
+func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error) {
 	// Check if we have the source security context in our local
 	// consumable cache
 	if c := d.consumableCache.Lookup(ID); c != nil {
-		return c.LabelList, nil
+		return c.LabelArray, nil
 	}
 
 	// No cache entry or labels not available, do full lookup of labels
@@ -117,7 +117,7 @@ func (d *Daemon) UpdatePolicyEnforcement(e *endpoint.Endpoint) bool {
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
 		// Convert to LabelArray so we can pass to Matches function later.
 		var endpointLabels labels.LabelArray
-		for _, lbl := range e.Consumable.LabelList {
+		for _, lbl := range e.Consumable.LabelArray {
 			endpointLabels = append(endpointLabels, lbl)
 		}
 		// Check if rules match the labels for this endpoint.

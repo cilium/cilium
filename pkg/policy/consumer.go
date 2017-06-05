@@ -61,8 +61,8 @@ type Consumable struct {
 	Mutex sync.RWMutex
 	// Labels are the Identity of this consumable
 	Labels *Identity `json:"labels"`
-	// LabelList contains the same labels from identity in a form of a list, used for faster lookup
-	LabelList []*labels.Label `json:"-"`
+	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
+	LabelArray labels.LabelArray `json:"-"`
 	// Iteration policy of the Consumable
 	Iteration int `json:"-"`
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
@@ -89,7 +89,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 		cache:        cache,
 	}
 	if lbls != nil {
-		consumable.LabelList = lbls.Labels.ToSlice()
+		consumable.LabelArray = lbls.Labels.ToSlice()
 	}
 
 	return consumable
@@ -100,13 +100,13 @@ func (c *Consumable) DeepCopy() *Consumable {
 	cpy := &Consumable{
 		ID:           c.ID,
 		Iteration:    c.Iteration,
-		LabelList:    make([]*labels.Label, len(c.LabelList)),
+		LabelArray:   make(labels.LabelArray, len(c.LabelArray)),
 		Maps:         make(map[int]*policymap.PolicyMap, len(c.Maps)),
 		Consumers:    make(map[string]*Consumer, len(c.Consumers)),
 		ReverseRules: make(map[NumericIdentity]*Consumer, len(c.ReverseRules)),
 		cache:        c.cache,
 	}
-	copy(cpy.LabelList, c.LabelList)
+	copy(cpy.LabelArray, c.LabelArray)
 	if c.Labels != nil {
 		cpy.Labels = c.Labels.DeepCopy()
 	}
