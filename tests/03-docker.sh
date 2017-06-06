@@ -64,4 +64,12 @@ ping6 -c 5 "$SERVER_IP" || {
 	abort "Error: Could not ping server container from host"
 }
 
+cilium policy delete id=server
+
+wait_for_endpoints 2
+
+ping6 -c 2 "$SERVER_IP" && {
+	abort "Error: Unexpected connectivity between host and server after policy removed"
+}
+
 cilium policy delete --all

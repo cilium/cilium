@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -65,7 +66,8 @@ func (d *Daemon) invalidateCache() {
 }
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
-func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
+// Returns a waiting group which signalizes when all endpoints are regenerated.
+func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.WaitGroup {
 
 	if len(added) == 0 {
 		log.Debugf("Full policy recalculation triggered")
@@ -79,8 +81,7 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 	d.GetPolicyRepository().Mutex.RLock()
 	d.EnablePolicyEnforcement()
 	d.GetPolicyRepository().Mutex.RUnlock()
-
-	endpointmanager.TriggerPolicyUpdates(d)
+	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
@@ -279,7 +280,53 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) *apierror.APIError {
 		return apierror.New(DeletePolicyNotFoundCode, "policy not found")
 	}
 
-	d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+	go func() {
+		// Store the consumables before we make any policy changes
+		// to check which consumables were removed with the new policy.
+		oldConsumables := d.consumableCache.GetConsumables()
+
+		wg := d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+
+		// If daemon doesn't enforce policy then skip the cleanup
+		// of CT entries.
+		if d.PolicyEnforcement() == endpoint.NeverEnforce {
+			return
+		}
+
+		// Wait for all policies to be updated so that
+		// we can grab a fresh map of consumables.
+		wg.Wait()
+
+		newConsumables := d.consumableCache.GetConsumables()
+
+		consumablesToRm := policy.ConsumablesInANotInB(oldConsumables, newConsumables)
+		endpointmanager.Mutex.RLock()
+		for _, ep := range endpointmanager.Endpoints {
+			ep.Mutex.RLock()
+			// If the policy is not being enforced then keep the CT
+			// entries.
+			if ep.SecLabel == nil ||
+				!ep.Opts.IsEnabled(endpoint.OptionPolicy) {
+				ep.Mutex.RUnlock()
+				continue
+			}
+			epSecID := ep.SecLabel.ID
+
+			ep.Mutex.RUnlock()
+
+			idsToKeep := map[uint32]bool{}
+			if consumers, ok := consumablesToRm[epSecID]; ok {
+				for _, consumer := range consumers {
+					idsToKeep[consumer.Uint32()] = true
+				}
+				if len(idsToKeep) != 0 {
+					log.Debugf("Removing entries of EP %d: %+v", ep.ID, idsToKeep)
+					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToKeep)
+				}
+			}
+		}
+		endpointmanager.Mutex.RUnlock()
+	}()
 	return nil
 }
 
