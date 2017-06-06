@@ -245,6 +245,7 @@ struct ct_entry {
 	      reserve:12;
 	__u16 rev_nat_index;
 	__u16 proxy_port;
+	__u32 src_sec_id;
 };
 
 struct lb6_key {
@@ -299,6 +300,7 @@ struct ct_state {
 	__u16 proxy_port;
 	__be32 addr;
 	__be32 svc_addr;
+	__u32 src_sec_id;
 };
 
 struct proxy4_tbl_key {
