@@ -328,14 +328,14 @@ API call, but disallowing all other calls (including GET /private).
       - fromEndpoints:
         - matchLabels:
             id: app2
-          toPorts:
-          - ports:
-            - port: 80
-              protocol: TCP
-            rules:
-              HTTP:
-              - method: "GET"
-                path: "/public"
+        toPorts:
+        - ports:
+          - port: "80"
+            protocol: TCP
+          rules:
+            HTTP:
+            - method: "GET"
+              path: "/public"
 
 Create an L7-aware policy to protect *app1* using:
 
