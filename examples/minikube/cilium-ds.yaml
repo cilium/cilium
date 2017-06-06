@@ -80,6 +80,21 @@ spec:
         env:
           - name: "CONSUL_LOCAL_CONFIG"
             value: "{\"skip_leave_on_interrupt\": true}"
+        livenessProbe:
+          exec:
+            command:
+            - consul
+            - info
+          initialDelaySeconds: 30
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - consul
+            - members
+          initialDelaySeconds: 60
+          periodSeconds: 15
         securityContext:
           privileged: true
       hostNetwork: true
