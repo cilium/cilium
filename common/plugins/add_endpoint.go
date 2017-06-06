@@ -33,7 +33,20 @@ const (
 
 // Endpoint2IfName returns the host interface name for the given endpointID.
 func Endpoint2IfName(endpointID string) string {
-	return hostInterfacePrefix + endpointID[:5]
+	return hostInterfacePrefix + truncateString(endpointID, 5)
+}
+
+// Endpoint2TempIfName returns the temporary interface name for the given
+// endpointID.
+func Endpoint2TempIfName(endpointID string) string {
+	return temporaryInterfacePrefix + truncateString(endpointID, 5)
+}
+
+func truncateString(epID string, maxLen uint) string {
+	if maxLen <= uint(len(epID)) {
+		return epID[:maxLen]
+	}
+	return epID
 }
 
 // SetupVeth sets up the net interface, the temporary interface and fills up some endpoint
@@ -41,9 +54,12 @@ func Endpoint2IfName(endpointID string) string {
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
 func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, *netlink.Link, string, error) {
+	if id == "" {
+		return nil, nil, "", fmt.Errorf("invalid: empty ID")
+	}
 
 	lxcIfName := Endpoint2IfName(id)
-	tmpIfName := temporaryInterfacePrefix + id[:5]
+	tmpIfName := Endpoint2TempIfName(id)
 
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: lxcIfName},
