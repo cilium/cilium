@@ -16,6 +16,7 @@ package endpointmanager
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -31,7 +32,11 @@ const (
 	GcInterval int = 10
 )
 
-func runGC(e *endpoint.Endpoint, isLocal, isIPv6 bool) {
+// RunGC run CT's garbage collector for the given endpoint. `isLocal` refers if
+// the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
+// map. `filter` represents the filter type to be used while looping all CT
+// entries.
+func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
 	// TODO: We need to optimize this a bit in future, so we traverse
@@ -67,7 +72,7 @@ func runGC(e *endpoint.Endpoint, isLocal, isIPv6 bool) {
 		return
 	}
 
-	deleted := ctmap.GC(m, mapType)
+	deleted := ctmap.GC(m, mapType, filter)
 
 	if deleted > 0 {
 		log.Debugf("Deleted %d entries from map %s", deleted, file)
@@ -78,9 +83,8 @@ func runGC(e *endpoint.Endpoint, isLocal, isIPv6 bool) {
 func EnableConntrackGC(ipv4, ipv6 bool) {
 	go func() {
 		seenGlobal := false
+		sleepTime := time.Duration(GcInterval) * time.Second
 		for {
-			sleepTime := time.Duration(GcInterval) * time.Second
-
 			Mutex.RLock()
 
 			for k := range Endpoints {
@@ -114,10 +118,10 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
 				if ipv6 {
-					runGC(e, isLocal, true)
+					RunGC(e, isLocal, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 				if ipv4 {
-					runGC(e, isLocal, false)
+					RunGC(e, isLocal, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 			}
 
@@ -126,4 +130,32 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 			seenGlobal = false
 		}
 	}()
+}
+
+// RmCTEntriesOf cleans the connection tracking table of the given endpoint `e`
+// by removing the CT's entries that have the src_sec_id equal to any of keys
+// in the ids' map.
+func RmCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, ids map[uint32]bool) {
+	var eIPv4, eIPv6 net.IP
+
+	e.Mutex.RLock()
+	isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+	eIPv6 = e.IPv6.IP()
+	if ipv4Enabled {
+		eIPv4 = e.IPv4.IP()
+	}
+	// We can unlock the endpoint mutex since
+	// in runGC it will be locked as needed.
+	e.Mutex.RUnlock()
+
+	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByID)
+	gcFilter.IDsToRm = ids
+
+	gcFilter.IP = eIPv6
+	RunGC(e, isLocal, true, gcFilter)
+
+	if ipv4Enabled {
+		gcFilter.IP = eIPv4
+		RunGC(e, isLocal, false, gcFilter)
+	}
 }

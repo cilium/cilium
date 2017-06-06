@@ -17,6 +17,7 @@ package ctmap
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"unsafe"
 
 	"github.com/cilium/cilium/common"
@@ -85,6 +86,32 @@ func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
 type CtEntryDump struct {
 	Key   CtKey
 	Value CtEntry
+}
+
+const (
+	// GCFilterByTime filters CT entries by time
+	GCFilterByTime = 1 << iota
+	// GCFilterByID filters CT entries by IP and IDsToRem
+	GCFilterByID
+)
+
+// GCFilterFlags is the type for the different filter flags
+type GCFilterFlags uint
+
+// GCFilter contains the necessary fields to filter the CT maps.
+type GCFilter struct {
+	Time    uint32
+	IP      net.IP
+	IDsToRm map[uint32]bool
+	fType   GCFilterFlags
+}
+
+// NewGCFilterBy creates a new GCFilter with the given flags.
+func NewGCFilterBy(f GCFilterFlags) *GCFilter {
+	return &GCFilter{
+		fType:   f,
+		IDsToRm: map[uint32]bool{},
+	}
 }
 
 // ToString iterates through Map m and writes the values of the ct entries in m
@@ -170,16 +197,22 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 	return entries, nil
 }
 
-// doGC6 iterates through a CTv6 map and drops entries when they timeout.
-func doGC6(m *bpf.Map, deleted *int, time uint32) {
-	var nextKey, tmpKey CtKey6Global
+// doGC6 iterates through a CTv6 map and drops entries based on the given
+// filter.
+func doGC6(m *bpf.Map, filter *GCFilter) int {
+	var (
+		deleted         int
+		nextKey, tmpKey CtKey6Global
+		del             bool
+	)
 
 	err := m.GetNextKey(&tmpKey, &nextKey)
 	if err != nil {
-		return
+		return 0
 	}
 
-	for true {
+	for {
+		del = false
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
@@ -188,12 +221,36 @@ func doGC6(m *bpf.Map, deleted *int, time uint32) {
 		}
 
 		entry := entryMap.(*CtEntry)
-		if entry.lifetime < time {
+
+		// FIXME create a single function for doGC4 and doGC6
+
+		if filter.fType&GCFilterByTime != 0 &&
+			entry.lifetime < filter.Time {
+
+			del = true
+			log.Debugf("Deleting entry %v since it timeout", entry)
+		}
+		if filter.fType&GCFilterByID != 0 &&
+			// In CT's entries, saddr is the packet's receiver,
+			// which means, is the destination container IP.
+			nextKey.saddr.IP().Equal(filter.IP) {
+
+			// Check if the src_sec_id of that entry is not allowed
+			// to talk with the destination container IP.
+			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
+
+				del = true
+				log.Debugf("Deleting entry since ID %d is no "+
+					"longer being consumed by %s", entry.src_sec_id, filter.IP)
+			}
+		}
+
+		if del {
 			err := m.Delete(&nextKey)
 			if err != nil {
 				log.Debugf("error during Delete: %s", err)
 			} else {
-				(*deleted)++
+				deleted++
 			}
 		}
 
@@ -202,18 +259,25 @@ func doGC6(m *bpf.Map, deleted *int, time uint32) {
 		}
 		nextKey = tmpKey
 	}
+	return deleted
 }
 
-// doGC4 iterates through a CTv4 map and drops entries when they timeout.
-func doGC4(m *bpf.Map, deleted *int, time uint32) {
-	var nextKey, tmpKey CtKey4Global
+// doGC4 iterates through a CTv4 map and drops entries based on the given
+// filter.
+func doGC4(m *bpf.Map, filter *GCFilter) int {
+	var (
+		deleted         int
+		nextKey, tmpKey CtKey4Global
+		del             bool
+	)
 
 	err := m.GetNextKey(&tmpKey, &nextKey)
 	if err != nil {
-		return
+		return 0
 	}
 
 	for true {
+		del = false
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
@@ -222,12 +286,36 @@ func doGC4(m *bpf.Map, deleted *int, time uint32) {
 		}
 
 		entry := entryMap.(*CtEntry)
-		if entry.lifetime < time {
+
+		// FIXME create a single function for doGC4 and doGC6
+
+		if filter.fType&GCFilterByTime != 0 &&
+			entry.lifetime < filter.Time {
+
+			del = true
+			log.Debugf("Deleting entry %v since it timeout", entry)
+		}
+		if filter.fType&GCFilterByID != 0 &&
+			// In CT's entries, saddr is the packet's receiver,
+			// which means, is the destination container IP.
+			nextKey.saddr.IP().Equal(filter.IP) {
+
+			// Check if the src_sec_id of that entry is not allowed
+			// to talk with the destination container IP.
+			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
+
+				del = true
+				log.Debugf("Deleting entry since ID %d is no "+
+					"longer being consumed by %s", entry.src_sec_id, filter.IP)
+			}
+		}
+
+		if del {
 			err := m.Delete(&nextKey)
 			if err != nil {
 				log.Debugf("error during Delete: %s", err)
 			} else {
-				(*deleted)++
+				deleted++
 			}
 		}
 
@@ -236,21 +324,24 @@ func doGC4(m *bpf.Map, deleted *int, time uint32) {
 		}
 		nextKey = tmpKey
 	}
+	return deleted
 }
 
-// GC runs garbage collection for map m with name mapName with interval interval.
+// GC runs garbage collection for map m with name mapName with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *bpf.Map, mapName string) int {
-	t, _ := bpf.GetMtime()
-	tsec := t / 1000000000
-	deleted := 0
+func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
+	if filter.fType&GCFilterByTime != 0 {
+		t, _ := bpf.GetMtime()
+		tsec := t / 1000000000
+		filter.Time = uint32(tsec)
+	}
 
 	switch mapName {
 	case MapName6, MapName6Global:
-		doGC6(m, &deleted, uint32(tsec))
+		return doGC6(m, filter)
 	case MapName4, MapName4Global:
-		doGC4(m, &deleted, uint32(tsec))
+		return doGC4(m, filter)
+	default:
+		return 0
 	}
-
-	return deleted
 }

@@ -2,12 +2,14 @@
     "endpointSelector": {"matchLabels":{"id.qa":""}},
     "ingress": [{
         "fromRequires": [{"matchLabels":{"id.qa":""}}]
-    }]
+    }],
+    "labels": ["id=qa"]
 },{
     "endpointSelector": {"matchLabels":{"id.prod":""}},
     "ingress": [{
         "fromRequires": [{"matchLabels":{"id.prod":""}}]
-    }]
+    }],
+    "labels": ["id=prod"]
 },{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
@@ -15,5 +17,6 @@
 	    {"matchLabels":{"id.client":""}},
 	    {"matchLabels":{"reserved:host":""}}
 	]
-    }]
+    }],
+    "labels": ["id=server"]
 }]
