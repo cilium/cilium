@@ -496,6 +496,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		     entry.proxy_port << 16 | entry.rev_nat_index);
 	ct6_cilium_trace_tuple(skb, DBG_CT_CREATED2, tuple,
 			       ct_state->rev_nat_index, dir);
+
+	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
@@ -593,6 +595,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		      entry.proxy_port << 16 | entry.rev_nat_index);
 	ct4_cilium_trace_tuple(skb, DBG_CT_CREATED2, tuple,
 			       ct_state->rev_nat_index, dir);
+
+	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 

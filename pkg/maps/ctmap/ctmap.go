@@ -75,6 +75,7 @@ type CtEntry struct {
 	flags      uint16
 	revnat     uint16
 	proxy_port uint16
+	src_sec_id uint32
 }
 
 // GetValuePtr returns the unsafe.Pointer for s.
@@ -101,7 +102,7 @@ func ToString(m *bpf.Map, mapName string) (string, error) {
 
 		value := entry.Value
 		buffer.WriteString(
-			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d proxyport=%d\n",
+			fmt.Sprintf(" expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d proxyport=%d src_sec_id=%d\n",
 				value.lifetime,
 				value.rx_packets,
 				value.rx_bytes,
@@ -109,7 +110,9 @@ func ToString(m *bpf.Map, mapName string) (string, error) {
 				value.tx_bytes,
 				value.flags,
 				common.Swab16(value.revnat),
-				common.Swab16(value.proxy_port)),
+				common.Swab16(value.proxy_port),
+				value.src_sec_id,
+			),
 		)
 
 	}
