@@ -8,14 +8,14 @@
 [![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/cilium/cilium/blob/master/bpf/COPYING)
 [![Join the Cilium slack channel](https://cilium.herokuapp.com/badge.svg)](https://cilium.herokuapp.com/)
 
-Cilium is open source software for providing and transparently securing
-network connectivity between application services deployed using Linux
-container management platforms like Docker and Kubernetes.
+Cilium is open source software for providing and transparently securing network
+connectivity and loadbalancing between application containers and services
+deployed using Linux container management platforms like Docker and Kubernetes.
 
-A new Linux kernel technology called eBPF is at the foundation of Cilium,
-which enables the dynamic insertion of BPF bytecode into the Linux kernel.
-Cilium generates BPF programs for each individual container to provide
-networking, security and visibility.
+A new Linux kernel technology called eBPF is at the foundation of Cilium, which
+enables the dynamic insertion of BPF bytecode into the Linux kernel. Cilium
+generates eBPF programs for each individual application container to provide
+networking, security, loadbalancing and visibility.
 
 <p align="center">
    <img src="Documentation/images/cilium-arch.png" />
@@ -23,26 +23,30 @@ networking, security and visibility.
 
 ## Features Overview
 
- * **Security Policies:** Enforcement of security policies at application and
-   networking layer. Application level policies include filtering of HTTP
-   protocol properties such as method, path, and headers. Networking policies
-   include container/pod/service interconnectivity rules as well as restriction
-   to particular port ranges.
- * **Networking:** Single flat Layer 3 network which can span multiple clusters
-   if needed. Support for native routing of container/pod/service IPs via the
-   regular Linux routing layer or automatic creation of an overlay network with
-   the means of encapsulation protocols (VXLAN/Geneve/GRE). No dependency on
-   key/value store or external control plane.
- * **Load balancing:** Distributed load balancing for both inter service as
-   well external traffic with direct server return (DSR) capability. It
-   implements the Kubernetes Ingress and Service specification.
- * **Troubleshooting:** Built-in troubleshooting tools with full context
-   visibility. tcpdump-free troubleshooting guaranteed (tm).
+ * **Security Policies:** Enforcement of security policies at application (L7)
+   and networking (L3-L4) layer. Application level policies include filtering
+   of HTTP protocol properties such as method, path, host, and headers.
+   Networking policies include container/pod/service interconnectivity rules
+   based on labels, restriction of traffic to certain CIDR and/or port ranges
+   for both ingress and egress.
+ * **Networking:** A simple flat Layer 3 network with the ability to span
+   multiple clusters connects all application containers and services. Simple
+   IP allocation using host scope allocators (dedicated /24 per cluster node
+   for IPv4, dedicated /112 per cluster node for IPv6). Choice of either
+   integrating with Linux routing to run a routing daemon or to create an
+   overlay network using encapsulation (VXLAN/Geneve).
+ * **Load balancing:** Distributed load balancing for east-west traffic from
+   application container to application container, e.g. implementation of
+   Kubenretes services. North-south traffic to load balance external traffic,
+   e.g. implementation of Kubernetes ingress. All load-balancing performed
+   with direct server return (DSR) by default for improved performance.
+ * **Troubleshooting:** Built-in troubleshooting tools providing an alternative
+   to traditional tcpdump troubleshooting techniques.
  * **Integrations:**
-    * Network plugins: CNI, libnetwork
-    * Container runtime events: containerd
-    * Kubernetes: pod labels, Ingress, Service, NetworkPolicy
-    * Logging: logstash
+    * Network plugin integrations: [CNI][cni], [libnetwork][libnetwork]
+    * Container runtime events: [containerd][containerd]
+    * Kubernetes: [NetworkPolicy][k8s_netpolicy], [Labels][k8s_labels], [Ingress][k8s_ingress], [Service][k8s_service]
+    * Logging: [fluentd][fluentd]
 
 ## Getting Started
 
@@ -57,16 +61,16 @@ networking, security and visibility.
 
 Berkeley Packet Filter (BPF) is a Linux kernel bytecode interpreter originally
 introduced to filter network packets, e.g. for tcpdump and socket filters. The
-BPF instruction set and surrounding architecture has recently been significantly
-reworked with additional data structures such as hash tables and arrays for
-keeping state as well as additional actions to support packet mangling,
-forwarding, encapsulation, etc. Furthermore, a compiler back end for LLVM
-allows for programs to be written in C and compiled into BPF instructions. An
-in-kernel verifier ensures that BPF programs are safe to run and a JIT compiler
-converts the BPF bytecode to CPU architecture specific instructions for native
-execution efficiency. BPF programs can be run at various hooking points in the
-kernel such as for incoming packets, outgoing packets, system calls, kprobes,
-uprobes, tracepoints, etc.
+BPF instruction set and surrounding architecture has recently been
+significantly reworked with additional data structures such as hash tables and
+arrays for keeping state as well as additional actions to support packet
+mangling, forwarding, encapsulation, etc. Furthermore, a compiler back end for
+LLVM allows for programs to be written in C and compiled into BPF instructions.
+An in-kernel verifier ensures that BPF programs are safe to run and a JIT
+compiler converts the BPF bytecode to CPU architecture specific instructions
+for native execution efficiency. BPF programs can be run at various hooking
+points in the kernel such as for incoming packets, outgoing packets, system
+calls, kprobes, uprobes, tracepoints, etc.
 
 BPF continues to evolve and gain additional capabilities with each new Linux
 release. Cilium leverages BPF to perform core data path filtering, mangling,
@@ -77,8 +81,8 @@ kernel version 4.8.0 or newer (the latest current stable Linux kernel is
 Many Linux distributions including CoreOS, Debian, Docker's LinuxKit, Fedora,
 and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
 kernel version by running ``uname -a``. If you are not yet running a recent
-enough kernel, check the Documentation of your Linux distribution on how to
-run Linux kernel 4.9.x or later.
+enough kernel, check the Documentation of your Linux distribution on how to run
+Linux kernel 4.9.x or later.
 
 For more detail on kernel versions, see: [Prerequisites][prerequisites]
 
@@ -107,7 +111,6 @@ See the [Installation instructions][installation]
  * NetDev1.2, Tokyo, Sep 2016 - cls_bpf/eBPF updates since netdev 1.1: [Slides](http://borkmann.ch/talks/2016_tcws.pdf), [Video](https://youtu.be/gwzaKXWIelc?t=12m55s)
  * NetDev1.2, Tokyo, Sep 2016 - Advanced programmability and recent updates with tc’s cls_bpf: [Slides](http://borkmann.ch/talks/2016_netdev2.pdf), [Video](https://www.youtube.com/watch?v=GwT9hRiqdUo)
  * ContainerCon NA, Toronto, Aug 2016 - Fast IPv6 container networking with BPF & XDP: [Slides](http://www.slideshare.net/ThomasGraf5/cilium-fast-ipv6-container-networking-with-bpf-and-xdp)
- * NetDev1.1, Seville, Feb 2016 - On getting tc classifier fully programmable with cls_bpf: [Slides](http://borkmann.ch/talks/2016_netdev.pdf), [Video](https://www.youtube.com/watch?v=KHXxSN5vwHY)
 
 ## Podcasts
 
@@ -138,3 +141,11 @@ under the [General Public License, Version 2.0](bpf/COPYING).
 
 [prerequisites]: http://docs.cilium.io/en/latest/admin/#admin-kernel-version
 [installation]: http://docs.cilium.io/en/latest/admin/#installing-cilium
+[cni]: https://github.com/containernetworking/cni
+[libnetwork]: https://github.com/docker/libnetwork
+[containerd]: https://github.com/containerd/containerd
+[k8s_service]: https://kubernetes.io/docs/concepts/services-networking/service/
+[k8s_ingress]: https://kubernetes.io/docs/concepts/services-networking/ingress/
+[k8s_netpolicy]: https://kubernetes.io/docs/concepts/services-networking/networkpolicies/
+[k8s_labels]: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+[fluentd]: http://www.fluentd.org/
