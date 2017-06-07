@@ -327,4 +327,12 @@ struct proxy6_tbl_value {
 	__u16 lifetime;
 } __attribute__((packed));
 
+/****************************************************************************
+ * SecLabel bit allocation (min requirement: 20 bits)
+ *  - value defaults to seclabel
+ *  - if SECLABEL_REVNAT_BIT is set, value becomes revnat ID
+ */
+#define SECLABEL_REVNAT_BIT		(1 << 16)
+#define SECLABEL_VALUE_MASK		0xFFFF
+
 #endif

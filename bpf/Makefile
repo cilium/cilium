@@ -19,15 +19,20 @@ all: $(BPF)
 %.o: %.c
 	${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
+SPACE :=
+SPACE +=
+
 LB_OPTIONS = \
 	-DUNKNOWN \
 	-DLB_L3 \
 	-DLB_L4 \
-	-DLB_L3 -DLB_L4
+	-DLB_L3:-DLB_L4 \
+	-DLB_L3:-DLB_L4:-DLB_REDIRECT \
+	-DLB_L3:-DLB_L4:-DENCAP_IFINDEX
 
 bpf_lb.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o /dev/null;)
+		${CLANG} $(subst :,$(SPACE),$(OPTS)) ${CLANG_FLAGS} -c bpf_lb.c -o /dev/null;)
 
 LXC_OPTIONS = \
 	 -DUNKNOWN \
