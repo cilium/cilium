@@ -751,22 +751,34 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	/* derive reverse NAT index and zero it. */
-	ct_state_new.rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
-	if (ct_state_new.rev_nat_index) {
-		union v6addr dip;
+	/* If revnat is encoded in seclabel, prefer it */
+	if (src_label & SECLABEL_REVNAT_BIT) {
+		ct_state_new.rev_nat_index = src_label & SECLABEL_VALUE_MASK;
 
-		ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
-		dip.p4 &= ~0xFFFF;
-		ret = ipv6_store_daddr(skb, dip.addr, ETH_HLEN);
-		if (IS_ERR(ret))
-			return DROP_WRITE_ERROR;
+		/* When seclabel carried revnat, packet must come from outside
+		 * XXX: special label to indicate from N-S LB?
+		 */
+		src_label = WORLD_ID;
+	} else {
+		/* derive reverse NAT index and zero it. */
+		ct_state_new.rev_nat_index = ip6->daddr.s6_addr32[3] & 0xFFFF;
+		src_label &= SECLABEL_VALUE_MASK;
 
-		if (csum_off.offset) {
-			__u32 zero_nat = 0;
-			__be32 sum = csum_diff(&ct_state_new.rev_nat_index, 4, &zero_nat, 4, 0);
-			if (csum_l4_replace(skb, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-				return DROP_CSUM_L4;
+		if (ct_state_new.rev_nat_index) {
+			union v6addr dip;
+
+			ipv6_addr_copy(&dip, (union v6addr *) &ip6->daddr);
+			dip.p4 &= ~0xFFFF;
+			ret = ipv6_store_daddr(skb, dip.addr, ETH_HLEN);
+			if (IS_ERR(ret))
+				return DROP_WRITE_ERROR;
+
+			if (csum_off.offset) {
+				__u32 zero_nat = 0;
+				__be32 sum = csum_diff(&ct_state_new.rev_nat_index, 4, &zero_nat, 4, 0);
+				if (csum_l4_replace(skb, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+					return DROP_CSUM_L4;
+			}
 		}
 	}
 
@@ -846,6 +858,18 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+	/* If revnat is encoded in seclabel, prefer it */
+	if (src_label & SECLABEL_REVNAT_BIT) {
+		ct_state_new.rev_nat_index = src_label & SECLABEL_VALUE_MASK;
+
+		/* When seclabel carried revnat, packet must come from outside
+		 * XXX: special label to indicate from N-S LB?
+		 */
+		src_label = WORLD_ID;
+	} else {
+		src_label &= SECLABEL_VALUE_MASK;
+	}
 
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state);
 	if (ret < 0)

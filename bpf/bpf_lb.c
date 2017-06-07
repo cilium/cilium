@@ -48,13 +48,32 @@
 #include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
+#include "lib/l3.h"
 #include "lib/l4.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/drop.h"
 #include "lib/lb.h"
 
+#ifdef ENCAP_IFINDEX
+static inline int __inline__ lb_encap(struct __sk_buff *skb, __u32 dst_ip, __u32 revnat)
+{
+	uint8_t buf[] = {};
+	__u32 seclabel = SECLABEL_REVNAT_BIT | revnat;
+	return do_encapsulation(skb, dst_ip, seclabel, buf, sizeof(buf));
+}
+#endif
+
 #ifndef LB_DISABLE_IPV6
+#ifdef ENCAP_IFINDEX
+static inline int lb6_encap(struct __sk_buff *skb, union v6addr *daddr, __u32 revnat)
+{
+	__u32 node_id = ipv6_derive_node_id(daddr);
+
+	return lb_encap(skb, node_id, revnat);
+}
+#endif
+
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	void *data = (void *) (long) skb->data;
@@ -102,18 +121,38 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return DROP_NO_SERVICE;
 
 	ipv6_addr_copy(&new_dst, &svc->target);
+
+#ifndef ENCAP_IFINDEX
+	/* Do not store revnat index in address if encap mode is on */
 	if (svc->rev_nat_index)
 		new_dst.p4 |= svc->rev_nat_index;
+#endif
 
 	ret = lb6_xlate(skb, &new_dst, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
 
-	return TC_ACT_REDIRECT;
+#ifdef ENCAP_IFINDEX
+	ret = lb6_encap(skb, &new_dst, svc->rev_nat_index);
+#else
+	ret = TC_ACT_REDIRECT;
+#endif /* ENCAP_IFINDEX */
+
+	return ret;
 }
 #endif
 
 #ifndef LB_DISABLE_IPV4
+#ifdef ENCAP_IFINDEX
+static inline int lb4_encap(struct __sk_buff *skb, __be32 daddr, __u32 revnat)
+{
+	__u32 node_id = daddr & IPV4_MASK;
+
+	node_id = bpf_ntohl(node_id) | 1;
+	return lb_encap(skb, node_id, revnat);
+}
+#endif
+
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data = (void *) (long) skb->data;
@@ -164,7 +203,13 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if (IS_ERR(ret))
 		return ret;
 
-	return TC_ACT_REDIRECT;
+#ifdef ENCAP_IFINDEX
+	ret = lb4_encap(skb, new_dst, svc->rev_nat_index);
+#else
+	ret = TC_ACT_REDIRECT;
+#endif /* ENCAP_IFINDEX */
+
+	return ret;
 }
 #endif
 
@@ -194,7 +239,12 @@ int from_netdev(struct __sk_buff *skb)
 	}
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		goto drop;
+
+#ifdef ENCAP_IFINDEX
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ENCAP_IFINDEX);
+	return ret;
+#else /* ENCAP_IFINDEX */
 
 #ifdef LB_REDIRECT
 	if (ret == TC_ACT_REDIRECT) {
@@ -211,6 +261,10 @@ int from_netdev(struct __sk_buff *skb)
 #endif
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
+#endif /* ENCAP_IFINDEX */
+
+drop:
+	return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 }
 
 BPF_LICENSE("GPL");
