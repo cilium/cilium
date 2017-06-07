@@ -240,13 +240,57 @@ If you are using systemd to manage the kubelet, another option is to add a
 CNI Configuation
 ^^^^^^^^^^^^^^^^
 
-CNI installation is automatically being taken care of when deploying via the
-provided DaemonSet_. The script ``cni-install.sh`` is automatically run via the
-``postStart`` field when the ``cilium`` pod is started. If this default
-configuration suits you, then you can skip the rest of this section.
+CNI_ - Container Network Interface is the plugin layer used by Kubernetes to
+delegate networking configuration. You can find additional information on the
+CNI_ project website.
+
+.. note:: Kubernetes `` >= 1.3.5`` requires the ``loopback`` CNI plugin to be
+          installed on all worker nodes. The binary is typically provided by
+          most Kubernetes distributions. See section :ref:`install_cni` for
+          instructions on how to install CNI in case the ``loopback`` binary
+          is not already installed on your worker nodes.
+
+CNI configuration is automatically being taken care of when deploying Cilium
+via the provided DaemonSet_. The script ``cni-install.sh`` is automatically run
+via the ``postStart`` mechanism when the ``cilium`` pod is started.
+
+.. note:: In order for the the ``cni-install.sh`` script to work properly, the
+          ``kubelet`` task must either be running on the host filesystem of the
+          worder node, or the ``/etc/cni/net.d`` and ``/opt/cni/bin``
+          directories must be mounted into the container where ``kubelet`` is
+          running. This can be achieved with Volume_ mounts.
+
+The CNI auto installation is performed as follows:
+
+1. The ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories are mounted from the
+   host filesystem into the pod where Cilium is running.
+
+2. The file ``/etc/cni/net.d/10-cilium.conf`` is written in case it does not
+   exist yet.
+
+3. The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing
+   binary with the name ``cilium-cni`` is overwritten.
+
+.. _install_cni:
+
+Installing CNI and loopback
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since Kubernetes ``v1.3.5`` the ``loopback`` CNI_ plugin must be installed.
+There are many ways to install CNI_, the following is an example:
+
+.. code:: bash
+
+    sudo mkdir -p /opt/cni
+    wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
+    sudo tar -xvf cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -C /opt/cni
+    rm cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
+
+Adjusting CNI configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want to adjust the CNI configuration you may do so by creating the CNI
-configuration manually.
+configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
 
 .. code:: bash
 
@@ -259,18 +303,7 @@ configuration manually.
     " > /etc/cni/net.d/10-cilium.conf'
 
 Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
-already exists on a workder node and only create it if it does not exist yet.
-
-Since kubernetes ``v1.3.5`` you also need to install the ``loopback`` cni
-plugin:
-
-.. code:: bash
-
-    sudo mkdir -p /opt/cni
-    wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
-    sudo tar -xvf cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -C /opt/cni
-    rm cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
-
+already exists on a worker node and only creates it if it does not exist yet.
 
 RBAC integration
 ^^^^^^^^^^^^^^^^
@@ -922,6 +955,8 @@ running agent. Debugging of an individual endpoint can be enabled by running
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 .. _RBAC: https://kubernetes.io/docs/admin/authorization/rbac/
+.. _CNI: https://github.com/containernetworking/cni
+.. _Volumes: https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/
 
 .. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
 .. _llvm: http://releases.llvm.org/
