@@ -233,7 +233,14 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 	}
 
 	if svc.Spec.Type != v1.ServiceTypeClusterIP {
-		log.Infof("Ignoring service %s/%s since its type is %s", svc.Namespace, svc.Name, svc.Spec.Type)
+		log.Infof("Ignoring k8s service %s/%s, reason unsupported type %s",
+			svc.Namespace, svc.Name, svc.Spec.Type)
+		return
+	}
+
+	if strings.ToLower(svc.Spec.ClusterIP) == "none" || svc.Spec.ClusterIP == "" {
+		log.Infof("Ignoring k8s service %s/%s, reason: headless",
+			svc.Namespace, svc.Name, svc.Spec.Type)
 		return
 	}
 
