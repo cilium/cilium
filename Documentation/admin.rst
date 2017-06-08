@@ -950,7 +950,6 @@ running agent. Debugging of an individual endpoint can be enabled by running
     00000050  26 27 28 29 2a 2b 2c 2d  2e 2f 30 31 32 33 34 35  |&'()*+,-./012345|
     00000060  36 37 00 00 00 00 00 00                           |67......|
 
-
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
