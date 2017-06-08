@@ -80,8 +80,6 @@ ip link show $HOST_DEV1 || {
 	ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
 }
 
-sysctl -w net.ipv4.conf.$HOST_DEV1.rp_filter=0
-
 ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
 ip link set $HOST_DEV2 up
