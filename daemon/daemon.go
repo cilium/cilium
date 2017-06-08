@@ -313,6 +313,10 @@ func (d *Daemon) compileBase() error {
 
 		args = []string{d.conf.BpfDir, d.conf.StateDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), mode, d.conf.Device}
 	} else {
+		if d.conf.IsLBEnabled() {
+			//FIXME: allow LBMode in tunnel
+			return fmt.Errorf("Unable to run LB mode with tunnel mode")
+		}
 		args = []string{d.conf.BpfDir, d.conf.StateDir, d.conf.NodeAddress.String(), d.conf.NodeAddress.IPv4Address.String(), d.conf.Tunnel}
 	}
 
