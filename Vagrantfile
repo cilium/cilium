@@ -13,7 +13,7 @@ end
 
 $bootstrap = <<SCRIPT
 sudo apt-get -y update || true
-sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx
+sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx python-pip
 sudo pip install --upgrade pip
 sudo pip install sphinx sphinxcontrib-httpdomain sphinxcontrib-openapi
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
