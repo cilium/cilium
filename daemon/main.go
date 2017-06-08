@@ -375,7 +375,7 @@ func SetupKvStore(kvStore string, kvStoreOpts map[string]string) error {
 			config.EtcdCfgPath = etcdConfig
 			config.EtcdConfig.Endpoints = []string{etcdAddr}
 		} else {
-			return fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --log-opt %s=<path> or an etcd agent address with --log-opt %s=<address>", kvstore.ECfg, kvstore.EAddr)
+			return fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --kvstore-opt %s=<path> or an etcd agent address with --kvstore-opt %s=<address>", kvstore.ECfg, kvstore.EAddr)
 		}
 	case kvstore.Consul:
 		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, kvstore.ConsulOpts)
