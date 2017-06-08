@@ -12,6 +12,7 @@ END
 end
 
 $bootstrap = <<SCRIPT
+sudo service docker restart
 sudo apt-get -y update || true
 sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx python-pip
 sudo pip install --upgrade pip
@@ -64,6 +65,11 @@ $master_ipv6 = ENV['MASTER_IPV6_PUBLIC']
 $workers_ipv6_addrs_str = ENV['IPV6_PUBLIC_WORKERS_ADDRS'] || ""
 $workers_ipv6_addrs = $workers_ipv6_addrs_str.split(' ')
 
+# Create unique ID for use in vboxnet name so Jenkins pipeline can have concurrent builds.
+$job_name = ENV['JOB_NAME'] || "local"
+$build_number = ENV['BUILD_NUMBER'] || "0"
+$build_id = "#{$job_name}-#{$build_number}"
+
 if ENV['K8S'] then
     $k8stag = ENV['K8STAG'] || "-k8s"
 end
@@ -100,7 +106,7 @@ Vagrant.configure(2) do |config|
     master_vm_name = "cilium#{$k8stag}-master"
     config.vm.define master_vm_name, primary: true do |cm|
         cm.vm.network "private_network", ip: "#{$master_ip}",
-            virtualbox__intnet: "cilium-test",
+            virtualbox__intnet: "cilium-test-#{$build_id}",
             :libvirt__guest_ipv6 => "yes",
             :libvirt__dhcp_enabled => false
         if ENV["NFS"] || ENV["IPV6_EXT"] then
@@ -142,7 +148,7 @@ Vagrant.configure(2) do |config|
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
             node.vm.network "private_network", ip: "#{node_ip}",
-                virtualbox__intnet: "cilium-test",
+                virtualbox__intnet: "cilium-test-#{$build_id}",
                 :libvirt__guest_ipv6 => 'yes',
                 :libvirt__dhcp_enabled => false
             if ENV["NFS"] || ENV["IPV6_EXT"] then
