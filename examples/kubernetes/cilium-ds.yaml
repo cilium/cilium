@@ -86,6 +86,21 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 10
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 10
+          periodSeconds: 15
         volumeMounts:
           - name: bpf-maps
             mountPath: /sys/fs/bpf

@@ -153,6 +153,21 @@ spec:
           - name: docker-socket
             mountPath: /var/run/docker.sock
             readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 10
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 10
+          periodSeconds: 15
         securityContext:
           capabilities:
             add:
