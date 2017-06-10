@@ -661,11 +661,11 @@
 		},
 		{
 			"ImportPath": "github.com/vishvananda/netlink",
-			"Rev": "e73bad418fd727ed3a02830b1af1ad0283a1de6c"
+			"Rev": "4e28683688429fdf8413cc610d59fb1841986300"
 		},
 		{
 			"ImportPath": "github.com/vishvananda/netlink/nl",
-			"Rev": "e73bad418fd727ed3a02830b1af1ad0283a1de6c"
+			"Rev": "4e28683688429fdf8413cc610d59fb1841986300"
 		},
 		{
 			"ImportPath": "github.com/vishvananda/netns",
