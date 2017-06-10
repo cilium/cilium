@@ -30,19 +30,21 @@ type AuxRule struct {
 
 type L4Filter struct {
 	// Port is the destination port to allow
-	Port int `json:"port,omitempty"`
+	Port int
 	// Protocol is the L4 protocol to allow or NONE
-	Protocol string `json:"protocol,omitempty"`
+	Protocol string
 	// L7Parser specifies the L7 protocol parser (optional)
-	L7Parser string `json:"l7-parser,omitempty"`
+	L7Parser string
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
-	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
+	L7RedirectPort int
 	// L7Rules is a list of L7 rules which are passed to the L7 proxy (optional)
-	L7Rules []AuxRule `json:"l7-rules,omitempty"`
+	L7Rules []AuxRule
+	// Ingress is true if filter applies at ingress
+	Ingress bool
 }
 
 // CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
-func CreateL4Filter(rule api.PortRule, port api.PortProtocol, protocol string) L4Filter {
+func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, protocol string) L4Filter {
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 
@@ -50,6 +52,10 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, protocol string) L
 		Port:           int(p),
 		Protocol:       protocol,
 		L7RedirectPort: rule.RedirectPort,
+	}
+
+	if strings.ToLower(direction) == "ingress" {
+		l4.Ingress = true
 	}
 
 	if rule.Rules != nil {

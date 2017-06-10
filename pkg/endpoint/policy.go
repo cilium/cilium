@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -100,13 +101,19 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
 }
 
 func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error) {
-	proxy := owner.GetProxy()
-	if proxy == nil {
+	p := owner.GetProxy()
+	if p == nil {
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
+	cfg := proxy.Configuration{
+		ID:          e.proxyID(l4),
+		Source:      e,
+		NodeAddress: owner.GetNodeAddress(),
+	}
+
 	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)
-	r, err := proxy.CreateOrUpdateRedirect(l4, e.proxyID(l4), e)
+	r, err := p.CreateOrUpdateRedirect(l4, cfg)
 	if err != nil {
 		return 0, err
 	}
