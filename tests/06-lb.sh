@@ -380,10 +380,9 @@ cilium service update --rev --frontend "$LB_HOST_IP4:0" --id 225 \
 cilium service list
 
 ## Test 1: local host => bpf_lb => local container
-# FIXME: investigate why ping6 doesn't work in this case.
-#ping6 $SVC_IP6 -c 4 || {
-#	abort "Error: Unable to ping"
-#}
+ping6 $SVC_IP6 -c 4 || {
+	abort "Error: Unable to ping"
+}
 
 ping $SVC_IP4 -c 4 || {
 	abort "Error: Unable to ping"
