@@ -15,17 +15,16 @@
 package proxy
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
@@ -35,19 +34,17 @@ import (
 	"github.com/vulcand/route"
 )
 
-var (
-	logFile *os.File
-	logBuf  *bufio.Writer
-)
-
 type Redirect struct {
 	id       string
 	FromPort uint16
 	ToPort   uint16
+	epID     uint64
 	Rules    []policy.AuxRule
 	source   ProxySource
 	server   *manners.GracefulServer
 	router   route.Router
+	l4       policy.L4Filter // stale copy, ignore rules
+	nodeInfo NodeAddressInfo
 }
 
 func (r *Redirect) updateRules(rules []policy.AuxRule) {
@@ -64,6 +61,13 @@ func (r *Redirect) updateRules(rules []policy.AuxRule) {
 }
 
 type ProxySource interface {
+	GetID() uint64
+	RLock()
+	GetLabels() []string
+	GetIdentity() policy.NumericIdentity
+	GetIPv4Address() string
+	GetIPv6Address() string
+	RUnlock()
 }
 
 type Proxy struct {
@@ -120,20 +124,20 @@ func (p *Proxy) allocatePort() (uint16, error) {
 	}
 }
 
-func generateURL(w http.ResponseWriter, req *http.Request, dport uint16) (*url.URL, error) {
+func lookupNewDest(req *http.Request, dport uint16) (string, error) {
 	ip, port, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid remote address: %s", err)
+		return "", fmt.Errorf("invalid remote address: %s", err)
 	}
 
 	pIP := net.ParseIP(ip)
 	if pIP == nil {
-		return nil, fmt.Errorf("unable to parse IP %s", ip)
+		return "", fmt.Errorf("unable to parse IP %s", ip)
 	}
 
 	sport, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse port string: %s", err)
+		return "", fmt.Errorf("unable to parse port string: %s", err)
 	}
 
 	if pIP.To4() != nil {
@@ -147,14 +151,11 @@ func generateURL(w http.ResponseWriter, req *http.Request, dport uint16) (*url.U
 
 		val, err := LookupEgress4(key)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
+			return "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
 		}
 
-		newUrl := *req.URL
-		newUrl.Scheme = "http"
-		newUrl.Host = val.HostPort()
-		log.Debugf("Found IPv4 proxy entry: %+v, new-url %+v\n", val, newUrl)
-		return &newUrl, nil
+		log.Debugf("Found IPv4 proxy entry: %+v", val)
+		return val.HostPort(), nil
 	}
 
 	key := &Proxy6Key{
@@ -167,45 +168,35 @@ func generateURL(w http.ResponseWriter, req *http.Request, dport uint16) (*url.U
 
 	val, err := LookupEgress6(key)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
+		return "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
 
+	log.Debugf("Found IPv6 proxy entry: %+v", val)
+	return val.HostPort(), nil
+}
+
+func generateURL(req *http.Request, hostport string) *url.URL {
 	newUrl := *req.URL
 	newUrl.Scheme = "http"
-	newUrl.Host = val.HostPort()
-	log.Debugf("Found IPv6 proxy entry: %+v, new-url %+v\n", val, newUrl)
+	newUrl.Host = hostport
 
-	return &newUrl, nil
+	return &newUrl
 }
 
 var gcOnce sync.Once
 
-type LogRecord struct {
-	timeStart time.Time
-	timeDiff  time.Duration
-	code      int
-	req       *http.Request
+// Configuration is used to pass configuration into CreateOrUpdateRedirect
+type Configuration struct {
+	ID          string
+	Source      ProxySource
+	NodeAddress addressing.NodeAddress
 }
 
-func (r *Redirect) Log(l *LogRecord, code int, reason string) {
-	if logBuf == nil {
-		return
-	}
-
-	ip, _, err := net.SplitHostPort(l.req.RemoteAddr)
-	if err != nil {
-		return
-	}
-
-	fmt.Fprintf(logBuf, "%s - - [%s] \"%s %s %s %d %d\" %f\n",
-		ip,
-		l.timeStart.Format("02/Jan/2006 03:04:05"),
-		l.req.Method, l.req.RequestURI, l.req.Proto,
-		code, 0, l.timeDiff.Seconds())
-	logBuf.Flush()
-}
-
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (*Redirect, error) {
+// CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
+// proxy configuration. This will allocate a proxy port as required and launch
+// a proxy instance. If the redirect is aleady in place, only the rules will be
+// updated.
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (*Redirect, error) {
 	fwd, err := forward.New()
 	if err != nil {
 		return nil, err
@@ -223,11 +214,13 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
-			if logFile, err = os.OpenFile(lf, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666); err != nil {
+			if err := OpenLogfile(lf); err != nil {
 				log.Warningf("cannot open access log: %s", err)
-			} else {
-				logBuf = bufio.NewWriter(logFile)
 			}
+		}
+
+		if labels := viper.GetStringSlice("agent-labels"); len(labels) != 0 {
+			SetMetadata(labels)
 		}
 
 		go func() {
@@ -242,7 +235,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	p.mutex.Lock()
 
-	if r, ok := p.redirects[id]; ok {
+	if r, ok := p.redirects[cfg.ID]; ok {
 		r.updateRules(l4.L7Rules)
 		log.Debugf("updated existing proxy instance %+v", r)
 		p.mutex.Unlock()
@@ -256,21 +249,56 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	}
 
 	redir := &Redirect{
-		id:       id,
+		id:       cfg.ID,
 		FromPort: uint16(l4.Port),
 		ToPort:   to,
-		source:   source,
+		source:   cfg.Source,
 		router:   route.New(),
+		epID:     cfg.Source.GetID(),
+		l4:       *l4,
+		nodeInfo: NodeAddressInfo{
+			IPv4: cfg.NodeAddress.IPv4Address.String(),
+			IPv6: cfg.NodeAddress.IPv6Address.String(),
+		},
 	}
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		startDelta := time.Now().UTC()
+		redir.source.RLock()
 		record := &LogRecord{
-			req:       req,
-			timeStart: time.Time{},
+			request:         *req,
+			Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
+			NodeAddressInfo: redir.nodeInfo,
 		}
 
-		reason := "no rules"
+		info := EndpointInfo{
+			ID:       redir.epID,
+			IPv4:     redir.source.GetIPv4Address(),
+			IPv6:     redir.source.GetIPv6Address(),
+			Labels:   redir.source.GetLabels(),
+			Identity: uint64(redir.source.GetIdentity()),
+		}
+
+		if redir.l4.Ingress {
+			record.DestinationEndpoint = info
+			record.ObservationPoint = Ingress
+		} else {
+			record.SourceEndpoint = info
+			record.ObservationPoint = Egress
+		}
+
+		redir.source.RUnlock()
+
+		hostPort, err := lookupNewDest(req, to)
+		if err != nil {
+			// FIXME: What do we do here long term?
+			log.Errorf("%s", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			record.Info = fmt.Sprintf("cannot generate url: %s", err)
+			Log(record, TypeRequest, VerdictError, http.StatusBadRequest)
+			return
+		}
+
+		record.Destination = NewIPPort(hostPort)
 
 		// Validate access to L4/L7 resource
 		p.mutex.Lock()
@@ -279,29 +307,27 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			if rule == nil {
 				http.Error(w, "Access denied", http.StatusForbidden)
 				p.mutex.Unlock()
-				redir.Log(record, http.StatusForbidden, "access denied")
+				Log(record, TypeRequest, VerdictDenied, http.StatusForbidden)
 				return
 			} else {
 				ar := rule.(policy.AuxRule)
 				log.Debugf("Allowing request based on rule %+v\n", ar)
-				reason = fmt.Sprintf("rule: %+v", ar)
+				record.Info = fmt.Sprintf("rule: %+v", ar)
 			}
 		}
 		p.mutex.Unlock()
 
 		// Reconstruct original URL used for the request
-		if newURL, err := generateURL(w, req, to); err != nil {
-			log.Errorf("%s\n", err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			redir.Log(record, http.StatusBadRequest, fmt.Sprintf("cannot generate url: %s", err))
-			return
-		} else {
-			req.URL = newURL
-		}
+		req.URL = generateURL(req, hostPort)
+
+		// log valid request
+		Log(record, TypeRequest, VerdictForwared, http.StatusOK)
 
 		fwd.ServeHTTP(w, req)
-		record.timeDiff = time.Now().UTC().Sub(startDelta)
-		redir.Log(record, http.StatusOK, reason)
+
+		// log valid response
+		record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+		Log(record, TypeResponse, VerdictForwared, http.StatusOK)
 	})
 
 	redir.server = manners.NewWithServer(&http.Server{
@@ -311,7 +337,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	redir.updateRules(l4.L7Rules)
 	p.allocatedPorts[to] = redir
-	p.redirects[id] = redir
+	p.redirects[cfg.ID] = redir
 
 	p.mutex.Unlock()
 

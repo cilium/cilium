@@ -105,6 +105,11 @@ func (d *Daemon) GetProxy() *proxy.Proxy {
 	return d.l7Proxy
 }
 
+// GetNodeAddress returns the node's address
+func (d *Daemon) GetNodeAddress() addressing.NodeAddress {
+	return *d.conf.NodeAddress
+}
+
 func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
 	if err := d.conf.LXCMap.WriteEndpoint(e); err != nil {
 		return fmt.Errorf("Unable to update eBPF map: %s", err)

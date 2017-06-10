@@ -283,6 +283,40 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 	}
 }
 
+// GetID returns the endpoint's ID
+func (e *Endpoint) GetID() uint64 {
+	return uint64(e.ID)
+}
+
+// RLock locks the endpoint for reading
+func (e *Endpoint) RLock() {
+	e.Mutex.RLock()
+}
+
+// RUnlock unlocks the endpoint after reading
+func (e *Endpoint) RUnlock() {
+	e.Mutex.RUnlock()
+}
+
+// GetLabels returns the labels as slice
+func (e *Endpoint) GetLabels() []string {
+	if e.SecLabel == nil {
+		return []string{}
+	}
+
+	return e.SecLabel.Labels.GetModel()
+}
+
+// GetIPv4Address returns the IPv4 address of the endpoint
+func (e *Endpoint) GetIPv4Address() string {
+	return e.IPv4.String()
+}
+
+// GetIPv6Address returns the IPv6 address of the endpoint
+func (e *Endpoint) GetIPv6Address() string {
+	return e.IPv6.String()
+}
+
 // statusLogMsg represents a log message.
 type statusLogMsg struct {
 	Status    Status    `json:"status"`

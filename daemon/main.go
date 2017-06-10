@@ -260,6 +260,7 @@ func init() {
 	flags.StringVarP(&config.Tunnel, "tunnel", "t", "vxlan", "Tunnel mode vxlan or geneve, vxlan is the default")
 	flags.StringVar(&bpfRoot, "bpf-root", "", "Path to mounted BPF filesystem")
 	flags.String("access-log", "", "Path to access log of all HTTP requests observed")
+	flags.StringSlice("agent-labels", []string{}, "Additional labels to identify this agent")
 	flags.Bool("version", false, "Print version information")
 	flags.StringSliceVar(&loggers, "log-driver", []string{}, "logging endpoints to use")
 	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil), "log-opt", "log driver options for cilium")

@@ -136,10 +136,10 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 
 	expected := NewL4Policy()
-	expected.Ingress["80/tcp"] = L4Filter{Port: 80, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules}
-	expected.Ingress["8080/tcp"] = L4Filter{Port: 8080, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules}
-	expected.Egress["3000/tcp"] = L4Filter{Port: 3000, Protocol: "tcp"}
-	expected.Egress["3000/udp"] = L4Filter{Port: 3000, Protocol: "udp"}
+	expected.Ingress["80/tcp"] = L4Filter{Port: 80, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules, Ingress: true}
+	expected.Ingress["8080/tcp"] = L4Filter{Port: 8080, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules, Ingress: true}
+	expected.Egress["3000/tcp"] = L4Filter{Port: 3000, Protocol: "tcp", Ingress: false}
+	expected.Egress["3000/udp"] = L4Filter{Port: 3000, Protocol: "udp", Ingress: false}
 
 	state := traceState{}
 	res := rule1.resolveL4Policy(toBar, &state, NewL4Policy())

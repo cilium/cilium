@@ -101,6 +101,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 			"80/tcp": policy.L4Filter{
 				Port: 80, Protocol: "tcp", L7Parser: "",
 				L7RedirectPort: 0, L7Rules: []policy.AuxRule(nil),
+				Ingress: true,
 			},
 		},
 		Egress: policy.L4PolicyMap{},
