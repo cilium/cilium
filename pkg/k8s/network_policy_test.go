@@ -211,6 +211,37 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
+	// From missing, all sources should be allowed
+	netPolicy1 := &v1beta1.NetworkPolicy{
+		Spec: v1beta1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{},
+			},
+		},
+	}
+
+	rules, err := ParseNetworkPolicy(netPolicy1)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	ctx := policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 	netPolicy := &v1beta1.NetworkPolicy{
 		Spec: v1beta1.NetworkPolicySpec{
