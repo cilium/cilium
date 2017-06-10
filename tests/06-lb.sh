@@ -62,7 +62,7 @@ cilium service delete --all
 cilium service list
 
 # Check if everything was deleted
-if [ -n "$(cilium service list)" ]; then
+if [ -n "$(cilium service list | tail -n+2)" ]; then
 	abort "Daemon's services map should be clean"
 fi
 
@@ -71,9 +71,31 @@ cilium service update --frontend [::]:80 --backends '[::1]:90,[::2]:91' --id 1 -
 	abort "Service should have been added"
 }
 
+LIST_FIXTURE=$(cat <<-EOF
+{
+  "backend-addresses": [
+    {
+      "ip": "::1",
+      "port": 90
+    },
+    {
+      "ip": "::2",
+      "port": 91
+    }
+  ],
+  "frontend-address": {
+    "ip": "::",
+    "port": 80,
+    "protocol": "TCP"
+  },
+  "id": 1
+}
+EOF
+)
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
+
 # Check if it's the only service present
-if [[ "$(cilium service list)" != \
-      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
+if [[ "${LIST_FIXTURE}" != "$DATA" ]]; then
      abort "Service was not properly added"
 fi
 
@@ -88,9 +110,8 @@ cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 0 --r
 	abort "Unexpected success in creating a frontend with reverse ID 0"
 }
 
-# BPF's map should be unmodified
-if [[ "$(cilium service list)" != \
-      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
+if [[ "${LIST_FIXTURE}" != "$DATA" ]]; then
      abort "Service with ID 0 should not have been added"
 fi
 
@@ -99,9 +120,9 @@ cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 2 --r
 	abort "Conflicting service should not have been added"
 }
 
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
 # Check if it's the only service present
-if [[ "$(cilium service list)" != \
-      "$(echo -e "[::]:80 =>\n\t\t1 => [::1]:90 (1)\n\t\t2 => [::2]:91 (1)")" ]]; then
+if [[ "$DATA" != "1" ]]; then
      abort "Service ID 2 seems to have been added after all"
 fi
 
@@ -111,8 +132,9 @@ if [[ "$(cilium service delete 1)" != \
      abort "Service ID 1 could not be deleted"
 fi
 
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
 # Check if everything was deleted
-if [ -n "$(cilium service list)" ]; then
+if [ "$DATA" -gt 0 ]; then
 	abort "Daemon's services map should be clean"
 fi
 
@@ -129,7 +151,7 @@ if [ -n "${IPV4}" ]; then
 	cilium service list
 
 	# Check if everything was deleted
-	if [ -n "$(cilium service list)" ]; then
+	if [ -n "$(cilium service list | tail -n+2)" ]; then
 		abort "Daemon's services map should be clean"
 	fi
 
@@ -139,7 +161,7 @@ if [ -n "${IPV4}" ]; then
 	}
 
 	# Daemon's map should be empty
-	if [ -n "$(cilium service list)" ]; then
+	if [ -n "$(cilium service list | tail -n+2)" ]; then
 		abort "Services map should be clean"
 	fi
 
@@ -148,9 +170,10 @@ if [ -n "${IPV4}" ]; then
 		abort "Service should have been added"
 	}
 
+
 	# Check if it's the only service present
-	if [[ "$(cilium service list)" != \
-	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (10)\n\t\t2 => 127.0.0.3:90 (10)")" ]]; then
+    DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
+    if [ "$DATA" != "1" ]; then
 	     abort "Service was not properly added"
 	fi
 
@@ -166,8 +189,8 @@ if [ -n "${IPV4}" ]; then
 	}
 
 	# Check if it's the only service present
-	if [[ "$(cilium service list)" != \
-	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (10)\n\t\t2 => 127.0.0.3:90 (10)")" ]]; then
+    DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
+    if [ "$DATA" != "1" ]; then
 	     abort "Service ID 20 seems to have been added after all"
 	fi
 
@@ -190,7 +213,9 @@ if [ -n "${IPV4}" ]; then
 	fi
 
 	# Check if everything was deleted
-	if [ -n "$(cilium service list)" ]; then
+    DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
+    # Check if everything was deleted
+    if [ "$DATA" != "0" ]; then
 		abort "Daemon's services map should be clean"
 	fi
 
