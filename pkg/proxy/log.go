@@ -72,17 +72,17 @@ func NewIPPort(hostport string) IPPort {
 }
 
 // Log logs a record to the logfile and flushes the buffer
-func Log(l *LogRecord, direction FlowDirection, verdict FlowVerdict, code int) {
+func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	if logBuf == nil {
 		return
 	}
 
 	l.Source = NewIPPort(l.request.RemoteAddr)
-	l.Direction = direction
+	l.Type = typ
 	l.Verdict = verdict
 	l.Metadata = metadata
 
-	l.HTTP = LogRecordHTTP{
+	l.HTTP = &LogRecordHTTP{
 		Code:     code,
 		Method:   l.request.Method,
 		URL:      l.request.URL,
