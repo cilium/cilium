@@ -31,14 +31,14 @@ import (
 )
 
 const (
-	// CAddr is the string representing the key mapping to the value of the
+	// cAddr is the string representing the key mapping to the value of the
 	// address for Consul.
-	CAddr = "consul.address"
+	cAddr = "consul.address"
 )
 
 // / ConsulOpts is the set of supported options for Consul configuration.
 var ConsulOpts = map[string]bool{
-	CAddr: true,
+	cAddr: true,
 }
 
 var (
@@ -50,7 +50,7 @@ type ConsulClient struct {
 	*consulAPI.Client
 }
 
-func NewConsulClient(config *consulAPI.Config) (KVClient, error) {
+func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 	var (
 		c   *consulAPI.Client
 		err error

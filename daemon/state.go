@@ -188,7 +188,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	sha256sum := ep.SecLabel.Labels.SHA256Sum()
-	labels, err := d.LookupIdentityBySHA256(sha256sum)
+	labels, err := LookupIdentityBySHA256(sha256sum)
 	if err != nil {
 		return fmt.Errorf("Unable to get labels of sha256sum:%s: %+v\n", sha256sum, err)
 	}

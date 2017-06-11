@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -81,13 +82,13 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
 	daemonConf.Device = "undefined"
 
-	err = daemonConf.SetKVBackend()
+	err = kvstore.SetupDummy()
 	c.Assert(err, IsNil)
 
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, IsNil)
 	ds.d = d
-	d.kvClient.DeleteTree(common.OperationalPath)
+	kvstore.Client.DeleteTree(common.OperationalPath)
 	// Needs to be less than 1 second otherwise GetCachedMaxLabelID might
 	// not work properly
 	d.EnableKVStoreWatcher(time.Nanosecond)
@@ -99,7 +100,7 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 func (ds *DaemonSuite) TestLabels(c *C) {
 	//Set up last free ID with zero
-	id, err := ds.d.GetMaxLabelID()
+	id, err := GetMaxLabelID()
 	c.Assert(err, IsNil)
 	c.Assert(id, Equals, policy.MinimalNumericIdentity)
 
@@ -177,7 +178,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	var emptySecCtxLblPtr *policy.Identity
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
-	err = ds.d.kvClient.SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), policy.MinimalNumericIdentity.Uint32())
+	err = kvstore.Client.SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), policy.MinimalNumericIdentity.Uint32())
 	c.Assert(err, IsNil)
 
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-non-existent")
@@ -193,7 +194,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	c.Assert(new, Equals, false)
 
 	sha256sum := lbls2.SHA256Sum()
-	gotSecCtxLbl, err = ds.d.LookupIdentityBySHA256(sha256sum)
+	gotSecCtxLbl, err = LookupIdentityBySHA256(sha256sum)
 	c.Assert(err, IsNil)
 	c.Assert(gotSecCtxLbl, DeepEquals, secCtxLbl)
 
@@ -219,10 +220,10 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 func (ds *DaemonSuite) TestGetMaxID(c *C) {
 	lastID := policy.NumericIdentity(common.MaxSetOfLabels - 1)
-	err := ds.d.kvClient.SetValue(common.LastFreeLabelIDKeyPath, lastID)
+	err := kvstore.Client.SetValue(common.LastFreeLabelIDKeyPath, lastID)
 	c.Assert(err, IsNil)
 
-	id, err := ds.d.GetMaxLabelID()
+	id, err := GetMaxLabelID()
 	c.Assert(err, IsNil)
 	c.Assert(id, Equals, lastID)
 }

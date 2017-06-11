@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -78,7 +77,6 @@ type Daemon struct {
 	events            chan events.Event
 	ipamConf          *ipam.IPAMConfig
 	k8sClient         *kubernetes.Clientset
-	kvClient          kvstore.KVClient
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
 	loopbackIPv4      net.IP
@@ -542,37 +540,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	var kvClient kvstore.KVClient
-
-	// Create new key-value store client structures based on provided kvstore type.
-	switch c.KVStore {
-	case kvstore.Consul:
-		if c.ConsulConfig != nil {
-			log.Infof("Using consul as key-value store")
-			c, err := kvstore.NewConsulClient(c.ConsulConfig)
-			if err != nil {
-				return nil, err
-			}
-			kvClient = c
-		} else {
-			return nil, fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with the consul.address option")
-		}
-	case kvstore.Etcd:
-		if c.EtcdCfgPath != "" || c.EtcdConfig != nil {
-			log.Infof("Using etcd as key-value store")
-			c, err := kvstore.NewEtcdClient(c.EtcdConfig, c.EtcdCfgPath)
-			if err != nil {
-				return nil, err
-			}
-			kvClient = c
-		} else {
-			return nil, fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with etcd.config or an etcd agent address with etcd.address")
-		}
-	case kvstore.Local:
-		log.Infof("Using local storage as key-value store")
-		kvClient = kvstore.NewLocalClient()
-	}
-
 	dockerClient, err := createDockerClient(c.DockerEndpoint)
 	if err != nil {
 		return nil, err
@@ -582,7 +549,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	d := Daemon{
 		conf:              c,
-		kvClient:          kvClient,
 		dockerClient:      dockerClient,
 		containers:        make(map[string]*container.Container),
 		endpoints:         make(map[uint16]*endpoint.Endpoint),

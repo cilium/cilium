@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/kvstore"
 
 	"github.com/go-openapi/runtime/middleware"
 	ctx "golang.org/x/net/context"
@@ -67,7 +68,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	d := h.daemon
 	sr := models.StatusResponse{}
 
-	if info, err := d.kvClient.Status(); err != nil {
+	if info, err := kvstore.Client.Status(); err != nil {
 		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
 		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}

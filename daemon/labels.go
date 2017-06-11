@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/events"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -32,19 +33,19 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 )
 
-func (d *Daemon) updateSecLabelIDRef(id policy.Identity) error {
+func updateSecLabelIDRef(id policy.Identity) error {
 	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(id.ID), 10))
-	return d.kvClient.SetValue(key, id)
+	return kvstore.Client.SetValue(key, id)
 }
 
 // gasNewSecLabelID gets and sets a New SecLabel ID.
-func (d *Daemon) gasNewSecLabelID(id *policy.Identity) error {
-	baseID, err := d.GetMaxLabelID()
+func gasNewSecLabelID(id *policy.Identity) error {
+	baseID, err := GetMaxLabelID()
 	if err != nil {
 		return err
 	}
 
-	return d.kvClient.GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), id)
+	return kvstore.Client.GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), id)
 }
 
 // type putIdentity struct {
@@ -79,14 +80,14 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	identityPath := path.Join(common.LabelsKeyPath, lbls.SHA256Sum())
 
 	// Lock the idendity
-	lockKey, err := d.kvClient.LockPath(identityPath)
+	lockKey, err := kvstore.Client.LockPath(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
 	defer lockKey.Unlock()
 
 	// Retrieve current identity for labels
-	rmsg, err := d.kvClient.GetValue(identityPath)
+	rmsg, err := kvstore.Client.GetValue(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
@@ -121,18 +122,18 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 
 	if isNew {
 		log.Debugf("Creating new identity %d ref-count to %d\n", identity.ID, identity.RefCount())
-		if err := d.gasNewSecLabelID(identity); err != nil {
+		if err := gasNewSecLabelID(identity); err != nil {
 			return nil, false, err
 		}
 	} else {
 		log.Debugf("Incrementing identity %d ref-count to %d\n", identity.ID, identity.RefCount())
-		if err := d.updateSecLabelIDRef(*identity); err != nil {
+		if err := updateSecLabelIDRef(*identity); err != nil {
 			return nil, false, err
 		}
 	}
 
 	// store updated identity entry
-	if err = d.kvClient.SetValue(identityPath, identity); err != nil {
+	if err = kvstore.Client.SetValue(identityPath, identity); err != nil {
 		return nil, false, err
 	}
 
@@ -200,7 +201,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *a
 	}
 
 	strID := strconv.FormatUint(uint64(id), 10)
-	rmsg, err := d.kvClient.GetValue(path.Join(common.LabelIDKeyPath, strID))
+	rmsg, err := kvstore.Client.GetValue(path.Join(common.LabelIDKeyPath, strID))
 	if err != nil {
 		return nil, apierror.Error(GetIdentityUnreachableCode, err)
 	}
@@ -208,8 +209,8 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *a
 	return parseIdentityResponse(rmsg)
 }
 
-func (d *Daemon) LookupIdentityBySHA256(sha256sum string) (*policy.Identity, *apierror.APIError) {
-	rmsg, err := d.kvClient.GetValue(path.Join(common.LabelsKeyPath, sha256sum))
+func LookupIdentityBySHA256(sha256sum string) (*policy.Identity, *apierror.APIError) {
+	rmsg, err := kvstore.Client.GetValue(path.Join(common.LabelsKeyPath, sha256sum))
 	if err != nil {
 		return nil, apierror.Error(GetIdentityUnreachableCode, err)
 	}
@@ -226,10 +227,8 @@ func NewGetIdentityHandler(d *Daemon) GetIdentityHandler {
 }
 
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
-	d := h.daemon
-
 	lbls := labels.NewLabelsFromModel(params.Labels)
-	if id, err := d.LookupIdentityBySHA256(lbls.SHA256Sum()); err != nil {
+	if id, err := LookupIdentityBySHA256(lbls.SHA256Sum()); err != nil {
 		return err
 	} else if id == nil {
 		return NewGetIdentityNotFound()
@@ -314,14 +313,14 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	}
 	lblPath := path.Join(common.LabelsKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := d.kvClient.LockPath(lblPath)
+	lockKey, err := kvstore.Client.LockPath(lblPath)
 	if err != nil {
 		return err
 	}
 	defer lockKey.Unlock()
 
 	// After lock complete, get label's path
-	rmsg, err := d.kvClient.GetValue(lblPath)
+	rmsg, err := kvstore.Client.GetValue(lblPath)
 	if err != nil {
 		return err
 	}
@@ -344,13 +343,13 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	// K/V store operations
 
 	// update the value in the kvstore
-	if err := d.updateSecLabelIDRef(dbSecCtxLbls); err != nil {
+	if err := updateSecLabelIDRef(dbSecCtxLbls); err != nil {
 		return err
 	}
 
 	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
 
-	if err := d.kvClient.SetValue(lblPath, dbSecCtxLbls); err != nil {
+	if err := kvstore.Client.SetValue(lblPath, dbSecCtxLbls); err != nil {
 		return err
 	}
 
@@ -364,7 +363,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 }
 
 // GetMaxLabelID returns the maximum possible free UUID stored in consul.
-func (d *Daemon) GetMaxLabelID() (policy.NumericIdentity, error) {
-	n, err := d.kvClient.GetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32())
+func GetMaxLabelID() (policy.NumericIdentity, error) {
+	n, err := kvstore.Client.GetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32())
 	return policy.NumericIdentity(n), err
 }

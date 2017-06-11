@@ -422,7 +422,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		repPorts[svcPort.Port] = false
 
 		if svcPort.ID != 0 {
-			if err := d.DeleteL3n4AddrIDByUUID(uint32(svcPort.ID)); err != nil {
+			if err := DeleteL3n4AddrIDByUUID(uint32(svcPort.ID)); err != nil {
 				log.Warningf("Error while cleaning service ID: %s", err)
 			}
 		}
@@ -470,7 +470,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring service...", err)
 				continue
 			}
-			feAddrID, err := d.PutL3n4Addr(*feAddr, 0)
+			feAddrID, err := PutL3n4Addr(*feAddr, 0)
 			if err != nil {
 				log.Errorf("Error while getting a new service ID: %s. Ignoring service %v...", err, feAddr)
 				continue
@@ -652,7 +652,7 @@ func (d *Daemon) ingressModFn(oldObj interface{}, newObj interface{}) {
 				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
 				continue
 			}
-			feAddrID, err := d.PutL3n4Addr(*feAddr, 0)
+			feAddrID, err := PutL3n4Addr(*feAddr, 0)
 			if err != nil {
 				log.Errorf("Error while getting a new service ID: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
 				continue

@@ -41,9 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 
 	log "github.com/Sirupsen/logrus"
-	etcdAPI "github.com/coreos/etcd/clientv3"
 	"github.com/go-openapi/loads"
-	consulAPI "github.com/hashicorp/consul/api"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -359,62 +357,6 @@ func initConfig() {
 	}
 }
 
-// SetupKvStore sets up the key-value store specified in kvStore and configures
-// it with the options provided in kvStoreOpts.
-func SetupKvStore(kvStore string, kvStoreOpts map[string]string) error {
-	var err error
-	switch kvStore {
-	case kvstore.Etcd:
-		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, kvstore.EtcdOpts)
-		if err != nil {
-			return err
-		}
-		etcdAddr, ok := kvStoreOpts[kvstore.EAddr]
-		etcdConfig, ok2 := kvStoreOpts[kvstore.ECfg]
-		if ok || ok2 {
-			config.EtcdConfig = &etcdAPI.Config{}
-			config.EtcdCfgPath = etcdConfig
-			config.EtcdConfig.Endpoints = []string{etcdAddr}
-		} else {
-			return fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --kvstore-opt %s=<path> or an etcd agent address with --kvstore-opt %s=<address>", kvstore.ECfg, kvstore.EAddr)
-		}
-	case kvstore.Consul:
-		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, kvstore.ConsulOpts)
-		if err != nil {
-			return err
-		}
-		consulAddr, ok := kvStoreOpts[kvstore.CAddr]
-		if ok {
-			consulDefaultAPI := consulAPI.DefaultConfig()
-			consulSplitAddr := strings.Split(consulAddr, "://")
-			if len(consulSplitAddr) == 2 {
-				consulAddr = consulSplitAddr[1]
-			} else if len(consulSplitAddr) == 1 {
-				consulAddr = consulSplitAddr[0]
-			}
-			consulDefaultAPI.Address = consulAddr
-			config.ConsulConfig = consulDefaultAPI
-		} else {
-			return fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with --kvstore-opt %s=<consul address> option", kvstore.CAddr)
-		}
-	case kvstore.Local:
-		// Local storage doesn't take any configuration, but we want to
-		// make sure user is not passing configuration for other types of kvstores.
-		err = kvstore.ValidateOpts(kvStore, kvStoreOpts, map[string]bool{})
-		if err != nil {
-			return err
-		}
-		log.Infof("Using local storage for key-value store")
-	case "":
-		return fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details.")
-	default:
-		return fmt.Errorf("unsupported key-value store %q provided; check http://cilium.link/err-kvstore for more information about how to properly configure key-value store", kvStore)
-	}
-	config.KVStore = kvStore
-
-	return nil
-}
-
 func initEnv() {
 	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
 
@@ -461,9 +403,8 @@ func initEnv() {
 		log.Fatalf("invalid value for enable-policy %q provided. Supported values: %s, %s, %s.", config.EnablePolicy, endpoint.DefaultEnforcement, endpoint.NeverEnforce, endpoint.AlwaysEnforce)
 	}
 
-	err := SetupKvStore(kvStore, kvStoreOpts)
-	if err != nil {
-		log.Fatalf("Unable to setup kvstore: %s\n", err)
+	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
+		log.Fatalf("Unable to setup kvstore: %s", err)
 	}
 
 	if p, err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
