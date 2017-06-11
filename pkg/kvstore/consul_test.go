@@ -57,7 +57,7 @@ func TestConsulClientRetry(t *testing.T) {
 		http.Error(w, "retry test error", http.StatusInternalServerError)
 	}
 
-	_, err := NewConsulClient(&consulAPI.Config{
+	_, err := newConsulClient(&consulAPI.Config{
 		Address: ":8000",
 	})
 
@@ -84,7 +84,7 @@ func TestConsulClientOk(t *testing.T) {
 		close(doneC)
 	}
 
-	_, err := NewConsulClient(&consulAPI.Config{
+	_, err := newConsulClient(&consulAPI.Config{
 		Address: ":8000",
 	})
 

@@ -21,33 +21,34 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/kvstore"
 
 	log "github.com/Sirupsen/logrus"
 )
 
-func (d *Daemon) updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error {
+func updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error {
 	key := path.Join(common.ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
-	return d.kvClient.SetValue(key, l3n4AddrID)
+	return kvstore.Client.SetValue(key, l3n4AddrID)
 }
 
 // gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
 // KVStore tries to assign that ID first.
-func (d *Daemon) gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
+func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 	if baseID == 0 {
 		var err error
-		baseID, err = d.GetMaxServiceID()
+		baseID, err = GetMaxServiceID()
 		if err != nil {
 			return err
 		}
 	}
 
-	return d.kvClient.GASNewL3n4AddrID(common.ServiceIDKeyPath, baseID, l3n4AddrID)
+	return kvstore.Client.GASNewL3n4AddrID(common.ServiceIDKeyPath, baseID, l3n4AddrID)
 }
 
 // PutL3n4Addr stores the given service in the kvstore and returns the L3n4AddrID
 // created for the given l3n4Addr. If baseID is different than 0, it tries to acquire that
 // ID to the l3n4Addr.
-func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
+func PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
 	log.Debugf("Resolving service %+v", l3n4Addr)
 
 	// Retrieve unique SHA256Sum for service
@@ -55,14 +56,14 @@ func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
-	lockKey, err := d.kvClient.LockPath(svcPath)
+	lockKey, err := kvstore.Client.LockPath(svcPath)
 	if err != nil {
 		return nil, err
 	}
 	defer lockKey.Unlock()
 
 	// After lock complete, get svc's path
-	rmsg, err := d.kvClient.GetValue(svcPath)
+	rmsg, err := kvstore.Client.GetValue(svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -75,17 +76,17 @@ func (d *Daemon) PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n
 	}
 	if sl4KV.ID == 0 {
 		sl4KV.L3n4Addr = l3n4Addr
-		if err := d.gasNewL3n4AddrID(&sl4KV, baseID); err != nil {
+		if err := gasNewL3n4AddrID(&sl4KV, baseID); err != nil {
 			return nil, err
 		}
-		err = d.kvClient.SetValue(svcPath, sl4KV)
+		err = kvstore.Client.SetValue(svcPath, sl4KV)
 	}
 
 	return &sl4KV, err
 }
 
-func (d *Daemon) getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
-	rmsg, err := d.kvClient.GetValue(keyPath)
+func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
+	rmsg, err := kvstore.Client.GetValue(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -101,19 +102,19 @@ func (d *Daemon) getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
 }
 
 // GetL3n4AddrID returns the L3n4AddrID that belongs to the given id.
-func (d *Daemon) GetL3n4AddrID(id uint32) (*types.L3n4AddrID, error) {
+func GetL3n4AddrID(id uint32) (*types.L3n4AddrID, error) {
 	strID := strconv.FormatUint(uint64(id), 10)
-	return d.getL3n4AddrID(path.Join(common.ServiceIDKeyPath, strID))
+	return getL3n4AddrID(path.Join(common.ServiceIDKeyPath, strID))
 }
 
 // GetL3n4AddrIDBySHA256 returns the L3n4AddrID that have the given SHA256SUM.
-func (d *Daemon) GetL3n4AddrIDBySHA256(sha256sum string) (*types.L3n4AddrID, error) {
-	return d.getL3n4AddrID(path.Join(common.ServicesKeyPath, sha256sum))
+func GetL3n4AddrIDBySHA256(sha256sum string) (*types.L3n4AddrID, error) {
+	return getL3n4AddrID(path.Join(common.ServicesKeyPath, sha256sum))
 }
 
 // DeleteL3n4AddrIDByUUID deletes the L3n4AddrID belonging to the given id.
-func (d *Daemon) DeleteL3n4AddrIDByUUID(id uint32) error {
-	l3n4AddrID, err := d.GetL3n4AddrID(id)
+func DeleteL3n4AddrIDByUUID(id uint32) error {
+	l3n4AddrID, err := GetL3n4AddrID(id)
 	if err != nil {
 		return err
 	}
@@ -121,25 +122,25 @@ func (d *Daemon) DeleteL3n4AddrIDByUUID(id uint32) error {
 		return nil
 	}
 
-	return d.DeleteL3n4AddrIDBySHA256(l3n4AddrID.SHA256Sum())
+	return DeleteL3n4AddrIDBySHA256(l3n4AddrID.SHA256Sum())
 }
 
 // DeleteL3n4AddrIDBySHA256 deletes the L3n4AddrID that belong to the serviceL4ID'
 // sha256Sum.
-func (d *Daemon) DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
+func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	if sha256Sum == "" {
 		return nil
 	}
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := d.kvClient.LockPath(svcPath)
+	lockKey, err := kvstore.Client.LockPath(svcPath)
 	if err != nil {
 		return err
 	}
 	defer lockKey.Unlock()
 
 	// After lock complete, get label's path
-	rmsg, err := d.kvClient.GetValue(svcPath)
+	rmsg, err := kvstore.Client.GetValue(svcPath)
 	if err != nil {
 		return err
 	}
@@ -155,14 +156,14 @@ func (d *Daemon) DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	l3n4AddrID.ID = 0
 
 	// update the value in the kvstore
-	if err := d.updateL3n4AddrIDRef(oldL3n4ID, l3n4AddrID); err != nil {
+	if err := updateL3n4AddrIDRef(oldL3n4ID, l3n4AddrID); err != nil {
 		return err
 	}
 
-	return d.kvClient.SetValue(svcPath, l3n4AddrID)
+	return kvstore.Client.SetValue(svcPath, l3n4AddrID)
 }
 
 // GetMaxServiceID returns the maximum possible free UUID stored in the kvstore.
-func (d *Daemon) GetMaxServiceID() (uint32, error) {
-	return d.kvClient.GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
+func GetMaxServiceID() (uint32, error) {
+	return kvstore.Client.GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
 }

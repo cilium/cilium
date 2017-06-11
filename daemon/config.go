@@ -15,24 +15,14 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"sync"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/daemon/options"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
-
-	log "github.com/Sirupsen/logrus"
-	etcdAPI "github.com/coreos/etcd/clientv3"
-	consulAPI "github.com/hashicorp/consul/api"
-)
-
-var (
-	kvBackend = ""
 )
 
 const (
@@ -61,14 +51,10 @@ type Config struct {
 	Device         string                  // Receive device
 	HostV4Addr     net.IP                  // Host v4 address of the snooping device
 	HostV6Addr     net.IP                  // Host v6 address of the snooping device
-	ConsulConfig   *consulAPI.Config       // Consul configuration
-	EtcdConfig     *etcdAPI.Config         // Etcd Configuration
-	EtcdCfgPath    string                  // Etcd Configuration path
 	DockerEndpoint string                  // Docker endpoint
 	IPv4Disabled   bool                    // Disable IPv4 allocation
 	K8sEndpoint    string                  // Kubernetes endpoint
 	K8sCfgPath     string                  // Kubeconfig path
-	KVStore        string                  // key-value store type
 	LBInterface    string                  // Set with name of the interface to loadbalance packets from
 	EnablePolicy   string                  // Whether policy enforcement is enabled.
 	Tunnel         string                  // Tunnel mode
@@ -110,25 +96,4 @@ func (c *Config) IsK8sEnabled() bool {
 
 func (c *Config) IsLBEnabled() bool {
 	return c.LBInterface != ""
-}
-
-// SetKVBackend is only used for test purposes
-func (c *Config) SetKVBackend() error {
-	switch kvBackend {
-	case kvstore.Consul:
-		log.Infof("using consul as key-value store")
-		consulConfig := consulAPI.DefaultConfig()
-		consulConfig.Address = "127.0.0.1:8501"
-		c.ConsulConfig = consulConfig
-		c.KVStore = kvstore.Consul
-		return nil
-	case kvstore.Etcd:
-		log.Infof("using etcd as key-value store")
-		c.EtcdConfig = &etcdAPI.Config{}
-		c.EtcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
-		c.KVStore = kvstore.Etcd
-		return nil
-	default:
-		return fmt.Errorf("invalid backend %s", kvBackend)
-	}
 }

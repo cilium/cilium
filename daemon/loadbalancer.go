@@ -56,12 +56,12 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackEnd, addRe
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 	// Check if the service is already registered with this ID.
-	feAddr, err := d.GetL3n4AddrID(uint32(feL3n4Addr.ID))
+	feAddr, err := GetL3n4AddrID(uint32(feL3n4Addr.ID))
 	if err != nil {
 		return false, fmt.Errorf("unable to get the service with ID %d: %s", feL3n4Addr.ID, err)
 	}
 	if feAddr == nil {
-		feAddr, err = d.PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
+		feAddr, err = PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
 		if err != nil {
 			return false, fmt.Errorf("unable to put the service %s: %s", feL3n4Addr.L3n4Addr.String(), err)
 		}
@@ -187,7 +187,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	}
 
 	// FIXME: How to handle error?
-	d.DeleteL3n4AddrIDByUUID(uint32(params.ID))
+	DeleteL3n4AddrIDByUUID(uint32(params.ID))
 
 	if err := h.d.svcDelete(svc); err != nil {
 		return apierror.Error(DeleteServiceIDFailureCode, err)
@@ -476,7 +476,7 @@ func (d *Daemon) SyncLBMap() error {
 	// Let's check if the services read from the lbmap have the same ID set in the
 	// KVStore.
 	for k, svc := range newSVCMap {
-		kvL3n4AddrID, err := d.PutL3n4Addr(svc.FE.L3n4Addr, 0)
+		kvL3n4AddrID, err := PutL3n4Addr(svc.FE.L3n4Addr, 0)
 		if err != nil {
 			log.Errorf("Unable to retrieve service ID of: %s from KVStore: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.L3n4Addr.String(), err)

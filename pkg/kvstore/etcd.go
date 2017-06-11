@@ -36,12 +36,12 @@ import (
 )
 
 const (
-	// EAddr is the string representing the key mapping to the value of the
+	// eAddr is the string representing the key mapping to the value of the
 	// address for Etcd.
-	EAddr = "etcd.address"
-	// ECfg is the string representing the key mapping to the path of the
+	eAddr = "etcd.address"
+	// eCfg is the string representing the key mapping to the path of the
 	// configuration for Etcd.
-	ECfg = "etcd.config"
+	eCfg = "etcd.config"
 )
 
 var (
@@ -50,8 +50,8 @@ var (
 
 // EtcdOpts is the set of supported options for Etcd configuration.
 var EtcdOpts = map[string]bool{
-	EAddr: true,
-	ECfg:  true,
+	eAddr: true,
+	eCfg:  true,
 }
 
 type EtcdClient struct {
@@ -68,7 +68,7 @@ type EtcdLocker struct {
 	path      string
 }
 
-func NewEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
+func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 	var (
 		c   *client.Client
 		err error
