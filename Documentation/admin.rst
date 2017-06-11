@@ -258,7 +258,7 @@ via the ``postStart`` mechanism when the ``cilium`` pod is started.
           ``kubelet`` task must either be running on the host filesystem of the
           worder node, or the ``/etc/cni/net.d`` and ``/opt/cni/bin``
           directories must be mounted into the container where ``kubelet`` is
-          running. This can be achieved with Volume_ mounts.
+          running. This can be achieved with Volumes_ mounts.
 
 The CNI auto installation is performed as follows:
 
