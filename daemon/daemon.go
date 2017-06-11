@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -84,10 +85,6 @@ type Daemon struct {
 
 	containersMU sync.RWMutex
 	containers   map[string]*container.Container
-
-	endpointsMU  sync.RWMutex
-	endpoints    map[uint16]*endpoint.Endpoint
-	endpointsAux map[string]*endpoint.Endpoint
 
 	ignoredMutex      sync.RWMutex
 	ignoredContainers map[string]int
@@ -551,8 +548,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		conf:              c,
 		dockerClient:      dockerClient,
 		containers:        make(map[string]*container.Container),
-		endpoints:         make(map[uint16]*endpoint.Endpoint),
-		endpointsAux:      make(map[string]*endpoint.Endpoint),
 		events:            make(chan events.Event, 512),
 		loadBalancer:      lb,
 		consumableCache:   policy.NewConsumableCache(),
@@ -637,8 +632,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
-	d.endpointsMU.RLock()
-	defer d.endpointsMU.RUnlock()
+	endpointmanager.Mutex.RLock()
+	defer endpointmanager.Mutex.RUnlock()
 
 	walker := func(path string, _ os.FileInfo, _ error) error {
 		return d.staleMapWalker(path)
@@ -657,21 +652,21 @@ func (d *Daemon) removeStaleMap(path string) {
 	}
 }
 
-// call with d.endpointsMU.RLocked
+// call with endpointmanager.Mutex.RLocked
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
-		if _, ok := d.endpoints[uint16(tmp)]; !ok {
+		if _, ok := endpointmanager.Endpoints[uint16(tmp)]; !ok {
 			d.removeStaleMap(path)
 		}
 	}
 }
 
-// call with d.endpointsMU.RLocked
+// call with endpointmanager.Mutex.RLocked
 func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
 	var globalCTinUse = false
 
-	for k := range d.endpoints {
-		e := d.endpoints[k]
+	for k := range endpointmanager.Endpoints {
+		e := endpointmanager.Endpoints[k]
 		if e.Consumable != nil &&
 			e.Opts.IsDisabled(endpoint.OptionConntrackLocal) {
 			globalCTinUse = true
@@ -686,7 +681,7 @@ func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
 	}
 }
 
-// call with d.endpointsMU.RLocked
+// call with endpointmanager.Mutex.RLocked
 func (d *Daemon) staleMapWalker(path string) error {
 	filename := filepath.Base(path)
 
