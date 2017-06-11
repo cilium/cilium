@@ -270,7 +270,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 			NodeAddressInfo: redir.nodeInfo,
 		}
 
-		info := EndpointInfo{
+		info := &EndpointInfo{
 			ID:       redir.epID,
 			IPv4:     redir.source.GetIPv4Address(),
 			IPv6:     redir.source.GetIPv6Address(),

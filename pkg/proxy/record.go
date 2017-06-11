@@ -19,15 +19,15 @@ import (
 	"net/url"
 )
 
-// FlowDirection is the type to indicate the flow direction
-type FlowDirection string
+// FlowType is the type to indicate the flow direction
+type FlowType string
 
 const (
 	// TypeRequest is a request message
-	TypeRequest = "Request"
+	TypeRequest FlowType = "Request"
 
 	// TypeResponse is a response to a request
-	TypeResponse = "Response"
+	TypeResponse FlowType = "Response"
 )
 
 // FlowVerdict is the verdict taken on request/response
@@ -52,7 +52,7 @@ const (
 	Ingress ObservationPoint = "Ingress"
 
 	// Egress indicates event was generated at egress
-	Egress = "Egress"
+	Egress ObservationPoint = "Egress"
 )
 
 // EndpointInfo contains information about the endpoint sending/receiving the
@@ -80,8 +80,8 @@ type IPPort struct {
 // LogRecord is the structure used to log individual request/response
 // processing events
 type LogRecord struct {
-	// Direction is the direction of the flow
-	Direction FlowDirection
+	// Type is the type of the flow { request | response }
+	Type FlowType
 
 	// Timestamp is the start of a request and then end of a response
 	Timestamp string
@@ -93,10 +93,10 @@ type LogRecord struct {
 	ObservationPoint ObservationPoint
 
 	// SourceEndpoint is information about the soure endpoint if available
-	SourceEndpoint EndpointInfo `json:"SourceEndpoint,omitempty"`
+	SourceEndpoint *EndpointInfo `json:"SourceEndpoint,omitempty"`
 
 	// DestinationEndpoint is information about the soure endpoint if available
-	DestinationEndpoint EndpointInfo `json:"DestinationEndpoint,omitempty"`
+	DestinationEndpoint *EndpointInfo `json:"DestinationEndpoint,omitempty"`
 
 	// Source is the IP and port of the endpoint that generated the
 	// request
@@ -120,7 +120,7 @@ type LogRecord struct {
 	// following should ever be set. Unused fields will be omitted
 
 	// HTTP contains information for HTTP request/responses
-	HTTP LogRecordHTTP `json:"HTTP,omitempty"`
+	HTTP *LogRecordHTTP `json:"HTTP,omitempty"`
 
 	// internal
 	request http.Request
