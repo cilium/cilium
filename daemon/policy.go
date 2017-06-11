@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -79,23 +80,7 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 	d.EnablePolicyEnforcement()
 	d.GetPolicyRepository().Mutex.RUnlock()
 
-	d.endpointsMU.RLock()
-
-	for k := range d.endpoints {
-		go func(ep *endpoint.Endpoint) {
-			policyChanges, err := ep.TriggerPolicyUpdates(d)
-			if err != nil {
-				log.Warningf("Error while handling policy updates for endpoint %s\n", err)
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, err.Error())
-			} else {
-				ep.LogStatusOK(endpoint.Policy, "Policy regenerated")
-			}
-			if policyChanges {
-				ep.Regenerate(d)
-			}
-		}(d.endpoints[k])
-	}
-	d.endpointsMU.RUnlock()
+	endpointmanager.TriggerPolicyUpdates(d)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be

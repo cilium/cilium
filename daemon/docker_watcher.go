@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -228,24 +229,22 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			dockerEpID = dockerContainer.NetworkSettings.EndpointID
 		}
 
-		d.endpointsMU.RLock()
-		ep := d.lookupDockerID(id)
-		d.endpointsMU.RUnlock()
+		ep := endpointmanager.LookupDockerID(id)
 		if ep == nil {
 			// container id is yet unknown, try and find endpoint via
 			// the IP address assigned.
 			cid := getCiliumEndpointID(dockerContainer, d.conf.NodeAddress)
 			if cid != 0 {
-				d.endpointsMU.Lock()
-				ep = d.lookupCiliumEndpoint(cid)
+				endpointmanager.Mutex.Lock()
+				ep = endpointmanager.LookupCiliumIDLocked(cid)
 				if ep != nil {
 					// Associate container id with endpoint
 					ep.Mutex.Lock()
 					ep.DockerID = id
 					ep.Mutex.Unlock()
-					d.linkContainerID(ep)
+					endpointmanager.LinkContainerID(ep)
 				}
-				d.endpointsMU.Unlock()
+				endpointmanager.Mutex.Unlock()
 			}
 		}
 
@@ -288,9 +287,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			return
 		}
 
-		d.endpointsMU.RLock()
-		ep = d.lookupDockerID(id)
-		d.endpointsMU.RUnlock()
+		ep = endpointmanager.LookupDockerID(id)
 		if ep == nil {
 			log.Warningf("endpoint disappeared while processing event for %s, ignoring", id)
 			return

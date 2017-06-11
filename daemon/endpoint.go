@@ -22,70 +22,13 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
 )
-
-func (d *Daemon) lookupCiliumEndpoint(id uint16) *endpoint.Endpoint {
-	if ep, ok := d.endpoints[id]; ok {
-		return ep
-	}
-	return nil
-}
-
-func (d *Daemon) lookupDockerEndpoint(id string) *endpoint.Endpoint {
-	i := endpoint.NewID(endpoint.DockerEndpointPrefix, id)
-	if ep, ok := d.endpointsAux[i]; ok {
-		return ep
-	}
-	return nil
-}
-
-func (d *Daemon) lookupDockerID(id string) *endpoint.Endpoint {
-	i := endpoint.NewID(endpoint.ContainerIdPrefix, id)
-	if ep, ok := d.endpointsAux[i]; ok {
-		return ep
-	}
-	return nil
-}
-
-func (d *Daemon) linkContainerID(ep *endpoint.Endpoint) {
-	id := endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID)
-	d.endpointsAux[id] = ep
-}
-
-// insertEndpoint inserts the ep in the endpoints map. To be used with endpointsMU locked.
-func (d *Daemon) insertEndpoint(ep *endpoint.Endpoint) {
-	ep.Mutex.Lock()
-	defer ep.Mutex.Unlock()
-	d.endpoints[ep.ID] = ep
-
-	if ep.DockerID != "" {
-		d.linkContainerID(ep)
-	}
-
-	if ep.DockerEndpointID != "" {
-		id := endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID)
-		d.endpointsAux[id] = ep
-	}
-}
-
-func (d *Daemon) removeEndpoint(ep *endpoint.Endpoint) {
-	delete(d.endpoints, ep.ID)
-
-	if ep.DockerID != "" {
-		id := endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID)
-		delete(d.endpointsAux, id)
-	}
-
-	if ep.DockerEndpointID != "" {
-		id := endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerID)
-		delete(d.endpointsAux, id)
-	}
-}
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
 // a copy endpoint if the endpoint was found, nil otherwise.
@@ -104,35 +47,6 @@ func (d *Daemon) SetEndpointIdentity(ep *endpoint.Endpoint, dockerID, dockerEPID
 	ep.SetIdentity(d, labels)
 }
 
-func (d *Daemon) lookupEndpoint(id string) (*endpoint.Endpoint, *apierror.APIError) {
-	prefix, eid, err := endpoint.ParseID(id)
-	if err != nil {
-		return nil, apierror.Error(GetEndpointIDInvalidCode, err)
-	}
-
-	switch prefix {
-	case endpoint.CiliumLocalIdPrefix:
-		n, _ := endpoint.ParseCiliumID(id)
-		return d.lookupCiliumEndpoint(uint16(n)), nil
-	case endpoint.CiliumGlobalIdPrefix:
-		return nil, apierror.New(GetEndpointIDInvalidCode,
-			"Unsupported id format for now")
-	case endpoint.ContainerIdPrefix:
-		return d.lookupDockerID(eid), nil
-	case endpoint.DockerEndpointPrefix:
-		return d.lookupDockerEndpoint(eid), nil
-	default:
-		return nil, apierror.New(GetEndpointIDInvalidCode, "Unknown endpoint prefix %s", prefix)
-	}
-}
-
-func (d *Daemon) EndpointExists(id string) bool {
-	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpoint(id)
-	d.endpointsMU.RUnlock()
-	return err == nil && ep != nil
-}
-
 type getEndpoint struct {
 	d *Daemon
 }
@@ -146,17 +60,17 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 
 	var wg sync.WaitGroup
 	i := 0
-	h.d.endpointsMU.RLock()
-	eps := make([]*models.Endpoint, len(h.d.endpoints))
-	wg.Add(len(h.d.endpoints))
-	for k := range h.d.endpoints {
+	endpointmanager.Mutex.RLock()
+	eps := make([]*models.Endpoint, len(endpointmanager.Endpoints))
+	wg.Add(len(endpointmanager.Endpoints))
+	for k := range endpointmanager.Endpoints {
 		go func(wg *sync.WaitGroup, i int, ep *endpoint.Endpoint) {
 			eps[i] = ep.GetModel()
 			wg.Done()
-		}(&wg, i, h.d.endpoints[k])
+		}(&wg, i, endpointmanager.Endpoints[k])
 		i++
 	}
-	h.d.endpointsMU.RUnlock()
+	endpointmanager.Mutex.RUnlock()
 	wg.Wait()
 
 	return NewGetEndpointOK().WithPayload(eps)
@@ -173,11 +87,10 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
 	log.Debugf("GET /endpoint/{id} request: %+v", params.ID)
 
-	h.d.endpointsMU.RLock()
-	ep, err := h.d.lookupEndpoint(params.ID)
-	h.d.endpointsMU.RUnlock()
+	ep, err := endpointmanager.Lookup(params.ID)
+
 	if err != nil {
-		return err
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDNotFound()
 	} else {
@@ -215,12 +128,12 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	ep.SetDefaultOpts(h.d.conf.Opts)
 	ep.Opts.Set(endpoint.OptionPolicy, h.d.PolicyEnabled())
 
-	h.d.endpointsMU.Lock()
-	defer h.d.endpointsMU.Unlock()
+	endpointmanager.Mutex.Lock()
+	defer endpointmanager.Mutex.Unlock()
 
-	oldEp, err2 := h.d.lookupEndpoint(params.ID)
+	oldEp, err2 := endpointmanager.LookupLocked(params.ID)
 	if err2 != nil {
-		return err2
+		return apierror.Error(GetEndpointIDInvalidCode, err2)
 	} else if oldEp != nil {
 		return NewPutEndpointIDExists()
 	}
@@ -235,7 +148,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		return apierror.Error(PatchEndpointIDFailedCode, err)
 	}
 
-	h.d.insertEndpoint(ep)
+	endpointmanager.Insert(ep)
 
 	return NewPutEndpointIDCreated()
 }
@@ -259,11 +172,9 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return apierror.Error(PutEndpointIDInvalidCode, err2)
 	}
 
-	h.d.endpointsMU.RLock()
-	ep, err := h.d.lookupEndpoint(params.ID)
-	h.d.endpointsMU.RUnlock()
+	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return err
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewPatchEndpointIDNotFound()
@@ -336,7 +247,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	return NewPatchEndpointIDOK()
 }
 
-// deleteEndpoint must be called with d.endpointsMU locked.
+// deleteEndpoint must be called with endpoint.Mutex locked.
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	errors := 0
 	ep.Mutex.Lock()
@@ -382,7 +293,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		errors++
 	}
 
-	d.removeEndpoint(ep)
+	endpointmanager.RemoveLocked(ep)
 
 	if !d.conf.IPv4Disabled {
 		if err := d.ReleaseIP(ep.IPv4.IP()); err != nil {
@@ -400,11 +311,11 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, *apierror.APIError) {
-	d.endpointsMU.Lock()
-	defer d.endpointsMU.Unlock()
+	endpointmanager.Mutex.Lock()
+	defer endpointmanager.Mutex.Unlock()
 
-	if ep, err := d.lookupEndpoint(id); err != nil {
-		return 0, err
+	if ep, err := endpointmanager.LookupLocked(id); err != nil {
+		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return 0, apierror.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
 	} else {
@@ -435,12 +346,11 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 // EndpointUpdate updates the given endpoint and regenerates the endpoint
 func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) *apierror.APIError {
-	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpoint(id)
-	d.endpointsMU.RUnlock()
+	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
-		return err
+		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
+
 	if ep != nil {
 		d.invalidateCache()
 		if err := ep.Update(d, opts); err != nil {
@@ -488,12 +398,9 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
 	log.Debugf("GET /endpoint/{id}/config %+v", params)
 
-	d := h.daemon
-	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpoint(params.ID)
-	d.endpointsMU.RUnlock()
+	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return err
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return NewGetEndpointIDConfigNotFound()
 	} else {
@@ -513,11 +420,9 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 	log.Debugf("GET /endpoint/{id}/labels %+v", params)
 
 	d := h.daemon
-	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpoint(params.ID)
-	d.endpointsMU.RUnlock()
+	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
-		return err
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewGetEndpointIDLabelsNotFound()
@@ -561,11 +466,9 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		return nil
 	}
 
-	d.endpointsMU.RLock()
-	ep, err := d.lookupEndpoint(id)
-	d.endpointsMU.RUnlock()
+	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
-		return err
+		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
 	if ep == nil {
 		return NewPutEndpointIDLabelsNotFound()
@@ -638,9 +541,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 
 	// FIXME: Undo identity update?
 
-	d.endpointsMU.RLock()
-	ep, _ = d.lookupEndpoint(id)
-	d.endpointsMU.RUnlock()
+	ep, _ = endpointmanager.Lookup(id)
 	if ep == nil {
 		return NewPutEndpointIDLabelsNotFound()
 	}

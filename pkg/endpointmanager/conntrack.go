@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package endpointmanager
 
 import (
 	"fmt"
@@ -75,16 +75,16 @@ func runGC(e *endpoint.Endpoint, isLocal, isIPv6 bool) {
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
-func (d *Daemon) EnableConntrackGC() {
+func EnableConntrackGC(ipv4, ipv6 bool) {
 	go func() {
 		seenGlobal := false
 		for {
 			sleepTime := time.Duration(GcInterval) * time.Second
 
-			d.endpointsMU.RLock()
+			Mutex.RLock()
 
-			for k := range d.endpoints {
-				e := d.endpoints[k]
+			for k := range Endpoints {
+				e := Endpoints[k]
 				e.Mutex.RLock()
 
 				if e.Consumable == nil {
@@ -113,13 +113,15 @@ func (d *Daemon) EnableConntrackGC() {
 				e.Mutex.RUnlock()
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
-				runGC(e, isLocal, true)
-				if !d.conf.IPv4Disabled {
+				if ipv6 {
+					runGC(e, isLocal, true)
+				}
+				if ipv4 {
 					runGC(e, isLocal, false)
 				}
 			}
 
-			d.endpointsMU.RUnlock()
+			Mutex.RUnlock()
 			time.Sleep(sleepTime)
 			seenGlobal = false
 		}

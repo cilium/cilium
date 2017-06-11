@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -448,7 +449,7 @@ func runDaemon() {
 		log.Fatalf("Unable to initialize policy: %s", err)
 	}
 
-	d.EnableConntrackGC()
+	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)
 
 	if enableLogstash {
 		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))

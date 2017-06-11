@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/events"
 
 	log "github.com/Sirupsen/logrus"
@@ -68,9 +69,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			continue
 		}
 
-		d.endpointsMU.Lock()
-		d.insertEndpoint(ep)
-		d.endpointsMU.Unlock()
+		endpointmanager.Insert(ep)
 		restored++
 
 		log.Infof("Restored endpoint: %d", ep.ID)
@@ -82,9 +81,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		d.cleanUpDockerDandlingEndpoints()
 	}
 
-	d.endpointsMU.Lock()
-	for k := range d.endpoints {
-		ep := d.endpoints[k]
+	endpointmanager.Mutex.Lock()
+	for k := range endpointmanager.Endpoints {
+		ep := endpointmanager.Endpoints[k]
 		if err := d.allocateIPs(ep); err != nil {
 			log.Errorf("Failed while reallocating ep %d's IP addresses: %s. Endpoint won't be restored", ep.ID, err)
 			d.deleteEndpoint(ep)
@@ -107,7 +106,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		}
 		log.Infof("Restored endpoint %d", epID)
 	}
-	d.endpointsMU.Unlock()
+	endpointmanager.Mutex.Unlock()
 
 	return nil
 }
@@ -181,7 +180,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 }
 
 // syncLabels syncs the labels from the labels' database for the given endpoint. To be
-// used with endpointsMU locked.
+// used with endpoint.Mutex locked.
 func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	if ep.SecLabel == nil {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
@@ -229,8 +228,8 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 		d.deleteEndpoint(ep)
 	}
 
-	for k := range d.endpoints {
-		ep := d.endpoints[k]
+	for k := range endpointmanager.Endpoints {
+		ep := endpointmanager.Endpoints[k]
 		ep.Mutex.RLock()
 		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
 		if ep.DockerNetworkID != "" {

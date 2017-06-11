@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -67,8 +68,8 @@ func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 			timeToProcess1 := time.Now()
 
 			allPes := map[uint16][]policymap.PolicyEntryDump{}
-			d.endpointsMU.RLock()
-			for _, ep := range d.endpoints {
+			endpointmanager.Mutex.RLock()
+			for _, ep := range endpointmanager.Endpoints {
 				ep.Mutex.RLock()
 				pes, err := ep.PolicyMap.DumpToSlice()
 				if err != nil {
@@ -77,7 +78,7 @@ func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 				allPes[ep.ID] = pes
 				ep.Mutex.RUnlock()
 			}
-			d.endpointsMU.RUnlock()
+			endpointmanager.Mutex.RUnlock()
 			lss := d.processStats(allPes)
 			for _, ls := range lss {
 				if err := json.NewEncoder(c).Encode(ls); err != nil {

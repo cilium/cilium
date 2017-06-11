@@ -52,7 +52,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 	}
 }
 
-// allowConsumer must be called with endpointsMU held
+// allowConsumer must be called with global endpoint.Mutex held
 func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) {
 	cache := owner.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
@@ -149,7 +149,7 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 	}
 }
 
-// Must be called with endpointsMU held
+// Must be called with global endpoint.Mutex held
 func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	c := e.Consumable
 
@@ -247,7 +247,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	return true, nil
 }
 
-// Must be called with endpointsMU held
+// Must be called with global endpoint.Mutex held
 func (e *Endpoint) regenerateL3Policy(owner Owner) (bool, error) {
 	c := e.Consumable
 
