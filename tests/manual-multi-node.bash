@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
+
+source "./helpers.bash"
+
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
 
 set -e
 
@@ -39,7 +43,6 @@ function init {
 function test_run {
 	SERVER=$(node_run_quiet cilium-master 'docker run -d --net cilium -l id.server --name server tgraf/netperf')
 	CLIENT=$(node_run_quiet cilium-node-2 'docker run -d --net cilium -l id.client --name client tgraf/netperf')
-	sleep 5s
 
 	SERVER_IP=$(node_run_quiet cilium-master "docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server" | tr -d '\r')
 	echo "Server IPv6: $SERVER_IP"
@@ -68,7 +71,7 @@ function test_nodes {
 	node_run cilium-node-2 "sudo cp /etc/init/cilium.conf tmp; sudo sed -i '/exec/d' tmp; echo \"exec cilium-agent --debug -n f00d::c0a8:210c:0:0 --ipv4-range 10.2.0.1 $OPTS -c 192.168.33.11:8500\" | sudo tee -a tmp; sudo cp tmp /etc/init/cilium.conf; sudo service cilium restart"
 
 	echo "Waiting for daemon to start up..."
-	sleep 5s
+	wait_for_cilium_status
 
 	node_run cilium-master 'cilium policy import ~/go/src/github.com/cilium/cilium/examples/policy/default/'
 	node_run cilium-node-2 'cilium policy import ~/go/src/github.com/cilium/cilium/examples/policy/default/'

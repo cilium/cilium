@@ -19,8 +19,8 @@ function remove_containers {
 function restart_cilium {
 	echo "------ restarting cilium ------"
 	service cilium restart
-	echo "------ sleeping for 10 seconds to let cilium agent get up and running ------"
-	sleep 10
+	echo "------ waiting for cilium agent get up and running ------"
+	wait_for_cilium_status
 }
 
 function import_test_policy {
@@ -69,7 +69,6 @@ function check_endpoints_policy_disabled {
 
 function check_config_policy_enabled {
 	echo "------ checking if cilium daemon has policy enforcement enabled ------"
-	sleep 5
 	POLICY_ENFORCED=`eval ${CFG_CMD}`
 	for line in $POLICY_ENFORCED; do
 		if [[ "$line" != "Enabled" ]]; then
@@ -82,7 +81,6 @@ function check_config_policy_enabled {
 
 function check_config_policy_disabled {
 	echo "------ checking if cilium daemon has policy enforcement disabled ------"
-	sleep 5
 	POLICY_ENFORCED=`eval ${CFG_CMD}`
 	for line in $POLICY_ENFORCED; do
 		if [[ "$line" != "Disabled" ]]; then
@@ -205,7 +203,7 @@ function ping_fail {
 	C1=$1
 	C2=$2
 	echo "------ pinging $C2 from $C1 (expecting failure) ------"
-	docker exec -i  ${C1} bash -c "sleep 10 && ping -c 5 ${C2}" && {
+	docker exec -i  ${C1} bash -c "ping -c 5 ${C2}" && {
   		abort "Error: Unexpected success pinging ${C2} from ${C1}"
   	}
 }
@@ -214,7 +212,7 @@ function ping_success {
 	C1=$1
 	C2=$2
 	echo "------ pinging $C2 from $C1 (expecting success) ------"
-	docker exec -i ${C1} bash -c "sleep 10 && ping -c 5 ${C2}" || {
+	docker exec -i ${C1} bash -c "ping -c 5 ${C2}" || {
 		abort "Error: Could not ping ${C2} from ${C1}"
 	}
 }

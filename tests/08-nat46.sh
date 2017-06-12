@@ -43,8 +43,9 @@ echo SERVER_IP=$SERVER_IP
 echo SERVER_IP4=$SERVER_IP4
 echo SERVER_ID=$SERVER_ID
 
-# FIXME IPv6 DAD period
-sleep 5
+wait_for_docker_ipv6_addr client
+wait_for_docker_ipv6_addr server
+
 set -x
 
 cat <<EOF | cilium -D policy import -

@@ -29,7 +29,6 @@ fi
 
 function cleanup {
     echo "Cleaning up"
-    sleep 3s
     monitor_stop
     "${dir}/../examples/kubernetes-ingress/scripts/11-cleanup.sh"
 }
@@ -57,7 +56,7 @@ monitor_clear
 
 echo "Testing connectivity between pods"
 
-kubectl exec `kubectl get pods | grep -Eo 'guestbook[^ ]+'` -- sh -c 'sleep 60 && nc redis-master 6379 <<EOF
+kubectl exec `kubectl get pods | grep -Eo 'guestbook[^ ]+'` -- sh -c 'nc redis-master 6379 <<EOF
 PING
 EOF' || {
         abort "Unable to nc redis-master 6379"
