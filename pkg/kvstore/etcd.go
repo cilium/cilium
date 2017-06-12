@@ -30,6 +30,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
+	clientyaml "github.com/coreos/etcd/clientv3/yaml"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/hashicorp/go-version"
 	ctx "golang.org/x/net/context"
@@ -74,8 +75,12 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 		err error
 	)
 	if cfgPath != "" {
-		c, err = client.NewFromConfigFile(cfgPath)
-	} else if config != nil {
+		config, err = clientyaml.NewConfig(cfgPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if config != nil {
 		c, err = client.New(*config)
 	} else {
 		err = fmt.Errorf("empty configuration provided")
