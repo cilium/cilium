@@ -44,7 +44,7 @@ type Event struct {
 func NewEvent(t EventType, obj interface{}) *Event {
 	return &Event{
 		Type:      t,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 		Obj:       obj,
 	}
 }

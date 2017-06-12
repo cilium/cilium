@@ -130,7 +130,7 @@ func NewIdentity() *Identity {
 
 // AssociateEndpoint associates the endpoint with identity.
 func (id *Identity) AssociateEndpoint(epID string) {
-	id.Endpoints[epID] = time.Now()
+	id.Endpoints[epID] = time.Now().UTC()
 }
 
 // DisassociateEndpoint disassociates the endpoint endpoint with identity and
@@ -147,7 +147,7 @@ func (id *Identity) DisassociateEndpoint(epID string) bool {
 func (id *Identity) RefCount() int {
 	refCount := 0
 	for _, t := range id.Endpoints {
-		if t.Add(secLabelTimeout).After(time.Now()) {
+		if t.Add(secLabelTimeout).After(time.Now().UTC()) {
 			refCount++
 		}
 	}

@@ -264,7 +264,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	}
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		startDelta := time.Now()
+		startDelta := time.Now().UTC()
 		record := &LogRecord{
 			req:       req,
 			timeStart: time.Time{},

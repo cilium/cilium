@@ -50,7 +50,7 @@ var (
 	wantSecCtxLbls = policy.Identity{
 		ID: 123,
 		Endpoints: map[string]time.Time{
-			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now(),
+			"cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307": time.Now().UTC(),
 		},
 		Labels: lbls,
 	}
@@ -195,12 +195,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	sha256sum := lbls2.SHA256Sum()
 	gotSecCtxLbl, err = ds.d.LookupIdentityBySHA256(sha256sum)
 	c.Assert(err, IsNil)
-
-	// Disabled for now, currently errors out after go 1.8.3 update.
-	//
-	// [Runtime Tests] ==> cilium-master: ... obtained *policy.Identity = &policy.Identity{ID:0x101, Labels:labels.Labels{"foo":(*labels.Label)(0xc4218dea00), "foo2":(*labels.Label)(0xc4218dea40)}, Endpoints:map[string]time.Time{"containerLabel2-1":time.Time{sec:63632695538, nsec:946048357, loc:(*time.Location)(nil)}, "containerLabel2-2":time.Time{sec:63632695538, nsec:962378505, loc:(*time.Location)(nil)}, "containerLabel2-3":time.Time{sec:63632695539, nsec:32317355, loc:(*time.Location)(nil)}}}
-	// [Runtime Tests] ==> cilium-master: ... expected *policy.Identity = &policy.Identity{ID:0x101, Labels:labels.Labels{"foo":(*labels.Label)(0xc4218c0e00), "foo2":(*labels.Label)(0xc4218c0e40)}, Endpoints:map[string]time.Time{"containerLabel2-1":time.Time{sec:63632695538, nsec:946048357, loc:(*time.Location)(nil)}, "containerLabel2-2":time.Time{sec:63632695538, nsec:962378505, loc:(*time.Location)(nil)}, "containerLabel2-3":time.Time{sec:63632695539, nsec:32317355, loc:(*time.Location)(0x29dbd80)}}}
-	//c.Assert(gotSecCtxLbl, DeepEquals, secCtxLbl)
+	c.Assert(gotSecCtxLbl, DeepEquals, secCtxLbl)
 
 	err = ds.d.DeleteIdentityBySHA256(sha256sum, "containerLabel2-1")
 	c.Assert(err, IsNil)
