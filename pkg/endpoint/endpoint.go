@@ -766,7 +766,7 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 			Msg:  msg,
 			Type: typ,
 		},
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
 }
@@ -778,7 +778,7 @@ func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 	defer e.Status.indexMU.Unlock()
 	sts := &statusLogMsg{
 		Status:    NewStatusOK(typ, msg),
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
 }
