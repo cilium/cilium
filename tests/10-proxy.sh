@@ -30,11 +30,12 @@ function proxy_init {
 	SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
 	SERVER_ID=$(cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
 
-	echo -n "Sleeping 3 seconds..."
-	sleep 3
-	echo " done."
+	wait_for_docker_ipv6_addr server
+	wait_for_docker_ipv6_addr client
+
 	set -x
 
+    wait_for_cilium_ep_gen
 	cilium endpoint list
 }
 
@@ -176,9 +177,8 @@ for policy in "egress" "ingress" "many_egress" "many_ingress"; do
 	for state in "false" "true"; do
 		echo "Testing with Policy=$policy, Conntrack=$state"
 		cilium config ConntrackLocal=$state
-		sleep 2
+		wait_for_cilium_ep_gen
 		proxy_init
-		sleep 2
 
 		case $policy in
 			"many_egress")
@@ -191,10 +191,10 @@ for policy in "egress" "ingress" "many_egress" "many_ingress"; do
 				policy_single_ingress;;
 		esac
 
-		sleep 2
+        wait_for_cilium_ep_gen
 		proxy_test
 		cilium policy delete --all 2> /dev/null || true
 		docker rm -f server client 2> /dev/null || true
-		sleep 2
+		wait_for_cilium_ep_gen
 	done
 done

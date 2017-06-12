@@ -101,7 +101,7 @@ cat <<EOF | cilium policy import -
 }]
 EOF
 
-sleep 5
+wait_for_cilium_ep_gen
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 ------"

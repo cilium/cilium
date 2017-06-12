@@ -54,8 +54,8 @@ NODE_MAC=$(cilium endpoint get $SERVER_ID | grep host-mac | awk '{print $2}' | s
 LXC_MAC=$(cilium endpoint get $SERVER_ID | grep mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 
 
-# FIXME IPv6 DAD period
-sleep 5
+wait_for_docker_ipv6_addr client
+wait_for_docker_ipv6_addr server
 set -x
 
 cat <<EOF | cilium -D policy import -

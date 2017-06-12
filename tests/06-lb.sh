@@ -267,8 +267,9 @@ docker run -dt --net=$TEST_NET --name server5 -l id.server -l server5 httpd
 docker run -dt --net=$TEST_NET --name client -l id.client tgraf/nettools
 docker run -dt --net=$TEST_NET --name misc   -l id.client borkmann/misc
 
-# FIXME IPv6 DAD period
-sleep 5
+for i in server{1..5} client misc; do
+    wait_for_docker_ipv6_addr ${i}
+done
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')

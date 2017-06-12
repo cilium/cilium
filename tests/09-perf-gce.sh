@@ -41,15 +41,8 @@ trap cleanup_k8s EXIT
 kubectl create -f ./gce-deployment/client.json
 kubectl create -f ./gce-deployment/server.json
 
-while [[ "$(kubectl get pods | grep ${CLIENT_NAME} | grep Running -c)" -ne "1" ]] ; do
-    echo "Waiting for ${CLIENT_NAME} pod to be Running..."
-    sleep 2s
-done
-
-while [[ "$(kubectl get pods | grep ${SERVER_NAME} | grep Running -c)" -ne "1" ]] ; do
-    echo "Waiting for ${SERVER_NAME} pod to be Running..."
-    sleep 2s
-done
+wait_for_running_pod ${CLIENT_NAME}
+wait_for_running_pod ${SERVER_NAME}
 
 echo "Getting Client and Server IPv6, IPv4 and ID from containers"
 
@@ -88,7 +81,6 @@ LXC_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | grep
 
 echo "... Done"
 
-sleep 5
 set -x
 
 cat <<EOF | kubectl exec -i "${server_cilium}" -- cilium -D policy import -

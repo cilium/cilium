@@ -20,7 +20,6 @@ cleanup
 
 until [ "$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")" -eq "3" ]; do 
 	echo "---- Waiting for cluster to get into a good state ----"
-	sleep 5
 done
 
 
@@ -35,27 +34,23 @@ kubectl apply -f cilium-ds.yaml
 
 until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ print $4}' | grep -c '1')" -eq "3" ]; do
 	echo "----- Waiting for Cilium to get into 'ready' state in Minikube cluster -----"
-	sleep 5
 done
 
-# Let Cilium spin up.
-sleep 15
+CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
+wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD}
 
 echo "----- deploying demo application onto cluster -----"
 kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/demo.yaml
 
 until [ "$(kubectl get pods | grep -v STATUS | grep -c "Running")" -eq "4" ]; do
 	echo "----- Waiting for demo apps to get into 'Running' state -----"
-	sleep 5
 done
 
 echo "----- adding L3 L4 policy  -----"
 kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
 
-CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
 	echo "----- Waiting for endpoints to get into 'ready' state -----"
-	sleep 5	      
 done
 
 echo "----- testing L3/L4 policy -----"
@@ -93,7 +88,6 @@ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/example
 CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
        echo "----- Waiting for endpoints to get into 'ready' state -----"
-       sleep 5
 done
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"

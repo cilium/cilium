@@ -24,7 +24,7 @@ function run_cni_container {
 		shift
 	done
 
-	contid=$(docker run -d --net=none $LABELS busybox:latest /bin/sleep 10000000)
+	contid=$(docker run -t -d --net=none $LABELS busybox:latest)
 	pid=$(docker inspect -f '{{ .State.Pid }}' $contid)
 	netnspath=/proc/$pid/ns/net
 
@@ -114,7 +114,14 @@ server_ip=$(extract_ip6 $server_id)
 server_ip4=$(extract_ip4 $server_id)
 
 echo "Waiting for containers to come up"
-sleep 3s
+while true; do
+    output=`docker ps -a`
+
+    if echo ${output} | grep cni-server && \
+        echo ${output} | grep cni-client; then
+        break
+    fi
+done
 
 monitor_clear
 docker exec -i cni-client ping6 -c 5 $server_ip

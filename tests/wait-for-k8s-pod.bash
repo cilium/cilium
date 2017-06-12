@@ -19,7 +19,6 @@ i=1
 while [[ -z "${isRunning}" && ${i} -le ${tries} ]] ; do
 	echo "Waiting for pod ${name}. Attempt ${i}/${tries}..."
 	isRunning=$(kubectl get pods | grep "${name}" | grep -o "Running")
-	sleep 2
 	i=$(( $i + 1 ))
 done
 
