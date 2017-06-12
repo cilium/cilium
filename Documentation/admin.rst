@@ -114,7 +114,7 @@ clang+LLVM
 
 .. note:: This requirement is only needed if you run ``cilium-agent`` natively.
           If you are using the Cilium container image ``cilium/cilium``,
-          iproute2 is included in the container image.
+          clang+LLVM is included in the container image.
 
 LLVM is the compiler suite which Cilium uses to generate BPF bytecode before
 loading the programs into the Linux kernel.  The minimal version of LLVM
