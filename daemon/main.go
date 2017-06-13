@@ -235,7 +235,7 @@ func init() {
 	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
 	flags.StringVar(&config.AllowLocalhost, "allow-localhost", AllowLocalhostAuto,
 		"Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
-	flags.StringVar(&kvStore, "kvstore", kvstore.Local, "Key-value store type")
+	flags.StringVar(&kvStore, "kvstore", "", "Key-value store type")
 	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "key-value store options")
 	flags.BoolVar(&config.KeepConfig, "keep-config", false,
 		"When restoring state, keeps containers' configuration in place")
@@ -405,8 +405,10 @@ func SetupKvStore(kvStore string, kvStoreOpts map[string]string) error {
 			return err
 		}
 		log.Infof("Using local storage for key-value store")
+	case "":
+		return fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details.")
 	default:
-		return fmt.Errorf("unsupported key-value store %q provided", kvStore)
+		return fmt.Errorf("unsupported key-value store %q provided; check http://cilium.link/err-kvstore for more information about how to properly configure key-value store", kvStore)
 	}
 	config.KVStore = kvStore
 
