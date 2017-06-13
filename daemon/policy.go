@@ -83,13 +83,9 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 
 	for k := range d.endpoints {
 		go func(ep *endpoint.Endpoint) {
-			ep.Mutex.RLock()
-			epID := ep.StringIDLocked()
-			ep.Mutex.RUnlock()
 			policyChanges, err := ep.TriggerPolicyUpdates(d)
 			if err != nil {
-				log.Warningf("Error while handling policy updates for endpoint %s: %s\n",
-					epID, err)
+				log.Warningf("Error while handling policy updates for endpoint %s\n", err)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, err.Error())
 			} else {
 				ep.LogStatusOK(endpoint.Policy, "Policy regenerated")

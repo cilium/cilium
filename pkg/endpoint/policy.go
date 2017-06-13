@@ -453,7 +453,13 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 	if e.Consumable == nil {
 		return false, nil
 	}
-	return e.regeneratePolicy(owner)
+
+	changed, err := e.regeneratePolicy(owner)
+	if err != nil {
+		return changed, fmt.Errorf("%s: %s", e.StringIDLocked(), err)
+	}
+
+	return changed, err
 }
 
 func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
