@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 LAST_LOG_DATE=""
@@ -152,4 +154,46 @@ function gather_files {
     sudo cp -r ${LIB}/* ${LIB_DIR}
     find . -type d -exec sudo chmod 777 {} \;
     find ${CILIUM_DIR} -exec sudo chmod a+r {} \;
+}
+
+function wait_for_daemon_set_ready {
+    set +x
+    if [ "$#" -ne 3 ]; then
+        echo "wait_for_daemon_set_ready: illegal number of parameters"
+        exit 1
+    fi
+    namespace="${1}"
+    name="${2}"
+    n_ds_expected="${3}"
+    echo "Waiting for ${name} daemon set to be ready..."
+    until [ "$(kubectl get ds -n ${namespace} ${name} 2>&1 | awk 'NR==2{ print $4 }')" = "${n_ds_expected}" ]; do
+	    micro_sleep
+    done
+    set -x
+}
+
+function wait_for_api_server_ready {
+    set +x
+    echo "Waiting for kube-apiserver to spin up"
+    while ! kubectl get cs; do
+        micro_sleep
+    done
+    set -x
+}
+
+function wait_for_service_endpoints_ready {
+    set +x
+    if [ "$#" -ne 3 ]; then
+        echo "wait_for_service_endpoints_ready: illegal number of parameters"
+        exit 1
+    fi
+    namespace="${1}"
+    name="${2}"
+    port="${3}"
+
+    echo "Waiting for ${name} service endpoints to be ready"
+    until [ "$(kubectl get endpoints -n ${namespace} ${name} | grep ":${port}")" ]; do
+        micro_sleep
+    done
+    set -x
 }
