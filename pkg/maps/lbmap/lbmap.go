@@ -59,8 +59,11 @@ type ServiceKey interface {
 	// Return backend index
 	GetBackend() int
 
-	// Convert between host byte order and map byte order
-	Convert() ServiceKey
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceKey
 }
 
 // ServiceValue is the interface describing protocol independent value for services map.
@@ -94,8 +97,11 @@ type ServiceValue interface {
 	// Get Weight
 	GetWeight() uint16
 
-	// Convert between host byte order and map byte order
-	Convert() ServiceValue
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceValue
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceValue
 }
 
 type RRSeqValue struct {
@@ -116,11 +122,11 @@ func UpdateService(key ServiceKey, value ServiceValue) error {
 		return err
 	}
 
-	return key.Map().Update(key.Convert(), value.Convert())
+	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
 func DeleteService(key ServiceKey) error {
-	err := key.Map().Delete(key.Convert())
+	err := key.Map().Delete(key.ToNetwork())
 	if err != nil {
 		return err
 	}
@@ -130,7 +136,7 @@ func DeleteService(key ServiceKey) error {
 func LookupService(key ServiceKey) (ServiceValue, error) {
 	var svc ServiceValue
 
-	val, err := key.Map().Lookup(key.Convert())
+	val, err := key.Map().Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +147,7 @@ func LookupService(key ServiceKey) (ServiceValue, error) {
 		svc = val.(*Service4Value)
 	}
 
-	return svc.Convert(), nil
+	return svc.ToNetwork(), nil
 }
 
 // UpdateServiceWeights updates cilium_lb6_rr_seq or cilium_lb4_rr_seq bpf maps.
@@ -150,18 +156,18 @@ func UpdateServiceWeights(key ServiceKey, value *RRSeqValue) error {
 		return err
 	}
 
-	return key.RRMap().Update(key.Convert(), value)
+	return key.RRMap().Update(key.ToNetwork(), value)
 }
 
 // LookupAndDeleteServiceWeights deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq
 func LookupAndDeleteServiceWeights(key ServiceKey) error {
-	_, err := key.RRMap().Lookup(key.Convert())
+	_, err := key.RRMap().Lookup(key.ToNetwork())
 	if err != nil {
 		// Ignore if entry is not found.
 		return nil
 	}
 
-	return key.RRMap().Delete(key.Convert())
+	return key.RRMap().Delete(key.ToNetwork())
 }
 
 type RevNatKey interface {
@@ -173,8 +179,8 @@ type RevNatKey interface {
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
 
-	// Convert between host byte order and map byte order
-	Convert() RevNatKey
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() RevNatKey
 
 	// Returns the key value
 	GetKey() uint16
@@ -183,8 +189,8 @@ type RevNatKey interface {
 type RevNatValue interface {
 	bpf.MapValue
 
-	// Convert between host byte order and map byte order
-	Convert() RevNatValue
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() RevNatValue
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
@@ -195,17 +201,17 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 		return err
 	}
 
-	return key.Map().Update(key.Convert(), value.Convert())
+	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
 func DeleteRevNat(key RevNatKey) error {
-	return key.Map().Delete(key.Convert())
+	return key.Map().Delete(key.ToNetwork())
 }
 
 func LookupRevNat(key RevNatKey) (RevNatValue, error) {
 	var revnat RevNatValue
 
-	val, err := key.Map().Lookup(key.Convert())
+	val, err := key.Map().Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +222,7 @@ func LookupRevNat(key RevNatKey) (RevNatValue, error) {
 		revnat = val.(*RevNat4Value)
 	}
 
-	return revnat.Convert(), nil
+	return revnat.ToNetwork(), nil
 }
 
 // gcd computes the gcd of two numbers.

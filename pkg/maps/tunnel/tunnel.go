@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 const (
@@ -99,11 +100,11 @@ func DeleteTunnelEndpoint(prefix net.IP) error {
 func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 	k, v := tunnelEndpoint{}, tunnelEndpoint{}
 
-	if err := binary.Read(bytes.NewBuffer(key), binary.LittleEndian, &k); err != nil {
+	if err := binary.Read(bytes.NewBuffer(key), byteorder.Native, &k); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	if err := binary.Read(bytes.NewBuffer(value), binary.LittleEndian, &v); err != nil {
+	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 

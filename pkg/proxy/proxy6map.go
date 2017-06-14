@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 type Proxy6Key struct {
@@ -70,10 +70,11 @@ func (k *Proxy6Key) String() string {
 	return fmt.Sprintf("%s (%d) => %d", k.HostPort(), k.Nexthdr, k.DPort)
 }
 
-func (k *Proxy6Key) Convert() *Proxy6Key {
+// ToNetwork converts Proxy6Key ports to network byte order.
+func (k *Proxy6Key) ToNetwork() *Proxy6Key {
 	n := *k
-	n.SPort = common.Swab16(n.SPort)
-	n.DPort = common.Swab16(n.DPort)
+	n.SPort = byteorder.HostToNetwork(n.SPort).(uint16)
+	n.DPort = byteorder.HostToNetwork(n.DPort).(uint16)
 	return &n
 }
 
@@ -81,9 +82,10 @@ func (v *Proxy6Value) GetValuePtr() unsafe.Pointer {
 	return unsafe.Pointer(v)
 }
 
-func (k *Proxy6Value) Convert() *Proxy6Value {
-	n := *k
-	n.OrigDPort = common.Swab16(n.OrigDPort)
+// ToNetwork converts Proxy6Value to network byte order.
+func (p *Proxy6Value) ToNetwork() *Proxy6Value {
+	n := *p
+	n.OrigDPort = byteorder.HostToNetwork(n.OrigDPort).(uint16)
 	return &n
 }
 
@@ -92,14 +94,14 @@ func (v *Proxy6Value) String() string {
 }
 
 func LookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
-	val, err := proxy6Map.Lookup(key.Convert())
+	val, err := proxy6Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
 	}
 
 	proxyVal := val.(*Proxy6Value)
 
-	return proxyVal.Convert(), nil
+	return proxyVal.ToNetwork(), nil
 }
 
 func proxy6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
@@ -108,15 +110,15 @@ func proxy6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error
 	k := Proxy6Key{}
 	v := Proxy6Value{}
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &k); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &v); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	return k.Convert(), v.Convert(), nil
+	return k.ToNetwork(), v.ToNetwork(), nil
 }
 
 func Dump6(cb bpf.DumpCallback) error {

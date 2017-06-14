@@ -20,8 +20,8 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -49,9 +49,11 @@ type CtKey interface {
 	// Returns human readable string representation
 	String() string
 
-	// Convert converts fields between host byte order and map byte order
-	// if necessary.
-	Convert() CtKey
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() CtKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() CtKey
 
 	// Dumps contents of key to buffer. Returns true if successful.
 	Dump(buffer *bytes.Buffer) bool
@@ -61,9 +63,11 @@ type CtKey interface {
 type CtValue interface {
 	bpf.MapValue
 
-	// Convert converts fields between host byte order and map byte order
-	// if necessary.
-	Convert() CtValue
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() CtValue
+
+	// ToHost converts fields to host byte order.
+	ToHost() CtValue
 }
 
 // CtEntry represents an entry in the connection tracking table.
@@ -136,8 +140,8 @@ func ToString(m *bpf.Map, mapName string) (string, error) {
 				value.tx_packets,
 				value.tx_bytes,
 				value.flags,
-				common.Swab16(value.revnat),
-				common.Swab16(value.proxy_port),
+				byteorder.NetworkToHost(value.revnat),
+				byteorder.NetworkToHost(value.proxy_port),
 				value.src_sec_id,
 			),
 		)
