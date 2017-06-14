@@ -21,9 +21,9 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 var (
@@ -72,9 +72,17 @@ func (k *Service6Key) SetPort(port uint16)       { k.Port = port }
 func (k *Service6Key) SetBackend(backend int)    { k.Slave = uint16(backend) }
 func (k *Service6Key) GetBackend() int           { return int(k.Slave) }
 
-func (k *Service6Key) Convert() ServiceKey {
+// ToNetwork converts Service6Key to network byte order.
+func (k *Service6Key) ToNetwork() ServiceKey {
 	n := *k
-	n.Port = common.Swab16(n.Port)
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	return &n
+}
+
+// ToHost converts Service6Key to host byte order.
+func (k *Service6Key) ToHost() ServiceKey {
+	n := *k
+	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
 	return &n
 }
 
@@ -129,11 +137,21 @@ func (s *Service6Value) SetAddress(ip net.IP) error {
 	return nil
 }
 
-func (s *Service6Value) Convert() ServiceValue {
+// ToNetwork converts Service6Value ports to network byte order.
+func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = common.Swab16(n.RevNat)
-	n.Port = common.Swab16(n.Port)
-	n.Weight = common.Swab16(n.Weight)
+	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
+	return &n
+}
+
+// ToHost converts Service6Value ports to host byte order.
+func (s *Service6Value) ToHost() ServiceValue {
+	n := *s
+	n.RevNat = byteorder.NetworkToHost(n.RevNat).(uint16)
+	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
+	n.Weight = byteorder.NetworkToHost(n.Weight).(uint16)
 	return &n
 }
 
@@ -147,15 +165,15 @@ func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 	svcKey := Service6Key{}
 	svcVal := Service6Value{}
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
 	}
 
-	return svcKey.Convert(), svcVal.Convert(), nil
+	return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
 }
 
 func Service6RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
@@ -164,15 +182,15 @@ func Service6RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue
 	svcKey := Service6Key{}
 	svcVal := RRSeqValue{}
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	return svcKey.Convert(), &svcVal, nil
+	return svcKey.ToNetwork(), svcVal, nil
 }
 
 type RevNat6Key struct {
@@ -190,9 +208,10 @@ func (v *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *RevNat6Key) String() string            { return fmt.Sprintf("%d", v.Key) }
 func (v *RevNat6Key) GetKey() uint16            { return v.Key }
 
-func (v *RevNat6Key) Convert() RevNatKey {
+// ToNetwork converts RevNat6Key to network byte order.
+func (v *RevNat6Key) ToNetwork() RevNatKey {
 	n := *v
-	n.Key = common.Swab16(n.Key)
+	n.Key = byteorder.HostToNetwork(n.Key).(uint16)
 	return &n
 }
 
@@ -214,9 +233,10 @@ func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
 func (v *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
 
-func (v *RevNat6Value) Convert() RevNatValue {
+// ToNetwork converts RevNat6Value to network byte order.
+func (v *RevNat6Value) ToNetwork() RevNatValue {
 	n := *v
-	n.Port = common.Swab16(n.Port)
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
 }
 
@@ -227,14 +247,14 @@ func RevNat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, erro
 	keyBuf := bytes.NewBuffer(key)
 	valueBuf := bytes.NewBuffer(value)
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &ukey); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &ukey); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 	revKey := NewRevNat6Key(ukey)
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &revNat); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &revNat); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
 	}
 
-	return revKey.Convert(), revNat.Convert(), nil
+	return revKey.ToNetwork(), revNat.ToNetwork(), nil
 }

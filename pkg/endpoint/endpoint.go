@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -758,7 +758,7 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 		// Store security label in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
-		SecLabelID: common.Swab16(uint16(e.GetIdentity())),
+		SecLabelID: byteorder.HostToNetwork(uint16(e.GetIdentity())).(uint16),
 		LxcID:      e.ID,
 		MAC:        lxcmap.MAC(mac),
 		NodeMAC:    lxcmap.MAC(nodeMAC),
@@ -768,8 +768,8 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 
 	for i, pM := range e.PortMap {
 		info.PortMap[i] = lxcmap.PortMap{
-			From: common.Swab16(pM.From),
-			To:   common.Swab16(pM.To),
+			From: byteorder.HostToNetwork(pM.From).(uint16),
+			To:   byteorder.HostToNetwork(pM.To).(uint16),
 		}
 	}
 

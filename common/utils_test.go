@@ -51,13 +51,3 @@ func (s *CommonSuite) TestFmtDefineArray(c *C) {
 	c.Assert(FmtDefineArray("foo", []byte{1, 2, 3}), Equals, "#define foo { 0x1, 0x2, 0x3 }\n")
 	c.Assert(FmtDefineArray("foo", []byte{}), Equals, "#define foo {  }\n")
 }
-
-func (s *CommonSuite) TestSwab16(c *C) {
-	c.Assert(Swab16(0xAABB), Equals, uint16(0xBBAA),
-		Commentf("Swab16 failed: Swab16(0xAABB) != 0xBBAA"))
-}
-
-func (s *CommonSuite) TestSwab32(c *C) {
-	c.Assert(Swab32(0xAABBCCDD), Equals, uint32(0xDDCCBBAA),
-		Commentf("Swab32 failed: Swab16(0xAABBCCDD) != 0xDDCCBBAA"))
-}

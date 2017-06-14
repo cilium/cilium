@@ -15,11 +15,12 @@
 package policy
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 )
 
@@ -85,12 +86,12 @@ func (m *L3PolicyMap) ToBPFData() (s6, s4 []string) {
 		if ip4 == nil { // IPv6
 			s6 = append(s6,
 				fmt.Sprintf("{{{__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x)}},{{__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x)}}}",
-					binary.BigEndian.Uint32(v.IP[0:4]), binary.BigEndian.Uint32(v.IP[4:8]),
-					binary.BigEndian.Uint32(v.IP[8:12]), binary.BigEndian.Uint32(v.IP[12:16]),
-					binary.BigEndian.Uint32(v.Mask[0:4]), binary.BigEndian.Uint32(v.Mask[4:8]),
-					binary.BigEndian.Uint32(v.Mask[8:12]), binary.BigEndian.Uint32(v.Mask[12:16])))
+					byteorder.HostToNetworkSlice(v.IP[0:4], reflect.Uint32), byteorder.HostToNetworkSlice(v.IP[4:8], reflect.Uint32),
+					byteorder.HostToNetworkSlice(v.IP[8:12], reflect.Uint32), byteorder.HostToNetworkSlice(v.IP[12:16], reflect.Uint32),
+					byteorder.HostToNetworkSlice(v.Mask[0:4], reflect.Uint32), byteorder.HostToNetworkSlice(v.Mask[4:8], reflect.Uint32),
+					byteorder.HostToNetworkSlice(v.Mask[8:12], reflect.Uint32), byteorder.HostToNetworkSlice(v.Mask[12:16], reflect.Uint32)))
 		} else {
-			s4 = append(s4, fmt.Sprintf("{__constant_htonl(%#x),__constant_htonl(%#x)}", binary.BigEndian.Uint32(ip4), binary.BigEndian.Uint32(v.Mask)))
+			s4 = append(s4, fmt.Sprintf("{__constant_htonl(%#x),__constant_htonl(%#x)}", byteorder.HostToNetworkSlice(ip4, reflect.Uint32), byteorder.HostToNetworkSlice(v.Mask, reflect.Uint32)))
 		}
 	}
 	return
