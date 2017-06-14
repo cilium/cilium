@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
+	"github.com/cilium/cilium/pkg/byteorder"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
@@ -110,7 +111,7 @@ func match(messageType int, src uint16, dst uint32) bool {
 func dropEvents(prefix string, data []byte) {
 	dn := bpfdebug.DropNotify{}
 
-	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeDrop, dn.Source, dn.DstID) {
@@ -122,7 +123,7 @@ func dropEvents(prefix string, data []byte) {
 func debugEvents(prefix string, data []byte) {
 	dm := bpfdebug.DebugMsg{}
 
-	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dm); err != nil {
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dm); err != nil {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeDebug, dm.Source, 0) {
@@ -134,7 +135,7 @@ func debugEvents(prefix string, data []byte) {
 func captureEvents(prefix string, data []byte) {
 	dc := bpfdebug.DebugCapture{}
 
-	if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dc); err != nil {
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dc); err != nil {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeCapture, dc.Source, 0) {

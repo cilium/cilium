@@ -21,9 +21,9 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 var (
@@ -65,9 +65,17 @@ func (k *Service4Key) String() string {
 	return fmt.Sprintf("%s:%d", k.Address, k.Port)
 }
 
-func (k *Service4Key) Convert() ServiceKey {
+// ToNetwork converts Service4Key port to network byte order.
+func (k *Service4Key) ToNetwork() ServiceKey {
 	n := *k
-	n.Port = common.Swab16(n.Port)
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	return &n
+}
+
+// ToHost converts Service4Key port to network byte order.
+func (k *Service4Key) ToHost() ServiceKey {
+	n := *k
+	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
 	return &n
 }
 
@@ -132,11 +140,21 @@ func (s *Service4Value) SetAddress(ip net.IP) error {
 	return nil
 }
 
-func (s *Service4Value) Convert() ServiceValue {
+// ToNetwork converts Service4Value to network byte order.
+func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
-	n.RevNat = common.Swab16(n.RevNat)
-	n.Port = common.Swab16(n.Port)
-	n.Weight = common.Swab16(n.Weight)
+	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
+	return &n
+}
+
+// ToHost converts Service4Value to host byte order.
+func (s *Service4Value) ToHost() ServiceValue {
+	n := *s
+	n.RevNat = byteorder.NetworkToHost(n.RevNat).(uint16)
+	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
+	n.Weight = byteorder.NetworkToHost(n.Weight).(uint16)
 	return &n
 }
 
@@ -154,15 +172,15 @@ func Service4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 	svcKey := Service4Key{}
 	svcVal := Service4Value{}
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	return svcKey.Convert(), svcVal.Convert(), nil
+	return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
 }
 
 func Service4RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
@@ -171,15 +189,15 @@ func Service4RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue
 	svcKey := Service4Key{}
 	svcVal := RRSeqValue{}
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &svcKey); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &svcVal); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
 	}
 
-	return svcKey.Convert(), &svcVal, nil
+	return svcKey.ToNetwork(), &svcVal, nil
 }
 
 type RevNat4Key struct {
@@ -197,9 +215,10 @@ func (k *RevNat4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *RevNat4Key) String() string            { return fmt.Sprintf("%d", k.Key) }
 func (k *RevNat4Key) GetKey() uint16            { return k.Key }
 
-func (k *RevNat4Key) Convert() RevNatKey {
+// ToNetwork converts RevNat4Key to network byte order.
+func (k *RevNat4Key) ToNetwork() RevNatKey {
 	n := *k
-	n.Key = common.Swab16(n.Key)
+	n.Key = byteorder.HostToNetwork(n.Key).(uint16)
 	return &n
 }
 
@@ -210,9 +229,10 @@ type RevNat4Value struct {
 
 func (v *RevNat4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
-func (v *RevNat4Value) Convert() RevNatValue {
+// ToNetwork converts RevNat4Value to network byte order.
+func (v *RevNat4Value) ToNetwork() RevNatValue {
 	n := *v
-	n.Port = common.Swab16(n.Port)
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
 }
 
@@ -237,14 +257,14 @@ func RevNat4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, erro
 	keyBuf := bytes.NewBuffer(key)
 	valueBuf := bytes.NewBuffer(value)
 
-	if err := binary.Read(keyBuf, binary.LittleEndian, &ukey); err != nil {
+	if err := binary.Read(keyBuf, byteorder.Native, &ukey); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
 	}
 	revKey := NewRevNat4Key(ukey)
 
-	if err := binary.Read(valueBuf, binary.LittleEndian, &revNat); err != nil {
+	if err := binary.Read(valueBuf, byteorder.Native, &revNat); err != nil {
 		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
 	}
 
-	return revKey.Convert(), revNat.Convert(), nil
+	return revKey.ToNetwork(), revNat.ToNetwork(), nil
 }

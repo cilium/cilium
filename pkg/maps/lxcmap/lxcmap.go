@@ -20,9 +20,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -83,7 +83,7 @@ type PortMap struct {
 }
 
 func (pm PortMap) String() string {
-	return fmt.Sprintf("%d:%d", common.Swab16(pm.From), common.Swab16(pm.To))
+	return fmt.Sprintf("%d:%d", byteorder.HostToNetwork(pm.From), byteorder.HostToNetwork(pm.To))
 }
 
 const (
@@ -175,7 +175,7 @@ func (v EndpointInfo) String() string {
 		v.MAC,
 		v.NodeMAC,
 		v.V6Addr,
-		common.Swab16(v.SecLabelID),
+		byteorder.HostToNetwork(v.SecLabelID),
 		strings.Join(portMaps, " "),
 	)
 }

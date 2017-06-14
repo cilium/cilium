@@ -18,16 +18,17 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -56,7 +57,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 			return fmt.Errorf("invalid protocol %s", l4.Protocol)
 		}
 
-		dport := common.Swab16(uint16(l4.Port))
+		dport := byteorder.HostToNetwork(uint16(l4.Port))
 
 		redirect := uint16(l4.L7RedirectPort)
 		if l4.IsRedirect() && redirect == 0 {
@@ -66,7 +67,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 			}
 		}
 
-		redirect = common.Swab16(redirect)
+		redirect = byteorder.HostToNetwork(redirect).(uint16)
 		entry := fmt.Sprintf("%d,%d,%d,%d", index, dport, redirect, protoNum)
 		if array != "" {
 			array = array + "," + entry
@@ -177,7 +178,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
 	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
 	if e.IPv4 != nil {
-		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", binary.BigEndian.Uint32(e.IPv4))
+		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
 	}
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
 
@@ -188,14 +189,14 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
-	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", common.Swab16(e.ID))
+	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
 	if e.SecLabel != nil {
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecLabel.ID.StringID())
-		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(e.SecLabel.ID.Uint32()))
+		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecLabel.ID.Uint32()))
 	} else {
 		invalid := policy.InvalidIdentity
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
-		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", common.Swab32(invalid.Uint32()))
+		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(invalid.Uint32()))
 	}
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
 	if e.L3Policy != nil {
@@ -235,7 +236,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	for _, m := range e.PortMap {
 		// Write mappings directly in network byte order so we don't have
 		// to convert it in the fast path
-		fmt.Fprintf(fw, "{%#x,%#x},", common.Swab16(m.From), common.Swab16(m.To))
+		fmt.Fprintf(fw, "{%#x,%#x},", byteorder.HostToNetwork(m.From), byteorder.HostToNetwork(m.To))
 	}
 	fw.WriteString("\n")
 
