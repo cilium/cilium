@@ -8,7 +8,7 @@ GO_BINDATA := go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \
 	-ignore netdev_config.h -ignore node_config.h -ignore '.+\.o$$' \
 	-ignore '.+\.orig$$' -ignore '.+~$$' -ignore '\.DS_Store'
-GO_BINDATA_SHA1SUM=4c07b9aaa78073a929aa67dc4bcb862de58d7522
+GO_BINDATA_SHA1SUM=2f41034e602acf3a29ec557d981c39a6a1f44fce
 # We keep track of the go version used to update bindata in case of failures.
 # Having the version will likely be useful in the cases where someone is using
 # a older or newer version than the CI.
@@ -48,4 +48,4 @@ apply-bindata: go-bindata
 	../contrib/scripts/bindata.sh apply
 
 go-bindata:
-	$(GO_BINDATA) -o ./bindata.go ../bpf/...
+	$(GO_BINDATA) -o ./bindata.go `git ls-files ../bpf/`
