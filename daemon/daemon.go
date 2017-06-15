@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -351,7 +352,11 @@ func (d *Daemon) compileBase() error {
 	if err != nil {
 		log.Warningf("Command execution %s %s failed: %s", prog,
 			strings.Join(args, " "), err)
-		log.Warningf("Command output:\n%s", out)
+
+		scanner := bufio.NewScanner(bytes.NewReader(out))
+		for scanner.Scan() {
+			log.Warning(scanner.Text())
+		}
 		return err
 	}
 
