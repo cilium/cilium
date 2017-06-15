@@ -439,7 +439,7 @@ func (e *EtcdClient) DeleteTree(path string) error {
 // FIXME This function is highly tightened to the maxFreeID, change name accordingly
 func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
 	ch := make(chan []policy.NumericIdentity, 100)
-	go func() {
+	go func(ch chan []policy.NumericIdentity) {
 		curSeconds := time.Second
 		lastRevision := int64(0)
 		for {
@@ -454,25 +454,24 @@ func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []po
 			}
 			curSeconds = time.Second
 			lastRevision = w.CompactRevision
-			go func() {
-				freeID := uint32(0)
-				maxFreeID := uint32(0)
-				for _, event := range w.Events {
-					if event.Type != mvccpb.PUT ||
-						event.Kv == nil {
-						continue
-					}
-					if err := json.Unmarshal(event.Kv.Value, &freeID); err != nil {
-						continue
-					}
-					if freeID > maxFreeID {
-						maxFreeID = freeID
-					}
+			freeID := uint32(0)
+			maxFreeID := uint32(0)
+			for _, event := range w.Events {
+				if event.Type != mvccpb.PUT || event.Kv == nil {
+					continue
 				}
+				if err := json.Unmarshal(event.Kv.Value, &freeID); err != nil {
+					continue
+				}
+				if freeID > maxFreeID {
+					maxFreeID = freeID
+				}
+			}
+			if maxFreeID != 0 {
 				ch <- []policy.NumericIdentity{policy.NumericIdentity(maxFreeID)}
-			}()
+			}
 		}
-	}()
+	}(ch)
 	return ch
 }
 

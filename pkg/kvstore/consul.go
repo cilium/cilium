@@ -366,7 +366,7 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 // FIXME This function is highly tightened to the maxFreeID, change name accordingly
 func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
 	ch := make(chan []policy.NumericIdentity, 100)
-	go func() {
+	go func(ch chan []policy.NumericIdentity) {
 		curSeconds := time.Second
 		var (
 			k   *consulAPI.KVPair
@@ -389,14 +389,12 @@ func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []
 			}
 			curSeconds = time.Second
 			qo.WaitIndex = q.LastIndex
-			go func() {
-				maxFreeID := uint32(0)
-				if err := json.Unmarshal(k.Value, &maxFreeID); err == nil {
-					ch <- []policy.NumericIdentity{policy.NumericIdentity(maxFreeID)}
-				}
-			}()
+			maxFreeID := uint32(0)
+			if err := json.Unmarshal(k.Value, &maxFreeID); err == nil {
+				ch <- []policy.NumericIdentity{policy.NumericIdentity(maxFreeID)}
+			}
 		}
-	}()
+	}(ch)
 	return ch
 }
 
