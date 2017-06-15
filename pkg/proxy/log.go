@@ -18,9 +18,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
-	"strconv"
 )
 
 var (
@@ -52,32 +50,12 @@ func SetMetadata(md []string) {
 	metadata = md
 }
 
-// NewIPPort creates an IPPort struct based on a host:port string
-func NewIPPort(hostport string) IPPort {
-	ipport := IPPort{}
-
-	host, port, err := net.SplitHostPort(hostport)
-	if err != nil {
-		ipport.IP = hostport
-		ipport.Port = 0
-	} else {
-		ipport.IP = host
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			ipport.Port = uint16(p)
-		}
-	}
-
-	return ipport
-}
-
 // Log logs a record to the logfile and flushes the buffer
 func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	if logBuf == nil {
 		return
 	}
 
-	l.Source = NewIPPort(l.request.RemoteAddr)
 	l.Type = typ
 	l.Verdict = verdict
 	l.Metadata = metadata

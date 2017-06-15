@@ -361,6 +361,7 @@ func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) *apierr
 				return apierror.Error(PatchEndpointIDConfigFailedCode, err)
 			}
 		}
+		endpointmanager.UpdateReferences(ep)
 	} else {
 		return apierror.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}

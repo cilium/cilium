@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -187,15 +189,101 @@ var gcOnce sync.Once
 
 // Configuration is used to pass configuration into CreateOrUpdateRedirect
 type Configuration struct {
-	ID     string
-	Source ProxySource
+}
+
+func (r *Redirect) localEndpointInfo(info *EndpointInfo) {
+	info.ID = r.epID
+	info.IPv4 = r.source.GetIPv4Address()
+	info.IPv6 = r.source.GetIPv6Address()
+	info.Labels = r.source.GetLabels()
+	info.Identity = uint64(r.source.GetIdentity())
+}
+
+func parseIPPort(ipstr string, info *EndpointInfo) {
+	ip := net.ParseIP(ipstr)
+	if ip != nil {
+		if ip.To4() != nil {
+			info.IPv4 = ip.String()
+			if nodeaddress.IPv4ClusterRange().Contains(ip) {
+				c := addressing.DeriveCiliumIPv4(ip)
+				info.ID = uint64(c.EndpointID())
+
+				ep := endpointmanager.LookupIPv4(c.String())
+				if ep != nil {
+					info.Labels = ep.GetLabels()
+					info.Identity = uint64(ep.GetIdentity())
+				}
+			}
+		} else {
+			info.IPv6 = ip.String()
+			if nodeaddress.IPv6ClusterRange().Contains(ip) {
+				c := addressing.DeriveCiliumIPv6(ip)
+				id := c.EndpointID()
+				info.ID = uint64(id)
+
+				ep := endpointmanager.LookupCiliumID(id)
+				if ep != nil {
+					info.Labels = ep.GetLabels()
+					info.Identity = uint64(ep.GetIdentity())
+				}
+			}
+		}
+	}
+}
+
+func (r *Redirect) getSourceInfo(req *http.Request) (EndpointInfo, IPVersion) {
+	info := EndpointInfo{}
+	version := VersionIPv4
+
+	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
+	if err == nil {
+		p, err := strconv.ParseUint(port, 10, 16)
+		if err == nil {
+			info.Port = uint16(p)
+		}
+
+		ip := net.ParseIP(ipstr)
+		if ip != nil && ip.To4() == nil {
+			version = VersionIPV6
+		}
+	}
+
+	// At egress, the local origin endpoint is the source
+	if !r.l4.Ingress {
+		r.localEndpointInfo(&info)
+	} else if err == nil {
+		parseIPPort(ipstr, &info)
+	}
+
+	return info, version
+}
+
+func (r *Redirect) getDestinationInfo(dstIPPort string) EndpointInfo {
+	info := EndpointInfo{}
+
+	ipstr, port, err := net.SplitHostPort(dstIPPort)
+	if err == nil {
+		p, err := strconv.ParseUint(port, 10, 16)
+		if err == nil {
+			info.Port = uint16(p)
+		}
+	}
+
+	// At ingress the local origin endpoint is the source
+	if r.l4.Ingress {
+		r.localEndpointInfo(&info)
+	} else if err == nil {
+		parseIPPort(ipstr, &info)
+	}
+
+	return info
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is aleady in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (*Redirect, error) {
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (*Redirect, error) {
 	fwd, err := forward.New()
 	if err != nil {
 		return nil, err
@@ -234,7 +322,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 
 	p.mutex.Lock()
 
-	if r, ok := p.redirects[cfg.ID]; ok {
+	if r, ok := p.redirects[id]; ok {
 		r.updateRules(l4.L7Rules)
 		log.Debugf("updated existing proxy instance %+v", r)
 		p.mutex.Unlock()
@@ -248,12 +336,12 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 	}
 
 	redir := &Redirect{
-		id:       cfg.ID,
+		id:       id,
 		FromPort: uint16(l4.Port),
 		ToPort:   to,
-		source:   cfg.Source,
+		source:   source,
 		router:   route.New(),
-		epID:     cfg.Source.GetID(),
+		epID:     source.GetID(),
 		l4:       *l4,
 		nodeInfo: NodeAddressInfo{
 			IPv4: nodeaddress.IPv4Address.String(),
@@ -269,25 +357,17 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 			NodeAddressInfo: redir.nodeInfo,
 		}
 
-		info := &EndpointInfo{
-			ID:       redir.epID,
-			IPv4:     redir.source.GetIPv4Address(),
-			IPv6:     redir.source.GetIPv6Address(),
-			Labels:   redir.source.GetLabels(),
-			Identity: uint64(redir.source.GetIdentity()),
-		}
+		info, version := redir.getSourceInfo(req)
+		record.SourceEndpoint = info
+		record.IPVersion = version
 
 		if redir.l4.Ingress {
-			record.DestinationEndpoint = info
 			record.ObservationPoint = Ingress
 		} else {
-			record.SourceEndpoint = info
 			record.ObservationPoint = Egress
 		}
 
-		redir.source.RUnlock()
-
-		hostPort, err := lookupNewDest(req, to)
+		dstIPPort, err := lookupNewDest(req, to)
 		if err != nil {
 			// FIXME: What do we do here long term?
 			log.Errorf("%s", err)
@@ -297,7 +377,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 			return
 		}
 
-		record.Destination = NewIPPort(hostPort)
+		record.DestinationEndpoint = redir.getDestinationInfo(dstIPPort)
+		redir.source.RUnlock()
 
 		// Validate access to L4/L7 resource
 		p.mutex.Lock()
@@ -317,7 +398,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 		p.mutex.Unlock()
 
 		// Reconstruct original URL used for the request
-		req.URL = generateURL(req, hostPort)
+		req.URL = generateURL(req, dstIPPort)
 
 		// log valid request
 		Log(record, TypeRequest, VerdictForwared, http.StatusOK)
@@ -336,7 +417,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 
 	redir.updateRules(l4.L7Rules)
 	p.allocatedPorts[to] = redir
-	p.redirects[cfg.ID] = redir
+	p.redirects[id] = redir
 
 	p.mutex.Unlock()
 

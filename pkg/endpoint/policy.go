@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -95,40 +94,13 @@ func (e *Endpoint) invalidatePolicy() {
 	}
 }
 
-// proxyID returns a unique string to identify a proxy mapping
-func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
+// ProxyID returns a unique string to identify a proxy mapping
+func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return fmt.Sprintf("%d:%s:%d", e.ID, l4.Protocol, l4.Port)
 }
 
 func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error) {
-	p := owner.GetProxy()
-	if p == nil {
-		return 0, fmt.Errorf("can't redirect, proxy disabled")
-	}
-
-	cfg := proxy.Configuration{
-		ID:     e.proxyID(l4),
-		Source: e,
-	}
-
-	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)
-	r, err := p.CreateOrUpdateRedirect(l4, cfg)
-	if err != nil {
-		return 0, err
-	}
-
-	return r.ToPort, nil
-}
-
-func (e *Endpoint) removeRedirect(owner Owner, l4 *policy.L4Filter) error {
-	proxy := owner.GetProxy()
-	if proxy == nil {
-		return nil
-	}
-
-	id := e.proxyID(l4)
-	log.Debugf("Removing redirect %s from endpoint %d", id, e.ID)
-	return proxy.RemoveRedirect(id)
+	return owner.UpdateProxyRedirect(e, l4)
 }
 
 func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, newMap policy.L4PolicyMap) {
@@ -141,7 +113,7 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 		}
 
 		if v.L7Parser != "" {
-			if err := e.removeRedirect(owner, &v); err != nil {
+			if err := owner.RemoveProxyRedirect(e, &v); err != nil {
 				log.Warningf("error while removing proxy: %s", err)
 			}
 		}

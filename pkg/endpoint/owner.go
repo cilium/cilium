@@ -17,7 +17,6 @@ package endpoint
 import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy"
 )
 
 // Owner is the interface defines the requirements for anybody owning policies.
@@ -57,8 +56,11 @@ type Owner interface {
 	// Return the next available global identity
 	GetCachedMaxLabelID() (policy.NumericIdentity, error)
 
-	// Must return proxy object
-	GetProxy() *proxy.Proxy
+	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the prox
+	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter) (uint16, error)
+
+	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
+	RemoveProxyRedirect(e *Endpoint, l4 *policy.L4Filter) error
 
 	// Must synchronize endpoint object with datapath
 	WriteEndpoint(ep *Endpoint) error

@@ -97,8 +97,32 @@ type Daemon struct {
 	uniqueID   map[uint64]bool
 }
 
-func (d *Daemon) GetProxy() *proxy.Proxy {
-	return d.l7Proxy
+// UpdateProxyRedirect updates the redirect rules in the proxy for a particular
+// endpoint using the provided L4 filter. Returns the allocated proxy port
+func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) (uint16, error) {
+	if d.l7Proxy == nil {
+		return 0, fmt.Errorf("can't redirect, proxy disabled")
+	}
+
+	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
+	if err != nil {
+		return 0, err
+	}
+
+	return r.ToPort, nil
+}
+
+// RemoveProxyRedirect removes a previously installed proxy redirect for an
+// endpoint
+func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) error {
+	if d.l7Proxy == nil {
+		return nil
+	}
+
+	id := e.ProxyID(l4)
+	log.Debugf("Removing redirect %s from endpoint %d", id, e.ID)
+	return d.l7Proxy.RemoveRedirect(id)
 }
 
 func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
