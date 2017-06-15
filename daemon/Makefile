@@ -9,6 +9,15 @@ GO_BINDATA := go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore netdev_config.h -ignore node_config.h -ignore '.+\.o$$' \
 	-ignore '.+\.orig$$' -ignore '.+~$$' -ignore '\.DS_Store'
 GO_BINDATA_SHA1SUM=4c07b9aaa78073a929aa67dc4bcb862de58d7522
+# We keep track of the go version used to update bindata in case of failures.
+# Having the version will likely be useful in the cases where someone is using
+# a older or newer version than the CI.
+#
+# The GO_VERSION_USED will be modified by the apply-bindata target:
+# $ make -C daemon apply-bindata
+# Alternatively you could also run it from this directory:
+# $ make apply-bindata
+GO_VERSION_USED=go1.8.3
 
 all: $(TARGET)
 
