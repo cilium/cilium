@@ -107,9 +107,8 @@ func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error)
 	}
 
 	cfg := proxy.Configuration{
-		ID:          e.proxyID(l4),
-		Source:      e,
-		NodeAddress: owner.GetNodeAddress(),
+		ID:     e.proxyID(l4),
+		Source: e,
 	}
 
 	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)

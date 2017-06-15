@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
@@ -128,24 +129,24 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	}
 }
 
-func getCiliumEndpointID(cont *dTypes.ContainerJSON, gwIP *addressing.NodeAddress) uint16 {
+func getCiliumEndpointID(cont *dTypes.ContainerJSON) uint16 {
 	if cont.NetworkSettings == nil {
 		return 0
 	}
 
-	if ciliumIP := getCiliumIPv6(cont.NetworkSettings.Networks, gwIP); ciliumIP != nil {
+	if ciliumIP := getCiliumIPv6(cont.NetworkSettings.Networks); ciliumIP != nil {
 		return ciliumIP.EndpointID()
 	}
 	return 0
 }
 
-func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings, gwIP *addressing.NodeAddress) *addressing.CiliumIPv6 {
+func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.CiliumIPv6 {
 	for _, contNetwork := range networks {
 		if contNetwork == nil {
 			continue
 		}
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
-		if !ipv6gw.Equal(gwIP.IPv6Address.IP()) {
+		if !ipv6gw.Equal(nodeaddress.IPv6Address.IP()) {
 			continue
 		}
 		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
@@ -233,7 +234,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		if ep == nil {
 			// container id is yet unknown, try and find endpoint via
 			// the IP address assigned.
-			cid := getCiliumEndpointID(dockerContainer, d.conf.NodeAddress)
+			cid := getCiliumEndpointID(dockerContainer)
 			if cid != 0 {
 				endpointmanager.Mutex.Lock()
 				ep = endpointmanager.LookupCiliumIDLocked(cid)
@@ -403,7 +404,7 @@ func (d *Daemon) IgnoreRunningContainers() {
 		if cont.NetworkSettings == nil {
 			continue
 		}
-		cIP := getCiliumIPv6(cont.NetworkSettings.Networks, d.conf.NodeAddress)
+		cIP := getCiliumIPv6(cont.NetworkSettings.Networks)
 		if cIP == nil {
 			continue
 		}

@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package addressing
+package nodeaddress
 
 import (
 	"errors"
 	"fmt"
 	"net"
 
-	"github.com/vishvananda/netlink"
+	"github.com/cilium/cilium/common/addressing"
 
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -29,73 +30,77 @@ var (
 	ErrIPv4NotConfigured   = errors.New("No IPv4 address configured")
 	ErrNodeIPEndpointIDSet = errors.New("Endpoint ID set in IPv6 node address")
 	ErrNodeIDZero          = errors.New("Node ID is zero (invalid)")
+
+	// IPv6Address is the IPv6 address of the node
+	IPv6Address addressing.CiliumIPv6
+
+	// IPv6Route is the /128 route for the node address
+	IPv6Route net.IPNet
+
+	// IPv4Address is the IPv4 address of the node
+	IPv4Address addressing.CiliumIPv4
+
+	// IPv4Route is the /32 route for the node address
+	IPv4Route net.IPNet
 )
 
-type NodeAddress struct {
-	IPv6Address CiliumIPv6
-	IPv6Route   net.IPNet
-
-	IPv4Address CiliumIPv4
-	IPv4Route   net.IPNet
-}
-
-func (a *NodeAddress) String() string {
-	return a.IPv6Address.String()
-}
-
-// NewNodeAddress allocate a new node address.
-func NewNodeAddress(v6Address string, ipv4Range string, device string) (*NodeAddress, error) {
+// SetNodeAddress sets the node's IPv4 and IPv6 address. Multiple calls to this
+// function will overwrite the node address.
+func SetNodeAddress(v6Address string, ipv4Range string, device string) error {
 	v6, err := initIPv6Address(v6Address, device)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	v4, err := initIPv4Address(ipv4Range, device)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &NodeAddress{
-		IPv6Address: v6,
-		IPv6Route:   *v6.IPNet(128),
-		IPv4Address: v4,
-		IPv4Route:   *v4.IPNet(32),
-	}, nil
+	IPv6Address = v6
+	IPv6Route = *v6.IPNet(128)
+	IPv4Address = v4
+	IPv4Route = *v4.IPNet(32)
+
+	return nil
 }
 
-func (a *NodeAddress) IPv4ClusterRange() *net.IPNet {
+// IPv4ClusterRange returns the IPv4 prefix of the cluster
+func IPv4ClusterRange() *net.IPNet {
 	mask := net.CIDRMask(DefaultIPv4ClusterPrefixLen, 32)
 
 	return &net.IPNet{
-		IP:   a.IPv4Address.IP().Mask(mask),
+		IP:   IPv4Address.IP().Mask(mask),
 		Mask: mask,
 	}
 }
 
-func (a *NodeAddress) IPv4AllocRange() *net.IPNet {
+// IPv4AllocRange returns the IPv4 allocation prefix of this node
+func IPv4AllocRange() *net.IPNet {
 	mask := net.CIDRMask(DefaultIPv4PrefixLen, 32)
 
 	return &net.IPNet{
-		IP:   a.IPv4Address.IP().Mask(mask),
+		IP:   IPv4Address.IP().Mask(mask),
 		Mask: mask,
 	}
 }
 
-// IPv6ClusterRange returns the IPv6 cluster range
-func (a *NodeAddress) IPv6ClusterRange() *net.IPNet {
+// IPv6ClusterRange returns the IPv6 prefix of the clustr
+func IPv6ClusterRange() *net.IPNet {
 	mask := net.CIDRMask(DefaultIPv6ClusterPrefixLen, 128)
 
 	return &net.IPNet{
-		IP:   a.IPv6Address.IP().Mask(mask),
+		IP:   IPv6Address.IP().Mask(mask),
 		Mask: mask,
 	}
 }
 
-func (a *NodeAddress) IPv6AllocRange() *net.IPNet {
+// IPv6AllocRange returns the IPv6 allocation prefix of this node
+func IPv6AllocRange() *net.IPNet {
 	mask := net.CIDRMask(DefaultIPv6PrefixLen, 128)
 
 	return &net.IPNet{
-		IP:   a.IPv6Address.IP().Mask(mask),
+		IP:   IPv6Address.IP().Mask(mask),
 		Mask: mask,
 	}
 }
@@ -129,12 +134,12 @@ func firstGlobalV4Addr(intf string) (net.IP, error) {
 	return nil, ErrIPv4NotConfigured
 }
 
-func initIPv6Address(address string, device string) (CiliumIPv6, error) {
+func initIPv6Address(address string, device string) (addressing.CiliumIPv6, error) {
 	if address == "" {
 		address = DefaultIPv6Prefix
 	}
 
-	addressIP, err := NewCiliumIPv6(address)
+	addressIP, err := addressing.NewCiliumIPv6(address)
 	if err != nil {
 		return nil, err
 	}
@@ -154,13 +159,13 @@ func initIPv6Address(address string, device string) (CiliumIPv6, error) {
 		address = fmt.Sprintf("%s%02x%02x:%02x%02x:0:0",
 			addressIP.String(), ip[0], ip[1], ip[2], ip[3])
 
-		return NewCiliumIPv6(address)
+		return addressing.NewCiliumIPv6(address)
 	}
 
 	return addressIP, nil
 }
 
-func initIPv4Address(v4range string, device string) (CiliumIPv4, error) {
+func initIPv4Address(v4range string, device string) (addressing.CiliumIPv4, error) {
 	if v4range == "" {
 		ip, err := firstGlobalV4Addr(device)
 		if err != nil {
@@ -170,7 +175,7 @@ func initIPv4Address(v4range string, device string) (CiliumIPv4, error) {
 		v4range = fmt.Sprintf(DefaultIPv4Prefix, ip.To4()[3])
 	}
 
-	addressIP, err := NewCiliumIPv4(v4range)
+	addressIP, err := addressing.NewCiliumIPv4(v4range)
 	if err != nil {
 		return nil, err
 	}

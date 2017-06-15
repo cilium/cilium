@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
@@ -187,9 +187,8 @@ var gcOnce sync.Once
 
 // Configuration is used to pass configuration into CreateOrUpdateRedirect
 type Configuration struct {
-	ID          string
-	Source      ProxySource
-	NodeAddress addressing.NodeAddress
+	ID     string
+	Source ProxySource
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
@@ -257,8 +256,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, cfg Configuration) (
 		epID:     cfg.Source.GetID(),
 		l4:       *l4,
 		nodeInfo: NodeAddressInfo{
-			IPv4: cfg.NodeAddress.IPv4Address.String(),
-			IPv6: cfg.NodeAddress.IPv6Address.String(),
+			IPv4: nodeaddress.IPv4Address.String(),
+			IPv6: nodeaddress.IPv6Address.String(),
 		},
 	}
 

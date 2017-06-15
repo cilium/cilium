@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -38,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -228,7 +228,7 @@ func init() {
 	flags.StringVarP(&config.DockerEndpoint, "docker", "e", "unix:///var/run/docker.sock",
 		"Register a listener for docker events on the given endpoint")
 	flags.BoolVar(&enableTracing, "enable-tracing", false, "Enable tracing while determining policy")
-	flags.StringVar(&nat46prefix, "nat46-range", addressing.DefaultNAT46Prefix,
+	flags.StringVar(&nat46prefix, "nat46-range", nodeaddress.DefaultNAT46Prefix,
 		"IPv6 prefix to map IPv4 addresses to")
 	flags.StringVar(&config.K8sEndpoint, "k8s-api-server", "", "Kubernetes api address server")
 	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
@@ -426,12 +426,10 @@ func initEnv() {
 
 	config.NAT46Prefix = r
 
-	nodeAddress, err := addressing.NewNodeAddress(v6Address, v4Prefix, config.Device)
+	err = nodeaddress.SetNodeAddress(v6Address, v4Prefix, config.Device)
 	if err != nil {
 		log.Fatalf("Unable to parse node address: %s", err)
 	}
-
-	config.NodeAddress = nodeAddress
 
 	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {
 		config.K8sEndpoint = "http://" + config.K8sEndpoint

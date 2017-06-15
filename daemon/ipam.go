@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
@@ -179,7 +180,7 @@ func (h *deleteIPAMIP) Handle(params ipam.DeleteIPAMIPParams) middleware.Respond
 }
 
 func (d *Daemon) isReservedAddress(ip net.IP) bool {
-	return !d.conf.IPv4Disabled && d.conf.NodeAddress.IPv4Address.IP().Equal(ip)
+	return !d.conf.IPv4Disabled && nodeaddress.IPv4Address.IP().Equal(ip)
 }
 
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
@@ -196,7 +197,7 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	if !d.conf.IPv4Disabled {
 		ralv4 := k8sAPI.RangeAllocation{}
 		d.ipamConf.IPv4Allocator.Snapshot(&ralv4)
-		origIP := big.NewInt(0).SetBytes(d.conf.NodeAddress.IPv4AllocRange().IP)
+		origIP := big.NewInt(0).SetBytes(nodeaddress.IPv4AllocRange().IP)
 		v4Bits := big.NewInt(0).SetBytes(ralv4.Data)
 		for i := 0; i < v4Bits.BitLen(); i++ {
 			if v4Bits.Bit(i) != 0 {
@@ -208,7 +209,7 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	allocv6 := []string{}
 	ralv6 := k8sAPI.RangeAllocation{}
 	d.ipamConf.IPv6Allocator.Snapshot(&ralv6)
-	origIP := big.NewInt(0).SetBytes(d.conf.NodeAddress.IPv6AllocRange().IP)
+	origIP := big.NewInt(0).SetBytes(nodeaddress.IPv6AllocRange().IP)
 	v6Bits := big.NewInt(0).SetBytes(ralv6.Data)
 	for i := 0; i < v6Bits.BitLen(); i++ {
 		if v6Bits.Bit(i) != 0 {
