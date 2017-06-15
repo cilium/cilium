@@ -99,7 +99,8 @@ func setFireLevels(level logrus.Level) []logrus.Level {
 // SetupLogging sets up each logging service provided in loggers and configures
 // each logger with the provided logOpts.
 func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug bool) error {
-	setupFormatter()
+	// FIXME: Disabled for now
+	//setupFormatter()
 
 	// Set default logger to output to stdout if no loggers are provided.
 	if len(loggers) == 0 {
