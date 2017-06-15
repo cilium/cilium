@@ -30,3 +30,5 @@ coverage-all.html
 .DS_Store
 .idea/
 *.plist
+
+daemon/bindata.go
