@@ -8,6 +8,7 @@ GO_BINDATA := go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \
 	-ignore netdev_config.h -ignore node_config.h -ignore '.+\.o$$' \
 	-ignore '.+\.orig$$' -ignore '.+~$$' -ignore '\.DS_Store'
+GO_BINDATA_SHA1SUM=4c07b9aaa78073a929aa67dc4bcb862de58d7522
 
 all: $(TARGET)
 
@@ -31,16 +32,11 @@ install:
 endif
 
 .PHONY: check-bindata
-check-bindata:
-	@which go-bindata > /dev/null 2> /dev/null || exit 0 && \
-	($(GO_BINDATA)  -o ./bindata.tmp ../bpf/...; \
-	diff -Nru bindata.go bindata.tmp; FAIL=$$?; rm bindata.tmp; test $$FAIL -eq 1 && (\
-	echo "##################################################################"; \
-	echo ""; \
-	echo "  ERROR: bindata.go is out of date. Run 'make go-bindata' in daemon/"; \
-	echo ""; \
-	echo "##################################################################" ); \
-	exit $$FAIL)
+check-bindata: go-bindata
+	../contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
+
+apply-bindata: go-bindata
+	../contrib/scripts/bindata.sh apply
 
 go-bindata:
 	$(GO_BINDATA) -o ./bindata.go ../bpf/...
