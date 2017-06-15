@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -78,9 +77,6 @@ type Owner interface {
 
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
-
-	// GetNodeAddress returns the node's address
-	GetNodeAddress() addressing.NodeAddress
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints
