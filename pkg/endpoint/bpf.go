@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -310,7 +311,10 @@ func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
 	}
 	if err != nil {
 		log.Warningf("Command execution failed: %s", err)
-		log.Warningf("Command output:\n%s", out)
+		scanner := bufio.NewScanner(bytes.NewReader(out))
+		for scanner.Scan() {
+			log.Warning(scanner.Text())
+		}
 		return fmt.Errorf("error: %q command output: %q", err, out)
 	}
 
