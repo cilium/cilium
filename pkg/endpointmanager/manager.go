@@ -67,6 +67,21 @@ func LookupDockerID(id string) *endpoint.Endpoint {
 	return lookupDockerIDLocked(id)
 }
 
+func lookupIPv4Locked(ipv4 string) *endpoint.Endpoint {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ipv4)]; ok {
+		return ep
+	}
+	return nil
+}
+
+// LookupIPv4 looks up endpoint by IPv4 address
+func LookupIPv4(ipv4 string) *endpoint.Endpoint {
+	Mutex.Lock()
+	defer Mutex.Unlock()
+
+	return lookupIPv4Locked(ipv4)
+}
+
 func lookupDockerIDLocked(id string) *endpoint.Endpoint {
 	if ep, ok := endpointsAux[endpoint.NewID(endpoint.ContainerIdPrefix, id)]; ok {
 		return ep
@@ -84,10 +99,8 @@ func LinkContainerID(ep *endpoint.Endpoint) {
 	linkContainerID(ep)
 }
 
-// Insert inserts the endpoint into the global maps
-func Insert(ep *endpoint.Endpoint) {
-	Endpoints[ep.ID] = ep
-
+// UpdateReferences makes an endpoint available
+func updateReferences(ep *endpoint.Endpoint) {
 	if ep.DockerID != "" {
 		linkContainerID(ep)
 	}
@@ -95,6 +108,25 @@ func Insert(ep *endpoint.Endpoint) {
 	if ep.DockerEndpointID != "" {
 		endpointsAux[endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
 	}
+
+	if ep.IPv4.String() != "" {
+		endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String())] = ep
+	}
+}
+
+// UpdateReferences makes an endpoint available by all possible reference
+// fields as available for this endpoint (containerID, IPv4 address, ...)
+func UpdateReferences(ep *endpoint.Endpoint) {
+	Mutex.RLock()
+	defer Mutex.RUnlock()
+
+	updateReferences(ep)
+}
+
+// Insert inserts the endpoint into the global maps
+func Insert(ep *endpoint.Endpoint) {
+	Endpoints[ep.ID] = ep
+	updateReferences(ep)
 }
 
 // RemoveLocked removes the endpoint from the global maps. Mutex must be held
@@ -108,6 +140,11 @@ func RemoveLocked(ep *endpoint.Endpoint) {
 	if ep.DockerEndpointID != "" {
 		delete(endpointsAux, endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerID))
 	}
+
+	if ep.IPv4.String() != "" {
+		delete(endpointsAux, endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String()))
+	}
+
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -138,6 +175,9 @@ func LookupLocked(id string) (*endpoint.Endpoint, error) {
 
 	case endpoint.DockerEndpointPrefix:
 		return lookupDockerEndpointLocked(eid), nil
+
+	case endpoint.IPv4Prefix:
+		return lookupIPv4Locked(eid), nil
 
 	default:
 		return nil, fmt.Errorf("Unknown endpoint prefix %s", prefix)

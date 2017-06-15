@@ -29,6 +29,10 @@ const (
 	CiliumGlobalIdPrefix            = "cilium-global"
 	ContainerIdPrefix               = "container-id"
 	DockerEndpointPrefix            = "docker-endpoint"
+
+	// IPv4Prefix is the prefix used in Cilium IDs when the identifier is
+	// the IPv4 address of the endpoint
+	IPv4Prefix = "ipv4"
 )
 
 func NewCiliumID(id int64) string {

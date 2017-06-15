@@ -55,12 +55,23 @@ const (
 	Egress ObservationPoint = "Egress"
 )
 
+// IPVersion is the type used to indicate IP version
+type IPVersion byte
+
+const (
+	// VersionIPv4 indicates IPv4
+	VersionIPv4 IPVersion = iota
+	// VersionIPV6 indicates IPv6
+	VersionIPV6
+)
+
 // EndpointInfo contains information about the endpoint sending/receiving the
 // request/response
 type EndpointInfo struct {
 	ID       uint64
 	IPv4     string
 	IPv6     string
+	Port     uint16
 	Identity uint64
 	Labels   []string
 }
@@ -93,18 +104,13 @@ type LogRecord struct {
 	ObservationPoint ObservationPoint
 
 	// SourceEndpoint is information about the soure endpoint if available
-	SourceEndpoint *EndpointInfo `json:"SourceEndpoint,omitempty"`
+	SourceEndpoint EndpointInfo
 
 	// DestinationEndpoint is information about the soure endpoint if available
-	DestinationEndpoint *EndpointInfo `json:"DestinationEndpoint,omitempty"`
+	DestinationEndpoint EndpointInfo
 
-	// Source is the IP and port of the endpoint that generated the
-	// request
-	Source IPPort
-
-	// Destination is the IP and port of the endpoint that is receiving the
-	// request
-	Destination IPPort
+	// IPVersion indicates the version of the IP protocol in use
+	IPVersion IPVersion
 
 	// Verdict is the verdict on the flow taken
 	Verdict FlowVerdict
