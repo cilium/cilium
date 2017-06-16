@@ -103,7 +103,7 @@ func (l *LocalClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 			log.Error(err)
 			fallthrough
 		case value == nil:
-			log.Infof("Empty FreeID, setting it up with default value %d", firstID)
+			log.Debugf("Empty FreeID, setting it up with default value %d", firstID)
 			if err := l.InitializeFreeID(key, firstID); err != nil {
 				return 0, err
 			}
@@ -122,7 +122,7 @@ func (l *LocalClient) SetMaxID(key string, firstID, maxID uint32) error {
 	value, _ := l.GetValue(key)
 	if value == nil {
 		// FreeID is empty? We should set it out!
-		log.Infof("Empty FreeID, setting it up with default value %d", firstID)
+		log.Debugf("Empty FreeID, setting it up with default value %d", firstID)
 		if err := l.InitializeFreeID(key, firstID); err != nil {
 			return err
 		}

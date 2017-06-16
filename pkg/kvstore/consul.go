@@ -143,12 +143,12 @@ func (c *ConsulClient) InitializeFreeID(path string, firstID uint32) error {
 		// FreeID already set
 		return nil
 	}
-	log.Info("Trying to put free ID...")
+	log.Debugf("Trying to put free ID...")
 	_, err = c.KV().Put(p, nil)
 	if err != nil {
 		return err
 	}
-	log.Infof("Free ID for path %s successfully initialized", path)
+	log.Debugf("Free ID for path %s successfully initialized", path)
 
 	return nil
 }
@@ -183,7 +183,7 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	}
 	if k == nil {
 		// FreeID is empty? We should set it out!
-		log.Infof("Empty FreeID, setting it up with default value %d", firstID)
+		log.Debugf("Empty FreeID, setting it up with default value %d", firstID)
 		if err := c.InitializeFreeID(key, firstID); err != nil {
 			return 0, err
 		}

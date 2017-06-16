@@ -332,7 +332,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("Created new endpoint: endpoint-id=%s", create.EndpointID)
+	log.Debugf("Created new endpoint: endpoint-id=%s", create.EndpointID)
 
 	respIface := &api.EndpointInterface{
 		// Fixme: the lxcmac is an empty string at this point and we only know the

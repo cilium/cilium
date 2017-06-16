@@ -230,12 +230,12 @@ func (e *EtcdClient) InitializeFreeID(path string, firstID uint32) error {
 		// FreeID already set
 		return nil
 	}
-	log.Info("Trying to put free ID...")
+	log.Debugf("Trying to put free ID...")
 	err = e.SetValue(path, firstID)
 	if err != nil {
 		return err
 	}
-	log.Infof("Free ID for path %s successfully initialized", path)
+	log.Debugf("Free ID for path %s successfully initialized", path)
 
 	return nil
 }
@@ -256,7 +256,7 @@ func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 		case err != nil:
 			return 0, err
 		case value == nil:
-			log.Infof("Empty FreeID, setting it up with default value %d", firstID)
+			log.Debugf("Empty FreeID, setting it up with default value %d", firstID)
 			if err := e.InitializeFreeID(key, firstID); err != nil {
 				return 0, err
 			}
@@ -278,7 +278,7 @@ func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 	}
 	if value == nil {
 		// FreeID is empty? We should set it out!
-		log.Infof("Empty FreeID, setting it up with default value %d", firstID)
+		log.Debugf("Empty FreeID, setting it up with default value %d", firstID)
 		if err := e.InitializeFreeID(key, firstID); err != nil {
 			return err
 		}
