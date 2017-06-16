@@ -24,7 +24,7 @@ Summary
 ^^^^^^^
 
 When running Cilium using the container image ``cilium/cilium``, these are
-the requirements your system has to fulfil:
+the requirements your system has to fulfill:
 
 - `Linux kernel`_ >= 4.8 (>= 4.9.17 LTS recommended)
 - Key-Value store (see :ref:`req_kvstore` for version details)
@@ -73,7 +73,7 @@ Cilium leverages and builds on the kernel functionality BPF as well as various
 subsystems which integrate with BPF. Therefore, all systems that will run a
 Cilium agent are required to run the Linux kernel version 4.8.0 or later.
 
-The 4.8.0 kernel is minimal kernel version required, more recent kernels may
+The 4.8.0 kernel is the minimal kernel version required, more recent kernels may
 provide additional BPF functionality. Cilium will automatically detect
 additional available functionality by probing for the functionality when the
 agent starts.
@@ -146,13 +146,13 @@ Installation on Kubernetes
 --------------------------
 
 This section describes how to install and run Cilium on Kubernetes. The
-deployment method using is called DaemonSet_ which is the easiest way to deploy
+deployment method we are using is called DaemonSet_ which is the easiest way to deploy
 Cilium in a Kubernetes environment. It will request Kubernetes to automatically
 deploy and run a ``cilium/cilium`` container image as a pod on all Kubernetes
 worker nodes.
 
 Should you encounter any issues during the installation, please refer to the
-:ref:`admin_k8s_troubleshooting` section and/or seek help on `Slack channel`_.
+:ref:`admin_k8s_troubleshooting` section and / or seek help on `Slack channel`_.
 
 TL;DR Version (Expert Mode)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -553,7 +553,7 @@ Installation From Source
 
 If for some reason you do not want to run Cilium as a contaimer image.
 Installing it from source is possible as well. It does come with additional
-dependencies described in :ref:` admin_system_reqs`.
+dependencies described in :ref:`admin_system_reqs`.
 
 1. Download & extract the latest Cilium release from the ReleasesPage_
 
@@ -570,7 +570,7 @@ dependencies described in :ref:` admin_system_reqs`.
 .. code:: bash
 
    $ make
-   $ sudo make instal
+   $ sudo make install
 
 3. Optional: Install systemd/upstart init files:
 
@@ -587,7 +587,7 @@ The networking configuration required on your Linux container node
 depends on the IP interconnectivity model in use and whether the
 deployment requires containers in the cluster to reach or be reached by
 resources outside the cluster.  For more details, see the
-Architecture Guide's section on :ref:`arch_ip_connectivity` .
+Architecture Guide's section on :ref:`arch_ip_connectivity`.
 
 Overlay Mode - Container-to-Container Access
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -911,7 +911,7 @@ from the BPF based datapath. Debugging messages are sent if either the
 mode of the agent can be enabled by starting ``cilium-agent`` with the option
 ``--debug`` enabled or by running ``cilium config debug=true`` for an already
 running agent. Debugging of an individual endpoint can be enabled by running
-``cilium endpoint config ID Debug=true```
+``cilium endpoint config ID Debug=true``
 
 
 .. code:: bash

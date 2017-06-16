@@ -5,7 +5,7 @@ Getting Started Guide
 
 This document serves as the easiest introduction to using Cilium.
 It is a detailed walk through of getting a single-node Cilium environment running on
-your laptop/desktop.  It is designed to take 15-30 minutes.
+your machine. It is designed to take 15-30 minutes.
 
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
@@ -17,7 +17,7 @@ Both guides follow the same basic flow.   The flow in the Kubernetes variant
 is more realistic of a production deployment, but is also a bit more complex.
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_ .  With Cilium contributors
+Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
 across the globe, there is almost always someone available to help.
 
 Getting Started Using Kubernetes
@@ -26,7 +26,7 @@ Getting Started Using Kubernetes
 This guide uses `minikube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
 to demonstrate deployment and operation of Cilium in a single-node Kubernetes cluster.
 The minikube VM requires approximately 2 GB of RAM and supports hypervisors like VirtualBox
-that run on Linux, Mac OS X, and Windows.
+that run on Linux, macOS, and Windows.
 
 If you instead want to understand the details of
 deploying Cilium on a full fledged Kubernetes cluster, then go straight to
@@ -38,7 +38,7 @@ Step 0: Install kubectl & minikube
 Install ``kubectl`` version ``>= 1.6.3`` as described in the `Kubernetes Docs
 <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 
-Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_ .
+Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
 
 Install ``minikube`` 0.19 as described on `minikube's github page
 <https://github.com/kubernetes/minikube/releases>`_.
@@ -119,7 +119,7 @@ to access *app1*.
 
 .. image:: cilium_gsg_k8s_topo.png
 
-The file ``demo.yaml`` contains a Kubernetes Deployment for each of three applications,
+The file ``demo.yaml`` contains a Kubernetes Deployment for each of the three applications,
 with each deployment identified using the Kubernetes labels id=app1, id=app2,
 and id=app3.
 It also include a app1-service, which load-balances traffic to all pods with label id=app1.
@@ -388,7 +388,7 @@ Getting Started Using Docker
 -----------------------------
 
 The tutorial leverages Vagrant and VirtualBox , and as such should run on any
-operating system supported by Vagrant, including Linux, MacOS X, and Windows.
+operating system supported by Vagrant, including Linux, macOS, and Windows.
 
 Step 0: Install Vagrant
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -441,7 +441,7 @@ it will print:
 
 If the script exits with an error message, do not attempt to proceed with the
 tutorial, as later steps will not work properly.   Instead, contact us on the
-`Cilium Slack channel <https://cilium.herokuapp.com>`_ .
+`Cilium Slack channel <https://cilium.herokuapp.com>`_.
 
 Step 3: Accessing the VM
 ^^^^^^^^^^^^^^^^^^^^^^^^

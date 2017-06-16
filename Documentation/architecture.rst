@@ -153,7 +153,7 @@ Labels
 
 Labels are a generic, flexible and highly scaleable way of addressing a large
 set of resources as they allow for arbitrary grouping and creation of sets.
-Whenever something needs to be descried, addressed or selected this is done
+Whenever something needs to be described, addressed or selected this is done
 based on labels:
 
 - Endpoints are assigned labels as derived from container runtime or the
@@ -174,7 +174,7 @@ is optional and can be omitted, e.g. ``io.cilium.mykey``.
 Key names should typically consist of the character set ``[a-z0-9-.]``.
 
 When using labels to select resources, both the key and the value must match,
-e.g. when a policy should be applied to all endpoints will label
+e.g. when a policy should be applied to all endpoints with the label
 ``my.corp.foo`` then the label ``my.corp.foo=bar`` will not match the
 selector.
 
