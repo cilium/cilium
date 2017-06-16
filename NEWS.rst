@@ -74,7 +74,6 @@ Fixes
   - Fix addition/deletion order when updating endpoint labels (647_)
   - Graceful exit if lack of privileges (694_)
   - use same tuple struct for both global and local CT (822_)
-  - bpf/init.sh: More robust deletion of routes. (719_)
   - lxc endianess & src validation fixes (747_)
 
 - Kubernetes
