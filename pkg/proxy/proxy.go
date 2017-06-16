@@ -206,10 +206,9 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 			info.IPv4 = ip.String()
 			if nodeaddress.IPv4ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv4(ip)
-				info.ID = uint64(c.EndpointID())
-
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
+					info.ID = uint64(ep.ID)
 					info.Labels = ep.GetLabels()
 					info.Identity = uint64(ep.GetIdentity())
 				}
