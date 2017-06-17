@@ -56,7 +56,7 @@ func bpfloader(args ...string) error {
 			cmd := fmt.Sprintf("sysctl -w net.ipv6.conf.all.forwarding=1")
 			execute(cmd, true, "")
 
-			cmd = fmt.Sprintf("cilium identity get %s", WorldID)
+			cmd = fmt.Sprintf("cilium identity get %s", worldID)
 			id, err := execute(cmd, false, "")
 			if err != nil {
 				fmt.Errorf("Failed to get World ID %v", err)
@@ -79,7 +79,7 @@ func bpfloader(args ...string) error {
 			cmd := fmt.Sprintf("sysctl -w net.ipv6.conf.all.forwarding=1")
 			execute(cmd, true, "")
 
-			hostID := fmt.Sprintf("cilium identity get %s", HostID)
+			hostID := fmt.Sprintf("cilium identity get %s", hostID)
 			identity, err := execute(hostID, false, "")
 			if err != nil {
 				return fmt.Errorf("failed to get host id using cilium cmd for %s, debug it manually", err)
@@ -151,7 +151,7 @@ func loaderVxlan(stateDir, bpfDir string) error {
 	}
 
 	//FIXME, need to optimize
-	cmd := fmt.Sprintf("cilium identity get %s", WorldID)
+	cmd := fmt.Sprintf("cilium identity get %s", worldID)
 	id, err := execute(cmd, false, "")
 	if err != nil {
 		return fmt.Errorf("failed to get world_id identity: %s", id)
@@ -198,7 +198,7 @@ func loaderGeneve(stateDir, bpfDir string) error {
 	}
 
 	//FIXME, write in C ??
-	cmd := fmt.Sprintf("cilium identity get %s", WorldID)
+	cmd := fmt.Sprintf("cilium identity get %s", worldID)
 	identity, err := execute(cmd, false, "")
 	if err != nil {
 		return fmt.Errorf("failed to get world_id identity: %s", identity)

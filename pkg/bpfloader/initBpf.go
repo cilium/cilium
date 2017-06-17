@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	HostID     = "host"
-	WorldID    = "world"
+	hostID     = "host"
+	worldID    = "world"
 	hostDev    = "cilium_host"
 	netDev     = "cilium_net"
 	nodeConfig = "/globals/node_config.h"
@@ -59,7 +59,7 @@ func bpfCompile(dev, opts, in, out, section, stateDir, bpfDir string) error {
 	return nil
 }
 
-//this is the entry to read necessary args to compile and load bpf programs.
+//InitBpf is the entry to read necessary args to compile and load bpf programs.
 func InitBpf(args ...string) error {
 
 	//Fixme, to make more readable and propre
@@ -178,10 +178,10 @@ func ciliumVethPair(stateDir, nodeAddr, ipv4Addr, bpfDir string) error {
 	}
 
 	//FIXME, need to rewrite in C ??
-	hid:= fmt.Sprintf("cilium identity get %s", HostID)
+	hid:= fmt.Sprintf("cilium identity get %s", hostID)
 	id, err := execute(hid, false, "")
 	if err != nil {
-		return fmt.Errorf("failed to get identity %s, %v", HostID, err)
+		return fmt.Errorf("failed to get identity %s, %v", hostID, err)
 	}
 	intid, _ := strconv.Atoi(id)
 	opts := fmt.Sprintf("-DFIXED_SRC_SECCTX=%v -DSECLABEL=%v -DPOLICY_MAP=cilium_policy_reserved_%v -DCALLS_MAP=cilium_calls_netdev_ns_%v", intid, intid, intid, intid)
