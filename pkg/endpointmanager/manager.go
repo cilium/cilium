@@ -25,6 +25,10 @@ import (
 
 var (
 	// Mutex protects Endpoints and endpointsAux
+	//
+	// Warning: This lock may not be taken while an individual endpoint
+	// lock is being held. If you require to hold both, then the global
+	// endpointmanager lock must always be acquired first.
 	Mutex sync.RWMutex
 
 	// Endpoints is the global list of endpoints indexed by ID. Mutex must

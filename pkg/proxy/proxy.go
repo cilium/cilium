@@ -192,11 +192,13 @@ type Configuration struct {
 }
 
 func (r *Redirect) localEndpointInfo(info *EndpointInfo) {
+	r.source.RLock()
 	info.ID = r.epID
 	info.IPv4 = r.source.GetIPv4Address()
 	info.IPv6 = r.source.GetIPv6Address()
 	info.Labels = r.source.GetLabels()
 	info.Identity = uint64(r.source.GetIdentity())
+	r.source.RUnlock()
 }
 
 func parseIPPort(ipstr string, info *EndpointInfo) {
@@ -221,10 +223,12 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 				info.ID = uint64(id)
 
 				ep := endpointmanager.LookupCiliumID(id)
+				ep.RLock()
 				if ep != nil {
 					info.Labels = ep.GetLabels()
 					info.Identity = uint64(ep.GetIdentity())
 				}
+				ep.RUnlock()
 			}
 		}
 	}
@@ -340,7 +344,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		ToPort:   to,
 		source:   source,
 		router:   route.New(),
-		epID:     source.GetID(),
 		l4:       *l4,
 		nodeInfo: NodeAddressInfo{
 			IPv4: nodeaddress.IPv4Address.String(),
@@ -348,8 +351,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		},
 	}
 
+	redir.epID = source.GetID()
+
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		redir.source.RLock()
 		record := &LogRecord{
 			request:         *req,
 			Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
@@ -377,7 +381,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		}
 
 		record.DestinationEndpoint = redir.getDestinationInfo(dstIPPort)
-		redir.source.RUnlock()
 
 		// Validate access to L4/L7 resource
 		p.mutex.Lock()
