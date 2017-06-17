@@ -40,9 +40,9 @@ All components will be running in containers **except** kubelet and etcd.
 
 This node will have 3 static IPs and 2 interfaces:
 
-`enp0s8`: `192.168.33.11/24` and `fd01::b/16`
+`enp0s8`: `192.168.36.11/24` and `fd01::b/16`
 
-`enp0s9`: `192.168.34.11/24`
+`enp0s9`: `192.168.37.11/24`
 
 #### `cilium-k8s-node-2`
 
@@ -50,9 +50,9 @@ This node will have 3 static IPs and 2 interfaces:
 
 This node will also have the 3 static IPs and 2 interfaces:
 
-`enp0s8`: `192.168.33.12/24` and `fd01::c/16`
+`enp0s8`: `192.168.36.12/24` and `fd01::c/16`
 
-`enp0s9`: `192.168.34.12/24`
+`enp0s9`: `192.168.37.12/24`
 
 ### Switching between IPv4 and IPv6
 

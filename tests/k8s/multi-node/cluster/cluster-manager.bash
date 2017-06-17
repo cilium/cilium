@@ -32,7 +32,7 @@ EOF
     else
         cat <<'EOF' > "${dir}/env.bash"
 # IPv4
-controller_ip="192.168.33.11"
+controller_ip="192.168.36.11"
 controller_ip_brackets="${controller_ip}"
 local="127.0.0.1"
 local_with_brackets="${local}"
@@ -358,7 +358,7 @@ function deploy_cilium(){
         # FIX ME: Once we know how to get the node address
         # and set the routes automatically, remove this hack
         node_selector='"kubernetes.io/hostname": "cilium-k8s-master"'
-        node_address='- "--node-address=F00D::C0A8:210B:0:0"'
+        node_address='- "--node-address=F00D::C0A8:240B:0:0"'
         ipv4_range='- "--ipv4-range=10.11.0.1/16"'
 
         sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
@@ -370,7 +370,7 @@ function deploy_cilium(){
             "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds-1.yaml"
 
         node_selector='"kubernetes.io/hostname": "cilium-k8s-node-2"'
-        node_address='- "--node-address=F00D::C0A8:210C:0:0"'
+        node_address='- "--node-address=F00D::C0A8:240C:0:0"'
         ipv4_range='- "--ipv4-range=10.12.0.1/16"'
 
         sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\

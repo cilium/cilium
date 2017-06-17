@@ -42,7 +42,7 @@ $job_name = ENV['JOB_NAME'] || "local"
 $docker_image_tag=ENV['DOCKER_IMAGE_TAG'] || "local_build"
 $build_number = ENV['BUILD_NUMBER'] || "0"
 $build_id = "#{$job_name}-#{$build_number}"
-$node_ip = "192.168.33.15"
+$node_ip = "192.168.35.15"
 Vagrant.configure(2) do |config|
     config.vm.box = "bento/ubuntu-16.10"
 

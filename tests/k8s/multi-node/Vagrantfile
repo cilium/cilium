@@ -38,7 +38,7 @@ ip r a 10.12.0.1/32 dev enp0s8
 ip r a 10.12.0.0/16 via 10.12.0.1
 
 # node-2 cilium IPv6 route
-ip -6 r a F00D::C0A8:210C:0:0/96 via FD01::C
+ip -6 r a F00D::C0A8:240C:0:0/96 via FD01::C
 echo "FD01::C cilium-k8s-node-2" >> /etc/hosts
 
 SCRIPT
@@ -53,7 +53,7 @@ ip r a 10.11.0.1/32 dev enp0s8
 ip r a 10.11.0.0/16 via 10.11.0.1
 
 # master cilium IPv6 route
-ip -6 r a F00D::C0A8:210B:0:0/96 via FD01::B
+ip -6 r a F00D::C0A8:240B:0:0/96 via FD01::B
 echo "FD01::B cilium-k8s-master" >> /etc/hosts
 
 SCRIPT
@@ -79,8 +79,8 @@ Vagrant.configure(2) do |config|
 
 	node_vm_name = "cilium-k8s-master"
 	config.vm.define node_vm_name do |master|
-		master.vm.network "private_network", ip: "192.168.33.11", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
-		master.vm.network "private_network", ip: "192.168.34.11", bridge: "enp0s9"
+		master.vm.network "private_network", ip: "192.168.36.11", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+		master.vm.network "private_network", ip: "192.168.37.11", bridge: "enp0s9"
 		master.vm.hostname = "cilium-k8s-master"
 		master.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
 		master.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
@@ -88,8 +88,8 @@ Vagrant.configure(2) do |config|
 
 	node_vm_name = "cilium-k8s-node-2"
 	config.vm.define node_vm_name do |node|
-		node.vm.network "private_network", ip: "192.168.33.12", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
-		node.vm.network "private_network", ip: "192.168.34.12", bridge: "enp0s9"
+		node.vm.network "private_network", ip: "192.168.36.12", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+		node.vm.network "private_network", ip: "192.168.37.12", bridge: "enp0s9"
 		node.vm.hostname = "cilium-k8s-node-2"
 		node.vm.provision "cilium-node-2-netconfig", type: "shell", run: "always", inline: $cilium_node_2
 		node.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
