@@ -7,7 +7,6 @@ build: clean
 	@$(CURDIR)/../cp-dirs.sh $(BUILDDIR)
 	cp -v ../../../Dockerfile $(BUILDDIR)
 	find $(BUILDDIR) -name ".*" -prune ! -name ".git"  -exec rm -rf {} \;
-	$(MAKE) -C $(BUILDDIR) clean
 	docker build -t "cilium:$(DOCKER_IMAGE_TAG)" $(BUILDDIR)
 
 clean:
