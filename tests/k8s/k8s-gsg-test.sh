@@ -29,7 +29,7 @@ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/example
 echo "----- deploying Cilium Daemon Set onto cluster -----"
 wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
 sed -i s/"\/var\/lib\/kubelet\/kubeconfig"/"\/etc\/kubernetes\/kubelet.conf"/g cilium-ds.yaml
-sed -i s/"cilium\/cilium:stable"/"localhost:5000\/cilium:build_test"/g cilium-ds.yaml
+sed -i s/"cilium\/cilium:stable"/"localhost:5000\/cilium:${DOCKER_IMAGE_TAG}"/g cilium-ds.yaml
 kubectl apply -f cilium-ds.yaml
 
 until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ print $4}' | grep -c '1')" -eq "3" ]; do
