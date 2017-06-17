@@ -33,7 +33,7 @@ func command(cmd string) ([]byte, error) {
 	exec := exec.New()
 	output, err := exec.Command("/bin/sh", "-c", cmd).CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("%s failed due to %v : %s ", cmd, err, string(output))
+		return nil, fmt.Errorf("%s failed due to %v : %s", cmd, err, string(output))
 	}
 	return output, err
 }

@@ -40,13 +40,13 @@ func bpfloader(args ...string) error {
 	case "vxlan":
 		{
 			if err := loaderVxlan(stateDir, bpfDir); err != nil {
-				return fmt.Errorf(" failed to load bpf program in vxlan mode %s", err)
+				return fmt.Errorf("failed to load bpf program in vxlan mode %s", err)
 			}
 		}
 	case "geneve":
 		{
 			if err := loaderGeneve(stateDir, bpfDir); err != nil {
-				return fmt.Errorf(" failed to load bpf program in geneve mode %s", err)
+				return fmt.Errorf("failed to load bpf program in geneve mode %s", err)
 			}
 
 		}
@@ -56,7 +56,7 @@ func bpfloader(args ...string) error {
 			cmd := fmt.Sprintf("sysctl -w net.ipv6.conf.all.forwarding=1")
 			execute(cmd, true, "")
 
-			cmd = fmt.Sprintf("cilium identity get %s", WorldId)
+			cmd = fmt.Sprintf("cilium identity get %s", WorldID)
 			id, err := execute(cmd, false, "")
 			if err != nil {
 				fmt.Errorf("Failed to get World ID %v", err)
@@ -79,7 +79,7 @@ func bpfloader(args ...string) error {
 			cmd := fmt.Sprintf("sysctl -w net.ipv6.conf.all.forwarding=1")
 			execute(cmd, true, "")
 
-			hostID := fmt.Sprintf("cilium identity get %s", HostId)
+			hostID := fmt.Sprintf("cilium identity get %s", HostID)
 			identity, err := execute(hostID, false, "")
 			if err != nil {
 				return fmt.Errorf("failed to get host id using cilium cmd for %s, debug it manually", err)
@@ -92,7 +92,7 @@ func bpfloader(args ...string) error {
 			fpath := filepath.Join(stateDir, devState)
 			err = ioutil.WriteFile(fpath, []byte(nativeDev), 7550)
 			if err != nil {
-				return fmt.Errorf(" writing data to file %v failed, please check", fpath)
+				return fmt.Errorf("writing data to file %v failed, please check", fpath)
 			}
 
 		}
@@ -145,13 +145,16 @@ func loaderVxlan(stateDir, bpfDir string) error {
 	fileName := filepath.Join(stateDir, nodeConfig)
 	f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_APPEND, 0644)
 	defer f.Close()
-	f.WriteString(data)
+	_, err = f.WriteString(data)
+	if err != nil {
+		fmt.Errorf("failed to write data %v to file %v", data, f)
+	}
 
 	//FIXME, need to optimize
-	cmd := fmt.Sprintf("cilium identity get %s", WorldId)
+	cmd := fmt.Sprintf("cilium identity get %s", WorldID)
 	id, err := execute(cmd, false, "")
 	if err != nil {
-		return fmt.Errorf("failed to get world_id identity: %s ", id)
+		return fmt.Errorf("failed to get world_id identity: %s", id)
 	}
 	intid, _ := strconv.Atoi(id)
 	opts := fmt.Sprintf("-DSECLABEL=%v -DPOLICY_MAP=cilium_policy_reserved_%v -DCALLS_MAP=cilium_calls_overlay_%v", intid, intid, intid)
@@ -162,7 +165,7 @@ func loaderVxlan(stateDir, bpfDir string) error {
 	// need to update the file content
 	fpath := filepath.Join(stateDir, enState)
 	if err = ioutil.WriteFile(fpath, []byte(encapVxlan), 0644); err != nil {
-		return fmt.Errorf(" writing data to file %v failed, please check", fpath)
+		return fmt.Errorf("writing data to file %v failed, please check", fpath)
 	}
 
 	return nil
@@ -189,10 +192,13 @@ func loaderGeneve(stateDir, bpfDir string) error {
 	fileName := filepath.Join(stateDir, nodeConfig)
 	f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_APPEND, 0644)
 	defer f.Close()
-	f.WriteString(data)
+	_, err = f.WriteString(data)
+	if err != nil {
+		fmt.Errorf("failed to write data %v to file %v", data, f)
+	}
 
 	//FIXME, write in C ??
-	cmd := fmt.Sprintf("cilium identity get %s", WorldId)
+	cmd := fmt.Sprintf("cilium identity get %s", WorldID)
 	identity, err := execute(cmd, false, "")
 	if err != nil {
 		return fmt.Errorf("failed to get world_id identity: %s", identity)
@@ -206,7 +212,7 @@ func loaderGeneve(stateDir, bpfDir string) error {
 	// need to update the file content
 	fpath := filepath.Join(stateDir, enState)
 	if err = ioutil.WriteFile(fpath, []byte(encapGeneve), 0644); err != nil {
-		return fmt.Errorf(" writing data to file %v failed, please check", fpath)
+		return fmt.Errorf("writing data to file %v failed, please check", fpath)
 	}
 	return nil
 

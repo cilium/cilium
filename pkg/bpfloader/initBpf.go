@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	HostId     = "host"
-	WorldId    = "world"
+	HostID     = "host"
+	WorldID    = "world"
 	hostDev    = "cilium_host"
 	netDev     = "cilium_net"
 	nodeConfig = "/globals/node_config.h"
@@ -53,12 +53,13 @@ func bpfCompile(dev, opts, in, out, section, stateDir, bpfDir string) error {
 	} {
 		if _, err := execute(item.cmd, item.ignoreAllErr, item.ignoreErrIfContains); err != nil {
 			fmt.Printf("clang %s %s -DNODE_MAC=%s -c %s -o %s", clangOpts, opts, macArray, in, out)
-			return fmt.Errorf("Failed occurred during load BPF program: %s, please check! ", err)
+			return fmt.Errorf("Failed occurred during load BPF program: %s, please check!", err)
 		}
 	}
 	return nil
 }
 
+//this is the entry to read necessary args to compile and load bpf programs.
 func InitBpf(args ...string) error {
 
 	//Fixme, to make more readable and propre
@@ -103,17 +104,17 @@ func InitBpf(args ...string) error {
 
 	// create cilium host net veth pair
 	if err = ciliumVethPair(stateDir, nodeAddr, ipv4Addr, bpfDir); err != nil {
-		return fmt.Errorf(" failed to create cilium veth pair: %s ", err)
+		return fmt.Errorf("failed to create cilium veth pair: %s", err)
 	}
 
 	// bpf program load
 	if mode == "vxlan" || mode == "geneve" {
 		if err := bpfloader(stateDir, bpfDir, mode); err != nil {
-			return fmt.Errorf(" failed to load bpf program to vxlan dev %v ", err)
+			return fmt.Errorf("failed to load bpf program to vxlan dev %v", err)
 		}
 	} else {
 		if err := bpfloader(stateDir, bpfDir, mode, nativeDev); err != nil {
-			return fmt.Errorf(" failed to load bpf program to native dev %v ", err)
+			return fmt.Errorf("failed to load bpf program to native dev %v", err)
 		}
 	}
 
@@ -135,26 +136,26 @@ func ciliumVethPair(stateDir, nodeAddr, ipv4Addr, bpfDir string) error {
 	}
 
 	if err := netlink.LinkAdd(veth); err != nil {
-		return fmt.Errorf("unable to create cilium host net veth pair: %s ", err)
+		return fmt.Errorf("unable to create cilium host net veth pair: %s", err)
 	}
 
 	log.Debugf("Created veth pair %s <-> %s", hostDev, netDev)
 
 	hiface, err := setupDev(hostDev)
 	if err != nil{
-		return fmt.Errorf(" setup dev %s failed %s ", hostDev, err)
+		return fmt.Errorf("setup dev %s failed %s", hostDev, err)
 	}
 	niface, err := setupDev(netDev)
 	if err != nil{
-		return fmt.Errorf(" setup dev %s failed %s ", netDev, err)
+		return fmt.Errorf("setup dev %s failed %s", netDev, err)
 	}
 
 	if err = ensureIpv6Route(nodeAddr, hiface); err != nil{
-		return fmt.Errorf(" ensure ipv6 route for host dev pair failed: %s ", err)
+		return fmt.Errorf("ensure ipv6 route for host dev pair failed: %s", err)
 	}
 
 	if err = ensureIpv4Route(ipv4Addr, hiface); err != nil{
-		return fmt.Errorf(" ensure ipv4 route for host dev pair failed: %s ", err)
+		return fmt.Errorf("ensure ipv4 route for host dev pair failed: %s", err)
 	}
 
 	//mac2array
@@ -177,10 +178,10 @@ func ciliumVethPair(stateDir, nodeAddr, ipv4Addr, bpfDir string) error {
 	}
 
 	//FIXME, need to rewrite in C ??
-	hostID := fmt.Sprintf("cilium identity get %s", HostId)
-	id, err := execute(hostID, false, "")
+	hid:= fmt.Sprintf("cilium identity get %s", HostID)
+	id, err := execute(hid, false, "")
 	if err != nil {
-		return fmt.Errorf("failed to get identity %s, %v", HostId, err)
+		return fmt.Errorf("failed to get identity %s, %v", HostID, err)
 	}
 	intid, _ := strconv.Atoi(id)
 	opts := fmt.Sprintf("-DFIXED_SRC_SECCTX=%v -DSECLABEL=%v -DPOLICY_MAP=cilium_policy_reserved_%v -DCALLS_MAP=cilium_calls_netdev_ns_%v", intid, intid, intid, intid)
@@ -203,7 +204,7 @@ func setupDev(device string) (netlink.Link, error){
 	}
 	err = netlink.LinkSetARPOff(iface)
 	if err != nil {
-		log.Debug("Warnning, disable flood mode failed for veth pair %v ", iface)
+		log.Debug("Warnning, disable flood mode failed for veth pair %v", iface)
 	}
 	return iface, nil
 }
@@ -241,7 +242,7 @@ func ensureIpv6Route(nodeAddr string, hiface netlink.Link) error{
 	//TODO(Peiqi): to make more robust
 	err = netlink.RouteDel(&route1)
 	if err != nil {
-		fmt.Printf(" failed to delete route before add it, %v ", err)
+		fmt.Printf("failed to delete route before add it, %v", err)
 	}
 	if err = netlink.RouteAdd(&route1); err != nil {
 		return fmt.Errorf("ipv6 route add for cilium host failed: %v", err)
@@ -264,7 +265,7 @@ func ensureIpv6Route(nodeAddr string, hiface netlink.Link) error{
 	if len(routeList) > 0 && !routeList[0].Gw.Equal(route2.Gw) {
 		err = netlink.RouteDel(&route2)
 		if err != nil {
-			fmt.Printf(" failed to delete route before add it, %v ", err)
+			fmt.Printf("failed to delete route before add it, %v", err)
 		}
 	}
 	if err = netlink.RouteAdd(&route2); err != nil {
@@ -290,11 +291,11 @@ func ensureIpv4Route(ipv4Addr string, hiface netlink.Link) error{
 	//add address
 	err := netlink.AddrDel(hiface, &addrv4)
 	if err != nil {
-		log.Debug(" failed to delete addr before add it, %v ", err)
+		log.Debug("failed to delete addr before add it, %v", err)
 	}
 	err = netlink.AddrAdd(hiface, &addrv4)
 	if err != nil {
-		return fmt.Errorf(" Failed to add ipv4 addr: %v ", err)
+		return fmt.Errorf("Failed to add ipv4 addr: %v", err)
 	}
 
 
@@ -307,11 +308,11 @@ func ensureIpv4Route(ipv4Addr string, hiface netlink.Link) error{
 	//TODO: to make robust
 	err = netlink.RouteDel(&route1)
 	if err != nil {
-		log.Debug(" failed to delete route before add it %v ", err)
+		log.Debug("failed to delete route before add it %v", err)
 	}
 	err = netlink.RouteAdd(&route1)
 	if err != nil {
-		return fmt.Errorf(" failed to add ipv4 route for cilium host %v ", err)
+		return fmt.Errorf("failed to add ipv4 route for cilium host %v", err)
 	}
 
 	//FIXME: to optimize ip traitement
@@ -330,11 +331,11 @@ func ensureIpv4Route(ipv4Addr string, hiface netlink.Link) error{
 	//TODO: to check before delete instead of direct make a route deletion
 	err = netlink.RouteDel(&route2)
 	if err != nil {
-		log.Debug(" failed to delete route before setup: %s ", err)
+		log.Debug("failed to delete route before setup: %s", err)
 	}
 	err = netlink.RouteAdd(&route2)
 	if err != nil {
-		return fmt.Errorf(" Failed to add ipv4 route %v ", err)
+		return fmt.Errorf("Failed to add ipv4 route %v", err)
 	}
 
 	return nil

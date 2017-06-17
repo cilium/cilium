@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/bpfloader"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -59,7 +60,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
-	"github.com/cilium/cilium/pkg/bpfloader"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
