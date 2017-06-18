@@ -60,7 +60,10 @@ Vagrant.configure(2) do |config|
     config.vm.provision "k8s", type: "shell", inline: $k8s
     config.vm.provision "build", type: "shell", inline: $build, env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}
     config.vm.provider "virtualbox" do |vb|
-        config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync"
+        # Ignore contrib/packaging/docker/stage to prevent concurrent
+        # problems when using rsync on multiple VMs
+        config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
+        rsync__exclude: "contrib/packaging/docker/stage"
     end
     if ENV['RUN_TEST_SUITE'] then
         config.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite, env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}
