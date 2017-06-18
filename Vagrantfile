@@ -99,7 +99,10 @@ Vagrant.configure(2) do |config|
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
         else
-            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync"
+            # Ignore contrib/packaging/docker/stage to prevent concurrent
+            # problems when using rsync on multiple VMs
+            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
+            rsync__exclude: "contrib/packaging/docker/stage"
         end
     end
 

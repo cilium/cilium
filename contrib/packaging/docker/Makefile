@@ -1,6 +1,6 @@
 include ../../../Makefile.defs
 
-BUILDDIR := "$(CURDIR)/cilium-$(VERSION)"
+BUILDDIR := "$(CURDIR)/stage/cilium-$(VERSION)"
 
 build: clean
 	mkdir -p $(BUILDDIR)
