@@ -18,6 +18,7 @@ if [ -z $BENCHMARK ]; then
 fi
 
 function cleanup {
+	gather_files 02-perf
 	docker rm -f server client 2> /dev/null || true
 
 	cilium config DropNotification=true Debug=true

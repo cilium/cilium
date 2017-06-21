@@ -16,6 +16,7 @@ IPV4_OTHERNET=99.11.0.0/16
 IPV6_HOST=fdff::ff
 
 function cleanup {
+  gather_files 16-cidr-ingress-policy	
   ip addr del dev lo ${IPV4_HOST}/32 2> /dev/null || true
   ip addr del dev lo ${IPV6_HOST}/128 2> /dev/null || true
   cilium policy delete --all 2> /dev/null || true

@@ -5,6 +5,7 @@ source "./helpers.bash"
 TEST_NET="cilium"
 
 function cleanup {
+	gather_files 12-policy-import
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f foo foo bar baz 2> /dev/null || true
 }

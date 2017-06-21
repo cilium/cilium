@@ -39,6 +39,7 @@ EOF
 }
 
 function cleanup {
+	gather_files 15-policy-config
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f foo foo bar baz 2> /dev/null || true
 }
