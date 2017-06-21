@@ -25,6 +25,7 @@ NETPERF_IMAGE="tgraf/netperf"
 logs_clear
 
 function cleanup {
+	gather_files 06-lb
 	docker rm -f server1 server2 server3 server4 server5 client misc 2> /dev/null || true
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
 	rm /sys/fs/bpf/tc/globals/lbtest 2> /dev/null || true

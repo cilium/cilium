@@ -60,6 +60,7 @@ function clean_container {
 }
 
 function cleanup {
+	gather_files 05-cni
 	cilium policy delete --all 2> /dev/null || true
 	kill_cni_container $server_id cni-server
 	kill_cni_container $client_id cni-client

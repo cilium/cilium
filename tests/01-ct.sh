@@ -7,6 +7,7 @@ set -e
 TEST_NET="cilium"
 
 function cleanup {
+	gather_files 01-ct
 	docker rm -f server client httpd1 httpd2 curl 2> /dev/null || true
 	monitor_stop
 }

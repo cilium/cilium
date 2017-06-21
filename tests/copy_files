@@ -1,0 +1,14 @@
+#!/bin/bash
+
+sudo rm -rf ./cilium-files
+
+set -e
+
+IDENTITY_FILE=$(vagrant ssh-config | grep IdentityFile | awk '{print $2}')
+PORT=$(vagrant ssh-config cilium-master | grep Port | awk '{ print $2 }')
+
+vagrant ssh cilium-master -c 'sudo -E bash -c "journalctl --no-pager -u cilium > ${GOPATH}/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs && chmod a+r ${GOPATH}/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs"'
+
+scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${IDENTITY_FILE} vagrant@127.0.0.1:~/go/src/github.com/cilium/cilium/tests/cilium-files .
+
+sudo tar -czvf cilium-files.tar.gz cilium-files
