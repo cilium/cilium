@@ -159,7 +159,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 */
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
 	BPF_V6(host_ip, HOST_IP);
 	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
@@ -189,6 +188,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 		if (IS_ERR(ret))
 			return ret;
 	}
+
+	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
 
 skip_service_lookup:
 	/* Port reverse mapping can never happen when we balanced to a service */
@@ -448,7 +449,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
-	orig_dip = tuple.daddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
@@ -468,6 +468,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (IS_ERR(ret))
 			return ret;
 	}
+
+	orig_dip = tuple.daddr;
 
 skip_service_lookup:
 	ret = map_lxc_out(skb, l4_off, tuple.nexthdr);
