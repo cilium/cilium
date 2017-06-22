@@ -14,12 +14,6 @@
 
 package cidrmap
 
-/*
-#cgo CFLAGS: -I../../../bpf/include
-#include <linux/bpf.h>
-*/
-import "C"
-
 import (
 	"fmt"
 	"net"
@@ -113,11 +107,11 @@ func OpenMap(path string, prefixlen int) (*CIDRMap, bool, error) {
 	bytes := (prefixlen-1)/8 + 1
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,
-		C.BPF_MAP_TYPE_LPM_TRIE,
+		bpf.BPF_MAP_TYPE_LPM_TRIE,
 		uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
 		uint32(LPM_MAP_VALUE_SIZE),
 		MAX_KEYS,
-		C.BPF_F_NO_PREALLOC,
+		bpf.BPF_F_NO_PREALLOC,
 	)
 
 	if err != nil {

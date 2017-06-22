@@ -14,12 +14,6 @@
 
 package lxcmap
 
-/*
-#cgo CFLAGS: -I../../../bpf/include
-#include <linux/bpf.h>
-*/
-import "C"
-
 import (
 	"fmt"
 	"net"
@@ -210,7 +204,7 @@ func OpenMap() (*LXCMap, error) {
 
 	fd, _, err := bpf.OpenOrCreateMap(
 		path,
-		C.BPF_MAP_TYPE_HASH,
+		bpf.BPF_MAP_TYPE_HASH,
 		uint32(unsafe.Sizeof(uint32(0))),
 		uint32(unsafe.Sizeof(LXCInfo{})),
 		MaxKeys,

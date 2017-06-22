@@ -14,12 +14,6 @@
 
 package policymap
 
-/*
-#cgo CFLAGS: -I../../../bpf/include
-#include <linux/bpf.h>
-*/
-import "C"
-
 import (
 	"bytes"
 	"fmt"
@@ -142,7 +136,7 @@ func (pm *PolicyMap) Close() error {
 func OpenMap(path string) (*PolicyMap, bool, error) {
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,
-		C.BPF_MAP_TYPE_HASH,
+		bpf.BPF_MAP_TYPE_HASH,
 		uint32(unsafe.Sizeof(uint32(0))),
 		uint32(unsafe.Sizeof(PolicyEntry{})),
 		MAX_KEYS,

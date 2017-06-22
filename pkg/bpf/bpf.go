@@ -113,6 +113,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	BPF_MAP_TYPE_HASH     = C.BPF_MAP_TYPE_HASH
+	BPF_MAP_TYPE_LPM_TRIE = C.BPF_MAP_TYPE_LPM_TRIE
+
+	BPF_F_NO_PREALLOC = C.BPF_F_NO_PREALLOC
+)
+
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
 // valueSize and the maximum amount of entries of maxEntries.
 // mapType should be one of the bpf_map_type in "uapi/linux/bpf.h"
