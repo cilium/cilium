@@ -5,7 +5,7 @@ LABEL "Maintainer: Andre Martins <andre@cilium.io>"
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
 RUN apt-get update && \
-apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git libc6-dev.i386 && \
+apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 && \
 #
 # clang-3.8.1-begin
 apt-get install -y --no-install-recommends curl xz-utils && \
@@ -46,13 +46,14 @@ tar -C /usr/local -xzf go.linux-amd64.tar.gz && \
 cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
 export GOPATH=/tmp/cilium-net-build && \
-export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$PATH" && \
+export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \
+go get -u github.com/jteeuwen/go-bindata/... && \
 make && \
 make PKG_BUILD=1 install && \
 groupadd -f cilium && \
 # cilium-end
 #
-apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils && \
+apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils ca-certificates && \
 # Needed for system minimal requirements checkers
 apt-get install -y --no-install-recommends libgcc-5-dev binutils && \
 apt-get clean && \
