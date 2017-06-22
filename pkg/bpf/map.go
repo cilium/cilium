@@ -14,15 +14,6 @@
 
 package bpf
 
-/*
-#cgo CFLAGS: -I../../bpf/include
-#include <linux/unistd.h>
-#include <linux/bpf.h>
-#include <sys/resource.h>
-*/
-
-import "C"
-
 import (
 	"bufio"
 	"fmt"
