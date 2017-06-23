@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/Sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -181,6 +183,18 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go ciliumRulesController.Run(wait.NeverStop)
 
+	_, nodesController := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
+			"nodes", v1.NamespaceAll, fields.Everything()),
+		&v1.Node{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.nodesAddFn,
+			UpdateFunc: d.nodesModFn,
+			DeleteFunc: d.nodesDelFn,
+		},
+	)
+	go nodesController.Run(wait.NeverStop)
 	return nil
 }
 
@@ -844,4 +858,55 @@ func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{
 	// FIXME
 	d.deleteCiliumNetworkPolicy(oldObj)
 	d.addCiliumNetworkPolicy(newObj)
+}
+
+func (d *Daemon) nodesAddFn(obj interface{}) {
+	k8sNode, ok := obj.(*v1.Node)
+	if !ok {
+		log.Warningf("Invalid objected, expected v1.Node, got %+v", obj)
+		return
+	}
+	ni := node.Identity{Name: k8sNode.Name}
+
+	n := k8s.ParseNode(k8sNode)
+	node.UpdateNode(ni, n)
+	log.Debugf("Added node %s: %+v", ni, n)
+}
+
+func (d *Daemon) nodesModFn(oldObj interface{}, newObj interface{}) {
+	log.Debugf("Modified node %+v->%+v", oldObj, newObj)
+	k8sNode, ok := newObj.(*v1.Node)
+	if !ok {
+		log.Warningf("Invalid objected, expected v1.Node, got %+v", newObj)
+		return
+	}
+
+	newNode := k8s.ParseNode(k8sNode)
+	ni := node.Identity{Name: k8sNode.Name}
+
+	oldNode := node.GetNode(ni)
+
+	// If node is the same don't even change it on the map
+	// TODO: Run the DeepEqual only for the metadata that we care about?
+	if reflect.DeepEqual(oldNode, newNode) {
+		return
+	}
+
+	node.UpdateNode(ni, newNode)
+
+	log.Debugf("k8s: Updated node %s to %+v", ni, newNode)
+}
+
+func (d *Daemon) nodesDelFn(obj interface{}) {
+	k8sNode, ok := obj.(*v1.Node)
+	if !ok {
+		log.Warningf("Invalid objected, expected v1.Node, got %+v", obj)
+		return
+	}
+
+	ni := node.Identity{Name: k8sNode.Name}
+
+	node.DeleteNode(ni)
+
+	log.Debugf("k8s: Removed node %s", ni)
 }
