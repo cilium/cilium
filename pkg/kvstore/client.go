@@ -27,7 +27,7 @@ func initClient() error {
 	switch backend {
 	case Consul:
 		if consulConfig == nil {
-			return fmt.Errorf("mising consul server address, please specify, e.g. --kvstore-opt consul.address=127.0.0.1:8501")
+			return fmt.Errorf("mising consul server address, please specify, e.g. --kvstore-opt consul.address=127.0.0.1:8500")
 		}
 
 		c, err := newConsulClient(consulConfig)
@@ -40,7 +40,7 @@ func initClient() error {
 
 	case Etcd:
 		if etcdCfgPath == "" && etcdConfig == nil {
-			return fmt.Errorf("missing etcd endpoints; please specify , e.g. --kvstore-opt etcd.address=....")
+			return fmt.Errorf("missing etcd endpoints; please specify , e.g. --kvstore-opt etcd.address=127.0.0.1:2379")
 		}
 
 		c, err := newEtcdClient(etcdConfig, etcdCfgPath)
