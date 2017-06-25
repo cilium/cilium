@@ -7,8 +7,8 @@ BINDATA_FILE=bindata.go
 if [[ "$arg1" == "apply" ]]; then
   NEW_SHA1SUM=`sha1sum ${BINDATA_FILE} | awk '{ print $1}'`
   GO_VERSION_USED=`go version | awk '{ print $3 }'`
-  sed -i "s/GO_BINDATA_SHA1SUM=.*/GO_BINDATA_SHA1SUM=${NEW_SHA1SUM}/g" Makefile
-  sed -i "s/GO_VERSION_USED=.*/GO_VERSION_USED=${GO_VERSION_USED}/g" Makefile
+  sed -i "s/GO_BINDATA_SHA1SUM=.*/GO_BINDATA_SHA1SUM=${NEW_SHA1SUM}/g" bpf.sha
+  sed -i "s/GO_VERSION_USED=.*/GO_VERSION_USED=${GO_VERSION_USED}/g" bpf.sha
   exit 0
 fi
 
@@ -27,7 +27,15 @@ echo "########################################################################"
 echo ""
 echo "                  ERROR: bindata.go is out of date."
 echo ""
-echo "  Use 'make -C daemon apply-bindata' to update the SHA in the Makefile."
+echo " This can happen for two reasons:"
+echo " 1. You are using a go-bindata binary compiled with a different version"
+echo "    of golang (not 1.8.3). If so, please up/downgrade."
+echo ""
+echo " 2. You have made changes to the bpf/ directory. Please run the"
+echo "    following command to update the SHA in daemon/bpf.sha:"
+echo ""
+echo "    $ make -C daemon apply-bindata"
+echo ""
 echo "########################################################################"
 
 exit 1
