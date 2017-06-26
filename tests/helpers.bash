@@ -95,6 +95,15 @@ function wait_for_cilium_ep_gen {
     done
 }
 
+function wait_for_policy_enforcement {
+    while true; do
+        if ! cilium endpoint list | grep Disabled; then
+            break
+        fi
+        micro_sleep
+    done
+}
+
 function count_lines_in_log {
     echo `wc -l $DUMP_FILE | awk '{ print $1 }'`
 }
