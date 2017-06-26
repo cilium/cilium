@@ -4,6 +4,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 root_dir="${dir}/../.."
 dest="$1"
 
+cp -vR "${root_dir}/.git" "${dest}"
 cp -vR "${root_dir}/api" "${dest}"
 cp -vR "${root_dir}/bpf" "${dest}"
 cp -vR "${root_dir}/cilium" "${dest}"
