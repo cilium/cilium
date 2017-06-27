@@ -74,9 +74,9 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		},
 	}
 
+	// FIXME-L3-L4 Catch correct reject of L3&L4 policy rule
 	rules, err := ParseNetworkPolicy(netPolicy)
-	c.Assert(err, IsNil)
-	c.Assert(len(rules), Equals, 1)
+	c.Assert(err, Not(IsNil))
 
 	fromEndpoints := labels.LabelArray{
 		labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
@@ -94,35 +94,62 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
+	// FIXME-L3-L4 Will verify L3&L4 dependency
+	//	repo := policy.NewPolicyRepository()
+	//	repo.AddList(rules)
+	//	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+	//
+	//	result := repo.ResolveL4Policy(&ctx)
+	//	c.Assert(result, DeepEquals, &policy.L4Policy{
+	//		Ingress: policy.L4PolicyMap{
+	//			"80/tcp": policy.L4Filter{
+	//				Port: 80, Protocol: "tcp", L7Parser: "",
+	//				L7RedirectPort: 0, L7Rules: []policy.AuxRule(nil),
+	//				Ingress: true,
+	//			},
+	//		},
+	//		Egress: policy.L4PolicyMap{},
+	//	})
+
+	netPolicy = &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo1": "bar1",
+					"foo2": "bar2",
+				},
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"foo3": "bar3",
+									"foo4": "bar4",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rules, err = ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
 	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
-
-	matchLabels := make(map[string]string)
-	for _, v := range fromEndpoints {
-		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
-	}
-	lblSelector := metav1.LabelSelector{
-		MatchLabels: matchLabels,
-	}
-	epSelector := api.EndpointSelector{
-		LabelSelector: &lblSelector,
-	}
 
 	result, err := repo.ResolveL4Policy(&ctx)
 	c.Assert(result, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, &policy.L4Policy{
-		Ingress: policy.L4PolicyMap{
-			"80/tcp": policy.L4Filter{
-				Port: 80, Protocol: "tcp",
-				FromEndpoints:  []api.EndpointSelector{epSelector},
-				L7Parser:       "",
-				L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
-				Ingress: true,
-			},
-		},
-		Egress: policy.L4PolicyMap{},
+		Ingress: policy.L4PolicyMap{},
+		Egress:  policy.L4PolicyMap{},
 	})
 
 	ctx.To = labels.LabelArray{
@@ -278,8 +305,10 @@ func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
 }
 
 func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
-	// Example 1: Only allow traffic from frontend pods on TCP port 6379 to
-	// backend pods in the same namespace `myns`.
+	// Example 1a: Only allow traffic from frontend pods on TCP port 6379 to
+	// backend pods in the same namespace `myns`
+	//
+	// FIXME-L3-L4 will stop failing
 	ex1 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "extensions/v1beta1",
@@ -319,6 +348,50 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 
 	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, Not(IsNil))
+
+	// Example 1b: Only allow traffic from frontend pods to backend pods
+	// in the same namespace `myns`
+	ex1 = []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "allow-frontend",
+    "namespace": "myns"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "backend"
+      }
+    },
+    "ingress": [
+      {
+        "from": [
+          {
+            "podSelector": {
+              "matchLabels": {
+                "role": "frontend"
+              }
+            }
+          }
+        ]
+      },{
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 6379
+          }
+        ]
+      }
+    ]
+  }
+}`)
+	np = networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -371,7 +444,9 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// port 6379 and belong to the same namespace `myns`.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
-	// Example 2: Allow TCP 443 from any source in Bob's namespaces.
+	// Example 2a: Allow TCP 443 from any source in Bob's namespaces.
+	//
+	// FIXME-L3-L4 will stop failing
 	ex2 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "extensions/v1beta1",
@@ -411,6 +486,49 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 
 	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, Not(IsNil))
+
+	// Example 2b: Allow from any source in Bob's namespaces.
+	ex2 = []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "allow-tcp-443"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "frontend"
+      }
+    },
+    "ingress": [
+      {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 443
+          }
+        ]
+      },{
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "user": "bob"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(ex2, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -431,11 +549,13 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
-	l4Policy, err := repo.ResolveL4Policy(&ctx)
-	c.Assert(l4Policy, Not(IsNil))
-	c.Assert(err, IsNil)
-	l4Veridict := l4Policy.IngressCoversDPorts([]*models.Port{})
-	c.Assert(l4Veridict, Equals, api.Denied)
+
+	// FIXME-L3-L4 Will stop failing
+	//l4Policy := repo.ResolveL4Policy(&ctx)
+	//c.Assert(l4Policy, Not(IsNil))
+	//c.Assert(err, IsNil)
+	//l4Veridict := l4Policy.IngressCoversDPorts([]*models.Port{})
+	//c.Assert(l4Veridict, Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -532,8 +652,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Should be ACCEPT since it's coming from `default` and going to `default` namespace.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
-	// Example 4: Example 4 is similar to example 2 but we will add both network
+	// Example 4a: Example 4 is similar to example 2 but we will add both network
 	// policies to see if the rules are additive for the same podSelector.
+	//
+	// FIXME-L3-L4 Will stop failing
 	ex4 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "extensions/v1beta1",
@@ -554,6 +676,51 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
             "port": 8080
           }
         ],
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "user": "bob"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(ex4, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, Not(IsNil))
+	//c.Assert(len(rules), Equals, 1)
+
+	// Example 4b: Example 4 is similar to example 2 but we will add both network
+	// policies to see if the rules are additive for the same podSelector.
+	ex4 = []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "allow-tcp-8080"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "frontend"
+      }
+    },
+    "ingress": [
+      {
+        "ports": [
+          {
+            "protocol": "UDP",
+            "port": 8080
+          }
+        ]
+      },{
         "from": [
           {
             "namespaceSelector": {
@@ -629,6 +796,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 5: Some policies with match expressions.
+	// FIXME-L3-L4: Combine l3/l4 rules
 	ex5 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "extensions/v1beta1",
@@ -665,7 +833,8 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
             "protocol": "UDP",
             "port": 8080
           }
-        ],
+        ]
+      },{
         "from": [
           {
             "namespaceSelector": {

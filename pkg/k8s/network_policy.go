@@ -84,19 +84,11 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
-	ingress := api.IngressRule{}
+	ingresses := []api.IngressRule{}
 	namespace := ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
-		// Based on NetworkPolicyIngressRule docs:
-		//   From []NetworkPolicyPeer
-		//   If this field is empty or missing, this rule matches all
-		//   sources (traffic not restricted by source).
-		if iRule.From == nil || len(iRule.From) == 0 {
-			all := api.NewESFromLabels(
-				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
-			)
-			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
-		} else {
+		ingress := api.IngressRule{}
+		if iRule.From != nil && len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
 				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
 				if err != nil {
@@ -130,7 +122,18 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 
 				ingress.ToPorts = append(ingress.ToPorts, portRule)
 			}
+		} else if iRule.From == nil || len(iRule.From) == 0 {
+			// Based on NetworkPolicyIngressRule docs:
+			//   From []NetworkPolicyPeer
+			//   If this field is empty or missing, this rule matches all
+			//   sources (traffic not restricted by source).
+			all := api.NewESFromLabels(
+				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
+			)
+			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
 		}
+
+		ingresses = append(ingresses, ingress)
 	}
 
 	tag := ExtractPolicyName(np)
@@ -142,7 +145,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           labels.ParseLabelArray(tag),
-		Ingress:          []api.IngressRule{ingress},
+		Ingress:          ingresses,
 	}
 
 	if err := rule.Validate(); err != nil {
