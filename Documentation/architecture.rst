@@ -249,9 +249,9 @@ See section *Overlay Routing* for additional details.
 IPv6 IP Address Assignment
 --------------------------
 
-Cilium allocates addresses for local containers from the ``/48`` IPv6 prefix
+Cilium allocates addresses for local containers from the ``/64`` IPv6 prefix
 called the *cluster prefix*. If left unspecified, this prefix will be
-``f00d::/48``.  Within that prefix, a ``/96`` prefix is dedicated to each
+``f00d::/64``.  Within that prefix, a ``/96`` prefix is dedicated to each
 container host in the cluster. Although the default prefix will enable
 communication within an isolated environment, the prefix is not publicly
 routable. It is strongly recommended to specify a public prefix owned by the
@@ -285,7 +285,7 @@ Example
 
 ::
 
-    Cluster prefix: f00d::/48
+    Cluster prefix: f00d::/64
 
     Node A prefix:  f00d:0:0:0:A:A::/96
     Node A address: f00d:0:0:0:A:A:0:0/128
