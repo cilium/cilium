@@ -58,7 +58,8 @@ var (
                             "reserved:world": ""
                         }
                     }
-                ],
+                ]
+	    },{
                 "toPorts": [
                     {
                         "ports": [
@@ -98,7 +99,8 @@ var (
                             ]
                         }
                     }
-                ],
+                ]
+	    },{
                 "toCIDR": [
                     {
                         "ip": "10.0.0.1"
@@ -112,9 +114,11 @@ var (
 
 func (s *K8sSuite) TestParseThirdParty(c *C) {
 	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
-	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+	es.MatchExpressions = []metav1.LabelSelectorRequirement{
+		{Key: "any.role", Operator: "NotIn", Values: []string{"production"}},
+	}
 
-	expectedPolicyRule := &CiliumNetworkPolicy{
+	policyRule := &CiliumNetworkPolicy{
 		Metadata: metav1.ObjectMeta{
 			Name: "rule1",
 		},
@@ -130,6 +134,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 							labels.ParseSelectLabel("reserved:world"),
 						),
 					},
+				}, {
 					ToPorts: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
@@ -146,6 +151,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 							Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 						},
 					},
+				}, {
 					ToCIDR: []api.CIDR{
 						{
 							IP: "10.0.0.1",
@@ -162,6 +168,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 	expectedSpecRule := api.Rule{
 		EndpointSelector: expectedES,
 		Ingress: []api.IngressRule{
+			// FIXME-L3-L4: Combine rules once possible
 			{
 				FromEndpoints: []api.EndpointSelector{
 					api.NewESFromLabels(
@@ -172,6 +179,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
+			}, {
 				ToPorts: []api.PortRule{
 					{
 						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
@@ -181,6 +189,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 			},
 		},
 		Egress: []api.EgressRule{
+			// FIXME-L3-L4: Combine rules once possible
 			{
 				ToPorts: []api.PortRule{
 					{
@@ -188,6 +197,7 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
+			}, {
 				ToCIDR: []api.CIDR{
 					{
 						IP: "10.0.0.1",
@@ -198,20 +208,20 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", PolicyLabelName, "rule1")),
 	}
 
-	rules, err := expectedPolicyRule.Parse()
+	rules, err := policyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 	c.Assert(*rules[0], DeepEquals, expectedSpecRule)
 
-	b, err := json.Marshal(expectedPolicyRule)
+	b, err := json.Marshal(policyRule)
 	c.Assert(err, IsNil)
-	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
-	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
+	var policyRuleUnmarshalled CiliumNetworkPolicy
+	err = json.Unmarshal(b, &policyRuleUnmarshalled)
 	c.Assert(err, IsNil)
-	c.Assert(expectedPolicyRuleUnmarshalled, DeepEquals, *expectedPolicyRule)
+	c.Assert(policyRuleUnmarshalled, DeepEquals, *policyRule)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
-	c.Assert(cnpl, DeepEquals, *expectedPolicyRule)
+	c.Assert(cnpl, DeepEquals, *policyRule)
 }

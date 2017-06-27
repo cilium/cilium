@@ -48,20 +48,17 @@ func ExtractNamespace(np *metav1.ObjectMeta) string {
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
-	ingress := api.IngressRule{}
+	ingresses := []api.IngressRule{}
 	namespace := ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
-		// Based on NetworkPolicyIngressRule docs:
-		//   From []NetworkPolicyPeer
-		//   If this field is empty or missing, this rule matches all
-		//   sources (traffic not restricted by source).
-		if iRule.From == nil || len(iRule.From) == 0 {
-			all := api.NewESFromLabels(
-				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
-			)
-			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
-		} else {
+		ingress := api.IngressRule{}
+		if iRule.From != nil || len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
+				// FIXME-L3-L4: Remove once supported
+				if iRule.Ports != nil && len(iRule.Ports) > 0 {
+					return nil, fmt.Errorf("Combining From and Ports is not supported yet")
+				}
+
 				// Only one or the other can be set, not both
 				if rule.PodSelector != nil {
 					if rule.PodSelector.MatchLabels == nil {
@@ -118,7 +115,23 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 
 				ingress.ToPorts = append(ingress.ToPorts, portRule)
 			}
+		} else {
+			// Based on NetworkPolicyIngressRule docs:
+			//   From []NetworkPolicyPeer
+			//   If this field is empty or missing, this rule matches all
+			//   sources (traffic not restricted by source).
+			//
+			// FIXME-L3-L4: Once supported, all rule should be combined into
+			// l4 policies
+			if iRule.From == nil || len(iRule.From) == 0 {
+				all := api.NewESFromLabels(
+					labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
+				)
+				ingress.FromEndpoints = append(ingress.FromEndpoints, all)
+			}
 		}
+
+		ingresses = append(ingresses, ingress)
 	}
 
 	tag := ExtractPolicyName(np)
@@ -130,7 +143,7 @@ func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           labels.ParseLabelArray(tag),
-		Ingress:          []api.IngressRule{ingress},
+		Ingress:          ingresses,
 	}
 
 	if err := rule.Validate(); err != nil {
