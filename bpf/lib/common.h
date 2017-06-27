@@ -153,6 +153,13 @@ struct endpoint_info {
 	struct portmap  portmap[PORTMAP_MAX];
 };
 
+struct policy_key {
+	__u32		sec_label;
+	__u16		dport;
+	__u8		protocol;
+	__u8		pad;
+};
+
 struct policy_entry {
 	__u32		action;
 	__u32		pad;

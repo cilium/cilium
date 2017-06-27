@@ -24,14 +24,37 @@
 #ifdef POLICY_ENFORCEMENT
 
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
-				    size_t cidr_addr_size, void *cidr_addr)
+				    __u16 dport, __u8 proto, size_t cidr_addr_size, void *cidr_addr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
 	struct policy_entry *policy;
 
-	policy = map_lookup_elem(map, &src_label);
+	struct policy_key key = {
+		.sec_label = src_label,
+		.dport = dport,
+		.protocol = proto,
+		.pad = 0,
+	};
+
+#ifdef HAVE_L4_POLICY
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		cilium_dbg3(skb, DBG_L4_CREATE, src_label, SECLABEL,
+			    dport << 16 | proto);
+
+		/* FIXME: Use per cpu counters */
+		__sync_fetch_and_add(&policy->packets, 1);
+		__sync_fetch_and_add(&policy->bytes, skb->len);
+		return TC_ACT_OK;
+	}
+#endif /* HAVE_L4_POLICY */
+
+	/* If L4 policy check misses, fall back to L3. */
+	key.dport = 0;
+	key.protocol = 0;
+	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
 		/* FIXME: Use per cpu counters */
 		__sync_fetch_and_add(&policy->packets, 1);
@@ -84,7 +107,8 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 #else /* POLICY_ENFORCEMENT */
 
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
-				    size_t cidr_addr_size, void *cidr_addr)
+				    __u16 dport, __u8 proto, size_t cidr_addr_size,
+				    void *cidr_addr)
 {
 	return TC_ACT_OK;
 }
