@@ -91,12 +91,12 @@ func IPv4IsEnabled(ipam *models.IPAM) bool {
 	return true
 }
 
-func loadNetConf(bytes []byte) (*netConf, error) {
+func loadNetConf(bytes []byte) (*netConf, string, error) {
 	n := &netConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
-		return nil, fmt.Errorf("failed to load netconf: %s", err)
+		return nil, "", fmt.Errorf("failed to load netconf: %s", err)
 	}
-	return n, nil
+	return n, n.CNIVersion, nil
 }
 
 func removeIfFromNSIfExists(netNs ns.NetNS, ifName string) error {
@@ -268,7 +268,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConf
 func cmdAdd(args *skel.CmdArgs) error {
 	log.Debugf("ADD %s", args)
 
-	n, err := loadNetConf(args.StdinData)
+	n, cniVersion, err := loadNetConf(args.StdinData)
 	if err != nil {
 		return err
 	}
@@ -348,11 +348,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		HostAddr: ipam.HostAddressing,
 	}
 
-	res := cniTypesVer.Result{
-		Interfaces: []*cniTypesVer.Interface{},
-		IPs:        []*cniTypesVer.IPConfig{},
-		Routes:     []*cniTypes.Route{},
-	}
+	res := &cniTypesVer.Result{}
 
 	if IPv6IsEnabled(ipam) {
 		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state)
@@ -399,7 +395,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
 
-	return res.Print()
+	return cniTypes.PrintResult(res, cniVersion)
 }
 
 func cmdDel(args *skel.CmdArgs) error {
