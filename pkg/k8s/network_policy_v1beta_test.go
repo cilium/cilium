@@ -620,6 +620,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 5: Some policies with match expressions.
+	// FIXME-L3-L4 check the intersection, not the union of two rules
 	ex5 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "extensions/v1beta1",
@@ -656,7 +657,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
             "protocol": "UDP",
             "port": 8080
           }
-        ],
+        ]
+      }, {
         "from": [
           {
             "namespaceSelector": {
@@ -767,7 +769,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be DENY since the environment is from dev.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	// FIXME-L3-L4 this lies in the union, not the intersection
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

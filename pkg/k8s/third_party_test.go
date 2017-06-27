@@ -37,6 +37,7 @@ var (
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
+			}, {
 				ToPorts: []api.PortRule{
 					{
 						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
@@ -53,6 +54,7 @@ var (
 						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
+			}, {
 				ToCIDR: []api.CIDR{"10.0.0.1"},
 			},
 		},
@@ -60,6 +62,7 @@ var (
 
 	expectedSpecRule = api.Rule{
 		Ingress: []api.IngressRule{
+			// FIXME-L3-L4: Combine rules once possible
 			{
 				FromEndpoints: []api.EndpointSelector{
 					api.NewESFromLabels(
@@ -70,6 +73,7 @@ var (
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
+			}, {
 				ToPorts: []api.PortRule{
 					{
 						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
@@ -79,6 +83,7 @@ var (
 			},
 		},
 		Egress: []api.EgressRule{
+			// FIXME-L3-L4: Combine rules once possible
 			{
 				ToPorts: []api.PortRule{
 					{
@@ -86,6 +91,7 @@ var (
 						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
+			}, {
 				ToCIDR: []api.CIDR{"10.0.0.1"},
 			},
 		},
@@ -120,7 +126,8 @@ var (
                             "reserved:world": ""
                         }
                     }
-                ],
+                ]
+	    },{
                 "toPorts": [
                     {
                         "ports": [
@@ -160,7 +167,8 @@ var (
                             ]
                         }
                     }
-                ],
+                ]
+	    },{
                 "toCIDR": [
                     "10.0.0.1"
                 ]
@@ -185,7 +193,9 @@ var (
 func (s *K8sSuite) TestParseSpec(c *C) {
 
 	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
-	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+	es.MatchExpressions = []metav1.LabelSelectorRequirement{
+		{Key: "any.role", Operator: "NotIn", Values: []string{"production"}},
+	}
 
 	apiRule.EndpointSelector = es
 
