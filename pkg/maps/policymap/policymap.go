@@ -46,6 +46,13 @@ func (pe *PolicyEntry) String() string {
 	return string(pe.Action)
 }
 
+type policyKey struct {
+	Identity uint32
+	DestPort uint16
+	Nexthdr  uint8
+	Pad      uint8
+}
+
 type PolicyEntry struct {
 	Action  uint32
 	Pad     uint32
@@ -60,21 +67,32 @@ func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 
 type PolicyEntryDump struct {
 	PolicyEntry
-	ID uint32
+	Key policyKey
+}
+
+func (key *policyKey) String() string {
+	if key.DestPort != 0 {
+		return fmt.Sprintf("%d %d/%d", key.Identity, key.DestPort, key.Nexthdr)
+	} else {
+		return fmt.Sprintf("%d", key.Identity)
+	}
 }
 
 func (pm *PolicyMap) AllowConsumer(id uint32) error {
+	key := policyKey{Identity: id}
 	entry := PolicyEntry{Action: 1}
-	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry), 0)
+	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
 func (pm *PolicyMap) ConsumerExists(id uint32) bool {
+	key := policyKey{Identity: id}
 	var entry PolicyEntry
-	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&id), unsafe.Pointer(&entry)) == nil
+	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
 func (pm *PolicyMap) DeleteConsumer(id uint32) error {
-	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&id))
+	key := policyKey{Identity: id}
+	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
 }
 
 func (pm *PolicyMap) String() string {
@@ -88,15 +106,14 @@ func (pm *PolicyMap) Dump() (string, error) {
 		return "", err
 	}
 	for _, entry := range entries {
-		buffer.WriteString(fmt.Sprintf("%8d: %d %d %d\n",
-			entry.ID, entry.Action, entry.Packets, entry.Bytes))
+		buffer.WriteString(fmt.Sprintf("%20s: %d %d %d\n",
+			entry.Key, entry.Action, entry.Packets, entry.Bytes))
 	}
 	return buffer.String(), nil
 }
 
 func (pm *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
-	var key, nextKey uint32
-	key = MAX_KEYS
+	var key, nextKey policyKey
 	entries := []PolicyEntryDump{}
 	for {
 		var entry PolicyEntry
@@ -119,7 +136,7 @@ func (pm *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 		if err != nil {
 			return nil, err
 		}
-		eDump := PolicyEntryDump{ID: nextKey, PolicyEntry: entry}
+		eDump := PolicyEntryDump{Key: nextKey, PolicyEntry: entry}
 		entries = append(entries, eDump)
 
 		key = nextKey
@@ -137,7 +154,7 @@ func OpenMap(path string) (*PolicyMap, bool, error) {
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,
 		bpf.BPF_MAP_TYPE_HASH,
-		uint32(unsafe.Sizeof(uint32(0))),
+		uint32(unsafe.Sizeof(policyKey{})),
 		uint32(unsafe.Sizeof(PolicyEntry{})),
 		MAX_KEYS,
 		0,
