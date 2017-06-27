@@ -219,50 +219,77 @@ func checkMinRequirements() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := RootCmd.Flags()
-	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/ciliumd.yaml)")
-	flags.BoolP("debug", "D", false, "Enable debug messages")
+	flags.String(
+		"access-log", "", "Path to access log of all HTTP requests observed")
+	flags.StringSlice(
+		"agent-labels", []string{}, "Additional labels to identify this agent")
+	flags.StringVar(&config.AllowLocalhost,
+		"allow-localhost", AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
+	flags.StringVar(&bpfRoot,
+		"bpf-root", "", "Path to BPF filesystem")
+	flags.StringVar(&cfgFile,
+		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	flags.BoolP(
+		"debug", "D", false, "Enable debugging mode")
+	flags.StringVarP(&config.Device,
+		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.BoolVar(&disableConntrack,
+		"disable-conntrack", false, "Disable connection tracking")
+	flags.BoolVar(&config.IPv4Disabled,
+		"disable-ipv4", false, "Disable IPv4 mode")
+	flags.StringVarP(&config.DockerEndpoint,
+		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
+	flags.StringVar(&config.EnablePolicy,
+		"enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
+	flags.BoolVar(&enableTracing,
+		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
+	flags.StringVar(&v4Prefix,
+		"ipv4-range", "", "IPv4 allocation range for local endpoints, must be in correct format (10.N.0.1/16)")
+	flags.StringVar(&config.K8sEndpoint,
+		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	flags.StringVar(&config.K8sCfgPath,
+		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	flags.BoolVar(&config.KeepConfig,
+		"keep-config", false, "When restoring state, keeps containers' configuration in place")
+	flags.BoolVar(&config.KeepTemplates,
+		"keep-bpf-templates", false, "Do not restore BPF template files from binary")
+	flags.StringVar(&kvStore,
+		"kvstore", "", "Key-value store type")
+	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil),
+		"kvstore-opt", "Key-value store options")
+	flags.StringVar(&labelPrefixFile,
+		"label-prefix-file", "", "Valid label prefixes file path")
+	flags.StringSliceVar(&validLabels,
+		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
+	flags.StringVar(&config.LBInterface,
+		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
+	flags.StringVar(&config.LibDir,
+		"lib-dir", defaults.LibraryPath, "Directory path to store runtime build environment")
+	flags.StringSliceVar(&loggers,
+		"log-driver", []string{}, "Logging endpoints to use for example syslog, fluentd")
+	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil),
+		"log-opt", "Log driver options for cilium")
+	flags.BoolVar(&enableLogstash,
+		"logstash", false, "Enable logstash integration")
+	flags.StringVar(&logstashAddr,
+		"logstash-agent", "127.0.0.1:8080", "Logstash agent address")
+	flags.Uint32Var(&logstashProbeTimer,
+		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
+	flags.StringVar(&nat46prefix,
+		"nat46-range", nodeaddress.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
+	flags.StringVarP(&v6Address,
+		"node-address", "n", "", "IPv6 address of node, must be in correct format (XXXX:XXXX:XXXX:XXXX:XXXX:XXXX::/96)")
+	flags.BoolVar(&config.RestoreState,
+		"restore", false, "Restores state, if possible, from previous daemon")
+	flags.StringVar(&socketPath,
+		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
+	flags.StringVar(&config.RunDir,
+		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
+	flags.StringVarP(&config.Tunnel,
+		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.Bool(
+		"version", false, "Print version information")
 
-	flags.StringVarP(&config.Device, "device", "d", "undefined", "Device to snoop on")
-	flags.BoolVar(&disableConntrack, "disable-conntrack", false, "Disable connection tracking")
-	flags.StringVar(&config.EnablePolicy, "enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
-	flags.StringVarP(&config.DockerEndpoint, "docker", "e", "unix:///var/run/docker.sock",
-		"Register a listener for docker events on the given endpoint")
-	flags.BoolVar(&enableTracing, "enable-tracing", false, "Enable tracing while determining policy")
-	flags.StringVar(&nat46prefix, "nat46-range", nodeaddress.DefaultNAT46Prefix,
-		"IPv6 prefix to map IPv4 addresses to")
-	flags.StringVar(&config.K8sEndpoint, "k8s-api-server", "", "Kubernetes api address server")
-	flags.StringVar(&config.K8sCfgPath, "k8s-kubeconfig-path", "", "Absolute path to the kubeconfig file")
-	flags.StringVar(&config.AllowLocalhost, "allow-localhost", AllowLocalhostAuto,
-		"Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
-	flags.StringVar(&kvStore, "kvstore", "", "Key-value store type")
-	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "key-value store options")
-	flags.BoolVar(&config.KeepConfig, "keep-config", false,
-		"When restoring state, keeps containers' configuration in place")
-	flags.StringVar(&labelPrefixFile, "label-prefix-file", "", "File with valid label prefixes")
-	flags.StringSliceVar(&validLabels, "labels", []string{},
-		"List of label prefixes used to determine identity of an endpoint")
-	flags.BoolVar(&enableLogstash, "logstash", false, "Enable logstash integration")
-	flags.StringVar(&logstashAddr, "logstash-agent", "127.0.0.1:8080", "Logstash agent address")
-	flags.Uint32Var(&logstashProbeTimer, "logstash-probe-timer", 10, "Logstash probe timer (seconds)")
-	flags.StringVarP(&v6Address, "node-address", "n", "", "IPv6 address of node, must be in correct format")
-	flags.BoolVar(&config.RestoreState, "restore", false,
-		"Restores state, if possible, from previous daemon")
-	flags.BoolVar(&config.KeepTemplates, "keep-templates", false,
-		"Do not restore template files from binary")
-	flags.StringVar(&config.RunDir, "state-dir", defaults.RuntimePath, "Path to directory to store runtime state")
-	flags.StringVar(&config.LibDir, "lib-dir", defaults.LibraryPath, "Path to store runtime build environment")
-	flags.StringVar(&socketPath, "socket-path", defaults.SockPath, "Sets the socket path to listen for connections")
-	flags.StringVar(&config.LBInterface, "lb", "",
-		"Enables load balancer mode where load balancer bpf program is attached to the given interface")
-	flags.BoolVar(&config.IPv4Disabled, "disable-ipv4", false, "Disable IPv4 mode")
-	flags.StringVar(&v4Prefix, "ipv4-range", "", "IPv4 prefix")
-	flags.StringVarP(&config.Tunnel, "tunnel", "t", "vxlan", "Tunnel mode vxlan or geneve, vxlan is the default")
-	flags.StringVar(&bpfRoot, "bpf-root", "", "Path to mounted BPF filesystem")
-	flags.String("access-log", "", "Path to access log of all HTTP requests observed")
-	flags.StringSlice("agent-labels", []string{}, "Additional labels to identify this agent")
-	flags.Bool("version", false, "Print version information")
-	flags.StringSliceVar(&loggers, "log-driver", []string{}, "logging endpoints to use")
-	flags.Var(option.NewNamedMapOptions("log-opts", &logOpts, nil), "log-opt", "log driver options for cilium")
 	viper.BindPFlags(flags)
 }
 
