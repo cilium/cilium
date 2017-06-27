@@ -97,6 +97,7 @@ const (
 	DbgCTLookup62
 	DbgCTCreated6
 	DbgSkipProxy
+	DbgL4Create
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -191,6 +192,14 @@ func proxyInfo(arg1 uint32, arg2 uint32) string {
 	sport := byteorder.NetworkToHost(uint16(arg1 >> 16))
 	dport := byteorder.NetworkToHost(uint16(arg1 & 0xFFFF))
 	return fmt.Sprintf("sport=%d dport=%d saddr=%s", sport, dport, ip4Str(arg2))
+}
+
+func l4CreateInfo(n *DebugMsg) string {
+	src := n.Arg1
+	dst := n.Arg2
+	dport := byteorder.NetworkToHost(uint16(n.Arg3 >> 16))
+	proto := n.Arg3 & 0xFF
+	return fmt.Sprintf("src=%d dst=%d dport=%d proto=%d", src, dst, dport, proto)
 }
 
 func ip4Str(arg1 uint32) string {
@@ -325,6 +334,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Conntrack create: %s\n", ctCreate6Info(n))
 	case DbgSkipProxy:
 		fmt.Printf("Skipping proxy, tc_index is set=%x", n.Arg1)
+	case DbgL4Create:
+		fmt.Printf("Matched L4 policy; creating conntrack %s\n", l4CreateInfo(n))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

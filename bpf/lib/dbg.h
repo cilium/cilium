@@ -91,6 +91,10 @@ enum {
 	DBG_SKIP_PROXY,          /* arg1: skb->tc_index
 				  * arg2: unused
 				  */
+	DBG_L4_CREATE,		/* arg1: src sec-id
+				 * arg2: dst sec-id
+				 * arg3: (dport << 16) | protocol
+				 */
 };
 
 /* Capture types */

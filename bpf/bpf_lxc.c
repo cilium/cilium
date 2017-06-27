@@ -787,7 +787,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 struct bpf_elf_map __section_maps POLICY_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(__u32),
+	.size_key	= sizeof(struct policy_key),
 	.size_value	= sizeof(struct policy_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= 1024,
@@ -863,7 +863,9 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	 * passed through the allowed consumer. */
 	/* FIXME: Add option to disable policy accounting and avoid policy
 	 * lookup if policy accounting is disabled */
-	verdict = policy_can_access(&POLICY_MAP, skb, src_label, sizeof(tuple.saddr), &tuple.saddr);
+	verdict = policy_can_access(&POLICY_MAP, skb, src_label, tuple.dport,
+				    tuple.nexthdr, sizeof(tuple.saddr),
+				    &tuple.saddr);
 	if (unlikely(ret == CT_NEW)) {
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
@@ -963,7 +965,9 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	/* Policy lookup is done on every packet to account for packets that
 	 * passed through the allowed consumer. */
-	verdict = policy_can_access(&POLICY_MAP, skb, src_label, sizeof(tuple.saddr), &tuple.saddr);
+	verdict = policy_can_access(&POLICY_MAP, skb, src_label, tuple.dport,
+				    tuple.nexthdr, sizeof(tuple.saddr),
+				    &tuple.saddr);
 	if (unlikely(ret == CT_NEW)) {
 		if (verdict != TC_ACT_OK)
 			return DROP_POLICY;
