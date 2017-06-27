@@ -40,6 +40,7 @@ cat <<EOF | cilium policy import -
         "fromEndpoints": [
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
 	],
+    },{
 	"toPorts": [{
 	    "ports": [{"port": "80", "protocol": "tcp"}]
 	}]

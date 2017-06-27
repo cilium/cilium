@@ -66,7 +66,8 @@ cat <<EOF | cilium -D policy import -
     "ingress": [{
         "fromEndpoints": [
 	    {"matchLabels":{"id.curl":""}}
-	],
+	]
+    },{
 	"toPorts": [
 	    {"ports": [{"port": "80", "protocol": "tcp"}]}
 	]
@@ -76,7 +77,8 @@ cat <<EOF | cilium -D policy import -
     "ingress": [{
         "fromEndpoints": [
 	    {"matchLabels":{"id.curl":""}}
-	],
+	]
+    },{
 	"toPorts": [
 	    {"ports": [{"port": "9090", "protocol": "tcp"}]}
 	]

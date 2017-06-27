@@ -207,7 +207,7 @@ We can achieve that with the following Kubernetes NetworkPolicy:
         - podSelector:
             matchLabels:
               id: app2
-        ports:
+      - ports:
         - protocol: tcp
           port: 80
 
@@ -322,7 +322,7 @@ API call, but disallowing all other calls (including GET /private).
       - fromEndpoints:
         - matchLabels:
             id: app2
-        toPorts:
+      - toPorts:
         - ports:
           - port: "80"
             protocol: TCP
@@ -544,7 +544,8 @@ We can achieve that with the following Cilium policy:
         "ingress": [{
             "fromEndpoints": [
                 {"matchLabels":{"id":"app2"}}
-            ],
+            ]
+        },{
             "toPorts": [{
                     "ports": [{"port": "80", "protocol": "tcp"}]
             }]
@@ -643,7 +644,8 @@ The following Cilium policy file achieves this goal:
         "ingress": [{
             "fromEndpoints": [
                 {"matchLabels":{"id":"app2"}}
-            ],
+            ]
+        },{
             "toPorts": [{
                 "ports": [{"port": "80", "protocol": "tcp"}],
                 "rules": {

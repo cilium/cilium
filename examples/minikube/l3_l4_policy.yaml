@@ -11,6 +11,6 @@ spec:
     - podSelector:
         matchLabels:
           id: app2
-    ports:
+  - ports:
     - port: 80
       protocol: TCP

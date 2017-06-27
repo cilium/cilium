@@ -152,7 +152,8 @@ cat <<EOF | cilium policy import -
     "ingress": [{
         "fromEndpoints": [
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
-	],
+	]
+    },{
 	"fromCIDR": [
 	    {"ip": "${IPV4_PREFIX}"},
 	    {"ip": "${IPV6_PREFIX}"}
@@ -182,7 +183,8 @@ cat <<EOF | cilium policy import -
     "ingress": [{
         "fromEndpoints": [
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
-	],
+	]
+    },{
 	"fromCIDR": [
 	    {"ip": "${IPV4_OTHERNET}"}
 	]

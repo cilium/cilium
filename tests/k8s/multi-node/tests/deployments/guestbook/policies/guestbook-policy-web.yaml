@@ -10,7 +10,7 @@ spec:
   - fromEndpoints:
     - matchLabels:
         "reserved.world": ""
-    toPorts:
+  - toPorts:
     - ports:
       - port: "3000"
         protocol: TCP

@@ -11,7 +11,7 @@ spec:
   - fromEndpoints:
     - matchLabels:
         id: app2
-    toPorts:
+  - toPorts:
     - ports:
       - port: "80"
         protocol: TCP
