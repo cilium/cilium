@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -60,7 +61,30 @@ type CmdState struct {
 
 type netConf struct {
 	cniTypes.NetConf
-	MTU int `json:"mtu"`
+	MTU  int  `json:"mtu"`
+	Args Args `json:"args"`
+}
+
+// Args contains arbitrary information a scheduler
+// can pass to the cni plugin
+type Args struct {
+	Mesos Mesos `json:"org.apache.mesos,omitempty"`
+}
+
+// Mesos contains network-specific information from the scheduler to the cni plugin
+type Mesos struct {
+	NetworkInfo NetworkInfo `json:"network_info"`
+}
+
+// NetworkInfo supports passing only labels from mesos
+type NetworkInfo struct {
+	Name   string `json:"name"`
+	Labels struct {
+		Labels []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"labels,omitempty"`
+	} `json:"labels,omitempty"`
 }
 
 func main() {
@@ -289,8 +313,19 @@ func cmdAdd(args *skel.CmdArgs) error {
 			args.IfName, args.Netns, err)
 	}
 
+	addLabels := models.Labels{}
+
+	for _, label := range n.Args.Mesos.NetworkInfo.Labels.Labels {
+		addLabels = append(addLabels, fmt.Sprintf("%s:%s=%s", labels.LabelSourceMesos, label.Key, label.Value))
+	}
+
+	f, _ := os.Create("/tmp/cni-plugin.txt")
+	defer f.Close()
+	f.WriteString(fmt.Sprintf("%v", addLabels))
+
 	ep := &models.EndpointChangeRequest{
 		ContainerID: args.ContainerID,
+		Labels:      addLabels,
 		State:       models.EndpointStateWaitingForIdentity,
 		Addressing:  &models.EndpointAddressing{},
 	}

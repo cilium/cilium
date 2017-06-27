@@ -92,6 +92,9 @@ const (
 	// LabelSourceK8s is a label imported from Kubernetes
 	LabelSourceK8s = "k8s"
 
+	// LabelSourceMesos is a label imported from Mesos
+	LabelSourceMesos = "mesos"
+
 	// LabelSourceK8sKeyPrefix is prefix of a Kubernetes label
 	LabelSourceK8sKeyPrefix = LabelSourceK8s + "."
 
@@ -109,7 +112,7 @@ const (
 type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
-	// Source can be on of the values present in const.go (e.g.: LabelSourceContainer)
+	// Source can be one of the values present in const.go (e.g.: LabelSourceContainer)
 	Source string `json:"source"`
 	// Mark element to be used to find unused labels in lists
 	DeletionMark bool `json:"-"`
