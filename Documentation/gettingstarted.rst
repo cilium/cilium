@@ -40,20 +40,14 @@ Install ``kubectl`` version ``>= 1.6.3`` as described in the `Kubernetes Docs
 
 Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
 
-Install ``minikube`` 0.19 as described on `minikube's github page
+Install ``minikube`` ``>= 0.20`` as described on `minikube's github page
 <https://github.com/kubernetes/minikube/releases>`_.
 
 Then, boot a minikube cluster with the Container Network Interface (CNI) network plugin enabled:
 
 ::
 
-    $ minikube start --network-plugin=cni --iso-url https://github.com/cilium/minikube-iso/raw/master/minikube.iso
-
-.. note:: The ``--iso-url`` is required only temporarily because the default minikube
-          ISO has a 4.7 Linux kernel and Cilium + BPF works best on 4.8+ kernels. The base
-          ISO image of minikube has since been updated to 4.8+ in the development
-          branch of minikube, so in the future passing the ``-iso-url`` parameter will
-          not be required.
+    $ minikube start --network-plugin=cni
 
 After minikube has finished  setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
