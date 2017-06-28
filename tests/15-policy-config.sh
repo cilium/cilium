@@ -5,6 +5,7 @@ source "./helpers.bash"
 TEST_NET="cilium"
 LIST_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled\|Disabled'"
 CFG_CMD="cilium config | grep Policy | grep -v PolicyTracing | awk '{print \$2}'"
+ALLOWED="Verdict: allowed"
 
 function start_containers {
 	docker run -dt --net=$TEST_NET --name foo -l id.foo -l id.teamA tgraf/netperf
@@ -218,6 +219,25 @@ function ping_success {
 	}
 }
 
+function test_policy_trace_policy_disabled {
+	# If policy enforcement is disabled, then `cilium policy trace` should return that traffic is allowed between all security identities.
+	remove_containers
+	restart_cilium
+	start_containers
+	
+	wait_for_endpoints 3
+	FOO_ID=$(cilium endpoint list | grep id.foo | awk '{print $1}')
+	BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')	
+	echo "------ verify verbose trace for expected output using endpoint IDs ------"
+	TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
+	DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Verdict:")) || true
+	if [[ "$DIFF" != "" ]]; then
+    	  abort "DIFF: $DIFF"
+	fi
+}
+
+
+
 trap cleanup EXIT
 
 cleanup
@@ -227,6 +247,7 @@ docker network inspect $TEST_NET 2> /dev/null || {
         docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
+test_policy_trace_policy_disabled
 test_default_policy_configuration
 test_default_to_true_policy_configuration
 test_default_to_false_policy_configuration

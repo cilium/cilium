@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/cilium/cilium/common"
 )
 
 func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, dstID policy.NumericIdentity, opt string) {
@@ -471,6 +472,8 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		e.State = StateReady
 	}
 
+	// Annotate pod that this endpoint represents with its security identity
+	go owner.AnnotateEndpoint(e, common.CiliumIdentityAnnotation, e.SecLabel.ID.String())
 	e.Consumable.Mutex.RLock()
 	log.Debugf("Set identity of EP %d to %d and consumable to %+v", e.ID, id, e.Consumable)
 	e.Consumable.Mutex.RUnlock()

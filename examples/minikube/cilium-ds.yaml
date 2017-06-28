@@ -52,6 +52,7 @@ subjects:
   namespace: kube-system
 - kind: Group
   name: system:nodes
+# NOTE: This DaemonSet should only be used in a single-node setup.
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet

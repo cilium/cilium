@@ -3,6 +3,8 @@
 source "./helpers.bash"
 
 TEST_NET="cilium"
+DENIED="Result: DENIED"
+ALLOWED="Result: ALLOWED"
 
 function cleanup {
 	gather_files 12-policy-import ${TEST_SUITE}
@@ -12,7 +14,6 @@ function cleanup {
 }
 
 trap cleanup EXIT
-
 cleanup
 logs_clear
 
@@ -190,14 +191,46 @@ L3 verdict: allowed
 Verdict: allowed
 EOF
 
-echo "------ verify verbose trace for expected output ------"
+
+echo "------ verify verbose trace for expected output using source and destination labels ------"
 DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar -v)) || true
 if [[ "$DIFF" != "" ]]; then
-	abort "$DIFF"
+  abort "$DIFF"
 fi
 
+FOO_ID=$(cilium endpoint list | grep id.foo | awk '{print $1}')
 BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
 FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
+BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $3}')
+
+read -d '' EXPECTED_POLICY <<"EOF" || true
+Tracing From: [container:id.foo, container:id.teamA] => To: [container:id.bar, container:id.teamA]
+* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+    Allows from labels {"matchLabels":{"any:id.foo":""}}
++     Found all required labels
+* Rule 1 {"matchLabels":{"any:id.teamA":""}}: match
+    Requires from labels {"matchLabels":{"any:id.teamA":""}}
++     Found all required labels
+2 rules matched
+Result: ALLOWED
+L3 verdict: allowed
+
+Verdict: allowed
+EOF
+
+
+echo "------ verify verbose trace for expected output using security identities ------"
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Result:")) || true
+if [[ "$DIFF" != "" ]]; then
+    abort "DIFF: $DIFF"
+fi
+
+echo "------ verify verbose trace for expected output using endpoint IDs ------"
+TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Result:")) || true
+if [[ "$DIFF" != "" ]]; then
+    abort "DIFF: $DIFF"
+fi
 
 EXPECTED_CONSUMER="$FOO_SEC_ID"
 
@@ -208,3 +241,4 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 cilium policy delete --all
+

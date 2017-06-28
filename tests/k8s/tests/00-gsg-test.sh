@@ -15,6 +15,8 @@ set -ex
 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
+DENIED="Result: DENIED"
+ALLOWED="Result: ALLOWED"
 
 MINIKUBE="${dir}/../../../examples/minikube"
 K8SDIR="${dir}/../../../examples/kubernetes"
@@ -25,8 +27,6 @@ function cleanup {
 	kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
 	kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
 	kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
-	kubectl delete -f "${GSGDIR}/cilium-ds.yaml" 2> /dev/null || true
-	kubectl delete -f "${K8SDIR}/rbac.yaml" 2> /dev/null || true
 }
 
 function gather_logs {
@@ -42,9 +42,9 @@ function gather_logs {
 }
 
 function finish_test {
-	gather_files k8s-gsg-test ${TEST_SUITE}
-	gather_logs
-	cleanup
+  gather_files k8s-gsg-test ${TEST_SUITE}
+  gather_logs
+  cleanup
 }
 
 trap finish_test exit
@@ -52,13 +52,6 @@ trap finish_test exit
 cleanup
 
 wait_for_healthy_k8s_cluster 2
-
-echo "----- adding RBAC for Cilium -----"
-kubectl create -f "${K8SDIR}/rbac.yaml"
-
-echo "----- deploying Cilium Daemon Set onto cluster -----"
-kubectl create -f ${GSGDIR}/cilium-ds.yaml
-
 wait_for_daemon_set_ready ${NAMESPACE} cilium 2
 
 CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==2{ print $1 }')
@@ -95,7 +88,10 @@ echo "---- Policy in ${CILIUM_POD_2} ----"
 kubectl exec ${CILIUM_POD_2} -n ${NAMESPACE} -- cilium policy get
 
 echo "----- testing L3/L4 policy -----"
+APP1_POD="$(kubectl get pods -l id=app1 -o jsonpath='{.items[0].metadata.name}')"
 APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
+APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
+
 SVC_IP=$(kubectl get svc app1-service -o jsonpath='{.spec.clusterIP}' )
 
 echo "----- testing app2 can reach app1 (expected behavior: can reach) -----"
@@ -104,11 +100,23 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: could not reach pod allowed by L3 L4 policy"
 fi
 
+echo "----- confirming that \`cilium policy trace\` shows that app2 can reach app1"
+
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP2_POD --dst-k8s-pod default:$APP1_POD -v | grep "Result:" )) || true
+if [[ "$DIFF" != "" ]]; then
+        abort "$DIFF"
+fi
+
 echo "----- testing that app3 cannot reach app 1 (expected behavior: cannot reach)"
-APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
 RETURN=$(kubectl exec $APP3_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET $SVC_IP || true)
 if [[ "${RETURN//$'\n'}" != "000" ]]; then
 	abort "Error: unexpectedly reached pod allowed by L3 L4 Policy, received return code ${RETURN}"
+fi
+
+echo "----- confirming that \`cilium policy trace\` shows that app3 cannot reach app1"
+DIFF=$(diff -Nru <(echo "$DENIED") <(kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP3_POD --dst-k8s-pod default:$APP1_POD -v | grep "Result:")) || true
+if [[ "$DIFF" != "" ]]; then
+        abort "$DIFF"
 fi
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"

@@ -14,7 +14,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
   - namespaces
   - nodes
   - endpoints
@@ -23,6 +22,16 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+  - update
 - apiGroups:
   - extensions
   resources:

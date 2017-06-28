@@ -163,7 +163,46 @@ func (d *Daemon) traceL4Ingress(ctx policy.SearchContext, ports []*models.Port) 
 }
 
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
+	log.Debugf("GET /policy/resolve request: %+v", params)
+
 	d := h.daemon
+
+	isPolicyEnforcementEnabled := true
+
+	d.policy.Mutex.RLock()
+
+	// If policy enforcement isn't enabled, then traffic is allowed.
+	if d.conf.EnablePolicy == endpoint.NeverEnforce {
+		isPolicyEnforcementEnabled = false
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
+		// If there are no rules matching the set of from / to labels provided in
+		// the API request, that means that policy enforcement is not enabled
+		// for the endpoints corresponding to said sets of labels; thus, we allow
+		// traffic between these sets of labels, and do not enforce policy between them.
+		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From)) ||
+			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To))) {
+			isPolicyEnforcementEnabled = false
+		}
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
+		// If no rules are in the policy repository, then policy enforcement is
+		// disabled; if there are rules, then policy enforcement is enabled.
+		if d.policy.NumRules() == 0 {
+			isPolicyEnforcementEnabled = false
+		}
+	}
+
+	d.policy.Mutex.RUnlock()
+
+	// Return allowed verdict if policy enforcement isn't enabled between the two sets of labels.
+	if !isPolicyEnforcementEnabled {
+		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
+			Verdict: api.Allowed.String(),
+		})
+	}
+
+	// If we hit the following code, policy enforcement is enabled for at least
+	// one of the endpoints corresponding to the provided sets of labels, or for
+	// the daemon.
 	buffer := new(bytes.Buffer)
 	ctx := params.IdentityContext
 	searchCtx := policy.SearchContext{

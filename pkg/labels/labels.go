@@ -379,7 +379,7 @@ func NewLabelsFromModel(base []string) Labels {
 }
 
 // NewSelectLabelArrayFromModel parses a slice of strings and converts them
-// into a an array of selecg labels.
+// into an array of selecting labels.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	lbls := LabelArray{}
 	for _, v := range base {

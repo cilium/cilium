@@ -50,6 +50,7 @@ type DaemonSuite struct {
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
+	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -78,6 +79,14 @@ func (ds *DaemonSuite) PolicyEnabled() bool {
 		return ds.OnPolicyEnabled()
 	}
 	panic("PolicyEnabled should not have been called")
+}
+
+func (ds *DaemonSuite) AnnotateEndpoint(e *e.Endpoint, annotationKey, annotationValue string) {
+	if ds.OnAnnotateEndpoint != nil {
+		ds.OnAnnotateEndpoint(e, annotationKey, annotationValue)
+	}
+	panic("OnAnnotateEndpoint should not have been called")
+
 }
 
 func (ds *DaemonSuite) EnablePolicyEnforcement() bool {
