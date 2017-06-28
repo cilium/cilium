@@ -7,7 +7,7 @@ set -e
 TEST_NET="cilium"
 
 function cleanup {
-	gather_files 08-nat46
+	gather_files 08-nat46 ${TEST_SUITE}
 	cilium policy delete --all 2> /dev/null || true
         docker rm -f server client 2> /dev/null || true
         monitor_stop

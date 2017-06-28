@@ -3,6 +3,7 @@
 set -ex
 
 NAMESPACE="kube-system" 
+GOPATH="/home/vagrant/go"
 
 source "../helpers.bash"
 source /home/vagrant/.profile
@@ -18,7 +19,21 @@ function cleanup {
 	kubectl delete -f $K8SDIR/rbac.yaml 2> /dev/null || true
 }
 
-trap cleanup exit
+function gather_logs {
+        mkdir -p ./cilium-files/logs
+        kubectl logs -n kube-system $(kubectl -n kube-system get pods -l k8s-app=cilium | grep -v AGE | awk '{print $1}' ) > ./cilium-files/logs/cilium-logs
+        kubectl logs -n kube-system kube-apiserver-vagrant > ./cilium-files/logs/kube-apiserver
+        kubectl logs -n kube-system kube-controller-manager-vagrant > ./cilium-files/logs/kube-controller-manager-logs
+        journalctl -au kubelet > ./cilium-files/logs/kubelet-logs
+}
+
+function finish_test {
+        gather_files k8s-gsg-test ${TEST_SUITE}
+        gather_logs
+        cleanup
+}
+
+trap finish_test exit
 
 echo "KUBECONFIG: $KUBECONFIG"
 
@@ -82,9 +97,10 @@ fi
 echo "----- creating L7-aware policy -----"
 kubectl create -f $MINIKUBE/l3_l4_l7_policy.yaml
 
+echo "----- Waiting for endpoints to get into 'ready' state -----"
 CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
-       echo "----- Waiting for endpoints to get into 'ready' state -----"
+  continue
 done
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"
