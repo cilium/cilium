@@ -258,35 +258,30 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			continue
 		}
 
-		var orchLabelsModified bool
 		d.containersMU.RLock()
 		cont, ok := d.containers[id]
 		d.containersMU.RUnlock()
-		if ok {
-			cont.Mutex.Lock()
-			if orchLabelsModified = updateOrchLabels(cont, lbls); !orchLabelsModified {
-				log.Debugf("No changes to orch labels, ignoring")
-			}
-		} else {
-			cont = container.NewContainer(dockerContainer, lbls)
-			cont.Mutex.Lock()
+		if !ok {
+			cont = container.NewContainer(dockerContainer)
 		}
 
+		ep.Mutex.Lock()
+		orchLabelsModified := ep.UpdateOrchLabels(lbls)
+		if ok && !orchLabelsModified {
+			ep.Mutex.Unlock()
+			log.Debugf("No changes to orch labels.")
+			return
+		}
 		// It's mandatory to update the container in its label otherwise
 		// the label will be considered unused.
-		identity, newHash, err := d.updateContainerIdentity(cont.ID, cont.LabelsHash, &cont.OpLabels)
+		identity, newHash, err := d.updateEndpointIdentity(ep.StringID(), ep.LabelsHash, &ep.OpLabels)
 		if err != nil {
-			cont.Mutex.Unlock()
+			ep.Mutex.Unlock()
 			log.Warningf("unable to update identity of container %s: %s", id, err)
 			return
 		}
-		cont.LabelsHash = newHash
-		cID := cont.ID
-		cont.Mutex.Unlock()
-
-		if ok && !orchLabelsModified {
-			return
-		}
+		ep.LabelsHash = newHash
+		ep.Mutex.Unlock()
 
 		ep = endpointmanager.LookupDockerID(id)
 		if ep == nil {
@@ -302,7 +297,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 
 		// If the container ID was known and found before, check if it still
 		// exists, it may have disappared while we gave up the containers
-		// lock to create/udpate the identity.
+		// lock to create/update the identity.
 		if ok && d.containers[epDockerID] == nil {
 			d.containersMU.Unlock()
 			// endpoint is around but container id was removed, likely
@@ -314,11 +309,10 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			return
 		}
 
-		// Commit label changes to container
 		d.containers[epDockerID] = cont
 		d.containersMU.Unlock()
 
-		d.SetEndpointIdentity(ep, cID, dockerEpID, identity)
+		d.SetEndpointIdentity(ep, cont.ID, dockerEpID, identity)
 		ep.Regenerate(d)
 
 		// FIXME: Does this rebuild epID twice?
@@ -344,47 +338,11 @@ func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, l
 	return &dockerCont, newLabels, nil
 }
 
-func updateOrchLabels(c *container.Container, l labels.Labels) bool {
-	changed := false
-
-	c.OpLabels.Orchestration.MarkAllForDeletion()
-	c.OpLabels.Disabled.MarkAllForDeletion()
-
-	for k, v := range l {
-		if c.OpLabels.Disabled[k] != nil {
-			c.OpLabels.Disabled[k].DeletionMark = false
-		} else {
-			if c.OpLabels.Orchestration[k] != nil {
-				c.OpLabels.Orchestration[k].DeletionMark = false
-			} else {
-				tmp := v.DeepCopy()
-				log.Debugf("Assigning orchestration label %+v", tmp)
-				c.OpLabels.Orchestration[k] = tmp
-				changed = true
-			}
-		}
-	}
-
-	if c.OpLabels.Orchestration.DeleteMarked() || c.OpLabels.Disabled.DeleteMarked() {
-		changed = true
-	}
-
-	return changed
-}
-
 func (d *Daemon) deleteContainer(dockerID string) {
 	log.Debugf("Processing deletion event for docker container %s", dockerID)
 
 	d.containersMU.Lock()
-	if container, ok := d.containers[dockerID]; ok {
-		sha256sum := container.OpLabels.Enabled().SHA256Sum()
-		if err := d.DeleteIdentityBySHA256(sha256sum, dockerID); err != nil {
-			log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
-				sha256sum, container.OpLabels.Enabled(), err)
-		}
-
-		delete(d.containers, dockerID)
-	}
+	delete(d.containers, dockerID)
 	d.containersMU.Unlock()
 
 	d.DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, dockerID))

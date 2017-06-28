@@ -142,20 +142,20 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	return identity, isNew, nil
 }
 
-func (d *Daemon) updateContainerIdentity(contID, oldLabelsHash string, opLabels *labels.OpLabels) (*policy.Identity, string, error) {
+func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *labels.OpLabels) (*policy.Identity, string, error) {
 	lbls := opLabels.Enabled()
-	log.Debugf("Container %s is resolving identity for labels %+v", contID, lbls)
+	log.Debugf("Endpoint %s is resolving identity for labels %+v", epID, lbls)
 
 	newLabelsHash := lbls.SHA256Sum()
-	identity, _, err := d.CreateOrUpdateIdentity(lbls, contID)
+	identity, _, err := d.CreateOrUpdateIdentity(lbls, epID)
 	if err != nil {
 		return nil, "", fmt.Errorf("unable to get identity ID: %s", err)
 	}
 
 	if newLabelsHash != oldLabelsHash {
-		if err := d.DeleteIdentityBySHA256(oldLabelsHash, contID); err != nil {
-			log.Warningf("Error while deleting old labels (%+v) of container %s: %s",
-				oldLabelsHash, contID, err)
+		if err := d.DeleteIdentityBySHA256(oldLabelsHash, epID); err != nil {
+			log.Warningf("Error while deleting old labels (%+v) of endpoint %s: %s",
+				oldLabelsHash, epID, err)
 			// FIXME: Undo new identity and fail?
 		}
 	}
@@ -262,14 +262,15 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	}
 }
 
-func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, container string) error {
+// DeleteIdentity deletes identity
+func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, epid string) error {
 	if id, err := d.LookupIdentity(id); err != nil {
 		return err
 	} else if id == nil {
 		return fmt.Errorf("identity not found")
 	} else {
 		hash := id.Labels.SHA256Sum()
-		if err := d.DeleteIdentityBySHA256(hash, container); err != nil {
+		if err := d.DeleteIdentityBySHA256(hash, epid); err != nil {
 			return err
 		}
 	}

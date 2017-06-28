@@ -197,7 +197,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	if labels == nil {
-		l, _, err := d.CreateOrUpdateIdentity(ep.SecLabel.Labels, ep.DockerID)
+		l, _, err := d.CreateOrUpdateIdentity(ep.SecLabel.Labels, ep.StringID())
 		if err != nil {
 			return fmt.Errorf("Unable to put labels %+v: %s\n", ep.SecLabel.Labels, err)
 		}
