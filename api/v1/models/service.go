@@ -121,24 +121,6 @@ func (m *Service) validateFrontendAddress(formats strfmt.Registry) error {
 	return nil
 }
 
-// MarshalBinary interface implementation
-func (m *Service) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *Service) UnmarshalBinary(b []byte) error {
-	var res Service
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
-	return nil
-}
-
 // ServiceFlags Optional service configuration flags
 // swagger:model ServiceFlags
 type ServiceFlags struct {
@@ -157,23 +139,5 @@ func (m *ServiceFlags) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (m *ServiceFlags) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *ServiceFlags) UnmarshalBinary(b []byte) error {
-	var res ServiceFlags
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
 	return nil
 }
