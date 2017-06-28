@@ -83,43 +83,28 @@ dports can be can be for example: 80/tcp, 53 or 23/udp.`,
 
 		// Parse security identities.
 		if srcIdentity != defaultSecurityID {
-			srcSecurityIDLabels, err := getLabelsFromIdentity(srcIdentity)
-			if err != nil {
-				Fatalf("Invalid source security ID")
-			}
-			srcSlice = append(srcSlice, srcSecurityIDLabels...)
+			srcSlice = appendIdentityLabelsToSlice(srcSlice, policy.NumericIdentity(srcIdentity).StringID())
 		}
 		if dstIdentity != defaultSecurityID {
-			dstSecurityIDLabels, err := getLabelsFromIdentity(dstIdentity)
-			if err != nil {
-				Fatalf("Invalid destination security ID")
-			}
-			dstSlice = append(dstSlice, dstSecurityIDLabels...)
+			dstSlice = appendIdentityLabelsToSlice(dstSlice, policy.NumericIdentity(dstIdentity).StringID())
 		}
 
 		// Parse endpoint IDs.
 		if srcEndpoint != "" {
-			srcSlice = appendEpLabelsToSlice(srcEndpoint, srcSlice)
+			srcSlice = appendEpLabelsToSlice(srcSlice, srcEndpoint)
 		}
 
 		if dstEndpoint != "" {
-			dstSlice = appendEpLabelsToSlice(dstEndpoint, dstSlice)
+			dstSlice = appendEpLabelsToSlice(dstSlice, dstEndpoint)
 		}
 
+		// Parse pod names.
 		if srcK8sPod != "" {
 			id, err := getSecIDFromK8s(srcK8sPod)
 			if err != nil {
 				Fatalf("Cannot get security id from k8s pod name: %s", err)
 			}
-			convertedID, err := strconv.ParseInt(id, 0, 64)
-			if err != nil {
-				Fatalf("Error converting security id %s to int64", id)
-			}
-			srcSecurityIDLabels, err := getLabelsFromIdentity(convertedID)
-			if err != nil {
-				Fatalf("%s", err)
-			}
-			srcSlice = append(srcSlice, srcSecurityIDLabels...)
+			srcSlice = appendIdentityLabelsToSlice(srcSlice, id)
 		}
 
 		if dstK8sPod != "" {
@@ -127,16 +112,7 @@ dports can be can be for example: 80/tcp, 53 or 23/udp.`,
 			if err != nil {
 				Fatalf("Cannot get security id from k8s pod name: %s", err)
 			}
-			convertedID, err := strconv.ParseInt(id, 0, 64)
-			if err != nil {
-				Fatalf("Error converting security id %s to int64", id)
-			}
-			dstSecurityIDLabels, err := getLabelsFromIdentity(convertedID)
-			if err != nil {
-				Fatalf("%s", err)
-			}
-			dstSlice = append(dstSlice, dstSecurityIDLabels...)
-
+			dstSlice = appendIdentityLabelsToSlice(dstSlice, id)
 		}
 
 		search := models.IdentityContext{
@@ -170,33 +146,26 @@ func init() {
 	policyTraceCmd.Flags().StringVarP(&dstK8sPod, "dst-k8s-pod", "", "", "Destination k8s pod ([namespace:]podname)")
 }
 
-func appendEpLabelsToSlice(epID string, labelSlice []string) []string {
+func appendIdentityLabelsToSlice(labelSlice []string, secID string) []string {
+	resp, err := client.IdentityGet(secID)
+	if err != nil {
+		Fatalf("%s", err)
+	}
+	return append(labelSlice, resp.Labels...)
+}
+
+func appendEpLabelsToSlice(labelSlice []string, epID string) []string {
 	ep, err := client.EndpointGet(epID)
 	if err != nil {
 		Fatalf("Cannot get endpoint corresponding to identifier %s: %s\n", epID, err)
 	}
-	labelSlice = append(labelSlice, ep.Identity.Labels...)
-	return labelSlice
-}
-
-// Returns the labels for security identity ID and an error if the labels cannot be retrieved.
-func getLabelsFromIdentity(ID int64) ([]string, error) {
-	convertedID := policy.NumericIdentity(ID)
-	resp, err := client.IdentityGet(convertedID.StringID())
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve labels for security identity %s: %s", convertedID.StringID(), err)
-	}
-	if resp == nil {
-		return nil, fmt.Errorf("security identity %d not found", ID)
-	}
-	return resp.Labels, nil
+	return append(labelSlice, ep.Identity.Labels...)
 }
 
 func parseLabels(slice []string) ([]string, error) {
 	if len(slice) == 0 {
 		return nil, fmt.Errorf("No labels provided")
 	}
-
 	return slice, nil
 }
 
