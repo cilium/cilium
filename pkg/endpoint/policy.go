@@ -296,7 +296,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 }
 
 func (e *Endpoint) regenerate(owner Owner) error {
-	origDir := filepath.Join(".", e.StringIDLocked())
+	origDir := filepath.Join(".", e.StringID())
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
@@ -427,7 +427,7 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 
 	changed, err := e.regeneratePolicy(owner)
 	if err != nil {
-		return changed, fmt.Errorf("%s: %s", e.StringIDLocked(), err)
+		return changed, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
 	return changed, err
