@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -173,12 +174,14 @@ const (
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID               uint16                // Endpoint ID.
-	Mutex            sync.RWMutex          // Protects all variables from this structure below this line
-	DockerID         string                // Docker ID.
-	DockerNetworkID  string                // Docker network ID.
-	DockerEndpointID string                // Docker endpoint ID.
-	IfName           string                // Container's interface name.
+	ID               uint16       // Endpoint ID.
+	Mutex            sync.RWMutex // Protects all variables from this structure below this line
+	DockerID         string       // Docker ID.
+	DockerNetworkID  string       // Docker network ID.
+	DockerEndpointID string       // Docker endpoint ID.
+	IfName           string       // Container's interface name.
+	LabelsHash       string
+	OpLabels         pkgLabels.OpLabels
 	LXCMAC           mac.MAC               // Container MAC address.
 	IPv6             addressing.CiliumIPv6 // Container IPv6 address.
 	IPv4             addressing.CiliumIPv4 // Container IPv4 address.
@@ -199,7 +202,7 @@ type Endpoint struct {
 	PolicyCalculated bool
 }
 
-func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.Labels) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
@@ -211,8 +214,13 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
 		IfIndex:          int(base.InterfaceIndex),
-		State:            string(base.State),
-		Status:           NewEndpointStatus(),
+		OpLabels: pkgLabels.OpLabels{
+			Custom:        pkgLabels.Labels{},
+			Disabled:      pkgLabels.Labels{},
+			Orchestration: l.DeepCopy(),
+		},
+		State:  string(base.State),
+		Status: NewEndpointStatus(),
 	}
 
 	if base.Mac != "" {
@@ -538,17 +546,10 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	return cpy
 }
 
-// StringIDLocked returns the endpoint's ID in a string. Must be called with
+// StringID returns the endpoint's ID in a string. Must be called with
 // the endpoint's mutex locked.
-func (e *Endpoint) StringIDLocked() string {
+func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
-}
-
-// SetID sets the endpoint's host local unique ID.
-func (e *Endpoint) SetID() {
-	e.Mutex.Lock()
-	e.ID = e.IPv6.EndpointID()
-	e.Mutex.Unlock()
 }
 
 func (e *Endpoint) GetIdentity() policy.NumericIdentity {

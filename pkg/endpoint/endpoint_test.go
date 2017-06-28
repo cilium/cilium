@@ -44,8 +44,7 @@ type EndpointSuite struct{}
 var _ = Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpointID(c *C) {
-	e := Endpoint{IPv6: IPv6Addr, IPv4: IPv4Addr}
-	e.SetID()
+	e := Endpoint{ID: IPv6Addr.EndpointID(), IPv6: IPv6Addr, IPv4: IPv4Addr}
 	c.Assert(e.ID, Equals, uint16(4370)) //"0x1112"
 	c.Assert(bytes.Compare(e.IPv6, IPv6Addr) == 0, Equals, true)
 	c.Assert(bytes.Compare(e.IPv4, IPv4Addr) == 0, Equals, true)
