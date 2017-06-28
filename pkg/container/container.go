@@ -17,8 +17,6 @@ package container
 import (
 	"sync"
 
-	"github.com/cilium/cilium/pkg/labels"
-
 	dTypes "github.com/docker/engine-api/types"
 )
 
@@ -26,19 +24,12 @@ type Container struct {
 	// Mutex internal mutex for the whole container structure
 	Mutex sync.RWMutex
 	dTypes.ContainerJSON
-	LabelsHash string
-	OpLabels   labels.OpLabels
 }
 
 // NewContainer a Container with its labels initialized.
-func NewContainer(dc *dTypes.ContainerJSON, l labels.Labels) *Container {
+func NewContainer(dc *dTypes.ContainerJSON) *Container {
 	// FIXME should we calculate LabelsHash here?
 	return &Container{
 		ContainerJSON: *dc,
-		OpLabels: labels.OpLabels{
-			Custom:        labels.Labels{},
-			Disabled:      labels.Labels{},
-			Orchestration: l.DeepCopy(),
-		},
 	}
 }

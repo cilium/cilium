@@ -120,7 +120,8 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			"endpoint ID cannot be 0")
 	}
 
-	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
+	addLabels := labels.ParseStringLabels(params.Endpoint.Labels)
+	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err != nil {
 		return apierror.Error(PutEndpointIDInvalidCode, err)
 	}
@@ -167,7 +168,8 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	epTemplate := params.Endpoint
 
 	// Validate the template. Assignment afterwards is atomic.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate)
+	addLabels := labels.ParseStringLabels(params.Endpoint.Labels)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err2 != nil {
 		return apierror.Error(PutEndpointIDInvalidCode, err2)
 	}
@@ -253,6 +255,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	ep.Mutex.Lock()
 	defer ep.Mutex.Unlock()
 	ep.LeaveLocked(d)
+
+	sha256sum := ep.OpLabels.Enabled().SHA256Sum()
+	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
+		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
+			sha256sum, ep.OpLabels.Enabled(), err)
+	}
 
 	if err := d.conf.LXCMap.DeleteElement(ep); err != nil {
 		log.Warningf("Unable to remove endpoint from map: %s", err)
@@ -442,9 +450,9 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 
 	cont.Mutex.RLock()
 	cfg := models.LabelConfiguration{
-		Disabled:            cont.OpLabels.Disabled.GetModel(),
-		Custom:              cont.OpLabels.Custom.GetModel(),
-		OrchestrationSystem: cont.OpLabels.Orchestration.GetModel(),
+		Disabled:            ep.OpLabels.Disabled.GetModel(),
+		Custom:              ep.OpLabels.Custom.GetModel(),
+		OrchestrationSystem: ep.OpLabels.Orchestration.GetModel(),
 	}
 	cont.Mutex.RUnlock()
 
@@ -477,18 +485,17 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 
 	ep.Mutex.RLock()
 	epDockerID := ep.DockerID
+	oldLabels := ep.OpLabels.DeepCopy()
 	ep.Mutex.RUnlock()
 
 	d.containersMU.RLock()
 	cont := d.containers[epDockerID]
 	d.containersMU.RUnlock()
-	if cont == nil {
-		return NewPutEndpointIDLabelsNotFound()
-	}
 
-	cont.Mutex.RLock()
-	oldLabels := cont.OpLabels.DeepCopy()
-	cont.Mutex.RUnlock()
+	contID := ""
+	if cont != nil {
+		contID = cont.ID
+	}
 
 	if len(delLabels) > 0 {
 		for k := range delLabels {
@@ -530,15 +537,14 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		}
 	}
 
-	identity, newHash, err2 := d.updateContainerIdentity(cont.ID, cont.LabelsHash, oldLabels)
+	identity, newHash, err2 := d.updateEndpointIdentity(ep.StringID(), ep.LabelsHash, oldLabels)
 	if err2 != nil {
 		return apierror.Error(PutEndpointIDLabelsUpdateFailedCode, err2)
 	}
-	cont.Mutex.Lock()
-	cont.LabelsHash = newHash
-	cont.OpLabels = *oldLabels
-	contID := cont.ID
-	cont.Mutex.Unlock()
+	ep.Mutex.Lock()
+	ep.LabelsHash = newHash
+	ep.OpLabels = *oldLabels
+	ep.Mutex.Unlock()
 
 	// FIXME: Undo identity update?
 
