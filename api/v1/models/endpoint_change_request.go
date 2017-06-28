@@ -39,6 +39,9 @@ type EndpointChangeRequest struct {
 	// Name of network device
 	InterfaceName string `json:"interface-name,omitempty"`
 
+	// Labels describing the identity
+	Labels Labels `json:"labels"`
+
 	// MAC address
 	Mac string `json:"mac,omitempty"`
 

@@ -993,6 +993,10 @@ func init() {
           "description": "Name of network device",
           "type": "string"
         },
+        "labels": {
+          "description": "Labels describing the identity",
+          "$ref": "#/definitions/Labels"
+        },
         "mac": {
           "description": "MAC address",
           "type": "string"
