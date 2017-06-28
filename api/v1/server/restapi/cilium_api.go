@@ -12,7 +12,6 @@ import (
 	loads "github.com/go-openapi/loads"
 	runtime "github.com/go-openapi/runtime"
 	middleware "github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/runtime/security"
 	spec "github.com/go-openapi/spec"
 	strfmt "github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -27,18 +26,15 @@ import (
 // NewCiliumAPI creates a new Cilium instance
 func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 	return &CiliumAPI{
-		handlers:            make(map[string]map[string]http.Handler),
-		formats:             strfmt.Default,
-		defaultConsumes:     "application/json",
-		defaultProduces:     "application/json",
-		ServerShutdown:      func() {},
-		spec:                spec,
-		ServeError:          errors.ServeError,
-		BasicAuthenticator:  security.BasicAuth,
-		APIKeyAuthenticator: security.APIKeyAuth,
-		BearerAuthenticator: security.BearerAuth,
-		JSONConsumer:        runtime.JSONConsumer(),
-		JSONProducer:        runtime.JSONProducer(),
+		handlers:        make(map[string]map[string]http.Handler),
+		formats:         strfmt.Default,
+		defaultConsumes: "application/json",
+		defaultProduces: "application/json",
+		ServerShutdown:  func() {},
+		spec:            spec,
+		ServeError:      errors.ServeError,
+		JSONConsumer:    runtime.JSONConsumer(),
+		JSONProducer:    runtime.JSONProducer(),
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointDeleteEndpointID has not yet been implemented")
 		}),
@@ -126,17 +122,6 @@ type CiliumAPI struct {
 	defaultConsumes string
 	defaultProduces string
 	Middleware      func(middleware.Builder) http.Handler
-
-	// BasicAuthenticator generates a runtime.Authenticator from the supplied basic auth function.
-	// It has a default implemention in the security package, however you can replace it for your particular usage.
-	BasicAuthenticator func(security.UserPassAuthentication) runtime.Authenticator
-	// APIKeyAuthenticator generates a runtime.Authenticator from the supplied token auth function.
-	// It has a default implemention in the security package, however you can replace it for your particular usage.
-	APIKeyAuthenticator func(string, string, security.TokenAuthentication) runtime.Authenticator
-	// BearerAuthenticator generates a runtime.Authenticator from the supplied bearer token auth function.
-	// It has a default implemention in the security package, however you can replace it for your particular usage.
-	BearerAuthenticator func(string, security.ScopedTokenAuthentication) runtime.Authenticator
-
 	// JSONConsumer registers a consumer for a "application/json" mime type
 	JSONConsumer runtime.Consumer
 

@@ -39,6 +39,9 @@ type EndpointChangeRequest struct {
 	// Name of network device
 	InterfaceName string `json:"interface-name,omitempty"`
 
+	// Labels describing the identity
+	Labels Labels `json:"labels"`
+
 	// MAC address
 	Mac string `json:"mac,omitempty"`
 
@@ -98,23 +101,5 @@ func (m *EndpointChangeRequest) validateState(formats strfmt.Registry) error {
 		return err
 	}
 
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (m *EndpointChangeRequest) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *EndpointChangeRequest) UnmarshalBinary(b []byte) error {
-	var res EndpointChangeRequest
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
 	return nil
 }
