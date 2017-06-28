@@ -58,4 +58,7 @@ const (
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
+
+	// CiliumIdentityAnnotation is the annotation key used to map to an endpoint's security identity.
+	CiliumIdentityAnnotation = "cilium-identity"
 )

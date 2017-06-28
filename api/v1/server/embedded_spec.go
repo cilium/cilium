@@ -878,6 +878,12 @@ func init() {
         },
         "configuration": {
           "$ref": "#/definitions/Configuration"
+        },
+        "k8s-configuration": {
+          "type": "string"
+        },
+        "k8s-endpoint": {
+          "type": "string"
         }
       }
     },

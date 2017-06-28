@@ -60,9 +60,6 @@ function run_tests(){
 
     echo "================== Running in IPv4 mode =================="
 
-    # Run the GSG first and then restart the cluster to run the remaining tests
-    vmssh ${node1} 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
-
     reinstall_ipv4 ${node1} ${k8s_version}
     reinstall_ipv4 ${node2} ${k8s_version}
     # Set up cilium-lb-ds and cilium-ds

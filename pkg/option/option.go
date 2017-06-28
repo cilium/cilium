@@ -121,21 +121,33 @@ type BoolOptions struct {
 	Library *OptionLibrary `json:"-"`
 }
 
-func (bo *BoolOptions) GetModel() *models.Configuration {
-	cfg := models.Configuration{
-		Immutable: make(models.ConfigurationMap),
-		Mutable:   make(models.ConfigurationMap),
-	}
+// GetImmutableModel returns the set of immutable options as a ConfigurationMap API model.
+func (bo *BoolOptions) GetImmutableModel() *models.ConfigurationMap {
+	immutableCfg := make(models.ConfigurationMap)
+	return &immutableCfg
+}
 
+// GetMutableModel returns the set of mutable options as a ConfigurationMap API model.
+func (bo *BoolOptions) GetMutableModel() *models.ConfigurationMap {
+	mutableCfg := make(models.ConfigurationMap)
 	bo.optsMU.RLock()
 	for k, v := range bo.Opts {
 		if v {
-			cfg.Mutable[k] = "Enabled"
+			mutableCfg[k] = "Enabled"
 		} else {
-			cfg.Mutable[k] = "Disabled"
+			mutableCfg[k] = "Disabled"
 		}
 	}
 	bo.optsMU.RUnlock()
+
+	return &mutableCfg
+}
+
+func (bo *BoolOptions) GetModel() *models.Configuration {
+	cfg := models.Configuration{
+		Immutable: *bo.GetImmutableModel(),
+		Mutable:   *bo.GetMutableModel(),
+	}
 
 	return &cfg
 }

@@ -62,8 +62,11 @@ import (
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/vishvananda/netlink"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
+
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 const (
@@ -249,9 +252,52 @@ func (d *Daemon) PolicyEnforcement() string {
 	return d.conf.EnablePolicy
 }
 
-// DebugEnabled returns whether if debug mode is enabled.
+// DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
+}
+
+// AnnotateEndpoint adds a Kubernetes annotation with key annotationKey and value
+// annotationValue if Kubernetes is being utilized in tandem with Cilium.
+func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotationValue string) {
+
+	if !d.conf.IsK8sEnabled() {
+		return // Don't error out if k8s is not enabled; treat as a no-op.
+	}
+
+	// Endpoint's PodName is in the format namespace:pod-name
+	split := strings.Split(e.PodName, ":")
+
+	if len(split) < 2 {
+		log.Errorf("improper formatting provided for k8s pod name: %s, should be delimited by %q", e.PodName, ":")
+		return
+	}
+
+	pod, err := d.k8sClient.CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
+	if err != nil {
+		log.Errorf("error getting pod name for endpoint %d: %s", e.ID, err)
+		return
+	}
+
+	pod.Annotations[annotationKey] = annotationValue
+
+	pod, err = d.k8sClient.CoreV1().Pods(split[0]).Update(pod)
+	if err != nil {
+		log.Warningf("k8s: unable to update pod %s with \"cilium-identity\" annotation: %s, retrying...", e.PodName, err)
+		go func(e *endpoint.Endpoint, namespace, podName string, pod *v1.Pod) {
+			// TODO: Retry forever?
+			for n := 0; err != nil; {
+				log.Warningf("k8s: unable to update pod %s / endpoint %d with %q annotation: %s, retrying...", e.PodName, e.ID, common.CiliumIdentityAnnotation, err)
+				pod.Annotations[annotationKey] = annotationValue
+				pod, err = d.k8sClient.CoreV1().Pods(namespace).Update(pod)
+				if n < 30 {
+					n++
+				}
+				time.Sleep(time.Duration(n) * time.Second)
+			}
+		}(e, split[0], split[1], pod)
+	}
+	log.Debugf("added %s annotation to endpoint %d", common.CiliumIdentityAnnotation, e.ID)
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
@@ -1097,8 +1143,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	d := h.daemon
 
 	cfg := &models.DaemonConfigurationResponse{
-		Addressing:    d.getNodeAddressing(),
-		Configuration: d.conf.Opts.GetModel(),
+		Addressing:       d.getNodeAddressing(),
+		Configuration:    d.conf.Opts.GetModel(),
+		K8sConfiguration: d.conf.K8sCfgPath,
+		K8sEndpoint:      d.conf.K8sEndpoint,
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)

@@ -47,7 +47,7 @@ type Owner interface {
 	// Must return an instance of a ConsumableCache
 	GetConsumableCache() *policy.ConsumableCache
 
-	// Must resolve label id to an identiy
+	// Must resolve label id to an identity
 	GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error)
 
 	// Must return the policy repository
@@ -71,11 +71,14 @@ type Owner interface {
 	// QueueEndpointBuild puts the given request in the processing queue
 	QueueEndpointBuild(*Request)
 
-	// RemoveFromEndpointQueue removes all requests from the working que
+	// RemoveFromEndpointQueue removes all requests from the working queue
 	RemoveFromEndpointQueue(epID uint64)
 
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
+
+	// Annotates endpoint e with an annotation with key annotationKey, and value annotationValue.
+	AnnotateEndpoint(e *Endpoint, annotationKey, annotationValue string)
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints

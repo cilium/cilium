@@ -21,6 +21,12 @@ type DaemonConfigurationResponse struct {
 
 	// configuration
 	Configuration *Configuration `json:"configuration,omitempty"`
+
+	// k8s configuration
+	K8sConfiguration string `json:"k8s-configuration,omitempty"`
+
+	// k8s endpoint
+	K8sEndpoint string `json:"k8s-endpoint,omitempty"`
 }
 
 // Validate validates this daemon configuration response

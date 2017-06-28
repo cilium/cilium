@@ -935,6 +935,10 @@ definitions:
         "$ref": "#/definitions/NodeAddressing"
       configuration:
         "$ref": "#/definitions/Configuration"
+      k8s-endpoint:
+        type: string
+      k8s-configuration:
+        type: string
   Configuration:
     description: |
       General purpose structure to hold configuration of the daemon and

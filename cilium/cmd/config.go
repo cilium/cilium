@@ -75,6 +75,8 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 
 		dumpConfig(resp.Configuration.Immutable)
 		dumpConfig(resp.Configuration.Mutable)
+		fmt.Printf("%-24s %s\n", "k8s-configuration", resp.K8sConfiguration)
+		fmt.Printf("%-24s %s\n", "k8s-endpoint", resp.K8sEndpoint)
 		return
 	}
 

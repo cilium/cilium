@@ -79,7 +79,7 @@ func (p *Repository) CanReachRLocked(ctx *SearchContext) api.Decision {
 }
 
 // AllowsRLocked evaluates the policy repository for the provided search
-// context and return the verdict. If no matching policy allows for the
+// context and returns the verdict. If no matching policy allows for the
 // connection, the request will be denied. The policy repository mutex must be
 // held.
 func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
