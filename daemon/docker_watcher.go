@@ -238,7 +238,6 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			if cid != 0 {
 				endpointmanager.Mutex.Lock()
 				ep = endpointmanager.LookupCiliumIDLocked(cid)
-				// Associate container id with endpoint
 				endpointmanager.Mutex.Unlock()
 			}
 		}
