@@ -683,6 +683,9 @@ definitions:
       docker-endpoint-id:
         description: Docker endpoint ID
         type: string
+      labels:
+        description: Labels describing the identity
+        "$ref": "#/definitions/Labels"
       docker-network-id:
         description: Docker network ID
         type: string
