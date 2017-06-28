@@ -3,7 +3,7 @@
 source "./helpers.bash"
 
 function cleanup {
-	gather_files 10-proxy
+	gather_files 10-proxy ${TEST_SUITE}
 	cilium service delete --all
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f server1 server2 client 2> /dev/null || true

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+OLD_DIR=`pwd`
+sudo rm -rf ./cilium-files
+sudo rm -rf *.tar.gz
+
+cd ./tests/k8s
+
+IDENTITY_FILE=$(vagrant ssh-config | grep IdentityFile | awk '{print $2}')
+PORT=$(vagrant ssh-config default | grep Port | awk '{ print $2 }')
+
+scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${IDENTITY_FILE} vagrant@127.0.0.1:~/go/src/github.com/cilium/cilium/tests/k8s/cilium-files .
+
+sudo tar -czvf cilium-files-k8s.tar.gz cilium-files
+mv cilium-files-k8s.tar.gz ${OLD_DIR}
