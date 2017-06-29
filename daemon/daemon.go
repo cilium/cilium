@@ -589,13 +589,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if c.IsK8sEnabled() {
 		d.k8sClient, err = k8s.CreateClient(c.K8sEndpoint, c.K8sCfgPath)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to create k8s client: %s", err)
 		}
 
 		if nodeName := os.Getenv(k8s.EnvNodeNameSpec); nodeName != "" {
 			// Try to retrieve node's cidr from k8s's configuration
 			if err := d.useK8sNodeCIDR(nodeName); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("unable to retrieve node CIDR: %s", err)
 			}
 		}
 
