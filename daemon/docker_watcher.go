@@ -239,7 +239,6 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 				endpointmanager.Mutex.Lock()
 				ep = endpointmanager.LookupCiliumIDLocked(cid)
 				// Associate container id with endpoint
-				endpointmanager.LinkContainerID(ep)
 				endpointmanager.Mutex.Unlock()
 			}
 		}
@@ -262,6 +261,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 
 		ep.Mutex.Lock()
 		ep.DockerID = id
+		endpointmanager.LinkContainerID(ep)
 		var orchLabelsModified bool
 		if orchLabelsModified = updateOrchLabels(ep, lbls); !orchLabelsModified {
 			log.Debugf("No changes to orch labels.")
