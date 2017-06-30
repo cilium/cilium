@@ -37,7 +37,7 @@ networking, security, loadbalancing and visibility.
    overlay network using encapsulation (VXLAN/Geneve).
  * **Load balancing:** Distributed load balancing for east-west traffic from
    application container to application container, e.g. implementation of
-   Kubenretes services. North-south traffic to load balance external traffic,
+   Kubernetes services. North-south traffic to load balance external traffic,
    e.g. implementation of Kubernetes ingress. All load-balancing performed
    with direct server return (DSR) by default for improved performance.
  * **Troubleshooting:** Built-in troubleshooting tools providing an alternative
