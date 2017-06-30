@@ -14,8 +14,8 @@ build: clean
 		'tar -c root/cilium-$(VERSION)*.rpm root/x86_64/cilium-$(VERSION)*.rpm' | tar --strip-components=1 -xvC .
 
 clean:
-	ls -d ./* | grep -vE Makefile\|cfg | xargs rm -rf
-	ls -d ./cfg/* | grep -vE Dockerfile\|create-rpm.sh\|cilium.spec.envsubst | xargs rm -rf
+	ls -d ./* | grep -vE Makefile\|cfg | xargs $(RM) -rf
+	ls -d ./cfg/* | grep -vE Dockerfile\|create-rpm.sh\|cilium.spec.envsubst | xargs $(RM) -rf
 
 .PHONY: force build clean
 force :;

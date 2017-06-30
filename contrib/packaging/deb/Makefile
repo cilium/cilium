@@ -14,7 +14,7 @@ build: clean
 	docker run --rm cilium:cilium-bin-deb-$(VERSION) bash -c 'cd .. && tar -c cilium_$(VERSION)*' | tar -xvC .
 
 clean:
-	ls -d ./* | grep -vE Makefile\|cfg | xargs rm -rf
+	ls -d ./* | grep -vE Makefile\|cfg | xargs $(RM) -rf
 
 .PHONY: force build clean
 force :;
