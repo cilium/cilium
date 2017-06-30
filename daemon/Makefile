@@ -1,10 +1,11 @@
-include ../Makefile.defs
-
-
 # We keep track of the SHA over bindata.go plus the go version used to
 # generate the bindata.go as it affects the generated code. A change
 # of version is likely causing a SHA conflict as well.
 include bpf.sha
+
+# GOBUILD relies on the order of makefile list to get VERSION file
+include ../Makefile.defs
+
 
 TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
