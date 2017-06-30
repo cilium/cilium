@@ -25,9 +25,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// MapType is an enumeration for valid BPF map types
 type MapType int
 
-// This enumeration must be in sync with <linux/bpf.h>
+// This enumeration must be in sync with enum bpf_prog_type in <linux/bpf.h>
 const (
 	MapTypeUnspec MapType = iota
 	MapTypeHash
@@ -92,11 +93,12 @@ type MapValue interface {
 }
 
 type MapInfo struct {
-	MapType    MapType
-	KeySize    uint32
-	ValueSize  uint32
-	MaxEntries uint32
-	Flags      uint32
+	MapType       MapType
+	KeySize       uint32
+	ValueSize     uint32
+	MaxEntries    uint32
+	Flags         uint32
+	OwnerProgType ProgType
 }
 
 type Map struct {
@@ -111,11 +113,12 @@ type Map struct {
 func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32) *Map {
 	return &Map{
 		MapInfo: MapInfo{
-			MapType:    mapType,
-			KeySize:    uint32(keySize),
-			ValueSize:  uint32(valueSize),
-			MaxEntries: uint32(maxEntries),
-			Flags:      flags,
+			MapType:       mapType,
+			KeySize:       uint32(keySize),
+			ValueSize:     uint32(valueSize),
+			MaxEntries:    uint32(maxEntries),
+			Flags:         flags,
+			OwnerProgType: ProgTypeUnspec,
 		},
 		name: name,
 	}
@@ -153,6 +156,8 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 			info.MaxEntries = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "map_flags:\t%x", &value); n == 1 && err == nil {
 			info.Flags = uint32(value)
+		} else if n, err := fmt.Sscanf(line, "owner_prog_type:\t%d", &value); n == 1 && err == nil {
+			info.OwnerProgType = ProgType(value)
 		}
 	}
 
