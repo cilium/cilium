@@ -620,7 +620,7 @@ The security policy can be specified in the following formats:
 
 * The Kubernetes *NetworkPolicy* specification which offers to configure a
   subset of the full Cilium security. For fun see `Kubernetes Network Policies
-  <https://kubernetes.io/docs/concepts/services-networking/networkpolicies/>`_
+  <https://kubernetes.io/docs/concepts/services-networking/network-policies/>`_
   for details on how to configure Kubernetes network policies. It is possible
   to define base rules using the Kubernetes specification and then
   extend these using additional Cilium specific rules.
@@ -1081,12 +1081,12 @@ External-to-Pod Service-based Load-balancing
 TODO: Verify this
 
 Kubernetes supports an abstraction known as `Ingress
-<https://kubernetes.io/docs/user-guide/ingress/#what-is-ingress>`_ that allows
-a Pod-based Kubernetes service to expose itself for access outside of the
-cluster in a load-balanced way.  In a typical setup, the external traffic would
-be sent to a publicly reachable IP + port on the host running the Kubernetes
-master, and then be load-balanced to the pods implementing the current service
-within the cluster.
+<https://kubernetes.io/docs/concepts/services-networking/ingress/#what-is-ingress>`_
+that allows a Pod-based Kubernetes service to expose itself for access outside
+of the cluster in a load-balanced way.  In a typical setup, the external traffic
+would be sent to a publicly reachable IP + port on the host running the
+Kubernetes master, and then be load-balanced to the pods implementing the
+current service within the cluster.
 
 Cilium supports Ingress with TCP-based load-balancing.  Moreover, it supports
 ''direct server return'', meaning that reply traffic from the pod to the
