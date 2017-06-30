@@ -146,6 +146,6 @@ under the [General Public License, Version 2.0](bpf/COPYING).
 [containerd]: https://github.com/containerd/containerd
 [k8s_service]: https://kubernetes.io/docs/concepts/services-networking/service/
 [k8s_ingress]: https://kubernetes.io/docs/concepts/services-networking/ingress/
-[k8s_netpolicy]: https://kubernetes.io/docs/concepts/services-networking/networkpolicies/
+[k8s_netpolicy]: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 [k8s_labels]: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 [fluentd]: http://www.fluentd.org/

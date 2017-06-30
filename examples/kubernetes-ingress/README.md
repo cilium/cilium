@@ -8,7 +8,7 @@ This tutorial demonstrates how to set up Kubernetes using Cilium to:
 - Run the BPF based kube-proxy replacement for services and ingress objects
 
 On top of this, the pods will have some labels assigned by kubernetes and cilium
-will enforce the kubernetes policy created via [kubernetes network policy API](https://kubernetes.io/docs/concepts/services-networking/networkpolicies/).
+will enforce the kubernetes policy created via [kubernetes network policy API](https://kubernetes.io/docs/concepts/services-networking/network-policies/).
 
 Besides the network policy enforcement, kubernetes will be running **without**
 kube-proxy and will enforce a basic set of ingress rules from an ingress object,
