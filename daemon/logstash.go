@@ -119,8 +119,8 @@ func (d *Daemon) processStats(allPes map[uint16][]policymap.PolicyEntryDump) []L
 		}
 		for _, stat := range v {
 			lss = append(lss, LogstashStat{
-				FromID:  stat.ID,
-				From:    d.getInlineLabelStr(policy.NumericIdentity(stat.ID)),
+				FromID:  stat.Key.Identity,
+				From:    d.getInlineLabelStr(policy.NumericIdentity(stat.Key.Identity)),
 				ToID:    strconv.FormatUint(uint64(k), 10),
 				Bytes:   stat.Bytes,
 				Packets: stat.Packets,
