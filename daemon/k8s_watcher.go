@@ -874,7 +874,6 @@ func (d *Daemon) nodesAddFn(obj interface{}) {
 }
 
 func (d *Daemon) nodesModFn(oldObj interface{}, newObj interface{}) {
-	log.Debugf("Modified node %+v->%+v", oldObj, newObj)
 	k8sNode, ok := newObj.(*v1.Node)
 	if !ok {
 		log.Warningf("Invalid objected, expected v1.Node, got %+v", newObj)
