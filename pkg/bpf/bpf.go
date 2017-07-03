@@ -16,6 +16,7 @@ package bpf
 
 /*
 #cgo CFLAGS: -I../../bpf/include
+#include <stdint.h>
 #include <linux/unistd.h>
 #include <linux/bpf.h>
 #include <sys/resource.h>
