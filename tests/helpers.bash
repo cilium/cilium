@@ -67,6 +67,7 @@ function wait_for_endpoints {
 	until [ "$(cilium endpoint list | grep ready -c)" -eq "$1" ]; do
 	    micro_sleep
 	done
+	set -x
 }
 
 function wait_for_cilium_status {
@@ -85,6 +86,7 @@ function wait_for_kubectl_cilium_status {
     while ! kubectl -n ${namespace} exec ${pod} cilium status; do
         micro_sleep
     done
+    set -x
 }
 
 function wait_for_cilium_ep_gen {
@@ -95,6 +97,7 @@ function wait_for_cilium_ep_gen {
         fi
         micro_sleep
     done
+    set -x
 }
 
 function wait_for_policy_enforcement {
@@ -117,6 +120,7 @@ function wait_for_log_entries {
     while [ $(count_lines_in_log) -lt "$expected" ]; do
         micro_sleep
     done
+    set -x
 }
 
 function wait_for_docker_ipv6_addr {
@@ -129,6 +133,7 @@ function wait_for_docker_ipv6_addr {
          fi
          micro_sleep
     done
+    set -x
 }
 
 function wait_for_running_pod {
@@ -138,6 +143,7 @@ function wait_for_running_pod {
     while [[ "$(kubectl get pods | grep ${pod} | grep Running -c)" -ne "1" ]] ; do
         micro_sleep
     done
+    set -x
 }
 
 function gather_files {
