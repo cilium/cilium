@@ -9,6 +9,9 @@ spec:
       labels:
         k8s-app: consul
         kubernetes.io/cluster-service: "true"
+      annotations:
+        scheduler.alpha.kubernetes.io/tolerations: >-
+          [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
     spec:
       containers:
       - image: consul:0.8.3
@@ -55,6 +58,9 @@ spec:
       labels:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
+      annotations:
+        scheduler.alpha.kubernetes.io/tolerations: >-
+          [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
     spec:
       serviceAccountName: cilium
       containers:
