@@ -57,8 +57,8 @@ __custom_func() {
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "cilium",
-	Short: "A brief description of your application",
-	Long:  `TBD`,
+	Short: "CLI",
+	Long:  `CLI for interacting with the local Cilium Agent`,
 	BashCompletionFunction: bashCompletionFunc,
 }
 
