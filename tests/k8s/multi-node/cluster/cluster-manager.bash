@@ -155,11 +155,6 @@ function start_kubeadm() {
 Environment='KUBELET_DNS_ARGS=--cluster-dns=${cluster_dns_ip} --cluster-domain=${cluster_name}.local'
 EOF
 "
-    sudo bash -c "cat <<EOF > /etc/systemd/system/kubelet.service.d/20-kubelet-extra-args.conf
-[Service]
-Environment='KUBELET_EXTRA_ARGS=--node-ip=${controller_ip}'
-EOF
-"
     sudo systemctl daemon-reload
 
     sudo mkdir -p /home/vagrant/.kube
