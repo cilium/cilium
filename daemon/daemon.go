@@ -593,6 +593,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 
 		if nodeName := os.Getenv(k8s.EnvNodeNameSpec); nodeName != "" {
+			// Use of the environment variable overwrites the
+			// node-name automatically derived
+			nodeaddress.SetName(nodeName)
+
 			// Try to retrieve node's cidr from k8s's configuration
 			if err := d.useK8sNodeCIDR(nodeName); err != nil {
 				return nil, fmt.Errorf("unable to retrieve node CIDR: %s", err)
@@ -614,6 +618,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
+	log.Infof("Local node-name: %s", nodeaddress.GetName())
 	log.Infof("Cluster IPv6 prefix: %s", nodeaddress.IPv6ClusterRange())
 	log.Infof("Cluster IPv4 prefix: %s", nodeaddress.IPv4ClusterRange())
 	log.Infof("IPv6 allocation prefix: %s", nodeaddress.IPv6AllocRange())
