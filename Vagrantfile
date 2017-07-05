@@ -70,6 +70,12 @@ $job_name = ENV['JOB_NAME'] || "local"
 $build_number = ENV['BUILD_NUMBER'] || "0"
 $build_id = "#{$job_name}-#{$build_number}"
 
+# Only create the build_id_name for Jenkins environment so that
+# we can run VMs locally without having any the `build_id` in the name.
+if ENV['BUILD_NUMBER'] then
+    $build_id_name = "-build-#{$build_number}"
+end
+
 if ENV['K8S'] then
     $k8stag = ENV['K8STAG'] || "-k8s"
 end
@@ -110,7 +116,7 @@ Vagrant.configure(2) do |config|
         end
     end
 
-    master_vm_name = "cilium#{$k8stag}-master"
+    master_vm_name = "cilium#{$k8stag}-master#{$build_id_name}"
     config.vm.define master_vm_name, primary: true do |cm|
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test-#{$build_id}",
@@ -150,7 +156,7 @@ Vagrant.configure(2) do |config|
 
     $num_workers.times do |n|
         # n starts with 0
-        node_vm_name = "cilium#{$k8stag}-node-#{n+2}"
+        node_vm_name = "cilium#{$k8stag}-node-#{n+2}#{$build_id_name}"
         node_hostname = "cilium#{$k8stag}-node-#{n+2}"
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
