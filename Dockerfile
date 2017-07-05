@@ -37,6 +37,12 @@ make -j `getconf _NPROCESSORS_ONLN` && \
 make install && \
 # iproute2-end
 #
+# bpf-map-begin
+curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map && \
+chmod +x bpf-map && \
+mv bpf-map /usr/bin && \
+# bpf-map-end
+#
 # cilium-begin
 
 cd /tmp && \
