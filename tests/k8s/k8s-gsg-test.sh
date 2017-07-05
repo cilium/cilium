@@ -1,18 +1,21 @@
 #!/bin/bash
 
+set -ex
+
 NAMESPACE="kube-system" 
 
 source "../helpers.bash"
 source /home/vagrant/.profile
 
-K8SDIR=../../examples/minikube
+MINIKUBE=../../examples/minikube
+K8SDIR=../../examples/kubernetes
 
 function cleanup {
-	kubectl delete -f $K8SDIR/l3_l4_l7_policy.yaml 2> /dev/null
-	kubectl delete -f $K8SDIR/l3_l4_policy.yaml 2> /dev/null
-	kubectl delete -f $K8SDIR/demo.yaml 2> /dev/null
-	kubectl delete -f $K8SDIR/cilium-ds.yaml 2> /dev/null
-	kubectl delete -f $K8SDIR/rbac.yaml 2> /dev/null
+	kubectl delete -f $MINIKUBE/l3_l4_l7_policy.yaml 2> /dev/null || true
+	kubectl delete -f $MINIKUBE/l3_l4_policy.yaml 2> /dev/null || true
+	kubectl delete -f $MINIKUBE/demo.yaml 2> /dev/null || true
+	kubectl delete -f $K8SDIR/cilium-ds.yaml 2> /dev/null || true
+	kubectl delete -f $K8SDIR/rbac.yaml 2> /dev/null || true
 }
 
 trap cleanup exit
@@ -21,11 +24,7 @@ echo "KUBECONFIG: $KUBECONFIG"
 
 cleanup
 
-echo -n "---- Waiting for cluster to get into a good state"
-until [ "$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")" -eq "3" ]; do 
-	echo -n "."
-done
-
+wait_for_healthy_k8s_cluster 3
 
 echo "----- adding RBAC for Cilium -----"
 kubectl create -f $K8SDIR/rbac.yaml
@@ -34,31 +33,22 @@ echo "----- deploying Cilium Daemon Set onto cluster -----"
 cp $K8SDIR/cilium-ds.yaml .
 sed -i s/"\/var\/lib\/kubelet\/kubeconfig"/"\/etc\/kubernetes\/kubelet.conf"/g cilium-ds.yaml
 sed -i s/"cilium\/cilium:stable"/"localhost:5000\/cilium:${DOCKER_IMAGE_TAG}"/g cilium-ds.yaml
-kubectl apply -f cilium-ds.yaml
+kubectl create -f cilium-ds.yaml
 
-echo -n "----- Waiting for Cilium to get into 'ready' state in Minikube cluster"
-until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ print $4}' | grep -c '1')" -eq "3" ]; do
-	echo -n "."
-done
+wait_for_daemon_set_ready ${NAMESPACE} cilium 1
 
 CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD}
 
 echo "----- deploying demo application onto cluster -----"
-kubectl create -f $K8SDIR/demo.yaml
+kubectl create -f $MINIKUBE/demo.yaml
 
-echo -n "----- Waiting for demo apps to get into 'Running' state"
-until [ "$(kubectl get pods | grep -v STATUS | grep -c "Running")" -eq "4" ]; do
-	echo -n "."
-done
+wait_for_n_running_pods 4
 
 echo "----- adding L3 L4 policy  -----"
-kubectl create -f $K8SDIR/l3_l4_policy.yaml
+kubectl create -f $MINIKUBE/l3_l4_policy.yaml
 
-echo -n "----- Waiting for endpoints to get into 'ready' state"
-until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
-	echo -n "."
-done
+wait_for_k8s_endpoints kube-system ${CILIUM_POD} 5
 
 echo "----- testing L3/L4 policy -----"
 APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
@@ -90,7 +80,7 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 fi
 
 echo "----- creating L7-aware policy -----"
-kubectl create -f $K8SDIR/l3_l4_l7_policy.yaml
+kubectl create -f $MINIKUBE/l3_l4_l7_policy.yaml
 
 CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
