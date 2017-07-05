@@ -1152,6 +1152,10 @@ func init() {
         },
         "to": {
           "$ref": "#/definitions/Labels"
+        },
+        "verbose": {
+          "description": "Enable verbose tracing.\n",
+          "type": "boolean"
         }
       }
     },

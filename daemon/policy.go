@@ -172,6 +172,9 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		To:      labels.NewSelectLabelArrayFromModel(ctx.To),
 		DPorts:  ctx.Dports,
 	}
+	if ctx.Verbose {
+		searchCtx.Trace = policy.TRACE_VERBOSE
+	}
 
 	d.policy.Mutex.RLock()
 
