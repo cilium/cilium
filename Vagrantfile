@@ -87,6 +87,10 @@ Vagrant.configure(2) do |config|
     end
 
     config.vm.provider "virtualbox" do |vb|
+        # Do not inherit DNS server from host, use proxy
+        vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+        vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+
         config.vm.box = "cilium/ubuntu-16.10"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
