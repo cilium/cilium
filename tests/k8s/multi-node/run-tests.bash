@@ -2,6 +2,10 @@
 
 set -ex
 
+vm_suffix="${BUILD_NUMBER:+-build-$BUILD_NUMBER}"
+
+node2="cilium-k8s-node-2${vm_suffix}"
+
 function reinstall_ipv6(){
     vm="${1}"
     vagrant ssh ${vm} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash reinstall --ipv6 --yes-delete-all-etcd-data'
@@ -10,11 +14,11 @@ function reinstall_ipv6(){
 }
 
 function deploy_cilium(){
-    vagrant ssh cilium-k8s-node-2 -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash deploy_cilium'
+    vagrant ssh ${node2} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash deploy_cilium'
 }
 
 function deploy_cilium_lb(){
-    vagrant ssh cilium-k8s-node-2 -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash deploy_cilium --lb-mode'
+    vagrant ssh ${node2} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash deploy_cilium --lb-mode'
 }
 
 echo "================== Running in IPv4 mode =================="
@@ -23,14 +27,14 @@ echo "================== Running in IPv4 mode =================="
 deploy_cilium
 
 # Run non IP version specific tests
-vagrant ssh cilium-k8s-node-2 -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/*.sh; do $test; done'
+vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/*.sh; do $test; done'
 # Run ipv4 tests
-vagrant ssh cilium-k8s-node-2 -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/ipv4/*.sh; do $test; done'
+vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/ipv4/*.sh; do $test; done'
 
 # Reinstall everything with IPv6 addresses
 # Kubeadm doesn't quite support IPv6 yet
-#reinstall_ipv6 cilium-k8s-master
-#reinstall_ipv6 cilium-k8s-node-2
+#reinstall_ipv6 ${master}
+#reinstall_ipv6 ${node2}
 
 echo "================== Running in IPv6 mode =================="
 
@@ -39,6 +43,6 @@ echo "IPv6 tests are currently disabled"
 #deploy_cilium
 
 # Run non IP version specific tests
-#vagrant ssh cilium-k8s-node-2 -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/*.sh; do $test; done'
+#vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/*.sh; do $test; done'
 # Run ipv6 tests
-#vagrant ssh cilium-k8s-node-2 -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/ipv6/*.sh; do $test; done'
+#vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/tests/ipv6/*.sh; do $test; done'
