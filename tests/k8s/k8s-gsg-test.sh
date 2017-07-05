@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 NAMESPACE="kube-system" 
 
 source "../helpers.bash"
