@@ -60,6 +60,10 @@ Vagrant.configure(2) do |config|
     config.vm.provision "k8s", type: "shell", inline: $k8s
     config.vm.provision "build", type: "shell", inline: $build, env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}
     config.vm.provider "virtualbox" do |vb|
+        # Do not inherit DNS server from host, use proxy
+        vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+        vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+
         # Ignore contrib/packaging/docker/stage to prevent concurrent
         # problems when using rsync on multiple VMs
         config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
