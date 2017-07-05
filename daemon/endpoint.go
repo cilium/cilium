@@ -151,7 +151,19 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 
 	endpointmanager.Insert(ep)
 
-	return NewPutEndpointIDCreated()
+	add := labels.NewLabelsFromModel(params.Endpoint.Labels)
+
+	if len(add) > 0 {
+		endpointmanager.Mutex.Unlock()
+		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
+		if errLabelsAdd != nil {
+			return errLabelsAdd
+		}
+		endpointmanager.Mutex.Lock()
+	}
+
+	ret := NewPutEndpointIDCreated()
+	return ret
 }
 
 type patchEndpointID struct {
@@ -561,7 +573,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 	d.containersMU.RUnlock()
 
 	if !containerFound {
-		return NewPutEndpointIDLabelsNotFound()
+		log.Infof("NewPutEndpointIDLabelsNotFound %v %v container not found", id, ep)
 	}
 
 	d.SetEndpointIdentity(ep, contID, "", identity)
