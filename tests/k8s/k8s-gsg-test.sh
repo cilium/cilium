@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 NAMESPACE="kube-system" 
 
@@ -24,11 +24,7 @@ echo "KUBECONFIG: $KUBECONFIG"
 
 cleanup
 
-echo -n "---- Waiting for cluster to get into a good state"
-until [ "$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")" -eq "3" ]; do 
-	echo -n "."
-done
-
+wait_for_healthy_k8s_cluster 3
 
 echo "----- adding RBAC for Cilium -----"
 kubectl create -f $K8SDIR/rbac.yaml
@@ -39,10 +35,7 @@ sed -i s/"\/var\/lib\/kubelet\/kubeconfig"/"\/etc\/kubernetes\/kubelet.conf"/g c
 sed -i s/"cilium\/cilium:stable"/"localhost:5000\/cilium:${DOCKER_IMAGE_TAG}"/g cilium-ds.yaml
 kubectl create -f cilium-ds.yaml
 
-echo -n "----- Waiting for Cilium to get into 'ready' state in Minikube cluster"
-until [ "$(kubectl get ds --namespace ${NAMESPACE} | grep -v 'READY' | awk '{ print $4}' | grep -c '1')" -eq "3" ]; do
-	echo -n "."
-done
+wait_for_daemon_set_ready ${NAMESPACE} cilium 1
 
 CILIUM_POD=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | grep -v 'AGE' | awk '{ print $1 }')
 wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD}
@@ -50,18 +43,12 @@ wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD}
 echo "----- deploying demo application onto cluster -----"
 kubectl create -f $MINIKUBE/demo.yaml
 
-echo -n "----- Waiting for demo apps to get into 'Running' state"
-until [ "$(kubectl get pods | grep -v STATUS | grep -c "Running")" -eq "4" ]; do
-	echo -n "."
-done
+wait_for_n_running_pods 4
 
 echo "----- adding L3 L4 policy  -----"
 kubectl create -f $MINIKUBE/l3_l4_policy.yaml
 
-echo -n "----- Waiting for endpoints to get into 'ready' state"
-until [ "$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')" -eq "5" ]; do
-	echo -n "."
-done
+wait_for_k8s_endpoints kube-system ${CILIUM_POD} 5
 
 echo "----- testing L3/L4 policy -----"
 APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
