@@ -8,6 +8,7 @@ function cleanup {
 	gather_files 12-policy-import
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f foo foo bar baz 2> /dev/null || true
+	docker network rm $TEST_NET > /dev/null 2>&1
 }
 
 trap cleanup EXIT
@@ -173,6 +174,25 @@ EOF
 
 echo "------ verify trace for expected output ------"
 DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar)) || true
+if [[ "$DIFF" != "" ]]; then
+	abort "$DIFF"
+fi
+
+read -d '' EXPECTED_POLICY <<"EOF" || true
+Tracing From: [any:id.foo] => To: [any:id.bar]
+* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+    Allows from labels {"matchLabels":{"any:id.foo":""}}
++     Found all required labels
+  Rule 1 {"matchLabels":{"any:id.teamA":""}}: no match for [any:id.bar]
+1 rules matched
+Result: ALLOWED
+L3 verdict: allowed
+
+Verdict: allowed
+EOF
+
+echo "------ verify verbose trace for expected output ------"
+DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar -v)) || true
 if [[ "$DIFF" != "" ]]; then
 	abort "$DIFF"
 fi

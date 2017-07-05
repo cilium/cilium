@@ -26,6 +26,7 @@ import (
 )
 
 var src, dst, dports []string
+var verbose bool
 
 // policyTraceCmd represents the policy_trace command
 var policyTraceCmd = &cobra.Command{
@@ -53,9 +54,10 @@ dports can be can be for example: 80/tcp, 53 or 23/udp.`,
 		}
 
 		search := models.IdentityContext{
-			From:   srcSlice,
-			To:     dstSlice,
-			Dports: dports,
+			From:    srcSlice,
+			To:      dstSlice,
+			Dports:  dports,
+			Verbose: verbose,
 		}
 
 		params := NewGetPolicyResolveParams().WithIdentityContext(&search)
@@ -75,6 +77,7 @@ func init() {
 	policyTraceCmd.Flags().StringSliceVarP(&dst, "dst", "d", []string{}, "Destination label context")
 	policyTraceCmd.MarkFlagRequired("dst")
 	policyTraceCmd.Flags().StringSliceVarP(&dports, "dport", "", []string{}, "L4 destination port to search on outgoing traffic of the source label context and on incoming traffic of the destination label context")
+	policyTraceCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "set tracing to TRACE_VERBOSE")
 }
 
 func parseAllowedSlice(slice []string) ([]string, error) {

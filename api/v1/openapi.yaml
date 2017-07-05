@@ -971,6 +971,10 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/Port"
+      verbose:
+        description: |
+          Enable verbose tracing.
+        type: boolean
   FrontendAddress:
     description: Layer 4 address
     type: object

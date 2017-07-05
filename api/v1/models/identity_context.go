@@ -26,6 +26,10 @@ type IdentityContext struct {
 
 	// to
 	To Labels `json:"to"`
+
+	// Enable verbose tracing.
+	//
+	Verbose bool `json:"verbose,omitempty"`
 }
 
 // Validate validates this identity context
