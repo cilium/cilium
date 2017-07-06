@@ -42,7 +42,7 @@ var (
 
 func init() {
 	mapInstance.NonPersistent = true
-	mapInstance.OpenOrCreate()
+	bpf.OpenAfterMount(mapInstance)
 }
 
 // Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>

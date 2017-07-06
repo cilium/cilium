@@ -46,9 +46,7 @@ var (
 )
 
 func init() {
-	if _, err := mapInstance.OpenOrCreate(); err != nil {
-		log.Errorf("Error while opening endpoint map: %s", err)
-	}
+	bpf.OpenAfterMount(mapInstance)
 }
 
 // MAC is the __u64 representation of a MAC address.
