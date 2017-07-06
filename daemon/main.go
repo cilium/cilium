@@ -77,6 +77,7 @@ var (
 	socketPath         string
 	v4Prefix           string
 	v6Prefix           string
+	v4Address          string
 	v6Address          string
 )
 
@@ -280,8 +281,10 @@ func init() {
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", nodeaddress.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
-	flags.StringVarP(&v6Address,
-		"node-address", "n", "", "IPv6 address of node, must be in correct format (XXXX:XXXX:XXXX:XXXX:XXXX:XXXX::/96)")
+	flags.StringVar(&v6Address,
+		"ipv6-node", "auto", "IPv6 address of node")
+	flags.StringVar(&v4Address,
+		"ipv4-node", "auto", "IPv4 address of node")
 	flags.BoolVar(&config.RestoreState,
 		"restore", false, "Restores state, if possible, from previous daemon")
 	flags.StringVar(&socketPath,
@@ -462,11 +465,23 @@ func initEnv() {
 		nodeaddress.InitDefaultPrefix(config.Device)
 	}
 
-	if v6Address != "" {
+	if v6Address != "auto" {
 		if ip := net.ParseIP(v6Address); ip == nil {
 			log.Fatalf("Invalid IPv6 node address '%s'", v6Address)
 		} else {
+			if !ip.IsGlobalUnicast() {
+				log.Fatalf("Invalid IPv6 node address '%s': not a global unicast address", ip)
+			}
+
 			nodeaddress.SetIPv6(ip)
+		}
+	}
+
+	if v4Address != "auto" {
+		if ip := net.ParseIP(v4Address); ip == nil {
+			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
+		} else {
+			nodeaddress.SetIPv4(ip)
 		}
 	}
 
