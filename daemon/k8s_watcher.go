@@ -93,7 +93,7 @@ func (d *Daemon) createThirdPartyResources() error {
 		},
 	}
 
-	_, err := d.k8sClient.Extensions().ThirdPartyResources().Create(res)
+	_, err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Create(res)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}

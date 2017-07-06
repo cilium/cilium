@@ -83,7 +83,7 @@ type Daemon struct {
 	dockerClient      *dClient.Client
 	events            chan events.Event
 	ipamConf          *ipam.IPAMConfig
-	k8sClient         *kubernetes.Clientset
+	k8sClient         kubernetes.Interface
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
 	loopbackIPv4      net.IP
@@ -452,7 +452,7 @@ func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
 	if d.conf.IPv4Disabled {
 		return nil
 	}
-	k8sNode, err := d.k8sClient.Nodes().Get(nodeName, metav1.GetOptions{})
+	k8sNode, err := d.k8sClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
