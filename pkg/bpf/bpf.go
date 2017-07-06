@@ -90,17 +90,6 @@ void create_bpf_obj_get(const char *pathname, void *attr)
 	ptr_bpf_attr = (union bpf_attr*)attr;
 	ptr_bpf_attr->pathname = ptr_to_u64(pathname);
 }
-
-int get_bpf_ktime_ns_uspace(__u64 *res)
-{
-	struct timespec t;
-	int ret;
-
-	ret = clock_gettime(CLOCK_MONOTONIC, &t);
-	*res = t.tv_nsec + t.tv_sec * 1000ULL * 1000ULL * 1000ULL;
-
-	return ret;
-}
 */
 import "C"
 
@@ -354,12 +343,12 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, f
 // although that is not quite usable for comparison. Go has
 // runtime.nanotime() but doesn't expose it as API.
 func GetMtime() (uint64, error) {
-	var time uint64
+	var ts unix.Timespec
 
-	err := C.get_bpf_ktime_ns_uspace((*C.uint64_t)(unsafe.Pointer(&time)))
-	if err == 0 {
-		return time, nil
-	} else {
-		return time, fmt.Errorf("Unable get time: %s", err)
+	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	if err != nil {
+		return 0, fmt.Errorf("Unable get time: %s", err)
 	}
+
+	return uint64(unix.TimespecToNsec(ts)), nil
 }
