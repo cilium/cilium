@@ -63,9 +63,9 @@ tests-consul:
 clean:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
-	-$(MAKE) -C ./contrib/packaging/deb clean
-	-$(MAKE) -C ./contrib/packaging/rpm clean
-	-$(MAKE) -C ./contrib/packaging/docker clean
+	-if [ -d "./contrib/packaging/deb" ]; then $(MAKE) -C ./contrib/packaging/deb clean; fi
+	-if [ -d "./contrib/packaging/rpm" ]; then $(MAKE) -C ./contrib/packaging/rpm clean; fi
+	-if [ -d "./contrib/packaging/docker" ]; then $(MAKE) -C ./contrib/packaging/docker clean; fi
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
