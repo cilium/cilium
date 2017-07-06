@@ -26,7 +26,6 @@ cluster_dns_ip="FD03::A"
 cluster_name="cilium-k8s-tests"
 node_cidr_mask_size="112"
 service_cluster_ip_range="FD03::/112"
-allocate_node_cidr_opts=''
 disable_ipv4=true
 EOF
     else
@@ -41,17 +40,9 @@ cluster_dns_ip="172.20.0.10"
 cluster_name="cilium-k8s-tests"
 node_cidr_mask_size="16"
 service_cluster_ip_range="172.20.0.0/16"
-#allocate_node_cidr_opts='"--cluster-cidr=$(cluster_cidr)", \
-#  "--allocate-node-cidrs=true", \
-#  "--configure-cloud-routes=false", \
-#  "--node-cidr-mask-size=$(node_cidr_mask_size)",'
 disable_ipv4=false
 EOF
     fi
-    # Disable allocate node CIDR for both modes
-    # since we don't know how to configure the
-    # routes to reach the other node automatically.
-    allocate_node_cidr_opts=''
 
     source "${dir}/env.bash"
 
@@ -70,24 +61,15 @@ networking:
   dnsDomain: ${cluster_name}.local
   serviceSubnet: "${service_cluster_ip_range}"
 token: "123456.abcdefghijklmnop"
+controllerManagerExtraArgs:
+  allocate-node-cidrs: "true"
+  cluster-cidr: "${cluster_cidr}"
+  node-cidr-mask-size: "${node_cidr_mask_size}"
 EOF
 }
 
 function generate_certs(){
     bash "${certs_dir}/generate-certs.sh"
-}
-
-function install_cni_config(){
-    sudo mkdir -p /opt/cni
-    sudo mkdir -p /etc/cni/net.d
-
-    sudo tee /etc/cni/net.d/10-cilium-cni.conf <<EOF
-{
-    "name": "cilium",
-    "type": "cilium-cni",
-    "mtu": 1450
-}
-EOF
 }
 
 function install_etcd(){
@@ -155,18 +137,13 @@ function start_kubeadm() {
 Environment='KUBELET_DNS_ARGS=--cluster-dns=${cluster_dns_ip} --cluster-domain=${cluster_name}.local'
 EOF
 "
-    sudo bash -c "cat <<EOF > /etc/systemd/system/kubelet.service.d/20-kubelet-extra-args.conf
-[Service]
-Environment='KUBELET_EXTRA_ARGS=--node-ip=${controller_ip}'
-EOF
-"
     sudo systemctl daemon-reload
 
     sudo mkdir -p /home/vagrant/.kube
     sudo mkdir -p /root/.kube
     sudo mkdir -p /var/lib/cilium/
 
-    if [[ "$(hostname)" -eq "cilium-k8s-master" ]]; then
+    if [[ "$(hostname)" -eq "k8s-1" ]]; then
         sudo kubeadm init --config ./kubeadm-master.conf
 
         # copy kubeconfig for cilium and vagrant user
@@ -255,9 +232,7 @@ function fresh_install(){
 
     get_options "${ipv6}"
 
-    install_cni_config
-
-    if [[ "$(hostname)" -eq "cilium-k8s-master" ]]; then
+    if [[ "$(hostname)" -eq "k8s-1" ]]; then
         install_etcd
         copy_etcd_certs
         generate_etcd_config
@@ -292,7 +267,7 @@ function reinstall(){
         clean_all
     fi
 
-    if [[ "$(hostname)" -eq "cilium-k8s-master" ]]; then
+    if [[ "$(hostname)" -eq "k8s-1" ]]; then
         copy_etcd_certs
         generate_etcd_config
         start_etcd
@@ -319,76 +294,30 @@ function deploy_cilium(){
 
     rm "${cilium_dir}/cilium-lb-ds.yaml" \
        "${cilium_dir}/cilium-ds.yaml" \
-       "${cilium_dir}/cilium-ds-1.yaml" \
-       "${cilium_dir}/cilium-ds-2.yaml" \
         2>/dev/null
 
     if [[ -n "${lb}" ]]; then
-        node_selector='"kubernetes.io/hostname": "cilium-k8s-master"'
         # In loadbalancer mode we set the snoop and LB interface to
         # enp0s8, the interface with IP 192.168.36.11.
         iface='enp0s8'
 
         sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
-                s+\$node_selector+${node_selector}+g;\
                 s+\$iface+${iface}+g" \
             "${cilium_dir}/cilium-lb-ds.yaml.sed" > "${cilium_dir}/cilium-lb-ds.yaml"
 
-        node_selector='"kubernetes.io/hostname": "cilium-k8s-node-2"'
-        node_address='#'
-        ipv4_range='#'
-
-        sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
-                s+\$node_selector+${node_selector}+g;\
-                s+\$node_address+${node_address}+g;\
-                s+\$ipv4_range+${ipv4_range}+g;\
-                s+\$server_number+1+g;\
-                s+\$iface+${iface}+g" \
-            "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds.yaml"
-
         kubectl create -f "${cilium_dir}"
 
-        wait_for_daemon_set_ready kube-system cilium-server-1 1
+        wait_for_daemon_set_ready kube-system cilium 1
     else
-        node_selector='"beta.kubernetes.io/arch": "amd64"'
-        # In vxlan mode we set the snoop to "undefined"
-        # so the default tunnel will be vxlan.
-        iface='undefined'
-
-        # FIX ME: Once we know how to get the node address
-        # and set the routes automatically, remove this hack
-        node_selector='"kubernetes.io/hostname": "cilium-k8s-master"'
-        node_address='- "--node-address=F00D::C0A8:240B:0:0"'
-        ipv4_range='- "--ipv4-range=10.11.0.1/16"'
-
-        sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
-                s+\$node_selector+${node_selector}+g;\
-                s+\$node_address+${node_address}+g;\
-                s+\$ipv4_range+${ipv4_range}+g;\
-                s+\$server_number+1+g;\
-                s+\$iface+${iface}+g" \
-            "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds-1.yaml"
-
-        node_selector='"kubernetes.io/hostname": "cilium-k8s-node-2"'
-        node_address='- "--node-address=F00D::C0A8:240C:0:0"'
-        ipv4_range='- "--ipv4-range=10.12.0.1/16"'
-
-        sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
-                s+\$node_selector+${node_selector}+g;\
-                s+\$node_address+${node_address}+g;\
-                s+\$ipv4_range+${ipv4_range}+g;\
-                s+\$server_number+2+g;\
-                s+\$iface+${iface}+g" \
-            "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds-2.yaml"
+        sed -e "s+\$disable_ipv4+${disable_ipv4}+g" \
+            "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds.yaml"
 
         kubectl create -f "${rbac_yaml}"
         kubectl create -f "${cilium_dir}"
 
-        wait_for_daemon_set_ready kube-system cilium-server-1 1
-        wait_for_daemon_set_ready kube-system cilium-server-2 1
+        wait_for_daemon_set_ready kube-system cilium 2
     fi
 
-    echo "dns_node_selector='${node_selector}'" >> "${dir}/env.bash"
     echo "lb='${lb}'" >> "${dir}/env.bash"
 }
 

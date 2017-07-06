@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
-  name: cilium-server-$server_number
+  name: cilium
   namespace: kube-system
 spec:
   template:
@@ -9,9 +9,10 @@ spec:
       labels:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
+      annotations:
+         scheduler.alpha.kubernetes.io/tolerations: >-
+           [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
     spec:
-      nodeSelector:
-        $node_selector
       serviceAccountName: cilium
       containers:
       - image: cilium:local_build
@@ -20,8 +21,6 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug"
-          - "-d"
-          - "$(IFACE)"
           - "--kvstore"
           - "etcd"
           - "--kvstore-opt"
@@ -29,8 +28,6 @@ spec:
           - "--k8s-kubeconfig-path"
           - "/var/lib/cilium/kubeconfig"
           - "--disable-ipv4=$(disable_ipv4)"
-          $node_address
-          $ipv4_range
         lifecycle:
           postStart:
             exec:
@@ -45,8 +42,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
-          - name: "IFACE"
-            value: "$iface"
           - name: "disable_ipv4"
             value: "$disable_ipv4"
         volumeMounts:
