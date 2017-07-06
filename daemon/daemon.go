@@ -299,6 +299,70 @@ func (d *Daemon) setHostAddresses() error {
 	return nil
 }
 
+func runProg(prog string, args []string, quiet bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+	}
+	if err != nil {
+		if !quiet {
+			log.Warningf("Command execution %s %s failed: %s", prog,
+				strings.Join(args, " "), err)
+
+			scanner := bufio.NewScanner(bytes.NewReader(out))
+			for scanner.Scan() {
+				log.Warning(scanner.Text())
+			}
+		}
+	}
+
+	return err
+}
+
+func (d *Daemon) removeMasqRule() {
+	runProg("iptables", []string{
+		"-t", "nat",
+		"-D", "POSTROUTING",
+		"-j", "CILIUM_POST"}, true)
+	runProg("iptables", []string{
+		"-t", "nat",
+		"-F", "CILIUM_POST"}, true)
+	runProg("iptables", []string{
+		"-t", "nat",
+		"-X", "CILIUM_POST"}, true)
+}
+
+func (d *Daemon) installMasqRule() error {
+	// Add cilium POSTROUTING chain
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-N", "CILIUM_POST"}, false); err != nil {
+		return err
+	}
+
+	// Masquerade all traffic from node prefix not going to node prefix
+	// which is not going over the tunnel device
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-A", "CILIUM_POST",
+		"-s", nodeaddress.GetIPv4AllocRange().String(),
+		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
+		"!", "-o", "cilium_" + d.conf.Tunnel,
+		"-m", "comment", "--comment", "cilium masquerade non-cluster",
+		"-j", "MASQUERADE"}, false); err != nil {
+		return err
+	}
+
+	// Hook POSTROUTING into Cilium POSTROUTING chain
+	return runProg("iptables", []string{
+		"-t", "nat",
+		"-A", "POSTROUTING",
+		"-j", "CILIUM_POST"}, false)
+}
+
 func (d *Daemon) compileBase() error {
 	var args []string
 	var mode string
@@ -365,6 +429,14 @@ func (d *Daemon) compileBase() error {
 			log.Warning(scanner.Text())
 		}
 		return err
+	}
+
+	// Always remove masquerade rule and then re-add it if required
+	d.removeMasqRule()
+	if masquerade && d.conf.Device == "undefined" {
+		if err := d.installMasqRule(); err != nil {
+			return err
+		}
 	}
 
 	log.Info("Setting sysctl net.core.bpf_jit_enable=1")
