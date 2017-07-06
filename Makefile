@@ -60,12 +60,14 @@ tests-consul:
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	docker rm -f "cilium-consul-test-container"
 
-clean:
+clean-container:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
-	-if [ -d "./contrib/packaging/deb" ]; then $(MAKE) -C ./contrib/packaging/deb clean; fi
-	-if [ -d "./contrib/packaging/rpm" ]; then $(MAKE) -C ./contrib/packaging/rpm clean; fi
-	-if [ -d "./contrib/packaging/docker" ]; then $(MAKE) -C ./contrib/packaging/docker clean; fi
+
+clean: clean-container
+	-$(MAKE) -C ./contrib/packaging/deb clean
+	-$(MAKE) -C ./contrib/packaging/rpm clean
+	-$(MAKE) -C ./contrib/packaging/docker clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
