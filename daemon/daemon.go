@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -436,7 +437,6 @@ func (d *Daemon) init() error {
 			nodeaddress.IPv4Address.IP().String())
 	}
 
-	fmt.Fprintf(fw, "#define NODE_ID %#x\n", nodeaddress.IPv6Address.NodeID())
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", nodeaddress.IPv6Address))
 
 	ipv4GW := nodeaddress.IPv4Address
@@ -447,7 +447,6 @@ func (d *Daemon) init() error {
 	}
 
 	ipv4Range := nodeaddress.IPv4AllocRange()
-	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
 	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
 	ipv4ClusterRange := nodeaddress.IPv4ClusterRange()
@@ -463,6 +462,8 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", policy.GetReservedID(labels.IDNameWorld))
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
 
+	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
+
 	fw.Flush()
 	f.Close()
 
@@ -474,6 +475,17 @@ func (d *Daemon) init() error {
 		if err != nil {
 			log.Warningf("Could not create BPF endpoint map: %s", err)
 			return err
+		}
+
+		localIPs := []net.IP{
+			nodeaddress.IPv4Address.IP(),
+			nodeaddress.IPv6Address.HostIP(),
+		}
+		for _, ip := range localIPs {
+			log.Debugf("Adding %v as local ip to endpoint map", ip)
+			if err := d.conf.LXCMap.AddHostEntry(ip); err != nil {
+				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+			}
 		}
 
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {

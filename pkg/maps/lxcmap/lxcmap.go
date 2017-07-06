@@ -22,6 +22,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 )
@@ -79,11 +80,10 @@ func (pm PortMap) String() string {
 	return fmt.Sprintf("%d:%d", common.Swab16(pm.From), common.Swab16(pm.To))
 }
 
-type v6Addr [16]byte
-
-func (v6 v6Addr) String() string {
-	return net.IP(v6[:]).String()
-}
+const (
+	// EndpointFlagHost indicates that this endpoint represents the host
+	EndpointFlagHost = 1
+)
 
 // LXCInfo is an internal representation of an LXC most relevant details for eBPF
 // programs.
@@ -91,10 +91,40 @@ type LXCInfo struct {
 	IfIndex    uint32
 	SecLabelID uint16
 	LxcID      uint16
+	Flags      uint32
 	MAC        MAC
 	NodeMAC    MAC
-	V6Addr     v6Addr
+	V6Addr     types.IPv6
 	PortMap    [PortMapMax]PortMap
+}
+
+// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
+const (
+	endpointKeyIPv4 uint8 = 1
+	endpointKeyIPv6 uint8 = 2
+)
+
+// Must be in sync with struct endpoint_key in <bpf/lib/common.h>
+type endpointKey struct {
+	ip     types.IPv6 // represents both IPv6 and IPv4
+	family uint8
+	pad1   uint8
+	pad2   uint16
+}
+
+func newEndpointKey(ip net.IP) endpointKey {
+	key := endpointKey{}
+	copy(key.ip[:], ip)
+
+	if ip4 := ip.To4(); ip4 != nil {
+		key.family = endpointKeyIPv4
+		copy(key.ip[:], ip4)
+	} else {
+		key.family = endpointKeyIPv6
+		copy(key.ip[:], ip)
+	}
+
+	return key
 }
 
 func (lxc LXCInfo) String() string {
@@ -125,7 +155,7 @@ func (m *LXCMap) WriteEndpoint(ep *endpoint.Endpoint) error {
 		return nil
 	}
 
-	key := uint32(ep.ID)
+	key := newEndpointKey(ep.IPv6.IP())
 
 	mac, err := ep.LXCMAC.Uint64()
 	if err != nil {
@@ -166,12 +196,29 @@ func (m *LXCMap) WriteEndpoint(ep *endpoint.Endpoint) error {
 	}
 
 	if ep.IPv4 != nil {
-		key := uint32(ep.IPv4.EndpointID()) | (1 << 16)
+		key = newEndpointKey(ep.IPv4.IP())
+
 		// FIXME: Remove key again? Needs to be solved by caller
 		return bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
 	}
 
 	return nil
+}
+
+// AddHostEntry adds a special endpoint which represents the local host
+func (m *LXCMap) AddHostEntry(ip net.IP) error {
+	if m == nil {
+		return nil
+	}
+
+	key := newEndpointKey(ip)
+	ep := LXCInfo{Flags: EndpointFlagHost}
+
+	m.Mutex.Lock()
+	err := bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&ep), 0)
+	m.Mutex.Unlock()
+
+	return err
 }
 
 // DeleteElement deletes the element with the given id from the LXCMap.
@@ -181,17 +228,16 @@ func (m *LXCMap) DeleteElement(ep *endpoint.Endpoint) error {
 	}
 
 	// FIXME: errors are currently ignored
-	id6 := uint32(ep.ID)
+	key := newEndpointKey(ep.IPv6.IP())
+
 	m.Mutex.Lock()
 	defer m.Mutex.Unlock()
-	err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id6))
+	err := bpf.DeleteElement(m.fd, unsafe.Pointer(&key))
 
 	if ep.IPv4 != nil {
-		if id4 := uint32(ep.IPv4.EndpointID()); id4 != 0 {
-			id4 = id4 | (1 << 16)
-			if err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id4)); err != nil {
-				return err
-			}
+		key = newEndpointKey(ep.IPv4.IP())
+		if err := bpf.DeleteElement(m.fd, unsafe.Pointer(&key)); err != nil {
+			return err
 		}
 	}
 
@@ -205,7 +251,7 @@ func OpenMap() (*LXCMap, error) {
 	fd, _, err := bpf.OpenOrCreateMap(
 		path,
 		bpf.BPF_MAP_TYPE_HASH,
-		uint32(unsafe.Sizeof(uint32(0))),
+		uint32(unsafe.Sizeof(endpointKey{})),
 		uint32(unsafe.Sizeof(LXCInfo{})),
 		MaxKeys,
 		0,

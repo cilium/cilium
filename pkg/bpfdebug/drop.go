@@ -71,6 +71,7 @@ var errors = map[uint8]string{
 	157: "IPv6 fragmentation not supported",
 	158: "Service backend not found",
 	159: "Policy denied (L4)",
+	160: "No tunnel/encapsulation endpoint",
 }
 
 func dropReason(reason uint8) string {
