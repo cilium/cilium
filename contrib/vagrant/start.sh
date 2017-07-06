@@ -261,7 +261,7 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options="-n ${ipv6_addr}"
+    cilium_options="--ipv6-range ${ipv6_addr}/96"
 
     if [[ "${IPV4}" -eq "1" ]]; then
         cilium_options+=" --ipv4-range 10.${master_ipv4_suffix}.0.0/16"
