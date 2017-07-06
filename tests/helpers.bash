@@ -271,7 +271,7 @@ function gather_files {
     mkdir -p ${LIB_DIR}
     sudo cp -r ${RUN}/state ${RUN_DIR} || true
     sudo cp -r ${LIB}/* ${LIB_DIR} || true 
-    find . -type d -exec sudo chmod 777 {} \;
+    find ${CILIUM_DIR} -type d -exec sudo chmod 777 {} \;
     find ${CILIUM_DIR} -exec sudo chmod a+r {} \;
 }
 
