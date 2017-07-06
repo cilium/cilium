@@ -76,6 +76,7 @@ var (
 	nat46prefix        string
 	socketPath         string
 	v4Prefix           string
+	v6Prefix           string
 	v6Address          string
 )
 
@@ -245,6 +246,8 @@ func init() {
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.StringVar(&v4Prefix,
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
+	flags.StringVar(&v6Prefix,
+		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
 	flags.StringVar(&config.K8sEndpoint,
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&config.K8sCfgPath,
