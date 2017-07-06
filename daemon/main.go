@@ -359,6 +359,7 @@ func initConfig() {
 
 	if config.IPv4Disabled {
 		endpoint.IPv4Enabled = false
+		nodeaddress.EnableIPv4 = false
 	}
 
 	config.BpfDir = filepath.Join(config.LibDir, defaults.BpfDir)
