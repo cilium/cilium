@@ -446,38 +446,6 @@ func (d *Daemon) compileBase() error {
 	return nil
 }
 
-// useK8sNodeCIDR sets the ipv4-range value from the cluster-node-cidr defined in the,
-// kube-apiserver.
-func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
-	if d.conf.IPv4Disabled {
-		return nil
-	}
-	k8sNode, err := d.k8sClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if k8sNode.Spec.PodCIDR == "" {
-		log.Warningf("K8s node %s spec did not provide a CIDR", nodeName)
-		return nil
-	}
-	ip, ipnet, err := net.ParseCIDR(k8sNode.Spec.PodCIDR)
-	if err != nil {
-		return err
-	}
-
-	if ip.To4() != nil {
-		nodeaddress.SetIPv4AllocRange(ipnet)
-	} else {
-		if err := nodeaddress.SetIPv6NodeRange(ipnet); err != nil {
-			log.Warningf("k8s: Can't use PodCIDR '%s' from kubernetes: %s", ipnet, err)
-		}
-	}
-
-	log.Infof("Retrieved %s for node %s. Using it for ipv4-range", k8sNode.Spec.PodCIDR, nodeName)
-
-	return nil
-}
-
 func (d *Daemon) init() error {
 	globalsDir := filepath.Join(d.conf.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
@@ -723,7 +691,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			nodeaddress.SetName(nodeName)
 
 			// Try to retrieve node's cidr from k8s's configuration
-			if err := d.useK8sNodeCIDR(nodeName); err != nil {
+			if err := k8s.UseNodeCIDR(d.k8sClient, nodeName); err != nil {
 				return nil, fmt.Errorf("unable to retrieve node CIDR: %s", err)
 			}
 		}
@@ -765,6 +733,17 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	// Populate list of nodes with local node entry
 	node.UpdateNode(nodeaddress.GetNode())
+
+	if c.IsK8sEnabled() {
+		k8sNode, err := d.k8sClient.CoreV1().Nodes().Get(nodeaddress.GetName(), metav1.GetOptions{})
+		if err != nil {
+			log.Fatalf("Unable to get k8s node: %s", err)
+		}
+
+		k8s.AnnotateNodeCIDR(d.k8sClient, k8sNode,
+			nodeaddress.GetIPv4AllocRange(),
+			nodeaddress.GetIPv6NodeRange())
+	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	if d.ipamConf, err = d.conf.createIPAMConf(); err != nil {
