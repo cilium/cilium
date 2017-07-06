@@ -28,11 +28,21 @@ import (
 )
 
 var (
-	ipv4Address    net.IP
-	ipv6Address    net.IP
-	ipv4AllocRange *net.IPNet
-	ipv6AllocRange *net.IPNet
+	ipv4Address       net.IP
+	ipv6Address       net.IP
+	ipv6RouterAddress net.IP
+	ipv4AllocRange    *net.IPNet
+	ipv6AllocRange    *net.IPNet
 )
+
+func makeIPv6HostIP(ip net.IP) net.IP {
+	// Derive prefix::1 as the IPv6 host address
+	ip[12] = 0
+	ip[13] = 0
+	ip[14] = 0
+	ip[15] = 1
+	return ip
+}
 
 func firstGlobalV4Addr(intf string) (net.IP, error) {
 	var link netlink.Link
@@ -61,11 +71,41 @@ func firstGlobalV4Addr(intf string) (net.IP, error) {
 	return nil, fmt.Errorf("No address found")
 }
 
+func findIPv6NodeAddr() net.IP {
+	addr, err := netlink.AddrList(nil, netlink.FAMILY_V6)
+	if err != nil {
+		return nil
+	}
+
+	// prefer global scope address
+	for _, a := range addr {
+		if a.Scope == unix.RT_SCOPE_UNIVERSE {
+			if len(a.IP) >= 16 {
+				return a.IP
+			}
+		}
+	}
+
+	// fall back to anything wider than link (site, custom, ...)
+	for _, a := range addr {
+		if a.Scope < unix.RT_SCOPE_LINK {
+			if len(a.IP) >= 16 {
+				return a.IP
+			}
+		}
+	}
+
+	return nil
+}
+
 // InitDefaultPrefix initializes the node address and allocation prefixes with
 // default values derived from the system. device can be set to the primary
 // network device of the system in which case the first address with global
 // scope will be regarded as the system's node address.
 func InitDefaultPrefix(device string) {
+	// Find a IPv6 node address first
+	ipv6Address = findIPv6NodeAddr()
+
 	ip, err := firstGlobalV4Addr(device)
 	if err == nil {
 		ipv4Address = ip
@@ -83,15 +123,11 @@ func InitDefaultPrefix(device string) {
 			DefaultIPv6Prefix, ip[0], ip[1], ip[2], ip[3],
 			IPv6NodePrefixLen)
 
-		ip6, ip6net, err := net.ParseCIDR(v6range)
+		_, ip6net, err := net.ParseCIDR(v6range)
 		if err != nil {
 			log.Panicf("BUG: Invalid default prefix '%s': %s", v6range, err)
 		}
 
-		ip6[14] = 0xff
-		ip6[15] = 0xff
-
-		ipv6Address = ip6
 		ipv6AllocRange = ip6net
 	}
 }
@@ -125,9 +161,10 @@ func GetIPv6ClusterRange() *net.IPNet {
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *net.IPNet {
+	mask := net.CIDRMask(IPv6NodeAllocPrefixLen, 128)
 	return &net.IPNet{
-		IP:   ipv6AllocRange.IP,
-		Mask: net.CIDRMask(IPv6NodeAllocPrefixLen, 128),
+		IP:   ipv6AllocRange.IP.Mask(mask),
+		Mask: mask,
 	}
 }
 
@@ -158,7 +195,29 @@ func SetIPv6NodeRange(net *net.IPNet) error {
 		return fmt.Errorf("prefix length must be /%d", IPv6NodePrefixLen)
 	}
 
-	ipv6AllocRange = net
+	copy := *net
+	ipv6AllocRange = &copy
+
+	return nil
+}
+
+// ValidatePostInit validates the entire addressing setup and completes it as
+// required
+func ValidatePostInit() error {
+	if ipv4Address == nil {
+		return fmt.Errorf("IPv4 address could not be derived, please configure via --ipv4-node")
+	}
+
+	// FIXME
+	// Verify presence of ipv4AllocRange if IPv4 is not disabled
+
+	if ipv6AllocRange == nil {
+		return fmt.Errorf("IPv6 per node allocation prefix is not configured. Please specificy --ipv6-range")
+	}
+
+	if ipv6Address == nil {
+		ipv6Address = makeIPv6HostIP(ipv6AllocRange.IP)
+	}
 
 	return nil
 }
@@ -173,14 +232,24 @@ func GetIPv6() net.IP {
 	return ipv6Address
 }
 
+// GetIPv6Router returns the IPv6 address of the node
+func GetIPv6Router() net.IP {
+	return ipv6RouterAddress
+}
+
+// SetIPv6Router returns the IPv6 address of the node
+func SetIPv6Router(ip net.IP) {
+	ipv6RouterAddress = ip
+}
+
 // GetIPv6NoZeroComp is similar to String but without generating zero
 // compression in the address dump.
 func GetIPv6NoZeroComp() string {
 	const maxLen = len("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
 	out := make([]byte, 0, maxLen)
-	raw := ipv6Address
+	raw := ipv6RouterAddress
 
-	if len(ipv6Address) != 16 {
+	if len(raw) != 16 {
 		return ""
 	}
 
@@ -205,7 +274,7 @@ func GetIPv6NoZeroComp() string {
 // GetIPv6NodeRoute returns a route pointing to the IPv6 node address
 func GetIPv6NodeRoute() net.IPNet {
 	return net.IPNet{
-		IP:   ipv6Address,
+		IP:   ipv6RouterAddress,
 		Mask: net.CIDRMask(128, 128),
 	}
 }

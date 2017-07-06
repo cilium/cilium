@@ -308,7 +308,15 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	nodeIP6, allocIP4 := nodeaddress.GetIPv6NoZeroComp(), nodeaddress.GetIPv4AllocRange().String()
+	args = []string{
+		d.conf.BpfDir,
+		d.conf.StateDir,
+		nodeaddress.GetIPv6NoZeroComp(),
+		nodeaddress.GetIPv4().String(),
+		nodeaddress.GetIPv6().String(),
+		nodeaddress.GetIPv4AllocRange().String(),
+		nodeaddress.GetIPv6NodeRange().String(),
+	}
 
 	if d.conf.Device != "undefined" {
 		_, err := netlink.LinkByName(d.conf.Device)
@@ -330,13 +338,14 @@ func (d *Daemon) compileBase() error {
 			mode = "direct"
 		}
 
-		args = []string{d.conf.BpfDir, d.conf.StateDir, nodeIP6, allocIP4, mode, d.conf.Device}
+		args = append(args, mode)
+		args = append(args, d.conf.Device)
 	} else {
 		if d.conf.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
-		args = []string{d.conf.BpfDir, d.conf.StateDir, nodeIP6, allocIP4, d.conf.Tunnel}
+		args = append(args, d.conf.Tunnel)
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
@@ -416,12 +425,14 @@ func (d *Daemon) init() error {
 	}
 	fw := bufio.NewWriter(f)
 
+	routerIP := nodeaddress.GetIPv6Router()
 	hostIP := nodeaddress.GetIPv6()
 
 	fmt.Fprintf(fw, ""+
 		"/*\n"+
-		" * Node-IPv6: %s\n",
-		hostIP.String())
+		" * Node-IPv6: %s\n"+
+		" * Router-IPv6: %s\n",
+		hostIP.String(), routerIP.String())
 
 	if d.conf.IPv4Disabled {
 		fw.WriteString(" */\n\n")
@@ -433,7 +444,7 @@ func (d *Daemon) init() error {
 			nodeaddress.GetIPv4().String())
 	}
 
-	fw.WriteString(common.FmtDefineComma("ROUTER_IP", hostIP))
+	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
 	ipv4GW := nodeaddress.GetIPv4()
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
@@ -472,6 +483,7 @@ func (d *Daemon) init() error {
 		localIPs := []net.IP{
 			nodeaddress.GetIPv4(),
 			nodeaddress.GetIPv6(),
+			nodeaddress.GetIPv6Router(),
 		}
 		for _, ip := range localIPs {
 			log.Debugf("Adding %v as local ip to endpoint map", ip)
@@ -512,7 +524,7 @@ func (d *Daemon) init() error {
 func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 
 	ipamSubnets := net.IPNet{
-		IP:   nodeaddress.GetIPv6(),
+		IP:   nodeaddress.GetIPv6Router(),
 		Mask: nodeaddress.StateIPv6Mask,
 	}
 
@@ -520,7 +532,7 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		IPAMConfig: hb.IPAMConfig{
 			Name:    "cilium-local-IPAM",
 			Subnet:  cniTypes.IPNet(ipamSubnets),
-			Gateway: nodeaddress.GetIPv6(),
+			Gateway: nodeaddress.GetIPv6Router(),
 			Routes: []cniTypes.Route{
 				// IPv6
 				{
@@ -528,7 +540,7 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 				},
 				{
 					Dst: nodeaddress.IPv6DefaultRoute,
-					GW:  nodeaddress.GetIPv6(),
+					GW:  nodeaddress.GetIPv6Router(),
 				},
 			},
 		},
@@ -562,18 +574,26 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 
 	}
 
-	// Reserve the IPv6 router IP if it is part of the IPv6
-	// allocation range to ensure that we do not hand out the
-	// router IP to a container.
+	// Reserve the IPv6 router and node IP if it is part of the IPv6
+	// allocation range to ensure that we do not hand out the router IP to
+	// a container.
 	allocRange := nodeaddress.GetIPv6AllocRange()
-	nodeIP := nodeaddress.GetIPv6()
-	if allocRange.Contains(nodeIP) {
-		err := ipamConf.IPv6Allocator.Allocate(nodeIP)
-		if err != nil {
-			log.Debugf("Unable to reserve IPv6 router address '%s': %s",
-				nodeIP, err)
+	for _, ip6 := range []net.IP{nodeaddress.GetIPv6()} {
+		if allocRange.Contains(ip6) {
+			err := ipamConf.IPv6Allocator.Allocate(ip6)
+			if err != nil {
+				log.Debugf("Unable to reserve IPv6 address '%s': %s",
+					ip6, err)
+			}
 		}
 	}
+
+	routerIP, err := ipamConf.IPv6Allocator.AllocateNext()
+	if err != nil {
+		log.Fatalf("Unable to allocate IPv6 router IP: %s", err)
+	}
+
+	nodeaddress.SetIPv6Router(routerIP)
 
 	return ipamConf, nil
 }
@@ -660,6 +680,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
+	if err := nodeaddress.ValidatePostInit(); err != nil {
+		log.Fatalf("%s", err)
+	}
+
 	// Populate list of nodes with local node entry
 	node.UpdateNode(nodeaddress.GetNode())
 
@@ -676,6 +700,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("IPv6 node prefix: %s", nodeaddress.GetIPv6NodeRange())
 	log.Infof("IPv6 allocation prefix: %s", nodeaddress.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", nodeaddress.GetIPv4AllocRange())
+	log.Debugf("IPv6 router address: %s", nodeaddress.GetIPv6Router())
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
@@ -834,7 +859,7 @@ func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
 	return &models.NodeAddressing{
 		IPV6: &models.NodeAddressingElement{
 			Enabled:    true,
-			IP:         nodeaddress.GetIPv6().String(),
+			IP:         nodeaddress.GetIPv6Router().String(),
 			AllocRange: nodeaddress.GetIPv6AllocRange().String(),
 		},
 		IPV4: &models.NodeAddressingElement{
