@@ -22,6 +22,8 @@ set -e
 TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
+HOSTIP6="fd02:1:1:1:1:1:1:1"
+
 logs_clear
 
 function cleanup {
@@ -30,6 +32,7 @@ function cleanup {
 	rm netdev_config.h tmp_lb.o 2> /dev/null || true
 	rm /sys/fs/bpf/tc/globals/lbtest 2> /dev/null || true
 	ip link del lbtest1 2> /dev/null || true
+	ip addr del $HOSTIP6 dev cilium_host 2> /dev/null || true
 }
 
 function mac2array()
@@ -37,14 +40,9 @@ function mac2array()
 	echo "{0x${1//:/,0x}}"
 }
 
-function host_ip6()
-{
-	ip -6 addr show cilium_host scope global | grep inet6 | awk '{print $2}' | sed -e 's/\/.*//'
-}
-
 function host_ip4()
 {
-	ip -4 addr show cilium_host scope global | grep inet | awk '{print $2}' | sed -e 's/\/.*//'
+	ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | sed -e 's/\/.*//'
 }
 
 trap cleanup EXIT
@@ -53,6 +51,8 @@ trap cleanup EXIT
 cleanup
 
 set -x
+
+ip addr add $HOSTIP6 dev cilium_host
 
 #cilium config Debug=true DropNotification=true
 
@@ -373,7 +373,7 @@ cilium service update --rev --frontend "$SVC_IP4:0"  --id 223 \
 
 LB_HOST_IP6="f00d::1:2"
 cilium service update --rev --frontend "[$LB_HOST_IP6]:0" --id 224 \
-			--backends "[$(host_ip6)]:0"
+			--backends "[$HOSTIP6]:0"
 
 LB_HOST_IP4="3.3.3.3"
 cilium service update --rev --frontend "$LB_HOST_IP4:0" --id 225 \
