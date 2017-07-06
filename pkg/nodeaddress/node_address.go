@@ -28,6 +28,8 @@ import (
 )
 
 var (
+	ipv4ClusterCidrMaskSize = DefaultIPv4ClusterPrefixLen
+
 	ipv4Address       net.IP
 	ipv6Address       net.IP
 	ipv6RouterAddress net.IP
@@ -98,6 +100,11 @@ func findIPv6NodeAddr() net.IP {
 	return nil
 }
 
+// SetIPv4ClusterCidrMaskSize sets the size of the mask of the IPv4 cluster prefix
+func SetIPv4ClusterCidrMaskSize(size int) {
+	ipv4ClusterCidrMaskSize = size
+}
+
 // InitDefaultPrefix initializes the node address and allocation prefixes with
 // default values derived from the system. device can be set to the primary
 // network device of the system in which case the first address with global
@@ -138,7 +145,7 @@ func init() {
 
 // GetIPv4ClusterRange returns the IPv4 prefix of the cluster
 func GetIPv4ClusterRange() *net.IPNet {
-	mask := net.CIDRMask(DefaultIPv4ClusterPrefixLen, 32)
+	mask := net.CIDRMask(ipv4ClusterCidrMaskSize, 32)
 	return &net.IPNet{
 		IP:   ipv4AllocRange.IP.Mask(mask),
 		Mask: mask,

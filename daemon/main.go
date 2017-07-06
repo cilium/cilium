@@ -62,24 +62,25 @@ var (
 	config = NewConfig()
 
 	// Arguments variables keep in alphabetical order
-	bpfRoot            string
-	disableConntrack   bool
-	enableTracing      bool
-	enableLogstash     bool
-	k8sLabelsPrefixes  []string
-	kvStore            string
-	validLabels        []string
-	labelPrefixFile    string
-	logstashAddr       string
-	logstashProbeTimer uint32
-	loggers            []string
-	nat46prefix        string
-	socketPath         string
-	v4Prefix           string
-	v6Prefix           string
-	v4Address          string
-	v6Address          string
-	masquerade         bool
+	bpfRoot               string
+	disableConntrack      bool
+	enableTracing         bool
+	enableLogstash        bool
+	k8sLabelsPrefixes     []string
+	kvStore               string
+	validLabels           []string
+	labelPrefixFile       string
+	logstashAddr          string
+	logstashProbeTimer    uint32
+	loggers               []string
+	nat46prefix           string
+	socketPath            string
+	v4Prefix              string
+	v6Prefix              string
+	v4Address             string
+	v6Address             string
+	masquerade            bool
+	v4ClusterCidrMaskSize int
 )
 
 var logOpts = make(map[string]string)
@@ -232,6 +233,8 @@ func init() {
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	flags.IntVar(&v4ClusterCidrMaskSize,
+		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
 	flags.StringVarP(&config.Device,
