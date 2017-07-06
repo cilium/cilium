@@ -387,7 +387,9 @@ func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
 	if ip.To4() != nil {
 		nodeaddress.SetIPv4AllocRange(ipnet)
 	} else {
-		nodeaddress.SetIPv6AllocRange(ipnet)
+		if err := nodeaddress.SetIPv6NodeRange(ipnet); err != nil {
+			log.Warningf("k8s: Can't use PodCIDR '%s' from kubernetes: %s", ipnet, err)
+		}
 	}
 
 	log.Infof("Retrieved %s for node %s. Using it for ipv4-range", k8sNode.Spec.PodCIDR, nodeName)
@@ -647,6 +649,17 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		nodeaddress.SetIPv4AllocRange(net)
 	}
 
+	if v6Prefix != AutoCIDR {
+		_, net, err := net.ParseCIDR(v6Prefix)
+		if err != nil {
+			log.Fatalf("Invalid IPv6 allocation prefix '%s': %s", v6Prefix, err)
+		}
+
+		if err := nodeaddress.SetIPv6NodeRange(net); err != nil {
+			log.Fatalf("Invalid per node IPv6 allocation prefix '%s': %s", net, err)
+		}
+	}
+
 	// Populate list of nodes with local node entry
 	node.UpdateNode(nodeaddress.GetNode())
 
@@ -658,6 +671,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("Local node-name: %s", nodeaddress.GetName())
 	log.Infof("Cluster IPv6 prefix: %s", nodeaddress.GetIPv6ClusterRange())
 	log.Infof("Cluster IPv4 prefix: %s", nodeaddress.GetIPv4ClusterRange())
+	log.Infof("IPv6 node prefix: %s", nodeaddress.GetIPv6NodeRange())
 	log.Infof("IPv6 allocation prefix: %s", nodeaddress.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", nodeaddress.GetIPv4AllocRange())
 

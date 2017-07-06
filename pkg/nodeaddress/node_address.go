@@ -81,7 +81,7 @@ func InitDefaultPrefix(device string) {
 
 		v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
 			DefaultIPv6Prefix, ip[0], ip[1], ip[2], ip[3],
-			DefaultIPv6PrefixLen)
+			IPv6NodePrefixLen)
 
 		ip6, ip6net, err := net.ParseCIDR(v6range)
 		if err != nil {
@@ -125,6 +125,14 @@ func GetIPv6ClusterRange() *net.IPNet {
 
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *net.IPNet {
+	return &net.IPNet{
+		IP:   ipv6AllocRange.IP,
+		Mask: net.CIDRMask(IPv6NodeAllocPrefixLen, 128),
+	}
+}
+
+// GetIPv6NodeRange returns the IPv6 allocation prefix of this node
+func GetIPv6NodeRange() *net.IPNet {
 	return ipv6AllocRange
 }
 
@@ -144,10 +152,15 @@ func SetIPv4AllocRange(net *net.IPNet) {
 	ipv4AllocRange = net
 }
 
-// SetIPv6AllocRange sets the IPv6 address pool to use when allocating
-// addresses for local endpoints
-func SetIPv6AllocRange(net *net.IPNet) {
+// SetIPv6NodeRange sets the IPv6 address pool to be used on this node
+func SetIPv6NodeRange(net *net.IPNet) error {
+	if ones, _ := net.Mask.Size(); ones != IPv6NodePrefixLen {
+		return fmt.Errorf("prefix length must be /%d", IPv6NodePrefixLen)
+	}
+
 	ipv6AllocRange = net
+
+	return nil
 }
 
 // SetIPv6 sets the IPv6 address of the node
