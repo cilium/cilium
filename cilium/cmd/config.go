@@ -30,7 +30,7 @@ import (
 // configCmd represents the config command
 var configCmd = &cobra.Command{
 	Use:   "config [<option>=(enable|disable) ...]",
-	Short: "A brief description of your command",
+	Short: "Cilium configuration options",
 	Run: func(cmd *cobra.Command, args []string) {
 		if listOptions {
 			for k, s := range options.Library {
