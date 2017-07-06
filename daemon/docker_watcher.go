@@ -171,7 +171,7 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	}
 	log.Debugf("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
 
-	result, err := d.k8sClient.Pods(ns).Get(podName, metav1.GetOptions{})
+	result, err := d.k8sClient.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
