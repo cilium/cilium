@@ -32,7 +32,7 @@ if [ $? -ne 0 ]; then abort "guestbook-redis policy not in cilium" ; fi
 set -e
 
 # Set redis on master to force inter-node communication
-node_selector="cilium-k8s-master"
+node_selector="k8s-1"
 
 sed "s/\$kube_node_selector/${node_selector}/" \
     "${guestbook_dir}/1-redis-master-controller.json.sed" > "${guestbook_dir}/1-redis-master-controller.json"
@@ -41,7 +41,7 @@ sed "s/\$kube_node_selector/${node_selector}/" \
     "${guestbook_dir}/3-redis-slave-controller.json.sed" > "${guestbook_dir}/3-redis-slave-controller.json"
 
 # Set guestbook on node-2 to force inter-node communication
-node_selector="cilium-k8s-node-2"
+node_selector="k8s-2"
 
 sed "s/\$kube_node_selector/${node_selector}/" \
     "${guestbook_dir}/5-guestbook-controller.json.sed" > "${guestbook_dir}/5-guestbook-controller.json"
