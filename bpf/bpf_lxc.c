@@ -116,7 +116,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
-	union v6addr host_ip = {};
+	union v6addr host_ip = {}, router_ip = {};
 	int ret, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
@@ -277,8 +277,10 @@ skip_service_lookup:
 	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
 
+	BPF_V6(router_ip, ROUTER_IP);
+
 	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_prefix_64(daddr, &host_ip)) {
+	if (ipv6_match_prefix_64(daddr, &router_ip)) {
 		struct endpoint_info *ep;
 
 		policy_clear_mark(skb);
