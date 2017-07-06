@@ -79,6 +79,7 @@ var (
 	v6Prefix           string
 	v4Address          string
 	v6Address          string
+	masquerade         bool
 )
 
 var logOpts = make(map[string]string)
@@ -281,6 +282,8 @@ func init() {
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", nodeaddress.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
+	flags.BoolVar(&masquerade,
+		"masquerade", true, "Masquerade packets from endpoints leaving the host")
 	flags.StringVar(&v6Address,
 		"ipv6-node", "auto", "IPv6 address of node")
 	flags.StringVar(&v4Address,

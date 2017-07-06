@@ -5,7 +5,7 @@ LABEL "Maintainer: Andre Martins <andre@cilium.io>"
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
 RUN apt-get update && \
-apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 && \
+apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 iptables && \
 #
 # clang-3.8.1-begin
 apt-get install -y --no-install-recommends curl xz-utils && \
