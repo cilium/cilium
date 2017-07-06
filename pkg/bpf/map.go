@@ -108,6 +108,10 @@ type Map struct {
 	path string
 	once sync.Once
 	lock sync.RWMutex
+
+	// NonPersistent is true if the map does not contain persistent data
+	// and should be removed on startup.
+	NonPersistent bool
 }
 
 func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32) *Map {
@@ -222,6 +226,12 @@ func (m *Map) OpenOrCreate() (bool, error) {
 
 	if err := m.setPathIfUnset(); err != nil {
 		return false, err
+	}
+
+	// If the map represents non-persistent data, always remove the map
+	// before opening or creating.
+	if m.NonPersistent {
+		os.Remove(m.path)
 	}
 
 	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags)
