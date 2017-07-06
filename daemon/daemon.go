@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -652,6 +653,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 		nodeaddress.SetIPv4AllocRange(net)
 	}
+
+	// Populate list of nodes with local node entry
+	node.UpdateNode(nodeaddress.GetNode())
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	if d.ipamConf, err = d.conf.createIPAMConf(); err != nil {
