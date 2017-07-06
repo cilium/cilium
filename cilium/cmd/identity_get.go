@@ -28,7 +28,7 @@ var listID bool
 // identityGetCmd represents the identity_get command
 var identityGetCmd = &cobra.Command{
 	Use:   "get",
-	Short: "A brief description of your command",
+	Short: "Retrieve the identity of the specified label",
 	Run: func(cmd *cobra.Command, args []string) {
 		if listID {
 			for k, v := range policy.ReservedIdentities {

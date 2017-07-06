@@ -38,7 +38,7 @@ var (
 // serviceUpdateCmd represents the service_update command
 var serviceUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "A brief description of your command",
+	Short: "Update a service",
 	Run: func(cmd *cobra.Command, args []string) {
 		updateService(cmd, args)
 	},
