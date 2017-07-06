@@ -54,7 +54,7 @@ export GOROOT=/usr/local/go && \
 export GOPATH=/tmp/cilium-net-build && \
 export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \
 go get -u github.com/jteeuwen/go-bindata/... && \
-make clean all && \
+make clean-container all && \
 make PKG_BUILD=1 install && \
 groupadd -f cilium && \
 # cilium-end
