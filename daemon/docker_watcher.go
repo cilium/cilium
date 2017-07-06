@@ -146,7 +146,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 			continue
 		}
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
-		if !ipv6gw.Equal(nodeaddress.IPv6Address.IP()) {
+		if !ipv6gw.Equal(nodeaddress.GetIPv6()) {
 			continue
 		}
 		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)

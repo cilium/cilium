@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -63,9 +62,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
 	c.Assert(err, IsNil)
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
-	c.Assert(err, IsNil)
-
-	err = nodeaddress.SetNodeAddress("beef:beef:beef:beef:aaaa:aaaa:1111:0", "10.1.0.1", "")
 	c.Assert(err, IsNil)
 
 	daemonConf := &Config{

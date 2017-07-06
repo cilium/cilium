@@ -244,7 +244,7 @@ func init() {
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.StringVar(&v4Prefix,
-		"ipv4-range", "", "IPv4 allocation range for local endpoints, must be in correct format (10.N.0.1/16)")
+		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&config.K8sEndpoint,
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&config.K8sCfgPath,
@@ -453,9 +453,18 @@ func initEnv() {
 
 	config.NAT46Prefix = r
 
-	err = nodeaddress.SetNodeAddress(v6Address, v4Prefix, config.Device)
-	if err != nil {
-		log.Fatalf("Unable to parse node address: %s", err)
+	// If device has been specified, use it to derive better default
+	// allocation prefixes
+	if config.Device != "undefined" {
+		nodeaddress.InitDefaultPrefix(config.Device)
+	}
+
+	if v6Address != "" {
+		if ip := net.ParseIP(v6Address); ip == nil {
+			log.Fatalf("Invalid IPv6 node address '%s'", v6Address)
+		} else {
+			nodeaddress.SetIPv6(ip)
+		}
 	}
 
 	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {

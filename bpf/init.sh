@@ -16,8 +16,8 @@
 
 LIB=$1
 RUNDIR=$2
-ADDR=$3
-V4ADDR=$4
+HOST_IP=$3
+V4RANGE=$4
 MODE=$5
 
 # Only set if MODE = "direct" or "lb"
@@ -76,9 +76,8 @@ HOST_DEV2="cilium_net"
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
-ip link show $HOST_DEV1 || {
-	ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
-}
+ip link del $HOST_DEV1 2> /dev/null || true
+ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
 
 ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
@@ -97,7 +96,7 @@ OPTS="-DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reser
 
 bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_netdev_ns.o from-netdev
 
-HOST_IP=$(echo $ADDR | sed 's/:0$/:ffff/')
+ADDR=$(echo $HOST_IP | sed 's/:ffff$/:0/')
 ip addr del $HOST_IP/128 dev $HOST_DEV1 2> /dev/null || true
 ip addr add $HOST_IP/128 dev $HOST_DEV1
 
@@ -106,15 +105,12 @@ ip route add $ADDR/128 dev $HOST_DEV1
 ip route del $ADDR/96 2> /dev/null || true
 ip route add $ADDR/96 via $ADDR
 
-V4RANGE=$(echo $V4ADDR | sed 's/.[0-9].[0-9]$/.0.0/')
-ip route del $V4RANGE/16 2> /dev/null || true
-ip route del $V4ADDR/32 2> /dev/null || true
-ip addr del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
-
-ip route add $V4ADDR/32 dev $HOST_DEV1
-ip route add $V4RANGE/16 via $V4ADDR
-# Address needs to added after /32 route and /16 prefix route for some unknown reason
-ip addr add $V4ADDR/32 dev $HOST_DEV1
+ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
+ip addr add 169.254.254.1/32 dev $HOST_DEV1
+ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
+ip route add 169.254.254.0/24 dev $HOST_DEV1 scope link
+ip route del $V4RANGE 2> /dev/null || true
+ip route add $V4RANGE via 169.254.254.1
 
 sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
 sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
