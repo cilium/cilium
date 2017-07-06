@@ -71,7 +71,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.RunDir = tempRunDir
 	daemonConf.StateDir = tempRunDir
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
-	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
 	daemonConf.Device = "undefined"

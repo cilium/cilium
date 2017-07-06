@@ -24,6 +24,13 @@ const (
 	// rules should be applied to.
 	AnnotationName = "io.cilium.name"
 
+	// Annotationv4CIDRName is the annotation name used to store the IPv4
+	// pod CIDR in the node's annotations.
+	Annotationv4CIDRName = "io.cilium.network.ipv4-pod-cidr"
+	// Annotationv6CIDRName is the annotation name used to store the IPv6
+	// pod CIDR in the node's annotations.
+	Annotationv6CIDRName = "io.cilium.network.ipv6-pod-cidr"
+
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"

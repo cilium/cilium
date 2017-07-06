@@ -62,6 +62,36 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 			}
 		}
 	}
+	// Spec.PodCIDR takes precedence since it's
+	// the CIDR assigned by k8s controller manager
+	// In case it's invalid or empty then we fall back to our annotations.
+	if node.IPv4AllocCIDR == nil {
+		if ipv4CIDR, ok := k8sNode.Annotations[Annotationv4CIDRName]; !ok {
+			log.Debugf("k8s: Empty IPv4 CIDR annotation in node")
+		} else {
+			_, cidr, err := net.ParseCIDR(ipv4CIDR)
+			if err != nil {
+				log.Errorf("k8s: BUG, invalid IPv4 annotation CIDR %q in node %q: %s",
+					ipv4CIDR, k8sNode.Name, err)
+			} else {
+				node.IPv4AllocCIDR = cidr
+			}
+		}
+	}
+
+	if node.IPv6AllocCIDR == nil {
+		if ipv6CIDR, ok := k8sNode.Annotations[Annotationv6CIDRName]; !ok {
+			log.Debugf("k8s: Empty IPv6 CIDR annotation in node")
+		} else {
+			_, cidr, err := net.ParseCIDR(ipv6CIDR)
+			if err != nil {
+				log.Errorf("k8s: BUG, invalid IPv6 annotation CIDR %q in node %q: %s",
+					ipv6CIDR, k8sNode.Name, err)
+			} else {
+				node.IPv6AllocCIDR = cidr
+			}
+		}
+	}
 
 	return node
 }
