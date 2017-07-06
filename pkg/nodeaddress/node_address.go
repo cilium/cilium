@@ -28,6 +28,9 @@ import (
 )
 
 var (
+	// EnableIPv4 can be set to false to disable Ipv4
+	EnableIPv4 = true
+
 	ipv4ClusterCidrMaskSize = DefaultIPv4ClusterPrefixLen
 
 	ipv4Address       net.IP
@@ -224,6 +227,14 @@ func ValidatePostInit() error {
 
 	if ipv6Address == nil {
 		ipv6Address = makeIPv6HostIP(ipv6AllocRange.IP)
+	}
+
+	if EnableIPv4 {
+		ones, _ := ipv4AllocRange.Mask.Size()
+		if ipv4ClusterCidrMaskSize > ones {
+			return fmt.Errorf("IPv4 per node allocation prefix (%s) must be inside cluster prefix (%s)",
+				ipv4AllocRange, GetIPv4ClusterRange())
+		}
 	}
 
 	return nil
