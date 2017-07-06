@@ -46,17 +46,22 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 		addrs = append(addrs, na)
 	}
 
-	var endpointsCIDR *net.IPNet
+	node := &node.Node{
+		Name:        k8sNode.Name,
+		IPAddresses: addrs,
+	}
+
 	if len(k8sNode.Spec.PodCIDR) != 0 {
-		var err error
-		_, endpointsCIDR, err = net.ParseCIDR(k8sNode.Spec.PodCIDR)
-		if err != nil {
+		if _, cidr, err := net.ParseCIDR(k8sNode.Spec.PodCIDR); err != nil {
 			log.Warningf("k8s: Invalid PodCIDR value '%s' for node %s: %s", k8sNode.Spec.PodCIDR, err)
+		} else {
+			if cidr.IP.To4() != nil {
+				node.IPv4AllocCIDR = cidr
+			} else {
+				node.IPv6AllocCIDR = cidr
+			}
 		}
 	}
-	return &node.Node{
-		Name:          k8sNode.Name,
-		IPAddresses:   addrs,
-		EndpointsCIDR: endpointsCIDR,
-	}
+
+	return node
 }

@@ -37,7 +37,6 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 		IPAddresses: []Address{
 			{IP: net.ParseIP("203.0.113.1"), AddressType: v1.NodeLegacyHostIP},
 		},
-		EndpointsCIDR: nil,
 	}
 	ip := n.GetNodeIP(false)
 	// Return the only IP present
