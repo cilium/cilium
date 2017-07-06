@@ -27,8 +27,8 @@
 
 struct bpf_elf_map __section_maps cilium_lxc = {
 	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(struct lxc_info),
+	.size_key	= sizeof(struct endpoint_key),
+	.size_value	= sizeof(struct endpoint_info),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= 1024,
 };
@@ -77,6 +77,18 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_CALL_SIZE,
 };
+
+#ifdef ENCAP_IFINDEX
+
+struct bpf_elf_map __section_maps tunnel_endpoint_map = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct endpoint_key),
+	.size_value	= sizeof(struct endpoint_key),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= TUNNEL_ENDPOINT_MAP_SIZE,
+};
+
+#endif
 
 #ifdef POLICY_ENFORCEMENT
 
