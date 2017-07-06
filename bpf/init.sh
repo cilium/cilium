@@ -16,12 +16,15 @@
 
 LIB=$1
 RUNDIR=$2
-ADDR=$3
-V4ADDR=$4
-MODE=$5
+IP6_ROUTER=$3
+IP4_HOST=$4
+IP6_HOST=$5
+IP4_RANGE=$6
+IP6_RANGE=$7
+MODE=$8
 
 # Only set if MODE = "direct" or "lb"
-NATIVE_DEV=$6
+NATIVE_DEV=$9
 
 HOST_ID="host"
 WORLD_ID="world"
@@ -76,9 +79,8 @@ HOST_DEV2="cilium_net"
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
-ip link show $HOST_DEV1 || {
-	ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
-}
+ip link del $HOST_DEV1 2> /dev/null || true
+ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
 
 ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
@@ -97,24 +99,23 @@ OPTS="-DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reser
 
 bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_netdev_ns.o from-netdev
 
-HOST_IP=$(echo $ADDR | sed 's/:0$/:ffff/')
-ip addr del $HOST_IP/128 dev $HOST_DEV1 2> /dev/null || true
-ip addr add $HOST_IP/128 dev $HOST_DEV1
+# If the host does not have an IPv6 address assigned, assign our generated host
+# IP to make the host accessible to endpoints
+ip -6 addr show $IP6_HOST || {
+	ip -6 addr add $IP6_HOST dev $HOST_DEV1
+}
 
-ip route del $ADDR/128 2> /dev/null || true
-ip route add $ADDR/128 dev $HOST_DEV1
-ip route del $ADDR/96 2> /dev/null || true
-ip route add $ADDR/96 via $ADDR
+ip route del $IP6_ROUTER/128 2> /dev/null || true
+ip route add $IP6_ROUTER/128 dev $HOST_DEV1
+ip route del $IP6_RANGE 2> /dev/null || true
+ip route add $IP6_RANGE via $IP6_ROUTER src $IP6_HOST
 
-V4RANGE=$(echo $V4ADDR | sed 's/.[0-9].[0-9]$/.0.0/')
-ip route del $V4RANGE/16 2> /dev/null || true
-ip route del $V4ADDR/32 2> /dev/null || true
-ip addr del $V4ADDR/32 dev $HOST_DEV1 2> /dev/null || true
-
-ip route add $V4ADDR/32 dev $HOST_DEV1
-ip route add $V4RANGE/16 via $V4ADDR
-# Address needs to added after /32 route and /16 prefix route for some unknown reason
-ip addr add $V4ADDR/32 dev $HOST_DEV1
+ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
+ip addr add 169.254.254.1/32 dev $HOST_DEV1
+ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
+ip route add 169.254.254.0/24 dev $HOST_DEV1 scope link
+ip route del $IP4_RANGE 2> /dev/null || true
+ip route add $IP4_RANGE via 169.254.254.1 src $IP4_HOST
 
 sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
 sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h

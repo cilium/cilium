@@ -22,8 +22,11 @@ const (
 	// DefaultIPv6Prefix is the prefix for all the IPv6 addresses.
 	DefaultIPv6Prefix = "f00d::"
 
-	// DefaultIPv6PrefixLen is the length used to allocate container IPv6 addresses from.
-	DefaultIPv6PrefixLen = 112
+	// IPv6NodeAllocPrefixLen is the length of the prefix used for allocation per node
+	IPv6NodeAllocPrefixLen = 112
+
+	// IPv6NodePrefixLen is the length used to allocate container IPv6 addresses from.
+	IPv6NodePrefixLen = 96
 
 	// DefaultIPv6ClusterPrefixLen is the IPv6 prefix length of the entire cluster.
 	DefaultIPv6ClusterPrefixLen = 64

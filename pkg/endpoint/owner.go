@@ -62,9 +62,6 @@ type Owner interface {
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
 	RemoveProxyRedirect(e *Endpoint, l4 *policy.L4Filter) error
 
-	// Must synchronize endpoint object with datapath
-	WriteEndpoint(ep *Endpoint) error
-
 	// GetStateDir must return path to the state directory
 	GetStateDir() string
 

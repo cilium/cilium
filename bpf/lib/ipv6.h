@@ -243,30 +243,6 @@ static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 la
 	return 0;
 }
 
-static inline __u16 derive_lxc_id(union v6addr *addr)
-{
-	return bpf_ntohl(addr->p4) & 0xFFFF;
-}
-
-/* FIXME: rewrite this to avoid byte order conversion */
-static inline void ipv6_set_lxc_id(union v6addr *addr, __u16 lxc_id)
-{
-	__u32 p4 = bpf_ntohl(addr->p4);
-	p4 &= ~0xFFFF;
-	p4 |= lxc_id;
-	addr->p4 = bpf_htonl(p4);
-}
-
-static inline __u32 ipv6_derive_node_id(union v6addr *addr)
-{
-	return bpf_ntohl(addr->p3);
-}
-
-static inline void ipv6_set_node_id(union v6addr *addr, __u32 node_id)
-{
-	addr->p3 = bpf_htonl(node_id);
-}
-
 static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
                                              __u8 next_hdr,
 					     __u16 payload_len, __be32 sum)

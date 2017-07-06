@@ -10,8 +10,6 @@ spec:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
     spec:
-      nodeSelector:
-        $node_selector
       serviceAccountName: cilium
       containers:
       - image: cilium:local_build

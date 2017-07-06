@@ -76,7 +76,10 @@ var (
 	nat46prefix        string
 	socketPath         string
 	v4Prefix           string
+	v6Prefix           string
+	v4Address          string
 	v6Address          string
+	masquerade         bool
 )
 
 var logOpts = make(map[string]string)
@@ -244,7 +247,9 @@ func init() {
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.StringVar(&v4Prefix,
-		"ipv4-range", "", "IPv4 allocation range for local endpoints, must be in correct format (10.N.0.1/16)")
+		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
+	flags.StringVar(&v6Prefix,
+		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
 	flags.StringVar(&config.K8sEndpoint,
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&config.K8sCfgPath,
@@ -277,8 +282,12 @@ func init() {
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.StringVar(&nat46prefix,
 		"nat46-range", nodeaddress.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
-	flags.StringVarP(&v6Address,
-		"node-address", "n", "", "IPv6 address of node, must be in correct format (XXXX:XXXX:XXXX:XXXX:XXXX:XXXX::/96)")
+	flags.BoolVar(&masquerade,
+		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+	flags.StringVar(&v6Address,
+		"ipv6-node", "auto", "IPv6 address of node")
+	flags.StringVar(&v4Address,
+		"ipv4-node", "auto", "IPv4 address of node")
 	flags.BoolVar(&config.RestoreState,
 		"restore", false, "Restores state, if possible, from previous daemon")
 	flags.StringVar(&socketPath,
@@ -453,9 +462,30 @@ func initEnv() {
 
 	config.NAT46Prefix = r
 
-	err = nodeaddress.SetNodeAddress(v6Address, v4Prefix, config.Device)
-	if err != nil {
-		log.Fatalf("Unable to parse node address: %s", err)
+	// If device has been specified, use it to derive better default
+	// allocation prefixes
+	if config.Device != "undefined" {
+		nodeaddress.InitDefaultPrefix(config.Device)
+	}
+
+	if v6Address != "auto" {
+		if ip := net.ParseIP(v6Address); ip == nil {
+			log.Fatalf("Invalid IPv6 node address '%s'", v6Address)
+		} else {
+			if !ip.IsGlobalUnicast() {
+				log.Fatalf("Invalid IPv6 node address '%s': not a global unicast address", ip)
+			}
+
+			nodeaddress.SetIPv6(ip)
+		}
+	}
+
+	if v4Address != "auto" {
+		if ip := net.ParseIP(v4Address); ip == nil {
+			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
+		} else {
+			nodeaddress.SetIPv4(ip)
+		}
 	}
 
 	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {

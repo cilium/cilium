@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -430,6 +431,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 	}
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
-	err = owner.WriteEndpoint(e)
+	err = lxcmap.WriteEndpoint(e)
 	return err
 }

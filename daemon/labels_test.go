@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -65,16 +64,12 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
 	c.Assert(err, IsNil)
 
-	err = nodeaddress.SetNodeAddress("beef:beef:beef:beef:aaaa:aaaa:1111:0", "10.1.0.1", "")
-	c.Assert(err, IsNil)
-
 	daemonConf := &Config{
 		DryMode: true,
 		Opts:    option.NewBoolOptions(&options.Library),
 	}
 	daemonConf.RunDir = tempRunDir
 	daemonConf.StateDir = tempRunDir
-	daemonConf.LXCMap = nil
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil

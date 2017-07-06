@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
@@ -50,6 +49,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -68,6 +69,9 @@ import (
 const (
 	// ExecTimeout is the execution timeout to use in init.sh executions
 	ExecTimeout = time.Duration(30 * time.Second)
+
+	// AutoCIDR indicates that a CIDR should be allocated
+	AutoCIDR = "auto"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -124,14 +128,6 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 	id := e.ProxyID(l4)
 	log.Debugf("Removing redirect %s from endpoint %d", id, e.ID)
 	return d.l7Proxy.RemoveRedirect(id)
-}
-
-func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
-	if err := d.conf.LXCMap.WriteEndpoint(e); err != nil {
-		return fmt.Errorf("Unable to update eBPF map: %s", err)
-	}
-
-	return nil
 }
 
 // QueueEndpointBuild puts the given request in the endpoints queue for
@@ -303,6 +299,70 @@ func (d *Daemon) setHostAddresses() error {
 	return nil
 }
 
+func runProg(prog string, args []string, quiet bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+	}
+	if err != nil {
+		if !quiet {
+			log.Warningf("Command execution %s %s failed: %s", prog,
+				strings.Join(args, " "), err)
+
+			scanner := bufio.NewScanner(bytes.NewReader(out))
+			for scanner.Scan() {
+				log.Warning(scanner.Text())
+			}
+		}
+	}
+
+	return err
+}
+
+func (d *Daemon) removeMasqRule() {
+	runProg("iptables", []string{
+		"-t", "nat",
+		"-D", "POSTROUTING",
+		"-j", "CILIUM_POST"}, true)
+	runProg("iptables", []string{
+		"-t", "nat",
+		"-F", "CILIUM_POST"}, true)
+	runProg("iptables", []string{
+		"-t", "nat",
+		"-X", "CILIUM_POST"}, true)
+}
+
+func (d *Daemon) installMasqRule() error {
+	// Add cilium POSTROUTING chain
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-N", "CILIUM_POST"}, false); err != nil {
+		return err
+	}
+
+	// Masquerade all traffic from node prefix not going to node prefix
+	// which is not going over the tunnel device
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-A", "CILIUM_POST",
+		"-s", nodeaddress.GetIPv4AllocRange().String(),
+		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
+		"!", "-o", "cilium_" + d.conf.Tunnel,
+		"-m", "comment", "--comment", "cilium masquerade non-cluster",
+		"-j", "MASQUERADE"}, false); err != nil {
+		return err
+	}
+
+	// Hook POSTROUTING into Cilium POSTROUTING chain
+	return runProg("iptables", []string{
+		"-t", "nat",
+		"-A", "POSTROUTING",
+		"-j", "CILIUM_POST"}, false)
+}
+
 func (d *Daemon) compileBase() error {
 	var args []string
 	var mode string
@@ -310,6 +370,16 @@ func (d *Daemon) compileBase() error {
 	if err := d.writeNetdevHeader("./"); err != nil {
 		log.Warningf("Unable to write netdev header: %s\n", err)
 		return err
+	}
+
+	args = []string{
+		d.conf.BpfDir,
+		d.conf.StateDir,
+		nodeaddress.GetIPv6NoZeroComp(),
+		nodeaddress.GetIPv4().String(),
+		nodeaddress.GetIPv6().String(),
+		nodeaddress.GetIPv4AllocRange().String(),
+		nodeaddress.GetIPv6NodeRange().String(),
 	}
 
 	if d.conf.Device != "undefined" {
@@ -332,13 +402,14 @@ func (d *Daemon) compileBase() error {
 			mode = "direct"
 		}
 
-		args = []string{d.conf.BpfDir, d.conf.StateDir, nodeaddress.IPv6Address.StringNoZeroComp(), nodeaddress.IPv4Address.String(), mode, d.conf.Device}
+		args = append(args, mode)
+		args = append(args, d.conf.Device)
 	} else {
 		if d.conf.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
-		args = []string{d.conf.BpfDir, d.conf.StateDir, nodeaddress.IPv6Address.StringNoZeroComp(), nodeaddress.IPv4Address.String(), d.conf.Tunnel}
+		args = append(args, d.conf.Tunnel)
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
@@ -358,6 +429,14 @@ func (d *Daemon) compileBase() error {
 			log.Warning(scanner.Text())
 		}
 		return err
+	}
+
+	// Always remove masquerade rule and then re-add it if required
+	d.removeMasqRule()
+	if masquerade && d.conf.Device == "undefined" {
+		if err := d.installMasqRule(); err != nil {
+			return err
+		}
 	}
 
 	log.Info("Setting sysctl net.core.bpf_jit_enable=1")
@@ -381,20 +460,21 @@ func (d *Daemon) useK8sNodeCIDR(nodeName string) error {
 		log.Warningf("K8s node %s spec did not provide a CIDR", nodeName)
 		return nil
 	}
-	ip, _, err := net.ParseCIDR(k8sNode.Spec.PodCIDR)
+	ip, ipnet, err := net.ParseCIDR(k8sNode.Spec.PodCIDR)
 	if err != nil {
 		return err
 	}
-	ciliumIPv4, err := addressing.NewCiliumIPv4(ip.String())
-	if err != nil {
-		return err
+
+	if ip.To4() != nil {
+		nodeaddress.SetIPv4AllocRange(ipnet)
+	} else {
+		if err := nodeaddress.SetIPv6NodeRange(ipnet); err != nil {
+			log.Warningf("k8s: Can't use PodCIDR '%s' from kubernetes: %s", ipnet, err)
+		}
 	}
-	ipv6NodeAddress := nodeaddress.IPv6Address.NodeIP().String()
-	err = nodeaddress.SetNodeAddress(ipv6NodeAddress, ciliumIPv4.NodeIP().String(), "")
-	if err != nil {
-		return err
-	}
+
 	log.Infof("Retrieved %s for node %s. Using it for ipv4-range", k8sNode.Spec.PodCIDR, nodeName)
+
 	return nil
 }
 
@@ -417,14 +497,14 @@ func (d *Daemon) init() error {
 	}
 	fw := bufio.NewWriter(f)
 
-	hostIP := nodeaddress.IPv6Address.HostIP()
+	routerIP := nodeaddress.GetIPv6Router()
+	hostIP := nodeaddress.GetIPv6()
 
 	fmt.Fprintf(fw, ""+
 		"/*\n"+
 		" * Node-IPv6: %s\n"+
-		" * Host-IPv6: %s\n",
-		nodeaddress.IPv6Address.IP().String(),
-		hostIP.String())
+		" * Router-IPv6: %s\n",
+		hostIP.String(), routerIP.String())
 
 	if d.conf.IPv4Disabled {
 		fw.WriteString(" */\n\n")
@@ -433,24 +513,22 @@ func (d *Daemon) init() error {
 			" * Host-IPv4: %s\n"+
 			" */\n\n"+
 			"#define ENABLE_IPV4\n",
-			nodeaddress.IPv4Address.IP().String())
+			nodeaddress.GetIPv4().String())
 	}
 
-	fmt.Fprintf(fw, "#define NODE_ID %#x\n", nodeaddress.IPv6Address.NodeID())
-	fw.WriteString(common.FmtDefineComma("ROUTER_IP", nodeaddress.IPv6Address))
+	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
-	ipv4GW := nodeaddress.IPv4Address
+	ipv4GW := nodeaddress.GetIPv4()
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", binary.LittleEndian.Uint32(ipv4GW))
 
 	if !d.conf.IPv4Disabled {
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", binary.LittleEndian.Uint32(d.loopbackIPv4))
 	}
 
-	ipv4Range := nodeaddress.IPv4AllocRange()
-	fmt.Fprintf(fw, "#define IPV4_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4Range.IP))
+	ipv4Range := nodeaddress.GetIPv4AllocRange()
 	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", binary.LittleEndian.Uint32(ipv4Range.Mask))
 
-	ipv4ClusterRange := nodeaddress.IPv4ClusterRange()
+	ipv4ClusterRange := nodeaddress.GetIPv4ClusterRange()
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", binary.LittleEndian.Uint32(ipv4ClusterRange.IP))
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", binary.LittleEndian.Uint32(ipv4ClusterRange.Mask))
 
@@ -463,6 +541,9 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define WORLD_ID %d\n", policy.GetReservedID(labels.IDNameWorld))
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
 
+	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
+	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxKeys)
+
 	fw.Flush()
 	f.Close()
 
@@ -470,10 +551,17 @@ func (d *Daemon) init() error {
 		if err := d.compileBase(); err != nil {
 			return err
 		}
-		d.conf.LXCMap, err = lxcmap.OpenMap()
-		if err != nil {
-			log.Warningf("Could not create BPF endpoint map: %s", err)
-			return err
+
+		localIPs := []net.IP{
+			nodeaddress.GetIPv4(),
+			nodeaddress.GetIPv6(),
+			nodeaddress.GetIPv6Router(),
+		}
+		for _, ip := range localIPs {
+			log.Debugf("Adding %v as local ip to endpoint map", ip)
+			if err := lxcmap.AddHostEntry(ip); err != nil {
+				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+			}
 		}
 
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
@@ -508,7 +596,7 @@ func (d *Daemon) init() error {
 func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 
 	ipamSubnets := net.IPNet{
-		IP:   nodeaddress.IPv6Address.IP(),
+		IP:   nodeaddress.GetIPv6Router(),
 		Mask: nodeaddress.StateIPv6Mask,
 	}
 
@@ -516,41 +604,68 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		IPAMConfig: hb.IPAMConfig{
 			Name:    "cilium-local-IPAM",
 			Subnet:  cniTypes.IPNet(ipamSubnets),
-			Gateway: nodeaddress.IPv6Address.IP(),
+			Gateway: nodeaddress.GetIPv6Router(),
 			Routes: []cniTypes.Route{
 				// IPv6
 				{
-					Dst: nodeaddress.IPv6Route,
+					Dst: nodeaddress.GetIPv6NodeRoute(),
 				},
 				{
 					Dst: nodeaddress.IPv6DefaultRoute,
-					GW:  nodeaddress.IPv6Address.IP(),
+					GW:  nodeaddress.GetIPv6Router(),
 				},
 			},
 		},
-		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.IPv6AllocRange()),
+		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
 	}
 
 	if !c.IPv4Disabled {
-		ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.IPv4AllocRange())
+		ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
 		ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
 			// IPv4
 			cniTypes.Route{
-				Dst: nodeaddress.IPv4Route,
+				Dst: nodeaddress.GetIPv4NodeRoute(),
 			},
 			cniTypes.Route{
 				Dst: nodeaddress.IPv4DefaultRoute,
-				GW:  nodeaddress.IPv4Address.IP(),
+				GW:  nodeaddress.GetIPv4(),
 			})
-		// Reserve the IPv4 router IP in the IPv4 allocation range to ensure
-		// that we do not hand out the router IP to a container.
-		err := ipamConf.IPv4Allocator.Allocate(nodeaddress.IPv4Address.IP())
-		if err != nil {
-			return nil, fmt.Errorf("Unable to reserve IPv4 router address %s: %s",
-				nodeaddress.IPv4Address.String(), err)
+
+		// Reserve the IPv4 router IP if it is part of the IPv4
+		// allocation range to ensure that we do not hand out the
+		// router IP to a container.
+		allocRange := nodeaddress.GetIPv4AllocRange()
+		nodeIP := nodeaddress.GetIPv4()
+		if allocRange.Contains(nodeIP) {
+			err := ipamConf.IPv4Allocator.Allocate(nodeIP)
+			if err != nil {
+				log.Debugf("Unable to reserve IPv4 router address '%s': %s",
+					nodeIP, err)
+			}
 		}
 
 	}
+
+	// Reserve the IPv6 router and node IP if it is part of the IPv6
+	// allocation range to ensure that we do not hand out the router IP to
+	// a container.
+	allocRange := nodeaddress.GetIPv6AllocRange()
+	for _, ip6 := range []net.IP{nodeaddress.GetIPv6()} {
+		if allocRange.Contains(ip6) {
+			err := ipamConf.IPv6Allocator.Allocate(ip6)
+			if err != nil {
+				log.Debugf("Unable to reserve IPv6 address '%s': %s",
+					ip6, err)
+			}
+		}
+	}
+
+	routerIP, err := ipamConf.IPv6Allocator.AllocateNext()
+	if err != nil {
+		log.Fatalf("Unable to allocate IPv6 router IP: %s", err)
+	}
+
+	nodeaddress.SetIPv6Router(routerIP)
 
 	return ipamConf, nil
 }
@@ -577,8 +692,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consumableCache:   policy.NewConsumableCache(),
 		policy:            policy.NewPolicyRepository(),
 		ignoredContainers: make(map[string]int),
-		buildEndpointChan: make(chan *endpoint.Request, common.EndpointsPerHost),
 		uniqueID:          map[uint64]bool{},
+
+		// FIXME
+		// The channel size has to be set to the maximum number of
+		// possible endpoints to guarantee that enqueueing into the
+		// build queue never blocks.
+		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxKeys),
 	}
 
 	// Create the same amount of worker threads as there are CPUs
@@ -613,16 +733,46 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
+	if v4Prefix != AutoCIDR {
+		_, net, err := net.ParseCIDR(v4Prefix)
+		if err != nil {
+			log.Fatalf("Invalid IPv4 allocation prefix '%s': %s", v4Prefix, err)
+		}
+		nodeaddress.SetIPv4AllocRange(net)
+	}
+
+	if v6Prefix != AutoCIDR {
+		_, net, err := net.ParseCIDR(v6Prefix)
+		if err != nil {
+			log.Fatalf("Invalid IPv6 allocation prefix '%s': %s", v6Prefix, err)
+		}
+
+		if err := nodeaddress.SetIPv6NodeRange(net); err != nil {
+			log.Fatalf("Invalid per node IPv6 allocation prefix '%s': %s", net, err)
+		}
+	}
+
+	if err := nodeaddress.ValidatePostInit(); err != nil {
+		log.Fatalf("%s", err)
+	}
+
+	// Populate list of nodes with local node entry
+	node.UpdateNode(nodeaddress.GetNode())
+
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	if d.ipamConf, err = d.conf.createIPAMConf(); err != nil {
 		return nil, err
 	}
 
 	log.Infof("Local node-name: %s", nodeaddress.GetName())
-	log.Infof("Cluster IPv6 prefix: %s", nodeaddress.IPv6ClusterRange())
-	log.Infof("Cluster IPv4 prefix: %s", nodeaddress.IPv4ClusterRange())
-	log.Infof("IPv6 allocation prefix: %s", nodeaddress.IPv6AllocRange())
-	log.Infof("IPv4 allocation prefix: %s", nodeaddress.IPv4AllocRange())
+	log.Infof("Node-IPv6: %s", nodeaddress.GetIPv6())
+	log.Infof("Node-IPv4: %s", nodeaddress.GetIPv4())
+	log.Infof("Cluster IPv6 prefix: %s", nodeaddress.GetIPv6ClusterRange())
+	log.Infof("Cluster IPv4 prefix: %s", nodeaddress.GetIPv4ClusterRange())
+	log.Infof("IPv6 node prefix: %s", nodeaddress.GetIPv6NodeRange())
+	log.Infof("IPv6 allocation prefix: %s", nodeaddress.GetIPv6AllocRange())
+	log.Infof("IPv4 allocation prefix: %s", nodeaddress.GetIPv4AllocRange())
+	log.Debugf("IPv6 router address: %s", nodeaddress.GetIPv6Router())
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
@@ -781,13 +931,13 @@ func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
 	return &models.NodeAddressing{
 		IPV6: &models.NodeAddressingElement{
 			Enabled:    true,
-			IP:         nodeaddress.IPv6Address.String(),
-			AllocRange: nodeaddress.IPv6AllocRange().String(),
+			IP:         nodeaddress.GetIPv6Router().String(),
+			AllocRange: nodeaddress.GetIPv6AllocRange().String(),
 		},
 		IPV4: &models.NodeAddressingElement{
 			Enabled:    !d.conf.IPv4Disabled,
-			IP:         nodeaddress.IPv4Address.String(),
-			AllocRange: nodeaddress.IPv4AllocRange().String(),
+			IP:         nodeaddress.GetIPv4().String(),
+			AllocRange: nodeaddress.GetIPv4AllocRange().String(),
 		},
 	}
 }

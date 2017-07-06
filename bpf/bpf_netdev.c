@@ -120,6 +120,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	int l4_off, l3_off = ETH_HLEN;
+	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
 	int ret;
@@ -152,7 +153,15 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
 			return DROP_INVALID;
 
-		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr);
+		/* Lookup IPv4 address in list of local endpoints */
+		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+			/* Let through packets to the node-ip so they are
+			 * processed by the local ip stack */
+			if (ep->flags & ENDPOINT_F_HOST)
+				return TC_ACT_OK;
+
+			return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep);
+		}
 	}
 
 	return TC_ACT_OK;
@@ -243,8 +252,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 #ifdef ENABLE_IPV4
 	/* Check if destination is within our cluster prefix */
-	if ((ip4->daddr & IPV4_MASK) == IPV4_RANGE) {
+	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
 		struct ipv4_ct_tuple tuple = {};
+		struct endpoint_info *ep;
 		__u32 secctx;
 		int ret, l4_off;
 
@@ -263,9 +273,15 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 			return DROP_INVALID;
 
-		ret = ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4);
-		if (ret != DROP_NO_LXC)
-			return ret;
+		/* Lookup IPv4 address in list of local endpoints */
+		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+			/* Let through packets to the node-ip so they are
+			 * processed by the local ip stack */
+			if (ep->flags & ENDPOINT_F_HOST)
+				return TC_ACT_OK;
+
+			return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep);
+		}
 	}
 #endif
 

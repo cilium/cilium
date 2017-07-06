@@ -42,6 +42,15 @@ func SetMapRoot(path string) {
 		panic("SetMapRoot() call after MapRoot was read")
 	}
 	mapRoot = path
+
+	mountMutex.Lock()
+	for _, m := range delayedOpens {
+		m.OpenOrCreate()
+	}
+
+	mounted = true
+	delayedOpens = []*Map{}
+	mountMutex.Unlock()
 }
 
 func GetMapRoot() string {
@@ -71,7 +80,30 @@ func MapPath(name string) string {
 	return path.Join(mapRoot, mapPrefix, name)
 }
 
-func MountFS() error {
+var (
+	mountOnce    sync.Once
+	mountMutex   sync.Mutex
+	delayedOpens = []*Map{}
+	mounted      bool
+)
+
+// OpenAfterMount schedules a map to be opened/created after the BPF filesystem
+// has been mounted. If the filesystem is already mounted, the map is
+// opened/created immediately.
+func OpenAfterMount(m *Map) error {
+	mountMutex.Lock()
+	defer mountMutex.Unlock()
+
+	if mounted {
+		_, err := m.OpenOrCreate()
+		return err
+	}
+
+	delayedOpens = append(delayedOpens, m)
+	return nil
+}
+
+func mountFS() error {
 	// Mount BPF Map directory if not already done
 	args := []string{"-q", mapRoot}
 	_, err := exec.Command("mountpoint", args...).CombinedOutput()
@@ -83,5 +115,24 @@ func MountFS() error {
 		}
 	}
 
+	mountMutex.Lock()
+	for _, m := range delayedOpens {
+		m.OpenOrCreate()
+	}
+
+	mounted = true
+	delayedOpens = []*Map{}
+	mountMutex.Unlock()
+
 	return nil
+}
+
+// MountFS mounts the BPF filesystem and then opens/creates all maps which have
+// previously been scheduled to be opened/created
+func MountFS() error {
+	var err error
+	mountOnce.Do(func() {
+		err = mountFS()
+	})
+	return err
 }

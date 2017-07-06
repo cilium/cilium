@@ -30,32 +30,14 @@ SCRIPT
 
 $cilium_master = <<SCRIPT
 ip -6 a a FD01::B/16 dev enp0s8
-
-echo 'FD01::B cilium-k8s-master' >> /etc/hosts
-
-# node-2 cilium IPv4 route
-ip r a 10.12.0.1/32 dev enp0s8
-ip r a 10.12.0.0/16 via 10.12.0.1
-
-# node-2 cilium IPv6 route
-ip -6 r a F00D::C0A8:240C:0:0/96 via FD01::C
-echo "FD01::C cilium-k8s-node-2" >> /etc/hosts
-
+echo 'FD01::B k8s-1' >> /etc/hosts
+echo "FD01::C k8s-2" >> /etc/hosts
 SCRIPT
 
-$cilium_node_2 = <<SCRIPT
+$cilium_slave = <<SCRIPT
 ip -6 a a FD01::C/16 dev enp0s8
-
-echo 'FD01::C cilium-k8s-node-2' >> /etc/hosts
-
-# master cilium IPv4 route
-ip r a 10.11.0.1/32 dev enp0s8
-ip r a 10.11.0.0/16 via 10.11.0.1
-
-# master cilium IPv6 route
-ip -6 r a F00D::C0A8:240B:0:0/96 via FD01::B
-echo "FD01::B cilium-k8s-master" >> /etc/hosts
-
+echo 'FD01::C k8s-1' >> /etc/hosts
+echo "FD01::B k8s-2" >> /etc/hosts
 SCRIPT
 
 $job_name = ENV['JOB_NAME'] || "local"
@@ -70,39 +52,45 @@ if ENV['BUILD_NUMBER'] then
 end
 
 Vagrant.configure(2) do |config|
-	config.vm.box = "bento/ubuntu-16.10"
+    config.vm.box = "bento/ubuntu-16.10"
 
-	# http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
-	config.vm.provision "fix-no-tty", type: "shell" do |s|
-		s.privileged = false
-		s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
-	end
+    # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
+    config.vm.provision "fix-no-tty", type: "shell" do |s|
+        s.privileged = false
+        s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
+    end
 
-	config.vm.provision "k8s", type: "shell", inline: $k8s_install
-	config.vm.provider "virtualbox" do |vb|
+    (1..2).each do |i|
+        config.vm.define "k8s#{i}#{$build_id_name}" do |s|
+            s.vm.hostname = "k8s-#{i}"
+            s.vm.provision "k8s", type: "shell", inline: $k8s_install
+
+            s.vm.provider "virtualbox" do |vb|
 		# Do not inherit DNS server from host, use proxy
 		vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
 		vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
-		config.vm.synced_folder '../../../', '/home/vagrant/go/src/github.com/cilium/cilium'
-	end
+                config.vm.synced_folder '../../../', '/home/vagrant/go/src/github.com/cilium/cilium'
+            end
 
-	node_vm_name = "cilium-k8s-master#{$build_id_name}"
-	config.vm.define node_vm_name do |master|
-		master.vm.network "private_network", ip: "192.168.36.11", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
-		master.vm.network "private_network", ip: "192.168.37.11", bridge: "enp0s9"
-		master.vm.hostname = "cilium-k8s-master"
-		master.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
-		master.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
-	end
+            s.vm.network "private_network", ip: "192.168.36.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+            s.vm.network "private_network", ip: "192.168.37.1#{i}", bridge: "enp0s9"
 
-	node_vm_name = "cilium-k8s-node-2#{$build_id_name}"
-	config.vm.define node_vm_name do |node|
-		node.vm.network "private_network", ip: "192.168.36.12", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
-		node.vm.network "private_network", ip: "192.168.37.12", bridge: "enp0s9"
-		node.vm.hostname = "cilium-k8s-node-2"
-		node.vm.provision "cilium-node-2-netconfig", type: "shell", run: "always", inline: $cilium_node_2
-		node.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
-	end
+            # Hack to ensure that Kubernetes picks up the node-ip of the private_network
+            # instead of the NATed vagrant IP
+            s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.36\.1#{i} k8s-#{i}/' -i /etc/hosts"
 
+            # Mount BPF filesystem
+	    s.vm.provision :shell, inline: "mount bpffs /sys/fs/bpf -t bpf"
+
+            # first node is special and considered the master
+            if "#{i}" == "1"
+                s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
+                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+            else
+                s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
+                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
+            end
+        end
+    end
 end

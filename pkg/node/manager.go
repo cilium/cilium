@@ -15,7 +15,12 @@
 package node
 
 import (
+	"net"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/maps/tunnel"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -32,29 +37,75 @@ func GetNode(ni Identity) *Node {
 	return n
 }
 
+func deleteNodeCIDR(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if err := tunnel.DeleteTunnelEndpoint(ip.IP); err != nil {
+		log.Debugf("bpf: Unable to delete %s in tunnel endpoint map: %s", ip, err)
+	}
+}
+
+func updateNodeCIDR(ip *net.IPNet, host net.IP) {
+	if ip == nil {
+		return
+	}
+
+	if err := tunnel.SetTunnelEndpoint(ip.IP, host); err != nil {
+		log.Debugf("bpf: Unable to update %s in tunnel endpoint map: %s", ip, err)
+	}
+}
+
 // UpdateNode updates the new node in the nodes' map with the given identity.
 func UpdateNode(ni Identity, n *Node) {
 	mutex.Lock()
-	//if oldNode, ok := nodes[ni]; ok {
-	// oldNode
-	// remove oldNode metadata (IPs-> endpoints CIDR) from bpf map
-	//}
+	if oldNode, ok := nodes[ni]; ok {
+		deleteNodeCIDR(oldNode.IPv4AllocCIDR)
+		deleteNodeCIDR(oldNode.IPv6AllocCIDR)
+	}
 
 	// FIXME if PodCIDR is empty retrieve the CIDR from the KVStore
 
-	// add new node changes to bpf map.
-	// **note**: this will eventually add pod-cidr routes for the own node.
+	log.Debugf("bpf: Setting tunnel endpoint %+v: %+v %+v",
+		n.GetNodeIP(false), n.IPv4AllocCIDR, n.IPv6AllocCIDR)
+
+	nodeIP := n.GetNodeIP(false)
+	updateNodeCIDR(n.IPv4AllocCIDR, nodeIP)
+	updateNodeCIDR(n.IPv6AllocCIDR, nodeIP)
 
 	nodes[ni] = n
-	mutex.Unlock()
 
+	mutex.Unlock()
 }
 
 // DeleteNode remove the node from the nodes' maps.
 func DeleteNode(ni Identity) {
-	// remove node from bpf map
-
+	var err1, err2 error
 	mutex.Lock()
-	delete(nodes, ni)
+	if n, ok := nodes[ni]; ok {
+		log.Debugf("bpf: Removing tunnel endpoint %+v: %+v %+v",
+			n.GetNodeIP(false), n.IPv4AllocCIDR, n.IPv6AllocCIDR)
+
+		if n.IPv4AllocCIDR != nil {
+			err1 = tunnel.DeleteTunnelEndpoint(n.IPv4AllocCIDR.IP)
+			if err1 == nil {
+				n.IPv4AllocCIDR = nil
+			}
+		}
+
+		if n.IPv6AllocCIDR != nil {
+			err2 = tunnel.DeleteTunnelEndpoint(n.IPv6AllocCIDR.IP)
+			if err2 == nil {
+				n.IPv6AllocCIDR = nil
+			}
+		}
+	}
+
+	// Keep node around
+	if err1 == nil && err2 == nil {
+		delete(nodes, ni)
+	}
+
 	mutex.Unlock()
 }
