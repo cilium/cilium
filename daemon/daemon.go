@@ -130,14 +130,6 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 	return d.l7Proxy.RemoveRedirect(id)
 }
 
-func (d *Daemon) WriteEndpoint(e *endpoint.Endpoint) error {
-	if err := d.conf.LXCMap.WriteEndpoint(e); err != nil {
-		return fmt.Errorf("Unable to update eBPF map: %s", err)
-	}
-
-	return nil
-}
-
 // QueueEndpointBuild puts the given request in the endpoints queue for
 // processing. The given request will receive 'true' in the MyTurn channel
 // whenever it's its turn or false if the request was denied/canceled.
@@ -465,17 +457,13 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
 
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
+	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxKeys)
 
 	fw.Flush()
 	f.Close()
 
 	if !d.DryModeEnabled() {
 		if err := d.compileBase(); err != nil {
-			return err
-		}
-		d.conf.LXCMap, err = lxcmap.OpenMap()
-		if err != nil {
-			log.Warningf("Could not create BPF endpoint map: %s", err)
 			return err
 		}
 
@@ -485,7 +473,7 @@ func (d *Daemon) init() error {
 		}
 		for _, ip := range localIPs {
 			log.Debugf("Adding %v as local ip to endpoint map", ip)
-			if err := d.conf.LXCMap.AddHostEntry(ip); err != nil {
+			if err := lxcmap.AddHostEntry(ip); err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
 			}
 		}
@@ -610,8 +598,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		consumableCache:   policy.NewConsumableCache(),
 		policy:            policy.NewPolicyRepository(),
 		ignoredContainers: make(map[string]int),
-		buildEndpointChan: make(chan *endpoint.Request, common.EndpointsPerHost),
 		uniqueID:          map[uint64]bool{},
+
+		// FIXME
+		// The channel size has to be set to the maximum number of
+		// possible endpoints to guarantee that enqueueing into the
+		// build queue never blocks.
+		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxKeys),
 	}
 
 	// Create the same amount of worker threads as there are CPUs
