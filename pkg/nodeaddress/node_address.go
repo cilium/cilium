@@ -19,9 +19,12 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/node"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 var (
@@ -200,4 +203,27 @@ func GetIPv4NodeRoute() net.IPNet {
 		IP:   ipv4Address,
 		Mask: net.CIDRMask(32, 32),
 	}
+}
+
+// GetNode returns the identity and node spec for the local node
+func GetNode() (node.Identity, *node.Node) {
+	range4, range6 := ipv4AllocRange, ipv6AllocRange
+
+	n := node.Node{
+		Name: nodeName,
+		IPAddresses: []node.Address{
+			{
+				AddressType: v1.NodeInternalIP,
+				IP:          ipv4Address,
+			},
+			{
+				AddressType: v1.NodeInternalIP,
+				IP:          ipv4Address,
+			},
+		},
+		IPv4AllocCIDR: range4,
+		IPv6AllocCIDR: range6,
+	}
+
+	return node.Identity{Name: nodeName}, &n
 }
