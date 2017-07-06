@@ -264,7 +264,7 @@ function write_cilium_cfg() {
     cilium_options="-n ${ipv6_addr}"
 
     if [[ "${IPV4}" -eq "1" ]]; then
-        cilium_options+=" --ipv4-range 10.${master_ipv4_suffix}.0.1"
+        cilium_options+=" --ipv4-range 10.${master_ipv4_suffix}.0.0/16"
     else
         cilium_options+=" --disable-ipv4"
     fi

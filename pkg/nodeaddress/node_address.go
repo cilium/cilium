@@ -15,95 +15,21 @@
 package nodeaddress
 
 import (
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/common/addressing"
-
+	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
 var (
-	ErrIPv4Invalid         = errors.New("Invalid IPv4 address")
-	ErrIPv4NotConfigured   = errors.New("No IPv4 address configured")
-	ErrNodeIPEndpointIDSet = errors.New("Endpoint ID set in IPv6 node address")
-	ErrNodeIDZero          = errors.New("Node ID is zero (invalid)")
-
-	// IPv6Address is the IPv6 address of the node
-	IPv6Address addressing.CiliumIPv6
-
-	// IPv6Route is the /128 route for the node address
-	IPv6Route net.IPNet
-
-	// IPv4Address is the IPv4 address of the node
-	IPv4Address addressing.CiliumIPv4
-
-	// IPv4Route is the /32 route for the node address
-	IPv4Route net.IPNet
+	ipv4Address    net.IP
+	ipv6Address    net.IP
+	ipv4AllocRange *net.IPNet
+	ipv6AllocRange *net.IPNet
 )
-
-// SetNodeAddress sets the node's IPv4 and IPv6 address. Multiple calls to this
-// function will overwrite the node address.
-func SetNodeAddress(v6Address string, ipv4Range string, device string) error {
-	v6, err := initIPv6Address(v6Address, device)
-	if err != nil {
-		return err
-	}
-
-	v4, err := initIPv4Address(ipv4Range, device)
-	if err != nil {
-		return err
-	}
-
-	IPv6Address = v6
-	IPv6Route = *v6.IPNet(128)
-	IPv4Address = v4
-	IPv4Route = *v4.IPNet(32)
-
-	return nil
-}
-
-// IPv4ClusterRange returns the IPv4 prefix of the cluster
-func IPv4ClusterRange() *net.IPNet {
-	mask := net.CIDRMask(DefaultIPv4ClusterPrefixLen, 32)
-
-	return &net.IPNet{
-		IP:   IPv4Address.IP().Mask(mask),
-		Mask: mask,
-	}
-}
-
-// IPv4AllocRange returns the IPv4 allocation prefix of this node
-func IPv4AllocRange() *net.IPNet {
-	mask := net.CIDRMask(DefaultIPv4PrefixLen, 32)
-
-	return &net.IPNet{
-		IP:   IPv4Address.IP().Mask(mask),
-		Mask: mask,
-	}
-}
-
-// IPv6ClusterRange returns the IPv6 prefix of the clustr
-func IPv6ClusterRange() *net.IPNet {
-	mask := net.CIDRMask(DefaultIPv6ClusterPrefixLen, 128)
-
-	return &net.IPNet{
-		IP:   IPv6Address.IP().Mask(mask),
-		Mask: mask,
-	}
-}
-
-// IPv6AllocRange returns the IPv6 allocation prefix of this node
-func IPv6AllocRange() *net.IPNet {
-	mask := net.CIDRMask(DefaultIPv6PrefixLen, 128)
-
-	return &net.IPNet{
-		IP:   IPv6Address.IP().Mask(mask),
-		Mask: mask,
-	}
-}
 
 func firstGlobalV4Addr(intf string) (net.IP, error) {
 	var link netlink.Link
@@ -123,72 +49,155 @@ func firstGlobalV4Addr(intf string) (net.IP, error) {
 
 	for _, a := range addr {
 		if a.Scope == unix.RT_SCOPE_UNIVERSE {
-			if len(a.IP) < 4 {
-				return nil, ErrIPv4Invalid
+			if len(a.IP) >= 4 {
+				return a.IP, nil
 			}
-
-			return a.IP, nil
 		}
 	}
 
-	return nil, ErrIPv4NotConfigured
+	return nil, fmt.Errorf("No address found")
 }
 
-func initIPv6Address(address string, device string) (addressing.CiliumIPv6, error) {
-	if address == "" {
-		address = DefaultIPv6Prefix
-	}
+// InitDefaultPrefix initializes the node address and allocation prefixes with
+// default values derived from the system. device can be set to the primary
+// network device of the system in which case the first address with global
+// scope will be regarded as the system's node address.
+func InitDefaultPrefix(device string) {
+	ip, err := firstGlobalV4Addr(device)
+	if err == nil {
+		ipv4Address = ip
 
-	addressIP, err := addressing.NewCiliumIPv6(address)
-	if err != nil {
-		return nil, err
-	}
-
-	if addressIP.EndpointID() != 0 {
-		return nil, ErrNodeIPEndpointIDSet
-	}
-
-	// If address is not specified, try and generate it from a public IPv4
-	// address configured on the system
-	if addressIP.NodeID() == 0 {
-		ip, err := firstGlobalV4Addr(device)
+		v4range := fmt.Sprintf(DefaultIPv4Prefix+"/%d",
+			ip.To4()[3], DefaultIPv4PrefixLen)
+		_, ip4net, err := net.ParseCIDR(v4range)
 		if err != nil {
-			return nil, err
+			log.Panicf("BUG: Invalid default prefix '%s': %s", v4range, err)
 		}
 
-		address = fmt.Sprintf("%s%02x%02x:%02x%02x:0:0",
-			addressIP.String(), ip[0], ip[1], ip[2], ip[3])
+		ipv4AllocRange = ip4net
 
-		return addressing.NewCiliumIPv6(address)
+		v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
+			DefaultIPv6Prefix, ip[0], ip[1], ip[2], ip[3],
+			DefaultIPv6PrefixLen)
+
+		ip6, ip6net, err := net.ParseCIDR(v6range)
+		if err != nil {
+			log.Panicf("BUG: Invalid default prefix '%s': %s", v6range, err)
+		}
+
+		ip6[14] = 0xff
+		ip6[15] = 0xff
+
+		ipv6Address = ip6
+		ipv6AllocRange = ip6net
 	}
-
-	return addressIP, nil
 }
 
-func initIPv4Address(v4range string, device string) (addressing.CiliumIPv4, error) {
-	if v4range == "" {
-		ip, err := firstGlobalV4Addr(device)
-		if err != nil {
-			return nil, err
+func init() {
+	InitDefaultPrefix("")
+}
+
+// GetIPv4ClusterRange returns the IPv4 prefix of the cluster
+func GetIPv4ClusterRange() *net.IPNet {
+	mask := net.CIDRMask(DefaultIPv4ClusterPrefixLen, 32)
+	return &net.IPNet{
+		IP:   ipv4AllocRange.IP.Mask(mask),
+		Mask: mask,
+	}
+}
+
+// GetIPv4AllocRange returns the IPv4 allocation prefix of this node
+func GetIPv4AllocRange() *net.IPNet {
+	return ipv4AllocRange
+}
+
+// GetIPv6ClusterRange returns the IPv6 prefix of the clustr
+func GetIPv6ClusterRange() *net.IPNet {
+	mask := net.CIDRMask(DefaultIPv6ClusterPrefixLen, 128)
+	return &net.IPNet{
+		IP:   ipv6AllocRange.IP.Mask(mask),
+		Mask: mask,
+	}
+}
+
+// GetIPv6AllocRange returns the IPv6 allocation prefix of this node
+func GetIPv6AllocRange() *net.IPNet {
+	return ipv6AllocRange
+}
+
+// SetIPv4 sets the IPv4 address of the node
+func SetIPv4(ip net.IP) {
+	ipv4Address = ip
+}
+
+// GetIPv4 returns the IPv4 address of the node
+func GetIPv4() net.IP {
+	return ipv4Address
+}
+
+// SetIPv4AllocRange sets the IPv4 address pool to use when allocating
+// addresses for local endpoints
+func SetIPv4AllocRange(net *net.IPNet) {
+	ipv4AllocRange = net
+}
+
+// SetIPv6AllocRange sets the IPv6 address pool to use when allocating
+// addresses for local endpoints
+func SetIPv6AllocRange(net *net.IPNet) {
+	ipv6AllocRange = net
+}
+
+// SetIPv6 sets the IPv6 address of the node
+func SetIPv6(ip net.IP) {
+	ipv6Address = ip
+}
+
+// GetIPv6 returns the IPv6 address of the node
+func GetIPv6() net.IP {
+	return ipv6Address
+}
+
+// GetIPv6NoZeroComp is similar to String but without generating zero
+// compression in the address dump.
+func GetIPv6NoZeroComp() string {
+	const maxLen = len("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
+	out := make([]byte, 0, maxLen)
+	raw := ipv6Address
+
+	if len(ipv6Address) != 16 {
+		return ""
+	}
+
+	for i := 0; i < 16; i += 2 {
+		if i > 0 {
+			out = append(out, ':')
 		}
-
-		v4range = fmt.Sprintf(DefaultIPv4Prefix, ip.To4()[3])
+		src := []byte{raw[i], raw[i+1]}
+		tmp := make([]byte, hex.EncodedLen(len(src)))
+		hex.Encode(tmp, src)
+		if tmp[0] == tmp[1] && tmp[2] == tmp[3] &&
+			tmp[0] == tmp[2] && tmp[0] == '0' {
+			out = append(out, tmp[0])
+		} else {
+			out = append(out, tmp[0], tmp[1], tmp[2], tmp[3])
+		}
 	}
 
-	addressIP, err := addressing.NewCiliumIPv4(v4range)
-	if err != nil {
-		return nil, err
-	}
+	return string(out)
+}
 
-	// The IPv4 prefix must contain a valid node address, unlike for IPv6,
-	// the container-id bits cannot be zero.
-	if addressIP.EndpointID() == 0 {
-		return nil, ErrIPv4Invalid
+// GetIPv6NodeRoute returns a route pointing to the IPv6 node address
+func GetIPv6NodeRoute() net.IPNet {
+	return net.IPNet{
+		IP:   ipv6Address,
+		Mask: net.CIDRMask(128, 128),
 	}
+}
 
-	if addressIP.NodeID() == 0 {
-		return nil, ErrNodeIDZero
+// GetIPv4NodeRoute returns a route pointing to the IPv6 node address
+func GetIPv4NodeRoute() net.IPNet {
+	return net.IPNet{
+		IP:   ipv4Address,
+		Mask: net.CIDRMask(32, 32),
 	}
-
-	return addressIP, nil
 }

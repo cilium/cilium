@@ -206,7 +206,7 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 	if ip != nil {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
-			if nodeaddress.IPv4ClusterRange().Contains(ip) {
+			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
@@ -217,7 +217,7 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 			}
 		} else {
 			info.IPv6 = ip.String()
-			if nodeaddress.IPv6ClusterRange().Contains(ip) {
+			if nodeaddress.GetIPv6ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv6(ip)
 				id := c.EndpointID()
 				info.ID = uint64(id)
@@ -346,8 +346,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		router:   route.New(),
 		l4:       *l4,
 		nodeInfo: NodeAddressInfo{
-			IPv4: nodeaddress.IPv4Address.String(),
-			IPv6: nodeaddress.IPv6Address.String(),
+			IPv4: nodeaddress.GetIPv4().String(),
+			IPv6: nodeaddress.GetIPv6().String(),
 		},
 	}
 

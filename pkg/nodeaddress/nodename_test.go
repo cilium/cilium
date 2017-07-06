@@ -16,9 +16,19 @@ package nodeaddress
 
 import (
 	"os"
+	"testing"
 
 	. "gopkg.in/check.v1"
 )
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type NodeAddressSuite struct{}
+
+var _ = Suite(&NodeAddressSuite{})
 
 func (s *NodeAddressSuite) TestHostname(c *C) {
 	h, err := os.Hostname()
