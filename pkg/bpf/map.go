@@ -22,6 +22,7 @@ import (
 	"sync"
 	"unsafe"
 
+	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -216,6 +217,57 @@ func (m *Map) setPathIfUnset() error {
 	return nil
 }
 
+func (m *Map) migrate(fd int) (bool, error) {
+	info, err := GetMapInfo(os.Getpid(), fd)
+	if err != nil {
+		return false, nil
+	}
+
+	mismatch := false
+
+	if info.MapType != m.MapType {
+		log.Infof("Map type mismatch for BPF map %s: old: %d new: %d",
+			m.path, info.MapType, m.MapType)
+		mismatch = true
+	}
+
+	if info.KeySize != m.KeySize {
+		log.Infof("Key-size mismatch for BPF map %s: old: %d new: %d",
+			m.path, info.KeySize, m.KeySize)
+		mismatch = true
+	}
+
+	if info.ValueSize != m.ValueSize {
+		log.Infof("Value-size mismatch for BPF map %s: old: %d new: %d",
+			m.path, info.ValueSize, m.ValueSize)
+		mismatch = true
+	}
+
+	if info.MaxEntries != m.MaxEntries {
+		log.Infof("Max entries mismatch for BPF map %s: old: %d new: %d",
+			m.path, info.MaxEntries, m.MaxEntries)
+		mismatch = true
+	}
+
+	if info.Flags != m.Flags {
+		log.Infof("Flags mismatch for BPF map %s: old: %d new: %d",
+			m.path, info.Flags, m.Flags)
+		mismatch = true
+	}
+	if mismatch {
+		b, err := m.containsEntries()
+		if err == nil && !b {
+			log.Infof("Safely removing empty map %s so it can be recreated", m.path)
+			os.Remove(m.path)
+			return true, nil
+		}
+
+		return false, fmt.Errorf("could not resolve BPF map mismatch (see log for details)")
+	}
+
+	return false, nil
+}
+
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -234,11 +286,24 @@ func (m *Map) OpenOrCreate() (bool, error) {
 		os.Remove(m.path)
 	}
 
+reopen:
 	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags)
 	if err != nil {
 		return false, err
 	}
 
+	// Only persistent maps need to be migrated, non-persistent maps will
+	// have been deleted above before opening.
+	if !m.NonPersistent {
+		if retry, err := m.migrate(fd); err != nil {
+			if isNew {
+				os.Remove(m.path)
+			}
+			return false, err
+		} else if retry {
+			goto reopen
+		}
+	}
 	m.fd = fd
 
 	return isNew, nil
@@ -326,6 +391,36 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 		copy(key, nextKey)
 	}
 	return nil
+}
+
+// containsEntries returns true if the map contains at least one entry
+// must hold map mutex
+func (m *Map) containsEntries() (bool, error) {
+	key := make([]byte, m.KeySize)
+	nextKey := make([]byte, m.KeySize)
+	value := make([]byte, m.ValueSize)
+
+	err := GetNextKey(
+		m.fd,
+		unsafe.Pointer(&key[0]),
+		unsafe.Pointer(&nextKey[0]),
+	)
+
+	if err != nil {
+		return false, nil
+	}
+
+	err = LookupElement(
+		m.fd,
+		unsafe.Pointer(&nextKey[0]),
+		unsafe.Pointer(&value[0]),
+	)
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (m *Map) Lookup(key MapKey) (MapValue, error) {

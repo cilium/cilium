@@ -70,7 +70,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	}
 	daemonConf.RunDir = tempRunDir
 	daemonConf.StateDir = tempRunDir
-	daemonConf.LXCMap = nil
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.K8sEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil

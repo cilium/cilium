@@ -30,7 +30,7 @@ struct bpf_elf_map __section_maps cilium_lxc = {
 	.size_key	= sizeof(struct endpoint_key),
 	.size_value	= sizeof(struct endpoint_info),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1024,
+	.max_elem	= ENDPOINTS_MAP_SIZE,
 };
 
 /* Global map to jump into policy enforcement of receiving endpoint */

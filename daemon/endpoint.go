@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
@@ -249,15 +250,11 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 // deleteEndpoint must be called with endpoint.Mutex locked.
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
-	errors := 0
 	ep.Mutex.Lock()
 	defer ep.Mutex.Unlock()
 	ep.LeaveLocked(d)
 
-	if err := d.conf.LXCMap.DeleteElement(ep); err != nil {
-		log.Warningf("Unable to remove endpoint from map: %s", err)
-		errors++
-	}
+	errors := lxcmap.DeleteElement(ep)
 
 	if ep.Consumable != nil {
 		ep.Consumable.RemoveMap(ep.PolicyMap)
