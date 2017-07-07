@@ -738,6 +738,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
+	nodeaddress.SetIPv4ClusterCidrMaskSize(v4ClusterCidrMaskSize)
+
 	if v4Prefix != AutoCIDR {
 		_, net, err := net.ParseCIDR(v4Prefix)
 		if err != nil {

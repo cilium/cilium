@@ -42,7 +42,18 @@ curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bp
 chmod +x bpf-map && \
 mv bpf-map /usr/bin && \
 # bpf-map-end
-#
+
+# cni-begin
+# Include the loopback binary in the image
+mkdir -p tmp && cd tmp && \
+curl -sS -L https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -o cni.tar.gz && \
+tar -xvf cni.tar.gz && \
+mkdir /cni && \
+cp bin/loopback /cni && \
+cd .. && \
+rm -r tmp && \
+# cni-end
+
 # cilium-begin
 
 cd /tmp && \

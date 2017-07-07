@@ -227,8 +227,21 @@ function wait_for_healthy_k8s_cluster {
 }
 
 function gather_files {
+    set -xv
     TEST_NAME=$1
-    CILIUM_DIR="${GOPATH}/src/github.com/cilium/cilium/tests/cilium-files/${TEST_NAME}"
+    TEST_SUITE=$2
+    CILIUM_ROOT="src/github.com/cilium/cilium"
+    if [ -z "${TEST_SUITE}" ]; then 
+        TEST_SUITE="runtime-tests"
+    fi 
+    if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
+      CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
+    elif [[ "${TEST_SUITE}" == "k8s-tests" ]]; then 
+      CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/k8s/cilium-files/${TEST_NAME}"
+    else
+      echo "${TEST_SUITE} not a valid value, continuing"
+      CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
+    fi 
     RUN="/var/run/cilium"
     LIB="/var/lib/cilium"
     RUN_DIR="${CILIUM_DIR}${RUN}"
@@ -236,8 +249,8 @@ function gather_files {
     mkdir -p ${CILIUM_DIR}
     mkdir -p ${RUN_DIR}
     mkdir -p ${LIB_DIR}
-    sudo cp -r ${RUN}/state ${RUN_DIR}
-    sudo cp -r ${LIB}/* ${LIB_DIR}
+    sudo cp -r ${RUN}/state ${RUN_DIR} || true
+    sudo cp -r ${LIB}/* ${LIB_DIR} || true 
     find . -type d -exec sudo chmod 777 {} \;
     find ${CILIUM_DIR} -exec sudo chmod a+r {} \;
 }

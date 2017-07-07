@@ -11,7 +11,7 @@ CLIENT_LABEL="client"
 CONTAINER=monitor_tests
 
 function cleanup {
-  gather_files 14-monitoring-filtering
+  gather_files 14-monitoring-filtering ${TEST_SUITE}
   docker rm -f $CONTAINER 2> /dev/null || true
   docker network rm $NETWORK > /dev/null 2>&1
   monitor_stop
