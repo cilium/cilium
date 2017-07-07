@@ -251,8 +251,16 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 		return
 	}
 
-	if svc.Spec.Type != v1.ServiceTypeClusterIP {
-		log.Infof("Ignoring k8s service %s/%s, reason unsupported type %s",
+	switch svc.Spec.Type {
+	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
+		break
+
+	case v1.ServiceTypeExternalName:
+		// External-name services must be ignored
+		return
+
+	default:
+		log.Warningf("Ignoring k8s service %s/%s, reason unsupported type %s",
 			svc.Namespace, svc.Name, svc.Spec.Type)
 		return
 	}
@@ -270,6 +278,9 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
 	newSI := types.NewK8sServiceInfo(clusterIP)
+
+	// FIXME: Add support for
+	//  - NodePort
 
 	for _, port := range svc.Spec.Ports {
 		p, err := types.NewFEPort(types.L4Type(port.Protocol), uint16(port.Port))
