@@ -113,7 +113,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create third party resource: %s", err)
 	}
 
-	tprClient, err := k8s.CreateTPRClient(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
+	restConfig, err := k8s.CreateConfig(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
+	if err != nil {
+		return fmt.Errorf("Unable to create rest configuration: %s", err)
+	}
+
+	tprClient, err := k8s.CreateTPRClient(restConfig)
 	if err != nil {
 		return fmt.Errorf("Unable to create third party resource client: %s", err)
 	}

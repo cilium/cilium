@@ -34,7 +34,8 @@ const (
 	ThirdPartyResourceVersion = "v1"
 )
 
-func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+// CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
+func CreateConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 	if kubeCfgPath != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
 	}
@@ -46,12 +47,7 @@ func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 }
 
 // CreateClient creates a new client to access the Kubernetes API
-func CreateClient(endpoint, kubeCfgPath string) (*kubernetes.Clientset, error) {
-	config, err := createConfig(endpoint, kubeCfgPath)
-	if err != nil {
-		return nil, err
-	}
-
+func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
@@ -71,12 +67,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 }
 
 // CreateTPRClient creates a new k8s client for third party resources
-func CreateTPRClient(endpoint, kubeCfgPath string) (*rest.RESTClient, error) {
-	config, err := createConfig(endpoint, kubeCfgPath)
-	if err != nil {
-		return nil, err
-	}
-
+func CreateTPRClient(config *rest.Config) (*rest.RESTClient, error) {
 	config.GroupVersion = &schema.GroupVersion{
 		Group:   ThirdPartyResourceGroup,
 		Version: ThirdPartyResourceVersion,

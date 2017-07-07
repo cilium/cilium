@@ -707,7 +707,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.listenForCiliumEvents()
 
 	if c.IsK8sEnabled() {
-		d.k8sClient, err = k8s.CreateClient(c.K8sEndpoint, c.K8sCfgPath)
+		restConfig, err := k8s.CreateConfig(c.K8sEndpoint, c.K8sCfgPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create rest configuration: %s", err)
+		}
+
+		d.k8sClient, err = k8s.CreateClient(restConfig)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create k8s client: %s", err)
 		}
