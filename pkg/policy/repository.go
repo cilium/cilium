@@ -29,6 +29,10 @@ type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex sync.RWMutex
 	rules []*rule
+
+	// revision is the revision of the policy repository. It will be
+	// incremented whenever the policy repository is changed
+	revision uint64
 }
 
 // NewPolicyRepository allocates a new policy repository
@@ -158,37 +162,41 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 }
 
 // Add inserts a rule into the policy repository
-func (p *Repository) Add(r api.Rule) error {
+func (p *Repository) Add(r api.Rule) (uint64, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
 	realRule := &rule{Rule: r}
 	if err := realRule.validate(); err != nil {
-		return err
+		return p.revision, err
 	}
 
 	p.rules = append(p.rules, realRule)
-	return nil
+	p.revision++
+
+	return p.revision, nil
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
-func (p *Repository) AddListLocked(rules api.Rules) error {
+func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
 	// Validate entire rule list first and only append array if
 	// all rules are valid
 	newList := make([]*rule, len(rules))
 	for i := range rules {
 		newList[i] = &rule{Rule: *rules[i]}
 		if err := newList[i].validate(); err != nil {
-			return err
+			return p.revision, err
 		}
 	}
 
 	p.rules = append(p.rules, newList...)
-	return nil
+	p.revision++
+
+	return p.revision, nil
 }
 
 // AddList inserts a rule into the policy repository
-func (p *Repository) AddList(rules api.Rules) error {
+func (p *Repository) AddList(rules api.Rules) (uint64, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	return p.AddListLocked(rules)
@@ -196,7 +204,7 @@ func (p *Repository) AddList(rules api.Rules) error {
 
 // DeleteByLabelsLocked deletes all rules in the policy repository which
 // contain the specified labels
-func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) int {
+func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int) {
 	deleted := 0
 	new := p.rules[:0]
 
@@ -209,15 +217,16 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) int {
 	}
 
 	if deleted > 0 {
+		p.revision++
 		p.rules = new
 	}
 
-	return deleted
+	return p.revision, deleted
 }
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
 // specified labels
-func (p *Repository) DeleteByLabels(labels labels.LabelArray) int {
+func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	return p.DeleteByLabelsLocked(labels)
@@ -266,4 +275,9 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) bool {
 // Must be called with p.Mutex held
 func (p *Repository) NumRules() int {
 	return len(p.rules)
+}
+
+// GetRevision returns the revision of the policy repository
+func (p *Repository) GetRevision() uint64 {
+	return p.revision
 }
