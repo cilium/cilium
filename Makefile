@@ -20,7 +20,7 @@ tests-etcd:
 	-docker run -d \
 	    --name "cilium-etcd-test-container" \
 	    -p 4002:4001 \
-        quay.io/coreos/etcd:v3.1.0-rc.0 \
+        quay.io/coreos/etcd:v3.1.0 \
         etcd -name etcd0 \
         -advertise-client-urls http://0.0.0.0:4001 \
         -listen-client-urls http://0.0.0.0:4001 \
