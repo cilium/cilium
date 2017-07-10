@@ -12,6 +12,7 @@ Welcome to Cilium's documentation!
 
    intro
    gettingstarted
+   coreos
    architecture
    admin
    bpf
