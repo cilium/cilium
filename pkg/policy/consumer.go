@@ -64,7 +64,7 @@ type Consumable struct {
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
 	LabelArray labels.LabelArray `json:"-"`
 	// Iteration policy of the Consumable
-	Iteration int `json:"-"`
+	Iteration uint64 `json:"-"`
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
 	// Consumers contains the list of consumers where the key is the Consumers ID

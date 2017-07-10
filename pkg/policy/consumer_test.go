@@ -36,7 +36,7 @@ func (s *PolicyTestSuite) TestGetConsumer(c *C) {
 	cache := NewConsumableCache()
 
 	c1 := cache.GetOrCreate(CONSUMER_ID1, nil)
-	c.Assert(c1.Iteration, Equals, 0)
+	c.Assert(c1.Iteration, Equals, uint64(0))
 	c2 := cache.GetOrCreate(CONSUMER_ID1, nil)
 	c.Assert(c1, Equals, c2)
 
