@@ -128,20 +128,20 @@ func (p *Proxy) allocatePort() (uint16, error) {
 	}
 }
 
-func lookupNewDest(req *http.Request, dport uint16) (string, error) {
+func lookupNewDest(req *http.Request, dport uint16) (uint32, string, error) {
 	ip, port, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
-		return "", fmt.Errorf("invalid remote address: %s", err)
+		return 0, "", fmt.Errorf("invalid remote address: %s", err)
 	}
 
 	pIP := net.ParseIP(ip)
 	if pIP == nil {
-		return "", fmt.Errorf("unable to parse IP %s", ip)
+		return 0, "", fmt.Errorf("unable to parse IP %s", ip)
 	}
 
 	sport, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse port string: %s", err)
+		return 0, "", fmt.Errorf("unable to parse port string: %s", err)
 	}
 
 	if pIP.To4() != nil {
@@ -155,11 +155,11 @@ func lookupNewDest(req *http.Request, dport uint16) (string, error) {
 
 		val, err := LookupEgress4(key)
 		if err != nil {
-			return "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
+			return 0, "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
 		}
 
 		log.Debugf("Found IPv4 proxy entry: %+v", val)
-		return val.HostPort(), nil
+		return val.SourceIdentity, val.HostPort(), nil
 	}
 
 	key := &Proxy6Key{
@@ -172,11 +172,11 @@ func lookupNewDest(req *http.Request, dport uint16) (string, error) {
 
 	val, err := LookupEgress6(key)
 	if err != nil {
-		return "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
+		return 0, "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
 
 	log.Debugf("Found IPv6 proxy entry: %+v", val)
-	return val.HostPort(), nil
+	return val.SourceIdentity, val.HostPort(), nil
 }
 
 func generateURL(req *http.Request, hostport string) *url.URL {
@@ -295,6 +295,40 @@ func identityFromContext(ctx context.Context) (int, bool) {
 	return val, ok
 }
 
+func setSocketMark(c net.Conn, mark int) {
+	if tc, ok := c.(*net.TCPConn); ok {
+		if f, err := tc.File(); err == nil {
+			defer f.Close()
+			fd := int(f.Fd())
+
+			log.Debugf("Setting identity %d on socket %+v", mark, tc)
+			err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+			if err != nil {
+				log.Debugf("Unable to set SO_MARK=%d socket option: %s", mark, err)
+			}
+		}
+	}
+}
+
+func getSocketMark(c net.Conn) int {
+	if tc, ok := c.(*net.TCPConn); ok {
+		if f, err := tc.File(); err == nil {
+			defer f.Close()
+			fd := int(f.Fd())
+
+			val, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK)
+			if err != nil {
+				log.Debugf("Unable to get SO_MARK socket option: %s", err)
+				return 0
+			}
+
+			return val
+		}
+	}
+
+	return 0
+}
+
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is aleady in place, only the rules will be
@@ -313,16 +347,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		}
 
 		if id, ok := identityFromContext(ctx); ok {
-			if tc, ok := c.(*net.TCPConn); ok {
-				if f, err := tc.File(); err == nil {
-					defer f.Close()
-					fd := int(f.Fd())
-					err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, id)
-					if err != nil {
-						log.Debugf("Unable to set SO_MARK socket option: %s", err)
-					}
-				}
-			}
+			setSocketMark(c, id)
 		}
 
 		return c, err
@@ -420,7 +445,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			record.ObservationPoint = Egress
 		}
 
-		dstIPPort, err := lookupNewDest(req, to)
+		srcIdentity, dstIPPort, err := lookupNewDest(req, to)
 		if err != nil {
 			// FIXME: What do we do here long term?
 			log.Errorf("%s", err)
@@ -428,6 +453,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			record.Info = fmt.Sprintf("cannot generate url: %s", err)
 			Log(record, TypeRequest, VerdictError, http.StatusBadRequest)
 			return
+		}
+
+		if srcIdentity != 0 {
+			record.SourceEndpoint.Identity = uint64(srcIdentity)
 		}
 
 		record.DestinationEndpoint = redir.getDestinationInfo(dstIPPort)
@@ -470,6 +499,18 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	redir.server = manners.NewWithServer(&http.Server{
 		Addr:    fmt.Sprintf("[::]:%d", to),
 		Handler: redirect,
+		ConnState: func(c net.Conn, cs http.ConnState) {
+			// As ingress proxy, all replies to incoming requests
+			// must have the identity of the endpoint we are
+			// proxying for
+			if redir.l4.Ingress && cs == http.StateActive {
+				identity := int(source.GetIdentity())
+				log.Debugf("Setting identity for replies of connection %v to %d",
+					c, identity)
+				setSocketMark(c, identity)
+			}
+
+		},
 	})
 
 	redir.updateRules(l4.L7Rules)
