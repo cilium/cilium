@@ -23,7 +23,7 @@ type GetPolicyOK struct {
 	/*
 	  In: Body
 	*/
-	Payload models.PolicyTree `json:"body,omitempty"`
+	Payload *models.Policy `json:"body,omitempty"`
 }
 
 // NewGetPolicyOK creates GetPolicyOK with default headers values
@@ -32,13 +32,13 @@ func NewGetPolicyOK() *GetPolicyOK {
 }
 
 // WithPayload adds the payload to the get policy o k response
-func (o *GetPolicyOK) WithPayload(payload models.PolicyTree) *GetPolicyOK {
+func (o *GetPolicyOK) WithPayload(payload *models.Policy) *GetPolicyOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get policy o k response
-func (o *GetPolicyOK) SetPayload(payload models.PolicyTree) {
+func (o *GetPolicyOK) SetPayload(payload *models.Policy) {
 	o.Payload = payload
 }
 
@@ -46,11 +46,12 @@ func (o *GetPolicyOK) SetPayload(payload models.PolicyTree) {
 func (o *GetPolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	payload := o.Payload
-	if err := producer.Produce(rw, payload); err != nil {
-		panic(err) // let the recovery middleware deal with this
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
 	}
-
 }
 
 // GetPolicyNotFoundCode is the HTTP code returned for type GetPolicyNotFound

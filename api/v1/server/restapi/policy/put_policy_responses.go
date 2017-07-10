@@ -23,7 +23,7 @@ type PutPolicyOK struct {
 	/*
 	  In: Body
 	*/
-	Payload models.PolicyTree `json:"body,omitempty"`
+	Payload *models.Policy `json:"body,omitempty"`
 }
 
 // NewPutPolicyOK creates PutPolicyOK with default headers values
@@ -32,13 +32,13 @@ func NewPutPolicyOK() *PutPolicyOK {
 }
 
 // WithPayload adds the payload to the put policy o k response
-func (o *PutPolicyOK) WithPayload(payload models.PolicyTree) *PutPolicyOK {
+func (o *PutPolicyOK) WithPayload(payload *models.Policy) *PutPolicyOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the put policy o k response
-func (o *PutPolicyOK) SetPayload(payload models.PolicyTree) {
+func (o *PutPolicyOK) SetPayload(payload *models.Policy) {
 	o.Payload = payload
 }
 
@@ -46,11 +46,12 @@ func (o *PutPolicyOK) SetPayload(payload models.PolicyTree) {
 func (o *PutPolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	payload := o.Payload
-	if err := producer.Produce(rw, payload); err != nil {
-		panic(err) // let the recovery middleware deal with this
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
 	}
-
 }
 
 // PutPolicyInvalidPolicyCode is the HTTP code returned for type PutPolicyInvalidPolicy

@@ -589,7 +589,7 @@ func init() {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/PolicyTree"
+              "$ref": "#/definitions/Policy"
             }
           },
           "404": {
@@ -611,7 +611,7 @@ func init() {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/PolicyTree"
+              "$ref": "#/definitions/Policy"
             }
           },
           "400": {
@@ -653,8 +653,11 @@ func init() {
           }
         ],
         "responses": {
-          "204": {
-            "description": "Success"
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
           },
           "400": {
             "description": "Invalid request",
@@ -664,7 +667,7 @@ func init() {
             "x-go-name": "Invalid"
           },
           "404": {
-            "description": "Policy tree not found"
+            "description": "Policy not found"
           },
           "500": {
             "description": "Error while deleting policy",
@@ -1248,6 +1251,20 @@ func init() {
         }
       }
     },
+    "Policy": {
+      "description": "Policy definition",
+      "type": "object",
+      "properties": {
+        "policy": {
+          "description": "Policy definition as JSON.",
+          "type": "string"
+        },
+        "revision": {
+          "description": "Revision number of the policy. Incremented each time the policy is\nchanged in the agent's repository\n",
+          "type": "integer"
+        }
+      }
+    },
     "PolicyTraceResult": {
       "description": "Response to a policy resolution process",
       "type": "object",
@@ -1259,10 +1276,6 @@ func init() {
           "type": "string"
         }
       }
-    },
-    "PolicyTree": {
-      "description": "Policy tree or subtree",
-      "type": "string"
     },
     "Port": {
       "description": "Layer 4 port / protocol pair",

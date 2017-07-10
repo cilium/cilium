@@ -25,7 +25,7 @@ type Client struct {
 /*
 DeletePolicy deletes a policy sub tree
 */
-func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyNoContent, error) {
+func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeletePolicyParams()
@@ -46,7 +46,7 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyNoConten
 	if err != nil {
 		return nil, err
 	}
-	return result.(*DeletePolicyNoContent), nil
+	return result.(*DeletePolicyOK), nil
 
 }
 
