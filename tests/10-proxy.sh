@@ -65,7 +65,7 @@ function proxy_init {
 
 function policy_single_egress {
 	cilium policy delete --all
-	cat <<EOF | cilium -D policy import -
+	cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
@@ -93,7 +93,7 @@ EOF
 
 function policy_many_egress {
 	cilium policy delete --all
-	cat <<EOF | cilium -D policy import -
+	cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
@@ -124,7 +124,7 @@ EOF
 
 function policy_single_ingress {
 	cilium policy delete --all
-	cat <<EOF | cilium -D policy import -
+	cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
@@ -148,7 +148,7 @@ EOF
 
 function policy_many_ingress {
 	cilium policy delete --all
-	cat <<EOF | cilium -D policy import -
+	cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{
@@ -175,7 +175,7 @@ EOF
 
 function policy_service_and_proxy_egress {
 	cilium policy delete --all
-	cat <<EOF | cilium -D policy import -
+	cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{

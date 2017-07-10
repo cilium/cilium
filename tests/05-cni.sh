@@ -78,7 +78,7 @@ cd $DIR
 monitor_start
 
 cilium policy delete --all 2> /dev/null || true
-cat <<EOF | cilium -D policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
     "ingress": [{

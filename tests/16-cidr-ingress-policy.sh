@@ -58,7 +58,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 
 echo "------ importing L3 CIDR policy for IPv4 egress ------"
 cilium policy delete --all
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
     "egress": [{
@@ -87,7 +87,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 
 echo "------ importing L3 CIDR policy for IPv6 egress ------"
 cilium policy delete --all
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
     "egress": [{
@@ -107,7 +107,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 
 echo "------ importing policy ------"
 cilium policy delete --all
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{
@@ -146,7 +146,7 @@ echo "------ creating cidr_aware_policy.json with matching prefixes ------"
 echo "IPv6 prefix: $IPV6_PREFIX"
 echo "IPv4 prefix: $IPV4_PREFIX"
 cilium policy delete --all
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{
@@ -176,7 +176,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${D
 
 echo "------ creating cidr_aware_policy.json with non-matching prefix ------"
 cilium policy delete --all
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{

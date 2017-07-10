@@ -33,7 +33,7 @@ echo "------ starting example service with Docker ------"
 docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1}" cilium/demo-httpd
 
 echo "------ creating l3_l4_policy.json ------"
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{
@@ -77,7 +77,7 @@ fi
 
 echo "------ creating l7_aware_policy.json ------"
 cilium policy delete --all
-cat <<EOF | cilium policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
     "ingress": [{
