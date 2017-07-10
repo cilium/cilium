@@ -336,12 +336,14 @@ struct proxy4_tbl_key {
 	__u16 dport; /* dport must be in front of sport, loaded with 4 bytes read */
 	__u16 sport;
 	__u8 nexthdr;
+	__u8 pad;
 } __attribute__((packed));
 
 struct proxy4_tbl_value {
 	__be32 orig_daddr;
 	__u16 orig_dport;
 	__u16 lifetime;
+	__u32 identity;
 } __attribute__((packed));
 
 struct proxy6_tbl_key {
@@ -349,12 +351,14 @@ struct proxy6_tbl_key {
 	__u16 dport;
 	__u16 sport;
 	__u8 nexthdr;
+	__u8 pad;
 } __attribute__((packed));
 
 struct proxy6_tbl_value {
 	union v6addr orig_daddr;
 	__u16 orig_dport;
 	__u16 lifetime;
+	__u32 identity;
 } __attribute__((packed));
 
 #endif

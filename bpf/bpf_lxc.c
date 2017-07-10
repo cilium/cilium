@@ -247,7 +247,7 @@ skip_service_lookup:
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple->dport,
-						 orig_dip, tuple, &host_ip);
+						 orig_dip, tuple, &host_ip, SECLABEL);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -547,7 +547,7 @@ skip_service_lookup:
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
-						 orig_dip, &tuple);
+						 orig_dip, &tuple, SECLABEL);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -835,7 +835,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
-						 orig_dip, &tuple, &host_ip);
+						 orig_dip, &tuple, &host_ip, src_label);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -922,7 +922,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
-						 orig_dip, &tuple);
+						 orig_dip, &tuple, src_label);
 		if (IS_ERR(ret))
 			return ret;
 

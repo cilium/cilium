@@ -89,7 +89,7 @@ static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
 static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __u16 new_port, __u16 old_port, __be32 old_ip,
-			  struct ipv4_ct_tuple *tuple)
+			  struct ipv4_ct_tuple *tuple, __u32 identity)
 {
 	__be32 host_ip = IPV4_GATEWAY;
 	struct proxy4_tbl_key key = {
@@ -102,6 +102,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 		.orig_daddr = old_ip,
 		.orig_dport = old_port,
 		.lifetime = 360,
+		.identity = identity,
 	};
 
 	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_PRE, old_port);
@@ -134,7 +135,8 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 static inline int __inline__
 ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __u16 new_port, __u16 old_port,
-			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip)
+			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip,
+			  __u32 identity)
 {
 	struct proxy6_tbl_key key = {
 		.saddr = tuple->daddr,
@@ -146,6 +148,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 		.orig_daddr = old_ip,
 		.orig_dport = old_port,
 		.lifetime = 360,
+		.identity = identity,
 	};
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum, new_port, old_port) < 0)
