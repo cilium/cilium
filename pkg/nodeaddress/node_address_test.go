@@ -29,6 +29,8 @@ func (s *NodeAddressSuite) TestMaskCheck(c *C) {
 	// must fail, cluster /24 > per node alloc prefix /16
 	c.Assert(ValidatePostInit(), Not(IsNil))
 
+	SetInternalIPv4(cidr.IP)
+
 	// OK, cluster /16 == per node alloc prefix /16
 	SetIPv4ClusterCidrMaskSize(16)
 	c.Assert(ValidatePostInit(), IsNil)

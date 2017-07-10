@@ -494,7 +494,7 @@ func initEnv() {
 		if ip := net.ParseIP(v4Address); ip == nil {
 			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
 		} else {
-			nodeaddress.SetIPv4(ip)
+			nodeaddress.SetExternalIPv4(ip)
 		}
 	}
 
