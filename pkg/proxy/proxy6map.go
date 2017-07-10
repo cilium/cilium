@@ -32,6 +32,7 @@ type Proxy6Key struct {
 	DPort   uint16
 	SPort   uint16
 	Nexthdr uint8
+	Pad     uint8
 }
 
 func (k *Proxy6Key) HostPort() string {
@@ -40,9 +41,10 @@ func (k *Proxy6Key) HostPort() string {
 }
 
 type Proxy6Value struct {
-	OrigDAddr types.IPv6
-	OrigDPort uint16
-	Lifetime  uint16
+	OrigDAddr      types.IPv6
+	OrigDPort      uint16
+	Lifetime       uint16
+	SourceIdentity uint32
 }
 
 func (p *Proxy6Value) HostPort() string {
@@ -55,8 +57,12 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy6Key{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
-		8192, 0)
+		8192, 0).WithNonPersistent()
 )
+
+func init() {
+	bpf.OpenAfterMount(proxy6Map)
+}
 
 func (k Proxy6Key) NewValue() bpf.MapValue {
 	return &Proxy6Value{}

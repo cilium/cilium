@@ -129,6 +129,12 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 	}
 }
 
+// WithNonPersistent turns the map non-persistent and returns the map
+func (m *Map) WithNonPersistent() *Map {
+	m.NonPersistent = true
+	return m
+}
+
 func (m *Map) GetFd() int {
 	return m.fd
 }
