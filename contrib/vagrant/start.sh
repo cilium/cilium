@@ -165,6 +165,9 @@ function write_k8s_header(){
     filename="${2}"
     cat <<EOF > "${filename}"
 #!/usr/bin/env bash
+
+set -e
+
 # K8s installation
 sudo apt-get -y install curl
 mkdir -p "${k8s_dir}"
@@ -329,6 +332,9 @@ if [ "\$cilium_started" = true ] ; then
     echo 'Cilium successfully started!'
 else
     >&2 echo 'Timeout waiting for Cilium to start...'
+    journalctl -u cilium.service --since \$(systemctl show -p ActiveEnterTimestamp cilium.service | awk '{print \$2 \$3}')
+    >&2 echo 'Cilium failed to start'
+    exit 1
 fi
 EOF
 }
