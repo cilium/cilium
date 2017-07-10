@@ -209,7 +209,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	}
 
 	// Result is valid until cache iteration advances
-	c.Iteration = cache.GetIteration()
+	c.Iteration = repo.GetRevision()
 
 	log.Debugf("[%s] Iteration %d: new consumable %d, consumers = %+v\n",
 		e.PolicyID(), c.Iteration, c.ID, c.Consumers)
