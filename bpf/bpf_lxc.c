@@ -833,17 +833,22 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr router_mac = NODE_MAC;
+
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
 						 orig_dip, &tuple, &host_ip, src_label);
 		if (IS_ERR(ret))
 			return ret;
 
-		/* Mark packet with PACKET_HOST and pass to host */
-		if (skb_change_type(skb, 0) < 0)
+		if (eth_store_saddr(skb, (__u8 *) &router_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 
-		skb->cb[CB_IFINDEX] = 0;
+		if (eth_store_daddr(skb, (__u8 *) &host_mac.addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+
+		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	}
 
 	return 0;
@@ -920,17 +925,24 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr router_mac = NODE_MAC;
+
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
 						 orig_dip, &tuple, src_label);
 		if (IS_ERR(ret))
 			return ret;
 
-		/* Mark packet with PACKET_HOST and redirect to host */
-		if (skb_change_type(skb, 0) < 0)
+		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+
+		if (eth_store_saddr(skb, (__u8 *) &router_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 
-		skb->cb[CB_IFINDEX] = 0;
+		if (eth_store_daddr(skb, (__u8 *) &host_mac.addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+
+		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	}
 
 	return 0;
