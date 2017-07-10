@@ -345,3 +345,13 @@ function wait_for_service_endpoints_ready {
     done
     set -x
 }
+
+function policy_delete_and_wait {
+	rev=$(cilium policy delete $* | grep Revision: | awk '{print $2}')
+	cilium policy wait $rev
+}
+
+function policy_import_and_wait {
+	rev=$(cilium policy import $* | grep Revision: | awk '{print $2}')
+	cilium policy wait $rev
+}

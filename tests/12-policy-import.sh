@@ -19,7 +19,6 @@ logs_clear
 docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
-DIFF=$(diff -Nru  <(cilium policy get) <(echo "$EXPECTED_POLICY")) || true
 
 echo "------ simple policy import ------"
 
@@ -41,7 +40,7 @@ read -d '' EXPECTED_POLICY <<"EOF" || true
 ]
 EOF
 
-DIFF=$(diff -Nru  <(cilium policy get) <(echo "$EXPECTED_POLICY")) || true
+DIFF=$(diff -Nru  <(cilium policy get | grep -v Revision:) <(echo "$EXPECTED_POLICY")) || true
 if [[ "$DIFF" != "" ]]; then
 	abort "$DIFF"
 fi

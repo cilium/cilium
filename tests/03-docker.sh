@@ -22,7 +22,7 @@ cleanup
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
 
-cilium -D policy import ./policy
+policy_import_and_wait ./policy
 
 docker network inspect $TEST_NET || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
