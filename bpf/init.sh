@@ -21,10 +21,11 @@ IP4_HOST=$4
 IP6_HOST=$5
 IP4_RANGE=$6
 IP6_RANGE=$7
-MODE=$8
-
+IP4_SVC_RANGE=$8
+IP6_SVC_RANGE=$9
+MODE=${10}
 # Only set if MODE = "direct" or "lb"
-NATIVE_DEV=$9
+NATIVE_DEV=${11}
 
 HOST_ID="host"
 WORLD_ID="world"
@@ -110,12 +111,22 @@ ip route add $IP6_ROUTER/128 dev $HOST_DEV1
 ip route del $IP6_RANGE 2> /dev/null || true
 ip route add $IP6_RANGE via $IP6_ROUTER src $IP6_HOST
 
+if [ "$IP6_SVC_RANGE" != "auto" ]; then
+	ip route del $IP6_SVC_RANGE 2> /dev/null || true
+	ip route add $IP6_SVC_RANGE via $IP6_ROUTER src $IP6_HOST
+fi
+
 ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
 ip addr add 169.254.254.1/32 dev $HOST_DEV1
 ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
 ip route add 169.254.254.0/24 dev $HOST_DEV1 scope link
 ip route del $IP4_RANGE 2> /dev/null || true
 ip route add $IP4_RANGE via 169.254.254.1 src $IP4_HOST
+
+if [ "$IP4_SVC_RANGE" != "auto" ]; then
+	ip route del $IP4_SVC_RANGE 2> /dev/null || true
+	ip route add $IP4_SVC_RANGE via 169.254.254.1 src $IP4_HOST
+fi
 
 sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
 sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h

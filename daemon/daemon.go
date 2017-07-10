@@ -381,6 +381,8 @@ func (d *Daemon) compileBase() error {
 		nodeaddress.GetIPv6().String(),
 		nodeaddress.GetIPv4AllocRange().String(),
 		nodeaddress.GetIPv6NodeRange().String(),
+		v4ServicePrefix,
+		v6ServicePrefix,
 	}
 
 	if d.conf.Device != "undefined" {
@@ -717,6 +719,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		nodeaddress.SetIPv4AllocRange(net)
 	}
 
+	if v4ServicePrefix != AutoCIDR {
+		_, _, err := net.ParseCIDR(v4ServicePrefix)
+		if err != nil {
+			log.Fatalf("Invalid IPv4 service prefix '%s': %s", v4ServicePrefix, err)
+		}
+	}
+
 	if v6Prefix != AutoCIDR {
 		_, net, err := net.ParseCIDR(v6Prefix)
 		if err != nil {
@@ -725,6 +734,13 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 		if err := nodeaddress.SetIPv6NodeRange(net); err != nil {
 			log.Fatalf("Invalid per node IPv6 allocation prefix '%s': %s", net, err)
+		}
+	}
+
+	if v6ServicePrefix != AutoCIDR {
+		_, _, err := net.ParseCIDR(v6ServicePrefix)
+		if err != nil {
+			log.Fatalf("Invalid IPv6 service prefix '%s': %s", v6ServicePrefix, err)
 		}
 	}
 
