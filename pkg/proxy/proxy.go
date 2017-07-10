@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -282,12 +284,60 @@ func (r *Redirect) getDestinationInfo(dstIPPort string) EndpointInfo {
 	return info
 }
 
+const identityKey int = 0
+
+func newIdentityContext(ctx context.Context, id int) context.Context {
+	return context.WithValue(ctx, identityKey, id)
+}
+
+func identityFromContext(ctx context.Context) (int, bool) {
+	val, ok := ctx.Value(identityKey).(int)
+	return val, ok
+}
+
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is aleady in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (*Redirect, error) {
-	fwd, err := forward.New()
+	customDialer := func(ctx context.Context, network, address string) (net.Conn, error) {
+		d := &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}
+
+		c, err := d.DialContext(ctx, network, address)
+		if err != nil {
+			return nil, err
+		}
+
+		if id, ok := identityFromContext(ctx); ok {
+			if tc, ok := c.(*net.TCPConn); ok {
+				if f, err := tc.File(); err == nil {
+					defer f.Close()
+					fd := int(f.Fd())
+					err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, id)
+					if err != nil {
+						log.Debugf("Unable to set SO_MARK socket option: %s", err)
+					}
+				}
+			}
+		}
+
+		return c, err
+	}
+
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           customDialer,
+		MaxIdleConns:          2048,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	fwd, err := forward.New(forward.RoundTripper(transport))
 	if err != nil {
 		return nil, err
 	}
@@ -404,6 +454,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 		// log valid request
 		Log(record, TypeRequest, VerdictForwared, http.StatusOK)
+
+		ctx := req.Context()
+		if ctx != nil {
+			req = req.WithContext(newIdentityContext(ctx, int(record.SourceEndpoint.Identity)))
+		}
 
 		fwd.ServeHTTP(w, req)
 
