@@ -216,7 +216,7 @@ func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 	}
 
 	opts := AddOptions{Replace: true}
-	if err := d.PolicyAdd(rules, &opts); err != nil {
+	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		log.Errorf("Error while adding kubernetes network policy %+v: %s", rules, err)
 		return
 	}
@@ -238,7 +238,7 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 
 	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyName(k8sNP))
 
-	if err := d.PolicyDelete(labels); err != nil {
+	if _, err := d.PolicyDelete(labels); err != nil {
 		log.Errorf("Error while deleting kubernetes network policy %+v: %s", labels, err)
 	} else {
 		log.Infof("Kubernetes network policy '%s' successfully removed", k8sNP.Name)
@@ -836,7 +836,7 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 	}
 
 	opts := AddOptions{Replace: true}
-	if err := d.PolicyAdd(rules, &opts); err != nil {
+	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
 		return
 	}
@@ -859,7 +859,7 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	if err := d.PolicyDelete(rules[0].Labels); err != nil {
+	if _, err := d.PolicyDelete(rules[0].Labels); err != nil {
 		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
 		return
 	}
