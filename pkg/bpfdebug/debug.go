@@ -87,6 +87,8 @@ const (
 	DbgRevProxyFound
 	DbgRevProxyUpdate
 	DbgL4Policy
+	DbgNetdevInCluster
+	DbgNetdevEncap4
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -246,6 +248,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgL4Policy:
 		fmt.Printf("Resolved L4 policy to: %d / %s\n",
 			byteorder.NetworkToHost(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
+	case DbgNetdevInCluster:
+		fmt.Printf("Destination is inside cluster prefix, source identity: %d\n", n.Arg1)
+	case DbgNetdevEncap4:
+		fmt.Printf("Attempting encapsulation, lookup key: %s, identity: %d\n", ip4Str(n.Arg1), n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
