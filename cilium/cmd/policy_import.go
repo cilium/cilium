@@ -50,7 +50,9 @@ var policyImportCmd = &cobra.Command{
 			if resp, err := client.PolicyPut(string(jsonPolicy)); err != nil {
 				Fatalf("Cannot import policy: %s\n", err)
 			} else if printPolicy {
-				fmt.Printf("%s\n", resp)
+				fmt.Printf("%s\nRevision: %d\n", resp.Policy, resp.Revision)
+			} else {
+				fmt.Printf("Revision: %d\n", resp.Revision)
 			}
 		}
 	},

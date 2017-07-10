@@ -27,8 +27,8 @@ var policyGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if resp, err := client.PolicyGet(args); err != nil {
 			Fatalf("Cannot get policy: %s\n", err)
-		} else if resp != "[]" {
-			fmt.Printf("%s\n", resp)
+		} else if resp != nil {
+			fmt.Printf("%s\nRevision: %d\n", resp.Policy, resp.Revision)
 		}
 	},
 }
