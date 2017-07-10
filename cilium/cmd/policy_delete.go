@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -29,9 +31,12 @@ var policyDeleteCmd = &cobra.Command{
 			Fatalf("Please use --all flag to delete all policies")
 		}
 
-		if err := client.PolicyDelete(args); err != nil {
+		if resp, err := client.PolicyDelete(args); err != nil {
 			Fatalf("Cannot delete policy: %s\n", err)
+		} else {
+			fmt.Printf("Revision: %d\n", resp.Revision)
 		}
+
 	},
 }
 
