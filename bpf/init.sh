@@ -95,9 +95,9 @@ HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
-OPTS="-DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
+OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
 
-bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_netdev_ns.o from-netdev
+bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_host.o from-netdev
 
 # If the host does not have an IPv6 address assigned, assign our generated host
 # IP to make the host accessible to endpoints
