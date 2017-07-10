@@ -71,7 +71,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
-			return TC_ACT_OK;
+			goto to_host;
 
 		__u8 nexthdr = ip6->nexthdr;
 		l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
@@ -79,6 +79,26 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	} else {
 		return DROP_NON_LOCAL;
 	}
+
+to_host:
+#ifdef HOST_IFINDEX
+	if (1) {
+		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr router_mac = NODE_MAC;
+		int ret;
+
+		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+
+		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		if (ret != TC_ACT_OK)
+			return ret;
+
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		return redirect(HOST_IFINDEX, 0);
+	}
+#else
+	return TC_ACT_OK;
+#endif
 }
 
 #ifdef ENABLE_IPV4
@@ -105,12 +125,32 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
-			return TC_ACT_OK;
+			goto to_host;
 
 		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, key.tunnel_id, ip4, ep);
 	} else {
 		return DROP_NON_LOCAL;
 	}
+
+to_host:
+#ifdef HOST_IFINDEX
+	if (1) {
+		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union macaddr router_mac = NODE_MAC;
+		int ret;
+
+		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+
+		ret = ipv4_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
+		if (ret != TC_ACT_OK)
+			return ret;
+
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		return redirect(HOST_IFINDEX, 0);
+	}
+#else
+	return TC_ACT_OK;
+#endif
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
