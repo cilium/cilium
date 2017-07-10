@@ -49,7 +49,7 @@ wait_for_docker_ipv6_addr server
 
 set -x
 
-cat <<EOF | cilium -D policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${SERVER_LABEL}":""}},
     "ingress": [{

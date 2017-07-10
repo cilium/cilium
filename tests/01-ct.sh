@@ -45,7 +45,7 @@ set -x
 
 cilium endpoint list
 
-cat <<EOF | cilium -D policy import -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.curl":""}},
     "egress": [{
@@ -240,9 +240,7 @@ connectivity_test
 
 entriesBefore=$(sudo cilium bpf ct list global | wc -l)
 
-cilium policy delete id=httpd
-
-wait_for_endpoints 5
+policy_delete_and_wait id=httpd
 
 # FIXME: Disabled for now, need a reliable way to know when this happened as it occurs async
 #entriesAfter=$(sudo cilium bpf ct list global | wc -l)
