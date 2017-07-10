@@ -78,7 +78,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		},
 	}
 
-	err3 := ds.d.PolicyAdd(rules, nil)
+	_, err3 := ds.d.PolicyAdd(rules, nil)
 	c.Assert(err3, Equals, nilAPIError)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
@@ -163,11 +163,13 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 		},
 	}
 
-	c.Assert(ds.d.PolicyAdd(rules, nil), IsNil)
+	_, err := ds.d.PolicyAdd(rules, nil)
+	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
-	c.Assert(ds.d.PolicyAdd(rules, &AddOptions{Replace: true}), IsNil)
+	_, err = ds.d.PolicyAdd(rules, &AddOptions{Replace: true})
+	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()

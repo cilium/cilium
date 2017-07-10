@@ -208,7 +208,7 @@ type AddOptions struct {
 	Replace bool
 }
 
-func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) error {
+func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
@@ -226,20 +226,21 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) error {
 		}
 	}
 
-	if err := d.policy.AddListLocked(rules); err != nil {
+	rev, err := d.policy.AddListLocked(rules)
+	if err != nil {
 		// Restore old rules
 		if len(oldRules) > 0 {
-			if err2 := d.policy.AddListLocked(oldRules); err2 != nil {
+			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
 				log.Errorf("Error while restoring old rules after adding of new rules failed: %s", err2)
 				log.Errorf("--- INCONSISTENT STATE OF POLICY ---")
-				return err
+				return rev, err
 			}
 		}
 
-		return err
+		return rev, err
 	}
 
-	return nil
+	return rev, nil
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
@@ -247,37 +248,39 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) error {
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
-func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) *apierror.APIError {
+func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, *apierror.APIError) {
 	log.Debugf("Policy Add Request: %+v", rules)
 
 	for _, r := range rules {
 		if err := r.Validate(); err != nil {
-			return apierror.Error(PutPolicyFailureCode, err)
+			return 0, apierror.Error(PutPolicyFailureCode, err)
 		}
 	}
 
-	if err := d.policyAdd(rules, opts); err != nil {
-		return apierror.Error(PutPolicyFailureCode, err)
+	rev, err := d.policyAdd(rules, opts)
+	if err != nil {
+		return 0, apierror.Error(PutPolicyFailureCode, err)
 	}
 
 	log.Info("New policy imported, regenerating...")
 	d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 
-	return nil
+	return rev, nil
 }
 
 // PolicyDelete deletes the policy set in the given path from the policy tree.
 // If cover256Sum is set it finds the rule with the respective coverage that
 // rule from the node. If the path's node becomes ruleless it is removed from
 // the tree.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray) *apierror.APIError {
+func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, *apierror.APIError) {
 	log.Debugf("Policy Delete Request: %+v", labels)
 
 	// An error is only returned if a label filter was provided and then
 	// not found A deletion request for all policy entries if no policied
 	// are loaded should not fail.
-	if d.policy.DeleteByLabels(labels) == 0 && len(labels) != 0 {
-		return apierror.New(DeletePolicyNotFoundCode, "policy not found")
+	rev, deleted := d.policy.DeleteByLabels(labels)
+	if deleted == 0 && len(labels) != 0 {
+		return rev, apierror.New(DeletePolicyNotFoundCode, "policy not found")
 	}
 
 	go func() {
@@ -327,7 +330,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) *apierror.APIError {
 		}
 		endpointmanager.Mutex.RUnlock()
 	}()
-	return nil
+	return rev, nil
 }
 
 type deletePolicy struct {
@@ -341,7 +344,9 @@ func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
 func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	d := h.daemon
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	if err := d.PolicyDelete(lbls); err != nil {
+	// FIXME
+	_, err := d.PolicyDelete(lbls)
+	if err != nil {
 		return apierror.Error(DeletePolicyFailureCode, err)
 	}
 
@@ -364,7 +369,8 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
-	if err := d.PolicyAdd(rules, nil); err != nil {
+	// FIXME
+	if _, err := d.PolicyAdd(rules, nil); err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
 	}
 

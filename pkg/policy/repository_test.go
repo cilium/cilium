@@ -25,7 +25,9 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo := NewPolicyRepository()
 
 	// cannot add empty rule
-	c.Assert(repo.Add(api.Rule{}), Not(IsNil))
+	rev, err := repo.Add(api.Rule{})
+	c.Assert(err, Not(IsNil))
+	c.Assert(rev, Equals, uint64(0))
 
 	lbls1 := labels.LabelArray{
 		labels.ParseLabel("tag1"),
@@ -45,9 +47,20 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 		Labels:           lbls2,
 	}
 
+	nextRevision := uint64(0)
+
+	c.Assert(repo.GetRevision(), Equals, nextRevision)
+	nextRevision++
+
 	// add rule1,rule2
-	c.Assert(repo.Add(rule1), IsNil)
-	c.Assert(repo.Add(rule2), IsNil)
+	rev, err = repo.Add(rule1)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, nextRevision)
+	nextRevision++
+	rev, err = repo.Add(rule2)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, nextRevision)
+	nextRevision++
 
 	// rule3 should not be in there yet
 	repo.Mutex.RLock()
@@ -55,7 +68,10 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo.Mutex.RUnlock()
 
 	// add rule3
-	c.Assert(repo.Add(rule3), IsNil)
+	rev, err = repo.Add(rule3)
+	c.Assert(err, IsNil)
+	c.Assert(rev, Equals, nextRevision)
+	nextRevision++
 
 	// search rule1,rule2
 	repo.Mutex.RLock()
@@ -64,9 +80,15 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo.Mutex.RUnlock()
 
 	// delete rule1, rule2
-	c.Assert(repo.DeleteByLabels(lbls1), Equals, 2)
+	rev, n := repo.DeleteByLabels(lbls1)
+	c.Assert(n, Equals, 2)
+	c.Assert(rev, Equals, nextRevision)
+	nextRevision++
+
 	// delete rule1, rule2 again has no effect
-	c.Assert(repo.DeleteByLabels(lbls1), Equals, 0)
+	rev, n = repo.DeleteByLabels(lbls1)
+	c.Assert(n, Equals, 0)
+	c.Assert(rev, Equals, nextRevision-1)
 
 	// rule3 can still be found
 	repo.Mutex.RLock()
@@ -74,13 +96,15 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo.Mutex.RUnlock()
 
 	// delete rule3
-	c.Assert(repo.DeleteByLabels(lbls2), Equals, 1)
+	rev, n = repo.DeleteByLabels(lbls2)
+	c.Assert(n, Equals, 1)
+	c.Assert(rev, Equals, nextRevision)
+	nextRevision++
 
 	// rule1 is gone
 	repo.Mutex.RLock()
 	c.Assert(repo.SearchRLocked(lbls2), DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
-
 }
 
 func (ds *PolicyTestSuite) TestCanReach(c *C) {
@@ -136,9 +160,12 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 		Labels: tag1,
 	}
 
-	c.Assert(repo.Add(rule1), IsNil)
-	c.Assert(repo.Add(rule2), IsNil)
-	c.Assert(repo.Add(rule3), IsNil)
+	_, err := repo.Add(rule1)
+	c.Assert(err, IsNil)
+	_, err = repo.Add(rule2)
+	c.Assert(err, IsNil)
+	_, err = repo.Add(rule3)
+	c.Assert(err, IsNil)
 
 	// foo=>bar is OK
 	c.Assert(repo.AllowsRLocked(fooToBar), Equals, api.Allowed)
