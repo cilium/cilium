@@ -290,6 +290,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 #endif
 		tuple.nexthdr = ip4->protocol;
 
+		cilium_trace(skb, DBG_NETDEV_IN_CLUSTER, secctx, 0);
+
 		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -317,6 +319,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 			key.ip4 = ip4->daddr & IPV4_MASK;
 			key.family = ENDPOINT_KEY_IPV4;
 
+			cilium_trace(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
 			return encap_and_redirect(skb, &key, secctx);
 #endif
 		}
