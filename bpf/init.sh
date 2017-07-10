@@ -58,8 +58,10 @@ function bpf_compile()
 {
 	DEV=$1
 	OPTS=$2
-	IN=$3
-	OUT=$4
+	WHERE=$3
+	IN=$4
+	OUT=$5
+	SEC=$6
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
@@ -68,7 +70,7 @@ function bpf_compile()
 
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
-	tc filter add dev $DEV ingress prio 1 handle 1 bpf da obj $OUT sec $5
+	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
 # This directory was created by the daemon and contains the per container header file
@@ -148,7 +150,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_overlay_${ID}"
-	bpf_compile $ENCAP_DEV "$OPTS" bpf_overlay.c bpf_overlay.o from-overlay
+	bpf_compile $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
 	FILE=$RUNDIR/encap.state
@@ -168,7 +170,7 @@ if [ "$MODE" = "direct" ]; then
 
 		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
-		bpf_compile $NATIVE_DEV "$OPTS" bpf_netdev.c bpf_netdev.o from-netdev
+		bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -179,7 +181,7 @@ elif [ "$MODE" = "lb" ]; then
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
 		OPTS="-DLB_L3 -DLB_L4 -DCALLS_MAP=cilium_calls_lb_${ID}"
-		bpf_compile $NATIVE_DEV "$OPTS" bpf_lb.c bpf_lb.o from-netdev
+		bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -196,4 +198,4 @@ fi
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
 OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
-bpf_compile $HOST_DEV2 "$OPTS" bpf_netdev.c bpf_host.o from-netdev
+bpf_compile $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev
