@@ -407,7 +407,7 @@ paths:
         '200':
           description: Success
           schema:
-            "$ref": "#/definitions/PolicyTree"
+            "$ref": "#/definitions/Policy"
         '404':
           description: No policy rules found
     put:
@@ -420,7 +420,7 @@ paths:
         '200':
           description: Success
           schema:
-            "$ref": "#/definitions/PolicyTree"
+            "$ref": "#/definitions/Policy"
         '400':
           description: Invalid policy
           x-go-name: InvalidPolicy
@@ -447,15 +447,17 @@ paths:
         schema:
           "$ref": "#/definitions/Labels"
       responses:
-        '204':
+        '200':
           description: Success
+          schema:
+            "$ref": "#/definitions/Policy"
         '400':
           description: Invalid request
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
         '404':
-          description: Policy tree not found
+          description: Policy not found
         '500':
           description: Error while deleting policy
           x-go-name: Failure
@@ -930,9 +932,18 @@ definitions:
       alloc-range:
         description: Address pool to be used for local endpoints
         type: string
-  PolicyTree:
-    description: Policy tree or subtree
-    type: string
+  Policy:
+    description: Policy definition
+    type: object
+    properties:
+      revision:
+        description: |
+          Revision number of the policy. Incremented each time the policy is
+          changed in the agent's repository
+        type: integer
+      policy:
+        description: Policy definition as JSON.
+        type: string
   PolicyTraceResult:
     description: Response to a policy resolution process
     type: object
