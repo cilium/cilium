@@ -75,6 +75,21 @@ const (
 	AutoCIDR = "auto"
 )
 
+const (
+	initArgLib int = iota
+	initArgRundir
+	initArgIPv6Router
+	initArgIPv4NodeIP
+	initArgIPv6NodeIP
+	initArgIPv4Range
+	initArgIPv6Range
+	initArgIPv4ServiceRange
+	initArgIPv6ServiceRange
+	initArgMode
+	initArgDevice
+	initArgMax
+)
+
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
@@ -373,17 +388,15 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	args = []string{
-		d.conf.BpfDir,
-		d.conf.StateDir,
-		nodeaddress.GetIPv6NoZeroComp(),
-		nodeaddress.GetIPv4().String(),
-		nodeaddress.GetIPv6().String(),
-		nodeaddress.GetIPv4AllocRange().String(),
-		nodeaddress.GetIPv6NodeRange().String(),
-		v4ServicePrefix,
-		v6ServicePrefix,
-	}
+	args = make([]string, initArgMax-1)
+
+	args[initArgLib] = d.conf.BpfDir
+	args[initArgRundir] = d.conf.StateDir
+	args[initArgIPv6Router] = nodeaddress.GetIPv6NoZeroComp()
+	args[initArgIPv4NodeIP] = nodeaddress.GetIPv4().String()
+	args[initArgIPv6NodeIP] = nodeaddress.GetIPv6().String()
+	args[initArgIPv4ServiceRange] = v4ServicePrefix
+	args[initArgIPv6ServiceRange] = v6ServicePrefix
 
 	if d.conf.Device != "undefined" {
 		_, err := netlink.LinkByName(d.conf.Device)
@@ -405,14 +418,26 @@ func (d *Daemon) compileBase() error {
 			mode = "direct"
 		}
 
-		args = append(args, mode)
+		// in direct routing mode, only packets to the local node
+		// prefix should go to cilium_host
+		args[initArgIPv4Range] = nodeaddress.GetIPv4AllocRange().String()
+		args[initArgIPv6Range] = nodeaddress.GetIPv6NodeRange().String()
+
+		args[initArgMode] = mode
+		args[initArgDevice] = d.conf.Device
+
 		args = append(args, d.conf.Device)
 	} else {
 		if d.conf.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
-		args = append(args, d.conf.Tunnel)
+
+		// in tunnel mode, all packets in the cluster should go to cilium_host
+		args[initArgIPv4Range] = nodeaddress.GetIPv4ClusterRange().String()
+		args[initArgIPv6Range] = nodeaddress.GetIPv6ClusterRange().String()
+
+		args[initArgMode] = d.conf.Tunnel
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
