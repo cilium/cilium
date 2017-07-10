@@ -934,8 +934,8 @@ func (e *Endpoint) removeDirectory() {
 
 func (e *Endpoint) RemoveDirectory() {
 	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
 	e.removeDirectory()
-	e.Mutex.Unlock()
 }
 
 func (e *Endpoint) CreateDirectory() error {

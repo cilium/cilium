@@ -157,10 +157,11 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	if len(add) > 0 {
 		endpointmanager.Mutex.Unlock()
 		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
+		endpointmanager.Mutex.Lock()
 		if errLabelsAdd != nil {
+			log.Errorf("Could not add labels %v while creating an ep %s", add, params.ID)
 			return errLabelsAdd
 		}
-		endpointmanager.Mutex.Lock()
 	}
 
 	ret := NewPutEndpointIDCreated()
