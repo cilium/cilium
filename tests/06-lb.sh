@@ -236,11 +236,10 @@ ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
 ip -6 route add f00d::1:1/128 via fbfb::10:10
 
 # Route 2.2.2.2 IPv4 packets to a fantasy router ("3.3.3.3") behind lbtest1
-SRC=$(ip addr show dev cilium_host | grep 'inet ' | awk '{print $2}' | sed 's/\/32//')
 ip route add 3.3.3.3/32 dev lbtest1
 MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
 ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
-ip route add 2.2.2.2/32 via 3.3.3.3 src $SRC
+ip route add 2.2.2.2/32 via 3.3.3.3
 
 ip link set lbtest2 up
 LIB=/var/lib/cilium/bpf
