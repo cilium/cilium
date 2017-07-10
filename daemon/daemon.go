@@ -338,6 +338,55 @@ func runProg(prog string, args []string, quiet bool) error {
 	return err
 }
 
+func nextIP(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
+func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
+	log.Debugf("Checking local routes for conflicts...")
+
+	link, err := netlink.LinkByName("cilium_host")
+	if err != nil || link == nil {
+		log.Warningf("Unable to find net_device cilium_host: %s", err)
+		return
+	}
+
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		log.Warningf("Unable to retrieve local routes: %s", err)
+		return
+	}
+
+	allocRange := nodeaddress.GetIPv4AllocRange()
+
+	for _, r := range routes {
+		// ignore routes which point to cilium_host
+		if r.LinkIndex == link.Attrs().Index {
+			log.Debugf("Ignoring route %v: points to cilium_host", r)
+			continue
+		}
+
+		if r.Dst == nil {
+			log.Debugf("Ignoring route %v: no destination address", r)
+			continue
+		}
+
+		log.Debugf("Considering route %v", r)
+
+		if allocRange.Contains(r.Dst.IP) {
+			log.Infof("Marking local route %s as no-alloc in node allocation prefix %s", r.Dst, allocRange)
+			for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
+				ipam.IPv4Allocator.Allocate(ip)
+			}
+		}
+	}
+}
+
 func (d *Daemon) removeMasqRule() {
 	runProg("iptables", []string{
 		"-t", "nat",
@@ -458,6 +507,8 @@ func (d *Daemon) compileBase() error {
 		}
 		return err
 	}
+
+	reserveLocalRoutes(d.ipamConf)
 
 	// Always remove masquerade rule and then re-add it if required
 	d.removeMasqRule()
