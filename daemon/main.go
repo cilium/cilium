@@ -81,6 +81,8 @@ var (
 	v6Address             string
 	masquerade            bool
 	v4ClusterCidrMaskSize int
+	v4ServicePrefix       string
+	v6ServicePrefix       string
 )
 
 var logOpts = make(map[string]string)
@@ -253,6 +255,10 @@ func init() {
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
 		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
+	flags.StringVar(&v4ServicePrefix,
+		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
+	flags.StringVar(&v6ServicePrefix,
+		"ipv6-service-range", AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
 	flags.StringVar(&config.K8sEndpoint,
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&config.K8sCfgPath,
