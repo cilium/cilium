@@ -52,7 +52,7 @@ func NewGetPolicyOK() *GetPolicyOK {
 Success
 */
 type GetPolicyOK struct {
-	Payload models.PolicyTree
+	Payload *models.Policy
 }
 
 func (o *GetPolicyOK) Error() string {
@@ -61,8 +61,10 @@ func (o *GetPolicyOK) Error() string {
 
 func (o *GetPolicyOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
+	o.Payload = new(models.Policy)
+
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 

@@ -23,8 +23,8 @@ type DeletePolicyReader struct {
 func (o *DeletePolicyReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
 
-	case 204:
-		result := NewDeletePolicyNoContent()
+	case 200:
+		result := NewDeletePolicyOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -56,23 +56,31 @@ func (o *DeletePolicyReader) ReadResponse(response runtime.ClientResponse, consu
 	}
 }
 
-// NewDeletePolicyNoContent creates a DeletePolicyNoContent with default headers values
-func NewDeletePolicyNoContent() *DeletePolicyNoContent {
-	return &DeletePolicyNoContent{}
+// NewDeletePolicyOK creates a DeletePolicyOK with default headers values
+func NewDeletePolicyOK() *DeletePolicyOK {
+	return &DeletePolicyOK{}
 }
 
-/*DeletePolicyNoContent handles this case with default header values.
+/*DeletePolicyOK handles this case with default header values.
 
 Success
 */
-type DeletePolicyNoContent struct {
+type DeletePolicyOK struct {
+	Payload *models.Policy
 }
 
-func (o *DeletePolicyNoContent) Error() string {
-	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNoContent ", 204)
+func (o *DeletePolicyOK) Error() string {
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK  %+v", 200, o.Payload)
 }
 
-func (o *DeletePolicyNoContent) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+func (o *DeletePolicyOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.Policy)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
@@ -111,7 +119,7 @@ func NewDeletePolicyNotFound() *DeletePolicyNotFound {
 
 /*DeletePolicyNotFound handles this case with default header values.
 
-Policy tree not found
+Policy not found
 */
 type DeletePolicyNotFound struct {
 }

@@ -11,25 +11,47 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// DeletePolicyNoContentCode is the HTTP code returned for type DeletePolicyNoContent
-const DeletePolicyNoContentCode int = 204
+// DeletePolicyOKCode is the HTTP code returned for type DeletePolicyOK
+const DeletePolicyOKCode int = 200
 
-/*DeletePolicyNoContent Success
+/*DeletePolicyOK Success
 
-swagger:response deletePolicyNoContent
+swagger:response deletePolicyOK
 */
-type DeletePolicyNoContent struct {
+type DeletePolicyOK struct {
+
+	/*
+	  In: Body
+	*/
+	Payload *models.Policy `json:"body,omitempty"`
 }
 
-// NewDeletePolicyNoContent creates DeletePolicyNoContent with default headers values
-func NewDeletePolicyNoContent() *DeletePolicyNoContent {
-	return &DeletePolicyNoContent{}
+// NewDeletePolicyOK creates DeletePolicyOK with default headers values
+func NewDeletePolicyOK() *DeletePolicyOK {
+	return &DeletePolicyOK{}
+}
+
+// WithPayload adds the payload to the delete policy o k response
+func (o *DeletePolicyOK) WithPayload(payload *models.Policy) *DeletePolicyOK {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the delete policy o k response
+func (o *DeletePolicyOK) SetPayload(payload *models.Policy) {
+	o.Payload = payload
 }
 
 // WriteResponse to the client
-func (o *DeletePolicyNoContent) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+func (o *DeletePolicyOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.WriteHeader(204)
+	rw.WriteHeader(200)
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
+	}
 }
 
 // DeletePolicyInvalidCode is the HTTP code returned for type DeletePolicyInvalid
@@ -77,7 +99,7 @@ func (o *DeletePolicyInvalid) WriteResponse(rw http.ResponseWriter, producer run
 // DeletePolicyNotFoundCode is the HTTP code returned for type DeletePolicyNotFound
 const DeletePolicyNotFoundCode int = 404
 
-/*DeletePolicyNotFound Policy tree not found
+/*DeletePolicyNotFound Policy not found
 
 swagger:response deletePolicyNotFound
 */
