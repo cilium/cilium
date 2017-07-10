@@ -20,30 +20,33 @@ import (
 )
 
 // PolicyPut inserts the `policyJSON`
-func (c *Client) PolicyPut(policyJSON string) (string, error) {
+func (c *Client) PolicyPut(policyJSON string) (*models.Policy, error) {
 	params := policy.NewPutPolicyParams().WithPolicy(&policyJSON)
 	resp, err := c.Policy.PutPolicy(params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(resp.Payload), nil
+	return resp.Payload, nil
 }
 
 // PolicyGet returns policy rules
-func (c *Client) PolicyGet(labels []string) (string, error) {
+func (c *Client) PolicyGet(labels []string) (*models.Policy, error) {
 	params := policy.NewGetPolicyParams().WithLabels(labels)
 	resp, err := c.Policy.GetPolicy(params)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(resp.Payload), nil
+	return resp.Payload, nil
 }
 
 // PolicyDelete deletes policy rules
-func (c *Client) PolicyDelete(labels []string) error {
+func (c *Client) PolicyDelete(labels []string) (*models.Policy, error) {
 	params := policy.NewDeletePolicyParams().WithLabels(labels)
-	_, err := c.Policy.DeletePolicy(params)
-	return err
+	resp, err := c.Policy.DeletePolicy(params)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Payload, err
 }
 
 // PolicyResolveGet resolves policy for a context with source and destination identity.

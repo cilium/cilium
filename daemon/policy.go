@@ -344,13 +344,18 @@ func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
 func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	d := h.daemon
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	// FIXME
-	_, err := d.PolicyDelete(lbls)
+	rev, err := d.PolicyDelete(lbls)
 	if err != nil {
 		return apierror.Error(DeletePolicyFailureCode, err)
 	}
 
-	return NewDeletePolicyNoContent()
+	lbls = labels.ParseSelectLabelArrayFromArray([]string{})
+	ruleList := d.policy.SearchRLocked(labels.LabelArray{})
+	policy := &models.Policy{
+		Revision: int64(rev),
+		Policy:   policy.JSONMarshalRules(ruleList),
+	}
+	return NewDeletePolicyOK().WithPayload(policy)
 }
 
 type putPolicy struct {
@@ -369,13 +374,16 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
-	// FIXME
-	if _, err := d.PolicyAdd(rules, nil); err != nil {
+	rev, err := d.PolicyAdd(rules, nil)
+	if err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
 	}
 
-	json := policy.JSONMarshalRules(rules)
-	return NewPutPolicyOK().WithPayload(models.PolicyTree(json))
+	policy := &models.Policy{
+		Revision: int64(rev),
+		Policy:   policy.JSONMarshalRules(rules),
+	}
+	return NewPutPolicyOK().WithPayload(policy)
 }
 
 type getPolicy struct {
@@ -400,8 +408,11 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 		return NewGetPolicyNotFound()
 	}
 
-	json := policy.JSONMarshalRules(ruleList)
-	return NewGetPolicyOK().WithPayload(models.PolicyTree(json))
+	policy := &models.Policy{
+		Revision: int64(d.policy.GetRevision()),
+		Policy:   policy.JSONMarshalRules(ruleList),
+	}
+	return NewGetPolicyOK().WithPayload(policy)
 }
 
 func (d *Daemon) PolicyInit() error {
