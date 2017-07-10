@@ -33,11 +33,12 @@ var (
 
 	ipv4ClusterCidrMaskSize = DefaultIPv4ClusterPrefixLen
 
-	ipv4Address       net.IP
-	ipv6Address       net.IP
-	ipv6RouterAddress net.IP
-	ipv4AllocRange    *net.IPNet
-	ipv6AllocRange    *net.IPNet
+	ipv4ExternalAddress net.IP
+	ipv4InternalAddress net.IP
+	ipv6Address         net.IP
+	ipv6RouterAddress   net.IP
+	ipv4AllocRange      *net.IPNet
+	ipv6AllocRange      *net.IPNet
 )
 
 func makeIPv6HostIP(ip net.IP) net.IP {
@@ -118,7 +119,7 @@ func InitDefaultPrefix(device string) {
 
 	ip, err := firstGlobalV4Addr(device)
 	if err == nil {
-		ipv4Address = ip
+		ipv4ExternalAddress = ip
 
 		v4range := fmt.Sprintf(DefaultIPv4Prefix+"/%d",
 			ip.To4()[3], DefaultIPv4PrefixLen)
@@ -183,14 +184,24 @@ func GetIPv6NodeRange() *net.IPNet {
 	return ipv6AllocRange
 }
 
-// SetIPv4 sets the IPv4 address of the node
-func SetIPv4(ip net.IP) {
-	ipv4Address = ip
+// SetExternalIPv4 sets the external IPv4 node address. It must be reachable on the network.
+func SetExternalIPv4(ip net.IP) {
+	ipv4ExternalAddress = ip
 }
 
-// GetIPv4 returns the IPv4 address of the node
-func GetIPv4() net.IP {
-	return ipv4Address
+// GetExternalIPv4 returns the external IPv4 node address
+func GetExternalIPv4() net.IP {
+	return ipv4ExternalAddress
+}
+
+// SetInternalIPv4 sets the internal IPv4 node address, it is allocated from the node prefix
+func SetInternalIPv4(ip net.IP) {
+	ipv4InternalAddress = ip
+}
+
+// GetInternalIPv4 returns the internal IPv4 node address
+func GetInternalIPv4() net.IP {
+	return ipv4InternalAddress
 }
 
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
@@ -211,16 +222,8 @@ func SetIPv6NodeRange(net *net.IPNet) error {
 	return nil
 }
 
-// ValidatePostInit validates the entire addressing setup and completes it as
-// required
-func ValidatePostInit() error {
-	if ipv4Address == nil {
-		return fmt.Errorf("IPv4 address could not be derived, please configure via --ipv4-node")
-	}
-
-	// FIXME
-	// Verify presence of ipv4AllocRange if IPv4 is not disabled
-
+// AutoComplete completes the parts of addressing that can be auto derived
+func AutoComplete() error {
 	if ipv6AllocRange == nil {
 		return fmt.Errorf("IPv6 per node allocation prefix is not configured. Please specificy --ipv6-range")
 	}
@@ -229,7 +232,21 @@ func ValidatePostInit() error {
 		ipv6Address = makeIPv6HostIP(ipv6AllocRange.IP)
 	}
 
+	return nil
+}
+
+// ValidatePostInit validates the entire addressing setup and completes it as
+// required
+func ValidatePostInit() error {
+	if ipv4ExternalAddress == nil {
+		return fmt.Errorf("External IPv4 node address could not be derived, please configure via --ipv4-node")
+	}
+
 	if EnableIPv4 {
+		if ipv4InternalAddress == nil {
+			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
+		}
+
 		ones, _ := ipv4AllocRange.Mask.Size()
 		if ipv4ClusterCidrMaskSize > ones {
 			return fmt.Errorf("IPv4 per node allocation prefix (%s) must be inside cluster prefix (%s)",
@@ -297,10 +314,10 @@ func GetIPv6NodeRoute() net.IPNet {
 	}
 }
 
-// GetIPv4NodeRoute returns a route pointing to the IPv6 node address
+// GetIPv4NodeRoute returns a route pointing to the IPv4 node address
 func GetIPv4NodeRoute() net.IPNet {
 	return net.IPNet{
-		IP:   ipv4Address,
+		IP:   ipv4InternalAddress,
 		Mask: net.CIDRMask(32, 32),
 	}
 }
@@ -314,11 +331,7 @@ func GetNode() (node.Identity, *node.Node) {
 		IPAddresses: []node.Address{
 			{
 				AddressType: v1.NodeInternalIP,
-				IP:          ipv4Address,
-			},
-			{
-				AddressType: v1.NodeInternalIP,
-				IP:          ipv4Address,
+				IP:          ipv4ExternalAddress,
 			},
 		},
 		IPv4AllocCIDR: range4,

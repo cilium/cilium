@@ -396,7 +396,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		router:   route.New(),
 		l4:       *l4,
 		nodeInfo: NodeAddressInfo{
-			IPv4: nodeaddress.GetIPv4().String(),
+			IPv4: nodeaddress.GetExternalIPv4().String(),
 			IPv6: nodeaddress.GetIPv6().String(),
 		},
 	}

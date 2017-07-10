@@ -179,10 +179,6 @@ func (h *deleteIPAMIP) Handle(params ipam.DeleteIPAMIPParams) middleware.Respond
 	return ipam.NewDeleteIPAMIPOK()
 }
 
-func (d *Daemon) isReservedAddress(ip net.IP) bool {
-	return !d.conf.IPv4Disabled && nodeaddress.GetIPv4().Equal(ip)
-}
-
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {

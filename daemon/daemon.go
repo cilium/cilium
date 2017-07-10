@@ -421,6 +421,18 @@ func (d *Daemon) installMasqRule() error {
 		return err
 	}
 
+	// Masquerade all traffic from the host into the cilium_host interface
+	// if the source is not the internal IP
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-A", "CILIUM_POST",
+		"!", "-s", nodeaddress.GetInternalIPv4().String(),
+		"-o", "cilium_host",
+		"-m", "comment", "--comment", "cilium host->cluster masquerade",
+		"-j", "MASQUERADE"}, false); err != nil {
+		return err
+	}
+
 	// Hook POSTROUTING into Cilium POSTROUTING chain
 	return runProg("iptables", []string{
 		"-t", "nat",
@@ -442,7 +454,7 @@ func (d *Daemon) compileBase() error {
 	args[initArgLib] = d.conf.BpfDir
 	args[initArgRundir] = d.conf.StateDir
 	args[initArgIPv6Router] = nodeaddress.GetIPv6NoZeroComp()
-	args[initArgIPv4NodeIP] = nodeaddress.GetIPv4().String()
+	args[initArgIPv4NodeIP] = nodeaddress.GetInternalIPv4().String()
 	args[initArgIPv6NodeIP] = nodeaddress.GetIPv6().String()
 	args[initArgIPv4ServiceRange] = v4ServicePrefix
 	args[initArgIPv6ServiceRange] = v6ServicePrefix
@@ -560,12 +572,12 @@ func (d *Daemon) init() error {
 			" * Host-IPv4: %s\n"+
 			" */\n\n"+
 			"#define ENABLE_IPV4\n",
-			nodeaddress.GetIPv4().String())
+			nodeaddress.GetInternalIPv4().String())
 	}
 
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
-	ipv4GW := nodeaddress.GetIPv4()
+	ipv4GW := nodeaddress.GetInternalIPv4()
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 
 	if !d.conf.IPv4Disabled {
@@ -600,7 +612,8 @@ func (d *Daemon) init() error {
 		}
 
 		localIPs := []net.IP{
-			nodeaddress.GetIPv4(),
+			nodeaddress.GetInternalIPv4(),
+			nodeaddress.GetExternalIPv4(),
 			nodeaddress.GetIPv6(),
 			nodeaddress.GetIPv6Router(),
 		}
@@ -675,14 +688,14 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 			},
 			cniTypes.Route{
 				Dst: nodeaddress.IPv4DefaultRoute,
-				GW:  nodeaddress.GetIPv4(),
+				GW:  nodeaddress.GetInternalIPv4(),
 			})
 
 		// Reserve the IPv4 router IP if it is part of the IPv4
 		// allocation range to ensure that we do not hand out the
 		// router IP to a container.
 		allocRange := nodeaddress.GetIPv4AllocRange()
-		nodeIP := nodeaddress.GetIPv4()
+		nodeIP := nodeaddress.GetExternalIPv4()
 		if allocRange.Contains(nodeIP) {
 			err := ipamConf.IPv4Allocator.Allocate(nodeIP)
 			if err != nil {
@@ -691,6 +704,12 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 			}
 		}
 
+		internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
+		if err != nil {
+			log.Fatalf("Unable to allocate internal IPv4 node IP: %s", err)
+		}
+
+		nodeaddress.SetInternalIPv4(internalIP)
 	}
 
 	// Reserve the IPv6 router and node IP if it is part of the IPv6
@@ -820,7 +839,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
-	if err := nodeaddress.ValidatePostInit(); err != nil {
+	if err := nodeaddress.AutoComplete(); err != nil {
 		log.Fatalf("%s", err)
 	}
 
@@ -843,9 +862,14 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, err
 	}
 
+	if err := nodeaddress.ValidatePostInit(); err != nil {
+		log.Fatalf("%s", err)
+	}
+
 	log.Infof("Local node-name: %s", nodeaddress.GetName())
 	log.Infof("Node-IPv6: %s", nodeaddress.GetIPv6())
-	log.Infof("Node-IPv4: %s", nodeaddress.GetIPv4())
+	log.Infof("External-Node IPv4: %s", nodeaddress.GetExternalIPv4())
+	log.Infof("Internal-Node IPv4: %s", nodeaddress.GetInternalIPv4())
 	log.Infof("Cluster IPv6 prefix: %s", nodeaddress.GetIPv6ClusterRange())
 	log.Infof("Cluster IPv4 prefix: %s", nodeaddress.GetIPv4ClusterRange())
 	log.Infof("IPv6 node prefix: %s", nodeaddress.GetIPv6NodeRange())
@@ -1015,7 +1039,7 @@ func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
 		},
 		IPV4: &models.NodeAddressingElement{
 			Enabled:    !d.conf.IPv4Disabled,
-			IP:         nodeaddress.GetIPv4().String(),
+			IP:         nodeaddress.GetInternalIPv4().String(),
 			AllocRange: nodeaddress.GetIPv4AllocRange().String(),
 		},
 	}

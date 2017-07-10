@@ -111,6 +111,10 @@ if [ "$IP6_SVC_RANGE" != "auto" ]; then
 	ip route add $IP6_SVC_RANGE via $IP6_ROUTER src $IP6_HOST
 fi
 
+ip -4 addr show $IP4_HOST || {
+	ip -4 addr add $IP4_HOST dev $HOST_DEV1
+}
+
 ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
 ip addr add 169.254.254.1/32 dev $HOST_DEV1
 ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
