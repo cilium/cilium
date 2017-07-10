@@ -49,7 +49,7 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-#ifdef ENCAP_GENEVE
+#ifdef GENEVE_OPTS
 	ret = skb_set_tunnel_opt(skb, buf, sz);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
@@ -62,7 +62,7 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 			return ret;
 	}
 #endif /* VALIDATE_GENEVE_TX */
-#endif /* ENCAP_GENEVE */
+#endif /* GENEVE_OPTS */
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
@@ -70,7 +70,7 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *key,
 						__u32 seclabel)
 {
-#ifdef ENCAP_GENEVE
+#ifdef GENEVE_OPTS
 	uint8_t buf[] = GENEVE_OPTS;
 #else
 	uint8_t buf[] = {};

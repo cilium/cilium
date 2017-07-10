@@ -41,6 +41,7 @@
 #include "lib/l4.h"
 #include "lib/policy.h"
 #include "lib/drop.h"
+#include "lib/encap.h"
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
 				   struct ipv6hdr *ip6)
@@ -140,7 +141,14 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #endif
 
 	BPF_V6(node_ip, ROUTER_IP);
+
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
+#ifdef FROM_HOST
+	/* For packets from the host, the identity can be specified via skb->mark */
+	if (skb->mark) {
+		flowlabel = skb->mark;
+	}
+#endif
 
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
@@ -161,6 +169,20 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 				return TC_ACT_OK;
 
 			return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep);
+		} else {
+#ifdef ENCAP_IFINDEX
+			struct endpoint_key key = {};
+
+			/* IPv6 lookup key: daddr/96 */
+			dst = (union v6addr *) &ip6->daddr;
+			key.ip6.p1 = dst->p1;
+			key.ip6.p2 = dst->p2;
+			key.ip6.p3 = dst->p3;
+			key.ip6.p4 = 0;
+			key.family = ENDPOINT_KEY_IPV6;
+
+			return encap_and_redirect(skb, &key, flowlabel);
+#endif
 		}
 	}
 
@@ -260,6 +282,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 		secctx = derive_ipv4_sec_ctx(skb, ip4);
+#ifdef FROM_HOST
+		if (skb->mark) {
+			/* For packets from the host, the identity can be specified via skb->mark */
+			secctx = skb->mark;
+		}
+#endif
 		tuple.nexthdr = ip4->protocol;
 
 		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
@@ -281,6 +309,16 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 				return TC_ACT_OK;
 
 			return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep);
+		} else {
+#ifdef ENCAP_IFINDEX
+			/* IPv4 lookup key: daddr & IPV4_MASK */
+			struct endpoint_key key = {};
+
+			key.ip4 = ip4->daddr & IPV4_MASK;
+			key.family = ENDPOINT_KEY_IPV4;
+
+			return encap_and_redirect(skb, &key, secctx);
+#endif
 		}
 	}
 #endif
