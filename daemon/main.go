@@ -76,6 +76,7 @@ var (
 	loggers               []string
 	nat46prefix           string
 	socketPath            string
+	tracePayloadLen       int
 	v4Prefix              string
 	v6Prefix              string
 	v4Address             string
@@ -308,6 +309,8 @@ func init() {
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
 	flags.StringVarP(&config.Tunnel,
 		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.IntVar(&tracePayloadLen,
+		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
 		"version", false, "Print version information")
 

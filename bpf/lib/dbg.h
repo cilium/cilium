@@ -154,6 +154,10 @@ static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 
 #ifdef ENABLE_TRACE
 
+#ifndef TRACE_PAYLOAD_LEN
+#define TRACE_PAYLOAD_LEN 128ULL
+#endif
+
 struct debug_capture_msg {
 	NOTIFY_COMMON_HDR
 	__u32		len_orig;
@@ -164,7 +168,7 @@ struct debug_capture_msg {
 
 static inline void cilium_trace_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
-	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
+	uint64_t skb_len = skb->len, cap_len = min(TRACE_PAYLOAD_LEN, skb_len);
 	uint32_t hash = get_hash_recalc(skb);
 	struct debug_capture_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_CAPTURE,
