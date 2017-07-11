@@ -160,6 +160,21 @@ type DebugMsg struct {
 	Arg3    uint32
 }
 
+// DumpInfo prints a summary of a subset of the debug messages which are related
+// to sending, not processing, of packets.
+func (n *DebugMsg) DumpInfo(data []byte) {
+	switch n.SubType {
+	case DbgEncap:
+		fmt.Printf("from [seclabel %d] > [node %d]\n", n.Arg2, n.Arg1)
+	case DbgToHost:
+		fmt.Printf("to host, policy-skip=%d\n", n.Arg1)
+	case DbgToStack:
+		fmt.Printf("to stack, policy-skip=%d\n", n.Arg1)
+	case DbgLocalDelivery:
+		fmt.Printf("from [seclabel %d] > [container %d]\n", n.Arg2, n.Arg1)
+	}
+}
+
 // Dump prints the debug message in a human readable format.
 func (n *DebugMsg) Dump(data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: ", prefix, n.Hash, n.Source)
@@ -266,6 +281,7 @@ const (
 type DebugCapture struct {
 	Type    uint8
 	SubType uint8
+	// Source, if populated, is the ID of the source endpoint.
 	Source  uint16
 	Hash    uint32
 	Len     uint32
@@ -274,8 +290,34 @@ type DebugCapture struct {
 	// data
 }
 
+// DumpInfo prints a summary of the capture messages.
+func (n *DebugCapture) DumpInfo(data []byte) {
+	switch n.SubType {
+	case DbgCaptureFromLxc:
+		fmt.Printf("from [container %d / endpoint %d]\n", n.Arg1, n.Source)
+	case DbgCaptureFromNetdev:
+		fmt.Printf("from [netdev %d / endpoint %d]\n", n.Arg1, n.Source)
+	case DbgCaptureFromOverlay:
+		fmt.Printf("from [overlay %d / endpoint %d]\n", n.Arg1, n.Source)
+	case DbgCaptureDelivery:
+		fmt.Printf("from [endpoint %d] > [ifindex %d]\n", n.Source, n.Arg1)
+	case DbgCaptureFromLb:
+		fmt.Printf("from [endpoint %d] > [load balancer %d]\n", n.Source, n.Arg1)
+	case DbgCaptureAfterV46:
+		fmt.Printf("from [endpoint %d] > [endpoint %d] after nat46\n", n.Source, n.Arg1)
+	case DbgCaptureAfterV64:
+		fmt.Printf("from [endpoint %d] > [endpoint %d] after nat64\n", n.Source, n.Arg1)
+	case DbgCaptureProxyPre:
+		fmt.Printf("pre-proxy port %d [endpoint %d]\n", byteorder.NetworkToHost(uint16(n.Arg1)), n.Source)
+	case DbgCaptureProxyPost:
+		fmt.Printf("post-proxy port %d [endpoint %d]\n", byteorder.NetworkToHost(uint16(n.Arg1)), n.Source)
+	default:
+		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
+	}
+}
+
 // Dump prints the captured packet in human readable format
-func (n *DebugCapture) Dump(dissect bool, data []byte, prefix string) {
+func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes ", prefix, n.Hash, n.Source, n.Len)
 	switch n.SubType {
 	case DbgCaptureFromLxc:

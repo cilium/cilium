@@ -5,12 +5,12 @@ MONITOR_PID=""
 LAST_LOG_DATE=""
 
 function monitor_start {
-	cilium monitor $@ > $DUMP_FILE &
+	cilium monitor -v $@ > $DUMP_FILE &
 	MONITOR_PID=$!
 }
 
 function monitor_resume {
-	cilium monitor $@ >> $DUMP_FILE &
+	cilium monitor -v $@ >> $DUMP_FILE &
 	MONITOR_PID=$!
 }
 
