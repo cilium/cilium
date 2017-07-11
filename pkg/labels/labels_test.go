@@ -32,7 +32,7 @@ type LabelsSuite struct{}
 var _ = Suite(&LabelsSuite{})
 
 var (
-	lblsArray = []string{`%=%ed`, `//=/=`, `foo=bar`, `foo2==bar2`, `foo=====`, `foo\\==\=`, `key=`}
+	lblsArray = []string{`unspec:%=%ed`, `unspec://=/=`, `unspec:foo=bar`, `unspec:foo2==bar2`, `unspec:foo=====`, `unspec:foo\\==\=`, `unspec:key=`}
 	lbls      = Labels{
 		"foo":    NewLabel("foo", "bar", LabelSourceUnspec),
 		"foo2":   NewLabel("foo2", "=bar2", LabelSourceUnspec),
@@ -48,8 +48,7 @@ var (
 
 func (s *LabelsSuite) TestSHA256Sum(c *C) {
 	str := lbls.SHA256Sum()
-	c.Assert(str, Equals, "253d2565643b2f2f3d2f3d3b666f6f3d6261723b666f6f323d3d626172323b666f6f3d3d3d3d3"+
-		"d3b666f6f5c5c3d3d5c3d3b6b65793d3bc672b8d1ef56ed28ab87c3622c5114069bdd3ad7b8f9737498d0c01ecef0967a")
+	c.Assert(str, Equals, "756e737065633a253d2565643b756e737065633a2f2f3d2f3d3b756e737065633a666f6f3d6261723b756e737065633a666f6f323d3d626172323b756e737065633a666f6f3d3d3d3d3d3b756e737065633a666f6f5c5c3d3d5c3d3b756e737065633a6b65793d3bc672b8d1ef56ed28ab87c3622c5114069bdd3ad7b8f9737498d0c01ecef0967a")
 }
 
 func (s *LabelsSuite) TestSortMap(c *C) {
