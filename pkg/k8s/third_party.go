@@ -22,6 +22,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
@@ -66,6 +68,13 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		if retRule.EndpointSelector.LabelSelector.MatchLabels == nil {
 			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
 		}
+
+		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]
+		if ok && userNamespace != namespace {
+			log.Warningf("k8s: CiliumNetworkPolicy %s/%s contains illegal namespace match '%s' in EndpointSelector."+
+				" EndpointSelector always applies in namespace of the policy resource, removing namespace match '%s'.",
+				r.Metadata.Namespace, r.Metadata.Name, userNamespace, userNamespace)
+		}
 		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 	}
 
@@ -82,7 +91,12 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 					if retRule.Ingress[i].FromEndpoints[j].HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
 						continue
 					}
-					retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					// The user can explicitly specify the namespace in the
+					// FromEndpoints selector. If omitted, we limit the
+					// scope to the namespace the policy lives in.
+					if _, ok := retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]; !ok {
+						retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					}
 				}
 			}
 
@@ -102,7 +116,12 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 					if retRule.Ingress[i].FromRequires[j].MatchLabels == nil {
 						retRule.Ingress[i].FromRequires[j].MatchLabels = map[string]string{}
 					}
-					retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					// The user can explicitly specify the namespace in the
+					// FromEndpoints selector. If omitted, we limit the
+					// scope to the namespace the policy lives in.
+					if _, ok := retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]; !ok {
+						retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					}
 				}
 			}
 		}
