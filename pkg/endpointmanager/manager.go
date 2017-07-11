@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/sasha-s/go-deadlock"
 )
 
 var (
@@ -29,7 +30,7 @@ var (
 	// Warning: This lock may not be taken while an individual endpoint
 	// lock is being held. If you require to hold both, then the global
 	// endpointmanager lock must always be acquired first.
-	Mutex sync.RWMutex
+	Mutex deadlock.RWMutex
 
 	// Endpoints is the global list of endpoints indexed by ID. Mutex must
 	// be held to read and write.
@@ -52,7 +53,6 @@ func LookupCiliumIDLocked(id uint16) *endpoint.Endpoint {
 func LookupCiliumID(id uint16) *endpoint.Endpoint {
 	Mutex.Lock()
 	defer Mutex.Unlock()
-
 	return LookupCiliumIDLocked(id)
 }
 

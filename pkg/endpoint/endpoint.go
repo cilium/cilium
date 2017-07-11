@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -39,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/sasha-s/go-deadlock"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -174,12 +174,12 @@ const (
 // Endpoint contains all the details for a particular LXC and the host interface to where
 // is connected to.
 type Endpoint struct {
-	ID               uint16       // Endpoint ID.
-	Mutex            sync.RWMutex // Protects all variables from this structure below this line
-	DockerID         string       // Docker ID.
-	DockerNetworkID  string       // Docker network ID.
-	DockerEndpointID string       // Docker endpoint ID.
-	IfName           string       // Container's interface name.
+	ID               uint16           // Endpoint ID.
+	Mutex            deadlock.RWMutex // Protects all variables from this structure below this line
+	DockerID         string           // Docker ID.
+	DockerNetworkID  string           // Docker network ID.
+	DockerEndpointID string           // Docker endpoint ID.
+	IfName           string           // Container's interface name.
 	LabelsHash       string
 	OpLabels         pkgLabels.OpLabels
 	LXCMAC           mac.MAC               // Container MAC address.
@@ -383,7 +383,7 @@ type EndpointStatus struct {
 	// available position to write a new log message.
 	Index int `json:"index"`
 	// indexMU is the Mutex for the CurrentStatus and Log RW operations.
-	indexMU sync.RWMutex
+	indexMU deadlock.RWMutex
 }
 
 func NewEndpointStatus() *EndpointStatus {

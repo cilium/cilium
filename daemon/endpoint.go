@@ -29,6 +29,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
+	_ "net/http/pprof"
 )
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of
@@ -164,8 +165,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		}
 	}
 
-	ret := NewPutEndpointIDCreated()
-	return ret
+	return NewPutEndpointIDCreated()
 }
 
 type patchEndpointID struct {

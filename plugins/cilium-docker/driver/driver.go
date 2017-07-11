@@ -293,13 +293,14 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	//		}
 	//	}
 
-	_, err := driver.client.EndpointGet(endpointID(create.EndpointID))
+	endpointID := endpointID(create.EndpointID)
+	_, err := driver.client.EndpointGet(endpointID)
 	if err != nil {
 		switch err.(type) {
 		case *endpoint.GetEndpointIDNotFound:
 			// Expected result
 		default:
-			sendError(w, fmt.Sprintf("Error retrieving endpoint %s", err), http.StatusBadRequest)
+			sendError(w, fmt.Sprintf("Error retrieving endpoint (%s) %s", endpointID, err), http.StatusBadRequest)
 			return
 		}
 	} else {
@@ -328,7 +329,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
 	if err = driver.client.EndpointCreate(endpoint); err != nil {
-		sendError(w, fmt.Sprintf("Error creating endpoint %s", err), http.StatusBadRequest)
+		sendError(w, fmt.Sprintf("Error creating endpoint (%s) %s", endpointID, err), http.StatusBadRequest)
 		return
 	}
 
@@ -384,9 +385,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("Join request: %+v", &j)
 
-	old, err := driver.client.EndpointGet(endpointID(j.EndpointID))
+	endpointID := endpointID(j.EndpointID)
+	old, err := driver.client.EndpointGet(endpointID)
 	if err != nil {
-		sendError(w, fmt.Sprintf("Error retrieving endpoint %s", err), http.StatusBadRequest)
+		sendError(w, fmt.Sprintf("Error retrieving endpoint (%s) %s", endpointID, err), http.StatusBadRequest)
 		return
 	}
 
@@ -450,8 +452,9 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debugf("Leave request: %+v", &l)
 
-	if err := driver.client.EndpointDelete(endpointID(l.EndpointID)); err != nil {
-		log.Warningf("Leaving the endpoint failed: %s", err)
+	endpointID := endpointID(l.EndpointID)
+	if err := driver.client.EndpointDelete(endpointID); err != nil {
+		log.Warningf("Leaving the endpoint (%s) failed: %s", endpointID, err)
 	}
 
 	emptyResponse(w)

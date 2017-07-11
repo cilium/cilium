@@ -76,12 +76,12 @@ func init() {
 }
 
 func initConfig() {
+
 	if debug {
 		log.Level = logrus.DebugLevel
 	} else {
 		log.Level = logrus.InfoLevel
 	}
-
 	common.RequireRootPrivilege("cilium-docker")
 
 	driverSock = path.Join(pluginPath, "cilium.sock")
