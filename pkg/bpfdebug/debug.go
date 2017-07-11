@@ -163,16 +163,6 @@ type DebugMsg struct {
 // DumpInfo prints a summary of a subset of the debug messages which are related
 // to sending, not processing, of packets.
 func (n *DebugMsg) DumpInfo(data []byte) {
-	switch n.SubType {
-	case DbgEncap:
-		fmt.Printf("from [seclabel %d] > [node %d]\n", n.Arg2, n.Arg1)
-	case DbgToHost:
-		fmt.Printf("to host, policy-skip=%d\n", n.Arg1)
-	case DbgToStack:
-		fmt.Printf("to stack, policy-skip=%d\n", n.Arg1)
-	case DbgLocalDelivery:
-		fmt.Printf("from [seclabel %d] > [container %d]\n", n.Arg2, n.Arg1)
-	}
 }
 
 // Dump prints the debug message in a human readable format.
@@ -291,30 +281,68 @@ type DebugCapture struct {
 	// data
 }
 
+type endpointInfo struct {
+	name     string
+	identity int
+}
+
+var (
+	ifindexMap = map[int]endpointInfo{}
+)
+
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(data []byte) {
 	switch n.SubType {
 	case DbgCaptureFromLxc:
-		fmt.Printf("from [container %d / endpoint %d]\n", n.Arg1, n.Source)
+		ifindexMap[int(n.Arg1)] = endpointInfo{
+			name:     fmt.Sprintf("endpoint %d", n.Source),
+			identity: int(n.Arg2),
+		}
+		fmt.Printf("<- endpoint %d, identity %d", n.Source, n.Arg2)
+
 	case DbgCaptureFromNetdev:
-		fmt.Printf("from [netdev %d / endpoint %d]\n", n.Arg1, n.Source)
+		ifindexMap[int(n.Arg1)] = endpointInfo{
+			name: fmt.Sprintf("netdev %d", n.Arg1),
+		}
+		fmt.Printf("<- netdev %d", n.Arg1)
+
 	case DbgCaptureFromOverlay:
-		fmt.Printf("from [overlay %d / endpoint %d]\n", n.Arg1, n.Source)
+		ifindexMap[int(n.Arg1)] = endpointInfo{
+			name: fmt.Sprintf("overlay %d", n.Arg1),
+		}
+		fmt.Printf("<- overlay %d", n.Arg1)
+
 	case DbgCaptureDelivery:
-		fmt.Printf("from [endpoint %d] > [ifindex %d]\n", n.Source, n.Arg1)
+		// Try to map ifindex to string
+		if indexInfo, ok := ifindexMap[int(n.Arg1)]; ok {
+			fmt.Printf("-> %s", indexInfo.name)
+			if indexInfo.identity != 0 {
+				fmt.Printf(", identity %d", indexInfo.identity)
+			}
+		} else {
+			fmt.Printf("-> ifindex %d", n.Arg1)
+		}
+
 	case DbgCaptureFromLb:
-		fmt.Printf("from [endpoint %d] > [load balancer %d]\n", n.Source, n.Arg1)
+		ifindexMap[int(n.Arg1)] = endpointInfo{
+			name: fmt.Sprintf("load-balancer %d", n.Arg1),
+		}
+		fmt.Printf("<- load-balancer %d", n.Arg1)
+
 	case DbgCaptureAfterV46:
-		fmt.Printf("from [endpoint %d] > [endpoint %d] after nat46\n", n.Source, n.Arg1)
+		fmt.Printf("== v4->v6 %d", n.Arg1)
+
 	case DbgCaptureAfterV64:
-		fmt.Printf("from [endpoint %d] > [endpoint %d] after nat64\n", n.Source, n.Arg1)
-	case DbgCaptureProxyPre:
-		fmt.Printf("pre-proxy port %d [endpoint %d]\n", byteorder.NetworkToHost(uint16(n.Arg1)), n.Source)
+		fmt.Printf("== v6->v4 %d", n.Arg1)
+
 	case DbgCaptureProxyPost:
-		fmt.Printf("post-proxy port %d [endpoint %d]\n", byteorder.NetworkToHost(uint16(n.Arg1)), n.Source)
+		fmt.Printf("-> proxy port %d", byteorder.NetworkToHost(uint16(n.Arg1)))
 	default:
-		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
+		return
 	}
+
+	fmt.Printf(": %s\n", GetConnectionSummary(data[DebugCaptureLen:]))
+
 }
 
 // Dump prints the captured packet in human readable format

@@ -17,6 +17,7 @@ package bpfdebug
 import (
 	"encoding/hex"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/google/gopacket"
@@ -37,6 +38,93 @@ var (
 	decoded = []gopacket.LayerType{}
 	lock    sync.Mutex
 )
+
+func getTCPInfo() string {
+	info := ""
+	addTCPFlag := func(flag, new string) string {
+		if flag == "" {
+			return new
+		}
+		return flag + ", " + new
+	}
+
+	if tcp.SYN {
+		info = addTCPFlag(info, "SYN")
+	}
+
+	if tcp.ACK {
+		info = addTCPFlag(info, "ACK")
+	}
+
+	if tcp.RST {
+		info = addTCPFlag(info, "RST")
+	}
+
+	if tcp.FIN {
+		info = addTCPFlag(info, "FIN")
+	}
+
+	return info
+}
+
+// GetConnectionSummary decodes the data into layers and returns a connection
+// summary in the format:
+//
+// - sIP:sPort -> dIP:dPort, e.g. 1.1.1.1:2000 -> 2.2.2.2:80
+// - sIP -> dIP icmpCode, 1.1.1.1 -> 2.2.2.2 echo-request
+func GetConnectionSummary(data []byte) string {
+	lock.Lock()
+	defer lock.Unlock()
+
+	parser.DecodeLayers(data, &decoded)
+
+	var (
+		srcIP, dstIP     net.IP
+		srcPort, dstPort uint16
+		icmpCode, proto  string
+		hasIP, hasEth    bool
+	)
+
+	for _, typ := range decoded {
+		switch typ {
+		case layers.LayerTypeEthernet:
+			hasEth = true
+		case layers.LayerTypeIPv4:
+			hasIP = true
+			srcIP, dstIP = ip4.SrcIP, ip4.DstIP
+		case layers.LayerTypeIPv6:
+			hasIP = true
+			srcIP, dstIP = ip6.SrcIP, ip6.DstIP
+		case layers.LayerTypeTCP:
+			proto = "tcp"
+			srcPort, dstPort = uint16(tcp.SrcPort), uint16(tcp.DstPort)
+		case layers.LayerTypeUDP:
+			proto = "udp"
+			srcPort, dstPort = uint16(udp.SrcPort), uint16(udp.DstPort)
+		case layers.LayerTypeICMPv4:
+			icmpCode = icmp4.TypeCode.String()
+		case layers.LayerTypeICMPv6:
+			icmpCode = icmp6.TypeCode.String()
+		}
+	}
+
+	switch {
+	case icmpCode != "":
+		return fmt.Sprintf("%s -> %s %s", srcIP, dstIP, icmpCode)
+	case proto != "":
+		s := fmt.Sprintf("%s:%d -> %s:%d %s", srcIP, srcPort, dstIP, dstPort, proto)
+		if proto == "tcp" {
+			s += " " + getTCPInfo()
+		}
+		return s
+	case hasIP:
+		return fmt.Sprintf("%s -> %s", srcIP, dstIP)
+	case hasEth:
+		return fmt.Sprintf("%s -> %s %s", eth.SrcMAC, eth.DstMAC, eth.EthernetType.String())
+	}
+
+	return "[unknown]"
+}
 
 // Dissect parses and prints the provided data if dissect is set to true,
 // otherwise the data is printed as HEX output
