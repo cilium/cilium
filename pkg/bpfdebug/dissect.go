@@ -160,6 +160,6 @@ func Dissect(dissect bool, data []byte) {
 		}
 
 	} else {
-		fmt.Println(hex.Dump(data))
+		fmt.Print(hex.Dump(data))
 	}
 }

@@ -31,6 +31,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	msgSeparator = "------------------------------------------------------------------------------"
+)
+
 // monitorCmd represents the monitor command
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
@@ -183,6 +187,10 @@ func captureEvents(prefix string, data []byte) {
 
 // receiveEvent forwards all the per CPU events to the appropriate type function.
 func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
+	if verbosity != INFO {
+		fmt.Println(msgSeparator)
+	}
+
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
 	data := msg.DataDirect()
 	messageType := data[0]
