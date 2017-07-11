@@ -609,6 +609,8 @@ func (d *Daemon) init() error {
 		fmt.Fprintf(fw, "#define ENABLE_TRACE\n")
 	}
 
+	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
+
 	fw.Flush()
 	f.Close()
 
