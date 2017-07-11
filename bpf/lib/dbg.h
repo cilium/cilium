@@ -107,6 +107,7 @@ struct debug_capture_msg {
 	__u32		len_orig;
 	__u32		len_cap;
 	__u32		arg1;
+	__u32		arg2;
 };
 
 static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
@@ -141,7 +142,7 @@ static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
-static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
+static inline void cilium_trace_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
 	uint32_t hash = get_hash_recalc(skb);
@@ -153,11 +154,17 @@ static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 
 		.len_orig = skb_len,
 		.len_cap = cap_len,
 		.arg1 = arg1,
+		.arg2 = arg2,
 	};
 
 	skb_event_output(skb, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
+}
+
+static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
+{
+	return cilium_trace_capture2(skb, type, arg1, 0);
 }
 
 #else
@@ -174,6 +181,10 @@ static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 }
 
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
+{
+}
+
+static inline void cilium_trace_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 }
 
