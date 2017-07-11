@@ -20,6 +20,7 @@ spec:
         name: cilium-agent
         command: [ "cilium-agent" ]
         args:
+          - "--access-log=/var/lib/cilium/proxy.log"
           - "--debug"
           - "--kvstore"
           - "etcd"
