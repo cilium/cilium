@@ -54,9 +54,9 @@ func HostToNetwork(b interface{}) interface{} {
 func NetworkToHost(n interface{}) interface{} {
 	switch n.(type) {
 	case uint16:
-		return Native.Uint16(nl.Uint16Attr(n.(uint16)))
+		return nl.Swap16(n.(uint16))
 	case uint32:
-		return Native.Uint32(nl.Uint32Attr(n.(uint32)))
+		return nl.Swap32(n.(uint32))
 	default:
 		panic(unsupported(n))
 	}
