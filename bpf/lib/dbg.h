@@ -80,8 +80,15 @@ enum {
 	DBG_CAPTURE_PROXY_POST,
 };
 
-#ifdef DEBUG
+#ifndef EVENT_SOURCE
+#define EVENT_SOURCE 0
+#endif
+
+#if defined DEBUG || defined ENABLE_TRACE
 #include "events.h"
+#endif
+
+#ifdef DEBUG
 #include "utils.h"
 
 # define printk(fmt, ...)					\
@@ -91,23 +98,11 @@ enum {
 				     ##__VA_ARGS__);		\
 		})
 
-#ifndef EVENT_SOURCE
-#define EVENT_SOURCE 0
-#endif
-
 struct debug_msg {
 	NOTIFY_COMMON_HDR
 	__u32		arg1;
 	__u32		arg2;
 	__u32		arg3;
-};
-
-struct debug_capture_msg {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
-	__u32		arg1;
-	__u32		arg2;
 };
 
 static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
@@ -142,6 +137,31 @@ static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
+#else
+# define printk(fmt, ...)					\
+		do { } while (0)
+
+static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+{
+}
+
+static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
+				 __u32 arg2, __u32 arg3)
+{
+}
+
+#endif
+
+#ifdef ENABLE_TRACE
+
+struct debug_capture_msg {
+	NOTIFY_COMMON_HDR
+	__u32		len_orig;
+	__u32		len_cap;
+	__u32		arg1;
+	__u32		arg2;
+};
+
 static inline void cilium_trace_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
 	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
@@ -167,18 +187,7 @@ static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 
 	return cilium_trace_capture2(skb, type, arg1, 0);
 }
 
-#else
-# define printk(fmt, ...)					\
-		do { } while (0)
-
-static inline void cilium_trace(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
-{
-}
-
-static inline void cilium_trace3(struct __sk_buff *skb, __u8 type, __u32 arg1,
-				 __u32 arg2, __u32 arg3)
-{
-}
+#else /* ENABLE_TRACE */
 
 static inline void cilium_trace_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
@@ -188,6 +197,7 @@ static inline void cilium_trace_capture2(struct __sk_buff *skb, __u8 type, __u32
 {
 }
 
-#endif
+#endif /* ENABLE_TRACE */
+
 
 #endif /* __LIB_DBG__ */

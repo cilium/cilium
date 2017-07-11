@@ -603,6 +603,12 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
 	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxKeys)
 
+	if disableBPFTrace {
+		fmt.Fprintf(fw, "#undef ENABLE_TRACE\n")
+	} else {
+		fmt.Fprintf(fw, "#define ENABLE_TRACE\n")
+	}
+
 	fw.Flush()
 	f.Close()
 
