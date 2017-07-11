@@ -72,7 +72,7 @@ func init() {
 	RootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().IntVarP(&eventConfig.NumCpus, "num-cpus", "c", runtime.NumCPU(), "Number of CPUs")
 	monitorCmd.Flags().IntVarP(&eventConfig.NumPages, "num-pages", "n", 64, "Number of pages for ring buffer")
-	monitorCmd.Flags().BoolVarP(&dissect, "dissect", "d", false, "Dissect packet data")
+	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
 	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
 	monitorCmd.Flags().Uint32Var(&toDst, "to", 0, "Filter by destination endpoint id")
@@ -81,7 +81,7 @@ func init() {
 }
 
 var (
-	dissect     = false
+	hex         = false
 	eventConfig = bpf.PerfEventConfig{
 		MapName:      bpf.EventsMapName,
 		Type:         bpf.PERF_TYPE_SOFTWARE,
@@ -144,7 +144,7 @@ func dropEvents(prefix string, data []byte) {
 		if verbosity == INFO {
 			dn.DumpInfo(data)
 		} else {
-			dn.DumpVerbose(dissect, data, prefix)
+			dn.DumpVerbose(!hex, data, prefix)
 		}
 	}
 }
@@ -176,7 +176,7 @@ func captureEvents(prefix string, data []byte) {
 		if verbosity == INFO {
 			dc.DumpInfo(data)
 		} else {
-			dc.DumpVerbose(dissect, data, prefix)
+			dc.DumpVerbose(!hex, data, prefix)
 		}
 	}
 }
