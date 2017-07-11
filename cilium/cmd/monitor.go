@@ -45,6 +45,21 @@ programs attached to endpoints and devices. This includes:
 	},
 }
 
+// Verbosity levels for formatting output.
+type Verbosity uint8
+
+const (
+	// INFO is the level of verbosity in which summaries of Drop and Capture
+	// messages are printed out when the monitor is invoked
+	INFO Verbosity = iota + 1
+	// DEBUG is the level of verbosity in which more information about packets
+	// is printed than in INFO mode. Debug, Drop, and Capture messages are printed.
+	DEBUG
+	// VERBOSE is the level of verbosity in which the most information possible
+	// about packets is printed out. Currently is not utilized.
+	VERBOSE
+)
+
 func listEventTypes() []string {
 	types := []string{}
 	for k := range eventTypes {
@@ -62,6 +77,7 @@ func init() {
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
 	monitorCmd.Flags().Uint32Var(&toDst, "to", 0, "Filter by destination endpoint id")
 	monitorCmd.Flags().Uint32Var(&related, "related-to", 0, "Filter by either source or destination endpoint id")
+	monitorCmd.Flags().BoolVarP(&verboseMonitor, "verbose", "v", false, "Enable verbose output")
 }
 
 var (
@@ -80,10 +96,20 @@ var (
 		"debug":   bpfdebug.MessageTypeDebug,
 		"capture": bpfdebug.MessageTypeCapture,
 	}
-	fromSource = uint16(0)
-	toDst      = uint32(0)
-	related    = uint32(0)
+	fromSource     = uint16(0)
+	toDst          = uint32(0)
+	related        = uint32(0)
+	verboseMonitor = false
+	verbosity      = INFO
 )
+
+func setVerbosity() {
+	if verboseMonitor {
+		verbosity = DEBUG
+	} else {
+		verbosity = INFO
+	}
+}
 
 func lostEvent(lost *bpf.PerfEventLost, cpu int) {
 	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost.Lost)
@@ -115,7 +141,11 @@ func dropEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeDrop, dn.Source, dn.DstID) {
-		dn.Dump(dissect, data, prefix)
+		if verbosity == INFO {
+			dn.DumpInfo(data)
+		} else {
+			dn.DumpVerbose(dissect, data, prefix)
+		}
 	}
 }
 
@@ -127,7 +157,11 @@ func debugEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeDebug, dm.Source, 0) {
-		dm.Dump(data, prefix)
+		if verbosity == INFO {
+			dm.DumpInfo(data)
+		} else {
+			dm.Dump(data, prefix)
+		}
 	}
 }
 
@@ -139,7 +173,11 @@ func captureEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
 	if match(bpfdebug.MessageTypeCapture, dc.Source, 0) {
-		dc.Dump(dissect, data, prefix)
+		if verbosity == INFO {
+			dc.DumpInfo(data)
+		} else {
+			dc.DumpVerbose(dissect, data, prefix)
+		}
 	}
 }
 
@@ -176,7 +214,7 @@ func validateEventTypeFilter() {
 
 func runMonitor() {
 	common.RequireRootPrivilege("cilium monitor")
-
+	setVerbosity()
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
 	if err != nil {
 		fmt.Printf("Error: Unable to get BPF events (%s)\n", err)

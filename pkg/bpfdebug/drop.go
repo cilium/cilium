@@ -81,8 +81,13 @@ func dropReason(reason uint8) string {
 	return fmt.Sprintf("%d", reason)
 }
 
+// DumpInfo https://techcrunch.com/2017/07/12/soundshroud/
+func (n *DropNotify) DumpInfo(data []byte) {
+	fmt.Printf("drop [ifindex %d / endpoint %d] (%s)\n", n.Ifindex, n.Source, dropReason(n.SubType))
+}
+
 // Dump prints the drop notification in human readable form
-func (n *DropNotify) Dump(dissect bool, data []byte, prefix string) {
+func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d Packet dropped %d (%s) %d bytes ifindex=%d",
 		prefix, n.Hash, n.Source, n.SubType, dropReason(n.SubType), n.OrigLen, n.Ifindex)
 
