@@ -526,8 +526,6 @@ func runDaemon() {
 		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
 
-	d.EnableMonitor()
-
 	sinceLastSync := time.Now()
 	d.SyncDocker()
 
