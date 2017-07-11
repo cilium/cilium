@@ -400,7 +400,7 @@ func (l Labels) sortedList() []byte {
 	for _, k := range keys {
 		// We don't care if the values already have a '=' since this method is
 		// only used to calculate a SHA256Sum
-		result += fmt.Sprintf(`%s=%s;`, k, l[k].Value)
+		result += fmt.Sprintf(`%s:%s=%s;`, l[k].Source, k, l[k].Value)
 	}
 
 	return []byte(result)
