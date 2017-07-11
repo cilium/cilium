@@ -274,7 +274,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 
 const (
 	// DebugCaptureLen is the amount of packet data in a packet capture message
-	DebugCaptureLen = 20
+	DebugCaptureLen = 24
 )
 
 // DebugCapture is the metadata sent along with a captured packet frame
@@ -287,6 +287,7 @@ type DebugCapture struct {
 	Len     uint32
 	OrigLen uint32
 	Arg1    uint32
+	Arg2    uint32
 	// data
 }
 
