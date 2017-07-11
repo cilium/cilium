@@ -148,6 +148,7 @@ func dropEvents(prefix string, data []byte) {
 		if verbosity == INFO {
 			dn.DumpInfo(data)
 		} else {
+			fmt.Println(msgSeparator)
 			dn.DumpVerbose(!hex, data, prefix)
 		}
 	}
@@ -180,6 +181,7 @@ func captureEvents(prefix string, data []byte) {
 		if verbosity == INFO {
 			dc.DumpInfo(data)
 		} else {
+			fmt.Println(msgSeparator)
 			dc.DumpVerbose(!hex, data, prefix)
 		}
 	}
@@ -187,10 +189,6 @@ func captureEvents(prefix string, data []byte) {
 
 // receiveEvent forwards all the per CPU events to the appropriate type function.
 func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
-	if verbosity != INFO {
-		fmt.Println(msgSeparator)
-	}
-
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
 	data := msg.DataDirect()
 	messageType := data[0]
