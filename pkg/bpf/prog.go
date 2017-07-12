@@ -32,6 +32,7 @@ const (
 	ProgTypeLwtIn
 	ProgTypeLwtOut
 	ProgTypeLwtXmit
+	ProgTypeSockOps
 )
 
 func (t ProgType) String() string {
@@ -60,6 +61,8 @@ func (t ProgType) String() string {
 		return "LWT out"
 	case ProgTypeLwtXmit:
 		return "LWT xmit"
+	case ProgTypeSockOps:
+		return "Sock ops"
 	}
 
 	return "Unknown"
