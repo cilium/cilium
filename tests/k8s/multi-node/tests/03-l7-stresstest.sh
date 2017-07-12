@@ -58,9 +58,8 @@ backend_pod=$(kubectl get pods -n development | grep backend | awk '{print $1}')
 backend_svc_ip=$(kubectl get svc -n development | awk 'NR==2{print $2}')
 
 echo "Running tests WITHOUT Policy / Proxy loaded"
-#FIXME uncomment once we figure out the right policy for the stresstests
-#kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
-#kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
+kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
+kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
 
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
 
@@ -70,9 +69,13 @@ kubectl create -f "${l7_stresstest_dir}/policies"
 
 wait_all_k8s_regenerated
 
-#FIXME uncomment once we figure out the right policy for the stresstests
 echo "Running tests WITH Policy / Proxy loaded"
-#kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
+kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
+
+# FIXME: Due proxy constrains (memory?) it's impossible to execute the test
+# with 1000000 requests and 200 parallel connections. It was tested with
+# 1 request and 1 parallel connection with no success.
+#
 #kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
 
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
