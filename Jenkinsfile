@@ -4,20 +4,21 @@ pipeline {
     }
     options {
         timeout(time: 40, unit: 'MINUTES')
+        timestamps()
     }
     stages {
         stage ('Tests') {
-                environment {
-                    MEMORY = '4096'
-                    RUN_TEST_SUITE = '1'
-		}
-		steps {
-                    parallel(
-                        "Runtime Tests": { sh './contrib/vagrant/start.sh' }, 
-                        "K8s Tests": { sh './tests/k8s/start' },
-                        "K8s multi node Tests": { sh './tests/k8s/multi-node/start.sh' }
-                    )
-	        }
+            environment {
+                MEMORY = '4096'
+                RUN_TEST_SUITE = '1'
+            }
+            steps {
+                parallel(
+                    "Runtime Tests": { sh './contrib/vagrant/start.sh' },
+                    "K8s Tests": { sh './tests/k8s/start' },
+                    "K8s multi node Tests": { sh './tests/k8s/multi-node/start.sh' }
+                )
+            }
         }
     }
     post {
