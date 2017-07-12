@@ -46,6 +46,9 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+      # FIXME remove nodeSelector once L7 proxy works on multinode
+      nodeSelector:
+        "kubernetes.io/hostname": "k8s-2"
 ---
 ##################################################################################################
 # Reviews service v2
@@ -68,4 +71,7 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+      # FIXME remove nodeSelector once L7 proxy works on multinode
+      nodeSelector:
+        "kubernetes.io/hostname": "k8s-2"
 ---
