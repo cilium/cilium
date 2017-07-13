@@ -305,6 +305,9 @@ configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
 Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
 already exists on a worker node and only creates it if it does not exist yet.
 
+
+.. _rbac_integration:
+
 RBAC integration
 ^^^^^^^^^^^^^^^^
 
@@ -317,6 +320,8 @@ cluster roles and service accounts for Cilium:
     clusterrole "cilium" created
     serviceaccount "cilium" created
     clusterrolebinding "cilium" created
+
+.. _ds_config:
 
 Configuring the DaemonSet
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -333,6 +338,8 @@ The following configuration options *must* be specified:
 - ``--kvstore`` with optional ``--kvstore-opts`` to configure the Key-Value
   store.  See section :ref:`admin_kvstore` for additional details on how to
   configure the Key-Value store.
+
+.. _ds_deploy:
 
 Deploying the DaemonSet
 ^^^^^^^^^^^^^^^^^^^^^^^
