@@ -261,7 +261,9 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 
 		ep.Mutex.Lock()
 		ep.DockerID = id
+		endpointmanager.Mutex.Lock()
 		endpointmanager.LinkContainerID(ep)
+		endpointmanager.Mutex.Unlock()
 		var orchLabelsModified bool
 		if orchLabelsModified = updateOrchLabels(ep, lbls); !orchLabelsModified {
 			log.Debugf("No changes to orch labels.")
