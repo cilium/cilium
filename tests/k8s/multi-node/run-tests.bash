@@ -4,7 +4,7 @@ set -ex
 
 vm_suffix="${BUILD_NUMBER:+-build-$BUILD_NUMBER}"
 
-node2="cilium-k8s-node-2${vm_suffix}"
+node2="k8s2${vm_suffix}"
 
 function reinstall_ipv6(){
     vm="${1}"

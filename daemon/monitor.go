@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
+	"github.com/cilium/cilium/pkg/byteorder"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -29,7 +30,7 @@ func (d *Daemon) receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	data := msg.DataDirect()
 	if data[0] == bpfdebug.MessageTypeDrop {
 		dn := bpfdebug.DropNotify{}
-		if err := binary.Read(bytes.NewReader(data), binary.LittleEndian, &dn); err != nil {
+		if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
 			log.Warningf("Error while parsing drop notification message: %s\n", err)
 			return
 		}

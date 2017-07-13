@@ -32,9 +32,16 @@ func (nn Identity) String() string {
 
 // Node contains the nodes name, the list of addresses to this address
 type Node struct {
-	Name          string
-	IPAddresses   []Address
-	EndpointsCIDR *net.IPNet
+	Name        string
+	IPAddresses []Address
+
+	// IPv4AllocCIDR if set, is the IPv4 address pool out of which the node
+	// allocates IPs for local endpoints from
+	IPv4AllocCIDR *net.IPNet
+
+	// IPv6AllocCIDR if set, is the IPv6 address pool out of which the node
+	// allocates IPs for local endpoints from
+	IPv6AllocCIDR *net.IPNet
 }
 
 // Address is a node address which contains an IP and the address type.

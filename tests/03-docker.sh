@@ -8,7 +8,7 @@ TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
 function cleanup {
-	gather_files 03-docker
+	gather_files 03-docker ${TEST_SUITE}
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f server client 2> /dev/null || true
 	monitor_stop

@@ -3,7 +3,7 @@
 source "./helpers.bash"
 
 function cleanup {
-	gather_files 10-proxy
+	gather_files 10-proxy ${TEST_SUITE}
 	cilium service delete --all
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f server1 server2 client 2> /dev/null || true
@@ -206,22 +206,22 @@ function proxy_test {
 
 RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
-	abort "GET /public, unexpected return"
+	abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
 fi
 
 RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
-	abort "GET /public, unexpected return"
+	abort "GET /public, unexpected return ${RETURN//$'\n'} != 200"
 fi
 
 RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/private")
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
-	abort "GET /private, unexpected return"
+	abort "GET /private, unexpected return ${RETURN//$'\n'} != 403"
 fi
 
 RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://[$SERVER_IP]:80/private")
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
-	abort "GET /private, unexpected return"
+	abort "GET /private, unexpected return ${RETURN//$'\n'} != 403"
 fi
 }
 

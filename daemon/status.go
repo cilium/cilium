@@ -30,7 +30,7 @@ import (
 func (d *Daemon) getK8sStatus() *models.Status {
 	var k8sStatus *models.Status
 	if d.conf.IsK8sEnabled() {
-		if v, err := d.k8sClient.ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
+		if v, err := d.k8sClient.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
 			k8sStatus = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 		} else if len(v.Conditions) == 0 {
 			k8sStatus = &models.Status{

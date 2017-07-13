@@ -45,6 +45,7 @@
 #include "lib/dbg.h"
 #include "lib/csum.h"
 #include "lib/conntrack.h"
+#include "lib/encap.h"
 
 #define POLICY_ID ((LXC_ID << 16) | SECLABEL)
 
@@ -110,24 +111,12 @@ static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 }
 #endif /* DISABLE_PORT_MAP */
 
-#ifdef ENCAP_IFINDEX
-static inline int __inline__ lxc_encap(struct __sk_buff *skb, __u32 node_id)
-{
-#ifdef ENCAP_GENEVE
-	uint8_t buf[] = GENEVE_OPTS;
-#else
-	uint8_t buf[] = {};
-#endif
-	return do_encapsulation(skb, node_id, SECLABEL, buf, sizeof(buf));
-}
-#endif
-
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
-	union v6addr host_ip = {};
+	union v6addr host_ip = {}, router_ip = {};
 	int ret, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
@@ -288,13 +277,37 @@ skip_service_lookup:
 	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
 
-	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_prefix_64(daddr, &host_ip)) {
-		__u32 node_id = ipv6_derive_node_id(daddr);
+	BPF_V6(router_ip, ROUTER_IP);
 
-		if (node_id != NODE_ID) {
+	/* Check if destination is within our cluster prefix */
+	if (ipv6_match_prefix_64(daddr, &router_ip)) {
+		struct endpoint_info *ep;
+
+		policy_clear_mark(skb);
+
+		/* Lookup IPv6 address in list of local endpoints */
+		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+			if (ep->flags & ENDPOINT_F_HOST) {
+#ifdef HOST_IFINDEX
+				goto to_host;
+#else
+				return DROP_NO_LXC;
+#endif
+			}
+
+			return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr, ep);
+		} else {
 #ifdef ENCAP_IFINDEX
-			return lxc_encap(skb, node_id);
+			struct endpoint_key key = {};
+
+			/* IPv6 lookup key: daddr/96 */
+			key.ip6.p1 = daddr->p1;
+			key.ip6.p2 = daddr->p2;
+			key.ip6.p3 = daddr->p3;
+			key.ip6.p4 = 0;
+			key.family = ENDPOINT_KEY_IPV6;
+
+			return encap_and_redirect(skb, &key, SECLABEL);
 #else
 			/* Packets to other nodes are always allowed, the remote
 			 * node will enforce the policy.
@@ -303,15 +316,6 @@ skip_service_lookup:
 			goto pass_to_stack;
 #endif
 		}
-
-#ifdef HOST_IFINDEX
-		if (daddr->addr[14] == host_ip.addr[14] &&
-		    daddr->addr[15] == host_ip.addr[15])
-			goto to_host;
-#endif
-		policy_clear_mark(skb);
-
-		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr);
 	} else {
 #ifdef LXC_NAT46
 		if (unlikely(ipv6_addr_is_mapped(daddr))) {
@@ -576,13 +580,28 @@ skip_service_lookup:
 
 	/* Check if destination is within our cluster prefix */
 	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-		__u32 node_id = orig_dip & IPV4_MASK;
+		struct endpoint_info *ep;
 
-		if (node_id != IPV4_RANGE) {
+		policy_clear_mark(skb);
+
+		/* Lookup IPv4 address in list of local endpoints */
+		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+			if (ep->flags & ENDPOINT_F_HOST) {
+#ifdef HOST_IFINDEX
+				goto to_host;
+#else
+				return DROP_NO_LXC;
+#endif
+			}
+			return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep);
+		} else {
 #ifdef ENCAP_IFINDEX
-			/* 10.X.0.0 => 10.X.0.1 */
-			node_id = bpf_ntohl(node_id) | 1;
-			return lxc_encap(skb, node_id);
+			/* IPv4 lookup key: daddr & IPV4_MASK */
+			struct endpoint_key key = {};
+			key.ip4 = orig_dip & IPV4_MASK;
+			key.family = ENDPOINT_KEY_IPV4;
+
+			return encap_and_redirect(skb, &key, SECLABEL);
 #else
 			/* Packets to other nodes are always allowed, the remote
 			 * node will enforce the policy.
@@ -591,14 +610,6 @@ skip_service_lookup:
 			goto pass_to_stack;
 #endif
 		}
-
-#ifdef HOST_IFINDEX
-		if (orig_dip == IPV4_GATEWAY)
-			goto to_host;
-#endif
-		policy_clear_mark(skb);
-
-		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4);
 	} else {
 #ifdef ALLOW_TO_WORLD
 		policy_mark_skip(skb);
@@ -968,7 +979,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 #ifdef LXC_NAT46
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct __sk_buff *skb)
 {
-	int ret = ipv6_to_ipv4(skb, 14, bpf_htonl(LXC_IPV4));
+	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
 	if (IS_ERR(ret))
 		return ret;
 

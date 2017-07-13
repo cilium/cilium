@@ -59,17 +59,6 @@ func FmtDefineArray(name string, array []byte) string {
 	return fmt.Sprintf("#define %s { %s }\n", name, goArray2C(array))
 }
 
-// Swab16 swaps the endianness of n.
-func Swab16(n uint16) uint16 {
-	return (n&0xFF00)>>8 | (n&0x00FF)<<8
-}
-
-// Swab32 swaps the endianness of n.
-func Swab32(n uint32) uint32 {
-	return ((n & 0x000000ff) << 24) | ((n & 0x0000ff00) << 8) |
-		((n & 0x00ff0000) >> 8) | ((n & 0xff000000) >> 24)
-}
-
 // GetGroupIDByName returns the group ID for the given grpName.
 func GetGroupIDByName(grpName string) (int, error) {
 	f, err := os.Open(GroupFilePath)

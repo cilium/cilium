@@ -93,7 +93,7 @@ func (d *Daemon) createThirdPartyResources() error {
 		},
 	}
 
-	_, err := d.k8sClient.Extensions().ThirdPartyResources().Create(res)
+	_, err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Create(res)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
@@ -113,7 +113,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create third party resource: %s", err)
 	}
 
-	tprClient, err := k8s.CreateTPRClient(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
+	restConfig, err := k8s.CreateConfig(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
+	if err != nil {
+		return fmt.Errorf("Unable to create rest configuration: %s", err)
+	}
+
+	tprClient, err := k8s.CreateTPRClient(restConfig)
 	if err != nil {
 		return fmt.Errorf("Unable to create third party resource client: %s", err)
 	}
@@ -246,8 +251,16 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 		return
 	}
 
-	if svc.Spec.Type != v1.ServiceTypeClusterIP {
-		log.Infof("Ignoring k8s service %s/%s, reason unsupported type %s",
+	switch svc.Spec.Type {
+	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
+		break
+
+	case v1.ServiceTypeExternalName:
+		// External-name services must be ignored
+		return
+
+	default:
+		log.Warningf("Ignoring k8s service %s/%s, reason unsupported type %s",
 			svc.Namespace, svc.Name, svc.Spec.Type)
 		return
 	}
@@ -265,6 +278,9 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
 	newSI := types.NewK8sServiceInfo(clusterIP)
+
+	// FIXME: Add support for
+	//  - NodePort
 
 	for _, port := range svc.Spec.Ports {
 		p, err := types.NewFEPort(types.L4Type(port.Protocol), uint16(port.Port))

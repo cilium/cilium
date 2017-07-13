@@ -30,10 +30,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
-	pkgLabels "github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/byteorder"
+  pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -724,6 +726,55 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	}
 
 	return err
+}
+
+// GetBPFKeys returns all keys which should represent this endpoint in the BPF
+// endpoints map
+func (e *Endpoint) GetBPFKeys() []lxcmap.EndpointKey {
+	key := lxcmap.NewEndpointKey(e.IPv6.IP())
+
+	if e.IPv4 != nil {
+		key4 := lxcmap.NewEndpointKey(e.IPv4.IP())
+		return []lxcmap.EndpointKey{key, key4}
+	}
+
+	return []lxcmap.EndpointKey{key}
+}
+
+// GetBPFValue returns the value which should represent this endpoint in the
+// BPF endpoints map
+func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
+	mac, err := e.LXCMAC.Uint64()
+	if err != nil {
+		return nil, err
+	}
+
+	nodeMAC, err := e.NodeMAC.Uint64()
+	if err != nil {
+		return nil, err
+	}
+
+	info := &lxcmap.EndpointInfo{
+		IfIndex: uint32(e.IfIndex),
+		// Store security label in network byte order so it can be
+		// written into the packet without an additional byte order
+		// conversion.
+		SecLabelID: byteorder.HostToNetwork(uint16(e.GetIdentity())).(uint16),
+		LxcID:      e.ID,
+		MAC:        lxcmap.MAC(mac),
+		NodeMAC:    lxcmap.MAC(nodeMAC),
+	}
+
+	copy(info.V6Addr[:], e.IPv6)
+
+	for i, pM := range e.PortMap {
+		info.PortMap[i] = lxcmap.PortMap{
+			From: byteorder.HostToNetwork(pM.From).(uint16),
+			To:   byteorder.HostToNetwork(pM.To).(uint16),
+		}
+	}
+
+	return info, nil
 }
 
 // mapPath returns the path to a map for endpoint ID.

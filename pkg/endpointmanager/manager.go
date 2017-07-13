@@ -142,7 +142,7 @@ func RemoveLocked(ep *endpoint.Endpoint) {
 	}
 
 	if ep.DockerEndpointID != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerID))
+		delete(endpointsAux, endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID))
 	}
 
 	if ep.IPv4.String() != "" {

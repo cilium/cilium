@@ -146,7 +146,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 			continue
 		}
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
-		if !ipv6gw.Equal(nodeaddress.IPv6Address.IP()) {
+		if !ipv6gw.Equal(nodeaddress.GetIPv6Router()) {
 			continue
 		}
 		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
@@ -171,7 +171,7 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	}
 	log.Debugf("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
 
-	result, err := d.k8sClient.Pods(ns).Get(podName, metav1.GetOptions{})
+	result, err := d.k8sClient.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -18,29 +18,36 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/endpoint"
-)
+	"github.com/cilium/cilium/pkg/byteorder"
 
-// LXCMap is an internal representation of an eBPF LXC Map.
-type LXCMap struct {
-	Mutex sync.Mutex // Mutex protects the whole LXCMap.
-	fd    int
-}
+	log "github.com/Sirupsen/logrus"
+)
 
 const (
 	MapName = "cilium_lxc"
 
-	// MaxKeys represents the maximum number of keys in the LXCMap.
-	MaxKeys = common.EndpointsPerHost
+	// MaxKeys represents the maximum number of endpoints in the map
+	MaxKeys = 0xFFFF
 
 	// PortMapMax represents the maximum number of Ports Mapping per container.
 	PortMapMax = 16
 )
+
+var (
+	mapInstance = bpf.NewMap(MapName,
+		bpf.MapTypeHash,
+		int(unsafe.Sizeof(EndpointKey{})),
+		int(unsafe.Sizeof(EndpointInfo{})),
+		MaxKeys, 0)
+)
+
+func init() {
+	bpf.OpenAfterMount(mapInstance)
+}
 
 // MAC is the __u64 representation of a MAC address.
 type MAC uint64
@@ -76,30 +83,85 @@ type PortMap struct {
 }
 
 func (pm PortMap) String() string {
-	return fmt.Sprintf("%d:%d", common.Swab16(pm.From), common.Swab16(pm.To))
+	return fmt.Sprintf("%d:%d", byteorder.HostToNetwork(pm.From), byteorder.HostToNetwork(pm.To))
 }
 
-type v6Addr [16]byte
+const (
+	// EndpointFlagHost indicates that this endpoint represents the host
+	EndpointFlagHost = 1
+)
 
-func (v6 v6Addr) String() string {
-	return net.IP(v6[:]).String()
+// EndpointFrontend is the interface to implement for an object to synchronize
+// with the endpoint BPF map
+type EndpointFrontend interface {
+	// GetBPFKeys must return a slice of EndpointKey which all represent the endpoint
+	GetBPFKeys() []EndpointKey
+
+	// GetBPFValue must return an EndpointInfo structure representing the frontend
+	GetBPFValue() (*EndpointInfo, error)
 }
 
-// LXCInfo is an internal representation of an LXC most relevant details for eBPF
-// programs.
-type LXCInfo struct {
+// EndpointInfo represents the value of the endpoints BPF map.
+//
+// Must be in sync with struct endpoint_info in <bpf/lib/common.h>
+type EndpointInfo struct {
 	IfIndex    uint32
 	SecLabelID uint16
 	LxcID      uint16
+	Flags      uint32
 	MAC        MAC
 	NodeMAC    MAC
-	V6Addr     v6Addr
+	V6Addr     types.IPv6
 	PortMap    [PortMapMax]PortMap
 }
 
-func (lxc LXCInfo) String() string {
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
+
+// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
+const (
+	endpointKeyIPv4 uint8 = 1
+	endpointKeyIPv6 uint8 = 2
+)
+
+// EndpointKey represents the key value of the endpoints BPF map
+//
+// Must be in sync with struct endpoint_key in <bpf/lib/common.h>
+type EndpointKey struct {
+	ip     types.IPv6 // represents both IPv6 and IPv4
+	family uint8
+	pad1   uint8
+	pad2   uint16
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value
+func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
+
+// NewEndpointKey returns an EndpointKey based on the provided IP address. The
+// address family is automatically detected
+func NewEndpointKey(ip net.IP) EndpointKey {
+	key := EndpointKey{}
+	copy(key.ip[:], ip)
+
+	if ip4 := ip.To4(); ip4 != nil {
+		key.family = endpointKeyIPv4
+		copy(key.ip[:], ip4)
+	} else {
+		key.family = endpointKeyIPv6
+		copy(key.ip[:], ip)
+	}
+
+	return key
+}
+
+// String returns the human readable representation of an EndpointInfo
+func (v EndpointInfo) String() string {
 	var portMaps []string
-	for _, port := range lxc.PortMap {
+	for _, port := range v.PortMap {
 		if pStr := port.String(); pStr != "0:0" {
 			portMaps = append(portMaps, pStr)
 		}
@@ -108,113 +170,51 @@ func (lxc LXCInfo) String() string {
 		portMaps = append(portMaps, "(empty)")
 	}
 	return fmt.Sprintf("id=%d ifindex=%d mac=%s nodemac=%s ip=%s seclabel=0x%x portMaps=%s",
-		lxc.LxcID,
-		lxc.IfIndex,
-		lxc.MAC,
-		lxc.NodeMAC,
-		lxc.V6Addr,
-		common.Swab16(lxc.SecLabelID),
+		v.LxcID,
+		v.IfIndex,
+		v.MAC,
+		v.NodeMAC,
+		v.V6Addr,
+		byteorder.HostToNetwork(v.SecLabelID),
 		strings.Join(portMaps, " "),
 	)
 }
 
-// WriteEndpoint transforms the ep's relevant data into an LXCInfo and stores it in
-// LXCMap.
-func (m *LXCMap) WriteEndpoint(ep *endpoint.Endpoint) error {
-	if m == nil {
-		return nil
-	}
-
-	key := uint32(ep.ID)
-
-	mac, err := ep.LXCMAC.Uint64()
+// WriteEndpoint updates the BPF map with the endpoint information and links
+// the endpoint information to all keys provided.
+func WriteEndpoint(f EndpointFrontend) error {
+	info, err := f.GetBPFValue()
 	if err != nil {
 		return err
 	}
 
-	nodeMAC, err := ep.NodeMAC.Uint64()
-	if err != nil {
-		return err
-	}
-
-	lxc := LXCInfo{
-		IfIndex: uint32(ep.IfIndex),
-		// Store security label in network byte order so it can be
-		// written into the packet without an additional byte order
-		// conversion.
-		SecLabelID: common.Swab16(uint16(ep.GetIdentity())),
-		LxcID:      ep.ID,
-		MAC:        MAC(mac),
-		NodeMAC:    MAC(nodeMAC),
-	}
-
-	copy(lxc.V6Addr[:], ep.IPv6)
-
-	for i, pM := range ep.PortMap {
-		lxc.PortMap[i] = PortMap{
-			From: common.Swab16(pM.From),
-			To:   common.Swab16(pM.To),
+	// FIXME: Revert on failure
+	for _, k := range f.GetBPFKeys() {
+		if err := mapInstance.Update(k, *info); err != nil {
+			return err
 		}
-	}
-
-	m.Mutex.Lock()
-	defer m.Mutex.Unlock()
-
-	err = bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
-	if err != nil {
-		return err
-	}
-
-	if ep.IPv4 != nil {
-		key := uint32(ep.IPv4.EndpointID()) | (1 << 16)
-		// FIXME: Remove key again? Needs to be solved by caller
-		return bpf.UpdateElement(m.fd, unsafe.Pointer(&key), unsafe.Pointer(&lxc), 0)
 	}
 
 	return nil
 }
 
-// DeleteElement deletes the element with the given id from the LXCMap.
-func (m *LXCMap) DeleteElement(ep *endpoint.Endpoint) error {
-	if m == nil {
-		return nil
-	}
+// AddHostEntry adds a special endpoint which represents the local host
+func AddHostEntry(ip net.IP) error {
+	key := NewEndpointKey(ip)
+	ep := EndpointInfo{Flags: EndpointFlagHost}
+	return mapInstance.Update(key, ep)
+}
 
-	// FIXME: errors are currently ignored
-	id6 := uint32(ep.ID)
-	m.Mutex.Lock()
-	defer m.Mutex.Unlock()
-	err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id6))
-
-	if ep.IPv4 != nil {
-		if id4 := uint32(ep.IPv4.EndpointID()); id4 != 0 {
-			id4 = id4 | (1 << 16)
-			if err := bpf.DeleteElement(m.fd, unsafe.Pointer(&id4)); err != nil {
-				return err
-			}
+// DeleteElement deletes the endpoint using all keys which represent the
+// endpoint. It returns the number of errors encountered during deletion.
+func DeleteElement(f EndpointFrontend) int {
+	errors := 0
+	for _, k := range f.GetBPFKeys() {
+		if err := mapInstance.Delete(k); err != nil {
+			log.Warningf("Unable to delete endpoint %s in BPF map: %s", k, err)
+			errors++
 		}
 	}
 
-	return err
-}
-
-// OpenMap opens the endpoint map.
-func OpenMap() (*LXCMap, error) {
-	path := bpf.MapPath(MapName)
-
-	fd, _, err := bpf.OpenOrCreateMap(
-		path,
-		bpf.BPF_MAP_TYPE_HASH,
-		uint32(unsafe.Sizeof(uint32(0))),
-		uint32(unsafe.Sizeof(LXCInfo{})),
-		MaxKeys,
-		0,
-	)
-	if err != nil {
-		return nil, err
-	}
-	m := new(LXCMap)
-	m.fd = fd
-
-	return m, nil
+	return errors
 }

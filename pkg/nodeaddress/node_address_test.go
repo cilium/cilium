@@ -15,45 +15,25 @@
 package nodeaddress
 
 import (
-	"testing"
+	"net"
 
 	. "gopkg.in/check.v1"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func (s *NodeAddressSuite) TestMaskCheck(c *C) {
+	SetIPv4ClusterCidrMaskSize(24)
 
-type NodeAddressSuite struct{}
+	_, cidr, _ := net.ParseCIDR("1.1.1.1/16")
+	SetIPv4AllocRange(cidr)
 
-var _ = Suite(&NodeAddressSuite{})
+	// must fail, cluster /24 > per node alloc prefix /16
+	c.Assert(ValidatePostInit(), Not(IsNil))
 
-func (s *NodeAddressSuite) TestNewNodeAddress(c *C) {
-	err := SetNodeAddress("b007::aaaa:bbbb:0:0", "10.1.0.1", "")
-	c.Assert(err, Equals, nil)
-	c.Assert(IPv6Address.String(), Equals, "b007::aaaa:bbbb:0:0")
-	c.Assert(IPv6Address.EndpointID(), Equals, uint16(0))
-	c.Assert(IPv6Address.State(), Equals, uint16(0))
-	c.Assert(IPv6Address.NodeID(), Equals, uint32(0xaaaabbbb))
-	c.Assert(IPv4Address.EndpointID(), Equals, uint16(1))
-	c.Assert(IPv4Address.NodeID(), Equals, uint32(0xa010000))
+	// OK, cluster /16 == per node alloc prefix /16
+	SetIPv4ClusterCidrMaskSize(16)
+	c.Assert(ValidatePostInit(), IsNil)
 
-	err = SetNodeAddress("b007::", "20.2.0.1", "")
-	c.Assert(err, Equals, nil)
-	c.Assert(IPv6Address.EndpointID(), Equals, uint16(0))
-	c.Assert(IPv6Address.State(), Equals, uint16(0))
-	c.Assert(IPv6Address.NodeID(), Not(Equals), uint32(0))
-	c.Assert(IPv4Address.EndpointID(), Equals, uint16(1))
-	c.Assert(IPv4Address.NodeID(), Equals, uint32(0x14020000))
-
-	// container bits set, should fail
-	err = SetNodeAddress("b007::aaaa:bbbb:0:1", "10.1.0.0", "")
-	c.Assert(err, Equals, ErrNodeIPEndpointIDSet)
-
-	err = SetNodeAddress("b007::aaaa:bbbb:0:0", "0.0.0.0", "")
-	c.Assert(err, Equals, ErrIPv4Invalid)
-
-	err = SetNodeAddress("b007::aaaa:bbbb:0:1", "10.0.1.0", "")
-	c.Assert(err, Equals, ErrNodeIPEndpointIDSet)
+	// OK, cluster /8 < per node alloc prefix /16
+	SetIPv4ClusterCidrMaskSize(8)
+	c.Assert(ValidatePostInit(), IsNil)
 }

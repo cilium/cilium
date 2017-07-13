@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -41,11 +41,19 @@ func (k *CtKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 //NewValue creates a new bpf.MapValue.
 func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
 
-// Convert converts CtKey4 ports between host bye order and map byte order.
-func (k *CtKey4) Convert() CtKey {
+// ToNetwork converts CtKey4 ports to network byte order.
+func (k *CtKey4) ToNetwork() CtKey {
 	n := *k
-	n.sport = common.Swab16(n.sport)
-	n.dport = common.Swab16(n.dport)
+	n.sport = byteorder.HostToNetwork(n.sport).(uint16)
+	n.dport = byteorder.HostToNetwork(n.dport).(uint16)
+	return &n
+}
+
+// ToHost converts CtKey4 ports to host byte order.
+func (k *CtKey4) ToHost() CtKey {
+	n := *k
+	n.sport = byteorder.NetworkToHost(n.sport).(uint16)
+	n.dport = byteorder.NetworkToHost(n.dport).(uint16)
 	return &n
 }
 
@@ -100,12 +108,19 @@ func (k *CtKey4Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 //NewValue creates a new bpf.MapValue.
 func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
-// Convert converts CtKey4Global ports between host bye order and map byte
-// order.
-func (k *CtKey4Global) Convert() CtKey {
+// ToNetwork converts CtKey4Global ports to network byte order.
+func (k *CtKey4Global) ToNetwork() CtKey {
 	n := *k
-	n.sport = common.Swab16(n.sport)
-	n.dport = common.Swab16(n.dport)
+	n.sport = byteorder.HostToNetwork(n.sport).(uint16)
+	n.dport = byteorder.HostToNetwork(n.dport).(uint16)
+	return &n
+}
+
+// ToHost converts CtKey4Global ports to host byte order.
+func (k *CtKey4Global) ToHost() CtKey {
+	n := *k
+	n.sport = byteorder.NetworkToHost(n.sport).(uint16)
+	n.dport = byteorder.NetworkToHost(n.dport).(uint16)
 	return &n
 }
 

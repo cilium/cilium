@@ -122,6 +122,8 @@ function wait_for_kubectl_cilium_status {
 function wait_for_cilium_ep_gen {
     set +x
     while true; do
+        # FIXME by the time this executed, it's not guaranteed that we
+        # don't skip a regenerating
         if ! cilium endpoint list | grep regenerating; then
             break
         fi
@@ -137,6 +139,23 @@ function wait_for_policy_enforcement {
         fi
         micro_sleep
     done
+}
+
+function wait_all_k8s_regenerated {
+    local cilium_k8s_npods=$(kubectl get pods -n kube-system | grep cilium | wc -l)
+    set +x
+    { for i in $(seq 1 ${cilium_k8s_npods}); do
+        while true; do
+            # FIXME by the time this executed, it's not guaranteed that we
+            # don't skip a regenerating
+            cilium_pod_id=$(kubectl get pods -n kube-system | grep cilium | awk "NR==$i{ print \$1 }")
+            if ! kubectl exec -n kube-system -i ${cilium_pod_id} cilium endpoint list | grep regenerating; then
+                break
+            fi
+            micro_sleep
+        done
+    done }
+    set -x
 }
 
 function count_lines_in_log {
@@ -169,8 +188,9 @@ function wait_for_docker_ipv6_addr {
 function wait_for_running_pod {
     set +x
     pod=$1
+    namespace=${2:-default}
     echo "Waiting for ${pod} pod to be Running..."
-    while [[ "$(kubectl get pods | grep ${pod} | grep -c Running)" -ne "1" ]] ; do
+    while [[ "$(kubectl get pods -n ${namespace} | grep ${pod} | grep -c Running)" -ne "1" ]] ; do
         micro_sleep
     done
     set -x
@@ -227,8 +247,21 @@ function wait_for_healthy_k8s_cluster {
 }
 
 function gather_files {
+    set -xv
     TEST_NAME=$1
-    CILIUM_DIR="${GOPATH}/src/github.com/cilium/cilium/tests/cilium-files/${TEST_NAME}"
+    TEST_SUITE=$2
+    CILIUM_ROOT="src/github.com/cilium/cilium"
+    if [ -z "${TEST_SUITE}" ]; then 
+        TEST_SUITE="runtime-tests"
+    fi 
+    if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
+      CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
+    elif [[ "${TEST_SUITE}" == "k8s-tests" ]]; then 
+      CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/k8s/cilium-files/${TEST_NAME}"
+    else
+      echo "${TEST_SUITE} not a valid value, continuing"
+      CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
+    fi 
     RUN="/var/run/cilium"
     LIB="/var/lib/cilium"
     RUN_DIR="${CILIUM_DIR}${RUN}"
@@ -236,8 +269,8 @@ function gather_files {
     mkdir -p ${CILIUM_DIR}
     mkdir -p ${RUN_DIR}
     mkdir -p ${LIB_DIR}
-    sudo cp -r ${RUN}/state ${RUN_DIR}
-    sudo cp -r ${LIB}/* ${LIB_DIR}
+    sudo cp -r ${RUN}/state ${RUN_DIR} || true
+    sudo cp -r ${LIB}/* ${LIB_DIR} || true 
     find . -type d -exec sudo chmod 777 {} \;
     find ${CILIUM_DIR} -exec sudo chmod a+r {} \;
 }
