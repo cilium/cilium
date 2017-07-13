@@ -26,11 +26,81 @@ import (
 )
 
 var (
-	ciliumRule = []byte(`{
-    "metadata": {
-        "name": "rule1"
-    },
-    "spec": {
+	apiRule = api.Rule{
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(
+						labels.ParseSelectLabel("role=frontend"),
+					),
+					api.NewESFromLabels(
+						labels.ParseSelectLabel("reserved:world"),
+					),
+				},
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+					},
+				},
+				ToCIDR: []api.CIDR{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+		},
+	}
+
+	expectedSpecRule = api.Rule{
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(
+						labels.ParseSelectLabel("role=frontend"),
+						labels.ParseSelectLabel("k8s:"+PodNamespaceLabel+"=default"),
+					),
+					api.NewESFromLabels(
+						labels.ParseSelectLabel("reserved:world"),
+					),
+				},
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+					},
+				},
+				ToCIDR: []api.CIDR{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+		},
+		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", PolicyLabelName, "rule1")),
+	}
+
+	rawRule = []byte(`{
         "endpointSelector": {
             "matchLabels": {
                 "role": "backend"
@@ -106,97 +176,40 @@ var (
                 ]
             }
         ]
-    }
-}`)
+    }`)
+
+	ciliumRule = append(append([]byte(`{
+    "metadata": {
+        "name": "rule1"
+    },
+    "spec": `), rawRule...), []byte(`
+}`)...)
+	ciliumRuleList = append(append(append(append([]byte(`{
+    "metadata": {
+        "name": "rule1"
+    },
+    "specs": [`), rawRule...), []byte(`, `)...), rawRule...), []byte(`]
+}`)...)
 )
 
-func (s *K8sSuite) TestParseThirdParty(c *C) {
+func (s *K8sSuite) TestParseSpec(c *C) {
+
 	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
 	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+
+	apiRule.EndpointSelector = es
 
 	expectedPolicyRule := &CiliumNetworkPolicy{
 		Metadata: metav1.ObjectMeta{
 			Name: "rule1",
 		},
-		Spec: api.Rule{
-			EndpointSelector: es,
-			Ingress: []api.IngressRule{
-				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("role=frontend"),
-						),
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("reserved:world"),
-						),
-					},
-					ToPorts: []api.PortRule{
-						{
-							Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-							Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
-						},
-					},
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					ToPorts: []api.PortRule{
-						{
-							Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-							Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
-						},
-					},
-					ToCIDR: []api.CIDR{
-						{
-							IP: "10.0.0.1",
-						},
-					},
-				},
-			},
-		},
+		Spec: &apiRule,
 	}
 
 	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
-	expectedSpecRule := api.Rule{
-		EndpointSelector: expectedES,
-		Ingress: []api.IngressRule{
-			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("role=frontend"),
-						labels.ParseSelectLabel("k8s:"+PodNamespaceLabel+"=default"),
-					),
-					api.NewESFromLabels(
-						labels.ParseSelectLabel("reserved:world"),
-					),
-				},
-				ToPorts: []api.PortRule{
-					{
-						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
-					},
-				},
-			},
-		},
-		Egress: []api.EgressRule{
-			{
-				ToPorts: []api.PortRule{
-					{
-						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
-					},
-				},
-				ToCIDR: []api.CIDR{
-					{
-						IP: "10.0.0.1",
-					},
-				},
-			},
-		},
-		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", PolicyLabelName, "rule1")),
-	}
+	expectedSpecRule.EndpointSelector = expectedES
 
 	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
@@ -214,4 +227,42 @@ func (s *K8sSuite) TestParseThirdParty(c *C) {
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
 	c.Assert(cnpl, DeepEquals, *expectedPolicyRule)
+}
+
+func (s *K8sSuite) TestParseRules(c *C) {
+	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
+	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+
+	apiRule.EndpointSelector = es
+
+	expectedPolicyRuleList := &CiliumNetworkPolicy{
+		Metadata: metav1.ObjectMeta{
+			Name: "rule1",
+		},
+		Specs: api.Rules{&apiRule, &apiRule},
+	}
+
+	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+PodNamespaceLabel+"=default"))
+	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+
+	expectedSpecRule.EndpointSelector = expectedES
+
+	expectedSpecRules := api.Rules{&expectedSpecRule, &expectedSpecRule}
+
+	rules, err := expectedPolicyRuleList.Parse()
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 2)
+	c.Assert(rules, DeepEquals, expectedSpecRules)
+
+	b, err := json.Marshal(expectedPolicyRuleList)
+	c.Assert(err, IsNil)
+	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
+	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
+	c.Assert(err, IsNil)
+	c.Assert(expectedPolicyRuleUnmarshalled, DeepEquals, *expectedPolicyRuleList)
+
+	cnpl := CiliumNetworkPolicy{}
+	err = json.Unmarshal(ciliumRuleList, &cnpl)
+	c.Assert(err, IsNil)
+	c.Assert(cnpl, DeepEquals, *expectedPolicyRuleList)
 }

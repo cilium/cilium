@@ -36,6 +36,47 @@ function cleanup {
 
 trap cleanup EXIT
 
+function probe_kernel_config()
+{
+    # BPF Kernel params verifier.
+    local KCONFIG=""
+    local RESULT=0
+    # Coreos kernel config is on /proc/config (module configs).
+    # Other distros in /boot/config-*
+    local config_locations=("/proc/config" "/proc/config.gz",
+        "/boot/config-$(uname -r)")
+    local PARAMS=(
+        "CONFIG_CGROUP_BPF=y" "CONFIG_BPF=y" "CONFIG_BPF_SYSCALL=y"
+        "CONFIG_NET_SCH_INGRESS=[m|y]" "CONFIG_NET_CLS_BPF=[m|y]"
+        "CONFIG_NET_CLS_ACT=y" "CONFIG_BPF_JIT=y" "CONFIG_LWTUNNEL_BPF=y"
+        "CONFIG_HAVE_EBPF_JIT=y" "CONFIG_BPF_EVENTS=y" "CONFIG_TEST_BPF=[m|y]")
+
+    for config in "${config_locations[@]}"
+    do
+        if [[ -f "$config" ]]; then
+            KCONFIG=$config
+            break
+        fi
+    done
+
+    if [[ -z "$KCONFIG" ]]; then
+        echo "WARNING: BPF/probes: Kernel config not found." >> $WARNING_FILE
+        return
+    fi
+
+    for key in "${PARAMS[@]}"
+    do
+        zgrep -E "${key}" $KCONFIG > /dev/null || {
+            RESULT=1;
+            echo "WARNING: BPF/probes: ${key} is not in kernel configuration" >> $WARNING_FILE
+            }
+    done
+
+    if [[ "$RESULT" -gt 0 ]]; then
+        echo "Error: BPF/probes: No valid kernel configuration" >> $WARNING_FILE
+    fi
+}
+
 
 #ip link del $DEV 2> /dev/null
 #ip link add $DEV type dummy || exit 1
@@ -81,6 +122,7 @@ echo "#define BPF_FEATURES_H_" >> "$FEATURE_FILE"
 echo "" >> "$FEATURE_FILE"
 
 #probe_run_tc "skb_change_tail.c" "HAVE_SKB_CHANGE_TAIL"
+probe_kernel_config
 probe_run_ll
 
 echo "#endif /* BPF_FEATURES_H_ */" >> "$FEATURE_FILE"

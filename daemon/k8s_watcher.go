@@ -835,9 +835,6 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	// Delete an eventual existing rule with matching label
-	d.PolicyDelete(rules[0].Labels)
-
 	opts := AddOptions{Replace: true}
 	if err := d.PolicyAdd(rules, &opts); err != nil {
 		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
