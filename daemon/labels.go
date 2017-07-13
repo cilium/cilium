@@ -262,14 +262,14 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	}
 }
 
-func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, container string) error {
+func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, epid string) error {
 	if id, err := d.LookupIdentity(id); err != nil {
 		return err
 	} else if id == nil {
 		return fmt.Errorf("identity not found")
 	} else {
 		hash := id.Labels.SHA256Sum()
-		if err := d.DeleteIdentityBySHA256(hash, container); err != nil {
+		if err := d.DeleteIdentityBySHA256(hash, epid); err != nil {
 			return err
 		}
 	}
