@@ -144,8 +144,8 @@ func updateReferences(ep *endpoint.Endpoint) {
 // UpdateReferences makes an endpoint available by all possible reference
 // fields as available for this endpoint (containerID, IPv4 address, ...)
 func UpdateReferences(ep *endpoint.Endpoint) {
-	Mutex.RLock()
-	defer Mutex.RUnlock()
+	Mutex.Lock()
+	defer Mutex.Unlock()
 
 	updateReferences(ep)
 }
