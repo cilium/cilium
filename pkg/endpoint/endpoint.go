@@ -202,6 +202,7 @@ type Endpoint struct {
 	PolicyCalculated bool
 }
 
+// NewEndpointFromChangeModel creates a new endpoint from a request
 func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.Labels) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
