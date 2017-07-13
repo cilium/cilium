@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
@@ -72,6 +73,10 @@ func gasNewSecLabelID(id *policy.Identity) error {
 // }
 
 func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*policy.Identity, bool, error) {
+	if epid != "" {
+		epid = nodeaddress.GetExternalIPv4().String() + ":" + epid
+	}
+
 	log.Debugf("Associating labels %+v with endpoint %s", lbls, epid)
 
 	isNew := false
@@ -309,6 +314,10 @@ func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, epid string) error {
 
 // DeleteIdentityBySHA256 deletes the SecCtxLabels that belong to the labels' sha256Sum.
 func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
+	if epid != "" {
+		epid = nodeaddress.GetExternalIPv4().String() + ":" + epid
+	}
+
 	if sha256Sum == "" {
 		return nil
 	}
