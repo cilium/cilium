@@ -34,7 +34,10 @@ type CiliumNetworkPolicy struct {
 	Metadata metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Cilium specific rule specification.
-	Spec api.Rule `json:"spec"`
+	Spec *api.Rule `json:"spec,omitempty"`
+
+	// Specs is a list of desired Cilium specific rule specification.
+	Specs api.Rules `json:"specs,omitempty"`
 }
 
 // GetObjectKind returns the kind of the object
@@ -47,21 +50,12 @@ func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
 	return &r.Metadata
 }
 
-// Parse parses a CiliumNetworkPolicy and returns a list of internal policy rules
-func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
-	if err := r.Spec.Validate(); err != nil {
-		return nil, fmt.Errorf("Invalid spec: %s", err)
-	}
-
-	if r.Metadata.Name == "" {
-		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
-	}
-
-	namespace := ExtractNamespace(&r.Metadata)
-
+// parseToCilium returns an api.Rule with all the labels parsed into cilium
+// labels.
+func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 	retRule := &api.Rule{}
-	if r.Spec.EndpointSelector.LabelSelector != nil {
-		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.Spec.EndpointSelector.LabelSelector)
+	if r.EndpointSelector.LabelSelector != nil {
+		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.
@@ -73,14 +67,14 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		if ok && userNamespace != namespace {
 			log.Warningf("k8s: CiliumNetworkPolicy %s/%s contains illegal namespace match '%s' in EndpointSelector."+
 				" EndpointSelector always applies in namespace of the policy resource, removing namespace match '%s'.",
-				r.Metadata.Namespace, r.Metadata.Name, userNamespace, userNamespace)
+				namespace, name, userNamespace, userNamespace)
 		}
 		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 	}
 
-	if r.Spec.Ingress != nil {
-		retRule.Ingress = make([]api.IngressRule, len(r.Spec.Ingress))
-		for i, ing := range r.Spec.Ingress {
+	if r.Ingress != nil {
+		retRule.Ingress = make([]api.IngressRule, len(r.Ingress))
+		for i, ing := range r.Ingress {
 			if ing.FromEndpoints != nil {
 				retRule.Ingress[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
 				for j, ep := range ing.FromEndpoints {
@@ -88,6 +82,8 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 					if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
 						retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
 					}
+					// There's no need to prefixed K8s
+					// prefix for reserved labels
 					if retRule.Ingress[i].FromEndpoints[j].HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
 						continue
 					}
@@ -127,23 +123,55 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		}
 	}
 
-	if r.Spec.Egress != nil {
-		retRule.Egress = make([]api.EgressRule, len(r.Spec.Egress))
-		copy(retRule.Egress, r.Spec.Egress)
+	if r.Egress != nil {
+		retRule.Egress = make([]api.EgressRule, len(r.Egress))
+		copy(retRule.Egress, r.Egress)
 	}
 
 	// Convert resource name to a Cilium policy rule label
-	label := fmt.Sprintf("%s=%s", PolicyLabelName, r.Metadata.Name)
+	label := fmt.Sprintf("%s=%s", PolicyLabelName, name)
 
 	// TODO: Warn about overwritten labels?
 	retRule.Labels = labels.ParseLabelArray(label)
 
-	retRule.Description = r.Spec.Description
+	retRule.Description = r.Description
 
-	return api.Rules{retRule}, nil
+	return retRule
 }
 
-type ciliumNetworkPolicyCopy CiliumNetworkPolicy
+// Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
+// rules.
+func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
+	if r.Metadata.Name == "" {
+		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
+	}
+
+	namespace := ExtractNamespace(&r.Metadata)
+	name := r.Metadata.Name
+
+	retRules := api.Rules{}
+
+	if r.Spec != nil {
+		if err := r.Spec.Validate(); err != nil {
+			return nil, fmt.Errorf("Invalid spec: %s", err)
+
+		}
+		cr := parseToCilium(namespace, name, r.Spec)
+		retRules = append(retRules, cr)
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if err := rule.Validate(); err != nil {
+				return nil, fmt.Errorf("Invalid specs: %s", err)
+
+			}
+			cr := parseToCilium(namespace, name, rule)
+			retRules = append(retRules, cr)
+		}
+	}
+
+	return retRules, nil
+}
 
 // CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
 type CiliumNetworkPolicyList struct {
