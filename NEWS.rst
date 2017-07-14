@@ -2,8 +2,116 @@
 NEWS
 ****
 
-HEAD
+0.10
 ====
+
+Major features
+--------------
+* CIDR based filter for ingress and egress (886_)
+* New simplified encapsulation mode. No longer requires any network
+  configuration, the IP of the VM/host is automatically used as tunnel
+  endpoint across the mesh. There is no longer a need to configure any routes
+  for the container prefixes in the cloud network or the underlying fabric.
+  The node prefix to node ip mapping is automatically derived from the
+  Kubernetes PodCIDR (1020_, 1013_, 1039_)
+* When accessing external networks, outgoing traffic is automatically
+  masqueraded without requiring to install a masquerade rule manually.
+  This behaviour can be disabled with --masquerade=false (1020_)
+* Support to handle arbitrary IPv4 cluster prefix sizes. This was previously
+  required to be a /8 prefix. It can now be specified with
+  --ipv4-cluster-cidr-mask-size (1094_)
+* Cilium monitor has been enabled with a neat one-liner mode which is on by
+  default. It is similar to tcpdump but provides high level metadata such as
+  container IDs, endpoint IDs, security identities (1112_)
+* The agent policy repository now includes a revision which is returned after each
+  change of the policy. A new command cilium policy wait and be used to wait
+  until all endpoints have been updated to enforce the new policy revision
+  (1115_)
+* ``cilium endpoint get`` now supports ``get -l <set of labels>`` and ``get
+  <endpointID | pod-name:namespace:k8s-pod | container-name:name>`` (1139_)
+* Improve label source concept. Users can now match the source of a
+  particular label (e.g. k8s:app=foo, container:app=foo) or match on any
+  source (e.g. app=foo, any:app=foo) (905_)
+
+Documentation
+-------------
+* CoreOS installation guide
+
+Mesos
+-----
+* Add support for CNI 0.2.x spec (1036_)
+* Initial support for Mesos labels (1126_)
+
+Kubernetes
+----------
+* Drop support for extensions/v1beta1/NetworkPolicy and support
+  networking.k8s.io/v1/NetworkPolicy (1150_)
+* Allow fine grained inter namespace policy control. It is now possible to
+  specify policy rules which allow individual pods from another namespace to
+  access a pod (1103_)
+* The CiliumNetworkPolicy ThirdPartyResource now supports carrying a list of
+  rules to update atomically (1055_)
+* The example DaemonSet now schedules Cilium pods onto nodes which are not
+  ready to allow deploying Cilium on a cluster with a non functional CNI
+  configuration. The Cilium pod will automatically configure CNI properly.
+  (1075_)
+* Automatically derive node address prefix from Kubernetes (PodCIDR) (1026_)
+* Automatically install CNI loopback driver if required (860_)
+* Do not overwrite existing 10-cilium.conf CNI configuration if it already
+  exists (871_)
+* Full RBAC support (873_, 875_)
+* Correctly implement ClusterIP portion of k8s service types LoadBalancer and
+  NodePort (1098_)
+* The cilium and consul pod in the example DaemonSet now have health checks
+  (925_, 938_)
+* Correctly ignore headless services without a warning in the log (932_)
+* Derive node-name automatically (1090_)
+* Labels are now attached to endpoints instead of containers. This will allow
+  to support labels attached to things other than containers (1121_)
+
+CI
+--
+* Added Kubernetes getting started guide to CI test suite (894_)
+* L7 stress tests (1108_)
+* Automatically verify links documentation (896_)
+* Kubernetes multi node testing environment (980_)
+* Massively reduced build&test time (982_)
+* Gather logfiles on failure (1017_, 1045_)
+* Guarantee isolation in between VMs for separate PRs CI runs (1075_)
+
+More features
+-------------
+* Cilium load balancer can now encapsulate packets and carry the service-ID in
+  the packet (912_)
+* The filtering mechanism which decides which labels should be used for
+  security identity determination now supports regular expressions (918_)
+* Extended logging information of L7 requests in proxy (964_, 973_, 991_,
+  998_, 1002_)
+* Improved rendering of cilium service list (934_)
+* Upgraded to etcd 3.2.1 (959_)
+* More factoring out of agent into separate packages (975_, 985_)
+* Reduced cgo usage (1003_, 1018_)
+* Improve logging of BPF generation errors (990_)
+* cilium policy trace now supports verbose output (1080_)
+* Include ``bpf-map`` tool in cilium container image (1088_)
+* Carrying of security identities across the proxy (1114_)
+
+Fixes
+----
+* Fixed use of IPv6 node addresses which are already configured on the
+  systme (#819)
+* Enforce minimal etcd and consul versions (911_)
+* Connection tracking entries now get automatically  cleaned if new policy no
+  longer allows the connection (794_)
+* Report status message in ``cilium status`` if a component is in error state
+  (874_)
+* Create L7 access log file if it does not exist (881_)
+* Report kernel/clang versions on compilation issues (888_)
+* Check that cilium binary is installed when agent starts up (892_)
+* Fix checksum error in service + proxy redirection (1011_)
+* Stricter connection tracking connection creation criteria (1027_)
+* Cleanup of leftover veth if endpoint setup failed midway (1122_)
+* Remove stale ids also from policy map (1135_)
 
 0.9.0
 =====
@@ -148,5 +256,64 @@ Fixes
 .. _849: https://github.com/cilium/cilium/pull/849
 .. _850: https://github.com/cilium/cilium/pull/850
 .. _853: https://github.com/cilium/cilium/pull/853
-
-
+.. _886: https://github.com/cilium/cilium/pull/886
+.. _1013: https://github.com/cilium/cilium/pull/1013
+.. _1039: https://github.com/cilium/cilium/pull/1039
+.. _1094: https://github.com/cilium/cilium/pull/1094
+.. _1112: https://github.com/cilium/cilium/pull/1112
+.. _1115: https://github.com/cilium/cilium/pull/1115
+.. _1139: https://github.com/cilium/cilium/pull/1139
+.. _905: https://github.com/cilium/cilium/pull/905
+.. _1126: https://github.com/cilium/cilium/pull/1126
+.. _1150: https://github.com/cilium/cilium/pull/1150
+.. _1103: https://github.com/cilium/cilium/pull/1103
+.. _1055: https://github.com/cilium/cilium/pull/1055
+.. _1036: https://github.com/cilium/cilium/pull/1036
+.. _1075: https://github.com/cilium/cilium/pull/1075
+.. _1026: https://github.com/cilium/cilium/pull/1026
+.. _860: https://github.com/cilium/cilium/pull/860
+.. _871: https://github.com/cilium/cilium/pull/871
+.. _873: https://github.com/cilium/cilium/pull/873
+.. _875: https://github.com/cilium/cilium/pull/875
+.. _1098: https://github.com/cilium/cilium/pull/1098
+.. _925: https://github.com/cilium/cilium/pull/925
+.. _938: https://github.com/cilium/cilium/pull/938
+.. _932: https://github.com/cilium/cilium/pull/932
+.. _1090: https://github.com/cilium/cilium/pull/1090
+.. _1121: https://github.com/cilium/cilium/pull/1121
+.. _894: https://github.com/cilium/cilium/pull/894
+.. _1108: https://github.com/cilium/cilium/pull/1108
+.. _896: https://github.com/cilium/cilium/pull/896
+.. _980: https://github.com/cilium/cilium/pull/980
+.. _982: https://github.com/cilium/cilium/pull/982
+.. _1017: https://github.com/cilium/cilium/pull/1017
+.. _1045: https://github.com/cilium/cilium/pull/1045
+.. _1075: https://github.com/cilium/cilium/pull/1075
+.. _912: https://github.com/cilium/cilium/pull/912
+.. _918: https://github.com/cilium/cilium/pull/918
+.. _964: https://github.com/cilium/cilium/pull/964
+.. _973: https://github.com/cilium/cilium/pull/973
+.. _991: https://github.com/cilium/cilium/pull/991
+.. _998: https://github.com/cilium/cilium/pull/998
+.. _1002: https://github.com/cilium/cilium/pull/1002
+.. _934: https://github.com/cilium/cilium/pull/934
+.. _959: https://github.com/cilium/cilium/pull/959
+.. _975: https://github.com/cilium/cilium/pull/975
+.. _985: https://github.com/cilium/cilium/pull/985
+.. _1003: https://github.com/cilium/cilium/pull/1003
+.. _1018: https://github.com/cilium/cilium/pull/1018
+.. _990: https://github.com/cilium/cilium/pull/990
+.. _1080: https://github.com/cilium/cilium/pull/1080
+.. _1088: https://github.com/cilium/cilium/pull/1088
+.. _1114: https://github.com/cilium/cilium/pull/1114
+.. _911: https://github.com/cilium/cilium/pull/911
+.. _794: https://github.com/cilium/cilium/pull/794
+.. _874: https://github.com/cilium/cilium/pull/874
+.. _881: https://github.com/cilium/cilium/pull/881
+.. _888: https://github.com/cilium/cilium/pull/888
+.. _892: https://github.com/cilium/cilium/pull/892
+.. _1011: https://github.com/cilium/cilium/pull/1011
+.. _1020: https://github.com/cilium/cilium/pull/1020
+.. _1027: https://github.com/cilium/cilium/pull/1027
+.. _1122: https://github.com/cilium/cilium/pull/1122
+.. _1135: https://github.com/cilium/cilium/pull/1135
