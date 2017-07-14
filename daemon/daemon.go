@@ -775,6 +775,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxKeys),
 	}
 
+	// Clear previous leftovers before listening for new requests
+	err = d.clearCiliumVeths()
+	if err != nil {
+		log.Debugf("Unable to clean leftover veths: %s", err)
+	}
+
 	// Create the same amount of worker threads as there are CPUs
 	d.StartEndpointBuilders(runtime.NumCPU())
 
@@ -1092,4 +1098,51 @@ func (d *Daemon) StopIgnoringContainer(id string) {
 	d.ignoredMutex.Lock()
 	delete(d.ignoredContainers, id)
 	d.ignoredMutex.Unlock()
+}
+
+// listFilterIfs returns a map of interfaces based on the given filter.
+// The filter should take a link and, if found, return the index of that
+// interface, if not found return -1.
+func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) {
+	ifs, err := netlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+	vethLXCIdxs := map[int]netlink.Link{}
+	for _, intf := range ifs {
+		if idx := filter(intf); idx != -1 {
+			vethLXCIdxs[idx] = intf
+		}
+	}
+	return vethLXCIdxs, nil
+}
+
+// clearCiliumVeths checks all veths created by cilium and removes all that
+// are considered a leftover from failed attempts to connect the container.
+func (d *Daemon) clearCiliumVeths() error {
+
+	leftVeths, err := listFilterIfs(func(intf netlink.Link) int {
+		// Filter by veth and return the index of the interface.
+		if intf.Type() == "veth" {
+			return intf.Attrs().Index
+		}
+		return -1
+	})
+
+	if err != nil {
+		return fmt.Errorf("unable to retrieve host network interfaces: %s", err)
+	}
+
+	for _, v := range leftVeths {
+		peerIndex := v.Attrs().ParentIndex
+		parentVeth, found := leftVeths[peerIndex]
+		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") {
+			err := netlink.LinkDel(v)
+			if err != nil {
+				fmt.Printf(`CleanVeths: Unable to delete leftover veth "%d %s": %s`,
+					v.Attrs().Index, v.Attrs().Name, err)
+			}
+		}
+	}
+	return nil
 }
