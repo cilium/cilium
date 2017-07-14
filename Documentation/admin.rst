@@ -952,9 +952,9 @@ dependencies described in :ref:`admin_system_reqs`.
 
 .. code:: bash
 
-    $ wget https://github.com/cilium/cilium/archive/v0.9.0.tar.gz
-    $ tar xzvf v0.9.0.tar.gz
-    $ cd cilium-0.9.0
+    $ wget https://github.com/cilium/cilium/archive/v0.10.0.tar.gz
+    $ tar xzvf v0.10.0.tar.gz
+    $ cd cilium-0.10.0
 
 2. Build & install the Cilium binaries to ``bindir``
 
