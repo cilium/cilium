@@ -27,7 +27,7 @@ desc "Examine network configuration of container"
 desc "The container was allocated a unique IPv6 address from the node prefix"
 run "docker exec -ti demo1 ip -6 address list"
 
-desc "All traffic uses a single default route poining to the node's address"
+desc "All traffic uses a single default route pointing to the node's address"
 run "docker exec -ti demo1 ip -6 route list dev cilium0"
 
 desc "Examine list of local cilium endpoints"
