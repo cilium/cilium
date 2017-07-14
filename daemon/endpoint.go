@@ -276,11 +276,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	}
 
 	errors := lxcmap.DeleteElement(ep)
-	sha256sum := ep.OpLabels.Enabled().SHA256Sum()
-	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
-		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
-			sha256sum, ep.OpLabels.Enabled(), err)
-	}
 
 	if ep.Consumable != nil {
 		ep.Consumable.RemoveMap(ep.PolicyMap)
