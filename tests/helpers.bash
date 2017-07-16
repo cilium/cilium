@@ -79,6 +79,10 @@ function wait_for_k8s_endpoints {
 	local NUM=$3
 	echo "Waiting for $NUM endpoints in namespace $NAMESPACE managed by $CILIUM_POD"
 
+	# Wait some time for at least one endpoint to get into regenerating state
+	# FIXME: Remove when this is reliable
+	sleep 5
+
 	local sleep_time=1
 	local iter=0
 	local found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')
@@ -143,6 +147,10 @@ function wait_for_policy_enforcement {
 }
 
 function wait_all_k8s_regenerated {
+    # Wait some time for at least one endpoint to get into regenerating state
+    # FIXME: Remove when this is reliable
+    sleep 5
+
     local cilium_k8s_npods=$(kubectl get pods -n kube-system | grep cilium | wc -l)
     set +x
     { for i in $(seq 1 ${cilium_k8s_npods}); do
