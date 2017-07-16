@@ -81,7 +81,7 @@ if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to rat
 
 # Install cilium policies
 
-kubectl create -f "${bookinfo_dir}/policies"
+k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp.yaml"
 
 if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
@@ -90,9 +90,6 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 1>/dev/null
 
 if [ $? -ne 0 ]; then abort "multi-rules policy not in cilium" ; fi
-
-# Wait for all endpoint to have their policy regenerated
-wait_all_k8s_regenerated
 
 # Reviews should only reach `/health`
 
