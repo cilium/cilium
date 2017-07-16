@@ -81,7 +81,7 @@ func dropReason(reason uint8) string {
 	return fmt.Sprintf("%d", reason)
 }
 
-// DumpInfo https://techcrunch.com/2017/07/12/soundshroud/
+// DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte) {
 	fmt.Printf("xx drop (%s) to endpoint %d, identity %d->%d: %s\n",
 		dropReason(n.SubType), n.DstID, n.SrcLabel, n.DstLabel,
