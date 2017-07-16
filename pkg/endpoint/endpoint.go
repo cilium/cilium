@@ -202,6 +202,11 @@ type Endpoint struct {
 	// for the first time
 	PolicyCalculated bool
 	PodName          string // K8s pod for this endpoint.
+	// PolicyRevision is the policy revision this endpoint is currently on
+	PolicyRevision uint64
+	// NextPolicyRevision is the policy revision that the endpoint has
+	// updated to and that will become effective with the next regenerate
+	NextPolicyRevision uint64
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
