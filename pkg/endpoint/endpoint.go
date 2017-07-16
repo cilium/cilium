@@ -297,6 +297,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		State:            currentState, // TODO: Validate
 		Policy:           e.Consumable.GetModel(),
 		PolicyEnabled:    e.Opts.IsEnabled(OptionPolicy),
+		PolicyRevision:   int64(e.PolicyRevision),
 		Status:           e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
