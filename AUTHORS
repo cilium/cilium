@@ -4,10 +4,13 @@ off on commits in the Cilium repository:
 Alban Crequy          alban.crequy@gmail.com
 Alexander Alemayhu    alexander@alemayhu.com
 Alexei Starovoitov    ast@kernel.org
+Amre Shakimov         amre@covalent.io
 André Martins         andre@cilium.io
 Ashwin Paranjpe       ashwinp.work@gmail.com
+Craig Box             craig.box@gmail.com
 Dan Wendlandt         danwent@gmail.com
 Daniel Borkmann       daniel@cilium.io
+Daniel Dao            dqminh89@gmail.com
 Daniel (Shijun) Qian  sj.daniel@gmail.com
 Eloy Coto             eloy.coto@gmail.com
 Faiyaz Ahmed          faiyaza@gmail.com
@@ -16,8 +19,8 @@ Ian Vernon            ianvernon@covalent.io
 Ivar Lazzaro          ivarlazzaro@gmail.com
 Jan-Erik Rediger      badboy@archlinux.us
 Jarno Rajahalme       jarno@covalent.io
-Jon Davies            jpds@protonmail.com
 John Fastabend        john@covalent.io
+Jon Davies            jpds@protonmail.com
 Katarzyna Borkmann    kasia@iogearbox.net
 Madhu Challa          madhu@cilium.io
 Marcin Skarbek        git@skarbek.name
@@ -28,6 +31,7 @@ Ross Guarino          rssguar@gmail.com
 Russell Bryant        russell@russellbryant.net
 Sergey Generalov      sergey@genbit.ru
 Steven Ceuppens       steven.ceuppens@icloud.com
+Thomas Bachman        tbachman@yahoo.com
 Thomas Graf           thomas@cilium.io
 Tobias Klauser        tklauser@distanz.ch
 Trevor Roberts Jr     trevor.roberts.jr@gmail.com
