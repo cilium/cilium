@@ -948,10 +948,19 @@ func (d *Daemon) removeStaleMap(path string) {
 	}
 }
 
+func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
+	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
+	if err == nil {
+		gpm.DeleteConsumer(id)
+		gpm.Close()
+	}
+}
+
 // call with endpointmanager.Mutex.RLocked
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
 		if _, ok := endpointmanager.Endpoints[uint16(tmp)]; !ok {
+			d.removeStaleIDFromPolicyMap(uint32(tmp))
 			d.removeStaleMap(path)
 		}
 	}
