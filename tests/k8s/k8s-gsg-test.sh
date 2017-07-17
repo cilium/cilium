@@ -39,7 +39,7 @@ echo "KUBECONFIG: $KUBECONFIG"
 
 cleanup
 
-wait_for_healthy_k8s_cluster 3
+wait_for_healthy_k8s_cluster 1
 
 echo "----- adding RBAC for Cilium -----"
 kubectl create -f $K8SDIR/rbac.yaml

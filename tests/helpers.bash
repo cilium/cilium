@@ -221,29 +221,43 @@ function wait_for_n_running_pods {
 	kubectl get pod -o wide
 }
 
-# Wait for healthy k8s cluster
+# Wait for healthy k8s cluster on $1 nodes
 function wait_for_healthy_k8s_cluster {
 	set +x
 	local NNODES=$1
-	echo -n "Waiting for healthy k8s cluster with $NNODES nodes"
+	echo "Waiting for healthy k8s cluster with $NNODES nodes"
 
 	local sleep_time=2
 	local iter=0
 	local found=$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")
-	until [[ "$found" -eq "$NNODES" ]]; do
+	until [[ "$found" -eq "3" ]]; do
 		if [[ $((iter++)) -gt $((1*60/$sleep_time)) ]]; then
 			echo ""
 			echo "Timeout while waiting for healthy kubernetes cluster"
 			exit 1
 		else
 			kubectl get cs
-			echo -n " [${found}/${NNODES}]"
+			echo "K8S Components ready: [${found}/3]"
 			sleep $sleep_time
 		fi
 		found=$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")
 	done
 	set -x
 	kubectl get cs
+	local iter=0
+	local found=$(kubectl get nodes | grep Ready -c)
+	until [[ "$found" -eq "$NNODES" ]]; do
+		if [[ $((iter++)) -gt $((1*60/$sleep_time)) ]]; then
+			echo ""
+			echo "Timeout while waiting for all nodes to be Ready"
+			exit 1
+		else
+			kubectl get nodes
+			echo "Nodes ready [${found}/${NNODES}]"
+			sleep $sleep_time
+		fi
+		found=$(kubectl get nodes | grep Ready -c)
+	done
 }
 
 function gather_files {
