@@ -994,6 +994,7 @@ func (d *Daemon) staleMapWalker(path string) error {
 		policymap.MapName,
 		ctmap.MapName6,
 		ctmap.MapName4,
+		endpoint.CallsMapName,
 	}
 
 	d.checkStaleGlobalMap(path, filename)
