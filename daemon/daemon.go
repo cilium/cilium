@@ -449,7 +449,7 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	args = make([]string, initArgMax-1)
+	args = make([]string, initArgMax)
 
 	args[initArgLib] = d.conf.BpfDir
 	args[initArgRundir] = d.conf.StateDir
