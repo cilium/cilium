@@ -3,7 +3,7 @@ services:
   cilium:
     container_name: cilium
     image: cilium/cilium:stable
-    command: cilium-agent --debug -d ${IFACE} -c 127.0.0.1:8500
+    command: cilium-agent --debug -d ${IFACE} --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium
