@@ -155,9 +155,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	add := labels.NewLabelsFromModel(params.Endpoint.Labels)
 
 	if len(add) > 0 {
-		endpointmanager.Mutex.Unlock()
-		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
-		endpointmanager.Mutex.Lock()
+		errLabelsAdd := h.d.updateSecLabels(params.ID, add, labels.Labels{})
 		if errLabelsAdd != nil {
 			log.Errorf("Could not add labels %v while creating an ep %s due to %s", add, params.ID, errLabelsAdd)
 			return errLabelsAdd
@@ -468,13 +466,13 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
 
-// UpdateSecLabels add and deletes the given labels on given endpoint ID.
+// updateSecLabels add and deletes the given labels on given endpoint ID.
 // The received `add` and `del` labels will be filtered with the valid label
 // prefixes.
 // The `add` labels take precedence over `del` labels, this means if the same
 // label is set on both `add` and `del`, that specific label will exist in the
 // endpoint's labels.
-func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.Responder {
+func (d *Daemon) updateSecLabels(id string, add, del labels.Labels) middleware.Responder {
 	d.conf.ValidLabelPrefixesMU.RLock()
 	addLabels := d.conf.ValidLabelPrefixes.FilterLabels(add)
 	delLabels := d.conf.ValidLabelPrefixes.FilterLabels(del)
@@ -598,7 +596,7 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	add := labels.NewLabelsFromModel(mod.Add)
 	del := labels.NewLabelsFromModel(mod.Delete)
 
-	err := d.UpdateSecLabels(params.ID, add, del)
+	err := d.updateSecLabels(params.ID, add, del)
 	if err != nil {
 		return err
 	}
