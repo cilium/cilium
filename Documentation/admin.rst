@@ -351,17 +351,15 @@ After configuring the ``cilium`` DaemonSet_ it is time to deploy it using
 
     $ kubectl create -f cilium-ds.yaml
 
-Kubernetes will deploy the ``cilium`` and ``cilium-consul`` DaemonSet_ as a pod
-in the ``kube-system`` namespace on all worker nodes. This operation is
-performed in the background. Run the following command to check the progress of
-the deployment:
+Kubernetes will deploy the ``cilium`` DaemonSet_ as a pod in the ``kube-system``
+namespace on all worker nodes. This operation is performed in the background.
+Run the following command to check the progress of the deployment:
 
 .. code:: bash
 
     $ kubectl --namespace kube-system get ds
     NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
     cilium          4         4         4         <none>          2m
-    cilium-consul   4         4         4         <none>          2m
 
 
 As the pods are deployed, the number in the ready column will increase and
@@ -455,7 +453,6 @@ Running ``kubectl get pods`` will show you that Kubernetes started a new set of
         $ kubectl --namespace kube-system get pods
         NAME                          READY     STATUS        RESTARTS   AGE
         cilium-5074s                  1/1       Running       0          58m
-        cilium-consul-plxdm           1/1       Running       0          58m
         kube-addon-manager-minikube   1/1       Running       0          59m
         kube-dns-268032401-j0vml      3/3       Running       0          9s
         kube-dns-268032401-t57r2      3/3       Terminating   0          57m
@@ -470,7 +467,6 @@ worker node:
 .. code:: bash
 
         $ kubectl --namespace kube-system delete ds cilium
-        $ kubectl --namespace kube-system delete ds cilium-consul
 
 .. _admin_k8s_troubleshooting:
 
