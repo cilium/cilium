@@ -319,10 +319,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 		addLabels = append(addLabels, fmt.Sprintf("%s:%s=%s", labels.LabelSourceMesos, label.Key, label.Value))
 	}
 
-	f, _ := os.Create("/tmp/cni-plugin.txt")
-	defer f.Close()
-	f.WriteString(fmt.Sprintf("%v", addLabels))
-
 	ep := &models.EndpointChangeRequest{
 		ContainerID: args.ContainerID,
 		Labels:      addLabels,
