@@ -15,8 +15,7 @@ pipeline {
             steps {
                 parallel(
                     "Runtime Tests": { sh './contrib/vagrant/start.sh' },
-                    "K8s Tests": { sh './tests/k8s/start' },
-                    "K8s multi node Tests": { sh './tests/k8s/multi-node/start.sh' }
+                    "K8s multi node Tests": { sh './tests/k8s/start.sh' }
                 )
             }
         }
@@ -29,7 +28,6 @@ pipeline {
             archiveArtifacts artifacts: "cilium-files-k8s.tar.gz", allowEmptyArchive: true
             sh 'vagrant destroy -f'
             sh 'cd ./tests/k8s && vagrant destroy -f'
-            sh 'cd ./tests/k8s/multi-node && vagrant destroy -f'
         }
     }
 }

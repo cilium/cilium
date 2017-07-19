@@ -1,55 +1,55 @@
+#!/usr/bin/env bash
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
 Vagrant.require_version ">= 1.8.3"
 
-$build = <<SCRIPT
-docker run -d -p 5000:5000 registry
+$build_docker_image = <<SCRIPT
+certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
 cd /home/vagrant/go/src/github.com/cilium/cilium/
 make docker-image
-export ID=$(docker images | grep "${DOCKER_IMAGE_TAG}" | awk '{print $3}')
-docker tag $ID localhost:5000/cilium:${DOCKER_IMAGE_TAG}
+docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
+        -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/kubernetes.pem \
+        -e REGISTRY_HTTP_TLS_KEY=/certs/kubernetes-key.pem \
+        registry:2
+docker tag cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 docker push localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
-$k8s = <<SCRIPT
-sudo apt-get update && sudo apt-get install -y apt-transport-https
-sudo touch /etc/apt/sources.list.d/kubernetes.list
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
-sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-"
-sudo apt-get update
-sudo apt-get install -y docker-engine
-sudo apt-get install -y kubelet kubeadm kubectl kubernetes-cni
-sudo kubeadm reset
-sudo kubeadm init
-sudo cp /etc/kubernetes/admin.conf /home/vagrant/admin.conf
-sudo chown 1000:1000 /home/vagrant/admin.conf
-echo "export KUBECONFIG=/home/vagrant/admin.conf" >> /home/vagrant/.bashrc
-echo "export KUBECONFIG=/home/vagrant/admin.conf" >> /home/vagrant/.profile
-export KUBECONFIG=/home/vagrant/admin.conf
-kubectl taint nodes --all node-role.kubernetes.io/master-
+$load_docker_image = <<SCRIPT
+certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
+sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
+sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt
+docker pull 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG}
+docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
-$testsuite = <<SCRIPT
-make -C ~/go/src/github.com/cilium/cilium/ k8s-tests || exit 1
+$k8s_install = <<SCRIPT
+/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash fresh_install
 SCRIPT
 
-# Create unique ID for use in vboxnet name so Jenkins pipeline can have concurrent builds.
+$cilium_master = <<SCRIPT
+ip -6 a a FD01::B/16 dev enp0s8
+echo 'FD01::B k8s-1' >> /etc/hosts
+echo "FD01::C k8s-2" >> /etc/hosts
+SCRIPT
+
+$cilium_slave = <<SCRIPT
+ip -6 a a FD01::C/16 dev enp0s8
+echo 'FD01::C k8s-1' >> /etc/hosts
+echo "FD01::B k8s-2" >> /etc/hosts
+SCRIPT
+
 $job_name = ENV['JOB_NAME'] || "local"
-$docker_image_tag=ENV['DOCKER_IMAGE_TAG'] || "local_build"
 $build_number = ENV['BUILD_NUMBER'] || "0"
 $build_id = "#{$job_name}-#{$build_number}"
+$docker_image_tag=ENV['DOCKER_IMAGE_TAG'] || "local_build"
 
 # Only create the build_id_name for Jenkins environment so that
 # we can run VMs locally without having any the `build_id` in the name.
 if ENV['BUILD_NUMBER'] then
     $build_id_name = "-build-#{$build_number}"
 end
-
-$node_ip = "192.168.35.15"
 
 Vagrant.configure(2) do |config|
     config.vm.box = "bento/ubuntu-16.10"
@@ -60,29 +60,37 @@ Vagrant.configure(2) do |config|
         s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
     end
 
-	node_vm_name = "cilium-k8s-gsg#{$build_id_name}"
-	config.vm.define node_vm_name do |node|
-        node.vm.network "private_network", ip: "#{$node_ip}",
-            virtualbox__intnet: "cilium-k8s-test-#{$build_id}"
+    (1..2).each do |i|
+        config.vm.define "k8s#{i}#{$build_id_name}" do |s|
+            s.vm.hostname = "k8s-#{i}"
+            s.vm.provision "k8s", type: "shell", inline: $k8s_install
 
-        # install docker runtime
-        #node.vm.provision :docker
-        node.vm.provision "k8s", type: "shell", inline: $k8s
-        node.vm.provision "build", type: "shell", inline: $build, env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}
-        node.vm.provider "virtualbox" do |vb|
-        # Do not inherit DNS server from host, use proxy
-        vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-        vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+            s.vm.provider "virtualbox" do |vb|
+		# Do not inherit DNS server from host, use proxy
+		vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+		vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
-            # Ignore contrib/packaging/docker/stage to prevent concurrent
-            # problems when using rsync on multiple VMs
-            node.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
-                rsync__exclude: "contrib/packaging/docker/stage"
+                config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium'
+            end
 
-        vb.memory = 2048
-        end
-        if ENV['RUN_TEST_SUITE'] then
-            node.vm.provision "testsuite", run: "always", type: "shell", privileged: false, inline: $testsuite, env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}
+            s.vm.network "private_network", ip: "192.168.36.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+            s.vm.network "private_network", ip: "192.168.37.1#{i}", bridge: "enp0s9"
+
+            # Hack to ensure that Kubernetes picks up the node-ip of the private_network
+            # instead of the NATed vagrant IP
+            s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.36\.1#{i} k8s-#{i}/' -i /etc/hosts"
+
+            # Mount BPF filesystem
+	    s.vm.provision :shell, inline: "mount bpffs /sys/fs/bpf -t bpf"
+
+            # first node is special and considered the master
+            if "#{i}" == "1"
+                s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
+                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+            else
+                s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
+                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
+            end
         end
     end
 end

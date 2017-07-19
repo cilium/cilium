@@ -1,5 +1,0 @@
-#!/bin/bash
-set -exv 
-
-cd ./tests/k8s
-DOCKER_IMAGE_TAG=local_build RUN_TEST_SUITE=1 vagrant up
