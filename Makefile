@@ -106,5 +106,17 @@ reload:
 	sleep 6
 	cilium status
 
+release:
+	$(eval TAG_VERSION := $(shell git tag | grep v$(VERSION) > /dev/null; echo $$?))
+	$(eval BRANCH := $(shell git rev-parse --abbrev-ref HEAD))
+	$(info Checking if tag $(VERSION) is created '$(TAG_VERSION)' $(BRANCH))
+
+	@if [ "$(TAG_VERSION)" -eq "0" ];then { echo Git tag v$(VERSION) is already created; exit 1; } fi
+	$(MAKE) -C ./contrib/packaging/deb release
+	git commit -m "Version $(VERSION)"
+	git tag v$(VERSION)
+	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
+
+
 .PHONY: force
 force :;
