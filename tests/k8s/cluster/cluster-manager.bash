@@ -11,7 +11,7 @@ k8s_version="1.6.6-00"
 certs_dir="${dir}/certs"
 k8s_dir="${dir}/k8s"
 cilium_dir="${dir}/cilium"
-rbac_yaml="${dir}/../../../../examples/kubernetes/rbac.yaml"
+rbac_yaml="${dir}/../../../examples/kubernetes/rbac.yaml"
 
 function get_options(){
     if [[ "${1}" == "ipv6" ]]; then
@@ -130,7 +130,7 @@ EOF
 }
 
 function start_kubeadm() {
-    cd /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster
+    cd /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster
 
     sudo bash -c "cat <<EOF > /etc/systemd/system/kubelet.service.d/15-kubelet-dns-args.conf
 [Service]

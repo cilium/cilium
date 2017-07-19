@@ -1,4 +1,4 @@
 include ../../Makefile.defs
 
-k8s-tests:
-	./run-tests
+k8s-multi-node-tests:
+	./run-tests.bash

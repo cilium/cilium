@@ -27,12 +27,12 @@ The directory structure is composed as follow:
 
 ### Cluster architecture
 
-Running `vagrant up` will start 2 VMs: `cilium-k8s-master` and
-`cilium-k8s-node-2`.
+Running `vagrant up` will start 2 VMs: `k8s1` and
+`k8s2`.
 
-#### `cilium-k8s-master`
+#### `k8s1`
 
-`cilium-k8s-master` will contain the etcd server, kube-apiserver,
+`k8s1` will contain the etcd server, kube-apiserver,
 kube-controller-manager, kube-scheduler and a kubelet instance. All kubernetes
 components are spawned by kubeadm.
 
@@ -44,9 +44,9 @@ This node will have 3 static IPs and 2 interfaces:
 
 `enp0s9`: `192.168.37.11/24`
 
-#### `cilium-k8s-node-2`
+#### `k8s2`
 
-`cilium-k8s-node-2` will only contain a kubelet instance running.
+`k8s2` will only contain a kubelet instance running.
 
 This node will also have the 3 static IPs and 2 interfaces:
 
@@ -63,13 +63,12 @@ Kubernetes will be running in IPv4 mode by default, to run with IPv6 mode, after
 the machines are set up and running, run:
 
 ```
-vagrant ssh ${vm} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash reinstall --ipv6 --yes-delete-all-etcd-data'
+vagrant ssh ${vm} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --ipv6 --yes-delete-all-etcd-data'
 vagrant ssh ${vm} -- -t 'sudo cp -R /root/.kube /home/vagrant'
 vagrant ssh ${vm} -- -t 'sudo chown vagrant.vagrant -R /home/vagrant/.kube'
 ```
 
-Where `${vm}` should be replaced with `cilium-k8s-master` and
-`cilium-k8s-node-2`.
+Where `${vm}` should be replaced with `k8s1` and `k8s2`.
 
 This will reset the kubernetes cluster to it's initial state.
 
@@ -81,7 +80,7 @@ To revert it back to IPv4, run the same commands before without providing the
 To deploy cilium after kubernetes is set up, simply run:
 
 ```
-vagrant ssh cilium-k8s-node-2 -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/multi-node/cluster/cluster-manager.bash deploy_cilium'
+vagrant ssh k8s2 -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash deploy_cilium'
 ```
 
 This command only needs to be executed in one of the nodes; since Cilium is
@@ -93,5 +92,5 @@ Cilium will also connect to etcd and kubernetes using TLS.
 
 **Warning: the set up scripts were not tested with this mode**
 
-In loadbalancer mode, the `cilium-k8s-master` will run a daemon set designed for
+In loadbalancer mode, the `k8s1` will run a daemon set designed for
 this purpose, with `--lb` and `--snoop-device` set to `enp0s8`.
