@@ -40,33 +40,62 @@ type OpLabels struct {
 	// Active labels that are enabled and disabled but not deleted
 	Custom Labels
 	// Labels derived from orchestration system
-	Orchestration Labels
-	// Orchestration labels which have been disabled
+	OrchestrationIdentity Labels
+
+	//OrchestrationIdentity
+	// OrchestrationIdentity labels which have been disabled
 	Disabled Labels
+
+	//OrchestrationInfo - labels from orchestration which are not used in determining a security identity
+	OrchestrationInfo Labels
 }
 
 // DeepCopy returns deep copy of the label.
 func (o *OpLabels) DeepCopy() *OpLabels {
 	return &OpLabels{
-		Custom:        o.Custom.DeepCopy(),
-		Disabled:      o.Disabled.DeepCopy(),
-		Orchestration: o.Orchestration.DeepCopy(),
+		Custom:                o.Custom.DeepCopy(),
+		Disabled:              o.Disabled.DeepCopy(),
+		OrchestrationIdentity: o.OrchestrationIdentity.DeepCopy(),
+		OrchestrationInfo:     o.OrchestrationInfo.DeepCopy(),
 	}
 }
 
-// Enabled returns map of enabled labels.
-func (o *OpLabels) Enabled() Labels {
-	enabled := make(Labels, len(o.Custom)+len(o.Orchestration))
+// IdentityLabels returns map of labels that are used when determining a
+// security identity.
+func (o *OpLabels) IdentityLabels() Labels {
+	enabled := make(Labels, len(o.Custom)+len(o.OrchestrationIdentity))
 
 	for k, v := range o.Custom {
 		enabled[k] = v
 	}
 
-	for k, v := range o.Orchestration {
+	for k, v := range o.OrchestrationIdentity {
 		enabled[k] = v
 	}
 
 	return enabled
+}
+
+// AllLabels returns all Labels within the provided OpLabels.
+func (o *OpLabels) AllLabels() Labels {
+	all := make(Labels, len(o.Custom)+len(o.OrchestrationInfo)+len(o.OrchestrationIdentity)+len(o.Disabled))
+
+	for k, v := range o.Custom {
+		all[k] = v
+	}
+
+	for k, v := range o.Disabled {
+		all[k] = v
+	}
+
+	for k, v := range o.OrchestrationIdentity {
+		all[k] = v
+	}
+
+	for k, v := range o.OrchestrationInfo {
+		all[k] = v
+	}
+	return all
 }
 
 // NewOplabelsFromModel creates new label from the model.
@@ -76,9 +105,10 @@ func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
 	}
 
 	return &OpLabels{
-		Custom:        NewLabelsFromModel(base.Custom),
-		Disabled:      NewLabelsFromModel(base.Disabled),
-		Orchestration: NewLabelsFromModel(base.OrchestrationSystem),
+		Custom:                NewLabelsFromModel(base.Custom),
+		Disabled:              NewLabelsFromModel(base.Disabled),
+		OrchestrationIdentity: NewLabelsFromModel(base.OrchestrationIdentity),
+		OrchestrationInfo:     NewLabelsFromModel(base.OrchestrationInfo),
 	}
 }
 

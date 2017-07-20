@@ -101,9 +101,9 @@ func (d *Daemon) createThirdPartyResources() error {
 	return nil
 }
 
-// EnableK8sWatcher watches for policy, services and endpoint changes on the kurbenetes
+// EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
-// kubernetes api server at the given reSyncPeriod duration.
+// Kubernetes api server at the given reSyncPeriod duration.
 func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	if !d.conf.IsK8sEnabled() {
 		return nil

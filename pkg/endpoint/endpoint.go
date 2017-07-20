@@ -176,6 +176,7 @@ const (
 type Endpoint struct {
 	ID               uint16       // Endpoint ID.
 	Mutex            sync.RWMutex // Protects all variables from this structure below this line
+	ContainerName    string       // Docker container name.
 	DockerID         string       // Docker ID.
 	DockerNetworkID  string       // Docker network ID.
 	DockerEndpointID string       // Docker endpoint ID.
@@ -200,6 +201,7 @@ type Endpoint struct {
 	// PolicyCalculated is true as soon as the policy has been calculated
 	// for the first time
 	PolicyCalculated bool
+	PodName          string // K8s pod for this endpoint.
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -210,15 +212,17 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 
 	ep := &Endpoint{
 		ID:               uint16(base.ID),
+		ContainerName:    base.ContainerName,
 		DockerID:         base.ContainerID,
 		DockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
 		IfName:           base.InterfaceName,
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels: pkgLabels.OpLabels{
-			Custom:        pkgLabels.Labels{},
-			Disabled:      pkgLabels.Labels{},
-			Orchestration: l.DeepCopy(),
+			Custom:                pkgLabels.Labels{},
+			Disabled:              pkgLabels.Labels{},
+			OrchestrationIdentity: l.DeepCopy(),
+			OrchestrationInfo:     pkgLabels.Labels{},
 		},
 		State:  string(base.State),
 		Status: NewEndpointStatus(),
@@ -276,6 +280,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 	return &models.Endpoint{
 		ID:               int64(e.ID),
 		ContainerID:      e.DockerID,
+		ContainerName:    e.ContainerName,
 		DockerEndpointID: e.DockerEndpointID,
 		DockerNetworkID:  e.DockerNetworkID,
 		Identity:         e.SecLabel.GetModel(),
@@ -283,6 +288,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		InterfaceName:    e.IfName,
 		Mac:              e.LXCMAC.String(),
 		HostMac:          e.NodeMAC.String(),
+		PodName:          e.PodName,
 		State:            currentState, // TODO: Validate
 		Policy:           e.Consumable.GetModel(),
 		PolicyEnabled:    e.Opts.IsEnabled(OptionPolicy),
@@ -503,6 +509,7 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 	cpy := &Endpoint{
 		ID:               e.ID,
 		DockerID:         e.DockerID,
+		ContainerName:    e.ContainerName,
 		DockerNetworkID:  e.DockerNetworkID,
 		DockerEndpointID: e.DockerEndpointID,
 		IfName:           e.IfName,
@@ -902,29 +909,61 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	return nil
 }
 
-// UpdateOrchLabels updates orchestration labels for the endpoint
-func (e *Endpoint) UpdateOrchLabels(l pkgLabels.Labels) bool {
+// HasLabels returns whether endpoint e contains all labels l. Will return 'false'
+// if any label in l is not in the endpoint's labels.
+func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
+	allEpLabels := e.OpLabels.AllLabels()
+
+	for _, v := range l {
+		found := false
+		for _, j := range allEpLabels {
+			if j.Equals(v) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// UpdateOrchInformationLabels updates orchestration labels for the endpoint which
+// are not used in determining the security identity for the endpoint.
+func (e *Endpoint) UpdateOrchInformationLabels(l pkgLabels.Labels) {
+	for k, v := range l {
+		tmp := v.DeepCopy()
+		log.Debugf("Assigning orchestration information label %+v", tmp)
+		e.OpLabels.OrchestrationInfo[k] = tmp
+	}
+}
+
+// UpdateOrchIdentityLabels updates orchestration labels for the endpoint which
+// are used in determining the security identity for the endpoint.
+func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 	changed := false
 
-	e.OpLabels.Orchestration.MarkAllForDeletion()
+	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
 	e.OpLabels.Disabled.MarkAllForDeletion()
 
 	for k, v := range l {
 		if e.OpLabels.Disabled[k] != nil {
 			e.OpLabels.Disabled[k].DeletionMark = false
 		} else {
-			if e.OpLabels.Orchestration[k] != nil {
-				e.OpLabels.Orchestration[k].DeletionMark = false
+			if e.OpLabels.OrchestrationIdentity[k] != nil {
+				e.OpLabels.OrchestrationIdentity[k].DeletionMark = false
 			} else {
 				tmp := v.DeepCopy()
-				log.Debugf("Assigning orchestration label %+v", tmp)
-				e.OpLabels.Orchestration[k] = tmp
+				log.Debugf("Assigning orchestration identity label %+v", tmp)
+				e.OpLabels.OrchestrationIdentity[k] = tmp
 				changed = true
 			}
 		}
 	}
 
-	if e.OpLabels.Orchestration.DeleteMarked() || e.OpLabels.Disabled.DeleteMarked() {
+	if e.OpLabels.OrchestrationIdentity.DeleteMarked() || e.OpLabels.Disabled.DeleteMarked() {
 		changed = true
 	}
 

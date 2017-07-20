@@ -74,7 +74,7 @@ func printEndpointLabels(lbls *labels.OpLabels) {
 	log.Debugf("All Labels %#v", *lbls)
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
-	for _, v := range lbls.Enabled() {
+	for _, v := range lbls.IdentityLabels() {
 		text := common.Green("Enabled")
 		fmt.Fprintf(w, "%s\t%s\n", v, text)
 	}

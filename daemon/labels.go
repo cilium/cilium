@@ -143,7 +143,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 }
 
 func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *labels.OpLabels) (*policy.Identity, string, error) {
-	lbls := opLabels.Enabled()
+	lbls := opLabels.IdentityLabels()
 	log.Debugf("Endpoint %s is resolving identity for labels %+v", epID, lbls)
 
 	newLabelsHash := lbls.SHA256Sum()
