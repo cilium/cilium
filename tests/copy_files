@@ -1,15 +1,22 @@
 #!/bin/bash
 
-sudo rm -rf ./cilium-files
-sudo rm -rf *.tar.gz 
+set -xv
 
-IDENTITY_FILE=$(vagrant ssh-config | grep IdentityFile | awk '{print $2}')
-PORT=$(vagrant ssh-config cilium-master | grep Port | awk '{ print $2 }')
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-vagrant ssh cilium-master -c 'sudo -E bash -c "journalctl --no-pager -u cilium > ${GOPATH}/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs && chmod a+r ${GOPATH}/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs"'
+function copy_runtime_test_files {
+  local VM=$(get_cilium_master_vm_name)
+  local RUNTIME_TESTS_DIR="tests/${CILIUM_FILES}"
+   
+  sudo rm -rf ./cilium-files
+  sudo rm -rf *.tar.gz
 
-scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${IDENTITY_FILE} vagrant@127.0.0.1:~/go/src/github.com/cilium/cilium/tests/cilium-files .
+  copy_files_vm ${VM} ${RUNTIME_TESTS_DIR}
 
-sudo tar -czvf cilium-files-runtime.tar.gz cilium-files
+  sudo tar -czvf ${CILIUM_FILES}-runtime.tar.gz ${CILIUM_FILES}-*
+}
 
-exit 0
+copy_runtime_test_files

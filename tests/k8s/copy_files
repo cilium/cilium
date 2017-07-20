@@ -1,15 +1,32 @@
 #!/bin/bash
 
-OLD_DIR=`pwd`
-sudo rm -rf ./cilium-files
-sudo rm -rf *.tar.gz
+set -xv 
 
-cd ./tests/k8s
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/../helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-IDENTITY_FILE=$(vagrant ssh-config | grep IdentityFile | awk '{print $2}')
-PORT=$(vagrant ssh-config default | grep Port | awk '{ print $2 }')
+function copy_k8s_test_files {
+  local OLD_DIR=`pwd`
+  local K8S1="k8s1"
+  local K8S2="k8s2"
+  local K8S_FILES_DIR="tests/${CILIUM_FILES}"
+  local VM1=$(get_k8s_vm_name $K8S1)
+  local VM2=$(get_k8s_vm_name $K8S2)
+  
+  echo "VM1: $VM1"
+  echo "VM2: $VM2"
+ 
+  sudo rm -rf ./cilium-files
+  sudo rm -rf *.tar.gz
+  
+  cd ./tests/k8s
+  copy_files_vm ${VM1} ${K8S_FILES_DIR}
+  copy_files_vm ${VM2} ${K8S_FILES_DIR}
 
-scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${IDENTITY_FILE} vagrant@127.0.0.1:~/go/src/github.com/cilium/cilium/tests/k8s/cilium-files .
+  sudo tar -czvf ${CILIUM_FILES}-k8s.tar.gz ${CILIUM_FILES}-*
+  mv ${CILIUM_FILES}-k8s.tar.gz ${OLD_DIR}
+}
 
-sudo tar -czvf cilium-files-k8s.tar.gz cilium-files
-mv cilium-files-k8s.tar.gz ${OLD_DIR}
+copy_k8s_test_files

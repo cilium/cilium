@@ -70,13 +70,18 @@ $workers_ipv6_addrs = $workers_ipv6_addrs_str.split(' ')
 
 # Create unique ID for use in vboxnet name so Jenkins pipeline can have concurrent builds.
 $job_name = ENV['JOB_NAME'] || "local"
+
+if $job_name != "local"
+ $job_name = $job_name.slice($job_name.index("PR")..-1)
+end
+
 $build_number = ENV['BUILD_NUMBER'] || "0"
 $build_id = "#{$job_name}-#{$build_number}"
 
 # Only create the build_id_name for Jenkins environment so that
 # we can run VMs locally without having any the `build_id` in the name.
 if ENV['BUILD_NUMBER'] then
-    $build_id_name = "-build-#{$build_number}"
+    $build_id_name = "-build-#{$build_id}"
 end
 
 if ENV['K8S'] then

@@ -2,10 +2,13 @@
 
 set -ex
 
-vm_suffix="${BUILD_NUMBER:+-build-$BUILD_NUMBER}"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/../helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-node1="k8s1${vm_suffix}"
-node2="k8s2${vm_suffix}"
+node1=$(get_k8s_vm_name k8s1)
+node2=$(get_k8s_vm_name k8s2)
 
 function reinstall_ipv4(){
     vm="${1}"
