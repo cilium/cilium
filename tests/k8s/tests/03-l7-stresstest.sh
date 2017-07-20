@@ -31,8 +31,7 @@ sed "s/\$kube_node_selector/${node_selector}/" \
     "${l7_stresstest_dir}/1-frontend.json.sed" > "${l7_stresstest_dir}/1-frontend.json"
 
 # Set backend on k8s-2 to force inter-node communication
-# FIXME FIXME FIXME replace with k8s-2 when the l3 + l7 policies are working
-node_selector="k8s-1"
+node_selector="k8s-2"
 
 sed "s/\$kube_node_selector/${node_selector}/" \
     "${l7_stresstest_dir}/2-backend-server.json.sed" > "${l7_stresstest_dir}/2-backend-server.json"
@@ -43,14 +42,15 @@ kubectl create namespace development
 
 kubectl create -f "${l7_stresstest_dir}"
 
-kubectl get pods -n qa -o wide
-kubectl get pods -n development -o wide
-
 wait_for_running_pod frontend qa
 wait_for_running_pod backend development
 
 wait_for_service_endpoints_ready development backend 80
 # frontend doesn't have any endpoints
+
+kubectl get pods -n qa -o wide
+kubectl get pods -n development -o wide
+kubectl describe svc -n development backend
 
 frontend_pod=$(kubectl get pods -n qa | grep frontend | awk '{print $1}')
 backend_pod=$(kubectl get pods -n development | grep backend | awk '{print $1}')
