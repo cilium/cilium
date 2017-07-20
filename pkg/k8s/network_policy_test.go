@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -40,17 +40,17 @@ type K8sSuite struct{}
 var _ = Suite(&K8sSuite{})
 
 func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
-	netPolicy := &v1beta1.NetworkPolicy{
-		Spec: v1beta1.NetworkPolicySpec{
+	netPolicy := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 					"foo2": "bar2",
 				},
 			},
-			Ingress: []v1beta1.NetworkPolicyIngressRule{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
-					From: []v1beta1.NetworkPolicyPeer{
+					From: []networkingv1.NetworkPolicyPeer{
 						{
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
@@ -60,7 +60,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 							},
 						},
 					},
-					Ports: []v1beta1.NetworkPolicyPort{
+					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Port: &intstr.IntOrString{
 								Type:   intstr.Int,
@@ -129,11 +129,11 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
-	netPolicy := &v1beta1.NetworkPolicy{
-		Spec: v1beta1.NetworkPolicySpec{
-			Ingress: []v1beta1.NetworkPolicyIngressRule{
+	netPolicy := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
-					Ports: []v1beta1.NetworkPolicyPort{
+					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Port: &intstr.IntOrString{
 								Type:   intstr.String,
@@ -153,14 +153,14 @@ func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 
 func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	// From missing, all sources should be allowed
-	netPolicy1 := &v1beta1.NetworkPolicy{
-		Spec: v1beta1.NetworkPolicySpec{
+	netPolicy1 := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 				},
 			},
-			Ingress: []v1beta1.NetworkPolicyIngressRule{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{},
 			},
 		},
@@ -187,17 +187,17 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 
 	// Empty From rules, all sources should be allowed
-	netPolicy2 := &v1beta1.NetworkPolicy{
-		Spec: v1beta1.NetworkPolicySpec{
+	netPolicy2 := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
 				},
 			},
-			Ingress: []v1beta1.NetworkPolicyIngressRule{
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
-					From:  []v1beta1.NetworkPolicyPeer{},
-					Ports: []v1beta1.NetworkPolicyPort{},
+					From:  []networkingv1.NetworkPolicyPeer{},
+					Ports: []networkingv1.NetworkPolicyPort{},
 				},
 			},
 		},
@@ -213,8 +213,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 	// From missing, all sources should be allowed
-	netPolicy1 := &v1beta1.NetworkPolicy{
-		Spec: v1beta1.NetworkPolicySpec{
+	netPolicy1 := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{},
 			},
@@ -243,8 +243,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
-	netPolicy := &v1beta1.NetworkPolicy{
-		Spec: v1beta1.NetworkPolicySpec{
+	netPolicy := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"foo1": "bar1",
@@ -296,7 +296,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
     ]
   }
 }`)
-	np := v1beta1.NetworkPolicy{}
+	np := networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
@@ -388,7 +388,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
   }
 }`)
 
-	np = v1beta1.NetworkPolicy{}
+	np = networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
 	c.Assert(err, IsNil)
 
@@ -454,7 +454,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
   }
 }`)
 
-	np = v1beta1.NetworkPolicy{}
+	np = networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex3, &np)
 	c.Assert(err, IsNil)
 
@@ -548,7 +548,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
   }
 }`)
 
-	np = v1beta1.NetworkPolicy{}
+	np = networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex4, &np)
 	c.Assert(err, IsNil)
 
@@ -560,7 +560,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// add example 4
 	repo.AddList(rules)
 
-	np = v1beta1.NetworkPolicy{}
+	np = networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex2, &np)
 	c.Assert(err, IsNil)
 
@@ -676,7 +676,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
   }
 }`)
 
-	np = v1beta1.NetworkPolicy{}
+	np = networkingv1.NetworkPolicy{}
 	err = json.Unmarshal(ex5, &np)
 	c.Assert(err, IsNil)
 

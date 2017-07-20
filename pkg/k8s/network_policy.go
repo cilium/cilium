@@ -23,11 +23,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
 )
 
 // ExtractPolicyName extracts the name of policy name
-func ExtractPolicyName(np *v1beta1.NetworkPolicy) string {
+func ExtractPolicyName(np *networkingv1.NetworkPolicy) string {
 	policyName := np.Annotations[AnnotationName]
 	if policyName == "" {
 		policyName = np.Name
@@ -47,7 +47,7 @@ func ExtractNamespace(np *metav1.ObjectMeta) string {
 
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
-func ParseNetworkPolicy(np *v1beta1.NetworkPolicy) (api.Rules, error) {
+func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingress := api.IngressRule{}
 	namespace := ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {

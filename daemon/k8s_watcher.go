@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -124,9 +125,9 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	}
 
 	_, policyController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.ExtensionsV1beta1().RESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.NetworkingV1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
-		&v1beta1.NetworkPolicy{},
+		&networkingv1.NetworkPolicy{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    d.addK8sNetworkPolicy,
@@ -204,7 +205,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 }
 
 func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
-	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
 	if !ok {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy addition")
 		return
@@ -230,7 +231,7 @@ func (d *Daemon) updateK8sNetworkPolicy(oldObj interface{}, newObj interface{}) 
 }
 
 func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
-	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
 	if !ok {
 		log.Errorf("Ignoring invalid k8s NetworkPolicy deletion")
 		return
