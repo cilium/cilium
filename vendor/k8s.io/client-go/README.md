@@ -6,6 +6,9 @@ We currently recommend using the v2.0.0 tag. See [INSTALL.md](/INSTALL.md) for
 detailed installation instructions. `go get k8s.io/client-go/...` works, but
 will give you head and doesn't handle the dependencies well.
 
+[![Build Status](https://travis-ci.org/kubernetes/client-go.svg?branch=master)](https://travis-ci.org/kubernetes/client-go)
+[![GoDoc](https://godoc.org/k8s.io/client-go?status.svg)](https://godoc.org/k8s.io/client-go)
+
 ## Table of Contents
  
 - [What's included](#whats-included)
@@ -77,20 +80,21 @@ We will backport bugfixes--but not new features--into older versions of
 
 #### Compatibility matrix
 
-|                | Kubernetes 1.3 | Kubernetes 1.4 | Kubernetes 1.5 | Kubernetes 1.6 (not released yet) |
-|----------------|----------------|----------------|----------------|----------------|
-| client-go 1.4  | +              | ✓              | -              | -              |
-| client-go 1.5  | +              | +              | -              | -              |
-| client-go 2.0  | +              | +              | ✓              | -              |
-| client-go HEAD | +              | +              | +              | ✓              |
+|                     | Kubernetes 1.3 | Kubernetes 1.4 | Kubernetes 1.5 | Kubernetes 1.6 |
+|---------------------|----------------|----------------|----------------|----------------|
+| client-go 1.4       | +              | ✓              | -              | -              |
+| client-go 1.5       | +              | +              | -              | -              |
+| client-go 2.0       | +              | +              | ✓              | -              |
+| client-go 3.0 beta  | +              | +              | +              | ✓              |
+| client-go HEAD      | +              | +              | +              | +              |
 
 Key:
 
-* ✓ Exactly the same features / API objects in both client-go and the Kubernetes
+* `✓` Exactly the same features / API objects in both client-go and the Kubernetes
   version.
-* + client-go has features or api objects that may not be present in the
+* `+` client-go has features or api objects that may not be present in the
   Kubernetes cluster, but everything they have in common will work.
-* - The Kubernetes cluster has features the client-go library can't use
+* `-` The Kubernetes cluster has features the client-go library can't use
   (additional API objects, etc).
 
 See the [CHANGELOG](./CHANGELOG.md) for a detailed description of changes
@@ -101,13 +105,14 @@ between client-go versions.
 | client-go 1.4  | Kubernetes main repo, 1.4 branch     | = -                           |
 | client-go 1.5  | Kubernetes main repo, 1.5 branch     | = -                           |
 | client-go 2.0  | Kubernetes main repo, 1.5 branch     | ✓                             |
+| client-go 3.0  | Kubernetes main repo, 1.6 branch     | ✓                             |
 | client-go HEAD | Kubernetes main repo, master branch  | ✓                             |
 
 Key:
 
-* ✓ Changes in main Kubernetes repo are actively published to client-go by a bot
-* = Maintenance is manual, only severe security bugs will be patched.
-* - Deprecated; please upgrade.
+* `✓` Changes in main Kubernetes repo are actively published to client-go by a bot
+* `=` Maintenance is manual, only severe security bugs will be patched.
+* `-` Deprecated; please upgrade.
 
 #### Deprecation policy
 
