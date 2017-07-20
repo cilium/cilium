@@ -68,9 +68,9 @@ func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpoi
 }
 
 /*
-GetEndpoint gets list of all endpoints
+GetEndpoint retrieves a list of endpoints that have metadata matching the provided parameters
 
-Returns an array of all local endpoints.
+Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
 
 */
 func (a *Client) GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error) {

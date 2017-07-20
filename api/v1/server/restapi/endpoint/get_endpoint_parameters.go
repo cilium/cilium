@@ -4,10 +4,14 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetEndpointParams creates a new GetEndpointParams object
@@ -25,6 +29,13 @@ type GetEndpointParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request
+
+	/*List of labels
+
+	  Required: true
+	  In: body
+	*/
+	Labels models.Labels
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -32,6 +43,27 @@ type GetEndpointParams struct {
 func (o *GetEndpointParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 	o.HTTPRequest = r
+
+	if runtime.HasBody(r) {
+		defer r.Body.Close()
+		var body models.Labels
+		if err := route.Consumer.Consume(r.Body, &body); err != nil {
+			if err == io.EOF {
+				res = append(res, errors.Required("labels", "body"))
+			} else {
+				res = append(res, errors.NewParseError("labels", "body", "", err))
+			}
+
+		} else {
+
+			if len(res) == 0 {
+				o.Labels = body
+			}
+		}
+
+	} else {
+		res = append(res, errors.Required("labels", "body"))
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

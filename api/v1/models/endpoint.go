@@ -22,6 +22,9 @@ type Endpoint struct {
 	// ID assigned by container runtime
 	ContainerID string `json:"container-id,omitempty"`
 
+	// Name assigned to container
+	ContainerName string `json:"container-name,omitempty"`
+
 	// Docker endpoint ID
 	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
 
@@ -43,8 +46,14 @@ type Endpoint struct {
 	// Name of network device
 	InterfaceName string `json:"interface-name,omitempty"`
 
+	// Labels describing the identity
+	Labels Labels `json:"labels"`
+
 	// MAC address
 	Mac string `json:"mac,omitempty"`
+
+	// K8s pod for this endpoint
+	PodName string `json:"pod-name,omitempty"`
 
 	// Policy information of endpoint
 	Policy *EndpointPolicy `json:"policy,omitempty"`

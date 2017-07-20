@@ -30,6 +30,13 @@ func (o *GetEndpointReader) ReadResponse(response runtime.ClientResponse, consum
 		}
 		return result, nil
 
+	case 404:
+		result := NewGetEndpointNotFound()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+
 	default:
 		return nil, runtime.NewAPIError("unknown error", response, response.Code())
 	}
@@ -58,6 +65,27 @@ func (o *GetEndpointOK) readResponse(response runtime.ClientResponse, consumer r
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewGetEndpointNotFound creates a GetEndpointNotFound with default headers values
+func NewGetEndpointNotFound() *GetEndpointNotFound {
+	return &GetEndpointNotFound{}
+}
+
+/*GetEndpointNotFound handles this case with default header values.
+
+Endpoints with provided parameters not found
+*/
+type GetEndpointNotFound struct {
+}
+
+func (o *GetEndpointNotFound) Error() string {
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound ", 404)
+}
+
+func (o *GetEndpointNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

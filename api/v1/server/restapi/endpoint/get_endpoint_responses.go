@@ -56,3 +56,24 @@ func (o *GetEndpointOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 	}
 
 }
+
+// GetEndpointNotFoundCode is the HTTP code returned for type GetEndpointNotFound
+const GetEndpointNotFoundCode int = 404
+
+/*GetEndpointNotFound Endpoints with provided parameters not found
+
+swagger:response getEndpointNotFound
+*/
+type GetEndpointNotFound struct {
+}
+
+// NewGetEndpointNotFound creates GetEndpointNotFound with default headers values
+func NewGetEndpointNotFound() *GetEndpointNotFound {
+	return &GetEndpointNotFound{}
+}
+
+// WriteResponse to the client
+func (o *GetEndpointNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(404)
+}

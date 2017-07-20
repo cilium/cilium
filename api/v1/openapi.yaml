@@ -169,11 +169,13 @@ paths:
           description: Endpoint not found
   "/endpoint":
     get:
-      summary: Get list of all endpoints
+      summary: Retrieves a list of endpoints that have metadata matching the provided parameters.
       description: |
-        Returns an array of all local endpoints.
+        Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
       tags:
       - endpoint
+      parameters:
+      - "$ref": "#/parameters/labels"
       responses:
         '200':
           description: Success
@@ -181,6 +183,8 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/Endpoint"
+        '404':
+          description: Endpoints with provided parameters not found
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -443,7 +447,7 @@ paths:
       parameters:
       - name: labels
         in: body
-        required: true
+        required: false
         schema:
           "$ref": "#/definitions/Labels"
       responses:
@@ -557,6 +561,8 @@ parameters:
         - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595
         - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343
         - container-id: Container runtime ID, e.g. container-id:22222
+        - container-name: Container name, e.g. container-name:foobar
+        - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
         - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444
     in: path
     required: true
@@ -574,6 +580,14 @@ parameters:
     in: path
     required: true
     type: string
+  labels:
+    name: labels
+    description: |
+      List of labels
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/Labels"
   policy-rules:
     name: policy
     description: Policy rules
@@ -581,6 +595,13 @@ parameters:
     in: body
     schema:
       type: string
+  pod-name:
+    name: pod
+    description: |
+      K8s pod name
+    required: true
+    in: path
+    type: string
   identity-context:
     name: identity-context
     description: Context to provide policy evaluation on
@@ -632,6 +653,9 @@ definitions:
       container-id:
         description: ID assigned by container runtime
         type: string
+      container-name:
+        description: Name assigned to container
+        type: string
       docker-endpoint-id:
         description: Docker endpoint ID
         type: string
@@ -666,6 +690,9 @@ definitions:
       identity:
         description: Security identity
         "$ref": "#/definitions/Identity"
+      pod-name:
+        description: K8s pod for this endpoint
+        type: string
       policy:
         description: Policy information of endpoint
         "$ref": "#/definitions/EndpointPolicy"
@@ -684,6 +711,9 @@ definitions:
         type: integer
       container-id:
         description: ID assigned by container runtime
+        type: string
+      container-name:
+        description: Name assigned to container
         type: string
       docker-endpoint-id:
         description: Docker endpoint ID
@@ -815,8 +845,11 @@ definitions:
     description: Label configuration of an endpoint
     type: object
     properties:
-      orchestration-system:
-        description: "Labels derived from orchestration system"
+      orchestration-identity:
+        description: "Labels derived from orchestration system that are used in computing a security identity"
+        "$ref": "#/definitions/Labels"
+      orchestration-info:
+        description: "Labels derived from orchestration system that are not used in computing a security identity"
         "$ref": "#/definitions/Labels"
       custom:
         description: "Custom labels in addition to orchestration system labels."
