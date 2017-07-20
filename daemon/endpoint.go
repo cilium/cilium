@@ -89,7 +89,6 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 			go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
 				ep.Mutex.RLock()
 				if ep.HasLabels(convertedLabels) {
-					log.Warningf("ep %d contains labels %v", ep.ID, convertedLabels)
 					eps = append(eps, ep.GetModel())
 				}
 				ep.Mutex.RUnlock()
