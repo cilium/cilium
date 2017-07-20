@@ -19,8 +19,11 @@ type LabelConfiguration struct {
 	// Labels derived from orchestration system which have been disabled.
 	Disabled Labels `json:"disabled"`
 
-	// Labels derived from orchestration system
-	OrchestrationSystem Labels `json:"orchestration-system"`
+	// Labels derived from orchestration system that are used in computing a security identity
+	OrchestrationIdentity Labels `json:"orchestration-identity"`
+
+	// Labels derived from orchestration system that are not used in computing a security identity
+	OrchestrationInfo Labels `json:"orchestration-info"`
 }
 
 // Validate validates this label configuration

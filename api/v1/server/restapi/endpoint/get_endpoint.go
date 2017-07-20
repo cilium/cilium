@@ -29,9 +29,9 @@ func NewGetEndpoint(ctx *middleware.Context, handler GetEndpointHandler) *GetEnd
 
 /*GetEndpoint swagger:route GET /endpoint endpoint getEndpoint
 
-Get list of all endpoints
+Retrieves a list of endpoints that have metadata matching the provided parameters.
 
-Returns an array of all local endpoints.
+Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
 
 
 */

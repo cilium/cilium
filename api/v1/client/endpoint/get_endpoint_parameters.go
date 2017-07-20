@@ -14,12 +14,14 @@ import (
 	cr "github.com/go-openapi/runtime/client"
 
 	strfmt "github.com/go-openapi/strfmt"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetEndpointParams creates a new GetEndpointParams object
 // with the default values initialized.
 func NewGetEndpointParams() *GetEndpointParams {
-
+	var ()
 	return &GetEndpointParams{
 
 		timeout: cr.DefaultTimeout,
@@ -29,7 +31,7 @@ func NewGetEndpointParams() *GetEndpointParams {
 // NewGetEndpointParamsWithTimeout creates a new GetEndpointParams object
 // with the default values initialized, and the ability to set a timeout on a request
 func NewGetEndpointParamsWithTimeout(timeout time.Duration) *GetEndpointParams {
-
+	var ()
 	return &GetEndpointParams{
 
 		timeout: timeout,
@@ -39,7 +41,7 @@ func NewGetEndpointParamsWithTimeout(timeout time.Duration) *GetEndpointParams {
 // NewGetEndpointParamsWithContext creates a new GetEndpointParams object
 // with the default values initialized, and the ability to set a context for a request
 func NewGetEndpointParamsWithContext(ctx context.Context) *GetEndpointParams {
-
+	var ()
 	return &GetEndpointParams{
 
 		Context: ctx,
@@ -49,7 +51,7 @@ func NewGetEndpointParamsWithContext(ctx context.Context) *GetEndpointParams {
 // NewGetEndpointParamsWithHTTPClient creates a new GetEndpointParams object
 // with the default values initialized, and the ability to set a custom HTTPClient for a request
 func NewGetEndpointParamsWithHTTPClient(client *http.Client) *GetEndpointParams {
-
+	var ()
 	return &GetEndpointParams{
 		HTTPClient: client,
 	}
@@ -59,6 +61,14 @@ func NewGetEndpointParamsWithHTTPClient(client *http.Client) *GetEndpointParams 
 for the get endpoint operation typically these are written to a http.Request
 */
 type GetEndpointParams struct {
+
+	/*Labels
+	  List of labels
+
+
+	*/
+	Labels models.Labels
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -97,6 +107,17 @@ func (o *GetEndpointParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithLabels adds the labels to the get endpoint params
+func (o *GetEndpointParams) WithLabels(labels models.Labels) *GetEndpointParams {
+	o.SetLabels(labels)
+	return o
+}
+
+// SetLabels adds the labels to the get endpoint params
+func (o *GetEndpointParams) SetLabels(labels models.Labels) {
+	o.Labels = labels
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetEndpointParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -104,6 +125,10 @@ func (o *GetEndpointParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
+
+	if err := r.SetBodyParam(o.Labels); err != nil {
+		return err
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

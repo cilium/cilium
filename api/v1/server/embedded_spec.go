@@ -80,11 +80,16 @@ func init() {
     },
     "/endpoint": {
       "get": {
-        "description": "Returns an array of all local endpoints.\n",
+        "description": "Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.\n",
         "tags": [
           "endpoint"
         ],
-        "summary": "Get list of all endpoints",
+        "summary": "Retrieves a list of endpoints that have metadata matching the provided parameters.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/labels"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -94,6 +99,9 @@ func init() {
                 "$ref": "#/definitions/Endpoint"
               }
             }
+          },
+          "404": {
+            "description": "Endpoints with provided parameters not found"
           }
         }
       }
@@ -646,7 +654,6 @@ func init() {
           {
             "name": "labels",
             "in": "body",
-            "required": true,
             "schema": {
               "$ref": "#/definitions/Labels"
             }
@@ -888,6 +895,10 @@ func init() {
           "description": "ID assigned by container runtime",
           "type": "string"
         },
+        "container-name": {
+          "description": "Name assigned to container",
+          "type": "string"
+        },
         "docker-endpoint-id": {
           "description": "Docker endpoint ID",
           "type": "string"
@@ -916,8 +927,16 @@ func init() {
           "description": "Name of network device",
           "type": "string"
         },
+        "labels": {
+          "description": "Labels describing the identity",
+          "$ref": "#/definitions/Labels"
+        },
         "mac": {
           "description": "MAC address",
+          "type": "string"
+        },
+        "pod-name": {
+          "description": "K8s pod for this endpoint",
           "type": "string"
         },
         "policy": {
@@ -967,6 +986,10 @@ func init() {
         },
         "container-id": {
           "description": "ID assigned by container runtime",
+          "type": "string"
+        },
+        "container-name": {
+          "description": "Name assigned to container",
           "type": "string"
         },
         "docker-endpoint-id": {
@@ -1198,8 +1221,12 @@ func init() {
           "description": "Labels derived from orchestration system which have been disabled.",
           "$ref": "#/definitions/Labels"
         },
-        "orchestration-system": {
-          "description": "Labels derived from orchestration system",
+        "orchestration-identity": {
+          "description": "Labels derived from orchestration system that are used in computing a security identity",
+          "$ref": "#/definitions/Labels"
+        },
+        "orchestration-info": {
+          "description": "Labels derived from orchestration system that are not used in computing a security identity",
           "$ref": "#/definitions/Labels"
         }
       }
@@ -1397,7 +1424,7 @@ func init() {
     },
     "endpoint-id": {
       "type": "string",
-      "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+      "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
       "name": "id",
       "in": "path",
       "required": true
@@ -1430,6 +1457,22 @@ func init() {
       "type": "string",
       "description": "IP address",
       "name": "ip",
+      "in": "path",
+      "required": true
+    },
+    "labels": {
+      "description": "List of labels\n",
+      "name": "labels",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/Labels"
+      }
+    },
+    "pod-name": {
+      "type": "string",
+      "description": "K8s pod name\n",
+      "name": "pod",
       "in": "path",
       "required": true
     },

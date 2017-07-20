@@ -401,9 +401,6 @@ func (o *CiliumAPI) HandlerFor(method, path string) (http.Handler, bool) {
 	if _, ok := o.handlers[um]; !ok {
 		return nil, false
 	}
-	if path == "/" {
-		path = ""
-	}
 	h, ok := o.handlers[um][path]
 	return h, ok
 }

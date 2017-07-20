@@ -21,6 +21,9 @@ type EndpointChangeRequest struct {
 	// ID assigned by container runtime
 	ContainerID string `json:"container-id,omitempty"`
 
+	// Name assigned to container
+	ContainerName string `json:"container-name,omitempty"`
+
 	// Docker endpoint ID
 	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
 
