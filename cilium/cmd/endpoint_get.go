@@ -18,28 +18,50 @@ import (
 	"encoding/json"
 	"fmt"
 
+	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
+
 	"github.com/spf13/cobra"
 )
 
+var lbls []string
+
 // endpointGetCmd represents the endpoint_get command
 var endpointGetCmd = &cobra.Command{
-	Use:     "get <endpoint-id>",
+	Use:     "get ( <endpoint identifier> | -l <endpoint labels> ) ",
 	Aliases: []string{"inspect, show"},
 	Short:   "Display endpoint information",
-	Example: "cilium endpoint get 4598",
-	PreRun:  requireEndpointID,
+	Example: "cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium endpoint get -l id.baz",
 	Run: func(cmd *cobra.Command, args []string) {
-		id := args[0]
-		if e, err := client.EndpointGet(id); err != nil {
-			Fatalf("Cannot get endpoint %s: %s\n", id, err)
-		} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
-			Fatalf("Cannot marshal endpoing: %s", err.Error())
+
+		if len(lbls) > 0 && len(args) > 0 {
+			Usagef(cmd, "Cannot provide both endpoint ID and labels arguments concurrently")
+		}
+
+		if len(lbls) > 0 {
+			params := endpointApi.NewGetEndpointParams().WithLabels(lbls)
+			if e, err := client.Endpoint.GetEndpoint(params); err != nil {
+				Fatalf("Cannot get endpoints for given list of labels %s: %s\n", lbls, err)
+			} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
+				Fatalf("Cannot marshal endpoints %s", err.Error())
+			} else {
+				fmt.Println(string(b))
+			}
 		} else {
-			fmt.Println(string(b))
+			requireEndpointID(cmd, args)
+			eID := args[0]
+			if e, err := client.EndpointGet(eID); err != nil {
+				Fatalf("Cannot get endpoint %s: %s\n", eID, err)
+			} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
+				Fatalf("Cannot marshal endpoint: %s", err.Error())
+			} else {
+				fmt.Println(string(b))
+			}
+
 		}
 	},
 }
 
 func init() {
 	endpointCmd.AddCommand(endpointGetCmd)
+	endpointGetCmd.Flags().StringSliceVarP(&lbls, "labels", "l", []string{}, "list of labels")
 }

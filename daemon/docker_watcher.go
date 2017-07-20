@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -183,14 +184,14 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	return k8sLabels, nil
 }
 
-func (d *Daemon) getFilteredLabels(allLabels map[string]string) labels.Labels {
+func (d *Daemon) getFilteredLabels(allLabels map[string]string) (identityLabels, informationLabels labels.Labels) {
 	combinedLabels := labels.Map2Labels(allLabels, labels.LabelSourceContainer)
 
 	// Merge Kubernetes labels into container runtime labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
 		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
 		if err != nil {
-			log.Warningf("Error while getting kubernetes labels: %s", err)
+			log.Warningf("Error while getting Kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {
 			k8sLbls := labels.Map2Labels(k8sNormalLabels, labels.LabelSourceK8s)
 			combinedLabels.MergeLabels(k8sLbls)
@@ -219,7 +220,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			}
 		}
 
-		dockerContainer, lbls, err := d.retrieveDockerLabels(id)
+		dockerContainer, identityLabels, informationLabels, err := d.retrieveDockerLabels(id)
 		if err != nil {
 			log.Warningf("unable to inspect container %s, retrying later (%s)", id, err)
 			continue
@@ -230,9 +231,14 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			dockerEpID = dockerContainer.NetworkSettings.EndpointID
 		}
 
+		containerName := dockerContainer.Name
+		if containerName == "" {
+			log.Warningf("container name not set for container %s", id)
+		}
+
 		ep := endpointmanager.LookupDockerID(id)
 		if ep == nil {
-			// container id is yet unknown, try and find endpoint via
+			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
 			cid := getCiliumEndpointID(dockerContainer)
 			if cid != 0 {
@@ -258,6 +264,19 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			continue
 		}
 
+		ep.Mutex.Lock()
+		// Docker appends '/' to container names.
+		ep.ContainerName = strings.Trim(containerName, "/")
+		if d.conf.IsK8sEnabled() {
+			if dockerContainer.Config != nil {
+				podNamespace := k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels)
+				podName := k8sDockerLbls.GetPodName(dockerContainer.Config.Labels)
+				ep.PodName = fmt.Sprintf("%s:%s", podNamespace, podName)
+			}
+		}
+		ep.Mutex.Unlock()
+		endpointmanager.UpdateReferences(ep)
+
 		d.containersMU.RLock()
 		cont, ok := d.containers[id]
 		d.containersMU.RUnlock()
@@ -266,7 +285,8 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		}
 
 		ep.Mutex.Lock()
-		orchLabelsModified := ep.UpdateOrchLabels(lbls)
+		ep.UpdateOrchInformationLabels(informationLabels)
+		orchLabelsModified := ep.UpdateOrchIdentityLabels(identityLabels)
 		if ok && !orchLabelsModified {
 			ep.Mutex.Unlock()
 			log.Debugf("No changes to orch labels.")
@@ -296,7 +316,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		d.containersMU.Lock()
 
 		// If the container ID was known and found before, check if it still
-		// exists, it may have disappared while we gave up the containers
+		// exists, it may have disappeared while we gave up the containers
 		// lock to create/update the identity.
 		if ok && d.containers[epDockerID] == nil {
 			d.containersMU.Unlock()
@@ -324,18 +344,23 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 	log.Infof("Container %s did not appear as endpoint. Likely managed by other plugin", id)
 }
 
-func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels, error) {
+// retrieveDockerLabels returns the metadata for the container with ID dockerID,
+// and two sets of labels: the labels that are utilized in computing the security
+// identity for an endpoint, and the set of labels that are not utilized in
+// computing the security identity for an endpoint.
+func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels, labels.Labels, error) {
 	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to inspect container '%s': %s", dockerID, err)
+		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", dockerID, err)
 	}
 
 	newLabels := labels.Labels{}
+	informationLabels := labels.Labels{}
 	if dockerCont.Config != nil {
-		newLabels = d.getFilteredLabels(dockerCont.Config.Labels)
+		newLabels, informationLabels = d.getFilteredLabels(dockerCont.Config.Labels)
 	}
 
-	return &dockerCont, newLabels, nil
+	return &dockerCont, newLabels, informationLabels, nil
 }
 
 func (d *Daemon) deleteContainer(dockerID string) {

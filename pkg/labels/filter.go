@@ -192,9 +192,11 @@ func readLabelPrefixCfgFrom(fileName string) (*LabelPrefixCfg, error) {
 }
 
 // FilterLabels returns Labels from the given labels that have the same source and the
-// same prefix as one of lpc valid prefixes.
-func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
-	filteredLabels := Labels{}
+// same prefix as one of lpc valid prefixes, as well as labels that do not match
+// the aforementioned filtering criteria.
+func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) (identityLabels, informationLabels Labels) {
+	identityLabels = Labels{}
+	informationLabels = Labels{}
 	for k, v := range lbls {
 		included, ignored := 0, 0
 
@@ -227,8 +229,10 @@ func (cfg *LabelPrefixCfg) FilterLabels(lbls Labels) Labels {
 		if (!cfg.whitelist && ignored == 0) || included > ignored {
 			// Just want to make sure we don't have labels deleted in
 			// on side and disappearing in the other side...
-			filteredLabels[k] = v.DeepCopy()
+			identityLabels[k] = v.DeepCopy()
+		} else {
+			informationLabels[k] = v.DeepCopy()
 		}
 	}
-	return filteredLabels
+	return identityLabels, informationLabels
 }

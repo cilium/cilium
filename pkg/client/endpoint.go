@@ -20,7 +20,7 @@ import (
 	pkgEndpoint "github.com/cilium/cilium/pkg/endpoint"
 )
 
-// EndpointList returns list of endpoints
+// EndpointList returns a list of all endpoints
 func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 	resp, err := c.Endpoint.GetEndpoint(nil)
 	if err != nil {

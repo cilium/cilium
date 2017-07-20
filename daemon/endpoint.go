@@ -60,21 +60,51 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	log.Debugf("GET /endpoint request: %+v", params)
 
 	var wg sync.WaitGroup
-	i := 0
-	endpointmanager.Mutex.RLock()
-	eps := make([]*models.Endpoint, len(endpointmanager.Endpoints))
-	wg.Add(len(endpointmanager.Endpoints))
-	for k := range endpointmanager.Endpoints {
-		go func(wg *sync.WaitGroup, i int, ep *endpoint.Endpoint) {
-			eps[i] = ep.GetModel()
-			wg.Done()
-		}(&wg, i, endpointmanager.Endpoints[k])
-		i++
-	}
-	endpointmanager.Mutex.RUnlock()
-	wg.Wait()
 
-	return NewGetEndpointOK().WithPayload(eps)
+	if params.Labels == nil {
+		i := 0
+		endpointmanager.Mutex.RLock()
+		eps := make([]*models.Endpoint, len(endpointmanager.Endpoints))
+		wg.Add(len(endpointmanager.Endpoints))
+		for k := range endpointmanager.Endpoints {
+			go func(wg *sync.WaitGroup, i int, ep *endpoint.Endpoint) {
+				eps[i] = ep.GetModel()
+				wg.Done()
+			}(&wg, i, endpointmanager.Endpoints[k])
+			i++
+		}
+		endpointmanager.Mutex.RUnlock()
+		wg.Wait()
+		return NewGetEndpointOK().WithPayload(eps)
+	} else {
+		eps := []*models.Endpoint{}
+
+		// Convert params.Labels to model that we can compare with the endpoint's labels.
+		convertedLabels := labels.NewLabelsFromModel(params.Labels)
+
+		endpointmanager.Mutex.RLock()
+
+		wg.Add(len(endpointmanager.Endpoints))
+		for k := range endpointmanager.Endpoints {
+			go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
+				ep.Mutex.RLock()
+				if ep.HasLabels(convertedLabels) {
+					log.Warningf("ep %d contains labels %v", ep.ID, convertedLabels)
+					eps = append(eps, ep.GetModel())
+				}
+				ep.Mutex.RUnlock()
+				wg.Done()
+			}(&wg, endpointmanager.Endpoints[k])
+		}
+		endpointmanager.Mutex.RUnlock()
+		wg.Wait()
+
+		if len(eps) == 0 {
+			return NewGetEndpointNotFound()
+		}
+
+		return NewGetEndpointOK().WithPayload(eps)
+	}
 }
 
 type getEndpointID struct {
@@ -269,10 +299,10 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	defer ep.Mutex.Unlock()
 	ep.LeaveLocked(d)
 
-	sha256sum := ep.OpLabels.Enabled().SHA256Sum()
+	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
 	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
 		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
-			sha256sum, ep.OpLabels.Enabled(), err)
+			sha256sum, ep.OpLabels.IdentityLabels(), err)
 	}
 	errors := lxcmap.DeleteElement(ep)
 
@@ -459,9 +489,10 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 
 	cont.Mutex.RLock()
 	cfg := models.LabelConfiguration{
-		Disabled:            ep.OpLabels.Disabled.GetModel(),
-		Custom:              ep.OpLabels.Custom.GetModel(),
-		OrchestrationSystem: ep.OpLabels.Orchestration.GetModel(),
+		Disabled:              ep.OpLabels.Disabled.GetModel(),
+		Custom:                ep.OpLabels.Custom.GetModel(),
+		OrchestrationIdentity: ep.OpLabels.OrchestrationIdentity.GetModel(),
+		OrchestrationInfo:     ep.OpLabels.OrchestrationInfo.GetModel(),
 	}
 	cont.Mutex.RUnlock()
 
@@ -476,8 +507,8 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 // endpoint's labels.
 func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.Responder {
 	d.conf.ValidLabelPrefixesMU.RLock()
-	addLabels := d.conf.ValidLabelPrefixes.FilterLabels(add)
-	delLabels := d.conf.ValidLabelPrefixes.FilterLabels(del)
+	addLabels, _ := d.conf.ValidLabelPrefixes.FilterLabels(add)
+	delLabels, _ := d.conf.ValidLabelPrefixes.FilterLabels(del)
 	d.conf.ValidLabelPrefixesMU.RUnlock()
 
 	if len(addLabels) == 0 && len(delLabels) == 0 {
@@ -511,7 +542,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 			// The change request is accepted if the label is on
 			// any of the lists. If the label is already disabled,
 			// we will simply ignore that change.
-			if oldLabels.Orchestration[k] != nil ||
+			if oldLabels.OrchestrationIdentity[k] != nil ||
 				oldLabels.Custom[k] != nil ||
 				oldLabels.Disabled[k] != nil {
 				break
@@ -524,8 +555,8 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 
 	if len(delLabels) > 0 {
 		for k, v := range delLabels {
-			if oldLabels.Orchestration[k] != nil {
-				delete(oldLabels.Orchestration, k)
+			if oldLabels.OrchestrationIdentity[k] != nil {
+				delete(oldLabels.OrchestrationIdentity, k)
 				oldLabels.Disabled[k] = v
 			}
 
@@ -539,8 +570,8 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		for k, v := range addLabels {
 			if oldLabels.Disabled[k] != nil {
 				delete(oldLabels.Disabled, k)
-				oldLabels.Orchestration[k] = v
-			} else if oldLabels.Orchestration[k] == nil {
+				oldLabels.OrchestrationIdentity[k] = v
+			} else if oldLabels.OrchestrationIdentity[k] == nil {
 				oldLabels.Custom[k] = v
 			}
 		}

@@ -54,11 +54,11 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"annotation.kubernetes.io/config.seen": "2017-05-30T14:22:17.691491034Z",
 	}
 	allLabels := Map2Labels(allNormalLabels, LabelSourceContainer)
-	filtered := dlpcfg.FilterLabels(allLabels)
+	filtered, _ := dlpcfg.FilterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 1)
 	allLabels["id.lizards"] = NewLabel("id.lizards", "web", LabelSourceContainer)
 	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", LabelSourceK8s)
-	filtered = dlpcfg.FilterLabels(allLabels)
+	filtered, _ = dlpcfg.FilterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 3)
 	c.Assert(filtered, DeepEquals, wanted)
 

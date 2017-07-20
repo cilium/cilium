@@ -63,6 +63,20 @@ func lookupDockerEndpointLocked(id string) *endpoint.Endpoint {
 	return nil
 }
 
+func lookupPodNameLocked(name string) *endpoint.Endpoint {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, name)]; ok {
+		return ep
+	}
+	return nil
+}
+
+func lookupDockerContainerNameLocked(name string) *endpoint.Endpoint {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, name)]; ok {
+		return ep
+	}
+	return nil
+}
+
 // LookupDockerID looks up endpoint by Docker ID
 func LookupDockerID(id string) *endpoint.Endpoint {
 	Mutex.Lock()
@@ -103,7 +117,8 @@ func LinkContainerID(ep *endpoint.Endpoint) {
 	linkContainerID(ep)
 }
 
-// UpdateReferences makes an endpoint available
+// UpdateReferences updates the mappings of various values to their corresponding
+// endpoints, such as DockerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
 	if ep.DockerID != "" {
 		linkContainerID(ep)
@@ -115,6 +130,14 @@ func updateReferences(ep *endpoint.Endpoint) {
 
 	if ep.IPv4.String() != "" {
 		endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String())] = ep
+	}
+
+	if ep.ContainerName != "" {
+		endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName)] = ep
+	}
+
+	if ep.PodName != "" {
+		endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, ep.PodName)] = ep
 	}
 }
 
@@ -149,6 +172,14 @@ func RemoveLocked(ep *endpoint.Endpoint) {
 		delete(endpointsAux, endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String()))
 	}
 
+	if ep.ContainerName != "" {
+		delete(endpointsAux, endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName))
+	}
+
+	if ep.PodName != "" {
+		delete(endpointsAux, endpoint.NewID(endpoint.PodNamePrefix, ep.PodName))
+	}
+
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -179,6 +210,12 @@ func LookupLocked(id string) (*endpoint.Endpoint, error) {
 
 	case endpoint.DockerEndpointPrefix:
 		return lookupDockerEndpointLocked(eid), nil
+
+	case endpoint.ContainerNamePrefix:
+		return lookupDockerContainerNameLocked(eid), nil
+
+	case endpoint.PodNamePrefix:
+		return lookupPodNameLocked(eid), nil
 
 	case endpoint.IPv4Prefix:
 		return lookupIPv4Locked(eid), nil
