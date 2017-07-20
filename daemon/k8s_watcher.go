@@ -124,7 +124,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	}
 
 	_, policyController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.ExtensionsV1beta1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.NetworkPolicy{},
 		reSyncPeriod,
@@ -137,7 +137,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go policyController.Run(wait.NeverStop)
 
 	_, svcController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Core().RESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
 		reSyncPeriod,
@@ -150,7 +150,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go svcController.Run(wait.NeverStop)
 
 	_, endpointController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Core().RESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll, fields.Everything()),
 		&v1.Endpoints{},
 		reSyncPeriod,
@@ -163,7 +163,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go endpointController.Run(wait.NeverStop)
 
 	_, ingressController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.Extensions().RESTClient(),
+		cache.NewListWatchFromClient(d.k8sClient.ExtensionsV1beta1().RESTClient(),
 			"ingresses", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.Ingress{},
 		reSyncPeriod,
