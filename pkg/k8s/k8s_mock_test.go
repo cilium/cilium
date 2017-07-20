@@ -21,6 +21,7 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
+	admissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
@@ -33,6 +34,7 @@ import (
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
@@ -218,6 +220,14 @@ func (c Clientset) Core() corev1.CoreV1Interface {
 	return nil
 }
 
+func (c Clientset) AdmissionregistrationV1alpha1() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+	return nil
+}
+
+func (c Clientset) Admissionregistration() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+	return nil
+}
+
 func (c Clientset) AppsV1beta1() appsv1beta1.AppsV1beta1Interface {
 	return nil
 }
@@ -287,6 +297,14 @@ func (c Clientset) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interf
 }
 
 func (c Clientset) Extensions() extensionsv1beta1.ExtensionsV1beta1Interface {
+	return nil
+}
+
+func (c Clientset) NetworkingV1() networkingv1.NetworkingV1Interface {
+	return nil
+}
+
+func (c Clientset) Networking() networkingv1.NetworkingV1Interface {
 	return nil
 }
 
