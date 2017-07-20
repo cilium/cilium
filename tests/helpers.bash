@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+CILIUM_FILES="cilium-files"
 DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 LAST_LOG_DATE=""
@@ -369,3 +370,61 @@ function policy_import_and_wait {
 	rev=$(cilium policy import $* | grep Revision: | awk '{print $2}')
 	cilium policy wait $rev
 }
+
+function get_vm_identity_file {
+  local VM_NAME=$1
+  vagrant ssh-config ${VM_NAME} | grep IdentityFile | awk '{print $2}'
+}
+
+function get_vm_ssh_port {
+  local VM_NAME=$1
+  vagrant ssh-config ${VM_NAME} | grep Port | awk '{ print $2 }'
+}
+
+function copy_files_vm {
+  local VM_NAME=$1 
+  local FILES_DIR=$2
+  echo "copy_files_vm: VM_NAME= $VM_NAME"
+  echo "copy_files_vm: FILES_DIR= $FILES_DIR"
+  local ID_FILE=$(get_vm_identity_file $VM_NAME)
+  local PORT=$(get_vm_ssh_port $VM_NAME)
+
+  scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${ID_FILE} vagrant@127.0.0.1:~/go/src/github.com/cilium/cilium/${FILES_DIR} .
+  mv cilium-files cilium-files-${VM_NAME}
+}
+
+function get_k8s_vm_name {
+  local VM_PREFIX=$1
+  local BUILD_NUM="${BUILD_NUMBER:-0}"
+  local JOB_NAME="${JOB_NAME:-local}"
+  if [[ "${JOB_NAME}" != "local" ]] ; then
+    local JOB_NAME=$(echo ${JOB_NAME} | awk -F/ '{ print $NF }')
+  fi
+  local BUILD_ID="${JOB_NAME}-${BUILD_NUM}"
+  if [ ! -z ${BUILD_NUMBER} ] ; then
+    local BUILD_ID_NAME="-build-${BUILD_ID}"
+  fi
+  echo "${VM_PREFIX}${BUILD_ID_NAME}"
+}
+
+function get_cilium_master_vm_name {
+  if [ ! -z ${K8STAG} ] ; then
+    local K8S_TAG="${K8STAG:-k8s}"
+  fi
+
+  local BUILD_NUM="${BUILD_NUMBER:-0}"
+  local JOB_NAME="${JOB_NAME:-local}"
+ 
+  if [[ "${JOB_NAME}" != "local" ]] ; then
+    local JOB_NAME=$(echo ${JOB_NAME} | awk -F/ '{ print $NF }')
+  fi
+
+  local BUILD_ID="${JOB_NAME}-${BUILD_NUM}"
+
+  if [ ! -z ${BUILD_NUMBER} ] ; then
+    local BUILD_ID_NAME="-build-${BUILD_ID}"
+  fi
+  
+  echo "cilium${K8S_TAG}-master${BUILD_ID_NAME}"
+}
+
