@@ -30,7 +30,7 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 		// We only care about this address types,
 		// we ignore all other types.
 		switch addr.Type {
-		case v1.NodeLegacyHostIP, v1.NodeInternalIP, v1.NodeExternalIP:
+		case v1.NodeInternalIP, v1.NodeExternalIP:
 		default:
 			continue
 		}

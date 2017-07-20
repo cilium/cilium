@@ -35,12 +35,12 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("203.0.113.1"), AddressType: v1.NodeLegacyHostIP},
+			{IP: net.ParseIP("192.0.2.3"), AddressType: v1.NodeExternalIP},
 		},
 	}
 	ip := n.GetNodeIP(false)
 	// Return the only IP present
-	c.Assert(ip.Equal(net.ParseIP("203.0.113.1")), Equals, true)
+	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), AddressType: v1.NodeExternalIP})
 	ip = n.GetNodeIP(false)
@@ -55,11 +55,6 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), AddressType: v1.NodeExternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeExternalIP and IPv6
-	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
-
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::3"), AddressType: v1.NodeLegacyHostIP})
-	ip = n.GetNodeIP(true)
-	// Should still return the NodeExternalIP and IPv6
 	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), AddressType: v1.NodeInternalIP})
