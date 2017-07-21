@@ -86,22 +86,26 @@ func CreateTPRClient(config *rest.Config) (*rest.RESTClient, error) {
 	return rest.RESTClientFor(config)
 }
 
-// AnnotateNodeCIDR writes both v4 and v6 CIDRs in the given k8sNode.
+// AnnotateNodeCIDR writes both v4 and v6 CIDRs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNodeCIDR(c kubernetes.Interface, k8sNode *v1.Node, v4CIDR, v6CIDR *net.IPNet) {
+func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) error {
+	k8sNode, err := c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
 	// register IP CIDRs in node's annotations
 	log.Debugf("k8s: Storing IPv4 CIDR %s in k8s node %s's annotations", v4CIDR, k8sNode.Name)
 	log.Debugf("k8s: Storing IPv6 CIDR %s in k8s node %s's annotations", v6CIDR, k8sNode.Name)
 	k8sNode.Annotations[Annotationv4CIDRName] = v4CIDR.String()
 	k8sNode.Annotations[Annotationv6CIDRName] = v6CIDR.String()
 
-	_, err := c.CoreV1().Nodes().Update(k8sNode)
+	_, err = c.CoreV1().Nodes().Update(k8sNode)
 	if err != nil {
 		go func(c kubernetes.Interface, k8sServerNode *v1.Node, v4CIDR, v6CIDR *net.IPNet, err error) {
 			// TODO: Retry forever?
 			for n := 0; err != nil; {
-				log.Errorf("K8s: unable to update node %s with IPv6 CIDR annotation: %s, retrying...", k8sServerNode.Name, err)
+				log.Errorf("k8s: unable to update node %s with IPv6 CIDR annotation: %s, retrying...", k8sServerNode.Name, err)
 				// In case of an error let's retry until
 				// we were able to set the annotations properly
 				k8sServerNode.Annotations[Annotationv4CIDRName] = v4CIDR.String()
@@ -114,4 +118,5 @@ func AnnotateNodeCIDR(c kubernetes.Interface, k8sNode *v1.Node, v4CIDR, v6CIDR *
 			}
 		}(c, k8sNode, v4CIDR, v6CIDR, err)
 	}
+	return nil
 }
