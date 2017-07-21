@@ -287,13 +287,13 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		ep.Mutex.Lock()
 		ep.UpdateOrchInformationLabels(informationLabels)
 		orchLabelsModified := ep.UpdateOrchIdentityLabels(identityLabels)
+
 		if ok && !orchLabelsModified {
-			ep.Mutex.Unlock()
 			log.Debugf("No changes to orch labels.")
-			return
 		}
-		// It's mandatory to update the container in its label otherwise
-		// the label will be considered unused.
+		// It's mandatory to update the endpoint identity in the KVStore.
+		// This way we keep the RefCount refreshed and the SecurityLabelID
+		// will not be considered unused.
 		identity, newHash, err := d.updateEndpointIdentity(ep.StringID(), ep.LabelsHash, &ep.OpLabels)
 		if err != nil {
 			ep.Mutex.Unlock()
@@ -302,6 +302,11 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		}
 		ep.LabelsHash = newHash
 		ep.Mutex.Unlock()
+
+		// Since no orchLabels were modified we can safely return here
+		if ok && !orchLabelsModified {
+			return
+		}
 
 		ep = endpointmanager.LookupDockerID(id)
 		if ep == nil {
