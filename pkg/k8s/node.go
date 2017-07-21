@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/Sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
@@ -94,4 +96,11 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 	}
 
 	return node
+}
+
+// GetNode returns the kubernetes nodeName's node information from the
+// kubernetes api server
+func GetNode(c kubernetes.Interface, nodeName string) (*v1.Node, error) {
+	// Try to retrieve node's cidr and addresses from k8s's configuration
+	return c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 }

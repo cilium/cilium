@@ -62,9 +62,7 @@ import (
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/vishvananda/netlink"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -787,8 +785,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	d.listenForCiliumEvents()
 
-	var k8sNode *v1.Node
-
 	if c.IsK8sEnabled() {
 		restConfig, err := k8s.CreateConfig(c.K8sEndpoint, c.K8sCfgPath)
 		if err != nil {
@@ -805,13 +801,14 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			// node-name automatically derived
 			nodeaddress.SetName(nodeName)
 
-			// Try to retrieve node's cidr and addresses from k8s's configuration
-			k8sNode, err = d.k8sClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			k8sNode, err := k8s.GetNode(d.k8sClient, nodeName)
 			if err != nil {
 				return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
 			}
 
 			node := k8s.ParseNode(k8sNode)
+
+			log.Infof("Retrieved node's %s information from kubernetes", node.Name)
 
 			if err := nodeaddress.UseNodeCIDR(node); err != nil {
 				return nil, fmt.Errorf("unable to retrieve k8s node CIDR: %s", err)
@@ -879,14 +876,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	node.UpdateNode(nodeaddress.GetNode())
 
 	if c.IsK8sEnabled() {
-		k8sNode, err := d.k8sClient.CoreV1().Nodes().Get(nodeaddress.GetName(), metav1.GetOptions{})
+		err := k8s.AnnotateNodeCIDR(d.k8sClient, nodeaddress.GetName(),
+			nodeaddress.GetIPv4AllocRange(),
+			nodeaddress.GetIPv6NodeRange())
 		if err != nil {
 			log.Fatalf("Unable to get k8s node: %s", err)
 		}
-
-		k8s.AnnotateNodeCIDR(d.k8sClient, k8sNode,
-			nodeaddress.GetIPv4AllocRange(),
-			nodeaddress.GetIPv6NodeRange())
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration

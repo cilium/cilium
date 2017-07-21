@@ -75,12 +75,11 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(nodeaddress.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	k8sNode, err := k8sClient.CoreV1().Nodes().Get("node1", metav1.GetOptions{})
-	c.Assert(err, IsNil)
-
-	AnnotateNodeCIDR(k8sClient, k8sNode,
+	AnnotateNodeCIDR(k8sClient, "node1",
 		nodeaddress.GetIPv4AllocRange(),
 		nodeaddress.GetIPv6NodeRange())
+
+	c.Assert(err, IsNil)
 
 	select {
 	case <-updateChan:
@@ -142,12 +141,11 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(nodeaddress.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
 	c.Assert(nodeaddress.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
-	k8sNode, err = k8sClient.CoreV1().Nodes().Get("node2", metav1.GetOptions{})
-	c.Assert(err, IsNil)
-
-	AnnotateNodeCIDR(k8sClient, k8sNode,
+	err = AnnotateNodeCIDR(k8sClient, "node2",
 		nodeaddress.GetIPv4AllocRange(),
 		nodeaddress.GetIPv6NodeRange())
+
+	c.Assert(err, IsNil)
 
 	select {
 	case <-updateChan:
