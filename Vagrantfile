@@ -69,11 +69,7 @@ $workers_ipv6_addrs_str = ENV['IPV6_PUBLIC_WORKERS_ADDRS'] || ""
 $workers_ipv6_addrs = $workers_ipv6_addrs_str.split(' ')
 
 # Create unique ID for use in vboxnet name so Jenkins pipeline can have concurrent builds.
-$job_name = ENV['JOB_NAME'] || "local"
-
-if $job_name != "local"
- $job_name = $job_name.slice($job_name.index("PR")..-1)
-end
+$job_name = ENV['JOB_BASE_NAME'] || "local"
 
 $build_number = ENV['BUILD_NUMBER'] || "0"
 $build_id = "#{$job_name}-#{$build_number}"
@@ -198,3 +194,5 @@ Vagrant.configure(2) do |config|
         end
     end
 end
+
+
