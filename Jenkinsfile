@@ -13,7 +13,9 @@ pipeline {
                 RUN_TEST_SUITE = '1'
             }
             steps {
+     		           
                 parallel(
+                    "Print Environment": { sh 'env' },
                     "Runtime Tests": { sh './contrib/vagrant/start.sh' },
                     "K8s multi node Tests": { sh './tests/k8s/start.sh' }
                 )
