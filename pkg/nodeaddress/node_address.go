@@ -340,3 +340,37 @@ func GetNode() (node.Identity, *node.Node) {
 
 	return node.Identity{Name: nodeName}, &n
 }
+
+// UseNodeCIDR sets the ipv4-range and ipv6-range values values from the
+// addresses defined in the given node.
+func UseNodeCIDR(node *node.Node) error {
+	if node.IPv4AllocCIDR != nil {
+		log.Infof("Retrieved %s for node %s. Using it for ipv4-range", node.IPv4AllocCIDR, node.Name)
+		SetIPv4AllocRange(node.IPv4AllocCIDR)
+	}
+	if node.IPv6AllocCIDR != nil {
+		log.Infof("Retrieved %s for node %s. Using it for ipv6-range", node.IPv6AllocCIDR, node.Name)
+		if err := SetIPv6NodeRange(node.IPv6AllocCIDR); err != nil {
+			log.Warningf("k8s: Can't use CIDR '%s' from kubernetes: %s", node.IPv6AllocCIDR, err)
+		}
+	}
+
+	return nil
+}
+
+// UseNodeAddresses sets the local ipv4-node and ipv6-node values from the
+// addresses defined in the given node.
+func UseNodeAddresses(node *node.Node) error {
+	nodeIP4 := node.GetNodeIP(false)
+	if nodeIP4 != nil {
+		log.Infof("Automatically retrieved %s for node %s. Using it for ipv4-node", nodeIP4, node.Name)
+		SetExternalIPv4(nodeIP4)
+	}
+	nodeIP6 := node.GetNodeIP(true)
+	if nodeIP6 != nil {
+		log.Infof("Automatically retrieved %s for node %s. Using it for ipv6-node", nodeIP6, node.Name)
+		SetIPv6(nodeIP6)
+	}
+
+	return nil
+}
