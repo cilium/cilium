@@ -396,11 +396,9 @@ function copy_files_vm {
 function get_k8s_vm_name {
   local VM_PREFIX=$1
   local BUILD_NUM="${BUILD_NUMBER:-0}"
-  local JOB_NAME="${JOB_NAME:-local}"
-  if [[ "${JOB_NAME}" != "local" ]] ; then
-    local JOB_NAME=$(echo ${JOB_NAME} | awk -F/ '{ print $NF }')
-  fi
-  local BUILD_ID="${JOB_NAME}-${BUILD_NUM}"
+  local JOB_BASE="${JOB_BASE_NAME:-local}"
+  local BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
+  
   if [ ! -z ${BUILD_NUMBER} ] ; then
     local BUILD_ID_NAME="-build-${BUILD_ID}"
   fi
@@ -413,13 +411,8 @@ function get_cilium_master_vm_name {
   fi
 
   local BUILD_NUM="${BUILD_NUMBER:-0}"
-  local JOB_NAME="${JOB_NAME:-local}"
- 
-  if [[ "${JOB_NAME}" != "local" ]] ; then
-    local JOB_NAME=$(echo ${JOB_NAME} | awk -F/ '{ print $NF }')
-  fi
-
-  local BUILD_ID="${JOB_NAME}-${BUILD_NUM}"
+  local JOB_BASE="${JOB_BASE_NAME:-local}"
+  local BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
 
   if [ ! -z ${BUILD_NUMBER} ] ; then
     local BUILD_ID_NAME="-build-${BUILD_ID}"
