@@ -19,8 +19,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/nodeaddress"
-
 	log "github.com/Sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -116,29 +114,4 @@ func AnnotateNodeCIDR(c kubernetes.Interface, k8sNode *v1.Node, v4CIDR, v6CIDR *
 			}
 		}(c, k8sNode, v4CIDR, v6CIDR, err)
 	}
-}
-
-// UseNodeCIDR sets the ipv4-range and ipv6-range values from the
-// cluster-node-cidr defined in  the kube-apiserver or / and the CIDRs defined
-// in that node's annotations.
-func UseNodeCIDR(c kubernetes.Interface, nodeName string) error {
-	k8sNode, err := c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	node := ParseNode(k8sNode)
-
-	if node.IPv4AllocCIDR != nil {
-		log.Infof("Retrieved %s for node %s. Using it for ipv4-range", node.IPv4AllocCIDR, nodeName)
-		nodeaddress.SetIPv4AllocRange(node.IPv4AllocCIDR)
-	}
-	if node.IPv6AllocCIDR != nil {
-		log.Infof("Retrieved %s for node %s. Using it for ipv6-range", node.IPv6AllocCIDR, nodeName)
-		if err := nodeaddress.SetIPv6NodeRange(node.IPv6AllocCIDR); err != nil {
-			log.Warningf("k8s: Can't use CIDR '%s' from kubernetes: %s", node.IPv6AllocCIDR, err)
-		}
-	}
-
-	return nil
 }

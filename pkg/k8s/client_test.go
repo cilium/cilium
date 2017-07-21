@@ -68,7 +68,9 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		},
 	}
 
-	err := UseNodeCIDR(k8sClient, "node1")
+	node1Cilium := ParseNode(&node1)
+
+	err := nodeaddress.UseNodeCIDR(node1Cilium)
 	c.Assert(err, IsNil)
 	c.Assert(nodeaddress.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
@@ -88,7 +90,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	}
 
 	// Test IPv6
-	node1 = v1.Node{
+	node2 := v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
@@ -109,7 +111,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 						OnGet: func(name string, options metav1.GetOptions) (*v1.Node, error) {
 							c.Assert(name, Equals, "node2")
 							c.Assert(options, DeepEquals, metav1.GetOptions{})
-							n1copy := v1.Node(node1)
+							n1copy := v1.Node(node2)
 							return &n1copy, nil
 						},
 						OnUpdate: func(n *v1.Node) (*v1.Node, error) {
@@ -119,7 +121,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 								return nil, fmt.Errorf("failing on purpose")
 							}
 							updateChan <- true
-							n1copy := v1.Node(node1)
+							n1copy := v1.Node(node2)
 							n1copy.Annotations[Annotationv4CIDRName] = "10.2.0.0/16"
 							n1copy.Annotations[Annotationv6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
 							c.Assert(n, DeepEquals, &n1copy)
@@ -131,8 +133,10 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		},
 	}
 
-	err = UseNodeCIDR(k8sClient, "node2")
+	node2Cilium := ParseNode(&node2)
+	err = nodeaddress.UseNodeCIDR(node2Cilium)
 	c.Assert(err, IsNil)
+
 	// We use the node's annotation for the IPv4 and the PodCIDR for the
 	// IPv6.
 	c.Assert(nodeaddress.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")

@@ -64,6 +64,7 @@ import (
 	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -786,6 +787,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	d.listenForCiliumEvents()
 
+	var k8sNode *v1.Node
+
 	if c.IsK8sEnabled() {
 		restConfig, err := k8s.CreateConfig(c.K8sEndpoint, c.K8sCfgPath)
 		if err != nil {
@@ -802,10 +805,25 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			// node-name automatically derived
 			nodeaddress.SetName(nodeName)
 
-			// Try to retrieve node's cidr from k8s's configuration
-			if err := k8s.UseNodeCIDR(d.k8sClient, nodeName); err != nil {
-				return nil, fmt.Errorf("unable to retrieve node CIDR: %s", err)
+			// Try to retrieve node's cidr and addresses from k8s's configuration
+			k8sNode, err = d.k8sClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
 			}
+
+			node := k8s.ParseNode(k8sNode)
+
+			if err := nodeaddress.UseNodeCIDR(node); err != nil {
+				return nil, fmt.Errorf("unable to retrieve k8s node CIDR: %s", err)
+			}
+
+			if err := nodeaddress.UseNodeAddresses(node); err != nil {
+				return nil, fmt.Errorf("unable to use k8s node addresses: %s", err)
+			}
+
+			// Annotate addresses will occur later since the user might want
+			// to specify them manually
+
 		}
 
 		// Kubernetes demands that the localhost can always reach local
