@@ -54,7 +54,7 @@ going through some Cilium basics.
 Vagrant Setup
 ~~~~~~~~~~~~~
 
-While the the :ref:`gs_guide` uses a Vagrantfile tuned for the basic
+While the :ref:`gs_guide` uses a Vagrantfile tuned for the basic
 walk through, the setup for the Vagrantfile in the root of the Cilium
 tree depends on a number of environment variables and network setup
 that are managed via ``contrib/vagrant/start.sh``.
