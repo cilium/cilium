@@ -17,7 +17,7 @@ manner. It is used in a number of Linux kernel subsystems, most prominently
 networking, tracing and security (e.g. sandboxing).
 
 Although BPF exists since 1992, this document covers the extended Berkley
-Paket Filter (eBPF) version which has first appeared in Kernel 3.18 and
+Packet Filter (eBPF) version which has first appeared in Kernel 3.18 and
 renders the original version which is being referred to as "classic" BPF
 (cBPF) these days mostly obsolete. cBPF is known to many as being the packet
 filter language used by tcpdump. Nowadays, the Linux kernel runs eBPF only and
