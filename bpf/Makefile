@@ -1,6 +1,7 @@
 include ../Makefile.defs
 
-CLANG_FLAGS := -Iinclude -D__NR_CPUS__=$(shell nproc) -O2 -target bpf -I.
+FLAGS := -Iinclude -I. -D__NR_CPUS__=$(shell nproc) -O2
+CLANG_FLAGS :=  ${FLAGS} -target bpf
 
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
@@ -20,6 +21,7 @@ all: $(BPF)
 	${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
 check:
+	sparse -Wsparse-all ${FLAGS} *.c
 	clang ${CLANG_FLAGS} --analyze *.c
 
 LB_OPTIONS = \
