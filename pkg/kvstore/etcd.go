@@ -387,30 +387,30 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 		return e.setMaxL3n4AddrID(id + 1)
 	}
 
-	acquireFreeID := func(firstID uint32, incID *uint32) error {
+	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		log.Debugf("Trying to acquire a new free ID %d", *incID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		locker, err := e.LockPath(GetLockPath(keyPath))
 		if err != nil {
-			return err
+			return false, err
 		}
 		defer locker.Unlock()
 
 		value, err := e.GetValue(keyPath)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if value == nil {
-			return setIDtoL3n4Addr(*incID)
+			return false, setIDtoL3n4Addr(*incID)
 		}
 		var consulL3n4AddrID types.L3n4AddrID
 		if err := json.Unmarshal(value, &consulL3n4AddrID); err != nil {
-			return err
+			return false, err
 		}
 		if consulL3n4AddrID.ID == 0 {
 			log.Infof("Recycling Service ID %d", *incID)
-			return setIDtoL3n4Addr(*incID)
+			return false, setIDtoL3n4Addr(*incID)
 		}
 
 		*incID++
@@ -418,17 +418,18 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 			*incID = common.FirstFreeServiceID
 		}
 		if firstID == *incID {
-			return fmt.Errorf("reached maximum set of serviceIDs available.")
+			return false, fmt.Errorf("reached maximum set of serviceIDs available.")
 		}
-		return nil
+		// Only retry if we have incremented the service ID
+		return true, nil
 	}
 
-	var err error
 	beginning := baseID
 	for {
-		if err = acquireFreeID(beginning, &baseID); err != nil {
+		retry, err := acquireFreeID(beginning, &baseID)
+		if err != nil {
 			return err
-		} else if beginning == baseID {
+		} else if !retry {
 			return nil
 		}
 	}
