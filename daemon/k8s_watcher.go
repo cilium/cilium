@@ -45,8 +45,10 @@ const (
 )
 
 var (
-	k8sLogMessagesTimer     = time.NewTimer(k8sErrLogTimeout)
-	firstK8sErrorLogMessage sync.Once
+	k8sErrMsgMU sync.RWMutex
+	// k8sErrMsg stores a timer for each k8s error message received
+	k8sErrMsg            = map[string]*time.Timer{}
+	stopPolicyController = make(chan struct{})
 )
 
 func init() {
@@ -62,17 +64,29 @@ func k8sErrorHandler(e error) {
 	if e == nil {
 		return
 	}
-	// Omitting the 'connection refused' common messages
-	if strings.Contains(e.Error(), "connection refused") {
-		firstK8sErrorLogMessage.Do(func() {
-			// Reset the timer for the first message
-			log.Error(e)
-			k8sLogMessagesTimer.Reset(k8sErrLogTimeout)
-		})
+	errstr := e.Error()
+	k8sErrMsgMU.Lock()
+	// if the error message already exists in the map then in print it
+	// otherwise we create a new timer for that specific message in the
+	// k8sErrMsg map.
+	if t, ok := k8sErrMsg[errstr]; !ok {
+		// Omitting the 'connection refused' common messages
+		if strings.Contains(errstr, "connection refused") {
+			k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
+			k8sErrMsgMU.Unlock()
+		} else {
+			k8sErrMsgMU.Unlock()
+			if strings.Contains(errstr, "Failed to list *v1.NetworkPolicy: the server could not find the requested resource") {
+				log.Warningf("Consider upgrading kubernetes to >=1.7 to enforce NetworkPolicy version 1")
+				stopPolicyController <- struct{}{}
+			}
+		}
+	} else {
+		k8sErrMsgMU.Unlock()
 		select {
-		case <-k8sLogMessagesTimer.C:
+		case <-t.C:
 			log.Error(e)
-			k8sLogMessagesTimer.Reset(k8sErrLogTimeout)
+			t.Reset(k8sErrLogTimeout)
 		default:
 		}
 		return
@@ -137,7 +151,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go policyControllerDeprecated.Run(wait.NeverStop)
 
-	// FIXME only add this informer in k8s 1.7
 	_, policyController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.NetworkingV1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
@@ -149,7 +162,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			DeleteFunc: d.deleteK8sNetworkPolicy,
 		},
 	)
-	go policyController.Run(wait.NeverStop)
+	go policyController.Run(stopPolicyController)
 
 	_, svcController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
