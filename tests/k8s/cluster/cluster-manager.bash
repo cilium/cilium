@@ -6,7 +6,9 @@ source "${dir}/../helpers.bash"
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 etcd_version="v3.1.0"
-k8s_version="1.6.6-00"
+# due a kubeadm bug, only upgrade directly to >=1.7.3 once it's released!
+# more info github.com/kubernetes/kubeadm/issues/354
+k8s_version="1.7.0-00"
 
 certs_dir="${dir}/certs"
 k8s_dir="${dir}/k8s"
