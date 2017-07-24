@@ -182,12 +182,12 @@ function write_install_nsenter(){
     filename="${1}"
     cat <<EOF >> "${filename}"
 #Install nsenter
-sudo apt-get -y install libncurses5-dev libslang2-dev gettext \
+sudo apt-get -y install bison libncurses5-dev libslang2-dev gettext \
 zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config \
 po-debconf autoconf automake autopoint libtool
-wget -nv https://www.kernel.org/pub/linux/utils/util-linux/v2.24/util-linux-2.24.1.tar.gz
-tar -xvzf util-linux-2.24.1.tar.gz
-cd util-linux-2.24.1
+wget -nv https://www.kernel.org/pub/linux/utils/util-linux/v2.30/util-linux-2.30.1.tar.gz
+tar -xvzf util-linux-2.30.1.tar.gz
+cd util-linux-2.30.1
 ./autogen.sh
 ./configure --without-python --disable-all-programs --enable-nsenter
 make nsenter
