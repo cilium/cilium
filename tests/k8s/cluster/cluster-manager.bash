@@ -213,7 +213,7 @@ function start_etcd(){
 function clean_all(){
     sudo kubeadm reset
     sudo service etcd stop
-    sudo docker rm -f `sudo docker ps -aq`
+    sudo docker rm -f `sudo docker ps -aq` 2>/dev/null
     sudo rm -fr /var/lib/etcd
 }
 
