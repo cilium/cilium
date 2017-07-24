@@ -248,5 +248,201 @@ if [[ "$DIFF" != "" ]]; then
 	abort "$DIFF"
 fi
 
+echo "------ verify max ingress nports is enforced ------"
+
+cat <<EOF | cilium -D policy import -
+[{
+	"endpointSelector": {
+		"matchLabels": {
+			"foo": ""
+		}
+	},
+	"ingress": [{
+		"fromEndpoints": [{
+				"matchLabels": {
+					"reserved:host": ""
+				}
+			},
+			{
+				"matchLabels": {
+					"bar": ""
+				}
+			}
+		],
+		"toPorts": [{
+			"ports": [{
+					"port": "1",
+					"protocol": "tcp"
+				},
+				{
+					"port": "2",
+					"protocol": "tcp"
+				},
+				{
+					"port": "3",
+					"protocol": "tcp"
+				},
+				{
+					"port": "4",
+					"protocol": "tcp"
+				},
+				{
+					"port": "5",
+					"protocol": "tcp"
+				},
+				{
+					"port": "6",
+					"protocol": "tcp"
+				},
+				{
+					"port": "7",
+					"protocol": "tcp"
+				},
+				{
+					"port": "8",
+					"protocol": "tcp"
+				},
+				{
+					"port": "9",
+					"protocol": "tcp"
+				},
+				{
+					"port": "10",
+					"protocol": "tcp"
+				},
+				{
+					"port": "11",
+					"protocol": "tcp"
+				},
+				{
+					"port": "12",
+					"protocol": "tcp"
+				},
+				{
+					"port": "13",
+					"protocol": "tcp"
+				},
+				{
+					"port": "14",
+					"protocol": "tcp"
+				},
+				{
+					"port": "15",
+					"protocol": "tcp"
+				},
+				{
+					"port": "16",
+					"protocol": "tcp"
+				},
+				{
+					"port": "17",
+					"protocol": "tcp"
+				},
+				{
+					"port": "18",
+					"protocol": "tcp"
+				},
+				{
+					"port": "19",
+					"protocol": "tcp"
+				},
+				{
+					"port": "20",
+					"protocol": "tcp"
+				},
+				{
+					"port": "21",
+					"protocol": "tcp"
+				},
+				{
+					"port": "22",
+					"protocol": "tcp"
+				},
+				{
+					"port": "23",
+					"protocol": "tcp"
+				},
+				{
+					"port": "24",
+					"protocol": "tcp"
+				},
+				{
+					"port": "25",
+					"protocol": "tcp"
+				},
+				{
+					"port": "26",
+					"protocol": "tcp"
+				},
+				{
+					"port": "27",
+					"protocol": "tcp"
+				},
+				{
+					"port": "28",
+					"protocol": "tcp"
+				},
+				{
+					"port": "29",
+					"protocol": "tcp"
+				},
+				{
+					"port": "30",
+					"protocol": "tcp"
+				},
+				{
+					"port": "31",
+					"protocol": "tcp"
+				},
+				{
+					"port": "32",
+					"protocol": "tcp"
+				},
+				{
+					"port": "33",
+					"protocol": "tcp"
+				},
+				{
+					"port": "34",
+					"protocol": "tcp"
+				},
+				{
+					"port": "35",
+					"protocol": "tcp"
+				},
+				{
+					"port": "36",
+					"protocol": "tcp"
+				},
+				{
+					"port": "37",
+					"protocol": "tcp"
+				},
+				{
+					"port": "38",
+					"protocol": "tcp"
+				},
+				{
+					"port": "39",
+					"protocol": "tcp"
+				},
+				{
+					"port": "40",
+					"protocol": "tcp"
+				},
+				{
+					"port": "41",
+					"protocol": "tcp"
+				}
+			]
+		}]
+	}]
+}]
+EOF
+
+if [ "$?" -ne 1 ]; then
+  abort "expected L4 policy with more than 40 ports to fail"
+fi
+
 cilium policy delete --all
 
