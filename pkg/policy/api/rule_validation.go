@@ -21,6 +21,10 @@ import (
 	"strings"
 )
 
+const (
+	maxPorts = 40
+)
+
 // Validate validates a policy rule
 func (r Rule) Validate() error {
 	for _, i := range r.Ingress {
@@ -72,6 +76,9 @@ func (e EgressRule) Validate() error {
 
 // Validate validates a port policy rule
 func (pr PortRule) Validate() error {
+	if len(pr.Ports) > maxPorts {
+		return fmt.Errorf("too many ports, the max is %d", maxPorts)
+	}
 	for _, p := range pr.Ports {
 		if err := p.Validate(); err != nil {
 			return err

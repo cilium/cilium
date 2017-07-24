@@ -324,6 +324,9 @@ The ``toPorts`` field takes a ``PortProtocol`` structure which is defined as fol
                 Protocol string `json:"protocol,omitempty"`
         }
 
+.. note:: There is currently a max limit of 40 ports. This might change in the
+          future when support for ranges is added.
+
 Example (L4)
 ------------
 
