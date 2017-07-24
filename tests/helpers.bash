@@ -143,13 +143,13 @@ function wait_for_policy_enforcement {
 }
 
 function wait_all_k8s_regenerated {
-    local cilium_k8s_npods=$(kubectl get pods -n kube-system | grep cilium | wc -l)
+    local cilium_k8s_npods=$(kubectl get pods -n kube-system -o wide | grep cilium | wc -l)
     set +x
     { for i in $(seq 1 ${cilium_k8s_npods}); do
         while true; do
             # FIXME by the time this executed, it's not guaranteed that we
             # don't skip a regenerating
-            cilium_pod_id=$(kubectl get pods -n kube-system | grep cilium | awk "NR==$i{ print \$1 }")
+            cilium_pod_id=$(kubectl get pods -n kube-system -o wide | grep cilium | awk "NR==$i{ print \$1 }")
             if ! kubectl exec -n kube-system -i ${cilium_pod_id} cilium endpoint list | grep regenerating; then
                 break
             fi
@@ -191,7 +191,7 @@ function wait_for_running_pod {
     pod=$1
     namespace=${2:-default}
     echo "Waiting for ${pod} pod to be Running..."
-    while [[ "$(kubectl get pods -n ${namespace} | grep ${pod} | grep -c Running)" -ne "1" ]] ; do
+    while [[ "$(kubectl get pods -n ${namespace} -o wide | grep ${pod} | grep -c Running)" -ne "1" ]] ; do
         micro_sleep
     done
     set -x
@@ -291,7 +291,7 @@ function gather_files {
 }
 
 function print_k8s_cilium_logs {
-	for pod in $(kubectl -n kube-system get pods | grep cilium | awk '{print $1}'); do
+	for pod in $(kubectl -n kube-system get pods -o wide| grep cilium | awk '{print $1}'); do
 		kubectl -n kube-system logs $pod
 		if [ $? -ne 0 ]; then
 			kubectl -n kube-system logs $pod --previous
@@ -324,7 +324,7 @@ function wait_for_daemon_set_ready {
 			exit 1
 		else
 			kubectl -n kube-system get ds
-			kubectl -n kube-system get pods
+			kubectl -n kube-system get pods -o wide
 			echo -n " [${found}/${n_ds_expected}]"
 			sleep $sleep_time
 		fi
@@ -332,7 +332,7 @@ function wait_for_daemon_set_ready {
 	done
 
 	set -x
-	kubectl -n kube-system get pods
+	kubectl -n kube-system get pods -o wide
 }
 
 function wait_for_api_server_ready {
