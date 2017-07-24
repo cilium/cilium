@@ -35,7 +35,7 @@ function deploy_cilium_lb(){
 echo "================== Running in IPv4 mode =================="
 
 # Run the GSG first and then restart the cluster to run the remaining tests
-vagrant ssh ${node1} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
+vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
 
 reinstall_ipv4 ${node1}
 reinstall_ipv4 ${node2}
@@ -43,9 +43,9 @@ reinstall_ipv4 ${node2}
 deploy_cilium
 
 # Run non IP version specific tests
-vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
+vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
 # Run ipv4 tests
-vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do $test; done'
+vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do $test; done'
 
 # Run IPv6 tests
 
@@ -58,12 +58,12 @@ echo "================== Running in IPv6 mode =================="
 
 echo "IPv6 tests are currently disabled"
 # Run the GSG first and then restart the cluster to run the remaining tests
-#vagrant ssh ${node1} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
+#vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
 #
 # Set up cilium-lb-ds and cilium-ds
 #deploy_cilium
 
 # Run non IP version specific tests
-#vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
+#vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
 # Run ipv6 tests
-#vagrant ssh ${node2} -- -t 'for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
+#vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
