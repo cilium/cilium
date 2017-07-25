@@ -8,7 +8,7 @@ TEST_NET="cilium"
 
 function cleanup {
 	gather_files 01-ct ${TEST_SUITE}
-	docker rm -f server client httpd1 httpd2 curl 2> /dev/null || true
+	docker rm -f server client httpd1 httpd2 curl curl2 2> /dev/null || true
 	monitor_stop
 }
 
@@ -27,8 +27,9 @@ docker run -dt --net=$TEST_NET --name httpd1 -l id.httpd httpd
 docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
 docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
 docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
+docker run -dt --net=$TEST_NET --name curl2  -l id.curl tgraf/netperf
 
-wait_for_endpoints 5
+wait_for_endpoints 6
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
@@ -75,6 +76,17 @@ cat <<EOF | policy_import_and_wait -
     }],
     "labels": ["id=httpd"]
 },{
+    "endpointSelector": {"matchLabels":{"id.httpd":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"id.curl2":""}}
+	],
+	"toPorts": [
+	    {"ports": [{"port": "8080", "protocol": "tcp"}]}
+	]
+    }],
+    "labels": ["id=httpd"]
+},{
     "endpointSelector": {"matchLabels":{"id.httpd_deny":""}},
     "ingress": [{
         "fromEndpoints": [
@@ -88,7 +100,7 @@ cat <<EOF | policy_import_and_wait -
 }]
 EOF
 
-wait_for_endpoints 5
+wait_for_endpoints 6
 
 function connectivity_test() {
 	monitor_clear
@@ -98,6 +110,17 @@ function connectivity_test() {
 
 	monitor_clear
 	docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://$HTTPD1_IP4:80" || {
+		abort "Error: Could not reach httpd1 on port 80"
+	}
+
+        # Change following two expectations to the opposite when Issue #789 is fixed
+	monitor_clear
+	docker exec -i curl2 bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD1_IP]:80" || {
+		abort "Error: Could not reach httpd1 on port 80"
+	}
+
+	monitor_clear
+	docker exec -i curl2 bash -c "curl --connect-timeout 5 -XGET http://$HTTPD1_IP4:80" || {
 		abort "Error: Could not reach httpd1 on port 80"
 	}
 
@@ -234,7 +257,7 @@ cilium endpoint config $SERVER_ID Conntrack=false || {
 cilium endpoint config $CLIENT_ID Conntrack=false || {
 	abort "Error: Unable to change config for $CLIENT_ID"
 }
-wait_for_endpoints 5
+wait_for_endpoints 6
 BIDIRECTIONAL=0
 connectivity_test
 
