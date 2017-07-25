@@ -29,7 +29,8 @@
 #include "dbg.h"
 #include "l4.h"
 
-#define CT_DEFAULT_LIFEIME 360
+#define CT_DEFAULT_LIFEIME	360
+#define CT_CLOSE_TIMEOUT	10
 
 enum {
 	CT_NEW,
@@ -51,11 +52,28 @@ enum {
 	ACTION_DELETE,
 };
 
-static inline void __inline__ ct_update_timeout(struct ct_entry *entry)
+static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
+						  __u32 lifetime)
 {
 #ifdef NEEDS_TIMEOUT
-	entry->lifetime = bpf_ktime_get_sec() + CT_DEFAULT_LIFEIME;
+	entry->lifetime = bpf_ktime_get_sec() + lifetime;
 #endif
+}
+
+static inline void __inline__ ct_update_timeout(struct ct_entry *entry)
+{
+	__ct_update_timeout(entry, CT_DEFAULT_LIFEIME);
+}
+
+static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
+{
+	entry->rx_closing = 0;
+	entry->tx_closing = 0;
+}
+
+static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
+{
+	return !entry->rx_closing || !entry->tx_closing;
 }
 
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
@@ -68,7 +86,8 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime,
 			entry->proxy_port << 16 | entry->rev_nat_index);
-		ct_update_timeout(entry);
+		if (ct_entry_alive(entry))
+			ct_update_timeout(entry);
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
@@ -93,6 +112,13 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 #endif
 
 		switch (action) {
+		case ACTION_CREATE:
+			ret = entry->rx_closing + entry->tx_closing;
+			if (unlikely(ret >= 1)) {
+				ct_reset_closing(entry);
+				ct_update_timeout(entry);
+			}
+			break;
 		case ACTION_CLOSE:
 			/* RST or similar, immediately delete ct entry */
 			if (dir == CT_INGRESS)
@@ -100,10 +126,10 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			else
 				entry->tx_closing = 1;
 
-			if (!entry->rx_closing || !entry->tx_closing)
+			if (ct_entry_alive(entry))
 				break;
-			/* fall through */
-
+			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT);
+			break;
 		case ACTION_DELETE:
 			if ((ret = map_delete_elem(map, tuple)) < 0)
 				cilium_trace(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, ret);

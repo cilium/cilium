@@ -11,7 +11,7 @@ clean:
 SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	go build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
+	go build -i $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)/etc/cni/net.d
