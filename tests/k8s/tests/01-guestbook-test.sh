@@ -5,6 +5,8 @@
 # - Kubernetes services translation to backend IP
 # TODO
 # - Rewrite the test when the ingress controller is fixed.
+# - Reorganize test, remove deprecated policy and duplicated PING from web to
+#   redis, when the kubernetes network policy v1beta1 is removed.
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/../helpers.bash"
@@ -15,20 +17,15 @@ source "${dir}/../cluster/env.bash"
 
 guestbook_dir="${dir}/deployments/guestbook"
 
-k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis.json"
-k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-web.yaml"
+k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
 
-if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
+if [ $? -ne 0 ]; then abort "guestbook-policy-redis-deprecated policy was not inserted in kubernetes" ; fi
+
+kubectl create -f "${guestbook_dir}/policies/guestbook-policy-web.yaml"
+
+if [ $? -ne 0 ]; then abort "guestbook-policy-web policy was not inserted in kubernetes" ; fi
 
 cilium_id=$(docker ps -aq --filter=name=cilium-agent)
-
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 1>/dev/null
-
-if [ $? -ne 0 ]; then abort "guestbook-web policy not in cilium" ; fi
-
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 1>/dev/null
-
-if [ $? -ne 0 ]; then abort "guestbook-redis policy not in cilium" ; fi
 
 set -e
 
@@ -55,6 +52,18 @@ wait_for_running_pod guestbook
 
 wait_for_service_endpoints_ready default guestbook 3000
 
+set +e
+
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 1>/dev/null
+
+if [ $? -ne 0 ]; then abort "guestbook-web policy not in cilium" ; fi
+
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis-deprecated 1>/dev/null
+
+if [ $? -ne 0 ]; then abort "guestbook-redis-deprecated policy not in cilium" ; fi
+
+set -e
+
 guestbook_id=$(docker ps -aq --filter=name=k8s_guestbook)
 
 docker exec -i ${guestbook_id} sh -c 'nc redis-master 6379 <<EOF
@@ -66,16 +75,39 @@ EOF' || {
 if [[ -n "${lb}" ]]; then
     echo "Testing ingress connectivity between VMs"
     kubectl create -f "${guestbook_dir}/ingress/"
-    # FIX ME finish this test case once we have LB up and running
+    # FIXME finish this test case once we have LB up and running
 fi
 
+kubectl delete -f "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
+
+set +e
+
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis-deprecated 2>/dev/null
+
+if [ $? -eq 0 ]; then abort "guestbook-redis-deprecated policy found in cilium; policy should have been deleted" ; fi
+
+k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis.json"
+
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 1>/dev/null
+
+if [ $? -ne 0 ]; then abort "guestbook-redis policy not in cilium" ; fi
+
+set -e
+
+docker exec -i ${guestbook_id} sh -c 'nc redis-master 6379 <<EOF
+PING
+EOF' || {
+        abort "Unable to nc redis-master 6379"
+    }
+
+
 echo "SUCCESS!"
+
+set +e
 
 kubectl delete -f "${guestbook_dir}/"
 
 kubectl delete -f "${guestbook_dir}/policies"
-
-set +e
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 2>/dev/null
 
