@@ -101,6 +101,8 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 	if err := ec.CheckMinVersion(15 * time.Second); err != nil {
 		log.Fatalf("%s", err)
 	}
+	// Clean-up old services path
+	ec.DeleteTree(common.ServicePathV1)
 	go func() {
 		for {
 			<-ec.session.Done()
