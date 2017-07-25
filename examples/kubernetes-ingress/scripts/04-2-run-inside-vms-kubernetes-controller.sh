@@ -110,4 +110,4 @@ sudo systemctl status kube-scheduler --no-pager
 
 sleep 2s
 
-kubectl -s http://${controllers_ips[0]}:8080 get componentstatuses
+kubectl -s http://${controllers_ips[0]}:8080 get componentstatuses || true
