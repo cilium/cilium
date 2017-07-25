@@ -15,6 +15,7 @@ set -ex
 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
+DOCKER_IMAGE_TAG="${DOCKER_IMAGE_TAG:-local_build}"
 
 MINIKUBE="${dir}/../../../examples/minikube"
 K8SDIR="${dir}/../../../examples/kubernetes"
@@ -55,7 +56,7 @@ kubectl create -f "${K8SDIR}/rbac.yaml"
 echo "----- deploying Cilium Daemon Set onto cluster -----"
 cp "${K8SDIR}/cilium-ds-gsg.yaml" ./cilium-ds.yaml
 sed -i s+/var/lib/kubelet/kubeconfig+/etc/kubernetes/kubelet.conf+g cilium-ds.yaml
-sed -i s+/cilium/cilium:stable+localhost:5000/cilium:${DOCKER_IMAGE_TAG}+g cilium-ds.yaml
+sed -i s+cilium/cilium:stable+localhost:5000/cilium:${DOCKER_IMAGE_TAG}+g cilium-ds.yaml
 kubectl create -f cilium-ds.yaml
 
 wait_for_daemon_set_ready ${NAMESPACE} cilium 2

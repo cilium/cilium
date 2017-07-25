@@ -21,7 +21,9 @@ certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs
 sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
 sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt
 docker pull 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG}
-docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+docker run -d -p 5000:5000 --name registry registry:2
+docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
+docker push localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
 $k8s_install = <<SCRIPT

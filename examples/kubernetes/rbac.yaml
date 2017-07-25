@@ -4,6 +4,14 @@ metadata:
   name: cilium
 rules:
 - apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - pods
@@ -18,7 +26,7 @@ rules:
 - apiGroups:
   - extensions
   resources:
-  - networkpolicies
+  - networkpolicies #FIXME remove this in k8s 1.8
   - thirdpartyresources
   - ingresses
   verbs:

@@ -36,6 +36,7 @@ echo "================== Running in IPv4 mode =================="
 
 # Run the GSG first and then restart the cluster to run the remaining tests
 vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
+vagrant ssh ${node2} -- -t 'docker tag localhost:5000/cilium:local_build cilium:local_build'
 
 reinstall_ipv4 ${node1}
 reinstall_ipv4 ${node2}
