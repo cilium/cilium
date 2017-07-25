@@ -242,15 +242,13 @@ func (c *ConsulClient) setMaxLabelID(maxID uint32) error {
 }
 
 func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy.Identity) error {
-
-	setID2Label := func(lockPair *consulAPI.KVPair) error {
-		defer c.KV().Release(lockPair, nil)
-		pI.ID = policy.NumericIdentity(baseID)
+	setID2Label := func(new_id uint32) error {
+		pI.ID = policy.NumericIdentity(new_id)
 		keyPath := path.Join(basePath, pI.ID.StringID())
 		if err := c.SetValue(keyPath, pI); err != nil {
 			return err
 		}
-		return c.setMaxLabelID(baseID + 1)
+		return c.setMaxLabelID(new_id + 1)
 	}
 
 	session, _, err := c.Session().CreateNoChecks(nil, nil)
@@ -258,43 +256,52 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *poli
 		return err
 	}
 
-	beginning := baseID
-	for {
-		log.Debugf("Trying to acquire a new free ID %d", baseID)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(baseID), 10))
+	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
+		log.Debugf("Trying to acquire a new free seclabel ID %d", *incID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: GetLockPath(keyPath), Session: session}
 		acq, _, err := c.KV().Acquire(lockPair, nil)
 		if err != nil {
-			return err
+			return false, err
 		}
+		defer c.KV().Release(lockPair, nil)
 
 		if acq {
-			lblKey, _, err := c.KV().Get(keyPath, nil)
+			value, err := c.GetValue(keyPath)
 			if err != nil {
-				c.KV().Release(lockPair, nil)
-				return err
+				return false, err
 			}
-			if lblKey == nil {
-				return setID2Label(lockPair)
+			if value == nil {
+				return false, setID2Label(*incID)
 			}
 			var consulLabels policy.Identity
-			if err := json.Unmarshal(lblKey.Value, &consulLabels); err != nil {
-				c.KV().Release(lockPair, nil)
-				return err
+			if err := json.Unmarshal(value, &consulLabels); err != nil {
+				return false, err
 			}
 			if consulLabels.RefCount() == 0 {
-				log.Infof("Recycling ID %d", baseID)
-				return setID2Label(lockPair)
+				log.Infof("Recycling ID %d", *incID)
+				return false, setID2Label(*incID)
 			}
-			c.KV().Release(lockPair, nil)
 		}
-		baseID++
-		if baseID > common.MaxSetOfLabels {
-			baseID = policy.MinimalNumericIdentity.Uint32()
+
+		*incID++
+		if *incID > common.MaxSetOfLabels {
+			*incID = policy.MinimalNumericIdentity.Uint32()
 		}
-		if beginning == baseID {
-			return fmt.Errorf("reached maximum set of labels available.")
+		if firstID == *incID {
+			return false, fmt.Errorf("reached maximum set of labels available.")
+		}
+		return true, nil
+	}
+
+	beginning := baseID
+	for {
+		retry, err := acquireFreeID(beginning, &baseID)
+		if err != nil {
+			return err
+		} else if !retry {
+			return nil
 		}
 	}
 }
@@ -304,15 +311,13 @@ func (c *ConsulClient) setMaxL3n4AddrID(maxID uint32) error {
 }
 
 func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
-
-	setIDtoL3n4Addr := func(lockPair *consulAPI.KVPair) error {
-		defer c.KV().Release(lockPair, nil)
-		lAddrID.ID = types.ServiceID(baseID)
+	setIDtoL3n4Addr := func(id uint32) error {
+		lAddrID.ID = types.ServiceID(id)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
 		if err := c.SetValue(keyPath, lAddrID); err != nil {
 			return err
 		}
-		return c.setMaxL3n4AddrID(baseID + 1)
+		return c.setMaxL3n4AddrID(id + 1)
 	}
 
 	session, _, err := c.Session().CreateNoChecks(nil, nil)
@@ -320,43 +325,53 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 		return err
 	}
 
-	beginning := baseID
-	for {
-		log.Debugf("Trying to acquire a new free ID %d", baseID)
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(baseID), 10))
+	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
+		log.Debugf("Trying to acquire a new free service ID %d", *incID)
+		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: GetLockPath(keyPath), Session: session}
 		acq, _, err := c.KV().Acquire(lockPair, nil)
 		if err != nil {
-			return err
+			return false, err
 		}
+		defer c.KV().Release(lockPair, nil)
 
 		if acq {
 			svcKey, _, err := c.KV().Get(keyPath, nil)
 			if err != nil {
-				c.KV().Release(lockPair, nil)
-				return err
+				return false, err
 			}
 			if svcKey == nil {
-				return setIDtoL3n4Addr(lockPair)
+				return false, setIDtoL3n4Addr(*incID)
 			}
 			var consulL3n4AddrID types.L3n4AddrID
 			if err := json.Unmarshal(svcKey.Value, &consulL3n4AddrID); err != nil {
-				c.KV().Release(lockPair, nil)
-				return err
+				return false, err
 			}
 			if consulL3n4AddrID.ID == 0 {
 				log.Infof("Recycling Service ID %d", baseID)
-				return setIDtoL3n4Addr(lockPair)
+				return false, setIDtoL3n4Addr(*incID)
 			}
-			c.KV().Release(lockPair, nil)
 		}
-		baseID++
-		if baseID > common.MaxSetOfServiceID {
-			baseID = common.FirstFreeServiceID
+
+		*incID++
+		if *incID > common.MaxSetOfServiceID {
+			*incID = common.FirstFreeServiceID
 		}
-		if beginning == baseID {
-			return fmt.Errorf("reached maximum set of serviceIDs available.")
+		if firstID == *incID {
+			return false, fmt.Errorf("reached maximum set of serviceIDs available.")
+		}
+		// Only retry if we have incremented the service ID
+		return true, nil
+	}
+
+	beginning := baseID
+	for {
+		retry, err := acquireFreeID(beginning, &baseID)
+		if err != nil {
+			return err
+		} else if !retry {
+			return nil
 		}
 	}
 }
