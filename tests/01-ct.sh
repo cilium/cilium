@@ -113,7 +113,7 @@ function connectivity_test() {
 		abort "Error: Could not reach httpd1 on port 80"
 	}
 
-        # Change following two expectations to the opposite when Issue #789 is fixed
+        # FIXME(amre): Change following two expectations to the opposite when Issue #789 is fixed
 	monitor_clear
 	docker exec -i curl2 bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD1_IP]:80" || {
 		abort "Error: Could not reach httpd1 on port 80"
