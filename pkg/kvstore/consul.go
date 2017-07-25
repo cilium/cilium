@@ -86,9 +86,12 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 		log.Error(e)
 		return nil, e
 	}
+	cc := &ConsulClient{c}
+	// Clean-up old services path
+	cc.DeleteTree(common.ServicePathV1)
 
 	log.Info("Consul client ready")
-	return &ConsulClient{c}, nil
+	return cc, nil
 }
 
 func (c *ConsulClient) LockPath(path string) (KVLocker, error) {
