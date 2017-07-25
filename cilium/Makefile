@@ -3,7 +3,7 @@ include ../Makefile.defs
 TARGET=cilium
 SOURCES := $(shell find ../api ../daemon ../common ../pkg cmd . -name '*.go')
 $(TARGET): $(SOURCES)
-	go build $(GOBUILD) -o $(TARGET)
+	go build -i $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
