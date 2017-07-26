@@ -32,11 +32,11 @@ import (
 )
 
 const (
-	// ThirdPartyResourceGroup is the name of the third party resource group
-	ThirdPartyResourceGroup = "cilium.io"
+	// CustomResourceDefinitionGroup is the name of the third party resource group
+	CustomResourceDefinitionGroup = "cilium.io"
 
-	// ThirdPartyResourceVersion is the current version of the resource
-	ThirdPartyResourceVersion = "v1"
+	// CustomResourceDefinitionVersion is the current version of the resource
+	CustomResourceDefinitionVersion = "v1"
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
@@ -59,8 +59,8 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		schema.GroupVersion{
-			Group:   ThirdPartyResourceGroup,
-			Version: ThirdPartyResourceVersion,
+			Group:   CustomResourceDefinitionGroup,
+			Version: CustomResourceDefinitionVersion,
 		},
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
@@ -71,11 +71,11 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-// CreateTPRClient creates a new k8s client for third party resources
-func CreateTPRClient(config *rest.Config) (*rest.RESTClient, error) {
+// CreateCRDClient creates a new k8s client for third party resources
+func CreateCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	config.GroupVersion = &schema.GroupVersion{
-		Group:   ThirdPartyResourceGroup,
-		Version: ThirdPartyResourceVersion,
+		Group:   CustomResourceDefinitionGroup,
+		Version: CustomResourceDefinitionVersion,
 	}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
