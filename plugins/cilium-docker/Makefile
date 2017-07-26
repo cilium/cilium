@@ -7,13 +7,13 @@ all: $(TARGET)
 SOURCES := $(shell find ../../api/v1 ../../common ../../pkg/client ../../pkg/endpoint driver . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	go build -i $(GOBUILD) -o $(TARGET)
+	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
 run:
 	./cilium-docker -d
 
 clean:
-	go clean
+	$(GO) clean
 	rm -f $(TARGET)
 
 install:

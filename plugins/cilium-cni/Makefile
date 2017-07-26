@@ -5,13 +5,13 @@ all: cilium-cni
 TARGET=cilium-cni
 
 clean:
-	go clean
+	$(GO) clean
 	rm -f $(TARGET)
 
 SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')
 
 $(TARGET): $(SOURCES)
-	go build -i $(GOBUILD) -o $(TARGET) ./cilium-cni.go
+	$(GO) build -i $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)/etc/cni/net.d
