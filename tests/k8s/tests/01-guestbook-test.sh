@@ -15,6 +15,17 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/../cluster/env.bash"
 
+NAMESPACE="kube-system"
+TEST_NAME="01-guestbook-test"
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+
+function finish_test {
+  gather_files ${TEST_NAME} k8s-tests
+  gather_k8s_logs "2" ${LOGS_DIR}
+}
+
+trap finish_test exit
+
 guestbook_dir="${dir}/deployments/guestbook"
 
 # We will test old kubernetes network policy in kubernetes 1.6 and 1.7

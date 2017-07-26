@@ -17,6 +17,8 @@ NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
 DENIED="Result: DENIED"
 ALLOWED="Result: ALLOWED"
+TEST_NAME="00-gsg-test"
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
 
 MINIKUBE="${dir}/../../../examples/minikube"
 K8SDIR="${dir}/../../../examples/kubernetes"
@@ -29,21 +31,9 @@ function cleanup {
 	kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
 }
 
-function gather_logs {
-  local CILIUM_ROOT="src/github.com/cilium/cilium"
-  local LOGS_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/logs"
-  echo "storing K8s-relevant logs at: ${LOGS_DIR}"
-  mkdir -p ${LOGS_DIR}
-  kubectl logs -n kube-system ${CILIUM_POD_1} > ${LOGS_DIR}/cilium-logs-1 || true
-  kubectl logs -n kube-system ${CILIUM_POD_2} > ${LOGS_DIR}/cilium-logs-2 || true
-  kubectl logs -n kube-system kube-apiserver-k8s-1 > ${LOGS_DIR}/kube-apiserver-k8s-1-logs || true
-  kubectl logs -n kube-system kube-controller-manager-k8s-1 > ${LOGS_DIR}/kube-controller-manager-k8s-1-logs || true
-  journalctl -au kubelet > ${LOGS_DIR}/kubelet-k8s-1-logs || true
-}
-
 function finish_test {
-  gather_files k8s-gsg-test ${TEST_SUITE}
-  gather_logs
+  gather_files ${TEST_NAME} k8s-tests
+  gather_k8s_logs "1" ${LOGS_DIR}
   cleanup
 }
 

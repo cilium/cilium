@@ -31,6 +31,17 @@ source "${dir}/../cluster/env.bash"
 
 bookinfo_dir="${dir}/deployments/bookinfo"
 
+NAMESPACE="kube-system"
+TEST_NAME="02-cnp-specs"
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+
+function finish_test {
+  gather_files ${TEST_NAME} k8s-tests
+  gather_k8s_logs "2" ${LOGS_DIR}
+}
+
+trap finish_test exit
+
 kubectl create -f "${bookinfo_dir}"
 
 kubectl get pods -o wide
