@@ -3,6 +3,7 @@ BINDIR?=$(PREFIX)/bin
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
+GO = go
 INSTALL = install
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

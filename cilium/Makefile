@@ -3,13 +3,13 @@ include ../Makefile.defs
 TARGET=cilium
 SOURCES := $(shell find ../api ../daemon ../common ../pkg cmd . -name '*.go')
 $(TARGET): $(SOURCES)
-	go build -i $(GOBUILD) -o $(TARGET)
+	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
 clean:
 	rm -f $(TARGET)
-	go clean
+	$(GO) clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
