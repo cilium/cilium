@@ -10,6 +10,15 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 node1=$(get_k8s_vm_name k8s1)
 node2=$(get_k8s_vm_name k8s2)
 
+# reinstall_kubeadmn re-installs kubeadm in the given VM without clearing up
+# etcd
+function reinstall_kubeadmn(){
+    vm="${1}"
+    vagrant ssh ${vm} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --reinstall-kubeadm'
+    vagrant ssh ${vm} -- -t 'sudo cp -R /root/.kube /home/vagrant'
+    vagrant ssh ${vm} -- -t 'sudo chown vagrant.vagrant -R /home/vagrant/.kube'
+}
+
 function reinstall_ipv4(){
     vm="${1}"
     vagrant ssh ${vm} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --yes-delete-all-etcd-data'
@@ -32,38 +41,53 @@ function deploy_cilium_lb(){
     vagrant ssh ${node2} -- -t '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash deploy_cilium --lb-mode'
 }
 
-echo "================== Running in IPv4 mode =================="
+function run_tests(){
+    echo "====================== K8S VERSION ======================"
+    echo "Node 1"
+    vagrant ssh ${node1} -- -t 'kubectl version'
+    echo "Node 2"
+    vagrant ssh ${node2} -- -t 'kubectl version'
 
-# Run the GSG first and then restart the cluster to run the remaining tests
-vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
+    echo "================== Running in IPv4 mode =================="
 
-reinstall_ipv4 ${node1}
-reinstall_ipv4 ${node2}
-# Set up cilium-lb-ds and cilium-ds
-deploy_cilium
+    # Run the GSG first and then restart the cluster to run the remaining tests
+    vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
 
-# Run non IP version specific tests
-vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
-# Run ipv4 tests
-vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do $test; done'
+    reinstall_ipv4 ${node1}
+    reinstall_ipv4 ${node2}
+    # Set up cilium-lb-ds and cilium-ds
+    deploy_cilium
 
-# Run IPv6 tests
+    # Run non IP version specific tests
+    vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
+    # Run ipv4 tests
+    vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do $test; done'
 
-# Reinstall everything with IPv6 addresses
-# FIXME Kubeadm doesn't quite support IPv6 yet
-#reinstall_ipv6 ${node1}
-#reinstall_ipv6 ${node2}
+    # Run IPv6 tests
 
-echo "================== Running in IPv6 mode =================="
+    # Reinstall everything with IPv6 addresses
+    # FIXME Kubeadm doesn't quite support IPv6 yet
+    #reinstall_ipv6 ${node1}
+    #reinstall_ipv6 ${node2}
 
-echo "IPv6 tests are currently disabled"
-# Run the GSG first and then restart the cluster to run the remaining tests
-#vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
-#
-# Set up cilium-lb-ds and cilium-ds
-#deploy_cilium
+    echo "================== Running in IPv6 mode =================="
 
-# Run non IP version specific tests
-#vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
-# Run ipv6 tests
-#vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
+    echo "IPv6 tests are currently disabled"
+    # Run the GSG first and then restart the cluster to run the remaining tests
+    #vagrant ssh ${node1} -- -t 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
+    #
+    # Set up cilium-lb-ds and cilium-ds
+    #deploy_cilium
+
+    # Run non IP version specific tests
+    #vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
+    # Run ipv6 tests
+    #vagrant ssh ${node2} -- -t 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
+}
+
+# Run tests in k8s 1.6.4 (which is installed by default in Vagrantfile)
+run_tests
+# Run tests in k8s 1.7.0 (where we need to reinstall it)
+reinstall_kubeadmn ${node1}
+reinstall_kubeadmn ${node2}
+run_tests
