@@ -86,20 +86,23 @@ docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestboo
 
 if [ $? -eq 0 ]; then abort "guestbook-redis-deprecated policy found in cilium; policy should have been deleted" ; fi
 
-k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis.json"
+# FIXME Remove workaround once we drop k8s 1.6 support
+# Only test the new network policy with k8s >= 1.7
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis.json"
 
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 1>/dev/null
 
-if [ $? -ne 0 ]; then abort "guestbook-redis policy not in cilium" ; fi
+    if [ $? -ne 0 ]; then abort "guestbook-redis policy not in cilium" ; fi
 
-set -e
+    set -e
 
-docker exec -i ${guestbook_id} sh -c 'nc redis-master 6379 <<EOF
-PING
-EOF' || {
-        abort "Unable to nc redis-master 6379"
-    }
-
+    docker exec -i ${guestbook_id} sh -c 'nc redis-master 6379 <<EOF
+    PING
+    EOF' || {
+            abort "Unable to nc redis-master 6379"
+        }
+fi
 
 echo "SUCCESS!"
 
@@ -113,9 +116,12 @@ docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestboo
 
 if [ $? -eq 0 ]; then abort "guestbook-web policy found in cilium; policy should have been deleted" ; fi
 
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 2>/dev/null
+# Only test the new network policy with k8s >= 1.7
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 2>/dev/null
 
-if [ $? -eq 0 ]; then abort "guestbook-redis policy found in cilium; policy should have been deleted" ; fi
+    if [ $? -eq 0 ]; then abort "guestbook-redis policy found in cilium; policy should have been deleted" ; fi
+fi
 
 if [[ -n "${lb}" ]]; then
     kubectl delete -f "${guestbook_dir}/ingress"
