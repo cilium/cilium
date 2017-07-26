@@ -25,9 +25,9 @@ pipeline {
     post {
         always {
             sh './tests/copy_files || true'
-            archiveArtifacts artifacts: "cilium-files-runtime.tar.gz", allowEmptyArchive: true
+            archiveArtifacts artifacts: "cilium-files-runtime-${JOB_BASE_NAME}-${BUILD_NUMBER}.tar.gz", allowEmptyArchive: true
             sh './tests/k8s/copy_files || true'
-            archiveArtifacts artifacts: "cilium-files-k8s.tar.gz", allowEmptyArchive: true
+            archiveArtifacts artifacts: "cilium-files-k8s-${JOB_BASE_NAME}-${BUILD_NUMBER}.tar.gz", allowEmptyArchive: true
             sh 'vagrant destroy -f'
             sh 'cd ./tests/k8s && vagrant destroy -f'
         }
