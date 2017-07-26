@@ -29,12 +29,15 @@ function cleanup {
 }
 
 function gather_logs {
-	mkdir -p ./cilium-files/logs
-	kubectl logs -n kube-system ${CILIUM_POD_1} > ./cilium-files/logs/cilium-logs-1 || true
-	kubectl logs -n kube-system ${CILIUM_POD_2} > ./cilium-files/logs/cilium-logs-2 || true
-	kubectl logs -n kube-system kube-apiserver-k8s-1 > ./cilium-files/logs/kube-apiserver-k8s-1-logs || true
-	kubectl logs -n kube-system kube-controller-manager-k8s-1 > ./cilium-files/logs/kube-controller-manager-k8s-1-logs || true
-	journalctl -au kubelet > ./cilium-files/logs/kubelet-k8s-1-logs || true
+  local CILIUM_ROOT="src/github.com/cilium/cilium"
+  local LOGS_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/logs"
+  echo "storing K8s-relevant logs at: ${LOGS_DIR}"
+  mkdir -p ${LOGS_DIR}
+  kubectl logs -n kube-system ${CILIUM_POD_1} > ${LOGS_DIR}/cilium-logs-1 || true
+  kubectl logs -n kube-system ${CILIUM_POD_2} > ${LOGS_DIR}/cilium-logs-2 || true
+  kubectl logs -n kube-system kube-apiserver-k8s-1 > ${LOGS_DIR}/kube-apiserver-k8s-1-logs || true
+  kubectl logs -n kube-system kube-controller-manager-k8s-1 > ${LOGS_DIR}/kube-controller-manager-k8s-1-logs || true
+  journalctl -au kubelet > ${LOGS_DIR}/kubelet-k8s-1-logs || true
 }
 
 function finish_test {

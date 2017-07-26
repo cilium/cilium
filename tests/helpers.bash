@@ -5,6 +5,11 @@ DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 LAST_LOG_DATE=""
 
+# Variables used during Jenkins builds.
+BUILD_NUM="${BUILD_NUMBER:-0}"
+JOB_BASE="${JOB_BASE_NAME:-local}"
+BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
+
 function monitor_start {
 	cilium monitor -v $@ > $DUMP_FILE &
 	MONITOR_PID=$!
@@ -397,22 +402,20 @@ function get_vm_ssh_port {
 }
 
 function copy_files_vm {
+  set -xv
   local VM_NAME=$1 
   local FILES_DIR=$2
-  echo "copy_files_vm: VM_NAME= $VM_NAME"
-  echo "copy_files_vm: FILES_DIR= $FILES_DIR"
   local ID_FILE=$(get_vm_identity_file $VM_NAME)
   local PORT=$(get_vm_ssh_port $VM_NAME)
 
-  scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${ID_FILE} vagrant@127.0.0.1:~/go/src/github.com/cilium/cilium/${FILES_DIR} .
-  mv cilium-files cilium-files-${VM_NAME}
+  vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium > /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs"'
+  vagrant ssh $VM_NAME -c 'ls -altr /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files'
+
+  scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${ID_FILE} vagrant@127.0.0.1:/home/vagrant/go/src/github.com/cilium/cilium/${FILES_DIR} ./cilium-files-${VM_NAME}
 }
 
 function get_k8s_vm_name {
   local VM_PREFIX=$1
-  local BUILD_NUM="${BUILD_NUMBER:-0}"
-  local JOB_BASE="${JOB_BASE_NAME:-local}"
-  local BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
   
   if [ ! -z ${BUILD_NUMBER} ] ; then
     local BUILD_ID_NAME="-build-${BUILD_ID}"
@@ -424,10 +427,6 @@ function get_cilium_master_vm_name {
   if [ ! -z ${K8STAG} ] ; then
     local K8S_TAG="${K8STAG:-k8s}"
   fi
-
-  local BUILD_NUM="${BUILD_NUMBER:-0}"
-  local JOB_BASE="${JOB_BASE_NAME:-local}"
-  local BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
 
   if [ ! -z ${BUILD_NUMBER} ] ; then
     local BUILD_ID_NAME="-build-${BUILD_ID}"
