@@ -80,6 +80,12 @@ wait_for_n_running_pods 4
 echo "----- adding L3 L4 policy  -----"
 k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy.yaml"
 
+echo "---- Policy in ${CILIUM_POD_1} ----"
+kubectl exec ${CILIUM_POD_1} -n ${NAMESPACE} -- cilium policy get
+
+echo "---- Policy in ${CILIUM_POD_2} ----"
+kubectl exec ${CILIUM_POD_2} -n ${NAMESPACE} -- cilium policy get
+
 echo "----- testing L3/L4 policy -----"
 APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
 SVC_IP=$(kubectl get svc app1-service -o jsonpath='{.spec.clusterIP}' )
@@ -111,6 +117,12 @@ fi
 
 echo "----- creating L7-aware policy -----"
 k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_l7_policy.yaml"
+
+echo "---- Policy in ${CILIUM_POD_1} ----"
+kubectl exec ${CILIUM_POD_1} -n ${NAMESPACE} -- cilium policy get
+
+echo "---- Policy in ${CILIUM_POD_2} ----"
+kubectl exec ${CILIUM_POD_2} -n ${NAMESPACE} -- cilium policy get
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 http://${SVC_IP}/public || true)

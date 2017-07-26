@@ -70,6 +70,11 @@ k8s_apply_policy kube-system "${l7_stresstest_dir}/policies/cnp.yaml"
 
 echo "Running tests WITH Policy / Proxy loaded"
 
+echo "Policy loaded in cilium"
+cilium_id=$(docker ps -aq --filter=name=cilium-agent)
+
+docker exec -i ${cilium_id} cilium policy get
+
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl --connect-timeout 10 -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
 
 if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend and backend" ; fi
