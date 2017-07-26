@@ -98,8 +98,6 @@ func k8sErrorHandler(e error) {
 }
 
 func createCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
-	// TODO: Retry a couple of times
-
 	cnpCRDName := "ciliumnetworkpolicies." + k8s.CustomResourceDefinitionGroup
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
@@ -157,6 +155,26 @@ func createCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	return nil
 }
 
+func (d *Daemon) createThirdPartyResources() error {
+	res := &v1beta1.ThirdPartyResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cilium-network-policy." + k8s.CustomResourceDefinitionGroup,
+		},
+		Description: "Cilium network policy rule",
+		Versions: []v1beta1.APIVersion{
+			{Name: k8s.CustomResourceDefinitionVersion},
+		},
+	}
+
+	// TODO: Retry a couple of times
+	_, err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Create(res)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
+}
+
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
 // Kubernetes api server at the given reSyncPeriod duration.
@@ -175,13 +193,24 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	if err := createCustomResourceDefinitions(apiextensionsclientset); err != nil {
+	clientName := "custom resource definition"
+
+	if err := createCustomResourceDefinitions(apiextensionsclientset); errors.IsNotFound(err) {
+		// If CRD was not found it might mean we are running in k8s <1.7
+		// then we should set up TPR instead
+		log.Debugf("Detected k8s <1.7, using TPR instead of CRD")
+		if err := d.createThirdPartyResources(); err != nil {
+			return fmt.Errorf("Unable to create third party resource: %s", err)
+		}
+		clientName = "third party resource"
+	} else if err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}
 
+	// CRD and TPR clients are based on the same rest config
 	crdClient, err := k8s.CreateCRDClient(restConfig)
 	if err != nil {
-		return fmt.Errorf("Unable to create custom resource definition client: %s", err)
+		return fmt.Errorf("Unable to create %s client: %s", clientName, err)
 	}
 
 	_, policyControllerDeprecated := cache.NewInformer(
