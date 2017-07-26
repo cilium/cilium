@@ -179,7 +179,7 @@ EOF
     fi
 }
 
-function install_kubeadm() {
+function install_kubeadm_dependencies(){
     sudo apt-get update && sudo apt-get install -y apt-transport-https
     sudo touch /etc/apt/sources.list.d/kubernetes.list
     curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
@@ -190,6 +190,9 @@ EOF
 
     sudo apt-get update && sudo apt-get install -y docker-engine
     sudo usermod -aG docker vagrant
+}
+
+function install_kubeadm() {
     sudo apt-get install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
 }
 
@@ -215,11 +218,14 @@ function start_etcd(){
     sudo systemctl status etcd --no-pager
 }
 
-function clean_all(){
-    sudo kubeadm reset
+function clean_etcd(){
     sudo service etcd stop
-    sudo docker rm -f `sudo docker ps -aq` 2>/dev/null
     sudo rm -fr /var/lib/etcd
+}
+
+function clean_kubeadm(){
+    sudo kubeadm reset
+    sudo docker rm -f `sudo docker ps -aq` 2>/dev/null
 }
 
 function fresh_install(){
@@ -243,6 +249,7 @@ function fresh_install(){
         generate_etcd_config
         start_etcd
     fi
+    install_kubeadm_dependencies
     install_kubeadm
 
     start_kubeadm
@@ -255,14 +262,22 @@ function reinstall(){
       case $opt in
         "-")
           case "${OPTARG}" in
-            "yes-delete-all-etcd-data")
-              clean_etcd=1
+            "yes-delete-all-data")
+              clean_etcd_opt=1
+              clean_kubeadm_opt=1
+            ;;
+            "yes-delete-etcd-data")
+              clean_etcd_opt=1
+            ;;
+            "yes-delete-kubeadm-data")
+              clean_kubeadm_opt=1
+            ;;
+            "reinstall-kubeadm")
+              clean_kubeadm_opt=1
+              reinstall_kubeadm_opt=1
             ;;
             "ipv6")
               ipv6="ipv6"
-            ;;
-            "reinstall-kubeadm")
-              reinstall_kubeadm=1
             ;;
           esac
         ;;
@@ -271,11 +286,13 @@ function reinstall(){
 
     get_options "${ipv6}"
 
-    if [[ -n "${clean_etcd}" ]]; then
-        clean_all
+    if [[ -n "${clean_etcd_opt}" ]]; then
+        clean_etcd
     fi
-
-    if [[ -n "${reinstall_kubeadm}" ]]; then
+    if [[ -n "${clean_kubeadm_opt}" ]]; then
+        clean_kubeadm
+    fi
+    if [[ -n "${reinstall_kubeadm_opt}" ]]; then
         install_kubeadm
     fi
 
@@ -350,6 +367,9 @@ case "$1" in
             deploy_cilium "$@"
             ;;
         *)
-            echo $"Usage: $0 {generate_certs|fresh_install [--ipv6]|reinstall [--yes-delete-all-etcd-data] [--ipv6] [--reinstall-kubeadm]|deploy_cilium [--lb-mode]}"
+            echo $"Usage: $0 {generate_certs | fresh_install [--ipv6] | \
+reinstall [--yes-delete-all-data] [--yes-delete-etcd-data] [--yes-delete-kubeadm-data] \
+[--ipv6] [--reinstall-kubeadm] | \
+deploy_cilium [--lb-mode]}"
             exit 1
 esac

@@ -19,7 +19,7 @@ function vmssh(){
 function reinstall_kubeadmn(){
     vm="${1}"
     k8s_version="${2}"
-    vmssh ${vm} '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --yes-delete-all-etcd-data --reinstall-kubeadm'
+    vmssh ${vm} '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --yes-delete-all-data --reinstall-kubeadm'
     vmssh ${vm} 'sudo cp -R /root/.kube /home/vagrant'
     vmssh ${vm} 'sudo chown vagrant.vagrant -R /home/vagrant/.kube'
 }
@@ -27,7 +27,7 @@ function reinstall_kubeadmn(){
 function reinstall_ipv4(){
     vm="${1}"
     k8s_version="${2}"
-    vmssh ${vm} '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --yes-delete-all-etcd-data'
+    vmssh ${vm} '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --yes-delete-all-data'
     vmssh ${vm} 'sudo cp -R /root/.kube /home/vagrant'
     vmssh ${vm} 'sudo chown vagrant.vagrant -R /home/vagrant/.kube'
 }
@@ -35,7 +35,7 @@ function reinstall_ipv4(){
 function reinstall_ipv6(){
     vm="${1}"
     k8s_version="${2}"
-    vmssh ${vm} '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --ipv6 --yes-delete-all-etcd-data'
+    vmssh ${vm} '/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash reinstall --ipv6 --yes-delete-all-data'
     vmssh ${vm} 'sudo cp -R /root/.kube /home/vagrant'
     vmssh ${vm} 'sudo chown vagrant.vagrant -R /home/vagrant/.kube'
 }
