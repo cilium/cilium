@@ -46,6 +46,8 @@ disable_ipv4=false
 EOF
     fi
 
+echo "k8s_version=${k8s_version}" >> "${dir}/env.bash"
+
     source "${dir}/env.bash"
 
     cat <<EOF > "${dir}/kubeadm-master.conf"
