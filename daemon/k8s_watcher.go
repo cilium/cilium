@@ -175,6 +175,16 @@ func (d *Daemon) createThirdPartyResources() error {
 	return nil
 }
 
+func (d *Daemon) deleteThirdPartyResources() error {
+	tprName := "cilium-network-policy." + k8s.CustomResourceDefinitionGroup
+	err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Delete(tprName, &metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
+}
+
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
 // Kubernetes api server at the given reSyncPeriod duration.
@@ -203,8 +213,15 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}
 		clientName = "third party resource"
-	} else if err != nil {
-		return fmt.Errorf("Unable to create custom resource definition: %s", err)
+	} else {
+		if err != nil {
+			return fmt.Errorf("Unable to create custom resource definition: %s", err)
+		}
+		// If we are in a CRD cluster lets make sure we delete the old TPR
+		// created to prevent conflicts
+		if err := d.deleteThirdPartyResources(); err != nil {
+			log.Debugf("Unable to delete old cilium TPR")
+		}
 	}
 
 	// CRD and TPR clients are based on the same rest config
