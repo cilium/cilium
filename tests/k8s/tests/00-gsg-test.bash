@@ -22,6 +22,7 @@ GSGDIR="${dir}/deployments/gsg"
 
 function cleanup {
 	kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
+	kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
 	kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
 	kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
 	kubectl delete -f "${GSGDIR}/cilium-ds.yaml" 2> /dev/null || true
@@ -78,7 +79,14 @@ kubectl create -f "${GSGDIR}/demo.yaml"
 wait_for_n_running_pods 4
 
 echo "----- adding L3 L4 policy  -----"
-k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy.yaml"
+
+# FIXME Remove workaround once we drop k8s 1.6 support
+# Only test the new network policy with k8s >= 1.7
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy.yaml"
+else
+    k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+fi
 
 echo "---- Policy in ${CILIUM_POD_1} ----"
 kubectl exec ${CILIUM_POD_1} -n ${NAMESPACE} -- cilium policy get
