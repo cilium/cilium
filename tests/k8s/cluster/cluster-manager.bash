@@ -8,7 +8,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 etcd_version="v3.1.0"
 # due a kubeadm bug, only upgrade directly to >=1.7.3 once it's released!
 # more info github.com/kubernetes/kubeadm/issues/354
-k8s_version="1.7.0-00"
+k8s_version=${k8s_version:-"1.7.0-00"}
 
 certs_dir="${dir}/certs"
 k8s_dir="${dir}/k8s"
@@ -53,6 +53,7 @@ apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
 api:
   advertiseAddress: ${controller_ip_brackets}
+kubernetesVersion: "v${k8s_version::-3}"
 etcd:
   endpoints:
   - https://${controller_ip_brackets}:2379
@@ -187,7 +188,7 @@ EOF
 
     sudo apt-get update && sudo apt-get install -y docker-engine
     sudo usermod -aG docker vagrant
-    sudo apt-get install -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
+    sudo apt-get install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
 }
 
 function install_cilium_config(){
@@ -258,6 +259,9 @@ function reinstall(){
             "ipv6")
               ipv6="ipv6"
             ;;
+            "reinstall-kubeadm")
+              reinstall_kubeadm=1
+            ;;
           esac
         ;;
       esac
@@ -267,6 +271,10 @@ function reinstall(){
 
     if [[ -n "${clean_etcd}" ]]; then
         clean_all
+    fi
+
+    if [[ -n "${reinstall_kubeadm}" ]]; then
+        install_kubeadm
     fi
 
     if [[ "$(hostname)" -eq "k8s-1" ]]; then
@@ -340,6 +348,6 @@ case "$1" in
             deploy_cilium "$@"
             ;;
         *)
-            echo $"Usage: $0 {generate_certs|fresh_install [--ipv6]|reinstall [--yes-delete-all-etcd-data] [--ipv6]|deploy_cilium [--lb-mode]}"
+            echo $"Usage: $0 {generate_certs|fresh_install [--ipv6]|reinstall [--yes-delete-all-etcd-data] [--ipv6] [--reinstall-kubeadm]|deploy_cilium [--lb-mode]}"
             exit 1
 esac
