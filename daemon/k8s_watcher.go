@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/Sirupsen/logrus"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -95,21 +97,60 @@ func k8sErrorHandler(e error) {
 	log.Error(e)
 }
 
-func (d *Daemon) createThirdPartyResources() error {
+func createCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
 	// TODO: Retry a couple of times
 
-	res := &v1beta1.ThirdPartyResource{
+	cnpCRDName := "ciliumnetworkpolicies." + k8s.CustomResourceDefinitionGroup
+
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cilium-network-policy." + k8s.ThirdPartyResourceGroup,
+			Name: cnpCRDName,
 		},
-		Description: "Cilium network policy rule",
-		Versions: []v1beta1.APIVersion{
-			{Name: k8s.ThirdPartyResourceVersion},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   k8s.CustomResourceDefinitionGroup,
+			Version: k8s.CustomResourceDefinitionVersion,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     "ciliumnetworkpolicies",
+				Singular:   "ciliumnetworkpolicy",
+				ShortNames: []string{"cnp", "ciliumnp"},
+				Kind:       "CiliumNetworkPolicy",
+			},
+			Scope: apiextensionsv1beta1.NamespaceScoped,
 		},
 	}
 
-	_, err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Create(res)
+	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(res)
 	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	log.Infof("k8s: Waiting for CRD to be established in k8s api-server...")
+	// wait for CRD being established
+	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, cond := range crd.Status.Conditions {
+			switch cond.Type {
+			case apiextensionsv1beta1.Established:
+				if cond.Status == apiextensionsv1beta1.ConditionTrue {
+					return true, err
+				}
+			case apiextensionsv1beta1.NamesAccepted:
+				if cond.Status == apiextensionsv1beta1.ConditionFalse {
+					log.Errorf("Name conflict: %v\n", cond.Reason)
+					return false, err
+				}
+			}
+		}
+		return false, err
+	})
+	if err != nil {
+		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(cnpCRDName, nil)
+		if deleteErr != nil {
+			return fmt.Errorf("k8s: unable to delete CRD %s. Deleting CRD due: %s", deleteErr, err)
+		}
 		return err
 	}
 
@@ -124,18 +165,23 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return nil
 	}
 
-	if err := d.createThirdPartyResources(); err != nil {
-		return fmt.Errorf("Unable to create third party resource: %s", err)
-	}
-
 	restConfig, err := k8s.CreateConfig(d.conf.K8sEndpoint, d.conf.K8sCfgPath)
 	if err != nil {
 		return fmt.Errorf("Unable to create rest configuration: %s", err)
 	}
 
-	tprClient, err := k8s.CreateTPRClient(restConfig)
+	apiextensionsclientset, err := apiextensionsclient.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("Unable to create third party resource client: %s", err)
+		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
+	}
+
+	if err := createCustomResourceDefinitions(apiextensionsclientset); err != nil {
+		return fmt.Errorf("Unable to create custom resource definition: %s", err)
+	}
+
+	crdClient, err := k8s.CreateCRDClient(restConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to create custom resource definition client: %s", err)
 	}
 
 	_, policyControllerDeprecated := cache.NewInformer(
@@ -204,7 +250,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go ingressController.Run(wait.NeverStop)
 
 	_, ciliumRulesController := cache.NewInformer(
-		cache.NewListWatchFromClient(tprClient, "ciliumnetworkpolicies",
+		cache.NewListWatchFromClient(crdClient, "ciliumnetworkpolicies",
 			v1.NamespaceAll, fields.Everything()),
 		&k8s.CiliumNetworkPolicy{},
 		reSyncPeriod,
@@ -900,7 +946,7 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	log.Debugf("Adding k8s TPR CiliumNetworkPolicy %+v", rule)
+	log.Debugf("Adding k8s CRD CiliumNetworkPolicy %+v", rule)
 
 	rules, err := rule.Parse()
 	if err != nil {
@@ -924,7 +970,7 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	log.Debugf("Deleting k8s TPR CiliumNetworkPolicy %+v", rule)
+	log.Debugf("Deleting k8s CRD CiliumNetworkPolicy %+v", rule)
 
 	rules, err := rule.Parse()
 	if err != nil {
