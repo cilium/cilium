@@ -262,6 +262,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	opts := make(models.ConfigurationMap)
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.RLock()
+	revision := repo.GetRevision()
 	e.Consumable.Mutex.RLock()
 
 	e.checkEgressAccess(owner, opts, policy.ID_HOST, OptionAllowToHost)
@@ -291,6 +292,15 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 	log.Debugf("[%s] Done regenerating policyChanged=%v optsChanged=%v",
 		e.PolicyID(), policyChanged, optsChanged)
+
+	// If no policy change occured for this endpoint then the endpoint is
+	// already running the latest revision, otherwise we have to wait for
+	// the regenerate to complete
+	if !policyChanged {
+		e.PolicyRevision = revision
+	} else {
+		e.NextPolicyRevision = revision
+	}
 
 	return policyChanged || optsChanged, nil
 }
