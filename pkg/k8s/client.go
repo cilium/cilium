@@ -36,7 +36,10 @@ const (
 	CustomResourceDefinitionGroup = "cilium.io"
 
 	// CustomResourceDefinitionVersion is the current version of the resource
-	CustomResourceDefinitionVersion = "v1"
+	CustomResourceDefinitionVersion = "v2"
+
+	// ThirdPartyResourceVersion is the version of the TPR resource
+	ThirdPartyResourceVersion = "v1"
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
@@ -56,7 +59,7 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func addKnownTypes(scheme *runtime.Scheme) error {
+func addKnownTypesCRD(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		schema.GroupVersion{
 			Group:   CustomResourceDefinitionGroup,
@@ -71,7 +74,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-// CreateCRDClient creates a new k8s client for third party resources
+// CreateCRDClient creates a new k8s client for custom resource definition
 func CreateCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	config.GroupVersion = &schema.GroupVersion{
 		Group:   CustomResourceDefinitionGroup,
@@ -80,7 +83,37 @@ func CreateCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
-	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypes)
+	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesCRD)
+	schemeBuilder.AddToScheme(api.Scheme)
+
+	return rest.RESTClientFor(config)
+}
+
+func addKnownTypesTPR(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(
+		schema.GroupVersion{
+			Group:   CustomResourceDefinitionGroup,
+			Version: ThirdPartyResourceVersion,
+		},
+		&CiliumNetworkPolicy{},
+		&CiliumNetworkPolicyList{},
+		&metav1.ListOptions{},
+		&metav1.DeleteOptions{},
+	)
+
+	return nil
+}
+
+// CreateTPRClient creates a new k8s client for third party resources
+func CreateTPRClient(config *rest.Config) (*rest.RESTClient, error) {
+	config.GroupVersion = &schema.GroupVersion{
+		Group:   CustomResourceDefinitionGroup,
+		Version: ThirdPartyResourceVersion,
+	}
+	config.APIPath = "/apis"
+	config.ContentType = runtime.ContentTypeJSON
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
+	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesTPR)
 	schemeBuilder.AddToScheme(api.Scheme)
 
 	return rest.RESTClientFor(config)

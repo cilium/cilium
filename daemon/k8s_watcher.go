@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -77,10 +78,15 @@ func k8sErrorHandler(e error) {
 			k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
 			k8sErrMsgMU.Unlock()
 		} else {
-			k8sErrMsgMU.Unlock()
 			if strings.Contains(errstr, "Failed to list *v1.NetworkPolicy: the server could not find the requested resource") {
+				k8sErrMsgMU.Unlock()
 				log.Warningf("Consider upgrading kubernetes to >=1.7 to enforce NetworkPolicy version 1")
 				stopPolicyController <- struct{}{}
+			} else if strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: the server could not find the requested resource") {
+				k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
+				k8sErrMsgMU.Unlock()
+				log.Warningf("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
+				log.Warningf("Due conflicting TPR and CRD rules CiliumNetworkPolicy enforcement can't be guaranteed!")
 			}
 		}
 	} else {
@@ -162,23 +168,13 @@ func (d *Daemon) createThirdPartyResources() error {
 		},
 		Description: "Cilium network policy rule",
 		Versions: []v1beta1.APIVersion{
-			{Name: k8s.CustomResourceDefinitionVersion},
+			{Name: k8s.ThirdPartyResourceVersion},
 		},
 	}
 
 	// TODO: Retry a couple of times
 	_, err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Create(res)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
-}
-
-func (d *Daemon) deleteThirdPartyResources() error {
-	tprName := "cilium-network-policy." + k8s.CustomResourceDefinitionGroup
-	err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Delete(tprName, &metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 
@@ -203,31 +199,27 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	clientName := "custom resource definition"
+	// CRD and TPR clients are based on the same rest config
+	var crdClient *rest.RESTClient
 
 	if err := createCustomResourceDefinitions(apiextensionsclientset); errors.IsNotFound(err) {
-		// If CRD was not found it might mean we are running in k8s <1.7
+		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
 		log.Debugf("Detected k8s <1.7, using TPR instead of CRD")
 		if err := d.createThirdPartyResources(); err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}
-		clientName = "third party resource"
-	} else {
+		crdClient, err = k8s.CreateTPRClient(restConfig)
 		if err != nil {
-			return fmt.Errorf("Unable to create custom resource definition: %s", err)
+			return fmt.Errorf("Unable to create third party resource client: %s", err)
 		}
-		// If we are in a CRD cluster lets make sure we delete the old TPR
-		// created to prevent conflicts
-		if err := d.deleteThirdPartyResources(); err != nil {
-			log.Debugf("Unable to delete old cilium TPR")
+	} else if err != nil {
+		return fmt.Errorf("Unable to create custom resource definition: %s", err)
+	} else {
+		crdClient, err = k8s.CreateCRDClient(restConfig)
+		if err != nil {
+			return fmt.Errorf("Unable to create custom resource definition client: %s", err)
 		}
-	}
-
-	// CRD and TPR clients are based on the same rest config
-	crdClient, err := k8s.CreateCRDClient(restConfig)
-	if err != nil {
-		return fmt.Errorf("Unable to create %s client: %s", clientName, err)
 	}
 
 	_, policyControllerDeprecated := cache.NewInformer(
