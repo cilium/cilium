@@ -75,6 +75,10 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 
 docker exec -i ${cilium_id} cilium policy get
 
+echo "===== Netstat ====="
+
+netstat -ltn
+
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl --connect-timeout 10 -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
 
 if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend and backend" ; fi
