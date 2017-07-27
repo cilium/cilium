@@ -48,7 +48,7 @@ var policyWaitCmd = &cobra.Command{
 			ready := 0
 
 			for _, ep := range eps {
-				if ep.Policy != nil && ep.Policy.Build >= reqRevision {
+				if ep.Policy != nil && ep.PolicyRevision >= reqRevision {
 					ready++
 				}
 			}
