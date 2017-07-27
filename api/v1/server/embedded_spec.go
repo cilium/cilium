@@ -947,6 +947,10 @@ func init() {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
         },
+        "policy-revision": {
+          "description": "The policy revision this endpoint is running on",
+          "type": "integer"
+        },
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
