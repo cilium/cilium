@@ -10,6 +10,15 @@ BUILD_NUM="${BUILD_NUMBER:-0}"
 JOB_BASE="${JOB_BASE_NAME:-local}"
 BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
 
+# Prefer local build if binary file detected.
+for bin in "../cilium/cilium" \
+  "../daemon/cilium-agent" \
+  "../plugins/cilium-docker/cilium-docker"; do
+        if [ -f $bin ]; then
+          export PATH=$PWD/`dirname $bin`:$PATH
+        fi
+done
+
 function monitor_start {
 	cilium monitor -v $@ > $DUMP_FILE &
 	MONITOR_PID=$!
