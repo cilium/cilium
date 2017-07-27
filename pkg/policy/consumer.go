@@ -177,9 +177,13 @@ func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer Nume
 	}
 
 	if reverse := c.cache.Lookup(consumable); reverse != nil {
-		delete(reverse.ReverseRules, consumer)
-		if reverse.wasLastRule(consumer) {
-			reverse.removeFromMaps(consumer)
+		// In case Conntrack is disabled, we'll find a reverse
+		// policy rule here that we can delete.
+		if _, ok := reverse.ReverseRules[consumer]; ok {
+			delete(reverse.ReverseRules, consumer)
+			if reverse.wasLastRule(consumer) {
+				reverse.removeFromMaps(consumer)
+			}
 		}
 	}
 }
