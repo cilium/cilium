@@ -61,6 +61,9 @@ type Endpoint struct {
 	// Whether policy enforcement is enabled or not
 	PolicyEnabled bool `json:"policy-enabled,omitempty"`
 
+	// The policy revision this endpoint is running on
+	PolicyRevision int64 `json:"policy-revision,omitempty"`
+
 	// Current state of endpoint
 	// Required: true
 	State EndpointState `json:"state"`
