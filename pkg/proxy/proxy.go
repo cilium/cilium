@@ -519,9 +519,14 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	p.mutex.Unlock()
 
-	log.Debugf("Created new proxy intance %+v", redir)
+	log.Debugf("Created new proxy instance %+v", redir)
 
-	go redir.server.ListenAndServe()
+	go func() {
+		err := redir.server.ListenAndServe()
+		if err != nil {
+			log.Errorf("Unable to listen and server proxy: %s", err)
+		}
+	}()
 
 	return redir, nil
 }
