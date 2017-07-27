@@ -666,14 +666,14 @@ import this policy to Cilium by running:
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl -si 'http://app1/public'
+    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/public'
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id.app2" cilium/demo-client curl -si 'http://app1/private'
+    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/private'
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
