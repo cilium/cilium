@@ -1,8 +1,8 @@
-apiVersion: "cilium.io/v2"
+apiVersion: "cilium.io/v1"
 kind: CiliumNetworkPolicy
 description: "L7 policy for getting started using Kubernetes guide"
 metadata:
-  name: "rule1"
+  name: "rule1-deprecated"
 spec:
   endpointSelector:
     matchLabels:

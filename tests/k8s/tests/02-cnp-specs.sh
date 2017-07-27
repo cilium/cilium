@@ -79,17 +79,29 @@ kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 ratings:
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to ratings:9080 service" ; fi
 
-# Install cilium policies
-
-k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp.yaml"
-
-if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
-
 cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 1>/dev/null
+# Install cilium policies
+# FIXME Remove workaround once we drop k8s 1.6 support
+# This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
+# TPR in k8s < 1.7.0
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp.yaml"
 
-if [ $? -ne 0 ]; then abort "multi-rules policy not in cilium" ; fi
+    if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
+
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 1>/dev/null
+
+    if [ $? -ne 0 ]; then abort "multi-rules policy not in cilium" ; fi
+else
+    k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp-deprecated.yaml"
+
+    if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
+
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules-deprecated 1>/dev/null
+
+    if [ $? -ne 0 ]; then abort "multi-rules-deprecated policy not in cilium" ; fi
+fi
 
 # Reviews should only reach `/health`
 
@@ -127,7 +139,11 @@ if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ra
 
 echo "SUCCESS!"
 
+set +e
+
 kubectl delete -f "${bookinfo_dir}/"
+
+echo "Policies not found error is expected"
 
 kubectl delete -f "${bookinfo_dir}/policies"
 

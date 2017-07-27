@@ -1,4 +1,4 @@
-apiVersion: "cilium.io/v1"
+apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 description: "Policy to stress test L7 proxy"
 metadata:
