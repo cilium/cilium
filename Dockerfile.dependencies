@@ -9,8 +9,7 @@ ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.
 
 RUN apt-get update && \
 
-apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 iptables && \
-#libgcc-5-dev binutils && \
+apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 iptables libgcc-5-dev binutils && \
 
 # clang-3.8.1-begin
 apt-get install -y --no-install-recommends curl xz-utils && \
