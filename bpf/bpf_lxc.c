@@ -283,8 +283,6 @@ skip_service_lookup:
 	if (ipv6_match_prefix_64(daddr, &router_ip)) {
 		struct endpoint_info *ep;
 
-		policy_clear_mark(skb);
-
 		/* Lookup IPv6 address in list of local endpoints */
 		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
 			if (ep->flags & ENDPOINT_F_HOST) {
@@ -295,6 +293,7 @@ skip_service_lookup:
 #endif
 			}
 
+			policy_clear_mark(skb);
 			return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr, ep);
 		} else {
 #ifdef ENCAP_IFINDEX
@@ -582,8 +581,6 @@ skip_service_lookup:
 	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
 		struct endpoint_info *ep;
 
-		policy_clear_mark(skb);
-
 		/* Lookup IPv4 address in list of local endpoints */
 		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
 			if (ep->flags & ENDPOINT_F_HOST) {
@@ -593,6 +590,7 @@ skip_service_lookup:
 				return DROP_NO_LXC;
 #endif
 			}
+			policy_clear_mark(skb);
 			return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep);
 		} else {
 #ifdef ENCAP_IFINDEX
