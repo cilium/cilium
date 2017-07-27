@@ -433,5 +433,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
 	err = lxcmap.WriteEndpoint(e)
+
+	// Mark the endpoint to be running the policy revision it was
+	// compiled for
+	if err == nil {
+		e.PolicyRevision = e.NextPolicyRevision
+	}
+
 	return err
 }
