@@ -66,9 +66,7 @@ if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend an
 kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
 kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
 
-kubectl create -f "${l7_stresstest_dir}/policies"
-
-wait_all_k8s_regenerated
+k8s_apply_policy kube-system "${l7_stresstest_dir}/policies/cnp.yaml"
 
 echo "Running tests WITH Policy / Proxy loaded"
 

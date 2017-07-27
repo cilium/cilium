@@ -75,9 +75,7 @@ kubectl create -f "${GSGDIR}/demo.yaml"
 wait_for_n_running_pods 4
 
 echo "----- adding L3 L4 policy  -----"
-kubectl create -f "${MINIKUBE}/l3_l4_policy.yaml"
-
-wait_all_k8s_regenerated 5
+k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy.yaml"
 
 echo "----- testing L3/L4 policy -----"
 APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
@@ -109,10 +107,7 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 fi
 
 echo "----- creating L7-aware policy -----"
-kubectl create -f "${MINIKUBE}/l3_l4_l7_policy.yaml"
-
-echo "----- Waiting for endpoints to get into 'ready' state -----"
-wait_all_k8s_regenerated 5
+k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_l7_policy.yaml"
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 http://${SVC_IP}/public || true)

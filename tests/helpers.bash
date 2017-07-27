@@ -146,27 +146,6 @@ function wait_for_policy_enforcement {
     done
 }
 
-function wait_all_k8s_regenerated {
-    # Wait some time for at least one endpoint to get into regenerating state
-    # FIXME: Remove when this is reliable
-    sleep 5
-
-    local cilium_k8s_npods=$(kubectl get pods -n kube-system -o wide | grep cilium | wc -l)
-    set +x
-    { for i in $(seq 1 ${cilium_k8s_npods}); do
-        while true; do
-            # FIXME by the time this executed, it's not guaranteed that we
-            # don't skip a regenerating
-            cilium_pod_id=$(kubectl get pods -n kube-system -o wide | grep cilium | awk "NR==$i{ print \$1 }")
-            if ! kubectl exec -n kube-system -i ${cilium_pod_id} cilium endpoint list | grep regenerating; then
-                break
-            fi
-            micro_sleep
-        done
-    done }
-    set -x
-}
-
 function count_lines_in_log {
     echo `wc -l $DUMP_FILE | awk '{ print $1 }'`
 }
@@ -367,6 +346,34 @@ function wait_for_service_endpoints_ready {
         micro_sleep
     done
     set -x
+}
+
+function k8s_apply_policy {
+	declare -A currentRevison
+	local i
+	local pod
+	local namespace=$1
+	local policy=$2
+	local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+
+	for pod in $pods; do
+		local rev=$(kubectl -n $namespace exec $pod -- cilium policy get | grep Revision: | awk '{print $2}')
+		currentRevison[$pod]=$rev
+	done
+
+	echo "Current policy revisions:"
+	for i in "${!currentRevison[@]}"
+	do
+		echo "  $i: ${currentRevison[$i]}"
+	done
+
+	kubectl create -f $policy
+
+	for pod in $pods; do
+		local nextRev=$(expr ${currentRevison[$pod]} + 1)
+		echo "Waiting for agent $pod endpoints to get to revision $nextRev"
+		kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
+	done
 }
 
 function policy_delete_and_wait {
