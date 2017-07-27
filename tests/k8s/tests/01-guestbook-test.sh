@@ -17,13 +17,19 @@ source "${dir}/../cluster/env.bash"
 
 guestbook_dir="${dir}/deployments/guestbook"
 
+# We will test old kubernetes network policy in kubernetes 1.6 and 1.7
 k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
 
 if [ $? -ne 0 ]; then abort "guestbook-policy-redis-deprecated policy was not inserted in kubernetes" ; fi
 
-kubectl create -f "${guestbook_dir}/policies/guestbook-policy-web.yaml"
-
-if [ $? -ne 0 ]; then abort "guestbook-policy-web policy was not inserted in kubernetes" ; fi
+# FIXME Remove workaround once we drop k8s 1.6 support
+# This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
+# TPR in k8s < 1.7.0
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-web.yaml"
+else
+    k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
+fi
 
 cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 
@@ -54,9 +60,18 @@ wait_for_service_endpoints_ready default guestbook 3000
 
 set +e
 
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 1>/dev/null
+# FIXME Remove workaround once we drop k8s 1.6 support
+# This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
+# TPR in k8s < 1.7.0
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 1>/dev/null
 
-if [ $? -ne 0 ]; then abort "guestbook-web policy not in cilium" ; fi
+    if [ $? -ne 0 ]; then abort "guestbook-web policy not in cilium" ; fi
+else
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated 1>/dev/null
+
+    if [ $? -ne 0 ]; then abort "guestbook-web-deprecated policy not in cilium" ; fi
+fi
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis-deprecated 1>/dev/null
 

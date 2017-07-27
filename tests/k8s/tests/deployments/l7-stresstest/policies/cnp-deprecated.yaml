@@ -1,16 +1,18 @@
-apiVersion: "cilium.io/v2"
+apiVersion: "cilium.io/v1"
 kind: CiliumNetworkPolicy
-description: "L7 policy for getting started using Kubernetes guide"
+description: "Policy to stress test L7 proxy"
 metadata:
-  name: "rule1"
+  name: "l7-stresstest-deprecated"
+  namespace: "development"
 spec:
   endpointSelector:
     matchLabels:
-      id: app1
+      id: server
   ingress:
   - fromEndpoints:
     - matchLabels:
-        id: app2
+        id: client
+        "k8s:io.kubernetes.pod.namespace": qa
     toPorts:
     - ports:
       - port: "80"
@@ -18,4 +20,4 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "/public"
+          path: "/$"

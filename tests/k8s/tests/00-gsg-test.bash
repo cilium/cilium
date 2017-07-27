@@ -124,7 +124,13 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 fi
 
 echo "----- creating L7-aware policy -----"
-k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_l7_policy.yaml"
+# FIXME Remove workaround once we drop k8s 1.6 support
+# Only test the new network policy with k8s >= 1.7
+if [[ "${k8s_version}" == 1.7.* ]]; then
+    k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_l7_policy.yaml"
+else
+    k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_l7_policy_deprecated.yaml"
+fi
 
 echo "---- Policy in ${CILIUM_POD_1} ----"
 kubectl exec ${CILIUM_POD_1} -n ${NAMESPACE} -- cilium policy get
