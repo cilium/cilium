@@ -15,7 +15,8 @@ source "${dir}/../cluster/env.bash"
 
 guestbook_dir="${dir}/deployments/guestbook"
 
-kubectl create -f "${guestbook_dir}/policies"
+k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis.json"
+k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-web.yaml"
 
 if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
