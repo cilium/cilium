@@ -22,7 +22,16 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy/api"
+	log "github.com/sirupsen/logrus"
 )
+
+const (
+	// WildcardEndpointSelector is a special hash value for the wildcard endpoint, i.e., applies to all
+	WildcardEndpointSelector = iota
+)
+
+// L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
+type L7DataMap map[uint64]api.L7Rules
 
 // L7ParserType is the type used to indicate what L7 parser to use and
 // defines all supported types of L7 parsers
@@ -40,18 +49,54 @@ type L4Filter struct {
 	Port int
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol string
+	// FromEndpoints limit the source labels for allowing traffic. If
+	// FromEndpoints is empty, then it selects all endpoints.
+	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
 	L7Parser L7ParserType
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
 	L7RedirectPort int
-	// L7Rules is a list of L7 rules which are passed to the L7 proxy (optional)
-	L7Rules api.L7Rules
+	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
+	L7RulesPerEp L7DataMap
 	// Ingress is true if filter applies at ingress
 	Ingress bool
 }
 
-// CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
-func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, protocol string) L4Filter {
+func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules,
+	fromEndpoints []api.EndpointSelector) error {
+
+	if rules.Len() == 0 {
+		return nil
+	}
+	if len(fromEndpoints) > 0 {
+		for _, ep := range fromEndpoints {
+			hash, err := ep.Hash()
+			if err != nil || hash == 0 {
+				return fmt.Errorf("Could not hash (%d) endpoint %e", hash, err)
+			}
+			dm[hash] = api.L7Rules{
+				HTTP:  append(dm[hash].HTTP, rules.HTTP...),
+				Kafka: append(dm[hash].Kafka, rules.Kafka...),
+			}
+		}
+	} else {
+		// If there are no explicit fromEps, have a 'special' wildcard endpoint.
+		dm[WildcardEndpointSelector] = api.L7Rules{
+			HTTP:  append(dm[WildcardEndpointSelector].HTTP, rules.HTTP...),
+			Kafka: append(dm[WildcardEndpointSelector].Kafka, rules.Kafka...),
+		}
+	}
+
+	return nil
+}
+
+// CreateL4Filter creates an L4Filter for the specified api.PortProtocol in
+// the direction ("ingress"/"egress") for a particular protocol.
+// This L4Filter will only apply to endpoints covered by `fromEndpoints`.
+// `rule` allows a series of L7 rules to be associated with this L4Filter.
+func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
+	direction string, protocol string) L4Filter {
+
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 
@@ -59,6 +104,8 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 		Port:           int(p),
 		Protocol:       protocol,
 		L7RedirectPort: rule.RedirectPort,
+		L7RulesPerEp:   make(map[uint64]api.L7Rules),
+		FromEndpoints:  fromEndpoints,
 	}
 
 	if strings.ToLower(direction) == "ingress" {
@@ -72,7 +119,12 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
 		}
-		l4.L7Rules = *rule.Rules
+		if err := l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules,
+			fromEndpoints); err != nil {
+
+			log.Errorf("%s", err)
+			return L4Filter{}
+		}
 	}
 
 	return l4

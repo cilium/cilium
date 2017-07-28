@@ -117,7 +117,7 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 			}
 		}
 
-		if v.L7Parser != "" {
+		if v.IsRedirect() {
 			if err := owner.RemoveProxyRedirect(e, &v); err != nil {
 				log.Warningf("error while removing proxy: %s", err)
 			}

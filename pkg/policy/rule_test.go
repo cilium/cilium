@@ -134,12 +134,27 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	l7rules := api.L7Rules{
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
+	l7map := L7DataMap{
+		WildcardEndpointSelector: l7rules,
+	}
 
 	expected := NewL4Policy()
-	expected.Ingress["80/tcp"] = L4Filter{Port: 80, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules, Ingress: true}
-	expected.Ingress["8080/tcp"] = L4Filter{Port: 8080, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules, Ingress: true}
-	expected.Egress["3000/tcp"] = L4Filter{Port: 3000, Protocol: "tcp", Ingress: false}
-	expected.Egress["3000/udp"] = L4Filter{Port: 3000, Protocol: "udp", Ingress: false}
+	expected.Ingress["80/tcp"] = L4Filter{
+		Port: 80, Protocol: "tcp", FromEndpoints: nil,
+		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+	}
+	expected.Ingress["8080/tcp"] = L4Filter{
+		Port: 8080, Protocol: "tcp", FromEndpoints: nil,
+		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+	}
+	expected.Egress["3000/tcp"] = L4Filter{
+		Port: 3000, Protocol: "tcp", Ingress: false,
+		L7RulesPerEp: L7DataMap{},
+	}
+	expected.Egress["3000/udp"] = L4Filter{
+		Port: 3000, Protocol: "udp", Ingress: false,
+		L7RulesPerEp: L7DataMap{},
+	}
 
 	state := traceState{}
 	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())

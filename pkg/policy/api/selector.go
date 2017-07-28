@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 
+	"github.com/mitchellh/hashstructure"
 	"github.com/op/go-logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
@@ -38,6 +39,11 @@ type EndpointSelector struct {
 func (n EndpointSelector) String() string {
 	j, _ := n.MarshalJSON()
 	return string(j)
+}
+
+// Hash return hash of the internal json structure that represents the endpoint selector
+func (n *EndpointSelector) Hash() (uint64, error) {
+	return hashstructure.Hash(n.LabelSelector, nil)
 }
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
