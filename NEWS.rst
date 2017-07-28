@@ -2,8 +2,44 @@
 NEWS
 ****
 
-0.10
-====
+0.10.1
+======
+
+Bug Fixes
+---------
+* Fixed an issue where service IDs were leaked in etcd/consul. Services have
+  been moved to a new prefix in the kvstore. Old, leaked service IDs are
+  automatically removed when a fixed cilium-agent is started. (1182_, 1195_)
+* Fixed accuracy of policy revision field. The policy revision field was bumped
+  after policy for an endpoint was recalculated. The policy revision field is
+  now bumped *after* complete synchronization with the datapath has occurred
+  (1196_)
+* Fixed graceful connection closure where final ACK after FIN+ACK was dropped
+  (1186_)
+* Fixed unnecessary consumer map deletion attempt which resulted in confusion
+  due to warning log messages (1206_)
+* Fixed stateful connection recognition of reply|related packets from an
+  endpoint to the host. This resulted in reply packets getting dropped if the
+  path from endpoint to host was restricted by policy but a connection from
+  the host to the endpoint was permitted (1211_)
+* Fixed debian packages build process (1153_)
+* Fixed a typo in the getting started guide examples section (1213_)
+* Fixed Kubernetes CI test to use locally built container image (1188_)
+* Fixed logic which picks up Kubernetes log files on failed CI testruns (1169_)
+
+Kubernetes
+----------
+* Added support for Custom Resource Definition (CRD). Be aware that parallel
+  usage of CRD and Third party Resources (TPR) leads to unexpected behaviour.
+  See cilium.link/migrate-tpr for more details. Upgrade your
+  CiliumNetworkPolicy resources to cilium.io/v2 in order to use CRD. Keep them
+  at cilium.io/v1 to stay on TPR. (1169_, 1219_)
+* Added RBAC rules for v1/NetworkPolicy (1188_)
+* Upgraded to kubeadm 1.7.0 (1179_)
+* Upgraded Kubernetes example to 1.7.0 (1180_)
+
+0.10.0
+======
 
 Major features
 --------------
@@ -317,3 +353,16 @@ Fixes
 .. _1027: https://github.com/cilium/cilium/pull/1027
 .. _1122: https://github.com/cilium/cilium/pull/1122
 .. _1135: https://github.com/cilium/cilium/pull/1135
+.. _1182: https://github.com/cilium/cilium/pull/1182
+.. _1195: https://github.com/cilium/cilium/pull/1195
+.. _1196: https://github.com/cilium/cilium/pull/1196
+.. _1186: https://github.com/cilium/cilium/pull/1186
+.. _1206: https://github.com/cilium/cilium/pull/1206
+.. _1211: https://github.com/cilium/cilium/pull/1211
+.. _1153: https://github.com/cilium/cilium/pull/1153
+.. _1213: https://github.com/cilium/cilium/pull/1213
+.. _1188: https://github.com/cilium/cilium/pull/1188
+.. _1169: https://github.com/cilium/cilium/pull/1169
+.. _1219: https://github.com/cilium/cilium/pull/1219
+.. _1179: https://github.com/cilium/cilium/pull/1179
+.. _1180: https://github.com/cilium/cilium/pull/1180
