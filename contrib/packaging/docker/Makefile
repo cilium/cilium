@@ -2,13 +2,19 @@ include ../../../Makefile.defs
 
 BUILDDIR := "$(CURDIR)/stage/cilium-$(VERSION)"
 
-build: clean
+docker-image-prod: clean
 	mkdir -p $(BUILDDIR)
 	@$(CURDIR)/../cp-dirs.sh $(BUILDDIR)
-	#cp -v ../../../Dockerfile.dependencies $(BUILDDIR)/Dockerfile
-	cp -v ../../../Dockerfile $(BUILDDIR)
+	./build-docker.sh build_docker_prod
 	find $(BUILDDIR) -name ".*" -prune ! -name ".git"  -exec $(RM) -rf {} \;
-	docker build -t "cilium:dependencies" $(BUILDDIR)
+	docker build -t "cilium:${DOCKER_IMAGE_TAG}" $(BUILDDIR)
+
+docker-image-dev: clean
+	mkdir -p $(BUILDDIR)
+	@$(CURDIR)../cp-dirs.sh $(BUILDDIR)
+	./build-docker.sh build_docker_dev
+	find $(BUILDDIR) -name ".*" -prune ! name ".git" -exec $(RM) -rf{} \;
+	docker build -t "cilium:$(DOCKER_IMAGE_TAG)" $(BUILDDIR)
 
 clean:
 	ls -d ./* | grep -vE "Makefile|clang-3.8.1.key" | xargs $(RM) -rf
