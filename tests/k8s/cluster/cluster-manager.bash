@@ -134,6 +134,13 @@ WantedBy=multi-user.target
 EOF
 }
 
+# FIXME remove this workaround in kubeadm 1.7.3
+# More info: github.com/kubernetes/kubeadm/issues/335
+function create_rolebinding(){
+    wait_for_healthy_k8s_cluster 1
+    kubectl create -f "${dir}/kubeadm-fix.yaml" || true
+}
+
 function start_kubeadm() {
     cd /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster
 
@@ -162,6 +169,8 @@ EOF
 
         # copy kubeconfig so we can share it with node-2
         sudo cp /etc/kubernetes/admin.conf ./kubelet.conf
+
+        create_rolebinding
     else
         sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
 
