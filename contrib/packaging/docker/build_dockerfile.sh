@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function build_docker_dev {
+function build_dockerfile_dev {
    cat <<EOF > ./Dockerfile
 FROM cilium:dependencies
 
@@ -19,7 +19,7 @@ groupadd -f cilium
 EOF
 }
 
-function build_docker_dependencies {
+function build_dockerfile_dependencies {
  cat <<EOF > ./Dockerfile
 FROM ubuntu:16.04
 LABEL "Maintainer: Andre Martins <andre@cilium.io>"
@@ -44,8 +44,8 @@ go get -u github.com/jteeuwen/go-bindata/...
 EOF
 }
 
-function build_docker_prod {
-  build_docker_dev
+function build_dockerfile_prod {
+  build_dockerfile_dev
   cat <<EOF >> ./Dockerfile
 FROM ubuntu:16.04
 ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/clang-3.8.1.key
@@ -136,3 +136,5 @@ rm -r tmp && \\
 
 EOF
 }
+
+eval $@

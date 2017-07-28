@@ -5,14 +5,14 @@ BUILDDIR := "$(CURDIR)/stage/cilium-$(VERSION)"
 docker-image-prod: clean
 	mkdir -p $(BUILDDIR)
 	@$(CURDIR)/../cp-dirs.sh $(BUILDDIR)
-	./build-docker.sh build_docker_prod
+	./build_dockerfile.sh build_docker_prod
 	find $(BUILDDIR) -name ".*" -prune ! -name ".git"  -exec $(RM) -rf {} \;
 	docker build -t "cilium:${DOCKER_IMAGE_TAG}" $(BUILDDIR)
 
 docker-image-dev: clean
 	mkdir -p $(BUILDDIR)
 	@$(CURDIR)../cp-dirs.sh $(BUILDDIR)
-	./build-docker.sh build_docker_dev
+	./build_dockerfile.sh build_docker_dev
 	find $(BUILDDIR) -name ".*" -prune ! name ".git" -exec $(RM) -rf{} \;
 	docker build -t "cilium:$(DOCKER_IMAGE_TAG)" $(BUILDDIR)
 
