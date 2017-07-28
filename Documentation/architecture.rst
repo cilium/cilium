@@ -624,7 +624,7 @@ The security policy can be specified in the following formats:
   for details on how to configure Kubernetes network policies. It is possible
   to define base rules using the Kubernetes specification and then
   extend these using additional Cilium specific rules.
-* The Cilium policy language as described below. In addition to the what the
+* The Cilium policy language as described below. In addition to what the
   Kubernetes NetworkPolicy spec supports, the Cilium language allows to
   implement Layer 7 filtering, deny rules, and hierarchical rules for
   delegation and precedence purposes. Cilium also provides egress enforcement

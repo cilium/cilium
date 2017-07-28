@@ -73,7 +73,7 @@ The remainder of this documentation is divided into four sections:
 * :ref:`admin_guide` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
-* :ref:`dev_guide` : Give background to those looking to develop and contribute
+* :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.
 
 Getting Help
