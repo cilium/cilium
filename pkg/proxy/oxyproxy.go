@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/braintree/manners"
@@ -236,10 +237,10 @@ func (r *OxyRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInf
 	return info
 }
 
-func translateOxyPolicyRules(l4 *policy.L4Filter) ([]string, error) {
+func getOxyPolicyRules(rules []api.PortRuleHTTP) ([]string, error) {
 	var l7rules []string
 
-	for _, h := range l4.L7Rules.HTTP {
+	for _, h := range rules {
 		var r string
 
 		if h.Path != "" {
@@ -280,6 +281,20 @@ func translateOxyPolicyRules(l4 *policy.L4Filter) ([]string, error) {
 			return nil, fmt.Errorf("invalid filter expression: %s", r)
 		}
 		l7rules = append(l7rules, r)
+	}
+
+	return l7rules, nil
+}
+
+func translateOxyPolicyRules(l4 *policy.L4Filter) ([]string, error) {
+	var l7rules []string
+
+	for _, ep := range l4.L7RulesPerEp {
+		rules, err := getOxyPolicyRules(ep.HTTP)
+		if err != nil {
+			return nil, err
+		}
+		l7rules = append(rules, l7rules...)
 	}
 
 	return l7rules, nil
@@ -428,11 +443,13 @@ func setSocketMark(c net.Conn, mark int) {
 // createOxyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
 func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16) (Redirect, error) {
-	if len(l4.L7Rules.Kafka) > 0 {
-		log.Debug("Kafka Parser not supported by Oxy proxy.")
-		return nil, fmt.Errorf("unsupported L7 protocol proxy: \"%s\"", l4.L7Parser)
-
+	for _, ep := range l4.L7RulesPerEp {
+		if len(ep.Kafka) > 0 {
+			log.Debug("Kafka Parser not supported by Oxy proxy.")
+			return nil, fmt.Errorf("unsupported L7 protocol proxy: \"%s\"", l4.L7Parser)
+		}
 	}
+
 	if l4.L7Parser != policy.ParserTypeHTTP {
 		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
 	}

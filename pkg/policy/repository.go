@@ -156,10 +156,10 @@ func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 	ctx.EgressL4Only = true
 
 	ctx.PolicyTrace("\n")
-	policy := p.ResolveL4Policy(ctx)
+	policy, err := p.ResolveL4Policy(ctx)
 	verdict := api.Undecided
 	if err == nil {
-		verdict := policy.EgressCoversDPorts(ctx.DPorts)
+		verdict = policy.EgressCoversDPorts(ctx.DPorts)
 	}
 
 	if len(ctx.DPorts) == 0 {
@@ -176,10 +176,10 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 	ctx.IngressL4Only = true
 
 	ctx.PolicyTrace("\n")
-	policy := p.ResolveL4Policy(ctx)
+	policy, err := p.ResolveL4Policy(ctx)
 	verdict := api.Undecided
 	if err == nil {
-		verdict := policy.IngressCoversDPorts(ctx.DPorts)
+		verdict = policy.IngressCoversDPorts(ctx.DPorts)
 	}
 
 	if len(ctx.DPorts) == 0 {

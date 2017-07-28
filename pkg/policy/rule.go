@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/policy/api"
+	log "github.com/sirupsen/logrus"
 )
 
 type rule struct {
@@ -74,14 +75,31 @@ func (r *rule) validate() error {
 	return nil
 }
 
-func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, dir string, proto string, resMap L4PolicyMap) (int, error) {
+func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filter) bool {
+
+	if len(policy.FromEndpoints) == 0 && len(fromEndpoints) > 0 {
+		log.Debugf("skipping L4 filter %s as the endpoints %s are already covered.", policy, fromEndpoints)
+		return true
+	}
+
+	if len(policy.FromEndpoints) > 0 && len(fromEndpoints) == 0 {
+		// new policy is more permissive than the existing policy
+		// use a more permissive one
+		policy.FromEndpoints = nil
+	}
+	return false
+}
+
+func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
+	dir string, proto string, resMap L4PolicyMap) (int, error) {
+
 	key := p.Port + "/" + proto
 	v, ok := resMap[key]
 	if !ok {
-		resMap[key] = CreateL4Filter(r, p, dir, proto)
+		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
 		return 1, nil
 	}
-	l4Filter := CreateL4Filter(r, p, dir, proto)
+	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
 	if l4Filter.L7Parser != "" && v.L7Parser == "" {
 		v.L7Parser = l4Filter.L7Parser
 	} else if l4Filter.L7Parser != v.L7Parser {
@@ -94,27 +112,54 @@ func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, dir str
 		ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
 		return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
 	}
-	switch {
-	case len(l4Filter.L7Rules.HTTP) > 0:
-		if len(v.L7Rules.Kafka) > 0 {
-			ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-			return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-		}
-		v.L7Rules.HTTP = append(v.L7Rules.HTTP, l4Filter.L7Rules.HTTP...)
-	case len(l4Filter.L7Rules.Kafka) > 0:
-		if len(v.L7Rules.HTTP) > 0 {
-			ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
-			return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
-		}
-		v.L7Rules.Kafka = append(v.L7Rules.Kafka, l4Filter.L7Rules.Kafka...)
-	default:
-		ctx.PolicyTrace("   No L7 rules to merge.\n")
+
+	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && len(r.Rules.HTTP) == 0 {
+		// skip this policy as it is already covered and it does not contain L7 rules
+		return 1, nil
 	}
+
+	// if (1) the existing rule did not have a wildcard endpoint
+	// AND (2) the new rule does not have explicit fromEndpoints
+	// THEN we need to copy all existing L7 rules to the wildcard endpoint
+	if _, ok := v.L7RulesPerEp[WildcardEndpointSelector]; !ok && len(fromEndpoints) == 0 {
+		wildcardEp := api.L7Rules{}
+		for _, existingL7Rules := range v.L7RulesPerEp {
+			wildcardEp.HTTP = append(wildcardEp.HTTP, existingL7Rules.HTTP...)
+			wildcardEp.Kafka = append(wildcardEp.Kafka, existingL7Rules.Kafka...)
+		}
+		v.L7RulesPerEp[WildcardEndpointSelector] = wildcardEp
+	}
+
+	for hash, newL7Rules := range l4Filter.L7RulesPerEp {
+		if ep, ok := v.L7RulesPerEp[hash]; ok {
+			switch {
+			case len(l4Filter.L7RulesPerEp[hash].HTTP) > 0:
+				if len(v.L7RulesPerEp[hash].Kafka) > 0 {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+				ep.HTTP = append(ep.HTTP, newL7Rules.HTTP...)
+			case len(l4Filter.L7RulesPerEp[hash].Kafka) > 0:
+				if len(v.L7RulesPerEp[hash].HTTP) > 0 {
+					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+				}
+				ep.Kafka = append(ep.Kafka, newL7Rules.Kafka...)
+			default:
+				ctx.PolicyTrace("   No L7 rules to merge.\n")
+			}
+		} else {
+			v.L7RulesPerEp[hash] = newL7Rules
+		}
+	}
+
 	resMap[key] = v
 	return 1, nil
 }
 
-func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4PolicyMap) (int, error) {
+func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
+	resMap L4PolicyMap) (int, error) {
+
 	found := 0
 	var err error
 
@@ -134,19 +179,19 @@ func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4
 		for _, p := range r.Ports {
 			var cnt int
 			if p.Protocol != "" {
-				cnt, err = mergeL4Port(ctx, r, p, dir, p.Protocol, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4Port(ctx, r, p, dir, "tcp", resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, "tcp", resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4Port(ctx, r, p, dir, "udp", resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, "udp", resMap)
 				if err != nil {
 					return found, err
 				}
@@ -170,7 +215,7 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 
 	if !ctx.EgressL4Only {
 		for _, r := range r.Ingress {
-			cnt, err := mergeL4(ctx, "Ingress", r.ToPorts, result.Ingress)
+			cnt, err := mergeL4(ctx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
 			if err != nil {
 				return nil, err
 			}
@@ -180,7 +225,7 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 
 	if !ctx.IngressL4Only {
 		for _, r := range r.Egress {
-			cnt, err := mergeL4(ctx, "Egress", r.ToPorts, result.Egress)
+			cnt, err := mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
 			if err != nil {
 				return nil, err
 			}

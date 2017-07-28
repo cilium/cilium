@@ -18,6 +18,7 @@ package k8s
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
@@ -69,12 +70,13 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
+	fromEndpoints := labels.LabelArray{
+		labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+	}
 	ctx := policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-		},
+		From: fromEndpoints,
 		To: labels.LabelArray{
 			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
@@ -87,14 +89,27 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	repo.AddList(rules)
 	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 
+	matchLabels := make(map[string]string)
+	for _, v := range fromEndpoints {
+		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
+	}
+	lblSelector := metav1.LabelSelector{
+		MatchLabels: matchLabels,
+	}
+	epSelector := api.EndpointSelector{
+		LabelSelector: &lblSelector,
+	}
+
 	result, err := repo.ResolveL4Policy(&ctx)
 	c.Assert(result, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
 			"80/tcp": policy.L4Filter{
-				Port: 80, Protocol: "tcp", L7Parser: "",
-				L7RedirectPort: 0, L7Rules: api.L7Rules{},
+				Port: 80, Protocol: "tcp",
+				FromEndpoints:  []api.EndpointSelector{epSelector},
+				L7Parser:       "",
+				L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
 				Ingress: true,
 			},
 		},
