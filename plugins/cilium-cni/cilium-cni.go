@@ -450,7 +450,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 
 	if err := client.EndpointDelete(id); err != nil {
-		log.Warningf("Deletion of endpoint failed: %s\n", err)
+		log.Warningf("Deletion of endpoint failed: %s", err)
 	}
 
 	return ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {

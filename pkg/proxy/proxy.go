@@ -392,7 +392,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			for {
 				time.Sleep(time.Duration(10) * time.Second)
 				if deleted := GC(); deleted > 0 {
-					log.Debugf("Evicted %d entries from proxy table\n", deleted)
+					log.Debugf("Evicted %d entries from proxy table", deleted)
 				}
 			}
 		}()
@@ -472,7 +472,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 				return
 			} else {
 				ar := rule.(policy.AuxRule)
-				log.Debugf("Allowing request based on rule %+v\n", ar)
+				log.Debugf("Allowing request based on rule %+v", ar)
 				record.Info = fmt.Sprintf("rule: %+v", ar)
 			}
 		}

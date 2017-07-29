@@ -143,7 +143,7 @@ func createCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 				}
 			case apiextensionsv1beta1.NamesAccepted:
 				if cond.Status == apiextensionsv1beta1.ConditionFalse {
-					log.Errorf("Name conflict: %v\n", cond.Reason)
+					log.Errorf("Name conflict: %v", cond.Reason)
 					return false, err
 				}
 			}

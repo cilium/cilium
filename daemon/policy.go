@@ -73,7 +73,7 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 		log.Debugf("Full policy recalculation triggered")
 		d.invalidateCache()
 	} else {
-		log.Debugf("Partial policy recalculation triggered: %d\n", added)
+		log.Debugf("Partial policy recalculation triggered: %d", added)
 		// FIXME: Invalidate only cache that is affected
 		d.invalidateCache()
 	}

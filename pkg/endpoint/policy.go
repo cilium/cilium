@@ -39,7 +39,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 
 	ctx.To, err = owner.GetCachedLabelList(dstID)
 	if err != nil {
-		log.Warningf("Unable to get label list for ID %d, access for endpoint may be restricted\n", dstID)
+		log.Warningf("Unable to get label list for ID %d, access for endpoint may be restricted", dstID)
 		return
 	}
 
@@ -211,7 +211,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	// Result is valid until cache iteration advances
 	c.Iteration = repo.GetRevision()
 
-	log.Debugf("[%s] Iteration %d: new consumable %d, consumers = %+v\n",
+	log.Debugf("[%s] Iteration %d: new consumable %d, consumers = %+v",
 		e.PolicyID(), c.Iteration, c.ID, c.Consumers)
 
 	// FIXME: Optimize this and only return true if L4 policy changed

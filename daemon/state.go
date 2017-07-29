@@ -144,7 +144,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 	for _, epID := range eptsDirNames {
 		epDir := filepath.Join(basePath, epID)
 		readDir := func() string {
-			log.Debugf("Reading directory %s\n", epDir)
+			log.Debugf("Reading directory %s", epDir)
 			epFiles, err := ioutil.ReadDir(epDir)
 			if err != nil {
 				log.Warningf("Error while reading directory %q. Ignoring it...", epDir)
@@ -163,15 +163,15 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 		if cHeaderFile == "" {
 			cHeaderFile = readDir()
 		}
-		log.Debugf("Found endpoint C header file %q\n", cHeaderFile)
+		log.Debugf("Found endpoint C header file %q", cHeaderFile)
 		strEp, err := common.GetCiliumVersionString(cHeaderFile)
 		if err != nil {
-			log.Warningf("Unable to read the C header file %q: %s\n", cHeaderFile, err)
+			log.Warningf("Unable to read the C header file %q: %s", cHeaderFile, err)
 			continue
 		}
 		ep, err := endpoint.ParseEndpoint(strEp)
 		if err != nil {
-			log.Warningf("Unable to read the C header file %q: %s\n", cHeaderFile, err)
+			log.Warningf("Unable to read the C header file %q: %s", cHeaderFile, err)
 			continue
 		}
 		possibleEPs = append(possibleEPs, ep)
@@ -211,7 +211,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 
 	if labels.ID != ep.SecLabel.ID {
 		log.Infof("Security label ID for endpoint %d is different "+
-			"that the one stored, updating from %d to %d\n",
+			"that the one stored, updating from %d to %d",
 			ep.ID, ep.SecLabel.ID, labels.ID)
 	}
 	ep.SetIdentity(d, labels)

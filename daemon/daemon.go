@@ -444,7 +444,7 @@ func (d *Daemon) compileBase() error {
 	var mode string
 
 	if err := d.writeNetdevHeader("./"); err != nil {
-		log.Warningf("Unable to write netdev header: %s\n", err)
+		log.Warningf("Unable to write netdev header: %s", err)
 		return err
 	}
 
@@ -915,7 +915,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if err = d.init(); err != nil {
-		log.Errorf("Error while initializing daemon: %s\n", err)
+		log.Errorf("Error while initializing daemon: %s", err)
 		return nil, err
 	}
 
@@ -924,10 +924,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	if c.RestoreState {
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
-			log.Warningf("Error while recovering endpoints: %s\n", err)
+			log.Warningf("Error while recovering endpoints: %s", err)
 		}
 		if err := d.SyncLBMap(); err != nil {
-			log.Warningf("Error while recovering endpoints: %s\n", err)
+			log.Warningf("Error while recovering endpoints: %s", err)
 		}
 	} else {
 		// We need to read all docker containers so we know we won't
@@ -1059,7 +1059,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	}
 	if changes > 0 {
 		if err := d.compileBase(); err != nil {
-			msg := fmt.Errorf("Unable to recompile base programs: %s\n", err)
+			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			log.Warningf("%s", msg)
 			return apierror.Error(PatchConfigFailureCode, msg)
 		}

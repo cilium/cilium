@@ -121,7 +121,7 @@ func (h *postIPAM) Handle(params ipam.PostIPAMParams) middleware.Responder {
 
 	family := strings.ToLower(swag.StringValue(params.Family))
 
-	log.Debugf("%+v %+v\n", family, d.ipamConf.IPv4Allocator)
+	log.Debugf("%+v %+v", family, d.ipamConf.IPv4Allocator)
 
 	if (family == "ipv6" || family == "") && d.ipamConf.IPv6Allocator != nil {
 		ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
