@@ -780,8 +780,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		log.Debugf("Unable to clean leftover veths: %s", err)
 	}
 
-	// Create the same amount of worker threads as there are CPUs
-	d.StartEndpointBuilders(runtime.NumCPU())
+	// Create at least 4 worker threads or the same amount as there are
+	// CPUs.
+	d.StartEndpointBuilders(numWorkerThreads())
 
 	d.listenForCiliumEvents()
 
@@ -1168,4 +1169,15 @@ func (d *Daemon) clearCiliumVeths() error {
 		}
 	}
 	return nil
+}
+
+// numWorkerThreads returns the number of worker threads with a minimum of 4.
+func numWorkerThreads() int {
+	ncpu := runtime.NumCPU()
+	minWorkerThreads := 4
+
+	if ncpu < minWorkerThreads {
+		return minWorkerThreads
+	}
+	return ncpu
 }

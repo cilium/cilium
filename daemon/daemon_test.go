@@ -15,6 +15,7 @@
 package main
 
 import (
+	"runtime"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -28,3 +29,8 @@ type DaemonSuite struct {
 }
 
 var _ = Suite(&DaemonSuite{})
+
+func (ds *DaemonSuite) TestMiniumWorkerThreadsIsSet(c *C) {
+	c.Assert(numWorkerThreads() >= 4, Equals, true)
+	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
+}
