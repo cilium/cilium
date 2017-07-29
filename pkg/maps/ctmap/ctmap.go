@@ -118,6 +118,18 @@ func NewGCFilterBy(f GCFilterFlags) *GCFilter {
 	}
 }
 
+// TypeString returns the filter type in human readable way.
+func (f *GCFilter) TypeString() string {
+	switch f.fType {
+	case GCFilterByTime:
+		return "timeout"
+	case GCFilterByID:
+		return "security ID"
+	default:
+		return "(unknown)"
+	}
+}
+
 // ToString iterates through Map m and writes the values of the ct entries in m
 // to a string.
 func ToString(m *bpf.Map, mapName string) (string, error) {
@@ -232,7 +244,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			log.Debugf("Deleting entry %v since it timeout", entry)
+			//log.Debugf("Deleting entry %v since it timeout", entry)
 		}
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
@@ -244,8 +256,8 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
 
 				del = true
-				log.Debugf("Deleting entry since ID %d is no "+
-					"longer being consumed by %s", entry.src_sec_id, filter.IP)
+				//log.Debugf("Deleting entry since ID %d is no "+
+				//	"longer being consumed by %s", entry.src_sec_id, filter.IP)
 			}
 		}
 
@@ -297,7 +309,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			log.Debugf("Deleting entry %v since it timeout", entry)
+			//log.Debugf("Deleting entry %v since it timeout", entry)
 		}
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
@@ -309,8 +321,8 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
 
 				del = true
-				log.Debugf("Deleting entry since ID %d is no "+
-					"longer being consumed by %s", entry.src_sec_id, filter.IP)
+				//log.Debugf("Deleting entry since ID %d is no "+
+				//	"longer being consumed by %s", entry.src_sec_id, filter.IP)
 			}
 		}
 
