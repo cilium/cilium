@@ -208,129 +208,165 @@ label source defaults to ``any:`` which will match all labels regardless of
 their source. If a source is provided, the source of the selecting and matching
 labels need to match.
 
+*********
+Endpoints
+*********
+
+Cilium makes application containers available on the network by assigning them
+IP addresses. Multiple application containers can share the same IP address; a
+typical example for this model is a Kubernetes Pod_. All application containers
+which share a common address are grouped together in what Cilium refers to as
+an *endpoint*.
+
+Allocating individual IP addresses enables the use of the entire Layer 4 port
+range by each *endpoint*. This essentially allows multiple application
+containers running on the same cluster node to all bind to well known ports such
+`80` without causing any conflicts.
+
+The default behaviour of Cilium is to assign both an IPv6 and IPv4 address to
+every *endpoint*. However, this behaviour can be configured to only allocate an
+IPv6 address with the ``--disable-ipv4`` option. If both an IPv6 and IPv4
+address are assigned, either address can be used to reach the endpoint. The
+same behaviour will apply with regard to policy rules, load-balancing, etc. See
+`address management`_ for more details.
+
+Identification
+==============
+
+For identification purposes, Cilium assigns an *endpoint id* to all endpoints on
+a cluster node. The *endpoint id* is unique within the context of an individual
+cluster node.
+
+Endpoint Metadata (Labels)
+==========================
+
+An *endpoint* automatically derives metadata from the application containers
+associated with the *endpoint*. The metadata can then be used to identify the
+endpoint for security/policy, load-balancing and routing purposes.
+
+The source of the metadata will depend on the orchestration system and
+container runtime in use. The following metadata retrieval mechanisms are
+currently supported:
+
++---------------------+---------------------------------------------------+
+| System              | Description                                       |
++---------------------+---------------------------------------------------+
+| Kubernetes          | Pod labels (via k8s API)                          |
++---------------------+---------------------------------------------------+
+| Mesos               | Labels (via CNI)                                  |
++---------------------+---------------------------------------------------+
+| containerd (Docker) | Container labels (via Docker API)                 |
++---------------------+---------------------------------------------------+
+
+Metadata is attached to *endpoints* in the form of Labels_.
+
+The following example launches a container with the label ``app=benchmark``
+which is then associated with the *endpoint*. The label is prefixed with
+``container:`` to indicate that the label was derived from the container
+runtime.
+
+::
+
+    $ docker run --net cilium -d -l app=benchmark tgraf/netperf
+    aaff7190f47d071325e7af06577f672beff64ccc91d2b53c42262635c063cf1c
+    $  cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4            STATUS
+               ENFORCEMENT
+    62006      Disabled      257        container:app=benchmark       f00d::a00:20f:0:f236   10.15.116.202   ready
+
+
+An endpoint can have metadata associated from multiple sources. A typical
+example is a Kubernetes cluster which uses containerd as the container runtime.
+Endpoints will derive Kubernetes pod labels (prefixed with the `k8s:` source
+prefix) and containerd labels (prefixed with `container:` source prefix).
+
+************
+Cluster Node
+************
+
+Cilium refers to a node as an individual member of a cluster. Each node must be
+running the ``cilium-agent`` and will operate in a mostly autonomous manner.
+Synchronization of state between Cilium agent's running on different nodes is
+kept to a minimum for simplicity and scale. It occurs exclusively via the
+Key-Value store or with packet metadata.
+
+Node Address
+============
+
+Cilium will automatically detect the node's IPv4 and IPv6 address. The detected
+node address is printed out when the ``cilium-agent`` starts:
+
+::
+
+    Local node-name: worker0
+    Node-IPv6: f00d::ac10:14:0:1
+    External-Node IPv4: 172.16.0.20
+    Internal-Node IPv4: 10.200.28.238
+
 ******************
 Address Management
 ******************
 
-Building microservices on top of container orchestrations platforms like Docker
-and Kubernetes means that application architects assume the existence of core
-platform capabilities like service discovery and service-based load-balancing
-to map between a logical service identifier and the IP address assigned to the
-containers / pods actually running that service.   This, along with the fact that
-Cilium provides network security and visibility based on container identity,
-not addressing, means that Cilium can keep the underlying network addressing
-model extremely simple.
+The address management is designed with simplicity and resilience in mind. This
+is achieved by delegating the address allocation for *endpoints* to each
+individual node in the cluster. Each cluster node is assigned a *node address
+allocation prefix* out of an overarching *cluster address prefix* and will
+allocate IPs for *endpoints* independently.
 
-Cluster IP Prefixes and Container IP Assignment
-===============================================
+This simplifies address handling and allows one to make a fundamental
+assumption:
 
-With Cilium, all containers in the cluster are connected to a single logical
-Layer 3 network, which is associated a single *cluster wide address prefix*.
-This means that all containers or endpoint connected to Cilium share a single
-routable subnet. Hence, all endpoints have the capability of reaching each
-other with two routing operations performed (one routing operation is performed
-on both the origin and destination container host). Cilium supports IPv4 and
-IPv6 addressing in parallel, i.e. each container can be assigned an IPv4 and
-IPv6 address and these addresses can be used exchangeably.
+* No state needs to be synchronized between cluster nodes to allocate IP
+  addresses and to determine whether an IP address belongs to an *endpoint* of
+  the cluster and whether that *endpoint* resides on the local cluster node.
 
-The simplest approach is to use a private address space for the cluster wide
-address prefix. However there are scenarios where choosing a publicly routable
-addresses is preferred, in particular in combination with IPv6 where acquiring
-a large routeable addressing subnet is possible. (See the next section on IP
-Interconnectivity).
+.. note:: If you are using Kubernetes, the allocation of the node address prefix
+          can be simply delegated to Kubernetes by specifying
+          ``--allocate-node-cidrs`` flag to ``kube-controller-manager``. Cilium
+          will automatically use the IPv4 node CIDR allocated by Kubernetes.
 
-Each container host is assigned  a *node prefix* out of the *cluster prefix*
-which is used to allocate IPs for local containers.  Based on this, Cilium is
-capable of deriving the container host IP address of any container and
-automatically create a logical overlay network without further configuration.
-See section *Overlay Routing* for additional details.
+The following values are used by default if the cluster prefix is left
+unspecified. These are meant for testing and need to be adjusted according to
+the needs of your environment.
 
++-------+----------------+--------------------------------------------------+
+| Type  | Cluster        | Node Prefix                                      |
++-------+----------------+--------------------------------------------------+
+| IPv4  | ``10.0.0.0/8`` | ``10.X.0.0/16`` where ``X`` is derived using the |
+|       |                | last 8 bits of the first IPv4 address in the list|
+|       |                | of global scope addresses on the cluster node.   |
++-------+----------------+--------------------------------------------------+
+| IPv6  | ``f00d::/48``  | ``f00d:0:0:0:<ipv4-address>::/96`` where the     |
+|       |                | IPv4 address is the first address in the list of |
+|       |                | global scope addresses on the cluster node.      |
+|       |                |                                                  |
+|       |                | Note: Only 16 bits out of the ``/96`` node       |
+|       |                | prefix are currently used when allocating        |
+|       |                | container addresses. This allows to use the      |
+|       |                | remaining 16 bits to store arbitrary connection  |
+|       |                | state when sending packets between nodes. A      |
+|       |                | typical use case for the state is direct server  |
+|       |                | return.                                          |
++-------+----------------+--------------------------------------------------+
 
-IPv6 IP Address Assignment
---------------------------
-
-Cilium allocates addresses for local containers from the ``/64`` IPv6 prefix
-called the *cluster prefix*. If left unspecified, this prefix will be
-``f00d::/64``.  Within that prefix, a ``/96`` prefix is dedicated to each
-container host in the cluster. Although the default prefix will enable
-communication within an isolated environment, the prefix is not publicly
-routable. It is strongly recommended to specify a public prefix owned by the
-user using the ``--node-addr`` option.
-
-If no node address is specified, Cilium will try to generate a unique node
-prefix by using the first global scope IPv4 address as a 32 bit node
-identifier, e.g. ``f00d:0:0:0:<ipv4-address>::/96``. Within that ``/96``
-prefix, each node will independently allocate addresses for local containers.
-
-Note that only 16 bits out of the ``/96`` node prefix are currently used when
-allocating container addresses. This allows to use the remaining 16 bits to
-store arbitrary connection state when sending packets between nodes. A typical
-use for the state is direct server return.
-
-Based on the node prefix, two node addresses are automatically generated by
-replacing the last 32 bits of the address with ``0:0`` and ``0:ffff``
-respectively. The former is used as the next-hop address for the default route
-inside containers, i.e. all packets from a container will be sent to that
-address for further routing. The latter represents the Linux stack and is used
-to reach the local network stack, e.g. Kubernetes health checks.
-
-TODO:  I'd like to know what the logic to assign addresses. Especially, are
-those addresses assigned sequentially? Are they randomly chosen from available
-addresses in the prefix? What is the delay before an IPv6 address is reused? Is
-all that information persisted? Where? Is there really no risk of assigning the
-same IPv6 address twice?
-
-Example
-^^^^^^^
-
-::
-
-    Cluster prefix: f00d::/64
-
-    Node A prefix:  f00d:0:0:0:A:A::/96
-    Node A address: f00d:0:0:0:A:A:0:0/128
-    Container on A: f00d:0:0:0:A:A:0:1111/128
-
-    Node B prefix:  f00d:0:0:0:B:B::/96
-    Node B address: f00d:0:0:0:B:B:0:0/128
-    Container on B: f00d:0:0:0:B:B:0:2222/128
-
-IPv4 IP Address Assignment
---------------------------
-
-Cilium will allocate IPv4 addresses to containers out of a ``/16`` node prefix.
-This prefix can be specified with the ``--ipv4-range`` option.  If left
-unspecified, Cilium will try and generate a unique prefix using the format
-``10.X.0.0/16`` where X is replaced with the last byte of the first global
-scope IPv4 address discovered on the node. This generated prefix is relatively
-weak in uniqueness so it is highly recommended to always specify the IPv4
-range.
-
-The address ``10.X.0.1`` is reserved and represents the local node.
+The size of the IPv4 cluster prefix can be changed with the
+``--ipv4-cluster-cidr-mask-size`` option. The size of the IPv6 cluster prefix
+is currently fixed sized at ``/48``. The node allocation prefixes can be
+specified manually with the option ``--ipv4-range`` respectively
+``--ipv6-range``.
 
 .. _arch_ip_connectivity:
 
-********************
-IP Interconnectivity
-********************
+*********************
+Multi Host Networking
+*********************
 
-When thinking about base IP connectivity with Cilium, its useful to consider
-two different types of connectivity:
-
-* Container-to-Container Connectivity
-
-* Container Communication with External Hosts
-
-Container-to-Container Connectivity
-===================================
-
-In the case of connectivity between two containers inside the same cluster,
-Cilium is in full control over both ends of the connection. It can thus
-transmit state and security context information between two container hosts by
-embedding the information in encapsulation headers or even unused bits of the
-IPv6 packet header. This allows Cilium to transmit the security context of
-where the packet origins from which allows tracing back which container labels
-are assigned to the origin container.
+Cilium is in full control over both ends of the connection for connections
+inside the cluster. It can thus transmit state and security context information
+between two container hosts by embedding the information in encapsulation
+headers or even unused bits of the IPv6 packet header. This allows Cilium to
+transmit the security context of where the packet originates, which allows
+tracing back which container labels are assigned to the origin container.
 
 .. note::
 
@@ -338,43 +374,83 @@ are assigned to the origin container.
    recommended to either encrypt all traffic or run Cilium in a trusted network
    environment.
 
-There are two possible approaches to performing network forwarding for
-container-to-container traffic:
+Cilium keeps the networking concept as simple as possible. There are two
+networking models to choose from.
 
-* **Overlay Routing:** In this mode, the network connecting the container
-  hosts together does not need to be aware of the *node prefix* or the IP
-  addresses of containers.  Instead, a *virtual overlay network* is created on
-  top of the existing network infrastructure by creating tunnels between
-  containers hosts using encapsulation protocols such as VXLAN, GRE, or Geneve.
-  This minimizes the requirements on the underlying network infrastructure. The
-  only requirement in this mode is for containers hosts to be able to reach
-  each other by UDP (VXLAN/Geneve) or IP/GRE. As this requirement is typically
-  already met in most environments, this mode usually does not require
-  additional configuration from the user. Cilium can deterministically map from
-  any container IP address to the corresponding node IP address, Cilium can
-  look at the destination IP address of any packet destined to a container, and
-  then use encapsulation to send the packet directly to the IP address of the
-  node running that container. The destination node then decapsulates the
-  packet, and delivers it to the local container.  Because overlay routing
-  requires no configuration changes in the underlying network, it is often the
-  easiest approach to adopt initially.
-
-* **Direct Routing:**  In this mode, Cilium will hand all packets that are not
-  addressed to a local container and not addressed to the local node to the
-  Linux stack causing it to route the packet as it would route any other
-  non-local packet. As a result, the network connecting the Linux node hosts
-  must be aware that each of the node IP prefixes are reachable by using the
-  node's primary IP address as an L3 next hop address.   In the case of a
-  traditional physical network this would typically involve announcing each
-  node prefix as a route using a routing protocol within the datacenter. Cloud
-  providers (e.g, AWS VPC, or GCE Routes) provide APIs to achieve the same result.
+- :ref:`arch_overlay`
+- :ref:`arch_direct_routing`
 
 Regardless of the option chosen, the container itself has no awareness of the
-underlying network it runs on, it only contains a default route which points to
-the IP address of the container host. Given the removal of the routing cache in
-the Linux kernel, this reduces the amount of state to keep to the per
-connection flow cache (TCP metrics) which allows to terminate millions of
+underlying network it runs on; it only contains a default route which points to
+the IP address of the cluster node. Given the removal of the routing cache in
+the Linux kernel, this reduces the amount of state to keep in the per
+connection flow cache (TCP metrics), which allows to terminate millions of
 connections in each container.
+
+.. _arch_overlay:
+
+Overlay Network Mode
+====================
+
+When no configuration is provided, Cilium automatically runs in this mode.
+
+In this mode, all cluster nodes form a mesh of tunnels using the UDP based
+encapsulation protocols VXLAN_ or Geneve_. All container-to-container network
+traffic is routed through these tunnels. This mode has several major
+advantages:
+
+- **Simplicity:** The network which connects the cluster nodes does not need to
+  be made aware of the *cluster prefix*. Cluster nodes can spawn multiple
+  routing or link-layer domains. The topology of the underlying network is
+  irrelevant as long as cluster nodes can reach each other using IP/UDP.
+
+- **Auto-configuration:** When running together with an orchestration system
+  such as Kubernetes, the list of all nodes in the cluster including their
+  associated allocation prefix node is made available to each agent
+  automatically. This means that if Kubernetes is being run with the
+  `--allocate-node-cidrs` option, Cilium can form an overlay network
+  automatically without any configuration by the user. New nodes joining the
+  cluster will automatically be incorporated into the mesh.
+
+- **Identity transfer:** Encapsulation protocols allow for the carrying of
+  arbitrary metadata along of with the network packet. Cilium makes use of this
+  ability to transfer metadata such as the source security identity and
+  load balancing state to perform direct-server-return.
+
+.. _arch_direct_routing:
+
+Direct / Native Routing Mode
+============================
+
+.. note:: This is an advanced networking mode which requires the underlying
+          network to be made aware of container IPs. You can enable this mode
+          by running Cilium with the option ``--tunnel disabled``.
+
+In direct routing mode, Cilium will hand all packets which are not addressed
+for another local endpoint to the routing subsystem of the Linux kernel. This
+means that the packet will be routed as if a local process would have emitted
+the packet. As a result, the network connecting the cluster nodes must be aware
+that each of the node IP prefixes are reachable by using the node's primary IP
+address as an L3 next hop address. This is typically achieved using two
+methods:
+
+- Operation of a routing protocol such as OSPF or BPG via routing daemon such
+  as Zebra, bird, bpgd. The routing protocols will announce the *node allocation
+  prefix* via the node's IP to all other nodes.
+
+- Use of the cloud provider's routing functionality. Refer to the documentation
+  of your cloud provider for additional details. If you are running Kubernetes
+  with the `--cloud-provider` in combination with the `--allocate-node-cidrs`
+  option then this is configured automatically for IPv4 prefixes.
+
+.. note:: Use of direct routing mode currently only offers identity based
+          security policy enforcement for IPv6 where the security identity is
+          stored in the flowlabel. IPv4 is currently not supported and thus
+          security must be enforced using CIDR policy rules.
+
+
+There are two possible approaches to performing network forwarding for
+container-to-container traffic:
 
 Container Communication with External Hosts
 ===========================================
@@ -389,33 +465,40 @@ Container communication with the outside world has two primary modes:
    APIs that are hosted elsewhere in your enterprise datacenter or cloud
    deployment.
 
-In the ''Direct Routing'' scenario described above, if container IP addresses
-are routable outside of the container cluster, communication with external
-hosts requires little more than enabling L3 forwarding on each of the Linux
-nodes.
+In the :ref:`arch_direct_routing` mode described before, if container IP
+addresses are routable outside of the container cluster, communication with
+external hosts requires little more than enabling L3 forwarding on each of the
+Linux nodes.
 
-External Connectivity with Overlay Routing
-==========================================
+External Network Connectivity
+=============================
 
-However, in the case of ''Overlay Routing'', accessing external hosts requires
-additional configuration.
+If the destination of a packet lies outside of the cluster, Cilium will
+delegate routing to the routing subsystem of the cluster node to use the
+default route which is installed on the node of the cluster.
 
-In the case of containers accepting inbound connections, such services are
-likely exposed via some kind of load-balancing layer, where the load-balancer
-has an external address that is not part of the Cilium network.  This can be
-achieved by having a load-balancer container that both has a public IP on an
-externally reachable network and a private IP on a Cilium network. However,
-many container orchestration frameworks, like Kubernetes, have built in
-abstractions to handle this "ingress" load-balancing capability, which achieve
-the same effect that Cilium handles forwarding and security only for
-''internal'' traffic between different services.
+As the IP addresses used for the **cluster prefix** are typically allocated
+from RFC1918 private address blocks and are not publicly routable. Cilium will
+automatically masquerade the source IP address of all traffic that is leaving
+the cluster. This behaviour can be disabled by running ``cililum-agent`` with
+the option ``--masquerade=false``.
 
-Containers that simply need to make outgoing connections to external hosts can
-be addressed by configuring each Linux node host to masquerade connections from
-containers to IP ranges other than the cluster prefix (IP masquerading is also
-known as Network Address Port Translation, or NAPT).  This approach can be used
-even if there is a mismatch between the IP version used for the container
-prefix and the version used for Node IP addresses.
+Public Endpoint Exposure
+========================
+
+In direct routing mode, *endpoint* IPs can be publicly routable IPs and no
+additional action needs to be taken.
+
+In overlay mode, *endpoints* that are accepting inbound connections from
+cluster external clients likely want to be exposed via some kind of
+load-balancing layer. Such a load-balancer will have a public external address
+that is not part of the Cilium network.  This can be achieved by having a
+load-balancer container that both has a public IP on an externally reachable
+network and a private IP on a Cilium network.  However, many container
+orchestration frameworks, like Kubernetes, have built in abstractions to handle
+this "ingress" load-balancing capability, which achieve the same effect that
+Cilium handles forwarding and security only for ''internal'' traffic between
+different services.
 
 ********
 Security
@@ -890,76 +973,6 @@ TODO: describe rules
 
 .. _arch_tree_rules:
 
-Hierarchical Rules
-------------------
-
-In order to allow implementing precedence and priority of rules. Policy rules
-can be organized in the form of a tree. This tree consists of policy nodes
-based on the following definition:
-
-Name : string (optional)
-    Relative name of the policy node. If omitted, then "root" is assumed and
-    rules belong to the root node. Must be unique across all siblings 
-    attached to the same parent.
-Rules : array of rules
-    List of rules, see :ref:`arch_rules`
-Children:  Map with node entries (optional)
-    Map holding children policy nodes. The name of each child policy node is
-    prefixed with the name of its parent policy node using a `.` delimiter,
-    e.g. a node `child` attached to the root node will have the absolute name
-    `root.child`.
-
-::
-
-	{
-                "name": "root",
-		"rules": [{ rule1, rule2, rule3 }]
-                "children": {
-                        "child1": {
-                                "rules": [{ rule1, rule2, rule3 }]
-                        },
-                        "child2": {
-                                "rules": [{ rule1, rule2, rule3 }]
-                        }
-                }
-	}
-
-Automatic coverage of child nodes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-A key property of child policy nodes is that their name implies an implicit
-*coverage*. The absolute name of the policy node with the `root` prefix
-omitted acts as an implicit coverage which is applied to all rules of the node.
-
-**Example:**
-A node `k8s` which is attached to the node `io` will have the absolute name
-`root.io.k8s`. Rules of the node will only apply if the endpoint in question
-carries a label which starts with the prefix `io.k8s`.
-
-Additionally, any rules of a child node may only cover labels that share the
-prefix of the absolute node path. This means that a child `id.foo` cannot
-contain a rule which covers the label `id.bar.example`, but it can contain a
-rule that covers the label `id.foo.example`.
-
-Unlike an arbitrary label selector attached to each node, this property ensures
-that a parent node always covers all endpoints of all its children, which is
-essential to keep  precedence rules simple as described in the next section.
-
-Precedence Rules
-^^^^^^^^^^^^^^^^
-
-1. Within a single policy node, a deny rule always overwrites any conflicting
-   allow rules. If a label is both denied and allowed, it will always be
-   denied.
-2. If a node allows a label and a child node later denies the label then the
-   label will be denied unless the allow rule is a *always-accept* rule in which
-   case the parent always takes precedence.
-
-Merging of Nodes
-^^^^^^^^^^^^^^^^
-
-TODO
-
 Policy Repository
 =================
 
@@ -1067,7 +1080,7 @@ traffic from and to the pods are properly routed to the node and port serving
 for that service. For more information you can check out the kubernetes user
 guide for `Services  <http://kubernetes.io/docs/user-guide/services>`__.
 
-Cilium loadbalancer acts on the same principles as kube-proxy, it watches for
+Cilium load-balancer acts on the same principles as kube-proxy, it watches for
 services addition or removal, but instead of doing the enforcement on the
 iptables, it updates BPF map entries on each node. For more information, see
 the `Pull Request <https://github.com/cilium/cilium/pull/109>`__.
@@ -1095,4 +1108,6 @@ kubernetes master host.
 
 TODO: insert graphic showing LB + DSR.
 
-
+.. _Pod: https://kubernetes.io/docs/concepts/workloads/pods/pod/
+.. _VXLAN: https://tools.ietf.org/html/rfc7348
+.. _Geneve: https://tools.ietf.org/html/draft-ietf-nvo3-geneve-04
