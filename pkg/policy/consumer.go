@@ -165,7 +165,7 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	// this consumable
 	for _, c := range c.Consumers {
 		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
-			log.Warningf("Update of policy map failed: %s\n", err)
+			log.Warningf("Update of policy map failed: %s", err)
 		}
 	}
 }
@@ -232,9 +232,9 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 			continue
 		}
 
-		log.Debugf("Updating policy BPF map %s: allowing %d\n", m.String(), id)
+		log.Debugf("Updating policy BPF map %s: allowing %d", m.String(), id)
 		if err := m.AllowConsumer(id.Uint32()); err != nil {
-			log.Warningf("Update of policy map failed: %s\n", err)
+			log.Warningf("Update of policy map failed: %s", err)
 		}
 	}
 }
@@ -245,9 +245,9 @@ func (c *Consumable) wasLastRule(id NumericIdentity) bool {
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
-		log.Debugf("Updating policy BPF map %s: denying %d\n", m.String(), id)
+		log.Debugf("Updating policy BPF map %s: denying %d", m.String(), id)
 		if err := m.DeleteConsumer(id.Uint32()); err != nil {
-			log.Warningf("Update of policy map failed: %s\n", err)
+			log.Warningf("Update of policy map failed: %s", err)
 		}
 	}
 }
@@ -268,11 +268,11 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 // consumers map and the given consumable to the given consumer's consumers map.
 // Must be called with Consumable mutex Locked.
 func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) {
-	log.Debugf("Allowing direction %d -> %d\n", id, c.ID)
+	log.Debugf("Allowing direction %d -> %d", id, c.ID)
 	c.AllowConsumerLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
-		log.Debugf("Allowing reverse direction %d -> %d\n", c.ID, id)
+		log.Debugf("Allowing reverse direction %d -> %d", c.ID, id)
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			reverse.addToMaps(c.ID)
 			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
@@ -286,7 +286,7 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 // map. Must be called with the Consumable mutex locked.
 func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
 	if consumer, ok := c.Consumers[id.StringID()]; ok {
-		log.Debugf("Removing consumer %v\n", consumer)
+		log.Debugf("Removing consumer %v", consumer)
 		delete(c.Consumers, id.StringID())
 
 		if c.wasLastRule(id) {

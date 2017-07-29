@@ -126,12 +126,12 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	// K/V store operations
 
 	if isNew {
-		log.Debugf("Creating new identity %d ref-count to %d\n", identity.ID, identity.RefCount())
+		log.Debugf("Creating new identity %d ref-count to %d", identity.ID, identity.RefCount())
 		if err := gasNewSecLabelID(identity); err != nil {
 			return nil, false, err
 		}
 	} else {
-		log.Debugf("Incrementing identity %d ref-count to %d\n", identity.ID, identity.RefCount())
+		log.Debugf("Incrementing identity %d ref-count to %d", identity.ID, identity.RefCount())
 		if err := updateSecLabelIDRef(*identity); err != nil {
 			return nil, false, err
 		}
@@ -357,7 +357,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 		return err
 	}
 
-	log.Debugf("Decremented label %d ref-count to %d\n", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
+	log.Debugf("Decremented label %d ref-count to %d", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
 
 	if err := kvstore.Client.SetValue(lblPath, dbSecCtxLbls); err != nil {
 		return err

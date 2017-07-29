@@ -218,7 +218,7 @@ func checkMinRequirements() {
 		if err != nil {
 			log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
 		}
-		log.Infof("BPF Verifier: NOT OK:\n%s", string(bpfFeaturesLog))
+		log.Infof("BPF Verifier: NOT OK:%s", string(bpfFeaturesLog))
 	} else {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
 	}
@@ -430,7 +430,7 @@ func initEnv() {
 	if bpfRoot != "" {
 		bpf.SetMapRoot(bpfRoot)
 	} else if err := bpf.MountFS(); err != nil {
-		log.Fatalf("Unable to mount BPF filesystem: %s\n", err)
+		log.Fatalf("Unable to mount BPF filesystem: %s", err)
 	}
 
 	if viper.GetBool("debug") {
