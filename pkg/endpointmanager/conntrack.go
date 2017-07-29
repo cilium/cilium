@@ -75,7 +75,7 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	deleted := ctmap.GC(m, mapType, filter)
 
 	if deleted > 0 {
-		log.Debugf("Deleted %d entries from map %s", deleted, file)
+		log.Debugf("Deleted %d entries from map %s filtered by %s", deleted, file, filter.TypeString())
 	}
 }
 
