@@ -39,6 +39,8 @@ var (
 	ipv6RouterAddress   net.IP
 	ipv4AllocRange      *net.IPNet
 	ipv6AllocRange      *net.IPNet
+
+	addressDevice = ""
 )
 
 func makeIPv6HostIP(ip net.IP) net.IP {
@@ -69,6 +71,9 @@ func firstGlobalV4Addr(intf string) (net.IP, error) {
 	for _, a := range addr {
 		if a.Scope == unix.RT_SCOPE_UNIVERSE {
 			if len(a.IP) >= 4 {
+				if link != nil {
+					addressDevice = link.Attrs().Name
+				}
 				return a.IP, nil
 			}
 		}
@@ -373,4 +378,33 @@ func UseNodeAddresses(node *node.Node) error {
 	}
 
 	return nil
+}
+
+// GetAddressDevice returns the name of the link where the node address is
+// configured on
+func GetAddressDevice() (string, error) {
+	if addressDevice != "" {
+		return addressDevice, nil
+	}
+
+	links, err := netlink.LinkList()
+	if err != nil {
+		return "", err
+	}
+
+	for _, link := range links {
+		addrList, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		if err != nil {
+			return "", err
+		}
+
+		for _, a := range addrList {
+			if ipv4ExternalAddress.Equal(a.IP) {
+				addressDevice = link.Attrs().Name
+				return addressDevice, nil
+			}
+		}
+	}
+
+	return "disabled", nil
 }

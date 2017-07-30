@@ -244,7 +244,7 @@ func init() {
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
 	flags.StringVarP(&device,
-		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+		"device", "d", deviceAuto, "Network device for external network access (default: auto)")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
@@ -489,7 +489,7 @@ func initEnv() {
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
-	if device != "undefined" {
+	if device != deviceAuto && device != deviceDisabled {
 		nodeaddress.InitDefaultPrefix(device)
 	}
 
@@ -510,6 +510,16 @@ func initEnv() {
 			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
 		} else {
 			nodeaddress.SetExternalIPv4(ip)
+		}
+	}
+
+	if device == deviceAuto {
+		d, err := nodeaddress.GetAddressDevice()
+		if err != nil {
+			log.Warningf("Unable to determine main interface: %s", err)
+			device = deviceDisabled
+		} else {
+			device = d
 		}
 	}
 
