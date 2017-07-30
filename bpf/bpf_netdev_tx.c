@@ -18,8 +18,6 @@
 #include <node_config.h>
 #include <netdev_config.h>
 
-#define QUIET_CT
-
 #ifndef CONNTRACK
 #define CONNTRACK
 #endif
