@@ -44,7 +44,6 @@ type Config struct {
 	LibDir         string     // Cilium library files directory
 	RunDir         string     // Cilium runtime directory
 	NAT46Prefix    *net.IPNet // NAT46 IPv6 Prefix
-	Device         string     // Receive device
 	HostV4Addr     net.IP     // Host v4 address of the snooping device
 	HostV6Addr     net.IP     // Host v6 address of the snooping device
 	DockerEndpoint string     // Docker endpoint

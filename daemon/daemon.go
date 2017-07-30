@@ -88,7 +88,7 @@ const (
 	initArgIPv6Range
 	initArgIPv4ServiceRange
 	initArgIPv6ServiceRange
-	initArgMode
+	initArgTunnelMode
 	initArgDevice
 	initArgMax
 )
@@ -281,13 +281,13 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 func (d *Daemon) setHostAddresses() error {
 	l, err := netlink.LinkByName(d.conf.LBInterface)
 	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", d.conf.Device, err)
+		return fmt.Errorf("unable to get network device %s: %s", device, err)
 	}
 
 	getAddr := func(netLinkFamily int) (net.IP, error) {
 		addrs, err := netlink.AddrList(l, netLinkFamily)
 		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", d.conf.Device, err)
+			return nil, fmt.Errorf("error while getting %s's addresses: %s", device, err)
 		}
 		for _, possibleAddr := range addrs {
 			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
@@ -444,15 +444,12 @@ func (d *Daemon) installMasqRule() error {
 }
 
 func (d *Daemon) compileBase() error {
-	var args []string
-	var mode string
-
 	if err := d.writeNetdevHeader("./"); err != nil {
 		log.Warningf("Unable to write netdev header: %s", err)
 		return err
 	}
 
-	args = make([]string, initArgMax)
+	args := make([]string, initArgMax)
 
 	args[initArgLib] = d.conf.BpfDir
 	args[initArgRundir] = d.conf.StateDir
@@ -461,47 +458,34 @@ func (d *Daemon) compileBase() error {
 	args[initArgIPv6NodeIP] = nodeaddress.GetIPv6().String()
 	args[initArgIPv4ServiceRange] = v4ServicePrefix
 	args[initArgIPv6ServiceRange] = v6ServicePrefix
+	args[initArgTunnelMode] = tunnelMode
+	args[initArgDevice] = device
 
-	if d.conf.Device != "undefined" {
-		_, err := netlink.LinkByName(d.conf.Device)
+	if device != "undefined" {
+		_, err := netlink.LinkByName(device)
 		if err != nil {
-			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
+			log.Warningf("Link %s does not exist: %s", device, err)
 			return err
 		}
 
 		if d.conf.IsLBEnabled() {
-			if d.conf.Device != d.conf.LBInterface {
+			if device != d.conf.LBInterface {
 				//FIXME: allow different interfaces
 				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
 			}
 			if err := d.setHostAddresses(); err != nil {
 				return err
 			}
-			mode = "lb"
-		} else {
-			mode = "direct"
 		}
 
 		// in direct routing mode, only packets to the local node
 		// prefix should go to cilium_host
 		args[initArgIPv4Range] = nodeaddress.GetIPv4AllocRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6NodeRange().String()
-
-		args[initArgMode] = mode
-		args[initArgDevice] = d.conf.Device
-
-		args = append(args, d.conf.Device)
 	} else {
-		if d.conf.IsLBEnabled() {
-			//FIXME: allow LBMode in tunnel
-			return fmt.Errorf("Unable to run LB mode with tunnel mode")
-		}
-
 		// in tunnel mode, all packets in the cluster should go to cilium_host
 		args[initArgIPv4Range] = nodeaddress.GetIPv4ClusterRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6ClusterRange().String()
-
-		args[initArgMode] = tunnelMode
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
@@ -527,7 +511,7 @@ func (d *Daemon) compileBase() error {
 
 	// Always remove masquerade rule and then re-add it if required
 	d.removeMasqRule()
-	if masquerade && d.conf.Device == "undefined" {
+	if masquerade && device == "undefined" {
 		if err := d.installMasqRule(); err != nil {
 			return err
 		}
@@ -613,6 +597,13 @@ func (d *Daemon) init() error {
 	}
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
+
+	switch tunnelMode {
+	case tunnelModeVXLAN:
+		fmt.Fprintf(fw, "#define ENCAP_VXLAN\n")
+	case tunnelModeGeneve:
+		fmt.Fprintf(fw, "#define ENCAP_GENEVE\n")
+	}
 
 	fw.Flush()
 	f.Close()
