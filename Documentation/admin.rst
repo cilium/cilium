@@ -1159,9 +1159,9 @@ Key-Value Store
 | Option              | Description                          | Default              |
 +---------------------+--------------------------------------+----------------------+
 | --kvstore TYPE      | Key Value Store Type:                |                      |
-|                     | (consul, etcd, local)                |                      |
+|                     | (consul, etcd)                       |                      |
 +---------------------+--------------------------------------+----------------------+
-| --kvstore-opt OPTS  | Local:                               |                      |
+| --kvstore-opt OPTS  |                                      |                      |
 +---------------------+--------------------------------------+----------------------+
 
 consul
@@ -1223,11 +1223,9 @@ Command Line Options
 |                     | containers' configuration in place   |                      |
 +---------------------+--------------------------------------+----------------------+
 | kvstore             | Key Value Store Type:                |                      |
-|                     | (consul, etcd, local)                |                      |
+|                     | (consul, etcd)                       |                      |
 +---------------------+--------------------------------------+----------------------+
-| kvstore-opt         | Local:                               |                      |
-|                     |    - None                            |                      |
-|                     | Etcd:                                |                      |
+| kvstore-opt         | Etcd:                                |                      |
 |                     |    - etcd.address: Etcd agent        |                      |
 |                     |      address.                        |                      |
 |                     |    - etcd.config: Absolute path to   |                      |
