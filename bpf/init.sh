@@ -62,14 +62,17 @@ function bpf_compile()
 	OUT=$5
 	SEC=$6
 	CALLS_MAP=$7
+	SKIP_DEL=$8
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
 	clang $CLANG_OPTS $OPTS -DNODE_MAC=${NODE_MAC} -c $LIB/$IN -o $OUT
 
-	tc qdisc del dev $DEV clsact 2> /dev/null || true
-	tc qdisc add dev $DEV clsact
+	if [ -z "$SKIP_DEL" ]; then
+		tc qdisc del dev $DEV clsact 2> /dev/null || true
+		tc qdisc add dev $DEV clsact
+	fi
 	rm "/sys/fs/bpf/tc/globals/$CALLS_MAP" || true
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
@@ -166,6 +169,10 @@ if [ "$NATIVE_DEV" != "disabled" ]; then
 	CALLS_MAP="cilium_calls_netdev_${ID}"
 	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=$CALLS_MAP"
 	bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
+
+	CALLS_MAP="cilium_calls_netdev_tx_${ID}"
+	OPTS="-DCALLS_MAP=$CALLS_MAP"
+	bpf_compile $NATIVE_DEV "$OPTS" "egress" bpf_netdev_tx.c bpf_netdev_tx.o to-netdev $CALLS_MAP skip-del
 
 	echo "$NATIVE_DEV" > $RUNDIR/device.state
 else

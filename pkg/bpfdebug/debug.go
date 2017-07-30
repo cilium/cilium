@@ -92,6 +92,7 @@ const (
 	DbgCTLookup41
 	DbgCTLookup42
 	DbgCTCreated4
+	DbgErrAbort
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -281,6 +282,8 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
 	case DbgCTCreated4:
 		fmt.Printf("Conntrack create: %s\n", ctCreate4Info(n))
+	case DbgErrAbort:
+		fmt.Printf("Aborted processing on error %d\n", int(n.Arg1))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}

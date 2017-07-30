@@ -37,7 +37,6 @@
 #include "lib/eth.h"
 #include "lib/dbg.h"
 #include "lib/l3.h"
-#include "lib/lxc.h"
 #include "lib/nat46.h"
 #include "lib/policy.h"
 #include "lib/lb.h"
@@ -46,32 +45,10 @@
 #include "lib/csum.h"
 #include "lib/conntrack.h"
 #include "lib/encap.h"
+#include "lib/proxy.h"
+#include "lib/lxc.h"
 
 #define POLICY_ID ((LXC_ID << 16) | SECLABEL)
-
-struct bpf_elf_map __section_maps CT_MAP6 = {
-#ifdef HAVE_LRU_MAP_TYPE
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-#else
-	.type		= BPF_MAP_TYPE_HASH,
-#endif
-	.size_key	= sizeof(struct ipv6_ct_tuple),
-	.size_value	= sizeof(struct ct_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE,
-};
-
-struct bpf_elf_map __section_maps CT_MAP4 = {
-#ifdef HAVE_LRU_MAP_TYPE
-	.type		= BPF_MAP_TYPE_LRU_HASH,
-#else
-	.type		= BPF_MAP_TYPE_HASH,
-#endif
-	.size_key	= sizeof(struct ipv4_ct_tuple),
-	.size_value	= sizeof(struct ct_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CT_MAP_SIZE,
-};
 
 #if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
 static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
