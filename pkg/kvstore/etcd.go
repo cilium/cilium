@@ -497,3 +497,44 @@ func (e *EtcdClient) Status() (string, error) {
 	}
 	return "Etcd: " + strings.Join(eps, "; "), err1
 }
+
+// StartWatch starts watching for changes in a prefix
+func (e *EtcdClient) StartWatch(w *Watcher) {
+	go func(w *Watcher) {
+		for {
+		recreateWatcher:
+			etcdWatch := e.cli.Watch(ctx.Background(), w.prefix, client.WithPrefix())
+
+			select {
+			case <-w.stopWatch:
+				return
+
+			case r, ok := <-etcdWatch:
+				if !ok {
+					goto recreateWatcher
+				}
+
+				if err := r.Err(); err != nil {
+					log.Debugf("etcd watcher %s received error: %s", w.name, err)
+					continue
+				}
+
+				for _, ev := range r.Events {
+					event := KeyValueEvent{
+						Key:   string(ev.Kv.Key),
+						Value: ev.Kv.Value,
+						Typ:   EventTypeModify,
+					}
+
+					if ev.Type == client.EventTypeDelete {
+						event.Typ = EventTypeDelete
+					} else if ev.IsCreate() {
+						event.Typ = EventTypeCreate
+					}
+
+					w.Events <- event
+				}
+			}
+		}
+	}(w)
+}

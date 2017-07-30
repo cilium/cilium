@@ -425,3 +425,56 @@ func (c *ConsulClient) DeleteTree(path string) error {
 	_, err := c.Client.KV().DeleteTree(path, nil)
 	return err
 }
+
+// StartWatch starts watching for changes in a prefix
+func (c *ConsulClient) StartWatch(w *Watcher) {
+	go func(w *Watcher) {
+		nextIndex := uint64(0)
+
+		// block Get() calls for 5 seconds maximum
+		qo := consulAPI.QueryOptions{
+			WaitTime: time.Duration(5) * time.Second,
+		}
+
+		for {
+			// if all goes well we don't sleep between watch cycles
+			sleepTime := time.Duration(1) * time.Millisecond
+
+			qo.WaitIndex = nextIndex
+			res, q, err := c.KV().Get(w.prefix, &qo)
+			if err != nil {
+				// in case of error, sleep for 15 seconds before retrying
+				sleepTime = time.Duration(15) * time.Second
+				log.Debugf("watcher %s failed (consul): %s", w.name, err)
+			}
+
+			if q != nil {
+				nextIndex = q.LastIndex
+			}
+
+			// WaitIndex == 0 means that this was the first ever
+			// Get() and there is no change, trigger a follow-up
+			// Get() with updated WaitIndex immediately
+			if qo.WaitIndex == 0 {
+				continue
+			}
+
+			// If Get() returned a response, check if the LastIndex
+			// is different or whether this was a timed out
+			// blocking Get() call
+			if res != nil && (q == nil || q.LastIndex != qo.WaitIndex) {
+				w.Events <- KeyValueEvent{
+					Typ:   EventTypeModify,
+					Key:   res.Key,
+					Value: res.Value,
+				}
+			}
+
+			select {
+			case <-time.After(sleepTime):
+			case <-w.stopWatch:
+				return
+			}
+		}
+	}(w)
+}
