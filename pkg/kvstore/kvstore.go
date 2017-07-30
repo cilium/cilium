@@ -24,7 +24,6 @@ import (
 
 // Supported key-value store types.
 const (
-	Local  = "local"
 	Consul = "consul"
 	Etcd   = "etcd"
 )
