@@ -392,7 +392,7 @@ We can now check the logfile of a particular cilium agent:
         NAME           READY     STATUS    RESTARTS   AGE
         cilium-2xzqm   1/1       Running   0          41m
 
-        $ kubectl --namespce kube-system logs cilium-2xzqm
+        $ kubectl --namespace kube-system logs cilium-2xzqm
         INFO      _ _ _
         INFO  ___|_| |_|_ _ _____
         INFO |  _| | | | | |     |
