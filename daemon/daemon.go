@@ -429,13 +429,18 @@ func (d *Daemon) compileBase() error {
 		if err != nil {
 			log.Fatalf("Interface %s does not exist: %s", device, err)
 		}
+	}
 
-		// in direct routing mode, only packets to the local node
-		// prefix should go to cilium_host
+	if tunnelMode == tunnelModeDisabled {
+		// When routing in the host in direct routing mode, only
+		// packets addressed to the local agent's node prefix should be
+		// routed through Cilium. Everything else will be natively
+		// routed to other nodes.
 		args[initArgIPv4Range] = nodeaddress.GetIPv4AllocRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6NodeRange().String()
 	} else {
-		// in tunnel mode, all packets in the cluster should go to cilium_host
+		// When routing with tunneling is enabled, all packets addressed
+		// to any cluster IP would be routed through Cilium.
 		args[initArgIPv4Range] = nodeaddress.GetIPv4ClusterRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6ClusterRange().String()
 	}
