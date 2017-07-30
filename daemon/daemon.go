@@ -415,6 +415,7 @@ func (d *Daemon) installMasqRule() error {
 		"-A", ciliumChain,
 		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
+		"-m", "addrtype", "--src-type", "LOCAL",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
 		"-j", "MASQUERADE"}, false); err != nil {
 		return err
