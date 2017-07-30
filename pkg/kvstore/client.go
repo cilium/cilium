@@ -51,10 +51,6 @@ func initClient() error {
 		log.Infof("Using etcd as key-value store")
 		Client = c
 
-	case Local:
-		log.Infof("Using local storage as key-value store")
-		Client = NewLocalClient()
-
 	default:
 		panic("BUG: kvstore backend not specified")
 	}
