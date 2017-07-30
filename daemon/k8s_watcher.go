@@ -409,9 +409,19 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 		return
 	}
 
+	log.Debugf("Adding k8s service %+v", svc)
+
+	nodePortSvcs := types.K8sServiceList{}
+
 	switch svc.Spec.Type {
-	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
-		break
+	// LoadBalancer and NodePort make the service available on the nodePort
+	// on each node. This creates a service with both the IPv4 and IPv6
+	// address of the host as the frontend.
+	case v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
+		nodePortSvcs = append(nodePortSvcs, types.NewK8sServiceInfo(nodeaddress.GetExternalIPv4()))
+		nodePortSvcs = append(nodePortSvcs, types.NewK8sServiceInfo(nodeaddress.GetIPv6()))
+
+	case v1.ServiceTypeClusterIP:
 
 	case v1.ServiceTypeExternalName:
 		// External-name services must be ignored
@@ -434,11 +444,7 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 		Namespace: svc.Namespace,
 	}
 
-	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
-	newSI := types.NewK8sServiceInfo(clusterIP)
-
-	// FIXME: Add support for
-	//  - NodePort
+	clusterIPsvc := types.NewK8sServiceInfo(net.ParseIP(svc.Spec.ClusterIP))
 
 	for _, port := range svc.Spec.Ports {
 		p, err := types.NewFEPort(types.L4Type(port.Protocol), uint16(port.Port))
@@ -446,15 +452,35 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 			log.Errorf("Unable to add service port %v: %s", port, err)
 			continue
 		}
-		if _, ok := newSI.Ports[types.FEPortName(port.Name)]; !ok {
-			newSI.Ports[types.FEPortName(port.Name)] = p
+
+		// Add port to ClusterIP service
+		if _, ok := clusterIPsvc.Ports[types.FEPortName(port.Name)]; !ok {
+			clusterIPsvc.Ports[types.FEPortName(port.Name)] = p
+		}
+
+		// For NodePort and LoadBalancer services, expose the nodePort
+		// on nodeIP frontends
+		if len(nodePortSvcs) > 0 {
+			if port.NodePort == 0 {
+				log.Warningf("k8s: NodePort service %s with Ports[%s].NodePort == 0",
+					svc.Name, port.Name)
+				continue
+			}
+
+			for i := range nodePortSvcs {
+				if _, ok := nodePortSvcs[i].Ports[types.FEPortName(port.Name)]; !ok {
+					// Can't fail because protocol is already validated
+					p, _ = types.NewFEPort(types.L4Type(port.Protocol), uint16(port.NodePort))
+					nodePortSvcs[i].Ports[types.FEPortName(port.Name)] = p
+				}
+			}
 		}
 	}
 
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 
-	d.loadBalancer.K8sServices[svcns] = newSI
+	d.loadBalancer.K8sServices[svcns] = append(nodePortSvcs, clusterIPsvc)
 
 	d.syncLB(&svcns, nil, nil)
 }
@@ -689,7 +715,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 
 func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 	deleteSN := func(delSN types.K8sServiceNamespace) {
-		svc, ok := d.loadBalancer.K8sServices[delSN]
+		svcs, ok := d.loadBalancer.K8sServices[delSN]
 		if !ok {
 			delete(d.loadBalancer.K8sEndpoints, delSN)
 			return
@@ -701,9 +727,10 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 			return
 		}
 
-		if err := d.delK8sSVCs(delSN, svc, endpoint); err != nil {
-			log.Errorf("Unable to delete k8s service: %s", err)
-			return
+		for _, svc := range svcs {
+			if err := d.delK8sSVCs(delSN, svc, endpoint); err != nil {
+				log.Warningf("Unable to delete k8s service %s in datapath: %s", svc, err)
+			}
 		}
 
 		delete(d.loadBalancer.K8sServices, delSN)
@@ -711,7 +738,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 	}
 
 	addSN := func(addSN types.K8sServiceNamespace) {
-		svcInfo, ok := d.loadBalancer.K8sServices[addSN]
+		svcs, ok := d.loadBalancer.K8sServices[addSN]
 		if !ok {
 			return
 		}
@@ -721,8 +748,10 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 			return
 		}
 
-		if err := d.addK8sSVCs(addSN, svcInfo, endpoint); err != nil {
-			log.Errorf("Unable to add K8s service: %s", err)
+		for _, svc := range svcs {
+			if err := d.addK8sSVCs(addSN, svc, endpoint); err != nil {
+				log.Errorf("Unable to add K8s service %s to datapath: %s", svc, err)
+			}
 		}
 	}
 
