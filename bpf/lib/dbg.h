@@ -64,6 +64,9 @@ enum {
 	DBG_L4_POLICY,
 	DBG_NETDEV_IN_CLUSTER, /* arg1: security-context, arg2: unused */
 	DBG_NETDEV_ENCAP4, /* arg1 encap lookup key, arg2: identity */
+	DBG_CT_LOOKUP4_1, /* arg1: saddr, arg2: daddr, arg3: (sport << 16) | dport */
+	DBG_CT_LOOKUP4_2, /* arg1: (nexthdr << 8) | flags, arg2: direction, arg3: unused */
+	DBG_CT_CREATED4, /* arg1: (proxy_port << 16) | rev_nat_index, arg2: src sec-id, arg3: lb address */
 };
 
 /* Capture types */

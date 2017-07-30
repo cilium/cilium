@@ -89,6 +89,9 @@ const (
 	DbgL4Policy
 	DbgNetdevInCluster
 	DbgNetdevEncap4
+	DbgCTLookup41
+	DbgCTLookup42
+	DbgCTCreated4
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -128,6 +131,21 @@ func ctState(state uint32) string {
 func ctInfo(arg1 uint32, arg2 uint32) string {
 	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
 		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
+}
+
+func ctLookup4Info1(n *DebugMsg) string {
+	return fmt.Sprintf("src=%s:%d dst=%s:%d", ip4Str(n.Arg2),
+		n.Arg3&0xFFFF, ip4Str(n.Arg1), n.Arg3>>16)
+}
+
+func ctLookup4Info2(n *DebugMsg) string {
+	return fmt.Sprintf("nexthdr=%d flags=%d",
+		n.Arg1>>8, n.Arg1&0xFF)
+}
+
+func ctCreate4Info(n *DebugMsg) string {
+	return fmt.Sprintf("proxy-port=%d revnat=%d src-identity=%d lb=%s",
+		n.Arg1>>16, n.Arg1&0xFFFF, n.Arg2, ip4Str(n.Arg3))
 }
 
 func verdictInfo(arg uint32) string {
@@ -257,6 +275,12 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Destination is inside cluster prefix, source identity: %d\n", n.Arg1)
 	case DbgNetdevEncap4:
 		fmt.Printf("Attempting encapsulation, lookup key: %s, identity: %d\n", ip4Str(n.Arg1), n.Arg2)
+	case DbgCTLookup41:
+		fmt.Printf("Conntrack lookup 1/2: %s\n", ctLookup4Info1(n))
+	case DbgCTLookup42:
+		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
+	case DbgCTCreated4:
+		fmt.Printf("Conntrack create: %s\n", ctCreate4Info(n))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
