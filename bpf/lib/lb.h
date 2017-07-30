@@ -577,8 +577,9 @@ static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 			return svc;
 	}
 #endif
-
+#ifndef QUIET_LB
 	cilium_trace_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
+#endif
 	return NULL;
 }
 

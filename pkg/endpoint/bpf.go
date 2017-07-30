@@ -216,18 +216,13 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
 	if e.Opts.IsEnabled(OptionConntrackLocal) {
+		fmt.Fprintf(fw, "#undef CT_MAP_SIZE\n")
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
+		fmt.Fprintf(fw, "#undef CT_MAP6\n")
 		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
+		fmt.Fprintf(fw, "#undef CT_MAP4\n")
 		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
-	} else {
-		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesGlobal))
-		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6Global)
-		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4Global)
 	}
-
-	// Always enable L4 and L3 load balancer for now
-	fw.WriteString("#define LB_L3\n")
-	fw.WriteString("#define LB_L4\n")
 
 	// Endpoint options
 	fw.WriteString(e.Opts.GetFmtList())

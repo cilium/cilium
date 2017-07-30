@@ -61,6 +61,7 @@ function bpf_compile()
 	IN=$4
 	OUT=$5
 	SEC=$6
+	CALLS_MAP=$7
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
@@ -69,6 +70,7 @@ function bpf_compile()
 
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
+	rm "/sys/fs/bpf/tc/globals/$CALLS_MAP" || true
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
@@ -88,6 +90,9 @@ ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
 ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
+
+sysctl -w net.ipv4.conf.${HOST_DEV1}.rp_filter=0
+sysctl -w net.ipv4.conf.${HOST_DEV2}.rp_filter=0
 
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
 echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
@@ -140,8 +145,9 @@ if [ "$TUNNEL_MODE" != "disabled" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_overlay_${ID}"
-	bpf_compile $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay
+	CALLS_MAP="cilium_calls_overlay_${ID}"
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=$CALLS_MAP"
+	bpf_compile $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay $CALLS_MAP
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
 	FILE=$RUNDIR/encap.state
@@ -157,8 +163,9 @@ if [ "$NATIVE_DEV" != "disabled" ]; then
 	sysctl -w net.ipv6.conf.all.forwarding=1
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
-	bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
+	CALLS_MAP="cilium_calls_netdev_${ID}"
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=$CALLS_MAP"
+	bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 	echo "$NATIVE_DEV" > $RUNDIR/device.state
 else
@@ -173,5 +180,6 @@ fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
-OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
-bpf_compile $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev
+CALLS_MAP="cilium_calls_netdev_ns_${ID}"
+OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=$CALLS_MAP"
+bpf_compile $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP

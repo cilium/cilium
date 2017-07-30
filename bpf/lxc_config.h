@@ -33,8 +33,11 @@
 #define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
 #define GENEVE_OPTS { 0xff, 0xff, 0x1, 0x1, 0x0, 0x0, 0x1, 0x1e }
 #define DROP_NOTIFY
+#undef CT_MAP6
 #define CT_MAP6 cilium_ct6_111
+#undef CT_MAP4
 #define CT_MAP4 cilium_ct4_111
+#undef CT_MAP_SIZE
 #define CT_MAP_SIZE 4096
 #define CALLS_MAP cilium_calls_111
 #define LB_L3
