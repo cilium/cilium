@@ -102,14 +102,6 @@ func Setup(selectedBackend string, opts map[string]string) error {
 			return fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with --kvstore-opt %s=<consul address> option", cAddr)
 		}
 
-	case Local:
-		// Local storage doesn't take any configuration, but we want to
-		// make sure user is not passing configuration for other types of kvstores.
-		err := validateOpts(backend, opts, map[string]bool{})
-		if err != nil {
-			return err
-		}
-
 	case "":
 		return fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details.")
 
