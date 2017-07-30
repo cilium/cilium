@@ -72,6 +72,10 @@ const (
 
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
+
+	tunnelModeDisabled = "disabled"
+	tunnelModeVXLAN    = "vxlan"
+	tunnelModeGeneve   = "geneve"
 )
 
 const (
@@ -414,7 +418,7 @@ func (d *Daemon) installMasqRule() error {
 		"-A", "CILIUM_POST",
 		"-s", nodeaddress.GetIPv4AllocRange().String(),
 		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_" + d.conf.Tunnel,
+		"!", "-o", "cilium_" + tunnelMode,
 		"-m", "comment", "--comment", "cilium masquerade non-cluster",
 		"-j", "MASQUERADE"}, false); err != nil {
 		return err
@@ -497,7 +501,7 @@ func (d *Daemon) compileBase() error {
 		args[initArgIPv4Range] = nodeaddress.GetIPv4ClusterRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6ClusterRange().String()
 
-		args[initArgMode] = d.conf.Tunnel
+		args[initArgMode] = tunnelMode
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
