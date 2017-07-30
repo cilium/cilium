@@ -330,9 +330,7 @@ function deploy_cilium(){
     
     source "${dir}/env.bash"
 
-    rm "${cilium_dir}/cilium-lb-ds.yaml" \
-       "${cilium_dir}/cilium-ds.yaml" \
-        2>/dev/null
+    rm "${cilium_dir}/cilium-ds.yaml" 2>/dev/null
 
     if [[ -n "${lb}" ]]; then
         # In loadbalancer mode we set the snoop and LB interface to

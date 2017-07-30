@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	log "github.com/Sirupsen/logrus"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -519,11 +520,9 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 
 	d.syncLB(&svcns, nil, nil)
 
-	if d.conf.IsLBEnabled() {
-		if err := d.syncExternalLB(&svcns, nil, nil); err != nil {
-			log.Errorf("Unable to add endpoints on ingress service %s: %s", svcns, err)
-			return
-		}
+	if err := d.syncExternalLB(&svcns, nil, nil); err != nil {
+		log.Errorf("Unable to add endpoints on ingress service %s: %s", svcns, err)
+		return
 	}
 }
 
@@ -551,11 +550,9 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	defer d.loadBalancer.K8sMU.Unlock()
 
 	d.syncLB(nil, nil, svcns)
-	if d.conf.IsLBEnabled() {
-		if err := d.syncExternalLB(nil, nil, svcns); err != nil {
-			log.Errorf("Unable to remove endpoints on ingress service %s: %s", svcns, err)
-			return
-		}
+	if err := d.syncExternalLB(nil, nil, svcns); err != nil {
+		log.Errorf("Unable to remove endpoints on ingress service %s: %s", svcns, err)
+		return
 	}
 }
 
@@ -744,10 +741,6 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 }
 
 func (d *Daemon) ingressAddFn(obj interface{}) {
-	if !d.conf.IsLBEnabled() {
-		// Add operations don't matter to non-LB nodes.
-		return
-	}
 	ingress, ok := obj.(*v1beta1.Ingress)
 	if !ok {
 		return
@@ -771,9 +764,9 @@ func (d *Daemon) ingressAddFn(obj interface{}) {
 
 	var host net.IP
 	if d.conf.IPv4Disabled {
-		host = d.conf.HostV6Addr
+		host = nodeaddress.GetIPv6()
 	} else {
-		host = d.conf.HostV4Addr
+		host = nodeaddress.GetExternalIPv4()
 	}
 	ingressSvcInfo := types.NewK8sServiceInfo(host)
 	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
@@ -827,30 +820,27 @@ func (d *Daemon) ingressModFn(oldObj interface{}, newObj interface{}) {
 
 	// Add RevNAT to the BPF Map for non-LB nodes when a LB node update the
 	// ingress status with its address.
-	if !d.conf.IsLBEnabled() {
-		port := newIngress.Spec.Backend.ServicePort.IntValue()
-		for _, loadbalancer := range newIngress.Status.LoadBalancer.Ingress {
-			ingressIP := net.ParseIP(loadbalancer.IP)
-			if ingressIP == nil {
-				continue
-			}
-			feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
-			if err != nil {
-				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
-				continue
-			}
-			feAddrID, err := PutL3n4Addr(*feAddr, 0)
-			if err != nil {
-				log.Errorf("Error while getting a new service ID: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
-				continue
-			}
-			log.Debugf("Got service ID %d for ingress %s/%s", feAddrID.ID, newIngress.Namespace, newIngress.Name)
-
-			if err := d.RevNATAdd(feAddrID.ID, feAddrID.L3n4Addr); err != nil {
-				log.Errorf("Unable to add reverse NAT ID for ingress %s/%s: %s", newIngress.Namespace, newIngress.Name, err)
-			}
+	port := newIngress.Spec.Backend.ServicePort.IntValue()
+	for _, loadbalancer := range newIngress.Status.LoadBalancer.Ingress {
+		ingressIP := net.ParseIP(loadbalancer.IP)
+		if ingressIP == nil {
+			continue
 		}
-		return
+		feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
+		if err != nil {
+			log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
+			continue
+		}
+		feAddrID, err := PutL3n4Addr(*feAddr, 0)
+		if err != nil {
+			log.Errorf("Error while getting a new service ID: %s. Ignoring ingress %s/%s...", err, newIngress.Namespace, newIngress.Name)
+			continue
+		}
+		log.Debugf("Got service ID %d for ingress %s/%s", feAddrID.ID, newIngress.Namespace, newIngress.Name)
+
+		if err := d.RevNATAdd(feAddrID.ID, feAddrID.L3n4Addr); err != nil {
+			log.Errorf("Unable to add reverse NAT ID for ingress %s/%s: %s", newIngress.Namespace, newIngress.Name, err)
+		}
 	}
 
 	if oldIngress.Spec.Backend.ServiceName == newIngress.Spec.Backend.ServiceName &&
@@ -878,28 +868,25 @@ func (d *Daemon) ingressDelFn(obj interface{}) {
 	}
 
 	// Remove RevNAT from the BPF Map for non-LB nodes.
-	if !d.conf.IsLBEnabled() {
-		port := ing.Spec.Backend.ServicePort.IntValue()
-		for _, loadbalancer := range ing.Status.LoadBalancer.Ingress {
-			ingressIP := net.ParseIP(loadbalancer.IP)
-			if ingressIP == nil {
-				continue
-			}
-			feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
-			if err != nil {
-				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, ing.Namespace, ing.Name)
-				continue
-			}
-			// This is the only way that we can get the service's ID
-			// without accessing the KVStore.
-			svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())
-			if svc != nil {
-				if err := d.RevNATDelete(svc.FE.ID); err != nil {
-					log.Errorf("Error while removing RevNAT for ID %d for ingress %s/%s: %s", svc.FE.ID, ing.Namespace, ing.Name, err)
-				}
+	port := ing.Spec.Backend.ServicePort.IntValue()
+	for _, loadbalancer := range ing.Status.LoadBalancer.Ingress {
+		ingressIP := net.ParseIP(loadbalancer.IP)
+		if ingressIP == nil {
+			continue
+		}
+		feAddr, err := types.NewL3n4Addr(types.TCP, ingressIP, uint16(port))
+		if err != nil {
+			log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring ingress %s/%s...", err, ing.Namespace, ing.Name)
+			continue
+		}
+		// This is the only way that we can get the service's ID
+		// without accessing the KVStore.
+		svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())
+		if svc != nil {
+			if err := d.RevNATDelete(svc.FE.ID); err != nil {
+				log.Errorf("Error while removing RevNAT for ID %d for ingress %s/%s: %s", svc.FE.ID, ing.Namespace, ing.Name, err)
 			}
 		}
-		return
 	}
 
 	d.loadBalancer.K8sMU.Lock()

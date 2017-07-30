@@ -281,8 +281,6 @@ func init() {
 		"label-prefix-file", "", "Valid label prefixes file path")
 	flags.StringSliceVar(&validLabels,
 		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
-	flags.StringVar(&config.LBInterface,
-		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
 	flags.StringVar(&config.LibDir,
 		"lib-dir", defaults.LibraryPath, "Directory path to store runtime build environment")
 	flags.StringSliceVar(&loggers,

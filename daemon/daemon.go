@@ -281,46 +281,6 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	return fw.Flush()
 }
 
-func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(d.conf.LBInterface)
-	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", device, err)
-	}
-
-	getAddr := func(netLinkFamily int) (net.IP, error) {
-		addrs, err := netlink.AddrList(l, netLinkFamily)
-		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", device, err)
-		}
-		for _, possibleAddr := range addrs {
-			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
-				return possibleAddr.IP, nil
-			}
-		}
-		return nil, nil
-	}
-
-	if !d.conf.IPv4Disabled {
-		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
-		if err != nil {
-			return err
-		}
-		if hostV4Addr != nil {
-			d.conf.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", d.conf.HostV4Addr)
-		}
-	}
-	hostV6Addr, err := getAddr(netlink.FAMILY_V6)
-	if err != nil {
-		return err
-	}
-	if hostV6Addr != nil {
-		d.conf.HostV6Addr = hostV6Addr
-		log.Infof("Using IPv6 host address: %s", d.conf.HostV6Addr)
-	}
-	return nil
-}
-
 func runProg(prog string, args []string, quiet bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
@@ -468,16 +428,6 @@ func (d *Daemon) compileBase() error {
 		_, err := netlink.LinkByName(device)
 		if err != nil {
 			log.Fatalf("Interface %s does not exist: %s", device, err)
-		}
-
-		if d.conf.IsLBEnabled() {
-			if device != d.conf.LBInterface {
-				//FIXME: allow different interfaces
-				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
-			}
-			if err := d.setHostAddresses(); err != nil {
-				return err
-			}
 		}
 
 		// in direct routing mode, only packets to the local node

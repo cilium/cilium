@@ -44,13 +44,10 @@ type Config struct {
 	LibDir         string     // Cilium library files directory
 	RunDir         string     // Cilium runtime directory
 	NAT46Prefix    *net.IPNet // NAT46 IPv6 Prefix
-	HostV4Addr     net.IP     // Host v4 address of the snooping device
-	HostV6Addr     net.IP     // Host v6 address of the snooping device
 	DockerEndpoint string     // Docker endpoint
 	IPv4Disabled   bool       // Disable IPv4 allocation
 	K8sEndpoint    string     // Kubernetes endpoint
 	K8sCfgPath     string     // Kubeconfig path
-	LBInterface    string     // Set with name of the interface to loadbalance packets from
 	EnablePolicy   string     // Whether policy enforcement is enabled.
 
 	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
@@ -86,8 +83,4 @@ func NewConfig() *Config {
 // IsK8sEnabled checks if Cilium is being used in tandem with Kubernetes.
 func (c *Config) IsK8sEnabled() bool {
 	return c.K8sEndpoint != "" || c.K8sCfgPath != ""
-}
-
-func (c *Config) IsLBEnabled() bool {
-	return c.LBInterface != ""
 }
