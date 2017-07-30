@@ -166,6 +166,8 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 	if (!(svc = lb6_lookup_service(skb, &key)))
 		return TC_ACT_OK;
 
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+
 	slave = lb6_select_slave(skb, &key, svc->count, svc->weight);
 	if (!(svc = lb6_lookup_slave(skb, &key, slave)))
 		return TC_ACT_OK;
@@ -237,6 +239,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #endif
 
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+		cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
+
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
 		if (IS_ERR(ret))
 			return ret;
@@ -373,6 +377,8 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	if (!(svc = lb4_lookup_service(skb, &key)))
 		return TC_ACT_OK;
 
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+
 	slave = lb4_select_slave(skb, &key, svc->count, svc->weight);
 	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
 		return TC_ACT_OK;
@@ -419,6 +425,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		struct ipv4_ct_tuple tuple = {};
 		struct endpoint_info *ep;
 		__u32 secctx;
+
+		cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
 		secctx = derive_ipv4_sec_ctx(skb, ip4);
 #ifdef FROM_HOST
@@ -488,8 +496,6 @@ int from_netdev(struct __sk_buff *skb)
 	int ret;
 
 	bpf_clear_cb(skb);
-
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
