@@ -353,45 +353,66 @@ func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
 	}
 }
 
+const (
+	ciliumChain = "CILIUM_POST"
+)
+
 func (d *Daemon) removeMasqRule() {
 	runProg("iptables", []string{
 		"-t", "nat",
 		"-D", "POSTROUTING",
-		"-j", "CILIUM_POST"}, true)
+		"-j", ciliumChain}, true)
 	runProg("iptables", []string{
 		"-t", "nat",
-		"-F", "CILIUM_POST"}, true)
+		"-F", ciliumChain}, true)
 	runProg("iptables", []string{
 		"-t", "nat",
-		"-X", "CILIUM_POST"}, true)
+		"-X", ciliumChain}, true)
 }
 
 func (d *Daemon) installMasqRule() error {
 	// Add cilium POSTROUTING chain
 	if err := runProg("iptables", []string{
 		"-t", "nat",
-		"-N", "CILIUM_POST"}, false); err != nil {
+		"-N", ciliumChain}, false); err != nil {
 		return err
 	}
 
-	// Masquerade all traffic from node prefix not going to node prefix
-	// which is not going over the tunnel device
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", "CILIUM_POST",
-		"-s", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_" + tunnelMode,
-		"-m", "comment", "--comment", "cilium masquerade non-cluster",
-		"-j", "MASQUERADE"}, false); err != nil {
-		return err
+	if tunnelMode == tunnelModeDisabled {
+		// When tunneling is disabled, masquerade all traffic that:
+		//  - with a source from a local endpoint
+		//  - with a destination outside of the cluster prefix
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumChain,
+			"-s", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-d", nodeaddress.GetIPv4ClusterRange().String(),
+			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
+	} else {
+		// When tunneling is enabled, masquerade all traffic that:
+		//  - with a source from a local endpoint
+		//  - with a destination outside of the local node prefix
+		//  - going to an interface other than the tunnel interface
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumChain,
+			"-s", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-o", "cilium_" + tunnelMode,
+			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
 	}
 
 	// Masquerade all traffic from the host into the cilium_host interface
 	// if the source is not the internal IP
 	if err := runProg("iptables", []string{
 		"-t", "nat",
-		"-A", "CILIUM_POST",
+		"-A", ciliumChain,
 		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
@@ -403,7 +424,7 @@ func (d *Daemon) installMasqRule() error {
 	return runProg("iptables", []string{
 		"-t", "nat",
 		"-A", "POSTROUTING",
-		"-j", "CILIUM_POST"}, false)
+		"-j", ciliumChain}, false)
 }
 
 func (d *Daemon) compileBase() error {
@@ -468,7 +489,7 @@ func (d *Daemon) compileBase() error {
 
 	// Always remove masquerade rule and then re-add it if required
 	d.removeMasqRule()
-	if masquerade && device == deviceDisabled {
+	if masquerade {
 		if err := d.installMasqRule(); err != nil {
 			return err
 		}
