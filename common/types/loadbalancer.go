@@ -183,8 +183,7 @@ func NewK8sServiceInfo(ip net.IP) *K8sServiceInfo {
 // composed by a map of backend IPs (BEIPs) and a map of Ports (Ports). Each k8s endpoint
 // present in BEIPs share the same list of Ports open.
 type K8sServiceEndpoint struct {
-	// TODO: Replace bool for time.Time so we know last time the service endpoint was seen?
-	BEIPs map[string]bool
+	BEIPs map[string]net.IP
 	Ports map[FEPortName]*L4Addr
 }
 
@@ -192,7 +191,7 @@ type K8sServiceEndpoint struct {
 // Ports map initialized.
 func NewK8sServiceEndpoint() *K8sServiceEndpoint {
 	return &K8sServiceEndpoint{
-		BEIPs: map[string]bool{},
+		BEIPs: map[string]net.IP{},
 		Ports: map[FEPortName]*L4Addr{},
 	}
 }

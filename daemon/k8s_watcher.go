@@ -527,15 +527,20 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
-			newSvcEP.BEIPs[addr.IP] = true
+			ip := net.ParseIP(addr.IP)
+			if ip == nil {
+				log.Warningf("k8s: Received invalid endpoint IP: %s", addr.IP)
+			} else {
+				newSvcEP.BEIPs[addr.IP] = ip
+			}
 		}
 		for _, port := range sub.Ports {
 			lbPort, err := types.NewL4Addr(types.L4Type(port.Protocol), uint16(port.Port))
 			if err != nil {
-				log.Errorf("Error while creating a new LB Port: %s", err)
-				continue
+				log.Warningf("k8s: Received invalid L4 protocol '%s': %s", port.Protocol, err)
+			} else {
+				newSvcEP.Ports[types.FEPortName(port.Name)] = lbPort
 			}
-			newSvcEP.Ports[types.FEPortName(port.Name)] = lbPort
 		}
 	}
 
@@ -582,30 +587,6 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	}
 }
 
-func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.K8sServiceNamespace, se *types.K8sServiceEndpoint) error {
-	if isSvcIPv4 {
-		if !ipv4Enabled {
-			return fmt.Errorf("Received an IPv4 kubernetes service but IPv4 is "+
-				"disabled in the cilium daemon. Ignoring service %+v", svc)
-		}
-
-		for epIP := range se.BEIPs {
-			//is IPv6?
-			if net.ParseIP(epIP).To4() == nil {
-				return fmt.Errorf("Not all endpoints IPs are IPv4. Ignoring IPv4 service %+v", svc)
-			}
-		}
-	} else {
-		for epIP := range se.BEIPs {
-			//is IPv4?
-			if net.ParseIP(epIP).To4() != nil {
-				return fmt.Errorf("Not all endpoints IPs are IPv6. Ignoring IPv6 service %+v", svc)
-			}
-		}
-	}
-	return nil
-}
-
 func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
 	// We are not discriminating the different L4 protocols on the same L4
 	// port so we create the number of unique sets of service IP + service
@@ -618,11 +599,6 @@ func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
 }
 
 func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
-	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
-		return err
-	}
-
 	repPorts := getUniqPorts(svcInfo.Ports)
 
 	for _, svcPort := range svcInfo.Ports {
@@ -660,9 +636,6 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 
 func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
-		return err
-	}
 
 	uniqPorts := getUniqPorts(svcInfo.Ports)
 
@@ -675,37 +648,32 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		uniqPorts[fePort.Port] = false
 
 		if fePort.ID == 0 {
-			feAddr, err := types.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
-			if err != nil {
-				log.Errorf("Error while creating a new L3n4Addr: %s. Ignoring service...", err)
-				continue
-			}
+			feAddr, _ := types.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
 			feAddrID, err := PutL3n4Addr(*feAddr, 0)
 			if err != nil {
-				log.Errorf("Error while getting a new service ID: %s. Ignoring service %v...", err, feAddr)
+				log.Errorf("Error while getting service ID for %s: %s. Ignoring port %v", feAddr, err, fePort)
 				continue
 			}
-			log.Debugf("Got feAddr ID %d for service %+v", feAddrID.ID, svc)
+			log.Debugf("Resolved service ID %d for service %+v", feAddrID.ID, svc)
 			fePort.ID = feAddrID.ID
 		}
 
 		besValues := []types.LBBackEnd{}
 
 		if k8sBEPort != nil {
-			for epIP := range se.BEIPs {
-				bePort := types.LBBackEnd{
-					L3n4Addr: types.L3n4Addr{IP: net.ParseIP(epIP), L4Addr: *k8sBEPort},
-					Weight:   0,
+			for _, epIP := range se.BEIPs {
+				if epIP.To4() != nil && !isSvcIPv4 {
+					continue
 				}
-				besValues = append(besValues, bePort)
+
+				besValues = append(besValues, types.LBBackEnd{
+					L3n4Addr: types.L3n4Addr{IP: epIP, L4Addr: *k8sBEPort},
+					Weight:   0,
+				})
 			}
 		}
 
-		fe, err := types.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
-		if err != nil {
-			log.Errorf("Error while creating a New L3n4AddrID: %s. Ignoring service %v...", err, svcInfo)
-			continue
-		}
+		fe, _ := types.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
 		if _, err := d.svcAdd(*fe, besValues, true); err != nil {
 			log.Errorf("Error while inserting service in LB map: %s", err)
 		}
