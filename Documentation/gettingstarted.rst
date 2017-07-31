@@ -145,7 +145,7 @@ point the pod is ready.
     svc/app1-service   10.0.0.40    <none>        80/TCP    40s
     svc/kubernetes     10.0.0.1     <none>        443/TCP   5h
 
-All of these pods will be repsented in Cilium as `endpoints`. We can invoke the
+All of these pods will be represented in Cilium as `endpoints`. We can invoke the
 ``cilium`` tool inside the Cilium pod to list them:
 
 ::
