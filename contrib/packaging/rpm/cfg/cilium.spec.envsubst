@@ -9,7 +9,7 @@ License:       Apache
 URL:           https://github/cilium/cilium
 ExclusiveArch: x86_64
 Source0:       https://github.com/cilium/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{shortcommit0}.tar.gz
-BuildRequires: golang, glibc-devel(x86-32)
+BuildRequires: golang, go-bindata, glibc-devel(x86-32)
 Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clang
 %{?fc25:Requires: clang >= 3.8, clang < 3.9}
 
