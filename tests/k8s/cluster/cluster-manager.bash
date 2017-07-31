@@ -203,7 +203,7 @@ EOF
     sudo apt-get remove docker docker-engine docker.io 
     sudo apt-get update && sudo apt-get install -y docker-ce=17.06
     sudo usermod -aG docker vagrant
-    echo "echo "============== done installing kubeadm dependencies =============="
+    echo "============== done installing kubeadm dependencies =============="
 }
 
 function install_kubeadm() {
