@@ -1,14 +1,14 @@
 #!/bin/bash -e 
 
-DEV_DOCKERFILE="$PWD/../contrib/packaging/docker/dockerfiles/Dockerfile.dev"
-PROD_DOCKERFILE="$PWD/../contrib/packaging/docker/dockerfiles/Dockerfile.prod"
-DEP_DOCKERFILE="$PWD//../contrib/packaging/docker/dockerfiles/Dockerfile.deps"
+DEV_DOCKERFILE="$PWD/../Dockerfile.dev"
+PROD_DOCKERFILE="$PWD/../Dockerfile"
+DEP_DOCKERFILE="$PWD//../Dockerfile.deps"
 DOCKERFILE_SCRIPT="$PWD/../contrib/packaging/docker/build_dockerfile.sh"
 
 function cleanup {
   rm ./Dockerfile.dev.tmpgen || true
-  rm Dockerfile.prod.tmpgen || true
-  rm Dockerfile.deps.tmpgen || true
+  rm ./Dockerfile.prod.tmpgen || true
+  rm ./Dockerfile.deps.tmpgen || true
 }
 
 
@@ -24,7 +24,7 @@ function error_if_files_diff {
 
 
   if [ -n "$diff" ]; then 
-    echo "$FILE1 differs from $FILE2; please rebuild the corresponding Dockerfile and try again"
+    echo "$FILE1 differs from $FILE2; please rebuild the corresponding Dockerfile using the script: contrib/packaging/docker/build_dockerfile.sh"
     echo "diff: $diff"
     exit 1
   else 
