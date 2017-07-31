@@ -113,7 +113,7 @@ cd /tmp && \\
 git clone -b v4.10.0 git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git && \\
 cd /tmp/iproute2 && \\
 ./configure && \\
-make -j `getconf _NPROCESSORS_ONLN` && \\
+make -j \`getconf _NPROCESSORS_ONLN\` && \\
 make install && \\
 # iproute2-end
 
