@@ -6,23 +6,23 @@ FROM cilium:dependencies
 
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
-# cilium-begin
+# cilium begin
 RUN cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \\
 export GOROOT=/usr/local/go && \\
 export GOPATH=/tmp/cilium-net-build && \\
-export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \\
+export PATH="\$GOROOT/bin:/usr/local/clang+llvm/bin:\$GOPATH/bin:\$PATH" && \\
 make clean-container all && \\
 make PKG_BUILD=1 install && \\
 groupadd -f cilium
-# cilium-end
 
+#cilium end
 EOF
 }
 
 function build_dockerfile_dependencies {
  cat <<EOF > ./Dockerfile
 FROM ubuntu:16.04
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+#LABEL "Maintainer: Andre Martins <andre@cilium.io>"
 RUN mkdir -p /tmp/cilium-net-build/src/github.com/cilium/cilium
 ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.com/cilium/cilium/contrib/packaging/docker/clang-3.8.1.key
 EOF
@@ -38,7 +38,7 @@ tar -C /usr/local -xzf go.linux-amd64.tar.gz && \\
 cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \\
 export GOROOT=/usr/local/go && \\
 export GOPATH=/tmp/cilium-net-build && \\
-export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \\
+export PATH="\$GOROOT/bin:/usr/local/clang+llvm/bin:\$GOPATH/bin:\$PATH" && \\
 go get -u github.com/jteeuwen/go-bindata/...
 # golang end
 EOF
@@ -48,14 +48,14 @@ function build_dockerfile_prod {
   build_dockerfile_dev
   cat <<EOF >> ./Dockerfile
 FROM ubuntu:16.04
-ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/clang-3.8.1.key
+ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.com/cilium/cilium/contrib/packaging/docker/clang-3.8.1.key
 EOF
 
 append_docker_install_deps
  cat <<EOF >> ./Dockerfile
 # cilium-begin
 
-groupadd -f cilium && \
+groupadd -f cilium && \\
 
 # cilium-end
 
@@ -67,7 +67,7 @@ rm -fr /root /var/lib/apt/lists/* /tmp/* /var/tmp/*
 ADD plugins/cilium-cni/cni-install.sh /cni-install.sh
 ADD plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 
-ENV PATH="/usr/local/clang+llvm/bin:$PATH"
+ENV PATH="/usr/local/clang+llvm/bin:\$PATH"
 ENV INITSYSTEM="SYSTEMD"
 
 COPY --from=0 /usr/bin/cilium /usr/bin/cilium
