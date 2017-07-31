@@ -108,6 +108,10 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	struct ct_entry *entry;
 	int ret;
 
+	if (map == NULL) {
+		cilium_trace(skb, DBG_GENERIC, 100, 100);
+	}
+
 	if ((entry = map_lookup_elem(map, tuple))) {
 #ifndef QUIET_CT
 		cilium_trace(skb, DBG_CT_MATCH, entry->lifetime,
