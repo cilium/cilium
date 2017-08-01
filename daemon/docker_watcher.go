@@ -89,8 +89,8 @@ func (d *Daemon) SyncDocker() {
 
 func (d *Daemon) backgroundContainerSync() {
 	for {
-		d.SyncDocker()
 		time.Sleep(syncRateDocker)
+		d.SyncDocker()
 	}
 }
 
