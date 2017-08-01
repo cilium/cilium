@@ -42,15 +42,15 @@ Linux Distribution Compatibility Matrix
 The following table lists Linux distributions versions which are known to work
 well with Cilium.
 
-===================== ================
+===================== ====================
 Distribution          Minimal Version
-===================== ================
-CoreOS_               stable
+===================== ====================
+CoreOS_               stable (>= 1298.5.0)
 Debian_               >= 9 Stretch
 `Fedora Atomic/Core`_ >= 25
 LinuxKit_             all
-Ubuntu_               >= 16.10
-===================== ================
+Ubuntu_               >= 16.04.2, >= 16.10
+===================== ====================
 
 .. _CoreOS: https://coreos.com/releases/
 .. _Debian: https://wiki.debian.org/DebianStretch
