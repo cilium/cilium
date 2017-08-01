@@ -201,7 +201,7 @@ EOF
 "
     # Remove older versions of Docker so we can install Docker 17.06
     sudo apt-get remove docker docker-engine docker.io 
-    sudo apt-get update && sudo apt-get install -y docker-ce=17.06
+    sudo apt-get update && sudo apt-get install -y docker-ce
     sudo usermod -aG docker vagrant
     sudo systemctl enable docker.service
     echo "============== done installing kubeadm dependencies =============="
