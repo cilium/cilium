@@ -14,4 +14,21 @@
 
 package version
 
+import (
+	"encoding/base64"
+	"encoding/json"
+)
+
+// FIXME Write version on a JSON format. Currently a single string:
+// `Cilium 0.11.90 774ecd3 Wed, 19 Jul 2017 06:27:28 +0000 go version go1.8.3 linux/amd64`
+
 var Version string
+
+// Base64 returns the version in a base64 format.
+func Base64() (string, error) {
+	jsonBytes, err := json.Marshal(Version)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(jsonBytes), nil
+}
