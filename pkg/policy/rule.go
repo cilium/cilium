@@ -45,12 +45,12 @@ func (r *rule) validate() error {
 func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filter) bool {
 
 	if len(policy.FromEndpoints) == 0 && len(fromEndpoints) > 0 {
-		logrus.Debugf("skipping this L4 policy since it is already covered by an existing one.")
+		logrus.Debugf("skipping this L4 policy since it is already covered by an existing policy.")
 		return true
 	}
 
 	if len(policy.FromEndpoints) > 0 && len(fromEndpoints) == 0 {
-		// new policy is more permissive than the existing one
+		// new policy is more permissive than the existing policy
 		// use a more permissive one
 		policy.FromEndpoints = nil
 	}
@@ -68,7 +68,7 @@ func mergeL4Port(fromEndpoints []api.EndpointSelector, r api.PortRule, p api.Por
 	}
 
 	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && len(r.Rules.HTTP) == 0 {
-		// skip this policy as it is already covered and it does not contain l7 rules
+		// skip this policy as it is already covered and it does not contain L7 rules
 		return 0
 	}
 
@@ -80,20 +80,20 @@ func mergeL4Port(fromEndpoints []api.EndpointSelector, r api.PortRule, p api.Por
 		v.L7RedirectPort = l4Filter.L7RedirectPort
 	}
 
-	// if (1) the existing *ingress* rule did not have a wildcard EP
+	// if (1) the existing *ingress* rule did not have a wildcard endpoint
 	// AND (2) the new rule does not have explicit fromEndpoints
-	// THEN we need to copy all existing l7 rules to the wildcard ep
+	// THEN we need to copy all existing L7 rules to the wildcard endpoint
 	if _, ok := v.L7RulesPerEp[WildcardEndpointSelector]; l4Filter.Ingress && !ok && len(fromEndpoints) == 0 {
-		v.L7RulesPerEp[WildcardEndpointSelector] = L7Rules{}
-		wildcardEp := v.L7RulesPerEp[WildcardEndpointSelector]
+		wildcardEp := L7Rules{}
 		for _, existingL7Rules := range v.L7RulesPerEp {
 			wildcardEp = append(wildcardEp, existingL7Rules...)
 		}
+		v.L7RulesPerEp[WildcardEndpointSelector] = wildcardEp
 	}
 
 	for hash, newL7Rules := range l4Filter.L7RulesPerEp {
 		if ep, ok := v.L7RulesPerEp[hash]; ok {
-			ep = append(ep, newL7Rules...)
+			v.L7RulesPerEp[hash] = append(ep, newL7Rules...)
 		} else {
 			v.L7RulesPerEp[hash] = newL7Rules
 		}

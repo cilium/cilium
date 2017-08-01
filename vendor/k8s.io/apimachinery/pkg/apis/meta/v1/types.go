@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mitchellh/hashstructure"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -813,10 +812,6 @@ type LabelSelector struct {
 	// matchExpressions is a list of label selector requirements. The requirements are ANDed.
 	// +optional
 	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
-}
-
-func (l *LabelSelector) Hash() (uint64, error) {
-	return hashstructure.Hash(l, nil)
 }
 
 // A label selector requirement is a selector that contains values, a key, and an operator that

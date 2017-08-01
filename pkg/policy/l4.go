@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -29,13 +29,15 @@ type AuxRule struct {
 	Expr string `json:"expr"`
 }
 
+// L7Rules contains a list of L7 rules
 type L7Rules []AuxRule
 
 const (
+	// WildcardEndpointSelector is a special hash value for the wildcard endpoint, i.e., applies to all
 	WildcardEndpointSelector = iota
 )
 
-// key is a hash of EndpointSelector, WildcardEndpointSelector is a special hash for wildcard/all endpoints
+// L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
 type L7DataMap map[uint64]L7Rules
 
 type L4Filter struct {
@@ -44,7 +46,7 @@ type L4Filter struct {
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol string
 	// From Endpoints
-	FromEndpoints []api.EndpointSelector
+	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
 	L7Parser string
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
@@ -120,9 +122,9 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 			l4.L7Parser = "http"
 			if len(fromEndpoints) > 0 {
 				for _, ep := range fromEndpoints {
-					hash, err := ep.LabelSelector.Hash()
+					hash, err := ep.Hash()
 					if err != nil || hash == 0 {
-						logrus.Errorf("Could not hash (%d) endpoint %e", hash, err)
+						log.Errorf("Could not hash (%d) endpoint %e", hash, err)
 						return L4Filter{}
 					}
 					l4.L7RulesPerEp[hash] = append(l4.L7RulesPerEp[hash], l7rules...)

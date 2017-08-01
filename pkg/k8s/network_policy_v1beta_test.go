@@ -88,11 +88,14 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 
 	result := repo.ResolveL4Policy(&ctx)
+	l7rules := []policy.AuxRule(nil)
+	var l7RulesPerEp map[uint64]policy.L7Rules
+	l7RulesPerEp[0] = l7rules
 	c.Assert(result, DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
 			"80/tcp": policy.L4Filter{
 				Port: 80, Protocol: "tcp", L7Parser: "",
-				L7RedirectPort: 0, L7Rules: []policy.AuxRule(nil),
+				L7RedirectPort: 0, L7RulesPerEp: l7RulesPerEp,
 				Ingress: true,
 			},
 		},
