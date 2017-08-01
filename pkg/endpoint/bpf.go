@@ -124,10 +124,16 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fmt.Fprint(fw, "/*\n")
 
-	if epStr64, err := e.base64(); err == nil {
-		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
-			version.Version, epStr64)
-	} else {
+	epStr64, err := e.base64()
+	if err == nil {
+		var verBase64 string
+		verBase64, err = version.Base64()
+		if err == nil {
+			fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
+				verBase64, epStr64)
+		}
+	}
+	if err != nil {
 		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
