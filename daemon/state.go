@@ -36,7 +36,7 @@ import (
 func (d *Daemon) SyncState(dir string, clean bool) error {
 	restored := 0
 
-	log.Info("Recovering old running endpoints...")
+	log.Info("Restoring old cilium endpoints...")
 
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -47,7 +47,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	possibleEPs := readEPsFromDirNames(dir, eptsID)
 
 	if len(possibleEPs) == 0 {
-		log.Debug("No old endpoints found.")
+		log.Info("No old endpoints found.")
 		return nil
 	}
 
@@ -55,58 +55,74 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		log.Debugf("Restoring endpoint ID %d", ep.ID)
 
 		if err := d.syncLabels(ep); err != nil {
-			log.Warningf("Unable to restore endpoint %+v: %s", ep, err)
+			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
 			continue
 		}
 
+		ep.Mutex.Lock()
 		if d.conf.KeepConfig {
 			ep.SetDefaultOpts(nil)
 		} else {
 			ep.SetDefaultOpts(d.conf.Opts)
 		}
 
-		if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
-			continue
-		}
-
 		endpointmanager.Insert(ep)
 		restored++
 
-		log.Infof("Restored endpoint: %d", ep.ID)
+		ep.Mutex.Unlock()
 	}
 
-	log.Infof("Restored %d endpoints", restored)
-
 	if clean {
-		d.cleanUpDockerDandlingEndpoints()
+		d.cleanUpDockerDanglingEndpoints()
 	}
 
 	endpointmanager.Mutex.Lock()
+	nEndpoints := len(endpointmanager.Endpoints)
+	wg := make(chan bool, nEndpoints)
 	for k := range endpointmanager.Endpoints {
 		ep := endpointmanager.Endpoints[k]
-		if err := d.allocateIPs(ep); err != nil {
-			log.Errorf("Failed while reallocating ep %d's IP addresses: %s. Endpoint won't be restored", ep.ID, err)
-			d.deleteEndpoint(ep)
-			continue
-		}
+		go func(ep *endpoint.Endpoint, wg chan<- bool) {
+			if err := d.allocateIPs(ep); err != nil {
+				log.Errorf("Failed to re-allocate IP of endpoint %d. Not restoring endpoint. %s", ep.ID, err)
+				d.deleteEndpoint(ep)
+				wg <- false
+				return
+			}
 
-		log.Infof("EP %d's IP addresses successfully reallocated", ep.ID)
-		if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
-			log.Warningf("Failed while regenerating endpoint %d: %s", ep.ID, err)
-			continue
-		}
-		ep.Mutex.RLock()
-		epID := ep.ID
-		if ep.SecLabel != nil {
-			epLabels := ep.SecLabel.DeepCopy()
-			ep.Mutex.RUnlock()
-			d.events <- *events.NewEvent(events.IdentityAdd, epLabels)
-		} else {
-			ep.Mutex.RUnlock()
-		}
-		log.Infof("Restored endpoint %d", epID)
+			if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
+				log.Warningf("Failed while regenerating endpoint %d: %s", ep.ID, err)
+				wg <- false
+				return
+			}
+			ep.Mutex.RLock()
+			log.Infof("Restored endpoint %d with IPs %s and %s", ep.ID, ep.IPv4.String(), ep.IPv6.String())
+			if ep.SecLabel != nil {
+				epLabels := ep.SecLabel.DeepCopy()
+				ep.Mutex.RUnlock()
+				d.events <- *events.NewEvent(events.IdentityAdd, epLabels)
+			} else {
+				ep.Mutex.RUnlock()
+			}
+			wg <- true
+		}(ep, wg)
 	}
 	endpointmanager.Mutex.Unlock()
+
+	restored, total := 0, 0
+	if nEndpoints > 0 {
+		for buildSuccess := range wg {
+			if buildSuccess {
+				restored++
+			}
+			total++
+			if total >= nEndpoints {
+				break
+			}
+		}
+	}
+	close(wg)
+
+	log.Infof("Found %d endpoints of which %d were restored", total, restored)
 
 	return nil
 }
@@ -137,8 +153,8 @@ func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-// readEPsFromDirNames returns a list of endpoints from a list of directory names that
-// possible contain an endpoint.
+// readEPsFromDirNames returns a list of endpoints from a list of directory
+// names that can possible contain an endpoint.
 func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.Endpoint {
 	possibleEPs := []*endpoint.Endpoint{}
 	for _, epID := range eptsDirNames {
@@ -179,8 +195,8 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 	return possibleEPs
 }
 
-// syncLabels syncs the labels from the labels' database for the given endpoint. To be
-// used with endpoint.Mutex locked.
+// syncLabels syncs the labels from the labels' database for the given endpoint.
+// To be used with endpoint.Mutex locked.
 func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	if ep.SecLabel == nil {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
@@ -219,9 +235,9 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-// cleanUpDockerDandlingEndpoints cleans all endpoints that are dandling by checking out
-// if a particular endpoint has its container running.
-func (d *Daemon) cleanUpDockerDandlingEndpoints() {
+// cleanUpDockerDanglingEndpoints cleans all endpoints that are dandling by
+// checking out if a particular endpoint has its container running.
+func (d *Daemon) cleanUpDockerDanglingEndpoints() {
 	cleanUp := func(ep *endpoint.Endpoint) {
 		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
 		ep.Mutex.RUnlock()
@@ -231,7 +247,10 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 	for k := range endpointmanager.Endpoints {
 		ep := endpointmanager.Endpoints[k]
 		ep.Mutex.RLock()
-		log.Debugf("Checking if endpoint is running in docker %d", ep.ID)
+		log.Debugf("Checking if endpoint %d is running in docker", ep.ID)
+		// If we have a DockerNetworkID it means it was setup by libnetwork
+		// so the endpoint must be found in the list of networks running in
+		// docker.
 		if ep.DockerNetworkID != "" {
 			nls, err := d.dockerClient.NetworkInspect(ctx.Background(), ep.DockerNetworkID)
 			if dockerAPI.IsErrNetworkNotFound(err) {
@@ -253,7 +272,10 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 				cleanUp(ep)
 				continue
 			}
+			ep.Mutex.RUnlock()
 		} else if ep.DockerID != "" {
+			// If we have a docker ID, then we know the container must be
+			// running in the system.
 			cont, err := d.dockerClient.ContainerInspect(ctx.Background(), ep.DockerID)
 			if dockerAPI.IsErrContainerNotFound(err) {
 				cleanUp(ep)
@@ -267,6 +289,7 @@ func (d *Daemon) cleanUpDockerDandlingEndpoints() {
 				cleanUp(ep)
 				continue
 			}
+			ep.Mutex.RUnlock()
 		} else {
 			cleanUp(ep)
 			continue
