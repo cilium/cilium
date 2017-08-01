@@ -18,24 +18,23 @@ set -e
 
 LIB=$1
 RUNDIR=$2
-ID=$3
+EPDIR=$3
 IFNAME=$4
 DEBUG=$5
 
-echo "Join EP id=$ID ifname=$IFNAME"
+echo "Join EP id=$EPDIR ifname=$IFNAME"
 
 # This directory was created by the daemon and contains the per container header file
-DIR="$PWD/$ID"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$RUNDIR/globals -I$DIR -I$LIB/include -Wno-address-of-packed-member -Wno-unknown-warning-option"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$RUNDIR/globals -I$EPDIR -I$LIB/include -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
 # Only generate ASM output if debug is enabled.
 if [[ "${DEBUG}" == "true" ]]; then
   echo "kernel version: " `uname -a`
   echo "clang version: " `clang --version`
-  clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $DIR/bpf_lxc.asm
+  clang $CLANG_OPTS -c $LIB/bpf_lxc.c -S -o $EPDIR/bpf_lxc.asm
 fi
 
-clang $CLANG_OPTS -c $LIB/bpf_lxc.c -o $DIR/bpf_lxc.o
+clang $CLANG_OPTS -c $LIB/bpf_lxc.c -o $EPDIR/bpf_lxc.o
 
 tc qdisc replace dev $IFNAME clsact || true
-tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $DIR/bpf_lxc.o sec from-container
+tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $EPDIR/bpf_lxc.o sec from-container
