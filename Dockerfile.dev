@@ -1,4 +1,4 @@
-FROM cilium:dependencies
+FROM cilium/dependencies:latest
 
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 
