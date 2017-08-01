@@ -306,7 +306,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 }
 
 func (e *Endpoint) regenerate(owner Owner) error {
-	origDir := filepath.Join(".", e.StringID())
+	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
