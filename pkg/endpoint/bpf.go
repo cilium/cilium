@@ -305,8 +305,8 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
-	args := []string{libdir, rundir, prefix, e.IfName, debug}
+func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
+	args := []string{libdir, rundir, epdir, e.IfName, debug}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
@@ -331,10 +331,10 @@ func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
-func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
+func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	var err error
 
-	if err = e.writeHeaderfile(prefix, owner); err != nil {
+	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		return fmt.Errorf("unable to write header file: %s", err)
 	}
 
@@ -433,7 +433,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
-	if err = e.runInit(libdir, rundir, prefix, debug); err != nil {
+	if err = e.runInit(libdir, rundir, epdir, debug); err != nil {
 		return err
 	}
 
