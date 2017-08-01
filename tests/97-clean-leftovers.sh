@@ -9,6 +9,8 @@ docker network inspect $TEST_NET || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
 }
 
+set -x
+
 docker run -dt --net=$TEST_NET --name server -l id.test $NETPERF_IMAGE
 
 prev_ifs=$(sudo ip link show | wc -l)
