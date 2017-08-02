@@ -1,0 +1,14 @@
+FROM cilium/dependencies:latest
+
+ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
+
+# cilium begin
+RUN cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
+export GOROOT=/usr/local/go && \
+export GOPATH=/tmp/cilium-net-build && \
+export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \
+make clean-container all && \
+make PKG_BUILD=1 install && \
+groupadd -f cilium
+
+#cilium end

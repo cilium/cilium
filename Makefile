@@ -74,8 +74,14 @@ install:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
-docker-image:
-	$(MAKE) -C ./contrib/packaging/docker
+docker-image-prod:
+	$(MAKE) -C ./contrib/packaging/docker docker-image-prod
+
+docker-image-dependencies:
+	$(MAKE) -C ./contrib/packaging/docker docker-image-dependencies
+
+docker-image-dev:
+	$(MAKE) -C ./contrib/packaging/docker docker-image-dev
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
