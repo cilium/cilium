@@ -179,18 +179,16 @@ chapter.
     [adjust --k8s-api-server or --k8s-kubeconfig-path]
     [adjust --kvstore and --kvstore-opts]
 
-3. Deploy the ``cilium`` and ``cilium-consul`` DaemonSet_
+3. Deploy the ``cilium`` DaemonSet_
 
 .. code:: bash
 
     $ kubectl create -f cilium-ds.yaml
-    daemonset "cilium-consul" created
     daemonset "cilium" created
 
     $ kubectl get ds --namespace kube-system
     NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
     cilium          1         1         1         <none>          2m
-    cilium-consul   1         1         1         <none>          2m
 
 .. _admin_mount_bpffs:
 
