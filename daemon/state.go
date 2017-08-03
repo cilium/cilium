@@ -208,10 +208,6 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 		return fmt.Errorf("Unable to get labels of sha256sum:%s: %+v\n", sha256sum, err)
 	}
 
-	if ep.DockerID == "" {
-		return nil
-	}
-
 	if labels == nil {
 		l, _, err := d.CreateOrUpdateIdentity(ep.SecLabel.Labels, ep.StringID())
 		if err != nil {
