@@ -152,7 +152,7 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 
 	if !ctx.IngressL4Only {
 		for _, r := range r.Egress {
-			found += mergeL4(ctx, "Egress", []api.EndpointSelector{}, r.ToPorts, result.Egress)
+			found += mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
 		}
 	}
 
