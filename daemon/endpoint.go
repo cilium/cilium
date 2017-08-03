@@ -292,7 +292,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	return NewPatchEndpointIDOK()
 }
 
-// deleteEndpoint must be called with endpoint.Mutex locked.
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	ep.Mutex.Lock()
 	defer ep.Mutex.Unlock()
@@ -303,40 +302,46 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
 			sha256sum, ep.OpLabels.IdentityLabels(), err)
 	}
-	errors := lxcmap.DeleteElement(ep)
 
-	if ep.Consumable != nil {
-		ep.Consumable.RemoveMap(ep.PolicyMap)
-	}
+	var errors int
 
-	// Remove policy BPF map
-	if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
-		log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPathLocked(), err)
-		errors++
-	}
+	// If dry mode is enabled, no changes to BPF maps are performed
+	if !d.DryModeEnabled() {
+		errors := lxcmap.DeleteElement(ep)
 
-	// Remove calls BPF map
-	if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
-		log.Warningf("Unable to remove calls map file (%s): %s", ep.CallsMapPathLocked(), err)
-		errors++
-	}
+		if ep.Consumable != nil {
+			ep.Consumable.RemoveMap(ep.PolicyMap)
+		}
 
-	// Remove IPv6 connection tracking map
-	if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
-		log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPathLocked(), err)
-		errors++
-	}
+		// Remove policy BPF map
+		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
+			log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPathLocked(), err)
+			errors++
+		}
 
-	// Remove IPv4 connection tracking map
-	if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
-		log.Warningf("Unable to remove IPv4 CT map file (%s): %s", ep.Ct4MapPathLocked(), err)
-		errors++
-	}
+		// Remove calls BPF map
+		if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
+			log.Warningf("Unable to remove calls map file (%s): %s", ep.CallsMapPathLocked(), err)
+			errors++
+		}
 
-	// Remove handle_policy() tail call entry for EP
-	if ep.RemoveFromGlobalPolicyMap() != nil {
-		log.Warningf("Unable to remove EP from global policy map!")
-		errors++
+		// Remove IPv6 connection tracking map
+		if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
+			log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPathLocked(), err)
+			errors++
+		}
+
+		// Remove IPv4 connection tracking map
+		if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
+			log.Warningf("Unable to remove IPv4 CT map file (%s): %s", ep.Ct4MapPathLocked(), err)
+			errors++
+		}
+
+		// Remove handle_policy() tail call entry for EP
+		if ep.RemoveFromGlobalPolicyMap() != nil {
+			log.Warningf("Unable to remove EP from global policy map!")
+			errors++
+		}
 	}
 
 	endpointmanager.RemoveLocked(ep)
