@@ -40,6 +40,7 @@
 #define IPV4_CLUSTER_RANGE 0x100000
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
+#define IPV4_PUBLIC_IP 0xfffff50a
 #define ENCAP_GENEVE 1
 #define CALLS_MAP cilium_calls_111
 #define SECLABEL 2
@@ -51,3 +52,8 @@
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65536
 #define ENABLE_TRACE
+#define LB_IP4
+#define LB_IP6
+#define CT_MAP6 cilium_ct6_global
+#define CT_MAP4 cilium_ct4_global
+#define CT_MAP_SIZE 4096

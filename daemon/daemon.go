@@ -72,6 +72,13 @@ const (
 
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
+
+	tunnelModeDisabled = "disabled"
+	tunnelModeVXLAN    = "vxlan"
+	tunnelModeGeneve   = "geneve"
+
+	deviceAuto     = "auto"
+	deviceDisabled = "disabled"
 )
 
 const (
@@ -84,7 +91,7 @@ const (
 	initArgIPv6Range
 	initArgIPv4ServiceRange
 	initArgIPv6ServiceRange
-	initArgMode
+	initArgTunnelMode
 	initArgDevice
 	initArgMax
 )
@@ -274,46 +281,6 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	return fw.Flush()
 }
 
-func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(d.conf.LBInterface)
-	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", d.conf.Device, err)
-	}
-
-	getAddr := func(netLinkFamily int) (net.IP, error) {
-		addrs, err := netlink.AddrList(l, netLinkFamily)
-		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", d.conf.Device, err)
-		}
-		for _, possibleAddr := range addrs {
-			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
-				return possibleAddr.IP, nil
-			}
-		}
-		return nil, nil
-	}
-
-	if !d.conf.IPv4Disabled {
-		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
-		if err != nil {
-			return err
-		}
-		if hostV4Addr != nil {
-			d.conf.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", d.conf.HostV4Addr)
-		}
-	}
-	hostV6Addr, err := getAddr(netlink.FAMILY_V6)
-	if err != nil {
-		return err
-	}
-	if hostV6Addr != nil {
-		d.conf.HostV6Addr = hostV6Addr
-		log.Infof("Using IPv6 host address: %s", d.conf.HostV6Addr)
-	}
-	return nil
-}
-
 func runProg(prog string, args []string, quiet bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
@@ -386,47 +353,69 @@ func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
 	}
 }
 
+const (
+	ciliumChain = "CILIUM_POST"
+)
+
 func (d *Daemon) removeMasqRule() {
 	runProg("iptables", []string{
 		"-t", "nat",
 		"-D", "POSTROUTING",
-		"-j", "CILIUM_POST"}, true)
+		"-j", ciliumChain}, true)
 	runProg("iptables", []string{
 		"-t", "nat",
-		"-F", "CILIUM_POST"}, true)
+		"-F", ciliumChain}, true)
 	runProg("iptables", []string{
 		"-t", "nat",
-		"-X", "CILIUM_POST"}, true)
+		"-X", ciliumChain}, true)
 }
 
 func (d *Daemon) installMasqRule() error {
 	// Add cilium POSTROUTING chain
 	if err := runProg("iptables", []string{
 		"-t", "nat",
-		"-N", "CILIUM_POST"}, false); err != nil {
+		"-N", ciliumChain}, false); err != nil {
 		return err
 	}
 
-	// Masquerade all traffic from node prefix not going to node prefix
-	// which is not going over the tunnel device
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", "CILIUM_POST",
-		"-s", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_" + d.conf.Tunnel,
-		"-m", "comment", "--comment", "cilium masquerade non-cluster",
-		"-j", "MASQUERADE"}, false); err != nil {
-		return err
+	if tunnelMode == tunnelModeDisabled {
+		// When tunneling is disabled, masquerade all traffic that:
+		//  - with a source from a local endpoint
+		//  - with a destination outside of the cluster prefix
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumChain,
+			"-s", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-d", nodeaddress.GetIPv4ClusterRange().String(),
+			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
+	} else {
+		// When tunneling is enabled, masquerade all traffic that:
+		//  - with a source from a local endpoint
+		//  - with a destination outside of the local node prefix
+		//  - going to an interface other than the tunnel interface
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumChain,
+			"-s", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-o", "cilium_" + tunnelMode,
+			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
 	}
 
 	// Masquerade all traffic from the host into the cilium_host interface
 	// if the source is not the internal IP
 	if err := runProg("iptables", []string{
 		"-t", "nat",
-		"-A", "CILIUM_POST",
+		"-A", ciliumChain,
 		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
+		"-m", "addrtype", "--src-type", "LOCAL",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
 		"-j", "MASQUERADE"}, false); err != nil {
 		return err
@@ -436,19 +425,16 @@ func (d *Daemon) installMasqRule() error {
 	return runProg("iptables", []string{
 		"-t", "nat",
 		"-A", "POSTROUTING",
-		"-j", "CILIUM_POST"}, false)
+		"-j", ciliumChain}, false)
 }
 
 func (d *Daemon) compileBase() error {
-	var args []string
-	var mode string
-
 	if err := d.writeNetdevHeader("./"); err != nil {
 		log.Warningf("Unable to write netdev header: %s", err)
 		return err
 	}
 
-	args = make([]string, initArgMax)
+	args := make([]string, initArgMax)
 
 	args[initArgLib] = d.conf.BpfDir
 	args[initArgRundir] = d.conf.StateDir
@@ -457,47 +443,28 @@ func (d *Daemon) compileBase() error {
 	args[initArgIPv6NodeIP] = nodeaddress.GetIPv6().String()
 	args[initArgIPv4ServiceRange] = v4ServicePrefix
 	args[initArgIPv6ServiceRange] = v6ServicePrefix
+	args[initArgTunnelMode] = tunnelMode
+	args[initArgDevice] = device
 
-	if d.conf.Device != "undefined" {
-		_, err := netlink.LinkByName(d.conf.Device)
+	if device != deviceDisabled {
+		_, err := netlink.LinkByName(device)
 		if err != nil {
-			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
-			return err
+			log.Fatalf("Interface %s does not exist: %s", device, err)
 		}
+	}
 
-		if d.conf.IsLBEnabled() {
-			if d.conf.Device != d.conf.LBInterface {
-				//FIXME: allow different interfaces
-				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
-			}
-			if err := d.setHostAddresses(); err != nil {
-				return err
-			}
-			mode = "lb"
-		} else {
-			mode = "direct"
-		}
-
-		// in direct routing mode, only packets to the local node
-		// prefix should go to cilium_host
+	if tunnelMode == tunnelModeDisabled {
+		// When routing in the host in direct routing mode, only
+		// packets addressed to the local agent's node prefix should be
+		// routed through Cilium. Everything else will be natively
+		// routed to other nodes.
 		args[initArgIPv4Range] = nodeaddress.GetIPv4AllocRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6NodeRange().String()
-
-		args[initArgMode] = mode
-		args[initArgDevice] = d.conf.Device
-
-		args = append(args, d.conf.Device)
 	} else {
-		if d.conf.IsLBEnabled() {
-			//FIXME: allow LBMode in tunnel
-			return fmt.Errorf("Unable to run LB mode with tunnel mode")
-		}
-
-		// in tunnel mode, all packets in the cluster should go to cilium_host
+		// When routing with tunneling is enabled, all packets addressed
+		// to any cluster IP would be routed through Cilium.
 		args[initArgIPv4Range] = nodeaddress.GetIPv4ClusterRange().String()
 		args[initArgIPv6Range] = nodeaddress.GetIPv6ClusterRange().String()
-
-		args[initArgMode] = d.conf.Tunnel
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
@@ -523,7 +490,7 @@ func (d *Daemon) compileBase() error {
 
 	// Always remove masquerade rule and then re-add it if required
 	d.removeMasqRule()
-	if masquerade && d.conf.Device == "undefined" {
+	if masquerade {
 		if err := d.installMasqRule(); err != nil {
 			return err
 		}
@@ -579,6 +546,9 @@ func (d *Daemon) init() error {
 	ipv4GW := nodeaddress.GetInternalIPv4()
 	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 
+	publicIP4 := nodeaddress.GetExternalIPv4()
+	fmt.Fprintf(fw, "#define IPV4_PUBLIC_IP %#x\n", byteorder.HostSliceToNetwork(publicIP4, reflect.Uint32).(uint32))
+
 	if !d.conf.IPv4Disabled {
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
 	}
@@ -609,6 +579,24 @@ func (d *Daemon) init() error {
 	}
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
+
+	switch tunnelMode {
+	case tunnelModeVXLAN:
+		fmt.Fprintf(fw, "#define ENCAP_VXLAN\n")
+	case tunnelModeGeneve:
+		fmt.Fprintf(fw, "#define ENCAP_GENEVE\n")
+	}
+
+	// Always enable L4 and L3 load balancer for now
+	fw.WriteString("#define LB_L3\n")
+	fw.WriteString("#define LB_L4\n")
+	fw.WriteString("#define LB_IP4\n")
+	fw.WriteString("#define LB_IP6\n")
+
+	// default ctmap values for global table
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesGlobal))
+	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6Global)
+	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4Global)
 
 	fw.Flush()
 	f.Close()
@@ -904,6 +892,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("IPv6 allocation prefix: %s", nodeaddress.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", nodeaddress.GetIPv4AllocRange())
 	log.Debugf("IPv6 router address: %s", nodeaddress.GetIPv6Router())
+	log.Infof("External interface: %s", device)
+	log.Infof("Tunnel mode: %s", tunnelMode)
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP

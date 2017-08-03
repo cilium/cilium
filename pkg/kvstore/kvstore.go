@@ -44,6 +44,9 @@ type KVClient interface {
 	GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity
 
 	Status() (string, error)
+
+	// StartWatch starts watching for changes in a prefix
+	StartWatch(w *Watcher)
 }
 
 type KVLocker interface {

@@ -85,6 +85,8 @@ var (
 	v4ClusterCidrMaskSize int
 	v4ServicePrefix       string
 	v6ServicePrefix       string
+	tunnelMode            string
+	device                string
 )
 
 var logOpts = make(map[string]string)
@@ -241,8 +243,8 @@ func init() {
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
-	flags.StringVarP(&config.Device,
-		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.StringVarP(&device,
+		"device", "d", deviceAuto, "Network device for external network access (default: auto)")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
@@ -279,8 +281,6 @@ func init() {
 		"label-prefix-file", "", "Valid label prefixes file path")
 	flags.StringSliceVar(&validLabels,
 		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
-	flags.StringVar(&config.LBInterface,
-		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
 	flags.StringVar(&config.LibDir,
 		"lib-dir", defaults.LibraryPath, "Directory path to store runtime build environment")
 	flags.StringSliceVar(&loggers,
@@ -307,8 +307,8 @@ func init() {
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&config.RunDir,
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
-	flags.StringVarP(&config.Tunnel,
-		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.StringVarP(&tunnelMode,
+		"tunnel", "t", tunnelModeVXLAN, `Tunnel mode ("vxlan", "geneve", or "disabled")`)
 	flags.IntVar(&tracePayloadLen,
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
@@ -413,6 +413,13 @@ func initConfig() {
 func initEnv() {
 	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
 
+	switch tunnelMode {
+	case tunnelModeDisabled, tunnelModeVXLAN, tunnelModeGeneve:
+	default:
+		log.Fatalf("Unknown tunnel mode '%s'. Supported tunneling modes: %s, %s, %s",
+			tunnelMode, tunnelModeVXLAN, tunnelModeGeneve, tunnelModeDisabled)
+	}
+
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
 		log.Fatalf("Cannot mkdir directory %q for cilium socket: %s", socketDir, err)
@@ -480,8 +487,8 @@ func initEnv() {
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
-	if config.Device != "undefined" {
-		nodeaddress.InitDefaultPrefix(config.Device)
+	if device != deviceAuto && device != deviceDisabled {
+		nodeaddress.InitDefaultPrefix(device)
 	}
 
 	if v6Address != "auto" {
@@ -501,6 +508,16 @@ func initEnv() {
 			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
 		} else {
 			nodeaddress.SetExternalIPv4(ip)
+		}
+	}
+
+	if device == deviceAuto {
+		d, err := nodeaddress.GetAddressDevice()
+		if err != nil {
+			log.Warningf("Unable to determine main interface: %s", err)
+			device = deviceDisabled
+		} else {
+			device = d
 		}
 	}
 

@@ -7,7 +7,7 @@
 #        v
 #  veth lbtest1    <-----> veth lbtest2
 #  fbfb::10:10/128           |
-#  3.3.3.3/32                +-> ingress bpf_lb (LB_REDIRECT=cilium_host)
+#  3.3.3.3/32                +-> ingress bpf_netdev (LB_REDIRECT=cilium_host)
 #                                           |
 #                                           +---> cilium_host
 
@@ -29,7 +29,7 @@ logs_clear
 function cleanup {
 	gather_files 06-lb ${TEST_SUITE}
 	docker rm -f server1 server2 server3 server4 server5 client misc 2> /dev/null || true
-	rm netdev_config.h tmp_lb.o 2> /dev/null || true
+	rm netdev_config.h tmp_netdev.o 2> /dev/null || true
 	rm /sys/fs/bpf/tc/globals/lbtest 2> /dev/null || true
 	ip link del lbtest1 2> /dev/null || true
 	ip addr del $HOSTIP6 dev cilium_host 2> /dev/null || true
@@ -247,13 +247,13 @@ RUN=/var/run/cilium/state
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
 NH_MAC="{.addr=$(mac2array $NH_MAC)}"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
+CLANG_OPTS="-DLB_DEBUG -DSECLABEL=1 -DNODE_MAC=$NH_MAC -D__NR_CPUS__=$(nproc) -DLB_IP4 -DLB_IP6 -DLB_L3 -DLB_L4 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
 touch netdev_config.h
-clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
+clang $CLANG_OPTS -c $LIB/bpf_netdev.c -o tmp_netdev.o
 
 tc qdisc del dev lbtest2 clsact 2> /dev/null || true
 tc qdisc add dev lbtest2 clsact
-tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
+tc filter add dev lbtest2 ingress bpf da obj tmp_netdev.o sec from-netdev
 
 docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
@@ -380,7 +380,7 @@ cilium service update --rev --frontend "$LB_HOST_IP4:0" --id 225 \
 
 cilium service list
 
-## Test 1: local host => bpf_lb => local container
+## Test 1: local host => bpf_netdev => local container
 # FIXME: investigate why ping6 doesn't work in this case.
 #ping6 $SVC_IP6 -c 4 || {
 #	abort "Error: Unable to ping"

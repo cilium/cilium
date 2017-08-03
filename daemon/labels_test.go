@@ -73,7 +73,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	daemonConf.ValidLabelPrefixes = nil
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
-	daemonConf.Device = "undefined"
 
 	err = kvstore.SetupDummy()
 	c.Assert(err, IsNil)
