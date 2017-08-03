@@ -134,6 +134,7 @@ function wait_for_cilium_ep_gen {
     while true; do
         # FIXME by the time this executed, it's not guaranteed that we
         # don't skip a regenerating
+        sleep 2s
         if ! cilium endpoint list | grep regenerating; then
             break
         fi
