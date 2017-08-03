@@ -302,7 +302,7 @@ func init() {
 	flags.StringVar(&v4Address,
 		"ipv4-node", "auto", "IPv4 address of node")
 	flags.BoolVar(&config.RestoreState,
-		"restore", false, "Restores state, if possible, from previous daemon")
+		"restore", true, "Restores state, if possible, from previous daemon")
 	flags.StringVar(&socketPath,
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&config.RunDir,
