@@ -359,6 +359,10 @@ function deploy_cilium(){
     echo "lb='${lb}'" >> "${dir}/env.bash"
 }
 
+function remove_cilium_ds(){
+    kubectl delete -f "${cilium_dir}" || true
+}
+
 case "$1" in
         generate_certs)
             generate_certs
@@ -375,10 +379,15 @@ case "$1" in
             shift
             deploy_cilium "$@"
             ;;
+        remove_cilium_ds)
+            shift
+            remove_cilium_ds "$@"
+            ;;
         *)
             echo $"Usage: $0 {generate_certs | fresh_install [--ipv6] | \
 reinstall [--yes-delete-all-data] [--yes-delete-etcd-data] [--yes-delete-kubeadm-data] \
 [--ipv6] [--reinstall-kubeadm] | \
-deploy_cilium [--lb-mode]}"
+deploy_cilium [--lb-mode] | \
+remove_cilium_ds}"
             exit 1
 esac

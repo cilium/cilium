@@ -143,6 +143,40 @@ function wait_for_cilium_ep_gen {
     set -x
 }
 
+function wait_for_daemon_set_not_ready {
+	set +x
+
+	if [ "$#" -ne 2 ]; then
+		echo "wait_for_daemon_set_not_ready: illegal number of parameters"
+		exit 1
+	fi
+
+	local namespace="${1}"
+	local name="${2}"
+
+	echo "Waiting for instances of Cilium daemon $name in namespace $namespace to be clean up"
+
+	local sleep_time=2
+	local iter=0
+	local found="0"
+	until [[ "$found" -eq "1" ]]; do
+		if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+			echo ""
+			echo "Timeout while waiting for cilium agent to be clean up by kubernetes"
+			print_k8s_cilium_logs
+			exit 1
+		else
+			kubectl -n ${namespace} get pods -o wide
+			sleep $sleep_time
+		fi
+		kubectl get pods -n ${namespace} | grep ${name} -q
+		found=$?
+	done
+
+	set -x
+	kubectl -n kube-system get pods -o wide
+}
+
 function wait_for_policy_enforcement {
     while true; do
         if ! cilium endpoint list | grep Disabled; then
@@ -326,6 +360,30 @@ function wait_for_daemon_set_ready {
 
 	set -x
 	kubectl -n kube-system get pods -o wide
+}
+
+function k8s_wait_for_cilium_status_ready {
+	local pod
+	local namespace=$1
+	local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+
+	for pod in $pods; do
+	    wait_for_kubectl_cilium_status $namespace $pod
+	done
+}
+
+function k8s_count_all_cluster_cilium_eps {
+	local total=0
+	local pod
+	local namespace=$1
+	local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+
+	for pod in $pods; do
+		local n_eps=$(kubectl -n $namespace exec $pod -- cilium endpoint list --no-headers | wc -l)
+		total=$(( $total + $n_eps ))
+	done
+
+    echo "$total"
 }
 
 function wait_for_api_server_ready {
