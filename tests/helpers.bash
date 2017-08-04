@@ -473,15 +473,24 @@ function get_vm_ssh_port {
 }
 
 function copy_files_vm {
-  set -xv
   local VM_NAME=$1 
   local FILES_DIR=$2
+
+  # Check that the VM is running before we try to gather logs from it.
+  check_vm_running $VM_NAME
+
+  echo "----- getting the VM identity file for $VM_NAME -----"
   local ID_FILE=$(get_vm_identity_file $VM_NAME)
+  echo "----- getting the port for $VM_NAME to SSH -----"
   local PORT=$(get_vm_ssh_port $VM_NAME)
 
+  echo "----- getting cilium logs from $VM_NAME -----"
   vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium > /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs"'
+
+  echo "----- listing all logs that will be gathered from $VM_NAME -----"
   vagrant ssh $VM_NAME -c 'ls -altr /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files'
 
+  echo "----- copying logs from $VM_NAME onto VM host for accessibility after VM is destroyed -----"
   scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P ${PORT} -i ${ID_FILE} vagrant@127.0.0.1:/home/vagrant/go/src/github.com/cilium/cilium/${FILES_DIR} ./cilium-files-${VM_NAME}
 }
 
@@ -504,5 +513,20 @@ function get_cilium_master_vm_name {
   fi
   
   echo "cilium${K8S_TAG}-master${BUILD_ID_NAME}"
+}
+
+function check_vm_running {
+  local VM=$1
+  echo "----- getting status of VM $VM -----"
+  vagrant status $VM
+  echo "----- done getting status of VM $VM -----"
+
+  local VM_STATUS=`vagrant status $VM | grep $VM | awk '{print $2}'`
+  if [[ "${VM_STATUS}" != "running" ]]; then 
+    echo "$VM is not in \"running\" state; exiting"
+    exit 0
+  else 
+    echo "$VM is \"running\" continuing"
+  fi
 }
 
