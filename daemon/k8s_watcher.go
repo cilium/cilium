@@ -980,48 +980,43 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 	rule, ok := obj.(*k8s.CiliumNetworkPolicy)
 	if !ok {
-		log.Warningf("Invalid third-party objected, expected CiliumNetworkPolicy, got %+v", obj)
+		log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", obj)
 		return
 	}
 
-	log.Debugf("Adding k8s CRD CiliumNetworkPolicy %+v", rule)
+	log.Debugf("Adding CiliumNetworkPolicy %+v", rule)
 
 	rules, err := rule.Parse()
+	if err == nil {
+		_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
+	}
+
 	if err != nil {
-		log.Warningf("Ignoring invalid third-party policy rule: %s", err)
-		return
+		log.Warningf("Unable to add CiliumNetworkPolicy %s: %s", rule.Metadata.Name, err)
+	} else {
+		log.Infof("Imported CiliumNetworkPolicy %s", rule.Metadata.Name)
 	}
-
-	opts := AddOptions{Replace: true}
-	if _, err := d.PolicyAdd(rules, &opts); err != nil {
-		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
-		return
-	}
-
-	log.Infof("Imported third-party policy rule '%s'", rule.Metadata.Name)
 }
 
 func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 	rule, ok := obj.(*k8s.CiliumNetworkPolicy)
 	if !ok {
-		log.Warningf("Invalid third-party objected, expected CiliumNetworkPolicy, got %+v", obj)
+		log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", obj)
 		return
 	}
 
-	log.Debugf("Deleting k8s CRD CiliumNetworkPolicy %+v", rule)
+	log.Debugf("Deleting CiliumNetworkPolicy %+v", rule)
 
 	rules, err := rule.Parse()
+	if err == nil {
+		_, err = d.PolicyDelete(rules[0].Labels)
+	}
+
 	if err != nil {
-		log.Warningf("Ignoring invalid third-party policy rule: %s", err)
-		return
+		log.Warningf("Unable to delete CiliumNetworkPolicy %s: %s", rule.Metadata.Name, err)
+	} else {
+		log.Infof("Deleted CiliumNetworkPolicy %s", rule.Metadata.Name)
 	}
-
-	if _, err := d.PolicyDelete(rules[0].Labels); err != nil {
-		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
-		return
-	}
-
-	log.Infof("Deleted third-party policy rule '%s'", rule.Metadata.Name)
 }
 
 func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{}) {
