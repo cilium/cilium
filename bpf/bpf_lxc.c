@@ -472,14 +472,14 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-
+#ifdef ENABLE_IPV4
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
 		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
 			return ret;
 	}
-
+#endif
 skip_service_lookup:
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
