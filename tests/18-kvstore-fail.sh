@@ -45,7 +45,7 @@ function test_kvstore {
       echo "--- Wait for daemon to exhaust maxTries ---"
       $CILIUM_AGENT $KV_OPTS &
       AGENT_PID=$!
-      wait_for_kill $AGENT_PID 120
+      wait_for_kill $AGENT_PID 240
 
       if [ -S $AGENT_SOCK_PATH ]; then
         abort "Found $AGENT_SOCK_PATH. The daemon should not be running."
