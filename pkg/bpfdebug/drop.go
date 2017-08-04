@@ -44,7 +44,7 @@ var errors = map[uint8]string{
 	130: "Invalid source mac",
 	131: "Invalid destination mac",
 	132: "Invalid source ip",
-	133: "Policy denied",
+	133: "Policy denied (L3)",
 	134: "Invalid packet",
 	135: "CT: Truncated or invalid header",
 	136: "CT: Missing TCP ACK flag",
