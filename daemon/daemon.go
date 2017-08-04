@@ -573,11 +573,13 @@ func (d *Daemon) compileBase() error {
 
 	reserveLocalRoutes(d.ipamConf)
 
-	// Always remove masquerade rule and then re-add it if required
-	d.removeMasqRule()
-	if masquerade && d.conf.Device == "undefined" {
-		if err := d.installMasqRule(); err != nil {
-			return err
+	if !d.conf.IPv4Disabled {
+		// Always remove masquerade rule and then re-add it if required
+		d.removeMasqRule()
+		if masquerade && d.conf.Device == "undefined" {
+			if err := d.installMasqRule(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -628,11 +630,14 @@ func (d *Daemon) init() error {
 
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
-	ipv4GW := nodeaddress.GetInternalIPv4()
-	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
-
 	if !d.conf.IPv4Disabled {
+		ipv4GW := nodeaddress.GetInternalIPv4()
+		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
+	} else {
+		// FIXME: Workaround so the bpf program compiles
+		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
+		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
 	}
 
 	ipv4Range := nodeaddress.GetIPv4AllocRange()
@@ -738,43 +743,44 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
 	}
 
-	if !c.IPv4Disabled {
-		ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
-		ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
-			// IPv4
-			cniTypes.Route{
-				Dst: nodeaddress.GetIPv4NodeRoute(),
-			},
-			cniTypes.Route{
-				Dst: nodeaddress.IPv4DefaultRoute,
-				GW:  nodeaddress.GetInternalIPv4(),
-			})
+	// Since docker doesn't support IPv6 only and there's always an IPv4
+	// address we can set up ipam for IPv4. More info:
+	// https://github.com/docker/libnetwork/pull/826
+	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
+	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
+		// IPv4
+		cniTypes.Route{
+			Dst: nodeaddress.GetIPv4NodeRoute(),
+		},
+		cniTypes.Route{
+			Dst: nodeaddress.IPv4DefaultRoute,
+			GW:  nodeaddress.GetInternalIPv4(),
+		})
 
-		// Reserve the IPv4 router IP if it is part of the IPv4
-		// allocation range to ensure that we do not hand out the
-		// router IP to a container.
-		allocRange := nodeaddress.GetIPv4AllocRange()
-		nodeIP := nodeaddress.GetExternalIPv4()
-		if allocRange.Contains(nodeIP) {
-			err := ipamConf.IPv4Allocator.Allocate(nodeIP)
-			if err != nil {
-				log.Debugf("Unable to reserve IPv4 router address '%s': %s",
-					nodeIP, err)
-			}
-		}
-
-		internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
+	// Reserve the IPv4 router IP if it is part of the IPv4
+	// allocation range to ensure that we do not hand out the
+	// router IP to a container.
+	allocRange := nodeaddress.GetIPv4AllocRange()
+	nodeIP := nodeaddress.GetExternalIPv4()
+	if allocRange.Contains(nodeIP) {
+		err := ipamConf.IPv4Allocator.Allocate(nodeIP)
 		if err != nil {
-			log.Fatalf("Unable to allocate internal IPv4 node IP: %s", err)
+			log.Debugf("Unable to reserve IPv4 router address '%s': %s",
+				nodeIP, err)
 		}
-
-		nodeaddress.SetInternalIPv4(internalIP)
 	}
+
+	internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
+	if err != nil {
+		log.Fatalf("Unable to allocate internal IPv4 node IP: %s", err)
+	}
+
+	nodeaddress.SetInternalIPv4(internalIP)
 
 	// Reserve the IPv6 router and node IP if it is part of the IPv6
 	// allocation range to ensure that we do not hand out the router IP to
 	// a container.
-	allocRange := nodeaddress.GetIPv6AllocRange()
+	allocRange = nodeaddress.GetIPv6AllocRange()
 	for _, ip6 := range []net.IP{nodeaddress.GetIPv6()} {
 		if allocRange.Contains(ip6) {
 			err := ipamConf.IPv6Allocator.Allocate(ip6)

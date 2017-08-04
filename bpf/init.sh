@@ -131,20 +131,26 @@ if [ "$IP6_SVC_RANGE" != "auto" ]; then
 	ip route add $IP6_SVC_RANGE via $IP6_ROUTER src $IP6_HOST
 fi
 
-ip -4 addr show $IP4_HOST || {
-	ip -4 addr add $IP4_HOST dev $HOST_DEV1
+if [[ "$IP4_HOST" != "<nil>" ]]; then
+  ip -4 addr show $IP4_HOST || {
+  ip -4 addr add $IP4_HOST dev $HOST_DEV1
 }
+fi
 
 ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
 ip addr add 169.254.254.1/32 dev $HOST_DEV1
 ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
 ip route add 169.254.254.0/24 dev $HOST_DEV1 scope link
 ip route del $IP4_RANGE 2> /dev/null || true
-ip route add $IP4_RANGE via 169.254.254.1 src $IP4_HOST
+if [[ "$IP4_HOST" != "<nil>" ]]; then
+  ip route add $IP4_RANGE via 169.254.254.1 src $IP4_HOST
+fi
 
 if [ "$IP4_SVC_RANGE" != "auto" ]; then
 	ip route del $IP4_SVC_RANGE 2> /dev/null || true
-	ip route add $IP4_SVC_RANGE via 169.254.254.1 src $IP4_HOST
+        if [[ "$IP4_HOST" != "<nil>" ]]; then
+          ip route add $IP4_SVC_RANGE via 169.254.254.1 src $IP4_HOST
+        fi
 fi
 
 sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
