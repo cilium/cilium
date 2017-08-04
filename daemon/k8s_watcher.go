@@ -988,7 +988,9 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 
 	rules, err := rule.Parse()
 	if err == nil {
-		_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
+		if len(rules) > 0 {
+			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
+		}
 	}
 
 	if err != nil {
@@ -1009,7 +1011,9 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 
 	rules, err := rule.Parse()
 	if err == nil {
-		_, err = d.PolicyDelete(rules[0].Labels)
+		if len(rules) > 0 {
+			_, err = d.PolicyDelete(rules[0].Labels)
+		}
 	}
 
 	if err != nil {
