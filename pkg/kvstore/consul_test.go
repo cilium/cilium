@@ -43,38 +43,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestConsulClientRetry(t *testing.T) {
-	maxRetries = 3
-	retrySleep = time.Second
-	tries := 0
-	doneC := make(chan struct{})
-
-	handler = func(w http.ResponseWriter, r *http.Request) {
-		if tries++; tries+1 == maxRetries {
-			close(doneC)
-		}
-
-		http.Error(w, "retry test error", http.StatusInternalServerError)
-	}
-
-	_, err := newConsulClient(&consulAPI.Config{
-		Address: ":8000",
-	})
-
-	select {
-	case <-doneC:
-	case <-time.After(time.Second * 5):
-		t.Log("timeout")
-		t.FailNow()
-	}
-
-	// we should get a failure
-	if err == nil {
-		t.Log("no error")
-		t.FailNow()
-	}
-}
-
 func TestConsulClientOk(t *testing.T) {
 	maxRetries = 3
 	doneC := make(chan struct{})

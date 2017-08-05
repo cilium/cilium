@@ -81,6 +81,9 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 		}
 	}
 	if config != nil {
+		if config.DialTimeout == 0 {
+			config.DialTimeout = 10 * time.Second
+		}
 		c, err = client.New(*config)
 	} else {
 		err = fmt.Errorf("empty configuration provided")
