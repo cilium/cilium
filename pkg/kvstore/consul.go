@@ -82,9 +82,7 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 	}
 
 	if err != nil {
-		e := fmt.Errorf("Unable to contact consul: %s", err)
-		log.Error(e)
-		return nil, e
+		log.Fatalf("Unable to contact consul: %s", err)
 	}
 	cc := &ConsulClient{c}
 	// Clean-up old services path
