@@ -174,14 +174,6 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 		tuple->flags |= TUPLE_F_IN;
 }
 
-static inline void ct6_cilium_trace_tuple(struct __sk_buff *skb, __u8 type,
-					  const struct ipv6_ct_tuple *tuple,
-					  __u32 rev_nat_index, int dir)
-{
-	__u32 addr_p4 = (dir == CT_INGRESS) ? tuple->saddr.p4 : tuple->daddr.p4;
-	cilium_trace(skb, type, addr_p4, rev_nat_index);
-}
-
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int l4_off, __u32 secctx, int dir,
@@ -281,8 +273,9 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * This will find an existing flow in the reverse direction.
 	 * The reverse direction is the one where reverse nat index is stored.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP_REV, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
+	cilium_trace3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
+		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
+	cilium_trace3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -295,8 +288,6 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv6_ct_tuple_reverse(tuple);
-	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
 
 #ifdef LXC_NAT46
@@ -436,9 +427,11 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 *
 	 * This will find an existing flow in the reverse direction.
 	 */
-	cilium_trace(skb, DBG_CT_LOOKUP_REV, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
-	ct4_cilium_trace_tuple(skb, DBG_CT_LOOKUP4, tuple, 0, dir);
+#ifndef QUIET_CT
+	cilium_trace3(skb, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
+		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
+	cilium_trace3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
+#endif
 	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -451,8 +444,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv4_ct_tuple_reverse(tuple);
-	cilium_trace(skb, DBG_CT_LOOKUP, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
 	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
 
 	/* No entries found, packet must be eligible for creating a CT entry */
@@ -517,11 +508,8 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.proxy_port = proxy_port;
 
-	cilium_trace3(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
-		     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags,
-		     entry.proxy_port << 16 | entry.rev_nat_index);
-	ct6_cilium_trace_tuple(skb, DBG_CT_CREATED2, tuple,
-			       ct_state->rev_nat_index, dir);
+	cilium_trace3(skb, DBG_CT_CREATED6, entry.proxy_port << 16 | entry.rev_nat_index,
+		      ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
@@ -540,7 +528,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 	ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
-	cilium_trace(skb, DBG_CT_CREATED, 0, (icmp_tuple.nexthdr << 8) | icmp_tuple.flags);
 	/* FIXME: We could do a lookup and check if an L3 entry already exists */
 	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0) {
 		/* Previous map update succeeded, we could delete it
@@ -616,11 +603,8 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.nat46 = dir == CT_EGRESS;
 #endif
 
-	cilium_trace3(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
-		      bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags,
-		      entry.proxy_port << 16 | entry.rev_nat_index);
-	ct4_cilium_trace_tuple(skb, DBG_CT_CREATED2, tuple,
-			       ct_state->rev_nat_index, dir);
+	cilium_trace3(skb, DBG_CT_CREATED4, entry.proxy_port << 16 | entry.rev_nat_index,
+		      ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
@@ -649,10 +633,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 				tuple->saddr = ct_state->svc_addr;
 		}
 
-		cilium_trace(skb, DBG_CT_CREATED, (bpf_ntohs(tuple->sport) << 16) |
-			     bpf_ntohs(tuple->dport), (tuple->nexthdr << 8) | tuple->flags);
-		ct4_cilium_trace_tuple(skb, DBG_CT_CREATED2, tuple,
-				       ct_state->rev_nat_index, dir);
 		if (map_update_elem(map, tuple, &entry, 0) < 0)
 			return DROP_CT_CREATE_FAILED;
 		tuple->saddr = saddr;
@@ -672,7 +652,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	entry.proxy_port = 0;
 
-	cilium_trace(skb, DBG_CT_CREATED, 0, (icmp_tuple.nexthdr << 8) | icmp_tuple.flags);
 	/* FIXME: We could do a lookup and check if an L3 entry already exists */
 	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
