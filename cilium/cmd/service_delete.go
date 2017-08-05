@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -37,8 +36,7 @@ var serviceDeleteCmd = &cobra.Command{
 
 			for _, svc := range list {
 				if err := client.DeleteServiceID(svc.ID); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: Cannot delete service %v: %s",
-						svc, err)
+					log.Errorf("Cannot delete service %d: %s", svc.ID, err)
 				}
 			}
 
