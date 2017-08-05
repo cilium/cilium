@@ -131,9 +131,28 @@ func ctState(state uint32) string {
 	return dropReason(uint8(state))
 }
 
+var tupleFlags = map[int16]string{
+	0: "IN",
+	1: "OUT",
+	2: "RELATED",
+}
+
+func ctFlags(flags int16) string {
+	s := ""
+	for k, v := range tupleFlags {
+		if k&flags != 0 {
+			if s != "" {
+				s += ", "
+			}
+			s += v
+		}
+	}
+	return s
+}
+
 func ctInfo(arg1 uint32, arg2 uint32) string {
-	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
-		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
+	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%s",
+		arg1>>16, arg1&0xFFFF, arg2>>8, ctFlags(int16(arg2&0xFF)))
 }
 
 func ctLookup4Info1(n *DebugMsg) string {
