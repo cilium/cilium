@@ -10,6 +10,8 @@ BUILD_NUM="${BUILD_NUMBER:-0}"
 JOB_BASE="${JOB_BASE_NAME:-local}"
 BUILD_ID="${JOB_BASE}-${BUILD_NUM}"
 
+AGENT_SOCK_PATH=/var/run/cilium/cilium.sock
+
 # Prefer local build if binary file detected.
 for bin in "../cilium/cilium" \
   "../daemon/cilium-agent" \
@@ -530,3 +532,31 @@ function check_vm_running {
   fi
 }
 
+function wait_for_agent_socket {
+  MAX_WAIT=$1
+  local i=0
+
+  while [ "$i" -lt "$MAX_WAIT" ]; do
+    micro_sleep
+    i=$[$i+1]
+    if [ -S $AGENT_SOCK_PATH ]; then
+      return
+    fi
+  done
+  abort "Waiting for agent socket, timed out"
+}
+
+function wait_for_kill {
+  TARGET_PID=$1
+  MAX_WAIT=$2
+  local i=0
+
+  while [ $i -lt $MAX_WAIT ]; do
+    micro_sleep
+    i=$[$i+1]
+    if ! ps -p $TARGET_PID > /dev/null; then
+      return
+    fi
+  done
+  abort "Waiting for agent process to be killed, timed out"
+}
