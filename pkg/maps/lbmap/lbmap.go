@@ -184,6 +184,9 @@ type RevNatKey interface {
 
 	// Returns the key value
 	GetKey() uint16
+
+	// Return human readable string
+	String() string
 }
 
 type RevNatValue interface {
@@ -191,6 +194,9 @@ type RevNatValue interface {
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() RevNatValue
+
+	// Return human readable string
+	String() string
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
