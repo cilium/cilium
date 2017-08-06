@@ -22,6 +22,7 @@ pipeline {
                          sh './contrib/vagrant/start.sh'
                      },
                     "K8s multi node Tests": {
+                         sh 'cd ./tests/k8s && vagrant destroy -f || true'
                          sh './tests/k8s/start.sh'
                     }
                 )
