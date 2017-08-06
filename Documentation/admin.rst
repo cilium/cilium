@@ -1188,6 +1188,20 @@ etcd endpoints:
 | etcd.config         | Path    | Path to an etcd configuration file.               |
 +---------------------+---------+---------------------------------------------------+
 
+Example of the etcd configuration file:
+
+.. code:: yaml
+
+    ---
+    endpoints:
+    - https://192.168.0.1:2379
+    - https://192.168.0.2:2379
+    ca-file: '/var/lib/cilium/etcd-ca.pem'
+    # In case you want client to server authentication
+    key-file: '/var/lib/cilium/etcd-client.key'
+    cert-file: '/var/lib/cilium/etcd-client.crt'
+
+
 .. _admin_agent_options:
 
 Command Line Options
