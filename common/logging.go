@@ -216,6 +216,9 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 	}
 
 	host, strPort, err := net.SplitHostPort(hostAndPort)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	port, err := strconv.Atoi(strPort)
 	if err != nil {
 		logrus.Fatal(err)
