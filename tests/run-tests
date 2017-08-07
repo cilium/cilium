@@ -6,11 +6,6 @@ set -e
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 export TEST_SUITE="runtime-tests"
 
-# Prefer local build if binary file detected.
-if [ -f ../cilium/cilium ]; then
-  export PATH=$PWD/../cilium:$PATH
-fi
-
 for test in *.sh; do
 	echo
 	echo "Starting test $test"

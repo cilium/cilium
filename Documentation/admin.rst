@@ -179,18 +179,16 @@ chapter.
     [adjust --k8s-api-server or --k8s-kubeconfig-path]
     [adjust --kvstore and --kvstore-opts]
 
-3. Deploy the ``cilium`` and ``cilium-consul`` DaemonSet_
+3. Deploy the ``cilium`` DaemonSet_
 
 .. code:: bash
 
     $ kubectl create -f cilium-ds.yaml
-    daemonset "cilium-consul" created
     daemonset "cilium" created
 
     $ kubectl get ds --namespace kube-system
     NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
     cilium          1         1         1         <none>          2m
-    cilium-consul   1         1         1         <none>          2m
 
 .. _admin_mount_bpffs:
 
@@ -1159,9 +1157,9 @@ Key-Value Store
 | Option              | Description                          | Default              |
 +---------------------+--------------------------------------+----------------------+
 | --kvstore TYPE      | Key Value Store Type:                |                      |
-|                     | (consul, etcd, local)                |                      |
+|                     | (consul, etcd)                       |                      |
 +---------------------+--------------------------------------+----------------------+
-| --kvstore-opt OPTS  | Local:                               |                      |
+| --kvstore-opt OPTS  |                                      |                      |
 +---------------------+--------------------------------------+----------------------+
 
 consul
@@ -1189,6 +1187,20 @@ etcd endpoints:
 +---------------------+---------+---------------------------------------------------+
 | etcd.config         | Path    | Path to an etcd configuration file.               |
 +---------------------+---------+---------------------------------------------------+
+
+Example of the etcd configuration file:
+
+.. code:: yaml
+
+    ---
+    endpoints:
+    - https://192.168.0.1:2379
+    - https://192.168.0.2:2379
+    ca-file: '/var/lib/cilium/etcd-ca.pem'
+    # In case you want client to server authentication
+    key-file: '/var/lib/cilium/etcd-client.key'
+    cert-file: '/var/lib/cilium/etcd-client.crt'
+
 
 .. _admin_agent_options:
 
@@ -1223,11 +1235,9 @@ Command Line Options
 |                     | containers' configuration in place   |                      |
 +---------------------+--------------------------------------+----------------------+
 | kvstore             | Key Value Store Type:                |                      |
-|                     | (consul, etcd, local)                |                      |
+|                     | (consul, etcd)                       |                      |
 +---------------------+--------------------------------------+----------------------+
-| kvstore-opt         | Local:                               |                      |
-|                     |    - None                            |                      |
-|                     | Etcd:                                |                      |
+| kvstore-opt         | Etcd:                                |                      |
 |                     |    - etcd.address: Etcd agent        |                      |
 |                     |      address.                        |                      |
 |                     |    - etcd.config: Absolute path to   |                      |

@@ -124,10 +124,16 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fmt.Fprint(fw, "/*\n")
 
-	if epStr64, err := e.base64(); err == nil {
-		fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
-			version.Version, epStr64)
-	} else {
+	epStr64, err := e.base64()
+	if err == nil {
+		var verBase64 string
+		verBase64, err = version.Base64()
+		if err == nil {
+			fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
+				verBase64, epStr64)
+		}
+	}
+	if err != nil {
 		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
@@ -299,8 +305,8 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
-	args := []string{libdir, rundir, prefix, e.IfName, debug}
+func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
+	args := []string{libdir, rundir, epdir, e.IfName, debug}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
@@ -325,10 +331,10 @@ func (e *Endpoint) runInit(libdir, rundir, prefix, debug string) error {
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
-func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
+func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	var err error
 
-	if err = e.writeHeaderfile(prefix, owner); err != nil {
+	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		return fmt.Errorf("unable to write header file: %s", err)
 	}
 
@@ -427,7 +433,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, prefix string) error {
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
-	if err = e.runInit(libdir, rundir, prefix, debug); err != nil {
+	if err = e.runInit(libdir, rundir, epdir, debug); err != nil {
 		return err
 	}
 
