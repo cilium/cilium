@@ -145,54 +145,62 @@ func checkMinRequirements() {
 			"version is >= %d.%d; kernel version that is running is: %d.%d", majorMinKernelVersion, minorMinKernelVersion, kernelMajor, kernelMinor)
 	}
 
-	clangVersion, err := exec.Command("clang", "--version").CombinedOutput()
-	if err != nil {
-		log.Fatalf("clang version: NOT OK: %s", err)
-	}
-	res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(clangVersion))
-	if len(res) != 3 {
-		log.Fatalf("clang version: NOT OK: unable to get clang's version "+
-			"number from: %q", string(clangVersion))
-	}
-	clangMajor, clangMinor, err := getMajorMinorVersion(res[2])
-	if err != nil {
-		log.Fatalf("clang version: NOT OK: %s", err)
-	}
-	if clangMajor < majorMinClangVersion ||
-		(clangMajor == majorMinClangVersion && clangMinor < minorMinClangVersion) {
-		log.Fatalf("clang version: NOT OK: minimal supported clang version is "+
-			">= %d.%d", majorMinClangVersion, minorMinClangVersion)
-	}
-	//clang >= 3.9 / kernel < 4.9 - does not work
-	if ((clangMajor == majorMinClangVersion && clangMinor > minorMinClangVersion) ||
-		clangMajor > majorMinClangVersion) &&
-		((kernelMajor < majorMinKernelVersion) ||
-			(kernelMajor == majorMinKernelVersion && kernelMinor < minorRecommendedKernelVersion)) {
-		log.Fatalf("clang (%d.%d) and kernel (%d.%d) version: NOT OK: please upgrade "+
-			"your kernel version to at least %d.%d",
-			clangMajor, clangMinor, kernelMajor, kernelMinor,
-			majorMinKernelVersion,
-			minorRecommendedKernelVersion)
-	}
-	log.Infof("clang and kernel versions: OK!")
-
-	lccVersion, err := exec.Command("llc", "--version").CombinedOutput()
-	if err == nil {
-		if strings.Contains(strings.ToLower(string(lccVersion)), "debug") {
-			log.Warningf("llc version was compiled in debug mode, expect higher latency!")
+	if filePath, err := exec.LookPath("clang"); err != nil {
+		log.Fatalf("clang: NOT OK: %s", err)
+	} else {
+		clangVersion, err := exec.Command(filePath, "--version").CombinedOutput()
+		if err != nil {
+			log.Fatalf("clang version: NOT OK: %s", err)
 		}
+		res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(clangVersion))
+		if len(res) != 3 {
+			log.Fatalf("clang version: NOT OK: unable to get clang's version "+
+				"number from: %q", string(clangVersion))
+		}
+		clangMajor, clangMinor, err := getMajorMinorVersion(res[2])
+		if err != nil {
+			log.Fatalf("clang version: NOT OK: %s", err)
+		}
+		if clangMajor < majorMinClangVersion ||
+			(clangMajor == majorMinClangVersion && clangMinor < minorMinClangVersion) {
+			log.Fatalf("clang version: NOT OK: minimal supported clang version is "+
+				">= %d.%d", majorMinClangVersion, minorMinClangVersion)
+		}
+		//clang >= 3.9 / kernel < 4.9 - does not work
+		if ((clangMajor == majorMinClangVersion && clangMinor > minorMinClangVersion) ||
+			clangMajor > majorMinClangVersion) &&
+			((kernelMajor < majorMinKernelVersion) ||
+				(kernelMajor == majorMinKernelVersion && kernelMinor < minorRecommendedKernelVersion)) {
+			log.Fatalf("clang (%d.%d) and kernel (%d.%d) version: NOT OK: please upgrade "+
+				"your kernel version to at least %d.%d",
+				clangMajor, clangMinor, kernelMajor, kernelMinor,
+				majorMinKernelVersion,
+				minorRecommendedKernelVersion)
+		}
+		log.Infof("clang and kernel versions: OK!")
 	}
-	// /usr/include/gnu/stubs-32.h is installed by 'glibc-devel.i686' in fedora
-	// /usr/include/sys/cdefs.h is installed by 'libc6-dev-i386' in ubuntu
-	// both files exist on both systems but cdefs.h already exists in fedora
-	// without 'glibc-devel.i686' so we check for 'stubs-32.h first.
-	if _, err := os.Stat("/usr/include/gnu/stubs-32.h"); os.IsNotExist(err) {
-		log.Fatal("linking environment: NOT OK, please make sure you have 'glibc-devel.i686' if you use fedora system or 'libc6-dev-i386' if you use ubuntu system")
+
+	if filePath, err := exec.LookPath("llc"); err != nil {
+		log.Fatalf("llc: NOT OK: %s", err)
+	} else {
+		lccVersion, err := exec.Command(filePath, "--version").CombinedOutput()
+		if err == nil {
+			if strings.Contains(strings.ToLower(string(lccVersion)), "debug") {
+				log.Warningf("llc version was compiled in debug mode, expect higher latency!")
+			}
+		}
+		// /usr/include/gnu/stubs-32.h is installed by 'glibc-devel.i686' in fedora
+		// /usr/include/sys/cdefs.h is installed by 'libc6-dev-i386' in ubuntu
+		// both files exist on both systems but cdefs.h already exists in fedora
+		// without 'glibc-devel.i686' so we check for 'stubs-32.h first.
+		if _, err := os.Stat("/usr/include/gnu/stubs-32.h"); os.IsNotExist(err) {
+			log.Fatal("linking environment: NOT OK, please make sure you have 'glibc-devel.i686' if you use fedora system or 'libc6-dev-i386' if you use ubuntu system")
+		}
+		if _, err := os.Stat("/usr/include/sys/cdefs.h"); os.IsNotExist(err) {
+			log.Fatal("linking environment: NOT OK, please make sure you have 'libc6-dev-i386' in your ubuntu system")
+		}
+		log.Info("linking environment: OK!")
 	}
-	if _, err := os.Stat("/usr/include/sys/cdefs.h"); os.IsNotExist(err) {
-		log.Fatal("linking environment: NOT OK, please make sure you have 'libc6-dev-i386' in your ubuntu system")
-	}
-	log.Info("linking environment: OK!")
 
 	// Checking for bpf_features
 	globalsDir := filepath.Join(config.StateDir, "globals")
