@@ -47,7 +47,7 @@ type Endpoint struct {
 	InterfaceName string `json:"interface-name,omitempty"`
 
 	// Labels describing the identity
-	Labels Labels `json:"labels"`
+	Labels *LabelConfiguration `json:"labels,omitempty"`
 
 	// MAC address
 	Mac string `json:"mac,omitempty"`
@@ -82,6 +82,11 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIdentity(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateLabels(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -137,6 +142,25 @@ func (m *Endpoint) validateIdentity(formats strfmt.Registry) error {
 		if err := m.Identity.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Endpoint) validateLabels(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Labels) { // not required
+		return nil
+	}
+
+	if m.Labels != nil {
+
+		if err := m.Labels.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("labels")
 			}
 			return err
 		}
