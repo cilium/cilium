@@ -122,7 +122,7 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, 
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_MAP_CREATE,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
@@ -149,7 +149,7 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_MAP_UPDATE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
@@ -173,7 +173,7 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_MAP_LOOKUP_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
@@ -195,7 +195,7 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_MAP_DELETE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
@@ -218,7 +218,7 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 		unsafe.Pointer(&uba),
 	)
 	ret, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_MAP_GET_NEXT_KEY,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
@@ -237,7 +237,7 @@ func ObjPin(fd int, pathname string) error {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_obj_pin(C.int(fd), pathStr, unsafe.Pointer(&uba))
 	ret, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_OBJ_PIN,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
@@ -257,7 +257,7 @@ func ObjGet(pathname string) (int, error) {
 	C.create_bpf_obj_get(pathStr, unsafe.Pointer(&uba))
 
 	fd, _, err := unix.Syscall(
-		C.__NR_bpf,
+		unix.SYS_BPF,
 		C.BPF_OBJ_GET,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
