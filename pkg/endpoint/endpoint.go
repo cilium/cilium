@@ -291,14 +291,20 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		Identity:         e.SecLabel.GetModel(),
 		InterfaceIndex:   int64(e.IfIndex),
 		InterfaceName:    e.IfName,
-		Mac:              e.LXCMAC.String(),
-		HostMac:          e.NodeMAC.String(),
-		PodName:          e.PodName,
-		State:            currentState, // TODO: Validate
-		Policy:           e.Consumable.GetModel(),
-		PolicyEnabled:    e.Opts.IsEnabled(OptionPolicy),
-		PolicyRevision:   int64(e.PolicyRevision),
-		Status:           e.Status.GetModel(),
+		Labels: &models.LabelConfiguration{
+			Custom:                e.OpLabels.Custom.GetModel(),
+			OrchestrationIdentity: e.OpLabels.OrchestrationIdentity.GetModel(),
+			OrchestrationInfo:     e.OpLabels.OrchestrationInfo.GetModel(),
+			Disabled:              e.OpLabels.Disabled.GetModel(),
+		},
+		Mac:            e.LXCMAC.String(),
+		HostMac:        e.NodeMAC.String(),
+		PodName:        e.PodName,
+		State:          currentState, // TODO: Validate
+		Policy:         e.Consumable.GetModel(),
+		PolicyEnabled:  e.Opts.IsEnabled(OptionPolicy),
+		PolicyRevision: int64(e.PolicyRevision),
+		Status:         e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
 			IPV6: e.IPv6.String(),
