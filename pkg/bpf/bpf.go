@@ -19,8 +19,6 @@ package bpf
 #include <stdint.h>
 #include <linux/unistd.h>
 #include <linux/bpf.h>
-#include <sys/resource.h>
-#include <time.h>
 
 static __u64 ptr_to_u64(const void *ptr)
 {
@@ -290,7 +288,7 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, f
 		Max: math.MaxUint64,
 	}
 
-	err := unix.Setrlimit(C.RLIMIT_MEMLOCK, &rl)
+	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
 		return 0, isNewMap, fmt.Errorf("Unable to increase rlimit: %s", err)
 	}
