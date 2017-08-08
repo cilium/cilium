@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -180,6 +181,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d := h.daemon
 
+	var policyEnforcementMsg string
 	isPolicyEnforcementEnabled := true
 
 	d.policy.Mutex.RLock()
@@ -187,6 +189,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d.conf.EnablePolicyMU.RLock()
 	// If policy enforcement isn't enabled, then traffic is allowed.
 	if d.conf.EnablePolicy == endpoint.NeverEnforce {
+		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
 		// If there are no rules matching the set of from / to labels provided in
@@ -195,12 +198,17 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		// traffic between these sets of labels, and do not enforce policy between them.
 		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From)) ||
 			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To))) {
+			policyEnforcementMsg = "Policy enforcement is disabled because " +
+				"no rules in the policy repository match either of the provided " +
+				"sets of labels."
 			isPolicyEnforcementEnabled = false
 		}
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
 		// If no rules are in the policy repository, then policy enforcement is
 		// disabled; if there are rules, then policy enforcement is enabled.
 		if d.policy.NumRules() == 0 {
+			policyEnforcementMsg = "Policy enforcement is disabled because " +
+				"there are no rules in the policy repository."
 			isPolicyEnforcementEnabled = false
 		}
 	}
@@ -210,8 +218,24 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	// Return allowed verdict if policy enforcement isn't enabled between the two sets of labels.
 	if !isPolicyEnforcementEnabled {
+		buffer := new(bytes.Buffer)
+		ctx := params.IdentityContext
+		searchCtx := policy.SearchContext{
+			From:    labels.NewSelectLabelArrayFromModel(ctx.From),
+			Trace:   policy.TRACE_ENABLED,
+			To:      labels.NewSelectLabelArrayFromModel(ctx.To),
+			DPorts:  ctx.Dports,
+			Logging: logging.NewLogBackend(buffer, "", 0),
+		}
+		if ctx.Verbose {
+			searchCtx.Trace = policy.TRACE_VERBOSE
+		}
+		verdict := api.Allowed.String()
+		searchCtx.PolicyTrace("Result: %s\n", strings.ToUpper(verdict))
+		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
 		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
-			Verdict: api.Allowed.String(),
+			Log:     msg,
+			Verdict: verdict,
 		})
 	}
 

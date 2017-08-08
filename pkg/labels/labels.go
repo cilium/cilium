@@ -136,6 +136,9 @@ const (
 
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
+
+	// K8sNamespaceLabel is the key that maps to the namespace for a pod.
+	K8sNamespaceLabel = "io.kubernetes.pod.namespace"
 )
 
 // Label is the cilium's representation of a container label.
@@ -529,4 +532,16 @@ func LabelSliceSHA256Sum(labels []*Label) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%x", sha.Sum(nil)), nil
+}
+
+// generateLabelString generates the string representation of a label with
+// the provided source, key, and value in the format "source:key=value".
+func generateLabelString(source, key, value string) string {
+	return fmt.Sprintf("%s:%s=%s", source, key, value)
+}
+
+// GenerateK8sLabelString generates the string representation of a label with
+// the provided source, key, and value in the format "LabelSourceK8s:key=value".
+func GenerateK8sLabelString(k, v string) string {
+	return generateLabelString(LabelSourceK8s, k, v)
 }

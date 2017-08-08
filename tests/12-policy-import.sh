@@ -108,6 +108,7 @@ cat <<EOF | cilium -D policy import -
 EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
+----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
 * Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"reserved:host":""}}
@@ -119,6 +120,7 @@ Result: ALLOWED
 L3 verdict: allowed
 
 Verdict: allowed
+
 EOF
 
 echo "------ verify trace for expected output ------"
@@ -161,6 +163,7 @@ cat <<EOF | cilium -D policy import -
 EOF
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
+----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
 * Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
@@ -170,6 +173,7 @@ Result: ALLOWED
 L3 verdict: allowed
 
 Verdict: allowed
+
 EOF
 
 echo "------ verify trace for expected output ------"
@@ -179,6 +183,7 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
+----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
 * Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
@@ -189,6 +194,7 @@ Result: ALLOWED
 L3 verdict: allowed
 
 Verdict: allowed
+
 EOF
 
 
@@ -204,6 +210,7 @@ FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
 BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $3}')
 
 read -d '' EXPECTED_POLICY <<"EOF" || true
+----------------------------------------------------------------
 Tracing From: [container:id.foo, container:id.teamA] => To: [container:id.bar, container:id.teamA]
 * Rule 0 {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
@@ -216,6 +223,7 @@ Result: ALLOWED
 L3 verdict: allowed
 
 Verdict: allowed
+
 EOF
 
 

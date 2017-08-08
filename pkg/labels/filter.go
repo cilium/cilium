@@ -140,7 +140,7 @@ func defaultLabelPrefixCfg() *LabelPrefixCfg {
 	}
 
 	expressions := []string{
-		"io.kubernetes.pod.namespace",                              // include io.kubernetes.pod.namspace
+		K8sNamespaceLabel,                                          // include io.kubernetes.pod.namspace
 		"!io.kubernetes",                                           // ignore all other io.kubernetes labels
 		"!.*kubernetes.io",                                         // ignore all other kubernetes.io labels (annotation.*.k8s.io)
 		"!pod-template-hash",                                       // ignore pod-template-hash
