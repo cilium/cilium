@@ -282,14 +282,8 @@ func (e *PerfEvent) Mmap(pagesize int, npages int) error {
 }
 
 func (e *PerfEvent) Enable() error {
-	_, _, err := unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(e.Fd),
-		C.PERF_EVENT_IOC_ENABLE,
-		0)
-
-	if err != 0 {
-		return fmt.Errorf("Unable to enable perf event: %s", err)
+	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0); err != nil {
+		return fmt.Errorf("Unable to enable perf event: %v", err)
 	}
 
 	return nil
@@ -300,14 +294,8 @@ func (e *PerfEvent) Disable() error {
 		return nil
 	}
 
-	_, _, err := unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(e.Fd),
-		C.PERF_EVENT_IOC_DISABLE,
-		0)
-
-	if err != 0 {
-		return fmt.Errorf("Unable to disable perf event: %s", err)
+	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_DISABLE, 0); err != nil {
+		return fmt.Errorf("Unable to disable perf event: %v", err)
 	}
 
 	return nil
