@@ -102,10 +102,48 @@ import (
 )
 
 const (
-	BPF_MAP_TYPE_HASH     = C.BPF_MAP_TYPE_HASH
-	BPF_MAP_TYPE_LPM_TRIE = C.BPF_MAP_TYPE_LPM_TRIE
+	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h
+	BPF_MAP_TYPE_UNSPEC           = 0
+	BPF_MAP_TYPE_HASH             = 1
+	BPF_MAP_TYPE_ARRAY            = 2
+	BPF_MAP_TYPE_PROG_ARRAY       = 3
+	BPF_MAP_TYPE_PERF_EVENT_ARRAY = 4
+	BPF_MAP_TYPE_PERCPU_HASH      = 5
+	BPF_MAP_TYPE_PERCPU_ARRAY     = 6
+	BPF_MAP_TYPE_STACK_TRACE      = 7
+	BPF_MAP_TYPE_CGROUP_ARRAY     = 8
+	BPF_MAP_TYPE_LRU_HASH         = 9
+	BPF_MAP_TYPE_LRU_PERCPU_HASH  = 10
+	BPF_MAP_TYPE_LPM_TRIE         = 11
+	BPF_MAP_TYPE_ARRAY_OF_MAPS    = 12
+	BPF_MAP_TYPE_HASH_OF_MAPS     = 13
+	BPF_MAP_TYPE_DEVMAP           = 14
 
-	BPF_F_NO_PREALLOC = C.BPF_F_NO_PREALLOC
+	// BPF syscall command constants. Must match enum bpf_cmd from linux/bpf.h
+	BPF_MAP_CREATE         = 0
+	BPF_MAP_LOOKUP_ELEM    = 1
+	BPF_MAP_UPDATE_ELEM    = 2
+	BPF_MAP_DELETE_ELEM    = 3
+	BPF_MAP_GET_NEXT_KEY   = 4
+	BPF_PROG_LOAD          = 5
+	BPF_OBJ_PIN            = 6
+	BPF_OBJ_GET            = 7
+	BPF_PROG_ATTACH        = 8
+	BPF_PROG_DETACH        = 9
+	BPF_PROG_TEST_RUN      = 10
+	BPF_PROG_GET_NEXT_ID   = 11
+	BPF_MAP_GET_NEXT_ID    = 12
+	BPF_PROG_GET_FD_BY_ID  = 13
+	BPF_MAP_GET_FD_BY_ID   = 14
+	BPF_OBJ_GET_INFO_BY_FD = 15
+
+	// Flags for BPF_MAP_UPDATE_ELEM. Must match values from linux/bpf.h
+	BPF_ANY     = 0
+	BPF_NOEXIST = 1
+	BPF_EXIST   = 2
+
+	BPF_F_NO_PREALLOC   = 1 << 0
+	BPF_F_NO_COMMON_LRU = 1 << 1
 )
 
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
@@ -123,7 +161,7 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, 
 	)
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_MAP_CREATE,
+		BPF_MAP_CREATE,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
@@ -135,10 +173,10 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, 
 }
 
 // UpdateElement updates the map in fd with the given value in the given key.
-// The flags can have the following values (if you include "uapi/linux/bpf.h"):
-// C.BPF_ANY to create new element or update existing;
-// C.BPF_NOEXIST to create new element if it didn't exist;
-// C.BPF_EXIST to update existing element.
+// The flags can have the following values:
+// bpf.BPF_ANY to create new element or update existing;
+// bpf.BPF_NOEXIST to create new element if it didn't exist;
+// bpf.BPF_EXIST to update existing element.
 func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 	uba := C.union_bpf_attr{}
 	C.create_bpf_update_elem(
@@ -150,7 +188,7 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 	)
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_MAP_UPDATE_ELEM,
+		BPF_MAP_UPDATE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
@@ -174,7 +212,7 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 	)
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_MAP_LOOKUP_ELEM,
+		BPF_MAP_LOOKUP_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
@@ -196,7 +234,7 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 	)
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_MAP_DELETE_ELEM,
+		BPF_MAP_DELETE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
@@ -219,7 +257,7 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	)
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_MAP_GET_NEXT_KEY,
+		BPF_MAP_GET_NEXT_KEY,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
@@ -238,7 +276,7 @@ func ObjPin(fd int, pathname string) error {
 	C.create_bpf_obj_pin(C.int(fd), pathStr, unsafe.Pointer(&uba))
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_OBJ_PIN,
+		BPF_OBJ_PIN,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
@@ -258,7 +296,7 @@ func ObjGet(pathname string) (int, error) {
 
 	fd, _, err := unix.Syscall(
 		unix.SYS_BPF,
-		C.BPF_OBJ_GET,
+		BPF_OBJ_GET,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
