@@ -246,7 +246,7 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 	)
 
 	ret, _, err := unix.Syscall6(
-		C.__NR_perf_event_open,
+		unix.SYS_PERF_EVENT_OPEN,
 		uintptr(unsafe.Pointer(&attr)),
 		uintptr(pid),
 		uintptr(cpu),
