@@ -331,7 +331,7 @@ func getSocketMark(c net.Conn) int {
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
-// a proxy instance. If the redirect is aleady in place, only the rules will be
+// a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (*Redirect, error) {
 	customDialer := func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -521,10 +521,26 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	log.Debugf("Created new proxy instance %+v", redir)
 
+	// The following code up until the go-routine is from manners/sever.go:ListenAndServe()
+	// It was extracted in order to keep the listening on the TCP socket synchronous so that
+	// when policies are regenerated, the port is listening for connections before policy
+	// revisions get bumped for an endpoint.
+	addr := redir.server.Addr
+	if addr == "" {
+		addr = ":http"
+	}
+
+	// Listen needs to be in the synchronous part of this function to ensure that
+	// the proxy port is never refusing connections.
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
-		err := redir.server.ListenAndServe()
+		err := redir.server.Serve(listener)
 		if err != nil {
-			log.Errorf("Unable to listen and server proxy: %s", err)
+			log.Errorf("Unable to listen and serve proxy: %s", err)
 		}
 	}()
 
@@ -538,6 +554,7 @@ func (p *Proxy) RemoveRedirect(id string) error {
 	if r, ok := p.redirects[id]; !ok {
 		return fmt.Errorf("unable to find redirect %s", id)
 	} else {
+		log.Debugf("removing proxy redirect %s", id)
 		r.server.Close()
 
 		delete(p.redirects, r.id)
