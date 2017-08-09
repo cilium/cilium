@@ -18,17 +18,27 @@ Developer requirements
 You need to have the following tools available in order to effectively
 contribute to Cilium:
 
-- git
-- `go <https://golang.org/dl/>`_
-- go-swagger
-  ``go get -u github.com/go-swagger/go-swagger/cmd/swagger``
-- go-bindata
-  ``go get -u github.com/jteeuwen/go-bindata/...``
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
+| Dependency                                                                       | Version / Commit ID   | Download Command                                           |
++==================================================================================+=======================+============================================================+
+| git                                                                              | latest                | N/A (OS-specific)                                          |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
+| `go <https://golang.org/dl/>`_                                                   | 1.8.3                 | N/A (OS-specific)                                          |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
+| `go-swagger <https://github.com/go-swagger/go-swagger/tree/master/cmd/swagger>`_ | `fbc64c26`            | ``go get -u github.com/go-swagger/go-swagger/cmd/swagger`` |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
+| `go-bindata <https://github.com/jteeuwen/go-bindata>`_                           | `a0ff2567cfb`         | ``go get -u github.com/jteeuwen/go-bindata/...``           |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 
-To use the Vagrantfiles and related scripts you also need:
+To run Cilium locally on VMs, you need:
 
-- `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt)
-- `Vagrant <https://www.vagrantup.com/downloads.html>`_
++----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
+| Dependency                                                                       | Version / Commit ID   | Download Command                                                               |
++==================================================================================+=======================+================================================================================+
+| `Vagrant <https://www.vagrantup.com/downloads.html>`_                            | >= 1.8.3              | `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_ |
++----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
+| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.1.22             | N/A (OS-specific)                                                              |
++----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
 Finally, in order to build the documentation, you should have Sphinx installed:
 
@@ -49,12 +59,75 @@ walk through, the setup for the Vagrantfile in the root of the Cilium
 tree depends on a number of environment variables and network setup
 that are managed via ``contrib/vagrant/start.sh``.
 
+Using the provided Vagrantfile
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To bring up a Vagrant VM  with Cilium
+plus dependencies installed, run:
+
+::
+
+    $ contrib/vagrant/start.sh
+
+This will create and run a vagrant VM based on the base box
+``cilium/ubuntu-16.10``. The box is currently available for the
+following providers:
+
+* libvirt
+* virtualbox
+
+Options
+^^^^^^^
+
+The following environment variables can be set to customize the VMs
+brought up by vagrant:
+
+* ``NWORKERS=n``: Number of child nodes you want to start with the master,
+  default 0.
+* ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``
+* ``NFS=1``: Use NFS for vagrant shared directories instead of rsync
+* ``K8S=1``: Build & install kubernetes on the nodes
+* ``IPV4=1``: Run Cilium with IPv4 enabled
+* VAGRANT\_DEFAULT\_PROVIDER={virtualbox \| libvirt \| ...}
+
+If you want to start the VM with cilium enabled with IPv4, with
+kubernetes installed and plus a worker, run:
+
+::
+
+	$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh
+
+If you have any issue with the provided vagrant box
+``cilium/ubuntu-16.10`` or need a different box format, you may
+build the box yourself using the `packer scripts <https://github.com/cilium/packer-ubuntu-16.10>`_
+
+Manual Installation
+^^^^^^^^^^^^^^^^^^^
+
+Alternatively you can import the vagrant box ``cilium/ubuntu-16.10``
+directly and manually install Cilium:
+
+::
+
+        $ vagrant init cilium/ubuntu-16.10
+        $ vagrant up
+        $ vagrant ssh [...]
+        $ cd go/src/github.com/cilium/cilium/
+        $ make
+        $ sudo make install
+        $ sudo cp contrib/upstart/* /etc/init/
+        $ sudo usermod -a -G cilium vagrant
+        $ sudo service cilium restart
+
+Notes
+^^^^^
+
 Your Cilium tree is mapped to the VM so that you do not need to keep
 copying files between your host and the VM.  The default sync method
 is rsync, which only syncs when the VM is brought up, or when manually
 triggered (``vagrant rsync`` command in the Cilium tree).  You can
 also use NFS to access your Cilium tree from the VM by setting the
-environment variable ``NFS`` before running the startup script
+environment variable ``NFS`` (mentioned above) before running the startup script
 (``export NFS=1``).  Note that your host firewall have the NFS UDP
 ports open, the startup script will give the address and port details
 for this.
@@ -76,17 +149,12 @@ for this.
    always fails when using VirtualBox on OSX, but it is safe to let
    the startup script to reset the prefix length to 16.
 
-With the caveats above, starting up the build/test VM is done with:
+If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
 ::
-   
-    $ ./contrib/vagrant/start.sh
 
-If this fails for any reason, you should bring the VM down before trying again:
-
-::
-   
     $ vagrant halt
+
 
 Development Cycle
 -----------------

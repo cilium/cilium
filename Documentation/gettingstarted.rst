@@ -387,15 +387,7 @@ operating system supported by Vagrant, including Linux, macOS, and Windows.
 Step 0: Install Vagrant
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. note::
-
-   You need to run at least Vagrant version 1.8.3 or you will run into issues
-   booting the Ubuntu 16.10 base image. You can verify by running ``vagrant --version``.
-
-If you don't already have Vagrant installed, follow the
-`Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_
-or see `Download Vagrant <https://www.vagrantup.com/downloads.html>`_ for newer versions.
-
+If you don't already have Vagrant installed, refer to the :ref:`dev_guide` for links to installation instructions for Vagrant.  
 
 Step 1: Download the Cilium Source Code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
