@@ -56,7 +56,7 @@ type Owner interface {
 	// Return the next available global identity
 	GetCachedMaxLabelID() (policy.NumericIdentity, error)
 
-	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the prox
+	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
 	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter) (uint16, error)
 
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect

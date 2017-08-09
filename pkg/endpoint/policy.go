@@ -117,6 +117,7 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 			if err := owner.RemoveProxyRedirect(e, &v); err != nil {
 				log.Warningf("error while removing proxy: %s", err)
 			}
+
 		}
 	}
 }
@@ -294,7 +295,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	log.Debugf("[%s] Done regenerating policyChanged=%v optsChanged=%v",
 		e.PolicyID(), policyChanged, optsChanged)
 
-	// If no policy change occured for this endpoint then the endpoint is
+	// If no policy change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
 	// the regenerate to complete
 	if !policyChanged {
@@ -306,6 +307,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	return policyChanged || optsChanged, nil
 }
 
+// Called with e.Mutex locked
 func (e *Endpoint) regenerate(owner Owner) error {
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -411,7 +413,7 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 			req.Done <- buildSuccess
 		} else {
 			buildSuccess = false
-			log.Debugf("My request was canceled because I'm already in line [%d]", eID)
+			log.Debugf("My request was cancelled because I'm already in line [%d]", eID)
 		}
 		// The external listener can ignore the channel so we need to
 		// make sure we don't block
