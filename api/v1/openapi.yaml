@@ -51,7 +51,7 @@ paths:
         in: body
         required: true
         schema:
-          "$ref": "#/definitions/ConfigurationMap"
+          "$ref": "#/definitions/Configuration"
       responses:
         '200':
           description: Success
@@ -939,6 +939,8 @@ definitions:
         type: string
       k8s-configuration:
         type: string
+      policy-enforcement:
+        type: string
   Configuration:
     description: |
       General purpose structure to hold configuration of the daemon and
@@ -951,6 +953,8 @@ definitions:
       immutable:
         description: Immutable configuration (read-only)
         "$ref": "#/definitions/ConfigurationMap"
+      policy-enforcement:
+        type: string
   ConfigurationMap:
     description: |
       Map of configuration key/value pairs.

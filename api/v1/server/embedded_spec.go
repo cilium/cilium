@@ -54,7 +54,7 @@ func init() {
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/ConfigurationMap"
+              "$ref": "#/definitions/Configuration"
             }
           }
         ],
@@ -859,6 +859,9 @@ func init() {
         "mutable": {
           "description": "Changeable configuration",
           "$ref": "#/definitions/ConfigurationMap"
+        },
+        "policy-enforcement": {
+          "type": "string"
         }
       }
     },
@@ -883,6 +886,9 @@ func init() {
           "type": "string"
         },
         "k8s-endpoint": {
+          "type": "string"
+        },
+        "policy-enforcement": {
           "type": "string"
         }
       }

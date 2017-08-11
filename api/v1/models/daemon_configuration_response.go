@@ -27,6 +27,9 @@ type DaemonConfigurationResponse struct {
 
 	// k8s endpoint
 	K8sEndpoint string `json:"k8s-endpoint,omitempty"`
+
+	// policy enforcement
+	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
 
 // Validate validates this daemon configuration response
