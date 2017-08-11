@@ -87,7 +87,7 @@ Linux kernel 4.9.x or later.
 For more detail on kernel versions, see: [Prerequisites][prerequisites]
 
 <p align="center">
-   <img src="Documentation/images/bpf-overview.png" width="508" />
+   <img src="Documentation/images/bpf-overview.png"/>
 </p>
 
 XDP is a further step in evolution and enables to run a specific flavor of BPF
