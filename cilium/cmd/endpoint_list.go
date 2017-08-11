@@ -44,7 +44,7 @@ func init() {
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
 	var isPolicyEnabled string
-	if ep.PolicyEnabled {
+	if *ep.PolicyEnabled {
 		isPolicyEnabled = "Enabled"
 	} else {
 		isPolicyEnabled = "Disabled"

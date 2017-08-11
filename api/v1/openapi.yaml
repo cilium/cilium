@@ -646,6 +646,7 @@ definitions:
     type: object
     required:
       - state
+      - policy-enabled
     properties:
       id:
         description: Local endpoint ID

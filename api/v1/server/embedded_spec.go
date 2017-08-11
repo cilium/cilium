@@ -897,7 +897,8 @@ func init() {
       "description": "Endpoint",
       "type": "object",
       "required": [
-        "state"
+        "state",
+        "policy-enabled"
       ],
       "properties": {
         "addressing": {

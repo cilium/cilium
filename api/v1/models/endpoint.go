@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // Endpoint Endpoint
@@ -59,7 +60,8 @@ type Endpoint struct {
 	Policy *EndpointPolicy `json:"policy,omitempty"`
 
 	// Whether policy enforcement is enabled or not
-	PolicyEnabled bool `json:"policy-enabled,omitempty"`
+	// Required: true
+	PolicyEnabled *bool `json:"policy-enabled"`
 
 	// The policy revision this endpoint is running on
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
@@ -92,6 +94,11 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validatePolicy(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validatePolicyEnabled(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -183,6 +190,15 @@ func (m *Endpoint) validatePolicy(formats strfmt.Registry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *Endpoint) validatePolicyEnabled(formats strfmt.Registry) error {
+
+	if err := validate.Required("policy-enabled", "body", m.PolicyEnabled); err != nil {
+		return err
 	}
 
 	return nil
