@@ -9,11 +9,12 @@ your machine. It is designed to take 15-30 minutes.
 
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
-This document includes two different guides:
+This document includes three different guides:
  * `Getting Started Using Kubernetes`_
  * `Getting Started Using Docker`_
-
-Both guides follow the same basic flow.   The flow in the Kubernetes variant
+ * `Getting Started Using Mesos`_ 
+ 
+The guides follow the same basic flow.   The flow in the Kubernetes variant
 is more realistic of a production deployment, but is also a bit more complex.
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
@@ -111,7 +112,10 @@ load-balances requests to *app1* to be across two pod replicas.
 *App2* and *app3* exist so that we can test different security policies for allowing applications
 to access *app1*.
 
-.. image:: cilium_gsg_k8s_topo.png
+Application Topology for Cilium and Kubernetes
+++++++++++++++++++++++++++++++++++++++++++++++
+
+.. image:: cilium_k8s_demo-150817.png
 
 The file ``demo.yaml`` contains a Kubernetes Deployment for each of the three applications,
 with each deployment identified using the Kubernetes labels id=app1, id=app2,
@@ -188,7 +192,10 @@ the frontend to reach backend, it will automatically allow all required reply
 packets that are part of backend replying to frontend within the context of the
 same TCP/UDP connection.
 
-.. image:: cilium_gsg_k8s_l3l4.png
+L4 Policy with Cilium and Kubernetes
+++++++++++++++++++++++++++++++++++++
+
+.. image:: cilium_k8s_demo_l4-policy-150817.png
 
 We can achieve that with the following Kubernetes NetworkPolicy:
 
@@ -266,6 +273,19 @@ This works, as expected.   Now the same request run from an *app3* pod will fail
 This request will hang, so press Control-C to kill the curl request, or wait for it
 to time out.
 
+You can observe the policy via ``kubectl``
+
+::
+
+    $ kubectl get networkpolicies
+    NAME             POD-SELECTOR   AGE
+    access-backend   id=app1        2m
+    $ kubectl describe networkpolicies access-backend
+    Name:		access-backend
+    Namespace:	default
+    Labels:		<none>
+    Annotations:	<none>
+
 
 Step 5:  Apply and Test HTTP-aware L7 Policy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -300,12 +320,15 @@ and
     $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/private
     { 'val': 'this is private' }
 
+L7 Policy with Cilium and Kubernetes
+++++++++++++++++++++++++++++++++++++
+
+.. image:: cilium_k8s_demo_l7-policy-150817.png
+
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
 URLs *app2* is allowed to reach.  Here is an example policy file that
 extends our original policy by limiting *app2* to making only a GET /public
 API call, but disallowing all other calls (including GET /private).
-
-.. image:: cilium_gsg_k8s_l7.png
 
 ::
 
@@ -361,11 +384,149 @@ As you can see, with Cilium L7 security policies, we are able to permit
 implementing a "least privilege" security approach for communication between
 microservices.
 
+You can observe the L7 policy via ``kubectl``:
+
+::
+
+    $ kubectl get ciliumnetworkpolicies
+    NAME      KIND                               DESCRIPTION
+    rule1     CiliumNetworkPolicy.v2.cilium.io   L7 policy for getting started using Kubernetes guide
+    $ kubectl describe networkpolicies access-backend
+    Name:		access-backend
+    Namespace:	default
+    Labels:		<none>
+    Annotations:	<none>
+    $ kubectl describe ciliumnetworkpolicies rule1
+    Name:		rule1
+    Namespace:	default
+    Labels:		<none>
+    Annotations:	<none>
+    API Version:	cilium.io/v2
+    Description:	L7 policy for getting started using Kubernetes guide
+    Kind:		CiliumNetworkPolicy
+    Metadata:
+      Cluster Name:				
+      Creation Timestamp:			2017-08-14T17:52:51Z
+      Deletion Grace Period Seconds:	<nil>
+      Deletion Timestamp:			<nil>
+      Resource Version:			94966
+      Self Link:				/apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+      UID:					6491cbe9-8119-11e7-8dcd-080027babb71
+    Spec:
+      Endpoint Selector:
+        Match Labels:
+          Id:	app1
+      Ingress:
+        From Endpoints:
+          Match Labels:
+            Id:	app2
+        To Ports:
+          Ports:
+            Port:		80
+            Protocol:	TCP
+          Rules:
+            Http:
+              Method:	GET
+              Path:		/public
+    Events:			<none>
+
+and ``cilium`` CLI:
+
+::
+
+    $ kubectl exec cilium-<xxx> -n kube-system cilium policy get
+    [
+      {
+        "endpointSelector": {
+          "matchLabels": {
+            "k8s:id": "app1",
+            "k8s:io.kubernetes.pod.namespace": "default"
+          }
+        },
+        "ingress": [
+          { 
+            "fromEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:id": "app2",
+                  "k8s:io.kubernetes.pod.namespace": "default"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "80",
+                    "protocol": "TCP"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "labels": [
+          {
+            "key": "io.cilium.k8s-policy-name",
+            "value": "access-backend",
+            "source": "unspec"
+          }
+        ]
+      },
+      {
+        "endpointSelector": {
+          "matchLabels": {
+            "any:id": "app1",
+            "k8s:io.kubernetes.pod.namespace": "default"
+          }
+        },
+        "ingress": [
+           {   
+            "fromEndpoints": [
+              {
+                "matchLabels": {
+                  "any:id": "app2",
+                  "k8s:io.kubernetes.pod.namespace": "default"
+                }  
+               }
+            ],
+            "toPorts": [
+              {   
+                "ports": [
+                  {
+                    "port": "80",
+                    "protocol": "TCP"
+                  }
+                ],
+                "rules": {
+                  "http": [
+                    {
+                      "path": "/public",
+                      "method": "GET"
+                    }  
+                  ]  
+                }
+              }
+            ]   
+          }
+        ],
+        "labels": [
+          {
+            "key": "io.cilium.k8s-policy-name",
+            "value": "rule1",
+            "source": "unspec"
+          }
+        ]
+      }
+    ]
+    Revision: 26
+
+
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
-Step 6:  Clean-up
+Step 6:  Clean-Up
 ^^^^^^^^^^^^^^^^^
 
 You have now installed Cilium, deployed a demo app, and tested both
@@ -381,7 +542,7 @@ After this, you can re-run the `Getting Started Using Kubernetes`_ from Step 1.
 Getting Started Using Docker
 -----------------------------
 
-The tutorial leverages Vagrant and VirtualBox , and as such should run on any
+This tutorial leverages Vagrant and VirtualBox, thus should run on any
 operating system supported by Vagrant, including Linux, macOS, and Windows.
 
 Step 0: Install Vagrant
@@ -404,7 +565,7 @@ Alternatively, if you are a developer, feel free to clone the repository:
 Step 2: Starting the Docker + Cilium VM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Open a terminal and navigate into the top of the cilium source directory.
+Open a terminal and navigate into the top of the `cilium` source directory.
 
 Then navigate into `examples/getting-started` and run `vagrant up`:
 
@@ -525,7 +686,10 @@ the *app2* to contact *app3*, it will automatically allow return
 packets that are part of *app1* replying to *app2* within the context
 of the same TCP/UDP connection.
 
-.. image:: cilium_gsg_docker_l3l4.png
+L4 Policy with Cilium and Docker
+++++++++++++++++++++++++++++++++
+
+.. image:: cilium_dkr_demo_l4-policy-150817.png
 
 We can achieve that with the following Cilium policy:
 
@@ -624,7 +788,10 @@ URLs *app2* is allowed to reach.  Here is an example policy file that
 extends our original policy by limiting *app2* to making only a GET /public
 API call, but disallowing all other calls (including GET /private).
 
-.. image:: cilium_gsg_docker_l7.png
+L7 Policy with Cilium and Docker
+++++++++++++++++++++++++++++++++
+
+.. image:: cilium_dkr_demo_l7-policy-150817.png
 
 The following Cilium policy file achieves this goal:
 
@@ -696,4 +863,266 @@ You can always re-create the VM using the steps described above.
 If instead you just want to shut down the VM but may use it later,
 ``vagrant halt cilium-1`` will work, and you can start it again later
 using the contrib/vagrant/start.sh script.
+
+Getting Started Using Mesos 
+-----------------------------
+
+This tutorial leverages Vagrant and VirtualBox to deploy Apache Mesos, Marathon and Cilium. You will run Cilium to apply a simple policy between a basic web-server and client. This tutorial can be run on any operating system supported by Vagrant including Linux, macOS, and Windows.
+
+Step 0: Install Vagrant
+^^^^^^^^^^^^^^^^^^^^^^^
+
+You need to run at least Vagrant version 1.8.3 or you will run into issues booting the Ubuntu 16.10 base image. You can verify by running ``vagrant --version``.
+
+If you don't already have Vagrant installed, follow the
+`Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_
+or see `Download Vagrant <https://www.vagrantup.com/downloads.html>`_ for newer versions.
+
+
+Step 1: Download the Cilium Source Code
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_
+and unzip the files.
+
+Alternatively, if you are a developer, feel free to clone the repository:
+
+::
+
+    $ git clone https://github.com/cilium/cilium
+
+Step 2: Starting a VM with Cilium
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Open a terminal and navigate into the top of the ``cilium`` source directory.
+
+Then navigate into ``examples/mesos`` and run ``vagrant up``:
+
+::
+
+    $ cd examples/mesos
+    $ vagrant up
+
+The script usually takes a few minutes depending on the speed of your internet
+connection. Vagrant will set up a VM, install the Docker container runtime and
+run Cilium with the help of Docker compose. When the script completes successfully,
+it will print:
+
+::
+
+    ==> default: Creating cilium-kvstore
+    Creating cilium-kvstore ... done
+    ==> default: Creating cilium ... 
+    ==> default: Creating cilium
+    Creating cilium ... done
+    ==> default: Installing loopback driver...
+    ==> default: Installing cilium-cni to /host/opt/cni/bin/ ...
+    ==> default: Installing new /host/etc/cni/net.d/10-cilium.conf ...
+    ==> default: Deploying Vagrant VM + Cilium + Mesos...done 
+    $
+
+If the script exits with an error message, do not attempt to proceed with the
+tutorial, as later steps will not work properly.   Instead, contact us on the
+`Cilium Slack channel <https://cilium.herokuapp.com>`_.
+
+Step 3: Accessing the VM
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+After the script has successfully completed, you can log into the VM using
+``vagrant ssh``:
+
+::
+
+    $ vagrant ssh
+
+
+All commands for the rest of the tutorial below should be run from inside this
+Vagrant VM.  If you end up disconnecting from this VM, you can always reconnect
+in a new terminal window just by running ``vagrant ssh`` again from the Cilium
+directory.
+
+Step 4: Confirm that Cilium is Running
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Cilium agent is now running and you can interact with it using the ``cilium`` CLI client. Check the status of the agent by running ``cilium status``:
+
+::
+
+    $ cilium status
+    KVStore:            Ok
+    ContainerRuntime:   Ok
+    <...>
+    Cilium:             Ok
+
+The status indicates that all necessary components are operational.
+
+Step 5: Run Script to Start Marathon
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Start Marathon inside the Vagrant VM:
+
+::
+
+    $ ./start_marathon.sh
+
+Step 6: Start a Simple Web-Server and Client 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``curl`` to submit a task to Marathon for scheduling, with data to run the simple web-server provided by the ``web-server.json``. The web-server simply responds to requests on a particular port. 
+
+::
+
+    $ curl -i -H 'Content-Type: application/json' -d @web-server.json 127.0.0.1:8080/v2/apps
+
+You should see output similar to the following:
+
+::
+
+    $ curl -i -H 'Content-Type: application/json' -d @web-server.json 127.0.0.1:8080/v2/apps
+    HTTP/1.1 201 Created
+    [...]
+    Marathon-Deployment-Id: [UUID]
+    [...]
+
+Confirm that Cilium sees the new workload. The output should return the endpoint with label ``mesos:id=web-server`` and the assigned IP:
+
+::    
+
+    $ cilium endpoint list 
+
+And observe similar output to the following:
+
+::
+
+    vagrant@vagrant:~$ cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
+               ENFORCEMENT                                                                                           
+    29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready
+
+Use the IP from the previous output to test the web-server:
+
+::    
+
+    $ curl <IP>:8181/api 
+
+The output should simply return:
+
+::
+
+    $ curl <IP>:8181/api 
+    OK
+
+
+Run a script to create the client requests to the newly created web-server. The script should generate a ``client.json`` for the client task:
+
+::
+
+    $ ./generate_client_file.sh 
+
+Then submit the client task to Marathon, which will generate ``GET /public`` and ``GET /private`` requests:
+
+::
+
+    $ curl -i -H 'Content-Type: application/json' -d @client.json 127.0.0.1:8080/v2/apps
+
+You can observe the newly created endpoint in Cilium, similar to the following output:
+
+::
+
+    $ cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
+               ENFORCEMENT                                                                                           
+    29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
+    33115      Disabled      257        mesos:id=client               f00d::a00:20f:0:815b   10.15.220.6    ready
+
+Marathon runs the tasks as batch jobs with ``stdout`` available under ``/var/lib/mesos``. To simplify the retrieval of the stdout log, use the ``tail_client.sh`` script to output the client logs. 
+
+::
+
+    $ ./tail_client.sh
+
+Make sure the previous command continuously prints the result of the client accessing */public* and */private* API of the web-server:
+
+::
+
+    ...
+    --------------------------------
+    GET /public
+    OK
+
+    GET /private
+    OK/
+    --------------------------------
+    GET /public
+    OK
+
+    GET /private
+    OK
+    --------------------------------
+    ...
+
+Step 7: Apply L7 Policy with Cilium
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Now, in a different terminal, do a ``vagrant ssh`` and apply the provided policy that allows accessing only the */public* API:
+
+::
+
+    $ cilium policy import l7-policy.json
+
+L7 Policy with Cilium and Mesos
++++++++++++++++++++++++++++++++
+
+.. image:: cilium_mesos_demo_l7-policy-150817.png
+
+Check the client's log and you should see that */private* is no longer accessible.
+
+::
+
+    --------------------------------
+    GET /public
+    OK
+    
+    GET /private
+    Access denied
+
+You can also observe that the policy is applied with ``cilium`` CLI:
+
+::
+
+    $ cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
+               ENFORCEMENT                                                                                           
+    29898      Enabled       256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
+    33115      Enabled       257        mesos:id=client               f00d::a00:20f:0:815b   10.15.220.6    ready
+
+(optional) Remove the policy and notice that the access to */private* is unrestricted again:
+
+::
+
+    $ cilium policy delete --all
+
+Step 8: Clean-Up 
+^^^^^^^^^^^^^^^^
+
+Exit the vagrant VM by typing ``exit``.
+
+When you want to tear-down the Cilium + Mesos VM and destroy all local state (e.g., the VM disk image), open a terminal in the ``cilium/examples/mesos`` directory and type:
+
+::
+
+    $ vagrant destroy 
+
+You can always re-create the VM using the steps described above.
+
+If instead you just want to shut down the VM but may use it later,
+``vagrant halt default`` will work, and you can start it again later
+using the contrib/vagrant/start.sh script.
+
+To clean the node kill all mesos-master, mesos-agent, marathon-related processes manually.
+
+Troubleshooting
+---------------
+
+For assistance on any of the Getting Started Guides, please reach out and ask a question on the `Cilium
+Slack channel <https://cilium.herokuapp.com>`_.
 
