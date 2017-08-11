@@ -454,12 +454,7 @@ func initEnv() {
 	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
 
 	switch config.EnablePolicy {
-	case endpoint.DefaultEnforcement:
-		config.Opts.Set(endpoint.OptionPolicy, false)
-	case endpoint.NeverEnforce:
-		config.Opts.Set(endpoint.OptionPolicy, false)
-	case endpoint.AlwaysEnforce:
-		config.Opts.Set(endpoint.OptionPolicy, true)
+	case endpoint.DefaultEnforcement, endpoint.NeverEnforce, endpoint.AlwaysEnforce:
 	default:
 		log.Fatalf("invalid value for enable-policy %q provided. Supported values: %s, %s, %s.", config.EnablePolicy, endpoint.DefaultEnforcement, endpoint.NeverEnforce, endpoint.AlwaysEnforce)
 	}

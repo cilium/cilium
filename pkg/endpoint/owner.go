@@ -27,9 +27,6 @@ type Owner interface {
 	// Must return true if dry mode is enabled
 	DryModeEnabled() bool
 
-	// PolicyEnabled returns whether policy enforcement is enabled
-	PolicyEnabled() bool
-
 	// EnablePolicyEnforcement returns whether owner should enable policy enforcement.
 	EnablePolicyEnforcement() bool
 

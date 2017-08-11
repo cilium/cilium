@@ -282,6 +282,8 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		currentState = models.EndpointStateNotReady
 	}
 
+	log.Debugf("endpoint.GetModel(): e.Opts.IsEnabled(OptionPolicy): %v", e.Opts.IsEnabled(OptionPolicy))
+
 	return &models.Endpoint{
 		ID:               int64(e.ID),
 		ContainerID:      e.DockerID,

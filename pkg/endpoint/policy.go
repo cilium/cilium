@@ -275,8 +275,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	}
 
 	if owner.UpdateEndpointPolicyEnforcement(e) {
+		log.Debugf("enabling policy enforcement for endpoint %d", e.ID)
 		opts[OptionPolicy] = "enabled"
 	} else {
+		log.Debugf("disabling policy enforcement for endpoint %d", e.ID)
 		opts[OptionPolicy] = "disabled"
 	}
 

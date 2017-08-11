@@ -244,10 +244,6 @@ func (d *Daemon) AlwaysAllowLocalhost() bool {
 	return d.conf.alwaysAllowLocalhost
 }
 
-func (d *Daemon) PolicyEnabled() bool {
-	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
-}
-
 func (d *Daemon) PolicyEnforcement() string {
 	return d.conf.EnablePolicy
 }
@@ -1086,23 +1082,29 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	d := h.daemon
 
-	if err := d.conf.Opts.Validate(params.Configuration); err != nil {
+	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
-	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
+	changes := d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
 	log.Debugf("Applied %d changes", changes)
 
-	// Check explicitly for endpoint.OptionPolicy updates because its state
-	// is coupled with config's EnablePolicy flag.
-	_, ok := params.Configuration[endpoint.OptionPolicy]
-	if ok {
-		if config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.AlwaysEnforce {
-			config.EnablePolicy = endpoint.AlwaysEnforce
-		} else if !config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.NeverEnforce {
-			config.EnablePolicy = endpoint.NeverEnforce
+	// Update policy enforcement configuration if needed.
+	oldEnforcementValue := config.EnablePolicy
+	enforcement := params.Configuration.PolicyEnforcement
+	switch enforcement {
+	case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+		config.EnablePolicy = enforcement
+		// If the policy enforcement configuration has indeed changed, we have to regenerate endpoints.
+		if enforcement != oldEnforcementValue {
+			d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 		}
+	default:
+		msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
+		log.Warningf("%s", msg)
+		return apierror.Error(PatchConfigFailureCode, msg)
 	}
+
 	if changes > 0 {
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
@@ -1147,6 +1149,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		Configuration:    d.conf.Opts.GetModel(),
 		K8sConfiguration: d.conf.K8sCfgPath,
 		K8sEndpoint:      d.conf.K8sEndpoint,
+		PolicyEnforcement: d.conf.EnablePolicy,
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)

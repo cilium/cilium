@@ -108,11 +108,8 @@ func (d *Daemon) EnablePolicyEnforcement() bool {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
 		if d.GetPolicyRepository().NumRules() > 0 {
-			// TODO - revisit setting Daemon endpoint.OptionPolicy here
-			d.conf.Opts.Set(endpoint.OptionPolicy, true)
 			return true
 		} else {
-			d.conf.Opts.Set(endpoint.OptionPolicy, false)
 			return false
 		}
 	}
