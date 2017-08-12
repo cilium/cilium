@@ -59,7 +59,7 @@ function check_endpoints_policy_enabled {
 
 function check_endpoints_policy_disabled {
 	echo "------ checking if all endpoints have policy enforcement disabled ------"
-	POLICY_ENFORCED=`eval ${LIST_CMD}`
+        POLICY_ENFORCED=`eval ${LIST_CMD}`
 	for line in $POLICY_ENFORCED; do
 		if [[ "$line" != "Disabled" ]]; then
 			cilium config
@@ -71,7 +71,8 @@ function check_endpoints_policy_disabled {
 
 function check_config_policy_enabled {
 	echo "------ checking if cilium daemon has policy enforcement enabled ------"
-	POLICY_ENFORCED=`eval ${CFG_CMD}`
+	cilium config
+        POLICY_ENFORCED=`eval ${CFG_CMD}`
 	for line in $POLICY_ENFORCED; do
 		if [[ "$line" != "always" ]]; then
                         cilium config
@@ -83,6 +84,7 @@ function check_config_policy_enabled {
 
 function check_config_policy_disabled {
 	echo "------ checking if cilium daemon has policy enforcement disabled ------"
+	cilium config
 	POLICY_ENFORCED=`eval ${CFG_CMD}`
 	for line in $POLICY_ENFORCED; do
 		if [[ "$line" != "never" ]]; then
@@ -91,6 +93,19 @@ function check_config_policy_disabled {
 			abort "Policy Enforcement should be set to 'never' for the daemon"
 		fi
 	done
+}
+
+function check_config_policy_default {
+        echo "------ checking if cilium daemon has policy enforcement set to default ------"
+        cilium config
+        POLICY_ENFORCED=`eval ${CFG_CMD}`
+        for line in $POLICY_ENFORCED; do
+                if [[ "$line" != "default" ]]; then
+                        cilium config
+                        cilium endpoint list
+                        abort "Policy Enforcement should be set to 'default' for the daemon"
+                fi
+        done
 }
 
 function test_default_policy_configuration {
@@ -103,7 +118,7 @@ echo "------ test default configuration for enable-policy ------"
 	start_containers
 
 	wait_for_endpoints 3
-	check_config_policy_disabled
+        check_config_policy_default
 	check_endpoints_policy_disabled
 	# TODO - renable when we clear conntrack state upon policy deletion.
 	#ping_success foo bar
@@ -111,14 +126,12 @@ echo "------ test default configuration for enable-policy ------"
 
 	import_test_policy
 	wait_for_endpoints 3
-	check_config_policy_enabled
 	check_endpoints_policy_enabled
 	ping_success foo bar
 	ping_fail foo baz
 
 	cilium policy delete --all
 	wait_for_endpoints 3
-	check_config_policy_disabled
 	ping_success foo baz
 	ping_success foo bar
 }
