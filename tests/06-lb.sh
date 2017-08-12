@@ -399,7 +399,7 @@ docker exec --privileged -i client ping -c 4 $SVC_IP4 || {
 	abort "Error: Unable to reach netperf TCP IPv4 endpoint"
 }
 
-cilium endpoint config $CLIENT_ID PolicyEnforcement=never
+cilium endpoint config $CLIENT_ID Policy=false
 
 ## Test 3: local container => bpf_lxc (LB) => local host
 docker exec --privileged -i client ping6 -c 4 $LB_HOST_IP6 || {
