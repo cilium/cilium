@@ -37,6 +37,25 @@ function finish_test {
   cleanup
 }
 
+function ping_fail {
+  C1=$1
+  C2=$2
+  echo "------ pinging $C2 from $C1 (expecting failure) ------"
+  docker exec -i  ${C1} bash -c "ping -c 5 ${C2}" && {
+    abort "Error: Unexpected success pinging ${C2} from ${C1}"
+  }
+}
+
+function ping_success {
+  C1=$1
+  C2=$2
+  echo "------ pinging $C2 from $C1 (expecting success) ------"
+  docker exec -i ${C1} bash -c "ping -c 5 ${C2}" || {
+    abort "Error: Could not ping ${C2} from ${C1}"
+  }
+}
+
+
 function check_endpoints_policy_enabled {
   local NUM_EPS=$1
   echo "---- checking if ${NUM_EPS} endpoints have policy enforcement enabled ----"
