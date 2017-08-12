@@ -940,6 +940,9 @@ func init() {
           "description": "Name of network device",
           "type": "string"
         },
+        "l3": {
+          "$ref": "#/definitions/L3Policy"
+        },
         "labels": {
           "description": "Labels describing the identity",
           "$ref": "#/definitions/LabelConfiguration"
@@ -1203,6 +1206,26 @@ func init() {
         "verbose": {
           "description": "Enable verbose tracing.\n",
           "type": "boolean"
+        }
+      }
+    },
+    "L3Policy": {
+      "description": "L3 endpoint policy",
+      "type": "object",
+      "properties": {
+        "egress": {
+          "description": "List of L3 Egress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ingress": {
+          "description": "list of L3 Ingress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
