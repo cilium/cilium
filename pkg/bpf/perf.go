@@ -23,6 +23,7 @@ package bpf
 #include <linux/bpf.h>
 #include <linux/perf_event.h>
 #include <sys/resource.h>
+#include <stdlib.h>
 
 void create_perf_event_attr(int type, int config, int sample_type,
 			    int wakeup_events, void *attr)
@@ -303,11 +304,11 @@ func (e *PerfEvent) Disable() error {
 
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
 	buf := make([]byte, 256)
-	state := C.struct_read_state{}
+	state := C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
 
 	// Prepare for reading and check if events are available
 	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
-		unsafe.Pointer(&e.data[0]), unsafe.Pointer(&state))
+		unsafe.Pointer(&e.data[0]), unsafe.Pointer(state))
 
 	// Poll false positive
 	if available == 0 {
@@ -317,7 +318,7 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
 	for {
 		var msg *PerfEventHeader
 
-		if ok := C.perf_event_read(unsafe.Pointer(&state),
+		if ok := C.perf_event_read(unsafe.Pointer(state),
 			unsafe.Pointer(&buf[0]), unsafe.Pointer(&msg)); ok == 0 {
 			break
 		}
@@ -339,7 +340,8 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
 	}
 
 	// Move ring buffer tail pointer
-	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(&state))
+	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(state))
+	C.free(state)
 
 	return nil
 }
