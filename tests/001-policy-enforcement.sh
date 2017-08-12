@@ -28,7 +28,9 @@ function cleanup {
   #kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
   #kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
   #kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
-  cilium policy delete --all
+  cilium policy delete --all 2> /dev/null || true
+  kubectl delete -f "${MINIKUBE}/demo.yaml" 2> /dev/null || true
+  cilium config PolicyEnforcement=default || true
 }
 
 function finish_test {

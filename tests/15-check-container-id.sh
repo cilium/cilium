@@ -16,7 +16,7 @@ function setup {
     echo "Logging at $DUMP_FILE"
     docker network rm ${NETWORK} > /dev/null 2>&1
     docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK
-    cilium config Policy=true
+    cilium config PolicyEnforcement=always
 }
 
 trap cleanup EXIT

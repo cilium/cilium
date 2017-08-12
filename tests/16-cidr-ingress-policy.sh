@@ -44,7 +44,7 @@ IPV6_PREFIX=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.
 IPV4_ADDRESS=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPAddress }}" ${HTTPD_CONTAINER_NAME})
 IPV4_PREFIX=$(expr $IPV4_ADDRESS : '\([0-9]*\.[0-9]*\.\)')0.0/16
 
-cilium config Policy=true
+cilium config PolicyEnforcement=always
 
 ip addr add dev lo ${IPV4_HOST}/32
 ip addr add dev lo ${IPV6_HOST}/128
