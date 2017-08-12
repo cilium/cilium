@@ -9,6 +9,8 @@ source "${dir}/../cluster/env.bash"
 
 set -ex
 
+
+exit 0 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
 DENIED="Result: DENIED"
@@ -34,8 +36,8 @@ function cleanup {
 }
 
 function finish_test {
-  gather_files ${TEST_NAME} k8s-tests
-  gather_k8s_logs "1" ${LOGS_DIR}
+  #gather_files ${TEST_NAME} k8s-tests
+  #gather_k8s_logs "1" ${LOGS_DIR}
   cleanup
 }
 
@@ -108,7 +110,7 @@ function check_config_policy_disabled {
         done
 }
 
-trap cleanup EXIT
+trap finish_test EXIT
 
 cleanup
 service cilium restart 
