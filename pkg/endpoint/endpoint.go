@@ -305,7 +305,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		HostMac:        e.NodeMAC.String(),
 		PodName:        e.PodName,
 		State:          currentState, // TODO: Validate
-		L3: e.L3Policy.GetModel(),
+		L3:             e.L3Policy.GetModel(),
 		Policy:         e.Consumable.GetModel(),
 		PolicyEnabled:  &policyEnabled,
 		PolicyRevision: int64(e.PolicyRevision),

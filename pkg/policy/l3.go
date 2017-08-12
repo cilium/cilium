@@ -20,10 +20,10 @@ import (
 	"reflect"
 	"strconv"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
-	"github.com/cilium/cilium/api/v1/models"
-	log "github.com/Sirupsen/logrus"
 )
 
 // L3PolicyMap is a list of CIDR filters indexable by address/prefixlen
@@ -173,11 +173,11 @@ func (l3 *L3Policy) GetModel() *models.L3Policy {
 	log.Debugf("making model of l4.Egress %v", l3.Egress)
 	for _, v := range l3.Egress.Map {
 		log.Debugf("appending %s to model for l3 Egress", v.String())
-		egress = append(egress,  v.String())
+		egress = append(egress, v.String())
 	}
 
 	return &models.L3Policy{
 		Ingress: ingress,
-		Egress: egress,
+		Egress:  egress,
 	}
 }

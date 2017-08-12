@@ -23,9 +23,9 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
 
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/spf13/cobra"
 	"strings"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // configCmd represents the config command
@@ -81,7 +81,6 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		fmt.Printf("%-24s %s\n", "PolicyEnforcement", resp.PolicyEnforcement)
 		return
 	}
-
 
 	var cfg models.Configuration
 

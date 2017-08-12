@@ -1145,10 +1145,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	d := h.daemon
 
 	cfg := &models.DaemonConfigurationResponse{
-		Addressing:       d.getNodeAddressing(),
-		Configuration:    d.conf.Opts.GetModel(),
-		K8sConfiguration: d.conf.K8sCfgPath,
-		K8sEndpoint:      d.conf.K8sEndpoint,
+		Addressing:        d.getNodeAddressing(),
+		Configuration:     d.conf.Opts.GetModel(),
+		K8sConfiguration:  d.conf.K8sCfgPath,
+		K8sEndpoint:       d.conf.K8sEndpoint,
 		PolicyEnforcement: d.conf.EnablePolicy,
 	}
 
