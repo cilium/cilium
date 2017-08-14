@@ -84,7 +84,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	// Calculate hash over identity labels and generate path
 	identityPath := path.Join(common.LabelsKeyPath, lbls.SHA256Sum())
 
-	// Lock the idendity
+	// Lock the identity
 	lockKey, err := kvstore.Client.LockPath(identityPath)
 	if err != nil {
 		return nil, false, err

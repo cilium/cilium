@@ -15,10 +15,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
-
 	"github.com/cilium/cilium/pkg/policy"
+
+	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 
 	"github.com/spf13/cobra"
 )
@@ -44,7 +45,14 @@ var identityGetCmd = &cobra.Command{
 		if id := policy.GetReservedID(args[0]); id != policy.ID_UNKNOWN {
 			fmt.Printf("%d\n", id)
 		} else {
-			os.Exit(1)
+			params := identityApi.NewGetIdentityIDParams().WithID(args[0])
+			if id, err := client.Policy.GetIdentityID(params); err != nil {
+				Fatalf("Cannot get identity for given ID %s: %s\n", id, err)
+			} else if b, err := json.MarshalIndent(id, "", "  "); err != nil {
+				Fatalf("Cannot marshal identity %s", err.Error())
+			} else {
+				fmt.Println(string(b))
+			}
 		}
 	},
 }
