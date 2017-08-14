@@ -142,7 +142,7 @@ function test_default_to_true_policy_configuration {
 	# Make sure cilium agent starts in 'default' mode, so restart it.
 	restart_cilium
 	import_test_policy
-	check_config_policy_enabled
+	check_config_policy_default
 	echo "------ setting cilium agent PolicyEnforcement=always"
 	cilium config PolicyEnforcement=always
 	check_config_policy_enabled
@@ -158,7 +158,7 @@ function test_default_to_false_policy_configuration {
 	# Make sure cilium agent starts in 'default' mode, so restart it.
 	restart_cilium
 	import_test_policy
-	check_config_policy_enabled
+	check_config_policy_default
 	echo "------ setting cilium agent Policy=never"
 	cilium config PolicyEnforcement=never
 	check_config_policy_disabled
