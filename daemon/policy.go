@@ -84,7 +84,9 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 //
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
 func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
-	// First check if policy enforcement should be enabled at the daemon level. If policy enforcement is enabled for the daemon, then it has to be enabled for the endpoint.
+	// First check if policy enforcement should be enabled at the daemon level.
+	// If policy enforcement is enabled for the daemon, then it has to be
+	// enabled for the endpoint.
 	daemonPolicyEnable, _ := d.EnablePolicyEnforcement()
 	if daemonPolicyEnable {
 		return true
@@ -106,33 +108,29 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 }
 
 // EnablePolicyEnforcement returns whether policy enforcement needs to be
-// enabled for the daemon
+// enabled at the daemon-level.
 //
 // Must be called d.GetPolicyRepository().Mutex held
 func (d *Daemon) EnablePolicyEnforcement() (bool, bool) {
 	config := make(models.ConfigurationMap)
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
-		log.Debugf("EnablePolicyEnforcement: d.conf.EnablePolicy == endpoint.AlwaysEnforce")
 		config[endpoint.OptionPolicy] = "enabled"
 		changes := d.conf.Opts.Apply(config, changedOption, d)
 		d.conf.Opts.Set(endpoint.OptionPolicy, true)
 		return true, changes > 0
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
 		if d.GetPolicyRepository().NumRules() > 0 {
-			log.Debugf("EnablePolicyEnforcement: d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s not enabled && numRules in repo > 0")
 			config[endpoint.OptionPolicy] = "enabled"
 			changes := d.conf.Opts.Apply(config, changedOption, d)
 			d.conf.Opts.Set(endpoint.OptionPolicy, true)
 			return true, changes > 0
 		} else {
 			d.conf.Opts.Set(endpoint.OptionPolicy, false)
-			log.Debugf("EnablePolicyEnforcement: d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s not enabled && no rules in repo")
 			config[endpoint.OptionPolicy] = "disabled"
 			changes := d.conf.Opts.Apply(config, changedOption, d)
 			return false, changes > 0
 		}
 	}
-	log.Debugf("EnablePolicyEnforcement: return false")
 	config[endpoint.OptionPolicy] = "disabled"
 	changes := d.conf.Opts.Apply(config, changedOption, d)
 	return false, changes > 0
