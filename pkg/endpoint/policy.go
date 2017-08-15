@@ -275,29 +275,23 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		opts[OptionConntrack] = "enabled"
 	}
 
-	// Unlock Mutex so UpdateEndpointPolicyEnforcement can hold the lock internally.
-	e.Consumable.Mutex.RUnlock()
-
 	if owner.EnableEndpointPolicyEnforcement(e) {
-		log.Debugf("regeneratePolicy %d: setting opts[OptionPolicy] to enabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 		opts[OptionPolicy] = "enabled"
 	} else {
-		log.Debugf("regeneratePolicy %d: setting opts[OptionPolicy] to disabled; current value %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 		opts[OptionPolicy] = "disabled"
 	}
 
+	e.Consumable.Mutex.RUnlock()
 	repo.Mutex.RUnlock()
 
 	optsChanged := e.ApplyOptsLocked(opts)
 
+	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
-		log.Debugf("regeneratePolicy: epID: %d, e.PolicyCalculate is false, setting e.PolicyCalculated = true", e.ID)
 		e.PolicyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
 		policyChanged = true
-	} else {
-		log.Debugf("regnereatePolicy: epID: %d, e.PolicyCalculated has already been set to %q", e.ID, "true")
 	}
 
 	log.Debugf("[%s] Done regenerating policyChanged=%v optsChanged=%v",
@@ -305,7 +299,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 	// If no policy change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
-	// the regenerate to complete
+	// the regeneration of the endpoint to complete.
 	if !policyChanged {
 		e.PolicyRevision = revision
 	} else {
@@ -336,27 +330,6 @@ func (e *Endpoint) regenerate(owner Owner) error {
 			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
 				e.PolicyMap.String(), err)
 		}
-	} else {
-		opts := make(models.ConfigurationMap)
-		log.Debugf("epID %d: e.Consumable == nil", e.ID)
-		log.Debugf("epID %d has nil Consumable: e.Opts.OptionPolicy: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
-
-		owner.GetPolicyRepository().Mutex.RLock()
-		// If the consumable is nil, we still need to set endpoint's policy enforcement,
-		// as policy enforcement might be enabled for the daemon
-		// but there might not be any rules for this endpoint in the repository.
-		// Don't need to hold consumable's mutex lock because it's nil in this case.
-		if owner.EnableEndpointPolicyEnforcement(e) {
-			log.Debugf("epID %d: consumable nil, setting opts[OptionPolicy] to enabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
-			opts[OptionPolicy] = "enabled"
-		} else {
-			log.Debugf("epID %d: consumable nil, setting opts[OptionPolicy] to disabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
-			opts[OptionPolicy] = "disabled"
-		}
-		owner.GetPolicyRepository().Mutex.RUnlock()
-
-		_ = e.ApplyOptsLocked(opts)
-
 	}
 
 	if err := e.regenerateBPF(owner, tmpDir); err != nil {

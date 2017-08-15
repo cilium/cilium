@@ -68,7 +68,6 @@ func (d *Daemon) invalidateCache() {
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
 // Returns a waiting group which signalizes when all endpoints are regenerated.
 func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.WaitGroup {
-
 	if len(added) == 0 {
 		log.Debugf("Full policy recalculation triggered")
 		d.invalidateCache()
@@ -77,41 +76,32 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 		// FIXME: Invalidate only cache that is affected
 		d.invalidateCache()
 	}
-	//d.GetPolicyRepository().Mutex.RLock()
-	//d.EnablePolicyEnforcement()
-	//d.GetPolicyRepository().Mutex.RUnlock()
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
 // enabled for the specified endpoint.
 //
-// Must be called with d.GetPolicyRepository().Mutex held, and with e.Consumable.Mutex NOT held.
+// Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
 func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	// First check if policy enforcement should be enabled at the daemon level. If policy enforcement is enabled for the daemon, then it has to be enabled for the endpoint.
 	daemonPolicyEnable, _ := d.EnablePolicyEnforcement()
 	if daemonPolicyEnable {
-		log.Debugf("UpdateEndpointPolicyEnforcement: d.EnablePolicyEnforcement() returned true, returning true, epID: %d", e.ID)
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
-		// Default mode + K8s means that if rules reference labels that match this endpoint, then enable policy enforcement for this endpoint.
-		log.Debugf("UpdateEndpointPolicyEnforcement: daemon default enforcement, k8s enabled, epID %d", e.ID)
-		// Check if rules match the labels for this endpoint.
-		// If so, enable policy enforcement.
-		log.Debugf("UpdateEndpointPolicyEnforcement: checking d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray): %v, epID %d", d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray), e.ID)
-		log.Debugf("UpdateEndpointPolicyEnforcement: printing epID: %d -> e.Consumable.LabelArray: %v", e.ID, e.Consumable.LabelArray)
-		if e.Consumable == nil {
-			return false
-		} else {
-			e.Consumable.Mutex.RLock()
-			defer e.Consumable.Mutex.RUnlock()
-			return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
-		}
+		// Default mode + K8s means that if rules contain labels that match
+		// this endpoint, then enable policy enforcement for this endpoint.
+		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	}
-	// If policy enforcement isn't enabled for the daemon, or we are not running in "default" mode in tandem with K8s, we do not enable policy enforcement for the endpoint.
+	// If policy enforcement isn't enabled for the daemon, or we are not running
+	// in "default" mode in tandem with K8s, we do not enable policy enforcement f
+	// or the endpoint.
 	// This means one of the following:
-	// * daemon policy enforcement mode is 'never', so no policy enforcement should be applied to all endpoints
-	// * if we are not running Kubernetes and are running in 'default' mode, we do not enable policy enforcement on a per-endpoint basis (i.e., outside of the scope of this function).
+	// * daemon policy enforcement mode is 'never', so no policy enforcement
+	//   should be applied to all endpoints
+	// * if we are not running K8s and are running in 'default' mode, we do not
+	//   enable policy enforcement on a per-endpoint basis (i.e., outside of the
+	//   scope of this function).
 	return false
 }
 
