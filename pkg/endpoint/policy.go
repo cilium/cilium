@@ -278,7 +278,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	// Unlock Mutex so UpdateEndpointPolicyEnforcement can hold the lock internally.
 	e.Consumable.Mutex.RUnlock()
 
-	if owner.UpdateEndpointPolicyEnforcement(e) {
+	if owner.EnableEndpointPolicyEnforcement(e) {
 		log.Debugf("regeneratePolicy %d: setting opts[OptionPolicy] to enabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 		opts[OptionPolicy] = "enabled"
 	} else {
@@ -346,7 +346,7 @@ func (e *Endpoint) regenerate(owner Owner) error {
 		// as policy enforcement might be enabled for the daemon
 		// but there might not be any rules for this endpoint in the repository.
 		// Don't need to hold consumable's mutex lock because it's nil in this case.
-		if owner.UpdateEndpointPolicyEnforcement(e) {
+		if owner.EnableEndpointPolicyEnforcement(e) {
 			log.Debugf("epID %d: consumable nil, setting opts[OptionPolicy] to enabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 			opts[OptionPolicy] = "enabled"
 		} else {

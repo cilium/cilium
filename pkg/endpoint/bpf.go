@@ -182,7 +182,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 
-
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
 	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
 	if e.IPv4 != nil {

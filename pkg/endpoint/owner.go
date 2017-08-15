@@ -28,11 +28,11 @@ type Owner interface {
 	DryModeEnabled() bool
 
 	// EnablePolicyEnforcement returns whether owner should enable policy enforcement.
-	EnablePolicyEnforcement() bool
+	EnablePolicyEnforcement() (bool, bool)
 
-	// UpdateEndpointPolicyEnforcement returns whether policy enforcement
+	// EnableEndpointPolicyEnforcement returns whether policy enforcement
 	// should be enabled for the specified endpoint.
-	UpdateEndpointPolicyEnforcement(e *Endpoint) bool
+	EnableEndpointPolicyEnforcement(e *Endpoint) bool
 
 	// GetPolicyEnforcementType returns the type of policy enforcement for the Owner.
 	PolicyEnforcement() string

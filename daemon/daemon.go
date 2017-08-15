@@ -1086,8 +1086,13 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
-	changes := d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
-	log.Debugf("Applied %d changes", changes)
+	if _, ok := params.Configuration.Mutable[endpoint.OptionPolicy]; ok {
+		msg := fmt.Errorf("Please configuration policy enforcement for the daemon using \"PolicyEnforcement\" instead of \"Policy\"")
+		log.Warningf("%s", msg)
+		return apierror.Error(PatchConfigBadRequestCode, msg)
+	}
+
+	var policyEnforcementChanged bool
 
 	// Update policy enforcement configuration if needed.
 	oldEnforcementValue := config.EnablePolicy
@@ -1097,6 +1102,12 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		config.EnablePolicy = enforcement
 		// If the policy enforcement configuration has indeed changed, we have to regenerate endpoints.
 		if enforcement != oldEnforcementValue {
+			//log.Debugf("Handle config update: updating enforcement for daemon")
+			d.GetPolicyRepository().Mutex.RLock()
+			_, policyEnforcementChanged = d.EnablePolicyEnforcement()
+			d.GetPolicyRepository().Mutex.RUnlock()
+			//log.Debugf("Handle config update: done updating enforcement for daemon")
+
 			d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 		}
 	default:
@@ -1105,7 +1116,13 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		return apierror.Error(PatchConfigFailureCode, msg)
 	}
 
-	if changes > 0 {
+	changes := d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
+	if policyEnforcementChanged {
+		changes = changes + 1
+	}
+	log.Debugf("Applied %d changes", changes)
+
+	if changes > 0 || policyEnforcementChanged {
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			log.Warningf("%s", msg)
