@@ -1098,21 +1098,25 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	// Update policy enforcement configuration if needed.
 	oldEnforcementValue := config.EnablePolicy
 	enforcement := params.Configuration.PolicyEnforcement
-	switch enforcement {
-	case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
-		config.EnablePolicy = enforcement
-		// If the policy enforcement configuration has indeed changed, we have
-		// to regenerate endpoints and update daemon's configuration.
-		if enforcement != oldEnforcementValue {
-			d.GetPolicyRepository().Mutex.RLock()
-			_, policyEnforcementChanged = d.EnablePolicyEnforcement()
-			d.GetPolicyRepository().Mutex.RUnlock()
-			d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+
+	// Only update if value provided for PolicyEnforcement.
+	if enforcement != "" {
+		switch enforcement {
+		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+			config.EnablePolicy = enforcement
+			// If the policy enforcement configuration has indeed changed, we have
+			// to regenerate endpoints and update daemon's configuration.
+			if enforcement != oldEnforcementValue {
+				d.GetPolicyRepository().Mutex.RLock()
+				_, policyEnforcementChanged = d.EnablePolicyEnforcement()
+				d.GetPolicyRepository().Mutex.RUnlock()
+				d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+			}
+		default:
+			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
+			log.Warningf("%s", msg)
+			return apierror.Error(PatchConfigFailureCode, msg)
 		}
-	default:
-		msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
-		log.Warningf("%s", msg)
-		return apierror.Error(PatchConfigFailureCode, msg)
 	}
 
 	changes := d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
