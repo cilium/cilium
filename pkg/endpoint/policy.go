@@ -72,7 +72,7 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 	// Skip currently unused IDs
 	if ctx.From == nil || len(ctx.From) == 0 {
-		log.Debugf("[%s] Ignoring unused ID %v", e.PolicyID(), ctx)
+		//log.Debugf("[%s] Ignoring unused ID %v", e.PolicyID(), ctx)
 		return nil
 	}
 
@@ -244,7 +244,8 @@ func (e *Endpoint) regenerateL3Policy(owner Owner) (bool, error) {
 	return true, nil
 }
 
-// Only called when e.Consumable != nil.
+// regeneratePolicy returns whether the policy for the given endpoint should be
+// regenerated. Only called when e.Consumable != nil.
 func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	log.Debugf("[%s] Starting regenerate...", e.PolicyID())
 
@@ -288,10 +289,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	optsChanged := e.ApplyOptsLocked(opts)
 
 	if !e.PolicyCalculated {
+		log.Debugf("regeneratePolicy: epID: %d, e.PolicyCalculate is false, setting e.PolicyCalculated = true", e.ID)
 		e.PolicyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
 		policyChanged = true
+	} else {
+		log.Debugf("regnereatePolicy: epID: %d, e.PolicyCalculated has already been set to %q", e.ID, "true")
 	}
 
 	log.Debugf("[%s] Done regenerating policyChanged=%v optsChanged=%v",
@@ -330,6 +334,23 @@ func (e *Endpoint) regenerate(owner Owner) error {
 			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
 				e.PolicyMap.String(), err)
 		}
+	} else {
+		owner.GetPolicyRepository().Mutex.RLock()
+		opts := make(models.ConfigurationMap)
+		log.Debugf("epID %d: e.Consumable == nil", e.ID)
+		log.Debugf("consumable nil, epID %d: e.Opts.OptionPolicy: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
+		// If the consumable is nil, we still need to set endpoint's policy enforcement.
+		if owner.UpdateEndpointPolicyEnforcement(e) {
+			log.Debugf("consumable nil, enabling policy enforcement for endpoint %d", e.ID)
+			opts[OptionPolicy] = "enabled"
+		} else {
+			log.Debugf("consumable nil, disabling policy enforcement for endpoint %d", e.ID)
+			opts[OptionPolicy] = "disabled"
+		}
+
+		_ = e.ApplyOptsLocked(opts)
+		owner.GetPolicyRepository().Mutex.RUnlock()
+
 	}
 
 	if err := e.regenerateBPF(owner, tmpDir); err != nil {

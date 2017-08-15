@@ -17,7 +17,7 @@ function cleanup {
   monitor_stop
 }
 
-trap cleanup EXIT
+#trap cleanup EXIT
 
 cleanup
 monitor_start
@@ -56,6 +56,9 @@ docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO
 }
 
 monitor_clear
+
+cilium endpoint list
+
 echo "------ pinging service1 from service2 ------"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 5 ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"

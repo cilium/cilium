@@ -78,9 +78,10 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 		d.invalidateCache()
 	}
 
-	d.GetPolicyRepository().Mutex.RLock()
-	d.EnablePolicyEnforcement()
-	d.GetPolicyRepository().Mutex.RUnlock()
+	//d.GetPolicyRepository().Mutex.RLock()
+	//log.Debugf("TriggerPolicyUpdates: calling EnablePolicyEnforcement for daemon")
+	//d.EnablePolicyEnforcement()
+	//d.GetPolicyRepository().Mutex.RUnlock()
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
@@ -90,10 +91,17 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held
 func (d *Daemon) UpdateEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	if d.EnablePolicyEnforcement() {
+		log.Debugf("UpdateEndpointPolicyEnforcement: d.EnablePolicyEnforcement() returned true, returning true, epID: %d", e.ID)
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
+		log.Debugf("UpdateEndpointPolicyEnforcement: daemon default enforcement, k8s enabled, epID %d", e.ID)
 		// Check if rules match the labels for this endpoint.
 		// If so, enable policy enforcement.
+		log.Debugf("UpdateEndpointPolicyEnforcement: checking d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray): %v, epID %d", d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray), e.ID)
+		log.Debugf("UpdateEndpointPolicyEnforcement: printing epID: %d -> e.Consumable.LabelArray: %v", e.ID, e.Consumable.LabelArray)
+		if e.Consumable == nil {
+			return false
+		}
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	}
 	return false
@@ -105,14 +113,18 @@ func (d *Daemon) UpdateEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 // Must be called d.GetPolicyRepository().Mutex held
 func (d *Daemon) EnablePolicyEnforcement() bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
+		log.Debugf("EnablePolicyEnforcement: d.conf.EnablePolicy == endpoint.AlwaysEnforce")
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
 		if d.GetPolicyRepository().NumRules() > 0 {
+			log.Debugf("EnablePolicyEnforcement: d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s not enabled && numRules in repo > 0")
 			return true
 		} else {
+			log.Debugf("EnablePolicyEnforcement: d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s not enabled && no rules in repo")
 			return false
 		}
 	}
+	log.Debugf("EnablePolicyEnforcement: return false")
 	return false
 }
 

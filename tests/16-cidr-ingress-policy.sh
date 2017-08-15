@@ -25,20 +25,21 @@ function cleanup {
   monitor_stop
 }
 
-trap cleanup EXIT
+#trap cleanup EXIT
 
-cleanup
-monitor_start
-logs_clear
+#cleanup
+#exit 0 
+#monitor_start
+#logs_clear
 
 echo "------ checking cilium status ------"
 cilium status
 
-echo "------ creating Docker network of type Cilium ------"
-docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium ${TEST_NET}
+#echo "------ creating Docker network of type Cilium ------"
+#docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium ${TEST_NET}
 
-echo "------ starting example service with Docker ------"
-docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1}" cilium/demo-httpd
+#echo "------ starting example service with Docker ------"
+#docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1}" cilium/demo-httpd
 
 IPV6_PREFIX=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPv6Gateway }}" ${HTTPD_CONTAINER_NAME})/112
 IPV4_ADDRESS=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPAddress }}" ${HTTPD_CONTAINER_NAME})
@@ -46,18 +47,25 @@ IPV4_PREFIX=$(expr $IPV4_ADDRESS : '\([0-9]*\.[0-9]*\.\)')0.0/16
 
 cilium config PolicyEnforcement=always
 
-ip addr add dev lo ${IPV4_HOST}/32
-ip addr add dev lo ${IPV6_HOST}/128
+#ip addr add dev lo ${IPV4_HOST}/32
+#ip addr add dev lo ${IPV6_HOST}/128
 
-cilium policy delete --all
-monitor_clear
+policy_delete_and_wait "--all"
+wait_for_cilium_ep_gen
+cilium endpoint list
+
+#monitor_clear
 echo "------ pinging host from service2 (should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${IPV4_HOST} && {
-  abort "Error: Unexpected success pinging host (${IPV4_HOST}) from service2"
-}
-
+#date
+#sleep 10
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} bash -c "ping -c 7 ${IPV4_HOST} && sleep 60" 
+#docker exec -i ${ID_SERVICE2} ping -c 7 ${IPV4_HOST} ##&& {
+#  abort "Error: Unexpected success pinging host (${IPV4_HOST}) from service2"
+#}
+echo $?
+exit 0
 echo "------ importing L3 CIDR policy for IPv4 egress ------"
-cilium policy delete --all
+policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
@@ -73,12 +81,13 @@ EOF
 monitor_clear
 echo "------ pinging host from service2 (should work) ------"
 cilium policy get
+
+exit 0
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${IPV4_HOST} || {
   abort "Error: Could not ping host (${IPV4_HOST}) from service2"
 }
 
-cilium policy delete --all
-
+policy_delete_and_wait "--all"
 monitor_clear
 echo "------ pinging host from service2 (should NOT work) ------"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${IPV6_HOST} && {
@@ -86,7 +95,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 }
 
 echo "------ importing L3 CIDR policy for IPv6 egress ------"
-cilium policy delete --all
+policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
@@ -106,7 +115,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 }
 
 echo "------ importing policy ------"
-cilium policy delete --all
+policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
@@ -145,7 +154,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${D
 echo "------ creating cidr_aware_policy.json with matching prefixes ------"
 echo "IPv6 prefix: $IPV6_PREFIX"
 echo "IPv4 prefix: $IPV4_PREFIX"
-cilium policy delete --all
+policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
@@ -175,7 +184,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${D
 }
 
 echo "------ creating cidr_aware_policy.json with non-matching prefix ------"
-cilium policy delete --all
+policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
@@ -202,4 +211,4 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${D
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
 
-cilium policy delete --all
+policy_delete_and_wait "--all"

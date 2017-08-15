@@ -177,9 +177,19 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
+	owner.GetPolicyRepository().Mutex.RLock()
+
+	// If there hasn't been a policy calculated yet, we need to be sure we drop all packets, but only if policy enforcement is enabled for the endpoint / daemon.
 	if !e.PolicyCalculated && e.Opts.IsEnabled(OptionPolicy) && owner.PolicyEnforcement() != NeverEnforce {
 		fw.WriteString("#define DROP_ALL\n")
-	}
+	} /*else if e.Consumable != nil {
+		if e.Opts.IsEnabled(OptionPolicy) && owner.PolicyEnforcement() != NeverEnforce && !owner.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray) {
+			// If there are no rules in the policy repository that match the labels of this endpoint and policy enforcement is enabled, drop all packets.
+			fw.WriteString("#define DROP_ALL\n")
+		}
+	}*/
+
+	owner.GetPolicyRepository().Mutex.RUnlock()
 
 	fw.WriteString(common.FmtDefineAddress("LXC_MAC", e.LXCMAC))
 	fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
@@ -333,6 +343,20 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 // specified endpoint.
 func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	var err error
+
+	owner.GetPolicyRepository().Mutex.RLock()
+
+	owner.GetPolicyRepository().Mutex.RUnlock()
+
+
+	log.Debugf("regenerateBPF %d: !e.PolicyCalculated: %v", e.ID, !e.PolicyCalculated)
+	log.Debugf("regenerateBPF %d: e.Opts.IsEnabled(OptionPolicy) %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
+	log.Debugf("regenerateBPF %d: owner.PolicyEnforcement() != NeverEnforce: %v", e.ID, owner.PolicyEnforcement() != NeverEnforce)
+	if e.Consumable != nil {
+		log.Debugf("regenerateBPF %d: !owner.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray): %v", e.ID, !owner.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray))
+	}
+		//log.Debugf("regenerateBPF: !e.PolicyCalculated && e.Opts.IsEnabled(OptionPolicy) && owner.PolicyEnforcement() != NeverEnforce: %v", !e.PolicyCalculated && e.Opts.IsEnabled(OptionPolicy) && owner.PolicyEnforcement() != NeverEnforce)
+	log.Debugf("regenerateBPF %d : Consumable == nil: %v", e.ID, e.Consumable == nil)
 
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		return fmt.Errorf("unable to write header file: %s", err)
