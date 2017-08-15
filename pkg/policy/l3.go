@@ -19,8 +19,7 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-
-	log "github.com/Sirupsen/logrus"
+	
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -163,16 +162,12 @@ func (l3 *L3Policy) GetModel() *models.L3Policy {
 	}
 
 	ingress := []string{}
-	log.Debugf("making model of l3.Ingress %v", l3.Ingress)
 	for _, v := range l3.Ingress.Map {
-		log.Debugf("appending %s to model for l3 Ingress", v.String())
 		ingress = append(ingress, v.String())
 	}
 
 	egress := []string{}
-	log.Debugf("making model of l4.Egress %v", l3.Egress)
 	for _, v := range l3.Egress.Map {
-		log.Debugf("appending %s to model for l3 Egress", v.String())
 		egress = append(egress, v.String())
 	}
 
