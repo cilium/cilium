@@ -19,7 +19,7 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
