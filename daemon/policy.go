@@ -77,11 +77,6 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 		// FIXME: Invalidate only cache that is affected
 		d.invalidateCache()
 	}
-
-	//d.GetPolicyRepository().Mutex.RLock()
-	//log.Debugf("TriggerPolicyUpdates: calling EnablePolicyEnforcement for daemon")
-	//d.EnablePolicyEnforcement()
-	//d.GetPolicyRepository().Mutex.RUnlock()
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
