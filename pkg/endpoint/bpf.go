@@ -335,15 +335,6 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	var err error
 
-	log.Debugf("regenerateBPF %d: !e.PolicyCalculated: %v", e.ID, !e.PolicyCalculated)
-	log.Debugf("regenerateBPF %d: e.Opts.IsEnabled(OptionPolicy) %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
-	log.Debugf("regenerateBPF %d: owner.PolicyEnforcement() != NeverEnforce: %v", e.ID, owner.PolicyEnforcement() != NeverEnforce)
-	if e.Consumable != nil {
-		log.Debugf("regenerateBPF %d: !owner.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray): %v", e.ID, !owner.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray))
-	} else {
-		log.Debugf("regenerateBPF %d : Consumable == nil: %v", e.ID, e.Consumable == nil)
-	}
-
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		return fmt.Errorf("unable to write header file: %s", err)
 	}
