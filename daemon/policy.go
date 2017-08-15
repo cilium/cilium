@@ -88,7 +88,7 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
 // enabled for the specified endpoint.
 //
-// Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held
+// Must be called with d.GetPolicyRepository().Mutex held, and with e.Consumable.Mutex NOT held.
 func (d *Daemon) UpdateEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	if d.EnablePolicyEnforcement() {
 		log.Debugf("UpdateEndpointPolicyEnforcement: d.EnablePolicyEnforcement() returned true, returning true, epID: %d", e.ID)
@@ -101,8 +101,11 @@ func (d *Daemon) UpdateEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 		log.Debugf("UpdateEndpointPolicyEnforcement: printing epID: %d -> e.Consumable.LabelArray: %v", e.ID, e.Consumable.LabelArray)
 		if e.Consumable == nil {
 			return false
+		} else {
+			e.Consumable.Mutex.RLock()
+			defer e.Consumable.Mutex.RUnlock()
+			return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 		}
-		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	}
 	return false
 }

@@ -275,15 +275,17 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		opts[OptionConntrack] = "enabled"
 	}
 
+	// Unlock Mutex so UpdateEndpointPolicyEnforcement can hold the lock internally.
+	e.Consumable.Mutex.RUnlock()
+
 	if owner.UpdateEndpointPolicyEnforcement(e) {
-		log.Debugf("enabling policy enforcement for endpoint %d", e.ID)
+		log.Debugf("regeneratePolicy %d: setting opts[OptionPolicy] to enabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 		opts[OptionPolicy] = "enabled"
 	} else {
-		log.Debugf("disabling policy enforcement for endpoint %d", e.ID)
+		log.Debugf("regeneratePolicy %d: setting opts[OptionPolicy] to disabled; current value %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 		opts[OptionPolicy] = "disabled"
 	}
 
-	e.Consumable.Mutex.RUnlock()
 	repo.Mutex.RUnlock()
 
 	optsChanged := e.ApplyOptsLocked(opts)
@@ -335,21 +337,25 @@ func (e *Endpoint) regenerate(owner Owner) error {
 				e.PolicyMap.String(), err)
 		}
 	} else {
-		owner.GetPolicyRepository().Mutex.RLock()
 		opts := make(models.ConfigurationMap)
 		log.Debugf("epID %d: e.Consumable == nil", e.ID)
-		log.Debugf("consumable nil, epID %d: e.Opts.OptionPolicy: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
-		// If the consumable is nil, we still need to set endpoint's policy enforcement.
+		log.Debugf("epID %d has nil Consumable: e.Opts.OptionPolicy: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
+
+		owner.GetPolicyRepository().Mutex.RLock()
+		// If the consumable is nil, we still need to set endpoint's policy enforcement,
+		// as policy enforcement might be enabled for the daemon
+		// but there might not be any rules for this endpoint in the repository.
+		// Don't need to hold consumable's mutex lock because it's nil in this case.
 		if owner.UpdateEndpointPolicyEnforcement(e) {
-			log.Debugf("consumable nil, enabling policy enforcement for endpoint %d", e.ID)
+			log.Debugf("epID %d: consumable nil, setting opts[OptionPolicy] to enabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 			opts[OptionPolicy] = "enabled"
 		} else {
-			log.Debugf("consumable nil, disabling policy enforcement for endpoint %d", e.ID)
+			log.Debugf("epID %d: consumable nil, setting opts[OptionPolicy] to disabled; current value: %v", e.ID, e.Opts.IsEnabled(OptionPolicy))
 			opts[OptionPolicy] = "disabled"
 		}
+		owner.GetPolicyRepository().Mutex.RUnlock()
 
 		_ = e.ApplyOptsLocked(opts)
-		owner.GetPolicyRepository().Mutex.RUnlock()
 
 	}
 

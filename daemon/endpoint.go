@@ -158,24 +158,6 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 
 	ep.SetDefaultOpts(h.d.conf.Opts)
 
-	h.d.GetPolicyRepository().Mutex.RLock()
-
-	epEnforce := false
-	//TODO: Need to update policy enforcement for this endpoint depending on what the configuration for the daemon is.
-	if h.d.conf.EnablePolicy == endpoint.AlwaysEnforce {
-		log.Debugf("Handle Put Endpoint %d: h.d.conf.EnablePolicy == endpoint.AlwaysEnforce", ep.ID)
-		epEnforce = true
-	} else if h.d.conf.EnablePolicy == endpoint.DefaultEnforcement && !h.d.conf.IsK8sEnabled() {
-		if h.d.GetPolicyRepository().NumRules() > 0 {
-			log.Debugf("Handle Put Endpoint %d: h.d.conf.EnablePolicy == endpoint.DefaultEnforcement && !h.d.conf.IsK8sEnabled()", ep.ID)
-			epEnforce = true
-		}
-	} // at this point the Consumable for endpoint isn't created yet, so we can't check for policy enforcement if K8s is enabled?
-
-	ep.Opts.Set(endpoint.OptionPolicy, epEnforce)
-
-	h.d.GetPolicyRepository().Mutex.RUnlock()
-
 	endpointmanager.Mutex.Lock()
 	defer endpointmanager.Mutex.Unlock()
 
