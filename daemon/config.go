@@ -54,9 +54,9 @@ type Config struct {
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
 
 	EnablePolicyMU sync.RWMutex // Protects the variable below
-	EnablePolicy   string     // Whether policy enforcement is enabled.
+	EnablePolicy   string       // Whether policy enforcement is enabled.
 
-	Tunnel         string     // Tunnel mode
+	Tunnel string // Tunnel mode
 
 	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
 	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels

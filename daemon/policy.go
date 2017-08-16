@@ -91,8 +91,8 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	log.Debugf("EnableEndpointPolicyEnforcement: RLock EnablePolicyMU")
 	config.EnablePolicyMU.Lock()
 	daemonPolicyEnable, _ := d.EnablePolicyEnforcement()
-	config.EnablePolicyMU.Unlock()
-	log.Debugf("EnableEndpointPolicyEnforcement: RUnlock EnablePolicyMU")
+	defer config.EnablePolicyMU.Unlock()
+	defer log.Debugf("EnableEndpointPolicyEnforcement: RUnlock EnablePolicyMU")
 	if daemonPolicyEnable {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
