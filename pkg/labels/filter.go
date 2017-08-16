@@ -142,6 +142,7 @@ func defaultLabelPrefixCfg() *LabelPrefixCfg {
 		"!io.kubernetes",              // ignore all other io.kubernetes labels
 		"!.*kubernetes.io",            // ignore all other kubernetes.io labels (annotation.*.k8s.io)
 		"!pod-template-hash",          // ignore pod-template-hash
+		"!controller-revision-hash",   // ignore controller-revision-hash
 	}
 
 	for _, e := range expressions {
