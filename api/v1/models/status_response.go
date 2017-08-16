@@ -28,6 +28,9 @@ type StatusResponse struct {
 
 	// Status of key/value datastore
 	Kvstore *Status `json:"kvstore,omitempty"`
+
+	// Status of the node monitor
+	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 }
 
 // Validate validates this status response
@@ -55,6 +58,11 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateKvstore(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateNodeMonitor(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -152,6 +160,25 @@ func (m *StatusResponse) validateKvstore(formats strfmt.Registry) error {
 		if err := m.Kvstore.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstore")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.NodeMonitor) { // not required
+		return nil
+	}
+
+	if m.NodeMonitor != nil {
+
+		if err := m.NodeMonitor.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("nodeMonitor")
 			}
 			return err
 		}

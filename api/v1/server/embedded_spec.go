@@ -908,6 +908,10 @@ func init() {
         "k8s-endpoint": {
           "type": "string"
         },
+        "nodeMonitor": {
+          "description": "Status of the node monitor",
+          "$ref": "#/definitions/MonitorStatus"
+        },
         "policy-enforcement": {
           "type": "string"
         }
@@ -1292,6 +1296,31 @@ func init() {
         "type": "string"
       }
     },
+    "MonitorStatus": {
+      "description": "Status of the node monitor",
+      "properties": {
+        "cpus": {
+          "description": "Number of CPUs to listen on for events.",
+          "type": "integer"
+        },
+        "lost": {
+          "description": "Number of samples lost by perf.",
+          "type": "integer"
+        },
+        "npages": {
+          "description": "Number of pages used for the perf ring buffer.",
+          "type": "integer"
+        },
+        "pagesize": {
+          "description": "Pages size used for the perf ring buffer.",
+          "type": "integer"
+        },
+        "unknown": {
+          "description": "Number of unknown samples.",
+          "type": "integer"
+        }
+      }
+    },
     "NodeAddressing": {
       "description": "Addressing information of a node for all address families",
       "type": "object",
@@ -1449,6 +1478,10 @@ func init() {
         "kvstore": {
           "description": "Status of key/value datastore",
           "$ref": "#/definitions/Status"
+        },
+        "nodeMonitor": {
+          "description": "Status of the node monitor",
+          "$ref": "#/definitions/MonitorStatus"
         }
       }
     }
