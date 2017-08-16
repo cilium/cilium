@@ -101,10 +101,19 @@ trap finish_test EXIT
 
 cleanup
 
+wait_for_healthy_k8s_cluster 2
+wait_for_daemon_set_ready ${NAMESPACE} cilium 2
+
+wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD_1}
+wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD_2}
+
+
 # Patch YAML file from K8s GSG with nodeSelector to a single node so we can properly test the GSG
+echo "----- deploying demo application onto cluster -----"
 cp "${MINIKUBE}/demo.yaml" "${GSGDIR}/demo.yaml"
 patch -p0 "${GSGDIR}/demo.yaml" "${GSGDIR}/minikube-gsg-l7-fix.diff"
-
+kubectl create -f ${GSGDIR}/demo.yaml
+wait_for_n_running_pods 4
 
 # Test 1: Test default behavior of Cilium when launched in tandem with Kubernetes.
 # Assume that Cilium is already running and is configured to run with Kubernetes.
@@ -112,8 +121,6 @@ patch -p0 "${GSGDIR}/demo.yaml" "${GSGDIR}/minikube-gsg-l7-fix.diff"
 # no rules applying to them. Since no policies have been imported, all endpoints should have 
 # policy enforcement disabled.
 echo "---- Test 1: default mode: test configuration with no policy imported ----"
-kubectl create -f ${GSGDIR}/demo.yaml
-wait_for_n_running_pods 4
 
 kubectl get pods -n kube-system -o wide
 
