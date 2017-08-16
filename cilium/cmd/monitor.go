@@ -18,21 +18,26 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/signal"
-	"runtime"
+	"time"
+	"unsafe"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
 	"github.com/cilium/cilium/pkg/byteorder"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/sys/unix"
 )
 
 const (
 	msgSeparator = "------------------------------------------------------------------------------"
+	connTimeout  = 12 * time.Second
 )
 
 // monitorCmd represents the monitor command
@@ -74,8 +79,6 @@ func listEventTypes() []string {
 
 func init() {
 	RootCmd.AddCommand(monitorCmd)
-	monitorCmd.Flags().IntVarP(&eventConfig.NumCpus, "num-cpus", "c", runtime.NumCPU(), "Number of CPUs")
-	monitorCmd.Flags().IntVarP(&eventConfig.NumPages, "num-pages", "n", 64, "Number of pages for ring buffer")
 	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
 	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
@@ -115,8 +118,8 @@ func setVerbosity() {
 	}
 }
 
-func lostEvent(lost *bpf.PerfEventLost, cpu int) {
-	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost.Lost)
+func lostEvent(lost uint64, cpu int) {
+	fmt.Printf("CPU %02d: Lost %d events\n", cpu, lost)
 }
 
 // match checks if the event type, from endpoint and / or to endpoint match
@@ -188,9 +191,8 @@ func captureEvents(prefix string, data []byte) {
 }
 
 // receiveEvent forwards all the per CPU events to the appropriate type function.
-func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
+func receiveEvent(data []byte, cpu int) {
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
-	data := msg.DataDirect()
 	messageType := data[0]
 
 	switch messageType {
@@ -201,7 +203,7 @@ func receiveEvent(msg *bpf.PerfEventSample, cpu int) {
 	case bpfdebug.MessageTypeCapture:
 		captureEvents(prefix, data)
 	default:
-		fmt.Printf("%s Unknonwn event: %+v\n", prefix, msg)
+		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}
 }
 
@@ -218,53 +220,76 @@ func validateEventTypeFilter() {
 	eventTypeIdx = i
 }
 
+func setupSigHandler() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+		for range signalChan {
+			fmt.Printf("\nReceived an interrupt, disconnecting from monitor...\n\n")
+			os.Exit(0)
+		}
+	}()
+}
+
 func runMonitor() {
 	// Privileged access is required for reading from the monitor socket.
 	common.RequireRootPrivilege("cilium monitor")
 	setVerbosity()
-	events, err := bpf.NewPerCpuEvents(&eventConfig)
+	setupSigHandler()
+	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
+		if nm := resp.Payload.NodeMonitor; nm != nil {
+			fmt.Printf("Listening for events on %d CPUs with %dx%d of shared memory\n",
+				nm.Cpus, nm.Npages, nm.Pagesize)
+		}
+	}
+	fmt.Printf("Press Ctrl-C to quit\n")
+start:
+	conn, err := net.Dial("unix", defaults.MonitorSockPath)
 	if err != nil {
-		fmt.Printf("Error: Unable to get BPF events (%s)\n", err)
+		fmt.Printf("Error: unable to connect to monitor %s\n", err)
 		os.Exit(1)
 	}
+
+	defer conn.Close()
 
 	if eventType != "" {
 		validateEventTypeFilter()
 	}
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for range signalChan {
-			fmt.Printf("\nReceived an interrupt, stopping monitor...\n\n")
-
-			lost, unknown := events.Stats()
-			if lost != 0 || unknown != 0 {
-				fmt.Printf("%d events lost, %d unknown notifications\n", lost, unknown)
-			}
-
-			if err := events.CloseAll(); err != nil {
-				panic(err)
-			}
-
-			os.Exit(0)
-		}
-	}()
-
-	fmt.Printf("Listening for events on %d CPUs with %dx%d of shared memory\n",
-		events.Cpus, events.Npages, events.Pagesize)
-	fmt.Printf("Press Ctrl-C to quit\n")
-
+	var meta payload.Meta
+	metaBuf := make([]byte, unsafe.Sizeof(meta))
 	for {
-		todo, err := events.Poll(5000)
-		if err != nil && err != unix.EINTR {
-			panic(err)
-		}
-		if todo > 0 {
-			if err := events.ReadAll(receiveEvent, lostEvent); err != nil {
-				fmt.Printf("Error received while reading from perf buffer: %s\n", err)
+		// We need to know about the incoming payload otherwise can't know
+		// how much data to read.
+		if _, err := conn.Read(metaBuf); err != nil {
+			if err == io.EOF {
+				time.Sleep(connTimeout)
+				goto start
 			}
+			continue
+		}
+
+		if err := binary.Read(bytes.NewReader(metaBuf), byteorder.Native, &meta); err != nil {
+			if err != io.EOF {
+				log.Fatal(err)
+			}
+			continue
+		}
+		buf := make([]byte, meta.Size)
+
+		_, err = conn.Read(buf)
+		if err != nil {
+			fmt.Printf("connection closed: %s\n", err)
+			break
+		}
+		pl, err := payload.Decode(buf)
+		if err != nil && err != io.EOF {
+			log.Fatalf("Errror during decode: %s", err)
+		}
+		if pl.Type == payload.EventSample {
+			receiveEvent(pl.Data, pl.CPU)
+		} else /* if pl.Type == payload.RecordLost */ {
+			lostEvent(pl.Lost, pl.CPU)
 		}
 	}
-
 }
