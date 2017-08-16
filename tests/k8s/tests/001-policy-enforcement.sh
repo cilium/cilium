@@ -23,8 +23,11 @@ GSGDIR="${dir}/deployments/gsg"
 ENABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled' -c"
 DISABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Disabled' -c"
 
-CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s1 | awk 'NR==2{ print $1 }')
-CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s2 | awk 'NR==3{ print $1 }')
+CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s-1 | awk '{ print $1 }')
+CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s-2 | awk '{ print $1 }')
+
+echo "CILIUM_POD_1: $CILIUM_POD_1"
+echo "CILIUM_POD_2: $CILIUM_POD_2"
 
 NUM_ENDPOINTS=4
 
