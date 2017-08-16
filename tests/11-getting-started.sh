@@ -17,7 +17,7 @@ function cleanup {
   monitor_stop
 }
 
-#trap cleanup EXIT
+trap cleanup EXIT
 
 cleanup
 monitor_start
