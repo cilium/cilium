@@ -70,6 +70,16 @@ func statusDaemon(cmd *cobra.Command, args []string) {
 			}
 		}
 
+		if nm := sr.NodeMonitor; nm != nil {
+			fmt.Fprintf(w, "NodeMonitor:\tListening for events on %d CPUs with %dx%d of shared memory\n",
+				nm.Cpus, nm.Npages, nm.Pagesize)
+			if nm.Lost != 0 || nm.Unknown != 0 {
+				fmt.Fprintf(w, "\t%d events lost, %d unknown notifications\n", nm.Lost, nm.Unknown)
+			}
+		} else {
+			fmt.Fprintf(w, "NodeMonitor:\tDisabled\n")
+		}
+
 		w.Flush()
 
 		if sr.Cilium != nil && sr.Cilium.State != models.StatusStateOk {

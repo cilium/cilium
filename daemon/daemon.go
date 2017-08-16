@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
+	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -118,6 +119,8 @@ type Daemon struct {
 
 	uniqueIDMU sync.Mutex
 	uniqueID   map[uint64]bool
+
+	nodeMonitor *monitor.NodeMonitor
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -1126,6 +1129,15 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	d.conf.ConfigPatchMutex.Lock()
 	defer d.conf.ConfigPatchMutex.Unlock()
 
+	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
+		if d.nodeMonitor.Arg != numPagesEntry {
+			d.nodeMonitor.Restart(numPagesEntry)
+		}
+		if len(params.Configuration.Mutable) == 0 {
+			return NewPatchConfigOK()
+		}
+		delete(params.Configuration.Mutable, "MonitorNumPages")
+	}
 	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
@@ -1214,6 +1226,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		K8sConfiguration:  d.conf.K8sCfgPath,
 		K8sEndpoint:       d.conf.K8sEndpoint,
 		PolicyEnforcement: d.conf.EnablePolicy,
+		NodeMonitor:       d.nodeMonitor.State(),
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)
