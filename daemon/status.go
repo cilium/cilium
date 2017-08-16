@@ -103,5 +103,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 
 	sr.IPAM = d.DumpIPAM()
 
+	sr.NodeMonitor = d.nodeMonitor.State()
+
 	return NewGetHealthzOK().WithPayload(&sr)
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
+	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -524,6 +525,9 @@ func runDaemon() {
 	if enableLogstash {
 		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
+
+	d.nodeMonitor = &monitor.NodeMonitor{}
+	go d.nodeMonitor.Run()
 
 	sinceLastSync := time.Now()
 	d.SyncDocker()
