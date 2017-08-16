@@ -457,6 +457,37 @@ function k8s_apply_policy {
 	sleep 10s
 }
 
+function k8s_delete_policy {
+        declare -A currentRevison
+        local i
+        local pod
+        local namespace=$1
+        local policy=$2
+        local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+
+        for pod in $pods; do
+                local rev=$(kubectl -n $namespace exec $pod -- cilium policy get | grep Revision: | awk '{print $2}')
+                currentRevison[$pod]=$rev
+        done
+
+        echo "Current policy revisions:"
+        for i in "${!currentRevison[@]}"
+        do
+                echo "  $i: ${currentRevison[$i]}"
+        done
+
+        kubectl delete -f $policy
+
+        for pod in $pods; do
+                local nextRev=$(expr ${currentRevison[$pod]} + 1)
+                echo "Waiting for agent $pod endpoints to get to revision $nextRev"
+                kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
+        done
+
+        # Adding sleep as workaround for l7 stresstests
+        sleep 10s
+}
+
 function policy_delete_and_wait {
 	rev=$(cilium policy delete $* | grep Revision: | awk '{print $2}')
 	cilium policy wait $rev

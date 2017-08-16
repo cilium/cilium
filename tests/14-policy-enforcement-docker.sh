@@ -7,7 +7,6 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 set -ex
 
-TEST_NET="cilium"
 TEST_NET="cilium-net"
 DEMO_CONTAINER="cilium/demo-client"
 HTTPD_CONTAINER_NAME="service1-instance1"
