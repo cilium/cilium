@@ -23,8 +23,8 @@ GSGDIR="${dir}/deployments/gsg"
 ENABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled' -c"
 DISABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Disabled' -c"
 
-CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==2{ print $1 }')
-CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==3{ print $1 }')
+CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s1 | awk 'NR==2{ print $1 }')
+CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s2 | awk 'NR==3{ print $1 }')
 
 NUM_ENDPOINTS=4
 
@@ -130,6 +130,11 @@ cp "${MINIKUBE}/demo.yaml" "${GSGDIR}/demo.yaml"
 patch -p0 "${GSGDIR}/demo.yaml" "${GSGDIR}/minikube-gsg-l7-fix.diff"
 kubectl create -f ${GSGDIR}/demo.yaml
 wait_for_n_running_pods ${NUM_ENDPOINTS}
+
+echo " ---- pods managed by Cilium Pod 1 ($CILIUM_POD_1) ----"
+kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium endpoint list
+echo " ---- pods managed by Cilium Pod 2 ($CILIUM_POD_2) ----"
+kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium endpoint list
 
 # Test 1: default mode, K8s, Cilium launched.
 # Default behavior is to have policy enforcement disabled for all endpoints that have
