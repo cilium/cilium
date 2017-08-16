@@ -245,6 +245,10 @@ func (d *Daemon) AlwaysAllowLocalhost() bool {
 }
 
 func (d *Daemon) PolicyEnforcement() string {
+	d.conf.EnablePolicyMU.RLock()
+	log.Debugf("PolicyEnforcement: RLock EnablePolicyMU")
+	defer d.conf.EnablePolicyMU.RUnlock()
+	defer log.Debugf("PolicyEnforcement: RUnlock EnablePolicyMU")
 	return d.conf.EnablePolicy
 }
 
@@ -1096,17 +1100,27 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	var policyEnforcementChanged bool
 
 	// Update policy enforcement configuration if needed.
+	log.Debugf("Handle patch config, RLock EnablePolicyMU to get old value")
+	config.EnablePolicyMU.RLock()
 	oldEnforcementValue := config.EnablePolicy
+	log.Debugf("Handle patch config, RUnlock EnablePolicyMU to get old value")
+	config.EnablePolicyMU.RUnlock()
 	enforcement := params.Configuration.PolicyEnforcement
 
 	// Only update if value provided for PolicyEnforcement.
 	if enforcement != "" {
 		switch enforcement {
 		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
-			config.EnablePolicy = enforcement
 			// If the policy enforcement configuration has indeed changed, we have
 			// to regenerate endpoints and update daemon's configuration.
 			if enforcement != oldEnforcementValue {
+				// Only allow configuration updates for PolicyEnforcement to occur again once configuration has been applied
+				log.Debugf("Handle patch config, Lock EnablePolicyMU to update configuration")
+				config.EnablePolicyMU.Lock()
+				defer config.EnablePolicyMU.Unlock()
+				defer log.Debugf("Handle patch config, Unlock EnablePolicyMU to update configuration")
+				config.EnablePolicy = enforcement
+
 				d.GetPolicyRepository().Mutex.RLock()
 				_, policyEnforcementChanged = d.EnablePolicyEnforcement()
 				d.GetPolicyRepository().Mutex.RUnlock()

@@ -87,7 +87,12 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	// First check if policy enforcement should be enabled at the daemon level.
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
+
+	log.Debugf("EnableEndpointPolicyEnforcement: RLock EnablePolicyMU")
+	config.EnablePolicyMU.Lock()
 	daemonPolicyEnable, _ := d.EnablePolicyEnforcement()
+	config.EnablePolicyMU.Unlock()
+	log.Debugf("EnableEndpointPolicyEnforcement: RUnlock EnablePolicyMU")
 	if daemonPolicyEnable {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
@@ -116,16 +121,16 @@ func (d *Daemon) EnablePolicyEnforcement() (bool, bool) {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		config[endpoint.OptionPolicy] = "enabled"
 		changes := d.conf.Opts.Apply(config, changedOption, d)
-		d.conf.Opts.Set(endpoint.OptionPolicy, true)
+		//d.conf.Opts.Set(endpoint.OptionPolicy, true)
 		return true, changes > 0
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
 		if d.GetPolicyRepository().NumRules() > 0 {
 			config[endpoint.OptionPolicy] = "enabled"
 			changes := d.conf.Opts.Apply(config, changedOption, d)
-			d.conf.Opts.Set(endpoint.OptionPolicy, true)
+			//d.conf.Opts.Set(endpoint.OptionPolicy, true)
 			return true, changes > 0
 		} else {
-			d.conf.Opts.Set(endpoint.OptionPolicy, false)
+			//d.conf.Opts.Set(endpoint.OptionPolicy, false)
 			config[endpoint.OptionPolicy] = "disabled"
 			changes := d.conf.Opts.Apply(config, changedOption, d)
 			return false, changes > 0
@@ -188,6 +193,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RLock()
 
+	log.Debugf("Handle get policy/resolve: RLock EnablePolicyMU")
+	d.conf.EnablePolicyMU.RLock()
 	// If policy enforcement isn't enabled, then traffic is allowed.
 	if d.conf.EnablePolicy == endpoint.NeverEnforce {
 		isPolicyEnforcementEnabled = false
@@ -207,6 +214,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			isPolicyEnforcementEnabled = false
 		}
 	}
+	d.conf.EnablePolicyMU.RUnlock()
+	log.Debugf("Handle get policy/resolve: RUnLock EnablePolicyMU")
 
 	d.policy.Mutex.RUnlock()
 

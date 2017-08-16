@@ -52,7 +52,10 @@ type Config struct {
 	K8sEndpoint    string     // Kubernetes endpoint
 	K8sCfgPath     string     // Kubeconfig path
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
+
+	EnablePolicyMU sync.RWMutex // Protects the variable below
 	EnablePolicy   string     // Whether policy enforcement is enabled.
+
 	Tunnel         string     // Tunnel mode
 
 	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
