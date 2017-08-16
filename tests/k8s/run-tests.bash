@@ -66,8 +66,6 @@ function run_tests(){
     deploy_cilium ${k8s_version}
 
     # Run non IP version specific tests
-    vmssh ${node2} 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/001-policy-enforcement.sh'
-    exit 0 
     vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
     # Run ipv4 tests
     vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do $test; done'
