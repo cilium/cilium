@@ -38,4 +38,8 @@ const (
 
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
+
+	// MonitorSockPath is the path to the UNIX domain socket used to distribute events
+	// between multiple monitors.
+	MonitorSockPath = RuntimePath + "/monitor.sock"
 )
