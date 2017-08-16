@@ -96,11 +96,11 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	}
 	// If policy enforcement isn't enabled for the daemon, or we are not running
-	// in "default" mode in tandem with K8s, we do not enable policy enforcement f
-	// or the endpoint.
+	// in "default" mode in tandem with K8s, we do not enable policy enforcement
+	// for the endpoint.
 	// This means one of the following:
 	// * daemon policy enforcement mode is 'never', so no policy enforcement
-	//   should be applied to all endpoints
+	//   should be applied to the specified endpoint.
 	// * if we are not running K8s and are running in 'default' mode, we do not
 	//   enable policy enforcement on a per-endpoint basis (i.e., outside of the
 	//   scope of this function).

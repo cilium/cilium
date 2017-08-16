@@ -14,7 +14,7 @@ function start_containers {
 }
 
 function remove_containers {
-	docker rm -f foo foo bar baz 2> /dev/null || true
+	docker rm -f foo bar baz 2> /dev/null || true
 }
 
 function restart_cilium {
@@ -41,8 +41,8 @@ EOF
 
 function cleanup {
 	gather_files 15-policy-config ${TEST_SUITE}
-	cilium policy delete --all 2> /dev/null || true
-	docker rm -f foo foo bar baz 2> /dev/null || true
+	policy_import_and_wait "--all" 2> /dev/null || true
+	remove_containers
 }
 
 function check_endpoints_policy_enabled {
