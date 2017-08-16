@@ -219,6 +219,7 @@ func validateEventTypeFilter() {
 }
 
 func runMonitor() {
+	// Privileged access is required for reading from the monitor socket.
 	common.RequireRootPrivilege("cilium monitor")
 	setVerbosity()
 	events, err := bpf.NewPerCpuEvents(&eventConfig)
