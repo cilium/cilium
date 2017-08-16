@@ -81,7 +81,7 @@ function micro_sleep {
 function wait_for_endpoints {
     set +x
     echo -n "Waiting for $1 cilium endpoints to become ready"
-	until [ "$(cilium endpoint list | grep ready -c)" -eq "$1" ]; do
+	until [ "$(cilium endpoint list | grep -v 'not-ready' | grep ready -c)" -eq "$1" ]; do
 	    micro_sleep
 	    echo -n "."
 	done
@@ -101,7 +101,7 @@ function wait_for_k8s_endpoints {
 
 	local sleep_time=1
 	local iter=0
-	local found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')
+	local found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -v 'not-ready' | grep -c 'ready')
 	echo "found: $found"
 	while [[ "$found" -ne "$NUM" ]]; do
 		if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
@@ -113,7 +113,7 @@ function wait_for_k8s_endpoints {
 			echo -n " [${found}/${NUM}]"
 			sleep $sleep_time
 		fi
-		found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')
+		found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -v 'not-ready' | grep -c 'ready')
 		echo "found: $found"
 	done
 
@@ -233,6 +233,17 @@ function wait_for_running_pod {
         micro_sleep
     done
     set -x
+}
+
+function wait_for_no_pods {
+  set +x
+  namespace=${2:-default}
+  echo "Waiting for no pods to be Running in namespace ${namespace}"
+  kubectl get pods -n ${namespace} -o wide
+  while [[ "$(kubectl get pods -n ${namespace} -o wide 2>&1 | grep -c 'No resources found')" -ne "1" ]] ; do
+    micro_sleep
+  done
+  set -x 
 }
 
 function wait_for_n_running_pods {

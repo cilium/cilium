@@ -32,10 +32,8 @@ function cleanup {
   kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
-  #kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
-  #cilium policy delete --all 2> /dev/null || true
   kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
-  wait_for_n_running_pods 0
+  wait_for_no_pods
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium config PolicyEnforcement=default || true
 }
 
@@ -45,6 +43,17 @@ function finish_test {
   cleanup
 }
 
+#######################################
+# Checks that the provided number of endpoints have policy enforcement enabled
+# Globals:
+#   ENABLED_CMD
+#   NAMESPACE
+# Arguments:
+#   NUM_EPS: number of endpoints to check
+#   CILIUM_POD: name of Cilium pod
+# Returns:
+#   None
+#######################################
 function check_endpoints_policy_enabled {
   local NUM_EPS=$1
   local CILIUM_POD=$2
@@ -53,13 +62,24 @@ function check_endpoints_policy_enabled {
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
   POLICY_ENABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${ENABLED_CMD}`
   if [ "${POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
-    kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium config
-    kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium endpoint list
+    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium config
+    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
   echo "---- ${NUM_EPS} endpoints have policy enforcement enabled; continuing ----"
 }
 
+#######################################
+# Checks that the provided number of endpoints have policy enforcement disabled
+# Globals:
+#   ENABLED_CMD
+#   NAMESPACE
+# Arguments:
+#   NUM_EPS: number of endpoints to check
+#   CILIUM_POD: name of Cilium pod
+# Returns:
+#   None
+#######################################
 function check_endpoints_policy_disabled {
   local NUM_EPS=$1
   local CILIUM_POD=$2
@@ -67,8 +87,8 @@ function check_endpoints_policy_disabled {
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list 
   POLICY_DISABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${DISABLED_CMD}`
   if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then 
-    kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium config
-    kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium endpoint list
+    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium config
+    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
   echo  "---- ${NUM_EPS} endpoints have policy enforcement disabled; continuing ----"
