@@ -58,6 +58,7 @@ docker exec $cilium_docker ./cni-install.sh
 echo 'PATH=$PATH:/home/vagrant/bin' >> /home/vagrant/.bashrc
 
 chown -R vagrant:vagrant /home/vagrant/
+echo "Deploying Vagrant VM + Cilium + Mesos...done"
 SCRIPT
 
 Vagrant.configure(2) do |config|
