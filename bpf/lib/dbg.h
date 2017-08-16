@@ -26,11 +26,11 @@ enum {
 	DBG_ENCAP,
 	DBG_LXC_FOUND,
 	DBG_POLICY_DENIED,
-	DBG_CT_LOOKUP,
-	DBG_CT_LOOKUP_REV,
+	DBG_CT_LOOKUP,		/* unused */
+	DBG_CT_LOOKUP_REV,	/* unused */
 	DBG_CT_MATCH,
-	DBG_CT_CREATED,
-	DBG_CT_CREATED2,
+	DBG_CT_CREATED,		/* unused */
+	DBG_CT_CREATED2,	/* unused */
 	DBG_ICMP6_HANDLE,
 	DBG_ICMP6_REQUEST,
 	DBG_ICMP6_NS,
@@ -64,6 +64,30 @@ enum {
 	DBG_L4_POLICY,
 	DBG_NETDEV_IN_CLUSTER, /* arg1: security-context, arg2: unused */
 	DBG_NETDEV_ENCAP4, /* arg1 encap lookup key, arg2: identity */
+	DBG_CT_LOOKUP4_1,       /* arg1: saddr
+				 * arg2: daddr
+				 * arg3: (sport << 16) | dport
+				 */
+	DBG_CT_LOOKUP4_2,       /* arg1: (nexthdr << 8) | flags
+				 * arg2: direction
+				 * arg3: unused
+				 */
+	DBG_CT_CREATED4,        /* arg1: (proxy_port << 16) | rev_nat_index
+				 * arg2: src sec-id
+				 * arg3: lb address
+				 */ 
+	DBG_CT_LOOKUP6_1,       /* arg1: saddr (last 4 bytes)
+				 * arg2: daddr (last 4 bytes)
+				 * arg3: (sport << 16) | dport
+				 */
+	DBG_CT_LOOKUP6_2,       /* arg1: (nexthdr << 8) | flags
+				 * arg2: direction
+				 * arg3: unused
+				 */
+	DBG_CT_CREATED6,        /* arg1: (proxy_port << 16) | rev_nat_index
+				 * arg2: src sec-id
+				 * arg3: unused
+				 */
 };
 
 /* Capture types */

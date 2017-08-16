@@ -59,17 +59,6 @@ type CtKey interface {
 	Dump(buffer *bytes.Buffer) bool
 }
 
-// CtValue is the interface describing values in the conntrack maps.
-type CtValue interface {
-	bpf.MapValue
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() CtValue
-
-	// ToHost converts fields to host byte order.
-	ToHost() CtValue
-}
-
 // CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
 	rx_packets uint64
@@ -139,7 +128,7 @@ func ToString(m *bpf.Map, mapName string) (string, error) {
 		return "", err
 	}
 	for _, entry := range entries {
-		if !entry.Key.Dump(&buffer) {
+		if !entry.Key.ToHost().Dump(&buffer) {
 			continue
 		}
 

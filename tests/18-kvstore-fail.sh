@@ -52,12 +52,13 @@ function test_kvstore {
       fi
 }
 
-trap cleanup EXIT
-
-systemctl stop cilium
-
-test_kvstore consul "8500"
-
-systemctl start cilium-etcd
-
-test_kvstore etcd "4001"
+# FIXME: Re-enable when test is stable
+#trap cleanup EXIT
+#
+#systemctl stop cilium
+#
+#test_kvstore consul "8500"
+#
+#systemctl start cilium-etcd
+#
+#test_kvstore etcd "4001"

@@ -89,6 +89,12 @@ const (
 	DbgL4Policy
 	DbgNetdevInCluster
 	DbgNetdevEncap4
+	DbgCTLookup41
+	DbgCTLookup42
+	DbgCTCreated4
+	DbgCTLookup61
+	DbgCTLookup62
+	DbgCTCreated6
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -125,9 +131,52 @@ func ctState(state uint32) string {
 	return dropReason(uint8(state))
 }
 
+var tupleFlags = map[int16]string{
+	0: "IN",
+	1: "OUT",
+	2: "RELATED",
+}
+
+func ctFlags(flags int16) string {
+	s := ""
+	for k, v := range tupleFlags {
+		if k&flags != 0 {
+			if s != "" {
+				s += ", "
+			}
+			s += v
+		}
+	}
+	return s
+}
+
 func ctInfo(arg1 uint32, arg2 uint32) string {
-	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%d",
-		arg1>>16, arg1&0xFFFF, arg2>>8, arg2&0xFF)
+	return fmt.Sprintf("sport=%d dport=%d nexthdr=%d flags=%s",
+		arg1>>16, arg1&0xFFFF, arg2>>8, ctFlags(int16(arg2&0xFF)))
+}
+
+func ctLookup4Info1(n *DebugMsg) string {
+	return fmt.Sprintf("src=%s:%d dst=%s:%d", ip4Str(n.Arg2),
+		n.Arg3&0xFFFF, ip4Str(n.Arg1), n.Arg3>>16)
+}
+
+func ctLookup4Info2(n *DebugMsg) string {
+	return fmt.Sprintf("nexthdr=%d flags=%d",
+		n.Arg1>>8, n.Arg1&0xFF)
+}
+
+func ctCreate4Info(n *DebugMsg) string {
+	return fmt.Sprintf("proxy-port=%d revnat=%d src-identity=%d lb=%s",
+		n.Arg1>>16, byteorder.NetworkToHost(uint16(n.Arg1&0xFFFF)), n.Arg2, ip4Str(n.Arg3))
+}
+
+func ctLookup6Info1(n *DebugMsg) string {
+	return fmt.Sprintf("src=[::%x]:%d dst=[::%x]:%d", ip6Str(n.Arg1), n.Arg3&0xFFFF, ip6Str(n.Arg2), n.Arg3>>16)
+}
+
+func ctCreate6Info(n *DebugMsg) string {
+	return fmt.Sprintf("proxy-port=%d revnat=%d src-identity=%d",
+		n.Arg1>>16, byteorder.NetworkToHost(uint16(n.Arg1&0xFFFF)), n.Arg2)
 }
 
 func verdictInfo(arg uint32) string {
@@ -146,7 +195,10 @@ func ip4Str(arg1 uint32) string {
 	ip := make(net.IP, 4)
 	byteorder.NetworkToHostPut(ip, arg1)
 	return ip.String()
+}
 
+func ip6Str(arg1 uint32) string {
+	return fmt.Sprintf("%x:%x", arg1&0xFFFF, arg1>>16)
 }
 
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
@@ -257,6 +309,18 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Destination is inside cluster prefix, source identity: %d\n", n.Arg1)
 	case DbgNetdevEncap4:
 		fmt.Printf("Attempting encapsulation, lookup key: %s, identity: %d\n", ip4Str(n.Arg1), n.Arg2)
+	case DbgCTLookup41:
+		fmt.Printf("Conntrack lookup 1/2: %s\n", ctLookup4Info1(n))
+	case DbgCTLookup42:
+		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
+	case DbgCTCreated4:
+		fmt.Printf("Conntrack create: %s\n", ctCreate4Info(n))
+	case DbgCTLookup61:
+		fmt.Printf("Conntrack lookup 1/2: %s\n", ctLookup6Info1(n))
+	case DbgCTLookup62:
+		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
+	case DbgCTCreated6:
+		fmt.Printf("Conntrack create: %s\n", ctCreate6Info(n))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
