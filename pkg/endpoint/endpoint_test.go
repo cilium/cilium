@@ -16,7 +16,6 @@ package endpoint
 
 import (
 	"bytes"
-	"net"
 	"testing"
 	"time"
 
@@ -85,7 +84,6 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		IPv4:             ipv4,
 		IfIndex:          4,
 		NodeMAC:          mac.MAC{1, 2, 3, 4, 5, 6},
-		NodeIP:           net.ParseIP("192.168.0.1"),
 		PortMap:          make([]PortMap, 2),
 		Opts:             option.NewBoolOptions(&EndpointOptionLibrary),
 		Status:           NewEndpointStatus(),
