@@ -451,11 +451,11 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackLocal, false)
 
-	log.Debugf("initEnv: RLock EnablePolicyMU")
+	log.Debugf("initEnv: Lock EnablePolicyMU")
 	config.EnablePolicyMU.Lock()
 	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
 	config.EnablePolicyMU.Unlock()
-	log.Debugf("initEnv: RUnlock EnablePolicyMU")
+	log.Debugf("initEnv: Unlock EnablePolicyMU")
 
 	config.EnablePolicyMU.RLock()
 	switch config.EnablePolicy {
