@@ -842,7 +842,29 @@ func (d *Daemon) init() error {
 		}
 		// Clean all lb entries
 		if !d.conf.RestoreState {
-			// FIXME Remove all loadbalancer entries
+			log.Debugf("cleaning up all BPF LB maps")
+
+			d.loadBalancer.BPFMapMU.Lock()
+			defer d.loadBalancer.BPFMapMU.Unlock()
+
+			if err := lbmap.Service6Map.DeleteAll(); err != nil {
+				return err
+			}
+			if err := d.RevNATDeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.RRSeq6Map.DeleteAll(); err != nil {
+				return err
+			}
+
+			if !d.conf.IPv4Disabled {
+				if err := lbmap.Service4Map.DeleteAll(); err != nil {
+					return err
+				}
+				if err := lbmap.RRSeq4Map.DeleteAll(); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
