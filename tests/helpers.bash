@@ -501,12 +501,12 @@ function k8s_delete_policy {
 
 function policy_delete_and_wait {
 	rev=$(cilium policy delete $* | grep Revision: | awk '{print $2}')
-	cilium policy wait $rev
+	timeout 120s cilium policy wait $rev
 }
 
 function policy_import_and_wait {
 	rev=$(cilium policy import $* | grep Revision: | awk '{print $2}')
-	cilium policy wait $rev
+	timeout 120s cilium policy wait $rev
 }
 
 function get_vm_identity_file {
