@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#t=2
+#t=3
 CILIUM_FILES="cilium-files"
 DUMP_FILE=$(mktemp)
 MONITOR_PID=""
