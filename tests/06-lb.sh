@@ -44,8 +44,6 @@ function host_ip4()
 	ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | sed -e 's/\/.*//'
 }
 
-trap cleanup EXIT
-
 # Remove containers from a previously incomplete run
 cleanup
 
@@ -92,8 +90,9 @@ LIST_FIXTURE=$(cat <<-EOF
 }
 EOF
 )
-DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
 
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
+ 
 # Check if it's the only service present
 if [[ "${LIST_FIXTURE}" != "$DATA" ]]; then
      abort "Service was not properly added"
@@ -194,17 +193,17 @@ if [ -n "${IPV4}" ]; then
 	     abort "Service ID 20 seems to have been added after all"
 	fi
 
-#	# Check if we can get the service by it's ID
-#	if [[ "$(cilium service get 20)" != \
-#	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
-#	     abort "Service was not properly added"
-#	fi
+# # Check if we can get the service by it's ID
+# if [[ "$(cilium service get 20)" != \
+#       "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
+#   abort "Service was not properly added"
+# fi
 
-#	# BPF's map should contain service with a different RevNAT ID
-#	if [[ "$(cilium service list)" != \
-#	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
-#	     abort "Service was not properly added"
-#	fi
+# # BPF's map should contain service with a different RevNAT ID
+# if [[ "$(cilium service list)" != \
+#       "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
+#   abort "Service was not properly added"
+# fi
 
 	# Let's try delete the only service
 	if [[ "$(cilium service delete 10)" != \
@@ -316,6 +315,7 @@ cat <<EOF | policy_import_and_wait -
     }]
 }]
 EOF
+
 
 # Clear eventual old entries, this may fail if the maps have not been created
 cilium service delete --all || true
