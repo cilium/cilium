@@ -152,14 +152,9 @@ type EgressRule struct {
 	ToCIDR []CIDR `json:"toCIDR,omitempty"`
 }
 
-// CIDR specifies a block of IP addresses
-type CIDR struct {
-	// IP specifies the block of IP addresses to allow
-	//
-	// Example:
-	// 10.0.1.0/24
-	IP string `json:"ip"`
-}
+// CIDR specifies a block of IP addresses.
+// Example: 192.0.2.1/32
+type CIDR string
 
 // PortProtocol specifies an L4 port with an optional transport protocol
 type PortProtocol struct {
