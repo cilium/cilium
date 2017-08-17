@@ -63,8 +63,8 @@ cat <<EOF | policy_import_and_wait -
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
     "egress": [{
 	"toCIDR": [
-	    {"ip": "${IPV4_OTHERHOST}/24"},
-	    {"ip": "${IPV4_OTHERHOST}/20"}
+	    "${IPV4_OTHERHOST}/24",
+	    "${IPV4_OTHERHOST}/20"
 	]
     }]
 }]
@@ -92,7 +92,7 @@ cat <<EOF | policy_import_and_wait -
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
     "egress": [{
 	"toCIDR": [
-	    {"ip": "${IPV6_HOST}"}
+	    "${IPV6_HOST}"
 	]
     }]
 }]
@@ -154,8 +154,8 @@ cat <<EOF | policy_import_and_wait -
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
 	],
 	"fromCIDR": [
-	    {"ip": "${IPV4_PREFIX}"},
-	    {"ip": "${IPV6_PREFIX}"}
+	    "${IPV4_PREFIX}",
+	    "${IPV6_PREFIX}"
 	]
     }]
 }]
@@ -184,7 +184,7 @@ cat <<EOF | policy_import_and_wait -
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
 	],
 	"fromCIDR": [
-	    {"ip": "${IPV4_OTHERNET}"}
+	    "${IPV4_OTHERNET}"
 	]
     }]
 }]
