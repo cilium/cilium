@@ -21,6 +21,10 @@ check-requirements:
 	 (echo "sphinxcontrib-openapi not installed."; \
 	  echo "Run: pip install sphinxcontrib-openapi"; \
 	  exit 1)
+	@pip list --format=json | grep sphinx-rtd-theme> /dev/null || \
+	 (echo "sphinx-rtd-theme not installed."; \
+	  echo "Run pip install sphinx-rtd-theme";  \
+	  exit 1)
 
 .PHONY: help Makefile check-requirements
 
