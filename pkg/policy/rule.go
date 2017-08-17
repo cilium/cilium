@@ -123,9 +123,10 @@ func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3Polic
 	found := 0
 
 	for _, r := range ipRules {
-		ctx.PolicyTrace("  Allows %s IP %s\n", dir, r.IP)
+		strCIDR := string(r)
+		ctx.PolicyTrace("  Allows %s IP %s\n", dir, strCIDR)
 
-		found += resMap.Insert(r.IP)
+		found += resMap.Insert(strCIDR)
 	}
 
 	return found

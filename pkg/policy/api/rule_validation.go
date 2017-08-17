@@ -107,11 +107,12 @@ func (pp PortProtocol) Validate() error {
 
 // Validate CIDR
 func (cidr CIDR) Validate() error {
-	if cidr.IP == "" {
+	strCIDR := string(cidr)
+	if strCIDR == "" {
 		return fmt.Errorf("IP must be specified")
 	}
 
-	_, ipnet, err := net.ParseCIDR(cidr.IP)
+	_, ipnet, err := net.ParseCIDR(strCIDR)
 	if err == nil {
 		// Returns the prefix length as zero if the mask is not continuous.
 		ones, _ := ipnet.Mask.Size()
@@ -120,7 +121,7 @@ func (cidr CIDR) Validate() error {
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
-		ip := net.ParseIP(cidr.IP)
+		ip := net.ParseIP(strCIDR)
 		if ip == nil {
 			return fmt.Errorf("Unable to parse CIDR: %s", err)
 		}
