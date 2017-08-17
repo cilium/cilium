@@ -112,8 +112,7 @@ load-balances requests to *app1* to be across two pod replicas.
 *App2* and *app3* exist so that we can test different security policies for allowing applications
 to access *app1*.
 
-Application Topology for Cilium and Kubernetes
-++++++++++++++++++++++++++++++++++++++++++++++
+**Application Topology for Cilium and Kubernetes**
 
 .. image:: cilium_k8s_demo-150817.png
 
@@ -192,10 +191,9 @@ the frontend to reach backend, it will automatically allow all required reply
 packets that are part of backend replying to frontend within the context of the
 same TCP/UDP connection.
 
-L4 Policy with Cilium and Kubernetes
-++++++++++++++++++++++++++++++++++++
+**L4 Policy with Cilium and Kubernetes**
 
-.. image:: cilium_k8s_demo_l4-policy-150817.png
+.. image:: cilium_k8s_demo_l3-l4-policy-170817.png
 
 We can achieve that with the following Kubernetes NetworkPolicy:
 
@@ -320,10 +318,9 @@ and
     $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/private
     { 'val': 'this is private' }
 
-L7 Policy with Cilium and Kubernetes
-++++++++++++++++++++++++++++++++++++
+**L7 Policy with Cilium and Kubernetes**
 
-.. image:: cilium_k8s_demo_l7-policy-150817.png
+.. image:: cilium_k8s_demo_l7-policy-170817.png
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
 URLs *app2* is allowed to reach.  Here is an example policy file that
@@ -686,10 +683,9 @@ the *app2* to contact *app3*, it will automatically allow return
 packets that are part of *app1* replying to *app2* within the context
 of the same TCP/UDP connection.
 
-L4 Policy with Cilium and Docker
-++++++++++++++++++++++++++++++++
+**L4 Policy with Cilium and Docker**
 
-.. image:: cilium_dkr_demo_l4-policy-150817.png
+.. image:: cilium_dkr_demo_l3-l4-policy-170817.png
 
 We can achieve that with the following Cilium policy:
 
@@ -788,10 +784,9 @@ URLs *app2* is allowed to reach.  Here is an example policy file that
 extends our original policy by limiting *app2* to making only a GET /public
 API call, but disallowing all other calls (including GET /private).
 
-L7 Policy with Cilium and Docker
-++++++++++++++++++++++++++++++++
+**L7 Policy with Cilium and Docker**
 
-.. image:: cilium_dkr_demo_l7-policy-150817.png
+.. image:: cilium_dkr_demo_l7-policy-170817.png
 
 The following Cilium policy file achieves this goal:
 
@@ -867,8 +862,10 @@ using the contrib/vagrant/start.sh script.
 Getting Started Using Mesos 
 -----------------------------
 
-This tutorial leverages Vagrant and VirtualBox to deploy Apache Mesos, Marathon and Cilium. You will run Cilium to apply a simple policy between a basic web-server and client. This tutorial can be run on any operating system supported by Vagrant including Linux, macOS, and Windows.
+This tutorial leverages Vagrant and VirtualBox to deploy Apache Mesos, Marathon and Cilium. You will run Cilium to apply a simple policy between a simulated web-service and clients. This tutorial can be run on any operating system supported by Vagrant including Linux, macOS, and Windows.
 
+For more information on Apache Mesos and Marathon orchestration, check out the `Mesos <https://github.com/apache/mesos>`_ and `Marathon <https://mesosphere.github.io/marathon/>`_ GitHub pages, respectively.
+ 
 Step 0: Install Vagrant
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -964,11 +961,17 @@ Start Marathon inside the Vagrant VM:
 ::
 
     $ ./start_marathon.sh
+    Starting marathon...
+    ...
+    ...
+    ...
+    ...
+    Done
 
-Step 6: Start a Simple Web-Server and Client 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 6: Simulate a Web-Server and Clients
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Use ``curl`` to submit a task to Marathon for scheduling, with data to run the simple web-server provided by the ``web-server.json``. The web-server simply responds to requests on a particular port. 
+Use ``curl`` to submit a task to Marathon for scheduling, with data to run the simulated web-server provided by the ``web-server.json``. The web-server simply responds to requests on a particular port. 
 
 ::
 
@@ -1013,19 +1016,22 @@ The output should simply return:
     OK
 
 
-Run a script to create the client requests to the newly created web-server. The script should generate a ``client.json`` for the client task:
+Run a script to create "good client" and "bad client" requests to the newly created web-server. The script should generate ``goodclient.json`` and ``badclient.json`` files for the client tasks, respectively:
 
 ::
 
-    $ ./generate_client_file.sh 
+    $ ./generate_client_file.sh goodclient
+    $ ./generate_client_file.sh badclient
 
-Then submit the client task to Marathon, which will generate ``GET /public`` and ``GET /private`` requests:
+
+Then submit the client tasks to Marathon, which will generate ``GET /public`` and ``GET /private`` requests:
 
 ::
 
-    $ curl -i -H 'Content-Type: application/json' -d @client.json 127.0.0.1:8080/v2/apps
+    $ curl -i -H 'Content-Type: application/json' -d @goodclient.json 127.0.0.1:8080/v2/apps
+    $ curl -i -H 'Content-Type: application/json' -d @badclient.json 127.0.0.1:8080/v2/apps
 
-You can observe the newly created endpoint in Cilium, similar to the following output:
+You can observe the newly created endpoints in Cilium, similar to the following output:
 
 ::
 
@@ -1033,13 +1039,20 @@ You can observe the newly created endpoint in Cilium, similar to the following o
     ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
                ENFORCEMENT                                                                                           
     29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
-    33115      Disabled      257        mesos:id=client               f00d::a00:20f:0:815b   10.15.220.6    ready
+    33115      Disabled      257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready
+    64189      Disabled      258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready    
 
-Marathon runs the tasks as batch jobs with ``stdout`` available under ``/var/lib/mesos``. To simplify the retrieval of the stdout log, use the ``tail_client.sh`` script to output the client logs. 
+Marathon runs the tasks as batch jobs with ``stdout`` available under ``/var/lib/mesos``. To simplify the retrieval of the ``stdout`` log, use the ``tail_client.sh`` script to output each of the client logs. Tail the *goodclient* logs:
 
 ::
 
-    $ ./tail_client.sh
+    $ ./tail_client.sh goodclient
+
+and in a separate terminal, start another ssh session to the Vagrant VM with ``vagrant ssh`` and observe the *badclient* logs:
+
+::
+
+    $ ./tail_client.sh badclient
 
 Make sure the previous command continuously prints the result of the client accessing */public* and */private* API of the web-server:
 
@@ -1049,19 +1062,86 @@ Make sure the previous command continuously prints the result of the client acce
     --------------------------------
     GET /public
     OK
-
-    GET /private
-    OK/
-    --------------------------------
-    GET /public
-    OK
-
+    
+    HTTP code: 200
     GET /private
     OK
+    
+    HTTP code: 200
     --------------------------------
     ...
 
-Step 7: Apply L7 Policy with Cilium
+Step 7: Apply L3/L4 Policy with Cilium
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In a new terminal session, do a ``vagrant ssh`` to get into the Vagrant VM and apply an L3/L4 policy only allowing the *goodclient* to access the *web-server*. The L3/L4 json policy looks like:
+
+::
+
+    [{
+        "endpointSelector": {"matchLabels":{"id":"web-server"}},
+        "ingress": [{
+            "fromEndpoints": [
+                {"matchLabels":{"id":"goodclient"}}
+            ],
+            "toPorts": [{
+                    "ports": [{"port": "8181", "protocol": "tcp"}]
+            }]
+        }]
+    }]
+
+**L3/L4 Policy with Cilium and Mesos**
+
+.. image:: cilium_mesos_demo_l3-l4-policy-170817.png
+
+
+Use ``cilium`` CLI to apply the L3/L4 policy:
+ 
+::
+
+    $ cilium policy import l3-l4-policy.json
+
+You can observe that the policy is applied via ``cilium`` CLI:
+
+::
+
+    $ cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
+               ENFORCEMENT                                                                                           
+    29898      Enabled       256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
+    33115      Enabled       257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready    
+    64189      Enabled       258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready 
+
+You should also observe that the *goodclient* logs continue to output the *web-server* responses, whereas the *badclient* request does not reach the *web-server* because of policy enforcement, and logging output similar to below. 
+
+::
+
+    --------------------------------
+    GET /public
+    HTTP code: 000
+    GET /private
+    HTTP code: 000
+    --------------------------------
+
+You can remove the L3/L4 policy in order to give *badclient* access to the *web-server* again.
+
+::
+
+    $ cilium policy delete --all
+    Revision: 2
+
+The *badclient* logs should resume outputting the *web-server*'s response and Cilium is configured to no longer enforce policy:
+
+::
+
+    $ cilium endpoint list
+    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
+               ENFORCEMENT                                                                                           
+    29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
+    33115      Disabled      257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready    
+    64189      Disabled      258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready
+
+Step 8: Apply L7 Policy with Cilium
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Now, in a different terminal, do a ``vagrant ssh`` and apply the provided policy that allows accessing only the */public* API:
 
@@ -1069,12 +1149,11 @@ Now, in a different terminal, do a ``vagrant ssh`` and apply the provided policy
 
     $ cilium policy import l7-policy.json
 
-L7 Policy with Cilium and Mesos
-+++++++++++++++++++++++++++++++
+**L7 Policy with Cilium and Mesos**
 
-.. image:: cilium_mesos_demo_l7-policy-150817.png
+.. image:: cilium_mesos_demo_l7-policy-170817.png
 
-Check the client's log and you should see that */private* is no longer accessible.
+Check the *goodclient*'s log and you should see that */private* is no longer accessible, and the *badclient*'s requests see the same results as the previous step.
 
 ::
 
@@ -1082,8 +1161,12 @@ Check the client's log and you should see that */private* is no longer accessibl
     GET /public
     OK
     
+    HTTP code: 200
     GET /private
     Access denied
+    HTTP code: 403
+    --------------------------------
+
 
 You can also observe that the policy is applied with ``cilium`` CLI:
 
@@ -1093,7 +1176,8 @@ You can also observe that the policy is applied with ``cilium`` CLI:
     ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
                ENFORCEMENT                                                                                           
     29898      Enabled       256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
-    33115      Enabled       257        mesos:id=client               f00d::a00:20f:0:815b   10.15.220.6    ready
+    33115      Enabled       257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready    
+    64189      Enabled       258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready
 
 (optional) Remove the policy and notice that the access to */private* is unrestricted again:
 
@@ -1101,7 +1185,7 @@ You can also observe that the policy is applied with ``cilium`` CLI:
 
     $ cilium policy delete --all
 
-Step 8: Clean-Up 
+Step 9: Clean-Up 
 ^^^^^^^^^^^^^^^^
 
 Exit the vagrant VM by typing ``exit``.
