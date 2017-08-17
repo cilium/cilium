@@ -260,7 +260,8 @@ function fresh_install(){
     fi
     install_kubeadm_dependencies
     install_kubeadm
-
+    
+    clean_kubeadm
     start_kubeadm
 
     install_cilium_config
