@@ -53,11 +53,7 @@ var (
 						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
-				ToCIDR: []api.CIDR{
-					{
-						IP: "10.0.0.1",
-					},
-				},
+				ToCIDR: []api.CIDR{"10.0.0.1"},
 			},
 		},
 	}
@@ -90,11 +86,7 @@ var (
 						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
-				ToCIDR: []api.CIDR{
-					{
-						IP: "10.0.0.1",
-					},
-				},
+				ToCIDR: []api.CIDR{"10.0.0.1"},
 			},
 		},
 		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", PolicyLabelName, "rule1")),
@@ -170,9 +162,7 @@ var (
                     }
                 ],
                 "toCIDR": [
-                    {
-                        "ip": "10.0.0.1"
-                    }
+                    "10.0.0.1"
                 ]
             }
         ]
