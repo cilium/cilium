@@ -18,7 +18,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -171,42 +170,114 @@ const (
 	PolicyGlobalMapName = "cilium_policy"
 )
 
-// Endpoint contains all the details for a particular LXC and the host interface to where
-// is connected to.
+// Endpoint represents a container or similar which can be individually
+// addresses on L3 with its own IP addresses. This structured is managed by the
+// endpoint manager in pkg/endpointmanager.
+//
+// This structure is written as JSON to StateDir/{ID}/lxc_config.h to allow to
+// restore endpoints when the agent is being restarted. The restore operation
+// will read the file and re-create all endpoints with all fields which are not
+// marked as private to JSON marshal.
 type Endpoint struct {
-	ID               uint16       // Endpoint ID.
-	Mutex            sync.RWMutex // Protects all variables from this structure below this line
-	ContainerName    string       // Docker container name.
-	DockerID         string       // Docker ID.
-	DockerNetworkID  string       // Docker network ID.
-	DockerEndpointID string       // Docker endpoint ID.
-	IfName           string       // Container's interface name.
-	LabelsHash       string
-	OpLabels         pkgLabels.OpLabels
-	LXCMAC           mac.MAC               // Container MAC address.
-	IPv6             addressing.CiliumIPv6 // Container IPv6 address.
-	IPv4             addressing.CiliumIPv4 // Container IPv4 address.
-	IfIndex          int                   // Host's interface index.
-	NodeMAC          mac.MAC               // Node MAC address.
-	NodeIP           net.IP                // Node IPv6 address.
-	SecLabel         *policy.Identity      // Security Label  set to this endpoint.
-	PortMap          []PortMap             // Port mapping used for this endpoint.
-	Consumable       *policy.Consumable
-	PolicyMap        *policymap.PolicyMap
-	L3Policy         *policy.L3Policy
-	L3Maps           L3Maps
-	Opts             *option.BoolOptions // Endpoint bpf options.
-	Status           *EndpointStatus
-	State            string
+	// ID of the endpoint, unique in the scope of the node
+	ID uint16
+
+	// Mutex protects write operations to this endpoint structure
+	Mutex sync.RWMutex
+
+	// ContainerName is the name given to the endpoint by the container runtime
+	ContainerName string
+
+	// DockerID is the container ID that containerd has assigned to the endpoint
+	//
+	// FIXME: Rename this field to ContainerID
+	DockerID string
+
+	// DockerNetworkID is the network ID of the libnetwork network if the
+	// endpoint is a docker managed container which uses libnetwork
+	DockerNetworkID string
+
+	// DockerEndpointID is the Docker network endpoint ID if managed by
+	// libnetwork
+	DockerEndpointID string
+
+	// IfName is the name of the host facing interface (veth pair) which
+	// connects into the endpoint
+	IfName string
+
+	// IfIndex is the interface index of the host face interface (veth pair)
+	IfIndex int
+
+	// OpLabels is the endpoint's label configuration
+	//
+	// FIXME: Rename this field to Labels
+	OpLabels pkgLabels.OpLabels
+
+	// LXCMAC is the MAC address of the endpoint
+	//
+	// FIXME: Rename this field to MAC
+	LXCMAC mac.MAC // Container MAC address.
+
+	// IPv6 is the IPv6 address of the endpoint
+	IPv6 addressing.CiliumIPv6
+
+	// IPv4 is the IPv4 address of the endpoint
+	IPv4 addressing.CiliumIPv4
+
+	// NodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
+	NodeMAC mac.MAC
+
+	// SecLabel is (L3) the identity of this endpoint
+	//
+	// FIXME: Rename this field to Identity
+	SecLabel *policy.Identity // Security Label  set to this endpoint.
+
+	// LabelsHash is a SHA256 hash over the SecLabel labels
+	LabelsHash string
+
+	// PortMap is port mapping configuration of the endpoint
+	PortMap []PortMap // Port mapping used for this endpoint.
+
+	// Consumable is the list of allowed consumers of this endpoint. This
+	// is populated based on the policy.
+	Consumable *policy.Consumable `json:"-"`
+
+	// PolicyMap is the policy related state of the datapath including
+	// reference to all policy related BPF
+	PolicyMap *policymap.PolicyMap `json:"-"`
+
+	// L3Policy is the CIDR based policy configuration of the endpoint
+	L3Policy *policy.L3Policy `json:"-"`
+
+	// L3Maps is the datapath representation of L3Policy
+	L3Maps L3Maps `json:"-"`
+
+	// Opts are configurable boolean options
+	Opts *option.BoolOptions
+
+	// Status are the last n state transitions this endpoint went through
+	Status *EndpointStatus
+
+	// State is the state the endpoint is in. It can be { Creating |
+	// Disconnected | WaitingForIdentity | Ready | Regenerating }
+	State string
+
 	// PolicyCalculated is true as soon as the policy has been calculated
-	// for the first time
-	PolicyCalculated bool
-	PodName          string // K8s pod for this endpoint.
+	// for the first time. As long as this value is false, all packets sent
+	// by the endpoint will be dropped to ensure that the endpoint cannot
+	// bypass policy while it is still being resolved.
+	PolicyCalculated bool `json:"-"`
+
+	// PodName is the name of the Kubernetes pod if the endpoint is managed
+	// by Kubernetes
+	PodName string
+
 	// PolicyRevision is the policy revision this endpoint is currently on
-	PolicyRevision uint64
+	PolicyRevision uint64 `json:"-"`
+
 	// NextPolicyRevision is the policy revision that the endpoint has
 	// updated to and that will become effective with the next regenerate
-	NextPolicyRevision uint64
+	NextPolicyRevision uint64 `json:"-"`
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -529,14 +600,12 @@ func (e *Endpoint) DeepCopy() *Endpoint {
 		IPv6:             make(addressing.CiliumIPv6, len(e.IPv6)),
 		IfIndex:          e.IfIndex,
 		NodeMAC:          make(mac.MAC, len(e.NodeMAC)),
-		NodeIP:           make(net.IP, len(e.NodeIP)),
 		PortMap:          make([]PortMap, len(e.PortMap)),
 		Status:           NewEndpointStatus(),
 	}
 	copy(cpy.LXCMAC, e.LXCMAC)
 	copy(cpy.IPv6, e.IPv6)
 	copy(cpy.NodeMAC, e.NodeMAC)
-	copy(cpy.NodeIP, e.NodeIP)
 	copy(cpy.PortMap, e.PortMap)
 
 	if e.IPv4 != nil {
