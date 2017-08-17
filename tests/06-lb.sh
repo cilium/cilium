@@ -59,7 +59,132 @@ function host_ip4()
   ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | sed -e 's/\/.*//'
 }
 
+function check_bpf_lb_maps_clean {
+  if [ "$(cilium bpf lb list | wc -l)" -gt 2 ]; then
+    abort "BPF LB maps should be clean"
+  fi
+}
+
+function check_daemon_lb_maps_clean {
+  local DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
+  # Check if everything was deleted
+  if [ "$DATA" -gt 0 ]; then
+        abort "Daemon's services map should be clean"
+  fi
+}
+
+function check_no_services {
+  # Daemon's map should be empty
+  if [ -n "$(cilium service list | tail -n+2)" ]; then
+    abort "Services map should be clean"
+  fi
+}
+function check_num_services {
+  local NUM_SERVICES=$1
+  local DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
+  if [[ "$DATA" != "$NUM_SERVICES" ]]; then
+    abort "expected $NUM_SERVICES services but there were $DATA"
+  fi
+}
+
+function run_benchmark_tests {
+  log "updating service 2223"
+  cilium service update --rev --frontend "[$SVC_IP6]:80" --id 2223 \
+                        --backends "[$SERVER1_IP]:80" \
+                        --backends "[$SERVER2_IP]:80" \
+                        --backends "[$SERVER3_IP]:80" \
+                        --backends "[$SERVER4_IP]:80" \
+                        --backends "[$SERVER5_IP]:80"
+
+  log "updating service 2223"
+  cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
+                        --backends "$SERVER1_IP4:80" \
+                        --backends "$SERVER2_IP4:80" \
+                        --backends "$SERVER3_IP4:80" \
+                        --backends "$SERVER4_IP4:80" \
+                        --backends "$SERVER5_IP4:80"
+
+  #cilium config Debug=false DropNotification=false TraceNotification=false
+  #cilium endpoint config $SERVER1_ID Debug=false DropNotification=false TraceNotification=false
+  #cilium endpoint config $SERVER2_ID Debug=false DropNotification=false TraceNotification=false
+
+  log "benchmark tests: trying to reach local IPv6 node via loadbalancer"
+  docker exec -i misc wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
+    abort "Error: Unable to reach local IPv6 node via loadbalancer"
+  }
+
+  log "benchmark tests: trying to reach local IPv4 node via loadbalancer"
+  docker exec -i misc wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/" || {
+    abort "Error: Unable to reach local IPv4 node via loadbalancer"
+  }
+
+  log "benchmark tests: trying to reach local IPv6 node via loadbalancer"
+  docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://[$SVC_IP6]/" || {
+    abort "Error: Unable to reach local IPv6 node via loadbalancer"
+  }
+
+  log "benchmark tests: trying to reach local IPv4 node via loadbalancer"
+  docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://$SVC_IP4/" || {
+    abort "Error: Unable to reach local IPv4 node via loadbalancer"
+  }
+
+  #cilium config Debug=true DropNotification=true TraceNotification=true
+}
+
+function test_svc_restore_functionality {
+  log "checking restore functionality for services"
+  local SVCS_BEFORE_RESTART=$(cilium service list | tail -n+2 | sort)
+  local BPF_LB_LIST_BEFORE_RESTART=$(cilium bpf lb list | tail -n+3 | sort)
+
+  log "restarting Cilium"
+  service cilium restart
+  wait_for_cilium_status
+
+  log "checking services and BPF maps after restarting Cilium"
+  local SVCS_AFTER_RESTART=$(cilium service list | tail -n+2 | sort)
+  local BPF_LB_LIST_AFTER_RESTART=$(cilium bpf lb list | tail -n+3 | sort)
+
+  if [[ "$SVCS_BEFORE_RESTART" != "$SVCS_AFTER_RESTART" ]]; then
+    log "Services before restart: $SVCS_BEFORE_RESTART"
+    log "Services after restart: $SVCS_AFTER_RESTART" 
+    abort "Error: services before restart are not the same as services after restart"
+  fi
+
+  if [[ "$BPF_LB_LIST_BEFORE_RESTART" != "$BPF_LB_LIST_AFTER_RESTART" ]]; then
+    log "BPF LB maps before restart: $BPF_LB_LIST_BEFORE_RESTART"
+    log "BPF LB maps after restart: $BPF_LB_LIST_AFTER_RESTART"
+    abort "Error: BPF lb maps before restart are not the same as after restart"
+  fi
+  
+  local SVC_IDS=$(cilium service list | tail -n+2 | awk '{ print $1 }')
+  for id in $SVC_IDS; do 
+    check_cilium_bpf_maps_synced $id
+  done
+}
+
+
+function check_cilium_bpf_maps_synced {
+  local ID=$1
+  log "checking that BPF Maps are in sync with Cilium maps for service $ID"
+  local SVC_FE=$(cilium service list | grep $ID | awk '{print $2}')
+  local SVC_BE=$(cilium service list | grep $ID | awk '{print $5}') 
+  local BPF_FE=$(cilium bpf lb list | grep $ID | awk '{print $1}')
+  local BPF_BE=$(cilium bpf lb list | grep $ID | awk '{print $2}')
+
+  log "checking that service $ID frontends match in both maps"
+  if [[ "${SVC_FE}" != "${BPF_FE}" ]]; then
+    abort "Error: Service $ID has frontend ${SVC_FE} but BPF maps have frontend ${BPF_FE}"
+  fi
+
+  log "checking that service $ID backends match in both maps"
+  if [[ "${SVC_BE}" != "${BPF_BE}" ]]; then
+    log "Error: Service $ID has backend ${SVC_BE} but BPF maps have backend ${BPF_BE}"
+    exit 1
+  fi
+}
+
 trap finish_test EXIT
+
 cleanup
 
 ip addr add $HOSTIP6 dev cilium_host
@@ -74,12 +199,7 @@ cilium service delete --all
 log "listing all services in Cilium"
 cilium service list
 
-# Check if everything was deleted
-log "checking that all services have been deleted"
-if [ -n "$(cilium service list | tail -n+2)" ]; then
-  abort "Daemon's services map should be clean"
-fi
-
+check_no_services
 log "adding service 1"
 # Add a service with ID 1
 cilium service update --frontend [::]:80 --backends '[::1]:90,[::2]:91' --id 1 --rev 2> /dev/null || {
@@ -107,8 +227,9 @@ LIST_FIXTURE=$(cat <<-EOF
 }
 EOF
 )
-DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
 
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
+ 
 # Check if it's the only service present
 log "checking that service 1 was added"
 if [[ "${LIST_FIXTURE}" != "$DATA" ]]; then
@@ -140,12 +261,8 @@ cilium service update --frontend [::]:80 --backends [::1]:90,[::2]:91 --id 2 --r
   abort "Conflicting service should not have been added"
 }
 
-DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
 log "checking that service with ID 2 wasn't added"
-# Check if it's the only service present
-if [[ "$DATA" != "1" ]]; then
-  abort "Service ID 2 seems to have been added after all"
-fi
+check_num_services "1"
 
 # Let's try delete the only service
 log "trying to delete service with ID 1"
@@ -154,17 +271,8 @@ if [[ "$(cilium service delete 1)" != \
   abort "Service ID 1 could not be deleted"
 fi
 
-DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
-log "checking that services output is clean"
-# Check if everything was deleted
-if [ "$DATA" -gt 0 ]; then
-  abort "Daemon's services map should be clean"
-fi
-
-#FIXME The services maps are not being properly cleaned
-#if [ -n "$(cilium service --no-daemon dump-service)" ]; then
-#	abort "Services map should be clean"
-#fi
+check_daemon_lb_maps_clean
+check_bpf_lb_maps_clean
 
 # Test the same for IPv4 addresses
 if [ -n "${IPV4}" ]; then
@@ -177,9 +285,7 @@ if [ -n "${IPV4}" ]; then
 
   # Check if everything was deleted
   log "checking that all services have been deleted"
-  if [ -n "$(cilium service list | tail -n+2)" ]; then
-    abort "Daemon's services map should be clean"
-  fi
+  check_no_services
 
   # Add a service with ID 0, it should fail
   log "trying to add service with ID 0 to the daemon (shouldn't work)"
@@ -188,10 +294,7 @@ if [ -n "${IPV4}" ]; then
   }
 
   # Daemon's map should be empty
-  log "checking that \"cilium service list\" output is empty"
-  if [ -n "$(cilium service list | tail -n+2)" ]; then
-    abort "Services map should be clean"
-  fi
+  check_no_services
 
   # Add a service with ID 10
   log "adding service with ID 10"
@@ -201,11 +304,7 @@ if [ -n "${IPV4}" ]; then
 
 
   # Check if it's the only service present
-  DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
-  log "checking that service 10 is the only service present"
-  if [ "$DATA" != "1" ]; then
-    abort "Service was not properly added"
-  fi
+  check_num_services 1
 
   # Check if we can get the service by its ID
   log "checking that we can get service 10 by its ID"
@@ -221,23 +320,20 @@ if [ -n "${IPV4}" ]; then
   }
 
   # Check if it's the only service present
-  DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
   log "checking that service 10 is still the only service present"
-  if [ "$DATA" != "1" ]; then
-    abort "Service ID 20 seems to have been added after all"
-  fi
+  check_num_services 1
 
-#	# Check if we can get the service by it's ID
-#	if [[ "$(cilium service get 20)" != \
-#	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
-#	     abort "Service was not properly added"
-#	fi
+# # Check if we can get the service by it's ID
+# if [[ "$(cilium service get 20)" != \
+#       "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)")" ]]; then
+#   abort "Service was not properly added"
+# fi
 
-#	# BPF's map should contain service with a different RevNAT ID
-#	if [[ "$(cilium service list)" != \
-#	      "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
-#	     abort "Service was not properly added"
-#	fi
+# # BPF's map should contain service with a different RevNAT ID
+# if [[ "$(cilium service list)" != \
+#       "$(echo -e "127.0.0.1:80 =>\n\t\t1 => 127.0.0.2:90 (20)\n\t\t2 => 127.0.0.3:90 (20)\n")" ]]; then
+#   abort "Service was not properly added"
+# fi
 
   # Let's try delete the only service
   log "deleting service 10 (should work)"
@@ -246,18 +342,8 @@ if [ -n "${IPV4}" ]; then
     abort "RevNAT's was not deleted"
   fi
 
-  # Check if everything was deleted
-  DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/  | jq '.| length')
-  log "checking that service was deleted"
-  # Check if everything was deleted
-  if [ "$DATA" != "0" ]; then
-    abort "Daemon's services map should be clean"
-  fi
-
-  #FIXME The services maps are not being properly cleaned
-  #if [ -n "$(cilium service --no-daemon dump-service)" ]; then
-  #	abort "Services map should be clean"
-  #fi
+   check_daemon_lb_maps_clean
+   check_bpf_lb_maps_clean
 fi
 
 log "setting up links and routes for tests"
@@ -363,6 +449,7 @@ cat <<EOF | policy_import_and_wait -
     }]
 }]
 EOF
+
 
 # Clear eventual old entries, this may fail if the maps have not been created
 log "deleting all services"
@@ -503,50 +590,11 @@ docker exec --privileged -i server1 ping -c 4 $SVC_IP4 || {
 if [ -z $BENCHMARK ]; then
   log "Skipping Test 5, not in benchmark mode."
   log "Run with BENCHMARK=1 to enable this test"
-  exit 0
+else
+  run_benchmark_tests
 fi
 
-log "updating service 2223"
-cilium service update --rev --frontend "[$SVC_IP6]:80" --id 2223 \
-                        --backends "[$SERVER1_IP]:80" \
-                        --backends "[$SERVER2_IP]:80" \
-                        --backends "[$SERVER3_IP]:80" \
-                        --backends "[$SERVER4_IP]:80" \
-                        --backends "[$SERVER5_IP]:80"
-
-log "updating service 2223"
-cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
-			--backends "$SERVER1_IP4:80" \
-			--backends "$SERVER2_IP4:80" \
-			--backends "$SERVER3_IP4:80" \
-			--backends "$SERVER4_IP4:80" \
-			--backends "$SERVER5_IP4:80"
-
-#cilium config Debug=false DropNotification=false TraceNotification=false
-#cilium endpoint config $SERVER1_ID Debug=false DropNotification=false TraceNotification=false
-#cilium endpoint config $SERVER2_ID Debug=false DropNotification=false TraceNotification=false
-
-log "benchmark tests: trying to reach local IPv6 node via loadbalancer"
-docker exec -i misc wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
-  abort "Error: Unable to reach local IPv6 node via loadbalancer"
-}
-
-log "benchmark tests: trying to reach local IPv4 node via loadbalancer"
-docker exec -i misc wrk -t20 -c1000 -d60 "http://$SVC_IP4:80/" || {
-  abort "Error: Unable to reach local IPv4 node via loadbalancer"
-}
-
-log "benchmark tests: trying to reach local IPv6 node via loadbalancer"
-docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://[$SVC_IP6]/" || {
-  abort "Error: Unable to reach local IPv6 node via loadbalancer"
-}
-
-log "benchmark tests: trying to reach local IPv4 node via loadbalancer"
-docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://$SVC_IP4/" || {
-  abort "Error: Unable to reach local IPv4 node via loadbalancer"
-}
-
-#cilium config Debug=true DropNotification=true TraceNotification=true
+test_svc_restore_functionality
 
 cleanup
 log "deleting all policies in Cilium"

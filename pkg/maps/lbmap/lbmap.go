@@ -21,6 +21,8 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -115,6 +117,7 @@ type RRSeqValue struct {
 func (s RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&s) }
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
+	log.Debugf("adding frontend: %s for backend: %s to BPF maps", key, value)
 	if key.GetBackend() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
@@ -125,6 +128,7 @@ func UpdateService(key ServiceKey, value ServiceValue) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
+// DeleteService deletes a service from the lbmap. key should be the master (i.e., with backend set to zero).
 func DeleteService(key ServiceKey) error {
 	err := key.Map().Delete(key.ToNetwork())
 	if err != nil {
@@ -200,6 +204,7 @@ type RevNatValue interface {
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
+	log.Debugf("adding revNat key: %s --> value: %s", key, value)
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
@@ -211,6 +216,7 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 }
 
 func DeleteRevNat(key RevNatKey) error {
+	log.Debugf("deleting RevNatKey: %s", key.String())
 	return key.Map().Delete(key.ToNetwork())
 }
 
@@ -314,6 +320,7 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 	// Put all the backend services first
 	nSvcs := 1
 	nNonZeroWeights := 0
+
 	for _, be := range besValues {
 		fe.SetBackend(nSvcs)
 		weights = append(weights, be.GetWeight())
@@ -331,6 +338,7 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 		zeroValue.SetRevNat(revNATID)
 		revNATKey := zeroValue.RevNatKey()
 		revNATValue := fe.RevNatValue()
+
 		if err := UpdateRevNat(revNATKey, revNATValue); err != nil {
 			return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
 		}
@@ -361,17 +369,19 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 
 // L3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
 // set to 0.
-func L3n4Addr2ServiceKey(l3n4Addr types.L3n4Addr) ServiceKey {
+func L3n4Addr2ServiceKey(l3n4Addr types.L3n4AddrID) ServiceKey {
+	log.Debugf("converting L3n4Addr %s to ServiceKey", l3n4Addr.String())
 	if l3n4Addr.IsIPv6() {
 		return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 	}
 	return NewService4Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 }
 
-// LBSVC2ServiceKeynValue transforms the SVC cilium type into a bpf SVC type.
+// LBSVC2ServiceKeynValue transforms the SVC Cilium type into a bpf SVC type.
 func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error) {
-
-	fe := L3n4Addr2ServiceKey(svc.FE.L3n4Addr)
+	log.Debugf("converting Cilium load-balancer service (frontend: %s, "+
+		"backend(s): %v) into BPF service", svc.FE.String(), svc.BES)
+	fe := L3n4Addr2ServiceKey(svc.FE)
 
 	// Create a list of ServiceValues so we know everything is safe to put in the lb
 	// map
@@ -386,8 +396,11 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 		beValue.SetWeight(be.Weight)
 
 		besValues = append(besValues, beValue)
+		log.Debugf("associating frontend: %s --> backend: %s", fe, beValue)
 	}
-
+	log.Debugf("converted LBSVC (frontend: %s, backend(s): %v), to "+
+		"ServiceKey: %s, ServiceValue(s): %v", svc.FE.String(), svc.BES, fe.String(),
+		besValues)
 	return fe, besValues, nil
 }
 
@@ -401,6 +414,7 @@ func L3n4Addr2RevNatKeynValue(svcID types.ServiceID, feL3n4Addr types.L3n4Addr) 
 
 // ServiceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
 func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
+	log.Debugf("creating L3n4Addr for ServiceKey %s", svcKey)
 	var (
 		feIP   net.IP
 		fePort uint16
@@ -414,7 +428,6 @@ func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
 		feIP = svc4Key.Address.IP()
 		fePort = svc4Key.Port
 	}
-
 	return types.NewL3n4Addr(types.TCP, feIP, fePort)
 }
 
@@ -427,6 +440,9 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 		bePort   uint16
 		beWeight uint16
 	)
+
+	log.Debugf("converting ServiceKey %s and ServiceValue %s to frontend and backend", svcKey, svcValue)
+
 	if svcKey.IsIPv6() {
 		svc6Val := svcValue.(*Service6Value)
 		svcID = types.ServiceID(svc6Val.RevNat)
@@ -443,12 +459,12 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 
 	feL3n4Addr, err := ServiceKey2L3n4Addr(svcKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create a new FE for service key %s: %s", svcKey, err)
+		return nil, nil, fmt.Errorf("unable to create a new frontend for service key %s: %s", svcKey, err)
 	}
 
 	beLBBackEnd, err := types.NewLBBackEnd(types.TCP, beIP, bePort, beWeight)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create a new BE for IP: %s Port: %d: %s", beIP, bePort, err)
+		return nil, nil, fmt.Errorf("unable to create a new backend for %s:%d: %s", beIP, bePort, err)
 	}
 
 	feL3n4AddrID := &types.L3n4AddrID{
