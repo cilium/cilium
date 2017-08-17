@@ -34,7 +34,7 @@ type PatchConfigParams struct {
 	  Required: true
 	  In: body
 	*/
-	Configuration models.ConfigurationMap
+	Configuration *models.Configuration
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -45,7 +45,7 @@ func (o *PatchConfigParams) BindRequest(r *http.Request, route *middleware.Match
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.ConfigurationMap
+		var body models.Configuration
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
 				res = append(res, errors.Required("configuration", "body"))
@@ -59,7 +59,7 @@ func (o *PatchConfigParams) BindRequest(r *http.Request, route *middleware.Match
 			}
 
 			if len(res) == 0 {
-				o.Configuration = body
+				o.Configuration = &body
 			}
 		}
 

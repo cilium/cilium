@@ -51,7 +51,7 @@ paths:
         in: body
         required: true
         schema:
-          "$ref": "#/definitions/ConfigurationMap"
+          "$ref": "#/definitions/Configuration"
       responses:
         '200':
           description: Success
@@ -646,6 +646,7 @@ definitions:
     type: object
     required:
       - state
+      - policy-enabled
     properties:
       id:
         description: Local endpoint ID
@@ -702,6 +703,8 @@ definitions:
       policy-revision:
         description: The policy revision this endpoint is running on
         type: integer
+      l3:
+        "$ref": "#/definitions/L3Policy"
   EndpointChangeRequest:
     description: |
       Structure which contains the mutable elements of an Endpoint.
@@ -802,6 +805,20 @@ definitions:
           type: string
       egress:
         description: List of L4 egress rules
+        type: array
+        items:
+          type: string
+  L3Policy:
+    description: L3 endpoint policy
+    type: object
+    properties:
+      ingress:
+        description: list of L3 Ingress rules
+        type: array
+        items:
+          type: string
+      egress:
+        description: List of L3 Egress rules
         type: array
         items:
           type: string
@@ -939,6 +956,8 @@ definitions:
         type: string
       k8s-configuration:
         type: string
+      policy-enforcement:
+        type: string
   Configuration:
     description: |
       General purpose structure to hold configuration of the daemon and
@@ -951,6 +970,8 @@ definitions:
       immutable:
         description: Immutable configuration (read-only)
         "$ref": "#/definitions/ConfigurationMap"
+      policy-enforcement:
+        type: string
   ConfigurationMap:
     description: |
       Map of configuration key/value pairs.

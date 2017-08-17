@@ -177,6 +177,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
+	// If there hasn't been a policy calculated yet, we need to be sure we drop all packets, but only if policy enforcement is enabled for the endpoint / daemon.
 	if !e.PolicyCalculated && e.Opts.IsEnabled(OptionPolicy) && owner.PolicyEnforcement() != NeverEnforce {
 		fw.WriteString("#define DROP_ALL\n")
 	}

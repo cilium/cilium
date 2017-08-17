@@ -20,6 +20,9 @@ type Configuration struct {
 
 	// Changeable configuration
 	Mutable ConfigurationMap `json:"mutable,omitempty"`
+
+	// policy enforcement
+	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
 
 // Validate validates this configuration

@@ -80,7 +80,7 @@ function test_from {
 
 function test_to {
   echo "------ to filter ------"
-  cilium config Debug=true DropNotification=true Policy=true
+  cilium config Debug=true DropNotification=true PolicyEnforcement=always
   setup
   spin_up_container
   monitor_start --type drop --to $(last_endpoint_id)
@@ -94,7 +94,7 @@ function test_to {
 
 function test_related_to {
   echo "------ related to filter ------"
-  cilium config Debug=true DropNotification=true Policy=true
+  cilium config Debug=true DropNotification=true PolicyEnforcement=always
   setup
   spin_up_container
   monitor_start --type drop --related-to $(last_endpoint_id)

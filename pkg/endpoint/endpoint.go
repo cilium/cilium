@@ -282,6 +282,8 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		currentState = models.EndpointStateNotReady
 	}
 
+	policyEnabled := e.Opts.IsEnabled(OptionPolicy)
+
 	return &models.Endpoint{
 		ID:               int64(e.ID),
 		ContainerID:      e.DockerID,
@@ -301,8 +303,9 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		HostMac:        e.NodeMAC.String(),
 		PodName:        e.PodName,
 		State:          currentState, // TODO: Validate
+		L3:             e.L3Policy.GetModel(),
 		Policy:         e.Consumable.GetModel(),
-		PolicyEnabled:  e.Opts.IsEnabled(OptionPolicy),
+		PolicyEnabled:  &policyEnabled,
 		PolicyRevision: int64(e.PolicyRevision),
 		Status:         e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{

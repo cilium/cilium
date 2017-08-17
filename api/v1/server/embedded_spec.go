@@ -54,7 +54,7 @@ func init() {
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/ConfigurationMap"
+              "$ref": "#/definitions/Configuration"
             }
           }
         ],
@@ -859,6 +859,9 @@ func init() {
         "mutable": {
           "description": "Changeable configuration",
           "$ref": "#/definitions/ConfigurationMap"
+        },
+        "policy-enforcement": {
+          "type": "string"
         }
       }
     },
@@ -884,6 +887,9 @@ func init() {
         },
         "k8s-endpoint": {
           "type": "string"
+        },
+        "policy-enforcement": {
+          "type": "string"
         }
       }
     },
@@ -891,7 +897,8 @@ func init() {
       "description": "Endpoint",
       "type": "object",
       "required": [
-        "state"
+        "state",
+        "policy-enabled"
       ],
       "properties": {
         "addressing": {
@@ -932,6 +939,9 @@ func init() {
         "interface-name": {
           "description": "Name of network device",
           "type": "string"
+        },
+        "l3": {
+          "$ref": "#/definitions/L3Policy"
         },
         "labels": {
           "description": "Labels describing the identity",
@@ -1196,6 +1206,26 @@ func init() {
         "verbose": {
           "description": "Enable verbose tracing.\n",
           "type": "boolean"
+        }
+      }
+    },
+    "L3Policy": {
+      "description": "L3 endpoint policy",
+      "type": "object",
+      "properties": {
+        "egress": {
+          "description": "List of L3 Egress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ingress": {
+          "description": "list of L3 Ingress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

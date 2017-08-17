@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // Endpoint Endpoint
@@ -46,6 +47,9 @@ type Endpoint struct {
 	// Name of network device
 	InterfaceName string `json:"interface-name,omitempty"`
 
+	// l3
+	L3 *L3Policy `json:"l3,omitempty"`
+
 	// Labels describing the identity
 	Labels *LabelConfiguration `json:"labels,omitempty"`
 
@@ -59,7 +63,8 @@ type Endpoint struct {
 	Policy *EndpointPolicy `json:"policy,omitempty"`
 
 	// Whether policy enforcement is enabled or not
-	PolicyEnabled bool `json:"policy-enabled,omitempty"`
+	// Required: true
+	PolicyEnabled *bool `json:"policy-enabled"`
 
 	// The policy revision this endpoint is running on
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
@@ -86,12 +91,22 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateL3(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
 	if err := m.validateLabels(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validatePolicy(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validatePolicyEnabled(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -150,6 +165,25 @@ func (m *Endpoint) validateIdentity(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *Endpoint) validateL3(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.L3) { // not required
+		return nil
+	}
+
+	if m.L3 != nil {
+
+		if err := m.L3.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("l3")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *Endpoint) validateLabels(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Labels) { // not required
@@ -183,6 +217,15 @@ func (m *Endpoint) validatePolicy(formats strfmt.Registry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *Endpoint) validatePolicyEnabled(formats strfmt.Registry) error {
+
+	if err := validate.Required("policy-enabled", "body", m.PolicyEnabled); err != nil {
+		return err
 	}
 
 	return nil

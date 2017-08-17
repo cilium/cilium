@@ -244,11 +244,11 @@ func (d *Daemon) AlwaysAllowLocalhost() bool {
 	return d.conf.alwaysAllowLocalhost
 }
 
-func (d *Daemon) PolicyEnabled() bool {
-	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
-}
-
 func (d *Daemon) PolicyEnforcement() string {
+	d.conf.EnablePolicyMU.RLock()
+	log.Debugf("PolicyEnforcement: RLock EnablePolicyMU")
+	defer d.conf.EnablePolicyMU.RUnlock()
+	defer log.Debugf("PolicyEnforcement: RUnlock EnablePolicyMU")
 	return d.conf.EnablePolicy
 }
 
@@ -1086,23 +1086,60 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	d := h.daemon
 
-	if err := d.conf.Opts.Validate(params.Configuration); err != nil {
+	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
-	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
-	log.Debugf("Applied %d changes", changes)
+	// Only configure PolicyEnforcement through PolicyEnforcement flag, not Policy flag.
+	if _, ok := params.Configuration.Mutable[endpoint.OptionPolicy]; ok {
+		msg := fmt.Errorf("Please configuration policy enforcement for the daemon using \"PolicyEnforcement\" instead of \"Policy\"")
+		log.Warningf("%s", msg)
+		return apierror.Error(PatchConfigBadRequestCode, msg)
+	}
 
-	// Check explicitly for endpoint.OptionPolicy updates because its state
-	// is coupled with config's EnablePolicy flag.
-	_, ok := params.Configuration[endpoint.OptionPolicy]
-	if ok {
-		if config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.AlwaysEnforce {
-			config.EnablePolicy = endpoint.AlwaysEnforce
-		} else if !config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.NeverEnforce {
-			config.EnablePolicy = endpoint.NeverEnforce
+	var policyEnforcementChanged bool
+
+	// Update policy enforcement configuration if needed.
+	log.Debugf("Handle patch config, RLock EnablePolicyMU to get old value")
+	config.EnablePolicyMU.RLock()
+	oldEnforcementValue := config.EnablePolicy
+	log.Debugf("Handle patch config, RUnlock EnablePolicyMU to get old value")
+	config.EnablePolicyMU.RUnlock()
+	enforcement := params.Configuration.PolicyEnforcement
+
+	// Only update if value provided for PolicyEnforcement.
+	if enforcement != "" {
+		switch enforcement {
+		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+			// If the policy enforcement configuration has indeed changed, we have
+			// to regenerate endpoints and update daemon's configuration.
+			if enforcement != oldEnforcementValue {
+				// Only allow configuration updates for PolicyEnforcement to occur again once configuration has been applied
+				log.Debugf("Handle patch config, Lock EnablePolicyMU to update configuration")
+				config.EnablePolicyMU.Lock()
+				defer config.EnablePolicyMU.Unlock()
+				defer log.Debugf("Handle patch config, Unlock EnablePolicyMU to update configuration")
+				config.EnablePolicy = enforcement
+
+				d.GetPolicyRepository().Mutex.RLock()
+				_, policyEnforcementChanged = d.EnablePolicyEnforcement()
+				d.GetPolicyRepository().Mutex.RUnlock()
+				d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+			}
+		default:
+			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
+			log.Warningf("%s", msg)
+			return apierror.Error(PatchConfigFailureCode, msg)
 		}
 	}
+
+	changes := d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
+	if policyEnforcementChanged {
+		changes = changes + 1
+	}
+
+	log.Debugf("Applied %d changes", changes)
+
 	if changes > 0 {
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
@@ -1143,10 +1180,11 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	d := h.daemon
 
 	cfg := &models.DaemonConfigurationResponse{
-		Addressing:       d.getNodeAddressing(),
-		Configuration:    d.conf.Opts.GetModel(),
-		K8sConfiguration: d.conf.K8sCfgPath,
-		K8sEndpoint:      d.conf.K8sEndpoint,
+		Addressing:        d.getNodeAddressing(),
+		Configuration:     d.conf.Opts.GetModel(),
+		K8sConfiguration:  d.conf.K8sCfgPath,
+		K8sEndpoint:       d.conf.K8sEndpoint,
+		PolicyEnforcement: d.conf.EnablePolicy,
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)

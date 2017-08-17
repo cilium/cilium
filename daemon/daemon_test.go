@@ -34,9 +34,8 @@ type DaemonSuite struct {
 	// Owners interface mock
 	OnTracingEnabled                  func() bool
 	OnDryModeEnabled                  func() bool
-	OnPolicyEnabled                   func() bool
-	OnEnablePolicyEnforcement         func() bool
-	OnUpdateEndpointPolicyEnforcement func(e *e.Endpoint) bool
+	OnEnablePolicyEnforcement         func() (bool, bool)
+	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) bool
 	OnPolicyEnforcement               func() string
 	OnAlwaysAllowLocalhost            func() bool
 	OnGetConsumableCache              func() *policy.ConsumableCache
@@ -74,13 +73,6 @@ func (ds *DaemonSuite) DryModeEnabled() bool {
 	panic("DryModeEnabled should not have been called")
 }
 
-func (ds *DaemonSuite) PolicyEnabled() bool {
-	if ds.OnPolicyEnabled != nil {
-		return ds.OnPolicyEnabled()
-	}
-	panic("PolicyEnabled should not have been called")
-}
-
 func (ds *DaemonSuite) AnnotateEndpoint(e *e.Endpoint, annotationKey, annotationValue string) {
 	if ds.OnAnnotateEndpoint != nil {
 		ds.OnAnnotateEndpoint(e, annotationKey, annotationValue)
@@ -89,16 +81,16 @@ func (ds *DaemonSuite) AnnotateEndpoint(e *e.Endpoint, annotationKey, annotation
 
 }
 
-func (ds *DaemonSuite) EnablePolicyEnforcement() bool {
+func (ds *DaemonSuite) EnablePolicyEnforcement() (bool, bool) {
 	if ds.OnEnablePolicyEnforcement != nil {
 		return ds.OnEnablePolicyEnforcement()
 	}
 	panic("EnablePolicyEnforcement should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateEndpointPolicyEnforcement(e *e.Endpoint) bool {
-	if ds.OnUpdateEndpointPolicyEnforcement != nil {
-		return ds.OnUpdateEndpointPolicyEnforcement(e)
+func (ds *DaemonSuite) EnableEndpointPolicyEnforcement(e *e.Endpoint) bool {
+	if ds.OnEnableEndpointPolicyEnforcement != nil {
+		return ds.OnEnableEndpointPolicyEnforcement(e)
 	}
 	panic("UpdateEndpointPolicyEnforcement should not have been called")
 }
