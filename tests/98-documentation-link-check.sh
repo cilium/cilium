@@ -3,6 +3,11 @@
 DOC_DIR=../Documentation
 LINKCHECK_OUTPUT=$DOC_DIR/_build/linkcheck/output.txt
 
+if [ -z $LINKCHECK ]; then
+  echo "Skipping linkcheck, run with LINKCHECK=1 to enable"
+  exit 0
+fi
+
 make -C $DOC_DIR clean || true
 make -C $DOC_DIR linkcheck || true
 
