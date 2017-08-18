@@ -465,6 +465,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		cache.Remove(e.Consumable)
 	}
 	e.SecLabel = id
+	e.LabelsHash = e.SecLabel.Labels.SHA256Sum()
 	e.Consumable = cache.GetOrCreate(id.ID, id)
 
 	if e.State == StateWaitingForIdentity {

@@ -202,6 +202,13 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
 	}
 
+	// Filter the restored labels with the new daemon's filter
+	d.conf.ValidLabelPrefixesMU.RLock()
+	idtyLbls, _ := d.conf.ValidLabelPrefixes.FilterLabels(ep.SecLabel.Labels)
+	d.conf.ValidLabelPrefixesMU.RUnlock()
+
+	ep.SecLabel.Labels = idtyLbls
+
 	sha256sum := ep.SecLabel.Labels.SHA256Sum()
 	labels, err := LookupIdentityBySHA256(sha256sum)
 	if err != nil {
