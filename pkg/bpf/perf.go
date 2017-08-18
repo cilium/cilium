@@ -302,7 +302,7 @@ func (e *PerfEvent) Disable() error {
 	return nil
 }
 
-func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
+func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 	buf := make([]byte, 256)
 	state := C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
 
@@ -312,7 +312,7 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
 
 	// Poll false positive
 	if available == 0 {
-		return nil
+		return
 	}
 
 	for {
@@ -342,8 +342,6 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) error {
 	// Move ring buffer tail pointer
 	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(state))
 	C.free(state)
-
-	return nil
 }
 
 func (e *PerfEvent) Close() {
@@ -492,9 +490,7 @@ func (e *PerCpuEvents) ReadAll(receive ReceiveFunc, lost LostFunc) error {
 	for i := 0; i < e.poll.nfds; i++ {
 		fd := int(e.poll.events[i].Fd)
 		if event, ok := e.event[fd]; ok {
-			if err := event.Read(receive, lost); err != nil {
-				return err
-			}
+			event.Read(receive, lost)
 		}
 	}
 
