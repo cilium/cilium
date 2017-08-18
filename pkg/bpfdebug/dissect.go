@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"strconv"
 )
 
 var (
@@ -80,7 +81,7 @@ func GetConnectionSummary(data []byte) string {
 
 	var (
 		srcIP, dstIP     net.IP
-		srcPort, dstPort uint16
+		srcPort, dstPort string
 		icmpCode, proto  string
 		hasIP, hasEth    bool
 	)
@@ -97,10 +98,10 @@ func GetConnectionSummary(data []byte) string {
 			srcIP, dstIP = ip6.SrcIP, ip6.DstIP
 		case layers.LayerTypeTCP:
 			proto = "tcp"
-			srcPort, dstPort = uint16(tcp.SrcPort), uint16(tcp.DstPort)
+			srcPort, dstPort = strconv.Itoa(int(tcp.SrcPort)), strconv.Itoa(int(tcp.DstPort))
 		case layers.LayerTypeUDP:
 			proto = "udp"
-			srcPort, dstPort = uint16(udp.SrcPort), uint16(udp.DstPort)
+			srcPort, dstPort = strconv.Itoa(int(udp.SrcPort)), strconv.Itoa(int(udp.DstPort))
 		case layers.LayerTypeICMPv4:
 			icmpCode = icmp4.TypeCode.String()
 		case layers.LayerTypeICMPv6:
@@ -112,7 +113,10 @@ func GetConnectionSummary(data []byte) string {
 	case icmpCode != "":
 		return fmt.Sprintf("%s -> %s %s", srcIP, dstIP, icmpCode)
 	case proto != "":
-		s := fmt.Sprintf("%s:%d -> %s:%d %s", srcIP, srcPort, dstIP, dstPort, proto)
+		s := fmt.Sprintf("%s -> %s %s",
+			net.JoinHostPort(srcIP.String(), srcPort),
+			net.JoinHostPort(dstIP.String(), dstPort),
+			proto)
 		if proto == "tcp" {
 			s += " " + getTCPInfo()
 		}
