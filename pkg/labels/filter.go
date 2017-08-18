@@ -20,6 +20,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/cilium/cilium/common"
 )
 
 const (
@@ -138,11 +140,13 @@ func defaultLabelPrefixCfg() *LabelPrefixCfg {
 	}
 
 	expressions := []string{
-		"io.kubernetes.pod.namespace", // include io.kubernetes.pod.namspace
-		"!io.kubernetes",              // ignore all other io.kubernetes labels
-		"!.*kubernetes.io",            // ignore all other kubernetes.io labels (annotation.*.k8s.io)
-		"!pod-template-hash",          // ignore pod-template-hash
-		"!controller-revision-hash",   // ignore controller-revision-hash
+		"io.kubernetes.pod.namespace",                              // include io.kubernetes.pod.namspace
+		"!io.kubernetes",                                           // ignore all other io.kubernetes labels
+		"!.*kubernetes.io",                                         // ignore all other kubernetes.io labels (annotation.*.k8s.io)
+		"!pod-template-hash",                                       // ignore pod-template-hash
+		"!controller-revision-hash",                                // ignore controller-revision-hash
+		"!annotation." + common.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
+		"!annotation." + common.CiliumIdentityAnnotationDeprecated, // ignore all cilium annotations
 	}
 
 	for _, e := range expressions {
