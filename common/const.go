@@ -59,6 +59,11 @@ const (
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
 
+	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
+	CiliumK8sAnnotationPrefix = "cilium.io/"
+
 	// CiliumIdentityAnnotation is the annotation key used to map to an endpoint's security identity.
-	CiliumIdentityAnnotation = "cilium-identity"
+	CiliumIdentityAnnotation = CiliumK8sAnnotationPrefix + "identity"
+	// CiliumIdentityAnnotationDeprecated is the previous annotation key used to map to an endpoint's security identity.
+	CiliumIdentityAnnotationDeprecated = "cilium-identity"
 )
