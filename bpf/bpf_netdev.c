@@ -637,7 +637,6 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	policy_clear_mark(skb);
 	l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_EGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
