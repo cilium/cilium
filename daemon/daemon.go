@@ -359,6 +359,7 @@ func (d *Daemon) fmtPolicyEnforcement() string {
 func runProg(prog string, args []string, quiet bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
+	log.Debugf("%s %v", prog, args)
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
@@ -429,8 +430,11 @@ func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
 }
 
 const (
-	ciliumPostNatChain = "CILIUM_POST"
-	feederDescription  = "cilium-feeder:"
+	feederDescription     = "cilium-feeder:"
+	ciliumPostNatChain    = "CILIUM_POST"
+	ciliumPreRawChain     = "CILIUM_PRE_RAW"
+	ciliumPreMangleChain  = "CILIUM_PRE_MANGLE"
+	ciliumPostMangleChain = "CILIUM_POST_MANGLE"
 )
 
 type customChain struct {
@@ -530,24 +534,90 @@ var ciliumChains = []customChain{
 		hook:       "POSTROUTING",
 		feederArgs: []string{""},
 	},
+	{
+		name:  ciliumPreRawChain,
+		table: "raw",
+		hook:  "PREROUTING",
+		feederArgs: []string{
+			"-i cilium-nat-out2",
+			"-m mark --mark 0xA5B80000/0xFFFF0000",
+		},
+	},
+	{
+		name:       ciliumPreMangleChain,
+		table:      "mangle",
+		hook:       "PREROUTING",
+		feederArgs: []string{"-m mark --mark 0xA5B80000/0xFFFF0000"},
+	},
+	{
+		name:       ciliumPostMangleChain,
+		table:      "mangle",
+		hook:       "POSTROUTING",
+		feederArgs: []string{""},
+	},
 }
 
-func (d *Daemon) removeMasqRule() {
+func removeIPtablesRules() {
 	tables := []string{"nat", "mangle", "raw"}
 	for _, t := range tables {
 		removeCiliumRules(t)
 	}
-
-	for _, c := range ciliumChains {
-		c.remove()
-	}
 }
 
-func (d *Daemon) installMasqRule() error {
+func (d *Daemon) installIPtablesRules() error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
 		}
+	}
+
+	// FIXME: remove (log)
+	if err := runProg("iptables", []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-m", "comment", "--comment", "cilium temporary log rule",
+		"-j", "LOG"}, false); err != nil {
+		return err
+	}
+
+	// make mark part of the conntrack tuple
+	if err := runProg("iptables", []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-m", "comment", "--comment", "cilium: ct-zone=skb->mark",
+		"-j", "CT", "--zone-orig", "mark"}, false); err != nil {
+		return err
+	}
+
+	// SNAT everything that passes through the NAT box in forward direction
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"-o", "cilium-nat-out2",
+		"-m", "comment", "--comment", "cilium: SNAT box",
+		"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
+		return err
+	}
+
+	// save mark in conntrack as we pass through NAT box in forward direction
+	if err := runProg("iptables", []string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-m", "conntrack", "--ctdir", "ORIGINAL",
+		"-m", "comment", "--comment", "cilium: save skb->mark to ct entry",
+		"-j", "CONNMARK", "--save-mark"}, false); err != nil {
+		return err
+	}
+
+	// restore mark from conntrack as we pass through NAT box in reverse direction
+	if err := runProg("iptables", []string{
+		"-t", "mangle",
+		"-A", ciliumPostMangleChain,
+		"-o", "cilium-nat-in",
+		"-m", "conntrack", "--ctdir", "REPLY",
+		"-m", "comment", "--comment", "cilium: restore skb->mark from ct entry",
+		"-j", "CONNMARK", "--restore-mark"}, false); err != nil {
+		return err
 	}
 
 	if tunnelMode == tunnelModeDisabled {
@@ -559,7 +629,7 @@ func (d *Daemon) installMasqRule() error {
 			"-A", ciliumPostNatChain,
 			"-s", nodeaddress.GetIPv4AllocRange().String(),
 			"!", "-d", nodeaddress.GetIPv4ClusterRange().String(),
-			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-m", "comment", "--comment", "cilium: endpoint->world masquerade",
 			"-j", "MASQUERADE"}, false); err != nil {
 			return err
 		}
@@ -574,7 +644,7 @@ func (d *Daemon) installMasqRule() error {
 			"-s", nodeaddress.GetIPv4AllocRange().String(),
 			"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
 			"!", "-o", "cilium_" + tunnelMode,
-			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-m", "comment", "--comment", "cilium: endpoint->world masquerade",
 			"-j", "MASQUERADE"}, false); err != nil {
 			return err
 		}
@@ -588,7 +658,7 @@ func (d *Daemon) installMasqRule() error {
 		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
 		"-m", "addrtype", "--src-type", "LOCAL",
-		"-m", "comment", "--comment", "cilium host->cluster masquerade",
+		"-m", "comment", "--comment", "cilium: host->cluster masquerade",
 		"-j", "MASQUERADE"}, false); err != nil {
 		return err
 	}
@@ -664,11 +734,10 @@ func (d *Daemon) compileBase() error {
 	reserveLocalRoutes(d.ipamConf)
 
 	if !d.conf.IPv4Disabled {
-		// Always remove masquerade rule and then re-add it if required
-		d.removeMasqRule()
+		removeIPtablesRules()
 		if masquerade {
-			if err := d.installMasqRule(); err != nil {
-				return err
+			if err := d.installIPtablesRules(); err != nil {
+				return fmt.Errorf("Unable to install iptales rules: %s", err)
 			}
 		}
 	}

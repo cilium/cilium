@@ -55,60 +55,93 @@
 #include "lib/encap.h"
 #include "lib/conntrack.h"
 #include "lib/proxy.h"
+#include "lib/nat.h"
+
+
+#ifdef FIXED_SRC_SECCTX
+#define FALLBACK_SECCTX FIXED_SRC_SECCTX
+#else
+#define FALLBACK_SECCTX WORLD_ID
+#endif
 
 /* cb[] mapping for CILIUM_CALL_IPV4 */
 #define CB_REVNAT 0
 
 #define QUIET_LB
 
-static inline int __inline__ handle_redirect(struct __sk_buff *skb, int ret)
+static inline void __inline__ derive_identity_and_revnat(struct __sk_buff *skb, __u32 *secctx, __u32 *revnat)
 {
-#ifdef LB_REDIRECT
-	if (ret == TC_ACT_REDIRECT) {
-		int ifindex = LB_REDIRECT;
-#ifdef LB_DSTMAC
-		union macaddr mac = LB_DSTMAC;
+#if defined FROM_NAT
+	/* When packet is coming in from the NAT box, the skb->mark will
+	 * contain both the revnat and identity
+	 *
+	 * < 16 bits >< 16 bits >
+	 *    revnat    identity
+	 */
+	__u16 t;
+	decode_nat_metadata(skb, secctx, &t);
+	if (revnat != NULL)
+		*revnat = t;
 
-		if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
-			ret = DROP_WRITE_ERROR;
-#endif
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		return redirect(ifindex, 0);
-	}
-#endif
+#elif defined FROM_HOST
+	/* When packet is coming from the host, it may contain the security
+	 * identity, otherwise we fall back to FALLBACK_SECCTX which will point
+	 * to HOST_ID or WORLD_ID.
+	 *
+	 * The reverse NAT index may be known if the packet was load-balanced
+	 * locally, if so, it will have been stored to the cb buffer in
+	 * CILIUM_CALL_LB_IP4
+	 */
+	if (skb->mark)
+		*secctx = skb->mark;
+	else
+		*secctx = FALLBACK_SECCTX;
 
-	return ret;
+	if (revnat != NULL)
+		*revnat = skb->cb[CB_REVNAT];
+
+#else
+	/* The packet is coming in over the wire, identity is initialized to the
+	 * fallback identity. For IPv6, this may be overwritten again in case the
+	 * identity is carried in the destination IPv6 address.
+	 *
+	 * The reverse NAT index may be known if the packet was load-balanced
+	 * locally, if so, it will have been stored to the cb buffer in
+	 * CILIUM_CALL_LB_IP4
+	 */
+	*secctx = FALLBACK_SECCTX;
+
+	if (revnat != NULL)
+		*revnat = skb->cb[CB_REVNAT];
+#endif
 }
 
-static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
-				   struct ipv6hdr *ip6)
+static inline void __inline__ derive_ip6_identity_and_revnat(struct __sk_buff *skb,
+					const union v6addr *node_ip, struct ipv6hdr *ip6,
+					__u32 *secctx)
 {
-#ifdef FIXED_SRC_SECCTX
-	return FIXED_SRC_SECCTX;
-#else
+	derive_identity_and_revnat(skb, secctx, NULL);
+
+#ifndef FIXED_SRC_SECCTX
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
 		__u32 *tmp = (__u32 *) ip6;
-		return bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
+		*secctx = bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
 	}
-
-	return WORLD_ID;
 #endif
 }
 
 #ifdef LB_IP6
 static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *ip6,
-					 __u32 secctx)
+					 __u32 secctx, bool *to_stack)
 {
+	union macaddr host_mac = HOST_IFINDEX_MAC;
+	struct csum_offset csum_off = {};
+	struct ipv6_ct_tuple tuple = {};
 	struct lb6_key key = {};
 	struct lb6_service *svc;
-	struct csum_offset csum_off = {};
-	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
-	int ret, l4_off, verdict = TC_ACT_OK;
-	struct ipv6_ct_tuple tuple = {};
-	bool svc_hit = false;
 	union v6addr new_dst;
+	int ret, l4_off;
 	__u16 slave;
 
 	ipv6_addr_copy(&key.address, (union v6addr *) &ip6->daddr);
@@ -124,8 +157,6 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 			return ret;
 	}
 #endif
-
-	ct_state_new.orig_dport = key.dport;
 
 	if (!(svc = lb6_lookup_service(skb, &key)))
 		return TC_ACT_OK;
@@ -147,47 +178,14 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 	if (IS_ERR(ret))
 		return ret;
 
-	svc_hit = true;
-	ct_state_new.rev_nat_index = svc->rev_nat_index;
-	tuple.daddr = svc->target;
+	*to_stack = true;
 
-	verdict = TC_ACT_REDIRECT;
+	if (eth_store_daddr(skb, (__u8 *) &host_mac.addr, 0) < 0)
+		return DROP_WRITE_ERROR;
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_INGRESS, &ct_state);
-	if (ret < 0)
-		return TC_ACT_OK;
-
-	switch (ret) {
-	case CT_NEW:
-		/* CT entry is only created if packet was loadbalanced.  This
-		 * allows to store the reverse NAT index which will perform the
-		 * reverse translation of reply packets
-		 */
-		if (svc_hit) {
-			ct_state_new.src_sec_id = secctx;
-			ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new, false);
-			if (IS_ERR(ret))
-				return TC_ACT_OK;
-		}
-		break;
-
-	case CT_ESTABLISHED:
-		break;
-
-	case CT_RELATED:
-	case CT_REPLY:
-		policy_mark_skip(skb);
-
-		if (ct_state.rev_nat_index) {
-			ret = lb6_rev_nat(skb, l4_off, &csum_off,
-					  ct_state.rev_nat_index, &tuple, 0);
-			if (IS_ERR(ret))
-				return TC_ACT_OK;
-		}
-		break;
-	}
-
-	return verdict;
+	encode_nat_metadata(skb, secctx, svc->rev_nat_index);
+	cilium_trace_capture(skb, DBG_CAPTURE_NAT, 0);
+	return TC_ACT_OK;
 }
 #endif
 
@@ -200,8 +198,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
 	int l4_off;
 	struct endpoint_info *ep;
+	__u32 secctx;
 	__u8 nexthdr;
-	__u32 flowlabel;
 
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
@@ -221,13 +219,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	BPF_V6(node_ip, ROUTER_IP);
 
-	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
-#ifdef FROM_HOST
-	/* For packets from the host, the identity can be specified via skb->mark */
-	if (skb->mark) {
-		flowlabel = skb->mark;
-	}
-#endif
+	derive_ip6_identity_and_revnat(skb, &node_ip, ip6, &secctx);
 
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
@@ -244,14 +236,14 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 			return DROP_INVALID;
 #endif
 
-		/* Lookup IPv4 address in list of local endpoints */
+		/* Lookup IPv6 address in list of local endpoints */
 		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
 			/* Let through packets to the node-ip so they are
 			 * processed by the local ip stack */
 			if (ep->flags & ENDPOINT_F_HOST)
 				return TC_ACT_OK;
 
-			return ipv6_local_delivery(skb, ETH_HLEN, l4_off, flowlabel, ip6, nexthdr, ep);
+			return ipv6_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip6, nexthdr, ep);
 		} else {
 #ifdef ENCAP_IFINDEX
 			struct endpoint_key key = {};
@@ -264,7 +256,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 			key.ip6.p4 = 0;
 			key.family = ENDPOINT_KEY_IPV6;
 
-			return encap_and_redirect(skb, &key, flowlabel);
+			return encap_and_redirect(skb, &key, secctx);
 #endif
 		}
 	}
@@ -279,9 +271,10 @@ static inline int handle_lb_ip6(struct __sk_buff *skb)
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	union v6addr node_ip = { };
+	bool to_stack = false;
 	int l4_off;
 	__u8 nexthdr;
-	__u32 flowlabel;
+	__u32 secctx;
 	int ret;
 
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
@@ -290,21 +283,18 @@ static inline int handle_lb_ip6(struct __sk_buff *skb)
 	nexthdr = ip6->nexthdr;
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
 	BPF_V6(node_ip, ROUTER_IP);
-	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
+	derive_ip6_identity_and_revnat(skb, &node_ip, ip6, &secctx);
 
 	/* Will look for match in list of services, on match, DIP and DPORT will
 	 * be translated on TC_ACT_REDIRECT will be returned. On match, CT
 	 * entry will be created.
 	 */
-	ret = svc_lookup6(skb, ip6, flowlabel);
+	ret = svc_lookup6(skb, ip6, secctx, &to_stack);
 	if (IS_ERR(ret))
 		return ret;
-	else if (ret == TC_ACT_REDIRECT) {
-		ret = handle_redirect(skb, ret);
-		if (ret != TC_ACT_OK) {
-			return ret;
-		}
-	}
+
+	if (to_stack)
+		return TC_ACT_OK;
 
 	ep_tail_call(skb, CILIUM_CALL_IPV6);
 	return DROP_MISSED_TAIL_CALL;
@@ -336,35 +326,20 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6) int tail_handle_ipv6(struct _
 }
 
 #ifdef ENABLE_IPV4
-static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
-{
-#ifdef FIXED_SRC_SECCTX
-	return FIXED_SRC_SECCTX;
-#else
-	__u32 secctx = WORLD_ID;
-
-	if ((ip4->saddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-		/* FIXME: Derive */
-	}
-	return secctx;
-#endif
-}
 
 #ifdef LB_IP4
 static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip4,
-					 __u32 secctx)
+					 __u32 secctx, bool *to_stack)
 
 {
+	union macaddr host_mac = HOST_IFINDEX_MAC;
 	struct ipv4_ct_tuple tuple = {};
 	struct lb4_key key = {};
 	struct lb4_service *svc;
 	struct csum_offset csum_off = {};
-	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
-	int ret, l4_off, verdict = TC_ACT_OK;
+	int ret, l4_off;
 	__be32 new_dst;
 	__u16 slave;
-	bool svc_hit = false;
 
 	key.address = ip4->daddr;
 	l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_INGRESS);
@@ -375,8 +350,6 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	if (IS_ERR(ret))
 		return TC_ACT_OK;
 #endif
-
-	ct_state_new.orig_dport = key.dport;
 
 	if (!(svc = lb4_lookup_service(skb, &key)))
 		return TC_ACT_OK;
@@ -390,55 +363,19 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 		return TC_ACT_OK;
 	}
 
-	ct_state_new.addr = new_dst = svc->target;
+	new_dst = svc->target;
 	ret = lb4_xlate(skb, &new_dst, NULL, NULL, tuple.nexthdr, ETH_HLEN, l4_off, &csum_off, &key, svc);
 	if (IS_ERR(ret))
 		return ret;
 
-	svc_hit = true;
+	*to_stack = true;
 
-	skb->cb[CB_REVNAT] = svc->rev_nat_index;
-	ct_state_new.rev_nat_index = svc->rev_nat_index;
-	tuple.daddr = svc->target;
+	if (eth_store_daddr(skb, (__u8 *) &host_mac.addr, 0) < 0)
+		return DROP_WRITE_ERROR;
 
-	verdict = TC_ACT_REDIRECT;
-
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state);
-	if (ret < 0)
-		return TC_ACT_OK;
-
-	switch (ret) {
-	case CT_NEW:
-		/* CT entry is only created if packet was loadbalanced. This
-		 * allows to store the reverse NAT index which will perform
-		 * the reverse translation of reply packets
-		 */
-		if (svc_hit) {
-			ct_state_new.src_sec_id = secctx;
-			ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new, false);
-			if (IS_ERR(ret))
-				return TC_ACT_OK;
-		}
-		break;
-
-	case CT_ESTABLISHED:
-		break;
-
-	case CT_RELATED:
-	case CT_REPLY:
-		policy_mark_skip(skb);
-
-		if (ct_state.rev_nat_index) {
-			ret = lb4_rev_nat(skb, ETH_HLEN, l4_off, &csum_off,
-					  ct_state.loopback, &tuple,
-					  ct_state.rev_nat_index, 0);
-			if (IS_ERR(ret))
-				return TC_ACT_OK;
-		}
-		break;
-	}
-
-	return verdict;
+	encode_nat_metadata(skb, secctx, svc->rev_nat_index);
+	cilium_trace_capture(skb, DBG_CAPTURE_NAT, 0);
+	return TC_ACT_OK;
 }
 
 static inline int handle_lb_ip4(struct __sk_buff *skb)
@@ -446,38 +383,33 @@ static inline int handle_lb_ip4(struct __sk_buff *skb)
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
-	int ret;
+	bool to_stack = false;
 	__u32 secctx;
+	int ret;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	secctx = derive_ipv4_sec_ctx(skb, ip4);
+	derive_identity_and_revnat(skb, &secctx, NULL);
 
-	/* Will look for match in list of services, on match, DIP and DPORT will
-	 * be translated on TC_ACT_REDIRECT will be returned. On match, CT
-	 * entry will be created.
-	 */
-	ret = svc_lookup4(skb, ip4, secctx);
+	ret = svc_lookup4(skb, ip4, secctx, &to_stack);
 	if (IS_ERR(ret))
 		return ret;
-	else if (ret == TC_ACT_REDIRECT) {
-		ret = handle_redirect(skb, ret);
-		if (ret != TC_ACT_OK) {
-			return ret;
-		}
-	}
+
+	if (to_stack)
+		return TC_ACT_OK;
 
 	ep_tail_call(skb, CILIUM_CALL_IPV4);
 	return DROP_MISSED_TAIL_CALL;
 }
 #endif /* LB_IP4 */
 
-static inline int handle_ipv4(struct __sk_buff *skb, __u32 revnat)
+static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
+	__u32 secctx, revnat;
 	int l4_off;
 
         data = (void *) (long) skb->data;
@@ -486,23 +418,17 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 revnat)
         if (data + sizeof(*ip4) + ETH_HLEN > data_end)
                 return DROP_INVALID;
 
+	derive_identity_and_revnat(skb, &secctx, &revnat);
+
 #ifdef ENABLE_IPV4
 	/* Check if destination is within our cluster prefix */
 	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
 		struct ipv4_ct_tuple tuple = {};
 		struct endpoint_info *ep;
-		__u32 secctx;
 
 		cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		secctx = derive_ipv4_sec_ctx(skb, ip4);
-#ifdef FROM_HOST
-		if (skb->mark) {
-			/* For packets from the host, the identity can be specified via skb->mark */
-			secctx = skb->mark;
-		}
-#endif
 		tuple.nexthdr = ip4->protocol;
 
 		cilium_trace(skb, DBG_NETDEV_IN_CLUSTER, secctx, 0);
@@ -528,8 +454,8 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 revnat)
 				return TC_ACT_OK;
 
 			return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep);
-		} else {
 #ifdef ENCAP_IFINDEX
+		} else {
 			/* IPv4 lookup key: daddr & IPV4_MASK */
 			struct endpoint_key key = {};
 
@@ -542,6 +468,20 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 revnat)
 			cilium_trace(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
 			return encap_and_redirect(skb, &key, secctx);
 #endif /* ENCAP_IFINDEX */
+		}
+	} else {
+		struct ipv4_ct_tuple tuple = {};
+		struct csum_offset csum_off = {};
+		struct ct_state ct_state = {};
+		int ret, l4_off;
+
+		l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_EGRESS);
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+		ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
+		if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index)) {
+			lb4_rev_nat(skb, ETH_HLEN, l4_off, &csum_off, ct_state.loopback,
+				    &tuple, ct_state.rev_nat_index, REV_NAT_F_TUPLE_SADDR);
 		}
 	}
 #endif
@@ -559,15 +499,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_LB_IP4) int tail_handle_lb_ip4(stru
 		return send_drop_notify_error(skb, ret, TC_ACT_OK);
 	}
 
-	return handle_redirect(skb, ret);
+	return ret;
 }
 #endif /* LB_IP4 */
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
 {
-	/* revnat ID is passed in frmo CILIUM_CALL_LB_IP4 if available */
-	__u32 revnat = skb->cb[CB_REVNAT];
-	int ret = handle_ipv4(skb, revnat);
+	int ret = handle_ipv4(skb);
 
 	if (IS_ERR(ret)) {
 		/* On error, report the error but pass the packet to the stack */
@@ -584,9 +522,15 @@ int from_netdev(struct __sk_buff *skb)
 {
 	bpf_clear_cb(skb);
 
+#if defined FROM_HOST
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
+#elif defined FROM_NAT
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NAT, skb->tc_index);
+#endif
+
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
-#ifdef LB_IP6
+#if defined LB_IP6 && !defined FROM_NAT
 		ep_tail_call(skb, CILIUM_CALL_LB_IP6);
 #else
 		ep_tail_call(skb, CILIUM_CALL_IPV6);
@@ -594,7 +538,7 @@ int from_netdev(struct __sk_buff *skb)
 		break;
 
 	case bpf_htons(ETH_P_IP):
-#if defined LB_IP4
+#if defined LB_IP4 && !defined FROM_NAT
 		ep_tail_call(skb, CILIUM_CALL_LB_IP4);
 #elif defined ENABLE_IPV4
 		ep_tail_call(skb, CILIUM_CALL_IPV4);
@@ -614,6 +558,8 @@ int from_netdev(struct __sk_buff *skb)
 	 */
 	return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL, TC_ACT_OK);
 }
+
+#ifdef POLICY_MAP
 
 struct bpf_elf_map __section_maps POLICY_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
@@ -760,5 +706,7 @@ __section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_bu
 	else
 		return redirect(ifindex, 0);
 }
+
+#endif /* POLICY_MAP */
 
 BPF_LICENSE("GPL");

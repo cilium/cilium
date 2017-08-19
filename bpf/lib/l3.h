@@ -137,6 +137,10 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
+#ifdef FROM_NAT
+	skb->cb[CB_CT_FLAGS] = CB_CT_SNAT;
+#endif
+
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }
@@ -175,6 +179,10 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	cilium_trace(skb, DBG_LXC_FOUND, ep->ifindex, ep->sec_label);
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
+
+#ifdef FROM_NAT
+	skb->cb[CB_CT_FLAGS] = CB_CT_SNAT;
+#endif
 
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;

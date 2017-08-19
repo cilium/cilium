@@ -41,6 +41,10 @@ const (
 	DbgCaptureAfterV64
 	DbgCaptureProxyPre
 	DbgCaptureProxyPost
+	DbgCaptureNat
+	DbgCaptureNatRev
+	DbgCaptureNatRevOut
+	DbgCaptureFromNat
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -442,6 +446,16 @@ func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 		fmt.Printf("Packet to proxy port %d (Pre)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
 	case DbgCaptureProxyPost:
 		fmt.Printf("Packet to proxy port %d (Post)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureNat:
+		fmt.Printf("Performing SNAT via ifindex %d\n", n.Arg1)
+	case DbgCaptureNatRev:
+		fmt.Printf("Performing reverse SNAT via findex %d\n", n.Arg1)
+	case DbgCaptureNatRevOut:
+		fmt.Printf("Incoming packet from reverse SNAT with revnat %d\n",
+			byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureFromNat:
+		fmt.Printf("Incoming packet from SNAT with revnat %d\n",
+			byteorder.NetworkToHost(uint16(n.Arg1)))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}

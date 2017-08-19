@@ -38,6 +38,10 @@ import (
 	"github.com/vulcand/route"
 )
 
+const (
+	magicMark int = 0xFEFE << 16
+)
+
 type Redirect struct {
 	id       string
 	FromPort uint16
@@ -507,7 +511,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 				identity := int(source.GetIdentity())
 				log.Debugf("Setting identity for replies of connection %v to %d",
 					c, identity)
-				setSocketMark(c, identity)
+				setSocketMark(c, magicMark|identity)
 			}
 
 		},

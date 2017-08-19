@@ -21,8 +21,6 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
-#include <stdbool.h>
-
 #include "common.h"
 #include "utils.h"
 #include "ipv6.h"
@@ -172,6 +170,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
 			ct_state->proxy_port = entry->proxy_port;
+			ct_state->snat = entry->snat;
 		}
 
 #ifdef LXC_NAT46
@@ -547,6 +546,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.snat = ct_state->snat;
 	ct_update_timeout(&entry);
 
 	if (dir == CT_INGRESS) {
@@ -631,6 +631,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.snat = ct_state->snat;
 	ct_update_timeout(&entry);
 
 	if (dir == CT_INGRESS) {

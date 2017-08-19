@@ -23,6 +23,7 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef HAVE_LRU_MAP_TYPE
 #define NEEDS_TIMEOUT 1
@@ -235,7 +236,14 @@ enum {
 	CB_IFINDEX,
 	CB_POLICY,
 	CB_NAT46_STATE,
-	CB_CT_STATE,
+	CB_CT_FLAGS,
+};
+
+/* CB_CT_FLAGS */
+enum {
+	CB_CT_SNAT = 1, /* This packet has passed through the SNAT box and must
+			 * be routed back through the SNAT box in the reverse
+			 * direction */
 };
 
 /* State values for NAT46 */
@@ -278,7 +286,8 @@ struct ct_entry {
 	      tx_closing:1,
 	      nat46:1,
 	      lb_loopback:1,
-	      reserve:12;
+	      snat:1,
+	      reserve:11;
 	__u16 rev_nat_index;
 	__u16 proxy_port;
 	__u32 src_sec_id;
@@ -331,7 +340,8 @@ struct lb_sequence {
 struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
-	      reserved:15;
+	      snat:1,
+	      reserved:14;
 	__u16 orig_dport;
 	__u16 proxy_port;
 	__be32 addr;
