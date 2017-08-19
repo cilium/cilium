@@ -53,3 +53,6 @@
 #define ENABLE_TRACE
 #define LB_IP4
 #define LB_IP6
+#define CT_MAP6 cilium_ct6_global
+#define CT_MAP4 cilium_ct4_global
+#define CT_MAP_SIZE 4096

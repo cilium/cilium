@@ -48,7 +48,15 @@
 #define CILIUM_CALL_IPV4			7
 #define CILIUM_CALL_NAT64			8
 #define CILIUM_CALL_NAT46			9
-#define CILIUM_CALL_SIZE			10
+#define CILIUM_CALL_LB_IP4			10
+#define CILIUM_CALL_LB_IP6			11
+#define CILIUM_CALL_IPV6			12
+/* Account for some reserves without requiring to change the map size */
+#define CILIUM_CALL_SIZE			256
+
+/* metadata field (20 bits) */
+#define MD_ID_MASK 0xFFFF
+#define MD_F_REVNAT (1 << 16)
 
 typedef __u64 mac_t;
 

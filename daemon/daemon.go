@@ -769,6 +769,11 @@ func (d *Daemon) init() error {
 	fw.WriteString("#define LB_IP4\n")
 	fw.WriteString("#define LB_IP6\n")
 
+	// default ctmap values for global table
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesGlobal))
+	fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6Global)
+	fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4Global)
+
 	fw.Flush()
 	f.Close()
 

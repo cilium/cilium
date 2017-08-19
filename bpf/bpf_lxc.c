@@ -199,8 +199,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, SECLABEL, CT_EGRESS,
-			 &ct_state);
+	ret = ct_lookup6(&CT_MAP6, tuple, skb, l4_off, CT_EGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -367,20 +366,15 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-#ifndef POLICY_ENFORCEMENT
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return redirect(HOST_IFINDEX, 0);
-#else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 
-#ifdef ALLOW_TO_HOST
+#if defined ALLOW_TO_HOST || !defined POLICY_ENFORCEMENT
 		policy_mark_skip(skb);
 #endif
 
 		tail_call(skb, &cilium_reserved_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
-#endif
 	}
 
 pass_to_stack:
@@ -394,16 +388,14 @@ pass_to_stack:
 		return DROP_WRITE_ERROR;
 
 #ifndef POLICY_ENFORCEMENT
-	/* No policy, pass directly down to stack */
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
-	return TC_ACT_OK;
-#else
+	policy_mark_skip(skb);
+#endif
+
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
 	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
-#endif
 }
 
 static inline int handle_ipv6(struct __sk_buff *skb)
@@ -524,8 +516,7 @@ skip_service_lookup:
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
 	 * POLICY_SKIP if the packet is a reply packet to an existing
 	 * incoming connection. */
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_EGRESS,
-			 &ct_state);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -677,20 +668,15 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-#ifndef POLICY_ENFORCEMENT
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return redirect(HOST_IFINDEX, 0);
-#else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 
-#ifdef ALLOW_TO_HOST
+#if defined ALLOW_TO_HOST || !defined POLICY_ENFORCEMENT
 		policy_mark_skip(skb);
 #endif
 
 		tail_call(skb, &cilium_reserved_policy, HOST_ID);
 		return DROP_MISSED_TAIL_CALL;
-#endif
 	}
 
 pass_to_stack:
@@ -706,16 +692,13 @@ pass_to_stack:
 	 */
 
 #ifndef POLICY_ENFORCEMENT
-	/* No policy, pass directly down to stack */
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
-	return TC_ACT_OK;
-#else
+	policy_mark_skip(skb);
+#endif
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
 	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
 
 	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
 	return DROP_MISSED_TAIL_CALL;
-#endif
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
@@ -844,8 +827,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		}
 	}
 
-	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, SECLABEL, CT_INGRESS,
-			 &ct_state);
+	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_INGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -856,6 +838,17 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 				   ct_state.rev_nat_index, &tuple, 0);
 		if (IS_ERR(ret2))
 			return ret2;
+	}
+
+	/* The source metadata can be either an identity or a reverse nat id
+	 * depending on the MD_F_REVNAT bit. The identity is used cluster
+	 * internally, the reverse nat id is used for external traffic to
+	 * perform reverse NAT on the receiving node.
+	 */
+	if (src_label & MD_F_REVNAT) {
+               __u16 revnat2 = src_label & 0xFFFF;
+               ct_state_new.rev_nat_index = revnat2;
+               src_label = WORLD_ID;
 	}
 
 	/* Policy lookup is done on every packet to account for packets that
@@ -927,7 +920,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state);
+	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_INGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
 
@@ -948,6 +941,17 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		if (IS_ERR(ret2))
 			return ret2;
 
+	}
+
+	/* The source metadata can be either an identity or a reverse nat id
+	 * depending on the MD_F_REVNAT bit. The identity is used cluster
+	 * internally, the reverse nat id is used for external traffic to
+	 * perform reverse NAT on the receiving node.
+	 */
+	if (src_label & MD_F_REVNAT) {
+		__u16 revnat2 = src_label & 0xFFFF;
+		ct_state_new.rev_nat_index = revnat2;
+		src_label = WORLD_ID;
 	}
 
 	/* Policy lookup is done on every packet to account for packets that
