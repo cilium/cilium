@@ -90,6 +90,26 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 			lxcIfName, err)
 	}
 
+	// Accept local addresses. This is required to support NodePort
+	// loadbalancing where a port on the node is load balanced to a port of
+	// an endpoint. The reply packets will have the source address of the node
+	// and are thus considered local.
+	args = []string{"-w", "net.ipv4.conf." + lxcIfName + ".accept_local=1"}
+	_, err = exec.Command("sysctl", args...).CombinedOutput()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("unable to disable rp_filter on %s: %s",
+			lxcIfName, err)
+	}
+
+	// Disable sending redirects to the veth. This is required to bypass the
+	// martian source filter
+	args = []string{"-w", "net.ipv4.conf." + lxcIfName + ".send_redirects=0"}
+	_, err = exec.Command("sysctl", args...).CombinedOutput()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("unable to disable rp_filter on %s: %s",
+			lxcIfName, err)
+	}
+
 	peer, err := netlink.LinkByName(tmpIfName)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("unable to lookup veth peer just created: %s", err)
