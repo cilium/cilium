@@ -723,10 +723,13 @@ func (d *Daemon) init() error {
 	if !d.conf.IPv4Disabled {
 		ipv4GW := nodeaddress.GetInternalIPv4()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
+		publicIP4 := nodeaddress.GetExternalIPv4()
+		fmt.Fprintf(fw, "#define IPV4_PUBLIC_IP %#x\n", byteorder.HostSliceToNetwork(publicIP4, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
 	} else {
 		// FIXME: Workaround so the bpf program compiles
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
+		fmt.Fprintf(fw, "#define IPV4_PUBLIC_IP %#x\n", 0)
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
 	}
 

@@ -97,6 +97,7 @@ enum {
 				 * arg2: service port
 				 * arg3: number of backends found
 				 */
+	DBG_ABORT_ERR,
 };
 
 /* Capture types */

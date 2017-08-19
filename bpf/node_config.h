@@ -40,6 +40,7 @@
 #define IPV4_CLUSTER_RANGE 0x100000
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
+#define IPV4_PUBLIC_IP 0xfffff50a
 #define ENCAP_GENEVE 1
 #define CALLS_MAP cilium_calls_111
 #define SECLABEL 2
