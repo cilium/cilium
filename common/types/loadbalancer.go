@@ -83,6 +83,9 @@ type SVCMapID map[ServiceID]*LBSVC
 // RevNATMap is a map of the daemon's RevNATs.
 type RevNATMap map[ServiceID]L3n4Addr
 
+// K8sServiceList is a list of services derived from k8s specs
+type K8sServiceList []*K8sServiceInfo
+
 // LoadBalancer is the internal representation of the loadbalancer in the local cilium
 // daemon.
 type LoadBalancer struct {
@@ -92,7 +95,7 @@ type LoadBalancer struct {
 	RevNATMap RevNATMap
 
 	K8sMU        sync.Mutex
-	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
+	K8sServices  map[K8sServiceNamespace]K8sServiceList
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
 	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo
 }
@@ -131,7 +134,7 @@ func NewLoadBalancer() *LoadBalancer {
 		SVCMap:       SVCMap{},
 		SVCMapID:     SVCMapID{},
 		RevNATMap:    RevNATMap{},
-		K8sServices:  map[K8sServiceNamespace]*K8sServiceInfo{},
+		K8sServices:  map[K8sServiceNamespace]K8sServiceList{},
 		K8sEndpoints: map[K8sServiceNamespace]*K8sServiceEndpoint{},
 		K8sIngress:   map[K8sServiceNamespace]*K8sServiceInfo{},
 	}
@@ -143,11 +146,29 @@ type K8sServiceNamespace struct {
 	Namespace string
 }
 
+// K8sServicePorts is the list of ports associated with a Kubernetes service
+type K8sServicePorts map[FEPortName]*FEPort
+
+// String returns a human readable string representing a list of Kubernetes service ports
+func (kp K8sServicePorts) String() string {
+	ports := "["
+	for name, p := range kp {
+		ports += fmt.Sprintf("%s=%d/%s;", name, p.Port, p.Protocol)
+	}
+
+	return ports + "]"
+}
+
 // K8sServiceInfo is an abstraction for a k8s service that is composed by the frontend IP
 // address (FEIP) and the map of the frontend ports (Ports).
 type K8sServiceInfo struct {
 	FEIP  net.IP
-	Ports map[FEPortName]*FEPort
+	Ports K8sServicePorts
+}
+
+// String returns a human readable string representing a Kubernetes service
+func (k *K8sServiceInfo) String() string {
+	return fmt.Sprintf("%s:%s", k.FEIP, k.Ports.String())
 }
 
 // NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
