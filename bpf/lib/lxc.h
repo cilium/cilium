@@ -93,7 +93,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 {
 	__be32 host_ip = IPV4_GATEWAY;
 	struct proxy4_tbl_key key = {
-		.saddr = tuple->daddr,
+		.saddr = tuple->saddr,
 		.sport = tuple->sport,
 		.dport = new_port,
 		.nexthdr = tuple->nexthdr,
@@ -139,7 +139,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  __u32 identity)
 {
 	struct proxy6_tbl_key key = {
-		.saddr = tuple->daddr,
+		.saddr = tuple->saddr,
 		.sport = tuple->sport,
 		.dport = new_port,
 		.nexthdr = tuple->nexthdr,

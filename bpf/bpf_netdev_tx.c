@@ -43,22 +43,18 @@
 
 static inline int __inline__ ipv6_revnat(struct __sk_buff *skb)
 {
-	struct ipv6_ct_tuple tuple = {};
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
+	struct ipv6_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	int ret, l4_off;
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	tuple.nexthdr = ip6->nexthdr;
-
-	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_EGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
@@ -72,8 +68,7 @@ static inline int __inline__ ipv6_revnat(struct __sk_buff *skb)
 		return DROP_INVALID;
 
 	/* re-read the tuple as reverse proxy may have overwritten it */
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
+	ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_EGRESS);
 
 	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
 	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index)) {
@@ -98,11 +93,7 @@ static inline int __inline__ ipv4_revnat(struct __sk_buff *skb)
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_EGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = reverse_proxy(skb, l4_off, ip4, &tuple);
@@ -117,8 +108,7 @@ static inline int __inline__ ipv4_revnat(struct __sk_buff *skb)
 		return DROP_INVALID;
 
 	/* re-read the tuple as reverse proxy may have overwritten it */
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_EGRESS);
 
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
 	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index)) {

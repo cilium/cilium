@@ -251,9 +251,9 @@ enum {
 struct ipv6_ct_tuple {
 	union v6addr	daddr;
 	union v6addr	saddr;
-	/* The order of dport+sport must not be changed */
-	__u16		dport;
+	/* The order of sport+dport must not be changed */
 	__u16		sport;
+	__u16		dport;
 	__u8		nexthdr;
 	__u8		flags;
 };
@@ -261,9 +261,9 @@ struct ipv6_ct_tuple {
 struct ipv4_ct_tuple {
 	__be32		daddr;
 	__be32		saddr;
-	/* The order of dport+sport must not be changed */
-	__u16		dport;
+	/* The order of sport+dport must not be changed */
 	__u16		sport;
+	__u16		dport;
 	__u8		nexthdr;
 	__u8		flags;
 } __attribute__((packed));

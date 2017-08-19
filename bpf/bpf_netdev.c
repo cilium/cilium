@@ -98,23 +98,21 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 
 #ifdef LB_IP6
 static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *ip6,
-					 int l4_off, __u32 secctx)
+					 __u32 secctx)
 {
-	struct ipv6_ct_tuple tuple = {};
 	struct lb6_key key = {};
 	struct lb6_service *svc;
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	int ret, verdict = TC_ACT_OK;
+	int ret, l4_off, verdict = TC_ACT_OK;
+	struct ipv6_ct_tuple tuple = {};
 	bool svc_hit = false;
 	union v6addr new_dst;
 	__u16 slave;
 
-	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&key.address, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+	l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_INGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 #ifdef LB_L4
@@ -298,7 +296,7 @@ static inline int handle_lb_ip6(struct __sk_buff *skb)
 	 * be translated on TC_ACT_REDIRECT will be returned. On match, CT
 	 * entry will be created.
 	 */
-	ret = svc_lookup6(skb, ip6, l4_off, flowlabel);
+	ret = svc_lookup6(skb, ip6, flowlabel);
 	if (IS_ERR(ret))
 		return ret;
 	else if (ret == TC_ACT_REDIRECT) {
@@ -354,7 +352,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 
 #ifdef LB_IP4
 static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip4,
-					 int l4_off, __u32 secctx)
+					 __u32 secctx)
 
 {
 	struct ipv4_ct_tuple tuple = {};
@@ -363,15 +361,13 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	int ret, l4_off, verdict = TC_ACT_OK;
 	__be32 new_dst;
 	__u16 slave;
-	int ret, verdict = TC_ACT_OK;
 	bool svc_hit = false;
 
 	key.address = ip4->daddr;
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_INGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 #ifdef LB_L4
@@ -450,20 +446,19 @@ static inline int handle_lb_ip4(struct __sk_buff *skb)
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
-	int l4_off, ret;
+	int ret;
 	__u32 secctx;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	secctx = derive_ipv4_sec_ctx(skb, ip4);
 
 	/* Will look for match in list of services, on match, DIP and DPORT will
 	 * be translated on TC_ACT_REDIRECT will be returned. On match, CT
 	 * entry will be created.
 	 */
-	ret = svc_lookup4(skb, ip4, l4_off, secctx);
+	ret = svc_lookup4(skb, ip4, secctx);
 	if (IS_ERR(ret))
 		return ret;
 	else if (ret == TC_ACT_REDIRECT) {
@@ -630,11 +625,11 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 
 static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label)
 {
-	struct ipv6_ct_tuple tuple = {};
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
+	struct ipv6_ct_tuple tuple = {};
 	int ret, l4_off, verdict;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
@@ -643,12 +638,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		return DROP_INVALID;
 
 	policy_clear_mark(skb);
-	tuple.nexthdr = ip6->nexthdr;
-
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-
-	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_EGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
@@ -685,11 +675,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label)
 {
-	struct ipv4_ct_tuple tuple = {};
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
+	struct ipv4_ct_tuple tuple = {};
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
@@ -697,12 +687,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip4->protocol;
-
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_EGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
