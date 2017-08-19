@@ -32,7 +32,11 @@ import (
 // EnableKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
 // Triggers policy updates every time the value of that key is changed.
 func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
-	startServiceWatch()
+	// The service kvstore watcher is only required in direct-server-return
+	// mode. Otherwise, the reply always flows back synchroneously
+	if directServerReturn {
+		startServiceWatch()
+	}
 
 	if maxID, err := GetMaxLabelID(); err == nil {
 		d.setCachedMaxLabelID(maxID)
