@@ -511,6 +511,12 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			}
 
 		},
+
+		// Set a large timeout for ReadTimeout. This timeout controls
+		// the time that can pass between accepting the connection and
+		// reading the entire request. The default 10 seconds is not
+		// long enough.
+		ReadTimeout: 120 * time.Second,
 	})
 
 	redir.updateRules(l4.L7Rules)
