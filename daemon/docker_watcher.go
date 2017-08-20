@@ -109,7 +109,6 @@ func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
 			log.Errorf("Error while unmarshalling event: %+v", e)
 		}
-		log.Debugf("Processing an event %+v", e)
 		go d.processEvent(e)
 	}
 	if err := scanner.Err(); err != nil {
@@ -118,6 +117,7 @@ func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 }
 
 func (d *Daemon) processEvent(m dTypesEvents.Message) {
+	log.Debugf("Processing docker event %v for container %v", m.Status, m.ID)
 	if m.Type == "container" {
 		switch m.Status {
 		case "start":
