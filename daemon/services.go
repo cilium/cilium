@@ -28,7 +28,7 @@ import (
 
 func updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error {
 	key := path.Join(common.ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
-	return kvstore.Client.SetValue(key, l3n4AddrID)
+	return kvstore.Client().SetValue(key, l3n4AddrID)
 }
 
 // gasNewL3n4AddrID gets and sets a new L3n4Addr ID. If baseID is different than zero,
@@ -42,7 +42,7 @@ func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 		}
 	}
 
-	return kvstore.Client.GASNewL3n4AddrID(common.ServiceIDKeyPath, baseID, l3n4AddrID)
+	return kvstore.Client().GASNewL3n4AddrID(common.ServiceIDKeyPath, baseID, l3n4AddrID)
 }
 
 // PutL3n4Addr stores the given service in the kvstore and returns the L3n4AddrID
@@ -56,14 +56,14 @@ func PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, err
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
-	lockKey, err := kvstore.Client.LockPath(svcPath)
+	lockKey, err := kvstore.Client().LockPath(svcPath)
 	if err != nil {
 		return nil, err
 	}
 	defer lockKey.Unlock()
 
 	// After lock complete, get svc's path
-	rmsg, err := kvstore.Client.GetValue(svcPath)
+	rmsg, err := kvstore.Client().GetValue(svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -79,14 +79,14 @@ func PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, err
 		if err := gasNewL3n4AddrID(&sl4KV, baseID); err != nil {
 			return nil, err
 		}
-		err = kvstore.Client.SetValue(svcPath, sl4KV)
+		err = kvstore.Client().SetValue(svcPath, sl4KV)
 	}
 
 	return &sl4KV, err
 }
 
 func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
-	rmsg, err := kvstore.Client.GetValue(keyPath)
+	rmsg, err := kvstore.Client().GetValue(keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -133,14 +133,14 @@ func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	}
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := kvstore.Client.LockPath(svcPath)
+	lockKey, err := kvstore.Client().LockPath(svcPath)
 	if err != nil {
 		return err
 	}
 	defer lockKey.Unlock()
 
 	// After lock complete, get label's path
-	rmsg, err := kvstore.Client.GetValue(svcPath)
+	rmsg, err := kvstore.Client().GetValue(svcPath)
 	if err != nil {
 		return err
 	}
@@ -160,10 +160,10 @@ func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
 		return err
 	}
 
-	return kvstore.Client.SetValue(svcPath, l3n4AddrID)
+	return kvstore.Client().SetValue(svcPath, l3n4AddrID)
 }
 
 // GetMaxServiceID returns the maximum possible free UUID stored in the kvstore.
 func GetMaxServiceID() (uint32, error) {
-	return kvstore.Client.GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
+	return kvstore.Client().GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
 }

@@ -68,7 +68,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	d := h.daemon
 	sr := models.StatusResponse{}
 
-	if info, err := kvstore.Client.Status(); err != nil {
+	if info, err := kvstore.Client().Status(); err != nil {
 		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
 	} else {
 		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}

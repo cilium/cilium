@@ -20,8 +20,13 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// Client is the instance of the key-value as configured
-var Client KVClient
+var (
+	clientInstance KVClient
+
+	// leaseInstance is the backend specific lease object. The lease is
+	// created by initClient()
+	leaseInstance interface{}
+)
 
 func initClient() error {
 	switch backend {
@@ -36,7 +41,7 @@ func initClient() error {
 		}
 
 		log.Infof("Using consul as key-value store")
-		Client = c
+		clientInstance = c
 
 	case Etcd:
 		if etcdCfgPath == "" && etcdConfig == nil {
@@ -49,11 +54,23 @@ func initClient() error {
 		}
 
 		log.Infof("Using etcd as key-value store")
-		Client = c
+		clientInstance = c
 
 	default:
 		panic("BUG: kvstore backend not specified")
 	}
 
+	l, err := CreateLease(LeaseTTL)
+	if err != nil {
+		clientInstance = nil
+		return fmt.Errorf("Unable to create lease: %s", err)
+	}
+	leaseInstance = l
+
 	return nil
+}
+
+// Client returns the global kvstore client or nil if the client is not configured yet
+func Client() KVClient {
+	return clientInstance
 }

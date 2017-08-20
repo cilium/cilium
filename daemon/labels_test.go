@@ -82,7 +82,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, IsNil)
 	ds.d = d
-	kvstore.Client.DeleteTree(common.OperationalPath)
+	kvstore.Client().DeleteTree(common.OperationalPath)
 	// Needs to be less than 1 second otherwise GetCachedMaxLabelID might
 	// not work properly
 	d.EnableKVStoreWatcher(time.Nanosecond)
@@ -172,7 +172,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	var emptySecCtxLblPtr *policy.Identity
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
 
-	err = kvstore.Client.SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), policy.MinimalNumericIdentity.Uint32())
+	err = kvstore.Client().SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), policy.MinimalNumericIdentity.Uint32())
 	c.Assert(err, IsNil)
 
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-non-existent")
@@ -214,7 +214,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 
 func (ds *DaemonSuite) TestGetMaxID(c *C) {
 	lastID := policy.NumericIdentity(common.MaxSetOfLabels - 1)
-	err := kvstore.Client.SetValue(common.LastFreeLabelIDKeyPath, lastID)
+	err := kvstore.Client().SetValue(common.LastFreeLabelIDKeyPath, lastID)
 	c.Assert(err, IsNil)
 
 	id, err := GetMaxLabelID()
