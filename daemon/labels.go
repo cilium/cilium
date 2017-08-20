@@ -36,7 +36,7 @@ import (
 
 func updateSecLabelIDRef(id policy.Identity) error {
 	key := path.Join(common.LabelIDKeyPath, strconv.FormatUint(uint64(id.ID), 10))
-	return kvstore.Client.SetValue(key, id)
+	return kvstore.Client().SetValue(key, id)
 }
 
 // gasNewSecLabelID gets and sets a New SecLabel ID.
@@ -46,7 +46,7 @@ func gasNewSecLabelID(id *policy.Identity) error {
 		return err
 	}
 
-	return kvstore.Client.GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), id)
+	return kvstore.Client().GASNewSecLabelID(common.LabelIDKeyPath, uint32(baseID), id)
 }
 
 // type putIdentity struct {
@@ -85,14 +85,14 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	identityPath := path.Join(common.LabelsKeyPath, lbls.SHA256Sum())
 
 	// Lock the identity
-	lockKey, err := kvstore.Client.LockPath(identityPath)
+	lockKey, err := kvstore.Client().LockPath(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
 	defer lockKey.Unlock()
 
 	// Retrieve current identity for labels
-	rmsg, err := kvstore.Client.GetValue(identityPath)
+	rmsg, err := kvstore.Client().GetValue(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
@@ -138,7 +138,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	}
 
 	// store updated identity entry
-	if err = kvstore.Client.SetValue(identityPath, identity); err != nil {
+	if err = kvstore.Client().SetValue(identityPath, identity); err != nil {
 		return nil, false, err
 	}
 
@@ -206,7 +206,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, er
 	}
 
 	strID := strconv.FormatUint(uint64(id), 10)
-	rmsg, err := kvstore.Client.GetValue(path.Join(common.LabelIDKeyPath, strID))
+	rmsg, err := kvstore.Client().GetValue(path.Join(common.LabelIDKeyPath, strID))
 	if err != nil {
 		return nil, apierror.Error(GetIdentityUnreachableCode, err)
 	}
@@ -215,7 +215,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, er
 }
 
 func LookupIdentityBySHA256(sha256sum string) (*policy.Identity, error) {
-	rmsg, err := kvstore.Client.GetValue(path.Join(common.LabelsKeyPath, sha256sum))
+	rmsg, err := kvstore.Client().GetValue(path.Join(common.LabelsKeyPath, sha256sum))
 	if err != nil {
 		return nil, apierror.Error(GetIdentityUnreachableCode, err)
 	}
@@ -329,14 +329,14 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	}
 	lblPath := path.Join(common.LabelsKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := kvstore.Client.LockPath(lblPath)
+	lockKey, err := kvstore.Client().LockPath(lblPath)
 	if err != nil {
 		return err
 	}
 	defer lockKey.Unlock()
 
 	// After lock complete, get label's path
-	rmsg, err := kvstore.Client.GetValue(lblPath)
+	rmsg, err := kvstore.Client().GetValue(lblPath)
 	if err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 
 	log.Debugf("Decremented label %d ref-count to %d", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
 
-	if err := kvstore.Client.SetValue(lblPath, dbSecCtxLbls); err != nil {
+	if err := kvstore.Client().SetValue(lblPath, dbSecCtxLbls); err != nil {
 		return err
 	}
 
@@ -380,6 +380,6 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 
 // GetMaxLabelID returns the maximum possible free UUID stored in consul.
 func GetMaxLabelID() (policy.NumericIdentity, error) {
-	n, err := kvstore.Client.GetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32())
+	n, err := kvstore.Client().GetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32())
 	return policy.NumericIdentity(n), err
 }

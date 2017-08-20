@@ -91,7 +91,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
-	err = kvstore.Client.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, common.FirstFreeServiceID)
+	err = kvstore.Client().SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
 	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
@@ -138,7 +138,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 
 func (ds *DaemonSuite) TestGetMaxServiceID(c *C) {
 	lastID := uint32(common.MaxSetOfServiceID - 1)
-	err := kvstore.Client.SetValue(common.LastFreeServiceIDKeyPath, lastID)
+	err := kvstore.Client().SetValue(common.LastFreeServiceIDKeyPath, lastID)
 	c.Assert(err, Equals, nil)
 
 	id, err := GetMaxServiceID()

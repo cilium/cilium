@@ -22,6 +22,12 @@ import (
 	consulAPI "github.com/hashicorp/consul/api"
 )
 
+// Supported key-value store types.
+const (
+	Consul = "consul"
+	Etcd   = "etcd"
+)
+
 var (
 	// this variable is set via Makefile for test purposes and allows to tie a
 	// binary to a particular backend
