@@ -77,7 +77,7 @@ function generate_certs(){
 
 function install_etcd(){
     wget -nv https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
-    tar -xvf etcd-${etcd_version}-linux-amd64.tar.gz
+    tar -xf etcd-${etcd_version}-linux-amd64.tar.gz
     sudo mv etcd-${etcd_version}-linux-amd64/etcd* /usr/bin/
 }
 
