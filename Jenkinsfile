@@ -3,7 +3,7 @@ pipeline {
         label 'vagrant'
     }
     options {
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
         timestamps()
     }
     stages {
