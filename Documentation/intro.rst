@@ -1,10 +1,11 @@
 .. _intro:
 
+######################
 Introduction to Cilium
-======================
+######################
 
 What is Cilium?
----------------
+===============
 
 Cilium is open source software for transparently securing the network
 connectivity between application services deployed using Linux container
@@ -17,7 +18,7 @@ security policies can be applied and updated without any changes to the
 application code or container configuration.
 
 Why Cilium?
------------
+===========
 
 The development of modern datacenter applications has shifted to a
 service-oriented architecture often referred to as *microservices*, wherein a
@@ -57,7 +58,7 @@ The use of BPF enables Cilium to achieve all of this in a way that is highly
 scalable even for large-scale environments.
 
 Documentation Roadmap
----------------------
+=====================
 
 The remainder of this documentation is divided into four sections:
 
@@ -70,14 +71,14 @@ The remainder of this documentation is divided into four sections:
   understanding required to run a full Cilium deployment and understand its
   behavior.
 
-* :ref:`admin_guide` :  Details instructions for installing, configuring, and
+* :ref:`install_guide` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
 * :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.
 
 Getting Help
-------------
+============
 
 We use Github issues to maintain a list of `Cilium Frequently Asked Questions (FAQ)
 <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_.

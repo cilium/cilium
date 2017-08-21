@@ -1,7 +1,8 @@
 .. _gs_guide:
 
-Getting Started Guide
-=====================
+###############
+Getting Started
+###############
 
 This document serves as the easiest introduction to using Cilium.
 It is a detailed walk through of getting a single-node Cilium environment running on
@@ -21,8 +22,9 @@ The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
 across the globe, there is almost always someone available to help.
 
+********************************
 Getting Started Using Kubernetes
---------------------------------
+********************************
 
 This guide uses `minikube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
 to demonstrate deployment and operation of Cilium in a single-node Kubernetes cluster.
@@ -34,7 +36,7 @@ deploying Cilium on a full fledged Kubernetes cluster, then go straight to
 :ref:`admin_install_daemonset`.
 
 Step 0: Install kubectl & minikube
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+==================================
 
 Install ``kubectl`` version ``>= 1.6.3`` as described in the `Kubernetes Docs
 <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
@@ -64,7 +66,7 @@ check the status of the cluster by running ``kubectl get cs``:
 If you see output similar to this, you are ready to proceed to installing Cilium.
 
 Step 1: Installing Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^
+=========================
 
 The next step is to install Cilium into your Kubernetes cluster.  Cilium installation
 leverages the `Kubernetes Daemon Set <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
@@ -100,7 +102,7 @@ Wait until the cilium and cilium-consul Deployments shows a ``READY``
 count of ``1`` like above.
 
 Step 2: Deploy the Demo Application
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+===================================
 
 Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo application.
@@ -114,7 +116,7 @@ to access *app1*.
 
 **Application Topology for Cilium and Kubernetes**
 
-.. image:: cilium_k8s_demo-150817.png
+.. image:: images/cilium_k8s_demo-150817.png
 
 The file ``demo.yaml`` contains a Kubernetes Deployment for each of the three applications,
 with each deployment identified using the Kubernetes labels id=app1, id=app2,
@@ -173,7 +175,7 @@ policy has been imported yet which select any of the pods.
 
 
 Step 3: Apply an L3/L4 Policy
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=============================
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
 policies.  Instead, you can use the labels assigned to the VM to define
@@ -193,7 +195,7 @@ same TCP/UDP connection.
 
 **L4 Policy with Cilium and Kubernetes**
 
-.. image:: cilium_k8s_demo_l3-l4-policy-170817.png
+.. image:: images/cilium_k8s_demo_l3-l4-policy-170817.png
 
 We can achieve that with the following Kubernetes NetworkPolicy:
 
@@ -244,7 +246,7 @@ label ``id=app1`` now have policy enforcement enabled.
     50133      Disabled      257        k8s:id=app2                               f00d::a00:20f:0:c3d5   10.15.59.20     ready
 
 Step 4: Test L3/L4 Policy
-^^^^^^^^^^^^^^^^^^^^^^^^^
+=========================
 
 We can now verify the network policy that was imported.
 You can now launch additional containers represent other services attempting to
@@ -286,7 +288,7 @@ You can observe the policy via ``kubectl``
 
 
 Step 5:  Apply and Test HTTP-aware L7 Policy
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+============================================
 
 In the simple scenario above, it was sufficient to either give *app2* /
 *app3* full access to *app1's* API or no access at all.   But to
@@ -320,7 +322,7 @@ and
 
 **L7 Policy with Cilium and Kubernetes**
 
-.. image:: cilium_k8s_demo_l7-policy-170817.png
+.. image:: images/cilium_k8s_demo_l7-policy-170817.png
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
 URLs *app2* is allowed to reach.  Here is an example policy file that
@@ -524,7 +526,7 @@ the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
 Step 6:  Clean-Up
-^^^^^^^^^^^^^^^^^
+=================
 
 You have now installed Cilium, deployed a demo app, and tested both
 L3/L4 and L7 network security policies.
@@ -535,20 +537,20 @@ L3/L4 and L7 network security policies.
 
 After this, you can re-run the `Getting Started Using Kubernetes`_ from Step 1.
 
-
+****************************
 Getting Started Using Docker
------------------------------
+****************************
 
 This tutorial leverages Vagrant and VirtualBox, thus should run on any
 operating system supported by Vagrant, including Linux, macOS, and Windows.
 
 Step 0: Install Vagrant
-^^^^^^^^^^^^^^^^^^^^^^^
+=======================
 
 If you don't already have Vagrant installed, refer to the :ref:`dev_guide` for links to installation instructions for Vagrant.  
 
 Step 1: Download the Cilium Source Code
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=======================================
 
 Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_
 and unzip the files.
@@ -560,7 +562,7 @@ Alternatively, if you are a developer, feel free to clone the repository:
     $ git clone https://github.com/cilium/cilium
 
 Step 2: Starting the Docker + Cilium VM
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=======================================
 
 Open a terminal and navigate into the top of the `cilium` source directory.
 
@@ -588,7 +590,7 @@ tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_.
 
 Step 3: Accessing the VM
-^^^^^^^^^^^^^^^^^^^^^^^^
+========================
 
 After the script has successfully completed, you can log into the VM using
 ``vagrant ssh``:
@@ -605,7 +607,7 @@ directory.
 
 
 Step 4: Confirm that Cilium is Running
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+======================================
 
 The Cilium agent is now running as a system service and you can interact with
 it using the ``cilium`` CLI client. Check the status of the agent by running
@@ -623,7 +625,7 @@ The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
 
 Step 5: Create a Docker Network of Type Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+==============================================
 
 Cilium integrates with local container runtimes, which in the case of this demo
 means Docker. With Docker, native networking is handled via a component called
@@ -641,7 +643,7 @@ named 'cilium-net' for all containers:
 
 
 Step 6: Start an Example Service with Docker
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+============================================
 
 In this tutorial, we'll use a container running a simple HTTP server to
 represent a microservice application which we will refer to as *app1*.  As a result, we
@@ -663,7 +665,7 @@ containers which can be addressed by an individual IP address.
 
 
 Step 7: Apply an L3/L4 Policy With Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=========================================
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
 policies.  Instead, you can use the labels assigned to the VM to define
@@ -685,7 +687,7 @@ of the same TCP/UDP connection.
 
 **L4 Policy with Cilium and Docker**
 
-.. image:: cilium_dkr_demo_l3-l4-policy-170817.png
+.. image:: images/cilium_dkr_demo_l3-l4-policy-170817.png
 
 We can achieve that with the following Cilium policy:
 
@@ -712,7 +714,7 @@ policy by running:
 
 
 Step 8: Test L3/L4 Policy
-^^^^^^^^^^^^^^^^^^^^^^^^^
+=========================
 
 
 You can now launch additional containers represent other services attempting to
@@ -747,7 +749,7 @@ particular service are assigned an IP address in a particular range.
 
 
 Step 9:  Apply and Test an L7 Policy with Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+================================================
 
 In the simple scenario above, it was sufficient to either give *app2* /
 *app3* full access to *app1's* API or no access at all.   But to
@@ -786,7 +788,7 @@ API call, but disallowing all other calls (including GET /private).
 
 **L7 Policy with Cilium and Docker**
 
-.. image:: cilium_dkr_demo_l7-policy-170817.png
+.. image:: images/cilium_dkr_demo_l7-policy-170817.png
 
 The following Cilium policy file achieves this goal:
 
@@ -841,7 +843,7 @@ Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
 
 Step 10: Clean-Up
-^^^^^^^^^^^^^^^^^
+=================
 
 Exit the vagrant VM by typing ``exit``.
 
@@ -859,15 +861,16 @@ If instead you just want to shut down the VM but may use it later,
 ``vagrant halt cilium-1`` will work, and you can start it again later
 using the contrib/vagrant/start.sh script.
 
-Getting Started Using Mesos 
------------------------------
+***************************
+Getting Started Using Mesos
+***************************
 
 This tutorial leverages Vagrant and VirtualBox to deploy Apache Mesos, Marathon and Cilium. You will run Cilium to apply a simple policy between a simulated web-service and clients. This tutorial can be run on any operating system supported by Vagrant including Linux, macOS, and Windows.
 
 For more information on Apache Mesos and Marathon orchestration, check out the `Mesos <https://github.com/apache/mesos>`_ and `Marathon <https://mesosphere.github.io/marathon/>`_ GitHub pages, respectively.
  
 Step 0: Install Vagrant
-^^^^^^^^^^^^^^^^^^^^^^^
+=======================
 
 You need to run at least Vagrant version 1.8.3 or you will run into issues booting the Ubuntu 16.10 base image. You can verify by running ``vagrant --version``.
 
@@ -877,7 +880,7 @@ or see `Download Vagrant <https://www.vagrantup.com/downloads.html>`_ for newer 
 
 
 Step 1: Download the Cilium Source Code
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=======================================
 
 Download the latest Cilium `source code <https://github.com/cilium/cilium/archive/master.zip>`_
 and unzip the files.
@@ -889,7 +892,7 @@ Alternatively, if you are a developer, feel free to clone the repository:
     $ git clone https://github.com/cilium/cilium
 
 Step 2: Starting a VM with Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=================================
 
 Open a terminal and navigate into the top of the ``cilium`` source directory.
 
@@ -923,7 +926,7 @@ tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_.
 
 Step 3: Accessing the VM
-^^^^^^^^^^^^^^^^^^^^^^^^
+========================
 
 After the script has successfully completed, you can log into the VM using
 ``vagrant ssh``:
@@ -939,7 +942,7 @@ in a new terminal window just by running ``vagrant ssh`` again from the Cilium
 directory.
 
 Step 4: Confirm that Cilium is Running
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+======================================
 
 The Cilium agent is now running and you can interact with it using the ``cilium`` CLI client. Check the status of the agent by running ``cilium status``:
 
@@ -954,7 +957,7 @@ The Cilium agent is now running and you can interact with it using the ``cilium`
 The status indicates that all necessary components are operational.
 
 Step 5: Run Script to Start Marathon
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+====================================
 
 Start Marathon inside the Vagrant VM:
 
@@ -969,7 +972,7 @@ Start Marathon inside the Vagrant VM:
     Done
 
 Step 6: Simulate a Web-Server and Clients
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=========================================
 
 Use ``curl`` to submit a task to Marathon for scheduling, with data to run the simulated web-server provided by the ``web-server.json``. The web-server simply responds to requests on a particular port. 
 
@@ -1072,7 +1075,7 @@ Make sure the previous command continuously prints the result of the client acce
     ...
 
 Step 7: Apply L3/L4 Policy with Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+======================================
 
 In a new terminal session, do a ``vagrant ssh`` to get into the Vagrant VM and apply an L3/L4 policy only allowing the *goodclient* to access the *web-server*. The L3/L4 json policy looks like:
 
@@ -1092,7 +1095,7 @@ In a new terminal session, do a ``vagrant ssh`` to get into the Vagrant VM and a
 
 **L3/L4 Policy with Cilium and Mesos**
 
-.. image:: cilium_mesos_demo_l3-l4-policy-170817.png
+.. image:: images/cilium_mesos_demo_l3-l4-policy-170817.png
 
 
 Use ``cilium`` CLI to apply the L3/L4 policy:
@@ -1142,7 +1145,7 @@ The *badclient* logs should resume outputting the *web-server*'s response and Ci
     64189      Disabled      258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready
 
 Step 8: Apply L7 Policy with Cilium
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+===================================
 Now, in a different terminal, do a ``vagrant ssh`` and apply the provided policy that allows accessing only the */public* API:
 
 ::
@@ -1151,7 +1154,7 @@ Now, in a different terminal, do a ``vagrant ssh`` and apply the provided policy
 
 **L7 Policy with Cilium and Mesos**
 
-.. image:: cilium_mesos_demo_l7-policy-170817.png
+.. image:: images/cilium_mesos_demo_l7-policy-170817.png
 
 Check the *goodclient*'s log and you should see that */private* is no longer accessible, and the *badclient*'s requests see the same results as the previous step.
 
@@ -1186,7 +1189,7 @@ You can also observe that the policy is applied with ``cilium`` CLI:
     $ cilium policy delete --all
 
 Step 9: Clean-Up 
-^^^^^^^^^^^^^^^^
+================
 
 Exit the vagrant VM by typing ``exit``.
 
@@ -1205,8 +1208,7 @@ using the contrib/vagrant/start.sh script.
 To clean the node kill all mesos-master, mesos-agent, marathon-related processes manually.
 
 Troubleshooting
----------------
+===============
 
 For assistance on any of the Getting Started Guides, please reach out and ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.
-

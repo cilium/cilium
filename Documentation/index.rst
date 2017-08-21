@@ -12,8 +12,9 @@ Welcome to Cilium's documentation!
 
    intro
    gettingstarted
-   architecture
-   admin
+   concepts
+   install
+   troubleshooting
    bpf
    api
    contributing
