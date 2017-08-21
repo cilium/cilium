@@ -19,6 +19,8 @@ import (
 	"os/exec"
 	"path"
 	"sync"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -129,10 +131,10 @@ func mountFS() error {
 
 // MountFS mounts the BPF filesystem and then opens/creates all maps which have
 // previously been scheduled to be opened/created
-func MountFS() error {
-	var err error
+func MountFS() {
 	mountOnce.Do(func() {
-		err = mountFS()
+		if err := mountFS(); err != nil {
+			log.WithError(err).Fatalf("Unable to mount BPF filesystem")
+		}
 	})
-	return err
 }
