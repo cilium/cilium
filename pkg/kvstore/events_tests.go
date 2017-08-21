@@ -48,7 +48,7 @@ func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 		if backend == "consul" {
 			c.Assert(event.Value, DeepEquals, val)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		c.Fatal("timeout while waiting for kvstore watcher event")
 	}
 }
