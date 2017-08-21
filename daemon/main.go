@@ -438,9 +438,9 @@ func initEnv() {
 	// BPF filesystem is mapped into the slave namespace.
 	if bpfRoot != "" {
 		bpf.SetMapRoot(bpfRoot)
-	} else if err := bpf.MountFS(); err != nil {
-		log.Fatalf("Unable to mount BPF filesystem: %s", err)
 	}
+
+	bpf.MountFS()
 
 	if viper.GetBool("debug") {
 		config.Opts.Set(endpoint.OptionDebug, true)
