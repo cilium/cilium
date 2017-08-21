@@ -88,11 +88,20 @@ function wait_for_endpoints {
 	set -x
 }
 
+function k8s_num_ready {
+	local NAMESPACE=$1
+	local CILIUM_POD=$2
+	local FILTER=$3
+
+	kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep $FILTER | grep -v 'not-ready' | grep -c 'ready' || true
+}
+
 function wait_for_k8s_endpoints {
 	set +x
 	local NAMESPACE=$1
 	local CILIUM_POD=$2
 	local NUM=$3
+	local FILTER=$4
 	echo "Waiting for $NUM endpoints in namespace $NAMESPACE managed by $CILIUM_POD"
 
 	# Wait some time for at least one endpoint to get into regenerating state
@@ -101,7 +110,7 @@ function wait_for_k8s_endpoints {
 
 	local sleep_time=1
 	local iter=0
-	local found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -v 'not-ready' | grep -c 'ready' || true)
+	local found=$(k8s_num_ready $NAMESPACE $CILIUM_POD $FILTER)
 	echo "found: $found"
 	while [[ "$found" -ne "$NUM" ]]; do
 		if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
@@ -113,7 +122,7 @@ function wait_for_k8s_endpoints {
 			echo -n " [${found}/${NUM}]"
 			sleep $sleep_time
 		fi
-		found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -v 'not-ready' | grep -c 'ready' || true)
+		found=$(k8s_num_ready $NAMESPACE $CILIUM_POD $FILTER)
 		echo "found: $found"
 	done
 
