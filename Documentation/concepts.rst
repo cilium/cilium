@@ -1,8 +1,8 @@
 .. _arch_guide:
 
-##################
-Architecture Guide
-##################
+########
+Concepts
+########
 
 The goal of this document is to describe the components of the Cilium
 architecture, and the different models for deploying Cilium within your
@@ -163,7 +163,7 @@ based on labels:
 - Network policies themselves are described and addressed by labels.
 
 Basic Label: Key/Value Pair
----------------------------
+===========================
 
 A label is a pair of strings consisting of a ``key`` and ``value``. A label can
 be formatted as a single string with the format ``key=value``. The key portion
@@ -179,7 +179,7 @@ e.g. when a policy should be applied to all endpoints with the label
 selector.
 
 Label Source
-------------
+============
 
 A label can be derived from various sources. For example, a Cilium endpoint
 will derive the labels associated to the container by the local container
@@ -431,23 +431,35 @@ for another local endpoint to the routing subsystem of the Linux kernel. This
 means that the packet will be routed as if a local process would have emitted
 the packet. As a result, the network connecting the cluster nodes must be aware
 that each of the node IP prefixes are reachable by using the node's primary IP
-address as an L3 next hop address. This is typically achieved using two
-methods:
+address as an L3 next hop address. 
+
+Cilium automatically enables IP forwarding in Linux when direct mode is
+configured, but it is up to the container cluster administrator to ensure that
+each routing element in the underlying network has a route that describes each
+node IP as the IP next hop for the corresponding node prefix.
+
+This is typically achieved using two methods:
 
 - Operation of a routing protocol such as OSPF or BPG via routing daemon such
   as Zebra, bird, bpgd. The routing protocols will announce the *node allocation
   prefix* via the node's IP to all other nodes.
 
 - Use of the cloud provider's routing functionality. Refer to the documentation
-  of your cloud provider for additional details. If you are running Kubernetes
-  with the `--cloud-provider` in combination with the `--allocate-node-cidrs`
-  option then this is configured automatically for IPv4 prefixes.
+  of your cloud provider for additional details  (e.g,. `AWS VPC Route Tables`_
+  or `GCE Routes`_). These APIs can be used to associate each node prefix with
+  the appropriate next hop IP each time a container node is added to the
+  cluster.  If you are running Kubernetes with the `--cloud-provider` in
+  combination with the `--allocate-node-cidrs` option then this is configured
+  automatically for IPv4 prefixes.
 
 .. note:: Use of direct routing mode currently only offers identity based
           security policy enforcement for IPv6 where the security identity is
           stored in the flowlabel. IPv4 is currently not supported and thus
           security must be enforced using CIDR policy rules.
 
+
+.. _AWS VPC Route Tables: http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Route_Tables.html
+.. _GCE Routes: https://cloud.google.com/compute/docs/reference/latest/routes
 
 There are two possible approaches to performing network forwarding for
 container-to-container traffic:
@@ -469,6 +481,8 @@ In the :ref:`arch_direct_routing` mode described before, if container IP
 addresses are routable outside of the container cluster, communication with
 external hosts requires little more than enabling L3 forwarding on each of the
 Linux nodes.
+
+.. _concepts_external_access:
 
 External Network Connectivity
 =============================
@@ -606,7 +620,7 @@ when starting the cilium agent, see :ref:`admin_agent_options`.
 .. _reserved_labels:
 
 Special Identities
-^^^^^^^^^^^^^^^^^^
+------------------
 
 All endpoints which are managed by Cilium will be assigned an identity. In
 order to allow communication to network endpoints which are not managed by
@@ -696,8 +710,9 @@ the identity of the endpoint.
 When two pods communicate via a service construct, then the labels of the
 origin pod apply to determine the identity.
 
+***************
 Policy Language
-===============
+***************
 
 The security policy can be specified in the following formats:
 
@@ -727,7 +742,7 @@ Policy consists of a list of rules:
 .. _arch_rules:
 
 Policy Rules
-------------
+============
 
 Multiple types of policy rules are supported, all types following the simple
 template:
@@ -753,7 +768,7 @@ carry the label `backend`.
 	}]
 
 Allow Rules
------------
+===========
 
 This is the simplest rule type. The rule defines a list of labels which are
 allowed to consume whatever endpoints are covered by the coverage.
@@ -854,7 +869,7 @@ node `root` allows access by using *always-accept*.
 	}
 
 Requires Rules
---------------
+==============
 
 *Requires* rules define a list of additional labels that must
 be present in the sending endpoint for an allow rule to take effect. A
@@ -899,7 +914,7 @@ allows for simple segmentation of existing rules into multiple environments
 or groups.
 
 Layer 4 Rules
--------------
+=============
 
 The *L4* rule allows to impose Layer 4 restrictions on endpoints. It can be
 applied to either incoming or outgoing connections. An *L4* by itself does not
@@ -958,7 +973,7 @@ restricted to port 8080.
 .. _arch_l7_rules:
 
 Layer 7 Rules
--------------
+=============
 
 Layer 7 rules are currently limited to IPv4. Policies can be applied for both
 incoming and outgoing requests. The enforcement point is defined by the
@@ -995,20 +1010,76 @@ nodes:
   with a filesystem watcher that invokes `cilium import` upon detection of any
   change.
 
-************************************
-Integration with Container Platforms
-************************************
+************
+Integrations
+************
 
 Cilium is deeply integrated with container platforms like Docker or Kubernetes.
 This enables Cilium to perform network forwarding and security using a model
-that maps direction to notions of identity (e.g., labels) and service
+that maps directly to notions of identity (e.g., labels) and service
 abstractions that are native to the container platform.
 
 In this section, we will provide more detail on how Cilium integrates with
 Docker and Kubernetes.
 
-Docker Integration
-^^^^^^^^^^^^^^^^^^
+Kubernetes
+==========
+
+When deployed with Kubernetes, Cilium provides four core Kubernetes networking
+capabilities:
+
+* Direct pod-to-pod network inter-connectivity.
+* Service-based load-balancing for pod-to-pod inter-connectivity (i.e., a
+  kube-proxy replacement).
+* Identity-based security policies for all  (direct and service-based)
+  Pod-to-Pod inter-connectivity.
+* External-to-Pod service-based load-balancing (referred to as `Ingress` in
+  Kubernetes)
+
+The Kubernetes documentation contains more background on the `Kubernetes
+Networking Model
+<https://kubernetes.io/docs/concepts/cluster-administration/networking/>`_ and
+`Kubernetes Network Plugins
+<https://kubernetes.io/docs/concepts/cluster-administration/network-plugins/>`_
+.
+
+Pod-to-Pod Connectivity
+-----------------------
+
+In Kubernetes, containers are deployed within units referred to as Pod_, which
+include one or more containers reachable via a single IP address.  With Cilium,
+each Pod gets an IP address from the node prefix of the Linux node running the
+Pod. See `address management`_ for additional details. In the absence of any
+network security policies, all Pods can reach each other.
+
+Pod IP addresses are typically local to the Kubernetes cluster. If pods need to
+reach services outside the cluster as a client, the network traffic is
+automatically masqueraded as it leaves the node. You can find additional
+information in the section :ref:`concepts_external_access`.
+
+Service Load-balancing
+----------------------
+
+Kubernetes has developed the Services abstraction which provides the user the
+ability to load balance network traffic to different pods. This abstraction
+allows the pods reaching out to other pods by a single IP address, a virtual IP
+address, without knowing all the pods that are running that particular service.
+
+Without Cilium, kube-proxy is installed on every node, watches for endpoints
+and services addition and removal on the kube-master which allows it to to
+apply the necessary enforcement on iptables. Thus, the received and sent
+traffic from and to the pods are properly routed to the node and port serving
+for that service. For more information you can check out the kubernetes user
+guide for `Services  <http://kubernetes.io/docs/user-guide/services>`__.
+
+Cilium load-balancer acts on the same principles as kube-proxy, it watches for
+services addition or removal, but instead of doing the enforcement on the
+iptables, it updates BPF map entries on each node. For more information, see
+the `Pull Request <https://github.com/cilium/cilium/pull/109>`__.
+
+
+Docker
+======
 
 Docker supports network plugins via the `libnetwork plugin interface
 <https://github.com/docker/libnetwork/blob/master/docs/design.md>`_ .
@@ -1029,84 +1100,6 @@ written in terms of the Docker container labels passed to Docker while creating
 the container.  These policies can be created/updated via communication
 directly with the Cilium agent, either via API or by using the Cilium CLI
 client.
-
-Kubernetes Integration
-^^^^^^^^^^^^^^^^^^^^^^
-
-When deployed with Kubernetes, Cilium provides four core Kubernetes networking
-capabilities:
-
-* Direct pod-to-pod network inter-connectivity.
-* Service-based load-balancing for pod-to-pod inter-connectivity (i.e., a
-  kube-proxy replacement).
-* Identity-based security policies for all  (direct and service-based)
-  Pod-to-Pod inter-connectivity.
-* External-to-Pod service-based load-balancing (referred to as `Ingress` in
-  Kubernetes)
-
-The Kubernetes documentation contains more background on the `Kubernetes
-Networking Model
-<https://kubernetes.io/docs/concepts/cluster-administration/networking/>`_ and
-`Kubernetes Network Plugins
-<https://kubernetes.io/docs/concepts/cluster-administration/network-plugins/>`_
-.
-
-Direct Pod-to-Pod Connectivity
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In Kubernetes, containers are deployed within units referred to as Pods, which
-include one or more containers reachable via a single IP address.  With Cilium,
-each Pod gets an IP address from the node prefix of the Linux node running the
-Pod.   In the absence of any network security policies, all Pods can reach each
-other.
-
-Pod IP addresses are typically local to the Kubernetes cluster.  If pods need
-to reach services outside the cluster as a client, the Kubernetes nodes are
-typically configured to IP masquerade all traffic sent from containers to
-external prefix.
-
-Pod-to-Pod Service-based Load-balancing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Kubernetes has developed the Services abstraction which provides the user the
-ability to load balance network traffic to different pods. This abstraction
-allows the pods reaching out to other pods by a single IP address, a virtual IP
-address, without knowing all the pods that are running that particular service.
-
-Without Cilium, kube-proxy is installed on every node, watches for endpoints
-and services addition and removal on the kube-master which allows it to to
-apply the necessary enforcement on iptables. Thus, the received and sent
-traffic from and to the pods are properly routed to the node and port serving
-for that service. For more information you can check out the kubernetes user
-guide for `Services  <http://kubernetes.io/docs/user-guide/services>`__.
-
-Cilium load-balancer acts on the same principles as kube-proxy, it watches for
-services addition or removal, but instead of doing the enforcement on the
-iptables, it updates BPF map entries on each node. For more information, see
-the `Pull Request <https://github.com/cilium/cilium/pull/109>`__.
-
-TODO: describe benefits of BPF based load-balancer compared to kube-proxy
-      iptables
-
-External-to-Pod Service-based Load-balancing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-TODO: Verify this
-
-Kubernetes supports an abstraction known as `Ingress
-<https://kubernetes.io/docs/concepts/services-networking/ingress/#what-is-ingress>`_
-that allows a Pod-based Kubernetes service to expose itself for access outside
-of the cluster in a load-balanced way.  In a typical setup, the external traffic
-would be sent to a publicly reachable IP + port on the host running the
-Kubernetes master, and then be load-balanced to the pods implementing the
-current service within the cluster.
-
-Cilium supports Ingress with TCP-based load-balancing.  Moreover, it supports
-''direct server return'', meaning that reply traffic from the pod to the
-external client is sent directly, without needing to pass through the
-kubernetes master host.
-
-TODO: insert graphic showing LB + DSR.
 
 .. _Pod: https://kubernetes.io/docs/concepts/workloads/pods/pod/
 .. _VXLAN: https://tools.ietf.org/html/rfc7348
