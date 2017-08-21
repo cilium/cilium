@@ -85,7 +85,7 @@ APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
 SVC_IP=$(kubectl get svc app1-service -o jsonpath='{.spec.clusterIP}' )
 
 echo "----- testing app2 can reach app1 (expected behavior: can reach) -----"
-RETURN=$(kubectl $ID exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET $SVC_IP || true)
+RETURN=$(kubectl $ID exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' -XGET $SVC_IP || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: could not reach pod allowed by L3 L4 policy"
 fi
@@ -98,7 +98,7 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 echo "----- testing that app3 cannot reach app 1 (expected behavior: cannot reach)"
-RETURN=$(kubectl exec $APP3_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET $SVC_IP || true)
+RETURN=$(kubectl exec $APP3_POD -- curl -s --output /dev/stderr -w '%{http_code}' -XGET $SVC_IP || true)
 if [[ "${RETURN//$'\n'}" != "000" ]]; then
 	abort "Error: unexpectedly reached pod allowed by L3 L4 Policy, received return code ${RETURN}"
 fi
@@ -110,13 +110,13 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"
-RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 http://${SVC_IP}/public || true)
+RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/public || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: Could not reach ${SVC_IP}/public on port 80"
 fi
 
 echo "------ performing HTTP GET on ${SVC_IP}/private from service2 ------"
-RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 http://${SVC_IP}/private || true)
+RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/private || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: Could not reach ${SVC_IP}/private on port 80"
 fi
@@ -137,13 +137,13 @@ echo "---- Policy in ${CILIUM_POD_2} ----"
 kubectl exec ${CILIUM_POD_2} -n ${NAMESPACE} -- cilium policy get
 
 echo "------ performing HTTP GET on ${SVC_IP}/public from service2 ------"
-RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 http://${SVC_IP}/public || true)
+RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/public || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: Could not reach ${SVC_IP}/public on port 80"
 fi
 
 echo "------ performing HTTP GET on ${SVC_IP}/private from service2 ------"
-RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 http://${SVC_IP}/private || true)
+RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 15 http://${SVC_IP}/private || true)
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
 	abort "Error: Unexpected success reaching  ${SVC_IP}/private on port 80"
 fi
