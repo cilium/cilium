@@ -1,43 +1,45 @@
-.. _admin_guide:
+.. _install_guide:
 
-Administrator Guide
-===================
+##################
+Installation Guide
+##################
 
-This document describes how to install, configure, run, and troubleshoot Cilium
-in different deployment modes. It focuses on a full deployment of Cilium within
-a datacenter or public cloud. If you are just looking for a simple way to
-experiment, we highly recommend trying out the :ref:`gs_guide` instead.
+This document describes how to install and configure Cilium in different
+deployment modes. It focuses on a full deployment of Cilium within a datacenter
+or public cloud. If you are just looking for a simple way to experiment, we
+highly recommend trying out the :ref:`gs_guide` instead.
 
 This guide assumes that you have read the :ref:`arch_guide` which explains all
 the components and concepts.
 
 .. _admin_system_reqs:
 
+*******************
 System Requirements
--------------------
+*******************
 
 Before installing Cilium. Please ensure that your system is meeting the minimal
 requirements to run Cilium. Most modern Linux distributions will automatically
 meet the requirements.
 
 Summary
-^^^^^^^
+=======
 
 When running Cilium using the container image ``cilium/cilium``, these are
 the requirements your system has to fulfill:
 
 - `Linux kernel`_ >= 4.8 (>= 4.9.17 LTS recommended)
-- Key-Value store (see :ref:`req_kvstore` for version details)
+- Key-Value store (see :ref:`req_kvstore` section for version details)
 
-The following additional dependencies are **only** required if you choose to
-run Cilium natively and you are **not** using ``cilium/cilium`` container
-image:
+The following additional dependencies are **only** required if you choose
+**not** to use the ``cilium/cilium`` container image and want to run Cilium as
+a native process on your host:
 
 - `clang+LLVM`_ >=3.7.1
 - iproute2_ >= 4.8.0
 
 Linux Distribution Compatibility Matrix
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=======================================
 
 The following table lists Linux distributions versions which are known to work
 well with Cilium.
@@ -67,7 +69,7 @@ Ubuntu_               >= 16.04.2, >= 16.10
 .. _admin_kernel_version:
 
 Linux Kernel
-^^^^^^^^^^^^
+============
 
 Cilium leverages and builds on the kernel functionality BPF as well as various
 subsystems which integrate with BPF. Therefore, all systems that will run a
@@ -97,7 +99,7 @@ or statically linked, then both choices are valid.
 .. _req_kvstore:
 
 Key-Value store
-^^^^^^^^^^^^^^^
+===============
 
 Cilium uses a distributed Key-Value store to manage and distribute security
 identities across all cluster nodes. The following Key-Value stores are
@@ -106,11 +108,12 @@ currently supported:
 - etcd >= 3.1.0
 - consul >= 0.6.4
 
-See section :ref:`admin_kvstore` for details on how to configure the
+See section :ref:`install_kvstore` for details on how to configure the
 `cilium-agent` to use a Key-Value store.
 
 clang+LLVM
-^^^^^^^^^^
+==========
+
 
 .. note:: This requirement is only needed if you run ``cilium-agent`` natively.
           If you are using the Cilium container image ``cilium/cilium``,
@@ -126,7 +129,7 @@ LLVM.  Be aware that in order to use clang 3.9.x, the kernel version
 requirement is >= 4.9.17.
 
 iproute2
-^^^^^^^^
+========
 
 .. note:: This requirement is only needed if you run ``cilium-agent`` natively.
           If you are using the Cilium container image ``cilium/cilium``,
@@ -142,8 +145,9 @@ to install iproute2.
 
 .. _admin_install_daemonset:
 
-Installation on Kubernetes
---------------------------
+*****************************
+Kubernetes Installation Guide
+*****************************
 
 This section describes how to install and run Cilium on Kubernetes. The
 deployment method we are using is called DaemonSet_ which is the easiest way to deploy
@@ -152,10 +156,10 @@ deploy and run a ``cilium/cilium`` container image as a pod on all Kubernetes
 worker nodes.
 
 Should you encounter any issues during the installation, please refer to the
-:ref:`admin_k8s_troubleshooting` section and / or seek help on `Slack channel`_.
+:ref:`troubleshooting_k8s` section and / or seek help on `Slack channel`_.
 
 TL;DR Version (Expert Mode)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+===========================
 
 If you know what you are doing, then the following quick instructions get you
 started in the shortest time possible. If you require additional details or are
@@ -192,8 +196,11 @@ chapter.
 
 .. _admin_mount_bpffs:
 
+Step by Step Instructions
+=========================
+
 Mounting the BPF FS 
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 This step is optional but recommended. It allows the ``cilium-agent`` to pin
 BPF resources to a persistent filesystem and make them persistent across
@@ -236,7 +243,7 @@ If you are using systemd to manage the kubelet, another option is to add a
 
 
 CNI Configuation
-^^^^^^^^^^^^^^^^
+----------------
 
 CNI_ - Container Network Interface is the plugin layer used by Kubernetes to
 delegate networking configuration. You can find additional information on the
@@ -307,7 +314,7 @@ already exists on a worker node and only creates it if it does not exist yet.
 .. _rbac_integration:
 
 RBAC integration
-^^^^^^^^^^^^^^^^
+----------------
 
 If you have RBAC_ enabled in your Kubernetes cluster, create appropriate
 cluster roles and service accounts for Cilium:
@@ -322,7 +329,7 @@ cluster roles and service accounts for Cilium:
 .. _ds_config:
 
 Configuring the DaemonSet
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 .. code:: bash
 
@@ -334,13 +341,13 @@ The following configuration options *must* be specified:
 - ``--k8s-api-server`` or ``--k8s-kubeconfig-path`` must point to at least one
   Kubernetes API server address.
 - ``--kvstore`` with optional ``--kvstore-opts`` to configure the Key-Value
-  store.  See section :ref:`admin_kvstore` for additional details on how to
+  store.  See section :ref:`install_kvstore` for additional details on how to
   configure the Key-Value store.
 
 .. _ds_deploy:
 
 Deploying the DaemonSet
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 After configuring the ``cilium`` DaemonSet_ it is time to deploy it using
 ``kubectl``:
@@ -402,7 +409,7 @@ We can now check the logfile of a particular cilium agent:
 
 
 Deploying to selected nodes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To deploy Cilium only to a selected list of worker nodes, you can add a
 NodeSelector_ to the ``cilium-ds.yaml`` file like this:
@@ -424,7 +431,7 @@ And then label each node where Cilium should be deployed:
     kubectl label node worker2 with-network-plugin=cilium
 
 Networking For Existing Pods
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 In case pods were already running before the Cilium DaemonSet was deployed,
 these pods will still be connected using the previous networking plugin
@@ -456,7 +463,7 @@ Running ``kubectl get pods`` will show you that Kubernetes started a new set of
         kube-dns-268032401-t57r2      3/3       Terminating   0          57m
 
 Removing the cilium daemon
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 All cilium agents are managed as a DaemonSet_ which means that deleting the
 DaemonSet_ will automatically stop and remove all pods which run Cilium on each
@@ -466,11 +473,9 @@ worker node:
 
         $ kubectl --namespace kube-system delete ds cilium
 
-.. _admin_k8s_troubleshooting:
 
-
-Migrating Cilium ThirdPartyResource to CustomResourceDefinition 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Migrating Cilium TPR to CRD
+===========================
 
 Prior to Kubernetes 1.7, Cilium Network Policy (CNP) objects were imported as a `Kubernetes ThirdPartyResource (TPRs) <https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-third-party-resource/>`_.
 In Kubernetes ``>=1.7.0``, TPRs are now deprecated, and will be removed in Kubernetes 1.8. TPRs are  replaced by `Custom Resource Definitions (CRDs) <https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions>`_.  Thus, as part of the upgrade process to Kubernetes 1.7, Kubernetes has provided documentation for `migrating TPRs to CRDS <http://cilium.link/migrate-tpr>`_. 
@@ -538,52 +543,16 @@ Now if you try to create a CNP as a TPR, you will get an error:
        $ Error from server (BadRequest): error when creating "cilium-tpr.yaml": the API version in the data (cilium.io/v1) does not match the expected API version (cilium.io/v2)
 
 Troubleshooting
-^^^^^^^^^^^^^^^
+===============
 
-Check the status of the DaemonSet_ and verify that all desired instances are in
-"ready" state:
-
-.. code:: bash
-
-        $ kubectl --namespace kube-system get ds
-        NAME      DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
-        cilium    1         1         0         <none>          3s
-
-In this example, we see a desired state of 1 with 0 being ready. This indicates
-a problem. The next step is to list all cilium pods by matching on the label
-``k8s-app=cilium`` and also sort the list by the restart count of each pod to
-easily identify the failing pods:
-
-.. code:: bash
-
-        $ kubectl --namespace kube-system get pods --selector k8s-app=cilium \
-                  --sort-by='.status.containerStatuses[0].restartCount'
-        NAME           READY     STATUS             RESTARTS   AGE
-        cilium-813gf   0/1       CrashLoopBackOff   2          44s
-
-Pod ``cilium-813gf`` is failing and has already been restarted 2 times. Let's
-print the logfile of that pod to investigate the cause:
-
-.. code:: bash
-
-        $ kubectl --namespace kube-system logs cilium-813gf
-        INFO      _ _ _
-        INFO  ___|_| |_|_ _ _____
-        INFO |  _| | | | | |     |
-        INFO |___|_|_|_|___|_|_|_|
-        INFO Cilium 0.8.90 f022e2f Thu, 27 Apr 2017 23:17:56 -0700 go version go1.7.5 linux/amd64
-        CRIT kernel version: NOT OK: minimal supported kernel version is >= 4.8
-
-In this example, the cause for the failure is a Linux kernel running on the
-worker node which is not meeting :ref:`admin_system_reqs`.
-
-If the cause for the problem is not apparent based on these simple steps,
-please come and seek help on our `Slack channel`_.
+See the section :ref:`troubleshooting_k8s` for Kubernetes specific instructions
+on how to troubleshoot a setup.
 
 .. _admin_install_docker_compose:
 
-Installation using Docker Compose
----------------------------------
+*********************************
+Docker Compose Installation Guide
+*********************************
 
 This section describes how to install & run the Cilium container image using
 Docker compose.
@@ -618,8 +587,9 @@ update this template to point cilium to a central key-value store.
 
 .. _coreos_gs_guide:
 
-Installation on CoreOS
-----------------------
+*************************
+CoreOS Installation Guide
+*************************
 
 This document serves as a guide to get Cilium up-and-running on CoreOS.
 
@@ -635,7 +605,7 @@ across the globe, there is almost always someone available to help.
 
 
 Minimum Requirements
-^^^^^^^^^^^^^^^^^^^^
+====================
 
 * Make sure you understand the various `deployment options <https://coreos.com/kubernetes/docs/latest/getting-started.html#deployment-options>`_.
 * *etcd*
@@ -644,15 +614,15 @@ Minimum Requirements
     * It is also required that you install ``kubectl`` version ``>= 1.6.4`` as described in the `Kubernetes Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 
 Setup Master Nodes
-^^^^^^^^^^^^^^^^^^
+==================
 
 Step 1: Create TLS Assets
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 Follow the `CoreOS instructions for creating TLS assets on master nodes <https://coreos.com/kubernetes/docs/latest/getting-started.html#generate-kubernetes-tls-assets>`_ and `install the TLS assets needed for the master nodes <https://coreos.com/kubernetes/docs/latest/deploy-master.html#tls-assets>`_ for secure communication with the kube-apiserver.
 
 
 Step 2: Setup Kubelet
-~~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 On CoreOS, Kubelet (the Kubernetes agent that runs on each node, more info `here <https://kubernetes.io/docs/admin/kubelet/>`_) runs as a container. In order to securely communicate with the API server, kubelet uses the TLS assets we generated as part of Step 1.
 
@@ -701,48 +671,51 @@ Since we are setting up Kubelet to use Cilium, we want to configure its networki
              --cni-conf-dir=/etc/cni/net.d
 
 `/etc/systemd/system/kubelet.service`
-:: 
-   [Service]
-   Environment=KUBELET_IMAGE_TAG=v'"${KUBE_VERSION}"'_coreos.0
-   Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
-     --volume var-log,kind=host,source=/var/log \
-     --mount volume=var-log,target=/var/log \
-     --volume dns,kind=host,source=/etc/resolv.conf \
-     --mount volume=dns,target=/etc/resolv.conf \
-     --volume cni-bin,kind=host,source=/opt/cni/bin \
-     --mount volume=cni-bin,target=/opt/cni/bin \
-     --volume etc-cni,kind=host,source=/etc/cni/net.d \
-     --mount volume=etc-cni,target=/etc/cni/net.d"
-   ExecStartPre=/usr/bin/mkdir -p /etc/cni/net.d
-   ExecStartPre=/bin/bash -c ' \\
-     if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
-       /bin/mount bpffs /sys/fs/bpf -t bpf; \\
-     fi'
-   ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-   ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
-   ExecStartPre=/usr/bin/mkdir -p /var/log/containers
-   ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
-   ExecStart=/usr/lib/coreos/kubelet-wrapper \
-     --api-servers=http://127.0.0.1:8080 \
-     --register-schedulable=false \
-     --cni-conf-dir=/etc/cni/net.d \
-     --network-plugin=cni \
-     --container-runtime=docker \
-     --allow-privileged=true \
-     --pod-manifest-path=/etc/kubernetes/manifests \
-     --hostname-override=${ADVERTISE_IP} \
-     --cluster-dns=${DNS_SERVICE_IP} \
-     --cluster-domain=cluster.local
-   ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
-   Restart=always
-   RestartSec=10
 
-   [Install]
-   WantedBy=multi-user.target
+:: 
+
+    [Service]
+    Environment=KUBELET_IMAGE_TAG=v'"${KUBE_VERSION}"'_coreos.0
+    Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
+      --volume var-log,kind=host,source=/var/log \
+      --mount volume=var-log,target=/var/log \
+      --volume dns,kind=host,source=/etc/resolv.conf \
+      --mount volume=dns,target=/etc/resolv.conf \
+      --volume cni-bin,kind=host,source=/opt/cni/bin \
+      --mount volume=cni-bin,target=/opt/cni/bin \
+      --volume etc-cni,kind=host,source=/etc/cni/net.d \
+      --mount volume=etc-cni,target=/etc/cni/net.d"
+    ExecStartPre=/usr/bin/mkdir -p /etc/cni/net.d
+    ExecStartPre=/bin/bash -c ' \\
+      if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
+        /bin/mount bpffs /sys/fs/bpf -t bpf; \\
+      fi'
+    ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
+    ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
+    ExecStartPre=/usr/bin/mkdir -p /var/log/containers
+    ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
+    ExecStart=/usr/lib/coreos/kubelet-wrapper \
+      --api-servers=http://127.0.0.1:8080 \
+      --register-schedulable=false \
+      --cni-conf-dir=/etc/cni/net.d \
+      --network-plugin=cni \
+      --container-runtime=docker \
+      --allow-privileged=true \
+      --pod-manifest-path=/etc/kubernetes/manifests \
+      --hostname-override=${ADVERTISE_IP} \
+      --cluster-dns=${DNS_SERVICE_IP} \
+      --cluster-domain=cluster.local
+    ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
 
 
 Step 3: Setup kube-apiserver on the master nodes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------------
+
 Follow the `CoreOS instructions for setting up the API server <https://coreos.com/kubernetes/docs/latest/deploy-master.html#set-up-the-kube-apiserver-pod>`_. 
 
 Make sure that you set the version of the kube-apiserver to whatever version you are using for the Kubelet as well, e.g.:
@@ -752,7 +725,8 @@ Make sure that you set the version of the kube-apiserver to whatever version you
     quay.io/coreos/hyperkube:v${KUBE_VERSION}_coreos.0
 
 Step 4: Setup kube-controller-manager on the master nodes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------------------------
+
 Per the `CoreOS guide <https://coreos.com/kubernetes/docs/latest/deploy-master.html#set-up-the-kube-controller-manager-pod>`_, "the controller manager is responsible for reconciling any required actions based on changes to `Replication Controllers <https://coreos.com/kubernetes/docs/latest/replication-controller.html>`_. For example, if you increased the replica count, the controller manager would generate a scale up event, which would cause a new Pod to get scheduled in the cluster. The controller manager communicates with the API to submit these events.
 
 Create `/etc/kubernetes/manifests/kube-controller-manager.yaml`. It will use the TLS certificate placed on disk earlier."
@@ -814,7 +788,8 @@ Create `/etc/kubernetes/manifests/kube-controller-manager.yaml`. It will use the
 
 
 Step 5: Setup kube-scheduler on the master nodes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------------
+
 Cilium has no special requirements for setting up the kube-scheduler on master nodes. Follow the `CoreOS instructions for setting up kube-scheduler <https://coreos.com/kubernetes/docs/latest/deploy-master.html#set-up-the-kube-scheduler-pod>`_.
 
 Make sure that you set the version of the kube-apiserver to whatever version you are using for the Kubelet as well, e.g.:
@@ -824,7 +799,7 @@ Make sure that you set the version of the kube-apiserver to whatever version you
     quay.io/coreos/hyperkube:v${KUBE_VERSION}_coreos.0
 
 Step 6: Start Services on Nodes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 
 Start kubelet on all nodes:
 
@@ -839,13 +814,13 @@ To have kubelet start after a reboot, run:
     sudo systemctl enable kubelet
 
 Step 7: Health Check of Kubernetes Services
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------
 
 Follow `the CoreOS instructions to health check Kubernetes services <https://coreos.com/kubernetes/docs/latest/deploy-master.html#basic-health-checks>`_.
 
 
 Step 8: Setup Kubectl to Communicate With Your Cluster
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------------------
 
 Follow `the CoreOS instructions to download kubectl <https://coreos.com/kubernetes/docs/latest/configure-kubectl.html#download-the-kubectl-executable>`_.
 
@@ -871,21 +846,22 @@ Follow `the CoreOS instructions to validate that kubectl has been configured cor
 .. _cilium-daemonset-deployment:
 
 Step 9: Deploy Cilium DaemonSet
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 
 * If your cluster is using RBAC, refer to :ref:`rbac_integration`.
 * Follow the instructions for :ref:`ds_config` and :ref:`ds_deploy`. We recommend using the etcd cluster you have set up as the key-value store for Cilium.
     * NOTE: before you deploy the cilium DaemonSet, make sure you change the image for cilium to be "latest" instead of "stable". Once Cilium 0.10 is released, this is not necessary.
 
 Setup Worker Nodes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+==================
 
 Step 1: Create TLS Assets
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
+
 Cilium has no special requirements for setting up the TLS assets on worker nodes. Follow the `CoreOS instructions for creating TLS assets on worker nodes <https://coreos.com/kubernetes/docs/latest/deploy-workers.html#tls-assets>`_ for secure communication with the ``kube-apiserver``.
 
 Step 2: Setup Kubelet
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 On CoreOS, Kubelet (the Kubernetes agent that runs on each node, more info `here <https://kubernetes.io/docs/admin/kubelet/>`_) runs as a container. In order to securely communicate with the API server, kubelet uses the TLS assets we generated as part of Step 1.
 
@@ -934,54 +910,56 @@ Since we are setting up Kubelet to use Cilium, we want to configure its networki
 
 `/etc/systemd/system/kubelet.service`
 :: 
-   [Service]
-   Environment=KUBELET_IMAGE_TAG=v'"${KUBE_VERSION}"'_coreos.0
-   Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
-    --volume var-log,kind=host,source=/var/log \
-    --mount volume=var-log,target=/var/log \
-    --volume dns,kind=host,source=/etc/resolv.conf \
-    --mount volume=dns,target=/etc/resolv.conf \
-    --volume cni-bin,kind=host,source=/opt/cni/bin \
-    --mount volume=cni-bin,target=/opt/cni/bin \
-    --volume etc-cni,kind=host,source=/etc/cni/net.d \
-    --mount volume=etc-cni,target=/etc/cni/net.d"
-   ExecStartPre=/bin/bash -c ' \\
-     if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
-       /bin/mount bpffs /sys/fs/bpf -t bpf; \\
-     fi'
-   ExecStartPre=/usr/bin/mkdir -p /etc/cni/net.d
-   ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-   ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
-   ExecStartPre=/usr/bin/mkdir -p /var/log/containers
-   ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
-   ExecStart=/usr/lib/coreos/kubelet-wrapper \
-    --api-servers=https://{MASTER_HOST} \
-    --register-node=true \
-    --cni-conf-dir=/etc/cni/net.d \
-    --network-plugin=cni \
-    --container-runtime=docker \
-    --allow-privileged=true \
-    --pod-manifest-path=/etc/kubernetes/manifests \
-    --hostname-override=${ADVERTISE_IP} \
-    --cluster-dns=${DNS_SERVICE_IP} \
-    --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
-    --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
-    --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
-    --cluster-domain=cluster.local \
-    --make-iptables-util-chains=false
-   ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
-   Restart=always
-   RestartSec=10
 
-   [Install]
-   WantedBy=multi-user.target
+     [Service]
+     Environment=KUBELET_IMAGE_TAG=v'"${KUBE_VERSION}"'_coreos.0
+     Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
+      --volume var-log,kind=host,source=/var/log \
+      --mount volume=var-log,target=/var/log \
+      --volume dns,kind=host,source=/etc/resolv.conf \
+      --mount volume=dns,target=/etc/resolv.conf \
+      --volume cni-bin,kind=host,source=/opt/cni/bin \
+      --mount volume=cni-bin,target=/opt/cni/bin \
+      --volume etc-cni,kind=host,source=/etc/cni/net.d \
+      --mount volume=etc-cni,target=/etc/cni/net.d"
+     ExecStartPre=/bin/bash -c ' \\
+       if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
+         /bin/mount bpffs /sys/fs/bpf -t bpf; \\
+       fi'
+     ExecStartPre=/usr/bin/mkdir -p /etc/cni/net.d
+     ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
+     ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
+     ExecStartPre=/usr/bin/mkdir -p /var/log/containers
+     ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
+     ExecStart=/usr/lib/coreos/kubelet-wrapper \
+      --api-servers=https://{MASTER_HOST} \
+      --register-node=true \
+      --cni-conf-dir=/etc/cni/net.d \
+      --network-plugin=cni \
+      --container-runtime=docker \
+      --allow-privileged=true \
+      --pod-manifest-path=/etc/kubernetes/manifests \
+      --hostname-override=${ADVERTISE_IP} \
+      --cluster-dns=${DNS_SERVICE_IP} \
+      --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
+      --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
+      --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
+      --cluster-domain=cluster.local \
+      --make-iptables-util-chains=false
+     ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
+     Restart=always
+     RestartSec=10
+
+     [Install]
+     WantedBy=multi-user.target
 
 Step 3: Setup Worker kubeconfig
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
+
 Cilium has no special requirements for setting up the ``kubeconfig`` for ``kubelet`` on worker nodes. Please follow `the CoreOS instructions to setup the worker-kubeconfig <https://coreos.com/kubernetes/docs/latest/deploy-workers.html#set-up-kubeconfig>`_.
 
 Step 4: Start Services
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 Start kubelet on all nodes:
 
@@ -996,18 +974,20 @@ To have kubelet start after a reboot, run:
     sudo systemctl enable kubelet
 
 Step 5: Make Sure Cilium Runs On Worker Nodes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------------
 
 When we deployed Cilium as part of :ref:`cilium-daemonset-deployment`, the Daemon Set expects the Kubeconfig to be located at the same location on each node in the cluster. So, you need to make sure that the location and contents of the kubeconfig for the worker node is the same as that which Cilium is using on the master nodes, e.g., ``~/.kube/config``.
 
 Step 6: Setup kubectl and deploy add-ons
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------
+
 Follow `the CoreOS instructions for setting up kube-dns and kube-dashboard <https://coreos.com/kubernetes/docs/latest/deploy-addons.html>`_.
 
 .. _admin_install_source:
 
-Installation From Source
-------------------------
+*************************
+Instsallation From Source
+*************************
 
 If for some reason you do not want to run Cilium as a contaimer image.
 Installing it from source is possible as well. It does come with additional
@@ -1037,175 +1017,14 @@ dependencies described in :ref:`admin_system_reqs`.
     sudo cp contrib/upstart/* /etc/init/
     service cilium start
 
-
-Container Node Network Configuration
-------------------------------------
-
-The networking configuration required on your Linux container node
-depends on the IP interconnectivity model in use and whether the
-deployment requires containers in the cluster to reach or be reached by
-resources outside the cluster.  For more details, see the
-Architecture Guide's section on :ref:`arch_ip_connectivity`.
-
-Overlay Mode - Container-to-Container Access
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-With overlay mode, container-to-container access does not require
-additional network configuration on the Linux container node, as
-overlay connectivity is handled by Cilium itself, and the physical
-network only sees IP traffic destined to / from the Linux node IP address.
-
-The use of Overlay Mode is configured by passing a ``--tunnel`` or ``-t``
-flag to the Cilium indicating the type of encapsulation to be used.  Valid
-options include ``vxlan`` and ``geneve``.
-
-
-Direct Mode - Container-to-Container Access
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In direct mode, container traffic is sent to the underlying network
-unencapsulated, and thus that network must understand how to route
-a packet to the right destination Linux node running the container.
-
-Direct mode is used if no ``-t`` or ``--tunneling`` flag is passed to the
-Cilium agent at startup.
-
-Cilium automatically enables IP forwarding in Linux when direct mode is
-configured, but it is up to the container cluster administrator to
-ensure that each routing element in the underlying network has a route
-that describe each node IP as the IP next hop for the corresponding
-node prefix.
-
-If the underlying network is a physical datacenter network, this can be
-achieved by running a routing daemon on each Linux node that participates
-in the datacenter's routing protocol, such as bird,
-zebra or radvd.   Configuring this setup is beyond the
-scope of this document.
-
-If the underlying network is a virtual network in a public cloud, that cloud
-provider likely provides APIs to configure the routing behavior of that virtual
-network (e.g,. `AWS VPC Route Tables`_ or `GCE Routes`_). These APIs can be
-used to associate each node prefix with the appropriate next hop IP each time a
-container node is added to the cluster.
-
-An example using GCE Routes for this is available
-`here <https://github.com/cilium/cilium/blob/gce-example/examples/gce/docs/07-network.md>`_ .
-
-.. _AWS VPC Route Tables: http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Route_Tables.html
-.. _GCE Routes: https://cloud.google.com/compute/docs/reference/latest/routes
-
-External Network Access
-^^^^^^^^^^^^^^^^^^^^^^^
-
-By default with Cilium, containers use IP addresses that are private to the
-cluster.  This is very common in overlay mode, but may also be the case even
-if direct mode is being used. In either scenario, if a container with a private
-IP should be allowed to make outgoing network connections to resources
-either elsewhere in the data center or on the public Internet, the Linux node
-should be configured to perform IP masquerading, also known as network
-address port translation (NAPT), for all traffic destined from a container to the outside world.
-
-An example of configuring IP masquerading for IPv6 is:
-
-::
-
-    ip6tables -t nat -I POSTROUTING -s f00d::/112 -o em1 -j MASQUERADE
-
-This will masquerade all packets with a source IP in the cluster prefix
-``beef::/64`` with the public IPv6 address of the Linux nodes primary network
-interface ``em1``.  If you change your cluster IP address or use IPv4 instead
-of IPv6, be sure to update this command accordingly.
-
-Testing External Connectivity
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-IPv6 external connectivity can be tested with:
-
-.. code:: bash
-
-    ip -6 route get `host -t aaaa www.google.com | awk '{print $5}'`
-    ping6 www.google.com
-
-If the default route is missing, your VM may not be receiving router
-advertisements. In this case, the default route can be added manually:
-
-.. code:: bash
-
-    ip -6 route add default via beef::1
-
-The following tests connectivity from a container to the outside world:
-
-.. code:: bash
-
-    $ sudo docker run --rm -ti --net cilium -l client cilium/demo-client ping6 www.google.com
-    PING www.google.com(zrh04s07-in-x04.1e100.net) 56 data bytes
-    64 bytes from zrh04s07-in-x04.1e100.net: icmp_seq=1 ttl=56 time=7.84 ms
-    64 bytes from zrh04s07-in-x04.1e100.net: icmp_seq=2 ttl=56 time=8.63 ms
-    64 bytes from zrh04s07-in-x04.1e100.net: icmp_seq=3 ttl=56 time=8.83 ms
-
-.. _admin_agent_config:
-
-Agent Configuration
--------------------
-
-.. _admin_kvstore:
-
-Key-Value Store
-^^^^^^^^^^^^^^^
-
-+---------------------+--------------------------------------+----------------------+
-| Option              | Description                          | Default              |
-+---------------------+--------------------------------------+----------------------+
-| --kvstore TYPE      | Key Value Store Type:                |                      |
-|                     | (consul, etcd)                       |                      |
-+---------------------+--------------------------------------+----------------------+
-| --kvstore-opt OPTS  |                                      |                      |
-+---------------------+--------------------------------------+----------------------+
-
-consul
-~~~~~~
-
-When using consul, the consul agent address needs to be provided with the
-``consul.address``:
-
-+---------------------+---------+---------------------------------------------------+
-| Option              |  Type   | Description                                       |
-+---------------------+---------+---------------------------------------------------+
-| consul.address      | Address | Address of consul agent                           |
-+---------------------+---------+---------------------------------------------------+
-
-etcd
-~~~~
-
-When using etcd, one of the following options need to be provided to configure the
-etcd endpoints:
-
-+---------------------+---------+---------------------------------------------------+
-| Option              |  Type   | Description                                       |
-+---------------------+---------+---------------------------------------------------+
-| etcd.address        | Address | Address of etcd endpoint                          |
-+---------------------+---------+---------------------------------------------------+
-| etcd.config         | Path    | Path to an etcd configuration file.               |
-+---------------------+---------+---------------------------------------------------+
-
-Example of the etcd configuration file:
-
-.. code:: yaml
-
-    ---
-    endpoints:
-    - https://192.168.0.1:2379
-    - https://192.168.0.2:2379
-    ca-file: '/var/lib/cilium/etcd-ca.pem'
-    # In case you want client to server authentication
-    key-file: '/var/lib/cilium/etcd-client.key'
-    cert-file: '/var/lib/cilium/etcd-client.crt'
-
+***********************
+Agent Command Reference
+***********************
 
 .. _admin_agent_options:
 
 Command Line Options
-^^^^^^^^^^^^^^^^^^^^
+====================
 
 +---------------------+--------------------------------------+----------------------+
 | Option              | Description                          | Default              |
@@ -1283,142 +1102,59 @@ Command Line Options
 | access-log          | Path to HTTP access log              |                      |
 +---------------------+--------------------------------------+----------------------+
 
-Cilium Client Commands
-----------------------
+.. _install_kvstore:
 
-Endpoint Management
-^^^^^^^^^^^^^^^^^^^
+Key-Value Store
+===============
 
-TODO
++---------------------+--------------------------------------+----------------------+
+| Option              | Description                          | Default              |
++---------------------+--------------------------------------+----------------------+
+| --kvstore TYPE      | Key Value Store Type:                |                      |
+|                     | (consul, etcd)                       |                      |
++---------------------+--------------------------------------+----------------------+
+| --kvstore-opt OPTS  |                                      |                      |
++---------------------+--------------------------------------+----------------------+
 
-Policy
-^^^^^^
+consul
+------
 
-TODO
+When using consul, the consul agent address needs to be provided with the
+``consul.address``:
 
-Loadbalancing / Services
-^^^^^^^^^^^^^^^^^^^^^^^^
++---------------------+---------+---------------------------------------------------+
+| Option              |  Type   | Description                                       |
++---------------------+---------+---------------------------------------------------+
+| consul.address      | Address | Address of consul agent                           |
++---------------------+---------+---------------------------------------------------+
 
-TODO
+etcd
+----
 
-Troubleshooting
----------------
+When using etcd, one of the following options need to be provided to configure the
+etcd endpoints:
 
-If you running Cilium in Kubernetes, see the Kubernetes specific section
-:ref:`admin_k8s_troubleshooting`.
++---------------------+---------+---------------------------------------------------+
+| Option              |  Type   | Description                                       |
++---------------------+---------+---------------------------------------------------+
+| etcd.address        | Address | Address of etcd endpoint                          |
++---------------------+---------+---------------------------------------------------+
+| etcd.config         | Path    | Path to an etcd configuration file.               |
++---------------------+---------+---------------------------------------------------+
 
-Logfiles
-^^^^^^^^
+Example of the etcd configuration file:
 
-The main source for information when troubleshooting is the logfile.
+.. code:: yaml
 
-Monitoring Packet Drops
-^^^^^^^^^^^^^^^^^^^^^^^
+    ---
+    endpoints:
+    - https://192.168.0.1:2379
+    - https://192.168.0.2:2379
+    ca-file: '/var/lib/cilium/etcd-ca.pem'
+    # In case you want client to server authentication
+    key-file: '/var/lib/cilium/etcd-client.key'
+    cert-file: '/var/lib/cilium/etcd-client.crt'
 
-When connectivity is not as it should. A main cause an be unwanted packet drops
-on the networking level. There can be various causes for this. The easiest way
-to track packet drops and identify their cause is to use ``cilium monitor``.
-
-.. code:: bash
-
-    $ cilium monitor
-    Listening for events on 2 CPUs with 64x4096 of shared memory
-    Press Ctrl-C to quit
-
-    CPU 00: MARK 0x14126c56 FROM 56326 Packet dropped 159 (Policy denied (L4)) 94 bytes ifindex=18
-    00000000  02 fd 7f 53 22 c8 66 56  da 2e fb 84 86 dd 60 0c  |...S".fV......`.|
-    00000010  12 14 00 28 06 3f f0 0d  00 00 00 00 00 00 0a 00  |...(.?..........|
-    00000020  02 0f 00 00 00 ad f0 0d  00 00 00 00 00 00 0a 00  |................|
-    00000030  02 0f 00 00 dc 06 ca 5c  00 50 70 28 32 21 00 00  |.......\.Pp(2!..|
-    00000040  00 00 a0 02 6c 98 d5 1b  00 00 02 04 05 6e 04 02  |....l........n..|
-    00000050  08 0a 01 5f 07 80 00 00  00 00 01 03 03 07 00 00  |..._............|
-    00000060  00 00 00 00                                       |....|
-
-The above indicates that a packet from endpoint ID `56326` has been dropped due
-to violation of the Layer 4 policy.
-
-Tracing Policy Decision
-^^^^^^^^^^^^^^^^^^^^^^^
-
-If Cilium is denying connections which it shouldn't. There is an easy way to
-verify if and why Cilium is denying connectivity in between particular
-endpoints. The following example shows how to use ``cilium policy trace`` to
-simulate a policy decision from an endpoint with the label ``id.curl`` to an
-endpoint with the label ``id.http`` on port 80:
-
-.. code:: bash
-
-    $ cilium policy trace -s id.curl -d id.httpd --dport 80
-    Tracing From: [container:id.curl] => To: [container:id.httpd] Ports: [80/any]
-    * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
-        Allows from labels {"matchLabels":{"any:id.curl":""}}
-    +     Found all required labels
-    1 rules matched
-    Result: ALLOWED
-    L3 verdict: allowed
-
-    Resolving egress port policy for [container:id.curl]
-    * Rule 0 {"matchLabels":{"any:id.curl":""}}: match
-      Allows Egress port [{80 tcp}]
-    1 rules matched
-    L4 egress verdict: allowed
-
-    Resolving ingress port policy for [container:id.httpd]
-    * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
-      Allows Ingress port [{80 tcp}]
-    1 rules matched
-    L4 ingress verdict: allowed
-
-    Verdict: allowed
-
-
-Debugging the datapath
-^^^^^^^^^^^^^^^^^^^^^^
-
-The tool ``cilium monitor`` can also be used to retrieve debugging information
-from the BPF based datapath. Debugging messages are sent if either the
-``cilium-agent`` itself or the respective endpoint is in debug mode. The debug
-mode of the agent can be enabled by starting ``cilium-agent`` with the option
-``--debug`` enabled or by running ``cilium config debug=true`` for an already
-running agent. Debugging of an individual endpoint can be enabled by running
-``cilium endpoint config ID Debug=true``
-
-
-.. code:: bash
-
-    $ cilium endpoint config 29381 Debug=true
-    Endpoint 29381 configuration updated successfully
-    $ cilium monitor
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: 118 bytes Incoming packet from container ifindex 20
-    00000000  3a f3 07 b3 c6 7f 4e 76  63 5c 53 4e 86 dd 60 02  |:.....Nvc\SN..`.|
-    00000010  7a 3c 00 40 3a 40 f0 0d  00 00 00 00 00 00 0a 00  |z<.@:@..........|
-    00000020  02 0f 00 00 36 7d f0 0d  00 00 00 00 00 00 0a 00  |....6}..........|
-    00000030  02 0f 00 00 ff ff 81 00  c7 05 4a 32 00 05 29 98  |..........J2..).|
-    00000040  2c 59 00 00 00 00 1d cd  0c 00 00 00 00 00 10 11  |,Y..............|
-    00000050  12 13 14 15 16 17 18 19  1a 1b 1c 1d 1e 1f 20 21  |.............. !|
-    00000060  22 23 24 25 26 27 28 29  2a 2b 2c 2d 2e 2f 30 31  |"#$%&'()*+,-./01|
-    00000070  32 33 34 35 36 37 00 00                           |234567..|
-
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: Handling ICMPv6 type=129
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: CT reverse lookup: sport=0 dport=32768 nexthdr=58 flags=1
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: CT entry found lifetime=24026, proxy_port=0 revnat=0
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: CT verdict: Reply, proxy_port=0 revnat=0
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: Going to host, policy-skip=1
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT reverse lookup: sport=2048 dport=0 nexthdr=1 flags=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT lookup address: 10.15.0.1
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT lookup: sport=0 dport=2048 nexthdr=1 flags=1
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT verdict: New, proxy_port=0 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT created 1/2: sport=0 dport=2048 nexthdr=1 flags=1 proxy_port=0 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT created 2/2: 10.15.42.252 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT created 1/2: sport=0 dport=0 nexthdr=1 flags=3 proxy_port=0 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: 98 bytes Delivery to ifindex 20
-    00000000  4e 76 63 5c 53 4e 3a f3  07 b3 c6 7f 08 00 45 00  |Nvc\SN:.......E.|
-    00000010  00 54 d8 41 40 00 3f 01  24 4d 0a 0f 00 01 0a 0f  |.T.A@.?.$M......|
-    00000020  2a fc 08 00 67 03 4a 4f  00 01 2a 98 2c 59 00 00  |*...g.JO..*.,Y..|
-    00000030  00 00 24 e8 0c 00 00 00  00 00 10 11 12 13 14 15  |..$.............|
-    00000040  16 17 18 19 1a 1b 1c 1d  1e 1f 20 21 22 23 24 25  |.......... !"#$%|
-    00000050  26 27 28 29 2a 2b 2c 2d  2e 2f 30 31 32 33 34 35  |&'()*+,-./012345|
-    00000060  36 37 00 00 00 00 00 00                           |67......|
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
