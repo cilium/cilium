@@ -605,3 +605,29 @@ function wait_for_kill {
   done
   abort "Waiting for agent process to be killed, timed out"
 }
+
+# diff_timeout waits for the output of the commands specified via $1 and $2 to
+# be identical by comparing the output with `diff -Nru`. The commands are
+# executed consecutively with a 2 second pause until the output matches or the
+# timeout of 1 minute is reached.
+function diff_timeout() {
+  local arg1="$1"
+  local arg2="$2"
+  local sleep_time=2
+  local iter=0
+  local found="0"
+
+  until [[ "$found" -eq "1" ]]; do
+    if [[ $((iter++)) -gt $((30)) ]]; then
+      echo "Timeout"
+      abort "$DIFF"
+    fi
+
+    DIFF=$(diff -Nru <(eval "$arg1") <(eval "$arg2") || true)
+    if [[ "$DIFF" == "" ]]; then
+      found="1"
+    else
+      sleep $sleep_time
+    fi
+  done
+}
