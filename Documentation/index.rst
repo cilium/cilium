@@ -14,6 +14,7 @@ Welcome to Cilium's documentation!
    gettingstarted
    concepts
    install
+   policy
    troubleshooting
    bpf
    api

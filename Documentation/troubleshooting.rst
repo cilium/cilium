@@ -83,40 +83,11 @@ drops happen.
 The above indicates that a packet from endpoint ID `56326` has been dropped due
 to violation of the Layer 4 policy.
 
-Tracing Policy Decision
-=======================
+Policy Tracing
+==============
 
-If Cilium is denying connections which it shouldn't. There is an easy way to
-verify if and why Cilium is denying connectivity in between particular
-endpoints. The following example shows how to use ``cilium policy trace`` to
-simulate a policy decision from an endpoint with the label ``id.curl`` to an
-endpoint with the label ``id.http`` on port 80:
-
-.. code:: bash
-
-    $ cilium policy trace -s id.curl -d id.httpd --dport 80
-    Tracing From: [container:id.curl] => To: [container:id.httpd] Ports: [80/any]
-    * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
-        Allows from labels {"matchLabels":{"any:id.curl":""}}
-    +     Found all required labels
-    1 rules matched
-    Result: ALLOWED
-    L3 verdict: allowed
-
-    Resolving egress port policy for [container:id.curl]
-    * Rule 0 {"matchLabels":{"any:id.curl":""}}: match
-      Allows Egress port [{80 tcp}]
-    1 rules matched
-    L4 egress verdict: allowed
-
-    Resolving ingress port policy for [container:id.httpd]
-    * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
-      Allows Ingress port [{80 tcp}]
-    1 rules matched
-    L4 ingress verdict: allowed
-
-    Verdict: allowed
-
+See section :ref:`policy_tracing_` for details and examples on how to use the
+policy tracing feature.
 
 Debugging the datapath
 ======================
