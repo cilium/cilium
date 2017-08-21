@@ -97,7 +97,7 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp.yaml"
+    k8s_apply_policy kube-system create "${bookinfo_dir}/policies/cnp.yaml"
 
     if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
@@ -105,7 +105,7 @@ if [[ "${k8s_version}" == 1.7.* ]]; then
 
     if [ $? -ne 0 ]; then abort "multi-rules policy not in cilium" ; fi
 else
-    k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp-deprecated.yaml"
+    k8s_apply_policy kube-system create "${bookinfo_dir}/policies/cnp-deprecated.yaml"
 
     if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
@@ -152,11 +152,11 @@ echo "SUCCESS!"
 
 set +e
 
-kubectl delete -f "${bookinfo_dir}/"
+k8s_apply_policy $NAMESPACE delete "${bookinfo_dir}/"
 
 echo "Policies not found error is expected"
 
-kubectl delete -f "${bookinfo_dir}/policies"
+k8s_apply_policy $NAMESPACE delete "${bookinfo_dir}/policies"
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 2>/dev/null
 

@@ -101,9 +101,9 @@ function import_policy {
   # FIXME Remove workaround once we drop k8s 1.6 support
   # Only test the new network policy with k8s >= 1.7
   if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy.yaml"
+    k8s_apply_policy $NAMESPACE create "${MINIKUBE}/l3_l4_policy.yaml"
   else
-    k8s_apply_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+    k8s_apply_policy $NAMESPACE create "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
   fi
 }
 
@@ -111,9 +111,9 @@ function delete_policy {
   # FIXME Remove workaround once we drop k8s 1.6 support
   # Only test the new network policy with k8s >= 1.7
   if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_delete_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy.yaml"
+    k8s_apply_policy $NAMESPACE delete "${MINIKUBE}/l3_l4_policy.yaml"
   else
-    k8s_delete_policy $NAMESPACE "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+    k8s_apply_policy $NAMESPACE delete "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
   fi
 }
 
