@@ -279,6 +279,9 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 		return
 	}
 
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
 	pod.Annotations[annotationKey] = annotationValue
 
 	pod, err = d.k8sClient.CoreV1().Pods(split[0]).Update(pod)
@@ -288,6 +291,9 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 			// TODO: Retry forever?
 			for n := 0; err != nil; {
 				log.Warningf("k8s: unable to update pod %s / endpoint %d with %q annotation: %s, retrying...", e.PodName, e.ID, common.CiliumIdentityAnnotation, err)
+				if pod.Annotations == nil {
+					pod.Annotations = make(map[string]string)
+				}
 				pod.Annotations[annotationKey] = annotationValue
 				pod, err = d.k8sClient.CoreV1().Pods(namespace).Update(pod)
 				if n < 30 {
