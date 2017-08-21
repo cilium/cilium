@@ -635,3 +635,29 @@ function wait_for_kill {
   done
   abort "Waiting for agent process to be killed, timed out"
 }
+
+function k8s_policy_trace {
+	local -r ALLOWED=$1
+	shift
+	local -r NAMESPACE=$1
+	shift
+	local -r POD=$1
+	shift
+
+	local sleep_time=1
+	local iter=0
+	local found="0"
+	until [[ "$found" -eq "1" ]]; do
+		if [[ $((iter++)) -gt $((60/$sleep_time)) ]]; then
+			echo "Timeout"
+			abort "$DIFF"
+		fi
+
+		DIFF=$(diff -Nru <(echo "$ALLOWED") <(kubectl exec -n $NAMESPACE $POD --  cilium policy trace $* -v | grep "Result:" )) || true
+		if [[ "$DIFF" == "" ]]; then
+			found="1"
+		else
+			sleep $sleep_time
+		fi
+	done
+}
