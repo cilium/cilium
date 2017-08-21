@@ -178,20 +178,18 @@ EOF
 }
 
 function install_kubeadm_dependencies(){
-    sudo apt-get update && sudo apt-get install -y apt-transport-https
     sudo touch /etc/apt/sources.list.d/kubernetes.list
     curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
     sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 "
-
-    sudo apt-get update && sudo apt-get install -y docker-engine
+    sudo apt-get -qq update && sudo apt-get -qq install -y apt-transport-https docker-engine
     sudo usermod -aG docker vagrant
 }
 
 function install_kubeadm() {
-    sudo apt-get install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
+    sudo apt-get -qq install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
 }
 
 function install_cilium_config(){
