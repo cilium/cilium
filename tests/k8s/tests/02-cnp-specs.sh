@@ -122,7 +122,7 @@ kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080/health
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080/health service" ; fi
 
-kubectl exec -t ${reviews_pod_v1} wget -- --tries=2 ratings:9080
+kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080
 
 if [ $? -eq 0 ]; then abort "Error: unexpected success from reviews-v1 to ratings:9080 service" ; fi
 
@@ -139,11 +139,11 @@ kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080 service" ; fi
 
 # But it should fail while reaching out Ratings
-kubectl exec -t ${productpage_v1} wget -- --tries=2 ratings:9080/health
+kubectl exec -t ${productpage_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080/health
 
 if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ratings:9080/health service" ; fi
 
-kubectl exec -t ${productpage_v1} wget -- --tries=2 ratings:9080
+kubectl exec -t ${productpage_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080
 
 if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ratings:9080 service" ; fi
 

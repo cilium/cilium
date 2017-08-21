@@ -113,7 +113,7 @@ fi
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/private from service2 ------"
-RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' -XGET http://${HTTPD_CONTAINER_NAME}/private")
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 15 -XGET http://${HTTPD_CONTAINER_NAME}/private")
 # FIXME: re-renable when redirect issue is resolved
 #if [[ "${RETURN//$'\n'}" != "403" ]]; then
 #  abort "Error: Unexpected success reaching ${HTTPD_CONTAINER_NAME}/private on port 80"

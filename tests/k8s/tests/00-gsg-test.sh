@@ -94,7 +94,7 @@ echo "----- confirming that \`cilium policy trace\` shows that app2 can reach ap
 diff_timeout "echo $ALLOWED" "kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP2_POD --dst-k8s-pod default:$APP1_POD -v | grep Result:"
 
 echo "----- testing that app3 cannot reach app 1 (expected behavior: cannot reach)"
-RETURN=$(kubectl exec $APP3_POD -- curl -s --output /dev/stderr -w '%{http_code}' -XGET $SVC_IP || true)
+RETURN=$(kubectl exec $APP3_POD -- curl --connect-timeout 15 -s --output /dev/stderr -w '%{http_code}' -XGET $SVC_IP || true)
 if [[ "${RETURN//$'\n'}" != "000" ]]; then
 	abort "Error: unexpectedly reached pod allowed by L3 L4 Policy, received return code ${RETURN}"
 fi
@@ -136,7 +136,7 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 fi
 
 echo "------ performing HTTP GET on ${SVC_IP}/private from service2 ------"
-RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 15 http://${SVC_IP}/private || true)
+RETURN=$(kubectl exec $APP2_POD -- curl --connect-timeout 15 -s --output /dev/stderr -w '%{http_code}' --connect-timeout 15 http://${SVC_IP}/private || true)
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
 	abort "Error: Unexpected success reaching  ${SVC_IP}/private on port 80"
 fi
