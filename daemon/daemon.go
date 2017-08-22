@@ -62,6 +62,7 @@ import (
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/mattn/go-shellwords"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -427,45 +428,163 @@ func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
 	}
 }
 
+const (
+	ciliumPostNatChain = "CILIUM_POST"
+	feederDescription  = "cilium-feeder:"
+)
+
+type customChain struct {
+	name       string
+	table      string
+	hook       string
+	feederArgs []string
+}
+
+func getFeedRule(name, args string) []string {
+	ruleTail := []string{"-m", "comment", "--comment", feederDescription + " " + name, "-j", name}
+	if args == "" {
+		return ruleTail
+	}
+	argsList, err := shellwords.Parse(args)
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse rule '%s' into argument slice", args)
+	}
+	return append(argsList, ruleTail...)
+}
+
+func (c *customChain) add() error {
+	return runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
+}
+
+func removeCiliumRules(table string) {
+	prog := "iptables"
+	args := []string{"-t", table, "-S"}
+
+	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		return
+	}
+	if err != nil {
+		log.Warningf("Command execution %s %s failed: %s", prog,
+			strings.Join(args, " "), err)
+		return
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		rule := scanner.Text()
+		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		if strings.Contains(strings.ToLower(rule), "cilium") &&
+			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
+			// From: -A POSTROUTING -m comment [...]
+			// To:   -D POSTROUTING -m comment [...]
+			ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
+			if err != nil {
+				log.WithError(err).Warningf("Unable to parse iptables rule '%s' into slice. Leaving rule behind.")
+				continue
+			}
+
+			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
+			log.Debugf("Removing iptables rule '%v'", deleteRule)
+			err = runProg("iptables", deleteRule, true)
+			if err != nil {
+				log.WithError(err).Warningf("Unable to delete Cilium iptables rule '%s'", rule)
+			}
+		}
+	}
+}
+
+func (c *customChain) remove() {
+	runProg("iptables", []string{
+		"-t", c.table,
+		"-F", c.name}, true)
+
+	runProg("iptables", []string{
+		"-t", c.table,
+		"-X", c.name}, true)
+}
+
+func (c *customChain) installFeeder() error {
+	for _, feedArgs := range c.feederArgs {
+		err := runProg("iptables", append([]string{"-t", c.table, "-A", c.hook}, getFeedRule(c.name, feedArgs)...), true)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ciliumChains is the list of custom iptables chain used by Cilium. Custom
+// chains are used to allow for simple replacements of all rules.
+//
+// WARNING: If you change or remove any of the feeder rules you have to ensure
+// that the old feeder rules is also removed on agent start, otherwise,
+// flushing and removing the custom chains will fail.
+var ciliumChains = []customChain{
+	{
+		name:       ciliumPostNatChain,
+		table:      "nat",
+		hook:       "POSTROUTING",
+		feederArgs: []string{""},
+	},
+}
+
 func (d *Daemon) removeMasqRule() {
-	runProg("iptables", []string{
-		"-t", "nat",
-		"-D", "POSTROUTING",
-		"-j", "CILIUM_POST"}, true)
-	runProg("iptables", []string{
-		"-t", "nat",
-		"-F", "CILIUM_POST"}, true)
-	runProg("iptables", []string{
-		"-t", "nat",
-		"-X", "CILIUM_POST"}, true)
+	tables := []string{"nat", "mangle", "raw"}
+	for _, t := range tables {
+		removeCiliumRules(t)
+	}
+
+	for _, c := range ciliumChains {
+		c.remove()
+	}
 }
 
 func (d *Daemon) installMasqRule() error {
-	// Add cilium POSTROUTING chain
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-N", "CILIUM_POST"}, false); err != nil {
-		return err
+	for _, c := range ciliumChains {
+		if err := c.add(); err != nil {
+			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
+		}
 	}
 
-	// Masquerade all traffic from node prefix not going to node prefix
-	// which is not going over the tunnel device
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", "CILIUM_POST",
-		"-s", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_" + tunnelMode,
-		"-m", "comment", "--comment", "cilium masquerade non-cluster",
-		"-j", "MASQUERADE"}, false); err != nil {
-		return err
+	if tunnelMode == tunnelModeDisabled {
+		// When tunneling is disabled, masquerade all traffic that:
+		//  - with a source from a local endpoint
+		//  - with a destination outside of the cluster prefix
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-d", nodeaddress.GetIPv4ClusterRange().String(),
+			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
+	} else {
+		// When tunneling is enabled, masquerade all traffic that:
+		//  - with a source from a local endpoint
+		//  - with a destination outside of the local node prefix
+		//  - going to an interface other than the tunnel interface
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
+			"!", "-o", "cilium_" + tunnelMode,
+			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
 	}
 
 	// Masquerade all traffic from the host into the cilium_host interface
 	// if the source is not the internal IP
 	if err := runProg("iptables", []string{
 		"-t", "nat",
-		"-A", "CILIUM_POST",
+		"-A", ciliumPostNatChain,
 		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
@@ -473,11 +592,13 @@ func (d *Daemon) installMasqRule() error {
 		return err
 	}
 
-	// Hook POSTROUTING into Cilium POSTROUTING chain
-	return runProg("iptables", []string{
-		"-t", "nat",
-		"-A", "POSTROUTING",
-		"-j", "CILIUM_POST"}, false)
+	for _, c := range ciliumChains {
+		if err := c.installFeeder(); err != nil {
+			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
+		}
+	}
+
+	return nil
 }
 
 // Must be called with d.conf.EnablePolicyMU locked.
@@ -544,7 +665,7 @@ func (d *Daemon) compileBase() error {
 	if !d.conf.IPv4Disabled {
 		// Always remove masquerade rule and then re-add it if required
 		d.removeMasqRule()
-		if masquerade && device == deviceDisabled {
+		if masquerade {
 			if err := d.installMasqRule(); err != nil {
 				return err
 			}
