@@ -28,8 +28,8 @@ var (
 	Debug string
 )
 
-func trace(format string, a ...interface{}) {
+func trace(format string, err error, fields log.Fields, a ...interface{}) {
 	if strings.ToLower(Debug) == "true" {
-		log.Debugf("[kvstore] "+format, a...)
+		log.WithError(err).WithFields(fields).Debugf(format)
 	}
 }

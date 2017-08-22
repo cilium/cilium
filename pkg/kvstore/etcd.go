@@ -43,9 +43,6 @@ const (
 	// eCfg is the string representing the key mapping to the path of the
 	// configuration for Etcd.
 	eCfg = "etcd.config"
-
-	fieldRev     = "revision"
-	fieldWatcher = "watcher"
 )
 
 var (
@@ -120,7 +117,9 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 				ec.sessionMU.Lock()
 				ec.session = newSession
 				ec.sessionMU.Unlock()
-				log.Debugf("Renewing etcd session")
+				log.WithFields(log.Fields{
+					fieldSession: newSession,
+				}).Debugf("Renewing session")
 				if err := ec.CheckMinVersion(10 * time.Second); err != nil {
 					log.Fatalf("%s", err)
 				}
@@ -153,8 +152,8 @@ func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
 	for _, ep := range eps {
 		v, err := getEPVersion(e.cli.Maintenance, ep, timeout)
 		if err != nil {
-			log.Debugf("Unable to check etcd min version: %s", err)
-			log.Warningf("Checking version of etcd endpoint %q: %s", ep, err)
+			log.WithError(err).Debugf("Unable to check etcd min version")
+			log.WithError(err).Warningf("Checking version of etcd endpoint %q", ep)
 			errors = true
 			continue
 		}
@@ -182,7 +181,7 @@ func (e *EtcdClient) LockPath(path string) (KVLocker, error) {
 	}
 	e.lockPathsMU.Unlock()
 
-	trace("Locking path %s", path)
+	trace("Creating lock", nil, log.Fields{fieldKey: path})
 	// First we lock the local lock for this path
 	e.lockPaths[path].Lock()
 	e.sessionMU.RLock()
@@ -194,7 +193,7 @@ func (e *EtcdClient) LockPath(path string) (KVLocker, error) {
 		e.lockPaths[path].Unlock()
 		return nil, fmt.Errorf("Error while locking path %s: %s", path, err)
 	}
-	trace("Locked path %s", path)
+	trace("Successful lock", nil, log.Fields{fieldKey: path})
 	return &EtcdLocker{mutex: mu, path: path, localLock: e.lockPaths[path]}, nil
 }
 
@@ -202,7 +201,7 @@ func (e *EtcdLocker) Unlock() error {
 	err := e.mutex.Unlock(ctx.Background())
 	e.localLock.Unlock()
 	if err == nil {
-		trace("Unlocked path %s", e.path)
+		trace("Unlocked", nil, log.Fields{fieldKey: e.path})
 	}
 	return err
 }
@@ -247,7 +246,6 @@ func (e *EtcdClient) InitializeFreeID(path string, firstID uint32) error {
 	if err != nil {
 		return err
 	}
-	trace("Free ID for path %s successfully initialized", path)
 
 	return nil
 }
@@ -268,7 +266,6 @@ func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 		case err != nil:
 			return 0, err
 		case value == nil:
-			trace("Empty FreeID, setting it up with default value %d", firstID)
 			if err := e.InitializeFreeID(key, firstID); err != nil {
 				return 0, err
 			}
@@ -277,7 +274,6 @@ func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 			if err := json.Unmarshal(value, &freeID); err != nil {
 				return 0, err
 			}
-			trace("Retrieving max free ID %d", freeID)
 			return freeID, nil
 		}
 	}
@@ -290,7 +286,6 @@ func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 	}
 	if value == nil {
 		// FreeID is empty? We should set it out!
-		trace("Empty FreeID, setting it up with default value %d", firstID)
 		if err := e.InitializeFreeID(key, firstID); err != nil {
 			return err
 		}
@@ -326,7 +321,6 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy
 	}
 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		trace("Trying to acquire a new free ID %d", *incID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		locker, err := e.LockPath(getLockPath(keyPath))
@@ -390,7 +384,6 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 	}
 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		trace("Trying to acquire a new free ID %d", *incID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		locker, err := e.LockPath(getLockPath(keyPath))
@@ -450,8 +443,11 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 		res, err := e.cli.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithRev(lastRev), client.WithSerializable())
 		if err != nil {
-			log.Warningf("unable to list keys after revision %d for prefix %s before watching: %s",
-				lastRev, w.prefix, err)
+			log.WithFields(log.Fields{
+				fieldRev:     lastRev,
+				fieldPrefix:  w.prefix,
+				fieldWatcher: w,
+			}).WithError(err).Warningf("unable to list keys before watching")
 			continue
 		}
 
