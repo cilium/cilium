@@ -34,6 +34,9 @@ const (
 	// cAddr is the string representing the key mapping to the value of the
 	// address for Consul.
 	cAddr = "consul.address"
+
+	// MaxLockRetries is the number of retries attempted when acquiring a lock
+	MaxLockRetries = 10
 )
 
 // / ConsulOpts is the set of supported options for Consul configuration.
@@ -93,6 +96,8 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 }
 
 func (c *ConsulClient) LockPath(path string) (KVLocker, error) {
+	retries := 0
+
 	trace("Creating lock for %s", path)
 	opts := &consulAPI.LockOptions{
 		Key: getLockPath(path),
@@ -101,14 +106,25 @@ func (c *ConsulClient) LockPath(path string) (KVLocker, error) {
 	if err != nil {
 		return nil, err
 	}
+
+retry:
+	retries++
+	if retries > MaxLockRetries {
+		return nil, fmt.Errorf("maximum retries (%d) reached", MaxLockRetries)
+	}
+
 	ch, err := lockKey.Lock(nil)
-	if ch == nil {
-		return nil, fmt.Errorf("locker is nil\n")
+	if ch == nil && err == nil {
+		trace("Acquiring lock timed out, retrying...")
+		goto retry
 	}
-	if err == nil {
-		trace("Locked %s", path)
+
+	if err != nil {
+		return nil, err
 	}
-	return lockKey, err
+
+	trace("Locked %s", path)
+	return lockKey, nil
 }
 
 func (c *ConsulClient) InitializeFreeID(path string, firstID uint32) error {
