@@ -64,7 +64,7 @@ static inline int __inline__ handle_redirect(struct __sk_buff *skb, int ret)
 	}
 #endif
 
-	return TC_ACT_OK;
+	return ret;
 }
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
