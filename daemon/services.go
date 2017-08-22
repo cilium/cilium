@@ -56,7 +56,7 @@ func PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, err
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
-	lockKey, err := kvstore.Client().LockPath(svcPath)
+	lockKey, err := kvstore.LockPath(svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	}
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := kvstore.Client().LockPath(svcPath)
+	lockKey, err := kvstore.LockPath(svcPath)
 	if err != nil {
 		return err
 	}

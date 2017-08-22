@@ -95,10 +95,9 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 	return cc, nil
 }
 
-func (c *ConsulClient) LockPath(path string) (KVLocker, error) {
+func (c *ConsulClient) LockPath(path string) (kvLocker, error) {
 	retries := 0
 
-	trace("Creating lock", nil, log.Fields{fieldKey: path})
 	opts := &consulAPI.LockOptions{
 		Key: getLockPath(path),
 	}

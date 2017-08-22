@@ -64,9 +64,7 @@ type EtcdClient struct {
 }
 
 type EtcdLocker struct {
-	mutex     *concurrency.Mutex
-	localLock *sync.Mutex
-	path      string
+	mutex *concurrency.Mutex
 }
 
 func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
@@ -174,36 +172,21 @@ func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
 	return nil
 }
 
-func (e *EtcdClient) LockPath(path string) (KVLocker, error) {
-	e.lockPathsMU.Lock()
-	if e.lockPaths[path] == nil {
-		e.lockPaths[path] = &sync.Mutex{}
-	}
-	e.lockPathsMU.Unlock()
-
-	trace("Creating lock", nil, log.Fields{fieldKey: path})
-	// First we lock the local lock for this path
-	e.lockPaths[path].Lock()
+func (e *EtcdClient) LockPath(path string) (kvLocker, error) {
 	e.sessionMU.RLock()
 	mu := concurrency.NewMutex(e.session, path)
 	e.sessionMU.RUnlock()
-	// Then we lock the global lock
+
 	err := mu.Lock(ctx.Background())
 	if err != nil {
-		e.lockPaths[path].Unlock()
-		return nil, fmt.Errorf("Error while locking path %s: %s", path, err)
+		return nil, err
 	}
-	trace("Successful lock", nil, log.Fields{fieldKey: path})
-	return &EtcdLocker{mutex: mu, path: path, localLock: e.lockPaths[path]}, nil
+
+	return &EtcdLocker{mutex: mu}, nil
 }
 
 func (e *EtcdLocker) Unlock() error {
-	err := e.mutex.Unlock(ctx.Background())
-	e.localLock.Unlock()
-	if err == nil {
-		trace("Unlocked", nil, log.Fields{fieldKey: e.path})
-	}
-	return err
+	return e.mutex.Unlock(ctx.Background())
 }
 
 func (e *EtcdClient) GetValue(k string) (json.RawMessage, error) {
@@ -227,7 +210,7 @@ func (e *EtcdClient) SetValue(k string, v interface{}) error {
 }
 
 func (e *EtcdClient) InitializeFreeID(path string, firstID uint32) error {
-	kvLocker, err := e.LockPath(path)
+	kvLocker, err := LockPath(path)
 	if err != nil {
 		return err
 	}
@@ -323,7 +306,7 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
-		locker, err := e.LockPath(getLockPath(keyPath))
+		locker, err := LockPath(getLockPath(keyPath))
 		if err != nil {
 			return false, err
 		}
@@ -386,7 +369,7 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
-		locker, err := e.LockPath(getLockPath(keyPath))
+		locker, err := LockPath(getLockPath(keyPath))
 		if err != nil {
 			return false, err
 		}
