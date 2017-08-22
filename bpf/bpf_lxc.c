@@ -119,6 +119,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	union v6addr host_ip = {}, router_ip = {};
 	int ret, l4_off;
 	struct csum_offset csum_off = {};
+	struct endpoint_info *ep;
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
@@ -279,42 +280,64 @@ skip_service_lookup:
 
 	BPF_V6(router_ip, ROUTER_IP);
 
-	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_prefix_64(daddr, &router_ip)) {
-		struct endpoint_info *ep;
-
-		/* Lookup IPv6 address in list of local endpoints */
-		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
-			if (ep->flags & ENDPOINT_F_HOST) {
+	/* Lookup IPv6 address, this will return a match if:
+	 *  - The destination IP address belongs to a local endpoint managed by
+	 *    cilium
+	 *  - The destination IP address is an IP address associated with the
+	 *    host itself.
+	 */
+	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+		if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
-				goto to_host;
+			goto to_host;
 #else
-				return DROP_NO_LXC;
-#endif
-			}
-
-			policy_clear_mark(skb);
-			return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr, ep);
-		} else {
-#ifdef ENCAP_IFINDEX
-			struct endpoint_key key = {};
-
-			/* IPv6 lookup key: daddr/96 */
-			key.ip6.p1 = daddr->p1;
-			key.ip6.p2 = daddr->p2;
-			key.ip6.p3 = daddr->p3;
-			key.ip6.p4 = 0;
-			key.family = ENDPOINT_KEY_IPV6;
-
-			return encap_and_redirect(skb, &key, SECLABEL);
-#else
-			/* Packets to other nodes are always allowed, the remote
-			 * node will enforce the policy.
-			 */
-			policy_mark_skip(skb);
-			goto pass_to_stack;
+			return DROP_NO_LXC;
 #endif
 		}
+
+		policy_clear_mark(skb);
+		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr, ep);
+	}
+
+	/* The packet goes to a peer not managed by this agent instance */
+#ifdef ENCAP_IFINDEX
+	if (1) {
+		/* FIXME GH-1391: Get rid of the initializer */
+		struct endpoint_key key = {};
+
+		/* Lookup the destination prefix in the list of known
+		 * destination prefixes. If there is a match, the packet will
+		 * be encapsulated to that node and then routed by the agent on
+		 * the remote node.
+		 *
+		 * IPv6 lookup key: daddr/96
+		 */
+		key.ip6.p1 = daddr->p1;
+		key.ip6.p2 = daddr->p2;
+		key.ip6.p3 = daddr->p3;
+		key.ip6.p4 = 0;
+		key.family = ENDPOINT_KEY_IPV6;
+
+		ret = encap_and_redirect(skb, &key, SECLABEL);
+
+		/* Fall through if remote prefix was not found
+		 * (DROP_NO_TUNNEL_ENDPOINT) */
+		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+			return ret;
+	}
+#endif
+
+	/* Check if destination is within our cluster prefix */
+	if (ipv6_match_prefix_64(daddr, &router_ip)) {
+		/* Packet is going to peer inside the cluster prefix. This can
+		 * happen if encapsulation has been disabled and all remote
+		 * peer packets are routed or the destination is part of a
+		 * local prefix on another local network (e.g. local bridge).
+		 *
+		 * FIXME GH-1392: Differentiate between local / remote prefixes
+		 */
+		policy_mark_skip(skb);
+		goto pass_to_stack;
 	} else {
 #ifdef LXC_NAT46
 		if (unlikely(ipv6_addr_is_mapped(daddr))) {
@@ -426,6 +449,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct ethhdr *eth = data;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
+	struct endpoint_info *ep;
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
@@ -577,37 +601,59 @@ skip_service_lookup:
 	ip4 = data + ETH_HLEN;
 	orig_dip = ip4->daddr;
 
-	/* Check if destination is within our cluster prefix */
-	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-		struct endpoint_info *ep;
-
-		/* Lookup IPv4 address in list of local endpoints */
-		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
-			if (ep->flags & ENDPOINT_F_HOST) {
+	/* Lookup IPv4 address, this will return a match if:
+	 *  - The destination IP address belongs to a local endpoint managed by
+	 *    cilium
+	 *  - The destination IP address is an IP address associated with the
+	 *    host itself.
+	 */
+	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+		if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
-				goto to_host;
+			goto to_host;
 #else
-				return DROP_NO_LXC;
-#endif
-			}
-			policy_clear_mark(skb);
-			return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep);
-		} else {
-#ifdef ENCAP_IFINDEX
-			/* IPv4 lookup key: daddr & IPV4_MASK */
-			struct endpoint_key key = {};
-			key.ip4 = orig_dip & IPV4_MASK;
-			key.family = ENDPOINT_KEY_IPV4;
-
-			return encap_and_redirect(skb, &key, SECLABEL);
-#else
-			/* Packets to other nodes are always allowed, the remote
-			 * node will enforce the policy.
-			 */
-			policy_mark_skip(skb);
-			goto pass_to_stack;
+			return DROP_NO_LXC;
 #endif
 		}
+		policy_clear_mark(skb);
+		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep);
+	}
+
+#ifdef ENCAP_IFINDEX
+	if (1) {
+		/* FIXME GH-1391: Get rid of the initializer */
+		struct endpoint_key key = {};
+
+		/* Lookup the destination prefix in the list of known
+		 * destination prefixes. If there is a match, the packet will
+		 * be encapsulated to that node and then routed by the agent on
+		 * the remote node.
+		 *
+		 * IPv4 lookup key: daddr & IPV4_MASK
+		 */
+		key.ip4 = orig_dip & IPV4_MASK;
+		key.family = ENDPOINT_KEY_IPV4;
+
+		ret = encap_and_redirect(skb, &key, SECLABEL);
+
+		/* Fall through if remote prefix was not found
+		 * (DROP_NO_TUNNEL_ENDPOINT) */
+		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+			return ret;
+	}
+#endif
+	/* Check if destination is within our cluster prefix */
+	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+
+		/* Packet is going to peer inside the cluster prefix. This can
+		 * happen if encapsulation has been disabled and all remote
+		 * peer packets are routed or the destination is part of a
+		 * local prefix on another local network (e.g. local bridge).
+		 *
+		 * FIXME GH-1392: Differentiate between local / remote prefixes
+		 */
+		policy_mark_skip(skb);
+		goto pass_to_stack;
 	} else {
 #ifdef ALLOW_TO_WORLD
 		policy_mark_skip(skb);
