@@ -18,6 +18,10 @@
 #include <node_config.h>
 #include <netdev_config.h>
 
+/* Disable special case where traffic from a local endpoint is loadbalanced
+ * back into the same endpoint */
+#define DISABLE_LOOPBACK_LB
+
 /* These are configuartion options which have a default value in their
  * respective header files and must thus be defined beforehand:
  *
@@ -39,9 +43,29 @@
 #include "lib/dbg.h"
 #include "lib/l3.h"
 #include "lib/l4.h"
+#include "lib/lb.h"
 #include "lib/policy.h"
 #include "lib/drop.h"
 #include "lib/encap.h"
+
+static inline int __inline__ handle_redirect(struct __sk_buff *skb, int ret)
+{
+#ifdef LB_REDIRECT
+	if (ret == TC_ACT_REDIRECT) {
+		int ifindex = LB_REDIRECT;
+#ifdef LB_DSTMAC
+		union macaddr mac = LB_DSTMAC;
+
+		if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
+			ret = DROP_WRITE_ERROR;
+#endif
+		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+		return redirect(ifindex, 0);
+	}
+#endif
+
+	return TC_ACT_OK;
+}
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
 				   struct ipv6hdr *ip6)
@@ -113,6 +137,51 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 	return 0;
 }
 
+#ifdef LB_IP6
+static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *ip6, int l4_off)
+{
+	struct lb6_key key = {};
+	struct lb6_service *svc;
+	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	struct csum_offset csum_off = {};
+	int ret;
+	union v6addr new_dst;
+	__u8 nexthdr;
+	__u16 slave;
+
+	nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&key.address, dst);
+	csum_l4_offset_and_flags(nexthdr, &csum_off);
+
+#ifdef LB_L4
+	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			return TC_ACT_OK;
+		else
+			return ret;
+	}
+#endif
+
+	if (!(svc = lb6_lookup_service(skb, &key)))
+		return TC_ACT_OK;
+
+	slave = lb6_select_slave(skb, &key, svc->count, svc->weight);
+	if (!(svc = lb6_lookup_slave(skb, &key, slave)))
+		return TC_ACT_OK;
+
+	ipv6_addr_copy(&new_dst, &svc->target);
+	if (svc->rev_nat_index)
+		new_dst.p4 |= svc->rev_nat_index;
+
+	ret = lb6_xlate(skb, &new_dst, nexthdr, ETH_HLEN, l4_off, &csum_off, &key, svc);
+	if (IS_ERR(ret))
+		return ret;
+
+	return TC_ACT_REDIRECT;
+}
+#endif
+
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { };
@@ -120,17 +189,34 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	union v6addr *dst = (union v6addr *) &ip6->daddr;
-	int l4_off, l3_off = ETH_HLEN;
+	int l4_off;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
 	int ret;
 
-	if (data + l3_off + sizeof(*ip6) > data_end)
+	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
-	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
+	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+
+#ifdef LB_IP6
+	ret = svc_lookup6(skb, ip6, l4_off);
+	if (IS_ERR(ret))
+		return ret;
+	else if (ret == TC_ACT_REDIRECT)
+		return ret;
+
+	/* DIRECT READ ACCESS INVALIDATED */
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip6 = data + ETH_HLEN;
+
+	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
+		return DROP_INVALID;
+#endif
+	dst = (union v6addr *) &ip6->daddr;
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
@@ -168,7 +254,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 			if (ep->flags & ENDPOINT_F_HOST)
 				return TC_ACT_OK;
 
-			return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep);
+			return ipv6_local_delivery(skb, ETH_HLEN, l4_off, flowlabel, ip6, nexthdr, ep);
 		} else {
 #ifdef ENCAP_IFINDEX
 			struct endpoint_key key = {};
@@ -263,14 +349,69 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	return 0;
 }
 
+#ifdef LB_IP4
+static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip4, int l4_off)
+{
+	struct lb4_key key = {};
+	struct lb4_service *svc;
+	struct csum_offset csum_off = {};
+	__be32 new_dst;
+	__u8 nexthdr;
+	__u16 slave;
+	int ret;
+
+	nexthdr = ip4->protocol;
+	key.address = ip4->daddr;
+	csum_l4_offset_and_flags(nexthdr, &csum_off);
+
+#ifdef LB_L4
+	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);
+	if (IS_ERR(ret))
+		return TC_ACT_OK;
+#endif
+
+	if (!(svc = lb4_lookup_service(skb, &key)))
+		return TC_ACT_OK;
+
+	slave = lb4_select_slave(skb, &key, svc->count, svc->weight);
+	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
+		return TC_ACT_OK;
+
+	new_dst = svc->target;
+	ret = lb4_xlate(skb, &new_dst, NULL, NULL, nexthdr, ETH_HLEN, l4_off, &csum_off, &key, svc);
+	if (IS_ERR(ret))
+		return ret;
+
+	return TC_ACT_REDIRECT;
+}
+#endif
+
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
+	int l4_off, ret;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
+
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+#ifdef LB_IP4
+	ret = svc_lookup4(skb, ip4, l4_off);
+	if (IS_ERR(ret))
+		return ret;
+	else if (ret == TC_ACT_REDIRECT)
+		return ret;
+
+	/* DIRECT READ ACCESS INVALIDATED */
+        data = (void *) (long) skb->data;
+        data_end = (void *) (long) skb->data_end;
+        ip4 = data + ETH_HLEN;
+        if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+                return DROP_INVALID;
+#endif
 
 #ifdef ENABLE_IPV4
 	/* Check if destination is within our cluster prefix */
@@ -278,9 +419,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		struct ipv4_ct_tuple tuple = {};
 		struct endpoint_info *ep;
 		__u32 secctx;
-		int ret, l4_off;
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 		secctx = derive_ipv4_sec_ctx(skb, ip4);
 #ifdef FROM_HOST
 		if (skb->mark) {
@@ -333,10 +472,12 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 {
 	int ret = handle_ipv4(skb);
 
-	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	if (IS_ERR(ret)) {
+		/* On error, report the error but pass the packet to the stack */
+		return send_drop_notify_error(skb, ret, TC_ACT_OK);
+	}
 
-	return ret;
+	return handle_redirect(skb, ret);
 }
 
 #endif
@@ -354,11 +495,11 @@ int from_netdev(struct __sk_buff *skb)
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
+		ret = handle_redirect(skb, ret);
 
-		/* We should only be seeing an error here for packets which have
-		 * been targetting an endpoint managed by us. */
+		/* On error, report the error but pass the packet to the stack */
 		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+			return send_drop_notify_error(skb, ret, TC_ACT_OK);
 		break;
 
 #ifdef ENABLE_IPV4
