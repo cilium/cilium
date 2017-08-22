@@ -17,7 +17,9 @@ package kvstore
 import (
 	"fmt"
 	"strings"
+	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
 )
@@ -50,7 +52,7 @@ func validateOpts(kvStore string, kvStoreOpts map[string]string, supportedOpts m
 }
 
 // SetupDummy sets up kvstore for tests
-func SetupDummy() error {
+func SetupDummy() {
 	switch backend {
 	case Consul:
 		consulConfig = consulAPI.DefaultConfig()
@@ -61,59 +63,81 @@ func SetupDummy() error {
 		etcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
 
 	default:
-		return fmt.Errorf("Unknown kvstore backend: %s", backend)
+		log.Panicf("Unknown kvstore backend: %s", backend)
 	}
 
-	return initClient()
+	if err := initClient(); err != nil {
+		log.WithError(err).Panicf("Unable to initialize kvstore client")
+	}
 }
+
+var (
+	setupLock sync.Mutex
+	setupOnce sync.Once
+)
 
 // Setup sets up the key-value store specified in kvStore and configures
 // it with the options provided in kvStoreOpts.
 func Setup(selectedBackend string, opts map[string]string) error {
-	backend = selectedBackend
+	var err error
 
-	switch backend {
-	case Etcd:
-		err := validateOpts(backend, opts, EtcdOpts)
-		if err != nil {
-			return err
-		}
-		addr, ok := opts[eAddr]
-		config, ok2 := opts[eCfg]
-		if ok || ok2 {
-			etcdConfig = &etcdAPI.Config{}
-			etcdCfgPath = config
-			etcdConfig.Endpoints = []string{addr}
-		} else {
-			return fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --kvstore-opt %s=<path> or an etcd agent address with --kvstore-opt %s=<address>", eCfg, eAddr)
-		}
+	// Ensure that multiple calls to Setup() block and the kvstore is
+	// always configured after a successful call to Setup()
+	setupLock.Lock()
+	defer setupLock.Unlock()
 
-	case Consul:
-		err := validateOpts(backend, opts, ConsulOpts)
-		if err != nil {
-			return err
-		}
-		consulAddr, ok := opts[cAddr]
-		if ok {
-			consulDefaultAPI := consulAPI.DefaultConfig()
-			consulSplitAddr := strings.Split(consulAddr, "://")
-			if len(consulSplitAddr) == 2 {
-				consulAddr = consulSplitAddr[1]
-			} else if len(consulSplitAddr) == 1 {
-				consulAddr = consulSplitAddr[0]
+	setupOnce.Do(func() {
+		backend = selectedBackend
+
+		switch backend {
+		case Etcd:
+			err = validateOpts(backend, opts, EtcdOpts)
+			if err != nil {
+				return
 			}
-			consulDefaultAPI.Address = consulAddr
-			consulConfig = consulDefaultAPI
-		} else {
-			return fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with --kvstore-opt %s=<consul address> option", cAddr)
+			addr, ok := opts[eAddr]
+			config, ok2 := opts[eCfg]
+			if ok || ok2 {
+				etcdConfig = &etcdAPI.Config{}
+				etcdCfgPath = config
+				etcdConfig.Endpoints = []string{addr}
+			} else {
+				err = fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --kvstore-opt %s=<path> or an etcd agent address with --kvstore-opt %s=<address>", eCfg, eAddr)
+				return
+			}
+
+		case Consul:
+			err = validateOpts(backend, opts, ConsulOpts)
+			if err != nil {
+				return
+			}
+			consulAddr, ok := opts[cAddr]
+			if ok {
+				consulDefaultAPI := consulAPI.DefaultConfig()
+				consulSplitAddr := strings.Split(consulAddr, "://")
+				if len(consulSplitAddr) == 2 {
+					consulAddr = consulSplitAddr[1]
+				} else if len(consulSplitAddr) == 1 {
+					consulAddr = consulSplitAddr[0]
+				}
+				consulDefaultAPI.Address = consulAddr
+				consulConfig = consulDefaultAPI
+			} else {
+				err = fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with --kvstore-opt %s=<consul address> option", cAddr)
+				return
+			}
+
+		case "":
+			err = fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details.")
+			return
+
+		default:
+			err = fmt.Errorf("unsupported key-value store %q provided; check http://cilium.link/err-kvstore for more information about how to properly configure key-value store", backend)
+			return
 		}
 
-	case "":
-		return fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details.")
+		err = initClient()
+	})
 
-	default:
-		return fmt.Errorf("unsupported key-value store %q provided; check http://cilium.link/err-kvstore for more information about how to properly configure key-value store", backend)
-	}
-
-	return initClient()
+	return err
 }
