@@ -109,9 +109,11 @@ ip link set $HOST_DEV1 arp off
 ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
 
+sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
 echo "#define HOST_IFINDEX $HOST_IDX" >> $RUNDIR/globals/node_config.h
 
+sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
 HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
 HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
@@ -162,7 +164,7 @@ if [ "$TUNNEL_MODE" != "disabled" ]; then
 	ip link set $ENCAP_DEV up
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
-	sed '/ENCAP_IFINDEX/d' $RUNDIR/globals/node_config.h
+	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
