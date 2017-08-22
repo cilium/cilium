@@ -228,7 +228,7 @@ func ParseOption(arg string, lib *OptionLibrary) (string, bool, error) {
 
 	key, spec := lib.Lookup(arg)
 	if key == "" {
-		return "", false, fmt.Errorf("Unknown endpoint option %s", arg)
+		return "", false, fmt.Errorf("Unknown option %q", arg)
 	}
 
 	if spec.Immutable {
