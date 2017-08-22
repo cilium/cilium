@@ -59,8 +59,6 @@ type Config struct {
 	EnablePolicyMU sync.RWMutex // Protects the variable below
 	EnablePolicy   string       // Whether policy enforcement is enabled.
 
-	Tunnel string // Tunnel mode
-
 	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
 	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 
