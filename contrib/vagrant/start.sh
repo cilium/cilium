@@ -291,13 +291,9 @@ function write_cilium_cfg() {
         if [ $((node_index)) -eq 1 ]; then
             ubuntu_1404_interface="-d eth2"
             ubuntu_1604_interface="-d enp0s9"
-            ubuntu_1404_cilium_lb="--lb eth2"
-            ubuntu_1604_cilium_lb="--lb enp0s9"
         else
             ubuntu_1404_interface="-d eth1"
             ubuntu_1604_interface="-d enp0s8"
-            ubuntu_1404_cilium_lb=""
-            ubuntu_1604_cilium_lb=""
         fi
     else
         cilium_options+=" ${TUNNEL_MODE_STRING}"
@@ -307,10 +303,10 @@ cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
     sed -i '/exec/d' /etc/init/cilium.conf
-    echo 'exec cilium-agent --debug ${ubuntu_1404_cilium_lb} ${ubuntu_1404_interface} ${cilium_options}' >> /etc/init/cilium.conf
+    echo 'exec cilium-agent --debug ${ubuntu_1404_interface} ${cilium_options}' >> /etc/init/cilium.conf
 else
     sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
-    echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
+    echo 'CILIUM_OPTS="${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
     echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
     chmod 644 /etc/sysconfig/cilium
 fi

@@ -87,10 +87,3 @@ This command only needs to be executed in one of the nodes; since Cilium is
 deployed as a DaemonSet, Kubernetes will deploy it on each node accordingly.
 
 Cilium will also connect to etcd and kubernetes using TLS.
-
-#### Loadbalancer mode (kubernetes ingress)
-
-**Warning: the set up scripts were not tested with this mode**
-
-In loadbalancer mode, the `k8s1` will run a daemon set designed for
-this purpose, with `--lb` and `--snoop-device` set to `enp0s8`.
