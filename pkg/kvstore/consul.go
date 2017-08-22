@@ -85,7 +85,7 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 	}
 
 	if err != nil {
-		log.Fatalf("Unable to contact consul: %s", err)
+		log.WithError(err).Fatalf("Unable to contact consul server")
 	}
 	cc := &ConsulClient{c}
 	// Clean-up old services path
@@ -98,7 +98,7 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 func (c *ConsulClient) LockPath(path string) (KVLocker, error) {
 	retries := 0
 
-	trace("Creating lock for %s", path)
+	trace("Creating lock", nil, log.Fields{fieldKey: path})
 	opts := &consulAPI.LockOptions{
 		Key: getLockPath(path),
 	}
@@ -115,7 +115,7 @@ retry:
 
 	ch, err := lockKey.Lock(nil)
 	if ch == nil && err == nil {
-		trace("Acquiring lock timed out, retrying...")
+		trace("Acquiring lock timed out", nil, log.Fields{fieldKey: path})
 		goto retry
 	}
 
@@ -123,7 +123,6 @@ retry:
 		return nil, err
 	}
 
-	trace("Locked %s", path)
 	return lockKey, nil
 }
 
@@ -162,7 +161,6 @@ func (c *ConsulClient) InitializeFreeID(path string, firstID uint32) error {
 	if err != nil {
 		return err
 	}
-	trace("Free ID for path %s successfully initialized", path)
 
 	return nil
 }
@@ -197,7 +195,6 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	}
 	if k == nil {
 		// FreeID is empty? We should set it out!
-		trace("Empty FreeID, setting it up with default value %d", firstID)
 		if err := c.InitializeFreeID(key, firstID); err != nil {
 			return 0, err
 		}
@@ -213,7 +210,6 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 		}
 	}
 	var freeID uint32
-	trace("Retrieving max free ID %v", k.Value)
 	if err := json.Unmarshal(k.Value, &freeID); err != nil {
 		return 0, err
 	}
@@ -266,7 +262,6 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *poli
 	}
 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		trace("Trying to acquire a new free seclabel ID %d", *incID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: getLockPath(keyPath), Session: session}
@@ -335,7 +330,6 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 	}
 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		trace("Trying to acquire a new free service ID %d", *incID)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
 		lockPair := &consulAPI.KVPair{Key: getLockPath(keyPath), Session: session}
@@ -406,7 +400,10 @@ func (c *ConsulClient) Watch(w *Watcher, list bool) {
 		if err != nil {
 			// in case of error, sleep for 15 seconds before retrying
 			sleepTime = 15 * time.Second
-			log.Debugf("watcher %s failed (consul): %s", w.name, err)
+			log.WithFields(log.Fields{
+				fieldWatcher:      w,
+				fieldListAndWatch: list,
+			}).WithError(err).Debugf("Consul watcher failed, will retry")
 		}
 
 		if q != nil {

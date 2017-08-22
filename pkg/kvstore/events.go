@@ -92,7 +92,10 @@ func watch(name, prefix string, chanSize int, list bool) *Watcher {
 		stopWatch: make(stopChan, 0),
 	}
 
-	log.Debugf("Starting watcher %s list=%v...", name, list)
+	log.WithFields(log.Fields{
+		fieldWatcher:      w,
+		fieldListAndWatch: list,
+	}).Debugf("Starting watcher...")
 
 	go func() {
 		// Signal termination of watcher routine
@@ -136,6 +139,9 @@ func (w *Watcher) Stop() {
 
 	close(w.Events)
 
-	log.Debugf("Stopped watcher %s", w.name)
+	log.WithFields(log.Fields{
+		fieldWatcher: w,
+	}).Debugf("Stopped watcher...")
+
 	w.stopped = true
 }
