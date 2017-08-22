@@ -74,7 +74,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	daemonConf.ValidLabelPrefixes = lblsPrefix
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
-	daemonConf.Device = "undefined"
 
 	err = kvstore.SetupDummy()
 	c.Assert(err, IsNil)

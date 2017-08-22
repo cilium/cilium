@@ -23,8 +23,7 @@ IP4_RANGE=$6
 IP6_RANGE=$7
 IP4_SVC_RANGE=$8
 IP6_SVC_RANGE=$9
-MODE=${10}
-# Only set if MODE = "direct" or "lb"
+TUNNEL_MODE=${10}
 NATIVE_DEV=${11}
 
 HOST_ID="host"
@@ -153,18 +152,10 @@ if [ "$IP4_SVC_RANGE" != "auto" ]; then
         fi
 fi
 
-sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
-sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
-if [ "$MODE" = "vxlan" ]; then
-	echo "#define ENCAP_VXLAN 1" >> $RUNDIR/globals/node_config.h
-elif [ "$MODE" = "geneve" ]; then
-	echo "#define ENCAP_GENEVE 1" >> $RUNDIR/globals/node_config.h
-fi
-
-if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
-	ENCAP_DEV="cilium_${MODE}"
+if [ "$TUNNEL_MODE" != "disabled" ]; then
+	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 	ip link show $ENCAP_DEV || {
-		ip link add $ENCAP_DEV type $MODE external
+		ip link add $ENCAP_DEV type $TUNNEL_MODE external
 	}
 	ip link set $ENCAP_DEV up
 
@@ -186,18 +177,13 @@ else
 	fi
 fi
 
-if [ "$MODE" = "direct" -o "$MODE" = "lb" ]; then
-	if [ -z "$NATIVE_DEV" ]; then
-		echo "No device specified for direct mode, ignoring..."
-	else
-		sysctl -w net.ipv6.conf.all.forwarding=1
+if [ "$NATIVE_DEV" != "undefined" ]; then
+	sysctl -w net.ipv6.conf.all.forwarding=1
+	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
+	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
+	bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
 
-		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-		OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
-		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
-
-		echo "$NATIVE_DEV" > $RUNDIR/device.state
-	fi
+	echo "$NATIVE_DEV" > $RUNDIR/device.state
 else
 	FILE=$RUNDIR/device.state
 	if [ -f $FILE ]; then
