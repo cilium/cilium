@@ -60,6 +60,11 @@ func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 }
 
 func (s *KvstoreSuite) TestWatch(c *C) {
+	// FIXME GH-1388 Re-enable when fixed
+	if backend == Consul {
+		c.Skip("consul currently broken (GH-1388)")
+	}
+
 	DeleteTree("foo/")
 	defer DeleteTree("foo/")
 
@@ -93,6 +98,11 @@ func (s *KvstoreSuite) TestWatch(c *C) {
 }
 
 func (s *KvstoreSuite) TestListAndWatch(c *C) {
+	// FIXME GH-1388 Re-enable when fixed
+	if backend == Consul {
+		c.Skip("consul currently broken (GH-1388)")
+	}
+
 	key1, key2 := "foo2/key1", "foo2/key2"
 	val1, val2 := []byte("val1"), []byte("val2")
 
