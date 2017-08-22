@@ -30,11 +30,6 @@ type EtcdSuite struct {
 
 var _ = Suite(&EtcdSuite{})
 
-func (s *EtcdSuite) SetUpTest(c *C) {
-	err := SetupDummy()
-	c.Assert(err, IsNil)
-}
-
 type MaintenanceMocker struct {
 	OnAlarmList   func(ctx context.Context) (*etcdAPI.AlarmResponse, error)
 	OnAlarmDisarm func(ctx context.Context, m *etcdAPI.AlarmMember) (*etcdAPI.AlarmResponse, error)

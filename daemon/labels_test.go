@@ -75,8 +75,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	daemonConf.ValidLabelPrefixes = lblsPrefix
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
 
-	err = kvstore.SetupDummy()
-	c.Assert(err, IsNil)
+	kvstore.SetupDummy()
 
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, IsNil)

@@ -67,6 +67,9 @@ func initClient() error {
 	}
 	leaseInstance = l
 
+	// Start go subroutine which will renew kvstore leases
+	startKeepalive()
+
 	return nil
 }
 

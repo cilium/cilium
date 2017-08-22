@@ -49,18 +49,13 @@ func KeepAlive(lease interface{}) error {
 	return err
 }
 
-func init() {
+func startKeepalive() {
 	go func() {
-		// start with very short interval until client and lease appear
-		sleepTime := time.Duration(1) * time.Second
+		sleepTime := KeepAliveInterval
 		for {
-			if clientInstance != nil && leaseInstance != nil {
-				// once we have client and lease, keep alive in regular interval
-				sleepTime = KeepAliveInterval
-				if err := KeepAlive(leaseInstance); err != nil {
-					log.WithError(err).Warningf("Unable to keep lease alive")
-					sleepTime = RetryInterval
-				}
+			if err := KeepAlive(leaseInstance); err != nil {
+				log.WithError(err).Warningf("Unable to keep lease alive")
+				sleepTime = RetryInterval
 			}
 			time.Sleep(sleepTime)
 		}

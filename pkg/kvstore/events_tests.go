@@ -28,8 +28,7 @@ var _ = Suite(&KvstoreSuite{})
 func (s *KvstoreSuite) SetUpTest(c *C) {
 	log.SetLevel(log.DebugLevel)
 
-	err := SetupDummy()
-	c.Assert(err, IsNil)
+	SetupDummy()
 }
 
 func drainEvents(w *Watcher) {
