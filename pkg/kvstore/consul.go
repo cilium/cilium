@@ -387,92 +387,90 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 
 // Watch starts watching for changes in a prefix
 func (c *ConsulClient) Watch(w *Watcher, list bool) {
-	go func() {
-		// Last known state of all KVPairs matching the prefix
-		localState := map[string]consulAPI.KVPair{}
-		nextIndex := uint64(0)
+	// Last known state of all KVPairs matching the prefix
+	localState := map[string]consulAPI.KVPair{}
+	nextIndex := uint64(0)
 
-		// block Get() calls for 5 seconds maximum
-		qo := consulAPI.QueryOptions{
-			WaitTime: 5 * time.Second,
+	// block Get() calls for 5 seconds maximum
+	qo := consulAPI.QueryOptions{
+		WaitTime: 5 * time.Second,
+	}
+
+	for {
+		// Initialize sleep time to a millisecond as we don't
+		// want to sleep in between successful watch cycles
+		sleepTime := 1 * time.Millisecond
+
+		qo.WaitIndex = nextIndex
+		pairs, q, err := c.KV().List(w.prefix, &qo)
+		if err != nil {
+			// in case of error, sleep for 15 seconds before retrying
+			sleepTime = 15 * time.Second
+			log.Debugf("watcher %s failed (consul): %s", w.name, err)
 		}
 
-		for {
-			// Initialize sleep time to a millisecond as we don't
-			// want to sleep in between successful watch cycles
-			sleepTime := 1 * time.Millisecond
+		if q != nil {
+			nextIndex = q.LastIndex
+		}
 
-			qo.WaitIndex = nextIndex
-			pairs, q, err := c.KV().List(w.prefix, &qo)
-			if err != nil {
-				// in case of error, sleep for 15 seconds before retrying
-				sleepTime = 15 * time.Second
-				log.Debugf("watcher %s failed (consul): %s", w.name, err)
-			}
+		// WaitIndex == 0 means that this was the first ever
+		// List() and there is no change, trigger a follow-up
+		// List() with updated WaitIndex immediately
+		if qo.WaitIndex == 0 && !list {
+			continue
+		}
 
-			if q != nil {
-				nextIndex = q.LastIndex
-			}
+		// timeout while watching for changes, re-schedule
+		if q == nil || q.LastIndex == qo.WaitIndex {
+			continue
+		}
 
-			// WaitIndex == 0 means that this was the first ever
-			// List() and there is no change, trigger a follow-up
-			// List() with updated WaitIndex immediately
-			if qo.WaitIndex == 0 && !list {
-				continue
-			}
+		for _, newPair := range pairs {
+			oldPair, ok := localState[newPair.Key]
 
-			// timeout while watching for changes, re-schedule
-			if q == nil || q.LastIndex == qo.WaitIndex {
-				continue
-			}
-
-			for _, newPair := range pairs {
-				oldPair, ok := localState[newPair.Key]
-
-				// Keys reported for the first time must be new
-				if !ok {
-					if newPair.CreateIndex == newPair.ModifyIndex {
-						w.Events <- KeyValueEvent{
-							Typ:   EventTypeCreate,
-							Key:   newPair.Key,
-							Value: newPair.Value,
-						}
-					} else {
-						log.Warning("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
-							newPair.Key, newPair.CreateIndex, newPair.ModifyIndex)
-					}
-				} else if oldPair.ModifyIndex != newPair.ModifyIndex {
+			// Keys reported for the first time must be new
+			if !ok {
+				if newPair.CreateIndex == newPair.ModifyIndex {
 					w.Events <- KeyValueEvent{
-						Typ:   EventTypeModify,
+						Typ:   EventTypeCreate,
 						Key:   newPair.Key,
 						Value: newPair.Value,
 					}
+				} else {
+					log.Warning("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
+						newPair.Key, newPair.CreateIndex, newPair.ModifyIndex)
 				}
-
-				delete(localState, newPair.Key)
-			}
-
-			for k, deletedPair := range localState {
+			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
 				w.Events <- KeyValueEvent{
-					Typ:   EventTypeDelete,
-					Key:   deletedPair.Key,
-					Value: deletedPair.Value,
+					Typ:   EventTypeModify,
+					Key:   newPair.Key,
+					Value: newPair.Value,
 				}
-				delete(localState, k)
 			}
 
-			for _, newPair := range pairs {
-				localState[newPair.Key] = *newPair
-
-			}
-
-			select {
-			case <-time.After(sleepTime):
-			case <-w.stopWatch:
-				return
-			}
+			delete(localState, newPair.Key)
 		}
-	}()
+
+		for k, deletedPair := range localState {
+			w.Events <- KeyValueEvent{
+				Typ:   EventTypeDelete,
+				Key:   deletedPair.Key,
+				Value: deletedPair.Value,
+			}
+			delete(localState, k)
+		}
+
+		for _, newPair := range pairs {
+			localState[newPair.Key] = *newPair
+
+		}
+
+		select {
+		case <-time.After(sleepTime):
+		case <-w.stopWatch:
+			return
+		}
+	}
 }
 
 // GetWatcher watches for kvstore changes in the given key. Triggers the returned channel

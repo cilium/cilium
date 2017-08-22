@@ -444,79 +444,77 @@ func (e *EtcdClient) DeleteTree(path string) error {
 
 // Watch starts watching for changes in a prefix
 func (e *EtcdClient) Watch(w *Watcher, list bool) {
-	go func() {
-		lastRev := int64(0)
+	lastRev := int64(0)
 
-		for {
-			res, err := e.cli.Get(ctx.Background(), w.prefix, client.WithPrefix(),
-				client.WithRev(lastRev), client.WithSerializable())
-			if err != nil {
-				log.Warningf("unable to list keys after revision %d for prefix %s before watching: %s",
-					lastRev, w.prefix, err)
-				continue
-			}
+	for {
+		res, err := e.cli.Get(ctx.Background(), w.prefix, client.WithPrefix(),
+			client.WithRev(lastRev), client.WithSerializable())
+		if err != nil {
+			log.Warningf("unable to list keys after revision %d for prefix %s before watching: %s",
+				lastRev, w.prefix, err)
+			continue
+		}
 
-			lastRev := res.Header.Revision
+		lastRev := res.Header.Revision
 
-			if res.Count > 0 {
-				for _, key := range res.Kvs {
-					w.Events <- KeyValueEvent{
-						Key:   string(key.Key),
-						Value: key.Value,
-						Typ:   EventTypeCreate,
-					}
-				}
-			}
-
-			// More keys to be read, call Get() again
-			if res.More {
-				continue
-			}
-
-		recreateWatcher:
-			lastRev++
-
-			etcdWatch := e.cli.Watch(ctx.Background(), w.prefix,
-				client.WithPrefix(), client.WithRev(lastRev))
-			for {
-				select {
-				case <-w.stopWatch:
-					return
-
-				case r, ok := <-etcdWatch:
-					if !ok {
-						goto recreateWatcher
-					}
-
-					lastRev = r.Header.Revision
-
-					if err := r.Err(); err != nil {
-						log.WithFields(log.Fields{
-							fieldRev:     lastRev,
-							fieldWatcher: w,
-						}).WithError(err).Warningf("etcd watcher received error")
-						continue
-					}
-
-					for _, ev := range r.Events {
-						event := KeyValueEvent{
-							Key:   string(ev.Kv.Key),
-							Value: ev.Kv.Value,
-							Typ:   EventTypeModify,
-						}
-
-						if ev.Type == client.EventTypeDelete {
-							event.Typ = EventTypeDelete
-						} else if ev.IsCreate() {
-							event.Typ = EventTypeCreate
-						}
-
-						w.Events <- event
-					}
+		if res.Count > 0 {
+			for _, key := range res.Kvs {
+				w.Events <- KeyValueEvent{
+					Key:   string(key.Key),
+					Value: key.Value,
+					Typ:   EventTypeCreate,
 				}
 			}
 		}
-	}()
+
+		// More keys to be read, call Get() again
+		if res.More {
+			continue
+		}
+
+	recreateWatcher:
+		lastRev++
+
+		etcdWatch := e.cli.Watch(ctx.Background(), w.prefix,
+			client.WithPrefix(), client.WithRev(lastRev))
+		for {
+			select {
+			case <-w.stopWatch:
+				return
+
+			case r, ok := <-etcdWatch:
+				if !ok {
+					goto recreateWatcher
+				}
+
+				lastRev = r.Header.Revision
+
+				if err := r.Err(); err != nil {
+					log.WithFields(log.Fields{
+						fieldRev:     lastRev,
+						fieldWatcher: w,
+					}).WithError(err).Warningf("etcd watcher received error")
+					continue
+				}
+
+				for _, ev := range r.Events {
+					event := KeyValueEvent{
+						Key:   string(ev.Kv.Key),
+						Value: ev.Kv.Value,
+						Typ:   EventTypeModify,
+					}
+
+					if ev.Type == client.EventTypeDelete {
+						event.Typ = EventTypeDelete
+					} else if ev.IsCreate() {
+						event.Typ = EventTypeCreate
+					}
+
+					w.Events <- event
+				}
+			}
+		}
+	}
 }
 
 // GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
