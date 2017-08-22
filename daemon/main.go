@@ -451,18 +451,9 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackLocal, false)
 
+	config.EnablePolicyMU.Lock()
 	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
-
-	switch config.EnablePolicy {
-	case endpoint.DefaultEnforcement:
-		config.Opts.Set(endpoint.OptionPolicy, false)
-	case endpoint.NeverEnforce:
-		config.Opts.Set(endpoint.OptionPolicy, false)
-	case endpoint.AlwaysEnforce:
-		config.Opts.Set(endpoint.OptionPolicy, true)
-	default:
-		log.Fatalf("invalid value for enable-policy %q provided. Supported values: %s, %s, %s.", config.EnablePolicy, endpoint.DefaultEnforcement, endpoint.NeverEnforce, endpoint.AlwaysEnforce)
-	}
+	config.EnablePolicyMU.Unlock()
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		log.Fatalf("Unable to setup kvstore: %s", err)

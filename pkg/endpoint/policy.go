@@ -243,7 +243,8 @@ func (e *Endpoint) regenerateL3Policy(owner Owner) (bool, error) {
 	return true, nil
 }
 
-// Only called when e.Consumable != nil.
+// regeneratePolicy returns whether the policy for the given endpoint should be
+// regenerated. Only called when e.Consumable != nil.
 func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	log.Debugf("[%s] Starting regenerate...", e.PolicyID())
 
@@ -273,7 +274,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		opts[OptionConntrack] = "enabled"
 	}
 
-	if owner.UpdateEndpointPolicyEnforcement(e) {
+	if owner.EnableEndpointPolicyEnforcement(e) {
 		opts[OptionPolicy] = "enabled"
 	} else {
 		opts[OptionPolicy] = "disabled"
@@ -284,7 +285,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 	optsChanged := e.ApplyOptsLocked(opts)
 
+	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
+		log.Debugf("setting PolicyCalculated to true for endpoint %d", e.ID)
 		e.PolicyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
@@ -296,7 +299,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 	// If no policy change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
-	// the regenerate to complete
+	// the regeneration of the endpoint to complete.
 	if !policyChanged {
 		e.PolicyRevision = revision
 	} else {

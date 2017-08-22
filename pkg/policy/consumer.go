@@ -15,12 +15,10 @@
 package policy
 
 import (
-	"sync"
-
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -124,26 +122,6 @@ func (c *Consumable) DeepCopy() *Consumable {
 	}
 	c.Mutex.RUnlock()
 	return cpy
-}
-
-func (c *Consumable) GetModel() *models.EndpointPolicy {
-	if c == nil {
-		return nil
-	}
-	c.Mutex.RLock()
-	defer c.Mutex.RUnlock()
-
-	consumers := []int64{}
-	for _, v := range c.Consumers {
-		consumers = append(consumers, int64(v.ID))
-	}
-
-	return &models.EndpointPolicy{
-		ID:               int64(c.ID),
-		Build:            int64(c.Iteration),
-		AllowedConsumers: consumers,
-		L4:               c.L4Policy.GetModel(),
-	}
 }
 
 func (c *Consumable) AddMap(m *policymap.PolicyMap) {
