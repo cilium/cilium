@@ -177,7 +177,7 @@ else
 	fi
 fi
 
-if [ "$NATIVE_DEV" != "undefined" ]; then
+if [ "$NATIVE_DEV" != "disabled" ]; then
 	sysctl -w net.ipv6.conf.all.forwarding=1
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
