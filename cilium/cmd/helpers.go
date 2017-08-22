@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/spf13/cobra"
 )
@@ -40,9 +41,12 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 		Usagef(cmd, "Missing endpoint id argument")
 	}
 
-	_, _, err := endpoint.ValidateID(args[0])
-	if err != nil {
-		Fatalf("Cannot parse endpoint id \"%s\": %s", args[0], err)
+	if id := policy.ReservedIdentities[args[0]]; id == policy.ID_UNKNOWN {
+		_, _, err := endpoint.ValidateID(args[0])
+
+		if err != nil {
+			Fatalf("Cannot parse endpoint id \"%s\": %s", args[0], err)
+		}
 	}
 }
 
