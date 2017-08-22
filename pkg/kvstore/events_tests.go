@@ -39,6 +39,12 @@ func drainEvents(w *Watcher) {
 }
 
 func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
+	log.WithFields(log.Fields{
+		"type":  typ,
+		"key":   key,
+		"value": string(val),
+	}).Debugf("Expecting event")
+
 	select {
 	case event := <-w.Events:
 		c.Assert(event.Typ, Equals, typ)
