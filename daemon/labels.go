@@ -85,7 +85,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	identityPath := path.Join(common.LabelsKeyPath, lbls.SHA256Sum())
 
 	// Lock the identity
-	lockKey, err := kvstore.Client().LockPath(identityPath)
+	lockKey, err := kvstore.LockPath(identityPath)
 	if err != nil {
 		return nil, false, err
 	}
@@ -329,7 +329,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	}
 	lblPath := path.Join(common.LabelsKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := kvstore.Client().LockPath(lblPath)
+	lockKey, err := kvstore.LockPath(lblPath)
 	if err != nil {
 		return err
 	}

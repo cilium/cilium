@@ -25,7 +25,7 @@ import (
 )
 
 type KVClient interface {
-	LockPath(path string) (KVLocker, error)
+	LockPath(path string) (kvLocker, error)
 	GetValue(k string) (json.RawMessage, error)
 	SetValue(k string, v interface{}) error
 	InitializeFreeID(path string, firstID uint32) error
@@ -75,15 +75,6 @@ type KVClient interface {
 
 	// Close closes the kvstore client
 	Close()
-}
-
-type KVLocker interface {
-	Unlock() error
-}
-
-// getLockPath returns the lock path representation of the given path.
-func getLockPath(path string) string {
-	return path + ".lock"
 }
 
 // Get returns value of key

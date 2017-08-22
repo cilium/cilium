@@ -31,7 +31,7 @@ var _ = Suite(&KVStoreSuite{})
 func (s *KvstoreSuite) TestLock(c *C) {
 	DeleteTree("locktest/")
 
-	lock, err := Client().LockPath("locktest/foo")
+	lock, err := LockPath("locktest/foo")
 	c.Assert(err, IsNil)
 	c.Assert(lock, Not(IsNil))
 	lock.Unlock()
