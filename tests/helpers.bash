@@ -81,7 +81,7 @@ function micro_sleep {
 function wait_for_endpoints {
     set +x
     echo -n "Waiting for $1 cilium endpoints to become ready"
-	until [ "$(cilium endpoint list | grep ready -c)" -eq "$1" ]; do
+	until [ "$(cilium endpoint list | grep -v 'not-ready' | grep ready -c )" -eq "$1" ]; do
 	    micro_sleep
 	    echo -n "."
 	done
@@ -101,7 +101,7 @@ function wait_for_k8s_endpoints {
 
 	local sleep_time=1
 	local iter=0
-	local found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')
+	local found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -v 'not-ready' | grep -c 'ready' || true)
 	echo "found: $found"
 	while [[ "$found" -ne "$NUM" ]]; do
 		if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
@@ -113,7 +113,7 @@ function wait_for_k8s_endpoints {
 			echo -n " [${found}/${NUM}]"
 			sleep $sleep_time
 		fi
-		found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -c 'ready')
+		found=$(kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep -v 'not-ready' | grep -c 'ready' || true)
 		echo "found: $found"
 	done
 
@@ -233,6 +233,17 @@ function wait_for_running_pod {
         micro_sleep
     done
     set -x
+}
+
+function wait_for_no_pods {
+  set +x
+  namespace=${1:-default}
+  echo "Waiting for no pods to be Running in namespace ${namespace}"
+  kubectl get pods -n ${namespace} -o wide
+  while [[ "$(kubectl get pods -n ${namespace} -o wide 2>&1 | grep -c 'No resources found')" -ne "1" ]] ; do
+    micro_sleep
+  done
+  set -x 
 }
 
 function wait_for_n_running_pods {
@@ -457,14 +468,45 @@ function k8s_apply_policy {
 	sleep 10s
 }
 
+function k8s_delete_policy {
+        declare -A currentRevison
+        local i
+        local pod
+        local namespace=$1
+        local policy=$2
+        local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+
+        for pod in $pods; do
+                local rev=$(kubectl -n $namespace exec $pod -- cilium policy get | grep Revision: | awk '{print $2}')
+                currentRevison[$pod]=$rev
+        done
+
+        echo "Current policy revisions:"
+        for i in "${!currentRevison[@]}"
+        do
+                echo "  $i: ${currentRevison[$i]}"
+        done
+
+        kubectl delete -f $policy
+
+        for pod in $pods; do
+                local nextRev=$(expr ${currentRevison[$pod]} + 1)
+                echo "Waiting for agent $pod endpoints to get to revision $nextRev"
+                kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
+        done
+
+        # Adding sleep as workaround for l7 stresstests
+        sleep 10s
+}
+
 function policy_delete_and_wait {
 	rev=$(cilium policy delete $* | grep Revision: | awk '{print $2}')
-	cilium policy wait $rev
+	timeout 120s cilium policy wait $rev
 }
 
 function policy_import_and_wait {
 	rev=$(cilium policy import $* | grep Revision: | awk '{print $2}')
-	cilium policy wait $rev
+	timeout 120s cilium policy wait $rev
 }
 
 function get_vm_identity_file {

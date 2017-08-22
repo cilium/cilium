@@ -25,10 +25,10 @@ K8SDIR="${dir}/../../../examples/kubernetes"
 GSGDIR="${dir}/deployments/gsg"
 
 function cleanup {
-	kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
-	kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
-	kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
-	kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
+  kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
+  kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
+  kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
+  kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
 }
 
 function finish_test {
