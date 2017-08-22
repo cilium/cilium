@@ -18,8 +18,6 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug"
-          - "--lb"
-          - "$(IFACE)"
           - "-d"
           - "$(IFACE)"
           - "--kvstore"
