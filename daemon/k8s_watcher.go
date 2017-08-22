@@ -86,7 +86,7 @@ func k8sErrorHandler(e error) {
 				k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
 				k8sErrMsgMU.Unlock()
 				log.Warningf("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
-				log.Warningf("Due conflicting TPR and CRD rules CiliumNetworkPolicy enforcement can't be guaranteed!")
+				log.Warningf("Due to conflicting TPR and CRD rules, CiliumNetworkPolicy enforcement can't be guaranteed!")
 			}
 		}
 	} else {
