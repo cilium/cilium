@@ -51,7 +51,7 @@ paths:
         in: body
         required: true
         schema:
-          "$ref": "#/definitions/ConfigurationMap"
+          "$ref": "#/definitions/Configuration"
       responses:
         '200':
           description: Success
@@ -646,6 +646,7 @@ definitions:
     type: object
     required:
       - state
+      - policy-enabled
     properties:
       id:
         description: Local endpoint ID
@@ -791,6 +792,8 @@ definitions:
           type: integer
       l4:
         "$ref": "#/definitions/L4Policy"
+      cidr-policy:
+        "$ref": "#/definitions/CIDRPolicy"
   L4Policy:
     description: L4 endpoint policy
     type: object
@@ -802,6 +805,20 @@ definitions:
           type: string
       egress:
         description: List of L4 egress rules
+        type: array
+        items:
+          type: string
+  CIDRPolicy:
+    description: CIDR endpoint policy
+    type: object
+    properties:
+      ingress:
+        description: List of CIDR ingress rules
+        type: array
+        items:
+          type: string
+      egress:
+        description: List of CIDR egress rules
         type: array
         items:
           type: string
@@ -939,6 +956,8 @@ definitions:
         type: string
       k8s-configuration:
         type: string
+      policy-enforcement:
+        type: string
   Configuration:
     description: |
       General purpose structure to hold configuration of the daemon and
@@ -951,6 +970,8 @@ definitions:
       immutable:
         description: Immutable configuration (read-only)
         "$ref": "#/definitions/ConfigurationMap"
+      policy-enforcement:
+        type: string
   ConfigurationMap:
     description: |
       Map of configuration key/value pairs.
