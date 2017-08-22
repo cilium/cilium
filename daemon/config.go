@@ -52,8 +52,11 @@ type Config struct {
 	K8sEndpoint    string     // Kubernetes endpoint
 	K8sCfgPath     string     // Kubeconfig path
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
-	EnablePolicy   string     // Whether policy enforcement is enabled.
-	Tunnel         string     // Tunnel mode
+
+	EnablePolicyMU sync.RWMutex // Protects the variable below
+	EnablePolicy   string       // Whether policy enforcement is enabled.
+
+	Tunnel string // Tunnel mode
 
 	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
 	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
@@ -77,6 +80,9 @@ type Config struct {
 
 	// Options changeable at runtime
 	Opts *option.BoolOptions
+
+	// Mutex for serializing configuration updates to the daemon.
+	ConfigPatchMutex sync.RWMutex
 }
 
 func NewConfig() *Config {

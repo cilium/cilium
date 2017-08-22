@@ -136,7 +136,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	ds.OnAlwaysAllowLocalhost = func() bool {
 		return false
 	}
-	ds.OnUpdateEndpointPolicyEnforcement = func(e *e.Endpoint) bool {
+	ds.OnEnableEndpointPolicyEnforcement = func(e *e.Endpoint) bool {
 		return true
 	}
 	ds.OnDryModeEnabled = func() bool {

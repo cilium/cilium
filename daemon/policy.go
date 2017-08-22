@@ -68,7 +68,6 @@ func (d *Daemon) invalidateCache() {
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
 // Returns a waiting group which signalizes when all endpoints are regenerated.
 func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.WaitGroup {
-
 	if len(added) == 0 {
 		log.Debugf("Full policy recalculation triggered")
 		d.invalidateCache()
@@ -77,45 +76,59 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 		// FIXME: Invalidate only cache that is affected
 		d.invalidateCache()
 	}
-
-	d.GetPolicyRepository().Mutex.RLock()
-	d.EnablePolicyEnforcement()
-	d.GetPolicyRepository().Mutex.RUnlock()
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
 // enabled for the specified endpoint.
 //
-// Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held
-func (d *Daemon) UpdateEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
-	if d.EnablePolicyEnforcement() {
+// Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
+func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
+	// First check if policy enforcement should be enabled at the daemon level.
+	// If policy enforcement is enabled for the daemon, then it has to be
+	// enabled for the endpoint.
+
+	config.EnablePolicyMU.RLock()
+	defer config.EnablePolicyMU.RUnlock()
+	daemonPolicyEnable := d.EnablePolicyEnforcement()
+	if daemonPolicyEnable {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
-		// Check if rules match the labels for this endpoint.
-		// If so, enable policy enforcement.
+		// Default mode + K8s means that if rules contain labels that match
+		// this endpoint, then enable policy enforcement for this endpoint.
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	}
+	// If policy enforcement isn't enabled for the daemon, or we are not running
+	// in "default" mode in tandem with K8s, we do not enable policy enforcement
+	// for the endpoint.
+	// This means one of the following:
+	// * daemon policy enforcement mode is 'never', so no policy enforcement
+	//   should be applied to the specified endpoint.
+	// * if we are not running K8s and are running in 'default' mode, we do not
+	//   enable policy enforcement on a per-endpoint basis (i.e., outside of the
+	//   scope of this function).
 	return false
 }
 
 // EnablePolicyEnforcement returns whether policy enforcement needs to be
-// enabled for the daemon.
+// enabled at the daemon-level.
 //
-// Must be called d.GetPolicyRepository().Mutex held
+// Must be called with d.GetPolicyRepository().Mutex and d.conf.EnablePolicyMU held.
 func (d *Daemon) EnablePolicyEnforcement() bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		return true
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
 		if d.GetPolicyRepository().NumRules() > 0 {
-			// TODO - revisit setting Daemon endpoint.OptionPolicy here
-			d.conf.Opts.Set(endpoint.OptionPolicy, true)
 			return true
 		} else {
-			d.conf.Opts.Set(endpoint.OptionPolicy, false)
 			return false
 		}
 	}
+	// If we reach this case, one of the following situations is true:
+	// * Policy enforcement is disabled for the daemon.
+	// * We are running Cilium with default PolicyEnforcement mode and are
+	// running Cilium in tandem with Kubernetes, which means that policy
+	// enforcement is configured on a per-endpoint level.
 	return false
 }
 
@@ -171,6 +184,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RLock()
 
+	d.conf.EnablePolicyMU.RLock()
 	// If policy enforcement isn't enabled, then traffic is allowed.
 	if d.conf.EnablePolicy == endpoint.NeverEnforce {
 		isPolicyEnforcementEnabled = false
@@ -190,6 +204,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			isPolicyEnforcementEnabled = false
 		}
 	}
+	d.conf.EnablePolicyMU.RUnlock()
 
 	d.policy.Mutex.RUnlock()
 
@@ -456,6 +471,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 
 func (d *Daemon) PolicyInit() error {
 	for k, v := range policy.ReservedIdentities {
+		log.Debugf("creating policy for %s", k)
 		key := policy.NumericIdentity(v).String()
 		lbl := labels.NewLabel(
 			key, "", labels.LabelSourceReserved,
