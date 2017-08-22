@@ -82,15 +82,17 @@ function bpf_load()
 	IN=$4
 	OUT=$5
 	SEC=$6
+	CALLS_MAP=$7
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
-	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC}"
+	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
 
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
+	rm "/sys/fs/bpf/tc/globals/$CALLS_MAP" 2> /dev/null || true
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
@@ -164,8 +166,9 @@ if [ "$TUNNEL_MODE" != "disabled" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_overlay_${ID}"
-	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay
+	CALLS_MAP="cilium_calls_overlay_${ID}"
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
 	FILE=$RUNDIR/encap.state
@@ -180,8 +183,9 @@ fi
 if [ "$NATIVE_DEV" != "disabled" ]; then
 	sysctl -w net.ipv6.conf.all.forwarding=1
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
-	bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
+	CALLS_MAP=cilium_calls_netdev_${ID}
+	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 	echo "$NATIVE_DEV" > $RUNDIR/device.state
 else
@@ -196,5 +200,6 @@ fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
-OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
-bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev
+CALLS_MAP="cilium_calls_netdev_ns_${ID}"
+OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
