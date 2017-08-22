@@ -54,7 +54,7 @@ func init() {
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/ConfigurationMap"
+              "$ref": "#/definitions/Configuration"
             }
           }
         ],
@@ -848,6 +848,26 @@ func init() {
         }
       }
     },
+    "CIDRPolicy": {
+      "description": "CIDR endpoint policy",
+      "type": "object",
+      "properties": {
+        "egress": {
+          "description": "List of CIDR egress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ingress": {
+          "description": "List of CIDR ingress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "Configuration": {
       "description": "General purpose structure to hold configuration of the daemon and\nendpoints. Split into a mutable and immutable section.\n",
       "type": "object",
@@ -859,6 +879,9 @@ func init() {
         "mutable": {
           "description": "Changeable configuration",
           "$ref": "#/definitions/ConfigurationMap"
+        },
+        "policy-enforcement": {
+          "type": "string"
         }
       }
     },
@@ -884,6 +907,9 @@ func init() {
         },
         "k8s-endpoint": {
           "type": "string"
+        },
+        "policy-enforcement": {
+          "type": "string"
         }
       }
     },
@@ -891,7 +917,8 @@ func init() {
       "description": "Endpoint",
       "type": "object",
       "required": [
-        "state"
+        "state",
+        "policy-enabled"
       ],
       "properties": {
         "addressing": {
@@ -1058,6 +1085,9 @@ func init() {
         "build": {
           "description": "Build number of calculated policy in use",
           "type": "integer"
+        },
+        "cidr-policy": {
+          "$ref": "#/definitions/CIDRPolicy"
         },
         "id": {
           "description": "Own identity of endpoint",

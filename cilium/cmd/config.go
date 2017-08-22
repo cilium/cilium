@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -77,12 +78,27 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		dumpConfig(resp.Configuration.Mutable)
 		fmt.Printf("%-24s %s\n", "k8s-configuration", resp.K8sConfiguration)
 		fmt.Printf("%-24s %s\n", "k8s-endpoint", resp.K8sEndpoint)
+		fmt.Printf("%-24s %s\n", "PolicyEnforcement", resp.PolicyEnforcement)
 		return
 	}
+
+	var cfg models.Configuration
 
 	dOpts := make(models.ConfigurationMap, len(opts))
 
 	for k := range opts {
+
+		// TODO FIXME - this is a hack, and is not clean
+		optionSplit := strings.SplitN(opts[k], "=", 2)
+		if len(optionSplit) < 2 {
+			Fatalf("Improper configuration format provided")
+		}
+		arg := optionSplit[0]
+		if arg == "PolicyEnforcement" {
+			cfg.PolicyEnforcement = optionSplit[1]
+			continue
+		}
+
 		name, value, err := options.Parse(opts[k])
 		if err != nil {
 			fmt.Printf("%s\n", err)
@@ -96,7 +112,8 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		}
 	}
 
-	if err := client.ConfigPatch(dOpts); err != nil {
+	cfg.Mutable = dOpts
+	if err := client.ConfigPatch(cfg); err != nil {
 		Fatalf("Unable to change agent configuration: %s\n", err)
 	}
 }
