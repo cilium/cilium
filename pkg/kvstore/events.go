@@ -15,6 +15,8 @@
 package kvstore
 
 import (
+	"sync"
+
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -72,6 +74,9 @@ type Watcher struct {
 	stopWatch stopChan
 
 	stopped bool
+
+	// stopWait is used to wait for the watcher subroutine to quit
+	stopWait sync.WaitGroup
 }
 
 // String returns the name of the wather
@@ -88,7 +93,12 @@ func watch(name, prefix string, chanSize int, list bool) *Watcher {
 	}
 
 	log.Debugf("Starting watcher %s list=%v...", name, list)
-	Client().Watch(w, list)
+
+	go func() {
+		// Signal termination of watcher routine
+		defer w.stopWait.Done()
+		Client().Watch(w, list)
+	}()
 
 	return w
 }
@@ -118,8 +128,14 @@ func (w *Watcher) Stop() {
 		return
 	}
 
-	close(w.Events)
+	// Stop watcher go routine and wait for it to terminate before closing
+	// the events channel
+	w.stopWait.Add(1)
 	close(w.stopWatch)
+	w.stopWait.Wait()
+
+	close(w.Events)
+
 	log.Debugf("Stopped watcher %s", w.name)
 	w.stopped = true
 }
