@@ -336,10 +336,40 @@ function gather_files {
     mkdir -p ${CILIUM_DIR}
     mkdir -p ${RUN_DIR}
     mkdir -p ${LIB_DIR}
+    if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
+      CLI_OUT_DIR="${CILIUM_DIR}/cli"
+      mkdir -p ${CLI_OUT_DIR}
+      dump_cli_output ${CLI_OUT_DIR} || true
+    fi
     sudo cp -r ${RUN}/state ${RUN_DIR} || true
     sudo cp -r ${LIB}/* ${LIB_DIR} || true 
     find ${CILIUM_DIR} -type d -exec sudo chmod 777 {} \;
     find ${CILIUM_DIR} -exec sudo chmod a+r {} \;
+}
+
+function dump_cli_output {
+    local DIR=$1
+    cilium endpoint list > ${DIR}/endpoint_list.txt
+    local EPS=$(cilium endpoint list | tail -n+3 | awk '{print $1}' | grep -o '[0-9]*')
+    for ep in ${EPS} ; do 
+      cilium endpoint get ${ep} > ${DIR}/endpoint_get_${ep}.txt
+      cilium bpf policy list ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
+    done
+    cilium service list > ${DIR}/service_list.txt
+    local SVCS=$(cilium service list | tail -n+2 | awk '{print $1}')
+    for svc in ${SVCS} ; do 
+      cilium service get ${svc} > ${DIR}/service_get_${svc}.txt
+    done
+    local IDS=$(cilium endpoint list | tail -n+3 | awk '{print $3}' | grep -o '[0-9]*')
+    for id in ${IDS} ; do 
+      cilium identity get ${id} > ${DIR}/identity_get_${id}.txt
+    done
+    cilium config > ${DIR}/config.txt
+    cilium bpf lb list > ${DIR}/bpf_lb_list.txt
+    cilium bpf ct list global > ${DIR}/bpf_ct_list_global.txt
+    cilium bpf tunnel list > ${DIR}/bpf_tunnel_list.txt
+    cilium policy get > ${DIR}/policy_get.txt
+    cilium status > ${DIR}/status.txt
 }
 
 function print_k8s_cilium_logs {
