@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -51,6 +50,9 @@ var (
 	// k8sErrMsg stores a timer for each k8s error message received
 	k8sErrMsg            = map[string]*time.Timer{}
 	stopPolicyController = make(chan struct{})
+
+	// cnpClient is the interface for CRD and TPR
+	cnpClient k8s.CNPCliInterface
 )
 
 func init() {
@@ -140,9 +142,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	// CRD and TPR clients are based on the same rest config
-	var crdClient *rest.RESTClient
-
 	if err := k8s.CreateCustomResourceDefinitions(apiextensionsclientset); errors.IsNotFound(err) {
 		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
@@ -150,14 +149,14 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		if err := d.createThirdPartyResources(); err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}
-		crdClient, err = k8s.CreateTPRClient(restConfig)
+		cnpClient, err = k8s.CreateTPRClient(restConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to create third party resource client: %s", err)
 		}
 	} else if err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	} else {
-		crdClient, err = k8s.CreateCRDClient(restConfig)
+		cnpClient, err = k8s.CreateCRDClient(restConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition client: %s", err)
 		}
@@ -229,8 +228,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go ingressController.Run(wait.NeverStop)
 
 	_, ciliumRulesController := cache.NewInformer(
-		cache.NewListWatchFromClient(crdClient,
-			k8s.CustomResourceDefinitionPluralName, v1.NamespaceAll, fields.Everything()),
+		cnpClient.NewListWatch(),
 		&k8s.CiliumNetworkPolicy{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{

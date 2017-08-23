@@ -25,6 +25,7 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -175,8 +177,22 @@ func addKnownTypesCRD(scheme *runtime.Scheme) error {
 	return nil
 }
 
+type cnpClient struct {
+	*rest.RESTClient
+}
+
+// CNPCliInterface is the interface for the CNP client
+type CNPCliInterface interface {
+	Update(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error)
+	Create(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error)
+	Delete(namespace, name string, options *metav1.DeleteOptions) error
+	Get(namespace, name string) (*CiliumNetworkPolicy, error)
+	List(namespace string) (*CiliumNetworkPolicyList, error)
+	NewListWatch() *cache.ListWatch
+}
+
 // CreateCRDClient creates a new k8s client for custom resource definition
-func CreateCRDClient(config *rest.Config) (*rest.RESTClient, error) {
+func CreateCRDClient(config *rest.Config) (CNPCliInterface, error) {
 	config.GroupVersion = &schema.GroupVersion{
 		Group:   CustomResourceDefinitionGroup,
 		Version: CustomResourceDefinitionVersion,
@@ -187,7 +203,64 @@ func CreateCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesCRD)
 	schemeBuilder.AddToScheme(api.Scheme)
 
-	return rest.RESTClientFor(config)
+	rc, err := rest.RESTClientFor(config)
+	return &cnpClient{rc}, err
+}
+
+// Update updates the given CNP and returns the object returned from the
+// api-server and respective error.
+func (c *cnpClient) Update(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error) {
+	var res CiliumNetworkPolicy
+	ns := ExtractNamespace(&cnp.Metadata)
+	err := c.RESTClient.Put().Resource(CustomResourceDefinitionPluralName).
+		Namespace(ns).Name(cnp.Metadata.Name).
+		Body(cnp).Do().Into(&res)
+	return &res, err
+}
+
+// Create creates the given CNP and returns the object returned from the
+// api-server and respective error.
+func (c *cnpClient) Create(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error) {
+	var res CiliumNetworkPolicy
+	ns := ExtractNamespace(&cnp.Metadata)
+	err := c.RESTClient.Post().Resource(CustomResourceDefinitionPluralName).
+		Namespace(ns).
+		Body(cnp).Do().Into(&res)
+	return &res, err
+}
+
+// Create deletes the CNP with the name in the namespace.
+func (c *cnpClient) Delete(namespace, name string, options *metav1.DeleteOptions) error {
+	return c.RESTClient.Delete().
+		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
+		Name(name).Body(options).Do().
+		Error()
+}
+
+// Get gets CNP CRD from the kube-apiserver
+func (c *cnpClient) Get(namespace, name string) (*CiliumNetworkPolicy, error) {
+	var result CiliumNetworkPolicy
+	err := c.RESTClient.Get().
+		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
+		Name(name).Do().Into(&result)
+	return &result, err
+}
+
+// List returns the list of CNPs in the given namespace
+func (c *cnpClient) List(namespace string) (*CiliumNetworkPolicyList, error) {
+	var result CiliumNetworkPolicyList
+	err := c.RESTClient.Get().
+		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
+		Do().Into(&result)
+	return &result, err
+}
+
+// NewListWatch returns a ListWatch for cilium CRD on all namespaces.
+func (c *cnpClient) NewListWatch() *cache.ListWatch {
+	return cache.NewListWatchFromClient(c.RESTClient,
+		CustomResourceDefinitionPluralName,
+		v1.NamespaceAll,
+		fields.Everything())
 }
 
 func addKnownTypesTPR(scheme *runtime.Scheme) error {
@@ -206,7 +279,7 @@ func addKnownTypesTPR(scheme *runtime.Scheme) error {
 }
 
 // CreateTPRClient creates a new k8s client for third party resources
-func CreateTPRClient(config *rest.Config) (*rest.RESTClient, error) {
+func CreateTPRClient(config *rest.Config) (CNPCliInterface, error) {
 	config.GroupVersion = &schema.GroupVersion{
 		Group:   CustomResourceDefinitionGroup,
 		Version: ThirdPartyResourceVersion,
@@ -217,7 +290,8 @@ func CreateTPRClient(config *rest.Config) (*rest.RESTClient, error) {
 	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesTPR)
 	schemeBuilder.AddToScheme(api.Scheme)
 
-	return rest.RESTClientFor(config)
+	rc, err := rest.RESTClientFor(config)
+	return &cnpClient{rc}, err
 }
 
 // AnnotateNodeCIDR writes both v4 and v6 CIDRs in the given k8s node name.
