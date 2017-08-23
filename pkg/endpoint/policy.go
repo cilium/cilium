@@ -72,7 +72,6 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 	// Skip currently unused IDs
 	if ctx.From == nil || len(ctx.From) == 0 {
-		log.Debugf("[%s] Ignoring unused ID %v", e.PolicyID(), ctx)
 		return nil
 	}
 
