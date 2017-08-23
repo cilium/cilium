@@ -1,5 +1,5 @@
 FROM ubuntu:16.04
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+LABEL maintainer="andre@cilium.io"
 RUN mkdir -p /tmp/cilium-net-build/src/github.com/cilium/cilium
 ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.com/cilium/cilium/contrib/packaging/docker/clang-3.8.1.key
 RUN apt-get update && \

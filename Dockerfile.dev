@@ -1,5 +1,5 @@
 FROM cilium/dependencies:0.11.90
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+LABEL maintainer="andre@cilium.io"
 
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 RUN cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \

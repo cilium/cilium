@@ -6,7 +6,7 @@ cd "${dir}"
 function build_dockerfile_dev {
    cat <<EOF > ./Dockerfile
 FROM cilium/dependencies:`cat ../../../VERSION`
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+LABEL maintainer="andre@cilium.io"
 
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 RUN 
@@ -49,7 +49,7 @@ EOF
 function build_dockerfile_dependencies {
  cat <<EOF > ./Dockerfile
 FROM ubuntu:16.04
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+LABEL maintainer="andre@cilium.io"
 RUN mkdir -p /tmp/cilium-net-build/src/github.com/cilium/cilium
 ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.com/cilium/cilium/contrib/packaging/docker/clang-3.8.1.key
 EOF
@@ -61,7 +61,7 @@ EOF
 function build_dockerfile_prod {
   cat <<EOF > ./Dockerfile
 FROM ubuntu:16.04
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+LABEL maintainer="andre@cilium.io"
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 EOF
 
