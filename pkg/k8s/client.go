@@ -20,6 +20,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/nodeaddress"
+
 	log "github.com/Sirupsen/logrus"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -327,4 +329,59 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 		}(c, k8sNode, v4CIDR, v6CIDR, err)
 	}
 	return nil
+}
+
+// UpdateCNPStatus updates the status into the given CNP. This function retries
+// to do successful update into the kube-apiserver until it reaches the given
+// timeout.
+func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
+	ciliumRulesStore cache.Store, rule *CiliumNetworkPolicy, cnpns CiliumNetworkPolicyNodeStatus) {
+
+	rule.SetPolicyStatus(nodeaddress.GetName(), cnpns)
+	_, err := cnpClient.Update(rule)
+	if err != nil {
+		ns := ExtractNamespace(&rule.Metadata)
+		name := rule.Metadata.GetObjectMeta().GetName()
+		log.Warningf("k8s: unable to update CNP %s/%s with status: %s, retrying...", ns, name, err)
+		t := time.NewTimer(timeout)
+		defer t.Stop()
+		loopTimer := time.NewTimer(time.Second)
+		defer loopTimer.Stop()
+		for n := 0; ; n++ {
+			serverRuleStore, exists, err := ciliumRulesStore.Get(rule)
+			if !exists {
+				break
+			}
+			if err != nil {
+				log.Warningf("k8s: unable to get k8s CNP %s/%s from local cache: %s", ns, name, err)
+				break
+			}
+			serverRule, ok := serverRuleStore.(*CiliumNetworkPolicy)
+			if !ok {
+				log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", serverRuleStore)
+				return
+			}
+			if serverRule.Metadata.UID != rule.Metadata.UID &&
+				serverRule.SpecEquals(rule) {
+				// Although the policy was found this means it was deleted,
+				// and re-added with the same name.
+				log.Debugf("k8s: rule %s/%s changed while updating node status, stopping retry", ns, name)
+				break
+			}
+			serverRule.SetPolicyStatus(nodeaddress.GetName(), cnpns)
+			_, err = cnpClient.Update(serverRule)
+			if err == nil {
+				log.Debugf("k8s: successfully updated %s/%s with status: %s", ns, name, serverRule.Status)
+				break
+			}
+			loopTimer.Reset(time.Duration(n) * time.Second)
+			select {
+			case <-t.C:
+				log.Errorf("k8s: unable to update CNP %s/%s with status: %s", ns, name, err)
+				break
+			case <-loopTimer.C:
+			}
+			log.Warningf("k8s: unable to update CNP %s/%s with status: %s, retrying...", ns, name, err)
+		}
+	}
 }
