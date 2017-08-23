@@ -49,12 +49,33 @@ echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
 # Enable IPv6 for now
 sysctl -w net.ipv6.conf.all.disable_ipv6=0
 
+# This directory was created by the daemon and contains the per container header file
+DIR="$PWD/globals"
+
 function mac2array()
 {
 	echo "{0x${1//:/,0x}}"
 }
 
 function bpf_compile()
+{
+	IN=$1
+	OUT=$2
+	TYPE=$3
+	EXTRA_OPTS=$4
+
+	clang -O2 -target bpf -emit-llvm				\
+	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
+	      -I. -I$DIR -I$LIB/include					\
+	      -D__NR_CPUS__=$(nproc)					\
+	      -DENABLE_ARP_RESPONDER					\
+	      -DHANDLE_NS						\
+	      $EXTRA_OPTS						\
+	      -c $LIB/$IN -o - |					\
+	llc -march=bpf -mcpu=probe -filetype=$TYPE -o $OUT
+}
+
+function bpf_load()
 {
 	DEV=$1
 	OPTS=$2
@@ -66,16 +87,13 @@ function bpf_compile()
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
-	clang $CLANG_OPTS $OPTS -DNODE_MAC=${NODE_MAC} -c $LIB/$IN -o $OUT
+	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC}"
+	bpf_compile $IN $OUT obj "$OPTS"
 
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
-
-# This directory was created by the daemon and contains the per container header file
-DIR="$PWD/globals"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -O2 -target bpf -I$DIR -I. -I$LIB/include -DENABLE_ARP_RESPONDER -DHANDLE_NS -Wno-address-of-packed-member -Wno-unknown-warning-option"
 
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
@@ -150,7 +168,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_overlay_${ID}"
-	bpf_compile $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay
+	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
 	FILE=$RUNDIR/encap.state
@@ -170,7 +188,7 @@ if [ "$MODE" = "direct" ]; then
 
 		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_${ID}"
-		bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
+		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -181,7 +199,7 @@ elif [ "$MODE" = "lb" ]; then
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
 		OPTS="-DLB_L3 -DLB_L4 -DCALLS_MAP=cilium_calls_lb_${ID}"
-		bpf_compile $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev
+		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -198,4 +216,4 @@ fi
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
 OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID} -DCALLS_MAP=cilium_calls_netdev_ns_${ID}"
-bpf_compile $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev
+bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev
