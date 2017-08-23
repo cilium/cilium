@@ -169,7 +169,7 @@ func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *la
 	return identity, newLabelsHash, nil
 }
 
-func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.APIError) {
+func parseIdentityResponse(rmsg []byte) (*policy.Identity, error) {
 	var id policy.Identity
 
 	// Empty reply
@@ -189,7 +189,7 @@ func parseIdentityResponse(rmsg []byte) (*policy.Identity, *apierror.APIError) {
 	return &id, nil
 }
 
-func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *apierror.APIError) {
+func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, error) {
 	if id > 0 && id < policy.MinimalNumericIdentity {
 		key := id.String()
 		lbl := labels.NewLabel(
@@ -214,7 +214,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, *a
 	return parseIdentityResponse(rmsg)
 }
 
-func LookupIdentityBySHA256(sha256sum string) (*policy.Identity, *apierror.APIError) {
+func LookupIdentityBySHA256(sha256sum string) (*policy.Identity, error) {
 	rmsg, err := kvstore.Client.GetValue(path.Join(common.LabelsKeyPath, sha256sum))
 	if err != nil {
 		return nil, apierror.Error(GetIdentityUnreachableCode, err)
@@ -234,7 +234,10 @@ func NewGetIdentityHandler(d *Daemon) GetIdentityHandler {
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	lbls := labels.NewLabelsFromModel(params.Labels)
 	if id, err := LookupIdentityBySHA256(lbls.SHA256Sum()); err != nil {
-		return err
+		if apierr, ok := err.(*apierror.APIError); ok {
+			return apierr
+		}
+		return apierror.Error(GetIdentityUnreachableCode, err)
 	} else if id == nil {
 		return NewGetIdentityNotFound()
 	} else {
@@ -259,7 +262,10 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	}
 
 	if id, err := d.LookupIdentity(nid); err != nil {
-		return err
+		if apierr, ok := err.(*apierror.APIError); ok {
+			return apierr
+		}
+		return apierror.Error(GetIdentityUnreachableCode, err)
 	} else if id == nil {
 		return NewGetIdentityIDNotFound()
 	} else {

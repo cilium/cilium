@@ -32,7 +32,7 @@ import (
 )
 
 // AllocateIP allocates a IP address.
-func (d *Daemon) AllocateIP(ip net.IP) *apierror.APIError {
+func (d *Daemon) AllocateIP(ip net.IP) error {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
@@ -57,7 +57,7 @@ func (d *Daemon) AllocateIP(ip net.IP) *apierror.APIError {
 	return nil
 }
 
-func (d *Daemon) allocateIP(ipAddr string) *apierror.APIError {
+func (d *Daemon) allocateIP(ipAddr string) error {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
 		return apierror.New(ipam.PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
@@ -66,7 +66,7 @@ func (d *Daemon) allocateIP(ipAddr string) *apierror.APIError {
 }
 
 // ReleaseIP release a IP address.
-func (d *Daemon) ReleaseIP(ip net.IP) *apierror.APIError {
+func (d *Daemon) ReleaseIP(ip net.IP) error {
 	d.ipamConf.AllocatorMutex.Lock()
 	defer d.ipamConf.AllocatorMutex.Unlock()
 
@@ -91,7 +91,7 @@ func (d *Daemon) ReleaseIP(ip net.IP) *apierror.APIError {
 	return nil
 }
 
-func (d *Daemon) releaseIP(ipAddr string) *apierror.APIError {
+func (d *Daemon) releaseIP(ipAddr string) error {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
 		return apierror.New(ipam.DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
@@ -156,7 +156,10 @@ func NewPostIPAMIPHandler(d *Daemon) ipam.PostIPAMIPHandler {
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipam.PostIPAMIPParams) middleware.Responder {
 	if err := h.daemon.allocateIP(params.IP); err != nil {
-		return err
+		if apierr, ok := err.(*apierror.APIError); ok {
+			return apierr
+		}
+		return apierror.Error(ipam.PostIPAMIPFailureCode, err)
 	}
 
 	return ipam.NewPostIPAMIPOK()
@@ -173,7 +176,10 @@ func NewDeleteIPAMIPHandler(d *Daemon) ipam.DeleteIPAMIPHandler {
 
 func (h *deleteIPAMIP) Handle(params ipam.DeleteIPAMIPParams) middleware.Responder {
 	if err := h.d.releaseIP(params.IP); err != nil {
-		return err
+		if apierr, ok := err.(*apierror.APIError); ok {
+			return apierr
+		}
+		return apierror.Error(ipam.DeleteIPAMIPFailureCode, err)
 	}
 
 	return ipam.NewDeleteIPAMIPOK()

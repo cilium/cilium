@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
-	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -54,7 +53,6 @@ var (
 		},
 		Labels: lbls,
 	}
-	nilAPIError *apierror.APIError
 )
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
