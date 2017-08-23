@@ -53,6 +53,9 @@ var (
 
 	// cnpClient is the interface for CRD and TPR
 	cnpClient k8s.CNPCliInterface
+
+	// ciliumRulesStore is the local cache for the CNP
+	ciliumRulesStore cache.Store
 )
 
 func init() {
@@ -227,7 +230,8 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go ingressController.Run(wait.NeverStop)
 
-	_, ciliumRulesController := cache.NewInformer(
+	var ciliumRulesController cache.Controller
+	ciliumRulesStore, ciliumRulesController = cache.NewInformer(
 		cnpClient.NewListWatch(),
 		&k8s.CiliumNetworkPolicy{},
 		reSyncPeriod,
@@ -932,11 +936,24 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		}
 	}
 
+	var cnpns k8s.CiliumNetworkPolicyNodeStatus
 	if err != nil {
-		log.Warningf("Unable to add CiliumNetworkPolicy %s: %s", rule.Metadata.Name, err)
+		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
+			OK:          false,
+			Error:       fmt.Sprintf("%s", err),
+			LastUpdated: time.Now(),
+		}
+		log.Warningf("Unable to add CiliumNetworkPolicy %s: err: '%s'. err != nil: '%t'. a nil object: '%s'", rule.Metadata.Name, err, err != nil, nil)
 	} else {
+		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
+			OK:          true,
+			Error:       "OK",
+			LastUpdated: time.Now(),
+		}
 		log.Infof("Imported CiliumNetworkPolicy %s", rule.Metadata.Name)
 	}
+
+	go k8s.UpdateCNPStatus(cnpClient, k8s.BackOffLoopTimeout, ciliumRulesStore, rule, cnpns)
 }
 
 func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
@@ -963,7 +980,22 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 }
 
 func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{}) {
-	// FIXME
+	oldRule, ok := oldObj.(*k8s.CiliumNetworkPolicy)
+	if !ok {
+		log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", oldObj)
+		return
+	}
+	newRules, ok := newObj.(*k8s.CiliumNetworkPolicy)
+	if !ok {
+		log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", newObj)
+		return
+	}
+	// Since we are updating the status map from all nodes we need to prevent
+	// deletion and addition of all rules in cilium.
+	if oldRule.SpecEquals(newRules) {
+		return
+	}
+
 	d.deleteCiliumNetworkPolicy(oldObj)
 	d.addCiliumNetworkPolicy(newObj)
 }

@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"k8s.io/kubernetes/pkg/kubelet/types"
+	"time"
 )
 
 const (
@@ -44,4 +45,8 @@ const (
 	// PodNamespaceMetaLabels is the label used to store the labels of the
 	// kubernetes namespace's labels.
 	PodNamespaceMetaLabels = "ns-labels"
+
+	// BackOffLoopTimeout is the default duration when trying to reach the
+	// kube-apiserver.
+	BackOffLoopTimeout = 2 * time.Minute
 )
