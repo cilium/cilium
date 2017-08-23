@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
@@ -56,7 +57,34 @@ func CreateConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 
 // CreateClient creates a new client to access the Kubernetes API
 func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
-	return kubernetes.NewForConfig(config)
+	cs, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	stop := make(chan struct{})
+	timeout := time.NewTimer(time.Minute)
+	defer timeout.Stop()
+	wait.Until(func() {
+		log.Infof("Waiting for kubernetes api-server to be ready...")
+		err := isConnReady(cs)
+		if err == nil {
+			close(stop)
+			return
+		}
+		select {
+		case <-timeout.C:
+			log.Errorf("Unable to contact kubernetes api-server: %s", err)
+			close(stop)
+		default:
+		}
+	}, 5*time.Second, stop)
+	return cs, nil
+}
+
+// isConnReady returns the err for the controller-manager status
+func isConnReady(c *kubernetes.Clientset) error {
+	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
+	return err
 }
 
 func addKnownTypesCRD(scheme *runtime.Scheme) error {
