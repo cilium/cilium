@@ -29,8 +29,6 @@ function copy_k8s_test_files {
   # BUILD_ID is generated in helpers.bash. 
   sudo tar -czvf ${CILIUM_FILES}-k8s-${BUILD_ID}.tar.gz ${CILIUM_FILES}-${K8S1}-build-${BUILD_ID} ${CILIUM_FILES}-${K8S2}-build-${BUILD_ID}
   echo "----- done creating a tarball of files copied from $VM -----"
-
-  mv ${CILIUM_FILES}-k8s-${BUILD_ID}.tar.gz ${OLD_DIR}
 }
 
 copy_k8s_test_files
