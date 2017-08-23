@@ -1,5 +1,5 @@
 FROM ubuntu:16.04
-LABEL "Maintainer: Andre Martins <andre@cilium.io>"
+LABEL maintainer="andre@cilium.io"
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 RUN apt-get update && \
 
