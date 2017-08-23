@@ -287,7 +287,7 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
-func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, *apierror.APIError) {
+func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.Debugf("Policy Add Request: %+v", rules)
 
 	for _, r := range rules {
@@ -311,7 +311,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, *apierror
 // If cover256Sum is set it finds the rule with the respective coverage that
 // rule from the node. If the path's node becomes ruleless it is removed from
 // the tree.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, *apierror.APIError) {
+func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	log.Debugf("Policy Delete Request: %+v", labels)
 
 	// An error is only returned if a label filter was provided and then

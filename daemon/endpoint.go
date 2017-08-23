@@ -361,7 +361,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	return errors
 }
 
-func (d *Daemon) DeleteEndpoint(id string) (int, *apierror.APIError) {
+func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 	endpointmanager.Mutex.Lock()
 	defer endpointmanager.Mutex.Unlock()
 
@@ -387,7 +387,10 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 	d := h.daemon
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
-		return err
+		if apierr, ok := err.(*apierror.APIError); ok {
+			return apierr
+		}
+		return apierror.Error(DeleteEndpointIDErrorsCode, err)
 	} else if nerr > 0 {
 		return NewDeleteEndpointIDErrors().WithPayload(int64(nerr))
 	} else {
@@ -396,7 +399,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 }
 
 // EndpointUpdate updates the given endpoint and regenerates the endpoint
-func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) *apierror.APIError {
+func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
 		return apierror.Error(PatchEndpointIDInvalidCode, err)
@@ -433,7 +436,10 @@ func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middl
 
 	d := h.daemon
 	if err := d.EndpointUpdate(params.ID, params.Configuration); err != nil {
-		return err
+		if apierr, ok := err.(*apierror.APIError); ok {
+			return apierr
+		}
+		return apierror.Error(PatchEndpointIDFailedCode, err)
 	}
 
 	return NewPatchEndpointIDConfigOK()
