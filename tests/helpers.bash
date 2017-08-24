@@ -351,6 +351,31 @@ function wait_for_healthy_k8s_cluster {
   done
 }
 
+function k8s_nodes_policy_status {
+  set +x
+  local sleep_time=2
+  local NNODES=$1
+  local policy_ns=$2
+  local policy_name=$3
+  local iter=0
+  local nodes=$(kubectl get ciliumnetworkpolicies -n "${policy_ns}" "${policy_name}" -o go-template --template='{{len .status.nodes}}')
+  until [[ "${nodes}" -eq "${NNODES}" ]]; do
+    if [[ $((iter++)) -gt $((1*60/$sleep_time)) ]]; then
+      echo ""
+      echo "Timeout while waiting for $NNODES to have policy ${policy_ns}/${policy_name} installed"
+      exit 1
+    else
+      kubectl get nodes
+      echo "Nodes with policy accepted [${found}/${NNODES}]"
+      sleep $sleep_time
+    fi
+    found=$(kubectl get nodes | grep Ready -c)
+  done
+
+  set -x
+  kubectl get ciliumnetworkpolicies -n "${policy_ns}" "${policy_name}" -o go-template --template='{{.status.nodes}}'
+}
+
 function gather_files {
   set -xv
   local TEST_NAME=$1

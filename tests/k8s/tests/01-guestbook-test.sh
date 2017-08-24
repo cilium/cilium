@@ -38,8 +38,12 @@ if [ $? -ne 0 ]; then abort "guestbook-policy-redis-deprecated policy was not in
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" == 1.7.* ]]; then
     k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-web.yaml"
+
+    k8s_nodes_policy_status 2 default guestbook-web
 else
     k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
+
+    k8s_nodes_policy_status 2 default guestbook-web-deprecated
 fi
 
 cilium_id=$(docker ps -aq --filter=name=cilium-agent)
