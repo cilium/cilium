@@ -2,12 +2,9 @@
 
 source "./helpers.bash"
 
-TEST_NET=cilium
 NETPERF_IMAGE="tgraf/netperf"
 
-docker network inspect $TEST_NET || {
-	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 set -x
 

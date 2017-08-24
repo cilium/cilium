@@ -4,8 +4,6 @@ source "./helpers.bash"
 
 set -e
 
-TEST_NET="cilium"
-
 function cleanup {
 	gather_files 08-nat46 ${TEST_SUITE}
 	cilium policy delete --all 2> /dev/null || true
@@ -23,9 +21,7 @@ NETPERF_IMAGE="tgraf/netperf"
 monitor_start
 logs_clear
 
-docker network inspect $TEST_NET 2> /dev/null || {
-        docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 docker run -d -i --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
 docker run -d -i --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE

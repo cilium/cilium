@@ -4,8 +4,6 @@
 
 source "./helpers.bash"
 
-TEST_NET="cilium-net"
-
 function start_containers {
     docker run -dt --net=$TEST_NET --name foo -l id.foo tgraf/netperf
     docker run -dt --net=$TEST_NET --name bar -l id.bar tgraf/netperf
@@ -72,8 +70,6 @@ function test_identity_get {
 cilium endpoint list
 cilium identity get --list
 
-docker network inspect $TEST_NET 2> /dev/null || {
-        docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 test_identity_get

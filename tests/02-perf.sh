@@ -4,7 +4,6 @@ source "./helpers.bash"
 
 set -e
 
-TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 TEST_TIME=30
 
@@ -29,9 +28,7 @@ trap cleanup EXIT
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
 
-docker network inspect $TEST_NET || {
-	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 docker run -dt --net=$TEST_NET --name server -l $SERVER_LABEL $NETPERF_IMAGE
 docker run -dt --net=$TEST_NET --name client -l $CLIENT_LABEL $NETPERF_IMAGE

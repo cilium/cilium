@@ -3,7 +3,6 @@ set -e
 
 source "./helpers.bash"
 
-TEST_NET="cilium"
 DEMO_CONTAINER="cilium/demo-client"
 HTTPD_CONTAINER_NAME="service1-instance1"
 ID_SERVICE1="id.service1"
@@ -35,7 +34,7 @@ echo "------ checking cilium status ------"
 cilium status
 
 echo "------ creating Docker network of type Cilium ------"
-docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium ${TEST_NET}
+create_cilium_docker_network
 
 echo "------ starting example service with Docker ------"
 docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1}" cilium/demo-httpd

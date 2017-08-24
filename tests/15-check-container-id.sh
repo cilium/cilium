@@ -2,7 +2,6 @@
 
 source ./helpers.bash
 
-NETWORK="cilium"
 CLIENT_LABEL="id.client"
 SERVER_LABEL="id.server"
 
@@ -14,8 +13,8 @@ function setup {
     logs_clear
     monitor_start
     echo "Logging at $DUMP_FILE"
-    docker network rm ${NETWORK} > /dev/null 2>&1
-    docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK
+    docker network rm ${TEST_NET} > /dev/null 2>&1
+    create_cilium_docker_network
     cilium config PolicyEnforcement=always
 }
 

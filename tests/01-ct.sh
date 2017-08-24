@@ -4,8 +4,6 @@ source "./helpers.bash"
 
 set -e
 
-TEST_NET="cilium"
-
 function cleanup {
 	gather_files 01-ct ${TEST_SUITE}
 	docker rm -f server client httpd1 httpd2 curl curl2 2> /dev/null || true
@@ -18,9 +16,7 @@ cleanup
 monitor_start
 logs_clear
 
-docker network inspect $TEST_NET 2> /dev/null || {
-	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 docker run -dt --net=$TEST_NET --name server -l id.server tgraf/netperf
 docker run -dt --net=$TEST_NET --name httpd1 -l id.httpd httpd

@@ -102,10 +102,7 @@ cleanup
 service cilium restart 
 wait_for_cilium_status
 
-echo "------ creating Docker network of type Cilium ------"
-docker network inspect $TEST_NET 2> /dev/null || {
-        docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 start_containers
 wait_for_endpoints ${NUM_ENDPOINTS} 

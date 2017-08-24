@@ -19,7 +19,6 @@ set -e
 
 #cilium config ConntrackLocal=true
 
-TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/netperf"
 
 HOSTIP6="fd02:1:1:1:1:1:1:1"
@@ -255,9 +254,7 @@ tc qdisc del dev lbtest2 clsact 2> /dev/null || true
 tc qdisc add dev lbtest2 clsact
 tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 
-docker network inspect $TEST_NET 2> /dev/null || {
-	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 docker run -dt --net=$TEST_NET --name server1 -l id.server -l server1 httpd
 docker run -dt --net=$TEST_NET --name server2 -l id.server -l server2 httpd

@@ -4,6 +4,7 @@ CILIUM_FILES="cilium-files"
 DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 LAST_LOG_DATE=""
+TEST_NET=cilium
 
 # Variables used during Jenkins builds.
 BUILD_NUM="${BUILD_NUMBER:-0}"
@@ -782,4 +783,11 @@ function wait_specified_time_test {
     set -x
     exit 1
   fi
+}
+
+function create_cilium_docker_network {
+  echo "------ creating Docker network of type Cilium ------"
+  docker network inspect $TEST_NET 2> /dev/null || {
+    docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
+  }
 }

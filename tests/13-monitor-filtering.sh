@@ -6,14 +6,13 @@ logs_clear
 
 echo "------ monitor filtering ------"
 
-NETWORK="cilium"
 CLIENT_LABEL="client"
 CONTAINER=monitor_tests
 
 function cleanup {
   gather_files 13-monitoring-filtering ${TEST_SUITE}
   docker rm -f $CONTAINER 2> /dev/null || true
-  docker network rm $NETWORK > /dev/null 2>&1
+  docker network rm $TEST_NET > /dev/null 2>&1
   monitor_stop
 }
 
@@ -25,7 +24,7 @@ function spin_up_container {
 
 function setup {
   cleanup
-  docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cilium $NETWORK > /dev/null 2>&1
+  create_cilium_docker_network
   logs_clear
   monitor_clear
 }

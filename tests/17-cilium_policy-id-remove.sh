@@ -2,8 +2,6 @@
 
 source ./helpers.bash
 
-TEST_NET="cilium"
-
 function cleanup {
 	gather_files 17-cilium_policy-id-remove ${TEST_SUITE}
 	docker rm -f a b 2> /dev/null || true
@@ -15,9 +13,7 @@ trap cleanup EXIT
 cleanup
 logs_clear
 
-docker network inspect $TEST_NET 2> /dev/null || {
-	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 docker run -dt --net=$TEST_NET --name a -l id.a tgraf/netperf
 docker run -dt --net=$TEST_NET --name b -l id.b tgraf/netperf
