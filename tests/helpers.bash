@@ -79,13 +79,12 @@ function micro_sleep {
 }
 
 function wait_for_endpoints {
-    set +x
-    echo -n "Waiting for $1 cilium endpoints to become ready"
-	until [ "$(cilium endpoint list | grep -v 'not-ready' | grep ready -c )" -eq "$1" ]; do
-	    micro_sleep
-	    echo -n "."
-	done
-	set -x
+  local NUM_DESIRED="$1"
+  local CMD="cilium endpoint list | grep -v \"not-ready\" | grep ready -c || true"
+  local INFO_CMD="cilium endpoint list"
+  local MAX_MINS="2"
+  local ERROR_OUTPUT="Timeout while waiting for $NUM_DESIRED endpoints"
+  wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
 }
 
 function wait_for_k8s_endpoints {
@@ -122,79 +121,110 @@ function wait_for_k8s_endpoints {
 }
 
 function wait_for_cilium_status {
-    set +x
-	while ! cilium status; do
-	    micro_sleep
-	done
+  local NUM_DESIRED="1"
+  local CMD="cilium status | grep 'Cilium:' | grep -c OK || true"
+  local INFO_CMD="true"
+  local MAX_MINS="1"
+  local ERROR_OUTPUT="Timeout while waiting for Cilium to be ready"
+  wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
 }
 
-function wait_for_kubectl_cilium_status {
-    set +x
-    namespace=$1
-    pod=$2
 
-    echo "Waiting for Cilium to spin up"
-    while ! kubectl -n ${namespace} exec ${pod} cilium status; do
-        micro_sleep
-    done
-    set -x
+function wait_for_kubectl_cilium_status {
+  set +x
+  check_num_params "$#" "2"
+  namespace=$1
+  pod=$2
+  local NUM_DESIRED="1"
+  local CMD="kubectl -n ${namespace} exec ${pod} cilium status | grep "Cilium:" | grep -c 'OK' || true"
+  local INFO_CMD="true"
+  local MAX_MINS="2"
+  local ERROR_OUTPUT="Timeout while waiting for Cilium to be ready"
+  wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
+}
+
+function wait_for_kubectl_cilium_status_old {
+  set +x
+  namespace=$1
+  pod=$2
+  local sleep_time=1
+  local iter=0
+  local NUM="1"
+
+  local found=$(kubectl -n ${namespace} exec ${pod} cilium status | grep "Cilium:" | grep -c 'OK' || true)
+
+  echo "Waiting for Cilium to spin up"
+  while [[ "$found" -ne "$NUM" ]]; do
+    if [[ $((iter++)) -gt $((2*60/$sleep_time)) ]]; then
+      echo ""
+      echo "Timeout while waiting for Cilium status"
+      exit 1
+    else
+      echo -n " [${found}/${NUM}]"
+      sleep ${sleep_time}
+    fi
+    found=$(kubectl -n ${namespace} exec ${pod} cilium status | grep "Cilium:" | grep -c 'OK' || true)
+    echo "found: $found"
+  done
 }
 
 function wait_for_cilium_ep_gen {
-    set +x
-    while true; do
-        # FIXME by the time this executed, it's not guaranteed that we
-        # don't skip a regenerating
-        sleep 2s
-        if ! cilium endpoint list | grep regenerating; then
-            break
-        fi
-        micro_sleep
-    done
-    set -x
-}
+  local NUM_DESIRED="0"
+  local CMD="cilium endpoint list | grep -c regenerating"
+  local INFO_CMD="true"
+  local MAX_MINS="2"
+  local ERROR_OUTPUT="Timeout while waiting for endpoints to regenerate"
+  wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
+} 
+
+function check_num_params {
+  NUM_PARAMS=$1
+  NUM_EXPECTED_PARAMS=$2
+  if [ "$NUM_PARAMS" -ne "$NUM_EXPECTED_PARAMS" ]; then
+    echo "${FUNCNAME[ 1 ]}: invalid number of parameters, expected $NUM_EXPECTED_PARAMS parameter(s)"
+    exit 1
+  fi
+} 
 
 function wait_for_daemon_set_not_ready {
-	set +x
+  set +x
 
-	if [ "$#" -ne 2 ]; then
-		echo "wait_for_daemon_set_not_ready: illegal number of parameters"
-		exit 1
-	fi
+  check_num_params "$#" "2"
 
-	local namespace="${1}"
-	local name="${2}"
+  local namespace="${1}"
+  local name="${2}"
 
-	echo "Waiting for instances of Cilium daemon $name in namespace $namespace to be clean up"
+  echo "Waiting for instances of Cilium daemon $name in namespace $namespace to be clean up"
 
-	local sleep_time=2
-	local iter=0
-	local found="0"
-	until [[ "$found" -eq "1" ]]; do
-		if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
-			echo ""
-			echo "Timeout while waiting for cilium agent to be clean up by kubernetes"
-			print_k8s_cilium_logs
-			exit 1
-		else
-			kubectl -n ${namespace} get pods -o wide
-			sleep $sleep_time
-		fi
-		kubectl get pods -n ${namespace} | grep ${name} -q
-		found=$?
-	done
+  local sleep_time=2
+  local iter=0
+  local found="0"
+  until [[ "$found" -eq "1" ]]; do
+    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+      echo ""
+      echo "Timeout while waiting for cilium agent to be clean up by kubernetes"
+      print_k8s_cilium_logs
+      exit 1
+    else
+      kubectl -n ${namespace} get pods -o wide
+      sleep $sleep_time
+    fi
+    kubectl get pods -n ${namespace} | grep ${name} -q
+    found=$?
+   done
 
-	set -x
-	kubectl -n kube-system get pods -o wide
+   set -x
+   kubectl -n kube-system get pods -o wide
 }
 
+
 function wait_for_policy_enforcement {
-    while true; do
-        if ! cilium endpoint list | grep Disabled; then
-            break
-        fi
-        micro_sleep
-    done
+  local NUM_DESIRED="0"
+  local CMD="cilium endpoint list | grep -c Disabled"
+  local INFO_CMD="true"
+  local MAX_MINS="2"
+  local ERROR_OUTPUT="Timeout while waiting for policy to be enabled for all endpoints"
+  wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
 }
 
 function count_lines_in_log {
@@ -212,16 +242,20 @@ function wait_for_log_entries {
 }
 
 function wait_for_docker_ipv6_addr {
-    set +x
-    name=$1
-    while true; do
-        if [[ "$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' ${name})" != "" ]];
-         then
-             break
-         fi
-         micro_sleep
-    done
-    set -x
+  set +x
+  name=$1
+
+  local sleep_time=1
+  local iter=0
+
+  while [[ "${iter}" -lt $((2*60/$sleep_time)) ]]; do
+    if [[ "$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' ${name})" != "" ]]; then
+      break
+    fi
+    sleep ${sleep_time}
+    iter=$((iter+1))
+  done
+  set -x
 }
 
 function wait_for_running_pod {
@@ -247,28 +281,28 @@ function wait_for_no_pods {
 }
 
 function wait_for_n_running_pods {
-	set +x
-	local NPODS=$1
-	echo -n "Waiting for $NPODS running pods"
+  set +x
+  local NPODS=$1
+  echo -n "Waiting for $NPODS running pods"
 
-	local sleep_time=1
-	local iter=0
-	local found=$(kubectl get pod | grep Running -c || true)
-	until [[ "$found" -eq "$NPODS" ]]; do
-		if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
-			echo ""
-			echo "Timeout while waiting for $NPODS running pods"
-			exit 1
-		else
-			kubectl get pod -o wide
-			echo -n " [${found}/${NPODS}]"
-			sleep $sleep_time
-		fi
-		found=$(kubectl get pod | grep Running -c || true)
-	done
+  local sleep_time=1
+  local iter=0
+  local found=$(kubectl get pod | grep Running -c || true)
+  until [[ "$found" -eq "$NPODS" ]]; do
+    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+      echo ""
+      echo "Timeout while waiting for $NPODS running pods"
+      exit 1
+    else
+      kubectl get pod -o wide
+      echo -n " [${found}/${NPODS}]"
+      sleep $sleep_time
+    fi
+    found=$(kubectl get pod | grep Running -c || true)
+  done
 
-	set -x
-	kubectl get pod -o wide
+  set -x
+  kubectl get pod -o wide
 }
 
 # Wait for healthy k8s cluster on $1 nodes
@@ -384,10 +418,7 @@ function print_k8s_cilium_logs {
 function wait_for_daemon_set_ready {
 	set +x
 
-	if [ "$#" -ne 3 ]; then
-		echo "wait_for_daemon_set_ready: illegal number of parameters"
-		exit 1
-	fi
+	check_num_params "$#" "3"
 
 	local namespace="${1}"
 	local name="${2}"
@@ -418,53 +449,64 @@ function wait_for_daemon_set_ready {
 }
 
 function k8s_wait_for_cilium_status_ready {
-	local pod
-	local namespace=$1
-	local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+  local pod
+  local namespace=$1
+  local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
 
-	for pod in $pods; do
-	    wait_for_kubectl_cilium_status $namespace $pod
-	done
+  for pod in $pods; do
+    wait_for_kubectl_cilium_status $namespace $pod
+  done
 }
 
 function k8s_count_all_cluster_cilium_eps {
-	local total=0
-	local pod
-	local namespace=$1
-	local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+  local total=0
+  local pod
+  local namespace=$1
+  local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
 
-	for pod in $pods; do
-		local n_eps=$(kubectl -n $namespace exec $pod -- cilium endpoint list --no-headers | wc -l)
-		total=$(( $total + $n_eps ))
-	done
+  for pod in $pods; do
+    local n_eps=$(kubectl -n $namespace exec $pod -- cilium endpoint list --no-headers | wc -l)
+    total=$(( $total + $n_eps ))
+  done
 
-    echo "$total"
+  echo "$total"
 }
 
 function wait_for_api_server_ready {
-    set +x
-    echo "Waiting for kube-apiserver to spin up"
-    while ! kubectl get cs; do
-        micro_sleep
-    done
-    set -x
+  set +x
+  echo "Waiting for kube-apiserver to spin up"
+  
+  local sleep_time=1
+  local iter=0
+
+  while [[ "${iter}" -lt $((2*60/$sleep_time)) ]]; do
+    if kubectl get cs ; then
+      break
+    fi
+    sleep $sleep_time
+    iter=$((iter+1))
+  done
+
+  set -x
 }
 
 function wait_for_service_endpoints_ready {
-    set +x
-    if [ "$#" -ne 3 ]; then
-        echo "wait_for_service_endpoints_ready: illegal number of parameters"
-        exit 1
-    fi
-    local namespace="${1}"
-    local name="${2}"
-    local port="${3}"
+  set +x
+  check_num_params "$#" "3"
+  local namespace="${1}"
+  local name="${2}"
+  local port="${3}"
+  local iter=0
 
-    echo "Waiting for ${name} service endpoints to be ready"
-    until [ "$(kubectl get endpoints -n ${namespace} ${name} | grep ":${port}")" ]; do
-        micro_sleep
-    done
-    set -x
+  echo "Waiting for ${name} service endpoints to be ready"
+  until [ "$(kubectl get endpoints -n ${namespace} ${name} | grep ":${port}")" ]; do
+    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+      exit 1
+    else 
+      micro_sleep
+    fi
+  done
+  set -x
 }
 
 function k8s_apply_policy {
@@ -630,4 +672,52 @@ function diff_timeout() {
       sleep $sleep_time
     fi
   done
+}
+
+#######################################
+# Waits for MAX_MINS until the output of CMD
+# reaches NUM_DESIRED. While the state is not
+# realized, INFO_CMD is emitted. If the state
+# is not realized after MAX_MINS, ERROR_OUTPUT
+# is emitted.
+# Globals: 
+# Arguments:
+#   NUM_DESIRED: desired number output by CMD.
+#   CMD: command to run.
+#   INFO_CMD: command to run while state is not
+#             realized
+#   MAX_MINS: maximum minutes to wait for desired
+#             state
+#   ERROR_OUTPUT: message that is emitted if desired
+#                 state is not realized in MAX_MINS.
+# Returns:
+#   None
+#######################################
+function wait_for_desired_state {
+  local NUM_DESIRED="$1"
+  local CMD="$2"
+  local INFO_CMD="$3"
+  local MAX_MINS="$4"
+  local ERROR_OUTPUT="$5"
+  set +x
+  local sleep_time=1
+  local iter=0
+  local found=$(eval "$CMD")
+  echo "found: $found"
+
+  while [[ "$found" -ne "$NUM_DESIRED" ]]; do
+    if [[ $((iter++)) -gt $((${MAX_MINS}*60/$sleep_time)) ]]; then
+      echo ""
+      echo $ERROR_OUTPUT
+      exit 1
+    else 
+      eval "$INFO_CMD"
+      echo -n " [$found/$NUM_DESIRED]"
+      sleep $sleep_time
+    fi
+    found=$(eval "${CMD}")
+    echo "found: $found"
+  done
+  set -x
+  eval "${INFO_CMD}"
 }
