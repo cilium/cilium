@@ -2,7 +2,6 @@
 
 source "./helpers.bash"
 
-TEST_NET="cilium"
 DENIED="Result: DENIED"
 ALLOWED="Result: ALLOWED"
 
@@ -17,9 +16,7 @@ trap cleanup EXIT
 cleanup
 logs_clear
 
-docker network inspect $TEST_NET 2> /dev/null || {
-	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 echo "------ simple policy import ------"
 

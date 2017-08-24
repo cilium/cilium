@@ -4,7 +4,6 @@ source "./helpers.bash"
 
 set -e
 
-TEST_NET="cilium"
 NETPERF_IMAGE="tgraf/nettools"
 TEST_TIME=30
 SERVER_LABEL="id.server"

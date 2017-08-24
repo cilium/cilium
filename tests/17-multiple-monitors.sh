@@ -25,7 +25,7 @@ function lines_expected {
 
 trap cleanup EXIT
 
-docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium ${TEST_NET} || true
+create_cilium_docker_network
 
 cilium monitor > ${MON_1_OUTPUT} &
 MON_1_PID=$!

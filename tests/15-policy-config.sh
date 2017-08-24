@@ -2,7 +2,6 @@
 
 source "./helpers.bash"
 
-TEST_NET="cilium"
 LIST_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled\|Disabled'"
 CFG_CMD="cilium config | grep PolicyEnforcement | awk '{print \$2}'"
 ALLOWED="Verdict: allowed"
@@ -256,9 +255,7 @@ trap cleanup EXIT
 cleanup
 logs_clear
 
-docker network inspect $TEST_NET 2> /dev/null || {
-        docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-}
+create_cilium_docker_network
 
 test_policy_trace_policy_disabled
 test_default_policy_configuration

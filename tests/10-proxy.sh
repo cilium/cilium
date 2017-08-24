@@ -11,7 +11,6 @@ function cleanup {
 
 trap cleanup EXIT
 
-TEST_NET="cilium"
 SERVER_LABEL="id.server"
 CLIENT_LABEL="id.client"
 
@@ -35,14 +34,12 @@ function service_init {
 }
 
 function proxy_init {
-	docker network inspect $TEST_NET 2> /dev/null || {
-		docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET
-	}
+        create_cilium_docker_network
 
 
 	docker run -dt --net=$TEST_NET --name server1 -l $SERVER_LABEL cilium/demo-httpd
 	docker run -dt --net=$TEST_NET --name server2 -l $SERVER_LABEL cilium/demo-httpd
-	docker run -dt --net=cilium --name client -l id.client tgraf/netperf
+	docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
 
 
 	SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
