@@ -331,6 +331,12 @@ func (ds *DaemonSuite) TestAllocateIP(c *C) {
 	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
 	c.Assert(err, IsNil)
 
+	// Forcefully release possible allocated IPs
+	err = ds.d.ipamConf.IPv4Allocator.Release(epipv4.IP())
+	c.Assert(err, IsNil)
+	err = ds.d.ipamConf.IPv6Allocator.Release(epipv6.IP())
+	c.Assert(err, IsNil)
+
 	ep1.IPv4 = epipv4
 	ep1.IPv6 = epipv6
 
