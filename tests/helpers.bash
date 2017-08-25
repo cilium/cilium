@@ -657,3 +657,52 @@ function diff_timeout() {
     fi
   done
 }
+
+#######################################
+# Waits for MAX_MINS until the output of CMD
+# reaches NUM_DESIRED. While the state is not
+# realized, INFO_CMD is emitted. If the state
+# is not realized after MAX_MINS, ERROR_OUTPUT
+# is emitted.
+# Globals: 
+# Arguments:
+#   NUM_DESIRED: desired number output by CMD.
+#   CMD: command to run.
+#   INFO_CMD: command to run while state is not
+#             realized
+#   MAX_MINS: maximum minutes to wait for desired
+#             state
+#   ERROR_OUTPUT: message that is emitted if desired
+#                 state is not realized in MAX_MINS.
+# Returns:
+#   None
+#######################################
+function wait_for_desired_state {
+  check_num_params "$#" "5"
+  local NUM_DESIRED="$1"
+  local CMD="$2"
+  local INFO_CMD="$3"
+  local MAX_MINS="$4"
+  local ERROR_OUTPUT="$5"
+  set +x
+  local sleep_time=1
+  local iter=0
+  local found=$(eval "$CMD")
+  echo "found: $found"
+
+  while [[ "$found" -ne "$NUM_DESIRED" ]]; do
+    if [[ $((iter++)) -gt $((${MAX_MINS}*60/$sleep_time)) ]]; then
+      echo ""
+      echo $ERROR_OUTPUT
+      exit 1
+    else
+      eval "$INFO_CMD"
+      echo -n " [$found/$NUM_DESIRED]"
+      sleep $sleep_time
+    fi
+    found=$(eval "${CMD}")
+    echo "found: $found"
+  done
+  set -x
+  eval "${INFO_CMD}"
+}
