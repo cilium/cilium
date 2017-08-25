@@ -856,6 +856,9 @@ definitions:
       labels:
         description: Labels describing the identity
         "$ref": "#/definitions/Labels"
+      labelSHA256:
+        description: label SHA256
+        type: string
   Labels:
     description: Set of labels
     type: array

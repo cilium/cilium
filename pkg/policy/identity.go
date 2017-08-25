@@ -70,6 +70,8 @@ type Identity struct {
 	ID NumericIdentity `json:"id"`
 	// Endpoints that have this Identity where their value is the last time they were seen.
 	Labels labels.Labels `json:"labels"`
+	// SHA256 of labels.
+	LabelsSHA256 string  `json:"labelsSHA256"`
 	// Set of labels that belong to this Identity.
 	Endpoints map[string]time.Time `json:"containers"`
 }
@@ -100,12 +102,13 @@ func (id *Identity) GetModel() *models.Identity {
 	ret := &models.Identity{
 		ID:     int64(id.ID),
 		Labels: []string{},
+		LabelSHA256: "",
 	}
 
 	for _, v := range id.Labels {
 		ret.Labels = append(ret.Labels, v.String())
 	}
-
+	ret.LabelSHA256 = id.LabelsSHA256
 	return ret
 }
 

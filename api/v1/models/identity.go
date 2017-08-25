@@ -16,6 +16,9 @@ type Identity struct {
 	// Unique identifier
 	ID int64 `json:"id,omitempty"`
 
+	// label SHA256
+	LabelSHA256 string `json:"labelSHA256,omitempty"`
+
 	// Labels describing the identity
 	Labels Labels `json:"labels"`
 }
