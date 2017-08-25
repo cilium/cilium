@@ -35,12 +35,14 @@ echo "CILIUM_POD_2: $CILIUM_POD_2"
 NUM_ENDPOINTS=4
 
 function cleanup {
+  echo "----- beginning cleanup for ${TEST_NAME} -----"
   kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
   wait_for_no_pods
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default || true
+  echo "----- cleanup finished for ${TEST_NAME} -----"
 }
 
 function finish_test {
