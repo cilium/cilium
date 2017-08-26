@@ -125,8 +125,8 @@ while true; do
 done
 
 monitor_clear
-docker exec -i cni-client ping6 -c 5 $server_ip
+docker exec -i cni-client ping6 -c 10 $server_ip
 monitor_clear
 if [ $server_ip4 ]; then
-	docker exec -i cni-client ping -c 5 $server_ip4
+	docker exec -i cni-client ping -c 10 $server_ip4
 fi
