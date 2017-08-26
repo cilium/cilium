@@ -488,7 +488,7 @@ function k8s_apply_policy {
   for pod in $pods; do
     local nextRev=$(expr ${currentRevison[$pod]} + 1)
     echo "Waiting for agent $pod endpoints to get to revision $nextRev"
-    kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
+    timeout 180s kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
   done
 
   # Adding sleep as workaround for l7 stresstests
