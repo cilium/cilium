@@ -98,11 +98,11 @@ function wait_for_endpoints {
 }
 
 function k8s_num_ready {
-	local NAMESPACE=$1
-	local CILIUM_POD=$2
-	local FILTER=$3
+  local NAMESPACE=$1
+  local CILIUM_POD=$2
+  local FILTER=$3
 
-	kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep $FILTER | grep -v 'not-ready' | grep -c 'ready' || true
+  kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep $FILTER | grep -v 'not-ready' | grep -c 'ready' || true
 }
 
 function wait_for_k8s_endpoints {
