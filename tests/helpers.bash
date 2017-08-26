@@ -224,8 +224,7 @@ function wait_for_log_entries {
 }
 
 function wait_for_docker_ipv6_addr {
-  #set +x
-  set -xv
+  set +x
   check_num_params "$#" "1"
   name=$1
   wait_specified_time_test "test \"\$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' $name)\" != \"\"" "2"
@@ -242,12 +241,11 @@ function wait_for_running_pod {
 }
 
 function wait_for_no_pods {
-  #set +x
-  set -xv
+  set +x
   namespace=${1:-default}
   echo "Waiting for no pods to be Running in namespace ${namespace}"
   wait_specified_time_test "test \"\$(kubectl get pods -n ${namespace} -o wide 2>&1 | grep -c 'No resources found')\" -eq \"1\"" "5"
-  set -xv
+  set -x
 }
 
 function wait_for_n_running_pods {
@@ -700,6 +698,7 @@ function wait_for_desired_state {
 #   None
 #######################################
 function wait_specified_time_test {
+  set +x
   local CMD="$1"
   local MAX_MINS="$2"
 
