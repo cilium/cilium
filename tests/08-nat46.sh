@@ -66,7 +66,7 @@ cilium endpoint config ${SERVER_ID} NAT46=true
 function connectivity_test64() {
         # ICMPv4 echo request from client to server should succeed
         monitor_clear
-        docker exec -i client ping6 -c 5 ::FFFF:$SERVER_IP4 || {
+        docker exec -i client ping6 -c 10 ::FFFF:$SERVER_IP4 || {
                 abort "Error: Could not ping nat64 address of client from host"
         }
 }
