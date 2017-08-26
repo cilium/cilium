@@ -199,7 +199,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, er
 		secLbl.AssociateEndpoint(lbl.String())
 		secLbl.ID = id
 		secLbl.Labels = labels.Labels{
-			labels.LabelSourceReserved: lbl,
+			key: lbl,
 		}
 
 		return secLbl, nil
