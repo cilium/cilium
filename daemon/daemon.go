@@ -460,6 +460,17 @@ func (c *customChain) add() error {
 	return runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
 }
 
+func translateAndExecute(rule, table, prefix, replacement string) error {
+	ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, prefix, replacement, 1))
+	if err != nil {
+		return fmt.Errorf("unable to parse iptables rule '%s' into slice: %s", rule, err)
+	}
+
+	deleteRule := append([]string{"-t", table}, ruleAsArgs...)
+
+	return runProg("iptables", deleteRule, true)
+}
+
 func removeCiliumRules(table string) {
 	prog := "iptables"
 	args := []string{"-t", table, "-S"}
@@ -477,25 +488,30 @@ func removeCiliumRules(table string) {
 		return
 	}
 
+	rules := []string{}
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
-		rule := scanner.Text()
-		log.Debugf("Considering to remove iptables rule '%s'", rule)
-		if strings.Contains(strings.ToLower(rule), "cilium") &&
-			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
-			// From: -A POSTROUTING -m comment [...]
-			// To:   -D POSTROUTING -m comment [...]
-			ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
-			if err != nil {
-				log.WithError(err).Warningf("Unable to parse iptables rule '%s' into slice. Leaving rule behind.")
-				continue
-			}
+		rules = append(rules, scanner.Text())
+	}
 
-			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
-			log.Debugf("Removing iptables rule '%v'", deleteRule)
-			err = runProg("iptables", deleteRule, true)
-			if err != nil {
-				log.WithError(err).Warningf("Unable to delete Cilium iptables rule '%s'", rule)
+	// Remove all feeder rules
+	for _, rule := range rules {
+		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		if strings.Contains(strings.ToLower(rule), "cilium") && strings.HasPrefix(rule, "-A") {
+			if err := translateAndExecute(rule, table, "-A", "-D"); err != nil {
+				log.WithError(err).Warningf("Unable to flush custom chain")
+			}
+		}
+	}
+
+	// Flush and delete all custom chains
+	for _, rule := range rules {
+		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		if strings.Contains(strings.ToLower(rule), "cilium") && strings.HasPrefix(rule, "-N") {
+			if err := translateAndExecute(rule, table, "-N", "-F"); err != nil {
+				log.WithError(err).Warningf("Unable to flush custom chain")
+			} else if err := translateAndExecute(rule, table, "-N", "-X"); err != nil {
+				log.WithError(err).Warningf("Unable to delete custom chain")
 			}
 		}
 	}
