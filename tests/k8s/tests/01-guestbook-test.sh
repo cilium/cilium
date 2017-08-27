@@ -134,8 +134,14 @@ echo "SUCCESS!"
 
 set +e
 
-k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/"
-k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies"
+kubectl delete -f "${guestbook_dir}/"
+
+if [[ "${k8s_version}" == 1.7.* ]]; then
+  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web.json"
+  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-redis.json"
+else
+  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
+if
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 2>/dev/null
 
