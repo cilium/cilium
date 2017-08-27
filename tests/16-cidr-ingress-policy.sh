@@ -55,7 +55,7 @@ cilium endpoint list
 
 monitor_clear
 echo "------ pinging host from service2 (should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${IPV4_HOST} && {  
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${IPV4_HOST} && {
   abort "Error: Unexpected success pinging host (${IPV4_HOST}) from service2"
 }
 echo "------ importing L3 CIDR policy for IPv4 egress ------"
@@ -76,14 +76,14 @@ monitor_clear
 echo "------ pinging host from service2 (should work) ------"
 cilium policy get
 
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${IPV4_HOST} || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${IPV4_HOST} || {
   abort "Error: Could not ping host (${IPV4_HOST}) from service2"
 }
 
 policy_delete_and_wait "--all"
 monitor_clear
 echo "------ pinging host from service2 (should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${IPV6_HOST} && {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${IPV6_HOST} && {
   abort "Error: Unexpected success pinging host (${IPV6_HOST}) from service2"
 }
 
@@ -103,7 +103,7 @@ EOF
 monitor_clear
 echo "------ pinging host from service2 (should work) ------"
 cilium policy get
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${IPV6_HOST} || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${IPV6_HOST} || {
   abort "Error: Could not ping host (${IPV6_HOST}) from service2"
 }
 
@@ -122,25 +122,25 @@ EOF
 
 monitor_clear
 echo "------ pinging service1 from service2 (should work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${HTTPD_CONTAINER_NAME} || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME} || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear
 echo "------ pinging service1 from service2 (IPv6 - should work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${HTTPD_CONTAINER_NAME} || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME} || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear
 echo "------ pinging service1 from service3 (should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${HTTPD_CONTAINER_NAME} && {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
 
 monitor_clear
 echo "------ pinging service1 from service3 (IPv6 - should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${HTTPD_CONTAINER_NAME} && {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
 
@@ -166,13 +166,13 @@ EOF
 monitor_clear
 cilium policy get
 echo "------ pinging service1 from service3 (should work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${HTTPD_CONTAINER_NAME}  || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service3"
 }
 
 monitor_clear
 echo "------ pinging service1 from service3 (IPv6 - should work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${HTTPD_CONTAINER_NAME}  || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service3"
 }
 
@@ -194,13 +194,13 @@ EOF
 
 monitor_clear
 echo "------ pinging service1 from service3 (should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 7 ${HTTPD_CONTAINER_NAME} && {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
 
 monitor_clear
 echo "------ pinging service1 from service3 (IPv6 - should NOT work) ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 7 ${HTTPD_CONTAINER_NAME} && {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
 
