@@ -227,9 +227,11 @@ fi
 
 for service in "none" "lb"; do
 	for policy in "egress" "ingress" "many_egress" "many_ingress"; do
-		for state in "false" "true"; do
+		# FIXME GH-1404 Convert to endpoint specific local conntrack setting
+		#for state in "false" "true"; do
+		for state in "false"; do
 			echo "Testing with Policy=$policy, Conntrack=$state, Service=$service"
-			cilium config ConntrackLocal=$state
+			#cilium config ConntrackLocal=$state
 			wait_for_cilium_ep_gen
 			proxy_init
 

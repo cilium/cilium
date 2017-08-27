@@ -256,7 +256,7 @@ func init() {
 	flags.StringVarP(&device,
 		"device", "d", deviceAuto, "Network device for external network access (default: auto)")
 	flags.BoolVar(&disableConntrack,
-		"disable-conntrack", false, "Disable connection tracking")
+		"disable-conntrack", false, "Default to no connection tracking for endpoints")
 	flags.BoolVar(&config.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
 	flags.BoolVar(&disableBPFTrace,
