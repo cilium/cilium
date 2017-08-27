@@ -48,6 +48,8 @@
 #include "lib/drop.h"
 #include "lib/encap.h"
 
+#define QUIET_LB
+
 static inline int __inline__ handle_redirect(struct __sk_buff *skb, int ret)
 {
 #ifdef LB_REDIRECT

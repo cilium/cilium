@@ -83,12 +83,8 @@ struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
 	.pinning        = PIN_GLOBAL_NS,
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 };
+
 #define REV_NAT_F_TUPLE_SADDR 1
-#ifdef LB_DEBUG
-#define cilium_trace_lb cilium_trace
-#else
-#define cilium_trace_lb(a, b, c, d)
-#endif
 
 #ifdef HAVE_MAP_VAL_ADJ
 static inline int lb_next_rr(struct __sk_buff *skb,
@@ -101,7 +97,6 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 	if (offset < LB_RR_MAX_SEQ) {
 		/* Slave 0 is reserved for the master slot */
 		slave = seq->idx[offset] + 1;
-		cilium_trace(skb, DBG_RR_SLAVE_SEL, hash, slave);
 	}
 
 	return slave;
@@ -142,7 +137,6 @@ static inline int lb6_select_slave(struct __sk_buff *skb,
 	if (slave == 0) {
 		/* Slave 0 is reserved for the master slot */
 		slave = (hash % count) + 1;
-		cilium_trace(skb, DBG_PKT_HASH, hash, slave);
 	}
 
 	return slave;
@@ -168,7 +162,6 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 	if (slave == 0) {
 		/* Slave 0 is reserved for the master slot */
 		slave = (hash % count) + 1;
-		cilium_trace_lb(skb, DBG_PKT_HASH, hash, slave);
 	}
 
 	return slave;
@@ -247,7 +240,7 @@ static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
 	__be32 sum;
 	int ret;
 
-	cilium_trace_lb(skb, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
+	cilium_trace(skb, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
 
 	if (nat->port) {
 		ret = reverse_map_l4_port(skb, tuple->nexthdr, nat->port, l4_off, csum_off);
@@ -283,18 +276,18 @@ static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
  * @arg l4_off		offset to L4
  * @arg csum_off	offset to L4 checksum field
  * @arg csum_flags	checksum flags
- * @arg index		reverse NAT index
+ * @arg revnat		reverse NAT index
  * @arg tuple		tuple
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
 static inline int __inline__ lb6_rev_nat(struct __sk_buff *skb, int l4_off,
-					 struct csum_offset *csum_off, __u16 index,
+					 struct csum_offset *csum_off, __u16 revnat,
 					 struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
-	cilium_trace_lb(skb, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
-	nat = map_lookup_elem(&cilium_lb6_reverse_nat, &index);
+	cilium_trace(skb, DBG_LB6_REVERSE_NAT_LOOKUP, revnat, 0);
+	nat = map_lookup_elem(&cilium_lb6_reverse_nat, &revnat);
 	if (nat == NULL)
 		return 0;
 
@@ -336,14 +329,15 @@ static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_
 static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 						    struct lb6_key *key)
 {
+#if defined LB_L3 || defined LB_L4
+	struct lb6_service *svc = NULL;
+#endif
+
 #ifdef LB_L4
 	if (key->dport) {
-		struct lb6_service *svc;
-
-		cilium_trace_lb(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
 		svc = map_lookup_elem(&cilium_lb6_services, key);
 		if (svc && svc->count != 0)
-			return svc;
+			goto found;
 
 		key->dport = 0;
 	}
@@ -351,17 +345,22 @@ static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 
 #ifdef LB_L3
 	if (1) {
-		struct lb6_service *svc;
-
-		cilium_trace_lb(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
 		svc = map_lookup_elem(&cilium_lb6_services, key);
 		if (svc && svc->count != 0)
-			return svc;
+			goto found;
 	}
 #endif
 
-	cilium_trace_lb(skb, DBG_LB6_LOOKUP_MASTER_FAIL, key->address.p2, key->address.p3);
+#ifndef QUIET_LB
+	cilium_trace(skb, DBG_LB6_LOOKUP_MASTER_FAIL, key->address.p2, key->address.p3);
+#endif
 	return NULL;
+
+#if defined LB_L3 || defined LB_L4
+found:
+	cilium_trace3(skb, DBG_LB6_MASTER_HIT, key->address.p4, key->dport, svc->count);
+	return svc;
+#endif
 }
 
 static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
@@ -370,10 +369,9 @@ static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 	struct lb6_service *svc;
 
 	key->slave = slave;
-	cilium_trace_lb(skb, DBG_LB6_LOOKUP_SLAVE, key->slave, key->dport);
 	svc = map_lookup_elem(&cilium_lb6_services, key);
 	if (svc != NULL) {
-		cilium_trace_lb(skb, DBG_LB6_LOOKUP_SLAVE_SUCCESS, svc->target.p4, svc->port);
+		cilium_trace(skb, DBG_LB6_LOOKUP_SLAVE_SUCCESS, svc->target.p4, svc->port);
 		return svc;
 	}
 
@@ -433,13 +431,12 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
 static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
-					 struct lb4_reverse_nat *nat,
-					 struct ct_state *ct_state)
+					 struct lb4_reverse_nat *nat, int loopback)
 {
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
-	cilium_trace_lb(skb, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
+	cilium_trace(skb, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
 	if (nat->port) {
 		ret = reverse_map_l4_port(skb, tuple->nexthdr, nat->port, l4_off, csum_off);
@@ -458,7 +455,7 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		new_sip = nat->address;
 	}
 
-	if (ct_state->loopback) {
+	if (loopback) {
 		/* The packet was looped back to the sending endpoint on the
 		 * forward service translation. This implies that the original
 		 * source address of the packet is the source address of the
@@ -470,7 +467,7 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		if (IS_ERR(ret))
 			return ret;
 
-		cilium_trace_lb(skb, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
+		cilium_trace(skb, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
 
 		ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, daddr), &old_sip, 4, 0);
 		if (IS_ERR(ret))
@@ -497,30 +494,30 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 	return 0;
 }
 
-
 /** Perform IPv4 reverse NAT based on reverse NAT index
  * @arg skb		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
  * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
- * @arg index		reverse NAT index
- * @arg tuple		tuple
+ * @arg loopback	must be set to true if forward translation was via loopback
+ * @arg tuple		5-tuple of connection
+ * @arg revnat		reverse NAT index
+ * @arg flags		flags
  */
 static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
-					 struct csum_offset *csum_off,
-					 struct ct_state *ct_state,
-					 struct ipv4_ct_tuple *tuple, int flags)
+					 struct csum_offset *csum_off, int loopback,
+					 struct ipv4_ct_tuple *tuple,
+					 __u16 revnat, int flags)
 {
 	struct lb4_reverse_nat *nat;
+	__u16 index = revnat;
 
-	cilium_trace_lb(skb, DBG_LB4_REVERSE_NAT_LOOKUP, ct_state->rev_nat_index, 0);
-	nat = map_lookup_elem(&cilium_lb4_reverse_nat, &ct_state->rev_nat_index);
+	cilium_trace(skb, DBG_LB4_REVERSE_NAT_LOOKUP, index, 0);
+	nat = map_lookup_elem(&cilium_lb4_reverse_nat, &index);
 	if (nat == NULL)
 		return 0;
 
-	return __lb4_rev_nat(skb, l3_off, l4_off, csum_off, tuple, flags, nat,
-			     ct_state);
+	return __lb4_rev_nat(skb, l3_off, l4_off, csum_off, tuple, flags, nat, loopback);
 }
 
 /** Extract IPv4 LB key from packet
@@ -552,15 +549,15 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_
 static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 						     struct lb4_key *key)
 {
+#if defined LB_L3 || defined LB_L4
+	struct lb4_service *svc = NULL;
+#endif
+
 #ifdef LB_L4
 	if (key->dport) {
-		struct lb4_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_trace_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
 		svc = map_lookup_elem(&cilium_lb4_services, key);
 		if (svc && svc->count != 0)
-			return svc;
+			goto found;
 
 		key->dport = 0;
 	}
@@ -568,18 +565,22 @@ static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 
 #ifdef LB_L3
 	if (1) {
-		struct lb4_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_trace_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
 		svc = map_lookup_elem(&cilium_lb4_services, key);
 		if (svc && svc->count != 0)
-			return svc;
+			goto found;
 	}
 #endif
 
-	cilium_trace_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
+#ifndef QUIET_LB
+	cilium_trace(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
+#endif
 	return NULL;
+
+#if defined LB_L3 || defined LB_L4
+found:
+	cilium_trace3(skb, DBG_LB4_MASTER_HIT, key->address, key->dport, svc->count);
+	return svc;
+#endif
 }
 
 static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
@@ -588,10 +589,9 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 	struct lb4_service *svc;
 
 	key->slave = slave;
-	cilium_trace_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
 	svc = map_lookup_elem(&cilium_lb4_services, key);
 	if (svc != NULL) {
-		cilium_trace_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, svc->target, svc->port);
+		cilium_trace(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, svc->target, svc->port);
 		return svc;
 	}
 
@@ -614,7 +614,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	sum = csum_diff(&key->address, 4, new_daddr, 4, 0);
 
 	if (new_saddr && *new_saddr) {
-		cilium_trace_lb(skb, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
+		cilium_trace(skb, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
 		ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), new_saddr, 4, 0);
 		if (ret < 0)
 			return DROP_WRITE_ERROR;
