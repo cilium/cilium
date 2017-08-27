@@ -23,8 +23,8 @@ MINIKUBE="${dir}/../../../examples/minikube"
 K8SDIR="${dir}/../../../examples/kubernetes"
 GSGDIR="${dir}/deployments/gsg"
 
-ENABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled' -c"
-DISABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Disabled' -c"
+ENABLED_CMD="cilium endpoint list | grep \"${POD_FILTER}\" | awk '{print \$2}' | grep 'Enabled' -c"
+DISABLED_CMD="cilium endpoint list | grep \"${POD_FILTER}\" | awk '{print \$2}' | grep 'Disabled' -c"
 
 CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s-1 | awk '{ print $1 }')
 CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s-2 | awk '{ print $1 }')
@@ -56,6 +56,7 @@ function finish_test {
 # Globals:
 #   ENABLED_CMD
 #   NAMESPACE
+#   POD_FILTER
 # Arguments:
 #   NUM_EPS: number of endpoints to check
 #   CILIUM_POD: name of Cilium pod
@@ -71,7 +72,7 @@ function check_endpoints_policy_enabled {
   POLICY_ENABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${ENABLED_CMD}`
   if [ "${POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
     kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium config
-    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
+    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list | grep "${POD_FILTER}"
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
   echo "---- ${NUM_EPS} endpoints have policy enforcement enabled; continuing ----"
@@ -96,7 +97,7 @@ function check_endpoints_policy_disabled {
   POLICY_DISABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${DISABLED_CMD}`
   if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then 
     kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium config
-    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
+    kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list | grep "${POD_FILTER}"
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
   echo  "---- ${NUM_EPS} endpoints have policy enforcement disabled; continuing ----"
