@@ -95,6 +95,8 @@ const (
 	DbgCTLookup61
 	DbgCTLookup62
 	DbgCTCreated6
+	DbgLB4MasterHit
+	DbgLB6MasterHit
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -321,6 +323,12 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
 	case DbgCTCreated6:
 		fmt.Printf("Conntrack create: %s\n", ctCreate6Info(n))
+	case DbgLB6MasterHit:
+		fmt.Printf("Successful service lookup for [::%s]:%d, %d backends found\n",
+			ip6Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)), n.Arg3)
+	case DbgLB4MasterHit:
+		fmt.Printf("Successful service lookup for %s:%d, %d backends found\n",
+			ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)), n.Arg3)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
