@@ -135,7 +135,6 @@ static inline void __inline__ derive_ip6_identity_and_revnat(struct __sk_buff *s
 static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *ip6,
 					 __u32 secctx, bool *to_stack)
 {
-	union macaddr cilium_net_mac = CILIUM_NET_MAC;
 	struct csum_offset csum_off = {};
 	struct ipv6_ct_tuple tuple = {};
 	struct lb6_key key = {};
@@ -180,7 +179,8 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 
 	*to_stack = true;
 
-	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
+	/* Mark as local so ip_rcv() doesn't drop it */
+	if (skb_change_type(skb, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	encode_nat_metadata(skb, secctx, svc->rev_nat_index);
@@ -332,7 +332,6 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 					 __u32 secctx, bool *to_stack)
 
 {
-	union macaddr cilium_net_mac = CILIUM_NET_MAC;
 	struct ipv4_ct_tuple tuple = {};
 	struct lb4_key key = {};
 	struct lb4_service *svc;
@@ -370,7 +369,8 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 
 	*to_stack = true;
 
-	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
+	/* Mark as local so ip_rcv() doesn't drop it */
+	if (skb_change_type(skb, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	encode_nat_metadata(skb, secctx, svc->rev_nat_index);
