@@ -292,6 +292,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		}
 	}
 
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+
 	return TC_ACT_OK;
 }
 
@@ -537,6 +539,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		}
 	}
 #endif
+
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 
 	return TC_ACT_OK;
 }
