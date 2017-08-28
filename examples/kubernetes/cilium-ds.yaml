@@ -104,3 +104,10 @@ spec:
         - name: kubeconfig-cert
           hostPath:
               path: /var/lib/kubernetes/ca.pem
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+
