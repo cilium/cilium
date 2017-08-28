@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/signal"
 	"time"
-	"unsafe"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
@@ -257,35 +256,20 @@ start:
 	}
 
 	var meta payload.Meta
-	metaBuf := make([]byte, unsafe.Sizeof(meta))
+	var pl payload.Payload
 	for {
-		// We need to know about the incoming payload otherwise can't know
-		// how much data to read.
-		if _, err := io.ReadFull(conn, metaBuf); err != nil {
-			if err == io.EOF {
+		if err := payload.ReadMetaPayload(conn, &meta, &pl); err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				// EOF may be due to invalid payload size. Close the connection just in case.
+				conn.Close()
+				log.WithError(err).Warn("connection closed")
 				time.Sleep(connTimeout)
 				goto start
+			} else {
+				log.WithError(err).Fatal("decoding error")
 			}
-			continue
 		}
 
-		if err := binary.Read(bytes.NewReader(metaBuf), byteorder.Native, &meta); err != nil {
-			if err != io.EOF {
-				log.Fatal(err)
-			}
-			continue
-		}
-		buf := make([]byte, meta.Size)
-
-		_, err = io.ReadFull(conn, buf)
-		if err != nil {
-			fmt.Printf("connection closed: %s\n", err)
-			break
-		}
-		pl, err := payload.Decode(buf)
-		if err != nil && err != io.EOF {
-			log.Fatalf("Errror during decode: %s", err)
-		}
 		if pl.Type == payload.EventSample {
 			receiveEvent(pl.Data, pl.CPU)
 		} else /* if pl.Type == payload.RecordLost */ {
