@@ -343,6 +343,9 @@ function gather_files {
     local CLI_OUT_DIR="${CILIUM_DIR}/cli"
     mkdir -p ${CLI_OUT_DIR}
     dump_cli_output ${CLI_OUT_DIR} || true
+    # Get logs from Consul container.
+    mkdir -p ${CILIUM_DIR}/consul
+    docker logs cilium-consul > ${CILIUM_DIR}/consul/consul-logs.txt 2>/dev/null
   fi
   sudo cp -r ${RUN}/state ${RUN_DIR} || true
   sudo cp -r ${LIB}/* ${LIB_DIR} || true
