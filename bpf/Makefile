@@ -8,7 +8,7 @@ CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
 LLC_FLAGS   := -march=bpf -mcpu=probe -filetype=obj
 
-BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o
+BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o
 SCRIPTS = init.sh join_ep.sh run_probes.sh
 LIB := $(shell find ./lib -name '*.h')
 
@@ -32,9 +32,9 @@ LB_OPTIONS = \
 	-DLB_L4 \
 	-DLB_L3 -DLB_L4
 
-bpf_netdev.o:
+bpf_lb.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_netdev.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
 
 LXC_OPTIONS = \
 	 -DUNKNOWN \
