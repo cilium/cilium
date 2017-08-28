@@ -429,8 +429,8 @@ func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
 }
 
 const (
-	ciliumPostNatChain = "CILIUM_POST"
 	feederDescription  = "cilium-feeder:"
+	ciliumPostNatChain = "CILIUM_POST"
 )
 
 type customChain struct {
@@ -456,6 +456,17 @@ func (c *customChain) add() error {
 	return runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
 }
 
+func translateAndExecute(rule, table, prefix, replacement string) error {
+	ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, prefix, replacement, 1))
+	if err != nil {
+		return fmt.Errorf("unable to parse iptables rule '%s' into slice: %s", rule, err)
+	}
+
+	deleteRule := append([]string{"-t", table}, ruleAsArgs...)
+
+	return runProg("iptables", deleteRule, true)
+}
+
 func removeCiliumRules(table string) {
 	prog := "iptables"
 	args := []string{"-t", table, "-S"}
@@ -473,25 +484,30 @@ func removeCiliumRules(table string) {
 		return
 	}
 
+	rules := []string{}
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
-		rule := scanner.Text()
-		log.Debugf("Considering to remove iptables rule '%s'", rule)
-		if strings.Contains(strings.ToLower(rule), "cilium") &&
-			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
-			// From: -A POSTROUTING -m comment [...]
-			// To:   -D POSTROUTING -m comment [...]
-			ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
-			if err != nil {
-				log.WithError(err).Warningf("Unable to parse iptables rule '%s' into slice. Leaving rule behind.")
-				continue
-			}
+		rules = append(rules, scanner.Text())
+	}
 
-			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
-			log.Debugf("Removing iptables rule '%v'", deleteRule)
-			err = runProg("iptables", deleteRule, true)
-			if err != nil {
-				log.WithError(err).Warningf("Unable to delete Cilium iptables rule '%s'", rule)
+	// Remove all feeder rules
+	for _, rule := range rules {
+		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		if strings.Contains(strings.ToLower(rule), "cilium") && strings.HasPrefix(rule, "-A") {
+			if err := translateAndExecute(rule, table, "-A", "-D"); err != nil {
+				log.WithError(err).Warningf("Unable to flush custom chain")
+			}
+		}
+	}
+
+	// Flush and delete all custom chains
+	for _, rule := range rules {
+		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		if strings.Contains(strings.ToLower(rule), "cilium") && strings.HasPrefix(rule, "-N") {
+			if err := translateAndExecute(rule, table, "-N", "-F"); err != nil {
+				log.WithError(err).Warningf("Unable to flush custom chain")
+			} else if err := translateAndExecute(rule, table, "-N", "-X"); err != nil {
+				log.WithError(err).Warningf("Unable to delete custom chain")
 			}
 		}
 	}
@@ -532,18 +548,14 @@ var ciliumChains = []customChain{
 	},
 }
 
-func (d *Daemon) removeMasqRule() {
+func removeIPtablesRules() {
 	tables := []string{"nat", "mangle", "raw"}
 	for _, t := range tables {
 		removeCiliumRules(t)
 	}
-
-	for _, c := range ciliumChains {
-		c.remove()
-	}
 }
 
-func (d *Daemon) installMasqRule() error {
+func (d *Daemon) installIPtablesRules() error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
@@ -559,8 +571,8 @@ func (d *Daemon) installMasqRule() error {
 			"-A", ciliumPostNatChain,
 			"-s", nodeaddress.GetIPv4AllocRange().String(),
 			"!", "-d", nodeaddress.GetIPv4ClusterRange().String(),
-			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
-			"-j", "MASQUERADE"}, false); err != nil {
+			"-m", "comment", "--comment", "cilium: endpoint->world masquerade",
+			"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
 			return err
 		}
 	} else {
@@ -574,21 +586,20 @@ func (d *Daemon) installMasqRule() error {
 			"-s", nodeaddress.GetIPv4AllocRange().String(),
 			"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
 			"!", "-o", "cilium_" + tunnelMode,
-			"-m", "comment", "--comment", "cilium endpoint->world masquerade",
-			"-j", "MASQUERADE"}, false); err != nil {
+			"-m", "comment", "--comment", "cilium: endpoint->world masquerade",
+			"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
 			return err
 		}
 	}
 
 	// Masquerade all traffic from the host into the cilium_host interface
-	// if the source is not the internal IP
 	if err := runProg("iptables", []string{
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
-		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
-		"-m", "comment", "--comment", "cilium host->cluster masquerade",
-		"-j", "MASQUERADE"}, false); err != nil {
+		"-m", "addrtype", "--src-type", "LOCAL",
+		"-m", "comment", "--comment", "cilium: host->cluster masquerade",
+		"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
 		return err
 	}
 
@@ -663,11 +674,10 @@ func (d *Daemon) compileBase() error {
 	reserveLocalRoutes(d.ipamConf)
 
 	if !d.conf.IPv4Disabled {
-		// Always remove masquerade rule and then re-add it if required
-		d.removeMasqRule()
+		removeIPtablesRules()
 		if masquerade {
-			if err := d.installMasqRule(); err != nil {
-				return err
+			if err := d.installIPtablesRules(); err != nil {
+				return fmt.Errorf("Unable to install iptales rules: %s", err)
 			}
 		}
 	}
