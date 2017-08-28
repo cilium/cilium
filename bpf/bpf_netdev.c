@@ -83,6 +83,11 @@ static inline void __inline__ derive_identity_and_revnat(struct __sk_buff *skb, 
 	if (revnat != NULL)
 		*revnat = t;
 
+	/* Clear the state so
+	 *  - we don't hit our ip rules again
+	 *  - we don't cause side effects in the stack */
+	skb->mark = 0;
+
 #elif defined FROM_HOST
 	/* When packet is coming from the host, it may contain the security
 	 * identity in the tc_index, otherwise we fall back to FALLBACK_SECCTX
@@ -92,13 +97,21 @@ static inline void __inline__ derive_identity_and_revnat(struct __sk_buff *skb, 
 	 * locally, if so, it will have been stored to the cb buffer in
 	 * CILIUM_CALL_LB_IP4
 	 */
-	if (skb->tc_index)
+	if (skb->tc_index) {
 		*secctx = skb->tc_index;
-	else
+
+		/* Clear tc_index to not cause it to match on any classifier as
+		 * we go out the overlay or native interface */
+		skb->tc_index = 0;
+	} else
 		*secctx = FALLBACK_SECCTX;
 
 	if (revnat != NULL)
 		*revnat = skb->cb[CB_REVNAT];
+
+	/* skb->mark should never be set here as it has been translated to tc_index
+	 * but we clear it anyway to avoid side effects */
+	skb->mark = 0;
 
 #else
 	/* The packet is coming in over the wire, identity is initialized to the
