@@ -48,24 +48,24 @@
 #include "lib/drop.h"
 #include "lib/encap.h"
 
-static inline int __inline__ handle_redirect(struct __sk_buff *skb, int ret)
+#if defined LB_IP4 || defined LB_IP6
+static inline int __inline__ handle_redirect(struct __sk_buff *skb)
 {
 #ifdef LB_REDIRECT
-	if (ret == TC_ACT_REDIRECT) {
-		int ifindex = LB_REDIRECT;
+	int ifindex = LB_REDIRECT;
 #ifdef LB_DSTMAC
-		union macaddr mac = LB_DSTMAC;
+	union macaddr mac = LB_DSTMAC;
 
-		if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
-			ret = DROP_WRITE_ERROR;
+	if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
+		return DROP_WRITE_ERROR;
 #endif
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		return redirect(ifindex, 0);
-	}
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+	return redirect(ifindex, 0);
 #endif
 
-	return ret;
+	return TC_ACT_OK;
 }
+#endif
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
 				   struct ipv6hdr *ip6)
@@ -181,7 +181,10 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 	if (IS_ERR(ret))
 		return ret;
 
-	return TC_ACT_REDIRECT;
+	if (IS_ERR(ret))
+		return ret;
+
+	return handle_redirect(skb);
 }
 #endif
 
@@ -206,9 +209,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 #ifdef LB_IP6
 	ret = svc_lookup6(skb, ip6, l4_off);
-	if (IS_ERR(ret))
-		return ret;
-	else if (ret == TC_ACT_REDIRECT)
+	if (IS_ERR(ret) || ret == TC_ACT_REDIRECT)
 		return ret;
 
 	/* DIRECT READ ACCESS INVALIDATED */
@@ -390,7 +391,10 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	if (IS_ERR(ret))
 		return ret;
 
-	return TC_ACT_REDIRECT;
+	if (IS_ERR(ret))
+		return ret;
+
+	return handle_redirect(skb);
 }
 #endif
 
@@ -408,9 +412,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 #ifdef LB_IP4
 	ret = svc_lookup4(skb, ip4, l4_off);
-	if (IS_ERR(ret))
-		return ret;
-	else if (ret == TC_ACT_REDIRECT)
+	if (IS_ERR(ret) || ret == TC_ACT_REDIRECT)
 		return ret;
 
 	/* DIRECT READ ACCESS INVALIDATED */
@@ -488,7 +490,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 		return send_drop_notify_error(skb, ret, TC_ACT_OK);
 	}
 
-	return handle_redirect(skb, ret);
+	return ret;
 }
 
 #endif
@@ -504,7 +506,6 @@ int from_netdev(struct __sk_buff *skb)
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
-		ret = handle_redirect(skb, ret);
 
 		/* On error, report the error but pass the packet to the stack */
 		if (IS_ERR(ret))
