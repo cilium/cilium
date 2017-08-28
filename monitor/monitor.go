@@ -16,7 +16,6 @@ package main
 
 import (
 	"container/list"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -27,7 +26,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -128,21 +126,32 @@ func (m *Monitor) send(pl payload.Payload) {
 		return
 	}
 
-	buf := pl.Encode()
-	meta := &payload.Meta{Size: uint32(len(buf))}
+	payloadBuf, err := pl.Encode()
+	if err != nil {
+		log.Fatal("payload encode: ", err)
+	}
+	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
+	metaBuf, err := meta.MarshalBinary()
+	if err != nil {
+		log.Fatal("meta encode: ", err)
+	}
 	var next *list.Element
 	for e := listeners.Front(); e != nil; e = next {
 		client := e.Value.(net.Conn)
 		next = e.Next()
-		if err := binary.Write(client, byteorder.Native, meta); err != nil {
-			log.Infof("Removing lost client %s", err)
+
+		if _, err := client.Write(metaBuf); err != nil {
+			log.WithError(err).Warn("metadata write failed; removing client")
 			client.Close()
 			listeners.Remove(e)
 			continue
 		}
 
-		if _, err := client.Write(buf); err != nil {
-			log.Warnf("Write: %s", err)
+		if _, err := client.Write(payloadBuf); err != nil {
+			log.WithError(err).Warn("payload write failed; removing client")
+			client.Close()
+			listeners.Remove(e)
+			continue
 		}
 	}
 }
