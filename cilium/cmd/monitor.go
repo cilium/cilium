@@ -261,7 +261,7 @@ start:
 	for {
 		// We need to know about the incoming payload otherwise can't know
 		// how much data to read.
-		if _, err := conn.Read(metaBuf); err != nil {
+		if _, err := io.ReadFull(conn, metaBuf); err != nil {
 			if err == io.EOF {
 				time.Sleep(connTimeout)
 				goto start
@@ -277,7 +277,7 @@ start:
 		}
 		buf := make([]byte, meta.Size)
 
-		_, err = conn.Read(buf)
+		_, err = io.ReadFull(conn, buf)
 		if err != nil {
 			fmt.Printf("connection closed: %s\n", err)
 			break
