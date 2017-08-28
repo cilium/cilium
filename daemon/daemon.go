@@ -773,6 +773,12 @@ func (d *Daemon) init() error {
 		fmt.Fprintf(fw, "#define ENCAP_GENEVE\n")
 	}
 
+	// Enable L3/L4 load-balancer by default
+	fw.WriteString("#define LB_L3\n")
+	fw.WriteString("#define LB_L4\n")
+	fw.WriteString("#define LB_IP4\n")
+	fw.WriteString("#define LB_IP6\n")
+
 	fw.Flush()
 	f.Close()
 

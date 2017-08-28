@@ -51,5 +51,9 @@
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65536
 #define ENABLE_TRACE
+#ifndef LB_COMPILE_TEST
 #define LB_IP4
 #define LB_IP6
+#define LB_L3
+#define LB_L4
+#endif

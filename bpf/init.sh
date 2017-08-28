@@ -207,7 +207,7 @@ if [ "$NATIVE_DEV" != "disabled" ]; then
 	sysctl -w net.ipv6.conf.all.forwarding=1
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 	CALLS_MAP=cilium_calls_netdev_${ID}
-	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 	bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 	echo "$NATIVE_DEV" > $RUNDIR/device.state

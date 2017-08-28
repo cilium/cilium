@@ -28,13 +28,16 @@ check:
 
 LB_OPTIONS = \
 	-DUNKNOWN \
-	-DLB_L3 \
-	-DLB_L4 \
-	-DLB_L3 -DLB_L4
+	-DLB_IP4 -DLB_L3 \
+	-DLB_IP4 -DLB_L3 -DLB_L4 \
+	-DLB_IP6 -DLB_L3 \
+	-DLB_IP6 -DLB_L3 -DLB_L4 \
+	-DLB_IP4 -DLB_IP6 -DLB_L3 \
+	-DLB_IP4 -DLB_IP6 -DLB_L3 -DLB_L4
 
 bpf_netdev.o:
 	$(foreach OPTS,$(LB_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_netdev.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
+		${CLANG} -DLB_COMPILE_TEST ${OPTS} ${CLANG_FLAGS} -c bpf_netdev.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
 
 LXC_OPTIONS = \
 	 -DUNKNOWN \
