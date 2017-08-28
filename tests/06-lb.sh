@@ -229,15 +229,22 @@ fi
 ip link add lbtest1 type veth peer name lbtest2
 ip link set lbtest1 up
 
+sysctl -w net.ipv4.conf.lbtest1.rp_filter=0
+sysctl -w net.ipv4.conf.lbtest1.accept_local=1
+sysctl -w net.ipv4.conf.lbtest1.send_redirects=0
+sysctl -w net.ipv4.conf.lbtest2.rp_filter=0
+sysctl -w net.ipv4.conf.lbtest2.accept_local=1
+sysctl -w net.ipv4.conf.lbtest2.send_redirects=0
+
 # Route f00d::1:1 IPv6 packets to a fantasy router ("fbfb::10:10") behind lbtest1
 ip -6 route add fbfb::10:10/128 dev lbtest1
-MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
+MAC=$(ip link show lbtest2 | grep ether | awk '{print $2}')
 ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
 ip -6 route add f00d::1:1/128 via fbfb::10:10
 
 # Route 2.2.2.2 IPv4 packets to a fantasy router ("3.3.3.3") behind lbtest1
 ip route add 3.3.3.3/32 dev lbtest1
-MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
+MAC=$(ip link show lbtest2 | grep ether | awk '{print $2}')
 ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
 ip route add 2.2.2.2/32 via 3.3.3.3
 
@@ -245,9 +252,10 @@ ip link set lbtest2 up
 LIB=/var/lib/cilium/bpf
 RUN=/var/run/cilium/state
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
-NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
+NH_MAC=$(ip link show lbtest2 | grep ether | awk '{print $2}')
 NH_MAC="{.addr=$(mac2array $NH_MAC)}"
-CLANG_OPTS="-DLB_DEBUG -DSECLABEL=1 -DNODE_MAC=$NH_MAC -D__NR_CPUS__=$(nproc) -DLB_IP4 -DLB_IP6 -DLB_L3 -DLB_L4 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
+ID=$(cilium identity get host 2> /dev/null)
+CLANG_OPTS="-DLB_DEBUG -DFROM_HOST -DFIXED_SRC_SECCTX=$ID -DSECLABEL=$ID -DNODE_MAC=$NH_MAC -D__NR_CPUS__=$(nproc) -DHOST_IFINDEX_MAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
 touch netdev_config.h
 clang $CLANG_OPTS -c $LIB/bpf_netdev.c -o tmp_netdev.o
 

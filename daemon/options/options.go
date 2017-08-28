@@ -34,7 +34,6 @@ var (
 
 	DaemonMutableOptionLibrary = option.OptionLibrary{
 		endpoint.OptionConntrackAccounting: &endpoint.OptionSpecConntrackAccounting,
-		endpoint.OptionConntrackLocal:      &endpoint.OptionSpecConntrackLocal,
 		endpoint.OptionConntrack:           &endpoint.OptionSpecConntrack,
 		endpoint.OptionDebug:               &endpoint.OptionSpecDebug,
 		endpoint.OptionDropNotify:          &endpoint.OptionSpecDropNotify,

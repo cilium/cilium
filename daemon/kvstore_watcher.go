@@ -15,10 +15,15 @@
 package main
 
 import (
+	"encoding/json"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
@@ -27,6 +32,12 @@ import (
 // EnableKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
 // Triggers policy updates every time the value of that key is changed.
 func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
+	// The service kvstore watcher is only required in direct-server-return
+	// mode. Otherwise, the reply always flows back synchroneously
+	if directServerReturn {
+		startServiceWatch()
+	}
+
 	if maxID, err := GetMaxLabelID(); err == nil {
 		d.setCachedMaxLabelID(maxID)
 	}
@@ -67,4 +78,68 @@ func (d *Daemon) setCachedMaxLabelID(id policy.NumericIdentity) {
 	d.maxCachedLabelIDMU.Lock()
 	d.maxCachedLabelID = id
 	d.maxCachedLabelIDMU.Unlock()
+}
+
+func extractID(path string) uint64 {
+	key := strings.TrimPrefix(path, common.ServiceIDKeyPath+"/")
+	if strings.Contains(key, ".lock") {
+		return 0
+	}
+	id, err := strconv.ParseUint(key, 10, 64)
+	if err != nil {
+		log.Warningf("kvstore: invalid service id encountered '%s': %s", key, err)
+		return 0
+	}
+
+	return id
+}
+
+func addRevNAT(id uint64, value []byte) {
+	if len(value) <= 0 {
+		log.Warningf("kvstore: invalid value for service %s: %#v", id, value)
+		return
+	}
+
+	val := types.L3n4AddrID{}
+	if err := json.Unmarshal(value, &val); err != nil {
+		log.Warningf("kvstore: cannot unmarshal service %s %#v: %s", id, value, err)
+		return
+	}
+
+	log.Debugf("Adding reverse NAT %d => %v", id, val.L3n4Addr)
+
+	err := lbmap.UpdateRevNat(lbmap.L3n4Addr2RevNatKeynValue(types.ServiceID(id), val.L3n4Addr))
+	if err != nil {
+		log.Warningf("kvstore: Unable to synchronize kvstore service %d %v with BPF map: %s",
+			id, val.L3n4Addr, err)
+	}
+}
+
+func startServiceWatch() {
+	go func() {
+		prefix := common.ServiceIDKeyPath
+		watcher := kvstore.ListAndWatch(prefix, prefix, 512)
+		for {
+			select {
+			case event := <-watcher.Events:
+				log.Debugf("Received kvstore service event %+v", event)
+				id := extractID(event.Key)
+				if id == 0 {
+					continue
+				}
+
+				switch event.Typ {
+				case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+					addRevNAT(id, event.Value)
+
+				case kvstore.EventTypeDelete:
+					log.Debugf("Removing reverse NAT %d", id)
+					if err := lbmap.DeleteRevNat(lbmap.NewRevNat4Key(uint16(id))); err != nil {
+						log.Warningf("kvstore: Unable to synchronize kvstore service %d with BPF map, delete failed: %s",
+							id, err)
+					}
+				}
+			}
+		}
+	}()
 }

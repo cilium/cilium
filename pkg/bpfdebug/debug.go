@@ -41,6 +41,11 @@ const (
 	DbgCaptureAfterV64
 	DbgCaptureProxyPre
 	DbgCaptureProxyPost
+	DbgCaptureNat
+	DbgCaptureNatRev
+	DbgCaptureNatRevOut
+	DbgCaptureFromNat
+	DbgCaptureFromHost
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -95,6 +100,9 @@ const (
 	DbgCTLookup61
 	DbgCTLookup62
 	DbgCTCreated6
+	DbgLB4MasterHit
+	DbgLB6MasterHit
+	DbgErrAbort
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -156,8 +164,8 @@ func ctInfo(arg1 uint32, arg2 uint32) string {
 }
 
 func ctLookup4Info1(n *DebugMsg) string {
-	return fmt.Sprintf("src=%s:%d dst=%s:%d", ip4Str(n.Arg2),
-		n.Arg3&0xFFFF, ip4Str(n.Arg1), n.Arg3>>16)
+	return fmt.Sprintf("src=%s:%d dst=%s:%d", ip4Str(n.Arg1),
+		n.Arg3>>16, ip4Str(n.Arg2), n.Arg3&0xFFFF)
 }
 
 func ctLookup4Info2(n *DebugMsg) string {
@@ -171,7 +179,7 @@ func ctCreate4Info(n *DebugMsg) string {
 }
 
 func ctLookup6Info1(n *DebugMsg) string {
-	return fmt.Sprintf("src=[::%x]:%d dst=[::%x]:%d", ip6Str(n.Arg1), n.Arg3&0xFFFF, ip6Str(n.Arg2), n.Arg3>>16)
+	return fmt.Sprintf("src=[::%x]:%d dst=[::%x]:%d", ip6Str(n.Arg1), n.Arg3>>16, ip6Str(n.Arg2), n.Arg3&0xFFFF)
 }
 
 func ctCreate6Info(n *DebugMsg) string {
@@ -321,6 +329,14 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
 	case DbgCTCreated6:
 		fmt.Printf("Conntrack create: %s\n", ctCreate6Info(n))
+	case DbgLB6MasterHit:
+		fmt.Printf("Successful service lookup for [::%s]:%d, %d backends found\n",
+			ip6Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)), n.Arg3)
+	case DbgLB4MasterHit:
+		fmt.Printf("Successful service lookup for %s:%d, %d backends found\n",
+			ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)), n.Arg3)
+	case DbgErrAbort:
+		fmt.Printf("Aborted processing on error %d\n", int32(n.Arg1))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
@@ -431,6 +447,18 @@ func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 		fmt.Printf("Packet to proxy port %d (Pre)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
 	case DbgCaptureProxyPost:
 		fmt.Printf("Packet to proxy port %d (Post)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureNat:
+		fmt.Printf("Performing SNAT via ifindex %d\n", n.Arg1)
+	case DbgCaptureNatRev:
+		fmt.Printf("Performing reverse SNAT via findex %d\n", n.Arg1)
+	case DbgCaptureNatRevOut:
+		fmt.Printf("Incoming packet from reverse SNAT with revnat %d\n",
+			byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureFromNat:
+		fmt.Printf("Incoming packet from SNAT with revnat %d\n",
+			byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureFromHost:
+		fmt.Printf("Incoming packet from host to ifindex %d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}

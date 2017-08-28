@@ -88,6 +88,7 @@ var (
 	v6ServicePrefix       string
 	tunnelMode            string
 	device                string
+	directServerReturn    bool
 )
 
 var logOpts = make(map[string]string)
@@ -255,7 +256,7 @@ func init() {
 	flags.StringVarP(&device,
 		"device", "d", deviceAuto, "Network device for external network access (default: auto)")
 	flags.BoolVar(&disableConntrack,
-		"disable-conntrack", false, "Disable connection tracking")
+		"disable-conntrack", false, "Default to no connection tracking for endpoints")
 	flags.BoolVar(&config.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
 	flags.BoolVar(&disableBPFTrace,
@@ -266,6 +267,8 @@ func init() {
 		"enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
+	flags.BoolVar(&directServerReturn,
+		"direct-server-return", false, "Enable direct server return load-balancing")
 	flags.StringVar(&v4Prefix,
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,

@@ -23,6 +23,7 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef HAVE_LRU_MAP_TYPE
 #define NEEDS_TIMEOUT 1
@@ -48,7 +49,15 @@
 #define CILIUM_CALL_IPV4			7
 #define CILIUM_CALL_NAT64			8
 #define CILIUM_CALL_NAT46			9
-#define CILIUM_CALL_SIZE			10
+#define CILIUM_CALL_LB_IP4			10
+#define CILIUM_CALL_LB_IP6			11
+#define CILIUM_CALL_IPV6			12
+/* Account for some reserves without requiring to change the map size */
+#define CILIUM_CALL_SIZE			256
+
+/* metadata field (20 bits) */
+#define MD_ID_MASK 0xFFFF
+#define MD_F_REVNAT (1 << 16)
 
 typedef __u64 mac_t;
 
@@ -227,7 +236,14 @@ enum {
 	CB_IFINDEX,
 	CB_POLICY,
 	CB_NAT46_STATE,
-	CB_CT_STATE,
+	CB_CT_FLAGS,
+};
+
+/* CB_CT_FLAGS */
+enum {
+	CB_CT_SNAT = 1, /* This packet has passed through the SNAT box and must
+			 * be routed back through the SNAT box in the reverse
+			 * direction */
 };
 
 /* State values for NAT46 */
@@ -243,9 +259,9 @@ enum {
 struct ipv6_ct_tuple {
 	union v6addr	daddr;
 	union v6addr	saddr;
-	/* The order of dport+sport must not be changed */
-	__u16		dport;
+	/* The order of sport+dport must not be changed */
 	__u16		sport;
+	__u16		dport;
 	__u8		nexthdr;
 	__u8		flags;
 };
@@ -253,9 +269,9 @@ struct ipv6_ct_tuple {
 struct ipv4_ct_tuple {
 	__be32		daddr;
 	__be32		saddr;
-	/* The order of dport+sport must not be changed */
-	__u16		dport;
+	/* The order of sport+dport must not be changed */
 	__u16		sport;
+	__u16		dport;
 	__u8		nexthdr;
 	__u8		flags;
 } __attribute__((packed));
@@ -270,7 +286,8 @@ struct ct_entry {
 	      tx_closing:1,
 	      nat46:1,
 	      lb_loopback:1,
-	      reserve:12;
+	      snat:1,
+	      reserve:11;
 	__u16 rev_nat_index;
 	__u16 proxy_port;
 	__u32 src_sec_id;
@@ -323,7 +340,8 @@ struct lb_sequence {
 struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
-	      reserved:15;
+	      snat:1,
+	      reserved:14;
 	__u16 orig_dport;
 	__u16 proxy_port;
 	__be32 addr;

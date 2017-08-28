@@ -33,6 +33,7 @@
 #include "lib/geneve.h"
 #include "lib/drop.h"
 #include "lib/policy.h"
+#include "lib/nat.h"
 
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
@@ -110,6 +111,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct endpoint_info *ep;
 	struct bpf_tunnel_key key = {};
+	__u32 secctx;
 	int l4_off;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
@@ -119,6 +121,21 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return DROP_NO_TUNNEL_KEY;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	/* Packet is coming from the distributed load balancer and will be
+	 * required to pass through SNAT box. The skb->mark will keep the
+	 * clashing 5-tuple unique until the SNAT happens. Packets redirected
+	 * into NAT_IN_IFINDEX will come out of NAT_OUT_IFINDEX with a unique 5
+	 * tuple.
+	 */
+	secctx = * (volatile __u32 *) &skb->mark;
+
+	if (secctx & MD_F_REVNAT) {
+		__u32 revnat = secctx & MD_ID_MASK;
+		encode_nat_metadata(skb, key.tunnel_id, revnat);
+		cilium_trace_capture(skb, DBG_CAPTURE_NAT, 0);
+		return TC_ACT_OK;
+	}
 
 	/* Lookup IPv4 address in list of local endpoints */
 	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
