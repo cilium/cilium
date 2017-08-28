@@ -144,8 +144,26 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 	__u16 slave;
 
 	ipv6_addr_copy(&key.address, (union v6addr *) &ip6->daddr);
-	l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_INGRESS);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+	/* We never have to reverse translate packets which come from the host
+	 * or from the NAT box */
+#if !defined FROM_HOST && !defined FROM_NAT
+	if (1) {
+		struct ct_state ct_state = {};
+
+		/* Create tuple in egress direction (back to host) */
+		l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_EGRESS);
+
+		ret = ct_lookup6(&CT_MAP6, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
+		if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index)) {
+			return lb6_rev_nat(skb, l4_off, &csum_off,
+					   ct_state.rev_nat_index, &tuple, 0);
+		}
+	}
+#endif
+
+	l4_off = ct_extract_tuple6(skb, &tuple, ip6, ETH_HLEN, CT_INGRESS);
 
 #ifdef LB_L4
 	ret = extract_l4_port(skb, tuple.nexthdr, l4_off, &key.dport);
@@ -341,8 +359,29 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	__u16 slave;
 
 	key.address = ip4->daddr;
-	l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_INGRESS);
+
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+	/* We never have to reverse translate packets which come from the host
+	 * or from the NAT box */
+#if !defined FROM_HOST && !defined FROM_NAT
+	if (1) {
+		struct ct_state ct_state = {};
+
+		/* Create tuple in egress direction (back to host) */
+		l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_EGRESS);
+
+		ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, CT_EGRESS, &ct_state);
+		if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index)) {
+			return lb4_rev_nat(skb, ETH_HLEN, l4_off, &csum_off,
+					   ct_state.loopback, &tuple,
+					   ct_state.rev_nat_index, REV_NAT_F_TUPLE_SADDR);
+		}
+	}
+#endif
+
+	/* Create tuple in ingress direation (from host) */
+	l4_off = ct_extract_tuple4(&tuple, ip4, ETH_HLEN, CT_INGRESS);
 
 #ifdef LB_L4
 	ret = extract_l4_port(skb, tuple.nexthdr, l4_off, &key.dport);
