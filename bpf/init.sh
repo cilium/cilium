@@ -191,7 +191,7 @@ else
 	fi
 fi
 
-if [ "$MODE" = "direct" -o "$MODE" = "lb" ]; then
+if [ "$MODE" = "direct" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for direct mode, ignoring..."
 	else
@@ -199,8 +199,19 @@ if [ "$MODE" = "direct" -o "$MODE" = "lb" ]; then
 
 		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 		CALLS_MAP=cilium_calls_netdev_${ID}
-		OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
+
+		echo "$NATIVE_DEV" > $RUNDIR/device.state
+	fi
+elif [ "$MODE" = "lb" ]; then
+	if [ -z "$NATIVE_DEV" ]; then
+		echo "No device specified for direct mode, ignoring..."
+	else
+		sysctl -w net.ipv6.conf.all.forwarding=1
+
+		OPTS="-DLB_L3 -DLB_L4 -DCALLS_MAP=cilium_calls_lb_${ID}"
+		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
