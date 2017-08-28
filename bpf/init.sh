@@ -96,17 +96,38 @@ function bpf_load()
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
+function setup_veth()
+{
+	local -r NAME=$1
+
+	ip link set $NAME up
+	sysctl -w net.ipv4.conf.${NAME}.forwarding=1
+	sysctl -w net.ipv6.conf.${NAME}.forwarding=1
+	sysctl -w net.ipv4.conf.${NAME}.rp_filter=0
+	sysctl -w net.ipv4.conf.${NAME}.accept_local=1
+	sysctl -w net.ipv4.conf.${NAME}.send_redirects=0
+}
+
+function setup_veth_pair()
+{
+	local -r NAME1=$1
+	local -r NAME2=$2
+
+	ip link del $NAME1 2> /dev/null || true
+	ip link add $NAME1 type veth peer name $NAME2
+
+	setup_veth $NAME1
+	setup_veth $NAME2
+}
+
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
-ip link del $HOST_DEV1 2> /dev/null || true
-ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
+setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
-ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
-ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
 
 sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
