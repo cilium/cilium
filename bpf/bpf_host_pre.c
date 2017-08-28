@@ -27,6 +27,8 @@
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/dbg.h"
+#include "lib/drop.h"
+#include "lib/eth.h"
 
 static inline void __inline__ derive_identity(struct __sk_buff *skb, __u32 *secctx)
 {
@@ -41,12 +43,17 @@ static inline void __inline__ derive_identity(struct __sk_buff *skb, __u32 *secc
 __section("to-netdev")
 int to_netdev(struct __sk_buff *skb)
 {
+	union macaddr cilium_net_mac = CILIUM_NET_MAC;
 	__u32 secctx;
 
 	cilium_trace_capture(skb, DBG_CAPTURE_FROM_HOST, skb->ifindex);
 
 	derive_identity(skb, &secctx);
 	skb->tc_index = secctx;
+
+	/* Rewrite to destination MAC of cilium_net (remote peer) */
+	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
+		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK);
 
 	/* Pass to other side of veth */
 	return TC_ACT_OK;
