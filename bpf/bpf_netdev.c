@@ -49,7 +49,7 @@
 #include "lib/encap.h"
 
 #if defined LB_IP4 || defined LB_IP6
-static inline int __inline__ handle_redirect(struct __sk_buff *skb)
+static inline int __inline__ handle_delivery(struct __sk_buff *skb)
 {
 #ifdef LB_REDIRECT
 	int ifindex = LB_REDIRECT;
@@ -184,7 +184,7 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 	if (IS_ERR(ret))
 		return ret;
 
-	return handle_redirect(skb);
+	return handle_delivery(skb);
 }
 #endif
 
@@ -278,6 +278,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #endif
 		}
 	}
+
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 
 	return TC_ACT_OK;
 }
@@ -394,7 +396,7 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	if (IS_ERR(ret))
 		return ret;
 
-	return handle_redirect(skb);
+	return handle_delivery(skb);
 }
 #endif
 
@@ -477,6 +479,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		}
 	}
 #endif
+
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 
 	return TC_ACT_OK;
 }
