@@ -84,6 +84,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
+#ifdef FROM_HOST
 static inline int __inline__
 reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 {
@@ -137,6 +138,7 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 
 	return 0;
 }
+#endif /* FROM_HOST */
 
 #ifdef LB_IP6
 static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *ip6, int l4_off)
@@ -199,7 +201,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
+#if defined FROM_HOST || defined LB_IP6
 	int ret;
+#endif
 
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
@@ -244,6 +248,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
+#ifdef FROM_HOST
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
 		if (IS_ERR(ret))
 			return ret;
@@ -253,6 +258,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		ip6 = data + ETH_HLEN;
 		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
 			return DROP_INVALID;
+#endif /* FROM_HOST */
 
 		/* Lookup IPv4 address in list of local endpoints */
 		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
@@ -299,6 +305,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
+#ifdef FROM_HOST
 static inline int __inline__
 reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	      struct ipv4_ct_tuple *tuple)
@@ -357,6 +364,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 
 	return 0;
 }
+#endif /* FROM_HOST */
 
 #ifdef LB_IP4
 static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip4, int l4_off)
@@ -405,7 +413,10 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
-	int l4_off, ret;
+	int l4_off;
+#if defined FROM_HOST || defined LB_IP4
+	int ret;
+#endif
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -446,6 +457,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 		cilium_trace(skb, DBG_NETDEV_IN_CLUSTER, secctx, 0);
 
+#ifdef FROM_HOST
 		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -456,6 +468,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		ip4 = data + ETH_HLEN;
 		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 			return DROP_INVALID;
+#endif /* FROM_HOST */
 
 		/* Lookup IPv4 address in list of local endpoints */
 		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
