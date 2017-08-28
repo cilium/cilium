@@ -81,9 +81,6 @@ const (
 	tunnelModeDisabled = "disabled"
 	tunnelModeVXLAN    = "vxlan"
 	tunnelModeGeneve   = "geneve"
-
-	deviceAuto     = "auto"
-	deviceDisabled = "disabled"
 )
 
 const (
@@ -660,10 +657,11 @@ func (d *Daemon) compileBase() error {
 	args[initArgTunnelMode] = tunnelMode
 	args[initArgDevice] = device
 
-	if device != deviceDisabled {
+	if device != "undefined" {
 		_, err := netlink.LinkByName(device)
 		if err != nil {
-			log.Fatalf("Interface %s does not exist: %s", device, err)
+			log.Warningf("Link %s does not exist: %s", device, err)
+			return err
 		}
 
 		if d.conf.IsLBEnabled() {
@@ -1107,8 +1105,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("IPv6 allocation prefix: %s", nodeaddress.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", nodeaddress.GetIPv4AllocRange())
 	log.Debugf("IPv6 router address: %s", nodeaddress.GetIPv6Router())
-	log.Infof("External interface: %s", device)
-	log.Infof("Tunnel mode: %s", tunnelMode)
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
