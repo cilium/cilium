@@ -249,7 +249,7 @@ Step 4: Test L3/L4 Policy
 =========================
 
 We can now verify the network policy that was imported.
-You can now launch additional containers represent other services attempting to
+You can now launch additional containers that represent other services attempting to
 access backend. Any new container with label `id=app2` will be
 allowed to access the *app1* on port 80, otherwise the network request will be
 dropped.
@@ -726,7 +726,7 @@ with the label "id=app2" :
 
 ::
 
-    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -m 10 http://app1
+    $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -m 20 http://app1
     <html><body><h1>It works!</h1></body></html>
 
 We can see that this request was successful, as we get a valid ping responses.
@@ -858,8 +858,7 @@ cilium/examples/getting-started directory and type:
 You can always re-create the VM using the steps described above.
 
 If instead you just want to shut down the VM but may use it later,
-``vagrant halt cilium-1`` will work, and you can start it again later
-using the contrib/vagrant/start.sh script.
+``vagrant halt cilium-1`` will work, and you can start it again later.
 
 ***************************
 Getting Started Using Mesos

@@ -440,7 +440,7 @@ according to the CNI configuration. A typical example for this is the
 
 A simple way to change networking for such existing pods is to rely on the fact
 that Kubernetes automatically restarts pods in a Deployment if they are
-deleted, so we can simply delete the original kube-dns pod and the replacment
+deleted, so we can simply delete the original kube-dns pod and the replacement
 pod started immediately after will have networking managed by Cilium.  In a
 production deployment, this step could be performed as a rolling update of
 kube-dns pods to avoid downtime of the DNS service.
@@ -986,10 +986,10 @@ Follow `the CoreOS instructions for setting up kube-dns and kube-dashboard <http
 .. _admin_install_source:
 
 *************************
-Instsallation From Source
+Installation From Source
 *************************
 
-If for some reason you do not want to run Cilium as a contaimer image.
+If for some reason you do not want to run Cilium as a container image.
 Installing it from source is possible as well. It does come with additional
 dependencies described in :ref:`admin_system_reqs`.
 
