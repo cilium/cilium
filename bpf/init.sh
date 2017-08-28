@@ -239,6 +239,17 @@ echo "#ifndef HOST_IFINDEX_MAC" >> $RUNDIR/globals/node_config.h
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
 echo "#endif /* HOST_IFINDEX_MAC */" >> $RUNDIR/globals/node_config.h
 
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
+CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
+
+# Remove the entire '#ifndef ... #endif block
+# Each line must contain the string '#.*CILIUM_NET_MAC.*'
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
+echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
+echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
+
 # If the host does not have an IPv6 address assigned, assign our generated host
 # IP to make the host accessible to endpoints
 ip -6 addr show $IP6_HOST || {
