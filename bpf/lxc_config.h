@@ -37,8 +37,6 @@
 #define CT_MAP4 cilium_ct4_111
 #define CT_MAP_SIZE 4096
 #define CALLS_MAP cilium_calls_111
-#define LB_L3
-#define LB_L4
 #define CONNTRACK
 #define NR_CFG_L4_INGRESS 2
 #define CFG_L4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0

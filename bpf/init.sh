@@ -96,17 +96,38 @@ function bpf_load()
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
+function setup_veth()
+{
+	local -r NAME=$1
+
+	ip link set $NAME up
+	sysctl -w net.ipv4.conf.${NAME}.forwarding=1
+	sysctl -w net.ipv6.conf.${NAME}.forwarding=1
+	sysctl -w net.ipv4.conf.${NAME}.rp_filter=0
+	sysctl -w net.ipv4.conf.${NAME}.accept_local=1
+	sysctl -w net.ipv4.conf.${NAME}.send_redirects=0
+}
+
+function setup_veth_pair()
+{
+	local -r NAME1=$1
+	local -r NAME2=$2
+
+	ip link del $NAME1 2> /dev/null || true
+	ip link add $NAME1 type veth peer name $NAME2
+
+	setup_veth $NAME1
+	setup_veth $NAME2
+}
+
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
-ip link del $HOST_DEV1 2> /dev/null || true
-ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
+setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
-ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
-ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
 
 sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
@@ -117,6 +138,17 @@ sed -i '/^#.*HOST_IFINDEX_MAC.*$/d' $RUNDIR/globals/node_config.h
 HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
 HOST_MAC=$(mac2array $HOST_MAC)
 echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
+
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
+CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
+
+# Remove the entire '#ifndef ... #endif block
+# Each line must contain the string '#.*CILIUM_NET_MAC.*'
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
+echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
+echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
 
 # If the host does not have an IPv6 address assigned, assign our generated host
 # IP to make the host accessible to endpoints
@@ -186,7 +218,7 @@ if [ "$NATIVE_DEV" != "disabled" ]; then
 	sysctl -w net.ipv6.conf.all.forwarding=1
 	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 	CALLS_MAP=cilium_calls_netdev_${ID}
-	OPTS="-DLB_L3 -DLB_L4 -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
 	bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 	echo "$NATIVE_DEV" > $RUNDIR/device.state
@@ -200,8 +232,11 @@ else
 	fi
 fi
 
+CALLS_MAP="cilium_calls_host_pre"
+bpf_load $HOST_DEV1 "" "egress" bpf_host_pre.c bpf_host_pre.o to-netdev $CALLS_MAP
+
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
 CALLS_MAP="cilium_calls_netdev_ns_${ID}"
 OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
-bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV2 "$OPTS" "ingress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP

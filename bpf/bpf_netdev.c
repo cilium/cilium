@@ -48,30 +48,31 @@
 #include "lib/drop.h"
 #include "lib/encap.h"
 
-static inline int __inline__ handle_redirect(struct __sk_buff *skb, int ret)
+#if defined LB_IP4 || defined LB_IP6
+static inline int __inline__ handle_delivery(struct __sk_buff *skb)
 {
 #ifdef LB_REDIRECT
-	if (ret == TC_ACT_REDIRECT) {
-		int ifindex = LB_REDIRECT;
+	int ifindex = LB_REDIRECT;
 #ifdef LB_DSTMAC
-		union macaddr mac = LB_DSTMAC;
+	union macaddr mac = LB_DSTMAC;
 
-		if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
-			ret = DROP_WRITE_ERROR;
+	if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
+		return DROP_WRITE_ERROR;
 #endif
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		return redirect(ifindex, 0);
-	}
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+	return redirect(ifindex, 0);
 #endif
 
-	return ret;
+	return TC_ACT_OK;
 }
+#endif
 
 static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *node_ip,
 				   struct ipv6hdr *ip6)
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
+
 #else
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
@@ -83,6 +84,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
+#ifdef FROM_HOST
 static inline int __inline__
 reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 {
@@ -136,6 +138,7 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 
 	return 0;
 }
+#endif /* FROM_HOST */
 
 #ifdef LB_IP6
 static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *ip6, int l4_off)
@@ -180,7 +183,10 @@ static inline int __inline__ svc_lookup6(struct __sk_buff *skb, struct ipv6hdr *
 	if (IS_ERR(ret))
 		return ret;
 
-	return TC_ACT_REDIRECT;
+	if (IS_ERR(ret))
+		return ret;
+
+	return handle_delivery(skb);
 }
 #endif
 
@@ -195,7 +201,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
+#if defined FROM_HOST || defined LB_IP6
 	int ret;
+#endif
 
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
@@ -205,9 +213,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 #ifdef LB_IP6
 	ret = svc_lookup6(skb, ip6, l4_off);
-	if (IS_ERR(ret))
-		return ret;
-	else if (ret == TC_ACT_REDIRECT)
+	if (IS_ERR(ret) || ret == TC_ACT_REDIRECT)
 		return ret;
 
 	/* DIRECT READ ACCESS INVALIDATED */
@@ -232,15 +238,17 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 #ifdef FROM_HOST
-	/* For packets from the host, the identity can be specified via skb->mark */
-	if (skb->mark) {
-		flowlabel = skb->mark;
+	/* For packets from the host, the identity can be specified via skb->tc_index */
+	if (skb->tc_index) {
+		flowlabel = skb->tc_index;
+		skb->tc_index = 0;
 	}
 #endif
 
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
+#ifdef FROM_HOST
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
 		if (IS_ERR(ret))
 			return ret;
@@ -250,6 +258,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		ip6 = data + ETH_HLEN;
 		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
 			return DROP_INVALID;
+#endif /* FROM_HOST */
 
 		/* Lookup IPv4 address in list of local endpoints */
 		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
@@ -276,6 +285,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		}
 	}
 
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+
 	return TC_ACT_OK;
 }
 
@@ -294,6 +305,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
+#ifdef FROM_HOST
 static inline int __inline__
 reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	      struct ipv4_ct_tuple *tuple)
@@ -352,6 +364,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 
 	return 0;
 }
+#endif /* FROM_HOST */
 
 #ifdef LB_IP4
 static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip4, int l4_off)
@@ -388,7 +401,10 @@ static inline int __inline__ svc_lookup4(struct __sk_buff *skb, struct iphdr *ip
 	if (IS_ERR(ret))
 		return ret;
 
-	return TC_ACT_REDIRECT;
+	if (IS_ERR(ret))
+		return ret;
+
+	return handle_delivery(skb);
 }
 #endif
 
@@ -397,7 +413,10 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	void *data = (void *) (long) skb->data;
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
-	int l4_off, ret;
+	int l4_off;
+#if defined FROM_HOST || defined LB_IP4
+	int ret;
+#endif
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -406,9 +425,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 #ifdef LB_IP4
 	ret = svc_lookup4(skb, ip4, l4_off);
-	if (IS_ERR(ret))
-		return ret;
-	else if (ret == TC_ACT_REDIRECT)
+	if (IS_ERR(ret) || ret == TC_ACT_REDIRECT)
 		return ret;
 
 	/* DIRECT READ ACCESS INVALIDATED */
@@ -430,15 +447,17 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 		secctx = derive_ipv4_sec_ctx(skb, ip4);
 #ifdef FROM_HOST
-		if (skb->mark) {
-			/* For packets from the host, the identity can be specified via skb->mark */
-			secctx = skb->mark;
+		if (skb->tc_index) {
+			/* For packets from the host, the identity can be specified via skb->tc_index */
+			secctx = skb->tc_index;
+			skb->tc_index;
 		}
 #endif
 		tuple.nexthdr = ip4->protocol;
 
 		cilium_trace(skb, DBG_NETDEV_IN_CLUSTER, secctx, 0);
 
+#ifdef FROM_HOST
 		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -449,6 +468,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		ip4 = data + ETH_HLEN;
 		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 			return DROP_INVALID;
+#endif /* FROM_HOST */
 
 		/* Lookup IPv4 address in list of local endpoints */
 		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
@@ -473,6 +493,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 #endif
 
+	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+
 	return TC_ACT_OK;
 }
 
@@ -485,7 +507,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 		return send_drop_notify_error(skb, ret, TC_ACT_OK);
 	}
 
-	return handle_redirect(skb, ret);
+	return ret;
 }
 
 #endif
@@ -501,7 +523,6 @@ int from_netdev(struct __sk_buff *skb)
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
 		ret = handle_ipv6(skb);
-		ret = handle_redirect(skb, ret);
 
 		/* On error, report the error but pass the packet to the stack */
 		if (IS_ERR(ret))

@@ -232,10 +232,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4Global)
 	}
 
-	// Always enable L4 and L3 load balancer for now
-	fw.WriteString("#define LB_L3\n")
-	fw.WriteString("#define LB_L4\n")
-
 	// Endpoint options
 	fw.WriteString(e.Opts.GetFmtList())
 
