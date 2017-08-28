@@ -596,7 +596,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Create an ICMPv6 entry to relate errors */
 	struct ipv6_ct_tuple icmp_tuple = {
-		.nexthdr = IPPROTO_ICMP,
+		.nexthdr = IPPROTO_ICMPV6,
 		.sport = 0,
 		.dport = 0,
 		.flags = tuple->flags | TUPLE_F_RELATED,
