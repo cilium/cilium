@@ -124,6 +124,9 @@ enum {
 	DBG_CAPTURE_FROM_NAT,	 /* bpf_netdev.c (when compiled with FROM_NAT)
 				  * arg1: ingress ifindex of where the bpf_netdev is attached to
 				  */
+	DBG_CAPTURE_FROM_HOST,	 /* bpf_host_pre.o - packet is coming from host
+				  * arg1: egress ifindex
+				  */
 };
 
 #ifndef EVENT_SOURCE

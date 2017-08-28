@@ -85,15 +85,15 @@ static inline void __inline__ derive_identity_and_revnat(struct __sk_buff *skb, 
 
 #elif defined FROM_HOST
 	/* When packet is coming from the host, it may contain the security
-	 * identity, otherwise we fall back to FALLBACK_SECCTX which will point
-	 * to HOST_ID or WORLD_ID.
+	 * identity in the tc_index, otherwise we fall back to FALLBACK_SECCTX
+	 * which will point to HOST_ID or WORLD_ID.
 	 *
 	 * The reverse NAT index may be known if the packet was load-balanced
 	 * locally, if so, it will have been stored to the cb buffer in
 	 * CILIUM_CALL_LB_IP4
 	 */
-	if (skb->mark)
-		*secctx = skb->mark;
+	if (skb->tc_index)
+		*secctx = skb->tc_index;
 	else
 		*secctx = FALLBACK_SECCTX;
 

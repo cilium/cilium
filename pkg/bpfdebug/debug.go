@@ -45,6 +45,7 @@ const (
 	DbgCaptureNatRev
 	DbgCaptureNatRevOut
 	DbgCaptureFromNat
+	DbgCaptureFromHost
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -456,6 +457,8 @@ func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 	case DbgCaptureFromNat:
 		fmt.Printf("Incoming packet from SNAT with revnat %d\n",
 			byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureFromHost:
+		fmt.Printf("Incoming packet from host to ifindex %d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}
