@@ -48,7 +48,9 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 	if (skb->cb[CB_POLICY])
 		goto allow;
 
+#ifdef SECLABEL
 	cilium_trace(skb, DBG_POLICY_DENIED, src_label, SECLABEL);
+#endif
 
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
