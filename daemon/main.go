@@ -86,7 +86,6 @@ var (
 	v4ClusterCidrMaskSize int
 	v4ServicePrefix       string
 	v6ServicePrefix       string
-	tunnelMode            string
 )
 
 var logOpts = make(map[string]string)
@@ -317,8 +316,8 @@ func init() {
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&config.RunDir,
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
-	flags.StringVarP(&tunnelMode,
-		"tunnel", "t", tunnelModeVXLAN, `Tunnel mode ("vxlan", "geneve", or "disabled")`)
+	flags.StringVarP(&config.Tunnel,
+		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
 	flags.IntVar(&tracePayloadLen,
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
@@ -422,13 +421,6 @@ func initConfig() {
 
 func initEnv() {
 	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
-
-	switch tunnelMode {
-	case tunnelModeDisabled, tunnelModeVXLAN, tunnelModeGeneve:
-	default:
-		log.Fatalf("Unknown tunnel mode '%s'. Supported tunneling modes: %s, %s, %s",
-			tunnelMode, tunnelModeVXLAN, tunnelModeGeneve, tunnelModeDisabled)
-	}
 
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
