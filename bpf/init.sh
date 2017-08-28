@@ -107,7 +107,7 @@ function delete_old_ip_rules()
 	done
 }
 
-function setup_veth()
+function prepare_interface()
 {
 	local -r NAME=$1
 
@@ -127,8 +127,8 @@ function setup_veth_pair()
 	ip link del $NAME1 2> /dev/null || true
 	ip link add $NAME1 type veth peer name $NAME2
 
-	setup_veth $NAME1
-	setup_veth $NAME2
+	prepare_interface $NAME1
+	prepare_interface $NAME2
 }
 
 function define_mac_in_header()
@@ -219,16 +219,10 @@ HOST_DEV2="cilium_net"
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
-ip link del $HOST_DEV1 2> /dev/null || true
-ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
+setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
-ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
-ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
-
-sysctl -w net.ipv4.conf.${HOST_DEV1}.rp_filter=0
-sysctl -w net.ipv4.conf.${HOST_DEV2}.rp_filter=0
 
 sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
