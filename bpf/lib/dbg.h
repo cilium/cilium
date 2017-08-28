@@ -102,6 +102,9 @@ enum {
 	DBG_CAPTURE_AFTER_V64,
 	DBG_CAPTURE_PROXY_PRE,
 	DBG_CAPTURE_PROXY_POST,
+	DBG_CAPTURE_FROM_HOST,	 /* bpf_host_pre.o - packet is coming from host
+				  * arg1: egress ifindex
+				  */
 };
 
 #ifndef EVENT_SOURCE

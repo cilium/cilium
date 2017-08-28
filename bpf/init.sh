@@ -200,8 +200,11 @@ else
 	fi
 fi
 
+CALLS_MAP="cilium_calls_host_pre"
+bpf_load $HOST_DEV1 "" "egress" bpf_host_pre.c bpf_host_pre.o to-netdev $CALLS_MAP
+
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 ID=$(cilium identity get $HOST_ID 2> /dev/null)
 CALLS_MAP="cilium_calls_netdev_ns_${ID}"
 OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
-bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV2 "$OPTS" "ingress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP

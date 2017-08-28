@@ -72,6 +72,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 {
 #ifdef FIXED_SRC_SECCTX
 	return FIXED_SRC_SECCTX;
+
 #else
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
@@ -232,9 +233,10 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
 #ifdef FROM_HOST
-	/* For packets from the host, the identity can be specified via skb->mark */
-	if (skb->mark) {
-		flowlabel = skb->mark;
+	/* For packets from the host, the identity can be specified via skb->tc_index */
+	if (skb->tc_index) {
+		flowlabel = skb->tc_index;
+		skb->tc_index = 0;
 	}
 #endif
 
@@ -430,9 +432,10 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 
 		secctx = derive_ipv4_sec_ctx(skb, ip4);
 #ifdef FROM_HOST
-		if (skb->mark) {
-			/* For packets from the host, the identity can be specified via skb->mark */
-			secctx = skb->mark;
+		if (skb->tc_index) {
+			/* For packets from the host, the identity can be specified via skb->tc_index */
+			secctx = skb->tc_index;
+			skb->tc_index;
 		}
 #endif
 		tuple.nexthdr = ip4->protocol;

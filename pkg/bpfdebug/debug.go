@@ -41,6 +41,7 @@ const (
 	DbgCaptureAfterV64
 	DbgCaptureProxyPre
 	DbgCaptureProxyPost
+	DbgCaptureFromHost
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -431,6 +432,8 @@ func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 		fmt.Printf("Packet to proxy port %d (Pre)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
 	case DbgCaptureProxyPost:
 		fmt.Printf("Packet to proxy port %d (Post)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureFromHost:
+		fmt.Printf("Incoming packet from host to ifindex %d\n", n.Arg1)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
 	}
