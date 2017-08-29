@@ -1205,7 +1205,7 @@ func init() {
           "type": "integer"
         },
         "labelSHA256": {
-          "description": "label SHA256",
+          "description": "SHA256 of labels",
           "type": "string"
         },
         "labels": {

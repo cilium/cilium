@@ -68,6 +68,7 @@ type ProxySource interface {
 	GetID() uint64
 	RLock()
 	GetLabels() []string
+	GetLabelSHA() string
 	GetIdentity() policy.NumericIdentity
 	GetIPv4Address() string
 	GetIPv6Address() string
@@ -199,6 +200,7 @@ func (r *Redirect) localEndpointInfo(info *EndpointInfo) {
 	info.IPv4 = r.source.GetIPv4Address()
 	info.IPv6 = r.source.GetIPv6Address()
 	info.Labels = r.source.GetLabels()
+	info.LabelSHA256 = r.source.GetLabelSHA()
 	info.Identity = uint64(r.source.GetIdentity())
 	r.source.RUnlock()
 }
@@ -214,6 +216,7 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 				if ep != nil {
 					info.ID = uint64(ep.ID)
 					info.Labels = ep.GetLabels()
+					info.LabelSHA256 = ep.GetLabelSHA()
 					info.Identity = uint64(ep.GetIdentity())
 				}
 			}
@@ -228,6 +231,7 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 				ep.RLock()
 				if ep != nil {
 					info.Labels = ep.GetLabels()
+					info.LabelSHA256 = ep.GetLabelSHA()
 					info.Identity = uint64(ep.GetIdentity())
 				}
 				ep.RUnlock()
