@@ -96,7 +96,11 @@ func (e *Endpoint) invalidatePolicy() {
 
 // ProxyID returns a unique string to identify a proxy mapping
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
-	return fmt.Sprintf("%d:%s:%d", e.ID, l4.Protocol, l4.Port)
+	direction := "ingress"
+	if !l4.Ingress {
+		direction = "egress"
+	}
+	return fmt.Sprintf("%d:%s:%s:%d", e.ID, direction, l4.Protocol, l4.Port)
 }
 
 func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error) {
