@@ -79,15 +79,19 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		Fatalf("Error while retrieving configuration: %s", err)
 	}
 
-	if numPages > 0 && numPages != int(resp.NodeMonitor.Npages) {
-		dOpts["MonitorNumPages"] = strconv.Itoa(numPages)
+	if numPages > 0 {
+		if resp.NodeMonitor != nil && numPages != int(resp.NodeMonitor.Npages) {
+			dOpts["MonitorNumPages"] = strconv.Itoa(numPages)
+		}
 	} else if len(opts) == 0 {
 		dumpConfig(resp.Configuration.Immutable)
 		dumpConfig(resp.Configuration.Mutable)
 		fmt.Printf("%-24s %s\n", "k8s-configuration", resp.K8sConfiguration)
 		fmt.Printf("%-24s %s\n", "k8s-endpoint", resp.K8sEndpoint)
 		fmt.Printf("%-24s %s\n", "PolicyEnforcement", resp.PolicyEnforcement)
-		fmt.Printf("%-24s %d\n", "MonitorNumPages", resp.NodeMonitor.Npages)
+		if resp.NodeMonitor != nil {
+			fmt.Printf("%-24s %d\n", "MonitorNumPages", resp.NodeMonitor.Npages)
+		}
 		return
 	}
 
