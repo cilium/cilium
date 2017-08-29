@@ -48,7 +48,7 @@
  * Return 0 on success or a negative DROP_* reason
  */
 static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
-				 struct csum_offset *csum_off, __u16 port, __u16 old_port)
+				 struct csum_offset *csum_off, __be16 port, __be16 old_port)
 {
 	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
 		return DROP_CSUM_L4;
@@ -77,7 +77,7 @@ static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
  */
 static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
 				 struct csum_offset *csum_off,
-				 struct portmap *map, __u16 dport)
+				 struct portmap *map, __be16 dport)
 {
 	cilium_trace(skb, DBG_PORT_MAP, bpf_ntohs(map->from), bpf_ntohs(map->to));
 
@@ -106,7 +106,7 @@ static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
  */
 static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
 				  struct csum_offset *csum_off,
-				  struct portmap *map, __u16 sport)
+				  struct portmap *map, __be16 sport)
 {
 	cilium_trace(skb, DBG_PORT_MAP, bpf_ntohs(map->to), bpf_ntohs(map->from));
 
@@ -117,19 +117,19 @@ static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
 	return l4_modify_port(skb, l4_off, TCP_SPORT_OFF, csum_off, map->from, sport);
 }
 
-static inline int l4_load_port(struct __sk_buff *skb, int off, __u16 *port)
+static inline int l4_load_port(struct __sk_buff *skb, int off, __be16 *port)
 {
-        return skb_load_bytes(skb, off, port, sizeof(__u16));
+        return skb_load_bytes(skb, off, port, sizeof(__be16));
 }
 
 /* Structure to define an L4 port which may ingress into an endpoint */
 struct l4_allow
 {
 	/* Allowed destination port number */
-	__u16 port;
+	__be16 port;
 
 	/* If defined, will redirect all traffic to this proxy port */
-	__u16 proxy;
+	__be16 proxy;
 
 	/* Allowed nexthdr (IPPROTO_ICMP, IPPROTO_TCP, IPPROTO_UDP) */
 	__u8 nexthdr;
@@ -140,7 +140,7 @@ struct l4_allow
 #endif
 
 #ifdef CFG_L4_INGRESS
-static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
+static inline int __inline__ l4_ingress_embedded(__be16 dport, __u8 nexthdr)
 {
 	int allowed = DROP_POLICY_L4;
 
@@ -150,7 +150,7 @@ static inline int __inline__ l4_ingress_embedded(__u16 dport, __u8 nexthdr)
 #endif
 
 #ifdef CFG_L4_EGRESS
-static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
+static inline int __inline__ l4_egress_embedded(__be16 dport, __u8 nexthdr)
 {
 	int allowed = DROP_POLICY_L4;
 
@@ -174,7 +174,7 @@ static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
  *          n < 0 if connection should be dropped with reason n
  */
 static inline int __inline__
-l4_ingress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
+l4_ingress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 {
 #ifdef CFG_L4_INGRESS
 	return l4_ingress_embedded(dport, nexthdr);
@@ -198,7 +198,7 @@ l4_ingress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
  *          n < 0 if connection should be dropped with reason n
  */
 static inline int __inline__
-l4_egress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
+l4_egress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 {
 #ifdef CFG_L4_EGRESS
 	return l4_egress_embedded(dport, nexthdr);

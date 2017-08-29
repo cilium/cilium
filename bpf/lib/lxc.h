@@ -88,7 +88,7 @@ static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
 #ifdef LXC_IPV4
 static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
-			  int l4_off, __u16 new_port, __u16 old_port, __be32 old_ip,
+			  int l4_off, __be16 new_port, __be16 old_port, __be32 old_ip,
 			  struct ipv4_ct_tuple *tuple, __u32 identity)
 {
 	__be32 host_ip = IPV4_GATEWAY;
@@ -134,7 +134,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 static inline int __inline__
 ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
-			  int l4_off, __u16 new_port, __u16 old_port,
+			  int l4_off, __be16 new_port, __be16 old_port,
 			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip,
 			  __u32 identity)
 {
