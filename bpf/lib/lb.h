@@ -175,7 +175,7 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 }
 
 static inline int __inline__ extract_l4_port(struct __sk_buff *skb, __u8 nexthdr,
-					     int l4_off, __u16 *port)
+					     int l4_off, __be16 *port)
 {
 	int ret;
 
@@ -201,14 +201,14 @@ static inline int __inline__ extract_l4_port(struct __sk_buff *skb, __u8 nexthdr
 }
 
 static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nexthdr,
-						 __u16 port, int l4_off,
+						 __be16 port, int l4_off,
 						 struct csum_offset *csum_off)
 {
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 		if (port) {
-			__u16 old_port;
+			__be16 old_port;
 			int ret;
 
 			/* Port offsets for UDP and TCP are the same */
@@ -395,7 +395,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
-		__u16 tmp = svc->port;
+		__be16 tmp = svc->port;
 		int ret;
 
 		/* Port offsets for UDP and TCP are the same */
@@ -633,7 +633,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
-		__u16 tmp = svc->port;
+		__be16 tmp = svc->port;
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))

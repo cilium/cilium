@@ -155,7 +155,7 @@ struct tcp_flags {
 static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
 	union v6addr tmp_addr = {};
-	__u16 tmp;
+	__be16 tmp;
 
 	ipv6_addr_copy(&tmp_addr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &tuple->daddr);
@@ -306,7 +306,7 @@ out:
 static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
 	__be32 tmp_addr = tuple->saddr;
-	__u16 tmp;
+	__be16 tmp;
 
 	tuple->saddr = tuple->daddr;
 	tuple->daddr = tmp_addr;
