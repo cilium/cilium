@@ -19,11 +19,8 @@
  * Drop & error notification via perf event ring buffer
  *
  * API:
- * int send_drop_notify(skb, src, dst, dst_id, ifindex, exitcode)
+ * int send_drop_notify(skb, src, dst, dst_id, ifindex, reason, exitcode)
  * int send_drop_notify_error(skb, error, exitcode)
- *
- * Both functions are implemented as terminal calls and will cause the BPF
- * program to terminate after execution.
  *
  * If DROP_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
@@ -37,19 +34,23 @@
 #include "utils.h"
 
 #ifdef DROP_NOTIFY
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_notify(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __sk_buff *skb)
 {
-	uint64_t skb_len = skb->len, cap_len = min(128ULL, skb_len);
+	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
 	uint32_t hash = get_hash_recalc(skb);
+	uint32_t srcdst_info = skb->cb[1];
 	struct drop_notify msg = {
 		.type = CILIUM_NOTIFY_DROP,
 		.source = EVENT_SOURCE,
 		.hash = hash,
 		.len_orig = skb_len,
 		.len_cap = cap_len,
-		.ifindex = skb->ingress_ifindex,
+		.src_label = srcdst_info >> 16,
+		.dst_label = srcdst_info & 0xFFFF,
+		.dst_id = skb->cb[3],
+		.ifindex = skb->cb[4],
 	};
-	int error = skb->cb[1];
+	int error = skb->cb[2];
 
 	if (error < 0)
 		error = -error;
@@ -64,77 +65,26 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ERROR_NOTIFY) int __send_error_noti
 }
 
 /**
- * send_drop_notify_error
- * @skb:	socket buffer
- * @error:	error code to be returned
- * @exitcode:	error code to return to the kernel
- *
- * Generate a notification to indicate a packet was dropped due to an error
- * condition while parsing and processing the packet. Use send_drop_notify()
- * instead for any policy related drops.
- *
- * NOTE: This is terminal function and will cause the BPF program to exit
- */
-static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
-{
-	if (IS_ERR(error)) {
-		skb->cb[0] = exitcode;
-		skb->cb[1] = error;
-
-		ep_tail_call(skb, CILIUM_CALL_ERROR_NOTIFY);
-
-		return exitcode;
-	}
-
-	/* No error condition, return original return code */
-	return error;
-}
-
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __sk_buff *skb)
-{
-	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
-	uint32_t hash = get_hash_recalc(skb);
-	struct drop_notify msg = {
-		.type = CILIUM_NOTIFY_DROP,
-		.subtype = -(DROP_POLICY),
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = skb_len,
-		.len_cap = cap_len,
-		.src_label = skb->cb[1],
-		.dst_label = skb->cb[2],
-		.dst_id = skb->cb[3],
-		.ifindex = skb->cb[4],
-	};
-
-	skb_event_output(skb, &cilium_events,
-			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
-
-	return skb->cb[0];
-}
-
-/**
  * send_drop_notify
  * @skb:	socket buffer
- * @src:	source context ID
- * @dst:	destination context ID
- * @dst_id:	designated destination container ID
+ * @src:	source identity
+ * @dst:	destination identity
+ * @dst_id:	designated destination endpoint ID
  * @ifindex:	designated destination ifindex
+ * @reason:	Reason for drop
  * @exitcode:	error code to return to the kernel
  *
- * Generate a notification to indicate a packet was dropped due to a policy
- * violation. Use send_drop_notify_error() for any generic error related
- * packet drops instead.
+ * Generate a notification to indicate a packet was dropped.
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
 static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
-				   __u32 dst_id, __u32 ifindex, int exitcode)
+				   __u32 dst_id, __u32 ifindex, int reason,
+				   int exitcode)
 {
 	skb->cb[0] = exitcode;
-	skb->cb[1] = src;
-	skb->cb[2] = dst;
+	skb->cb[1] = (src << 16) | (dst & 0xFFFF);
+	skb->cb[2] = reason;
 	skb->cb[3] = dst_id;
 	skb->cb[4] = ifindex,
 
@@ -143,16 +93,16 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 	return exitcode;
 }
 #else
-static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
-{
-	return exitcode;
-}
-
 static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
-				    __u32 dst_id, __u32 ifindex, int exitcode)
+				    __u32 dst_id, __u32 ifindex, int reason, int exitcode)
 {
 	return exitcode;
 }
 #endif
+
+static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
+{
+	return send_drop_notify(skb, 0, 0, 0, 0, error, exitcode);
+}
 
 #endif /* __LIB_DROP__ */

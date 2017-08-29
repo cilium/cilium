@@ -215,7 +215,7 @@ __section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_bu
 
 	if (policy_can_access(&POLICY_MAP, skb, src_label, 0, NULL) != TC_ACT_OK) {
 		return send_drop_notify(skb, src_label, SECLABEL, 0,
-					ifindex, TC_ACT_SHOT);
+					ifindex, DROP_POLICY, TC_ACT_SHOT);
 	} else {
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 
