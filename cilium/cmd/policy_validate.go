@@ -31,6 +31,11 @@ var policyValidateCmd = &cobra.Command{
 		if ruleList, err := loadPolicy(path); err != nil {
 			Fatalf("Validation of policy has failed: %s\n", err)
 		} else {
+			for _, r := range ruleList {
+				if err := r.Validate(); err != nil {
+					Fatalf("Validation of policy has failed: %s\n", err)
+				}
+			}
 			fmt.Printf("All policy elements are valid.\n")
 
 			if printPolicy {
