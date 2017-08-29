@@ -21,6 +21,9 @@ type EndpointPolicy struct {
 	// Build number of calculated policy in use
 	Build int64 `json:"build,omitempty"`
 
+	// cidr policy
+	CidrPolicy *CIDRPolicy `json:"cidr-policy,omitempty"`
+
 	// Own identity of endpoint
 	ID int64 `json:"id,omitempty"`
 
@@ -33,6 +36,11 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAllowedConsumers(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateCidrPolicy(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -52,6 +60,25 @@ func (m *EndpointPolicy) validateAllowedConsumers(formats strfmt.Registry) error
 
 	if swag.IsZero(m.AllowedConsumers) { // not required
 		return nil
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CidrPolicy) { // not required
+		return nil
+	}
+
+	if m.CidrPolicy != nil {
+
+		if err := m.CidrPolicy.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cidr-policy")
+			}
+			return err
+		}
 	}
 
 	return nil

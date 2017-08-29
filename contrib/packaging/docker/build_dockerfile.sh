@@ -7,7 +7,7 @@ function build_dockerfile_dev {
    cat <<EOF > ./Dockerfile
 FROM cilium/dependencies:`cat ../../../VERSION`
 LABEL maintainer="andre@cilium.io"
-
+# New packages can be added by appending ../cp-dirs
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 RUN 
 EOF

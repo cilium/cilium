@@ -83,13 +83,13 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy kube-system "${l7_stresstest_dir}/policies/cnp.yaml"
+    k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp.yaml"
 
     docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest 1>/dev/null
 
     if [ $? -ne 0 ]; then abort "l7-stresstest policy not in cilium" ; fi
 else
-    k8s_apply_policy kube-system "${l7_stresstest_dir}/policies/cnp-deprecated.yaml"
+    k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp-deprecated.yaml"
 
     docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest-deprecated 1>/dev/null
 
@@ -106,11 +106,11 @@ echo "===== Netstat ====="
 
 netstat -ltn
 
-code=$(kubectl exec -n qa -i ${frontend_pod} -- curl --connect-timeout 10 -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
+code=$(kubectl exec -n qa -i ${frontend_pod} -- curl -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
 
 if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend and backend" ; fi
 
-code=$(kubectl exec -n qa -i ${frontend_pod} -- curl --connect-timeout 10 -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/health)
+code=$(kubectl exec -n qa -i ${frontend_pod} -- curl --connect-timeout 20 -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/health)
 
 if [ ${code} -ne 403 ]; then abort "Error: unexpected connection between frontend and backend. wanted HTTP 403, got: HTTP ${code}" ; fi
 
@@ -127,9 +127,8 @@ set +e
 
 echo "Not found policy is expected to happen"
 
-kubectl delete -f "${l7_stresstest_dir}/"
-
-kubectl delete -f "${l7_stresstest_dir}/policies"
+k8s_apply_policy $NAMESPACE delete "${l7_stresstest_dir}/"
+k8s_apply_policy $NAMESPACE delete "${l7_stresstest_dir}/policies"
 
 kubectl delete namespace qa development
 

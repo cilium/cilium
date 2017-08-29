@@ -51,26 +51,26 @@ wait_for_endpoints 1
 
 monitor_clear
 echo "------ pinging service1 from service3 ------"
-docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 5 ${HTTPD_CONTAINER_NAME} && {
+docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 10 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
 
 monitor_clear
 echo "------ pinging service1 from service2 ------"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 5 ${HTTPD_CONTAINER_NAME}  || {
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 10 ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 ------"
-RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/public")
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' -XGET http://${HTTPD_CONTAINER_NAME}/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
   abort "Error: Could not reach ${HTTPD_CONTAINER_NAME}/public on port 80"
 fi
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/private from service2 ------"
-RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/private")
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' -XGET http://${HTTPD_CONTAINER_NAME}/private")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
   abort "Error: Could not reach ${HTTPD_CONTAINER_NAME}/private on port 80"
 fi
@@ -106,14 +106,14 @@ wait_for_cilium_ep_gen
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 ------"
-RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/public")
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' -XGET http://${HTTPD_CONTAINER_NAME}/public")
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
   abort "Error: Could not reach ${HTTPD_CONTAINER_NAME}/public on port 80"
 fi
 
 monitor_clear
 echo "------ performing HTTP GET on ${HTTPD_CONTAINER_NAME}/private from service2 ------"
-RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://${HTTPD_CONTAINER_NAME}/private")
+RETURN=$(docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" ${DEMO_CONTAINER} /bin/bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 15 -XGET http://${HTTPD_CONTAINER_NAME}/private")
 # FIXME: re-renable when redirect issue is resolved
 #if [[ "${RETURN//$'\n'}" != "403" ]]; then
 #  abort "Error: Unexpected success reaching ${HTTPD_CONTAINER_NAME}/private on port 80"

@@ -64,6 +64,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			ep.SetDefaultOpts(nil)
 		} else {
 			ep.SetDefaultOpts(d.conf.Opts)
+			ep.Opts.Set(endpoint.OptionPolicy, d.EnablePolicyEnforcement())
 		}
 
 		endpointmanager.Insert(ep)

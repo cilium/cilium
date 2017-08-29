@@ -29,8 +29,8 @@ func (c *Client) ConfigGet() (*models.DaemonConfigurationResponse, error) {
 }
 
 // ConfigPatch modifies the daemon configuration.
-func (c *Client) ConfigPatch(cfg models.ConfigurationMap) error {
-	params := daemon.NewPatchConfigParams().WithConfiguration(cfg)
+func (c *Client) ConfigPatch(cfg models.Configuration) error {
+	params := daemon.NewPatchConfigParams().WithConfiguration(&cfg)
 	_, err := c.Daemon.PatchConfig(params)
 	return err
 }

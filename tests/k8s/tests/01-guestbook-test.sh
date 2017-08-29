@@ -29,7 +29,7 @@ trap finish_test exit
 guestbook_dir="${dir}/deployments/guestbook"
 
 # We will test old kubernetes network policy in kubernetes 1.6 and 1.7
-k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
+k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
 
 if [ $? -ne 0 ]; then abort "guestbook-policy-redis-deprecated policy was not inserted in kubernetes" ; fi
 
@@ -37,9 +37,9 @@ if [ $? -ne 0 ]; then abort "guestbook-policy-redis-deprecated policy was not in
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-web.yaml"
+    k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-web.yaml"
 else
-    k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
+    k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
 fi
 
 cilium_id=$(docker ps -aq --filter=name=cilium-agent)
@@ -104,7 +104,7 @@ if [[ -n "${lb}" ]]; then
     # FIXME finish this test case once we have LB up and running
 fi
 
-kubectl delete -f "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
+k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
 
 set +e
 
@@ -115,7 +115,7 @@ if [ $? -eq 0 ]; then abort "guestbook-redis-deprecated policy found in cilium; 
 # FIXME Remove workaround once we drop k8s 1.6 support
 # Only test the new network policy with k8s >= 1.7
 if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy kube-system "${guestbook_dir}/policies/guestbook-policy-redis.json"
+    k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-redis.json"
 
     docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 1>/dev/null
 
@@ -136,7 +136,12 @@ set +e
 
 kubectl delete -f "${guestbook_dir}/"
 
-kubectl delete -f "${guestbook_dir}/policies"
+if [[ "${k8s_version}" == 1.7.* ]]; then
+  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web.json"
+  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-redis.json"
+else
+  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
+if
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 2>/dev/null
 
@@ -150,6 +155,6 @@ if [[ "${k8s_version}" == 1.7.* ]]; then
 fi
 
 if [[ -n "${lb}" ]]; then
-    kubectl delete -f "${guestbook_dir}/ingress"
+    k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/ingress"
 fi
 

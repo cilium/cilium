@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 )
@@ -151,5 +152,27 @@ func (l3 *L3Policy) DeepCopy() *L3Policy {
 	return &L3Policy{
 		Ingress: l3.Ingress.DeepCopy(),
 		Egress:  l3.Egress.DeepCopy(),
+	}
+}
+
+// GetModel returns the API model representation of the L3Policy.
+func (l3 *L3Policy) GetModel() *models.CIDRPolicy {
+	if l3 == nil {
+		return nil
+	}
+
+	ingress := []string{}
+	for _, v := range l3.Ingress.Map {
+		ingress = append(ingress, v.String())
+	}
+
+	egress := []string{}
+	for _, v := range l3.Egress.Map {
+		egress = append(egress, v.String())
+	}
+
+	return &models.CIDRPolicy{
+		Ingress: ingress,
+		Egress:  egress,
 	}
 }

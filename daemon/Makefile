@@ -8,7 +8,7 @@ include ../Makefile.defs
 
 
 TARGET=cilium-agent
-SOURCES := $(shell find ../api ../common ../daemon ../pkg . -name '*.go')
+SOURCES := $(shell find ../api ../common ../daemon ../pkg ../monitor . -name '*.go')
 $(TARGET): $(SOURCES) check-bindata
 	$(GO) build -i $(GOBUILD) -o $(TARGET)
 

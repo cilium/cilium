@@ -1084,6 +1084,7 @@ Apply an L3/L4 policy only allowing the *goodclient* to access the *web-server*.
         }]
     }]
 
+
 In your original terminal session, use ``cilium`` CLI to apply the L3/L4 policy above, saved in the ``l3-l4-policy.json`` file on the VM:
  
 ::

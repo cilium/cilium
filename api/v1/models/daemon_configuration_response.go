@@ -27,6 +27,12 @@ type DaemonConfigurationResponse struct {
 
 	// k8s endpoint
 	K8sEndpoint string `json:"k8s-endpoint,omitempty"`
+
+	// Status of the node monitor
+	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
+
+	// policy enforcement
+	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
 
 // Validate validates this daemon configuration response
@@ -39,6 +45,11 @@ func (m *DaemonConfigurationResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateConfiguration(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateNodeMonitor(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -79,6 +90,25 @@ func (m *DaemonConfigurationResponse) validateConfiguration(formats strfmt.Regis
 		if err := m.Configuration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("configuration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationResponse) validateNodeMonitor(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.NodeMonitor) { // not required
+		return nil
+	}
+
+	if m.NodeMonitor != nil {
+
+		if err := m.NodeMonitor.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("nodeMonitor")
 			}
 			return err
 		}

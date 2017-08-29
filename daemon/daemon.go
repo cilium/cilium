@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
+	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -61,6 +62,7 @@ import (
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/mattn/go-shellwords"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -118,6 +120,8 @@ type Daemon struct {
 
 	uniqueIDMU sync.Mutex
 	uniqueID   map[uint64]bool
+
+	nodeMonitor *monitor.NodeMonitor
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -244,12 +248,12 @@ func (d *Daemon) AlwaysAllowLocalhost() bool {
 	return d.conf.alwaysAllowLocalhost
 }
 
-func (d *Daemon) PolicyEnabled() bool {
-	return d.conf.Opts.IsEnabled(endpoint.OptionPolicy)
-}
-
-func (d *Daemon) PolicyEnforcement() string {
-	return d.conf.EnablePolicy
+// PolicyEnforcement returns the type of policy enforcement for the daemon.
+func (d *Daemon) PolicyEnforcement() (pe string) {
+	d.conf.EnablePolicyMU.RLock()
+	pe = d.conf.EnablePolicy
+	d.conf.EnablePolicyMU.RUnlock()
+	return
 }
 
 // DebugEnabled returns if debug mode is enabled.
@@ -311,8 +315,13 @@ func createDockerClient(endpoint string) (*dClient.Client, error) {
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
 }
 
+// Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) writeNetdevHeader(dir string) error {
+
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
+
+	log.Debugf("writing configuration to %s", headerPath)
+
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
@@ -322,8 +331,22 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fw.WriteString(d.conf.Opts.GetFmtList())
+	fw.WriteString(d.fmtPolicyEnforcement())
 
 	return fw.Flush()
+}
+
+// returns #define for PolicyEnforcement based on the configuration of the daemon.
+// Must be called with d.conf.EnablePolicyMU locked.
+func (d *Daemon) fmtPolicyEnforcement() string {
+	d.GetPolicyRepository().Mutex.RLock()
+	enforcement := d.EnablePolicyEnforcement()
+	d.GetPolicyRepository().Mutex.RUnlock()
+
+	if enforcement {
+		return fmt.Sprintf("#define %s\n", endpoint.OptionSpecPolicy.Define)
+	}
+	return fmt.Sprintf("#undef %s\n", endpoint.OptionSpecPolicy.Define)
 }
 
 func (d *Daemon) setHostAddresses() error {
@@ -438,25 +461,126 @@ func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
 	}
 }
 
+const (
+	ciliumPostNatChain = "CILIUM_POST"
+	feederDescription  = "cilium-feeder:"
+)
+
+type customChain struct {
+	name       string
+	table      string
+	hook       string
+	feederArgs []string
+}
+
+func getFeedRule(name, args string) []string {
+	ruleTail := []string{"-m", "comment", "--comment", feederDescription + " " + name, "-j", name}
+	if args == "" {
+		return ruleTail
+	}
+	argsList, err := shellwords.Parse(args)
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to parse rule '%s' into argument slice", args)
+	}
+	return append(argsList, ruleTail...)
+}
+
+func (c *customChain) add() error {
+	return runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
+}
+
+func removeCiliumRules(table string) {
+	prog := "iptables"
+	args := []string{"-t", table, "-S"}
+
+	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		return
+	}
+	if err != nil {
+		log.Warningf("Command execution %s %s failed: %s", prog,
+			strings.Join(args, " "), err)
+		return
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	for scanner.Scan() {
+		rule := scanner.Text()
+		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		if strings.Contains(strings.ToLower(rule), "cilium") &&
+			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
+			// From: -A POSTROUTING -m comment [...]
+			// To:   -D POSTROUTING -m comment [...]
+			ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
+			if err != nil {
+				log.WithError(err).Warningf("Unable to parse iptables rule '%s' into slice. Leaving rule behind.")
+				continue
+			}
+
+			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
+			log.Debugf("Removing iptables rule '%v'", deleteRule)
+			err = runProg("iptables", deleteRule, true)
+			if err != nil {
+				log.WithError(err).Warningf("Unable to delete Cilium iptables rule '%s'", rule)
+			}
+		}
+	}
+}
+
+func (c *customChain) remove() {
+	runProg("iptables", []string{
+		"-t", c.table,
+		"-F", c.name}, true)
+
+	runProg("iptables", []string{
+		"-t", c.table,
+		"-X", c.name}, true)
+}
+
+func (c *customChain) installFeeder() error {
+	for _, feedArgs := range c.feederArgs {
+		err := runProg("iptables", append([]string{"-t", c.table, "-A", c.hook}, getFeedRule(c.name, feedArgs)...), true)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ciliumChains is the list of custom iptables chain used by Cilium. Custom
+// chains are used to allow for simple replacements of all rules.
+//
+// WARNING: If you change or remove any of the feeder rules you have to ensure
+// that the old feeder rules is also removed on agent start, otherwise,
+// flushing and removing the custom chains will fail.
+var ciliumChains = []customChain{
+	{
+		name:       ciliumPostNatChain,
+		table:      "nat",
+		hook:       "POSTROUTING",
+		feederArgs: []string{""},
+	},
+}
+
 func (d *Daemon) removeMasqRule() {
-	runProg("iptables", []string{
-		"-t", "nat",
-		"-D", "POSTROUTING",
-		"-j", "CILIUM_POST"}, true)
-	runProg("iptables", []string{
-		"-t", "nat",
-		"-F", "CILIUM_POST"}, true)
-	runProg("iptables", []string{
-		"-t", "nat",
-		"-X", "CILIUM_POST"}, true)
+	tables := []string{"nat", "mangle", "raw"}
+	for _, t := range tables {
+		removeCiliumRules(t)
+	}
+
+	for _, c := range ciliumChains {
+		c.remove()
+	}
 }
 
 func (d *Daemon) installMasqRule() error {
-	// Add cilium POSTROUTING chain
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-N", "CILIUM_POST"}, false); err != nil {
-		return err
+	for _, c := range ciliumChains {
+		if err := c.add(); err != nil {
+			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
+		}
 	}
 
 	// Masquerade all traffic from node prefix not going to node prefix
@@ -476,7 +600,7 @@ func (d *Daemon) installMasqRule() error {
 	// if the source is not the internal IP
 	if err := runProg("iptables", []string{
 		"-t", "nat",
-		"-A", "CILIUM_POST",
+		"-A", ciliumPostNatChain,
 		"!", "-s", nodeaddress.GetInternalIPv4().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
@@ -484,13 +608,16 @@ func (d *Daemon) installMasqRule() error {
 		return err
 	}
 
-	// Hook POSTROUTING into Cilium POSTROUTING chain
-	return runProg("iptables", []string{
-		"-t", "nat",
-		"-A", "POSTROUTING",
-		"-j", "CILIUM_POST"}, false)
+	for _, c := range ciliumChains {
+		if err := c.installFeeder(); err != nil {
+			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
+		}
+	}
+
+	return nil
 }
 
+// Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) compileBase() error {
 	var args []string
 	var mode string
@@ -573,11 +700,13 @@ func (d *Daemon) compileBase() error {
 
 	reserveLocalRoutes(d.ipamConf)
 
-	// Always remove masquerade rule and then re-add it if required
-	d.removeMasqRule()
-	if masquerade && d.conf.Device == "undefined" {
-		if err := d.installMasqRule(); err != nil {
-			return err
+	if !d.conf.IPv4Disabled {
+		// Always remove masquerade rule and then re-add it if required
+		d.removeMasqRule()
+		if masquerade {
+			if err := d.installMasqRule(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -628,11 +757,14 @@ func (d *Daemon) init() error {
 
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
-	ipv4GW := nodeaddress.GetInternalIPv4()
-	fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
-
 	if !d.conf.IPv4Disabled {
+		ipv4GW := nodeaddress.GetInternalIPv4()
+		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
+	} else {
+		// FIXME: Workaround so the bpf program compiles
+		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
+		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
 	}
 
 	ipv4Range := nodeaddress.GetIPv4AllocRange()
@@ -666,9 +798,13 @@ func (d *Daemon) init() error {
 	f.Close()
 
 	if !d.DryModeEnabled() {
+		d.conf.EnablePolicyMU.Lock()
 		if err := d.compileBase(); err != nil {
+			d.conf.EnablePolicyMU.Unlock()
 			return err
 		}
+
+		d.conf.EnablePolicyMU.Unlock()
 
 		localIPs := []net.IP{
 			nodeaddress.GetInternalIPv4(),
@@ -738,43 +874,44 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
 	}
 
-	if !c.IPv4Disabled {
-		ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
-		ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
-			// IPv4
-			cniTypes.Route{
-				Dst: nodeaddress.GetIPv4NodeRoute(),
-			},
-			cniTypes.Route{
-				Dst: nodeaddress.IPv4DefaultRoute,
-				GW:  nodeaddress.GetInternalIPv4(),
-			})
+	// Since docker doesn't support IPv6 only and there's always an IPv4
+	// address we can set up ipam for IPv4. More info:
+	// https://github.com/docker/libnetwork/pull/826
+	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
+	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
+		// IPv4
+		cniTypes.Route{
+			Dst: nodeaddress.GetIPv4NodeRoute(),
+		},
+		cniTypes.Route{
+			Dst: nodeaddress.IPv4DefaultRoute,
+			GW:  nodeaddress.GetInternalIPv4(),
+		})
 
-		// Reserve the IPv4 router IP if it is part of the IPv4
-		// allocation range to ensure that we do not hand out the
-		// router IP to a container.
-		allocRange := nodeaddress.GetIPv4AllocRange()
-		nodeIP := nodeaddress.GetExternalIPv4()
-		if allocRange.Contains(nodeIP) {
-			err := ipamConf.IPv4Allocator.Allocate(nodeIP)
-			if err != nil {
-				log.Debugf("Unable to reserve IPv4 router address '%s': %s",
-					nodeIP, err)
-			}
-		}
-
-		internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
+	// Reserve the IPv4 router IP if it is part of the IPv4
+	// allocation range to ensure that we do not hand out the
+	// router IP to a container.
+	allocRange := nodeaddress.GetIPv4AllocRange()
+	nodeIP := nodeaddress.GetExternalIPv4()
+	if allocRange.Contains(nodeIP) {
+		err := ipamConf.IPv4Allocator.Allocate(nodeIP)
 		if err != nil {
-			log.Fatalf("Unable to allocate internal IPv4 node IP: %s", err)
+			log.Debugf("Unable to reserve IPv4 router address '%s': %s",
+				nodeIP, err)
 		}
-
-		nodeaddress.SetInternalIPv4(internalIP)
 	}
+
+	internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
+	if err != nil {
+		log.Fatalf("Unable to allocate internal IPv4 node IP: %s", err)
+	}
+
+	nodeaddress.SetInternalIPv4(internalIP)
 
 	// Reserve the IPv6 router and node IP if it is part of the IPv6
 	// allocation range to ensure that we do not hand out the router IP to
 	// a container.
-	allocRange := nodeaddress.GetIPv6AllocRange()
+	allocRange = nodeaddress.GetIPv6AllocRange()
 	for _, ip6 := range []net.IP{nodeaddress.GetIPv6()} {
 		if allocRange.Contains(ip6) {
 			err := ipamConf.IPv6Allocator.Allocate(ip6)
@@ -1092,24 +1229,63 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	d := h.daemon
 
-	if err := d.conf.Opts.Validate(params.Configuration); err != nil {
+	// Serialize configuration updates to the daemon.
+	d.conf.ConfigPatchMutex.Lock()
+	defer d.conf.ConfigPatchMutex.Unlock()
+
+	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
+		if d.nodeMonitor.Arg != numPagesEntry {
+			d.nodeMonitor.Restart(numPagesEntry)
+		}
+		if len(params.Configuration.Mutable) == 0 {
+			return NewPatchConfigOK()
+		}
+		delete(params.Configuration.Mutable, "MonitorNumPages")
+	}
+	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
-	changes := d.conf.Opts.Apply(params.Configuration, changedOption, d)
-	log.Debugf("Applied %d changes", changes)
+	// Track changes to daemon's configuration
+	var changes int
 
-	// Check explicitly for endpoint.OptionPolicy updates because its state
-	// is coupled with config's EnablePolicy flag.
-	_, ok := params.Configuration[endpoint.OptionPolicy]
-	if ok {
-		if config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.AlwaysEnforce {
-			config.EnablePolicy = endpoint.AlwaysEnforce
-		} else if !config.Opts.IsEnabled(endpoint.OptionPolicy) && config.EnablePolicy != endpoint.NeverEnforce {
-			config.EnablePolicy = endpoint.NeverEnforce
+	enforcement := params.Configuration.PolicyEnforcement
+
+	// Only update if value provided for PolicyEnforcement.
+	if enforcement != "" {
+		log.Debugf("configuration request to change PolicyEnforcement for daemon")
+		switch enforcement {
+		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+
+			// Update policy enforcement configuration if needed.
+			config.EnablePolicyMU.Lock()
+			oldEnforcementValue := config.EnablePolicy
+
+			// If the policy enforcement configuration has indeed changed, we have
+			// to regenerate endpoints and update daemon's configuration.
+			if enforcement != oldEnforcementValue {
+				changes++
+				config.EnablePolicy = enforcement
+				d.TriggerPolicyUpdates([]policy.NumericIdentity{})
+			}
+			config.EnablePolicyMU.Unlock()
+		default:
+			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
+			log.Warningf("%s", msg)
+			return apierror.Error(PatchConfigFailureCode, msg)
 		}
+		log.Debugf("finished configuring PolicyEnforcement for daemon")
 	}
+
+	changes += d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
+
+	log.Debugf("Applied %d changes to daemon's configuration", changes)
+
+	// Only recompile if configuration has changed.
 	if changes > 0 {
+		log.Debugf("daemon configuration has changed; recompiling base programs")
+		d.conf.EnablePolicyMU.Lock()
+		defer d.conf.EnablePolicyMU.Unlock()
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			log.Warningf("%s", msg)
@@ -1149,10 +1325,12 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	d := h.daemon
 
 	cfg := &models.DaemonConfigurationResponse{
-		Addressing:       d.getNodeAddressing(),
-		Configuration:    d.conf.Opts.GetModel(),
-		K8sConfiguration: d.conf.K8sCfgPath,
-		K8sEndpoint:      d.conf.K8sEndpoint,
+		Addressing:        d.getNodeAddressing(),
+		Configuration:     d.conf.Opts.GetModel(),
+		K8sConfiguration:  d.conf.K8sCfgPath,
+		K8sEndpoint:       d.conf.K8sEndpoint,
+		PolicyEnforcement: d.conf.EnablePolicy,
+		NodeMonitor:       d.nodeMonitor.State(),
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)

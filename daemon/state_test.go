@@ -136,7 +136,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	ds.OnAlwaysAllowLocalhost = func() bool {
 		return false
 	}
-	ds.OnUpdateEndpointPolicyEnforcement = func(e *e.Endpoint) bool {
+	ds.OnEnableEndpointPolicyEnforcement = func(e *e.Endpoint) bool {
 		return true
 	}
 	ds.OnDryModeEnabled = func() bool {
@@ -329,6 +329,12 @@ func (ds *DaemonSuite) TestAllocateIP(c *C) {
 	ipv6 := nodeaddress.GetIPv6AllocRange().IP
 	nextIP(ipv6)
 	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
+	c.Assert(err, IsNil)
+
+	// Forcefully release possible allocated IPs
+	err = ds.d.ipamConf.IPv4Allocator.Release(epipv4.IP())
+	c.Assert(err, IsNil)
+	err = ds.d.ipamConf.IPv6Allocator.Release(epipv6.IP())
 	c.Assert(err, IsNil)
 
 	ep1.IPv4 = epipv4

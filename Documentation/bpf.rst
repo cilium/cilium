@@ -251,7 +251,8 @@ or an immediate value. Possible instruction classes include:
   jump logic differs compared to cBPF and allows for better branch prediction as it
   fits the CPU branch predictor logic more naturally. Available conditions are
   jeq (``==``), jne (``!=``), jgt (``>``), jge (``>=``), jsgt (signed ``>``), jsge
-  (signed ``>=``), jset (jump if ``DST & SRC``). Apart from that, there are three
+  (signed ``>=``), jlt (``<``), jle (``<=``), jslt (signed ``<``), jsle (signed
+  ``<=``) and jset (jump if ``DST & SRC``). Apart from that, there are three
   special jump operations within this class: the exit instruction which will leave
   the BPF program and return the current value in ``r0`` as a return code, the call
   instruction, which will issue a function call into one of the available BPF helper
@@ -263,8 +264,8 @@ BPF instructions. Even cBPF programs are translated into eBPF programs transpare
 in the kernel, except for architectures that still ship with a cBPF JIT and
 have not yet migrated to an eBPF JIT.
 
-Currently ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64`` architectures
-come with an in-kernel eBPF JIT compiler.
+Currently ``x86_64``, ``arm64``, ``ppc64``, ``s390x``, ``mips64``, ``sparc64`` and
+``arm`` architectures come with an in-kernel eBPF JIT compiler.
 
 All BPF handling such as loading of programs into the kernel or creation of BPF maps
 is managed through a central ``bpf()`` system call. It is also used for managing map
@@ -444,20 +445,18 @@ program's execution behaviour.
 JIT
 ---
 
-The 64 bit ``x86_64``, ``arm64``, ``ppc64``, ``s390x`` and ``sparc64``
-architectures are all shipped with an in-kernel eBPF JIT compiler (``mips64`` is
-work in progress at this time), also all of them are feature equivalent and can
-be enabled through:
+The 64 bit ``x86_64``, ``arm64``, ``ppc64``, ``s390x``, ``mips64``, ``sparc64``
+and 32 bit ``arm`` architectures are all shipped with an in-kernel eBPF JIT
+compiler, also all of them are feature equivalent and can be enabled through:
 
 ::
 
     # echo 1 > /proc/sys/net/core/bpf_jit_enable
 
-The 32 bit ``arm``, ``mips``, ``ppc`` and ``sparc`` architectures currently
-have a cBPF JIT compiler. The mentioned architectures still having a cBPF
-JIT as well as all remaining architectures supported by the Linux kernel
-which do not have a BPF JIT compiler at all need to run eBPF programs through
-the in-kernel interpreter.
+The 32 bit ``mips``, ``ppc`` and ``sparc`` architectures currently have a cBPF
+JIT compiler. The mentioned architectures still having a cBPF JIT as well as all
+remaining architectures supported by the Linux kernel which do not have a BPF JIT
+compiler at all need to run eBPF programs through the in-kernel interpreter.
 
 In the kernel's source tree, eBPF JIT support can be easily determined through
 issuing a grep for ``HAVE_EBPF_JIT``:
@@ -465,8 +464,10 @@ issuing a grep for ``HAVE_EBPF_JIT``:
 ::
 
     # git grep HAVE_EBPF_JIT arch/
+    arch/arm/Kconfig:       select HAVE_EBPF_JIT   if !CPU_ENDIAN_BE32
     arch/arm64/Kconfig:     select HAVE_EBPF_JIT
     arch/powerpc/Kconfig:   select HAVE_EBPF_JIT   if PPC64
+    arch/mips/Kconfig:      select HAVE_EBPF_JIT   if (64BIT && !CPU_MICROMIPS)
     arch/s390/Kconfig:      select HAVE_EBPF_JIT   if PACK_STACK && HAVE_MARCH_Z196_FEATURES
     arch/sparc/Kconfig:     select HAVE_EBPF_JIT   if SPARC64
     arch/x86/Kconfig:       select HAVE_EBPF_JIT   if X86_64

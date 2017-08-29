@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
+	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -437,9 +438,9 @@ func initEnv() {
 	// BPF filesystem is mapped into the slave namespace.
 	if bpfRoot != "" {
 		bpf.SetMapRoot(bpfRoot)
-	} else if err := bpf.MountFS(); err != nil {
-		log.Fatalf("Unable to mount BPF filesystem: %s", err)
 	}
+
+	bpf.MountFS()
 
 	if viper.GetBool("debug") {
 		config.Opts.Set(endpoint.OptionDebug, true)
@@ -451,18 +452,9 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackLocal, false)
 
+	config.EnablePolicyMU.Lock()
 	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
-
-	switch config.EnablePolicy {
-	case endpoint.DefaultEnforcement:
-		config.Opts.Set(endpoint.OptionPolicy, false)
-	case endpoint.NeverEnforce:
-		config.Opts.Set(endpoint.OptionPolicy, false)
-	case endpoint.AlwaysEnforce:
-		config.Opts.Set(endpoint.OptionPolicy, true)
-	default:
-		log.Fatalf("invalid value for enable-policy %q provided. Supported values: %s, %s, %s.", config.EnablePolicy, endpoint.DefaultEnforcement, endpoint.NeverEnforce, endpoint.AlwaysEnforce)
-	}
+	config.EnablePolicyMU.Unlock()
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		log.Fatalf("Unable to setup kvstore: %s", err)
@@ -533,6 +525,9 @@ func runDaemon() {
 	if enableLogstash {
 		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
+
+	d.nodeMonitor = &monitor.NodeMonitor{}
+	go d.nodeMonitor.Run()
 
 	sinceLastSync := time.Now()
 	d.SyncDocker()

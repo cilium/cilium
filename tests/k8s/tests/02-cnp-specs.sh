@@ -62,31 +62,31 @@ wait_for_service_endpoints_ready default productpage 9080
 
 reviews_pod_v1=$(kubectl get pods | grep reviews-v1 | awk '{print $1}')
 
-kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080/health
+kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080/health
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080/health service" ; fi
 
-kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080
+kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080 service" ; fi
 
 
 productpage_v1=$(kubectl get pods | grep productpage-v1 | awk '{print $1}')
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 details:9080/health
+kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080/health
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080/health service" ; fi
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 details:9080
+kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080 service" ; fi
 
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080/health
+kubectl exec -t ${productpage_v1} wget -- --tries=5 ratings:9080/health
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to ratings:9080/health service" ; fi
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080
+kubectl exec -t ${productpage_v1} wget -- --tries=5 ratings:9080
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to ratings:9080 service" ; fi
 
@@ -97,7 +97,7 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp.yaml"
+    k8s_apply_policy kube-system create "${bookinfo_dir}/policies/cnp.yaml"
 
     if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
@@ -105,7 +105,7 @@ if [[ "${k8s_version}" == 1.7.* ]]; then
 
     if [ $? -ne 0 ]; then abort "multi-rules policy not in cilium" ; fi
 else
-    k8s_apply_policy kube-system "${bookinfo_dir}/policies/cnp-deprecated.yaml"
+    k8s_apply_policy kube-system create "${bookinfo_dir}/policies/cnp-deprecated.yaml"
 
     if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
@@ -118,11 +118,11 @@ fi
 
 reviews_pod_v1=$(kubectl get pods | grep reviews-v1 | awk '{print $1}')
 
-kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080/health
+kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080/health
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080/health service" ; fi
 
-kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080
+kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080
 
 if [ $? -eq 0 ]; then abort "Error: unexpected success from reviews-v1 to ratings:9080 service" ; fi
 
@@ -130,20 +130,20 @@ if [ $? -eq 0 ]; then abort "Error: unexpected success from reviews-v1 to rating
 # Productpage should reach every page from Details.
 productpage_v1=$(kubectl get pods | grep productpage-v1 | awk '{print $1}')
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 details:9080/health
+kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080/health
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080/health service" ; fi
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 details:9080
+kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080 service" ; fi
 
 # But it should fail while reaching out Ratings
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080/health
+kubectl exec -t ${productpage_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080/health
 
 if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ratings:9080/health service" ; fi
 
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=5 --tries=1 ratings:9080
+kubectl exec -t ${productpage_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080
 
 if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ratings:9080 service" ; fi
 
@@ -152,11 +152,11 @@ echo "SUCCESS!"
 
 set +e
 
-kubectl delete -f "${bookinfo_dir}/"
+k8s_apply_policy $NAMESPACE delete "${bookinfo_dir}/"
 
 echo "Policies not found error is expected"
 
-kubectl delete -f "${bookinfo_dir}/policies"
+k8s_apply_policy $NAMESPACE delete "${bookinfo_dir}/policies"
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 2>/dev/null
 

@@ -31,6 +31,15 @@ var (
 	Library = option.OptionLibrary{
 		PolicyTracing: &SpecPolicyTracing,
 	}
+
+	DaemonMutableOptionLibrary = option.OptionLibrary{
+		endpoint.OptionConntrackAccounting: &endpoint.OptionSpecConntrackAccounting,
+		endpoint.OptionConntrackLocal:      &endpoint.OptionSpecConntrackLocal,
+		endpoint.OptionConntrack:           &endpoint.OptionSpecConntrack,
+		endpoint.OptionDebug:               &endpoint.OptionSpecDebug,
+		endpoint.OptionDropNotify:          &endpoint.OptionSpecDropNotify,
+		endpoint.OptionNAT46:               &endpoint.OptionSpecNAT46,
+	}
 )
 
 // Parse a string as daemon option
@@ -39,7 +48,7 @@ func Parse(opt string) (string, bool, error) {
 }
 
 func init() {
-	for k, v := range endpoint.EndpointMutableOptionLibrary {
+	for k, v := range DaemonMutableOptionLibrary {
 		Library[k] = v
 	}
 }

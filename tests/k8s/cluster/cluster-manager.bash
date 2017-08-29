@@ -6,9 +6,7 @@ source "${dir}/../helpers.bash"
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 etcd_version="v3.1.0"
-# due a kubeadm bug, only upgrade directly to >=1.7.3 once it's released!
-# more info github.com/kubernetes/kubeadm/issues/354
-k8s_version=${k8s_version:-"1.7.0-00"}
+k8s_version=${k8s_version:-"1.7.4-00"}
 
 certs_dir="${dir}/certs"
 k8s_dir="${dir}/k8s"
@@ -79,7 +77,7 @@ function generate_certs(){
 
 function install_etcd(){
     wget -nv https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
-    tar -xvf etcd-${etcd_version}-linux-amd64.tar.gz
+    tar -xf etcd-${etcd_version}-linux-amd64.tar.gz
     sudo mv etcd-${etcd_version}-linux-amd64/etcd* /usr/bin/
 }
 
@@ -134,13 +132,6 @@ WantedBy=multi-user.target
 EOF
 }
 
-# FIXME remove this workaround in kubeadm 1.7.3
-# More info: github.com/kubernetes/kubeadm/issues/335
-function create_rolebinding(){
-    wait_for_healthy_k8s_cluster 1
-    kubectl create -f "${dir}/kubeadm-fix.yaml" || true
-}
-
 function start_kubeadm() {
     cd /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster
 
@@ -169,8 +160,6 @@ EOF
 
         # copy kubeconfig so we can share it with node-2
         sudo cp /etc/kubernetes/admin.conf ./kubelet.conf
-
-        create_rolebinding
     else
         sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
 
@@ -189,20 +178,18 @@ EOF
 }
 
 function install_kubeadm_dependencies(){
-    sudo apt-get update && sudo apt-get install -y apt-transport-https
     sudo touch /etc/apt/sources.list.d/kubernetes.list
     curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
     sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 "
-
-    sudo apt-get update && sudo apt-get install -y docker-engine
+    sudo apt-get -qq update && sudo apt-get -qq install -y apt-transport-https docker-engine
     sudo usermod -aG docker vagrant
 }
 
 function install_kubeadm() {
-    sudo apt-get install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
+    sudo apt-get -qq install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
 }
 
 function install_cilium_config(){

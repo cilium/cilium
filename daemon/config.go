@@ -16,8 +16,11 @@ package main
 
 import (
 	"net"
+	"os"
+	"runtime"
 	"sync"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -52,8 +55,11 @@ type Config struct {
 	K8sEndpoint    string     // Kubernetes endpoint
 	K8sCfgPath     string     // Kubeconfig path
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
-	EnablePolicy   string     // Whether policy enforcement is enabled.
-	Tunnel         string     // Tunnel mode
+
+	EnablePolicyMU sync.RWMutex // Protects the variable below
+	EnablePolicy   string       // Whether policy enforcement is enabled.
+
+	Tunnel string // Tunnel mode
 
 	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
 	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
@@ -77,11 +83,18 @@ type Config struct {
 
 	// Options changeable at runtime
 	Opts *option.BoolOptions
+
+	// Mutex for serializing configuration updates to the daemon.
+	ConfigPatchMutex sync.RWMutex
+
+	// Monitor contains the configuration for the node monitor.
+	Monitor *models.MonitorStatus
 }
 
 func NewConfig() *Config {
 	return &Config{
-		Opts: option.NewBoolOptions(&options.Library),
+		Opts:    option.NewBoolOptions(&options.Library),
+		Monitor: &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 	}
 }
 

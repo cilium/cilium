@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -26,6 +28,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+var numPages int
 
 // configCmd represents the config command
 var configCmd = &cobra.Command{
@@ -46,6 +50,7 @@ var configCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(configCmd)
 	configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
+	configCmd.Flags().IntVarP(&numPages, "num-pages", "n", 0, "Number of pages for perf ring buffer. If 0, defaults to the Cilium daemon's configuration")
 }
 
 func dumpConfig(Opts map[string]string) {
@@ -67,22 +72,40 @@ func dumpConfig(Opts map[string]string) {
 }
 
 func configDaemon(cmd *cobra.Command, opts []string) {
-	if len(opts) == 0 {
-		resp, err := client.ConfigGet()
-		if err != nil {
-			Fatalf("Error while retrieving configuration: %s", err)
-		}
+	dOpts := make(models.ConfigurationMap, len(opts))
 
+	resp, err := client.ConfigGet()
+	if err != nil {
+		Fatalf("Error while retrieving configuration: %s", err)
+	}
+
+	if numPages > 0 && numPages != int(resp.NodeMonitor.Npages) {
+		dOpts["MonitorNumPages"] = strconv.Itoa(numPages)
+	} else if len(opts) == 0 {
 		dumpConfig(resp.Configuration.Immutable)
 		dumpConfig(resp.Configuration.Mutable)
 		fmt.Printf("%-24s %s\n", "k8s-configuration", resp.K8sConfiguration)
 		fmt.Printf("%-24s %s\n", "k8s-endpoint", resp.K8sEndpoint)
+		fmt.Printf("%-24s %s\n", "PolicyEnforcement", resp.PolicyEnforcement)
+		fmt.Printf("%-24s %d\n", "MonitorNumPages", resp.NodeMonitor.Npages)
 		return
 	}
 
-	dOpts := make(models.ConfigurationMap, len(opts))
+	var cfg models.Configuration
 
 	for k := range opts {
+
+		// TODO FIXME - this is a hack, and is not clean
+		optionSplit := strings.SplitN(opts[k], "=", 2)
+		if len(optionSplit) < 2 {
+			Fatalf("Improper configuration format provided")
+		}
+		arg := optionSplit[0]
+		if arg == "PolicyEnforcement" {
+			cfg.PolicyEnforcement = optionSplit[1]
+			continue
+		}
+
 		name, value, err := options.Parse(opts[k])
 		if err != nil {
 			fmt.Printf("%s\n", err)
@@ -96,7 +119,8 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		}
 	}
 
-	if err := client.ConfigPatch(dOpts); err != nil {
+	cfg.Mutable = dOpts
+	if err := client.ConfigPatch(cfg); err != nil {
 		Fatalf("Unable to change agent configuration: %s\n", err)
 	}
 }

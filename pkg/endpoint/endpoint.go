@@ -353,6 +353,8 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		currentState = models.EndpointStateNotReady
 	}
 
+	policyEnabled := e.Opts.IsEnabled(OptionPolicy)
+
 	return &models.Endpoint{
 		ID:               int64(e.ID),
 		ContainerID:      e.DockerID,
@@ -372,14 +374,43 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		HostMac:        e.NodeMAC.String(),
 		PodName:        e.PodName,
 		State:          currentState, // TODO: Validate
-		Policy:         e.Consumable.GetModel(),
-		PolicyEnabled:  e.Opts.IsEnabled(OptionPolicy),
+		Policy:         e.GetPolicyModel(),
+		PolicyEnabled:  &policyEnabled,
 		PolicyRevision: int64(e.PolicyRevision),
 		Status:         e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
 			IPV6: e.IPv6.String(),
 		},
+	}
+}
+
+// GetPolicyModel returns the endpoint's policy as an API model.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
+	if e == nil {
+		return nil
+	}
+
+	if e.Consumable == nil {
+		return nil
+	}
+
+	e.Consumable.Mutex.RLock()
+	defer e.Consumable.Mutex.RUnlock()
+
+	consumers := []int64{}
+	for _, v := range e.Consumable.Consumers {
+		consumers = append(consumers, int64(v.ID))
+	}
+
+	return &models.EndpointPolicy{
+		ID:               int64(e.Consumable.ID),
+		Build:            int64(e.Consumable.Iteration),
+		AllowedConsumers: consumers,
+		CidrPolicy:       e.L3Policy.GetModel(),
+		L4:               e.Consumable.L4Policy.GetModel(),
 	}
 }
 
