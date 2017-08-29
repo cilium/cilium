@@ -133,6 +133,7 @@ fi
 echo "SUCCESS!"
 
 set +e
+set -xv
 
 kubectl delete -f "${guestbook_dir}/"
 
