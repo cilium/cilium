@@ -380,7 +380,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := OpenLogfile(lf); err != nil {
-				log.Warningf("cannot open access log: %s", err)
+				log.WithFields(log.Fields{
+					fieldPath: lf,
+				}).WithError(err).Warning("Cannot open L7 access log")
 			}
 		}
 
