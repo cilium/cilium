@@ -48,7 +48,7 @@ docker-compose up -d
 
 while [[ -z $cilium_docker ]]; do
         sleep 1
-        cilium_docker=$(docker ps -a -q --filter="ancestor=cilium/cilium:latest" --filter="status=running")
+        cilium_docker=$(docker ps -a -q --filter="ancestor=cilium/cilium:stable" --filter="status=running")
 done
 
 # copy cilium from container to host
