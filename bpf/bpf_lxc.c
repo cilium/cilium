@@ -722,7 +722,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
 
 	return ret;
 }
@@ -781,7 +781,7 @@ int handle_ingress(struct __sk_buff *skb)
 #endif
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
 	else
 		return ret;
 }
@@ -1014,13 +1014,9 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		break;
 	}
 
-	if (IS_ERR(ret)) {
-		if (ret == DROP_POLICY)
-			return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-						ifindex, TC_ACT_SHOT);
-		else
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
-	}
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
+					ifindex, ret, TC_ACT_SHOT);
 
 	ifindex = skb->cb[CB_IFINDEX];
 
