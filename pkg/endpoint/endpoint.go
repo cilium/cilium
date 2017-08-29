@@ -438,7 +438,6 @@ func (e *Endpoint) GetLabels() []string {
 	return e.SecLabel.Labels.GetModel()
 }
 
-
 // GetLabels returns the SHA of labels
 func (e *Endpoint) GetLabelSHA() string {
 	if e.SecLabel == nil {
