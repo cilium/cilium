@@ -6,7 +6,9 @@ GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 
 GOTEST_OPTS = -test.v -check.v
 
-all: $(SUBDIRS)
+all: precheck-gofmt build
+
+build: $(SUBDIRS)
 
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
@@ -125,6 +127,11 @@ release:
 	git tag v$(VERSION)
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
 
+gofmt:
+	for pkg in $(GOFILES); do go fmt $$pkg; done
+
+precheck-gofmt:
+	tests/00-fmt.sh
 
 .PHONY: force
 force :;
