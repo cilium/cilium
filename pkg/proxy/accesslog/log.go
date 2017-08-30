@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package accesslog
 
 import (
 	"bufio"
@@ -31,16 +31,16 @@ var (
 	metadata []string
 )
 
-// fields used for logging
+// fields used for structured logging
 const (
-	fieldType     = "type"
-	fieldVerdict  = "verdict"
-	fieldCode     = "code"
-	fieldMethod   = "method"
-	fieldURL      = "url"
-	fieldProtocol = "protocol"
-	fieldHeader   = "header"
-	fieldPath     = "file-path"
+	FieldType     = "type"
+	FieldVerdict  = "verdict"
+	FieldCode     = "code"
+	FieldMethod   = "method"
+	FieldURL      = "url"
+	FieldProtocol = "protocol"
+	FieldHeader   = "header"
+	FieldFilePath = "file-path"
 )
 
 // OpenLogfile opens a file for logging
@@ -53,7 +53,7 @@ func OpenLogfile(lf string) error {
 
 	logPath = lf
 	log.WithFields(log.Fields{
-		fieldPath: logPath,
+		FieldFilePath: logPath,
 	}).Debug("Opened access log")
 
 	logBuf = bufio.NewWriter(logFile)
@@ -63,7 +63,7 @@ func OpenLogfile(lf string) error {
 // CloseLogfile closes the logfile
 func CloseLogfile() {
 	log.WithFields(log.Fields{
-		fieldPath: logPath,
+		FieldFilePath: logPath,
 	}).Debug("Closed access log")
 
 	logBuf.Flush()
@@ -80,7 +80,7 @@ func logString(outStr string, retry bool) {
 	if err != nil {
 		if retry {
 			log.WithFields(log.Fields{
-				fieldPath: logPath,
+				FieldFilePath: logPath,
 			}).WithError(err).Warning("Error encountered while writing to access log, retrying once...")
 
 			CloseLogfile()
@@ -105,26 +105,26 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 
 	l.HTTP = &LogRecordHTTP{
 		Code:     code,
-		Method:   l.request.Method,
-		URL:      l.request.URL,
-		Protocol: l.request.Proto,
-		Header:   l.request.Header,
+		Method:   l.Request.Method,
+		URL:      l.Request.URL,
+		Protocol: l.Request.Proto,
+		Header:   l.Request.Header,
 	}
 
 	log.WithFields(log.Fields{
-		fieldType:     typ,
-		fieldVerdict:  verdict,
-		fieldCode:     code,
-		fieldMethod:   l.request.Method,
-		fieldURL:      l.request.URL,
-		fieldProtocol: l.request.Proto,
-		fieldHeader:   l.request.Header,
-		fieldPath:     logPath,
+		FieldType:     typ,
+		FieldVerdict:  verdict,
+		FieldCode:     code,
+		FieldMethod:   l.Request.Method,
+		FieldURL:      l.Request.URL,
+		FieldProtocol: l.Request.Proto,
+		FieldHeader:   l.Request.Header,
+		FieldFilePath: logPath,
 	}).Debug("Logging L7 flow record")
 
 	if logBuf == nil {
 		log.WithFields(log.Fields{
-			fieldPath: logPath,
+			FieldFilePath: logPath,
 		}).Debug("Skipping writing to access log (write buffer nil)")
 		return
 	}
@@ -138,7 +138,7 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 
 	if err := logBuf.Flush(); err != nil {
 		log.WithFields(log.Fields{
-			fieldPath: logPath,
+			FieldFilePath: logPath,
 		}).WithError(err).Warning("Error encountered while flushing to access log")
 	}
 }
