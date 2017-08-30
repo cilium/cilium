@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/braintree/manners"
@@ -48,7 +49,7 @@ type Redirect struct {
 	server   *manners.GracefulServer
 	router   route.Router
 	l4       policy.L4Filter // stale copy, ignore rules
-	nodeInfo NodeAddressInfo
+	nodeInfo accesslog.NodeAddressInfo
 }
 
 func (r *Redirect) updateRules(rules []policy.AuxRule) {
@@ -194,7 +195,7 @@ var gcOnce sync.Once
 type Configuration struct {
 }
 
-func (r *Redirect) localEndpointInfo(info *EndpointInfo) {
+func (r *Redirect) localEndpointInfo(info *accesslog.EndpointInfo) {
 	r.source.RLock()
 	info.ID = r.epID
 	info.IPv4 = r.source.GetIPv4Address()
@@ -205,7 +206,7 @@ func (r *Redirect) localEndpointInfo(info *EndpointInfo) {
 	r.source.RUnlock()
 }
 
-func parseIPPort(ipstr string, info *EndpointInfo) {
+func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 	ip := net.ParseIP(ipstr)
 	if ip != nil {
 		if ip.To4() != nil {
@@ -240,9 +241,9 @@ func parseIPPort(ipstr string, info *EndpointInfo) {
 	}
 }
 
-func (r *Redirect) getSourceInfo(req *http.Request) (EndpointInfo, IPVersion) {
-	info := EndpointInfo{}
-	version := VersionIPv4
+func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, accesslog.IPVersion) {
+	info := accesslog.EndpointInfo{}
+	version := accesslog.VersionIPv4
 
 	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
 	if err == nil {
@@ -253,7 +254,7 @@ func (r *Redirect) getSourceInfo(req *http.Request) (EndpointInfo, IPVersion) {
 
 		ip := net.ParseIP(ipstr)
 		if ip != nil && ip.To4() == nil {
-			version = VersionIPV6
+			version = accesslog.VersionIPV6
 		}
 	}
 
@@ -267,8 +268,8 @@ func (r *Redirect) getSourceInfo(req *http.Request) (EndpointInfo, IPVersion) {
 	return info, version
 }
 
-func (r *Redirect) getDestinationInfo(dstIPPort string) EndpointInfo {
-	info := EndpointInfo{}
+func (r *Redirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
+	info := accesslog.EndpointInfo{}
 
 	ipstr, port, err := net.SplitHostPort(dstIPPort)
 	if err == nil {
@@ -383,15 +384,15 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
-			if err := OpenLogfile(lf); err != nil {
+			if err := accesslog.OpenLogfile(lf); err != nil {
 				log.WithFields(log.Fields{
-					fieldPath: lf,
+					accesslog.FieldFilePath: lf,
 				}).WithError(err).Warning("Cannot open L7 access log")
 			}
 		}
 
 		if labels := viper.GetStringSlice("agent-labels"); len(labels) != 0 {
-			SetMetadata(labels)
+			accesslog.SetMetadata(labels)
 		}
 
 		go func() {
@@ -426,7 +427,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		source:   source,
 		router:   route.New(),
 		l4:       *l4,
-		nodeInfo: NodeAddressInfo{
+		nodeInfo: accesslog.NodeAddressInfo{
 			IPv4: nodeaddress.GetExternalIPv4().String(),
 			IPv6: nodeaddress.GetIPv6().String(),
 		},
@@ -435,8 +436,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	redir.epID = source.GetID()
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		record := &LogRecord{
-			request:         *req,
+		record := &accesslog.LogRecord{
+			Request:         req,
 			Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
 			NodeAddressInfo: redir.nodeInfo,
 		}
@@ -446,9 +447,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		record.IPVersion = version
 
 		if redir.l4.Ingress {
-			record.ObservationPoint = Ingress
+			record.ObservationPoint = accesslog.Ingress
 		} else {
-			record.ObservationPoint = Egress
+			record.ObservationPoint = accesslog.Egress
 		}
 
 		srcIdentity, dstIPPort, err := lookupNewDest(req, to)
@@ -457,7 +458,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			log.Errorf("%s", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			record.Info = fmt.Sprintf("cannot generate url: %s", err)
-			Log(record, TypeRequest, VerdictError, http.StatusBadRequest)
+			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError, http.StatusBadRequest)
 			return
 		}
 
@@ -474,7 +475,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			if rule == nil {
 				http.Error(w, "Access denied", http.StatusForbidden)
 				p.mutex.Unlock()
-				Log(record, TypeRequest, VerdictDenied, http.StatusForbidden)
+				accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictDenied, http.StatusForbidden)
 				return
 			} else {
 				ar := rule.(policy.AuxRule)
@@ -488,7 +489,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		req.URL = generateURL(req, dstIPPort)
 
 		// log valid request
-		Log(record, TypeRequest, VerdictForwared, http.StatusOK)
+		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictForwarded, http.StatusOK)
 
 		ctx := req.Context()
 		if ctx != nil {
@@ -499,7 +500,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 		// log valid response
 		record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
-		Log(record, TypeResponse, VerdictForwared, http.StatusOK)
+		accesslog.Log(record, accesslog.TypeResponse, accesslog.VerdictForwarded, http.StatusOK)
 	})
 
 	redir.server = manners.NewWithServer(&http.Server{

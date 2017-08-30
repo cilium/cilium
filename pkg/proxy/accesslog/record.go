@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package accesslog
 
 import (
 	"net/http"
@@ -28,19 +28,22 @@ const (
 
 	// TypeResponse is a response to a request
 	TypeResponse FlowType = "Response"
+
+	// TypeSample is a packet sample
+	TypeSample FlowType = "Sample"
 )
 
-// FlowVerdict is the verdict taken on request/response
+// FlowVerdict is the verdict passed on the flow
 type FlowVerdict string
 
 const (
-	// VerdictForwared indicates that the request/response was forwarded
-	VerdictForwared FlowVerdict = "Forwarded"
+	// VerdictForwarded indicates that the flow was forwarded
+	VerdictForwarded FlowVerdict = "Forwarded"
 
-	// VerdictDenied indicates that the request/response was denied
+	// VerdictDenied indicates that the flow was denied
 	VerdictDenied = "Denied"
 
-	// VerdictError indicates that there was an error processing the request/response
+	// VerdictError indicates that there was an error processing the flow
 	VerdictError = "Error"
 )
 
@@ -55,8 +58,8 @@ const (
 	Egress ObservationPoint = "Egress"
 )
 
-// IPVersion is the type used to indicate IP version
-type IPVersion byte
+// IPVersion indicates the flow's IP version
+type IPVersion uint8
 
 const (
 	// VersionIPv4 indicates IPv4
@@ -65,17 +68,42 @@ const (
 	VersionIPV6
 )
 
-// EndpointInfo contains information about the endpoint sending/receiving the
-// request/response
+// EndpointInfo contains information about the endpoint sending/receiving the flow
 type EndpointInfo struct {
 	ID           uint64
 	IPv4         string
 	IPv6         string
 	Port         uint16
 	Identity     uint64
-	LabelsSHA256 string
+	LabelsSHA256 string // hex-encoded SHA-256 signature of the labels, 64 characters in length
 	Labels       []string
 }
+
+// ServiceInfo contains information about the Kubernetes service
+type ServiceInfo struct {
+	// Name specifies the name of the service
+	Name string
+
+	// IPPort is the IP and transport port of the service
+	IPPort IPPort
+}
+
+// FlowEvent identifies the event type of an L4 log record
+type FlowEvent string
+
+const (
+	// FlowAdded means that this is a new flow
+	FlowAdded FlowEvent = "FlowAdded"
+
+	// FlowRemoved means that a flow has been deleted
+	FlowRemoved FlowEvent = "FlowRemoved"
+)
+
+// DropReason indicates the reason why the flow was dropped
+type DropReason uint16
+
+// TransportProtocol defines layer 4 protocols
+type TransportProtocol uint16
 
 // NodeAddressInfo holds addressing information of the node the agent runs on
 type NodeAddressInfo struct {
@@ -90,24 +118,25 @@ type IPPort struct {
 }
 
 // LogRecord is the structure used to log individual request/response
-// processing events
+// processing events or sampled packets
 type LogRecord struct {
-	// Type is the type of the flow { request | response }
+	// Type is the type of the flow
 	Type FlowType
 
-	// Timestamp is the start of a request and then end of a response
+	// Timestamp is the start of a request, the end of a response, or the time the packet has been sampled,
+	// depending on the flow type
 	Timestamp string
 
 	// NodeAddressInfo contains the IPs of the node where the event was generated
 	NodeAddressInfo NodeAddressInfo
 
-	// ObservationPoint indicates where the request/response was observed
+	// ObservationPoint indicates where the flow was observed
 	ObservationPoint ObservationPoint
 
-	// SourceEndpoint is information about the source endpoint if available
+	// SourceEndpoint is information about the source endpoint, if available
 	SourceEndpoint EndpointInfo
 
-	// DestinationEndpoint is information about the destination endpoint if available
+	// DestinationEndpoint is information about the destination endpoint, if available
 	DestinationEndpoint EndpointInfo
 
 	// IPVersion indicates the version of the IP protocol in use
@@ -117,11 +146,27 @@ type LogRecord struct {
 	Verdict FlowVerdict
 
 	// Info includes information about the rule that matched or the error
-	// that occurred. This is informational.
+	// that occurred
 	Info string
 
 	// Metadata is additional arbitrary metadata
 	Metadata []string
+
+	// TransportProtocol identifies the flow's transport layer (layer 4) protocol
+	TransportProtocol TransportProtocol
+
+	// FlowEvent identifies the flow event for L4 log record
+	FlowEvent FlowEvent
+
+	// ServiceInfo identifies the Kubernetes service this flow went through. It is set to
+	// nil if the flow did not go though any service. Note that this field is always set to
+	// nil if ObservationPoint is Ingress since currently Cilium cannot tell at ingress
+	// whether the packet went through a service before.
+	ServiceInfo *ServiceInfo
+
+	// DropReason indicates the reason of the drop. This field is set if and only if
+	// the Verdict field is set to VerdictDenied. Otherwise it's set to nil.
+	DropReason *DropReason
 
 	// The following are the protocol specific parts. Only one of the
 	// following should ever be set. Unused fields will be omitted
@@ -129,8 +174,8 @@ type LogRecord struct {
 	// HTTP contains information for HTTP request/responses
 	HTTP *LogRecordHTTP `json:"HTTP,omitempty"`
 
-	// internal
-	request http.Request
+	// Internal
+	Request *http.Request `json:"-"`
 }
 
 // LogRecordHTTP contains the HTTP specific portion of a log record
