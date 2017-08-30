@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'vagrant-test-1'
+        label 'vagrant-test-2'
     }
     options {
         timeout(time: 120, unit: 'MINUTES')
