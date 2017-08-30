@@ -1204,13 +1204,13 @@ func init() {
           "description": "Unique identifier",
           "type": "integer"
         },
-        "labelSHA256": {
-          "description": "SHA256 of labels",
-          "type": "string"
-        },
         "labels": {
           "description": "Labels describing the identity",
           "$ref": "#/definitions/Labels"
+        },
+        "labelsSHA256": {
+          "description": "SHA256 of labels",
+          "type": "string"
         }
       }
     },
