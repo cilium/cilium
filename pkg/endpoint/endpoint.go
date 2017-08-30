@@ -444,9 +444,9 @@ func (e *Endpoint) GetLabelsSHA() string {
 		return ""
 	}
 
-	e.SecLabel.LabelSHA256 = e.SecLabel.Labels.SHA256Sum()
+	e.SecLabel.LabelsSHA256 = e.SecLabel.Labels.SHA256Sum()
 
-	return e.SecLabel.LabelSHA256
+	return e.SecLabel.LabelsSHA256
 }
 
 // GetIPv4Address returns the IPv4 address of the endpoint
