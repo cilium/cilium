@@ -122,6 +122,10 @@ type Daemon struct {
 	uniqueID   map[uint64]bool
 
 	nodeMonitor *monitor.NodeMonitor
+
+	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
+	// programs.
+	compilationMutex *sync.RWMutex
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -617,10 +621,20 @@ func (d *Daemon) installMasqRule() error {
 	return nil
 }
 
+// GetCompilationLock returns the mutex responsible for synchronizing compilation
+// of BPF programs.
+func (d *Daemon) GetCompilationLock() *sync.RWMutex {
+	return d.compilationMutex
+}
+
 // Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) compileBase() error {
 	var args []string
 	var mode string
+
+	// Lock so that endpoints cannot be built while we are compile base programs.
+	d.compilationMutex.Lock()
+	defer d.compilationMutex.Unlock()
 
 	if err := d.writeNetdevHeader("./"); err != nil {
 		log.Warningf("Unable to write netdev header: %s", err)
@@ -961,6 +975,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// possible endpoints to guarantee that enqueueing into the
 		// build queue never blocks.
 		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxKeys),
+		compilationMutex:  new(sync.RWMutex),
 	}
 
 	// Clear previous leftovers before listening for new requests
