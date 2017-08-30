@@ -31,7 +31,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -107,26 +106,6 @@ func k8sErrorHandler(e error) {
 	log.Error(e)
 }
 
-func (d *Daemon) createThirdPartyResources() error {
-	res := &v1beta1.ThirdPartyResource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cilium-network-policy." + k8s.CustomResourceDefinitionGroup,
-		},
-		Description: "Cilium network policy rule",
-		Versions: []v1beta1.APIVersion{
-			{Name: k8s.ThirdPartyResourceVersion},
-		},
-	}
-
-	// TODO: Retry a couple of times
-	_, err := d.k8sClient.ExtensionsV1beta1().ThirdPartyResources().Create(res)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
-}
-
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
 // Kubernetes api server at the given reSyncPeriod duration.
@@ -149,7 +128,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
 		log.Debugf("Detected k8s <1.7, using TPR instead of CRD")
-		if err := d.createThirdPartyResources(); err != nil {
+		if err := k8s.CreateThirdPartyResourcesDefinitions(d.k8sClient); err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}
 		cnpClient, err = k8s.CreateTPRClient(restConfig)
