@@ -34,6 +34,7 @@ bookinfo_dir="${dir}/deployments/bookinfo"
 NAMESPACE="kube-system"
 TEST_NAME="02-cnp-specs"
 LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+LOCAL_CILIUM_POD="$(kubectl get pods -n kube-system -o wide | grep $(hostname) | awk '{ print $1 }' | grep cilium)"
 
 function finish_test {
   gather_files ${TEST_NAME} k8s-tests
@@ -53,9 +54,26 @@ wait_for_running_pod reviews-v2
 wait_for_running_pod productpage-v1
 
 wait_for_service_endpoints_ready default details 9080
+
+# FIXME(ianvernon) - since we have multiple services listening on port 9080, wait_for_service_ready_cilium_pod
+# isn't capable of determining which service is ready on that port at this time. GH-1448 will add
+# support for JSON output for services which can be parsed and then utilized in 
+# wait_for_service_ready_cilium_pod
+
+#wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 9080 9080
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
+
 wait_for_service_endpoints_ready default ratings 9080
+#wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 9080 9080
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
+
 wait_for_service_endpoints_ready default reviews 9080
+#wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 9080 9080
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
+
 wait_for_service_endpoints_ready default productpage 9080
+#wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 9080 9080
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
 
 
 # Every thing should be reachable since we are not enforcing any policies
