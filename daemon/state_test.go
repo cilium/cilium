@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -115,6 +116,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		}
 	}()
 
+	ds.d.compilationMutex = new(sync.RWMutex)
+
 	ds.OnGetStateDir = func() string {
 		return baseDir
 	}
@@ -141,6 +144,10 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 	ds.OnDryModeEnabled = func() bool {
 		return true
+	}
+
+	ds.OnGetCompilationLock = func() *sync.RWMutex {
+		return ds.d.compilationMutex
 	}
 
 	// Create a dummy consumable cache
@@ -254,7 +261,7 @@ func networksMock() func(req *http.Request) (*http.Response, error) {
 	}
 }
 
-func (ds *DaemonSuite) TestCleanUpDockerDandling(c *C) {
+func (ds *DaemonSuite) TestCleanUpDockerDangling(c *C) {
 	epsWanted, epsMap := createEndpoints()
 	var err error
 

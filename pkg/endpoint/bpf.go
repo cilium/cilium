@@ -335,6 +335,11 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	var err error
 
+	// Make sure that owner is not compiling base programs while we are
+	// regenerating an endpoint.
+	owner.GetCompilationLock().RLock()
+	defer owner.GetCompilationLock().RUnlock()
+
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		return fmt.Errorf("unable to write header file: %s", err)
 	}

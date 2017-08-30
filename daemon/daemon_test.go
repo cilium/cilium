@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
+	"sync"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -50,6 +51,7 @@ type DaemonSuite struct {
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
 	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
+	OnGetCompilationLock              func() *sync.RWMutex
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -186,4 +188,11 @@ func (ds *DaemonSuite) DebugEnabled() bool {
 		return ds.OnDebugEnabled()
 	}
 	panic("DebugEnabled should not have been called")
+}
+
+func (ds *DaemonSuite) GetCompilationLock() *sync.RWMutex {
+	if ds.OnGetCompilationLock != nil {
+		return ds.OnGetCompilationLock()
+	}
+	panic("GetCompilationLock should not have been called")
 }

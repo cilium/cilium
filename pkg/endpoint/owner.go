@@ -15,6 +15,8 @@
 package endpoint
 
 import (
+	"sync"
+
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -76,6 +78,10 @@ type Owner interface {
 
 	// Annotates endpoint e with an annotation with key annotationKey, and value annotationValue.
 	AnnotateEndpoint(e *Endpoint, annotationKey, annotationValue string)
+
+	// GetCompilationLock returns the mutex responsible for synchronizing compilation
+	// of BPF programs.
+	GetCompilationLock() *sync.RWMutex
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints
