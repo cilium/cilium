@@ -18,15 +18,44 @@ source "${dir}/../cluster/env.bash"
 NAMESPACE="kube-system"
 TEST_NAME="01-guestbook-test"
 LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+LOCAL_CILIUM_POD="$(kubectl get pods -n kube-system -o wide | grep $(hostname) | awk '{ print $1 }' | grep cilium)"
+
+guestbook_dir="${dir}/deployments/guestbook"
+
+function cleanup {
+  kubectl delete -f "${guestbook_dir}/"
+
+  # Only test the new network policy with k8s >= 1.7
+  if [[ "${k8s_version}" == 1.7.* ]]; then
+    k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web.yaml"
+    k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-redis.json"
+
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 2>/dev/null
+    if [ $? -eq 0 ]; then abort "guestbook-redis policy found in cilium; policy should have been deleted" ; fi
+
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 2>/dev/null
+    if [ $? -eq 0 ]; then abort "guestbook-web policy found in cilium; policy should have been deleted" ; fi
+  else
+    # guestbook-redis was previously removed
+    k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
+
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated 2>/dev/null
+    if [ $? -eq 0 ]; then abort "guestbook-web-deprecated policy found in cilium; policy should have been deleted" ; fi
+  fi
+
+  if [[ -n "${lb}" ]]; then
+      k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/ingress"
+  fi
+}
 
 function finish_test {
+  cleanup 
   gather_files ${TEST_NAME} k8s-tests
   gather_k8s_logs "2" ${LOGS_DIR}
 }
 
-trap finish_test exit
 
-guestbook_dir="${dir}/deployments/guestbook"
+trap finish_test exit
 
 # We will test old kubernetes network policy in kubernetes 1.6 and 1.7
 k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-redis-deprecated.json"
@@ -72,6 +101,8 @@ kubectl get pods -o wide
 wait_for_running_pod guestbook
 
 wait_for_service_endpoints_ready default guestbook 3000
+wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 3000 3000
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
 
 set +e
 
@@ -85,12 +116,20 @@ if [[ "${k8s_version}" == 1.7.* ]]; then
 else
     docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated 1>/dev/null
 
-    if [ $? -ne 0 ]; then abort "guestbook-web-deprecated policy not in cilium" ; fi
+    if [ $? -ne 0 ]; then 
+      echo "Policies in Cilium: "
+      docker exec -i ${cilium_id} cilium policy get
+      abort "guestbook-web-deprecated policy not in cilium"
+    fi
 fi
 
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis-deprecated 1>/dev/null
 
-if [ $? -ne 0 ]; then abort "guestbook-redis-deprecated policy not in cilium" ; fi
+if [ $? -ne 0 ]; then
+  echo "Policies in Cilium: "
+  docker exec -i ${cilium_id} cilium policy get
+  abort "guestbook-redis-deprecated policy not in cilium"
+fi
 
 set -e
 
@@ -137,27 +176,3 @@ fi
 echo "SUCCESS!"
 
 set +e
-
-kubectl delete -f "${guestbook_dir}/"
-
-# Only test the new network policy with k8s >= 1.7
-if [[ "${k8s_version}" == 1.7.* ]]; then
-  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web.yaml"
-  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-redis.json"
-
-  docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 2>/dev/null
-  if [ $? -eq 0 ]; then abort "guestbook-redis policy found in cilium; policy should have been deleted" ; fi
-
-  docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 2>/dev/null
-  if [ $? -eq 0 ]; then abort "guestbook-web policy found in cilium; policy should have been deleted" ; fi
-else
-  # guestbook-redis was previously removed
-  k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
-
-  docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated 2>/dev/null
-  if [ $? -eq 0 ]; then abort "guestbook-web-deprecated policy found in cilium; policy should have been deleted" ; fi
-fi
-
-if [[ -n "${lb}" ]]; then
-    k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/ingress"
-fi
