@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -43,6 +44,9 @@ import (
 const (
 	// CustomResourceDefinitionSingularName is the singular name of custom resource definition
 	CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
+
+	// ThirdPartyResourcesSingularName is the singular name of third party resources
+	ThirdPartyResourcesSingularName = "cilium-network-policy"
 
 	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
 	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
@@ -102,6 +106,47 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 func isConnReady(c *kubernetes.Clientset) error {
 	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
 	return err
+}
+
+// CreateThirdPartyResourcesDefinitions creates the TPR object in the kubernetes
+// cluster
+func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
+	cnpTPRName := ThirdPartyResourcesSingularName + "." + CustomResourceDefinitionGroup
+	res := &v1beta1.ThirdPartyResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cnpTPRName,
+		},
+		Description: "Cilium network policy rule",
+		Versions: []v1beta1.APIVersion{
+			{Name: ThirdPartyResourceVersion},
+		},
+	}
+
+	_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Create(res)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	log.Infof("k8s: Waiting for TPR to be established in k8s api-server...")
+	// wait for TPR being established
+	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		// The only way we can know if the TPR was installed in the cluster
+		// is to check if the return error was or not nil
+		return true, nil
+	})
+	if err != nil {
+		deleteErr := cli.ExtensionsV1beta1().ThirdPartyResources().Delete(cnpTPRName, nil)
+		if deleteErr != nil {
+			return fmt.Errorf("k8s: unable to delete TPR %s. Deleting TPR due: %s", deleteErr, err)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // CreateCustomResourceDefinitions creates the CRD object in the kubernetes
