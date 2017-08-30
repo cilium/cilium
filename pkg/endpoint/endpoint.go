@@ -438,14 +438,14 @@ func (e *Endpoint) GetLabels() []string {
 	return e.SecLabel.Labels.GetModel()
 }
 
-// GetLabels returns the SHA of labels
-func (e *Endpoint) GetLabelSHA() string {
+// GetLabelsSHA returns the SHA of labels
+func (e *Endpoint) GetLabelsSHA() string {
 	if e.SecLabel == nil {
 		return ""
 	}
-	if e.SecLabel.LabelSHA256 == "" {
-		e.SecLabel.LabelSHA256 = e.SecLabel.Labels.SHA256Sum()
-	}
+
+	e.SecLabel.LabelSHA256 = e.SecLabel.Labels.SHA256Sum()
+
 	return e.SecLabel.LabelSHA256
 }
 

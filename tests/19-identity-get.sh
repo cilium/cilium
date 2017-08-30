@@ -45,11 +45,23 @@ function test_identity_get {
     wait_for_endpoints 3
     cilium endpoint list
     ID=$(cilium endpoint list | grep id.foo | awk '{print $3}')
-    echo "Endpoint security ID is: $ID"
-    expected_response='{   "Payload": {     "id": '$ID',     "labels": [       "container:id.foo"     ]   } }'
 
-    # Replace all newline chars with a single space.
+    # Get expected response and replace all newline chars with a single space.
     response=$(cilium identity get $ID | sed ':a;N;$!ba;s/\n/ /g')
+
+    # Extract SHA256 value from response
+    str=$response
+    substring="labelsSHA256\": \""
+    len=${#substring}
+
+    # Find the index of first occurrence of substring in response str
+    index=$(awk -v a="$str" -v b="$substring" 'BEGIN{print index(a,b)}')
+    substring=${str:index + len - 1}
+    sha256="$( cut -d '"' -f 1 <<< "substring" )"
+
+    echo "Endpoint security ID is: $ID"
+    expected_response='{   "Payload": {     "id": '$ID',     "labelsSHA256": "'$sha256'",     "labels": [       "container:id.foo"     ]   } }'
+
     echo "Response is $response"
 
     if [[ "${expected_response}" != "${response}" ]]; then

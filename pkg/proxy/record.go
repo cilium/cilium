@@ -68,13 +68,13 @@ const (
 // EndpointInfo contains information about the endpoint sending/receiving the
 // request/response
 type EndpointInfo struct {
-	ID          uint64
-	IPv4        string
-	IPv6        string
-	Port        uint16
-	Identity    uint64
-	LabelSHA256 string
-	Labels      []string
+	ID           uint64
+	IPv4         string
+	IPv6         string
+	Port         uint16
+	Identity     uint64
+	LabelsSHA256 string
+	Labels       []string
 }
 
 // NodeAddressInfo holds addressing information of the node the agent runs on

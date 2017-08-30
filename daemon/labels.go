@@ -269,7 +269,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	} else if id == nil {
 		return NewGetIdentityIDNotFound()
 	} else {
-		id.LabelSHA256 = id.Labels.SHA256Sum()
+		id.LabelsSHA256 = id.Labels.SHA256Sum()
 		return NewGetIdentityIDOK().WithPayload(id.GetModel())
 	}
 }
