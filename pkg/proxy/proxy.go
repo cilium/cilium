@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +40,22 @@ import (
 	"github.com/vulcand/route"
 )
 
+// Magic markers are attached to each packet. The upper 16 bits are used to
+// identify packets which have gone through the proxy and to determine whether
+// the packet is coming from a proxy at ingress or egress. The lower 16 bits
+// can be used to carry the security identity.
+const (
+	magicMarkIngress int = 0xFEFA << 16
+	magicMarkEgress  int = 0xFEFB << 16
+)
+
+// field names used while logging
+const (
+	fieldMarker = "marker"
+	fieldSocket = "socket"
+	fieldFd     = "fd"
+)
+
 type Redirect struct {
 	id       string
 	FromPort uint16
@@ -50,6 +67,17 @@ type Redirect struct {
 	router   route.Router
 	l4       policy.L4Filter // stale copy, ignore rules
 	nodeInfo accesslog.NodeAddressInfo
+}
+
+// GetMagicMark returns the magic marker with which each packet must be marked.
+// The mark is different depending on whether the proxy is injected at ingress
+// or egress.
+func (r *Redirect) GetMagicMark() int {
+	if r.l4.Ingress {
+		return magicMarkIngress
+	}
+
+	return magicMarkEgress
 }
 
 func (r *Redirect) updateRules(rules []policy.AuxRule) {
@@ -229,13 +257,13 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 				info.ID = uint64(id)
 
 				ep := endpointmanager.LookupCiliumID(id)
-				ep.RLock()
 				if ep != nil {
+					ep.RLock()
 					info.Labels = ep.GetLabels()
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
+					ep.RUnlock()
 				}
-				ep.RUnlock()
 			}
 		}
 	}
@@ -300,17 +328,26 @@ func identityFromContext(ctx context.Context) (int, bool) {
 	return val, ok
 }
 
+func setFdMark(fd, mark int) {
+	log.WithFields(log.Fields{
+		fieldFd:     fd,
+		fieldMarker: mark,
+	}).Debug("Setting packet marker of socket")
+
+	err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+	if err != nil {
+		log.WithFields(log.Fields{
+			fieldFd:     fd,
+			fieldMarker: mark,
+		}).WithError(err).Warning("Unable to set SO_MARK")
+	}
+}
+
 func setSocketMark(c net.Conn, mark int) {
 	if tc, ok := c.(*net.TCPConn); ok {
 		if f, err := tc.File(); err == nil {
 			defer f.Close()
-			fd := int(f.Fd())
-
-			log.Debugf("Setting identity %d on socket %+v", mark, tc)
-			err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
-			if err != nil {
-				log.Debugf("Unable to set SO_MARK=%d socket option: %s", mark, err)
-			}
+			setFdMark(int(f.Fd()), mark)
 		}
 	}
 }
@@ -323,7 +360,10 @@ func getSocketMark(c net.Conn) int {
 
 			val, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK)
 			if err != nil {
-				log.Debugf("Unable to get SO_MARK socket option: %s", err)
+				log.WithFields(log.Fields{
+					fieldSocket: tc,
+				}).WithError(err).Warning("Unable to retrieve SO_MARK")
+
 				return 0
 			}
 
@@ -334,33 +374,58 @@ func getSocketMark(c net.Conn) int {
 	return 0
 }
 
+func listenSocket(address string, mark int) (net.Listener, error) {
+	addr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+
+	family := syscall.AF_INET
+	if addr.IP.To4() == nil {
+		family = syscall.AF_INET6
+	}
+
+	fd, err := syscall.Socket(family, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		return nil, fmt.Errorf("unable to set SO_REUSEADDR socket option: %s", err)
+	}
+
+	setFdMark(fd, mark)
+
+	sockAddr, err := ipToSockaddr(family, addr.IP, addr.Port, addr.Zone)
+	if err != nil {
+		syscall.Close(fd)
+		return nil, err
+	}
+
+	if err := syscall.Bind(fd, sockAddr); err != nil {
+		syscall.Close(fd)
+		return nil, err
+	}
+
+	if err := syscall.Listen(fd, 128); err != nil {
+		syscall.Close(fd)
+		return nil, err
+	}
+
+	f := os.NewFile(uintptr(fd), addr.String())
+	defer f.Close()
+
+	return net.FileListener(f)
+}
+
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (*Redirect, error) {
-	customDialer := func(ctx context.Context, network, address string) (net.Conn, error) {
-		d := &net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}
-
-		c, err := d.DialContext(ctx, network, address)
-		if err != nil {
-			return nil, err
-		}
-
-		if id, ok := identityFromContext(ctx); ok {
-			setSocketMark(c, id)
-		}
-
-		return c, err
-	}
-
 	transport := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           customDialer,
+		DialContext:           ciliumDialer,
 		MaxIdleConns:          2048,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
@@ -493,7 +558,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 		ctx := req.Context()
 		if ctx != nil {
-			req = req.WithContext(newIdentityContext(ctx, int(record.SourceEndpoint.Identity)))
+			marker := redir.GetMagicMark() | int(record.SourceEndpoint.Identity)
+			req = req.WithContext(newIdentityContext(ctx, marker))
 		}
 
 		fwd.ServeHTTP(w, req)
@@ -506,18 +572,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	redir.server = manners.NewWithServer(&http.Server{
 		Addr:    fmt.Sprintf("[::]:%d", to),
 		Handler: redirect,
-		ConnState: func(c net.Conn, cs http.ConnState) {
-			// As ingress proxy, all replies to incoming requests
-			// must have the identity of the endpoint we are
-			// proxying for
-			if redir.l4.Ingress && cs == http.StateActive {
-				identity := int(source.GetIdentity())
-				log.Debugf("Setting identity for replies of connection %v to %d",
-					c, identity)
-				setSocketMark(c, identity)
-			}
-
-		},
 
 		// Set a large timeout for ReadTimeout. This timeout controls
 		// the time that can pass between accepting the connection and
@@ -543,9 +597,17 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		addr = ":http"
 	}
 
+	marker := redir.GetMagicMark()
+
+	// As ingress proxy, all replies to incoming requests must have the
+	// identity of the endpoint we are proxying for
+	if redir.l4.Ingress {
+		marker |= int(source.GetIdentity())
+	}
+
 	// Listen needs to be in the synchronous part of this function to ensure that
 	// the proxy port is never refusing connections.
-	listener, err := net.Listen("tcp", addr)
+	listener, err := listenSocket(addr, marker)
 	if err != nil {
 		return nil, err
 	}

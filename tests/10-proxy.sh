@@ -198,6 +198,49 @@ function policy_service_and_proxy_egress {
 EOF
 }
 
+function policy_egress_and_ingress {
+	cilium policy delete --all
+	cat <<EOF | policy_import_and_wait -
+[{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+	    {"matchLabels":{"id.client":""}}
+	]
+    }]
+},{
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+	"toPorts": [{
+	    "ports": [{"port": "80", "protocol": "tcp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+},{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+	"toPorts": [{
+	    "ports": [{"port": "8000", "protocol": "tcp"},
+		      {"port": "80",   "protocol": "tcp"},
+		      {"port": "8080", "protocol": "tcp"},
+		      {"port": "8080", "protocol": "udp"}],
+	    "rules": {
+                "HTTP": [{
+		    "method": "GET",
+		    "path": "/public"
+                }]
+	    }
+	}]
+    }]
+}]
+EOF
+}
+
 function proxy_test {
 	wait_for_endpoints 3
 
@@ -223,7 +266,7 @@ fi
 }
 
 for service in "none" "lb"; do
-	for policy in "egress" "ingress" "many_egress" "many_ingress"; do
+	for policy in "egress" "ingress" "egress_and_ingress" "many_egress" "many_ingress"; do
 		for state in "false" "true"; do
 			echo "Testing with Policy=$policy, Conntrack=$state, Service=$service"
 			cilium config ConntrackLocal=$state
@@ -239,6 +282,8 @@ for service in "none" "lb"; do
 					policy_many_ingress;;
 				"ingress")
 					policy_single_ingress;;
+				"egress_and_ingress")
+					policy_egress_and_ingress;;
 			esac
 
 

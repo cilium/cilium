@@ -21,8 +21,6 @@
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
 
-#include <stdbool.h>
-
 #include "common.h"
 #include "utils.h"
 #include "ipv6.h"

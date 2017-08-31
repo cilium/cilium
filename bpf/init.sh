@@ -30,6 +30,8 @@ NATIVE_DEV=${11}
 HOST_ID="host"
 WORLD_ID="world"
 
+PROXY_RT_TABLE=2005
+
 set -e
 set -x
 
@@ -51,6 +53,100 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=0
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
+
+function delete_old_ip_rules_af()
+{
+	IP=$1
+	TBL=$2
+	for i in $($IP rule list | grep "lookup $TBL" | awk -F: '{print $1}'); do
+		$IP rule del pref $i;
+	done
+}
+
+function delete_old_ip_rules()
+{
+	delete_old_ip_rules_af "ip -4" $1
+	delete_old_ip_rules_af "ip -6" $1
+}
+
+function setup_veth()
+{
+	local -r NAME=$1
+
+	ip link set $NAME up
+	sysctl -w net.ipv4.conf.${NAME}.forwarding=1
+	sysctl -w net.ipv6.conf.${NAME}.forwarding=1
+	sysctl -w net.ipv4.conf.${NAME}.rp_filter=0
+	sysctl -w net.ipv4.conf.${NAME}.accept_local=1
+	sysctl -w net.ipv4.conf.${NAME}.send_redirects=0
+}
+
+function setup_veth_pair()
+{
+	local -r NAME1=$1
+	local -r NAME2=$2
+
+	ip link del $NAME1 2> /dev/null || true
+	ip link add $NAME1 type veth peer name $NAME2
+
+	setup_veth $NAME1
+	setup_veth $NAME2
+}
+
+function move_local_rules_af()
+{
+	IP=$1
+
+	# move the local table lookup rule from pref 0 to pref 100 so we can
+	# insert the cilium ip rules before the local table. It is strictly
+	# required to add the new local rule before deleting the old one as
+	# otherwise local addresses will not be reachable for a short period of
+	# time.
+	$IP rule list from all lookup local pref 100 | grep "lookup local" || {
+		$IP rule add from all lookup local pref 100
+	}
+	$IP rule del from all lookup local pref 0 2> /dev/null || true
+
+	# check if the move of the local table move was successful and restore
+	# it otherwise
+	if [ "$($IP rule list lookup local | wc -l)" -eq "0" ]; then
+		$IP rule add from all lookup local pref 0
+		$IP rule del from all lookup local pref 100
+		echo "Error: The kernel does not support moving the local table routing rule"
+		echo "Local routing rules:"
+		$IP rule list lookup local
+		exit 1
+	fi
+}
+
+function move_local_rules()
+{
+	move_local_rules_af "ip -4"
+	move_local_rules_af "ip -6"
+}
+
+function setup_proxy_rules()
+{
+	# delete old ip rules and flush table
+	delete_old_ip_rules $PROXY_RT_TABLE
+	ip -4 route flush table $PROXY_RT_TABLE
+	ip -6 route flush table $PROXY_RT_TABLE
+
+	# Any packet from a proxy uses a separate routing table
+	ip -4 rule add fwmark 0xFEF00000/0xFFF00000 pref 10 lookup $PROXY_RT_TABLE
+	ip -6 rule add fwmark 0xFEF00000/0xFFF00000 pref 10 lookup $PROXY_RT_TABLE
+
+	if [ -n "$IP4_HOST" ]; then
+		ip route add table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
+		ip route add table $PROXY_RT_TABLE default via $IP4_HOST
+	fi
+
+	IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
+	if [ -n "$IP6_LLADDR" ]; then
+		ip -6 route add table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+		ip -6 route add table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+	fi
+}
 
 function mac2array()
 {
@@ -102,13 +198,21 @@ HOST_DEV2="cilium_net"
 
 $LIB/run_probes.sh $LIB $RUNDIR
 
-ip link del $HOST_DEV1 2> /dev/null || true
-ip link add $HOST_DEV1 type veth peer name $HOST_DEV2
+setup_veth_pair $HOST_DEV1 $HOST_DEV2
 
-ip link set $HOST_DEV1 up
 ip link set $HOST_DEV1 arp off
-ip link set $HOST_DEV2 up
 ip link set $HOST_DEV2 arp off
+
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')
+CILIUM_NET_MAC=$(mac2array $CILIUM_NET_MAC)
+
+# Remove the entire '#ifndef ... #endif block
+# Each line must contain the string '#.*CILIUM_NET_MAC.*'
+sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
+echo "#ifndef CILIUM_NET_MAC" >> $RUNDIR/globals/node_config.h
+echo "#define CILIUM_NET_MAC { .addr = ${CILIUM_NET_MAC}}" >> $RUNDIR/globals/node_config.h
+echo "#endif /* CILIUM_NET_MAC */" >> $RUNDIR/globals/node_config.h
 
 sed -i '/^#.*HOST_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 HOST_IDX=$(cat /sys/class/net/${HOST_DEV2}/ifindex)
@@ -121,7 +225,7 @@ echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_c
 
 # If the host does not have an IPv6 address assigned, assign our generated host
 # IP to make the host accessible to endpoints
-ip -6 addr show $IP6_HOST || {
+[ -n "$(ip -6 addr show to $IP6_HOST)" ] || {
 	ip -6 addr add $IP6_HOST dev $HOST_DEV1
 }
 
@@ -136,9 +240,9 @@ if [ "$IP6_SVC_RANGE" != "auto" ]; then
 fi
 
 if [[ "$IP4_HOST" != "<nil>" ]]; then
-  ip -4 addr show $IP4_HOST || {
-  ip -4 addr add $IP4_HOST dev $HOST_DEV1
-}
+	[ -n "$(ip -4 addr show to $IP4_HOST)" ] || {
+		ip -4 addr add $IP4_HOST dev $HOST_DEV1
+	}
 fi
 
 ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
@@ -156,6 +260,13 @@ if [ "$IP4_SVC_RANGE" != "auto" ]; then
           ip route add $IP4_SVC_RANGE via 169.254.254.1 src $IP4_HOST
         fi
 fi
+
+# Decrease priority of the rule to identify local addresses
+move_local_rules
+
+# Install new rules before local rule to ensure that packets from the proxy are
+# using a separate routing table
+setup_proxy_rules
 
 sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
 sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h

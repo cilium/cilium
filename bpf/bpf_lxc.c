@@ -801,11 +801,10 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data_end = (void *) (long) skb->data_end;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
 	struct csum_offset csum_off = {};
-	union v6addr host_ip = {};
 	int ret, l4_off, verdict;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool orig_was_proxy;
+	bool skip_proxy;
 	union v6addr orig_dip = {};
 
 	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
@@ -818,8 +817,9 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
-	BPF_V6(host_ip, HOST_IP);
-	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
+	/* If packet is coming from the egress proxy we have to skip
+	 * redirection to the egress proxy as we would loop forever. */
+	skip_proxy = tc_index_skip_proxy(skb);
 
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
@@ -869,7 +869,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new,
-				 orig_was_proxy);
+				 skip_proxy);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -879,6 +879,9 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
+		union v6addr host_ip = {};
+
+		BPF_V6(host_ip, HOST_IP);
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
@@ -909,7 +912,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool orig_was_proxy;
+	bool skip_proxy;
 	__be32 orig_dip;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
@@ -918,7 +921,10 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
 
-	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
+	/* If packet is coming from the egress proxy we have to skip
+	 * redirection to the egress proxy as we would loop forever. */
+	skip_proxy = tc_index_skip_proxy(skb);
+
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	orig_dip = ip4->daddr;
@@ -959,7 +965,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new,
-				 orig_was_proxy);
+				 skip_proxy);
 		if (IS_ERR(ret))
 			return ret;
 
