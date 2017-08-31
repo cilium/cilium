@@ -67,26 +67,22 @@ drops happen.
 
 .. code:: bash
 
-    $ cilium monitor
+    $ cilium monitor --type drop
     Listening for events on 2 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
+    xx drop (Invalid destination mac) to endpoint 0, identity 0->0: fe80::5c25:ddff:fe8e:78d8 -> ff02::2 RouterSolicitation
 
-    CPU 00: MARK 0x14126c56 FROM 56326 Packet dropped 159 (Policy denied (L4)) 94 bytes ifindex=18
-    00000000  02 fd 7f 53 22 c8 66 56  da 2e fb 84 86 dd 60 0c  |...S".fV......`.|
-    00000010  12 14 00 28 06 3f f0 0d  00 00 00 00 00 00 0a 00  |...(.?..........|
-    00000020  02 0f 00 00 00 ad f0 0d  00 00 00 00 00 00 0a 00  |................|
-    00000030  02 0f 00 00 dc 06 ca 5c  00 50 70 28 32 21 00 00  |.......\.Pp(2!..|
-    00000040  00 00 a0 02 6c 98 d5 1b  00 00 02 04 05 6e 04 02  |....l........n..|
-    00000050  08 0a 01 5f 07 80 00 00  00 00 01 03 03 07 00 00  |..._............|
-    00000060  00 00 00 00                                       |....|
-
-The above indicates that a packet from endpoint ID `56326` has been dropped due
-to violation of the Layer 4 policy.
+The above indicates that a packet to endpoint ID `25729` has been dropped due
+to violation of the Layer 3 policy.
 
 Policy Tracing
 ==============
 
-See section :ref:`policy_tracing_` for details and examples on how to use the
+See section :ref:`policy_tracing` for details and examples on how to use the
 policy tracing feature.
 
 Debugging the datapath
@@ -103,39 +99,36 @@ running agent. Debugging of an individual endpoint can be enabled by running
 
 .. code:: bash
 
-    $ cilium endpoint config 29381 Debug=true
-    Endpoint 29381 configuration updated successfully
-    $ cilium monitor
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: 118 bytes Incoming packet from container ifindex 20
-    00000000  3a f3 07 b3 c6 7f 4e 76  63 5c 53 4e 86 dd 60 02  |:.....Nvc\SN..`.|
-    00000010  7a 3c 00 40 3a 40 f0 0d  00 00 00 00 00 00 0a 00  |z<.@:@..........|
-    00000020  02 0f 00 00 36 7d f0 0d  00 00 00 00 00 00 0a 00  |....6}..........|
-    00000030  02 0f 00 00 ff ff 81 00  c7 05 4a 32 00 05 29 98  |..........J2..).|
-    00000040  2c 59 00 00 00 00 1d cd  0c 00 00 00 00 00 10 11  |,Y..............|
-    00000050  12 13 14 15 16 17 18 19  1a 1b 1c 1d 1e 1f 20 21  |.............. !|
-    00000060  22 23 24 25 26 27 28 29  2a 2b 2c 2d 2e 2f 30 31  |"#$%&'()*+,-./01|
-    00000070  32 33 34 35 36 37 00 00                           |234567..|
-
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: Handling ICMPv6 type=129
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: CT reverse lookup: sport=0 dport=32768 nexthdr=58 flags=1
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: CT entry found lifetime=24026, proxy_port=0 revnat=0
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: CT verdict: Reply, proxy_port=0 revnat=0
-    CPU 01: MARK 0x3c7a42a5 FROM 13949 DEBUG: Going to host, policy-skip=1
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT reverse lookup: sport=2048 dport=0 nexthdr=1 flags=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT lookup address: 10.15.0.1
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT lookup: sport=0 dport=2048 nexthdr=1 flags=1
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT verdict: New, proxy_port=0 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT created 1/2: sport=0 dport=2048 nexthdr=1 flags=1 proxy_port=0 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT created 2/2: 10.15.42.252 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: CT created 1/2: sport=0 dport=0 nexthdr=1 flags=3 proxy_port=0 revnat=0
-    CPU 00: MARK 0x4010f7f3 FROM 13949 DEBUG: 98 bytes Delivery to ifindex 20
-    00000000  4e 76 63 5c 53 4e 3a f3  07 b3 c6 7f 08 00 45 00  |Nvc\SN:.......E.|
-    00000010  00 54 d8 41 40 00 3f 01  24 4d 0a 0f 00 01 0a 0f  |.T.A@.?.$M......|
-    00000020  2a fc 08 00 67 03 4a 4f  00 01 2a 98 2c 59 00 00  |*...g.JO..*.,Y..|
-    00000030  00 00 24 e8 0c 00 00 00  00 00 10 11 12 13 14 15  |..$.............|
-    00000040  16 17 18 19 1a 1b 1c 1d  1e 1f 20 21 22 23 24 25  |.......... !"#$%|
-    00000050  26 27 28 29 2a 2b 2c 2d  2e 2f 30 31 32 33 34 35  |&'()*+,-./012345|
-    00000060  36 37 00 00 00 00 00 00                           |67......|
+    $ cilium endpoint config 3978 Debug=true
+    Endpoint 3978 configuration updated successfully
+    $ cilium monitor -v --hex
+    Listening for events on 2 CPUs with 64x4096 of shared memory
+    Press Ctrl-C to quit
+    ------------------------------------------------------------------------------
+    CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: 70 bytes Incoming packet from container ifindex 85
+    00000000  33 33 00 00 00 02 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
+    00000010  00 00 00 10 3a ff fe 80  00 00 00 00 00 00 ac 45  |....:..........E|
+    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
+    00000030  00 00 00 00 00 02 85 00  15 b4 00 00 00 00 01 01  |................|
+    00000040  ae 45 75 73 11 04 00 00  00 00 00 00              |.Eus........|
+    CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: Handling ICMPv6 type=133
+    ------------------------------------------------------------------------------
+    CPU 00: MARK 0x1c56d86c FROM 3978 Packet dropped 131 (Invalid destination mac) 70 bytes ifindex=0 284->0
+    00000000  33 33 00 00 00 02 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
+    00000010  00 00 00 10 3a ff fe 80  00 00 00 00 00 00 ac 45  |....:..........E|
+    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
+    00000030  00 00 00 00 00 02 85 00  15 b4 00 00 00 00 01 01  |................|
+    00000040  00 00 00 00                                       |....|
+    ------------------------------------------------------------------------------
+    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: 86 bytes Incoming packet from container ifindex 85
+    00000000  33 33 ff 00 8a d6 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
+    00000010  00 00 00 20 3a ff fe 80  00 00 00 00 00 00 ac 45  |... :..........E|
+    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
+    00000030  00 01 ff 00 8a d6 87 00  20 40 00 00 00 00 fd 02  |........ @......|
+    00000040  00 00 00 00 00 00 c0 a8  21 0b 00 00 8a d6 01 01  |........!.......|
+    00000050  ae 45 75 73 11 04 00 00  00 00 00 00              |.Eus........|
+    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: Handling ICMPv6 type=135
+    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: ICMPv6 neighbour soliciation for address b21a8c0:d68a0000
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
