@@ -2,7 +2,7 @@
 
 source ./helpers.bash
 
-if grep --include \*.go -r log\. ../ | grep -v vendor \
+if grep --include \*.go -r 'log\.' ../ | grep -v vendor \
   | grep -v contrib \
   | grep -v logging.go \
   | grep -F "\n"; then
