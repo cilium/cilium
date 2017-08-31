@@ -57,10 +57,10 @@ function test_identity_get {
     # Find the index of first occurrence of substring in response str
     index=$(awk -v a="$str" -v b="$substring" 'BEGIN{print index(a,b)}')
     substring=${str:index + len - 1}
-    sha256="$( cut -d '"' -f 1 <<< "substring" )"
+    sha256="$( cut -d '"' -f 1 <<< "$substring" )"
 
     echo "Endpoint security ID is: $ID"
-    expected_response='{   "Payload": {     "id": '$ID',     "labelsSHA256": "'$sha256'",     "labels": [       "container:id.foo"     ]   } }'
+    expected_response='{   "Payload": {     "id": '$ID',     "labels": [       "container:id.foo"     ],     "labelsSHA256": "'$sha256'"   } }'
 
     echo "Response is $response"
 
