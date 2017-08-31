@@ -199,7 +199,7 @@ func (d *Daemon) LookupIdentity(id policy.NumericIdentity) (*policy.Identity, er
 		secLbl.AssociateEndpoint(lbl.String())
 		secLbl.ID = id
 		secLbl.Labels = labels.Labels{
-			labels.LabelSourceReserved: lbl,
+			key: lbl,
 		}
 
 		return secLbl, nil
@@ -269,6 +269,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	} else if id == nil {
 		return NewGetIdentityIDNotFound()
 	} else {
+		id.LabelsSHA256 = id.Labels.SHA256Sum()
 		return NewGetIdentityIDOK().WithPayload(id.GetModel())
 	}
 }

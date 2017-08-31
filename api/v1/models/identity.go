@@ -18,6 +18,9 @@ type Identity struct {
 
 	// Labels describing the identity
 	Labels Labels `json:"labels"`
+
+	// SHA256 of labels
+	LabelsSHA256 string `json:"labelsSHA256,omitempty"`
 }
 
 // Validate validates this identity

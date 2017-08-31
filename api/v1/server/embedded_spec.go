@@ -1207,6 +1207,10 @@ func init() {
         "labels": {
           "description": "Labels describing the identity",
           "$ref": "#/definitions/Labels"
+        },
+        "labelsSHA256": {
+          "description": "SHA256 of labels",
+          "type": "string"
         }
       }
     },

@@ -438,6 +438,17 @@ func (e *Endpoint) GetLabels() []string {
 	return e.SecLabel.Labels.GetModel()
 }
 
+// GetLabelsSHA returns the SHA of labels
+func (e *Endpoint) GetLabelsSHA() string {
+	if e.SecLabel == nil {
+		return ""
+	}
+
+	e.SecLabel.LabelsSHA256 = e.SecLabel.Labels.SHA256Sum()
+
+	return e.SecLabel.LabelsSHA256
+}
+
 // GetIPv4Address returns the IPv4 address of the endpoint
 func (e *Endpoint) GetIPv4Address() string {
 	return e.IPv4.String()
