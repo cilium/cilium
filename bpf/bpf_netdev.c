@@ -59,6 +59,7 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
+#ifdef FROM_HOST
 static inline int __inline__
 reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 {
@@ -110,21 +111,67 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 			return DROP_CSUM_L4;
 	}
 
+	/* Packets which have been translated back from the proxy must
+	 * skip any potential ingress proxy at the endpoint
+	 */
+	skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+
 	return 0;
 }
+#endif
+
+#ifdef FROM_HOST
+static inline void __inline__ handle_identity_from_proxy(struct __sk_buff *skb, __u32 *identity)
+{
+	int ret;
+
+	/* For packets from the proxy the identity can be specified via
+	 * skb->mark */
+	if ((ret = mark_is_from_proxy(skb))) {
+		*identity = get_identity_via_proxy(skb);
+
+		/* Packets from the ingress proxy must skip the proxy when the
+		 * destination endpoint evaluates the policy. As the packet
+		 * would loop otherwise. */
+		if (ret == SOURCE_INGRESS_PROXY)
+			skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+	}
+
+	/* Reset packet mark to avoid hitting routing rules again */
+	skb->mark = 0;
+}
+#endif
+
+#ifdef FROM_HOST
+static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
+{
+	/* When attached to cilium_host, we rewrite the DMAC to the mac of
+	 * cilium_host (peer) to ensure the packet is being considered to be
+	 * addressed to the host (PACKET_HOST) */
+	union macaddr cilium_net_mac = CILIUM_NET_MAC;
+
+	/* Rewrite to destination MAC of cilium_net (remote peer) */
+	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
+		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK);
+
+	return TC_ACT_OK;
+}
+#endif
 
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	union v6addr node_ip = { };
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr *dst;
 	int l4_off, l3_off = ETH_HLEN;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
-	int ret;
+
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip6 = data + ETH_HLEN;
 
 	if (data + l3_off + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
@@ -141,50 +188,61 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #endif
 
 	BPF_V6(node_ip, ROUTER_IP);
-
 	flowlabel = derive_sec_ctx(skb, &node_ip, ip6);
-#ifdef FROM_HOST
-	/* For packets from the host, the identity can be specified via skb->mark */
-	if (skb->mark) {
-		flowlabel = skb->mark;
-	}
-#endif
 
-	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+#ifdef FROM_HOST
+	if (1) {
+		int ret;
+
+		handle_identity_from_proxy(skb, &flowlabel);
+
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
+		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
 			return ret;
 
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip6 = data + ETH_HLEN;
-		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
-			return DROP_INVALID;
-
-		/* Lookup IPv4 address in list of local endpoints */
-		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
-			/* Let through packets to the node-ip so they are
-			 * processed by the local ip stack */
-			if (ep->flags & ENDPOINT_F_HOST)
-				return TC_ACT_OK;
-
-			return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep);
-		} else {
-#ifdef ENCAP_IFINDEX
-			struct endpoint_key key = {};
-
-			/* IPv6 lookup key: daddr/96 */
-			dst = (union v6addr *) &ip6->daddr;
-			key.ip6.p1 = dst->p1;
-			key.ip6.p2 = dst->p2;
-			key.ip6.p3 = dst->p3;
-			key.ip6.p4 = 0;
-			key.family = ENDPOINT_KEY_IPV6;
-
-			return encap_and_redirect(skb, &key, flowlabel);
-#endif
-		}
+		/* If we are attached to cilium_host at egress, this will
+		 * rewrite the destination mac address to the MAC of cilium_net */
+		ret = rewrite_dmac_to_host(skb);
+		/* DIRECT PACKET READ INVALID */
+		if (IS_ERR(ret))
+			return ret;
 	}
+
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip6 = data + ETH_HLEN;
+
+	if (data + sizeof(*ip6) + ETH_HLEN > data_end)
+		return DROP_INVALID;
+#endif
+
+	/* Lookup IPv4 address in list of local endpoints */
+	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+		/* Let through packets to the node-ip so they are
+		 * processed by the local ip stack */
+		if (ep->flags & ENDPOINT_F_HOST)
+			return TC_ACT_OK;
+
+		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep);
+	}
+
+#ifdef ENCAP_IFINDEX
+	dst = (union v6addr *) &ip6->daddr;
+	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
+		struct endpoint_key key = {};
+
+		/* IPv6 lookup key: daddr/96 */
+		dst = (union v6addr *) &ip6->daddr;
+		key.ip6.p1 = dst->p1;
+		key.ip6.p2 = dst->p2;
+		key.ip6.p3 = dst->p3;
+		key.ip6.p4 = 0;
+		key.family = ENDPOINT_KEY_IPV6;
+
+		return encap_and_redirect(skb, &key, flowlabel);
+	}
+#endif
 
 	return TC_ACT_OK;
 }
@@ -204,6 +262,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
+#ifdef FROM_HOST
 static inline int __inline__
 reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	      struct ipv4_ct_tuple *tuple)
@@ -258,71 +317,85 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	    csum_l4_replace(skb, l4_off, &csum, old_saddr, new_saddr, 4 | BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
+	/* Packets which have been translated back from the proxy must
+	 * skip any potential ingress proxy at the endpoint
+	 */
+	skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+
 	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_POST, 0);
 
 	return 0;
 }
+#endif
 
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
+	struct ipv4_ct_tuple tuple = {};
+	struct endpoint_info *ep;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int l4_off;
+	__u32 secctx;
+
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip4 = data + ETH_HLEN;
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
 
-#ifdef ENABLE_IPV4
-	/* Check if destination is within our cluster prefix */
-	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-		struct ipv4_ct_tuple tuple = {};
-		struct endpoint_info *ep;
-		__u32 secctx;
-		int ret, l4_off;
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	secctx = derive_ipv4_sec_ctx(skb, ip4);
+	tuple.nexthdr = ip4->protocol;
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		secctx = derive_ipv4_sec_ctx(skb, ip4);
 #ifdef FROM_HOST
-		if (skb->mark) {
-			/* For packets from the host, the identity can be specified via skb->mark */
-			secctx = skb->mark;
-		}
-#endif
-		tuple.nexthdr = ip4->protocol;
+	if (1) {
+		int ret;
 
-		cilium_trace(skb, DBG_NETDEV_IN_CLUSTER, secctx, 0);
+		handle_identity_from_proxy(skb, &secctx);
 
 		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
 			return ret;
 
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip4 = data + ETH_HLEN;
-		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
-			return DROP_INVALID;
+		/* If we are attached to cilium_host at egress, this will
+		 * rewrite the destination mac address to the MAC of cilium_net */
+		ret = rewrite_dmac_to_host(skb);
+		/* DIRECT PACKET READ INVALID */
+		if (IS_ERR(ret))
+			return ret;
+	}
 
-		/* Lookup IPv4 address in list of local endpoints */
-		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
-			/* Let through packets to the node-ip so they are
-			 * processed by the local ip stack */
-			if (ep->flags & ENDPOINT_F_HOST)
-				return TC_ACT_OK;
+	data = (void *) (long) skb->data;
+	data_end = (void *) (long) skb->data_end;
+	ip4 = data + ETH_HLEN;
 
-			return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep);
-		} else {
-#ifdef ENCAP_IFINDEX
-			/* IPv4 lookup key: daddr & IPV4_MASK */
-			struct endpoint_key key = {};
-
-			key.ip4 = ip4->daddr & IPV4_MASK;
-			key.family = ENDPOINT_KEY_IPV4;
-
-			cilium_trace(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-			return encap_and_redirect(skb, &key, secctx);
+	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		return DROP_INVALID;
 #endif
-		}
+
+	/* Lookup IPv4 address in list of local endpoints and host IPs */
+	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+		/* Let through packets to the node-ip so they are
+		 * processed by the local ip stack */
+		if (ep->flags & ENDPOINT_F_HOST)
+			return TC_ACT_OK;
+
+		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep);
+	}
+
+#ifdef ENCAP_IFINDEX
+	/* Check if destination is within our cluster prefix */
+	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+		/* IPv4 lookup key: daddr & IPV4_MASK */
+		struct endpoint_key key = {};
+
+		key.ip4 = ip4->daddr & IPV4_MASK;
+		key.family = ENDPOINT_KEY_IPV4;
+
+		cilium_trace(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
+		return encap_and_redirect(skb, &key, secctx);
 	}
 #endif
 

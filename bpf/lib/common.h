@@ -23,6 +23,7 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef HAVE_LRU_MAP_TYPE
 #define NEEDS_TIMEOUT 1
@@ -220,6 +221,66 @@ struct drop_notify {
 #define DROP_NO_SERVICE		-158
 #define DROP_POLICY_L4		-159
 #define DROP_NO_TUNNEL_ENDPOINT -160
+
+
+/* Magic skb->mark markers which identify packets originating from the proxy
+ *
+ * The uppper 16 bits contain the magic marker values which indicate whether
+ * the packet is coming from an ingress or egress proxy.
+ *
+ * The lower 16 bits may contain the security identity of the original source
+ * endpoint.
+ */
+#define MARK_MAGIC_PROXY_MASK		(0xFFFF << 16)
+#define MARK_MAGIC_PROXY_INGRESS	(0xFEFA << 16)
+#define MARK_MAGIC_PROXY_EGRESS		(0xFEFB << 16)
+#define MARK_IDENTITY_MASK		0xFFFF
+
+#define SOURCE_INGRESS_PROXY 1
+#define SOURCE_EGRESS_PROXY 2
+
+/**
+ * mark_is_from_proxy - returns > 0 if packet is coming from proxy
+ *
+ * Returns:
+ *  - SOURCE_INGRESS_PROXY if from ingress proxy
+ *  - SOURCE_EGRESS_PROXY if from egress proxy
+ */
+static inline int __inline__ mark_is_from_proxy(struct __sk_buff *skb)
+{
+	int magic = skb->mark & MARK_MAGIC_PROXY_MASK;
+
+	if (magic == MARK_MAGIC_PROXY_INGRESS)
+		return SOURCE_INGRESS_PROXY;
+	else if (magic == MARK_MAGIC_PROXY_EGRESS)
+		return SOURCE_EGRESS_PROXY;
+	else
+		return 0;
+}
+
+/**
+ * get_identity_via_proxy - returns source identity as specified by the proxy
+ */
+static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
+{
+	return skb->mark & MARK_IDENTITY_MASK;
+}
+
+/*
+ * skb->tc_index uses
+ *
+ * cilium_host @egress
+ *   bpf_host -> bpf_lxc
+ */
+#define TC_INDEX_F_SKIP_PROXY		1
+
+/**
+ * tc_index_is_from_proxy - returns true if packet originates from egress proxy
+ */
+static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
+{
+	return skb->tc_index & TC_INDEX_F_SKIP_PROXY;
+}
 
 /* skb->cb[] usage: */
 enum {
