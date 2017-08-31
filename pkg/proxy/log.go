@@ -76,7 +76,7 @@ func SetMetadata(md []string) {
 }
 
 func logString(outStr string, retry bool) {
-	_, err := logBuf.WriteString(outStr)
+	_, err := logBuf.WriteString(outStr + "\n")
 	if err != nil {
 		if retry {
 			log.WithFields(log.Fields{
