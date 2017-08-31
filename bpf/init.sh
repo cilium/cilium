@@ -321,8 +321,9 @@ elif [ "$MODE" = "lb" ]; then
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
-		OPTS="-DLB_L3 -DLB_L4 -DCALLS_MAP=cilium_calls_lb_${ID}"
-		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev
+		CALLS_MAP="cilium_calls_lb_${ID}"
+		OPTS="-DLB_L3 -DLB_L4"
+		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev $CALLS_MAP
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
