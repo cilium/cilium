@@ -8,7 +8,7 @@ The goal of this document is to describe the components of the Cilium
 architecture, and the different models for deploying Cilium within your
 datacenter or cloud environment.  It focuses on the higher-level understanding
 required to run a full Cilium deployment.  You can then use the more detailed
-:ref:`admin_guide` to understand the details of setting up Cilium.
+:ref:`install_guide` to understand the details of setting up Cilium.
 
 *****************
 Cilium Components
@@ -51,7 +51,6 @@ different nodes. The currently supported key-value stores are:
 
 * etcd
 * consul
-* local storage (golang hashmap)
 
 
 Cilium Agent
@@ -142,10 +141,7 @@ The Key-Value (KV) Store is used for the following state:
 * Encapsulation VTEP mapping (optional)
 
 To simplify things in a larger deployment, the key-value store can be the same
-one used by the container orchestrater (e.g., Kubernetes using etcd).  In
-single node Cilium deployments used for basic testing / learning, Cilium can
-use a local store implemented as a golang hash map, avoiding the need to setup
-a dedicated KV store.
+one used by the container orchestrater (e.g., Kubernetes using etcd).
 
 .. _labels:
 
@@ -201,6 +197,7 @@ following label sources are currently supported:
 
 - ``container:`` for labels derived from the local container runtime
 - ``k8s:`` for labels derived from Kubernetes
+- ``mesos:`` for labels derived from Mesos
 - ``reserved:`` for special reserved labels, see :ref:`reserved_labels`.
 - ``unspec:`` for labels with unspecified source
 
@@ -252,7 +249,7 @@ currently supported:
 
 +---------------------+---------------------------------------------------+
 | System              | Description                                       |
-+---------------------+---------------------------------------------------+
++=====================+===================================================+
 | Kubernetes          | Pod labels (via k8s API)                          |
 +---------------------+---------------------------------------------------+
 | Mesos               | Labels (via CNI)                                  |
@@ -415,7 +412,7 @@ advantages:
   cluster will automatically be incorporated into the mesh.
 
 - **Identity transfer:** Encapsulation protocols allow for the carrying of
-  arbitrary metadata along of with the network packet. Cilium makes use of this
+  arbitrary metadata along with the network packet. Cilium makes use of this
   ability to transfer metadata such as the source security identity and
   load balancing state to perform direct-server-return.
 
@@ -633,7 +630,7 @@ identities are prefixed with the string `reserved:`.
 
 +---------------------+---------------------------------------------------+
 | Identity            | Description                                       |
-+---------------------+---------------------------------------------------+
++=====================+===================================================+
 | reserved:host       | The host network namespace on which the pod or    |
 |                     | container is running.                             |
 +---------------------+---------------------------------------------------+
