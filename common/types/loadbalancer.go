@@ -360,7 +360,7 @@ func (a L3n4Addr) SHA256Sum() string {
 	}()
 
 	str := []byte(fmt.Sprintf("%+v", a))
-	return fmt.Sprintf("%x", sha512.New512_256().Sum(str))
+	return fmt.Sprintf("%x", sha512.Sum512_256(str))
 }
 
 // IsIPv6 returns true if the IP address in the given L3n4Addr is IPv6 or not.
