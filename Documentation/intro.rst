@@ -74,6 +74,9 @@ The remainder of this documentation is divided into four sections:
 * :ref:`install_guide` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
+* :ref:`policy_guide` : Detailed walkthrough of the policy language structure
+  and the supported formats.
+
 * :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.
 
