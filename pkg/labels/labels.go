@@ -419,7 +419,7 @@ func (l Labels) MergeLabels(from Labels) {
 // SHA256Sum calculates l' internal SHA256Sum. For a particular set of labels is
 // guarantee that it will always have the same SHA256Sum.
 func (l Labels) SHA256Sum() string {
-	return fmt.Sprintf("%x", sha512.New512_256().Sum(l.sortedList()))
+	return fmt.Sprintf("%x", sha512.Sum512_256(l.sortedList()))
 }
 
 func (l Labels) sortedList() []byte {
