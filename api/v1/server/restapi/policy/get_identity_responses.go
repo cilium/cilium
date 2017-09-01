@@ -23,7 +23,7 @@ type GetIdentityOK struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.Identity `json:"body,omitempty"`
+	Payload []*models.Identity `json:"body,omitempty"`
 }
 
 // NewGetIdentityOK creates GetIdentityOK with default headers values
@@ -32,13 +32,13 @@ func NewGetIdentityOK() *GetIdentityOK {
 }
 
 // WithPayload adds the payload to the get identity o k response
-func (o *GetIdentityOK) WithPayload(payload *models.Identity) *GetIdentityOK {
+func (o *GetIdentityOK) WithPayload(payload []*models.Identity) *GetIdentityOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get identity o k response
-func (o *GetIdentityOK) SetPayload(payload *models.Identity) {
+func (o *GetIdentityOK) SetPayload(payload []*models.Identity) {
 	o.Payload = payload
 }
 
@@ -46,18 +46,21 @@ func (o *GetIdentityOK) SetPayload(payload *models.Identity) {
 func (o *GetIdentityOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	if o.Payload != nil {
-		payload := o.Payload
-		if err := producer.Produce(rw, payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
+	payload := o.Payload
+	if payload == nil {
+		payload = make([]*models.Identity, 0, 50)
 	}
+
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+
 }
 
 // GetIdentityNotFoundCode is the HTTP code returned for type GetIdentityNotFound
 const GetIdentityNotFoundCode int = 404
 
-/*GetIdentityNotFound Identity not found
+/*GetIdentityNotFound Identities with provided parameters not found
 
 swagger:response getIdentityNotFound
 */

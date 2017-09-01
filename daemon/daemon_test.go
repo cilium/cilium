@@ -16,6 +16,7 @@ package main
 
 import (
 	"runtime"
+	"sync"
 	"testing"
 
 	e "github.com/cilium/cilium/pkg/endpoint"
@@ -23,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
-	"sync"
 )
 
 // Hook up gocheck into the "go test" runner.

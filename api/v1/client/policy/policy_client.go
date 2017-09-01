@@ -51,7 +51,10 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 }
 
 /*
-GetIdentity retrieves identity by labels
+GetIdentity retrieves a list of identities that have metadata matching the provided parameters
+
+Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+
 */
 func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) {
 	// TODO: Validate the params before sending

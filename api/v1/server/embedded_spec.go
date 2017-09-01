@@ -396,29 +396,28 @@ func init() {
     },
     "/identity": {
       "get": {
+        "description": "Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.\n",
         "tags": [
           "policy"
         ],
-        "summary": "Retrieve identity by labels",
+        "summary": "Retrieves a list of identities that have metadata matching the provided parameters.",
         "parameters": [
           {
-            "name": "labels",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/Labels"
-            }
+            "$ref": "#/parameters/labels"
           }
         ],
         "responses": {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/Identity"
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Identity"
+              }
             }
           },
           "404": {
-            "description": "Identity not found"
+            "description": "Identities with provided parameters not found"
           },
           "520": {
             "description": "Identity storage unreachable. Likely a network problem.",

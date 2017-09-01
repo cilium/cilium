@@ -6,6 +6,7 @@
 # Folders
 _obj
 _test
+tests/cilium-files
 
 # Architecture specific extensions/prefixes
 *.cgo1.go

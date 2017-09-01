@@ -62,7 +62,11 @@ for the get identity operation typically these are written to a http.Request
 */
 type GetIdentityParams struct {
 
-	/*Labels*/
+	/*Labels
+	  List of labels
+
+
+	*/
 	Labels models.Labels
 
 	timeout    time.Duration

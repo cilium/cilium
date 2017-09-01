@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Tests to validate `cilium identity get` CLI commands.
+# Tests to validate `cilium identity list` CLI commands.
 
 source "./helpers.bash"
 
@@ -22,7 +22,7 @@ function restart_cilium {
 }
 
 function cleanup {
-  gather_files 19-identity-get ${TEST_SUITE}
+  gather_files 20-identity-list ${TEST_SUITE}
   cilium policy delete --all 2> /dev/null || true
   docker rm -f foo foo bar baz 2> /dev/null || true
 }
@@ -32,11 +32,11 @@ trap cleanup EXIT
 cleanup
 logs_clear
 
-# Checks that the `cilium identity get <ID>` response matches expectations.
+# Checks that the `cilium identity list "<labels>"` response matches expectations.
 #
 # The test launches three containers and waits until 3 endpoints are created in Cilium. It then extracts the security ID
 # from the `cilium endpoint list` output.
-function test_identity_get {
+function test_identity_list {
   remove_containers
   restart_cilium
   start_containers
@@ -45,20 +45,11 @@ function test_identity_get {
   local ID=$(cilium endpoint list | grep id.foo | awk '{print $3}')
 
   # Get expected response and replace all newline chars with a single space.
-  local response=$(cilium identity get $ID | sed ':a;N;$!ba;s/\n/ /g')
-
-  # Extract SHA256 value from response
-  local str=$response
-  local substring="labelsSHA256\": \""
-  local len=${#substring}
-
-  # Find the index of first occurrence of substring in response str
-  local index=$(awk -v a="$str" -v b="$substring" 'BEGIN{print index(a,b)}')
-  substring=${str:index + len - 1}
-  local sha256="$( cut -d '"' -f 1 <<< "$substring" )"
+  local response=$(cilium identity list "container:id.foo" | sed ':a;N;$!ba;s/\n/ /g')
 
   echo "Endpoint security ID is: $ID"
-  local expected_response='{   "Payload": {     "id": '$ID',     "labels": [       "container:id.foo"     ],     "labelsSHA256": "'$sha256'"   } }'
+
+  local expected_response='Identities in use by endpoints: (Note: If labels have been provided as parameters, only matching identities will be displayed) {   "Payload": [     {       "id": '$ID',       "labels": [         "container:id.foo"       ]     }   ] }'
 
   echo "Response is $response"
 
@@ -67,8 +58,26 @@ function test_identity_get {
   fi
 }
 
-cilium endpoint list
+# Checks that the `cilium identity list --reserved` response matches expectations.
+function test_identity_list_reserved {
+  local response=$(cilium identity list --reserved | sed ':a;N;$!ba;s/\n/ /g' | grep '1 host.*2 world\|2 world.*1 host')
+  local exit_code=$?
+
+  echo "Response is $response"
+
+  if [[ 0 != ${exit_code} ]]; then
+    abort "Expected: 0 exit code; Got: ${exit_code}"
+  fi
+}
+
+cilium identity list
+cilium identity list "container:id.foo"
 
 create_cilium_docker_network
 
-test_identity_get
+test_identity_list
+
+cleanup
+logs_clear
+
+test_identity_list_reserved
