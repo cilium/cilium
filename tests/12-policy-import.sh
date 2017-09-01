@@ -6,13 +6,17 @@ DENIED="Result: DENIED"
 ALLOWED="Result: ALLOWED"
 
 function cleanup {
-	gather_files 12-policy-import ${TEST_SUITE}
-	cilium policy delete --all 2> /dev/null || true
-	docker rm -f foo foo bar baz 2> /dev/null || true
-	docker network rm $TEST_NET > /dev/null 2>&1
+  cilium policy delete --all 2> /dev/null || true
+  docker rm -f foo foo bar baz 2> /dev/null || true
+  docker network rm $TEST_NET > /dev/null 2>&1
 }
 
-trap cleanup EXIT
+function finish_test {
+  gather_files 12-policy-import ${TEST_SUITE}
+  cleanup
+}
+
+trap finish_test EXIT
 cleanup
 logs_clear
 

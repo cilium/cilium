@@ -31,8 +31,8 @@ function create_k8s_files {
 create_k8s_files
 
 function cleanup_k8s {
-    kubectl delete -f ./gce-deployment/client.json || true
-    kubectl delete -f ./gce-deployment/server.json || true
+  kubectl delete -f ./gce-deployment/client.json || true
+  kubectl delete -f ./gce-deployment/server.json || true
 }
 
 trap cleanup_k8s EXIT

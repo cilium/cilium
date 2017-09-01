@@ -26,12 +26,16 @@ HOSTIP6="fd02:1:1:1:1:1:1:1"
 logs_clear
 
 function cleanup {
-	gather_files 06-lb ${TEST_SUITE}
-	docker rm -f server1 server2 server3 server4 server5 client misc 2> /dev/null || true
-	rm netdev_config.h tmp_lb.o 2> /dev/null || true
-	rm /sys/fs/bpf/tc/globals/lbtest 2> /dev/null || true
-	ip link del lbtest1 2> /dev/null || true
-	ip addr del $HOSTIP6 dev cilium_host 2> /dev/null || true
+  docker rm -f server1 server2 server3 server4 server5 client misc 2> /dev/null || true
+  rm netdev_config.h tmp_lb.o 2> /dev/null || true
+  rm /sys/fs/bpf/tc/globals/lbtest 2> /dev/null || true
+  ip link del lbtest1 2> /dev/null || true
+  ip addr del $HOSTIP6 dev cilium_host 2> /dev/null || true
+}
+
+function finish_test {
+  gather_files 06-lb ${TEST_SUITE}
+  cleanup
 }
 
 function mac2array()
@@ -44,9 +48,7 @@ function host_ip4()
 	ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | sed -e 's/\/.*//'
 }
 
-trap cleanup EXIT
-
-# Remove containers from a previously incomplete run
+trap finish_test EXIT
 cleanup
 
 set -x

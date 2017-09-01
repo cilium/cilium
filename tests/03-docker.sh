@@ -7,15 +7,19 @@ set -e
 NETPERF_IMAGE="tgraf/netperf"
 
 function cleanup {
-	gather_files 03-docker ${TEST_SUITE}
-	cilium policy delete --all 2> /dev/null || true
-	docker rm -f server client 2> /dev/null || true
-	monitor_stop
+  cilium policy delete --all 2> /dev/null || true
+  docker rm -f server client 2> /dev/null || true
+  monitor_stop
+}
+
+function finish_test {
+  gather_files 03-docker ${TEST_SUITE}
+  cleanup
 }
 
 logs_clear
 
-trap cleanup EXIT
+trap finish_test EXIT
 cleanup
 
 SERVER_LABEL="id.server"

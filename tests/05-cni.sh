@@ -60,15 +60,20 @@ function clean_container {
 }
 
 function cleanup {
-	gather_files 05-cni ${TEST_SUITE}
-	cilium policy delete --all 2> /dev/null || true
-	kill_cni_container $server_id cni-server
-	kill_cni_container $client_id cni-client
-	monitor_stop
-	rm -rf $DIR
+  cilium policy delete --all 2> /dev/null || true
+  kill_cni_container $server_id cni-server || true
+  kill_cni_container $client_id cni-client || true
+  monitor_stop
+  rm -rf $DIR
 }
 
-trap cleanup EXIT
+function finish_test {
+  gather_files 05-cni ${TEST_SUITE}
+  cleanup
+}
+
+trap finish_test EXIT
+cleanup
 
 clean_container cni-server
 clean_container cni-client

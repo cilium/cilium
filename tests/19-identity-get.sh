@@ -22,12 +22,16 @@ function restart_cilium {
 }
 
 function cleanup {
-  gather_files 19-identity-get ${TEST_SUITE}
   cilium policy delete --all 2> /dev/null || true
   docker rm -f foo foo bar baz 2> /dev/null || true
 }
 
-trap cleanup EXIT
+function finish_test {
+  gather_files 19-identity-get ${TEST_SUITE}
+  cleanup
+}
+
+trap finish_test EXIT
 
 cleanup
 logs_clear
