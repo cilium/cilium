@@ -6,11 +6,15 @@ source ./helpers.bash
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 
 function cleanup {
-      gather_files 18-kvstore-fail ${TEST_SUITE}
-      killall cilium-agent || true
-      systemctl stop cilium-etcd || true
-      systemctl stop cilium-consul || true
-      systemctl restart cilium
+  killall cilium-agent || true
+  systemctl stop cilium-etcd || true
+  systemctl stop cilium-consul || true
+  systemctl restart cilium
+}
+
+function finish_test {
+  gather_files 18-kvstore-fail ${TEST_SUITE}
+  cleanup
 }
 
 function test_kvstore {
@@ -53,7 +57,7 @@ function test_kvstore {
 }
 
 # FIXME: Re-enable when test is stable
-#trap cleanup EXIT
+#trap finish_test EXIT
 #
 #systemctl stop cilium
 #

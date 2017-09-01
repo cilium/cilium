@@ -3,12 +3,16 @@
 source ./helpers.bash
 
 function cleanup {
-	gather_files 17-cilium_policy-id-remove ${TEST_SUITE}
-	docker rm -f a b 2> /dev/null || true
-	docker network rm $TEST_NET > /dev/null 2>&1
+  docker rm -f a b 2> /dev/null || true
+  docker network rm $TEST_NET > /dev/null 2>&1
 }
 
-trap cleanup EXIT
+function finish_test {
+  gather_files 17-cilium_policy-id-remove ${TEST_SUITE}
+  cleanup
+}
+
+trap finish_test EXIT
 
 cleanup
 logs_clear

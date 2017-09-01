@@ -5,13 +5,17 @@ source "./helpers.bash"
 set -e
 
 function cleanup {
-	gather_files 08-nat46 ${TEST_SUITE}
-	cilium policy delete --all 2> /dev/null || true
-        docker rm -f server client 2> /dev/null || true
-        monitor_stop
+  cilium policy delete --all 2> /dev/null || true
+  docker rm -f server client 2> /dev/null || true
+  monitor_stop
 }
 
-trap cleanup EXIT
+function finish_test {
+  gather_files 08-nat46 ${TEST_SUITE}
+  cleanup
+}
+
+trap finish_test EXIT
 cleanup
 
 SERVER_LABEL="id.server"

@@ -6,7 +6,7 @@ CLIENT_LABEL="id.client"
 SERVER_LABEL="id.server"
 
 function cleanup {
-	docker rm -f server client 2> /dev/null || true
+  docker rm -f server client 2> /dev/null || true
 }
 
 function setup {

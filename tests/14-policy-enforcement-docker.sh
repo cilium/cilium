@@ -95,7 +95,6 @@ EOF
 }
 
 trap finish_test EXIT
-
 cleanup
 
 # Restart cilium so we are sure it is running in 'default' mode.

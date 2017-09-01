@@ -9,14 +9,18 @@ ID_SERVICE1="id.service1"
 ID_SERVICE2="id.service2"
 
 function cleanup {
-  gather_files 11-getting-started ${TEST_SUITE}
   cilium policy delete --all 2> /dev/null || true
   docker rm -f ${HTTPD_CONTAINER_NAME}  2> /dev/null || true
   docker network rm ${TEST_NET} 2> /dev/null || true
   monitor_stop
 }
 
-trap cleanup EXIT
+function finish_test {
+  gather_files 11-getting-started ${TEST_SUITE}
+  cleanup
+}
+
+trap finish_test EXIT
 
 cleanup
 monitor_start
