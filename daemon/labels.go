@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/apierror"
@@ -232,17 +233,34 @@ func NewGetIdentityHandler(d *Daemon) GetIdentityHandler {
 }
 
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
-	lbls := labels.NewLabelsFromModel(params.Labels)
-	if id, err := LookupIdentityBySHA256(lbls.SHA256Sum()); err != nil {
-		if apierr, ok := err.(*apierror.APIError); ok {
-			return apierr
+	log.Debugf("GET /identity request: %+v", params)
+
+	identities := []*models.Identity{}
+	if params.Labels == nil {
+		// if labels is nil, return all identities from the kvstore
+		outputList, err := kvstore.Client().ListPrefix(common.LabelIDKeyPath)
+		if err != nil {
+			return apierror.Error(GetIdentityIDInvalidStorageFormatCode, err)
 		}
-		return apierror.Error(GetIdentityUnreachableCode, err)
-	} else if id == nil {
-		return NewGetIdentityNotFound()
+		for _, v := range outputList {
+			if id, err := parseIdentityResponse(v); err != nil {
+				return apierror.Error(GetIdentityIDInvalidStorageFormatCode, err)
+			} else if id != nil {
+				identities = append(identities, id.GetModel())
+			}
+		}
 	} else {
-		return NewGetIdentityOK().WithPayload(id.GetModel())
+		lbls := labels.NewLabelsFromModel(params.Labels)
+		if id, err := LookupIdentityBySHA256(lbls.SHA256Sum()); err != nil {
+			if apierr, ok := err.(*apierror.APIError); ok {
+				return apierr
+			}
+			return apierror.Error(GetIdentityUnreachableCode, err)
+		} else if id != nil {
+			identities = append(identities, id.GetModel())
+		}
 	}
+	return NewGetIdentityOK().WithPayload(identities)
 }
 
 type getIdentityID struct {

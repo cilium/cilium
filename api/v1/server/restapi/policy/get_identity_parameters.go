@@ -30,7 +30,8 @@ type GetIdentityParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request
 
-	/*
+	/*List of labels
+
 	  Required: true
 	  In: body
 	*/

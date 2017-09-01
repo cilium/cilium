@@ -66,7 +66,7 @@ func NewGetIdentityOK() *GetIdentityOK {
 Success
 */
 type GetIdentityOK struct {
-	Payload *models.Identity
+	Payload []*models.Identity
 }
 
 func (o *GetIdentityOK) Error() string {
@@ -75,10 +75,8 @@ func (o *GetIdentityOK) Error() string {
 
 func (o *GetIdentityOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.Identity)
-
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 
@@ -92,7 +90,7 @@ func NewGetIdentityNotFound() *GetIdentityNotFound {
 
 /*GetIdentityNotFound handles this case with default header values.
 
-Identity not found
+Identities with provided parameters not found
 */
 type GetIdentityNotFound struct {
 }

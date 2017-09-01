@@ -29,7 +29,10 @@ func NewGetIdentity(ctx *middleware.Context, handler GetIdentityHandler) *GetIde
 
 /*GetIdentity swagger:route GET /identity policy getIdentity
 
-Retrieve identity by labels
+Retrieves a list of identities that have metadata matching the provided parameters.
+
+Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+
 
 */
 type GetIdentity struct {

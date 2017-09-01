@@ -17,32 +17,24 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cilium/cilium/pkg/policy"
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/spf13/cobra"
 )
-
-var listID bool
 
 // identityGetCmd represents the identity_get command
 var identityGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Retrieve the identity of the specified label",
 	Run: func(cmd *cobra.Command, args []string) {
-		if listID {
-			for k, v := range policy.ReservedIdentities {
-				fmt.Printf("%-15s %3d\n", k, v)
-			}
-			return
-		}
-
 		if len(args) < 1 || args[0] == "" {
 			Usagef(cmd, "Invalid identity ID")
 		}
 
 		if id := policy.GetReservedID(args[0]); id != policy.ID_UNKNOWN {
+			//DO NOT modify the output format. This is being used by script(s).
 			fmt.Printf("%d\n", id)
 		} else {
 			params := identityApi.NewGetIdentityIDParams().WithID(args[0])
@@ -59,5 +51,4 @@ var identityGetCmd = &cobra.Command{
 
 func init() {
 	identityCmd.AddCommand(identityGetCmd)
-	identityGetCmd.Flags().BoolVarP(&listID, "list", "", false, "List all identities")
 }
