@@ -5,10 +5,49 @@ source "./helpers.bash"
 set -e
 
 function cleanup {
-	gather_files 01-ct ${TEST_SUITE}
-	docker rm -f server client httpd1 httpd2 curl curl2 2> /dev/null || true
-	monitor_stop
+  gather_files 01-ct ${TEST_SUITE}
+  docker rm -f server client httpd1 httpd2 curl curl2 2> /dev/null || true
+  monitor_stop
 }
+
+function start_containers {
+  set +x
+  log "starting containers"
+  docker run -dt --net=$TEST_NET --name server -l id.server tgraf/netperf
+  docker run -dt --net=$TEST_NET --name httpd1 -l id.httpd httpd
+  docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
+  docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
+  docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
+  docker run -dt --net=$TEST_NET --name curl2  -l id.curl tgraf/netperf
+  wait_for_endpoints 6
+  echo "containers started and ready"
+  set -x
+}
+
+function get_container_metadata {
+  set +x
+  CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
+  log "CLIENT_IP: $CLIENT_IP"
+  CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
+  log "CLIENT_IP_4: $CLIENT_IP_4"
+  CLIENT_ID=$(cilium endpoint list | grep id.client | awk '{ print $1}')
+  log "CLIENT_ID: $CLIENT_ID"
+  SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
+  log "SERVER_IP: $SERVER_IP"
+  SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
+  log "SERVER_IP4: $SERVER_IP4"
+  SERVER_ID=$(cilium endpoint list | grep id.server | awk '{ print $1}')
+  log "SERVER_ID: $SERVER_ID"
+  HTTPD1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd1)
+  log "HTTPD1_IP: $HTTPD1_IP"
+  HTTPD1_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd1)
+  log "HTTPD1_IP4: $HTTPD1_IP4"
+  HTTPD2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd2)
+  log "HTTPD2_IP: $HTTPD2_IP"
+  HTTPD2_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd2)
+  log "HTTPD2_IP4: $HTTPD2_IP4"
+  set -x
+} 
 
 trap cleanup EXIT
 
@@ -18,29 +57,14 @@ logs_clear
 
 create_cilium_docker_network
 
-docker run -dt --net=$TEST_NET --name server -l id.server tgraf/netperf
-docker run -dt --net=$TEST_NET --name httpd1 -l id.httpd httpd
-docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
-docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
-docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
-docker run -dt --net=$TEST_NET --name curl2  -l id.curl tgraf/netperf
+start_containers
+get_container_metadata
 
-wait_for_endpoints 6
 
-CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
-CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
-CLIENT_ID=$(cilium endpoint list | grep id.client | awk '{ print $1}')
-SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
-SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
-SERVER_ID=$(cilium endpoint list | grep id.server | awk '{ print $1}')
-HTTPD1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd1)
-HTTPD1_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd1)
-HTTPD2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd2)
-HTTPD2_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd2)
+log "endpoint list output:"
+cilium endpoint list
 
 set -x
-
-cilium endpoint list
 
 cat <<EOF | policy_import_and_wait -
 [{
