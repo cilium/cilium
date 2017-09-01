@@ -13,50 +13,50 @@ logs_clear
 set -e
 
 function run_cni_container {
-	LABELS=""
-	ARGS=""
+  LABELS=""
+  ARGS=""
 
-	while [[ $# != 0 ]]; do
-		if [ "$1" == "-l" -o "$1" == "--label" ]; then
-			LABELS="$LABELS -l $2"
-		fi
-		ARGS="$ARGS $1"
-		shift
-	done
+  while [[ $# != 0 ]]; do
+    if [ "$1" == "-l" -o "$1" == "--label" ]; then
+      LABELS="$LABELS -l $2"
+    fi
+    ARGS="$ARGS $1"
+    shift
+  done
 
-	contid=$(docker run -t -d --net=none $LABELS busybox:latest)
-	pid=$(docker inspect -f '{{ .State.Pid }}' $contid)
-	netnspath=/proc/$pid/ns/net
+  contid=$(docker run -t -d --net=none $LABELS busybox:latest)
+  pid=$(docker inspect -f '{{ .State.Pid }}' $contid)
+  netnspath=/proc/$pid/ns/net
 
-	sudo -E PATH=$PATH:/opt/cni/bin ./exec-plugins.sh add $contid $netnspath
+  sudo -E PATH=$PATH:/opt/cni/bin ./exec-plugins.sh add $contid $netnspath
 
-	docker run --net=container:$contid $ARGS > /dev/null
+  docker run --net=container:$contid $ARGS > /dev/null
 
-	echo $contid
+  echo $contid
 }
 
 function kill_cni_container {
-	if [ ! -z "$1" ]; then
-		pid=$(docker inspect -f '{{ .State.Pid }}' $1)
-		netnspath=/proc/$pid/ns/net
+  if [ ! -z "$1" ]; then
+    pid=$(docker inspect -f '{{ .State.Pid }}' $1)
+    netnspath=/proc/$pid/ns/net
 
-		sudo -E PATH=$PATH:/opt/cni/bin ./exec-plugins.sh del $1 $netnspath
-		docker rm -f $1 >/dev/null
-	fi
+    sudo -E PATH=$PATH:/opt/cni/bin ./exec-plugins.sh del $1 $netnspath
+    docker rm -f $1 >/dev/null
+  fi
 
-	clean_container $2
+  clean_container $2
 }
 
 function extract_ip4 {
-	docker exec -i $1 ip -4 a show dev eth0 scope global | grep inet | sed -e 's%.*inet \(.*\)\/.*%\1%'
+  docker exec -i $1 ip -4 a show dev eth0 scope global | grep inet | sed -e 's%.*inet \(.*\)\/.*%\1%'
 }
 
 function extract_ip6 {
-	docker exec -i $1 ip -6 a show dev eth0 scope global | grep inet6 | sed -e 's%.*inet6 \(.*\)\/.*%\1%'
+  docker exec -i $1 ip -6 a show dev eth0 scope global | grep inet6 | sed -e 's%.*inet6 \(.*\)\/.*%\1%'
 }
 
 function clean_container {
-	docker rm -f $1 2> /dev/null || true
+  docker rm -f $1 2> /dev/null || true
 }
 
 function cleanup {
@@ -121,17 +121,17 @@ server_ip4=$(extract_ip4 $server_id)
 
 echo "Waiting for containers to come up"
 while true; do
-    output=`docker ps -a`
+  output=`docker ps -a`
 
-    if echo ${output} | grep cni-server && \
-        echo ${output} | grep cni-client; then
-        break
-    fi
+  if echo ${output} | grep cni-server && \
+     echo ${output} | grep cni-client; then
+    break
+  fi
 done
 
 monitor_clear
 docker exec -i cni-client ping6 -c 10 $server_ip
 monitor_clear
 if [ $server_ip4 ]; then
-	docker exec -i cni-client ping -c 10 $server_ip4
+  docker exec -i cni-client ping -c 10 $server_ip4
 fi

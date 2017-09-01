@@ -8,23 +8,23 @@ set -e
 logs_clear
 
 if [ -z $K8S ]; then
-	exit 0
+  exit 0
 fi
 
 if [[ "${IPV4}" -ne "1" ]]; then
-    export 'IPV6_EXT'=1
-    export 'K8S_CLUSTER_DNS_IP'=${K8S_CLUSTER_DNS_IP:-"fd03::a"}
+  export 'IPV6_EXT'=1
+  export 'K8S_CLUSTER_DNS_IP'=${K8S_CLUSTER_DNS_IP:-"fd03::a"}
 else
-    echo "This test is suppose to be run with IPv4 mode disabled, for example:"
-    echo "LB=1 IPV4=0 K8S=1 NWORKERS=1 ./contrib/vagrant/start.sh"
-    exit 1
+  echo "This test is suppose to be run with IPv4 mode disabled, for example:"
+  echo "LB=1 IPV4=0 K8S=1 NWORKERS=1 ./contrib/vagrant/start.sh"
+  exit 1
 fi
 
 if [[ "$(hostname)" -eq "cilium-k8s-master" ]]; then
-    echo "This test is suppose to be run on cilium-k8s-nodes where the"
-    echo "guestbook pods are scheduled to be run. For example:"
-    echo "LB=1 IPV4=0 K8S=1 NWORKERS=1 ./contrib/vagrant/start.sh"
-    exit 1
+  echo "This test is suppose to be run on cilium-k8s-nodes where the"
+  echo "guestbook pods are scheduled to be run. For example:"
+  echo "LB=1 IPV4=0 K8S=1 NWORKERS=1 ./contrib/vagrant/start.sh"
+  exit 1
 fi
 
 function cleanup {
@@ -40,11 +40,11 @@ monitor_start
 set -x
 
 if [ ! "${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh" ]; then
-    echo "File ${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh not found, falling back to default"
-    "${dir}/../examples/kubernetes-ingress/scripts/08-cilium.sh"
+  echo "File ${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh not found, falling back to default"
+  "${dir}/../examples/kubernetes-ingress/scripts/08-cilium.sh"
 else
-    # This way we configure kubectl with the same IPs set with start.sh
-    "${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh"
+  # This way we configure kubectl with the same IPs set with start.sh
+  "${dir}/../contrib/vagrant/cilium-k8s-install-2nd-part.sh"
 fi
 "${dir}/../examples/kubernetes-ingress/scripts/09-dns-addon.sh"
 "${dir}/../examples/kubernetes-ingress/scripts/10-1-smoke-test.sh"
