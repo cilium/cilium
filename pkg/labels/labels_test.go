@@ -191,24 +191,6 @@ func (s *LabelsSuite) TestLabelCompare(c *C) {
 	c.Assert(b1.Equals(c1), Equals, false)
 }
 
-func (s *LabelsSuite) TestLabelSliceSHA256Sum(c *C) {
-	a1 := NewLabel(".", "", "")
-	a2 := NewLabel(".", "", "")
-	b1 := NewLabel("bar", "", LabelSourceUnspec)
-	c1 := NewLabel("bar", "", "kubernetes")
-	d1 := NewLabel("", "", "")
-	labels := []*Label{
-		a1,
-		a2,
-		b1,
-		c1,
-		d1,
-	}
-	sha256sum, err := LabelSliceSHA256Sum(labels)
-	c.Assert(err, IsNil)
-	c.Assert(sha256sum, DeepEquals, "330d57790ccf8cd0b10000d6297baa5fa27b9d6e1cb228055b45dc6e440ea4da")
-}
-
 func (s *LabelsSuite) TestLabelParseKey(c *C) {
 	tests := []struct {
 		str string

@@ -525,15 +525,6 @@ func ParseStringLabels(strLbls []string) Labels {
 	return lbls
 }
 
-// LabelSliceSHA256Sum returns SHA256 checksum from the labels.
-func LabelSliceSHA256Sum(labels []*Label) (string, error) {
-	sha := sha512.New512_256()
-	if err := json.NewEncoder(sha).Encode(labels); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x", sha.Sum(nil)), nil
-}
-
 // generateLabelString generates the string representation of a label with
 // the provided source, key, and value in the format "source:key=value".
 func generateLabelString(source, key, value string) string {
