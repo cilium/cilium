@@ -97,6 +97,11 @@ function move_local_rules_af()
 {
 	IP=$1
 
+	# Do not move the rule if we don't support the address family
+	if [ -z "$($IP rule list)" ]; then
+		return
+	fi
+
 	# move the local table lookup rule from pref 0 to pref 100 so we can
 	# insert the cilium ip rules before the local table. It is strictly
 	# required to add the new local rule before deleting the old one as
@@ -129,12 +134,18 @@ function setup_proxy_rules()
 {
 	# delete old ip rules and flush table
 	delete_old_ip_rules $PROXY_RT_TABLE
-	ip -4 route flush table $PROXY_RT_TABLE
-	ip -6 route flush table $PROXY_RT_TABLE
 
-	# Any packet from a proxy uses a separate routing table
-	ip -4 rule add fwmark 0xFEF00000/0xFFF00000 pref 10 lookup $PROXY_RT_TABLE
-	ip -6 rule add fwmark 0xFEF00000/0xFFF00000 pref 10 lookup $PROXY_RT_TABLE
+	if [ -n "$(ip -4 rule list)" ]; then
+		ip -4 route flush table $PROXY_RT_TABLE
+		# Any packet from a proxy uses a separate routing table
+		ip -4 rule add fwmark 0xFEF00000/0xFFF00000 pref 10 lookup $PROXY_RT_TABLE
+	fi
+
+	if [ -n "$(ip -6 rule list)" ]; then
+		ip -6 route flush table $PROXY_RT_TABLE
+		# Any packet from a proxy uses a separate routing table
+		ip -6 rule add fwmark 0xFEF00000/0xFFF00000 pref 10 lookup $PROXY_RT_TABLE
+	fi
 
 	if [ -n "$IP4_HOST" ]; then
 		ip route add table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
