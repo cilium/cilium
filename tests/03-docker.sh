@@ -42,27 +42,27 @@ SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalI
 
 monitor_clear
 docker exec -i client ping6 -c 5 $SERVER_IP || {
-	abort "Error: Could not ping server container"
+  abort "Error: Could not ping server container"
 }
 
 monitor_clear
 docker exec -i client netperf -c -C -H $SERVER_IP || {
-	abort "Error: Could not netperf to server"
+  abort "Error: Could not netperf to server"
 }
 
 monitor_clear
 docker exec -i client netperf -c -C -t TCP_SENDFILE -H $SERVER_IP || {
-	abort "Error: Could not netperf to server"
+  abort "Error: Could not netperf to server"
 }
 
 monitor_clear
 docker exec -i client super_netperf 10 -c -C -t TCP_SENDFILE -H $SERVER_IP || {
-	abort "Error: Could not netperf to server"
+  abort "Error: Could not netperf to server"
 }
 
 monitor_clear
 ping6 -c 5 "$SERVER_IP" || {
-	abort "Error: Could not ping server container from host"
+  abort "Error: Could not ping server container from host"
 }
 
 cilium policy delete id=server

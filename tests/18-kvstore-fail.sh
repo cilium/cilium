@@ -18,42 +18,42 @@ function finish_test {
 }
 
 function test_kvstore {
-      PORT=$2
-      KV=$1
-      KV_OPTS="--kvstore $KV --kvstore-opt $KV.address=127.0.0.1:$PORT"
-      CILIUM_AGENT=../daemon/cilium-agent
-      AGENT_PID=""
+  PORT=$2
+  KV=$1 
+  KV_OPTS="--kvstore $KV --kvstore-opt $KV.address=127.0.0.1:$PORT"
+  CILIUM_AGENT=../daemon/cilium-agent
+  AGENT_PID=""
 
-      # Give the daemon a chance to start
-      $CILIUM_AGENT $KV_OPTS &
-      AGENT_PID=$!
-      wait_for_agent_socket 60
+  # Give the daemon a chance to start
+  $CILIUM_AGENT $KV_OPTS &
+  AGENT_PID=$!
+  wait_for_agent_socket 60
 
-      echo "--- Check that the daemon started up succesfully ---"
-      if [ ! -S $AGENT_SOCK_PATH ]; then
-        abort "No socket at $AGENT_SOCK_PATH"
-      fi
+  echo "--- Check that the daemon started up succesfully ---"
+  if [ ! -S $AGENT_SOCK_PATH ]; then
+    abort "No socket at $AGENT_SOCK_PATH"
+  fi
 
-      if ! ps -p $AGENT_PID; then
-        abort "The daemon should be running"
-      fi
+  if ! ps -p $AGENT_PID; then
+    abort "The daemon should be running"
+  fi
 
-      if ! cilium status | grep "KVStore:            Ok"; then
-        abort "KVStore should be Ok"
-      fi
+  if ! cilium status | grep "KVStore:            Ok"; then
+    abort "KVStore should be Ok"
+  fi
 
-      kill $AGENT_PID
+  kill $AGENT_PID
 
-      systemctl stop cilium-$KV
+  systemctl stop cilium-$KV
 
-      echo "--- Wait for daemon to exhaust maxTries ---"
-      $CILIUM_AGENT $KV_OPTS &
-      AGENT_PID=$!
-      wait_for_kill $AGENT_PID 240
+  echo "--- Wait for daemon to exhaust maxTries ---"
+  $CILIUM_AGENT $KV_OPTS &
+  AGENT_PID=$!
+  wait_for_kill $AGENT_PID 240
 
-      if [ -S $AGENT_SOCK_PATH ]; then
-        abort "Found $AGENT_SOCK_PATH. The daemon should not be running."
-      fi
+  if [ -S $AGENT_SOCK_PATH ]; then
+    abort "Found $AGENT_SOCK_PATH. The daemon should not be running."
+  fi
 }
 
 # FIXME: Re-enable when test is stable

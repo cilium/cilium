@@ -10,12 +10,12 @@ function cleanup {
 }
 
 function setup {
-    logs_clear
-    monitor_start
-    echo "Logging at $DUMP_FILE"
-    docker network rm ${TEST_NET} > /dev/null 2>&1
-    create_cilium_docker_network
-    cilium config PolicyEnforcement=always
+  logs_clear
+  monitor_start
+  echo "Logging at $DUMP_FILE"
+  docker network rm ${NETWORK} > /dev/null 2>&1
+  create_cilium_docker_network
+  cilium config PolicyEnforcement=always
 }
 
 trap cleanup EXIT
@@ -54,27 +54,27 @@ docker exec -ti client ping6 -c 1 ${SERVER_IP}
 known_ids=(`cilium endpoint list| awk '{ if (NR > 1) print " "$1 }' |tr -d '\n'`)
 
 grep "Attempting local delivery for container id " ${DUMP_FILE} | while read -r entry ; do
-        # CPU 01: MARK 0x3de3947b FROM 48896 DEBUG: Attempting local delivery for container id 29381 from seclabel 263
-        #                              ^                                                       ^
-        # Above is the expected full example output.
-        container_id=`echo ${entry} | awk '{ print $14 }'`
-        from_id=`echo ${entry} | awk '{ print $5 }'`
-        did_match=false
+  # CPU 01: MARK 0x3de3947b FROM 48896 DEBUG: Attempting local delivery for container id 29381 from seclabel 263
+  #                              ^                                                       ^
+  # Above is the expected full example output.
+  container_id=`echo ${entry} | awk '{ print $14 }'`
+  from_id=`echo ${entry} | awk '{ print $5 }'`
+  did_match=false
 
-        if [[ "$container_id" == "$from_id" ]]; then
-                abort "was not expecting container id ($container_id) to equal from ($from_id)"
-        fi
+  if [[ "$container_id" == "$from_id" ]]; then
+    abort "was not expecting container id ($container_id) to equal from ($from_id)"
+  fi
 
-        for id in "${known_ids[@]}"; do
-                if [[ "$container_id" == "$id" ]]; then
-                        did_match=true
-                        break
-                fi
-        done
+  for id in "${known_ids[@]}"; do
+    if [[ "$container_id" == "$id" ]]; then
+      did_match=true
+      break
+    fi
+  done
 
-        if ! ${did_match} ; then
-                abort "$container_id is not in the known list of ids"
-        fi
+  if ! ${did_match} ; then
+    abort "$container_id is not in the known list of ids"
+  fi
 done
 
 monitor_stop

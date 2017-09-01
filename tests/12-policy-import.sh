@@ -44,7 +44,7 @@ EOF
 
 DIFF=$(diff -Nru  <(cilium policy get | grep -v Revision:) <(echo "$EXPECTED_POLICY")) || true
 if [[ "$DIFF" != "" ]]; then
-	abort "$DIFF"
+  abort "$DIFF"
 fi
 
 cilium policy delete --all
@@ -127,7 +127,7 @@ EOF
 echo "------ verify trace for expected output ------"
 DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar)) || true
 if [[ "$DIFF" != "" ]]; then
-	abort "$DIFF"
+  abort "$DIFF"
 fi
 
 BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
@@ -138,7 +138,7 @@ EXPECTED_CONSUMER="1\n$FOO_SEC_ID"
 echo "------ verify allowed consumers ------"
 DIFF=$(diff -Nru <(echo -e "$EXPECTED_CONSUMER") <(cilium endpoint get $BAR_ID | jq '.policy | .["allowed-consumers"] | .[]' | sort)) || true
 if [[ "$DIFF" != "" ]]; then
-	abort "$DIFF"
+  abort "$DIFF"
 fi
 
 cilium policy delete --all
@@ -231,14 +231,14 @@ EOF
 echo "------ verify verbose trace for expected output using security identities ------"
 DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Result:")) || true
 if [[ "$DIFF" != "" ]]; then
-    abort "DIFF: $DIFF"
+  abort "DIFF: $DIFF"
 fi
 
 echo "------ verify verbose trace for expected output using endpoint IDs ------"
 TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
 DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Result:")) || true
 if [[ "$DIFF" != "" ]]; then
-    abort "DIFF: $DIFF"
+  abort "DIFF: $DIFF"
 fi
 
 EXPECTED_CONSUMER="$FOO_SEC_ID"
@@ -246,7 +246,7 @@ EXPECTED_CONSUMER="$FOO_SEC_ID"
 echo "------ verify allowed consumers ------"
 DIFF=$(diff -Nru <(echo -e "$EXPECTED_CONSUMER") <(cilium endpoint get $BAR_ID | jq '.policy | .["allowed-consumers"] | .[]')) || true
 if [[ "$DIFF" != "" ]]; then
-	abort "$DIFF"
+  abort "$DIFF"
 fi
 
 echo "------ verify max ingress nports is enforced ------"

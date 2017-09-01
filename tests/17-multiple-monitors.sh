@@ -10,17 +10,17 @@ MON_2_OUTPUT=$(mktemp)
 MON_3_OUTPUT=$(mktemp)
 
 function cleanup {
-    docker rm -f demo1 || true
-    docker network rm ${TEST_NET} 2> /dev/null || true
+  docker rm -f demo1 || true
+  docker network rm ${TEST_NET} 2> /dev/null || true
 }
 
 function lines_expected {
-    expected=$1
-    actual=`wc -l $2 | awk '{ print $1 }'`
+  expected=$1
+  actual=`wc -l $2 | awk '{ print $1 }'`
 
-    if [ $actual -lt $expected ]; then
-      abort "monitor output lines($actual) in $2 is less than $expected"
-    fi
+  if [ $actual -lt $expected ]; then
+    abort "monitor output lines($actual) in $2 is less than $expected"
+  fi
 }
 
 trap cleanup EXIT
