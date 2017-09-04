@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -105,6 +106,19 @@ func OpenAfterMount(m *Map) error {
 	return nil
 }
 
+//isBpffs check if the path is a valid bpf filesystem
+func isBpffs(path string) bool {
+	// This is the value of the BPF Filesystem. If is into the container the
+	// mountpoint doesn't provide enough information. Defined on uapi/linux/magic.h
+	magic := uint32(0xCAFE4A11)
+	var fsdata unix.Statfs_t
+	if err := unix.Statfs(path, &fsdata); err != nil {
+		log.Errorf("%s is not mounted", path)
+		return false
+	}
+	return int32(magic) == int32(fsdata.Type)
+}
+
 func mountFS() error {
 	// Mount BPF Map directory if not already done
 	args := []string{"-q", mapRoot}
@@ -116,7 +130,9 @@ func mountFS() error {
 			return fmt.Errorf("Command execution failed: %s\n%s", err, out)
 		}
 	}
-
+	if !isBpffs(mapRoot) {
+		log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
+	}
 	mountMutex.Lock()
 	for _, m := range delayedOpens {
 		m.OpenOrCreate()

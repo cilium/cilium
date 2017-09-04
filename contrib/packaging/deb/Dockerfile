@@ -6,7 +6,7 @@ ENV GOLANG_VERSION 1.8.3
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         dh-golang devscripts fakeroot dh-make clang git ca-certificates libdistro-info-perl \
-        dh-systemd build-essential curl gcc make libc6-dev.i386 git-buildpackage && \
+        dh-systemd build-essential curl gcc make libc6-dev.i386 git-buildpackage llvm && \
     curl -Sslk -o go.tar.gz \
         "https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz" && \
     tar -C /usr/local -xzf go.tar.gz && \

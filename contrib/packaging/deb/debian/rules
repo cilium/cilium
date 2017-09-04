@@ -11,10 +11,10 @@ override_dh_auto_build:
 
 override_dh_installinit:
 
-	for svc in $(shell ls ./contrib/systemd/*.service ); do \
+	for svc in $(shell ls ./contrib/systemd/*.* ); do \
 		cp -f "$$svc" "./debian/"; \
-		service=$$(echo $$svc | sed -E -n 's/.*(cilium.*?).service/\1/p'); \
-		dh_installinit --name=$$service; \
+		service=$$(echo $$svc | sed -E -n 's/.*\/(.*?).(service|mount)/\1/p'); \
+		dh_installinit --name=$${service}; \
 	done
 
 	mkdir -p "$(DEST_DIR)/etc/sysconfig/"

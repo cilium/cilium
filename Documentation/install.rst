@@ -231,16 +231,9 @@ to be automatically mounted when the node boots.
      bpffs			/sys/fs/bpf		bpf	defaults 0 0
 
 If you are using systemd to manage the kubelet, another option is to add a
-``ExecStartPre`` line in the ``/etc/systemd/kubelet.service`` file as follows:
+mountd systemd service on all hosts:
 
-.. code:: bash
-
-	[Service]
-        ExecStartPre=/bin/bash -c ' \\
-                if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
-                   /bin/mount bpffs /sys/fs/bpf -t bpf; \\
-                fi'
-
+.. literalinclude:: ../contrib/systemd/sys-fs-bpf.mount
 
 CNI Configuation
 ----------------

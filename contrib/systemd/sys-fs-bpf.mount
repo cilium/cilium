@@ -1,0 +1,11 @@
+[Unit]
+Description=Cilium BPF mounts
+Documentation=http://docs.cilium.io/
+DefaultDependencies=no
+Before=local-fs.target umount.target
+After=swap.target
+
+[Mount]
+What=bpffs
+Where=/sys/fs/bpf
+Type=bpf

@@ -43,7 +43,7 @@ func deleteNodeCIDR(ip *net.IPNet) {
 	}
 
 	if err := tunnel.DeleteTunnelEndpoint(ip.IP); err != nil {
-		log.Debugf("bpf: Unable to delete %s in tunnel endpoint map: %s", ip, err)
+		log.Errorf("bpf: Unable to delete %s in tunnel endpoint map: %s", ip, err)
 	}
 }
 
@@ -53,7 +53,7 @@ func updateNodeCIDR(ip *net.IPNet, host net.IP) {
 	}
 
 	if err := tunnel.SetTunnelEndpoint(ip.IP, host); err != nil {
-		log.Debugf("bpf: Unable to update %s in tunnel endpoint map: %s", ip, err)
+		log.Errorf("bpf: Unable to update %s in tunnel endpoint map: %s", ip, err)
 	}
 }
 
