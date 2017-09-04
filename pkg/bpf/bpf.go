@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -276,6 +277,9 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, f
 
 	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &rl)
 	if err != nil {
+		if os.IsPermission(err) {
+			log.Error("Unable to set RLimits, insufficient permissions")
+		}
 		return 0, isNewMap, fmt.Errorf("Unable to increase rlimit: %s", err)
 	}
 
