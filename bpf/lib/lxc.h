@@ -105,7 +105,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 		.identity = identity,
 	};
 
-	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_PRE, old_port);
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_PRE, old_port);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum,
 			   new_port, old_port) < 0)
@@ -121,9 +121,9 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	    csum_l4_replace(skb, l4_off, csum, old_ip, host_ip, 4 | BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
-	cilium_trace3(skb, DBG_REV_PROXY_UPDATE,
+	cilium_dbg3(skb, DBG_REV_PROXY_UPDATE,
 		     key.sport << 16 | key.dport, key.saddr, key.nexthdr);
 	if (map_update_elem(&cilium_proxy4, &key, &value, 0) < 0)
 		return DROP_CT_CREATE_FAILED;

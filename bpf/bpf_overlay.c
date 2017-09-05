@@ -49,7 +49,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
 		return DROP_NO_TUNNEL_KEY;
 
-	cilium_trace(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
+	cilium_dbg(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 #ifdef ENCAP_GENEVE
 	if (1) {
@@ -87,13 +87,13 @@ to_host:
 		union macaddr router_mac = NODE_MAC;
 		int ret;
 
-		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 #else
@@ -139,13 +139,13 @@ to_host:
 		union macaddr router_mac = NODE_MAC;
 		int ret;
 
-		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv4_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 #else
@@ -172,7 +172,7 @@ int from_overlay(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_OVERLAY, skb->ingress_ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_OVERLAY, skb->ingress_ifindex);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
@@ -217,7 +217,7 @@ __section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_bu
 		return send_drop_notify(skb, src_label, SECLABEL, 0,
 					ifindex, DROP_POLICY, TC_ACT_SHOT);
 	} else {
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 
 		/* ifindex 0 indicates passing down to the stack */
 		if (ifindex == 0)

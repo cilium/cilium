@@ -83,7 +83,7 @@ static inline int arp_respond(struct __sk_buff *skb, union macaddr *mac, __be32 
 		if (unlikely(ret != 0))
 			goto error;
 
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 		return redirect(skb->ifindex, 0);
 	}
 
