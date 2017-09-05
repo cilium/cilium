@@ -259,13 +259,13 @@ skip_service_lookup:
 		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
 			return DROP_INVALID;
 
-		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 
@@ -361,14 +361,14 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
-		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
 		if (ret != TC_ACT_OK)
 			return ret;
 
 #ifndef POLICY_ENFORCEMENT
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -384,7 +384,7 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_trace(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
+	cilium_dbg(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
 
 	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr);
 	if (unlikely(ret != TC_ACT_OK))
@@ -395,7 +395,7 @@ pass_to_stack:
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -581,13 +581,13 @@ skip_service_lookup:
 		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 			return DROP_INVALID;
 
-		cilium_trace(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
+		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 
@@ -670,14 +670,14 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		int ret;
 
-		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
 
 #ifndef POLICY_ENFORCEMENT
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -693,7 +693,7 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_trace(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
+	cilium_dbg(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
 
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
@@ -706,7 +706,7 @@ pass_to_stack:
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -746,7 +746,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	cilium_trace_capture2(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex, SECLABEL);
+	cilium_dbg_capture2(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex, SECLABEL);
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
@@ -984,7 +984,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		if (IS_ERR(ret))
 			return ret;
 
-		cilium_trace(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
+		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		if (eth_store_saddr(skb, (__u8 *) &router_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
@@ -1026,7 +1026,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	ifindex = skb->cb[CB_IFINDEX];
 
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 
 	if (ifindex)
 		return redirect(ifindex, 0);
@@ -1041,7 +1041,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 	if (IS_ERR(ret))
 		return ret;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
 
 	skb->cb[CB_NAT46_STATE] = NAT64;
 
@@ -1065,7 +1065,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	if (IS_ERR(ret))
 		return ret;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 
 	tail_call(skb, &cilium_policy, LXC_ID);
 	return DROP_MISSED_TAIL_CALL;

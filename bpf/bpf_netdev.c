@@ -290,7 +290,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
 
-	cilium_trace3(skb, DBG_REV_PROXY_LOOKUP, key.sport << 16 | key.dport,
+	cilium_dbg3(skb, DBG_REV_PROXY_LOOKUP, key.sport << 16 | key.dport,
 		      key.saddr, key.nexthdr);
 
 	val = map_lookup_elem(&cilium_proxy4, &key);
@@ -301,8 +301,8 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	new_sport = val->orig_dport;
 	old_sport = key.dport;
 
-	cilium_trace(skb, DBG_REV_PROXY_FOUND, new_saddr, bpf_ntohs(new_sport));
-	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_PRE, 0);
+	cilium_dbg(skb, DBG_REV_PROXY_FOUND, new_saddr, bpf_ntohs(new_sport));
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_PRE, 0);
 
 	if (l4_modify_port(skb, l4_off, TCP_SPORT_OFF, &csum, new_sport, old_sport) < 0)
 		return DROP_WRITE_ERROR;
@@ -322,7 +322,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 	 */
 	skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_PROXY_POST, 0);
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, 0);
 
 	return 0;
 }
@@ -394,7 +394,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
-		cilium_trace(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
+		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
 		return encap_and_redirect(skb, &key, secctx);
 	}
 #endif
@@ -421,7 +421,7 @@ int from_netdev(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
@@ -470,7 +470,7 @@ __section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_bu
 		return send_drop_notify(skb, src_label, SECLABEL, 0, ifindex,
 					DROP_POLICY, TC_ACT_SHOT);
 	} else {
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 
 		/* ifindex 0 indicates passing down to the stack */
 		if (ifindex == 0)

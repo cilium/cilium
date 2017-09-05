@@ -77,7 +77,7 @@ static inline int __inline__ icmp6_send_reply(struct __sk_buff *skb, int nh_off)
 	    eth_store_saddr(skb, dmac.addr, 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, skb->ifindex);
 	return redirect(skb->ifindex, 0);
 }
 
@@ -87,7 +87,7 @@ static inline int __icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
 	int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
 
-	cilium_trace(skb, DBG_ICMP6_REQUEST, nh_off, 0);
+	cilium_dbg(skb, DBG_ICMP6_REQUEST, nh_off, 0);
 
 	if (skb_load_bytes(skb, nh_off + sizeof(struct ipv6hdr), &icmp6hdr_old,
 			   sizeof(icmp6hdr_old)) < 0)
@@ -238,7 +238,7 @@ static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
         icmp6hoplim->icmp6_cksum = 0;
         icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
 
-	cilium_trace(skb, DBG_ICMP6_TIME_EXCEEDED, 0, 0);
+	cilium_dbg(skb, DBG_ICMP6_TIME_EXCEEDED, 0, 0);
 
         /* read original v6 hdr into offset 8 */
         if (skb_load_bytes(skb, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
@@ -336,7 +336,7 @@ static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
 		return DROP_INVALID;
 
-	cilium_trace(skb, DBG_ICMP6_NS, target.p3, target.p4);
+	cilium_dbg(skb, DBG_ICMP6_NS, target.p3, target.p4);
 
 	BPF_V6(router, ROUTER_IP);
 	if (ipv6_addrcmp(&target, &router) == 0) {
@@ -382,7 +382,7 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off, struct ipv6hdr
 	union v6addr router_ip;
 	__u8 type = icmp6_load_type(skb, nh_off);
 
-	cilium_trace(skb, DBG_ICMP6_HANDLE, type, 0);
+	cilium_dbg(skb, DBG_ICMP6_HANDLE, type, 0);
 	BPF_V6(router_ip, ROUTER_IP);
 
 	switch(type) {
