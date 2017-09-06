@@ -41,8 +41,8 @@ run "docker exec -ti client ping6 -c 4 $SERVER_IP"
 
 desc "All good. Compile out debug and drop notifications again for efficiency"
 
-run "cilium endpoint config $CLIENT_ID Debug=false DropNotification=false"
-run "cilium endpoint config $SERVER_ID Debug=false DropNotification=false"
+run "cilium endpoint config $CLIENT_ID Debug=false DropNotification=false TraceNotification=false"
+run "cilium endpoint config $SERVER_ID Debug=false DropNotification=false TraceNotification=false"
 
 desc "Ping will no longer trigger events for these containers"
 run "docker exec -ti client ping6 -c 4 $SERVER_IP"
