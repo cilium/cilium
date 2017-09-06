@@ -38,7 +38,7 @@ var serviceGetCmd = &cobra.Command{
 
 		svc, err := client.GetServiceID(id)
 		if err != nil {
-			Fatalf("Cannot get service: %s\n", err)
+			Fatalf("Cannot get service '%v': %s\n", id, err)
 		}
 
 		slice := []string{}
@@ -48,6 +48,13 @@ var serviceGetCmd = &cobra.Command{
 			} else {
 				slice = append(slice, bea.String())
 			}
+		}
+
+		if len(dumpOutput) > 0 {
+			if err := OutputPrinter(slice); err != nil {
+				os.Exit(1)
+			}
+			return
 		}
 
 		if fea, err := types.NewL3n4AddrFromModel(svc.FrontendAddress); err != nil {
@@ -64,4 +71,5 @@ var serviceGetCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceGetCmd)
+	AddMultipleOutput(serviceGetCmd)
 }

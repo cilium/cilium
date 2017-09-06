@@ -17,9 +17,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
-
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/spf13/cobra"
 )
 
@@ -36,27 +37,36 @@ var endpointGetCmd = &cobra.Command{
 		if len(lbls) > 0 && len(args) > 0 {
 			Usagef(cmd, "Cannot provide both endpoint ID and labels arguments concurrently")
 		}
+		var endpointInst []*models.Endpoint
 
 		if len(lbls) > 0 {
 			params := endpointApi.NewGetEndpointParams().WithLabels(lbls)
-			if e, err := client.Endpoint.GetEndpoint(params); err != nil {
+			result, err := client.Endpoint.GetEndpoint(params)
+			if err != nil {
 				Fatalf("Cannot get endpoints for given list of labels %s: %s\n", lbls, err)
-			} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
-				Fatalf("Cannot marshal endpoints %s", err.Error())
-			} else {
-				fmt.Println(string(b))
 			}
+			endpointInst = result.Payload
 		} else {
 			requireEndpointID(cmd, args)
 			eID := args[0]
-			if e, err := client.EndpointGet(eID); err != nil {
+			result, err := client.EndpointGet(eID)
+			if err != nil {
 				Fatalf("Cannot get endpoint %s: %s\n", eID, err)
-			} else if b, err := json.MarshalIndent(e, "", "  "); err != nil {
-				Fatalf("Cannot marshal endpoint: %s", err.Error())
-			} else {
-				fmt.Println(string(b))
 			}
+			endpointInst = append(endpointInst, result)
+		}
 
+		if len(dumpOutput) > 0 {
+			if err := OutputPrinter(endpointInst); err != nil {
+				os.Exit(1)
+			}
+			return
+		}
+
+		if result, err := json.MarshalIndent(endpointInst, "", "  "); err != nil {
+			Fatalf("Cannot marshal endpoints %s", err.Error())
+		} else {
+			fmt.Println(string(result))
 		}
 	},
 }
@@ -64,4 +74,5 @@ var endpointGetCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointGetCmd)
 	endpointGetCmd.Flags().StringSliceVarP(&lbls, "labels", "l", []string{}, "list of labels")
+	AddMultipleOutput(endpointGetCmd)
 }

@@ -30,17 +30,16 @@ var serviceListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List services",
 	Run: func(cmd *cobra.Command, args []string) {
-		listServices()
+		listServices(cmd, args)
 	},
 }
 
 func init() {
 	serviceCmd.AddCommand(serviceListCmd)
-
+	AddMultipleOutput(serviceListCmd)
 }
 
-func listServices() {
-
+func listServices(cmd *cobra.Command, args []string) {
 	list, err := client.GetServices()
 	if err != nil {
 		Fatalf("Cannot get services list: %s", err)
@@ -90,6 +89,13 @@ func listServices() {
 	sort.Slice(svcs, func(i, j int) bool {
 		return svcs[i].ID <= svcs[j].ID
 	})
+
+	if len(dumpOutput) > 0 {
+		if err := OutputPrinter(svcs); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 
 	for _, service := range svcs {
 		var str string

@@ -117,6 +117,9 @@ func dumpCallback(key bpf.MapKey, value bpf.MapValue) {
 }
 
 // DumpMap prints the content of the tunnel endpoint map to stdout
-func DumpMap() error {
-	return mapInstance.Dump(dumpParser, dumpCallback)
+func DumpMap(callback bpf.DumpCallback) error {
+	if callback == nil {
+		return mapInstance.Dump(dumpParser, dumpCallback)
+	}
+	return mapInstance.Dump(dumpParser, callback)
 }

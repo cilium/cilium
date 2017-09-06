@@ -152,7 +152,7 @@ FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
 EXPECTED_CONSUMER="1\n$FOO_SEC_ID"
 
 log "verify allowed consumers"
-DIFF=$(diff -Nru <(echo -e "$EXPECTED_CONSUMER") <(cilium endpoint get $BAR_ID | jq '.policy | .["allowed-consumers"] | .[]' | sort)) || true
+DIFF=$(diff -Nru <(echo -e "$EXPECTED_CONSUMER") <(cilium endpoint get $BAR_ID | jq '.[].policy | .["allowed-consumers"] | .[]' | sort)) || true
 if [[ "$DIFF" != "" ]]; then
   abort "$DIFF"
 fi
@@ -260,7 +260,7 @@ fi
 EXPECTED_CONSUMER="$FOO_SEC_ID"
 
 log "verify allowed consumers"
-DIFF=$(diff -Nru <(echo -e "$EXPECTED_CONSUMER") <(cilium endpoint get $BAR_ID | jq '.policy | .["allowed-consumers"] | .[]')) || true
+DIFF=$(diff -Nru <(echo -e "$EXPECTED_CONSUMER") <(cilium endpoint get $BAR_ID | jq '.[].policy | .["allowed-consumers"] | .[]')) || true
 if [[ "$DIFF" != "" ]]; then
   abort "$DIFF"
 fi
