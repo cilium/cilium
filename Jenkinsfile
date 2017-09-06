@@ -16,11 +16,11 @@ pipeline {
      		           
                 parallel(
                     "Print Environment": { sh 'env' },
-                    "Runtime Tests": {
+                    /*"Runtime Tests": {
                          // Make sure that VMs from prior runs are cleaned up in case something went wrong in a prior build.
                          sh 'vagrant destroy -f || true'
                          sh './contrib/vagrant/start.sh'
-                     },
+                     },*/
                     "K8s 1.6 multinode tests": {
                          sh 'cd ./tests/k8s && K8S=1.6 vagrant destroy -f || true'
                          sh 'K8S=1.6 ./tests/k8s/start.sh'

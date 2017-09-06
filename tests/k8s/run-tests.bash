@@ -54,9 +54,9 @@ function run_tests(){
     k8s_version="${1}"
     echo "====================== K8S VERSION ======================"
     echo "Node 1"
-    vagrant ssh ${node1} -- -t 'kubectl version'
+    K8S=${K8S} vagrant ssh ${node1} -- -t 'kubectl version'
     echo "Node 2"
-    vagrant ssh ${node2} -- -t 'kubectl version'
+    K8S=${K8S} vagrant ssh ${node2} -- -t 'kubectl version'
 
     echo "================== Running in IPv4 mode =================="
 
