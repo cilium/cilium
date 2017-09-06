@@ -108,7 +108,7 @@ enum {
 #define EVENT_SOURCE 0
 #endif
 
-#if defined DEBUG || defined ENABLE_TRACE
+#if defined DEBUG
 #include "events.h"
 #endif
 
@@ -161,23 +161,6 @@ static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 	skb_event_output(skb, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
-#else
-# define printk(fmt, ...)					\
-		do { } while (0)
-
-static inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
-{
-}
-
-static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
-			       __u32 arg2, __u32 arg3)
-{
-}
-
-#endif
-
-#ifdef ENABLE_TRACE
-
 struct debug_capture_msg {
 	NOTIFY_COMMON_HDR
 	__u32		len_orig;
@@ -211,7 +194,19 @@ static inline void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 ar
 	return cilium_dbg_capture2(skb, type, arg1, 0);
 }
 
-#else /* ENABLE_TRACE */
+#else
+
+# define printk(fmt, ...)					\
+		do { } while (0)
+
+static inline void cilium_dbg(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
+{
+}
+
+static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
+			       __u32 arg2, __u32 arg3)
+{
+}
 
 static inline void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
@@ -221,7 +216,6 @@ static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 a
 {
 }
 
-#endif /* ENABLE_TRACE */
-
+#endif
 
 #endif /* __LIB_DBG__ */

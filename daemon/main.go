@@ -65,10 +65,8 @@ var (
 	// Arguments variables keep in alphabetical order
 	bpfRoot               string
 	disableConntrack      bool
-	disableBPFTrace       bool
 	enableTracing         bool
 	enableLogstash        bool
-	k8sLabelsPrefixes     []string
 	kvStore               string
 	validLabels           []string
 	labelPrefixFile       string
@@ -256,8 +254,6 @@ func init() {
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
-	flags.BoolVar(&disableBPFTrace,
-		"disable-trace", false, "Disable ability to trace datapath actions")
 	flags.StringVarP(&config.DockerEndpoint,
 		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
 	flags.StringVar(&config.EnablePolicy,
