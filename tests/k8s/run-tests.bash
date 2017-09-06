@@ -7,8 +7,8 @@ source "${dir}/../helpers.bash"
 # dir might have been overwritten by helpers.bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-node1=$(get_k8s_vm_name k8s1)
-node2=$(get_k8s_vm_name k8s2)
+node1=$(get_k8s_vm_name k8s1 ${K8S})
+node2=$(get_k8s_vm_name k8s2 ${K8S})
 
 function vmssh(){
     K8S=${K8S} k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}

@@ -727,11 +727,12 @@ function copy_files_vm {
 }
 
 function get_k8s_vm_name {
-  check_num_params "$#" "1"
+  check_num_params "$#" "2"
   local VM_PREFIX=$1
+  local K8S=$2
 
   if [ ! -z ${BUILD_NUMBER} ] ; then
-    local BUILD_ID_NAME="-build-${BUILD_ID}"
+    local BUILD_ID_NAME="-build-${BUILD_ID}-${K8S}"
   fi
   echo "${VM_PREFIX}${BUILD_ID_NAME}"
 }

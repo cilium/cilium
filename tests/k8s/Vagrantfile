@@ -55,7 +55,7 @@ $k8s_version = k8s_map["#{$k8s_env}"]
 $job_name = ENV['JOB_BASE_NAME'] || "local"
 
 $build_number = ENV['BUILD_NUMBER'] || "0"
-$build_id = "#{$job_name}-#{$build_number}-#{$k8s_version}"
+$build_id = "#{$job_name}-#{$build_number}-#{$k8s_env}"
 $docker_image_tag=ENV['DOCKER_IMAGE_TAG'] || "local_build"
 
 # Only create the build_id_name for Jenkins environment so that
