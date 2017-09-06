@@ -272,6 +272,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 				podNamespace := k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels)
 				podName := k8sDockerLbls.GetPodName(dockerContainer.Config.Labels)
 				ep.PodName = fmt.Sprintf("%s:%s", podNamespace, podName)
+				log.Debugf("endpoint %d pod name set to %s", ep.PodName)
 			}
 		}
 		ep.Mutex.Unlock()
