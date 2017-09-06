@@ -173,6 +173,10 @@ enum {
 	__u16		source; \
 	__u32		hash;
 
+#ifndef TRACE_PAYLOAD_LEN
+#define TRACE_PAYLOAD_LEN 128ULL
+#endif
+
 struct drop_notify {
 	NOTIFY_COMMON_HDR
 	__u32		len_orig;

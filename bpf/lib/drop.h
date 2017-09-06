@@ -36,7 +36,7 @@
 #ifdef DROP_NOTIFY
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __sk_buff *skb)
 {
-	uint64_t skb_len = skb->len, cap_len = min(64ULL, skb_len);
+	uint64_t skb_len = skb->len, cap_len = min(TRACE_PAYLOAD_LEN, skb_len);
 	uint32_t hash = get_hash_recalc(skb);
 	uint32_t srcdst_info = skb->cb[1];
 	struct drop_notify msg = {
