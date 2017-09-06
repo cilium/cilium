@@ -67,8 +67,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
-
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 const (
@@ -273,45 +271,40 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 		return // Don't error out if k8s is not enabled; treat as a no-op.
 	}
 
-	// Endpoint's PodName is in the format namespace:pod-name
-	split := strings.Split(e.PodName, ":")
+	go func(e *endpoint.Endpoint) {
+		// TODO: Retry forever?
+		n := 0
+		for {
+			// Endpoint's PodName is in the format namespace:pod-name
+			split := strings.Split(e.PodName, ":")
 
-	if len(split) < 2 {
-		log.Errorf("improper formatting provided for k8s pod name: %s, should be delimited by %q", e.PodName, ":")
-		return
-	}
-
-	pod, err := d.k8sClient.CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
-	if err != nil {
-		log.Errorf("error getting pod name for endpoint %d: %s", e.ID, err)
-		return
-	}
-
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
-	}
-	pod.Annotations[annotationKey] = annotationValue
-
-	pod, err = d.k8sClient.CoreV1().Pods(split[0]).Update(pod)
-	if err != nil {
-		log.Warningf("k8s: unable to update pod %s with \"cilium-identity\" annotation: %s, retrying...", e.PodName, err)
-		go func(e *endpoint.Endpoint, namespace, podName string, pod *v1.Pod) {
-			// TODO: Retry forever?
-			for n := 0; err != nil; {
-				log.Warningf("k8s: unable to update pod %s / endpoint %d with %q annotation: %s, retrying...", e.PodName, e.ID, common.CiliumIdentityAnnotation, err)
-				if pod.Annotations == nil {
-					pod.Annotations = make(map[string]string)
-				}
-				pod.Annotations[annotationKey] = annotationValue
-				pod, err = d.k8sClient.CoreV1().Pods(namespace).Update(pod)
-				if n < 30 {
-					n++
-				}
-				time.Sleep(time.Duration(n) * time.Second)
+			if len(split) < 2 {
+				log.Errorf("k8s: unable to update pod %s with annotation %q: namespace and pod name should be delimited by %q", e.PodName, common.CiliumIdentityAnnotation, ":")
+				return
 			}
-		}(e, split[0], split[1], pod)
-	}
-	log.Debugf("added %s annotation to endpoint %d", common.CiliumIdentityAnnotation, e.ID)
+
+			pod, err := d.k8sClient.CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
+			if err != nil {
+				log.Errorf("error getting pod for endpoint %d with namespace %s and pod name %s: %s", e.ID, split[0], split[1], err)
+				return
+			}
+
+			if pod.Annotations == nil {
+				pod.Annotations = make(map[string]string)
+			}
+			pod.Annotations[annotationKey] = annotationValue
+			pod, err = d.k8sClient.CoreV1().Pods(split[0]).Update(pod)
+			if err == nil {
+				log.Debugf("added %s annotation to endpoint %d / pod %s:%s", common.CiliumIdentityAnnotation, e.ID, split[0], split[1])
+				break
+			}
+			log.Warningf("k8s: unable to update  endpoint %d / pod %s:%s with %q annotation: %s, retrying...", e.ID, split[0], split[1], common.CiliumIdentityAnnotation, err)
+			if n < 30 {
+				n++
+			}
+			time.Sleep(time.Duration(n) * time.Second)
+		}
+	}(e)
 }
 
 func createDockerClient(endpoint string) (*dClient.Client, error) {
