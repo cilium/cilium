@@ -47,10 +47,15 @@ echo "AcceptEnv k8s_version" >> /etc/ssh/sshd_config
 sudo service sshd restart
 SCRIPT
 
+k8s_map = { "1.6" => "1.6.6-00", "1.7" => "1.7.4-00" }
+
+$k8s_env = ENV['K8S'] || "1.6"
+$k8s_version = k8s_map["#{$k8s_env}"]
+
 $job_name = ENV['JOB_BASE_NAME'] || "local"
 
 $build_number = ENV['BUILD_NUMBER'] || "0"
-$build_id = "#{$job_name}-#{$build_number}"
+$build_id = "#{$job_name}-#{$build_number}-#{$k8s_version}"
 $docker_image_tag=ENV['DOCKER_IMAGE_TAG'] || "local_build"
 
 # Only create the build_id_name for Jenkins environment so that
@@ -71,8 +76,8 @@ Vagrant.configure(2) do |config|
     (1..2).each do |i|
         config.vm.define "k8s#{i}#{$build_id_name}" do |s|
             s.vm.hostname = "k8s-#{i}"
-            s.vm.provision "k8s", type: "shell", env: {"k8s_version" => "1.6.6-00"}, inline: $k8s_install
-            s.vm.provision "ssh_accept_env", type: "shell", privileged: true, inline: $install_sshd_env
+            #s.vm.provision "k8s", type: "shell", env: {"k8s_version" => $k8s_version}, inline: $k8s_install
+            #s.vm.provision "ssh_accept_env", type: "shell", privileged: true, inline: $install_sshd_env
 
             s.vm.provider "virtualbox" do |vb|
 		# Do not inherit DNS server from host, use proxy
@@ -93,13 +98,13 @@ Vagrant.configure(2) do |config|
 	    s.vm.provision :shell, inline: "mount bpffs /sys/fs/bpf -t bpf"
 
             # first node is special and considered the master
-            if "#{i}" == "1"
-                s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
-                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
-            else
-                s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
-                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
-            end
+            #if "#{i}" == "1"
+            #    s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
+            #    s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+            #else
+            #    s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
+            #    s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
+            #end
         end
     end
 end

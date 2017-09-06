@@ -21,9 +21,13 @@ pipeline {
                          sh 'vagrant destroy -f || true'
                          sh './contrib/vagrant/start.sh'
                      },
-                    "K8s multi node Tests": {
-                         sh 'cd ./tests/k8s && vagrant destroy -f || true'
-                         sh './tests/k8s/start.sh'
+                    "K8s 1.6 multinode tests": {
+                         sh 'cd ./tests/k8s && K8S=1.6 vagrant destroy -f || true'
+                         sh 'K8S=1.6 ./tests/k8s/start.sh'
+                    },
+                    "K8s 1.7 multinode tests": {
+                         sh 'cd ./tests/k8s && K8S=1.7 vagrant destroy -f || true'
+                         sh 'K8S=1.7 ./tests/k8s/start.sh'
                     }
                 )
             }
@@ -38,7 +42,8 @@ pipeline {
             sh 'rm -rf ${WORKSPACE}/cilium-files*${JOB_BASE_NAME}-${BUILD_NUMBER}* ${WORKSPACE}/tests/cilium-files ${WORKSPACE}/tests/k8s/tests/cilium-files'
             sh 'ls'
             sh 'vagrant destroy -f'
-            sh 'cd ./tests/k8s && vagrant destroy -f'
+            sh 'cd ./tests/k8s && K8S=1.6 vagrant destroy -f'
+            sh 'cd ./tests/k8s && K8S=1.7 vagrant destroy -f'
         }
     }
 }

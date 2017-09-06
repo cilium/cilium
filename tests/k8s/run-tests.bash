@@ -11,7 +11,7 @@ node1=$(get_k8s_vm_name k8s1)
 node2=$(get_k8s_vm_name k8s2)
 
 function vmssh(){
-    k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}
+    K8S=${K8S} k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}
 }
 
 # reinstall_kubeadmn re-installs kubeadm in the given VM without clearing up
@@ -93,9 +93,45 @@ function run_tests(){
     #vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
 }
 
-# Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
-run_tests "1.6.6-00"
-# Run tests in k8s 1.7.4 (where we need to reinstall it)
-reinstall_kubeadmn ${node1} "1.7.4-00"
-reinstall_kubeadmn ${node2} "1.7.4-00"
-run_tests "1.7.4-00"
+if [ -z "${K8S}" ] ; then
+  echo "K8S environment variable not set; please set it and re-run this script"
+  exit 1
+fi
+
+if [ -z "${UPGRADE}" ] ; then 
+  echo "UPGRADE variable not set; not running upgrade tests"
+  UPGRADE=0
+fi
+
+
+if [[ "${UPGRADE}" == "0" ]]; then
+  case "${K8S}" in
+    "1.6")
+      run_tests "1.6.6-00"
+      ;;
+    "1.7")
+      run_tests "1.7.4-00"
+      ;;
+    *)
+      echo "Usage: K8S={1.6,1.7} run-tests.sh"
+      exit 1
+  esac
+else 
+  case "${K8S}" in
+    "1.6")
+      # Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
+      run_tests "1.6.6-00"
+      # Run tests in k8s 1.7.4 (where we need to reinstall it)
+      reinstall_kubeadmn ${node1} "1.7.4-00"
+      reinstall_kubeadmn ${node2} "1.7.4-00"
+      run_tests "1.7.4-00"
+      ;;
+    "1.7")
+      echo "Cilium only supports up to K8s version 1.7 right now, so just performing K8S 1.7 tests without upgrading"
+      run_tests "1.7.4-00"
+      ;;
+    *)
+      echo "Usage: K8S={1.6,1.7} run-tests.sh"
+      exit 1
+  esac
+fi
