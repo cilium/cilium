@@ -62,6 +62,7 @@ const (
 	OptionConntrack           = "Conntrack"
 	OptionDebug               = "Debug"
 	OptionDropNotify          = "DropNotification"
+	OptionTraceNotify         = "TraceNotification"
 	OptionNAT46               = "NAT46"
 	OptionPolicy              = "Policy"
 	AlwaysEnforce             = "always"
@@ -111,6 +112,11 @@ var (
 		Description: "Enable drop notifications",
 	}
 
+	OptionSpecTraceNotify = option.Option{
+		Define:      "TRACE_NOTIFY",
+		Description: "Enable trace notifications",
+	}
+
 	OptionSpecNAT46 = option.Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
@@ -135,6 +141,7 @@ var (
 		OptionConntrack:           &OptionSpecConntrack,
 		OptionDebug:               &OptionSpecDebug,
 		OptionDropNotify:          &OptionSpecDropNotify,
+		OptionTraceNotify:         &OptionSpecTraceNotify,
 		OptionNAT46:               &OptionSpecNAT46,
 		OptionPolicy:              &OptionSpecPolicy,
 	}

@@ -20,7 +20,7 @@ function cleanup {
 	gather_files 02-perf ${TEST_SUITE}
 	docker rm -f server client 2> /dev/null || true
 
-	cilium config DropNotification=true Debug=true
+	cilium config DropNotification=true TraceNotification=true Debug=true
 }
 
 trap cleanup EXIT
@@ -157,9 +157,9 @@ function perf_pktgen() {
 	done
 }
 
-cilium config DropNotification=false Debug=false
-cilium endpoint config $SERVER_ID DropNotification=false Debug=false
-cilium endpoint config $CLIENT_ID DropNotification=false Debug=false
+cilium config DropNotification=false TraceNotification=false Debug=false
+cilium endpoint config $SERVER_ID DropNotification=false TraceNotification=false Debug=false
+cilium endpoint config $CLIENT_ID DropNotification=false TraceNotification=false Debug=false
 perf_test
 
 cilium endpoint config $SERVER_ID ConntrackAccounting=false

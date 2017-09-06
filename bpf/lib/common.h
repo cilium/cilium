@@ -165,6 +165,7 @@ enum {
 	CILIUM_NOTIFY_DROP,
 	CILIUM_NOTIFY_DBG_MSG,
 	CILIUM_NOTIFY_DBG_CAPTURE,
+	CILIUM_NOTIFY_TRACE,
 };
 
 #define NOTIFY_COMMON_HDR \
@@ -176,16 +177,6 @@ enum {
 #ifndef TRACE_PAYLOAD_LEN
 #define TRACE_PAYLOAD_LEN 128ULL
 #endif
-
-struct drop_notify {
-	NOTIFY_COMMON_HDR
-	__u32		len_orig;
-	__u32		len_cap;
-	__u32		src_label;
-	__u32		dst_label;
-	__u32		dst_id;
-	__u32		ifindex;
-};
 
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)

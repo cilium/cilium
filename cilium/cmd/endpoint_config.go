@@ -30,7 +30,7 @@ var listOptions bool
 var endpointConfigCmd = &cobra.Command{
 	Use:     "config <endpoint id> [<option>=(enable|disable) ...]",
 	Short:   "View & modify endpoint configuration",
-	Example: "endpoint config 5421 DropNotification=disable",
+	Example: "endpoint config 5421 DropNotification=false TraceNotification=false",
 	Run: func(cmd *cobra.Command, args []string) {
 		if listOptions {
 			listEndpointOptions()
