@@ -41,6 +41,7 @@ var endpointListCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointListCmd)
 	endpointListCmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Do not print headers")
+	AddMultipleOutput(endpointListCmd)
 }
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
@@ -79,6 +80,13 @@ func listEndpoints() {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 			endpointTitle, policyTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
 		fmt.Fprintf(w, "\t%s\t\t\t\t\t\t\n", enforcementTitle)
+	}
+
+	if len(dumpOutput) > 0 {
+		if err := OutputPrinter(eps); err != nil {
+			os.Exit(1)
+		}
+		return
 	}
 
 	for _, ep := range eps {

@@ -58,7 +58,7 @@ function test_identity_list {
 
   echo "Endpoint security ID is: $ID"
 
-  local expected_response='Identities in use by endpoints: (Note: If labels have been provided as parameters, only matching identities will be displayed) {   "Payload": [     {       "id": '$ID',       "labels": [         "container:id.foo"       ]     }   ] }'
+  local expected_response='Identities in use by endpoints: (Note: If labels have been provided as parameters, only matching identities will be displayed) [   {     "id": '$ID',     "labels": [       "container:id.foo"     ]   } ]'
 
   echo "Response is $response"
 

@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -33,32 +35,43 @@ var bpfLBListCmd = &cobra.Command{
 	Short: "List load-balancing configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb list")
+		title := fmt.Sprintf("%-20s %-s", "Service Address", "Backend Address")
 		if listRevNAT {
-			fmt.Printf("%-6s %-s\n", "ID", "Service Address")
-			fmt.Println("-----------------------------------------------------------")
+			title = fmt.Sprintf("%-6s %-s", "ID", "Service Address")
 			lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, dumpRevNAT)
 			lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, dumpRevNAT)
 		} else {
-			fmt.Printf("%-20s %-s\n", "Service Address", "Backend Address")
-			fmt.Println("-----------------------------------------------------------")
 			lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService)
 			lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService)
-			for key, backends := range serviceList {
-				for k, v := range backends {
-					if k == 0 {
-						fmt.Printf("%-20s %-s\n", key, v)
-					} else {
-						fmt.Printf("%-20s %-s\n", "", v)
-					}
+		}
+
+		if len(dumpOutput) > 0 {
+			if err := OutputPrinter(serviceList); err != nil {
+				os.Exit(1)
+			}
+			return
+		}
+
+		fmt.Println(title)
+		fmt.Println(strings.Repeat("-", len(title)))
+
+		for key, backends := range serviceList {
+			for k, v := range backends {
+				if k == 0 {
+					fmt.Printf("%-20s %-s\n", key, v)
+				} else {
+					fmt.Printf("%-20s %-s\n", "", v)
 				}
 			}
 		}
+		return
 	},
 }
 
 func init() {
 	bpfLBCmd.AddCommand(bpfLBListCmd)
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
+	AddMultipleOutput(bpfLBListCmd)
 }
 
 func dumpService(key bpf.MapKey, value bpf.MapValue) {
@@ -72,5 +85,5 @@ func dumpService(key bpf.MapKey, value bpf.MapValue) {
 func dumpRevNAT(key bpf.MapKey, value bpf.MapValue) {
 	revNatK := key.(lbmap.RevNatKey)
 	revNatV := value.(lbmap.RevNatValue)
-	fmt.Printf("%-6s %s\n", revNatK.String(), revNatV.String())
+	serviceList[revNatK.String()] = append(serviceList[revNatK.String()], revNatV.String())
 }

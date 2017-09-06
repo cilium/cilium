@@ -17,10 +17,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/pkg/policy"
-
 	"github.com/spf13/cobra"
 )
 
@@ -38,28 +38,51 @@ func init() {
 	identityCmd.AddCommand(identityListCmd)
 	identityListCmd.Flags().BoolVarP(&reservedIDs, "reserved", "", false,
 		"List all reserved identities")
+	AddMultipleOutput(identityListCmd)
 }
 
 func listIdentities(args []string) {
+	result := make(map[string]interface{})
+
 	if reservedIDs {
-		fmt.Println("Reserved identities:")
+		reservedMap := make(map[string]string)
 		for k, v := range policy.ReservedIdentities {
-			fmt.Printf("%3d %-15s \n", v, k)
+			reservedMap[fmt.Sprintf("%d", v)] = k
 		}
+		result["reservedIDs"] = reservedMap
 	}
-	fmt.Println("Identities in use by endpoints:\n" +
-		"(Note: If labels have been provided as parameters, only matching identities will be displayed)")
 
 	var params *identityApi.GetIdentityParams
 	if len(args) != 0 {
 		params = identityApi.NewGetIdentityParams().WithLabels(args)
 	}
 
-	if identities, err := client.Policy.GetIdentity(params); err != nil {
+	identities, err := client.Policy.GetIdentity(params)
+	if err != nil {
 		Fatalf("Cannot get identities for given labels %v. err: %s\n", params.Labels, err.Error())
-	} else if b, err := json.MarshalIndent(identities, "", "  "); err != nil {
-		Fatalf("Cannot marshal identities %s", err.Error())
-	} else {
-		fmt.Println(string(b))
 	}
+	result["identities"] = identities.Payload
+
+	if len(dumpOutput) > 0 {
+		if err := OutputPrinter(result); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
+	if reservedIDs {
+		fmt.Println("Reserved identities:")
+		for k, v := range result["reservedIDs"].(map[string]string) {
+			fmt.Printf("\t %3s %-15s \n", v, k)
+		}
+	}
+
+	fmt.Println("Identities in use by endpoints:\n" +
+		"(Note: If labels have been provided as parameters, only matching identities will be displayed)")
+
+	payload, err := json.MarshalIndent(result["identities"], "", "  ")
+	if err != nil {
+		Fatalf("Cannot marshal identities %s", err.Error())
+	}
+	fmt.Println(string(payload))
 }
