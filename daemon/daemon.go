@@ -1087,7 +1087,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	// Populate list of nodes with local node entry
-	node.UpdateNode(nodeaddress.GetNode())
+	ni, n := nodeaddress.GetNode()
+	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
 	if c.IsK8sEnabled() {
 		err := k8s.AnnotateNodeCIDR(d.k8sClient, nodeaddress.GetName(),

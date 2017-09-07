@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	log "github.com/Sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -986,9 +987,23 @@ func (d *Daemon) nodesAddFn(obj interface{}) {
 		return
 	}
 	ni := node.Identity{Name: k8sNode.Name}
-
 	n := k8s.ParseNode(k8sNode)
-	node.UpdateNode(ni, n)
+
+	routeTypes := node.TunnelRoute
+
+	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
+	// FIXME create a function to know on which mode is the daemon running on
+	var ownAddr net.IP
+	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
+		// ignore own node
+		if n.Name != nodeaddress.GetName() {
+			ownAddr = nodeaddress.GetIPv6()
+			routeTypes |= node.DirectRoute
+		}
+	}
+
+	node.UpdateNode(ni, n, routeTypes, ownAddr)
+
 	log.Debugf("Added node %s: %+v", ni, n)
 }
 
@@ -1010,7 +1025,18 @@ func (d *Daemon) nodesModFn(oldObj interface{}, newObj interface{}) {
 		return
 	}
 
-	node.UpdateNode(ni, newNode)
+	routeTypes := node.TunnelRoute
+	// Always re-add the routing tables as they might be accidentally removed
+	var ownAddr net.IP
+	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
+		// ignore own node
+		if newNode.Name != nodeaddress.GetName() {
+			ownAddr = nodeaddress.GetIPv6()
+			routeTypes |= node.DirectRoute
+		}
+	}
+
+	node.UpdateNode(ni, newNode, routeTypes, ownAddr)
 
 	log.Debugf("k8s: Updated node %s to %+v", ni, newNode)
 }
@@ -1024,7 +1050,7 @@ func (d *Daemon) nodesDelFn(obj interface{}) {
 
 	ni := node.Identity{Name: k8sNode.Name}
 
-	node.DeleteNode(ni)
+	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
 
 	log.Debugf("k8s: Removed node %s", ni)
 }

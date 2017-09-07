@@ -42,6 +42,9 @@ type Node struct {
 	// IPv6AllocCIDR if set, is the IPv6 address pool out of which the node
 	// allocates IPs for local endpoints from
 	IPv6AllocCIDR *net.IPNet
+
+	// dev contains the device name to where the IPv6 traffic should be send
+	dev string
 }
 
 // Address is a node address which contains an IP and the address type.
