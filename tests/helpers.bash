@@ -438,7 +438,7 @@ function dump_cli_output {
   check_num_params "$#" "1"
   local DIR=$1
   cilium endpoint list > ${DIR}/endpoint_list.txt
-  local EPS=$(cilium endpoint list | tail -n+3 | awk '{print $1}' | grep -o '[0-9]*')
+  local EPS=$(cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
   for ep in ${EPS} ; do
     cilium endpoint get ${ep} > ${DIR}/endpoint_get_${ep}.txt
     cilium bpf policy list ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
