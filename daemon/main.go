@@ -61,6 +61,9 @@ var (
 	config = NewConfig()
 
 	// Arguments variables keep in alphabetical order
+
+	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
+	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	disableConntrack      bool
 	enableTracing         bool
@@ -244,6 +247,8 @@ func init() {
 		"agent-labels", []string{}, "Additional labels to identify this agent")
 	flags.StringVar(&config.AllowLocalhost,
 		"allow-localhost", AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
+	flags.Bool(
+		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
@@ -445,6 +450,8 @@ func initEnv() {
 	if viper.GetBool("debug") {
 		config.Opts.Set(endpoint.OptionDebug, true)
 	}
+
+	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
 
 	config.Opts.Set(endpoint.OptionDropNotify, true)
 	config.Opts.Set(endpoint.OptionTraceNotify, true)
