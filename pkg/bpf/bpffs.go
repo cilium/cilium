@@ -15,16 +15,16 @@
 package bpf
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"path"
-	"sync"
-
-	"bytes"
-	log "github.com/Sirupsen/logrus"
-	"golang.org/x/sys/unix"
 	"strconv"
 	"strings"
+	"sync"
+
+	log "github.com/Sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -122,7 +122,7 @@ func isBpffs(path string) bool {
 	return int32(magic) == int32(fsdata.Type)
 }
 
-func mountCmdPipe(cmds ...*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byte, mountCmdError error) {
+func mountCmdPipe(cmds []*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byte, mountCmdError error) {
 
 	// We need atleast one command to pipe.
 	if len(cmds) < 1 {
@@ -173,36 +173,37 @@ func mountFS() error {
 		args = []string{"bpffs", mapRoot, "-t", "bpf"}
 		out, err := exec.Command("mount", args...).CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("Command execution failed: %s\n%s", err, out)
+			return fmt.Errorf("command execution failed: %s\n%s", err, out)
 		}
 	} else { // Already mounted. We need to fail if mounted multiple times.
 
 		// Execute the following command to find multiple bpffs mount points
 		// % mount | grep "<mapRoot> " | wc -l | cut -f1 -d' '
-		newmapRoot := mapRoot + " " // Append space to ignore /bpf/xdp and /bpf/ip mountpoints.
-		mt := exec.Command("mount")
-		grep := exec.Command("grep", newmapRoot)
-		wc := exec.Command("wc", "-l")
-		cut := exec.Command("cut", "-f1", "-d ")
+		newmapRoot := mapRoot + " " // Append space to ignore /sys/fs/bpf/xdp and /sys/fs/bpf/ip mountpoints.
+		cmds := []*exec.Cmd{
+			exec.Command("mount"),
+			exec.Command("grep", newmapRoot),
+			exec.Command("wc", "-l"),
+			exec.Command("cut", "-f1", "-d "),
+		}
 
-		output, stderr, _ := mountCmdPipe(mt, grep, wc, cut)
+		output, stderr, _ := mountCmdPipe(cmds)
 
 		if len(stderr) > 0 {
-			return fmt.Errorf("Command execution failed: %s\n", stderr)
+			return fmt.Errorf("command execution failed: %s", stderr)
 		}
-		str := string(output)
 
-		//Strip the newline character at the end.
-		parts := strings.Split(string(str), "\n")
+		// Strip the newline character at the end.
+		parts := strings.Split(string(output), "\n")
 
 		// Convert the string to integer
 		num, err := strconv.ParseInt(parts[0], 10, 32)
-		if err == nil {
-			if num > 1 {
-				return fmt.Errorf("Multiple mount points detected at %s", mapRoot)
-			}
+		if err != nil {
+			return fmt.Errorf("command execution failed: %s", err)
 		} else {
-			return fmt.Errorf("Command execution failed: %s\n", err)
+			if num > 1 {
+				return fmt.Errorf("multiple mount points detected at %s", mapRoot)
+			}
 		}
 	}
 	if !isBpffs(mapRoot) {
