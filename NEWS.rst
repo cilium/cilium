@@ -2,8 +2,119 @@
 NEWS
 ****
 
-HEAD
+0.11
 ====
+
+Bug Fixes
+---------
+* Fixed an issue where service IDs were leaked in etcd/consul. Services have
+  been moved to a new prefix in the kvstore. Old, leaked service IDs are
+  automatically removed when a fixed cilium-agent is started. (1182_, 1195_)
+* Fixed accuracy of policy revision field. The policy revision field was bumped
+  after policy for an endpoint was recalculated. The policy revision field is
+  now bumped *after* complete synchronization with the datapath has occurred
+  (1196_)
+* Fixed graceful connection closure where final ACK after FIN+ACK was dropped
+  (1186_)
+* Fixed several bugs in endpoint restore functionality where endpoints were not
+  correctly recovered after agent restart (1140_, 1242_, 1330_, 1338_)
+* Fixed unnecessary consumer map deletion attempt which resulted in confusion
+  due to warning log messages (1206_)
+* Fixed stateful connection recognition of reply|related packets from an
+  endpoint to the host. This resulted in reply packets getting dropped if the
+  path from endpoint to host was restricted by policy but a connection from
+  the host to the endpoint was permitted (1211_)
+* Fixed debian packages build process (1153_)
+* Fixed a typo in the getting started guide examples section (1213_)
+* Fixed Kubernetes CI test to use locally built container image (1188_)
+* Fixed logic which picks up Kubernetes log files on failed CI testruns (1169_)
+* Agent now fails during bootup if kvstore cannot be reached (1266_)
+* Fixed the L7 redirection logic to only report the new PolicyRevision after
+  the proxy has started listening on the port. This resolves a race condition
+  when deploying both policy and workload at the same time and the proxy is not
+  up yet. (1286_)
+* Fixed a bug in cilium monitor memory allocation with regard to handling data
+  from the perf ring buffer (1304_)
+* Correctly ignore policy resources with an empty ruleset (1296_, 1297_)
+* Ignore the controller-revision-hash label to derive security identity (1320_)
+* Removed `ip:` field name for CIDR policy rules, CIDR rules are now a slice of
+  strings describing prefixes (1322_)
+* Ignore Kubernetes annotations done by cilium which show up as labels on the
+  container when deriving security identity (1338_)
+* Increased the `ReadTimeout` of the HTTP proxy to 120 seconds (1349_)
+* Fixed use of node address when running with IPv4 disabled (1260_)
+* Several fixes around when an endpoint should go into policy enforcement for
+  Kubernetes and non-Kubernetes environments (1328_)
+* When creating the Kubernetes client, wait for Kubernetes cluster to be in
+  ready state (1350_)
+* Fixed drop notifications to include as much metadata as possible (1427_, 1444_)
+* Fixed a bug where the compilation of the base programs and writing of header
+  files could occur in parallel with compilation of programs for endpoints which
+  could lead to temporary compilation errors (1440_)
+* Fail gracefully when configuring more than the maximum supported L4 ports in
+  the policy (1406_)
+* Fixed a bug where not all policy rules were JSON validated before sending it
+  to the agent (1406_)
+* Fixed a bug in the SHA256 calculation (1454_)
+* Fixed the datapath to differentiate the packets from a regular local process
+  and packets originating from the proxy (previously redirected to by the
+  datapath). (1459_)
+
+Features
+--------
+* The monitor now supports multiple readers, you can run `cilium monitor`
+  multiple times in parallel. All monitors will see all events. (1288_)
+* `cilium policy trace` can now trace policy decisions based on Kubernetes pod
+  names, security identities, endpoint IDs and Kubernetes YAML resources
+  [Deployments, ReplicaSets, ReplicationControllers, Pods ](1124_)
+* It is now possible to reach the local host on IPs which are within the
+  overall cluster prefix (1394_)
+* The `cilium identity get` CLI and API can now resolve global identities with
+  the help of the kvstore (1313_)
+* Use new probe functionality of LLVM to automatically use new BPF compare
+  instructions if supported by both LLVM and the kernel (1356_)
+* CIDR network policy is now visible in `cilium endpoint get` (1328_)
+* Set minimum amount of compilation workers to 4 (1227_)
+* Removed local backend (1235_)
+* Reduced use of cgo in in bpf packages (1275_)
+* Do sparse checks during BPF compilation (1175_)
+* New `cilium bpf lb list` command (1317_)
+* New optimized kvstore interaction code (1365_, 1397_, 1370_)
+* The access log now includes a SHA hash for each reported label to allow for
+  validation with the kvstore (1425_)
+
+CI
+--
+* Improved CI testing infrastructure (1262_, 1207_, 1380_, 1373_, 1390_, 1385_, 1410_)
+* Upgraded to kubeadm 1.7.0 (1179_)
+
+
+Documentation
+-------------
+* Multi networking documentation (1244_)
+* Documentation of the policy specification (1344_)
+* New improved top level structuring of the sections (1344_)
+* Example for etcd configuration file (1268_)
+* Tutorial on how to use cilium monitor for troubleshooting (1451_)
+
+Mesos
+-----
+* Getting started guide with L7 policy example (1301_, 1246_)
+
+Kubernetes
+----------
+* Added support for Custom Resource Definition (CRD). Be aware that parallel
+  usage of CRD and Third party Resources (TPR) leads to unexpected behaviour.
+  See cilium.link/migrate-tpr for more details. Upgrade your
+  CiliumNetworkPolicy resources to cilium.io/v2 in order to use CRD. Keep them
+  at cilium.io/v1 to stay on TPR. (1169_, 1219_)
+* The CiliumNetworkPolicy resource now has a status field which contains the
+  status of each node enforcing the policy (1354_)
+* Added RBAC rules for v1/NetworkPolicy (1188_)
+* Upgraded Kubernetes example to 1.7.0 (1180_)
+* Delay pod healthcheck for 180 seconds to account for endpoint restore (1271_)
+* Added tolerations to DaemonSet to schedule Cilium onto master nodes as well (1426_)
+
 
 0.10
 ====
@@ -320,3 +431,69 @@ Fixes
 .. _1027: https://github.com/cilium/cilium/pull/1027
 .. _1122: https://github.com/cilium/cilium/pull/1122
 .. _1135: https://github.com/cilium/cilium/pull/1135
+.. _1175: https://github.com/cilium/cilium/pull/1175
+.. _1227: https://github.com/cilium/cilium/pull/1227
+.. _1244: https://github.com/cilium/cilium/pull/1244
+.. _1246: https://github.com/cilium/cilium/pull/1246
+.. _1235: https://github.com/cilium/cilium/pull/1235
+.. _1268: https://github.com/cilium/cilium/pull/1268
+.. _1275: https://github.com/cilium/cilium/pull/1275
+.. _1124: https://github.com/cilium/cilium/pull/1124
+.. _1266: https://github.com/cilium/cilium/pull/1266
+.. _1286: https://github.com/cilium/cilium/pull/1286
+.. _1262: https://github.com/cilium/cilium/pull/1262
+.. _1207: https://github.com/cilium/cilium/pull/1207
+.. _1304: https://github.com/cilium/cilium/pull/1304
+.. _1313: https://github.com/cilium/cilium/pull/1313
+.. _1317: https://github.com/cilium/cilium/pull/1317
+.. _1320: https://github.com/cilium/cilium/pull/1320
+.. _1322: https://github.com/cilium/cilium/pull/1322
+.. _1140: https://github.com/cilium/cilium/pull/1140
+.. _1242: https://github.com/cilium/cilium/pull/1242
+.. _1330: https://github.com/cilium/cilium/pull/1330
+.. _1338: https://github.com/cilium/cilium/pull/1338
+.. _1349: https://github.com/cilium/cilium/pull/1349
+.. _1260: https://github.com/cilium/cilium/pull/1260
+.. _1328: https://github.com/cilium/cilium/pull/1328
+.. _1365: https://github.com/cilium/cilium/pull/1365
+.. _1262: https://github.com/cilium/cilium/pull/1262
+.. _1207: https://github.com/cilium/cilium/pull/1207
+.. _1380: https://github.com/cilium/cilium/pull/1380
+.. _1373: https://github.com/cilium/cilium/pull/1373
+.. _1426: https://github.com/cilium/cilium/pull/1426
+.. _1427: https://github.com/cilium/cilium/pull/1427
+.. _1444: https://github.com/cilium/cilium/pull/1444
+.. _1354: https://github.com/cilium/cilium/pull/1354
+.. _1440: https://github.com/cilium/cilium/pull/1440
+.. _1406: https://github.com/cilium/cilium/pull/1406
+.. _1454: https://github.com/cilium/cilium/pull/1454
+.. _1459: https://github.com/cilium/cilium/pull/1459
+.. _1182: https://github.com/cilium/cilium/pull/1182
+.. _1195: https://github.com/cilium/cilium/pull/1195
+.. _1196: https://github.com/cilium/cilium/pull/1196
+.. _1186: https://github.com/cilium/cilium/pull/1186
+.. _1211: https://github.com/cilium/cilium/pull/1211
+.. _1153: https://github.com/cilium/cilium/pull/1153
+.. _1213: https://github.com/cilium/cilium/pull/1213
+.. _1188: https://github.com/cilium/cilium/pull/1188
+.. _1169: https://github.com/cilium/cilium/pull/1169
+.. _1296: https://github.com/cilium/cilium/pull/1296
+.. _1297: https://github.com/cilium/cilium/pull/1297
+.. _1288: https://github.com/cilium/cilium/pull/1288
+.. _1394: https://github.com/cilium/cilium/pull/1394
+.. _1356: https://github.com/cilium/cilium/pull/1356
+.. _1365: https://github.com/cilium/cilium/pull/1365
+.. _1397: https://github.com/cilium/cilium/pull/1397
+.. _1370: https://github.com/cilium/cilium/pull/1370
+.. _1206: https://github.com/cilium/cilium/pull/1206
+.. _1350: https://github.com/cilium/cilium/pull/1350
+.. _1425: https://github.com/cilium/cilium/pull/1425
+.. _1390: https://github.com/cilium/cilium/pull/1390
+.. _1385: https://github.com/cilium/cilium/pull/1385
+.. _1410: https://github.com/cilium/cilium/pull/1410
+.. _1344: https://github.com/cilium/cilium/pull/1344
+.. _1451: https://github.com/cilium/cilium/pull/1451
+.. _1219: https://github.com/cilium/cilium/pull/1219
+.. _1180: https://github.com/cilium/cilium/pull/1180
+.. _1271: https://github.com/cilium/cilium/pull/1271
+.. _1179: https://github.com/cilium/cilium/pull/1179
