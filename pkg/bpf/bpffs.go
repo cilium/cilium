@@ -200,11 +200,12 @@ func mountFS() error {
 		num, err := strconv.ParseInt(parts[0], 10, 32)
 		if err != nil {
 			return fmt.Errorf("command execution failed: %s", err)
-		} else {
-			if num > 1 {
-				return fmt.Errorf("multiple mount points detected at %s", mapRoot)
-			}
 		}
+
+		if num > 1 {
+			return fmt.Errorf("multiple mount points detected at %s", mapRoot)
+		}
+
 	}
 	if !isBpffs(mapRoot) {
 		log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
