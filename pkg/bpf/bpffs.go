@@ -20,8 +20,11 @@ import (
 	"path"
 	"sync"
 
+	"bytes"
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/sys/unix"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -119,6 +122,49 @@ func isBpffs(path string) bool {
 	return int32(magic) == int32(fsdata.Type)
 }
 
+func mountCmdPipe(cmds ...*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byte, mountCmdError error) {
+
+	// We need atleast one command to pipe.
+	if len(cmds) < 1 {
+		return nil, nil, nil
+	}
+
+	// Total output of commands.
+	var output bytes.Buffer
+	var stderr bytes.Buffer
+
+	lastCmd := len(cmds) - 1
+	for i, cmd := range cmds[:lastCmd] {
+		var err error
+		// We need to connect every command's stdin to the previous command's stdout
+		if cmds[i+1].Stdin, err = cmd.StdoutPipe(); err != nil {
+			return nil, nil, err
+		}
+		// We need to connect each command's stderr to a buffer
+		cmd.Stderr = &stderr
+	}
+
+	// Connect the output and error for the last command
+	cmds[lastCmd].Stdout, cmds[lastCmd].Stderr = &output, &stderr
+
+	// Let's start each command
+	for _, cmd := range cmds {
+		if err := cmd.Start(); err != nil {
+			return output.Bytes(), stderr.Bytes(), err
+		}
+	}
+
+	// We wait for each command to complete
+	for _, cmd := range cmds {
+		if err := cmd.Wait(); err != nil {
+			return output.Bytes(), stderr.Bytes(), err
+		}
+	}
+
+	// Return the output and the standard error
+	return output.Bytes(), stderr.Bytes(), nil
+}
+
 func mountFS() error {
 	// Mount BPF Map directory if not already done
 	args := []string{"-q", mapRoot}
@@ -128,6 +174,35 @@ func mountFS() error {
 		out, err := exec.Command("mount", args...).CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("Command execution failed: %s\n%s", err, out)
+		}
+	} else { // Already mounted. We need to fail if mounted multiple times.
+
+		// Execute the following command to find multiple bpffs mount points
+		// % mount | grep "<mapRoot> " | wc -l | cut -f1 -d' '
+		newmapRoot := mapRoot + " " // Append space to ignore /bpf/xdp and /bpf/ip mountpoints.
+		mt := exec.Command("mount")
+		grep := exec.Command("grep", newmapRoot)
+		wc := exec.Command("wc", "-l")
+		cut := exec.Command("cut", "-f1", "-d ")
+
+		output, stderr, _ := mountCmdPipe(mt, grep, wc, cut)
+
+		if len(stderr) > 0 {
+			return fmt.Errorf("Command execution failed: %s\n", stderr)
+		}
+		str := string(output)
+
+		//Strip the newline character at the end.
+		parts := strings.Split(string(str), "\n")
+
+		// Convert the string to integer
+		num, err := strconv.ParseInt(parts[0], 10, 32)
+		if err == nil {
+			if num > 1 {
+				return fmt.Errorf("Multiple mount points detected at %s", mapRoot)
+			}
+		} else {
+			return fmt.Errorf("Command execution failed: %s\n", err)
 		}
 	}
 	if !isBpffs(mapRoot) {
