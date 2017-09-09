@@ -415,7 +415,7 @@ func (n *DebugCapture) DumpInfo(data []byte) {
 
 // DumpVerbose prints the captured packet in human readable format
 func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes ", prefix, n.Hash, n.Source, n.Len)
+	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes, ", prefix, n.Hash, n.Source, n.Len)
 	switch n.SubType {
 	case DbgCaptureFromLxc:
 		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)

@@ -30,7 +30,7 @@
 #if defined ENABLE_IPV4 && defined CONNTRACK
 #define LXC_NAT46
 #else
-#warning "ENABLE_NAT46 requires ENABLE_IPv4 and CONNTRACK"
+#error "ENABLE_NAT46 requires ENABLE_IPV4 and CONNTRACK"
 #undef LXC_NAT46
 #endif
 #else

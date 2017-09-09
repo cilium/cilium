@@ -90,7 +90,7 @@ static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
 static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port, __be32 old_ip,
-			  struct ipv4_ct_tuple *tuple, __u32 identity)
+			  struct ipv4_ct_tuple *tuple, __u32 identity, int forwarding_reason)
 {
 	__be32 host_ip = IPV4_GATEWAY;
 	struct proxy4_tbl_key key = {
@@ -107,7 +107,8 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	};
 
 	// Trace the packet before its destination address and port are rewritten.
-	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
+	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
+			  forwarding_reason);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum,
 			   new_port, old_port) < 0)
@@ -126,7 +127,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
 	cilium_dbg3(skb, DBG_REV_PROXY_UPDATE,
-		     key.sport << 16 | key.dport, key.saddr, key.nexthdr);
+		    key.sport << 16 | key.dport, key.saddr, key.nexthdr);
 	if (map_update_elem(&cilium_proxy4, &key, &value, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
@@ -138,7 +139,7 @@ static inline int __inline__
 ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port,
 			  union v6addr old_ip, struct ipv6_ct_tuple *tuple, union v6addr *host_ip,
-			  __u32 identity)
+			  __u32 identity, int forwarding_reason)
 {
 	struct proxy6_tbl_key key = {
 		.saddr = tuple->daddr,
@@ -154,7 +155,8 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	};
 
 	// Trace the packet before its destination address and port are rewritten.
-	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
+	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
+			  forwarding_reason);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum, new_port, old_port) < 0)
 		return DROP_WRITE_ERROR;
@@ -168,6 +170,8 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 		if (csum_l4_replace(skb, l4_off, csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
+
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
 	if (map_update_elem(&cilium_proxy6, &key, &value, 0) < 0)
 		return DROP_CT_CREATE_FAILED;

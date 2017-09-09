@@ -81,8 +81,8 @@ func init() {
 	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
 	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
-	monitorCmd.Flags().Uint32Var(&toDst, "to", 0, "Filter by destination endpoint id")
-	monitorCmd.Flags().Uint32Var(&related, "related-to", 0, "Filter by either source or destination endpoint id")
+	monitorCmd.Flags().Uint16Var(&toDst, "to", 0, "Filter by destination endpoint id")
+	monitorCmd.Flags().Uint16Var(&related, "related-to", 0, "Filter by either source or destination endpoint id")
 	monitorCmd.Flags().BoolVarP(&verboseMonitor, "verbose", "v", false, "Enable verbose output")
 }
 
@@ -104,8 +104,8 @@ var (
 		"trace":   bpfdebug.MessageTypeTrace,
 	}
 	fromSource     = uint16(0)
-	toDst          = uint32(0)
-	related        = uint32(0)
+	toDst          = uint16(0)
+	related        = uint16(0)
 	verboseMonitor = false
 	verbosity      = INFO
 )
@@ -126,14 +126,14 @@ func lostEvent(lost uint64, cpu int) {
 // when they are supplied. The either part of from and to endpoint depends on
 // related to, which can match on both.  If either one of them is less than or
 // equal to zero, then it is assumed user did not use them.
-func match(messageType int, src uint16, dst uint32) bool {
+func match(messageType int, src uint16, dst uint16) bool {
 	if eventTypeIdx != bpfdebug.MessageTypeUnspec && messageType != eventTypeIdx {
 		return false
 	} else if fromSource > 0 && fromSource != src {
 		return false
 	} else if toDst > 0 && toDst != dst {
 		return false
-	} else if related > 0 && uint16(related) != src && related != dst {
+	} else if related > 0 && related != src && related != dst {
 		return false
 	}
 
@@ -147,7 +147,7 @@ func dropEvents(prefix string, data []byte) {
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
-	if match(bpfdebug.MessageTypeDrop, dn.Source, dn.DstID) {
+	if match(bpfdebug.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
 		if verbosity == INFO {
 			dn.DumpInfo(data)
 		} else {

@@ -33,43 +33,75 @@ type TraceNotify struct {
 	CapLen   uint32
 	SrcLabel uint32
 	DstLabel uint32
-	DstID    uint32
+	DstID    uint16
+	Reason   uint8
+	Pad      uint8
 	Ifindex  uint32
 	// data
 }
 
-var obsPoints = map[uint8]string{
-	0: "To endpoint",
-	1: "To proxy",
-	2: "To host",
-	3: "To stack",
+// Available observation points.
+const (
+	TraceToLxc = iota
+	TraceToProxy
+	TraceToHost
+	TraceToStack
+)
+
+var traceObsPoints = map[uint8]string{
+	TraceToLxc:   "To endpoint",
+	TraceToProxy: "To proxy",
+	TraceToHost:  "To host",
+	TraceToStack: "To stack",
 }
 
 func obsPoint(obsPoint uint8) string {
-	if str, ok := obsPoints[obsPoint]; ok {
+	if str, ok := traceObsPoints[obsPoint]; ok {
 		return str
 	}
 	return fmt.Sprintf("%d", obsPoint)
 }
 
+// Reasons for forwarding a packet.
+const (
+	TraceReasonPolicy = iota
+	TraceReasonCtEstablished
+	TraceReasonCtReply
+	TraceReasonCtRelated
+)
+
+var traceReasons = map[uint8]string{
+	TraceReasonPolicy:        "Policy",
+	TraceReasonCtEstablished: "Established connection",
+	TraceReasonCtReply:       "Reply connection",
+	TraceReasonCtRelated:     "Related connection",
+}
+
+func forwardReason(reason uint8) string {
+	if str, ok := traceReasons[reason]; ok {
+		return str
+	}
+	return fmt.Sprintf("%d", reason)
+}
+
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
-	fmt.Printf("xx forward (%s) to endpoint %d, identity %d->%d: %s\n",
-		obsPoint(n.ObsPoint), n.DstID, n.SrcLabel, n.DstLabel,
+	fmt.Printf("-> forward (%s), at %s, to endpoint %d, identity %d->%d: %s\n",
+		forwardReason(n.Reason), obsPoint(n.ObsPoint), n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[TraceNotifyLen:]))
 }
 
 // DumpVerbose prints the trace notification in human readable form
 func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d Packet forwarded %d (%s) %d bytes ifindex=%d",
-		prefix, n.Hash, n.Source, n.ObsPoint, obsPoint(n.ObsPoint), n.OrigLen, n.Ifindex)
+	fmt.Printf("%s MARK %#x FROM %d FORWARD: %d bytes, at %s, reason %s, to ifindex %d",
+		prefix, n.Hash, n.Source, n.OrigLen, obsPoint(n.ObsPoint), forwardReason(n.Reason), n.Ifindex)
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
-		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)
+		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
 	}
 
 	if n.DstID != 0 {
-		fmt.Printf(" to lxc %d\n", n.DstID)
+		fmt.Printf(", to endpoint %d\n", n.DstID)
 	} else {
 		fmt.Printf("\n")
 	}

@@ -26,6 +26,7 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
+#include "nat46.h"
 
 #define CT_DEFAULT_LIFEIME	360
 #define CT_CLOSE_TIMEOUT	10
