@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+set -ex
+
 diff="$(find . ! \( -path './vendor' -prune \) ! -samefile ./daemon/bindata.go -type f -name '*.go' -print0 | xargs -0 gofmt -d -l -s )"
 
 if [ -n "$diff" ]; then

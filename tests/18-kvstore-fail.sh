@@ -1,6 +1,15 @@
 #!/bin/bash
 
-source ./helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
+set -ex
 
 # If you want to run this alone, remember to setup PATH for clang and friends.
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
@@ -13,7 +22,7 @@ function cleanup {
 }
 
 function finish_test {
-  gather_files 18-kvstore-fail ${TEST_SUITE}
+  gather_files ${TEST_NAME}  ${TEST_SUITE}
   cleanup
 }
 
@@ -66,3 +75,5 @@ function test_kvstore {
 #systemctl start cilium-etcd
 #
 #test_kvstore etcd "4001"
+
+test_succeeded "${TEST_NAME}"

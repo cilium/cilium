@@ -2,7 +2,16 @@
 
 # Tests to validate `cilium identity get` CLI commands.
 
-source "./helpers.bash"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
+set -ex
 
 function start_containers {
   docker run -dt --net=$TEST_NET --name foo -l id.foo tgraf/netperf
@@ -27,7 +36,7 @@ function cleanup {
 }
 
 function finish_test {
-  gather_files 19-identity-get ${TEST_SUITE}
+  gather_files ${TEST_NAME} ${TEST_SUITE}
   cleanup
 }
 
@@ -76,3 +85,5 @@ cilium endpoint list
 create_cilium_docker_network
 
 test_identity_get
+
+test_succeeded "${TEST_NAME}"

@@ -5,6 +5,10 @@ source "${dir}/helpers.bash"
 # dir might have been overwritten by helpers.bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
 set -ex
 
 TEST_NET="cilium-net"
@@ -12,17 +16,19 @@ NUM_ENDPOINTS="3"
 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
-TEST_NAME="14-policy-enforcement-docker"
-LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
 
 ENABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled' -c"
 DISABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Disabled' -c"
 
 function cleanup {
-  docker rm -f foo foo bar baz 2> /dev/null || true
+  log "beginning cleanup for ${TEST_NAME}"
+  log "removing containers foo bar and baz"
+  docker rm -f foo bar baz 2> /dev/null || true
   policy_delete_and_wait "--all" 2> /dev/null || true
-  docker network rm ${TEST_NET} 2> /dev/null || true
+  log "removing docker network $TEST_NET"
+  remove_cilium_docker_network
   cilium config PolicyEnforcement=default || true
+  log "cleanup done for ${TEST_NAME}"
 }
 
 function finish_test {
@@ -42,7 +48,7 @@ function finish_test {
 #######################################
 function check_endpoints_policy_enabled {
   local NUM_EPS=$1
-  echo "---- checking if ${NUM_EPS} endpoints have policy enforcement enabled ----"
+  log " checking if ${NUM_EPS} endpoints have policy enforcement enabled "
   cilium endpoint list
   POLICY_ENABLED_COUNT=`eval ${ENABLED_CMD}`
   if [ "${POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
@@ -50,7 +56,7 @@ function check_endpoints_policy_enabled {
     cilium endpoint list
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
-  echo "---- ${NUM_EPS} endpoints have policy enforcement enabled; continuing ----"
+  log "${NUM_EPS} endpoints have policy enforcement enabled; continuing"
 }
 
 #######################################
@@ -64,7 +70,7 @@ function check_endpoints_policy_enabled {
 #######################################
 function check_endpoints_policy_disabled {
   local NUM_EPS=$1
-  echo "---- checking if ${NUM_EPS} endpoints have policy enforcement disabled ----"
+  log "checking if ${NUM_EPS} endpoints have policy enforcement disabled"
   cilium endpoint list 
   POLICY_DISABLED_COUNT=`eval ${DISABLED_CMD}`
   if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then 
@@ -72,7 +78,7 @@ function check_endpoints_policy_disabled {
     cilium endpoint list
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
-  echo  "---- ${NUM_EPS} endpoints have policy enforcement disabled; continuing ----"
+  log "${NUM_EPS} endpoints have policy enforcement disabled; continuing"
 }
 
 function start_containers {
@@ -82,7 +88,7 @@ function start_containers {
 }
 
 function import_sample_policy {
-  echo "---- Importing L3 CIDR Policy ----"
+  log "Importing L3 CIDR Policy"
   cat << EOF | policy_import_and_wait -
 [{
      "endpointSelector": {"matchLabels":{"k8s:id":"app3"}},
@@ -112,116 +118,118 @@ wait_for_endpoints ${NUM_ENDPOINTS}
 # have been added, regardless of if they apply to the endpoint or not.
 # Since no policies have been imported, all endpoints should have 
 # policy enforcement disabled.
-echo "---- Test 1: default mode: test configuration with no policy imported ----"
+log "Test 1: default mode: test configuration with no policy imported"
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 2: default mode, no K8s, import policy.
 # Import the following policy, which only applies to app3. 
 # Since policy enforcement is in 'default' mode for the daemon / not running alongside K8s, policy enforcement 
 # should be enabled for all endpoints.
-echo "---- Test 2: default mode: test with policy imported  ----"
+log " Test 2: default mode: test with policy imported  "
 import_sample_policy
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 3: default mode, no K8s, delete policy.
 # Since the policy repository is now empty, we expect that all endpoints should have policy enforcement disabled.
-echo "---- Test 3: default mode: check that policy enforcement for each endpoint is disabled after all policies are removed ----"
+log " Test 3: default mode: check that policy enforcement for each endpoint is disabled after all policies are removed "
 policy_delete_and_wait "--all"
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 4: default --> always mode, no K8s, no policy imported.
 # We expect that all endpoints should have policy enforcement enabled after this configuration is applied.
-echo "---- Test 4: default --> always mode: check that each endpoint has policy enforcement enabled with no policy imported ----"
+log " Test 4: default --> always mode: check that each endpoint has policy enforcement enabled with no policy imported "
 cilium config PolicyEnforcement=always
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 5: always --> never mode, no K8s, no policy imported.
 # We expect that all endpoints should have policy enforcement disabled after this configuration is applied.
-echo "---- Test 5: always --> never mode: check that each endpoint has policy enforcement disabled with no policy imported ----"
+log " Test 5: always --> never mode: check that each endpoint has policy enforcement disabled with no policy imported "
 cilium config PolicyEnforcement=never
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 6: never mode, no K8s, import policy.
 # Policy enforcement should be disabled for all endpoints.
-echo "---- Test 6: never  mode: check that each endpoint has policy enforcement disabled with policy imported ----"
+log " Test 6: never  mode: check that each endpoint has policy enforcement disabled with policy imported "
 import_sample_policy
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 7: never --> always mode, no K8s, policy imported.
 # Policy enforcement should be enabled for all endpoints.
-echo "---- Test 7: never --> always mode: check that each endpoint has policy enforcement enabled with policy imported ----"
+log " Test 7: never --> always mode: check that each endpoint has policy enforcement enabled with policy imported "
 cilium config PolicyEnforcement=always
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 8: always --> default mode, no K8s, policy imported.
 # Policy enforcement should be enabled for all endpoints.
-echo "---- Test 8: always --> default mode: check that each endpoint has policy enforcement enabled with policy imported ----"
+log " Test 8: always --> default mode: check that each endpoint has policy enforcement enabled with policy imported "
 cilium config PolicyEnforcement=default
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 9: default --> always mode, no K8s, policy imported.
 # Policy enforcement should be enabled for all endpoints.
-echo "---- Test 9: default --> always mode: check that each endpoint has policy enforcement enabled with a policy imported ----"
+log " Test 9: default --> always mode: check that each endpoint has policy enforcement enabled with a policy imported "
 cilium config PolicyEnforcement=always
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 10: always mode, no K8s, delete policy.
 # Policy enforcement should be 'true' for all endpoints.
-echo "---- Test 10: always mode: check that each endpoint has policy enforcement enabled after policy is removed  ----"
+log " Test 10: always mode: check that each endpoint has policy enforcement enabled after policy is removed  "
 policy_delete_and_wait "--all"
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 11: always mode, no K8s, import policy.
 # All endpoints should have policy enforcement enabled.
-echo "---- Test 11: always mode: check that each endpoint has policy enforcement enabled after policy is imported ----"
+log " Test 11: always mode: check that each endpoint has policy enforcement enabled after policy is imported "
 import_sample_policy
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 12: always --> never mode, no K8s, policy imported.
 # All endpoints should have policy enforcement disabled. 
-echo "---- Test 12: always --> never mode: check that each endpoint has policy disabled with a policy imported ----"
+log " Test 12: always --> never mode: check that each endpoint has policy disabled with a policy imported "
 cilium config PolicyEnforcement=never
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 13: never mode, no K8s, delete policy.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 13: never mode: check that each endpoint has policy disabled when policy is deleted ----"
+log " Test 13: never mode: check that each endpoint has policy disabled when policy is deleted "
 policy_delete_and_wait "--all"
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 14: never --> always, no K8s, no policy imported.
 # All endpoints should have policy enforcement enabled.
-echo "---- Test 14: never --> always mode: check that each endpoint has policy enforcement enabled with no policy imported ----"
+log " Test 14: never --> always mode: check that each endpoint has policy enforcement enabled with no policy imported "
 cilium config PolicyEnforcement=always
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 15: always --> default, no K8s, no policy imported.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 15: always --> default mode: check that each endpoint has policy enforcement disabled with no policy imported ----"
+log " Test 15: always --> default mode: check that each endpoint has policy enforcement disabled with no policy imported "
 cilium config PolicyEnforcement=default
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 16: default --> never, no K8s, no policy imported.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 16: default --> never mode: check that each endpoint has policy enforcement disabled with no policy imported ----"
+log " Test 16: default --> never mode: check that each endpoint has policy enforcement disabled with no policy imported "
 cilium config PolicyEnforcement=never
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 17: never --> default, no K8s, no policy imported.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 17: never --> default mode: check that each endpoint has policy enforcement disabled with no policy imported  ----"
+log " Test 17: never --> default mode: check that each endpoint has policy enforcement disabled with no policy imported  "
 cilium config PolicyEnforcement=default
 wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
+
+test_succeeded "${TEST_NAME}"

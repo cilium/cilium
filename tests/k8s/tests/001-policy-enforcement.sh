@@ -7,14 +7,18 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/../cluster/env.bash"
 
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
 set -ex
 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
 DENIED="Result: DENIED"
 ALLOWED="Result: ALLOWED"
-TEST_NAME="001-policy-enforcement"
-LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+
+log "running test: $TEST_NAME"
 
 # string present in labels for all real workloads being tested
 POD_FILTER=k8s:id=app
@@ -29,26 +33,27 @@ DISABLED_CMD="cilium endpoint list | grep \"${POD_FILTER}\" | awk '{print \$2}' 
 CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s-1 | awk '{ print $1 }')
 CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium -o wide | grep k8s-2 | awk '{ print $1 }')
 
-echo "CILIUM_POD_1: $CILIUM_POD_1"
-echo "CILIUM_POD_2: $CILIUM_POD_2"
+log "CILIUM_POD_1: $CILIUM_POD_1"
+log "CILIUM_POD_2: $CILIUM_POD_2"
 
 NUM_ENDPOINTS=4
 
 function cleanup {
-  echo "----- beginning cleanup for ${TEST_NAME} -----"
+  log " beginning cleanup for ${TEST_NAME}"
   kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
   wait_for_no_pods
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default || true
-  echo "----- cleanup finished for ${TEST_NAME} -----"
+  log " cleanup finished for ${TEST_NAME}"
 }
 
 function finish_test {
   gather_files ${TEST_NAME} k8s-tests
   gather_k8s_logs "1" ${LOGS_DIR}
   cleanup
+  log "finished running test: $TEST_NAME"
 }
 
 #######################################
@@ -67,7 +72,7 @@ function check_endpoints_policy_enabled {
   local NUM_EPS=$1
   local CILIUM_POD=$2
 
-  echo "---- checking if ${NUM_EPS} endpoints have policy enforcement enabled ----"
+  log " checking if ${NUM_EPS} endpoints have policy enforcement enabled"
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
   POLICY_ENABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${ENABLED_CMD}`
   if [ "${POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
@@ -75,7 +80,7 @@ function check_endpoints_policy_enabled {
     kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list | grep "${POD_FILTER}"
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
-  echo "---- ${NUM_EPS} endpoints have policy enforcement enabled; continuing ----"
+  log " ${NUM_EPS} endpoints have policy enforcement enabled; continuing"
 }
 
 #######################################
@@ -92,7 +97,7 @@ function check_endpoints_policy_enabled {
 function check_endpoints_policy_disabled {
   local NUM_EPS=$1
   local CILIUM_POD=$2
-  echo "---- checking if ${NUM_EPS} endpoints have policy enforcement disabled ----"
+  log " checking if ${NUM_EPS} endpoints have policy enforcement disabled"
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list 
   POLICY_DISABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${DISABLED_CMD}`
   if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then 
@@ -100,7 +105,7 @@ function check_endpoints_policy_disabled {
     kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list | grep "${POD_FILTER}"
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
-  echo  "---- ${NUM_EPS} endpoints have policy enforcement disabled; continuing ----"
+  log  "${NUM_EPS} endpoints have policy enforcement disabled; continuing"
 }
 
 function import_policy {
@@ -134,22 +139,22 @@ wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD_1}
 wait_for_kubectl_cilium_status ${NAMESPACE} ${CILIUM_POD_2}
 
 # Patch YAML file from K8s GSG with nodeSelector to a single node so we can properly test the GSG
-echo "----- deploying demo application onto cluster -----"
+log " deploying demo application onto cluster"
 cp "${MINIKUBE}/demo.yaml" "${GSGDIR}/demo.yaml"
 patch -p0 "${GSGDIR}/demo.yaml" "${GSGDIR}/minikube-gsg-l7-fix.diff"
 kubectl create -f ${GSGDIR}/demo.yaml
 wait_for_n_running_pods ${NUM_ENDPOINTS}
 
-echo " ---- pods managed by Cilium Pod 1 ($CILIUM_POD_1) ----"
+log "pods managed by Cilium Pod 1 ($CILIUM_POD_1)"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium endpoint list
-echo " ---- pods managed by Cilium Pod 2 ($CILIUM_POD_2) ----"
+log "pods managed by Cilium Pod 2 ($CILIUM_POD_2)"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium endpoint list
 
 # Test 1: default mode, K8s, Cilium launched.
 # Default behavior is to have policy enforcement disabled for all endpoints that have
 # no rules applying to them. Since no policies have been imported, all endpoints should have 
 # policy enforcement disabled.
-echo "---- Test 1: default mode: test configuration with no policy imported ----"
+log " Test 1: default mode: test configuration with no policy imported"
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
@@ -157,11 +162,11 @@ check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 # Import the following policy, which only applies to app3. 
 # Since policy enforcement is in 'default' mode for the daemon, policy enforcement 
 # should be enabled for only one endpoint (app3), and should be disabled for all other endpoints.
-echo "---- Test 2: default mode: test with policy imported  ----"
+log " Test 2: default mode: test with policy imported "
 import_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 
-echo "---- Policies in cilium ----"
+log " Policies in cilium"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium policy get
 
 check_endpoints_policy_enabled 2 ${CILIUM_POD_1}
@@ -170,7 +175,7 @@ check_endpoints_policy_disabled 2 ${CILIUM_POD_1}
 # Test 3: default mode, K8s, delete policy 
 # Delete the aforementioned policy. Since the policy repository is now empty, we expect
 # that all endpoints should have policy enforcement disabled.
-echo "---- Test 3: default mode: check that policy enforcement for each endpoint is disabled after all policies are removed ----"
+log " Test 3: default mode: check that policy enforcement for each endpoint is disabled after all policies are removed"
 delete_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
@@ -178,14 +183,14 @@ check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 # Test 4: default --> always mode, K8s, no policy imported.
 # Change daemon's policy enforcement configuration from 'default' to 'always' with no policy imported. 
 # We expect that all endpoints should have policy enforcement enabled after this configuration is applied.
-echo "---- Test 4: default --> always mode: check that each endpoint has policy enforcement enabled with no policy imported ----"
+log " Test 4: default --> always mode: check that each endpoint has policy enforcement enabled with no policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=always
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 5: always --> never mode, K8s, no policy imported.
 # We expect that all endpoints should have policy enforcement disabled after this configuration is applied.
-echo "---- Test 5: always --> never mode: check that each endpoint has policy enforcement disabled with no policy imported ----"
+log " Test 5: always --> never mode: check that each endpoint has policy enforcement disabled with no policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=never
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
@@ -193,84 +198,86 @@ check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 # Test 6: never mode, K8s, import policy.
 # Import a policy while policy enforcement is disabled.
 # Policy enforcement should be disabled for all endpoints.
-echo "---- Test 6: disabled mode: check that each endpoint has policy enforcement disabled with policy imported ----"
+log " Test 6: disabled mode: check that each endpoint has policy enforcement disabled with policy imported"
 import_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 7: never --> always mode, K8s, policy imported.
 # Policy enforcement should be enabled for all endpoints.
-echo "---- Test 7: never --> always mode: check that each endpoint has policy enforcement enabled with policy imported----"
+log " Test 7: never --> always mode: check that each endpoint has policy enforcement enabled with policy imported----"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=always
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 8: always --> default mode, K8s, policy imported.
 # Policy enforcement should be enabled for only one endpoint.
-echo "---- Test 8: always --> default mode: check that 2 endpoints have policy enforcement enabled with policy imported ----"
+log " Test 8: always --> default mode: check that 2 endpoints have policy enforcement enabled with policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled 2 ${CILIUM_POD_1}
 
 # Test 9: default --> always mode, K8s, policy imported.
 # Policy enforcement should be enabled for all endpoints.
-echo "---- Test 9: default --> always mode: check that each endpoint has policy enforcement enabled with policy imported----"
+log " Test 9: default --> always mode: check that each endpoint has policy enforcement enabled with policy imported----"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=always
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 10: always mode, K8s, delete policy.
 # Policy enforcement should be 'true' for all endpoints.
-echo "---- Test 10: always mode: check that each endpoint has policy enforcement enabled with no policy imported ----"
+log " Test 10: always mode: check that each endpoint has policy enforcement enabled with no policy imported"
 delete_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 11: always mode, K8s, import policy.
 # All endpoints should have policy enforcement enabled.
-echo "---- Test 11: always mode: check that each endpoint has policy enforcement enabled with policy imported ----"
+log " Test 11: always mode: check that each endpoint has policy enforcement enabled with policy imported"
 import_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 12: always --> never mode, K8s, policy imported.
 # All endpoints should have policy enforcement disabled. 
-echo "---- Test 12: always --> never mode: check that each endpoint has policy enforcement disabled with policy imported ----"
+log " Test 12: always --> never mode: check that each endpoint has policy enforcement disabled with policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=never
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 13: never mode, K8s, delete policy.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 13: never mode: check that each endpoint has policy enforcement disabled after policy deleted ----"
+log " Test 13: never mode: check that each endpoint has policy enforcement disabled after policy deleted"
 delete_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 14: never --> always, K8s, no policy imported.
 # All endpoints should have policy enforcement enabled.
-echo "---- Test 14: never --> always mode: check that each endpoint has policy enforcement enabled with no policy imported ----"
+log " Test 14: never --> always mode: check that each endpoint has policy enforcement enabled with no policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=always
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 15: always --> default, K8s, no policy imported.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 15: always --> default mode: check that each endpoint has policy enforcement disabled with no policy imported ----"
+log " Test 15: always --> default mode: check that each endpoint has policy enforcement disabled with no policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 16: default --> never, K8s, no policy imported.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 16: default --> never mode: check that each endpoint has policy enforcement disabled with no policy ipmorted ----"
+log " Test 16: default --> never mode: check that each endpoint has policy enforcement disabled with no policy ipmorted"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=never
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 17: never --> default, K8s, no policy imported.
 # All endpoints should have policy enforcement disabled.
-echo "---- Test 17: never --> default mode: check that each endpoint has policy enforcement disabled with no policy imported ----"
+log " Test 17: never --> default mode: check that each endpoint has policy enforcement disabled with no policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
+
+test_succeeded "${TEST_NAME}"
