@@ -23,6 +23,8 @@ import (
 
 const (
 	maxPorts = 40
+	// MaxCIDREntries is used to prevent compile failures at runtime.
+	MaxCIDREntries = 40
 )
 
 // Validate validates a policy rule
@@ -49,6 +51,9 @@ func (i IngressRule) Validate() error {
 			return err
 		}
 	}
+	if l := len(i.FromCIDR); l > MaxCIDREntries {
+		return fmt.Errorf("too many ingress L3 entries %d/%d", l, MaxCIDREntries)
+	}
 	for _, p := range i.FromCIDR {
 		if err := p.Validate(); err != nil {
 			return err
@@ -64,6 +69,9 @@ func (e EgressRule) Validate() error {
 		if err := p.Validate(); err != nil {
 			return err
 		}
+	}
+	if l := len(e.ToCIDR); l > MaxCIDREntries {
+		return fmt.Errorf("too many egress L3 entries %d/%d", l, MaxCIDREntries)
 	}
 	for _, p := range e.ToCIDR {
 		if err := p.Validate(); err != nil {

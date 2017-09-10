@@ -444,6 +444,10 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 		return false, nil
 	}
 
+	if err := e.l3PolicyValidation(); err != nil {
+		return false, err
+	}
+
 	changed, err := e.regeneratePolicy(owner)
 	if err != nil {
 		return changed, fmt.Errorf("%s: %s", e.StringID(), err)
@@ -486,4 +490,19 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	e.Consumable.Mutex.RLock()
 	log.Debugf("Set identity of EP %d to %d and consumable to %+v", e.ID, id, e.Consumable)
 	e.Consumable.Mutex.RUnlock()
+}
+
+// l3PolicyValidation prevents code generation failures due to the number of
+// CIDR matches
+func (e *Endpoint) l3PolicyValidation() error {
+	if e.L3Policy == nil {
+		return nil
+	}
+	if l := len(e.L3Policy.Egress.Map); l > api.MaxCIDREntries {
+		return fmt.Errorf("too many egress L3 entries %d/%d", l, api.MaxCIDREntries)
+	}
+	if l := len(e.L3Policy.Ingress.Map); l > api.MaxCIDREntries {
+		return fmt.Errorf("too many ingress L3 entries %d/%d", l, api.MaxCIDREntries)
+	}
+	return nil
 }
