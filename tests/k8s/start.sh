@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -exv
+set -e
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 

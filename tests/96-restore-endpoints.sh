@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 
-source "./helpers.bash"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
+set -ex
 
 NETPERF_IMAGE="tgraf/netperf"
 
 function cleanup {
 	cilium policy delete --all 2> /dev/null || true
 	docker rm -f server1 server2 2> /dev/null || true
-	docker network rm $TEST_NET > /dev/null 2>&1
+	remove_cilium_docker_network
 }
 
 cleanup
@@ -15,8 +24,6 @@ cleanup
 trap cleanup EXIT
 
 create_cilium_docker_network
-
-set -x
 
 sudo service cilium restart
 wait_for_cilium_status
@@ -47,4 +54,4 @@ if [[ "${before_restart_md5}" != "${after_restart_md5}" ]]; then
     abort "Restore functionality didn't work!"
 fi
 
-set +x
+test_succeeded "${TEST_NAME}"

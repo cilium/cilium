@@ -65,10 +65,11 @@ function run_tests(){
     # Set up cilium-lb-ds and cilium-ds
     deploy_cilium ${k8s_version}
 
+
     # Run non IP version specific tests
-    vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
+    vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do file=$(basename $test); filename="${file%.*}"; mkdir -p /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/$filename;  $test | tee /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/"${filename}"/output.txt; done'
     # Run ipv4 tests
-    vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do $test; done'
+    vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do file=$(basename $test); filename="${file%.*}"; mkdir -p /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/$filename; $test | tee /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/"${filename}"/output.txt; done'
 
     # Run IPv6 tests
 

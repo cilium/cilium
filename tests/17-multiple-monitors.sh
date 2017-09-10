@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
-source ./helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+TEST_NAME="17-multiple-monitors"
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
 
 set -uex
 
@@ -11,7 +18,7 @@ MON_3_OUTPUT=$(mktemp)
 
 function cleanup {
   docker rm -f demo1 || true
-  docker network rm ${TEST_NET} 2> /dev/null || true
+  remove_cilium_docker_network
 }
 
 function lines_expected {
@@ -53,3 +60,5 @@ kill ${MON_1_PID} ${MON_2_PID} ${MON_3_PID}
 if ! diff3 ${MON_1_OUTPUT} ${MON_2_OUTPUT} ${MON_3_OUTPUT}; then
   abort "Monitor output does not match `diff ${MON_1_OUTPUT} ${MON_2_OUTPUT}`"
 fi
+
+test_succeeded "${TEST_NAME}"

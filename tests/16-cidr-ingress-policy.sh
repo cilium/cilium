@@ -1,7 +1,15 @@
 #!/bin/bash
-set -e
 
-source "./helpers.bash"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
+set -ex
 
 DEMO_CONTAINER="cilium/demo-client"
 HTTPD_CONTAINER_NAME="service1-instance1"
@@ -19,12 +27,12 @@ function cleanup {
   ip addr del dev lo ${IPV6_HOST}/128 2> /dev/null || true
   cilium policy delete --all 2> /dev/null || true
   docker rm -f ${HTTPD_CONTAINER_NAME}  2> /dev/null || true
-  docker network rm ${TEST_NET} 2> /dev/null || true
+  remove_cilium_docker_network
   monitor_stop
 }
 
 function finish_test {
-  gather_files 16-cidr-ingress-policy ${TEST_SUITE}
+  gather_files ${TEST_NAME} ${TEST_SUITE}
   cleanup
 }
 
@@ -34,13 +42,13 @@ cleanup
 monitor_start
 logs_clear
 
-echo "------ checking cilium status ------"
+log "checking cilium status"
 cilium status
 
-echo "------ creating Docker network of type Cilium ------"
+log "creating Docker network of type Cilium"
 create_cilium_docker_network
 
-echo "------ starting example service with Docker ------"
+log "starting example service with Docker"
 docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1}" cilium/demo-httpd
 
 IPV6_PREFIX=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPv6Gateway }}" ${HTTPD_CONTAINER_NAME})/112
@@ -57,11 +65,15 @@ wait_for_cilium_ep_gen
 cilium endpoint list
 
 monitor_clear
-echo "------ pinging host from service2 (should NOT work) ------"
+log "pinging host from service2 (should NOT work)"
+
+set +e
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${IPV4_HOST} && {
   abort "Error: Unexpected success pinging host (${IPV4_HOST}) from service2"
 }
-echo "------ importing L3 CIDR policy for IPv4 egress ------"
+set -e
+
+log "importing L3 CIDR policy for IPv4 egress"
 policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
@@ -76,7 +88,7 @@ cat <<EOF | policy_import_and_wait -
 EOF
 
 monitor_clear
-echo "------ pinging host from service2 (should work) ------"
+log "pinging host from service2 (should work)"
 cilium policy get
 
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${IPV4_HOST} || {
@@ -85,12 +97,15 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 
 policy_delete_and_wait "--all"
 monitor_clear
-echo "------ pinging host from service2 (should NOT work) ------"
+
+log "pinging host from service2 (should NOT work)"
+set +e
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${IPV6_HOST} && {
   abort "Error: Unexpected success pinging host (${IPV6_HOST}) from service2"
 }
+set -e
 
-echo "------ importing L3 CIDR policy for IPv6 egress ------"
+log "importing L3 CIDR policy for IPv6 egress"
 policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
@@ -104,13 +119,13 @@ cat <<EOF | policy_import_and_wait -
 EOF
 
 monitor_clear
-echo "------ pinging host from service2 (should work) ------"
+log "pinging host from service2 (should work)"
 cilium policy get
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${IPV6_HOST} || {
   abort "Error: Could not ping host (${IPV6_HOST}) from service2"
 }
 
-echo "------ importing policy ------"
+log "importing policy"
 policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
@@ -124,30 +139,34 @@ cat <<EOF | policy_import_and_wait -
 EOF
 
 monitor_clear
-echo "------ pinging service1 from service2 (should work) ------"
+log "pinging service1 from service2 (should work)"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME} || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear
-echo "------ pinging service1 from service2 (IPv6 - should work) ------"
+log "pinging service1 from service2 (IPv6 - should work)"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME} || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear
-echo "------ pinging service1 from service3 (should NOT work) ------"
+log "pinging service1 from service3 (should NOT work)"
+set +e
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
+set -e
 
 monitor_clear
-echo "------ pinging service1 from service3 (IPv6 - should NOT work) ------"
+log "pinging service1 from service3 (IPv6 - should NOT work)"
+set +e
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
+set -e
 
-echo "------ creating cidr_aware_policy.json with matching prefixes ------"
+log "creating cidr_aware_policy.json with matching prefixes"
 echo "IPv6 prefix: $IPV6_PREFIX"
 echo "IPv4 prefix: $IPV4_PREFIX"
 policy_delete_and_wait "--all"
@@ -168,18 +187,18 @@ EOF
 
 monitor_clear
 cilium policy get
-echo "------ pinging service1 from service3 (should work) ------"
+log "pinging service1 from service3 (should work)"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service3"
 }
 
 monitor_clear
-echo "------ pinging service1 from service3 (IPv6 - should work) ------"
+log "pinging service1 from service3 (IPv6 - should work)"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service3"
 }
 
-echo "------ creating cidr_aware_policy.json with non-matching prefix ------"
+log "creating cidr_aware_policy.json with non-matching prefix"
 policy_delete_and_wait "--all"
 cat <<EOF | policy_import_and_wait -
 [{
@@ -196,15 +215,21 @@ cat <<EOF | policy_import_and_wait -
 EOF
 
 monitor_clear
-echo "------ pinging service1 from service3 (should NOT work) ------"
+set +e
+log "pinging service1 from service3 (should NOT work)"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
+set -e
 
 monitor_clear
-echo "------ pinging service1 from service3 (IPv6 - should NOT work) ------"
+log "pinging service1 from service3 (IPv6 - should NOT work)"
+set +e
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping6 -c 14 ${HTTPD_CONTAINER_NAME} && {
   abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service3"
 }
+set -e
 
 policy_delete_and_wait "--all"
+
+test_succeeded "${TEST_NAME}"

@@ -1,8 +1,15 @@
 #!/bin/bash
 
-source "./helpers.bash"
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-set -e
+TEST_NAME=$(get_filename_without_extension $0)
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+redirect_debug_logs ${LOGS_DIR}
+
+set -ex
 
 NETPERF_IMAGE="tgraf/nettools"
 TEST_TIME=30
@@ -79,8 +86,6 @@ NODE_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | gre
 LXC_MAC=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | grep mac | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')
 
 echo "... Done"
-
-set -x
 
 cat <<EOF | kubectl exec -i "${server_cilium}" -- cilium -D policy import -
 [{
