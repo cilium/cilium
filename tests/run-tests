@@ -1,12 +1,17 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
 # Set path to contain Go binaries explicitly; see issue 566.
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 export TEST_SUITE="runtime-tests"
+mkdir -p ./cilium-files
 
 for test in *.sh; do
+	file=$(basename $test)
+	filename="${file%.*}"
+        mkdir -p ./cilium-files/"${filename}"
 	echo "#################################################"
 	echo
 	echo
@@ -15,7 +20,7 @@ for test in *.sh; do
 	echo
 	echo
 	echo
-	./$test
+	./$test | tee ./cilium-files/"${filename}"/output.txt
 	echo
 	echo
 	echo
