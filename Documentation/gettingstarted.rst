@@ -13,8 +13,8 @@ If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 This document includes three different guides:
  * `Getting Started Using Kubernetes`_
  * `Getting Started Using Docker`_
- * `Getting Started Using Mesos`_ 
- 
+ * `Getting Started Using Mesos`_
+
 The guides follow the same basic flow.   The flow in the Kubernetes variant
 is more realistic of a production deployment, but is also a bit more complex.
 
@@ -50,7 +50,7 @@ Then, boot a minikube cluster with the Container Network Interface (CNI) network
 
 ::
 
-    $ minikube start --network-plugin=cni
+    $ minikube start --network-plugin=cni --extra-config=apiserver.InsecureServing.BindPort=8080
 
 After minikube has finished  setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
@@ -89,6 +89,10 @@ To deploy the Cilium Daemon Set, run:
 
 Kubernetes is now deploying the Cilium Daemon Set as a pod on all cluster
 nodes. This operation is performed in the background.
+
+.. warning:: This DaemonSet manifest is intended to use only for getting started purposes. Please refer to :ref:`admin_install_daemonset` for production Kubernetes deployment instructions
+
+
 Run the following command to check the progress of the deployment:
 
 ::
