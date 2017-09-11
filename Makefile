@@ -1,7 +1,7 @@
 include Makefile.defs
 
 SUBDIRS = plugins bpf cilium daemon monitor
-GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/)
+GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
 BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
@@ -16,6 +16,17 @@ $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
 tests: tests-common tests-consul
+
+tests-ginkgo: tests-common-ginkgo
+
+tests-common-ginkgo: force
+	tests/00-fmt.sh
+	# Make the bindata to run the unittest
+	make -C daemon go-bindata
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
+	# Remove the networks
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+	go vet $(GOFILES)
 
 tests-common: force
 	tests/00-fmt.sh
@@ -44,6 +55,20 @@ tests-etcd:
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	docker rm -f "cilium-etcd-test-container"
+
+tests-consul-ginkgo:
+	echo "mode: count" > coverage-all.out
+	echo "mode: count" > coverage.out
+	$(foreach pkg,$(GOFILES),\
+	go test \
+            -ldflags "-X github.com/cilium/cilium/pkg/kvstore.backend=consul -X github.com/cilium/cilium/pkg/kvstore.consulAddress=consul:8500" \
+            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
+            tail -n +2 coverage.out >> coverage-all.out;)
+	go tool cover -html=coverage-all.out -o=coverage-all.html
+	rm coverage-all.out
+	rm coverage.out
+	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
+
 
 tests-consul:
 	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true

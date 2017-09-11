@@ -1,0 +1,187 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: cilium
+rules:
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - nodes
+  - endpoints
+  - componentstatuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - networkpolicies #FIXME remove this in k8s 1.8
+  - thirdpartyresources
+  - ingresses
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - "*"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium
+  namespace: kube-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium
+subjects:
+- kind: ServiceAccount
+  name: cilium
+  namespace: kube-system
+- kind: Group
+  name: system:nodes
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: cilium
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+      - image: k8s1:5000/cilium/cilium-dev:latest
+        imagePullPolicy: Always
+        name: cilium-agent
+        command: [ "cilium-agent" ]
+        args:
+          - "--debug"
+          - "--kvstore"
+          - "etcd"
+          - "--kvstore-opt"
+          - "etcd.address=http://k8s1:9732"
+          - "--k8s-kubeconfig-path"
+          - "/opt/cilium/kubeconfig"
+          - "-t"
+          - "vxlan"
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - "/cni-install.sh"
+          preStop:
+            exec:
+              command:
+                - "/cni-uninstall.sh"
+        env:
+          - name: "K8S_NODE_NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 30
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        volumeMounts:
+          - name: bpf-maps
+            mountPath: /sys/fs/bpf
+          - name: cilium-run
+            mountPath: /var/run/cilium
+          - name: cni-path
+            mountPath: /host/opt/cni/bin
+          - name: etc-cni-netd
+            mountPath: /host/etc/cni/net.d
+          - name: docker-socket
+            mountPath: /var/run/docker.sock
+            readOnly: true
+          - name: kubeconfig-path
+            mountPath: /opt/cilium/
+            readOnly: true
+        securityContext:
+          capabilities:
+            add:
+              - "NET_ADMIN"
+          privileged: true
+      hostNetwork: true
+      volumes:
+        - name: cilium-run
+          hostPath:
+            path: /var/run/cilium
+        - name: cni-path
+          hostPath:
+            path: /opt/cni/bin
+        - name: bpf-maps
+          hostPath:
+            path: /sys/fs/bpf
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+        - name: etc-cni-netd
+          hostPath:
+              path: /etc/cni/net.d
+        - name: kubeconfig
+          hostPath:
+              path: /etc/kubernetes/kubelet.conf
+        - name: kubeconfig-path
+          hostPath:
+              path: /opt/cilium/
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
