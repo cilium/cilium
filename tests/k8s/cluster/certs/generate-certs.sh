@@ -142,6 +142,11 @@ cfssl gencert \
   -profile=kubernetes \
   "${certs_dir}/kubernetes-csr.json" | cfssljson -bare "${certs_dir}/kubernetes"
 
+log "${certs_dir} contents:"
+ls ${certs_dir}
+log "${dir} contents:"
+ls ${dir}
+
 rm "${certs_dir}/ca-config.json" \
    "${certs_dir}/ca-csr.json" \
    "${certs_dir}/kubernetes-csr.json"
