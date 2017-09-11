@@ -26,6 +26,7 @@ case "${K8S}" in
 esac
 
 mkdir -p "${certs_dir}"
+cd "${certs_dir}"
 
 export 'KUBERNETES_MASTER_IP4'=${KUBERNETES_MASTER_IP4:-"192.168.3$NUM.11"}
 export 'KUBERNETES_MASTER_IP6'=${KUBERNETES_MASTER_IP6:-"FD01::B"}
@@ -103,7 +104,7 @@ cat > "${certs_dir}/ca-csr.json" <<EOF
 EOF
 
 log "generating certificates"
-cfssl gencert -initca "${certs_dir}/ca-csr.json" | cfssljson -bare "${certs_dir}/ca"
+cfssl gencert -initca "${certs_dir}/ca-csr.json" >| cfssljson -bare "${certs_dir}/ca"
 
 log "creating ${certs_dir}/kubernetes-csr.json"
 cat > "${certs_dir}/kubernetes-csr.json" <<EOF
