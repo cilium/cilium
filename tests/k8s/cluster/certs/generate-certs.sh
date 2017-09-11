@@ -9,7 +9,7 @@ certs_dir="${dir}/${k8s_version}"
 set -e
 
 function cleanup {
- rm ${certs_dir}/cfssl*
+ rm ${certs_dir}/cfssl* > /dev/null 2>&1 || true
 }
 
 trap cleanup EXIT
