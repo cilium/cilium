@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/../../helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-set -ex
+set -e
 
 if [ -z "${K8S}" ] ; then
-  echo "K8S environment variable not set; please set it and re-run this script"
+  log "K8S environment variable not set; please set it and re-run this script"
   exit 1
 fi
 
@@ -17,10 +20,9 @@ case "${K8S}" in
     NUM="7"
     ;;
   *)
-    echo "Usage: K8S={1.6,1.7} generate-certs.sh"
+    log "Usage: K8S={1.6,1.7} generate-certs.sh"
     exit 1
 esac
-
 
 export 'KUBERNETES_MASTER_IP4'=${KUBERNETES_MASTER_IP4:-"192.168.3$NUM.11"}
 export 'KUBERNETES_MASTER_IP6'=${KUBERNETES_MASTER_IP6:-"FD01::B"}
@@ -29,6 +31,22 @@ export 'KUBERNETES_NODE_2_IP6'=${KUBERNETES_NODE_2_IP6:-"FD01::C"}
 export 'KUBERNETES_MASTER_SVC_IP4'=${KUBERNETES_MASTER_SVC_IP4:-"172.20.0.1"}
 export 'KUBERNETES_MASTER_SVC_IP6'=${KUBERNETES_MASTER_SVC_IP6:-"FD03::1"}
 export 'cluster_name'=${cluster_name:-"cilium-k8s-tests"}
+
+log "KUBERNETES_MASTER_IP4: ${KUBERNETES_MASTER_IP4}"
+log "KUBERNETES_MASTER_IP6: ${KUBERNETES_MASTER_IP6}"
+log "KUBERNETES_NODE_2_IP4: ${KUBERNETES_NODE_2_IP4}"
+log "KUBERNETES_NODE_2_IP6: ${KUBERNETES_NODE_2_IP6}"
+log "KUBERNETES_MASTER_SVC_IP4: ${KUBERNETES_MASTER_SVC_IP4}"
+log "KUBERNETES_MASTER_SVC_IP6: ${KUBERNETES_MASTER_SVC_IP6}"
+log "cluster_name: ${cluster_name}"
+
+
+function download_cfssl {
+  wget --quiet https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 > /usr/bin/cfssl && chmod +x /usr/bin/cfssl
+  wget --quiet https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64 > /usr/bin/cfssljson && chmod +x /usr/bin/cfssljson
+}
+
+download_cfssl
 
 if [ -z "$(command -v cfssl)" ]; then
     echo "cfssl not found, please download it from"
@@ -44,6 +62,7 @@ if [ -z "$(command -v cfssljson)" ]; then
     exit -1
 fi
 
+log "creating ${dir}/ca-config.json"
 cat > "${dir}/ca-config.json" <<EOF
 {
   "signing": {
@@ -60,6 +79,7 @@ cat > "${dir}/ca-config.json" <<EOF
 }
 EOF
 
+log "creating ${dir}/ca-csr.json"
 cat > "${dir}/ca-csr.json" <<EOF
 {
   "CN": "Kubernetes",
@@ -79,8 +99,10 @@ cat > "${dir}/ca-csr.json" <<EOF
 }
 EOF
 
+log "generating certificates"
 cfssl gencert -initca "${dir}/ca-csr.json" | cfssljson -bare "${dir}/ca"
 
+log "creating ${dir}/kubernetes-csr.json"
 cat > "${dir}/kubernetes-csr.json" <<EOF
 {
   "CN": "kubernetes",
