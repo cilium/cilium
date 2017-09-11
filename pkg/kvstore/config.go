@@ -35,7 +35,8 @@ const (
 var (
 	// this variable is set via Makefile for test purposes and allows to tie a
 	// binary to a particular backend
-	backend = ""
+	backend       = ""
+	consulAddress = "127.0.0.1:8501"
 
 	consulConfig *consulAPI.Config // Consul configuration
 	etcdConfig   *etcdAPI.Config   // Etcd Configuration
@@ -58,7 +59,7 @@ func SetupDummy() {
 	switch backend {
 	case Consul:
 		consulConfig = consulAPI.DefaultConfig()
-		consulConfig.Address = "127.0.0.1:8501"
+		consulConfig.Address = consulAddress
 
 	case Etcd:
 		etcdConfig = &etcdAPI.Config{}

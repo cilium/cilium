@@ -1,0 +1,61 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+$BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
+$JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.7"
+
+ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
+Vagrant.configure("2") do |config|
+
+    config.vm.define "runtime" do |server|
+        server.vm.provider "virtualbox" do |vb|
+            vb.customize ["modifyvm", :id, "--hwvirtex", "on"]
+            vb.cpus = 2
+            vb.memory=2048
+            vb.linked_clone = true
+        end
+
+        # server.vm.box = "bento/ubuntu-17.04"
+        server.vm.box = "eloycoto/cilium"
+        server.vm.hostname = "runtime"
+        server.vm.synced_folder "../", "/src/"
+
+        # Provision section
+        server.vm.provision :shell,
+            :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
+        server.vm.provision "file", source: "provision", destination: "/tmp/provision"
+        server.vm.provision "shell" do |sh|
+            sh.path = "./provision/runtime_install.sh"
+        end
+    end
+
+    (1..2).each do |i|
+        config.vm.define "k8s#{i}-#{$K8S_VERSION}" do |server|
+            server.vm.provider "virtualbox" do |vb|
+                # vb.customize ["modifyvm", :id, "--memory", "2048"]
+                vb.customize ["modifyvm", :id, "--hwvirtex", "on"]
+                vb.cpus = 2
+                vb.memory=2048
+                vb.linked_clone = true
+            end
+
+            # server.vm.box = "bento/ubuntu-17.04"
+            server.vm.box = "eloycoto/cilium"
+            server.vm.hostname = "k8s#{i}"
+            server.vm.network "private_network",
+                ip: "192.168.36.1#{i}",
+                virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
+
+            server.vm.synced_folder "../", "/src/"
+            # Provision section
+            server.vm.provision :shell,
+                :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
+            server.vm.provision "file", source: "provision", destination: "/tmp/provision"
+            server.vm.provision "shell" do |sh|
+                sh.path = "./provision/k8s_install.sh"
+                sh.args = ["k8s#{i}", "192.168.36.1#{i}", "#{$K8S_VERSION}"]
+            end
+        end
+    end
+end

@@ -31,8 +31,13 @@ func NewReader(rd io.Reader) *Reader {
 	}
 }
 
+type runeWithSize struct {
+	r    rune
+	size int
+}
+
 func (rd *Reader) feedBuffer() error {
-	r, _, err := rd.input.ReadRune()
+	r, size, err := rd.input.ReadRune()
 
 	if err != nil {
 		if err != io.EOF {
@@ -41,7 +46,9 @@ func (rd *Reader) feedBuffer() error {
 		r = EOF
 	}
 
-	rd.buffer.PushBack(r)
+	newRuneWithSize := runeWithSize{r, size}
+
+	rd.buffer.PushBack(newRuneWithSize)
 	if rd.current == nil {
 		rd.current = rd.buffer.Back()
 	}
@@ -49,17 +56,17 @@ func (rd *Reader) feedBuffer() error {
 }
 
 // ReadRune reads the next rune from buffer, or from the underlying reader if needed.
-func (rd *Reader) ReadRune() (rune, error) {
+func (rd *Reader) ReadRune() (rune, int, error) {
 	if rd.current == rd.buffer.Back() || rd.current == nil {
 		err := rd.feedBuffer()
 		if err != nil {
-			return EOF, err
+			return EOF, 0, err
 		}
 	}
 
-	r := rd.current.Value
+	runeWithSize := rd.current.Value.(runeWithSize)
 	rd.current = rd.current.Next()
-	return r.(rune), nil
+	return runeWithSize.r, runeWithSize.size, nil
 }
 
 // UnreadRune pushes back the previously read rune in the buffer, extending it if needed.
@@ -84,9 +91,9 @@ func (rd *Reader) Forget() {
 	}
 }
 
-// Peek returns at most the next n runes, reading from the uderlying source if
+// PeekRune returns at most the next n runes, reading from the uderlying source if
 // needed. Does not move the current index. It includes EOF if reached.
-func (rd *Reader) Peek(n int) []rune {
+func (rd *Reader) PeekRunes(n int) []rune {
 	res := make([]rune, 0, n)
 	cursor := rd.current
 	for i := 0; i < n; i++ {
@@ -98,7 +105,7 @@ func (rd *Reader) Peek(n int) []rune {
 			cursor = rd.buffer.Back()
 		}
 		if cursor != nil {
-			r := cursor.Value.(rune)
+			r := cursor.Value.(runeWithSize).r
 			res = append(res, r)
 			if r == EOF {
 				return res
