@@ -4,9 +4,27 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 set -ex
 
-export 'KUBERNETES_MASTER_IP4'=${KUBERNETES_MASTER_IP4:-"192.168.36.11"}
+if [ -z "${K8S}" ] ; then
+  echo "K8S environment variable not set; please set it and re-run this script"
+  exit 1
+fi
+
+case "${K8S}" in
+  "1.6")
+    NUM="6"
+    ;;
+  "1.7")
+    NUM="7"
+    ;;
+  *)
+    echo "Usage: K8S={1.6,1.7} generate-certs.sh"
+    exit 1
+esac
+
+
+export 'KUBERNETES_MASTER_IP4'=${KUBERNETES_MASTER_IP4:-"192.168.3$NUM.11"}
 export 'KUBERNETES_MASTER_IP6'=${KUBERNETES_MASTER_IP6:-"FD01::B"}
-export 'KUBERNETES_NODE_2_IP4'=${KUBERNETES_NODE_2_IP4:-"192.168.36.12"}
+export 'KUBERNETES_NODE_2_IP4'=${KUBERNETES_NODE_2_IP4:-"192.168.3$NUM.12"}
 export 'KUBERNETES_NODE_2_IP6'=${KUBERNETES_NODE_2_IP6:-"FD01::C"}
 export 'KUBERNETES_MASTER_SVC_IP4'=${KUBERNETES_MASTER_SVC_IP4:-"172.20.0.1"}
 export 'KUBERNETES_MASTER_SVC_IP6'=${KUBERNETES_MASTER_SVC_IP6:-"FD03::1"}

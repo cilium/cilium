@@ -18,10 +18,10 @@ SCRIPT
 
 $load_docker_image = <<SCRIPT
 certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
-sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
-sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt
-docker pull 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG}
-docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+sudo mkdir -p /etc/docker/certs.d/192.168.3#{$k8s_digit}.11:5000
+sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.3#{$k8s_digit}.11:5000/ca.crt
+docker pull 192.168.3#{$k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG}
+docker tag 192.168.3#{$k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
 $k8s_install = <<SCRIPT
@@ -51,6 +51,8 @@ k8s_map = { "1.6" => "1.6.6-00", "1.7" => "1.7.4-00" }
 
 $k8s_env = ENV['K8S'] || "1.6"
 $k8s_version = k8s_map["#{$k8s_env}"]
+# Get last character of provided k8s release to use for bridged networking IP.
+$k8s_digit = $k8s_env[-1, 1]
 
 $job_name = ENV['JOB_BASE_NAME'] || "local"
 
@@ -88,12 +90,11 @@ Vagrant.configure(2) do |config|
                 rsync__exclude: "../../contrib/packaging/docker/stage"
             end
 
-            s.vm.network "private_network", ip: "192.168.36.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
-            s.vm.network "private_network", ip: "192.168.37.1#{i}", bridge: "enp0s9"
-
+            s.vm.network "private_network", ip: "192.168.3#{$k8s_digit}.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+            s.vm.network "private_network", ip: "192.168.3#{$k8s_digit}.1#{i}", bridge: "enp0s9"
             # Hack to ensure that Kubernetes picks up the node-ip of the private_network
             # instead of the NATed vagrant IP
-            s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.36\.1#{i} k8s-#{i}/' -i /etc/hosts"
+            s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.3#{$k8s_digit}\.1#{i} k8s-#{i}/' -i /etc/hosts"
 
             # Mount BPF filesystem
 	    s.vm.provision :shell, inline: "mount bpffs /sys/fs/bpf -t bpf"
