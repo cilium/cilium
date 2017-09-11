@@ -14,8 +14,10 @@ cilium_dir="${dir}/cilium"
 rbac_yaml="${dir}/../../../examples/kubernetes/rbac.yaml"
 
 function get_options(){
-    if [[ "${1}" == "ipv6" ]]; then
-        cat <<'EOF' > "${dir}/env.bash"
+  log "beginning generation options"
+  if [[ "${1}" == "ipv6" ]]; then
+    log "setting IPv6 environment variables"
+    cat <<'EOF' > "${dir}/env.bash"
 # IPv6
 controller_ip="fd01::b"
 controller_ip_brackets="[${controller_ip}]"
@@ -28,8 +30,9 @@ node_cidr_mask_size="112"
 service_cluster_ip_range="FD03::/112"
 disable_ipv4=true
 EOF
-    else
-        cat <<'EOF' > "${dir}/env.bash"
+  else
+    log "setting IPv4 environment variables"
+    cat <<'EOF' > "${dir}/env.bash"
 # IPv4
 controller_ip="192.168.36.11"
 controller_ip_brackets="${controller_ip}"
@@ -42,13 +45,14 @@ node_cidr_mask_size="16"
 service_cluster_ip_range="172.20.0.0/16"
 disable_ipv4=false
 EOF
-    fi
+  fi
 
-echo "k8s_version=${k8s_version}" >> "${dir}/env.bash"
+  log "setting k8s_version=${k8s_version} in ${dir}/env.bash"
+  echo "k8s_version=${k8s_version}" >> "${dir}/env.bash"
+  source "${dir}/env.bash"
 
-    source "${dir}/env.bash"
-
-    cat <<EOF > "${dir}/kubeadm-master.conf"
+  log "creating master K8s configuration at ${dir}/kubeadm-master.conf"
+  cat <<EOF > "${dir}/kubeadm-master.conf"
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
 api:
@@ -69,40 +73,48 @@ controllerManagerExtraArgs:
   cluster-cidr: "${cluster_cidr}"
   node-cidr-mask-size: "${node_cidr_mask_size}"
 EOF
+  log "done generating options"
 }
 
 function generate_certs(){
-    bash "${certs_dir}/generate-certs.sh"
+  log "generating K8s certificates"
+  bash "${certs_dir}/generate-certs.sh"
+  log "done generating K8s certificates"
 }
 
 function install_etcd(){
-    wget -nv https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
-    tar -xf etcd-${etcd_version}-linux-amd64.tar.gz
-    sudo mv etcd-${etcd_version}-linux-amd64/etcd* /usr/bin/
+  log "downloading and installing etcd version ${etcd_version}"
+  wget -nv https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
+  tar -xf etcd-${etcd_version}-linux-amd64.tar.gz
+  sudo mv etcd-${etcd_version}-linux-amd64/etcd* /usr/bin/
+  log "done downloading and installing etcd"
 }
 
 function copy_etcd_certs(){
-    sudo mkdir -p /etc/etcd/
-    sudo mkdir -p /etc/kubernetes/
+  log "copying etcd certs"
+  sudo mkdir -p /etc/etcd/
+  sudo mkdir -p /etc/kubernetes/
 
-    sudo cp "${certs_dir}/ca.pem" \
-            "${certs_dir}/kubernetes-key.pem" \
-            "${certs_dir}/kubernetes.pem" \
-            /etc/etcd/
+  sudo cp "${certs_dir}/ca.pem" \
+          "${certs_dir}/kubernetes-key.pem" \
+          "${certs_dir}/kubernetes.pem" \
+          /etc/etcd/
 
-    # kubeadm doesn't automatically mount the files to the containers
-    # yet so we need to copy the files to directory that we specify in
-    # the kubeadm configuration file
-    sudo cp "${certs_dir}/ca.pem" \
-            "${certs_dir}/kubernetes-key.pem" \
-            "${certs_dir}/kubernetes.pem" \
-            /etc/kubernetes
+  # kubeadm doesn't automatically mount the files to the containers
+  # yet so we need to copy the files to directory that we specify in
+  # the kubeadm configuration file
+  sudo cp "${certs_dir}/ca.pem" \
+          "${certs_dir}/kubernetes-key.pem" \
+          "${certs_dir}/kubernetes.pem" \
+          /etc/kubernetes
+  log "done copying etcd certs"
 }
 
 function generate_etcd_config(){
-    sudo mkdir -p /var/lib/etcd
+  log "generating etcd configuration"
+  sudo mkdir -p /var/lib/etcd
 
-    sudo tee /etc/systemd/system/etcd.service <<EOF
+  sudo tee /etc/systemd/system/etcd.service <<EOF
 [Unit]
 Description=etcd
 Documentation=https://github.com/coreos
@@ -130,252 +142,285 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
+  log "done generating etcd configuration"
 }
 
 function start_kubeadm() {
-    cd /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster
+  log "starting kubeadm"
+  cd /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster
 
-    sudo bash -c "cat <<EOF > /etc/systemd/system/kubelet.service.d/15-kubelet-dns-args.conf
+  log "generating kubelet DNS args"
+  sudo bash -c "cat <<EOF > /etc/systemd/system/kubelet.service.d/15-kubelet-dns-args.conf
 [Service]
 Environment='KUBELET_DNS_ARGS=--cluster-dns=${cluster_dns_ip} --cluster-domain=${cluster_name}.local'
 EOF
 "
-    sudo systemctl daemon-reload
+  
+  sudo systemctl daemon-reload
 
-    sudo mkdir -p /home/vagrant/.kube
-    sudo mkdir -p /root/.kube
-    sudo mkdir -p /var/lib/cilium/
+  sudo mkdir -p /home/vagrant/.kube
+  sudo mkdir -p /root/.kube
+  sudo mkdir -p /var/lib/cilium/
 
-    if [[ "$(hostname)" -eq "k8s-1" ]]; then
-        sudo kubeadm init --config ./kubeadm-master.conf
+  if [[ "$(hostname)" -eq "k8s-1" ]]; then
+    log "on master node, initializing kubeadm with kubeadm-master.conf"
+    sudo kubeadm init --config ./kubeadm-master.conf
 
-        # copy kubeconfig for cilium and vagrant user
-        sudo cp /etc/kubernetes/admin.conf /home/vagrant/.kube/config
-        sudo cp /etc/kubernetes/admin.conf /var/lib/cilium/kubeconfig
-        sudo chown 1000:1000 /home/vagrant/.kube/config
+    log "copying kubeconfig for Cilium and Vagrant users"
+    # copy kubeconfig for cilium and vagrant user
+    sudo cp /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+    sudo cp /etc/kubernetes/admin.conf /var/lib/cilium/kubeconfig
+    sudo chown 1000:1000 /home/vagrant/.kube/config
 
-        # copy kubeconfig for root
-        sudo cp /etc/kubernetes/admin.conf /root/.kube/config
-        sudo chown vagrant.vagrant -R /home/vagrant/.kube
+    log "copying kubeconfig for root user"
+    # copy kubeconfig for root
+    sudo cp /etc/kubernetes/admin.conf /root/.kube/config
+    sudo chown vagrant.vagrant -R /home/vagrant/.kube
 
-        # copy kubeconfig so we can share it with node-2
-        sudo cp /etc/kubernetes/admin.conf ./kubelet.conf
-    else
-        sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
+    log "copying kubeconfig onto path that is accessible on host machine so we can share it with worker node"
+    # copy kubeconfig so we can share it with node-2
+    sudo cp /etc/kubernetes/admin.conf ./kubelet.conf
+  else
+    log "on worker node, joining cluster that was configured on master node (k8s-1)" 
+    sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
 
-        # copy kubeconfig file previously copied from the master
-        sudo cp ./kubelet.conf /home/vagrant/.kube/config
-        sudo cp ./kubelet.conf /var/lib/cilium/kubeconfig
-        sudo chown 1000:1000 /home/vagrant/.kube/config
+    log "copying kubeconfig file that was previously copied from master node onto worker node"
+    # copy kubeconfig file previously copied from the master
+    sudo cp ./kubelet.conf /home/vagrant/.kube/config
+    sudo cp ./kubelet.conf /var/lib/cilium/kubeconfig
+    sudo chown 1000:1000 /home/vagrant/.kube/config
 
-        # copy kubeconfig for root
-        sudo cp ./kubelet.conf /root/.kube/config
-        sudo chown vagrant.vagrant -R /home/vagrant/.kube
+    log "copying kubeconfig file for root user"
+    # copy kubeconfig for root
+    sudo cp ./kubelet.conf /root/.kube/config
+    sudo chown vagrant.vagrant -R /home/vagrant/.kube
 
-        # taint all node with the label master so we can schedule pods all nodes
-        kubectl taint nodes --all node-role.kubernetes.io/master-
-    fi
+    log "taining master node so that we can schedule pods on both master and worker nodes"
+    # taint all node with the label master so we can schedule pods all nodes
+    kubectl taint nodes --all node-role.kubernetes.io/master-
+  fi
+  log "done starting kubeadm"
 }
 
 function install_kubeadm_dependencies(){
-    sudo touch /etc/apt/sources.list.d/kubernetes.list
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
-    sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
+  log "installing kubeadm dependencies"
+  sudo touch /etc/apt/sources.list.d/kubernetes.list
+  curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
+  sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 "
-    sudo apt-get -qq update && sudo apt-get -qq install -y apt-transport-https docker-engine
-    sudo usermod -aG docker vagrant
+  sudo apt-get -qq update && sudo apt-get -qq install -y apt-transport-https docker-engine
+  sudo usermod -aG docker vagrant
+  log "done installing kubeadm dependencies"
 }
 
 function install_kubeadm() {
-    sudo apt-get -qq install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
+  log "installing kubeadm"
+  sudo apt-get -qq install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
+  log "done installing kubeadm"
 }
 
 function install_cilium_config(){
-    sudo mkdir -p /var/lib/cilium
+  log "installing Cilium configuration so it can communicate with etcd"
+  sudo mkdir -p /var/lib/cilium
 
-    sudo cp "${certs_dir}/ca.pem" \
-       "/var/lib/cilium/etcd-ca.pem"
+  sudo cp "${certs_dir}/ca.pem" \
+     "/var/lib/cilium/etcd-ca.pem"
 
-    sudo tee /var/lib/cilium/etcd-config.yml <<EOF
+  sudo tee /var/lib/cilium/etcd-config.yml <<EOF
 ---
 endpoints:
 - https://${controller_ip_brackets}:2379
 ca-file: '/var/lib/cilium/etcd-ca.pem'
 EOF
 
+  log "done installing Cilium configuration"
 }
 
 function start_etcd(){
-    sudo systemctl daemon-reload
-    sudo systemctl enable etcd
-    sudo systemctl start etcd
-    sudo systemctl status etcd --no-pager
+  log "staring etcd"
+  sudo systemctl daemon-reload
+  sudo systemctl enable etcd
+  sudo systemctl start etcd
+  sudo systemctl status etcd --no-pager
+  log "done starting etcd"
 }
 
 function clean_etcd(){
-    sudo service etcd stop
-    sudo rm -fr /var/lib/etcd
+  log "stopping etcd and removing all of its data"
+  sudo service etcd stop
+  sudo rm -fr /var/lib/etcd
+  log "done stopping etcd and removing all of its data"
 }
 
 function clean_kubeadm(){
-    sudo kubeadm reset
-    sudo docker rm -f `sudo docker ps -aq` 2>/dev/null
+  log "resetting kubeadm and removing all Docker containers"
+  sudo kubeadm reset
+  sudo docker rm -f `sudo docker ps -aq` 2>/dev/null
+  log "done resetting kubeadm"
 }
 
 function fresh_install(){
-    while getopts ":-:" opt; do
-      case $opt in
-        "-")
-          case "${OPTARG}" in
-            "ipv6")
-              ipv6="ipv6"
-            ;;
-          esac
-        ;;
-      esac
-    done
+  log "beginning fresh install"
+  while getopts ":-:" opt; do
+    case $opt in
+      "-")
+        case "${OPTARG}" in
+          "ipv6")
+            ipv6="ipv6"
+          ;;
+        esac
+      ;;
+    esac
+  done
 
-    get_options "${ipv6}"
+  get_options "${ipv6}"
 
-    if [[ "$(hostname)" -eq "k8s-1" ]]; then
-        install_etcd
-        copy_etcd_certs
-        generate_etcd_config
-        start_etcd
-    fi
-    install_kubeadm_dependencies
-    install_kubeadm
+  if [[ "$(hostname)" -eq "k8s-1" ]]; then
+    install_etcd
+    copy_etcd_certs
+    generate_etcd_config
+    start_etcd
+  fi
+  install_kubeadm_dependencies
+  install_kubeadm
     
-    clean_kubeadm
-    start_kubeadm
+  clean_kubeadm
+  start_kubeadm
 
-    install_cilium_config
+  install_cilium_config
+  log "done with fresh install"
 }
 
 function reinstall(){
-    while getopts ":-:" opt; do
-      case $opt in
-        "-")
-          case "${OPTARG}" in
-            "yes-delete-all-data")
-              clean_etcd_opt=1
-              clean_kubeadm_opt=1
-            ;;
-            "yes-delete-etcd-data")
-              clean_etcd_opt=1
-            ;;
-            "yes-delete-kubeadm-data")
-              clean_kubeadm_opt=1
-            ;;
-            "reinstall-kubeadm")
-              clean_kubeadm_opt=1
-              reinstall_kubeadm_opt=1
-            ;;
-            "ipv6")
-              ipv6="ipv6"
-            ;;
-          esac
-        ;;
-      esac
-    done
+  log "beginning reinstall"
+  while getopts ":-:" opt; do
+    case $opt in
+      "-")
+        case "${OPTARG}" in
+          "yes-delete-all-data")
+            clean_etcd_opt=1
+            clean_kubeadm_opt=1
+          ;;
+          "yes-delete-etcd-data")
+            clean_etcd_opt=1
+          ;;
+          "yes-delete-kubeadm-data")
+            clean_kubeadm_opt=1
+          ;;
+          "reinstall-kubeadm")
+            clean_kubeadm_opt=1
+            reinstall_kubeadm_opt=1
+          ;;
+          "ipv6")
+            ipv6="ipv6"
+          ;;
+        esac
+      ;;
+    esac
+  done
 
-    get_options "${ipv6}"
+  get_options "${ipv6}"
 
-    if [[ -n "${clean_etcd_opt}" ]]; then
+  if [[ -n "${clean_etcd_opt}" ]]; then
         clean_etcd
-    fi
-    if [[ -n "${clean_kubeadm_opt}" ]]; then
+  fi
+  if [[ -n "${clean_kubeadm_opt}" ]]; then
         clean_kubeadm
-    fi
-    if [[ -n "${reinstall_kubeadm_opt}" ]]; then
+  fi
+  if [[ -n "${reinstall_kubeadm_opt}" ]]; then
         install_kubeadm
-    fi
+  fi
 
-    if [[ "$(hostname)" -eq "k8s-1" ]]; then
-        copy_etcd_certs
-        generate_etcd_config
-        start_etcd
-    fi
-    start_kubeadm
+  if [[ "$(hostname)" -eq "k8s-1" ]]; then
+    copy_etcd_certs
+    generate_etcd_config
+    start_etcd
+  fi
+  start_kubeadm
 
-    install_cilium_config
+  install_cilium_config
 }
 
 function deploy_cilium(){
-    while getopts ":-:" opt; do
-      case $opt in
-        "-")
-          case "${OPTARG}" in
-            "lb-mode")
-              lb=1
-            ;;
-          esac
-        ;;
-      esac
-    done
+  log "deploying Cilium"
+  while getopts ":-:" opt; do
+    case $opt in
+      "-")
+        case "${OPTARG}" in
+          "lb-mode")
+            lb=1
+          ;;
+        esac
+      ;;
+    esac
+  done
     
-    source "${dir}/env.bash"
+  source "${dir}/env.bash"
 
-    rm "${cilium_dir}/cilium-lb-ds.yaml" \
-       "${cilium_dir}/cilium-ds.yaml" \
-        2>/dev/null
+  rm "${cilium_dir}/cilium-lb-ds.yaml" \
+     "${cilium_dir}/cilium-ds.yaml" \
+      2>/dev/null
 
-    if [[ -n "${lb}" ]]; then
-        # In loadbalancer mode we set the snoop and LB interface to
-        # enp0s8, the interface with IP 192.168.36.11.
-        iface='enp0s8'
+  if [[ -n "${lb}" ]]; then
+    echo "in loadbalancer mode, setting snoop / LB interface to enp0s8"
+    # In loadbalancer mode we set the snoop and LB interface to
+    # enp0s8, the interface with IP 192.168.36.11.
+    iface='enp0s8'
 
-        sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
-                s+\$iface+${iface}+g" \
-            "${cilium_dir}/cilium-lb-ds.yaml.sed" > "${cilium_dir}/cilium-lb-ds.yaml"
+    sed -e "s+\$disable_ipv4+${disable_ipv4}+g;\
+            s+\$iface+${iface}+g" \
+        "${cilium_dir}/cilium-lb-ds.yaml.sed" > "${cilium_dir}/cilium-lb-ds.yaml"
 
-        kubectl create -f "${cilium_dir}"
+    kubectl create -f "${cilium_dir}"
 
-        wait_for_daemon_set_ready kube-system cilium 1
-    else
-        sed -e "s+\$disable_ipv4+${disable_ipv4}+g" \
-            "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds.yaml"
+    wait_for_daemon_set_ready kube-system cilium 1
+  else
+    sed -e "s+\$disable_ipv4+${disable_ipv4}+g" \
+        "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds.yaml"
 
-        kubectl create -f "${rbac_yaml}"
-        kubectl create -f "${cilium_dir}"
+    kubectl create -f "${rbac_yaml}"
+    kubectl create -f "${cilium_dir}"
 
-        wait_for_daemon_set_ready kube-system cilium 2
-    fi
+    wait_for_daemon_set_ready kube-system cilium 2
+  fi
 
-    echo "lb='${lb}'" >> "${dir}/env.bash"
+  echo "lb='${lb}'" >> "${dir}/env.bash"
+  log "done deploying Cilium"
 }
 
 function remove_cilium_ds(){
-    kubectl delete -f "${cilium_dir}" || true
+  log "deleting Cilium daemonset"
+  kubectl delete -f "${cilium_dir}" || true
+  log "done deleting Cilium daemonset"
 }
 
 case "$1" in
-        generate_certs)
-            generate_certs
-            ;;
-        fresh_install)
-            shift
-            fresh_install "$@"
-            ;;
-        reinstall)
-            shift
-            reinstall "$@"
-            ;;
-        deploy_cilium)
-            shift
-            deploy_cilium "$@"
-            ;;
-        remove_cilium_ds)
-            shift
-            remove_cilium_ds "$@"
-            ;;
-        *)
-            echo $"Usage: $0 {generate_certs | fresh_install [--ipv6] | \
+  generate_certs)
+    generate_certs
+    ;;
+  fresh_install)
+    shift
+    fresh_install "$@"
+    ;;
+  reinstall)
+    shift
+    reinstall "$@"
+    ;;
+  deploy_cilium)
+    shift
+    deploy_cilium "$@"
+    ;;
+  remove_cilium_ds)
+    shift
+    remove_cilium_ds "$@"
+    ;;
+  *)
+    echo $"Usage: $0 {generate_certs | fresh_install [--ipv6] | \
 reinstall [--yes-delete-all-data] [--yes-delete-etcd-data] [--yes-delete-kubeadm-data] \
 [--ipv6] [--reinstall-kubeadm] | \
 deploy_cilium [--lb-mode] | \
 remove_cilium_ds}"
-            exit 1
+    exit 1
 esac
