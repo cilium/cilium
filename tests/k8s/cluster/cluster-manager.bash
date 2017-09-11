@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/../helpers.bash"
 # dir might have been overwritten by helpers.bash
@@ -50,6 +52,11 @@ EOF
   log "setting k8s_version=${k8s_version} in ${dir}/env.bash"
   echo "k8s_version=${k8s_version}" >> "${dir}/env.bash"
   source "${dir}/env.bash"
+
+  log "contents of ${dir}/env.bash"
+  cat "${dir}/env.bash"
+  log "output of \"env\""
+  env
 
   log "creating master K8s configuration at ${dir}/kubeadm-master.conf"
   cat <<EOF > "${dir}/kubeadm-master.conf"
@@ -195,7 +202,7 @@ EOF
     sudo cp ./kubelet.conf /root/.kube/config
     sudo chown vagrant.vagrant -R /home/vagrant/.kube
 
-    log "taining master node so that we can schedule pods on both master and worker nodes"
+    log "tainting master node so that we can schedule pods on both master and worker nodes"
     # taint all node with the label master so we can schedule pods all nodes
     kubectl taint nodes --all node-role.kubernetes.io/master-
   fi
@@ -257,7 +264,7 @@ function clean_etcd(){
 function clean_kubeadm(){
   log "resetting kubeadm and removing all Docker containers"
   sudo kubeadm reset
-  sudo docker rm -f `sudo docker ps -aq` 2>/dev/null
+  sudo docker rm -f `sudo docker ps -aq` 2>/dev/null || true
   log "done resetting kubeadm"
 }
 
@@ -278,6 +285,7 @@ function fresh_install(){
   get_options "${ipv6}"
 
   if [[ "$(hostname)" -eq "k8s-1" ]]; then
+    generate_certs
     install_etcd
     copy_etcd_certs
     generate_etcd_config
