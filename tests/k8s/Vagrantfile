@@ -5,6 +5,7 @@
 Vagrant.require_version ">= 1.8.3"
 
 $build_docker_image = <<SCRIPT
+echo "============ BUILDING DOCKER IMAGE ============"
 certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
 cd /home/vagrant/go/src/github.com/cilium/cilium/
 make docker-image-dev
@@ -14,30 +15,39 @@ docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
         registry:2
 docker tag cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 docker push localhost:5000/cilium:${DOCKER_IMAGE_TAG}
+echo "============ DONE BUILDING DOCKER IMAGE ============"
 SCRIPT
 
 $load_docker_image = <<SCRIPT
+echo "============ LOADING DOCKER IMAGE ============"
 certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
 sudo mkdir -p /etc/docker/certs.d/192.168.3#{$k8s_digit}.11:5000
 sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.3#{$k8s_digit}.11:5000/ca.crt
 docker pull 192.168.3#{$k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG}
 docker tag 192.168.3#{$k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+echo "============ DONE LOADING DOCKER IMAGE ============"
 SCRIPT
 
 $k8s_install = <<SCRIPT
+echo "============ INSTALLING K8s ============"
 /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash fresh_install
+echo "============ DONE INSTALLING K8s ============"
 SCRIPT
 
 $cilium_master = <<SCRIPT
+echo "============ SETTING UP NETWORKING FOR MASTER ============"
 ip -6 a a FD01::B/16 dev enp0s8
 echo 'FD01::B k8s-1' >> /etc/hosts
 echo "FD01::C k8s-2" >> /etc/hosts
+echo "============ DONE SETTING UP NETWORKING FOR MASTER ============"
 SCRIPT
 
 $cilium_slave = <<SCRIPT
+echo "============ SETTING UP NETWORKING FOR WORKER ============"
 ip -6 a a FD01::C/16 dev enp0s8
 echo 'FD01::C k8s-1' >> /etc/hosts
 echo "FD01::B k8s-2" >> /etc/hosts
+echo "============ DONE SETTING UP NETWORKING FOR WORKER ============"
 SCRIPT
 
 # allow setting up k8s_version remotely when executing the runtime tests via ssh
