@@ -1,6 +1,8 @@
 include ../../../Makefile.defs
 
-BUILDDIR := "$(CURDIR)/stage/cilium-$(VERSION)"
+# Generate random string to append to directory so we can build multiple Docker images concurrently in Jenkins.
+RANDOM := $(shell /bin/bash -c "echo $$RANDOM")
+BUILDDIR := "$(CURDIR)/stage/cilium-$(VERSION)-$(RANDOM)"
 
 docker-image-prod: clean
 	mkdir -p $(BUILDDIR)
