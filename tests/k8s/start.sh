@@ -10,8 +10,6 @@ if [ -z "${K8S}" ] ; then
   exit 1
 fi
 
-BUILD_NUMBER="foo"
-
 case "${K8S}" in 
   "1.6")
     echo "Testing with K8S=1.6"
