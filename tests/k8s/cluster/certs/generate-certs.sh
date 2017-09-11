@@ -53,11 +53,11 @@ log "cluster_name: ${cluster_name}"
 
 
 function download_cfssl {
-  wget --quiet https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 
-  mv cfssl* /usr/bin/cfssl && chmod +x /usr/bin/cfssl
+  wget --quiet https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 -O cfssl 
+  mv cfssl /usr/bin/cfssl && chmod +x /usr/bin/cfssl
   
-  wget --quiet https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
-  mv cfssl* /usr/bin/cfssljson && chmod +x /usr/bin/cfssljson
+  wget --quiet https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64 -O cfssljson
+  mv cfssljson /usr/bin/cfssljson && chmod +x /usr/bin/cfssljson
 }
 
 download_cfssl
