@@ -8,6 +8,12 @@ certs_dir="${dir}/${k8s_version}"
 
 set -e
 
+function cleanup {
+ rm ${certs_dir}/cfssl*
+}
+
+trap cleanup EXIT
+
 if [ -z "${K8S}" ] ; then
   log "K8S environment variable not set; please set it and re-run this script"
   exit 1
@@ -47,8 +53,11 @@ log "cluster_name: ${cluster_name}"
 
 
 function download_cfssl {
-  wget --quiet https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 > /usr/bin/cfssl && chmod +x /usr/bin/cfssl
-  wget --quiet https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64 > /usr/bin/cfssljson && chmod +x /usr/bin/cfssljson
+  wget --quiet https://pkg.cfssl.org/R1.2/cfssl_linux-amd64 
+  mv cfssl* /usr/bin/cfssl && chmod +x /usr/bin/cfssl
+  
+  wget --quiet https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+  mv cfssl* /usr/bin/cfssljson && chmod +x /usr/bin/cfssljson
 }
 
 download_cfssl
@@ -105,7 +114,7 @@ cat > "${certs_dir}/ca-csr.json" <<EOF
 EOF
 
 log "generating certificates"
-cfssl gencert -initca "${certs_dir}/ca-csr.json" >| cfssljson -bare "${certs_dir}/ca"
+cfssl gencert -initca "${certs_dir}/ca-csr.json" | cfssljson -bare "${certs_dir}/ca"
 
 log "creating ${certs_dir}/kubernetes-csr.json"
 cat > "${certs_dir}/kubernetes-csr.json" <<EOF
