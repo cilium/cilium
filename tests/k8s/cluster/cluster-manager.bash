@@ -35,9 +35,15 @@ disable_ipv4=true
 EOF
   else
     log "setting IPv4 environment variables"
+    if [[ "${k8s_version}" == "1.7.4-00" ]]; then
+      NUM="7"
+    else
+      NUM="6"
+    fi
     cat <<'EOF' > "${dir}/env.bash"
 # IPv4
-controller_ip="192.168.36.11"
+# FIX ME
+controller_ip="192.168.3${NUM}.11"
 controller_ip_brackets="${controller_ip}"
 local="127.0.0.1"
 local_with_brackets="${local}"
