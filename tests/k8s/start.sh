@@ -15,7 +15,7 @@ BUILD_NUMBER="foo"
 case "${K8S}" in 
   "1.6")
     echo "Testing with K8S=1.6"
-    K8S=1.6 ${dir}/cluster/certs/generate-certs.sh 
+    #K8S=1.6 ${dir}/cluster/certs/generate-certs.sh 
     K8S=1.6 VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant up --provider=virtualbox
     #make k8s-multi-node-tests-1.6
     ;;
