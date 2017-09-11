@@ -4,6 +4,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/../../helpers.bash"
 # dir might have been overwritten by helpers.bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+certs_dir="${dir}/${k8s_version}"
 
 set -e
 
@@ -23,6 +24,8 @@ case "${K8S}" in
     log "Usage: K8S={1.6,1.7} generate-certs.sh"
     exit 1
 esac
+
+mkdir -p "${certs_dir}"
 
 export 'KUBERNETES_MASTER_IP4'=${KUBERNETES_MASTER_IP4:-"192.168.3$NUM.11"}
 export 'KUBERNETES_MASTER_IP6'=${KUBERNETES_MASTER_IP6:-"FD01::B"}
@@ -62,8 +65,8 @@ if [ -z "$(command -v cfssljson)" ]; then
     exit -1
 fi
 
-log "creating ${dir}/ca-config.json"
-cat > "${dir}/ca-config.json" <<EOF
+log "creating ${certs_dir}/ca-config.json"
+cat > "${certs_dir}/ca-config.json" <<EOF
 {
   "signing": {
     "default": {
@@ -79,8 +82,8 @@ cat > "${dir}/ca-config.json" <<EOF
 }
 EOF
 
-log "creating ${dir}/ca-csr.json"
-cat > "${dir}/ca-csr.json" <<EOF
+log "creating ${certs_dir}/ca-csr.json"
+cat > "${certs_dir}/ca-csr.json" <<EOF
 {
   "CN": "Kubernetes",
   "key": {
@@ -100,10 +103,10 @@ cat > "${dir}/ca-csr.json" <<EOF
 EOF
 
 log "generating certificates"
-cfssl gencert -initca "${dir}/ca-csr.json" | cfssljson -bare "${dir}/ca"
+cfssl gencert -initca "${certs_dir}/ca-csr.json" | cfssljson -bare "${certs_dir}/ca"
 
-log "creating ${dir}/kubernetes-csr.json"
-cat > "${dir}/kubernetes-csr.json" <<EOF
+log "creating ${certs_dir}/kubernetes-csr.json"
+cat > "${certs_dir}/kubernetes-csr.json" <<EOF
 {
   "CN": "kubernetes",
   "hosts": [
@@ -133,12 +136,12 @@ cat > "${dir}/kubernetes-csr.json" <<EOF
 EOF
 
 cfssl gencert \
-  -ca="${dir}/ca.pem" \
-  -ca-key="${dir}/ca-key.pem" \
-  -config="${dir}/ca-config.json" \
+  -ca="${certs_dir}/ca.pem" \
+  -ca-key="${certs_dir}/ca-key.pem" \
+  -config="${certs_dir}/ca-config.json" \
   -profile=kubernetes \
-  "${dir}/kubernetes-csr.json" | cfssljson -bare "${dir}/kubernetes"
+  "${certs_dir}/kubernetes-csr.json" | cfssljson -bare "${certs_dir}/kubernetes"
 
-rm "${dir}/ca-config.json" \
-   "${dir}/ca-csr.json" \
-   "${dir}/kubernetes-csr.json"
+rm "${certs_dir}/ca-config.json" \
+   "${certs_dir}/ca-csr.json" \
+   "${certs_dir}/kubernetes-csr.json"

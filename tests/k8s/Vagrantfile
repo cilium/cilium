@@ -7,7 +7,7 @@ Vagrant.require_version ">= 1.8.3"
 $build_docker_image = <<SCRIPT
 set -e
 echo "============ BUILDING DOCKER IMAGE ============"
-certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
+certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs/${k8s_version}"
 cd /home/vagrant/go/src/github.com/cilium/cilium/
 make docker-image-dev
 docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
@@ -22,7 +22,7 @@ SCRIPT
 $load_docker_image = <<SCRIPT
 set -e
 echo "============ LOADING DOCKER IMAGE ============"
-certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
+certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs/${k8s_version}"
 sudo mkdir -p /etc/docker/certs.d/192.168.3#{$k8s_digit}.11:5000
 sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.3#{$k8s_digit}.11:5000/ca.crt
 docker pull 192.168.3#{$k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG}
@@ -118,10 +118,10 @@ Vagrant.configure(2) do |config|
             # first node is special and considered the master
             if "#{i}" == "1"
                 s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
-                #s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+                #s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag, "k8s_version" => $k8s_version}, inline: $build_docker_image
             else
                 s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
-                #s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
+                #s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag, "k8s_version" => $k8s_version}, inline: $load_docker_image
             end
         end
     end

@@ -10,7 +10,8 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 etcd_version="v3.1.0"
 k8s_version=${k8s_version:-"1.7.4-00"}
 
-certs_dir="${dir}/certs"
+cert_script_dir="${dir}/certs"
+certs_dir="${dir}/certs/${k8s_version}"
 k8s_dir="${dir}/k8s"
 cilium_dir="${dir}/cilium"
 rbac_yaml="${dir}/../../../examples/kubernetes/rbac.yaml"
@@ -85,7 +86,7 @@ EOF
 
 function generate_certs(){
   log "generating K8s certificates"
-  bash "${certs_dir}/generate-certs.sh"
+  bash "${cert_script_dir}/generate-certs.sh"
   log "done generating K8s certificates"
 }
 
