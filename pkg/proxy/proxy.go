@@ -390,7 +390,7 @@ func listenSocket(address string, mark int) (net.Listener, error) {
 		return nil, err
 	}
 
-	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
 		return nil, fmt.Errorf("unable to set SO_REUSEADDR socket option: %s", err)
 	}
 

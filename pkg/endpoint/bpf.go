@@ -98,13 +98,13 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer, owner Owner) error {
 		return nil
 	}
 
-	policy := e.Consumable.L4Policy
+	l4policy := e.Consumable.L4Policy
 
-	if err := e.writeL4Map(fw, owner, policy.Ingress, "CFG_L4_INGRESS"); err != nil {
+	if err := e.writeL4Map(fw, owner, l4policy.Ingress, "CFG_L4_INGRESS"); err != nil {
 		return err
 	}
 
-	if err := e.writeL4Map(fw, owner, policy.Egress, "CFG_L4_EGRESS"); err != nil {
+	if err := e.writeL4Map(fw, owner, l4policy.Egress, "CFG_L4_EGRESS"); err != nil {
 		return err
 	}
 
