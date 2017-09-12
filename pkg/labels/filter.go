@@ -102,7 +102,7 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 func ParseLabelPrefixCfg(prefixes []string, file string) (*LabelPrefixCfg, error) {
 	cfg, err := readLabelPrefixCfgFrom(file)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to read label prefix file: %s\n", err)
+		return nil, fmt.Errorf("Unable to read label prefix file: %s", err)
 	}
 
 	for _, label := range prefixes {

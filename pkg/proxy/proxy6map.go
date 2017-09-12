@@ -117,11 +117,11 @@ func proxy6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error
 	v := Proxy6Value{}
 
 	if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 	}
 
 	if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 	}
 
 	return k.ToNetwork(), v.ToNetwork(), nil

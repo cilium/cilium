@@ -128,7 +128,7 @@ func Setup(selectedBackend string, opts map[string]string) error {
 			}
 
 		case "":
-			err = fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details.")
+			err = fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details")
 			return
 
 		default:

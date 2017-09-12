@@ -173,11 +173,11 @@ func Service4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, err
 	svcVal := Service4Value{}
 
 	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 	}
 
 	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 	}
 
 	return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
@@ -190,11 +190,11 @@ func Service4RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue
 	svcVal := RRSeqValue{}
 
 	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 	}
 
 	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
 	}
 
 	return svcKey.ToNetwork(), &svcVal, nil
@@ -258,12 +258,12 @@ func RevNat4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, erro
 	valueBuf := bytes.NewBuffer(value)
 
 	if err := binary.Read(keyBuf, byteorder.Native, &ukey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 	}
 	revKey := NewRevNat4Key(ukey)
 
 	if err := binary.Read(valueBuf, byteorder.Native, &revNat); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s\n", err)
+		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
 	}
 
 	return revKey.ToNetwork(), revNat.ToNetwork(), nil
