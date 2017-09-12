@@ -381,9 +381,11 @@ function deploy_cilium(){
       ;;
     esac
   done
-    
+   
+  log "using environment variables in ${dir}/${k8s_version}/env.bash" 
   source "${dir}/${k8s_version}/env.bash"
 
+  log "removing old cilium daemonset files"
   rm "${cilium_dir}/cilium-lb-ds.yaml" \
      "${cilium_dir}/cilium-ds.yaml" \
       2>/dev/null
@@ -402,10 +404,13 @@ function deploy_cilium(){
 
     wait_for_daemon_set_ready kube-system cilium 1
   else
+    log "not in loadbalancer mode; setting IPv4 options in Cilium daemonset"
     sed -e "s+\$disable_ipv4+${disable_ipv4}+g" \
         "${cilium_dir}/cilium-ds.yaml.sed" > "${cilium_dir}/cilium-ds.yaml"
 
+    log "adding resources in ${rbac_yaml} directory"
     kubectl create -f "${rbac_yaml}"
+    log "creating resources in ${cilium_dir}"
     kubectl create -f "${cilium_dir}"
 
     wait_for_daemon_set_ready kube-system cilium 2
