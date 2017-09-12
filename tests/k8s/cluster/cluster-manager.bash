@@ -48,10 +48,10 @@ controller_ip_brackets="${controller_ip}"
 local="127.0.0.1"
 local_with_brackets="${local}"
 cluster_cidr="10.20.0.0/10"
-cluster_dns_ip="172.20.0.10"
+cluster_dns_ip="172.2${NUM}.0.10"
 cluster_name="cilium-k8s-tests"
 node_cidr_mask_size="16"
-service_cluster_ip_range="172.20.0.0/16"
+service_cluster_ip_range="172.2${NUM}.0.0/16"
 disable_ipv4=false
 EOF
   fi
