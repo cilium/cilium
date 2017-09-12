@@ -389,7 +389,7 @@ function deploy_cilium(){
       2>/dev/null
 
   if [[ -n "${lb}" ]]; then
-    echo "in loadbalancer mode, setting snoop / LB interface to enp0s8"
+    log "in loadbalancer mode, setting snoop / LB interface to enp0s8"
     # In loadbalancer mode we set the snoop and LB interface to
     # enp0s8, the interface with IP 192.168.36.11.
     iface='enp0s8'

@@ -21,7 +21,8 @@ function run_tests {
     file=$(basename $test)
     filename="${file%.*}"
     mkdir -p ${K8S_TEST_CILIUM_FILES}/$filename
-    $test | tee "${K8S_TEST_CILIUM_FILES}/${filename}"/output.txt
+    log "running test $test with k8s_version=${k8s_version}"
+    $k8s_version=${k8s_version} $test | tee "${K8S_TEST_CILIUM_FILES}/${filename}"/output.txt
   done
   log "done running tests in directory ${TEST_DIR}"
 }

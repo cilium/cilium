@@ -52,13 +52,13 @@ function deploy_cilium_lb(){
 
 function run_tests(){
     k8s_version="${1}"
-    echo "====================== K8S VERSION ======================"
-    echo "Node 1"
+    log "====================== K8S VERSION ======================"
+    log "Node 1"
     K8S=${K8S} vagrant ssh ${node1} -- -t 'kubectl version'
-    echo "Node 2"
+    log "Node 2"
     K8S=${K8S} vagrant ssh ${node2} -- -t 'kubectl version'
 
-    echo "================== Running in IPv4 mode =================="
+    log "================== Running in IPv4 mode =================="
 
     reinstall_ipv4 ${node1} ${k8s_version}
     reinstall_ipv4 ${node2} ${k8s_version}
@@ -67,9 +67,9 @@ function run_tests(){
 
 
     # Run non IP version specific tests
-    vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do file=$(basename $test); filename="${file%.*}"; mkdir -p /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/$filename;  $test | tee /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/"${filename}"/output.txt; done'
+    vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests ${K8S_TESTS_DIR}"
     # Run ipv4 tests
-    vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do file=$(basename $test); filename="${file%.*}"; mkdir -p /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/$filename; $test | tee /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/"${filename}"/output.txt; done'
+    vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests ${IPV4_TESTS_DIR}"
 
     # Run IPv6 tests
 
@@ -81,16 +81,10 @@ function run_tests(){
     echo "================== Running in IPv6 mode =================="
 
     echo "IPv6 tests are currently disabled"
-    # Run the GSG first and then restart the cluster to run the remaining tests
-    #vmssh ${node1} 'set -e; /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/00-gsg-test.bash'
-    #
-    # Set up cilium-lb-ds and cilium-ds
-    #deploy_cilium ${k8s_version}
-
     # Run non IP version specific tests
-    #vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/*.sh; do $test; done'
+    #vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests ${K8S_TESTS_DIR}"
     # Run ipv6 tests
-    #vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
+    #vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests ${IPV6_TESTS_DIR}"
 }
 
 if [ -z "${K8S}" ] ; then
