@@ -24,7 +24,7 @@ docker-image-dependencies: clean
 	find $(BUILDDIR) -name ".*" -prune ! -name ".git" -exec $(RM) -rf {} \;
 	docker build -q -t "cilium:dependencies" $(BUILDDIR)
 clean:
-	ls -d ./$(BUILD_DIR) | grep -vE "Makefile|clang-3.8.1.key|build_dockerfile.sh" | xargs $(RM) -rf
+	ls -d ./$(BUILDDIR) | grep -vE "Makefile|clang-3.8.1.key|build_dockerfile.sh" | xargs $(RM) -rf
 
 .PHONY: clean build force
 force :;
