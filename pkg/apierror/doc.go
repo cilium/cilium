@@ -1,3 +1,3 @@
-/*Package API Error representation
+/*Package apierror representation
  */
 package apierror
