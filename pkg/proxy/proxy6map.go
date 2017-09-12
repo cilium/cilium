@@ -47,9 +47,9 @@ type Proxy6Value struct {
 	SourceIdentity uint32
 }
 
-func (p *Proxy6Value) HostPort() string {
-	portStr := strconv.FormatUint(uint64(p.OrigDPort), 10)
-	return net.JoinHostPort(p.OrigDAddr.IP().String(), portStr)
+func (v *Proxy6Value) HostPort() string {
+	portStr := strconv.FormatUint(uint64(v.OrigDPort), 10)
+	return net.JoinHostPort(v.OrigDAddr.IP().String(), portStr)
 }
 
 var (
@@ -89,8 +89,8 @@ func (v *Proxy6Value) GetValuePtr() unsafe.Pointer {
 }
 
 // ToNetwork converts Proxy6Value to network byte order.
-func (p *Proxy6Value) ToNetwork() *Proxy6Value {
-	n := *p
+func (v *Proxy6Value) ToNetwork() *Proxy6Value {
+	n := *v
 	n.OrigDPort = byteorder.HostToNetwork(n.OrigDPort).(uint16)
 	return &n
 }

@@ -47,9 +47,9 @@ type Proxy4Value struct {
 	SourceIdentity uint32
 }
 
-func (p *Proxy4Value) HostPort() string {
-	portStr := strconv.FormatUint(uint64(p.OrigDPort), 10)
-	return net.JoinHostPort(p.OrigDAddr.IP().String(), portStr)
+func (v *Proxy4Value) HostPort() string {
+	portStr := strconv.FormatUint(uint64(v.OrigDPort), 10)
+	return net.JoinHostPort(v.OrigDAddr.IP().String(), portStr)
 }
 
 var (
@@ -89,8 +89,8 @@ func (v *Proxy4Value) GetValuePtr() unsafe.Pointer {
 }
 
 // ToNetwork converts Proxy4Value to network byte order.
-func (p *Proxy4Value) ToNetwork() *Proxy4Value {
-	n := *p
+func (v *Proxy4Value) ToNetwork() *Proxy4Value {
+	n := *v
 	n.OrigDPort = byteorder.HostToNetwork(n.OrigDPort).(uint16)
 	return &n
 }
