@@ -210,11 +210,11 @@ func lookupNewDest(req *http.Request, dport uint16) (uint32, string, error) {
 }
 
 func generateURL(req *http.Request, hostport string) *url.URL {
-	newUrl := *req.URL
-	newUrl.Scheme = "http"
-	newUrl.Host = hostport
+	newURL := *req.URL
+	newURL.Scheme = "http"
+	newURL.Host = hostport
 
-	return &newUrl
+	return &newURL
 }
 
 var gcOnce sync.Once
