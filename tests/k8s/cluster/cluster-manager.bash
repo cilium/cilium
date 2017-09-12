@@ -192,10 +192,12 @@ EOF
     sudo cp /etc/kubernetes/admin.conf /root/.kube/config
     sudo chown vagrant.vagrant -R /home/vagrant/.kube
 
-    log "copying kubeconfig onto path that is accessible on host machine so we can share it with worker node"
+    log "copying kubeconfig onto path that is accessible on host machine so we can share it with worker node to directory ${dir}/${k8s_version}"
     # copy kubeconfig so we can share it with node-2
     mkdir -p ./${k8s_version}
     sudo cp /etc/kubernetes/admin.conf ./${k8s_version}kubelet.conf
+    log "contents of ./${k8s_version}"
+    ls ./${k8s_version}
   else
     log "on worker node, joining cluster that was configured on master node (k8s-1)" 
     sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
