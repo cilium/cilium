@@ -388,7 +388,7 @@ function deploy_cilium(){
   log "removing old cilium daemonset files"
   rm "${cilium_dir}/cilium-lb-ds.yaml" \
      "${cilium_dir}/cilium-ds.yaml" \
-      2>/dev/null
+      2>/dev/null || true
 
   if [[ -n "${lb}" ]]; then
     log "in loadbalancer mode, setting snoop / LB interface to enp0s8"
