@@ -12,7 +12,8 @@ node1=$(get_k8s_vm_name k8s1 ${K8S})
 node2=$(get_k8s_vm_name k8s2 ${K8S})
 
 function vmssh(){
-    K8S=${K8S} k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}
+  log "running command: ${2} on VM: ${1}"
+  K8S=${K8S} k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}
 }
 
 # reinstall_kubeadmn re-installs kubeadm in the given VM without clearing up

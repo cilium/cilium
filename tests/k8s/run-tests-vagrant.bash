@@ -28,4 +28,5 @@ function run_tests {
   log "done running tests in directory ${TEST_DIR}"
 }
 
+log "provided command to run: $@"
 eval "$@"
