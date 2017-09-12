@@ -73,8 +73,6 @@ EOF
 
 log "updating client endpoint configuration: NAT46=true"
 cilium endpoint config ${CLIENT_ID} NAT46=true
-log "updating server endpoint configuration: NAT46=true"
-cilium endpoint config ${SERVER_ID} NAT46=true
 
 function connectivity_test64() {
   log "beginning connectivity_test64"
