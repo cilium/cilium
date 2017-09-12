@@ -352,28 +352,6 @@ func setSocketMark(c net.Conn, mark int) {
 	}
 }
 
-func getSocketMark(c net.Conn) int {
-	if tc, ok := c.(*net.TCPConn); ok {
-		if f, err := tc.File(); err == nil {
-			defer f.Close()
-			fd := int(f.Fd())
-
-			val, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK)
-			if err != nil {
-				log.WithFields(log.Fields{
-					fieldSocket: tc,
-				}).WithError(err).Warning("Unable to retrieve SO_MARK")
-
-				return 0
-			}
-
-			return val
-		}
-	}
-
-	return 0
-}
-
 func listenSocket(address string, mark int) (net.Listener, error) {
 	addr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
