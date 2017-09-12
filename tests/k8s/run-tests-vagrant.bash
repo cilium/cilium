@@ -11,6 +11,7 @@ IPV4_TESTS_DIR="${K8S_TESTS_DIR}/ipv4"
 IPV6_TESTS_DIR="${K8S_TESTS_DIR}/ipv6"
 
 set -ex
+set +x
 
 function run_tests {
   check_num_params "$#" "1"

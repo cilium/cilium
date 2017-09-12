@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -ex
+set +x
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/../helpers.bash"
@@ -60,8 +61,8 @@ function run_tests(){
 
     log "================== Running in IPv4 mode =================="
 
-    reinstall_ipv4 ${node1} ${k8s_version}
-    reinstall_ipv4 ${node2} ${k8s_version}
+    #reinstall_ipv4 ${node1} ${k8s_version}
+    #reinstall_ipv4 ${node2} ${k8s_version}
     # Set up cilium-lb-ds and cilium-ds
     deploy_cilium ${k8s_version}
 
