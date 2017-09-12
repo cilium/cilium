@@ -59,13 +59,12 @@ document are tc and XDP where BPF programs can be attached to. XDP BPF programs
 are attached at the earliest networking driver stage and trigger a run of the
 BPF program upon packet reception. By definition, this achieves the best
 possible packet processing performance since packets cannot get processed at an
-even earlier point in software. Driver support is necessary in order to use XDP
-BPF programs, though. However, tc BPF programs don't need any driver support
-and can be attached to receive and transmit paths of any networking device,
-including virtual ones such as ``veth`` devices since they hook later in the
-kernel stack compared to XDP. Apart from tc and XDP programs, there are various
-other kernel subsystems as well which use BPF such as tracing (kprobes, uprobes,
-tracepoints, etc).
+even earlier point in software. However, since this processing occurs so early
+in the networking stack, the stack has not yet extracted metadata out of the
+packet. On the other hand, tc BPF programs are executed later in the kernel
+stack, so they have access to more metadata and core kernel functionality.
+Apart from tc and XDP programs, there are various other kernel subsystems as
+well which use BPF such as tracing (kprobes, uprobes, tracepoints, etc).
 
 The following subsections provide further details on individual aspects of the
 BPF architecture.
@@ -837,6 +836,9 @@ It can then be compiled and loaded into the kernel as follows:
 
     $ clang -O2 -Wall -target bpf -c xdp-example.c -o xdp-example.o
     # ip link set dev em1 xdp obj xdp-example.o
+
+.. note:: Attaching an XDP BPF program to a network device as above requires
+          Linux 4.11 with a device that supports XDP, or Linux 4.12 or later.
 
 For the generated object file LLVM (>= 3.9) uses the official BPF machine value,
 that is, ``EM_BPF`` (decimal: ``247`` / hex: ``0xf7``). In this example, the program
