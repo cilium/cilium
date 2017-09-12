@@ -18,9 +18,11 @@ rbac_yaml="${dir}/../../../examples/kubernetes/rbac.yaml"
 
 function get_options(){
   log "beginning generation options"
+  log "creating directory to store configuration at ${dir}/${k8s_version}"
+  mkdir -p "${dir}/${k8s_version}"
   if [[ "${1}" == "ipv6" ]]; then
     log "setting IPv6 environment variables"
-    cat <<'EOF' > "${dir}/env.bash"
+    cat <<'EOF' > "${dir}/${k8s_version}/env.bash"
 # IPv6
 controller_ip="fd01::b"
 controller_ip_brackets="[${controller_ip}]"
@@ -40,7 +42,7 @@ EOF
     else
       NUM="6"
     fi
-    cat <<'EOF' > "${dir}/env.bash"
+    cat <<'EOF' > "${dir}/${k8s_version}/env.bash"
 # IPv4
 # FIX ME
 controller_ip="192.168.3${NUM}.11"
@@ -56,17 +58,17 @@ disable_ipv4=false
 EOF
   fi
 
-  log "setting k8s_version=${k8s_version} in ${dir}/env.bash"
-  echo "k8s_version=${k8s_version}" >> "${dir}/env.bash"
-  source "${dir}/env.bash"
+  log "setting k8s_version=${k8s_version} in ${dir}/${k8s_version}/env.bash"
+  echo "k8s_version=${k8s_version}" >> "${dir}/${k8s_version}/env.bash"
+  source "${dir}/${k8s_version}/env.bash"
 
-  log "contents of ${dir}/env.bash"
-  cat "${dir}/env.bash"
+  log "contents of ${dir}/${k8s_version}/env.bash"
+  cat "${dir}/${k8s_version}/env.bash"
   log "output of \"env\""
   env
 
-  log "creating master K8s configuration at ${dir}/kubeadm-master.conf"
-  cat <<EOF > "${dir}/kubeadm-master.conf"
+  log "creating master K8s configuration at ${dir}/${k8s_version}/kubeadm-master.conf"
+  cat <<EOF > "${dir}/${k8s_version}/kubeadm-master.conf"
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
 api:
@@ -87,8 +89,8 @@ controllerManagerExtraArgs:
   cluster-cidr: "${cluster_cidr}"
   node-cidr-mask-size: "${node_cidr_mask_size}"
 EOF
-  log "contents of ${dir}/kubeadm-master.conf"
-  cat ${dir}/kubeadm-master.conf
+  log "contents of ${dir}/${k8s_version}/kubeadm-master.conf"
+  cat ${dir}/${k8s_version}/kubeadm-master.conf
   log "done generating options"
 }
 
@@ -379,7 +381,7 @@ function deploy_cilium(){
     esac
   done
     
-  source "${dir}/env.bash"
+  source "${dir}/${k8s_version}/env.bash"
 
   rm "${cilium_dir}/cilium-lb-ds.yaml" \
      "${cilium_dir}/cilium-ds.yaml" \
@@ -408,7 +410,7 @@ function deploy_cilium(){
     wait_for_daemon_set_ready kube-system cilium 2
   fi
 
-  echo "lb='${lb}'" >> "${dir}/env.bash"
+  echo "lb='${lb}'" >> "${dir}/${k8s_version}/env.bash"
   log "done deploying Cilium"
 }
 
