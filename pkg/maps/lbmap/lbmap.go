@@ -320,7 +320,7 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 		if be.GetWeight() != 0 {
 			nNonZeroWeights++
 		}
-		if err := UpdateService(fe, be); err != nil {
+		if err = UpdateService(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
 		nSvcs++

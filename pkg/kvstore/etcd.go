@@ -249,12 +249,12 @@ func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 		case err != nil:
 			return 0, err
 		case value == nil:
-			if err := e.InitializeFreeID(key, firstID); err != nil {
+			if err = e.InitializeFreeID(key, firstID); err != nil {
 				return 0, err
 			}
 			attempts--
 		case err == nil:
-			if err := json.Unmarshal(value, &freeID); err != nil {
+			if err = json.Unmarshal(value, &freeID); err != nil {
 				return 0, err
 			}
 			return freeID, nil
