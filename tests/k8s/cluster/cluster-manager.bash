@@ -47,9 +47,9 @@ controller_ip="192.168.3${NUM}.11"
 controller_ip_brackets="${controller_ip}"
 local="127.0.0.1"
 local_with_brackets="${local}"
-cluster_cidr="10.20.0.0/10"
+cluster_cidr="10.2${NUM}.0.0/16"
 cluster_dns_ip="172.2${NUM}.0.10"
-cluster_name="cilium-k8s-tests"
+cluster_name="cilium-k8s-tests-${NUM}"
 node_cidr_mask_size="16"
 service_cluster_ip_range="172.2${NUM}.0.0/16"
 disable_ipv4=false
@@ -87,6 +87,8 @@ controllerManagerExtraArgs:
   cluster-cidr: "${cluster_cidr}"
   node-cidr-mask-size: "${node_cidr_mask_size}"
 EOF
+  log "contents of ${dir}/kubeadm-master.conf"
+  cat ${dir}/kubeadm-master.conf
   log "done generating options"
 }
 
