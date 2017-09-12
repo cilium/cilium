@@ -542,11 +542,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 				p.mutex.Unlock()
 				accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictDenied, http.StatusForbidden)
 				return
-			} else {
-				ar := rule.(policy.AuxRule)
-				log.Debugf("Allowing request based on rule %+v", ar)
-				record.Info = fmt.Sprintf("rule: %+v", ar)
 			}
+			ar := rule.(policy.AuxRule)
+			log.Debugf("Allowing request based on rule %+v", ar)
+			record.Info = fmt.Sprintf("rule: %+v", ar)
 		}
 		p.mutex.Unlock()
 
@@ -625,16 +624,16 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 func (p *Proxy) RemoveRedirect(id string) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	if r, ok := p.redirects[id]; !ok {
+	r, ok := p.redirects[id]
+	if !ok {
 		return fmt.Errorf("unable to find redirect %s", id)
-	} else {
-		log.Debugf("removing proxy redirect %s", id)
-		r.server.Close()
-
-		delete(p.redirects, r.id)
-		delete(p.allocatedPorts, r.ToPort)
 	}
+
+	log.Debugf("removing proxy redirect %s", id)
+	r.server.Close()
+
+	delete(p.redirects, r.id)
+	delete(p.allocatedPorts, r.ToPort)
 
 	return nil
 }

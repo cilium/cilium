@@ -124,9 +124,8 @@ var (
 		Verify: func(key string, val bool) error {
 			if !IPv4Enabled {
 				return fmt.Errorf("NAT46 requires IPv4 to be enabled")
-			} else {
-				return nil
 			}
+			return nil
 		},
 	}
 
