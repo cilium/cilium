@@ -17,6 +17,10 @@ LLC   ?= llc
 
 ifeq ("$(PKG_BUILD)","")
 
+tags:
+	cscope -R -b
+	ctags -R .
+
 all: $(BPF)
 
 %.o: %.c
