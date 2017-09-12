@@ -135,30 +135,6 @@ func Dump6(cb bpf.DumpCallback) error {
 	return proxy6Map.Dump(proxy6DumpParser, cb)
 }
 
-func doGc6(interval uint16, key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int) bool {
-	var entry Proxy6Value
-
-	err := bpf.GetNextKey(proxy6Map.GetFd(), key, nextKey)
-	if err != nil {
-		return false
-	}
-
-	err = bpf.LookupElement(proxy6Map.GetFd(), nextKey, unsafe.Pointer(&entry))
-	if err != nil {
-		return false
-	}
-
-	if entry.Lifetime <= interval {
-		bpf.DeleteElement(proxy6Map.GetFd(), nextKey)
-		(*deleted)++
-	} else {
-		entry.Lifetime -= interval
-		bpf.UpdateElement(proxy6Map.GetFd(), nextKey, unsafe.Pointer(&entry), 0)
-	}
-
-	return true
-}
-
 func GC6() int {
 	deleted := 0
 

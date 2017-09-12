@@ -31,12 +31,6 @@ func (s *KvstoreSuite) SetUpTest(c *C) {
 	SetupDummy()
 }
 
-func drainEvents(w *Watcher) {
-	for len(w.Events) > 0 {
-		<-w.Events
-	}
-}
-
 func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 	log.WithFields(log.Fields{
 		"type":  typ,

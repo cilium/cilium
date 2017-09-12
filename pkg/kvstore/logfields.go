@@ -24,9 +24,6 @@ const (
 	// fieldListAndWatch is true when ListAndWatch is used instead of Watch
 	fieldListAndWatch = "list"
 
-	// fieldTrace is true when the message is a kvstore trace message
-	fieldTrace = "trace"
-
 	// fieldSession refers to a connection/session with the kvstore
 	fieldSession = "session"
 
