@@ -76,7 +76,7 @@ func ReadOpts(filePath string) (geneveOpts []GeneveTlv, rawData []byte, err erro
 			return nil, nil, fmt.Errorf("Geneve tlv %d validation failed %x %x %x", tlvCount, geneveTlv.optClass, geneveTlv.optType, geneveTlv.optLen)
 		}
 
-		tlvCount += 1
+		tlvCount++
 	}
 	return geneveOpts, rawData, nil
 }
