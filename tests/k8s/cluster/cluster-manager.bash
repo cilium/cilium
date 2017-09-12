@@ -128,6 +128,7 @@ function generate_etcd_config(){
   log "generating etcd configuration"
   sudo mkdir -p /var/lib/etcd
 
+  log "contents of /etc/systemd/system/etcd.service"
   sudo tee /etc/systemd/system/etcd.service <<EOF
 [Unit]
 Description=etcd
@@ -242,6 +243,7 @@ function install_cilium_config(){
   sudo cp "${certs_dir}/ca.pem" \
      "/var/lib/cilium/etcd-ca.pem"
 
+  log "contents of /var/lib/cilium/etcd-config.yml"
   sudo tee /var/lib/cilium/etcd-config.yml <<EOF
 ---
 endpoints:
