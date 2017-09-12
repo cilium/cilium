@@ -199,7 +199,7 @@ EOF
     log "copying kubeconfig onto path that is accessible on host machine so we can share it with worker node to directory ${dir}/${k8s_version}"
     # copy kubeconfig so we can share it with node-2
     sudo cp /etc/kubernetes/admin.conf ./${k8s_version}kubelet.conf
-    log "contents of ./${k8s_version}"
+    log "contents of ${PWD}/${k8s_version}"
     ls ./${k8s_version}
   else
     log "on worker node, joining cluster that was configured on master node (k8s-1)" 
@@ -207,6 +207,8 @@ EOF
 
     log "copying kubeconfig file that was previously copied from master node onto worker node"
     # copy kubeconfig file previously copied from the master
+    log "contents of ${PWD}/${k8s_version}"
+    ls ./${k8s_version}
     sudo cp ./${k8s_version}/kubelet.conf /home/vagrant/.kube/config
     sudo cp ./${k8s_version}kubelet.conf /var/lib/cilium/kubeconfig
     sudo chown 1000:1000 /home/vagrant/.kube/config
