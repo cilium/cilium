@@ -35,6 +35,7 @@ type Proxy4Key struct {
 	Pad     uint8
 }
 
+// HostPort returns host port for provided proxy key
 func (k *Proxy4Key) HostPort() string {
 	portStr := strconv.FormatUint(uint64(k.SPort), 10)
 	return net.JoinHostPort(k.SAddr.IP().String(), portStr)
