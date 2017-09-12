@@ -317,7 +317,9 @@ func (r *Redirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
 	return info
 }
 
-const identityKey int = 0
+type proxyIdentity int
+
+const identityKey proxyIdentity = 0
 
 func newIdentityContext(ctx context.Context, id int) context.Context {
 	return context.WithValue(ctx, identityKey, id)
