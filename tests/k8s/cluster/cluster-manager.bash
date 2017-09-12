@@ -198,7 +198,7 @@ EOF
 
     log "copying kubeconfig onto path that is accessible on host machine so we can share it with worker node to directory ${dir}/${k8s_version}"
     # copy kubeconfig so we can share it with node-2
-    sudo cp /etc/kubernetes/admin.conf ./${k8s_version}kubelet.conf
+    sudo cp /etc/kubernetes/admin.conf ./${k8s_version}/kubelet.conf
     log "contents of ${PWD}/${k8s_version}"
     ls ./${k8s_version}
   else
