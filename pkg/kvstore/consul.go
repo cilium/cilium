@@ -39,7 +39,7 @@ const (
 	MaxLockRetries = 10
 )
 
-// / ConsulOpts is the set of supported options for Consul configuration.
+// ConsulOpts is the set of supported options for Consul configuration.
 var ConsulOpts = map[string]bool{
 	cAddr: true,
 }

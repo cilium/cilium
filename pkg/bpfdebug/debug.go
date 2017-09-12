@@ -413,7 +413,7 @@ func (n *DebugCapture) DumpInfo(data []byte) {
 
 }
 
-// Dump prints the captured packet in human readable format
+// DumpVerbose prints the captured packet in human readable format
 func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes ", prefix, n.Hash, n.Source, n.Len)
 	switch n.SubType {
