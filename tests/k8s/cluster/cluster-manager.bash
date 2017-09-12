@@ -183,7 +183,7 @@ EOF
 
   if [[ "$(hostname)" -eq "k8s-1" ]]; then
     log "on master node, initializing kubeadm with kubeadm-master.conf"
-    sudo kubeadm init --config ./kubeadm-master.conf
+    sudo kubeadm init --config ./${k8s_version}/kubeadm-master.conf
 
     log "copying kubeconfig for Cilium and Vagrant users"
     # copy kubeconfig for cilium and vagrant user
@@ -198,7 +198,6 @@ EOF
 
     log "copying kubeconfig onto path that is accessible on host machine so we can share it with worker node to directory ${dir}/${k8s_version}"
     # copy kubeconfig so we can share it with node-2
-    mkdir -p ./${k8s_version}
     sudo cp /etc/kubernetes/admin.conf ./${k8s_version}kubelet.conf
     log "contents of ./${k8s_version}"
     ls ./${k8s_version}
