@@ -293,7 +293,7 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *poli
 			*incID = policy.MinimalNumericIdentity.Uint32()
 		}
 		if firstID == *incID {
-			return false, fmt.Errorf("reached maximum set of labels available.")
+			return false, fmt.Errorf("reached maximum set of labels available")
 		}
 		return true, nil
 	}
@@ -361,7 +361,7 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 			*incID = common.FirstFreeServiceID
 		}
 		if firstID == *incID {
-			return false, fmt.Errorf("reached maximum set of serviceIDs available.")
+			return false, fmt.Errorf("reached maximum set of serviceIDs available")
 		}
 		// Only retry if we have incremented the service ID
 		return true, nil

@@ -124,7 +124,7 @@ func (cidr CIDR) Validate() error {
 		// Returns the prefix length as zero if the mask is not continuous.
 		ones, _ := ipnet.Mask.Size()
 		if ones == 0 {
-			return fmt.Errorf("Mask length can not be zero.")
+			return fmt.Errorf("Mask length can not be zero")
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
