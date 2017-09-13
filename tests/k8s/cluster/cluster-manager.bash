@@ -210,7 +210,7 @@ EOF
     log "contents of ${PWD}/${k8s_version}"
     ls ./${k8s_version}
     sudo cp ./${k8s_version}/kubelet.conf /home/vagrant/.kube/config
-    sudo cp ./${k8s_version}kubelet.conf /var/lib/cilium/kubeconfig
+    sudo cp ./${k8s_version}/kubelet.conf /var/lib/cilium/kubeconfig
     sudo chown 1000:1000 /home/vagrant/.kube/config
 
     log "copying kubeconfig file for root user"
