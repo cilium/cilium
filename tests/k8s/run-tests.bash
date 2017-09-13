@@ -74,9 +74,9 @@ function run_tests(){
 
 
     # Run non IP version specific tests
-    vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests ${K8S_TESTS_DIR}"
+    vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests"
     # Run ipv4 tests
-    vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests ${IPV4_TESTS_DIR}"
+    vmssh ${node2} "/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/run-tests-vagrant.bash run_tests /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4"
 
     # Run IPv6 tests
 
