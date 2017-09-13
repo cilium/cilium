@@ -24,7 +24,8 @@ RUNDIR=$2
 #DEV="cilium-probe"
 PROBE_DIR=$(mktemp -d)
 FEATURE_FILE="$RUNDIR/globals/bpf_features.h"
-WARNING_FILE="$RUNDIR/bpf_features.log"
+INFO_FILE="$RUNDIR/bpf_features.log"
+WARNING_FILE="$RUNDIR/bpf_requirements.log"
 
 function cleanup {
 	if [ ! -z "$PROBE_DIR" ]; then
@@ -60,7 +61,7 @@ function probe_kernel_config()
     done
 
     if [[ -z "$KCONFIG" ]]; then
-        echo "WARNING: BPF/probes: Kernel config not found." >> $WARNING_FILE
+        echo "WARNING: BPF/probes: Kernel config not found." >> $INFO_FILE
         return
     fi
 
@@ -68,12 +69,12 @@ function probe_kernel_config()
     do
         zgrep -E "${key}" $KCONFIG > /dev/null || {
             RESULT=1;
-            echo "WARNING: BPF/probes: ${key} is not in kernel configuration" >> $WARNING_FILE
+            echo "BPF/probes: ${key} is not in kernel configuration" >> $WARNING_FILE
             }
     done
 
     if [[ "$RESULT" -gt 0 ]]; then
-        echo "Error: BPF/probes: No valid kernel configuration" >> $WARNING_FILE
+        echo "BPF/probes: Missing kernel configuration" >> $WARNING_FILE
     fi
 }
 
@@ -111,11 +112,14 @@ function probe_run_ll()
 
 		cp "$PROBE" "$OUT/raw_probe.t"
 		clang $PROBE_OPTS "$PROBE_BASE/raw_main.c" -o "$OUT/$OUT_BIN" &&
-		"$OUT/$OUT_BIN" 1>> "$FEATURE_FILE" 2>> "$WARNING_FILE"
+		"$OUT/$OUT_BIN" 1>> "$FEATURE_FILE" 2>> "$INFO_FILE"
 	done
 }
 
-rm -f "$WARNING_FILE"
+for file in $INFO_FILE $WARNING_FILE
+do
+	rm -f "$file"
+done
 
 echo "#ifndef BPF_FEATURES_H_"  > "$FEATURE_FILE"
 echo "#define BPF_FEATURES_H_" >> "$FEATURE_FILE"
@@ -127,6 +131,9 @@ probe_run_ll
 
 echo "#endif /* BPF_FEATURES_H_ */" >> "$FEATURE_FILE"
 
-if [ ! -s "$WARNING_FILE" ]; then
-	rm -f "$WARNING_FILE"
-fi
+for file in $INFO_FILE $WARNING_FILE
+do
+	if [ ! -s "$file" ]; then
+		rm -f "$file"
+	fi
+done
