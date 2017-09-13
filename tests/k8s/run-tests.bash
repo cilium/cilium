@@ -11,6 +11,11 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 node1=$(get_k8s_vm_name k8s1 ${K8S})
 node2=$(get_k8s_vm_name k8s2 ${K8S})
 
+K8S_TESTS_DIR="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests"
+K8S_TEST_CILIUM_FILES="${K8S_TESTS_DIR}/cilium-files/${K8S}"
+IPV4_TESTS_DIR="${K8S_TESTS_DIR}/ipv4"
+IPV6_TESTS_DIR="${K8S_TESTS_DIR}/ipv6"
+
 function vmssh(){
   log "running command: ${2} on VM: ${1}"
   K8S=${K8S} k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}
