@@ -472,24 +472,42 @@ function k8s_nodes_policy_status {
   restore_flag $save "e"
 }
 
-function gather_files {
-  local TEST_NAME=$1
-  local TEST_SUITE=$2
-  log "gathering files for test $TEST_NAME in test suite $TEST_SUITE"
-  local CILIUM_ROOT="src/github.com/cilium/cilium"
-  if [ -z "${TEST_SUITE}" ]; then
-    TEST_SUITE="runtime-tests"
-  fi
+function gather_files_runtime {
+  check_num_params "$#" "1"
+  local CILIUM_DIR=$1
+  log "gathering files into directory $CILIUM_DIR"
+  local CILIUM_ROOT="src/github.com/cilium/cilium"  
   if [ -z "${GOPATH}" ]; then
     local GOPATH="/home/vagrant/go"
   fi
-  if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
-    CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
-  elif [[ "${TEST_SUITE}" == "k8s-tests" ]]; then
-    CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/k8s/tests/cilium-files/${TEST_NAME}"
-  else
-    log "${TEST_SUITE} not a valid value, continuing"
-    CILIUM_DIR="${GOPATH}/${CILIUM_ROOT}/tests/cilium-files/${TEST_NAME}"
+
+  local RUN="/var/run/cilium"
+  local LIB="/var/lib/cilium"
+  local RUN_DIR="${CILIUM_DIR}${RUN}"
+  local LIB_DIR="${CILIUM_DIR}${LIB}"
+  local CLI_OUT_DIR="${CILIUM_DIR}/cli"
+  mkdir -p "${CILIUM_DIR}"
+  mkdir -p "${RUN_DIR}"
+  mkdir -p "${LIB_DIR}"
+  mkdir -p "${CLI_OUT_DIR}"
+  dump_cli_output "${CLI_OUT_DIR}" || true
+  # Get logs from Consul container.
+  mkdir -p "${CILIUM_DIR}/consul"
+  docker logs cilium-consul > "${CILIUM_DIR}/consul/consul-logs.txt" 2>/dev/null
+  sudo cp -r ${RUN}/state "${RUN_DIR}" || true
+  sudo cp -r ${LIB}/* "${LIB_DIR}" || true
+  find "${CILIUM_DIR}" -type d -exec sudo chmod 777 {} \;
+  find "${CILIUM_DIR}" -exec sudo chmod a+r {} \;
+  log "finished gathering files into directory $CILIUM_DIR" 
+}
+
+function gather_files_k8s {
+  check_num_params "$#" "1" 
+  log "gathering files into directory ${CILIUM_DIR}"
+  local CILIUM_DIR=$1
+  local CILIUM_ROOT="src/github.com/cilium/cilium"
+  if [ -z "${GOPATH}" ]; then
+    local GOPATH="/home/vagrant/go"
   fi
   local RUN="/var/run/cilium"
   local LIB="/var/lib/cilium"
@@ -498,19 +516,11 @@ function gather_files {
   mkdir -p "${CILIUM_DIR}"
   mkdir -p "${RUN_DIR}"
   mkdir -p "${LIB_DIR}"
-  if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
-    local CLI_OUT_DIR="${CILIUM_DIR}/cli"
-    mkdir -p "${CLI_OUT_DIR}"
-    dump_cli_output "${CLI_OUT_DIR}" || true
-    # Get logs from Consul container.
-    mkdir -p "${CILIUM_DIR}/consul"
-    docker logs cilium-consul > "${CILIUM_DIR}/consul/consul-logs.txt" 2>/dev/null
-  fi
   sudo cp -r ${RUN}/state "${RUN_DIR}" || true
   sudo cp -r ${LIB}/* "${LIB_DIR}" || true
   find "${CILIUM_DIR}" -type d -exec sudo chmod 777 {} \;
   find "${CILIUM_DIR}" -exec sudo chmod a+r {} \;
-  log "finished gathering files for test $TEST_NAME in test suite $TEST_SUITE"
+  log "finished gathering files into directory ${CILIUM_DIR}"
 }
 
 function dump_cli_output {

@@ -27,7 +27,7 @@ function cleanup {
 }
 
 function finish_test {
-  gather_files ${TEST_NAME} ${TEST_SUITE}
+  gather_files_runtime ${LOGS_DIR}
   cleanup
 }
 
