@@ -5,6 +5,10 @@ DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 LAST_LOG_DATE=""
 TEST_NET=cilium
+K8S_TESTS_DIR="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests"
+K8S_TEST_CILIUM_FILES="${K8S_TESTS_DIR}/cilium-files/${K8S}"
+IPV4_TESTS_DIR="${K8S_TESTS_DIR}/ipv4"
+IPV6_TESTS_DIR="${K8S_TESTS_DIR}/ipv6"
 
 # Variables used during Jenkins builds.
 BUILD_NUM="${BUILD_NUMBER:-0}"
