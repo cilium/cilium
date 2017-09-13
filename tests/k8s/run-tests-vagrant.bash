@@ -12,6 +12,7 @@ IPV6_TESTS_DIR="${K8S_TESTS_DIR}/ipv6"
 
 set -ex
 set +x
+set -o pipefail
 
 function run_tests {
   check_num_params "$#" "1"
