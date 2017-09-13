@@ -423,6 +423,7 @@ function deploy_cilium(){
 function remove_cilium_ds(){
   log "deleting Cilium daemonset"
   kubectl delete -f "${cilium_dir}" || true
+  kubectl delete -f "${rbac_yaml}" || true
   log "done deleting Cilium daemonset"
 }
 
