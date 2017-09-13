@@ -16,6 +16,7 @@ docker-image-dev: clean
 	cp -v ../../../Dockerfile.dev $(BUILDDIR)/Dockerfile
 	find $(BUILDDIR) -name ".*" -prune ! -name ".git" -exec $(RM) -rf {} \;
 	docker build -q -t "cilium:$(DOCKER_IMAGE_TAG)" $(BUILDDIR)
+	make clean
 
 docker-image-dependencies: clean
 	mkdir -p $(BUILDDIR)
