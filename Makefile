@@ -1,7 +1,7 @@
 include Makefile.defs
 
 SUBDIRS = plugins bpf cilium daemon monitor
-GOFILES = $(shell go list ./... | grep -v /vendor/)
+GOFILES ?= $(shell go list ./... | grep -v /vendor/)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
 BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
