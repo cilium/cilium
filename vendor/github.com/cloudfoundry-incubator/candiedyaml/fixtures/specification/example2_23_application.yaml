@@ -1,0 +1,5 @@
+---
+application specific tag: !something |
+ The semantics of the tag
+ above may be different for
+ different documents.

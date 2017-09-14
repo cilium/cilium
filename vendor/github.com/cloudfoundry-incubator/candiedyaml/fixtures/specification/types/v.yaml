@@ -1,0 +1,4 @@
+---     # New schema
+link with:
+  - = : library1.dll
+    version: 1.2

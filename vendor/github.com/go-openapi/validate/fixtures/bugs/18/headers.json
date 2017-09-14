@@ -1,0 +1,33 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "0.0.1",
+    "title": "test of Swagger invalid pattern in headers"
+  },
+  "paths": {
+    "/foo": {
+      "get": {
+          "responses": {
+              "default": {
+                "headers": {
+                  "X-Foo": {
+                    "type": "string",
+                    "pattern": ")<-- bad pattern"
+                  }
+                },
+                "description": "Generic Error"
+            },
+            "402": {
+              "headers": {
+                "X-Foo": {
+                  "type": "string",
+                  "pattern": ")<-- bad pattern"
+                }
+              },
+              "description": "Generic Error"
+          }
+        }
+      }
+    }
+  }
+}

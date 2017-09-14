@@ -1,0 +1,12 @@
+type: object
+required:
+  - title
+properties:
+  id:
+    type: integer
+    format: uint64
+    readOnly: true
+  title:
+    type: string
+    minLength: 2
+    maxLength: 80
