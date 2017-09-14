@@ -54,6 +54,8 @@ done
 log "removing containerA and containerB"
 docker rm -f containerA containerB
 
+wait_for_no_endpoints
+
 # There should only be one cilium_policy file after the containers are gone.
 # Ignoring the reserved files.
 log "checking that only one cilium_policy map exists after containers have been removed"

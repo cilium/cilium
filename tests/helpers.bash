@@ -959,6 +959,10 @@ function remove_all_containers {
   docker rm -f $(docker ps --format '{{.Names}}' | grep -v cilium-consul) > /dev/null 2>&1 || true
 }
 
+function wait_for_no_endpoints {
+  wait_specified_time_test "test \"\$(cilium endpoint list --no-headers | wc -l) \" -eq \"0\"" "1"
+}
+
 function test_succeeded {
   check_num_params "$#" "1"
   local TEST_NAME="$1"
