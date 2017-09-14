@@ -1042,10 +1042,12 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ifindex, ret, TC_ACT_SHOT);
 
-	ifindex = skb->cb[CB_IFINDEX];
+	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
+		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
+				  forwarding_reason);
+	}
 
-	send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
-			  forwarding_reason);
+	ifindex = skb->cb[CB_IFINDEX];
 
 	if (ifindex)
 		return redirect(ifindex, 0);
