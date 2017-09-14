@@ -6,7 +6,7 @@ MONITOR_PID=""
 LAST_LOG_DATE=""
 TEST_NET=cilium
 K8S_TESTS_DIR="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests"
-K8S_TEST_CILIUM_FILES="${K8S_TESTS_DIR}/cilium-files/${K8S}"
+K8S_TEST_CILIUM_FILES="${K8S_TESTS_DIR}/cilium-files/${k8s_version}"
 IPV4_TESTS_DIR="${K8S_TESTS_DIR}/ipv4"
 IPV6_TESTS_DIR="${K8S_TESTS_DIR}/ipv6"
 
@@ -744,9 +744,15 @@ function get_k8s_vm_name {
   check_num_params "$#" "2"
   local VM_PREFIX=$1
   local K8S=$2
+  local VM_VERSION
+  if [[ "${K8S}" == 1.7.* ]]; then
+    VM_VERSION="1.7"
+  else
+    VM_VERSION="1.6"
+  fi
 
   if [ ! -z ${BUILD_NUMBER} ] ; then
-    local BUILD_ID_NAME="-build-${BUILD_ID}-${K8S}"
+    local BUILD_ID_NAME="-build-${BUILD_ID}-${VM_VERSION}"
   fi
   echo "${VM_PREFIX}${BUILD_ID_NAME}"
 }

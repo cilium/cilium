@@ -13,14 +13,13 @@ fi
 case "${K8S}" in 
   "1.6")
     echo "Testing with K8S=1.6"
-    #K8S=1.6 ${dir}/cluster/certs/generate-certs.sh 
     K8S=1.6 VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant up --provider=virtualbox
-    make k8s-multi-node-tests-1.6
+    K8S=1.6 make k8s-multi-node-tests-1.6
     ;;
   "1.7")
     echo "Testing with K8S=1.7"
     K8S=1.7 VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant up --provider=virtualbox
-    make k8s-multi-node-tests-1.7
+    K8S=1.7 make k8s-multi-node-tests-1.7
     ;;
   *)
     echo "Usage: K8S={1.6,1.7} start.sh"
