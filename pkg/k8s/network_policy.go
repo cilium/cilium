@@ -45,6 +45,41 @@ func ExtractNamespace(np *metav1.ObjectMeta) string {
 	return np.Namespace
 }
 
+func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) (*api.EndpointSelector, error) {
+	var labelSelector *metav1.LabelSelector
+
+	// Only one or the other can be set, not both
+	if peer.PodSelector != nil {
+		labelSelector = peer.PodSelector
+		if peer.PodSelector.MatchLabels == nil {
+			peer.PodSelector.MatchLabels = map[string]string{}
+		}
+		// The PodSelector should only reflect to the same namespace
+		// the policy is being stored, thus we add the namespace to
+		// the MatchLabels map.
+		peer.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
+	} else if peer.NamespaceSelector != nil {
+		labelSelector = peer.NamespaceSelector
+		matchLabels := map[string]string{}
+		// We use our own special label prefix for namespace metadata,
+		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+		for k, v := range peer.NamespaceSelector.MatchLabels {
+			matchLabels[policy.JoinPath(PodNamespaceMetaLabels, k)] = v
+		}
+		peer.NamespaceSelector.MatchLabels = matchLabels
+
+		// We use our own special label prefix for namespace metadata,
+		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+		for i, lsr := range peer.NamespaceSelector.MatchExpressions {
+			lsr.Key = policy.JoinPath(PodNamespaceMetaLabels, lsr.Key)
+			peer.NamespaceSelector.MatchExpressions[i] = lsr
+		}
+	}
+
+	selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
+	return &selector, nil
+}
+
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
@@ -62,35 +97,11 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
 		} else {
 			for _, rule := range iRule.From {
-				// Only one or the other can be set, not both
-				if rule.PodSelector != nil {
-					if rule.PodSelector.MatchLabels == nil {
-						rule.PodSelector.MatchLabels = map[string]string{}
-					}
-					// The PodSelector should only reflect to the same namespace
-					// the policy is being stored, thus we add the namespace to
-					// the MatchLabels map.
-					rule.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
-					ingress.FromEndpoints = append(ingress.FromEndpoints,
-						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.PodSelector))
-				} else if rule.NamespaceSelector != nil {
-					matchLabels := map[string]string{}
-					// We use our own special label prefix for namespace metadata,
-					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-					for k, v := range rule.NamespaceSelector.MatchLabels {
-						matchLabels[policy.JoinPath(PodNamespaceMetaLabels, k)] = v
-					}
-					rule.NamespaceSelector.MatchLabels = matchLabels
-
-					// We use our own special label prefix for namespace metadata,
-					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-					for i, lsr := range rule.NamespaceSelector.MatchExpressions {
-						lsr.Key = policy.JoinPath(PodNamespaceMetaLabels, lsr.Key)
-						rule.NamespaceSelector.MatchExpressions[i] = lsr
-					}
-					ingress.FromEndpoints = append(ingress.FromEndpoints,
-						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.NamespaceSelector))
+				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
+				if err != nil {
+					return nil, err
 				}
+				ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
 			}
 		}
 
