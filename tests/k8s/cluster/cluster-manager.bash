@@ -20,6 +20,13 @@ function get_options(){
   log "beginning generation options"
   log "creating directory to store configuration at ${dir}/${k8s_version}"
   mkdir -p "${dir}/${k8s_version}"
+  
+  if [[ "${k8s_version}" == "1.7.4-00" ]]; then
+      NUM="7"
+    else
+      NUM="6"
+  fi
+  
   if [[ "${1}" == "ipv6" ]]; then
     log "setting IPv6 environment variables"
     cat <<'EOF' > "${dir}/${k8s_version}/env.bash"
@@ -37,11 +44,6 @@ disable_ipv4=true
 EOF
   else
     log "setting IPv4 environment variables"
-    if [[ "${k8s_version}" == "1.7.4-00" ]]; then
-      NUM="7"
-    else
-      NUM="6"
-    fi
     cat <<'EOF' > "${dir}/${k8s_version}/env.bash"
 # IPv4
 # FIX ME
