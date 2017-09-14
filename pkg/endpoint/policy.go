@@ -294,7 +294,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		log.Debugf("setting PolicyCalculated to true for endpoint %d", e.ID)
 		e.PolicyCalculated = true
 		// Always trigger a regenerate after the first policy
-		// calculation has been performed
+		// calculation has been performed.
 		policyChanged = true
 	}
 

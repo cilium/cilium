@@ -17,7 +17,7 @@ package node
 import (
 	"net"
 
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/kubernetes/staging/src/k8s.io/api/core/v1"
 )
 
 // Identity represents the node identity of a node.

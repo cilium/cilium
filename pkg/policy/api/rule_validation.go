@@ -71,6 +71,8 @@ func (e EgressRule) Validate() error {
 		}
 	}
 
+	// TODO - validate ToEndpoints
+
 	return nil
 }
 
