@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 var (

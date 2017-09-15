@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 var (

@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/hooks/syslog"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/syslog"
 	"github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/evalphobia/logrus_fluent"
 )

@@ -1,11 +1,15 @@
 package: github.com/cilium/cilium
 import:
-- package: github.com/Sirupsen/logrus
+- package: github.com/sirupsen/logrus
   version: ~v1.0.0
   subpackages:
   - hooks/syslog
 - package: github.com/braintree/manners
   version: ~0.4.0
+- package: github.com/docker/go-connections
+  version: ~v0.3.0
+- package: github.com/opencontainers/runc
+  version: ~v1.0.0-rc4
 - package: github.com/bshuster-repo/logrus-logstash-hook
   version: ~1.0.0-beta
 - package: github.com/containernetworking/cni
@@ -32,7 +36,7 @@ import:
   - types/events
   - types/network
 - package: github.com/docker/libnetwork
-  version: ~0.8.0-dev.2
+  version: 43f00b74d70e10dcf6adcceb8ead360e10ed49ca
   subpackages:
   - drivers/remote/api
   - ipams/remote/api

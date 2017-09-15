@@ -42,7 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/go-openapi/loads"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/spf13/cobra"

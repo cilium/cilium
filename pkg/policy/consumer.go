@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // Consumer is the entity that consumes a Consumable.
