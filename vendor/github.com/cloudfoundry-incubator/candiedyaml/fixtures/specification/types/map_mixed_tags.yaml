@@ -1,6 +1,0 @@
-# Unordered set of key: value pairs.
-Block style: !<tag:yaml.org,2002:map>
-  Clark : Evans
-  Brian : Ingerson
-  Oren  : Ben-Kiki
-Flow style: { Clark: Evans, Brian: Ingerson, Oren: Ben-Kiki }
