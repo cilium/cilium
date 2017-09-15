@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+
+	"github.com/go-openapi/swag"
 )
 
 // ByteStreamConsumer creates a consmer for byte streams,
@@ -86,9 +88,24 @@ func ByteStreamProducer() Producer {
 		}
 
 		if data != nil {
+			if e, ok := data.(error); ok {
+				_, err := writer.Write([]byte(e.Error()))
+				return err
+			}
+		}
+
+		if data != nil {
 			v := reflect.Indirect(reflect.ValueOf(data))
 			if t := v.Type(); t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8 {
 				_, err := writer.Write(v.Bytes())
+				return err
+			}
+			if t := v.Type(); t.Kind() == reflect.Struct || t.Kind() == reflect.Slice {
+				b, err := swag.WriteJSON(data)
+				if err != nil {
+					return err
+				}
+				_, err = writer.Write(b)
 				return err
 			}
 		}

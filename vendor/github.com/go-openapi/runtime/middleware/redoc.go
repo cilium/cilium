@@ -51,7 +51,7 @@ func Redoc(opts RedocOpts, next http.Handler) http.Handler {
 	tmpl := template.Must(template.New("redoc").Parse(redocTemplate))
 
 	buf := bytes.NewBuffer(nil)
-	tmpl.Execute(buf, opts)
+	_ = tmpl.Execute(buf, opts)
 	b := buf.Bytes()
 
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
@@ -59,14 +59,14 @@ func Redoc(opts RedocOpts, next http.Handler) http.Handler {
 			rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 			rw.WriteHeader(http.StatusOK)
 
-			rw.Write(b)
+			_, _ = rw.Write(b)
 			return
 		}
 
 		if next == nil {
 			rw.Header().Set("Content-Type", "text/plain")
 			rw.WriteHeader(http.StatusNotFound)
-			rw.Write([]byte(fmt.Sprintf("%q not found", pth)))
+			_, _ = rw.Write([]byte(fmt.Sprintf("%q not found", pth)))
 			return
 		}
 		next.ServeHTTP(rw, r)
