@@ -17,10 +17,22 @@ limitations under the License.
 package api
 
 import (
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/runtime/serializer"
+	"os"
+
+	"k8s.io/apimachinery/pkg/apimachinery/announced"
+	"k8s.io/apimachinery/pkg/apimachinery/registered"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
+
+// GroupFactoryRegistry is the APIGroupFactoryRegistry (overlaps a bit with Registry, see comments in package for details)
+var GroupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
+
+// Registry is an instance of an API registry.  This is an interim step to start removing the idea of a global
+// API registry.
+var Registry = registered.NewOrDie(os.Getenv("KUBE_API_VERSIONS"))
 
 // Scheme is the default instance of runtime.Scheme to which types in the Kubernetes API are already registered.
 // NOTE: If you are copying this file to start a new api group, STOP! Copy the
@@ -36,46 +48,28 @@ var Codecs = serializer.NewCodecFactory(Scheme)
 const GroupName = ""
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
-
-// Unversioned is group version for unversioned API objects
-// TODO: this should be v1 probably
-var Unversioned = unversioned.GroupVersion{Group: "", Version: "v1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
 
 // ParameterCodec handles versioning of objects that are converted to query parameters.
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 
 // Kind takes an unqualified kind and returns a Group qualified GroupKind
-func Kind(kind string) unversioned.GroupKind {
+func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
 
 // Resource takes an unqualified resource and returns a Group qualified GroupResource
-func Resource(resource string) unversioned.GroupResource {
+func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
 
 var (
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes, addDefaultingFuncs)
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
 )
 
-func init() {
-	// TODO(lavalamp): move this call to scheme builder above.  Can't
-	// remove it from here because lots of people inappropriately rely on it
-	// (specifically the unversioned time conversion). Can't have it in
-	// both places because then it gets double registered.  Consequence of
-	// current state is that it only ever gets registered in the main
-	// api.Scheme, even though everyone that uses anything from unversioned
-	// needs these.
-	if err := addConversionFuncs(Scheme); err != nil {
-		// Programmer error.
-		panic(err)
-	}
-}
-
 func addKnownTypes(scheme *runtime.Scheme) error {
-	if err := scheme.AddIgnoredConversionType(&unversioned.TypeMeta{}, &unversioned.TypeMeta{}); err != nil {
+	if err := scheme.AddIgnoredConversionType(&metav1.TypeMeta{}, &metav1.TypeMeta{}); err != nil {
 		return err
 	}
 	scheme.AddKnownTypes(SchemeGroupVersion,
@@ -91,6 +85,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ServiceProxyOptions{},
 		&NodeList{},
 		&Node{},
+		&NodeConfigSource{},
 		&NodeProxyOptions{},
 		&Endpoints{},
 		&EndpointsList{},
@@ -112,11 +107,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PersistentVolumeList{},
 		&PersistentVolumeClaim{},
 		&PersistentVolumeClaimList{},
-		&DeleteOptions{},
-		&ListOptions{},
 		&PodAttachOptions{},
 		&PodLogOptions{},
 		&PodExecOptions{},
+		&PodPortForwardOptions{},
 		&PodProxyOptions{},
 		&ComponentStatus{},
 		&ComponentStatusList{},
@@ -126,14 +120,5 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ConfigMapList{},
 	)
 
-	// Register Unversioned types under their own special group
-	scheme.AddUnversionedTypes(Unversioned,
-		&unversioned.ExportOptions{},
-		&unversioned.Status{},
-		&unversioned.APIVersions{},
-		&unversioned.APIGroupList{},
-		&unversioned.APIGroup{},
-		&unversioned.APIResourceList{},
-	)
 	return nil
 }

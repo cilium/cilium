@@ -21,9 +21,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api/v1"
-	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
 )
 
 // ExtractPolicyName extracts the name of policy name

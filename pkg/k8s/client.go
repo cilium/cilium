@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	log "github.com/Sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,8 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -246,9 +246,9 @@ func CreateCRDClient(config *rest.Config) (CNPCliInterface, error) {
 	}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesCRD)
-	schemeBuilder.AddToScheme(api.Scheme)
+	schemeBuilder.AddToScheme(scheme.Scheme)
 
 	rc, err := rest.RESTClientFor(config)
 	return &cnpClient{rc}, err
@@ -333,9 +333,9 @@ func CreateTPRClient(config *rest.Config) (CNPCliInterface, error) {
 	}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesTPR)
-	schemeBuilder.AddToScheme(api.Scheme)
+	schemeBuilder.AddToScheme(scheme.Scheme)
 
 	rc, err := rest.RESTClientFor(config)
 	return &cnpClient{rc}, err
