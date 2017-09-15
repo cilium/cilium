@@ -439,8 +439,8 @@ node IP as the IP next hop for the corresponding node prefix.
 
 This is typically achieved using two methods:
 
-- Operation of a routing protocol such as OSPF or BPG via routing daemon such
-  as Zebra, bird, bpgd. The routing protocols will announce the *node allocation
+- Operation of a routing protocol such as OSPF or BGP via routing daemon such
+  as Zebra, bird, bgpd. The routing protocols will announce the *node allocation
   prefix* via the node's IP to all other nodes.
 
 - Use of the cloud provider's routing functionality. Refer to the documentation
