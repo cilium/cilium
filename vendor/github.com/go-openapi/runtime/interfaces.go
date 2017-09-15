@@ -15,8 +15,10 @@
 package runtime
 
 import (
-	"github.com/go-openapi/strfmt"
 	"io"
+	"net/http"
+
+	"github.com/go-openapi/strfmt"
 )
 
 // OperationHandlerFunc an adapter for a function to the OperationHandler interface
@@ -75,6 +77,21 @@ func (f AuthenticatorFunc) Authenticate(params interface{}) (bool, interface{}, 
 // request data and translate that into a valid principal object or an error
 type Authenticator interface {
 	Authenticate(interface{}) (bool, interface{}, error)
+}
+
+// AuthorizerFunc turns a function into an authorizer
+type AuthorizerFunc func(*http.Request, interface{}) error
+
+// Authorize authorizes the processing of the request for the principal
+func (f AuthorizerFunc) Authorize(r *http.Request, principal interface{}) error {
+	return f(r, principal)
+}
+
+// Authorizer represents an authorization strategy
+// implementations of Authorizer know how to authorize the principal object
+// using the request data and returns error if unauthorized
+type Authorizer interface {
+	Authorize(*http.Request, interface{}) error
 }
 
 // Validatable types implementing this interface allow customizing their validation

@@ -12,19 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package middleware
+package security
 
-import "net/http"
+import (
+	"net/http"
 
-// NewOperationExecutor creates a context aware middleware that handles the operations after routing
-func NewOperationExecutor(ctx *Context) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		// use context to lookup routes
-		route, rCtx, _ := ctx.RouteInfo(r)
-		if rCtx != nil {
-			r = rCtx
-		}
+	"github.com/go-openapi/runtime"
+)
 
-		route.Handler.ServeHTTP(rw, r)
-	})
+// Authorized provides a default implementation of the Authorizer interface where all
+// requests are authorized (successful)
+func Authorized() runtime.Authorizer {
+	return runtime.AuthorizerFunc(func(_ *http.Request, _ interface{}) error { return nil })
 }

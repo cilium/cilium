@@ -20,13 +20,10 @@ Pseudo middleware handler
   	"net/http"
 
   	"github.com/go-openapi/errors"
-  	"github.com/gorilla/context"
   )
 
   func newCompleteMiddleware(ctx *Context) http.Handler {
   	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-  		defer context.Clear(r)
-
   		// use context to lookup routes
   		if matched, ok := ctx.RouteInfo(r); ok {
 

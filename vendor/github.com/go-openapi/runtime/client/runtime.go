@@ -214,10 +214,10 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 	}
 
 	var accept []string
-	for _, mimeType := range operation.ProducesMediaTypes {
-		accept = append(accept, mimeType)
+	accept = append(accept, operation.ProducesMediaTypes...)
+	if err = request.SetHeaderParam(runtime.HeaderAccept, accept...); err != nil {
+		return nil, err
 	}
-	request.SetHeaderParam(runtime.HeaderAccept, accept...)
 
 	if auth == nil && r.DefaultAuthentication != nil {
 		auth = r.DefaultAuthentication
