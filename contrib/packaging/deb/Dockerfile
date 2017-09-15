@@ -1,7 +1,7 @@
 FROM ubuntu:16.04
 
 LABEL maintainer "Eloy Coto <eloy.coto@gmail.com>"
-ENV GOLANG_VERSION 1.8.3
+ENV GOLANG_VERSION 1.9
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

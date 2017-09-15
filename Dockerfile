@@ -54,7 +54,7 @@ rm -r tmp && \
 
 cd /tmp && \
 curl -Sslk -o go.linux-amd64.tar.gz \
-https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz && \
+https://storage.googleapis.com/golang/go1.9.linux-amd64.tar.gz && \
 tar -C /usr/local -xzf go.linux-amd64.tar.gz && \
 cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
