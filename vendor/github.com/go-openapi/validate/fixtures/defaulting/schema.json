@@ -1,0 +1,101 @@
+{
+  "properties": {
+    "int": {
+      "type": "integer",
+      "default": 42
+    },
+    "str": {
+      "type": "string",
+      "minLength": 4,
+      "default": "Hello"
+    },
+    "obj": {
+      "type": "object",
+      "default": {"foo": "bar"}
+    },
+    "nested": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "type": "integer",
+          "default": 7
+        }
+      }
+    },
+    "all": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "foo": {
+              "type": "integer",
+              "default": 42
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bar": {
+              "type": "integer",
+              "default": 42
+            }
+          }
+        }
+      ]
+    },
+    "any": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "foo": {
+              "type": "integer",
+              "default": 42
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bar": {
+              "type": "integer",
+              "default": 42
+            }
+          }
+        }
+      ]
+    },
+    "one": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "foo": {
+              "type": "integer"
+            }
+          },
+          "required": ["foo"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bar": {
+              "type": "integer",
+              "default": 42
+            }
+          }
+        }
+      ]
+    },
+    "not": {
+      "not": {
+        "type": "object",
+        "default": {
+          "foo": 1
+        }
+      }
+    }
+  },
+  "required": ["int", "str", "nested", "all", "any", "one"]
+}

@@ -1,0 +1,21 @@
+box: golang:1.8.1-stretch
+dev:
+build:
+  steps:
+    - setup-go-workspace
+    - script:
+        name: gofmt
+        code: |
+          test -z "$(gofmt -s -l . | tee /dev/stderr)"
+    - script:
+        name: go vet
+        code: |
+          go tool vet -all -structtags -shadow .
+    - script:
+        name: go get
+        code: |
+          go get -t -v ./...
+    - script:
+        name: go test
+        code: |
+          go test ./...
