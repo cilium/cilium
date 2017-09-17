@@ -83,22 +83,22 @@ func dropReason(reason uint8) string {
 
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte) {
-	fmt.Printf("xx drop (%s) to endpoint %d, identity %d->%d: %s\n",
+	fmt.Printf("xx drop (%s), to endpoint %d, identity %d->%d: %s\n",
 		dropReason(n.SubType), n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[DropNotifyLen:]))
 }
 
 // DumpVerbose prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d Packet dropped %d (%s) %d bytes ifindex=%d",
-		prefix, n.Hash, n.Source, n.SubType, dropReason(n.SubType), n.OrigLen, n.Ifindex)
+	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s, to ifindex %d",
+		prefix, n.Hash, n.Source, n.OrigLen, dropReason(n.SubType), n.Ifindex)
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
-		fmt.Printf(" %d->%d", n.SrcLabel, n.DstLabel)
+		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
 	}
 
 	if n.DstID != 0 {
-		fmt.Printf(" to lxc %d\n", n.DstID)
+		fmt.Printf(", to endpoint %d\n", n.DstID)
 	} else {
 		fmt.Printf("\n")
 	}

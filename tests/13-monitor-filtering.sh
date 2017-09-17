@@ -34,7 +34,7 @@ function test_event_types {
   cilium config Debug=true DropNotification=true TraceNotification=true
 
   event_types=( drop debug capture )
-  expected_log_entry=( "Packet dropped" "DEBUG:" "DEBUG:" )
+  expected_log_entry=( "DROP:" "DEBUG:" "DEBUG:" )
 
   for ((i=0;i<${#event_types[@]};++i)); do
     echo "------- ${event_types[i]} -------"
@@ -66,7 +66,7 @@ function test_from {
   monitor_start --type debug --from $(last_endpoint_id)
   wait_for_log_entries 2
   # We are not expecting drop events so fail if they occur.
-  if grep "Packet dropped" $DUMP_FILE; then
+  if grep "DROP:" $DUMP_FILE; then
     abort
   fi
   wait_for_log_entries 1
@@ -84,8 +84,8 @@ function test_to {
   spin_up_container
   monitor_start --type drop --to $(last_endpoint_id)
   ping6 -c 3 $(container_addr)
-  if grep "FROM $(last_endpoint_id) Packet dropped" $DUMP_FILE; then
-    echo Test succeded test_to
+  if grep "FROM $(last_endpoint_id) DROP: " $DUMP_FILE; then
+    log "Test succeded test_to"
   else
     abort
   fi
@@ -102,8 +102,8 @@ function test_related_to {
   monitor_resume --type debug --related-to $(last_endpoint_id)
   ping6 -c 3 $(container_addr)
   if grep "FROM $(last_endpoint_id) DEBUG: " $DUMP_FILE && \
-   grep "FROM $(last_endpoint_id) Packet dropped" $DUMP_FILE; then
-    echo Test succeded test_from
+   grep "FROM $(last_endpoint_id) DROP: " $DUMP_FILE; then
+    log "Test succeded test_related_to"
   else
     abort
   fi

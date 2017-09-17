@@ -118,7 +118,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr host_ip = {}, router_ip = {};
-	int ret, l4_off;
+	int ret, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
 	struct lb6_service *svc;
@@ -205,6 +205,8 @@ skip_service_lookup:
 	if (ret < 0)
 		return ret;
 
+	forwarding_reason = ret;
+
 	switch (ret) {
 	case CT_NEW:
 		/* New connection implies that rev_nat_index remains untouched
@@ -249,7 +251,8 @@ skip_service_lookup:
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple->dport,
-						 orig_dip, tuple, &host_ip, SECLABEL);
+						 orig_dip, tuple, &host_ip, SECLABEL,
+						 forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -369,7 +372,8 @@ to_host:
 			return ret;
 
 #ifndef POLICY_ENFORCEMENT
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX,
+				  forwarding_reason);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -396,7 +400,8 @@ pass_to_stack:
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0);
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+			  forwarding_reason);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -448,7 +453,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	void *data_end = (void *) (long) skb->data_end;
 	struct iphdr *ip4 = data + ETH_HLEN;
 	struct ethhdr *eth = data;
-	int ret, l3_off = ETH_HLEN, l4_off;
+	int ret, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
 	struct lb4_service *svc;
@@ -530,6 +535,8 @@ skip_service_lookup:
 	if (ret < 0)
 		return ret;
 
+	forwarding_reason = ret;
+
 	switch (ret) {
 	case CT_NEW:
 		/* New connection implies that rev_nat_index remains untouched
@@ -571,7 +578,7 @@ skip_service_lookup:
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
-						 orig_dip, &tuple, SECLABEL);
+						 orig_dip, &tuple, SECLABEL, forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -678,7 +685,8 @@ to_host:
 			return ret;
 
 #ifndef POLICY_ENFORCEMENT
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX,
+				  forwarding_reason);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -707,7 +715,8 @@ pass_to_stack:
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0);
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+			  forwarding_reason);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -795,7 +804,8 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 	.max_elem	= 1024,
 };
 
-static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label)
+static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
+					 int *forwarding_reason)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data = (void *) (long) skb->data;
@@ -849,6 +859,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	if (ret < 0)
 		return ret;
 
+	*forwarding_reason = ret;
+
 	if (unlikely(ct_state.rev_nat_index)) {
 		int ret2;
 
@@ -886,7 +898,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
-						 orig_dip, &tuple, &host_ip, src_label);
+						 orig_dip, &tuple, &host_ip, src_label,
+						 *forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -903,7 +916,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 }
 
 #ifdef LXC_IPV4
-static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label)
+static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
+					 int *forwarding_reason)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data = (void *) (long) skb->data;
@@ -936,6 +950,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	ret = ct_lookup4(&CT_MAP4, &tuple, skb, l4_off, SECLABEL, CT_INGRESS, &ct_state);
 	if (ret < 0)
 		return ret;
+
+	*forwarding_reason = ret;
 
 #ifdef LXC_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT46) {
@@ -981,7 +997,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
-						 orig_dip, &tuple, src_label);
+						 orig_dip, &tuple, src_label, *forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1004,15 +1020,16 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	int forwarding_reason = 0;
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_policy(skb, ifindex, src_label);
+		ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason);
 		break;
 
 #ifdef LXC_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = ipv4_policy(skb, ifindex, src_label);
+		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason);
 		break;
 #endif
 
@@ -1027,7 +1044,8 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	ifindex = skb->cb[CB_IFINDEX];
 
-	send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex);
+	send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,
+			  forwarding_reason);
 
 	if (ifindex)
 		return redirect(ifindex, 0);
