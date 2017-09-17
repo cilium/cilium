@@ -79,7 +79,7 @@ static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
 				 struct csum_offset *csum_off,
 				 struct portmap *map, __be16 dport)
 {
-	cilium_trace(skb, DBG_PORT_MAP, bpf_ntohs(map->from), bpf_ntohs(map->to));
+	cilium_dbg(skb, DBG_PORT_MAP, bpf_ntohs(map->from), bpf_ntohs(map->to));
 
 	if (likely(map->from != dport))
 		return 0;
@@ -108,7 +108,7 @@ static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
 				  struct csum_offset *csum_off,
 				  struct portmap *map, __be16 sport)
 {
-	cilium_trace(skb, DBG_PORT_MAP, bpf_ntohs(map->to), bpf_ntohs(map->from));
+	cilium_dbg(skb, DBG_PORT_MAP, bpf_ntohs(map->to), bpf_ntohs(map->from));
 
 	if (likely(map->to != sport))
 		return 0;
