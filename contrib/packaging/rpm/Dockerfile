@@ -1,6 +1,6 @@
 FROM fedora:26
 
-LABEL maintainer "Tony Lambiris <tony@criticalstack.com>"
+LABEL maintainer="Tony Lambiris <tony@criticalstack.com>"
 
 RUN dnf -y update && \
 	dnf -y install fedora-packager fedora-review golang go-bindata gettext \
