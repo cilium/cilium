@@ -266,7 +266,7 @@ skip_service_lookup:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 
@@ -588,7 +588,7 @@ skip_service_lookup:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 
