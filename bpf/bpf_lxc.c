@@ -43,6 +43,7 @@
 #include "lib/lb.h"
 #include "lib/drop.h"
 #include "lib/dbg.h"
+#include "lib/trace.h"
 #include "lib/csum.h"
 #include "lib/conntrack.h"
 #include "lib/encap.h"
@@ -265,7 +266,7 @@ skip_service_lookup:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 
@@ -368,7 +369,7 @@ to_host:
 			return ret;
 
 #ifndef POLICY_ENFORCEMENT
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -395,7 +396,7 @@ pass_to_stack:
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
-	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -587,7 +588,7 @@ skip_service_lookup:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
 
@@ -677,7 +678,7 @@ to_host:
 			return ret;
 
 #ifndef POLICY_ENFORCEMENT
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -706,7 +707,7 @@ pass_to_stack:
 
 #ifndef POLICY_ENFORCEMENT
 	/* No policy, pass directly down to stack */
-	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -1026,7 +1027,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	ifindex = skb->cb[CB_IFINDEX];
 
-	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+	send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex);
 
 	if (ifindex)
 		return redirect(ifindex, 0);

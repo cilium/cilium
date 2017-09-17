@@ -31,7 +31,7 @@ function setup {
 
 function test_event_types {
   echo "------ event filter ------"
-  cilium config Debug=true DropNotification=true
+  cilium config Debug=true DropNotification=true TraceNotification=true
 
   event_types=( drop debug capture )
   expected_log_entry=( "Packet dropped" "DEBUG:" "DEBUG:" )
@@ -60,7 +60,7 @@ function container_addr {
 
 function test_from {
   echo "------ from filter ------"
-  cilium config Debug=true DropNotification=true
+  cilium config Debug=true DropNotification=true TraceNotification=true
   setup
   spin_up_container
   monitor_start --type debug --from $(last_endpoint_id)
@@ -79,7 +79,7 @@ function test_from {
 
 function test_to {
   echo "------ to filter ------"
-  cilium config Debug=true DropNotification=true PolicyEnforcement=always
+  cilium config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=always
   setup
   spin_up_container
   monitor_start --type drop --to $(last_endpoint_id)
@@ -93,7 +93,7 @@ function test_to {
 
 function test_related_to {
   echo "------ related to filter ------"
-  cilium config Debug=true DropNotification=true PolicyEnforcement=always
+  cilium config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=always
   setup
   spin_up_container
   monitor_start --type drop --related-to $(last_endpoint_id)
