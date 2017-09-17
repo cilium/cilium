@@ -133,6 +133,33 @@ func checkKernelVersion() (int, int, error) {
 	return getMajorMinorVersion(string(kernelVersion))
 }
 
+func checkBPFLogs(logType string, warnLevel bool) {
+	bpfLogFile := logType + ".log"
+	bpfLogPath := filepath.Join(config.StateDir, bpfLogFile)
+
+	if _, err := os.Stat(bpfLogPath); os.IsNotExist(err) {
+		log.Infof("%s check: OK!", logType)
+	} else if err == nil {
+		bpfFeaturesLog, err := ioutil.ReadFile(bpfLogPath)
+		if err != nil {
+			log.Fatalf("%s check: NOT OK. Unable to read %q: %s", logType, bpfLogPath, err)
+		}
+		printer := log.Infof
+		if warnLevel {
+			printer = log.Warningf
+			printer("%s check: NOT OK", logType)
+		} else {
+			printer("%s check: Some features may be limited:", logType)
+		}
+		lines := strings.Trim(string(bpfFeaturesLog), "\n")
+		for _, line := range strings.Split(lines, "\n") {
+			printer(line)
+		}
+	} else {
+		log.Fatalf("%s check: NOT OK. Unable to read %q: %s", logType, bpfLogPath, err)
+	}
+}
+
 func checkMinRequirements() {
 	kernelMajor, kernelMinor, err := checkKernelVersion()
 	if err != nil {
@@ -201,7 +228,6 @@ func checkMinRequirements() {
 		log.Info("linking environment: OK!")
 	}
 
-	// Checking for bpf_features
 	globalsDir := filepath.Join(config.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.Fatalf("Could not create runtime directory %q: %s", globalsDir, err)
@@ -217,18 +243,9 @@ func checkMinRequirements() {
 	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
 		log.Fatalf("BPF Verifier: NOT OK. Unable to read bpf_features.h: %s", err)
 	}
-	bpfLogPath := filepath.Join(config.StateDir, "bpf_features.log")
-	if _, err := os.Stat(bpfLogPath); os.IsNotExist(err) {
-		log.Infof("BPF Verifier: OK!")
-	} else if err == nil {
-		bpfFeaturesLog, err := ioutil.ReadFile(bpfLogPath)
-		if err != nil {
-			log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
-		}
-		log.Infof("BPF Verifier: NOT OK:%s", string(bpfFeaturesLog))
-	} else {
-		log.Fatalf("BPF Verifier: NOT OK. Unable to read %q: %s", bpfLogPath, err)
-	}
+
+	checkBPFLogs("bpf_requirements", true)
+	checkBPFLogs("bpf_features", false)
 }
 
 func init() {
