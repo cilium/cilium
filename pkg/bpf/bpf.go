@@ -14,6 +14,7 @@
 
 package bpf
 
+// #include <stdlib.h>
 import "C"
 
 import (
@@ -216,6 +217,7 @@ type bpfAttrObjOp struct {
 // ObjPin stores the map's fd in pathname.
 func ObjPin(fd int, pathname string) error {
 	pathStr := C.CString(pathname)
+	defer C.free(unsafe.Pointer(pathStr))
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 		fd:       uint32(fd),
@@ -238,6 +240,7 @@ func ObjPin(fd int, pathname string) error {
 // ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
 	pathStr := C.CString(pathname)
+	defer C.free(unsafe.Pointer(pathStr))
 	uba := bpfAttrObjOp{
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 	}
