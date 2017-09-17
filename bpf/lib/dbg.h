@@ -178,10 +178,6 @@ static inline void cilium_dbg3(struct __sk_buff *skb, __u8 type, __u32 arg1,
 
 #ifdef ENABLE_TRACE
 
-#ifndef TRACE_PAYLOAD_LEN
-#define TRACE_PAYLOAD_LEN 128ULL
-#endif
-
 struct debug_capture_msg {
 	NOTIFY_COMMON_HDR
 	__u32		len_orig;
