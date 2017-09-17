@@ -57,7 +57,6 @@ cat <<EOF | policy_import_and_wait -
 EOF
 
 cilium endpoint config ${CLIENT_ID} NAT46=true
-cilium endpoint config ${SERVER_ID} NAT46=true
 
 function connectivity_test64() {
         # ICMPv4 echo request from client to server should succeed
