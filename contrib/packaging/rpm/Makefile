@@ -14,6 +14,7 @@ build: clean
 	tar -c cilium --transform s/cilium/cilium-$(COMMIT)/ | gzip -9 &> cilium-$(SHORTCOMMIT).tar.gz
 	docker build -t cilium:cilium-bin-rpm-$(VERSION) $(CURDIR)
 	docker run --rm -v $(CURDIR)/output:/output cilium:cilium-bin-rpm-$(VERSION)
+	echo -e "\nCilium version $(VERSION) packages are located here:\n$(CURDIR)/output/\n"
 
 clean:
 	rm -rf env cilium output version_* cilium-*.tar.gz
