@@ -182,7 +182,7 @@ policies.  Instead, you can use the labels assigned to the VM to define
 security policies, which are automatically applied to any container with that
 label, no matter where or when it is run within a container cluster.
 
-We'll start with a simple example where allow *app2* to reach *app1* on port 80, but
+We'll start with a simple example where we allow *app2* to reach *app1* on port 80, but
 disallow the same connectivity from *app3* to *app1*.
 This is a simple policy that filters only on IP protocol (network layer
 3) and TCP protocol (network layer 4), so it is often referred to as an L3/L4
@@ -202,9 +202,11 @@ We can achieve that with the following Kubernetes NetworkPolicy:
 ::
 
     kind: NetworkPolicy
-    apiVersion: extensions/v1beta1
+    apiVersion: networking.k8s.io/v1
+    #for k8s <1.7 use:
+    #apiVersion: extensions/v1beta1
     metadata:
-      name: access-app1
+      name: access-backend
     spec:
       podSelector:
         matchLabels:
@@ -215,8 +217,8 @@ We can achieve that with the following Kubernetes NetworkPolicy:
             matchLabels:
               id: app2
         ports:
-        - protocol: tcp
-          port: 80
+        - port: 80
+          protocol: TCP
 
 Kubernetes NetworkPolicies match on pod labels using "podSelector" to
 identify the sources and destinations to which the policy applies.
@@ -282,7 +284,7 @@ You can observe the policy via ``kubectl``
     access-backend   id=app1        2m
     $ kubectl describe networkpolicies access-backend
     Name:		access-backend
-    Namespace:	default
+    Namespace:		default
     Labels:		<none>
     Annotations:	<none>
 
@@ -331,7 +333,9 @@ API call, but disallowing all other calls (including GET /private).
 
 ::
 
-    apiVersion: "cilium.io/v1"
+    apiVersion: "cilium.io/v2"
+    #for k8s <1.7 use:
+    #apiVersion: "cilium.io/v1"
     kind: CiliumNetworkPolicy
     description: "L7 policy for getting started using Kubernetes guide"
     metadata:
@@ -349,7 +353,7 @@ API call, but disallowing all other calls (including GET /private).
           - port: "80"
             protocol: TCP
           rules:
-            HTTP:
+            http:
             - method: "GET"
               path: "/public"
 
