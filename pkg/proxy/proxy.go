@@ -502,9 +502,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		record := &accesslog.LogRecord{
-			Request:         req,
-			Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
-			NodeAddressInfo: redir.nodeInfo,
+			Request:           req,
+			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
+			NodeAddressInfo:   redir.nodeInfo,
+			TransportProtocol: 6, // TCP's IANA-assigned protocol number
 		}
 
 		info, version := redir.getSourceInfo(req)
