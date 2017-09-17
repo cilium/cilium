@@ -1,21 +1,22 @@
 include ../../../Makefile.defs
 
-CWD := $(CURDIR)
-VERSION := $(shell echo $(VERSION)|grep -Eo '^([0-9]+\.[0-9]+\.[0-9]+)')
+BUILDDIR := "$(CURDIR)/cilium-$(VERSION)"
+BASEDIR := "$(CURDIR)/../../../"
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+COMMIT := $(shell git rev-parse HEAD)
+SHORTCOMMIT := $(shell git rev-parse HEAD | cut -c1-7)
 
 build: clean
-	@echo "export VERSION=$(VERSION)" > cfg/envs
-	@echo "export COMMIT=$(shell git rev-parse HEAD)" >> cfg/envs
-	@echo "export SHORTCOMMIT=$(shell git rev-parse --short HEAD)" >> cfg/envs
-	@cd ../../../ &&\
-		git archive --format=tar.gz --prefix=cilium-$(shell git rev-parse HEAD)/ -o $(CWD)/cfg/cilium-$(shell git rev-parse --short HEAD).tar.gz HEAD
-	@docker build -t cilium:cilium-build-rpm-$(VERSION)-git$(SHORTCOMMIT) cfg/
-	@docker run --rm cilium:cilium-build-rpm-$(VERSION)-git$(SHORTCOMMIT) /bin/bash -c \
-		'tar -c root/cilium-$(VERSION)*.rpm root/x86_64/cilium-$(VERSION)*.rpm' | tar --strip-components=1 -xvC .
+	mkdir -p output
+	echo "export VERSION=$(VERSION) COMMIT=$(COMMIT) SHORTCOMMIT=$(SHORTCOMMIT)" > env
+	(cd $(BASEDIR) && git bundle create $(CURDIR)/version_$(VERSION) $(BRANCH) --tags)
+	(cd $(CURDIR) && git clone $(CURDIR)/version_$(VERSION) cilium -b $(BRANCH))
+	tar -c cilium --transform s/cilium/cilium-$(COMMIT)/ | gzip -9 &> cilium-$(SHORTCOMMIT).tar.gz
+	docker build -t cilium:cilium-bin-rpm-$(VERSION) $(CURDIR)
+	docker run --rm -v $(CURDIR)/output:/output cilium:cilium-bin-rpm-$(VERSION)
 
 clean:
-	ls -d ./* | grep -vE Makefile\|cfg | xargs $(RM) -rf
-	ls -d ./cfg/* | grep -vE Dockerfile\|create-rpm.sh\|cilium.spec.envsubst | xargs $(RM) -rf
+	rm -rf env cilium output version_* cilium-*.tar.gz
 
 .PHONY: force build clean
 force :;
