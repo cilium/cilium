@@ -72,7 +72,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
 
 	nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&key.address, dst);
@@ -130,7 +130,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if (data + ETH_HLEN + sizeof(*ip) > data_end)
 		return DROP_INVALID;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
 
 	nexthdr = ip->protocol;
 	key.address = ip->daddr;
@@ -205,11 +205,11 @@ int from_netdev(struct __sk_buff *skb)
 		if (eth_store_daddr(skb, (__u8 *) &mac.addr, 0) < 0)
 			ret = DROP_WRITE_ERROR;
 #endif
-		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
 		return redirect(ifindex, 0);
 	}
 #endif
-	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }
 
