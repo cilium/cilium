@@ -1,6 +1,6 @@
 FROM fedora:25
 
-LABEL "Maintainer: Marcin Skarbek <marcin@skarbek.name>"
+LABEL maintainer "Marcin Skarbek <marcin@skarbek.name>"
 
 RUN echo "deltarpm=0" >> /etc/dnf/dnf.conf &&\
     curl -o /etc/yum.repos.d/mskarbek-golang-for-cilium-fedora-25.repo https://copr.fedorainfracloud.org/coprs/mskarbek/golang-for-cilium/repo/fedora-25/mskarbek-golang-for-cilium-fedora-25.repo &&\
