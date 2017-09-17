@@ -101,6 +101,7 @@ var (
 		"drop":    bpfdebug.MessageTypeDrop,
 		"debug":   bpfdebug.MessageTypeDebug,
 		"capture": bpfdebug.MessageTypeCapture,
+		"trace":   bpfdebug.MessageTypeTrace,
 	}
 	fromSource     = uint16(0)
 	toDst          = uint32(0)
@@ -156,6 +157,23 @@ func dropEvents(prefix string, data []byte) {
 	}
 }
 
+// traceEvents prints out all the received trace notifications.
+func traceEvents(prefix string, data []byte) {
+	tn := bpfdebug.TraceNotify{}
+
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
+		fmt.Printf("Error while parsing trace notification message: %s\n", err)
+	}
+	if match(bpfdebug.MessageTypeTrace, tn.Source, tn.DstID) {
+		if verbosity == INFO {
+			tn.DumpInfo(data)
+		} else {
+			fmt.Println(msgSeparator)
+			tn.DumpVerbose(!hex, data, prefix)
+		}
+	}
+}
+
 // debugEvents prints out all the debug messages.
 func debugEvents(prefix string, data []byte) {
 	dm := bpfdebug.DebugMsg{}
@@ -201,6 +219,8 @@ func receiveEvent(data []byte, cpu int) {
 		debugEvents(prefix, data)
 	case bpfdebug.MessageTypeCapture:
 		captureEvents(prefix, data)
+	case bpfdebug.MessageTypeTrace:
+		traceEvents(prefix, data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}

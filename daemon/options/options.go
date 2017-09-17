@@ -38,6 +38,7 @@ var (
 		endpoint.OptionConntrack:           &endpoint.OptionSpecConntrack,
 		endpoint.OptionDebug:               &endpoint.OptionSpecDebug,
 		endpoint.OptionDropNotify:          &endpoint.OptionSpecDropNotify,
+		endpoint.OptionTraceNotify:         &endpoint.OptionSpecTraceNotify,
 		endpoint.OptionNAT46:               &endpoint.OptionSpecNAT46,
 	}
 )

@@ -53,7 +53,7 @@ set -x
 
 ip addr add $HOSTIP6 dev cilium_host
 
-#cilium config Debug=true DropNotification=true
+#cilium config Debug=true DropNotification=true TraceNotification=true
 
 # Test the addition and removal of services with and without daemon
 
@@ -448,9 +448,9 @@ cilium service update --rev --frontend "$SVC_IP4:80" --id 2233 \
 			--backends "$SERVER4_IP4:80" \
 			--backends "$SERVER5_IP4:80"
 
-#cilium config Debug=false DropNotification=false
-#cilium endpoint config $SERVER1_ID Debug=false DropNotification=false
-#cilium endpoint config $SERVER2_ID Debug=false DropNotification=false
+#cilium config Debug=false DropNotification=false TraceNotification=false
+#cilium endpoint config $SERVER1_ID Debug=false DropNotification=false TraceNotification=false
+#cilium endpoint config $SERVER2_ID Debug=false DropNotification=false TraceNotification=false
 
 docker exec -i misc wrk -t20 -c1000 -d60 "http://[$SVC_IP6]:80/" || {
 	abort "Error: Unable to reach local IPv6 node via loadbalancer"
@@ -468,7 +468,7 @@ docker exec -i misc ab -r -n 1000000 -c 200 -s 60 -v 1 "http://$SVC_IP4/" || {
 	abort "Error: Unable to reach local IPv4 node via loadbalancer"
 }
 
-#cilium config Debug=true DropNotification=true
+#cilium config Debug=true DropNotification=true TraceNotification=true
 
 cleanup
 cilium policy delete --all

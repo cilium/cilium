@@ -34,6 +34,17 @@
 #include "utils.h"
 
 #ifdef DROP_NOTIFY
+
+struct drop_notify {
+	NOTIFY_COMMON_HDR
+	__u32		len_orig;
+	__u32		len_cap;
+	__u32		src_label;
+	__u32		dst_label;
+	__u32		dst_id;
+	__u32		ifindex;
+};
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(struct __sk_buff *skb)
 {
 	uint64_t skb_len = skb->len, cap_len = min(TRACE_PAYLOAD_LEN, skb_len);
@@ -92,12 +103,15 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 
 	return exitcode;
 }
+
 #else
+
 static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 				    __u32 dst_id, __u32 ifindex, int reason, int exitcode)
 {
 	return exitcode;
 }
+
 #endif
 
 static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)

@@ -27,6 +27,7 @@ const (
 	MessageTypeDrop
 	MessageTypeDebug
 	MessageTypeCapture
+	MessageTypeTrace
 )
 
 // must be in sync with <bpf/lib/dbg.h>
