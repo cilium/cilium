@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	log "github.com/Sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
@@ -89,6 +90,11 @@ func (r *CiliumNetworkPolicy) GetObjectKind() schema.ObjectKind {
 // GetObjectMeta returns the metadata of the object
 func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
 	return &r.Metadata
+}
+
+//TODO implement me - satisfy the compiler so CiliumNetworkPolicy implements runtime.Object for now
+func (r *CiliumNetworkPolicy) DeepCopyObject() runtime.Object {
+	return r
 }
 
 // parseToCilium returns an api.Rule with all the labels parsed into cilium
@@ -230,6 +236,11 @@ func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
 }
 
 // GetListMeta returns the metadata of the object
-func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
+/*func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
 	return &r.Metadata
+}*/
+
+//TODO implement me - satisfy the compiler so CiliumNetworkPolicyList implements runtime.Object for now
+func (r *CiliumNetworkPolicyList) DeepCopyObject() runtime.Object {
+	return r
 }
