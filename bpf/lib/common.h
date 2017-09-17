@@ -269,14 +269,6 @@ static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
  */
 #define TC_INDEX_F_SKIP_PROXY		1
 
-/**
- * tc_index_is_from_proxy - returns true if packet originates from egress proxy
- */
-static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
-{
-	return skb->tc_index & TC_INDEX_F_SKIP_PROXY;
-}
-
 /* skb->cb[] usage: */
 enum {
 	CB_SRC_LABEL,

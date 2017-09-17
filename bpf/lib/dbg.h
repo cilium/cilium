@@ -88,6 +88,9 @@ enum {
 				 * arg2: src sec-id
 				 * arg3: unused
 				 */
+	DBG_SKIP_PROXY,          /* arg1: skb->tc_index
+				  * arg2: unused
+				  */
 };
 
 /* Capture types */
