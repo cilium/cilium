@@ -179,6 +179,11 @@ func (option *Option) IsSet() bool {
 	return option.isSet
 }
 
+// IsSetDefault returns true if option has been set via the default option tag
+func (option *Option) IsSetDefault() bool {
+	return option.isSetDefault
+}
+
 // Set the value of an option to the specified value. An error will be returned
 // if the specified value could not be converted to the corresponding option
 // value type.

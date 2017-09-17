@@ -57,6 +57,7 @@ type API struct {
 	consumers       map[string]runtime.Consumer
 	producers       map[string]runtime.Producer
 	authenticators  map[string]runtime.Authenticator
+	authorizer      runtime.Authorizer
 	operations      map[string]map[string]runtime.OperationHandler
 	ServeError      func(http.ResponseWriter, *http.Request, error)
 	Models          map[string]func() interface{}
@@ -103,6 +104,11 @@ func (d *API) RegisterAuth(scheme string, handler runtime.Authenticator) {
 		d.authenticators = make(map[string]runtime.Authenticator)
 	}
 	d.authenticators[scheme] = handler
+}
+
+// RegisterAuthorizer registers an authorizer handler in this api
+func (d *API) RegisterAuthorizer(handler runtime.Authorizer) {
+	d.authorizer = handler
 }
 
 // RegisterConsumer registers a consumer for a media type.
@@ -176,6 +182,11 @@ func (d *API) AuthenticatorsFor(schemes map[string]spec.SecurityScheme) map[stri
 		}
 	}
 	return result
+}
+
+// AuthorizersFor returns the registered authorizer
+func (d *API) Authorizer() runtime.Authorizer {
+	return d.authorizer
 }
 
 // Validate validates this API for any missing items

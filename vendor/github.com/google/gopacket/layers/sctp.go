@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/crc32"
 
@@ -69,7 +70,7 @@ func (s SCTP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 
 func (sctp *SCTP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 12 {
-		return fmt.Errorf("Invalid SCTP common header length")
+		return errors.New("Invalid SCTP common header length")
 	}
 	sctp.SrcPort = SCTPPort(binary.BigEndian.Uint16(data[:2]))
 	sctp.sPort = data[:2]
@@ -114,7 +115,7 @@ func roundUpToNearest4(i int) int {
 func decodeSCTPChunk(data []byte) (SCTPChunk, error) {
 	length := binary.BigEndian.Uint16(data[2:4])
 	if length < 4 {
-		return SCTPChunk{}, fmt.Errorf("invalid SCTP chunk length")
+		return SCTPChunk{}, errors.New("invalid SCTP chunk length")
 	}
 	actual := roundUpToNearest4(int(length))
 	ct := SCTPChunkType(data[0])

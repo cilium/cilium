@@ -17,7 +17,7 @@ package kvstore
 import (
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // EventType defines the type of watch event that occured

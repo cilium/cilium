@@ -188,6 +188,10 @@ func (t *TCP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 	return nil
 }
 
+func (t *TCP) ComputeChecksum() (uint16, error) {
+	return t.computeChecksum(append(t.Contents, t.Payload...), IPProtocolTCP)
+}
+
 func (t *TCP) flagsAndOffset() uint16 {
 	f := uint16(t.DataOffset) << 12
 	if t.FIN {
@@ -288,7 +292,11 @@ func (t *TCP) CanDecode() gopacket.LayerClass {
 }
 
 func (t *TCP) NextLayerType() gopacket.LayerType {
-	return gopacket.LayerTypePayload
+	lt := t.DstPort.LayerType()
+	if lt == gopacket.LayerTypePayload {
+		lt = t.SrcPort.LayerType()
+	}
+	return lt
 }
 
 func decodeTCP(data []byte, p gopacket.PacketBuilder) error {
@@ -299,9 +307,21 @@ func decodeTCP(data []byte, p gopacket.PacketBuilder) error {
 	if err != nil {
 		return err
 	}
-	return p.NextDecoder(gopacket.LayerTypePayload)
+	if p.DecodeOptions().DecodeStreamsAsDatagrams {
+		return p.NextDecoder(tcp.NextLayerType())
+	} else {
+		return p.NextDecoder(gopacket.LayerTypePayload)
+	}
 }
 
 func (t *TCP) TransportFlow() gopacket.Flow {
 	return gopacket.NewFlow(EndpointTCPPort, t.sPort, t.dPort)
+}
+
+// For testing only
+func (t *TCP) SetInternalPortsForTesting() {
+	t.sPort = make([]byte, 2)
+	t.dPort = make([]byte, 2)
+	binary.BigEndian.PutUint16(t.sPort, uint16(t.SrcPort))
+	binary.BigEndian.PutUint16(t.dPort, uint16(t.DstPort))
 }

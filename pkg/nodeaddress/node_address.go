@@ -21,10 +21,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/node"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/kubernetes/staging/src/k8s.io/api/core/v1"
 )
 
 var (

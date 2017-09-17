@@ -96,27 +96,34 @@ const (
 	// According to pcap-linktype(7) and http://www.tcpdump.org/linktypes.html
 	LinkTypeNull           LinkType = 0
 	LinkTypeEthernet       LinkType = 1
+	LinkTypeAX25           LinkType = 3
 	LinkTypeTokenRing      LinkType = 6
 	LinkTypeArcNet         LinkType = 7
 	LinkTypeSLIP           LinkType = 8
 	LinkTypePPP            LinkType = 9
 	LinkTypeFDDI           LinkType = 10
-	LinkTypeATM_RFC1483    LinkType = 100
-	LinkTypeRaw            LinkType = 101
 	LinkTypePPP_HDLC       LinkType = 50
 	LinkTypePPPEthernet    LinkType = 51
+	LinkTypeATM_RFC1483    LinkType = 100
+	LinkTypeRaw            LinkType = 101
 	LinkTypeC_HDLC         LinkType = 104
 	LinkTypeIEEE802_11     LinkType = 105
 	LinkTypeFRelay         LinkType = 107
 	LinkTypeLoop           LinkType = 108
 	LinkTypeLinuxSLL       LinkType = 113
-	LinkTypeLTalk          LinkType = 104
+	LinkTypeLTalk          LinkType = 114
 	LinkTypePFLog          LinkType = 117
 	LinkTypePrismHeader    LinkType = 119
 	LinkTypeIPOverFC       LinkType = 122
 	LinkTypeSunATM         LinkType = 123
 	LinkTypeIEEE80211Radio LinkType = 127
 	LinkTypeARCNetLinux    LinkType = 129
+	LinkTypeIPOver1394     LinkType = 138
+	LinkTypeMTP2Phdr       LinkType = 139
+	LinkTypeMTP2           LinkType = 140
+	LinkTypeMTP3           LinkType = 141
+	LinkTypeSCCP           LinkType = 142
+	LinkTypeDOCSIS         LinkType = 143
 	LinkTypeLinuxIRDA      LinkType = 144
 	LinkTypeLinuxLAPD      LinkType = 177
 	LinkTypeLinuxUSB       LinkType = 220
@@ -277,8 +284,8 @@ var (
 	// with your new decoder, and all gopacket/layers decoding will use your new
 	// decoder whenever they encounter that IPProtocol.
 	EthernetTypeMetadata     [65536]EnumMetadata
-	IPProtocolMetadata       [265]EnumMetadata
-	SCTPChunkTypeMetadata    [265]EnumMetadata
+	IPProtocolMetadata       [256]EnumMetadata
+	SCTPChunkTypeMetadata    [256]EnumMetadata
 	PPPTypeMetadata          [65536]EnumMetadata
 	PPPoECodeMetadata        [256]EnumMetadata
 	LinkTypeMetadata         [256]EnumMetadata
@@ -489,7 +496,9 @@ func init() {
 	LinkTypeMetadata[LinkTypePPP] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodePPP), Name: "PPP"}
 	LinkTypeMetadata[LinkTypeFDDI] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeFDDI), Name: "FDDI"}
 	LinkTypeMetadata[LinkTypeNull] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeLoopback), Name: "Null"}
+	LinkTypeMetadata[LinkTypeIEEE802_11] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11), Name: "Dot11"}
 	LinkTypeMetadata[LinkTypeLoop] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeLoopback), Name: "Loop"}
+	LinkTypeMetadata[LinkTypeIEEE802_11] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11), Name: "802.11"}
 	LinkTypeMetadata[LinkTypeRaw] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeIPv4or6), Name: "Raw"}
 	LinkTypeMetadata[LinkTypePFLog] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodePFLog), Name: "PFLog"}
 	LinkTypeMetadata[LinkTypeIEEE80211Radio] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeRadioTap), Name: "RadioTap"}
@@ -521,6 +530,7 @@ func init() {
 	Dot11TypeMetadata[Dot11TypeMgmtDeauthentication] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11MgmtDeauthentication), Name: "MgmtDeauthentication", LayerType: LayerTypeDot11MgmtDeauthentication}
 	Dot11TypeMetadata[Dot11TypeMgmtAction] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11MgmtAction), Name: "MgmtAction", LayerType: LayerTypeDot11MgmtAction}
 	Dot11TypeMetadata[Dot11TypeMgmtActionNoAck] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11MgmtActionNoAck), Name: "MgmtActionNoAck", LayerType: LayerTypeDot11MgmtActionNoAck}
+	Dot11TypeMetadata[Dot11TypeCtrl] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11Ctrl), Name: "Ctrl", LayerType: LayerTypeDot11Ctrl}
 	Dot11TypeMetadata[Dot11TypeCtrlWrapper] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11Ctrl), Name: "CtrlWrapper", LayerType: LayerTypeDot11Ctrl}
 	Dot11TypeMetadata[Dot11TypeCtrlBlockAckReq] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11CtrlBlockAckReq), Name: "CtrlBlockAckReq", LayerType: LayerTypeDot11CtrlBlockAckReq}
 	Dot11TypeMetadata[Dot11TypeCtrlBlockAck] = EnumMetadata{DecodeWith: gopacket.DecodeFunc(decodeDot11CtrlBlockAck), Name: "CtrlBlockAck", LayerType: LayerTypeDot11CtrlBlockAck}

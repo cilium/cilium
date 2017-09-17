@@ -9,7 +9,7 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"net"
 	"time"
 
@@ -112,7 +112,7 @@ type IGMPv1or2 struct {
 // decodeResponse dissects IGMPv1 or IGMPv2 packet.
 func (i *IGMPv1or2) decodeResponse(data []byte) error {
 	if len(data) < 8 {
-		return fmt.Errorf("IGMP packet too small")
+		return errors.New("IGMP packet too small")
 	}
 
 	i.MaxResponseTime = igmpTimeDecode(data[1])
@@ -170,7 +170,7 @@ type IGMPv3GroupRecord struct {
 
 func (i *IGMP) decodeIGMPv3MembershipReport(data []byte) error {
 	if len(data) < 8 {
-		return fmt.Errorf("IGMPv3 Membership Report too small #1")
+		return errors.New("IGMPv3 Membership Report too small #1")
 	}
 
 	i.Checksum = binary.BigEndian.Uint16(data[2:4])
@@ -179,7 +179,7 @@ func (i *IGMP) decodeIGMPv3MembershipReport(data []byte) error {
 	recordOffset := 8
 	for j := 0; j < int(i.NumberOfGroupRecords); j++ {
 		if len(data) < recordOffset+8 {
-			return fmt.Errorf("IGMPv3 Membership Report too small #2")
+			return errors.New("IGMPv3 Membership Report too small #2")
 		}
 
 		var gr IGMPv3GroupRecord
@@ -189,7 +189,7 @@ func (i *IGMP) decodeIGMPv3MembershipReport(data []byte) error {
 		gr.MulticastAddress = net.IP(data[recordOffset+4 : recordOffset+8])
 
 		if len(data) < recordOffset+8+int(gr.NumberOfSources)*4 {
-			return fmt.Errorf("IGMPv3 Membership Report too small #3")
+			return errors.New("IGMPv3 Membership Report too small #3")
 		}
 
 		// append source address records.
@@ -223,7 +223,7 @@ func (i *IGMP) decodeIGMPv3MembershipReport(data []byte) error {
 // decodeIGMPv3MembershipQuery parses the IGMPv3 message of type 0x11
 func (i *IGMP) decodeIGMPv3MembershipQuery(data []byte) error {
 	if len(data) < 12 {
-		return fmt.Errorf("IGMPv3 Membership Query too small #1")
+		return errors.New("IGMPv3 Membership Query too small #1")
 	}
 
 	i.MaxResponseTime = igmpTimeDecode(data[1])
@@ -235,7 +235,7 @@ func (i *IGMP) decodeIGMPv3MembershipQuery(data []byte) error {
 	i.NumberOfSources = binary.BigEndian.Uint16(data[10:12])
 
 	if len(data) < 12+int(i.NumberOfSources)*4 {
-		return fmt.Errorf("IGMPv3 Membership Query too small #2")
+		return errors.New("IGMPv3 Membership Query too small #2")
 	}
 
 	for j := 0; j < int(i.NumberOfSources); j++ {
@@ -262,7 +262,7 @@ func (i *IGMPv1or2) LayerType() gopacket.LayerType { return LayerTypeIGMP }
 
 func (i *IGMPv1or2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 8 {
-		return fmt.Errorf("IGMP Packet too small")
+		return errors.New("IGMP Packet too small")
 	}
 
 	i.Type = IGMPType(data[0])
@@ -284,7 +284,7 @@ func (i *IGMPv1or2) CanDecode() gopacket.LayerClass {
 // DecodeFromBytes decodes the given bytes into this layer.
 func (i *IGMP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 1 {
-		return fmt.Errorf("IGMP packet is too small")
+		return errors.New("IGMP packet is too small")
 	}
 
 	// common IGMP header values between versions 1..3 of IGMP specification..
@@ -296,7 +296,7 @@ func (i *IGMP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	case IGMPMembershipReportV3:
 		i.decodeIGMPv3MembershipReport(data)
 	default:
-		return fmt.Errorf("unsupported IGMP type")
+		return errors.New("unsupported IGMP type")
 	}
 
 	return nil
@@ -318,7 +318,7 @@ func (i *IGMP) NextLayerType() gopacket.LayerType {
 // decodingLayerDecoder.
 func decodeIGMP(data []byte, p gopacket.PacketBuilder) error {
 	if len(data) < 1 {
-		return fmt.Errorf("IGMP packet is too small")
+		return errors.New("IGMP packet is too small")
 	}
 
 	// byte 0 contains IGMP message type.
@@ -351,5 +351,5 @@ func decodeIGMP(data []byte, p gopacket.PacketBuilder) error {
 	default:
 	}
 
-	return fmt.Errorf("Unable to determine IGMP type.")
+	return errors.New("Unable to determine IGMP type.")
 }

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+
+	"github.com/go-openapi/swag"
 )
 
 // TextConsumer creates a new text consumer
@@ -80,12 +82,25 @@ func TextProducer() Producer {
 			return err
 		}
 
+		if str, ok := data.(error); ok {
+			_, err := writer.Write([]byte(str.Error()))
+			return err
+		}
+
 		if str, ok := data.(fmt.Stringer); ok {
 			_, err := writer.Write([]byte(str.String()))
 			return err
 		}
 
 		v := reflect.Indirect(reflect.ValueOf(data))
+		if t := v.Type(); t.Kind() == reflect.Struct || t.Kind() == reflect.Slice {
+			b, err := swag.WriteJSON(data)
+			if err != nil {
+				return err
+			}
+			_, err = writer.Write(b)
+			return err
+		}
 		if v.Kind() != reflect.String {
 			return fmt.Errorf("%T is not a supported type by the TextProducer", data)
 		}

@@ -9,9 +9,11 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/google/gopacket"
 	"net"
+
+	"github.com/google/gopacket"
 )
 
 const (
@@ -61,7 +63,7 @@ func getIPv6HopByHopJumboLength(hopopts *IPv6HopByHop) (uint32, bool, error) {
 		return 0, false, nil
 	}
 	if len(tlv.OptionData) != 4 {
-		return 0, false, fmt.Errorf("Jumbo length TLV data must have length 4")
+		return 0, false, errors.New("Jumbo length TLV data must have length 4")
 	}
 	l := binary.BigEndian.Uint32(tlv.OptionData)
 	if l <= ipv6MaxPayloadLength {
@@ -126,7 +128,7 @@ func setIPv6PayloadJumboLength(hbh []byte) error {
 		}
 		offset += 2 + optLen
 	}
-	return fmt.Errorf("Jumbo TLV not found")
+	return errors.New("Jumbo TLV not found")
 }
 
 // SerializeTo writes the serialized form of this layer into the
@@ -152,7 +154,7 @@ func (ip6 *IPv6) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 				return err
 			}
 			if !ok {
-				return fmt.Errorf("Missing jumbo length hop-by-hop option")
+				return errors.New("Missing jumbo length hop-by-hop option")
 			}
 		}
 	}
@@ -175,7 +177,7 @@ func (ip6 *IPv6) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 		}
 	}
 	if !jumbo && pLen > ipv6MaxPayloadLength {
-		return fmt.Errorf("Cannot fit payload into IPv6 header")
+		return errors.New("Cannot fit payload into IPv6 header")
 	}
 	bytes, err := b.PrependBytes(40)
 	if err != nil {
@@ -235,9 +237,9 @@ func (ip6 *IPv6) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 			ip6.Payload = ip6.Payload[:pEnd]
 			return nil
 		} else if jumbo && ip6.Length != 0 {
-			return fmt.Errorf("IPv6 has jumbo length and IPv6 length is not 0")
+			return errors.New("IPv6 has jumbo length and IPv6 length is not 0")
 		} else if !jumbo && ip6.Length == 0 {
-			return fmt.Errorf("IPv6 length 0, but HopByHop header does not have jumbogram option")
+			return errors.New("IPv6 length 0, but HopByHop header does not have jumbogram option")
 		}
 	}
 
@@ -276,10 +278,7 @@ func decodeIPv6(data []byte, p gopacket.PacketBuilder) error {
 	if err != nil {
 		return err
 	}
-	if ip6.HopByHop != nil {
-		return p.NextDecoder(ip6.HopByHop.NextHeader)
-	}
-	return p.NextDecoder(ip6.NextHeader)
+	return p.NextDecoder(ip6.NextLayerType())
 }
 
 type ipv6HeaderTLVOption struct {
@@ -447,7 +446,7 @@ func (i *IPv6HopByHop) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Ser
 
 	length := len(bytes) + 2
 	if length%8 != 0 {
-		return fmt.Errorf("IPv6HopByHop actual length must be multiple of 8")
+		return errors.New("IPv6HopByHop actual length must be multiple of 8")
 	}
 	bytes, err = b.PrependBytes(2)
 	if err != nil {
@@ -616,7 +615,7 @@ func (i *IPv6Destination) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.
 
 	length := len(bytes) + 2
 	if length%8 != 0 {
-		return fmt.Errorf("IPv6Destination actual length must be multiple of 8")
+		return errors.New("IPv6Destination actual length must be multiple of 8")
 	}
 	bytes, err = b.PrependBytes(2)
 	if err != nil {
@@ -635,7 +634,7 @@ func checkIPv6Address(addr net.IP) error {
 		return nil
 	}
 	if len(addr) == net.IPv4len {
-		return fmt.Errorf("address is IPv4")
+		return errors.New("address is IPv4")
 	}
 	return fmt.Errorf("wrong length of %d bytes instead of %d", len(addr), net.IPv6len)
 }

@@ -216,8 +216,10 @@ func (p *Parser) writeHelpOption(writer *bufio.Writer, option *Option, info alig
 
 		var def string
 
-		if len(option.DefaultMask) != 0 && option.DefaultMask != "-" {
-			def = option.DefaultMask
+		if len(option.DefaultMask) != 0 {
+			if option.DefaultMask != "-" {
+				def = option.DefaultMask
+			}
 		} else {
 			def = option.defaultLiteral
 		}

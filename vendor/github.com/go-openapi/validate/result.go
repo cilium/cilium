@@ -25,10 +25,21 @@ var (
 	Debug = os.Getenv("SWAGGER_DEBUG") != ""
 )
 
+type Defaulter interface {
+	Apply()
+}
+
+type DefaulterFunc func()
+
+func (f DefaulterFunc) Apply() {
+	f()
+}
+
 // Result represents a validation result
 type Result struct {
 	Errors     []error
 	MatchCount int
+	Defaulters []Defaulter
 }
 
 // Merge merges this result with the other one, preserving match counts etc
@@ -38,6 +49,7 @@ func (r *Result) Merge(other *Result) *Result {
 	}
 	r.AddErrors(other.Errors...)
 	r.MatchCount += other.MatchCount
+	r.Defaulters = append(r.Defaulters, other.Defaulters...)
 	return r
 }
 
@@ -68,4 +80,10 @@ func (r *Result) AsError() error {
 		return nil
 	}
 	return errors.CompositeValidationError(r.Errors...)
+}
+
+func (r *Result) ApplyDefaults() {
+	for _, d := range r.Defaulters {
+		d.Apply()
+	}
 }

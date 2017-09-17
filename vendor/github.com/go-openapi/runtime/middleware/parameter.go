@@ -193,28 +193,28 @@ func (p *untypedParamBinder) Bind(request *http.Request, routeParams RouteParams
 		}
 
 		if mt == "multipart/form-data" {
-			if err := request.ParseMultipartForm(defaultMaxMemory); err != nil {
+			if err = request.ParseMultipartForm(defaultMaxMemory); err != nil {
 				return errors.NewParseError(p.Name, p.parameter.In, "", err)
 			}
 		}
 
-		if err := request.ParseForm(); err != nil {
+		if err = request.ParseForm(); err != nil {
 			return errors.NewParseError(p.Name, p.parameter.In, "", err)
 		}
 
 		if p.parameter.Type == "file" {
-			file, header, err := request.FormFile(p.parameter.Name)
-			if err != nil {
-				return errors.NewParseError(p.Name, p.parameter.In, "", err)
+			file, header, ffErr := request.FormFile(p.parameter.Name)
+			if ffErr != nil {
+				return errors.NewParseError(p.Name, p.parameter.In, "", ffErr)
 			}
 			target.Set(reflect.ValueOf(runtime.File{Data: file, Header: header}))
 			return nil
 		}
 
 		if request.MultipartForm != nil {
-			data, custom, hasKey, err := p.readValue(runtime.Values(request.MultipartForm.Value), target)
-			if err != nil {
-				return err
+			data, custom, hasKey, rvErr := p.readValue(runtime.Values(request.MultipartForm.Value), target)
+			if rvErr != nil {
+				return rvErr
 			}
 			if custom {
 				return nil

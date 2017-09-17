@@ -1,7 +1,7 @@
-# Serf
+# Serf [![Build Status](https://travis-ci.org/hashicorp/serf.png)](https://travis-ci.org/hashicorp/serf) [![Join the chat at https://gitter.im/hashicorp-serf/Lobby](https://badges.gitter.im/hashicorp-serf/Lobby.svg)](https://gitter.im/hashicorp-serf/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-* Website: https://www.serfdom.io
-* IRC: `#serfdom` on Freenode
+* Website: https://www.serf.io
+* Chat: [Gitter](https://gitter.im/hashicorp-serf/Lobby)
 * Mailing list: [Google Groups](https://groups.google.com/group/serfdom/)
 
 Serf is a decentralized solution for service discovery and orchestration
@@ -28,8 +28,9 @@ Here are some example use cases of Serf, though there are many others:
 
 ## Quick Start
 
-First, [download a pre-built Serf binary](https://www.serfdom.io/downloads.html)
-for your operating system or [compile Serf yourself](#developing-serf).
+First, [download a pre-built Serf binary](https://www.serf.io/downloads.html)
+for your operating system, [compile Serf yourself](#developing-serf), or install
+using `go get -u github.com/hashicorp/serf/cmd/serf`.
 
 Next, let's start a couple Serf agents. Agents run until they're told to quit
 and handle the communication of maintenance tasks of Serf. In a real Serf
@@ -87,12 +88,12 @@ cluster of the node failure.
 
 Full, comprehensive documentation is viewable on the Serf website:
 
-https://www.serfdom.io/docs
+https://www.serf.io/docs
 
 ## Developing Serf
 
 If you wish to work on Serf itself, you'll first need [Go](https://golang.org)
-installed (version 1.2+ is _required_). Make sure you have Go properly 
+installed (version 1.8+ is _required_). Make sure you have Go properly
 [installed](https://golang.org/doc/install),
 including setting up your [GOPATH](https://golang.org/doc/code.html#GOPATH).
 
@@ -106,9 +107,15 @@ $ bin/serf
 ...
 ```
 
-*note: `make` will also place a copy of the executable under $GOPATH/bin*
+*NOTE: `make` will also place a copy of the executable under `$GOPATH/bin/`*
 
-You can run tests by typing `make test`.
+Serf is first and foremost a library with a command-line interface, `serf`. The
+Serf library is independent of the command line agent, `serf`.  The `serf`
+binary is located under `cmd/serf` and can be installed stand alone by issuing
+the command `go get -u github.com/hashicorp/serf/cmd/serf`.  Applications using
+the Serf library should only need to include `github.com/hashicorp/serf`.
+
+Tests can be run by typing `make test`.
 
 If you make any changes to the code, run `make format` in order to automatically
-format the code according to Go standards.
+format the code according to Go [standards](https://golang.org/doc/effective_go.html#formatting).

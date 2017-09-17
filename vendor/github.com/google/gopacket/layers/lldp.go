@@ -8,7 +8,9 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+
 	"github.com/google/gopacket"
 )
 
@@ -746,12 +748,12 @@ func decodeLinkLayerDiscovery(data []byte, p gopacket.PacketBuilder) error {
 			break
 		}
 		if len(vData) < int(2+val.Length) {
-			return fmt.Errorf("Malformed LinkLayerDiscovery Header")
+			return errors.New("Malformed LinkLayerDiscovery Header")
 		}
 		vData = vData[2+val.Length:]
 	}
 	if len(vals) < 4 {
-		return fmt.Errorf("Missing mandatory LinkLayerDiscovery TLV")
+		return errors.New("Missing mandatory LinkLayerDiscovery TLV")
 	}
 	c := &LinkLayerDiscovery{}
 	gotEnd := false
@@ -761,19 +763,19 @@ func decodeLinkLayerDiscovery(data []byte, p gopacket.PacketBuilder) error {
 			gotEnd = true
 		case LLDPTLVChassisID:
 			if len(v.Value) < 2 {
-				return fmt.Errorf("Malformed LinkLayerDiscovery ChassisID TLV")
+				return errors.New("Malformed LinkLayerDiscovery ChassisID TLV")
 			}
 			c.ChassisID.Subtype = LLDPChassisIDSubType(v.Value[0])
 			c.ChassisID.ID = v.Value[1:]
 		case LLDPTLVPortID:
 			if len(v.Value) < 2 {
-				return fmt.Errorf("Malformed LinkLayerDiscovery PortID TLV")
+				return errors.New("Malformed LinkLayerDiscovery PortID TLV")
 			}
 			c.PortID.Subtype = LLDPPortIDSubType(v.Value[0])
 			c.PortID.ID = v.Value[1:]
 		case LLDPTLVTTL:
 			if len(v.Value) < 2 {
-				return fmt.Errorf("Malformed LinkLayerDiscovery TTL TLV")
+				return errors.New("Malformed LinkLayerDiscovery TTL TLV")
 			}
 			c.TTL = binary.BigEndian.Uint16(v.Value[0:2])
 		default:
@@ -781,7 +783,7 @@ func decodeLinkLayerDiscovery(data []byte, p gopacket.PacketBuilder) error {
 		}
 	}
 	if c.ChassisID.Subtype == 0 || c.PortID.Subtype == 0 || !gotEnd {
-		return fmt.Errorf("Missing mandatory LinkLayerDiscovery TLV")
+		return errors.New("Missing mandatory LinkLayerDiscovery TLV")
 	}
 	c.Contents = data
 	p.AddLayer(c)

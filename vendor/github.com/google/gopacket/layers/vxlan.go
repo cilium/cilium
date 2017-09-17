@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/google/gopacket"
 )
 
@@ -60,4 +61,34 @@ func decodeVXLAN(data []byte, p gopacket.PacketBuilder) error {
 
 	p.AddLayer(vx)
 	return p.NextDecoder(LinkTypeEthernet)
+}
+
+// SerializeTo writes the serialized form of this layer into the
+// SerializationBuffer, implementing gopacket.SerializableLayer.
+// See the docs for gopacket.SerializableLayer for more info.
+func (vx *VXLAN) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	bytes, err := b.PrependBytes(8)
+	if err != nil {
+		return err
+	}
+
+	if vx.ValidIDFlag {
+		bytes[0] |= 0x08
+	}
+	if vx.GBPExtension {
+		bytes[0] |= 0x80
+	}
+	if vx.GBPDontLearn {
+		bytes[1] |= 0x40
+	}
+	if vx.GBPApplied {
+		bytes[1] |= 0x80
+	}
+
+	binary.BigEndian.PutUint16(bytes[2:4], vx.GBPGroupPolicyID)
+	if vx.VNI >= 1<<24 {
+		return fmt.Errorf("Virtual Network Identifier = %x exceeds max for 24-bit uint", vx.VNI)
+	}
+	binary.BigEndian.PutUint32(bytes[4:8], vx.VNI<<8)
+	return nil
 }

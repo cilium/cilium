@@ -511,6 +511,9 @@ func (p *Properties) Set(key, value string) (prev string, ok bool, err error) {
 	if p.DisableExpansion {
 		prev, ok = p.Get(key)
 		p.m[key] = value
+		if !ok {
+			p.k = append(p.k, key)
+		}
 		return prev, ok, nil
 	}
 
@@ -540,6 +543,13 @@ func (p *Properties) Set(key, value string) (prev string, ok bool, err error) {
 	}
 
 	return prev, ok, nil
+}
+
+// SetValue sets property key to the default string value
+// as defined by fmt.Sprintf("%v").
+func (p *Properties) SetValue(key string, value interface{}) error {
+	_, _, err := p.Set(key, fmt.Sprintf("%v", value))
+	return err
 }
 
 // MustSet sets the property key to the corresponding value.
@@ -620,6 +630,30 @@ func (p *Properties) WriteComment(w io.Writer, prefix string, enc Encoding) (n i
 		n += x
 	}
 	return
+}
+
+// Map returns a copy of the properties as a map.
+func (p *Properties) Map() map[string]string {
+	m := make(map[string]string)
+	for k, v := range p.m {
+		m[k] = v
+	}
+	return m
+}
+
+// FilterFunc returns a copy of the properties which includes the values which passed all filters.
+func (p *Properties) FilterFunc(filters ...func(k, v string) bool) *Properties {
+	pp := NewProperties()
+outer:
+	for k, v := range p.m {
+		for _, f := range filters {
+			if !f(k, v) {
+				continue outer
+			}
+			pp.Set(k, v)
+		}
+	}
+	return pp
 }
 
 // ----------------------------------------------------------------------------

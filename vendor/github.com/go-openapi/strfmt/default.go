@@ -17,6 +17,7 @@ package strfmt
 import (
 	"database/sql/driver"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -24,6 +25,8 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/mailru/easyjson/jlexer"
 	"github.com/mailru/easyjson/jwriter"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -252,6 +255,24 @@ func (b *Base64) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (b *Base64) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*b)}, nil
+}
+
+func (b *Base64) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*b = Base64(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as Base64")
+}
+
 // URI represents the uri string format as specified by the json schema spec
 //
 // swagger:strfmt uri
@@ -311,6 +332,24 @@ func (u *URI) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = URI(data)
 	}
+}
+
+func (u *URI) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *URI) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = URI(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as URI")
 }
 
 // Email represents the email string format as specified by the json schema spec
@@ -374,6 +413,24 @@ func (e *Email) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (e *Email) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*e)}, nil
+}
+
+func (e *Email) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*e = Email(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as Email")
+}
+
 // Hostname represents the hostname string format as specified by the json schema spec
 //
 // swagger:strfmt hostname
@@ -433,6 +490,24 @@ func (h *Hostname) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*h = Hostname(data)
 	}
+}
+
+func (h *Hostname) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*h)}, nil
+}
+
+func (h *Hostname) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*h = Hostname(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as Hostname")
 }
 
 // IPv4 represents an IP v4 address
@@ -496,6 +571,24 @@ func (u *IPv4) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (u *IPv4) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *IPv4) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = IPv4(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as IPv4")
+}
+
 // IPv6 represents an IP v6 address
 //
 // swagger:strfmt ipv6
@@ -555,6 +648,24 @@ func (u *IPv6) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = IPv6(data)
 	}
+}
+
+func (u *IPv6) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *IPv6) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = IPv6(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as IPv6")
 }
 
 // MAC represents a 48 bit MAC address
@@ -618,6 +729,24 @@ func (u *MAC) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (u *MAC) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *MAC) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = MAC(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as MAC")
+}
+
 // UUID represents a uuid string format
 //
 // swagger:strfmt uuid
@@ -677,6 +806,24 @@ func (u *UUID) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = UUID(data)
 	}
+}
+
+func (u *UUID) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *UUID) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = UUID(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as UUID")
 }
 
 // UUID3 represents a uuid3 string format
@@ -740,6 +887,24 @@ func (u *UUID3) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (u *UUID3) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *UUID3) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = UUID3(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as UUID3")
+}
+
 // UUID4 represents a uuid4 string format
 //
 // swagger:strfmt uuid4
@@ -799,6 +964,24 @@ func (u *UUID4) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = UUID4(data)
 	}
+}
+
+func (u *UUID4) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *UUID4) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = UUID4(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as UUID4")
 }
 
 // UUID5 represents a uuid5 string format
@@ -862,6 +1045,24 @@ func (u *UUID5) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (u *UUID5) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *UUID5) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = UUID5(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as UUID5")
+}
+
 // ISBN represents an isbn string format
 //
 // swagger:strfmt isbn
@@ -921,6 +1122,24 @@ func (u *ISBN) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = ISBN(data)
 	}
+}
+
+func (u *ISBN) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *ISBN) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = ISBN(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as ISBN")
 }
 
 // ISBN10 represents an isbn 10 string format
@@ -984,6 +1203,24 @@ func (u *ISBN10) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (u *ISBN10) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *ISBN10) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = ISBN10(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as ISBN10")
+}
+
 // ISBN13 represents an isbn 13 string format
 //
 // swagger:strfmt isbn13
@@ -1043,6 +1280,24 @@ func (u *ISBN13) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = ISBN13(data)
 	}
+}
+
+func (u *ISBN13) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *ISBN13) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = ISBN13(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as ISBN13")
 }
 
 // CreditCard represents a credit card string format
@@ -1106,6 +1361,24 @@ func (u *CreditCard) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (u *CreditCard) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *CreditCard) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = CreditCard(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as CreditCard")
+}
+
 // SSN represents a social security string format
 //
 // swagger:strfmt ssn
@@ -1165,6 +1438,24 @@ func (u *SSN) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*u = SSN(data)
 	}
+}
+
+func (u *SSN) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*u)}, nil
+}
+
+func (u *SSN) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*u = SSN(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as SSN")
 }
 
 // HexColor represents a hex color string format
@@ -1228,6 +1519,24 @@ func (h *HexColor) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	}
 }
 
+func (h *HexColor) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*h)}, nil
+}
+
+func (h *HexColor) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*h = HexColor(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as HexColor")
+}
+
 // RGBColor represents a RGB color string format
 //
 // swagger:strfmt rgbcolor
@@ -1287,6 +1596,24 @@ func (r *RGBColor) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*r = RGBColor(data)
 	}
+}
+
+func (r *RGBColor) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*r)}, nil
+}
+
+func (r *RGBColor) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*r = RGBColor(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as RGBColor")
 }
 
 // Password represents a password.
@@ -1349,4 +1676,22 @@ func (r *Password) UnmarshalEasyJSON(in *jlexer.Lexer) {
 	if data := in.String(); in.Ok() {
 		*r = Password(data)
 	}
+}
+
+func (r *Password) GetBSON() (interface{}, error) {
+	return bson.M{"data": string(*r)}, nil
+}
+
+func (r *Password) SetBSON(raw bson.Raw) error {
+	var m bson.M
+	if err := raw.Unmarshal(&m); err != nil {
+		return err
+	}
+
+	if data, ok := m["data"].(string); ok {
+		*r = Password(data)
+		return nil
+	}
+
+	return errors.New("couldn't unmarshal bson raw value as Password")
 }

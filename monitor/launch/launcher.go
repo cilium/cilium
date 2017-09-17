@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const targetName = "cilium-node-monitor"

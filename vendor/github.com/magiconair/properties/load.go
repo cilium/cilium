@@ -33,6 +33,15 @@ func LoadString(s string) (*Properties, error) {
 	return loadBuf([]byte(s), UTF8)
 }
 
+// LoadMap creates a new Properties struct from a string map.
+func LoadMap(m map[string]string) *Properties {
+	p := NewProperties()
+	for k, v := range m {
+		p.Set(k, v)
+	}
+	return p
+}
+
 // LoadFile reads a file into a Properties struct.
 func LoadFile(filename string, enc Encoding) (*Properties, error) {
 	return loadAll([]string{filename}, enc, false)

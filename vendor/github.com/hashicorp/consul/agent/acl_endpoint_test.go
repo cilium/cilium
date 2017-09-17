@@ -1,0 +1,294 @@
+package agent
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/hashicorp/consul/acl"
+	"github.com/hashicorp/consul/agent/structs"
+)
+
+func makeTestACL(t *testing.T, srv *HTTPServer) string {
+	body := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(body)
+	raw := map[string]interface{}{
+		"Name":  "User Token",
+		"Type":  "client",
+		"Rules": "",
+	}
+	enc.Encode(raw)
+
+	req, _ := http.NewRequest("PUT", "/v1/acl/create?token=root", body)
+	resp := httptest.NewRecorder()
+	obj, err := srv.ACLCreate(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	aclResp := obj.(aclCreateResponse)
+	return aclResp.ID
+}
+
+func TestACL_Bootstrap(t *testing.T) {
+	t.Parallel()
+	cfg := TestACLConfig()
+	cfg.ACLMasterToken = ""
+	a := NewTestAgent(t.Name(), cfg)
+	defer a.Shutdown()
+
+	tests := []struct {
+		name   string
+		method string
+		code   int
+		token  bool
+	}{
+		{"bad method", "GET", http.StatusMethodNotAllowed, false},
+		{"bootstrap", "PUT", http.StatusOK, true},
+		{"not again", "PUT", http.StatusForbidden, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := httptest.NewRecorder()
+			req, _ := http.NewRequest(tt.method, "/v1/acl/bootstrap", nil)
+			out, err := a.srv.ACLBootstrap(resp, req)
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			if got, want := resp.Code, tt.code; got != want {
+				t.Fatalf("got %d want %d", got, want)
+			}
+			if tt.token {
+				wrap, ok := out.(aclCreateResponse)
+				if !ok {
+					t.Fatalf("bad: %T", out)
+				}
+				if len(wrap.ID) != len("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") {
+					t.Fatalf("bad: %v", wrap)
+				}
+			} else {
+				if out != nil {
+					t.Fatalf("bad: %T", out)
+				}
+			}
+		})
+	}
+}
+
+func TestACL_Update(t *testing.T) {
+	t.Parallel()
+	a := NewTestAgent(t.Name(), TestACLConfig())
+	defer a.Shutdown()
+
+	id := makeTestACL(t, a.srv)
+
+	body := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(body)
+	raw := map[string]interface{}{
+		"ID":    id,
+		"Name":  "User Token 2",
+		"Type":  "client",
+		"Rules": "",
+	}
+	enc.Encode(raw)
+
+	req, _ := http.NewRequest("PUT", "/v1/acl/update?token=root", body)
+	resp := httptest.NewRecorder()
+	obj, err := a.srv.ACLUpdate(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	aclResp := obj.(aclCreateResponse)
+	if aclResp.ID != id {
+		t.Fatalf("bad: %v", aclResp)
+	}
+}
+
+func TestACL_UpdateUpsert(t *testing.T) {
+	t.Parallel()
+	a := NewTestAgent(t.Name(), TestACLConfig())
+	defer a.Shutdown()
+
+	body := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(body)
+	raw := map[string]interface{}{
+		"ID":    "my-old-id",
+		"Name":  "User Token 2",
+		"Type":  "client",
+		"Rules": "",
+	}
+	enc.Encode(raw)
+
+	req, _ := http.NewRequest("PUT", "/v1/acl/update?token=root", body)
+	resp := httptest.NewRecorder()
+	obj, err := a.srv.ACLUpdate(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	aclResp := obj.(aclCreateResponse)
+	if aclResp.ID != "my-old-id" {
+		t.Fatalf("bad: %v", aclResp)
+	}
+}
+
+func TestACL_Destroy(t *testing.T) {
+	t.Parallel()
+	a := NewTestAgent(t.Name(), TestACLConfig())
+	defer a.Shutdown()
+
+	id := makeTestACL(t, a.srv)
+	req, _ := http.NewRequest("PUT", "/v1/acl/destroy/"+id+"?token=root", nil)
+	resp := httptest.NewRecorder()
+	obj, err := a.srv.ACLDestroy(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if resp, ok := obj.(bool); !ok || !resp {
+		t.Fatalf("should work")
+	}
+
+	req, _ = http.NewRequest("GET", "/v1/acl/info/"+id, nil)
+	resp = httptest.NewRecorder()
+	obj, err = a.srv.ACLGet(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	respObj, ok := obj.(structs.ACLs)
+	if !ok {
+		t.Fatalf("should work")
+	}
+	if len(respObj) != 0 {
+		t.Fatalf("bad: %v", respObj)
+	}
+}
+
+func TestACL_Clone(t *testing.T) {
+	t.Parallel()
+	a := NewTestAgent(t.Name(), TestACLConfig())
+	defer a.Shutdown()
+
+	id := makeTestACL(t, a.srv)
+
+	req, _ := http.NewRequest("PUT", "/v1/acl/clone/"+id, nil)
+	resp := httptest.NewRecorder()
+	_, err := a.srv.ACLClone(resp, req)
+	if !acl.IsErrPermissionDenied(err) {
+		t.Fatalf("err: %v", err)
+	}
+
+	req, _ = http.NewRequest("PUT", "/v1/acl/clone/"+id+"?token=root", nil)
+	resp = httptest.NewRecorder()
+	obj, err := a.srv.ACLClone(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	aclResp, ok := obj.(aclCreateResponse)
+	if !ok {
+		t.Fatalf("should work: %#v %#v", obj, resp)
+	}
+	if aclResp.ID == id {
+		t.Fatalf("bad id")
+	}
+
+	req, _ = http.NewRequest("GET", "/v1/acl/info/"+aclResp.ID, nil)
+	resp = httptest.NewRecorder()
+	obj, err = a.srv.ACLGet(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	respObj, ok := obj.(structs.ACLs)
+	if !ok {
+		t.Fatalf("should work")
+	}
+	if len(respObj) != 1 {
+		t.Fatalf("bad: %v", respObj)
+	}
+}
+
+func TestACL_Get(t *testing.T) {
+	t.Parallel()
+	t.Run("wrong id", func(t *testing.T) {
+		a := NewTestAgent(t.Name(), TestACLConfig())
+		defer a.Shutdown()
+
+		req, _ := http.NewRequest("GET", "/v1/acl/info/nope", nil)
+		resp := httptest.NewRecorder()
+		obj, err := a.srv.ACLGet(resp, req)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		respObj, ok := obj.(structs.ACLs)
+		if !ok {
+			t.Fatalf("should work")
+		}
+		if respObj == nil || len(respObj) != 0 {
+			t.Fatalf("bad: %v", respObj)
+		}
+	})
+
+	t.Run("right id", func(t *testing.T) {
+		a := NewTestAgent(t.Name(), TestACLConfig())
+		defer a.Shutdown()
+
+		id := makeTestACL(t, a.srv)
+
+		req, _ := http.NewRequest("GET", "/v1/acl/info/"+id, nil)
+		resp := httptest.NewRecorder()
+		obj, err := a.srv.ACLGet(resp, req)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		respObj, ok := obj.(structs.ACLs)
+		if !ok {
+			t.Fatalf("should work")
+		}
+		if len(respObj) != 1 {
+			t.Fatalf("bad: %v", respObj)
+		}
+	})
+}
+
+func TestACL_List(t *testing.T) {
+	t.Parallel()
+	a := NewTestAgent(t.Name(), TestACLConfig())
+	defer a.Shutdown()
+
+	var ids []string
+	for i := 0; i < 10; i++ {
+		ids = append(ids, makeTestACL(t, a.srv))
+	}
+
+	req, _ := http.NewRequest("GET", "/v1/acl/list?token=root", nil)
+	resp := httptest.NewRecorder()
+	obj, err := a.srv.ACLList(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	respObj, ok := obj.(structs.ACLs)
+	if !ok {
+		t.Fatalf("should work")
+	}
+
+	// 10 + anonymous + master
+	if len(respObj) != 12 {
+		t.Fatalf("bad: %v", respObj)
+	}
+}
+
+func TestACLReplicationStatus(t *testing.T) {
+	t.Parallel()
+	a := NewTestAgent(t.Name(), nil)
+	defer a.Shutdown()
+
+	req, _ := http.NewRequest("GET", "/v1/acl/replication", nil)
+	resp := httptest.NewRecorder()
+	obj, err := a.srv.ACLReplicationStatus(resp, req)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	_, ok := obj.(structs.ACLReplicationStatus)
+	if !ok {
+		t.Fatalf("should work")
+	}
+}

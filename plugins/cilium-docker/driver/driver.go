@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	endpointPkg "github.com/cilium/cilium/pkg/endpoint"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"

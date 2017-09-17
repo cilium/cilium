@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/cilium/cilium/common"
 )
 
@@ -294,7 +294,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 		log.Debugf("setting PolicyCalculated to true for endpoint %d", e.ID)
 		e.PolicyCalculated = true
 		// Always trigger a regenerate after the first policy
-		// calculation has been performed
+		// calculation has been performed.
 		policyChanged = true
 	}
 

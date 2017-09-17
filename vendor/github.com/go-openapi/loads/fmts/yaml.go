@@ -14,99 +14,17 @@
 
 package fmts
 
-import (
-	"encoding/json"
-	"fmt"
-	"path/filepath"
-	"strconv"
+import "github.com/go-openapi/swag"
 
-	"github.com/go-openapi/swag"
-
-	"gopkg.in/yaml.v2"
+var (
+	// YAMLMatcher matches yaml
+	YAMLMatcher = swag.YAMLMatcher
+	// YAMLToJSON converts YAML unmarshaled data into json compatible data
+	YAMLToJSON = swag.YAMLToJSON
+	// BytesToYAMLDoc converts raw bytes to a map[string]interface{}
+	BytesToYAMLDoc = swag.BytesToYAMLDoc
+	// YAMLDoc loads a yaml document from either http or a file and converts it to json
+	YAMLDoc = swag.YAMLDoc
+	// YAMLData loads a yaml document from either http or a file
+	YAMLData = swag.YAMLData
 )
-
-// YAMLMatcher matches yaml
-func YAMLMatcher(path string) bool {
-	ext := filepath.Ext(path)
-	return ext == ".yaml" || ext == ".yml"
-}
-
-// YAMLToJSON converts YAML unmarshaled data into json compatible data
-func YAMLToJSON(data interface{}) (json.RawMessage, error) {
-	jm, err := transformData(data)
-	if err != nil {
-		return nil, err
-	}
-	b, err := swag.WriteJSON(jm)
-	return json.RawMessage(b), err
-}
-
-func BytesToYAMLDoc(data []byte) (interface{}, error) {
-	var document map[interface{}]interface{}
-	if err := yaml.Unmarshal(data, &document); err != nil {
-		return nil, err
-	}
-
-	return document, nil
-}
-
-func transformData(in interface{}) (out interface{}, err error) {
-	switch in.(type) {
-	case map[interface{}]interface{}:
-		o := make(map[string]interface{})
-		for k, v := range in.(map[interface{}]interface{}) {
-			sk := ""
-			switch k.(type) {
-			case string:
-				sk = k.(string)
-			case int:
-				sk = strconv.Itoa(k.(int))
-			default:
-				return nil, fmt.Errorf("types don't match: expect map key string or int get: %T", k)
-			}
-			v, err = transformData(v)
-			if err != nil {
-				return nil, err
-			}
-			o[sk] = v
-		}
-		return o, nil
-	case []interface{}:
-		in1 := in.([]interface{})
-		len1 := len(in1)
-		o := make([]interface{}, len1)
-		for i := 0; i < len1; i++ {
-			o[i], err = transformData(in1[i])
-			if err != nil {
-				return nil, err
-			}
-		}
-		return o, nil
-	}
-	return in, nil
-}
-
-// YAMLDoc loads a yaml document from either http or a file and converts it to json
-func YAMLDoc(path string) (json.RawMessage, error) {
-	yamlDoc, err := YAMLData(path)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := YAMLToJSON(yamlDoc)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.RawMessage(data), nil
-}
-
-// YAMLData loads a yaml document from either http or a file
-func YAMLData(path string) (interface{}, error) {
-	data, err := swag.LoadFromFileOrHTTP(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return BytesToYAMLDoc(data)
-}

@@ -10,9 +10,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/google/gopacket"
 	"hash/crc32"
 	"strings"
+
+	"github.com/google/gopacket"
 )
 
 // align calculates the number of bytes needed to align with the width
@@ -866,6 +867,176 @@ func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 		payload = append(payload, fcs...)
 	}
 	m.BaseLayer = BaseLayer{Contents: data[:m.Length], Payload: payload}
+
+	return nil
+}
+
+func (m RadioTap) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf := make([]byte, 1024)
+
+	buf[0] = m.Version
+	buf[1] = 0
+
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(m.Present))
+
+	offset := uint16(4)
+
+	for (binary.LittleEndian.Uint32(buf[offset:offset+4]) & 0x80000000) != 0 {
+		offset += 4
+	}
+
+	offset += 4
+
+	if m.Present.TSFT() {
+		offset += align(offset, 8)
+		binary.LittleEndian.PutUint64(buf[offset:offset+8], m.TSFT)
+		offset += 8
+	}
+
+	if m.Present.Flags() {
+		buf[offset] = uint8(m.Flags)
+		offset++
+	}
+
+	if m.Present.Rate() {
+		buf[offset] = uint8(m.Rate)
+		offset++
+	}
+
+	if m.Present.Channel() {
+		offset += align(offset, 2)
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], uint16(m.ChannelFrequency))
+		offset += 2
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], uint16(m.ChannelFlags))
+		offset += 2
+	}
+
+	if m.Present.FHSS() {
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], m.FHSS)
+		offset += 2
+	}
+
+	if m.Present.DBMAntennaSignal() {
+		buf[offset] = byte(m.DBMAntennaSignal)
+		offset++
+	}
+
+	if m.Present.DBMAntennaNoise() {
+		buf[offset] = byte(m.DBMAntennaNoise)
+		offset++
+	}
+
+	if m.Present.LockQuality() {
+		offset += align(offset, 2)
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], m.LockQuality)
+		offset += 2
+	}
+
+	if m.Present.TxAttenuation() {
+		offset += align(offset, 2)
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], m.TxAttenuation)
+		offset += 2
+	}
+
+	if m.Present.DBTxAttenuation() {
+		offset += align(offset, 2)
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], m.DBTxAttenuation)
+		offset += 2
+	}
+
+	if m.Present.DBMTxPower() {
+		buf[offset] = byte(m.DBMTxPower)
+		offset++
+	}
+
+	if m.Present.Antenna() {
+		buf[offset] = uint8(m.Antenna)
+		offset++
+	}
+
+	if m.Present.DBAntennaSignal() {
+		buf[offset] = uint8(m.DBAntennaSignal)
+		offset++
+	}
+
+	if m.Present.DBAntennaNoise() {
+		buf[offset] = uint8(m.DBAntennaNoise)
+		offset++
+	}
+
+	if m.Present.RxFlags() {
+		offset += align(offset, 2)
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], uint16(m.RxFlags))
+		offset += 2
+	}
+
+	if m.Present.TxFlags() {
+		offset += align(offset, 2)
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], uint16(m.TxFlags))
+		offset += 2
+	}
+
+	if m.Present.RtsRetries() {
+		buf[offset] = m.RtsRetries
+		offset++
+	}
+
+	if m.Present.DataRetries() {
+		buf[offset] = m.DataRetries
+		offset++
+	}
+
+	if m.Present.MCS() {
+		buf[offset] = uint8(m.MCS.Known)
+		buf[offset+1] = uint8(m.MCS.Flags)
+		buf[offset+2] = uint8(m.MCS.MCS)
+
+		offset += 3
+	}
+
+	if m.Present.AMPDUStatus() {
+		offset += align(offset, 4)
+
+		binary.LittleEndian.PutUint32(buf[offset:offset+4], m.AMPDUStatus.Reference)
+		binary.LittleEndian.PutUint16(buf[offset+4:offset+6], uint16(m.AMPDUStatus.Flags))
+
+		buf[offset+6] = m.AMPDUStatus.CRC
+
+		offset += 8
+	}
+
+	if m.Present.VHT() {
+		offset += align(offset, 2)
+
+		binary.LittleEndian.PutUint16(buf[offset:], uint16(m.VHT.Known))
+
+		buf[offset+2] = uint8(m.VHT.Flags)
+		buf[offset+3] = uint8(m.VHT.Bandwidth)
+		buf[offset+4] = uint8(m.VHT.MCSNSS[0])
+		buf[offset+5] = uint8(m.VHT.MCSNSS[1])
+		buf[offset+6] = uint8(m.VHT.MCSNSS[2])
+		buf[offset+7] = uint8(m.VHT.MCSNSS[3])
+		buf[offset+8] = uint8(m.VHT.Coding)
+		buf[offset+9] = uint8(m.VHT.GroupId)
+
+		binary.LittleEndian.PutUint16(buf[offset+10:offset+12], m.VHT.PartialAID)
+
+		offset += 12
+	}
+
+	packetBuf, err := b.PrependBytes(int(offset))
+
+	if err != nil {
+		return err
+	}
+
+	if opts.FixLengths {
+		m.Length = offset
+	}
+
+	binary.LittleEndian.PutUint16(buf[2:4], m.Length)
+
+	copy(packetBuf, buf)
 
 	return nil
 }

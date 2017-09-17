@@ -8,7 +8,8 @@ package layers
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
+
 	"github.com/google/gopacket"
 )
 
@@ -91,11 +92,11 @@ func (l *LLC) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 	}
 
 	if l.DSAP&0x1 != 0 {
-		return fmt.Errorf("DSAP value invalid, should not include IG flag bit")
+		return errors.New("DSAP value invalid, should not include IG flag bit")
 	}
 
 	if l.SSAP&0x1 != 0 {
-		return fmt.Errorf("SSAP value invalid, should not include CR flag bit")
+		return errors.New("SSAP value invalid, should not include CR flag bit")
 	}
 
 	if buf, err := b.PrependBytes(length); err != nil {

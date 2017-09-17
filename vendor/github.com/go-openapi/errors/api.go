@@ -113,6 +113,7 @@ func MethodNotAllowed(requested string, allow []string) Error {
 
 // ServeError the error handler interface implemenation
 func ServeError(rw http.ResponseWriter, r *http.Request, err error) {
+	rw.Header().Set("Content-Type", "application/json")
 	switch e := err.(type) {
 	case *CompositeError:
 		er := flattenComposite(e)

@@ -128,6 +128,17 @@ type IngressRule struct {
 //   allowed with ToPorts do not depend on a match of the FromCIDR in the same
 //   EgressRule.
 type EgressRule struct {
+	// ToEndpoints is a list of endpoints identified by an
+	// EndpointSelector which the endpoint subject to this rule are allowed
+	// to communicate with.
+	//
+	// Example:
+	// Any endpoint with the label "role=backend" can only send traffic to an
+	// endpoint carrying the label "role=frontend".
+	//
+	// +optional
+	ToEndpoints []EndpointSelector `json:"toEndpoints,omitempty"`
+
 	// ToPorts is a list of destination ports identified by port number and
 	// protocol which the endpoint subject to the rule is allowed to
 	// connect to.

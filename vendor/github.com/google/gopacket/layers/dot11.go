@@ -13,9 +13,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/google/gopacket"
 	"hash/crc32"
 	"net"
+
+	"github.com/google/gopacket"
 )
 
 // Dot11Flags contains the set of 8 flags in the IEEE 802.11 frame control
@@ -395,6 +396,47 @@ func (m *Dot11) ChecksumValid() bool {
 	h.Write(m.Contents)
 	h.Write(m.Payload)
 	return m.Checksum == h.Sum32()
+}
+
+func (m Dot11) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(24)
+
+	if err != nil {
+		return err
+	}
+
+	buf[0] = (uint8(m.Type) << 2) | m.Proto
+	buf[1] = uint8(m.Flags)
+
+	binary.LittleEndian.PutUint16(buf[2:4], m.DurationID)
+
+	copy(buf[4:10], m.Address1)
+
+	offset := 10
+
+	switch m.Type.MainType() {
+	case Dot11TypeCtrl:
+		switch m.Type {
+		case Dot11TypeCtrlRTS, Dot11TypeCtrlPowersavePoll, Dot11TypeCtrlCFEnd, Dot11TypeCtrlCFEndAck:
+			copy(buf[offset:offset+6], m.Address2)
+			offset += 6
+		}
+	case Dot11TypeMgmt, Dot11TypeData:
+		copy(buf[offset:offset+6], m.Address2)
+		offset += 6
+		copy(buf[offset:offset+6], m.Address3)
+		offset += 6
+
+		binary.LittleEndian.PutUint16(buf[offset:offset+2], (m.SequenceNumber<<4)|m.FragmentNumber)
+		offset += 2
+	}
+
+	if m.Type.MainType() == Dot11TypeData && m.Flags.FromDS() && m.Flags.ToDS() {
+		copy(buf[offset:offset+6], m.Address4)
+		offset += 6
+	}
+
+	return nil
 }
 
 // Dot11Mgmt is a base for all IEEE 802.11 management layers.
@@ -971,6 +1013,19 @@ func (m *Dot11MgmtAssociationReq) DecodeFromBytes(data []byte, df gopacket.Decod
 	return m.Dot11Mgmt.DecodeFromBytes(data, df)
 }
 
+func (m Dot11MgmtAssociationReq) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(4)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint16(buf[0:2], m.CapabilityInfo)
+	binary.LittleEndian.PutUint16(buf[2:4], m.ListenInterval)
+
+	return nil
+}
+
 type Dot11MgmtAssociationResp struct {
 	Dot11Mgmt
 	CapabilityInfo uint16
@@ -1004,6 +1059,20 @@ func (m *Dot11MgmtAssociationResp) DecodeFromBytes(data []byte, df gopacket.Deco
 	return m.Dot11Mgmt.DecodeFromBytes(data, df)
 }
 
+func (m Dot11MgmtAssociationResp) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(6)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint16(buf[0:2], m.CapabilityInfo)
+	binary.LittleEndian.PutUint16(buf[2:4], uint16(m.Status))
+	binary.LittleEndian.PutUint16(buf[4:6], m.AID)
+
+	return nil
+}
+
 type Dot11MgmtReassociationReq struct {
 	Dot11Mgmt
 	CapabilityInfo   uint16
@@ -1035,6 +1104,21 @@ func (m *Dot11MgmtReassociationReq) DecodeFromBytes(data []byte, df gopacket.Dec
 	m.CurrentApAddress = net.HardwareAddr(data[4:10])
 	m.Payload = data[10:]
 	return m.Dot11Mgmt.DecodeFromBytes(data, df)
+}
+
+func (m Dot11MgmtReassociationReq) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(10)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint16(buf[0:2], m.CapabilityInfo)
+	binary.LittleEndian.PutUint16(buf[2:4], m.ListenInterval)
+
+	copy(buf[4:10], m.CurrentApAddress)
+
+	return nil
 }
 
 type Dot11MgmtReassociationResp struct {
@@ -1073,6 +1157,9 @@ func (m *Dot11MgmtProbeReq) NextLayerType() gopacket.LayerType {
 
 type Dot11MgmtProbeResp struct {
 	Dot11Mgmt
+	Timestamp uint64
+	Interval  uint16
+	Flags     uint16
 }
 
 func decodeDot11MgmtProbeResp(data []byte, p gopacket.PacketBuilder) error {
@@ -1082,8 +1169,37 @@ func decodeDot11MgmtProbeResp(data []byte, p gopacket.PacketBuilder) error {
 
 func (m *Dot11MgmtProbeResp) LayerType() gopacket.LayerType  { return LayerTypeDot11MgmtProbeResp }
 func (m *Dot11MgmtProbeResp) CanDecode() gopacket.LayerClass { return LayerTypeDot11MgmtProbeResp }
+func (m *Dot11MgmtProbeResp) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 12 {
+		df.SetTruncated()
+
+		return fmt.Errorf("Dot11MgmtProbeResp length %v too short, %v required", len(data), 12)
+	}
+
+	m.Timestamp = binary.LittleEndian.Uint64(data[0:8])
+	m.Interval = binary.LittleEndian.Uint16(data[8:10])
+	m.Flags = binary.LittleEndian.Uint16(data[10:12])
+	m.Payload = data[12:]
+
+	return m.Dot11Mgmt.DecodeFromBytes(data, df)
+}
+
 func (m *Dot11MgmtProbeResp) NextLayerType() gopacket.LayerType {
 	return LayerTypeDot11InformationElement
+}
+
+func (m Dot11MgmtProbeResp) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(12)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint64(buf[0:8], m.Timestamp)
+	binary.LittleEndian.PutUint16(buf[8:10], m.Interval)
+	binary.LittleEndian.PutUint16(buf[10:12], m.Flags)
+
+	return nil
 }
 
 type Dot11MgmtMeasurementPilot struct {
@@ -1130,6 +1246,20 @@ func (m *Dot11MgmtBeacon) DecodeFromBytes(data []byte, df gopacket.DecodeFeedbac
 
 func (m *Dot11MgmtBeacon) NextLayerType() gopacket.LayerType { return LayerTypeDot11InformationElement }
 
+func (m Dot11MgmtBeacon) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(12)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint64(buf[0:8], m.Timestamp)
+	binary.LittleEndian.PutUint16(buf[8:10], m.Interval)
+	binary.LittleEndian.PutUint16(buf[10:12], m.Flags)
+
+	return nil
+}
+
 type Dot11MgmtATIM struct {
 	Dot11Mgmt
 }
@@ -1167,6 +1297,18 @@ func (m *Dot11MgmtDisassociation) DecodeFromBytes(data []byte, df gopacket.Decod
 	return m.Dot11Mgmt.DecodeFromBytes(data, df)
 }
 
+func (m Dot11MgmtDisassociation) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(2)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint16(buf[0:2], uint16(m.Reason))
+
+	return nil
+}
+
 type Dot11MgmtAuthentication struct {
 	Dot11Mgmt
 	Algorithm Dot11Algorithm
@@ -1200,6 +1342,20 @@ func (m *Dot11MgmtAuthentication) DecodeFromBytes(data []byte, df gopacket.Decod
 	return m.Dot11Mgmt.DecodeFromBytes(data, df)
 }
 
+func (m Dot11MgmtAuthentication) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(6)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint16(buf[0:2], uint16(m.Algorithm))
+	binary.LittleEndian.PutUint16(buf[2:4], m.Sequence)
+	binary.LittleEndian.PutUint16(buf[4:6], uint16(m.Status))
+
+	return nil
+}
+
 type Dot11MgmtDeauthentication struct {
 	Dot11Mgmt
 	Reason Dot11Reason
@@ -1223,6 +1379,18 @@ func (m *Dot11MgmtDeauthentication) DecodeFromBytes(data []byte, df gopacket.Dec
 	}
 	m.Reason = Dot11Reason(binary.LittleEndian.Uint16(data[0:2]))
 	return m.Dot11Mgmt.DecodeFromBytes(data, df)
+}
+
+func (m Dot11MgmtDeauthentication) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	buf, err := b.PrependBytes(2)
+
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint16(buf[0:2], uint16(m.Reason))
+
+	return nil
 }
 
 type Dot11MgmtAction struct {

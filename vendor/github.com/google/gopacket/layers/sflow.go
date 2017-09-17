@@ -73,9 +73,11 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/google/gopacket"
 	"net"
+
+	"github.com/google/gopacket"
 )
 
 // SFlowRecord holds both flow sample records and counter sample records.
@@ -526,43 +528,95 @@ func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 		case SFlowTypeEthernetFrameFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeEthernetFrameFlow")
+			return s, errors.New("skipping TypeEthernetFrameFlow")
 		case SFlowTypeIpv4Flow:
-			// TODO
-			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeIpv4Flow")
+			if record, err := decodeSFlowIpv4Record(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
 		case SFlowTypeIpv6Flow:
-			// TODO
-			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeIpv6Flow")
+			if record, err := decodeSFlowIpv6Record(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
 		case SFlowTypeExtendedMlpsFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedMlpsFlow")
+			return s, errors.New("skipping TypeExtendedMlpsFlow")
 		case SFlowTypeExtendedNatFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedNatFlow")
+			return s, errors.New("skipping TypeExtendedNatFlow")
 		case SFlowTypeExtendedMlpsTunnelFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedMlpsTunnelFlow")
+			return s, errors.New("skipping TypeExtendedMlpsTunnelFlow")
 		case SFlowTypeExtendedMlpsVcFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedMlpsVcFlow")
+			return s, errors.New("skipping TypeExtendedMlpsVcFlow")
 		case SFlowTypeExtendedMlpsFecFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedMlpsFecFlow")
+			return s, errors.New("skipping TypeExtendedMlpsFecFlow")
 		case SFlowTypeExtendedMlpsLvpFecFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedMlpsLvpFecFlow")
+			return s, errors.New("skipping TypeExtendedMlpsLvpFecFlow")
 		case SFlowTypeExtendedVlanFlow:
 			// TODO
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeExtendedVlanFlow")
+			return s, errors.New("skipping TypeExtendedVlanFlow")
+		case SFlowTypeExtendedIpv4TunnelEgressFlow:
+			if record, err := decodeExtendedIpv4TunnelEgress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedIpv4TunnelIngressFlow:
+			if record, err := decodeExtendedIpv4TunnelIngress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedIpv6TunnelEgressFlow:
+			if record, err := decodeExtendedIpv6TunnelEgress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedIpv6TunnelIngressFlow:
+			if record, err := decodeExtendedIpv6TunnelIngress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedDecapsulateEgressFlow:
+			if record, err := decodeExtendedDecapsulateEgress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedDecapsulateIngressFlow:
+			if record, err := decodeExtendedDecapsulateIngress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedVniEgressFlow:
+			if record, err := decodeExtendedVniEgress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
+		case SFlowTypeExtendedVniIngressFlow:
+			if record, err := decodeExtendedVniIngress(data); err == nil {
+				s.Records = append(s.Records, record)
+			} else {
+				return s, err
+			}
 		default:
 			return s, fmt.Errorf("Unsupported flow record type: %d", flowRecordType)
 		}
@@ -690,13 +744,13 @@ func decodeCounterSample(data *[]byte, expanded bool) (SFlowCounterSample, error
 			}
 		case SFlowTypeTokenRingInterfaceCounters:
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeTokenRingInterfaceCounters")
+			return s, errors.New("skipping TypeTokenRingInterfaceCounters")
 		case SFlowType100BaseVGInterfaceCounters:
 			skipRecord(data)
-			return s, fmt.Errorf("skipping Type100BaseVGInterfaceCounters")
+			return s, errors.New("skipping Type100BaseVGInterfaceCounters")
 		case SFlowTypeVLANCounters:
 			skipRecord(data)
-			return s, fmt.Errorf("skipping TypeVLANCounters")
+			return s, errors.New("skipping TypeVLANCounters")
 		case SFlowTypeProcessorCounters:
 			if record, err := decodeProcessorCounters(data); err == nil {
 				s.Records = append(s.Records, record)
@@ -727,22 +781,30 @@ func (bfr SFlowBaseFlowRecord) GetType() SFlowFlowRecordType {
 type SFlowFlowRecordType uint32
 
 const (
-	SFlowTypeRawPacketFlow          SFlowFlowRecordType = 1
-	SFlowTypeEthernetFrameFlow      SFlowFlowRecordType = 2
-	SFlowTypeIpv4Flow               SFlowFlowRecordType = 3
-	SFlowTypeIpv6Flow               SFlowFlowRecordType = 4
-	SFlowTypeExtendedSwitchFlow     SFlowFlowRecordType = 1001
-	SFlowTypeExtendedRouterFlow     SFlowFlowRecordType = 1002
-	SFlowTypeExtendedGatewayFlow    SFlowFlowRecordType = 1003
-	SFlowTypeExtendedUserFlow       SFlowFlowRecordType = 1004
-	SFlowTypeExtendedUrlFlow        SFlowFlowRecordType = 1005
-	SFlowTypeExtendedMlpsFlow       SFlowFlowRecordType = 1006
-	SFlowTypeExtendedNatFlow        SFlowFlowRecordType = 1007
-	SFlowTypeExtendedMlpsTunnelFlow SFlowFlowRecordType = 1008
-	SFlowTypeExtendedMlpsVcFlow     SFlowFlowRecordType = 1009
-	SFlowTypeExtendedMlpsFecFlow    SFlowFlowRecordType = 1010
-	SFlowTypeExtendedMlpsLvpFecFlow SFlowFlowRecordType = 1011
-	SFlowTypeExtendedVlanFlow       SFlowFlowRecordType = 1012
+	SFlowTypeRawPacketFlow                  SFlowFlowRecordType = 1
+	SFlowTypeEthernetFrameFlow              SFlowFlowRecordType = 2
+	SFlowTypeIpv4Flow                       SFlowFlowRecordType = 3
+	SFlowTypeIpv6Flow                       SFlowFlowRecordType = 4
+	SFlowTypeExtendedSwitchFlow             SFlowFlowRecordType = 1001
+	SFlowTypeExtendedRouterFlow             SFlowFlowRecordType = 1002
+	SFlowTypeExtendedGatewayFlow            SFlowFlowRecordType = 1003
+	SFlowTypeExtendedUserFlow               SFlowFlowRecordType = 1004
+	SFlowTypeExtendedUrlFlow                SFlowFlowRecordType = 1005
+	SFlowTypeExtendedMlpsFlow               SFlowFlowRecordType = 1006
+	SFlowTypeExtendedNatFlow                SFlowFlowRecordType = 1007
+	SFlowTypeExtendedMlpsTunnelFlow         SFlowFlowRecordType = 1008
+	SFlowTypeExtendedMlpsVcFlow             SFlowFlowRecordType = 1009
+	SFlowTypeExtendedMlpsFecFlow            SFlowFlowRecordType = 1010
+	SFlowTypeExtendedMlpsLvpFecFlow         SFlowFlowRecordType = 1011
+	SFlowTypeExtendedVlanFlow               SFlowFlowRecordType = 1012
+	SFlowTypeExtendedIpv4TunnelEgressFlow   SFlowFlowRecordType = 1023
+	SFlowTypeExtendedIpv4TunnelIngressFlow  SFlowFlowRecordType = 1024
+	SFlowTypeExtendedIpv6TunnelEgressFlow   SFlowFlowRecordType = 1025
+	SFlowTypeExtendedIpv6TunnelIngressFlow  SFlowFlowRecordType = 1026
+	SFlowTypeExtendedDecapsulateEgressFlow  SFlowFlowRecordType = 1027
+	SFlowTypeExtendedDecapsulateIngressFlow SFlowFlowRecordType = 1028
+	SFlowTypeExtendedVniEgressFlow          SFlowFlowRecordType = 1029
+	SFlowTypeExtendedVniIngressFlow         SFlowFlowRecordType = 1030
 )
 
 func (rt SFlowFlowRecordType) String() string {
@@ -779,6 +841,22 @@ func (rt SFlowFlowRecordType) String() string {
 		return "Extended MPLS LVP FEC Flow Record"
 	case SFlowTypeExtendedVlanFlow:
 		return "Extended VLAN Flow Record"
+	case SFlowTypeExtendedIpv4TunnelEgressFlow:
+		return "Extended IPv4 Tunnel Egress Record"
+	case SFlowTypeExtendedIpv4TunnelIngressFlow:
+		return "Extended IPv4 Tunnel Ingress Record"
+	case SFlowTypeExtendedIpv6TunnelEgressFlow:
+		return "Extended IPv6 Tunnel Egress Record"
+	case SFlowTypeExtendedIpv6TunnelIngressFlow:
+		return "Extended IPv6 Tunnel Ingress Record"
+	case SFlowTypeExtendedDecapsulateEgressFlow:
+		return "Extended Decapsulate Egress Record"
+	case SFlowTypeExtendedDecapsulateIngressFlow:
+		return "Extended Decapsulate Ingress Record"
+	case SFlowTypeExtendedVniEgressFlow:
+		return "Extended VNI Ingress Record"
+	case SFlowTypeExtendedVniIngressFlow:
+		return "Extended VNI Ingress Record"
 	default:
 		return ""
 	}
@@ -1502,6 +1580,354 @@ func decodeExtendedUserFlow(data *[]byte) (SFlowExtendedUserFlow, error) {
 	*data, dstUserBytes = (*data)[dstUserLenWithPad:], (*data)[:dstUserLenWithPad]
 	eu.DestinationUserID = string(dstUserBytes[:dstUserLen])
 	return eu, nil
+}
+
+// **************************************************
+//  Packet IP version 4 Record
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                     Length                    |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    Protocol                   |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  Source IPv4                  |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                Destination IPv4               |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                   Source Port                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                Destionation Port              |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                   TCP Flags                   |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                      TOS                      |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowIpv4Record struct {
+	// The length of the IP packet excluding ower layer encapsulations
+	Length uint32
+	// IP Protocol type (for example, TCP = 6, UDP = 17)
+	Protocol uint32
+	// Source IP Address
+	IPSrc net.IP
+	// Destination IP Address
+	IPDst net.IP
+	// TCP/UDP source port number or equivalent
+	PortSrc uint32
+	// TCP/UDP destination port number or equivalent
+	PortDst uint32
+	// TCP flags
+	TCPFlags uint32
+	// IP type of service
+	TOS uint32
+}
+
+func decodeSFlowIpv4Record(data *[]byte) (SFlowIpv4Record, error) {
+	si := SFlowIpv4Record{}
+
+	*data, si.Length = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.Protocol = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.IPSrc = (*data)[4:], net.IP((*data)[:4])
+	*data, si.IPDst = (*data)[4:], net.IP((*data)[:4])
+	*data, si.PortSrc = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.PortDst = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.TCPFlags = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.TOS = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	return si, nil
+}
+
+// **************************************************
+//  Packet IP version 6 Record
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                     Length                    |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    Protocol                   |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  Source IPv4                  |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                Destination IPv4               |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                   Source Port                 |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                Destionation Port              |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                   TCP Flags                   |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                    Priority                   |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowIpv6Record struct {
+	// The length of the IP packet excluding ower layer encapsulations
+	Length uint32
+	// IP Protocol type (for example, TCP = 6, UDP = 17)
+	Protocol uint32
+	// Source IP Address
+	IPSrc net.IP
+	// Destination IP Address
+	IPDst net.IP
+	// TCP/UDP source port number or equivalent
+	PortSrc uint32
+	// TCP/UDP destination port number or equivalent
+	PortDst uint32
+	// TCP flags
+	TCPFlags uint32
+	// IP priority
+	Priority uint32
+}
+
+func decodeSFlowIpv6Record(data *[]byte) (SFlowIpv6Record, error) {
+	si := SFlowIpv6Record{}
+
+	*data, si.Length = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.Protocol = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.IPSrc = (*data)[16:], net.IP((*data)[:16])
+	*data, si.IPDst = (*data)[16:], net.IP((*data)[:16])
+	*data, si.PortSrc = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.PortDst = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.TCPFlags = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, si.Priority = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	return si, nil
+}
+
+// **************************************************
+//  Extended IPv4 Tunnel Egress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  /           Packet IP version 4 Record          /
+//  /                                               /
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedIpv4TunnelEgressRecord struct {
+	SFlowBaseFlowRecord
+	SFlowIpv4Record SFlowIpv4Record
+}
+
+func decodeExtendedIpv4TunnelEgress(data *[]byte) (SFlowExtendedIpv4TunnelEgressRecord, error) {
+	rec := SFlowExtendedIpv4TunnelEgressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	rec.SFlowIpv4Record, _ = decodeSFlowIpv4Record(data)
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended IPv4 Tunnel Ingress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  /           Packet IP version 4 Record          /
+//  /                                               /
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedIpv4TunnelIngressRecord struct {
+	SFlowBaseFlowRecord
+	SFlowIpv4Record SFlowIpv4Record
+}
+
+func decodeExtendedIpv4TunnelIngress(data *[]byte) (SFlowExtendedIpv4TunnelIngressRecord, error) {
+	rec := SFlowExtendedIpv4TunnelIngressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	rec.SFlowIpv4Record, _ = decodeSFlowIpv4Record(data)
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended IPv6 Tunnel Egress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  /           Packet IP version 6 Record          /
+//  /                                               /
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedIpv6TunnelEgressRecord struct {
+	SFlowBaseFlowRecord
+	SFlowIpv6Record
+}
+
+func decodeExtendedIpv6TunnelEgress(data *[]byte) (SFlowExtendedIpv6TunnelEgressRecord, error) {
+	rec := SFlowExtendedIpv6TunnelEgressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	rec.SFlowIpv6Record, _ = decodeSFlowIpv6Record(data)
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended IPv6 Tunnel Ingress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  /           Packet IP version 6 Record          /
+//  /                                               /
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedIpv6TunnelIngressRecord struct {
+	SFlowBaseFlowRecord
+	SFlowIpv6Record
+}
+
+func decodeExtendedIpv6TunnelIngress(data *[]byte) (SFlowExtendedIpv6TunnelIngressRecord, error) {
+	rec := SFlowExtendedIpv6TunnelIngressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	rec.SFlowIpv6Record, _ = decodeSFlowIpv6Record(data)
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended Decapsulate Egress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |               Inner Header Offset             |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedDecapsulateEgressRecord struct {
+	SFlowBaseFlowRecord
+	InnerHeaderOffset uint32
+}
+
+func decodeExtendedDecapsulateEgress(data *[]byte) (SFlowExtendedDecapsulateEgressRecord, error) {
+	rec := SFlowExtendedDecapsulateEgressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, rec.InnerHeaderOffset = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended Decapsulate Ingress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |               Inner Header Offset             |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedDecapsulateIngressRecord struct {
+	SFlowBaseFlowRecord
+	InnerHeaderOffset uint32
+}
+
+func decodeExtendedDecapsulateIngress(data *[]byte) (SFlowExtendedDecapsulateIngressRecord, error) {
+	rec := SFlowExtendedDecapsulateIngressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, rec.InnerHeaderOffset = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended VNI Egress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                       VNI                     |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedVniEgressRecord struct {
+	SFlowBaseFlowRecord
+	VNI uint32
+}
+
+func decodeExtendedVniEgress(data *[]byte) (SFlowExtendedVniEgressRecord, error) {
+	rec := SFlowExtendedVniEgressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, rec.VNI = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	return rec, nil
+}
+
+// **************************************************
+//  Extended VNI Ingress
+// **************************************************
+
+//  0                      15                      31
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |      20 bit Interprise (0)     |12 bit format |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                  record length                |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//  |                       VNI                     |
+//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+type SFlowExtendedVniIngressRecord struct {
+	SFlowBaseFlowRecord
+	VNI uint32
+}
+
+func decodeExtendedVniIngress(data *[]byte) (SFlowExtendedVniIngressRecord, error) {
+	rec := SFlowExtendedVniIngressRecord{}
+	var fdf SFlowFlowDataFormat
+
+	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
+	rec.EnterpriseID, rec.Format = fdf.decode()
+	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	*data, rec.VNI = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+
+	return rec, nil
 }
 
 // **************************************************

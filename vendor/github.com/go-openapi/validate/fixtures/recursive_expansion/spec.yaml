@@ -1,0 +1,38 @@
+---
+swagger: "2.0"
+info:
+  title: Item API
+  description: Item API
+  version: "1.0.0"
+host: item.api.local
+basePath: /v1
+securityDefinitions:
+  key:
+    type: apiKey
+    name: x-item-token
+    in: header
+security:
+  - key: []
+consumes: 
+  - application/json
+produces:
+  - application/json
+schemes:
+  - http
+responses:
+  itemResponse:
+    description: Item
+    schema:
+      $ref: "item.yaml#/item"
+paths:
+  /item:
+    get:
+      operationId: GetItem
+      responses:
+        200:
+          description: item detail response
+          schema:
+            $ref: "item.yaml#/item"
+        default:
+          $ref: "#/responses/itemResponse"
+

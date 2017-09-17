@@ -62,11 +62,12 @@ type CommonValidations struct {
 // Items a limited subset of JSON-Schema's items object.
 // It is used by parameter definitions that are not located in "body".
 //
-// For more information: http://goo.gl/8us55a#items-object-
+// For more information: http://goo.gl/8us55a#items-object
 type Items struct {
 	Refable
 	CommonValidations
 	SimpleSchema
+	VendorExtensible
 }
 
 // NewItems creates a new instance of items

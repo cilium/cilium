@@ -7,6 +7,7 @@
 package layers
 
 import (
+	"encoding/binary"
 	"github.com/google/gopacket"
 )
 
@@ -15,6 +16,7 @@ type EAPOL struct {
 	BaseLayer
 	Version uint8
 	Type    EAPOLType
+	Length  uint16
 }
 
 // LayerType returns LayerTypeEAPOL.
@@ -24,7 +26,18 @@ func (e *EAPOL) LayerType() gopacket.LayerType { return LayerTypeEAPOL }
 func (e *EAPOL) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	e.Version = data[0]
 	e.Type = EAPOLType(data[1])
-	e.BaseLayer = BaseLayer{data[:2], data[2:]}
+	e.Length = binary.BigEndian.Uint16(data[2:4])
+	e.BaseLayer = BaseLayer{data[:4], data[4:]}
+	return nil
+}
+
+// SerializeTo writes the serialized form of this layer into the
+// SerializationBuffer, implementing gopacket.SerializableLayer
+func (e *EAPOL) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	bytes, _ := b.PrependBytes(4)
+	bytes[0] = e.Version
+	bytes[1] = byte(e.Type)
+	binary.BigEndian.PutUint16(bytes[2:], e.Length)
 	return nil
 }
 

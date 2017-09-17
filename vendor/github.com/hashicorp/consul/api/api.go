@@ -2,10 +2,12 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -16,6 +18,49 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-cleanhttp"
+	"github.com/hashicorp/go-rootcerts"
+)
+
+const (
+	// HTTPAddrEnvName defines an environment variable name which sets
+	// the HTTP address if there is no -http-addr specified.
+	HTTPAddrEnvName = "CONSUL_HTTP_ADDR"
+
+	// HTTPTokenEnvName defines an environment variable name which sets
+	// the HTTP token.
+	HTTPTokenEnvName = "CONSUL_HTTP_TOKEN"
+
+	// HTTPAuthEnvName defines an environment variable name which sets
+	// the HTTP authentication header.
+	HTTPAuthEnvName = "CONSUL_HTTP_AUTH"
+
+	// HTTPSSLEnvName defines an environment variable name which sets
+	// whether or not to use HTTPS.
+	HTTPSSLEnvName = "CONSUL_HTTP_SSL"
+
+	// HTTPCAFile defines an environment variable name which sets the
+	// CA file to use for talking to Consul over TLS.
+	HTTPCAFile = "CONSUL_CACERT"
+
+	// HTTPCAPath defines an environment variable name which sets the
+	// path to a directory of CA certs to use for talking to Consul over TLS.
+	HTTPCAPath = "CONSUL_CAPATH"
+
+	// HTTPClientCert defines an environment variable name which sets the
+	// client cert file to use for talking to Consul over TLS.
+	HTTPClientCert = "CONSUL_CLIENT_CERT"
+
+	// HTTPClientKey defines an environment variable name which sets the
+	// client key file to use for talking to Consul over TLS.
+	HTTPClientKey = "CONSUL_CLIENT_KEY"
+
+	// HTTPTLSServerName defines an environment variable name which sets the
+	// server name to use as the SNI host when connecting via TLS
+	HTTPTLSServerName = "CONSUL_TLS_SERVER_NAME"
+
+	// HTTPSSLVerifyEnvName defines an environment variable name which sets
+	// whether or not to disable certificate checking.
+	HTTPSSLVerifyEnvName = "CONSUL_HTTP_SSL_VERIFY"
 )
 
 // QueryOptions are used to parameterize a query
@@ -50,6 +95,36 @@ type QueryOptions struct {
 	// that node. Setting this to "_agent" will use the agent's node
 	// for the sort.
 	Near string
+
+	// NodeMeta is used to filter results by nodes with the given
+	// metadata key/value pairs. Currently, only one key/value pair can
+	// be provided for filtering.
+	NodeMeta map[string]string
+
+	// RelayFactor is used in keyring operations to cause reponses to be
+	// relayed back to the sender through N other random nodes. Must be
+	// a value from 0 to 5 (inclusive).
+	RelayFactor uint8
+
+	// ctx is an optional context pass through to the underlying HTTP
+	// request layer. Use Context() and WithContext() to manage this.
+	ctx context.Context
+}
+
+func (o *QueryOptions) Context() context.Context {
+	if o != nil && o.ctx != nil {
+		return o.ctx
+	}
+	return context.Background()
+}
+
+func (o *QueryOptions) WithContext(ctx context.Context) *QueryOptions {
+	o2 := new(QueryOptions)
+	if o != nil {
+		*o2 = *o
+	}
+	o2.ctx = ctx
+	return o2
 }
 
 // WriteOptions are used to parameterize a write
@@ -61,6 +136,31 @@ type WriteOptions struct {
 	// Token is used to provide a per-request ACL token
 	// which overrides the agent's default token.
 	Token string
+
+	// RelayFactor is used in keyring operations to cause reponses to be
+	// relayed back to the sender through N other random nodes. Must be
+	// a value from 0 to 5 (inclusive).
+	RelayFactor uint8
+
+	// ctx is an optional context pass through to the underlying HTTP
+	// request layer. Use Context() and WithContext() to manage this.
+	ctx context.Context
+}
+
+func (o *WriteOptions) Context() context.Context {
+	if o != nil && o.ctx != nil {
+		return o.ctx
+	}
+	return context.Background()
+}
+
+func (o *WriteOptions) WithContext(ctx context.Context) *WriteOptions {
+	o2 := new(WriteOptions)
+	if o != nil {
+		*o2 = *o
+	}
+	o2.ctx = ctx
+	return o2
 }
 
 // QueryMeta is used to return meta data about a query
@@ -78,6 +178,9 @@ type QueryMeta struct {
 
 	// How long did the request take
 	RequestTime time.Duration
+
+	// Is address translation enabled for HTTP responses on this agent
+	AddressTranslationEnabled bool
 }
 
 // WriteMeta is used to return meta data about a write
@@ -106,6 +209,9 @@ type Config struct {
 	// Datacenter to use. If not provided, the default agent datacenter is used.
 	Datacenter string
 
+	// Transport is the Transport to use for the http client.
+	Transport *http.Transport
+
 	// HttpClient is the client to use. Default will be
 	// used if not provided.
 	HttpClient *http.Client
@@ -120,25 +226,75 @@ type Config struct {
 	// Token is used to provide a per-request ACL token
 	// which overrides the agent's default token.
 	Token string
+
+	TLSConfig TLSConfig
 }
 
-// DefaultConfig returns a default configuration for the client
+// TLSConfig is used to generate a TLSClientConfig that's useful for talking to
+// Consul using TLS.
+type TLSConfig struct {
+	// Address is the optional address of the Consul server. The port, if any
+	// will be removed from here and this will be set to the ServerName of the
+	// resulting config.
+	Address string
+
+	// CAFile is the optional path to the CA certificate used for Consul
+	// communication, defaults to the system bundle if not specified.
+	CAFile string
+
+	// CAPath is the optional path to a directory of CA certificates to use for
+	// Consul communication, defaults to the system bundle if not specified.
+	CAPath string
+
+	// CertFile is the optional path to the certificate for Consul
+	// communication. If this is set then you need to also set KeyFile.
+	CertFile string
+
+	// KeyFile is the optional path to the private key for Consul communication.
+	// If this is set then you need to also set CertFile.
+	KeyFile string
+
+	// InsecureSkipVerify if set to true will disable TLS host verification.
+	InsecureSkipVerify bool
+}
+
+// DefaultConfig returns a default configuration for the client. By default this
+// will pool and reuse idle connections to Consul. If you have a long-lived
+// client object, this is the desired behavior and should make the most efficient
+// use of the connections to Consul. If you don't reuse a client object , which
+// is not recommended, then you may notice idle connections building up over
+// time. To avoid this, use the DefaultNonPooledConfig() instead.
 func DefaultConfig() *Config {
+	return defaultConfig(cleanhttp.DefaultPooledTransport)
+}
+
+// DefaultNonPooledConfig returns a default configuration for the client which
+// does not pool connections. This isn't a recommended configuration because it
+// will reconnect to Consul on every request, but this is useful to avoid the
+// accumulation of idle connections if you make many client objects during the
+// lifetime of your application.
+func DefaultNonPooledConfig() *Config {
+	return defaultConfig(cleanhttp.DefaultTransport)
+}
+
+// defaultConfig returns the default configuration for the client, using the
+// given function to make the transport.
+func defaultConfig(transportFn func() *http.Transport) *Config {
 	config := &Config{
-		Address:    "127.0.0.1:8500",
-		Scheme:     "http",
-		HttpClient: cleanhttp.DefaultClient(),
+		Address:   "127.0.0.1:8500",
+		Scheme:    "http",
+		Transport: transportFn(),
 	}
 
-	if addr := os.Getenv("CONSUL_HTTP_ADDR"); addr != "" {
+	if addr := os.Getenv(HTTPAddrEnvName); addr != "" {
 		config.Address = addr
 	}
 
-	if token := os.Getenv("CONSUL_HTTP_TOKEN"); token != "" {
+	if token := os.Getenv(HTTPTokenEnvName); token != "" {
 		config.Token = token
 	}
 
-	if auth := os.Getenv("CONSUL_HTTP_AUTH"); auth != "" {
+	if auth := os.Getenv(HTTPAuthEnvName); auth != "" {
 		var username, password string
 		if strings.Contains(auth, ":") {
 			split := strings.SplitN(auth, ":", 2)
@@ -154,10 +310,10 @@ func DefaultConfig() *Config {
 		}
 	}
 
-	if ssl := os.Getenv("CONSUL_HTTP_SSL"); ssl != "" {
+	if ssl := os.Getenv(HTTPSSLEnvName); ssl != "" {
 		enabled, err := strconv.ParseBool(ssl)
 		if err != nil {
-			log.Printf("[WARN] client: could not parse CONSUL_HTTP_SSL: %s", err)
+			log.Printf("[WARN] client: could not parse %s: %s", HTTPSSLEnvName, err)
 		}
 
 		if enabled {
@@ -165,22 +321,71 @@ func DefaultConfig() *Config {
 		}
 	}
 
-	if verify := os.Getenv("CONSUL_HTTP_SSL_VERIFY"); verify != "" {
-		doVerify, err := strconv.ParseBool(verify)
+	if v := os.Getenv(HTTPTLSServerName); v != "" {
+		config.TLSConfig.Address = v
+	}
+	if v := os.Getenv(HTTPCAFile); v != "" {
+		config.TLSConfig.CAFile = v
+	}
+	if v := os.Getenv(HTTPCAPath); v != "" {
+		config.TLSConfig.CAPath = v
+	}
+	if v := os.Getenv(HTTPClientCert); v != "" {
+		config.TLSConfig.CertFile = v
+	}
+	if v := os.Getenv(HTTPClientKey); v != "" {
+		config.TLSConfig.KeyFile = v
+	}
+	if v := os.Getenv(HTTPSSLVerifyEnvName); v != "" {
+		doVerify, err := strconv.ParseBool(v)
 		if err != nil {
-			log.Printf("[WARN] client: could not parse CONSUL_HTTP_SSL_VERIFY: %s", err)
+			log.Printf("[WARN] client: could not parse %s: %s", HTTPSSLVerifyEnvName, err)
 		}
-
 		if !doVerify {
-			transport := cleanhttp.DefaultTransport()
-			transport.TLSClientConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
-			config.HttpClient.Transport = transport
+			config.TLSConfig.InsecureSkipVerify = true
 		}
 	}
 
 	return config
+}
+
+// TLSConfig is used to generate a TLSClientConfig that's useful for talking to
+// Consul using TLS.
+func SetupTLSConfig(tlsConfig *TLSConfig) (*tls.Config, error) {
+	tlsClientConfig := &tls.Config{
+		InsecureSkipVerify: tlsConfig.InsecureSkipVerify,
+	}
+
+	if tlsConfig.Address != "" {
+		server := tlsConfig.Address
+		hasPort := strings.LastIndex(server, ":") > strings.LastIndex(server, "]")
+		if hasPort {
+			var err error
+			server, _, err = net.SplitHostPort(server)
+			if err != nil {
+				return nil, err
+			}
+		}
+		tlsClientConfig.ServerName = server
+	}
+
+	if tlsConfig.CertFile != "" && tlsConfig.KeyFile != "" {
+		tlsCert, err := tls.LoadX509KeyPair(tlsConfig.CertFile, tlsConfig.KeyFile)
+		if err != nil {
+			return nil, err
+		}
+		tlsClientConfig.Certificates = []tls.Certificate{tlsCert}
+	}
+
+	rootConfig := &rootcerts.Config{
+		CAFile: tlsConfig.CAFile,
+		CAPath: tlsConfig.CAPath,
+	}
+	if err := rootcerts.ConfigureTLS(tlsClientConfig, rootConfig); err != nil {
+		return nil, err
+	}
+
+	return tlsClientConfig, nil
 }
 
 // Client provides a client to the Consul API
@@ -201,24 +406,89 @@ func NewClient(config *Config) (*Client, error) {
 		config.Scheme = defConfig.Scheme
 	}
 
-	if config.HttpClient == nil {
-		config.HttpClient = defConfig.HttpClient
+	if config.Transport == nil {
+		config.Transport = defConfig.Transport
 	}
 
-	if parts := strings.SplitN(config.Address, "unix://", 2); len(parts) == 2 {
-		trans := cleanhttp.DefaultTransport()
-		trans.Dial = func(_, _ string) (net.Conn, error) {
-			return net.Dial("unix", parts[1])
+	if config.TLSConfig.Address == "" {
+		config.TLSConfig.Address = defConfig.TLSConfig.Address
+	}
+
+	if config.TLSConfig.CAFile == "" {
+		config.TLSConfig.CAFile = defConfig.TLSConfig.CAFile
+	}
+
+	if config.TLSConfig.CAPath == "" {
+		config.TLSConfig.CAPath = defConfig.TLSConfig.CAPath
+	}
+
+	if config.TLSConfig.CertFile == "" {
+		config.TLSConfig.CertFile = defConfig.TLSConfig.CertFile
+	}
+
+	if config.TLSConfig.KeyFile == "" {
+		config.TLSConfig.KeyFile = defConfig.TLSConfig.KeyFile
+	}
+
+	if !config.TLSConfig.InsecureSkipVerify {
+		config.TLSConfig.InsecureSkipVerify = defConfig.TLSConfig.InsecureSkipVerify
+	}
+
+	if config.HttpClient == nil {
+		var err error
+		config.HttpClient, err = NewHttpClient(config.Transport, config.TLSConfig)
+		if err != nil {
+			return nil, err
 		}
-		config.HttpClient = &http.Client{
-			Transport: trans,
+	}
+
+	parts := strings.SplitN(config.Address, "://", 2)
+	if len(parts) == 2 {
+		switch parts[0] {
+		case "http":
+		case "https":
+			config.Scheme = "https"
+		case "unix":
+			trans := cleanhttp.DefaultTransport()
+			trans.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", parts[1])
+			}
+			config.HttpClient = &http.Client{
+				Transport: trans,
+			}
+		default:
+			return nil, fmt.Errorf("Unknown protocol scheme: %s", parts[0])
 		}
 		config.Address = parts[1]
+	}
+
+	if config.Token == "" {
+		config.Token = defConfig.Token
 	}
 
 	client := &Client{
 		config: *config,
 	}
+	return client, nil
+}
+
+// NewHttpClient returns an http client configured with the given Transport and TLS
+// config.
+func NewHttpClient(transport *http.Transport, tlsConf TLSConfig) (*http.Client, error) {
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	if transport.TLSClientConfig == nil {
+		tlsClientConfig, err := SetupTLSConfig(&tlsConf)
+
+		if err != nil {
+			return nil, err
+		}
+
+		transport.TLSClientConfig = tlsClientConfig
+	}
+
 	return client, nil
 }
 
@@ -229,7 +499,9 @@ type request struct {
 	url    *url.URL
 	params url.Values
 	body   io.Reader
+	header http.Header
 	obj    interface{}
+	ctx    context.Context
 }
 
 // setQueryOptions is used to annotate the request with
@@ -254,11 +526,20 @@ func (r *request) setQueryOptions(q *QueryOptions) {
 		r.params.Set("wait", durToMsec(q.WaitTime))
 	}
 	if q.Token != "" {
-		r.params.Set("token", q.Token)
+		r.header.Set("X-Consul-Token", q.Token)
 	}
 	if q.Near != "" {
 		r.params.Set("near", q.Near)
 	}
+	if len(q.NodeMeta) > 0 {
+		for key, value := range q.NodeMeta {
+			r.params.Add("node-meta", key+":"+value)
+		}
+	}
+	if q.RelayFactor != 0 {
+		r.params.Set("relay-factor", strconv.Itoa(int(q.RelayFactor)))
+	}
+	r.ctx = q.ctx
 }
 
 // durToMsec converts a duration to a millisecond specified string. If the
@@ -298,8 +579,12 @@ func (r *request) setWriteOptions(q *WriteOptions) {
 		r.params.Set("dc", q.Datacenter)
 	}
 	if q.Token != "" {
-		r.params.Set("token", q.Token)
+		r.header.Set("X-Consul-Token", q.Token)
 	}
+	if q.RelayFactor != 0 {
+		r.params.Set("relay-factor", strconv.Itoa(int(q.RelayFactor)))
+	}
+	r.ctx = q.ctx
 }
 
 // toHTTP converts the request to an HTTP request
@@ -309,11 +594,11 @@ func (r *request) toHTTP() (*http.Request, error) {
 
 	// Check if we should encode the body
 	if r.body == nil && r.obj != nil {
-		if b, err := encodeBody(r.obj); err != nil {
+		b, err := encodeBody(r.obj)
+		if err != nil {
 			return nil, err
-		} else {
-			r.body = b
 		}
+		r.body = b
 	}
 
 	// Create the HTTP request
@@ -325,13 +610,17 @@ func (r *request) toHTTP() (*http.Request, error) {
 	req.URL.Host = r.url.Host
 	req.URL.Scheme = r.url.Scheme
 	req.Host = r.url.Host
+	req.Header = r.header
 
 	// Setup auth
 	if r.config.HttpAuth != nil {
 		req.SetBasicAuth(r.config.HttpAuth.Username, r.config.HttpAuth.Password)
 	}
-
-	return req, nil
+	if r.ctx != nil {
+		return req.WithContext(r.ctx), nil
+	} else {
+		return req, nil
+	}
 }
 
 // newRequest is used to create a new request
@@ -345,6 +634,7 @@ func (c *Client) newRequest(method, path string) *request {
 			Path:   path,
 		},
 		params: make(map[string][]string),
+		header: make(http.Header),
 	}
 	if c.config.Datacenter != "" {
 		r.params.Set("dc", c.config.Datacenter)
@@ -353,7 +643,7 @@ func (c *Client) newRequest(method, path string) *request {
 		r.params.Set("wait", durToMsec(r.config.WaitTime))
 	}
 	if c.config.Token != "" {
-		r.params.Set("token", r.config.Token)
+		r.header.Set("X-Consul-Token", r.config.Token)
 	}
 	return r
 }
@@ -409,6 +699,8 @@ func (c *Client) write(endpoint string, in, out interface{}, q *WriteOptions) (*
 		if err := decodeBody(resp, &out); err != nil {
 			return nil, err
 		}
+	} else if _, err := ioutil.ReadAll(resp.Body); err != nil {
+		return nil, err
 	}
 	return wm, nil
 }
@@ -438,6 +730,15 @@ func parseQueryMeta(resp *http.Response, q *QueryMeta) error {
 	default:
 		q.KnownLeader = false
 	}
+
+	// Parse X-Consul-Translate-Addresses
+	switch header.Get("X-Consul-Translate-Addresses") {
+	case "true":
+		q.AddressTranslationEnabled = true
+	default:
+		q.AddressTranslationEnabled = false
+	}
+
 	return nil
 }
 

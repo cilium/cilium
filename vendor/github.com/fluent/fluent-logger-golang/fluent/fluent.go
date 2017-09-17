@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/tinylib/msgp/msgp"
 )
 
 const (
@@ -101,9 +103,6 @@ func New(config Config) (f *Fluent, err error) {
 //
 // Examples:
 //
-//  // send string
-//  f.Post("tag_name", "data")
-//
 //  // send map[string]
 //  mapStringData := map[string]string{
 //  	"foo":  "bar",
@@ -133,6 +132,10 @@ func (f *Fluent) Post(tag string, message interface{}) error {
 func (f *Fluent) PostWithTime(tag string, tm time.Time, message interface{}) error {
 	if len(f.TagPrefix) > 0 {
 		tag = f.TagPrefix + "." + tag
+	}
+
+	if m, ok := message.(msgp.Marshaler); ok {
+		return f.EncodeAndPostData(tag, tm, m)
 	}
 
 	msg := reflect.ValueOf(message)

@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // Taken from https://github.com/golang/lint/blob/3390df4df2787994aea98de825b964ac7944b817/lint.go#L732-L769
@@ -269,7 +270,18 @@ func ToGoName(name string) string {
 		}
 		out = append(out, uw)
 	}
-	return strings.Join(out, "")
+
+	result := strings.Join(out, "")
+	if len(result) > 0 {
+		ud := upper(result[:1])
+		ru := []rune(ud)
+		if unicode.IsUpper(ru[0]) {
+			result = ud + result[1:]
+		} else {
+			result = "X" + ud + result[1:]
+		}
+	}
+	return result
 }
 
 // ContainsStringsCI searches a slice of strings for a case-insensitive match

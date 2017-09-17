@@ -3,7 +3,8 @@ Oxy [![Build Status](https://travis-ci.org/vulcand/oxy.svg?branch=master)](https
 
 Oxy is a Go library with HTTP handlers that enhance HTTP standard library:
 
-* [Stream](http://godoc.org/github.com/vulcand/oxy/stream) retries and buffers requests and responses 
+* [Buffer](http://godoc.org/github.com/vulcand/oxy/buffer) retries and buffers requests and responses 
+* [Stream](http://godoc.org/github.com/vulcand/oxy/stream) passes-through requests, supports chunked encoding with configurable flush interval 
 * [Forward](http://godoc.org/github.com/vulcand/oxy/forward) forwards requests to remote location and rewrites headers 
 * [Roundrobin](http://godoc.org/github.com/vulcand/oxy/roundrobin) is a round-robin load balancer 
 * [Circuit Breaker](http://godoc.org/github.com/vulcand/oxy/cbreaker) Hystrix-style circuit breaker
@@ -78,7 +79,7 @@ s := &http.Server{
 s.ListenAndServe()
 ```
 
-What if we want to handle retries and replay the request in case of errors? `stream` handler will help:
+What if we want to handle retries and replay the request in case of errors? `buffer` handler will help:
 
 
 ```go
@@ -86,7 +87,7 @@ What if we want to handle retries and replay the request in case of errors? `str
 import (
   "net/http"
   "github.com/vulcand/oxy/forward"
-  "github.com/vulcand/oxy/stream"
+  "github.com/vulcand/oxy/buffer"
   "github.com/vulcand/oxy/roundrobin"
   )
 
@@ -95,9 +96,9 @@ import (
 fwd, _ := forward.New()
 lb, _ := roundrobin.New(fwd)
 
-// stream will read the request body and will replay the request again in case if forward returned status
+// buffer will read the request body and will replay the request again in case if forward returned status
 // corresponding to nework error (e.g. Gateway Timeout)
-stream, _ := stream.New(lb, stream.Retry(`IsNetworkError() && Attempts() < 2`))
+buffer, _ := buffer.New(lb, buffer.Retry(`IsNetworkError() && Attempts() < 2`))
 
 lb.UpsertServer(url1)
 lb.UpsertServer(url2)
@@ -105,7 +106,7 @@ lb.UpsertServer(url2)
 // that's it! our reverse proxy is ready!
 s := &http.Server{
 	Addr:           ":8080",
-	Handler:        stream,
+	Handler:        buffer,
 }
 s.ListenAndServe()
 ```

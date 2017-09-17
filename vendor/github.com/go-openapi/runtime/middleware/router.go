@@ -16,7 +16,6 @@ package middleware
 
 import (
 	"net/http"
-	"net/url"
 	fpath "path"
 	"regexp"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
-	"github.com/gorilla/context"
 )
 
 // RouteParam is a object to capture route params in a framework agnostic way.
@@ -71,9 +69,8 @@ func NewRouter(ctx *Context, next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		defer context.Clear(r)
-		if _, ok := ctx.RouteInfo(r); ok {
-			next.ServeHTTP(rw, r)
+		if _, rCtx, ok := ctx.RouteInfo(r); ok {
+			next.ServeHTTP(rw, rCtx)
 			return
 		}
 
@@ -95,6 +92,7 @@ type RoutableAPI interface {
 	ConsumersFor([]string) map[string]runtime.Consumer
 	ProducersFor([]string) map[string]runtime.Producer
 	AuthenticatorsFor(map[string]spec.SecurityScheme) map[string]runtime.Authenticator
+	Authorizer() runtime.Authorizer
 	Formats() strfmt.Registry
 	DefaultProduces() string
 	DefaultConsumes() string
@@ -115,7 +113,6 @@ type defaultRouteBuilder struct {
 
 type defaultRouter struct {
 	spec    *loads.Document
-	api     RoutableAPI
 	routers map[string]*denco.Router
 }
 
@@ -156,6 +153,7 @@ type routeEntry struct {
 	Formats        strfmt.Registry
 	Binder         *untypedRequestBinder
 	Authenticators map[string]runtime.Authenticator
+	Authorizer     runtime.Authorizer
 	Scopes         map[string][]string
 }
 
@@ -184,7 +182,7 @@ func (d *defaultRouter) Lookup(method, path string) (*MatchedRoute, bool) {
 				debugLog("found a route for %s %s with %d parameters", method, path, len(entry.Parameters))
 				var params RouteParams
 				for _, p := range rp {
-					v, err := url.QueryUnescape(p.Value)
+					v, err := pathUnescape(p.Value)
 					if err != nil {
 						debugLog("failed to escape %q: %v", p.Value, err)
 						v = p.Value
@@ -226,6 +224,7 @@ func (d *defaultRouteBuilder) AddRoute(method, path string, operation *spec.Oper
 		bp = bp[:len(bp)-1]
 	}
 
+	debugLog("operation: %#v", *operation)
 	if handler, ok := d.api.HandlerFor(method, strings.TrimPrefix(path, bp)); ok {
 		consumes := d.analyzer.ConsumesFor(operation)
 		produces := d.analyzer.ProducesFor(operation)
@@ -244,12 +243,13 @@ func (d *defaultRouteBuilder) AddRoute(method, path string, operation *spec.Oper
 			Handler:        handler,
 			Consumes:       consumes,
 			Produces:       produces,
-			Consumers:      d.api.ConsumersFor(consumes),
-			Producers:      d.api.ProducersFor(produces),
+			Consumers:      d.api.ConsumersFor(normalizeOffers(consumes)),
+			Producers:      d.api.ProducersFor(normalizeOffers(produces)),
 			Parameters:     parameters,
 			Formats:        d.api.Formats(),
 			Binder:         newUntypedRequestBinder(parameters, d.spec.Spec(), d.api.Formats()),
 			Authenticators: d.api.AuthenticatorsFor(definitions),
+			Authorizer:     d.api.Authorizer(),
 			Scopes:         scopes,
 		})
 		d.records[mn] = append(d.records[mn], record)
@@ -260,7 +260,7 @@ func (d *defaultRouteBuilder) Build() *defaultRouter {
 	routers := make(map[string]*denco.Router)
 	for method, records := range d.records {
 		router := denco.New()
-		router.Build(records)
+		_ = router.Build(records)
 		routers[method] = router
 	}
 	return &defaultRouter{

@@ -2,13 +2,16 @@ package user
 
 import (
 	"errors"
-	"fmt"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
 	// The current operating system does not provide the required data for user lookups.
 	ErrUnsupported = errors.New("user lookup: operating system does not provide passwd-formatted data")
+	// No matching entries found in file.
+	ErrNoPasswdEntries = errors.New("no matching entries in passwd file")
+	ErrNoGroupEntries  = errors.New("no matching entries in group file")
 )
 
 func lookupUser(filter func(u User) bool) (User, error) {
@@ -27,7 +30,7 @@ func lookupUser(filter func(u User) bool) (User, error) {
 
 	// No user entries found.
 	if len(users) == 0 {
-		return User{}, fmt.Errorf("no matching entries in passwd file")
+		return User{}, ErrNoPasswdEntries
 	}
 
 	// Assume the first entry is the "correct" one.
@@ -38,7 +41,7 @@ func lookupUser(filter func(u User) bool) (User, error) {
 // user cannot be found (or there is no /etc/passwd file on the filesystem),
 // then CurrentUser returns an error.
 func CurrentUser() (User, error) {
-	return LookupUid(syscall.Getuid())
+	return LookupUid(unix.Getuid())
 }
 
 // LookupUser looks up a user by their username in /etc/passwd. If the user
@@ -75,7 +78,7 @@ func lookupGroup(filter func(g Group) bool) (Group, error) {
 
 	// No user entries found.
 	if len(groups) == 0 {
-		return Group{}, fmt.Errorf("no matching entries in group file")
+		return Group{}, ErrNoGroupEntries
 	}
 
 	// Assume the first entry is the "correct" one.
@@ -86,7 +89,7 @@ func lookupGroup(filter func(g Group) bool) (Group, error) {
 // entry in /etc/passwd. If the group cannot be found (or there is no
 // /etc/group file on the filesystem), then CurrentGroup returns an error.
 func CurrentGroup() (Group, error) {
-	return LookupGid(syscall.Getgid())
+	return LookupGid(unix.Getgid())
 }
 
 // LookupGroup looks up a group by its name in /etc/group. If the group cannot

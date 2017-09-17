@@ -78,15 +78,15 @@ The following is a list of tags for struct fields supported by go-flags:
 
     short:            the short name of the option (single character)
     long:             the long name of the option
-    required:         whether an option is required to appear on the command
+    required:         if non empty, makes the option required to appear on the command
                       line. If a required option is not present, the parser will
                       return ErrRequired (optional)
     description:      the description of the option (optional)
     long-description: the long description of the option. Currently only
                       displayed in generated man pages (optional)
-    no-flag:          if non-empty this field is ignored as an option (optional)
+    no-flag:          if non-empty, this field is ignored as an option (optional)
 
-    optional:       whether an argument of the option is optional. When an
+    optional:       if non-empty, makes the argument of the option optional. When an
                     argument is optional it can only be specified using
                     --option=argument (optional)
     optional-value: the value of an optional option when the option occurs
@@ -110,7 +110,7 @@ The following is a list of tags for struct fields supported by go-flags:
                     (optional)
     choice:         limits the values for an option to a set of values.
                     This tag can be specified multiple times (optional)
-    hidden:         the option is not visible in the help or man page.
+    hidden:         if non-empty, the option is not visible in the help or man page.
 
     base: a base (radix) used to convert strings to integer values, the
           default base is 10 (i.e. decimal) (optional)

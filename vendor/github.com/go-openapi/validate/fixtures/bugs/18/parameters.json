@@ -1,0 +1,30 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "0.0.1",
+    "title": "test of Swagger invalid pattern in parameter"
+  },
+  "parameters": {
+    "userId": {
+      "name": "userId",
+      "in": "path",
+      "type": "string",
+      "pattern": ")<-- bad pattern",
+      "required": true
+    }
+  },
+  "paths": {
+    "/users/{userId}": {
+      "parameters": [
+        { "$ref": "#/parameters/userId" }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful"
+          }
+        }
+      }
+    }
+  }
+}

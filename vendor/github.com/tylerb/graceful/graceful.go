@@ -172,10 +172,12 @@ func (srv *Server) ListenTLS(certFile, keyFile string) (net.Listener, error) {
 	}
 
 	var err error
-	config.Certificates = make([]tls.Certificate, 1)
-	config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return nil, err
+	if certFile != "" && keyFile != "" {
+		config.Certificates = make([]tls.Certificate, 1)
+		config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Enable http2
@@ -364,6 +366,7 @@ func (srv *Server) manageConnections(add, idle, active, remove chan net.Conn, sh
 		select {
 		case conn := <-add:
 			srv.connections[conn] = struct{}{}
+			srv.idleConnections[conn] = struct{}{} // Newly-added connections are considered idle until they become active.
 		case conn := <-idle:
 			srv.idleConnections[conn] = struct{}{}
 		case conn := <-active:

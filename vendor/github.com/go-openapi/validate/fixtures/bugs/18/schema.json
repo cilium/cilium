@@ -1,0 +1,25 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "0.0.1",
+    "title": "test of Swagger invalid pattern in schema"
+  },
+  "paths": {
+    "/foo": {
+      "get": {
+        "produces": [
+          "text/plain"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "schema": {
+                "type": "string",
+                "pattern": ")<-- bad pattern"
+            }
+          }
+        }
+      }
+    }
+  }
+}

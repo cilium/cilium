@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api/v1"
-	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
+	"k8s.io/kubernetes/staging/src/k8s.io/api/core/v1"
+	networkingv1 "k8s.io/kubernetes/staging/src/k8s.io/api/networking/v1"
 )
 
 // ExtractPolicyName extracts the name of policy name
@@ -49,6 +49,7 @@ func ExtractNamespace(np *metav1.ObjectMeta) string {
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingress := api.IngressRule{}
+	egress := api.EgressRule{}
 	namespace := ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
 		// Based on NetworkPolicyIngressRule docs:
@@ -95,29 +96,57 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		}
 
 		if iRule.Ports != nil && len(iRule.Ports) > 0 {
-			for _, port := range iRule.Ports {
-				if port.Protocol == nil && port.Port == nil {
-					continue
-				}
+			ingress.ToPorts = parsePorts(iRule.Ports)
+		}
+	}
 
-				protocol := "tcp"
-				if port.Protocol != nil {
-					protocol = string(*port.Protocol)
-				}
+	for _, eRule := range np.Spec.Egress {
+		// Based on NetworkPolicyEgressRule docs:
+		//   From []NetworkPolicyPeer
+		//   If this field is  empty or missing, this rule matches all
+		// destinations (traffic not restricted by destination)
+		if eRule.To == nil || len(eRule.To) == 0 {
+			all := api.NewESFromLabels(
+				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
+			)
+			egress.ToEndpoints = append(ingress.FromEndpoints, all)
+			// TODO - should we use this instead of ToEndpoints? egress.ToCIDR = append(egress.ToCIDR, "0.0.0.0/0")
+		} else {
+			for _, rule := range eRule.To {
+				// Only one or the other can be set, not both
+				if rule.PodSelector != nil {
+					if rule.PodSelector.MatchLabels == nil {
+						rule.PodSelector.MatchLabels = map[string]string{}
+					}
+					// The PodSelector should only reflect to the same namespace
+					// the policy is being stored, thus we add the namespace to
+					// the MatchLabels map.
+					rule.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
+					egress.ToEndpoints = append(egress.ToEndpoints,
+						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.PodSelector))
+				} else if rule.NamespaceSelector != nil {
+					matchLabels := map[string]string{}
+					// We use our own special label prefix for namespace metadata,
+					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+					for k, v := range rule.NamespaceSelector.MatchLabels {
+						matchLabels[policy.JoinPath(PodNamespaceMetaLabels, k)] = v
+					}
+					rule.NamespaceSelector.MatchLabels = matchLabels
 
-				portStr := ""
-				if port.Port != nil {
-					portStr = port.Port.String()
+					// We use our own special label prefix for namespace metadata,
+					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+					for i, lsr := range rule.NamespaceSelector.MatchExpressions {
+						lsr.Key = policy.JoinPath(PodNamespaceMetaLabels, lsr.Key)
+						rule.NamespaceSelector.MatchExpressions[i] = lsr
+					}
+					egress.ToEndpoints = append(egress.ToEndpoints,
+						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.NamespaceSelector))
 				}
-
-				portRule := api.PortRule{
-					Ports: []api.PortProtocol{
-						{Port: portStr, Protocol: protocol},
-					},
-				}
-
-				ingress.ToPorts = append(ingress.ToPorts, portRule)
 			}
+		}
+
+		if eRule.Ports != nil && len(eRule.Ports) > 0 {
+			egress.ToPorts = parsePorts(eRule.Ports)
 		}
 	}
 
@@ -131,6 +160,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           labels.ParseLabelArray(tag),
 		Ingress:          []api.IngressRule{ingress},
+		Egress:           []api.EgressRule{egress},
 	}
 
 	if err := rule.Validate(); err != nil {
@@ -138,4 +168,34 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	return api.Rules{rule}, nil
+}
+
+// Converts list of K8s NetworkPolicyPorts to Cilium PortRules.
+// Assumes that provided list of NetworkPolicyPorts is not nil.
+func parsePorts(ports []networkingv1.NetworkPolicyPort) []api.PortRule {
+	portRules := []api.PortRule{}
+	for _, port := range ports {
+		if port.Protocol == nil && port.Port == nil {
+			continue
+		}
+
+		protocol := "tcp"
+		if port.Protocol != nil {
+			protocol = string(*port.Protocol)
+		}
+
+		portStr := ""
+		if port.Port != nil {
+			portStr = port.Port.String()
+		}
+
+		portRule := api.PortRule{
+			Ports: []api.PortProtocol{
+				{Port: portStr, Protocol: protocol},
+			},
+		}
+
+		portRules = append(portRules, portRule)
+	}
+	return portRules
 }
