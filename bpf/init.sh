@@ -107,14 +107,14 @@ function move_local_rules_af()
 	# required to add the new local rule before deleting the old one as
 	# otherwise local addresses will not be reachable for a short period of
 	# time.
-	$IP rule list from all lookup local pref 100 | grep "lookup local" || {
+	$IP rule list | grep 100 | grep "lookup local" || {
 		$IP rule add from all lookup local pref 100
 	}
 	$IP rule del from all lookup local pref 0 2> /dev/null || true
 
 	# check if the move of the local table move was successful and restore
 	# it otherwise
-	if [ "$($IP rule list lookup local | wc -l)" -eq "0" ]; then
+	if [ "$($IP rule list | grep "lookup local" | wc -l)" -eq "0" ]; then
 		$IP rule add from all lookup local pref 0
 		$IP rule del from all lookup local pref 100
 		echo "Error: The kernel does not support moving the local table routing rule"
