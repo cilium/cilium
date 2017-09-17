@@ -170,3 +170,16 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	return 0;
 }
 #endif
+
+/**
+ * tc_index_is_from_proxy - returns true if packet originates from egress proxy
+ */
+static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
+{
+#ifdef DEBUG
+	if (skb->tc_index & TC_INDEX_F_SKIP_PROXY)
+		cilium_dbg(skb, DBG_SKIP_PROXY, skb->tc_index, 0);
+#endif
+
+	return skb->tc_index & TC_INDEX_F_SKIP_PROXY;
+}
