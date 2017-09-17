@@ -23,6 +23,7 @@
 #include "ipv4.h"
 #include "eth.h"
 #include "dbg.h"
+#include "trace.h"
 #include "csum.h"
 #include "l4.h"
 
@@ -105,7 +106,8 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 		.identity = identity,
 	};
 
-	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_PRE, old_port);
+	// Trace the packet before its destination address and port are rewritten.
+	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum,
 			   new_port, old_port) < 0)
@@ -150,6 +152,9 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 		.lifetime = 360,
 		.identity = identity,
 	};
+
+	// Trace the packet before its destination address and port are rewritten.
+	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX);
 
 	if (l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum, new_port, old_port) < 0)
 		return DROP_WRITE_ERROR;
