@@ -27,6 +27,7 @@
 #ifndef __LIB_TRACE__
 #define __LIB_TRACE__
 
+#include "conntrack.h"
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
@@ -40,6 +41,14 @@ enum {
 	TRACE_TO_STACK,
 };
 
+/* Reasons for forwarding a packet. */
+enum {
+	TRACE_REASON_POLICY = CT_NEW,
+	TRACE_REASON_CT_ESTABLISHED = CT_ESTABLISHED,
+	TRACE_REASON_CT_REPLY = CT_REPLY,
+	TRACE_REASON_CT_RELATED = CT_RELATED,
+};
+
 #ifdef TRACE_NOTIFY
 
 struct trace_notify {
@@ -48,23 +57,26 @@ struct trace_notify {
 	__u32		len_cap;
 	__u32		src_label;
 	__u32		dst_label;
-	__u32		dst_id;
+	__u16		dst_id;
+	__u8		reason;
+	__u8		pad;
 	__u32		ifindex;
 };
 
 /**
  * send_trace_notify
  * @skb:	socket buffer
- * @obs_point:	observation point (TRACE_*)
+ * @obs_point:	observation point (TRACE_TO_*)
  * @src:	source identity
  * @dst:	destination identity
  * @dst_id:	designated destination endpoint ID
  * @ifindex:	designated destination ifindex
+ * @reason:	reason for forwarding the packet (TRACE_REASON_*)
  *
  * Generate a notification to indicate a packet was forwarded at an observation point.
  */
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u32 dst_id, __u32 ifindex)
+				     __u16 dst_id, __u32 ifindex, __u8 reason)
 {
 	uint64_t skb_len = skb->len, cap_len = min(TRACE_PAYLOAD_LEN, skb_len);
 	uint32_t hash = get_hash_recalc(skb);
@@ -78,6 +90,8 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 		.src_label = src,
 		.dst_label = dst,
 		.dst_id = dst_id,
+		.reason = reason,
+		.pad = 0,
 		.ifindex = ifindex,
 	};
 
@@ -89,7 +103,7 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 #else
 
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
-				     __u32 dst_id, __u32 ifindex)
+				     __u16 dst_id, __u32 ifindex, __u8 reason)
 {
 }
 
