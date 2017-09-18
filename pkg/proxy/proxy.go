@@ -99,7 +99,7 @@ type ProxySource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
-	GetIdentityFromConsumable(policy.NumericIdentity) *policy.Identity
+	ResolveIdentity(policy.NumericIdentity) *policy.Identity
 	GetIPv4Address() string
 	GetIPv6Address() string
 	RUnlock()
@@ -285,7 +285,7 @@ func (r *Redirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointI
 			info.IPv6 = ip.String()
 		}
 	}
-	secLabel := ep.GetIdentityFromConsumable(srcIdentity)
+	secLabel := ep.ResolveIdentity(srcIdentity)
 
 	if secLabel != nil {
 		info.Labels = secLabel.Labels.GetModel()
@@ -317,7 +317,9 @@ func (r *Redirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericId
 		if srcIdentity != 0 {
 			r.getInfoFromConsumable(ipstr, &info, srcIdentity)
 		} else {
-			// logging warning for now.
+			// source security identity 0 is possible when somebody else other than the BPF datapath attempts to
+			// connect to the proxy.
+			// We should log no source information in that case, in the proxy log.
 			log.Warn("Missing security identity in source endpoint info")
 		}
 
