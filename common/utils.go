@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -57,30 +56,6 @@ func FmtDefineAddress(name string, addr []byte) string {
 // fmt.Print(FmtDefineArray("foo", []byte{1, 2, 3})) // "#define foo { 0x1, 0x2, 0x3 }\n"
 func FmtDefineArray(name string, array []byte) string {
 	return fmt.Sprintf("#define %s { %s }\n", name, goArray2C(array))
-}
-
-// GetGroupIDByName returns the group ID for the given grpName.
-func GetGroupIDByName(grpName string) (int, error) {
-	f, err := os.Open(GroupFilePath)
-	if err != nil {
-		return -1, err
-	}
-	defer f.Close()
-	br := bufio.NewReader(f)
-	for {
-		s, err := br.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return -1, err
-		}
-		p := strings.Split(s, ":")
-		if len(p) >= 3 && p[0] == grpName {
-			return strconv.Atoi(p[2])
-		}
-	}
-	return -1, fmt.Errorf("group %q not found", grpName)
 }
 
 // FindEPConfigCHeader returns the full path of the file that is the CHeaderFileName from
