@@ -152,7 +152,6 @@ type EgressRule struct {
 	// +optional
 	ToRequires []EndpointSelector `json:"fromRequires,omitempty"`
 
-
 	// ToPorts is a list of destination ports identified by port number and
 	// protocol which the endpoint subject to the rule is allowed to
 	// connect to.
