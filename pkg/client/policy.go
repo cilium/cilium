@@ -24,7 +24,7 @@ func (c *Client) PolicyPut(policyJSON string) (*models.Policy, error) {
 	params := policy.NewPutPolicyParams().WithPolicy(&policyJSON)
 	resp, err := c.Policy.PutPolicy(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -34,7 +34,7 @@ func (c *Client) PolicyGet(labels []string) (*models.Policy, error) {
 	params := policy.NewGetPolicyParams().WithLabels(labels)
 	resp, err := c.Policy.GetPolicy(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -44,9 +44,9 @@ func (c *Client) PolicyDelete(labels []string) (*models.Policy, error) {
 	params := policy.NewDeletePolicyParams().WithLabels(labels)
 	resp, err := c.Policy.DeletePolicy(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
-	return resp.Payload, err
+	return resp.Payload, Hint(err)
 }
 
 // PolicyResolveGet resolves policy for a context with source and destination identity.
@@ -54,7 +54,7 @@ func (c *Client) PolicyResolveGet(context *models.IdentityContext) (*models.Poli
 	params := policy.NewGetPolicyResolveParams().WithIdentityContext(context)
 	resp, err := c.Policy.GetPolicyResolve(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }

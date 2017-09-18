@@ -20,6 +20,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/api/v1/models"
+	pkg "github.com/cilium/cilium/pkg/client"
 
 	"github.com/spf13/cobra"
 )
@@ -39,7 +40,7 @@ func init() {
 
 func statusDaemon(cmd *cobra.Command, args []string) {
 	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Unable to reach out daemon: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)
 	} else {
 		sr := resp.Payload
