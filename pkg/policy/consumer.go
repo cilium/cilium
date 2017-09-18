@@ -97,7 +97,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 // security identity, and returns labels for that identity.
 func (c *Consumable) GetIdentityFromConsumableCache(id NumericIdentity) *Identity {
 	cc := c.cache.Lookup(id)
-	if cc {
+	if cc != nil {
 		return cc.Labels
 	}
 	return nil
