@@ -24,7 +24,7 @@ import (
 func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 	resp, err := c.Endpoint.GetEndpoint(nil)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -34,6 +34,9 @@ func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 	params := endpoint.NewGetEndpointIDParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointID(params)
 	if err != nil {
+		/* Since plugins rely on checking the error type, we don't wrap this
+		 * with Hint(...)
+		 */
 		return nil, err
 	}
 	return resp.Payload, nil
@@ -44,21 +47,21 @@ func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
 	id := pkgEndpoint.NewCiliumID(ep.ID)
 	params := endpoint.NewPutEndpointIDParams().WithID(id).WithEndpoint(ep)
 	_, err := c.Endpoint.PutEndpointID(params)
-	return err
+	return Hint(err)
 }
 
 // EndpointPatch modifies the endpoint
 func (c *Client) EndpointPatch(id string, ep *models.EndpointChangeRequest) error {
 	params := endpoint.NewPatchEndpointIDParams().WithID(id).WithEndpoint(ep)
 	_, err := c.Endpoint.PatchEndpointID(params)
-	return err
+	return Hint(err)
 }
 
 // EndpointDelete deletes endpoint
 func (c *Client) EndpointDelete(id string) error {
 	params := endpoint.NewDeleteEndpointIDParams().WithID(id)
 	_, _, err := c.Endpoint.DeleteEndpointID(params)
-	return err
+	return Hint(err)
 }
 
 // EndpointConfigGet returns endpoint configuration
@@ -66,7 +69,7 @@ func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 	params := endpoint.NewGetEndpointIDConfigParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointIDConfig(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -79,7 +82,7 @@ func (c *Client) EndpointConfigPatch(id string, cfg models.ConfigurationMap) err
 	}
 
 	_, err := c.Endpoint.PatchEndpointIDConfig(params)
-	return err
+	return Hint(err)
 }
 
 // EndpointLabelsGet returns endpoint label configuration
@@ -87,7 +90,7 @@ func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error
 	params := endpoint.NewGetEndpointIDLabelsParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointIDLabels(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -96,5 +99,5 @@ func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error
 func (c *Client) EndpointLabelsPut(id string, cfg *models.LabelConfigurationModifier) error {
 	params := endpoint.NewPutEndpointIDLabelsParams().WithID(id)
 	_, err := c.Endpoint.PutEndpointIDLabels(params.WithConfiguration(cfg))
-	return err
+	return Hint(err)
 }

@@ -89,3 +89,15 @@ func NewClient(host string) (*Client, error) {
 		clientapi.DefaultSchemes, httpClient)
 	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
 }
+
+// Hint tries to improve the error message displayed to the user.
+func Hint(err error) error {
+	if err == nil {
+		return err
+	}
+	e, _ := url.PathUnescape(err.Error())
+	if strings.Contains(err.Error(), defaults.SockPath) {
+		return fmt.Errorf("%s\nIs the agent running?", e)
+	}
+	return fmt.Errorf("%s", e)
+}

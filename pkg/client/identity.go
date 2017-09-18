@@ -25,7 +25,7 @@ func (c *Client) IdentityGet(id string) (*models.Identity, error) {
 
 	resp, err := c.Policy.GetIdentityID(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
