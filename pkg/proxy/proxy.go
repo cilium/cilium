@@ -286,10 +286,12 @@ func (r *Redirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointI
 		}
 	}
 	secLabel := ep.GetIdentityFromConsumable(srcIdentity)
-	//TODO check is secLabel == nil
-	info.Labels = secLabel.Labels.GetModel()
-	info.LabelsSHA256 = secLabel.Labels.SHA256Sum()
-	info.Identity = uint64(srcIdentity)
+
+	if secLabel != nil {
+		info.Labels = secLabel.Labels.GetModel()
+		info.LabelsSHA256 = secLabel.Labels.SHA256Sum()
+		info.Identity = uint64(srcIdentity)
+	}
 }
 
 func (r *Redirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo, accesslog.IPVersion) {
@@ -312,8 +314,11 @@ func (r *Redirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericId
 	if !r.l4.Ingress {
 		r.localEndpointInfo(&info)
 	} else if err == nil {
-		if srcIdentity != 0 { //TODO else? parseIPPort?
+		if srcIdentity != 0 {
 			r.getInfoFromConsumable(ipstr, &info, srcIdentity)
+		} else {
+			// logging warning for now.
+			log.Warn("Missing security identity in source endpoint info")
 		}
 
 	}

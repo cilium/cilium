@@ -97,7 +97,10 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 // security identity, and returns labels for that identity.
 func (c *Consumable) GetIdentityFromConsumableCache(id NumericIdentity) *Identity {
 	cc := c.cache.Lookup(id)
-	return cc.Labels
+	if cc {
+		return cc.Labels
+	}
+	return nil
 }
 
 func (c *Consumable) DeepCopy() *Consumable {
