@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/pkg/apisocket"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -33,6 +34,13 @@ func main() {
 	server, err := net.Listen("unix", defaults.MonitorSockPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if os.Getuid() == 0 {
+		err := apisocket.SetDefaultPermissions(defaults.MonitorSockPath)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	m := Monitor{}
