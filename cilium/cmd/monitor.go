@@ -24,7 +24,6 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -251,8 +250,6 @@ func setupSigHandler() {
 }
 
 func runMonitor() {
-	// Privileged access is required for reading from the monitor socket.
-	common.RequireRootPrivilege("cilium monitor")
 	setVerbosity()
 	setupSigHandler()
 	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
