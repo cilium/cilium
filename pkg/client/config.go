@@ -23,7 +23,7 @@ import (
 func (c *Client) ConfigGet() (*models.DaemonConfigurationResponse, error) {
 	resp, err := c.Daemon.GetConfig(nil)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -32,5 +32,5 @@ func (c *Client) ConfigGet() (*models.DaemonConfigurationResponse, error) {
 func (c *Client) ConfigPatch(cfg models.Configuration) error {
 	params := daemon.NewPatchConfigParams().WithConfiguration(&cfg)
 	_, err := c.Daemon.PatchConfig(params)
-	return err
+	return Hint(err)
 }
