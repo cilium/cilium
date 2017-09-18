@@ -17,12 +17,14 @@ package k8s
 import (
 	"fmt"
 
+	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	admissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
+	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
 	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -30,18 +32,19 @@ import (
 	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	autoscalingv2alpha1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2alpha1"
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	batchv2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
+	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
 	settingsv1alpha1 "k8s.io/client-go/kubernetes/typed/settings/v1alpha1"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -232,7 +235,11 @@ func (c Clientset) AppsV1beta1() appsv1beta1.AppsV1beta1Interface {
 	return nil
 }
 
-func (c Clientset) Apps() appsv1beta1.AppsV1beta1Interface {
+func (c Clientset) Apps() appsv1beta2.AppsV1beta2Interface {
+	return nil
+}
+
+func (c Clientset) AppsV1beta2() appsv1beta2.AppsV1beta2Interface {
 	return nil
 }
 
@@ -273,6 +280,10 @@ func (c Clientset) AutoscalingV2alpha1() autoscalingv2alpha1.AutoscalingV2alpha1
 }
 
 func (c Clientset) BatchV1() batchv1.BatchV1Interface {
+	return nil
+}
+
+func (c Clientset) BatchV1beta1() batchv1beta1.BatchV1beta1Interface {
 	return nil
 }
 
@@ -320,7 +331,11 @@ func (c Clientset) RbacV1beta1() rbacv1beta1.RbacV1beta1Interface {
 	return nil
 }
 
-func (c Clientset) Rbac() rbacv1beta1.RbacV1beta1Interface {
+func (c Clientset) Rbac() rbacv1.RbacV1Interface {
+	return nil
+}
+
+func (c Clientset) RbacV1() rbacv1.RbacV1Interface {
 	return nil
 }
 

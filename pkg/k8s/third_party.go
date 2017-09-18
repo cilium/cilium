@@ -95,6 +95,15 @@ func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
 //TODO implement me - satisfy the compiler so CiliumNetworkPolicy implements runtime.Object for now
 func (r *CiliumNetworkPolicy) DeepCopyObject() runtime.Object {
 	return r
+	/*if r == nil {
+		return nil
+	}
+	out := new(CiliumNetworkPolicy)
+	*out = *r
+	out.TypeMeta = r.TypeMeta
+	r.Metadata.DeepCopyInto(&out.Metadata)
+	r.Spec.DeepCopyInto(&out.Spec)
+	return out*/
 }
 
 // parseToCilium returns an api.Rule with all the labels parsed into cilium
