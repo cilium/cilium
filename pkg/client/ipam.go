@@ -34,7 +34,7 @@ func (c *Client) IPAMAllocate(family string) (*models.IPAM, error) {
 
 	resp, err := c.IPAM.PostIPAM(params)
 	if err != nil {
-		return nil, err
+		return nil, Hint(err)
 	}
 	return resp.Payload, nil
 }
@@ -43,12 +43,12 @@ func (c *Client) IPAMAllocate(family string) (*models.IPAM, error) {
 func (c *Client) IPAMAllocateIP(ip string) error {
 	params := ipam.NewPostIPAMIPParams().WithIP(ip)
 	_, err := c.IPAM.PostIPAMIP(params)
-	return err
+	return Hint(err)
 }
 
 // IPAMReleaseIP releases a IP address back to the pool.
 func (c *Client) IPAMReleaseIP(ip string) error {
 	params := ipam.NewDeleteIPAMIPParams().WithIP(ip)
 	_, err := c.IPAM.DeleteIPAMIP(params)
-	return err
+	return Hint(err)
 }
