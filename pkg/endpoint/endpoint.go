@@ -696,6 +696,7 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 	return policy.InvalidIdentity
 }
 
+// GetIdentityFromConsumable fetches consumable from consumable cache, using security identity.
 func (e *Endpoint) GetIdentityFromConsumable(srcIdentity policy.NumericIdentity) *policy.Identity {
 	return e.Consumable.GetIdentityFromConsumableCache(srcIdentity)
 }

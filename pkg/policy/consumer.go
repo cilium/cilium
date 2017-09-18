@@ -93,6 +93,8 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 	return consumable
 }
 
+// GetIdentityFromConsumableCache fetches consumable from consumable cache using
+// security identity, and returns labels for that identity.
 func (c *Consumable) GetIdentityFromConsumableCache(id NumericIdentity) *Identity {
 	cc := c.cache.Lookup(id)
 	return cc.Labels

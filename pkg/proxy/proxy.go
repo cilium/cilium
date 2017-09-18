@@ -270,13 +270,13 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 	}
 }
 
-/*
-   This function fills the accesslog.EndpointInfo fields, by fetching the consumable from the consumable cache
-   of endpoint using identity sent by source. This is needed in ingress proxy while logging the source endpoint info.
-   Since there will be 2 proxies on the same host, if both egress and ingress policies are set, the ingress policy cannot determine the
-   source endpoint info based on ip adress, as the ip address would be that of the egress proxy i.e host.
-*/
-func fillInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity, ep ProxySource) {
+//   This function fills the accesslog.EndpointInfo fields, by fetching the consumable from the consumable cache
+//   of endpoint using identity sent by source. This is needed in ingress proxy while logging the source endpoint info.
+//   Since there will be 2 proxies on the same host, if both egress and ingress policies are set, the ingress policy cannot determine the
+//   source endpoint info based on ip address, as the ip address would be that of the egress proxy i.e host.
+
+func (r *Redirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity) {
+	ep := r.source
 	ip := net.ParseIP(ipstr)
 	if ip != nil {
 		if ip.To4() != nil {
@@ -313,7 +313,7 @@ func (r *Redirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericId
 		r.localEndpointInfo(&info)
 	} else if err == nil {
 		if srcIdentity != 0 { //TODO else? parseIPPort?
-			fillInfoFromConsumable(ipstr, &info, srcIdentity, r.source)
+			r.getInfoFromConsumable(ipstr, &info, srcIdentity)
 		}
 
 	}

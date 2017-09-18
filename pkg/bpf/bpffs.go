@@ -209,7 +209,7 @@ func mountFS() error {
 	}
 	if !isBpffs(mapRoot) {
 		// TODO currently on minikube this check is failing. Uncomment this log and remove the debug log,
-		// this once Issue 1475 is fixed.
+		// once Issue 1475 is fixed.
 		//log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
 		log.Debugf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
 	}
