@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -20,7 +19,7 @@ import (
 	graceful "github.com/tylerb/graceful"
 
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/apisocket"
 )
 
 const (
@@ -170,19 +169,9 @@ func (s *Server) Serve() (err error) {
 		configureServer(domainSocket, "unix")
 
 		if os.Getuid() == 0 {
-			socketPath := string(s.SocketPath)
-			gid, err := common.GetGroupIDByName(common.CiliumGroupName)
+			err := apisocket.SetDefaultPermissions(string(s.SocketPath))
 			if err != nil {
-				s.Logf("Group %s not found: %s", common.CiliumGroupName, err)
-			} else {
-				if err := os.Chown(socketPath, 0, gid); err != nil {
-					return fmt.Errorf("failed while setting up %s's group ID"+
-						" in %q: %s", common.CiliumGroupName, socketPath, err)
-				}
-			}
-			if err := os.Chmod(socketPath, 0660); err != nil {
-				return fmt.Errorf("failed while setting up %s's file"+
-					" permissions in %q: %s", common.CiliumGroupName, socketPath, err)
+				return err
 			}
 		}
 

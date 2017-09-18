@@ -45,10 +45,6 @@ const (
 
 	// PathDelimiter is the delimiter used in the labels paths.
 	PathDelimiter = "."
-	// GroupFilePath is the unix group file path.
-	GroupFilePath = "/etc/group"
-	// CiliumGroupName is the cilium's unix group name.
-	CiliumGroupName = "cilium"
 
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
