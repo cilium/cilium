@@ -42,6 +42,7 @@ import (
 	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
+	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	settingsv1alpha1 "k8s.io/client-go/kubernetes/typed/settings/v1alpha1"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
@@ -364,5 +365,12 @@ func (c Clientset) Storage() storagev1.StorageV1Interface {
 }
 
 func (c Clientset) Discovery() discovery.DiscoveryInterface {
+	return nil
+}
+
+func (c Clientset) Scheduling() schedulingv1alpha1.SchedulingV1alpha1Interface {
+	return nil
+}
+func (c Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
 	return nil
 }

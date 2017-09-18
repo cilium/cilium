@@ -128,9 +128,9 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
 		log.Debugf("Detected k8s <1.7, using TPR instead of CRD")
-		/*if err := k8s.CreateThirdPartyResourcesDefinitions(d.k8sClient); err != nil {
+		if err := k8s.CreateThirdPartyResourcesDefinitions(d.k8sClient); err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
-		}*/
+		}
 		cnpClient, err = k8s.CreateTPRClient(restConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to create third party resource client: %s", err)
@@ -143,6 +143,19 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			return fmt.Errorf("Unable to create custom resource definition client: %s", err)
 		}
 	}
+
+	_, policyControllerDeprecated := cache.NewInformer(
+		cache.NewListWatchFromClient(d.k8sClient.ExtensionsV1beta1().RESTClient(),
+			"networkpolicies", v1.NamespaceAll, fields.Everything()),
+		&v1beta1.NetworkPolicy{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    d.addK8sNetworkPolicyDeprecated,
+			UpdateFunc: d.updateK8sNetworkPolicyDeprecated,
+			DeleteFunc: d.deleteK8sNetworkPolicyDeprecated,
+		},
+	)
+	go policyControllerDeprecated.Run(wait.NeverStop)
 
 	_, policyController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.NetworkingV1().RESTClient(),
@@ -263,6 +276,51 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 		log.Errorf("Error while deleting kubernetes network policy %+v: %s", labels, err)
 	} else {
 		log.Infof("Kubernetes network policy '%s' successfully removed", k8sNP.Name)
+	}
+}
+
+// addK8sNetworkPolicyDeprecated FIXME remove in k8s 1.8
+func (d *Daemon) addK8sNetworkPolicyDeprecated(obj interface{}) {
+	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	if !ok {
+		log.Errorf("Ignoring invalid k8s v1beta1 NetworkPolicy addition")
+		return
+	}
+	rules, err := k8s.ParseNetworkPolicyDeprecated(k8sNP)
+	if err != nil {
+		log.Errorf("Error while parsing kubernetes v1beta1 network policy %+v: %s", obj, err)
+		return
+	}
+
+	opts := AddOptions{Replace: true}
+	if _, err := d.PolicyAdd(rules, &opts); err != nil {
+		log.Errorf("Error while adding kubernetes v1beta1 network policy %+v: %s", rules, err)
+		return
+	}
+
+	log.Infof("Kubernetes v1beta1 network policy '%s' successfully added", k8sNP.Name)
+}
+
+// updateK8sNetworkPolicyDeprecated FIXME remove in k8s 1.8
+func (d *Daemon) updateK8sNetworkPolicyDeprecated(oldObj interface{}, newObj interface{}) {
+	log.Debugf("Modified v1beta1 policy %+v->%+v", oldObj, newObj)
+	d.addK8sNetworkPolicyDeprecated(newObj)
+}
+
+// deleteK8sNetworkPolicyDeprecated FIXME remove in k8s 1.8
+func (d *Daemon) deleteK8sNetworkPolicyDeprecated(obj interface{}) {
+	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	if !ok {
+		log.Errorf("Ignoring invalid k8s v1beta1.NetworkPolicy deletion")
+		return
+	}
+
+	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyNameDeprecated(k8sNP))
+
+	if _, err := d.PolicyDelete(labels); err != nil {
+		log.Errorf("Error while deleting v1beta1 kubernetes network policy %+v: %s", labels, err)
+	} else {
+		log.Infof("Kubernetes v1beta1 network policy '%s' successfully removed", k8sNP.Name)
 	}
 }
 

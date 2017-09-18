@@ -24,6 +24,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -105,6 +106,47 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 func isConnReady(c *kubernetes.Clientset) error {
 	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
 	return err
+}
+
+// CreateThirdPartyResourcesDefinitions creates the TPR object in the kubernetes
+// cluster
+func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
+	cnpTPRName := ThirdPartyResourcesSingularName + "." + CustomResourceDefinitionGroup
+	res := &v1beta1.ThirdPartyResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cnpTPRName,
+		},
+		Description: "Cilium network policy rule",
+		Versions: []v1beta1.APIVersion{
+			{Name: ThirdPartyResourceVersion},
+		},
+	}
+
+	_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Create(res)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	log.Infof("k8s: Waiting for TPR to be established in k8s api-server...")
+	// wait for TPR being established
+	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		// The only way we can know if the TPR was installed in the cluster
+		// is to check if the return error was or not nil
+		return true, nil
+	})
+	if err != nil {
+		deleteErr := cli.ExtensionsV1beta1().ThirdPartyResources().Delete(cnpTPRName, nil)
+		if deleteErr != nil {
+			return fmt.Errorf("k8s: unable to delete TPR %s. Deleting TPR due: %s", deleteErr, err)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // CreateCustomResourceDefinitions creates the CRD object in the kubernetes
