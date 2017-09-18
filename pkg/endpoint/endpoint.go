@@ -696,6 +696,10 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 	return policy.InvalidIdentity
 }
 
+func (e *Endpoint) GetIdentityFromConsumable(srcIdentity policy.NumericIdentity) *policy.Identity {
+	return e.Consumable.GetIdentityFromConsumableCache(srcIdentity)
+}
+
 func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }

@@ -68,11 +68,12 @@ func (id NumericIdentity) Uint32() uint32 {
 type Identity struct {
 	// Identity's ID.
 	ID NumericIdentity `json:"id"`
-	// Endpoints that have this Identity where their value is the last time they were seen.
+	// Set of labels that belong to this Identity.
 	Labels labels.Labels `json:"labels"`
 	// SHA256 of labels.
 	LabelsSHA256 string `json:"labelsSHA256"`
-	// Set of labels that belong to this Identity.
+	// Endpoints that have this Identity where their value is the last time they were seen.
+	// Also, If an identity is no longer used (i.e. all endpoints have disassociated from it) we can recycle the identity.
 	Endpoints map[string]time.Time `json:"containers"`
 }
 
