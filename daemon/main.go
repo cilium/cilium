@@ -139,7 +139,7 @@ func getClangVersion(filePath string) (*go_version.Version, error) {
 	return go_version.NewVersion(strings.Join(verStrs[:2], "."))
 }
 
-func checkBPFLogs(logType string, warnLevel bool) {
+func checkBPFLogs(logType string, fatal bool) {
 	bpfLogFile := logType + ".log"
 	bpfLogPath := filepath.Join(config.StateDir, bpfLogFile)
 
@@ -150,9 +150,9 @@ func checkBPFLogs(logType string, warnLevel bool) {
 		if err != nil {
 			log.Fatalf("%s check: NOT OK. Unable to read %q: %s", logType, bpfLogPath, err)
 		}
-		printer := log.Infof
-		if warnLevel {
-			printer = log.Warningf
+		printer := log.Debugf
+		if fatal {
+			printer = log.Errorf
 			printer("%s check: NOT OK", logType)
 		} else {
 			printer("%s check: Some features may be limited:", logType)
@@ -160,6 +160,9 @@ func checkBPFLogs(logType string, warnLevel bool) {
 		lines := strings.Trim(string(bpfFeaturesLog), "\n")
 		for _, line := range strings.Split(lines, "\n") {
 			printer(line)
+		}
+		if fatal {
+			log.Fatalf("%s check failed.", logType)
 		}
 	} else {
 		log.Fatalf("%s check: NOT OK. Unable to read %q: %s", logType, bpfLogPath, err)
