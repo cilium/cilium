@@ -99,6 +99,7 @@ type ProxySource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
+	ResolveIdentity(policy.NumericIdentity) *policy.Identity
 	GetIPv4Address() string
 	GetIPv6Address() string
 	RUnlock()
@@ -269,10 +270,33 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 	}
 }
 
-func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, accesslog.IPVersion) {
+//   This function fills the accesslog.EndpointInfo fields, by fetching the consumable from the consumable cache
+//   of endpoint using identity sent by source. This is needed in ingress proxy while logging the source endpoint info.
+//   Since there will be 2 proxies on the same host, if both egress and ingress policies are set, the ingress policy cannot determine the
+//   source endpoint info based on ip address, as the ip address would be that of the egress proxy i.e host.
+
+func (r *Redirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity) {
+	ep := r.source
+	ip := net.ParseIP(ipstr)
+	if ip != nil {
+		if ip.To4() != nil {
+			info.IPv4 = ip.String()
+		} else {
+			info.IPv6 = ip.String()
+		}
+	}
+	secIdentity := ep.ResolveIdentity(srcIdentity)
+
+	if secIdentity != nil {
+		info.Labels = secIdentity.Labels.GetModel()
+		info.LabelsSHA256 = secIdentity.Labels.SHA256Sum()
+		info.Identity = uint64(srcIdentity)
+	}
+}
+
+func (r *Redirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo, accesslog.IPVersion) {
 	info := accesslog.EndpointInfo{}
 	version := accesslog.VersionIPv4
-
 	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
@@ -290,7 +314,15 @@ func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, acc
 	if !r.l4.Ingress {
 		r.localEndpointInfo(&info)
 	} else if err == nil {
-		parseIPPort(ipstr, &info)
+		if srcIdentity != 0 {
+			r.getInfoFromConsumable(ipstr, &info, srcIdentity)
+		} else {
+			// source security identity 0 is possible when somebody else other than the BPF datapath attempts to
+			// connect to the proxy.
+			// We should log no source information in that case, in the proxy log.
+			log.Warn("Missing security identity in source endpoint info")
+		}
+
 	}
 
 	return info, version
@@ -298,7 +330,6 @@ func (r *Redirect) getSourceInfo(req *http.Request) (accesslog.EndpointInfo, acc
 
 func (r *Redirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
 	info := accesslog.EndpointInfo{}
-
 	ipstr, port, err := net.SplitHostPort(dstIPPort)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
@@ -488,10 +519,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			TransportProtocol: 6, // TCP's IANA-assigned protocol number
 		}
 
-		info, version := redir.getSourceInfo(req)
-		record.SourceEndpoint = info
-		record.IPVersion = version
-
 		if redir.l4.Ingress {
 			record.ObservationPoint = accesslog.Ingress
 		} else {
@@ -507,6 +534,10 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError, http.StatusBadRequest)
 			return
 		}
+
+		info, version := redir.getSourceInfo(req, policy.NumericIdentity(srcIdentity))
+		record.SourceEndpoint = info
+		record.IPVersion = version
 
 		if srcIdentity != 0 {
 			record.SourceEndpoint.Identity = uint64(srcIdentity)

@@ -53,7 +53,7 @@ func NewConsumer(id NumericIdentity) *Consumer {
 
 // Consumable is the entity that is being consumed by a Consumer.
 type Consumable struct {
-	// ID of the consumable
+	// ID of the consumable (same as security ID)
 	ID NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
 	Mutex sync.RWMutex
@@ -91,6 +91,16 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 	}
 
 	return consumable
+}
+
+// ResolveIdentityFromCache fetches Consumable from ConsumableCache using
+// security identity as key, and returns labels for that identity.
+func (c *Consumable) ResolveIdentityFromCache(id NumericIdentity) *Identity {
+	cc := c.cache.Lookup(id)
+	if cc != nil {
+		return cc.Labels
+	}
+	return nil
 }
 
 func (c *Consumable) DeepCopy() *Consumable {
