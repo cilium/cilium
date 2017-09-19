@@ -48,6 +48,11 @@ type Rule struct {
 	// +optional
 	Egress []EgressRule `json:"egress,omitempty"`
 
+	// IngressVisibility is a list of IngressVisibilityRule which are applied at ingress.
+	//
+	// +optional
+	IngressVisibility []IngressVisibilityRule `json:"ingressVisibility,omitempty"`
+
 	// Labels is a list of optional strings which can be used to
 	// re-identify the rule or to store metadata. It is possible to lookup
 	// or delete strings based on labels. Labels are not required to be
@@ -268,13 +273,24 @@ type EgressRule struct {
 // Example: 192.0.2.1/32
 type CIDR string
 
-// L4Proto is a layer 4 protocol name
+// L4Proto is a Layer-4 protocol name
 type L4Proto string
 
 const (
 	ProtoTCP L4Proto = "TCP"
 	ProtoUDP L4Proto = "UDP"
 	ProtoAny L4Proto = "ANY"
+)
+
+// L7ParserType is the type used to indicate what L7 parser to use and
+// defines all supported types of L7 parsers
+type L7ParserType string
+
+const (
+	// ParserTypeHTTP specifies a HTTP parser type
+	ParserTypeHTTP L7ParserType = "http"
+	// ParserTypeKafka specifies a Kafka parser type
+	ParserTypeKafka L7ParserType = "kafka"
 )
 
 // PortProtocol specifies an L4 port with an optional transport protocol
@@ -293,10 +309,28 @@ type PortProtocol struct {
 	Protocol L4Proto `json:"protocol,omitempty"`
 }
 
+// IngressVisibilityRule ensures the ingress traffic to a set of L4 ports is
+// forwarded at L7 for the purpose of logging requests and responses into the
+// access log.
+// Only the traffic to the ports that is allowed by policy at L3 and L4 is
+// visible.
+type IngressVisibilityRule struct {
+	// ToPorts is a list of L4 port/protocol.
+	//
+	// +optional
+	ToPorts []PortProtocol `json:"toPorts,omitempty"`
+
+	// L7Protocol identifies the L7 protocol of the ingress traffic to the
+	// ports. Case insensitive. Accepted values: "http", "kafka".
+	//
+	// +optional
+	L7Protocol L7ParserType `json:"l7protocol,omitempty"`
+}
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
-	// Ports is a list of L4 port/protocol
+	// Ports is a list of L4 port/protocol.
 	//
 	// If omitted or empty but RedirectPort is set, then all ports of the
 	// endpoint subject to either the ingress or egress rule are being
@@ -340,9 +374,9 @@ type CIDRRule struct {
 
 // L7Rules is a union of port level rule types. Mixing of different port
 // level rule types is disallowed, so exactly one of the following must be set.
-// If none are specified, then no additional port level rules are applied.
+// If none is specified, then no additional port-level rules are applied.
 type L7Rules struct {
-	// HTTP specific rules.
+	// HTTP-specific rules.
 	//
 	// +optional
 	HTTP []PortRuleHTTP `json:"http,omitempty"`

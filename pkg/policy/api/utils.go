@@ -68,12 +68,23 @@ func (k *PortRuleKafka) Equal(o PortRuleKafka) bool {
 	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey && k.Topic == o.Topic
 }
 
-// Validate returns an error if the layer 4 protocol is not valid
+// Validate returns an error if the Layer-4 protocol is not valid
 func (l4 L4Proto) Validate() error {
 	switch l4 {
 	case ProtoAny, ProtoTCP, ProtoUDP:
 	default:
-		return fmt.Errorf("invalid protocol %q, must be { TCP | UDP | ANY }", l4)
+		return fmt.Errorf("invalid L4 protocol %q, must be { TCP | UDP | ANY }", l4)
+	}
+
+	return nil
+}
+
+// Validate returns an error if the Layer-7 protocol is not valid
+func (l7 L7ParserType) Validate() error {
+	switch l7 {
+	case ParserTypeHTTP, ParserTypeKafka:
+	default:
+		return fmt.Errorf("invalid L7 protocol %q, must be { http | kafka }", l7)
 	}
 
 	return nil
@@ -88,12 +99,18 @@ func (r *PortRule) NumRules() int {
 	return r.Rules.Len()
 }
 
-// ParseL4Proto parses a string as layer 4 protocol
+// ParseL4Proto parses a string as Layer-4 protocol
 func ParseL4Proto(proto string) (L4Proto, error) {
 	if proto == "" {
 		return ProtoAny, nil
 	}
 
 	p := L4Proto(strings.ToUpper(proto))
+	return p, p.Validate()
+}
+
+// ParseL7ParserType parses a string as Layer-7 parser type
+func ParseL7ParserType(l7Parser string) (L7ParserType, error) {
+	p := L7ParserType(strings.ToLower(l7Parser))
 	return p, p.Validate()
 }

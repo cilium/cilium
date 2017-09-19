@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/optiopay/kafka/proto"
@@ -261,7 +262,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair) {
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
 func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter) error {
-	if l4.L7Parser != policy.ParserTypeKafka {
+	if l4.L7Parser != api.ParserTypeKafka {
 		return fmt.Errorf("invalid type %q, must be of type ParserTypeKafka", l4.L7Parser)
 	}
 

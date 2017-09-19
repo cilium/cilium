@@ -15,6 +15,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -39,6 +40,12 @@ func (r Rule) Sanitize() error {
 
 	for i := range r.Egress {
 		if err := r.Egress[i].sanitize(); err != nil {
+			return err
+		}
+	}
+
+	for _, v := range r.IngressVisibility {
+		if err := v.sanitize(); err != nil {
 			return err
 		}
 	}
@@ -183,16 +190,16 @@ func (pr *PortRule) sanitize() error {
 
 func (pp *PortProtocol) sanitize() error {
 	if pp.Port == "" {
-		return fmt.Errorf("Port must be specified")
+		return errors.New("port must be specified")
 	}
 
 	p, err := strconv.ParseUint(pp.Port, 0, 16)
 	if err != nil {
-		return fmt.Errorf("Unable to parse port: %s", err)
+		return fmt.Errorf("unable to parse port: %s", err)
 	}
 
 	if p == 0 {
-		return fmt.Errorf("Port cannot be 0")
+		return errors.New("port cannot be 0")
 	}
 
 	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
@@ -203,10 +210,26 @@ func (pp *PortProtocol) sanitize() error {
 	return nil
 }
 
+func (v *IngressVisibilityRule) sanitize() error {
+	for i := range v.ToPorts {
+		if err := v.ToPorts[i].sanitize(); err != nil {
+			return err
+		}
+	}
+
+	var err error
+	v.L7Protocol, err = ParseL7ParserType(string(v.L7Protocol))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (cidr CIDR) sanitize() error {
 	strCIDR := string(cidr)
 	if strCIDR == "" {
-		return fmt.Errorf("IP must be specified")
+		return errors.New("CIDR prefix IP address must be specified")
 	}
 
 	_, ipnet, err := net.ParseCIDR(strCIDR)
@@ -214,13 +237,13 @@ func (cidr CIDR) sanitize() error {
 		// Returns the prefix length as zero if the mask is not continuous.
 		ones, _ := ipnet.Mask.Size()
 		if ones == 0 {
-			return fmt.Errorf("Mask length can not be zero")
+			return errors.New("CIDR prefix length cannot be zero")
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {
-			return fmt.Errorf("Unable to parse CIDR: %s", err)
+			return fmt.Errorf("unable to parse CIDR prefix IP address: %s", err)
 		}
 	}
 

@@ -61,17 +61,6 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-// L7ParserType is the type used to indicate what L7 parser to use and
-// defines all supported types of L7 parsers
-type L7ParserType string
-
-const (
-	// ParserTypeHTTP specifies a HTTP parser type
-	ParserTypeHTTP L7ParserType = "http"
-	// ParserTypeKafka specifies a Kafka parser type
-	ParserTypeKafka L7ParserType = "kafka"
-)
-
 type L4Filter struct {
 	// Port is the destination port to allow
 	Port int `json:"port"`
@@ -81,7 +70,7 @@ type L4Filter struct {
 	// FromEndpoints is empty, then it selects all endpoints.
 	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
-	L7Parser L7ParserType `json:"-"`
+	L7Parser api.L7ParserType `json:"-"`
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
 	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
@@ -162,9 +151,9 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 	if rule.Rules != nil {
 		switch {
 		case len(rule.Rules.HTTP) > 0:
-			l4.L7Parser = ParserTypeHTTP
+			l4.L7Parser = api.ParserTypeHTTP
 		case len(rule.Rules.Kafka) > 0:
-			l4.L7Parser = ParserTypeKafka
+			l4.L7Parser = api.ParserTypeKafka
 		}
 
 		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, fromEndpoints)

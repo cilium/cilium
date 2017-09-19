@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	log "github.com/sirupsen/logrus"
@@ -193,14 +194,14 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	var redir Redirect
 
 	switch l4.L7Parser {
-	case policy.ParserTypeKafka:
+	case api.ParserTypeKafka:
 		redir, err = createKafkaRedirect(kafkaConfiguration{
 			policy:     l4,
 			id:         id,
 			source:     source,
 			listenPort: to})
 		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).Debug("Created new kafka proxy instance")
-	case policy.ParserTypeHTTP:
+	case api.ParserTypeHTTP:
 		switch kind {
 		case ProxyKindOxy:
 			redir, err = createOxyRedirect(l4, id, source, to)

@@ -433,11 +433,17 @@ Label verdict: undecided
 Resolving egress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     No L4 rules
+Resolving ingress visibility rules for [any:bar]
+* Rule 0 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+1 rules matched
 1/1 rules selected
 Found no allow rule
 L4 egress verdict: undecided
 
 Resolving ingress port policy for [any:foo]
+Resolving ingress visibility rules for [any:foo]
+0 rules matched
 0/1 rules selected
 Found no allow rule
 L4 ingress verdict: undecided
@@ -468,6 +474,8 @@ Found no allow rule
 Label verdict: undecided
 
 Resolving egress port policy for [any:baz]
+Resolving ingress visibility rules for [any:baz]
+0 rules matched
 0/2 rules selected
 Found no allow rule
 L4 egress verdict: undecided
@@ -478,6 +486,12 @@ Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
       Found all required labels
+Resolving ingress visibility rules for [any:bar]
+* Rule 0 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+* Rule 1 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+2 rules matched
 2/2 rules selected
 Found allow rule
 L4 ingress verdict: allowed
@@ -506,6 +520,12 @@ Resolving egress port policy for [any:bar]
     No L4 rules
 * Rule {"matchLabels":{"any:bar":""}}: selected
     No L4 rules
+Resolving ingress visibility rules for [any:bar]
+* Rule 0 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+* Rule 1 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+2 rules matched
 2/2 rules selected
 Found no allow rule
 L4 egress verdict: undecided
@@ -516,6 +536,12 @@ Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
       Labels [any:bar] not found
+Resolving ingress visibility rules for [any:bar]
+* Rule 0 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+* Rule 1 {"matchLabels":{"any:bar":""}}: match
+    No active ingress visibility rules
+2 rules matched
 2/2 rules selected
 Found no allow rule
 L4 ingress verdict: undecided
