@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -78,12 +78,12 @@ func GetMapPrefix() string {
 
 func MapPrefixPath() string {
 	once.Do(lockDown)
-	return path.Join(mapRoot, mapPrefix)
+	return filepath.Join(mapRoot, mapPrefix)
 }
 
 func MapPath(name string) string {
 	once.Do(lockDown)
-	return path.Join(mapRoot, mapPrefix, name)
+	return filepath.Join(mapRoot, mapPrefix, name)
 }
 
 var (
