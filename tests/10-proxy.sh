@@ -12,7 +12,7 @@ redirect_debug_logs ${LOGS_DIR}
 set -ex
 
 function cleanup {
-  cilium service delete --all
+  cilium service delete --all 2> /dev/null || true
   cilium policy delete --all 2> /dev/null || true
   docker rm -f server1 server2 client 2> /dev/null || true
 }
