@@ -285,11 +285,11 @@ func (r *Redirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointI
 			info.IPv6 = ip.String()
 		}
 	}
-	secLabel := ep.ResolveIdentity(srcIdentity)
+	secIdentity := ep.ResolveIdentity(srcIdentity)
 
-	if secLabel != nil {
-		info.Labels = secLabel.Labels.GetModel()
-		info.LabelsSHA256 = secLabel.Labels.SHA256Sum()
+	if secIdentity != nil {
+		info.Labels = secIdentity.Labels.GetModel()
+		info.LabelsSHA256 = secIdentity.Labels.SHA256Sum()
 		info.Identity = uint64(srcIdentity)
 	}
 }
