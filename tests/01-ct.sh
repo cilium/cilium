@@ -127,48 +127,51 @@ EOF
 wait_for_endpoints 6
 
 function connectivity_test() {
+  local TIMEOUT="5"
+  local DROP_TIMEOUT="2"
+
   log "beginning connectivity test with BIDIRECTIONAL=${BIDIRECTIONAL}"
   monitor_clear
   log "trying to curl http://[$HTTPD1_IP]:80 from curl container (should work)"
-  docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD1_IP]:80" || {
+  docker exec -i curl bash -c "curl --connect-timeout $TIMEOUT -XGET http://[$HTTPD1_IP]:80" || {
     abort "Error: Could not reach httpd1 on port 80"
   }
 
   monitor_clear
   log "trying to curl http://[$HTTPD1_IP4]:80 from curl container (should work)"
-  docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://$HTTPD1_IP4:80" || {
+  docker exec -i curl bash -c "curl --connect-timeout $TIMEOUT -XGET http://$HTTPD1_IP4:80" || {
     abort "Error: Could not reach httpd1 on port 80"
   }
 
   # FIXME(amre): Change following two expectations to the opposite when Issue #789 is fixed
   monitor_clear
   log "trying to curl http://[$HTTPD1_IP]:80 from curl2 container (should work)"
-  docker exec -i curl2 bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD1_IP]:80" || {
+  docker exec -i curl2 bash -c "curl --connect-timeout $TIMEOUT -XGET http://[$HTTPD1_IP]:80" || {
     abort "Error: Could not reach httpd1 on port 80"
   }
 
   monitor_clear
   log "trying to curl http://[$HTTPD1_IP4]:80 from curl2 container (should work)"
-  docker exec -i curl2 bash -c "curl --connect-timeout 5 -XGET http://$HTTPD1_IP4:80" || {
+  docker exec -i curl2 bash -c "curl --connect-timeout $TIMEOUT -XGET http://$HTTPD1_IP4:80" || {
     abort "Error: Could not reach httpd1 on port 80"
   }
 
   monitor_clear
   log "trying to curl http://[$HTTPD2_IP]:80 from curl container (shouldn't work)"
-  docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://[$HTTPD2_IP]:80" && {
+  docker exec -i curl bash -c "curl --connect-timeout $TIMEOUT -XGET http://[$HTTPD2_IP]:80" && {
     abort "Error: Unexpected success reaching httpd2 on port 80"
   }
 
   monitor_clear
   log "trying to curl http://[$HTTPD2_IP4]:80 from curl container (shouldn't work)"
-  docker exec -i curl bash -c "curl --connect-timeout 5 -XGET http://$HTTPD2_IP4:80" && {
+  docker exec -i curl bash -c "curl --connect-timeout $TIMEOUT -XGET http://$HTTPD2_IP4:80" && {
     abort "Error: Unexpected success reaching httpd2 on port 80"
   }
 
   # ICMPv6 echo request client => server should succeed
   monitor_clear
   log "trying to ping6 $SERVER_IP from client container (should work)"
-  docker exec -i client ping6 -c 5 $SERVER_IP || {
+  docker exec -i client ping6 -c $TIMEOUT $SERVER_IP || {
     abort "Error: Could not ping server container from client"
   }
 
@@ -177,7 +180,7 @@ function connectivity_test() {
    
     monitor_clear
     log "trying to ping $SERVER_IP4 from client container (should work)"
-    docker exec -i client ping -c 5 $SERVER_IP4 || {
+    docker exec -i client ping -c $TIMEOUT $SERVER_IP4 || {
       abort "Error: Could not ping server container from client"
     }
   fi
@@ -185,7 +188,7 @@ function connectivity_test() {
   # ICMPv6 echo request host => server should succeed
   monitor_clear
   log "trying to ping6 $SERVER_IP from host (should work)"
-  ping6 -c 5 $SERVER_IP || {
+  ping6 -c $TIMEOUT $SERVER_IP || {
     abort "Error: Could not ping server container from host"
   }
 
@@ -193,7 +196,7 @@ function connectivity_test() {
     # ICMPv4 echo request host => server should succeed
     monitor_clear
     log "trying to ping $SERVER_IP4 from host (should work)"
-    ping -c 5 $SERVER_IP4 || {
+    ping -c $TIMEOUT $SERVER_IP4 || {
       abort "Error: Could not ping server container from host"
     }
   fi
@@ -205,7 +208,7 @@ function connectivity_test() {
     # ICMPv6 echo request server => client should not succeed
     monitor_clear
     log "trying to ping6 $CLIENT_IP from server container (shouldn't work)"
-    docker exec -i server ping6 -c 2 $CLIENT_IP && {
+    docker exec -i server ping6 -c $DROP_TIMEOUT $CLIENT_IP && {
       abort "Error: Unexpected success of ICMPv6 echo request"
     }
 
@@ -213,7 +216,7 @@ function connectivity_test() {
       # ICMPv4 echo request server => client should not succeed
       monitor_clear
       log "trying to ping $CLIENT_IP4 from server container (shouldn't work)"
-      docker exec -i server ping -c 2 $CLIENT_IP4 && {
+      docker exec -i server ping -c $DROP_TIMEOUT $CLIENT_IP4 && {
         abort "Error: Unexpected success of ICMPv4 echo request"
       }
     fi
@@ -222,7 +225,7 @@ function connectivity_test() {
   # TCP request to closed port should fail
   monitor_clear
   log "trying to netcat $SERVER_IP on port 777 from client container (should fail)"
-  docker exec -i client nc -w 5 $SERVER_IP 777 && {
+  docker exec -i client nc -w $TIMEOUT $SERVER_IP 777 && {
     abort "Error: Unexpected success of TCP IPv6 session to port 777"
   }
 
@@ -230,7 +233,7 @@ function connectivity_test() {
     # TCP request to closed port should fail
     monitor_clear
     log "trying to netcat $SERVER_IP4 on port 777 from client container (should fail)"
-    docker exec -i client nc -w 5 $SERVER_IP4 777 && {
+    docker exec -i client nc -w $TIMEOUT $SERVER_IP4 777 && {
       abort "Error: Unexpected success of TCP IPv4 session to port 777"
     }
   fi
