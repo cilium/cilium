@@ -132,28 +132,39 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 
 func getCiliumEndpointID(cont *dTypes.ContainerJSON) uint16 {
 	if cont.NetworkSettings == nil {
+		log.Debugf("getCiliumEndpointID: container's network settings are nil")
 		return 0
 	}
 
 	if ciliumIP := getCiliumIPv6(cont.NetworkSettings.Networks); ciliumIP != nil {
 		return ciliumIP.EndpointID()
 	}
+	log.Debugf("getCiliumEndpointID: returned ciliumIP form getCiliumIPv6 is nil")
 	return 0
 }
 
 func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.CiliumIPv6 {
 	for _, contNetwork := range networks {
 		if contNetwork == nil {
+			log.Debugf("getCiliumIPv6: contNetwork is nil")
 			continue
 		}
+
+		log.Debugf("getCiliumIPv6:checking network %s", contNetwork.NetworkID)
+		log.Debugf("getCiliumIPv6: contNetwork.IPv6Gateway: %s", contNetwork.IPv6Gateway)
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
 		if !ipv6gw.Equal(nodeaddress.GetIPv6Router()) {
+			log.Debugf("getCiliumIPv6: ipv6 gateway %s does not equal nodeAddress.GetIPv6Router(): %s", ipv6gw, nodeaddress.GetIPv6Router())
 			continue
 		}
 		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
 		if err == nil {
 			return &ip
+		} else {
+			log.Warningf("getCiliumIPv6: trying to create NewCiliumIPv6 IP failed: %s", err)
+			continue
 		}
+		log.Debugf("getCiliumIPv6: contNetwork.GlobalIPv6Address %s has NewCiliumIPv6 address %s", contNetwork.GlobalIPv6Address, ip)
 	}
 	return nil
 }
@@ -240,6 +251,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
+			log.Debugf("endpoint record not in endpoint manager; looking it up via its assigned IP address")
 			cid := getCiliumEndpointID(dockerContainer)
 			if cid != 0 {
 				endpointmanager.Mutex.Lock()
@@ -252,10 +264,13 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 					endpointmanager.LinkContainerID(ep)
 				}
 				endpointmanager.Mutex.Unlock()
+			} else {
+				log.Debugf("cid is 0")
 			}
 		}
 
 		if ep == nil {
+			log.Debugf("endpoint does not exist yet; orchestration system has not requested us to handle networking for this container")
 			// Endpoint does not exist yet. This indicates that the
 			// orchestration system has not requested us to handle
 			// networking for this container yet (or never will). We
@@ -365,6 +380,8 @@ func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, l
 	if dockerCont.Config != nil {
 		newLabels, informationLabels = d.getFilteredLabels(dockerCont.Config.Labels)
 	}
+
+	log.Debugf("retrieveDockerLabels: newLabels: %s, information labels: %s", newLabels, informationLabels)
 
 	return &dockerCont, newLabels, informationLabels, nil
 }
