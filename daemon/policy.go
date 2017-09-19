@@ -427,7 +427,6 @@ func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 		return apierror.Error(DeletePolicyFailureCode, err)
 	}
 
-	lbls = labels.ParseSelectLabelArrayFromArray([]string{})
 	ruleList := d.policy.SearchRLocked(labels.LabelArray{})
 	policy := &models.Policy{
 		Revision: int64(rev),

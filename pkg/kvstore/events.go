@@ -20,7 +20,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// EventType defines the type of watch event that occured
+// EventType defines the type of watch event that occurred
 type EventType int
 
 const (
