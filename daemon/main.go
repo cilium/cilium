@@ -547,9 +547,7 @@ func runDaemon() {
 	d.SyncDocker()
 
 	// Register event listener in docker endpoint
-	if err := d.EnableDockerEventListener(sinceLastSync); err != nil {
-		log.Warningf("Error while enabling docker event watcher %s", err)
-	}
+	d.EnableDockerEventListener(sinceLastSync)
 
 	d.EnableKVStoreWatcher(30 * time.Second)
 

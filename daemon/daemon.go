@@ -60,7 +60,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
-	dClient "github.com/docker/engine-api/client"
+	dClient "github.com/docker/docker/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	"github.com/vishvananda/netlink"
@@ -872,7 +872,9 @@ func (d *Daemon) init() error {
 }
 
 func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
+	log.Debugf("creating IPAM configuration")
 
+	log.Debugf("nodeaddress.GetIPv6Router: %s", nodeaddress.GetIPv6Router())
 	ipamSubnets := net.IPNet{
 		IP:   nodeaddress.GetIPv6Router(),
 		Mask: nodeaddress.StateIPv6Mask,
@@ -950,6 +952,7 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		log.Fatalf("Unable to allocate IPv6 router IP: %s", err)
 	}
 
+	log.Debugf("setting routerIP: %s", routerIP)
 	nodeaddress.SetIPv6Router(routerIP)
 
 	return ipamConf, nil

@@ -37,9 +37,9 @@ import (
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 
-	dClient "github.com/docker/engine-api/client"
-	dTypes "github.com/docker/engine-api/types"
-	dNetwork "github.com/docker/engine-api/types/network"
+	dTypes "github.com/docker/docker/api/types"
+	dNetwork "github.com/docker/docker/api/types/network"
+	dClient "github.com/docker/docker/client"
 	. "gopkg.in/check.v1"
 )
 

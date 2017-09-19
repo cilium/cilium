@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/events"
 
 	log "github.com/Sirupsen/logrus"
-	dockerAPI "github.com/docker/engine-api/client"
+	dockerAPI "github.com/docker/docker/client"
 	ctx "golang.org/x/net/context"
 )
 

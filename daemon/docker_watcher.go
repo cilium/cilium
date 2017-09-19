@@ -15,10 +15,10 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
+	//"bufio"
+	//"encoding/json"
 	"fmt"
-	"io"
+	//"io"
 	"net"
 	"strconv"
 	"strings"
@@ -35,10 +35,11 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
-	dTypes "github.com/docker/engine-api/types"
-	dTypesEvents "github.com/docker/engine-api/types/events"
-	dNetwork "github.com/docker/engine-api/types/network"
+	dTypes "github.com/docker/docker/api/types"
+	dTypesEvents "github.com/docker/docker/api/types/events"
+	dNetwork "github.com/docker/docker/api/types/network"
 	ctx "golang.org/x/net/context"
+	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
@@ -51,15 +52,27 @@ const (
 
 // EnableDockerEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
-func (d *Daemon) EnableDockerEventListener(since time.Time) error {
+func (d *Daemon) EnableDockerEventListener(since time.Time) {
+	log.Debugf("enabling Docker event listener")
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
-	r, err := d.dockerClient.Events(ctx.Background(), eo)
-	if err != nil {
-		return err
-	}
-	log.Debugf("Listening for docker events")
-	go d.listenForDockerEvents(r)
-	return nil
+	responses, errs := d.dockerClient.Events(ctx.Background(), eo)
+
+	go func(responses <-chan dTypesEvents.Message, errors <-chan error) {
+		for {
+			select {
+			case err := <-errs:
+				log.Debugf("EnableDockerEventListener: got an error")
+				if err != io.EOF {
+					log.Error("Error while reading events: %+v", err)
+				}
+			case r := <-responses:
+				log.Debugf("EnableDockerEventListener: got a response")
+				go d.processEvent(r)
+			}
+		}
+	}(responses, errs)
+
+	log.Debugf("Now Listening for docker events")
 }
 
 // SyncDocker is used by the daemon to synchronize changes between Docker and
@@ -102,7 +115,7 @@ func (d *Daemon) RunBackgroundContainerSync() {
 	go d.backgroundContainerSync()
 }
 
-func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
+/*func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var e dTypesEvents.Message
@@ -114,7 +127,7 @@ func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 	if err := scanner.Err(); err != nil {
 		log.Errorf("Error while reading events: %+v", err)
 	}
-}
+}*/
 
 func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	log.Debugf("Processing docker event %v for container %v", m.Status, m.ID)
@@ -370,6 +383,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 // identity for an endpoint, and the set of labels that are not utilized in
 // computing the security identity for an endpoint.
 func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels, labels.Labels, error) {
+	log.Debugf("retrieving Docker labels")
 	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", dockerID, err)

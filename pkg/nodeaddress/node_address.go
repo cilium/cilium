@@ -274,6 +274,7 @@ func GetIPv6Router() net.IP {
 
 // SetIPv6Router returns the IPv6 address of the node
 func SetIPv6Router(ip net.IP) {
+	log.Debugf("setting ipv6RouterAddress: %s", ip)
 	ipv6RouterAddress = ip
 }
 
