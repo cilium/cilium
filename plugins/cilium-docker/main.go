@@ -16,7 +16,7 @@ package main
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
@@ -84,7 +84,7 @@ func initConfig() {
 
 	common.RequireRootPrivilege("cilium-docker")
 
-	driverSock = path.Join(pluginPath, "cilium.sock")
+	driverSock = filepath.Join(pluginPath, "cilium.sock")
 
 	if err := os.MkdirAll(pluginPath, 0755); err != nil && !os.IsExist(err) {
 		log.Fatalf("Could not create net plugin path directory: %s", err)
