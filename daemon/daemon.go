@@ -66,6 +66,7 @@ import (
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/kubernetes/pkg/registry/core/service/allocator"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -896,7 +897,10 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 				},
 			},
 		},
-		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
+		//IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
+		IPv6Allocator: ipallocator.NewAllocatorCIDRRange(nodeaddress.GetIPv6AllocRange(), func(max int, rangeSpec string) allocator.Interface {
+			return allocator.NewContiguousAllocationMap(max, rangeSpec)
+		}),
 	}
 
 	// Since docker doesn't support IPv6 only and there's always an IPv4
