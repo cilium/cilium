@@ -17,11 +17,11 @@ LLC   ?= llc
 
 ifeq ("$(PKG_BUILD)","")
 
+all: $(BPF)
+
 tags:
 	cscope -R -b
 	ctags -R .
-
-all: $(BPF)
 
 %.o: %.c
 	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
