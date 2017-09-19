@@ -35,7 +35,7 @@ create_cilium_docker_network
 
 log "creating containerA"
 docker run -dt --net=$TEST_NET --name containerA -l id.a tgraf/netperf
-log "done creating containerB"
+log "done creating containerA"
 log "creating containerB"
 docker run -dt --net=$TEST_NET --name containerB -l id.b tgraf/netperf
 log "done creating containerB"
@@ -51,8 +51,14 @@ for ep in $known_endpoints; do
   fi
 done
 
+log "before removal: `cilium endpoint list`"
+log "`docker ps`"
+
 log "removing containerA and containerB"
 docker rm -f containerA containerB
+
+log "after removal: `cilium endpoint list`"
+log "`docker ps`"
 
 # There should only be one cilium_policy file after the containers are gone.
 # Ignoring the reserved files.
