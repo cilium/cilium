@@ -46,11 +46,12 @@ function probe_kernel_config()
     # Other distros in /boot/config-*
     local config_locations=("/proc/config" "/proc/config.gz",
         "/boot/config-$(uname -r)")
-    local PARAMS=(
-        "CONFIG_CGROUP_BPF=y" "CONFIG_BPF=y" "CONFIG_BPF_SYSCALL=y"
-        "CONFIG_NET_SCH_INGRESS=[m|y]" "CONFIG_NET_CLS_BPF=[m|y]"
-        "CONFIG_NET_CLS_ACT=y" "CONFIG_BPF_JIT=y" "CONFIG_LWTUNNEL_BPF=y"
-        "CONFIG_HAVE_EBPF_JIT=y" "CONFIG_BPF_EVENTS=y" "CONFIG_TEST_BPF=[m|y]")
+    local REQ_PARAMS=(
+        "CONFIG_BPF=y" "CONFIG_BPF_SYSCALL=y" "CONFIG_NET_SCH_INGRESS=[m|y]"
+        "CONFIG_NET_CLS_BPF=[m|y]" "CONFIG_NET_CLS_ACT=y" "CONFIG_BPF_JIT=y"
+        "CONFIG_HAVE_EBPF_JIT=y")
+    local OPT_PARAMS=(
+        "CONFIG_CGROUP_BPF=y" "CONFIG_LWTUNNEL_BPF=y" "CONFIG_BPF_EVENTS=y")
 
     for config in "${config_locations[@]}"
     do
@@ -61,11 +62,18 @@ function probe_kernel_config()
     done
 
     if [[ -z "$KCONFIG" ]]; then
-        echo "WARNING: BPF/probes: Kernel config not found." >> $INFO_FILE
+        echo "BPF/probes: Kernel config not found." >> $INFO_FILE
         return
     fi
 
-    for key in "${PARAMS[@]}"
+    for key in "${OPT_PARAMS[@]}"
+    do
+        zgrep -E "${key}" $KCONFIG > /dev/null || {
+            echo "BPF/probes: ${key} is not in kernel configuration" >> $INFO_FILE
+            }
+    done
+
+    for key in "${REQ_PARAMS[@]}"
     do
         zgrep -E "${key}" $KCONFIG > /dev/null || {
             RESULT=1;
