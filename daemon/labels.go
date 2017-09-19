@@ -238,6 +238,7 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	identities := []*models.Identity{}
 	if params.Labels == nil {
 		// if labels is nil, return all identities from the kvstore
+		// This is in response to "identity list" command
 		outputList, err := kvstore.Client().ListPrefix(common.LabelIDKeyPath)
 		if err != nil {
 			return apierror.Error(GetIdentityIDInvalidStorageFormatCode, err)
