@@ -23,7 +23,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -44,19 +43,18 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/loads"
+	go_version "github.com/hashicorp/go-version"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-const (
-	majorMinKernelVersion         = 4
-	minorRecommendedKernelVersion = 9
-	minorMinKernelVersion         = 8
+var (
+	minKernelVer, _ = go_version.NewConstraint(">= 4.8.0")
+	minClangVer, _  = go_version.NewConstraint(">= 3.8.0")
 
-	majorMinClangVersion         = 3
-	minorRecommendedClangVersion = 9
-	minorMinClangVersion         = 8
+	recKernelVer, _ = go_version.NewConstraint(">= 4.9.0")
+	recClangVer, _  = go_version.NewConstraint(">= 3.9.0")
 )
 
 var (
@@ -108,29 +106,34 @@ func main() {
 	}
 }
 
-func getMajorMinorVersion(version string) (int, int, error) {
-	versions := strings.Split(version, ".")
-	if len(versions) < 2 {
-		return 0, 0, fmt.Errorf("unable to get version from %q", version)
-	}
-	majorStr, minorStr := versions[0], versions[1]
-	major, err := strconv.Atoi(majorStr)
+func getKernelVersion() (*go_version.Version, error) {
+	verOut, err := exec.Command("uname", "-r").CombinedOutput()
 	if err != nil {
-		return 0, 0, fmt.Errorf("unable to get major version from %q", version)
+		log.Fatalf("kernel version: NOT OK: %s", err)
 	}
-	minor, err := strconv.Atoi(minorStr)
-	if err != nil {
-		return 0, 0, fmt.Errorf("unable to get minor version from %q", version)
+	verStrs := strings.Split(string(verOut), ".")
+	if len(verStrs) < 2 {
+		return nil, fmt.Errorf("unable to get kernel version from %q", string(verOut))
 	}
-	return major, minor, nil
+	return go_version.NewVersion(strings.Join(verStrs[:2], "."))
 }
 
-func checkKernelVersion() (int, int, error) {
-	kernelVersion, err := exec.Command("uname", "-r").CombinedOutput()
+func getClangVersion(filePath string) (*go_version.Version, error) {
+	verOut, err := exec.Command(filePath, "--version").CombinedOutput()
 	if err != nil {
-		return 0, 0, err
+		log.Fatalf("clang version: NOT OK: %s", err)
 	}
-	return getMajorMinorVersion(string(kernelVersion))
+	res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(verOut))
+	if len(res) != 3 {
+		log.Fatalf("clang version: NOT OK: unable to get clang's version "+
+			"from: %q", string(verOut))
+	}
+	// at this point res is []string{"clang", "version", "maj.min.patch"}
+	verStrs := strings.Split(res[2], ".")
+	if len(verStrs) < 2 {
+		return nil, fmt.Errorf("unable to get kernel version from %q", string(verOut))
+	}
+	return go_version.NewVersion(strings.Join(verStrs[:2], "."))
 }
 
 func checkBPFLogs(logType string, warnLevel bool) {
@@ -161,49 +164,33 @@ func checkBPFLogs(logType string, warnLevel bool) {
 }
 
 func checkMinRequirements() {
-	kernelMajor, kernelMinor, err := checkKernelVersion()
+	kernelVersion, err := getKernelVersion()
 	if err != nil {
 		log.Fatalf("kernel version: NOT OK: %s", err)
 	}
-	if kernelMajor < majorMinKernelVersion ||
-		(kernelMajor == majorMinKernelVersion && kernelMinor < minorMinKernelVersion) {
+	if !minKernelVer.Check(kernelVersion) {
 		log.Fatalf("kernel version: NOT OK: minimal supported kernel "+
-			"version is >= %d.%d; kernel version that is running is: %d.%d", majorMinKernelVersion, minorMinKernelVersion, kernelMajor, kernelMinor)
+			"version is %s; kernel version that is running is: %s", minKernelVer, kernelVersion)
 	}
 
 	if filePath, err := exec.LookPath("clang"); err != nil {
 		log.Fatalf("clang: NOT OK: %s", err)
 	} else {
-		clangVersion, err := exec.Command(filePath, "--version").CombinedOutput()
+		clangVersion, err := getClangVersion(filePath)
 		if err != nil {
 			log.Fatalf("clang version: NOT OK: %s", err)
 		}
-		res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(clangVersion))
-		if len(res) != 3 {
-			log.Fatalf("clang version: NOT OK: unable to get clang's version "+
-				"number from: %q", string(clangVersion))
-		}
-		clangMajor, clangMinor, err := getMajorMinorVersion(res[2])
-		if err != nil {
-			log.Fatalf("clang version: NOT OK: %s", err)
-		}
-		if clangMajor < majorMinClangVersion ||
-			(clangMajor == majorMinClangVersion && clangMinor < minorMinClangVersion) {
-			log.Fatalf("clang version: NOT OK: minimal supported clang version is "+
-				">= %d.%d", majorMinClangVersion, minorMinClangVersion)
+		if !minClangVer.Check(clangVersion) {
+			log.Fatalf("clang version: NOT OK: minimal supported clang "+
+				"version is %s; clang version that is running is: %s", minClangVer, clangVersion)
 		}
 		//clang >= 3.9 / kernel < 4.9 - does not work
-		if ((clangMajor == majorMinClangVersion && clangMinor > minorMinClangVersion) ||
-			clangMajor > majorMinClangVersion) &&
-			((kernelMajor < majorMinKernelVersion) ||
-				(kernelMajor == majorMinKernelVersion && kernelMinor < minorRecommendedKernelVersion)) {
-			log.Fatalf("clang (%d.%d) and kernel (%d.%d) version: NOT OK: please upgrade "+
-				"your kernel version to at least %d.%d",
-				clangMajor, clangMinor, kernelMajor, kernelMinor,
-				majorMinKernelVersion,
-				minorRecommendedKernelVersion)
+		if recClangVer.Check(clangVersion) && !recKernelVer.Check(kernelVersion) {
+			log.Fatalf("clang (%s) and kernel (%s) version: NOT OK: please upgrade "+
+				"your kernel version to at least %s",
+				clangVersion, kernelVersion, recKernelVer)
 		}
-		log.Infof("clang and kernel versions: OK!")
+		log.Infof("clang (%s) and kernel (%s) versions: OK!", clangVersion, kernelVersion)
 	}
 
 	if filePath, err := exec.LookPath("llc"); err != nil {
