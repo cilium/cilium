@@ -22,3 +22,4 @@
 #define DROP_NOTIFY
 #define DEBUG
 #define ENABLE_IPV4
+#define HANDLE_NS

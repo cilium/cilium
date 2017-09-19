@@ -25,6 +25,7 @@
 #define LXC_IPV4 0x10203040
 #define LXC_ID 0x1010
 #define LXC_ID_NB 0x1010
+#define LXC_NAT46
 #ifndef SECLABEL
 #define SECLABEL 0xfffff
 #define SECLABEL_NB 0xfffff
@@ -45,3 +46,7 @@
 #define CFG_L4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0
 #define NR_CFG_L4_EGRESS 1
 #define CFG_L4_EGRESS 0, 80, 8080, 0, (), 0
+#define POLICY_ENFORCEMENT
+#define ENABLE_IPv4
+#define ALLOW_TO_WORLD
+#define ALLOW_TO_HOST
