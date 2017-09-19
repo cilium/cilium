@@ -48,8 +48,9 @@ const (
 var (
 	k8sErrMsgMU sync.RWMutex
 	// k8sErrMsg stores a timer for each k8s error message received
-	k8sErrMsg            = map[string]*time.Timer{}
-	stopPolicyController = make(chan struct{})
+	k8sErrMsg                    = map[string]*time.Timer{}
+	stopPolicyController         = make(chan struct{})
+	restartCiliumRulesController = make(chan struct{})
 
 	// cnpClient is the interface for CRD and TPR
 	cnpClient k8s.CNPCliInterface
@@ -91,6 +92,11 @@ func k8sErrorHandler(e error) {
 				k8sErrMsgMU.Unlock()
 				log.Warningf("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
 				log.Warningf("Due to conflicting TPR and CRD rules, CiliumNetworkPolicy enforcement can't be guaranteed!")
+			} else if strings.Contains(errstr, "Unable to decode an event from the watch stream: unable to decode watch event") || strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct") {
+				k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
+				k8sErrMsgMU.Unlock()
+				log.Warningf("Unable to decode an event from watch, restarting cilium policy rules controller")
+				restartCiliumRulesController <- struct{}{}
 			}
 		}
 	} else {
@@ -210,18 +216,40 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go ingressController.Run(wait.NeverStop)
 
+	ciliumNetworkPolicyHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc:    d.addCiliumNetworkPolicy,
+		UpdateFunc: d.updateCiliumNetworkPolicy,
+		DeleteFunc: d.deleteCiliumNetworkPolicy,
+	}
+
 	var ciliumRulesController cache.Controller
 	ciliumRulesStore, ciliumRulesController = cache.NewInformer(
 		cnpClient.NewListWatch(),
 		&k8s.CiliumNetworkPolicy{},
 		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addCiliumNetworkPolicy,
-			UpdateFunc: d.updateCiliumNetworkPolicy,
-			DeleteFunc: d.deleteCiliumNetworkPolicy,
-		},
+		ciliumNetworkPolicyHandler,
 	)
-	go ciliumRulesController.Run(wait.NeverStop)
+
+	stopCiliumRulesController := make(chan struct{})
+	go ciliumRulesController.Run(stopCiliumRulesController)
+
+	go func() {
+		for range restartCiliumRulesController {
+			log.Debug("Received Cilium Rules Controller restart signal")
+			// We need to send stop signal to channel and close it for controller queue to close
+			stopCiliumRulesController <- struct{}{}
+			close(stopCiliumRulesController)
+			// we need to create new controller after stopping old one
+			ciliumRulesStore, ciliumRulesController = cache.NewInformer(
+				cnpClient.NewListWatch(),
+				&k8s.CiliumNetworkPolicy{},
+				reSyncPeriod,
+				ciliumNetworkPolicyHandler,
+			)
+			stopCiliumRulesController = make(chan struct{})
+			go ciliumRulesController.Run(stopCiliumRulesController)
+		}
+	}()
 
 	_, nodesController := cache.NewInformer(
 		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
