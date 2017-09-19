@@ -8,7 +8,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/../cluster/env.bash"
 
 TEST_NAME=$(get_filename_without_extension $0)
-LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+LOGS_DIR="${dir}/cilium-files/${k8s_version}/${TEST_NAME}"
 redirect_debug_logs ${LOGS_DIR}
 
 set -ex

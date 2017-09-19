@@ -6,7 +6,7 @@ source "${dir}/helpers.bash"
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 TEST_NAME=$(get_filename_without_extension $0)
-LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}"
 redirect_debug_logs ${LOGS_DIR}
 
 set -ex
@@ -21,7 +21,7 @@ function cleanup {
 }
 
 function finish_test {
-  gather_files ${TEST_NAME} ${TEST_SUITE}
+  gather_files_runtime ${LOGS_DIR}
   cleanup
 }
 
@@ -53,6 +53,8 @@ done
 
 log "removing containerA and containerB"
 docker rm -f containerA containerB
+
+wait_for_no_endpoints
 
 # There should only be one cilium_policy file after the containers are gone.
 # Ignoring the reserved files.

@@ -11,8 +11,8 @@ function copy_k8s_test_files {
   local K8S1="k8s1"
   local K8S2="k8s2"
   local K8S_FILES_DIR="tests/k8s/tests/${CILIUM_FILES}"
-  local VM1=$(get_k8s_vm_name $K8S1)
-  local VM2=$(get_k8s_vm_name $K8S2)
+  local VM1=$(get_k8s_vm_name $K8S1 ${k8s_version})
+  local VM2=$(get_k8s_vm_name $K8S2 ${k8s_version})
   
   echo "VM1: $VM1"
   echo "VM2: $VM2"

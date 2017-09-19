@@ -6,7 +6,7 @@ source "${dir}/helpers.bash"
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 TEST_NAME="17-multiple-monitors"
-LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+LOGS_DIR="${dir}/cilium-files/${TEST_NAME}"
 redirect_debug_logs ${LOGS_DIR}
 
 set -uex

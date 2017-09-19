@@ -5,7 +5,9 @@
 Vagrant.require_version ">= 1.8.3"
 
 $build_docker_image = <<SCRIPT
-certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
+set -e
+echo "============ BUILDING DOCKER IMAGE ============"
+certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs/${k8s_version}"
 cd /home/vagrant/go/src/github.com/cilium/cilium/
 make docker-image-dev
 docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
@@ -14,43 +16,60 @@ docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
         registry:2
 docker tag cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 docker push localhost:5000/cilium:${DOCKER_IMAGE_TAG}
+echo "============ DONE BUILDING DOCKER IMAGE ============"
 SCRIPT
 
 $load_docker_image = <<SCRIPT
-certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
-sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
-sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt
-docker pull 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG}
-docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+set -e
+echo "============ LOADING DOCKER IMAGE ============"
+certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs/${k8s_version}"
+sudo mkdir -p /etc/docker/certs.d/192.168.3${k8s_digit}.11:5000
+sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.3${k8s_digit}.11:5000/ca.crt
+docker pull 192.168.3${k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG}
+docker tag 192.168.3${k8s_digit}.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+echo "============ DONE LOADING DOCKER IMAGE ============"
 SCRIPT
 
 $k8s_install = <<SCRIPT
-/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash fresh_install
+set -e
+echo "============ INSTALLING K8s=${k8s_version} ============"
+k8s_version=${k8s_version} /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/cluster-manager.bash fresh_install
+echo "============ DONE INSTALLING K8s ============"
 SCRIPT
 
 $cilium_master = <<SCRIPT
+set -e
+echo "============ SETTING UP NETWORKING FOR MASTER ============"
 ip -6 a a FD01::B/16 dev enp0s8
 echo 'FD01::B k8s-1' >> /etc/hosts
 echo "FD01::C k8s-2" >> /etc/hosts
+echo "============ DONE SETTING UP NETWORKING FOR MASTER ============"
 SCRIPT
 
 $cilium_slave = <<SCRIPT
+set -e
+echo "============ SETTING UP NETWORKING FOR WORKER ============"
 ip -6 a a FD01::C/16 dev enp0s8
 echo 'FD01::C k8s-1' >> /etc/hosts
 echo "FD01::B k8s-2" >> /etc/hosts
+echo "============ DONE SETTING UP NETWORKING FOR WORKER ============"
 SCRIPT
 
 # allow setting up k8s_version remotely when executing the runtime tests via ssh
 $install_sshd_env = <<SCRIPT
+set -e
 echo "AcceptEnv k8s_version" >> /etc/ssh/sshd_config
 # Load options
 sudo service sshd restart
 SCRIPT
 
+$k8s_version = ENV['k8s_version'] || "1.6.6-00"
+$k8s_digit = $k8s_env[2]
+
 $job_name = ENV['JOB_BASE_NAME'] || "local"
 
 $build_number = ENV['BUILD_NUMBER'] || "0"
-$build_id = "#{$job_name}-#{$build_number}"
+$build_id = "#{$job_name}-#{$build_number}-#{$k8s_version}"
 $docker_image_tag=ENV['DOCKER_IMAGE_TAG'] || "local_build"
 
 # Only create the build_id_name for Jenkins environment so that
@@ -71,7 +90,7 @@ Vagrant.configure(2) do |config|
     (1..2).each do |i|
         config.vm.define "k8s#{i}#{$build_id_name}" do |s|
             s.vm.hostname = "k8s-#{i}"
-            s.vm.provision "k8s", type: "shell", env: {"k8s_version" => "1.6.6-00"}, inline: $k8s_install
+            s.vm.provision "k8s", type: "shell", env: {"k8s_version" => $k8s_version }, inline: $k8s_install
             s.vm.provision "ssh_accept_env", type: "shell", privileged: true, inline: $install_sshd_env
 
             s.vm.provider "virtualbox" do |vb|
@@ -82,12 +101,11 @@ Vagrant.configure(2) do |config|
                 config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium'
             end
 
-            s.vm.network "private_network", ip: "192.168.36.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
-            s.vm.network "private_network", ip: "192.168.37.1#{i}", bridge: "enp0s9"
-
+            s.vm.network "private_network", ip: "192.168.3#{$k8s_digit}.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+            s.vm.network "private_network", ip: "192.168.3#{$k8s_digit}.1#{i}", bridge: "enp0s9"
             # Hack to ensure that Kubernetes picks up the node-ip of the private_network
             # instead of the NATed vagrant IP
-            s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.36\.1#{i} k8s-#{i}/' -i /etc/hosts"
+            s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.3#{$k8s_digit}\.1#{i} k8s-#{i}/' -i /etc/hosts"
 
             # Mount BPF filesystem
 	    s.vm.provision :shell, inline: "mount bpffs /sys/fs/bpf -t bpf"
@@ -95,10 +113,10 @@ Vagrant.configure(2) do |config|
             # first node is special and considered the master
             if "#{i}" == "1"
                 s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
-                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag, "k8s_version" => $k8s_version}, inline: $build_docker_image
             else
                 s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
-                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
+                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag, "k8s_version" => $k8s_version, "k8s_digit" => $k8s_digit}, inline: $load_docker_image
             end
         end
     end
