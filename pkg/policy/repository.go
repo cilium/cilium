@@ -41,7 +41,7 @@ func NewPolicyRepository() *Repository {
 }
 
 // traceState is an internal structure used to collect information
-// while determing policy decision
+// while determining policy decision
 type traceState struct {
 	// selectedRules is the number of rules with matching EndpointSelector
 	selectedRules int
