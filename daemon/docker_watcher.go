@@ -63,7 +63,7 @@ func (d *Daemon) EnableDockerEventListener(since time.Time) {
 			case err := <-errs:
 				log.Debugf("EnableDockerEventListener: got an error")
 				if err != io.EOF {
-					log.Error("Error while reading events: %+v", err)
+					log.Error("Error while reading events: %s", err)
 				}
 			case r := <-responses:
 				log.Debugf("EnableDockerEventListener: got a response")
@@ -177,7 +177,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 			log.Warningf("getCiliumIPv6: trying to create NewCiliumIPv6 IP failed: %s", err)
 			continue
 		}
-		log.Debugf("getCiliumIPv6: contNetwork.GlobalIPv6Address %s has NewCiliumIPv6 address %s", contNetwork.GlobalIPv6Address, ip)
+		//log.Debugf("getCiliumIPv6: contNetwork.GlobalIPv6Address %s has NewCiliumIPv6 address %s", contNetwork.GlobalIPv6Address, ip)
 	}
 	return nil
 }
