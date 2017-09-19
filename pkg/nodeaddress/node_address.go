@@ -41,12 +41,13 @@ var (
 	ipv6AllocRange      *net.IPNet
 )
 
-func makeIPv6HostIP(ip net.IP) net.IP {
-	// Derive prefix::1 as the IPv6 host address
-	ip[12] = 0
-	ip[13] = 0
-	ip[14] = 0
-	ip[15] = 1
+func makeIPv6HostIP() net.IP {
+	ipstr := "fc00::10CA:1"
+	ip := net.ParseIP(ipstr)
+	if ip == nil {
+		log.Fatalf("Unable to parse IP '%s'", ipstr)
+	}
+
 	return ip
 }
 
@@ -229,7 +230,7 @@ func AutoComplete() error {
 	}
 
 	if ipv6Address == nil {
-		ipv6Address = makeIPv6HostIP(ipv6AllocRange.IP)
+		ipv6Address = makeIPv6HostIP()
 	}
 
 	return nil
