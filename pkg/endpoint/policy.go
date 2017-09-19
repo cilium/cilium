@@ -65,6 +65,8 @@ func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) {
 func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext, srcID policy.NumericIdentity) error {
 	var err error
 
+	log.Debugf("evaluating consumer Source for search context: %s, srcID: %d", ctx.String(), srcID)
+
 	ctx.From, err = owner.GetCachedLabelList(srcID)
 	if err != nil {
 		return err

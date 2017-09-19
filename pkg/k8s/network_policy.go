@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	log "github.com/Sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,8 +100,10 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			ingress.ToPorts = parsePorts(iRule.Ports)
 		}
 	}
+	log.Debugf("iterating through egress rules now")
 
 	for _, eRule := range np.Spec.Egress {
+		log.Debugf("eRule: %s", eRule)
 		// Based on NetworkPolicyEgressRule docs:
 		//   From []NetworkPolicyPeer
 		//   If this field is  empty or missing, this rule matches all
@@ -113,6 +116,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			// TODO(ianvernon) - should we use this instead of ToEndpoints? egress.ToCIDR = append(egress.ToCIDR, "0.0.0.0/0")
 		} else {
 			for _, rule := range eRule.To {
+
 				// Only one or the other can be set, not both
 				if rule.PodSelector != nil {
 					if rule.PodSelector.MatchLabels == nil {
@@ -149,6 +153,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			egress.ToPorts = parsePorts(eRule.Ports)
 		}
 	}
+
+	log.Debugf("egress rules: %s", egress)
 
 	tag := ExtractPolicyName(np)
 	if np.Spec.PodSelector.MatchLabels == nil {
