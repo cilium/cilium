@@ -301,10 +301,16 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 			return
 		}
 		ep.LabelsHash = newHash
+		epIdty := ep.GetIdentity()
 		ep.Mutex.Unlock()
 
 		// Since no orchLabels were modified we can safely return here
-		if ok && !orchLabelsModified {
+		if ok && !orchLabelsModified &&
+			// The kvstore can change the identity for a particular set of
+			// labels. We need to update the new identity and regenerate the
+			// bpf program as soon we know about it.
+			((identity == nil && epIdty == policy.InvalidIdentity) ||
+				(identity.ID == epIdty)) {
 			return
 		}
 
