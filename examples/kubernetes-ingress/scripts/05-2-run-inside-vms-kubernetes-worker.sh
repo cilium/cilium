@@ -71,7 +71,6 @@ ExecStartPre=/bin/bash -c ' \\
         fi'
 ExecStart=/usr/bin/kubelet \\
   --allow-privileged=true \\
-  --api-servers=http://${controllers_ips[0]}:8080 \\
   --cloud-provider= \\
   --make-iptables-util-chains=false \\
   --cluster-dns=${cluster_dns_ip} \\
