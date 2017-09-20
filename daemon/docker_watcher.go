@@ -63,7 +63,7 @@ func (d *Daemon) EnableDockerEventListener(since time.Time) {
 			case err := <-errs:
 				log.Debugf("EnableDockerEventListener: got an error")
 				if err != io.EOF {
-					log.Error("Error while reading events: %s", err)
+					log.Errorf("Error while reading events: %s", err)
 				}
 			case r := <-responses:
 				log.Debugf("EnableDockerEventListener: got a response")
