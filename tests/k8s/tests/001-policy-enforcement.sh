@@ -42,7 +42,8 @@ function cleanup {
   log " beginning cleanup for ${TEST_NAME}"
   kubectl delete -f "${MINIKUBE}/l3_l4_l7_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
-  kubectl delete -f "${MINIKUBE}/l3_l4_policy.yaml" 2> /dev/null || true
+  kubectl delete -f "${MINIKUBE}/l3_l4_policy_deprecated.yaml" 2> /dev/null || true
+  kubectl delete -f "${MINIKUBE}/malformed_policy.yaml" 2> /dev/null || true
   kubectl delete -f "${GSGDIR}/demo.yaml" 2> /dev/null || true
   wait_for_no_pods
   kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default || true
@@ -98,9 +99,9 @@ function check_endpoints_policy_disabled {
   local NUM_EPS=$1
   local CILIUM_POD=$2
   log " checking if ${NUM_EPS} endpoints have policy enforcement disabled"
-  kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list 
+  kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list
   POLICY_DISABLED_COUNT=`eval kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- ${DISABLED_CMD}`
-  if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then 
+  if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
     kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium config
     kubectl exec -n ${NAMESPACE} ${CILIUM_POD} -- cilium endpoint list | grep "${POD_FILTER}"
     abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
@@ -111,21 +112,32 @@ function check_endpoints_policy_disabled {
 function import_policy {
   # FIXME Remove workaround once we drop k8s 1.6 support
   # Only test the new network policy with k8s >= 1.7
-  if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy $NAMESPACE create "${MINIKUBE}/l3_l4_policy.yaml"
+  if [[ $# -eq 0  ]] ; then
+    if [[ "${k8s_version}" == 1.7.* ]]; then
+      local policy="${MINIKUBE}/l3_l4_policy.yaml"
+    else
+      local policy="${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+    fi
   else
-    k8s_apply_policy $NAMESPACE create "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+    local policy=$1
   fi
+
+  k8s_apply_policy $NAMESPACE create $policy
 }
 
 function delete_policy {
   # FIXME Remove workaround once we drop k8s 1.6 support
   # Only test the new network policy with k8s >= 1.7
-  if [[ "${k8s_version}" == 1.7.* ]]; then
-    k8s_apply_policy $NAMESPACE delete "${MINIKUBE}/l3_l4_policy.yaml"
+  if [[ $# -eq 0  ]] ; then
+    if [[ "${k8s_version}" == 1.7.* ]]; then
+      local policy="${MINIKUBE}/l3_l4_policy.yaml"
+    else
+      local policy="${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+    fi
   else
-    k8s_apply_policy $NAMESPACE delete "${MINIKUBE}/l3_l4_policy_deprecated.yaml"
+    local policy=$1
   fi
+  k8s_apply_policy $NAMESPACE delete $policy
 }
 
 trap finish_test EXIT
@@ -152,15 +164,15 @@ kubectl exec -n ${NAMESPACE} ${CILIUM_POD_2} -- cilium endpoint list
 
 # Test 1: default mode, K8s, Cilium launched.
 # Default behavior is to have policy enforcement disabled for all endpoints that have
-# no rules applying to them. Since no policies have been imported, all endpoints should have 
+# no rules applying to them. Since no policies have been imported, all endpoints should have
 # policy enforcement disabled.
 log " Test 1: default mode: test configuration with no policy imported"
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 2: default mode, K8s, import policy.
-# Import the following policy, which only applies to app3. 
-# Since policy enforcement is in 'default' mode for the daemon, policy enforcement 
+# Import the following policy, which only applies to app3.
+# Since policy enforcement is in 'default' mode for the daemon, policy enforcement
 # should be enabled for only one endpoint (app3), and should be disabled for all other endpoints.
 log " Test 2: default mode: test with policy imported "
 import_policy
@@ -172,7 +184,7 @@ kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium policy get
 check_endpoints_policy_enabled 2 ${CILIUM_POD_1}
 check_endpoints_policy_disabled 2 ${CILIUM_POD_1}
 
-# Test 3: default mode, K8s, delete policy 
+# Test 3: default mode, K8s, delete policy
 # Delete the aforementioned policy. Since the policy repository is now empty, we expect
 # that all endpoints should have policy enforcement disabled.
 log " Test 3: default mode: check that policy enforcement for each endpoint is disabled after all policies are removed"
@@ -181,7 +193,7 @@ wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTE
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 4: default --> always mode, K8s, no policy imported.
-# Change daemon's policy enforcement configuration from 'default' to 'always' with no policy imported. 
+# Change daemon's policy enforcement configuration from 'default' to 'always' with no policy imported.
 # We expect that all endpoints should have policy enforcement enabled after this configuration is applied.
 log " Test 4: default --> always mode: check that each endpoint has policy enforcement enabled with no policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=always
@@ -239,7 +251,7 @@ wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTE
 check_endpoints_policy_enabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 
 # Test 12: always --> never mode, K8s, policy imported.
-# All endpoints should have policy enforcement disabled. 
+# All endpoints should have policy enforcement disabled.
 log " Test 12: always --> never mode: check that each endpoint has policy enforcement disabled with policy imported"
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=never
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
@@ -279,5 +291,17 @@ log " Test 17: never --> default mode: check that each endpoint has policy enfor
 kubectl exec -n ${NAMESPACE} ${CILIUM_POD_1} -- cilium config PolicyEnforcement=default
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
+
+# Test 18: check policy enforcement after malformed policy is created and deleted
+# All endpoints should have policy enforcement enabled
+log " Test 18: check policy enforcement after malformed policy is created and deleted. All endpoints should have policy enforcement enabled"
+kubectl create -f "${MINIKUBE}/malformed_policy.yaml"
+wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
+kubectl delete -f "${MINIKUBE}/malformed_policy.yaml"
+wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
+import_policy
+wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
+check_endpoints_policy_enabled 2 ${CILIUM_POD_1}
+check_endpoints_policy_disabled 2 ${CILIUM_POD_1}
 
 test_succeeded "${TEST_NAME}"
