@@ -21,8 +21,8 @@ import (
 	"net"
 	"os"
 
-	"github.com/containernetworking/cni/pkg/ns"
-	"github.com/containernetworking/cni/pkg/utils/hwaddr"
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/containernetworking/plugins/pkg/utils/hwaddr"
 	"github.com/vishvananda/netlink"
 )
 

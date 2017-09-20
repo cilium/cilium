@@ -141,7 +141,7 @@ func (ns *netNS) Set() error {
 		return err
 	}
 
-	if _, _, err := unix.Syscall(unix.SYS_SETNS, ns.Fd(), uintptr(unix.CLONE_NEWNET), 0); err != 0 {
+	if err := unix.Setns(int(ns.Fd()), unix.CLONE_NEWNET); err != nil {
 		return fmt.Errorf("Error switching to ns %v: %v", ns.file.Name(), err)
 	}
 

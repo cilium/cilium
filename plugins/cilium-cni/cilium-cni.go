@@ -32,11 +32,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 )
 
@@ -278,6 +278,8 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConf
 		return nil, nil, fmt.Errorf("Invalid gateway address: %s", gw)
 	}
 
+	ifc := 0
+
 	return &cniTypesVer.IPConfig{
 		Address: *ip.EndpointPrefix(),
 		Gateway: gwIP,
@@ -285,7 +287,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConf
 		// We only configure one interface for each run, thus, the
 		// interface index from the Result interface list will be always
 		// 0.
-		Interface: 0,
+		Interface: &ifc,
 	}, rt, nil
 }
 

@@ -12,20 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ip
+package backend
 
-import (
-	"io/ioutil"
-)
+import "net"
 
-func EnableIP4Forward() error {
-	return echo1("/proc/sys/net/ipv4/ip_forward")
-}
-
-func EnableIP6Forward() error {
-	return echo1("/proc/sys/net/ipv6/conf/all/forwarding")
-}
-
-func echo1(f string) error {
-	return ioutil.WriteFile(f, []byte("1"), 0644)
+type Store interface {
+	Lock() error
+	Unlock() error
+	Close() error
+	Reserve(id string, ip net.IP, rangeID string) (bool, error)
+	LastReservedIP(rangeID string) (net.IP, error)
+	Release(ip net.IP) error
+	ReleaseByID(id string) error
 }

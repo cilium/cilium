@@ -59,7 +59,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
+	hb "github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/docker/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
@@ -881,12 +881,16 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		Mask: nodeaddress.StateIPv6Mask,
 	}
 
+	ipamRange := hb.Range{
+		Subnet:  cniTypes.IPNet(ipamSubnets),
+		Gateway: nodeaddress.GetIPv6Router(),
+	}
+
 	ipamConf := &ipam.IPAMConfig{
 		IPAMConfig: hb.IPAMConfig{
-			Name:    "cilium-local-IPAM",
-			Subnet:  cniTypes.IPNet(ipamSubnets),
-			Gateway: nodeaddress.GetIPv6Router(),
-			Routes: []cniTypes.Route{
+			Name:   "cilium-local-IPAM",
+			Ranges: []hb.RangeSet{{ipamRange}},
+			Routes: []*cniTypes.Route{
 				// IPv6
 				{
 					Dst: nodeaddress.GetIPv6NodeRoute(),
@@ -909,10 +913,10 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
 	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
 		// IPv4
-		cniTypes.Route{
+		&cniTypes.Route{
 			Dst: nodeaddress.GetIPv4NodeRoute(),
 		},
-		cniTypes.Route{
+		&cniTypes.Route{
 			Dst: nodeaddress.IPv4DefaultRoute,
 			GW:  nodeaddress.GetInternalIPv4(),
 		})
