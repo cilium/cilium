@@ -99,29 +99,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		}
 
 		if iRule.Ports != nil && len(iRule.Ports) > 0 {
-			for _, port := range iRule.Ports {
-				if port.Protocol == nil && port.Port == nil {
-					continue
-				}
-
-				protocol := "tcp"
-				if port.Protocol != nil {
-					protocol = strings.ToLower(string(*port.Protocol))
-				}
-
-				portStr := ""
-				if port.Port != nil {
-					portStr = port.Port.String()
-				}
-
-				portRule := api.PortRule{
-					Ports: []api.PortProtocol{
-						{Port: portStr, Protocol: protocol},
-					},
-				}
-
-				ingress.ToPorts = append(ingress.ToPorts, portRule)
-			}
+			ingress.ToPorts = parsePorts(iRule.Ports)
 		} else if iRule.From == nil || len(iRule.From) == 0 {
 			// Based on NetworkPolicyIngressRule docs:
 			//   From []NetworkPolicyPeer
@@ -153,4 +131,35 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	return api.Rules{rule}, nil
+}
+
+// Converts list of K8s NetworkPolicyPorts to Cilium PortRules.
+// Assumes that provided list of NetworkPolicyPorts is not nil.
+func parsePorts(ports []networkingv1.NetworkPolicyPort) []api.PortRule {
+	portRules := []api.PortRule{}
+	for _, port := range ports {
+		if port.Protocol == nil && port.Port == nil {
+			continue
+		}
+
+		protocol := "tcp"
+		if port.Protocol != nil {
+			protocol = strings.ToLower(string(*port.Protocol))
+		}
+
+		portStr := ""
+		if port.Port != nil {
+			portStr = port.Port.String()
+		}
+
+		portRule := api.PortRule{
+			Ports: []api.PortProtocol{
+				{Port: portStr, Protocol: protocol},
+			},
+		}
+
+		portRules = append(portRules, portRule)
+	}
+
+	return portRules
 }
