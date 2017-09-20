@@ -1,6 +1,6 @@
 [Unit]
 Description=cilium
-Documentation=https://github.com/cilium/cilium
+Documentation=http://docs.cilium.io
 Requires=docker.service cilium-consul.service cilium-docker.service
 
 [Service]
