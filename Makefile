@@ -3,6 +3,8 @@ include Makefile.defs
 SUBDIRS = plugins bpf cilium daemon monitor
 GOFILES = $(shell go list ./... | grep -v /vendor/)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
+GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
+BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
 
 GOTEST_OPTS = -test.v -check.v
 
@@ -63,6 +65,16 @@ tests-consul:
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	docker rm -f "cilium-consul-test-container"
+
+clean-tags:
+	-$(MAKE) -C bpf/ clean-tags
+	rm cscope.out cscope.in.out cscope.po.out cscope.files tags
+
+tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
+	@$(MAKE) -C bpf/ tags
+	gotags -R . > tags
+	@ echo $(GOLANG_SRCFILES) | sed 's/ /\n/g' > cscope.files
+	cscope -R -b -q
 
 clean-container:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done

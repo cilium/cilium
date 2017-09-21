@@ -38,5 +38,8 @@ cilium/bash_autocomplete
 *.swo
 outgoing
 
-bpf/cscope.out
-bpf/tags
+*cscope.files
+*cscope.out
+*cscope.in.out
+*cscope.po.out
+*tags
