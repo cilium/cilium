@@ -20,6 +20,7 @@ import (
 	"os"
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
+	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +60,11 @@ func listIdentities(args []string) {
 
 	identities, err := client.Policy.GetIdentity(params)
 	if err != nil {
-		Fatalf("Cannot get identities for given labels %v. err: %s\n", params.Labels, err.Error())
+		if params != nil {
+			Fatalf("Cannot get identities for given labels %v. err: %s\n", params.Labels, err.Error())
+		} else {
+			Fatalf("Cannot get identities. err: %s", pkg.Hint(err))
+		}
 	}
 	result["identities"] = identities.Payload
 
