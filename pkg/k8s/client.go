@@ -365,14 +365,14 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 
 	_, err = c.CoreV1().Nodes().Update(k8sNode)
 	if err != nil {
-		go func(c kubernetes.Interface, k8sServerNode *v1.Node, v4CIDR, v6CIDR *net.IPNet, err error) {
+		go func(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet, err error) {
 			// TODO: Retry forever?
 			for n := 0; err != nil; {
-				log.Errorf("k8s: unable to update node %s with IPv6 CIDR annotation: %s, retrying...", k8sServerNode.Name, err)
+				log.Errorf("k8s: unable to update node %s with IPv6 CIDR annotation: %s, retrying...", node.Name, err)
 				// In case of an error let's retry until
 				// we were able to set the annotations properly
-				updateNodeAnnotation(k8sServerNode, v4CIDR, v6CIDR)
-				k8sServerNode, err = c.CoreV1().Nodes().Update(k8sNode)
+				updateNodeAnnotation(node, v4CIDR, v6CIDR)
+				node, err = c.CoreV1().Nodes().Update(node)
 				if n < 30 {
 					n++
 				}
