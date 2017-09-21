@@ -158,6 +158,20 @@ function wait_for_endpoints {
   restore_flag $save "e"
 }
 
+function wait_for_endpoints_deletion {
+  local save=$-
+  set +e
+  local NUM_DESIRED="2" # When no endpoints are present there should be two lines only.
+  local CMD="cilium endpoint list | wc -l || true"
+  local INFO_CMD="cilium endpoint list"
+  local MAX_MINS="2"
+  local ERROR_OUTPUT="Timeout while waiting for endpoint removal"
+  log "waiting for up to ${MAX_MINS} mins for all endpoints to be removed"
+  wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
+  log "done waiting"
+  restore_flag $save "e"
+}
+
 function k8s_num_ready {
   local save=$-
   set +e
