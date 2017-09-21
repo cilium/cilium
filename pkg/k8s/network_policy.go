@@ -110,13 +110,14 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			all := api.NewESFromLabels(
 				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
 			)
-			egress.ToEndpoints = append(ingress.FromEndpoints, all)
+			egress.ToEndpoints = append(egress.ToEndpoints, all)
 			// TODO(ianvernon) - should we use this instead of ToEndpoints? egress.ToCIDR = append(egress.ToCIDR, "0.0.0.0/0")
 		} else {
-			for _, rule := range eRule.To {
-
+			for i, rule := range eRule.To {
+				log.Debugf("eRule.To[%d]: %s", i, rule)
 				// Only one or the other can be set, not both
 				if rule.PodSelector != nil {
+					log.Debugf("pod selector not nil; is %s", rule.PodSelector)
 					if rule.PodSelector.MatchLabels == nil {
 						rule.PodSelector.MatchLabels = map[string]string{}
 					}
@@ -127,6 +128,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 					egress.ToEndpoints = append(egress.ToEndpoints,
 						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.PodSelector))
 				} else if rule.NamespaceSelector != nil {
+					log.Debugf("namespace selector not nil; is %s", rule.NamespaceSelector)
 					matchLabels := map[string]string{}
 					// We use our own special label prefix for namespace metadata,
 					// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
@@ -144,6 +146,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 					egress.ToEndpoints = append(egress.ToEndpoints,
 						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.NamespaceSelector))
 				}
+
+				
 			}
 		}
 
@@ -152,7 +156,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		}
 	}
 
-	log.Debugf("egress rules: %s", egress)
+	log.Debugf("egress rules: %s", egress.String())
 
 	tag := ExtractPolicyName(np)
 	if np.Spec.PodSelector.MatchLabels == nil {

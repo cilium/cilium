@@ -50,6 +50,8 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 	case api.Denied:
 		opts[opt] = "disabled"
 	}
+
+	log.Debugf("checkEgressAccess for endpoint %d: ctx.String(): %s", e.ID, ctx.String())
 }
 
 // allowConsumer must be called with global endpoint.Mutex held
@@ -75,10 +77,14 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 		return nil
 	}
 
+	log.Debugf("evaluating consumer source for endpoint %d", e.ID)
 	log.Debugf("[%s] Evaluating context %+v", e.PolicyID(), ctx)
 
 	if owner.GetPolicyRepository().AllowsRLocked(ctx) == api.Allowed {
+		log.Debugf("am allowing srcID %d to be consumed by endpoint %d", srcID, e.ID)
 		e.allowConsumer(owner, srcID)
+	} else {
+		log.Debugf("not allowing srcID %d to be consumed by endpoint %d", srcID, e.ID)
 	}
 
 	return nil
@@ -204,6 +210,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		}
 		idx++
 	}
+
+	log.Debugf("regenerateConsumable for endpoint %d: ctx.String(): %s", e.ID, ctx.String())
 
 	// Garbage collect all unused entries
 	for _, val := range c.Consumers {

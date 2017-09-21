@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -54,13 +55,18 @@ type traceState struct {
 // context and returns the verdict or api.Undecided if no rule matches. The
 // policy repository mutex must be held.
 func (p *Repository) CanReachRLocked(ctx *SearchContext) api.Decision {
+
+	log.Debugf("in CanReachRLocked")
 	decision := api.Undecided
 	state := traceState{}
 
 	for i, r := range p.rules {
+		log.Debugf("CanReachRLocked: checking rule %s", r.String())
 		state.ruleID = i
+		log.Debugf("ctx.To: %s", ctx.To)
+		log.Debugf("ctx.From: %s", ctx.From)
 		switch r.canReach(ctx, &state) {
-		// The rule contained a constraint which was not met, this
+		// The rule contained a constraint which was not met; this
 		// connection is not allowed
 		case api.Denied:
 			return api.Denied

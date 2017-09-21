@@ -17,6 +17,7 @@ package policy
 import (
 	"fmt"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -177,7 +178,9 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
-	// Validate egress FromRequires
+	log.Debugf("validating egress ToRequires")
+
+	// Validate egress ToRequires
 	for _, r := range r.Egress {
 		for _, sel := range r.ToRequires {
 			ctx.PolicyTrace("    Requires to labels %+v", sel)
@@ -203,17 +206,29 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
+	log.Debugf("validating egress ToEndpoints")
+
 	for _, r := range r.Egress {
+		log.Debugf("egress rule: %s", r)
 		for _, sel := range r.ToEndpoints {
+			log.Debugf("selector: %s, ctx.To: %s", sel, ctx.To)
 			ctx.PolicyTrace("    Allows to labels %+v", sel)
 			if sel.Matches(ctx.To) {
+				log.Debugf("sel: %s matches to ctx.To: %s", sel, ctx.To)
 				ctx.PolicyTrace("+     Found all required labels\n")
 				return api.Allowed
+			} else {
+				log.Debugf("sel: %s doesn't match ctx.To: %s", sel, ctx.To)
 			}
 
 			ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
 		}
 	}
 
+	if len(r.Egress) == 0 {
+		log.Errorf("r.Egress has length of zero!")
+	}
+
+	log.Debugf("returning api.Undecided ")
 	return api.Undecided
 }
