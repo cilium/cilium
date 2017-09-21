@@ -341,6 +341,15 @@ func CreateTPRClient(config *rest.Config) (CNPCliInterface, error) {
 	return &cnpClient{rc}, err
 }
 
+func updateNodeAnnotation(node *v1.Node, v4CIDR, v6CIDR *net.IPNet) {
+	if node.Annotations == nil {
+		node.Annotations = map[string]string{}
+	}
+
+	node.Annotations[Annotationv4CIDRName] = v4CIDR.String()
+	node.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+}
+
 // AnnotateNodeCIDR writes both v4 and v6 CIDRs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
@@ -352,8 +361,7 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 	// register IP CIDRs in node's annotations
 	log.Debugf("k8s: Storing IPv4 CIDR %s in k8s node %s's annotations", v4CIDR, k8sNode.Name)
 	log.Debugf("k8s: Storing IPv6 CIDR %s in k8s node %s's annotations", v6CIDR, k8sNode.Name)
-	k8sNode.Annotations[Annotationv4CIDRName] = v4CIDR.String()
-	k8sNode.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+	updateNodeAnnotation(k8sNode, v4CIDR, v6CIDR)
 
 	_, err = c.CoreV1().Nodes().Update(k8sNode)
 	if err != nil {
@@ -363,8 +371,7 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 				log.Errorf("k8s: unable to update node %s with IPv6 CIDR annotation: %s, retrying...", k8sServerNode.Name, err)
 				// In case of an error let's retry until
 				// we were able to set the annotations properly
-				k8sServerNode.Annotations[Annotationv4CIDRName] = v4CIDR.String()
-				k8sServerNode.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+				updateNodeAnnotation(k8sServerNode, v4CIDR, v6CIDR)
 				k8sServerNode, err = c.CoreV1().Nodes().Update(k8sNode)
 				if n < 30 {
 					n++
