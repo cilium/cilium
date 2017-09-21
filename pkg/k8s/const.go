@@ -49,4 +49,8 @@ const (
 	// BackOffLoopTimeout is the default duration when trying to reach the
 	// kube-apiserver.
 	BackOffLoopTimeout = 2 * time.Minute
+
+	// maxUpdateRetries is the maximum number of update retries when
+	// updating k8s resources
+	maxUpdateRetries = 30
 )
