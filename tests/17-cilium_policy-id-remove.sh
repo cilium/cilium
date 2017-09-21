@@ -51,14 +51,19 @@ for ep in $known_endpoints; do
   fi
 done
 
-log "before removal: `cilium endpoint list`"
-log "`docker ps`"
+log "before removal"
+log "endpoint list: `cilium endpoint list`"
+log "docker: `docker ps`"
 
 log "removing containerA and containerB"
 docker rm -f containerA containerB
 
-log "after removal: `cilium endpoint list`"
-log "`docker ps`"
+log "after removal"
+log "endpoint list: `cilium endpoint list`"
+log "docker: `docker ps`"
+
+# In the unlikely case endpoint deletion should take longer than expected, wait.
+wait_for_endpoints_deletion
 
 # There should only be one cilium_policy file after the containers are gone.
 # Ignoring the reserved files.
