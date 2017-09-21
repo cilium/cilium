@@ -605,10 +605,10 @@ func (d *Daemon) installMasqRule() error {
 	if err := runProg("iptables", []string{
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
-		"!", "-s", nodeaddress.GetInternalIPv4().String(),
+		"!", "-s", nodeaddress.GetExternalIPv4().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
-		"-j", "MASQUERADE"}, false); err != nil {
+		"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
 		return err
 	}
 
