@@ -55,7 +55,7 @@ If multiple sources and / or destinations are provided, each source is tested wh
 
 		srcSlices := [][]string{}
 		dstSlices := [][]string{}
-		var srcSlice, dstSlice, dports []string
+		var srcSlice, dstSlice []string
 		var dPorts []*models.Port
 		var err error
 
