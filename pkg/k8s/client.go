@@ -16,6 +16,7 @@
 package k8s
 
 import (
+	goerrors "errors"
 	"fmt"
 	"net"
 	"time"
@@ -39,6 +40,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+var (
+	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
+	ErrNilNode = goerrors.New("API server returned nil node")
 )
 
 const (
@@ -341,45 +347,71 @@ func CreateTPRClient(config *rest.Config) (CNPCliInterface, error) {
 	return &cnpClient{rc}, err
 }
 
-func updateNodeAnnotation(node *v1.Node, v4CIDR, v6CIDR *net.IPNet) {
+func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet) (*v1.Node, error) {
 	if node.Annotations == nil {
 		node.Annotations = map[string]string{}
 	}
 
-	node.Annotations[Annotationv4CIDRName] = v4CIDR.String()
-	node.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+	if v4CIDR != nil {
+		node.Annotations[Annotationv4CIDRName] = v4CIDR.String()
+	}
+
+	if v6CIDR != nil {
+		node.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+	}
+
+	node, err := c.CoreV1().Nodes().Update(node)
+	if err != nil {
+		return nil, err
+	}
+
+	if node == nil {
+		return nil, ErrNilNode
+	}
+
+	return node, nil
 }
 
 // AnnotateNodeCIDR writes both v4 and v6 CIDRs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
 func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) error {
-	k8sNode, err := c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	// register IP CIDRs in node's annotations
-	log.Debugf("k8s: Storing IPv4 CIDR %s in k8s node %s's annotations", v4CIDR, k8sNode.Name)
-	log.Debugf("k8s: Storing IPv6 CIDR %s in k8s node %s's annotations", v6CIDR, k8sNode.Name)
-	updateNodeAnnotation(k8sNode, v4CIDR, v6CIDR)
+	log.WithFields(log.Fields{
+		fieldNodeName: nodeName,
+		fieldSubsys:   subsysKubernetes,
+	}).Debugf("Updating node annotations with node CIDRs: IPv4=%s IPv6=%s", v4CIDR, v6CIDR)
 
-	_, err = c.CoreV1().Nodes().Update(k8sNode)
-	if err != nil {
-		go func(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet, err error) {
-			// TODO: Retry forever?
-			for n := 0; err != nil; {
-				log.Errorf("k8s: unable to update node %s with IPv6 CIDR annotation: %s, retrying...", node.Name, err)
-				// In case of an error let's retry until
-				// we were able to set the annotations properly
-				updateNodeAnnotation(node, v4CIDR, v6CIDR)
-				node, err = c.CoreV1().Nodes().Update(node)
-				if n < 30 {
-					n++
+	go func(c kubernetes.Interface, v4CIDR, v6CIDR *net.IPNet) {
+		var node *v1.Node
+		var err error
+
+		for n := 1; n <= maxUpdateRetries; n++ {
+			if node == nil {
+				node, err = GetNode(c, nodeName)
+				if node == nil {
+					err = ErrNilNode
 				}
-				time.Sleep(time.Duration(n) * time.Second)
 			}
-		}(c, k8sNode, v4CIDR, v6CIDR, err)
-	}
+
+			if node != nil {
+				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR)
+			}
+
+			if err != nil {
+				log.WithFields(log.Fields{
+					fieldRetry:    n,
+					fieldMaxRetry: maxUpdateRetries,
+					fieldNodeName: nodeName,
+					fieldSubsys:   subsysKubernetes,
+				}).WithError(err).Error("Unable to update node resource with CIDR annotation")
+			} else {
+				break
+			}
+
+			time.Sleep(time.Duration(n) * time.Second)
+		}
+	}(c, v4CIDR, v6CIDR)
+
 	return nil
 }
 
