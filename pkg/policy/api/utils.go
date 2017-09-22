@@ -73,7 +73,7 @@ func (l4 L4Proto) Validate() error {
 	switch l4 {
 	case ProtoAny, ProtoTCP, ProtoUDP:
 	default:
-		return fmt.Errorf("invalid protocol %q, must be { tcp | udp | any }", l4)
+		return fmt.Errorf("invalid protocol %q, must be { TCP | UDP | ANY }", l4)
 	}
 
 	return nil

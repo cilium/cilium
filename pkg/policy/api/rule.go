@@ -285,7 +285,7 @@ type PortProtocol struct {
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
-	// matches. Accepted values: "TCP", "UDP", ""/"ANY"
+	// matches. Case insensitive. Accepted values: "TCP", "UDP", ""/"ANY".
 	//
 	// Matching on ICMP is not supported.
 	//
