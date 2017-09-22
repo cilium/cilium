@@ -25,6 +25,10 @@ Documentation
 -------------
 * Add here
 
+Other
+-----
+* Update Sirupsen/logrus to sirupsen/logrus (1573_)
+
 
 0.11
 ====
