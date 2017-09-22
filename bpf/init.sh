@@ -257,7 +257,7 @@ if [[ "$IP4_HOST" != "<nil>" ]]; then
 fi
 
 ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
-ip addr add 169.254.254.1/32 dev $HOST_DEV1
+ip addr add 169.254.254.1/32 dev $HOST_DEV1 scope link
 ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
 ip route add 169.254.254.0/24 dev $HOST_DEV1 scope link
 ip route del $IP4_RANGE 2> /dev/null || true
