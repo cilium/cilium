@@ -955,7 +955,6 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 	} else {
 		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
 			OK:          true,
-			Error:       "OK",
 			LastUpdated: time.Now(),
 		}
 		log.Infof("Imported CiliumNetworkPolicy %s", rule.Metadata.Name)
