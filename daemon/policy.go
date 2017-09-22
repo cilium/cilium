@@ -495,7 +495,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 func (d *Daemon) PolicyInit() error {
 	for k, v := range policy.ReservedIdentities {
 		log.Debugf("creating policy for %s", k)
-		key := policy.NumericIdentity(v).String()
+		key := v.String()
 		lbl := labels.NewLabel(
 			key, "", labels.LabelSourceReserved,
 		)

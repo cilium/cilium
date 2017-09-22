@@ -47,7 +47,7 @@ var serviceDeleteCmd = &cobra.Command{
 		if id, err := strconv.ParseInt(args[0], 0, 64); err != nil {
 			Fatalf("%s", err)
 		} else {
-			if err := client.DeleteServiceID(int64(id)); err != nil {
+			if err := client.DeleteServiceID(id); err != nil {
 				Fatalf("%s", err)
 			}
 

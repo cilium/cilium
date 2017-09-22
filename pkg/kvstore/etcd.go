@@ -562,7 +562,7 @@ func (e *EtcdClient) Get(key string) ([]byte, error) {
 	if getR.Count == 0 {
 		return nil, nil
 	}
-	return []byte(getR.Kvs[0].Value), nil
+	return getR.Kvs[0].Value, nil
 }
 
 // GetPrefix returns the first key which matches the prefix
@@ -575,7 +575,7 @@ func (e *EtcdClient) GetPrefix(prefix string) ([]byte, error) {
 	if getR.Count == 0 {
 		return nil, nil
 	}
-	return []byte(getR.Kvs[0].Value), nil
+	return getR.Kvs[0].Value, nil
 }
 
 // Set sets value of key
@@ -633,7 +633,7 @@ func (e *EtcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 
 	pairs := KeyValuePairs{}
 	for i := int64(0); i < getR.Count; i++ {
-		pairs[string(getR.Kvs[i].Key)] = []byte(getR.Kvs[i].Value)
+		pairs[string(getR.Kvs[i].Key)] = getR.Kvs[i].Value
 
 	}
 

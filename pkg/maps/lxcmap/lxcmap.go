@@ -72,8 +72,8 @@ func ParseMAC(s string) (MAC, error) {
 	if len(ha) != 6 {
 		return 0, fmt.Errorf("invalid MAC address %s", s)
 	}
-	return MAC(MAC(ha[5])<<40 | MAC(ha[4])<<32 | MAC(ha[3])<<24 |
-		MAC(ha[2])<<16 | MAC(ha[1])<<8 | MAC(ha[0])), nil
+	return MAC(ha[5])<<40 | MAC(ha[4])<<32 | MAC(ha[3])<<24 |
+		MAC(ha[2])<<16 | MAC(ha[1])<<8 | MAC(ha[0]), nil
 }
 
 // PortMap represents a port mapping from the host to the LXC.

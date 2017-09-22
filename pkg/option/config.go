@@ -57,7 +57,7 @@ func NewMapOpts(values map[string]string, validator Validator) *MapOptions {
 }
 
 func (opts *MapOptions) String() string {
-	return fmt.Sprintf("%v", map[string]string((opts.vals)))
+	return fmt.Sprintf("%v", opts.vals)
 }
 
 // Type returns a string name for this Option type

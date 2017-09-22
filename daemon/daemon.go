@@ -71,7 +71,7 @@ import (
 
 const (
 	// ExecTimeout is the execution timeout to use in init.sh executions
-	ExecTimeout = time.Duration(30 * time.Second)
+	ExecTimeout = 30 * time.Second
 
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"

@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	syncRateDocker = time.Duration(30 * time.Second)
+	syncRateDocker = 30 * time.Second
 
 	maxRetries = 3
 )
