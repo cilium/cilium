@@ -101,6 +101,7 @@ message APIResourceList {
 // discover the API at /api, which is the root path of the legacy v1 API.
 // 
 // +protobuf.options.(gogoproto.goproto_stringer)=false
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 message APIVersions {
   // versions are the api versions that are available.
   repeated string versions = 1;
@@ -289,6 +290,17 @@ message LabelSelectorRequirement {
   // merge patch.
   // +optional
   repeated string values = 3;
+}
+
+// List holds a list of objects, which may not be known by the server.
+message List {
+  // Standard list metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds
+  // +optional
+  optional ListMeta metadata = 1;
+
+  // List of objects
+  repeated k8s.io.apimachinery.pkg.runtime.RawExtension items = 2;
 }
 
 // ListMeta describes metadata that synthetic resources must have, including lists and
@@ -677,7 +689,9 @@ message StatusDetails {
   // +optional
   repeated StatusCause causes = 4;
 
-  // If specified, the time in seconds before the operation should be retried.
+  // If specified, the time in seconds before the operation should be retried. Some errors may indicate
+  // the client must take an alternate action - for those errors this field may indicate how long to wait
+  // before taking the alternate action.
   // +optional
   optional int32 retryAfterSeconds = 5;
 }
@@ -721,6 +735,8 @@ message Timestamp {
 // TypeMeta describes an individual object in an API response or request
 // with strings representing the type of the object and its API schema version.
 // Structures that are versioned or persisted should inline TypeMeta.
+// 
+// +k8s:deepcopy-gen=false
 message TypeMeta {
   // Kind is a string value representing the REST resource this object represents.
   // Servers may infer this from the endpoint the client submits requests to.
@@ -751,6 +767,8 @@ message Verbs {
 // Event represents a single event to a watched resource.
 // 
 // +protobuf=true
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 message WatchEvent {
   optional string type = 1;
 

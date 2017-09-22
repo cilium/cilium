@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	log "github.com/Sirupsen/logrus"
@@ -230,6 +231,14 @@ func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
 }
 
 // GetListMeta returns the metadata of the object
-func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
+func (r *CiliumNetworkPolicyList) GetListMeta() metav1.ListInterface {
 	return &r.Metadata
+}
+
+func (r *CiliumNetworkPolicyList) DeepCopyObject() runtime.Object {
+	return r
+}
+
+func (r *CiliumNetworkPolicy) DeepCopyObject() runtime.Object {
+	return r
 }
