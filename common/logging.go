@@ -23,10 +23,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/Sirupsen/logrus/hooks/syslog"
-	"github.com/bshuster-repo/logrus-logstash-hook"
 	"github.com/evalphobia/logrus_fluent"
+	"github.com/sirupsen/logrus"
+	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
 )
 
 const (
@@ -241,25 +240,25 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 
 // setupLogstash sets up and configures Logstash with the provided options in
 // logOpts. If some options are not provided, sensible defaults are used.
-/// TODO fix me later - needs to be tested with a working logstash setup.
-func setupLogstash(logOpts map[string]string) {
-	hostAndPort, ok := logOpts[lAddr]
-	if !ok {
-		hostAndPort = "172.17.0.2:999"
-	}
-
-	protocol, ok := logOpts[lProtocol]
-	if !ok {
-		protocol = "tcp"
-	}
-
-	h, err := logrustash.NewHook(protocol, hostAndPort, "cilium")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	logrus.AddHook(h)
-}
+/// FIXME GH-1578 - needs to be tested with a working logstash setup.
+//func setupLogstash(logOpts map[string]string) {
+//	hostAndPort, ok := logOpts[lAddr]
+//	if !ok {
+//		hostAndPort = "172.17.0.2:999"
+//	}
+//
+//	protocol, ok := logOpts[lProtocol]
+//	if !ok {
+//		protocol = "tcp"
+//	}
+//
+//	h, err := logrustash.NewHook(protocol, hostAndPort, "cilium")
+//	if err != nil {
+//		logrus.Fatal(err)
+//	}
+//
+//	logrus.AddHook(h)
+//}
 
 // validateOpts iterates through all of the keys in logOpts, and errors out if
 // the key in logOpts is not a key in supportedOpts.

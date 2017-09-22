@@ -27,8 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
+	log "github.com/sirupsen/logrus"
 )
 
 // Sets the given secLabel on the endpoint with the given endpointID. Returns a pointer of

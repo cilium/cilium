@@ -25,9 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
+	log "github.com/sirupsen/logrus"
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 )
 

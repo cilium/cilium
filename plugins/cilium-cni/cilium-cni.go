@@ -30,13 +30,13 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 

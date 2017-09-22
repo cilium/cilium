@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const pollTimeout = 5000

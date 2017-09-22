@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // GetGroupIDByName returns the group ID for the given grpName.

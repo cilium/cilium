@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type kvLocker interface {

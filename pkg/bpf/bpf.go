@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 

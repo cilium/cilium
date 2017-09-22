@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/apisocket"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const targetName = "cilium-node-monitor"

@@ -1,8 +1,8 @@
 package logrus_fluent
 
 import (
-	"github.com/Sirupsen/logrus"
 	"github.com/fluent/fluent-logger-golang/fluent"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -36,42 +36,71 @@ type FluentHook struct {
 	// If set, this logger is used for logging.
 	// otherwise new logger is created every time.
 	Fluent *fluent.Fluent
+	conf   Config
 
-	host   string
-	port   int
 	levels []logrus.Level
 	tag    *string
 
+	messageField string
 	ignoreFields map[string]struct{}
 	filters      map[string]func(interface{}) interface{}
 }
 
 // New returns initialized logrus hook for fluentd with persistent fluentd logger.
 func New(host string, port int) (*FluentHook, error) {
-	fd, err := fluent.New(fluent.Config{FluentHost: host, FluentPort: port})
-	if err != nil {
-		return nil, err
+	return NewWithConfig(Config{
+		Host:                host,
+		Port:                port,
+		DefaultMessageField: MessageField,
+	})
+}
+
+// NewWithConfig returns initialized logrus hook by config setting.
+func NewWithConfig(conf Config) (*FluentHook, error) {
+	var fd *fluent.Fluent
+	if !conf.DisableConnectionPool {
+		var err error
+		fd, err = fluent.New(conf.FluentConfig())
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &FluentHook{
-		levels:       defaultLevels,
-		Fluent:       fd,
-		ignoreFields: make(map[string]struct{}),
-		filters:      make(map[string]func(interface{}) interface{}),
-	}, nil
+	hook := &FluentHook{
+		Fluent: fd,
+		conf:   conf,
+		levels: conf.LogLevels,
+	}
+	// set default values
+	if len(hook.levels) == 0 {
+		hook.levels = defaultLevels
+	}
+	if conf.DefaultTag != "" {
+		tag := conf.DefaultTag
+		hook.tag = &tag
+	}
+	if conf.DefaultMessageField != "" {
+		hook.messageField = conf.DefaultMessageField
+	}
+	if hook.ignoreFields == nil {
+		hook.ignoreFields = make(map[string]struct{})
+	}
+	if hook.filters == nil {
+		hook.filters = make(map[string]func(interface{}) interface{})
+	}
+	return hook, nil
 }
 
 // NewHook returns initialized logrus hook for fluentd.
-// (** deperecated: use New() **)
+// (** deperecated: use New() or NewWithConfig() **)
 func NewHook(host string, port int) *FluentHook {
-	return &FluentHook{
-		host:         host,
-		port:         port,
-		levels:       defaultLevels,
-		tag:          nil,
-		ignoreFields: make(map[string]struct{}),
-		filters:      make(map[string]func(interface{}) interface{}),
-	}
+	hook, _ := NewWithConfig(Config{
+		Host:                  host,
+		Port:                  port,
+		DefaultMessageField:   MessageField,
+		DisableConnectionPool: true,
+	})
+	return hook
 }
 
 // Levels returns logging level to fire this hook.
@@ -98,6 +127,11 @@ func (hook *FluentHook) SetTag(tag string) {
 	hook.tag = &tag
 }
 
+// SetMessageField sets custom message field.
+func (hook *FluentHook) SetMessageField(messageField string) {
+	hook.messageField = messageField
+}
+
 // AddIgnore adds field name to ignore.
 func (hook *FluentHook) AddIgnore(name string) {
 	hook.ignoreFields[name] = struct{}{}
@@ -117,10 +151,7 @@ func (hook *FluentHook) Fire(entry *logrus.Entry) error {
 	case hook.Fluent != nil:
 		logger = hook.Fluent
 	default:
-		logger, err = fluent.New(fluent.Config{
-			FluentHost: hook.host,
-			FluentPort: hook.port,
-		})
+		logger, err = fluent.New(hook.conf.FluentConfig())
 		if err != nil {
 			return err
 		}
@@ -142,7 +173,7 @@ func (hook *FluentHook) Fire(entry *logrus.Entry) error {
 	setLevelString(entry, data)
 	tag := hook.getTagAndDel(entry, data)
 	if tag != entry.Message {
-		setMessage(entry, data)
+		hook.setMessage(entry, data)
 	}
 
 	fluentData := ConvertToValue(data, TagName)
@@ -175,12 +206,18 @@ func (hook *FluentHook) getTagAndDel(entry *logrus.Entry, data logrus.Fields) st
 	return tag
 }
 
-func setLevelString(entry *logrus.Entry, data logrus.Fields) {
-	data["level"] = entry.Level.String()
+func (hook *FluentHook) setMessage(entry *logrus.Entry, data logrus.Fields) {
+	if _, ok := data[hook.messageField]; ok {
+		return
+	}
+	var v interface{}
+	v = entry.Message
+	if fn, ok := hook.filters[hook.messageField]; ok {
+		v = fn(v)
+	}
+	data[hook.messageField] = v
 }
 
-func setMessage(entry *logrus.Entry, data logrus.Fields) {
-	if _, ok := data[MessageField]; !ok {
-		data[MessageField] = entry.Message
-	}
+func setLevelString(entry *logrus.Entry, data logrus.Fields) {
+	data["level"] = entry.Level.String()
 }

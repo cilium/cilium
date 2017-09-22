@@ -27,12 +27,12 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/Sirupsen/logrus"
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	clientyaml "github.com/coreos/etcd/clientv3/yaml"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/hashicorp/go-version"
+	log "github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 )
 

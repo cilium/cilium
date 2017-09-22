@@ -31,8 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/runtime/middleware"
+	log "github.com/sirupsen/logrus"
 )
 
 func updateSecLabelIDRef(id policy.Identity) error {
