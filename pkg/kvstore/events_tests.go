@@ -26,8 +26,6 @@ type KvstoreSuite struct{}
 var _ = Suite(&KvstoreSuite{})
 
 func (s *KvstoreSuite) SetUpTest(c *C) {
-	log.SetLevel(log.DebugLevel)
-
 	SetupDummy()
 }
 
