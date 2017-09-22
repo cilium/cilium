@@ -525,6 +525,77 @@ and may not be applied independently.
 The ``Spec`` respectively ``Specs`` field refers to a standard Cilium Policy
 Rule.
 
+Example (Single Rule)
+---------------------
+
+The following example allows all prod-labeled pods to access ``/public`` HTTP
+endpoint on service-labeled.
+
+.. code:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    description: "L7 policy for accessing /public address on service endpoints"
+    metadata:
+      name: "rule1"
+    spec:
+      endpointSelector:
+        matchLabels:
+          app: service
+      ingress:
+      - fromEndpoints:
+        - matchLabels:
+            env: prod
+        toPorts:
+        - ports:
+          - port: "80"
+            protocol: TCP
+          rules:
+            http:
+            - method: "GET"
+              path: "/public"
+
+Example (Multiple Rules)
+------------------------
+
+This example builds on previous example to show how to define multiple policy specs
+in single rule. Added spec allows production pods to POST requests to ``external-service.org``.
+
+.. code:: yaml
+
+    apiVersion: "cilium.io/v2"
+    kind: CiliumNetworkPolicy
+    metadata:
+      name: "fancyrule"
+    specs:
+      - endpointSelector:
+          matchLabels:
+            app: service
+        ingress:
+        - fromEndpoints:
+          - matchLabels:
+              env: prod
+          toPorts:
+          - ports:
+            - port: "80"
+              protocol: TCP
+            rules:
+              http:
+              - method: "GET"
+                path: "/public"
+      - endpointSelector:
+          matchLabels:
+            env: prod
+        egress:
+        - toPorts:
+          - ports:
+            - port: "80"
+              protocol: TCP
+            rules:
+              http:
+              - method: "POST"
+                host: "^external-service.org$"
+
 *******
 Tracing
 *******
