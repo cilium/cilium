@@ -68,9 +68,10 @@ type Rule struct {
 //
 // - All members of this structure are optional. If omitted or empty, the
 //   member will have no effect on the rule.
-// - All members of this structure are evaluated independently, i.e. L4 ports
-//   allowed with ToPorts do not depend on a match of the FromEndpoints in the
-//   same IngressRule.
+// - If multiple members are set, all of them need to match in order for
+//   the rule to take effect. The exception to this rule is FromRequires field,
+//   the effects of any Requires field in any rule will apply to all other
+//   rules as well.
 type IngressRule struct {
 	// FromEndpoints is a list of endpoints identified by an
 	// EndpointSelector which are allowed to communicate with the endpoint

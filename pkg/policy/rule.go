@@ -17,6 +17,7 @@ package policy
 import (
 	"fmt"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -41,26 +42,70 @@ func (r *rule) validate() error {
 	return nil
 }
 
-func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, dir string, proto string, resMap L4PolicyMap) int {
-	fmt := p.Port + "/" + proto
-	v, ok := resMap[fmt]
+func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filter) bool {
+
+	if len(policy.FromEndpoints) == 0 && len(fromEndpoints) > 0 {
+		logrus.Debugf("skipping this L4 policy since it is already covered by an existing policy.")
+		return true
+	}
+
+	if len(policy.FromEndpoints) > 0 && len(fromEndpoints) == 0 {
+		// new policy is more permissive than the existing policy
+		// use a more permissive one
+		policy.FromEndpoints = nil
+	}
+	return false
+}
+
+func mergeL4Port(fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
+	dir string, proto string, resMap L4PolicyMap) int {
+
+	portProto := p.Port + "/" + proto
+	v, ok := resMap[portProto]
 	if !ok {
-		resMap[fmt] = CreateL4Filter(r, p, dir, proto)
+		resMap[portProto] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
 		return 1
 	}
-	l4Filter := CreateL4Filter(r, p, dir, proto)
+
+	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && len(r.Rules.HTTP) == 0 {
+		// skip this policy as it is already covered and it does not contain L7 rules
+		return 0
+	}
+
+	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
 	if l4Filter.L7Parser != "" {
 		v.L7Parser = l4Filter.L7Parser
 	}
 	if l4Filter.L7RedirectPort != 0 {
 		v.L7RedirectPort = l4Filter.L7RedirectPort
 	}
-	v.L7Rules = append(v.L7Rules, l4Filter.L7Rules...)
-	resMap[fmt] = v
+
+	// if (1) the existing *ingress* rule did not have a wildcard endpoint
+	// AND (2) the new rule does not have explicit fromEndpoints
+	// THEN we need to copy all existing L7 rules to the wildcard endpoint
+	if _, ok := v.L7RulesPerEp[WildcardEndpointSelector]; l4Filter.Ingress && !ok && len(fromEndpoints) == 0 {
+		wildcardEp := L7Rules{}
+		for _, existingL7Rules := range v.L7RulesPerEp {
+			wildcardEp = append(wildcardEp, existingL7Rules...)
+		}
+		v.L7RulesPerEp[WildcardEndpointSelector] = wildcardEp
+	}
+
+	for hash, newL7Rules := range l4Filter.L7RulesPerEp {
+		if ep, ok := v.L7RulesPerEp[hash]; ok {
+			v.L7RulesPerEp[hash] = append(ep, newL7Rules...)
+		} else {
+			v.L7RulesPerEp[hash] = newL7Rules
+		}
+	}
+
+	resMap[portProto] = v
 	return 1
 }
 
-func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4PolicyMap) int {
+func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
+	resMap L4PolicyMap) int {
+
 	found := 0
 
 	for _, r := range portRules {
@@ -78,10 +123,10 @@ func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4
 
 		for _, p := range r.Ports {
 			if p.Protocol != "" {
-				found += mergeL4Port(ctx, r, p, dir, p.Protocol, resMap)
+				found += mergeL4Port(fromEndpoints, r, p, dir, p.Protocol, resMap)
 			} else {
-				found += mergeL4Port(ctx, r, p, dir, "tcp", resMap)
-				found += mergeL4Port(ctx, r, p, dir, "udp", resMap)
+				found += mergeL4Port(fromEndpoints, r, p, dir, "tcp", resMap)
+				found += mergeL4Port(fromEndpoints, r, p, dir, "udp", resMap)
 			}
 		}
 	}
@@ -101,13 +146,13 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 
 	if !ctx.EgressL4Only {
 		for _, r := range r.Ingress {
-			found += mergeL4(ctx, "Ingress", r.ToPorts, result.Ingress)
+			found += mergeL4(ctx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
 		}
 	}
 
 	if !ctx.IngressL4Only {
 		for _, r := range r.Egress {
-			found += mergeL4(ctx, "Egress", r.ToPorts, result.Egress)
+			found += mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
 		}
 	}
 

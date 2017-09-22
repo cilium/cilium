@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -28,23 +29,37 @@ type AuxRule struct {
 	Expr string `json:"expr"`
 }
 
+// L7Rules contains a list of L7 rules
+type L7Rules []AuxRule
+
+const (
+	// WildcardEndpointSelector is a special hash value for the wildcard endpoint, i.e., applies to all
+	WildcardEndpointSelector = iota
+)
+
+// L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
+type L7DataMap map[uint64]L7Rules
+
 type L4Filter struct {
 	// Port is the destination port to allow
 	Port int
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol string
+	// From Endpoints
+	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
 	L7Parser string
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
 	L7RedirectPort int
-	// L7Rules is a list of L7 rules which are passed to the L7 proxy (optional)
-	L7Rules []AuxRule
+	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
+	L7RulesPerEp L7DataMap
 	// Ingress is true if filter applies at ingress
 	Ingress bool
 }
 
 // CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
-func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, protocol string) L4Filter {
+func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
+	direction string, protocol string) L4Filter {
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 
@@ -52,6 +67,7 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 		Port:           int(p),
 		Protocol:       protocol,
 		L7RedirectPort: rule.RedirectPort,
+		FromEndpoints:  fromEndpoints,
 	}
 
 	if strings.ToLower(direction) == "ingress" {
@@ -104,7 +120,20 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 
 		if len(l7rules) > 0 {
 			l4.L7Parser = "http"
-			l4.L7Rules = l7rules
+			if len(fromEndpoints) > 0 {
+				for _, ep := range fromEndpoints {
+					hash, err := ep.Hash()
+					if err != nil || hash == 0 {
+						log.Errorf("Could not hash (%d) endpoint %e", hash, err)
+						return L4Filter{}
+					}
+					l4.L7RulesPerEp[hash] = append(l4.L7RulesPerEp[hash], l7rules...)
+				}
+			} else if l4.Ingress {
+				// for ingress only, if there are no explicit fromEps, have a 'special' wildcard endpoint
+				wildcardEp := l4.L7RulesPerEp[WildcardEndpointSelector]
+				wildcardEp = append(wildcardEp, l7rules...)
+			}
 		}
 	}
 

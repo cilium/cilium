@@ -131,13 +131,16 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 	}
 
-	l7rules := []AuxRule{
-		{Expr: "PathRegexp(\"/\") && MethodRegexp(\"GET\")"},
-	}
-
+	/*
+		l7rules := []AuxRule{
+			{Expr: "PathRegexp(\"/\") && MethodRegexp(\"GET\")"},
+		}
+	*/
 	expected := NewL4Policy()
-	expected.Ingress["80/tcp"] = L4Filter{Port: 80, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules, Ingress: true}
-	expected.Ingress["8080/tcp"] = L4Filter{Port: 8080, Protocol: "tcp", L7Parser: "http", L7Rules: l7rules, Ingress: true}
+	expected.Ingress["80/tcp"] = L4Filter{Port: 80, Protocol: "tcp", FromEndpoints: nil, L7Parser: "http",
+		L7RulesPerEp: nil, Ingress: true}
+	expected.Ingress["8080/tcp"] = L4Filter{Port: 8080, Protocol: "tcp", FromEndpoints: nil, L7Parser: "http",
+		L7RulesPerEp: nil, Ingress: true}
 	expected.Egress["3000/tcp"] = L4Filter{Port: 3000, Protocol: "tcp", Ingress: false}
 	expected.Egress["3000/udp"] = L4Filter{Port: 3000, Protocol: "udp", Ingress: false}
 
