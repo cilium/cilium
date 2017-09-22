@@ -60,7 +60,7 @@ func (d *Decision) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("invalid decision '%s'", string(b))
 	}
 	if v, exists := stringToDecision[string(b[1:len(b)-1])]; exists {
-		*d = Decision(v)
+		*d = v
 		return nil
 	}
 

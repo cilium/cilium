@@ -53,8 +53,8 @@ func (m MAC) Uint64() (uint64, error) {
 		return 0, fmt.Errorf("Invalid MAC address %s", m.String())
 	}
 
-	return uint64(uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
-		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0])), nil
+	return uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
+		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0]), nil
 }
 
 func (m MAC) MarshalJSON() ([]byte, error) {

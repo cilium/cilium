@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	secLabelTimeout = time.Duration(120 * time.Second)
+	secLabelTimeout = 120 * time.Second
 
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.

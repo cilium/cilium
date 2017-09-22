@@ -391,7 +391,7 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 		if err := beValue.SetAddress(be.IP); err != nil {
 			return nil, nil, err
 		}
-		beValue.SetPort(uint16(be.Port))
+		beValue.SetPort(be.Port)
 		beValue.SetRevNat(int(svc.FE.ID))
 		beValue.SetWeight(be.Weight)
 
