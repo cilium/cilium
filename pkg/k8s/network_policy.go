@@ -147,7 +147,10 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.NamespaceSelector))
 				}
 
-				
+				if rule.IPBlock != nil {
+					egress.ToCIDR = append(egress.ToCIDR, api.CIDR(rule.IPBlock.CIDR))
+
+				}
 			}
 		}
 
