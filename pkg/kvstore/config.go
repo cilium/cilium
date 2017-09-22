@@ -19,9 +19,9 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
+	log "github.com/sirupsen/logrus"
 )
 
 // Supported key-value store types.

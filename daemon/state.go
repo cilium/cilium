@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/events"
 
-	log "github.com/Sirupsen/logrus"
 	dockerAPI "github.com/docker/engine-api/client"
+	log "github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 )
 

@@ -57,12 +57,12 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 
-	log "github.com/Sirupsen/logrus"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

@@ -1,10 +1,15 @@
 package utils
 
 import (
+	"bufio"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
-	log "github.com/Sirupsen/logrus"
+	"reflect"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // ProxyWriter helps to capture response headers and status code
@@ -49,10 +54,17 @@ func (p *ProxyWriter) CloseNotify() <-chan bool {
 	if cn, ok := p.W.(http.CloseNotifier); ok {
 		return cn.CloseNotify()
 	}
-	log.Warning("Upstream ResponseWriter does not implement http.CloseNotifier. Returning dummy channel.")
+	log.Warningf("Upstream ResponseWriter of type %v does not implement http.CloseNotifier. Returning dummy channel.", reflect.TypeOf(p.W))
 	return make(<-chan bool)
 }
 
+func (p *ProxyWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hi, ok := p.W.(http.Hijacker); ok {
+		return hi.Hijack()
+	}
+	log.Warningf("Upstream ResponseWriter of type %v does not implement http.Hijacker. Returning dummy channel.", reflect.TypeOf(p.W))
+	return nil, nil, fmt.Errorf("The response writer that was wrapped in this proxy, does not implement http.Hijacker. It is of type: %v", reflect.TypeOf(p.W))
+}
 
 func NewBufferWriter(w io.WriteCloser) *BufferWriter {
 	return &BufferWriter{
@@ -88,8 +100,16 @@ func (b *BufferWriter) CloseNotify() <-chan bool {
 	if cn, ok := b.W.(http.CloseNotifier); ok {
 		return cn.CloseNotify()
 	}
-	log.Warning("Upstream ResponseWriter does not implement http.CloseNotifier. Returning dummy channel.")
+	log.Warningf("Upstream ResponseWriter of type %v does not implement http.CloseNotifier. Returning dummy channel.", reflect.TypeOf(b.W))
 	return make(<-chan bool)
+}
+
+func (b *BufferWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hi, ok := b.W.(http.Hijacker); ok {
+		return hi.Hijack()
+	}
+	log.Warningf("Upstream ResponseWriter of type %v does not implement http.Hijacker. Returning dummy channel.", reflect.TypeOf(b.W))
+	return nil, nil, fmt.Errorf("The response writer that was wrapped in this proxy, does not implement http.Hijacker. It is of type: %v", reflect.TypeOf(b.W))
 }
 
 type nopWriteCloser struct {
@@ -115,11 +135,9 @@ func CopyURL(i *url.URL) *url.URL {
 
 // CopyHeaders copies http headers from source to destination, it
 // does not overide, but adds multiple headers
-func CopyHeaders(dst, src http.Header) {
+func CopyHeaders(dst http.Header, src http.Header) {
 	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
+		dst[k] = append(dst[k], vv...)
 	}
 }
 

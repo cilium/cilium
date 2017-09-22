@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/common"
+	log "github.com/sirupsen/logrus"
 )
 
 func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, dstID policy.NumericIdentity, opt string) {

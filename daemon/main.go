@@ -41,10 +41,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/go-openapi/loads"
 	go_version "github.com/hashicorp/go-version"
 	flags "github.com/jessevdk/go-flags"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

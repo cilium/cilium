@@ -11,7 +11,7 @@ func ConvertToValue(p interface{}, tagName string) interface{} {
 	rv := toValue(p)
 	switch rv.Kind() {
 	case reflect.Struct:
-		return converFromStruct(rv.Interface(), tagName)
+		return convertFromStruct(rv.Interface(), tagName)
 	case reflect.Map:
 		return convertFromMap(rv, tagName)
 	case reflect.Slice:
@@ -42,22 +42,47 @@ func convertFromSlice(rv reflect.Value, tagName string) interface{} {
 	return result
 }
 
-// converFromStruct converts struct to value
+// convertFromStruct converts struct to value
 // see: https://github.com/fatih/structs/
-func converFromStruct(p interface{}, tagName string) interface{} {
+func convertFromStruct(p interface{}, tagName string) interface{} {
 	result := make(map[string]interface{})
-	t := toType(p)
-	values := toValue(p)
+	return convertFromStructDeep(result, tagName, toType(p), toValue(p))
+}
+
+func convertFromStructDeep(result map[string]interface{}, tagName string, t reflect.Type, values reflect.Value) interface{} {
 	for i, max := 0, t.NumField(); i < max; i++ {
 		f := t.Field(i)
 		if f.PkgPath != "" && !f.Anonymous {
-			continue // skip private field
+			continue
 		}
+
+		if f.Anonymous {
+			tt := f.Type
+			if tt.Kind() == reflect.Ptr {
+				tt = tt.Elem()
+			}
+			vv := values.Field(i)
+			if !vv.IsValid() {
+				continue
+			}
+			if vv.Kind() == reflect.Ptr {
+				vv = vv.Elem()
+			}
+
+			if vv.Kind() == reflect.Struct {
+				convertFromStructDeep(result, tagName, tt, vv)
+			}
+			continue
+		}
+
 		tag, opts := parseTag(f, tagName)
 		if tag == "-" {
 			continue // skip `-` tag
 		}
 
+		if !values.IsValid() {
+			continue
+		}
 		v := values.Field(i)
 		if opts.Has("omitempty") && isZero(v) {
 			continue // skip zero-value when omitempty option exists in tag

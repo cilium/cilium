@@ -33,8 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/braintree/manners"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vulcand/oxy/forward"
 	"github.com/vulcand/route"

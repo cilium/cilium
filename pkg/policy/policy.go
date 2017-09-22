@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/op/go-logging"
+	log "github.com/sirupsen/logrus"
 )
 
 type Tracing int

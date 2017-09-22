@@ -26,8 +26,8 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/Sirupsen/logrus"
 	consulAPI "github.com/hashicorp/consul/api"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
