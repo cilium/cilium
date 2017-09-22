@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -56,6 +57,10 @@ type traceState struct {
 func (p *Repository) CanReachRLocked(ctx *SearchContext) api.Decision {
 	decision := api.Undecided
 	state := traceState{}
+
+	for _, r := range p.rules {
+		log.Infof("rule in repository: %s", r)
+	}
 
 	for i, r := range p.rules {
 		state.ruleID = i

@@ -544,9 +544,7 @@ func runDaemon() {
 	d.SyncDocker()
 
 	// Register event listener in docker endpoint
-	if err := d.EnableDockerEventListener(sinceLastSync); err != nil {
-		log.Warningf("Error while enabling docker event watcher %s", err)
-	}
+	d.EnableDockerEventListener(sinceLastSync)
 
 	d.EnableKVStoreWatcher(30 * time.Second)
 
@@ -618,6 +616,20 @@ func runDaemon() {
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
 	defer server.Shutdown()
+	defer func() {
+		log.Debugf("releasing address: %s", nodeaddress.GetIPv6Router())
+		err := d.ipamConf.IPv6Allocator.Release(nodeaddress.GetIPv6Router())
+		if err != nil {
+			log.Errorf("%s", err)
+		}
+
+		log.Debugf("dumping allocated IPs")
+
+		printFunc := func(ip net.IP) {
+			log.Debugf("ipv6 addr allocated: %s", ip)
+		}
+		d.ipamConf.IPv6Allocator.ForEach(printFunc)
+	}()
 
 	server.ConfigureAPI()
 

@@ -85,7 +85,7 @@ type IngressRule struct {
 
 	// FromRequires is a list of additional constraints which must be met
 	// in order for the selected endpoints to be reachable. These
-	// additional constraints do no by itself grant access privileges and
+	// additional constraints do not by themselves grant access privileges and
 	// must always be accompanied with at least one matching FromEndpoints.
 	//
 	// Example:
@@ -128,6 +128,30 @@ type IngressRule struct {
 //   allowed with ToPorts do not depend on a match of the FromCIDR in the same
 //   EgressRule.
 type EgressRule struct {
+	// ToEndpoints is a list of endpoints identified by an
+	// EndpointSelector which the endpoint subject to this rule are allowed
+	// to communicate with.
+	//
+	// Example:
+	// Any endpoint with the label "role=backend" can only send traffic to an
+	// endpoint carrying the label "role=frontend".
+	//
+	// +optional
+	ToEndpoints []EndpointSelector `json:"toEndpoints,omitempty"`
+
+	// ToRequires is a list of additional constraints which must be met
+	// in order for the endpoint to be able to communicate with the selected
+	// endpoints. These additional constraints do not by themselves grant access
+	// privileges and must always be accompanied with at least one matching
+	// ToEndpoints.
+	//
+	// Example:
+	// Any Endpoint with the label "team=A" requires consuming endpoint
+	// to also carry the label "team=A".
+	//
+	// +optional
+	ToRequires []EndpointSelector `json:"fromRequires,omitempty"`
+
 	// ToPorts is a list of destination ports identified by port number and
 	// protocol which the endpoint subject to the rule is allowed to
 	// connect to.

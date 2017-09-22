@@ -59,13 +59,14 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
-	dClient "github.com/docker/engine-api/client"
+	hb "github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
+	dClient "github.com/docker/docker/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/kubernetes/pkg/registry/core/service/allocator"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -872,18 +873,24 @@ func (d *Daemon) init() error {
 }
 
 func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
+	log.Debugf("creating IPAM configuration")
 
+	log.Debugf("nodeaddress.GetIPv6Router: %s", nodeaddress.GetIPv6Router())
 	ipamSubnets := net.IPNet{
 		IP:   nodeaddress.GetIPv6Router(),
 		Mask: nodeaddress.StateIPv6Mask,
 	}
 
+	ipamRange := hb.Range{
+		Subnet:  cniTypes.IPNet(ipamSubnets),
+		Gateway: nodeaddress.GetIPv6Router(),
+	}
+
 	ipamConf := &ipam.IPAMConfig{
 		IPAMConfig: hb.IPAMConfig{
-			Name:    "cilium-local-IPAM",
-			Subnet:  cniTypes.IPNet(ipamSubnets),
-			Gateway: nodeaddress.GetIPv6Router(),
-			Routes: []cniTypes.Route{
+			Name:   "cilium-local-IPAM",
+			Ranges: []hb.RangeSet{{ipamRange}},
+			Routes: []*cniTypes.Route{
 				// IPv6
 				{
 					Dst: nodeaddress.GetIPv6NodeRoute(),
@@ -894,7 +901,10 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 				},
 			},
 		},
-		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
+		//IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
+		IPv6Allocator: ipallocator.NewAllocatorCIDRRange(nodeaddress.GetIPv6AllocRange(), func(max int, rangeSpec string) allocator.Interface {
+			return allocator.NewContiguousAllocationMap(max, rangeSpec)
+		}),
 	}
 
 	// Since docker doesn't support IPv6 only and there's always an IPv4
@@ -903,10 +913,10 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
 	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
 		// IPv4
-		cniTypes.Route{
+		&cniTypes.Route{
 			Dst: nodeaddress.GetIPv4NodeRoute(),
 		},
-		cniTypes.Route{
+		&cniTypes.Route{
 			Dst: nodeaddress.IPv4DefaultRoute,
 			GW:  nodeaddress.GetInternalIPv4(),
 		})
@@ -950,6 +960,7 @@ func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
 		log.Fatalf("Unable to allocate IPv6 router IP: %s", err)
 	}
 
+	log.Debugf("setting routerIP: %s", routerIP)
 	nodeaddress.SetIPv6Router(routerIP)
 
 	return ipamConf, nil

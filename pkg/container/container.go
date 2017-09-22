@@ -17,7 +17,7 @@ package container
 import (
 	"sync"
 
-	dTypes "github.com/docker/engine-api/types"
+	dTypes "github.com/docker/docker/api/types"
 )
 
 type Container struct {

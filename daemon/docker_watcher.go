@@ -15,10 +15,10 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
+	//"bufio"
+	//"encoding/json"
 	"fmt"
-	"io"
+	//"io"
 	"net"
 	"strconv"
 	"strings"
@@ -35,10 +35,11 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/Sirupsen/logrus"
-	dTypes "github.com/docker/engine-api/types"
-	dTypesEvents "github.com/docker/engine-api/types/events"
-	dNetwork "github.com/docker/engine-api/types/network"
+	dTypes "github.com/docker/docker/api/types"
+	dTypesEvents "github.com/docker/docker/api/types/events"
+	dNetwork "github.com/docker/docker/api/types/network"
 	ctx "golang.org/x/net/context"
+	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
@@ -51,15 +52,27 @@ const (
 
 // EnableDockerEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
-func (d *Daemon) EnableDockerEventListener(since time.Time) error {
+func (d *Daemon) EnableDockerEventListener(since time.Time) {
+	log.Debugf("enabling Docker event listener")
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
-	r, err := d.dockerClient.Events(ctx.Background(), eo)
-	if err != nil {
-		return err
-	}
-	log.Debugf("Listening for docker events")
-	go d.listenForDockerEvents(r)
-	return nil
+	responses, errs := d.dockerClient.Events(ctx.Background(), eo)
+
+	go func(responses <-chan dTypesEvents.Message, errors <-chan error) {
+		for {
+			select {
+			case err := <-errs:
+				log.Debugf("EnableDockerEventListener: got an error")
+				if err != io.EOF {
+					log.Errorf("Error while reading events: %s", err)
+				}
+			case r := <-responses:
+				log.Debugf("EnableDockerEventListener: got a response")
+				go d.processEvent(r)
+			}
+		}
+	}(responses, errs)
+
+	log.Debugf("Now Listening for docker events")
 }
 
 // SyncDocker is used by the daemon to synchronize changes between Docker and
@@ -102,7 +115,7 @@ func (d *Daemon) RunBackgroundContainerSync() {
 	go d.backgroundContainerSync()
 }
 
-func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
+/*func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var e dTypesEvents.Message
@@ -114,7 +127,7 @@ func (d *Daemon) listenForDockerEvents(reader io.ReadCloser) {
 	if err := scanner.Err(); err != nil {
 		log.Errorf("Error while reading events: %+v", err)
 	}
-}
+}*/
 
 func (d *Daemon) processEvent(m dTypesEvents.Message) {
 	log.Debugf("Processing docker event %v for container %v", m.Status, m.ID)
@@ -132,28 +145,39 @@ func (d *Daemon) processEvent(m dTypesEvents.Message) {
 
 func getCiliumEndpointID(cont *dTypes.ContainerJSON) uint16 {
 	if cont.NetworkSettings == nil {
+		log.Debugf("getCiliumEndpointID: container's network settings are nil")
 		return 0
 	}
 
 	if ciliumIP := getCiliumIPv6(cont.NetworkSettings.Networks); ciliumIP != nil {
 		return ciliumIP.EndpointID()
 	}
+	log.Debugf("getCiliumEndpointID: returned ciliumIP form getCiliumIPv6 is nil")
 	return 0
 }
 
 func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.CiliumIPv6 {
 	for _, contNetwork := range networks {
 		if contNetwork == nil {
+			log.Debugf("getCiliumIPv6: contNetwork is nil")
 			continue
 		}
+
+		log.Debugf("getCiliumIPv6:checking network %s", contNetwork.NetworkID)
+		log.Debugf("getCiliumIPv6: contNetwork.IPv6Gateway: %s", contNetwork.IPv6Gateway)
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
 		if !ipv6gw.Equal(nodeaddress.GetIPv6Router()) {
+			log.Debugf("getCiliumIPv6: ipv6 gateway %s does not equal nodeAddress.GetIPv6Router(): %s", ipv6gw, nodeaddress.GetIPv6Router())
 			continue
 		}
 		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
 		if err == nil {
 			return &ip
+		} else {
+			log.Warningf("getCiliumIPv6: trying to create NewCiliumIPv6 IP failed: %s", err)
+			continue
 		}
+		//log.Debugf("getCiliumIPv6: contNetwork.GlobalIPv6Address %s has NewCiliumIPv6 address %s", contNetwork.GlobalIPv6Address, ip)
 	}
 	return nil
 }
@@ -240,6 +264,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
+			log.Debugf("endpoint record not in endpoint manager; looking it up via its assigned IP address")
 			cid := getCiliumEndpointID(dockerContainer)
 			if cid != 0 {
 				endpointmanager.Mutex.Lock()
@@ -252,10 +277,13 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 					endpointmanager.LinkContainerID(ep)
 				}
 				endpointmanager.Mutex.Unlock()
+			} else {
+				log.Debugf("cid is 0")
 			}
 		}
 
 		if ep == nil {
+			log.Debugf("endpoint does not exist yet; orchestration system has not requested us to handle networking for this container")
 			// Endpoint does not exist yet. This indicates that the
 			// orchestration system has not requested us to handle
 			// networking for this container yet (or never will). We
@@ -361,6 +389,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 // identity for an endpoint, and the set of labels that are not utilized in
 // computing the security identity for an endpoint.
 func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels, labels.Labels, error) {
+	log.Debugf("retrieving Docker labels")
 	dockerCont, err := d.dockerClient.ContainerInspect(ctx.Background(), dockerID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", dockerID, err)
@@ -371,6 +400,8 @@ func (d *Daemon) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, l
 	if dockerCont.Config != nil {
 		newLabels, informationLabels = d.getFilteredLabels(dockerCont.Config.Labels)
 	}
+
+	log.Debugf("retrieveDockerLabels: newLabels: %s, information labels: %s", newLabels, informationLabels)
 
 	return &dockerCont, newLabels, informationLabels, nil
 }

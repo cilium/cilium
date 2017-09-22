@@ -57,7 +57,7 @@ function monitor_start {
   local save=$-
   set +e
   log "starting monitor and dumping contents to $DUMP_FILE"
-  cilium monitor -v $@ > $DUMP_FILE &
+  cilium monitor $@ > $DUMP_FILE &
   MONITOR_PID=$!
   restore_flag $save "e"
 }
@@ -114,7 +114,7 @@ function abort {
 
   echo "------------------------------------------------------------------------"
   echo "                            Cilium logs"
-  journalctl --no-pager --since "${LAST_LOG_DATE}" -u cilium
+  journalctl --no-pager --since "${LAST_LOG_DATE}" -u cilium | tail -n 50
   echo ""
   echo "------------------------------------------------------------------------"
 

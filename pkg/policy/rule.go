@@ -177,8 +177,20 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
-	// separate loop is needed as failure to meet FromRequires always takes
-	// precedence over FromEndpoints
+	// Validate egress FromRequires
+	for _, r := range r.Egress {
+		for _, sel := range r.ToRequires {
+			ctx.PolicyTrace("    Requires to labels %+v", sel)
+			if !sel.Matches(ctx.To) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
+				return api.Denied
+			}
+			ctx.PolicyTrace("+     Found all required labels\n")
+		}
+	}
+
+	// separate loops are needed as failure to meet FromRequires / To Requires
+	// always takes precedence over FromEndpoints / ToEndpoints
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromEndpoints {
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
@@ -188,6 +200,18 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 			}
 
 			ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
+		}
+	}
+
+	for _, r := range r.Egress {
+		for _, sel := range r.ToEndpoints {
+			ctx.PolicyTrace("    Allows to labels %+v", sel)
+			if sel.Matches(ctx.To) {
+				ctx.PolicyTrace("+     Found all required labels\n")
+				return api.Allowed
+			}
+
+			ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
 		}
 	}
 
