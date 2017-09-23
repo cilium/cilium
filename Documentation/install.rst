@@ -798,7 +798,53 @@ Make sure that you set the version of the kube-apiserver to whatever version you
 
     quay.io/coreos/hyperkube:v${KUBE_VERSION}_coreos.0
 
-Step 6: Start Services on Nodes
+Step 6: Setup kube-proxy on master nodes
+----------------------------------------
+
+The next step is to setup kube-proxy as a static pod on all master nodes.
+Create the file ``/etc/kubernetes/manifests/kube-proxy.yaml`` and substitute
+the following variables:
+
+* ``${CLUSTER_CIDR}`` with the CIDR range for pods in your cluster.
+* ``${KUBE_VERSION}`` with a version  ``>= 1.6.4``.
+
+::
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+      annotations:
+        rkt.alpha.kubernetes.io/stage1-name-override: coreos.com/rkt/stage1-fly
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kube-proxy
+        image: quay.io/coreos/hyperkube:v'"${KUBE_VERSION}"'_coreos.0
+        command:
+        - /hyperkube
+        - proxy
+        - --master=http://127.0.0.1:8080
+        - --cluster-cidr=${CLUSTER_CIDR}
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/ssl/certs
+          name: ssl-certs-host
+          readOnly: true
+        - mountPath: /var/run/dbus
+          name: dbus
+          readOnly: false
+      volumes:
+      - hostPath:
+          path: /usr/share/ca-certificates
+        name: ssl-certs-host
+      - hostPath:
+          path: /var/run/dbus
+        name: dbus
+
+Step 7: Start Services on Nodes
 -------------------------------
 
 Start kubelet on all nodes:
@@ -813,13 +859,13 @@ To have kubelet start after a reboot, run:
 
     sudo systemctl enable kubelet
 
-Step 7: Health Check of Kubernetes Services
+Step 8: Health Check of Kubernetes Services
 -------------------------------------------
 
 Follow `the CoreOS instructions to health check Kubernetes services <https://coreos.com/kubernetes/docs/latest/deploy-master.html#basic-health-checks>`_.
 
 
-Step 8: Setup Kubectl to Communicate With Your Cluster
+Step 9: Setup Kubectl to Communicate With Your Cluster
 ------------------------------------------------------
 
 Follow `the CoreOS instructions to download kubectl <https://coreos.com/kubernetes/docs/latest/configure-kubectl.html#download-the-kubectl-executable>`_.
@@ -845,7 +891,7 @@ Follow `the CoreOS instructions to validate that kubectl has been configured cor
 
 .. _cilium-daemonset-deployment:
 
-Step 9: Deploy Cilium DaemonSet
+Step 10: Deploy Cilium DaemonSet
 -------------------------------
 
 * If your cluster is using RBAC, refer to :ref:`rbac_integration`.
@@ -944,8 +990,7 @@ Since we are setting up Kubelet to use Cilium, we want to configure its networki
       --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
       --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
       --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
-      --cluster-domain=cluster.local \
-      --make-iptables-util-chains=false
+      --cluster-domain=cluster.local
      ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
      Restart=always
      RestartSec=10
@@ -953,12 +998,71 @@ Since we are setting up Kubelet to use Cilium, we want to configure its networki
      [Install]
      WantedBy=multi-user.target
 
-Step 3: Setup Worker kubeconfig
+Step 3: Setup kube-proxy on worker nodes
+----------------------------------------
+
+The next step is to setup kube-proxy as a static pod on all worker nodes.
+Create the file ``/etc/kubernetes/manifests/kube-proxy.yaml`` and substitute
+the following variables:
+
+* ``${KUBE_VERSION}`` with a version  ``>= 1.6.4``.
+* ``${MASTER_HOST}`` with the IP of the master node.
+* ``${CLUSTER_CIDR}`` with the CIDR range for pods in your cluster.
+
+::
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+      annotations:
+        rkt.alpha.kubernetes.io/stage1-name-override: coreos.com/rkt/stage1-fly
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kube-proxy
+        image: quay.io/coreos/hyperkube:v'"${KUBE_VERSION}"'_coreos.0
+        command:
+        - /hyperkube
+        - proxy
+        - --master=${MASTER_HOST}
+        - --cluster-cidr=${CLUSTER_CIDR}
+        - --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/ssl/certs
+          name: "ssl-certs"
+        - mountPath: /etc/kubernetes/worker-kubeconfig.yaml
+          name: "kubeconfig"
+          readOnly: true
+        - mountPath: /etc/kubernetes/ssl
+          name: "etc-kube-ssl"
+          readOnly: true
+        - mountPath: /var/run/dbus
+          name: dbus
+          readOnly: false
+      volumes:
+      - name: "ssl-certs"
+        hostPath:
+          path: "/usr/share/ca-certificates"
+      - name: "kubeconfig"
+        hostPath:
+          path: "/etc/kubernetes/worker-kubeconfig.yaml"
+      - name: "etc-kube-ssl"
+        hostPath:
+          path: "/etc/kubernetes/ssl"
+      - hostPath:
+          path: /var/run/dbus
+        name: dbus
+
+Step 4: Setup Worker kubeconfig
 -------------------------------
 
 Cilium has no special requirements for setting up the ``kubeconfig`` for ``kubelet`` on worker nodes. Please follow `the CoreOS instructions to setup the worker-kubeconfig <https://coreos.com/kubernetes/docs/latest/deploy-workers.html#set-up-kubeconfig>`_.
 
-Step 4: Start Services
+Step 5: Start Services
 ----------------------
 
 Start kubelet on all nodes:
@@ -973,12 +1077,12 @@ To have kubelet start after a reboot, run:
  
     sudo systemctl enable kubelet
 
-Step 5: Make Sure Cilium Runs On Worker Nodes
+Step 6: Make Sure Cilium Runs On Worker Nodes
 ---------------------------------------------
 
 When we deployed Cilium as part of :ref:`cilium-daemonset-deployment`, the Daemon Set expects the Kubeconfig to be located at the same location on each node in the cluster. So, you need to make sure that the location and contents of the kubeconfig for the worker node is the same as that which Cilium is using on the master nodes, e.g., ``~/.kube/config``.
 
-Step 6: Setup kubectl and deploy add-ons
+Step 7: Setup kubectl and deploy add-ons
 ----------------------------------------
 
 Follow `the CoreOS instructions for setting up kube-dns and kube-dashboard <https://coreos.com/kubernetes/docs/latest/deploy-addons.html>`_.
