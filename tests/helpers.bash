@@ -732,6 +732,7 @@ function copy_files_vm {
 
   log "getting cilium logs from $VM_NAME"
   vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium > /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-logs"'
+  vagrant ssh $VM_NAME -c 'sudo -E bash -c "journalctl --no-pager -u cilium-docker > /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-docker-logs && chmod a+r /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files/cilium-docker-logs"'
 
   log "listing all logs that will be gathered from $VM_NAME"
   vagrant ssh $VM_NAME -c 'ls -altr /home/vagrant/go/src/github.com/cilium/cilium/tests/cilium-files'
