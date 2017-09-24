@@ -312,6 +312,34 @@ requirements have been met:
 * You have signed off on your commits, see the section "Developer's
   Certificate of Origin" for more details.
 
+
+CI / Testing environment
+------------------------
+
+Logging into VM running tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Log into the Jenkins slave running the test workload
+2. Identify the vagrant box running the specific test
+
+.. code:: bash
+
+    $ vagrant global-status
+    id       name                          provider   state   directory
+    -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    6e68c6c  k8s1-build-PR-1588-6          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q/tests/k8s
+    ec5962a  cilium-master-build-PR-1588-6 virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q
+    bfaffaa  k8s2-build-PR-1588-6          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q/tests/k8s
+    3fa346c  k8s1-build-PR-1588-7          virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q@2/tests/k8s
+    b7ded3c  cilium-master-build-PR-1588-7 virtualbox running /root/jenkins/workspace/cilium_cilium_PR-1588-CWL743UTZEF6CPEZCNXQVSZVEW32FR3CMGKGY6667CU7X43AAZ4Q@2
+
+3. Log into the specific VM
+
+.. code:: bash
+
+    $ JOB_BASE_NAME=PR-1588 BUILD_NUMBER=6 vagrant ssh 6e68c6c
+
+
 Release Process
 ---------------
 
