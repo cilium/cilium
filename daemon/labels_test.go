@@ -68,11 +68,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	}
 	daemonConf.RunDir = tempRunDir
 	daemonConf.StateDir = tempRunDir
-	daemonConf.DockerEndpoint = "tcp://127.0.0.1"
 	// Get the default labels prefix filter
-	lblsPrefix, err := labels.ParseLabelPrefixCfg(nil, "")
+	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	daemonConf.ValidLabelPrefixes = lblsPrefix
 	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
 	daemonConf.Opts.Set(endpoint.OptionTraceNotify, true)
 	daemonConf.Device = "undefined"

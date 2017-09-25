@@ -160,6 +160,19 @@ type Label struct {
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
 
+// String returns the map of labels as human readable string
+func (l Labels) String() string {
+	str := ""
+	for _, v := range l {
+		if str != "" {
+			str += ","
+		}
+		str += v.String()
+	}
+
+	return str
+}
+
 // MarkAllForDeletion marks all the labels with the DeletionMark.
 func (l Labels) MarkAllForDeletion() {
 	for k := range l {

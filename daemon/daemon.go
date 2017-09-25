@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
@@ -41,10 +40,9 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/events"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -56,16 +54,14 @@ import (
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/workloads"
+	"github.com/cilium/cilium/pkg/workloads/containerd"
 
-	cniTypes "github.com/containernetworking/cni/pkg/types"
-	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
-	dClient "github.com/docker/engine-api/client"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 const (
@@ -96,19 +92,10 @@ const (
 type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
 	conf              *Config
-	dockerClient      *dClient.Client
-	events            chan events.Event
-	ipamConf          *ipam.IPAMConfig
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
 	loopbackIPv4      net.IP
 	policy            *policy.Repository
-
-	containersMU sync.RWMutex
-	containers   map[string]*container.Container
-
-	ignoredMutex      sync.RWMutex
-	ignoredContainers map[string]int
 
 	maxCachedLabelIDMU sync.RWMutex
 	maxCachedLabelID   policy.NumericIdentity
@@ -300,11 +287,6 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 	}(e)
 }
 
-func createDockerClient(endpoint string) (*dClient.Client, error) {
-	defaultHeaders := map[string]string{"User-Agent": "cilium"}
-	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
-}
-
 // Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) writeNetdevHeader(dir string) error {
 
@@ -400,55 +382,6 @@ func runProg(prog string, args []string, quiet bool) error {
 	}
 
 	return err
-}
-
-func nextIP(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
-}
-
-func reserveLocalRoutes(ipam *ipam.IPAMConfig) {
-	log.Debugf("Checking local routes for conflicts...")
-
-	link, err := netlink.LinkByName("cilium_host")
-	if err != nil || link == nil {
-		log.Warningf("Unable to find net_device cilium_host: %s", err)
-		return
-	}
-
-	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-	if err != nil {
-		log.Warningf("Unable to retrieve local routes: %s", err)
-		return
-	}
-
-	allocRange := nodeaddress.GetIPv4AllocRange()
-
-	for _, r := range routes {
-		// ignore routes which point to cilium_host
-		if r.LinkIndex == link.Attrs().Index {
-			log.Debugf("Ignoring route %v: points to cilium_host", r)
-			continue
-		}
-
-		if r.Dst == nil {
-			log.Debugf("Ignoring route %v: no destination address", r)
-			continue
-		}
-
-		log.Debugf("Considering route %v", r)
-
-		if allocRange.Contains(r.Dst.IP) {
-			log.Infof("Marking local route %s as no-alloc in node allocation prefix %s", r.Dst, allocRange)
-			for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
-				ipam.IPv4Allocator.Allocate(ip)
-			}
-		}
-	}
 }
 
 const (
@@ -698,7 +631,7 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	reserveLocalRoutes(d.ipamConf)
+	ipam.ReserveLocalRoutes()
 
 	if !d.conf.IPv4Disabled {
 		// Always remove masquerade rule and then re-add it if required
@@ -864,112 +797,23 @@ func (d *Daemon) init() error {
 	return nil
 }
 
-func (c *Config) createIPAMConf() (*ipam.IPAMConfig, error) {
-
-	ipamSubnets := net.IPNet{
-		IP:   nodeaddress.GetIPv6Router(),
-		Mask: nodeaddress.StateIPv6Mask,
-	}
-
-	ipamConf := &ipam.IPAMConfig{
-		IPAMConfig: hb.IPAMConfig{
-			Name:    "cilium-local-IPAM",
-			Subnet:  cniTypes.IPNet(ipamSubnets),
-			Gateway: nodeaddress.GetIPv6Router(),
-			Routes: []cniTypes.Route{
-				// IPv6
-				{
-					Dst: nodeaddress.GetIPv6NodeRoute(),
-				},
-				{
-					Dst: nodeaddress.IPv6DefaultRoute,
-					GW:  nodeaddress.GetIPv6Router(),
-				},
-			},
-		},
-		IPv6Allocator: ipallocator.NewCIDRRange(nodeaddress.GetIPv6AllocRange()),
-	}
-
-	// Since docker doesn't support IPv6 only and there's always an IPv4
-	// address we can set up ipam for IPv4. More info:
-	// https://github.com/docker/libnetwork/pull/826
-	ipamConf.IPv4Allocator = ipallocator.NewCIDRRange(nodeaddress.GetIPv4AllocRange())
-	ipamConf.IPAMConfig.Routes = append(ipamConf.IPAMConfig.Routes,
-		// IPv4
-		cniTypes.Route{
-			Dst: nodeaddress.GetIPv4NodeRoute(),
-		},
-		cniTypes.Route{
-			Dst: nodeaddress.IPv4DefaultRoute,
-			GW:  nodeaddress.GetInternalIPv4(),
-		})
-
-	// Reserve the IPv4 router IP if it is part of the IPv4
-	// allocation range to ensure that we do not hand out the
-	// router IP to a container.
-	allocRange := nodeaddress.GetIPv4AllocRange()
-	nodeIP := nodeaddress.GetExternalIPv4()
-	if allocRange.Contains(nodeIP) {
-		err := ipamConf.IPv4Allocator.Allocate(nodeIP)
-		if err != nil {
-			log.Debugf("Unable to reserve IPv4 router address '%s': %s",
-				nodeIP, err)
-		}
-	}
-
-	internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
-	if err != nil {
-		log.Fatalf("Unable to allocate internal IPv4 node IP: %s", err)
-	}
-
-	nodeaddress.SetInternalIPv4(internalIP)
-
-	// Reserve the IPv6 router and node IP if it is part of the IPv6
-	// allocation range to ensure that we do not hand out the router IP to
-	// a container.
-	allocRange = nodeaddress.GetIPv6AllocRange()
-	for _, ip6 := range []net.IP{nodeaddress.GetIPv6()} {
-		if allocRange.Contains(ip6) {
-			err := ipamConf.IPv6Allocator.Allocate(ip6)
-			if err != nil {
-				log.Debugf("Unable to reserve IPv6 address '%s': %s",
-					ip6, err)
-			}
-		}
-	}
-
-	routerIP, err := ipamConf.IPv6Allocator.AllocateNext()
-	if err != nil {
-		log.Fatalf("Unable to allocate IPv6 router IP: %s", err)
-	}
-
-	nodeaddress.SetIPv6Router(routerIP)
-
-	return ipamConf, nil
-}
-
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(c *Config) (*Daemon, error) {
 	if c == nil {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	dockerClient, err := createDockerClient(c.DockerEndpoint)
-	if err != nil {
+	if err := containerd.Init(dockerEndpoint); err != nil {
 		return nil, err
 	}
 
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
-		conf:              c,
-		dockerClient:      dockerClient,
-		containers:        make(map[string]*container.Container),
-		events:            make(chan events.Event, 512),
-		loadBalancer:      lb,
-		policy:            policy.NewPolicyRepository(),
-		ignoredContainers: make(map[string]int),
-		uniqueID:          map[uint64]bool{},
+		conf:         c,
+		loadBalancer: lb,
+		policy:       policy.NewPolicyRepository(),
+		uniqueID:     map[uint64]bool{},
 
 		// FIXME
 		// The channel size has to be set to the maximum number of
@@ -979,8 +823,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		compilationMutex:  new(sync.RWMutex),
 	}
 
+	workloads.Init(&d)
+
 	// Clear previous leftovers before listening for new requests
-	err = d.clearCiliumVeths()
+	err := d.clearCiliumVeths()
 	if err != nil {
 		log.Debugf("Unable to clean leftover veths: %s", err)
 	}
@@ -988,8 +834,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Create at least 4 worker threads or the same amount as there are
 	// CPUs.
 	d.StartEndpointBuilders(numWorkerThreads())
-
-	d.listenForCiliumEvents()
 
 	if k8s.IsEnabled() {
 		if err := k8s.Init(); err != nil {
@@ -1059,8 +903,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	if d.ipamConf, err = d.conf.createIPAMConf(); err != nil {
-		return nil, err
+	if err = ipam.Init(); err != nil {
+		log.Fatal(err.Error())
 	}
 
 	if err := nodeaddress.ValidatePostInit(); err != nil {
@@ -1080,7 +924,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4, err := d.ipamConf.IPv4Allocator.AllocateNext()
+		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
 		if err != nil {
 			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
@@ -1106,7 +950,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
-		d.IgnoreRunningContainers()
+		containerd.IgnoreRunningContainers()
 	}
 
 	d.collectStaleMapGarbage()
@@ -1318,26 +1162,6 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)
-}
-
-func (d *Daemon) IgnoredContainer(id string) bool {
-	d.ignoredMutex.RLock()
-	_, ok := d.ignoredContainers[id]
-	d.ignoredMutex.RUnlock()
-
-	return ok
-}
-
-func (d *Daemon) StartIgnoringContainer(id string) {
-	d.ignoredMutex.Lock()
-	d.ignoredContainers[id]++
-	d.ignoredMutex.Unlock()
-}
-
-func (d *Daemon) StopIgnoringContainer(id string) {
-	d.ignoredMutex.Lock()
-	delete(d.ignoredContainers, id)
-	d.ignoredMutex.Unlock()
 }
 
 // listFilterIfs returns a map of interfaces based on the given filter.

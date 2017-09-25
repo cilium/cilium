@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/options"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -43,24 +42,20 @@ const (
 
 // Config is the configuration used by Daemon.
 type Config struct {
-	BpfDir         string     // BPF template files directory
-	LibDir         string     // Cilium library files directory
-	RunDir         string     // Cilium runtime directory
-	NAT46Prefix    *net.IPNet // NAT46 IPv6 Prefix
-	Device         string     // Receive device
-	HostV4Addr     net.IP     // Host v4 address of the snooping device
-	HostV6Addr     net.IP     // Host v6 address of the snooping device
-	DockerEndpoint string     // Docker endpoint
-	IPv4Disabled   bool       // Disable IPv4 allocation
-	LBInterface    string     // Set with name of the interface to loadbalance packets from
+	BpfDir       string     // BPF template files directory
+	LibDir       string     // Cilium library files directory
+	RunDir       string     // Cilium runtime directory
+	NAT46Prefix  *net.IPNet // NAT46 IPv6 Prefix
+	Device       string     // Receive device
+	HostV4Addr   net.IP     // Host v4 address of the snooping device
+	HostV6Addr   net.IP     // Host v6 address of the snooping device
+	IPv4Disabled bool       // Disable IPv4 allocation
+	LBInterface  string     // Set with name of the interface to loadbalance packets from
 
 	EnablePolicyMU sync.RWMutex // Protects the variable below
 	EnablePolicy   string       // Whether policy enforcement is enabled.
 
 	Tunnel string // Tunnel mode
-
-	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
-	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 
 	DryMode       bool // Do not create BPF maps, devices, ..
 	RestoreState  bool // RestoreState restores the state from previous running daemons.

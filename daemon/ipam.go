@@ -15,174 +15,79 @@
 package main
 
 import (
-	"math/big"
-	"net"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
+	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/ipam"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
-	log "github.com/sirupsen/logrus"
-	k8sAPI "k8s.io/kubernetes/pkg/api"
 )
-
-// AllocateIP allocates a IP address.
-func (d *Daemon) AllocateIP(ip net.IP) error {
-	d.ipamConf.AllocatorMutex.Lock()
-	defer d.ipamConf.AllocatorMutex.Unlock()
-
-	if ip.To4() != nil {
-		if d.ipamConf.IPv4Allocator == nil {
-			return apierror.New(ipam.PostIPAMIPDisabledCode, "IPv4 allocation disabled")
-		}
-
-		if err := d.ipamConf.IPv4Allocator.Allocate(ip); err != nil {
-			return apierror.Error(ipam.PostIPAMIPFailureCode, err)
-		}
-	} else {
-		if d.ipamConf.IPv6Allocator == nil {
-			return apierror.New(ipam.PostIPAMIPDisabledCode, "IPv6 allocation disabled")
-		}
-
-		if err := d.ipamConf.IPv6Allocator.Allocate(ip); err != nil {
-			return apierror.Error(ipam.PostIPAMIPFailureCode, err)
-		}
-	}
-
-	return nil
-}
-
-func (d *Daemon) allocateIP(ipAddr string) error {
-	ip := net.ParseIP(ipAddr)
-	if ip == nil {
-		return apierror.New(ipam.PostIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
-	}
-	return d.AllocateIP(ip)
-}
-
-// ReleaseIP release a IP address.
-func (d *Daemon) ReleaseIP(ip net.IP) error {
-	d.ipamConf.AllocatorMutex.Lock()
-	defer d.ipamConf.AllocatorMutex.Unlock()
-
-	if ip.To4() != nil {
-		if d.ipamConf.IPv4Allocator == nil {
-			return apierror.New(ipam.DeleteIPAMIPDisabledCode, "IPv4 allocation disabled")
-		}
-
-		if err := d.ipamConf.IPv4Allocator.Release(ip); err != nil {
-			return apierror.Error(ipam.DeleteIPAMIPFailureCode, err)
-		}
-	} else {
-		if d.ipamConf.IPv6Allocator == nil {
-			return apierror.New(ipam.DeleteIPAMIPDisabledCode, "IPv6 allocation disabled")
-		}
-
-		if err := d.ipamConf.IPv6Allocator.Release(ip); err != nil {
-			return apierror.Error(ipam.DeleteIPAMIPFailureCode, err)
-		}
-	}
-
-	return nil
-}
-
-func (d *Daemon) releaseIP(ipAddr string) error {
-	ip := net.ParseIP(ipAddr)
-	if ip == nil {
-		return apierror.New(ipam.DeleteIPAMIPInvalidCode, "Invalid IP address: %s", ipAddr)
-	}
-	return d.ReleaseIP(ip)
-}
 
 type postIPAM struct {
 	daemon *Daemon
 }
 
 // NewPostIPAMHandler creates a new postIPAM from the daemon.
-func NewPostIPAMHandler(d *Daemon) ipam.PostIPAMHandler {
+func NewPostIPAMHandler(d *Daemon) ipamapi.PostIPAMHandler {
 	return &postIPAM{daemon: d}
 }
 
 // Handle incoming requests address allocation requests for the daemon.
-func (h *postIPAM) Handle(params ipam.PostIPAMParams) middleware.Responder {
-	d := h.daemon
-	d.ipamConf.AllocatorMutex.Lock()
-	defer d.ipamConf.AllocatorMutex.Unlock()
-
+func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 	resp := &models.IPAM{
-		HostAddressing: d.getNodeAddressing(),
+		HostAddressing: h.daemon.getNodeAddressing(),
 		Endpoint:       &models.EndpointAddressing{},
 	}
 
-	family := strings.ToLower(swag.StringValue(params.Family))
-
-	log.Debugf("%+v %+v", family, d.ipamConf.IPv4Allocator)
-
-	if (family == "ipv6" || family == "") && d.ipamConf.IPv6Allocator != nil {
-		ipConf, err := d.ipamConf.IPv6Allocator.AllocateNext()
-		if err != nil {
-			return apierror.Error(ipam.PostIPAMFailureCode, err)
-		}
-
-		resp.Endpoint.IPV6 = ipConf.String()
+	ipv4, ipv6, err := ipam.AllocateNext(strings.ToLower(swag.StringValue(params.Family)))
+	if err != nil {
+		return apierror.Error(ipamapi.PostIPAMFailureCode, err)
 	}
 
-	if (family == "ipv4" || family == "") && d.ipamConf.IPv4Allocator != nil {
-		ipConf, err := d.ipamConf.IPv4Allocator.AllocateNext()
-		if err != nil {
-			return apierror.Error(ipam.PostIPAMFailureCode, err)
-		}
-
-		resp.Endpoint.IPV4 = ipConf.String()
+	if ipv4 != nil {
+		resp.Endpoint.IPV4 = ipv4.String()
 	}
 
-	return ipam.NewPostIPAMCreated().WithPayload(resp)
+	if ipv6 != nil {
+		resp.Endpoint.IPV6 = ipv6.String()
+	}
+
+	return ipamapi.NewPostIPAMCreated().WithPayload(resp)
 }
 
-type postIPAMIP struct {
-	daemon *Daemon
-}
+type postIPAMIP struct{}
 
 // NewPostIPAMIPHandler creates a new postIPAM from the daemon.
-func NewPostIPAMIPHandler(d *Daemon) ipam.PostIPAMIPHandler {
-	return &postIPAMIP{daemon: d}
+func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIPAMIPHandler {
+	return &postIPAMIP{}
 }
 
 // Handle incoming requests address allocation requests for the daemon.
-func (h *postIPAMIP) Handle(params ipam.PostIPAMIPParams) middleware.Responder {
-	if err := h.daemon.allocateIP(params.IP); err != nil {
-		if apierr, ok := err.(*apierror.APIError); ok {
-			return apierr
-		}
-		return apierror.Error(ipam.PostIPAMIPFailureCode, err)
+func (h *postIPAMIP) Handle(params ipamapi.PostIPAMIPParams) middleware.Responder {
+	if err := ipam.AllocateIPString(params.IP); err != nil {
+		return apierror.Error(ipamapi.PostIPAMIPFailureCode, err)
 	}
 
-	return ipam.NewPostIPAMIPOK()
+	return ipamapi.NewPostIPAMIPOK()
 }
 
-type deleteIPAMIP struct {
-	d *Daemon
-}
+type deleteIPAMIP struct{}
 
 // NewDeleteIPAMIPHandler handle incoming requests to delete addresses.
-func NewDeleteIPAMIPHandler(d *Daemon) ipam.DeleteIPAMIPHandler {
-	return &deleteIPAMIP{d: d}
+func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIPAMIPHandler {
+	return &deleteIPAMIP{}
 }
 
-func (h *deleteIPAMIP) Handle(params ipam.DeleteIPAMIPParams) middleware.Responder {
-	if err := h.d.releaseIP(params.IP); err != nil {
-		if apierr, ok := err.(*apierror.APIError); ok {
-			return apierr
-		}
-		return apierror.Error(ipam.DeleteIPAMIPFailureCode, err)
+func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Responder {
+	if err := ipam.ReleaseIPString(params.IP); err != nil {
+		return apierror.Error(ipamapi.DeleteIPAMIPFailureCode, err)
 	}
 
-	return ipam.NewDeleteIPAMIPOK()
+	return ipamapi.NewDeleteIPAMIPOK()
 }
 
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
@@ -192,33 +97,7 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 		return nil
 	}
 
-	d.ipamConf.AllocatorMutex.RLock()
-	defer d.ipamConf.AllocatorMutex.RUnlock()
-
-	allocv4 := []string{}
-	if !d.conf.IPv4Disabled {
-		ralv4 := k8sAPI.RangeAllocation{}
-		d.ipamConf.IPv4Allocator.Snapshot(&ralv4)
-		origIP := big.NewInt(0).SetBytes(nodeaddress.GetIPv4AllocRange().IP)
-		v4Bits := big.NewInt(0).SetBytes(ralv4.Data)
-		for i := 0; i < v4Bits.BitLen(); i++ {
-			if v4Bits.Bit(i) != 0 {
-				allocv4 = append(allocv4, net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String())
-			}
-		}
-	}
-
-	allocv6 := []string{}
-	ralv6 := k8sAPI.RangeAllocation{}
-	d.ipamConf.IPv6Allocator.Snapshot(&ralv6)
-	origIP := big.NewInt(0).SetBytes(nodeaddress.GetIPv6AllocRange().IP)
-	v6Bits := big.NewInt(0).SetBytes(ralv6.Data)
-	for i := 0; i < v6Bits.BitLen(); i++ {
-		if v6Bits.Bit(i) != 0 {
-			allocv6 = append(allocv6, net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String())
-		}
-	}
-
+	allocv4, allocv6 := ipam.Dump()
 	return &models.IPAMStatus{
 		IPV4: allocv4,
 		IPV6: allocv6,
