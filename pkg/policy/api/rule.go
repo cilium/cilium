@@ -63,6 +63,29 @@ type Rule struct {
 	Description string `json:"description,omitempty"`
 }
 
+// Entity specifies a special entity for rules
+type Entity string
+
+const (
+	// World is an entity that represents traffic external to endpoint environment
+	World Entity = "world"
+	// Host is an entity that represents traffic within endpoint host
+	Host Entity = "host"
+)
+
+var EntitySelectorMapping = map[Entity]EndpointSelector{
+	World: NewESFromLabels(&labels.Label{
+		Key:    "world",
+		Value:  "",
+		Source: "reserved",
+	}),
+	Host: NewESFromLabels(&labels.Label{
+		Key:    "host",
+		Value:  "",
+		Source: "reserved",
+	}),
+}
+
 // IngressRule contains all rule types which can be applied at ingress,
 // i.e. network traffic that originates outside of the endpoint and
 // is entering the endpoint selected by the endpointSelector.
@@ -117,6 +140,11 @@ type IngressRule struct {
 	//
 	// +optional
 	FromCIDR []CIDR `json:"fromCIDR,omitempty"`
+
+	// FromEntities is a list of special entities which the endpoint subject
+	// to the rule is allowed to receive connections from. Supported entities are
+	// `world` and `host`
+	FromEntities []Entity `json:"fromEntities,omitempty"`
 }
 
 // EgressRule contains all rule types which can be applied at egress, i.e.
