@@ -158,8 +158,8 @@ worker nodes.
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on `Slack channel`_.
 
-TL;DR Version (Expert Mode)
-===========================
+Quick Guide
+===========
 
 If you know what you are doing, then the following quick instructions get you
 started in the shortest time possible. If you require additional details or are
@@ -205,8 +205,8 @@ variable in the ``env`` section:
 
 .. _admin_mount_bpffs:
 
-Step by Step Instructions
-=========================
+Detailed Step by Step Instructions
+==================================
 
 Mounting the BPF FS (Optional)
 ------------------------------
