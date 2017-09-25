@@ -18,6 +18,10 @@ import (
 	"sync"
 )
 
+var (
+	consumableCache = newConsumableCache()
+)
+
 type ConsumableCache struct {
 	cacheMU sync.RWMutex // Protects the `cache` map
 	cache   map[NumericIdentity]*Consumable
@@ -26,7 +30,14 @@ type ConsumableCache struct {
 	iteration int
 }
 
-func NewConsumableCache() *ConsumableCache {
+// GetConsumableCache returns the consumable cache. The cache is a list of all
+// identities which are in use by local endpoints, either as consumable or
+// consumer.
+func GetConsumableCache() *ConsumableCache {
+	return consumableCache
+}
+
+func newConsumableCache() *ConsumableCache {
 	return &ConsumableCache{
 		cache:     map[NumericIdentity]*Consumable{},
 		reserved:  make([]*Consumable, 0),

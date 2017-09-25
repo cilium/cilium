@@ -33,7 +33,7 @@ func (s *PolicyTestSuite) TestNewConsumer(c *C) {
 }
 
 func (s *PolicyTestSuite) TestGetConsumer(c *C) {
-	cache := NewConsumableCache()
+	cache := newConsumableCache()
 
 	c1 := cache.GetOrCreate(CONSUMER_ID1, nil)
 	c.Assert(c1.Iteration, Equals, uint64(0))
@@ -45,7 +45,7 @@ func (s *PolicyTestSuite) TestGetConsumer(c *C) {
 }
 
 func (s *PolicyTestSuite) TestConsumer(c *C) {
-	cache := NewConsumableCache()
+	cache := newConsumableCache()
 
 	c1 := cache.GetOrCreate(CONSUMER_ID1, nil)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, false)

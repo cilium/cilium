@@ -406,7 +406,7 @@ func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 	}
 
 	if ep != nil {
-		d.invalidateCache()
+		invalidateCache()
 		if err := ep.Update(d, opts); err != nil {
 			switch err.(type) {
 			case endpoint.UpdateValidationError:

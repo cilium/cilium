@@ -39,7 +39,6 @@ type DaemonSuite struct {
 	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) bool
 	OnPolicyEnforcement               func() string
 	OnAlwaysAllowLocalhost            func() bool
-	OnGetConsumableCache              func() *policy.ConsumableCache
 	OnGetCachedLabelList              func(id policy.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository             func() *policy.Repository
 	OnGetCachedMaxLabelID             func() (policy.NumericIdentity, error)
@@ -109,13 +108,6 @@ func (ds *DaemonSuite) AlwaysAllowLocalhost() bool {
 		return ds.OnAlwaysAllowLocalhost()
 	}
 	panic("AlwaysAllowLocalhost should not have been called")
-}
-
-func (ds *DaemonSuite) GetConsumableCache() *policy.ConsumableCache {
-	if ds.OnGetConsumableCache != nil {
-		return ds.OnGetConsumableCache()
-	}
-	panic("GetConsumableCache should not have been called")
 }
 
 func (ds *DaemonSuite) GetCachedLabelList(id policy.NumericIdentity) (labels.LabelArray, error) {

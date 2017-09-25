@@ -43,9 +43,6 @@ type Owner interface {
 	// reach local endpoints
 	AlwaysAllowLocalhost() bool
 
-	// Must return an instance of a ConsumableCache
-	GetConsumableCache() *policy.ConsumableCache
-
 	// Must resolve label id to an identity
 	GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error)
 

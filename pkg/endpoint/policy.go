@@ -54,7 +54,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 
 // allowConsumer must be called with global endpoint.Mutex held
 func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) {
-	cache := owner.GetConsumableCache()
+	cache := policy.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
 		e.Consumable.AllowConsumerAndReverseLocked(cache, id)
 	} else {
@@ -135,7 +135,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		return false, nil
 	}
 
-	cache := owner.GetConsumableCache()
+	cache := policy.GetConsumableCache()
 
 	// Skip if policy for this consumable is already valid
 	//if c.Iteration == cache.Iteration {
@@ -458,7 +458,7 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 
 func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	repo := owner.GetPolicyRepository()
-	cache := owner.GetConsumableCache()
+	cache := policy.GetConsumableCache()
 
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()

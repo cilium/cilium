@@ -97,7 +97,6 @@ const (
 type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
 	conf              *Config
-	consumableCache   *policy.ConsumableCache
 	dockerClient      *dClient.Client
 	events            chan events.Event
 	ipamConf          *ipam.IPAMConfig
@@ -230,10 +229,6 @@ func (d *Daemon) GetBpfDir() string {
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
-}
-
-func (d *Daemon) GetConsumableCache() *policy.ConsumableCache {
-	return d.consumableCache
 }
 
 func (d *Daemon) TracingEnabled() bool {
@@ -974,7 +969,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		containers:        make(map[string]*container.Container),
 		events:            make(chan events.Event, 512),
 		loadBalancer:      lb,
-		consumableCache:   policy.NewConsumableCache(),
 		policy:            policy.NewPolicyRepository(),
 		ignoredContainers: make(map[string]int),
 		uniqueID:          map[uint64]bool{},
