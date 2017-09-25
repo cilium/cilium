@@ -272,6 +272,8 @@ func (r *Redirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointI
 					info.Labels = ep.GetLabels()
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
+				} else {
+					r.fillReservedIdentity(info, policy.ID_CLUSTER)
 				}
 			} else {
 				r.fillReservedIdentity(info, policy.ID_WORLD)
@@ -296,6 +298,8 @@ func (r *Redirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointI
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
 					ep.RUnlock()
+				} else {
+					r.fillReservedIdentity(info, policy.ID_CLUSTER)
 				}
 			} else {
 				r.fillReservedIdentity(info, policy.ID_WORLD)

@@ -29,10 +29,16 @@ import (
 const (
 	// IDNameAll is a special label which matches all labels.
 	IDNameAll = "all"
+
 	// IDNameHost is the label used for the hostname ID.
 	IDNameHost = "host"
+
 	// IDNameWorld is the label used for the world ID.
 	IDNameWorld = "world"
+
+	// IDNameCluster is the label used to identify an unspecified endpoint
+	// inside the cluster
+	IDNameCluster = "cluster"
 )
 
 // OpLabels represents the the possible types.

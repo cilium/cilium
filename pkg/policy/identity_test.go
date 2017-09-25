@@ -27,6 +27,10 @@ func (s *PolicyTestSuite) TestReservedID(c *C) {
 	c.Assert(i2, Equals, ID_WORLD)
 	c.Assert(i2.String(), Equals, "world")
 
+	i2 = GetReservedID("cluster")
+	c.Assert(i2, Equals, ID_CLUSTER)
+	c.Assert(i2.String(), Equals, "cluster")
+
 	c.Assert(GetReservedID("unknown"), Equals, ID_UNKNOWN)
 	unknown := NumericIdentity(700)
 	c.Assert(unknown.String(), Equals, "700")
