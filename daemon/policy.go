@@ -41,7 +41,7 @@ import (
 func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error) {
 	// Check if we have the source security context in our local
 	// consumable cache
-	if c := d.consumableCache.Lookup(ID); c != nil {
+	if c := policy.GetConsumableCache().Lookup(ID); c != nil {
 		return c.LabelArray, nil
 	}
 
@@ -62,8 +62,8 @@ func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArra
 	return l, nil
 }
 
-func (d *Daemon) invalidateCache() {
-	d.consumableCache.IncrementIteration()
+func invalidateCache() {
+	policy.GetConsumableCache().IncrementIteration()
 }
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
@@ -71,11 +71,11 @@ func (d *Daemon) invalidateCache() {
 func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.WaitGroup {
 	if len(added) == 0 {
 		log.Debugf("Full policy recalculation triggered")
-		d.invalidateCache()
+		invalidateCache()
 	} else {
 		log.Debugf("Partial policy recalculation triggered: %d", added)
 		// FIXME: Invalidate only cache that is affected
-		d.invalidateCache()
+		invalidateCache()
 	}
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
@@ -364,7 +364,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	go func() {
 		// Store the consumables before we make any policy changes
 		// to check which consumables were removed with the new policy.
-		oldConsumables := d.consumableCache.GetConsumables()
+		oldConsumables := policy.GetConsumableCache().GetConsumables()
 
 		wg := d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 
@@ -378,7 +378,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		// we can grab a fresh map of consumables.
 		wg.Wait()
 
-		newConsumables := d.consumableCache.GetConsumables()
+		newConsumables := policy.GetConsumableCache().GetConsumables()
 
 		consumablesToRm := policy.ConsumablesInANotInB(oldConsumables, newConsumables)
 		endpointmanager.Mutex.RLock()
@@ -511,11 +511,11 @@ func (d *Daemon) PolicyInit() error {
 			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
 		}
 
-		c := d.consumableCache.GetOrCreate(v, secLbl)
+		c := policy.GetConsumableCache().GetOrCreate(v, secLbl)
 		if c == nil {
 			return fmt.Errorf("Unable to initialize consumable for %v", secLbl)
 		}
-		d.consumableCache.AddReserved(c)
+		policy.GetConsumableCache().AddReserved(c)
 		c.AddMap(policyMap)
 	}
 

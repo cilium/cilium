@@ -150,16 +150,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return ds.d.compilationMutex
 	}
 
-	// Create a dummy consumable cache
-	cc := policy.NewConsumableCache()
-	for _, ep := range epsWanted {
-		cc.GetOrCreate(ep.SecLabel.ID, ep.SecLabel)
-	}
-	ds.OnGetConsumableCache = func() *policy.ConsumableCache {
-		return cc
-	}
 	ds.OnGetCachedLabelList = func(id policy.NumericIdentity) (labels.LabelArray, error) {
-		if c := cc.Lookup(id); c != nil {
+		if c := policy.GetConsumableCache().Lookup(id); c != nil {
 			return c.LabelArray, nil
 		}
 		return nil, nil
