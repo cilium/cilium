@@ -158,7 +158,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 	return nil
 }
 
-func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
+func fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	if !k8s.IsEnabled() {
 		return nil, nil
 	}
@@ -172,7 +172,7 @@ func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string
 	}
 	log.Debugf("Connecting to kubernetes to retrieve labels for pod %s ns %s", podName, ns)
 
-	result, err := d.k8sClient.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+	result, err := k8s.Client().CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (d *Daemon) getFilteredLabels(allLabels map[string]string) (identityLabels,
 
 	// Merge Kubernetes labels into container runtime labels
 	if podName := k8sDockerLbls.GetPodName(allLabels); podName != "" {
-		k8sNormalLabels, err := d.fetchK8sLabels(allLabels)
+		k8sNormalLabels, err := fetchK8sLabels(allLabels)
 		if err != nil {
 			log.Warningf("Error while getting Kubernetes labels: %s", err)
 		} else if k8sNormalLabels != nil {

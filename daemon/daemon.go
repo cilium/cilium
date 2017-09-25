@@ -65,7 +65,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -100,7 +99,6 @@ type Daemon struct {
 	dockerClient      *dClient.Client
 	events            chan events.Event
 	ipamConf          *ipam.IPAMConfig
-	k8sClient         kubernetes.Interface
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
 	loopbackIPv4      net.IP
@@ -278,7 +276,7 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 				return
 			}
 
-			pod, err := d.k8sClient.CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
+			pod, err := k8s.Client().CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
 			if err != nil {
 				log.Errorf("error getting pod for endpoint %d with namespace %s and pod name %s: %s", e.ID, split[0], split[1], err)
 				return
@@ -288,7 +286,7 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 				pod.Annotations = make(map[string]string)
 			}
 			pod.Annotations[annotationKey] = annotationValue
-			pod, err = d.k8sClient.CoreV1().Pods(split[0]).Update(pod)
+			pod, err = k8s.Client().CoreV1().Pods(split[0]).Update(pod)
 			if err == nil {
 				log.Debugf("added %s annotation to endpoint %d / pod %s:%s", common.CiliumIdentityAnnotation, e.ID, split[0], split[1])
 				break
@@ -994,41 +992,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.listenForCiliumEvents()
 
 	if k8s.IsEnabled() {
-		restConfig, err := k8s.CreateConfig()
-		if err != nil {
-			return nil, fmt.Errorf("unable to create rest configuration: %s", err)
-		}
-
-		d.k8sClient, err = k8s.CreateClient(restConfig)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create k8s client: %s", err)
-		}
-
-		if nodeName := os.Getenv(k8s.EnvNodeNameSpec); nodeName != "" {
-			// Use of the environment variable overwrites the
-			// node-name automatically derived
-			nodeaddress.SetName(nodeName)
-
-			k8sNode, err := k8s.GetNode(d.k8sClient, nodeName)
-			if err != nil {
-				return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
-			}
-
-			node := k8s.ParseNode(k8sNode)
-
-			log.Infof("Retrieved node's %s information from kubernetes", node.Name)
-
-			if err := nodeaddress.UseNodeCIDR(node); err != nil {
-				return nil, fmt.Errorf("unable to retrieve k8s node CIDR: %s", err)
-			}
-
-			if err := nodeaddress.UseNodeAddresses(node); err != nil {
-				return nil, fmt.Errorf("unable to use k8s node addresses: %s", err)
-			}
-
-			// Annotate addresses will occur later since the user might want
-			// to specify them manually
-
+		if err := k8s.Init(); err != nil {
+			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
 		}
 
 		// Kubernetes demands that the localhost can always reach local
@@ -1085,7 +1050,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
 	if k8s.IsEnabled() {
-		err := k8s.AnnotateNodeCIDR(d.k8sClient, nodeaddress.GetName(),
+		err := k8s.AnnotateNodeCIDR(k8s.Client(), nodeaddress.GetName(),
 			nodeaddress.GetIPv4AllocRange(),
 			nodeaddress.GetIPv6NodeRange())
 		if err != nil {

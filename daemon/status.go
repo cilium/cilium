@@ -28,10 +28,10 @@ import (
 	k8sTypes "k8s.io/client-go/pkg/api/v1"
 )
 
-func (d *Daemon) getK8sStatus() *models.Status {
+func getK8sStatus() *models.Status {
 	var k8sStatus *models.Status
 	if k8s.IsEnabled() {
-		if v, err := d.k8sClient.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
+		if v, err := k8s.Client().CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
 			k8sStatus = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 		} else if len(v.Conditions) == 0 {
 			k8sStatus = &models.Status{
@@ -81,7 +81,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 		sr.ContainerRuntime = &models.Status{State: models.StatusStateOk, Msg: ""}
 	}
 
-	sr.Kubernetes = d.getK8sStatus()
+	sr.Kubernetes = getK8sStatus()
 
 	if sr.Kvstore.State != models.StatusStateOk {
 		sr.Cilium = &models.Status{

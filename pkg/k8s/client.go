@@ -482,3 +482,28 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 		}
 	}
 }
+
+var (
+	client kubernetes.Interface
+)
+
+// Client returns the default Kubernetes client
+func Client() kubernetes.Interface {
+	return client
+}
+
+func createDefaultClient() error {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+
+	k8sClient, err := CreateClient(restConfig)
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	client = k8sClient
+
+	return nil
+}

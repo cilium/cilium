@@ -135,7 +135,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
 		log.Debugf("Detected k8s <1.7, using TPR instead of CRD")
-		if err := k8s.CreateThirdPartyResourcesDefinitions(d.k8sClient); err != nil {
+		if err := k8s.CreateThirdPartyResourcesDefinitions(k8s.Client()); err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}
 		cnpClient, err = k8s.CreateTPRClient(restConfig)
@@ -152,7 +152,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	}
 
 	_, policyControllerDeprecated := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.ExtensionsV1beta1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.NetworkPolicy{},
 		reSyncPeriod,
@@ -165,7 +165,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go policyControllerDeprecated.Run(wait.NeverStop)
 
 	_, policyController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.NetworkingV1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
 		&networkingv1.NetworkPolicy{},
 		reSyncPeriod,
@@ -178,7 +178,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go policyController.Run(stopPolicyController)
 
 	_, svcController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
 		reSyncPeriod,
@@ -191,7 +191,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go svcController.Run(wait.NeverStop)
 
 	_, endpointController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll, fields.Everything()),
 		&v1.Endpoints{},
 		reSyncPeriod,
@@ -204,7 +204,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go endpointController.Run(wait.NeverStop)
 
 	_, ingressController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.ExtensionsV1beta1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
 			"ingresses", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.Ingress{},
 		reSyncPeriod,
@@ -252,7 +252,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	}()
 
 	_, nodesController := cache.NewInformer(
-		cache.NewListWatchFromClient(d.k8sClient.CoreV1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"nodes", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},
 		reSyncPeriod,
@@ -754,7 +754,7 @@ func (d *Daemon) ingressAddFn(obj interface{}) {
 		},
 	}
 
-	_, err = d.k8sClient.Extensions().Ingresses(ingress.Namespace).UpdateStatus(ingress)
+	_, err = k8s.Client().Extensions().Ingresses(ingress.Namespace).UpdateStatus(ingress)
 	if err != nil {
 		log.Errorf("Unable to update status of ingress %s: %s", ingress.Name, err)
 		return
