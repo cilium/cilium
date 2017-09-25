@@ -72,8 +72,8 @@ function clean_container {
 function cleanup {
   log "beginning cleanup for ${TEST_NAME}"
   cilium policy delete --all 2> /dev/null || true
-  kill_cni_container $server_id cni-server || true
-  kill_cni_container $client_id cni-client || true
+  kill_cni_container $server_id cni-server 2> /dev/null || true
+  kill_cni_container $client_id cni-client 2> /dev/null || true
   monitor_stop
   rm -rf $DIR
   log "finished cleanup for ${TEST_NAME}"
