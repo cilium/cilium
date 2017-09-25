@@ -199,8 +199,8 @@ chapter.
 Step by Step Instructions
 =========================
 
-Mounting the BPF FS 
--------------------
+Mounting the BPF FS (Optional)
+------------------------------
 
 This step is optional but recommended. It allows the ``cilium-agent`` to pin
 BPF resources to a persistent filesystem and make them persistent across
