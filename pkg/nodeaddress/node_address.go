@@ -375,3 +375,13 @@ func UseNodeAddresses(node *node.Node) error {
 
 	return nil
 }
+
+// IsHostIPv4 returns true if the IP specified is a host IP
+func IsHostIPv4(ip net.IP) bool {
+	return ip.Equal(GetInternalIPv4()) || ip.Equal(GetExternalIPv4())
+}
+
+// IsHostIPv6 returns true if the IP specified is a host IP
+func IsHostIPv6(ip net.IP) bool {
+	return ip.Equal(GetIPv6()) || ip.Equal(GetIPv6Router())
+}
