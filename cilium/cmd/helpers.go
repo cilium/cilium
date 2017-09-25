@@ -45,7 +45,7 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 		Usagef(cmd, "Missing endpoint id argument")
 	}
 
-	if id := policy.ReservedIdentities[args[0]]; id == policy.ID_UNKNOWN {
+	if id := policy.ReservedIdentities[args[0]]; id == policy.IdentityUnknown {
 		_, _, err := endpoint.ValidateID(args[0])
 
 		if err != nil {

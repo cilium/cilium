@@ -33,7 +33,7 @@ var identityGetCmd = &cobra.Command{
 			Usagef(cmd, "Invalid identity ID")
 		}
 
-		if id := policy.GetReservedID(args[0]); id != policy.ID_UNKNOWN {
+		if id := policy.GetReservedID(args[0]); id != policy.IdentityUnknown {
 			//DO NOT modify the output format. This is being used by script(s).
 			fmt.Printf("%d\n", id)
 		} else {

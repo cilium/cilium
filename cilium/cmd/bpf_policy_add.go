@@ -46,7 +46,7 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 	}
 
 	lbl := args[0]
-	if id := policy.GetReservedID(lbl); id != policy.ID_UNKNOWN {
+	if id := policy.GetReservedID(lbl); id != policy.IdentityUnknown {
 		lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 	}
 
