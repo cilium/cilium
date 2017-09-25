@@ -183,6 +183,15 @@ chapter.
     [adjust --k8s-api-server or --k8s-kubeconfig-path]
     [adjust --kvstore and --kvstore-opts]
 
+**Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
+variable in the ``env`` section:
+
+.. code:: base
+
+        env:
+          - name: "MTU"
+            value: "8950"
+
 3. Deploy the ``cilium`` DaemonSet_
 
 .. code:: bash
@@ -287,8 +296,31 @@ There are many ways to install CNI_, the following is an example:
 Adjusting CNI configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to adjust the CNI configuration you may do so by creating the CNI
-configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
+The CNI installation can be configured with environment variables. These
+environment variables can be specified in the DaemonSet file like this:
+
+.. code:: base
+
+        env:
+          - name: "MTU"
+            value: "8950"
+
+The following variables are supported:
+
++---------------------+--------------------------------------+------------------------+
+| Option              | Description                          | Default                |
++---------------------+--------------------------------------+------------------------+
+| MTU                 | Pod MTU to be configured s           | 1450                   |
++---------------------+--------------------------------------+------------------------+
+| HOST_PREFIX         | Path prefix of all host mounts       | /host                  |
++---------------------+--------------------------------------+------------------------+
+| CNI_DIR             | Path to mounted CNI directory        | ${HOST_PREFIX}/opt/cni |
++---------------------+--------------------------------------+------------------------+
+| CNI_CONF_NAME       | Name of configuration file           | 10-cilium.conf         |
++---------------------+--------------------------------------+------------------------+
+
+If you want to further adjust the CNI configuration you may do so by creating
+the CNI configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
 
 .. code:: bash
 
