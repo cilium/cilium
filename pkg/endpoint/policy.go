@@ -45,7 +45,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 		return
 	}
 
-	switch owner.GetPolicyRepository().AllowsRLocked(&ctx) {
+	switch owner.GetPolicyRepository().AllowsLabelAccess(&ctx) {
 	case api.Allowed:
 		opts[opt] = "enabled"
 	case api.Denied:
@@ -78,7 +78,7 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 	log.Debugf("[%s] Evaluating context %+v", e.PolicyID(), ctx)
 
-	if owner.GetPolicyRepository().AllowsRLocked(ctx) == api.Allowed {
+	if owner.GetPolicyRepository().AllowsLabelAccess(ctx) == api.Allowed {
 		e.allowConsumer(owner, srcID)
 	}
 
