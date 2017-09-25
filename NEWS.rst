@@ -13,6 +13,8 @@ Bug Fixes
 Features
 --------
 * Add bash code completion (1597_)
+* L7 logging records now include additional information about the identity of
+  the destination when outside of the cluster (1615_)
 
 Kubernetes
 ----------
