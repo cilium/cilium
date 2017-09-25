@@ -233,9 +233,7 @@ func getSecIDFromK8s(podName string) (string, error) {
 	if err != nil {
 		Fatalf("Error while retrieving configuration: %s", err)
 	}
-	k8sEndpoint := resp.K8sEndpoint
-	k8sConfig := resp.K8sConfiguration
-	restConfig, err := k8s.CreateConfig(k8sEndpoint, k8sConfig)
+	restConfig, err := k8s.CreateConfigFromAgentResponse(resp)
 	if err != nil {
 		return "", fmt.Errorf("unable to create rest configuration: %s", err)
 	}

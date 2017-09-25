@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -29,7 +30,7 @@ import (
 
 func (d *Daemon) getK8sStatus() *models.Status {
 	var k8sStatus *models.Status
-	if d.conf.IsK8sEnabled() {
+	if k8s.IsEnabled() {
 		if v, err := d.k8sClient.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
 			k8sStatus = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 		} else if len(v.Conditions) == 0 {
@@ -92,7 +93,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 			State: sr.ContainerRuntime.State,
 			Msg:   "Container runtime is not ready",
 		}
-	} else if d.conf.IsK8sEnabled() && sr.Kubernetes.State != models.StatusStateOk {
+	} else if k8s.IsEnabled() && sr.Kubernetes.State != models.StatusStateOk {
 		sr.Cilium = &models.Status{
 			State: sr.Kubernetes.State,
 			Msg:   "Kubernetes service is not ready",

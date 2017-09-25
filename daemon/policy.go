@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -94,7 +95,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	daemonPolicyEnable := d.EnablePolicyEnforcement()
 	if daemonPolicyEnable {
 		return true
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s.IsEnabled() {
 		// Default mode + K8s means that if rules contain labels that match
 		// this endpoint, then enable policy enforcement for this endpoint.
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
@@ -118,7 +119,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 func (d *Daemon) EnablePolicyEnforcement() bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		return true
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !k8s.IsEnabled() {
 		if d.GetPolicyRepository().NumRules() > 0 {
 			return true
 		} else {
@@ -191,7 +192,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	if d.conf.EnablePolicy == endpoint.NeverEnforce {
 		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s.IsEnabled() {
 		// If there are no rules matching the set of from / to labels provided in
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
@@ -203,7 +204,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 				"sets of labels."
 			isPolicyEnforcementEnabled = false
 		}
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !d.conf.IsK8sEnabled() {
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !k8s.IsEnabled() {
 		// If no rules are in the policy repository, then policy enforcement is
 		// disabled; if there are rules, then policy enforcement is enabled.
 		if d.policy.NumRules() == 0 {

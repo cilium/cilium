@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/nodeaddress"
@@ -85,6 +86,8 @@ var (
 	v4ClusterCidrMaskSize int
 	v4ServicePrefix       string
 	v6ServicePrefix       string
+	k8sAPIServer          string
+	k8sKubeConfigPath     string
 )
 
 var logOpts = make(map[string]string)
@@ -280,9 +283,9 @@ func init() {
 		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
 	flags.StringVar(&v6ServicePrefix,
 		"ipv6-service-range", AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
-	flags.StringVar(&config.K8sEndpoint,
+	flags.StringVar(&k8sAPIServer,
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
-	flags.StringVar(&config.K8sCfgPath,
+	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	flags.BoolVar(&config.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
@@ -515,9 +518,7 @@ func initEnv() {
 		}
 	}
 
-	if config.IsK8sEnabled() && !strings.HasPrefix(config.K8sEndpoint, "http") {
-		config.K8sEndpoint = "http://" + config.K8sEndpoint
-	}
+	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
 }
 
 func runDaemon() {
