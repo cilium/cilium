@@ -95,6 +95,16 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 	return id
 }
 
+// GetLabelsSHA256 returns the SHA256 of the labels associated with the
+// identity. The SHA is calculated if not already cached.
+func (id *Identity) GetLabelsSHA256() string {
+	if id.LabelsSHA256 == "" {
+		id.LabelsSHA256 = id.Labels.SHA256Sum()
+	}
+
+	return id.LabelsSHA256
+}
+
 func (id *Identity) GetModel() *models.Identity {
 	if id == nil {
 		return nil

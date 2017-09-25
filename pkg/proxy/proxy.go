@@ -235,11 +235,35 @@ func (r *Redirect) localEndpointInfo(info *accesslog.EndpointInfo) {
 	r.source.RUnlock()
 }
 
-func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
+// fillReservedIdentity resolves the labels of the specified identity if known
+// locally and fills in the following info member fields:
+//  - info.Identity
+//  - info.Labels
+//  - info.LabelsSHA256
+func (r *Redirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
+	info.Identity = uint64(id)
+
+	if c := policy.GetConsumableCache().Lookup(id); c != nil {
+		if c.Labels != nil {
+			info.Labels = c.Labels.Labels.GetModel()
+			info.LabelsSHA256 = c.Labels.GetLabelsSHA256()
+		}
+	}
+}
+
+// egressDestinationInfo returns the destination EndpointInfo for a flow
+// leaving the proxy at egress.
+func (r *Redirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 	ip := net.ParseIP(ipstr)
 	if ip != nil {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
+
+			if nodeaddress.IsHostIPv4(ip) {
+				r.fillReservedIdentity(info, policy.ID_HOST)
+				return
+			}
+
 			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
@@ -249,9 +273,17 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
 				}
+			} else {
+				r.fillReservedIdentity(info, policy.ID_WORLD)
 			}
 		} else {
 			info.IPv6 = ip.String()
+
+			if nodeaddress.IsHostIPv6(ip) {
+				r.fillReservedIdentity(info, policy.ID_HOST)
+				return
+			}
+
 			if nodeaddress.GetIPv6ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv6(ip)
 				id := c.EndpointID()
@@ -265,16 +297,20 @@ func parseIPPort(ipstr string, info *accesslog.EndpointInfo) {
 					info.Identity = uint64(ep.GetIdentity())
 					ep.RUnlock()
 				}
+			} else {
+				r.fillReservedIdentity(info, policy.ID_WORLD)
 			}
 		}
 	}
 }
 
-//   This function fills the accesslog.EndpointInfo fields, by fetching the consumable from the consumable cache
-//   of endpoint using identity sent by source. This is needed in ingress proxy while logging the source endpoint info.
-//   Since there will be 2 proxies on the same host, if both egress and ingress policies are set, the ingress policy cannot determine the
-//   source endpoint info based on ip address, as the ip address would be that of the egress proxy i.e host.
-
+// getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
+// the consumable from the consumable cache of endpoint using identity sent by
+// source. This is needed in ingress proxy while logging the source endpoint
+// info.  Since there will be 2 proxies on the same host, if both egress and
+// ingress policies are set, the ingress policy cannot determine the source
+// endpoint info based on ip address, as the ip address would be that of the
+// egress proxy i.e host.
 func (r *Redirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity) {
 	ep := r.source
 	ip := net.ParseIP(ipstr)
@@ -342,7 +378,7 @@ func (r *Redirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
 	if r.l4.Ingress {
 		r.localEndpointInfo(&info)
 	} else if err == nil {
-		parseIPPort(ipstr, &info)
+		r.egressDestinationInfo(ipstr, &info)
 	}
 
 	return info
