@@ -252,7 +252,7 @@ fi
 
 if [[ "$IP4_HOST" != "<nil>" ]]; then
 	[ -n "$(ip -4 addr show to $IP4_HOST)" ] || {
-		ip -4 addr add $IP4_HOST dev $HOST_DEV1
+		ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
 	}
 fi
 
