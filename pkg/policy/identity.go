@@ -172,16 +172,19 @@ const (
 	ID_UNKNOWN NumericIdentity = iota
 	ID_HOST
 	ID_WORLD
+	ID_CLUSTER
 )
 
 var (
 	ReservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:  ID_HOST,
-		labels.IDNameWorld: ID_WORLD,
+		labels.IDNameHost:    ID_HOST,
+		labels.IDNameWorld:   ID_WORLD,
+		labels.IDNameCluster: ID_CLUSTER,
 	}
 	ReservedIdentityNames = map[NumericIdentity]string{
-		ID_HOST:  labels.IDNameHost,
-		ID_WORLD: labels.IDNameWorld,
+		ID_HOST:    labels.IDNameHost,
+		ID_WORLD:   labels.IDNameWorld,
+		ID_CLUSTER: labels.IDNameCluster,
 	}
 )
 
