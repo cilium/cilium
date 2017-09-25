@@ -51,7 +51,7 @@ func listMap(cmd *cobra.Command, args []string) {
 	lbl := args[0]
 
 	if lbl != "" {
-		if id := policy.GetReservedID(lbl); id != policy.ID_UNKNOWN {
+		if id := policy.GetReservedID(lbl); id != policy.IdentityUnknown {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {

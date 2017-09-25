@@ -20,18 +20,18 @@ import (
 
 func (s *PolicyTestSuite) TestReservedID(c *C) {
 	i1 := GetReservedID("host")
-	c.Assert(i1, Equals, ID_HOST)
+	c.Assert(i1, Equals, NumericIdentity(1))
 	c.Assert(i1.String(), Equals, "host")
 
 	i2 := GetReservedID("world")
-	c.Assert(i2, Equals, ID_WORLD)
+	c.Assert(i2, Equals, NumericIdentity(2))
 	c.Assert(i2.String(), Equals, "world")
 
 	i2 = GetReservedID("cluster")
-	c.Assert(i2, Equals, ID_CLUSTER)
+	c.Assert(i2, Equals, NumericIdentity(3))
 	c.Assert(i2.String(), Equals, "cluster")
 
-	c.Assert(GetReservedID("unknown"), Equals, ID_UNKNOWN)
+	c.Assert(GetReservedID("unknown"), Equals, IdentityUnknown)
 	unknown := NumericIdentity(700)
 	c.Assert(unknown.String(), Equals, "700")
 }

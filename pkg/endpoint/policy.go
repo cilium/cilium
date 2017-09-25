@@ -179,7 +179,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	c.L4Policy = newL4policy
 
 	if newL4policy.HasRedirect() || owner.AlwaysAllowLocalhost() {
-		e.allowConsumer(owner, policy.ID_HOST)
+		e.allowConsumer(owner, policy.ReservedIdentityHost)
 	}
 
 	// Check access from reserved consumables first
@@ -271,8 +271,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	revision := repo.GetRevision()
 	e.Consumable.Mutex.RLock()
 
-	e.checkEgressAccess(owner, opts, policy.ID_HOST, OptionAllowToHost)
-	e.checkEgressAccess(owner, opts, policy.ID_WORLD, OptionAllowToWorld)
+	e.checkEgressAccess(owner, opts, policy.ReservedIdentityHost, OptionAllowToHost)
+	e.checkEgressAccess(owner, opts, policy.ReservedIdentityWorld, OptionAllowToWorld)
 
 	if e.Consumable != nil && e.Consumable.L4Policy.RequiresConntrack() {
 		opts[OptionConntrack] = "enabled"

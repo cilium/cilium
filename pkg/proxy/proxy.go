@@ -260,7 +260,7 @@ func (r *Redirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointI
 			info.IPv4 = ip.String()
 
 			if nodeaddress.IsHostIPv4(ip) {
-				r.fillReservedIdentity(info, policy.ID_HOST)
+				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
@@ -273,16 +273,16 @@ func (r *Redirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointI
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
 				} else {
-					r.fillReservedIdentity(info, policy.ID_CLUSTER)
+					r.fillReservedIdentity(info, policy.ReservedIdentityCluster)
 				}
 			} else {
-				r.fillReservedIdentity(info, policy.ID_WORLD)
+				r.fillReservedIdentity(info, policy.ReservedIdentityWorld)
 			}
 		} else {
 			info.IPv6 = ip.String()
 
 			if nodeaddress.IsHostIPv6(ip) {
-				r.fillReservedIdentity(info, policy.ID_HOST)
+				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
@@ -299,10 +299,10 @@ func (r *Redirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointI
 					info.Identity = uint64(ep.GetIdentity())
 					ep.RUnlock()
 				} else {
-					r.fillReservedIdentity(info, policy.ID_CLUSTER)
+					r.fillReservedIdentity(info, policy.ReservedIdentityCluster)
 				}
 			} else {
-				r.fillReservedIdentity(info, policy.ID_WORLD)
+				r.fillReservedIdentity(info, policy.ReservedIdentityWorld)
 			}
 		}
 	}

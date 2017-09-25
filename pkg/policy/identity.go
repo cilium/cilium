@@ -169,22 +169,30 @@ func (id *Identity) RefCount() int {
 }
 
 const (
-	ID_UNKNOWN NumericIdentity = iota
-	ID_HOST
-	ID_WORLD
-	ID_CLUSTER
+	// IdentityUnknown represents an unknown identity
+	IdentityUnknown NumericIdentity = iota
+
+	// ReservedIdentityHost represents the local host
+	ReservedIdentityHost
+
+	// ReservedIdentityWorld represents any endpoint outside of the cluster
+	ReservedIdentityWorld
+
+	// ReservedIdentityCluster represents any endpoint inside the cluster
+	// that does not have a more specific identity
+	ReservedIdentityCluster
 )
 
 var (
 	ReservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:    ID_HOST,
-		labels.IDNameWorld:   ID_WORLD,
-		labels.IDNameCluster: ID_CLUSTER,
+		labels.IDNameHost:    ReservedIdentityHost,
+		labels.IDNameWorld:   ReservedIdentityWorld,
+		labels.IDNameCluster: ReservedIdentityCluster,
 	}
 	ReservedIdentityNames = map[NumericIdentity]string{
-		ID_HOST:    labels.IDNameHost,
-		ID_WORLD:   labels.IDNameWorld,
-		ID_CLUSTER: labels.IDNameCluster,
+		ReservedIdentityHost:    labels.IDNameHost,
+		ReservedIdentityWorld:   labels.IDNameWorld,
+		ReservedIdentityCluster: labels.IDNameCluster,
 	}
 )
 
@@ -192,5 +200,5 @@ func GetReservedID(name string) NumericIdentity {
 	if v, ok := ReservedIdentities[name]; ok {
 		return v
 	}
-	return ID_UNKNOWN
+	return IdentityUnknown
 }
