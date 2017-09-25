@@ -52,8 +52,6 @@ type Config struct {
 	HostV6Addr     net.IP     // Host v6 address of the snooping device
 	DockerEndpoint string     // Docker endpoint
 	IPv4Disabled   bool       // Disable IPv4 allocation
-	K8sEndpoint    string     // Kubernetes endpoint
-	K8sCfgPath     string     // Kubeconfig path
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
 
 	EnablePolicyMU sync.RWMutex // Protects the variable below
@@ -96,11 +94,6 @@ func NewConfig() *Config {
 		Opts:    option.NewBoolOptions(&options.Library),
 		Monitor: &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 	}
-}
-
-// IsK8sEnabled checks if Cilium is being used in tandem with Kubernetes.
-func (c *Config) IsK8sEnabled() bool {
-	return c.K8sEndpoint != "" || c.K8sCfgPath != ""
 }
 
 func (c *Config) IsLBEnabled() bool {

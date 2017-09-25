@@ -262,7 +262,7 @@ func (d *Daemon) DebugEnabled() bool {
 // annotationValue if Kubernetes is being utilized in tandem with Cilium.
 func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotationValue string) {
 
-	if !d.conf.IsK8sEnabled() {
+	if !k8s.IsEnabled() {
 		return // Don't error out if k8s is not enabled; treat as a no-op.
 	}
 
@@ -993,8 +993,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	d.listenForCiliumEvents()
 
-	if c.IsK8sEnabled() {
-		restConfig, err := k8s.CreateConfig(c.K8sEndpoint, c.K8sCfgPath)
+	if k8s.IsEnabled() {
+		restConfig, err := k8s.CreateConfig()
 		if err != nil {
 			return nil, fmt.Errorf("unable to create rest configuration: %s", err)
 		}
@@ -1084,7 +1084,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	ni, n := nodeaddress.GetNode()
 	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
-	if c.IsK8sEnabled() {
+	if k8s.IsEnabled() {
 		err := k8s.AnnotateNodeCIDR(d.k8sClient, nodeaddress.GetName(),
 			nodeaddress.GetIPv4AllocRange(),
 			nodeaddress.GetIPv6NodeRange())
@@ -1346,8 +1346,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	cfg := &models.DaemonConfigurationResponse{
 		Addressing:        d.getNodeAddressing(),
 		Configuration:     d.conf.Opts.GetModel(),
-		K8sConfiguration:  d.conf.K8sCfgPath,
-		K8sEndpoint:       d.conf.K8sEndpoint,
+		K8sConfiguration:  k8s.GetKubeconfigPath(),
+		K8sEndpoint:       k8s.GetAPIServer(),
 		PolicyEnforcement: d.conf.EnablePolicy,
 		NodeMonitor:       d.nodeMonitor.State(),
 	}

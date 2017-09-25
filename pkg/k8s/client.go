@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	log "github.com/sirupsen/logrus"
@@ -71,7 +72,7 @@ const (
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
-func CreateConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 	if kubeCfgPath != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
 	}
@@ -80,6 +81,18 @@ func CreateConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 	err := rest.SetKubernetesDefaults(config)
 
 	return config, err
+}
+
+// CreateConfigFromAgentResponse creates a client configuration from a
+// models.DaemonConfigurationResponse
+func CreateConfigFromAgentResponse(resp *models.DaemonConfigurationResponse) (*rest.Config, error) {
+	return createConfig(resp.K8sEndpoint, resp.K8sConfiguration)
+}
+
+// CreateConfig creates a client configuration based on the configured API
+// server and Kubeconfig path
+func CreateConfig() (*rest.Config, error) {
+	return createConfig(GetAPIServer(), GetKubeconfigPath())
 }
 
 // CreateClient creates a new client to access the Kubernetes API

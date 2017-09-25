@@ -159,7 +159,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 }
 
 func (d *Daemon) fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
-	if !d.conf.IsK8sEnabled() {
+	if !k8s.IsEnabled() {
 		return nil, nil
 	}
 	ns := k8sDockerLbls.GetPodNamespace(dockerLbls)
@@ -267,7 +267,7 @@ func (d *Daemon) handleCreateContainer(id string, retry bool) {
 		ep.Mutex.Lock()
 		// Docker appends '/' to container names.
 		ep.ContainerName = strings.Trim(containerName, "/")
-		if d.conf.IsK8sEnabled() {
+		if k8s.IsEnabled() {
 			if dockerContainer.Config != nil {
 				podNamespace := k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels)
 				podName := k8sDockerLbls.GetPodName(dockerContainer.Config.Labels)
