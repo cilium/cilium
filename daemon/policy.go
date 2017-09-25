@@ -110,47 +110,6 @@ func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
 	return &getPolicyResolve{daemon: d}
 }
 
-func (d *Daemon) traceL4Egress(ctx policy.SearchContext, ports []*models.Port) api.Decision {
-	ctx.To = ctx.From
-	ctx.From = labels.LabelArray{}
-	ctx.EgressL4Only = true
-
-	ctx.PolicyTrace("\n")
-	policy, err := d.policy.ResolveL4Policy(&ctx)
-	verdict := api.Undecided
-	if err == nil {
-		verdict = policy.EgressCoversDPorts(ports)
-	}
-
-	if len(ports) == 0 {
-		ctx.PolicyTrace("L4 egress verdict: [no port context specified]\n")
-	} else {
-		ctx.PolicyTrace("L4 egress verdict: %s\n", verdict.String())
-	}
-
-	return verdict
-}
-
-func (d *Daemon) traceL4Ingress(ctx policy.SearchContext, ports []*models.Port) api.Decision {
-	ctx.From = labels.LabelArray{}
-	ctx.IngressL4Only = true
-
-	ctx.PolicyTrace("\n")
-	policy, err := d.policy.ResolveL4Policy(&ctx)
-	verdict := api.Undecided
-	if err == nil {
-		verdict = policy.IngressCoversDPorts(ports)
-	}
-
-	if len(ports) == 0 {
-		ctx.PolicyTrace("L4 ingress verdict: [no port context specified]\n")
-	} else {
-		ctx.PolicyTrace("L4 ingress verdict: %s\n", verdict.String())
-	}
-
-	return verdict
-}
-
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
 	log.Debugf("GET /policy/resolve request: %+v", params)
 
@@ -223,17 +182,6 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d.policy.Mutex.RLock()
 
 	verdict := d.policy.AllowsRLocked(&searchCtx)
-	searchCtx.PolicyTrace("L3 verdict: %s\n", verdict.String())
-
-	// We only report the overall verdict as L4 inclusive if a port has
-	// been specified
-	if len(searchCtx.DPorts) != 0 {
-		l4Egress := d.traceL4Egress(searchCtx, searchCtx.DPorts)
-		l4Ingress := d.traceL4Ingress(searchCtx, searchCtx.DPorts)
-		if l4Egress != api.Allowed || l4Ingress != api.Allowed {
-			verdict = api.Denied
-		}
-	}
 
 	d.policy.Mutex.RUnlock()
 
