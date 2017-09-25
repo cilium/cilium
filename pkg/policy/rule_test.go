@@ -233,3 +233,33 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	}.Validate()
 	c.Assert(err, Not(IsNil))
 }
+
+func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
+	fromWorld := &SearchContext{
+		From: labels.ParseSelectLabelArray("reserved:world"),
+		To:   labels.ParseSelectLabelArray("bar"),
+	}
+
+	notFromWorld := &SearchContext{
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar"),
+	}
+
+	rule1 := rule{
+		api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEntities: []api.Entity{api.World},
+				},
+			},
+		},
+	}
+
+	state := traceState{}
+	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
+	c.Assert(state.selectedRules, Equals, 1)
+	state = traceState{}
+	c.Assert(rule1.canReach(notFromWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(state.selectedRules, Equals, 0)
+}

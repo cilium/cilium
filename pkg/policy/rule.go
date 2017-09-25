@@ -180,6 +180,19 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 	// separate loop is needed as failure to meet FromRequires always takes
 	// precedence over FromEndpoints
 	for _, r := range r.Ingress {
+		for _, entity := range r.FromEntities {
+			l, ok := api.EntitySelectorMapping[entity]
+			if !ok {
+				ctx.PolicyTrace("     unsupported entity found: %s, skipping", entity)
+				continue
+			}
+
+			if l.Matches(ctx.From) {
+				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entity)
+				return api.Allowed
+			}
+		}
+
 		for _, sel := range r.FromEndpoints {
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
 			if sel.Matches(ctx.From) {
