@@ -278,6 +278,10 @@ func init() {
 		"debug", "D", false, "Enable debugging mode")
 	flags.StringVarP(&config.Device,
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.StringVarP(&config.DevicePreFilter,
+		"prefilter-device", "", "undefined", "Device facing external network for XDP prefiltering")
+	flags.StringVarP(&config.ModePreFilter,
+		"prefilter-mode", "", ModePreFilterNative, "Prefilter mode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+ModePreFilterNative+")")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
@@ -446,6 +450,17 @@ func initConfig() {
 		log.Fatalf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
 			AllowLocalhostAuto, AllowLocalhostAlways, AllowLocalhostPolicy)
 	}
+
+	config.ModePreFilter = strings.ToLower(config.ModePreFilter)
+	switch config.ModePreFilter {
+	case ModePreFilterNative:
+		config.ModePreFilter = "xdpdrv"
+	case ModePreFilterGeneric:
+		config.ModePreFilter = "xdpgeneric"
+	default:
+		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, %s }",
+			ModePreFilterNative, ModePreFilterGeneric)
+	}
 }
 
 func initEnv() {
@@ -612,6 +627,11 @@ func runDaemon() {
 
 	// /service/
 	api.ServiceGetServiceHandler = NewGetServiceHandler(d)
+
+	// /prefilter/
+	api.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
+	api.PrefilterPutPrefilterHandler = NewPutPrefilterHandler(d)
+	api.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
 
 	// /ipam/{ip}/
 	api.IPAMPostIPAMHandler = NewPostIPAMHandler(d)

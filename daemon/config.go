@@ -38,19 +38,27 @@ const (
 	// to reach particular endpoints or policy enforcement must be
 	// disabled.
 	AllowLocalhostPolicy = "policy"
+
+	// ModePreFilterNative for loading progs with xdpdrv
+	ModePreFilterNative = "native"
+
+	// ModePreFilterGeneric for loading progs with xdpgeneric
+	ModePreFilterGeneric = "generic"
 )
 
 // Config is the configuration used by Daemon.
 type Config struct {
-	BpfDir       string     // BPF template files directory
-	LibDir       string     // Cilium library files directory
-	RunDir       string     // Cilium runtime directory
-	NAT46Prefix  *net.IPNet // NAT46 IPv6 Prefix
-	Device       string     // Receive device
-	HostV4Addr   net.IP     // Host v4 address of the snooping device
-	HostV6Addr   net.IP     // Host v6 address of the snooping device
-	IPv4Disabled bool       // Disable IPv4 allocation
-	LBInterface  string     // Set with name of the interface to loadbalance packets from
+	BpfDir          string     // BPF template files directory
+	LibDir          string     // Cilium library files directory
+	RunDir          string     // Cilium runtime directory
+	NAT46Prefix     *net.IPNet // NAT46 IPv6 Prefix
+	Device          string     // Receive device
+	DevicePreFilter string     // XDP device
+	ModePreFilter   string     // XDP mode, values: { native | generic }
+	HostV4Addr      net.IP     // Host v4 address of the snooping device
+	HostV6Addr      net.IP     // Host v6 address of the snooping device
+	IPv4Disabled    bool       // Disable IPv4 allocation
+	LBInterface     string     // Set with name of the interface to loadbalance packets from
 
 	Tunnel string // Tunnel mode
 

@@ -56,7 +56,7 @@ func (l3 *L3Maps) ResetBpfMap(mt L3MapType, path string) error {
 	if mt == IPv4Ingress || mt == IPv4Egress {
 		prefixlen = 32
 	}
-	l3[mt], _, err = cidrmap.OpenMap(path, prefixlen)
+	l3[mt], _, err = cidrmap.OpenMap(path, prefixlen, true)
 	return err
 }
 
