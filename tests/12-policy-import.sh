@@ -14,6 +14,21 @@ set -ex
 DENIED="Result: DENIED"
 ALLOWED="Result: ALLOWED"
 
+
+function test_policy_trace_policy_disabled {
+  # If policy enforcement is disabled, then `cilium policy trace` should return that traffic is allowed between all security identities.
+  wait_for_endpoints 3
+  local FOO_ID=$(cilium endpoint list | grep id.foo | awk '{print $1}')
+  local BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
+  log "verify verbose trace for expected output using endpoint IDs "
+  local TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
+  log "Trace output: ${TRACE_OUTPUT}"
+  local DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Result:")) || true
+  if [[ "$DIFF" != "" ]]; then
+    abort "DIFF: $DIFF"
+  fi
+}
+
 function cleanup {
   log "beginning cleanup for ${TEST_NAME}"
   log "deleting all policies"
@@ -462,6 +477,8 @@ if [ "$?" -ne 1 ]; then
   abort "expected L4 policy with more than 40 ports to fail"
 fi
 set -e
-cilium policy delete --all
+
+policy_delete_and_wait "--all"
+test_policy_trace_policy_disabled
 
 test_succeeded "${TEST_NAME}"

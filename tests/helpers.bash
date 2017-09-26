@@ -1009,4 +1009,24 @@ function test_succeeded {
   echo "==                                                        =="
   echo "==                                                        =="
   echo "============================================================"
+}
+
+function ping_fail {
+  check_num_params "$#" "2"
+  C1=$1
+  C2=$2
+  log "pinging $C2 from $C1 (expecting failure) "
+  docker exec -i  ${C1} bash -c "ping -c 5 ${C2}" && {
+      abort "Error: Unexpected success pinging ${C2} from ${C1}"
+  }
+}
+
+function ping_success {
+  check_num_params "$#" "2"
+  C1=$1
+  C2=$2
+  log "pinging $C2 from $C1 (expecting success) "
+  docker exec -i ${C1} bash -c "ping -c 5 ${C2}" || {
+    abort "Error: Could not ping ${C2} from ${C1}"
+  }
 } 
