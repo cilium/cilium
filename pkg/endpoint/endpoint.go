@@ -160,13 +160,20 @@ func init() {
 const (
 	// StateCreating is used to set the endpoint is being created.
 	StateCreating = string(models.EndpointStateCreating)
+
+	// StateDisconnecting indicates that the endpoint is being disconnected
+	StateDisconnecting = string(models.EndpointStateDisconnecting)
+
 	// StateDisconnected is used to set the endpoint is disconnected.
 	StateDisconnected = string(models.EndpointStateDisconnected)
+
 	// StateWaitingForIdentity is used to set if the endpoint is waiting
 	// for an identity from the KVStore.
 	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
+
 	// StateReady specifies if the endpoint is read to be used.
 	StateReady = string(models.EndpointStateReady)
+
 	// StateRegenerating specifies when the endpoint is being regenerated.
 	StateRegenerating = string(models.EndpointStateRegenerating)
 
@@ -278,12 +285,19 @@ type Endpoint struct {
 	// by Kubernetes
 	PodName string
 
-	// PolicyRevision is the policy revision this endpoint is currently on
-	PolicyRevision uint64 `json:"-"`
+	// policyRevision is the policy revision this endpoint is currently on
+	policyRevision uint64
 
-	// NextPolicyRevision is the policy revision that the endpoint has
+	// nextPolicyRevision is the policy revision that the endpoint has
 	// updated to and that will become effective with the next regenerate
-	NextPolicyRevision uint64 `json:"-"`
+	nextPolicyRevision uint64
+
+	// BuildMutex synchronizes builds of individual endpoints and locks out
+	// deletion during builds
+	//
+	// FIXME: Mark private once endpoint deletion can be moved into
+	// `pkg/endpoint`
+	BuildMutex lock.Mutex
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -382,7 +396,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 		State:          currentState, // TODO: Validate
 		Policy:         e.GetPolicyModel(),
 		PolicyEnabled:  &policyEnabled,
-		PolicyRevision: int64(e.PolicyRevision),
+		PolicyRevision: int64(e.policyRevision),
 		Status:         e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
@@ -1113,7 +1127,6 @@ func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex locked.
 func (e *Endpoint) LeaveLocked(owner Owner) {
-	e.State = StateDisconnected
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if c := e.Consumable; c != nil {
 		c.Mutex.RLock()
@@ -1134,6 +1147,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 	e.L3Maps.Close()
 
 	e.removeDirectory()
+	e.State = StateDisconnected
 }
 
 func (e *Endpoint) removeDirectory() {
@@ -1227,4 +1241,43 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	e.Mutex.RUnlock()
 
 	return id
+}
+
+// GetState returns the endpoint's state
+// endpoint.Mutex may only be RLock()ed
+func (e *Endpoint) GetState() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+	return e.State
+}
+
+// SetState modifies the endpoint's state
+// endpoint.Mutex may not be held
+func (e *Endpoint) SetState(state string) {
+	e.Mutex.Lock()
+	e.State = state
+	e.Mutex.Unlock()
+}
+
+// bumpPolicyRevision marks the endpoint to be running the next scheduled
+// policy revision as setup by e.regenerate(). endpoint.Mutex may not be held
+func (e *Endpoint) bumpPolicyRevision() {
+	e.Mutex.Lock()
+	e.policyRevision = e.nextPolicyRevision
+	e.Mutex.Unlock()
+}
+
+// IsDisconnecting returns true if the endpoint is being disconnected or
+// already disconnected
+// endpoint.Mutex may only be RLock()ed
+func (e *Endpoint) IsDisconnecting() bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+	return e.IsDisconnectingLocked()
+}
+
+// IsDisconnectingLocked is identical to IsDisconnecting but with the endpoint
+// lock held for reading or writing
+func (e *Endpoint) IsDisconnectingLocked() bool {
+	return e.State == StateDisconnected || e.State == StateDisconnecting
 }

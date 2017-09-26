@@ -261,6 +261,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 			wg.Done()
 		}(Endpoints[k], &wg)
 	}
+
 	Mutex.RUnlock()
 
 	return &wg

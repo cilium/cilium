@@ -280,20 +280,21 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 }
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
-	// Taking the endpoint lock will serialize all delete requests and will
-	// also ensure that no outstanding writers are still using the
-	// endpoint.
+	// Wait for existing builds to complete and prevent further builds
+	ep.BuildMutex.Lock()
+	defer ep.BuildMutex.Unlock()
+
+	// Lock out any other writers to the endpoint
 	ep.Mutex.Lock()
 
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
-	if ep.State == endpoint.StateDisconnected {
+	if ep.IsDisconnectingLocked() {
 		ep.Mutex.Unlock()
 		return 0
 	}
 
-	// Mark endpoint in state StateDisconnected and release resources
-	ep.LeaveLocked(d)
+	ep.State = endpoint.StateDisconnecting
 
 	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
 	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
@@ -353,6 +354,8 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		log.Warningf("error while releasing IPv6 %s: %s", ep.IPv6.IP(), err)
 		errors++
 	}
+
+	ep.LeaveLocked(d)
 	ep.Mutex.Unlock()
 
 	endpointmanager.Remove(ep)
