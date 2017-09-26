@@ -28,11 +28,11 @@ var bashCompletionCmd = &cobra.Command{
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		out := new(bytes.Buffer)
-		RootCmd.GenBashCompletion(out)
+		rootCmd.GenBashCompletion(out)
 		fmt.Println(out.String())
 	},
 }
 
 func init() {
-	RootCmd.AddCommand(bashCompletionCmd)
+	rootCmd.AddCommand(bashCompletionCmd)
 }

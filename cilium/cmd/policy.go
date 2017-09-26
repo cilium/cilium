@@ -48,7 +48,7 @@ func init() {
 		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
 	}
 
-	RootCmd.AddCommand(policyCmd)
+	rootCmd.AddCommand(policyCmd)
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {

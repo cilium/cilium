@@ -25,5 +25,5 @@ var serviceCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(serviceCmd)
+	rootCmd.AddCommand(serviceCmd)
 }

@@ -54,8 +54,8 @@ __custom_func() {
 `
 )
 
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
 	Use:   "cilium",
 	Short: "CLI",
 	Long:  `CLI for interacting with the local Cilium Agent`,
@@ -65,7 +65,7 @@ var RootCmd = &cobra.Command{
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := RootCmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
@@ -73,7 +73,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	flags := RootCmd.PersistentFlags()
+	flags := rootCmd.PersistentFlags()
 	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cilium.yaml)")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to server-side API")
