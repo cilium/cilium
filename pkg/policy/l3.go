@@ -110,7 +110,7 @@ func (m *L3PolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
 				continue
 			}
 		}
-		err := cidrmap.AllowCIDR(value)
+		err := cidrmap.InsertCIDR(value)
 		if err != nil {
 			return err
 		}

@@ -548,6 +548,59 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+  "/prefilter":
+    get:
+      summary: Retrieve list of CIDRs
+      tags:
+      - prefilter
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/CIDRList"
+        '500':
+          description: CIDR list get failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    put:
+      summary: Update list of CIDRs
+      tags:
+      - prefilter
+      parameters:
+      - "$ref": "#/parameters/cidr-list"
+      responses:
+        '200':
+          description: Updated
+        '461':
+          description: Invalid CIDR prefix
+          x-go-name: InvalidCIDR
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: CIDR update failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete list of CIDRs
+      tags:
+      - prefilter
+      parameters:
+      - "$ref": "#/parameters/cidr-list"
+      responses:
+        '200':
+          description: Deleted
+        '461':
+          description: Invalid CIDR prefix
+          x-go-name: InvalidCIDR
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: CIDR deletion failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
 parameters:
   endpoint-id:
     name: id
@@ -627,6 +680,13 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/Service"
+  cidr-list:
+    name: cidr-list
+    description: List of CIDRs for filter table
+    required: true
+    in: body
+    schema:
+      "$ref": "#/definitions/CIDRList"
   ipam-ip:
     name: ip
     description: IP address
@@ -820,6 +880,16 @@ definitions:
           type: string
       egress:
         description: List of CIDR egress rules
+        type: array
+        items:
+          type: string
+  CIDRList:
+    description: List of CIDRs
+    type: object
+    properties:
+      revision:
+        type: integer
+      list:
         type: array
         items:
           type: string

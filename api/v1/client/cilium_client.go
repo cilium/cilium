@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/client/ipam"
 	"github.com/cilium/cilium/api/v1/client/policy"
+	"github.com/cilium/cilium/api/v1/client/prefilter"
 	"github.com/cilium/cilium/api/v1/client/service"
 )
 
@@ -66,6 +67,8 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Cilium {
 	cli.IPAM = ipam.New(transport, formats)
 
 	cli.Policy = policy.New(transport, formats)
+
+	cli.Prefilter = prefilter.New(transport, formats)
 
 	cli.Service = service.New(transport, formats)
 
@@ -121,6 +124,8 @@ type Cilium struct {
 
 	Policy *policy.Client
 
+	Prefilter *prefilter.Client
+
 	Service *service.Client
 
 	Transport runtime.ClientTransport
@@ -137,6 +142,8 @@ func (c *Cilium) SetTransport(transport runtime.ClientTransport) {
 	c.IPAM.SetTransport(transport)
 
 	c.Policy.SetTransport(transport)
+
+	c.Prefilter.SetTransport(transport)
 
 	c.Service.SetTransport(transport)
 
