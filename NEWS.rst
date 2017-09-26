@@ -31,6 +31,7 @@ Documentation
 Other
 -----
 * Add new --pprof flag to serve the pprof API (1646_)
+* New builtin deadlock detection for developers. Enable this in Makefile.defs. (1648_)
 * Update Sirupsen/logrus to sirupsen/logrus (1573_)
 
 
