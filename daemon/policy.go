@@ -85,15 +85,12 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 //
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
 func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
-	config.EnablePolicyMU.RLock()
-	defer config.EnablePolicyMU.RUnlock()
-	daemonPolicyEnable := d.EnablePolicyEnforcement()
 	// First check if policy enforcement should be enabled at the daemon level.
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
-	if daemonPolicyEnable {
+	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
 		return true
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
@@ -102,17 +99,6 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	// policy enforcement for the endpoint.
 	// This means that daemon policy enforcement mode is 'never', so no policy
 	// enforcement should be applied to the specified endpoint.
-	return false
-}
-
-// EnablePolicyEnforcement returns whether policy enforcement needs to be
-// enabled at the daemon-level.
-//
-// Must be called with d.conf.EnablePolicyMU held.
-func (d *Daemon) EnablePolicyEnforcement() bool {
-	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
-		return true
-	}
 	return false
 }
 
@@ -169,12 +155,11 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RLock()
 
-	d.conf.EnablePolicyMU.RLock()
 	// If policy enforcement isn't enabled, then traffic is allowed.
-	if d.conf.EnablePolicy == endpoint.NeverEnforce {
+	if policy.GetPolicyEnabled() == endpoint.NeverEnforce {
 		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
 		// If there are no rules matching the set of from / to labels provided in
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
@@ -187,7 +172,6 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			isPolicyEnforcementEnabled = false
 		}
 	}
-	d.conf.EnablePolicyMU.RUnlock()
 
 	d.policy.Mutex.RUnlock()
 

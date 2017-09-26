@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -272,8 +273,7 @@ func init() {
 		"disable-ipv4", false, "Disable IPv4 mode")
 	flags.StringVarP(&config.DockerEndpoint,
 		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
-	flags.StringVar(&config.EnablePolicy,
-		"enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
+	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.StringVar(&v4Prefix,
@@ -473,9 +473,7 @@ func initEnv() {
 	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
 	config.Opts.Set(endpoint.OptionConntrackLocal, false)
 
-	config.EnablePolicyMU.Lock()
-	config.EnablePolicy = strings.ToLower(config.EnablePolicy)
-	config.EnablePolicyMU.Unlock()
+	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		log.Fatalf("Unable to setup kvstore: %s", err)

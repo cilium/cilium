@@ -157,7 +157,8 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 
 	ep.SetDefaultOpts(h.d.conf.Opts)
-	ep.Opts.Set(endpoint.OptionPolicy, h.d.EnablePolicyEnforcement())
+	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
+	ep.Opts.Set(endpoint.OptionPolicy, alwaysEnforce)
 
 	endpointmanager.Mutex.Lock()
 	defer endpointmanager.Mutex.Unlock()

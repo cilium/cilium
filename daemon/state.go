@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/events"
+	"github.com/cilium/cilium/pkg/policy"
 
 	dockerAPI "github.com/docker/engine-api/client"
 	log "github.com/sirupsen/logrus"
@@ -64,7 +65,8 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			ep.SetDefaultOpts(nil)
 		} else {
 			ep.SetDefaultOpts(d.conf.Opts)
-			ep.Opts.Set(endpoint.OptionPolicy, d.EnablePolicyEnforcement())
+			alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
+			ep.Opts.Set(endpoint.OptionPolicy, alwaysEnforce)
 		}
 
 		endpointmanager.Insert(ep)
