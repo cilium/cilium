@@ -315,7 +315,6 @@ for service in "none" "lb"; do
       esac
 
       wait_for_cilium_ep_gen
-      wait_for_policy_enforcement
       cilium endpoint list
       proxy_test
       log "deleting all services from Cilium"
