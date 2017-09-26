@@ -15,12 +15,7 @@
 package policy
 
 import (
-	//"encoding/json"
-	//"testing"
-
 	"github.com/cilium/cilium/api/v1/models"
-	//"github.com/cilium/cilium/pkg/labels"
-	//"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
