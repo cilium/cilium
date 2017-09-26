@@ -174,7 +174,7 @@ func (l4 L4PolicyMap) containsAllL4(l4Ports []*models.Port) api.Decision {
 				return api.Denied
 			}
 		default:
-			port := fmt.Sprintf("%s/%d", lwrProtocol, l4CtxIng.Port)
+			port := fmt.Sprintf("%d/%s", l4CtxIng.Port, lwrProtocol)
 			if _, match := l4[port]; !match {
 				return api.Denied
 			}
