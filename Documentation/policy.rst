@@ -99,7 +99,7 @@ description
 
 Layer 3: Labels-Based
 =====================
-
+/
 The L3 policy specifies which endpoints can talk to each other. L3 policies can
 be specified using :ref:`labels` or CIDR. For CIDR, refer to the
 :ref:`policy_cidr` section below.
@@ -596,6 +596,50 @@ in single rule. Added spec allows production pods to POST requests to ``external
               - method: "POST"
                 host: "^external-service.org$"
 
+***********************
+Policy Enforcement Mode
+***********************
+
+Whether an endpoint accepts traffic from any source is dependent upon the
+configuration for policy enforcement in the daemon. 
+
+Policy enforcement is configurable at runtime by running:
+
+.. code:: bash
+
+    cilium config PolicyEnforcement={default,always,never}
+
+If you want to have a certain policy enforcement configuration value at
+launch-time , you can provide the following flag when you launch the Cilium
+daemon:
+
+.. code:: bash
+
+    enable-policy={default,always,never}
+
+Cilium has three different modes for policy enforcement:
+
+* **default**
+
+This is the behavior for policy enforcement when Cilium is launched without
+any specified value for policy enforcement configuration. It is based off of
+Kubernetes_ behavior for allowing traffic from outside sources. Specifically,
+by default, endpoints receive traffic from any source (policy enforcement is
+disabled for endpoints). When a policy rule is added to Cilium that selects an
+endpoint, the endpoint will not allow traffic except that which is specified
+by the rule (policy enforcement is enabled).
+
+* **always**
+
+With this mode, policy enforcement is enabled on all endpoints, even if no
+rules select specific endpoints.
+ 
+* **never**
+
+With this mode, policy enforcement is disabled on all endpoints, even if rules
+do select specific endpoints. In other words, all traffic is allowed from any
+source with respect to an endpoint.
+
 *******
 Tracing
 *******
@@ -636,3 +680,4 @@ endpoint with the label ``id.http`` on port 80:
 .. _ThirdPartyResource: https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-third-party-resource/
 .. _CustomResourceDefinition: https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions
 .. _LabelSelector: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
+.. _Kubernetes: https://kubernetes.io/docs/concepts/services-networking/network-policies/#isolated-and-non-isolated-pods
