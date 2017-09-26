@@ -17,6 +17,8 @@ function cleanup {
 }
 
 function finish_test {
+  log "setting configuration of Cilium: PolicyEnforcement=default"
+  cilium config PolicyEnforcement=default
   gather_files ${TEST_NAME} ${TEST_SUITE}
   cleanup 
 }
@@ -57,6 +59,9 @@ function get_container_metadata {
 } 
 
 trap finish_test EXIT
+
+log "setting configuration of Cilium: PolicyEnforcement=always"
+cilium config PolicyEnforcement=always
 
 cleanup
 monitor_start
