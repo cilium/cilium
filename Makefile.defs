@@ -13,6 +13,13 @@ GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
 # Uncomment to enable race detection
 #GOBUILD += -race
 
+# Uncomment to enable deadlock detection
+#GOBUILD += -tags lockdebug
+
+ifneq ($(LOCKDEBUG),)
+    GOBUILD += -tags lockdebug
+endif
+
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
