@@ -339,11 +339,16 @@ func (bo *BoolOptions) disable(name string) {
 	}
 }
 
+type changedOptions struct {
+	key   string
+	value bool
+}
+
 // Apply takes a configuration map and applies the changes. For an option
 // which is changed, the `ChangedFunc` function is called with the `data`
 // argument passed in as well. Returns the number of options changed if any.
 func (bo *BoolOptions) Apply(n models.ConfigurationMap, changed ChangedFunc, data interface{}) int {
-	changes := 0
+	changes := []changedOptions{}
 
 	bo.optsMU.Lock()
 	for k, v := range n {
@@ -353,19 +358,21 @@ func (bo *BoolOptions) Apply(n models.ConfigurationMap, changed ChangedFunc, dat
 			/* Only enable if not enabled already */
 			if !ok || !val {
 				bo.enable(k)
-				changes++
-				changed(k, true, data)
+				changes = append(changes, changedOptions{key: k, value: true})
 			}
 		} else {
 			/* Only disable if enabled already */
 			if ok && val {
 				bo.disable(k)
-				changes++
-				changed(k, false, data)
+				changes = append(changes, changedOptions{key: k, value: false})
 			}
 		}
 	}
 	bo.optsMU.Unlock()
 
-	return changes
+	for _, change := range changes {
+		changed(change.key, change.value, data)
+	}
+
+	return len(changes)
 }
