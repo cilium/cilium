@@ -25,5 +25,5 @@ var identityCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(identityCmd)
+	rootCmd.AddCommand(identityCmd)
 }

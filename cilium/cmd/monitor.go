@@ -76,7 +76,7 @@ func listEventTypes() []string {
 }
 
 func init() {
-	RootCmd.AddCommand(monitorCmd)
+	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
 	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")

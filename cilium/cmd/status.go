@@ -35,7 +35,7 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(statusCmd)
 }
 
 func statusDaemon(cmd *cobra.Command, args []string) {

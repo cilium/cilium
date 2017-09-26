@@ -48,7 +48,7 @@ var configCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(configCmd)
 	configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 	configCmd.Flags().IntVarP(&numPages, "num-pages", "n", 0, "Number of pages for perf ring buffer. If 0, defaults to the Cilium daemon's configuration")
 }
