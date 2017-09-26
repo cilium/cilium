@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -86,51 +85,34 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 //
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
 func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
-	// First check if policy enforcement should be enabled at the daemon level.
-	// If policy enforcement is enabled for the daemon, then it has to be
-	// enabled for the endpoint.
-
 	config.EnablePolicyMU.RLock()
 	defer config.EnablePolicyMU.RUnlock()
 	daemonPolicyEnable := d.EnablePolicyEnforcement()
+	// First check if policy enforcement should be enabled at the daemon level.
+	// If policy enforcement is enabled for the daemon, then it has to be
+	// enabled for the endpoint.
 	if daemonPolicyEnable {
 		return true
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s.IsEnabled() {
-		// Default mode + K8s means that if rules contain labels that match
-		// this endpoint, then enable policy enforcement for this endpoint.
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement {
+		// Default mode means that if rules contain labels that match this endpoint,
+		// then enable policy enforcement for this endpoint.
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	}
-	// If policy enforcement isn't enabled for the daemon, or we are not running
-	// in "default" mode in tandem with K8s, we do not enable policy enforcement
-	// for the endpoint.
-	// This means one of the following:
-	// * daemon policy enforcement mode is 'never', so no policy enforcement
-	//   should be applied to the specified endpoint.
-	// * if we are not running K8s and are running in 'default' mode, we do not
-	//   enable policy enforcement on a per-endpoint basis (i.e., outside of the
-	//   scope of this function).
+	// If policy enforcement isn't enabled for the daemon we do not enable
+	// policy enforcement for the endpoint.
+	// This means that daemon policy enforcement mode is 'never', so no policy
+	// enforcement should be applied to the specified endpoint.
 	return false
 }
 
 // EnablePolicyEnforcement returns whether policy enforcement needs to be
 // enabled at the daemon-level.
 //
-// Must be called with d.GetPolicyRepository().Mutex and d.conf.EnablePolicyMU held.
+// Must be called with d.conf.EnablePolicyMU held.
 func (d *Daemon) EnablePolicyEnforcement() bool {
 	if d.conf.EnablePolicy == endpoint.AlwaysEnforce {
 		return true
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !k8s.IsEnabled() {
-		if d.GetPolicyRepository().NumRules() > 0 {
-			return true
-		} else {
-			return false
-		}
 	}
-	// If we reach this case, one of the following situations is true:
-	// * Policy enforcement is disabled for the daemon.
-	// * We are running Cilium with default PolicyEnforcement mode and are
-	// running Cilium in tandem with Kubernetes, which means that policy
-	// enforcement is configured on a per-endpoint level.
 	return false
 }
 
@@ -192,7 +174,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	if d.conf.EnablePolicy == endpoint.NeverEnforce {
 		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && k8s.IsEnabled() {
+	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement {
 		// If there are no rules matching the set of from / to labels provided in
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
@@ -202,14 +184,6 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
 				"no rules in the policy repository match either of the provided " +
 				"sets of labels."
-			isPolicyEnforcementEnabled = false
-		}
-	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && !k8s.IsEnabled() {
-		// If no rules are in the policy repository, then policy enforcement is
-		// disabled; if there are rules, then policy enforcement is enabled.
-		if d.policy.NumRules() == 0 {
-			policyEnforcementMsg = "Policy enforcement is disabled because " +
-				"there are no rules in the policy repository."
 			isPolicyEnforcementEnabled = false
 		}
 	}
