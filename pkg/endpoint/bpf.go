@@ -307,8 +307,10 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 }
 
 func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
+	e.Mutex.RLock()
 	args := []string{libdir, rundir, epdir, e.IfName, debug}
 	prog := filepath.Join(libdir, "join_ep.sh")
+	e.Mutex.RUnlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
@@ -340,9 +342,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
 
+	e.Mutex.RLock()
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
+		e.Mutex.RUnlock()
 		return fmt.Errorf("unable to write header file: %s", err)
 	}
+	e.Mutex.RUnlock()
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if owner.DryModeEnabled() {
@@ -358,6 +363,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	createdIPv4EgressMap := false
 	defer func() {
 		if err != nil {
+			e.Mutex.Lock()
 			if createdPolicyMap {
 				// Remove policy map file only if it was created
 				// in this update cycle
@@ -380,12 +386,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 			if createdIPv4EgressMap {
 				e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
 			}
+			e.Mutex.Unlock()
 		}
 	}()
+
+	e.Mutex.Lock()
 
 	if e.PolicyMap == nil {
 		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
+			e.Mutex.Unlock()
 			return err
 		}
 	}
@@ -435,6 +445,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 		}
 	}
 
+	e.Mutex.Unlock()
+
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
@@ -449,7 +461,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	if err == nil {
-		e.PolicyRevision = e.NextPolicyRevision
+		e.bumpPolicyRevision()
 	}
 
 	return err

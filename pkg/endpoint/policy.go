@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -309,9 +310,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
 	if !policyChanged {
-		e.PolicyRevision = revision
+		e.policyRevision = revision
 	} else {
-		e.NextPolicyRevision = revision
+		e.nextPolicyRevision = revision
 	}
 
 	return policyChanged || optsChanged, nil
@@ -319,6 +320,22 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 // Called with e.Mutex locked
 func (e *Endpoint) regenerate(owner Owner) error {
+	e.BuildMutex.Lock()
+	defer e.BuildMutex.Unlock()
+
+	// If endpoint was marked as disconnected then
+	// it won't be regenerated
+	if e.IsDisconnecting() {
+		log.WithFields(log.Fields{
+			logfields.EndpointID: e.StringID(),
+		}).Debug("Endpoint disconnected, skipping build")
+		return fmt.Errorf("endpoint disconnected, skipping build")
+	}
+
+	log.WithFields(log.Fields{
+		logfields.EndpointID: e.StringID(),
+	}).Debug("Regenerating endpoint...")
+
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
 	// This is the temporary directory to store the generated headers,
@@ -331,14 +348,18 @@ func (e *Endpoint) regenerate(owner Owner) error {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
 
+	e.Mutex.Lock()
+
 	if e.Consumable != nil {
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		if _, err := e.regeneratePolicy(owner); err != nil {
+			e.Mutex.Unlock()
 			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
 				e.PolicyMap.String(), err)
 		}
 	}
+	e.Mutex.Unlock()
 
 	if err := e.regenerateBPF(owner, tmpDir); err != nil {
 		os.RemoveAll(tmpDir)
@@ -357,9 +378,11 @@ func (e *Endpoint) regenerate(owner Owner) error {
 		os.RemoveAll(tmpDir)
 
 		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			log.Warningf("Restoring directory %s for endpoint "+
-				"%s failed, endpoint is in inconsistent state. Keeping stale directory.",
-				backupDir, e.String())
+			log.WithFields(log.Fields{
+				logfields.EndpointID: e.StringID(),
+			}).Warningf("Restoring directory %s for endpoint failed, endpoint "+
+				"is in inconsistent state. Keeping stale directory.",
+				backupDir)
 			return err2
 		}
 
@@ -368,7 +391,9 @@ func (e *Endpoint) regenerate(owner Owner) error {
 
 	os.RemoveAll(backupDir)
 
-	log.Infof("Regenerated program of endpoint %d", e.ID)
+	log.WithFields(log.Fields{
+		logfields.EndpointID: e.StringID(),
+	}).Info("Regenerated program of endpoint")
 
 	return nil
 }
@@ -386,44 +411,35 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		buildSuccess := true
 
 		e.Mutex.Lock()
-		// If endpoint was marked as disconnected then
-		// it won't be regenerated
-		if e.State != StateDisconnected {
+		// If endpoint was marked as disconnected then it won't be
+		// regenerated
+		if !e.IsDisconnectingLocked() {
 			e.State = StateRegenerating
 		}
-		eID := e.ID
 		e.Mutex.Unlock()
 
 		isMyTurn, isMyTurnChanOK := <-req.MyTurn
 		if isMyTurnChanOK && isMyTurn {
-			log.Debugf("it is now [%d]'s turn to regenerate", eID)
-			e.Mutex.Lock()
-			var err error
+			log.WithFields(log.Fields{
+				logfields.EndpointID: e.StringID(),
+			}).Debug("Dequeued endpoint from build queue")
 
-			// If endpoint was marked as disconnected then
-			// it won't be regenerated
-			if e.State != StateDisconnected {
-				log.Debugf("Regenerating... [%d]", eID)
-				err = e.regenerate(owner)
-				e.State = StateReady
-			} else {
-				log.Debugf("Endpoint disconnected %d", e.ID)
-				err = fmt.Errorf("Endpoint disconnected")
-			}
-			e.Mutex.Unlock()
-
-			if err != nil {
+			if err := e.regenerate(owner); err != nil {
 				buildSuccess = false
 				e.LogStatus(BPF, Failure, err.Error())
 			} else {
 				buildSuccess = true
+				e.SetState(StateReady)
 				e.LogStatusOK(BPF, "Successfully regenerated endpoint program")
 			}
 
 			req.Done <- buildSuccess
 		} else {
 			buildSuccess = false
-			log.Debugf("My request was cancelled because I'm already in line [%d]", eID)
+
+			log.WithFields(log.Fields{
+				logfields.EndpointID: e.StringID(),
+			}).Debug("My request was cancelled because I'm already in line")
 		}
 		// The external listener can ignore the channel so we need to
 		// make sure we don't block

@@ -1108,6 +1108,7 @@ func init() {
       "type": "string",
       "enum": [
         "creating",
+        "disconnecting",
         "disconnected",
         "waiting-for-identity",
         "not-ready",
