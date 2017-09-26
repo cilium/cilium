@@ -16,11 +16,11 @@ package main
 
 import (
 	"runtime"
-	"sync"
 	"testing"
 
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
@@ -50,7 +50,7 @@ type DaemonSuite struct {
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
 	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
-	OnGetCompilationLock              func() *sync.RWMutex
+	OnGetCompilationLock              func() *lock.RWMutex
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -182,7 +182,7 @@ func (ds *DaemonSuite) DebugEnabled() bool {
 	panic("DebugEnabled should not have been called")
 }
 
-func (ds *DaemonSuite) GetCompilationLock() *sync.RWMutex {
+func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 	if ds.OnGetCompilationLock != nil {
 		return ds.OnGetCompilationLock()
 	}

@@ -16,7 +16,8 @@ package ipam
 
 import (
 	"net"
-	"sync"
+
+	"github.com/cilium/cilium/pkg/lock"
 
 	hb "github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
 	lnAPI "github.com/docker/libnetwork/ipams/remote/api"
@@ -31,7 +32,7 @@ type IPAMConfig struct {
 	IPAMConfig     hb.IPAMConfig
 	IPv6Allocator  *ipallocator.Range
 	IPv4Allocator  *ipallocator.Range
-	AllocatorMutex sync.RWMutex
+	AllocatorMutex lock.RWMutex
 }
 
 // IPAMReq is used for IPAM request operation.

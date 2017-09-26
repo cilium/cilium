@@ -16,13 +16,14 @@ package syncbytes
 
 import (
 	"bytes"
-	"sync"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // Buffer is a golang's buffer wrapper that can be used concurrently.
 type Buffer struct {
 	b bytes.Buffer
-	m sync.RWMutex
+	m lock.RWMutex
 }
 
 // Read calls the Read method for the internal Buffer in a thread safe

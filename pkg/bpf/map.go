@@ -22,6 +22,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/lock"
+
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -108,7 +110,7 @@ type Map struct {
 	name string
 	path string
 	once sync.Once
-	lock sync.RWMutex
+	lock lock.RWMutex
 
 	// NonPersistent is true if the map does not contain persistent data
 	// and should be removed on startup.

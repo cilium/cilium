@@ -18,7 +18,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"sync"
+
+	lockAPI "github.com/cilium/cilium/pkg/lock"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -37,7 +38,7 @@ var (
 		layers.LayerTypeEthernet,
 		&eth, &ip4, &ip6, &icmp4, &icmp6, &tcp, &udp)
 	decoded = []gopacket.LayerType{}
-	lock    sync.Mutex
+	lock    lockAPI.Mutex
 )
 
 func getTCPInfo() string {

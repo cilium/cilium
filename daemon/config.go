@@ -18,11 +18,11 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -54,12 +54,12 @@ type Config struct {
 	IPv4Disabled   bool       // Disable IPv4 allocation
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
 
-	EnablePolicyMU sync.RWMutex // Protects the variable below
+	EnablePolicyMU lock.RWMutex // Protects the variable below
 	EnablePolicy   string       // Whether policy enforcement is enabled.
 
 	Tunnel string // Tunnel mode
 
-	ValidLabelPrefixesMU sync.RWMutex           // Protects the 2 variables below
+	ValidLabelPrefixesMU lock.RWMutex           // Protects the 2 variables below
 	ValidLabelPrefixes   *labels.LabelPrefixCfg // Label prefixes used to filter from all labels
 
 	DryMode       bool // Do not create BPF maps, devices, ..
@@ -83,7 +83,7 @@ type Config struct {
 	Opts *option.BoolOptions
 
 	// Mutex for serializing configuration updates to the daemon.
-	ConfigPatchMutex sync.RWMutex
+	ConfigPatchMutex lock.RWMutex
 
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus

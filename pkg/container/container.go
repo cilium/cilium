@@ -15,14 +15,14 @@
 package container
 
 import (
-	"sync"
+	"github.com/cilium/cilium/pkg/lock"
 
 	dTypes "github.com/docker/engine-api/types"
 )
 
 type Container struct {
 	// Mutex internal mutex for the whole container structure
-	Mutex sync.RWMutex
+	Mutex lock.RWMutex
 	dTypes.ContainerJSON
 }
 

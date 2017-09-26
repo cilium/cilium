@@ -20,11 +20,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 
 	client "github.com/coreos/etcd/clientv3"
@@ -57,10 +57,10 @@ var EtcdOpts = map[string]bool{
 
 type EtcdClient struct {
 	cli         *client.Client
-	sessionMU   sync.RWMutex
+	sessionMU   lock.RWMutex
 	session     *concurrency.Session
-	lockPathsMU sync.Mutex
-	lockPaths   map[string]*sync.Mutex
+	lockPathsMU lock.Mutex
+	lockPaths   map[string]*lock.Mutex
 }
 
 type EtcdLocker struct {
@@ -97,7 +97,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 	ec := &EtcdClient{
 		cli:       c,
 		session:   s,
-		lockPaths: map[string]*sync.Mutex{},
+		lockPaths: map[string]*lock.Mutex{},
 	}
 	if err := ec.CheckMinVersion(15 * time.Second); err != nil {
 		log.Fatalf("%s", err)

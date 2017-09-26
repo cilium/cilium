@@ -17,9 +17,9 @@ package policy
 import (
 	"encoding/json"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -27,7 +27,7 @@ import (
 // policy. A policy repository can be
 type Repository struct {
 	// Mutex protects the whole policy tree
-	Mutex sync.RWMutex
+	Mutex lock.RWMutex
 	rules []*rule
 
 	// revision is the revision of the policy repository. It will be

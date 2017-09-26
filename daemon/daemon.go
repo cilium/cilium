@@ -27,7 +27,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -47,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/events"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -104,23 +104,23 @@ type Daemon struct {
 	loopbackIPv4      net.IP
 	policy            *policy.Repository
 
-	containersMU sync.RWMutex
+	containersMU lock.RWMutex
 	containers   map[string]*container.Container
 
-	ignoredMutex      sync.RWMutex
+	ignoredMutex      lock.RWMutex
 	ignoredContainers map[string]int
 
-	maxCachedLabelIDMU sync.RWMutex
+	maxCachedLabelIDMU lock.RWMutex
 	maxCachedLabelID   policy.NumericIdentity
 
-	uniqueIDMU sync.Mutex
+	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
 	nodeMonitor *monitor.NodeMonitor
 
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
-	compilationMutex *sync.RWMutex
+	compilationMutex *lock.RWMutex
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -607,7 +607,7 @@ func (d *Daemon) installMasqRule() error {
 
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
 // of BPF programs.
-func (d *Daemon) GetCompilationLock() *sync.RWMutex {
+func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 	return d.compilationMutex
 }
 
@@ -974,7 +974,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// possible endpoints to guarantee that enqueueing into the
 		// build queue never blocks.
 		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxKeys),
-		compilationMutex:  new(sync.RWMutex),
+		compilationMutex:  new(lock.RWMutex),
 	}
 
 	// Clear previous leftovers before listening for new requests

@@ -25,13 +25,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/nodeaddress"
@@ -116,7 +116,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		}
 	}()
 
-	ds.d.compilationMutex = new(sync.RWMutex)
+	ds.d.compilationMutex = new(lock.RWMutex)
 
 	ds.OnGetStateDir = func() string {
 		return baseDir
@@ -146,7 +146,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return true
 	}
 
-	ds.OnGetCompilationLock = func() *sync.RWMutex {
+	ds.OnGetCompilationLock = func() *lock.RWMutex {
 		return ds.d.compilationMutex
 	}
 

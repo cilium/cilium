@@ -16,9 +16,9 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -59,7 +59,7 @@ type Consumable struct {
 	// ID of the consumable (same as security ID)
 	ID NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
-	Mutex sync.RWMutex
+	Mutex lock.RWMutex
 	// Labels are the Identity of this consumable
 	Labels *Identity `json:"labels"`
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup

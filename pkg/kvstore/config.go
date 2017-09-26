@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/lock"
+
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
 	log "github.com/sirupsen/logrus"
@@ -72,7 +74,7 @@ func SetupDummy() {
 }
 
 var (
-	setupLock sync.Mutex
+	setupLock lock.Mutex
 	setupOnce sync.Once
 )
 
