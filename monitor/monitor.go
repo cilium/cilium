@@ -19,13 +19,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/lock"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -33,7 +33,7 @@ import (
 const pollTimeout = 5000
 
 var (
-	mutex         sync.Mutex
+	mutex         lock.Mutex
 	listeners     = list.New()
 	monitorEvents *bpf.PerCpuEvents
 )

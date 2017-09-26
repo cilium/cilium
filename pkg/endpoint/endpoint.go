@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -189,7 +189,7 @@ type Endpoint struct {
 	ID uint16
 
 	// Mutex protects write operations to this endpoint structure
-	Mutex sync.RWMutex
+	Mutex lock.RWMutex
 
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string
@@ -521,7 +521,7 @@ type EndpointStatus struct {
 	// available position to write a new log message.
 	Index int `json:"index"`
 	// indexMU is the Mutex for the CurrentStatus and Log RW operations.
-	indexMU sync.RWMutex
+	indexMU lock.RWMutex
 }
 
 func NewEndpointStatus() *EndpointStatus {

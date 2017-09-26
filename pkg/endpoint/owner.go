@@ -15,9 +15,8 @@
 package endpoint
 
 import (
-	"sync"
-
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -78,7 +77,7 @@ type Owner interface {
 
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
-	GetCompilationLock() *sync.RWMutex
+	GetCompilationLock() *lock.RWMutex
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints

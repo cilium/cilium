@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -107,7 +108,7 @@ type ProxySource interface {
 
 type Proxy struct {
 	// mutex is the lock required when modifying any proxy datastructure
-	mutex sync.RWMutex
+	mutex lock.RWMutex
 
 	// rangeMin is the minimum port used for proxy port allocation
 	rangeMin uint16

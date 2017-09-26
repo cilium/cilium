@@ -15,7 +15,7 @@
 package policy
 
 import (
-	"sync"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 )
 
 type ConsumableCache struct {
-	cacheMU sync.RWMutex // Protects the `cache` map
+	cacheMU lock.RWMutex // Protects the `cache` map
 	cache   map[NumericIdentity]*Consumable
 	// List of consumables representing the reserved identities
 	reserved  []*Consumable

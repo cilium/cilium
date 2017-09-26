@@ -16,7 +16,8 @@ package kvstore
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/cilium/cilium/pkg/lock"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -37,15 +38,15 @@ type Lock struct {
 }
 
 var (
-	lockPathsMU sync.Mutex
-	lockPaths   = map[string]*sync.Mutex{}
+	lockPathsMU lock.Mutex
+	lockPaths   = map[string]*lock.Mutex{}
 )
 
 // LockPath locks the specified path and returns the Lock
 func LockPath(path string) (*Lock, error) {
 	lockPathsMU.Lock()
 	if lockPaths[path] == nil {
-		lockPaths[path] = &sync.Mutex{}
+		lockPaths[path] = &lock.Mutex{}
 	}
 	lockPathsMU.Unlock()
 

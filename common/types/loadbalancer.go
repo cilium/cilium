@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/lock"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -92,12 +92,12 @@ type RevNATMap map[ServiceID]L3n4Addr
 // LoadBalancer is the internal representation of the loadbalancer in the local cilium
 // daemon.
 type LoadBalancer struct {
-	BPFMapMU  sync.RWMutex
+	BPFMapMU  lock.RWMutex
 	SVCMap    SVCMap
 	SVCMapID  SVCMapID
 	RevNATMap RevNATMap
 
-	K8sMU        sync.Mutex
+	K8sMU        lock.Mutex
 	K8sServices  map[K8sServiceNamespace]*K8sServiceInfo
 	K8sEndpoints map[K8sServiceNamespace]*K8sServiceEndpoint
 	K8sIngress   map[K8sServiceNamespace]*K8sServiceInfo

@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // VerifyFunc validates option key with value and may return an error if the
@@ -116,7 +116,7 @@ func (om OptionMap) DeepCopy() OptionMap {
 }
 
 type BoolOptions struct {
-	optsMU  sync.RWMutex   // Protects all variables from this structure below this line
+	optsMU  lock.RWMutex   // Protects all variables from this structure below this line
 	Opts    OptionMap      `json:"map"`
 	Library *OptionLibrary `json:"-"`
 }

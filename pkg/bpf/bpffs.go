@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/syncbytes"
 
 	log "github.com/sirupsen/logrus"
@@ -89,7 +90,7 @@ func MapPath(name string) string {
 
 var (
 	mountOnce    sync.Once
-	mountMutex   sync.Mutex
+	mountMutex   lock.Mutex
 	delayedOpens = []*Map{}
 	mounted      bool
 )

@@ -20,12 +20,12 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
@@ -46,7 +46,7 @@ const (
 )
 
 var (
-	k8sErrMsgMU sync.RWMutex
+	k8sErrMsgMU lock.RWMutex
 	// k8sErrMsg stores a timer for each k8s error message received
 	k8sErrMsg                    = map[string]*time.Timer{}
 	stopPolicyController         = make(chan struct{})

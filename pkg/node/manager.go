@@ -20,8 +20,8 @@ import (
 	"net"
 	"os/exec"
 	"strings"
-	"sync"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
 	log "github.com/sirupsen/logrus"
@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	mutex sync.RWMutex
+	mutex lock.RWMutex
 	nodes = map[Identity]*Node{}
 )
 

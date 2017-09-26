@@ -18,13 +18,14 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
-	"sync"
+
+	"github.com/cilium/cilium/pkg/lock"
 
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	logMutex sync.Mutex
+	logMutex lock.Mutex
 	logFile  *os.File
 	logBuf   *bufio.Writer
 	logPath  string

@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/lock"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -30,7 +30,7 @@ const targetName = "cilium-node-monitor"
 
 // NodeMonitor is used to wrap the node executable binary.
 type NodeMonitor struct {
-	mutex   sync.RWMutex
+	mutex   lock.RWMutex
 	arg     string
 	process *os.Process
 	state   *models.MonitorStatus
