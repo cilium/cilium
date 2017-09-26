@@ -7,7 +7,8 @@ HEAD
 
 Bug Fixes
 ---------
-* Add here
+* Fixed issue where L4 policy trace would incorrectly determine that traffic
+  would be rejected when the L4 policy specifies the protocol (1587_)
 
 Features
 --------
