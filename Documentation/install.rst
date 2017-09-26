@@ -186,11 +186,11 @@ chapter.
 **Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
 variable in the ``env`` section:
 
-.. code:: base
+.. code:: bash
 
-        env:
-          - name: "MTU"
-            value: "8950"
+    env:
+      - name: "MTU"
+        value: "8950"
 
 3. Deploy the ``cilium`` DaemonSet_
 
@@ -299,11 +299,11 @@ Adjusting CNI configuration
 The CNI installation can be configured with environment variables. These
 environment variables can be specified in the DaemonSet file like this:
 
-.. code:: base
+.. code:: bash
 
-        env:
-          - name: "MTU"
-            value: "8950"
+    env:
+      - name: "MTU"
+        value: "8950"
 
 The following variables are supported:
 
