@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -113,7 +114,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 
 				protocol := "tcp"
 				if port.Protocol != nil {
-					protocol = string(*port.Protocol)
+					protocol = strings.ToLower(string(*port.Protocol))
 				}
 
 				portStr := ""
