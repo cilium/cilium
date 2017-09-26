@@ -1,18 +1,23 @@
-****
+******
 NEWS
-****
+******
 
 HEAD
 ====
 
+:date: 2017-09-25
+:commit: nil
+
 Bug Fixes
 ---------
+
 * Fixed issue where L4 policy trace would incorrectly determine that traffic
   would be rejected when the L4 policy specifies the protocol (1587_)
 * Synchronization of compilation of base and endpoint programs (1440_)
 
 Features
 --------
+
 * Add bash code completion (1597_)
 * L7 logging records now include additional information about the identity of
   the destination when outside of the cluster (1615_)
@@ -26,14 +31,17 @@ __
 
 Kubernetes
 ----------
+
 * Add here
 
 Mesos
 -----
+
 * Add here
 
 Documentation
 -------------
+
 * Policy enforcement mode documentation (1464_)
 
 Other
@@ -43,11 +51,15 @@ Other
 * Update Sirupsen/logrus to sirupsen/logrus (1573_)
 * Refactor pod annotation logic (1468_)
 
-0.11
-====
+Version 0.11
+=============
+
+:date: 2017-09-07
+:commit: 6725f0c4bed2b499ca5651d7ae1746908e018afc
 
 Bug Fixes
 ---------
+
 * Fixed an issue where service IDs were leaked in etcd/consul. Services have
   been moved to a new prefix in the kvstore. Old, leaked service IDs are
   automatically removed when a fixed cilium-agent is started. (1182_, 1195_)
@@ -103,6 +115,7 @@ Bug Fixes
 
 Features
 --------
+
 * The monitor now supports multiple readers, you can run `cilium monitor`
   multiple times in parallel. All monitors will see all events. (1288_)
 * `cilium policy trace` can now trace policy decisions based on Kubernetes pod
@@ -126,12 +139,14 @@ Features
 
 CI
 --
+
 * Improved CI testing infrastructure (1262_, 1207_, 1380_, 1373_, 1390_, 1385_, 1410_)
 * Upgraded to kubeadm 1.7.0 (1179_)
 
 
 Documentation
 -------------
+
 * Multi networking documentation (1244_)
 * Documentation of the policy specification (1344_)
 * New improved top level structuring of the sections (1344_)
@@ -140,10 +155,12 @@ Documentation
 
 Mesos
 -----
+
 * Getting started guide with L7 policy example (1301_, 1246_)
 
 Kubernetes
 ----------
+
 * Added support for Custom Resource Definition (CRD). Be aware that parallel
   usage of CRD and Third party Resources (TPR) leads to unexpected behaviour.
   See cilium.link/migrate-tpr for more details. Upgrade your
@@ -157,11 +174,15 @@ Kubernetes
 * Added tolerations to DaemonSet to schedule Cilium onto master nodes as well (1426_)
 
 
-0.10
-====
+Version 0.10
+===============
+
+:date: 2017-07-14
+:commit: 270ed8fc16184d2558b0da2a0c626567aca1efd9
 
 Major features
 --------------
+
 * CIDR based filter for ingress and egress (886_)
 * New simplified encapsulation mode. No longer requires any network
   configuration, the IP of the VM/host is automatically used as tunnel
@@ -190,15 +211,18 @@ Major features
 
 Documentation
 -------------
+
 * CoreOS installation guide
 
 Mesos
 -----
+
 * Add support for CNI 0.2.x spec (1036_)
 * Initial support for Mesos labels (1126_)
 
 Kubernetes
 ----------
+
 * Drop support for extensions/v1beta1/NetworkPolicy and support
   networking.k8s.io/v1/NetworkPolicy (1150_)
 * Allow fine grained inter namespace policy control. It is now possible to
@@ -226,6 +250,7 @@ Kubernetes
 
 CI
 --
+
 * Added Kubernetes getting started guide to CI test suite (894_)
 * L7 stress tests (1108_)
 * Automatically verify links documentation (896_)
@@ -236,6 +261,7 @@ CI
 
 More features
 -------------
+
 * Cilium load balancer can now encapsulate packets and carry the service-ID in
   the packet (912_)
 * The filtering mechanism which decides which labels should be used for
@@ -252,7 +278,8 @@ More features
 * Carrying of security identities across the proxy (1114_)
 
 Fixes
-----
+-------
+
 * Fixed use of IPv6 node addresses which are already configured on the
   systme (#819)
 * Enforce minimal etcd and consul versions (911_)
@@ -268,8 +295,11 @@ Fixes
 * Cleanup of leftover veth if endpoint setup failed midway (1122_)
 * Remove stale ids also from policy map (1135_)
 
-0.9.0
-=====
+Version 0.09
+===============
+
+:date: 2017-05-23
+:commit: 1bfb6303f6fba25c4d22fbe4b7c35450055296b6
 
 Features
 --------
@@ -316,7 +346,7 @@ Features
   - BPF & XDP documentation (546_)
 
 Fixes
------
+------
 
 - Core
 
@@ -350,15 +380,9 @@ Fixes
   - Log error if invalid k8s NetworkPolicy objects are received (617_)
 
 
-0.8.0
-=====
-
-- First initial release
-
 .. _424: https://github.com/cilium/cilium/pull/424
 .. _474: https://github.com/cilium/cilium/pull/474
 .. _499: https://github.com/cilium/cilium/pull/499
-.. _503: https://github.com/cilium/cilium/pull/503
 .. _505: https://github.com/cilium/cilium/pull/505
 .. _512: https://github.com/cilium/cilium/pull/512
 .. _529: https://github.com/cilium/cilium/pull/529
@@ -400,6 +424,7 @@ Fixes
 .. _764: https://github.com/cilium/cilium/pull/764
 .. _767: https://github.com/cilium/cilium/pull/767
 .. _773: https://github.com/cilium/cilium/pull/773
+.. _794: https://github.com/cilium/cilium/pull/794
 .. _795: https://github.com/cilium/cilium/pull/795
 .. _800: https://github.com/cilium/cilium/pull/800
 .. _814: https://github.com/cilium/cilium/pull/814
@@ -411,129 +436,128 @@ Fixes
 .. _849: https://github.com/cilium/cilium/pull/849
 .. _850: https://github.com/cilium/cilium/pull/850
 .. _853: https://github.com/cilium/cilium/pull/853
-.. _886: https://github.com/cilium/cilium/pull/886
-.. _1013: https://github.com/cilium/cilium/pull/1013
-.. _1039: https://github.com/cilium/cilium/pull/1039
-.. _1094: https://github.com/cilium/cilium/pull/1094
-.. _1112: https://github.com/cilium/cilium/pull/1112
-.. _1115: https://github.com/cilium/cilium/pull/1115
-.. _1139: https://github.com/cilium/cilium/pull/1139
-.. _905: https://github.com/cilium/cilium/pull/905
-.. _1126: https://github.com/cilium/cilium/pull/1126
-.. _1150: https://github.com/cilium/cilium/pull/1150
-.. _1103: https://github.com/cilium/cilium/pull/1103
-.. _1055: https://github.com/cilium/cilium/pull/1055
-.. _1036: https://github.com/cilium/cilium/pull/1036
-.. _1075: https://github.com/cilium/cilium/pull/1075
-.. _1026: https://github.com/cilium/cilium/pull/1026
 .. _860: https://github.com/cilium/cilium/pull/860
 .. _871: https://github.com/cilium/cilium/pull/871
 .. _873: https://github.com/cilium/cilium/pull/873
+.. _874: https://github.com/cilium/cilium/pull/874
 .. _875: https://github.com/cilium/cilium/pull/875
-.. _1098: https://github.com/cilium/cilium/pull/1098
-.. _925: https://github.com/cilium/cilium/pull/925
-.. _938: https://github.com/cilium/cilium/pull/938
-.. _932: https://github.com/cilium/cilium/pull/932
-.. _1090: https://github.com/cilium/cilium/pull/1090
-.. _1121: https://github.com/cilium/cilium/pull/1121
+.. _881: https://github.com/cilium/cilium/pull/881
+.. _886: https://github.com/cilium/cilium/pull/886
+.. _888: https://github.com/cilium/cilium/pull/888
+.. _892: https://github.com/cilium/cilium/pull/892
 .. _894: https://github.com/cilium/cilium/pull/894
-.. _1108: https://github.com/cilium/cilium/pull/1108
 .. _896: https://github.com/cilium/cilium/pull/896
-.. _980: https://github.com/cilium/cilium/pull/980
-.. _982: https://github.com/cilium/cilium/pull/982
-.. _1017: https://github.com/cilium/cilium/pull/1017
-.. _1045: https://github.com/cilium/cilium/pull/1045
-.. _1075: https://github.com/cilium/cilium/pull/1075
+.. _905: https://github.com/cilium/cilium/pull/905
+.. _911: https://github.com/cilium/cilium/pull/911
 .. _912: https://github.com/cilium/cilium/pull/912
 .. _918: https://github.com/cilium/cilium/pull/918
+.. _925: https://github.com/cilium/cilium/pull/925
+.. _932: https://github.com/cilium/cilium/pull/932
+.. _934: https://github.com/cilium/cilium/pull/934
+.. _938: https://github.com/cilium/cilium/pull/938
+.. _959: https://github.com/cilium/cilium/pull/959
 .. _964: https://github.com/cilium/cilium/pull/964
 .. _973: https://github.com/cilium/cilium/pull/973
+.. _975: https://github.com/cilium/cilium/pull/975
+.. _980: https://github.com/cilium/cilium/pull/980
+.. _982: https://github.com/cilium/cilium/pull/982
+.. _985: https://github.com/cilium/cilium/pull/985
+.. _990: https://github.com/cilium/cilium/pull/990
 .. _991: https://github.com/cilium/cilium/pull/991
 .. _998: https://github.com/cilium/cilium/pull/998
 .. _1002: https://github.com/cilium/cilium/pull/1002
-.. _934: https://github.com/cilium/cilium/pull/934
-.. _959: https://github.com/cilium/cilium/pull/959
-.. _975: https://github.com/cilium/cilium/pull/975
-.. _985: https://github.com/cilium/cilium/pull/985
 .. _1003: https://github.com/cilium/cilium/pull/1003
+.. _1011: https://github.com/cilium/cilium/pull/1011
+.. _1013: https://github.com/cilium/cilium/pull/1013
+.. _1017: https://github.com/cilium/cilium/pull/1017
 .. _1018: https://github.com/cilium/cilium/pull/1018
-.. _990: https://github.com/cilium/cilium/pull/990
+.. _1020: https://github.com/cilium/cilium/pull/1020
+.. _1026: https://github.com/cilium/cilium/pull/1026
+.. _1027: https://github.com/cilium/cilium/pull/1027
+.. _1036: https://github.com/cilium/cilium/pull/1036
+.. _1039: https://github.com/cilium/cilium/pull/1039
+.. _1045: https://github.com/cilium/cilium/pull/1045
+.. _1055: https://github.com/cilium/cilium/pull/1055
+.. _1075: https://github.com/cilium/cilium/pull/1075
 .. _1080: https://github.com/cilium/cilium/pull/1080
 .. _1088: https://github.com/cilium/cilium/pull/1088
+.. _1090: https://github.com/cilium/cilium/pull/1090
+.. _1094: https://github.com/cilium/cilium/pull/1094
+.. _1098: https://github.com/cilium/cilium/pull/1098
+.. _1103: https://github.com/cilium/cilium/pull/1103
+.. _1108: https://github.com/cilium/cilium/pull/1108
+.. _1112: https://github.com/cilium/cilium/pull/1112
 .. _1114: https://github.com/cilium/cilium/pull/1114
-.. _911: https://github.com/cilium/cilium/pull/911
-.. _794: https://github.com/cilium/cilium/pull/794
-.. _874: https://github.com/cilium/cilium/pull/874
-.. _881: https://github.com/cilium/cilium/pull/881
-.. _888: https://github.com/cilium/cilium/pull/888
-.. _892: https://github.com/cilium/cilium/pull/892
-.. _1011: https://github.com/cilium/cilium/pull/1011
-.. _1020: https://github.com/cilium/cilium/pull/1020
-.. _1027: https://github.com/cilium/cilium/pull/1027
+.. _1115: https://github.com/cilium/cilium/pull/1115
+.. _1121: https://github.com/cilium/cilium/pull/1121
 .. _1122: https://github.com/cilium/cilium/pull/1122
+.. _1124: https://github.com/cilium/cilium/pull/1124
+.. _1126: https://github.com/cilium/cilium/pull/1126
 .. _1135: https://github.com/cilium/cilium/pull/1135
+.. _1139: https://github.com/cilium/cilium/pull/1139
+.. _1140: https://github.com/cilium/cilium/pull/1140
+.. _1150: https://github.com/cilium/cilium/pull/1150
+.. _1153: https://github.com/cilium/cilium/pull/1153
+.. _1169: https://github.com/cilium/cilium/pull/1169
 .. _1175: https://github.com/cilium/cilium/pull/1175
+.. _1179: https://github.com/cilium/cilium/pull/1179
+.. _1180: https://github.com/cilium/cilium/pull/1180
+.. _1182: https://github.com/cilium/cilium/pull/1182
+.. _1186: https://github.com/cilium/cilium/pull/1186
+.. _1188: https://github.com/cilium/cilium/pull/1188
+.. _1195: https://github.com/cilium/cilium/pull/1195
+.. _1196: https://github.com/cilium/cilium/pull/1196
+.. _1206: https://github.com/cilium/cilium/pull/1206
+.. _1207: https://github.com/cilium/cilium/pull/1207
+.. _1211: https://github.com/cilium/cilium/pull/1211
+.. _1213: https://github.com/cilium/cilium/pull/1213
+.. _1219: https://github.com/cilium/cilium/pull/1219
 .. _1227: https://github.com/cilium/cilium/pull/1227
+.. _1235: https://github.com/cilium/cilium/pull/1235
+.. _1242: https://github.com/cilium/cilium/pull/1242
 .. _1244: https://github.com/cilium/cilium/pull/1244
 .. _1246: https://github.com/cilium/cilium/pull/1246
-.. _1235: https://github.com/cilium/cilium/pull/1235
-.. _1268: https://github.com/cilium/cilium/pull/1268
-.. _1275: https://github.com/cilium/cilium/pull/1275
-.. _1124: https://github.com/cilium/cilium/pull/1124
-.. _1266: https://github.com/cilium/cilium/pull/1266
-.. _1286: https://github.com/cilium/cilium/pull/1286
+.. _1260: https://github.com/cilium/cilium/pull/1260
 .. _1262: https://github.com/cilium/cilium/pull/1262
-.. _1207: https://github.com/cilium/cilium/pull/1207
+.. _1266: https://github.com/cilium/cilium/pull/1266
+.. _1268: https://github.com/cilium/cilium/pull/1268
+.. _1271: https://github.com/cilium/cilium/pull/1271
+.. _1275: https://github.com/cilium/cilium/pull/1275
+.. _1286: https://github.com/cilium/cilium/pull/1286
+.. _1288: https://github.com/cilium/cilium/pull/1288
+.. _1296: https://github.com/cilium/cilium/pull/1296
+.. _1297: https://github.com/cilium/cilium/pull/1297
+.. _1301: https://github.com/cilium/cilium/pull/1301
 .. _1304: https://github.com/cilium/cilium/pull/1304
 .. _1313: https://github.com/cilium/cilium/pull/1313
 .. _1317: https://github.com/cilium/cilium/pull/1317
 .. _1320: https://github.com/cilium/cilium/pull/1320
 .. _1322: https://github.com/cilium/cilium/pull/1322
-.. _1140: https://github.com/cilium/cilium/pull/1140
-.. _1242: https://github.com/cilium/cilium/pull/1242
+.. _1328: https://github.com/cilium/cilium/pull/1328
 .. _1330: https://github.com/cilium/cilium/pull/1330
 .. _1338: https://github.com/cilium/cilium/pull/1338
+.. _1344: https://github.com/cilium/cilium/pull/1344
 .. _1349: https://github.com/cilium/cilium/pull/1349
-.. _1260: https://github.com/cilium/cilium/pull/1260
-.. _1328: https://github.com/cilium/cilium/pull/1328
-.. _1365: https://github.com/cilium/cilium/pull/1365
-.. _1262: https://github.com/cilium/cilium/pull/1262
-.. _1207: https://github.com/cilium/cilium/pull/1207
-.. _1380: https://github.com/cilium/cilium/pull/1380
-.. _1373: https://github.com/cilium/cilium/pull/1373
-.. _1426: https://github.com/cilium/cilium/pull/1426
-.. _1427: https://github.com/cilium/cilium/pull/1427
-.. _1444: https://github.com/cilium/cilium/pull/1444
+.. _1350: https://github.com/cilium/cilium/pull/1350
 .. _1354: https://github.com/cilium/cilium/pull/1354
-.. _1440: https://github.com/cilium/cilium/pull/1440
-.. _1406: https://github.com/cilium/cilium/pull/1406
-.. _1454: https://github.com/cilium/cilium/pull/1454
-.. _1459: https://github.com/cilium/cilium/pull/1459
-.. _1182: https://github.com/cilium/cilium/pull/1182
-.. _1195: https://github.com/cilium/cilium/pull/1195
-.. _1196: https://github.com/cilium/cilium/pull/1196
-.. _1186: https://github.com/cilium/cilium/pull/1186
-.. _1211: https://github.com/cilium/cilium/pull/1211
-.. _1153: https://github.com/cilium/cilium/pull/1153
-.. _1213: https://github.com/cilium/cilium/pull/1213
-.. _1188: https://github.com/cilium/cilium/pull/1188
-.. _1169: https://github.com/cilium/cilium/pull/1169
-.. _1296: https://github.com/cilium/cilium/pull/1296
-.. _1297: https://github.com/cilium/cilium/pull/1297
-.. _1288: https://github.com/cilium/cilium/pull/1288
-.. _1394: https://github.com/cilium/cilium/pull/1394
 .. _1356: https://github.com/cilium/cilium/pull/1356
 .. _1365: https://github.com/cilium/cilium/pull/1365
-.. _1397: https://github.com/cilium/cilium/pull/1397
 .. _1370: https://github.com/cilium/cilium/pull/1370
-.. _1206: https://github.com/cilium/cilium/pull/1206
-.. _1350: https://github.com/cilium/cilium/pull/1350
-.. _1425: https://github.com/cilium/cilium/pull/1425
-.. _1390: https://github.com/cilium/cilium/pull/1390
+.. _1373: https://github.com/cilium/cilium/pull/1373
+.. _1380: https://github.com/cilium/cilium/pull/1380
 .. _1385: https://github.com/cilium/cilium/pull/1385
+.. _1390: https://github.com/cilium/cilium/pull/1390
+.. _1394: https://github.com/cilium/cilium/pull/1394
+.. _1397: https://github.com/cilium/cilium/pull/1397
+.. _1406: https://github.com/cilium/cilium/pull/1406
 .. _1410: https://github.com/cilium/cilium/pull/1410
-.. _1344: https://github.com/cilium/cilium/pull/1344
+.. _1425: https://github.com/cilium/cilium/pull/1425
+.. _1426: https://github.com/cilium/cilium/pull/1426
+.. _1427: https://github.com/cilium/cilium/pull/1427
+.. _1440: https://github.com/cilium/cilium/pull/1440
+.. _1444: https://github.com/cilium/cilium/pull/1444
 .. _1451: https://github.com/cilium/cilium/pull/1451
+<<<<<<< HEAD
 .. _1219: https://github.com/cilium/cilium/pull/1219
 .. _1180: https://github.com/cilium/cilium/pull/1180
 .. _1271: https://github.com/cilium/cilium/pull/1271
@@ -546,3 +570,8 @@ Fixes
 .. _1464: https://github.com/cilium/cilium/pull/1464
 .. _1440: https://github.com/cilium/cilium/pull/1440
 .. _1468: https://github.com/cilium/cilium/pull/1468
+=======
+.. _1454: https://github.com/cilium/cilium/pull/1454
+.. _1459: https://github.com/cilium/cilium/pull/1459
+.. _1573: https://github.com/cilium/cilium/pull/1573
+>>>>>>> Updating debian changelog Fix #1226
