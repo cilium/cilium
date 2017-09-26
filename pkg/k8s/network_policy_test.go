@@ -763,6 +763,26 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 443 as specified in `ex2`.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "alice", labels.LabelSourceK8s),
+		},
+		DPorts: []*models.Port{
+			{
+				Protocol: "udp",
+				Port:     8080,
+			},
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Should be ACCEPT despite coming from Alice's namespaces since it's port 8080 as specified in `ex4`.
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+
 	// Example 5: Some policies with match expressions.
 	ex5 := []byte(`{
   "kind": "NetworkPolicy",
