@@ -346,9 +346,10 @@ function wait_for_daemon_set_not_ready {
 }
 
 function wait_for_policy_enforcement {
-  local NUM_DESIRED="0"
+  check_num_params "$#" "1" 
+  local NUM_DESIRED="$1"
   local CMD="cilium endpoint list | grep -c Disabled"
-  local INFO_CMD="true"
+  local INFO_CMD="cilium endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for policy to be enabled for all endpoints"
   wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"
@@ -919,7 +920,7 @@ function wait_for_desired_state {
   while [[ "$found" -ne "$NUM_DESIRED" ]]; do
     if [[ $((iter++)) -gt $((${MAX_MINS}*60/$sleep_time)) ]]; then
       echo ""
-      log $ERROR_OUTPUT
+      log "$ERROR_OUTPUT"
       exit 1
     else
       log "desired state not realized; will sleep and try again"
