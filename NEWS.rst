@@ -30,6 +30,7 @@ Documentation
 
 Other
 -----
+* Add new --pprof flag to serve the pprof API (1646_)
 * Update Sirupsen/logrus to sirupsen/logrus (1573_)
 
 
