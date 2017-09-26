@@ -54,9 +54,6 @@ type Config struct {
 	IPv4Disabled   bool       // Disable IPv4 allocation
 	LBInterface    string     // Set with name of the interface to loadbalance packets from
 
-	EnablePolicyMU lock.RWMutex // Protects the variable below
-	EnablePolicy   string       // Whether policy enforcement is enabled.
-
 	Tunnel string // Tunnel mode
 
 	ValidLabelPrefixesMU lock.RWMutex           // Protects the 2 variables below

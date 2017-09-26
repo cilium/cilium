@@ -244,11 +244,8 @@ func (d *Daemon) AlwaysAllowLocalhost() bool {
 }
 
 // PolicyEnforcement returns the type of policy enforcement for the daemon.
-func (d *Daemon) PolicyEnforcement() (pe string) {
-	d.conf.EnablePolicyMU.RLock()
-	pe = d.conf.EnablePolicy
-	d.conf.EnablePolicyMU.RUnlock()
-	return
+func (d *Daemon) PolicyEnforcement() string {
+	return policy.GetPolicyEnabled()
 }
 
 // DebugEnabled returns if debug mode is enabled.
@@ -305,7 +302,6 @@ func createDockerClient(endpoint string) (*dClient.Client, error) {
 	return dClient.NewClient(endpoint, "v1.21", nil, defaultHeaders)
 }
 
-// Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
@@ -327,11 +323,8 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 }
 
 // returns #define for PolicyEnforcement based on the configuration of the daemon.
-// Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) fmtPolicyEnforcement() string {
-	enforcement := d.EnablePolicyEnforcement()
-
-	if enforcement {
+	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
 		return fmt.Sprintf("#define %s\n", endpoint.OptionSpecPolicy.Define)
 	}
 	return fmt.Sprintf("#undef %s\n", endpoint.OptionSpecPolicy.Define)
@@ -611,7 +604,6 @@ func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 	return d.compilationMutex
 }
 
-// Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) compileBase() error {
 	var args []string
 	var mode string
@@ -790,13 +782,9 @@ func (d *Daemon) init() error {
 	f.Close()
 
 	if !d.DryModeEnabled() {
-		d.conf.EnablePolicyMU.Lock()
 		if err := d.compileBase(); err != nil {
-			d.conf.EnablePolicyMU.Unlock()
 			return err
 		}
-
-		d.conf.EnablePolicyMU.Unlock()
 
 		localIPs := []net.IP{
 			nodeaddress.GetInternalIPv4(),
@@ -1240,17 +1228,15 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
 
 			// Update policy enforcement configuration if needed.
-			config.EnablePolicyMU.Lock()
-			oldEnforcementValue := config.EnablePolicy
+			oldEnforcementValue := policy.GetPolicyEnabled()
 
 			// If the policy enforcement configuration has indeed changed, we have
 			// to regenerate endpoints and update daemon's configuration.
 			if enforcement != oldEnforcementValue {
 				changes++
-				config.EnablePolicy = enforcement
+				policy.SetPolicyEnabled(enforcement)
 				d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 			}
-			config.EnablePolicyMU.Unlock()
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
 			log.Warningf("%s", msg)
@@ -1266,8 +1252,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	// Only recompile if configuration has changed.
 	if changes > 0 {
 		log.Debugf("daemon configuration has changed; recompiling base programs")
-		d.conf.EnablePolicyMU.Lock()
-		defer d.conf.EnablePolicyMU.Unlock()
 		if err := d.compileBase(); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			log.Warningf("%s", msg)
@@ -1311,7 +1295,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		Configuration:     d.conf.Opts.GetModel(),
 		K8sConfiguration:  k8s.GetKubeconfigPath(),
 		K8sEndpoint:       k8s.GetAPIServer(),
-		PolicyEnforcement: d.conf.EnablePolicy,
+		PolicyEnforcement: policy.GetPolicyEnabled(),
 		NodeMonitor:       d.nodeMonitor.State(),
 	}
 
