@@ -329,9 +329,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 // returns #define for PolicyEnforcement based on the configuration of the daemon.
 // Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) fmtPolicyEnforcement() string {
-	d.GetPolicyRepository().Mutex.RLock()
 	enforcement := d.EnablePolicyEnforcement()
-	d.GetPolicyRepository().Mutex.RUnlock()
 
 	if enforcement {
 		return fmt.Sprintf("#define %s\n", endpoint.OptionSpecPolicy.Define)
