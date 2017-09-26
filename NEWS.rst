@@ -11,7 +11,7 @@ Bug Fixes
 
 Features
 --------
-* Add here
+* Add bash code completion (1597_)
 
 Kubernetes
 ----------
