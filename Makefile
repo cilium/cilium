@@ -148,5 +148,29 @@ gofmt:
 precheck-gofmt:
 	tests/00-fmt.sh
 
+pprof-help:
+	@echo "Available pprof targets:"
+	@echo "  pprof-heap"
+	@echo "  pprof-profile"
+	@echo "  pprof-block"
+	@echo "  pprof-trace-5s"
+	@echo "  pprof-mutex"
+
+pprof-heap:
+	go tool pprof http://localhost:6060/debug/pprof/heap
+
+pprof-profile:
+	go tool pprof http://localhost:6060/debug/pprof/profile
+
+
+pprof-block:
+	go tool pprof http://localhost:6060/debug/pprof/block
+
+pprof-trace-5s:
+	curl http://localhost:6060/debug/pprof/trace?seconds=5
+
+pprof-mutex:
+	go tool pprof http://localhost:6060/debug/pprof/mutex
+
 .PHONY: force
 force :;
