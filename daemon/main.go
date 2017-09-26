@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/go-openapi/loads"
@@ -333,6 +334,8 @@ func init() {
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
 		"version", false, "Print version information")
+	flags.Bool(
+		"pprof", false, "Enable serving the pprof debugging API")
 
 	viper.BindPFlags(flags)
 }
@@ -388,6 +391,10 @@ func initConfig() {
 	log.Info("|  _| | | | | |     |")
 	log.Info("|___|_|_|_|___|_|_|_|")
 	log.Infof("Cilium %s", version.Version)
+
+	if viper.GetBool("pprof") {
+		pprof.Enable()
+	}
 
 	if config.IPv4Disabled {
 		endpoint.IPv4Enabled = false
