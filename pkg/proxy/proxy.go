@@ -558,6 +558,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			ar := rule.(policy.AuxRule)
 			log.Debugf("Allowing request based on rule %+v", ar)
 			record.Info = fmt.Sprintf("rule: %+v", ar)
+		} else {
+			log.Debugf("Allowing request as there are no rules")
 		}
 		p.mutex.Unlock()
 
