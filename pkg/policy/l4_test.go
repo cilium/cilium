@@ -16,6 +16,7 @@ package policy
 
 import (
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
@@ -86,4 +87,32 @@ func (s *PolicyTestSuite) TestEgressCoversDPorts(c *C) {
 		},
 	}
 	s.testDPortCoverage(c, policy, policy.EgressCoversDPorts)
+}
+
+func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
+	tuple := api.PortProtocol{Port: "80", Protocol: "tcp"}
+	portrule := api.PortRule{
+		Ports: []api.PortProtocol{tuple},
+		Rules: &api.L7Rules{
+			HTTP: []api.PortRuleHTTP{
+				{Path: "/public", Method: "GET"},
+			},
+		},
+	}
+	selectors := []api.EndpointSelector{
+		{},
+		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+	}
+
+	for _, selector := range selectors {
+		eps := []api.EndpointSelector{selector}
+		for _, direction := range []string{"ingress", "egress"} {
+			// Regardless of ingress/egress, we should end up with
+			// a single L7 rule whether the selector is wildcarded
+			// or if it is based on specific labels.
+			filter := CreateL4Filter(eps, portrule, tuple,
+				direction, tuple.Protocol)
+			c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+		}
+	}
 }
