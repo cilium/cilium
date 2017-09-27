@@ -195,3 +195,22 @@ type LogRecordHTTP struct {
 	// Header is the HTTP header in use
 	Header http.Header
 }
+
+
+
+// LogRecordKafka contains the kafka specific portion of a log record
+// Reference: https://kafka.apache.org/protocol#protocol_api_keys
+type LogRecordKafka struct {
+	// Version of the kafka api used
+	version int
+
+	// Kafka ApiKey -> produce/fetch/createTopic/deleteTopic
+	apiKey int
+
+	// Topics of the request/response, can be a single topic for message type
+	// produce/createTopic or a list of topics (fetch/deleteTopic)
+	topics []string
+
+	// number of topics/partitions. Should be one for produce/createTopic.
+	numTopics int32
+}
