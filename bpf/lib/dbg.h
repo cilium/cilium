@@ -174,7 +174,7 @@ struct debug_capture_msg {
 
 static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 arg1, __u32 arg2)
 {
-	uint64_t skb_len = skb->len, cap_len = min(TRACE_PAYLOAD_LEN, skb_len);
+	uint64_t skb_len = (uint64_t)skb->len, cap_len = min((uint64_t)TRACE_PAYLOAD_LEN, (uint64_t)skb_len);
 	uint32_t hash = get_hash_recalc(skb);
 	struct debug_capture_msg msg = {
 		.type = CILIUM_NOTIFY_DBG_CAPTURE,
