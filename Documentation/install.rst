@@ -961,9 +961,9 @@ Since we are setting up Kubelet to use Cilium, we want to configure its networki
       --mount volume=cni-bin,target=/opt/cni/bin \
       --volume etc-cni,kind=host,source=/etc/cni/net.d \
       --mount volume=etc-cni,target=/etc/cni/net.d"
-     ExecStartPre=/bin/bash -c ' \\
-       if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
-         /bin/mount bpffs /sys/fs/bpf -t bpf; \\
+     ExecStartPre=/bin/bash -c ' \
+       if [[ $(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \
+         /bin/mount bpffs /sys/fs/bpf -t bpf; \
        fi'
      ExecStartPre=/usr/bin/mkdir -p /etc/cni/net.d
      ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
