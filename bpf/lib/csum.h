@@ -73,7 +73,7 @@ static inline void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *of
  * @arg flags	Additional flags to be passed to l4_csum_replace()
  */
 static inline int csum_l4_replace(struct __sk_buff *skb, int l4_off, struct csum_offset *csum,
-				  int from, int to, int flags)
+				  __be32 from, __be32 to, int flags)
 {
 	return l4_csum_replace(skb, l4_off + csum->offset, from, to, flags | csum->flags);
 }
