@@ -201,16 +201,16 @@ type LogRecordHTTP struct {
 
 // LogRecordKafka contains the kafka specific portion of a log record
 type LogRecordKafka struct {
-	// ApiVersion of the kafka api used
-	ApiVersion int
+	// APIVersion of the kafka api used
+	APIVersion int
 
-	// ApiKey for Kafka message
+	// APIKey for Kafka message
 	// Reference: https://kafka.apache.org/protocol#protocol_api_keys
-	ApiKey int16
+	APIKey int16
 
-	// CorrelationId is a user-supplied integer value that will be passed
+	// CorrelationID is a user-supplied integer value that will be passed
 	// back with the response
-	CorrelationId int32
+	CorrelationID int32
 
 	// Topics of the request, can be a single topic for message type
 	// produce/createTopic or a list of topics (fetch/deleteTopic).
