@@ -317,6 +317,19 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 func (e *Endpoint) regenerate(owner Owner) error {
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
+	if e.Consumable != nil {
+		// Regenerate policy and apply any options resulting in the
+		// policy change.
+		if _, err := e.regeneratePolicy(owner); err != nil {
+			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
+				e.PolicyMap.String(), err)
+		}
+	}
+
+	e.Mutex.Unlock()
+	defer e.Mutex.Lock()
+	e.BPFMutex.Lock()
+	defer e.BPFMutex.Unlock()
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
@@ -325,15 +338,6 @@ func (e *Endpoint) regenerate(owner Owner) error {
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0777); err != nil {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
-	}
-
-	if e.Consumable != nil {
-		// Regenerate policy and apply any options resulting in the
-		// policy change.
-		if _, err := e.regeneratePolicy(owner); err != nil {
-			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
-				e.PolicyMap.String(), err)
-		}
 	}
 
 	if err := e.regenerateBPF(owner, tmpDir); err != nil {

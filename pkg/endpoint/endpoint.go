@@ -188,6 +188,8 @@ type Endpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
+	BPFMutex sync.Mutex
+
 	// Mutex protects write operations to this endpoint structure
 	Mutex sync.RWMutex
 
