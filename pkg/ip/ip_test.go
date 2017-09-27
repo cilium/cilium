@@ -15,11 +15,11 @@
 package ip
 
 import (
-. "gopkg.in/check.v1"
+	"fmt"
+	. "gopkg.in/check.v1"
 	"net"
 	"reflect"
 	"testing"
-	"fmt"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -34,13 +34,11 @@ func Test(t *testing.T) {
 func (s *IpTestSuite) TestFirstIP(c *C) {
 	// Test IPv4.
 	desiredIPv4_1 := net.IP{0xa, 0, 0, 0}
-	//fmt.Printf("desiredIPv4_1: %s\n", desiredIPv4_1)
 	testNetv4_1 := net.IPNet{IP: net.ParseIP("10.0.0.5"), Mask: net.CIDRMask(8, 32)}
 	ipNetv4_1 := getFirstIP(&testNetv4_1)
 	for k, _ := range *ipNetv4_1 {
 		c.Assert(reflect.DeepEqual((*ipNetv4_1)[k], desiredIPv4_1[k]), Equals, true)
 	}
-
 	testNetv4_2 := net.IPNet{IP: net.ParseIP("10.0.0.0"), Mask: net.CIDRMask(8, 32)}
 	ipNetv4_2 := getFirstIP(&testNetv4_2)
 	for k, _ := range *ipNetv4_2 {
@@ -53,17 +51,9 @@ func (s *IpTestSuite) TestFirstIP(c *C) {
 		fmt.Errorf("%s\n", err)
 	}
 	ipNetv6_1 := getFirstIP(testNetv6_1)
-	for k, _ := range * ipNetv6_1 {
+	for k, _ := range *ipNetv6_1 {
 		c.Assert(reflect.DeepEqual((*ipNetv6_1)[k], desiredIPv6_1[k]), Equals, true)
 	}
-}
-
-func (s *IpTestSuite) TestNthBit(c *C) {
-	testNet := net.IPNet{IP: net.ParseIP("10.96.0.0"), Mask: net.CIDRMask(12, int(ipv4BitLen))}
-	bit := getNthBit(&(testNet.IP), 20)
-	c.Assert(bit, Equals, uint8(0))
-	bit = getNthBit(&(testNet.IP), 22)
-	c.Assert(bit, Equals, uint8(1))
 }
 
 func (s *IpTestSuite) testIpNetsEqual(created, expected []*net.IPNet, c *C) {
@@ -74,24 +64,24 @@ func (s *IpTestSuite) testIpNetsEqual(created, expected []*net.IPNet, c *C) {
 }
 
 func createIPNet(address string, maskSize int, bitLen int) *net.IPNet {
-	return  &net.IPNet{IP: net.ParseIP(address), Mask: net.CIDRMask(maskSize, bitLen)}
+	return &net.IPNet{IP: net.ParseIP(address), Mask: net.CIDRMask(maskSize, bitLen)}
 }
 
 func (s *IpTestSuite) TestRemoveCIDRs(c *C) {
-	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen)),}
+	allowCIDRs := []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	removeCIDRs := []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
 		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
 	}
 	expectedCIDRs := []*net.IPNet{createIPNet("10.128.0.0", 9, int(ipv4BitLen)),
 		createIPNet("10.0.0.0", 10, int(ipv4BitLen)),
 		createIPNet("10.64.0.0", 11, int(ipv4BitLen)),
-		createIPNet("10.120.0.0", 13, int(ipv4BitLen)), }
+		createIPNet("10.120.0.0", 13, int(ipv4BitLen))}
 
-	allowedCIDRs:= RemoveCIDRs(allowCIDRs, removeCIDRs)
+	allowedCIDRs := RemoveCIDRs(allowCIDRs, removeCIDRs)
 
 	s.testIpNetsEqual(*allowedCIDRs, expectedCIDRs, c)
 
-	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen)),}
+	allowCIDRs = []*net.IPNet{createIPNet("10.0.0.0", 8, int(ipv4BitLen))}
 	removeCIDRs = []*net.IPNet{createIPNet("10.96.0.0", 12, int(ipv4BitLen)),
 		createIPNet("10.112.0.0", 13, int(ipv4BitLen)),
 		createIPNet("10.62.0.33", 32, int(ipv4BitLen)),
@@ -130,6 +120,8 @@ func (s *IpTestSuite) TestRemoveCIDRs(c *C) {
 }
 
 func (s *IpTestSuite) TestByteFunctions(c *C) {
+
+	//getByteIndexofBit
 	byteNum := getByteIndexOfBit(0)
 	c.Assert(byteNum, Equals, uint(15))
 	byteNum = getByteIndexOfBit(1)
@@ -138,5 +130,26 @@ func (s *IpTestSuite) TestByteFunctions(c *C) {
 	c.Assert(byteNum, Equals, uint(14))
 	byteNum = getByteIndexOfBit(9)
 	c.Assert(byteNum, Equals, uint(14))
+
+	//getNthBit
+	testNet := net.IPNet{IP: net.ParseIP("10.96.0.0"), Mask: net.CIDRMask(12, int(ipv4BitLen))}
+	bit := getNthBit(&(testNet.IP), 20)
+	c.Assert(bit, Equals, uint8(0))
+	bit = getNthBit(&(testNet.IP), 22)
+	c.Assert(bit, Equals, uint8(1))
+
+	//flipNthBit
+	testBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x0, 0x0}
+	newBytes := flipNthBit(&testBytes, 10)
+	expectedBytes := []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0x0, 0x0, 0x4, 0x0}
+	for k, _ := range expectedBytes {
+		c.Assert(reflect.DeepEqual(expectedBytes[k], (*newBytes)[k]), Equals, true)
+	}
+
+	newBytes = flipNthBit(&testBytes, 32)
+	expectedBytes = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xfe, 0x0, 0x0, 0x0, 0x0}
+	for k, _ := range expectedBytes {
+		c.Assert(reflect.DeepEqual(expectedBytes[k], (*newBytes)[k]), Equals, true)
+	}
 
 }

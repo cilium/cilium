@@ -74,7 +74,6 @@ PreLoop:
 		}
 	}
 
-
 Loop:
 	for j, remove := range removeCIDRs {
 		for i, allowCIDR := range allowCIDRs {
@@ -131,7 +130,6 @@ PostLoop:
 
 func getFirstIP(ipNet *net.IPNet) *net.IP {
 	var mask net.IP
-
 
 	if ipNet.IP.To4() == nil {
 		mask = make(net.IP, net.IPv6len)
@@ -205,16 +203,10 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 
 	//fmt.Printf("removeFirstIP: %s\n", removeFirstIP)
 
-
-
-
-
-
 	// Create CIDR's with mask size of Y+1, Y+2 ... X where Y is the mask length of the CIDR B
 	// from which we are exluding a CIDR A with mask length X.
 	for i := (allowBitLen - allowSize - 1); i >= (allowBitLen - removeSize); i-- {
 		//fmt.Printf("i: %d\n", i)
-
 
 		newMaskSize := allowBitLen - i
 		//fmt.Printf("creating CIDR of size: %d\n", newMaskSize)
@@ -226,7 +218,7 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 
 		//fmt.Printf("flipping %dth bit\n", i)
 		//fmt.Printf("removeFirstIP before call to flipNthBit: %08b\n", removeFirstIP)
-		newIP := flipNthBit(removeFirstIP, uint(i))
+		newIP := (*net.IP)(flipNthBit((*[]byte)(removeFirstIP), uint(i)))
 		/*fmt.Printf("newIPNet[%d]: \t%08b\n", byteNum, (*newIP)[byteNum])
 		fmt.Printf("removeFirstIP[%d]: \t%08b\n", byteNum, (*removeFirstIP)[byteNum])
 
@@ -235,8 +227,6 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 		fmt.Printf("newIP Bytes: %08b\n", newIP)*/
 
 		// Create IP that we will use for this new allowed CIDR.
-
-
 
 		//fmt.Printf("allowFirstIp: %08b\n", allowFirstIP)
 		for k, _ := range *allowFirstIP {
@@ -251,8 +241,6 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 		fmt.Printf("newIP: %s\n", newIP)*/
 		//fmt.Printf("newIPMasked: %s\n", newIPMasked)
 
-
-
 		newIpNet := net.IPNet{IP: newIPMasked, Mask: newMask}
 		/*foo, _ := newIpNet.Mask.Size()
 		fmt.Printf("newIpNet: %s/%d\n", newIpNet.IP, foo)*/
@@ -265,8 +253,7 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 }
 
 func getByteIndexOfBit(bit uint) uint {
-	return net.IPv6len - (bit/8) -1 
-
+	return net.IPv6len - (bit / 8) - 1
 }
 
 func getNthBit(ip *net.IP, bitNum uint) uint8 {
@@ -276,13 +263,14 @@ func getNthBit(ip *net.IP, bitNum uint) uint8 {
 	return b >> (bitNum % 8) & 1
 }
 
-func flipNthBit(ip *net.IP, bitNum uint) *net.IP {
-	ipCopy := make(net.IP, len(*ip))
+func flipNthBit(ip *[]byte, bitNum uint) *[]byte {
+	ipCopy := make([]byte, len(*ip))
 	copy(ipCopy, *ip)
 	//fmt.Printf("provided IP: %08b\n", ip)
 	//fmt.Printf("copy of provided IP: %08b\n", ipCopy)
 	byteNum := getByteIndexOfBit(bitNum)
 	//fmt.Printf("modifying byte number %d\n", byteNum)
-	ipCopy[byteNum] = ipCopy[byteNum] ^ 1 << (bitNum % 8)
+	ipCopy[byteNum] = ipCopy[byteNum] ^ 1<<(bitNum%8)
+
 	return &ipCopy
 }
