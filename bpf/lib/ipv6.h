@@ -228,7 +228,7 @@ static inline int ipv6_store_paylen(struct __sk_buff *skb, int off, __be16 *len)
 
 static inline int ipv6_store_flowlabel(struct __sk_buff *skb, int off, __be32 label)
 {
-	__u32 old;
+	__be32 old;
 
 	/* use traffic class from packet */
 	if (skb_load_bytes(skb, off, &old, 4) < 0)
@@ -247,8 +247,8 @@ static inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
                                              __u8 next_hdr,
 					     __u16 payload_len, __be32 sum)
 {
-	__u32 len = bpf_htonl((__u32)payload_len);
-	__u32 nexthdr = bpf_htonl((__u32)next_hdr);
+	__be32 len = bpf_htonl((__u32)payload_len);
+	__be32 nexthdr = bpf_htonl((__u32)next_hdr);
 	sum = csum_diff(NULL, 0, &hdr->saddr, sizeof(struct in6_addr), sum);
 	sum = csum_diff(NULL, 0, &hdr->daddr, sizeof(struct in6_addr), sum);
 	sum = csum_diff(NULL, 0, &len, sizeof(len), sum);
