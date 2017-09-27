@@ -199,6 +199,10 @@ type LogRecordHTTP struct {
 	Header http.Header
 }
 
+type Topic struct {
+	Topic string `json:"Topic,omitempty"`
+}
+
 // LogRecordKafka contains the kafka specific portion of a log record
 type LogRecordKafka struct {
 	// APIVersion of the kafka api used
@@ -216,5 +220,5 @@ type LogRecordKafka struct {
 	// produce/createTopic or a list of topics (fetch/deleteTopic).
 	// Note that this list can be empty since not all messages use
 	// Topic. example: LeaveGroup, Heartbeat
-	Topics []string `json:"Topics,omitempty"`
+	Topics []Topic
 }
