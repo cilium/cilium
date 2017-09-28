@@ -97,7 +97,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	} else if d.conf.EnablePolicy == endpoint.DefaultEnforcement && d.conf.IsK8sEnabled() {
 		// Default mode + K8s means that if rules contain labels that match
 		// this endpoint, then enable policy enforcement for this endpoint.
-		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
+		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray, false)
 	}
 	// If policy enforcement isn't enabled for the daemon, or we are not running
 	// in "default" mode in tandem with K8s, we do not enable policy enforcement
@@ -196,8 +196,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
 		// traffic between these sets of labels, and do not enforce policy between them.
-		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From)) ||
-			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To))) {
+		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From), true) ||
+			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To), true)) {
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
 				"no rules in the policy repository match either of the provided " +
 				"sets of labels."

@@ -263,3 +263,33 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	c.Assert(rule1.canReach(notFromWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 }
+
+func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
+	toWorld := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("reserved:world"),
+	}
+
+	notToWorld := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("foo"),
+	}
+
+	rule1 := rule{
+		api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.World},
+				},
+			},
+		},
+	}
+
+	state := traceState{}
+	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
+	c.Assert(state.selectedRules, Equals, 1)
+	state = traceState{}
+	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Denied)
+	c.Assert(state.selectedRules, Equals, 0)
+}

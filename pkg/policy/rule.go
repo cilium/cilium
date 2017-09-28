@@ -158,9 +158,20 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 }
 
 func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
+	entitiesDecision := r.canReachEntities(ctx, state)
+
 	if !r.EndpointSelector.Matches(ctx.To) {
-		ctx.PolicyTraceVerbose("  Rule %d %s: no match for %+v\n", state.ruleID, r, ctx.To)
-		return api.Undecided
+		if entitiesDecision == api.Undecided {
+			ctx.PolicyTraceVerbose("  Rule %d %s: no match for %+v\n", state.ruleID, r, ctx.To)
+		} else {
+			state.selectedRules++
+			ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
+		}
+		return entitiesDecision
+	}
+
+	if entitiesDecision == api.Denied {
+		return api.Denied
 	}
 
 	state.selectedRules++
@@ -204,5 +215,55 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
+	return entitiesDecision
+}
+
+func (r *rule) canReachEntities(ctx *SearchContext, state *traceState) api.Decision {
+	entitiesFound := false
+	for _, r := range r.Egress {
+		for _, entity := range r.ToEntities {
+			entitiesFound = true
+			l, ok := api.EntitySelectorMapping[entity]
+			if !ok {
+				ctx.PolicyTrace("     unsupported entity found: %s, skipping", entity)
+				continue
+			}
+
+			if l.Matches(ctx.To) {
+				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entity)
+				return api.Allowed
+			}
+		}
+	}
+
+	if entitiesFound {
+		return api.Denied
+	}
 	return api.Undecided
+}
+
+func (r *rule) getEntitySelectors() []api.EndpointSelector {
+	entitiesSelectors := []api.EndpointSelector{}
+
+	for _, r := range r.Egress {
+		for _, entity := range r.ToEntities {
+			selector, ok := api.EntitySelectorMapping[entity]
+			if !ok {
+				continue
+			}
+			entitiesSelectors = append(entitiesSelectors, selector)
+		}
+	}
+
+	for _, r := range r.Ingress {
+		for _, entity := range r.FromEntities {
+			selector, ok := api.EntitySelectorMapping[entity]
+			if !ok {
+				continue
+			}
+			entitiesSelectors = append(entitiesSelectors, selector)
+		}
+	}
+
+	return entitiesSelectors
 }
