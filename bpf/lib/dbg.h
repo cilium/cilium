@@ -194,7 +194,7 @@ static inline void cilium_dbg_capture2(struct __sk_buff *skb, __u8 type, __u32 a
 
 static inline void cilium_dbg_capture(struct __sk_buff *skb, __u8 type, __u32 arg1)
 {
-	return cilium_dbg_capture2(skb, type, arg1, 0);
+	cilium_dbg_capture2(skb, type, arg1, 0);
 }
 
 #else
