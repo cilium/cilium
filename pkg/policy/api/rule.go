@@ -99,6 +99,13 @@ var EntitySelectorMapping = map[Entity]EndpointSelector{
 //   the rule to take effect. The exception to this rule is FromRequires field;
 //   the effects of any Requires field in any rule will apply to all other
 //   rules as well.
+//
+// - For now, combining ToPorts, FromCIDR, and FromEndpoints in the same rule
+//   is not supported and any such rules will be rejected. In the future, this
+//   will be supported and if multiple members of this structure are specified,
+//   then all members must match in order for the rule to take effect. The
+//   exception to this rule is the Requires field, the effects of any Requires
+//   field in any rule will apply to all other rules as well.
 type IngressRule struct {
 	// FromEndpoints is a list of endpoints identified by an
 	// EndpointSelector which are allowed to communicate with the endpoint
@@ -135,8 +142,8 @@ type IngressRule struct {
 	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// FromCIDR is a list of IP blocks which the endpoint subject to the
-	// rule is allowed to receive connections from in addition to FromEndpoints.
-	// This will match on the source IP address of incoming connections.
+	// rule is allowed to receive connections from. This will match on
+	// the source IP address of incoming connections.
 	//
 	// Example:
 	// Any endpoint with the label "app=my-legacy-pet" is allowed to receive
@@ -159,9 +166,11 @@ type IngressRule struct {
 //
 // - All members of this structure are optional. If omitted or empty, the
 //   member will have no effect on the rule.
-// - All members of this structure are evaluated independently, i.e. L4 ports
-//   allowed with ToPorts do not depend on a match of the FromCIDR in the same
-//   EgressRule.
+//
+// - For now, combining ToPorts and ToCIDR in the same rule is not supported
+//   and such rules will be rejected. In the future, this will be supported and
+//   if if multiple members of the structure are specified, then all members
+//   must match in order for the rule to take effect.
 type EgressRule struct {
 	// ToPorts is a list of destination ports identified by port number and
 	// protocol which the endpoint subject to the rule is allowed to
@@ -175,8 +184,7 @@ type EgressRule struct {
 	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// ToCIDR is a list of IP blocks which the endpoint subject to the rule
-	// is allowed to initiate connections to in addition to connections
-	// which are allowed via FromEndpoints. This will match on the
+	// is allowed to initiate connections This will match on the
 	// destination IP address of outgoing connections.
 	//
 	// Example:

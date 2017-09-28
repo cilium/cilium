@@ -46,6 +46,14 @@ func (r Rule) Validate() error {
 
 // Validate validates an ingress policy rule
 func (i IngressRule) Validate() error {
+	if len(i.FromCIDR) > 0 && len(i.FromEndpoints) > 0 {
+		return fmt.Errorf("Combining FromCIDR and FromEndpoints is not supported yet")
+	}
+
+	if len(i.FromCIDR) > 0 && len(i.ToPorts) > 0 {
+		return fmt.Errorf("Combining ToPorts and FromCIDR is not supported yet")
+	}
+
 	for _, p := range i.ToPorts {
 		if err := p.Validate(); err != nil {
 			return err
@@ -65,6 +73,10 @@ func (i IngressRule) Validate() error {
 
 // Validate validates an egress policy rule
 func (e EgressRule) Validate() error {
+	if len(e.ToCIDR) > 0 && len(e.ToPorts) > 0 {
+		return fmt.Errorf("Combining ToPorts and ToCIDR is not supported yet")
+	}
+
 	for _, p := range e.ToPorts {
 		if err := p.Validate(); err != nil {
 			return err

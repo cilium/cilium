@@ -179,7 +179,8 @@ cat <<EOF | policy_import_and_wait -
     "ingress": [{
         "fromEndpoints": [
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
-	],
+	]
+    }, {
 	"fromCIDR": [
 	    "${IPV4_PREFIX}",
 	    "${IPV6_PREFIX}"
@@ -209,7 +210,8 @@ cat <<EOF | policy_import_and_wait -
     "ingress": [{
         "fromEndpoints": [
 	    {"matchLabels":{"${ID_SERVICE2}":""}}
-	],
+	]
+    }, {
 	"fromCIDR": [
 	    "${IPV4_OTHERNET}"
 	]
