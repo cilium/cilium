@@ -16,7 +16,6 @@ package policy
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -94,7 +93,7 @@ func (p *Repository) AllowsLabelAccess(ctx *SearchContext) api.Decision {
 		}
 	}
 
-	ctx.PolicyTrace("Result: %s\n", strings.ToUpper(decision.String()))
+	ctx.PolicyTrace("Label verdict: %s\n", decision.String())
 
 	return decision
 }
@@ -150,15 +149,16 @@ func (p *Repository) ResolveL3Policy(ctx *SearchContext) *L3Policy {
 	return result
 }
 
-func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
+func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
+	ctx := *searchCtx
 	ctx.To = ctx.From
 	ctx.From = labels.LabelArray{}
 	ctx.EgressL4Only = true
 
 	ctx.PolicyTrace("\n")
-	policy, err := p.ResolveL4Policy(ctx)
+	policy, err := p.ResolveL4Policy(&ctx)
 	verdict := api.Undecided
-	if err == nil {
+	if err == nil && len(policy.Egress) > 0 {
 		verdict = policy.EgressCoversDPorts(ctx.DPorts)
 	}
 
@@ -172,14 +172,13 @@ func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 }
 
 func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
-	ctx.From = labels.LabelArray{}
 	ctx.IngressL4Only = true
 
 	ctx.PolicyTrace("\n")
 	policy, err := p.ResolveL4Policy(ctx)
 	verdict := api.Undecided
-	if err == nil {
-		verdict = policy.IngressCoversDPorts(ctx.DPorts)
+	if err == nil && len(policy.Ingress) > 0 {
+		verdict = policy.IngressCoversContext(ctx)
 	}
 
 	if len(ctx.DPorts) == 0 {
@@ -196,19 +195,30 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 // connection, the request will be denied. The policy repository mutex must be
 // held.
 func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
-	decision := p.AllowsLabelAccess(ctx)
-	ctx.PolicyTrace("L3 verdict: %s\n", decision.String())
+	ctx.PolicyTrace("Tracing %s\n", ctx.String())
+	decision := p.CanReachRLocked(ctx)
+	ctx.PolicyTrace("Label verdict: %s\n", decision.String())
+	if decision == api.Allowed {
+		return decision
+	}
 
 	// We only report the overall decision as L4 inclusive if a port has
 	// been specified
 	if len(ctx.DPorts) != 0 {
 		l4Egress := p.allowsL4Egress(ctx)
 		l4Ingress := p.allowsL4Ingress(ctx)
-		if l4Egress != api.Allowed || l4Ingress != api.Allowed {
+
+		// Explicit deny should deny; Allow+Undecided should allow
+		if l4Egress == api.Denied || l4Ingress == api.Denied {
 			decision = api.Denied
+		} else if l4Egress == api.Allowed || l4Ingress == api.Allowed {
+			decision = api.Allowed
 		}
 	}
 
+	if decision != api.Allowed {
+		decision = api.Denied
+	}
 	return decision
 }
 

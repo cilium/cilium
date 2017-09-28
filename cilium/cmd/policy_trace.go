@@ -170,7 +170,7 @@ If multiple sources and / or destinations are provided, each source is tested wh
 				} else if scr != nil && scr.Payload != nil {
 					fmt.Println("----------------------------------------------------------------")
 					fmt.Printf("%s\n", scr.Payload.Log)
-					fmt.Printf("Verdict: %s\n", scr.Payload.Verdict)
+					fmt.Printf("Verdict: %s\n", strings.ToUpper(scr.Payload.Verdict))
 				}
 			}
 		}

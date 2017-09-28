@@ -100,6 +100,8 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer, owner Owner) error {
 
 	l4policy := e.Consumable.L4Policy
 
+	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
+
 	if err := e.writeL4Map(fw, owner, l4policy.Ingress, "CFG_L4_INGRESS"); err != nil {
 		return err
 	}

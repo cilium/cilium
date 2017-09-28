@@ -19,8 +19,8 @@ set -ex
 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
-DENIED="Verdict: denied"
-ALLOWED="Verdict: allowed"
+DENIED="Verdict: DENIED"
+ALLOWED="Verdict: ALLOWED"
 
 log "running test: $TEST_NAME"
 

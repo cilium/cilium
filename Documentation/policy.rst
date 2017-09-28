@@ -669,10 +669,10 @@ endpoint with the label ``id.http`` on port 80:
     Tracing From: [container:id.curl] => To: [container:id.httpd] Ports: [80/any]
     * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
         Allows from labels {"matchLabels":{"any:id.curl":""}}
-    +     Found all required labels
+          Found all required labels
+            Restricted to specific L4 destinations; skip during Label stage
     1 rules matched
-    Result: ALLOWED
-    L3 verdict: allowed
+    Label verdict: allowed
 
     Resolving egress port policy for [container:id.curl]
     * Rule 0 {"matchLabels":{"any:id.curl":""}}: match

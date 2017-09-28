@@ -164,7 +164,11 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 	var err error
 
 	for _, r := range portRules {
-		ctx.PolicyTrace("  Allows %s port %v\n", dir, r.Ports)
+		if fromEndpoints != nil {
+			ctx.PolicyTrace("  Allows %s port %v from endpoints %v\n", dir, r.Ports, fromEndpoints)
+		} else {
+			ctx.PolicyTrace("  Allows %s port %v\n", dir, r.Ports)
+		}
 
 		if r.RedirectPort != 0 {
 			ctx.PolicyTrace("    Redirect-To: %d\n", r.RedirectPort)
@@ -312,11 +316,15 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		for _, sel := range r.FromEndpoints {
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
 			if sel.Matches(ctx.From) {
-				ctx.PolicyTrace("+     Found all required labels\n")
-				return api.Allowed
+				ctx.PolicyTrace("      Found all required labels")
+				if len(r.ToPorts) == 0 {
+					ctx.PolicyTrace("+       No L4 restrictions; allowing\n")
+					return api.Allowed
+				}
+				ctx.PolicyTrace("        Restricted to specific L4 destinations; skip during Label stage\n")
+			} else {
+				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
 			}
-
-			ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
 		}
 	}
 

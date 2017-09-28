@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	log "github.com/sirupsen/logrus"
 )
@@ -153,6 +154,22 @@ func (l4 L4Filter) String() string {
 	return string(b)
 }
 
+func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
+	if len(l4.FromEndpoints) == 0 {
+		return true
+	} else if len(labels) == 0 {
+		return false
+	}
+
+	for _, sel := range l4.FromEndpoints {
+		if sel.Matches(labels) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // L4PolicyMap is a list of L4 filters indexable by protocol/port
 // key format: "port/proto"
 type L4PolicyMap map[string]L4Filter
@@ -169,32 +186,45 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 	return false
 }
 
-// containsAllL4 checks if the L4PolicyMap contains all `l4Ports`. Returns false
-// if the `L4PolicyMap` has a single rule and l4Ports is empty or if a single
-// `l4Port`'s port is not present in the `L4PolicyMap`.
-func (l4 L4PolicyMap) containsAllL4(l4Ports []*models.Port) api.Decision {
+// containsAllL3L4 checks if the L4PolicyMap contains all L4 ports in `ports`.
+// For L4Filters that specify FromEndpoints, uses `labels` to determine whether
+// the policy allows L4 communication between the corresponding endpoints.
+// Returns api.Denied in the following conditions:
+// * If the `L4PolicyMap` has at least one rule and `ports` is empty.
+// * If a single port is not present in the `L4PolicyMap`.
+// * If a port is present in the `L4PolicyMap`, but it applies FromEndpoints
+//   constraints that require labels not present in `labels`.
+// Otherwise, returns api.Allowed.
+func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
 	if len(l4) == 0 {
 		return api.Allowed
 	}
 
-	if len(l4Ports) == 0 {
+	if len(ports) == 0 {
 		return api.Denied
 	}
 
-	for _, l4CtxIng := range l4Ports {
+	for _, l4CtxIng := range ports {
 		lwrProtocol := strings.ToLower(l4CtxIng.Protocol)
 		switch lwrProtocol {
 		case "", models.PortProtocolAny:
 			tcpPort := fmt.Sprintf("%d/tcp", l4CtxIng.Port)
-			_, tcpmatch := l4[tcpPort]
+			tcpFilter, tcpmatch := l4[tcpPort]
+			if tcpmatch {
+				tcpmatch = tcpFilter.matchesLabels(labels)
+			}
 			udpPort := fmt.Sprintf("%d/udp", l4CtxIng.Port)
-			_, udpmatch := l4[udpPort]
+			udpFilter, udpmatch := l4[udpPort]
+			if udpmatch {
+				udpmatch = udpFilter.matchesLabels(labels)
+			}
 			if !tcpmatch && !udpmatch {
 				return api.Denied
 			}
 		default:
 			port := fmt.Sprintf("%d/%s", l4CtxIng.Port, lwrProtocol)
-			if _, match := l4[port]; !match {
+			filter, match := l4[port]
+			if !match || !filter.matchesLabels(labels) {
 				return api.Denied
 			}
 		}
@@ -217,13 +247,19 @@ func NewL4Policy() *L4Policy {
 // IngressCoversDPorts checks if the receiver's ingress `L4Policy` contains all
 // `dPorts`.
 func (l4 *L4Policy) IngressCoversDPorts(dPorts []*models.Port) api.Decision {
-	return l4.Ingress.containsAllL4(dPorts)
+	return l4.Ingress.containsAllL3L4(labels.LabelArray{}, dPorts)
+}
+
+// IngressCoversContext checks if the receiver's ingress `L4Policy` contains
+// all `dPorts` and `labels`.
+func (l4 *L4Policy) IngressCoversContext(ctx *SearchContext) api.Decision {
+	return l4.Ingress.containsAllL3L4(ctx.From, ctx.DPorts)
 }
 
 // EgressCoversDPorts checks if the receiver's egress `L4Policy` contains all
 // `dPorts`.
 func (l4 *L4Policy) EgressCoversDPorts(dPorts []*models.Port) api.Decision {
-	return l4.Egress.containsAllL4(dPorts)
+	return l4.Egress.containsAllL3L4(labels.LabelArray{}, dPorts)
 }
 
 // HasRedirect returns true if the L4 policy contains at least one port redirection
