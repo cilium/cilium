@@ -326,10 +326,6 @@ func (e *Endpoint) regenerate(owner Owner) error {
 		}
 	}
 
-	e.Mutex.Unlock()
-	defer e.Mutex.Lock()
-	e.BPFMutex.Lock()
-	defer e.BPFMutex.Unlock()
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
