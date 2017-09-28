@@ -174,6 +174,9 @@ type LogRecord struct {
 	// HTTP contains information for HTTP request/responses
 	HTTP *LogRecordHTTP `json:"HTTP,omitempty"`
 
+	// Kafka contains information for Kafka request/responses
+	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
+
 	// Internal
 	Request *http.Request `json:"-"`
 }
@@ -194,4 +197,29 @@ type LogRecordHTTP struct {
 
 	// Header is the HTTP header in use
 	Header http.Header
+}
+
+// KafkaTopic contains the topic for requests
+type KafkaTopic struct {
+	Topic string `json:"Topic,omitempty"`
+}
+
+// LogRecordKafka contains the Kafka-specific portion of a log record
+type LogRecordKafka struct {
+	// APIVersion of the Kafka api used
+	APIVersion int
+
+	// APIKey for Kafka message
+	// Reference: https://kafka.apache.org/protocol#protocol_api_keys
+	APIKey int16
+
+	// CorrelationID is a user-supplied integer value that will be passed
+	// back with the response
+	CorrelationID int32
+
+	// Topics of the request, can be a single topic for message type
+	// produce/createTopic or a list of topics (fetch/deleteTopic).
+	// Note that this list can be empty since not all messages use
+	// Topic. example: LeaveGroup, Heartbeat
+	Topics []KafkaTopic
 }
