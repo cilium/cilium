@@ -15,13 +15,14 @@
 package bpf
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/syncbytes"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -130,8 +131,8 @@ func mountCmdPipe(cmds []*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byt
 	}
 
 	// Total output of commands.
-	var output bytes.Buffer
-	var stderr bytes.Buffer
+	var output syncbytes.Buffer
+	var stderr syncbytes.Buffer
 
 	lastCmd := len(cmds) - 1
 	for i, cmd := range cmds[:lastCmd] {
