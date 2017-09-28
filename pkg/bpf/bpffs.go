@@ -122,6 +122,27 @@ func isBpffs(path string) bool {
 	return int32(magic) == int32(fsdata.Type)
 }
 
+type buffer struct {
+	b bytes.Buffer
+	m sync.Mutex
+}
+
+func (b *buffer) Read(p []byte) (n int, err error) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	return b.b.Read(p)
+}
+func (b *buffer) Write(p []byte) (n int, err error) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	return b.b.Write(p)
+}
+func (b *buffer) Bytes() []byte {
+	b.m.Lock()
+	defer b.m.Unlock()
+	return b.b.Bytes()
+}
+
 func mountCmdPipe(cmds []*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byte, mountCmdError error) {
 
 	// We need atleast one command to pipe.
@@ -130,8 +151,8 @@ func mountCmdPipe(cmds []*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byt
 	}
 
 	// Total output of commands.
-	var output bytes.Buffer
-	var stderr bytes.Buffer
+	var output buffer
+	var stderr buffer
 
 	lastCmd := len(cmds) - 1
 	for i, cmd := range cmds[:lastCmd] {
