@@ -247,7 +247,6 @@ skip_service_lookup:
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple->dport,
@@ -363,7 +362,6 @@ skip_service_lookup:
 to_host:
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
@@ -574,7 +572,6 @@ skip_service_lookup:
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
@@ -676,7 +673,6 @@ skip_service_lookup:
 to_host:
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
