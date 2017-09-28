@@ -204,9 +204,9 @@ type KafkaTopic struct {
 	Topic string `json:"Topic,omitempty"`
 }
 
-// LogRecordKafka contains the kafka specific portion of a log record
+// LogRecordKafka contains the Kafka-specific portion of a log record
 type LogRecordKafka struct {
-	// APIVersion of the kafka api used
+	// APIVersion of the Kafka api used
 	APIVersion int
 
 	// APIKey for Kafka message
