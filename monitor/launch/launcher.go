@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 
@@ -29,7 +30,8 @@ const targetName = "cilium-node-monitor"
 
 // NodeMonitor is used to wrap the node executable binary.
 type NodeMonitor struct {
-	Arg     string
+	mutex   sync.RWMutex
+	arg     string
 	process *os.Process
 	state   *models.MonitorStatus
 }
@@ -37,29 +39,31 @@ type NodeMonitor struct {
 // Run starts the node monitor.
 func (nm *NodeMonitor) Run() {
 	for {
-		cmd := exec.Command(targetName, nm.Arg)
+		cmd := exec.Command(targetName, nm.GetArg())
 		stdout, _ := cmd.StdoutPipe()
-
 		if err := cmd.Start(); err != nil {
 			log.Errorf("cmd.Start(): %s", err)
 		}
-		nm.process = cmd.Process
+
+		nm.setProcess(cmd.Process)
 
 		r := bufio.NewReader(stdout)
-		for nm.process != nil {
+		for nm.getProcess() != nil {
 			l, _ := r.ReadBytes('\n')
 			var tmp *models.MonitorStatus
 			if err := json.Unmarshal(l, &tmp); err != nil {
 				continue
 			}
-			nm.state = tmp
+			nm.setState(tmp)
 		}
 	}
 }
 
 // Restart stops the node monitor which will trigger a rerun.
 func (nm *NodeMonitor) Restart(arg string) {
-	nm.Arg = arg
+	nm.mutex.Lock()
+	defer nm.mutex.Unlock()
+	nm.arg = arg
 
 	if nm.process == nil {
 		return
@@ -72,5 +76,38 @@ func (nm *NodeMonitor) Restart(arg string) {
 
 // State returns the monitor status.
 func (nm *NodeMonitor) State() *models.MonitorStatus {
-	return nm.state
+	nm.mutex.RLock()
+	state := nm.state
+	nm.mutex.RUnlock()
+	return state
+}
+
+// GetArg returns the NodeMonitor arg.
+func (nm *NodeMonitor) GetArg() string {
+	nm.mutex.RLock()
+	arg := nm.arg
+	nm.mutex.RUnlock()
+	return arg
+}
+
+// setProcess sets the internal node monitor process with the given process.
+func (nm *NodeMonitor) setProcess(proc *os.Process) {
+	nm.mutex.Lock()
+	nm.process = proc
+	nm.mutex.Unlock()
+}
+
+// getProcess returns the NodeMonitor internal process.
+func (nm *NodeMonitor) getProcess() *os.Process {
+	nm.mutex.RLock()
+	proc := nm.process
+	nm.mutex.RUnlock()
+	return proc
+}
+
+// setProcess sets the internal state monitor with the given state.
+func (nm *NodeMonitor) setState(state *models.MonitorStatus) {
+	nm.mutex.Lock()
+	nm.state = state
+	nm.mutex.Unlock()
 }

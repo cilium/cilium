@@ -1253,7 +1253,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	defer d.conf.ConfigPatchMutex.Unlock()
 
 	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
-		if d.nodeMonitor.Arg != numPagesEntry {
+		if d.nodeMonitor.GetArg() != numPagesEntry {
 			d.nodeMonitor.Restart(numPagesEntry)
 		}
 		if len(params.Configuration.Mutable) == 0 {
