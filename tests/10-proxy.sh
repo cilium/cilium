@@ -287,6 +287,7 @@ function proxy_test {
 for service in "none" "lb"; do
   for policy in "egress" "ingress" "egress_and_ingress" "many_egress" "many_ingress"; do
     for state in "false" "true"; do
+      log "+----------------------------------------------------------------------+"
       log "Testing with Policy=$policy, Conntrack=$state, Service=$service"
       cilium config ConntrackLocal=$state
       wait_for_cilium_ep_gen
