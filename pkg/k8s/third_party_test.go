@@ -37,7 +37,6 @@ var (
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
-			}, {
 				ToPorts: []api.PortRule{
 					{
 						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
@@ -62,7 +61,6 @@ var (
 
 	expectedSpecRule = api.Rule{
 		Ingress: []api.IngressRule{
-			// FIXME-L3-L4: Combine rules once possible
 			{
 				FromEndpoints: []api.EndpointSelector{
 					api.NewESFromLabels(
@@ -73,7 +71,6 @@ var (
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
-			}, {
 				ToPorts: []api.PortRule{
 					{
 						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
@@ -83,7 +80,6 @@ var (
 			},
 		},
 		Egress: []api.EgressRule{
-			// FIXME-L3-L4: Combine rules once possible
 			{
 				ToPorts: []api.PortRule{
 					{
@@ -126,8 +122,7 @@ var (
                             "reserved:world": ""
                         }
                     }
-                ]
-	    },{
+                ],
                 "toPorts": [
                     {
                         "ports": [
@@ -168,7 +163,7 @@ var (
                         }
                     }
                 ]
-	    },{
+            },{
                 "toCIDR": [
                     "10.0.0.1"
                 ]
@@ -252,7 +247,9 @@ func (s *K8sSuite) TestParseRules(c *C) {
 	rules, err := expectedPolicyRuleList.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 2)
-	c.Assert(rules, DeepEquals, expectedSpecRules)
+	for i, rule := range rules {
+		c.Assert(rule, DeepEquals, expectedSpecRules[i])
+	}
 
 	b, err := json.Marshal(expectedPolicyRuleList)
 	c.Assert(err, IsNil)

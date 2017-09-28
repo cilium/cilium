@@ -87,8 +87,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	// FIXME-L3-L4 reverse this condition
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
 
 	matchLabels := make(map[string]string)
 	for _, v := range fromEndpoints {
@@ -422,8 +421,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
-	// FIXME-L3-L4 reverse this condition
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
 	l4Policy, err := repo.ResolveL4Policy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
@@ -623,7 +621,6 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 5: Some policies with match expressions.
-	// FIXME-L3-L4 check the intersection, not the union of two rules
 	ex5 := []byte(`{
   "kind": "NetworkPolicy",
   "apiVersion": "extensions/v1beta1",

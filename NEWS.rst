@@ -24,6 +24,7 @@ Features
 * Default policy enforcement behavior for non-Kubernetes environments is now
   the same as for Kubernetes environments; traffic is allowed by default until
   a rule selects an endpoint (1464_)
+* Support L3-dependent L4 policies on ingress (1599_, 1496_, 1217_, 1064_, 789_)
 
 CI
 __
@@ -557,7 +558,6 @@ Fixes
 .. _1440: https://github.com/cilium/cilium/pull/1440
 .. _1444: https://github.com/cilium/cilium/pull/1444
 .. _1451: https://github.com/cilium/cilium/pull/1451
-<<<<<<< HEAD
 .. _1219: https://github.com/cilium/cilium/pull/1219
 .. _1180: https://github.com/cilium/cilium/pull/1180
 .. _1271: https://github.com/cilium/cilium/pull/1271
@@ -570,8 +570,11 @@ Fixes
 .. _1464: https://github.com/cilium/cilium/pull/1464
 .. _1440: https://github.com/cilium/cilium/pull/1440
 .. _1468: https://github.com/cilium/cilium/pull/1468
-=======
 .. _1454: https://github.com/cilium/cilium/pull/1454
 .. _1459: https://github.com/cilium/cilium/pull/1459
 .. _1573: https://github.com/cilium/cilium/pull/1573
->>>>>>> Updating debian changelog Fix #1226
+.. _1599: https://github.com/cilium/cilium/pull/1599
+.. _1496: https://github.com/cilium/cilium/pull/1496
+.. _1217: https://github.com/cilium/cilium/pull/1217
+.. _1064: https://github.com/cilium/cilium/pull/1064
+.. _789: https://github.com/cilium/cilium/pull/789

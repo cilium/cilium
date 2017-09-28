@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/cilium/cilium/common"
 	log "github.com/sirupsen/logrus"
@@ -126,6 +127,99 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 	}
 }
 
+func getSecurityIdentities(owner Owner, selector *api.EndpointSelector) []policy.NumericIdentity {
+	identities := []policy.NumericIdentity{}
+	maxID, err := owner.GetCachedMaxLabelID()
+	if err != nil {
+		return identities
+	}
+	for idx := policy.MinimalNumericIdentity; idx < maxID; idx++ {
+		labels, err := owner.GetCachedLabelList(idx)
+		if err != nil {
+			log.Infof("L4 Policy label lookup failed: %s", err)
+		}
+
+		if labels != nil && selector.Matches(labels) {
+			log.Debugf("L4 Policy matches %v.", labels)
+			identities = append(identities, idx)
+		}
+	}
+
+	return identities
+}
+
+func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
+	port := uint16(filter.Port)
+	proto, err := u8proto.ParseProtocol(filter.Protocol)
+	if err != nil {
+		log.Warningf("Parse policy protocol failed: %s", err)
+		return 1
+	}
+
+	errors := 0
+	for _, sel := range filter.FromEndpoints {
+		for _, id := range getSecurityIdentities(owner, &sel) {
+			srcID := id.Uint32()
+			if err = e.PolicyMap.DeleteL4(srcID, port, uint8(proto)); err != nil {
+				log.Debugf("Delete old l4 policy failed: %s", err)
+			}
+		}
+	}
+
+	return errors
+}
+
+func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
+	port := uint16(filter.Port)
+	proto, err := u8proto.ParseProtocol(filter.Protocol)
+	if err != nil {
+		log.Warningf("Parse policy protocol failed: %s", err)
+		return 1
+	}
+
+	errors := 0
+	for _, sel := range filter.FromEndpoints {
+		for _, id := range getSecurityIdentities(owner, &sel) {
+			srcID := id.Uint32()
+			if e.PolicyMap.L4Exists(srcID, port, uint8(proto)) {
+				log.Debugf("L4 filter exists: %+v", filter)
+				continue
+			}
+			if err = e.PolicyMap.AllowL4(srcID, port, uint8(proto)); err != nil {
+				log.Warningf("Update of l4 policy map failed: %s", err)
+				errors++
+			}
+		}
+	}
+
+	return errors
+}
+
+// Looks for mismatches between 'oldPolicy' and 'newPolicy', and fixes up
+// this Endpoint's BPF PolicyMap to reflect the new L3+L4 combined policy.
+func (e *Endpoint) applyL4PolicyLocked(owner Owner, oldPolicy *policy.L4Policy, newPolicy *policy.L4Policy) error {
+	errors := 0
+
+	if oldPolicy != nil {
+		for _, filter := range oldPolicy.Ingress {
+			errors = e.removeOldFilter(owner, &filter)
+		}
+	}
+
+	if newPolicy == nil {
+		return nil
+	}
+
+	for _, filter := range newPolicy.Ingress {
+		errors += e.applyNewFilter(owner, &filter)
+	}
+
+	if errors > 0 {
+		return fmt.Errorf("Some Label+L4 policy updates failed.")
+	}
+	return nil
+}
+
 // Must be called with global endpoint.Mutex held
 func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	c := e.Consumable
@@ -184,6 +278,10 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		e.cleanUnusedRedirects(owner, c.L4Policy.Egress, newL4policy.Egress)
 	}
 
+	err = e.applyL4PolicyLocked(owner, c.L4Policy, newL4policy)
+	if err != nil {
+		return false, err
+	}
 	c.L4Policy = newL4policy
 
 	if newL4policy.HasRedirect() || owner.AlwaysAllowLocalhost() {

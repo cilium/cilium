@@ -30,7 +30,7 @@ function start_containers {
   docker run -dt --net=$TEST_NET --name httpd2 -l id.httpd_deny httpd
   docker run -dt --net=$TEST_NET --name client -l id.client tgraf/netperf
   docker run -dt --net=$TEST_NET --name curl   -l id.curl tgraf/netperf
-  docker run -dt --net=$TEST_NET --name curl2  -l id.curl tgraf/netperf
+  docker run -dt --net=$TEST_NET --name curl2  -l id.curl2 tgraf/netperf
   wait_for_endpoints 6
   echo "containers started and ready"
 }
@@ -148,17 +148,16 @@ function connectivity_test() {
     abort "Error: Could not reach httpd1 on port 80"
   }
 
-  # FIXME(amre): Change following two expectations to the opposite when Issue #789 is fixed
   monitor_clear
-  log "trying to curl http://[$HTTPD1_IP]:80 from curl2 container (should work)"
-  docker exec -i curl2 bash -c "curl --connect-timeout $TIMEOUT -XGET http://[$HTTPD1_IP]:80" || {
-    abort "Error: Could not reach httpd1 on port 80"
+  log "trying to curl http://[$HTTPD1_IP]:80 from curl2 container (shouldn't work)"
+  docker exec -i curl2 bash -c "curl --connect-timeout $DROP_TIMEOUT -XGET http://[$HTTPD1_IP]:80" && {
+    abort "Error: Unexpected success reaching httpd1 on port 80"
   }
 
   monitor_clear
-  log "trying to curl http://[$HTTPD1_IP4]:80 from curl2 container (should work)"
-  docker exec -i curl2 bash -c "curl --connect-timeout $TIMEOUT -XGET http://$HTTPD1_IP4:80" || {
-    abort "Error: Could not reach httpd1 on port 80"
+  log "trying to curl http://[$HTTPD1_IP4]:80 from curl2 container (shouldn't work)"
+  docker exec -i curl2 bash -c "curl --connect-timeout $DROP_TIMEOUT -XGET http://$HTTPD1_IP4:80" && {
+    abort "Error: Unexpected success reaching httpd1 on port 80"
   }
 
   monitor_clear

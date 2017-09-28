@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -155,7 +154,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			searchCtx.Trace = policy.TRACE_VERBOSE
 		}
 		verdict := api.Allowed.String()
-		searchCtx.PolicyTrace("Result: %s\n", strings.ToUpper(verdict))
+		searchCtx.PolicyTrace("Label verdict: %s\n", verdict)
 		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
 		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
 			Log:     msg,
