@@ -11,8 +11,8 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
-DENIED="Label verdict: denied"
-ALLOWED="Label verdict: allowed"
+DENIED="Final verdict: DENIED"
+ALLOWED="Final verdict: ALLOWED"
 
 
 function test_policy_trace_policy_disabled {
@@ -23,7 +23,7 @@ function test_policy_trace_policy_disabled {
   log "verify verbose trace for expected output using endpoint IDs "
   local TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
   log "Trace output: ${TRACE_OUTPUT}"
-  local DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Label verdict:")) || true
+  local DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Final verdict:")) || true
   if [[ "$DIFF" != "" ]]; then
     abort "DIFF: $DIFF"
   fi
@@ -151,7 +151,7 @@ Tracing From: [any:id.foo] => To: [any:id.bar]
 1 rules matched
 Label verdict: allowed
 
-Verdict: ALLOWED
+Final verdict: ALLOWED
 
 EOF
 
@@ -204,7 +204,7 @@ Tracing From: [any:id.foo] => To: [any:id.bar]
 1 rules matched
 Label verdict: allowed
 
-Verdict: ALLOWED
+Final verdict: ALLOWED
 
 EOF
 
@@ -225,7 +225,7 @@ Tracing From: [any:id.foo] => To: [any:id.bar]
 1 rules matched
 Label verdict: allowed
 
-Verdict: ALLOWED
+Final verdict: ALLOWED
 
 EOF
 
@@ -255,20 +255,20 @@ Tracing From: [container:id.foo, container:id.teamA] => To: [container:id.bar, c
 2 rules matched
 Label verdict: allowed
 
-Verdict: ALLOWED
+Final verdict: ALLOWED
 
 EOF
 
 
 log "verify verbose trace for expected output using security identities"
-DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Label verdict:")) || true
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
   abort "DIFF: $DIFF"
 fi
 
 log "verify verbose trace for expected output using endpoint IDs"
 TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
-DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Label verdict:")) || true
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
   abort "DIFF: $DIFF"
 fi

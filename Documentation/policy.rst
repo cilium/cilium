@@ -782,7 +782,7 @@ endpoint with the label ``id.http`` on port 80:
     1 rules matched
     L4 ingress verdict: allowed
 
-    Verdict: ALLOWED
+    Final verdict: ALLOWED
 
 .. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 
