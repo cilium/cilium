@@ -67,22 +67,23 @@ type Rule struct {
 type Entity string
 
 const (
-	// World is an entity that represents traffic external to endpoint environment
-	World Entity = "world"
-	// Host is an entity that represents traffic within endpoint host
-	Host Entity = "host"
+	// EntityWorld is an entity that represents traffic external to endpoint environment
+	EntityWorld Entity = "world"
+	// EntityHost is an entity that represents traffic within endpoint host
+	EntityHost Entity = "host"
 )
 
+// EntitySelectorMapping maps special entity names that come in policies to selectors
 var EntitySelectorMapping = map[Entity]EndpointSelector{
-	World: NewESFromLabels(&labels.Label{
-		Key:    "world",
+	EntityWorld: NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameWorld,
 		Value:  "",
-		Source: "reserved",
+		Source: labels.LabelSourceReserved,
 	}),
-	Host: NewESFromLabels(&labels.Label{
-		Key:    "host",
+	EntityHost: NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameHost,
 		Value:  "",
-		Source: "reserved",
+		Source: labels.LabelSourceReserved,
 	}),
 }
 
