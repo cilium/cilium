@@ -38,6 +38,21 @@ func (r *rule) validate() error {
 		return fmt.Errorf("empty EndpointSelector")
 	}
 
+	entities := []api.Entity{}
+	for _, rule := range r.Ingress {
+		entities = append(entities, rule.FromEntities...)
+	}
+	for _, rule := range r.Egress {
+		entities = append(entities, rule.ToEntities...)
+	}
+
+	for _, entity := range entities {
+		_, ok := api.EntitySelectorMapping[entity]
+		if !ok {
+			return fmt.Errorf("Unsupported entity: %s", entity)
+		}
+	}
+
 	return nil
 }
 

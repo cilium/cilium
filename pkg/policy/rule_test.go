@@ -250,7 +250,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
-					FromEntities: []api.Entity{api.World},
+					FromEntities: []api.Entity{api.EntityWorld},
 				},
 			},
 		},
@@ -280,7 +280,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Egress: []api.EgressRule{
 				{
-					ToEntities: []api.Entity{api.World},
+					ToEntities: []api.Entity{api.EntityWorld},
 				},
 			},
 		},
@@ -292,4 +292,24 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	state = traceState{}
 	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Denied)
 	c.Assert(state.selectedRules, Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestPolicyEntityValidation(c *C) {
+	r := rule{
+		api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.EntityWorld},
+				},
+			},
+		},
+	}
+	c.Assert(r.Validate(), IsNil)
+
+	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
+	c.Assert(r.validate(), IsNil)
+
+	r.Egress[0].ToEntities = []api.Entity{"trololo"}
+	c.Assert(r.validate(), NotNil)
 }
