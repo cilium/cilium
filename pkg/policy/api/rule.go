@@ -144,6 +144,8 @@ type IngressRule struct {
 	// FromEntities is a list of special entities which the endpoint subject
 	// to the rule is allowed to receive connections from. Supported entities are
 	// `world` and `host`
+	//
+	// +optional
 	FromEntities []Entity `json:"fromEntities,omitempty"`
 }
 
@@ -179,6 +181,13 @@ type EgressRule struct {
 	//
 	// +optional
 	ToCIDR []CIDR `json:"toCIDR,omitempty"`
+
+	// ToEntities is a list of special entities which the endpoint subject
+	// to the rule is allowed to initiate connections to. Supported entities are
+	// `world` and `host`
+	//
+	// +optional
+	ToEntities []Entity `json:"toEntities,omitempty"`
 }
 
 // CIDR specifies a block of IP addresses.
