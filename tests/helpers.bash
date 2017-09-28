@@ -284,7 +284,6 @@ function wait_for_cilium_ep_gen {
     local iter=0
     local found
     found=$(eval "$CMD")
-    log "found: $found"
 
     while [[ "$found" -ne "$NUM_DESIRED" ]]; do
       log "$found endpoints are still regenerating; want $NUM_DESIRED"
@@ -308,9 +307,7 @@ function wait_for_cilium_ep_gen {
       log "found: $found"
     done
     check_cmd_iter=$(expr $check_cmd_iter + 1)
-    log "incremented check_cmd_iter by 1: $check_cmd_iter"
     total_cmd_iter=$(expr $total_cmd_iter + 1)
-    log "incremented total command iteration counter by 1: $total_cmd_iter"
     sleep .25
   done
   set -e 
