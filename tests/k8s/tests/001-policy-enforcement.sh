@@ -295,9 +295,13 @@ check_endpoints_policy_disabled ${NUM_ENDPOINTS} ${CILIUM_POD_1}
 # Test 18: check policy enforcement after malformed policy is created and deleted
 # All endpoints should have policy enforcement enabled
 log " Test 18: check policy enforcement after malformed policy is created and deleted. All endpoints should have policy enforcement enabled"
+set +e
 kubectl create -f "${MINIKUBE}/malformed_policy.yaml"
+set -e
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
+set +e
 kubectl delete -f "${MINIKUBE}/malformed_policy.yaml"
+set -e
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
 import_policy
 wait_for_k8s_endpoints ${NAMESPACE} ${CILIUM_POD_1} ${NUM_ENDPOINTS} ${POD_FILTER}
