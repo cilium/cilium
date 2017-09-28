@@ -74,8 +74,8 @@ docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO
 
 monitor_clear
 log "pinging service1 from service2"
-docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 10 ${HTTPD_CONTAINER_NAME}  || {
-  abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service2"
+docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 10 ${HTTPD_CONTAINER_NAME} && {
+  abort "Error: Unexpected success pinging ${HTTPD_CONTAINER_NAME} from service2"
 }
 
 monitor_clear

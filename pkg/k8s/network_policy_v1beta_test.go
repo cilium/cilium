@@ -87,7 +87,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+	// FIXME-L3-L4 reverse this condition
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 
 	matchLabels := make(map[string]string)
 	for _, v := range fromEndpoints {
@@ -421,6 +422,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
+	// FIXME-L3-L4 reverse this condition
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 	l4Policy, err := repo.ResolveL4Policy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
@@ -544,7 +546,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
             "protocol": "UDP",
             "port": 8080
           }
-        ],
+        ]
+      }, {
         "from": [
           {
             "namespaceSelector": {
@@ -657,8 +660,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
             "protocol": "UDP",
             "port": 8080
           }
-        ]
-      }, {
+        ],
         "from": [
           {
             "namespaceSelector": {
@@ -769,8 +771,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be DENY since the environment is from dev.
-	// FIXME-L3-L4 this lies in the union, not the intersection
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

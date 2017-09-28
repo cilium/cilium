@@ -19,8 +19,8 @@ set -ex
 
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
-DENIED="Result: DENIED"
-ALLOWED="Result: ALLOWED"
+DENIED="Verdict: denied"
+ALLOWED="Verdict: allowed"
 
 log "running test: $TEST_NAME"
 
@@ -97,7 +97,7 @@ if [[ "${RETURN//$'\n'}" != "200" ]]; then
 fi
 
 log "confirming that \`cilium policy trace\` shows that app2 can reach app1"
-diff_timeout "echo $ALLOWED" "kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP2_POD --dst-k8s-pod default:$APP1_POD -v | grep Result:"
+diff_timeout "echo $ALLOWED" "kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP2_POD --dst-k8s-pod default:$APP1_POD --dport 80 -v | grep \"Verdict:\""
 
 log "testing that app3 cannot reach app 1 (expected behavior: cannot reach)"
 RETURN=$(kubectl exec $APP3_POD -- curl --connect-timeout 15 -s --output /dev/stderr -w '%{http_code}' -XGET $SVC_IP || true)
@@ -106,7 +106,7 @@ if [[ "${RETURN//$'\n'}" != "000" ]]; then
 fi
 
 log "confirming that \`cilium policy trace\` shows that app3 cannot reach app1"
-diff_timeout "echo $DENIED" "kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP3_POD --dst-k8s-pod default:$APP1_POD -v | grep Result:"
+diff_timeout "echo $DENIED" "kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP3_POD --dst-k8s-pod default:$APP1_POD -v | grep \"Verdict:\""
 
 log "performing HTTP GET on ${SVC_IP}/public from app2"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/public || true)
