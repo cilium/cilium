@@ -512,6 +512,17 @@ function gather_files {
     # Get logs from Consul container.
     mkdir -p "${CILIUM_DIR}/consul"
     docker logs cilium-consul > "${CILIUM_DIR}/consul/consul-logs.txt" 2>/dev/null
+  else 
+    # Get logs from each Cilium pod.
+    local NAMESPACE="kube-system" 
+    local CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==2{ print $1 }')
+    local CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==3{ print $1 }')
+    local CLI_OUT_DIR=${CILIUM_DIR}/cli
+    mkdir -p "${CLI_OUT_DIR}"
+    log "gathering Cilium logs from pod ${CILIUM_POD_1}"
+    dump_cli_output_k8s "${CLI_OUT_DIR}" "${NAMESPACE}" "${CILIUM_POD_1}" || true
+    log "gathering Cilium logs from pod ${CILIUM_POD_2}"
+    dump_cli_output_k8s "${CLI_OUT_DIR}" "${NAMESPACE}" "${CILIUM_POD_2}" || true
   fi
   sudo cp -r ${RUN}/state "${RUN_DIR}" || true
   sudo cp -r ${LIB}/* "${LIB_DIR}" || true
@@ -545,6 +556,35 @@ function dump_cli_output {
   cilium policy get > ${DIR}/policy_get.txt
   cilium status > ${DIR}/status.txt
 }
+
+function dump_cli_output_k8s {
+  check_num_params "$#" "3"
+  local DIR=$1
+  local NAMESPACE=$2
+  local POD=$3
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list > ${DIR}/${POD}_endpoint_list.txt
+  local EPS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
+  for ep in ${EPS} ; do
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint get ${ep} > ${DIR}/${POD}_endpoint_get_${ep}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf policy list ${ep} > ${DIR}/${POD}_bpf_policy_list_${ep}.txt
+  done
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list > ${DIR}/${POD}_service_list.txt
+  local SVCS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list | tail -n+2 | awk '{print $1}')
+  for svc in ${SVCS} ; do
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium service get ${svc} > ${DIR}/${POD}_service_get_${svc}.txt
+  done
+  local IDS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | awk '{print $3}' | grep -o '[0-9]*')
+  for id in ${IDS} ; do
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium identity get ${id} > ${DIR}/${POD}_identity_get_${id}.txt
+  done
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium config > ${DIR}/${POD}_config.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf lb list > ${DIR}/${POD}_bpf_lb_list.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf ct list global > ${DIR}/${POD}_bpf_ct_list_global.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf tunnel list > ${DIR}/${POD}_bpf_tunnel_list.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium policy get > ${DIR}/${POD}_policy_get.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium status > ${DIR}/${POD}_status.txt
+}
+
 
 function print_k8s_cilium_logs {
   for pod in $(kubectl -n kube-system get pods -o wide| grep cilium | awk '{print $1}'); do
