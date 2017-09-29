@@ -34,7 +34,7 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	rule1 := rule{
-		api.Rule{
+		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
@@ -60,7 +60,7 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	// allow: foo
 	// require: baz
 	rule2 := rule{
-		api.Rule{
+		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
@@ -102,7 +102,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
 	rule1 := &rule{
-		api.Rule{
+		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
@@ -180,7 +180,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	err := apiRule1.Validate()
 	c.Assert(err, IsNil)
 
-	rule1 := &rule{apiRule1}
+	rule1 := &rule{Rule: apiRule1}
 	err = rule1.validate()
 	c.Assert(err, IsNil)
 
@@ -246,7 +246,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	}
 
 	rule1 := rule{
-		api.Rule{
+		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
@@ -255,6 +255,8 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 			},
 		},
 	}
+
+	c.Assert(rule1.validate(), IsNil)
 
 	state := traceState{}
 	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
@@ -276,7 +278,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	}
 
 	rule1 := rule{
-		api.Rule{
+		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Egress: []api.EgressRule{
 				{
@@ -285,18 +287,20 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 			},
 		},
 	}
+
+	c.Assert(rule1.validate(), IsNil)
 
 	state := traceState{}
 	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Denied)
+	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 }
 
-func (ds *PolicyTestSuite) TestPolicyEntityValidation(c *C) {
+func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {
 	r := rule{
-		api.Rule{
+		Rule: api.Rule{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Egress: []api.EgressRule{
 				{
@@ -305,11 +309,56 @@ func (ds *PolicyTestSuite) TestPolicyEntityValidation(c *C) {
 			},
 		},
 	}
-	c.Assert(r.Validate(), IsNil)
+	c.Assert(r.validate(), IsNil)
+	c.Assert(len(r.toEntities), Equals, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
 	c.Assert(r.validate(), IsNil)
+	c.Assert(len(r.toEntities), Equals, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{"trololo"}
 	c.Assert(r.validate(), NotNil)
+}
+
+func (ds *PolicyTestSuite) TestPolicyEntityValidationIngress(c *C) {
+	r := rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEntities: []api.Entity{api.EntityWorld},
+				},
+			},
+		},
+	}
+	c.Assert(r.validate(), IsNil)
+	c.Assert(len(r.fromEntities), Equals, 1)
+
+	r.Ingress[0].FromEntities = []api.Entity{api.EntityHost}
+	c.Assert(r.validate(), IsNil)
+	c.Assert(len(r.fromEntities), Equals, 1)
+
+	r.Ingress[0].FromEntities = []api.Entity{"trololo"}
+	c.Assert(r.validate(), NotNil)
+}
+
+func (ds *PolicyTestSuite) TestPolicyEntityValidationEntitySelectorsFill(c *C) {
+	r := rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEntities: []api.Entity{api.EntityWorld, api.EntityHost},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.EntityWorld, api.EntityHost},
+				},
+			},
+		},
+	}
+	c.Assert(r.validate(), IsNil)
+	c.Assert(len(r.fromEntities), Equals, 2)
+	c.Assert(len(r.toEntities), Equals, 2)
 }
