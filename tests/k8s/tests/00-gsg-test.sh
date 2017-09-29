@@ -108,13 +108,13 @@ fi
 log "confirming that \`cilium policy trace\` shows that app3 cannot reach app1"
 diff_timeout "echo $DENIED" "kubectl exec -n kube-system $CILIUM_POD_1 --  cilium policy trace --src-k8s-pod default:$APP3_POD --dst-k8s-pod default:$APP1_POD -v | grep Result:"
 
-log "performing HTTP GET on ${SVC_IP}/public from service2"
+log "performing HTTP GET on ${SVC_IP}/public from app2"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/public || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: Could not reach ${SVC_IP}/public on port 80"
 fi
 
-log "performing HTTP GET on ${SVC_IP}/private from service2"
+log "performing HTTP GET on ${SVC_IP}/private from app2"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/private || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: Could not reach ${SVC_IP}/private on port 80"
@@ -135,13 +135,13 @@ kubectl exec ${CILIUM_POD_1} -n ${NAMESPACE} -- cilium policy get
 log "Policy in ${CILIUM_POD_2}"
 kubectl exec ${CILIUM_POD_2} -n ${NAMESPACE} -- cilium policy get
 
-log "performing HTTP GET on ${SVC_IP}/public from service2"
+log "performing HTTP GET on ${SVC_IP}/public from app2"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/public || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
 	abort "Error: Could not reach ${SVC_IP}/public on port 80"
 fi
 
-log "performing HTTP GET on ${SVC_IP}/private from service2"
+log "performing HTTP GET on ${SVC_IP}/private from app2"
 RETURN=$(kubectl exec $APP2_POD -- curl --connect-timeout 15 -s --output /dev/stderr -w '%{http_code}' --connect-timeout 15 http://${SVC_IP}/private || true)
 if [[ "${RETURN//$'\n'}" != "403" ]]; then
 	abort "Error: Unexpected success reaching  ${SVC_IP}/private on port 80"
