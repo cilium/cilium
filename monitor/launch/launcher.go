@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 
@@ -29,6 +30,7 @@ const targetName = "cilium-node-monitor"
 
 // NodeMonitor is used to wrap the node executable binary.
 type NodeMonitor struct {
+	mutex   sync.RWMutex
 	Arg     string
 	process *os.Process
 	state   *models.MonitorStatus
@@ -37,28 +39,42 @@ type NodeMonitor struct {
 // Run starts the node monitor.
 func (nm *NodeMonitor) Run() {
 	for {
-		cmd := exec.Command(targetName, nm.Arg)
+		nm.mutex.RLock()
+		args := nm.Arg
+		nm.mutex.RUnlock()
+		cmd := exec.Command(targetName, args)
 		stdout, _ := cmd.StdoutPipe()
 
 		if err := cmd.Start(); err != nil {
 			log.Errorf("cmd.Start(): %s", err)
 		}
+		nm.mutex.Lock()
 		nm.process = cmd.Process
+		isProcessNil := nm.process == nil
+		nm.mutex.Unlock()
 
 		r := bufio.NewReader(stdout)
-		for nm.process != nil {
+		for !isProcessNil {
 			l, _ := r.ReadBytes('\n')
 			var tmp *models.MonitorStatus
 			if err := json.Unmarshal(l, &tmp); err != nil {
+				nm.mutex.RLock()
+				isProcessNil = nm.process == nil
+				nm.mutex.RUnlock()
 				continue
 			}
+			nm.mutex.Lock()
 			nm.state = tmp
+			isProcessNil = nm.process == nil
+			nm.mutex.Unlock()
 		}
 	}
 }
 
 // Restart stops the node monitor which will trigger a rerun.
 func (nm *NodeMonitor) Restart(arg string) {
+	nm.mutex.Lock()
+	defer nm.mutex.Unlock()
 	nm.Arg = arg
 
 	if nm.process == nil {
@@ -72,5 +88,7 @@ func (nm *NodeMonitor) Restart(arg string) {
 
 // State returns the monitor status.
 func (nm *NodeMonitor) State() *models.MonitorStatus {
+	nm.mutex.RLock()
+	defer nm.mutex.RUnlock()
 	return nm.state
 }

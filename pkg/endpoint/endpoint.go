@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
+	"github.com/sasha-s/go-deadlock"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -188,8 +189,10 @@ type Endpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
+	BPFMutex deadlock.Mutex
+
 	// Mutex protects write operations to this endpoint structure
-	Mutex sync.RWMutex
+	Mutex deadlock.RWMutex
 
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string

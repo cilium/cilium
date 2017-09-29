@@ -306,8 +306,8 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
-	args := []string{libdir, rundir, epdir, e.IfName, debug}
+func JoinEP(libdir, rundir, epdir, epInterface, debug string) error {
+	args := []string{libdir, rundir, epdir, epInterface, debug}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
@@ -340,12 +340,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
 
-	if err = e.writeHeaderfile(epdir, owner); err != nil {
-		return fmt.Errorf("unable to write header file: %s", err)
-	}
-
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if owner.DryModeEnabled() {
+		if err = e.writeHeaderfile(epdir, owner); err != nil {
+			return fmt.Errorf("unable to write header file: %s", err)
+		}
 		return nil
 	}
 
@@ -435,13 +434,24 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 		}
 	}
 
+	e.BPFMutex.Lock()
+	if err = e.writeHeaderfile(epdir, owner); err != nil {
+		e.BPFMutex.Unlock()
+		return fmt.Errorf("unable to write header file: %s", err)
+	}
+	ifname := e.IfName
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
-	if err = e.runInit(libdir, rundir, epdir, debug); err != nil {
+	e.Mutex.Unlock()
+	if err = JoinEP(libdir, rundir, epdir, ifname, debug); err != nil {
+		e.BPFMutex.Unlock()
+		e.Mutex.Lock()
 		return err
 	}
+	e.BPFMutex.Unlock()
+	e.Mutex.Lock()
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
 	err = lxcmap.WriteEndpoint(e)

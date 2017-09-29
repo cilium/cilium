@@ -11,7 +11,7 @@ BUILD = $(VERSION) $(shell git show -s --format='format:%h %aD') $(shell go vers
 GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
 
 # Uncomment to enable race detection
-#GOBUILD += -race
+GOBUILD += -race
 
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
