@@ -44,6 +44,8 @@ function host_ip4()
 	ip -4 addr show scope global | grep inet | head -1 | awk '{print $2}' | sed -e 's/\/.*//'
 }
 
+trap cleanup EXIT
+
 # Remove containers from a previously incomplete run
 cleanup
 
