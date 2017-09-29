@@ -22,12 +22,17 @@ import (
 
 type rule struct {
 	api.Rule
+
+	fromEntities []api.EndpointSelector
+	toEntities   []api.EndpointSelector
 }
 
 func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
+// validate has a side effect of populating the fromEntities and toEntities
+// slices to avoid superfluent map accesses
 func (r *rule) validate() error {
 	if r == nil || r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("nil rule")
@@ -38,18 +43,31 @@ func (r *rule) validate() error {
 		return fmt.Errorf("empty EndpointSelector")
 	}
 
+	// resetting entity selector slices
+	r.fromEntities = []api.EndpointSelector{}
+	r.toEntities = []api.EndpointSelector{}
 	entities := []api.Entity{}
+
+	ingressEntityCounter := 0
 	for _, rule := range r.Ingress {
 		entities = append(entities, rule.FromEntities...)
+		ingressEntityCounter += len(rule.FromEntities)
 	}
+
 	for _, rule := range r.Egress {
 		entities = append(entities, rule.ToEntities...)
 	}
 
-	for _, entity := range entities {
-		_, ok := api.EntitySelectorMapping[entity]
+	for j, entity := range entities {
+		selector, ok := api.EntitySelectorMapping[entity]
 		if !ok {
-			return fmt.Errorf("Unsupported entity: %s", entity)
+			return fmt.Errorf("unsupported entity: %s", entity)
+		}
+
+		if j < ingressEntityCounter {
+			r.fromEntities = append(r.fromEntities, selector)
+		} else {
+			r.toEntities = append(r.toEntities, selector)
 		}
 	}
 
@@ -185,10 +203,6 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		return entitiesDecision
 	}
 
-	if entitiesDecision == api.Denied {
-		return api.Denied
-	}
-
 	state.selectedRules++
 	ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
 
@@ -206,19 +220,6 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 	// separate loop is needed as failure to meet FromRequires always takes
 	// precedence over FromEndpoints
 	for _, r := range r.Ingress {
-		for _, entity := range r.FromEntities {
-			l, ok := api.EntitySelectorMapping[entity]
-			if !ok {
-				ctx.PolicyTrace("     unsupported entity found: %s, skipping", entity)
-				continue
-			}
-
-			if l.Matches(ctx.From) {
-				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entity)
-				return api.Allowed
-			}
-		}
-
 		for _, sel := range r.FromEndpoints {
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
 			if sel.Matches(ctx.From) {
@@ -230,55 +231,24 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
+	for _, entitySelector := range r.fromEntities {
+		if entitySelector.Matches(ctx.From) {
+			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
+			return api.Allowed
+		}
+
+	}
+
 	return entitiesDecision
 }
 
 func (r *rule) canReachEntities(ctx *SearchContext, state *traceState) api.Decision {
-	entitiesFound := false
-	for _, r := range r.Egress {
-		for _, entity := range r.ToEntities {
-			entitiesFound = true
-			l, ok := api.EntitySelectorMapping[entity]
-			if !ok {
-				ctx.PolicyTrace("     unsupported entity found: %s, skipping", entity)
-				continue
-			}
-
-			if l.Matches(ctx.To) {
-				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entity)
-				return api.Allowed
-			}
+	for _, entitySelector := range r.toEntities {
+		if entitySelector.Matches(ctx.To) {
+			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
+			return api.Allowed
 		}
 	}
 
-	if entitiesFound {
-		return api.Denied
-	}
 	return api.Undecided
-}
-
-func (r *rule) getEntitySelectors() []api.EndpointSelector {
-	entitiesSelectors := []api.EndpointSelector{}
-
-	for _, r := range r.Egress {
-		for _, entity := range r.ToEntities {
-			selector, ok := api.EntitySelectorMapping[entity]
-			if !ok {
-				continue
-			}
-			entitiesSelectors = append(entitiesSelectors, selector)
-		}
-	}
-
-	for _, r := range r.Ingress {
-		for _, entity := range r.FromEntities {
-			selector, ok := api.EntitySelectorMapping[entity]
-			if !ok {
-				continue
-			}
-			entitiesSelectors = append(entitiesSelectors, selector)
-		}
-	}
-
-	return entitiesSelectors
 }

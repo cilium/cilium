@@ -63,11 +63,12 @@ type Rule struct {
 	Description string `json:"description,omitempty"`
 }
 
-// Entity specifies a special entity for rules
+// Entity specifies the class of receiver/sender endpoints that do not have individual identities.
+// Entities are used to describe "outside of cluster", "host", etc.
 type Entity string
 
 const (
-	// EntityWorld is an entity that represents traffic external to endpoint environment
+	// EntityWorld is an entity that represents traffic external to endpoint's cluster
 	EntityWorld Entity = "world"
 	// EntityHost is an entity that represents traffic within endpoint host
 	EntityHost Entity = "host"
@@ -183,8 +184,8 @@ type EgressRule struct {
 	// +optional
 	ToCIDR []CIDR `json:"toCIDR,omitempty"`
 
-	// ToEntities is a list of special entities which the endpoint subject
-	// to the rule is allowed to initiate connections to. Supported entities are
+	// ToEntities is a list of special entities to which the endpoint subject
+	// to the rule is allowed to initiate connections. Supported entities are
 	// `world` and `host`
 	//
 	// +optional
