@@ -262,19 +262,19 @@ type PortRuleHTTP struct {
 // effect.
 //
 type PortRuleKafka struct {
-	// ApiVersion is an POSIX regex matched against the api version of the
+	// APIVersion is an POSIX regex matched against the api version of the
 	// Kafka message
-	ApiVersion string `json:"apiVersion,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty"`
 
 	// Topic is an POSIX regex matched against the topic of the
 	// Kafka message.
 	Topic string `json:"topic,omitempty"`
 
-	// Method is an extended POSIX regex matched against the method of a
+	// APIKey is an extended POSIX regex matched against the key of a
 	// request, e.g. "Produce", "Fetch", "CreateTopic", "DeleteTopic", ...
 	//
 	// If omitted or empty, all methods are allowed.
 	//
 	// +optional
-	ApiKey string `json:"apikey,omitempty"`
+	APIKey string `json:"apikey,omitempty"`
 }
