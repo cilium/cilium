@@ -20,7 +20,7 @@
  * Description: Standalone loadbalancer that can be attached to any
  *              net_device. Will perform a map lookup on the destination
  *              IP and optional destination port for every IPv4 and
- *              IPv6 packet recevied. If a matching entry is found, the
+ *              IPv6 packet received. If a matching entry is found, the
  *              destination address will be written to one of the
  *              configures slaves. Optionally the destination port can be
  *              mapped to a slave specific port as well. The packet is
