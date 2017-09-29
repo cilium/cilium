@@ -207,6 +207,10 @@ type L7Rules struct {
 	//
 	// +optional
 	HTTP []PortRuleHTTP `json:"http,omitempty"`
+	// Kafka specific rules.
+	//
+	// +optional
+	Kafka []PortRuleKafka `json:"kafka,omitempty"`
 }
 
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are
@@ -251,4 +255,26 @@ type PortRuleHTTP struct {
 	//
 	// +optional
 	Headers []string `json:"headers,omitempty"`
+}
+
+// PortRuleKafka is a list of Kafka protocol constraints. All fields are
+// optional, if all fields are empty or missing, the rule does not have any
+// effect.
+//
+type PortRuleKafka struct {
+	// ApiVersion is an POSIX regex matched against the api version of the
+	// Kafka message
+	ApiVersion string `json:"apiVersion,omitempty"`
+
+	// Topic is an POSIX regex matched against the topic of the
+	// Kafka message.
+	Topic string `json:"topic,omitempty"`
+
+	// Method is an extended POSIX regex matched against the method of a
+	// request, e.g. "Produce", "Fetch", "CreateTopic", "DeleteTopic", ...
+	//
+	// If omitted or empty, all methods are allowed.
+	//
+	// +optional
+	ApiKey string `json:"apikey,omitempty"`
 }

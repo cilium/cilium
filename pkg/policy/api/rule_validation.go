@@ -93,6 +93,12 @@ func (pr PortRule) Validate() error {
 		}
 	}
 
+	// Validate L7 rules
+	if pr.Rules != nil {
+		if (pr.Rules.HTTP != nil) && (pr.Rules.Kafka != nil) {
+			return fmt.Errorf("multiple rules for the same port")
+		}
+	}
 	return nil
 }
 

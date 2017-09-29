@@ -25,7 +25,8 @@ import (
 )
 
 type AuxRule struct {
-	Expr string `json:"expr"`
+	Expr   string `json:"expr"`
+	L7type string `json:"L7type"`
 }
 
 type L4Filter struct {
@@ -41,6 +42,88 @@ type L4Filter struct {
 	L7Rules []AuxRule
 	// Ingress is true if filter applies at ingress
 	Ingress bool
+}
+
+// FillPortRuleHTTP fills in the http port rule fields
+// as a regex into a single string
+func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) []AuxRule {
+	l7rules := []AuxRule{}
+	for _, h := range httpRule {
+		r := AuxRule{}
+
+		if h.Path != "" {
+			r.Expr = "PathRegexp(\"" + h.Path + "\")"
+		}
+
+		if h.Method != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "MethodRegexp(\"" + h.Method + "\")"
+		}
+
+		if h.Host != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "HostRegexp(\"" + h.Host + "\")"
+		}
+
+		for _, hdr := range h.Headers {
+			s := strings.SplitN(hdr, " ", 2)
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "Header(\""
+			if len(s) == 2 {
+				// Remove ':' in "X-Key: true"
+				key := strings.TrimRight(s[0], ":")
+				r.Expr += key + "\",\"" + s[1]
+			} else {
+				r.Expr += s[0]
+			}
+			r.Expr += "\")"
+		}
+
+		if r.Expr != "" {
+			l7rules = append(l7rules, r)
+		}
+	}
+
+	return l7rules
+}
+
+// FillPortRuleKafka fills in the Kafka port rule fields
+// as a regex into a single string
+func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) []AuxRule {
+	l7rules := []AuxRule{}
+	for _, h := range kafkaRule {
+		r := AuxRule{}
+		r.L7type = "kafka"
+
+		if h.ApiVersion != "" {
+			r.Expr = "ApiVersionRegexp(\"" + h.ApiVersion + "\")"
+		}
+
+		if h.Topic != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "TopicRegexp(\"" + h.Topic + "\")"
+		}
+
+		if h.ApiKey != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "ApiKeyRegexp(\"" + h.ApiKey + "\")"
+		}
+
+		if r.Expr != "" {
+			l7rules = append(l7rules, r)
+		}
+	}
+	return l7rules
 }
 
 // CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
@@ -59,52 +142,18 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 	}
 
 	if rule.Rules != nil {
-		l7rules := []AuxRule{}
-		for _, h := range rule.Rules.HTTP {
-			r := AuxRule{}
-
-			if h.Path != "" {
-				r.Expr = "PathRegexp(\"" + h.Path + "\")"
+		if rule.Rules.HTTP != nil {
+			l7rules := FillPortRuleHTTP(rule.Rules.HTTP)
+			if len(l7rules) > 0 {
+				l4.L7Parser = "http"
+				l4.L7Rules = l7rules
 			}
-
-			if h.Method != "" {
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "MethodRegexp(\"" + h.Method + "\")"
+		} else if rule.Rules.Kafka != nil {
+			l7rules := FillPortRuleKafka(rule.Rules.Kafka)
+			if len(l7rules) > 0 {
+				l4.L7Parser = "kafka"
+				l4.L7Rules = l7rules
 			}
-
-			if h.Host != "" {
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "HostRegexp(\"" + h.Host + "\")"
-			}
-
-			for _, hdr := range h.Headers {
-				s := strings.SplitN(hdr, " ", 2)
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "Header(\""
-				if len(s) == 2 {
-					// Remove ':' in "X-Key: true"
-					key := strings.TrimRight(s[0], ":")
-					r.Expr += key + "\",\"" + s[1]
-				} else {
-					r.Expr += s[0]
-				}
-				r.Expr += "\")"
-			}
-
-			if r.Expr != "" {
-				l7rules = append(l7rules, r)
-			}
-		}
-
-		if len(l7rules) > 0 {
-			l4.L7Parser = "http"
-			l4.L7Rules = l7rules
 		}
 	}
 

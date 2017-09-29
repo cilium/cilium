@@ -473,7 +473,8 @@ func listenSocket(address string, mark int) (net.Listener, error) {
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (*Redirect, error) {
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string,
+	source ProxySource) (*Redirect, error) {
 	transport := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           ciliumDialer,
@@ -488,8 +489,15 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return nil, err
 	}
 
-	if strings.ToLower(l4.L7Parser) != "http" {
+	if !(strings.ToLower(l4.L7Parser) == "http" ||
+		strings.ToLower(l4.L7Parser) == "kafka") {
 		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
+	}
+
+	// TODO We need to remove this once Kakfa parser and router support is in.
+	if strings.ToLower(l4.L7Parser) == "kafka" {
+		log.Debug("MK in CreateOrUpdateRedirect l4.L7Parser:..returning", l4.L7Parser)
+		return nil, fmt.Errorf("unsupported L7 protocol proxy:\"%s\"", l4.L7Parser)
 	}
 
 	for _, r := range l4.L7Rules {
