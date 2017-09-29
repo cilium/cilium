@@ -268,7 +268,7 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray, includeEntities 
 			return true
 		}
 
-		if includeEntities && len(r.getEntitySelectors()) > 0 {
+		if includeEntities && len(r.toEntities)+len(r.fromEntities) > 0 {
 			return true
 		}
 	}
