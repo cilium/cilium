@@ -473,7 +473,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		if (tuple->nexthdr == IPPROTO_UDP ||
 		    tuple->nexthdr == IPPROTO_TCP) {
 			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optonally return a proxy port number to redirect all traffic to.
+			 * optionally return a proxy port number to redirect all traffic to.
 			 */
 			if (orig_was_proxy) {
 				proxy_port = 0;
@@ -492,7 +492,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		if (tuple->nexthdr == IPPROTO_UDP ||
 		    tuple->nexthdr == IPPROTO_TCP) {
 			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optonally return a proxy port number to redirect all traffic to.
+			 * optionally return a proxy port number to redirect all traffic to.
 			 */
 			proxy_port = l4_egress_policy(skb, tuple->dport, tuple->nexthdr);
 			if (IS_ERR(proxy_port))
@@ -558,7 +558,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		    tuple->nexthdr == IPPROTO_TCP) {
 			cilium_dbg(skb, DBG_GENERIC, ct_state->orig_dport, tuple->nexthdr);
 			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optonally return a proxy port number to redirect all traffic to.
+			 * optionally return a proxy port number to redirect all traffic to.
 			 *
 			 * However when the sender _is_ the proxy we need to ensure that
 			 * we short circuit the redirect to proxy port logic. This happens
@@ -582,7 +582,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		if (tuple->nexthdr == IPPROTO_UDP ||
 		    tuple->nexthdr == IPPROTO_TCP) {
 			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optonally return a proxy port number to redirect all traffic to.
+			 * optionally return a proxy port number to redirect all traffic to.
 			 */
 			proxy_port = l4_egress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
 			if (IS_ERR(proxy_port))
