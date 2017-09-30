@@ -489,7 +489,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string,
 	}
 
 	switch l4.L7Parser {
-	case policy.HttpStr:
+	case policy.HTTPStr:
 	case policy.KafkaStr:
 		// TODO We need to remove this once Kakfa parser and router support is in.
 		log.Debug("MK in CreateOrUpdateRedirect l4.L7Parser:..returning", l4.L7Parser)

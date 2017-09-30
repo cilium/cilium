@@ -29,7 +29,10 @@ type AuxRule struct {
 	L7Parser string `json:"l7Parser"`
 }
 
-const HttpStr = "http"
+// HTTPStr for proxy type http
+const HTTPStr = "http"
+
+// KafkaStr for proxy type kafka
 const KafkaStr = "kafka"
 
 type L4Filter struct {
@@ -52,7 +55,7 @@ type L4Filter struct {
 func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) []AuxRule {
 	l7rules := []AuxRule{}
 	for _, h := range httpRule {
-		r := AuxRule{L7Parser: HttpStr}
+		r := AuxRule{L7Parser: HTTPStr}
 
 		if h.Path != "" {
 			r.Expr = "PathRegexp(\"" + h.Path + "\")"
@@ -150,7 +153,7 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 		case rule.Rules.HTTP != nil:
 			l7rules := FillPortRuleHTTP(rule.Rules.HTTP)
 			if len(l7rules) > 0 {
-				l4.L7Parser = HttpStr
+				l4.L7Parser = HTTPStr
 				l4.L7Rules = l7rules
 			}
 		case rule.Rules.Kafka != nil:
