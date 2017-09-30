@@ -25,9 +25,12 @@ import (
 )
 
 type AuxRule struct {
-	Expr   string `json:"expr"`
-	L7type string `json:"L7type"`
+	Expr     string `json:"expr"`
+	L7Parser string `json:"l7Parser"`
 }
+
+const HttpStr = "http"
+const KafkaStr = "kafka"
 
 type L4Filter struct {
 	// Port is the destination port to allow
@@ -49,7 +52,7 @@ type L4Filter struct {
 func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) []AuxRule {
 	l7rules := []AuxRule{}
 	for _, h := range httpRule {
-		r := AuxRule{}
+		r := AuxRule{L7Parser: HttpStr}
 
 		if h.Path != "" {
 			r.Expr = "PathRegexp(\"" + h.Path + "\")"
@@ -95,14 +98,15 @@ func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) []AuxRule {
 
 // FillPortRuleKafka fills in the Kafka port rule fields
 // as a regex into a single string
+// TODO The string formed is likely not the final format, and will
+// evolve as more kafka keys are supported.
 func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) []AuxRule {
 	l7rules := []AuxRule{}
 	for _, h := range kafkaRule {
-		r := AuxRule{}
-		r.L7type = "kafka"
+		r := AuxRule{L7Parser: KafkaStr}
 
-		if h.ApiVersion != "" {
-			r.Expr = "ApiVersionRegexp(\"" + h.ApiVersion + "\")"
+		if h.APIVersion != "" {
+			r.Expr = "ApiVersionRegexp(\"" + h.APIVersion + "\")"
 		}
 
 		if h.Topic != "" {
@@ -112,11 +116,11 @@ func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) []AuxRule {
 			r.Expr += "TopicRegexp(\"" + h.Topic + "\")"
 		}
 
-		if h.ApiKey != "" {
+		if h.APIKey != "" {
 			if r.Expr != "" {
 				r.Expr += " && "
 			}
-			r.Expr += "ApiKeyRegexp(\"" + h.ApiKey + "\")"
+			r.Expr += "ApiKeyRegexp(\"" + h.APIKey + "\")"
 		}
 
 		if r.Expr != "" {
@@ -142,16 +146,17 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 	}
 
 	if rule.Rules != nil {
-		if rule.Rules.HTTP != nil {
+		switch {
+		case rule.Rules.HTTP != nil:
 			l7rules := FillPortRuleHTTP(rule.Rules.HTTP)
 			if len(l7rules) > 0 {
-				l4.L7Parser = "http"
+				l4.L7Parser = HttpStr
 				l4.L7Rules = l7rules
 			}
-		} else if rule.Rules.Kafka != nil {
+		case rule.Rules.Kafka != nil:
 			l7rules := FillPortRuleKafka(rule.Rules.Kafka)
 			if len(l7rules) > 0 {
-				l4.L7Parser = "kafka"
+				l4.L7Parser = KafkaStr
 				l4.L7Rules = l7rules
 			}
 		}

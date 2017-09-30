@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -489,15 +488,14 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string,
 		return nil, err
 	}
 
-	if !(strings.ToLower(l4.L7Parser) == "http" ||
-		strings.ToLower(l4.L7Parser) == "kafka") {
-		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
-	}
-
-	// TODO We need to remove this once Kakfa parser and router support is in.
-	if strings.ToLower(l4.L7Parser) == "kafka" {
+	switch l4.L7Parser {
+	case policy.HttpStr:
+	case policy.KafkaStr:
+		// TODO We need to remove this once Kakfa parser and router support is in.
 		log.Debug("MK in CreateOrUpdateRedirect l4.L7Parser:..returning", l4.L7Parser)
 		return nil, fmt.Errorf("unsupported L7 protocol proxy:\"%s\"", l4.L7Parser)
+	default:
+		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
 	}
 
 	for _, r := range l4.L7Rules {
