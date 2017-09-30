@@ -82,6 +82,15 @@ func (e EgressRule) Validate() error {
 	return nil
 }
 
+// Validate validates L7 rules
+func (pr *L7Rules) Validate() error {
+	if (pr.HTTP != nil) && (pr.Kafka != nil) {
+		return fmt.Errorf("multiple rules for the same port")
+	}
+
+	return nil
+}
+
 // Validate validates a port policy rule
 func (pr PortRule) Validate() error {
 	if len(pr.Ports) > maxPorts {
@@ -95,8 +104,8 @@ func (pr PortRule) Validate() error {
 
 	// Validate L7 rules
 	if pr.Rules != nil {
-		if (pr.Rules.HTTP != nil) && (pr.Rules.Kafka != nil) {
-			return fmt.Errorf("multiple rules for the same port")
+		if err := pr.Rules.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil
