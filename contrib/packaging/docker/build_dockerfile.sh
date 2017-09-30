@@ -27,7 +27,15 @@ export GOPATH=/tmp/cilium-net-build && \\
 export PATH="\$GOROOT/bin:/usr/local/clang+llvm/bin:\$GOPATH/bin:\$PATH" && \\
 make clean-container build && \\
 make PKG_BUILD=1 install && \\
+
+# bash-completion-begin
+mkdir -p /root && \\
+echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc && \\
+cilium completion bash >> /root/.bashrc && \\
+# bash-completion-end
+
 groupadd -f cilium
+
 EOF
 }
 
@@ -68,7 +76,6 @@ EOF
   append_docker_install_deps
   add_golang_install_cmd
   printf %s "$(< Dockerfile)" > Dockerfile
-  local OUTPUT=' && \\'
   echo "$(cat ./Dockerfile) && \\" > Dockerfile
   add_build_cilium_cmd
 
@@ -102,7 +109,7 @@ function append_docker_install_deps {
   cat <<EOF >> ./Dockerfile
 RUN apt-get update && \\
 
-apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 iptables libgcc-5-dev binutils && \\
+apt-get install -y --no-install-recommends gcc make libelf-dev bison flex git ca-certificates libc6-dev.i386 iptables libgcc-5-dev binutils bash-completion && \\
 
 # clang-3.8.1-begin
 apt-get install -y --no-install-recommends curl xz-utils && \\
