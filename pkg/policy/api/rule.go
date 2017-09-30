@@ -62,6 +62,31 @@ type Rule struct {
 	Description string `json:"description,omitempty"`
 }
 
+// Entity specifies the class of receiver/sender endpoints that do not have individual identities.
+// Entities are used to describe "outside of cluster", "host", etc.
+type Entity string
+
+const (
+	// EntityWorld is an entity that represents traffic external to endpoint's cluster
+	EntityWorld Entity = "world"
+	// EntityHost is an entity that represents traffic within endpoint host
+	EntityHost Entity = "host"
+)
+
+// EntitySelectorMapping maps special entity names that come in policies to selectors
+var EntitySelectorMapping = map[Entity]EndpointSelector{
+	EntityWorld: NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameWorld,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	}),
+	EntityHost: NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameHost,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	}),
+}
+
 // IngressRule contains all rule types which can be applied at ingress,
 // i.e. network traffic that originates outside of the endpoint and
 // is entering the endpoint selected by the endpointSelector.
@@ -116,6 +141,13 @@ type IngressRule struct {
 	//
 	// +optional
 	FromCIDR []CIDR `json:"fromCIDR,omitempty"`
+
+	// FromEntities is a list of special entities which the endpoint subject
+	// to the rule is allowed to receive connections from. Supported entities are
+	// `world` and `host`
+	//
+	// +optional
+	FromEntities []Entity `json:"fromEntities,omitempty"`
 }
 
 // EgressRule contains all rule types which can be applied at egress, i.e.
@@ -150,6 +182,13 @@ type EgressRule struct {
 	//
 	// +optional
 	ToCIDR []CIDR `json:"toCIDR,omitempty"`
+
+	// ToEntities is a list of special entities to which the endpoint subject
+	// to the rule is allowed to initiate connections. Supported entities are
+	// `world` and `host`
+	//
+	// +optional
+	ToEntities []Entity `json:"toEntities,omitempty"`
 }
 
 // CIDR specifies a block of IP addresses.

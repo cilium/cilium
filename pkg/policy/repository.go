@@ -260,10 +260,15 @@ func (p *Repository) GetJSON() string {
 // rule with labels matching the labels in the provided LabelArray.
 //
 // Must be called with p.Mutex held
-func (p *Repository) GetRulesMatching(labels labels.LabelArray) bool {
+func (p *Repository) GetRulesMatching(labels labels.LabelArray, includeEntities bool) bool {
+
 	for _, r := range p.rules {
 		rulesMatch := r.EndpointSelector.Matches(labels)
 		if rulesMatch {
+			return true
+		}
+
+		if includeEntities && len(r.toEntities)+len(r.fromEntities) > 0 {
 			return true
 		}
 	}
