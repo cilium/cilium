@@ -161,7 +161,7 @@ rm -r tmp && \\
 # cni-end
 
 # bash-completion-begin
-mkdir /root && \\
+mkdir -p /root && \\
 echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc && \\
 cilium completion bash >> /root/.bashrc && \\
 # bash-completion-end
