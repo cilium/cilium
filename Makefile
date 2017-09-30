@@ -90,6 +90,9 @@ install:
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
+dockerfiles:
+	$(MAKE) -C ./contrib/packaging/docker dockerfiles
+
 docker-image-prod:
 	$(MAKE) -C ./contrib/packaging/docker docker-image-prod
 
