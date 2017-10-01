@@ -9,7 +9,7 @@ CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-
 LLC_FLAGS   := -march=bpf -mcpu=probe -filetype=obj
 
 BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o bpf_xdp.o
-SCRIPTS = init.sh join_ep.sh run_probes.sh
+SCRIPTS = init.sh run_probes.sh
 LIB := $(shell find ./lib -name '*.h')
 
 CLANG ?= clang

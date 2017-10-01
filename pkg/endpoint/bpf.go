@@ -16,23 +16,19 @@ package endpoint
 
 import (
 	"bufio"
-	"bytes"
-	"context"
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/geneve"
+	"github.com/cilium/cilium/pkg/loader"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -41,11 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
-)
-
-const (
-	// ExecTimeout is the execution timeout to use in join_ep.sh executions
-	ExecTimeout = 60 * time.Second
 )
 
 func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMap, config string) error {
@@ -313,31 +304,38 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 }
 
 func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
-	args := []string{libdir, rundir, epdir, ifName, debug}
-	prog := filepath.Join(libdir, "join_ep.sh")
-
 	e.Mutex.RLock()
 	scopedLog := e.getLogger() // must be called with e.Mutex held
+	dirs := loader.InfoDirectories{Library: libdir, Runtime: rundir, Output: epdir}
+	isDebug := debug == "true"
 	e.Mutex.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
-	defer cancel()
-
-	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
-
-	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-	scopedLog = scopedLog.WithField("cmd", cmd)
-	if ctx.Err() == context.DeadlineExceeded {
-		scopedLog.Error("Command execution failed: Timeout")
-		return ctx.Err()
-	}
-	if err != nil {
-		scopedLog.WithError(err).Warn("Command execution failed")
-		scanner := bufio.NewScanner(bytes.NewReader(out))
-		for scanner.Scan() {
-			log.Warn(scanner.Text())
+	// Write out assembly and preprocessing file for debugging purposes
+	if isDebug {
+		p := loader.ProgInfo{Source: "bpf_lxc.c", Output: "bpf_lxc.asm", OutputType: "asm"}
+		if err := loader.Compile(p, dirs); err != nil {
+			scopedLog.WithError(err).Warn("Failed to compile")
+			return err
 		}
-		return fmt.Errorf("error: %q command output: %q", err, out)
+		p = loader.ProgInfo{Source: "bpf_lxc.c", Output: "bpf_lxc.c", OutputType: "c"}
+		if err := loader.Preprocess(p, dirs); err != nil {
+			scopedLog.WithError(err).Warn("Failed to preprocess")
+			return err
+		}
+	}
+
+	// Compile the program
+	p := loader.ProgInfo{Source: "bpf_lxc.c", Output: "bpf_lxc.o", OutputType: "obj"}
+	if err := loader.Compile(p, dirs); err != nil {
+		scopedLog.WithError(err).Warn("Failed to compile")
+		return err
+	}
+
+	// Replace the current program
+	objPath := fmt.Sprintf("%s/bpf_lxc.o", dirs.Output)
+	if err := loader.Replace(ifName, objPath, "from-container"); err != nil {
+		scopedLog.WithError(err).Warn("Replacing program failed")
+		return err
 	}
 
 	return nil
