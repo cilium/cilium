@@ -99,7 +99,6 @@ func (kr PortRuleKafka) Validate() error {
 			fmt.Errorf("invalid Kafka APIVersion :%q",
 				kr.APIVersion)
 		}
-
 	}
 
 	if len(kr.Topic) > 0 {
