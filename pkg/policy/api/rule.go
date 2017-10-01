@@ -274,7 +274,7 @@ type PortRuleKafka struct {
 	// request, e.g. "Produce", "Fetch", "CreateTopic", "DeleteTopic", ...
 	//
 	//
-	// If omitted or empty, all methods are allowed.
+	// If omitted or empty, all keys are allowed.
 	//
 	// +optional
 	APIKey string `json:"apiKey,omitempty"`

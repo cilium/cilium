@@ -492,7 +492,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string,
 	case policy.HTTPStr:
 	case policy.KafkaStr:
 		// TODO We need to remove this once Kakfa parser and router support is in.
-		log.Debug("MK in CreateOrUpdateRedirect l4.L7Parser:..returning", l4.L7Parser)
+		log.Debug("Kafka Parser not supported yet")
 		return nil, fmt.Errorf("unsupported L7 protocol proxy:\"%s\"", l4.L7Parser)
 	default:
 		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
