@@ -29,11 +29,16 @@ type AuxRule struct {
 	L7Parser string `json:"l7Parser"`
 }
 
-// HTTPStr for proxy type http
-const HTTPStr = "http"
+// L7ParserType is the type used to indicate what L7 parser to use and
+// defines all supported types of L7 parsers
+type L7ParserType string
 
-// KafkaStr for proxy type kafka
-const KafkaStr = "kafka"
+const (
+	// ParserTypeHTTP specifies a HTTP parser type
+	ParserTypeHTTP L7ParserType = "http"
+	// ParserTypeKafka specifies a Kafka parser type
+	ParserTypeKafka L7ParserType = "kafka"
+)
 
 type L4Filter struct {
 	// Port is the destination port to allow
@@ -52,10 +57,11 @@ type L4Filter struct {
 
 // FillPortRuleHTTP fills in the http port rule fields
 // as a regex into a single string
-func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) []AuxRule {
+func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) ([]AuxRule, string) {
 	l7rules := []AuxRule{}
+	l7Parser := ""
 	for _, h := range httpRule {
-		r := AuxRule{L7Parser: HTTPStr}
+		r := AuxRule{L7Parser: string(ParserTypeHTTP)}
 
 		if h.Path != "" {
 			r.Expr = "PathRegexp(\"" + h.Path + "\")"
@@ -96,17 +102,21 @@ func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) []AuxRule {
 		}
 	}
 
-	return l7rules
+	if len(l7rules) > 0 {
+		l7Parser = string(ParserTypeHTTP)
+	}
+	return l7rules, l7Parser
 }
 
 // FillPortRuleKafka fills in the Kafka port rule fields
 // as a regex into a single string
 // TODO The string formed is likely not the final format, and will
 // evolve as more kafka keys are supported.
-func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) []AuxRule {
+func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) ([]AuxRule, string) {
 	l7rules := []AuxRule{}
+	l7Parser := ""
 	for _, h := range kafkaRule {
-		r := AuxRule{L7Parser: KafkaStr}
+		r := AuxRule{L7Parser: string(ParserTypeKafka)}
 
 		if h.APIVersion != "" {
 			r.Expr = "ApiVersionRegexp(\"" + h.APIVersion + "\")"
@@ -130,7 +140,11 @@ func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) []AuxRule {
 			l7rules = append(l7rules, r)
 		}
 	}
-	return l7rules
+
+	if len(l7rules) > 0 {
+		l7Parser = string(ParserTypeKafka)
+	}
+	return l7rules, l7Parser
 }
 
 // CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
@@ -151,17 +165,9 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 	if rule.Rules != nil {
 		switch {
 		case rule.Rules.HTTP != nil:
-			l7rules := FillPortRuleHTTP(rule.Rules.HTTP)
-			if len(l7rules) > 0 {
-				l4.L7Parser = HTTPStr
-				l4.L7Rules = l7rules
-			}
+			l4.L7Rules, l4.L7Parser = FillPortRuleHTTP(rule.Rules.HTTP)
 		case rule.Rules.Kafka != nil:
-			l7rules := FillPortRuleKafka(rule.Rules.Kafka)
-			if len(l7rules) > 0 {
-				l4.L7Parser = KafkaStr
-				l4.L7Rules = l7rules
-			}
+			l4.L7Rules, l4.L7Parser = FillPortRuleKafka(rule.Rules.Kafka)
 		}
 	}
 

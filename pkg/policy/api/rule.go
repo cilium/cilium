@@ -208,8 +208,8 @@ type L7Rules struct {
 	//
 	// +optional
 	HTTP []PortRuleHTTP `json:"http,omitempty"`
-	// Kafka-specific rules.
 
+	// Kafka-specific rules.
 	//
 	// +optional
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
@@ -288,18 +288,51 @@ type PortRuleKafka struct {
 	Topic string `json:"topic,omitempty"`
 }
 
-// KafkaProduceReq, KafkaFetchReq, KafkaCreateTopicsReq, KafkaDeleteTopicsReq
-// are the current supported list of messages for policy enforcement.
-const (
-	KafkaProduceReq      = "Produce"
-	KafkaFetchReq        = "Fetch"
-	KafkaCreateTopicsReq = "CreateTopics"
-	KafkaDeleteTopicsReq = "DeleteTopics"
-)
+// KafkaAPIKeyMap is the map of all allowed kafka API keys
+// with the key values.
+// https://kafka.apache.org/protocol#protocol_api_keys
+var KafkaAPIKeyMap = map[string]int{
+	"produce":              0,
+	"fetch":                1,
+	"offsets":              2,
+	"metadata":             3,
+	"leaderandisr":         4,
+	"stopreplica":          5,
+	"updatemetadata":       6,
+	"controlledshutdown":   7,
+	"offsetcommit":         8,
+	"offsetfetch":          9,
+	"findcoordinator":      10,
+	"joingroup":            11,
+	"heartbeat":            12,
+	"leavegroup":           13,
+	"syncgroup":            14,
+	"describegroups":       15,
+	"listgroups":           16,
+	"saslhandshake":        17,
+	"apiversions":          18,
+	"createtopics":         19,
+	"deletetopics":         20,
+	"deleterecords":        21,
+	"initproducerid":       22,
+	"offsetforleaderepoch": 23,
+	"addpartitionstotxn":   24,
+	"addoffsetstotxn":      25,
+	"endtxn":               26,
+	"writetxnmarkers":      27,
+	"txnoffsetcommit":      28,
+	"describeacls":         29,
+	"createacls":           30,
+	"deleteacls":           31,
+	"describeconfigs":      32,
+	"alterconfigs":         33,
+}
 
 // KafkaMaxTopicLen is the maximum character len of a topic.
+// Older Kafka versions had longer topic lengths of 255, in Kafka 0.10 version
+// the length was changed from 255 to 249. For compatibility using 255.
 const (
-	KafkaMaxTopicLen = 249
+	KafkaMaxTopicLen = 255
 )
 
 // KafkaTopicValidChar is a one-time regex generation of all allowed characters
