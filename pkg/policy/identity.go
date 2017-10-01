@@ -105,6 +105,11 @@ func (id *Identity) GetLabelsSHA256() string {
 	return id.LabelsSHA256
 }
 
+// StringID returns the identity identifier as string
+func (id *Identity) StringID() string {
+	return id.ID.StringID()
+}
+
 func (id *Identity) GetModel() *models.Identity {
 	if id == nil {
 		return nil

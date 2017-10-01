@@ -23,12 +23,26 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/events"
+	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/workloads/containerd"
 
-	dockerAPI "github.com/docker/engine-api/client"
 	log "github.com/sirupsen/logrus"
-	ctx "golang.org/x/net/context"
 )
+
+// cleanUpDockerDanglingEndpoints cleans all endpoints that are dandling by
+// checking out if a particular endpoint has its container running.
+func (d *Daemon) cleanUpDockerDanglingEndpoints() {
+	for _, ep := range endpointmanager.Endpoints {
+		if !containerd.IsRunning(ep) {
+			log.WithFields(log.Fields{
+				logfields.EndpointID: ep.StringID(),
+			}).Info("No workload could be associated with endpoint %d, removing endpoint")
+			d.deleteEndpoint(ep)
+		}
+	}
+}
 
 // SyncState syncs cilium state against the containers running in the host. dir is the
 // cilium's running directory. If clean is set, the endpoints that don't have its
@@ -97,13 +111,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			}
 			ep.Mutex.RLock()
 			log.Infof("Restored endpoint %d with IPs %s and %s", ep.ID, ep.IPv4.String(), ep.IPv6.String())
-			if ep.SecLabel != nil {
-				epLabels := ep.SecLabel.DeepCopy()
-				ep.Mutex.RUnlock()
-				d.events <- *events.NewEvent(events.IdentityAdd, epLabels)
-			} else {
-				ep.Mutex.RUnlock()
-			}
+			ep.Mutex.RUnlock()
 			wg <- true
 		}(ep, wg)
 	}
@@ -131,7 +139,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
 	ep.Mutex.RLock()
 	defer ep.Mutex.RUnlock()
-	err := d.AllocateIP(ep.IPv6.IP())
+	err := ipam.AllocateIP(ep.IPv6.IP())
 	if err != nil {
 		// TODO if allocation failed reallocate a new IP address and setup veth
 		// pair accordingly
@@ -140,13 +148,13 @@ func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
 
 	defer func(ep *endpoint.Endpoint) {
 		if err != nil {
-			d.ReleaseIP(ep.IPv6.IP())
+			ipam.ReleaseIP(ep.IPv6.IP())
 		}
 	}(ep)
 
 	if !d.conf.IPv4Disabled {
 		if ep.IPv4 != nil {
-			if err = d.AllocateIP(ep.IPv4.IP()); err != nil {
+			if err = ipam.AllocateIP(ep.IPv4.IP()); err != nil {
 				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)
 			}
 		}
@@ -204,9 +212,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	// Filter the restored labels with the new daemon's filter
-	d.conf.ValidLabelPrefixesMU.RLock()
-	idtyLbls, _ := d.conf.ValidLabelPrefixes.FilterLabels(ep.SecLabel.Labels)
-	d.conf.ValidLabelPrefixesMU.RUnlock()
+	idtyLbls, _ := labels.FilterLabels(ep.SecLabel.Labels)
 
 	ep.SecLabel.Labels = idtyLbls
 
@@ -237,66 +243,4 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	ep.SetIdentity(d, labels)
 
 	return nil
-}
-
-// cleanUpDockerDanglingEndpoints cleans all endpoints that are dandling by
-// checking out if a particular endpoint has its container running.
-func (d *Daemon) cleanUpDockerDanglingEndpoints() {
-	cleanUp := func(ep *endpoint.Endpoint) {
-		log.Infof("Endpoint %d not found in docker, cleaning up...", ep.ID)
-		ep.Mutex.RUnlock()
-		d.deleteEndpoint(ep)
-	}
-
-	for k := range endpointmanager.Endpoints {
-		ep := endpointmanager.Endpoints[k]
-		ep.Mutex.RLock()
-		log.Debugf("Checking if endpoint %d is running in docker", ep.ID)
-		// If we have a DockerNetworkID it means it was setup by libnetwork
-		// so the endpoint must be found in the list of networks running in
-		// docker.
-		if ep.DockerNetworkID != "" {
-			nls, err := d.dockerClient.NetworkInspect(ctx.Background(), ep.DockerNetworkID)
-			if dockerAPI.IsErrNetworkNotFound(err) {
-				cleanUp(ep)
-				continue
-			}
-			if err != nil {
-				ep.Mutex.RUnlock()
-				continue
-			}
-			found := false
-			for _, v := range nls.Containers {
-				if v.EndpointID == ep.DockerEndpointID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				cleanUp(ep)
-				continue
-			}
-			ep.Mutex.RUnlock()
-		} else if ep.DockerID != "" {
-			// If we have a docker ID, then we know the container must be
-			// running in the system.
-			cont, err := d.dockerClient.ContainerInspect(ctx.Background(), ep.DockerID)
-			if dockerAPI.IsErrContainerNotFound(err) {
-				cleanUp(ep)
-				continue
-			}
-			if err != nil {
-				ep.Mutex.RUnlock()
-				continue
-			}
-			if !cont.State.Running {
-				cleanUp(ep)
-				continue
-			}
-			ep.Mutex.RUnlock()
-		} else {
-			cleanUp(ep)
-			continue
-		}
-	}
 }

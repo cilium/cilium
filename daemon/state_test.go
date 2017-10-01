@@ -15,18 +15,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/common/addressing"
 	e "github.com/cilium/cilium/pkg/endpoint"
@@ -34,12 +29,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/workloads/containerd"
 
-	dClient "github.com/docker/engine-api/client"
-	dTypes "github.com/docker/engine-api/types"
-	dNetwork "github.com/docker/engine-api/types/network"
 	. "gopkg.in/check.v1"
 )
 
@@ -180,85 +172,10 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(len(eps), Equals, len(epsWanted))
 }
 
-// Helper function to mock docker calls
-type transportFunc func(*http.Request) (*http.Response, error)
-
-// Helper function to mock docker calls
-func (tf transportFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return tf(req)
-}
-
-// Helper function to mock docker calls
-func newMockClient(doer func(*http.Request) (*http.Response, error)) *http.Client {
-	v := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-	v.RegisterProtocol("http", transportFunc(doer))
-	return &http.Client{
-		Transport: http.RoundTripper(v),
-	}
-}
-
-// Helper function to mock docker calls to networks endpoint
-func networksMock() func(req *http.Request) (*http.Response, error) {
-	return func(req *http.Request) (*http.Response, error) {
-		if !strings.HasPrefix(req.URL.Path, "/v1.21/networks") {
-			return nil, fmt.Errorf("Only expecting /v1.21/networks requests, got %s", req.URL.Path)
-		}
-
-		header := http.Header{}
-		header.Set("Content-Type", "application/json")
-
-		body, err := json.Marshal(&dTypes.NetworkResource{
-			Name:       "12345",
-			ID:         "1234",
-			Scope:      "global",
-			Driver:     "cilium-net",
-			EnableIPv6: true,
-			IPAM:       dNetwork.IPAM{},
-			Internal:   false,
-			// this map contains all endpoints except 259
-			Containers: map[string]dTypes.EndpointResource{
-				"603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def00100256": {
-					EndpointID: "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d800200256",
-				},
-				"603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def00100257": {
-					EndpointID: "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d800200257",
-				},
-				"603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def00100258": {
-					EndpointID: "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d800100258",
-				},
-			},
-			Options: map[string]string{},
-			Labels:  map[string]string{},
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		return &http.Response{
-			StatusCode: 200,
-			Body:       ioutil.NopCloser(bytes.NewReader(body)),
-			Header:     header,
-		}, nil
-	}
-}
-
 func (ds *DaemonSuite) TestCleanUpDockerDangling(c *C) {
 	epsWanted, epsMap := createEndpoints()
-	var err error
 
-	mwc := newMockClient(networksMock())
-	ds.d.dockerClient, err = dClient.NewClient("http://127.0.0.1:2375", "v1.21", mwc, nil)
+	err := containerd.InitMock()
 	c.Assert(err, IsNil)
 
 	for _, ep := range epsWanted {
@@ -310,48 +227,4 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 	// The SecLabel ID should have been changed with the one stored in the
 	// kv store
 	c.Assert(ep2SecLabelID, Equals, ep2.SecLabel.ID)
-}
-
-func (ds *DaemonSuite) TestAllocateIP(c *C) {
-	epsWanted, _ := createEndpoints()
-
-	ep1 := epsWanted[0]
-
-	// Since the IPs we have allocated to the endpoints might or might not
-	// be in the allocrange specified in cilium, we need to specify them
-	// manually on the endpoint based on the alloc range.
-	ipv4 := nodeaddress.GetIPv4AllocRange().IP
-	nextIP(ipv4)
-	epipv4, err := addressing.NewCiliumIPv4(ipv4.String())
-	c.Assert(err, IsNil)
-
-	ipv6 := nodeaddress.GetIPv6AllocRange().IP
-	nextIP(ipv6)
-	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
-	c.Assert(err, IsNil)
-
-	// Forcefully release possible allocated IPs
-	err = ds.d.ipamConf.IPv4Allocator.Release(epipv4.IP())
-	c.Assert(err, IsNil)
-	err = ds.d.ipamConf.IPv6Allocator.Release(epipv6.IP())
-	c.Assert(err, IsNil)
-
-	ep1.IPv4 = epipv4
-	ep1.IPv6 = epipv6
-
-	// Let's allocate the IP first so we can see the tests failing
-	err = ds.d.ipamConf.IPv4Allocator.Allocate(ep1.IPv4.IP())
-	c.Assert(err, IsNil)
-
-	err = ds.d.allocateIPs(ep1)
-	c.Assert(err, Not(IsNil))
-	c.Assert(ds.d.ipamConf.IPv6Allocator.Has(ep1.IPv6.IP()), Equals, false)
-
-	err = ds.d.ipamConf.IPv4Allocator.Release(ep1.IPv4.IP())
-	c.Assert(err, IsNil)
-
-	err = ds.d.allocateIPs(ep1)
-	c.Assert(err, IsNil)
-	c.Assert(ds.d.ipamConf.IPv4Allocator.Has(ep1.IPv4.IP()), Equals, true)
-	c.Assert(ds.d.ipamConf.IPv6Allocator.Has(ep1.IPv6.IP()), Equals, true)
 }
