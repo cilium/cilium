@@ -267,6 +267,8 @@ type PortRuleKafka struct {
 	// Kafka message. It is always "0" or a string representing a
 	// positive integer.
 	//
+	// If omitted or empty, all versions are allowed.
+	//
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 
@@ -282,7 +284,13 @@ type PortRuleKafka struct {
 	// Topic is a regex matched against the topic of the
 	// Kafka message. Ignored if the matched request message type doesn't
 	// contain any topic. Maximum size of Topic can be 249 characters as
-	// per Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _
+	// per recent Kafka spec and allowed characters are
+	// a-z, A-Z, 0-9, -, . and _
+	// Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
+	// version the length was changed from 255 to 249. For compatibility
+	// reasons we are using 255
+	//
+	// If omitted or empty, all topics are allowed.
 	//
 	// +optional
 	Topic string `json:"topic,omitempty"`
@@ -292,45 +300,46 @@ type PortRuleKafka struct {
 // with the key values.
 // Reference: https://kafka.apache.org/protocol#protocol_api_keys
 var KafkaAPIKeyMap = map[string]int{
-	"produce":              0,
-	"fetch":                1,
-	"offsets":              2,
-	"metadata":             3,
-	"leaderandisr":         4,
-	"stopreplica":          5,
-	"updatemetadata":       6,
-	"controlledshutdown":   7,
-	"offsetcommit":         8,
-	"offsetfetch":          9,
-	"findcoordinator":      10,
-	"joingroup":            11,
-	"heartbeat":            12,
-	"leavegroup":           13,
-	"syncgroup":            14,
-	"describegroups":       15,
-	"listgroups":           16,
-	"saslhandshake":        17,
-	"apiversions":          18,
-	"createtopics":         19,
-	"deletetopics":         20,
-	"deleterecords":        21,
-	"initproducerid":       22,
-	"offsetforleaderepoch": 23,
-	"addpartitionstotxn":   24,
-	"addoffsetstotxn":      25,
-	"endtxn":               26,
-	"writetxnmarkers":      27,
-	"txnoffsetcommit":      28,
-	"describeacls":         29,
-	"createacls":           30,
-	"deleteacls":           31,
-	"describeconfigs":      32,
-	"alterconfigs":         33,
+	"produce":              0,  /* Produce */
+	"fetch":                1,  /* Fetch */
+	"offsets":              2,  /* Offsets */
+	"metadata":             3,  /* Metadata */
+	"leaderandisr":         4,  /* LeaderAndIsr */
+	"stopreplica":          5,  /* StopReplica */
+	"updatemetadata":       6,  /* UpdateMetadata */
+	"controlledshutdown":   7,  /* ControlledShutdown */
+	"offsetcommit":         8,  /* OffsetCommit */
+	"offsetfetch":          9,  /* OffsetFetch */
+	"findcoordinator":      10, /* FindCoordinator */
+	"joingroup":            11, /* JoinGroup */
+	"heartbeat":            12, /* Heartbeat */
+	"leavegroup":           13, /* LeaveGroup */
+	"syncgroup":            14, /* SyncGroup */
+	"describegroups":       15, /* DescribeGroups */
+	"listgroups":           16, /* ListGroups */
+	"saslhandshake":        17, /* SaslHandshake */
+	"apiversions":          18, /* ApiVersions */
+	"createtopics":         19, /* CreateTopics */
+	"deletetopics":         20, /* DeleteTopics */
+	"deleterecords":        21, /* DeleteRecords */
+	"initproducerid":       22, /* InitProducerId */
+	"offsetforleaderepoch": 23, /* OffsetForLeaderEpoch */
+	"addpartitionstotxn":   24, /* AddPartitionsToTxn */
+	"addoffsetstotxn":      25, /* AddOffsetsToTxn */
+	"endtxn":               26, /* EndTxn */
+	"writetxnmarkers":      27, /* WriteTxnMarkers */
+	"txnoffsetcommit":      28, /* TxnOffsetCommit */
+	"describeacls":         29, /* DescribeAcls */
+	"createacls":           30, /* CreateAcls */
+	"deleteacls":           31, /* DeleteAcls */
+	"describeconfigs":      32, /* DescribeConfigs */
+	"alterconfigs":         33, /* AlterConfigs */
 }
 
 // KafkaMaxTopicLen is the maximum character len of a topic.
 // Older Kafka versions had longer topic lengths of 255, in Kafka 0.10 version
-// the length was changed from 255 to 249. For compatibility using 255.
+// the length was changed from 255 to 249. For compatibility reasons we are
+// using 255
 const (
 	KafkaMaxTopicLen = 255
 )
