@@ -16,6 +16,7 @@ package api
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
+	"regexp"
 )
 
 // Rule is a policy rule which must be applied to all endpoints which match the
@@ -262,25 +263,40 @@ type PortRuleHTTP struct {
 // optional, if all fields are empty or missing, the rule does not have any
 // effect.
 type PortRuleKafka struct {
-	// APIVersion is an POSIX regex matched against the api version of the
+	// APIVersion is the version matched against the api version of the
 	// Kafka message. It is always "0" or a string representing a
 	// positive integer.
 	//
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 
-	// APIKey is an extended POSIX regex matched against the key of a
+	// APIKey is a string matched against the key of a
 	// request, e.g. "Produce", "Fetch", "CreateTopic", "DeleteTopic", ...
+	//
 	//
 	// If omitted or empty, all methods are allowed.
 	//
 	// +optional
 	APIKey string `json:"apiKey,omitempty"`
 
-	// Topic is an POSIX regex matched against the topic of the
+	// Topic is a regex matched against the topic of the
 	// Kafka message. Ignored if the matched request message type doesn't
-	// contain any topic.
+	// contain any topic. Maximum size of Topic can be 249 characters as
+	// per Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _
 	//
 	// +optional
 	Topic string `json:"topic,omitempty"`
 }
+
+const (
+	KafkaProduceReq      = "Produce"
+	KafkaFetchReq        = "Fetch"
+	KafkaCreateTopicsReq = "CreateTopics"
+	KafkaDeleteTopicsReq = "DeleteTopics"
+)
+
+const (
+	KafkaMaxTopicLen = 249
+)
+
+var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
