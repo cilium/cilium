@@ -270,9 +270,9 @@ type PortRuleKafka struct {
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 
-	// APIKey is a string matched against the key of a
-	// request, e.g. "Produce", "Fetch", "CreateTopic", "DeleteTopic", ...
-	//
+	// APIKey is a case-insensitive string matched against the key of a
+	// request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
+	// Reference: https://kafka.apache.org/protocol#protocol_api_keys
 	//
 	// If omitted or empty, all keys are allowed.
 	//
@@ -290,7 +290,7 @@ type PortRuleKafka struct {
 
 // KafkaAPIKeyMap is the map of all allowed kafka API keys
 // with the key values.
-// https://kafka.apache.org/protocol#protocol_api_keys
+// Reference: https://kafka.apache.org/protocol#protocol_api_keys
 var KafkaAPIKeyMap = map[string]int{
 	"produce":              0,
 	"fetch":                1,
