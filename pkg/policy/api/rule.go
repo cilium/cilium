@@ -288,6 +288,8 @@ type PortRuleKafka struct {
 	Topic string `json:"topic,omitempty"`
 }
 
+// KafkaProduceReq, KafkaFetchReq, KafkaCreateTopicsReq, KafkaDeleteTopicsReq
+// are the current supported list of messages for policy enforcement.
 const (
 	KafkaProduceReq      = "Produce"
 	KafkaFetchReq        = "Fetch"
@@ -295,8 +297,11 @@ const (
 	KafkaDeleteTopicsReq = "DeleteTopics"
 )
 
+// KafkaMaxTopicLen is the maximum character len of a topic.
 const (
 	KafkaMaxTopicLen = 249
 )
 
+// KafkaTopicValidChar is a one-time regex generation of all allowed characters
+// in kafka topic name.
 var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
