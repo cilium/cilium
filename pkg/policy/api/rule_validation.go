@@ -59,10 +59,18 @@ func (i IngressRule) Validate() error {
 			return err
 		}
 	}
+
 	if l := len(i.FromCIDR); l > MaxCIDREntries {
 		return fmt.Errorf("too many ingress L3 entries %d/%d", l, MaxCIDREntries)
 	}
+
 	for _, p := range i.FromCIDR {
+		if err := p.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, p := range i.FromCIDRSet {
 		if err := p.Validate(); err != nil {
 			return err
 		}
@@ -86,6 +94,12 @@ func (e EgressRule) Validate() error {
 		return fmt.Errorf("too many egress L3 entries %d/%d", l, MaxCIDREntries)
 	}
 	for _, p := range e.ToCIDR {
+		if err := p.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, p := range e.ToCIDRSet {
 		if err := p.Validate(); err != nil {
 			return err
 		}
@@ -206,6 +220,45 @@ func (cidr CIDR) Validate() error {
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {
 			return fmt.Errorf("Unable to parse CIDR: %s", err)
+		}
+	}
+
+	return nil
+}
+
+// Validate validates a CIDRRule by checking that the CIDR prefix itself is
+// valid, and ensuring that all of the exception CIDR prefixes are contained
+// within the allowed CIDR prefix.
+func (c CIDRRule) Validate() error {
+
+	// Only allow notation <IP address>/<prefix>. Note that this differs from
+	// the logic in api.CIDR.Validate().
+	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
+
+	if err != nil {
+		return err
+	}
+
+	// Returns the prefix length as zero if the mask is not continuous.
+	ones, _ := cidrNet.Mask.Size()
+	if ones == 0 {
+		return fmt.Errorf("Mask length can not be zero")
+	}
+
+	// Ensure that each provided exception CIDR prefix  is formatted correctly,
+	// and is contained within the CIDR prefix to/from which we want to allow
+	// traffic.
+	for _, p := range c.ExceptCIDRs {
+		exceptCIDRAddr, _, err := net.ParseCIDR(string(p))
+		if err != nil {
+			return err
+		}
+
+		// Note: this also checks that the allow CIDR prefix and the exception
+		// CIDR prefixes are part of the same address family.
+		if !cidrNet.Contains(exceptCIDRAddr) {
+			return fmt.Errorf("allow CIDR prefix %s does not contain "+
+				"exclude CIDR prefix %s", c.Cidr, p)
 		}
 	}
 
