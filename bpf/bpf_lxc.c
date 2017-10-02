@@ -255,13 +255,6 @@ skip_service_lookup:
 		if (IS_ERR(ret))
 			return ret;
 
-		/* After L4 write in port mapping: revalidate for direct packet access */
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip6 = data + ETH_HLEN;
-		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
-			return DROP_INVALID;
-
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
