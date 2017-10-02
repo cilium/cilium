@@ -74,27 +74,49 @@ func (r *rule) validate() error {
 	return nil
 }
 
-func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, dir string, proto string, resMap L4PolicyMap) int {
-	fmt := p.Port + "/" + proto
-	v, ok := resMap[fmt]
+func mergeL4Port(ctx *SearchContext, r api.PortRule, p api.PortProtocol, dir string, proto string, resMap L4PolicyMap) (int, error) {
+	key := p.Port + "/" + proto
+	v, ok := resMap[key]
 	if !ok {
-		resMap[fmt] = CreateL4Filter(r, p, dir, proto)
-		return 1
+		resMap[key] = CreateL4Filter(r, p, dir, proto)
+		return 1, nil
 	}
 	l4Filter := CreateL4Filter(r, p, dir, proto)
-	if l4Filter.L7Parser != "" {
+	if l4Filter.L7Parser != "" && v.L7Parser == "" {
 		v.L7Parser = l4Filter.L7Parser
+	} else if l4Filter.L7Parser != v.L7Parser {
+		ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", l4Filter.L7Parser, v.L7Parser)
+		return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", l4Filter.L7Parser, v.L7Parser)
 	}
-	if l4Filter.L7RedirectPort != 0 {
+	if l4Filter.L7RedirectPort != 0 && v.L7RedirectPort == 0 {
 		v.L7RedirectPort = l4Filter.L7RedirectPort
+	} else if l4Filter.L7RedirectPort != v.L7RedirectPort {
+		ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
+		return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
 	}
-	v.L7Rules = append(v.L7Rules, l4Filter.L7Rules...)
-	resMap[fmt] = v
-	return 1
+	switch {
+	case len(l4Filter.L7Rules.HTTP) > 0:
+		if len(v.L7Rules.Kafka) > 0 {
+			ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+			return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+		}
+		v.L7Rules.HTTP = append(v.L7Rules.HTTP, l4Filter.L7Rules.HTTP...)
+	case len(l4Filter.L7Rules.Kafka) > 0:
+		if len(v.L7Rules.HTTP) > 0 {
+			ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
+			return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
+		}
+		v.L7Rules.Kafka = append(v.L7Rules.Kafka, l4Filter.L7Rules.Kafka...)
+	default:
+		ctx.PolicyTrace("   No L7 rules to merge.\n")
+	}
+	resMap[key] = v
+	return 1, nil
 }
 
-func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4PolicyMap) int {
+func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4PolicyMap) (int, error) {
 	found := 0
+	var err error
 
 	for _, r := range portRules {
 		ctx.PolicyTrace("  Allows %s port %v\n", dir, r.Ports)
@@ -110,22 +132,36 @@ func mergeL4(ctx *SearchContext, dir string, portRules []api.PortRule, resMap L4
 		}
 
 		for _, p := range r.Ports {
+			var cnt int
 			if p.Protocol != "" {
-				found += mergeL4Port(ctx, r, p, dir, p.Protocol, resMap)
+				cnt, err = mergeL4Port(ctx, r, p, dir, p.Protocol, resMap)
+				if err != nil {
+					return found, err
+				}
+				found += cnt
 			} else {
-				found += mergeL4Port(ctx, r, p, dir, "tcp", resMap)
-				found += mergeL4Port(ctx, r, p, dir, "udp", resMap)
+				cnt, err = mergeL4Port(ctx, r, p, dir, "tcp", resMap)
+				if err != nil {
+					return found, err
+				}
+				found += cnt
+
+				cnt, err = mergeL4Port(ctx, r, p, dir, "udp", resMap)
+				if err != nil {
+					return found, err
+				}
+				found += cnt
 			}
 		}
 	}
 
-	return found
+	return found, nil
 }
 
-func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4Policy) *L4Policy {
+func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
 	if !r.EndpointSelector.Matches(ctx.To) {
 		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
-		return nil
+		return nil, nil
 	}
 
 	state.selectedRules++
@@ -134,22 +170,30 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 
 	if !ctx.EgressL4Only {
 		for _, r := range r.Ingress {
-			found += mergeL4(ctx, "Ingress", r.ToPorts, result.Ingress)
+			cnt, err := mergeL4(ctx, "Ingress", r.ToPorts, result.Ingress)
+			if err != nil {
+				return nil, err
+			}
+			found += cnt
 		}
 	}
 
 	if !ctx.IngressL4Only {
 		for _, r := range r.Egress {
-			found += mergeL4(ctx, "Egress", r.ToPorts, result.Egress)
+			cnt, err := mergeL4(ctx, "Egress", r.ToPorts, result.Egress)
+			if err != nil {
+				return nil, err
+			}
+			found += cnt
 		}
 	}
 
 	if found > 0 {
-		return result
+		return result, nil
 	}
 
 	ctx.PolicyTrace("    No L4 rules\n")
-	return nil
+	return nil, nil
 }
 
 func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {

@@ -161,8 +161,12 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.Lock()
-	newL4policy := repo.ResolveL4Policy(&ctx)
+	newL4policy, err := repo.ResolveL4Policy(&ctx)
 	defer repo.Mutex.Unlock()
+
+	if err != nil {
+		return false, err
+	}
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()

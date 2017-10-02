@@ -95,12 +95,14 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	repo.AddList(rules)
 	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
 
-	result := repo.ResolveL4Policy(&ctx)
+	result, err := repo.ResolveL4Policy(&ctx)
+	c.Assert(result, Not(IsNil))
+	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
 			"80/tcp": policy.L4Filter{
 				Port: 80, Protocol: "tcp", L7Parser: "",
-				L7RedirectPort: 0, L7Rules: []policy.AuxRule(nil),
+				L7RedirectPort: 0, L7Rules: api.L7Rules{},
 				Ingress: true,
 			},
 		},
@@ -413,7 +415,9 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
-	l4Policy := repo.ResolveL4Policy(&ctx)
+	l4Policy, err := repo.ResolveL4Policy(&ctx)
+	c.Assert(l4Policy, Not(IsNil))
+	c.Assert(err, IsNil)
 	l4Veridict := l4Policy.IngressCoversDPorts([]*models.Port{})
 	c.Assert(l4Veridict, Equals, api.Denied)
 

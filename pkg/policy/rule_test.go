@@ -131,8 +131,8 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 	}
 
-	l7rules := []AuxRule{
-		{Expr: "PathRegexp(\"/\") && MethodRegexp(\"GET\")", L7Parser: string(ParserTypeHTTP)},
+	l7rules := api.L7Rules{
+		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 
 	expected := NewL4Policy()
@@ -142,13 +142,15 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	expected.Egress["3000/udp"] = L4Filter{Port: 3000, Protocol: "udp", Ingress: false}
 
 	state := traceState{}
-	res := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 
 	state = traceState{}
-	c.Assert(rule1.resolveL4Policy(toFoo, &state, NewL4Policy()), IsNil)
+	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
+	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 }
 
