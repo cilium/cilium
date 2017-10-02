@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/loads"
+	gops "github.com/google/gops/agent"
 	go_version "github.com/hashicorp/go-version"
 	flags "github.com/jessevdk/go-flags"
 	log "github.com/sirupsen/logrus"
@@ -110,6 +111,14 @@ var RootCmd = &cobra.Command{
 }
 
 func main() {
+
+	// Open socket for using gops to get stacktraces of the agent.
+	if err := gops.Listen(gops.Options{}); err != nil {
+		errorString := fmt.Sprintf("unable to start gops: %s", err)
+		fmt.Println(errorString)
+		os.Exit(-1)
+	}
+
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
