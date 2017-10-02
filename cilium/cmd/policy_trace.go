@@ -84,7 +84,9 @@ If multiple sources and / or destinations are provided, each source is tested wh
 			}
 
 			dstSlices = append(dstSlices, dstSlice)
+		}
 
+		if len(dports) > 0 {
 			dPorts, err = parseL4PortsSlice(dports)
 			if err != nil {
 				Fatalf("Invalid destination port: %s", err)
