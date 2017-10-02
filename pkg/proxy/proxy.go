@@ -648,7 +648,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string,
 
 	log.Debugf("Created new proxy instance %+v", redir)
 
-	// The following code up until the go-routine is from manners/sever.go:ListenAndServe()
+	// The following code up until the go-routine is from manners/server.go:ListenAndServe()
 	// It was extracted in order to keep the listening on the TCP socket synchronous so that
 	// when policies are regenerated, the port is listening for connections before policy
 	// revisions get bumped for an endpoint.
