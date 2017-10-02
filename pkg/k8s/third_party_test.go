@@ -54,7 +54,8 @@ var (
 					},
 				},
 			}, {
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				ToCIDR:    []api.CIDR{"10.0.0.1"},
+				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
 	}
@@ -87,8 +88,10 @@ var (
 						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
-			}, {
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+			},
+			{
+				ToCIDR:    []api.CIDR{"10.0.0.1"},
+				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
 		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", PolicyLabelName, "rule1")),
@@ -166,7 +169,15 @@ var (
             },{
                 "toCIDR": [
                     "10.0.0.1"
-                ]
+                ],
+				"toCIDRSet": [
+					{
+						"cidr": "10.0.0.0/8",
+						"except": [
+							"10.96.0.0/12"
+						]
+					}
+				]
             }
         ]
     }`)

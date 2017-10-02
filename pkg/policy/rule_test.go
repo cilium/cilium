@@ -190,6 +190,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 					"10.1.0.0/16",
 					"2001:dbf::/64",
 				},
+				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
 	}
@@ -212,8 +213,12 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	expected.Ingress.IPv6Changed = true
 	expected.Ingress.IPv6Count = 2
 	expected.Egress.Map["10.1.0.0/16"] = net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}
+	expected.Egress.Map["10.128.0.0/9"] = net.IPNet{IP: []byte{10, 128, 0, 0}, Mask: []byte{255, 128, 0, 0}}
+	expected.Egress.Map["10.0.0.0/10"] = net.IPNet{IP: []byte{10, 0, 0, 0}, Mask: []byte{255, 192, 0, 0}}
+	expected.Egress.Map["10.64.0.0/11"] = net.IPNet{IP: []byte{10, 64, 0, 0}, Mask: []byte{255, 224, 0, 0}}
+	expected.Egress.Map["10.112.0.0/12"] = net.IPNet{IP: []byte{10, 112, 0, 0}, Mask: []byte{255, 240, 0, 0}}
 	expected.Egress.IPv4Changed = true
-	expected.Egress.IPv4Count = 1
+	expected.Egress.IPv4Count = 5
 	expected.Egress.Map["2001:dbf::/64"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}
 	expected.Egress.IPv6Changed = true
 	expected.Egress.IPv6Count = 1
@@ -229,6 +234,41 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	err = api.Rule{
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1..0/24"},
+		}},
+	}.Validate()
+	c.Assert(err, Not(IsNil))
+
+	// Test CIDRRule with no provided CIDR or ExceptionCIDR.
+	// Should fail as CIDR is required.
+	err = api.Rule{
+		Ingress: []api.IngressRule{{
+			FromCIDRSet: []api.CIDRRule{{Cidr: "", ExceptCIDRs: nil}},
+		}},
+	}.Validate()
+	c.Assert(err, Not(IsNil))
+
+	// Test CIDRRule with only CIDR provided; should not fail, as ExceptionCIDR
+	// is optional.
+	err = api.Rule{
+		Ingress: []api.IngressRule{{
+			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.0/24", ExceptCIDRs: nil}},
+		}},
+	}.Validate()
+	c.Assert(err, IsNil)
+
+	// Cannot provide just an IP to a CIDRRule; Cidr must be of format
+	// <IP>/<prefix>.
+	err = api.Rule{
+		Ingress: []api.IngressRule{{
+			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.32", ExceptCIDRs: nil}},
+		}},
+	}.Validate()
+	c.Assert(err, Not(IsNil))
+
+	// Cannot exclude a range that is not part of the CIDR.
+	err = api.Rule{
+		Ingress: []api.IngressRule{{
+			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.0.0/10", ExceptCIDRs: []api.CIDR{"10.64.0.0/11"}}},
 		}},
 	}.Validate()
 	c.Assert(err, Not(IsNil))

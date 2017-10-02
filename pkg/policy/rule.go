@@ -16,7 +16,9 @@ package policy
 
 import (
 	"fmt"
+	"net"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 	log "github.com/sirupsen/logrus"
 )
@@ -258,6 +260,30 @@ func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3Polic
 	return found
 }
 
+func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
+	var allResultantAllowedCIDRs []api.CIDR
+	for _, s := range cidrs {
+		// No need for error checking, as api.CIDRRule.Validate() already does.
+		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
+
+		var removeSubnets []*net.IPNet
+		for _, t := range s.ExceptCIDRs {
+			// No need for error checking, as api.CIDRRule.Validate() already
+			// does.
+			_, removeSubnet, _ := net.ParseCIDR(string(t))
+			removeSubnets = append(removeSubnets, removeSubnet)
+		}
+		// No need for error checking, as have already validated that none of
+		// the possible error cases can occur in ip.RemoveCIDRs
+		resultantAllowedCIDRs, _ := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
+
+		for _, u := range resultantAllowedCIDRs {
+			allResultantAllowedCIDRs = append(allResultantAllowedCIDRs, api.CIDR(u.String()))
+		}
+	}
+	return allResultantAllowedCIDRs
+}
+
 func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3Policy) *L3Policy {
 	if !r.EndpointSelector.Matches(ctx.To) {
 		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
@@ -269,10 +295,22 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	found := 0
 
 	for _, r := range r.Ingress {
-		found += mergeL3(ctx, "Ingress", r.FromCIDR, &result.Ingress)
+		// TODO (ianvernon): GH-1658
+		var allCIDRs []api.CIDR
+		allCIDRs = append(allCIDRs, r.FromCIDR...)
+
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.FromCIDRSet)...)
+
+		found += mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress)
 	}
 	for _, r := range r.Egress {
-		found += mergeL3(ctx, "Egress", r.ToCIDR, &result.Egress)
+		// TODO(ianvernon): GH-1658
+		var allCIDRs []api.CIDR
+		allCIDRs = append(allCIDRs, r.ToCIDR...)
+
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.ToCIDRSet)...)
+
+		found += mergeL3(ctx, "Egress", allCIDRs, &result.Egress)
 	}
 
 	if found > 0 {

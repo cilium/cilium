@@ -146,6 +146,11 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 				copy(retRule.Ingress[i].FromCIDR, ing.FromCIDR)
 			}
 
+			if ing.FromCIDRSet != nil {
+				retRule.Ingress[i].FromCIDRSet = make([]api.CIDRRule, len(ing.FromCIDRSet))
+				copy(retRule.Ingress[i].FromCIDRSet, ing.FromCIDRSet)
+			}
+
 			if ing.FromRequires != nil {
 				retRule.Ingress[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
 				for j, ep := range ing.FromRequires {
