@@ -96,7 +96,7 @@ func (kr PortRuleKafka) Validate() error {
 		_, err := strconv.ParseUint(kr.APIVersion, 10, 16)
 
 		if err != nil {
-			fmt.Errorf("invalid Kafka APIVersion :%q",
+			return fmt.Errorf("invalid Kafka APIVersion :%q",
 				kr.APIVersion)
 		}
 	}
