@@ -132,7 +132,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 
 	l7rules := []AuxRule{
-		{Expr: "PathRegexp(\"/\") && MethodRegexp(\"GET\")"},
+		{Expr: "PathRegexp(\"/\") && MethodRegexp(\"GET\")", L7Parser: string(ParserTypeHTTP)},
 	}
 
 	expected := NewL4Policy()

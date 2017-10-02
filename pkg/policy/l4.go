@@ -25,8 +25,20 @@ import (
 )
 
 type AuxRule struct {
-	Expr string `json:"expr"`
+	Expr     string `json:"expr"`
+	L7Parser string `json:"l7Parser"`
 }
+
+// L7ParserType is the type used to indicate what L7 parser to use and
+// defines all supported types of L7 parsers
+type L7ParserType string
+
+const (
+	// ParserTypeHTTP specifies a HTTP parser type
+	ParserTypeHTTP L7ParserType = "http"
+	// ParserTypeKafka specifies a Kafka parser type
+	ParserTypeKafka L7ParserType = "kafka"
+)
 
 type L4Filter struct {
 	// Port is the destination port to allow
@@ -41,6 +53,98 @@ type L4Filter struct {
 	L7Rules []AuxRule
 	// Ingress is true if filter applies at ingress
 	Ingress bool
+}
+
+// FillPortRuleHTTP fills in the http port rule fields
+// as a regex into a single string
+func FillPortRuleHTTP(httpRule []api.PortRuleHTTP) ([]AuxRule, string) {
+	l7rules := []AuxRule{}
+	l7Parser := ""
+	for _, h := range httpRule {
+		r := AuxRule{L7Parser: string(ParserTypeHTTP)}
+
+		if h.Path != "" {
+			r.Expr = "PathRegexp(\"" + h.Path + "\")"
+		}
+
+		if h.Method != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "MethodRegexp(\"" + h.Method + "\")"
+		}
+
+		if h.Host != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "HostRegexp(\"" + h.Host + "\")"
+		}
+
+		for _, hdr := range h.Headers {
+			s := strings.SplitN(hdr, " ", 2)
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "Header(\""
+			if len(s) == 2 {
+				// Remove ':' in "X-Key: true"
+				key := strings.TrimRight(s[0], ":")
+				r.Expr += key + "\",\"" + s[1]
+			} else {
+				r.Expr += s[0]
+			}
+			r.Expr += "\")"
+		}
+
+		if r.Expr != "" {
+			l7rules = append(l7rules, r)
+		}
+	}
+
+	if len(l7rules) > 0 {
+		l7Parser = string(ParserTypeHTTP)
+	}
+	return l7rules, l7Parser
+}
+
+// FillPortRuleKafka fills in the Kafka port rule fields
+// as a regex into a single string
+// TODO The string formed is likely not the final format, and will
+// evolve as more kafka keys are supported.
+func FillPortRuleKafka(kafkaRule []api.PortRuleKafka) ([]AuxRule, string) {
+	l7rules := []AuxRule{}
+	l7Parser := ""
+	for _, h := range kafkaRule {
+		r := AuxRule{L7Parser: string(ParserTypeKafka)}
+
+		if h.APIVersion != "" {
+			r.Expr = "ApiVersionRegexp(\"" + h.APIVersion + "\")"
+		}
+
+		if h.Topic != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "TopicRegexp(\"" + h.Topic + "\")"
+		}
+
+		if h.APIKey != "" {
+			if r.Expr != "" {
+				r.Expr += " && "
+			}
+			r.Expr += "ApiKeyRegexp(\"" + h.APIKey + "\")"
+		}
+
+		if r.Expr != "" {
+			l7rules = append(l7rules, r)
+		}
+	}
+
+	if len(l7rules) > 0 {
+		l7Parser = string(ParserTypeKafka)
+	}
+	return l7rules, l7Parser
 }
 
 // CreateL4Filter creates an L4Filter based on an api.PortRule and api.PortProtocol
@@ -59,52 +163,11 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 	}
 
 	if rule.Rules != nil {
-		l7rules := []AuxRule{}
-		for _, h := range rule.Rules.HTTP {
-			r := AuxRule{}
-
-			if h.Path != "" {
-				r.Expr = "PathRegexp(\"" + h.Path + "\")"
-			}
-
-			if h.Method != "" {
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "MethodRegexp(\"" + h.Method + "\")"
-			}
-
-			if h.Host != "" {
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "HostRegexp(\"" + h.Host + "\")"
-			}
-
-			for _, hdr := range h.Headers {
-				s := strings.SplitN(hdr, " ", 2)
-				if r.Expr != "" {
-					r.Expr += " && "
-				}
-				r.Expr += "Header(\""
-				if len(s) == 2 {
-					// Remove ':' in "X-Key: true"
-					key := strings.TrimRight(s[0], ":")
-					r.Expr += key + "\",\"" + s[1]
-				} else {
-					r.Expr += s[0]
-				}
-				r.Expr += "\")"
-			}
-
-			if r.Expr != "" {
-				l7rules = append(l7rules, r)
-			}
-		}
-
-		if len(l7rules) > 0 {
-			l4.L7Parser = "http"
-			l4.L7Rules = l7rules
+		switch {
+		case rule.Rules.HTTP != nil:
+			l4.L7Rules, l4.L7Parser = FillPortRuleHTTP(rule.Rules.HTTP)
+		case rule.Rules.Kafka != nil:
+			l4.L7Rules, l4.L7Parser = FillPortRuleKafka(rule.Rules.Kafka)
 		}
 	}
 

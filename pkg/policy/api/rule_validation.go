@@ -82,6 +82,55 @@ func (e EgressRule) Validate() error {
 	return nil
 }
 
+// Validate validates Kafka rules
+// TODO we need to add support to check
+// wildcard and prefix/suffix later on.
+func (kr PortRuleKafka) Validate() error {
+	if len(kr.APIKey) > 0 {
+		if _, ok := KafkaAPIKeyMap[strings.ToLower(kr.APIKey)]; ok == false {
+			return fmt.Errorf("invalid Kafka APIKey :%q", kr.APIKey)
+		}
+	}
+
+	if len(kr.APIVersion) > 0 {
+		_, err := strconv.ParseUint(kr.APIVersion, 10, 16)
+
+		if err != nil {
+			return fmt.Errorf("invalid Kafka APIVersion :%q",
+				kr.APIVersion)
+		}
+	}
+
+	if len(kr.Topic) > 0 {
+		if len(kr.Topic) > KafkaMaxTopicLen {
+			return fmt.Errorf("kafka topic exceeds maximum len of %d",
+				KafkaMaxTopicLen)
+		}
+		// This check allows suffix and prefix matching
+		// for topic.
+		if KafkaTopicValidChar.MatchString(kr.Topic) == false {
+			return fmt.Errorf("invalid Kafka Topic name")
+		}
+	}
+	return nil
+}
+
+// Validate validates L7 rules
+func (pr *L7Rules) Validate() error {
+	if (pr.HTTP != nil) && (pr.Kafka != nil) {
+		return fmt.Errorf("multiple L7 protocol rule types specified in single rule")
+	}
+
+	if pr.Kafka != nil {
+		for _, kafkaRules := range pr.Kafka {
+			if err := kafkaRules.Validate(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Validate validates a port policy rule
 func (pr PortRule) Validate() error {
 	if len(pr.Ports) > maxPorts {
@@ -93,6 +142,12 @@ func (pr PortRule) Validate() error {
 		}
 	}
 
+	// Validate L7 rules
+	if pr.Rules != nil {
+		if err := pr.Rules.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

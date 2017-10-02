@@ -16,6 +16,7 @@ package api
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
+	"regexp"
 )
 
 // Rule is a policy rule which must be applied to all endpoints which match the
@@ -207,6 +208,11 @@ type L7Rules struct {
 	//
 	// +optional
 	HTTP []PortRuleHTTP `json:"http,omitempty"`
+
+	// Kafka-specific rules.
+	//
+	// +optional
+	Kafka []PortRuleKafka `json:"kafka,omitempty"`
 }
 
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are
@@ -252,3 +258,92 @@ type PortRuleHTTP struct {
 	// +optional
 	Headers []string `json:"headers,omitempty"`
 }
+
+// PortRuleKafka is a list of Kafka protocol constraints. All fields are
+// optional, if all fields are empty or missing, the rule does not have any
+// effect.
+type PortRuleKafka struct {
+	// APIVersion is the version matched against the api version of the
+	// Kafka message. It is always "0" or a string representing a
+	// positive integer.
+	//
+	// If omitted or empty, all versions are allowed.
+	//
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty"`
+
+	// APIKey is a case-insensitive string matched against the key of a
+	// request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
+	// Reference: https://kafka.apache.org/protocol#protocol_api_keys
+	//
+	// If omitted or empty, all keys are allowed.
+	//
+	// +optional
+	APIKey string `json:"apiKey,omitempty"`
+
+	// Topic is a regex matched against the topic of the
+	// Kafka message. Ignored if the matched request message type doesn't
+	// contain any topic. Maximum size of Topic can be 249 characters as
+	// per recent Kafka spec and allowed characters are
+	// a-z, A-Z, 0-9, -, . and _
+	// Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
+	// version the length was changed from 255 to 249. For compatibility
+	// reasons we are using 255
+	//
+	// If omitted or empty, all topics are allowed.
+	//
+	// +optional
+	Topic string `json:"topic,omitempty"`
+}
+
+// KafkaAPIKeyMap is the map of all allowed kafka API keys
+// with the key values.
+// Reference: https://kafka.apache.org/protocol#protocol_api_keys
+var KafkaAPIKeyMap = map[string]int{
+	"produce":              0,  /* Produce */
+	"fetch":                1,  /* Fetch */
+	"offsets":              2,  /* Offsets */
+	"metadata":             3,  /* Metadata */
+	"leaderandisr":         4,  /* LeaderAndIsr */
+	"stopreplica":          5,  /* StopReplica */
+	"updatemetadata":       6,  /* UpdateMetadata */
+	"controlledshutdown":   7,  /* ControlledShutdown */
+	"offsetcommit":         8,  /* OffsetCommit */
+	"offsetfetch":          9,  /* OffsetFetch */
+	"findcoordinator":      10, /* FindCoordinator */
+	"joingroup":            11, /* JoinGroup */
+	"heartbeat":            12, /* Heartbeat */
+	"leavegroup":           13, /* LeaveGroup */
+	"syncgroup":            14, /* SyncGroup */
+	"describegroups":       15, /* DescribeGroups */
+	"listgroups":           16, /* ListGroups */
+	"saslhandshake":        17, /* SaslHandshake */
+	"apiversions":          18, /* ApiVersions */
+	"createtopics":         19, /* CreateTopics */
+	"deletetopics":         20, /* DeleteTopics */
+	"deleterecords":        21, /* DeleteRecords */
+	"initproducerid":       22, /* InitProducerId */
+	"offsetforleaderepoch": 23, /* OffsetForLeaderEpoch */
+	"addpartitionstotxn":   24, /* AddPartitionsToTxn */
+	"addoffsetstotxn":      25, /* AddOffsetsToTxn */
+	"endtxn":               26, /* EndTxn */
+	"writetxnmarkers":      27, /* WriteTxnMarkers */
+	"txnoffsetcommit":      28, /* TxnOffsetCommit */
+	"describeacls":         29, /* DescribeAcls */
+	"createacls":           30, /* CreateAcls */
+	"deleteacls":           31, /* DeleteAcls */
+	"describeconfigs":      32, /* DescribeConfigs */
+	"alterconfigs":         33, /* AlterConfigs */
+}
+
+// KafkaMaxTopicLen is the maximum character len of a topic.
+// Older Kafka versions had longer topic lengths of 255, in Kafka 0.10 version
+// the length was changed from 255 to 249. For compatibility reasons we are
+// using 255
+const (
+	KafkaMaxTopicLen = 255
+)
+
+// KafkaTopicValidChar is a one-time regex generation of all allowed characters
+// in kafka topic name.
+var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
