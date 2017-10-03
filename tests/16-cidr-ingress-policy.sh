@@ -25,6 +25,11 @@ IPV6_HOST=fdff::ff
 TIMEOUT="14"
 DROP_TIMEOUT="10"
 
+log "IPV4HOST: ${IPV4_HOST}"
+log "IPV4_OTHERHOST: ${IPV4_OTHERHOST}"
+log "IPV4_OTHERNET: ${IPV4_OTHERNET}"
+log "IPV6_HOST: ${IPV6_HOST}"
+
 function cleanup {
   ip addr del dev lo ${IPV4_HOST}/32 2> /dev/null || true
   ip addr del dev lo ${IPV6_HOST}/128 2> /dev/null || true
@@ -57,14 +62,53 @@ docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1
 IPV6_PREFIX=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPv6Gateway }}" ${HTTPD_CONTAINER_NAME})/112
 IPV4_ADDRESS=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPAddress }}" ${HTTPD_CONTAINER_NAME})
 IPV4_PREFIX=$(expr $IPV4_ADDRESS : '\([0-9]*\.[0-9]*\.\)')0.0/16
+IPV4_PREFIX_EXCEPT=$(expr $IPV4_ADDRESS : '\([0-9]*\.[0-9]*\.\)')0.0/18
+
+log "IPV6_PREFIX: ${IPV6_PREFIX}"
+log "IPV4_ADDRESS: ${IPV4_ADDRESS}"
+log "IPV4_PREFIX: ${IPV4_PREFIX}"
+log "IPV4_PREFIX_EXCEPT: ${IPV4_PREFIX_EXCEPT}"
+
+function test_cidr_except {
+  policy_delete_and_wait "--all"
+  cat <<EOF | policy_import_and_wait -
+[{
+    "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"${ID_SERVICE2}":""}}
+        ],
+        "fromCIDRSet": [ {
+            "cidr": "${IPV4_PREFIX}",
+            "except": [
+                "${IPV4_PREFIX_EXCEPT}"
+            ]
+        }
+        ]
+    }]
+}]
+EOF
+
+  log "output of cilium policy get"
+  cilium policy get
+
+  log "output of cilium endpoint list -o json"
+  cilium endpoint list -o json | python -m json.tool
+
+  policy_delete_and_wait "--all"
+}
 
 cilium config PolicyEnforcement=always
 
+log "running: ip addr add dev lo ${IPV4_HOST}/32"
 ip addr add dev lo ${IPV4_HOST}/32
+log "running: ip addr add dev lo ${IPV6_HOST}/128"
 ip addr add dev lo ${IPV6_HOST}/128
 
 policy_delete_and_wait "--all"
 wait_for_cilium_ep_gen
+
+log "listing all endpoints"
 cilium endpoint list
 
 monitor_clear
@@ -236,5 +280,7 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${D
 set -e
 
 policy_delete_and_wait "--all"
+
+test_cidr_except
 
 test_succeeded "${TEST_NAME}"
