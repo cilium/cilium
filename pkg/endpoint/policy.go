@@ -464,9 +464,6 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	repo := owner.GetPolicyRepository()
 	cache := policy.GetConsumableCache()
 
-	e.Mutex.Lock()
-	defer e.Mutex.Unlock()
-
 	repo.Mutex.Lock()
 	defer repo.Mutex.Unlock()
 

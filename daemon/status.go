@@ -21,9 +21,9 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/runtime/middleware"
-	ctx "golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/client-go/pkg/api/v1"
 )
@@ -75,11 +75,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
 	}
 
-	if _, err := d.dockerClient.Info(ctx.Background()); err != nil {
-		sr.ContainerRuntime = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
-	} else {
-		sr.ContainerRuntime = &models.Status{State: models.StatusStateOk, Msg: ""}
-	}
+	sr.ContainerRuntime = containerd.Status()
 
 	sr.Kubernetes = getK8sStatus()
 

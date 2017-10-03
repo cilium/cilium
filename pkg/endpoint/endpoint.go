@@ -1067,16 +1067,21 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 // UpdateOrchInformationLabels updates orchestration labels for the endpoint which
 // are not used in determining the security identity for the endpoint.
 func (e *Endpoint) UpdateOrchInformationLabels(l pkgLabels.Labels) {
+	e.Mutex.Lock()
 	for k, v := range l {
 		tmp := v.DeepCopy()
 		log.Debugf("Assigning orchestration information label %+v", tmp)
 		e.OpLabels.OrchestrationInfo[k] = tmp
 	}
+	e.Mutex.Unlock()
 }
 
 // UpdateOrchIdentityLabels updates orchestration labels for the endpoint which
 // are used in determining the security identity for the endpoint.
+//
+// Note: Must be called with endpoint.Mutex held!
 func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
+	e.Mutex.Lock()
 	changed := false
 
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
@@ -1100,6 +1105,7 @@ func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 	if e.OpLabels.OrchestrationIdentity.DeleteMarked() || e.OpLabels.Disabled.DeleteMarked() {
 		changed = true
 	}
+	e.Mutex.Unlock()
 
 	return changed
 }
@@ -1164,4 +1170,61 @@ func (e *Endpoint) RegenerateIfReady(owner Owner) error {
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
 	return nil
+}
+
+// SetContainerName modifies the endpoint's container name
+func (e *Endpoint) SetContainerName(name string) {
+	e.Mutex.Lock()
+	e.ContainerName = name
+	e.Mutex.Unlock()
+}
+
+// SetPodName modifies the endpoint's pod name
+func (e *Endpoint) SetPodName(name string) {
+	e.Mutex.Lock()
+	e.PodName = name
+	e.Mutex.Unlock()
+}
+
+// SetContainerID modifies the endpoint's container ID
+func (e *Endpoint) SetContainerID(id string) {
+	e.Mutex.Lock()
+	e.DockerID = id
+	e.Mutex.Unlock()
+}
+
+// GetContainerID returns the endpoint's container ID
+func (e *Endpoint) GetContainerID() string {
+	e.Mutex.RLock()
+	id := e.DockerID
+	e.Mutex.RUnlock()
+	return id
+}
+
+// GetShortContainerID returns the endpoint's shortened container ID
+func (e *Endpoint) GetShortContainerID() string {
+	return e.GetContainerID()[:10]
+}
+
+// SetDockerEndpointID modifies the endpoint's Docker Endpoint ID
+func (e *Endpoint) SetDockerEndpointID(id string) {
+	e.Mutex.Lock()
+	e.DockerEndpointID = id
+	e.Mutex.Unlock()
+}
+
+// SetDockerNetworkID modifies the endpoint's Docker Endpoint ID
+func (e *Endpoint) SetDockerNetworkID(id string) {
+	e.Mutex.Lock()
+	e.DockerNetworkID = id
+	e.Mutex.Unlock()
+}
+
+// GetDockerNetworkID returns the endpoint's Docker Endpoint ID
+func (e *Endpoint) GetDockerNetworkID() string {
+	e.Mutex.RLock()
+	id := e.DockerNetworkID
+	e.Mutex.RUnlock()
+
+	return id
 }

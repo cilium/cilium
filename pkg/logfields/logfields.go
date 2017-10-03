@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+// Package logfields defines common logging fields which are used across packages
+package logfields
 
-import log "github.com/sirupsen/logrus"
+const (
+	// EndpointID is the numeric endpoint identifier
+	EndpointID = "endpointID"
 
-func (d *Daemon) listenForCiliumEvents() {
-	go func() {
-		for {
-			newEvent := <-d.events
-			log.Debugf("New Event: %+v", newEvent)
-		}
-	}()
-}
+	// ContainerID is the container identifier
+	ContainerID = "containerID"
+
+	// IdentityLabels are the labels relevant for the security identity
+	IdentityLabels = "identityLabels"
+
+	// Identity is the identifier of a security identity
+	Identity = "identity"
+)
