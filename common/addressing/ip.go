@@ -21,7 +21,6 @@ import (
 	"net"
 	"reflect"
 
-	"github.com/cilium/cilium/common/ipam"
 	"github.com/cilium/cilium/pkg/byteorder"
 )
 
@@ -138,11 +137,6 @@ func (ip CiliumIPv6) EndpointPrefix() *net.IPNet {
 
 func (ip CiliumIPv6) IP() net.IP {
 	return net.IP(ip)
-}
-
-func (ip CiliumIPv6) IPAMReq() ipam.IPAMReq {
-	i := ip.IP()
-	return ipam.IPAMReq{IP: &i}
 }
 
 func (ip CiliumIPv6) String() string {
@@ -264,11 +258,6 @@ func (ip CiliumIPv4) IP() net.IP {
 func (ip CiliumIPv4) State() uint16 {
 	// IPv4 addresses can't carry state
 	return 0
-}
-
-func (ip CiliumIPv4) IPAMReq() ipam.IPAMReq {
-	i := ip.IP()
-	return ipam.IPAMReq{IP: &i}
 }
 
 func (ip CiliumIPv4) String() string {

@@ -12,24 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package container
+package ipam
 
 import (
 	"github.com/cilium/cilium/pkg/lock"
 
-	dTypes "github.com/docker/engine-api/types"
+	"github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
+	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
-type Container struct {
-	// Mutex internal mutex for the whole container structure
-	Mutex lock.RWMutex
-	dTypes.ContainerJSON
-}
+// Config is the IPAM configuration used for a particular IPAM type.
+type Config struct {
+	IPAMConfig    allocator.IPAMConfig
+	IPv6Allocator *ipallocator.Range
+	IPv4Allocator *ipallocator.Range
 
-// NewContainer a Container with its labels initialized.
-func NewContainer(dc *dTypes.ContainerJSON) *Container {
-	// FIXME should we calculate LabelsHash here?
-	return &Container{
-		ContainerJSON: *dc,
-	}
+	// mutex covers access to all members of this struct
+	allocatorMutex lock.RWMutex
 }

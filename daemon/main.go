@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/loads"
 	go_version "github.com/hashicorp/go-version"
@@ -90,6 +91,7 @@ var (
 	v6ServicePrefix       string
 	k8sAPIServer          string
 	k8sKubeConfigPath     string
+	dockerEndpoint        string
 )
 
 var logOpts = make(map[string]string)
@@ -271,7 +273,7 @@ func init() {
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
-	flags.StringVarP(&config.DockerEndpoint,
+	flags.StringVarP(&dockerEndpoint,
 		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
 	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
@@ -479,15 +481,8 @@ func initEnv() {
 		log.Fatalf("Unable to setup kvstore: %s", err)
 	}
 
-	if p, err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
+	if err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
 		log.Fatalf("%s", err)
-	} else {
-		config.ValidLabelPrefixes = p
-	}
-
-	log.Infof("Valid label prefix configuration:")
-	for _, l := range config.ValidLabelPrefixes.LabelPrefixes {
-		log.Infof(" - %s", l)
 	}
 
 	_, r, err := net.ParseCIDR(nat46prefix)
@@ -546,12 +541,8 @@ func runDaemon() {
 	d.nodeMonitor = &monitor.NodeMonitor{}
 	go d.nodeMonitor.Run()
 
-	sinceLastSync := time.Now()
-	d.SyncDocker()
-
-	// Register event listener in docker endpoint
-	if err := d.EnableDockerEventListener(sinceLastSync); err != nil {
-		log.Warningf("Error while enabling docker event watcher %s", err)
+	if err := containerd.EnableEventListener(); err != nil {
+		log.WithError(err).Fatal("Error while enabling containerd event watcher")
 	}
 
 	d.EnableKVStoreWatcher(30 * time.Second)
@@ -559,8 +550,6 @@ func runDaemon() {
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
 		log.Warningf("Error while enabling k8s watcher %s", err)
 	}
-
-	d.RunBackgroundContainerSync()
 
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
