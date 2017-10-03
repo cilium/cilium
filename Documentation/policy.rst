@@ -188,6 +188,19 @@ the label ``env=prod`` in order for access to be granted::
 
 .. _policy_cidr:
 
+Layer 3: Entities
+~~~~~~~~~~~~~~~~~
+
+There is an additional syntactic sugar for explicitly whitelisting ``world`` and ``host`` entities::
+
+        [{
+            "endpointSelector": {"matchLabels": {"env":"prod"}},
+            "ingress": [{
+                "fromEntities": ["world"]
+            }]
+        }]
+
+
 Layer 3: IP/CIDR based
 ======================
 
@@ -199,7 +212,7 @@ services, for example to limit external access to a particular IP range.
 
 CIDR policies can be applied at ingress and egress:
 
-:: 
+::
 
         type IngressRule struct {
                 // FromCIDR is a list of IP blocks which the endpoint subject to the
