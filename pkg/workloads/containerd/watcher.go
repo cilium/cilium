@@ -48,7 +48,39 @@ const (
 	syncRateDocker = 30 * time.Second
 
 	maxRetries = 3
+
+	eventQueueBufferSize = 100
 )
+
+// containerEvents holds per-container queues for events
+type containerEvents struct {
+	sync.Mutex
+	events map[string]chan dTypesEvents.Message
+}
+
+func (ce *containerEvents) enqueueByContainerID(e dTypesEvents.Message) {
+	ce.Lock()
+	defer ce.Unlock()
+
+	if _, found := ce.events[e.Actor.ID]; !found {
+		q := make(chan dTypesEvents.Message, eventQueueBufferSize)
+		ce.events[e.Actor.ID] = q
+		go processContainerEvents(e.Actor.ID, q)
+	}
+	ce.events[e.Actor.ID] <- e
+}
+
+func (ce *containerEvents) reapEmpty() {
+	ce.Lock()
+	defer ce.Unlock()
+
+	for id, q := range ce.events {
+		if len(q) == 0 {
+			close(q)
+			delete(ce.events, id)
+		}
+	}
+}
 
 func shortContainerID(id string) string {
 	return id[:10]
@@ -57,6 +89,7 @@ func shortContainerID(id string) string {
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
 func EnableEventListener() error {
+	eventQueue := containerEvents{events: make(map[string]chan dTypesEvents.Message)}
 	since := time.Now()
 	syncWithRuntime()
 
@@ -66,7 +99,7 @@ func EnableEventListener() error {
 		return err
 	}
 
-	go listenForDockerEvents(r)
+	go listenForDockerEvents(&eventQueue, r)
 
 	// start a go routine which periodically synchronizes containers
 	// managed by the local container runtime and checks if any of them
@@ -76,6 +109,9 @@ func EnableEventListener() error {
 		for {
 			time.Sleep(syncRateDocker)
 			syncWithRuntime()
+
+			log.Debug("Reaping empty event queues")
+			eventQueue.reapEmpty()
 		}
 	}()
 
@@ -115,7 +151,7 @@ func syncWithRuntime() {
 	wg.Wait()
 }
 
-func listenForDockerEvents(reader io.ReadCloser) {
+func listenForDockerEvents(eventQueue *containerEvents, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var e dTypesEvents.Message
@@ -127,15 +163,25 @@ func listenForDockerEvents(reader io.ReadCloser) {
 			log.WithFields(log.Fields{
 				"event":               e.Status,
 				logfields.ContainerID: shortContainerID(e.ID),
-			}).Debug("Processing container event")
-
-			// FIXME: GH-1594 build queue for each container ID
-			go processEvent(e)
+			}).Debug("Queueing container event")
+			eventQueue.enqueueByContainerID(e)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		log.Errorf("Error while reading events: %+v", err)
+	}
+}
+
+func processContainerEvents(containerID string, events chan dTypesEvents.Message) {
+	for m := range events {
+		if m.ID != "" {
+			log.WithFields(log.Fields{
+				"event":               m.Status,
+				logfields.ContainerID: shortContainerID(m.ID),
+			}).Debug("Processing event for Container")
+			processEvent(m)
+		}
 	}
 }
 
