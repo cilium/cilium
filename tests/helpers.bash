@@ -22,6 +22,9 @@ for bin in "../cilium/cilium" \
         fi
 done
 
+# Prevent Fedora rules in raw table from affecting the test.
+ip6tables -t raw -F || true
+
 function log {
   local save=$-
   set +u
