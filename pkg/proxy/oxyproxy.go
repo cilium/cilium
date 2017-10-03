@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,18 +41,17 @@ import (
 
 // OxyRedirect implements the Redirect interface for a l7 proxy
 type OxyRedirect struct {
-	mutex lock.RWMutex
-
 	id       string
-	fromPort uint16
 	toPort   uint16
 	epID     uint64
-	rules    []string
 	source   ProxySource
 	server   *manners.GracefulServer
-	router   route.Router
-	l4       policy.L4Filter // stale copy, ignore rules
+	ingress  bool
 	nodeInfo accesslog.NodeAddressInfo
+
+	mutex  lock.RWMutex // protecting the fields below
+	rules  []string
+	router route.Router
 }
 
 // ToPort returns the redirect port of an OxyRedirect
@@ -200,7 +199,7 @@ func (r *OxyRedirect) getSourceInfo(req *http.Request, srcIdentity policy.Numeri
 	}
 
 	// At egress, the local origin endpoint is the source
-	if !r.l4.Ingress {
+	if !r.ingress {
 		r.localEndpointInfo(&info)
 	} else if err == nil {
 		if srcIdentity != 0 {
@@ -228,7 +227,7 @@ func (r *OxyRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInf
 	}
 
 	// At ingress the local origin endpoint is the source
-	if r.l4.Ingress {
+	if r.ingress {
 		r.localEndpointInfo(&info)
 	} else if err == nil {
 		r.egressDestinationInfo(ipstr, &info)
@@ -458,12 +457,11 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 	}
 
 	redir := &OxyRedirect{
-		id:       id,
-		fromPort: uint16(l4.Port),
-		toPort:   to,
-		source:   source,
-		router:   route.New(),
-		l4:       *l4,
+		id:      id,
+		toPort:  to,
+		source:  source,
+		router:  route.New(),
+		ingress: l4.Ingress,
 		nodeInfo: accesslog.NodeAddressInfo{
 			IPv4: nodeaddress.GetExternalIPv4().String(),
 			IPv6: nodeaddress.GetIPv6().String(),
@@ -480,7 +478,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 			TransportProtocol: 6, // TCP's IANA-assigned protocol number
 		}
 
-		if redir.l4.Ingress {
+		if redir.ingress {
 			record.ObservationPoint = accesslog.Ingress
 		} else {
 			record.ObservationPoint = accesslog.Egress
@@ -532,7 +530,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 
 		ctx := req.Context()
 		if ctx != nil {
-			marker := GetMagicMark(redir.l4.Ingress) | int(record.SourceEndpoint.Identity)
+			marker := GetMagicMark(redir.ingress) | int(record.SourceEndpoint.Identity)
 			req = req.WithContext(newIdentityContext(ctx, marker))
 		}
 
@@ -565,11 +563,11 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 		addr = ":http"
 	}
 
-	marker := GetMagicMark(redir.l4.Ingress)
+	marker := GetMagicMark(redir.ingress)
 
 	// As ingress proxy, all replies to incoming requests must have the
 	// identity of the endpoint we are proxying for
-	if redir.l4.Ingress {
+	if redir.ingress {
 		marker |= int(source.GetIdentity())
 	}
 

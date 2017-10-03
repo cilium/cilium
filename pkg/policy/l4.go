@@ -66,9 +66,10 @@ func CreateL4Filter(rule api.PortRule, port api.PortProtocol, direction string, 
 	}
 
 	if rule.Rules != nil {
-		if len(rule.Rules.HTTP) > 0 {
+		switch {
+		case len(rule.Rules.HTTP) > 0:
 			l4.L7Parser = ParserTypeHTTP
-		} else if len(rule.Rules.Kafka) > 0 {
+		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
 		}
 		l4.L7Rules = *rule.Rules
