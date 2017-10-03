@@ -116,8 +116,11 @@ func (d *Daemon) traceL4Egress(ctx policy.SearchContext, ports []*models.Port) a
 	ctx.EgressL4Only = true
 
 	ctx.PolicyTrace("\n")
-	policy := d.policy.ResolveL4Policy(&ctx)
-	verdict := policy.EgressCoversDPorts(ports)
+	policy, err := d.policy.ResolveL4Policy(&ctx)
+	verdict := api.Undecided
+	if err == nil {
+		verdict = policy.EgressCoversDPorts(ports)
+	}
 
 	if len(ports) == 0 {
 		ctx.PolicyTrace("L4 egress verdict: [no port context specified]\n")
@@ -133,8 +136,11 @@ func (d *Daemon) traceL4Ingress(ctx policy.SearchContext, ports []*models.Port) 
 	ctx.IngressL4Only = true
 
 	ctx.PolicyTrace("\n")
-	policy := d.policy.ResolveL4Policy(&ctx)
-	verdict := policy.IngressCoversDPorts(ports)
+	policy, err := d.policy.ResolveL4Policy(&ctx)
+	verdict := api.Undecided
+	if err == nil {
+		verdict = policy.IngressCoversDPorts(ports)
+	}
 
 	if len(ports) == 0 {
 		ctx.PolicyTrace("L4 ingress verdict: [no port context specified]\n")

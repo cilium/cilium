@@ -106,8 +106,8 @@ func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 //
-// TODO: Need better rule merging on conflicting port definitions, concat l7 rules?
-func (p *Repository) ResolveL4Policy(ctx *SearchContext) *L4Policy {
+// TODO: Coalesce l7 rules?
+func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	if ctx.EgressL4Only {
@@ -120,12 +120,15 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) *L4Policy {
 
 	state := traceState{}
 	for _, r := range p.rules {
-		r.resolveL4Policy(ctx, &state, result)
+		_, err := r.resolveL4Policy(ctx, &state, result)
+		if err != nil {
+			return nil, err
+		}
 		state.ruleID++
 	}
 
 	ctx.PolicyTrace("%d rules matched\n", state.selectedRules)
-	return result
+	return result, nil
 }
 
 // ResolveL3Policy resolves the L3 policy for a set of endpoints by searching

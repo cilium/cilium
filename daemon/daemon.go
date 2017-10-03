@@ -131,12 +131,12 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 	}
 
 	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxy.ProxyKindOxy)
 	if err != nil {
 		return 0, err
 	}
 
-	return r.ToPort, nil
+	return r.ToPort(), nil
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
