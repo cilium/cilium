@@ -9,12 +9,20 @@ Bug Fixes
 ---------
 * Fixed issue where L4 policy trace would incorrectly determine that traffic
   would be rejected when the L4 policy specifies the protocol (1587_)
+* Synchronization of compilation of base and endpoint programs (1440_)
 
 Features
 --------
 * Add bash code completion (1597_)
 * L7 logging records now include additional information about the identity of
   the destination when outside of the cluster (1615_)
+* Default policy enforcement behavior for non-Kubernetes environments is now
+  the same as for Kubernetes environments; traffic is allowed by default until
+  a rule selects an endpoint (1464_)
+
+CI
+__
+* Improved CI testing infrastructure (1632_, 1624_, 1455_, 1441_, 1435_)
 
 Kubernetes
 ----------
@@ -26,14 +34,14 @@ Mesos
 
 Documentation
 -------------
-* Add here
+* Policy enforcement mode documentation (1464_)
 
 Other
 -----
 * Add new --pprof flag to serve the pprof API (1646_)
 * New builtin deadlock detection for developers. Enable this in Makefile.defs. (1648_)
 * Update Sirupsen/logrus to sirupsen/logrus (1573_)
-
+* Refactor pod annotation logic (1468_)
 
 0.11
 ====
@@ -530,3 +538,11 @@ Fixes
 .. _1180: https://github.com/cilium/cilium/pull/1180
 .. _1271: https://github.com/cilium/cilium/pull/1271
 .. _1179: https://github.com/cilium/cilium/pull/1179
+.. _1632: https://github.com/cilium/cilium/pull/1632
+.. _1624: https://github.com/cilium/cilium/pull/1624
+.. _1455: https://github.com/cilium/cilium/pull/1455
+.. _1441: https://github.com/cilium/cilium/pull/1441
+.. _1435: https://github.com/cilium/cilium/pull/1435
+.. _1464: https://github.com/cilium/cilium/pull/1464
+.. _1440: https://github.com/cilium/cilium/pull/1440
+.. _1468: https://github.com/cilium/cilium/pull/1468
