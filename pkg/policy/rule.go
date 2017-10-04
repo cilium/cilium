@@ -359,7 +359,7 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 					ctx.PolicyTrace("+       No L4 restrictions; allowing\n")
 					return api.Allowed
 				}
-				ctx.PolicyTrace("        Restricted to specific L4 destinations; skip during Label stage\n")
+				ctx.PolicyTrace("        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage\n")
 			} else {
 				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
 			}

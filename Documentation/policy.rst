@@ -726,9 +726,9 @@ endpoint with the label ``id.http`` on port 80:
     * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
         Allows from labels {"matchLabels":{"any:id.curl":""}}
           Found all required labels
-            Restricted to specific L4 destinations; skip during Label stage
+            Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
     1 rules matched
-    Label verdict: allowed
+    Label verdict: undecided
 
     Resolving egress port policy for [container:id.curl]
     * Rule 0 {"matchLabels":{"any:id.curl":""}}: match
@@ -742,7 +742,7 @@ endpoint with the label ``id.http`` on port 80:
     1 rules matched
     L4 ingress verdict: allowed
 
-    Verdict: allowed
+    Verdict: ALLOWED
 
 .. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 
