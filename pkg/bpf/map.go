@@ -118,7 +118,7 @@ type Map struct {
 }
 
 func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32) *Map {
-	return &Map{
+	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
 			KeySize:       uint32(keySize),
@@ -127,8 +127,10 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 			Flags:         flags,
 			OwnerProgType: ProgTypeUnspec,
 		},
-		name: name,
+		name: path.Base(name),
 	}
+	m.setPathIfUnset()
+	return m
 }
 
 // WithNonPersistent turns the map non-persistent and returns the map
@@ -139,6 +141,15 @@ func (m *Map) WithNonPersistent() *Map {
 
 func (m *Map) GetFd() int {
 	return m.fd
+}
+
+// DeepEquals compares the current map against another map to see that the
+// attributes of the two maps are the same.
+func (m *Map) DeepEquals(other *Map) bool {
+	return m.MapInfo == other.MapInfo &&
+		m.name == other.name &&
+		m.path == other.path &&
+		m.NonPersistent == other.NonPersistent
 }
 
 func GetMapInfo(pid int, fd int) (*MapInfo, error) {
@@ -353,6 +364,7 @@ func (m *Map) Close() error {
 
 type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
 type DumpCallback func(key MapKey, value MapValue)
+type MapValidator func(path string) (bool, error)
 
 func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 	m.lock.RLock()
