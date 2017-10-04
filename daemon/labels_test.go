@@ -87,7 +87,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
-	os.RemoveAll(ds.d.conf.RunDir)
+	if ds.d != nil {
+		os.RemoveAll(ds.d.conf.RunDir)
+	}
 }
 
 func (ds *DaemonSuite) TestLabels(c *C) {
