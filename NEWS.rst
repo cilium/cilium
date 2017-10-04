@@ -25,6 +25,9 @@ Features
   the same as for Kubernetes environments; traffic is allowed by default until
   a rule selects an endpoint (1464_)
 * Support L3-dependent L4 policies on ingress (1599_, 1496_, 1217_, 1064_, 789_)
+* Add new fields to Ingress and Egress rules for CiliumNetworkPolicy called
+FromCIDR and ToCIDR. These are lists of CIDR prefixes to whitelist along with
+a list of CIDR prefixes for each CIDR prefix to blacklist. (TODO_) 
 
 CI
 __
@@ -44,6 +47,7 @@ Documentation
 -------------
 
 * Policy enforcement mode documentation (1464_)
+* Updated L3 CIDR policy documentation (TODO_)
 
 Other
 -----

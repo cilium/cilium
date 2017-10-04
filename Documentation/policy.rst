@@ -217,7 +217,9 @@ CIDR policies can be applied at ingress and egress:
         type IngressRule struct {
                 // FromCIDR is a list of IP blocks which the endpoint subject to the
                 // rule is allowed to receive connections from in addition to FromEndpoints.
-                // This will match on the source IP address of incoming connections.
+                // This will match on the source IP address of incoming connections. Adding
+                // a prefix into FromCIDR or into FromCIDRSet with no ExcludeCIDRs is
+                // equivalent. Overlaps are allowed between FromCIDR and FromCIDRSet.
                 //
                 // Example:
                 // Any endpoint with the label "app=my-legacy-pet" is allowed to receive
@@ -225,7 +227,21 @@ CIDR policies can be applied at ingress and egress:
                 //
                 // +optional
                 FromCIDR []CIDR `json:"fromCIDR,omitempty"`
-
+                
+                // FromCIDRSet is a list of IP blocks which the endpoint subject to the
+                // rule is allowed to receive connections from in addition to FromEndpoints,
+                // along with a list of subnets contained within their corresponding IP block
+                // from which traffic should not be allowed.
+                // This will match on the source IP address of incoming connections. Adding
+                // a prefix into FromCIDR or into FromCIDRSet with no ExcludeCIDRs is
+                // equivalent. Overlaps are allowed between FromCIDR and FromCIDRSet.
+                //
+                // Example:
+                // Any endpoint with the label "app=my-legacy-pet" is allowed to receive
+                // connections from 10.0.0.0/8 except from IPs in subnet 10.96.0.0/12.
+                //
+                // +optional
+                FromCIDRSet []CIDRRule `json:"fromCIDRSet,omitempty"
                 // [...]
         }
 
@@ -233,7 +249,9 @@ CIDR policies can be applied at ingress and egress:
                 // ToCIDR is a list of IP blocks which the endpoint subject to the rule
                 // is allowed to initiate connections to in addition to connections
                 // which are allowed via FromEndpoints. This will match on the
-                // destination IP address of outgoing connections.
+                // destination IP address of outgoing connections. Adding a prefix into
+                // ToCIDR or into ToCIDRSet with no ExcludeCIDRs is equivalent. Overlaps
+                // are allowed between ToCIDR and ToCIDRSet.
                 //
                 // Example:
                 // Any endpoint with the label "app=database-proxy" is allowed to
@@ -241,17 +259,40 @@ CIDR policies can be applied at ingress and egress:
                 //
                 // +optional
                 ToCIDR []CIDR `json:"toCIDR,omitempty"`
-
+                
+                // ToCIDRSet is a list of IP blocks which the endpoint subject to the rule
+                // is allowed to initiate connections to in addition to connections
+                // which are allowed via FromEndpoints, along with a list of subnets contained
+                // within their corresponding IP block to which traffic should not be
+                // allowed. This will match on the destination IP address of outgoing
+                // connections. Adding a prefix into ToCIDR or into ToCIDRSet with no
+                // ExcludeCIDRs is equivalent. Overlaps are allowed between ToCIDR and
+                // ToCIDRSet.
+                //
+                // Example:
+                // Any endpoint with the label "app=database-proxy" is allowed to
+                // initiate connections to 10.2.3.0/24 except from IPs in subnet 10.2.3.0/28.
+                //
+                // +optional
+                ToCIDRSet []CIDRRule `json:"toCIDRSet,omitempty"`
                 // [...]
         }
 
 
 fromCIDR
-  List of source prefixes/CIDRs that are allowed to talk to all endpoint
+  List of source prefixes/CIDRs that are allowed to talk to all endpoints
   selected by the ``endpointSelector``. Note that this list is **in addition**
   to the ``fromEndpoints`` specified. It is not required to allow the IPs of
   endpoints if the endpoints are already allowed to communicate based on
   ``fromEndpoints`` rules.
+
+fromCIDRSet
+  List of source prefixes/CIDRs that are allowed to talk to all endpoints
+  selected by the ``endpointSelector``, along with an optional list of
+  prefixes/CIDRs per source prefix/CIDR that are subnets of the source
+  prefix/CIDR from which communication is not allowed. Like ``fromCIDR``
+  it is not required to list the IPs of endpoints if the endpoints are
+  already allowed to communicate based on ``fromEndpoints`` rules.
 
 toCIDR:
   List of destination prefixes/CIDRs that endpoints selected by
@@ -260,11 +301,20 @@ toCIDR:
   respective destination endpoints. It is not required to list the IP of
   destination endpoints.
 
+toCIDRSet
+  List of destination prefixes/CIDRs that are allowed to talk to all endpoints
+  selected by the ``endpointSelector``, along with an optional list of
+  prefixes/CIDRs per source prefix/CIDR that are subnets of the destination
+  prefix/CIDR to which communication is not allowed. Like toCIDR, it is not
+  required to list the IPs of destination endpoints if they are already
+  selected by a ``fromEndpoints``.
+
 Example
 -------
 
 This example shows how to allow all endpoints with the label ``app=myService``
-to talk to the external IP ``20.1.1.1``
+to talk to the external IP ``20.1.1.1``, as well as the CIDR prefix ``10.0.0.0/8``,
+but not CIDR prefix ``10.96.0.0/12``
 
 ::
 
@@ -273,6 +323,12 @@ to talk to the external IP ``20.1.1.1``
             "egress": [{
                 "toCIDR": [
                     "20.1.1.1/32"
+                ],
+                "toCIDRSet": [{
+                    "cidr": "10.0.0.0/8",
+                    "except": [
+                        "10.96.0.0/12"
+                    ]}
                 ]
             }]
         }]
