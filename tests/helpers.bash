@@ -42,6 +42,26 @@ function log {
   restore_flag $save "u"
 }
 
+# Usage: overwrite $iter 'commands --option --foo bar "quoted args" '
+# Executes the commands provided as parameters, moves the cursor back by the
+# number of lines output by the command, then prints the output of the command.
+# If $iter is zero, then the cursor is not moved; this is equivalent to
+# 'shift; eval "$@"'.
+function overwrite {
+  local iter=$1
+  shift
+
+  local output=$(eval "$@")
+  if [ ! -z $TERM ] && [ $iter -ne 0 ]; then
+    local ERASER=$(tput cuu1 ; tput el)
+    local n_lines=$(echo "$output" | wc -l)
+    for i in $(seq 1 $n_lines); do
+      echo -ne "$ERASER"
+    done
+  fi
+  echo "$output"
+}
+
 function get_filename_without_extension {
   check_num_params "$#" "1"
   local file=$(basename $1)
@@ -211,15 +231,17 @@ function wait_for_k8s_endpoints {
       restore_flag $save "e"
       exit 1
     else
-      kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list
-      echo -n " [${found}/${NUM}]"
+      overwrite $iter '
+        kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list
+        echo -n " [${found}/${NUM}]""
+      '
       sleep $sleep_time
     fi
     found=$(k8s_num_ready "${NAMESPACE}" "${CILIUM_POD}" "${FILTER}")
     log "found: $found"
   done
 
-  kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list
+  overwrite $iter 'kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list'
   restore_flag $save "e"
 }
 
@@ -295,14 +317,16 @@ function wait_for_cilium_ep_gen {
         log "${ERROR_OUTPUT}"
         exit 1
       else
-        log "still within time limit for waiting for endpoints to be in 'ready' state; sleeping and checking again"
-        log "output of ${INFO_CMD}"
-        eval "$INFO_CMD"
-        echo -n " [$found/$NUM_DESIRED]"
-        # If command fails and iter is non-zero, reset iter back to zero.
-        log "setting command counter to zero"
-        check_cmd_iter=0
-        log "sleeping for $sleep_time"
+        overwrite $total_cmd_iter '
+          log "still within time limit for waiting for endpoints to be in 'ready' state; sleeping and checking again"
+          log "output of ${INFO_CMD}"
+          eval "$INFO_CMD"
+          echo -n " [$found/$NUM_DESIRED]"
+          # If command fails and iter is non-zero, reset iter back to zero.
+          log "setting command counter to zero"
+          log "sleeping for $sleep_time"
+        '
+        check_cmd_iter=0; \
         sleep $sleep_time
       fi
       log "evaluating $CMD"
@@ -337,14 +361,14 @@ function wait_for_daemon_set_not_ready {
       print_k8s_cilium_logs
       exit 1
     else
-      kubectl -n ${namespace} get pods -o wide
+      overwrite $iter 'kubectl -n ${namespace} get pods -o wide'
       sleep $sleep_time
     fi
     kubectl get pods -n ${namespace} | grep ${name} -q
     found=$?
   done
 
-  kubectl -n kube-system get pods -o wide
+  overwrite 'kubectl -n kube-system get pods -o wide'
   restore_flag $save "e"
 }
 
@@ -404,14 +428,16 @@ function wait_for_n_running_pods {
       log "Timeout while waiting for $NPODS running pods"
       exit 1
     else
-      kubectl get pod -o wide
-      echo -n " [${found}/${NPODS}]"
+      overwrite $iter '
+        kubectl get pod -o wide
+        echo -n " [${found}/${NPODS}]"
+      '
       sleep $sleep_time
     fi
     found=$(kubectl get pod | grep Running -c || true)
   done
 
-  kubectl get pod -o wide
+  overwrite 'kubectl get pod -o wide'
   restore_flag $save "e"
 }
 
@@ -432,13 +458,15 @@ function wait_for_healthy_k8s_cluster {
       log "Timeout while waiting for healthy kubernetes cluster"
       exit 1
     else
-      kubectl get cs
-      log "K8S Components ready: [${found}/3]"
+      overwrite $iter '
+        kubectl get cs
+        log "K8S Components ready: [${found}/3]"
+      '
       sleep $sleep_time
     fi
     found=$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")
   done
-  kubectl get cs
+  overwrite 'kubectl get cs'
   local iter=0
   local found
   found=$(kubectl get nodes | grep Ready -c)
@@ -448,8 +476,10 @@ function wait_for_healthy_k8s_cluster {
       log "Timeout while waiting for all nodes to be Ready"
       exit 1
     else
-      kubectl get nodes
-      log "Nodes ready [${found}/${NNODES}]"
+      overwrite $iter '
+        kubectl get nodes
+        log "Nodes ready [${found}/${NNODES}]"
+      '
       sleep $sleep_time
     fi
     found=$(kubectl get nodes | grep Ready -c)
@@ -472,8 +502,10 @@ function k8s_nodes_policy_status {
       log "Timeout while waiting for $NNODES to have policy ${policy_ns}/${policy_name} installed"
       exit 1
     else
-      kubectl get nodes
-      log "Nodes with policy accepted [${found}/${NNODES}]"
+      overwrite $iter '
+        kubectl get nodes
+        log "Nodes with policy accepted [${found}/${NNODES}]"
+      '
       sleep $sleep_time
     fi
     found=$(kubectl get nodes | grep Ready -c)
@@ -620,14 +652,16 @@ function wait_for_daemon_set_ready {
       print_k8s_cilium_logs
       exit 1
     else
-      kubectl -n kube-system get ds
-      kubectl -n kube-system get pods -o wide
-      echo -n " [${found}/${n_ds_expected}]"
+      overwrite $iter '
+        kubectl -n kube-system get ds
+        kubectl -n kube-system get pods -o wide
+        echo -n " [${found}/${n_ds_expected}]"
+      '
       sleep $sleep_time
     fi
     found=$(kubectl get ds -n ${namespace} ${name} 2>&1 | awk 'NR==2{ print $4 }')
   done
-  kubectl -n kube-system get pods -o wide
+  overwrite 'kubectl -n kube-system get pods -o wide'
   restore_flag $save "e"
 }
 
@@ -926,9 +960,11 @@ function wait_for_desired_state {
       log "$ERROR_OUTPUT"
       exit 1
     else
-      log "desired state not realized; will sleep and try again"
-      eval "$INFO_CMD"
-      echo -n " [$found/$NUM_DESIRED]"
+      overwrite $iter '
+        log "desired state not realized; will sleep and try again"
+        eval "$INFO_CMD"
+        echo -n " [$found/$NUM_DESIRED]"
+      '
       sleep $sleep_time
     fi
     found=$(eval "${CMD}")
@@ -963,12 +999,14 @@ function wait_specified_time_test {
  
   log "waiting for at most ${MAX_MINS} minutes for command ${CMD} to succeed"
   while [[ "${iter}" -lt $((${MAX_MINS}*60/$sleep_time)) ]]; do
-    log "${iter} < $((${MAX_MINS}*60/$sleep_time)) "
     if eval "${CMD}" ; then
       log "${CMD} succeeded"
       break
     fi
-    log "${CMD} did not succeed; sleeping and testing the command again"
+    overwrite $iter '
+      log "${iter} < $((${MAX_MINS}*60/$sleep_time)) "
+      log "${CMD} did not succeed; sleeping and testing the command again"
+    '
     sleep ${sleep_time}
     iter=$((iter+1))
   done
