@@ -72,6 +72,12 @@ const (
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
 func CreateConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+	// If the endpoint and the kubeCfgPath are empty then we can try getting
+	// the rest.Config from the InClusterConfig
+	if endpoint == "" && kubeCfgPath == "" {
+		return rest.InClusterConfig()
+	}
+
 	if kubeCfgPath != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
 	}
