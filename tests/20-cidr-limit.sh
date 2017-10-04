@@ -16,11 +16,9 @@ function cleanup() {
   gather_files 20-cidr-limit ${TEST_SUITE}
   docker rm -f id.service2 2> /dev/null || true
   cilium policy delete --all 2> /dev/null || true
-  # FIXME: use daemon cleanup flag when implemented,
-  # GH-979 (Provide a cilium-agent flag to clean all state data)
   systemctl stop cilium
-  rm -r /sys/fs/bpf/tc/globals/ 2> /dev/null
-  rm -r /var/run/cilium/state/ 2> /dev/null
+  wait_for_cilium_shutdown
+  cilium cleanup -f
   systemctl start cilium
 }
 
