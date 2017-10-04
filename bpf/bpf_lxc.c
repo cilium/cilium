@@ -247,7 +247,6 @@ skip_service_lookup:
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple->dport,
@@ -255,13 +254,6 @@ skip_service_lookup:
 						 forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
-
-		/* After L4 write in port mapping: revalidate for direct packet access */
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip6 = data + ETH_HLEN;
-		if (data + sizeof(*ip6) + ETH_HLEN > data_end)
-			return DROP_INVALID;
 
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
@@ -363,7 +355,6 @@ skip_service_lookup:
 to_host:
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
@@ -574,7 +565,6 @@ skip_service_lookup:
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple.dport,
@@ -676,7 +666,6 @@ skip_service_lookup:
 to_host:
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		int ret;
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 

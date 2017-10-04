@@ -220,7 +220,7 @@ enum {
 
 /* Magic skb->mark markers which identify packets originating from the proxy
  *
- * The uppper 16 bits contain the magic marker values which indicate whether
+ * The upper 16 bits contain the magic marker values which indicate whether
  * the packet is coming from an ingress or egress proxy.
  *
  * The lower 16 bits may contain the security identity of the original source
@@ -249,8 +249,7 @@ static inline int __inline__ mark_is_from_proxy(struct __sk_buff *skb)
 		return SOURCE_INGRESS_PROXY;
 	else if (magic == MARK_MAGIC_PROXY_EGRESS)
 		return SOURCE_EGRESS_PROXY;
-	else
-		return 0;
+	return 0;
 }
 
 /**
