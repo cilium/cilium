@@ -16,6 +16,7 @@
 package k8s
 
 import (
+	"os"
 	"strings"
 )
 
@@ -49,12 +50,17 @@ func Configure(apiServer, kubeconfigPath string) {
 	config.APIServer = apiServer
 	config.KubeconfigPath = kubeconfigPath
 
-	if IsEnabled() && !strings.HasPrefix(apiServer, "http") {
+	if IsEnabled() &&
+		config.APIServer != "" &&
+		!strings.HasPrefix(apiServer, "http") {
 		config.APIServer = "http://" + apiServer
 	}
 }
 
 // IsEnabled checks if Cilium is being used in tandem with Kubernetes.
 func IsEnabled() bool {
-	return config.APIServer != "" || config.KubeconfigPath != ""
+	return config.APIServer != "" ||
+		config.KubeconfigPath != "" ||
+		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
+			os.Getenv("KUBERNETES_SERVICE_PORT") != "")
 }
