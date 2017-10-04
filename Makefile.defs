@@ -11,10 +11,10 @@ BUILD = $(VERSION) $(shell git show -s --format='format:%h %aD') $(shell go vers
 GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
 
 # Uncomment to enable race detection
-#GOBUILD += -race
+GOBUILD += -race
 
 # Uncomment to enable deadlock detection
-#GOBUILD += -tags lockdebug
+GOBUILD += -tags lockdebug
 
 ifneq ($(LOCKDEBUG),)
     GOBUILD += -tags lockdebug
