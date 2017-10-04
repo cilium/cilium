@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -54,7 +55,7 @@ const (
 
 // containerEvents holds per-container queues for events
 type containerEvents struct {
-	sync.Mutex
+	lock.Mutex
 	events map[string]chan dTypesEvents.Message
 }
 
