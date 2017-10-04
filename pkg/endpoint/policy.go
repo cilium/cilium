@@ -130,9 +130,12 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	c := e.Consumable
 
-	// Containers without a security label are not accessible
+	// Endpoints without a security label are not accessible
 	if c.ID == 0 {
-		log.Fatalf("[%s] BUG: Endpoints lacks identity", e.PolicyID())
+		log.WithFields(log.Fields{
+			logfields.EndpointID: e.StringID(),
+		}).Warning("Endpoint lacks identity, skipping policy calculation")
+
 		return false, nil
 	}
 
