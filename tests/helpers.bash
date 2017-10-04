@@ -1092,3 +1092,15 @@ function ping_success {
     abort "Error: Could not ping ${C2} from ${C1}"
   }
 } 
+
+function wait_for_cilium_shutdown {
+  i=0
+  while [[ -f /var/run/cilium/cilium.pid ]]; do
+    micro_sleep
+    if [[ ${i} -ge 120 ]]; then
+      log "Timeout while waiting for Cilium to shutdown"
+      exit 1
+    fi
+    ((i++))
+  done
+}
