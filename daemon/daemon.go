@@ -952,7 +952,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 func (d *Daemon) validateExistingMaps() error {
 	walker := func(path string, _ os.FileInfo, _ error) error {
-		return d.mapValidateWalker(path)
+		return mapValidateWalker(path)
 	}
 
 	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
@@ -1045,7 +1045,7 @@ func (d *Daemon) staleMapWalker(path string) error {
 	return nil
 }
 
-func (d *Daemon) mapValidateWalker(path string) error {
+func mapValidateWalker(path string) error {
 	prefixToValidator := map[string]bpf.MapValidator{
 		policymap.MapName: policymap.Validate,
 	}
