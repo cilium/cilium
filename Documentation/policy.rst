@@ -413,6 +413,46 @@ only be able to emit packets using TCP on port 80::
             }]
         }
 
+Example (Combining Labels + L4)
+-------------------------------
+
+This example enables all endpoints with the label ``role=frontend`` to
+communicate with all endpoints with the label ``role=backend``, but they must
+communicate using using TCP on port 80::
+
+        {
+            "endpointSelector": {"matchLabels":{"role":"backend"}},
+            "ingress": [{
+                "fromEndpoints": [
+                  {"matchLabels":{"role":"frontend"}}
+                ],
+                "toPorts": [
+                    {"port": "80", "protocol": "tcp"}
+                ]
+            }]
+        }
+
+Example (Multiple Rules with Labels, L4)
+----------------------------------------
+
+This example is similar to the previous, but rather than restricting
+communication to only endpoints communicating over TCP on port 80 from
+``role=frontend``, it allows all traffic from endpoints with the label
+``role=frontend`` to reach ``role=backend``, *as well as* traffic from any
+endpoint that is communicating over TCP on port 80::
+
+        {
+            "endpointSelector": {"matchLabels":{"role":"backend"}},
+            "ingress": [{
+                "fromEndpoints": [
+                  {"matchLabels":{"role":"frontend"}}
+                ]
+              }, {
+                "toPorts": [
+                    {"port": "80", "protocol": "tcp"}
+                ]
+            }]
+        }
 
 Layer 7 - HTTP
 ==============
