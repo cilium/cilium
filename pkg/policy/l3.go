@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // L3PolicyMap is a list of CIDR filters indexable by address/prefixlen
@@ -175,4 +176,18 @@ func (l3 *L3Policy) GetModel() *models.CIDRPolicy {
 		Ingress: ingress,
 		Egress:  egress,
 	}
+}
+
+// Validate returns error if the L3 policy might lead to code generation failure
+func (l3 *L3Policy) Validate() error {
+	if l3 == nil {
+		return nil
+	}
+	if l := len(l3.Egress.Map); l > api.MaxCIDREntries {
+		return fmt.Errorf("too many egress L3 entries %d/%d", l, api.MaxCIDREntries)
+	}
+	if l := len(l3.Ingress.Map); l > api.MaxCIDREntries {
+		return fmt.Errorf("too many ingress L3 entries %d/%d", l, api.MaxCIDREntries)
+	}
+	return nil
 }

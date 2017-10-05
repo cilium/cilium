@@ -349,13 +349,18 @@ func (e *Endpoint) regenerateL3Policy(owner Owner) (bool, error) {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	newL3policy := repo.ResolveL3Policy(&ctx)
+	// Perform the validation on the new policy
+	err := newL3policy.Validate()
+	valid := err == nil
 	repo.Mutex.Unlock()
 	c.Mutex.RUnlock()
 
-	e.L3Policy = newL3policy
+	if valid {
+		e.L3Policy = newL3policy
+	}
 
 	// FIXME: Optimize this and only return true if L3 policy changed
-	return true, nil
+	return valid, err
 }
 
 // regeneratePolicy returns whether the policy for the given endpoint should be
@@ -569,10 +574,6 @@ func (e *Endpoint) TriggerPolicyUpdates(owner Owner) (bool, error) {
 		return false, nil
 	}
 
-	if err := e.l3PolicyValidation(); err != nil {
-		return false, err
-	}
-
 	changed, err := e.regeneratePolicy(owner)
 	if err != nil {
 		return changed, fmt.Errorf("%s: %s", e.StringID(), err)
@@ -615,19 +616,4 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		"consumable":       e.Consumable,
 	}).Debug("Set identity and consumable of EP")
 	e.Consumable.Mutex.RUnlock()
-}
-
-// l3PolicyValidation prevents code generation failures due to the number of
-// CIDR matches
-func (e *Endpoint) l3PolicyValidation() error {
-	if e.L3Policy == nil {
-		return nil
-	}
-	if l := len(e.L3Policy.Egress.Map); l > api.MaxCIDREntries {
-		return fmt.Errorf("too many egress L3 entries %d/%d", l, api.MaxCIDREntries)
-	}
-	if l := len(e.L3Policy.Ingress.Map); l > api.MaxCIDREntries {
-		return fmt.Errorf("too many ingress L3 entries %d/%d", l, api.MaxCIDREntries)
-	}
-	return nil
 }
