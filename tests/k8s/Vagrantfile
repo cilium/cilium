@@ -59,6 +59,17 @@ if ENV['BUILD_NUMBER'] then
     $build_id_name = "-build-#{$build_id}"
 end
 
+# We need this workaround since kube-proxy is not aware of multiple network
+# interfaces. If we send a packet to a service IP that packet is sent
+# to the default route, because the service IP is unknown by the linux routing
+# table, with the source IP of the interface in the default routing table, even
+# though the service IP should be routed to a different interface.
+# This particular workaround is only needed for cilium, running on a pod on host
+# network namespace, to reach out kube-api-server.
+$kube_proxy_workaround = <<SCRIPT
+sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
+SCRIPT
+
 Vagrant.configure(2) do |config|
     config.vm.box = "bento/ubuntu-16.10"
 
@@ -97,6 +108,7 @@ Vagrant.configure(2) do |config|
                 s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
                 s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
             else
+                s.vm.provision "kube-proxy-workaround", type: "shell", run: "always", inline: $kube_proxy_workaround
                 s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
                 s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
             end
