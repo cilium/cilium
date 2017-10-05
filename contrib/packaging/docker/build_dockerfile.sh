@@ -49,7 +49,8 @@ cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \\
 export GOROOT=/usr/local/go && \\
 export GOPATH=/tmp/cilium-net-build && \\
 export PATH="\$GOROOT/bin:/usr/local/clang+llvm/bin:\$GOPATH/bin:\$PATH" && \\
-go get -u github.com/jteeuwen/go-bindata/...
+go get -u github.com/jteeuwen/go-bindata/... && go get -u github.com/google/gops && \\
+mv /tmp/cilium-net-build/bin/gops /usr/local/bin/
 EOF
 
 }
