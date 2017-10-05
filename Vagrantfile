@@ -20,6 +20,7 @@ sudo pip install sphinx sphinxcontrib-httpdomain sphinxcontrib-openapi
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 export GOPATH=/home/vagrant/go
 sudo -E /usr/local/go/bin/go get github.com/jteeuwen/go-bindata/...
+sudo -E /usr/local/go/bin/go get -u github.com/google/gops
 chown -R vagrant:vagrant $GOPATH
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
