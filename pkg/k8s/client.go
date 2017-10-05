@@ -119,11 +119,12 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		}
 		select {
 		case <-timeout.C:
-			log.Errorf("Unable to contact kubernetes api-server: %s", err)
+			log.Errorf("Unable to contact kubernetes api-server %s: %s", config.Host, err)
 			close(stop)
 		default:
 		}
 	}, 5*time.Second, stop)
+	log.Infof("Connected to kubernetes api-server %s", config.Host)
 	return cs, nil
 }
 
