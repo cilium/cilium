@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# GH-1686 Re-enable when fixed
-exit 0
-
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/helpers.bash"
 # dir might have been overwritten by helpers.bash
@@ -15,12 +12,10 @@ redirect_debug_logs ${LOGS_DIR}
 set -ex # Required for the linter
 set +x # Reduce noise
 
-function create_artifacts() {
-  gather_files 20-cidr-limit ${TEST_SUITE}
-}
-
 function cleanup() {
+  gather_files 20-cidr-limit ${TEST_SUITE}
   docker rm -f id.service2 2> /dev/null || true
+  cilium policy delete --all 2> /dev/null || true
   # FIXME: use daemon cleanup flag when implemented,
   # GH-979 (Provide a cilium-agent flag to clean all state data)
   systemctl stop cilium
@@ -29,7 +24,6 @@ function cleanup() {
   systemctl start cilium
 }
 
-trap create_artifacts EXIT
 trap cleanup EXIT
 
 ID=""
@@ -79,13 +73,22 @@ function gen_policy() {
   echo "]" >> $policy_file
 }
 
+# Check logs for verifier output, should not be present on success.
+function check_for_verifier_output() {
+  if journalctl --no-pager --since "${SINCE}" -u cilium | grep "Verifier analysis"; then
+    abort "`journalctl -u cilium --since \"${SINCE}\" | grep -B20 -F10 Verifier`"
+  fi
+}
+
 create_cilium_docker_network
 spin_up_container
 
 log "will generate and import random policies"
 SINCE="$(date +'%F %T')"
 for x in $(seq 1 3); do
-  for i in $(seq 20 41); do
+  check_for_verifier_output
+  for i in $(seq 1 41); do
+    check_for_verifier_output
     policy_file=`mktemp`
     gen_policy $policy_file $i
     # At some point max limit can be reached by import even though it might be
@@ -95,10 +98,6 @@ for x in $(seq 1 3); do
     fi
   done
 done
-
-# Check logs for verifier output, should not be present on success.
-if journalctl --no-pager --since "${SINCE}" -u cilium | grep "Verifier analysis"; then
-  abort "verifier in log"
-fi
+check_for_verifier_output
 
 test_succeeded "${TEST_NAME}"
