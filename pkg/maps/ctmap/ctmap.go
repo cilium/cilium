@@ -17,6 +17,7 @@ package ctmap
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net"
 	"unsafe"
 
@@ -38,6 +39,9 @@ const (
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
+
+	// MaxTime specifies the last possible time for GCFilter.Time
+	MaxTime = math.MaxUint32
 )
 
 type CtType int
@@ -340,6 +344,22 @@ func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
 		tsec := t / 1000000000
 		filter.Time = uint32(tsec)
 	}
+
+	switch mapName {
+	case MapName6, MapName6Global:
+		return doGC6(m, filter)
+	case MapName4, MapName4Global:
+		return doGC4(m, filter)
+	default:
+		return 0
+	}
+}
+
+// Flush runs garbage collection for map m with the name mapName, deleting all
+// entries. The specified map must be already opened using bpf.OpenMap().
+func Flush(m *bpf.Map, mapName string) int {
+	filter := NewGCFilterBy(GCFilterByTime)
+	filter.Time = MaxTime
 
 	switch mapName {
 	case MapName6, MapName6Global:
