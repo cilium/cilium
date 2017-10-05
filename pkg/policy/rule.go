@@ -221,12 +221,12 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 
 func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
 	if !r.EndpointSelector.Matches(ctx.To) {
-		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
+		ctx.PolicyTraceVerbose("  Rule %s: no match\n", r)
 		return nil, nil
 	}
 
 	state.selectedRules++
-	ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
+	ctx.PolicyTrace("* Rule %s: match\n", r)
 	found := 0
 
 	if !ctx.EgressL4Only {
@@ -296,12 +296,12 @@ func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
 
 func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3Policy) *L3Policy {
 	if !r.EndpointSelector.Matches(ctx.To) {
-		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
+		ctx.PolicyTraceVerbose("  Rule %s: no match\n", r)
 		return nil
 	}
 
 	state.selectedRules++
-	ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
+	ctx.PolicyTrace("* Rule %s: match\n", r)
 	found := 0
 
 	for _, r := range r.Ingress {
@@ -336,16 +336,16 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 
 	if !r.EndpointSelector.Matches(ctx.To) {
 		if entitiesDecision == api.Undecided {
-			ctx.PolicyTraceVerbose("  Rule %d %s: no match for %+v\n", state.ruleID, r, ctx.To)
+			ctx.PolicyTraceVerbose("  Rule %s: no match for %+v\n", r, ctx.To)
 		} else {
 			state.selectedRules++
-			ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
+			ctx.PolicyTrace("* Rule %s: match\n", r)
 		}
 		return entitiesDecision
 	}
 
 	state.selectedRules++
-	ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
+	ctx.PolicyTrace("* Rule %s: match\n", r)
 
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromRequires {

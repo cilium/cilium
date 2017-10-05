@@ -142,7 +142,7 @@ EOF
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"reserved:host":""}}
       Labels [any:id.foo] not found
     Allows from labels {"matchLabels":{"any:id.foo":""}}
@@ -197,7 +197,7 @@ EOF
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
 +       No L4 restrictions; allowing
@@ -217,11 +217,11 @@ fi
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
 +       No L4 restrictions; allowing
-  Rule 1 {"matchLabels":{"any:id.teamA":""}}: no match for [any:id.bar]
+  Rule {"matchLabels":{"any:id.teamA":""}}: no match for [any:id.bar]
 1 rules matched
 Label verdict: allowed
 
@@ -244,11 +244,11 @@ BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $3}')
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [container:id.foo, container:id.teamA] => To: [container:id.bar, container:id.teamA]
-* Rule 0 {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: match
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
 +       No L4 restrictions; allowing
-* Rule 1 {"matchLabels":{"any:id.teamA":""}}: match
+* Rule {"matchLabels":{"any:id.teamA":""}}: match
     Requires from labels {"matchLabels":{"any:id.teamA":""}}
       Found all required labels
 +       No L4 restrictions; allowing
