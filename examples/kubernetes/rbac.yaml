@@ -15,6 +15,7 @@ rules:
   - ""
   resources:
   - namespaces
+  - services
   - nodes
   - endpoints
   - componentstatuses
