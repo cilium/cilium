@@ -120,7 +120,7 @@ See the [Installation instructions][installation]
 ## Community blog posts
 
  * Cilium for Network and Application Security with BPF and XDP, Apr 2017:
-   [Blog](http://blog.scottlowe.org//2017/04/18/black-belt-cilium/)
+   [Blog](https://blog.scottlowe.org/2017/04/18/black-belt-cilium/)
  * Cilium, BPF and XDP, Google Open Source Blog, Nov 2016:
    [Blog](https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html)
 
