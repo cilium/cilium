@@ -5,6 +5,7 @@ DUMP_FILE=$(mktemp)
 MONITOR_PID=""
 LAST_LOG_DATE=""
 TEST_NET=cilium
+GOPS="/home/vagrant/go/bin/gops"
 
 # Variables used during Jenkins builds.
 BUILD_NUM="${BUILD_NUMBER:-0}"
@@ -543,8 +544,10 @@ function gather_files {
   mkdir -p "${LIB_DIR}"
   if [[ "${TEST_SUITE}" == "runtime-tests" ]]; then
     local CLI_OUT_DIR="${CILIUM_DIR}/cli"
+    local PROF_OUT_DIR="${CILIUM_DIR}/profiling"
     mkdir -p "${CLI_OUT_DIR}"
     dump_cli_output "${CLI_OUT_DIR}" || true
+    dump_gops_output "${PROF_OUT_DIR}" "cilium-agent" || true
     # Get logs from Consul container.
     mkdir -p "${CILIUM_DIR}/consul"
     docker logs cilium-consul > "${CILIUM_DIR}/consul/consul-logs.txt" 2>/dev/null
@@ -621,6 +624,22 @@ function dump_cli_output_k8s {
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium status > ${DIR}/${POD}_status.txt
 }
 
+function dump_gops_output {
+  check_num_params "$#" "2"
+  local DIR="$1"
+  local PROG="$2"
+  local PROG_PROFILING_DIR="${DIR}/${PROG}"
+  mkdir -p "${PROG_PROFILING_DIR}"
+  log "getting gops output for ${PROG} and dumping to dir ${PROG_PROFILING_DIR}"
+  local PROG_PID=$(sudo ${GOPS} | grep "${PROG}" | awk '{print $1}')
+  log "running \"gops stack\" for ${PROG}"
+  sudo ${GOPS} stack ${PROG_PID} > "${PROG_PROFILING_DIR}/${PROG}_stack.txt"
+  log "running \"gops memstats\" for ${PROG}"
+  sudo ${GOPS} memstats ${PROG_PID} > "${PROG_PROFILING_DIR}/${PROG}_memstats.txt"
+  log "running \"gops stats\" for ${PROG}"
+  sudo ${GOPS} stats ${PROG_PID} > "${PROG_PROFILING_DIR}/${PROG}_stats.txt"
+  log "done getting gops output for ${PROG}"
+}
 
 function print_k8s_cilium_logs {
   for pod in $(kubectl -n kube-system get pods -o wide| grep cilium | awk '{print $1}'); do
