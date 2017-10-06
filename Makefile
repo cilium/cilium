@@ -172,5 +172,13 @@ pprof-trace-5s:
 pprof-mutex:
 	go tool pprof http://localhost:6060/debug/pprof/mutex
 
+update-authors:
+	@echo "Updating AUTHORS file..."
+	@echo "The following people, in alphabetical order, have either authored or signed" > AUTHORS
+	@echo "off on commits in the Cilium repository:" >> AUTHORS
+	@echo "" >> AUTHORS
+	@contrib/scripts/extract_authors.sh >> AUTHORS
+	@cat .AUTHORS.aux >> AUTHORS
+
 .PHONY: force
 force :;
