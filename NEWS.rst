@@ -2,59 +2,128 @@
 NEWS
 ******
 
-HEAD
-====
+Version 0.12
+============
 
-:date: 2017-09-25
+:date: 2017-10-10
 :commit: nil
 
 Bug Fixes
 ---------
-
+* Various bugfixes around mounting of the BPF filesystem (1379_, 1473_)
 * Fixed issue where L4 policy trace would incorrectly determine that traffic
   would be rejected when the L4 policy specifies the protocol (1587_)
+* Provided workaround for minikube when running in unencrypted mode (1492_)
 * Synchronization of compilation of base and endpoint programs (1440_)
+* Provide backwards compatibility to iproute2-4.8.0 (1474_)
+* Multiple memory leak fixes in cgo usage (1508_)
+* Various fixes around load-balancer synchronization (1352_)
+* Improved readability of BPF compatibility check on startup (1505_, 1548_)
+* Fixed maintainer label in Dockerfile (1513_)
+* Correctly set the transport protocol in proxy flows (1511_)
+* Fix group ownership of monitoring unix domain socket to allow running
+  ``cilium monitor`` without root privileges if correct group associated is
+  provided (1532_)
+* Fixed quoting of API socket path in error message (1531_)
+* Fixed a bug in the k8s informer/watcher where a parse error in client-go
+  would never recover (1545_)
+* Use an IPv6 site local address as the IPv6 host address if no IPv6 address
+  is configured on the node. This prevents from accidentally enabling unwanted
+  IPv6 DNS resolution on the system. (1555_)
+* Configure automatically generated host IPs as link scope to avoid them being
+  selected as source IP for traffic exiting the node (1575_, 1614_)
+* Fixed a bug where endpoint identities could run out of sync with the kvstore
+  (1558_)
+* Fixed a bug in the ability to perform policy simulation for L4 flows (1569_)
+* Masquerade traffic from host into local cilium endpoints with the ExternalIP
+  to allow for such packets to be routed other nodes (1570_)
+* Fixed policy trace with tcp/udp protocol filter (1596_, 1599_)
+* Bail out gracefully if running compatibility mode with limited CIDR filter
+  capacity (1507_)
+* Fixed incorrect double backslash in CoreOS unit file example (1605_)
+* Fixed concurrent access issue of bytes.Buffer use (1623_)
+* Made node monitor thread safe (1622_)
+* Use specific version of cilium images instead of stable in getting started
+  guide (1642_)
+* Fix to guarantee to always handle events for a particular container in order
+  (1677_)
 
 Features
 --------
 
-* Add bash code completion (1597_)
-* L7 logging records now include additional information about the identity of
-  the destination when outside of the cluster (1615_)
+* Initial code to start supporting Kafka policy enforcement (1634_)
+* New ``json`` and ``jsonpath`` output modes for the cilium CLI command.
+  (1484_)
+* New simplified policy model to express connectivity to special entities
+  "world" (outside of the cluster) and "host" (system on which endpoint is
+  running on) (1651_, 1665_)
+* XDP based early filtering of hostile source IP prefixes as well as
+  enforcement of destination IPs to correspond to a known local endpoint and to
+  host IPs. (1675_)
+* L7 logging records now include as much information about the identity of the
+  source and destination endpoint as possible. This includes the labels of the
+  identity if known to the local agent as well as additional information about
+  the identity of the destination when outside of the cluster (1550_, 1615_)
+* Much reduced time required to rebuild endpoint programs (1638_)
+* Initial support to allow running multiple user space proxies (1661_)
+* New ``--auto-ipv6-node-routes`` agent flag which automatically populates IPv6
+  routes for all other nodes in the cluster. This provides a minimalistic routing
+  control plane for IPv6 native networks (1479_)
+* Support L3-dependent L4 policies on ingress (1599_, 1496_, 1217_, 1064_, 789_)
+* Add bash code completion (1597_, 1643_)
+* New RPM build process (1528_)
 * Default policy enforcement behavior for non-Kubernetes environments is now
   the same as for Kubernetes environments; traffic is allowed by default until
   a rule selects an endpoint (1464_)
-* Support L3-dependent L4 policies on ingress (1599_, 1496_, 1217_, 1064_, 789_)
-* Add new fields to Ingress and Egress rules for CiliumNetworkPolicy called
-FromCIDR and ToCIDR. These are lists of CIDR prefixes to whitelist along with
-a list of CIDR prefixes for each CIDR prefix to blacklist. (1663_) 
-
-CI
-__
-* Improved CI testing infrastructure (1632_, 1624_, 1455_, 1441_, 1435_)
+* The default policy enforcement logic is now in line with Kubernetes behaviour
+  to avoid confusion (1464_)
+* Extended ``cilium identity list`` and ``cilium identity get`` to provide a
+  cluster wide picture of allocated security identities (1462_, 1568_)
+* New improved datapath tracing functionality with better indication of
+  forwarding decision (1466_, 1490_, 1512_)
 
 Kubernetes
 ----------
 
-* Add here
-
-Mesos
------
-
-* Add here
+* Tested with Kubernetes 1.8 release
+* New improved DaemonSet file which automatically derives configuration on how
+  to access the Kubernetes API server without requiring the user to specify a
+  kubeconfig file (1683_, 1381_)
+* Support specifying parameters such as etcd endpoints as ConfigMap (1683_)
+* Add new fields to Ingress and Egress rules for CiliumNetworkPolicy called
+  FromCIDR and ToCIDR. These are lists of CIDR prefixes to whitelist along with
+  a list of CIDR prefixes for each CIDR prefix to blacklist. (1663_) 
+* Improved status section of CiliumNetworkPolicy rules (1574_)
+* Improved logic involved to Kubernetes node annotations with IPv6 pod CIDR
+  (1563_)
+* Refactor pod annotation logic (1468_)
 
 Documentation
 -------------
 
 * Policy enforcement mode documentation (1464_)
 * Updated L3 CIDR policy documentation (1663_)
+* New BPF developer debugging manual (1548_)
+* Added instructions on kube-proxy installation and integration (1585_)
+* Added more developer focused documentation (1601_)
+* Added instructions on how to configure MTU and other parameters in
+  combination with CNI (1612_)
+* API stability guarantees (1628_)
+
+CI
+__
+* Improved CI testing infrastructure and fixed several test flakes (1632_,
+  1624_, 1455_, 1441_, 1435_, 1542_)
+* New builtin deadlock detection for developers. Enable this in Makefile.defs. (1648_)
 
 Other
 -----
 * Add new --pprof flag to serve the pprof API (1646_)
-* New builtin deadlock detection for developers. Enable this in Makefile.defs. (1648_)
+* Updated go to 1.9 (1519_)
+* Updated go dependencies (1519_, 1535_)
+* go-openapi, go-swagger (0.12.0), 
 * Update Sirupsen/logrus to sirupsen/logrus (1573_)
-* Refactor pod annotation logic (1468_)
+* Fixed several BPF lint warnings (1666_)
 
 Version 0.11
 =============
@@ -582,3 +651,84 @@ Fixes
 .. _1217: https://github.com/cilium/cilium/pull/1217
 .. _1064: https://github.com/cilium/cilium/pull/1064
 .. _789: https://github.com/cilium/cilium/pull/789
+.. _1379: https://github.com/cilium/cilium/pull/1379
+.. _1473: https://github.com/cilium/cilium/pull/1473
+.. _1587: https://github.com/cilium/cilium/pull/1587
+.. _1492: https://github.com/cilium/cilium/pull/1492
+.. _1440: https://github.com/cilium/cilium/pull/1440
+.. _1474: https://github.com/cilium/cilium/pull/1474
+.. _1508: https://github.com/cilium/cilium/pull/1508
+.. _1352: https://github.com/cilium/cilium/pull/1352
+.. _1505: https://github.com/cilium/cilium/pull/1505
+.. _1548: https://github.com/cilium/cilium/pull/1548
+.. _1513: https://github.com/cilium/cilium/pull/1513
+.. _1511: https://github.com/cilium/cilium/pull/1511
+.. _1532: https://github.com/cilium/cilium/pull/1532
+.. _1531: https://github.com/cilium/cilium/pull/1531
+.. _1545: https://github.com/cilium/cilium/pull/1545
+.. _1555: https://github.com/cilium/cilium/pull/1555
+.. _1575: https://github.com/cilium/cilium/pull/1575
+.. _1614: https://github.com/cilium/cilium/pull/1614
+.. _1558: https://github.com/cilium/cilium/pull/1558
+.. _1569: https://github.com/cilium/cilium/pull/1569
+.. _1570: https://github.com/cilium/cilium/pull/1570
+.. _1596: https://github.com/cilium/cilium/pull/1596
+.. _1599: https://github.com/cilium/cilium/pull/1599
+.. _1507: https://github.com/cilium/cilium/pull/1507
+.. _1605: https://github.com/cilium/cilium/pull/1605
+.. _1623: https://github.com/cilium/cilium/pull/1623
+.. _1622: https://github.com/cilium/cilium/pull/1622
+.. _1642: https://github.com/cilium/cilium/pull/1642
+.. _1677: https://github.com/cilium/cilium/pull/1677
+.. _1634: https://github.com/cilium/cilium/pull/1634
+.. _1484: https://github.com/cilium/cilium/pull/1484
+.. _1651: https://github.com/cilium/cilium/pull/1651
+.. _1665: https://github.com/cilium/cilium/pull/1665
+.. _1675: https://github.com/cilium/cilium/pull/1675
+.. _1550: https://github.com/cilium/cilium/pull/1550
+.. _1615: https://github.com/cilium/cilium/pull/1615
+.. _1638: https://github.com/cilium/cilium/pull/1638
+.. _1661: https://github.com/cilium/cilium/pull/1661
+.. _1479: https://github.com/cilium/cilium/pull/1479
+.. _1599: https://github.com/cilium/cilium/pull/1599
+.. _1496: https://github.com/cilium/cilium/pull/1496
+.. _1217: https://github.com/cilium/cilium/pull/1217
+.. _1064: https://github.com/cilium/cilium/pull/1064
+.. _789: https://github.com/cilium/cilium/pull/789
+.. _1597: https://github.com/cilium/cilium/pull/1597
+.. _1643: https://github.com/cilium/cilium/pull/1643
+.. _1528: https://github.com/cilium/cilium/pull/1528
+.. _1464: https://github.com/cilium/cilium/pull/1464
+.. _1464: https://github.com/cilium/cilium/pull/1464
+.. _1462: https://github.com/cilium/cilium/pull/1462
+.. _1568: https://github.com/cilium/cilium/pull/1568
+.. _1466: https://github.com/cilium/cilium/pull/1466
+.. _1490: https://github.com/cilium/cilium/pull/1490
+.. _1512: https://github.com/cilium/cilium/pull/1512
+.. _1683: https://github.com/cilium/cilium/pull/1683
+.. _1381: https://github.com/cilium/cilium/pull/1381
+.. _1683: https://github.com/cilium/cilium/pull/1683
+.. _1663: https://github.com/cilium/cilium/pull/1663
+.. _1574: https://github.com/cilium/cilium/pull/1574
+.. _1563: https://github.com/cilium/cilium/pull/1563
+.. _1468: https://github.com/cilium/cilium/pull/1468
+.. _1464: https://github.com/cilium/cilium/pull/1464
+.. _1663: https://github.com/cilium/cilium/pull/1663
+.. _1548: https://github.com/cilium/cilium/pull/1548
+.. _1585: https://github.com/cilium/cilium/pull/1585
+.. _1601: https://github.com/cilium/cilium/pull/1601
+.. _1612: https://github.com/cilium/cilium/pull/1612
+.. _1628: https://github.com/cilium/cilium/pull/1628
+.. _1632: https://github.com/cilium/cilium/pull/1632
+.. _1624: https://github.com/cilium/cilium/pull/1624
+.. _1455: https://github.com/cilium/cilium/pull/1455
+.. _1441: https://github.com/cilium/cilium/pull/1441
+.. _1435: https://github.com/cilium/cilium/pull/1435
+.. _1542: https://github.com/cilium/cilium/pull/1542
+.. _1648: https://github.com/cilium/cilium/pull/1648
+.. _1646: https://github.com/cilium/cilium/pull/1646
+.. _1519: https://github.com/cilium/cilium/pull/1519
+.. _1519: https://github.com/cilium/cilium/pull/1519
+.. _1535: https://github.com/cilium/cilium/pull/1535
+.. _1573: https://github.com/cilium/cilium/pull/1573
+.. _1666: https://github.com/cilium/cilium/pull/1666
