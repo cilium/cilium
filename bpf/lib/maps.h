@@ -68,6 +68,7 @@ struct bpf_elf_map __section_maps cilium_proxy6= {
 	.max_elem	= 8192,
 };
 
+#ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
@@ -77,6 +78,7 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_CALL_SIZE,
 };
+#endif /* SKIP_CALLS_MAP */
 
 #ifdef ENCAP_IFINDEX
 
@@ -273,9 +275,10 @@ static __always_inline int lpm4_egress_lookup(__be32 addr)
 #define lpm4_egress_lookup(ADDR) 0
 #endif /* POLICY_ENFORCEMENT */
 
+#ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
 {
 	tail_call(skb, &CALLS_MAP, index);
 }
-
+#endif /* SKIP_CALLS_MAP */
 #endif
