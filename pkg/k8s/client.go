@@ -72,6 +72,12 @@ const (
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
 func CreateConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+	// If the endpoint and the kubeCfgPath are empty then we can try getting
+	// the rest.Config from the InClusterConfig
+	if endpoint == "" && kubeCfgPath == "" {
+		return rest.InClusterConfig()
+	}
+
 	if kubeCfgPath != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
 	}
@@ -100,11 +106,12 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		}
 		select {
 		case <-timeout.C:
-			log.Errorf("Unable to contact kubernetes api-server: %s", err)
+			log.Errorf("Unable to contact kubernetes api-server %s: %s", config.Host, err)
 			close(stop)
 		default:
 		}
 	}, 5*time.Second, stop)
+	log.Infof("Connected to kubernetes api-server %s", config.Host)
 	return cs, nil
 }
 

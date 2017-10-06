@@ -178,10 +178,9 @@ chapter.
 
 .. code:: bash
 
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
-    $ vim cilium-ds.yaml
-    [adjust --k8s-api-server or --k8s-kubeconfig-path]
-    [adjust --kvstore and --kvstore-opts]
+    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-config.yaml
+    $ vim cilium-config.yaml
+    [adjust the etcd address]
 
 **Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
 variable in the ``env`` section:
@@ -192,16 +191,30 @@ variable in the ``env`` section:
           - name: "MTU"
             value: "8950"
 
-3. Deploy the ``cilium`` DaemonSet_
+3. Deploy the ``cilium`` ConfigMap_
 
 .. code:: bash
 
-    $ kubectl create -f cilium-ds.yaml
+    $ kubectl create -f cilium-config.yaml
+    configmap "cilium-config" created
+    secret "cilium-etcd-secrets" created
+
+    $ kubectl get configmap --namespace kube-system cilium-config
+    NAME            DATA      AGE
+    cilium-config   3         19m
+
+4. Deploy the ``cilium`` DaemonSet_
+
+.. code:: bash
+
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
     daemonset "cilium" created
 
     $ kubectl get ds --namespace kube-system
     NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
     cilium          1         1         1         <none>          2m
+
+You have cilium deployed in your cluster and ready to use.
 
 .. _admin_mount_bpffs:
 
