@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -49,7 +50,7 @@ func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 // created for the given l3n4Addr. If baseID is different than 0, it tries to acquire that
 // ID to the l3n4Addr.
 func PutL3n4Addr(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
-	log.Debugf("Resolving service %+v", l3n4Addr)
+	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Resolving service")
 
 	// Retrieve unique SHA256Sum for service
 	sha256Sum := l3n4Addr.SHA256Sum()
@@ -91,7 +92,7 @@ func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
 		return nil, err
 	}
 	if rmsg == nil {
-		log.Debugf("no value mapped to key %s in KVStore", keyPath)
+		log.WithField("key", keyPath).Debug("no value mapped to key in KVStore")
 		return nil, nil
 	}
 
@@ -105,7 +106,8 @@ func getL3n4AddrID(keyPath string) (*types.L3n4AddrID, error) {
 // GetL3n4AddrID returns the L3n4AddrID that belongs to the given id.
 func GetL3n4AddrID(id uint32) (*types.L3n4AddrID, error) {
 	strID := strconv.FormatUint(uint64(id), 10)
-	log.Debugf("getting L3n4AddrID for ID %s", strID)
+	log.WithField(logfields.L3n4AddrID, strID).Debug("getting L3n4AddrID for ID")
+
 	return getL3n4AddrID(path.Join(common.ServiceIDKeyPath, strID))
 }
 
@@ -116,7 +118,7 @@ func GetL3n4AddrIDBySHA256(sha256sum string) (*types.L3n4AddrID, error) {
 
 // DeleteL3n4AddrIDByUUID deletes the L3n4AddrID belonging to the given id from the kvstore.
 func DeleteL3n4AddrIDByUUID(id uint32) error {
-	log.Debugf("deleting L3n4Addr %d", id)
+	log.WithField(logfields.L3n4AddrID, id).Debug("deleting L3n4Addr by ID")
 	l3n4AddrID, err := GetL3n4AddrID(id)
 	if err != nil {
 		return err
@@ -131,7 +133,7 @@ func DeleteL3n4AddrIDByUUID(id uint32) error {
 // DeleteL3n4AddrIDBySHA256 deletes the L3n4AddrID from the kvstore corresponding to the service's
 // sha256Sum.
 func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
-	log.Debugf("deleting L3n4AddrID with SHA256 %s", sha256Sum)
+	log.WithField(logfields.SHA, sha256Sum).Debug("deleting L3n4AddrID with SHA256")
 	if sha256Sum == "" {
 		return nil
 	}

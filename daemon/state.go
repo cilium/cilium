@@ -39,7 +39,7 @@ func (d *Daemon) deleteNonFunctionalEndpoints() {
 		if !containerd.IsRunning(ep) {
 			log.WithFields(log.Fields{
 				logfields.EndpointID: ep.StringID(),
-			}).Info("No workload could be associated with endpoint %d, removing endpoint")
+			}).Info("No workload could be associated with endpoint, removing endpoint")
 			d.deleteEndpoint(ep)
 		}
 	}
@@ -67,10 +67,10 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	}
 
 	for _, ep := range possibleEPs {
-		log.Debugf("Restoring endpoint ID %d", ep.ID)
+		log.WithField(logfields.EndpointID, ep.ID).Debug("Restoring endpoint")
 
 		if err := d.syncLabels(ep); err != nil {
-			log.Warningf("Unable to restore endpoint %d: %s", ep.ID, err)
+			log.WithError(err).WithField(logfields.EndpointID, ep.ID).Warn("Unable to restore endpoint")
 			continue
 		}
 
@@ -99,20 +99,21 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	for k := range endpointmanager.Endpoints {
 		ep := endpointmanager.Endpoints[k]
 		go func(ep *endpoint.Endpoint, wg chan<- bool) {
+			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			if err := d.allocateIPs(ep); err != nil {
-				log.Errorf("Failed to re-allocate IP of endpoint %d. Not restoring endpoint. %s", ep.ID, err)
+				scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
 				d.deleteEndpoint(ep)
 				wg <- false
 				return
 			}
 
 			if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
-				log.Warningf("Failed while regenerating endpoint %d: %s", ep.ID, err)
+				scopedLog.Warn("Failed while regenerating endpoint")
 				wg <- false
 				return
 			}
 			ep.Mutex.RLock()
-			log.Infof("Restored endpoint %d with IPs %s and %s", ep.ID, ep.IPv4.String(), ep.IPv6.String())
+			log.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint with IPs")
 			ep.Mutex.RUnlock()
 			wg <- true
 		}(ep, wg)
@@ -133,7 +134,10 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	}
 	close(wg)
 
-	log.Infof("Found %d endpoints of which %d were restored", total, restored)
+	log.WithFields(log.Fields{
+		"count.restored": restored,
+		"count.total":    total,
+	}).Info("Found endpoints of which some were restored")
 
 	return nil
 }
@@ -171,16 +175,19 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 	for _, epID := range eptsDirNames {
 		epDir := filepath.Join(basePath, epID)
 		readDir := func() string {
-			log.Debugf("Reading directory %s", epDir)
+			scopedLog := log.WithFields(log.Fields{
+				logfields.EndpointID: epID,
+				logfields.Path:       filepath.Join(epDir, common.CHeaderFileName),
+			})
+			scopedLog.Debug("Reading directory")
 			epFiles, err := ioutil.ReadDir(epDir)
 			if err != nil {
-				log.Warningf("Error while reading directory %q. Ignoring it...", epDir)
+				scopedLog.Warn("Error while reading directory. Ignoring it...")
 				return ""
 			}
 			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
 			if cHeaderFile == "" {
-				log.Infof("File %q not found in %q. Ignoring endpoint %s.",
-					common.CHeaderFileName, epDir, epID)
+				scopedLog.Info("File not found. Ignoring endpoint.")
 				return ""
 			}
 			return cHeaderFile
@@ -190,15 +197,21 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 		if cHeaderFile == "" {
 			cHeaderFile = readDir()
 		}
-		log.Debugf("Found endpoint C header file %q", cHeaderFile)
+
+		scopedLog := log.WithFields(log.Fields{
+			logfields.EndpointID: epID,
+			logfields.Path:       cHeaderFile,
+		})
+		scopedLog.Debug("Found endpoint C header file")
+
 		strEp, err := common.GetCiliumVersionString(cHeaderFile)
 		if err != nil {
-			log.Warningf("Unable to read the C header file %q: %s", cHeaderFile, err)
+			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
 		ep, err := endpoint.ParseEndpoint(strEp)
 		if err != nil {
-			log.Warningf("Unable to read the C header file %q: %s", cHeaderFile, err)
+			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
 		possibleEPs = append(possibleEPs, ep)
@@ -238,9 +251,11 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	if labels.ID != ep.SecLabel.ID {
-		log.Infof("Security label ID for endpoint %d is different "+
-			"that the one stored, updating from %d to %d",
-			ep.ID, ep.SecLabel.ID, labels.ID)
+		log.WithFields(log.Fields{
+			logfields.EndpointID:              ep.ID,
+			logfields.IdentityLabels + ".old": ep.SecLabel.ID,
+			logfields.IdentityLabels + ".new": labels.ID,
+		}).Info("Security label ID for endpoint is different that the one stored, updating")
 	}
 	ep.SetIdentity(d, labels)
 
