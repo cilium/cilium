@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	. "gopkg.in/check.v1"
@@ -50,7 +51,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 					return &NodeInterfaceClient{
 						OnGet: func(name string, options metav1.GetOptions) (*v1.Node, error) {
 							c.Assert(name, Equals, "node1")
-							c.Assert(options, DeepEquals, metav1.GetOptions{})
+							c.Assert(options, comparator.DeepEquals, metav1.GetOptions{})
 							n1copy := v1.Node(node1)
 							return &n1copy, nil
 						},
@@ -59,7 +60,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 							n1copy := v1.Node(node1)
 							n1copy.Annotations[Annotationv4CIDRName] = "10.2.0.0/16"
 							n1copy.Annotations[Annotationv6CIDRName] = "beef:beef:beef:beef:aaaa:aaaa:1111:0/96"
-							c.Assert(n, DeepEquals, &n1copy)
+							c.Assert(n, comparator.DeepEquals, &n1copy)
 							return &n1copy, nil
 						},
 					}
@@ -109,7 +110,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 					return &NodeInterfaceClient{
 						OnGet: func(name string, options metav1.GetOptions) (*v1.Node, error) {
 							c.Assert(name, Equals, "node2")
-							c.Assert(options, DeepEquals, metav1.GetOptions{})
+							c.Assert(options, comparator.DeepEquals, metav1.GetOptions{})
 							n1copy := v1.Node(node2)
 							return &n1copy, nil
 						},
@@ -123,7 +124,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 							n1copy := v1.Node(node2)
 							n1copy.Annotations[Annotationv4CIDRName] = "10.2.0.0/16"
 							n1copy.Annotations[Annotationv6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
-							c.Assert(n, DeepEquals, &n1copy)
+							c.Assert(n, comparator.DeepEquals, &n1copy)
 							return &n1copy, nil
 						},
 					}

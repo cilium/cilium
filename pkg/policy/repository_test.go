@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -64,7 +65,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// rule3 should not be in there yet
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), DeepEquals, api.Rules{})
+	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
 
 	// add rule3
@@ -75,8 +76,8 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// search rule1,rule2
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls1), DeepEquals, api.Rules{&rule1, &rule2})
-	c.Assert(repo.SearchRLocked(lbls2), DeepEquals, api.Rules{&rule3})
+	c.Assert(repo.SearchRLocked(lbls1), comparator.DeepEquals, api.Rules{&rule1, &rule2})
+	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{&rule3})
 	repo.Mutex.RUnlock()
 
 	// delete rule1, rule2
@@ -92,7 +93,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// rule3 can still be found
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), DeepEquals, api.Rules{&rule3})
+	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{&rule3})
 	repo.Mutex.RUnlock()
 
 	// delete rule3
@@ -103,7 +104,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 	// rule1 is gone
 	repo.Mutex.RLock()
-	c.Assert(repo.SearchRLocked(lbls2), DeepEquals, api.Rules{})
+	c.Assert(repo.SearchRLocked(lbls2), comparator.DeepEquals, api.Rules{})
 	repo.Mutex.RUnlock()
 }
 
@@ -326,10 +327,10 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	}
 
 	c.Assert(len(l4policy.Ingress), Equals, 1)
-	c.Assert(*l4policy, DeepEquals, *expected)
+	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 
 	// L4 from app3 has no rules
 	l4policy, err = repo.ResolveL4Policy(fromApp3)
 	c.Assert(len(l4policy.Ingress), Equals, 1)
-	c.Assert(*l4policy, DeepEquals, *expected)
+	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 }

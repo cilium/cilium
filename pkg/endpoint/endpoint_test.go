@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -65,7 +66,7 @@ func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 		{ID: 1000},
 	}
 	OrderEndpointAsc(eps)
-	c.Assert(eps, DeepEquals, epsWant)
+	c.Assert(eps, comparator.DeepEquals, epsWant)
 }
 
 func (s *EndpointSuite) TestDeepCopy(c *C) {
@@ -89,7 +90,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 		Status:           NewEndpointStatus(),
 	}
 	cpy := epWant.DeepCopy()
-	c.Assert(cpy, DeepEquals, epWant)
+	c.Assert(cpy, comparator.DeepEquals, epWant)
 	epWant.SecLabel = &policy.Identity{
 		ID: 1,
 		Labels: labels.Labels{
@@ -118,9 +119,9 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	}
 	epWant.PolicyMap = &policymap.PolicyMap{}
 	cpy = epWant.DeepCopy()
-	c.Assert(*cpy.SecLabel, DeepEquals, *epWant.SecLabel)
-	c.Assert(cpy.Consumable, DeepEquals, epWant.Consumable)
-	c.Assert(*cpy.PolicyMap, DeepEquals, *epWant.PolicyMap)
+	c.Assert(*cpy.SecLabel, comparator.DeepEquals, *epWant.SecLabel)
+	c.Assert(cpy.Consumable, comparator.DeepEquals, epWant.Consumable)
+	c.Assert(*cpy.PolicyMap, comparator.DeepEquals, *epWant.PolicyMap)
 
 	epWant.Consumable.Labels = &policy.Identity{
 		ID: 1,
@@ -135,7 +136,7 @@ func (s *EndpointSuite) TestDeepCopy(c *C) {
 	epWant.PolicyMap = &policymap.PolicyMap{}
 	cpy = epWant.DeepCopy()
 
-	c.Assert(*cpy.Consumable.Labels, DeepEquals, *epWant.Consumable.Labels)
+	c.Assert(*cpy.Consumable.Labels, comparator.DeepEquals, *epWant.Consumable.Labels)
 
 	cpy.Consumable.Labels.Endpoints["1234"] = time.Now()
 	c.Assert(*cpy.Consumable.Labels, Not(DeepEquals), *epWant.Consumable.Labels)

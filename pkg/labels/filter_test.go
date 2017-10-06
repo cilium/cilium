@@ -15,6 +15,8 @@
 package labels
 
 import (
+	"github.com/cilium/cilium/pkg/comparator"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -61,9 +63,9 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 3)
-	c.Assert(filtered, DeepEquals, wanted)
+	c.Assert(filtered, comparator.DeepEquals, wanted)
 
 	// Making sure we are deep copying the labels
 	allLabels["id.lizards"].Source = "I can change this and doesn't affect any one"
-	c.Assert(filtered, DeepEquals, wanted)
+	c.Assert(filtered, comparator.DeepEquals, wanted)
 }
