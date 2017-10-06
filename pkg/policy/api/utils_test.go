@@ -64,3 +64,28 @@ func (s *PolicyAPITestSuite) TestKafkaEqual(c *C) {
 	c.Assert(rule2.Exists(rules), Equals, true)
 	c.Assert(rule3.Exists(rules), Equals, false)
 }
+
+func (s *PolicyAPITestSuite) TestValidateL4Proto(c *C) {
+	c.Assert(L4Proto("TCP").Validate(), IsNil)
+	c.Assert(L4Proto("UDP").Validate(), IsNil)
+	c.Assert(L4Proto("ANY").Validate(), IsNil)
+	c.Assert(L4Proto("TCP2").Validate(), Not(IsNil))
+	c.Assert(L4Proto("t").Validate(), Not(IsNil))
+}
+
+func (s *PolicyAPITestSuite) TestParseL4Proto(c *C) {
+	p, err := ParseL4Proto("tcp")
+	c.Assert(p, Equals, ProtoTCP)
+	c.Assert(err, IsNil)
+
+	p, err = ParseL4Proto("Any")
+	c.Assert(p, Equals, ProtoAny)
+	c.Assert(err, IsNil)
+
+	p, err = ParseL4Proto("")
+	c.Assert(p, Equals, ProtoAny)
+	c.Assert(err, IsNil)
+
+	_, err = ParseL4Proto("foo2")
+	c.Assert(err, Not(IsNil))
+}

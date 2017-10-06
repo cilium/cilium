@@ -108,8 +108,8 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 				{
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: "tcp"},
-							{Port: "8080", Protocol: "tcp"},
+							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "8080", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -123,7 +123,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 				{
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "3000"},
+							{Port: "3000", Protocol: api.ProtoAny},
 						},
 					}},
 				},
@@ -139,20 +139,20 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 
 	expected := NewL4Policy()
-	expected.Ingress["80/tcp"] = L4Filter{
-		Port: 80, Protocol: "tcp", FromEndpoints: nil,
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
-	expected.Ingress["8080/tcp"] = L4Filter{
-		Port: 8080, Protocol: "tcp", FromEndpoints: nil,
+	expected.Ingress["8080/TCP"] = L4Filter{
+		Port: 8080, Protocol: api.ProtoTCP, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
-	expected.Egress["3000/tcp"] = L4Filter{
-		Port: 3000, Protocol: "tcp", Ingress: false,
+	expected.Egress["3000/TCP"] = L4Filter{
+		Port: 3000, Protocol: api.ProtoTCP, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
-	expected.Egress["3000/udp"] = L4Filter{
-		Port: 3000, Protocol: "udp", Ingress: false,
+	expected.Egress["3000/UDP"] = L4Filter{
+		Port: 3000, Protocol: api.ProtoUDP, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
 
@@ -177,14 +177,14 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 				{
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: "tcp"},
+							{Port: "80", Protocol: api.ProtoTCP},
 						},
 					}},
 				},
 				{
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: "tcp"},
+							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -198,7 +198,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 				{
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "3000"},
+							{Port: "3000", Protocol: api.ProtoAny},
 						},
 					}},
 				},
@@ -207,16 +207,16 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 
 	expected = NewL4Policy()
-	expected.Ingress["80/tcp"] = L4Filter{
-		Port: 80, Protocol: "tcp", FromEndpoints: nil,
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
-	expected.Egress["3000/tcp"] = L4Filter{
-		Port: 3000, Protocol: "tcp", Ingress: false,
+	expected.Egress["3000/TCP"] = L4Filter{
+		Port: 3000, Protocol: api.ProtoTCP, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
-	expected.Egress["3000/udp"] = L4Filter{
-		Port: 3000, Protocol: "udp", Ingress: false,
+	expected.Egress["3000/UDP"] = L4Filter{
+		Port: 3000, Protocol: api.ProtoUDP, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
 
@@ -260,11 +260,11 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		},
 	}
 
-	err := apiRule1.Validate()
+	err := apiRule1.Sanitize()
 	c.Assert(err, IsNil)
 
 	rule1 := &rule{Rule: apiRule1}
-	err = rule1.validate()
+	err = rule1.sanitize()
 	c.Assert(err, IsNil)
 
 	expected := NewL3Policy()
@@ -300,7 +300,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1..0/24"},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
 	// Test CIDRRule with no provided CIDR or ExceptionCIDR.
@@ -309,7 +309,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "", ExceptCIDRs: nil}},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
 	// Test CIDRRule with only CIDR provided; should not fail, as ExceptionCIDR
@@ -318,7 +318,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.0/24", ExceptCIDRs: nil}},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, IsNil)
 
 	// Cannot provide just an IP to a CIDRRule; Cidr must be of format
@@ -327,7 +327,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.32", ExceptCIDRs: nil}},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
 	// Cannot exclude a range that is not part of the CIDR.
@@ -335,7 +335,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.0.0/10", ExceptCIDRs: []api.CIDR{"10.64.0.0/11"}}},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
 	// Must have a mask, make sure Validate fails when not.
@@ -343,7 +343,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1.0/0"},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
 	// Prefix length must be in range for the address, make sure
@@ -352,7 +352,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1.0/34"},
 		}},
-	}.Validate()
+	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 }
 
@@ -378,7 +378,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 		},
 	}
 
-	c.Assert(rule1.validate(), IsNil)
+	c.Assert(rule1.sanitize(), IsNil)
 
 	state := traceState{}
 	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
@@ -410,7 +410,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 		},
 	}
 
-	c.Assert(rule1.validate(), IsNil)
+	c.Assert(rule1.sanitize(), IsNil)
 
 	state := traceState{}
 	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
@@ -431,15 +431,15 @@ func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {
 			},
 		},
 	}
-	c.Assert(r.validate(), IsNil)
+	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.toEntities), Equals, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
-	c.Assert(r.validate(), IsNil)
+	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.toEntities), Equals, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{"trololo"}
-	c.Assert(r.validate(), NotNil)
+	c.Assert(r.sanitize(), NotNil)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationIngress(c *C) {
@@ -453,15 +453,15 @@ func (ds *PolicyTestSuite) TestPolicyEntityValidationIngress(c *C) {
 			},
 		},
 	}
-	c.Assert(r.validate(), IsNil)
+	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.fromEntities), Equals, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{api.EntityHost}
-	c.Assert(r.validate(), IsNil)
+	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.fromEntities), Equals, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{"trololo"}
-	c.Assert(r.validate(), NotNil)
+	c.Assert(r.sanitize(), NotNil)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEntitySelectorsFill(c *C) {
@@ -480,7 +480,7 @@ func (ds *PolicyTestSuite) TestPolicyEntityValidationEntitySelectorsFill(c *C) {
 			},
 		},
 	}
-	c.Assert(r.validate(), IsNil)
+	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.fromEntities), Equals, 2)
 	c.Assert(len(r.toEntities), Equals, 2)
 }

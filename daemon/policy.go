@@ -242,7 +242,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.Debugf("Policy Add Request: %+v", rules)
 
 	for _, r := range rules {
-		if err := r.Validate(); err != nil {
+		if err := r.Sanitize(); err != nil {
 			return 0, apierror.Error(PutPolicyFailureCode, err)
 		}
 	}

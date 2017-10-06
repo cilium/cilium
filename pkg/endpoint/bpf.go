@@ -52,7 +52,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 
 	for _, l4 := range m {
 		// Represents struct l4_allow in bpf/lib/l4.h
-		protoNum, err := u8proto.ParseProtocol(l4.Protocol)
+		protoNum, err := u8proto.ParseProtocol(string(l4.Protocol))
 		if err != nil {
 			return fmt.Errorf("invalid protocol %s", l4.Protocol)
 		}
