@@ -200,3 +200,120 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 		To:   labels.ParseSelectLabelArray("bar3"),
 	}), Equals, api.Denied)
 }
+
+func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
+	repo := NewPolicyRepository()
+
+	fromApp2 := &SearchContext{
+		From:  labels.ParseSelectLabelArray("id=app2"),
+		To:    labels.ParseSelectLabelArray("id=app1"),
+		Trace: TRACE_VERBOSE,
+	}
+
+	fromApp3 := &SearchContext{
+		From: labels.ParseSelectLabelArray("id=app3"),
+		To:   labels.ParseSelectLabelArray("id=app1"),
+	}
+
+	repo.Mutex.RLock()
+	// no rules loaded: CanReach => undecided
+	c.Assert(repo.CanReachRLocked(fromApp2), Equals, api.Undecided)
+	c.Assert(repo.CanReachRLocked(fromApp3), Equals, api.Undecided)
+
+	// no rules loaded: Allows() => denied
+	c.Assert(repo.AllowsLabelAccess(fromApp2), Equals, api.Denied)
+	c.Assert(repo.AllowsLabelAccess(fromApp3), Equals, api.Denied)
+	repo.Mutex.RUnlock()
+
+	selectorFromApp2 := []api.EndpointSelector{
+		api.NewESFromLabels(
+			labels.ParseSelectLabel("id=app2"),
+		),
+	}
+
+	_, err := repo.Add(api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: selectorFromApp2,
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: "tcp"},
+					},
+				}},
+			},
+		},
+	})
+	c.Assert(err, IsNil)
+
+	_, err = repo.Add(api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: selectorFromApp2,
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: "tcp"},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	})
+	c.Assert(err, IsNil)
+
+	_, err = repo.Add(api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: selectorFromApp2,
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: "tcp"},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	})
+	c.Assert(err, IsNil)
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	// L4 from app2 is restricted
+	l4policy, err := repo.ResolveL4Policy(fromApp2)
+	c.Assert(err, IsNil)
+
+	hash, err := selectorFromApp2[0].Hash()
+	c.Assert(err, IsNil)
+
+	expected := NewL4Policy()
+	expected.Ingress["80/tcp"] = L4Filter{
+		Port: 80, Protocol: "tcp",
+		FromEndpoints: selectorFromApp2,
+		L7Parser:      "http",
+		L7RulesPerEp: L7DataMap{
+			hash: api.L7Rules{
+				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			},
+		},
+		Ingress: true,
+	}
+
+	c.Assert(len(l4policy.Ingress), Equals, 1)
+	c.Assert(*l4policy, DeepEquals, *expected)
+
+	// L4 from app3 has no rules
+	l4policy, err = repo.ResolveL4Policy(fromApp3)
+	c.Assert(len(l4policy.Ingress), Equals, 1)
+	c.Assert(*l4policy, DeepEquals, *expected)
+}

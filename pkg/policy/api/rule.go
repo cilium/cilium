@@ -317,11 +317,6 @@ type L7Rules struct {
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
 }
 
-// Len returns the total number of rules inside `L7Rules`.
-func (rules *L7Rules) Len() int {
-	return len(rules.HTTP) + len(rules.Kafka)
-}
-
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are
 // optional, if all fields are empty or missing, the rule does not have any
 // effect.
