@@ -130,4 +130,39 @@ const (
 	// Response is a response object received by us, reported in debug or error.
 	// It is often paired with logfields.Repr to render the object.
 	Response = "resp"
+
+	// K8s specific
+
+	// K8sNodeID is the k8s ID of a K8sNode
+	K8sNodeID = "k8sNodeID"
+
+	// K8sPodName is the name of a k8s pod
+	K8sPodName = "k8sPodName"
+
+	// K8sSvcName is the name of a K8s service
+	K8sSvcName = "k8sSvcName"
+
+	// K8sSvcType is the k8s service type (e.g. NodePort, Loadbalancer etc.)
+	K8sSvcType = "k8sSvcType"
+
+	// K8sEndpointName is the k8s name for a k8s Endpoint (not a cilium Endpoint)
+	K8sEndpointName = "k8sEndpointName"
+
+	// K8sNamespace is the namespace something belongs to
+	K8sNamespace = "k8sNamespace"
+
+	// K8sIdentityAnnotation is a k8s non-identifying annotations on k8s objects
+	K8sIdentityAnnotation = "k8sIdentityAnnotation"
+
+	// K8sNetworkPolicy is a k8s NetworkPolicy object (not a CiliumNetworkObject, above).
+	K8sNetworkPolicy = "k8sNetworkPolicy"
+
+	// K8sNetworkPolicyName is the name of a K8sPolicyObject
+	K8sNetworkPolicyName = "k8sNetworkPolicyName"
+
+	// K8sIngress is a k8s Ingress service object
+	K8sIngress = "k8sIngress"
+
+	// K8sIngressName is the name of a K8sIngress
+	K8sIngressName = "k8sIngressName"
 )
