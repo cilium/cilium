@@ -69,7 +69,7 @@ wait_for_n_running_pods 4
 
 # FIXME Remove workaround once we drop k8s 1.6 support
 # Only test the new network policy with k8s >= 1.7
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; adding L3 L4 policy"
     k8s_apply_policy $NAMESPACE create "${MINIKUBE}/l3_l4_policy.yaml"
 else
@@ -123,7 +123,7 @@ fi
 log "creating L7-aware policy"
 # FIXME Remove workaround once we drop k8s 1.6 support
 # Only test the new network policy with k8s >= 1.7
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     k8s_apply_policy $NAMESPACE delete "${MINIKUBE}/l3_l4_policy.yaml"
     k8s_apply_policy $NAMESPACE create "${MINIKUBE}/l3_l4_l7_policy.yaml"
 else

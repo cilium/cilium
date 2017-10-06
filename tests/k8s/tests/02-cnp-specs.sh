@@ -131,7 +131,7 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; adding policies"
     k8s_apply_policy kube-system create "${bookinfo_dir}/policies/cnp.yaml"
 

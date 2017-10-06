@@ -32,7 +32,7 @@ function cleanup {
   kubectl delete -f "${guestbook_dir}/"
 
   # Only test the new network policy with k8s >= 1.7
-  if [[ "${k8s_version}" == 1.7.* ]]; then
+  if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; deleting policies ${guestbook_dir}/policies/guestbook-policy-web.yaml"
     k8s_apply_policy $NAMESPACE delete "${guestbook_dir}/policies/guestbook-policy-web.yaml"
     log "k8s version is 1.7; deleting policies ${guestbook_dir}/policies/guestbook-policy-redis.json"
@@ -80,7 +80,7 @@ if [ $? -ne 0 ]; then abort "guestbook-policy-redis-deprecated policy was not in
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; adding policies"
     k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-web.yaml"
 
@@ -128,7 +128,7 @@ set +e
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7: checking that guestbook-web policy is added"
     docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 1>/dev/null
 
@@ -181,7 +181,7 @@ if [ $? -eq 0 ]; then abort "guestbook-redis-deprecated policy found in cilium; 
 
 # FIXME Remove workaround once we drop k8s 1.6 support
 # Only test the new network policy with k8s >= 1.7
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7, adding guestbook-policy-redis policy to Cilium"
     k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-redis.json"
     

@@ -101,7 +101,7 @@ cilium_id=$(docker ps -aq --filter=name=cilium-agent)
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; adding policies"
     k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp.yaml"
     log "checking that policies were added in Cilium"
@@ -156,7 +156,7 @@ kubectl delete namespace qa development
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
 # TPR in k8s < 1.7.0
-if [[ "${k8s_version}" == 1.7.* ]]; then
+if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; checking that policies were deleted in Cilium"
     docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest 2>/dev/null
     if [ $? -eq 0 ]; then abort "l7-stresstest policy found in cilium; policy should have been deleted" ; fi
