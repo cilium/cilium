@@ -167,6 +167,71 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+
+	// This rule actually overlaps with the existing ingress "http" rule,
+	// so we'd expect it to merge.
+	rule2 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: "tcp"},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: "tcp"},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "3000"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expected = NewL4Policy()
+	expected.Ingress["80/tcp"] = L4Filter{
+		Port: 80, Protocol: "tcp", FromEndpoints: nil,
+		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+	}
+	expected.Egress["3000/tcp"] = L4Filter{
+		Port: 3000, Protocol: "tcp", Ingress: false,
+		L7RulesPerEp: L7DataMap{},
+	}
+	expected.Egress["3000/udp"] = L4Filter{
+		Port: 3000, Protocol: "udp", Ingress: false,
+		L7RulesPerEp: L7DataMap{},
+	}
+
+	state = traceState{}
+	res, err = rule2.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(len(res.Ingress), Equals, 1)
+	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+
+	state = traceState{}
+	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
