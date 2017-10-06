@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -220,19 +221,19 @@ func (s *K8sSuite) TestParseSpec(c *C) {
 	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
-	c.Assert(*rules[0], DeepEquals, expectedSpecRule)
+	c.Assert(*rules[0], comparator.DeepEquals, expectedSpecRule)
 
 	b, err := json.Marshal(expectedPolicyRule)
 	c.Assert(err, IsNil)
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	c.Assert(err, IsNil)
-	c.Assert(expectedPolicyRuleUnmarshalled, DeepEquals, *expectedPolicyRule)
+	c.Assert(expectedPolicyRuleUnmarshalled, comparator.DeepEquals, *expectedPolicyRule)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
-	c.Assert(cnpl, DeepEquals, *expectedPolicyRule)
+	c.Assert(cnpl, comparator.DeepEquals, *expectedPolicyRule)
 }
 
 func (s *K8sSuite) TestParseRules(c *C) {
@@ -259,7 +260,7 @@ func (s *K8sSuite) TestParseRules(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 2)
 	for i, rule := range rules {
-		c.Assert(rule, DeepEquals, expectedSpecRules[i])
+		c.Assert(rule, comparator.DeepEquals, expectedSpecRules[i])
 	}
 
 	b, err := json.Marshal(expectedPolicyRuleList)
@@ -267,10 +268,10 @@ func (s *K8sSuite) TestParseRules(c *C) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	c.Assert(err, IsNil)
-	c.Assert(expectedPolicyRuleUnmarshalled, DeepEquals, *expectedPolicyRuleList)
+	c.Assert(expectedPolicyRuleUnmarshalled, comparator.DeepEquals, *expectedPolicyRuleList)
 
 	cnpl := CiliumNetworkPolicy{}
 	err = json.Unmarshal(ciliumRuleList, &cnpl)
 	c.Assert(err, IsNil)
-	c.Assert(cnpl, DeepEquals, *expectedPolicyRuleList)
+	c.Assert(cnpl, comparator.DeepEquals, *expectedPolicyRuleList)
 }

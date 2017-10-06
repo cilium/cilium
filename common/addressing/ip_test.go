@@ -18,6 +18,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	. "gopkg.in/check.v1"
 )
 
@@ -37,8 +38,8 @@ func (s *AddressingSuite) TestCiliumIPv6(c *C) {
 	c.Assert(ip.ValidNodeIP(), Equals, false)
 	c.Assert(ip.EndpointID(), Equals, uint16(0))
 	c.Assert(ip.NodeID(), Equals, uint32(0))
-	c.Assert(ip.NodeIP(), DeepEquals, net.ParseIP("b007::"))
-	c.Assert(ip.HostIP(), DeepEquals, net.ParseIP("b007::ffff"))
+	c.Assert(ip.NodeIP(), comparator.DeepEquals, net.ParseIP("b007::"))
+	c.Assert(ip.HostIP(), comparator.DeepEquals, net.ParseIP("b007::ffff"))
 	ip2, _ := NewCiliumIPv6("")
 	// Lacking a better Equals method, checking if the stringified IP is consistent
 	c.Assert(ip.String() == ip2.String(), Equals, false)
@@ -53,7 +54,7 @@ func (s *AddressingSuite) TestCiliumIPv6(c *C) {
 	c.Assert(ip.EndpointID(), Equals, uint16(0))
 	c.Assert(ip.NodeID(), Equals, uint32(0xaaaabbbb))
 	c.Assert(ip.String(), Equals, "b007::aaaa:bbbb:0:0")
-	c.Assert(ip.NodeIP(), DeepEquals, net.ParseIP("b007::aaaa:bbbb:0:0"))
+	c.Assert(ip.NodeIP(), comparator.DeepEquals, net.ParseIP("b007::aaaa:bbbb:0:0"))
 }
 
 func (s *AddressingSuite) TestCiliumIPv4(c *C) {
@@ -80,7 +81,7 @@ func (s *AddressingSuite) TestCiliumIPv6NodeIP(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ip.ValidContainerIP(), Equals, true)
 	c.Assert(ip.ValidNodeIP(), Equals, false)
-	c.Assert(ip.NodeIP(), DeepEquals, net.ParseIP("b007::aaaa:bbbb:0:0"))
+	c.Assert(ip.NodeIP(), comparator.DeepEquals, net.ParseIP("b007::aaaa:bbbb:0:0"))
 }
 
 func (s *AddressingSuite) TestCiliumIPv6Negative(c *C) {
