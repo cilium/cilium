@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/kvstore"
 
 	. "gopkg.in/check.v1"
@@ -74,7 +75,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = ffsIDu16
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
-	c.Assert(gotL3n4AddrID, DeepEquals, wantL3n4AddrID)
+	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
 
 	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
@@ -86,7 +87,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = types.ServiceID(common.FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
-	c.Assert(gotL3n4AddrID, DeepEquals, wantL3n4AddrID)
+	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
 
 	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
@@ -107,7 +108,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	sha256sum := l3n4Addr2.SHA256Sum()
 	gotL3n4AddrID, err = GetL3n4AddrIDBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID, DeepEquals, wantL3n4AddrID)
+	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
 
 	err = DeleteL3n4AddrIDBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)

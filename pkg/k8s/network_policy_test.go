@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -115,7 +116,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	result, err := repo.ResolveL4Policy(&ctx)
 	c.Assert(result, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(result, DeepEquals, &policy.L4Policy{
+	c.Assert(result, comparator.DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
 			"80/TCP": policy.L4Filter{
 				Port: 80, Protocol: api.ProtoTCP,

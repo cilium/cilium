@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -134,7 +135,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
-	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
+	c.Assert(gotSecCtxLbl.Labels, comparator.DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 3)
 
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-1")
@@ -144,7 +145,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
-	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
+	c.Assert(gotSecCtxLbl.Labels, comparator.DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 2)
 
 	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity + 1)
@@ -152,7 +153,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity + 1
 	wantSecCtxLbls.Labels = lbls2
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
-	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
+	c.Assert(gotSecCtxLbl.Labels, comparator.DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 2)
 
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-2")
@@ -162,7 +163,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	wantSecCtxLbls.ID = policy.MinimalNumericIdentity
 	wantSecCtxLbls.Labels = lbls
 	c.Assert(gotSecCtxLbl.ID, Equals, wantSecCtxLbls.ID)
-	c.Assert(gotSecCtxLbl.Labels, DeepEquals, wantSecCtxLbls.Labels)
+	c.Assert(gotSecCtxLbl.Labels, comparator.DeepEquals, wantSecCtxLbls.Labels)
 	c.Assert(gotSecCtxLbl.RefCount(), Equals, 1)
 
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-3")
@@ -176,7 +177,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	c.Assert(err, IsNil)
 
 	err = ds.d.DeleteIdentity(policy.MinimalNumericIdentity, "containerLabel1-non-existent")
-	c.Assert(err, DeepEquals, errors.New("identity not found"))
+	c.Assert(err, comparator.DeepEquals, errors.New("identity not found"))
 	gotSecCtxLbl, err = ds.d.LookupIdentity(policy.MinimalNumericIdentity)
 	c.Assert(err, IsNil)
 	c.Assert(gotSecCtxLbl, Equals, emptySecCtxLblPtr)
@@ -190,7 +191,7 @@ func (ds *DaemonSuite) TestLabels(c *C) {
 	sha256sum := lbls2.SHA256Sum()
 	gotSecCtxLbl, err = LookupIdentityBySHA256(sha256sum)
 	c.Assert(err, IsNil)
-	c.Assert(gotSecCtxLbl, DeepEquals, secCtxLbl)
+	c.Assert(gotSecCtxLbl, comparator.DeepEquals, secCtxLbl)
 
 	err = ds.d.DeleteIdentityBySHA256(sha256sum, "containerLabel2-1")
 	c.Assert(err, IsNil)

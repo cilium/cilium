@@ -17,6 +17,7 @@ package policy
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -160,7 +161,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 
 	state = traceState{}
@@ -225,7 +226,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(len(res.Ingress), Equals, 1)
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 
 	state = traceState{}
@@ -275,7 +276,7 @@ func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
 	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 }
 
@@ -346,7 +347,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 
 	state = traceState{}
@@ -414,7 +415,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err = rule2.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 
 	state = traceState{}
@@ -491,7 +492,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err = rule3.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 }
 
@@ -553,7 +554,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	state := traceState{}
 	res := rule1.resolveL3Policy(toBar, &state, NewL3Policy())
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 
 	// Must be parsable, make sure Validate fails when not.
