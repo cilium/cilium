@@ -102,17 +102,22 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		return 1, nil
 	}
 	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
-	if l4Filter.L7Parser != "" && v.L7Parser == "" {
-		v.L7Parser = l4Filter.L7Parser
-	} else if l4Filter.L7Parser != v.L7Parser {
-		ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", l4Filter.L7Parser, v.L7Parser)
-		return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", l4Filter.L7Parser, v.L7Parser)
+	if l4Filter.L7Parser != "" {
+		if v.L7Parser == "" {
+			v.L7Parser = l4Filter.L7Parser
+		} else if l4Filter.L7Parser != v.L7Parser {
+			ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", l4Filter.L7Parser, v.L7Parser)
+			return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", l4Filter.L7Parser, v.L7Parser)
+		}
 	}
-	if l4Filter.L7RedirectPort != 0 && v.L7RedirectPort == 0 {
-		v.L7RedirectPort = l4Filter.L7RedirectPort
-	} else if l4Filter.L7RedirectPort != v.L7RedirectPort {
-		ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
-		return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
+
+	if l4Filter.L7RedirectPort != 0 {
+		if v.L7RedirectPort == 0 {
+			v.L7RedirectPort = l4Filter.L7RedirectPort
+		} else if l4Filter.L7RedirectPort != v.L7RedirectPort {
+			ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
+			return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
+		}
 	}
 
 	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && len(r.Rules.HTTP) == 0 {
@@ -150,6 +155,7 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 			default:
 				ctx.PolicyTrace("   No L7 rules to merge.\n")
 			}
+			v.L7RulesPerEp[hash] = ep
 		} else {
 			v.L7RulesPerEp[hash] = newL7Rules
 		}
