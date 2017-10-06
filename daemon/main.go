@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -128,7 +129,7 @@ func main() {
 func getKernelVersion() (*go_version.Version, error) {
 	verOut, err := exec.Command("uname", "-r").CombinedOutput()
 	if err != nil {
-		log.Fatalf("kernel version: NOT OK: %s", err)
+		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
 	verStrs := strings.Split(string(verOut), ".")
 	if len(verStrs) < 2 {
@@ -140,7 +141,7 @@ func getKernelVersion() (*go_version.Version, error) {
 func getClangVersion(filePath string) (*go_version.Version, error) {
 	verOut, err := exec.Command(filePath, "--version").CombinedOutput()
 	if err != nil {
-		log.Fatalf("clang version: NOT OK: %s", err)
+		log.WithError(err).Fatal("clang version: NOT OK")
 	}
 	res := regexp.MustCompile(`(clang version )([^ ]*)`).FindStringSubmatch(string(verOut))
 	if len(res) != 3 {
@@ -164,7 +165,7 @@ func checkBPFLogs(logType string, fatal bool) {
 	} else if err == nil {
 		bpfFeaturesLog, err := ioutil.ReadFile(bpfLogPath)
 		if err != nil {
-			log.Fatalf("%s check: NOT OK. Unable to read %q: %s", logType, bpfLogPath, err)
+			log.WithError(err).WithField(logfields.Path, bpfLogPath).Fatalf("%s check: NOT OK. Unable to read", logType)
 		}
 		printer := log.Debugf
 		if fatal {
@@ -181,14 +182,14 @@ func checkBPFLogs(logType string, fatal bool) {
 			log.Fatalf("%s check failed.", logType)
 		}
 	} else {
-		log.Fatalf("%s check: NOT OK. Unable to read %q: %s", logType, bpfLogPath, err)
+		log.WithError(err).WithField(logfields.Path, bpfLogPath).Fatalf("%s check: NOT OK. Unable to read", logType)
 	}
 }
 
 func checkMinRequirements() {
 	kernelVersion, err := getKernelVersion()
 	if err != nil {
-		log.Fatalf("kernel version: NOT OK: %s", err)
+		log.WithError(err).Fatalf("kernel version: NOT OK")
 	}
 	if !minKernelVer.Check(kernelVersion) {
 		log.Fatalf("kernel version: NOT OK: minimal supported kernel "+
@@ -196,11 +197,11 @@ func checkMinRequirements() {
 	}
 
 	if filePath, err := exec.LookPath("clang"); err != nil {
-		log.Fatalf("clang: NOT OK: %s", err)
+		log.WithError(err).Fatal("clang: NOT OK")
 	} else {
 		clangVersion, err := getClangVersion(filePath)
 		if err != nil {
-			log.Fatalf("clang version: NOT OK: %s", err)
+			log.WithError(err).Fatal("clang: NOT OK")
 		}
 		if !minClangVer.Check(clangVersion) {
 			log.Fatalf("clang version: NOT OK: minimal supported clang "+
@@ -216,12 +217,12 @@ func checkMinRequirements() {
 	}
 
 	if filePath, err := exec.LookPath("llc"); err != nil {
-		log.Fatalf("llc: NOT OK: %s", err)
+		log.WithError(err).Fatal("llc: NOT OK")
 	} else {
 		lccVersion, err := exec.Command(filePath, "--version").CombinedOutput()
 		if err == nil {
 			if strings.Contains(strings.ToLower(string(lccVersion)), "debug") {
-				log.Warningf("llc version was compiled in debug mode, expect higher latency!")
+				log.Warning("llc version was compiled in debug mode, expect higher latency!")
 			}
 		}
 		// /usr/include/gnu/stubs-32.h is installed by 'glibc-devel.i686' in fedora
@@ -239,18 +240,17 @@ func checkMinRequirements() {
 
 	globalsDir := filepath.Join(config.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
-		log.Fatalf("Could not create runtime directory %q: %s", globalsDir, err)
+		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
 	if err := os.Chdir(config.LibDir); err != nil {
-		log.Fatalf("Could not change to runtime directory %q: %s",
-			config.LibDir, err)
+		log.WithError(err).WithField(logfields.Path, config.LibDir).Fatal("Could not change to runtime directory")
 	}
 	probeScript := filepath.Join(config.BpfDir, "run_probes.sh")
 	if err := exec.Command(probeScript, config.BpfDir, config.StateDir).Run(); err != nil {
-		log.Fatalf("BPF Verifier: NOT OK. Unable to run checker for bpf_features: %s", err)
+		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
 	}
 	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
-		log.Fatalf("BPF Verifier: NOT OK. Unable to read bpf_features.h: %s", err)
+		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
 	}
 
 	checkBPFLogs("bpf_requirements", true)
@@ -416,26 +416,33 @@ func initConfig() {
 		nodeaddress.EnableIPv4 = false
 	}
 
+	scopedLog := log.WithFields(log.Fields{
+		logfields.Path + ".RunDir":   config.RunDir,
+		logfields.Path + ".StateDir": config.StateDir,
+		logfields.Path + ".LibDir":   config.LibDir,
+		logfields.Path + ".BPFDir":   defaults.BpfDir,
+	})
+
 	config.BpfDir = filepath.Join(config.LibDir, defaults.BpfDir)
 	if err := os.MkdirAll(config.RunDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Could not create runtime directory %q: %s", config.RunDir, err)
+		scopedLog.WithError(err).Fatal("Could not create runtime directory")
 	}
 
 	config.StateDir = filepath.Join(config.RunDir, defaults.StateDir)
 	if err := os.MkdirAll(config.StateDir, defaults.StateDirRights); err != nil {
-		log.Fatalf("Could not create state directory %q: %s", config.StateDir, err)
+		scopedLog.WithError(err).Fatal("Could not create state directory")
 	}
 
 	if err := os.MkdirAll(config.LibDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Could not create library directory %q: %s", config.LibDir, err)
+		scopedLog.WithError(err).Fatal("Could not create library directory")
 	}
 	if !config.KeepTemplates {
 		if err := RestoreAssets(config.LibDir, defaults.BpfDir); err != nil {
-			log.Fatalf("Unable to restore agent assets: %s", err)
+			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 		// Restore permissions of executable files
 		if err := RestoreExecPermissions(config.LibDir, `.*\.sh`); err != nil {
-			log.Fatalf("Unable to restore agent assets: %s", err)
+			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 	}
 	checkMinRequirements()
@@ -466,13 +473,14 @@ func initConfig() {
 func initEnv() {
 	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
 
+	scopedLog := log.WithField(logfields.Path, socketPath)
 	socketDir := path.Dir(socketPath)
 	if err := os.MkdirAll(socketDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Cannot mkdir directory %q for cilium socket: %s", socketDir, err)
+		scopedLog.WithError(err).Fatal("Cannot mkdir directory for cilium socket")
 	}
 
 	if err := os.Remove(socketPath); !os.IsNotExist(err) && err != nil {
-		log.Fatalf("Cannot remove existing Cilium sock %q: %s", socketPath, err)
+		scopedLog.WithError(err).Fatal("Cannot remove existing Cilium sock")
 	}
 
 	// The standard operation is to mount the BPF filesystem to the
@@ -502,16 +510,16 @@ func initEnv() {
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
-		log.Fatalf("Unable to setup kvstore: %s", err)
+		log.WithError(err).Fatal("Unable to setup kvstore")
 	}
 
 	if err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
-		log.Fatalf("%s", err)
+		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
 
 	_, r, err := net.ParseCIDR(nat46prefix)
 	if err != nil {
-		log.Fatalf("Invalid NAT46 prefix %s: %s", nat46prefix, err)
+		log.WithError(err).WithField(logfields.V6Prefix, nat46prefix).Fatalf("Invalid NAT46 prefix")
 	}
 
 	config.NAT46Prefix = r
@@ -524,10 +532,10 @@ func initEnv() {
 
 	if v6Address != "auto" {
 		if ip := net.ParseIP(v6Address); ip == nil {
-			log.Fatalf("Invalid IPv6 node address '%s'", v6Address)
+			log.WithField(logfields.IPAddr, v6Address).Fatal("Invalid IPv6 node address")
 		} else {
 			if !ip.IsGlobalUnicast() {
-				log.Fatalf("Invalid IPv6 node address '%s': not a global unicast address", ip)
+				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
 			}
 
 			nodeaddress.SetIPv6(ip)
@@ -536,7 +544,7 @@ func initEnv() {
 
 	if v4Address != "auto" {
 		if ip := net.ParseIP(v4Address); ip == nil {
-			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
+			log.WithField(logfields.IPAddr, v4Address).Fatal("Invalid IPv4 node address")
 		} else {
 			nodeaddress.SetExternalIPv4(ip)
 		}
@@ -548,12 +556,12 @@ func initEnv() {
 func runDaemon() {
 	d, err := NewDaemon(config)
 	if err != nil {
-		log.Fatalf("Error while creating daemon: %s", err)
+		log.WithError(err).Fatal("Error while creating daemon")
 		return
 	}
 
 	if err := d.PolicyInit(); err != nil {
-		log.Fatalf("Unable to initialize policy: %s", err)
+		log.WithError(err).Fatal("Unable to initialize policy")
 	}
 
 	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)
@@ -572,12 +580,12 @@ func runDaemon() {
 	d.EnableKVStoreWatcher(30 * time.Second)
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
-		log.Warningf("Error while enabling k8s watcher %s", err)
+		log.WithError(err).Warning("Error while enabling k8s watcher")
 	}
 
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("Cannot load swagger spec")
 	}
 
 	api := restapi.NewCiliumAPI(swaggerSpec)
@@ -646,6 +654,6 @@ func runDaemon() {
 	server.ConfigureAPI()
 
 	if err := server.Serve(); err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
 	}
 }
