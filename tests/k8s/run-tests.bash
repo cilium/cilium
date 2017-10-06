@@ -94,8 +94,4 @@ function run_tests(){
 }
 
 # Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
-run_tests "1.6.6-00"
-# Run tests in k8s 1.7.4 (where we need to reinstall it)
-reinstall_kubeadmn ${node1} "1.7.4-00"
-reinstall_kubeadmn ${node2} "1.7.4-00"
-run_tests "1.7.4-00"
+run_tests "1.8.0-00"
