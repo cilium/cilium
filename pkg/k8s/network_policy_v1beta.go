@@ -18,7 +18,6 @@ package k8s
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -93,9 +92,9 @@ func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) 
 					continue
 				}
 
-				protocol := "tcp"
+				protocol := api.ProtoTCP
 				if port.Protocol != nil {
-					protocol = strings.ToLower(string(*port.Protocol))
+					protocol, _ = api.ParseL4Proto(string(*port.Protocol))
 				}
 
 				portStr := ""
@@ -128,7 +127,7 @@ func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) 
 		Ingress:          ingresses,
 	}
 
-	if err := rule.Validate(); err != nil {
+	if err := rule.Sanitize(); err != nil {
 		return nil, err
 	}
 

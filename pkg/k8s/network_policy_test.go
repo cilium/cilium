@@ -117,8 +117,8 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
-			"80/tcp": policy.L4Filter{
-				Port: 80, Protocol: "tcp",
+			"80/TCP": policy.L4Filter{
+				Port: 80, Protocol: api.ProtoTCP,
 				FromEndpoints:  []api.EndpointSelector{epSelector},
 				L7Parser:       "",
 				L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
@@ -409,7 +409,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     6379,
-				Protocol: "tcp",
+				Protocol: models.PortProtocolTCP,
 			},
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -535,7 +535,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     443,
-				Protocol: "tcp",
+				Protocol: models.PortProtocolTCP,
 			},
 		},
 		To: labels.LabelArray{
@@ -614,7 +614,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     443,
-				Protocol: "tcp",
+				Protocol: models.PortProtocolTCP,
 			},
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -730,7 +730,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		},
 		DPorts: []*models.Port{
 			{
-				Protocol: "udp",
+				Protocol: models.PortProtocolUDP,
 				Port:     8080,
 			},
 		},
@@ -751,7 +751,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     443,
-				Protocol: "tcp",
+				Protocol: models.PortProtocolTCP,
 			},
 		},
 		To: labels.LabelArray{
@@ -770,7 +770,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		},
 		DPorts: []*models.Port{
 			{
-				Protocol: "udp",
+				Protocol: models.PortProtocolUDP,
 				Port:     8080,
 			},
 		},
@@ -883,7 +883,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     8080,
-				Protocol: "udp",
+				Protocol: models.PortProtocolUDP,
 			},
 		},
 		To: labels.LabelArray{
@@ -920,7 +920,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     8080,
-				Protocol: "udp",
+				Protocol: models.PortProtocolUDP,
 			},
 		},
 		To: labels.LabelArray{
@@ -941,7 +941,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		DPorts: []*models.Port{
 			{
 				Port:     8080,
-				Protocol: "udp",
+				Protocol: models.PortProtocolUDP,
 			},
 		},
 		To: labels.LabelArray{

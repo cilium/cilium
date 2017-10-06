@@ -238,7 +238,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 				FromEndpoints: selectorFromApp2,
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: "tcp"},
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
 				}},
 			},
@@ -253,7 +253,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 				FromEndpoints: selectorFromApp2,
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: "tcp"},
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
 						HTTP: []api.PortRuleHTTP{
@@ -273,7 +273,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 				FromEndpoints: selectorFromApp2,
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: "tcp"},
+						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
 						HTTP: []api.PortRuleHTTP{
@@ -297,8 +297,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(err, IsNil)
 
 	expected := NewL4Policy()
-	expected.Ingress["80/tcp"] = L4Filter{
-		Port: 80, Protocol: "tcp",
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP,
 		FromEndpoints: selectorFromApp2,
 		L7Parser:      "http",
 		L7RulesPerEp: L7DataMap{

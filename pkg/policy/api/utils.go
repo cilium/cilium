@@ -14,6 +14,11 @@
 
 package api
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Len returns the total number of rules inside `L7Rules`.
 func (rules *L7Rules) Len() int {
 	return len(rules.HTTP) + len(rules.Kafka)
@@ -61,4 +66,25 @@ func (k *PortRuleKafka) Exists(rules L7Rules) bool {
 // Equal returns true if both HTTP rules are equal
 func (k *PortRuleKafka) Equal(o PortRuleKafka) bool {
 	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey && k.Topic == o.Topic
+}
+
+// Validate returns an error if the layer 4 protocol is not valid
+func (l4 L4Proto) Validate() error {
+	switch l4 {
+	case ProtoAny, ProtoTCP, ProtoUDP:
+	default:
+		return fmt.Errorf("invalid protocol %q, must be { tcp | udp | any }", l4)
+	}
+
+	return nil
+}
+
+// ParseL4Proto parses a string as layer 4 protocol
+func ParseL4Proto(proto string) (L4Proto, error) {
+	if proto == "" {
+		return ProtoAny, nil
+	}
+
+	p := L4Proto(strings.ToUpper(proto))
+	return p, p.Validate()
 }

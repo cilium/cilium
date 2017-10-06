@@ -150,7 +150,7 @@ func getSecurityIdentities(owner Owner, selector *api.EndpointSelector) []policy
 
 func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 	port := uint16(filter.Port)
-	proto, err := u8proto.ParseProtocol(filter.Protocol)
+	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
 	if err != nil {
 		log.Warningf("Parse policy protocol failed: %s", err)
 		return 1
@@ -171,7 +171,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 
 func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
 	port := uint16(filter.Port)
-	proto, err := u8proto.ParseProtocol(filter.Protocol)
+	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
 	if err != nil {
 		log.Warningf("Parse policy protocol failed: %s", err)
 		return 1

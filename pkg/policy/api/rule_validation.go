@@ -27,16 +27,18 @@ const (
 	MaxCIDREntries = 40
 )
 
-// Validate validates a policy rule
-func (r Rule) Validate() error {
-	for _, i := range r.Ingress {
-		if err := i.Validate(); err != nil {
+// Sanitize validates and sanitizes a policy rule. Minor edits such as
+// capitalization of the protocol name are automatically fixed up. More
+// fundamental violations will cause an error to be returned.
+func (r Rule) Sanitize() error {
+	for i := range r.Ingress {
+		if err := r.Ingress[i].sanitize(); err != nil {
 			return err
 		}
 	}
 
-	for _, e := range r.Egress {
-		if err := e.Validate(); err != nil {
+	for i := range r.Egress {
+		if err := r.Egress[i].sanitize(); err != nil {
 			return err
 		}
 	}
@@ -44,8 +46,7 @@ func (r Rule) Validate() error {
 	return nil
 }
 
-// Validate validates an ingress policy rule
-func (i IngressRule) Validate() error {
+func (i *IngressRule) sanitize() error {
 	if len(i.FromCIDR) > 0 && len(i.FromEndpoints) > 0 {
 		return fmt.Errorf("Combining FromCIDR and FromEndpoints is not supported yet")
 	}
@@ -54,8 +55,8 @@ func (i IngressRule) Validate() error {
 		return fmt.Errorf("Combining ToPorts and FromCIDR is not supported yet")
 	}
 
-	for _, p := range i.ToPorts {
-		if err := p.Validate(); err != nil {
+	for n := range i.ToPorts {
+		if err := i.ToPorts[n].sanitize(); err != nil {
 			return err
 		}
 	}
@@ -64,14 +65,14 @@ func (i IngressRule) Validate() error {
 		return fmt.Errorf("too many ingress L3 entries %d/%d", l, MaxCIDREntries)
 	}
 
-	for _, p := range i.FromCIDR {
-		if err := p.Validate(); err != nil {
+	for n := range i.FromCIDR {
+		if err := i.FromCIDR[n].sanitize(); err != nil {
 			return err
 		}
 	}
 
-	for _, p := range i.FromCIDRSet {
-		if err := p.Validate(); err != nil {
+	for n := range i.FromCIDRSet {
+		if err := i.FromCIDRSet[n].sanitize(); err != nil {
 			return err
 		}
 	}
@@ -79,28 +80,27 @@ func (i IngressRule) Validate() error {
 	return nil
 }
 
-// Validate validates an egress policy rule
-func (e EgressRule) Validate() error {
+func (e *EgressRule) sanitize() error {
 	if len(e.ToCIDR) > 0 && len(e.ToPorts) > 0 {
 		return fmt.Errorf("Combining ToPorts and ToCIDR is not supported yet")
 	}
 
-	for _, p := range e.ToPorts {
-		if err := p.Validate(); err != nil {
+	for i := range e.ToPorts {
+		if err := e.ToPorts[i].sanitize(); err != nil {
 			return err
 		}
 	}
 	if l := len(e.ToCIDR); l > MaxCIDREntries {
 		return fmt.Errorf("too many egress L3 entries %d/%d", l, MaxCIDREntries)
 	}
-	for _, p := range e.ToCIDR {
-		if err := p.Validate(); err != nil {
+	for i := range e.ToCIDR {
+		if err := e.ToCIDR[i].sanitize(); err != nil {
 			return err
 		}
 	}
 
-	for _, p := range e.ToCIDRSet {
-		if err := p.Validate(); err != nil {
+	for i := range e.ToCIDRSet {
+		if err := e.ToCIDRSet[i].sanitize(); err != nil {
 			return err
 		}
 	}
@@ -108,10 +108,10 @@ func (e EgressRule) Validate() error {
 	return nil
 }
 
-// Validate validates Kafka rules
+// sanitize validates Kafka rules
 // TODO we need to add support to check
 // wildcard and prefix/suffix later on.
-func (kr PortRuleKafka) Validate() error {
+func (kr *PortRuleKafka) sanitize() error {
 	if len(kr.APIKey) > 0 {
 		if _, ok := KafkaAPIKeyMap[strings.ToLower(kr.APIKey)]; ok == false {
 			return fmt.Errorf("invalid Kafka APIKey :%q", kr.APIKey)
@@ -141,15 +141,14 @@ func (kr PortRuleKafka) Validate() error {
 	return nil
 }
 
-// Validate validates L7 rules
-func (pr *L7Rules) Validate() error {
+func (pr *L7Rules) sanitize() error {
 	if (pr.HTTP != nil) && (pr.Kafka != nil) {
 		return fmt.Errorf("multiple L7 protocol rule types specified in single rule")
 	}
 
 	if pr.Kafka != nil {
 		for _, kafkaRules := range pr.Kafka {
-			if err := kafkaRules.Validate(); err != nil {
+			if err := kafkaRules.sanitize(); err != nil {
 				return err
 			}
 		}
@@ -157,28 +156,26 @@ func (pr *L7Rules) Validate() error {
 	return nil
 }
 
-// Validate validates a port policy rule
-func (pr PortRule) Validate() error {
+func (pr *PortRule) sanitize() error {
 	if len(pr.Ports) > maxPorts {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
-	for _, p := range pr.Ports {
-		if err := p.Validate(); err != nil {
+	for i := range pr.Ports {
+		if err := pr.Ports[i].sanitize(); err != nil {
 			return err
 		}
 	}
 
-	// Validate L7 rules
+	// Sanitize L7 rules
 	if pr.Rules != nil {
-		if err := pr.Rules.Validate(); err != nil {
+		if err := pr.Rules.sanitize(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Validate validates a port/protocol pair
-func (pp PortProtocol) Validate() error {
+func (pp *PortProtocol) sanitize() error {
 	if pp.Port == "" {
 		return fmt.Errorf("Port must be specified")
 	}
@@ -192,17 +189,15 @@ func (pp PortProtocol) Validate() error {
 		return fmt.Errorf("Port cannot be 0")
 	}
 
-	switch strings.ToLower(pp.Protocol) {
-	case "", "any", "tcp", "udp":
-	default:
-		return fmt.Errorf("Invalid protocol %q, must be { tcp | udp }", pp.Protocol)
+	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-// Validate CIDR
-func (cidr CIDR) Validate() error {
+func (cidr CIDR) sanitize() error {
 	strCIDR := string(cidr)
 	if strCIDR == "" {
 		return fmt.Errorf("IP must be specified")
@@ -226,13 +221,13 @@ func (cidr CIDR) Validate() error {
 	return nil
 }
 
-// Validate validates a CIDRRule by checking that the CIDR prefix itself is
+// sanitize validates a CIDRRule by checking that the CIDR prefix itself is
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
-func (c CIDRRule) Validate() error {
+func (c *CIDRRule) sanitize() error {
 
 	// Only allow notation <IP address>/<prefix>. Note that this differs from
-	// the logic in api.CIDR.Validate().
+	// the logic in api.CIDR.Sanitize().
 	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
 
 	if err != nil {

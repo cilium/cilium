@@ -1494,9 +1494,9 @@ func init() {
           "description": "Layer 4 protocol",
           "type": "string",
           "enum": [
-            "tcp",
-            "udp",
-            "any"
+            "TCP",
+            "UDP",
+            "ANY"
           ]
         }
       }

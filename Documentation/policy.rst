@@ -387,7 +387,7 @@ The ``toPorts`` field takes a ``PortProtocol`` structure which is defined as fol
                 Port string `json:"port"`
 
                 // Protocol is the L4 protocol. If omitted or empty, any protocol
-                // matches. Accepted values: "tcp", "udp", ""/"any"
+                // matches. Accepted values: "TCP", "UDP", ""/"ANY"
                 //
                 // Matching on ICMP is not supported.
                 //
@@ -408,7 +408,7 @@ only be able to emit packets using TCP on port 80::
             "endpointSelector": {"matchLabels":{"app":"myService"}},
             "egress": [{
                 "toPorts": [
-                    {"port": "80", "protocol": "tcp"}
+                    {"port": "80", "protocol": "TCP"}
                 ]
             }]
         }
@@ -427,7 +427,7 @@ communicate using using TCP on port 80::
                   {"matchLabels":{"role":"frontend"}}
                 ],
                 "toPorts": [
-                    {"port": "80", "protocol": "tcp"}
+                    {"port": "80", "protocol": "TCP"}
                 ]
             }]
         }
@@ -449,7 +449,7 @@ endpoint that is communicating over TCP on port 80::
                 ]
               }, {
                 "toPorts": [
-                    {"port": "80", "protocol": "tcp"}
+                    {"port": "80", "protocol": "TCP"}
                 ]
             }]
         }
@@ -564,7 +564,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
             "ingress": [{
                 "toPorts": [{
                     "ports": [
-                        {"port": "80", "protocol": "tcp"}
+                        {"port": "80", "protocol": "TCP"}
                     ],
                     "rules": {
                         "HTTP": [

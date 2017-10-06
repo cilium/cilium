@@ -515,7 +515,7 @@ and ``cilium`` CLI:
                 "ports": [
                   {
                     "port": "80",
-                    "protocol": "tcp"
+                    "protocol": "TCP"
                   }
                 ]
               }
@@ -712,7 +712,7 @@ We can achieve that with the following Cilium policy:
                 {"matchLabels":{"id":"app2"}}
             ],
             "toPorts": [{
-                    "ports": [{"port": "80", "protocol": "tcp"}]
+                    "ports": [{"port": "80", "protocol": "TCP"}]
             }]
         }]
     }]
@@ -813,7 +813,7 @@ The following Cilium policy file achieves this goal:
                 {"matchLabels":{"id":"app2"}}
             ],
             "toPorts": [{
-                "ports": [{"port": "80", "protocol": "tcp"}],
+                "ports": [{"port": "80", "protocol": "TCP"}],
                 "rules": {
                     "HTTP": [{
                         "method": "GET",
@@ -1090,7 +1090,7 @@ Apply an L3/L4 policy only allowing the *goodclient* to access the *web-server*.
                 {"matchLabels":{"id":"goodclient"}}
             ],
             "toPorts": [{
-                    "ports": [{"port": "8181", "protocol": "tcp"}]
+                    "ports": [{"port": "8181", "protocol": "TCP"}]
             }]
         }]
     }]
@@ -1164,7 +1164,7 @@ Now, apply an L7 Policy that only allows access for the *goodclient* to the */pu
                 {"matchLabels":{"id":"goodclient"}}
             ],
             "toPorts": [{
-                "ports": [{"port": "8181", "protocol": "tcp"}],
+                "ports": [{"port": "8181", "protocol": "TCP"}],
                 "rules": {
                     "HTTP": [{
                         "method": "GET",

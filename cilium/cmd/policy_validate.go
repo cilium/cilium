@@ -32,7 +32,7 @@ var policyValidateCmd = &cobra.Command{
 			Fatalf("Validation of policy has failed: %s\n", err)
 		} else {
 			for _, r := range ruleList {
-				if err := r.Validate(); err != nil {
+				if err := r.Sanitize(); err != nil {
 					Fatalf("Validation of policy has failed: %s\n", err)
 				}
 			}

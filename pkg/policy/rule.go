@@ -34,11 +34,15 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-// validate has a side effect of populating the fromEntities and toEntities
+// sanitize has a side effect of populating the fromEntities and toEntities
 // slices to avoid superfluent map accesses
-func (r *rule) validate() error {
+func (r *rule) sanitize() error {
 	if r == nil || r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("nil rule")
+	}
+
+	if err := r.Rule.Sanitize(); err != nil {
+		return err
 	}
 
 	if len(r.EndpointSelector.MatchLabels) == 0 &&
@@ -93,9 +97,9 @@ func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filt
 }
 
 func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
-	dir string, proto string, resMap L4PolicyMap) (int, error) {
+	dir string, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 
-	key := p.Port + "/" + proto
+	key := p.Port + "/" + string(proto)
 	v, ok := resMap[key]
 	if !ok {
 		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
@@ -200,20 +204,20 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 
 		for _, p := range r.Ports {
 			var cnt int
-			if p.Protocol != "" {
+			if p.Protocol != api.ProtoAny {
 				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, "tcp", resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoTCP, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, "udp", resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoUDP, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -279,12 +283,12 @@ func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3Polic
 func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
 	var allResultantAllowedCIDRs []api.CIDR
 	for _, s := range cidrs {
-		// No need for error checking, as api.CIDRRule.Validate() already does.
+		// No need for error checking, as api.CIDRRule.Sanitize() already does.
 		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
 
 		var removeSubnets []*net.IPNet
 		for _, t := range s.ExceptCIDRs {
-			// No need for error checking, as api.CIDRRule.Validate() already
+			// No need for error checking, as api.CIDRRule.Sanitize() already
 			// does.
 			_, removeSubnet, _ := net.ParseCIDR(string(t))
 			removeSubnets = append(removeSubnets, removeSubnet)
