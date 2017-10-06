@@ -43,6 +43,7 @@ SCRIPT
 # allow setting up k8s_version remotely when executing the runtime tests via ssh
 $install_sshd_env = <<SCRIPT
 echo "AcceptEnv k8s_version" >> /etc/ssh/sshd_config
+echo "AcceptEnv K8S1_NAME" >> /etc/ssh/sshd_config
 # Load options
 sudo service sshd restart
 SCRIPT
