@@ -15,6 +15,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+#define SKIP_CALLS_MAP
+
 #include <node_config.h>
 #include <netdev_config.h>
 #include <filter_config.h>
