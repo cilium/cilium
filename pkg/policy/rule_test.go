@@ -234,6 +234,160 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(state.selectedRules, Equals, 0)
 }
 
+func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+
+	fooSelector := []api.EndpointSelector{
+		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+	}
+	rule1 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+				{
+					FromEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	l7rules := api.L7Rules{
+		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+	}
+	hash, err := fooSelector[0].Hash()
+	c.Assert(err, IsNil)
+	l7map := L7DataMap{
+		WildcardEndpointSelector: l7rules,
+		hash: l7rules,
+	}
+
+	expected := NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+	}
+
+	state := traceState{}
+	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+
+	state = traceState{}
+	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
+
+	rule2 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+				{
+					FromEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	l7rules = api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+	}
+	hash, err = fooSelector[0].Hash()
+	c.Assert(err, IsNil)
+	l7map = L7DataMap{
+		WildcardEndpointSelector: l7rules,
+		hash: l7rules,
+	}
+
+	expected = NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+	}
+
+	state = traceState{}
+	res, err = rule2.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+
+	state = traceState{}
+	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
+
+	// Resolve rule1's policy, then try to add rule2.
+	res, err = rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+
+	state = traceState{}
+	res, err = rule2.resolveL4Policy(toBar, &state, res)
+	c.Assert(err, Not(IsNil))
+	c.Assert(err.Error(), Equals, "Cannot merge conflicting L7 parsers (kafka/http)")
+}
+
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	apiRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),

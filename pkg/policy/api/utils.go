@@ -79,6 +79,15 @@ func (l4 L4Proto) Validate() error {
 	return nil
 }
 
+// NumRules returns the total number of L7Rules configured in this PortRule
+func (r *PortRule) NumRules() int {
+	if r.Rules == nil {
+		return 0
+	}
+
+	return r.Rules.Len()
+}
+
 // ParseL4Proto parses a string as layer 4 protocol
 func ParseL4Proto(proto string) (L4Proto, error) {
 	if proto == "" {
