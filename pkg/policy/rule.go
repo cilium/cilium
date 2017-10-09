@@ -144,8 +144,8 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 	for hash, newL7Rules := range l4Filter.L7RulesPerEp {
 		if ep, ok := v.L7RulesPerEp[hash]; ok {
 			switch {
-			case len(l4Filter.L7RulesPerEp[hash].HTTP) > 0:
-				if len(v.L7RulesPerEp[hash].Kafka) > 0 {
+			case len(newL7Rules.HTTP) > 0:
+				if len(ep.Kafka) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
@@ -155,8 +155,8 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 						ep.HTTP = append(ep.HTTP, newRule)
 					}
 				}
-			case len(l4Filter.L7RulesPerEp[hash].Kafka) > 0:
-				if len(v.L7RulesPerEp[hash].HTTP) > 0 {
+			case len(newL7Rules.Kafka) > 0:
+				if len(ep.HTTP) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
