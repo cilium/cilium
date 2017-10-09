@@ -25,8 +25,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -109,7 +111,7 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 func ignoredFile(name string) bool {
 	for i := range ignoredMasks {
 		if ignoredMasks[i].MatchString(name) {
-			log.Debugf("Ignoring file %s", name)
+			logrus.WithField(logfields.Path, name).Debug("Ignoring file")
 			return true
 		}
 	}
@@ -120,7 +122,7 @@ func ignoredFile(name string) bool {
 func loadPolicyFile(path string) (api.Rules, error) {
 	var content []byte
 	var err error
-	log.Debugf("Loading file %s", path)
+	logrus.WithField(logfields.Path, path).Debug("Loading file")
 
 	if path == "-" {
 		content, err = ioutil.ReadAll(bufio.NewReader(os.Stdin))
@@ -142,7 +144,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 }
 
 func loadPolicy(name string) (api.Rules, error) {
-	log.Debugf("Entering directory %s...", name)
+	logrus.WithField(logfields.Path, name).Debug("Entering directory")
 
 	if name == "-" {
 		return loadPolicyFile(name)
@@ -174,7 +176,7 @@ func loadPolicy(name string) (api.Rules, error) {
 	}
 	result = append(result, ruleList...)
 
-	log.Debugf("Leaving directory %s...", name)
+	logrus.WithField(logfields.Path, name).Debug("Leaving directory")
 
 	return result, nil
 }

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +37,7 @@ var serviceDeleteCmd = &cobra.Command{
 
 			for _, svc := range list {
 				if err := client.DeleteServiceID(svc.ID); err != nil {
-					log.Errorf("Cannot delete service %d: %s", svc.ID, err)
+					log.WithError(err).WithField(logfields.ServiceID, svc.ID).Error("Cannot delete service")
 				}
 			}
 
