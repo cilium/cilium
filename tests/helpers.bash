@@ -369,7 +369,7 @@ function wait_for_daemon_set_not_ready {
     found=$?
   done
 
-  overwrite 'kubectl -n kube-system get pods -o wide'
+  overwrite $iter 'kubectl -n kube-system get pods -o wide'
   restore_flag $save "e"
 }
 
@@ -438,7 +438,7 @@ function wait_for_n_running_pods {
     found=$(kubectl get pod | grep Running -c || true)
   done
 
-  overwrite 'kubectl get pod -o wide'
+  overwrite $iter 'kubectl get pod -o wide'
   restore_flag $save "e"
 }
 
@@ -467,7 +467,7 @@ function wait_for_healthy_k8s_cluster {
     fi
     found=$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")
   done
-  overwrite 'kubectl get cs'
+  overwrite $iter 'kubectl get cs'
   local iter=0
   local found
   found=$(kubectl get nodes | grep Ready -c)
@@ -680,7 +680,7 @@ function wait_for_daemon_set_ready {
     fi
     found=$(kubectl get ds -n ${namespace} ${name} 2>&1 | awk 'NR==2{ print $4 }')
   done
-  overwrite 'kubectl -n kube-system get pods -o wide'
+  overwrite $iter 'kubectl -n kube-system get pods -o wide'
   restore_flag $save "e"
 }
 
