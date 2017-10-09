@@ -226,7 +226,7 @@ function wait_for_k8s_endpoints {
   found=$(k8s_num_ready "${NAMESPACE}" "${CILIUM_POD}" "${FILTER}")
   log "found: $found"
   while [[ "$found" -ne "$NUM" ]]; do
-    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((5*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for $NUM endpoints"
       restore_flag $save "e"
@@ -234,12 +234,13 @@ function wait_for_k8s_endpoints {
     else
       overwrite $iter '
         kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list
-        echo -n " [${found}/${NUM}]""
+        echo -n " [${found}/${NUM}]"
       '
       sleep $sleep_time
     fi
     found=$(k8s_num_ready "${NAMESPACE}" "${CILIUM_POD}" "${FILTER}")
     log "found: $found"
+    ((iter++))
   done
 
   overwrite $iter 'kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list'
@@ -356,7 +357,7 @@ function wait_for_daemon_set_not_ready {
   local iter=0
   local found="0"
   until [[ "$found" -eq "1" ]]; do
-    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((5*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for cilium agent to be clean up by kubernetes"
       print_k8s_cilium_logs
@@ -367,9 +368,10 @@ function wait_for_daemon_set_not_ready {
     fi
     kubectl get pods -n ${namespace} | grep ${name} -q
     found=$?
+    ((iter++))
   done
 
-  overwrite 'kubectl -n kube-system get pods -o wide'
+  overwrite $iter 'kubectl -n kube-system get pods -o wide'
   restore_flag $save "e"
 }
 
@@ -424,7 +426,7 @@ function wait_for_n_running_pods {
   local found
   found=$(kubectl get pod | grep Running -c || true)
   until [[ "$found" -eq "$NPODS" ]]; do
-    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((5*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for $NPODS running pods"
       exit 1
@@ -436,9 +438,10 @@ function wait_for_n_running_pods {
       sleep $sleep_time
     fi
     found=$(kubectl get pod | grep Running -c || true)
+    ((iter++))
   done
 
-  overwrite 'kubectl get pod -o wide'
+  overwrite $iter 'kubectl get pod -o wide'
   restore_flag $save "e"
 }
 
@@ -454,7 +457,7 @@ function wait_for_healthy_k8s_cluster {
   local found
   found=$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")
   until [[ "$found" -eq "3" ]]; do
-    if [[ $((iter++)) -gt $((1*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((1*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for healthy kubernetes cluster"
       exit 1
@@ -466,13 +469,14 @@ function wait_for_healthy_k8s_cluster {
       sleep $sleep_time
     fi
     found=$(kubectl get cs | grep -v "STATUS" | grep -c "Healthy")
+    ((iter++))
   done
-  overwrite 'kubectl get cs'
+  overwrite $iter 'kubectl get cs'
   local iter=0
   local found
   found=$(kubectl get nodes | grep Ready -c)
   until [[ "$found" -eq "$NNODES" ]]; do
-    if [[ $((iter++)) -gt $((1*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((1*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for all nodes to be Ready"
       exit 1
@@ -484,6 +488,7 @@ function wait_for_healthy_k8s_cluster {
       sleep $sleep_time
     fi
     found=$(kubectl get nodes | grep Ready -c)
+    ((iter++))
   done
   restore_flag $save "e"
 }
@@ -498,7 +503,7 @@ function k8s_nodes_policy_status {
   local iter=0
   local nodes=$(kubectl get ciliumnetworkpolicies -n "${policy_ns}" "${policy_name}" -o go-template --template='{{len .status.nodes}}')
   until [[ "${nodes}" -eq "${NNODES}" ]]; do
-    if [[ $((iter++)) -gt $((1*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((1*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for $NNODES to have policy ${policy_ns}/${policy_name} installed"
       exit 1
@@ -510,6 +515,7 @@ function k8s_nodes_policy_status {
       sleep $sleep_time
     fi
     found=$(kubectl get nodes | grep Ready -c)
+    ((iter++))
   done
 
   kubectl get ciliumnetworkpolicies -n "${policy_ns}" "${policy_name}" -o go-template --template='{{.status.nodes}}'
@@ -665,7 +671,7 @@ function wait_for_daemon_set_ready {
   local iter=0
   local found="0"
   until [[ "$found" -eq "$n_ds_expected" ]]; do
-    if [[ $((iter++)) -gt $((5*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((5*60/$sleep_time)) ]]; then
       echo ""
       log "Timeout while waiting for cilium agent"
       print_k8s_cilium_logs
@@ -679,8 +685,9 @@ function wait_for_daemon_set_ready {
       sleep $sleep_time
     fi
     found=$(kubectl get ds -n ${namespace} ${name} 2>&1 | awk 'NR==2{ print $4 }')
+    ((iter++))
   done
-  overwrite 'kubectl -n kube-system get pods -o wide'
+  overwrite $iter 'kubectl -n kube-system get pods -o wide'
   restore_flag $save "e"
 }
 
@@ -974,7 +981,7 @@ function wait_for_desired_state {
   log "found: $found"
 
   while [[ "$found" -ne "$NUM_DESIRED" ]]; do
-    if [[ $((iter++)) -gt $((${MAX_MINS}*60/$sleep_time)) ]]; then
+    if [[ $iter -gt $((${MAX_MINS}*60/$sleep_time)) ]]; then
       echo ""
       log "$ERROR_OUTPUT"
       exit 1
@@ -988,6 +995,7 @@ function wait_for_desired_state {
     fi
     found=$(eval "${CMD}")
     log "found: $found"
+    ((iter++))
   done
   log "desired state realized for command ${CMD}"
   eval "${INFO_CMD}"
