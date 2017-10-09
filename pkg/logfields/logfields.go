@@ -62,6 +62,12 @@ const (
 	// V6Prefix is a IPv6 subnet/CIDR prefix
 	V6Prefix = "v6Prefix"
 
+	// Veth is a veth object or ID
+	Veth = "veth"
+
+	// VethPair is a tuple of Veth that are paired
+	VethPair = "vethPair"
+
 	// SHA is a sha of something
 	SHA = "sha"
 
