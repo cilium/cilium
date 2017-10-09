@@ -6,6 +6,7 @@ IP SPACES
 AWS VMs 
 
 ::
+
     192.168.32.0/19 
     192.168.64.0/19 
     192.168.96.0/19
@@ -650,6 +651,7 @@ https://quay.io/repository/coreos/hyperkube?tag=latest&tab=tags
       configured module search path = Default w/o overrides
       python version = 2.7.6 (default, Oct 26 2016, 20:30:19) [GCC 4.8.4]
       
+
     core@host:~/cilium/installation/ansible$ ansible -i hosts mp1 -b -m setup --tree /tmp/facts
 
 ::
