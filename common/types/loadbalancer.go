@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -105,22 +106,29 @@ type LoadBalancer struct {
 
 // AddService adds a service to list of loadbalancers and returns true if created.
 func (lb *LoadBalancer) AddService(svc LBSVC) bool {
+	scopedLog := log.WithFields(log.Fields{
+		logfields.ServiceName: svc.FE.String(),
+		logfields.SHA:         svc.Sha256,
+	})
+
 	oldSvc, ok := lb.SVCMapID[svc.FE.ID]
 	if ok {
 		// If service already existed, remove old entry from Cilium's map
-		log.Debugf("service %s is already in lb.SVCMapID; deleting old entry and updating it with new entry", svc.FE.String())
+		scopedLog.Debug("service is already in lb.SVCMapID; deleting old entry and updating it with new entry")
 		delete(lb.SVCMap, oldSvc.Sha256)
 	}
-	log.Debugf("adding service %s with SHA %s to lb.SVCMap", svc.FE.String(), svc.Sha256)
+	scopedLog.Debug("adding service to loadbalancer")
 	lb.SVCMap[svc.Sha256] = svc
-	log.Debugf("adding service %s to lb.SVCMapID", svc.FE.String())
 	lb.SVCMapID[svc.FE.ID] = &svc
 	return !ok
 }
 
 // DeleteService deletes svc from lb's SVCMap and SVCMapID.
 func (lb *LoadBalancer) DeleteService(svc *LBSVC) {
-	log.Debugf("deleting service %s from lb.SVCMap, lb.SVCMapID", svc.FE.String())
+	log.WithFields(log.Fields{
+		logfields.ServiceName: svc.FE.String(),
+		logfields.SHA:         svc.Sha256,
+	}).Debug("deleting service from loadbalancer")
 	delete(lb.SVCMap, svc.Sha256)
 	delete(lb.SVCMapID, svc.FE.ID)
 }
@@ -238,7 +246,7 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, erro
 	}
 
 	addr := L3n4Addr{IP: ip, L4Addr: *lbport}
-	log.Debugf("created new L3n4Addr %s", addr)
+	log.WithField(logfields.IPAddr, addr).Debug("created new L3n4Addr")
 
 	return &addr, nil
 }
@@ -280,7 +288,7 @@ func NewLBBackEnd(protocol L4Type, ip net.IP, portNumber uint16, weight uint16) 
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		Weight:   weight,
 	}
-	log.Debugf("created new LBBackend %s", lbbe)
+	log.WithField("backend", lbbe).Debug("created new LBBackend")
 
 	return &lbbe, nil
 }
@@ -424,7 +432,11 @@ func (l *L3n4AddrID) IsIPv6() bool {
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
 func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
-	log.Debugf("adding frontend %s and backend %s with backend index %d to SVCMap", fe, be, beIndex)
+	log.WithFields(log.Fields{
+		"frontend":     fe,
+		"backend":      be,
+		"backendIndex": beIndex,
+	}).Debug("adding frontend and backend to SVCMap")
 	sha := fe.SHA256Sum()
 
 	var lbsvc LBSVC
