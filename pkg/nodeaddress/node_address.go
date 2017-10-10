@@ -205,6 +205,12 @@ func GetInternalIPv4() net.IP {
 	return ipv4InternalAddress
 }
 
+// GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading
+// any traffic that is being forwarded from the host into the Cilium cluster.
+func GetHostMasqueradeIPv4() net.IP {
+	return ipv4InternalAddress
+}
+
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
 // addresses for local endpoints
 func SetIPv4AllocRange(net *net.IPNet) {
@@ -246,6 +252,11 @@ func ValidatePostInit() error {
 	if EnableIPv4 {
 		if ipv4InternalAddress == nil {
 			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
+		}
+
+		if !ipv4AllocRange.Contains(ipv4InternalAddress) {
+			return fmt.Errorf("BUG: Internal IPv4 (%s) must be part of cluster prefix (%s)",
+				ipv4InternalAddress, ipv4AllocRange)
 		}
 
 		ones, _ := ipv4AllocRange.Mask.Size()
