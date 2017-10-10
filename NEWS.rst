@@ -6,7 +6,7 @@ Version 0.12
 ============
 
 :date: 2017-10-10
-:commit: nil
+:commit: b87ac83fb18b6c9e1ff69c840a459b3905f80618
 
 Bug Fixes
 ---------
