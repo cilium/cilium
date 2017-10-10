@@ -32,20 +32,20 @@ func (s *PolicyTestSuite) testDPortCoverage(c *C, policy L4Policy,
 	ports = []*models.Port{
 		{
 			Port:     8080,
-			Protocol: "tcp",
+			Protocol: models.PortProtocolTCP,
 		},
 	}
 	c.Assert(covers(ports), Equals, api.Allowed)
 
 	// Adding another port outside the policy will now be denied.
-	ports = append(ports, &models.Port{Port: 8080, Protocol: "udp"})
+	ports = append(ports, &models.Port{Port: 8080, Protocol: models.PortProtocolUDP})
 	c.Assert(covers(ports), Equals, api.Denied)
 
 	// Ports with protocol any should match the TCP policy above.
 	ports = []*models.Port{
 		{
 			Port:     8080,
-			Protocol: "any",
+			Protocol: models.PortProtocolANY,
 		},
 	}
 	c.Assert(covers(ports), Equals, api.Allowed)
@@ -60,9 +60,9 @@ func (s *PolicyTestSuite) TestIngressCoversDPorts(c *C) {
 	// Non-empty policy denies traffic without a port specified
 	policy = L4Policy{
 		Ingress: L4PolicyMap{
-			"8080/tcp": {
+			"8080/TCP": {
 				Port:     8080,
-				Protocol: "tcp",
+				Protocol: api.ProtoTCP,
 				Ingress:  true,
 			},
 		},
@@ -79,9 +79,9 @@ func (s *PolicyTestSuite) TestEgressCoversDPorts(c *C) {
 	// Non-empty policy denies traffic without a port specified
 	policy = L4Policy{
 		Egress: L4PolicyMap{
-			"8080/tcp": {
+			"8080/TCP": {
 				Port:     8080,
-				Protocol: "tcp",
+				Protocol: api.ProtoTCP,
 				Ingress:  false,
 			},
 		},
@@ -90,7 +90,7 @@ func (s *PolicyTestSuite) TestEgressCoversDPorts(c *C) {
 }
 
 func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
-	tuple := api.PortProtocol{Port: "80", Protocol: "tcp"}
+	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := api.PortRule{
 		Ports: []api.PortProtocol{tuple},
 		Rules: &api.L7Rules{

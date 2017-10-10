@@ -34,11 +34,15 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-// validate has a side effect of populating the fromEntities and toEntities
+// sanitize has a side effect of populating the fromEntities and toEntities
 // slices to avoid superfluent map accesses
-func (r *rule) validate() error {
+func (r *rule) sanitize() error {
 	if r == nil || r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("nil rule")
+	}
+
+	if err := r.Rule.Sanitize(); err != nil {
+		return err
 	}
 
 	if len(r.EndpointSelector.MatchLabels) == 0 &&
@@ -93,29 +97,34 @@ func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filt
 }
 
 func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
-	dir string, proto string, resMap L4PolicyMap) (int, error) {
+	dir string, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 
-	key := p.Port + "/" + proto
+	key := p.Port + "/" + string(proto)
 	v, ok := resMap[key]
 	if !ok {
 		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
 		return 1, nil
 	}
 	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
-	if l4Filter.L7Parser != "" && v.L7Parser == "" {
-		v.L7Parser = l4Filter.L7Parser
-	} else if l4Filter.L7Parser != v.L7Parser {
-		ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", l4Filter.L7Parser, v.L7Parser)
-		return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", l4Filter.L7Parser, v.L7Parser)
-	}
-	if l4Filter.L7RedirectPort != 0 && v.L7RedirectPort == 0 {
-		v.L7RedirectPort = l4Filter.L7RedirectPort
-	} else if l4Filter.L7RedirectPort != v.L7RedirectPort {
-		ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
-		return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
+	if l4Filter.L7Parser != "" {
+		if v.L7Parser == "" {
+			v.L7Parser = l4Filter.L7Parser
+		} else if l4Filter.L7Parser != v.L7Parser {
+			ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", l4Filter.L7Parser, v.L7Parser)
+			return 0, fmt.Errorf("Cannot merge conflicting L7 parsers (%s/%s)", l4Filter.L7Parser, v.L7Parser)
+		}
 	}
 
-	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && len(r.Rules.HTTP) == 0 {
+	if l4Filter.L7RedirectPort != 0 {
+		if v.L7RedirectPort == 0 {
+			v.L7RedirectPort = l4Filter.L7RedirectPort
+		} else if l4Filter.L7RedirectPort != v.L7RedirectPort {
+			ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
+			return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
+		}
+	}
+
+	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && r.NumRules() == 0 {
 		// skip this policy as it is already covered and it does not contain L7 rules
 		return 1, nil
 	}
@@ -135,21 +144,32 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 	for hash, newL7Rules := range l4Filter.L7RulesPerEp {
 		if ep, ok := v.L7RulesPerEp[hash]; ok {
 			switch {
-			case len(l4Filter.L7RulesPerEp[hash].HTTP) > 0:
-				if len(v.L7RulesPerEp[hash].Kafka) > 0 {
+			case len(newL7Rules.HTTP) > 0:
+				if len(ep.Kafka) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
-				ep.HTTP = append(ep.HTTP, newL7Rules.HTTP...)
-			case len(l4Filter.L7RulesPerEp[hash].Kafka) > 0:
-				if len(v.L7RulesPerEp[hash].HTTP) > 0 {
+
+				for _, newRule := range newL7Rules.HTTP {
+					if !newRule.Exists(ep) {
+						ep.HTTP = append(ep.HTTP, newRule)
+					}
+				}
+			case len(newL7Rules.Kafka) > 0:
+				if len(ep.HTTP) > 0 {
 					ctx.PolicyTrace("   Merge conflict: mismatching L7 rule types.\n")
 					return 0, fmt.Errorf("Cannot merge conflicting L7 rule types")
 				}
-				ep.Kafka = append(ep.Kafka, newL7Rules.Kafka...)
+
+				for _, newRule := range newL7Rules.Kafka {
+					if !newRule.Exists(ep) {
+						ep.Kafka = append(ep.Kafka, newRule)
+					}
+				}
 			default:
 				ctx.PolicyTrace("   No L7 rules to merge.\n")
 			}
+			v.L7RulesPerEp[hash] = ep
 		} else {
 			v.L7RulesPerEp[hash] = newL7Rules
 		}
@@ -184,20 +204,20 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 
 		for _, p := range r.Ports {
 			var cnt int
-			if p.Protocol != "" {
+			if p.Protocol != api.ProtoAny {
 				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, "tcp", resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoTCP, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, "udp", resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoUDP, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -263,12 +283,12 @@ func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3Polic
 func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
 	var allResultantAllowedCIDRs []api.CIDR
 	for _, s := range cidrs {
-		// No need for error checking, as api.CIDRRule.Validate() already does.
+		// No need for error checking, as api.CIDRRule.Sanitize() already does.
 		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
 
 		var removeSubnets []*net.IPNet
 		for _, t := range s.ExceptCIDRs {
-			// No need for error checking, as api.CIDRRule.Validate() already
+			// No need for error checking, as api.CIDRRule.Sanitize() already
 			// does.
 			_, removeSubnet, _ := net.ParseCIDR(string(t))
 			removeSubnets = append(removeSubnets, removeSubnet)

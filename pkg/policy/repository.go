@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Repository is a list of policy rules which in combination form the security
@@ -157,6 +159,9 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 
 	ctx.PolicyTrace("\n")
 	policy, err := p.ResolveL4Policy(&ctx)
+	if err != nil {
+		log.WithError(err).Warning("Evaluation error while resolving L4 egress policy")
+	}
 	verdict := api.Undecided
 	if err == nil && len(policy.Egress) > 0 {
 		verdict = policy.EgressCoversDPorts(ctx.DPorts)
@@ -176,6 +181,9 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 
 	ctx.PolicyTrace("\n")
 	policy, err := p.ResolveL4Policy(ctx)
+	if err != nil {
+		log.WithError(err).Warning("Evaluation error while resolving L4 ingress policy")
+	}
 	verdict := api.Undecided
 	if err == nil && len(policy.Ingress) > 0 {
 		verdict = policy.IngressCoversContext(ctx)
@@ -242,7 +250,7 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 	defer p.Mutex.Unlock()
 
 	realRule := &rule{Rule: r}
-	if err := realRule.validate(); err != nil {
+	if err := realRule.sanitize(); err != nil {
 		return p.revision, err
 	}
 
@@ -259,7 +267,7 @@ func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
 	newList := make([]*rule, len(rules))
 	for i := range rules {
 		newList[i] = &rule{Rule: *rules[i]}
-		if err := newList[i].validate(); err != nil {
+		if err := newList[i].sanitize(); err != nil {
 			return p.revision, err
 		}
 	}

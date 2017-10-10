@@ -44,7 +44,7 @@ var policyImportCmd = &cobra.Command{
 			}
 
 			for _, r := range ruleList {
-				if err := r.Validate(); err != nil {
+				if err := r.Sanitize(); err != nil {
 					Fatalf("%s", err)
 				}
 			}

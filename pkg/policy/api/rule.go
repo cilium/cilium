@@ -241,6 +241,15 @@ type EgressRule struct {
 // Example: 192.0.2.1/32
 type CIDR string
 
+// L4Proto is a layer 4 protocol name
+type L4Proto string
+
+const (
+	ProtoTCP L4Proto = "TCP"
+	ProtoUDP L4Proto = "UDP"
+	ProtoAny L4Proto = "ANY"
+)
+
 // PortProtocol specifies an L4 port with an optional transport protocol
 type PortProtocol struct {
 	// Port is an L4 port number. For now the string will be strictly
@@ -249,12 +258,12 @@ type PortProtocol struct {
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
-	// matches. Accepted values: "tcp", "udp", ""/"any"
+	// matches. Accepted values: "TCP", "UDP", ""/"ANY"
 	//
 	// Matching on ICMP is not supported.
 	//
 	// +optional
-	Protocol string `json:"protocol,omitempty"`
+	Protocol L4Proto `json:"protocol,omitempty"`
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7
@@ -315,11 +324,6 @@ type L7Rules struct {
 	//
 	// +optional
 	Kafka []PortRuleKafka `json:"kafka,omitempty"`
-}
-
-// Len returns the total number of rules inside `L7Rules`.
-func (rules *L7Rules) Len() int {
-	return len(rules.HTTP) + len(rules.Kafka)
 }
 
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are

@@ -198,7 +198,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	retRules := api.Rules{}
 
 	if r.Spec != nil {
-		if err := r.Spec.Validate(); err != nil {
+		if err := r.Spec.Sanitize(); err != nil {
 			return nil, fmt.Errorf("Invalid spec: %s", err)
 
 		}
@@ -207,7 +207,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
-			if err := rule.Validate(); err != nil {
+			if err := rule.Sanitize(); err != nil {
 				return nil, fmt.Errorf("Invalid specs: %s", err)
 
 			}
