@@ -519,6 +519,18 @@ func (d *Daemon) installMasqRule() error {
 		}
 	}
 
+	// Masquerade all traffic from the host into the cilium_host interface
+	// if the source is not the internal IP
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-s", nodeaddress.GetHostMasqueradeIPv4().String(),
+		"-o", "cilium_host",
+		"-m", "comment", "--comment", "cilium host->cluster masquerade",
+		"-j", "SNAT", "--to-source", nodeaddress.GetHostMasqueradeIPv4().String()}, false); err != nil {
+		return err
+	}
+
 	// Masquerade all traffic from node prefix not going to node prefix
 	// which is not going over the tunnel device
 	if err := runProg("iptables", []string{
@@ -526,21 +538,9 @@ func (d *Daemon) installMasqRule() error {
 		"-A", "CILIUM_POST",
 		"-s", nodeaddress.GetIPv4AllocRange().String(),
 		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_" + d.conf.Tunnel,
+		"!", "-o", "cilium_+",
 		"-m", "comment", "--comment", "cilium masquerade non-cluster",
 		"-j", "MASQUERADE"}, false); err != nil {
-		return err
-	}
-
-	// Masquerade all traffic from the host into the cilium_host interface
-	// if the source is not the internal IP
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", ciliumPostNatChain,
-		"!", "-s", nodeaddress.GetExternalIPv4().String(),
-		"-o", "cilium_host",
-		"-m", "comment", "--comment", "cilium host->cluster masquerade",
-		"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
 		return err
 	}
 
