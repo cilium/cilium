@@ -109,7 +109,7 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 		Method:   l.Request.Method,
 		URL:      l.Request.URL,
 		Protocol: l.Request.Proto,
-		Header:   l.Request.Header,
+		Headers:  l.Request.Header,
 	}
 
 	log.WithFields(log.Fields{
