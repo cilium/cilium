@@ -15,9 +15,9 @@
 package api
 
 import (
-	"github.com/cilium/cilium/pkg/labels"
-
 	"regexp"
+
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // Rule is a policy rule which must be applied to all endpoints which match the
@@ -178,6 +178,23 @@ type IngressRule struct {
 	FromEntities []Entity `json:"fromEntities,omitempty"`
 }
 
+// ServiceSelector is a label selector for k8s services
+type ServiceSelector EndpointSelector
+
+// Service wraps around selectors for services
+type Service struct {
+	// K8sServiceSelector selects services by k8s labels
+	K8sServiceSelector ServiceSelector `json:"k8sServiceSelector,omitempty"`
+	//K8sService selects service by name and namespace pair
+	K8sService K8sServiceNamespace `json:"k8sService,omitempty"`
+}
+
+// K8sServiceNamespace is an abstraction for the k8s service + namespace types.
+type K8sServiceNamespace struct {
+	ServiceName string `json:"serviceName,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+}
+
 // EgressRule contains all rule types which can be applied at egress, i.e.
 // network traffic that originates inside the endpoint and exits the endpoint
 // selected by the endpointSelector.
@@ -236,6 +253,9 @@ type EgressRule struct {
 	//
 	// +optional
 	ToEntities []Entity `json:"toEntities,omitempty"`
+
+	// ToServices
+	ToServices []Service `json:"toServices,omitempty"`
 }
 
 // CIDR specifies a block of IP addresses.
