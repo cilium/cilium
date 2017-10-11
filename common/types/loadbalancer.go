@@ -158,8 +158,8 @@ func NewLoadBalancer() *LoadBalancer {
 
 // K8sServiceNamespace is an abstraction for the k8s service + namespace types.
 type K8sServiceNamespace struct {
-	Service   string
-	Namespace string
+	Service   string `json: "service,omitempty"`
+	Namespace string `json: "namespace,omitempty"`
 }
 
 // K8sServiceInfo is an abstraction for a k8s service that is composed by the frontend IP
