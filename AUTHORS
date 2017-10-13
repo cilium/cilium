@@ -1,23 +1,22 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
-4ast <alexei.starovoitov@gmail.com>
 Alban Crequy <alban@kinvolk.io>
 Alexander Alemayhu <alexander@alemayhu.com>
+Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Amre Shakimov <amre@covalent.io>
 André Martins <andre@cilium.io>
 Ashwin Paranjpe <ashwinp.work@gmail.com>
-craigbox <craig.box@gmail.com>
+Craig Box <craig.box@gmail.com>
 Cynthia Thomas <techcet@users.noreply.github.com>
 Daniel Borkmann <daniel@iogearbox.net>
 Daniel Dao <dqminh89@gmail.com>
 Dan Wendlandt <dan@covalent.io>
 Dom Del Nano <ddelnano@gmail.com>
 Eloy Coto <eloy.coto@gmail.com>
-f0 <f0@users.noreply.github.com>
 Faiyaz Ahmed <faiyaza@gmail.com>
+Florian Koch <f0@users.noreply.github.com>
 Fred Hsu <fredlhsu@gmail.com>
-genbit <sergey@genbit.ru>
 Gianluca Arbezzano <gianarb92@gmail.com>
 Ian Vernon <ian@covalent.io>
 Ivar Lazzaro <ivarlazzaro@gmail.com>
@@ -27,15 +26,13 @@ Joe Stringer <joe@covalent.io>
 John Fastabend <john.fastabend@gmail.com>
 Jonathan Davies <jpds@protonmail.com>
 Jon Davies <jpds@protonmail.com>
-jrajahalme <jarno@covalent.io>
 Katarzyna Borkmann <kasia@iogearbox.net>
 Maciej Kwiek <maciej.iai@gmail.com>
 Madhu Challa <madhu@cilium.io>
 Manali Bhutiyani <manali@covalent.io>
 Marcin Skarbek <git@skarbek.name>
-mchalla <challa@gmail.com>
 Michi Mutsuzaki <michi@covalent.io>
-peiqi <uestc.shi@gmail.com>
+Peiqi Shi <uestc.shi@gmail.com>
 Raghu Gyambavantha <raghug@bld-ml-loan4.olympus.f5net.com>
 Ray Bejjani <raybejjani@users.noreply.github.com>
 Romain Lenglet <romain@covalent.io>
