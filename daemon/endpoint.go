@@ -62,34 +62,34 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 		endpointmanager.Mutex.RUnlock()
 		wg.Wait()
 		return NewGetEndpointOK().WithPayload(eps)
-	} else {
-		eps := []*models.Endpoint{}
-
-		// Convert params.Labels to model that we can compare with the endpoint's labels.
-		convertedLabels := labels.NewLabelsFromModel(params.Labels)
-
-		endpointmanager.Mutex.RLock()
-
-		wg.Add(len(endpointmanager.Endpoints))
-		for k := range endpointmanager.Endpoints {
-			go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
-				ep.Mutex.RLock()
-				if ep.HasLabels(convertedLabels) {
-					eps = append(eps, ep.GetModel())
-				}
-				ep.Mutex.RUnlock()
-				wg.Done()
-			}(&wg, endpointmanager.Endpoints[k])
-		}
-		endpointmanager.Mutex.RUnlock()
-		wg.Wait()
-
-		if len(eps) == 0 {
-			return NewGetEndpointNotFound()
-		}
-
-		return NewGetEndpointOK().WithPayload(eps)
 	}
+
+	eps := []*models.Endpoint{}
+
+	// Convert params.Labels to model that we can compare with the endpoint's labels.
+	convertedLabels := labels.NewLabelsFromModel(params.Labels)
+
+	endpointmanager.Mutex.RLock()
+
+	wg.Add(len(endpointmanager.Endpoints))
+	for k := range endpointmanager.Endpoints {
+		go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
+			ep.Mutex.RLock()
+			if ep.HasLabels(convertedLabels) {
+				eps = append(eps, ep.GetModel())
+			}
+			ep.Mutex.RUnlock()
+			wg.Done()
+		}(&wg, endpointmanager.Endpoints[k])
+	}
+	endpointmanager.Mutex.RUnlock()
+	wg.Wait()
+
+	if len(eps) == 0 {
+		return NewGetEndpointNotFound()
+	}
+
+	return NewGetEndpointOK().WithPayload(eps)
 }
 
 type getEndpointID struct {
