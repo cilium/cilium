@@ -106,11 +106,7 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer, owner Owner) error {
 		return err
 	}
 
-	if err := e.writeL4Map(fw, owner, l4policy.Egress, "CFG_L4_EGRESS"); err != nil {
-		return err
-	}
-
-	return nil
+	return e.writeL4Map(fw, owner, l4policy.Egress, "CFG_L4_EGRESS")
 }
 
 func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {

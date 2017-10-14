@@ -999,11 +999,7 @@ func (d *Daemon) validateExistingMaps() error {
 		return mapValidateWalker(path)
 	}
 
-	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
-		return err
-	}
-
-	return nil
+	return filepath.Walk(bpf.MapPrefixPath(), walker)
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
