@@ -350,11 +350,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 
 	log.Debugf("Decremented label %d ref-count to %d", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
 
-	if err := kvstore.Client().SetValue(lblPath, dbSecCtxLbls); err != nil {
-		return err
-	}
-
-	return nil
+	return kvstore.Client().SetValue(lblPath, dbSecCtxLbls)
 }
 
 // GetMaxLabelID returns the maximum possible free UUID stored in consul.
