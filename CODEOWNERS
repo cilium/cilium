@@ -2,11 +2,11 @@
 * @cilium/janitors
 
 # BPF Data Path
-bpf/ @cilium/bpf
-pkg/maps/ @cilium/bpf
-pkg/bpf/ @cilium/bpf
-pkg/policy/prefilter.go @cilium/bpf
-daemon/prefilter.go @cilium/bpf
+/bpf/ @cilium/bpf
+/pkg/maps/ @cilium/bpf
+/pkg/bpf/ @cilium/bpf
+/pkg/policy/prefilter.go @cilium/bpf
+/daemon/prefilter.go @cilium/bpf
 
 # Agent -> Kernel interaction
 bpf/*.sh @cilium/bpf-loader
