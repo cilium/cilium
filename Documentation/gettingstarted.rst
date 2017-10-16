@@ -78,9 +78,9 @@ agent and the Cilium CNI plugin.  The Cilium daemonset also starts a pod running
 
 To deploy Cilium, run:
 
-::
+.. parsed-literal::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium.yaml
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
     clusterrole "cilium" created
     serviceaccount "cilium" created
     clusterrolebinding "cilium" created
@@ -124,9 +124,9 @@ with each deployment identified using the Kubernetes labels id=app1, id=app2,
 and id=app3.
 It also include a app1-service, which load-balances traffic to all pods with label id=app1.
 
-::
+.. parsed-literal::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/demo.yaml
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/demo.yaml
     service "app1-service" created
     deployment "app1" created
     deployment "app2" created
@@ -228,9 +228,9 @@ on TCP port 80.
 
 To apply this L3/L4 policy, run:
 
-::
+.. parsed-literal::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_policy.yaml
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/l3_l4_policy.yaml
 
 If we run ``cilium endpoint list`` again we will see that the pods with the
 label ``id=app1`` now have policy enforcement enabled.
@@ -361,9 +361,9 @@ API call, but disallowing all other calls (including GET /private).
 
 Create an L7-aware policy to protect *app1* using:
 
-::
+.. parsed-literal::
 
-  $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/minikube/l3_l4_l7_policy.yaml
+  $ kubectl create -f \ |SCM_WEB|\/examples/minikube/l3_l4_l7_policy.yaml
 
 
 .. note:: If this step is failing with an error complaining about version
