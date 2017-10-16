@@ -32,6 +32,7 @@ type IPAMSuite struct{}
 var _ = Suite(&IPAMSuite{})
 
 func (s *IPAMSuite) TestLock(c *C) {
+	nodeaddress.InitDefaultPrefix("")
 	err := Init()
 	c.Assert(err, IsNil)
 
