@@ -175,9 +175,9 @@ chapter.
 
 2. Download the DaemonSet_ template ``cilium.yaml`` and specify the etcd address:
 
-.. code:: bash
+.. parsed-literal::
 
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium.yaml
+    $ wget \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
     $ vim cilium.yaml
     [adjust the etcd address]
 
@@ -345,9 +345,9 @@ already exists on a worker node and only creates it if it does not exist yet.
 Deploying the DaemonSet
 -----------------------
 
-.. code:: bash
+.. parsed-literal::
 
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium.yaml
+    $ wget \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
     $ vim cilium.yaml
     [adjust the etcd address]
 
@@ -562,9 +562,9 @@ Docker compose.
 Note: for multi-host deployments using a key-value store, you would want to
 update this template to point cilium to a central key-value store.
 
-.. code:: bash
+.. parsed-literal::
 
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/docker-compose/docker-compose.yml
+    $ wget \ |SCM_WEB|\/examples/docker-compose/docker-compose.yml
     $ IFACE=eth1 docker-compose up
     [...]
 
@@ -894,7 +894,7 @@ Follow `the CoreOS instructions to validate that kubectl has been configured cor
 .. _cilium-daemonset-deployment:
 
 Step 10: Deploy Cilium DaemonSet
--------------------------------
+--------------------------------
 
 * Follow the instructions for :ref:`ds_deploy`. We recommend using the etcd cluster you have set up as the key-value store for Cilium.
 
@@ -1262,6 +1262,7 @@ Example of the etcd configuration file:
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
+.. _ConfigMap: https://kubernetes.io/docs/tasks/configure-pod-container/configmap/
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 .. _RBAC: https://kubernetes.io/docs/admin/authorization/rbac/
 .. _CNI: https://github.com/containernetworking/cni
