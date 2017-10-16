@@ -20,6 +20,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -177,13 +178,16 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 	)
 
 	if err != nil {
-		log.Debugf("Kernel does not support CIDR maps, using inline bpf tables instead.")
+		log.Debug("Kernel does not support CIDR maps, using inline bpf tables instead.")
 		return nil, false, err
 	}
 
 	m := &CIDRMap{path: path, Fd: fd, AddrSize: bytes, Prefixlen: uint32(prefix)}
 
-	log.Debugf("Created CIDR map %s (fd: %d)", path, fd)
+	log.WithFields(log.Fields{
+		logfields.Path: path,
+		"fd":           fd,
+	}).Debug("Created CIDR map")
 
 	return m, isNewMap, nil
 }
