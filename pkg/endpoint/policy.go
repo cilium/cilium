@@ -42,7 +42,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 
 	ctx.To, err = owner.GetCachedLabelList(dstID)
 	if err != nil {
-		log.Warningf("Unable to get label list for ID %d, access for endpoint may be restricted", dstID)
+		e.log().WithField(logfields.PolicyID, dstID).Warn("Unable to get label list for policy, access for endpoint may be restricted")
 		return
 	}
 
@@ -77,7 +77,10 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 		return nil
 	}
 
-	log.Debugf("[%s] Evaluating context %+v", e.PolicyID(), ctx)
+	e.log().WithFields(log.Fields{
+		logfields.PolicyID: srcID,
+		"ctx":              ctx,
+	}).Debug("Evaluating context for source PolicyID")
 
 	if owner.GetPolicyRepository().AllowsLabelAccess(ctx) == api.Allowed {
 		e.allowConsumer(owner, srcID)
@@ -88,8 +91,9 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 func (e *Endpoint) invalidatePolicy() {
 	if e.Consumable != nil {
+		e.log().Debug("Invalidated policy for endpoint")
+
 		// Resetting to 0 will trigger a regeneration on the next update
-		log.Debugf("Invalidated policy for endpoint %d", e.ID)
 		e.Consumable.Mutex.Lock()
 		e.Consumable.Iteration = 0
 		e.Consumable.Mutex.Unlock()
@@ -120,7 +124,7 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, 
 
 		if v.IsRedirect() {
 			if err := owner.RemoveProxyRedirect(e, &v); err != nil {
-				log.Warningf("error while removing proxy: %s", err)
+				e.log().WithError(err).WithField("redirect", v).Warn("error while removing proxy redirect")
 			}
 
 		}
@@ -136,11 +140,14 @@ func getSecurityIdentities(owner Owner, selector *api.EndpointSelector) []policy
 	for idx := policy.MinimalNumericIdentity; idx < maxID; idx++ {
 		labels, err := owner.GetCachedLabelList(idx)
 		if err != nil {
-			log.Infof("L4 Policy label lookup failed: %s", err)
+			log.WithError(err).WithField(logfields.IdentityLabels, labels).Info("L4 Policy label lookup failed")
 		}
 
 		if labels != nil && selector.Matches(labels) {
-			log.Debugf("L4 Policy matches %v.", labels)
+			log.WithFields(log.Fields{
+				logfields.IdentityLabels: labels,
+				logfields.L4PolicyID:     idx,
+			}).Debug("L4 Policy matches.")
 			identities = append(identities, idx)
 		}
 	}
@@ -152,7 +159,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 	port := uint16(filter.Port)
 	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
 	if err != nil {
-		log.Warningf("Parse policy protocol failed: %s", err)
+		e.log().WithError(err).Warn("Parse policy protocol failed")
 		return 1
 	}
 
@@ -161,7 +168,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
 			if err = e.PolicyMap.DeleteL4(srcID, port, uint8(proto)); err != nil {
-				log.Debugf("Delete old l4 policy failed: %s", err)
+				e.log().WithError(err).WithField(logfields.L4PolicyID, srcID).Debug("Delete old l4 policy failed")
 			}
 		}
 	}
@@ -173,7 +180,7 @@ func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
 	port := uint16(filter.Port)
 	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
 	if err != nil {
-		log.Warningf("Parse policy protocol failed: %s", err)
+		e.log().WithError(err).Warn("Parse policy protocol failed")
 		return 1
 	}
 
@@ -182,11 +189,11 @@ func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
 			if e.PolicyMap.L4Exists(srcID, port, uint8(proto)) {
-				log.Debugf("L4 filter exists: %+v", filter)
+				e.log().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
 			if err = e.PolicyMap.AllowL4(srcID, port, uint8(proto)); err != nil {
-				log.Warningf("Update of l4 policy map failed: %s", err)
+				e.log().WithError(err).Warn("Update of l4 policy map failed")
 				errors++
 			}
 		}
@@ -226,9 +233,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	// Endpoints without a security label are not accessible
 	if c.ID == 0 {
-		log.WithFields(log.Fields{
-			logfields.EndpointID: e.StringID(),
-		}).Warning("Endpoint lacks identity, skipping policy calculation")
+		e.log().Warn("Endpoint lacks identity, skipping policy calculation")
 
 		return false, nil
 	}
@@ -238,7 +243,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	// Skip if policy for this consumable is already valid
 	//if c.Iteration == cache.Iteration {
 	//	repo.Mutex.RUnlock()
-	//	log.Debugf("Reusing cached policy for identity %d", c.ID)
+	//	e.log().WithField("consumableID", c.ID).Debug("Reusing cached policy for consumable identity")
 	//	return false, nil
 	//}
 
@@ -294,19 +299,17 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 		if err := e.evaluateConsumerSource(owner, &ctx, id); err != nil {
 			// This should never really happen
 			// FIXME: clear policy because it is inconsistent
-			log.Debugf("[%s] Received error while evaluating policy: %s",
-				e.PolicyID(), err)
+			e.log().WithError(err).Debug("Received error while evaluating policy")
 		}
 	}
 
 	// Iterate over all possible assigned search contexts
 	idx := policy.MinimalNumericIdentity
-	log.Debugf("[%s] Eval ID range %+v-%+v", e.PolicyID(), idx, maxID)
+	e.log().WithField("range", []policy.NumericIdentity{idx, maxID}).Debug("Eval ID range")
 	for idx < maxID {
 		if err := e.evaluateConsumerSource(owner, &ctx, idx); err != nil {
 			// FIXME: clear policy because it is inconsistent
-			log.Debugf("[%s] Received error while evaluating policy: %s",
-				e.PolicyID(), err)
+			e.log().WithError(err).Debug("Received error while evaluating policy")
 		}
 		idx++
 	}
@@ -322,8 +325,10 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 	// Result is valid until cache iteration advances
 	c.Iteration = repo.GetRevision()
 
-	log.Debugf("[%s] Iteration %d: new consumable %d, consumers = %+v",
-		e.PolicyID(), c.Iteration, c.ID, c.Consumers)
+	e.log().WithFields(log.Fields{
+		"consumableID": c.ID,
+		"consumers":    logfields.Repr(c.Consumers),
+	}).Debug("new consumable with consumers")
 
 	// FIXME: Optimize this and only return true if L4 policy changed
 	return true, nil
@@ -356,7 +361,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner) (bool, error) {
 // regeneratePolicy returns whether the policy for the given endpoint should be
 // regenerated. Only called when e.Consumable != nil.
 func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
-	log.Debugf("[%s] Starting regenerate...", e.PolicyID())
+	e.log().Debug("Starting regenerate...")
 
 	policyChanged, err := e.regenerateConsumable(owner)
 	if err != nil {
@@ -397,15 +402,17 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
-		log.Debugf("setting PolicyCalculated to true for endpoint %d", e.ID)
+		e.log().Debug("setting PolicyCalculated to true for endpoint")
 		e.PolicyCalculated = true
 		// Always trigger a regenerate after the first policy
 		// calculation has been performed
 		policyChanged = true
 	}
 
-	log.Debugf("[%s] Done regenerating policyChanged=%v optsChanged=%v",
-		e.PolicyID(), policyChanged, optsChanged)
+	e.log().WithFields(log.Fields{
+		"policyChanged": policyChanged,
+		"optsChanged":   optsChanged,
+	}).Debug("Done regenerating")
 
 	// If no policy change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
@@ -427,15 +434,11 @@ func (e *Endpoint) regenerate(owner Owner) error {
 	// If endpoint was marked as disconnected then
 	// it won't be regenerated
 	if e.IsDisconnecting() {
-		log.WithFields(log.Fields{
-			logfields.EndpointID: e.StringID(),
-		}).Debug("Endpoint disconnected, skipping build")
+		e.log().Debug("Endpoint disconnected, skipping build")
 		return fmt.Errorf("endpoint disconnected, skipping build")
 	}
 
-	log.WithFields(log.Fields{
-		logfields.EndpointID: e.StringID(),
-	}).Debug("Regenerating endpoint...")
+	e.log().Debug("Regenerating endpoint...")
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -479,11 +482,10 @@ func (e *Endpoint) regenerate(owner Owner) error {
 		os.RemoveAll(tmpDir)
 
 		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			log.WithFields(log.Fields{
-				logfields.EndpointID: e.StringID(),
-			}).Warningf("Restoring directory %s for endpoint failed, endpoint "+
-				"is in inconsistent state. Keeping stale directory.",
-				backupDir)
+			e.log().WithFields(log.Fields{
+				logfields.Path: backupDir,
+			}).Warn("Restoring directory for endpoint failed, endpoint " +
+				"is in inconsistent state. Keeping stale directory.")
 			return err2
 		}
 
@@ -492,9 +494,7 @@ func (e *Endpoint) regenerate(owner Owner) error {
 
 	os.RemoveAll(backupDir)
 
-	log.WithFields(log.Fields{
-		logfields.EndpointID: e.StringID(),
-	}).Info("Regenerated program of endpoint")
+	e.log().Info("Regenerated program of endpoint")
 
 	return nil
 }
@@ -526,9 +526,7 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 
 		isMyTurn, isMyTurnChanOK := <-req.MyTurn
 		if isMyTurnChanOK && isMyTurn {
-			log.WithFields(log.Fields{
-				logfields.EndpointID: e.StringID(),
-			}).Debug("Dequeued endpoint from build queue")
+			e.log().Debug("Dequeued endpoint from build queue")
 
 			if err := e.regenerate(owner); err != nil {
 				buildSuccess = false
@@ -543,9 +541,7 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		} else {
 			buildSuccess = false
 
-			log.WithFields(log.Fields{
-				logfields.EndpointID: e.StringID(),
-			}).Debug("My request was cancelled because I'm already in line")
+			e.log().Debug("My request was cancelled because I'm already in line")
 		}
 		// The external listener can ignore the channel so we need to
 		// make sure we don't block
@@ -611,7 +607,10 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	// Annotate pod that this endpoint represents with its security identity
 	go owner.AnnotateEndpoint(e, common.CiliumIdentityAnnotation, e.SecLabel.ID.String())
 	e.Consumable.Mutex.RLock()
-	log.Debugf("Set identity of EP %d to %d and consumable to %+v", e.ID, id, e.Consumable)
+	e.log().WithFields(log.Fields{
+		logfields.Identity: id,
+		"consumable":       e.Consumable,
+	}).Debug("Set identity and consumable of EP")
 	e.Consumable.Mutex.RUnlock()
 }
 

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -38,8 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -1093,7 +1092,7 @@ func (e *Endpoint) UpdateOrchInformationLabels(l pkgLabels.Labels) {
 	e.Mutex.Lock()
 	for k, v := range l {
 		tmp := v.DeepCopy()
-		log.Debugf("Assigning orchestration information label %+v", tmp)
+		e.log().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration information label")
 		e.OpLabels.OrchestrationInfo[k] = tmp
 	}
 	e.Mutex.Unlock()
@@ -1111,17 +1110,18 @@ func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 	e.OpLabels.Disabled.MarkAllForDeletion()
 
 	for k, v := range l {
-		if e.OpLabels.Disabled[k] != nil {
+		switch {
+		case e.OpLabels.Disabled[k] != nil:
 			e.OpLabels.Disabled[k].DeletionMark = false
-		} else {
-			if e.OpLabels.OrchestrationIdentity[k] != nil {
-				e.OpLabels.OrchestrationIdentity[k].DeletionMark = false
-			} else {
-				tmp := v.DeepCopy()
-				log.Debugf("Assigning orchestration identity label %+v", tmp)
-				e.OpLabels.OrchestrationIdentity[k] = tmp
-				changed = true
-			}
+
+		case e.OpLabels.OrchestrationIdentity[k] != nil:
+			e.OpLabels.OrchestrationIdentity[k].DeletionMark = false
+
+		default:
+			tmp := v.DeepCopy()
+			e.log().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration identity label")
+			e.OpLabels.OrchestrationIdentity[k] = tmp
+			changed = true
 		}
 	}
 
@@ -1149,7 +1149,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
-			log.Warningf("Unable to close policy map %s: %s", e.PolicyMapPathLocked(), err)
+			e.log().WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warn("Unable to close policy map")
 		}
 	}
 
