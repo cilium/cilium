@@ -11,7 +11,7 @@ node1=$(get_k8s_vm_name k8s1)
 node2=$(get_k8s_vm_name k8s2)
 
 function vmssh(){
-    k8s_version="${k8s_version}" vagrant ssh ${1} -- -o SendEnv=k8s_version -t ${2}
+    k8s_version="${k8s_version}" K8S1_NAME="${node1}" vagrant ssh ${1} -- -o SendEnv=k8s_version -o SendEnv=K8S1_NAME -t ${2}
 }
 
 # reinstall_kubeadmn re-installs kubeadm in the given VM without clearing up
@@ -94,8 +94,4 @@ function run_tests(){
 }
 
 # Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
-run_tests "1.6.6-00"
-# Run tests in k8s 1.7.4 (where we need to reinstall it)
-reinstall_kubeadmn ${node1} "1.7.4-00"
-reinstall_kubeadmn ${node2} "1.7.4-00"
-run_tests "1.7.4-00"
+run_tests "1.8.0-00"

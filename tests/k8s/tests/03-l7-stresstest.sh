@@ -85,7 +85,7 @@ kubectl describe svc -n development backend
 frontend_pod=$(kubectl get pods -n qa | grep frontend | awk '{print $1}')
 backend_pod=$(kubectl get pods -n development | grep backend | awk '{print $1}')
 
-backend_svc_ip=$(kubectl get svc -n development | awk 'NR==2{print $2}')
+backend_svc_ip=$(kubectl get svc -n development -o jsonpath='{.items[0].spec.clusterIP}')
 
 log "Running tests WITHOUT Policy / Proxy loaded"
 

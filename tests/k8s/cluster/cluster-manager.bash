@@ -8,6 +8,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 etcd_version="v3.1.0"
 k8s_version=${k8s_version:-"1.7.4-00"}
 docker_image_tag=${DOCKER_IMAGE_TAG:-"local_build"}
+k8s1_name=${K8S1_NAME:-"k8s1"}
 
 certs_dir="${dir}/certs"
 k8s_dir="${dir}/k8s"
@@ -144,6 +145,12 @@ function start_kubeadm() {
 Environment='KUBELET_DNS_ARGS=--cluster-dns=${cluster_dns_ip} --cluster-domain=${cluster_name}.local'
 EOF
 "
+    # Workaround for kubeadm 1.8 to work on our CI
+    sudo bash -c "cat <<EOF > /etc/systemd/system/kubelet.service.d/16-kubeadm-extra.conf
+[Service]
+Environment='KUBELET_EXTRA_ARGS=--fail-swap-on=false'
+EOF
+"
     sudo systemctl daemon-reload
 
     sudo mkdir -p /home/vagrant/.kube
@@ -165,7 +172,14 @@ EOF
         # copy kubeconfig so we can share it with node-2
         sudo cp /etc/kubernetes/admin.conf ./kubelet.conf
     else
-        sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
+        # FIXME: Since kubeadm doesn't properly retrieve the certificate
+        # authority from the api-server, this is a workaround for kubeadm 1.8.0
+        scp -i /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/.vagrant/machines/${k8s1_name}/virtualbox/private_key \
+            -o StrictHostKeyChecking=no \
+            vagrant@192.168.36.11:/home/vagrant/.kube/config \
+            /home/vagrant/master.kubeconfig
+        sudo kubeadm join --token 123456.abcdefghijklmnop --discovery-file /home/vagrant/master.kubeconfig
+        #sudo kubeadm join --token 123456.abcdefghijklmnop ${controller_ip_brackets}:6443
 
         # copy kubeconfig file previously copied from the master
         sudo cp ./kubelet.conf /home/vagrant/.kube/config
@@ -193,7 +207,8 @@ EOF
 }
 
 function install_kubeadm() {
-    sudo apt-get -qq install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
+    sudo apt-get update
+    sudo apt-get -q install --allow-downgrades -y kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
 }
 
 function install_cilium_config(){
@@ -338,7 +353,7 @@ function deploy_cilium(){
         # We still need to make 2 modifications to the original daemon set
         sed -e "s+image: cilium/cilium:stable+image: cilium:${docker_image_tag}+g;\
                 s+imagePullPolicy: Always+imagePullPolicy: Never+g" \
-            "${cilium_original_ds}" > "${cilium_dir}/cilium-lb.yaml"
+            "${cilium_original_ds}" > "${cilium_dir}/cilium.yaml"
 
         kubectl create -f "${rbac_yaml}"
         kubectl create -f "${config_maps}"

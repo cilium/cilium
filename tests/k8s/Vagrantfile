@@ -43,6 +43,7 @@ SCRIPT
 # allow setting up k8s_version remotely when executing the runtime tests via ssh
 $install_sshd_env = <<SCRIPT
 echo "AcceptEnv k8s_version" >> /etc/ssh/sshd_config
+echo "AcceptEnv K8S1_NAME" >> /etc/ssh/sshd_config
 # Load options
 sudo service sshd restart
 SCRIPT
@@ -82,7 +83,7 @@ Vagrant.configure(2) do |config|
     (1..2).each do |i|
         config.vm.define "k8s#{i}#{$build_id_name}" do |s|
             s.vm.hostname = "k8s-#{i}"
-            s.vm.provision "k8s", type: "shell", env: {"k8s_version" => "1.6.6-00"}, inline: $k8s_install
+            s.vm.provision "k8s", type: "shell", env: {"k8s_version" => "1.8.0-00"}, inline: $k8s_install
             s.vm.provision "ssh_accept_env", type: "shell", privileged: true, inline: $install_sshd_env
 
             s.vm.provider "virtualbox" do |vb|
