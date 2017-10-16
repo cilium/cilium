@@ -86,7 +86,7 @@ func k8sErrorHandler(e error) {
 		} else {
 			if strings.Contains(errstr, "Failed to list *v1.NetworkPolicy: the server could not find the requested resource") {
 				k8sErrMsgMU.Unlock()
-				log.Warn("Consider upgrading kubernetes to >=1.7 to enforce NetworkPolicy version 1")
+				log.Warn("Consider upgrading k8s to >=1.7 to enforce NetworkPolicy version 1")
 				stopPolicyController <- struct{}{}
 			} else if strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: the server could not find the requested resource") {
 				k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
@@ -270,35 +270,43 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 func (d *Daemon) addK8sNetworkPolicy(obj interface{}) {
 	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
 	if !ok {
-		log.Error("Ignoring invalid k8s NetworkPolicy addition")
-		return
-	}
-	rules, err := k8s.ParseNetworkPolicy(k8sNP)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(obj)).Error("Error while parsing kubernetes network policy")
+		log.WithField(logfields.Object, logfields.Repr(obj)).Error("Ignoring invalid k8s NetworkPolicy addition")
 		return
 	}
 
-	scopedLog := log.WithFields(log.Fields{
-		logfields.K8sNetworkPolicyName: k8sNP.Name,
-		logfields.K8sNetworkPolicy:     logfields.Repr(k8sNP),
-	})
+	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.APIVersion)
+	rules, err := k8s.ParseNetworkPolicy(k8sNP)
+	if err != nil {
+		scopedLog.WithError(err).WithFields(log.Fields{
+			logfields.CiliumNetworkPolicy: logfields.Repr(k8sNP),
+		}).Error("Error while parsing k8s kubernetes NetworkPolicy")
+		return
+	}
+	scopedLog = log.WithField(logfields.K8sNetworkPolicyName, k8sNP.Name)
 
 	opts := AddOptions{Replace: true}
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
-		scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(rules)).Error("Error while adding kubernetes network policy")
+		scopedLog.WithError(err).WithFields(log.Fields{
+			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
+		}).Error("Unable to add NetworkPolicy rules to policy repository")
 		return
 	}
 
-	scopedLog.Info("Kubernetes network policy successfully added")
+	scopedLog.Info("NetworkPolicy successfully added")
 }
 
 func (d *Daemon) updateK8sNetworkPolicy(oldObj interface{}, newObj interface{}) {
-	log.WithFields(log.Fields{
+	scopedLog := log.WithFields(log.Fields{
 		"obj.old": logfields.Repr(oldObj),
 		"obj.new": logfields.Repr(newObj),
-	}).Debug("Modified policy")
+	})
 
+	k8sNP, ok := newObj.(*networkingv1.NetworkPolicy)
+	if ok {
+		scopedLog = scopedLog.WithField(logfields.K8sAPIVersion, k8sNP.APIVersion)
+	}
+
+	scopedLog.Debug("Modified policy")
 	d.addK8sNetworkPolicy(newObj)
 }
 
@@ -313,12 +321,13 @@ func (d *Daemon) deleteK8sNetworkPolicy(obj interface{}) {
 
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.Name,
+		logfields.K8sAPIVersion:        k8sNP.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
 	})
 	if _, err := d.PolicyDelete(labels); err != nil {
-		scopedLog.WithError(err).Error("Error while deleting kubernetes network policy")
+		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
 	} else {
-		scopedLog.Info("Kubernetes network policy successfully removed")
+		scopedLog.Info("NetworkPolicy successfully removed")
 	}
 }
 
@@ -329,30 +338,37 @@ func (d *Daemon) addK8sNetworkPolicyDeprecated(obj interface{}) {
 		log.Error("Ignoring invalid k8s v1beta1 NetworkPolicy addition")
 		return
 	}
+	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.APIVersion)
 	rules, err := k8s.ParseNetworkPolicyDeprecated(k8sNP)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(obj)).Error("Error while parsing kubernetes v1beta1 network policy")
+		scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(obj)).Error("Error while parsing k8s NetworkPolicy")
 		return
 	}
 
-	scopedLog := log.WithField(logfields.K8sNetworkPolicyName, k8sNP.Name)
+	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.Name)
 
 	opts := AddOptions{Replace: true}
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
-		scopedLog.WithField(logfields.Object, logfields.Repr(rules)).Error("Error while parsing kubernetes v1beta1 network policy")
+		scopedLog.WithField(logfields.Object, logfields.Repr(rules)).Error("Error while parsing k8s NetworkPolicy")
 		return
 	}
 
-	scopedLog.Info("Kubernetes v1beta1 network policy successfully added")
+	scopedLog.Info("NetworkPolicy successfully added")
 }
 
 // updateK8sNetworkPolicyDeprecated FIXME remove in k8s 1.8
 func (d *Daemon) updateK8sNetworkPolicyDeprecated(oldObj interface{}, newObj interface{}) {
-	log.WithFields(log.Fields{
+	scopedLog := log.WithFields(log.Fields{
 		"obj.old": oldObj,
 		"obj.new": newObj,
-	}).Debug("Modified v1beta1 policy")
+	})
 
+	k8sNP, ok := newObj.(*v1beta1.NetworkPolicy)
+	if ok {
+		scopedLog = scopedLog.WithField(logfields.K8sAPIVersion, k8sNP.APIVersion)
+	}
+
+	scopedLog.Debug("Modified policy")
 	d.addK8sNetworkPolicyDeprecated(newObj)
 }
 
@@ -368,15 +384,16 @@ func (d *Daemon) deleteK8sNetworkPolicyDeprecated(obj interface{}) {
 
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.Name,
+		logfields.K8sAPIVersion:        k8sNP.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
 	})
 
 	if _, err := d.PolicyDelete(labels); err != nil {
-		scopedLog.WithError(err).Error("Error while deleting v1beta1 kubernetes network policy")
+		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
 		return
 	}
 
-	scopedLog.Info("Kubernetes v1beta1 network policy successfully removed")
+	scopedLog.Info("NetworkPolicy successfully removed")
 }
 
 func (d *Daemon) serviceAddFn(obj interface{}) {
@@ -386,9 +403,10 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 	}
 
 	scopedLog := log.WithFields(log.Fields{
-		logfields.K8sSvcName:   svc.Name,
-		logfields.K8sNamespace: svc.Namespace,
-		logfields.K8sSvcType:   svc.Spec.Type,
+		logfields.K8sSvcName:    svc.Name,
+		logfields.K8sNamespace:  svc.Namespace,
+		logfields.K8sAPIVersion: svc.APIVersion,
+		logfields.K8sSvcType:    svc.Spec.Type,
 	})
 
 	switch svc.Spec.Type {
@@ -448,7 +466,10 @@ func (d *Daemon) serviceModFn(_ interface{}, newObj interface{}) {
 	if !ok {
 		return
 	}
-	log.WithField(logfields.Object, logfields.Repr(newSvc)).Debug("Service ModFn")
+	log.WithFields(log.Fields{
+		logfields.Object:        logfields.Repr(newSvc),
+		logfields.K8sAPIVersion: newSvc.APIVersion,
+	}).Debug("Service ModFn")
 
 	d.serviceAddFn(newObj)
 }
@@ -459,8 +480,9 @@ func (d *Daemon) serviceDelFn(obj interface{}) {
 		return
 	}
 	log.WithFields(log.Fields{
-		logfields.K8sSvcName:   svc.Name,
-		logfields.K8sNamespace: svc.Namespace,
+		logfields.K8sSvcName:    svc.Name,
+		logfields.K8sNamespace:  svc.Namespace,
+		logfields.K8sAPIVersion: svc.APIVersion,
 	}).Debug("Deleting k8s service")
 
 	svcns := &types.K8sServiceNamespace{
@@ -482,6 +504,7 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sEndpointName: ep.Name,
 		logfields.K8sNamespace:    ep.Namespace,
+		logfields.K8sAPIVersion:   ep.APIVersion,
 	})
 
 	svcns := types.K8sServiceNamespace{
@@ -530,11 +553,18 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 }
 
 func (d *Daemon) endpointModFn(_ interface{}, newObj interface{}) {
+	scopedLog := log.WithField("obj.new", logfields.Repr(newObj))
+
 	_, ok := newObj.(*v1.Endpoints)
 	if !ok {
 		return
 	}
+	k8sNP, ok := newObj.(*networkingv1.NetworkPolicy)
+	if ok {
+		scopedLog = scopedLog.WithField(logfields.K8sAPIVersion, k8sNP.APIVersion)
+	}
 
+	scopedLog.Debug("Modified endpoint")
 	d.endpointAddFn(newObj)
 }
 
@@ -547,6 +577,7 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sEndpointName: ep.Name,
 		logfields.K8sNamespace:    ep.Namespace,
+		logfields.K8sAPIVersion:   ep.APIVersion,
 	})
 
 	svcns := &types.K8sServiceNamespace{
@@ -580,7 +611,7 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 func areIPsConsistent(ipv4Enabled, isSvcIPv4 bool, svc types.K8sServiceNamespace, se *types.K8sServiceEndpoint) error {
 	if isSvcIPv4 {
 		if !ipv4Enabled {
-			return fmt.Errorf("Received an IPv4 kubernetes service but IPv4 is "+
+			return fmt.Errorf("Received an IPv4 k8s service but IPv4 is "+
 				"disabled in the cilium daemon. Ignoring service %+v", svc)
 		}
 
@@ -811,8 +842,9 @@ func (d *Daemon) ingressAddFn(obj interface{}) {
 	}
 
 	scopedLog := log.WithFields(log.Fields{
-		logfields.K8sSvcName:   ingress.Spec.Backend.ServiceName,
-		logfields.K8sNamespace: ingress.Namespace,
+		logfields.K8sSvcName:    ingress.Spec.Backend.ServiceName,
+		logfields.K8sAPIVersion: ingress.APIVersion,
+		logfields.K8sNamespace:  ingress.Namespace,
 	})
 
 	svcName := types.K8sServiceNamespace{
@@ -881,6 +913,7 @@ func (d *Daemon) ingressModFn(oldObj interface{}, newObj interface{}) {
 
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sNetworkPolicyName: newIngress.Name,
+		logfields.K8sAPIVersion:        newIngress.APIVersion,
 		logfields.K8sNamespace:         newIngress.Namespace,
 	})
 
@@ -1062,8 +1095,13 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		log.WithField(logfields.Object, logfields.Repr(obj)).Warn("Received unknown object, expected a CiliumNetworkPolicy object")
 		return
 	}
+	scopedLog := log.WithFields(log.Fields{
+		logfields.CiliumNetworkPolicyName: rule.Metadata.Name,
+		logfields.K8sAPIVersion:           rule.APIVersion,
+		logfields.K8sNamespace:            rule.Metadata.Namespace,
+	})
 
-	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rule)).Debug("Adding CiliumNetworkPolicy")
+	scopedLog.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rule)).Debug("Adding CiliumNetworkPolicy")
 
 	rules, err := rule.Parse()
 	if err == nil && len(rules) > 0 {
@@ -1083,17 +1121,13 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 			Error:       fmt.Sprintf("%s", err),
 			LastUpdated: time.Now(),
 		}
-		log.WithError(err).WithFields(log.Fields{
-			logfields.CiliumNetworkPolicyName: rule.Metadata.Name,
-		}).Warn("Unable to add CiliumNetworkPolicy")
+		scopedLog.WithError(err).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
 		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
 			OK:          true,
 			LastUpdated: time.Now(),
 		}
-		log.WithFields(log.Fields{
-			logfields.CiliumNetworkPolicyName: rule.Metadata.Name,
-		}).Info("Imported CiliumNetworkPolicy")
+		scopedLog.WithError(err).Info("Imported CiliumNetworkPolicy")
 	}
 
 	go k8s.UpdateCNPStatus(cnpClient, k8s.BackOffLoopTimeout, ciliumRulesStore, rule, cnpns)
@@ -1108,7 +1142,10 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 
 	scopedLog := log.WithFields(log.Fields{
 		logfields.CiliumNetworkPolicyName: rule.Metadata.Name,
+		logfields.K8sAPIVersion:           rule.APIVersion,
+		logfields.K8sNamespace:            rule.Metadata.Namespace,
 	})
+
 	scopedLog.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rule)).Debug("Deleting CiliumNetworkPolicy")
 
 	rules, err := rule.Parse()
@@ -1156,6 +1193,11 @@ func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{
 	if oldRule.SpecEquals(newRules) {
 		return
 	}
+	log.WithFields(log.Fields{
+		logfields.CiliumNetworkPolicyName: newRules.Metadata.Name,
+		logfields.K8sAPIVersion:           newRules.APIVersion,
+		logfields.K8sNamespace:            newRules.Metadata.Namespace,
+	}).Debug("Modified CiliumNetworkPolicy")
 
 	d.deleteCiliumNetworkPolicy(oldObj)
 	d.addCiliumNetworkPolicy(newObj)
@@ -1186,8 +1228,9 @@ func (d *Daemon) nodesAddFn(obj interface{}) {
 	node.UpdateNode(ni, n, routeTypes, ownAddr)
 
 	log.WithFields(log.Fields{
-		logfields.K8sNodeID: ni,
-		logfields.Node:      logfields.Repr(n),
+		logfields.K8sNodeID:     ni,
+		logfields.K8sAPIVersion: k8sNode.APIVersion,
+		logfields.Node:          logfields.Repr(n),
 	}).Debug("Added node")
 }
 
@@ -1223,8 +1266,9 @@ func (d *Daemon) nodesModFn(oldObj interface{}, newObj interface{}) {
 	node.UpdateNode(ni, newNode, routeTypes, ownAddr)
 
 	log.WithFields(log.Fields{
-		logfields.K8sNodeID: ni,
-		logfields.Node:      logfields.Repr(newNode),
+		logfields.K8sNodeID:     ni,
+		logfields.K8sAPIVersion: k8sNode.APIVersion,
+		logfields.Node:          logfields.Repr(newNode),
 	}).Debug("k8s: Updated node")
 }
 
@@ -1239,5 +1283,8 @@ func (d *Daemon) nodesDelFn(obj interface{}) {
 
 	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
 
-	log.WithField(logfields.K8sNodeID, ni).Debug("k8s: Removed node")
+	log.WithFields(log.Fields{
+		logfields.K8sNodeID:     ni,
+		logfields.K8sAPIVersion: k8sNode.APIVersion,
+	}).Debug("k8s: Removed node")
 }
