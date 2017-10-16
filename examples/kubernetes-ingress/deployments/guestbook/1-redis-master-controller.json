@@ -2,37 +2,34 @@
     "kind":"ReplicationController",
     "apiVersion":"v1",
     "metadata":{
-        "name":"redis-slave",
+        "name":"redis-master",
         "labels":{
             "k8s-app.guestbook":"redis",
-            "role":"slave"
+            "role":"master"
         }
     },
     "spec":{
         "replicas":1,
         "selector":{
             "k8s-app.guestbook":"redis",
-            "role":"slave"
+            "role":"master"
         },
         "template":{
             "metadata":{
                 "labels":{
                     "k8s-app.guestbook":"redis",
-                    "role":"slave"
+                    "role":"master"
                 }
             },
             "spec":{
                 "containers":[{
-                    "name":"redis-slave",
-                    "image":"gcr.io/google_samples/gb-redisslave:v1",
+                    "name":"redis-master",
+                    "image":"redis:4.0.1",
                     "ports":[{
                         "name":"redis-server",
                         "containerPort":6379
                     }]
-                }],
-                "nodeSelector": {
-                    "kubernetes.io/hostname": "$kube-node-selector"
-                }
+                }]
             }
         }
     }

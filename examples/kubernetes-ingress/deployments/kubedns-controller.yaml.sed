@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO - At some point, we need to rename all skydns-*.yaml.* files to kubedns-*.yaml.*
 # Should keep target in cluster/addons/dns-horizontal-autoscaler/dns-horizontal-autoscaler.yaml
 # in sync with this file.
+
+# Warning: This is a file generated from the base underscore template file: kubedns-controller.yaml.base
 
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -24,6 +25,7 @@ metadata:
   labels:
     k8s-app: kube-dns
     kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
 spec:
   # replicas: not specified here:
   # 1. In order to make Addon Manager do not reconcile this replicas parameter.
@@ -42,11 +44,18 @@ spec:
         k8s-app: kube-dns
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
-        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
     spec:
+      tolerations:
+      - key: "CriticalAddonsOnly"
+        operator: "Exists"
+      volumes:
+      - name: kube-dns-config
+        configMap:
+          name: kube-dns
+          optional: true
       containers:
       - name: kubedns
-        image: gcr.io/google_containers/kubedns-amd64:1.9
+        image: gcr.io/google_containers/k8s-dns-kube-dns-amd64:1.14.6
         resources:
           # TODO: Set memory limits when we've profiled the container for large
           # clusters, then set request = limit to keep this container in
@@ -59,8 +68,8 @@ spec:
             memory: 70Mi
         livenessProbe:
           httpGet:
-            path: /healthz-kubedns
-            port: 8080
+            path: /healthcheck/kubedns
+            port: 10054
             scheme: HTTP
           initialDelaySeconds: 60
           timeoutSeconds: 5
@@ -76,13 +85,10 @@ spec:
           initialDelaySeconds: 3
           timeoutSeconds: 5
         args:
-        - --domain=cluster.local
+        - --domain=$DNS_DOMAIN.
         - --dns-port=10053
-        - --kube-master-url=http://$kube-master:8080
-        - --config-map=kube-dns
-        # This should be set to v=2 only after the new image (cut from 1.5) has
-        # been released, otherwise we will flood the logs.
-        - --v=0
+        - --config-dir=/kube-dns-config
+        - --v=2
         env:
         - name: PROMETHEUS_PORT
           value: "10055"
@@ -96,22 +102,32 @@ spec:
         - containerPort: 10055
           name: metrics
           protocol: TCP
+        volumeMounts:
+        - name: kube-dns-config
+          mountPath: /kube-dns-config
       - name: dnsmasq
-        image: gcr.io/google_containers/kube-dnsmasq-amd64:1.4.1
+        image: gcr.io/google_containers/k8s-dns-dnsmasq-nanny-amd64:1.14.6
         livenessProbe:
           httpGet:
-            path: /healthz-dnsmasq
-            port: 8080
+            path: /healthcheck/dnsmasq
+            port: 10054
             scheme: HTTP
           initialDelaySeconds: 60
           timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 5
         args:
+        - -v=2
+        - -logtostderr
+        - -configDir=/etc/k8s/dns/dnsmasq-nanny
+        - -restartDnsmasq=true
+        - --
+        - -k
         - --cache-size=1000
-        - --no-resolv
-        - --server=127.0.0.1#10053
         - --log-facility=-
+        - --server=/$DNS_DOMAIN/127.0.0.1#10053
+        - --server=/in-addr.arpa/127.0.0.1#10053
+        - --server=/ip6.arpa/127.0.0.1#10053
         ports:
         - containerPort: 53
           name: dns
@@ -123,9 +139,12 @@ spec:
         resources:
           requests:
             cpu: 150m
-            memory: 10Mi
-      - name: dnsmasq-metrics
-        image: gcr.io/google_containers/dnsmasq-metrics-amd64:1.0.1
+            memory: 20Mi
+        volumeMounts:
+        - name: kube-dns-config
+          mountPath: /etc/k8s/dns/dnsmasq-nanny
+      - name: sidecar
+        image: gcr.io/google_containers/k8s-dns-sidecar-amd64:1.14.6
         livenessProbe:
           httpGet:
             path: /metrics
@@ -138,35 +157,15 @@ spec:
         args:
         - --v=2
         - --logtostderr
+        - --probe=kubedns,127.0.0.1:10053,kubernetes.default.svc.$DNS_DOMAIN,5,SRV
+        - --probe=dnsmasq,127.0.0.1:53,kubernetes.default.svc.$DNS_DOMAIN,5,SRV
         ports:
         - containerPort: 10054
           name: metrics
           protocol: TCP
         resources:
           requests:
-            memory: 10Mi
-      - name: healthz
-        image: gcr.io/google_containers/exechealthz-amd64:1.2
-        resources:
-          limits:
-            memory: 50Mi
-          requests:
+            memory: 20Mi
             cpu: 10m
-            # Note that this container shouldn't really need 50Mi of memory. The
-            # limits are set higher than expected pending investigation on #29688.
-            # The extra memory was stolen from the kubedns container to keep the
-            # net memory requested by the pod constant.
-            memory: 50Mi
-        args:
-        - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1 >/dev/null
-        - --url=/healthz-dnsmasq
-        - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1:10053 >/dev/null
-        - --url=/healthz-kubedns
-        - --port=8080
-        - --quiet
-        ports:
-        - containerPort: 8080
-          protocol: TCP
       dnsPolicy: Default  # Don't use cluster DNS.
-      nodeSelector:
-        kubernetes.io/hostname: $kube-node-selector
+      serviceAccountName: kube-dns

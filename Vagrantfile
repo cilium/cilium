@@ -11,6 +11,12 @@ Calling 'vagrant up' directly is not supported.  Instead, please run the followi
 END
 end
 
+if ENV['IPV4'] == '0'
+    raise Vagrant::Errors::VagrantError.new, <<END
+Disabling IPv4 is currently not allowed until k8s 1.9 is released
+END
+end
+
 $bootstrap = <<SCRIPT
 sudo service docker restart
 sudo apt-get -y update || true
@@ -123,6 +129,7 @@ Vagrant.configure(2) do |config|
 
     master_vm_name = "cilium#{$k8stag}-master#{$build_id_name}"
     config.vm.define master_vm_name, primary: true do |cm|
+        node_ip = "#{$master_ip}"
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test-#{$build_id}",
             :libvirt__guest_ipv6 => "yes",
@@ -137,12 +144,21 @@ Vagrant.configure(2) do |config|
                 type: "shell",
                 run: "always",
                 inline: "ip -6 a a #{$master_ipv6}/16 dev enp0s9"
+            node_ip = "#{$nfs_ipv4_master_addr}"
+            if ENV["IPV6_EXT"] then
+                node_ip = "#{$master_ipv6}"
+            end
         end
         cm.vm.hostname = "cilium#{$k8stag}-master"
         if ENV['CILIUM_TEMP'] then
            if ENV["K8S"] then
                k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"
-               cm.vm.provision "shell", privileged: true, path: k8sinstall
+               cm.vm.provision "k8s-install-master-part-1",
+                   type: "shell",
+                   run: "always",
+                   env: {"node_ip" => node_ip},
+                   privileged: true,
+                   path: k8sinstall
            end
            script = "#{ENV['CILIUM_TEMP']}/cilium-master.sh"
            cm.vm.provision "config-install", type: "shell", privileged: true, run: "always", path: script
@@ -151,7 +167,12 @@ Vagrant.configure(2) do |config|
            # policies into kubernetes and cilium.
            if ENV["K8S"] then
                k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-2nd-part.sh"
-               cm.vm.provision "shell", privileged: true, path: k8sinstall
+               cm.vm.provision "k8s-install-master-part-2",
+                   type: "shell",
+                   run: "always",
+                   env: {"node_ip" => node_ip},
+                   privileged: true,
+                   path: k8sinstall
            end
         end
         if ENV['RUN_TEST_SUITE'] then
@@ -171,6 +192,7 @@ Vagrant.configure(2) do |config|
                 :libvirt__dhcp_enabled => false
             if ENV["NFS"] || ENV["IPV6_EXT"] then
                 nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
+                node_ip = "#{nfs_ipv4_addr}"
                 ipv6_addr = $workers_ipv6_addrs[n]
                 node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"
                 # Add IPv6 address this way or we get hit by a virtualbox bug
@@ -178,18 +200,31 @@ Vagrant.configure(2) do |config|
                     type: "shell",
                     run: "always",
                     inline: "ip -6 a a #{ipv6_addr}/16 dev enp0s9"
+                if ENV["IPV6_EXT"] then
+                    node_ip = "#{ipv6_addr}"
+                end
             end
             node.vm.hostname = "cilium#{$k8stag}-node-#{n+2}"
             if ENV['CILIUM_TEMP'] then
                 if ENV["K8S"] then
                     k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"
-                    node.vm.provision "shell", privileged: true, path: k8sinstall
+                    node.vm.provision "k8s-install-node-part-1",
+                        type: "shell",
+                        run: "always",
+                        env: {"node_ip" => node_ip},
+                        privileged: true,
+                        path: k8sinstall
                 end
                 script = "#{ENV['CILIUM_TEMP']}/node-start-#{n+2}.sh"
                 node.vm.provision "config-install", type: "shell", privileged: true, run: "always", path: script
                 if ENV["K8S"] then
                     k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-2nd-part.sh"
-                    node.vm.provision "shell", privileged: true, path: k8sinstall
+                    node.vm.provision "k8s-install-node-part-2",
+                        type: "shell",
+                        run: "always",
+                        env: {"node_ip" => node_ip},
+                        privileged: true,
+                        path: k8sinstall
                 end
             end
         end
