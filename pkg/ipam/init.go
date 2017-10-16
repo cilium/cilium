@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -41,17 +42,16 @@ func nextIP(ip net.IP) {
 }
 
 func reserveLocalRoutes(ipam *Config) {
-	log.Debugf("Checking local routes for conflicts...")
+	log.Debug("Checking local routes for conflicts...")
 
 	link, err := netlink.LinkByName("cilium_host")
 	if err != nil || link == nil {
-		log.Warningf("Unable to find net_device cilium_host: %s", err)
-		return
+		log.WithError(err).Fatal("Unable to find net_device cilium_host")
 	}
 
 	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 	if err != nil {
-		log.Warningf("Unable to retrieve local routes: %s", err)
+		log.WithError(err).Warn("Unable to retrieve local routes")
 		return
 	}
 
@@ -60,19 +60,23 @@ func reserveLocalRoutes(ipam *Config) {
 	for _, r := range routes {
 		// ignore routes which point to cilium_host
 		if r.LinkIndex == link.Attrs().Index {
-			log.Debugf("Ignoring route %v: points to cilium_host", r)
+			log.WithField("route", r).Debug("Ignoring route: points to cilium_host")
 			continue
 		}
 
 		if r.Dst == nil {
-			log.Debugf("Ignoring route %v: no destination address", r)
+			log.WithField("route", r).Debug("Ignoring route: no destination address")
 			continue
 		}
 
-		log.Debugf("Considering route %v", r)
+		log.WithField("route", logfields.Repr(r)).Debug("Considering route")
 
 		if allocRange.Contains(r.Dst.IP) {
-			log.Infof("Marking local route %s as no-alloc in node allocation prefix %s", r.Dst, allocRange)
+			log.WithFields(log.Fields{
+				"route":            r.Dst,
+				logfields.V4Prefix: allocRange,
+			}).Info("Marking local route as no-alloc in node allocation prefix")
+
 			for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
 				ipam.IPv4Allocator.Allocate(ip)
 			}
@@ -134,8 +138,7 @@ func Init() error {
 	if allocRange.Contains(nodeIP) {
 		err := ipamConf.IPv4Allocator.Allocate(nodeIP)
 		if err != nil {
-			log.Debugf("Unable to reserve IPv4 router address '%s': %s",
-				nodeIP, err)
+			log.WithError(err).WithField(logfields.IPAddr, nodeIP).Debug("Unable to reserve IPv4 router address")
 		}
 	}
 
@@ -154,8 +157,7 @@ func Init() error {
 		if allocRange.Contains(ip6) {
 			err := ipamConf.IPv6Allocator.Allocate(ip6)
 			if err != nil {
-				log.Debugf("Unable to reserve IPv6 address '%s': %s",
-					ip6, err)
+				log.WithError(err).WithField(logfields.IPAddr, ip6).Debug("Unable to reserve IPv6 address")
 			}
 		}
 	}
