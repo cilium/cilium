@@ -17,37 +17,37 @@ package common
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
-	TestingT(t)
+	check.TestingT(t)
 }
 
 type CommonSuite struct{}
 
-var _ = Suite(&CommonSuite{})
+var _ = check.Suite(&CommonSuite{})
 
-func (s *CommonSuite) TestGoArray2C(c *C) {
-	c.Assert(goArray2C([]byte{0, 0x01, 0x02, 0x03}), Equals, "0x0, 0x1, 0x2, 0x3")
-	c.Assert(goArray2C([]byte{0, 0xFF, 0xFF, 0xFF}), Equals, "0x0, 0xff, 0xff, 0xff")
-	c.Assert(goArray2C([]byte{0xa, 0xbc, 0xde, 0xf1}), Equals, "0xa, 0xbc, 0xde, 0xf1")
-	c.Assert(goArray2C([]byte{0}), Equals, "0x0")
-	c.Assert(goArray2C([]byte{}), Equals, "")
+func (s *CommonSuite) TestGoArray2C(c *check.C) {
+	c.Assert(goArray2C([]byte{0, 0x01, 0x02, 0x03}), check.Equals, "0x0, 0x1, 0x2, 0x3")
+	c.Assert(goArray2C([]byte{0, 0xFF, 0xFF, 0xFF}), check.Equals, "0x0, 0xff, 0xff, 0xff")
+	c.Assert(goArray2C([]byte{0xa, 0xbc, 0xde, 0xf1}), check.Equals, "0xa, 0xbc, 0xde, 0xf1")
+	c.Assert(goArray2C([]byte{0}), check.Equals, "0x0")
+	c.Assert(goArray2C([]byte{}), check.Equals, "")
 }
 
-func (s *CommonSuite) TestFmtDefineComma(c *C) {
-	c.Assert(FmtDefineComma("foo", []byte{1, 2, 3}), Equals, "#define foo 0x1, 0x2, 0x3\n")
-	c.Assert(FmtDefineComma("foo", []byte{}), Equals, "#define foo \n")
+func (s *CommonSuite) TestFmtDefineComma(c *check.C) {
+	c.Assert(FmtDefineComma("foo", []byte{1, 2, 3}), check.Equals, "#define foo 0x1, 0x2, 0x3\n")
+	c.Assert(FmtDefineComma("foo", []byte{}), check.Equals, "#define foo \n")
 }
 
-func (s *CommonSuite) TestFmtDefineAddress(c *C) {
-	c.Assert(FmtDefineAddress("foo", []byte{1, 2, 3}), Equals, "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n")
-	c.Assert(FmtDefineAddress("foo", []byte{}), Equals, "#define foo { .addr = {  } }\n")
+func (s *CommonSuite) TestFmtDefineAddress(c *check.C) {
+	c.Assert(FmtDefineAddress("foo", []byte{1, 2, 3}), check.Equals, "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n")
+	c.Assert(FmtDefineAddress("foo", []byte{}), check.Equals, "#define foo { .addr = {  } }\n")
 }
 
-func (s *CommonSuite) TestFmtDefineArray(c *C) {
-	c.Assert(FmtDefineArray("foo", []byte{1, 2, 3}), Equals, "#define foo { 0x1, 0x2, 0x3 }\n")
-	c.Assert(FmtDefineArray("foo", []byte{}), Equals, "#define foo {  }\n")
+func (s *CommonSuite) TestFmtDefineArray(c *check.C) {
+	c.Assert(FmtDefineArray("foo", []byte{1, 2, 3}), check.Equals, "#define foo { 0x1, 0x2, 0x3 }\n")
+	c.Assert(FmtDefineArray("foo", []byte{}), check.Equals, "#define foo {  }\n")
 }
