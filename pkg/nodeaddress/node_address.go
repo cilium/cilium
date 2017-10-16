@@ -119,9 +119,25 @@ func InitDefaultPrefix(device string) {
 	ipv6Address = findIPv6NodeAddr()
 
 	ip, err := firstGlobalV4Addr(device)
-	if err == nil {
-		ipv4ExternalAddress = ip
+	if err != nil {
+		return
+	}
 
+	if ipv4ExternalAddress == nil {
+		ipv4ExternalAddress = ip
+	}
+
+	if ipv4AllocRange == nil {
+		// If the IPv6AllocRange is not nil then the IPv4 allocation should be
+		// derived from the IPv6AllocRange.
+		//                     vvvv vvvv
+		// FD00:0000:0000:0000:0000:0000:0000:0000
+		if ipv6AllocRange != nil {
+			ip = net.IPv4(ipv6AllocRange.IP[8],
+				ipv6AllocRange.IP[9],
+				ipv6AllocRange.IP[10],
+				ipv6AllocRange.IP[11])
+		}
 		v4range := fmt.Sprintf(DefaultIPv4Prefix+"/%d",
 			ip.To4()[3], DefaultIPv4PrefixLen)
 		_, ip4net, err := net.ParseCIDR(v4range)
@@ -130,7 +146,12 @@ func InitDefaultPrefix(device string) {
 		}
 
 		ipv4AllocRange = ip4net
+		log.Infof("Automatically added IPv4 allocation %s", ipv4AllocRange)
+	}
 
+	if ipv6AllocRange == nil {
+		// The IPv6 allocation should be derived from the IPv4 allocation.
+		ip = ipv4AllocRange.IP
 		v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
 			DefaultIPv6Prefix, ip[0], ip[1], ip[2], ip[3],
 			IPv6NodePrefixLen)
@@ -141,11 +162,8 @@ func InitDefaultPrefix(device string) {
 		}
 
 		ipv6AllocRange = ip6net
+		log.Infof("Automatically added IPv6 allocation %s", ipv6AllocRange)
 	}
-}
-
-func init() {
-	InitDefaultPrefix("")
 }
 
 // GetIPv4ClusterRange returns the IPv4 prefix of the cluster
