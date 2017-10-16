@@ -164,4 +164,7 @@ const (
 
 	// K8sIngressName is the name of a K8sIngress
 	K8sIngressName = "k8sIngressName"
+
+	// K8sAPIVersion is the version of the k8s API an object has
+	K8sAPIVersion = "k8sApiVersion"
 )

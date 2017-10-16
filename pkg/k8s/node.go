@@ -17,9 +17,10 @@ package k8s
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
@@ -27,6 +28,10 @@ import (
 
 // ParseNode parses a kubernetes node to a cilium node
 func ParseNode(k8sNode *v1.Node) *node.Node {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.NodeName:  k8sNode.Name,
+		logfields.K8sNodeID: k8sNode.UID,
+	})
 	addrs := []node.Address{}
 	for _, addr := range k8sNode.Status.Addresses {
 		// We only care about this address types,
@@ -38,7 +43,10 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 		}
 		ip := net.ParseIP(addr.Address)
 		if ip == nil {
-			log.Debugf("k8s: Ignoring invalid node IP %s of type %s", addr.Address, addr.Type)
+			scopedLog.WithFields(logrus.Fields{
+				logfields.IPAddr: addr.Address,
+				"type":           addr.Type,
+			}).Warn("Ignoring invalid node IP")
 			continue
 		}
 		na := node.Address{
@@ -55,7 +63,7 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 
 	if len(k8sNode.Spec.PodCIDR) != 0 {
 		if _, cidr, err := net.ParseCIDR(k8sNode.Spec.PodCIDR); err != nil {
-			log.Warningf("k8s: Invalid PodCIDR value '%s' for node %s: %s", k8sNode.Spec.PodCIDR, err)
+			scopedLog.WithError(err).WithField(logfields.V4Prefix, k8sNode.Spec.PodCIDR).Warn("Invalid PodCIDR value for node")
 		} else {
 			if cidr.IP.To4() != nil {
 				node.IPv4AllocCIDR = cidr
@@ -69,12 +77,11 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 	// In case it's invalid or empty then we fall back to our annotations.
 	if node.IPv4AllocCIDR == nil {
 		if ipv4CIDR, ok := k8sNode.Annotations[Annotationv4CIDRName]; !ok {
-			log.Debugf("k8s: Empty IPv4 CIDR annotation in node")
+			scopedLog.Debug("Empty IPv4 CIDR annotation in node")
 		} else {
 			_, cidr, err := net.ParseCIDR(ipv4CIDR)
 			if err != nil {
-				log.Errorf("k8s: BUG, invalid IPv4 annotation CIDR %q in node %q: %s",
-					ipv4CIDR, k8sNode.Name, err)
+				scopedLog.WithError(err).WithField(logfields.V4Prefix, ipv4CIDR).Error("BUG, invalid IPv4 annotation CIDR in node")
 			} else {
 				node.IPv4AllocCIDR = cidr
 			}
@@ -83,12 +90,11 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 
 	if node.IPv6AllocCIDR == nil {
 		if ipv6CIDR, ok := k8sNode.Annotations[Annotationv6CIDRName]; !ok {
-			log.Debugf("k8s: Empty IPv6 CIDR annotation in node")
+			scopedLog.Debug("Empty IPv6 CIDR annotation in node")
 		} else {
 			_, cidr, err := net.ParseCIDR(ipv6CIDR)
 			if err != nil {
-				log.Errorf("k8s: BUG, invalid IPv6 annotation CIDR %q in node %q: %s",
-					ipv6CIDR, k8sNode.Name, err)
+				scopedLog.WithError(err).WithField(logfields.V6Prefix, ipv6CIDR).Error("BUG, invalid IPv6 annotation CIDR in node")
 			} else {
 				node.IPv6AllocCIDR = cidr
 			}

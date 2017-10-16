@@ -22,9 +22,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -117,7 +118,7 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	timeout := time.NewTimer(time.Minute)
 	defer timeout.Stop()
 	wait.Until(func() {
-		log.Infof("Waiting for kubernetes api-server to be ready...")
+		log.Info("Waiting for k8s api-server to be ready...")
 		err := isConnReady(cs)
 		if err == nil {
 			close(stop)
@@ -125,12 +126,12 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		}
 		select {
 		case <-timeout.C:
-			log.Errorf("Unable to contact kubernetes api-server %s: %s", config.Host, err)
+			log.WithError(err).WithField(logfields.IPAddr, config.Host).Error("Unable to contact k8s api-server")
 			close(stop)
 		default:
 		}
 	}, 5*time.Second, stop)
-	log.Infof("Connected to kubernetes api-server %s", config.Host)
+	log.WithField(logfields.IPAddr, config.Host).Info("Connected to k8s api-server")
 	return cs, nil
 }
 
@@ -159,7 +160,7 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 		return err
 	}
 
-	log.Infof("k8s: Waiting for TPR to be established in k8s api-server...")
+	log.Info("Creating CiliumNetworkPolicy ThirdPartyResource")
 	// wait for TPR being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
@@ -173,7 +174,7 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 	if err != nil {
 		deleteErr := cli.ExtensionsV1beta1().ThirdPartyResources().Delete(cnpTPRName, nil)
 		if deleteErr != nil {
-			return fmt.Errorf("k8s: unable to delete TPR %s. Deleting TPR due: %s", deleteErr, err)
+			return fmt.Errorf("unable to delete k8s TPR %s. Deleting TPR due: %s", deleteErr, err)
 		}
 		return err
 	}
@@ -208,7 +209,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return err
 	}
 
-	log.Infof("k8s: Waiting for CRD to be established in k8s api-server...")
+	log.Info("Creating CiliumNetworkPolicy CustomResourceDefinition")
 	// wait for CRD being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
@@ -223,7 +224,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 				}
 			case apiextensionsv1beta1.NamesAccepted:
 				if cond.Status == apiextensionsv1beta1.ConditionFalse {
-					log.Errorf("Name conflict: %v", cond.Reason)
+					log.Errorf("Name conflict: %s", cond.Reason)
 					return false, err
 				}
 			}
@@ -233,7 +234,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	if err != nil {
 		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(cnpCRDName, nil)
 		if deleteErr != nil {
-			return fmt.Errorf("k8s: unable to delete CRD %s. Deleting CRD due: %s", deleteErr, err)
+			return fmt.Errorf("unable to delete k8s CRD %s. Deleting CRD due: %s", deleteErr, err)
 		}
 		return err
 	}
@@ -410,10 +411,12 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
 func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) error {
-	log.WithFields(log.Fields{
-		fieldNodeName: nodeName,
-		fieldSubsys:   subsysKubernetes,
-	}).Debugf("Updating node annotations with node CIDRs: IPv4=%s IPv6=%s", v4CIDR, v6CIDR)
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.NodeName: nodeName,
+		logfields.V4Prefix: v4CIDR,
+		logfields.V6Prefix: v6CIDR,
+	})
+	scopedLog.Debug("Updating node annotations with node CIDRs")
 
 	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) {
 		var node *v1.Node
@@ -430,11 +433,9 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 			}
 
 			if err != nil {
-				log.WithFields(log.Fields{
+				scopedLog.WithFields(logrus.Fields{
 					fieldRetry:    n,
 					fieldMaxRetry: maxUpdateRetries,
-					fieldNodeName: nodeName,
-					fieldSubsys:   subsysKubernetes,
 				}).WithError(err).Error("Unable to update node resource with CIDR annotation")
 			} else {
 				break
@@ -458,7 +459,12 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 	if err != nil {
 		ns := ExtractNamespace(&rule.Metadata)
 		name := rule.Metadata.GetObjectMeta().GetName()
-		log.Warningf("k8s: unable to update CNP %s/%s with status: %s, retrying...", ns, name, err)
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.K8sNamespace:            ns,
+			logfields.CiliumNetworkPolicyName: name,
+		})
+
+		scopedLog.WithError(err).Warn("unable to update CNP, retrying...")
 		t := time.NewTimer(timeout)
 		defer t.Stop()
 		loopTimer := time.NewTimer(time.Second)
@@ -469,35 +475,37 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 				break
 			}
 			if err != nil {
-				log.Warningf("k8s: unable to get k8s CNP %s/%s from local cache: %s", ns, name, err)
+				scopedLog.WithError(err).Warn("Unable to find CiliumNetworkPolicy in local cache")
 				break
 			}
 			serverRule, ok := serverRuleStore.(*CiliumNetworkPolicy)
 			if !ok {
-				log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", serverRuleStore)
+				scopedLog.WithError(err).WithFields(logrus.Fields{
+					logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
+				}).Warn("Received object of unknown type from API server, expecting CiliumNetworkPolicy")
 				return
 			}
 			if serverRule.Metadata.UID != rule.Metadata.UID &&
 				serverRule.SpecEquals(rule) {
 				// Although the policy was found this means it was deleted,
 				// and re-added with the same name.
-				log.Debugf("k8s: rule %s/%s changed while updating node status, stopping retry", ns, name)
+				scopedLog.Debug("rule changed while updating node status, stopping retry")
 				break
 			}
 			serverRule.SetPolicyStatus(nodeaddress.GetName(), cnpns)
 			_, err = cnpClient.Update(serverRule)
 			if err == nil {
-				log.Debugf("k8s: successfully updated %s/%s with status: %s", ns, name, serverRule.Status)
+				scopedLog.WithField("status", serverRule.Status).Debug("successfully updated with status")
 				break
 			}
 			loopTimer.Reset(time.Duration(n) * time.Second)
 			select {
 			case <-t.C:
-				log.Errorf("k8s: unable to update CNP %s/%s with status: %s", ns, name, err)
+				scopedLog.WithError(err).Error("unable to update CNP with status")
 				break
 			case <-loopTimer.C:
 			}
-			log.Warningf("k8s: unable to update CNP %s/%s with status: %s, retrying...", ns, name, err)
+			scopedLog.WithError(err).Warn("unable to update CNP with status, retrying...")
 		}
 	}
 }

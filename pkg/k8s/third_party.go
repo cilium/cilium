@@ -20,12 +20,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
@@ -106,9 +106,12 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 
 		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]
 		if ok && userNamespace != namespace {
-			log.Warningf("k8s: CiliumNetworkPolicy %s/%s contains illegal namespace match '%s' in EndpointSelector."+
-				" EndpointSelector always applies in namespace of the policy resource, removing namespace match '%s'.",
-				namespace, name, userNamespace, userNamespace)
+			log.WithFields(logrus.Fields{
+				logfields.K8sNamespace:              namespace,
+				logfields.CiliumNetworkPolicyName:   name,
+				logfields.K8sNamespace + ".illegal": userNamespace,
+			}).Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector." +
+				" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.")
 		}
 		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
 	}
@@ -199,7 +202,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
-			return nil, fmt.Errorf("Invalid spec: %s", err)
+			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
 
 		}
 		cr := parseToCilium(namespace, name, r.Spec)
@@ -208,7 +211,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
 			if err := rule.Sanitize(); err != nil {
-				return nil, fmt.Errorf("Invalid specs: %s", err)
+				return nil, fmt.Errorf("Invalid CiliumNetworkPolicy specs: %s", err)
 
 			}
 			cr := parseToCilium(namespace, name, rule)

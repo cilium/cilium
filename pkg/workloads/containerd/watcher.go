@@ -187,7 +187,7 @@ func fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: ns,
 		logfields.K8sPodName:   podName,
-	}).Debug("Connecting to kubernetes to retrieve labels for pod in ns")
+	}).Debug("Connecting to k8s to retrieve labels for pod in ns")
 
 	result, err := k8s.Client().CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
 	if err != nil {
