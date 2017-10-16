@@ -1,4 +1,4 @@
-apiVersion: "cilium.io/v1"
+apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
   name: "guestbook-web"
@@ -12,5 +12,5 @@ spec:
         "reserved.world": ""
     toPorts:
     - ports:
-      - port: "3000"
+      - port: "80"
         protocol: TCP

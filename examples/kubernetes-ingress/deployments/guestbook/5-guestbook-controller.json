@@ -21,15 +21,12 @@
             "spec":{
                 "containers":[{
                     "name":"guestbook",
-                    "image":"kubernetes/guestbook:v2",
+                    "image":"gcr.io/google-samples/gb-frontend:v4",
                     "ports":[{
                         "name":"http-server",
-                        "containerPort":3000
+                        "containerPort": 80
                     }]
-                }],
-                "nodeSelector": {
-                    "kubernetes.io/hostname": "$kube-node-selector"
-                }
+                }]
             }
         }
     }

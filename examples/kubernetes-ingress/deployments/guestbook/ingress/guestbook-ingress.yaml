@@ -2,7 +2,15 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: guestbook-ingress
+  annotations:
+    ingress.kubernetes.io/paths-as-regex: "true"
+    ingress.kubernetes.io/rewrite-target: "/"
 spec:
-  backend:
-    serviceName: guestbook
-    servicePort: 80 
+  rules:
+  - host: foo.bar.com
+    http:
+      paths:
+      - path: /*
+        backend:
+          serviceName: guestbook
+          servicePort: 80
