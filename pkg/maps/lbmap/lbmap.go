@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -117,7 +118,10 @@ type RRSeqValue struct {
 func (s RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&s) }
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
-	log.Debugf("adding frontend: %s for backend: %s to BPF maps", key, value)
+	log.WithFields(log.Fields{
+		"frontend": key,
+		"backend":  value,
+	}).Debug("adding frontend for backend to BPF maps")
 	if key.GetBackend() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
@@ -204,7 +208,10 @@ type RevNatValue interface {
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
-	log.Debugf("adding revNat key: %s --> value: %s", key, value)
+	log.WithFields(log.Fields{
+		logfields.BPFMapKey:   key,
+		logfields.BPFMapValue: value,
+	}).Debug("adding revNat to lbmap")
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
@@ -216,7 +223,10 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 }
 
 func DeleteRevNat(key RevNatKey) error {
-	log.Debugf("deleting RevNatKey: %s", key.String())
+	log.WithFields(log.Fields{
+		// REVIEW is .String() needed?
+		"revNATK": key.String(),
+	}).Debug("deleting RevNatKey")
 	return key.Map().Delete(key.ToNetwork())
 }
 
@@ -370,7 +380,7 @@ func AddSVC2BPFMap(fe ServiceKey, besValues []ServiceValue, addRevNAT bool, revN
 // L3n4Addr2ServiceKey converts the given l3n4Addr to a ServiceKey with the slave ID
 // set to 0.
 func L3n4Addr2ServiceKey(l3n4Addr types.L3n4AddrID) ServiceKey {
-	log.Debugf("converting L3n4Addr %s to ServiceKey", l3n4Addr.String())
+	log.WithField(logfields.L4Addr, l3n4Addr).Debug("converting L3n4Addr to ServiceKey")
 	if l3n4Addr.IsIPv6() {
 		return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 	}
@@ -379,8 +389,10 @@ func L3n4Addr2ServiceKey(l3n4Addr types.L3n4AddrID) ServiceKey {
 
 // LBSVC2ServiceKeynValue transforms the SVC Cilium type into a bpf SVC type.
 func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error) {
-	log.Debugf("converting Cilium load-balancer service (frontend: %s, "+
-		"backend(s): %v) into BPF service", svc.FE.String(), svc.BES)
+	log.WithFields(log.Fields{
+		"lbFrontend": svc.FE.String(),
+		"lbBackend":  svc.BES,
+	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
 	fe := L3n4Addr2ServiceKey(svc.FE)
 
 	// Create a list of ServiceValues so we know everything is safe to put in the lb
@@ -396,11 +408,17 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 		beValue.SetWeight(be.Weight)
 
 		besValues = append(besValues, beValue)
-		log.Debugf("associating frontend: %s --> backend: %s", fe, beValue)
+		log.WithFields(log.Fields{
+			"lbFrontend": fe,
+			"lbBackend":  beValue,
+		}).Debug("associating frontend -> backend")
 	}
-	log.Debugf("converted LBSVC (frontend: %s, backend(s): %v), to "+
-		"ServiceKey: %s, ServiceValue(s): %v", svc.FE.String(), svc.BES, fe.String(),
-		besValues)
+	log.WithFields(log.Fields{
+		"lbFrontend":        svc.FE.String(),
+		"lbBackend":         svc.BES,
+		logfields.ServiceID: fe.String(),
+		logfields.Service:   besValues,
+	}).Debug("converted LBSVC (frontend -> backend(s)), to Service Key and Value")
 	return fe, besValues, nil
 }
 
@@ -414,7 +432,7 @@ func L3n4Addr2RevNatKeynValue(svcID types.ServiceID, feL3n4Addr types.L3n4Addr) 
 
 // ServiceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
 func ServiceKey2L3n4Addr(svcKey ServiceKey) (*types.L3n4Addr, error) {
-	log.Debugf("creating L3n4Addr for ServiceKey %s", svcKey)
+	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
 	var (
 		feIP   net.IP
 		fePort uint16
@@ -441,7 +459,10 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 		beWeight uint16
 	)
 
-	log.Debugf("converting ServiceKey %s and ServiceValue %s to frontend and backend", svcKey, svcValue)
+	log.WithFields(log.Fields{
+		logfields.ServiceID: svcKey,
+		logfields.Service:   svcValue,
+	}).Debug("converting ServiceKey and ServiceValue to frontend and backend")
 
 	if svcKey.IsIPv6() {
 		svc6Val := svcValue.(*Service6Value)
