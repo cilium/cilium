@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -314,15 +315,18 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 	defer cancel()
 
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+
+	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+	scopedLog := e.log().WithField("cmd", cmd)
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		scopedLog.Error("Command execution failed: Timeout")
 		return ctx.Err()
 	}
 	if err != nil {
-		log.Warningf("Command execution failed: %s", err)
+		scopedLog.WithError(err).Warn("Command execution failed")
 		scanner := bufio.NewScanner(bytes.NewReader(out))
 		for scanner.Scan() {
-			log.Warning(scanner.Text())
+			log.Warn(scanner.Text())
 		}
 		return fmt.Errorf("error: %q command output: %q", err, out)
 	}
