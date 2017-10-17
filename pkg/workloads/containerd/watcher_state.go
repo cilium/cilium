@@ -96,7 +96,7 @@ func (ws *watcherState) syncWithRuntime() {
 
 	cList, err := dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
 	if err != nil {
-		log.Errorf("Failed to retrieve the container list %s", err)
+		log.WithError(err).Error("Failed to retrieve the container list")
 		return
 	}
 	for _, cont := range cList {
