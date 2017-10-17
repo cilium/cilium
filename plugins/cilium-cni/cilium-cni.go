@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/containernetworking/cni/pkg/ns"
@@ -148,7 +149,7 @@ func renameLink(curName, newName string) error {
 func releaseIP(client *client.Client, ip string) {
 	if ip != "" {
 		if err := client.IPAMReleaseIP(ip); err != nil {
-			log.Warningf("Unable to release IP %s: %s", ip, err)
+			log.WithError(err).WithField(logfields.IPAddr, ip).Warning("Unable to release IP")
 		}
 	}
 }
@@ -159,7 +160,11 @@ func releaseIPs(client *client.Client, addr *models.EndpointAddressing) {
 }
 
 func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netlink.Link, ifName string) error {
-	log.Debugf("Configuring link %+v/%s with %s", link, ifName, ip.String())
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr:    ip,
+		"netLink":           logfields.Repr(link),
+		logfields.Interface: ifName,
+	}).Debug("Configuring link")
 
 	addr := &netlink.Addr{IPNet: ip.EndpointPrefix()}
 	if err := netlink.AddrAdd(link, addr); err != nil {
@@ -171,7 +176,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netl
 	sort.Sort(plugins.ByMask(routes))
 
 	for _, r := range routes {
-		log.Debugf("Adding route %+v", r)
+		log.WithField("route", logfields.Repr(r)).Debugf("Adding route")
 		rt := &netlink.Route{
 			LinkIndex: link.Attrs().Index,
 			Scope:     netlink.SCOPE_UNIVERSE,
@@ -290,7 +295,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConf
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
-	log.Debugf("ADD %s", args)
+	log.WithField("args", args).Debug("ADD")
 
 	n, cniVersion, err := loadNetConf(args.StdinData)
 	if err != nil {
@@ -333,7 +338,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.Warningf("failed to clean up and delete veth %q: %s", veth.Name, err)
+				log.WithError(err).WithField(logfields.Veth, veth.Name).Warning("failed to clean up and delete veth")
 			}
 		}
 	}()
@@ -407,9 +412,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 	if err = netNs.Do(func(_ ns.NetNS) error {
 		out, err := exec.Command("sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=0").CombinedOutput()
 		if err != nil {
-			log.Warnf("Error while enabling IPv6 on all interfaces: %s", err)
+			log.WithError(err).Warn("Error while enabling IPv6 on all interfaces")
 		}
-		log.Debugf("Enabling IPv6 command output: %s", out)
+		log.WithField("output", out).Debug("Enabling IPv6 command output")
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
@@ -430,7 +435,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 }
 
 func cmdDel(args *skel.CmdArgs) error {
-	log.Debugf("DEL %s", args)
+	log.WithField("args", args).Debug("DEL")
 
 	client, err := client.NewDefaultClient()
 	if err != nil {
@@ -440,17 +445,17 @@ func cmdDel(args *skel.CmdArgs) error {
 	id := endpoint.NewID(endpoint.ContainerIdPrefix, args.ContainerID)
 	if ep, err := client.EndpointGet(id); err != nil {
 		// Ignore endpoints not found
-		log.Debugf("unable to find endpoint %s: %s", id, err)
+		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Unable to find endpoint")
 		return nil
 	} else if ep == nil {
-		log.Debugf("unable to find endpoint %s: %s", id, err)
+		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Unable to find endpoint")
 		return nil
 	} else {
 		releaseIPs(client, ep.Addressing)
 	}
 
 	if err := client.EndpointDelete(id); err != nil {
-		log.Warningf("Deletion of endpoint failed: %s", err)
+		log.WithError(err).Warning("Deletion of endpoint failed")
 	}
 
 	return ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {

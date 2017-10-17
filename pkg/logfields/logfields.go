@@ -66,6 +66,9 @@ const (
 	// V6Prefix is a IPv6 subnet/CIDR prefix
 	V6Prefix = "v6Prefix"
 
+	// Interface is an interface id/name on the system
+	Interface = "interface"
+
 	// Veth is a veth object or ID
 	Veth = "veth"
 
