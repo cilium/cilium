@@ -22,7 +22,7 @@ import (
 
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 )
 
@@ -96,7 +96,7 @@ func (ws *watcherState) syncWithRuntime() {
 
 	cList, err := dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
 	if err != nil {
-		log.Errorf("Failed to retrieve the container list %s", err)
+		log.WithError(err).Error("Failed to retrieve the container list")
 		return
 	}
 	for _, cont := range cList {
@@ -105,7 +105,7 @@ func (ws *watcherState) syncWithRuntime() {
 		}
 
 		if alreadyHandled := ws.handlingContainerID(cont.ID); !alreadyHandled {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.ContainerID: shortContainerID(cont.ID),
 			}).Debug("Found unwatched container")
 
