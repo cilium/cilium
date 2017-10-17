@@ -94,8 +94,10 @@ func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) b
 	}
 
 	if len(policy.FromEndpoints) > 0 && len(fromEndpoints) == 0 {
-		// new policy is more permissive than the existing policy
-		// use a more permissive one
+		log.WithFields(logrus.Fields{
+			logfields.EndpointSelector: fromEndpoints,
+			"policy":                   policy,
+		}).Debug("new L4 filter applies to all endpoints, making the policy more permissive.")
 		policy.FromEndpoints = nil
 	}
 
