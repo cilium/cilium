@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -209,7 +210,7 @@ func (r *OxyRedirect) getSourceInfo(req *http.Request, srcIdentity policy.Numeri
 			// source security identity 0 is possible when somebody else other than the BPF datapath attempts to
 			// connect to the proxy.
 			// We should log no source information in that case, in the proxy log.
-			log.Warn("Missing security identity in source endpoint info")
+			log.WithField(logfields.L4Addr, req.RemoteAddr).Warn("Missing security identity in source endpoint info")
 		}
 
 	}
@@ -374,7 +375,7 @@ func lookupNewDest(req *http.Request, dport uint16) (uint32, string, error) {
 			return 0, "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
 		}
 
-		log.Debugf("Found IPv4 proxy entry: %+v", val)
+		log.WithField("obj", logfields.Repr(val)).Debug("Found IPv4 proxy entry")
 		return val.SourceIdentity, val.HostPort(), nil
 	}
 
@@ -391,7 +392,7 @@ func lookupNewDest(req *http.Request, dport uint16) (uint32, string, error) {
 		return 0, "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
 
-	log.Debugf("Found IPv6 proxy entry: %+v", val)
+	log.WithField("obj", logfields.Repr(val)).Debug("Found IPv6 proxy entry")
 	return val.SourceIdentity, val.HostPort(), nil
 }
 
@@ -417,17 +418,15 @@ func identityFromContext(ctx context.Context) (int, bool) {
 }
 
 func setFdMark(fd, mark int) {
-	log.WithFields(log.Fields{
+	scopedLog := log.WithFields(log.Fields{
 		fieldFd:     fd,
 		fieldMarker: mark,
-	}).Debug("Setting packet marker of socket")
+	})
+	scopedLog.Debug("Setting packet marker of socket")
 
 	err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
 	if err != nil {
-		log.WithFields(log.Fields{
-			fieldFd:     fd,
-			fieldMarker: mark,
-		}).WithError(err).Warning("Unable to set SO_MARK")
+		scopedLog.WithError(err).Warning("Unable to set SO_MARK")
 	}
 }
 
@@ -445,7 +444,7 @@ func setSocketMark(c net.Conn, mark int) {
 func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16) (Redirect, error) {
 	for _, ep := range l4.L7RulesPerEp {
 		if len(ep.Kafka) > 0 {
-			log.Debug("Kafka Parser not supported by Oxy proxy.")
+			log.WithField("type", l4.L7Parser).Debug("Kafka Parser not supported by Oxy proxy.")
 			return nil, fmt.Errorf("unsupported L7 protocol proxy: \"%s\"", l4.L7Parser)
 		}
 	}
@@ -504,9 +503,9 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 		srcIdentity, dstIPPort, err := lookupNewDest(req, to)
 		if err != nil {
 			// FIXME: What do we do here long term?
-			log.Errorf("%s", err)
+			log.WithError(err).Error("cannot generate redirect destination url")
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			record.Info = fmt.Sprintf("cannot generate url: %s", err)
+			record.Info = fmt.Sprintf("cannot generate redirect destination url: %s", err)
 			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError, http.StatusBadRequest)
 			return
 		}
@@ -532,10 +531,10 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 				return
 			}
 			ar := rule.(string)
-			log.Debugf("Allowing request based on rule %+v", ar)
+			log.WithField("rule", logfields.Repr(ar)).Debug("Allowing request based on rule")
 			record.Info = fmt.Sprintf("rule: %+v", ar)
 		} else {
-			log.Debugf("Allowing request as there are no rules")
+			log.Debug("Allowing request as there are no rules")
 		}
 		redir.mutex.Unlock()
 
@@ -598,7 +597,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 	go func() {
 		err := redir.server.Serve(listener)
 		if err != nil {
-			log.Errorf("Unable to listen and serve proxy: %s", err)
+			log.WithError(err).WithField("listener", listener).Error("Unable to listen and serve proxy")
 		}
 	}()
 

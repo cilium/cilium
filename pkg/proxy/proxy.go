@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -38,9 +39,11 @@ const (
 
 // field names used while logging
 const (
-	fieldMarker = "marker"
-	fieldSocket = "socket"
-	fieldFd     = "fd"
+	fieldMarker          = "marker"
+	fieldSocket          = "socket"
+	fieldFd              = "fd"
+	fieldProxyRedirectID = "id"
+	fieldProxyKind       = "kind"
 )
 
 // Supported proxy types
@@ -144,12 +147,15 @@ var gcOnce sync.Once
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource, kind string) (Redirect, error) {
+	scopedLog := log.WithFields(log.Fields{
+		fieldProxyRedirectID: id,
+		fieldProxyKind:       kind,
+	})
+
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf); err != nil {
-				log.WithFields(log.Fields{
-					accesslog.FieldFilePath: lf,
-				}).WithError(err).Warning("Cannot open L7 access log")
+				scopedLog.WithError(err).WithField(accesslog.FieldFilePath, lf).Warning("Cannot open L7 access log")
 			}
 		}
 
@@ -161,7 +167,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			for {
 				time.Sleep(time.Duration(10) * time.Second)
 				if deleted := GC(); deleted > 0 {
-					log.Debugf("Evicted %d entries from proxy table", deleted)
+					scopedLog.WithField("count", deleted).Debug("Evicted entries from proxy table")
 				}
 			}
 		}()
@@ -175,7 +181,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		if err != nil {
 			return nil, err
 		}
-		log.Debugf("updated existing proxy instance %+v", r)
+		scopedLog.WithField("obj", logfields.Repr(r)).Debug("updated existing proxy instance")
 		return r, nil
 	}
 
@@ -191,14 +197,14 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
 	}
 	if err != nil {
-		log.Errorf("Unable to create proxy of kind: %s: %s", kind, err)
+		scopedLog.WithError(err).Error("Unable to create proxy of kind")
 		return nil, err
 	}
 
 	p.allocatedPorts[to] = redir
 	p.redirects[id] = redir
 
-	log.Debugf("Created new %s proxy instance %+v", kind, redir)
+	log.WithField("obj", logfields.Repr(redir)).Debug("Created new proxy instance")
 
 	return redir, nil
 }
@@ -212,7 +218,7 @@ func (p *Proxy) RemoveRedirect(id string) error {
 		return fmt.Errorf("unable to find redirect %s", id)
 	}
 
-	log.Debugf("removing proxy redirect %s", id)
+	log.WithField(fieldProxyRedirectID, id).Debug("removing proxy redirect")
 	toPort := r.ToPort()
 	r.Close()
 
