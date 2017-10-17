@@ -133,7 +133,7 @@ func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules, fromEndpoints []api.
 func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
 	direction string) L4Filter {
 
-	// already validated via PortRule.Validate()
+	// Already validated via PortRule.sanitize().
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 
 	l4 := L4Filter{
@@ -201,9 +201,32 @@ func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
 	return false
 }
 
-// L4PolicyMap is a list of L4 filters indexable by protocol/port
-// key format: "port/proto"
+// L4PolicyMap is a list of L4 filters indexed by L4 port/protocol.
+// Key format: "port/proto".
 type L4PolicyMap map[string]L4Filter
+
+// L7VisibilityRule is an active ingress visibility rule.
+type L7VisibilityRule struct {
+	// Port is the destination L4 port to redirect to L7 for access logging.
+	Port int
+	// Protocol is the port's L4 protocol.
+	Protocol api.L4Proto
+	// L7Parser specifies the L7 protocol parser.
+	L7Parser api.L7ParserType
+}
+
+// MarshalIndent returns the `L7VisibilityRule` in indented JSON string.
+func (v *L7VisibilityRule) MarshalIndent() string {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
+// L7VisibilityMap is a list of L7 ingress visibility rules indexed by L4 port/protocol.
+// Key format: "port/proto".
+type L7VisibilityMap map[string]L7VisibilityRule
 
 // HasRedirect returns true if at least one L4 filter contains a port
 // redirection
@@ -264,14 +287,16 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 }
 
 type L4Policy struct {
-	Ingress L4PolicyMap
-	Egress  L4PolicyMap
+	Ingress           L4PolicyMap
+	Egress            L4PolicyMap
+	IngressVisibility L7VisibilityMap
 }
 
 func NewL4Policy() *L4Policy {
 	return &L4Policy{
-		Ingress: make(L4PolicyMap),
-		Egress:  make(L4PolicyMap),
+		Ingress:           make(L4PolicyMap),
+		Egress:            make(L4PolicyMap),
+		IngressVisibility: make(L7VisibilityMap),
 	}
 }
 
@@ -309,26 +334,33 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		return nil
 	}
 
-	ingress := []string{}
+	ingress := make([]string, 0, len(l4.Ingress))
 	for _, v := range l4.Ingress {
 		ingress = append(ingress, v.MarshalIndent())
 	}
 
-	egress := []string{}
+	egress := make([]string, 0, len(l4.Egress))
 	for _, v := range l4.Egress {
 		egress = append(egress, v.MarshalIndent())
 	}
 
+	ingressVisibility := make([]string, 0, len(l4.IngressVisibility))
+	for _, v := range l4.IngressVisibility {
+		ingressVisibility = append(ingressVisibility, v.MarshalIndent())
+	}
+
 	return &models.L4Policy{
-		Ingress: ingress,
-		Egress:  egress,
+		Ingress:           ingress,
+		Egress:            egress,
+		IngressVisibility: ingressVisibility,
 	}
 }
 
 func (l4 *L4Policy) DeepCopy() *L4Policy {
 	cpy := &L4Policy{
-		Ingress: make(L4PolicyMap, len(l4.Ingress)),
-		Egress:  make(L4PolicyMap, len(l4.Egress)),
+		Ingress:           make(L4PolicyMap, len(l4.Ingress)),
+		Egress:            make(L4PolicyMap, len(l4.Egress)),
+		IngressVisibility: make(L7VisibilityMap, len(l4.IngressVisibility)),
 	}
 
 	for k, v := range l4.Ingress {
@@ -337,6 +369,10 @@ func (l4 *L4Policy) DeepCopy() *L4Policy {
 
 	for k, v := range l4.Egress {
 		cpy.Egress[k] = v
+	}
+
+	for k, v := range l4.IngressVisibility {
+		cpy.IngressVisibility[k] = v
 	}
 
 	return cpy

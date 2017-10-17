@@ -22,11 +22,16 @@ type L4Policy struct {
 
 	// List of L4 ingress rules
 	Ingress []string `json:"ingress"`
+
+	// List of L4 ingress visibility rules
+	IngressVisibility []string `json:"ingress-visibility"`
 }
 
 /* polymorph L4Policy egress false */
 
 /* polymorph L4Policy ingress false */
+
+/* polymorph L4Policy ingress-visibility false */
 
 // Validate validates this l4 policy
 func (m *L4Policy) Validate(formats strfmt.Registry) error {
@@ -38,6 +43,11 @@ func (m *L4Policy) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIngress(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateIngressVisibility(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -60,6 +70,15 @@ func (m *L4Policy) validateEgress(formats strfmt.Registry) error {
 func (m *L4Policy) validateIngress(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Ingress) { // not required
+		return nil
+	}
+
+	return nil
+}
+
+func (m *L4Policy) validateIngressVisibility(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.IngressVisibility) { // not required
 		return nil
 	}
 

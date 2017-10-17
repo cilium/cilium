@@ -17,6 +17,7 @@ package policy
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logfields"
@@ -109,7 +110,7 @@ func (l4 *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) bool 
 }
 
 func mergeIngressVisibilityPort(ctx *SearchContext, p api.PortProtocol, l7Parser api.L7ParserType,
-	resMap L4PolicyMap) (int, error) {
+	resMap L4PolicyMap, visMap L7VisibilityMap) (int, error) {
 
 	key := p.Port + "/" + string(p.Protocol)
 	v, ok := resMap[key]
@@ -130,6 +131,16 @@ func mergeIngressVisibilityPort(ctx *SearchContext, p api.PortProtocol, l7Parser
 		// So if the port is already redirected, there is no need to create a new rule to redirect to
 		// the L7 proxy for visibility.
 		return 0, nil
+	}
+
+	// Already validated via IngressVisibilityRule.sanitize().
+	l4Port, _ := strconv.ParseUint(p.Port, 0, 16)
+
+	// Report as active visibility rule.
+	visMap[key] = L7VisibilityRule{
+		Port:     int(l4Port),
+		Protocol: p.Protocol,
+		L7Parser: l7Parser,
 	}
 
 	// Create an implicit allow-all rule to allow the traffic and redirect it to the L7 proxy.
@@ -290,7 +301,7 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 	return found, nil
 }
 
-func mergeIngressVisibility(ctx *SearchContext, rule api.IngressVisibilityRule, resMap L4PolicyMap) (int, error) {
+func mergeIngressVisibility(ctx *SearchContext, rule api.IngressVisibilityRule, resMap L4PolicyMap, visMap L7VisibilityMap) (int, error) {
 	found := 0
 
 	ctx.PolicyTrace("  Visibility into %s ports %v\n", dirIngress, rule.ToPorts)
@@ -299,19 +310,19 @@ func mergeIngressVisibility(ctx *SearchContext, rule api.IngressVisibilityRule, 
 		var cnt int
 		var err error
 		if p.Protocol != api.ProtoAny {
-			cnt, err = mergeIngressVisibilityPort(ctx, p, rule.L7Protocol, resMap)
+			cnt, err = mergeIngressVisibilityPort(ctx, p, rule.L7Protocol, resMap, visMap)
 			if err != nil {
 				return found, err
 			}
 			found += cnt
 		} else {
-			cnt, err = mergeIngressVisibilityPort(ctx, api.PortProtocol{Port: p.Port, Protocol: api.ProtoTCP}, rule.L7Protocol, resMap)
+			cnt, err = mergeIngressVisibilityPort(ctx, api.PortProtocol{Port: p.Port, Protocol: api.ProtoTCP}, rule.L7Protocol, resMap, visMap)
 			if err != nil {
 				return found, err
 			}
 			found += cnt
 
-			cnt, err = mergeIngressVisibilityPort(ctx, api.PortProtocol{Port: p.Port, Protocol: api.ProtoUDP}, rule.L7Protocol, resMap)
+			cnt, err = mergeIngressVisibilityPort(ctx, api.PortProtocol{Port: p.Port, Protocol: api.ProtoUDP}, rule.L7Protocol, resMap, visMap)
 			if err != nil {
 				return found, err
 			}
@@ -384,7 +395,7 @@ func (r *rule) resolveIngressVisibility(ctx *SearchContext, state *traceState, r
 
 	if !ctx.EgressL4Only {
 		for _, r := range r.IngressVisibility {
-			cnt, err := mergeIngressVisibility(ctx, r, result.Ingress)
+			cnt, err := mergeIngressVisibility(ctx, r, result.Ingress, result.IngressVisibility)
 			if err != nil {
 				return nil, err
 			}
