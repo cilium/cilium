@@ -410,8 +410,8 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 	}
 
 	svcns := types.K8sServiceNamespace{
-		Service:   svc.Name,
-		Namespace: svc.Namespace,
+		ServiceName: svc.Name,
+		Namespace:   svc.Namespace,
 	}
 
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
@@ -460,8 +460,8 @@ func (d *Daemon) serviceDelFn(obj interface{}) {
 	}).Debug("Deleting k8s service")
 
 	svcns := &types.K8sServiceNamespace{
-		Service:   svc.Name,
-		Namespace: svc.Namespace,
+		ServiceName: svc.Name,
+		Namespace:   svc.Namespace,
 	}
 
 	d.loadBalancer.K8sMU.Lock()
@@ -481,8 +481,8 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 	})
 
 	svcns := types.K8sServiceNamespace{
-		Service:   ep.Name,
-		Namespace: ep.Namespace,
+		ServiceName: ep.Name,
+		Namespace:   ep.Namespace,
 	}
 
 	newSvcEP := types.NewK8sServiceEndpoint()
@@ -537,8 +537,8 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	})
 
 	svcns := &types.K8sServiceNamespace{
-		Service:   ep.Name,
-		Namespace: ep.Namespace,
+		ServiceName: ep.Name,
+		Namespace:   ep.Namespace,
 	}
 
 	d.loadBalancer.K8sMU.Lock()
@@ -595,7 +595,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 	}
 
 	scopedLog := log.WithFields(log.Fields{
-		logfields.K8sSvcName:   svc.Service,
+		logfields.K8sSvcName:   svc.ServiceName,
 		logfields.K8sNamespace: svc.Namespace,
 	})
 
@@ -637,7 +637,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 
 func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
 	scopedLog := log.WithFields(log.Fields{
-		logfields.K8sSvcName:   svc.Service,
+		logfields.K8sSvcName:   svc.ServiceName,
 		logfields.K8sNamespace: svc.Namespace,
 	})
 
@@ -728,7 +728,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 
 		if err := d.delK8sSVCs(delSN, svc, endpoint); err != nil {
 			log.WithError(err).WithFields(log.Fields{
-				logfields.K8sSvcName:   delSN.Service,
+				logfields.K8sSvcName:   delSN.ServiceName,
 				logfields.K8sNamespace: delSN.Namespace,
 			}).Error("Unable to delete k8s service")
 			return
@@ -751,7 +751,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 
 		if err := d.addK8sSVCs(addSN, svcInfo, endpoint); err != nil {
 			log.WithError(err).WithFields(log.Fields{
-				logfields.K8sSvcName:   addSN.Service,
+				logfields.K8sSvcName:   addSN.ServiceName,
 				logfields.K8sNamespace: addSN.Namespace,
 			}).Error("Unable to add k8s service")
 		}
@@ -792,8 +792,8 @@ func (d *Daemon) ingressAddFn(obj interface{}) {
 	})
 
 	svcName := types.K8sServiceNamespace{
-		Service:   ingress.Spec.Backend.ServiceName,
-		Namespace: ingress.Namespace,
+		ServiceName: ingress.Spec.Backend.ServiceName,
+		Namespace:   ingress.Namespace,
 	}
 
 	ingressPort := ingress.Spec.Backend.ServicePort.IntValue()
@@ -926,8 +926,8 @@ func (d *Daemon) ingressDelFn(obj interface{}) {
 	})
 
 	svcName := types.K8sServiceNamespace{
-		Service:   ing.Spec.Backend.ServiceName,
-		Namespace: ing.Namespace,
+		ServiceName: ing.Spec.Backend.ServiceName,
+		Namespace:   ing.Namespace,
 	}
 
 	// Remove RevNAT from the BPF Map for non-LB nodes.
