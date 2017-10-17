@@ -16,7 +16,11 @@ package policy
 
 import (
 	"encoding/json"
+	"net"
+	"strconv"
+	"strings"
 
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -390,4 +394,86 @@ func (p *Repository) NumRules() int {
 // GetRevision returns the revision of the policy repository
 func (p *Repository) GetRevision() uint64 {
 	return p.revision
+}
+
+// ConvertToK8sServiceToToCIDR traverses all egress rules and matches them against provided serviceInfo. If a matching egress rule is found it is populated with ToCIDR and ToPorts entries based on endpoint object.
+func (p *Repository) ConvertToK8sServiceToToCIDR(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
+	for _, rule := range p.rules {
+		for index, egress := range rule.Egress {
+			for _, service := range egress.ToServices {
+				// TODO: match services by labels
+				if service.K8sService == serviceInfo {
+					if err := generateToCidrFromEndpoint(&rule.Egress[index], endpoint); err != nil {
+						return err
+					}
+					if err := generateToPortsFromEndpoint(&rule.Egress[index], endpoint); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// generateToCidrFromEndpoint takes an egress rule and populates it with ToCIDR rules based on provided enpoint object
+func generateToCidrFromEndpoint(egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
+	for ip := range endpoint.BEIPs {
+		epIP := net.ParseIP(ip)
+		// TODO: this will only work for IPv4. How to retrieve the mask from IPv6 address?
+		mask := epIP.DefaultMask()
+
+		found := false
+		for _, c := range egress.ToCIDR {
+			_, cidr, err := net.ParseCIDR(string(c))
+			if err != nil {
+				return err
+			}
+			if cidr.Contains(epIP) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cidr := net.IPNet{IP: epIP.Mask(mask), Mask: mask}
+			egress.ToCIDR = append(egress.ToCIDR, api.CIDR(cidr.String()))
+		}
+	}
+
+	return nil
+}
+
+// generateToCidrFromEndpoint takes an egress rule and populates it with ToPorts rules based on provided enpoint object
+func generateToPortsFromEndpoint(egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
+	// addition port rule that will contain all endpoint ports
+	portRule := api.PortRule{}
+	for _, port := range endpoint.Ports {
+		found := false
+	loop:
+		for _, portRule := range egress.ToPorts {
+			for _, portProtocol := range portRule.Ports {
+				numericPort, err := strconv.Atoi(portProtocol.Port)
+				if err != nil {
+					return err
+				}
+
+				if strings.ToLower(string(port.Protocol)) == strings.ToLower(string(portProtocol.Protocol)) && int(port.Port) == numericPort {
+					found = true
+					break loop
+				}
+			}
+		}
+		if !found {
+			portRule.Ports = append(portRule.Ports, api.PortProtocol{
+				Port:     strconv.Itoa(int(port.Port)),
+				Protocol: api.L4Proto(strings.ToUpper(string(port.Protocol))),
+			})
+		}
+	}
+
+	if len(portRule.Ports) > 0 {
+		egress.ToPorts = append(egress.ToPorts, portRule)
+	}
+
+	return nil
 }

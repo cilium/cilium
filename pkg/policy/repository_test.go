@@ -18,6 +18,7 @@ import (
 	"bytes"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -586,4 +587,115 @@ Label verdict: undecided
 	verdict := repo.AllowsRLocked(ctx)
 	repo.Mutex.RUnlock()
 	c.Assert(verdict, Equals, api.Allowed)
+}
+
+func (ds *PolicyTestSuite) TestConvertToK8sServiceToToCIDR(c *C) {
+	repo := NewPolicyRepository()
+
+	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
+	serviceInfo := types.K8sServiceNamespace{
+		ServiceName: "svc",
+		Namespace:   "default",
+	}
+
+	epIP := "10.1.1.1"
+
+	endpointInfo := types.K8sServiceEndpoint{
+		BEIPs: map[string]bool{
+			epIP: true,
+		},
+		Ports: map[types.FEPortName]*types.L4Addr{
+			"port": &types.L4Addr{
+				Protocol: types.TCP,
+				Port:     80,
+			},
+		},
+	}
+
+	rule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{{
+			ToServices: []api.Service{
+				api.Service{
+					K8sService: api.K8sServiceNamespace(serviceInfo),
+				},
+			}},
+		},
+		Labels: tag1,
+	}
+
+	_, err := repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	err = repo.ConvertToK8sServiceToToCIDR(serviceInfo, endpointInfo)
+	c.Assert(err, IsNil)
+
+	rule := repo.rules[0].Egress[0]
+
+	c.Assert(len(rule.ToCIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+
+	c.Assert(len(rule.ToPorts), Equals, 1)
+	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
+	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
+}
+
+func (ds *PolicyTestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
+	rule := &api.EgressRule{}
+
+	epIP := "10.1.1.1"
+
+	endpointInfo := types.K8sServiceEndpoint{
+		BEIPs: map[string]bool{
+			epIP: true,
+		},
+		Ports: map[types.FEPortName]*types.L4Addr{
+			"port": &types.L4Addr{
+				Protocol: types.TCP,
+				Port:     80,
+			},
+		},
+	}
+
+	generateToCidrFromEndpoint(rule, endpointInfo)
+
+	c.Assert(len(rule.ToCIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+
+	// second run, to make sure there are no duplicates added
+	generateToCidrFromEndpoint(rule, endpointInfo)
+
+	c.Assert(len(rule.ToCIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+}
+
+func (ds *PolicyTestSuite) TestGenerateToPortsFromEndpoint(c *C) {
+	rule := &api.EgressRule{}
+
+	epIP := "10.1.1.1"
+
+	endpointInfo := types.K8sServiceEndpoint{
+		BEIPs: map[string]bool{
+			epIP: true,
+		},
+		Ports: map[types.FEPortName]*types.L4Addr{
+			"port": &types.L4Addr{
+				Protocol: types.TCP,
+				Port:     80,
+			},
+		},
+	}
+
+	generateToPortsFromEndpoint(rule, endpointInfo)
+
+	c.Assert(len(rule.ToPorts), Equals, 1)
+	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
+	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
+
+	// second run, to make sure there are no duplicates added
+	generateToCidrFromEndpoint(rule, endpointInfo)
+
+	c.Assert(len(rule.ToPorts), Equals, 1)
+	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
+	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
 }
