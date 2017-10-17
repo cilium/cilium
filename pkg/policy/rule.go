@@ -131,18 +131,6 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		return 1, nil
 	}
 
-	// if (1) the existing rule did not have a wildcard endpoint
-	// AND (2) the new rule does not have explicit fromEndpoints
-	// THEN we need to copy all existing L7 rules to the wildcard endpoint
-	if _, ok := v.L7RulesPerEp[WildcardEndpointSelector]; !ok && len(fromEndpoints) == 0 {
-		wildcardEp := api.L7Rules{}
-		for _, existingL7Rules := range v.L7RulesPerEp {
-			wildcardEp.HTTP = append(wildcardEp.HTTP, existingL7Rules.HTTP...)
-			wildcardEp.Kafka = append(wildcardEp.Kafka, existingL7Rules.Kafka...)
-		}
-		v.L7RulesPerEp[WildcardEndpointSelector] = wildcardEp
-	}
-
 	for hash, newL7Rules := range l4Filter.L7RulesPerEp {
 		if ep, ok := v.L7RulesPerEp[hash]; ok {
 			switch {
