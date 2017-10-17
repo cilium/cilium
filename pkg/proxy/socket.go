@@ -25,6 +25,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/logfields"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -208,9 +210,7 @@ func (c *proxyConnection) socketWriter() {
 				// write entire message to socket
 				_, err := c.conn.Write(msg)
 				if err != nil {
-					log.WithFields(log.Fields{
-						fieldConn: c,
-					}).WithError(err).Warning("Error while writing to socket, closing socket")
+					log.WithError(err).WithField(fieldConn, c).Warn("Error while writing to socket, closing socket")
 					return
 				}
 			} else {
@@ -230,18 +230,17 @@ func (c *proxyConnection) direction() string {
 
 // Enqueue queues a message to be written to the socket
 func (c *proxyConnection) Enqueue(msg []byte) {
+	scopedLog := log.WithFields(log.Fields{
+		fieldConn: c,
+		fieldSize: len(msg),
+	})
+
 	if c.queueStopped() {
-		log.WithFields(log.Fields{
-			fieldConn: c,
-			fieldSize: len(msg),
-		}).Debug("Dropping message, queue is stopped")
+		scopedLog.Debug("Dropping message, queue is stopped")
 		return
 	}
 
-	log.WithFields(log.Fields{
-		fieldConn: c,
-		fieldSize: len(msg),
-	}).Debugf("Enqueueing %s message", c.direction())
+	scopedLog.Debugf("Enqueueing %s message", c.direction())
 
 	c.queue <- msg
 }
@@ -256,9 +255,7 @@ func (c *proxyConnection) Close() {
 }
 
 func (c *proxyConnection) realClose() {
-	log.WithFields(log.Fields{
-		fieldConn: c,
-	}).Debug("Closing socket")
+	log.WithField(fieldConn, c).Debug("Closing socket")
 
 	close(c.queue)
 
@@ -346,7 +343,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 			return 0, "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
 		}
 
-		log.Debugf("Found IPv4 proxy entry: %+v", val)
+		log.WithField(logfields.Object, logfields.Repr(val)).Debug("Found IPv4 proxy entry")
 		return val.SourceIdentity, val.HostPort(), nil
 	}
 
@@ -363,7 +360,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 		return 0, "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
 
-	log.Debugf("Found IPv6 proxy entry: %+v", val)
+	log.WithField(logfields.Object, logfields.Repr(val)).Debug("Found IPv6 proxy entry")
 	return val.SourceIdentity, val.HostPort(), nil
 }
 
@@ -381,17 +378,16 @@ func identityFromContext(ctx context.Context) (int, bool) {
 }
 
 func setFdMark(fd, mark int) {
-	log.WithFields(log.Fields{
+	scopedLog := log.WithFields(log.Fields{
 		fieldFd:     fd,
 		fieldMarker: mark,
-	}).Debug("Setting packet marker of socket")
+	})
+	scopedLog.Debug("Setting packet marker of socket")
 
 	err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
 	if err != nil {
-		log.WithFields(log.Fields{
-			fieldFd:     fd,
-			fieldMarker: mark,
-		}).WithError(err).Warning("Unable to set SO_MARK")
+
+		scopedLog.WithError(err).Warn("Unable to set SO_MARK")
 	}
 }
 
