@@ -113,9 +113,7 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 				return
 			default:
 				if err != nil {
-					log.WithFields(log.Fields{
-						"listenPort": redir.conf.listenPort,
-					}).WithError(err).Error("Unable to accept connection")
+					log.WithField(logfields.Port, redir.conf.listenPort).WithError(err).Error("Unable to accept connection on port")
 					continue
 				}
 			}
@@ -134,7 +132,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 		identity = k.conf.source.ResolveIdentity(numIdentity)
 		if identity == nil {
 			log.WithFields(log.Fields{
-				"request":          req.String(),
+				logfields.Request:  req.String(),
 				logfields.Identity: numIdentity,
 			}).Warn("Unable to resolve identity to labels")
 		}
@@ -143,37 +141,31 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	rules := k.rules.GetRelevantRules(identity)
 
 	if rules.Kafka == nil {
-		log.WithFields(log.Fields{
-			"request": req.String(),
-		}).Debug("Allowing, no Kafka rules loaded")
+		log.WithField(logfields.Request, req.String()).Debug("Allowing, no Kafka rules loaded")
 
 		return true
 	}
 
 	b, err := json.Marshal(rules.Kafka)
-	out := ""
 	if err != nil {
-		out = err.Error()
+		log.WithError(err).WithField(logfields.Request, req.String()).Debug("Error marshalling kafka rules to apply")
 	} else {
-		out = string(b)
+		log.WithFields(log.Fields{
+			logfields.Request: req.String(),
+			"rule":            string(b),
+		}).Debug("Applying rule")
 	}
-
-	log.WithFields(log.Fields{
-		"request": req.String(),
-	}).Debugf("Applying rules %s", out)
 
 	return req.MatchesRule(rules.Kafka)
 }
 
 func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
-	log.WithFields(log.Fields{
-		fieldID:   pair.String(),
-		"request": req.String(),
-	}).Debug("Handling Kafka request")
+	scopedLog := log.WithField(fieldID, pair.String())
+	scopedLog.WithField(logfields.Request, req.String()).Debug("Handling Kafka request")
 
 	addr := pair.rx.conn.RemoteAddr()
 	if addr == nil {
-		log.Warning("RemoteAddr() is nil")
+		scopedLog.Warn("RemoteAddr() is nil")
 		return
 	}
 
@@ -181,23 +173,16 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	// and destination port
 	srcIdentity, dstIPPort, err := k.conf.lookupNewDest(addr.String(), k.conf.listenPort)
 	if err != nil {
-		log.WithFields(log.Fields{
-			fieldID:  pair.String(),
-			"source": addr.String(),
-		}).WithError(err).Error("Unable lookup original destination")
+		log.WithField("source", addr.String()).WithError(err).Error("Unable lookup original destination")
 		return
 	}
 
 	if !k.canAccess(req, policy.NumericIdentity(srcIdentity)) {
-		log.WithFields(log.Fields{
-			fieldID: pair.String(),
-		}).Debug("Kafka request is denied by policy")
+		scopedLog.Debug("Kafka request is denied by policy")
 
 		resp, err := req.CreateResponse(proto.ErrTopicAuthorizationFailed)
 		if err != nil {
-			log.WithFields(log.Fields{
-				fieldID: pair.String(),
-			}).WithError(err).Error("Unable to create response message")
+			scopedLog.WithError(err).Error("Unable to create response message")
 			return
 		}
 
@@ -211,19 +196,17 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 			marker = GetMagicMark(k.ingress) | int(srcIdentity)
 		}
 
-		log.WithFields(log.Fields{
-			fieldID:       pair.String(),
+		scopedLog.WithFields(log.Fields{
 			"marker":      marker,
 			"destination": dstIPPort,
 		}).Debug("Dialing original destination")
 
 		txConn, err := ciliumDialer(marker, addr.Network(), dstIPPort)
 		if err != nil {
-			log.WithFields(log.Fields{
-				fieldID:       pair.String(),
+			scopedLog.WithError(err).WithFields(log.Fields{
 				"origNetwork": addr.Network(),
 				"origDest":    dstIPPort,
-			}).WithError(err).Error("Unable to dial original destination")
+			}).Error("Unable to dial original destination")
 			return
 		}
 
@@ -231,9 +214,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		go k.handleResponseConnection(pair)
 	}
 
-	log.WithFields(log.Fields{
-		fieldID: pair.String(),
-	}).Debug("Forwarding Kafka request")
+	scopedLog.Debug("Forwarding Kafka request")
 
 	// Write the entire raw request onto the outgoing connection
 	pair.tx.Enqueue(req.GetRaw())

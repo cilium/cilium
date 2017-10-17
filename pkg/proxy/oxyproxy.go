@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -369,9 +370,9 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 		srcIdentity, dstIPPort, err := lookupNewDestFromHttp(req, to)
 		if err != nil {
 			// FIXME: What do we do here long term?
-			log.Errorf("%s", err)
+			log.WithError(err).Error("cannot generate redirect destination url")
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			record.Info = fmt.Sprintf("cannot generate url: %s", err)
+			record.Info = fmt.Sprintf("cannot generate redirect destination url: %s", err)
 			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError, http.StatusBadRequest)
 			return
 		}
@@ -397,10 +398,10 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 				return
 			}
 			ar := rule.(string)
-			log.Debugf("Allowing request based on rule %+v", ar)
+			log.WithField(logfields.Object, logfields.Repr(ar)).Debug("Allowing request based on rule")
 			record.Info = fmt.Sprintf("rule: %+v", ar)
 		} else {
-			log.Debugf("Allowing request as there are no rules")
+			log.Debug("Allowing request as there are no rules")
 		}
 		redir.mutex.Unlock()
 
@@ -463,7 +464,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 	go func() {
 		err := redir.server.Serve(socket.listener)
 		if err != nil {
-			log.Errorf("Unable to listen and serve proxy: %s", err)
+			log.WithError(err).Error("Unable to listen and serve proxy")
 		}
 	}()
 
