@@ -81,7 +81,7 @@ func (r *rule) sanitize() error {
 	return nil
 }
 
-func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filter) bool {
+func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) bool {
 
 	if len(policy.FromEndpoints) == 0 && len(fromEndpoints) > 0 {
 		log.Debugf("skipping L4 filter %s as the endpoints %s are already covered.", policy, fromEndpoints)
@@ -93,6 +93,8 @@ func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filt
 		// use a more permissive one
 		policy.FromEndpoints = nil
 	}
+
+	policy.FromEndpoints = append(policy.FromEndpoints, fromEndpoints...)
 	return false
 }
 
@@ -124,7 +126,7 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		}
 	}
 
-	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && r.NumRules() == 0 {
+	if v.addFromEndpoints(fromEndpoints) && r.NumRules() == 0 {
 		// skip this policy as it is already covered and it does not contain L7 rules
 		return 1, nil
 	}
