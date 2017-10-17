@@ -231,6 +231,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	dst = (union v6addr *) &ip6->daddr;
 	if (likely(ipv6_match_prefix_96(dst, &node_ip))) {
 		struct endpoint_key key = {};
+		int ret;
 
 		/* IPv6 lookup key: daddr/96 */
 		dst = (union v6addr *) &ip6->daddr;
@@ -240,7 +241,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		return encap_and_redirect(skb, &key, flowlabel);
+		ret = encap_and_redirect(skb, &key, flowlabel);
+		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+			return ret;
 	}
 #endif
 
@@ -390,12 +393,15 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if ((ip4->daddr & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
+		int ret;
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		return encap_and_redirect(skb, &key, secctx);
+		ret = encap_and_redirect(skb, &key, secctx);
+		if (ret != DROP_NO_TUNNEL_ENDPOINT)
+			return ret;
 	}
 #endif
 
