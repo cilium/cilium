@@ -234,6 +234,51 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(state.selectedRules, Equals, 0)
 }
 
+func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+
+	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	bazSelector := api.NewESFromLabels(labels.ParseSelectLabel("baz"))
+	rule1 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{fooSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					FromEndpoints: []api.EndpointSelector{bazSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	mergedES := []api.EndpointSelector{fooSelector, bazSelector}
+	expected := NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: mergedES,
+		L7Parser: "", L7RulesPerEp: L7DataMap{}, Ingress: true,
+	}
+
+	state := traceState{}
+	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+}
+
 func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
