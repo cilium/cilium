@@ -431,6 +431,68 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err = rule2.resolveL4Policy(toBar, &state, res)
 	c.Assert(err, Not(IsNil))
 	c.Assert(err.Error(), Equals, "Cannot merge conflicting L7 parsers (kafka/http)")
+
+	// Similar to 'rule2', but with different topics for the l3-dependent
+	// rule and the l4-only rule.
+	rule3 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "bar"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	fooRules := api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+	}
+	barRules := api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "bar"}},
+	}
+	hash, err = fooSelector[0].Hash()
+	c.Assert(err, IsNil)
+
+	// The l3-dependent l7 rules are not merged together.
+	l7map = L7DataMap{
+		hash: fooRules,
+		WildcardEndpointSelector: barRules,
+	}
+	expected = NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+	}
+
+	state = traceState{}
+	res, err = rule3.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
 }
 
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
