@@ -123,7 +123,7 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 		if err := l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules,
 			fromEndpoints); err != nil {
 
-			log.Errorf("%s", err)
+			log.WithError(err).Error("Cannot create L4 filter")
 			return L4Filter{}
 		}
 	}

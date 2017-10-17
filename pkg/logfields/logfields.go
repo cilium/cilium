@@ -16,6 +16,10 @@
 package logfields
 
 const (
+
+	// LogSubsys is the field denoting the subsystem when logging
+	LogSubsys = "subsys"
+
 	// EndpointID is the numeric endpoint identifier
 	EndpointID = "endpointID"
 
@@ -105,4 +109,8 @@ const (
 	K8sIngress            = "k8sIngress"
 	K8sIngressName        = "k8sIngressName"
 	K8sLabels             = "k8sLabels"
+
+	// REVIEW to pkg/policy?
+	PolicyEndpointSelector = "policyEndpointSelector"
+	PolicyLabelSelector    = "policyLabelSelector"
 )

@@ -17,6 +17,7 @@ package policy
 import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -149,21 +150,24 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 		return
 	}
 
-	log.Debugf("Adding map %v to consumable %v", m, c)
+	log.WithFields(log.Fields{
+		"policymap":  m,
+		"consumable": c,
+	}).Debug("Adding policy map to consumable")
 	c.Maps[m.Fd] = m
 
 	// Populate the new map with the already established consumers of
 	// this consumable
 	for _, c := range c.Consumers {
 		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
-			log.Warningf("Update of policy map failed: %s", err)
+			log.WithError(err).Warning("Update of policy map failed")
 		}
 	}
 }
 
 func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer NumericIdentity) {
 	if c.cache == nil {
-		log.Errorf("Consumable without cache association: %+v", consumer)
+		log.WithField("consumer", consumer).Error("Consumable without cache association")
 		return
 	}
 
@@ -199,7 +203,11 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 	if m != nil {
 		c.Mutex.Lock()
 		delete(c.Maps, m.Fd)
-		log.Debugf("Removing map %v from consumable %v, new len %d", m, c, len(c.Maps))
+		log.WithFields(log.Fields{
+			"policymap":  m,
+			"consumable": c,
+			"count":      len(c.Maps),
+		}).Debug("Removing map from consumable")
 
 		// If the last map of the consumable is gone the consumable is no longer
 		// needed and should be removed from the cache and all cross references
@@ -223,9 +231,14 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 			continue
 		}
 
-		log.Debugf("Updating policy BPF map %s: allowing %d", m.String(), id)
+		scopedLog := log.WithFields(log.Fields{
+			"policymap":        m,
+			logfields.Identity: id,
+		})
+
+		scopedLog.Debug("Updating policy BPF map: allowing Identity")
 		if err := m.AllowConsumer(id.Uint32()); err != nil {
-			log.Warningf("Update of policy map failed: %s", err)
+			log.WithError(err).Warning("Update of policy map failed")
 		}
 	}
 }
@@ -236,9 +249,14 @@ func (c *Consumable) wasLastRule(id NumericIdentity) bool {
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
-		log.Debugf("Updating policy BPF map %s: denying %d", m.String(), id)
+		scopedLog := log.WithFields(log.Fields{
+			"policymap":        m,
+			logfields.Identity: id,
+		})
+
+		scopedLog.Debug("Updating policy BPF map: denying Identity")
 		if err := m.DeleteConsumer(id.Uint32()); err != nil {
-			log.Warningf("Update of policy map failed: %s", err)
+			scopedLog.WithError(err).Warning("Update of policy map failed")
 		}
 	}
 }
@@ -247,7 +265,10 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 // consumers map. Must be called with Consumable mutex Locked.
 func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) {
 	if consumer := c.getConsumer(id); consumer == nil {
-		log.Debugf("New consumer %d for consumable %+v", id, c)
+		log.WithFields(log.Fields{
+			logfields.Identity: id,
+			"consumable":       c,
+		}).Debug("New consumer Identity for consumable")
 		c.addToMaps(id)
 		c.Consumers[id.StringID()] = NewConsumer(id)
 	} else {
@@ -259,17 +280,19 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 // consumers map and the given consumable to the given consumer's consumers map.
 // Must be called with Consumable mutex Locked.
 func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) {
-	log.Debugf("Allowing direction %d -> %d", id, c.ID)
+	// REVIEW This seems really strict, the messages aren't terribly clear anymore, Debugf
+	scopedLog := log.WithField(logfields.Identity, []NumericIdentity{c.ID, id})
+	scopedLog.Debug("Allowing direction")
 	c.AllowConsumerLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
-		log.Debugf("Allowing reverse direction %d -> %d", c.ID, id)
+		scopedLog.Debug("Allowing reverse direction")
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			reverse.addToMaps(c.ID)
 			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
 		}
 	} else {
-		log.Warningf("Allowed a consumer %d->%d which can't be found in the reverse direction", c.ID, id)
+		scopedLog.Warning("Allowed a consumer which can't be found in the reverse direction")
 	}
 }
 
@@ -277,7 +300,7 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 // map. Must be called with the Consumable mutex locked.
 func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
 	if consumer, ok := c.Consumers[id.StringID()]; ok {
-		log.Debugf("Removing consumer %v", consumer)
+		log.WithField("consumer", consumer).Debug("Removing consumer")
 		delete(c.Consumers, id.StringID())
 
 		if c.wasLastRule(id) {
