@@ -638,6 +638,14 @@ func (ds *PolicyTestSuite) TestConvertToK8sServiceToToCIDR(c *C) {
 	c.Assert(len(rule.ToPorts), Equals, 1)
 	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
 	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
+
+	err = repo.DeleteEndpointGeneratedEgressRules(serviceInfo, endpointInfo)
+
+	rule = repo.rules[0].Egress[0]
+
+	c.Assert(err, IsNil)
+	c.Assert(len(rule.ToCIDR), Equals, 0)
+	c.Assert(len(rule.ToPorts), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
@@ -657,16 +665,22 @@ func (ds *PolicyTestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 		},
 	}
 
-	generateToCidrFromEndpoint(rule, endpointInfo)
+	err := generateToCidrFromEndpoint(rule, endpointInfo)
+	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDR), Equals, 1)
 	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
 
 	// second run, to make sure there are no duplicates added
-	generateToCidrFromEndpoint(rule, endpointInfo)
+	err = generateToCidrFromEndpoint(rule, endpointInfo)
+	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDR), Equals, 1)
 	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+
+	err = deleteToCidrFromEndpoint(rule, endpointInfo)
+	c.Assert(err, IsNil)
+	c.Assert(len(rule.ToCIDR), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestGenerateToPortsFromEndpoint(c *C) {
@@ -686,16 +700,22 @@ func (ds *PolicyTestSuite) TestGenerateToPortsFromEndpoint(c *C) {
 		},
 	}
 
-	generateToPortsFromEndpoint(rule, endpointInfo)
+	err := generateToPortsFromEndpoint(rule, endpointInfo)
+	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToPorts), Equals, 1)
 	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
 	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
 
 	// second run, to make sure there are no duplicates added
-	generateToCidrFromEndpoint(rule, endpointInfo)
+	err = generateToCidrFromEndpoint(rule, endpointInfo)
+	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToPorts), Equals, 1)
 	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
 	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
+
+	err = deleteToPortsFromEndpoint(rule, endpointInfo)
+	c.Assert(err, IsNil)
+	c.Assert(len(rule.ToPorts), Equals, 0)
 }
