@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
 	endpointPkg "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
@@ -73,9 +74,10 @@ func newLibnetworkRoute(route plugins.Route) api.StaticRoute {
 
 // NewDriver creates and returns a new Driver for the given API URL
 func NewDriver(url string) (Driver, error) {
+	scopedLog := log.WithField("url", url)
 	c, err := client.NewClient(url)
 	if err != nil {
-		log.Fatalf("Error while starting cilium-client: %s", err)
+		scopedLog.WithError(err).Fatal("Error while starting cilium-client")
 	}
 
 	d := &driver{client: c}
@@ -83,14 +85,14 @@ func NewDriver(url string) (Driver, error) {
 	for tries := 0; tries < 24; tries++ {
 		if res, err := c.ConfigGet(); err != nil {
 			if tries == 23 {
-				log.Fatalf("Unable to connect to cilium daemon: %s", err)
+				scopedLog.WithError(err).Fatal("Unable to connect to cilium daemon")
 			} else {
-				log.Info("Waiting for cilium daemon to start up...")
+				scopedLog.Info("Waiting for cilium daemon to start up...")
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
 			if res.Addressing == nil || res.Addressing.IPV6 == nil {
-				log.Fatalf("Invalid addressing information from daemon")
+				scopedLog.Fatal("Invalid addressing information from daemon")
 			}
 
 			d.conf = *res
@@ -99,13 +101,13 @@ func NewDriver(url string) (Driver, error) {
 	}
 
 	if err := plugins.SufficientAddressing(d.conf.Addressing); err != nil {
-		log.Fatalf("%s", err)
+		scopedLog.WithError(err).Fatal("Insufficient addressing")
 	}
 
 	d.routes = []api.StaticRoute{}
 	if d.conf.Addressing.IPV6 != nil {
 		if routes, err := plugins.IPv6Routes(d.conf.Addressing); err != nil {
-			log.Fatalf("Unable to generate IPv6 routes: %s", err)
+			scopedLog.WithError(err).Fatal("Unable to generate IPv6 routes")
 		} else {
 			for _, r := range routes {
 				d.routes = append(d.routes, newLibnetworkRoute(r))
@@ -117,7 +119,7 @@ func NewDriver(url string) (Driver, error) {
 
 	if d.conf.Addressing.IPV4 != nil {
 		if routes, err := plugins.IPv4Routes(d.conf.Addressing); err != nil {
-			log.Fatalf("Unable to generate IPv4 routes: %s", err)
+			scopedLog.WithError(err).Fatal("Unable to generate IPv4 routes")
 		} else {
 			for _, r := range routes {
 				d.routes = append(d.routes, newLibnetworkRoute(r))
@@ -127,7 +129,7 @@ func NewDriver(url string) (Driver, error) {
 		d.gatewayIPv4 = plugins.IPv6Gateway(d.conf.Addressing)
 	}
 
-	log.Infof("Cilium Docker plugin ready")
+	scopedLog.Info("Cilium Docker plugin ready")
 
 	return d, nil
 }
@@ -166,12 +168,15 @@ func (driver *driver) Listen(socket string) error {
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
-	log.Warningf("plugin Not found: [ %+v ]", r)
+	log.WithField(logfields.Object, logfields.Repr(r)).Warn("plugin Not found")
 	http.NotFound(w, r)
 }
 
 func sendError(w http.ResponseWriter, msg string, code int) {
-	log.Errorf("%d %s", code, msg)
+	log.WithFields(log.Fields{
+		"code": code,
+		"msg":  msg,
+	}).Error("Sending error")
 	http.Error(w, msg, code)
 }
 
@@ -195,7 +200,7 @@ func (driver *driver) handshake(w http.ResponseWriter, r *http.Request) {
 		[]string{"NetworkDriver", "IpamDriver"},
 	})
 	if err != nil {
-		log.Fatalf("handshake encode: %s", err)
+		log.WithError(err).Fatal("handshake encode")
 		sendError(w, "encode error", http.StatusInternalServerError)
 		return
 	}
@@ -207,7 +212,7 @@ func (driver *driver) capabilities(w http.ResponseWriter, r *http.Request) {
 		Scope: "local",
 	})
 	if err != nil {
-		log.Fatalf("capabilities encode: %s", err)
+		log.WithError(err).Fatal("capabilities encode")
 		sendError(w, "encode error", http.StatusInternalServerError)
 		return
 	}
@@ -221,7 +226,7 @@ func (driver *driver) createNetwork(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Network Create Called: [ %+v ]", create)
+	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Network Create Called")
 	emptyResponse(w)
 }
 
@@ -231,7 +236,7 @@ func (driver *driver) deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Delete network request: %+v", &delete)
+	log.WithField(logfields.Request, logfields.Repr(&delete)).Debug("Delete network request")
 	emptyResponse(w)
 }
 
@@ -250,10 +255,10 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Create endpoint request: %+v", &create)
+	log.WithField(logfields.Request, logfields.Repr(&create)).Debug("Create endpoint request")
 
 	if create.Interface.Address == "" {
-		log.Warningf("No IPv4 address provided in CreateEndpoint request")
+		log.Warn("No IPv4 address provided in CreateEndpoint request")
 	}
 
 	if create.Interface.AddressIPv6 == "" {
@@ -271,7 +276,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	//				sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 	//				return
 	//			}
-	//			log.Debugf("PortBinding: %+v", &portmap)
+	//			log.WithField(logfields.Object, logfields.Repr(portmap)).Debug("PortBinding:")
 	//
 	//			// FIXME: Host IP is ignored for now
 	//			for _, m := range portmap {
@@ -288,7 +293,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	//				sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
 	//				return
 	//			}
-	//			log.Debugf("ExposedPorts: %+v", &tp)
+	//			log.WithField(logfields.Object, logfields.Repr(&tp)).Debug("ExposedPorts")
 	//			// TODO: handle exposed ports
 	//		}
 	//	}
@@ -332,7 +337,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Created new endpoint: endpoint-id=%s", create.EndpointID)
+	log.WithField(logfields.EndpointID, create.EndpointID).Debug("Created new endpoint")
 
 	respIface := &api.EndpointInterface{
 		// Fixme: the lxcmac is an empty string at this point and we only know the
@@ -343,7 +348,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	resp := &api.CreateEndpointResponse{
 		Interface: respIface,
 	}
-	log.Debugf("Create endpoint response: %+v", resp)
+	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Create endpoint response")
 	objectResponse(w, resp)
 }
 
@@ -353,10 +358,10 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Delete endpoint request: %+v", &del)
+	log.WithField(logfields.Request, logfields.Repr(&del)).Debug("Delete endpoint request")
 
 	if err := plugins.DelLinkByName(plugins.Endpoint2IfName(del.EndpointID)); err != nil {
-		log.Warningf("Error while deleting link: %s", err)
+		log.WithError(err).Warn("Error while deleting link")
 	}
 
 	emptyResponse(w)
@@ -368,9 +373,9 @@ func (driver *driver) infoEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Endpoint info request: %+v", &info)
+	log.WithField(logfields.Request, logfields.Repr(&info)).Debug("Endpoint info request")
 	objectResponse(w, &api.EndpointInfoResponse{Value: map[string]interface{}{}})
-	log.Debugf("Endpoint info %s", info.EndpointID)
+	log.WithField(logfields.Response, info.EndpointID).Debug("Endpoint info")
 }
 
 func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -382,7 +387,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Join request: %+v", &j)
+	log.WithField(logfields.Request, logfields.Repr(&j)).Debug("Join request")
 
 	old, err := driver.client.EndpointGet(endpointID(j.EndpointID))
 	if err != nil {
@@ -390,7 +395,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Existing endpoint: %+v", old)
+	log.WithField(logfields.Object, old).Debug("Existing endpoint")
 	if old.State != models.EndpointStateDisconnected {
 		sendError(w, "Error: endpoint not in disconnected state", http.StatusBadRequest)
 		return
@@ -408,13 +413,13 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.Warningf("failed to clean up veth %q: %s", veth.Name, err)
+				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
 			}
 		}
 	}()
 
 	if err = driver.client.EndpointPatch(endpointPkg.NewCiliumID(old.ID), ep); err != nil {
-		log.Errorf("Joining endpoint failed: %s", err)
+		log.WithError(err).Error("Joining endpoint failed")
 		sendError(w, "Unable to connect endpoint to network: "+err.Error(),
 			http.StatusInternalServerError)
 	}
@@ -438,7 +443,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	// If empty, it works as expected without docker runtime errors
 	// res.Gateway = plugins.IPv4Gateway(addr)
 
-	log.Debugf("Join response: %+v", res)
+	log.WithField(logfields.Response, logfields.Repr(res)).Debug("Join response")
 	objectResponse(w, res)
 }
 
@@ -448,10 +453,10 @@ func (driver *driver) leaveEndpoint(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Leave request: %+v", &l)
+	log.WithField(logfields.Request, logfields.Repr(&l)).Debug("Leave request")
 
 	if err := driver.client.EndpointDelete(endpointID(l.EndpointID)); err != nil {
-		log.Warningf("Leaving the endpoint failed: %s", err)
+		log.WithError(err).Warn("Leaving the endpoint failed")
 	}
 
 	emptyResponse(w)

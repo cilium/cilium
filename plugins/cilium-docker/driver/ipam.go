@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ const (
 func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(&api.GetCapabilityResponse{})
 	if err != nil {
-		log.Fatalf("capabilities encode: %s", err)
+		log.WithError(err).Fatal("capabilities encode")
 		sendError(w, "encode error", http.StatusInternalServerError)
 		return
 	}
@@ -41,14 +42,14 @@ func (driver *driver) ipamCapabilities(w http.ResponseWriter, r *http.Request) {
 }
 
 func (driver *driver) getDefaultAddressSpaces(w http.ResponseWriter, r *http.Request) {
-	log.Debugf("GetDefaultAddressSpaces Called")
+	log.Debug("GetDefaultAddressSpaces Called")
 
 	resp := &api.GetAddressSpacesResponse{
 		LocalDefaultAddressSpace:  "CiliumLocal",
 		GlobalDefaultAddressSpace: "CiliumGlobal",
 	}
 
-	log.Debugf("Get Default Address Spaces response: %+v", resp)
+	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Get Default Address Spaces response")
 	objectResponse(w, resp)
 }
 
@@ -81,9 +82,9 @@ func (driver *driver) requestPool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Request Pool request: %+v", &req)
+	log.WithField(logfields.Request, logfields.Repr(&req)).Debug("Request Pool request")
 	resp := driver.getPoolResponse(&req)
-	log.Debugf("Request Pool response: %+v", resp)
+	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Request Pool response")
 	objectResponse(w, resp)
 }
 
@@ -94,7 +95,7 @@ func (driver *driver) releasePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Release Pool request: %+v", &release)
+	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Pool request")
 
 	emptyResponse(w)
 }
@@ -106,7 +107,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Request Address request: %+v", &request)
+	log.WithField(logfields.Request, logfields.Repr(&request)).Debug("Request Address request")
 
 	family := client.AddressFamilyIPv6 // Default
 	switch request.PoolID {
@@ -141,7 +142,7 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		resp.Address = addr.IPV4 + "/32"
 	}
 
-	log.Debugf("Request Address response: %+v", resp)
+	log.WithField(logfields.Response, logfields.Repr(resp)).Debug("Request Address response")
 	objectResponse(w, resp)
 }
 
@@ -152,7 +153,7 @@ func (driver *driver) releaseAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("Release Address request: %+v", release)
+	log.WithField(logfields.Request, logfields.Repr(&release)).Debug("Release Address request")
 	if err := driver.client.IPAMReleaseIP(release.Address); err != nil {
 		sendError(w, fmt.Sprintf("Could not release IP address: %s", err), http.StatusBadRequest)
 		return
