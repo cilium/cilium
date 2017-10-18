@@ -29,6 +29,10 @@ const (
 	// IdentityLabels are the labels relevant for the security identity
 	IdentityLabels = "identityLabels"
 
+	// OrchestrationLabels are labels not used in the security identity but are
+	// relevant to the orchestration framework
+	OrchestrationLabels = "orchestrationLabels"
+
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 

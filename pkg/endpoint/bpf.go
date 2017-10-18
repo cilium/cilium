@@ -319,7 +319,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 		return ctx.Err()
 	}
 	if err != nil {
-		log.Warningf("Command execution failed: %s", err)
+		log.WithError(err).Warning("Command execution failed")
 		scanner := bufio.NewScanner(bytes.NewReader(out))
 		for scanner.Scan() {
 			log.Warning(scanner.Text())

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -1084,7 +1085,7 @@ func (e *Endpoint) UpdateOrchInformationLabels(l pkgLabels.Labels) {
 	e.Mutex.Lock()
 	for k, v := range l {
 		tmp := v.DeepCopy()
-		log.Debugf("Assigning orchestration information label %+v", tmp)
+		log.WithField(logfields.OrchestrationLabels, tmp).Debug("Assigning orchestration information label")
 		e.OpLabels.OrchestrationInfo[k] = tmp
 	}
 	e.Mutex.Unlock()
@@ -1109,7 +1110,7 @@ func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 				e.OpLabels.OrchestrationIdentity[k].DeletionMark = false
 			} else {
 				tmp := v.DeepCopy()
-				log.Debugf("Assigning orchestration identity label %+v", tmp)
+				log.WithField(logfields.IdentityLabels, tmp).Debug("Assigning orchestration identity label")
 				e.OpLabels.OrchestrationIdentity[k] = tmp
 				changed = true
 			}
@@ -1140,7 +1141,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
-			log.Warningf("Unable to close policy map %s: %s", e.PolicyMapPathLocked(), err)
+			log.WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warning("Unable to close policy map")
 		}
 	}
 

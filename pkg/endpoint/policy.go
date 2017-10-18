@@ -317,8 +317,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner) (bool, error) {
 
 	// Iterate over all possible assigned search contexts
 	idx := policy.MinimalNumericIdentity
-	//FIXME REFACTOR
-	//	log.Debugf("[%s] Eval ID range %+v-%+v", e.PolicyID(), idx, maxID)
 	e.log().WithFields(log.Fields{
 		"range": []policy.NumericIdentity{idx, maxID},
 	}).Debug("Eval ID range")
