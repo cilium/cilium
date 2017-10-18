@@ -298,9 +298,6 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	l4policy, err := repo.ResolveL4Policy(fromApp2)
 	c.Assert(err, IsNil)
 
-	hash, err := selectorFromApp2[0].Hash()
-	c.Assert(err, IsNil)
-
 	// Due to the lack of a set structure for L4Filter.FromEndpoints,
 	// merging multiple L3-dependent rules together will result in multiple
 	// instances of the EndpointSelector. We duplicate them in the expected
@@ -323,7 +320,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		FromEndpoints: selectorFromApp2DupList,
 		L7Parser:      "http",
 		L7RulesPerEp: L7DataMap{
-			hash: api.L7Rules{
+			selectorFromApp2[0]: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 			},
 		},
