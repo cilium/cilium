@@ -50,7 +50,7 @@ func (m *Monitor) Run(npages int) {
 
 	me, err := bpf.NewPerCpuEvents(c)
 	if err != nil {
-		log.Errorf("Error while starting monitor: %s", err)
+		log.WithError(err).Error("Error while starting monitor")
 		return
 	}
 	monitorEvents = me
@@ -72,14 +72,14 @@ func (m *Monitor) Run(npages int) {
 	for {
 		todo, err := monitorEvents.Poll(pollTimeout)
 		if err != nil {
-			log.Errorf("Error Poll %s", err)
+			log.WithError(err).Error("Error in Poll")
 			if err == syscall.EBADF {
 				break
 			}
 		}
 		if todo > 0 {
 			if err := monitorEvents.ReadAll(m.receiveEvent, m.lostEvent); err != nil {
-				log.Warningf("Error received while reading from perf buffer: %s", err)
+				log.WithError(err).Warning("Error received while reading from perf buffer")
 			}
 		}
 	}
@@ -112,7 +112,7 @@ func (m *Monitor) handleConnection(server net.Listener) {
 
 		mutex.Lock()
 		listeners.PushBack(conn)
-		log.Infof("New monitor connected. len(listeners) = %d", listeners.Len())
+		log.WithField("count.listener", listeners.Len()).Info("New monitor connected.")
 		mutex.Unlock()
 	}
 }
@@ -128,12 +128,12 @@ func (m *Monitor) send(pl payload.Payload) {
 
 	payloadBuf, err := pl.Encode()
 	if err != nil {
-		log.Fatal("payload encode: ", err)
+		log.WithError(err).Fatal("payload encode")
 	}
 	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
 	metaBuf, err := meta.MarshalBinary()
 	if err != nil {
-		log.Fatal("meta encode: ", err)
+		log.WithError(err).Fatal("meta encode")
 	}
 	var next *list.Element
 	for e := listeners.Front(); e != nil; e = next {
