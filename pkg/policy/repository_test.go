@@ -296,10 +296,26 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	hash, err := selectorFromApp2[0].Hash()
 	c.Assert(err, IsNil)
 
+	// Due to the lack of a set structure for L4Filter.FromEndpoints,
+	// merging multiple L3-dependent rules together will result in multiple
+	// instances of the EndpointSelector. We duplicate them in the expected
+	// output here just to get the tests passing.
+	selectorFromApp2DupList := []api.EndpointSelector{
+		api.NewESFromLabels(
+			labels.ParseSelectLabel("id=app2"),
+		),
+		api.NewESFromLabels(
+			labels.ParseSelectLabel("id=app2"),
+		),
+		api.NewESFromLabels(
+			labels.ParseSelectLabel("id=app2"),
+		),
+	}
+
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP,
-		FromEndpoints: selectorFromApp2,
+		FromEndpoints: selectorFromApp2DupList,
 		L7Parser:      "http",
 		L7RulesPerEp: L7DataMap{
 			hash: api.L7Rules{

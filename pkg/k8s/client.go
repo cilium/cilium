@@ -261,6 +261,7 @@ type CNPCliInterface interface {
 	Delete(namespace, name string, options *metav1.DeleteOptions) error
 	Get(namespace, name string) (*CiliumNetworkPolicy, error)
 	List(namespace string) (*CiliumNetworkPolicyList, error)
+	ListAll() (*CiliumNetworkPolicyList, error)
 	NewListWatch() *cache.ListWatch
 }
 
@@ -324,6 +325,15 @@ func (c *cnpClient) List(namespace string) (*CiliumNetworkPolicyList, error) {
 	var result CiliumNetworkPolicyList
 	err := c.RESTClient.Get().
 		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
+		Do().Into(&result)
+	return &result, err
+}
+
+// ListAll returns the list of CNPs in all the namespaces
+func (c *cnpClient) ListAll() (*CiliumNetworkPolicyList, error) {
+	var result CiliumNetworkPolicyList
+	err := c.RESTClient.Get().
+		Resource(CustomResourceDefinitionPluralName).
 		Do().Into(&result)
 	return &result, err
 }
@@ -401,20 +411,18 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 		fieldSubsys:   subsysKubernetes,
 	}).Debugf("Updating node annotations with node CIDRs: IPv4=%s IPv6=%s", v4CIDR, v6CIDR)
 
-	go func(c kubernetes.Interface, v4CIDR, v6CIDR *net.IPNet) {
+	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) {
 		var node *v1.Node
 		var err error
 
 		for n := 1; n <= maxUpdateRetries; n++ {
-			if node == nil {
-				node, err = GetNode(c, nodeName)
-				if node == nil {
+			node, err = GetNode(c, nodeName)
+			if err == nil {
+				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR)
+			} else {
+				if errors.IsNotFound(err) {
 					err = ErrNilNode
 				}
-			}
-
-			if node != nil {
-				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR)
 			}
 
 			if err != nil {
@@ -430,7 +438,7 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(c, v4CIDR, v6CIDR)
+	}(c, nodeName, v4CIDR, v6CIDR)
 
 	return nil
 }

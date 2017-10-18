@@ -81,7 +81,7 @@ func (r *rule) sanitize() error {
 	return nil
 }
 
-func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filter) bool {
+func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) bool {
 
 	if len(policy.FromEndpoints) == 0 && len(fromEndpoints) > 0 {
 		log.Debugf("skipping L4 filter %s as the endpoints %s are already covered.", policy, fromEndpoints)
@@ -93,6 +93,8 @@ func adjustL4PolicyIfNeeded(fromEndpoints []api.EndpointSelector, policy *L4Filt
 		// use a more permissive one
 		policy.FromEndpoints = nil
 	}
+
+	policy.FromEndpoints = append(policy.FromEndpoints, fromEndpoints...)
 	return false
 }
 
@@ -124,21 +126,9 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		}
 	}
 
-	if adjustL4PolicyIfNeeded(fromEndpoints, &v) && r.NumRules() == 0 {
+	if v.addFromEndpoints(fromEndpoints) && r.NumRules() == 0 {
 		// skip this policy as it is already covered and it does not contain L7 rules
 		return 1, nil
-	}
-
-	// if (1) the existing rule did not have a wildcard endpoint
-	// AND (2) the new rule does not have explicit fromEndpoints
-	// THEN we need to copy all existing L7 rules to the wildcard endpoint
-	if _, ok := v.L7RulesPerEp[WildcardEndpointSelector]; !ok && len(fromEndpoints) == 0 {
-		wildcardEp := api.L7Rules{}
-		for _, existingL7Rules := range v.L7RulesPerEp {
-			wildcardEp.HTTP = append(wildcardEp.HTTP, existingL7Rules.HTTP...)
-			wildcardEp.Kafka = append(wildcardEp.Kafka, existingL7Rules.Kafka...)
-		}
-		v.L7RulesPerEp[WildcardEndpointSelector] = wildcardEp
 	}
 
 	for hash, newL7Rules := range l4Filter.L7RulesPerEp {

@@ -80,14 +80,12 @@ To deploy Cilium, run:
 
 ::
 
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/rbac.yaml
+    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium.yaml
     clusterrole "cilium" created
     serviceaccount "cilium" created
     clusterrolebinding "cilium" created
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-config.yaml
     configmap "cilium-config" created
     secret "cilium-etcd-secrets" created
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
     daemonset "cilium" created
 
 Kubernetes is now deploying Cilium with its RBAC, ConfigMap and Daemon Set as a
