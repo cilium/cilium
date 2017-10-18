@@ -16,15 +16,16 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"syscall"
 )
 
-func ciliumDialer(ctx context.Context, network, address string) (net.Conn, error) {
+func ciliumDialer(identity int, network, address string) (net.Conn, error) {
 	addr, err := net.ResolveTCPAddr(network, address)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable resolve address %s/%s: %s", network, address, err)
 	}
 
 	family := syscall.AF_INET
@@ -34,7 +35,7 @@ func ciliumDialer(ctx context.Context, network, address string) (net.Conn, error
 
 	fd, err := syscall.Socket(family, syscall.SOCK_STREAM, 0)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create socket: %s", err)
 	}
 
 	f := os.NewFile(uintptr(fd), addr.String())
@@ -42,23 +43,38 @@ func ciliumDialer(ctx context.Context, network, address string) (net.Conn, error
 
 	c, err := net.FileConn(f)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create FileConn: %s", err)
 	}
 
-	if id, ok := identityFromContext(ctx); ok {
-		setSocketMark(c, id)
+	if identity != 0 {
+		setSocketMark(c, identity)
 	}
 
 	sockAddr, err := ipToSockaddr(family, addr.IP, addr.Port, addr.Zone)
 	if err != nil {
 		c.Close()
-		return nil, err
+		return nil, fmt.Errorf("unable to create sockaddr: %s", err)
+	}
+
+	if err := syscall.SetNonblock(fd, false); err != nil {
+		c.Close()
+		return nil, fmt.Errorf("unable to put socket in blocking mode: %s", err)
 	}
 
 	if err := syscall.Connect(fd, sockAddr); err != nil {
 		c.Close()
-		return nil, err
+		return nil, fmt.Errorf("unable to connect: %s", err)
 	}
 
 	return c, nil
+}
+
+func ciliumDialerWithContext(ctx context.Context, network, address string) (net.Conn, error) {
+	identity := 0
+
+	if id, ok := identityFromContext(ctx); ok {
+		identity = id
+	}
+
+	return ciliumDialer(identity, network, address)
 }
