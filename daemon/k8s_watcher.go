@@ -514,6 +514,12 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 			return
 		}
 	}
+
+	d.policy.Mutex.Lock()
+	defer d.policy.Mutex.Unlock()
+	if err := d.policy.ConvertToK8sServiceToToCIDR(svcns, *newSvcEP); err != nil {
+		log.Errorf("Unable to populate egress policies from ToService rules: %v", err)
+	}
 }
 
 func (d *Daemon) endpointModFn(_ interface{}, newObj interface{}) {
@@ -544,12 +550,20 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 
+	endpoint := *d.loadBalancer.K8sEndpoints[*svcns]
+
 	d.syncLB(nil, nil, svcns)
 	if d.conf.IsLBEnabled() {
 		if err := d.syncExternalLB(nil, nil, svcns); err != nil {
 			scopedLog.WithError(err).Error("Unable to remove endpoints on ingress service")
 			return
 		}
+	}
+
+	d.policy.Mutex.Lock()
+	defer d.policy.Mutex.Unlock()
+	if err := d.policy.DeleteEndpointGeneratedEgressRules(*svcns, endpoint); err != nil {
+		log.Errorf("Unable to populate egress policies from ToService rules: %v", err)
 	}
 }
 
