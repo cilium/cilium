@@ -16,6 +16,7 @@ package api
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
+
 	"regexp"
 )
 
@@ -375,8 +376,8 @@ type PortRuleHTTP struct {
 // effect.
 type PortRuleKafka struct {
 	// APIVersion is the version matched against the api version of the
-	// Kafka message. It is always "0" or a string representing a
-	// positive integer.
+	// Kafka message. If set, it has to be a string representing a positive
+	// integer.
 	//
 	// If omitted or empty, all versions are allowed.
 	//
@@ -392,6 +393,22 @@ type PortRuleKafka struct {
 	// +optional
 	APIKey string `json:"apiKey,omitempty"`
 
+	// ClientID is the client identifier as provided in the request.
+	//
+	// From Kafka protocol documentation:
+	// This is a user supplied identifier for the client application. The
+	// user can use any identifier they like and it will be used when
+	// logging errors, monitoring aggregates, etc. For example, one might
+	// want to monitor not just the requests per second overall, but the
+	// number coming from each client application (each of which could
+	// reside on multiple servers). This id acts as a logical grouping
+	// across all requests from a particular client.
+	//
+	// If omitempty or empty, all client identifiers are allowed.
+	//
+	// +optional
+	ClientID string `json:"clientID,omitempty"`
+
 	// Topic is a regex matched against the topic of the
 	// Kafka message. Ignored if the matched request message type doesn't
 	// contain any topic. Maximum size of Topic can be 249 characters as
@@ -405,12 +422,27 @@ type PortRuleKafka struct {
 	//
 	// +optional
 	Topic string `json:"topic,omitempty"`
+
+	// --------------------------------------------------------------------
+	// Private fields. These fields are used internally and are not exposed
+	// via the API.
+
+	// apiKeyInt is the integer representation of APIKey
+	apiKeyInt int16
+
+	// apiVersionInt is the integer representation of APIVersion
+	apiVersionInt int16
 }
+
+const (
+	apiKeyWildcard     int16 = -1
+	apiVersionWildcard int16 = -1
+)
 
 // KafkaAPIKeyMap is the map of all allowed kafka API keys
 // with the key values.
 // Reference: https://kafka.apache.org/protocol#protocol_api_keys
-var KafkaAPIKeyMap = map[string]int{
+var KafkaAPIKeyMap = map[string]int16{
 	"produce":              0,  /* Produce */
 	"fetch":                1,  /* Fetch */
 	"offsets":              2,  /* Offsets */
@@ -458,3 +490,23 @@ const (
 // KafkaTopicValidChar is a one-time regex generation of all allowed characters
 // in kafka topic name.
 var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
+
+// GetAPIKey returns the APIKey as integer or the bool set to true if any API
+// key is allowed
+func (kr *PortRuleKafka) GetAPIKey() (int16, bool) {
+	if kr.apiKeyInt == apiKeyWildcard {
+		return 0, true
+	}
+
+	return kr.apiKeyInt, false
+}
+
+// GetAPIVersion returns the APIVersion as integer or the bool set to true if
+// any API version is allowed
+func (kr *PortRuleKafka) GetAPIVersion() (int16, bool) {
+	if kr.apiVersionInt == apiVersionWildcard {
+		return 0, true
+	}
+
+	return kr.apiVersionInt, false
+}

@@ -185,10 +185,24 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	}
 
 	var redir Redirect
-	if kind == ProxyKindOxy {
-		redir, err = createOxyRedirect(l4, id, source, to)
-	} else {
-		return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
+
+	switch l4.L7Parser {
+	case policy.ParserTypeKafka:
+		redir, err = createKafkaRedirect(kafkaConfiguration{
+			policy:     l4,
+			id:         id,
+			source:     source,
+			listenPort: to})
+		log.Debugf("Created new kafka proxy instance %+v", redir)
+	case policy.ParserTypeHTTP:
+		switch kind {
+		case ProxyKindOxy:
+			redir, err = createOxyRedirect(l4, id, source, to)
+		default:
+			return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
+		}
+
+		log.Debugf("Created new %s proxy instance %+v", kind, redir)
 	}
 	if err != nil {
 		log.Errorf("Unable to create proxy of kind: %s: %s", kind, err)
@@ -197,8 +211,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 
 	p.allocatedPorts[to] = redir
 	p.redirects[id] = redir
-
-	log.Debugf("Created new %s proxy instance %+v", kind, redir)
 
 	return redir, nil
 }

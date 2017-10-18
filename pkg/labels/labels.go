@@ -467,6 +467,11 @@ func (l Labels) ToSlice() []*Label {
 	return labels
 }
 
+// LabelArray returns the labels as label array
+func (l Labels) LabelArray() LabelArray {
+	return l.ToSlice()
+}
+
 // parseSource returns the parsed source of the given str. It also returns the next piece
 // of text that is after the source.
 // Example:
