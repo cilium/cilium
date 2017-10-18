@@ -443,9 +443,9 @@ func generateToCidrFromEndpoint(egress *api.EgressRule, endpoint types.K8sServic
 	return nil
 }
 
-// generateToCidrFromEndpoint takes an egress rule and populates it with ToPorts rules based on provided enpoint object
+// generateToPortsFromEndpoint takes an egress rule and populates it with ToPorts rules based on provided enpoint object
 func generateToPortsFromEndpoint(egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
-	// addition port rule that will contain all endpoint ports
+	// additional port rule that will contain all endpoint ports
 	portRule := api.PortRule{}
 	for _, port := range endpoint.Ports {
 		found := false
@@ -474,6 +474,73 @@ func generateToPortsFromEndpoint(egress *api.EgressRule, endpoint types.K8sServi
 	if len(portRule.Ports) > 0 {
 		egress.ToPorts = append(egress.ToPorts, portRule)
 	}
+
+	return nil
+}
+
+// DeleteEndpointGeneratedEgressRules traverses all egress rules, matches them against provided service info and deletes ToCIDR and ToPorts entries that match provided endpoint
+func (p *Repository) DeleteEndpointGeneratedEgressRules(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
+	for policyRuleIndex, rule := range p.rules {
+		for egressIndex, egress := range rule.Egress {
+			for _, service := range egress.ToServices {
+				// TODO: match services by labels
+				if service.K8sService == serviceInfo {
+					if err := deleteToCidrFromEndpoint(&p.rules[policyRuleIndex].Egress[egressIndex], endpoint); err != nil {
+						return err
+					}
+					if err := deleteToPortsFromEndpoint(&p.rules[policyRuleIndex].Egress[egressIndex], endpoint); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// deleteToCidrFromEndpoint takes an egress rule and removes ToCIDR rules matching endpoint
+func deleteToCidrFromEndpoint(egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
+	newToCIDR := make([]api.CIDR, 0, len(egress.ToCIDR))
+
+	for ip := range endpoint.BEIPs {
+		epIP := net.ParseIP(ip)
+		for _, c := range egress.ToCIDR {
+			_, cidr, err := net.ParseCIDR(string(c))
+			if err != nil {
+				return err
+			}
+			if !cidr.Contains(epIP) {
+				//if endpoint is not in CIDR it's ok to retain it
+				newToCIDR = append(newToCIDR, c)
+			}
+		}
+	}
+
+	egress.ToCIDR = newToCIDR
+
+	return nil
+}
+
+// deleteToPortsFromEndpoint takes an egress rule and removes ToPorts rules matching endpoint
+func deleteToPortsFromEndpoint(egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
+	newPortRules := make([]api.PortRule, 0, len(egress.ToPorts))
+
+	for _, port := range endpoint.Ports {
+		for _, portRule := range egress.ToPorts {
+			for _, portProtocol := range portRule.Ports {
+				numericPort, err := strconv.Atoi(portProtocol.Port)
+				if err != nil {
+					return err
+				}
+
+				if !(strings.ToLower(string(port.Protocol)) == strings.ToLower(string(portProtocol.Protocol)) && int(port.Port) == numericPort) {
+					newPortRules = append(newPortRules, portRule)
+				}
+			}
+		}
+	}
+
+	egress.ToPorts = newPortRules
 
 	return nil
 }
