@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/syncbytes"
 
 	log "github.com/sirupsen/logrus"
@@ -118,7 +119,7 @@ func isBpffs(path string) bool {
 	magic := uint32(0xCAFE4A11)
 	var fsdata unix.Statfs_t
 	if err := unix.Statfs(path, &fsdata); err != nil {
-		log.Errorf("%s is not mounted", path)
+		log.WithField(logfields.Path, path).Error("BPF filesystem path is not mounted")
 		return false
 	}
 	return int32(magic) == int32(fsdata.Type)
@@ -212,8 +213,8 @@ func mountFS() error {
 	if !isBpffs(mapRoot) {
 		// TODO currently on minikube isBpffs check is failing. We need to make the following log
 		// fatal again. This will be tracked in #Issue 1475
-		//log.Fatalf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
-		log.Debugf("BPF: '%s' is not mounted as BPF filesystem.", mapRoot)
+		//log.WithField(logfields.Path, mapRoot).Fatal("BPF: path is not mounted as a BPF filesystem.")
+		log.WithField(logfields.Path, mapRoot).Debug("BPF: path is not mounted as a BPF filesystem.")
 	}
 	mountMutex.Lock()
 	for _, m := range delayedOpens {
@@ -232,7 +233,7 @@ func mountFS() error {
 func MountFS() {
 	mountOnce.Do(func() {
 		if err := mountFS(); err != nil {
-			log.WithError(err).Fatalf("Unable to mount BPF filesystem")
+			log.WithError(err).Fatal("Unable to mount BPF filesystem")
 		}
 	})
 }
