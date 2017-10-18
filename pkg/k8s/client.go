@@ -261,6 +261,7 @@ type CNPCliInterface interface {
 	Delete(namespace, name string, options *metav1.DeleteOptions) error
 	Get(namespace, name string) (*CiliumNetworkPolicy, error)
 	List(namespace string) (*CiliumNetworkPolicyList, error)
+	ListAll() (*CiliumNetworkPolicyList, error)
 	NewListWatch() *cache.ListWatch
 }
 
@@ -324,6 +325,15 @@ func (c *cnpClient) List(namespace string) (*CiliumNetworkPolicyList, error) {
 	var result CiliumNetworkPolicyList
 	err := c.RESTClient.Get().
 		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
+		Do().Into(&result)
+	return &result, err
+}
+
+// ListAll returns the list of CNPs in all the namespaces
+func (c *cnpClient) ListAll() (*CiliumNetworkPolicyList, error) {
+	var result CiliumNetworkPolicyList
+	err := c.RESTClient.Get().
+		Resource(CustomResourceDefinitionPluralName).
 		Do().Into(&result)
 	return &result, err
 }
