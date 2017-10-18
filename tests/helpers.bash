@@ -149,6 +149,11 @@ function micro_sleep {
   sleep 0.5
 }
 
+function kafka_consumer_delay {
+  # wait for kafka consumer to come up
+  sleep 5
+}
+
 function restore_flag {
   check_num_params "$#" "2"
   local save=$1
