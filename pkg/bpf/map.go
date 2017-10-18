@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -242,41 +243,52 @@ func (m *Map) migrate(fd int) (bool, error) {
 		return false, nil
 	}
 
+	scopedLog := log.WithField(logfields.Path, m.path)
 	mismatch := false
 
 	if info.MapType != m.MapType {
-		log.Infof("Map type mismatch for BPF map %s: old: %d new: %d",
-			m.path, info.MapType, m.MapType)
+		scopedLog.WithFields(log.Fields{
+			"old": info.MapType,
+			"new": m.MapType,
+		}).Info("Map type mismatch for BPF map")
 		mismatch = true
 	}
 
 	if info.KeySize != m.KeySize {
-		log.Infof("Key-size mismatch for BPF map %s: old: %d new: %d",
-			m.path, info.KeySize, m.KeySize)
+		scopedLog.WithFields(log.Fields{
+			"old": info.KeySize,
+			"new": m.KeySize,
+		}).Info("Key-size mismatch for BPF map")
 		mismatch = true
 	}
 
 	if info.ValueSize != m.ValueSize {
-		log.Infof("Value-size mismatch for BPF map %s: old: %d new: %d",
-			m.path, info.ValueSize, m.ValueSize)
+		scopedLog.WithFields(log.Fields{
+			"old": info.ValueSize,
+			"new": m.ValueSize,
+		}).Infof("Value-size mismatch for BPF map")
 		mismatch = true
 	}
 
 	if info.MaxEntries != m.MaxEntries {
-		log.Infof("Max entries mismatch for BPF map %s: old: %d new: %d",
-			m.path, info.MaxEntries, m.MaxEntries)
+		scopedLog.WithFields(log.Fields{
+			"old": info.MaxEntries,
+			"new": m.MaxEntries,
+		}).Info("Max entries mismatch for BPF map")
 		mismatch = true
 	}
 
 	if info.Flags != m.Flags {
-		log.Infof("Flags mismatch for BPF map %s: old: %d new: %d",
-			m.path, info.Flags, m.Flags)
+		scopedLog.WithFields(log.Fields{
+			"old": info.Flags,
+			"new": m.Flags,
+		}).Info("Flags mismatch for BPF map")
 		mismatch = true
 	}
 	if mismatch {
 		b, err := m.containsEntries()
 		if err == nil && !b {
-			log.Infof("Safely removing empty map %s so it can be recreated", m.path)
+			scopedLog.Info("Safely removing empty map so it can be recreated")
 			os.Remove(m.path)
 			return true, nil
 		}
