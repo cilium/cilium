@@ -47,8 +47,26 @@ type traceState struct {
 	// selectedRules is the number of rules with matching EndpointSelector
 	selectedRules int
 
+	// matchedRules is the number of rules that have allowed traffic
+	matchedRules int
+
+	// constrainedRules counts how many "FromRequires" constraints are
+	// unsatisfied
+	constrainedRules int
+
 	// ruleID is the rule ID currently being evaluated
 	ruleID int
+}
+
+func (state *traceState) trace(p *Repository, ctx *SearchContext) {
+	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, len(p.rules))
+	if state.constrainedRules > 0 {
+		ctx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
+	} else if state.matchedRules > 0 {
+		ctx.PolicyTrace("Found allow rule\n")
+	} else {
+		ctx.PolicyTrace("Found no allow rule\n")
+	}
 }
 
 // CanReachRLocked evaluates the policy repository for the provided search
@@ -76,7 +94,7 @@ loop:
 		}
 	}
 
-	ctx.PolicyTrace("%d rules matched", state.selectedRules)
+	state.trace(p, ctx)
 
 	return decision
 }
@@ -97,7 +115,7 @@ func (p *Repository) AllowsLabelAccess(ctx *SearchContext) api.Decision {
 		}
 	}
 
-	ctx.PolicyTrace("Label verdict: %s\n", decision.String())
+	ctx.PolicyTrace("Label verdict: %s", decision.String())
 
 	return decision
 }
@@ -113,6 +131,7 @@ func (p *Repository) AllowsLabelAccess(ctx *SearchContext) api.Decision {
 func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 	result := NewL4Policy()
 
+	ctx.PolicyTrace("\n")
 	if ctx.EgressL4Only {
 		ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
 	} else if ctx.IngressL4Only {
@@ -123,14 +142,17 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 
 	state := traceState{}
 	for _, r := range p.rules {
-		_, err := r.resolveL4Policy(ctx, &state, result)
+		found, err := r.resolveL4Policy(ctx, &state, result)
 		if err != nil {
 			return nil, err
 		}
 		state.ruleID++
+		if found != nil {
+			state.matchedRules++
+		}
 	}
 
-	ctx.PolicyTrace("%d rules matched\n", state.selectedRules)
+	state.trace(p, ctx)
 	return result, nil
 }
 
@@ -149,7 +171,7 @@ func (p *Repository) ResolveL3Policy(ctx *SearchContext) *L3Policy {
 		state.ruleID++
 	}
 
-	ctx.PolicyTrace("%d rules matched\n", state.selectedRules)
+	state.trace(p, ctx)
 	return result
 }
 
@@ -159,7 +181,6 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 	ctx.From = labels.LabelArray{}
 	ctx.EgressL4Only = true
 
-	ctx.PolicyTrace("\n")
 	policy, err := p.ResolveL4Policy(&ctx)
 	if err != nil {
 		log.WithError(err).Warning("Evaluation error while resolving L4 egress policy")
@@ -170,9 +191,9 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 	}
 
 	if len(ctx.DPorts) == 0 {
-		ctx.PolicyTrace("L4 egress verdict: [no port context specified]\n")
+		ctx.PolicyTrace("L4 egress verdict: [no port context specified]")
 	} else {
-		ctx.PolicyTrace("L4 egress verdict: %s\n", verdict.String())
+		ctx.PolicyTrace("L4 egress verdict: %s", verdict.String())
 	}
 
 	return verdict
@@ -181,7 +202,6 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 	ctx.IngressL4Only = true
 
-	ctx.PolicyTrace("\n")
 	policy, err := p.ResolveL4Policy(ctx)
 	if err != nil {
 		log.WithError(err).Warning("Evaluation error while resolving L4 ingress policy")
@@ -192,9 +212,9 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 	}
 
 	if len(ctx.DPorts) == 0 {
-		ctx.PolicyTrace("L4 ingress verdict: [no port context specified]\n")
+		ctx.PolicyTrace("L4 ingress verdict: [no port context specified]")
 	} else {
-		ctx.PolicyTrace("L4 ingress verdict: %s\n", verdict.String())
+		ctx.PolicyTrace("L4 ingress verdict: %s", verdict.String())
 	}
 
 	return verdict
@@ -207,7 +227,7 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
 	ctx.PolicyTrace("Tracing %s\n", ctx.String())
 	decision := p.CanReachRLocked(ctx)
-	ctx.PolicyTrace("Label verdict: %s\n", decision.String())
+	ctx.PolicyTrace("Label verdict: %s", decision.String())
 	if decision == api.Allowed {
 		return decision
 	}

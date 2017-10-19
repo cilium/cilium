@@ -132,8 +132,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From), true) ||
 			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To), true)) {
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
-				"no rules in the policy repository match either of the provided " +
-				"sets of labels."
+				"no rules in the policy repository match any endpoint selector " +
+				"from the provided destination sets of labels."
 			isPolicyEnforcementEnabled = false
 		}
 	}

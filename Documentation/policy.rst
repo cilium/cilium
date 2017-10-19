@@ -763,23 +763,28 @@ endpoint with the label ``id.http`` on port 80:
 
     $ cilium policy trace -s id.curl -d id.httpd --dport 80
     Tracing From: [container:id.curl] => To: [container:id.httpd] Ports: [80/any]
-    * Rule {"matchLabels":{"any:id.httpd":""}}: match
+    * Rule {"matchLabels":{"any:id.httpd":""}}: selected
         Allows from labels {"matchLabels":{"any:id.curl":""}}
           Found all required labels
             Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
-    1 rules matched
+    1/1 rules selected
+    Found no allow rule
     Label verdict: undecided
 
     Resolving egress port policy for [container:id.curl]
-    * Rule {"matchLabels":{"any:id.curl":""}}: match
+    * Rule {"matchLabels":{"any:id.curl":""}}: selected
       Allows Egress port [{80 tcp}]
-    1 rules matched
+        Found all required labels
+    1/1 rules selected
+    Found allow rule
     L4 egress verdict: allowed
 
     Resolving ingress port policy for [container:id.httpd]
-    * Rule {"matchLabels":{"any:id.httpd":""}}: match
+    * Rule {"matchLabels":{"any:id.httpd":""}}: selected
       Allows Ingress port [{80 tcp}]
-    1 rules matched
+        Found all required labels
+    1/1 rules selected
+    Found allow rule
     L4 ingress verdict: allowed
 
     Final verdict: ALLOWED
