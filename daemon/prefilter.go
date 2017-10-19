@@ -30,6 +30,7 @@ type getPrefilter struct {
 
 // NewGetPrefilterHandler returns new get handler for api
 func NewGetPrefilterHandler(d *Daemon) GetPrefilterHandler {
+	fmt.Println("hello world")
 	return &getPrefilter{d: d}
 }
 
