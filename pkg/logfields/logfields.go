@@ -68,12 +68,19 @@ const (
 	// ServiceName is the orchestration framework name for a service
 	ServiceName = "serviceName"
 
-	ServiceID     = "serviceID"
-	ServicePortID = "servicePortID"
-	LBBackend     = "lbBackend"
+	ServiceNamespace = "serviceNamespace"
+	ServiceType      = "serviceType"
+	ServiceID        = "serviceID"
+	ServicePortID    = "servicePortID"
+	Service          = "service"
+	LBBackend        = "lbBackend"
 
 	CiliumNetworkPolicyName = "ciliumNetworkPolicyName"
 	CiliumNetworkPolicy     = "ciliumNetworkPolicy"
+
+	CiliumNode     = "ciliumNode"
+	CiliumID       = "ciliumNodeID"
+	CiliumRuleName = "ciliumRuleName"
 
 	BPFMapKey   = "bpfMapKey"
 	BPFMapValue = "bpfMapValue"
