@@ -225,7 +225,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
-			log.Errorf("error during map Lookup: %s", err)
+			log.WithError(err).Error("error during map Lookup")
 			break
 		}
 
@@ -237,7 +237,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			//log.Debugf("Deleting entry %v since it timeout", entry)
+			//log.WithField(logfields.Object, logfields.Repr(entry)).Debug("Deleting IPv4 entry since it timeout")
 		}
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
@@ -249,15 +249,17 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
 
 				del = true
-				//log.Debugf("Deleting entry since ID %d is no "+
-				//	"longer being consumed by %s", entry.src_sec_id, filter.IP)
+				//log.WithFields(log.Fields{
+				//	logfields.IPAddr:   filter.IP,
+				//	logfields.Identity: entry.src_sec_id,
+				//}).Debug("Deleting IPv6 entry since ID is no longer being consumed by filter")
 			}
 		}
 
 		if del {
 			err := m.Delete(&nextKey)
 			if err != nil {
-				log.Debugf("error during Delete: %s", err)
+				log.WithError(err).Debug("error during Delete")
 			} else {
 				deleted++
 			}
@@ -290,7 +292,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
-			log.Errorf("error during map Lookup: %s", err)
+			log.WithError(err).Error("error during map Lookup")
 			break
 		}
 
@@ -302,7 +304,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			//log.Debugf("Deleting entry %v since it timeout", entry)
+			//log.WithField(logfields.Object, logfields.Repr(entry)).Debug("Deleting IPv6 entry since it timeout")
 		}
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
@@ -314,15 +316,17 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
 
 				del = true
-				//log.Debugf("Deleting entry since ID %d is no "+
-				//	"longer being consumed by %s", entry.src_sec_id, filter.IP)
+				//log.WithFields(log.Fields{
+				//	logfields.IPAddr:   filter.IP,
+				//	logfields.Identity: entry.src_sec_id,
+				//}).Debug("Deleting IPv4 entry since ID is no longer being consumed by filter")
 			}
 		}
 
 		if del {
 			err := m.Delete(&nextKey)
 			if err != nil {
-				log.Debugf("error during Delete: %s", err)
+				log.WithError(err).Debug("error during Delete")
 			} else {
 				deleted++
 			}
