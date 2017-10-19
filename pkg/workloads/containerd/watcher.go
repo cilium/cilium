@@ -22,7 +22,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -31,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -53,36 +51,6 @@ const (
 	eventQueueBufferSize = 100
 )
 
-// containerEvents holds per-container queues for events
-type containerEvents struct {
-	lock.Mutex
-	events map[string]chan dTypesEvents.Message
-}
-
-func (ce *containerEvents) enqueueByContainerID(e dTypesEvents.Message) {
-	ce.Lock()
-	defer ce.Unlock()
-
-	if _, found := ce.events[e.Actor.ID]; !found {
-		q := make(chan dTypesEvents.Message, eventQueueBufferSize)
-		ce.events[e.Actor.ID] = q
-		go processContainerEvents(e.Actor.ID, q)
-	}
-	ce.events[e.Actor.ID] <- e
-}
-
-func (ce *containerEvents) reapEmpty() {
-	ce.Lock()
-	defer ce.Unlock()
-
-	for id, q := range ce.events {
-		if len(q) == 0 {
-			close(q)
-			delete(ce.events, id)
-		}
-	}
-}
-
 func shortContainerID(id string) string {
 	return id[:10]
 }
@@ -90,9 +58,9 @@ func shortContainerID(id string) string {
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
 func EnableEventListener() error {
-	eventQueue := containerEvents{events: make(map[string]chan dTypesEvents.Message)}
 	since := time.Now()
-	syncWithRuntime()
+	ws := newWatcherState(eventQueueBufferSize)
+	ws.syncWithRuntime()
 
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
 	r, err := dockerClient.Events(ctx.Background(), eo)
@@ -100,59 +68,26 @@ func EnableEventListener() error {
 		return err
 	}
 
-	go listenForDockerEvents(&eventQueue, r)
+	go listenForDockerEvents(ws, r)
 
 	// start a go routine which periodically synchronizes containers
 	// managed by the local container runtime and checks if any of them
 	// need to be managed by Cilium. This is a fall back mechanism in case
 	// an event notification has been lost.
-	go func() {
+	go func(state *watcherState) {
 		for {
 			time.Sleep(syncRateDocker)
-			syncWithRuntime()
 
-			log.Debug("Reaping empty event queues")
-			eventQueue.reapEmpty()
+			state.reapEmpty()
+			state.syncWithRuntime()
 		}
-	}()
+	}(ws)
 
 	log.Debugf("Started to listen for containerd events")
-
 	return nil
 }
 
-// syncWithRuntime is used by the daemon to synchronize changes between Docker and
-// Cilium. This includes identities, labels, etc.
-func syncWithRuntime() {
-	var wg sync.WaitGroup
-
-	// FIXME GH-1662: Must be synchronize with event handler
-
-	cList, err := dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
-	if err != nil {
-		log.Errorf("Failed to retrieve the container list %s", err)
-	}
-	for _, cont := range cList {
-		if ignoredContainer(cont.ID) {
-			continue
-		}
-
-		wg.Add(1)
-		go func(wg *sync.WaitGroup, id string) {
-			log.WithFields(log.Fields{
-				logfields.ContainerID: shortContainerID(id),
-			}).Debug("Periodic synchronization of container")
-
-			handleCreateContainer(id, false)
-			wg.Done()
-		}(&wg, cont.ID)
-	}
-
-	// Wait for all spawned go routines handling container creations to exit
-	wg.Wait()
-}
-
-func listenForDockerEvents(eventQueue *containerEvents, reader io.ReadCloser) {
+func listenForDockerEvents(ws *watcherState, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var e dTypesEvents.Message
@@ -165,7 +100,7 @@ func listenForDockerEvents(eventQueue *containerEvents, reader io.ReadCloser) {
 				"event":               e.Status,
 				logfields.ContainerID: shortContainerID(e.ID),
 			}).Debug("Queueing container event")
-			eventQueue.enqueueByContainerID(e)
+			ws.enqueueByContainerID(e.ID, &e)
 		}
 	}
 
@@ -174,7 +109,7 @@ func listenForDockerEvents(eventQueue *containerEvents, reader io.ReadCloser) {
 	}
 }
 
-func processContainerEvents(containerID string, events chan dTypesEvents.Message) {
+func processContainerEvents(events chan dTypesEvents.Message) {
 	for m := range events {
 		if m.ID != "" {
 			log.WithFields(log.Fields{
