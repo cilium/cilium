@@ -53,9 +53,11 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	state := traceState{}
 	c.Assert(rule1.canReach(fooFoo2ToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
 	c.Assert(rule1.canReach(fooToBar, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// selector: bar
 	// allow: foo
@@ -88,14 +90,17 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	state = traceState{}
 	c.Assert(rule2.canReach(fooToBar, &state), Equals, api.Denied)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	c.Assert(rule2.canReach(bazToBar, &state), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	c.Assert(rule2.canReach(fooBazToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 }
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
@@ -163,11 +168,14 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
+	// Foo isn't selected in the rule1's policy.
 	state = traceState{}
 	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// This rule actually overlaps with the existing ingress "http" rule,
 	// so we'd expect it to merge.
@@ -228,11 +236,13 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(len(res.Ingress), Equals, 1)
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
@@ -278,6 +288,7 @@ func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
@@ -349,11 +360,13 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	rule2 := &rule{
 		Rule: api.Rule{
@@ -417,11 +430,13 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
 	res, err = rule1.resolveL4Policy(toBar, &state, NewL4Policy())
@@ -494,6 +509,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
@@ -556,6 +572,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// Must be parsable, make sure Validate fails when not.
 	err = api.Rule{
@@ -645,9 +662,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	state := traceState{}
 	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
 	c.Assert(rule1.canReach(notFromWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
@@ -677,9 +696,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	state := traceState{}
 	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
 	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {

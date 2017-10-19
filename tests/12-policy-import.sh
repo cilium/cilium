@@ -142,13 +142,14 @@ EOF
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: selected
     Allows from labels {"matchLabels":{"reserved:host":""}}
       Labels [any:id.foo] not found
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
-+       No L4 restrictions; allowing
-1 rules matched
++       No L4 restrictions
+1/1 rules selected
+Found allow rule
 Label verdict: allowed
 
 Final verdict: ALLOWED
@@ -197,11 +198,12 @@ EOF
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: selected
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
-+       No L4 restrictions; allowing
-1 rules matched
++       No L4 restrictions
+1/2 rules selected
+Found allow rule
 Label verdict: allowed
 
 Final verdict: ALLOWED
@@ -217,12 +219,13 @@ fi
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: selected
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
-+       No L4 restrictions; allowing
-  Rule {"matchLabels":{"any:id.teamA":""}}: no match for [any:id.bar]
-1 rules matched
++       No L4 restrictions
+  Rule {"matchLabels":{"any:id.teamA":""}}: did not select [any:id.bar]
+1/2 rules selected
+Found allow rule
 Label verdict: allowed
 
 Final verdict: ALLOWED
@@ -244,15 +247,16 @@ BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $3}')
 read -d '' EXPECTED_POLICY <<"EOF" || true
 ----------------------------------------------------------------
 Tracing From: [container:id.foo, container:id.teamA] => To: [container:id.bar, container:id.teamA]
-* Rule {"matchLabels":{"any:id.bar":""}}: match
+* Rule {"matchLabels":{"any:id.bar":""}}: selected
     Allows from labels {"matchLabels":{"any:id.foo":""}}
       Found all required labels
-+       No L4 restrictions; allowing
-* Rule {"matchLabels":{"any:id.teamA":""}}: match
++       No L4 restrictions
+* Rule {"matchLabels":{"any:id.teamA":""}}: selected
     Requires from labels {"matchLabels":{"any:id.teamA":""}}
       Found all required labels
-+       No L4 restrictions; allowing
-2 rules matched
++       No L4 restrictions
+2/2 rules selected
+Found allow rule
 Label verdict: allowed
 
 Final verdict: ALLOWED
