@@ -240,3 +240,17 @@ func deleteToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndp
 
 	return nil
 }
+
+// GenerateEgressRulesFromEndpoints matches all egress rules against provided endpoint data and generates ToCIDR and ToPort rules
+func (r Rules) GenerateEgressRulesFromEndpoints(endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint) error {
+	for _, rule := range r {
+		for index := range rule.Egress {
+			for ns, ep := range endpoints {
+				if err := rule.Egress[index].GenerateToServiceRulesFromEndpoint(ns, *ep); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}

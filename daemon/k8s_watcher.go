@@ -1056,8 +1056,9 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rule)).Debug("Adding CiliumNetworkPolicy")
 
 	rules, err := rule.Parse()
-	if err == nil {
-		if len(rules) > 0 {
+	if err == nil && len(rules) > 0 {
+		err = rules.GenerateEgressRulesFromEndpoints(d.loadBalancer.K8sEndpoints)
+		if err == nil {
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
 		}
 	}
