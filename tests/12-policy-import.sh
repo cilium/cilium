@@ -139,25 +139,8 @@ cat <<EOF | cilium -D policy import -
 }]
 EOF
 
-read -d '' EXPECTED_POLICY <<"EOF" || true
-----------------------------------------------------------------
-Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule {"matchLabels":{"any:id.bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:id.foo] not found
-    Allows from labels {"matchLabels":{"any:id.foo":""}}
-      Found all required labels
-+       No L4 restrictions
-1/1 rules selected
-Found allow rule
-Label verdict: allowed
-
-Final verdict: ALLOWED
-
-EOF
-
 log "verify trace for expected output"
-DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar)) || true
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace -s id.foo -d id.bar | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
   abort "$DIFF"
 fi
@@ -195,46 +178,14 @@ cat <<EOF | cilium -D policy import -
 }]
 EOF
 
-read -d '' EXPECTED_POLICY <<"EOF" || true
-----------------------------------------------------------------
-Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule {"matchLabels":{"any:id.bar":""}}: selected
-    Allows from labels {"matchLabels":{"any:id.foo":""}}
-      Found all required labels
-+       No L4 restrictions
-1/2 rules selected
-Found allow rule
-Label verdict: allowed
-
-Final verdict: ALLOWED
-
-EOF
-
 log "verify trace for expected output"
-DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar)) || true
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace -s id.foo -d id.bar | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
 	abort "$DIFF"
 fi
 
-read -d '' EXPECTED_POLICY <<"EOF" || true
-----------------------------------------------------------------
-Tracing From: [any:id.foo] => To: [any:id.bar]
-* Rule {"matchLabels":{"any:id.bar":""}}: selected
-    Allows from labels {"matchLabels":{"any:id.foo":""}}
-      Found all required labels
-+       No L4 restrictions
-  Rule {"matchLabels":{"any:id.teamA":""}}: did not select [any:id.bar]
-1/2 rules selected
-Found allow rule
-Label verdict: allowed
-
-Final verdict: ALLOWED
-
-EOF
-
-
 log "verify verbose trace for expected output using source and destination labels"
-DIFF=$(diff -Nru <(echo "$EXPECTED_POLICY") <(cilium policy trace -s id.foo -d id.bar -v)) || true
+DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace -s id.foo -d id.bar -v | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
   abort "$DIFF"
 fi
@@ -244,26 +195,6 @@ BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
 FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
 BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $3}')
 
-read -d '' EXPECTED_POLICY <<"EOF" || true
-----------------------------------------------------------------
-Tracing From: [container:id.foo, container:id.teamA] => To: [container:id.bar, container:id.teamA]
-* Rule {"matchLabels":{"any:id.bar":""}}: selected
-    Allows from labels {"matchLabels":{"any:id.foo":""}}
-      Found all required labels
-+       No L4 restrictions
-* Rule {"matchLabels":{"any:id.teamA":""}}: selected
-    Requires from labels {"matchLabels":{"any:id.teamA":""}}
-      Found all required labels
-+       No L4 restrictions
-2/2 rules selected
-Found allow rule
-Label verdict: allowed
-
-Final verdict: ALLOWED
-
-EOF
-
-
 log "verify verbose trace for expected output using security identities"
 DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
@@ -271,7 +202,6 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 log "verify verbose trace for expected output using endpoint IDs"
-TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
 DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v | grep "Final verdict:")) || true
 if [[ "$DIFF" != "" ]]; then
   abort "DIFF: $DIFF"
