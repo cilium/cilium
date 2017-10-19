@@ -192,6 +192,21 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 			}
 		}
 
+		l3match := false
+		if ctx.From != nil && fromEndpoints != nil {
+			for _, labels := range fromEndpoints {
+				if labels.Matches(ctx.From) {
+					l3match = true
+					break
+				}
+			}
+			if l3match == false {
+				ctx.PolicyTrace("      Labels %s not found", ctx.From)
+				continue
+			}
+		}
+		ctx.PolicyTrace("      Found all required labels")
+
 		for _, p := range r.Ports {
 			var cnt int
 			if p.Protocol != api.ProtoAny {
