@@ -66,11 +66,11 @@ func SetupDummy() {
 		etcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
 
 	default:
-		log.Panicf("Unknown kvstore backend: %s", backend)
+		log.WithField("backend", backend).Panic("Unknown kvstore backend")
 	}
 
 	if err := initClient(); err != nil {
-		log.WithError(err).Panicf("Unable to initialize kvstore client")
+		log.WithError(err).Panic("Unable to initialize kvstore client")
 	}
 }
 

@@ -54,7 +54,7 @@ func startKeepalive() {
 		sleepTime := KeepAliveInterval
 		for {
 			if err := KeepAlive(leaseInstance); err != nil {
-				log.WithError(err).Warningf("Unable to keep lease alive")
+				log.WithError(err).Warn("Unable to keep lease alive")
 				sleepTime = RetryInterval
 			}
 			time.Sleep(sleepTime)

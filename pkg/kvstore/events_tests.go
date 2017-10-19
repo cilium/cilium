@@ -35,7 +35,7 @@ func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 		"type":  typ,
 		"key":   key,
 		"value": string(val),
-	}).Debugf("Expecting event")
+	}).Debug("Expecting event")
 
 	select {
 	case event := <-w.Events:
