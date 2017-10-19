@@ -92,7 +92,7 @@ func (s *PolicyAPITestSuite) TestParseL4Proto(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
-func (ds *PolicyAPITestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
+func (s *PolicyAPITestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	rule := &EgressRule{}
 
 	epIP := "10.1.1.1"
@@ -127,7 +127,7 @@ func (ds *PolicyAPITestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	c.Assert(len(rule.ToCIDR), Equals, 0)
 }
 
-func (ds *PolicyAPITestSuite) TestGenerateToPortsFromEndpoint(c *C) {
+func (s *PolicyAPITestSuite) TestGenerateToPortsFromEndpoint(c *C) {
 	rule := &EgressRule{}
 
 	epIP := "10.1.1.1"
