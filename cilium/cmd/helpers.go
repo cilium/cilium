@@ -28,11 +28,16 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
+// Fatalf prints the Printf formatted message to stderr and exits the program
+// Note: os.Exit(1) is not recoverable
 func Fatalf(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "Error: %s\n", fmt.Sprintf(msg, args...))
 	os.Exit(1)
 }
 
+// Usagef prints the Printf formatted message to stderr, prints usage help and
+// exits the program
+// Note: os.Exit(1) is not recoverable
 func Usagef(cmd *cobra.Command, msg string, args ...interface{}) {
 	txt := fmt.Sprintf(msg, args...)
 	fmt.Fprintf(os.Stderr, "Error: %s\n\n", txt)
