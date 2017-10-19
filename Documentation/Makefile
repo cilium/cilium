@@ -26,9 +26,6 @@ check-requirements:
 	  echo "Run pip install sphinx-rtd-theme";  \
 	  exit 1)
 
-docs-container:
-	docker build -t cilium/docs-builder -f Documentation/Dockerfile .
-
 render:
 	-docker rm -f docs-cilium >/dev/null
 	cd .. && \

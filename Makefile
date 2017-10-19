@@ -205,5 +205,8 @@ update-authors:
 	@contrib/scripts/extract_authors.sh >> AUTHORS
 	@cat .AUTHORS.aux >> AUTHORS
 
+docs-container:
+	docker build -t cilium/docs-builder -f Documentation/Dockerfile .
+
 .PHONY: force
 force :;
