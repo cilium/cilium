@@ -113,14 +113,14 @@ func (ds *PolicyAPITestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDR), Equals, 1)
-	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+	c.Assert(string(rule.ToCIDR[0]), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
 	err = generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
 	c.Assert(len(rule.ToCIDR), Equals, 1)
-	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+	c.Assert(string(rule.ToCIDR[0]), Equals, epIP+"/32")
 
 	err = deleteToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
