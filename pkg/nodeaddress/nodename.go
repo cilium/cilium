@@ -43,9 +43,9 @@ func GetName() string {
 
 func init() {
 	if h, err := os.Hostname(); err != nil {
-		log.Warningf("Unable to retrieve local hostname: %s", err)
+		log.WithError(err).Warning("Unable to retrieve local hostname")
 	} else {
-		log.Debugf("os.Hostname() returned: %s", h)
+		log.WithField("host", h).Debug("os.Hostname() returned")
 		nodeName = h
 	}
 }
