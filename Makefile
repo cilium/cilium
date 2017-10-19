@@ -68,7 +68,7 @@ tests-consul:
 
 clean-tags:
 	-$(MAKE) -C bpf/ clean-tags
-	rm cscope.out cscope.in.out cscope.po.out cscope.files tags
+	-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
 
 tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
 	@$(MAKE) -C bpf/ tags
