@@ -47,4 +47,7 @@ const (
 
 	// fieldTTL is the TTL of a lease
 	fieldTTL = "ttl"
+
+	// fieldEndpoint is the etcd endpoint we talk to
+	fieldEndpoint = "etcdEndpoint"
 )

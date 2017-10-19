@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 
 	consulAPI "github.com/hashicorp/consul/api"
@@ -204,7 +205,7 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 		if k == nil {
 			// Something is really wrong
 			errMsg := "Unable to retrieve last free ID because the key is always empty\n"
-			log.Errorf(errMsg)
+			log.Error(errMsg)
 			return 0, fmt.Errorf(errMsg)
 		}
 	}
@@ -229,7 +230,7 @@ func (c *ConsulClient) SetMaxID(key string, firstID, maxID uint32) error {
 		if k == nil {
 			// Something is really wrong
 			errMsg := "Unable to setting ID because the key is always empty\n"
-			log.Errorf(errMsg)
+			log.Error(errMsg)
 			return fmt.Errorf(errMsg)
 		}
 	}
@@ -283,7 +284,7 @@ func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *poli
 				return false, err
 			}
 			if consulLabels.RefCount() == 0 {
-				log.Infof("Recycling ID %d", *incID)
+				log.WithField(logfields.Identity, *incID).Info("Recycling ID")
 				return false, setID2Label(*incID)
 			}
 		}
@@ -351,7 +352,7 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 				return false, err
 			}
 			if consulL3n4AddrID.ID == 0 {
-				log.Infof("Recycling Service ID %d", baseID)
+				log.WithField(logfields.Identity, baseID).Info("Recycling Service ID")
 				return false, setIDtoL3n4Addr(*incID)
 			}
 		}
@@ -485,7 +486,7 @@ func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []
 		for {
 			k, q, err = c.KV().Get(key, &qo)
 			if err != nil {
-				log.Errorf("Unable to retrieve last free Index: %s", err)
+				log.WithError(err).Error("Unable to retrieve last free Index")
 			}
 			if k == nil || q == nil {
 				log.Warning("Unable to retrieve last free Index, please start some containers with labels.")

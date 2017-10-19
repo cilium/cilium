@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 
 	client "github.com/coreos/etcd/clientv3"
@@ -100,7 +101,7 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 		lockPaths: map[string]*lock.Mutex{},
 	}
 	if err := ec.CheckMinVersion(15 * time.Second); err != nil {
-		log.Fatalf("%s", err)
+		log.WithError(err).Fatal("Error checking etcd min version")
 	}
 	// Clean-up old services path
 	ec.DeleteTree(common.ServicePathV1)
@@ -109,17 +110,15 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 			<-ec.session.Done()
 			newSession, err := concurrency.NewSession(c)
 			if err != nil {
-				log.Warningf("Error while renewing etcd session %s", err)
+				log.WithError(err).Warning("Error while renewing etcd session")
 				time.Sleep(3 * time.Second)
 			} else {
 				ec.sessionMU.Lock()
 				ec.session = newSession
 				ec.sessionMU.Unlock()
-				log.WithFields(log.Fields{
-					fieldSession: newSession,
-				}).Debugf("Renewing session")
+				log.WithField(fieldSession, newSession).Debug("Renewing session")
 				if err := ec.CheckMinVersion(10 * time.Second); err != nil {
-					log.Fatalf("%s", err)
+					log.WithError(err).Fatal("Error checking etcd min version")
 				}
 			}
 		}
@@ -150,8 +149,8 @@ func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
 	for _, ep := range eps {
 		v, err := getEPVersion(e.cli.Maintenance, ep, timeout)
 		if err != nil {
-			log.WithError(err).Debugf("Unable to check etcd min version")
-			log.WithError(err).Warningf("Checking version of etcd endpoint %q", ep)
+			log.WithError(err).Debug("Unable to check etcd min version")
+			log.WithError(err).WithField(fieldEndpoint, ep).Warning("Checking version of etcd endpoint")
 			errors = true
 			continue
 		}
@@ -161,13 +160,16 @@ func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
 			return fmt.Errorf("Minimal etcd version not met in %q,"+
 				" required: %s, found: %s", ep, minEVersion.String(), v.String())
 		}
-		log.Infof("Version of etcd endpoint %q: %s OK!", ep, v.String())
+		log.WithFields(log.Fields{
+			fieldEndpoint: ep,
+			"version":     v,
+		}).Info("Version of etcd endpoint OK!")
 	}
 	if len(eps) == 0 {
-		log.Warningf("Minimal etcd version unknown: No etcd endpoints available!")
+		log.Warning("Minimal etcd version unknown: No etcd endpoints available!")
 	} else if errors {
-		log.Warningf("Unable to check etcd's cluster version."+
-			" Please make sure the minimal etcd version running on all endpoints is %s", minEVersion.String())
+		log.WithField("version.min", minEVersion).Warning("Unable to check etcd's cluster version." +
+			" Please make sure the minimal etcd version is running on all endpoints")
 	}
 	return nil
 }
@@ -278,9 +280,9 @@ func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 		}
 		if k == nil {
 			// Something is really wrong
-			errMsg := "Unable to setting ID because the key is always empty\n"
-			log.Errorf(errMsg)
-			return fmt.Errorf(errMsg)
+			errMsg := "Unable to setting ID because the key is always empty"
+			log.Error(errMsg)
+			return fmt.Errorf("%s\n", errMsg)
 		}
 	}
 	return e.SetValue(key, maxID)
@@ -324,7 +326,7 @@ func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy
 			return false, err
 		}
 		if consulLabels.RefCount() == 0 {
-			log.Infof("Recycling ID %d", *incID)
+			log.WithField(logfields.Identity, *incID).Infof("Recycling ID")
 			return false, setID2Label(*incID)
 		}
 
@@ -387,7 +389,7 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 			return false, err
 		}
 		if consulL3n4AddrID.ID == 0 {
-			log.Infof("Recycling Service ID %d", *incID)
+			log.WithField(logfields.Identity, *incID).Infof("Recycling Service ID")
 			return false, setIDtoL3n4Addr(*incID)
 		}
 
