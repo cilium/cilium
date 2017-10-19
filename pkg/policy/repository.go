@@ -393,7 +393,9 @@ func (p *Repository) GetRevision() uint64 {
 	return p.revision
 }
 
-// ConvertToK8sServiceToToCIDR traverses all egress rules and matches them against provided serviceInfo. If a matching egress rule is found it is populated with ToCIDR and ToPorts entries based on endpoint object.
+// ConvertToK8sServiceToToCIDR traverses all egress rules and matches them against
+// provided serviceInfo. If a matching egress rule is found it is populated
+// with ToCIDR entries based on endpoint object.
 func (p *Repository) ConvertToK8sServiceToToCIDR(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
 	for ruleIndex := range p.rules {
 		for index := range p.rules[ruleIndex].Egress {
@@ -406,7 +408,9 @@ func (p *Repository) ConvertToK8sServiceToToCIDR(serviceInfo types.K8sServiceNam
 	return nil
 }
 
-// DeleteEndpointGeneratedEgressRules traverses all egress rules, matches them against provided service info and deletes ToCIDR and ToPorts entries that match provided endpoint
+// DeleteEndpointGeneratedEgressRules traverses all egress rules,
+// matches them against provided service info and deletes ToCIDR
+// entries that match provided endpoint
 func (p *Repository) DeleteEndpointGeneratedEgressRules(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
 	for policyRuleIndex := range p.rules {
 		for egressIndex := range p.rules[policyRuleIndex].Egress {

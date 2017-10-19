@@ -102,7 +102,8 @@ func ParseL4Proto(proto string) (L4Proto, error) {
 	return p, p.Validate()
 }
 
-// GenerateToServiceRulesFromEndpoint populates egress rule with ToCIDR and ToPorts rules based on ToServices defined in egress rule and provided endpoint
+// GenerateToServiceRulesFromEndpoint populates egress rule with ToCIDR rules
+// based on ToServices defined in egress rule and provided endpoint
 func (e *EgressRule) GenerateToServiceRulesFromEndpoint(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
 	for _, service := range e.ToServices {
 		// TODO: match services by labels
@@ -177,6 +178,8 @@ func generateToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEn
 	return nil
 }
 
+// DeleteGeneratedToServiceRulesFromEndpoint removes all ToService-based ToCIDR
+// rules generated from endpoint
 func (e *EgressRule) DeleteGeneratedToServiceRulesFromEndpoint(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
 	for _, service := range e.ToServices {
 		// TODO: match services by labels

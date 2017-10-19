@@ -183,9 +183,9 @@ type ServiceSelector EndpointSelector
 
 // Service wraps around selectors for services
 type Service struct {
-	// K8sServiceSelector selects services by k8s labels
+	// K8sServiceSelector selects services by k8s labels. Not supported yet
 	K8sServiceSelector ServiceSelector `json:"k8sServiceSelector,omitempty"`
-	//K8sService selects service by name and namespace pair
+	// K8sService selects service by name and namespace pair
 	K8sService K8sServiceNamespace `json:"k8sService,omitempty"`
 }
 
@@ -254,7 +254,8 @@ type EgressRule struct {
 	// +optional
 	ToEntities []Entity `json:"toEntities,omitempty"`
 
-	// ToServices
+	// ToServices is a list of services to which the endpoint subject
+	// to the rule is allowed to initiate connections.
 	ToServices []Service `json:"toServices,omitempty"`
 }
 

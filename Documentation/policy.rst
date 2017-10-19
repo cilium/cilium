@@ -334,6 +334,64 @@ but not CIDR prefix ``10.96.0.0/12``
         }]
 
 
+Layer 3: Services
+~~~~~~~~~~~~~~~~~
+
+Services running in your cluster can be whitelisted in Egress rules. Currently only headless
+Kubernetes services defined by their name and namespace are supported. More documentation on HeadlessServices_.
+Future versions of Cilium will support specifying non Kubernetes services and services which are backed by pods.
+
+::
+
+        type EgressRule struct {
+                // [...]
+                // ToServices is a list of services to which the endpoint subject
+                // to the rule is allowed to initiate connections.
+                ToServices []Service `json:"toServices,omitempty"`
+                // [...]
+        }
+
+        type Service struct {
+            // [...]
+            // K8sService selects service by name and namespace pair
+            K8sService K8sServiceNamespace `json:"k8sService,omitempty"`
+        }
+
+        type K8sServiceNamespace struct {
+            ServiceName string `json:"serviceName,omitempty"`
+            Namespace   string `json:"namespace,omitempty"`
+        }
+
+
+Example
+-------
+
+This example shows how to allow all endpoints with the label ``id=app2``
+to talk to all endpoints of kubernetes service ``myservice`` in kubernetes namespace ``default``.
+
+::
+
+        [{
+              "endpointSelector": {
+                "matchLabels": {
+                  "id": "app2"
+                }
+              },
+              "egress": [
+                {
+                  "toServices": [
+                    {
+                      "k8sService": {
+                        "serviceName": "myservice",
+                        "namespace": "default"
+                      }
+                    }
+                  ]
+                }
+              ]
+        }]
+
+
 .. _policy_l4:
 
 Layer 4: Ports
