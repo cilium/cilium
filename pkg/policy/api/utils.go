@@ -110,9 +110,7 @@ func (e *EgressRule) GenerateToServiceRulesFromEndpoint(serviceInfo types.K8sSer
 			if err := generateToCidrFromEndpoint(e, endpoint); err != nil {
 				return err
 			}
-			if err := generateToPortsFromEndpoint(e, endpoint); err != nil {
-				return err
-			}
+			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
 		}
 	}
 	return nil
@@ -120,10 +118,10 @@ func (e *EgressRule) GenerateToServiceRulesFromEndpoint(serviceInfo types.K8sSer
 
 // generateToCidrFromEndpoint takes an egress rule and populates it with ToCIDR rules based on provided enpoint object
 func generateToCidrFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+	// This will generate one-address CIDRs consisting of endpoint backend ip
+	mask := net.CIDRMask(128, 128)
 	for ip := range endpoint.BEIPs {
 		epIP := net.ParseIP(ip)
-		// TODO: this will only work for IPv4. How to retrieve the mask from IPv6 address?
-		mask := epIP.DefaultMask()
 
 		found := false
 		for _, c := range egress.ToCIDR {
@@ -186,9 +184,7 @@ func (e *EgressRule) DeleteGeneratedToServiceRulesFromEndpoint(serviceInfo types
 			if err := deleteToCidrFromEndpoint(e, endpoint); err != nil {
 				return err
 			}
-			if err := deleteToPortsFromEndpoint(e, endpoint); err != nil {
-				return err
-			}
+			// TODO: deleteToPortsFromEndpoint when ToPorts and ToCIDR are compatible
 		}
 	}
 	return nil

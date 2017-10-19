@@ -633,11 +633,12 @@ func (ds *PolicyTestSuite) TestConvertToK8sServiceToToCIDR(c *C) {
 	rule := repo.rules[0].Egress[0]
 
 	c.Assert(len(rule.ToCIDR), Equals, 1)
-	c.Assert(string(rule.ToCIDR[0]), Equals, "10.0.0.0/8")
+	c.Assert(string(rule.ToCIDR[0]), Equals, epIP+"/32")
 
-	c.Assert(len(rule.ToPorts), Equals, 1)
-	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
-	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
+	// TODO: test ToPorts when ToCIDR and ToPorts are compatible
+	//c.Assert(len(rule.ToPorts), Equals, 1)
+	//c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
+	//c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
 
 	err = repo.DeleteEndpointGeneratedEgressRules(serviceInfo, endpointInfo)
 
@@ -645,5 +646,6 @@ func (ds *PolicyTestSuite) TestConvertToK8sServiceToToCIDR(c *C) {
 
 	c.Assert(err, IsNil)
 	c.Assert(len(rule.ToCIDR), Equals, 0)
-	c.Assert(len(rule.ToPorts), Equals, 0)
+	// TODO: test ToPorts when ToCIDR and ToPorts are compatible
+	//c.Assert(len(rule.ToPorts), Equals, 0)
 }
