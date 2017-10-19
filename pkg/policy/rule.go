@@ -19,7 +19,9 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -84,7 +86,10 @@ func (r *rule) sanitize() error {
 func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) bool {
 
 	if len(policy.FromEndpoints) == 0 && len(fromEndpoints) > 0 {
-		log.Debugf("skipping L4 filter %s as the endpoints %s are already covered.", policy, fromEndpoints)
+		log.WithFields(log.Fields{
+			logfields.PolicyLabelSelector: fromEndpoints,
+			"policy":                      policy,
+		}).Debugf("skipping L4 filter as the endpoints are already covered.")
 		return true
 	}
 

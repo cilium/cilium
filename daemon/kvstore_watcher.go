@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/sirupsen/logrus"
@@ -36,7 +37,7 @@ func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
 			select {
 			case updates, updateOk := <-ch:
 				if !updateOk {
-					log.Debugf("Watcher for %s closed, reacquiring it", common.LastFreeLabelIDKeyPath)
+					log.WithField(logfields.Path, common.LastFreeLabelIDKeyPath).Debug("Watcher for path closed, reacquiring it")
 					ch = kvstore.Client().GetWatcher(common.LastFreeLabelIDKeyPath, maxSeconds)
 				}
 				if len(updates) != 0 {

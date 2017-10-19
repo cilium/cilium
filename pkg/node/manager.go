@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
 	log "github.com/sirupsen/logrus"
@@ -59,7 +60,7 @@ func deleteNodeCIDR(ip *net.IPNet) {
 	}
 
 	if err := tunnel.DeleteTunnelEndpoint(ip.IP); err != nil {
-		log.Errorf("bpf: Unable to delete %s in tunnel endpoint map: %s", ip, err)
+		log.WithError(err).WithField(logfields.IPAddr, ip).Error("bpf: Unable to delete in tunnel endpoint map")
 	}
 }
 
@@ -69,7 +70,7 @@ func updateNodeCIDR(ip *net.IPNet, host net.IP) {
 	}
 
 	if err := tunnel.SetTunnelEndpoint(ip.IP, host); err != nil {
-		log.Errorf("bpf: Unable to update %s in tunnel endpoint map: %s", ip, err)
+		log.WithError(err).WithField(logfields.IPAddr, ip).Error("bpf: Unable to update in tunnel endpoint map")
 	}
 }
 
@@ -87,8 +88,11 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 			deleteNodeCIDR(oldNode.IPv6AllocCIDR)
 		}
 		// FIXME if PodCIDR is empty retrieve the CIDR from the KVStore
-		log.Debugf("bpf: Setting tunnel endpoint %+v: %+v %+v",
-			n.GetNodeIP(false), n.IPv4AllocCIDR, n.IPv6AllocCIDR)
+		log.WithFields(log.Fields{
+			logfields.IPAddr:   n.GetNodeIP(false),
+			logfields.V4Prefix: n.IPv4AllocCIDR,
+			logfields.V6Prefix: n.IPv6AllocCIDR,
+		}).Debug("bpf: Setting tunnel endpoint")
 
 		nodeIP := n.GetNodeIP(false)
 		updateNodeCIDR(n.IPv4AllocCIDR, nodeIP)
@@ -108,8 +112,11 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 	mutex.Lock()
 	if n, ok := nodes[ni]; ok {
 		if (routesTypes & TunnelRoute) != 0 {
-			log.Debugf("bpf: Removing tunnel endpoint %+v: %+v %+v",
-				n.GetNodeIP(false), n.IPv4AllocCIDR, n.IPv6AllocCIDR)
+			log.WithFields(log.Fields{
+				logfields.IPAddr:   n.GetNodeIP(false),
+				logfields.V4Prefix: n.IPv4AllocCIDR,
+				logfields.V6Prefix: n.IPv6AllocCIDR,
+			}).Debug("bpf: Removing tunnel endpoint")
 
 			if n.IPv4AllocCIDR != nil {
 				err1 = tunnel.DeleteTunnelEndpoint(n.IPv4AllocCIDR.IP)
@@ -142,17 +149,19 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 // network interface that as ownAddr.
 func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
 	nodeIPv6 := n.GetNodeIP(true)
-	log.Debugf("iproute: Setting endpoint v6 route for %s via %s",
-		n.IPv6AllocCIDR, nodeIPv6)
+	scopedLog := log.WithFields(log.Fields{
+		logfields.V6Prefix: n.IPv6AllocCIDR,
+	})
+	scopedLog.WithField(logfields.IPAddr, nodeIPv6).Debug("iproute: Setting endpoint v6 route for prefix via IP")
 
 	nl, err := firstLinkWithv6(ownAddr)
 	if err != nil {
-		log.WithError(err).Errorf("iproute: Unable to get v6 interface with IP %s", ownAddr)
+		scopedLog.WithError(err).WithField(logfields.IPAddr, ownAddr).Error("iproute: Unable to get v6 interface with IP")
 		return
 	}
 	dev := nl.Attrs().Name
 	if dev == "" {
-		log.Errorf("iproute: Unable to get v6 interface for %s: empty interface name", ownAddr)
+		scopedLog.WithField(logfields.IPAddr, ownAddr).Error("iproute: Unable to get v6 interface for address: empty interface name")
 		return
 	}
 

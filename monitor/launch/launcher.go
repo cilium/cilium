@@ -42,7 +42,7 @@ func (nm *NodeMonitor) Run() {
 		cmd := exec.Command(targetName, nm.GetArg())
 		stdout, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
-			log.Errorf("cmd.Start(): %s", err)
+			log.WithError(err).Errorf("cmd.Start()")
 		}
 
 		nm.setProcess(cmd.Process)
@@ -69,7 +69,7 @@ func (nm *NodeMonitor) Restart(arg string) {
 		return
 	}
 	if err := nm.process.Kill(); err != nil {
-		log.Errorf("process.Kill(): %s", err)
+		log.WithError(err).Errorf("process.Kill()")
 	}
 	nm.process = nil
 }

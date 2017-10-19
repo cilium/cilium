@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/logfields"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -54,7 +56,10 @@ func GetGroupIDByName(grpName string) (int, error) {
 func SetDefaultPermissions(socketPath string) error {
 	gid, err := GetGroupIDByName(CiliumGroupName)
 	if err != nil {
-		log.Infof("Group %s not found: %s", CiliumGroupName, err)
+		log.WithError(err).WithFields(log.Fields{
+			logfields.Path: socketPath,
+			"group":        CiliumGroupName,
+		}).Info("Group not found")
 	} else {
 		if err := os.Chown(socketPath, 0, gid); err != nil {
 			return fmt.Errorf("failed while setting up %s's group ID"+
