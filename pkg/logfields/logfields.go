@@ -27,4 +27,27 @@ const (
 
 	// Identity is the identifier of a security identity
 	Identity = "identity"
+
+	// L3PolicyID is the identifier of a L3 Policy
+	L3PolicyID = "policyID.L3"
+
+	// L4PolicyID is the identifier of a L4 Policy
+	L4PolicyID = "PolicyID.L4"
+
+	// Path is a filesystem path. It can be a file or directory
+	// REVIEW Should this match pkg/proxy/accesslog.FieldFilePath ?
+	Path = "path"
+
+	// IPAddr is an IPV4 or IPv6 address
+	IPAddr = "ipAddr"
+
+	// V4Prefix is a IPv4 subnet/CIDR prefix
+	V4Prefix = "v4Prefix"
+
+	// V6Prefix is a IPv6 subnet/CIDR prefix
+	V6Prefix = "v6Prefix"
+
+	K8sPodName            = "k8sPodName"
+	K8sNamespace          = "k8sNamespace"
+	K8sIdentityAnnotation = "k8sIdentityAnnotation" // REVIEW Reconcile this with orchestrationLabels
 )
