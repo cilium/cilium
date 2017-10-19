@@ -1085,13 +1085,13 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		}
 		log.WithError(err).WithFields(log.Fields{
 			logfields.CiliumNetworkPolicyName: rule.Metadata.Name,
-		}).Warnf("Unable to add CiliumNetworkPolicy. err != nil: '%t'. a nil object: '%s'", err != nil, nil)
+		}).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
 		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
 			OK:          true,
 			LastUpdated: time.Now(),
 		}
-		log.WithError(err).WithFields(log.Fields{
+		log.WithFields(log.Fields{
 			logfields.CiliumNetworkPolicyName: rule.Metadata.Name,
 		}).Info("Imported CiliumNetworkPolicy")
 	}
