@@ -231,6 +231,24 @@ Whenever making changes to Cilium documentation you should check that you did no
 After this you can browse the updated docs as HTML starting at
 ``Documentation\_build\html\index.html``.
 
+Alternatively you can use a Docker container to build the pages.
+
+::
+
+    $ docker run -ti -v $(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
+
+This behave similarly to running the ``make`` command above so the path to the
+build is the same.
+
+There is also a separate target for building and starting a web server with
+your document changes.
+
+::
+
+    $ make render
+
+Now the documentation page should be browsable on http://localhost:8080
+
 Debugging datapath code
 ~~~~~~~~~~~~~~~~~~~~~~~
 
