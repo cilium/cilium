@@ -421,15 +421,23 @@ endpoint that is communicating over TCP on port 80:
 
 .. literalinclude:: ../examples/policies/multi_rule.json
 
-Layer 7 - HTTP
-==============
+Layer 7
+=======
 
-Layer 7 policy can be specified embedded into policy_l4_ rules. The ``L7Rules``
-structure is a base type containing an enumeration of protocol specific fields
-which will be extended as Cilium starts supporting additional layer 7
-protocols. Only one field can be specified at the time.
+Layer 7 policy rules are embedded into policy_l4_ rules and can be specified
+for ingress and egress. The ``L7Rules`` structure is a base type containing an
+enumeration of protocol specific fields.
 
-Layer 7 policies can be specified for ingress and egress policy_l4_ rules::
+Each member consists of a list of application protocol rules. An Layer 7
+request is permitted if at least one of the rules matches. If no rules are
+specified, then all traffic is permitted.
+
+The structure is implemented as a union, i.e. only one member field can be used
+per port. If multiple ``toPorts`` rules with identical ``PortProtocol`` select
+an overlapping list of endpoints, then the Layer 7 rules are combined together
+if they are of the same type. If the type differs, the policy is rejected.
+
+::
 
         // L7Rules is a union of port level rule types. Mixing of different port
         // level rule types is disallowed, so exactly one of the following must be set.
@@ -439,19 +447,20 @@ Layer 7 policies can be specified for ingress and egress policy_l4_ rules::
                 //
                 // +optional
                 HTTP []PortRuleHTTP `json:"http,omitempty"`
+
+                // Kafka-specific rules.
+                //
+                // +optional
+                Kafka []PortRuleKafka `json:"kafka,omitempty"`
         }
 
+Unlike Layer 3 and Layer 4 policies, violation of Layer 7 rules does not result
+in packet drops. Instead, if possible, an application protocol specific access
+denied message is crafted and returned, e.g. an *HTTP 403 access denied* is
+sent back for HTTP requests which violate the policy.
+
 HTTP
-  If specified, will restrict all HTTP requests which are sent or received on
-  the ``PortProtocol`` to which the ``L7Rules`` to the list of specified
-  request patterns.
-
-HTTP Policy
------------
-
-Unlike L3 and L4 policies, violation of Layer 7 rules does not result in packet
-drops. Instead, if possible, an access denied message such as an *HTTP 403
-access denied* is sent back to the sending endpoint.
+----
 
 ::
 
@@ -525,6 +534,78 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 ``true``:
 
 .. literalinclude:: ../examples/policies/http.json
+
+
+Kafka (Tech Preview)
+--------------------
+
+.. note:: Kafka support is currently in tech preview phase. Tech preview is
+          functionality that has recently been added and had limited user
+          exposure so far.
+
+::
+
+        // PortRuleKafka is a list of Kafka protocol constraints. All fields are
+        // optional, if all fields are empty or missing, the rule will match all
+        // Kafka messages.
+        type PortRuleKafka struct {
+                // APIVersion is the version matched against the api version of the
+                // Kafka message. If set, it has to be a string representing a positive
+                // integer.
+                //
+                // If omitted or empty, all versions are allowed.
+                //
+                // +optional
+                APIVersion string `json:"apiVersion,omitempty"`
+
+                // APIKey is a case-insensitive string matched against the key of a
+                // request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
+                // Reference: https://kafka.apache.org/protocol#protocol_api_keys
+                //
+                // If omitted or empty, all keys are allowed.
+                //
+                // +optional
+                APIKey string `json:"apiKey,omitempty"`
+
+                // ClientID is the client identifier as provided in the request.
+                //
+                // From Kafka protocol documentation:
+                // This is a user supplied identifier for the client application. The
+                // user can use any identifier they like and it will be used when
+                // logging errors, monitoring aggregates, etc. For example, one might
+                // want to monitor not just the requests per second overall, but the
+                // number coming from each client application (each of which could
+                // reside on multiple servers). This id acts as a logical grouping
+                // across all requests from a particular client.
+                //
+                // If omitted or empty, all client identifiers are allowed.
+                //
+                // +optional
+                ClientID string `json:"clientID,omitempty"`
+
+                // Topic is the topic name contained in the message. If a Kafka request
+                // contains multiple topics, then all topics must be allowed or the
+                // message will be rejected.
+                //
+                // This constraint is ignored if the matched request message type
+                // doesn't contain any topic. Maximum size of Topic can be 249
+                // characters as per recent Kafka spec and allowed characters are
+                // a-z, A-Z, 0-9, -, . and _
+                // Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
+                // version the length was changed from 255 to 249. For compatibility
+                // reasons we are using 255
+                //
+                // If omitted or empty, all topics are allowed.
+                //
+                // +optional
+                Topic string `json:"topic,omitempty"`
+        }
+
+Kafka Example
+~~~~~~~~~~~~~
+
+.. literalinclude:: ../examples/policies/kafka.yaml
+
 
 .. _policy_tracing:
 
