@@ -58,13 +58,15 @@ func (p *Repository) CanReachRLocked(ctx *SearchContext) api.Decision {
 	decision := api.Undecided
 	state := traceState{}
 
+loop:
 	for i, r := range p.rules {
 		state.ruleID = i
 		switch r.canReach(ctx, &state) {
 		// The rule contained a constraint which was not met, this
 		// connection is not allowed
 		case api.Denied:
-			return api.Denied
+			decision = api.Denied
+			break loop
 
 		// The rule allowed the connection but a later rule may impose
 		// additional constraints, so we store the decision but allow
