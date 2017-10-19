@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	log "github.com/sirupsen/logrus"
@@ -61,7 +62,7 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 
 	m, err := bpf.OpenMap(file)
 	if err != nil {
-		log.Warningf("Unable to open map %s: %s", file, err)
+		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
@@ -75,7 +76,11 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	deleted := ctmap.GC(m, mapType, filter)
 
 	if deleted > 0 {
-		log.Debugf("Deleted %d entries from map %s filtered by %s", deleted, file, filter.TypeString())
+		log.WithFields(log.Fields{
+			logfields.Path:  file,
+			"ctFilter.type": filter.TypeString(),
+			"count":         deleted,
+		}).Debug("Deleted filtered entries from map")
 	}
 }
 

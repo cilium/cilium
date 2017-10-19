@@ -250,7 +250,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			policyChanges, err := ep.TriggerPolicyUpdates(owner)
 			if err != nil {
-				log.Warningf("Error while handling policy updates for endpoint %s", err)
+				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, err.Error())
 			} else {
 				ep.LogStatusOK(endpoint.Policy, "Policy regenerated")
