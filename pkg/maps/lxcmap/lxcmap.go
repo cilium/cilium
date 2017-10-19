@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -211,7 +212,7 @@ func DeleteElement(f EndpointFrontend) int {
 	errors := 0
 	for _, k := range f.GetBPFKeys() {
 		if err := mapInstance.Delete(k); err != nil {
-			log.Warningf("Unable to delete endpoint %s in BPF map: %s", k, err)
+			log.WithError(err).WithField(logfields.BPFMapKey, k).Warn("Unable to delete endpoint in BPF map")
 			errors++
 		}
 	}
