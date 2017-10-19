@@ -20,7 +20,7 @@ ifeq ("$(PKG_BUILD)","")
 all: $(BPF)
 
 clean-tags:
-	-rm cscope.out cscope.in.out cscope.po.out tags
+	-rm -f cscope.out cscope.in.out cscope.po.out tags
 
 tags: *.c $(LIB)
 	cscope -R -b -q
