@@ -43,7 +43,7 @@ Install ``kubectl`` version ``>= 1.6.3`` as described in the `Kubernetes Docs
 
 Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
 
-Install ``minikube`` ``>= 0.20`` as described on `minikube's github page
+Install ``minikube`` ``>= 0.22.3`` as described on `minikube's github page
 <https://github.com/kubernetes/minikube/releases>`_.
 
 Then, boot a minikube cluster with the Container Network Interface (CNI) network plugin enabled:
