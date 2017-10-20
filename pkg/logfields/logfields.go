@@ -15,6 +15,8 @@
 // Package logfields defines common logging fields which are used across packages
 package logfields
 
+import "github.com/cilium/cilium/pkg/proxy/accesslog"
+
 const (
 	// EndpointID is the numeric endpoint identifier
 	EndpointID = "endpointID"
@@ -27,4 +29,8 @@ const (
 
 	// Identity is the identifier of a security identity
 	Identity = "identity"
+
+	// Path is a filesystem path. It can be a file or directory.
+	// Note: we follow what accesslog sets to be consistent.
+	Path = accesslog.FieldFilePath
 )
