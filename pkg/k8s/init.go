@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,26 +35,27 @@ func Init() error {
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
 		// Use of the environment variable overwrites the node-name
 		// automatically derived
-		nodeaddress.SetName(nodeName)
+		node.SetName(nodeName)
 
 		k8sNode, err := GetNode(Client(), nodeName)
 		if err != nil {
 			return fmt.Errorf("unable to retrieve k8s node information: %s", err)
 		}
 
-		node := ParseNode(k8sNode)
+		n := ParseNode(k8sNode)
+		log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
 
 		log.WithFields(logrus.Fields{
-			logfields.NodeName:         node.Name,
-			logfields.IPAddr + ".ipv4": node.GetNodeIP(false),
-			logfields.IPAddr + ".ipv6": node.GetNodeIP(true),
+			logfields.NodeName:         n.Name,
+			logfields.IPAddr + ".ipv4": n.GetNodeIP(false),
+			logfields.IPAddr + ".ipv6": n.GetNodeIP(true),
 		}).Info("Received own node information from API server")
 
-		if err := nodeaddress.UseNodeCIDR(node); err != nil {
+		if err := node.UseNodeCIDR(n); err != nil {
 			return fmt.Errorf("unable to retrieve k8s node CIDR: %s", err)
 		}
 
-		if err := nodeaddress.UseNodeAddresses(node); err != nil {
+		if err := node.UseNodeAddresses(n); err != nil {
 			return fmt.Errorf("unable to use k8s node addresses: %s", err)
 		}
 

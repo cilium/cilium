@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeaddress
+package node
 
 import (
 	"net"
@@ -76,4 +76,8 @@ var (
 
 	// IPv4DefaultRoute is the default IPv4 route.
 	IPv4DefaultRoute = net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)}
+
+	// HostDevice is the name of the device that connects the cilium IP
+	// space with the host's networking model
+	HostDevice = "cilium_host"
 )

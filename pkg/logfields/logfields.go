@@ -130,6 +130,9 @@ const (
 	// It is often paired with logfields.Repr to render the object.
 	Response = "resp"
 
+	// Route is a L2 or L3 Linux route
+	Route = "route"
+
 	// K8s specific
 
 	// K8sNodeID is the k8s ID of a K8sNode

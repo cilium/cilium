@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,14 +71,14 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	node1Cilium := ParseNode(&node1)
 
-	err := nodeaddress.UseNodeCIDR(node1Cilium)
+	err := node.UseNodeCIDR(node1Cilium)
 	c.Assert(err, IsNil)
-	c.Assert(nodeaddress.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
+	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
 	AnnotateNodeCIDR(k8sClient, "node1",
-		nodeaddress.GetIPv4AllocRange(),
-		nodeaddress.GetIPv6NodeRange())
+		node.GetIPv4AllocRange(),
+		node.GetIPv6NodeRange())
 
 	c.Assert(err, IsNil)
 
@@ -134,17 +134,17 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	}
 
 	node2Cilium := ParseNode(&node2)
-	err = nodeaddress.UseNodeCIDR(node2Cilium)
+	err = node.UseNodeCIDR(node2Cilium)
 	c.Assert(err, IsNil)
 
 	// We use the node's annotation for the IPv4 and the PodCIDR for the
 	// IPv6.
-	c.Assert(nodeaddress.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
-	c.Assert(nodeaddress.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
+	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
+	c.Assert(node.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
 	err = AnnotateNodeCIDR(k8sClient, "node2",
-		nodeaddress.GetIPv4AllocRange(),
-		nodeaddress.GetIPv6NodeRange())
+		node.GetIPv4AllocRange(),
+		node.GetIPv6NodeRange())
 
 	c.Assert(err, IsNil)
 

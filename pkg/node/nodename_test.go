@@ -12,6 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package nodeaddress provides functionality relate to the node's address
-// where a cilium agent is running on
-package nodeaddress
+package node
+
+import (
+	"os"
+
+	. "gopkg.in/check.v1"
+)
+
+func (s *NodeSuite) TestHostname(c *C) {
+	h, err := os.Hostname()
+
+	// Unmodified node-name value is either os.Hostname if available or
+	// "localhost" otherwise
+	if err != nil {
+		c.Assert(GetName(), Equals, "localhost")
+	} else {
+		c.Assert(GetName(), Equals, h)
+	}
+
+	newName := "foo.domain"
+	SetName(newName)
+	c.Assert(GetName(), Equals, newName)
+}

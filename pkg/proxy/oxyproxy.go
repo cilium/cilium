@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -106,12 +106,12 @@ func (r *OxyRedirect) egressDestinationInfo(ipstr string, info *accesslog.Endpoi
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
 
-			if nodeaddress.IsHostIPv4(ip) {
+			if node.IsHostIPv4(ip) {
 				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
-			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
+			if node.GetIPv4ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
@@ -128,12 +128,12 @@ func (r *OxyRedirect) egressDestinationInfo(ipstr string, info *accesslog.Endpoi
 		} else {
 			info.IPv6 = ip.String()
 
-			if nodeaddress.IsHostIPv6(ip) {
+			if node.IsHostIPv6(ip) {
 				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
-			if nodeaddress.GetIPv6ClusterRange().Contains(ip) {
+			if node.GetIPv6ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv6(ip)
 				id := c.EndpointID()
 				info.ID = uint64(id)
@@ -346,8 +346,8 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 		router:  route.New(),
 		ingress: l4.Ingress,
 		nodeInfo: accesslog.NodeAddressInfo{
-			IPv4: nodeaddress.GetExternalIPv4().String(),
-			IPv6: nodeaddress.GetIPv6().String(),
+			IPv4: node.GetExternalIPv4().String(),
+			IPv6: node.GetIPv6().String(),
 		},
 	}
 
