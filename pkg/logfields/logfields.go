@@ -27,4 +27,13 @@ const (
 
 	// Identity is the identifier of a security identity
 	Identity = "identity"
+
+	// Route is a L2 or L3 Linux route
+	Route = "route"
+
+	// IPAddr is an IPV4 or IPv6 address
+	IPAddr = "ipAddr"
+
+	// Interface is an interface id/name on the system
+	Interface = "interface"
 )

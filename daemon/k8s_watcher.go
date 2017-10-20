@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/nodeaddress"
 
 	log "github.com/sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -1038,8 +1037,8 @@ func (d *Daemon) nodesAddFn(obj interface{}) {
 	var ownAddr net.IP
 	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
 		// ignore own node
-		if n.Name != nodeaddress.GetName() {
-			ownAddr = nodeaddress.GetIPv6()
+		if n.Name != node.GetName() {
+			ownAddr = node.GetIPv6()
 			routeTypes |= node.DirectRoute
 		}
 	}
@@ -1072,8 +1071,8 @@ func (d *Daemon) nodesModFn(oldObj interface{}, newObj interface{}) {
 	var ownAddr net.IP
 	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
 		// ignore own node
-		if newNode.Name != nodeaddress.GetName() {
-			ownAddr = nodeaddress.GetIPv6()
+		if newNode.Name != node.GetName() {
+			ownAddr = node.GetIPv6()
 			routeTypes |= node.DirectRoute
 		}
 	}

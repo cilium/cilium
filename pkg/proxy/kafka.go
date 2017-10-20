@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -71,8 +71,8 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 		epID:    conf.source.GetID(),
 		ingress: conf.policy.Ingress,
 		nodeInfo: accesslog.NodeAddressInfo{
-			IPv4: nodeaddress.GetExternalIPv4().String(),
-			IPv6: nodeaddress.GetIPv6().String(),
+			IPv4: node.GetExternalIPv4().String(),
+			IPv6: node.GetIPv6().String(),
 		},
 	}
 

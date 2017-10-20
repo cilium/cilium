@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/sirupsen/logrus"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -443,7 +443,7 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 	ciliumRulesStore cache.Store, rule *CiliumNetworkPolicy, cnpns CiliumNetworkPolicyNodeStatus) {
 
-	rule.SetPolicyStatus(nodeaddress.GetName(), cnpns)
+	rule.SetPolicyStatus(node.GetName(), cnpns)
 	_, err := cnpClient.Update(rule)
 	if err != nil {
 		ns := ExtractNamespace(&rule.Metadata)
@@ -474,7 +474,7 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 				log.Debugf("k8s: rule %s/%s changed while updating node status, stopping retry", ns, name)
 				break
 			}
-			serverRule.SetPolicyStatus(nodeaddress.GetName(), cnpns)
+			serverRule.SetPolicyStatus(node.GetName(), cnpns)
 			_, err = cnpClient.Update(serverRule)
 			if err == nil {
 				log.Debugf("k8s: successfully updated %s/%s with status: %s", ns, name, serverRule.Status)

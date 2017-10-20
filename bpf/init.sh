@@ -16,18 +16,13 @@
 
 LIB=$1
 RUNDIR=$2
-IP6_ROUTER=$3
-IP4_HOST=$4
-IP6_HOST=$5
-IP4_RANGE=$6
-IP6_RANGE=$7
-IP4_SVC_RANGE=$8
-IP6_SVC_RANGE=$9
-MODE=${10}
+IP4_HOST=$3
+IP6_HOST=$4
+MODE=$5
 # Only set if MODE = "direct" or "lb"
-NATIVE_DEV=${11}
-XDP_DEV=${12}
-XDP_MODE=${13}
+NATIVE_DEV=$6
+XDP_DEV=$7
+XDP_MODE=$8
 
 HOST_ID="host"
 WORLD_ID="world"
@@ -259,36 +254,10 @@ echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_c
 	ip -6 addr add $IP6_HOST dev $HOST_DEV1
 }
 
-ip route del $IP6_ROUTER/128 2> /dev/null || true
-ip route add $IP6_ROUTER/128 dev $HOST_DEV1
-ip route del $IP6_RANGE 2> /dev/null || true
-ip route add $IP6_RANGE via $IP6_ROUTER src $IP6_HOST
-
-if [ "$IP6_SVC_RANGE" != "auto" ]; then
-	ip route del $IP6_SVC_RANGE 2> /dev/null || true
-	ip route add $IP6_SVC_RANGE via $IP6_ROUTER src $IP6_HOST
-fi
-
 if [[ "$IP4_HOST" != "<nil>" ]]; then
 	[ -n "$(ip -4 addr show to $IP4_HOST)" ] || {
 		ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
 	}
-fi
-
-ip addr del 169.254.254.1/32 dev $HOST_DEV1 2> /dev/null || true
-ip addr add 169.254.254.1/32 dev $HOST_DEV1 scope link
-ip route del 169.254.254.0/24 dev $HOST_DEV1 2> /dev/null || true
-ip route add 169.254.254.0/24 dev $HOST_DEV1 scope link
-ip route del $IP4_RANGE 2> /dev/null || true
-if [[ "$IP4_HOST" != "<nil>" ]]; then
-  ip route add $IP4_RANGE via 169.254.254.1 src $IP4_HOST
-fi
-
-if [ "$IP4_SVC_RANGE" != "auto" ]; then
-	ip route del $IP4_SVC_RANGE 2> /dev/null || true
-        if [[ "$IP4_HOST" != "<nil>" ]]; then
-          ip route add $IP4_SVC_RANGE via 169.254.254.1 src $IP4_HOST
-        fi
 fi
 
 # Decrease priority of the rule to identify local addresses
