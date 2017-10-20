@@ -51,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -75,13 +74,8 @@ const (
 const (
 	initArgLib int = iota
 	initArgRundir
-	initArgIPv6Router
 	initArgIPv4NodeIP
 	initArgIPv6NodeIP
-	initArgIPv4Range
-	initArgIPv6Range
-	initArgIPv4ServiceRange
-	initArgIPv6ServiceRange
 	initArgMode
 	initArgDevice
 	initArgDevicePreFilter
@@ -524,10 +518,10 @@ func (d *Daemon) installMasqRule() error {
 	if err := runProg("iptables", []string{
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
-		"!", "-s", nodeaddress.GetHostMasqueradeIPv4().String(),
+		"!", "-s", node.GetHostMasqueradeIPv4().String(),
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium host->cluster masquerade",
-		"-j", "SNAT", "--to-source", nodeaddress.GetHostMasqueradeIPv4().String()}, false); err != nil {
+		"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
 		return err
 	}
 
@@ -536,8 +530,8 @@ func (d *Daemon) installMasqRule() error {
 	if err := runProg("iptables", []string{
 		"-t", "nat",
 		"-A", "CILIUM_POST",
-		"-s", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
+		"-s", node.GetIPv4AllocRange().String(),
+		"!", "-d", node.GetIPv4AllocRange().String(),
 		"!", "-o", "cilium_+",
 		"-m", "comment", "--comment", "cilium masquerade non-cluster",
 		"-j", "MASQUERADE"}, false); err != nil {
@@ -598,11 +592,8 @@ func (d *Daemon) compileBase() error {
 
 	args[initArgLib] = d.conf.BpfDir
 	args[initArgRundir] = d.conf.StateDir
-	args[initArgIPv6Router] = nodeaddress.GetIPv6NoZeroComp()
-	args[initArgIPv4NodeIP] = nodeaddress.GetInternalIPv4().String()
-	args[initArgIPv6NodeIP] = nodeaddress.GetIPv6().String()
-	args[initArgIPv4ServiceRange] = v4ServicePrefix
-	args[initArgIPv6ServiceRange] = v6ServicePrefix
+	args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
+	args[initArgIPv6NodeIP] = node.GetIPv6().String()
 
 	if d.conf.Device != "undefined" {
 		_, err := netlink.LinkByName(d.conf.Device)
@@ -624,11 +615,6 @@ func (d *Daemon) compileBase() error {
 			mode = "direct"
 		}
 
-		// in direct routing mode, only packets to the local node
-		// prefix should go to cilium_host
-		args[initArgIPv4Range] = nodeaddress.GetIPv4AllocRange().String()
-		args[initArgIPv6Range] = nodeaddress.GetIPv6NodeRange().String()
-
 		args[initArgMode] = mode
 		args[initArgDevice] = d.conf.Device
 
@@ -638,10 +624,6 @@ func (d *Daemon) compileBase() error {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
-
-		// in tunnel mode, all packets in the cluster should go to cilium_host
-		args[initArgIPv4Range] = nodeaddress.GetIPv4ClusterRange().String()
-		args[initArgIPv6Range] = nodeaddress.GetIPv6ClusterRange().String()
 
 		args[initArgMode] = d.conf.Tunnel
 	}
@@ -666,6 +648,7 @@ func (d *Daemon) compileBase() error {
 	}
 
 	ipam.ReserveLocalRoutes()
+	node.InstallHostRoutes()
 
 	if !d.conf.IPv4Disabled {
 		// Always remove masquerade rule and then re-add it if required
@@ -703,8 +686,8 @@ func (d *Daemon) init() error {
 	}
 	fw := bufio.NewWriter(f)
 
-	routerIP := nodeaddress.GetIPv6Router()
-	hostIP := nodeaddress.GetIPv6()
+	routerIP := node.GetIPv6Router()
+	hostIP := node.GetIPv6()
 
 	fmt.Fprintf(fw, ""+
 		"/*\n"+
@@ -719,13 +702,13 @@ func (d *Daemon) init() error {
 			" * Host-IPv4: %s\n"+
 			" */\n\n"+
 			"#define ENABLE_IPV4\n",
-			nodeaddress.GetInternalIPv4().String())
+			node.GetInternalIPv4().String())
 	}
 
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
 	if !d.conf.IPv4Disabled {
-		ipv4GW := nodeaddress.GetInternalIPv4()
+		ipv4GW := node.GetInternalIPv4()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
 	} else {
@@ -734,10 +717,10 @@ func (d *Daemon) init() error {
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
 	}
 
-	ipv4Range := nodeaddress.GetIPv4AllocRange()
+	ipv4Range := node.GetIPv4AllocRange()
 	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
 
-	ipv4ClusterRange := nodeaddress.GetIPv4ClusterRange()
+	ipv4ClusterRange := node.GetIPv4ClusterRange()
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.IP, reflect.Uint32).(uint32))
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.Mask, reflect.Uint32).(uint32))
 
@@ -770,10 +753,10 @@ func (d *Daemon) init() error {
 		}
 
 		localIPs := []net.IP{
-			nodeaddress.GetInternalIPv4(),
-			nodeaddress.GetExternalIPv4(),
-			nodeaddress.GetIPv6(),
-			nodeaddress.GetIPv6Router(),
+			node.GetInternalIPv4(),
+			node.GetExternalIPv4(),
+			node.GetIPv6(),
+			node.GetIPv6Router(),
 		}
 		for _, ip := range localIPs {
 			log.Debugf("Adding %v as local ip to endpoint map", ip)
@@ -884,6 +867,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			log.Infof("k8s mode: Allowing localhost to reach local endpoints")
 			config.alwaysAllowLocalhost = true
 		}
+
+		if !singleClusterRoute {
+			node.EnablePerNodeRoutes()
+		}
 	}
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
@@ -894,24 +881,26 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	if config.Device == "undefined" {
-		nodeaddress.InitDefaultPrefix("")
+		node.InitDefaultPrefix("")
 	}
 
-	nodeaddress.SetIPv4ClusterCidrMaskSize(v4ClusterCidrMaskSize)
+	node.SetIPv4ClusterCidrMaskSize(v4ClusterCidrMaskSize)
 
 	if v4Prefix != AutoCIDR {
 		_, net, err := net.ParseCIDR(v4Prefix)
 		if err != nil {
 			log.Fatalf("Invalid IPv4 allocation prefix '%s': %s", v4Prefix, err)
 		}
-		nodeaddress.SetIPv4AllocRange(net)
+		node.SetIPv4AllocRange(net)
 	}
 
 	if v4ServicePrefix != AutoCIDR {
-		_, _, err := net.ParseCIDR(v4ServicePrefix)
+		_, ipnet, err := net.ParseCIDR(v4ServicePrefix)
 		if err != nil {
 			log.Fatalf("Invalid IPv4 service prefix '%s': %s", v4ServicePrefix, err)
 		}
+
+		node.AddAuxPrefix(ipnet)
 	}
 
 	if v6Prefix != AutoCIDR {
@@ -920,30 +909,27 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			log.Fatalf("Invalid IPv6 allocation prefix '%s': %s", v6Prefix, err)
 		}
 
-		if err := nodeaddress.SetIPv6NodeRange(net); err != nil {
+		if err := node.SetIPv6NodeRange(net); err != nil {
 			log.Fatalf("Invalid per node IPv6 allocation prefix '%s': %s", net, err)
 		}
 	}
 
 	if v6ServicePrefix != AutoCIDR {
-		_, _, err := net.ParseCIDR(v6ServicePrefix)
+		_, ipnet, err := net.ParseCIDR(v6ServicePrefix)
 		if err != nil {
 			log.Fatalf("Invalid IPv6 service prefix '%s': %s", v6ServicePrefix, err)
 		}
+
+		node.AddAuxPrefix(ipnet)
 	}
 
-	if err := nodeaddress.AutoComplete(); err != nil {
+	if err := node.AutoComplete(); err != nil {
 		log.Fatalf("%s", err)
 	}
 
-	// Populate list of nodes with local node entry
-	ni, n := nodeaddress.GetNode()
-	node.UpdateNode(ni, n, node.TunnelRoute, nil)
-
 	if k8s.IsEnabled() {
-		err := k8s.AnnotateNodeCIDR(k8s.Client(), nodeaddress.GetName(),
-			nodeaddress.GetIPv4AllocRange(),
-			nodeaddress.GetIPv6NodeRange())
+		err := k8s.AnnotateNodeCIDR(k8s.Client(), node.GetName(),
+			node.GetIPv4AllocRange(), node.GetIPv6NodeRange())
 		if err != nil {
 			log.Fatalf("Unable to get k8s node: %s", err)
 		}
@@ -954,20 +940,24 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		log.Fatal(err.Error())
 	}
 
-	if err := nodeaddress.ValidatePostInit(); err != nil {
+	if err := node.ValidatePostInit(); err != nil {
 		log.Fatalf("%s", err)
 	}
 
-	log.Infof("Local node-name: %s", nodeaddress.GetName())
-	log.Infof("Node-IPv6: %s", nodeaddress.GetIPv6())
-	log.Infof("External-Node IPv4: %s", nodeaddress.GetExternalIPv4())
-	log.Infof("Internal-Node IPv4: %s", nodeaddress.GetInternalIPv4())
-	log.Infof("Cluster IPv6 prefix: %s", nodeaddress.GetIPv6ClusterRange())
-	log.Infof("Cluster IPv4 prefix: %s", nodeaddress.GetIPv4ClusterRange())
-	log.Infof("IPv6 node prefix: %s", nodeaddress.GetIPv6NodeRange())
-	log.Infof("IPv6 allocation prefix: %s", nodeaddress.GetIPv6AllocRange())
-	log.Infof("IPv4 allocation prefix: %s", nodeaddress.GetIPv4AllocRange())
-	log.Debugf("IPv6 router address: %s", nodeaddress.GetIPv6Router())
+	log.Infof("Local node-name: %s", node.GetName())
+	log.Infof("Node-IPv6: %s", node.GetIPv6())
+	log.Infof("External-Node IPv4: %s", node.GetExternalIPv4())
+	log.Infof("Internal-Node IPv4: %s", node.GetInternalIPv4())
+	log.Infof("Cluster IPv6 prefix: %s", node.GetIPv6ClusterRange())
+	log.Infof("Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
+	log.Infof("IPv6 node prefix: %s", node.GetIPv6NodeRange())
+	log.Infof("IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+	log.Infof("IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
+	log.Debugf("IPv6 router address: %s", node.GetIPv6Router())
+
+	// Populate list of nodes with local node entry
+	ni, n := node.GetLocalNode()
+	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
@@ -1207,13 +1197,13 @@ func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
 	return &models.NodeAddressing{
 		IPV6: &models.NodeAddressingElement{
 			Enabled:    true,
-			IP:         nodeaddress.GetIPv6Router().String(),
-			AllocRange: nodeaddress.GetIPv6AllocRange().String(),
+			IP:         node.GetIPv6Router().String(),
+			AllocRange: node.GetIPv6AllocRange().String(),
 		},
 		IPV4: &models.NodeAddressingElement{
 			Enabled:    !d.conf.IPv4Disabled,
-			IP:         nodeaddress.GetInternalIPv4().String(),
-			AllocRange: nodeaddress.GetIPv4AllocRange().String(),
+			IP:         node.GetInternalIPv4().String(),
+			AllocRange: node.GetIPv4AllocRange().String(),
 		},
 	}
 }

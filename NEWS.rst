@@ -59,6 +59,10 @@ Features
 * Initial code to start supporting Kafka policy enforcement (1634_, 1757_)
 * New ``json`` and ``jsonpath`` output modes for the cilium CLI command.
   (1484_)
+* Routes connecting the host to the Cilium IP space is now implemented as
+  individual route for each node in the cluster. This allows to assign IPs
+  which are part of the cluster CIDR to endpoints outside of the cluster
+  as long as the IPs are never used as node CIDRs. (1888_)
 * New simplified policy model to express connectivity to special entities
   "world" (outside of the cluster) and "host" (system on which endpoint is
   running on) (1651_, 1665_)
@@ -758,3 +762,4 @@ Fixes
 .. _1837: https://github.com/cilium/cilium/pull/1837
 .. _1776: https://github.com/cilium/cilium/pull/1776
 .. _1793: https://github.com/cilium/cilium/pull/1793
+.. _1888: https://github.com/cilium/cilium/pull/1793

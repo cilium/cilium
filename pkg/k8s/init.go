@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -34,22 +34,21 @@ func Init() error {
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
 		// Use of the environment variable overwrites the node-name
 		// automatically derived
-		nodeaddress.SetName(nodeName)
+		node.SetName(nodeName)
 
 		k8sNode, err := GetNode(Client(), nodeName)
 		if err != nil {
 			return fmt.Errorf("unable to retrieve k8s node information: %s", err)
 		}
 
-		node := ParseNode(k8sNode)
+		n := ParseNode(k8sNode)
+		log.Infof("Retrieved node's %s information from kubernetes", n.Name)
 
-		log.Infof("Retrieved node's %s information from kubernetes", node.Name)
-
-		if err := nodeaddress.UseNodeCIDR(node); err != nil {
+		if err := node.UseNodeCIDR(n); err != nil {
 			return fmt.Errorf("unable to retrieve k8s node CIDR: %s", err)
 		}
 
-		if err := nodeaddress.UseNodeAddresses(node); err != nil {
+		if err := node.UseNodeAddresses(n); err != nil {
 			return fmt.Errorf("unable to use k8s node addresses: %s", err)
 		}
 

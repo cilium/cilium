@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 
 	k8sAPI "k8s.io/kubernetes/pkg/api"
 )
@@ -142,7 +142,7 @@ func Dump() ([]string, []string) {
 	allocv4 := []string{}
 	ralv4 := k8sAPI.RangeAllocation{}
 	ipamConf.IPv4Allocator.Snapshot(&ralv4)
-	origIP := big.NewInt(0).SetBytes(nodeaddress.GetIPv4AllocRange().IP)
+	origIP := big.NewInt(0).SetBytes(node.GetIPv4AllocRange().IP)
 	v4Bits := big.NewInt(0).SetBytes(ralv4.Data)
 	for i := 0; i < v4Bits.BitLen(); i++ {
 		if v4Bits.Bit(i) != 0 {
@@ -153,7 +153,7 @@ func Dump() ([]string, []string) {
 	allocv6 := []string{}
 	ralv6 := k8sAPI.RangeAllocation{}
 	ipamConf.IPv6Allocator.Snapshot(&ralv6)
-	origIP = big.NewInt(0).SetBytes(nodeaddress.GetIPv6AllocRange().IP)
+	origIP = big.NewInt(0).SetBytes(node.GetIPv6AllocRange().IP)
 	v6Bits := big.NewInt(0).SetBytes(ralv6.Data)
 	for i := 0; i < v6Bits.BitLen(); i++ {
 		if v6Bits.Bit(i) != 0 {

@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 
 	. "gopkg.in/check.v1"
 )
@@ -32,19 +32,19 @@ type IPAMSuite struct{}
 var _ = Suite(&IPAMSuite{})
 
 func (s *IPAMSuite) TestLock(c *C) {
-	nodeaddress.InitDefaultPrefix("")
+	node.InitDefaultPrefix("")
 	err := Init()
 	c.Assert(err, IsNil)
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
 	// manually on the endpoint based on the alloc range.
-	ipv4 := nodeaddress.GetIPv4AllocRange().IP
+	ipv4 := node.GetIPv4AllocRange().IP
 	nextIP(ipv4)
 	epipv4, err := addressing.NewCiliumIPv4(ipv4.String())
 	c.Assert(err, IsNil)
 
-	ipv6 := nodeaddress.GetIPv6AllocRange().IP
+	ipv6 := node.GetIPv6AllocRange().IP
 	nextIP(ipv6)
 	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
 	c.Assert(err, IsNil)

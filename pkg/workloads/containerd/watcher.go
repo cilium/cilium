@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	dTypes "github.com/docker/engine-api/types"
@@ -160,7 +160,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 		}
 
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
-		if !ipv6gw.Equal(nodeaddress.GetIPv6Router()) {
+		if !ipv6gw.Equal(node.GetIPv6Router()) {
 			log.Debugf("Skipping network %s because of gateway mismatch", contNetwork)
 			continue
 		}

@@ -12,36 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeaddress
-
-import (
-	"os"
-	"testing"
-
-	. "gopkg.in/check.v1"
-)
-
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type NodeAddressSuite struct{}
-
-var _ = Suite(&NodeAddressSuite{})
-
-func (s *NodeAddressSuite) TestHostname(c *C) {
-	h, err := os.Hostname()
-
-	// Unmodified node-name value is either os.Hostname if available or
-	// "localhost" otherwise
-	if err != nil {
-		c.Assert(GetName(), Equals, "localhost")
-	} else {
-		c.Assert(GetName(), Equals, h)
-	}
-
-	newName := "foo.domain"
-	SetName(newName)
-	c.Assert(GetName(), Equals, newName)
-}
+// Package node provides functionality related to the local and remote node
+// addresses
+package node

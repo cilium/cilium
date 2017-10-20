@@ -38,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
@@ -93,6 +93,7 @@ var (
 	k8sAPIServer          string
 	k8sKubeConfigPath     string
 	dockerEndpoint        string
+	singleClusterRoute    bool
 )
 
 var logOpts = make(map[string]string)
@@ -330,7 +331,7 @@ func init() {
 	flags.Uint32Var(&logstashProbeTimer,
 		"logstash-probe-timer", 10, "Logstash probe timer (seconds)")
 	flags.StringVar(&nat46prefix,
-		"nat46-range", nodeaddress.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
+		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
 	flags.StringVar(&v6Address,
@@ -339,6 +340,8 @@ func init() {
 		"ipv4-node", "auto", "IPv4 address of node")
 	flags.BoolVar(&config.RestoreState,
 		"restore", true, "Restores state, if possible, from previous daemon")
+	flags.BoolVar(&singleClusterRoute, "single-cluster-route", false,
+		"Use a single cluster route instead of per node routes")
 	flags.StringVar(&socketPath,
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
 	flags.StringVar(&config.RunDir,
@@ -413,7 +416,7 @@ func initConfig() {
 
 	if config.IPv4Disabled {
 		endpoint.IPv4Enabled = false
-		nodeaddress.EnableIPv4 = false
+		node.EnableIPv4 = false
 	}
 
 	config.BpfDir = filepath.Join(config.LibDir, defaults.BpfDir)
@@ -519,7 +522,7 @@ func initEnv() {
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
 	if config.Device != "undefined" {
-		nodeaddress.InitDefaultPrefix(config.Device)
+		node.InitDefaultPrefix(config.Device)
 	}
 
 	if v6Address != "auto" {
@@ -530,7 +533,7 @@ func initEnv() {
 				log.Fatalf("Invalid IPv6 node address '%s': not a global unicast address", ip)
 			}
 
-			nodeaddress.SetIPv6(ip)
+			node.SetIPv6(ip)
 		}
 	}
 
@@ -538,7 +541,7 @@ func initEnv() {
 		if ip := net.ParseIP(v4Address); ip == nil {
 			log.Fatalf("Invalid IPv4 node address '%s'", v4Address)
 		} else {
-			nodeaddress.SetExternalIPv4(ip)
+			node.SetExternalIPv4(ip)
 		}
 	}
 

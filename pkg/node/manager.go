@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
 	log "github.com/sirupsen/logrus"
@@ -39,18 +40,41 @@ const (
 	DirectRoute
 )
 
-var (
-	mutex lock.RWMutex
-	nodes = map[Identity]*Node{}
-)
+type clusterConfiguation struct {
+	lock.RWMutex
+
+	nodes                 map[Identity]*Node
+	ciliumHostInitialized bool
+	usePerNodeRoutes      bool
+	auxPrefixes           []*net.IPNet
+}
+
+var clusterConf = newClusterConfiguration()
+
+func newClusterConfiguration() clusterConfiguation {
+	return clusterConfiguation{
+		nodes:       map[Identity]*Node{},
+		auxPrefixes: []*net.IPNet{},
+	}
+}
+
+func (cc *clusterConfiguation) getNode(ni Identity) *Node {
+	cc.RLock()
+	n := cc.nodes[ni]
+	cc.RUnlock()
+	return n
+}
+
+func (cc *clusterConfiguation) addAuxPrefix(prefix *net.IPNet) {
+	cc.Lock()
+	cc.auxPrefixes = append(cc.auxPrefixes, prefix)
+	cc.Unlock()
+}
 
 // GetNode returns the node with the given identity, if exists, from the nodes
 // map.
 func GetNode(ni Identity) *Node {
-	mutex.RLock()
-	n := nodes[ni]
-	mutex.RUnlock()
-	return n
+	return clusterConf.getNode(ni)
 }
 
 func deleteNodeCIDR(ip *net.IPNet) {
@@ -63,12 +87,210 @@ func deleteNodeCIDR(ip *net.IPNet) {
 	}
 }
 
-func updateNodeCIDR(ip *net.IPNet, host net.IP) {
+func ipFamily(ip net.IP) int {
+	if ip.To4() == nil {
+		return netlink.FAMILY_V6
+	}
+
+	return netlink.FAMILY_V4
+}
+
+// findAddress finds a particular IP address assigned to the specified link
+func findAddress(link netlink.Link, ip net.IP) *netlink.Addr {
+	addrs, err := netlink.AddrList(link, ipFamily(ip))
+	if err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			logfields.IPAddr:    ip,
+			logfields.Interface: link.Attrs().Name,
+		}).Warn("Listing of addresses failed")
+
+		// return address not found on error
+		return nil
+	}
+
+	for _, a := range addrs {
+		if ip.Equal(a.IP) {
+			return &a
+		}
+	}
+
+	return nil
+}
+
+// findRoute finds a particular route as specified by the filter which points
+// to the specified device. The filter route can have the following fields set:
+//  - Dst
+//  - LinkIndex
+//  - Scope
+//  - Gw
+func findRoute(link netlink.Link, route *netlink.Route) *netlink.Route {
+	routes, err := netlink.RouteList(link, ipFamily(route.Dst.IP))
+	if err != nil {
+		return nil
+	}
+
+	for _, r := range routes {
+		aMaskLen, aMaskBits := r.Dst.Mask.Size()
+		bMaskLen, bMaskBits := route.Dst.Mask.Size()
+		if r.LinkIndex == route.LinkIndex && r.Scope == route.Scope &&
+			aMaskLen == bMaskLen && aMaskBits == bMaskBits &&
+			r.Dst.IP.Equal(route.Dst.IP) && r.Gw.Equal(route.Gw) {
+			return &r
+		}
+	}
+
+	return nil
+}
+
+// replaceNodeRoute verifies that the L2 route for the router IP which is used
+// as nexthop for all node routes is properly installed. If unavailable or
+// incorrect, it will be replaced with the proper L2 route.
+func replaceNexthopRoute(link netlink.Link, routerIP, routerNet *net.IPNet) error {
+	// Add the Cilium router IP as address to the "cilium_host" if not
+	// already assigned
+	if routerIP != nil && findAddress(link, routerIP.IP) == nil {
+		addr := &netlink.Addr{IPNet: routerIP}
+		if err := netlink.AddrReplace(link, addr); err != nil {
+			return fmt.Errorf("unable to add nexthop address \"%s\": %q", routerIP, err)
+		}
+
+		log.WithFields(log.Fields{
+			logfields.IPAddr:    routerIP,
+			logfields.Interface: link.Attrs().Name,
+		}).Info("Added Cilium router IP address")
+	}
+
+	// This is the L2 route which makes the Cilium router IP available behind
+	// the "cilium_host" interface. All other routes will use this router IP
+	// as nexthop.
+	route := &netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       routerNet,
+		Scope:     netlink.SCOPE_LINK,
+	}
+
+	if findRoute(link, route) == nil {
+		scopedLog := log.WithField(logfields.Route, route)
+
+		if err := netlink.RouteReplace(route); err != nil {
+			scopedLog.WithError(err).Error("Unable to add L2 nexthop route")
+			return fmt.Errorf("unable to add L2 nexthop route")
+		}
+
+		scopedLog.Info("Added L2 nexthop route")
+	}
+
+	return nil
+}
+
+// replaceNodeRoute verifies whether the specified node CIDR is properly
+// covered by a route installed in the host's routing table. If unavailable,
+// the route is installed on the host.
+func replaceNodeRoute(ip *net.IPNet) {
 	if ip == nil {
 		return
 	}
 
-	if err := tunnel.SetTunnelEndpoint(ip.IP, host); err != nil {
+	link, err := netlink.LinkByName(HostDevice)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Interface, HostDevice).Error("Unable to lookup interface")
+		return
+	}
+
+	var routerIP, routerNet *net.IPNet
+	var via, local net.IP
+	if ip.IP.To4() != nil {
+		via = net.IPv4(169, 254, 254, 1)
+		routerIP = &net.IPNet{IP: via, Mask: net.CIDRMask(32, 32)}
+		routerNet = &net.IPNet{IP: net.IPv4(169, 254, 254, 0), Mask: net.CIDRMask(24, 32)}
+		local = GetInternalIPv4()
+	} else {
+		via = GetIPv6Router()
+		// IPv6 does not require the router IP to be added as address, leaving
+		routerIP = nil
+		routerNet = &net.IPNet{IP: via, Mask: net.CIDRMask(128, 128)}
+		local = GetIPv6()
+	}
+
+	if err := replaceNexthopRoute(link, routerIP, routerNet); err != nil {
+		log.WithError(err).Error("Unable to add nexthop route")
+	}
+
+	route := netlink.Route{LinkIndex: link.Attrs().Index, Dst: ip, Gw: via, Src: local}
+	scopedLog := log.WithField(logfields.Route, route)
+
+	if err := netlink.RouteReplace(&route); err != nil {
+		scopedLog.WithError(err).Error("Unable to add node route")
+	} else {
+		scopedLog.Info("Installed node route")
+	}
+}
+
+func (cc *clusterConfiguation) replaceHostRoutes() {
+	if !cc.ciliumHostInitialized {
+		log.Debug("Deferring node routes installation, host device not present yet")
+		return
+	}
+
+	// We have the option to use per node routes if a control plane is in
+	// place which gives us a list of all nodes and their node CIDRs. This
+	// allows to share a CIDR with legacy endpoints outside of the cluster
+	// but requires individual routes to be installed which creates an
+	// overhead with many nodes.
+	if cc.usePerNodeRoutes {
+		for _, n := range cc.nodes {
+			replaceNodeRoute(n.IPv4AllocCIDR)
+			replaceNodeRoute(n.IPv6AllocCIDR)
+		}
+	} else {
+		replaceNodeRoute(GetIPv4AllocRange())
+		replaceNodeRoute(GetIPv6AllocRange())
+	}
+
+	for _, prefix := range cc.auxPrefixes {
+		replaceNodeRoute(prefix)
+	}
+}
+
+func (cc *clusterConfiguation) installHostRoutes() {
+	cc.Lock()
+	cc.ciliumHostInitialized = true
+	cc.replaceHostRoutes()
+	cc.Unlock()
+}
+
+// InstallHostRoutes installs all required routes to make the following IP
+// spaces available from the local host:
+//  - node CIDR of local and remote nodes
+//  - service CIDR range
+//
+// This may only be called after the cilium_host interface has been initialized
+// for the first time
+func InstallHostRoutes() {
+	clusterConf.installHostRoutes()
+}
+
+// AddAuxPrefix adds additional prefixes for which routes should be installed
+// that point to the Cilium network. This function does not directly install
+// the route but schedules it for addition by InstallHostRoutes
+func AddAuxPrefix(prefix *net.IPNet) {
+	clusterConf.addAuxPrefix(prefix)
+}
+
+// EnablePerNodeRoutes enables use of per node routes. This function must be called
+// at init time before any routes are installed.
+func EnablePerNodeRoutes() {
+	clusterConf.Lock()
+	clusterConf.usePerNodeRoutes = true
+	clusterConf.Unlock()
+}
+
+func updateNodeCIDR(n *Node, ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if err := tunnel.SetTunnelEndpoint(ip.IP, n.GetNodeIP(false)); err != nil {
 		log.Errorf("bpf: Unable to update %s in tunnel endpoint map: %s", ip, err)
 	}
 }
@@ -77,10 +299,10 @@ func updateNodeCIDR(ip *net.IPNet, host net.IP) {
 // When using DirectRoute RouteType the field ownAddr should contain the IPv6
 // address of the interface that can reach the other nodes.
 func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	clusterConf.Lock()
+	defer clusterConf.Unlock()
 
-	oldNode, oldNodeExists := nodes[ni]
+	oldNode, oldNodeExists := clusterConf.nodes[ni]
 	if (routesTypes & TunnelRoute) != 0 {
 		if oldNodeExists {
 			deleteNodeCIDR(oldNode.IPv4AllocCIDR)
@@ -90,23 +312,23 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 		log.Debugf("bpf: Setting tunnel endpoint %+v: %+v %+v",
 			n.GetNodeIP(false), n.IPv4AllocCIDR, n.IPv6AllocCIDR)
 
-		nodeIP := n.GetNodeIP(false)
-		updateNodeCIDR(n.IPv4AllocCIDR, nodeIP)
-		updateNodeCIDR(n.IPv6AllocCIDR, nodeIP)
+		updateNodeCIDR(n, n.IPv4AllocCIDR)
+		updateNodeCIDR(n, n.IPv6AllocCIDR)
 	}
 	if (routesTypes & DirectRoute) != 0 {
 		updateIPRoute(oldNode, n, ownAddr)
 	}
 
-	nodes[ni] = n
+	clusterConf.nodes[ni] = n
+	clusterConf.replaceHostRoutes()
 }
 
 // DeleteNode remove the node from the nodes' maps and / or the L3 routes to
 // reach that node.
 func DeleteNode(ni Identity, routesTypes RouteType) {
 	var err1, err2 error
-	mutex.Lock()
-	if n, ok := nodes[ni]; ok {
+	clusterConf.Lock()
+	if n, ok := clusterConf.nodes[ni]; ok {
 		if (routesTypes & TunnelRoute) != 0 {
 			log.Debugf("bpf: Removing tunnel endpoint %+v: %+v %+v",
 				n.GetNodeIP(false), n.IPv4AllocCIDR, n.IPv6AllocCIDR)
@@ -130,12 +352,12 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 		}
 	}
 
-	// Keep node around
 	if err1 == nil && err2 == nil {
-		delete(nodes, ni)
+		delete(clusterConf.nodes, ni)
 	}
 
-	mutex.Unlock()
+	clusterConf.replaceHostRoutes()
+	clusterConf.Unlock()
 }
 
 // updateIPRoute updates the IP routing entry for the given node n via the

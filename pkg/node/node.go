@@ -83,3 +83,19 @@ func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 	}
 	return backupIP
 }
+
+// GetLocalNode returns the identity and node spec for the local node
+func GetLocalNode() (Identity, *Node) {
+	return Identity{Name: nodeName}, &Node{
+		Name: nodeName,
+		IPAddresses: []Address{
+			{
+				AddressType: v1.NodeInternalIP,
+				IP:          GetExternalIPv4(),
+			},
+		},
+		IPv4AllocCIDR: GetIPv4AllocRange(),
+		IPv6AllocCIDR: GetIPv6AllocRange(),
+	}
+
+}
