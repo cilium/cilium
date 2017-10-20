@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeaddress
+package node
 
 import (
 	"net"
@@ -20,7 +20,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *NodeAddressSuite) TestMaskCheck(c *C) {
+func (s *NodeSuite) TestMaskCheck(c *C) {
 	InitDefaultPrefix("")
 	SetIPv4ClusterCidrMaskSize(24)
 

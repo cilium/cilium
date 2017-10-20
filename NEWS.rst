@@ -13,6 +13,10 @@ Bug Fixes
 
 Features
 --------
+* Routes connecting the host to the Cilium IP space is now implemented as
+  individual route for each node in the cluster. This allows to assign IPs
+  which are part of the cluster CIDR to endpoints outside of the cluster
+  as long as the IPs are never used as node CIDRs. (1888_)
 * Improved ``cilium policy trace`` output (1810_)
 * Add ``cilium cilium bpf ct flush`` command (1788_)
 

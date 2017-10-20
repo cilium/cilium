@@ -12,20 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeaddress
+package node
 
 import (
-	"encoding/hex"
 	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 var (
@@ -308,35 +305,6 @@ func SetIPv6Router(ip net.IP) {
 	ipv6RouterAddress = ip
 }
 
-// GetIPv6NoZeroComp is similar to String but without generating zero
-// compression in the address dump.
-func GetIPv6NoZeroComp() string {
-	const maxLen = len("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-	out := make([]byte, 0, maxLen)
-	raw := ipv6RouterAddress
-
-	if len(raw) != 16 {
-		return ""
-	}
-
-	for i := 0; i < 16; i += 2 {
-		if i > 0 {
-			out = append(out, ':')
-		}
-		src := []byte{raw[i], raw[i+1]}
-		tmp := make([]byte, hex.EncodedLen(len(src)))
-		hex.Encode(tmp, src)
-		if tmp[0] == tmp[1] && tmp[2] == tmp[3] &&
-			tmp[0] == tmp[2] && tmp[0] == '0' {
-			out = append(out, tmp[0])
-		} else {
-			out = append(out, tmp[0], tmp[1], tmp[2], tmp[3])
-		}
-	}
-
-	return string(out)
-}
-
 // GetIPv6NodeRoute returns a route pointing to the IPv6 node address
 func GetIPv6NodeRoute() net.IPNet {
 	return net.IPNet{
@@ -353,28 +321,9 @@ func GetIPv4NodeRoute() net.IPNet {
 	}
 }
 
-// GetNode returns the identity and node spec for the local node
-func GetNode() (node.Identity, *node.Node) {
-	range4, range6 := ipv4AllocRange, ipv6AllocRange
-
-	n := node.Node{
-		Name: nodeName,
-		IPAddresses: []node.Address{
-			{
-				AddressType: v1.NodeInternalIP,
-				IP:          ipv4ExternalAddress,
-			},
-		},
-		IPv4AllocCIDR: range4,
-		IPv6AllocCIDR: range6,
-	}
-
-	return node.Identity{Name: nodeName}, &n
-}
-
 // UseNodeCIDR sets the ipv4-range and ipv6-range values values from the
 // addresses defined in the given node.
-func UseNodeCIDR(node *node.Node) error {
+func UseNodeCIDR(node *Node) error {
 	scopedLog := log.WithField(logfields.Node, node.Name)
 	if node.IPv4AllocCIDR != nil {
 		scopedLog.WithField(logfields.V4Prefix, node.IPv4AllocCIDR).Info("Retrieved IPv4 allocation range for node. Using it for ipv4-range")
@@ -392,7 +341,7 @@ func UseNodeCIDR(node *node.Node) error {
 
 // UseNodeAddresses sets the local ipv4-node and ipv6-node values from the
 // addresses defined in the given node.
-func UseNodeAddresses(node *node.Node) error {
+func UseNodeAddresses(node *Node) error {
 	scopedLog := log.WithField(logfields.Node, node.Name)
 	nodeIP4 := node.GetNodeIP(false)
 	if nodeIP4 != nil {

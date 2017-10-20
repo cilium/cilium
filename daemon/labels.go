@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -51,7 +51,7 @@ func gasNewSecLabelID(id *policy.Identity) error {
 }
 
 func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*policy.Identity, bool, error) {
-	clusterEndpointID := nodeaddress.GetExternalIPv4().String() + ":" + epid
+	clusterEndpointID := node.GetExternalIPv4().String() + ":" + epid
 
 	log.WithFields(log.Fields{
 		logfields.EndpointID:     epid,
@@ -306,7 +306,7 @@ func (d *Daemon) DeleteIdentity(id policy.NumericIdentity, epid string) error {
 // DeleteIdentityBySHA256 deletes the SecCtxLabels that belong to the labels' sha256Sum.
 func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	if epid != "" {
-		epid = nodeaddress.GetExternalIPv4().String() + ":" + epid
+		epid = node.GetExternalIPv4().String() + ":" + epid
 	}
 
 	if sha256Sum == "" {
