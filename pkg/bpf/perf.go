@@ -305,6 +305,7 @@ func (e *PerfEvent) Disable() error {
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 	buf := make([]byte, 256)
 	state := C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
+	defer C.free(state)
 
 	// Prepare for reading and check if events are available
 	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
@@ -341,7 +342,6 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 
 	// Move ring buffer tail pointer
 	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(state))
-	C.free(state)
 }
 
 func (e *PerfEvent) Close() {
