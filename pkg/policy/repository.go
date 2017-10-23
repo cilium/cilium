@@ -393,10 +393,29 @@ func (p *Repository) GetRevision() uint64 {
 	return p.revision
 }
 
+// RegenerateToK8sServiceRules deletes to CIDR rules that were generated from
+// provided service-endpoint pair and regenerates them
+func (p *Repository) RegenerateToK8sServiceRules(
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint) error {
+
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+
+	if err := p.DeleteEndpointGeneratedEgressRules(serviceInfo, endpoint); err != nil {
+		return err
+	}
+
+	return p.ConvertToK8sServiceToToCIDR(serviceInfo, endpoint)
+}
+
 // ConvertToK8sServiceToToCIDR traverses all egress rules and matches them against
 // provided serviceInfo. If a matching egress rule is found it is populated
 // with ToCIDR entries based on endpoint object.
-func (p *Repository) ConvertToK8sServiceToToCIDR(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
+func (p *Repository) ConvertToK8sServiceToToCIDR(
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint) error {
+
 	for ruleIndex := range p.rules {
 		for index := range p.rules[ruleIndex].Egress {
 			err := p.rules[ruleIndex].Egress[index].GenerateToServiceRulesFromEndpoint(serviceInfo, endpoint)
@@ -408,10 +427,24 @@ func (p *Repository) ConvertToK8sServiceToToCIDR(serviceInfo types.K8sServiceNam
 	return nil
 }
 
+// DeleteEndpointGeneratedEgressRulesWithLock calls
+// DeleteEndpointGeneratedEgressRules while locking policy mutex
+func (p *Repository) DeleteEndpointGeneratedEgressRulesWithLock(
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint) error {
+
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+	return p.DeleteEndpointGeneratedEgressRules(serviceInfo, endpoint)
+}
+
 // DeleteEndpointGeneratedEgressRules traverses all egress rules,
 // matches them against provided service info and deletes ToCIDR
 // entries that match provided endpoint
-func (p *Repository) DeleteEndpointGeneratedEgressRules(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
+func (p *Repository) DeleteEndpointGeneratedEgressRules(
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint) error {
+
 	for policyRuleIndex := range p.rules {
 		for egressIndex := range p.rules[policyRuleIndex].Egress {
 			err := p.rules[policyRuleIndex].Egress[egressIndex].DeleteGeneratedToServiceRulesFromEndpoint(serviceInfo, endpoint)

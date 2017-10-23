@@ -515,13 +515,9 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 		}
 	}
 
-	d.policy.Mutex.Lock()
-	defer d.policy.Mutex.Unlock()
-	if err := d.policy.DeleteEndpointGeneratedEgressRules(svcns, *newSvcEP); err != nil {
-		log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
-	}
-	if err := d.policy.ConvertToK8sServiceToToCIDR(svcns, *newSvcEP); err != nil {
-		log.Errorf("Unable to populate egress policies from ToService rules: %v", err)
+	err := d.policy.RegenerateToK8sServiceRules(svcns, *newSvcEP)
+	if err != nil {
+		log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
 	}
 }
 
@@ -563,9 +559,8 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 		}
 	}
 
-	d.policy.Mutex.Lock()
-	defer d.policy.Mutex.Unlock()
-	if err := d.policy.DeleteEndpointGeneratedEgressRules(*svcns, endpoint); err != nil {
+	err := d.policy.DeleteEndpointGeneratedEgressRulesWithLock(*svcns, endpoint)
+	if err != nil {
 		log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
 	}
 }

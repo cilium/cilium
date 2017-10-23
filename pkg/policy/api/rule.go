@@ -256,6 +256,11 @@ type EgressRule struct {
 
 	// ToServices is a list of services to which the endpoint subject
 	// to the rule is allowed to initiate connections.
+	//
+	// Example:
+	// Any endpoint with the label "app=backend-app" is allowed to
+	// initiate connections to all cidrs backing the "external-service" service
+	// + optional
 	ToServices []Service `json:"toServices,omitempty"`
 }
 

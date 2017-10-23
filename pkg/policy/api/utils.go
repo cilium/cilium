@@ -104,7 +104,10 @@ func ParseL4Proto(proto string) (L4Proto, error) {
 
 // GenerateToServiceRulesFromEndpoint populates egress rule with ToCIDR rules
 // based on ToServices defined in egress rule and provided endpoint
-func (e *EgressRule) GenerateToServiceRulesFromEndpoint(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
+func (e *EgressRule) GenerateToServiceRulesFromEndpoint(
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint) error {
+
 	for _, service := range e.ToServices {
 		// TODO: match services by labels
 		if service.K8sService == K8sServiceNamespace(serviceInfo) {
@@ -117,12 +120,18 @@ func (e *EgressRule) GenerateToServiceRulesFromEndpoint(serviceInfo types.K8sSer
 	return nil
 }
 
-// generateToCidrFromEndpoint takes an egress rule and populates it with ToCIDR rules based on provided enpoint object
-func generateToCidrFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+// generateToCidrFromEndpoint takes an egress rule and populates it with
+// ToCIDR rules based on provided endpoint object
+func generateToCidrFromEndpoint(
+	egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
 	for ip := range endpoint.BEIPs {
 		epIP := net.ParseIP(ip)
+		if epIP == nil {
+			return fmt.Errorf("Unable to parse ip: %s", ip)
+		}
 
 		found := false
 		for _, c := range egress.ToCIDR {
@@ -143,8 +152,11 @@ func generateToCidrFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEnd
 	return nil
 }
 
-// generateToPortsFromEndpoint takes an egress rule and populates it with ToPorts rules based on provided enpoint object
-func generateToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+// generateToPortsFromEndpoint takes an egress rule and populates it with ToPorts
+// rules based on provided endpoint object
+func generateToPortsFromEndpoint(
+	egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+
 	// additional port rule that will contain all endpoint ports
 	portRule := PortRule{}
 	for _, port := range endpoint.Ports {
@@ -157,7 +169,10 @@ func generateToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEn
 					return err
 				}
 
-				if strings.ToLower(string(port.Protocol)) == strings.ToLower(string(portProtocol.Protocol)) && int(port.Port) == numericPort {
+				ruleProt := strings.ToLower(string(portProtocol.Protocol))
+				endpointProt := strings.ToLower(string(port.Protocol))
+
+				if ruleProt == endpointProt && int(port.Port) == numericPort {
 					found = true
 					break loop
 				}
@@ -180,7 +195,10 @@ func generateToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEn
 
 // DeleteGeneratedToServiceRulesFromEndpoint removes all ToService-based ToCIDR
 // rules generated from endpoint
-func (e *EgressRule) DeleteGeneratedToServiceRulesFromEndpoint(serviceInfo types.K8sServiceNamespace, endpoint types.K8sServiceEndpoint) error {
+func (e *EgressRule) DeleteGeneratedToServiceRulesFromEndpoint(
+	serviceInfo types.K8sServiceNamespace,
+	endpoint types.K8sServiceEndpoint) error {
+
 	for _, service := range e.ToServices {
 		// TODO: match services by labels
 		if service.K8sService == K8sServiceNamespace(serviceInfo) {
@@ -193,12 +211,19 @@ func (e *EgressRule) DeleteGeneratedToServiceRulesFromEndpoint(serviceInfo types
 	return nil
 }
 
-// deleteToCidrFromEndpoint takes an egress rule and removes ToCIDR rules matching endpoint
-func deleteToCidrFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+// deleteToCidrFromEndpoint takes an egress rule and removes
+// ToCIDR rules matching endpoint
+func deleteToCidrFromEndpoint(
+	egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+
 	newToCIDR := make([]CIDR, 0, len(egress.ToCIDR))
 
 	for ip := range endpoint.BEIPs {
 		epIP := net.ParseIP(ip)
+		if epIP == nil {
+			return fmt.Errorf("Unable to parse ip: %s", ip)
+		}
+
 		for _, c := range egress.ToCIDR {
 			_, cidr, err := net.ParseCIDR(string(c))
 			if err != nil {
@@ -216,8 +241,11 @@ func deleteToCidrFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndpo
 	return nil
 }
 
-// deleteToPortsFromEndpoint takes an egress rule and removes ToPorts rules matching endpoint
-func deleteToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+// deleteToPortsFromEndpoint takes an egress rule and removes
+// ToPorts rules matching endpoint
+func deleteToPortsFromEndpoint(
+	egress *EgressRule, endpoint types.K8sServiceEndpoint) error {
+
 	newPortRules := make([]PortRule, 0, len(egress.ToPorts))
 
 	for _, port := range endpoint.Ports {
@@ -228,7 +256,10 @@ func deleteToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndp
 					return err
 				}
 
-				if !(strings.ToLower(string(port.Protocol)) == strings.ToLower(string(portProtocol.Protocol)) && int(port.Port) == numericPort) {
+				ruleProt := strings.ToLower(string(portProtocol.Protocol))
+				endpointProt := strings.ToLower(string(port.Protocol))
+
+				if endpointProt != ruleProt || int(port.Port) != numericPort {
 					newPortRules = append(newPortRules, portRule)
 				}
 			}
@@ -240,8 +271,10 @@ func deleteToPortsFromEndpoint(egress *EgressRule, endpoint types.K8sServiceEndp
 	return nil
 }
 
-// GenerateEgressRulesFromEndpoints matches all egress rules against provided endpoint data and generates ToCIDR and ToPort rules
-func (r Rules) GenerateEgressRulesFromEndpoints(endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint) error {
+// GenerateEgressRulesFromEndpoints matches all egress rules against provided
+// endpoint data and generates ToCIDR and ToPort rules
+func (r Rules) GenerateEgressRulesFromEndpoints(
+	endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint) error {
 	for _, rule := range r {
 		for index := range rule.Egress {
 			for ns, ep := range endpoints {
