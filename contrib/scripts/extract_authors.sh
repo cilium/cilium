@@ -3,8 +3,14 @@
 function extract_authors() {
 	authors=$(git shortlog --summary | awk '{$1=""; print $0}' | sed -e 's/^ //')
 	IFS=$'\n'
+	pad=$(printf '%0.1s' " "{1..60})
+	padlen=40
 	for i in $authors; do
-		git log --use-mailmap --author="$i" | grep Author | head -1 | sed -e 's/Author: //'
+		name=$(git log --use-mailmap --author="$i" --format="%aN" | head -1)
+		mail=$(git log --use-mailmap --author="$i" --format="%aE" | head -1)
+		printf '%s' "$name"
+		printf '%*.*s' 0 $((padlen - ${#name})) "$pad"
+		printf '%s\n' "$mail"
 	done
 }
 
