@@ -165,15 +165,17 @@ type K8sServiceNamespace struct {
 // K8sServiceInfo is an abstraction for a k8s service that is composed by the frontend IP
 // address (FEIP) and the map of the frontend ports (Ports).
 type K8sServiceInfo struct {
-	FEIP  net.IP
-	Ports map[FEPortName]*FEPort
+	FEIP       net.IP
+	IsHeadless bool
+	Ports      map[FEPortName]*FEPort
 }
 
 // NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
-func NewK8sServiceInfo(ip net.IP) *K8sServiceInfo {
+func NewK8sServiceInfo(ip net.IP, headless bool) *K8sServiceInfo {
 	return &K8sServiceInfo{
-		FEIP:  ip,
-		Ports: map[FEPortName]*FEPort{},
+		FEIP:       ip,
+		IsHeadless: headless,
+		Ports:      map[FEPortName]*FEPort{},
 	}
 }
 

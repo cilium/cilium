@@ -367,7 +367,9 @@ Example
 -------
 
 This example shows how to allow all endpoints with the label ``id=app2``
-to talk to all endpoints of kubernetes service ``myservice`` in kubernetes namespace ``default``.
+to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
+namespace ``default``. Note that ``myservice`` needs to be a headless service
+for this policy to take effect.
 
 ::
 
@@ -853,3 +855,4 @@ endpoint with the label ``id.http`` on port 80:
 .. _CustomResourceDefinition: https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions
 .. _LabelSelector: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
 .. _Kubernetes: https://kubernetes.io/docs/concepts/services-networking/network-policies/#isolated-and-non-isolated-pods
+.. _HeadlessServices: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services

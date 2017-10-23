@@ -272,14 +272,21 @@ func deleteToPortsFromEndpoint(
 }
 
 // GenerateEgressRulesFromEndpoints matches all egress rules against provided
-// endpoint data and generates ToCIDR and ToPort rules
+// endpoint data and generates ToCIDR rules. Services are provided to check
+// for headless services
 func (r Rules) GenerateEgressRulesFromEndpoints(
-	endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint) error {
+	endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint,
+	services map[types.K8sServiceNamespace]*types.K8sServiceInfo) error {
+
 	for _, rule := range r {
 		for index := range rule.Egress {
 			for ns, ep := range endpoints {
-				if err := rule.Egress[index].GenerateToServiceRulesFromEndpoint(ns, *ep); err != nil {
-					return err
+				svc, ok := services[ns]
+				if ok && svc.IsHeadless {
+					err := rule.Egress[index].GenerateToServiceRulesFromEndpoint(ns, *ep)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
