@@ -404,8 +404,8 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 		return
 	}
 
-	if strings.ToLower(svc.Spec.ClusterIP) == "none" || svc.Spec.ClusterIP == "" {
-		scopedLog.Info("Ignoring k8s service: headless")
+	if svc.Spec.ClusterIP == "" {
+		scopedLog.Info("Ignoring k8s service: empty ClusterIP")
 		return
 	}
 
@@ -415,7 +415,11 @@ func (d *Daemon) serviceAddFn(obj interface{}) {
 	}
 
 	clusterIP := net.ParseIP(svc.Spec.ClusterIP)
-	newSI := types.NewK8sServiceInfo(clusterIP)
+	headless := false
+	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
+		headless = true
+	}
+	newSI := types.NewK8sServiceInfo(clusterIP, headless)
 
 	// FIXME: Add support for
 	//  - NodePort
@@ -515,9 +519,12 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 		}
 	}
 
-	err := d.policy.RegenerateToK8sServiceRules(svcns, *newSvcEP)
-	if err != nil {
-		log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+	svc, ok := d.loadBalancer.K8sServices[svcns]
+	if ok && svc.IsHeadless {
+		err := d.policy.RegenerateToK8sServiceRules(svcns, *newSvcEP)
+		if err != nil {
+			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+		}
 	}
 }
 
@@ -551,17 +558,20 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 
 	endpoint := *d.loadBalancer.K8sEndpoints[*svcns]
 
+	svc, ok := d.loadBalancer.K8sServices[*svcns]
+	if ok && svc.IsHeadless {
+		err := d.policy.DeleteEndpointGeneratedEgressRulesWithLock(*svcns, endpoint)
+		if err != nil {
+			log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+		}
+	}
+
 	d.syncLB(nil, nil, svcns)
 	if d.conf.IsLBEnabled() {
 		if err := d.syncExternalLB(nil, nil, svcns); err != nil {
 			scopedLog.WithError(err).Error("Unable to remove endpoints on ingress service")
 			return
 		}
-	}
-
-	err := d.policy.DeleteEndpointGeneratedEgressRulesWithLock(*svcns, endpoint)
-	if err != nil {
-		log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
 	}
 }
 
@@ -820,7 +830,7 @@ func (d *Daemon) ingressAddFn(obj interface{}) {
 	} else {
 		host = d.conf.HostV4Addr
 	}
-	ingressSvcInfo := types.NewK8sServiceInfo(host)
+	ingressSvcInfo := types.NewK8sServiceInfo(host, false)
 	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
 
 	syncIngress := func(ingressSvcInfo *types.K8sServiceInfo) error {
@@ -1055,7 +1065,9 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 
 	rules, err := rule.Parse()
 	if err == nil && len(rules) > 0 {
-		err = rules.GenerateEgressRulesFromEndpoints(d.loadBalancer.K8sEndpoints)
+		err = rules.GenerateEgressRulesFromEndpoints(
+			d.loadBalancer.K8sEndpoints,
+			d.loadBalancer.K8sServices)
 		if err == nil {
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
 		}
