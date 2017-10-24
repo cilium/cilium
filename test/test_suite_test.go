@@ -52,7 +52,11 @@ func init() {
 }
 
 func TestTest(t *testing.T) {
-	RegisterFailHandler(Fail)
+	if config.CiliumTestConfig.HoldEnvironment {
+		RegisterFailHandler(helpers.Fail)
+	} else {
+		RegisterFailHandler(Fail)
+	}
 	junitReporter := reporters.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", ginkgoext.GetScopeWithVersion()))
 	RunSpecsWithDefaultAndCustomReporters(

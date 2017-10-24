@@ -18,7 +18,8 @@ import "flag"
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
-	Reprovision bool
+	Reprovision     bool
+	HoldEnvironment bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -29,4 +30,6 @@ var CiliumTestConfig = CiliumTestConfigType{}
 func (c *CiliumTestConfigType) ParseFlags() {
 	flag.BoolVar(&c.Reprovision, "cilium.provision", true,
 		"Provision Vagrant boxes and Cilium before running test")
+	flag.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
+		"On failure, hold the environment in its current state")
 }
