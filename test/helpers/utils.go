@@ -20,8 +20,11 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
+	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/test/config"
+	"github.com/onsi/ginkgo"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -107,4 +110,28 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 			return fmt.Errorf("Timeout reached: %s", msg)
 		}
 	}
+}
+
+// Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process
+// when there is a failure, so that developers can debug the live environment.
+// It is only triggered if the developer provides a commandline flag.
+func Fail(description string, callerSkip ...int) {
+	if len(callerSkip) > 0 {
+		callerSkip[0]++
+	} else {
+		callerSkip = []int{1}
+	}
+
+	if config.CiliumTestConfig.HoldEnvironment {
+		test := ginkgo.CurrentGinkgoTestDescription()
+		pid := syscall.Getpid()
+
+		fmt.Fprintf(os.Stdout, "\n---\n%s", test.FullTestText)
+		fmt.Fprintf(os.Stdout, "\nat %s:%d", test.FileName, test.LineNumber)
+		fmt.Fprintf(os.Stdout, "\n\n%s", description)
+		fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
+		fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
+		syscall.Kill(pid, syscall.SIGSTOP)
+	}
+	ginkgo.Fail(description, callerSkip...)
 }
