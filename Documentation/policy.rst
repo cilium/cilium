@@ -404,14 +404,14 @@ Example (L4)
 The following rule limits all endpoints with the label ``app=myService`` to
 only be able to emit packets using TCP on port 80::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"app":"myService"}},
             "egress": [{
                 "toPorts": [
-                    {"port": "80", "protocol": "TCP"}
+                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
                 ]
             }]
-        }
+        }]
 
 Example (Combining Labels + L4)
 -------------------------------
@@ -420,17 +420,17 @@ This example enables all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``, but they must
 communicate using using TCP on port 80::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"role":"backend"}},
             "ingress": [{
                 "fromEndpoints": [
                   {"matchLabels":{"role":"frontend"}}
                 ],
                 "toPorts": [
-                    {"port": "80", "protocol": "TCP"}
+                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
                 ]
             }]
-        }
+        }]
 
 Example (Multiple Rules with Labels, L4)
 ----------------------------------------
@@ -441,7 +441,7 @@ communication to only endpoints communicating over TCP on port 80 from
 ``role=frontend`` to reach ``role=backend``, *as well as* traffic from any
 endpoint that is communicating over TCP on port 80::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"role":"backend"}},
             "ingress": [{
                 "fromEndpoints": [
@@ -449,10 +449,10 @@ endpoint that is communicating over TCP on port 80::
                 ]
               }, {
                 "toPorts": [
-                    {"port": "80", "protocol": "TCP"}
+                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
                 ]
             }]
-        }
+        }]
 
 Layer 7 - HTTP
 ==============
@@ -559,7 +559,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 
 ::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"app":"myService"}},
             "ingress": [{
                 "toPorts": [{
@@ -580,7 +580,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
                     }
                 }]
             }]
-        }
+        }]
 
 .. _policy_tracing:
 
