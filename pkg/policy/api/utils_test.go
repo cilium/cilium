@@ -18,8 +18,6 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-
-	"github.com/cilium/cilium/common/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -90,76 +88,4 @@ func (s *PolicyAPITestSuite) TestParseL4Proto(c *C) {
 
 	_, err = ParseL4Proto("foo2")
 	c.Assert(err, Not(IsNil))
-}
-
-func (s *PolicyAPITestSuite) TestGenerateToCIDRFromEndpoint(c *C) {
-	rule := &EgressRule{}
-
-	epIP := "10.1.1.1"
-
-	endpointInfo := types.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[types.FEPortName]*types.L4Addr{
-			"port": &types.L4Addr{
-				Protocol: types.TCP,
-				Port:     80,
-			},
-		},
-	}
-
-	err := generateToCidrFromEndpoint(rule, endpointInfo)
-	c.Assert(err, IsNil)
-
-	c.Assert(len(rule.ToCIDR), Equals, 1)
-	c.Assert(string(rule.ToCIDR[0]), Equals, epIP+"/32")
-
-	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo)
-	c.Assert(err, IsNil)
-
-	c.Assert(len(rule.ToCIDR), Equals, 1)
-	c.Assert(string(rule.ToCIDR[0]), Equals, epIP+"/32")
-
-	err = deleteToCidrFromEndpoint(rule, endpointInfo)
-	c.Assert(err, IsNil)
-	c.Assert(len(rule.ToCIDR), Equals, 0)
-}
-
-func (s *PolicyAPITestSuite) TestGenerateToPortsFromEndpoint(c *C) {
-	rule := &EgressRule{}
-
-	epIP := "10.1.1.1"
-
-	endpointInfo := types.K8sServiceEndpoint{
-		BEIPs: map[string]bool{
-			epIP: true,
-		},
-		Ports: map[types.FEPortName]*types.L4Addr{
-			"port": &types.L4Addr{
-				Protocol: types.TCP,
-				Port:     80,
-			},
-		},
-	}
-
-	err := generateToPortsFromEndpoint(rule, endpointInfo)
-	c.Assert(err, IsNil)
-
-	c.Assert(len(rule.ToPorts), Equals, 1)
-	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
-	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
-
-	// second run, to make sure there are no duplicates added
-	err = generateToCidrFromEndpoint(rule, endpointInfo)
-	c.Assert(err, IsNil)
-
-	c.Assert(len(rule.ToPorts), Equals, 1)
-	c.Assert(rule.ToPorts[0].Ports[0].Port, Equals, "80")
-	c.Assert(string(rule.ToPorts[0].Ports[0].Protocol), Equals, "TCP")
-
-	err = deleteToPortsFromEndpoint(rule, endpointInfo)
-	c.Assert(err, IsNil)
-	c.Assert(len(rule.ToPorts), Equals, 0)
 }

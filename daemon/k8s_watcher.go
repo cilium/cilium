@@ -521,7 +521,8 @@ func (d *Daemon) endpointAddFn(obj interface{}) {
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
 	if ok && svc.IsHeadless {
-		err := d.policy.RegenerateToK8sServiceRules(svcns, *newSvcEP)
+		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false)
+		err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
 		}
@@ -560,7 +561,8 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 
 	svc, ok := d.loadBalancer.K8sServices[*svcns]
 	if ok && svc.IsHeadless {
-		err := d.policy.DeleteEndpointGeneratedEgressRulesWithLock(*svcns, endpoint)
+		translator := k8s.NewK8sTranslator(*svcns, endpoint, true)
+		err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
 		}
@@ -1065,7 +1067,8 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 
 	rules, err := rule.Parse()
 	if err == nil && len(rules) > 0 {
-		err = rules.GenerateEgressRulesFromEndpoints(
+		err = k8s.PreprocessRules(
+			rules,
 			d.loadBalancer.K8sEndpoints,
 			d.loadBalancer.K8sServices)
 		if err == nil {
