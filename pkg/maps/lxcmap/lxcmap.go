@@ -112,7 +112,7 @@ type EndpointInfo struct {
 	Flags      uint32
 	MAC        MAC
 	NodeMAC    MAC
-	V6Addr     types.IPv6
+	Pad        [4]uint32
 	PortMap    [PortMapMax]PortMap
 }
 
@@ -170,12 +170,11 @@ func (v EndpointInfo) String() string {
 	if len(portMaps) == 0 {
 		portMaps = append(portMaps, "(empty)")
 	}
-	return fmt.Sprintf("id=%d ifindex=%d mac=%s nodemac=%s ip=%s seclabel=0x%x portMaps=%s",
+	return fmt.Sprintf("id=%d ifindex=%d mac=%s nodemac=%s seclabel=%#x portMaps=%s",
 		v.LxcID,
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
-		v.V6Addr,
 		byteorder.HostToNetwork(v.SecLabelID),
 		strings.Join(portMaps, " "),
 	)
