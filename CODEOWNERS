@@ -7,6 +7,7 @@ pkg/maps/ @cilium/bpf
 pkg/bpf/ @cilium/bpf
 pkg/policy/prefilter.go @cilium/bpf
 daemon/prefilter.go @cilium/bpf
+daemon/bpf.sha @cilium/bpf
 
 # Agent -> Kernel interaction
 bpf/*.sh @cilium/bpf-loader
