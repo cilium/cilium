@@ -20,7 +20,6 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logfields"
@@ -119,24 +118,9 @@ type EndpointInfo struct {
 // GetValuePtr returns the unsafe pointer to the BPF value
 func (v EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
 
-// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
-const (
-	endpointKeyIPv4 uint8 = 1
-	endpointKeyIPv6 uint8 = 2
-)
-
-// EndpointKey represents the key value of the endpoints BPF map
-//
-// Must be in sync with struct endpoint_key in <bpf/lib/common.h>
 type EndpointKey struct {
-	ip     types.IPv6 // represents both IPv6 and IPv4
-	family uint8
-	pad1   uint8
-	pad2   uint16
+	bpf.EndpointKey
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
@@ -145,18 +129,9 @@ func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
 func NewEndpointKey(ip net.IP) EndpointKey {
-	key := EndpointKey{}
-	copy(key.ip[:], ip)
-
-	if ip4 := ip.To4(); ip4 != nil {
-		key.family = endpointKeyIPv4
-		copy(key.ip[:], ip4)
-	} else {
-		key.family = endpointKeyIPv6
-		copy(key.ip[:], ip)
+	return EndpointKey{
+		EndpointKey: bpf.NewEndpointKey(ip),
 	}
-
-	return key
 }
 
 // String returns the human readable representation of an EndpointInfo
