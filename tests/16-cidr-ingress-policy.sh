@@ -62,15 +62,19 @@ docker run -d --name ${HTTPD_CONTAINER_NAME} --net ${TEST_NET} -l "${ID_SERVICE1
 IPV6_PREFIX=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPv6Gateway }}" ${HTTPD_CONTAINER_NAME})/112
 IPV4_ADDRESS=$(docker inspect --format "{{ .NetworkSettings.Networks.${TEST_NET}.IPAddress }}" ${HTTPD_CONTAINER_NAME})
 IPV4_PREFIX=$(expr $IPV4_ADDRESS : '\([0-9]*\.[0-9]*\.\)')0.0/16
-IPV4_PREFIX_EXCEPT=$(expr $IPV4_ADDRESS : '\([0-9]*\.[0-9]*\.\)')0.0/18
 
 log "IPV6_PREFIX: ${IPV6_PREFIX}"
 log "IPV4_ADDRESS: ${IPV4_ADDRESS}"
 log "IPV4_PREFIX: ${IPV4_PREFIX}"
-log "IPV4_PREFIX_EXCEPT: ${IPV4_PREFIX_EXCEPT}"
+
+cilium policy delete --all
 
 function test_cidr_except {
+  # This function tests importing policies with CIDR prefix exceptions
+  # not the datapath itself.
+
   cilium policy delete --all
+
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
@@ -79,12 +83,19 @@ function test_cidr_except {
             {"matchLabels":{"${ID_SERVICE2}":""}}
         ],
         "fromCIDRSet": [ {
-            "cidr": "${IPV4_PREFIX}",
-            "except": [
-                "${IPV4_PREFIX_EXCEPT}"
-            ]
+            "cidr": "10.0.0.0/8"
         }
         ]
+    },{
+        "fromEndpoints": [
+            {"matchLabels":{"${ID_SERVICE2}":""}}
+        ],
+        "fromCIDRSet": [ {
+            "cidr": "10.0.0.0/9",
+            "except": [
+                "10.96.0.0/12"
+            ]
+        }]
     }]
 }]
 EOF
@@ -92,8 +103,39 @@ EOF
   log "output of cilium policy get"
   cilium policy get
 
-  log "output of cilium endpoint list -o json"
-  cilium endpoint list -o json | python -m json.tool
+  log "policy output of cilium endpoint list -o json"
+  cilium endpoint list -o json | jq '.[] | {policy}'
+
+  cat <<EOF | policy_import_and_wait -
+[{
+    "endpointSelector": {"matchLabels":{"${ID_SERVICE1}":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"${ID_SERVICE2}":""}}
+        ],
+        "fromCIDRSet": [ {
+            "cidr": "10.0.0.0/10"
+        }
+        ]
+    },{
+        "fromEndpoints": [
+            {"matchLabels":{"${ID_SERVICE2}":""}}
+        ],
+        "fromCIDRSet": [ {
+            "cidr": "10.0.0.0/11",
+            "except": [
+                "10.0.0.0/12"
+            ]
+        }]
+}]
+}]
+EOF
+
+  log "output of cilium policy get"
+  cilium policy get
+
+  log "policy output of cilium endpoint list -o json"
+  cilium endpoint list -o json | jq '.[] | {policy}'
 
   cilium policy delete --all
 }
@@ -109,6 +151,12 @@ policy_delete_and_wait "--all"
 
 log "listing all endpoints"
 cilium endpoint list
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
+
+
+test_cidr_except
 
 monitor_clear
 log "pinging host from service2 (should NOT work)"
@@ -137,12 +185,18 @@ monitor_clear
 log "pinging host from service2 (should work)"
 cilium policy get
 
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
+
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c ${TIMEOUT} ${IPV4_HOST} || {
   abort "Error: Could not ping host (${IPV4_HOST}) from service2"
 }
 
 policy_delete_and_wait "--all"
 monitor_clear
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
 
 log "pinging host from service2 (should NOT work)"
 set +e
@@ -152,6 +206,11 @@ docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE2}" --cap-add NET_ADMIN ${D
 set -e
 
 log "importing L3 CIDR policy for IPv6 egress"
+policy_delete_and_wait "--all"
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
+
 cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"${ID_SERVICE2}":""}},
@@ -162,6 +221,9 @@ cat <<EOF | policy_import_and_wait -
     }]
 }]
 EOF
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
 
 monitor_clear
 log "pinging host from service2 (should work)"
@@ -182,6 +244,9 @@ cat <<EOF | policy_import_and_wait -
     }]
 }]
 EOF
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
 
 monitor_clear
 log "pinging service1 from service2 (should work)"
@@ -233,6 +298,10 @@ EOF
 
 monitor_clear
 cilium policy get
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
+
 log "pinging service1 from service3 (should work)"
 docker run --rm -i --net ${TEST_NET} -l "${ID_SERVICE3}" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c ${TIMEOUT} ${HTTPD_CONTAINER_NAME}  || {
   abort "Error: Could not ping ${HTTPD_CONTAINER_NAME} from service3"
@@ -260,6 +329,9 @@ cat <<EOF | policy_import_and_wait -
     }]
 }]
 EOF
+
+log "policy output of cilium endpoint list -o json"
+cilium endpoint list -o json | jq '.[] | {policy}'
 
 monitor_clear
 set +e
