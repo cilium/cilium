@@ -138,6 +138,10 @@ func NewEndpointKey(ip net.IP) EndpointKey {
 
 // String returns the human readable representation of an EndpointInfo
 func (v EndpointInfo) String() string {
+	if v.Flags&EndpointFlagHost != 0 {
+		return fmt.Sprintf("(localhost)")
+	}
+
 	var portMaps []string
 	for _, port := range v.PortMap {
 		if pStr := port.String(); pStr != "0:0" {
