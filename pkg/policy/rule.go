@@ -118,28 +118,48 @@ func mergeIngressVisibilityPort(ctx *SearchContext, p api.PortProtocol, l7Parser
 	key := p.Port + "/" + string(p.Protocol)
 	v, ok := resMap[key]
 	if !ok {
-		if !defaultAllow {
-			// The L4 port is not accessible. Ignore any visibility rule for that port.
-			return 0, nil
-
-		}
-
-		// If the policy enablement mode is "default" and there are no ingress or egress rules,
-		// all traffic is allowed. If there are no L4 rules matching this port, create one that allows all
-		// endpoints to reach this port.
-		v = L4Filter{
-			Port:     int(l4Port),
-			Protocol: p.Protocol,
-			FromEndpoints: []api.EndpointSelector{
-				api.NewESFromLabels(),
-			},
-			L7RulesPerEp: make(L7DataMap),
-			Ingress:      true,
+		if defaultAllow {
+			// If the policy enablement mode is "default" and there are no ingress or egress rules,
+			// all traffic is allowed. If there are no L4 rules matching this port, synthesize one which
+			// allows all endpoints to reach this port.
+			ctx.PolicyTraceVerbose("   Default allow mode; creating Ingress rule for port %v with L7 parser %s\n", p, l7Parser)
+			v = L4Filter{
+				Port:     int(l4Port),
+				Protocol: p.Protocol,
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(),
+				},
+				L7RulesPerEp: make(L7DataMap),
+				Ingress:      true,
+			}
+		} else {
+			// Try to find a rule allowing any port.
+			anyKey := "0/" + string(api.ProtoAny)
+			anyV, ok := resMap[anyKey]
+			if ok {
+				// All ports are accessible. We can synthesize a rule for the port accessible from the
+				// same endpoints.
+				ctx.PolicyTraceVerbose("   Any port rule(s) found; creating Ingress rule for port %v with L7 parser %s\n", p, l7Parser)
+				v = L4Filter{
+					Port:          int(l4Port),
+					Protocol:      p.Protocol,
+					FromEndpoints: anyV.FromEndpoints,
+					L7RulesPerEp:  make(L7DataMap),
+					Ingress:       true,
+				}
+			} else {
+				// The L4 port is not accessible. Ignore any visibility rule for that port.
+				ctx.PolicyTraceVerbose("   No L4 rule found for port %v, and policy is not default allow; "+
+					"ignoring visibility rule with L7 parser %s\n", p, l7Parser)
+				return 0, nil
+			}
 		}
 	}
 
 	if v.IsRedirect() {
 		// There is already at least one L7 rule for that L4 port.
+		ctx.PolicyTraceVerbose("   Existing L7 rule for port %v with L7 parser %s \n", p, v.L7Parser)
+
 		// Check whether the L7 parser is the same as for the visibility rule.
 		if l7Parser != v.L7Parser {
 			ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", l7Parser, v.L7Parser)
@@ -164,17 +184,16 @@ func mergeIngressVisibilityPort(ctx *SearchContext, p api.PortProtocol, l7Parser
 	// Only add the L7 rule for the from-endpoints that are not yet associated with an L7 rule.
 	v.L7RulesPerEp.addRulesForEndpoints(rules, v.FromEndpoints)
 
-	if !ctx.EgressL4Only {
-		// Report as active visibility rule.
-		visMap[key] = L7VisibilityRule{
-			Port:     int(l4Port),
-			Protocol: p.Protocol,
-			L7Parser: l7Parser,
-		}
+	ctx.PolicyTrace("  Visibility into %s port %v\n", dirIngress, p)
 
-		resMap[key] = v
+	// Report as active visibility rule.
+	visMap[key] = L7VisibilityRule{
+		Port:     int(l4Port),
+		Protocol: p.Protocol,
+		L7Parser: l7Parser,
 	}
 
+	resMap[key] = v
 	return 1, nil
 }
 
@@ -208,6 +227,7 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 
 	if v.addFromEndpoints(fromEndpoints) && r.NumRules() == 0 {
 		// skip this policy as it is already covered and it does not contain L7 rules
+		resMap[key] = v
 		return 1, nil
 	}
 
@@ -252,13 +272,54 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
 	resMap L4PolicyMap) (int, error) {
 
-	if len(portRules) == 0 {
-		ctx.PolicyTrace("    No L4 rules\n")
-		return 0, nil
-	}
-
 	found := 0
 	var err error
+
+	l3match := false
+	if ctx.From != nil && fromEndpoints != nil {
+		for _, labels := range fromEndpoints {
+			if labels.Matches(ctx.From) {
+				l3match = true
+				break
+			}
+		}
+	}
+
+	// If the labels are not found, disable tracing of ports.
+	portCtx := *ctx
+	if !l3match {
+		portCtx.Trace = TRACE_DISABLED
+	}
+
+	// No ports are specified, so any port are allowed.
+	// Create an explicit filter with special port/protocol "0/ANY".
+	if len(portRules) == 0 {
+		if fromEndpoints != nil {
+			ctx.PolicyTrace("  Allows %s any port from endpoints %v\n", dir, fromEndpoints)
+		} else {
+			ctx.PolicyTrace("  Allows %s any port\n", dir)
+		}
+
+		if !l3match {
+			ctx.PolicyTrace("      Labels %s not found", ctx.From)
+		} else {
+			ctx.PolicyTrace("      Found all required labels")
+		}
+
+		p := api.PortProtocol{
+			Port:     "0",
+			Protocol: api.ProtoAny,
+		}
+		r := api.PortRule{
+			Ports: []api.PortProtocol{p},
+		}
+		var cnt int
+		cnt, err = mergeL4Port(&portCtx, fromEndpoints, r, p, dir, resMap)
+		if err != nil {
+			return found, err
+		}
+		found += cnt
+	}
 
 	for _, r := range portRules {
 		if fromEndpoints != nil {
@@ -277,37 +338,28 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 			}
 		}
 
-		l3match := false
-		if ctx.From != nil && fromEndpoints != nil {
-			for _, labels := range fromEndpoints {
-				if labels.Matches(ctx.From) {
-					l3match = true
-					break
-				}
-			}
-			if l3match == false {
-				ctx.PolicyTrace("      Labels %s not found", ctx.From)
-				continue
-			}
+		if !l3match {
+			ctx.PolicyTrace("      Labels %s not found", ctx.From)
+		} else {
+			ctx.PolicyTrace("      Found all required labels")
 		}
-		ctx.PolicyTrace("      Found all required labels")
 
 		for _, p := range r.Ports {
 			var cnt int
 			if p.Protocol != api.ProtoAny {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, resMap)
+				cnt, err = mergeL4Port(&portCtx, fromEndpoints, r, p, dir, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, api.PortProtocol{Port: p.Port, Protocol: api.ProtoTCP}, dir, resMap)
+				cnt, err = mergeL4Port(&portCtx, fromEndpoints, r, api.PortProtocol{Port: p.Port, Protocol: api.ProtoTCP}, dir, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, api.PortProtocol{Port: p.Port, Protocol: api.ProtoUDP}, dir, resMap)
+				cnt, err = mergeL4Port(&portCtx, fromEndpoints, r, api.PortProtocol{Port: p.Port, Protocol: api.ProtoUDP}, dir, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -322,8 +374,6 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 func mergeIngressVisibility(ctx *SearchContext, rule api.IngressVisibilityRule, resMap L4PolicyMap, visMap L7VisibilityMap,
 	defaultAllow bool) (int, error) {
 	found := 0
-
-	ctx.PolicyTrace("  Visibility into %s ports %v\n", dirIngress, rule.ToPorts)
 
 	for _, p := range rule.ToPorts {
 		var cnt int
@@ -372,28 +422,40 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 	state.selectRule(ctx, r)
 	found := 0
 
-	if !ctx.EgressL4Only {
-		if len(r.Ingress) == 0 {
-			ctx.PolicyTrace("    No L4 rules\n")
+	// Always resolve both ingress and egress, in order to always generate the same
+	// L4Policy. This is required for resolving visibility rules. But disable tracing
+	// for the rules that were not requested for tracing.
+	ingressCtx := *ctx
+	if ctx.EgressL4Only {
+		ingressCtx.Trace = TRACE_DISABLED
+	}
+	egressCtx := *ctx
+	if ctx.IngressL4Only {
+		egressCtx.Trace = TRACE_DISABLED
+	}
+
+	if len(r.Ingress) == 0 {
+		ingressCtx.PolicyTrace("    No Ingress L4 rules\n")
+	}
+	for _, r := range r.Ingress {
+		cnt, err := mergeL4(&ingressCtx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
+		if err != nil {
+			return nil, err
 		}
-		for _, r := range r.Ingress {
-			cnt, err := mergeL4(ctx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
-			if err != nil {
-				return nil, err
-			}
+		if !ctx.EgressL4Only {
 			found += cnt
 		}
 	}
 
-	if !ctx.IngressL4Only {
-		if len(r.Egress) == 0 {
-			ctx.PolicyTrace("    No L4 rules\n")
+	if len(r.Egress) == 0 {
+		egressCtx.PolicyTrace("    No Egress L4 rules\n")
+	}
+	for _, r := range r.Egress {
+		cnt, err := mergeL4(&egressCtx, "Egress", nil, r.ToPorts, result.Egress)
+		if err != nil {
+			return nil, err
 		}
-		for _, r := range r.Egress {
-			cnt, err := mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
-			if err != nil {
-				return nil, err
-			}
+		if !ctx.IngressL4Only {
 			found += cnt
 		}
 	}
@@ -422,16 +484,17 @@ var allowAllRule rule = rule{
 	},
 }
 
-func (r *rule) resolveIngressVisibility(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
+func (r *rule) resolveIngressVisibility(ctx *SearchContext, state *traceState, result *L4Policy) error {
 	if !r.EndpointSelector.Matches(ctx.To) {
-		ctx.PolicyTraceVerbose("  Rule %d %s: no match\n", state.ruleID, r)
-		return nil, nil
+		state.unSelectRule(ctx, r)
+		return nil
 	}
+
+	ctx.PolicyTrace("* Rule %s: selected\n", r)
 
 	defaultAllow := len(result.Ingress) == 0 && len(result.Egress) == 0 &&
 		GetPolicyEnabled() == "default" // endpoint.DefaultEnforcement
 
-	ctx.PolicyTrace("* Rule %d %s: match\n", state.ruleID, r)
 	found := 0
 
 	// Always resolve visibility rules, even if ctx.EgressL4Only is true, because the synthesis of
@@ -439,7 +502,7 @@ func (r *rule) resolveIngressVisibility(ctx *SearchContext, state *traceState, r
 	for _, r := range r.IngressVisibility {
 		cnt, err := mergeIngressVisibility(ctx, r, result.Ingress, result.IngressVisibility, defaultAllow)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		found += cnt
 	}
@@ -453,23 +516,18 @@ func (r *rule) resolveIngressVisibility(ctx *SearchContext, state *traceState, r
 		// Synthesize "allow all" rules at ingress and egress to retain the disabled / "default allow"
 		// semantics.
 		if defaultAllow {
-			ctx.PolicyTrace("    Default allow-all ingress/egress rule synthesized\n")
+			ctx.PolicyTrace("    Default allow-all ingress/egress rule created\n")
 			_, err := allowAllRule.resolveL4Policy(ctx, state, result)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
-		if ctx.EgressL4Only {
-			return nil, nil
-		} else {
-			return result, nil
-		}
-
+		return nil
 	}
 
 	ctx.PolicyTrace("    No active ingress visibility rules\n")
-	return nil, nil
+	return nil
 }
 
 func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {
@@ -527,6 +585,7 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 
 		found += mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress)
 	}
+
 	for _, r := range r.Egress {
 		// TODO(ianvernon): GH-1658
 		var allCIDRs []api.CIDR

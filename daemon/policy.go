@@ -80,7 +80,7 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.Wait
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
-// UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
+// EnableEndpointPolicyEnforcement returns whether policy enforcement needs to be
 // enabled for the specified endpoint.
 //
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.

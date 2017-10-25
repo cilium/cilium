@@ -162,7 +162,12 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 	return l4
 }
 
-// IsRedirect returns true if the L4 filter contains a port redirection
+// MatchesAnyPort returns true if the L4 filter matches any port.
+func (l4 *L4Filter) MatchesAnyPort() bool {
+	return l4.Protocol == api.ProtoAny && l4.Port == 0
+}
+
+// IsRedirect returns true if the L4 filter contains a port redirection.
 func (l4 *L4Filter) IsRedirect() bool {
 	return l4.L7Parser != ""
 }
@@ -247,7 +252,8 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 // * If the `L4PolicyMap` has at least one rule and `ports` is empty.
 // * If a single port is not present in the `L4PolicyMap`.
 // * If a port is present in the `L4PolicyMap`, but it applies FromEndpoints
-//   constraints that require labels not present in `labels`.
+//   constraints that require labels not present in `labels`, and there is no
+//   rule maching on "any port".
 // Otherwise, returns api.Allowed.
 func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
 	if len(l4) == 0 {
@@ -256,6 +262,12 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 
 	if len(ports) == 0 {
 		return api.Denied
+	}
+
+	// Check any rule that accepts any port.
+	anyPortFilter, match := l4["0/ANY"]
+	if match && anyPortFilter.matchesLabels(labels) {
+		return api.Allowed
 	}
 
 	for _, l4CtxIng := range ports {
