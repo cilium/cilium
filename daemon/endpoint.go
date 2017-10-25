@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -45,51 +44,46 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	log.Debugf("GET /endpoint request: %+v", params)
 
-	var wg sync.WaitGroup
+	modelChan := make(chan *models.Endpoint, 1)
+	defer close(modelChan)
+
+	// FIXME @aanm hide use of endpoint manager lock
+	endpointmanager.Mutex.RLock()
+	numEndpoints := len(endpointmanager.Endpoints)
+	eps := make([]*models.Endpoint, 0, numEndpoints)
 
 	if params.Labels == nil {
-		i := 0
-		endpointmanager.Mutex.RLock()
-		eps := make([]*models.Endpoint, len(endpointmanager.Endpoints))
-		wg.Add(len(endpointmanager.Endpoints))
-		for k := range endpointmanager.Endpoints {
-			go func(wg *sync.WaitGroup, i int, ep *endpoint.Endpoint) {
-				eps[i] = ep.GetModel()
-				wg.Done()
-			}(&wg, i, endpointmanager.Endpoints[k])
-			i++
+		for _, v := range endpointmanager.Endpoints {
+			go func(ep *endpoint.Endpoint) {
+				modelChan <- ep.GetModel()
+			}(v)
 		}
 		endpointmanager.Mutex.RUnlock()
-		wg.Wait()
-		return NewGetEndpointOK().WithPayload(eps)
-	} else {
-		eps := []*models.Endpoint{}
-
-		// Convert params.Labels to model that we can compare with the endpoint's labels.
-		convertedLabels := labels.NewLabelsFromModel(params.Labels)
-
-		endpointmanager.Mutex.RLock()
-
-		wg.Add(len(endpointmanager.Endpoints))
-		for k := range endpointmanager.Endpoints {
-			go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
-				ep.Mutex.RLock()
-				if ep.HasLabels(convertedLabels) {
-					eps = append(eps, ep.GetModel())
-				}
-				ep.Mutex.RUnlock()
-				wg.Done()
-			}(&wg, endpointmanager.Endpoints[k])
+		for i := 0; i < numEndpoints; i++ {
+			eps = append(eps, <-modelChan)
 		}
-		endpointmanager.Mutex.RUnlock()
-		wg.Wait()
-
-		if len(eps) == 0 {
-			return NewGetEndpointNotFound()
-		}
-
 		return NewGetEndpointOK().WithPayload(eps)
 	}
+
+	// Convert params.Labels to model that we can compare with the endpoint's labels.
+	convertedLabels := labels.NewLabelsFromModel(params.Labels)
+
+	for _, v := range endpointmanager.Endpoints {
+		go func(ep *endpoint.Endpoint) {
+			ep.Mutex.RLock()
+			if ep.HasLabels(convertedLabels) {
+				modelChan <- ep.GetModelRLocked()
+			}
+			ep.Mutex.RUnlock()
+		}(v)
+	}
+	endpointmanager.Mutex.RUnlock()
+
+	for i := 0; i < numEndpoints; i++ {
+		eps = append(eps, <-modelChan)
+	}
+
+	return NewGetEndpointOK().WithPayload(eps)
 }
 
 type getEndpointID struct {
