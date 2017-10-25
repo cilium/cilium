@@ -53,9 +53,7 @@ func OpenLogfile(lf string) error {
 	}
 
 	logPath = lf
-	log.WithFields(log.Fields{
-		FieldFilePath: logPath,
-	}).Debug("Opened access log")
+	log.WithField(FieldFilePath, logPath).Debug("Opened access log")
 
 	logBuf = bufio.NewWriter(logFile)
 	return nil
@@ -63,9 +61,7 @@ func OpenLogfile(lf string) error {
 
 // CloseLogfile closes the logfile
 func CloseLogfile() {
-	log.WithFields(log.Fields{
-		FieldFilePath: logPath,
-	}).Debug("Closed access log")
+	log.WithField(FieldFilePath, logPath).Debug("Closed access log")
 
 	logBuf.Flush()
 	logFile.Close()
@@ -80,9 +76,7 @@ func logString(outStr string, retry bool) {
 	_, err := logBuf.WriteString(outStr + "\n")
 	if err != nil {
 		if retry {
-			log.WithFields(log.Fields{
-				FieldFilePath: logPath,
-			}).WithError(err).Warning("Error encountered while writing to access log, retrying once...")
+			log.WithError(err).WithField(FieldFilePath, logPath).Warn("Error encountered while writing to access log, retrying once...")
 
 			CloseLogfile()
 			OpenLogfile(logPath)
@@ -124,9 +118,7 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	}).Debug("Logging L7 flow record")
 
 	if logBuf == nil {
-		log.WithFields(log.Fields{
-			FieldFilePath: logPath,
-		}).Debug("Skipping writing to access log (write buffer nil)")
+		log.WithField(FieldFilePath, logPath).Debug("Skipping writing to access log (write buffer nil)")
 		return
 	}
 
@@ -138,8 +130,6 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	}
 
 	if err := logBuf.Flush(); err != nil {
-		log.WithFields(log.Fields{
-			FieldFilePath: logPath,
-		}).WithError(err).Warning("Error encountered while flushing to access log")
+		log.WithError(err).WithField(FieldFilePath, logPath).Warn("Error encountered while flushing to access log")
 	}
 }
