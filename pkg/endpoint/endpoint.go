@@ -931,8 +931,6 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 		NodeMAC:    lxcmap.MAC(nodeMAC),
 	}
 
-	copy(info.V6Addr[:], e.IPv6)
-
 	for i, pM := range e.PortMap {
 		info.PortMap[i] = lxcmap.PortMap{
 			From: byteorder.HostToNetwork(pM.From).(uint16),

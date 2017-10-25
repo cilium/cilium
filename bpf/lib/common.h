@@ -149,7 +149,7 @@ struct endpoint_info {
 	__u32		flags;
 	mac_t		mac;
 	mac_t		node_mac;
-	union v6addr	ip;
+	__u32		pad[4];
 	struct portmap  portmap[PORTMAP_MAX];
 };
 
