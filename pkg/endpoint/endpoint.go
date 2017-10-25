@@ -361,12 +361,12 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 	return ep, nil
 }
 
-func (e *Endpoint) GetModel() *models.Endpoint {
+// GetModelRLocked returns the API model of endpoint e.
+// e.Mutex must be RLocked.
+func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	if e == nil {
 		return nil
 	}
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
 
 	currentState := models.EndpointState(e.State)
 	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
@@ -403,6 +403,17 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 			IPV6: e.IPv6.String(),
 		},
 	}
+}
+
+// GetModel returns the API model of endpoint e.
+func (e *Endpoint) GetModel() *models.Endpoint {
+	if e == nil {
+		return nil
+	}
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.GetModelRLocked()
 }
 
 // GetPolicyModel returns the endpoint's policy as an API model.
