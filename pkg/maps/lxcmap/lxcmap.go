@@ -15,6 +15,8 @@
 package lxcmap
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
@@ -145,7 +147,7 @@ func (v EndpointInfo) String() string {
 	if len(portMaps) == 0 {
 		portMaps = append(portMaps, "(empty)")
 	}
-	return fmt.Sprintf("id=%d ifindex=%d mac=%s nodemac=%s seclabel=%#x portMaps=%s",
+	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s seclabel=%#-4x portMaps=%s",
 		v.LxcID,
 		v.IfIndex,
 		v.MAC,
@@ -192,4 +194,31 @@ func DeleteElement(f EndpointFrontend) int {
 	}
 
 	return errors
+}
+
+func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	k, v := EndpointKey{}, EndpointInfo{}
+
+	if err := binary.Read(bytes.NewBuffer(key), byteorder.Native, &k); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+	}
+
+	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
+	}
+
+	return k, v, nil
+}
+
+func dumpCallback(key bpf.MapKey, value bpf.MapValue) {
+	k, v := key.(EndpointKey), value.(EndpointInfo)
+	fmt.Printf("%-32s %s\n", k.String(), v.String())
+}
+
+// DumpMap prints the content of the local endpoint map to stdout
+func DumpMap(callback bpf.DumpCallback) error {
+	if callback == nil {
+		return mapInstance.Dump(dumpParser, dumpCallback)
+	}
+	return mapInstance.Dump(dumpParser, callback)
 }
