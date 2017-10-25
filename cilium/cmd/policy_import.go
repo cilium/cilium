@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +36,7 @@ var policyImportCmd = &cobra.Command{
 		if ruleList, err := loadPolicy(path); err != nil {
 			Fatalf("Cannot parse policy %s: %s\n", path, err)
 		} else {
-			log.Debugf("Constructed policy object for import %+v", ruleList)
+			log.WithField("rule", logfields.Repr(ruleList)).Debug("Constructed policy object for import")
 
 			// Ignore request if no policies have been found
 			if len(ruleList) == 0 {
