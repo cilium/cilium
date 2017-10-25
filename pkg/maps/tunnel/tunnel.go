@@ -76,7 +76,7 @@ func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 	}
 
 	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
 	}
 
 	return k, v, nil
