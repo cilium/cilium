@@ -14,7 +14,7 @@ function abort {
 	echo ""
 	echo "------------------------------------------------------------------------"
 
-	cilium_id=$(docker ps -aq --filter=name=cilium-agent)
+	cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 	echo "------------------------------------------------------------------------"
 	echo "                            Cilium logs"
 	docker logs ${cilium_id}
