@@ -21,6 +21,7 @@ tests-ginkgo: tests-common-ginkgo
 
 tests-common-ginkgo: force
 	tests/00-fmt.sh
+	go vet $(GOFILES)
 	# Make the bindata to run the unittest
 	make -C daemon go-bindata
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
