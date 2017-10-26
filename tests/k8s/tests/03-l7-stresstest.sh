@@ -96,7 +96,7 @@ if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend an
 kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
 kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
 
-cilium_id=$(docker ps -aq --filter=name=cilium-agent)
+cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
