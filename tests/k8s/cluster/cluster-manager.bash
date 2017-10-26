@@ -315,7 +315,7 @@ function deploy_cilium(){
                 s+\$iface+${iface}+g" \
             "${cilium_dir}/cilium-lb-ds.yaml.sed" > "${cilium_dir}/cilium-lb-ds.yaml"
 
-        kubectl create -f "${cilium_dir}"
+        kubectl create -f "${cilium_dir}/cilium-lb-ds.yaml"
 
         wait_for_daemon_set_ready kube-system cilium 1
     else
@@ -328,7 +328,7 @@ function deploy_cilium(){
                 s+etcd-ca: \"\"+etcd-ca: \""$(base64 -w 0 "${certs_dir}/ca.pem")"\"+g" \
             "${cilium_original}" > "${cilium_dir}/cilium.yaml"
 
-        kubectl create -f "${cilium_dir}"
+        kubectl create -f "${cilium_dir}/cilium.yaml"
 
         wait_for_daemon_set_ready kube-system cilium 2
     fi
