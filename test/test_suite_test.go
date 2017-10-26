@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 	case "runtime":
 		err := vagrant.Create("runtime")
 		if err != nil {
-			Fail(fmt.Sprintf("Vagrant could not started correctly: %s", err))
+			Fail(fmt.Sprintf("Vagrant could not start correctly: %s", err))
 		}
 		cilium := helpers.CreateCilium("runtime", log.WithFields(
 			log.Fields{"testName": "BeforeSuite"}))
