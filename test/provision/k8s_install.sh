@@ -34,6 +34,9 @@ sudo rm /var/lib/apt/lists/lock
 wget https://packages.cloud.google.com/apt/doc/apt-key.gpg
 apt-key add apt-key.gpg
 
+# Disable swap to avoid issues with kubeadm 1.8
+swapoff -a
+
 apt-get update
 apt-get install --allow-downgrades -y \
     llvm \
@@ -68,7 +71,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
     /tmp/provision/compile.sh
 else
     kubeadm join --token=$TOKEN 192.168.36.11:6443
-    cp /etc/kubernetes/kubelet.conf ${CILIUM_CONFIG_DIR}/kubeconfig
+    test -f /etc/kubernetes/kubelet.conf && cp /etc/kubernetes/kubelet.conf ${CILIUM_CONFIG_DIR}/kubeconfig
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
 fi
