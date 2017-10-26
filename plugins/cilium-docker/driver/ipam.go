@@ -122,6 +122,12 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The host addressing may have changed due to a daemon restart, update it
+	driver.mutex.Lock()
+	driver.conf.Addressing = ipam.HostAddressing
+	driver.updateRoutes()
+	driver.mutex.Unlock()
+
 	addr := ipam.Endpoint
 	if addr == nil {
 		sendError(w, "No IP addressing provided", http.StatusBadRequest)
