@@ -2,6 +2,35 @@
 NEWS
 ******
 
+Version 0.13
+============
+
+:date: 1970-01-01
+:commit: nil
+
+Bug Fixes
+---------
+
+Features
+--------
+* Improved ``cilium policy trace`` output (1810_)
+* Add ``cilium cilium bpf ct flush`` command (1788_)
+
+Kubernetes
+----------
+
+Documentation
+-------------
+
+CI
+--
+* Improved CI testing infrastructure and fixed several test flakes (1848_, 1865_)
+* Foundation of new Ginkgo build-driven-development framework for CI (1733_)
+
+Other
+-----
+* Standardized structured logging (1801_, 1828_, 1836_, 1826_, 1833_, 1834_, 1827_, 1829_, 1832_, 1835_)
+
 Version 0.12
 ============
 
@@ -758,3 +787,18 @@ Fixes
 .. _1837: https://github.com/cilium/cilium/pull/1837
 .. _1776: https://github.com/cilium/cilium/pull/1776
 .. _1793: https://github.com/cilium/cilium/pull/1793
+.. _1810: https://github.com/cilium/cilium/pull/1810
+.. _1788: https://github.com/cilium/cilium/pull/1788
+.. _1848: https://github.com/cilium/cilium/pull/1848
+.. _1865: https://github.com/cilium/cilium/pull/1865
+.. _1733: https://github.com/cilium/cilium/pull/1733
+.. _1801: https://github.com/cilium/cilium/pull/1801
+.. _1828: https://github.com/cilium/cilium/pull/1828
+.. _1836: https://github.com/cilium/cilium/pull/1836
+.. _1826: https://github.com/cilium/cilium/pull/1826
+.. _1833: https://github.com/cilium/cilium/pull/1833
+.. _1834: https://github.com/cilium/cilium/pull/1834
+.. _1827: https://github.com/cilium/cilium/pull/1827
+.. _1829: https://github.com/cilium/cilium/pull/1829
+.. _1832: https://github.com/cilium/cilium/pull/1832
+.. _1835: https://github.com/cilium/cilium/pull/1835
