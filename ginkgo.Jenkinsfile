@@ -1,5 +1,7 @@
 pipeline {
-    agent none
+    agent {
+        label 'ginkgo'
+    }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
     }
@@ -11,15 +13,14 @@ pipeline {
 
     stages {
         stage('Checkout') {
-            agent any
             steps {
+                sh 'env'
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
             }
         }
         stage('UnitTesting') {
-            agent any
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
@@ -29,7 +30,6 @@ pipeline {
             }
         }
         stage('BDD-Test') {
-            agent any
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
