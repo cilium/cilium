@@ -67,14 +67,15 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	}
 
 	for _, ep := range possibleEPs {
+		ep.Mutex.Lock()
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Restoring endpoint")
 
 		if err := d.syncLabels(ep); err != nil {
 			log.WithError(err).WithField(logfields.EndpointID, ep.ID).Warn("Unable to restore endpoint")
+			ep.Mutex.Unlock()
 			continue
 		}
 
-		ep.Mutex.Lock()
 		if d.conf.KeepConfig {
 			ep.SetDefaultOpts(nil)
 		} else {
