@@ -52,19 +52,6 @@ type kafkaRedirect struct {
 	socket   *proxySocket
 }
 
-/*
-id       string
-	toPort   uint16
-	epID     uint64
-	source   ProxySource
-	server   *manners.GracefulServer
-	ingress  bool
-	nodeInfo accesslog.NodeAddressInfo
-
-	mutex  lock.RWMutex // protecting the fields below
-	rules  []string
-	router route.Router
-*/
 // ToPort returns the redirect port of an OxyRedirect
 func (k *kafkaRedirect) ToPort() uint16 {
 	return k.conf.listenPort
