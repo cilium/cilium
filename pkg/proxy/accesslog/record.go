@@ -17,6 +17,8 @@ package accesslog
 import (
 	"net/http"
 	"net/url"
+
+	"github.com/cilium/cilium/pkg/kafka"
 )
 
 // FlowType is the type to indicate the flow direction
@@ -177,8 +179,11 @@ type LogRecord struct {
 	// Kafka contains information for Kafka request/responses
 	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
 
-	// Internal
-	Request *http.Request `json:"-"`
+	// Internal HTTP request
+	HttpRequest *http.Request `json:"-"`
+
+	// Internal Kafka request
+	KafkaRequest *kafka.RequestMessage `json:"-"`
 }
 
 // LogRecordHTTP contains the HTTP specific portion of a log record
@@ -206,20 +211,22 @@ type KafkaTopic struct {
 
 // LogRecordKafka contains the Kafka-specific portion of a log record
 type LogRecordKafka struct {
+	// Code is the Kafka code being returned
+	Code int
+
 	// APIVersion of the Kafka api used
-	APIVersion int
+	APIVersion int16
 
 	// APIKey for Kafka message
 	// Reference: https://kafka.apache.org/protocol#protocol_api_keys
-	APIKey int16
+	APIKey string
 
 	// CorrelationID is a user-supplied integer value that will be passed
 	// back with the response
 	CorrelationID int32
 
-	// Topics of the request, can be a single topic for message type
-	// produce/createTopic or a list of topics (fetch/deleteTopic).
-	// Note that this list can be empty since not all messages use
+	// Topic of the request, currently is a single topic
+	// Note that this string can be empty since not all messages use
 	// Topic. example: LeaveGroup, Heartbeat
-	Topics []KafkaTopic
+	Topic KafkaTopic
 }
