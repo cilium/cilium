@@ -20,18 +20,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (e *Endpoint) log() *log.Entry {
-	return log.WithFields(log.Fields{
-		logfields.EndpointID:  e.ID,
-		logfields.ContainerID: e.DockerID,
-		// REVIEW Is this a valid association?
-		"iteration": e.getIteration(),
-	})
+// logger returns a logrus object with EndpointID, ContainerID and the Endpoint
+// revision fields.
+// Note: You must host Endpoint.Mutex
+func (e *Endpoint) getLogger() *log.Entry {
+	if e.logger == nil {
+		e.updateLogger()
+	}
+	return e.logger
 }
 
-func (e *Endpoint) getIteration() uint64 {
-	if e.Consumable == nil {
-		return 0
-	}
-	return e.Consumable.Iteration
+// updateLogger
+// Note: You must hold Endpoint.Mutex
+func (e *Endpoint) updateLogger() {
+	e.logger = log.WithFields(log.Fields{
+		logfields.EndpointID:  e.ID,
+		logfields.ContainerID: e.DockerID,
+		"policyRevision":      e.policyRevision,
+	})
 }
