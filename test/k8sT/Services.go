@@ -76,8 +76,29 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.Delete(demoDSPath)
 	}, 300)
 
+	It("Check Service with cross-node", func() {
+		demoDSPath := fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
+		kubectl.Apply(demoDSPath)
+		defer kubectl.Delete(demoDSPath)
+
+		pods, err := kubectl.WaitforPods("default", "-l zgroup=testDS", 300)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		svcIP, err := kubectl.Get(
+			"default", "service testds-service").Filter("{.spec.clusterIP}")
+		Expect(err).Should(BeNil())
+		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+
+		status := kubectl.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
+		Expect(status.WasSuccessful()).Should(BeTrue())
+
+		k8s2 := helpers.CreateKubectl("k8s2", logger)
+		status = k8s2.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
+		Expect(status.WasSuccessful()).Should(BeTrue())
+	})
+
 	//TODO: Check service with IPV6
-	//TODO: Check the service with cross-node
 	//TODO: NodePort? It is ready?
 
 })
