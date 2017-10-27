@@ -46,20 +46,20 @@ const (
 
 type L4Filter struct {
 	// Port is the destination port to allow
-	Port int
+	Port int `json:"port"`
 	// Protocol is the L4 protocol to allow or NONE
-	Protocol api.L4Proto
+	Protocol api.L4Proto `json:"protocol"`
 	// FromEndpoints limit the source labels for allowing traffic. If
 	// FromEndpoints is empty, then it selects all endpoints.
 	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
-	L7Parser L7ParserType
+	L7Parser L7ParserType `json:"-"`
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
-	L7RedirectPort int
+	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
-	L7RulesPerEp L7DataMap
+	L7RulesPerEp L7DataMap `json:"l7-rules,omitempty"`
 	// Ingress is true if filter applies at ingress
-	Ingress bool
+	Ingress bool `json:"-"`
 }
 
 // GetRelevantRules returns the relevant rules based on the source and
