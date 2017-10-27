@@ -80,10 +80,8 @@ func (node *Node) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	result, err := node.sshClient.RunCommand(command)
-	stdout.Write(result)
+	err := node.sshClient.RunCommand(command)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error running command '%s': %s\n", command.Path, err)
 		return false
 	}
 	return true
