@@ -25,6 +25,17 @@ const (
 	// IdentityLabels are the labels relevant for the security identity
 	IdentityLabels = "identityLabels"
 
+	// EndpointLabelSelector is a selector for Endpoints by label
+	EndpointLabelSelector = "EndpointLabelSelector"
+
+	// Object is used when "%+v" printing Go objects for debug or error handling.
+	// It is often paired with logfields.Repr to render the object.
+	Object = "obj"
+
+	// Request is a request object received by us, reported in debug or error.
+	// It is often paired with logfields.Repr to render the object.
+	Request = "req"
+
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 

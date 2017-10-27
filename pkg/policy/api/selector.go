@@ -19,15 +19,13 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
 
+	"fmt"
 	"github.com/mitchellh/hashstructure"
-	"github.com/op/go-logging"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-policy")
 )
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
@@ -157,7 +155,9 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 		// FIXME: Omit this error or through it to the caller?
 		// We are doing the verification in the ParseEndpointSelector but
 		// don't make sure the user can modify the current labels.
-		log.Errorf("unable the match selector %+v in selector: %s", n, err)
+		log.WithError(err).WithField(logfields.EndpointLabelSelector,
+			fmt.Sprintf("%+v", n)).
+			Error("unable to match label selector in selector")
 		return false
 	}
 

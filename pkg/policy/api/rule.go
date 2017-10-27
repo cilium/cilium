@@ -482,12 +482,58 @@ var KafkaAPIKeyMap = map[string]int16{
 	"alterconfigs":         33, /* AlterConfigs */
 }
 
+// KafkaReverseApiKeyMap is the map of all allowed kafka API keys
+// with the key values.
+// Reference: https://kafka.apache.org/protocol#protocol_api_keys
+var KafkaReverseAPIKeyMap = map[int16]string{
+	0:  "produce",              /* Produce */
+	1:  "fetch",                /* Fetch */
+	2:  "offsets",              /* Offsets */
+	3:  "metadata",             /* Metadata */
+	4:  "leaderandisr",         /* LeaderAndIsr */
+	5:  "stopreplica",          /* StopReplica */
+	6:  "updatemetadata",       /* UpdateMetadata */
+	7:  "controlledshutdown",   /* ControlledShutdown */
+	8:  "offsetcommit",         /* OffsetCommit */
+	9:  "offsetfetch",          /* OffsetFetch */
+	10: "findcoordinator",      /* FindCoordinator */
+	11: "joingroup",            /* JoinGroup */
+	12: "heartbeat",            /* Heartbeat */
+	13: "leavegroup",           /* LeaveGroup */
+	14: "syncgroup",            /* SyncGroup */
+	15: "describegroups",       /* DescribeGroups */
+	16: "listgroups",           /* ListGroups */
+	17: "saslhandshake",        /* SaslHandshake */
+	18: "apiversions",          /* ApiVersions */
+	19: "createtopics",         /* CreateTopics */
+	20: "deletetopics",         /* DeleteTopics */
+	21: "deleterecords",        /* DeleteRecords */
+	22: "initproducerid",       /* InitProducerId */
+	23: "offsetforleaderepoch", /* OffsetForLeaderEpoch */
+	24: "addpartitionstotxn",   /* AddPartitionsToTxn */
+	25: "addoffsetstotxn",      /* AddOffsetsToTxn */
+	26: "endtxn",               /* EndTxn */
+	27: "writetxnmarkers",      /* WriteTxnMarkers */
+	28: "txnoffsetcommit",      /* TxnOffsetCommit */
+	29: "describeacls",         /* DescribeAcls */
+	30: "createacls",           /* CreateAcls */
+	31: "deleteacls",           /* DeleteAcls */
+	32: "describeconfigs",      /* DescribeConfigs */
+	33: "alterconfigs",         /* AlterConfigs */
+}
+
 // KafkaMaxTopicLen is the maximum character len of a topic.
 // Older Kafka versions had longer topic lengths of 255, in Kafka 0.10 version
 // the length was changed from 255 to 249. For compatibility reasons we are
 // using 255
 const (
 	KafkaMaxTopicLen = 255
+)
+
+// KafkaMaxTopicVal is the maximum value of supported API Keys in KafkaAPIKeyMap
+// KafkaReverseAPIKeyMap
+const (
+	KafkaMaxAPIKeyVal = 33
 )
 
 // KafkaTopicValidChar is a one-time regex generation of all allowed characters
