@@ -398,7 +398,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (bool, error) {
 	e.Consumable.Mutex.RUnlock()
 	repo.Mutex.RUnlock()
 
-	optsChanged := e.ApplyOptsLocked(opts)
+	optsChanged := e.applyOptsLocked(opts)
 
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
