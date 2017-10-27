@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -41,7 +42,7 @@ const (
 	FieldURL      = "url"
 	FieldProtocol = "protocol"
 	FieldHeader   = "header"
-	FieldFilePath = "file-path"
+	FieldFilePath = logfields.Path
 )
 
 // OpenLogfile opens a file for logging
