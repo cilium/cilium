@@ -17,6 +17,7 @@ package policy
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -52,9 +53,11 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	state := traceState{}
 	c.Assert(rule1.canReach(fooFoo2ToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
 	c.Assert(rule1.canReach(fooToBar, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// selector: bar
 	// allow: foo
@@ -87,14 +90,17 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	state = traceState{}
 	c.Assert(rule2.canReach(fooToBar, &state), Equals, api.Denied)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	c.Assert(rule2.canReach(bazToBar, &state), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	c.Assert(rule2.canReach(fooBazToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 }
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
@@ -160,13 +166,16 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
+	// Foo isn't selected in the rule1's policy.
 	state = traceState{}
 	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// This rule actually overlaps with the existing ingress "http" rule,
 	// so we'd expect it to merge.
@@ -225,13 +234,61 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(len(res.Ingress), Equals, 1)
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+
+	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	bazSelector := api.NewESFromLabels(labels.ParseSelectLabel("baz"))
+	rule1 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{fooSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					FromEndpoints: []api.EndpointSelector{bazSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	mergedES := []api.EndpointSelector{fooSelector, bazSelector}
+	expected := NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: mergedES,
+		L7Parser: "", L7RulesPerEp: L7DataMap{}, Ingress: true,
+	}
+
+	state := traceState{}
+	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
@@ -284,11 +341,9 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	l7rules := api.L7Rules{
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
-	hash, err := fooSelector[0].Hash()
-	c.Assert(err, IsNil)
 	l7map := L7DataMap{
 		WildcardEndpointSelector: l7rules,
-		hash: l7rules,
+		fooSelector[0]:           l7rules,
 	}
 
 	expected := NewL4Policy()
@@ -301,13 +356,15 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	rule2 := &rule{
 		Rule: api.Rule{
@@ -352,11 +409,9 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	l7rules = api.L7Rules{
 		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 	}
-	hash, err = fooSelector[0].Hash()
-	c.Assert(err, IsNil)
 	l7map = L7DataMap{
 		WildcardEndpointSelector: l7rules,
-		hash: l7rules,
+		fooSelector[0]:           l7rules,
 	}
 
 	expected = NewL4Policy()
@@ -369,13 +424,15 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err = rule2.resolveL4Policy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
 	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
 	res, err = rule1.resolveL4Policy(toBar, &state, NewL4Policy())
@@ -386,6 +443,67 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	res, err = rule2.resolveL4Policy(toBar, &state, res)
 	c.Assert(err, Not(IsNil))
 	c.Assert(err.Error(), Equals, "Cannot merge conflicting L7 parsers (kafka/http)")
+
+	// Similar to 'rule2', but with different topics for the l3-dependent
+	// rule and the l4-only rule.
+	rule3 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "bar"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	fooRules := api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+	}
+	barRules := api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "bar"}},
+	}
+
+	// The l3-dependent l7 rules are not merged together.
+	l7map = L7DataMap{
+		fooSelector[0]:           fooRules,
+		WildcardEndpointSelector: barRules,
+	}
+	expected = NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+	}
+
+	state = traceState{}
+	res, err = rule3.resolveL4Policy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
@@ -446,8 +564,9 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	state := traceState{}
 	res := rule1.resolveL3Policy(toBar, &state, NewL3Policy())
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, DeepEquals, *expected)
+	c.Assert(*res, comparator.DeepEquals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
 
 	// Must be parsable, make sure Validate fails when not.
 	err = api.Rule{
@@ -537,9 +656,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	state := traceState{}
 	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
 	c.Assert(rule1.canReach(notFromWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
@@ -569,9 +690,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	state := traceState{}
 	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
 	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {

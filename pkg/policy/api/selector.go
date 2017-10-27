@@ -19,20 +19,23 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	"github.com/mitchellh/hashstructure"
-	"github.com/op/go-logging"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
-)
-
-var (
-	log = logging.MustGetLogger("cilium-policy")
 )
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
 	*metav1.LabelSelector
+}
+
+// LabelSelectorString returns a user-friendly string representation of
+// EndpointSelector.
+func (n *EndpointSelector) LabelSelectorString() string {
+	return metav1.FormatLabelSelector(n.LabelSelector)
 }
 
 // String returns a string representation of EndpointSelector.
@@ -108,6 +111,11 @@ func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
 	return false
 }
 
+// NewWildcardEndpointSelector returns a selector that matches on all endpoints
+func NewWildcardEndpointSelector() EndpointSelector {
+	return EndpointSelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
+}
+
 // NewESFromLabels creates a new endpoint selector from the given labels.
 func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 	ml := map[string]string{}
@@ -149,10 +157,10 @@ func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) Endpo
 func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 	lbSelector, err := metav1.LabelSelectorAsSelector(n.LabelSelector)
 	if err != nil {
-		// FIXME: Omit this error or through it to the caller?
+		// FIXME: Omit this error or throw it to the caller?
 		// We are doing the verification in the ParseEndpointSelector but
 		// don't make sure the user can modify the current labels.
-		log.Errorf("unable the match selector %+v in selector: %s", n, err)
+		log.WithError(err).WithField(logfields.EndpointLabelSelector, logfields.Repr(n)).Error("unable to match label selector in selector")
 		return false
 	}
 

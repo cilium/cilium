@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/comparator"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
@@ -184,7 +185,7 @@ func (ds *DaemonSuite) TestCleanUpDockerDangling(c *C) {
 
 	ep, err := endpointmanager.Lookup(e.NewCiliumID(259))
 	c.Assert(err, IsNil)
-	c.Assert(ep, DeepEquals, epsMap[259])
+	c.Assert(ep, comparator.DeepEquals, epsMap[259])
 
 	ds.d.deleteNonFunctionalEndpoints()
 

@@ -89,14 +89,17 @@ backend_svc_ip=$(kubectl get svc -n development | awk 'NR==2{print $2}')
 
 log "Running tests WITHOUT Policy / Proxy loaded"
 
+log "running curl ${backend_svc_ip}:80 from pod ${frontend_pod} (should work)"
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
 
 if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend and backend:80/" ; fi
 
-kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
-kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
+# TODO: implement in nightly builds (GH-1503)
+#log "running stress tests"
+#kubectl exec -n qa -i ${frontend_pod} -- wrk -t20 -c1000 -d60 "http://${backend_svc_ip}:80/"
+#kubectl exec -n qa -i ${frontend_pod} -- ab -r -n 1000000 -c 200 -s 60 -v 1 "http://${backend_svc_ip}:80/"
 
-cilium_id=$(docker ps -aq --filter=name=cilium-agent)
+cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 
 # FIXME Remove workaround once we drop k8s 1.6 support
 # This cilium network policy v2 will work in k8s >= 1.7.x with CRD and v1 with
@@ -116,18 +119,20 @@ else
 fi
 
 log "Running tests WITH Policy / Proxy loaded"
-log "Policy loaded in cilium"
 
+log "Policy loaded in cilium"
 docker exec -i ${cilium_id} cilium policy get
 
 log "===== Netstat ====="
 
 netstat -ltn
 
+log "running curl to ${backend_svc_ip}:80 from pod ${frontend_pod} (should work)"
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/)
 
 if [ ${code} -ne 200 ]; then abort "Error: unable to connect between frontend and backend" ; fi
 
+log "running curl to ${backend_svc_ip}:80/health from pod ${frontend_pod} (shouldn't work)"
 code=$(kubectl exec -n qa -i ${frontend_pod} -- curl --connect-timeout 20 -s -o /dev/null -w "%{http_code}" http://${backend_svc_ip}:80/health)
 
 if [ ${code} -ne 403 ]; then abort "Error: unexpected connection between frontend and backend. wanted HTTP 403, got: HTTP ${code}" ; fi

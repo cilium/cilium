@@ -17,6 +17,7 @@ package launch
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -42,7 +43,8 @@ func (nm *NodeMonitor) Run() {
 		cmd := exec.Command(targetName, nm.GetArg())
 		stdout, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
-			log.Errorf("cmd.Start(): %s", err)
+			cmdStr := fmt.Sprintf("%s %s", targetName, nm.GetArg())
+			log.WithError(err).WithField("cmd", cmdStr).Error("cmd.Start()")
 		}
 
 		nm.setProcess(cmd.Process)
@@ -69,7 +71,7 @@ func (nm *NodeMonitor) Restart(arg string) {
 		return
 	}
 	if err := nm.process.Kill(); err != nil {
-		log.Errorf("process.Kill(): %s", err)
+		log.WithError(err).WithField("pid", nm.process.Pid).Error("process.Kill()")
 	}
 	nm.process = nil
 }

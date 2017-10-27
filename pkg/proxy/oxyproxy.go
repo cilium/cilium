@@ -15,20 +15,18 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/nodeaddress"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -300,144 +298,12 @@ func translateOxyPolicyRules(l4 *policy.L4Filter) ([]string, error) {
 	return l7rules, nil
 }
 
-func listenSocket(address string, mark int) (net.Listener, error) {
-	addr, err := net.ResolveTCPAddr("tcp", address)
-	if err != nil {
-		return nil, err
-	}
-
-	family := syscall.AF_INET
-	if addr.IP.To4() == nil {
-		family = syscall.AF_INET6
-	}
-
-	fd, err := syscall.Socket(family, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
-		return nil, fmt.Errorf("unable to set SO_REUSEADDR socket option: %s", err)
-	}
-
-	setFdMark(fd, mark)
-
-	sockAddr, err := ipToSockaddr(family, addr.IP, addr.Port, addr.Zone)
-	if err != nil {
-		syscall.Close(fd)
-		return nil, err
-	}
-
-	if err := syscall.Bind(fd, sockAddr); err != nil {
-		syscall.Close(fd)
-		return nil, err
-	}
-
-	if err := syscall.Listen(fd, 128); err != nil {
-		syscall.Close(fd)
-		return nil, err
-	}
-
-	f := os.NewFile(uintptr(fd), addr.String())
-	defer f.Close()
-
-	return net.FileListener(f)
-}
-
-func lookupNewDest(req *http.Request, dport uint16) (uint32, string, error) {
-	ip, port, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		return 0, "", fmt.Errorf("invalid remote address: %s", err)
-	}
-
-	pIP := net.ParseIP(ip)
-	if pIP == nil {
-		return 0, "", fmt.Errorf("unable to parse IP %s", ip)
-	}
-
-	sport, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return 0, "", fmt.Errorf("unable to parse port string: %s", err)
-	}
-
-	if pIP.To4() != nil {
-		key := &Proxy4Key{
-			SPort:   uint16(sport),
-			DPort:   dport,
-			Nexthdr: 6,
-		}
-
-		copy(key.SAddr[:], pIP.To4())
-
-		val, err := LookupEgress4(key)
-		if err != nil {
-			return 0, "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
-		}
-
-		log.Debugf("Found IPv4 proxy entry: %+v", val)
-		return val.SourceIdentity, val.HostPort(), nil
-	}
-
-	key := &Proxy6Key{
-		SPort:   uint16(sport),
-		DPort:   dport,
-		Nexthdr: 6,
-	}
-
-	copy(key.SAddr[:], pIP.To16())
-
-	val, err := LookupEgress6(key)
-	if err != nil {
-		return 0, "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
-	}
-
-	log.Debugf("Found IPv6 proxy entry: %+v", val)
-	return val.SourceIdentity, val.HostPort(), nil
-}
-
 func generateURL(req *http.Request, hostport string) *url.URL {
 	newURL := *req.URL
 	newURL.Scheme = "http"
 	newURL.Host = hostport
 
 	return &newURL
-}
-
-type proxyIdentity int
-
-const identityKey proxyIdentity = 0
-
-func newIdentityContext(ctx context.Context, id int) context.Context {
-	return context.WithValue(ctx, identityKey, id)
-}
-
-func identityFromContext(ctx context.Context) (int, bool) {
-	val, ok := ctx.Value(identityKey).(int)
-	return val, ok
-}
-
-func setFdMark(fd, mark int) {
-	log.WithFields(log.Fields{
-		fieldFd:     fd,
-		fieldMarker: mark,
-	}).Debug("Setting packet marker of socket")
-
-	err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
-	if err != nil {
-		log.WithFields(log.Fields{
-			fieldFd:     fd,
-			fieldMarker: mark,
-		}).WithError(err).Warning("Unable to set SO_MARK")
-	}
-}
-
-func setSocketMark(c net.Conn, mark int) {
-	if tc, ok := c.(*net.TCPConn); ok {
-		if f, err := tc.File(); err == nil {
-			defer f.Close()
-			setFdMark(int(f.Fd()), mark)
-		}
-	}
 }
 
 // createOxyRedirect creates a redirect with corresponding proxy
@@ -456,7 +322,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 
 	transport := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           ciliumDialer,
+		DialContext:           ciliumDialerWithContext,
 		MaxIdleConns:          2048,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
@@ -501,12 +367,12 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 			record.ObservationPoint = accesslog.Egress
 		}
 
-		srcIdentity, dstIPPort, err := lookupNewDest(req, to)
+		srcIdentity, dstIPPort, err := lookupNewDestFromHttp(req, to)
 		if err != nil {
 			// FIXME: What do we do here long term?
-			log.Errorf("%s", err)
+			log.WithError(err).Error("cannot generate redirect destination url")
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			record.Info = fmt.Sprintf("cannot generate url: %s", err)
+			record.Info = fmt.Sprintf("cannot generate redirect destination url: %s", err)
 			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError, http.StatusBadRequest)
 			return
 		}
@@ -532,10 +398,10 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 				return
 			}
 			ar := rule.(string)
-			log.Debugf("Allowing request based on rule %+v", ar)
+			log.WithField(logfields.Object, logfields.Repr(ar)).Debug("Allowing request based on rule")
 			record.Info = fmt.Sprintf("rule: %+v", ar)
 		} else {
-			log.Debugf("Allowing request as there are no rules")
+			log.Debug("Allowing request as there are no rules")
 		}
 		redir.mutex.Unlock()
 
@@ -590,15 +456,15 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 
 	// Listen needs to be in the synchronous part of this function to ensure that
 	// the proxy port is never refusing connections.
-	listener, err := listenSocket(addr, marker)
+	socket, err := listenSocket(addr, marker)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
-		err := redir.server.Serve(listener)
+		err := redir.server.Serve(socket.listener)
 		if err != nil {
-			log.Errorf("Unable to listen and serve proxy: %s", err)
+			log.WithError(err).Error("Unable to listen and serve proxy")
 		}
 	}()
 

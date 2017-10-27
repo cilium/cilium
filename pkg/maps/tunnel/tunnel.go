@@ -21,7 +21,6 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 )
@@ -46,45 +45,17 @@ func init() {
 	bpf.OpenAfterMount(mapInstance)
 }
 
-// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
-const (
-	tunnelKeyIPv4 uint8 = 1
-	tunnelKeyIPv6 uint8 = 2
-)
-
-// Must be in sync with struct endpoint_key in <bpf/lib/common.h>
 type tunnelEndpoint struct {
-	IP     types.IPv6 // represents both IPv6 and IPv4
-	Family uint8
-	Pad1   uint8
-	Pad2   uint16
+	bpf.EndpointKey
 }
 
 func newTunnelEndpoint(ip net.IP) tunnelEndpoint {
-	ep := tunnelEndpoint{}
-
-	if ip4 := ip.To4(); ip4 != nil {
-		ep.Family = tunnelKeyIPv4
-		copy(ep.IP[:], ip4)
-	} else {
-		ep.Family = tunnelKeyIPv6
-		copy(ep.IP[:], ip)
+	return tunnelEndpoint{
+		EndpointKey: bpf.NewEndpointKey(ip),
 	}
-
-	return ep
 }
 
-func (v tunnelEndpoint) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(&v) }
-func (v tunnelEndpoint) NewValue() bpf.MapValue      { return &tunnelEndpoint{} }
-func (v tunnelEndpoint) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
-
-func (v tunnelEndpoint) String() string {
-	if v.Family == tunnelKeyIPv4 {
-		return net.IPv4(v.IP[0], v.IP[1], v.IP[2], v.IP[3]).String()
-	}
-
-	return v.IP.String()
-}
+func (v tunnelEndpoint) NewValue() bpf.MapValue { return &tunnelEndpoint{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
@@ -105,7 +76,7 @@ func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 	}
 
 	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
 	}
 
 	return k, v, nil

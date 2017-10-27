@@ -92,7 +92,7 @@ else
     k8s_nodes_policy_status 2 default guestbook-web-deprecated
 fi
 
-cilium_id=$(docker ps -aq --filter=name=cilium-agent)
+cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 
 # Set redis on master to force inter-node communication
 node_selector="k8s-1"

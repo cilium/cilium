@@ -15,9 +15,13 @@
 package policy
 
 import (
+	"sort"
+
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/kr/pretty"
 
 	. "gopkg.in/check.v1"
 )
@@ -115,4 +119,111 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 			c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 		}
 	}
+}
+
+func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
+	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	wildcardSelector := api.NewESFromLabels()
+
+	model := &models.L4Policy{}
+	c.Assert(pretty.Sprintf("%+ v", model.Egress), comparator.DeepEquals, "[]")
+	c.Assert(pretty.Sprintf("%+ v", model.Ingress), comparator.DeepEquals, "[]")
+
+	policy := L4Policy{
+		Egress: L4PolicyMap{
+			"8080/TCP": {
+				Port:     8080,
+				Protocol: api.ProtoTCP,
+				Ingress:  false,
+			},
+		},
+		Ingress: L4PolicyMap{
+			"80/TCP": {
+				Port: 80, Protocol: api.ProtoTCP,
+				FromEndpoints: []api.EndpointSelector{fooSelector},
+				L7Parser:      "http",
+				L7RulesPerEp: L7DataMap{
+					fooSelector: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
+				},
+				Ingress: true,
+			},
+			"8080/TCP": {
+				Port: 8080, Protocol: api.ProtoTCP,
+				FromEndpoints: []api.EndpointSelector{fooSelector},
+				L7Parser:      "http",
+				L7RulesPerEp: L7DataMap{
+					fooSelector: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Path: "/", Method: "GET"},
+							{Path: "/bar", Method: "GET"},
+						},
+					},
+					wildcardSelector: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
+				},
+				Ingress: true,
+			},
+		},
+	}
+
+	model = policy.GetModel()
+	c.Assert(model, NotNil)
+
+	expected := `[{
+  "port": 8080,
+  "protocol": "TCP"
+}]`
+	c.Assert(pretty.Sprintf("%+ v", model.Egress), comparator.DeepEquals, expected)
+	expected = `[{
+  "port": 80,
+  "protocol": "TCP",
+  "l7-rules": [
+    {
+      "any.foo=": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          }
+        ]
+      }
+    }
+  ]
+} {
+  "port": 8080,
+  "protocol": "TCP",
+  "l7-rules": [
+    {
+      "any.foo=": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          },
+          {
+            "path": "/bar",
+            "method": "GET"
+          }
+        ]
+      }
+    },
+    {
+      "\u003cnone\u003e": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          }
+        ]
+      }
+    }
+  ]
+}]`
+	var result sort.StringSlice
+	result = model.Ingress
+	result.Sort()
+	c.Assert(pretty.Sprintf("%+ v", result), comparator.DeepEquals, expected)
 }

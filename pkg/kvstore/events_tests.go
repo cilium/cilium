@@ -17,6 +17,7 @@ package kvstore
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
@@ -34,16 +35,16 @@ func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 		"type":  typ,
 		"key":   key,
 		"value": string(val),
-	}).Debugf("Expecting event")
+	}).Debug("Expecting event")
 
 	select {
 	case event := <-w.Events:
 		c.Assert(event.Typ, Equals, typ)
-		c.Assert(event.Key, DeepEquals, key)
+		c.Assert(event.Key, comparator.DeepEquals, key)
 
 		// etcd does not provide the value of deleted keys
 		if backend == "consul" {
-			c.Assert(event.Value, DeepEquals, val)
+			c.Assert(event.Value, comparator.DeepEquals, val)
 		}
 	case <-time.After(30 * time.Second):
 		c.Fatal("timeout while waiting for kvstore watcher event")

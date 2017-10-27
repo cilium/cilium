@@ -60,7 +60,7 @@ scalable even for large-scale environments.
 Documentation Roadmap
 =====================
 
-The remainder of this documentation is divided into four sections:
+The remainder of this documentation is divided into the following sections:
 
 * :ref:`gs_guide` :   Provides a simple tutorial for running a small Cilium
   setup on your laptop.  Intended as an easy way to get your hands dirty
@@ -76,6 +76,15 @@ The remainder of this documentation is divided into four sections:
 
 * :ref:`policy_guide` : Detailed walkthrough of the policy language structure
   and the supported formats.
+
+* :ref:`admin_guide` : Describes how to troubleshoot Cilium in different
+  deployment modes.
+
+* :ref:`bpf_guide` : Provides a technical deep dive of BPF and XDP technology,
+  primarily focused at developers.
+
+* :ref:`api_ref` : Details the Cilium agent API for interacting with a local
+  Cilium instance.
 
 * :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.

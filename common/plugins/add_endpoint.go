@@ -19,6 +19,7 @@ import (
 	"os/exec"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -73,12 +74,12 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.Warningf("failed to clean up veth %q: %s", veth.Name, err)
+				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
 			}
 		}
 	}()
 
-	log.Debugf("Created veth pair %s <-> %s", lxcIfName, veth.PeerName)
+	log.WithField(logfields.VethPair, []string{veth.PeerName, lxcIfName}).Debug("Created veth pair")
 
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux

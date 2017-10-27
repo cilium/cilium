@@ -151,7 +151,7 @@ func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *la
 			log.WithFields(log.Fields{
 				"oldIdentityHash":    oldLabelsHash,
 				logfields.EndpointID: epID,
-			}).WithError(err).Warning("Unable to delete old identity of endpoint")
+			}).WithError(err).Warn("Unable to delete old identity of endpoint")
 		}
 	}
 
@@ -227,7 +227,7 @@ func NewGetIdentityHandler(d *Daemon) GetIdentityHandler {
 }
 
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
-	log.Debugf("GET /identity request: %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity request")
 
 	identities := []*models.Identity{}
 	if params.Labels == nil {
@@ -348,13 +348,13 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 		return err
 	}
 
-	log.Debugf("Decremented label %d ref-count to %d", dbSecCtxLbls.ID, dbSecCtxLbls.RefCount())
+	log.WithFields(log.Fields{
+		logfields.EndpointID:     epid,
+		logfields.IdentityLabels: dbSecCtxLbls.ID,
+		"count":                  dbSecCtxLbls.RefCount(),
+	}).Debug("Decremented label ref-count")
 
-	if err := kvstore.Client().SetValue(lblPath, dbSecCtxLbls); err != nil {
-		return err
-	}
-
-	return nil
+	return kvstore.Client().SetValue(lblPath, dbSecCtxLbls)
 }
 
 // GetMaxLabelID returns the maximum possible free UUID stored in consul.

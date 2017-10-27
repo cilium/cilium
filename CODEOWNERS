@@ -1,0 +1,88 @@
+# Catch-all
+* @cilium/janitors
+
+# BPF Data Path
+bpf/ @cilium/bpf
+pkg/maps/ @cilium/bpf
+pkg/bpf/ @cilium/bpf
+pkg/policy/prefilter.go @cilium/bpf
+daemon/prefilter.go @cilium/bpf
+daemon/bpf.sha @cilium/bpf
+
+# Agent -> Kernel interaction
+bpf/*.sh @cilium/bpf-loader
+
+# CI
+test/ @cilium/ci
+tests/ @cilium/ci
+Jenkinsfile @cilium/ci
+
+# KVStore
+pkg/kvstore/ @cilium/kvstore
+
+# CLI
+cilium/ @cilium/cli
+
+# Examples
+examples/ @cilium/docs
+
+# K8s integration, K8s CNI plugin
+daemon/k8s_watcher.go @cilium/kubernetes
+pkg/k8s/ @cilium/kubernetes
+plugins/cilium-cni/ @cilium/kubernetes
+examples/kubernetes/ @cilium/kubernetes
+examples/minikube/ @cilium/kubernetes
+examples/kubernetes-ingress/ @cilium/kubernetes
+
+# Docker plugin
+plugins/cilium-docker/ @cilium/docker
+
+# Policy behaviour
+pkg/policy @cilium/policy
+
+# Packaging
+contrib/packaging/deb/ @eloycoto
+contrib/packaging/docker/ @aanm @ianvernon
+
+# Proxy
+pkg/proxy/ @cilium/proxy
+
+# based on not yet merged PR 1580
+pkg/envoy/ @cilium/proxy
+envoy/ @cilium/proxy
+envoy-api/ @cilium/proxy
+pkg/proxy/oxyproxy.go @tgraf
+
+# Agent API
+api/ @cilium/api
+pkg/policy/api/ @cilium/api
+pkg/apierror/ @cilium/api
+pkg/apisocket/ @cilium/api
+pkg/proxy/accesslog @cilium/api
+monitor/payload @cilium/api
+
+# Docs
+Documentation/ @cilium/docs
+
+# BPF Docs
+Documentation/bpf.rst @scanf @borkmann
+
+# Developer docs
+Documentation/contributing.rst @cilium/contributing
+
+# Dependencies/vendor
+vendor/ @cilium/vendor
+
+# Monitor
+monitor/ @cilium/monitor
+
+# Agent
+daemon/ @cilium/agent
+
+# endpoint package
+pkg/endpoint/ @cilium/endpoint
+daemon/endpoint.go @cilium/endpoint
+
+# load balancer - will be moved out of daemon
+daemon/services.* @cilium/loadbalancer
+daemon/loadbalancer.* @cilium/loadbalancer

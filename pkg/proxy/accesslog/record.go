@@ -195,8 +195,8 @@ type LogRecordHTTP struct {
 	// Protocol is the HTTP protocol in use
 	Protocol string
 
-	// Header is the HTTP header in use
-	Header http.Header
+	// Headers are all HTTP headers present in the request
+	Headers http.Header
 }
 
 // KafkaTopic contains the topic for requests

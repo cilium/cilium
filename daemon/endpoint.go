@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -43,53 +42,52 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 }
 
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
-	log.Debugf("GET /endpoint request: %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
 
-	var wg sync.WaitGroup
+	modelChan := make(chan *models.Endpoint, 1)
+	defer close(modelChan)
+
+	// FIXME @aanm hide use of endpoint manager lock
+	endpointmanager.Mutex.RLock()
+	numEndpoints := len(endpointmanager.Endpoints)
+	eps := make([]*models.Endpoint, 0, numEndpoints)
 
 	if params.Labels == nil {
-		i := 0
-		endpointmanager.Mutex.RLock()
-		eps := make([]*models.Endpoint, len(endpointmanager.Endpoints))
-		wg.Add(len(endpointmanager.Endpoints))
-		for k := range endpointmanager.Endpoints {
-			go func(wg *sync.WaitGroup, i int, ep *endpoint.Endpoint) {
-				eps[i] = ep.GetModel()
-				wg.Done()
-			}(&wg, i, endpointmanager.Endpoints[k])
-			i++
+		for _, v := range endpointmanager.Endpoints {
+			go func(ep *endpoint.Endpoint) {
+				modelChan <- ep.GetModel()
+			}(v)
 		}
 		endpointmanager.Mutex.RUnlock()
-		wg.Wait()
-		return NewGetEndpointOK().WithPayload(eps)
-	} else {
-		eps := []*models.Endpoint{}
-
-		// Convert params.Labels to model that we can compare with the endpoint's labels.
-		convertedLabels := labels.NewLabelsFromModel(params.Labels)
-
-		endpointmanager.Mutex.RLock()
-
-		wg.Add(len(endpointmanager.Endpoints))
-		for k := range endpointmanager.Endpoints {
-			go func(wg *sync.WaitGroup, ep *endpoint.Endpoint) {
-				ep.Mutex.RLock()
-				if ep.HasLabels(convertedLabels) {
-					eps = append(eps, ep.GetModel())
-				}
-				ep.Mutex.RUnlock()
-				wg.Done()
-			}(&wg, endpointmanager.Endpoints[k])
+		for i := 0; i < numEndpoints; i++ {
+			eps = append(eps, <-modelChan)
 		}
-		endpointmanager.Mutex.RUnlock()
-		wg.Wait()
-
-		if len(eps) == 0 {
-			return NewGetEndpointNotFound()
-		}
-
 		return NewGetEndpointOK().WithPayload(eps)
 	}
+
+	// Convert params.Labels to model that we can compare with the endpoint's labels.
+	convertedLabels := labels.NewLabelsFromModel(params.Labels)
+
+	for _, v := range endpointmanager.Endpoints {
+		go func(ep *endpoint.Endpoint) {
+			ep.Mutex.RLock()
+			if ep.HasLabels(convertedLabels) {
+				modelChan <- ep.GetModelRLocked()
+			}
+			ep.Mutex.RUnlock()
+		}(v)
+	}
+	endpointmanager.Mutex.RUnlock()
+
+	for i := 0; i < numEndpoints; i++ {
+		eps = append(eps, <-modelChan)
+	}
+
+	if len(eps) == 0 {
+		return NewGetEndpointNotFound()
+	}
+
+	return NewGetEndpointOK().WithPayload(eps)
 }
 
 type getEndpointID struct {
@@ -101,7 +99,7 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 }
 
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
-	log.Debugf("GET /endpoint/{id} request: %+v", params.ID)
+	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
 	ep, err := endpointmanager.Lookup(params.ID)
 
@@ -123,7 +121,7 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
-	log.Debugf("PUT /endpoint/{id} request: %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
 	if n, err := endpoint.ParseCiliumID(params.ID); err != nil {
@@ -157,7 +155,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 
 	if err := ep.CreateDirectory(); err != nil {
-		log.Warningf("Aborting endpoint join: %s", err)
+		log.WithError(err).Warn("Aborting endpoint join")
 		return apierror.Error(PutEndpointIDFailedCode, err)
 	}
 
@@ -175,7 +173,11 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
 		endpointmanager.Mutex.Lock()
 		if errLabelsAdd != nil {
-			log.Errorf("Could not add labels %v while creating an ep %s due to %s", add, params.ID, errLabelsAdd)
+			log.WithFields(log.Fields{
+				logfields.EndpointID:              params.ID,
+				logfields.IdentityLabels:          logfields.Repr(add),
+				logfields.IdentityLabels + ".bad": errLabelsAdd,
+			}).Error("Could not add labels while creating an ep due to bad labels")
 			return errLabelsAdd
 		}
 	}
@@ -193,7 +195,7 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 }
 
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
-	log.Debugf("PATCH /endpoint/{id} %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
 
@@ -280,6 +282,8 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 }
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
+	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
 	defer ep.BuildMutex.Unlock()
@@ -298,8 +302,10 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
 	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
-		log.Errorf("Error while deleting labels (SHA256SUM:%s) %+v: %s",
-			sha256sum, ep.OpLabels.IdentityLabels(), err)
+		log.WithError(err).WithFields(log.Fields{
+			logfields.SHA:            sha256sum,
+			logfields.IdentityLabels: ep.OpLabels.IdentityLabels(),
+		}).Error("Error while deleting labels")
 	}
 
 	var errors int
@@ -314,44 +320,44 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 		// Remove policy BPF map
 		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
-			log.Warningf("Unable to remove policy map file (%s): %s", ep.PolicyMapPathLocked(), err)
+			scopedLog.WithError(err).WithField(logfields.Path, ep.PolicyMapPathLocked()).Warn("Unable to remove policy map file")
 			errors++
 		}
 
 		// Remove calls BPF map
 		if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
-			log.Warningf("Unable to remove calls map file (%s): %s", ep.CallsMapPathLocked(), err)
+			scopedLog.WithError(err).WithField(logfields.Path, ep.CallsMapPathLocked()).Warn("Unable to remove calls map file")
 			errors++
 		}
 
 		// Remove IPv6 connection tracking map
 		if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
-			log.Warningf("Unable to remove IPv6 CT map file (%s): %s", ep.Ct6MapPathLocked(), err)
+			scopedLog.WithError(err).WithField(logfields.Path, ep.Ct6MapPathLocked()).Warn("Unable to remove IPv6 CT map file")
 			errors++
 		}
 
 		// Remove IPv4 connection tracking map
 		if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
-			log.Warningf("Unable to remove IPv4 CT map file (%s): %s", ep.Ct4MapPathLocked(), err)
+			scopedLog.WithError(err).WithField(logfields.Path, ep.Ct4MapPathLocked()).Warn("Unable to remove IPv4 CT map file")
 			errors++
 		}
 
 		// Remove handle_policy() tail call entry for EP
-		if ep.RemoveFromGlobalPolicyMap() != nil {
-			log.Warningf("Unable to remove EP from global policy map!")
+		if err := ep.RemoveFromGlobalPolicyMap(); err != nil {
+			scopedLog.WithError(err).Warn("Unable to remove EP from global policy map!")
 			errors++
 		}
 	}
 
 	if !d.conf.IPv4Disabled {
 		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-			log.Warningf("error while releasing IPv4 %s: %s", ep.IPv4.IP(), err)
+			scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv4.IP()).Warn("Error while releasing IPv4")
 			errors++
 		}
 	}
 
 	if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-		log.Warningf("error while releasing IPv6 %s: %s", ep.IPv6.IP(), err)
+		scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv6.IP()).Warn("Error while releasing IPv6")
 		errors++
 	}
 
@@ -382,7 +388,7 @@ func NewDeleteEndpointIDHandler(d *Daemon) DeleteEndpointIDHandler {
 }
 
 func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Responder {
-	log.Debugf("DELETE /endpoint/{id} %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
 	d := h.daemon
 	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
@@ -431,7 +437,7 @@ func NewPatchEndpointIDConfigHandler(d *Daemon) PatchEndpointIDConfigHandler {
 }
 
 func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middleware.Responder {
-	log.Debugf("PATCH /endpoint/{id}/config %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
 	d := h.daemon
 	if err := d.EndpointUpdate(params.ID, params.Configuration); err != nil {
@@ -453,7 +459,7 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 }
 
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
-	log.Debugf("GET /endpoint/{id}/config %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
@@ -474,7 +480,7 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 }
 
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
-	log.Debugf("GET /endpoint/{id}/labels %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
@@ -574,7 +580,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 			log.WithFields(log.Fields{
 				logfields.EndpointID: ep.StringID(),
 				logfields.Identity:   identity.ID,
-			}).WithError(err).Warningf("Unable to release temporary identity")
+			}).WithError(err).Warn("Unable to release temporary identity")
 		}
 		return NewPutEndpointIDLabelsNotFound()
 	}
@@ -600,7 +606,7 @@ func NewPutEndpointIDLabelsHandler(d *Daemon) PutEndpointIDLabelsHandler {
 func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middleware.Responder {
 	d := h.daemon
 
-	log.Debugf("PUT /endpoint/{id}/labels %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id}/labels request")
 
 	mod := params.Configuration
 	add := labels.NewLabelsFromModel(mod.Add)
@@ -654,7 +660,7 @@ func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, inf
 			log.WithFields(log.Fields{
 				logfields.EndpointID: ep.StringID(),
 				logfields.Identity:   identity.ID,
-			}).WithError(err).Warningf("Unable to release temporary identity")
+			}).WithError(err).Warn("Unable to release temporary identity")
 		}
 
 		return fmt.Errorf("Endpoint is disconnected, aborting label update handler")

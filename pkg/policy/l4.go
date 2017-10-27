@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -23,16 +24,42 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	log "github.com/sirupsen/logrus"
 )
 
-const (
-	// WildcardEndpointSelector is a special hash value for the wildcard endpoint, i.e., applies to all
-	WildcardEndpointSelector = iota
+var (
+	// WildcardEndpointSelector is a selector that matches on all endpoints
+	WildcardEndpointSelector = api.NewWildcardEndpointSelector()
 )
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
-type L7DataMap map[uint64]api.L7Rules
+type L7DataMap map[api.EndpointSelector]api.L7Rules
+
+func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
+	if len(l7) == 0 {
+		return []byte("[]"), nil
+	}
+
+	var err error
+	buffer := bytes.NewBufferString("[")
+	for k, v := range l7 {
+		buffer.WriteString("\n  {    \n    \"")
+		buffer.WriteString(k.LabelSelectorString())
+		buffer.WriteString("\": ")
+		b, err := json.MarshalIndent(v, "    ", "  ")
+		if err == nil {
+			buffer.Write(b)
+		} else {
+			buffer.WriteString("\"L7DataMap error: ")
+			buffer.WriteString(err.Error())
+			buffer.WriteString("\"")
+		}
+		buffer.WriteString("\n  },")
+	}
+	buffer.Truncate(buffer.Len() - 1) // Drop the final ","
+	buffer.WriteString("\n]")
+
+	return buffer.Bytes(), err
+}
 
 // L7ParserType is the type used to indicate what L7 parser to use and
 // defines all supported types of L7 parsers
@@ -47,37 +74,58 @@ const (
 
 type L4Filter struct {
 	// Port is the destination port to allow
-	Port int
+	Port int `json:"port"`
 	// Protocol is the L4 protocol to allow or NONE
-	Protocol api.L4Proto
+	Protocol api.L4Proto `json:"protocol"`
 	// FromEndpoints limit the source labels for allowing traffic. If
 	// FromEndpoints is empty, then it selects all endpoints.
 	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
-	L7Parser L7ParserType
+	L7Parser L7ParserType `json:"-"`
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
-	L7RedirectPort int
+	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
-	L7RulesPerEp L7DataMap
+	L7RulesPerEp L7DataMap `json:"l7-rules,omitempty"`
 	// Ingress is true if filter applies at ingress
-	Ingress bool
+	Ingress bool `json:"-"`
 }
 
-func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules,
-	fromEndpoints []api.EndpointSelector) error {
+// GetRelevantRules returns the relevant rules based on the source and
+// destination addressing/identity information.
+func (dm L7DataMap) GetRelevantRules(identity *Identity) api.L7Rules {
+	rules := api.L7Rules{}
+	matched := 0
 
-	if rules.Len() == 0 {
-		return nil
+	if identity != nil {
+		for selector, endpointRules := range dm {
+			if selector.Matches(identity.Labels.LabelArray()) {
+				matched++
+				rules.HTTP = append(rules.HTTP, endpointRules.HTTP...)
+				rules.Kafka = append(rules.Kafka, endpointRules.Kafka...)
+			}
+		}
 	}
+
+	if matched == 0 {
+		// Fall back to wildcard selector
+		if rules, ok := dm[WildcardEndpointSelector]; ok {
+			return rules
+		}
+	}
+
+	return rules
+}
+
+func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules, fromEndpoints []api.EndpointSelector) {
+	if rules.Len() == 0 {
+		return
+	}
+
 	if len(fromEndpoints) > 0 {
 		for _, ep := range fromEndpoints {
-			hash, err := ep.Hash()
-			if err != nil || hash == 0 {
-				return fmt.Errorf("Could not hash (%d) endpoint %e", hash, err)
-			}
-			dm[hash] = api.L7Rules{
-				HTTP:  append(dm[hash].HTTP, rules.HTTP...),
-				Kafka: append(dm[hash].Kafka, rules.Kafka...),
+			dm[ep] = api.L7Rules{
+				HTTP:  append(dm[ep].HTTP, rules.HTTP...),
+				Kafka: append(dm[ep].Kafka, rules.Kafka...),
 			}
 		}
 	} else {
@@ -87,8 +135,6 @@ func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules,
 			Kafka: append(dm[WildcardEndpointSelector].Kafka, rules.Kafka...),
 		}
 	}
-
-	return nil
 }
 
 // CreateL4Filter creates an L4Filter for the specified api.PortProtocol in
@@ -105,7 +151,7 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 		Port:           int(p),
 		Protocol:       protocol,
 		L7RedirectPort: rule.RedirectPort,
-		L7RulesPerEp:   make(map[uint64]api.L7Rules),
+		L7RulesPerEp:   make(L7DataMap),
 		FromEndpoints:  fromEndpoints,
 	}
 
@@ -120,12 +166,8 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
 		}
-		if err := l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules,
-			fromEndpoints); err != nil {
 
-			log.Errorf("%s", err)
-			return L4Filter{}
-		}
+		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, fromEndpoints)
 	}
 
 	return l4
@@ -140,7 +182,7 @@ func (l4 *L4Filter) IsRedirect() bool {
 func (l4 *L4Filter) MarshalIndent() string {
 	b, err := json.MarshalIndent(l4, "", "  ")
 	if err != nil {
-		return err.Error()
+		b = []byte("\"L4Filter error: " + err.Error() + "\"")
 	}
 	return string(b)
 }

@@ -12,10 +12,7 @@ docker_image_tag=${DOCKER_IMAGE_TAG:-"local_build"}
 certs_dir="${dir}/certs"
 k8s_dir="${dir}/k8s"
 cilium_dir="${dir}/cilium"
-rbac_yaml="${dir}/../../../examples/kubernetes/rbac.yaml"
-cilium_original_ds="${dir}/../../../examples/kubernetes/cilium-ds.yaml"
-cilium_original_config_map="${dir}/../../../examples/kubernetes/cilium-config.yaml"
-config_maps="${dir}/cilium-config.yaml"
+cilium_original="${dir}/../../../examples/kubernetes/cilium.yaml"
 
 function get_options(){
     if [[ "${1}" == "ipv6" ]]; then
@@ -196,15 +193,6 @@ function install_kubeadm() {
     sudo apt-get -qq install --allow-downgrades -y kubelet=${k8s_version} kubeadm=${k8s_version} kubectl=${k8s_version} kubernetes-cni
 }
 
-function install_cilium_config(){
-    # We still need to make 2 modifications to the original daemon set
-    sed -e "s+- http://127.0.0.1:2379+- https://${controller_ip_brackets}:2379+g;\
-            s+debug: \"false\"+debug: \"true\"+g;\
-            s+#ca-file: '+ca-file: '+g;\
-            s+etcd-ca: \"\"+etcd-ca: \""$(base64 -w 0 "${certs_dir}/ca.pem")"\"+g" \
-        "${cilium_original_config_map}" > "${dir}/cilium-config.yaml"
-}
-
 function start_etcd(){
     sudo systemctl daemon-reload
     sudo systemctl enable etcd
@@ -248,8 +236,6 @@ function fresh_install(){
     
     clean_kubeadm
     start_kubeadm
-
-    install_cilium_config
 }
 
 function reinstall(){
@@ -297,8 +283,6 @@ function reinstall(){
         start_etcd
     fi
     start_kubeadm
-
-    install_cilium_config
 }
 
 function deploy_cilium(){
@@ -317,7 +301,7 @@ function deploy_cilium(){
     source "${dir}/env.bash"
 
     rm "${cilium_dir}/cilium-lb-ds.yaml" \
-       "${cilium_dir}/cilium-ds.yaml" \
+       "${cilium_dir}/cilium.yaml" \
         2>/dev/null
 
     if [[ -n "${lb}" ]]; then
@@ -331,18 +315,20 @@ function deploy_cilium(){
                 s+\$iface+${iface}+g" \
             "${cilium_dir}/cilium-lb-ds.yaml.sed" > "${cilium_dir}/cilium-lb-ds.yaml"
 
-        kubectl create -f "${cilium_dir}"
+        kubectl create -f "${cilium_dir}/cilium-lb-ds.yaml"
 
         wait_for_daemon_set_ready kube-system cilium 1
     else
-        # We still need to make 2 modifications to the original daemon set
-        sed -e "s+image: cilium/cilium:stable+image: cilium:${docker_image_tag}+g;\
-                s+imagePullPolicy: Always+imagePullPolicy: Never+g" \
-            "${cilium_original_ds}" > "${cilium_dir}/cilium-lb.yaml"
+        # We still need to make some small modifications to the original cilium
+        sed -e "s+- http://127.0.0.1:2379+- https://${controller_ip_brackets}:2379+g;\
+                s+image: cilium/cilium:stable+image: cilium:${docker_image_tag}+g;\
+                s+imagePullPolicy: Always+imagePullPolicy: Never+g;\
+                s+debug: \"false\"+debug: \"true\"+g;\
+                s+#ca-file: '+ca-file: '+g;\
+                s+etcd-ca: \"\"+etcd-ca: \""$(base64 -w 0 "${certs_dir}/ca.pem")"\"+g" \
+            "${cilium_original}" > "${cilium_dir}/cilium.yaml"
 
-        kubectl create -f "${rbac_yaml}"
-        kubectl create -f "${config_maps}"
-        kubectl create -f "${cilium_dir}"
+        kubectl create -f "${cilium_dir}/cilium.yaml"
 
         wait_for_daemon_set_ready kube-system cilium 2
     fi

@@ -125,7 +125,7 @@ kubectl exec -t ${productpage_v1} wget -- --tries=5 ratings:9080
 
 if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to ratings:9080 service" ; fi
 
-cilium_id=$(docker ps -aq --filter=name=cilium-agent)
+cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 
 # Install cilium policies
 # FIXME Remove workaround once we drop k8s 1.6 support

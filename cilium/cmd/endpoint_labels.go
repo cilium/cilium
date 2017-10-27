@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	"github.com/spf13/cobra"
 )
@@ -71,7 +72,7 @@ func init() {
 }
 
 func printEndpointLabels(lbls *labels.OpLabels) {
-	log.Debugf("All Labels %#v", *lbls)
+	log.WithField(logfields.Labels, logfields.Repr(*lbls)).Debug("All Labels")
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 
 	for _, v := range lbls.IdentityLabels() {

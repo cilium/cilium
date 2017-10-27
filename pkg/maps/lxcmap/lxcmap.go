@@ -15,14 +15,16 @@
 package lxcmap
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -111,31 +113,16 @@ type EndpointInfo struct {
 	Flags      uint32
 	MAC        MAC
 	NodeMAC    MAC
-	V6Addr     types.IPv6
+	Pad        [4]uint32
 	PortMap    [PortMapMax]PortMap
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
 func (v EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
 
-// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
-const (
-	endpointKeyIPv4 uint8 = 1
-	endpointKeyIPv6 uint8 = 2
-)
-
-// EndpointKey represents the key value of the endpoints BPF map
-//
-// Must be in sync with struct endpoint_key in <bpf/lib/common.h>
 type EndpointKey struct {
-	ip     types.IPv6 // represents both IPv6 and IPv4
-	family uint8
-	pad1   uint8
-	pad2   uint16
+	bpf.EndpointKey
 }
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
@@ -144,22 +131,17 @@ func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
 func NewEndpointKey(ip net.IP) EndpointKey {
-	key := EndpointKey{}
-	copy(key.ip[:], ip)
-
-	if ip4 := ip.To4(); ip4 != nil {
-		key.family = endpointKeyIPv4
-		copy(key.ip[:], ip4)
-	} else {
-		key.family = endpointKeyIPv6
-		copy(key.ip[:], ip)
+	return EndpointKey{
+		EndpointKey: bpf.NewEndpointKey(ip),
 	}
-
-	return key
 }
 
 // String returns the human readable representation of an EndpointInfo
 func (v EndpointInfo) String() string {
+	if v.Flags&EndpointFlagHost != 0 {
+		return fmt.Sprintf("(localhost)")
+	}
+
 	var portMaps []string
 	for _, port := range v.PortMap {
 		if pStr := port.String(); pStr != "0:0" {
@@ -169,12 +151,11 @@ func (v EndpointInfo) String() string {
 	if len(portMaps) == 0 {
 		portMaps = append(portMaps, "(empty)")
 	}
-	return fmt.Sprintf("id=%d ifindex=%d mac=%s nodemac=%s ip=%s seclabel=0x%x portMaps=%s",
+	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s seclabel=%#-4x portMaps=%s",
 		v.LxcID,
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
-		v.V6Addr,
 		byteorder.HostToNetwork(v.SecLabelID),
 		strings.Join(portMaps, " "),
 	)
@@ -211,10 +192,37 @@ func DeleteElement(f EndpointFrontend) int {
 	errors := 0
 	for _, k := range f.GetBPFKeys() {
 		if err := mapInstance.Delete(k); err != nil {
-			log.Warningf("Unable to delete endpoint %s in BPF map: %s", k, err)
+			log.WithError(err).WithField(logfields.BPFMapKey, k).Warn("Unable to delete endpoint in BPF map")
 			errors++
 		}
 	}
 
 	return errors
+}
+
+func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	k, v := EndpointKey{}, EndpointInfo{}
+
+	if err := binary.Read(bytes.NewBuffer(key), byteorder.Native, &k); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+	}
+
+	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
+		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
+	}
+
+	return k, v, nil
+}
+
+func dumpCallback(key bpf.MapKey, value bpf.MapValue) {
+	k, v := key.(EndpointKey), value.(EndpointInfo)
+	fmt.Printf("%-32s %s\n", k.String(), v.String())
+}
+
+// DumpMap prints the content of the local endpoint map to stdout
+func DumpMap(callback bpf.DumpCallback) error {
+	if callback == nil {
+		return mapInstance.Dump(dumpParser, dumpCallback)
+	}
+	return mapInstance.Dump(dumpParser, callback)
 }

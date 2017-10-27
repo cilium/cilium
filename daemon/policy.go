@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -69,10 +70,10 @@ func invalidateCache() {
 // Returns a waiting group which signalizes when all endpoints are regenerated.
 func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) *sync.WaitGroup {
 	if len(added) == 0 {
-		log.Debugf("Full policy recalculation triggered")
+		log.Debug("Full policy recalculation triggered")
 		invalidateCache()
 	} else {
-		log.Debugf("Partial policy recalculation triggered: %d", added)
+		log.WithField(logfields.PolicyID, logfields.Repr(added)).Debug("Partial policy recalculation triggered")
 		// FIXME: Invalidate only cache that is affected
 		invalidateCache()
 	}
@@ -110,7 +111,7 @@ func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
 }
 
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
-	log.Debugf("GET /policy/resolve request: %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /policy/resolve request")
 
 	d := h.daemon
 
@@ -131,8 +132,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From), true) ||
 			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To), true)) {
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
-				"no rules in the policy repository match either of the provided " +
-				"sets of labels."
+				"no rules in the policy repository match any endpoint selector " +
+				"from the provided destination sets of labels."
 			isPolicyEnforcementEnabled = false
 		}
 	}
@@ -221,8 +222,8 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 		// Restore old rules
 		if len(oldRules) > 0 {
 			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
-				log.Errorf("Error while restoring old rules after adding of new rules failed: %s", err2)
-				log.Errorf("--- INCONSISTENT STATE OF POLICY ---")
+				log.WithError(err2).Error("Error while restoring old rules after adding of new rules failed")
+				log.Error("--- INCONSISTENT STATE OF POLICY ---")
 				return rev, err
 			}
 		}
@@ -239,7 +240,7 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
-	log.Debugf("Policy Add Request: %+v", rules)
+	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
 	for _, r := range rules {
 		if err := r.Sanitize(); err != nil {
@@ -263,7 +264,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 // rule from the node. If the path's node becomes ruleless it is removed from
 // the tree.
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
-	log.Debugf("Policy Delete Request: %+v", labels)
+	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	// An error is only returned if a label filter was provided and then
 	// not found A deletion request for all policy entries if no policied
@@ -313,7 +314,10 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 					idsToKeep[consumer.Uint32()] = true
 				}
 				if len(idsToKeep) != 0 {
-					log.Debugf("Removing entries of EP %d: %+v", ep.ID, idsToKeep)
+					log.WithFields(log.Fields{
+						logfields.EndpointID:           ep.ID,
+						logfields.EndpointID + ".keep": logfields.Repr(idsToKeep),
+					}).Debug("Removing entries of EP")
 					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToKeep)
 				}
 			}
@@ -406,7 +410,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 
 func (d *Daemon) PolicyInit() error {
 	for k, v := range policy.ReservedIdentities {
-		log.Debugf("creating policy for %s", k)
+		log.WithField(logfields.Identity, k).Debug("creating policy for identity")
 		key := v.String()
 		lbl := labels.NewLabel(
 			key, "", labels.LabelSourceReserved,

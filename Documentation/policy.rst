@@ -334,6 +334,66 @@ but not CIDR prefix ``10.96.0.0/12``
         }]
 
 
+Layer 3: Services
+~~~~~~~~~~~~~~~~~
+
+Services running in your cluster can be whitelisted in Egress rules. Currently only headless
+Kubernetes services defined by their name and namespace are supported. More documentation on HeadlessServices_.
+Future versions of Cilium will support specifying non Kubernetes services and services which are backed by pods.
+
+::
+
+        type EgressRule struct {
+                // [...]
+                // ToServices is a list of services to which the endpoint subject
+                // to the rule is allowed to initiate connections.
+                ToServices []Service `json:"toServices,omitempty"`
+                // [...]
+        }
+
+        type Service struct {
+            // [...]
+            // K8sService selects service by name and namespace pair
+            K8sService K8sServiceNamespace `json:"k8sService,omitempty"`
+        }
+
+        type K8sServiceNamespace struct {
+            ServiceName string `json:"serviceName,omitempty"`
+            Namespace   string `json:"namespace,omitempty"`
+        }
+
+
+Example
+-------
+
+This example shows how to allow all endpoints with the label ``id=app2``
+to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
+namespace ``default``. Note that ``myservice`` needs to be a headless service
+for this policy to take effect.
+
+::
+
+        [{
+              "endpointSelector": {
+                "matchLabels": {
+                  "id": "app2"
+                }
+              },
+              "egress": [
+                {
+                  "toServices": [
+                    {
+                      "k8sService": {
+                        "serviceName": "myservice",
+                        "namespace": "default"
+                      }
+                    }
+                  ]
+                }
+              ]
+        }]
+
+
 .. _policy_l4:
 
 Layer 4: Ports
@@ -404,14 +464,14 @@ Example (L4)
 The following rule limits all endpoints with the label ``app=myService`` to
 only be able to emit packets using TCP on port 80::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"app":"myService"}},
             "egress": [{
                 "toPorts": [
-                    {"port": "80", "protocol": "TCP"}
+                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
                 ]
             }]
-        }
+        }]
 
 Example (Combining Labels + L4)
 -------------------------------
@@ -420,17 +480,17 @@ This example enables all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``, but they must
 communicate using using TCP on port 80::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"role":"backend"}},
             "ingress": [{
                 "fromEndpoints": [
                   {"matchLabels":{"role":"frontend"}}
                 ],
                 "toPorts": [
-                    {"port": "80", "protocol": "TCP"}
+                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
                 ]
             }]
-        }
+        }]
 
 Example (Multiple Rules with Labels, L4)
 ----------------------------------------
@@ -441,7 +501,7 @@ communication to only endpoints communicating over TCP on port 80 from
 ``role=frontend`` to reach ``role=backend``, *as well as* traffic from any
 endpoint that is communicating over TCP on port 80::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"role":"backend"}},
             "ingress": [{
                 "fromEndpoints": [
@@ -449,10 +509,10 @@ endpoint that is communicating over TCP on port 80::
                 ]
               }, {
                 "toPorts": [
-                    {"port": "80", "protocol": "TCP"}
+                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
                 ]
             }]
-        }
+        }]
 
 Layer 7 - HTTP
 ==============
@@ -559,7 +619,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 
 ::
 
-        {
+        [{
             "endpointSelector": {"matchLabels":{"app":"myService"}},
             "ingress": [{
                 "toPorts": [{
@@ -580,7 +640,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
                     }
                 }]
             }]
-        }
+        }]
 
 .. _policy_tracing:
 
@@ -763,26 +823,31 @@ endpoint with the label ``id.http`` on port 80:
 
     $ cilium policy trace -s id.curl -d id.httpd --dport 80
     Tracing From: [container:id.curl] => To: [container:id.httpd] Ports: [80/any]
-    * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
+    * Rule {"matchLabels":{"any:id.httpd":""}}: selected
         Allows from labels {"matchLabels":{"any:id.curl":""}}
           Found all required labels
             Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
-    1 rules matched
+    1/1 rules selected
+    Found no allow rule
     Label verdict: undecided
 
     Resolving egress port policy for [container:id.curl]
-    * Rule 0 {"matchLabels":{"any:id.curl":""}}: match
+    * Rule {"matchLabels":{"any:id.curl":""}}: selected
       Allows Egress port [{80 tcp}]
-    1 rules matched
+        Found all required labels
+    1/1 rules selected
+    Found allow rule
     L4 egress verdict: allowed
 
     Resolving ingress port policy for [container:id.httpd]
-    * Rule 2 {"matchLabels":{"any:id.httpd":""}}: match
+    * Rule {"matchLabels":{"any:id.httpd":""}}: selected
       Allows Ingress port [{80 tcp}]
-    1 rules matched
+        Found all required labels
+    1/1 rules selected
+    Found allow rule
     L4 ingress verdict: allowed
 
-    Verdict: ALLOWED
+    Final verdict: ALLOWED
 
 .. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 
@@ -790,3 +855,4 @@ endpoint with the label ``id.http`` on port 80:
 .. _CustomResourceDefinition: https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions
 .. _LabelSelector: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
 .. _Kubernetes: https://kubernetes.io/docs/concepts/services-networking/network-policies/#isolated-and-non-isolated-pods
+.. _HeadlessServices: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services

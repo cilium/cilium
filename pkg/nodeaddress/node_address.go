@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/sirupsen/logrus"
@@ -45,7 +46,7 @@ func makeIPv6HostIP() net.IP {
 	ipstr := "fc00::10CA:1"
 	ip := net.ParseIP(ipstr)
 	if ip == nil {
-		log.Fatalf("Unable to parse IP '%s'", ipstr)
+		log.WithField(logfields.IPAddr, ipstr).Fatal("Unable to parse IP")
 	}
 
 	return ip
@@ -119,33 +120,51 @@ func InitDefaultPrefix(device string) {
 	ipv6Address = findIPv6NodeAddr()
 
 	ip, err := firstGlobalV4Addr(device)
-	if err == nil {
-		ipv4ExternalAddress = ip
+	if err != nil {
+		return
+	}
 
+	if ipv4ExternalAddress == nil {
+		ipv4ExternalAddress = ip
+	}
+
+	if ipv4AllocRange == nil {
+		// If the IPv6AllocRange is not nil then the IPv4 allocation should be
+		// derived from the IPv6AllocRange.
+		//                     vvvv vvvv
+		// FD00:0000:0000:0000:0000:0000:0000:0000
+		if ipv6AllocRange != nil {
+			ip = net.IPv4(ipv6AllocRange.IP[8],
+				ipv6AllocRange.IP[9],
+				ipv6AllocRange.IP[10],
+				ipv6AllocRange.IP[11])
+		}
 		v4range := fmt.Sprintf(DefaultIPv4Prefix+"/%d",
 			ip.To4()[3], DefaultIPv4PrefixLen)
 		_, ip4net, err := net.ParseCIDR(v4range)
 		if err != nil {
-			log.Panicf("BUG: Invalid default prefix '%s': %s", v4range, err)
+			log.WithError(err).WithField(logfields.V4Prefix, v4range).Panic("BUG: Invalid default IPv4 prefix")
 		}
 
 		ipv4AllocRange = ip4net
+		log.WithField(logfields.V4Prefix, ipv4AllocRange).Info("Automatically generated IPv4 allocation range")
+	}
 
+	if ipv6AllocRange == nil {
+		// The IPv6 allocation should be derived from the IPv4 allocation.
+		ip = ipv4AllocRange.IP
 		v6range := fmt.Sprintf("%s%02x%02x:%02x%02x:0:0/%d",
 			DefaultIPv6Prefix, ip[0], ip[1], ip[2], ip[3],
 			IPv6NodePrefixLen)
 
 		_, ip6net, err := net.ParseCIDR(v6range)
 		if err != nil {
-			log.Panicf("BUG: Invalid default prefix '%s': %s", v6range, err)
+			log.WithError(err).WithField(logfields.V6Prefix, v6range).Panic("BUG: Invalid default IPv6 prefix")
 		}
 
 		ipv6AllocRange = ip6net
+		log.WithField(logfields.V6Prefix, ipv6AllocRange).Info("Automatically generated IPv6 allocation range")
 	}
-}
-
-func init() {
-	InitDefaultPrefix("")
 }
 
 // GetIPv4ClusterRange returns the IPv4 prefix of the cluster
@@ -205,6 +224,12 @@ func GetInternalIPv4() net.IP {
 	return ipv4InternalAddress
 }
 
+// GetHostMasqueradeIPv4 returns the IPv4 address to be used for masquerading
+// any traffic that is being forwarded from the host into the Cilium cluster.
+func GetHostMasqueradeIPv4() net.IP {
+	return ipv4InternalAddress
+}
+
 // SetIPv4AllocRange sets the IPv4 address pool to use when allocating
 // addresses for local endpoints
 func SetIPv4AllocRange(net *net.IPNet) {
@@ -246,6 +271,11 @@ func ValidatePostInit() error {
 	if EnableIPv4 {
 		if ipv4InternalAddress == nil {
 			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
+		}
+
+		if !ipv4AllocRange.Contains(ipv4InternalAddress) {
+			return fmt.Errorf("BUG: Internal IPv4 (%s) must be part of cluster prefix (%s)",
+				ipv4InternalAddress, ipv4AllocRange)
 		}
 
 		ones, _ := ipv4AllocRange.Mask.Size()
@@ -345,14 +375,15 @@ func GetNode() (node.Identity, *node.Node) {
 // UseNodeCIDR sets the ipv4-range and ipv6-range values values from the
 // addresses defined in the given node.
 func UseNodeCIDR(node *node.Node) error {
+	scopedLog := log.WithField(logfields.Node, node.Name)
 	if node.IPv4AllocCIDR != nil {
-		log.Infof("Retrieved %s for node %s. Using it for ipv4-range", node.IPv4AllocCIDR, node.Name)
+		scopedLog.WithField(logfields.V4Prefix, node.IPv4AllocCIDR).Info("Retrieved IPv4 allocation range for node. Using it for ipv4-range")
 		SetIPv4AllocRange(node.IPv4AllocCIDR)
 	}
 	if node.IPv6AllocCIDR != nil {
-		log.Infof("Retrieved %s for node %s. Using it for ipv6-range", node.IPv6AllocCIDR, node.Name)
+		scopedLog.WithField(logfields.V4Prefix, node.IPv6AllocCIDR).Info("Retrieved IPv6 allocation range for node. Using it for ipv6-range")
 		if err := SetIPv6NodeRange(node.IPv6AllocCIDR); err != nil {
-			log.Warningf("k8s: Can't use CIDR '%s' from kubernetes: %s", node.IPv6AllocCIDR, err)
+			scopedLog.WithError(err).WithField(logfields.V4Prefix, node.IPv6AllocCIDR).Warn("k8s: Can't use IPv6 CIDR range from kubernetes")
 		}
 	}
 
@@ -362,14 +393,15 @@ func UseNodeCIDR(node *node.Node) error {
 // UseNodeAddresses sets the local ipv4-node and ipv6-node values from the
 // addresses defined in the given node.
 func UseNodeAddresses(node *node.Node) error {
+	scopedLog := log.WithField(logfields.Node, node.Name)
 	nodeIP4 := node.GetNodeIP(false)
 	if nodeIP4 != nil {
-		log.Infof("Automatically retrieved %s for node %s. Using it for ipv4-node", nodeIP4, node.Name)
+		scopedLog.WithField(logfields.IPAddr, nodeIP4).Info("Automatically retrieved IP for node. Using it for ipv4-node")
 		SetExternalIPv4(nodeIP4)
 	}
 	nodeIP6 := node.GetNodeIP(true)
 	if nodeIP6 != nil {
-		log.Infof("Automatically retrieved %s for node %s. Using it for ipv6-node", nodeIP6, node.Name)
+		scopedLog.WithField(logfields.IPAddr, nodeIP6).Info("Automatically retrieved IP for node. Using it for ipv6-node")
 		SetIPv6(nodeIP6)
 	}
 

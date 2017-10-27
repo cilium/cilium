@@ -507,8 +507,8 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		Done:         make(chan bool),
 		ExternalDone: make(chan bool),
 	}
-	owner.QueueEndpointBuild(newReq)
-	go func(req *Request, e *Endpoint) {
+
+	go func(owner Owner, req *Request, e *Endpoint) {
 		buildSuccess := true
 
 		e.Mutex.Lock()
@@ -518,6 +518,11 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 			e.State = StateRegenerating
 		}
 		e.Mutex.Unlock()
+
+		// We should only queue the request after we use all the endpoint's
+		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
+		// being deleted at the same time. More info PR-1777.
+		owner.QueueEndpointBuild(newReq)
 
 		isMyTurn, isMyTurnChanOK := <-req.MyTurn
 		if isMyTurnChanOK && isMyTurn {
@@ -549,7 +554,7 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		default:
 		}
 		close(req.ExternalDone)
-	}(newReq, e)
+	}(owner, newReq, e)
 	return newReq.ExternalDone
 }
 

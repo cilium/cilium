@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -120,7 +121,11 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	log.Debugf("Adding redirect %+v to endpoint %d", l4, e.ID)
+	log.WithFields(log.Fields{
+		logfields.EndpointID: e.ID,
+		logfields.L4PolicyID: e.ProxyID(l4),
+		logfields.Object:     logfields.Repr(l4),
+	}).Debug("Adding redirect to endpoint")
 	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxy.ProxyKindOxy)
 	if err != nil {
 		return 0, err
@@ -137,7 +142,11 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 	}
 
 	id := e.ProxyID(l4)
-	log.Debugf("Removing redirect %s from endpoint %d", id, e.ID)
+	log.WithFields(log.Fields{
+		logfields.EndpointID: e.ID,
+		logfields.L4PolicyID: id,
+		logfields.Object:     l4,
+	}).Debug("Removing redirect to endpoint")
 	return d.l7Proxy.RemoveRedirect(id)
 }
 
@@ -171,7 +180,7 @@ func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
 // StartEndpointBuilders creates `nRoutines` go routines that listen on the
 // `d.buildEndpointChan` for new endpoints.
 func (d *Daemon) StartEndpointBuilders(nRoutines int) {
-	log.Debugf("Creating %d worker threads", nRoutines)
+	log.WithField("count", nRoutines).Debug("Creating worker threads")
 	for w := 0; w < nRoutines; w++ {
 		go func() {
 			for e := range d.buildEndpointChan {
@@ -257,15 +266,25 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 		for {
 			// Endpoint's PodName is in the format namespace:pod-name
 			split := strings.Split(e.PodName, ":")
-
 			if len(split) < 2 {
-				log.Errorf("k8s: unable to update pod %s with annotation %q: namespace and pod name should be delimited by %q", e.PodName, common.CiliumIdentityAnnotation, ":")
+				log.WithFields(log.Fields{
+					logfields.EndpointID:            e.ID,
+					logfields.K8sPodName:            e.PodName,
+					logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
+				}).Error("k8s: unable to update pod with annotation: namespace and pod name should be delimited by :")
 				return
 			}
 
+			scopedLog := log.WithFields(log.Fields{
+				logfields.EndpointID:            e.ID,
+				logfields.K8sNamespace:          split[0],
+				logfields.K8sPodName:            split[1],
+				logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
+			})
+
 			pod, err := k8s.Client().CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
 			if err != nil {
-				log.Errorf("error getting pod for endpoint %d with namespace %s and pod name %s: %s", e.ID, split[0], split[1], err)
+				scopedLog.WithError(err).Error("error getting pod for endpoint")
 				return
 			}
 
@@ -275,10 +294,12 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 			pod.Annotations[annotationKey] = annotationValue
 			pod, err = k8s.Client().CoreV1().Pods(split[0]).Update(pod)
 			if err == nil {
-				log.Debugf("added %s annotation to endpoint %d / pod %s:%s", common.CiliumIdentityAnnotation, e.ID, split[0], split[1])
+				scopedLog.Debug("added annotation to endpoint / pods")
 				break
 			}
-			log.Warningf("k8s: unable to update  endpoint %d / pod %s:%s with %q annotation: %s, retrying...", e.ID, split[0], split[1], common.CiliumIdentityAnnotation, err)
+
+			scopedLog.Warn("k8s: unable to update  endpoint / pod  with annotation, retrying...")
+
 			if n < 30 {
 				n++
 			}
@@ -291,7 +312,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
 
-	log.Debugf("writing configuration to %s", headerPath)
+	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
 	f, err := os.Create(headerPath)
 	if err != nil {
@@ -318,7 +339,7 @@ func (d *Daemon) fmtPolicyEnforcement() string {
 // Must be called with d.conf.EnablePolicyMU locked.
 func (d *Daemon) writePreFilterHeader(dir string) error {
 	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
-	log.Debugf("writing configuration to %s", headerPath)
+	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
@@ -379,17 +400,18 @@ func runProg(prog string, args []string, quiet bool) error {
 	defer cancel()
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
 		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
 	}
 	if err != nil {
 		if !quiet {
-			log.Warningf("Command execution %s %s failed: %s", prog,
-				strings.Join(args, " "), err)
+			cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+			log.WithError(err).WithField("cmd", cmd).Error("Command execution failed")
 
 			scanner := bufio.NewScanner(bytes.NewReader(out))
 			for scanner.Scan() {
-				log.Warning(scanner.Text())
+				log.Warn(scanner.Text())
 			}
 		}
 	}
@@ -416,7 +438,7 @@ func getFeedRule(name, args string) []string {
 	}
 	argsList, err := shellwords.Parse(args)
 	if err != nil {
-		log.WithError(err).Fatalf("Unable to parse rule '%s' into argument slice", args)
+		log.WithError(err).WithField(logfields.Object, args).Fatal("Unable to parse rule into argument slice")
 	}
 	return append(argsList, ruleTail...)
 }
@@ -433,34 +455,36 @@ func removeCiliumRules(table string) {
 	defer cancel()
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
 		return
 	}
 	if err != nil {
-		log.Warningf("Command execution %s %s failed: %s", prog,
-			strings.Join(args, " "), err)
+		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+		log.WithError(err).WithField("cmd", cmd).Warn("Command execution failed")
 		return
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		log.Debugf("Considering to remove iptables rule '%s'", rule)
+		log.WithField(logfields.Object, logfields.Repr(rule)).Debug("Considering removing iptables rule")
+
 		if strings.Contains(strings.ToLower(rule), "cilium") &&
 			(strings.HasPrefix(rule, "-A") || strings.HasPrefix(rule, "-I")) {
 			// From: -A POSTROUTING -m comment [...]
 			// To:   -D POSTROUTING -m comment [...]
 			ruleAsArgs, err := shellwords.Parse(strings.Replace(rule, "-A", "-D", 1))
 			if err != nil {
-				log.WithError(err).Warningf("Unable to parse iptables rule '%s' into slice. Leaving rule behind.")
+				log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to parse iptables rule into slice. Leaving rule behind.")
 				continue
 			}
 
 			deleteRule := append([]string{"-t", table}, ruleAsArgs...)
-			log.Debugf("Removing iptables rule '%v'", deleteRule)
+			log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debug("Removing iptables rule")
 			err = runProg("iptables", deleteRule, true)
 			if err != nil {
-				log.WithError(err).Warningf("Unable to delete Cilium iptables rule '%s'", rule)
+				log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to delete Cilium iptables rule")
 			}
 		}
 	}
@@ -519,6 +543,18 @@ func (d *Daemon) installMasqRule() error {
 		}
 	}
 
+	// Masquerade all traffic from the host into the cilium_host interface
+	// if the source is not the internal IP
+	if err := runProg("iptables", []string{
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"!", "-s", nodeaddress.GetHostMasqueradeIPv4().String(),
+		"-o", "cilium_host",
+		"-m", "comment", "--comment", "cilium host->cluster masquerade",
+		"-j", "SNAT", "--to-source", nodeaddress.GetHostMasqueradeIPv4().String()}, false); err != nil {
+		return err
+	}
+
 	// Masquerade all traffic from node prefix not going to node prefix
 	// which is not going over the tunnel device
 	if err := runProg("iptables", []string{
@@ -526,21 +562,9 @@ func (d *Daemon) installMasqRule() error {
 		"-A", "CILIUM_POST",
 		"-s", nodeaddress.GetIPv4AllocRange().String(),
 		"!", "-d", nodeaddress.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_" + d.conf.Tunnel,
+		"!", "-o", "cilium_+",
 		"-m", "comment", "--comment", "cilium masquerade non-cluster",
 		"-j", "MASQUERADE"}, false); err != nil {
-		return err
-	}
-
-	// Masquerade all traffic from the host into the cilium_host interface
-	// if the source is not the internal IP
-	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", ciliumPostNatChain,
-		"!", "-s", nodeaddress.GetExternalIPv4().String(),
-		"-o", "cilium_host",
-		"-m", "comment", "--comment", "cilium host->cluster masquerade",
-		"-j", "SNAT", "--to-source", nodeaddress.GetExternalIPv4().String()}, false); err != nil {
 		return err
 	}
 
@@ -571,24 +595,25 @@ func (d *Daemon) compileBase() error {
 	defer d.compilationMutex.Unlock()
 
 	if err := d.writeNetdevHeader("./"); err != nil {
-		log.Warningf("Unable to write netdev header: %s", err)
+		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
 
+	scopedLog := log.WithField(logfields.XDPDevice, d.conf.DevicePreFilter)
 	if d.conf.DevicePreFilter != "undefined" {
 		if err := policy.ProbePreFilter(d.conf.DevicePreFilter, d.conf.ModePreFilter); err != nil {
-			log.Warningf("Turning off prefilter for %s: %s", d.conf.DevicePreFilter, err)
+			scopedLog.WithError(err).Warn("Turning off prefilter")
 			d.conf.DevicePreFilter = "undefined"
 		}
 	}
 	if d.conf.DevicePreFilter != "undefined" {
 		if d.preFilter, ret = policy.NewPreFilter(); ret != nil {
-			log.Warningf("Unable to init prefilter: %s", ret)
+			scopedLog.WithError(ret).Warn("Unable to init prefilter")
 			return ret
 		}
 
 		if err := d.writePreFilterHeader("./"); err != nil {
-			log.Warningf("Unable to write prefilter header: %s", err)
+			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}
 
@@ -607,7 +632,7 @@ func (d *Daemon) compileBase() error {
 	if d.conf.Device != "undefined" {
 		_, err := netlink.LinkByName(d.conf.Device)
 		if err != nil {
-			log.Warningf("Link %s does not exist: %s", d.conf.Device, err)
+			log.WithError(err).WithField("device", d.conf.Device).Warn("Link does not exist")
 			return err
 		}
 
@@ -651,16 +676,17 @@ func (d *Daemon) compileBase() error {
 	defer cancel()
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		log.Errorf("Command execution failed: Timeout for %s %s", prog, args)
+		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
 		return fmt.Errorf("Command execution failed: Timeout for %s %s", prog, args)
 	}
 	if err != nil {
-		log.Warningf("Command execution %s %s failed: %s", prog,
-			strings.Join(args, " "), err)
+		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
+		log.WithField("cmd", cmd).Error("Command execution failed")
 
 		scanner := bufio.NewScanner(bytes.NewReader(out))
 		for scanner.Scan() {
-			log.Warning(scanner.Text())
+			log.Warn(scanner.Text())
 		}
 		return err
 	}
@@ -687,17 +713,17 @@ func (d *Daemon) compileBase() error {
 func (d *Daemon) init() error {
 	globalsDir := filepath.Join(d.conf.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
-		log.Fatalf("Could not create runtime directory %s: %s", globalsDir, err)
+		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
 
 	if err := os.Chdir(d.conf.StateDir); err != nil {
-		log.Fatalf("Could not change to runtime directory %s: \"%s\"",
-			d.conf.StateDir, err)
+		log.WithError(err).WithField(logfields.Path, d.conf.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	f, err := os.Create("./globals/node_config.h")
+	nodeConfigPath := "./globals/node_config.h"
+	f, err := os.Create(nodeConfigPath)
 	if err != nil {
-		log.Warningf("Failed to create node configuration file: %s", err)
+		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to create node configuration file")
 		return err
 
 	}
@@ -761,7 +787,7 @@ func (d *Daemon) init() error {
 	if !d.DryModeEnabled() {
 		// Validate existing map paths before attempting BPF compile.
 		if err = d.validateExistingMaps(); err != nil {
-			log.Errorf("Error while validating maps: %s", err)
+			log.WithError(err).Error("Error while validating maps")
 			return err
 		}
 
@@ -776,7 +802,7 @@ func (d *Daemon) init() error {
 			nodeaddress.GetIPv6Router(),
 		}
 		for _, ip := range localIPs {
-			log.Debugf("Adding %v as local ip to endpoint map", ip)
+			log.WithField(logfields.IPAddr, ip).Debug("Adding local ip to endpoint map")
 			if err := lxcmap.AddHostEntry(ip); err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
 			}
@@ -804,7 +830,7 @@ func (d *Daemon) init() error {
 		}
 		// Clean all lb entries
 		if !d.conf.RestoreState {
-			log.Debugf("cleaning up all BPF LB maps")
+			log.Debug("cleaning up all BPF LB maps")
 
 			d.loadBalancer.BPFMapMU.Lock()
 			defer d.loadBalancer.BPFMapMU.Unlock()
@@ -864,7 +890,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Clear previous leftovers before listening for new requests
 	err := d.clearCiliumVeths()
 	if err != nil {
-		log.Debugf("Unable to clean leftover veths: %s", err)
+		log.WithError(err).Debug("Unable to clean leftover veths")
 	}
 
 	// Create at least 4 worker threads or the same amount as there are
@@ -881,9 +907,20 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// specific mode, always allow localhost to reach local
 		// endpoints.
 		if d.conf.AllowLocalhost == AllowLocalhostAuto {
-			log.Infof("k8s mode: Allowing localhost to reach local endpoints")
+			log.Info("k8s mode: Allowing localhost to reach local endpoints")
 			config.alwaysAllowLocalhost = true
 		}
+	}
+	// If the device has been specified, the IPv4AllocPrefix and the
+	// IPv6AllocPrefix were already allocated before the k8s.Init().
+	//
+	// If the device hasn't been specified, k8s.Init() allocated the
+	// IPv4AllocPrefix and the IPv6AllocPrefix from k8s node annotations.
+	//
+	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
+	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
+	if config.Device == "undefined" {
+		nodeaddress.InitDefaultPrefix("")
 	}
 
 	nodeaddress.SetIPv4ClusterCidrMaskSize(v4ClusterCidrMaskSize)
@@ -891,7 +928,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if v4Prefix != AutoCIDR {
 		_, net, err := net.ParseCIDR(v4Prefix)
 		if err != nil {
-			log.Fatalf("Invalid IPv4 allocation prefix '%s': %s", v4Prefix, err)
+			log.WithError(err).WithField(logfields.V4Prefix, v4Prefix).Fatal("Invalid IPv4 allocation prefix")
 		}
 		nodeaddress.SetIPv4AllocRange(net)
 	}
@@ -899,30 +936,30 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if v4ServicePrefix != AutoCIDR {
 		_, _, err := net.ParseCIDR(v4ServicePrefix)
 		if err != nil {
-			log.Fatalf("Invalid IPv4 service prefix '%s': %s", v4ServicePrefix, err)
+			log.WithError(err).WithField(logfields.V4Prefix, v4ServicePrefix).Fatal("Invalid IPv4 service prefix")
 		}
 	}
 
 	if v6Prefix != AutoCIDR {
 		_, net, err := net.ParseCIDR(v6Prefix)
 		if err != nil {
-			log.Fatalf("Invalid IPv6 allocation prefix '%s': %s", v6Prefix, err)
+			log.WithError(err).WithField(logfields.V6Prefix, v6ServicePrefix).Fatal("Invalid IPv6 allocation prefix")
 		}
 
 		if err := nodeaddress.SetIPv6NodeRange(net); err != nil {
-			log.Fatalf("Invalid per node IPv6 allocation prefix '%s': %s", net, err)
+			log.WithError(err).WithField(logfields.V6Prefix, net).Fatal("Invalid per node IPv6 allocation prefix")
 		}
 	}
 
 	if v6ServicePrefix != AutoCIDR {
 		_, _, err := net.ParseCIDR(v6ServicePrefix)
 		if err != nil {
-			log.Fatalf("Invalid IPv6 service prefix '%s': %s", v6ServicePrefix, err)
+			log.WithError(err).WithField(logfields.V6Prefix, v6ServicePrefix).Fatal("Invalid IPv6 service prefix")
 		}
 	}
 
 	if err := nodeaddress.AutoComplete(); err != nil {
-		log.Fatalf("%s", err)
+		log.WithError(err).Fatal("Cannot autocomplete node IPv6 address")
 	}
 
 	// Populate list of nodes with local node entry
@@ -934,19 +971,20 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			nodeaddress.GetIPv4AllocRange(),
 			nodeaddress.GetIPv6NodeRange())
 		if err != nil {
-			log.Fatalf("Unable to get k8s node: %s", err)
+			log.WithError(err).Fatal("Cannot annotate node CIDR range data")
 		}
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	if err = ipam.Init(); err != nil {
-		log.Fatal(err.Error())
+		log.WithError(err).Fatal("IPAM init failed")
 	}
 
 	if err := nodeaddress.ValidatePostInit(); err != nil {
-		log.Fatalf("%s", err)
+		log.WithError(err).Fatal("postinit failed")
 	}
 
+	// REVIEW should these be changed? they seem intended for humans
 	log.Infof("Local node-name: %s", nodeaddress.GetName())
 	log.Infof("Node-IPv6: %s", nodeaddress.GetIPv6())
 	log.Infof("External-Node IPv4: %s", nodeaddress.GetExternalIPv4())
@@ -968,7 +1006,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if err = d.init(); err != nil {
-		log.Errorf("Error while initializing daemon: %s", err)
+		log.WithError(err).Error("Error while initializing daemon")
 		return nil, err
 	}
 
@@ -977,10 +1015,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	if c.RestoreState {
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
-			log.Warningf("Error while recovering endpoints: %s", err)
+			log.WithError(err).Warn("Error while recovering endpoints")
 		}
 		if err := d.SyncLBMap(); err != nil {
-			log.Warningf("Error while recovering endpoints: %s", err)
+			log.WithError(err).Warn("Error while recovering endpoints")
 		}
 	} else {
 		// We need to read all docker containers so we know we won't
@@ -999,11 +1037,7 @@ func (d *Daemon) validateExistingMaps() error {
 		return mapValidateWalker(path)
 	}
 
-	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
-		return err
-	}
-
-	return nil
+	return filepath.Walk(bpf.MapPrefixPath(), walker)
 }
 
 func (d *Daemon) collectStaleMapGarbage() {
@@ -1015,15 +1049,15 @@ func (d *Daemon) collectStaleMapGarbage() {
 	}
 
 	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
-		log.Warningf("Error while scanning for stale maps: %s", err)
+		log.WithError(err).Warn("Error while scanning for stale maps")
 	}
 }
 
 func (d *Daemon) removeStaleMap(path string) {
 	if err := os.RemoveAll(path); err != nil {
-		log.Warningf("Error while deleting stale map file %s: %s", path, err)
+		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
 	} else {
-		log.Infof("Removed stale bpf map %s", path)
+		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
 	}
 }
 
@@ -1102,7 +1136,7 @@ func mapValidateWalker(path string) error {
 			case err != nil:
 				return err
 			case !valid:
-				log.Infof("Removing mismatched map %s", filename)
+				log.WithField(logfields.Path, filename).Info("Removing mismatched map")
 				if err := os.Remove(path); err != nil {
 					return err
 				}
@@ -1125,7 +1159,7 @@ func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
 }
 
 func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
-	log.Debugf("PATCH /config request: %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /config request")
 
 	d := h.daemon
 
@@ -1153,7 +1187,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	// Only update if value provided for PolicyEnforcement.
 	if enforcement != "" {
-		log.Debugf("configuration request to change PolicyEnforcement for daemon")
+		log.Debug("configuration request to change PolicyEnforcement for daemon")
 		switch enforcement {
 		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
 
@@ -1169,22 +1203,22 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 			}
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
-			log.Warningf("%s", msg)
+			log.Warn(msg)
 			return apierror.Error(PatchConfigFailureCode, msg)
 		}
-		log.Debugf("finished configuring PolicyEnforcement for daemon")
+		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
 	changes += d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
 
-	log.Debugf("Applied %d changes to daemon's configuration", changes)
+	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
 	// Only recompile if configuration has changed.
 	if changes > 0 {
-		log.Debugf("daemon configuration has changed; recompiling base programs")
+		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
+			log.WithError(err).Warn("Invalid option for PolicyEnforcement")
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
-			log.Warningf("%s", msg)
 			return apierror.Error(PatchConfigFailureCode, msg)
 		}
 	}
@@ -1216,7 +1250,7 @@ func NewGetConfigHandler(d *Daemon) GetConfigHandler {
 }
 
 func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
-	log.Debugf("GET /config request: %+v", params)
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
 
 	d := h.daemon
 

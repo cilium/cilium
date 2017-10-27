@@ -1,43 +1,52 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
-Alban Crequy          alban.crequy@gmail.com
-Alexander Alemayhu    alexander@alemayhu.com
-Alexei Starovoitov    ast@kernel.org
-Amre Shakimov         amre@covalent.io
-André Martins         andre@cilium.io
-Ashwin Paranjpe       ashwinp.work@gmail.com
-Craig Box             craig.box@gmail.com
-Cynthia Thomas        cynthia@covalent.io
-Dan Wendlandt         danwent@gmail.com
-Daniel Borkmann       daniel@cilium.io
-Daniel Dao            dqminh89@gmail.com
-Daniel (Shijun) Qian  sj.daniel@gmail.com
-Dom Del Nano          ddelnano@gmail.com
-Eloy Coto             eloy.coto@gmail.com
-Faiyaz Ahmed          faiyaza@gmail.com
-Gianluca Arbezzano    gianarb92@gmail.com
-Ian Vernon            ianvernon@covalent.io
-Ivar Lazzaro          ivarlazzaro@gmail.com
-Jan-Erik Rediger      badboy@archlinux.us
-Jarno Rajahalme       jarno@covalent.io
-John Fastabend        john@covalent.io
-Jon Davies            jpds@protonmail.com
-Katarzyna Borkmann    kasia@iogearbox.net
-Madhu Challa          madhu@cilium.io
-Marcin Skarbek        git@skarbek.name
-Michi Mutsuzaki       michi@covalent.io
-Peiqi Shi             uestc.shi@gmail.com
-Raghu Gyambavantha    r.grizzly@gmail.com
-Ross Guarino          rssguar@gmail.com
-Russell Bryant        russell@russellbryant.net
-Sergey Generalov      sergey@genbit.ru
-Steven Ceuppens       steven.ceuppens@icloud.com
-Thomas Bachman        tbachman@yahoo.com
-Thomas Graf           thomas@cilium.io
-Tobias Klauser        tklauser@distanz.ch
-Tony Lambiris         tony@criticalstack.com
-Trevor Roberts Jr     trevor.roberts.jr@gmail.com
+Alban Crequy <alban@kinvolk.io>
+Alexander Alemayhu <alexander@alemayhu.com>
+Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Amre Shakimov <amre@covalent.io>
+André Martins <andre@cilium.io>
+Ashwin Paranjpe <ashwinp.work@gmail.com>
+Craig Box <craig.box@gmail.com>
+Cynthia Thomas <techcet@users.noreply.github.com>
+Daniel Borkmann <daniel@iogearbox.net>
+Daniel Dao <dqminh89@gmail.com>
+Dan Wendlandt <dan@covalent.io>
+Dom Del Nano <ddelnano@gmail.com>
+Eloy Coto <eloy.coto@gmail.com>
+Faiyaz Ahmed <faiyaza@gmail.com>
+Florian Koch <f0@users.noreply.github.com>
+Fred Hsu <fredlhsu@gmail.com>
+Gianluca Arbezzano <gianarb92@gmail.com>
+Ian Vernon <ian@covalent.io>
+Ivar Lazzaro <ivarlazzaro@gmail.com>
+Jan-Erik Rediger <janerik@fnordig.de>
+Jarno Rajahalme <jarno@covalent.io>
+Joe Stringer <joe@covalent.io>
+John Fastabend <john.fastabend@gmail.com>
+Jonathan Davies <jpds@protonmail.com>
+Jon Davies <jpds@protonmail.com>
+Katarzyna Borkmann <kasia@iogearbox.net>
+Maciej Kwiek <maciej.iai@gmail.com>
+Madhu Challa <madhu@cilium.io>
+Manali Bhutiyani <manali@covalent.io>
+Marcin Skarbek <git@skarbek.name>
+Michi Mutsuzaki <michi@covalent.io>
+Peiqi Shi <uestc.shi@gmail.com>
+Raghu Gyambavantha <raghug@bld-ml-loan4.olympus.f5net.com>
+Ray Bejjani <raybejjani@users.noreply.github.com>
+Romain Lenglet <romain@covalent.io>
+Ross Guarino <rssguar@gmail.com>
+Russell Bryant <russell@russellbryant.net>
+Sergey Generalov <sergey@genbit.ru>
+shijunqian <qsj.daniel@gmail.com>
+Simon Pasquier <spasquier@mirantis.com>
+Steven Ceuppens <steven.ceuppens@icloud.com>
+Thomas Bachman <tbachman@yahoo.com>
+Thomas Graf <thomas@cilium.io>
+Tobias Klauser <tklauser@distanz.ch>
+Tony Lambiris <tony@criticalstack.com>
+Trevor Roberts Jr <Trevor.Roberts.Jr@gmail.com>
 
 The following additional people are mentioned in commit logs as having provided
 helpful bug reports, suggestions or have otherwise provided value to the

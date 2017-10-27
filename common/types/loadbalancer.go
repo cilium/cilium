@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -105,22 +106,29 @@ type LoadBalancer struct {
 
 // AddService adds a service to list of loadbalancers and returns true if created.
 func (lb *LoadBalancer) AddService(svc LBSVC) bool {
+	scopedLog := log.WithFields(log.Fields{
+		logfields.ServiceName: svc.FE.String(),
+		logfields.SHA:         svc.Sha256,
+	})
+
 	oldSvc, ok := lb.SVCMapID[svc.FE.ID]
 	if ok {
 		// If service already existed, remove old entry from Cilium's map
-		log.Debugf("service %s is already in lb.SVCMapID; deleting old entry and updating it with new entry", svc.FE.String())
+		scopedLog.Debug("service is already in lb.SVCMapID; deleting old entry and updating it with new entry")
 		delete(lb.SVCMap, oldSvc.Sha256)
 	}
-	log.Debugf("adding service %s with SHA %s to lb.SVCMap", svc.FE.String(), svc.Sha256)
+	scopedLog.Debug("adding service to loadbalancer")
 	lb.SVCMap[svc.Sha256] = svc
-	log.Debugf("adding service %s to lb.SVCMapID", svc.FE.String())
 	lb.SVCMapID[svc.FE.ID] = &svc
 	return !ok
 }
 
 // DeleteService deletes svc from lb's SVCMap and SVCMapID.
 func (lb *LoadBalancer) DeleteService(svc *LBSVC) {
-	log.Debugf("deleting service %s from lb.SVCMap, lb.SVCMapID", svc.FE.String())
+	log.WithFields(log.Fields{
+		logfields.ServiceName: svc.FE.String(),
+		logfields.SHA:         svc.Sha256,
+	}).Debug("deleting service from loadbalancer")
 	delete(lb.SVCMap, svc.Sha256)
 	delete(lb.SVCMapID, svc.FE.ID)
 }
@@ -150,27 +158,29 @@ func NewLoadBalancer() *LoadBalancer {
 
 // K8sServiceNamespace is an abstraction for the k8s service + namespace types.
 type K8sServiceNamespace struct {
-	Service   string
-	Namespace string
+	ServiceName string `json:"serviceName,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 // K8sServiceInfo is an abstraction for a k8s service that is composed by the frontend IP
 // address (FEIP) and the map of the frontend ports (Ports).
 type K8sServiceInfo struct {
-	FEIP  net.IP
-	Ports map[FEPortName]*FEPort
+	FEIP       net.IP
+	IsHeadless bool
+	Ports      map[FEPortName]*FEPort
 }
 
 // NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
-func NewK8sServiceInfo(ip net.IP) *K8sServiceInfo {
+func NewK8sServiceInfo(ip net.IP, headless bool) *K8sServiceInfo {
 	return &K8sServiceInfo{
-		FEIP:  ip,
-		Ports: map[FEPortName]*FEPort{},
+		FEIP:       ip,
+		IsHeadless: headless,
+		Ports:      map[FEPortName]*FEPort{},
 	}
 }
 
 // K8sServiceEndpoint is an abstraction for the k8s endpoint object. Each service is
-// composed by a map of backend IPs (BEIPs) and a map of Ports (Ports). Each k8s endpoint
+// composed by a set of backend IPs (BEIPs) and a map of Ports (Ports). Each k8s endpoint
 // present in BEIPs share the same list of Ports open.
 type K8sServiceEndpoint struct {
 	// TODO: Replace bool for time.Time so we know last time the service endpoint was seen?
@@ -238,7 +248,7 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) (*L3n4Addr, erro
 	}
 
 	addr := L3n4Addr{IP: ip, L4Addr: *lbport}
-	log.Debugf("created new L3n4Addr %s", addr)
+	log.WithField(logfields.IPAddr, addr).Debug("created new L3n4Addr")
 
 	return &addr, nil
 }
@@ -280,7 +290,7 @@ func NewLBBackEnd(protocol L4Type, ip net.IP, portNumber uint16, weight uint16) 
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		Weight:   weight,
 	}
-	log.Debugf("created new LBBackend %s", lbbe)
+	log.WithField("backend", lbbe).Debug("created new LBBackend")
 
 	return &lbbe, nil
 }
@@ -424,7 +434,11 @@ func (l *L3n4AddrID) IsIPv6() bool {
 // remaining be elements will be kept on the same index and, in case the new array is
 // larger than the number of backends, some elements will be empty.
 func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
-	log.Debugf("adding frontend %s and backend %s with backend index %d to SVCMap", fe, be, beIndex)
+	log.WithFields(log.Fields{
+		"frontend":     fe,
+		"backend":      be,
+		"backendIndex": beIndex,
+	}).Debug("adding frontend and backend to SVCMap")
 	sha := fe.SHA256Sum()
 
 	var lbsvc LBSVC

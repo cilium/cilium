@@ -35,7 +35,8 @@ const (
 var (
 	// this variable is set via Makefile for test purposes and allows to tie a
 	// binary to a particular backend
-	backend = ""
+	backend       = ""
+	consulAddress = "127.0.0.1:8501"
 
 	consulConfig *consulAPI.Config // Consul configuration
 	etcdConfig   *etcdAPI.Config   // Etcd Configuration
@@ -58,18 +59,18 @@ func SetupDummy() {
 	switch backend {
 	case Consul:
 		consulConfig = consulAPI.DefaultConfig()
-		consulConfig.Address = "127.0.0.1:8501"
+		consulConfig.Address = consulAddress
 
 	case Etcd:
 		etcdConfig = &etcdAPI.Config{}
 		etcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
 
 	default:
-		log.Panicf("Unknown kvstore backend: %s", backend)
+		log.WithField("backend", backend).Panic("Unknown kvstore backend")
 	}
 
 	if err := initClient(); err != nil {
-		log.WithError(err).Panicf("Unable to initialize kvstore client")
+		log.WithError(err).Panic("Unable to initialize kvstore client")
 	}
 }
 

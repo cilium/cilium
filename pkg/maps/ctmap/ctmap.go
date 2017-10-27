@@ -17,6 +17,7 @@ package ctmap
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net"
 	"unsafe"
 
@@ -38,6 +39,9 @@ const (
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
+
+	// MaxTime specifies the last possible time for GCFilter.Time
+	MaxTime = math.MaxUint32
 )
 
 type CtType int
@@ -221,7 +225,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
-			log.Errorf("error during map Lookup: %s", err)
+			log.WithError(err).Error("error during map Lookup")
 			break
 		}
 
@@ -233,7 +237,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			//log.Debugf("Deleting entry %v since it timeout", entry)
+			//log.WithField(logfields.Object, logfields.Repr(entry)).Debug("Deleting IPv4 entry since it timeout")
 		}
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
@@ -245,15 +249,17 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
 
 				del = true
-				//log.Debugf("Deleting entry since ID %d is no "+
-				//	"longer being consumed by %s", entry.src_sec_id, filter.IP)
+				//log.WithFields(log.Fields{
+				//	logfields.IPAddr:   filter.IP,
+				//	logfields.Identity: entry.src_sec_id,
+				//}).Debug("Deleting IPv6 entry since ID is no longer being consumed by filter")
 			}
 		}
 
 		if del {
 			err := m.Delete(&nextKey)
 			if err != nil {
-				log.Debugf("error during Delete: %s", err)
+				log.WithError(err).Debug("error during Delete")
 			} else {
 				deleted++
 			}
@@ -286,7 +292,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
-			log.Errorf("error during map Lookup: %s", err)
+			log.WithError(err).Error("error during map Lookup")
 			break
 		}
 
@@ -298,7 +304,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			//log.Debugf("Deleting entry %v since it timeout", entry)
+			//log.WithField(logfields.Object, logfields.Repr(entry)).Debug("Deleting IPv6 entry since it timeout")
 		}
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
@@ -310,15 +316,17 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
 
 				del = true
-				//log.Debugf("Deleting entry since ID %d is no "+
-				//	"longer being consumed by %s", entry.src_sec_id, filter.IP)
+				//log.WithFields(log.Fields{
+				//	logfields.IPAddr:   filter.IP,
+				//	logfields.Identity: entry.src_sec_id,
+				//}).Debug("Deleting IPv4 entry since ID is no longer being consumed by filter")
 			}
 		}
 
 		if del {
 			err := m.Delete(&nextKey)
 			if err != nil {
-				log.Debugf("error during Delete: %s", err)
+				log.WithError(err).Debug("error during Delete")
 			} else {
 				deleted++
 			}
@@ -340,6 +348,22 @@ func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
 		tsec := t / 1000000000
 		filter.Time = uint32(tsec)
 	}
+
+	switch mapName {
+	case MapName6, MapName6Global:
+		return doGC6(m, filter)
+	case MapName4, MapName4Global:
+		return doGC4(m, filter)
+	default:
+		return 0
+	}
+}
+
+// Flush runs garbage collection for map m with the name mapName, deleting all
+// entries. The specified map must be already opened using bpf.OpenMap().
+func Flush(m *bpf.Map, mapName string) int {
+	filter := NewGCFilterBy(GCFilterByTime)
+	filter.Time = MaxTime
 
 	switch mapName {
 	case MapName6, MapName6Global:

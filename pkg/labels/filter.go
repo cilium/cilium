@@ -128,7 +128,7 @@ func ParseLabelPrefixCfg(prefixes []string, file string) error {
 
 	validLabelPrefixes = cfg
 
-	log.Infof("Valid label prefix configuration:")
+	log.Info("Valid label prefix configuration:")
 	for _, l := range validLabelPrefixes.LabelPrefixes {
 		log.Infof(" - %s", l)
 	}

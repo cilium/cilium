@@ -21,6 +21,7 @@ import (
 )
 
 func (s *NodeAddressSuite) TestMaskCheck(c *C) {
+	InitDefaultPrefix("")
 	SetIPv4ClusterCidrMaskSize(24)
 
 	_, cidr, _ := net.ParseCIDR("1.1.1.1/16")

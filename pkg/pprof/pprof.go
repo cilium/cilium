@@ -28,7 +28,7 @@ const apiAddress = "localhost:6060"
 func Enable() {
 	go func() {
 		if err := http.ListenAndServe(apiAddress, nil); err != nil {
-			log.WithError(err).Warning("Unable to serve pprof API")
+			log.WithError(err).Warn("Unable to serve pprof API")
 		}
 	}()
 }

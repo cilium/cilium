@@ -46,6 +46,12 @@ import (
 var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
 	ErrNilNode = goerrors.New("API server returned nil node")
+
+	// crdGV is the GroupVersion used for CRDs
+	crdGV = schema.GroupVersion{
+		Group:   CustomResourceDefinitionGroup,
+		Version: CustomResourceDefinitionVersion,
+	}
 )
 
 const (
@@ -178,15 +184,15 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 // CreateCustomResourceDefinitions creates the CRD object in the kubernetes
 // cluster
 func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
-	cnpCRDName := CustomResourceDefinitionPluralName + "." + CustomResourceDefinitionGroup
+	cnpCRDName := CustomResourceDefinitionPluralName + "." + crdGV.Group
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cnpCRDName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   CustomResourceDefinitionGroup,
-			Version: CustomResourceDefinitionVersion,
+			Group:   crdGV.Group,
+			Version: crdGV.Version,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 				Plural:     CustomResourceDefinitionPluralName,
 				Singular:   CustomResourceDefinitionSingularName,
@@ -237,15 +243,11 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 
 func addKnownTypesCRD(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
-		schema.GroupVersion{
-			Group:   CustomResourceDefinitionGroup,
-			Version: CustomResourceDefinitionVersion,
-		},
+		crdGV,
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
-		&metav1.ListOptions{},
-		&metav1.DeleteOptions{},
 	)
+	metav1.AddToGroupVersion(scheme, crdGV)
 
 	return nil
 }
@@ -261,22 +263,25 @@ type CNPCliInterface interface {
 	Delete(namespace, name string, options *metav1.DeleteOptions) error
 	Get(namespace, name string) (*CiliumNetworkPolicy, error)
 	List(namespace string) (*CiliumNetworkPolicyList, error)
+	ListAll() (*CiliumNetworkPolicyList, error)
 	NewListWatch() *cache.ListWatch
 }
 
 // CreateCRDClient creates a new k8s client for custom resource definition
-func CreateCRDClient(config *rest.Config) (CNPCliInterface, error) {
-	config.GroupVersion = &schema.GroupVersion{
-		Group:   CustomResourceDefinitionGroup,
-		Version: CustomResourceDefinitionVersion,
+func CreateCRDClient(cfg *rest.Config) (CNPCliInterface, error) {
+	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesCRD)
+	sch := runtime.NewScheme()
+	if err := schemeBuilder.AddToScheme(sch); err != nil {
+		return nil, err
 	}
+
+	config := *cfg
+	config.GroupVersion = &crdGV
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
-	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesCRD)
-	schemeBuilder.AddToScheme(api.Scheme)
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(sch)}
 
-	rc, err := rest.RESTClientFor(config)
+	rc, err := rest.RESTClientFor(&config)
 	return &cnpClient{rc}, err
 }
 
@@ -324,6 +329,15 @@ func (c *cnpClient) List(namespace string) (*CiliumNetworkPolicyList, error) {
 	var result CiliumNetworkPolicyList
 	err := c.RESTClient.Get().
 		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
+		Do().Into(&result)
+	return &result, err
+}
+
+// ListAll returns the list of CNPs in all the namespaces
+func (c *cnpClient) ListAll() (*CiliumNetworkPolicyList, error) {
+	var result CiliumNetworkPolicyList
+	err := c.RESTClient.Get().
+		Resource(CustomResourceDefinitionPluralName).
 		Do().Into(&result)
 	return &result, err
 }
@@ -401,20 +415,18 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 		fieldSubsys:   subsysKubernetes,
 	}).Debugf("Updating node annotations with node CIDRs: IPv4=%s IPv6=%s", v4CIDR, v6CIDR)
 
-	go func(c kubernetes.Interface, v4CIDR, v6CIDR *net.IPNet) {
+	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) {
 		var node *v1.Node
 		var err error
 
 		for n := 1; n <= maxUpdateRetries; n++ {
-			if node == nil {
-				node, err = GetNode(c, nodeName)
-				if node == nil {
+			node, err = GetNode(c, nodeName)
+			if err == nil {
+				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR)
+			} else {
+				if errors.IsNotFound(err) {
 					err = ErrNilNode
 				}
-			}
-
-			if node != nil {
-				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR)
 			}
 
 			if err != nil {
@@ -430,7 +442,7 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(c, v4CIDR, v6CIDR)
+	}(c, nodeName, v4CIDR, v6CIDR)
 
 	return nil
 }

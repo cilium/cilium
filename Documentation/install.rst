@@ -173,13 +173,12 @@ chapter.
 
 	mount bpffs /sys/fs/bpf -t bpf
 
-2. Download the DaemonSet_ template ``cilium-ds.yaml`` and specify the k8s API
-   server and Key-Value store addresses:
+2. Download the DaemonSet_ template ``cilium.yaml`` and specify the etcd address:
 
-.. code:: bash
+.. parsed-literal::
 
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-config.yaml
-    $ vim cilium-config.yaml
+    $ wget \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
+    $ vim cilium.yaml
     [adjust the etcd address]
 
 **Optional:** If you want to adjust the MTU of the pods, define the ``MTU`` environment
@@ -191,23 +190,16 @@ variable in the ``env`` section:
       - name: "MTU"
         value: "8950"
 
-3. Deploy the ``cilium`` ConfigMap_
+3. Deploy ``cilium`` with your local changes
 
 .. code:: bash
 
-    $ kubectl create -f cilium-config.yaml
+    $ kubectl create -f ./cilium.yaml
+    clusterrole "cilium" created
+    serviceaccount "cilium" created
+    clusterrolebinding "cilium" created
     configmap "cilium-config" created
     secret "cilium-etcd-secrets" created
-
-    $ kubectl get configmap --namespace kube-system cilium-config
-    NAME            DATA      AGE
-    cilium-config   3         19m
-
-4. Deploy the ``cilium`` DaemonSet_
-
-.. code:: bash
-
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
     daemonset "cilium" created
 
     $ kubectl get ds --namespace kube-system
@@ -348,51 +340,23 @@ the CNI configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
 Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
 already exists on a worker node and only creates it if it does not exist yet.
 
-
-.. _rbac_integration:
-
-RBAC integration
-----------------
-
-If you have RBAC_ enabled in your Kubernetes cluster, create appropriate
-cluster roles and service accounts for Cilium:
-
-.. code:: bash
-
-    $ kubectl create -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/rbac.yaml
-    clusterrole "cilium" created
-    serviceaccount "cilium" created
-    clusterrolebinding "cilium" created
-
-.. _ds_config:
-
-Configuring the DaemonSet
--------------------------
-
-.. code:: bash
-
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/cilium-ds.yaml
-    $ vim cilium-ds.yaml
-
-The following configuration options *must* be specified:
-
-- ``--k8s-api-server`` or ``--k8s-kubeconfig-path`` must point to at least one
-  Kubernetes API server address.
-- ``--kvstore`` with optional ``--kvstore-opts`` to configure the Key-Value
-  store.  See section :ref:`install_kvstore` for additional details on how to
-  configure the Key-Value store.
-
 .. _ds_deploy:
 
 Deploying the DaemonSet
 -----------------------
 
-After configuring the ``cilium`` DaemonSet_ it is time to deploy it using
+.. parsed-literal::
+
+    $ wget \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
+    $ vim cilium.yaml
+    [adjust the etcd address]
+
+After configuring the ``cilium`` ConfigMap_ it is time to deploy it using
 ``kubectl``:
 
 .. code:: bash
 
-    $ kubectl create -f cilium-ds.yaml
+    $ kubectl create -f cilium.yaml
 
 Kubernetes will deploy the ``cilium`` DaemonSet_ as a pod in the ``kube-system``
 namespace on all worker nodes. This operation is performed in the background.
@@ -450,7 +414,7 @@ Deploying to selected nodes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To deploy Cilium only to a selected list of worker nodes, you can add a
-NodeSelector_ to the ``cilium-ds.yaml`` file like this:
+NodeSelector_ to the ``cilium.yaml`` file like this:
 
 .. code:: bash
 
@@ -598,9 +562,9 @@ Docker compose.
 Note: for multi-host deployments using a key-value store, you would want to
 update this template to point cilium to a central key-value store.
 
-.. code:: bash
+.. parsed-literal::
 
-    $ wget https://raw.githubusercontent.com/cilium/cilium/master/examples/docker-compose/docker-compose.yml
+    $ wget \ |SCM_WEB|\/examples/docker-compose/docker-compose.yml
     $ IFACE=eth1 docker-compose up
     [...]
 
@@ -922,7 +886,7 @@ Follow `the CoreOS instructions to download kubectl <https://coreos.com/kubernet
 
 This will populate the Kubeconfig file with the contents of the certificates, which is needed for Cilium to authenticate against the Kubernetes API when it is launched in the next step.
 
-Alternatively, you can run the above commands without ``--embed-certs=true``, and then mount the paths to the certificates and keys from the host filesystem in `cilium-ds.yaml`. 
+Alternatively, you can run the above commands without ``--embed-certs=true``, and then mount the paths to the certificates and keys from the host filesystem in `cilium.yaml`.
 
 Follow `the CoreOS instructions to validate that kubectl has been configured correctly <https://coreos.com/kubernetes/docs/latest/configure-kubectl.html#verify-kubectl-configuration-and-connection>`_.
 
@@ -930,11 +894,9 @@ Follow `the CoreOS instructions to validate that kubectl has been configured cor
 .. _cilium-daemonset-deployment:
 
 Step 10: Deploy Cilium DaemonSet
--------------------------------
+--------------------------------
 
-* If your cluster is using RBAC, refer to :ref:`rbac_integration`.
-* Follow the instructions for :ref:`ds_config` and :ref:`ds_deploy`. We recommend using the etcd cluster you have set up as the key-value store for Cilium.
-    * NOTE: before you deploy the cilium DaemonSet, make sure you change the image for cilium to be "latest" instead of "stable". Once Cilium 0.10 is released, this is not necessary.
+* Follow the instructions for :ref:`ds_deploy`. We recommend using the etcd cluster you have set up as the key-value store for Cilium.
 
 Setup Worker Nodes
 ==================
@@ -1300,6 +1262,7 @@ Example of the etcd configuration file:
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
+.. _ConfigMap: https://kubernetes.io/docs/tasks/configure-pod-container/configmap/
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 .. _RBAC: https://kubernetes.io/docs/admin/authorization/rbac/
 .. _CNI: https://github.com/containernetworking/cni
