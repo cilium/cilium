@@ -761,7 +761,10 @@ func (e *Endpoint) PolicyID() string {
 	return fmt.Sprintf("Policy ID %d", e.ID)
 }
 
-func OptionChanged(key string, value bool, data interface{}) {
+// optionChanged is a callback used with pkg/option to apply the options to an
+// endpoint.
+// Note: You must hold Endpoint.Mutex when calling it
+func optionChanged(key string, value bool, data interface{}) {
 	e := data.(*Endpoint)
 	switch key {
 	case OptionConntrack:
@@ -769,10 +772,10 @@ func OptionChanged(key string, value bool, data interface{}) {
 	}
 }
 
-// ApplyOptsLocked applies the given options to the endpoint's options and
+// applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
-func (e *Endpoint) ApplyOptsLocked(opts map[string]string) bool {
-	return e.Opts.Apply(opts, OptionChanged, e) > 0
+func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
+	return e.Opts.Apply(opts, optionChanged, e) > 0
 }
 
 func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
@@ -1058,7 +1061,7 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 		return UpdateValidationError{err.Error()}
 	}
 
-	if opts != nil && !e.ApplyOptsLocked(opts) {
+	if opts != nil && !e.applyOptsLocked(opts) {
 		e.Mutex.Unlock()
 		// No changes have been applied, skip update
 		return nil
