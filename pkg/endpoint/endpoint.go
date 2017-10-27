@@ -758,7 +758,11 @@ func (e *Endpoint) String() string {
 // PolicyID returns an identifier for the endpoint's policy. Must be called
 // with the endpoint's lock held.
 func (e *Endpoint) PolicyID() string {
-	return fmt.Sprintf("Policy ID %d", e.ID)
+	pid := uint32(0)
+	if e.SecLabel != nil {
+		pid = e.SecLabel.ID.Uint32()
+	}
+	return fmt.Sprintf("Policy ID %d", pid)
 }
 
 // optionChanged is a callback used with pkg/option to apply the options to an
