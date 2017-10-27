@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"sort"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
@@ -187,5 +189,8 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
     ]
   }
 }]`
-	c.Assert(pretty.Sprintf("%+ v", model.Ingress), comparator.DeepEquals, expected)
+	var result sort.StringSlice
+	result = model.Ingress
+	result.Sort()
+	c.Assert(pretty.Sprintf("%+ v", result), comparator.DeepEquals, expected)
 }
