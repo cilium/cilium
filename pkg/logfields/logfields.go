@@ -15,8 +15,6 @@
 // Package logfields defines common logging fields which are used across packages
 package logfields
 
-import "github.com/cilium/cilium/pkg/proxy/accesslog"
-
 const (
 
 	// LogSubsys is the field denoting the subsystem when logging
@@ -113,8 +111,9 @@ const (
 	EndpointSelector = "EndpointSelector"
 
 	// Path is a filesystem path. It can be a file or directory.
-	// Note: we follow what accesslog sets to be consistent.
-	Path = accesslog.FieldFilePath
+	// Note: pkg/proxy/accesslog points to this variable so be careful when
+	// changing the value
+	Path = "file-path"
 
 	// Object is used when "%+v" printing Go objects for debug or error handling.
 	// It is often paired with logfields.Repr to render the object.
