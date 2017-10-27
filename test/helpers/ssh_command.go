@@ -183,8 +183,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 			session.Close()
 		}
 	}()
-	err = session.Run(cmd.Path)
-	return nil
+	return session.Run(cmd.Path)
 }
 
 func (client *SSHClient) newSession() (*ssh.Session, error) {
