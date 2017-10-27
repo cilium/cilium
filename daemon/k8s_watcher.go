@@ -997,6 +997,21 @@ func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{
 		log.Warningf("Received unknown object %+v, expected a CiliumNetworkPolicy object", newObj)
 		return
 	}
+
+	// Parse rules before checking whether they are equal. When rules are parsed,
+	// fields are sanitized and changed. Since Parse() is called on a pointer
+	// to a rule, the oldRule, which is cached locally, is modified, while the
+	// newRule is not modified yet. See GH-1885.
+	_, err := oldRule.Parse()
+	if err != nil {
+		log.WithError(err).Warn("Error parsing old CiliumNetworkPolicy rule")
+	}
+
+	_, err = newRules.Parse()
+	if err != nil {
+		log.WithError(err).Warn("Error parsing new CiliumNetworkPolicy rule")
+	}
+
 	// Since we are updating the status map from all nodes we need to prevent
 	// deletion and addition of all rules in cilium.
 	if oldRule.SpecEquals(newRules) {
