@@ -16,10 +16,15 @@ package proxy
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -49,10 +54,12 @@ const (
 	ProxyKindEnvoy = "envoy"
 )
 
-// Redirect is the generic proxy redirect interface that each proxy redirect type must export
+// Redirect is the generic proxy redirect interface that each proxy redirect
+// type must export
 type Redirect interface {
 	ToPort() uint16
 	UpdateRules(l4 *policy.L4Filter) error
+	getSource() ProxySource
 	Close()
 }
 
@@ -138,6 +145,181 @@ func (p *Proxy) allocatePort() (uint16, error) {
 }
 
 var gcOnce sync.Once
+
+// localEndpointInfo fills the access log with the local endpoint info.
+func localEndpointInfo(r Redirect, info *accesslog.EndpointInfo) {
+	source := r.getSource()
+	source.RLock()
+	info.ID = source.GetID()
+	info.IPv4 = source.GetIPv4Address()
+	info.IPv6 = source.GetIPv6Address()
+	info.Labels = source.GetLabels()
+	info.LabelsSHA256 = source.GetLabelsSHA()
+	info.Identity = uint64(source.GetIdentity())
+	source.RUnlock()
+}
+
+// getSourceInfo resolves source information
+// using source identity and fills the access log.
+func getSourceInfo(RemoteAddr string,
+	srcIdentity policy.NumericIdentity,
+	ingress bool, r Redirect) (accesslog.EndpointInfo, accesslog.IPVersion) {
+	info := accesslog.EndpointInfo{}
+	version := accesslog.VersionIPv4
+	ipstr, port, err := net.SplitHostPort(RemoteAddr)
+	if err == nil {
+		p, err := strconv.ParseUint(port, 10, 16)
+		if err == nil {
+			info.Port = uint16(p)
+		}
+
+		ip := net.ParseIP(ipstr)
+		if ip != nil && ip.To4() == nil {
+			version = accesslog.VersionIPV6
+		}
+	}
+
+	// At egress, the local origin endpoint is the source
+	if !ingress {
+		localEndpointInfo(r, &info)
+	} else if err == nil {
+		if srcIdentity != 0 {
+			getInfoFromConsumable(ipstr, &info, srcIdentity, r)
+		} else {
+			// source security identity 0 is possible when somebody else other
+			// than the BPF datapath attempts to connect to the proxy. We should
+			// log no source information in that case, in the proxy log.
+			log.Warn("Missing security identity in source endpoint info")
+		}
+
+	}
+
+	return info, version
+}
+
+// fillReservedIdentity resolves the labels of the specified identity if known
+// locally and fills in the following info member fields:
+//  - info.Identity
+//  - info.Labels
+//  - info.LabelsSHA256
+func fillReservedIdentity(info *accesslog.EndpointInfo,
+	id policy.NumericIdentity) {
+	info.Identity = uint64(id)
+
+	if c := policy.GetConsumableCache().Lookup(id); c != nil {
+		if c.Labels != nil {
+			info.Labels = c.Labels.Labels.GetModel()
+			info.LabelsSHA256 = c.Labels.GetLabelsSHA256()
+		}
+	}
+}
+
+// getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
+// the consumable from the consumable cache of endpoint using identity sent by
+// source. This is needed in ingress proxy while logging the source endpoint
+// info.  Since there will be 2 proxies on the same host, if both egress and
+// ingress policies are set, the ingress policy cannot determine the source
+// endpoint info based on ip address, as the ip address would be that of the
+// egress proxy i.e host.
+func getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo,
+	srcIdentity policy.NumericIdentity, r Redirect) {
+	ep := r.getSource()
+	ip := net.ParseIP(ipstr)
+	if ip != nil {
+		if ip.To4() != nil {
+			info.IPv4 = ip.String()
+		} else {
+			info.IPv6 = ip.String()
+		}
+	}
+	secIdentity := ep.ResolveIdentity(srcIdentity)
+
+	if secIdentity != nil {
+		info.Labels = secIdentity.Labels.GetModel()
+		info.LabelsSHA256 = secIdentity.Labels.SHA256Sum()
+		info.Identity = uint64(srcIdentity)
+	}
+}
+
+// egressDestinationInfo returns the destination EndpointInfo for a flow
+// leaving the proxy at egress.
+func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
+	ip := net.ParseIP(ipstr)
+	if ip != nil {
+		if ip.To4() != nil {
+			info.IPv4 = ip.String()
+
+			if node.IsHostIPv4(ip) {
+				fillReservedIdentity(info, policy.ReservedIdentityHost)
+				return
+			}
+
+			if node.GetIPv4ClusterRange().Contains(ip) {
+				c := addressing.DeriveCiliumIPv4(ip)
+				ep := endpointmanager.LookupIPv4(c.String())
+				if ep != nil {
+					ep.RLock()
+					info.ID = uint64(ep.ID)
+					info.Labels = ep.GetLabels()
+					info.LabelsSHA256 = ep.GetLabelsSHA()
+					info.Identity = uint64(ep.GetIdentity())
+					ep.RUnlock()
+				} else {
+					fillReservedIdentity(info, policy.ReservedIdentityCluster)
+				}
+			} else {
+				fillReservedIdentity(info, policy.ReservedIdentityWorld)
+			}
+		} else {
+			info.IPv6 = ip.String()
+
+			if node.IsHostIPv6(ip) {
+				fillReservedIdentity(info, policy.ReservedIdentityHost)
+				return
+			}
+
+			if node.GetIPv6ClusterRange().Contains(ip) {
+				c := addressing.DeriveCiliumIPv6(ip)
+				id := c.EndpointID()
+				info.ID = uint64(id)
+
+				ep := endpointmanager.LookupCiliumID(id)
+				if ep != nil {
+					ep.RLock()
+					info.Labels = ep.GetLabels()
+					info.LabelsSHA256 = ep.GetLabelsSHA()
+					info.Identity = uint64(ep.GetIdentity())
+					ep.RUnlock()
+				} else {
+					fillReservedIdentity(info, policy.ReservedIdentityCluster)
+				}
+			} else {
+				fillReservedIdentity(info, policy.ReservedIdentityWorld)
+			}
+		}
+	}
+}
+
+// getDestinationInfo returns the destination EndpointInfo.
+func getDestinationInfo(dstIPPort string, ingress bool, r Redirect) accesslog.EndpointInfo {
+	info := accesslog.EndpointInfo{}
+	ipstr, port, err := net.SplitHostPort(dstIPPort)
+	if err == nil {
+		p, err := strconv.ParseUint(port, 10, 16)
+		if err == nil {
+			info.Port = uint16(p)
+		}
+	}
+
+	// At ingress the local origin endpoint is the source
+	if ingress {
+		localEndpointInfo(r, &info)
+	} else if err == nil {
+		egressDestinationInfo(ipstr, &info)
+	}
+
+	return info
+}
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch

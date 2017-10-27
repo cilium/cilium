@@ -33,14 +33,28 @@ type RequestMessage struct {
 	request interface{}
 }
 
-// GetKind returns the kind of Kafka request
-func (req *RequestMessage) GetKind() int16 {
+// GetAPIKey returns the kind of Kafka request
+func (req *RequestMessage) GetAPIKey() int16 {
 	return req.kind
 }
 
 // GetRaw returns the raw Kafka request
 func (req *RequestMessage) GetRaw() []byte {
 	return req.rawMsg
+}
+
+// GetVersion returns the version Kafka request
+func (req *RequestMessage) GetVersion() int16 {
+	return req.version
+}
+
+// GetCorrelationID returns the Kafka request correlationID
+func (req *RequestMessage) GetCorrelationID() int32 {
+	return int32(binary.BigEndian.Uint32(req.rawMsg[8:12]))
+}
+
+func (req *RequestMessage) extractVersion() int16 {
+	return int16(binary.BigEndian.Uint16(req.rawMsg[6:8]))
 }
 
 // String returns a human readable representation of the request message
@@ -52,6 +66,74 @@ func (req *RequestMessage) String() string {
 
 	return fmt.Sprintf("apiKey=%d,apiVersion=%d,len=%d: %s",
 		req.kind, req.version, len(req.rawMsg), string(b))
+}
+
+// GetTopics returns the Kafka request list of topics
+func (req *RequestMessage) GetTopics() []string {
+	if req.request == nil {
+		return nil
+	}
+
+	switch val := req.request.(type) {
+	case *proto.ProduceReq:
+		return produceTopics(val)
+	case *proto.FetchReq:
+		return fetchTopics(val)
+	case *proto.OffsetReq:
+		return offsetTopics(val)
+	case *proto.MetadataReq:
+		return metadataTopics(val)
+	case *proto.OffsetCommitReq:
+		return offsetCommitTopics(val)
+	case *proto.OffsetFetchReq:
+		return offsetFetchTopics(val)
+	}
+	return nil
+}
+
+func produceTopics(req *proto.ProduceReq) []string {
+	topics := make([]string, len(req.Topics))
+	for k, topic := range req.Topics {
+		topics[k] = topic.Name
+	}
+	return topics
+}
+
+func fetchTopics(req *proto.FetchReq) []string {
+	topics := make([]string, len(req.Topics))
+	for k, topic := range req.Topics {
+		topics[k] = topic.Name
+	}
+	return topics
+}
+
+func offsetTopics(req *proto.OffsetReq) []string {
+	topics := make([]string, len(req.Topics))
+	for k, topic := range req.Topics {
+		topics[k] = topic.Name
+	}
+	return topics
+}
+
+func metadataTopics(req *proto.MetadataReq) []string {
+	topics := req.Topics
+	return topics
+}
+
+func offsetCommitTopics(req *proto.OffsetCommitReq) []string {
+	topics := make([]string, len(req.Topics))
+	for k, topic := range req.Topics {
+		topics[k] = topic.Name
+	}
+	return topics
+}
+
+func offsetFetchTopics(req *proto.OffsetFetchReq) []string {
+	topics := make([]string, len(req.Topics))
+	for k, topic := range req.Topics {
+		topics[k] = topic.Name
+	}
+	return topics
 }
 
 // CreateResponse creates a response message based on the provided request
@@ -84,10 +166,6 @@ func (req *RequestMessage) CreateResponse(err error) (*ResponseMessage, error) {
 	return nil, fmt.Errorf("unknown request type %d", req.kind)
 }
 
-func (req *RequestMessage) getVersion() int16 {
-	return int16(binary.BigEndian.Uint16(req.rawMsg[6:8]))
-}
-
 // ReadRequest will read a Kafka request from an io.Reader and return the
 // message or an error.
 func ReadRequest(reader io.Reader) (*RequestMessage, error) {
@@ -99,7 +177,11 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		return nil, err
 	}
 
-	req.version = req.getVersion()
+	if len(req.rawMsg) < 12 {
+		return nil,
+			fmt.Errorf("unexpected end of request (length < 12 bytes)")
+	}
+	req.version = req.extractVersion()
 
 	var nilSlice []byte
 	buf := bytes.NewBuffer(append(nilSlice, req.rawMsg...))
@@ -126,6 +208,5 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 			fieldRequest: req.String(),
 		}).WithError(err).Debug("Ignoring Kafka message due to parse error")
 	}
-
 	return req, nil
 }
