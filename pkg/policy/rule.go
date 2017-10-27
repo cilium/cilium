@@ -188,9 +188,9 @@ func mergeIngressVisibilityPort(ctx *SearchContext, p api.PortProtocol, l7Parser
 
 	// Report as active visibility rule.
 	visMap[key] = L7VisibilityRule{
-		Port:     int(l4Port),
-		Protocol: p.Protocol,
-		L7Parser: l7Parser,
+		Port:       uint16(l4Port),
+		Protocol:   p.Protocol,
+		L7Protocol: l7Parser,
 	}
 
 	resMap[key] = v
@@ -371,6 +371,8 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 	return found, nil
 }
 
+// mergeIngressVisibility merges visibility rules into the given maps.
+// Returns the number of ingress rules that have been created as a result of the merge.
 func mergeIngressVisibility(ctx *SearchContext, rule api.IngressVisibilityRule, resMap L4PolicyMap, visMap L7VisibilityMap,
 	defaultAllow bool) (int, error) {
 	found := 0
@@ -468,7 +470,7 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 }
 
 // allowAllRule is a L4 rule that allows all ingress & egress L4 traffic.
-var allowAllRule rule = rule{
+var allowAllRule = rule{
 	Rule: api.Rule{
 		EndpointSelector: api.NewESFromLabels(),
 		Ingress: []api.IngressRule{

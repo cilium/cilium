@@ -253,9 +253,9 @@ function assert_visibility_rule_active() {
   local expected_response=`cat <<EOF
 [
   {
-    "Port": 80,
-    "Protocol": "TCP",
-    "L7Parser": "http"
+    "port": 80,
+    "protocol": "TCP",
+    "l7Protocol": "http"
   }
 ]
 EOF`

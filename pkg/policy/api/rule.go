@@ -324,7 +324,7 @@ type IngressVisibilityRule struct {
 	// ports. Case insensitive. Accepted values: "http", "kafka".
 	//
 	// +optional
-	L7Protocol L7ParserType `json:"l7protocol,omitempty"`
+	L7Protocol L7ParserType `json:"l7Protocol,omitempty"`
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7
@@ -374,7 +374,7 @@ type CIDRRule struct {
 
 // L7Rules is a union of port level rule types. Mixing of different port
 // level rule types is disallowed, so exactly one of the following must be set.
-// If none is specified, then no additional port-level rules are applied.
+// If none are specified, then no additional port-level rules are applied.
 type L7Rules struct {
 	// HTTP-specific rules.
 	//

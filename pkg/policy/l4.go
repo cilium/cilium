@@ -213,11 +213,11 @@ type L4PolicyMap map[string]L4Filter
 // L7VisibilityRule is an active ingress visibility rule.
 type L7VisibilityRule struct {
 	// Port is the destination L4 port to redirect to L7 for access logging.
-	Port int
+	Port uint16 `json:"port"`
 	// Protocol is the port's L4 protocol.
-	Protocol api.L4Proto
-	// L7Parser specifies the L7 protocol parser.
-	L7Parser api.L7ParserType
+	Protocol api.L4Proto `json:"protocol"`
+	// L7Protocol specifies the L7 protocol parser.
+	L7Protocol api.L7ParserType `json:"l7Protocol"`
 }
 
 // MarshalIndent returns the `L7VisibilityRule` in indented JSON string.
@@ -265,7 +265,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 	}
 
 	// Check any rule that accepts any port.
-	anyPortFilter, match := l4["0/ANY"]
+	anyPortFilter, match := l4[fmt.Sprintf("%d/%s", 0, api.ProtoAny)]
 	if match && anyPortFilter.matchesLabels(labels) {
 		return api.Allowed
 	}
@@ -274,12 +274,12 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 		lwrProtocol := l4CtxIng.Protocol
 		switch lwrProtocol {
 		case "", models.PortProtocolANY:
-			tcpPort := fmt.Sprintf("%d/TCP", l4CtxIng.Port)
+			tcpPort := fmt.Sprintf("%d/%s", l4CtxIng.Port, api.ProtoTCP)
 			tcpFilter, tcpmatch := l4[tcpPort]
 			if tcpmatch {
 				tcpmatch = tcpFilter.matchesLabels(labels)
 			}
-			udpPort := fmt.Sprintf("%d/UDP", l4CtxIng.Port)
+			udpPort := fmt.Sprintf("%d/%s", l4CtxIng.Port, api.ProtoUDP)
 			udpFilter, udpmatch := l4[udpPort]
 			if udpmatch {
 				udpmatch = udpFilter.matchesLabels(labels)
