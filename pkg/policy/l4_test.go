@@ -179,7 +179,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	expected = `[{
   "port": 80,
   "protocol": "TCP",
-  "l7-rules": [
+  "l7Rules": [
     {
       "any.foo=": {
         "http": [
@@ -194,7 +194,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 } {
   "port": 8080,
   "protocol": "TCP",
-  "l7-rules": [
+  "l7Rules": [
     {
       "any.foo=": {
         "http": [

@@ -72,9 +72,9 @@ type L4Filter struct {
 	// L7Parser specifies the L7 protocol parser (optional)
 	L7Parser api.L7ParserType `json:"-"`
 	// L7RedirectPort is the L7 proxy port to redirect to (optional)
-	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
+	L7RedirectPort int `json:"l7RedirectPort,omitempty"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
-	L7RulesPerEp L7DataMap `json:"l7-rules,omitempty"`
+	L7RulesPerEp L7DataMap `json:"l7Rules,omitempty"`
 	// Ingress is true if filter applies at ingress
 	Ingress bool `json:"-"`
 }
