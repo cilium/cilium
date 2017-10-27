@@ -117,42 +117,71 @@ func ImportSSHconfig(config []byte) (SSHConfigs, error) {
 	return result, nil
 }
 
-//RunCommand runs a SSHCommand using SSHClient client. It will return the
-//stdout and a error.
-//Error will happen when a session can't be initialized correctly
-func (client *SSHClient) RunCommand(cmd *SSHCommand) ([]byte, error) {
-	var (
-		session *ssh.Session
-		err     error
-	)
+// copyWait runs an instance of io.Copy() in a goroutine, and returns a channel
+// to receive the error result.
+func copyWait(dst io.Writer, src io.Reader) chan error {
+	c := make(chan error)
+	go func() {
+		_, err := io.Copy(dst, src)
+		c <- err
+	}()
+	return c
+}
 
-	if session, err = client.newSession(); err != nil {
-		return nil, err
+// runCommand runs the specified command on the provided SSH session, and
+// gathers both of the sterr and stdout output into the writers provided by
+// cmd. Returns nil when the command completes successfully and all stderr,
+// stdout output has been written. Returns an error otherwise.
+func runCommand(session *ssh.Session, cmd *SSHCommand) error {
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("Unable to setup stderr for session: %v", err)
+	}
+	errChan := copyWait(cmd.Stderr, stderr)
+
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("Unable to setup stdout for session: %v", err)
+	}
+	outChan := copyWait(cmd.Stdout, stdout)
+
+	if err = session.Run(cmd.Path); err != nil {
+		return err
+	}
+	if err = <-errChan; err != nil {
+		return err
+	}
+	if err = <-outChan; err != nil {
+		return err
+	}
+	return nil
+}
+
+//RunCommand runs a SSHCommand using SSHClient client. The returned error is
+//nil if the command runs, has no problems copying stdin, stdout, and stderr,
+//and exits with a zero exit status.
+func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
+	session, err := client.newSession()
+	if err != nil {
+		return err
 	}
 	defer session.Close()
 
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to setup stderr for session: %v", err)
-	}
-	go io.Copy(cmd.Stderr, stderr)
-	return session.Output(cmd.Path)
+	return runCommand(session, cmd)
 }
 
-//RunCommandContext run a ssh command but with a context, so can be cancel when is needed
+// RunCommandContext runs a ssh command in a similar way to RunCommand, but
+// with a context which allows the command to be cancelled at any time.
 func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
 	if ctx == nil {
-		panic("nil Context")
+		panic("nil Context to RunCommandContext()")
 	}
 
-	var (
-		session *ssh.Session
-		err     error
-	)
-
-	if session, err = client.newSession(); err != nil {
+	session, err := client.newSession()
+	if err != nil {
 		return err
 	}
+	defer session.Close()
 
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,     // enable echoing
@@ -160,19 +189,6 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
 	session.RequestPty("xterm-256color", 80, 80, modes)
-	defer session.Close()
-
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("Unable to setup stderr for session: %v", err)
-	}
-	go io.Copy(cmd.Stderr, stderr)
-
-	stdout, err := session.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("Unable to setup stdout for session: %v", err)
-	}
-	go io.Copy(cmd.Stdout, stdout)
 
 	go func() {
 		select {
@@ -183,7 +199,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 			session.Close()
 		}
 	}()
-	return session.Run(cmd.Path)
+	return runCommand(session, cmd)
 }
 
 func (client *SSHClient) newSession() (*ssh.Session, error) {
