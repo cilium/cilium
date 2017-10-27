@@ -32,6 +32,12 @@ type EndpointSelector struct {
 	*metav1.LabelSelector
 }
 
+// LabelSelectorString returns a user-friendly string representation of
+// EndpointSelector.
+func (n *EndpointSelector) LabelSelectorString() string {
+	return metav1.FormatLabelSelector(n.LabelSelector)
+}
+
 // String returns a string representation of EndpointSelector.
 func (n EndpointSelector) String() string {
 	j, _ := n.MarshalJSON()

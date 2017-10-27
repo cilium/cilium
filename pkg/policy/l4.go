@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -34,22 +35,30 @@ var (
 type L7DataMap map[api.EndpointSelector]api.L7Rules
 
 func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
-	var err error
-	rules := []byte{}
-
 	if len(l7) == 0 {
-		return []byte("{}"), nil
+		return []byte("[]"), nil
 	}
 
-	for _, v := range l7 {
-		b, err := json.MarshalIndent(v, "", "  ")
-		if err != nil {
-			b = []byte("\"L7DataMap error: " + err.Error() + "\"")
+	var err error
+	buffer := bytes.NewBufferString("[")
+	for k, v := range l7 {
+		buffer.WriteString("\n  {    \n    \"")
+		buffer.WriteString(k.LabelSelectorString())
+		buffer.WriteString("\": ")
+		b, err := json.MarshalIndent(v, "    ", "  ")
+		if err == nil {
+			buffer.Write(b)
+		} else {
+			buffer.WriteString("\"L7DataMap error: ")
+			buffer.WriteString(err.Error())
+			buffer.WriteString("\"")
 		}
-		rules = append(rules, b...)
+		buffer.WriteString("\n  },")
 	}
+	buffer.Truncate(buffer.Len() - 1) // Drop the final ","
+	buffer.WriteString("\n]")
 
-	return rules, err
+	return buffer.Bytes(), err
 }
 
 // L7ParserType is the type used to indicate what L7 parser to use and

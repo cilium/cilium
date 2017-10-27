@@ -122,7 +122,12 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 }
 
 func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
-	selector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	wildcardSelector := api.NewESFromLabels()
+
+	model := &models.L4Policy{}
+	c.Assert(pretty.Sprintf("%+ v", model.Egress), comparator.DeepEquals, "[]")
+	c.Assert(pretty.Sprintf("%+ v", model.Ingress), comparator.DeepEquals, "[]")
 
 	policy := L4Policy{
 		Egress: L4PolicyMap{
@@ -135,10 +140,10 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		Ingress: L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
-				FromEndpoints: []api.EndpointSelector{selector},
+				FromEndpoints: []api.EndpointSelector{fooSelector},
 				L7Parser:      "http",
 				L7RulesPerEp: L7DataMap{
-					selector: api.L7Rules{
+					fooSelector: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 					},
 				},
@@ -146,10 +151,16 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			},
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
-				FromEndpoints: []api.EndpointSelector{selector},
+				FromEndpoints: []api.EndpointSelector{fooSelector},
 				L7Parser:      "http",
 				L7RulesPerEp: L7DataMap{
-					selector: api.L7Rules{
+					fooSelector: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Path: "/", Method: "GET"},
+							{Path: "/bar", Method: "GET"},
+						},
+					},
+					wildcardSelector: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 					},
 				},
@@ -158,7 +169,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		},
 	}
 
-	model := policy.GetModel()
+	model = policy.GetModel()
 	c.Assert(model, NotNil)
 
 	expected := `[{
@@ -169,25 +180,47 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	expected = `[{
   "port": 80,
   "protocol": "TCP",
-  "l7-rules": {
-    "http": [
-      {
-        "path": "/",
-        "method": "GET"
+  "l7-rules": [
+    {
+      "any.foo=": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          }
+        ]
       }
-    ]
-  }
+    }
+  ]
 } {
   "port": 8080,
   "protocol": "TCP",
-  "l7-rules": {
-    "http": [
-      {
-        "path": "/",
-        "method": "GET"
+  "l7-rules": [
+    {
+      "any.foo=": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          },
+          {
+            "path": "/bar",
+            "method": "GET"
+          }
+        ]
       }
-    ]
-  }
+    },
+    {
+      "\u003cnone\u003e": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          }
+        ]
+      }
+    }
+  ]
 }]`
 	var result sort.StringSlice
 	result = model.Ingress
