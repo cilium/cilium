@@ -13,6 +13,7 @@ daemon/bpf.sha @cilium/bpf
 bpf/*.sh @cilium/bpf-loader
 
 # CI
+test/ @cilium/ci
 tests/ @cilium/ci
 Jenkinsfile @cilium/ci
 
