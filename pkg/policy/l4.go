@@ -33,6 +33,25 @@ var (
 // L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
 type L7DataMap map[api.EndpointSelector]api.L7Rules
 
+func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
+	var err error
+	rules := []byte{}
+
+	if len(l7) == 0 {
+		return []byte("{}"), nil
+	}
+
+	for _, v := range l7 {
+		b, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			b = []byte("\"L7DataMap error: " + err.Error() + "\"")
+		}
+		rules = append(rules, b...)
+	}
+
+	return rules, err
+}
+
 // L7ParserType is the type used to indicate what L7 parser to use and
 // defines all supported types of L7 parsers
 type L7ParserType string
@@ -154,7 +173,7 @@ func (l4 *L4Filter) IsRedirect() bool {
 func (l4 *L4Filter) MarshalIndent() string {
 	b, err := json.MarshalIndent(l4, "", "  ")
 	if err != nil {
-		return err.Error()
+		b = []byte("\"L4Filter error: " + err.Error() + "\"")
 	}
 	return string(b)
 }
