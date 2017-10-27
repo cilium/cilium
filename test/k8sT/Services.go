@@ -54,6 +54,8 @@ var _ = Describe("K8sServicesTest", func() {
 	It("Check Service", func() {
 		demoDSPath := fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
 		kubectl.Apply(demoDSPath)
+		defer kubectl.Delete(demoDSPath)
+
 		pods, err := kubectl.WaitforPods("default", "-l zgroup=testapp", 300)
 		Expect(pods).Should(BeTrue())
 		Expect(err).Should(BeNil())
@@ -73,7 +75,6 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(service.Output()).Should(ContainSubstring(svcIP.String()))
 		Expect(service.WasSuccessful()).Should(BeTrue())
 
-		kubectl.Delete(demoDSPath)
 	}, 300)
 
 	//TODO: Check service with IPV6
