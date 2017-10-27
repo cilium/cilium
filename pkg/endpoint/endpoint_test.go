@@ -240,3 +240,16 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	eps.addStatusLog(sts)
 	c.Assert(eps.String(), Equals, "OK")
 }
+
+func (s *EndpointSuite) TestEndpointPolicyID(c *C) {
+	ep := &Endpoint{
+		ID: 12,
+	}
+	c.Assert(ep.PolicyID(), Equals, "Policy ID 0")
+
+	id := policy.NewIdentity()
+	id.ID = 55
+	ep.SecLabel = id
+
+	c.Assert(ep.PolicyID(), Equals, "Policy ID 55")
+}
