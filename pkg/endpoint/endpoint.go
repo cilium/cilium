@@ -39,6 +39,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -297,6 +299,10 @@ type Endpoint struct {
 	// FIXME: Mark private once endpoint deletion can be moved into
 	// `pkg/endpoint`
 	BuildMutex lock.Mutex
+
+	// logger is a logrus object with fields set to report an endpoints information.
+	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
+	logger *log.Entry
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -1092,7 +1098,7 @@ func (e *Endpoint) UpdateOrchInformationLabels(l pkgLabels.Labels) {
 	e.Mutex.Lock()
 	for k, v := range l {
 		tmp := v.DeepCopy()
-		e.log().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration information label")
+		e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration information label")
 		e.OpLabels.OrchestrationInfo[k] = tmp
 	}
 	e.Mutex.Unlock()
@@ -1119,7 +1125,7 @@ func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 
 		default:
 			tmp := v.DeepCopy()
-			e.log().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration identity label")
+			e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration identity label")
 			e.OpLabels.OrchestrationIdentity[k] = tmp
 			changed = true
 		}
@@ -1149,7 +1155,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
-			e.log().WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warn("Unable to close policy map")
+			e.getLogger().WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warn("Unable to close policy map")
 		}
 	}
 
@@ -1273,6 +1279,7 @@ func (e *Endpoint) SetState(state string) {
 func (e *Endpoint) bumpPolicyRevision() {
 	e.Mutex.Lock()
 	e.policyRevision = e.nextPolicyRevision
+	e.updateLogger()
 	e.Mutex.Unlock()
 }
 

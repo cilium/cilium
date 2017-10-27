@@ -309,6 +309,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 	e.Mutex.RLock()
 	args := []string{libdir, rundir, epdir, e.IfName, debug}
 	prog := filepath.Join(libdir, "join_ep.sh")
+	scopedLog := e.getLogger() // must be called with e.Mutex held
 	e.Mutex.RUnlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
@@ -317,7 +318,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
 
 	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-	scopedLog := e.log().WithField("cmd", cmd)
+	scopedLog = scopedLog.WithField("cmd", cmd)
 	if ctx.Err() == context.DeadlineExceeded {
 		scopedLog.Error("Command execution failed: Timeout")
 		return ctx.Err()
