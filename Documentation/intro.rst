@@ -88,21 +88,3 @@ The remainder of this documentation is divided into the following sections:
 
 * :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.
-
-Getting Help
-============
-
-We use Github issues to maintain a list of `Cilium Frequently Asked Questions (FAQ)
-<https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20>`_.
-Check there to see if your question(s) is already addressed.
-
-The best way to get help if you get stuck is to contact us on the
-`Cilium Slack channel <https://cilium.herokuapp.com>`_.
-
-If you are confident that you have found a bug, or if you have a feature
-request, please go ahead and create an issue on our
-`bug tracker <https://github.com/cilium/cilium/issues>`_.
-
-If you are interested in contributing to the code or docs, ping us on
-`Slack <https://cilium.herokuapp.com>`_ or just dive in on
-`Github <https://github.com/cilium/cilium/>`_!
