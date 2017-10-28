@@ -12,6 +12,7 @@ Welcome to Cilium's documentation!
 
    intro
    gettingstarted
+   gettinghelp
    concepts
    install
    policy
