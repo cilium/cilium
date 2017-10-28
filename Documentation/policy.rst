@@ -99,7 +99,7 @@ description
 
 Layer 3: Labels-Based
 =====================
-/
+
 The L3 policy specifies which endpoints can talk to each other. L3 policies can
 be specified using :ref:`labels` or CIDR. For CIDR, refer to the
 :ref:`policy_cidr` section below.

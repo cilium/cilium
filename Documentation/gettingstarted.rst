@@ -717,7 +717,7 @@ Step 8: Test L3/L4 Policy
 =========================
 
 
-You can now launch additional containers represent other services attempting to
+You can now launch additional containers that represent other services attempting to
 access *app1*. Any new container with label "id=app2" will be allowed
 to access *app1* on port 80, otherwise the network request will be dropped.
 
@@ -729,9 +729,9 @@ with the label "id=app2" :
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -m 20 http://app1
     <html><body><h1>It works!</h1></body></html>
 
-We can see that this request was successful, as we get a valid ping responses.
+We can see that this request was successful, as we get a valid HTTP response.
 
-Now let's run the same ping request to *app1* from a container that has
+Now let's run the same HTTP request to *app1* from a container that has
 label "id=app3":
 
 ::
@@ -985,7 +985,6 @@ You should see output similar to the following:
 
 ::
 
-    $ curl -i -H 'Content-Type: application/json' -d @web-server.json 127.0.0.1:8080/v2/apps
     HTTP/1.1 201 Created
     ...
     Marathon-Deployment-Id: [UUID]
