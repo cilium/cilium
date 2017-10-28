@@ -1,0 +1,8 @@
+[{
+    "endpointSelector": {"matchLabels":{"app":"myService"}},
+    "egress": [{
+        "toPorts": [
+            {"ports":[ {"port": "80", "protocol": "TCP"}]}
+        ]
+    }]
+}]

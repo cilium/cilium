@@ -1,0 +1,15 @@
+[{
+    "endpointSelector": {"matchLabels": {"env":"prod"}},
+    "ingress": [{
+        "fromRequires": [
+          {"matchLabels":{"env":"prod"}}
+        ]
+    }]
+},{
+    "endpointSelector": {"matchLabels": {"role":"backend"}},
+    "ingress": [{
+        "fromEndpoints": [
+          {"matchLabels":{"role":"frontend"}}
+        ]
+    }]
+}]

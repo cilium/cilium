@@ -1,0 +1,22 @@
+[{
+    "endpointSelector": {"matchLabels":{"app":"myService"}},
+    "ingress": [{
+        "toPorts": [{
+            "ports": [
+                {"port": "80", "protocol": "TCP"}
+            ],
+            "rules": {
+                "HTTP": [
+                    {
+                        "method": "GET",
+                        "path": "/path1$"
+                    },{
+                        "method": "PUT",
+                        "path": "/path2$",
+                        "headers": ["X-My-Header: true"]
+                    }
+                ]
+            }
+        }]
+    }]
+}]

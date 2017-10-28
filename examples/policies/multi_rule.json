@@ -1,0 +1,12 @@
+[{
+    "endpointSelector": {"matchLabels":{"role":"backend"}},
+    "ingress": [{
+        "fromEndpoints": [
+          {"matchLabels":{"role":"frontend"}}
+        ]
+      }, {
+        "toPorts": [
+            {"ports":[ {"port": "80", "protocol": "TCP"}]}
+        ]
+    }]
+}]
