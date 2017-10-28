@@ -12,6 +12,10 @@ recommend trying out the :ref:`gs_guide` instead.
 This guide assumes that you have read the :ref:`arch_guide` which explains all
 the components and concepts.
 
+We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions
+(FAQ)`_. You can also check there to see if your question(s) is already
+addressed.
+
 .. _troubleshooting_k8s:
 
 Kubernetes
@@ -140,3 +144,4 @@ running agent. Debugging of an individual endpoint can be enabled by running
 .. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
 .. _llvm: http://releases.llvm.org/
 .. _Linux kernel: https://www.kernel.org/
+.. _Cilium Frequently Asked Questions (FAQ): https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20

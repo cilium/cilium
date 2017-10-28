@@ -478,8 +478,8 @@ This is typically achieved using two methods:
   of your cloud provider for additional details  (e.g,. `AWS VPC Route Tables`_
   or `GCE Routes`_). These APIs can be used to associate each node prefix with
   the appropriate next hop IP each time a container node is added to the
-  cluster.  If you are running Kubernetes with the `--cloud-provider` in
-  combination with the `--allocate-node-cidrs` option then this is configured
+  cluster.  If you are running Kubernetes with the ``--cloud-provider`` in
+  combination with the ``--allocate-node-cidrs`` option then this is configured
   automatically for IPv4 prefixes.
 
 .. note:: Use of direct routing mode currently only offers identity based
