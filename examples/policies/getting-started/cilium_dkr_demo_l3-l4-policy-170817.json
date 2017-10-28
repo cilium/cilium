@@ -1,0 +1,11 @@
+[{
+    "endpointSelector": {"matchLabels":{"id":"app1"}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"id":"app2"}}
+        ],
+        "toPorts": [{
+                "ports": [{"port": "80", "protocol": "TCP"}]
+        }]
+    }]
+}]

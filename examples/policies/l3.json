@@ -1,0 +1,8 @@
+[{
+    "endpointSelector": {"matchLabels": {"role":"backend"}},
+    "ingress": [{
+        "fromEndpoints": [
+          {"matchLabels":{"role":"frontend"}}
+        ]
+    }]
+}]

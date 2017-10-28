@@ -701,19 +701,7 @@ of the same TCP/UDP connection.
 
 We can achieve that with the following Cilium policy:
 
-::
-
-    [{
-        "endpointSelector": {"matchLabels":{"id":"app1"}},
-        "ingress": [{
-            "fromEndpoints": [
-                {"matchLabels":{"id":"app2"}}
-            ],
-            "toPorts": [{
-                    "ports": [{"port": "80", "protocol": "TCP"}]
-            }]
-        }]
-    }]
+.. literalinclude:: ../examples/policies/getting-started/cilium_dkr_demo_l3-l4-policy-170817.json
 
 Save this JSON to a file named l3_l4_policy.json in your VM, and apply the
 policy by running:
@@ -802,25 +790,7 @@ API call, but disallowing all other calls (including GET /private).
 
 The following Cilium policy file achieves this goal:
 
-::
-
-    [{
-        "endpointSelector": {"matchLabels":{"id":"app1"}},
-        "ingress": [{
-            "fromEndpoints": [
-                {"matchLabels":{"id":"app2"}}
-            ],
-            "toPorts": [{
-                "ports": [{"port": "80", "protocol": "TCP"}],
-                "rules": {
-                    "HTTP": [{
-                        "method": "GET",
-                        "path": "/public"
-                    }]
-                }
-            }]
-        }]
-    }]
+.. literalinclude:: ../examples/policies/getting-started/cilium_dkr_demo_l7-policy-230817.json
 
 Create a file with this contents and name it l7_aware_policy.json. Then
 import this policy to Cilium by running:
@@ -1079,20 +1049,7 @@ Step 7: Apply L3/L4 Policy with Cilium
 
 Apply an L3/L4 policy only allowing the *goodclient* to access the *web-server*. The L3/L4 json policy looks like:
 
-::
-
-    [{
-        "endpointSelector": {"matchLabels":{"id":"web-server"}},
-        "ingress": [{
-            "fromEndpoints": [
-                {"matchLabels":{"id":"goodclient"}}
-            ],
-            "toPorts": [{
-                    "ports": [{"port": "8181", "protocol": "TCP"}]
-            }]
-        }]
-    }]
-
+.. literalinclude:: ../examples/policies/getting-started/l3-l4-policy.json
 
 In your original terminal session, use ``cilium`` CLI to apply the L3/L4 policy above, saved in the ``l3-l4-policy.json`` file on the VM:
  
@@ -1153,25 +1110,7 @@ Step 8: Apply L7 Policy with Cilium
 
 Now, apply an L7 Policy that only allows access for the *goodclient* to the */public* API, included in the ``l7-policy.json`` file:
 
-::
-
-    [{
-        "endpointSelector": {"matchLabels":{"id":"web-server"}},
-        "ingress": [{
-            "fromEndpoints": [
-                {"matchLabels":{"id":"goodclient"}}
-            ],
-            "toPorts": [{
-                "ports": [{"port": "8181", "protocol": "TCP"}],
-                "rules": {
-                    "HTTP": [{
-                        "method": "GET",
-                        "path": "/public"
-                    }]
-                }
-            }]
-        }]
-    }]
+.. literalinclude:: ../examples/policies/getting-started/l7-policy.json
 
 Apply using ``cilium`` CLI:
 

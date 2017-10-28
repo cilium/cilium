@@ -151,55 +151,27 @@ Example (Basic)
 ---------------
 
 This example shows to enable all endpoints with the label ``role=frontend`` to
-communicate with all endpoints with the label ``role=backend``::
+communicate with all endpoints with the label ``role=backend``:
 
-        [{
-            "endpointSelector": {"matchLabels": {"role":"backend"}},
-            "ingress": [{
-                "fromEndpoints": [
-                  {"matchLabels":{"role":"frontend"}}
-                ]
-            }]
-        }]
+.. literalinclude:: ../examples/policies/l3.json
 
 Example (Requires)
 ------------------
 
 The following example builds on top of the previous one but requires that *all*
 endpoints which carry the label ``env=prod`` require the consumer to also carry
-the label ``env=prod`` in order for access to be granted::
+the label ``env=prod`` in order for access to be granted:
 
-        [{
-            "endpointSelector": {"matchLabels": {"env":"prod"}},
-            "ingress": [{
-                "fromRequires": [
-                  {"matchLabels":{"env":"prod"}}
-                ]
-            }]
-        },{
-            "endpointSelector": {"matchLabels": {"role":"backend"}},
-            "ingress": [{
-                "fromEndpoints": [
-                  {"matchLabels":{"role":"frontend"}}
-                ]
-            }]
-        }]
-
+.. literalinclude:: ../examples/policies/requires.json
 
 .. _policy_cidr:
 
 Layer 3: Entities
 ~~~~~~~~~~~~~~~~~
 
-There is an additional syntactic sugar for explicitly whitelisting ``world`` and ``host`` entities::
+There is an additional syntactic sugar for explicitly whitelisting ``world`` and ``host`` entities:
 
-        [{
-            "endpointSelector": {"matchLabels": {"env":"prod"}},
-            "ingress": [{
-                "fromEntities": ["world"]
-            }]
-        }]
-
+.. literalinclude:: ../examples/policies/entities.json
 
 Layer 3: IP/CIDR based
 ======================
@@ -316,23 +288,7 @@ This example shows how to allow all endpoints with the label ``app=myService``
 to talk to the external IP ``20.1.1.1``, as well as the CIDR prefix ``10.0.0.0/8``,
 but not CIDR prefix ``10.96.0.0/12``
 
-::
-
-        [{
-            "endpointSelector": {"matchLabels":{"app":"myService"}},
-            "egress": [{
-                "toCIDR": [
-                    "20.1.1.1/32"
-                ],
-                "toCIDRSet": [{
-                    "cidr": "10.0.0.0/8",
-                    "except": [
-                        "10.96.0.0/12"
-                    ]}
-                ]
-            }]
-        }]
-
+.. literalinclude:: ../examples/policies/cidr.json
 
 Layer 3: Services
 ~~~~~~~~~~~~~~~~~
@@ -371,28 +327,7 @@ to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
 namespace ``default``. Note that ``myservice`` needs to be a headless service
 for this policy to take effect.
 
-::
-
-        [{
-              "endpointSelector": {
-                "matchLabels": {
-                  "id": "app2"
-                }
-              },
-              "egress": [
-                {
-                  "toServices": [
-                    {
-                      "k8sService": {
-                        "serviceName": "myservice",
-                        "namespace": "default"
-                      }
-                    }
-                  ]
-                }
-              ]
-        }]
-
+.. literalinclude:: ../examples/policies/service.json
 
 .. _policy_l4:
 
@@ -462,35 +397,18 @@ Example (L4)
 ------------
 
 The following rule limits all endpoints with the label ``app=myService`` to
-only be able to emit packets using TCP on port 80::
+only be able to emit packets using TCP on port 80:
 
-        [{
-            "endpointSelector": {"matchLabels":{"app":"myService"}},
-            "egress": [{
-                "toPorts": [
-                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
-                ]
-            }]
-        }]
+.. literalinclude:: ../examples/policies/l4.json
 
 Example (Combining Labels + L4)
 -------------------------------
 
 This example enables all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``, but they must
-communicate using using TCP on port 80::
+communicate using using TCP on port 80:
 
-        [{
-            "endpointSelector": {"matchLabels":{"role":"backend"}},
-            "ingress": [{
-                "fromEndpoints": [
-                  {"matchLabels":{"role":"frontend"}}
-                ],
-                "toPorts": [
-                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
-                ]
-            }]
-        }]
+.. literalinclude:: ../examples/policies/l3_l4_combined.json
 
 Example (Multiple Rules with Labels, L4)
 ----------------------------------------
@@ -499,20 +417,9 @@ This example is similar to the previous, but rather than restricting
 communication to only endpoints communicating over TCP on port 80 from
 ``role=frontend``, it allows all traffic from endpoints with the label
 ``role=frontend`` to reach ``role=backend``, *as well as* traffic from any
-endpoint that is communicating over TCP on port 80::
+endpoint that is communicating over TCP on port 80:
 
-        [{
-            "endpointSelector": {"matchLabels":{"role":"backend"}},
-            "ingress": [{
-                "fromEndpoints": [
-                  {"matchLabels":{"role":"frontend"}}
-                ]
-              }, {
-                "toPorts": [
-                    {"ports":[ {"port": "80", "protocol": "TCP"}]}
-                ]
-            }]
-        }]
+.. literalinclude:: ../examples/policies/multi_rule.json
 
 Layer 7 - HTTP
 ==============
@@ -617,30 +524,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 /path1`` and ``PUT /path2`` with the HTTP header ``X-My_header`` set to
 ``true``:
 
-::
-
-        [{
-            "endpointSelector": {"matchLabels":{"app":"myService"}},
-            "ingress": [{
-                "toPorts": [{
-                    "ports": [
-                        {"port": "80", "protocol": "TCP"}
-                    ],
-                    "rules": {
-                        "HTTP": [
-                            {
-                                "method": "GET",
-                                "path": "/path1$"
-                            },{
-                                "method": "PUT",
-                                "path": "/path2$",
-                                "headers": ["X-My-Header: true"]
-                            }
-                        ]
-                    }
-                }]
-            }]
-        }]
+.. literalinclude:: ../examples/policies/http.json
 
 .. _policy_tracing:
 

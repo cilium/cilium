@@ -1,0 +1,19 @@
+[{
+      "endpointSelector": {
+        "matchLabels": {
+          "id": "app2"
+        }
+      },
+      "egress": [
+        {
+          "toServices": [
+            {
+              "k8sService": {
+                "serviceName": "myservice",
+                "namespace": "default"
+              }
+            }
+          ]
+        }
+      ]
+}]

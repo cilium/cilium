@@ -1,0 +1,6 @@
+[{
+    "endpointSelector": {"matchLabels": {"env":"prod"}},
+    "ingress": [{
+        "fromEntities": ["world"]
+    }]
+}]
