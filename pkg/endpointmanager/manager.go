@@ -249,7 +249,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 	for k := range Endpoints {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			ep.Mutex.Lock()
-			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
+			policyChanges, ctCleaned, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			if err == nil && policyChanges {
 				// Regenerate only if state transition succeeds
 				policyChanges = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
@@ -260,6 +260,9 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
+				// Wait for endpoint CT clean has complete before
+				// regenerating endpoint.
+				ctCleaned.Wait()
 				if policyChanges {
 					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
 					ep.LogStatusOK(endpoint.Policy, "Endpoint policy updated")

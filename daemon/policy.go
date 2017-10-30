@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -301,21 +302,26 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 			}
 			epSecID := ep.SecLabel.ID
 
-			ep.Mutex.RUnlock()
-
-			idsToRm := map[uint32]bool{}
+			idsToRm := policy.RuleContexts{}
 			if consumers, ok := consumablesToRm[epSecID]; ok {
 				for _, consumer := range consumers {
-					idsToRm[consumer.Uint32()] = true
+					ruleCtx := policy.RuleContext{
+						SecID: consumer,
+					}
+					idsToRm[ruleCtx] = true
 				}
 				if len(idsToRm) != 0 {
 					log.WithFields(log.Fields{
-						logfields.EndpointID:             ep.ID,
-						logfields.EndpointID + ".remove": logfields.Repr(idsToRm),
+						logfields.EndpointID:           ep.ID,
+						logfields.EndpointID + ".keep": logfields.Repr(idsToRm),
 					}).Debug("Removing entries of EP")
-					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToRm)
+					ip4 := ep.IPv4.IP()
+					ip6 := ep.IPv6.IP()
+					isLocal := ep.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, isLocal, []net.IP{ip4, ip6}, idsToRm)
 				}
 			}
+			ep.Mutex.RUnlock()
 		}
 		endpointmanager.Mutex.RUnlock()
 	}()
