@@ -94,9 +94,11 @@ func (k CtKey4) Dump(buffer *bytes.Buffer) bool {
 //CtKey4Global represents the key for IPv4 entries in the global BPF conntrack
 // map.
 type CtKey4Global struct {
-	daddr   types.IPv4
-	saddr   types.IPv4
-	sport   uint16
+	daddr types.IPv4
+	saddr types.IPv4
+	// sport is in network byte order
+	sport uint16
+	// dport is in network byte order
 	dport   uint16
 	nexthdr u8proto.U8proto
 	flags   uint8
