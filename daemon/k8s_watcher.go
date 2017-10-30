@@ -20,6 +20,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/types"
@@ -46,9 +47,11 @@ const (
 )
 
 var (
-	k8sErrMsgMU lock.RWMutex
-	// k8sErrMsg stores a timer for each k8s error message received
-	k8sErrMsg                    = map[string]*time.Timer{}
+	// k8sErrMsgMU guards additions and removals to k8sErrMsg, which stores a
+	// time after which a repeat error message can be printed
+	k8sErrMsgMU                  lock.Mutex
+	k8sErrMsg                    = map[string]time.Time{}
+	k8sErrOnceV1API              sync.Once
 	stopPolicyController         = make(chan struct{})
 	restartCiliumRulesController = make(chan struct{})
 
@@ -66,51 +69,87 @@ func init() {
 	}
 }
 
-// k8sErrorHandler handles the error messages on a non verbose way by omitting
-// same error messages for a timeout defined with k8sErrLogTimeout.
+// k8sErrorUpdateCheckUnmuteTime returns a boolean indicating whether we should
+// log errmsg or not. It manages once-per-k8sErrLogTimeout entry in k8sErrMsg.
+// When errmsg is new or more than k8sErrLogTimeout has passed since the last
+// invocation that returned true, it returns true.
+func k8sErrorUpdateCheckUnmuteTime(errstr string, now time.Time) bool {
+	k8sErrMsgMU.Lock()
+	defer k8sErrMsgMU.Unlock()
+
+	if unmuteDeadline, ok := k8sErrMsg[errstr]; !ok || now.After(unmuteDeadline) {
+		k8sErrMsg[errstr] = now.Add(k8sErrLogTimeout)
+		return true
+	}
+
+	return false
+}
+
+// k8sErrorHandler handles the error messages in a non verbose way by omitting
+// repeated instances of the same error message for a timeout defined with
+// k8sErrLogTimeout.
 func k8sErrorHandler(e error) {
 	if e == nil {
 		return
 	}
+
+	// We rate-limit certain categories of error message. These are matched
+	// below, with a default behaviour to print everything else without
+	// rate-limiting.
+	// Note: We also have side-effects in some of the special cases.
+	now := time.Now()
 	errstr := e.Error()
-	k8sErrMsgMU.Lock()
-	// if the error message already exists in the map then in print it
-	// otherwise we create a new timer for that specific message in the
-	// k8sErrMsg map.
-	if t, ok := k8sErrMsg[errstr]; !ok {
-		// Omitting the 'connection refused' common messages
-		if strings.Contains(errstr, "connection refused") {
-			k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
-			k8sErrMsgMU.Unlock()
-		} else {
-			if strings.Contains(errstr, "Failed to list *v1.NetworkPolicy: the server could not find the requested resource") {
-				k8sErrMsgMU.Unlock()
-				log.Warn("Consider upgrading k8s to >=1.7 to enforce NetworkPolicy version 1")
-				stopPolicyController <- struct{}{}
-			} else if strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: the server could not find the requested resource") {
-				k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
-				k8sErrMsgMU.Unlock()
-				log.Warn("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
-				log.Warn("Due to conflicting TPR and CRD rules, CiliumNetworkPolicy enforcement can't be guaranteed!")
-			} else if strings.Contains(errstr, "Unable to decode an event from the watch stream: unable to decode watch event") || strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct") {
-				k8sErrMsg[errstr] = time.NewTimer(k8sErrLogTimeout)
-				k8sErrMsgMU.Unlock()
-				log.Warn("Unable to decode an event from watch, restarting cilium policy rules controller")
-				restartCiliumRulesController <- struct{}{}
-			}
-		}
-	} else {
-		k8sErrMsgMU.Unlock()
-		select {
-		case <-t.C:
+	switch {
+	// This can occur when cilium comes up before the k8s API server, and keeps
+	// trying to connect.
+	case strings.Contains(errstr, "connection refused"):
+		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
 			log.WithError(e).Error("k8sError")
-			t.Reset(k8sErrLogTimeout)
-		default:
 		}
-		return
+
+	// This occurs when running against k8s version that do not support
+	// networking.k8s.io/v1 NetworkPolicy specs, k8s <= 1.6. In newer k8s
+	// versions both APIVersion: networking.k8s.io/v1 and extensions/v1beta1
+	// NetworkPolicy are supported and we do not see an error.
+	case strings.Contains(errstr, "Failed to list *v1.NetworkPolicy: the server could not find the requested resource"):
+		log.WithError(e).Error("Cannot list v1 API NetworkPolicy resources")
+		k8sErrOnceV1API.Do(func() {
+			// Stop the v1 API policy controller, which is causing these error
+			// messages to occur. This happens when we are talking to a k8s <1.7
+			// installation
+			log.Warn("Disabling k8s networking.k8s.io/v1 API watcher. " +
+				"Consider upgrading k8s to >=1.7 to enforce networking.k8s.io/v1. " +
+				"Continuing to watch for events on k8s extensions/v1beta1")
+			stopPolicyController <- struct{}{}
+		})
+
+	// k8s does not allow us to watch both ThirdPartyResource and
+	// CustomResourceDefinition. This would occur when a user mixes these within
+	// the k8s cluster, and might occur when upgrading from versions of cilium
+	// that used ThirdPartyResource to define CiliumNetworkPolicy.
+	case strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: the server could not find the requested resource"):
+		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
+			log.WithError(e).Error("Conflicting TPR and CRD resources")
+			log.Warn("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
+			log.Warn("Due to conflicting TPR and CRD rules, CiliumNetworkPolicy enforcement can't be guaranteed!")
+		}
+
+	// fromCIDR and toCIDR used to expect an "ip" subfield (so, they were a YAML
+	// map with one field) but common usage and expectation would simply list the
+	// CIDR ranges and IPs desired as a YAML list. In these cases we would see
+	// this decode error. We have since changed the definition to be a simple
+	// list of strings.
+	case strings.Contains(errstr, "Unable to decode an event from the watch stream: unable to decode watch event"),
+		strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct"):
+		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
+			log.WithError(e).Error("Unable to decode k8s watch event")
+			log.Warn("Unable to decode an event from watch, restarting cilium policy rules controller")
+			restartCiliumRulesController <- struct{}{}
+		}
+
+	default:
+		log.WithError(e).Error("k8sError")
 	}
-	// Still log other error messages
-	log.WithError(e).Error("k8sError")
 }
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
