@@ -117,7 +117,7 @@ Vagrant.configure(2) do |config|
             # Ignore contrib/packaging/docker/stage to prevent concurrent
             # problems when using rsync on multiple VMs
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
-            rsync__exclude: "contrib/packaging/docker/stage"
+            rsync__exclude: ["contrib/packaging/docker/stage", "src"]
         end
     end
 
