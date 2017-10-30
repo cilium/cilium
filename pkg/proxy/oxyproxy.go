@@ -67,20 +67,8 @@ func (r *OxyRedirect) updateRules(rules []string) {
 	}
 }
 
-// getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
-// the consumable from the consumable cache of endpoint using identity sent by
-// source. This is needed in ingress proxy while logging the source endpoint
-// info.  Since there will be 2 proxies on the same host, if both egress and
-// ingress policies are set, the ingress policy cannot determine the source
-// endpoint info based on ip address, as the ip address would be that of the
-// egress proxy i.e host.
-func (r *OxyRedirect) getInfoFromConsumable(ipstr string,
-	info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity) {
-	GetInfoFromConsumable(ipstr, info, srcIdentity, r.source)
-}
-
-func (r *OxyRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
-	LocalEndpointInfo(info, r.source, r.epID)
+func (r *OxyRedirect) getSource() ProxySource {
+	return r.source
 }
 
 func (r *OxyRedirect) getSourceInfo(req *http.Request,
@@ -91,18 +79,6 @@ func (r *OxyRedirect) getSourceInfo(req *http.Request,
 // getDestinationInfo returns the destination EndpointInfo.
 func (r *OxyRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
 	return GetDestinationInfo(dstIPPort, r, r.ingress)
-}
-
-// fillReservedIdentity resolves the labels of the specified identity if known
-// locally and fills in the info member fields.
-func (r *OxyRedirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
-	FillReservedIdentity(info, id)
-}
-
-// egressDestinationInfo returns the destination EndpointInfo for a flow
-// leaving the proxy at egress.
-func (r *OxyRedirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
-	EgressDestinationInfo(ipstr, info)
 }
 
 func getOxyPolicyRules(rules []api.PortRuleHTTP) ([]string, error) {

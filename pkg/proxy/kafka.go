@@ -160,39 +160,14 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	return req.MatchesRule(rules.Kafka)
 }
 
-func (k *kafkaRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
-	LocalEndpointInfo(info, k.conf.source, k.epID)
-}
-
-// getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
-// the consumable from the consumable cache of endpoint using identity sent by
-// source. This is needed in ingress proxy while logging the source endpoint
-// info.  Since there will be 2 proxies on the same host, if both egress and
-// ingress policies are set, the ingress policy cannot determine the source
-// endpoint info based on ip address, as the ip address would be that of the
-// egress proxy i.e host.
-func (k *kafkaRedirect) getInfoFromConsumable(ipstr string,
-	info *accesslog.EndpointInfo,
-	srcIdentity policy.NumericIdentity) {
-	GetInfoFromConsumable(ipstr, info, srcIdentity, k.conf.source)
+func (r *kafkaRedirect) getSource() ProxySource {
+	return r.conf.source
 }
 
 func (k *kafkaRedirect) getSourceInfo(remoteAddr string,
 	srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo,
 	accesslog.IPVersion) {
 	return GetSourceInfo(remoteAddr, srcIdentity, k.ingress, k)
-}
-
-// fillReservedIdentity resolves the labels of the specified identity if known
-// locally and fills in the info member fields.
-func (k *kafkaRedirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
-	FillReservedIdentity(info, id)
-}
-
-// egressDestinationInfo returns the destination EndpointInfo for a flow
-// leaving the proxy at egress.
-func (k *kafkaRedirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
-	EgressDestinationInfo(ipstr, info)
 }
 
 // getDestinationInfo returns the destination EndpointInfo.
@@ -219,8 +194,8 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 	addr := pair.rx.conn.RemoteAddr()
 	if addr == nil {
-		scopedLog.Warn("RemoteAddr() is nil")
 		record.Info = fmt.Sprint("RemoteAddr() is nil")
+		scopedLog.Warn(record.Info)
 		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
 			kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
 		return
@@ -230,8 +205,9 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	// and destination port
 	srcIdentity, dstIPPort, err := k.conf.lookupNewDest(addr.String(), k.conf.listenPort)
 	if err != nil {
-		log.WithField("source", addr.String()).WithError(err).Error("Unable lookup original destination")
-		record.Info = fmt.Sprintf("Invalid message format: %s", err)
+		log.WithField("source",
+			addr.String()).WithError(err).Error("Unable lookup original destination")
+		record.Info = fmt.Sprintf("Unable lookup original destination: %s", err)
 		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
 			kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
 		return

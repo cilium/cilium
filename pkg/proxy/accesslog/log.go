@@ -140,9 +140,8 @@ func LogHTTP(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 func apiKeyToString(apiKey int16) string {
 	if key, ok := api.KafkaReverseAPIKeyMap[apiKey]; ok {
 		return key
-	} else {
-		return fmt.Sprintf("%d", apiKey)
 	}
+	return fmt.Sprintf("%d", apiKey)
 }
 
 // LogKafka logs a Kafka record to the logfile
