@@ -52,10 +52,10 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	var err error
 	buffer := bytes.NewBufferString("[")
 	for _, es := range selectors {
-		buffer.WriteString("\n  {    \n    \"")
+		buffer.WriteString("{\"")
 		buffer.WriteString(es.LabelSelectorString())
-		buffer.WriteString("\": ")
-		b, err := json.MarshalIndent(l7[es], "    ", "  ")
+		buffer.WriteString("\":")
+		b, err := json.Marshal(l7[es])
 		if err == nil {
 			buffer.Write(b)
 		} else {
@@ -63,10 +63,10 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 			buffer.WriteString(err.Error())
 			buffer.WriteString("\"")
 		}
-		buffer.WriteString("\n  },")
+		buffer.WriteString("},")
 	}
 	buffer.Truncate(buffer.Len() - 1) // Drop the final ","
-	buffer.WriteString("\n]")
+	buffer.WriteString("]")
 
 	return buffer.Bytes(), err
 }
