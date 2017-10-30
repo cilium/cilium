@@ -172,3 +172,16 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 
 	return lbSelector.Matches(lblsToMatch)
 }
+
+// EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
+type EndpointSelectorSlice []EndpointSelector
+
+func (s EndpointSelectorSlice) Len() int      { return len(s) }
+func (s EndpointSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+func (s EndpointSelectorSlice) Less(i, j int) bool {
+	strI := s[i].LabelSelectorString()
+	strJ := s[j].LabelSelectorString()
+
+	return strings.Compare(strI, strJ) < 0
+}

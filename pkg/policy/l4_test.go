@@ -197,6 +197,16 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
+      "\u003cnone\u003e": {
+        "http": [
+          {
+            "path": "/",
+            "method": "GET"
+          }
+        ]
+      }
+    },
+    {
       "any.foo=": {
         "http": [
           {
@@ -205,16 +215,6 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
           },
           {
             "path": "/bar",
-            "method": "GET"
-          }
-        ]
-      }
-    },
-    {
-      "\u003cnone\u003e": {
-        "http": [
-          {
-            "path": "/",
             "method": "GET"
           }
         ]
