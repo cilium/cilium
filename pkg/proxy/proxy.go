@@ -263,10 +263,12 @@ func EgressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
+					ep.RLock()
 					info.ID = uint64(ep.ID)
 					info.Labels = ep.GetLabels()
 					info.LabelsSHA256 = ep.GetLabelsSHA()
 					info.Identity = uint64(ep.GetIdentity())
+					ep.RUnlock()
 				} else {
 					FillReservedIdentity(info, policy.ReservedIdentityCluster)
 				}

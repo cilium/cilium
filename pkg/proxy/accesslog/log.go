@@ -171,8 +171,7 @@ func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 
 	/*
 	 *	Log multiple entries for multiple Kafka topics in a single
-	 *  request.
-	 *  GH #1815
+	 *  request. GH #1815
 	 */
 
 	topics := l.KafkaRequest.GetTopics()
@@ -204,8 +203,11 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int, L7type int) 
 	case L7TypeKafka:
 		LogKafka(l, typ, verdict, code)
 	}
-	if err := logBuf.Flush(); err != nil {
-		log.WithError(err).WithField(FieldFilePath,
-			logPath).Warn("Error encountered while flushing to access log")
+
+	if logBuf != nil {
+		if err := logBuf.Flush(); err != nil {
+			log.WithError(err).WithField(FieldFilePath,
+				logPath).Warn("Error encountered while flushing to access log")
+		}
 	}
 }
