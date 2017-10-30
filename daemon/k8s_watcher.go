@@ -580,7 +580,7 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 		logfields.K8sAPIVersion:   ep.APIVersion,
 	})
 
-	svcns := &types.K8sServiceNamespace{
+	svcns := types.K8sServiceNamespace{
 		ServiceName: ep.Name,
 		Namespace:   ep.Namespace,
 	}
@@ -588,20 +588,20 @@ func (d *Daemon) endpointDelFn(obj interface{}) {
 	d.loadBalancer.K8sMU.Lock()
 	defer d.loadBalancer.K8sMU.Unlock()
 
-	endpoint := *d.loadBalancer.K8sEndpoints[*svcns]
-
-	svc, ok := d.loadBalancer.K8sServices[*svcns]
-	if ok && svc.IsHeadless {
-		translator := k8s.NewK8sTranslator(*svcns, endpoint, true)
-		err := d.policy.TranslateRules(translator)
-		if err != nil {
-			log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+	if endpoint, ok := d.loadBalancer.K8sEndpoints[svcns]; ok {
+		svc, ok := d.loadBalancer.K8sServices[svcns]
+		if ok && svc.IsHeadless {
+			translator := k8s.NewK8sTranslator(svcns, *endpoint, true)
+			err := d.policy.TranslateRules(translator)
+			if err != nil {
+				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+			}
 		}
 	}
 
-	d.syncLB(nil, nil, svcns)
+	d.syncLB(nil, nil, &svcns)
 	if d.conf.IsLBEnabled() {
-		if err := d.syncExternalLB(nil, nil, svcns); err != nil {
+		if err := d.syncExternalLB(nil, nil, &svcns); err != nil {
 			scopedLog.WithError(err).Error("Unable to remove endpoints on ingress service")
 			return
 		}
