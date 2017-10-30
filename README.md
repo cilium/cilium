@@ -52,7 +52,7 @@ networking, security, loadbalancing and visibility.
 
  * [Why Cilium?](http://docs.cilium.io/en/latest/intro/#why-cilium)
  * [Getting Started with Vagrant](http://docs.cilium.io/en/latest/gettingstarted/)
- * [Architecture](http://docs.cilium.io/en/latest/architecture/)
+ * [Architecture](http://docs.cilium.io/en/latest/concepts/#cilium-components)
  * [Administrator Guide](http://docs.cilium.io/en/latest/admin/)
  * [Frequently Asked Questions](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
  * [Contributing](http://docs.cilium.io/en/latest/contributing)
