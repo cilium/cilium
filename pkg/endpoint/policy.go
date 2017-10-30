@@ -16,18 +16,21 @@ package endpoint
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/cilium/cilium/common"
 	log "github.com/sirupsen/logrus"
+	"sync"
 )
 
 func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, opts models.ConfigurationMap, opt string) {
@@ -110,25 +113,62 @@ func getSecurityIdentities(labelsMap *LabelsMap, selector *api.EndpointSelector)
 	return identities
 }
 
-func (e *Endpoint) removeOldFilter(labelsMap *LabelsMap, filter *policy.L4Filter) {
+// removeOldFilter removes the old l4 filter from the endpoint.
+// Returns a map that represents all policies that were attempted to be removed;
+// it maps to whether they were removed successfully (true or false)
+// It also returns the number of errors that occurred while when removing the
+// policy.
+func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *LabelsMap,
+	filter *policy.L4Filter) policy.RuleContexts {
+
+	fromEndpointsSrcIDs := policy.RuleContexts{}
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(labelsMap, &sel) {
 			srcID := id.Uint32()
+			ruleCtx := policy.RuleContext{
+				SecID:          id,
+				Port:           byteorder.HostToNetwork(port).(uint16),
+				Proto:          proto,
+				L7RedirectPort: byteorder.HostToNetwork(uint16(filter.L7RedirectPort)).(uint16),
+				IsRedirect:     filter.IsRedirect(),
+			}
 			if err := e.PolicyMap.DeleteL4(srcID, port, proto); err != nil {
 				// This happens when the policy would add
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll
 				// still try to remove it multiple times.
 				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, srcID).Debug("Delete old l4 policy failed")
+				// Set with false only if the key was not
+				// previously set nor the value was set
+				// with true. Since we can have multiple
+				// copies of the same L4 policy, a single
+				// successful DeleteL4 means the policy
+				// was actually removed.
+				v, ok := fromEndpointsSrcIDs[ruleCtx]
+				if ok && !v {
+					fromEndpointsSrcIDs[ruleCtx] = false
+				}
+			} else {
+				fromEndpointsSrcIDs[ruleCtx] = true
 			}
 		}
 	}
+
+	return fromEndpointsSrcIDs
 }
 
-func (e *Endpoint) applyNewFilter(labelsMap *LabelsMap, filter *policy.L4Filter) int {
+// applyNewFilter adds the given l4 filter to the endpoint.
+// Returns a map that represents all policies that were attempted to be added;
+// it maps to whether they were added successfully (true or false).
+// It also returns the number of errors that occurred while when applying the
+// policy.
+func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *LabelsMap,
+	filter *policy.L4Filter) (policy.RuleContexts, int) {
+
+	fromEndpointsSrcIDs := policy.RuleContexts{}
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
@@ -140,39 +180,77 @@ func (e *Endpoint) applyNewFilter(labelsMap *LabelsMap, filter *policy.L4Filter)
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
+			ruleCtx := policy.RuleContext{
+				SecID:          id,
+				Port:           byteorder.HostToNetwork(port).(uint16),
+				Proto:          proto,
+				L7RedirectPort: byteorder.HostToNetwork(uint16(filter.L7RedirectPort)).(uint16),
+				IsRedirect:     filter.IsRedirect(),
+			}
 			if err := e.PolicyMap.AllowL4(srcID, port, proto); err != nil {
 				e.getLogger().WithError(err).Warn("Update of l4 policy map failed")
 				errors++
+				fromEndpointsSrcIDs[ruleCtx] = false
+			} else {
+				fromEndpointsSrcIDs[ruleCtx] = true
 			}
 		}
 	}
+	return fromEndpointsSrcIDs, errors
+}
 
-	return errors
+// setMapOperationResult iterates over the newSecIDs and sets their result
+// to the secIDs map only when either:
+//  - It is the first time an assignment is being done to this
+//    key and it is true OR
+//  - The previous assigned value and the new value are both
+//    true
+func setMapOperationResult(secIDs, newSecIDs policy.RuleContexts) {
+	for k, v := range newSecIDs {
+		e, ok := secIDs[k]
+		secIDs[k] = (v && !ok) || (v && e)
+	}
 }
 
 // Looks for mismatches between 'oldPolicy' and 'newPolicy', and fixes up
 // this Endpoint's BPF PolicyMap to reflect the new L3+L4 combined policy.
-func (e *Endpoint) applyL4PolicyLocked(labelsMap *LabelsMap, oldPolicy *policy.L4Policy, newPolicy *policy.L4Policy) error {
+// Returns a map that represents all L3-dependent L4 rules that were attempted
+// to be removed;
+// and a map that represents all L3-dependent L4 rules that were attemped to be
+// added;
+// it maps to whether they were removed successfully (true or false)
+func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *LabelsMap,
+	oldPolicy, newPolicy *policy.L4Policy) (secIDsRm, secIDsAdded policy.RuleContexts, err error) {
+
+	secIDsRm = policy.RuleContexts{}
+	secIDsAdded = policy.RuleContexts{}
+
 	if oldPolicy != nil {
+		var secIDs policy.RuleContexts
 		for _, filter := range oldPolicy.Ingress {
-			e.removeOldFilter(labelsMap, &filter)
+			secIDs = e.removeOldFilter(owner, labelsMap, &filter)
+			setMapOperationResult(secIDsRm, secIDs)
 		}
 	}
 
 	if newPolicy == nil {
-		return nil
+		return secIDsRm, secIDsAdded, nil
 	}
 
-	errors := 0
-
+	var (
+		errors, errs = 0, 0
+		secIDs       policy.RuleContexts
+	)
 	for _, filter := range newPolicy.Ingress {
-		errors += e.applyNewFilter(labelsMap, &filter)
+		secIDs, errs = e.applyNewFilter(owner, labelsMap, &filter)
+		setMapOperationResult(secIDsAdded, secIDs)
+		errors += errs
 	}
 
 	if errors > 0 {
-		return fmt.Errorf("Some Label+L4 policy updates failed.")
+		return secIDsRm, secIDsAdded, fmt.Errorf("Some Label+L4 policy updates failed.")
 	}
-	return nil
+	return secIDsRm, secIDsAdded, nil
 }
 
 func getLabelsMap(owner Owner) (*LabelsMap, error) {
@@ -235,8 +313,14 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 }
 
 // Must be called with global endpoint.Mutex held
-func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap, repo *policy.Repository, c *policy.Consumable) bool {
-	changed := false
+func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
+	repo *policy.Repository, c *policy.Consumable) (bool, policy.RuleContexts) {
+
+	var (
+		changed     = false
+		l4Rm, l4Add policy.RuleContexts
+		err         error
+	)
 
 	// Mark all entries unused by denying them
 	for k := range c.Consumers {
@@ -255,7 +339,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap, repo 
 				e.cleanUnusedRedirects(owner, e.L4Policy.Egress, c.L4Policy.Egress)
 			}
 
-			err := e.applyL4PolicyLocked(labelsMap, e.L4Policy, c.L4Policy)
+			l4Rm, l4Add, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
 				e.getLogger().Fatal("L4 Policy application failed")
@@ -293,12 +377,24 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap, repo 
 		}
 	}
 
+	rulesToDelete := policy.RuleContexts{}
+	for ruleCtx, rm := range l4Rm {
+		// Only remove the CT entries of the rules that were successfully
+		// l4Rm and not successfully re-l4Add
+		if add, ok := l4Add[ruleCtx]; rm && !(add && ok) {
+			rulesToDelete[ruleCtx] = true
+		}
+	}
 	// Garbage collect all unused entries
 	for _, val := range c.Consumers {
 		if val.DeletionMark {
 			val.DeletionMark = false
 			c.BanConsumerLocked(val.ID)
 			changed = true
+			nip := policy.RuleContext{
+				SecID: val.ID,
+			}
+			rulesToDelete[nip] = true
 		}
 	}
 
@@ -306,8 +402,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap, repo 
 		logfields.Identity: c.ID,
 		"consumers":        logfields.Repr(c.Consumers),
 	}).Debug("New consumable with consumers")
-
-	return changed
+	return changed, rulesToDelete
 }
 
 // Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
@@ -359,7 +454,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 // fails for other endpoints.
 //
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, error) {
+func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, policy.RuleContexts, error) {
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
@@ -376,7 +471,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 			e.applyOptsLocked(opts)
 		}
 
-		return true, nil
+		return true, nil, nil
 	}
 
 	e.getLogger().Debug("Starting regenerate...")
@@ -388,7 +483,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	labelsMap, err := getLabelsMap(owner)
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
-		return false, err
+		return false, nil, err
 	}
 	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
 		labelsMap = e.LabelsMap
@@ -408,7 +503,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 			"policyRevision.repo": revision,
 		}).Debug("Skipping policy recalculation")
 		// This revision already computed, but may still need to be applied to BPF
-		return e.nextPolicyRevision > e.policyRevision, nil
+		return e.nextPolicyRevision > e.policyRevision, nil, nil
 	}
 
 	if opts == nil {
@@ -424,7 +519,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Containers without a security label are not accessible
 	if c.ID == 0 {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		return false, nil
+		return false, nil, nil
 	}
 
 	// Skip L4 policy recomputation for this consumable if already valid.
@@ -433,7 +528,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	if c.Iteration != revision {
 		err = e.resolveL4Policy(owner, repo, c)
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 		// Result is valid until cache iteration advances
 		c.Iteration = revision
@@ -443,7 +538,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	var policyChanged bool
 	if policyChanged, err = e.regenerateL3Policy(owner, repo, revision, c); err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	// no failures after this point
@@ -469,7 +564,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	optsChanged := e.applyOptsLocked(opts)
 
-	if e.regenerateConsumable(owner, labelsMap, repo, c) {
+	policyChanged2, consumersToRm := e.regenerateConsumable(owner, labelsMap, repo, c)
+	if policyChanged2 {
 		policyChanged = true
 	}
 
@@ -505,7 +601,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	}).Debug("Done regenerating")
 
 	// Return true if need to regenerate BPF
-	return optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision, nil
+	return optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision, consumersToRm, nil
 }
 
 // Called with e.Mutex UNlocked
@@ -627,19 +723,31 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 // state to reflect new policy.
 //
 // Returns true if policy was changed and the endpoint needs to be rebuilt
-func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, error) {
+func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, *sync.WaitGroup, error) {
+	ctCleaned := &sync.WaitGroup{}
+
 	if e.Consumable == nil {
-		return false, nil
+		return false, ctCleaned, nil
 	}
 
-	changed, err := e.regeneratePolicy(owner, opts)
+	changed, consumersToRm, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
-		return false, fmt.Errorf("%s: %s", e.StringID(), err)
+		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
+	}
+	if len(consumersToRm) != 0 {
+		ip4 := e.IPv4.IP()
+		ip6 := e.IPv6.IP()
+		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
+		ctCleaned.Add(1)
+		go func(wg *sync.WaitGroup) {
+			owner.CleanCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersToRm)
+			wg.Done()
+		}(ctCleaned)
 	}
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %d", changed)
 
-	return changed, nil
+	return changed, ctCleaned, nil
 }
 
 // SetIdentity resets endpoint's policy identity to 'id'.

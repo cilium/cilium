@@ -63,6 +63,23 @@ func (id NumericIdentity) Uint32() uint32 {
 	return uint32(id)
 }
 
+type RuleContexts map[RuleContext]bool
+
+// RuleContext represents a L3-dependent L4 rule
+// Don't use pointers here since this structure is used as key on maps.
+type RuleContext struct {
+	// SecID is the security ID for the numeric identity
+	SecID NumericIdentity
+	// Port is the destination port in the policy in network byte order
+	Port uint16
+	// Proto is the protocol ID used
+	Proto uint8
+	// L7RedirectPort is the L7 redirect port in the policy in network byte order
+	L7RedirectPort uint16
+	// IsRedirect is set in case the rule is a redirect
+	IsRedirect bool
+}
+
 // Identity is the representation of the security context for a particular set of
 // labels.
 type Identity struct {

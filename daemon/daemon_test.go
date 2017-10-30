@@ -15,6 +15,7 @@
 package main
 
 import (
+	"net"
 	"runtime"
 	"testing"
 
@@ -50,6 +51,7 @@ type DaemonSuite struct {
 	OnDebugEnabled                    func() bool
 	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
 	OnGetCompilationLock              func() *lock.RWMutex
+	OnCleanCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -179,4 +181,11 @@ func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 		return ds.OnGetCompilationLock()
 	}
 	panic("GetCompilationLock should not have been called")
+}
+func (ds *DaemonSuite) CleanCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts) {
+	if ds.OnCleanCTEntries != nil {
+		ds.OnCleanCTEntries(e, isCTLocal, ips, idsToRm)
+		return
+	}
+	panic("CleanCTEntries should not have been called")
 }

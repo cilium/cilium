@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -67,11 +68,6 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 		return
 	}
 	defer m.Close()
-
-	// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
-	if m.MapInfo.MapType == bpf.MapTypeLRUHash {
-		return
-	}
 
 	deleted := ctmap.GC(m, mapType, filter)
 
@@ -137,30 +133,23 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 	}()
 }
 
-// RmCTEntriesOf cleans the connection tracking table of the given endpoint `e`
-// by removing the CT's entries that have the src_sec_id equal to any of keys
-// in the ids' map.
-func RmCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, ids map[uint32]bool) {
-	var eIPv4, eIPv6 net.IP
-
-	e.Mutex.RLock()
-	isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
-	eIPv6 = e.IPv6.IP()
-	if ipv4Enabled {
-		eIPv4 = e.IPv4.IP()
-	}
-	// We can unlock the endpoint mutex since
-	// in runGC it will be locked as needed.
-	e.Mutex.RUnlock()
+// RmCTEntriesOf cleans the connection tracking table of the given endpoint `e`.
+// It removes all CT entries that of the CT table local or global, defined by isLocal,
+// that contains:
+//  - all the IP addresses given in the ips slice AND
+//  - any of the given ids in the ids map, maps to true and matches the
+//    src_sec_id in the CT table.
+func RmCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, ips []net.IP, ids policy.RuleContexts) {
 
 	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByID)
 	gcFilter.IDsToRm = ids
+	for _, ip := range ips {
+		gcFilter.IP = ip
 
-	gcFilter.IP = eIPv6
-	RunGC(e, isLocal, true, gcFilter)
-
-	if ipv4Enabled {
-		gcFilter.IP = eIPv4
-		RunGC(e, isLocal, false, gcFilter)
+		if ip.To4() == nil {
+			RunGC(e, isLocal, true, gcFilter)
+		} else if ipv4Enabled {
+			RunGC(e, isLocal, false, gcFilter)
+		}
 	}
 }
