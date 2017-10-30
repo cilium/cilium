@@ -53,12 +53,24 @@ func (vagrant *Vagrant) Create(scope string) error {
 	cmd := vagrant.getCmd(createCMD)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting stdout: %s", err)
 	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("error getting stderr: %s", err)
+	}
+
 	go func() {
 		in := bufio.NewScanner(stdout)
 		for in.Scan() {
-			log.Infof(in.Text()) // write each line to your log
+			log.Infof("stdout: %s", in.Text()) // write each line to your log
+		}
+	}()
+
+	go func() {
+		errIn := bufio.NewScanner(stderr)
+		for errIn.Scan() {
+			log.Infof("stderr: %s", errIn.Text())
 		}
 	}()
 
