@@ -180,7 +180,7 @@ type LogRecord struct {
 	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
 
 	// Internal HTTP request
-	HttpRequest *http.Request `json:"-"`
+	HTTPRequest *http.Request `json:"-"`
 
 	// Internal Kafka request
 	KafkaRequest *kafka.RequestMessage `json:"-"`
@@ -211,8 +211,8 @@ type KafkaTopic struct {
 
 // LogRecordKafka contains the Kafka-specific portion of a log record
 type LogRecordKafka struct {
-	// Code is the Kafka code being returned
-	Code int
+	// ErrorCode is the Kafka error code being returned
+	ErrorCode int
 
 	// APIVersion of the Kafka api used
 	APIVersion int16

@@ -22,6 +22,7 @@ import (
 	"io"
 
 	"github.com/optiopay/kafka/proto"
+	log "github.com/sirupsen/logrus"
 )
 
 // RequestMessage represents a Kafka request message
@@ -47,11 +48,12 @@ func (req *RequestMessage) GetVersion() int16 {
 	return req.version
 }
 
+// GetCorrelationID returns the Kafka request correlationID
 func (req *RequestMessage) GetCorrelationID() int32 {
 	return int32(binary.BigEndian.Uint32(req.rawMsg[8:12]))
 }
 
-func (req *RequestMessage) getVersion() int16 {
+func (req *RequestMessage) extractVersion() int16 {
 	return int16(binary.BigEndian.Uint16(req.rawMsg[6:8]))
 }
 
@@ -66,6 +68,7 @@ func (req *RequestMessage) String() string {
 		req.kind, req.version, len(req.rawMsg), string(b))
 }
 
+// GetTopics returns the Kafka request list of topics
 func (req *RequestMessage) GetTopics() []string {
 	switch val := req.request.(type) {
 	case *proto.ProduceReq:
@@ -170,7 +173,10 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		return nil, err
 	}
 
-	req.version = req.getVersion()
+	if len(req.rawMsg) < 12 {
+		return nil, fmt.Errorf("unable to read full request")
+	}
+	req.version = req.extractVersion()
 
 	var nilSlice []byte
 	buf := bytes.NewBuffer(append(nilSlice, req.rawMsg...))
@@ -192,5 +198,11 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		req.request, err = proto.ReadOffsetFetchReq(buf)
 	}
 
+	if err != nil {
+		log.WithFields(log.Fields{
+			fieldRequest: req.String(),
+		}).WithError(err).Debug("Ignoring Kafka message due to parse error")
+
+	}
 	return req, nil
 }

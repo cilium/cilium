@@ -18,11 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"time"
 
-	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
@@ -32,7 +29,6 @@ import (
 
 	"github.com/optiopay/kafka/proto"
 	log "github.com/sirupsen/logrus"
-	"net"
 )
 
 const (
@@ -81,7 +77,6 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 		},
 	}
 
-	log.Debug("MK in createKafkaRedirect ep.ID:", redir.epID)
 	if redir.conf.lookupNewDest == nil {
 		redir.conf.lookupNewDest = lookupNewDest
 	}
@@ -165,15 +160,8 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	return req.MatchesRule(rules.Kafka)
 }
 
-func (r *kafkaRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
-	r.conf.source.RLock()
-	info.ID = r.epID
-	info.IPv4 = r.conf.source.GetIPv4Address()
-	info.IPv6 = r.conf.source.GetIPv6Address()
-	info.Labels = r.conf.source.GetLabels()
-	info.LabelsSHA256 = r.conf.source.GetLabelsSHA()
-	info.Identity = uint64(r.conf.source.GetIdentity())
-	r.conf.source.RUnlock()
+func (k *kafkaRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
+	LocalEndpointInfo(info, k.conf.source, k.epID)
 }
 
 // getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
@@ -183,155 +171,33 @@ func (r *kafkaRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
 // ingress policies are set, the ingress policy cannot determine the source
 // endpoint info based on ip address, as the ip address would be that of the
 // egress proxy i.e host.
-func (r *kafkaRedirect) getInfoFromConsumable(ipstr string,
+func (k *kafkaRedirect) getInfoFromConsumable(ipstr string,
 	info *accesslog.EndpointInfo,
 	srcIdentity policy.NumericIdentity) {
-	ep := r.conf.source
-	ip := net.ParseIP(ipstr)
-	if ip != nil {
-		if ip.To4() != nil {
-			info.IPv4 = ip.String()
-		} else {
-			info.IPv6 = ip.String()
-		}
-	}
-	secIdentity := ep.ResolveIdentity(srcIdentity)
-
-	if secIdentity != nil {
-		info.Labels = secIdentity.Labels.GetModel()
-		info.LabelsSHA256 = secIdentity.Labels.SHA256Sum()
-		info.Identity = uint64(srcIdentity)
-	}
+	GetInfoFromConsumable(ipstr, info, srcIdentity, k.conf.source)
 }
 
-func (r *kafkaRedirect) getSourceInfo(remoteAddr string,
+func (k *kafkaRedirect) getSourceInfo(remoteAddr string,
 	srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo,
 	accesslog.IPVersion) {
-	info := accesslog.EndpointInfo{}
-	version := accesslog.VersionIPv4
-	ipstr, port, err := net.SplitHostPort(remoteAddr)
-	if err == nil {
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			info.Port = uint16(p)
-		}
-
-		ip := net.ParseIP(ipstr)
-		if ip != nil && ip.To4() == nil {
-			version = accesslog.VersionIPV6
-		}
-	}
-
-	// At egress, the local origin endpoint is the source
-	if !r.ingress {
-		r.localEndpointInfo(&info)
-	} else if err == nil {
-		if srcIdentity != 0 {
-			r.getInfoFromConsumable(ipstr, &info, srcIdentity)
-		} else {
-			// source security identity 0 is possible when somebody else
-			// other than the BPF datapath attempts to
-			// connect to the proxy.
-			// We should log no source information in that case, in the proxy log.
-			log.Warn("Missing security identity in source endpoint info")
-		}
-
-	}
-
-	return info, version
+	return GetSourceInfo(remoteAddr, srcIdentity, k.ingress, k)
 }
 
 // fillReservedIdentity resolves the labels of the specified identity if known
-// locally and fills in the following info member fields:
-//  - info.Identity
-//  - info.Labels
-//  - info.LabelsSHA256
-func (r *kafkaRedirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
-	info.Identity = uint64(id)
-
-	if c := policy.GetConsumableCache().Lookup(id); c != nil {
-		if c.Labels != nil {
-			info.Labels = c.Labels.Labels.GetModel()
-			info.LabelsSHA256 = c.Labels.GetLabelsSHA256()
-		}
-	}
+// locally and fills in the info member fields.
+func (k *kafkaRedirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
+	FillReservedIdentity(info, id)
 }
 
 // egressDestinationInfo returns the destination EndpointInfo for a flow
 // leaving the proxy at egress.
-func (r *kafkaRedirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
-	ip := net.ParseIP(ipstr)
-	if ip != nil {
-		if ip.To4() != nil {
-			info.IPv4 = ip.String()
-
-			if nodeaddress.IsHostIPv4(ip) {
-				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
-				return
-			}
-
-			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
-				c := addressing.DeriveCiliumIPv4(ip)
-				ep := endpointmanager.LookupIPv4(c.String())
-				if ep != nil {
-					info.ID = uint64(ep.ID)
-					info.Labels = ep.GetLabels()
-					info.LabelsSHA256 = ep.GetLabelsSHA()
-					info.Identity = uint64(ep.GetIdentity())
-				} else {
-					r.fillReservedIdentity(info, policy.ReservedIdentityCluster)
-				}
-			} else {
-				r.fillReservedIdentity(info, policy.ReservedIdentityWorld)
-			}
-		} else {
-			info.IPv6 = ip.String()
-
-			if nodeaddress.IsHostIPv6(ip) {
-				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
-				return
-			}
-
-			if nodeaddress.GetIPv6ClusterRange().Contains(ip) {
-				c := addressing.DeriveCiliumIPv6(ip)
-				id := c.EndpointID()
-				info.ID = uint64(id)
-
-				ep := endpointmanager.LookupCiliumID(id)
-				if ep != nil {
-					ep.RLock()
-					info.Labels = ep.GetLabels()
-					info.LabelsSHA256 = ep.GetLabelsSHA()
-					info.Identity = uint64(ep.GetIdentity())
-					ep.RUnlock()
-				} else {
-					r.fillReservedIdentity(info, policy.ReservedIdentityCluster)
-				}
-			} else {
-				r.fillReservedIdentity(info, policy.ReservedIdentityWorld)
-			}
-		}
-	}
+func (k *kafkaRedirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
+	EgressDestinationInfo(ipstr, info)
 }
 
-func (r *kafkaRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
-	info := accesslog.EndpointInfo{}
-	ipstr, port, err := net.SplitHostPort(dstIPPort)
-	if err == nil {
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			info.Port = uint16(p)
-		}
-	}
-
-	// At ingress the local origin endpoint is the source
-	if r.ingress {
-		r.localEndpointInfo(&info)
-	} else if err == nil {
-		r.egressDestinationInfo(ipstr, &info)
-	}
-
-	return info
+// getDestinationInfo returns the destination EndpointInfo.
+func (k *kafkaRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
+	return GetDestinationInfo(dstIPPort, k, k.ingress)
 }
 
 func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
@@ -393,11 +259,6 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		return
 	}
 
-	// log valid request
-	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
-	accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictForwarded,
-		kafka.ErrNone, accesslog.L7TypeKafka)
-
 	if pair.tx.Closed() {
 		marker := 0
 		if !k.conf.noMarker {
@@ -419,18 +280,18 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		}
 
 		pair.tx.SetConnection(txConn)
-		go k.handleResponseConnection(pair)
+
+		go k.handleResponseConnection(pair, record)
 	}
 
 	scopedLog.Debug("Forwarding Kafka request")
+	// log valid request
+	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictForwarded,
+		kafka.ErrNone, accesslog.L7TypeKafka)
 
 	// Write the entire raw request onto the outgoing connection
 	pair.tx.Enqueue(req.GetRaw())
-
-	// log valid response
-	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
-	accesslog.Log(record, accesslog.TypeResponse, accesslog.VerdictForwarded,
-		kafka.ErrNone, accesslog.L7TypeKafka)
 }
 
 type kafkaMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
@@ -461,7 +322,8 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	handleConnection(pair, pair.rx, k.handleRequest)
 }
 
-func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair) {
+func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
+	record *accesslog.LogRecord) {
 	log.WithFields(log.Fields{
 		"from": pair.tx,
 		"to":   pair.rx,
@@ -470,6 +332,11 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair) {
 	handleConnection(pair, pair.tx, func(pair *connectionPair, req *kafka.RequestMessage) {
 		pair.rx.Enqueue(req.GetRaw())
 	})
+
+	// log valid response
+	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	accesslog.Log(record, accesslog.TypeResponse, accesslog.VerdictForwarded,
+		kafka.ErrNone, accesslog.L7TypeKafka)
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.

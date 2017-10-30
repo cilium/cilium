@@ -14,6 +14,8 @@
 
 package kafka
 
+// List of possible Kafka error codes
+// Reference: https://kafka.apache.org/protocol#protocol_error_codes
 var (
 	ErrUnknown                                 = -1
 	ErrNone                                    = 0

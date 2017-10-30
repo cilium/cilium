@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -45,51 +46,12 @@ const (
 	FieldFilePath = logfields.Path
 )
 
+// fields used for structured logging of Kafka messages
 const (
-	FieldKafkaApiKey        = "kafkaApiKey"
-	FieldKafkaApiVersion    = "kafkaApiVersion"
+	FieldKafkaAPIKey        = "kafkaApiKey"
+	FieldKafkaAPIVersion    = "kafkaApiVersion"
 	FieldKafkaCorrelationID = "kafkaCorrelationID"
 )
-
-// APIKeyMap is the map of all allowed kafka API keys
-// with the key values.
-// Reference: https://kafka.apache.org/protocol#protocol_api_keys
-var APIKeyMap = map[int16]string{
-	0:  "produce",              /* Produce */
-	1:  "fetch",                /* Fetch */
-	2:  "offsets",              /* Offsets */
-	3:  "metadata",             /* Metadata */
-	4:  "leaderandisr",         /* LeaderAndIsr */
-	5:  "stopreplica",          /* StopReplica */
-	6:  "updatemetadata",       /* UpdateMetadata */
-	7:  "controlledshutdown",   /* ControlledShutdown */
-	8:  "offsetcommit",         /* OffsetCommit */
-	9:  "offsetfetch",          /* OffsetFetch */
-	10: "findcoordinator",      /* FindCoordinator */
-	11: "joingroup",            /* JoinGroup */
-	12: "heartbeat",            /* Heartbeat */
-	13: "leavegroup",           /* LeaveGroup */
-	14: "syncgroup",            /* SyncGroup */
-	15: "describegroups",       /* DescribeGroups */
-	16: "listgroups",           /* ListGroups */
-	17: "saslhandshake",        /* SaslHandshake */
-	18: "apiversions",          /* ApiVersions */
-	19: "createtopics",         /* CreateTopics */
-	20: "deletetopics",         /* DeleteTopics */
-	21: "deleterecords",        /* DeleteRecords */
-	22: "initproducerid",       /* InitProducerId */
-	23: "offsetforleaderepoch", /* OffsetForLeaderEpoch */
-	24: "addpartitionstotxn",   /* AddPartitionsToTxn */
-	25: "addoffsetstotxn",      /* AddOffsetsToTxn */
-	26: "endtxn",               /* EndTxn */
-	27: "writetxnmarkers",      /* WriteTxnMarkers */
-	28: "txnoffsetcommit",      /* TxnOffsetCommit */
-	29: "describeacls",         /* DescribeAcls */
-	30: "createacls",           /* CreateAcls */
-	31: "deleteacls",           /* DeleteAcls */
-	32: "describeconfigs",      /* DescribeConfigs */
-	33: "alterconfigs",         /* AlterConfigs */
-}
 
 // L7Type
 const (
@@ -140,6 +102,91 @@ func logString(outStr string, retry bool) {
 	}
 }
 
+// LogHTTP logs a HTTP record to the logfile
+func LogHTTP(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
+	l.HTTP = &LogRecordHTTP{
+		Code:     code,
+		Method:   l.HTTPRequest.Method,
+		URL:      l.HTTPRequest.URL,
+		Protocol: l.HTTPRequest.Proto,
+		Headers:  l.HTTPRequest.Header,
+	}
+	log.WithFields(log.Fields{
+		FieldType:     typ,
+		FieldVerdict:  verdict,
+		FieldCode:     code,
+		FieldMethod:   l.HTTPRequest.Method,
+		FieldURL:      l.HTTPRequest.URL,
+		FieldProtocol: l.HTTPRequest.Proto,
+		FieldHeader:   l.HTTPRequest.Header,
+		FieldFilePath: logPath,
+	}).Debug("Logging HTTP L7 flow record")
+
+	if logBuf == nil {
+		log.WithField(FieldFilePath,
+			logPath).Debug("Skipping writing to access log (write buffer nil)")
+		return
+	}
+
+	b, err := json.Marshal(*l)
+	if err != nil {
+		logString(err.Error(), true)
+	} else {
+		logString(string(b), true)
+	}
+}
+
+// LogKafka logs a Kafka record to the logfile
+func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
+	apiKey := l.KafkaRequest.GetAPIKey()
+	if apiKey < 0 || apiKey > api.KafkaMaxApiKeyVal {
+		log.WithFields(log.Fields{
+			FieldFilePath: logPath,
+		}).Error("Invalid Kafka Api Key")
+		return
+	}
+
+	l.Kafka = &LogRecordKafka{
+		ErrorCode:     code,
+		APIVersion:    l.KafkaRequest.GetVersion(),
+		APIKey:        api.KafkaReverseApiKeyMap[apiKey],
+		CorrelationID: l.KafkaRequest.GetCorrelationID(),
+	}
+
+	log.WithFields(log.Fields{
+		FieldType:               typ,
+		FieldVerdict:            verdict,
+		FieldCode:               code,
+		FieldKafkaAPIKey:        api.KafkaReverseApiKeyMap[apiKey],
+		FieldKafkaAPIVersion:    l.KafkaRequest.GetVersion(),
+		FieldKafkaCorrelationID: l.KafkaRequest.GetCorrelationID(),
+		FieldFilePath:           logPath,
+	}).Debug("Logging Kafka L7 flow record")
+
+	if logBuf == nil {
+		log.WithField(FieldFilePath,
+			logPath).Debug("Skipping writing to access log (write buffer nil)")
+		return
+	}
+
+	/*
+	 *	Log multiple entries for multiple Kafka topics in a single
+	 *  request.
+	 *  GH #1815
+	 */
+
+	topics := l.KafkaRequest.GetTopics()
+	for i := 0; i < len(topics); i++ {
+		l.Kafka.Topic.Topic = topics[i]
+		b, err := json.Marshal(*l)
+		if err != nil {
+			logString(err.Error(), true)
+		} else {
+			logString(string(b), true)
+		}
+	}
+}
+
 // Log logs a record to the logfile and flushes the buffer
 func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int, L7type int) {
 	// Lock while writing access log so we serialize writes as we may have
@@ -153,88 +200,12 @@ func Log(l *LogRecord, typ FlowType, verdict FlowVerdict, code int, L7type int) 
 
 	switch L7type {
 	case L7TypeHTTP:
-		{
-			l.HTTP = &LogRecordHTTP{
-				Code:     code,
-				Method:   l.HttpRequest.Method,
-				URL:      l.HttpRequest.URL,
-				Protocol: l.HttpRequest.Proto,
-				Headers:  l.HttpRequest.Header,
-			}
-			log.WithFields(log.Fields{
-				FieldType:     typ,
-				FieldVerdict:  verdict,
-				FieldCode:     code,
-				FieldMethod:   l.HttpRequest.Method,
-				FieldURL:      l.HttpRequest.URL,
-				FieldProtocol: l.HttpRequest.Proto,
-				FieldHeader:   l.HttpRequest.Header,
-				FieldFilePath: logPath,
-			}).Debug("Logging HTTP L7 flow record")
-
-			if logBuf == nil {
-				log.WithFields(log.Fields{
-					FieldFilePath: logPath,
-				}).Debug("Skipping writing to access log (write buffer nil)")
-				return
-			}
-
-			b, err := json.Marshal(*l)
-			if err != nil {
-				logString(err.Error(), true)
-			} else {
-				logString(string(b), true)
-			}
-		}
+		LogHTTP(l, typ, verdict, code)
 	case L7TypeKafka:
-		{
-			l.Kafka = &LogRecordKafka{
-				Code:          code,
-				APIVersion:    l.KafkaRequest.GetVersion(),
-				APIKey:        APIKeyMap[l.KafkaRequest.GetAPIKey()],
-				CorrelationID: l.KafkaRequest.GetCorrelationID(),
-			}
-
-			log.WithFields(log.Fields{
-				FieldType:               typ,
-				FieldVerdict:            verdict,
-				FieldCode:               code,
-				FieldKafkaApiKey:        APIKeyMap[l.KafkaRequest.GetAPIKey()],
-				FieldKafkaApiVersion:    l.KafkaRequest.GetVersion(),
-				FieldKafkaCorrelationID: l.KafkaRequest.GetCorrelationID(),
-				FieldFilePath:           logPath,
-			}).Debug("Logging Kafka L7 flow record")
-
-			if logBuf == nil {
-				log.WithFields(log.Fields{
-					FieldFilePath: logPath,
-				}).Debug("Skipping writing to access log (write buffer nil)")
-				return
-			}
-
-			/*
-			 *	Log multiple entries for multiple Kafka topics in a single
-			 *  request.
-			 *  GH #1815
-			 */
-
-			topics := l.KafkaRequest.GetTopics()
-			for i := 0; i < len(topics); i++ {
-				l.Kafka.Topic.Topic = topics[i]
-				b, err := json.Marshal(*l)
-				if err != nil {
-					logString(err.Error(), true)
-				} else {
-					logString(string(b), true)
-				}
-			}
-
-		}
-
+		LogKafka(l, typ, verdict, code)
 	}
 	if err := logBuf.Flush(); err != nil {
-		log.WithFields(log.Fields{
-			FieldFilePath: logPath,
-		}).WithError(err).Warning("Error encountered while flushing to access log")
+		log.WithError(err).WithField(FieldFilePath,
+			logPath).Warn("Error encountered while flushing to access log")
 	}
 }

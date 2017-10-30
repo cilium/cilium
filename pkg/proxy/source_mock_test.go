@@ -29,8 +29,8 @@ type proxySourceMocker struct {
 	identity policy.NumericIdentity
 }
 
-func (m *proxySourceMocker) RLock()   { m.RLock() }
-func (m *proxySourceMocker) RUnlock() { m.RUnlock() }
+func (m *proxySourceMocker) RLock()   { m.RWMutex.RLock() }
+func (m *proxySourceMocker) RUnlock() { m.RWMutex.RUnlock() }
 
 func (m *proxySourceMocker) GetID() uint64                       { return m.id }
 func (m *proxySourceMocker) GetIPv4Address() string              { return m.ipv4 }

@@ -16,15 +16,11 @@ package proxy
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -71,90 +67,6 @@ func (r *OxyRedirect) updateRules(rules []string) {
 	}
 }
 
-func (r *OxyRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
-	r.source.RLock()
-	info.ID = r.epID
-	info.IPv4 = r.source.GetIPv4Address()
-	info.IPv6 = r.source.GetIPv6Address()
-	info.Labels = r.source.GetLabels()
-	info.LabelsSHA256 = r.source.GetLabelsSHA()
-	info.Identity = uint64(r.source.GetIdentity())
-	r.source.RUnlock()
-}
-
-// fillReservedIdentity resolves the labels of the specified identity if known
-// locally and fills in the following info member fields:
-//  - info.Identity
-//  - info.Labels
-//  - info.LabelsSHA256
-func (r *OxyRedirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
-	info.Identity = uint64(id)
-
-	if c := policy.GetConsumableCache().Lookup(id); c != nil {
-		if c.Labels != nil {
-			info.Labels = c.Labels.Labels.GetModel()
-			info.LabelsSHA256 = c.Labels.GetLabelsSHA256()
-		}
-	}
-}
-
-// egressDestinationInfo returns the destination EndpointInfo for a flow
-// leaving the proxy at egress.
-func (r *OxyRedirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
-	ip := net.ParseIP(ipstr)
-	if ip != nil {
-		if ip.To4() != nil {
-			info.IPv4 = ip.String()
-
-			if node.IsHostIPv4(ip) {
-				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
-				return
-			}
-
-			if node.GetIPv4ClusterRange().Contains(ip) {
-				c := addressing.DeriveCiliumIPv4(ip)
-				ep := endpointmanager.LookupIPv4(c.String())
-				if ep != nil {
-					info.ID = uint64(ep.ID)
-					info.Labels = ep.GetLabels()
-					info.LabelsSHA256 = ep.GetLabelsSHA()
-					info.Identity = uint64(ep.GetIdentity())
-				} else {
-					r.fillReservedIdentity(info, policy.ReservedIdentityCluster)
-				}
-			} else {
-				r.fillReservedIdentity(info, policy.ReservedIdentityWorld)
-			}
-		} else {
-			info.IPv6 = ip.String()
-
-			if node.IsHostIPv6(ip) {
-				r.fillReservedIdentity(info, policy.ReservedIdentityHost)
-				return
-			}
-
-			if node.GetIPv6ClusterRange().Contains(ip) {
-				c := addressing.DeriveCiliumIPv6(ip)
-				id := c.EndpointID()
-				info.ID = uint64(id)
-
-				ep := endpointmanager.LookupCiliumID(id)
-				if ep != nil {
-					ep.RLock()
-					info.Labels = ep.GetLabels()
-					info.LabelsSHA256 = ep.GetLabelsSHA()
-					info.Identity = uint64(ep.GetIdentity())
-					ep.RUnlock()
-				} else {
-					r.fillReservedIdentity(info, policy.ReservedIdentityCluster)
-				}
-			} else {
-				r.fillReservedIdentity(info, policy.ReservedIdentityWorld)
-			}
-		}
-	}
-}
-
 // getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
 // the consumable from the consumable cache of endpoint using identity sent by
 // source. This is needed in ingress proxy while logging the source endpoint
@@ -162,77 +74,35 @@ func (r *OxyRedirect) egressDestinationInfo(ipstr string, info *accesslog.Endpoi
 // ingress policies are set, the ingress policy cannot determine the source
 // endpoint info based on ip address, as the ip address would be that of the
 // egress proxy i.e host.
-func (r *OxyRedirect) getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity) {
-	ep := r.source
-	ip := net.ParseIP(ipstr)
-	if ip != nil {
-		if ip.To4() != nil {
-			info.IPv4 = ip.String()
-		} else {
-			info.IPv6 = ip.String()
-		}
-	}
-	secIdentity := ep.ResolveIdentity(srcIdentity)
-
-	if secIdentity != nil {
-		info.Labels = secIdentity.Labels.GetModel()
-		info.LabelsSHA256 = secIdentity.Labels.SHA256Sum()
-		info.Identity = uint64(srcIdentity)
-	}
+func (r *OxyRedirect) getInfoFromConsumable(ipstr string,
+	info *accesslog.EndpointInfo, srcIdentity policy.NumericIdentity) {
+	GetInfoFromConsumable(ipstr, info, srcIdentity, r.source)
 }
 
-func (r *OxyRedirect) getSourceInfo(req *http.Request, srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo, accesslog.IPVersion) {
-	info := accesslog.EndpointInfo{}
-	version := accesslog.VersionIPv4
-	ipstr, port, err := net.SplitHostPort(req.RemoteAddr)
-	if err == nil {
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			info.Port = uint16(p)
-		}
-
-		ip := net.ParseIP(ipstr)
-		if ip != nil && ip.To4() == nil {
-			version = accesslog.VersionIPV6
-		}
-	}
-
-	// At egress, the local origin endpoint is the source
-	if !r.ingress {
-		r.localEndpointInfo(&info)
-	} else if err == nil {
-		if srcIdentity != 0 {
-			r.getInfoFromConsumable(ipstr, &info, srcIdentity)
-		} else {
-			// source security identity 0 is possible when somebody else other than the BPF datapath attempts to
-			// connect to the proxy.
-			// We should log no source information in that case, in the proxy log.
-			log.Warn("Missing security identity in source endpoint info")
-		}
-
-	}
-
-	return info, version
+func (r *OxyRedirect) localEndpointInfo(info *accesslog.EndpointInfo) {
+	LocalEndpointInfo(info, r.source, r.epID)
 }
 
+func (r *OxyRedirect) getSourceInfo(req *http.Request,
+	srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo, accesslog.IPVersion) {
+	return GetSourceInfo(req.RemoteAddr, srcIdentity, r.ingress, r)
+}
+
+// getDestinationInfo returns the destination EndpointInfo.
 func (r *OxyRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
-	info := accesslog.EndpointInfo{}
-	ipstr, port, err := net.SplitHostPort(dstIPPort)
-	if err == nil {
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			info.Port = uint16(p)
-		}
-	}
+	return GetDestinationInfo(dstIPPort, r, r.ingress)
+}
 
-	// At ingress the local origin endpoint is the source
-	if r.ingress {
-		r.localEndpointInfo(&info)
-	} else if err == nil {
-		r.egressDestinationInfo(ipstr, &info)
-	}
+// fillReservedIdentity resolves the labels of the specified identity if known
+// locally and fills in the info member fields.
+func (r *OxyRedirect) fillReservedIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
+	FillReservedIdentity(info, id)
+}
 
-	return info
+// egressDestinationInfo returns the destination EndpointInfo for a flow
+// leaving the proxy at egress.
+func (r *OxyRedirect) egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
+	EgressDestinationInfo(ipstr, info)
 }
 
 func getOxyPolicyRules(rules []api.PortRuleHTTP) ([]string, error) {
@@ -355,7 +225,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		record := &accesslog.LogRecord{
-			HttpRequest:       req,
+			HTTPRequest:       req,
 			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
 			NodeAddressInfo:   redir.nodeInfo,
 			TransportProtocol: 6, // TCP's IANA-assigned protocol number
