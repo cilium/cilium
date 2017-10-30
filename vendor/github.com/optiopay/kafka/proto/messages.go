@@ -113,12 +113,22 @@ func ReadReq(r io.Reader) (requestKind int16, b []byte, err error) {
 	if err != nil {
 		return 0, nil, err
 	}
+
 	binary.BigEndian.PutUint32(b, uint32(msgSize))
-	binary.BigEndian.PutUint16(b[4:], uint16(requestKind))
-	if _, err := io.ReadFull(r, b[6:]); err != nil {
-		return 0, nil, err
+
+	// only write back requestKind if it was included in messageSize
+	if len(b) >= 6 {
+		binary.BigEndian.PutUint16(b[4:], uint16(requestKind))
 	}
-	return requestKind, b, err
+
+	// read rest of request into allocated buffer if we allocated for it
+	if len(b) > 6 {
+		if _, err := io.ReadFull(r, b[6:]); err != nil {
+			return 0, nil, err
+		}
+	}
+
+	return requestKind, b, nil
 }
 
 // ReadResp returns message correlation ID and byte representation of the whole
@@ -299,7 +309,7 @@ func (w *slicewriter) Slice() []byte {
 // malformed message from the set and returned earlier data.
 func readMessageSet(r io.Reader, size int32) ([]*Message, error) {
 	if size < 0 || size > maxParseBufSize {
-		return nil, ErrInvalidBufferLen
+		return nil, messageSizeError(int(size))
 	}
 
 	rd := io.LimitReader(r, int64(size))

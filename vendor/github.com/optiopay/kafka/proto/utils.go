@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"errors"
+	"fmt"
 	"math"
 )
 
@@ -9,18 +9,14 @@ const (
 	maxParseBufSize = 10 * math.MaxUint16
 )
 
-var (
-	// ErrInvalidBufferLen is returned when a Kafka protocol field contains
-	// an unreasonable value for the size of the message or the size of a
-	// variable length field which would result in an unreasonable memory
-	// allocation attempt
-	ErrInvalidBufferLen = errors.New("unreasonable message/block size")
-)
+func messageSizeError(size int) error {
+	return fmt.Errorf("unreasonable message/block size %d (max:%d)", size, maxParseBufSize)
+}
 
 // allocParseBuf is used to allocate buffers used for parsing
 func allocParseBuf(size int) ([]byte, error) {
 	if size < 0 || size > maxParseBufSize {
-		return nil, ErrInvalidBufferLen
+		return nil, messageSizeError(size)
 	}
 
 	return make([]byte, size), nil
